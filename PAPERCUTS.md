@@ -385,10 +385,3 @@ If you fix a papercut, remove it.
   slow local page load can outlast — `expect(getByText("Guild created."))`
   timed out while the row it announced was right there. Assert the durable page
   state instead.
-- 2026-08-13: CI checks job ran lint:hk without aube install first, so
-  oxlint/oxfmt cold-started mid-lint (Auto-installing: install state not found)
-  and contended for the store lock next to black/djlint workers.
-- 2026-08-13: aube install --no-optional on checks still left oxfmt saying
-  install state not found mid-lint:hk — aube exec freshness wants the full
-  workspace graph including ludamus-e2e optionalDeps, so it reinstalled ~20
-  packages anyway.
