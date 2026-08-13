@@ -40,10 +40,9 @@ jobs:
         run: .venv/bin/python --version || rm -rf .venv
       - run: mise exec -- poetry install
       - run: mise bootstrap packages apply --yes
-      # Full install (incl. optionalDeps): `aube exec` freshness checks the
-      # whole workspace graph, so `--no-optional` left a state oxfmt rejected
-      # as "install state not found" and reinstalled mid-lint.
-      - run: aube install
+      # hk's oxlint/oxfmt use `aube exec --no-install`, so a partial
+      # (--no-optional) graph is fine — they will not cold-start mid-lint.
+      - run: aube install --no-optional
       - run: mise run lint --jobs "$(nproc)"
       - name: Translations are fresh (extraction current, nothing untranslated/fuzzy)
         run: mise run messages-check
