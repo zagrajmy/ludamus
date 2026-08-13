@@ -1,10 +1,4 @@
-"""{% tessera_table %} block tag — themed data table inside a card.
-
-A hoverable body row whose default navigation is Edit or Details should mark
-that link with ``data-row-action``. Clicks on the row background then follow
-it; Delete and other controls stay their own targets. The overlay lives in
-``index.css``.
-"""
+"""{% tessera_table %} block tag — themed data table inside a card."""
 
 from __future__ import annotations
 
@@ -57,8 +51,7 @@ def do_tessera_table(parser: Parser, token: Token) -> TableNode:
     Returns:
         A TableNode that wraps its body in ``<div class="card overflow-hidden">
         <div class="overflow-x-auto"><table class="...">…</table></div></div>``.
-        Caller writes their own ``<thead>``/``<tbody>``. Mark the default
-        action (Edit / Details) on a hoverable row with ``data-row-action``.
+        Caller writes their own ``<thead>``/``<tbody>``.
     """
     attrs = parse_tag_attrs(parser, token)
     nodelist = parser.parse(("endtessera_table",))

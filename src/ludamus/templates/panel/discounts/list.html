@@ -83,7 +83,7 @@
                                     {% translate "Assign" as t_assign %}
                                     {% with facilitator_pk=row.facilitator.pk|stringformat:"s" %}
                                         {% with assign_href="?assign="|add:facilitator_pk modal_id="discount-assign-modal-"|add:facilitator_pk %}
-                                            {% tessera_button t_assign href=assign_href variant="secondary" size="sm" icon="plus" full_width_mobile=False aria_controls=modal_id aria_haspopup="dialog" data_row_action=True %}
+                                            {% tessera_button t_assign href=assign_href variant="secondary" size="sm" icon="plus" full_width_mobile=False aria_controls=modal_id aria_haspopup="dialog" %}
                                         {% endwith %}
                                     {% endwith %}
                                 {% endif %}

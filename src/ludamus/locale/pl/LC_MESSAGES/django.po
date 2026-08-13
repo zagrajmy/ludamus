@@ -3089,13 +3089,13 @@ msgstr ""
 
 #: src/ludamus/gates/web/django/sphere/forms.py
 msgid "Name, email or Discord username"
-msgstr "Imię, adres e-mail lub nazwa użytkownika Discord"
+msgstr "Nazwa, adres e-mail lub nazwa użytkownika Discord"
 
 #: src/ludamus/gates/web/django/sphere/forms.py
 msgid ""
 "Imported presenters have no account — pick them by the name on the programme."
 msgstr ""
-"Zaimportowani prowadzący nie mają konta — wybierz ich po imieniu z programu."
+"Zaimportowani prowadzący nie mają konta — wybierz ich po nazwie z programu."
 
 #: src/ludamus/gates/web/django/sphere/guilds.py
 msgid "Guild created."
@@ -3124,7 +3124,7 @@ msgstr "Ten prowadzący już należy do tej gildii."
 #: src/ludamus/gates/web/django/sphere/guilds.py
 msgid "No presenter matches that name, email or Discord username."
 msgstr ""
-"Żaden prowadzący nie pasuje do tego imienia, adresu e-mail ani nazwy "
+"Żaden prowadzący nie pasuje do tej nazwy, adresu e-mail ani nazwy "
 "użytkownika Discord."
 
 #: src/ludamus/gates/web/django/sphere/guilds.py
@@ -3136,7 +3136,7 @@ msgstr ""
 
 #: src/ludamus/gates/web/django/sphere/guilds.py
 msgid "Give a name, email or Discord username."
-msgstr "Podaj imię, adres e-mail lub nazwę użytkownika Discord."
+msgstr "Podaj nazwę, adres e-mail lub nazwę użytkownika Discord."
 
 #: src/ludamus/gates/web/django/sphere/guilds.py
 msgid "Presenter removed."

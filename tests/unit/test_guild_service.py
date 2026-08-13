@@ -358,6 +358,28 @@ class TestAssignMember:
         assert not [call for call in guilds.calls if call[0] == "assign_member"]
         assert not [call for call in guilds.calls if call[0] == "set_facilitator_guild"]
 
+    def test_prefers_a_presenter_name_over_a_matching_account_handle(self):
+        guilds = FakeGuilds(
+            matches=[MEMBER_PK],
+            facilitator_matches=[
+                AssignableFacilitatorRef(pk=FACILITATOR_PK, user_id=None, guild_id=None)
+            ],
+        )
+
+        outcome = _service(guilds).assign_member(
+            sphere_id=SPHERE_PK, guild_pk=GUILD_PK, identifier="Bea"
+        )
+
+        assert outcome == AssignMemberOutcome.ASSIGNED
+        assert (
+            "set_facilitator_guild",
+            SPHERE_PK,
+            FACILITATOR_PK,
+            GUILD_PK,
+        ) in guilds.calls
+        assert not [call for call in guilds.calls if call[0] == "assign_member"]
+        assert not [call for call in guilds.calls if call[0] == "find_assignable_users"]
+
 
 class TestMarksForSessions:
     def test_unwraps_the_single_session(self):

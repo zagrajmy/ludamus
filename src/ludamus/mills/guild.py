@@ -82,6 +82,22 @@ class GuildService(GuildServiceProtocol):
         self, *, sphere_id: int, guild_pk: int, identifier: str
     ) -> AssignMemberOutcome:
         with self._transaction.atomic():
+            found = self._guilds.find_assignable_facilitators(
+                sphere_id=sphere_id, name=identifier
+            )
+            if found:
+                user_ids = {row.user_id for row in found if row.user_id is not None}
+                if len(user_ids) > 1:
+                    return AssignMemberOutcome.AMBIGUOUS_HANDLE
+                if len(user_ids) == 1:
+                    return self._place_user(
+                        sphere_id=sphere_id,
+                        guild_pk=guild_pk,
+                        user_pk=next(iter(user_ids)),
+                    )
+                return self._place_accountless(
+                    sphere_id=sphere_id, guild_pk=guild_pk, rows=found
+                )
             matches = self._guilds.find_assignable_users(identifier=identifier)
             if len(matches) > 1:
                 return AssignMemberOutcome.AMBIGUOUS_HANDLE
@@ -89,21 +105,7 @@ class GuildService(GuildServiceProtocol):
                 return self._place_user(
                     sphere_id=sphere_id, guild_pk=guild_pk, user_pk=matches[0]
                 )
-            found = self._guilds.find_assignable_facilitators(
-                sphere_id=sphere_id, name=identifier
-            )
-            if not found:
-                return AssignMemberOutcome.NO_SUCH_USER
-            user_ids = {row.user_id for row in found if row.user_id is not None}
-            if len(user_ids) > 1:
-                return AssignMemberOutcome.AMBIGUOUS_HANDLE
-            if len(user_ids) == 1:
-                return self._place_user(
-                    sphere_id=sphere_id, guild_pk=guild_pk, user_pk=next(iter(user_ids))
-                )
-            return self._place_accountless(
-                sphere_id=sphere_id, guild_pk=guild_pk, rows=found
-            )
+            return AssignMemberOutcome.NO_SUCH_USER
 
     def _place_user(
         self, *, sphere_id: int, guild_pk: int, user_pk: int

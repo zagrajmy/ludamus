@@ -91,9 +91,13 @@ test.describe("Guilds", () => {
     await expect(page.getByText("Guild created.")).toBeVisible();
 
     const row = page.getByRole("row").filter({ hasText: GUILD });
-    const nameCell = row.locator("td").first();
-    await expect(nameCell).toContainText(GUILD);
-    const box = await nameCell.boundingBox();
+    await row.getByRole("link", { name: "Delete" }).click();
+    await expect(page).toHaveURL(/\/multiverse\/panel\/guilds\/\d+\/do\/delete\//);
+    await page.getByRole("link", { name: "Cancel" }).click();
+    await expect(page).toHaveURL(/\/multiverse\/panel\/guilds\/$/);
+
+    const presentersCell = row.locator("td").nth(1);
+    const box = await presentersCell.boundingBox();
     if (box === null) {
       throw new Error("guild row has no box");
     }
