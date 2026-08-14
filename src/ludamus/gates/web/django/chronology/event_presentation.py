@@ -91,9 +91,10 @@ class SessionData:  # pylint: disable=too-many-instance-attributes
     is_ended: bool = False
     should_show_as_inactive: bool = False
     pretend_full: bool = False
-    # The presenter's guild in this sphere, or None. Defaults so the many
-    # equality assertions over this dataclass keep passing for guild-less
-    # sessions, which is the overwhelming majority.
+    # The person on the card's guild in this sphere, or None. The presenter
+    # when the session has one; otherwise the first facilitator with a guild.
+    # Defaults so the many equality assertions over this dataclass keep passing
+    # for guild-less sessions, which is the overwhelming majority.
     guild: GuildMarkDTO | None = None
     # True when the *viewer* shadowbanned the presenter — viewer-relative, like
     # ParticipationInfo.is_shadowbanned, never global moderation state. Drives

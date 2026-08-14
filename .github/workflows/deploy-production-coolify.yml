@@ -1,0 +1,32 @@
+name: Deploy to production (Coolify)
+
+# Additive: deploy-production.yml (ssh + compose on the VPS) stays authoritative
+# until cutover. This targets a separate Coolify app backed by its own Postgres,
+# configured from the `production-coolify` GitHub Environment, so a run here
+# cannot touch the live site or its data.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Unlike staging, a superseded production deploy is allowed to finish rather
+# than be cancelled mid-migration.
+concurrency:
+  group: production-coolify-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    permissions:
+      contents: read
+      packages: write
+    # No environment_url yet — this app does not serve zagrajmy.net before
+    # cutover, and pointing the deploy link at the live site would misreport
+    # what ran. Pass it when this workflow becomes authoritative.
+    uses: ./.github/workflows/deploy-coolify.yml
+    with:
+      environment: production-coolify
+      sha: ${{ github.sha }}
+    secrets: inherit

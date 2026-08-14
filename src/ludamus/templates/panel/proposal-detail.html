@@ -189,14 +189,16 @@
                                         {{ proposal.participants_limit|default_if_none:"—" }}
                                     </dd>
                                 </div>
-                                {% if proposal.duration %}
-                                    <div>
-                                        <dt class="text-xs text-foreground-muted">{% translate "Duration" %}</dt>
-                                        <dd class="text-foreground">
-                                            {{ proposal.duration|format_duration }}
-                                        </dd>
-                                    </div>
-                                {% endif %}
+                                {% with duration_label=proposal.duration|format_duration %}
+                                    {% if duration_label %}
+                                        <div>
+                                            <dt class="text-xs text-foreground-muted">{% translate "Duration" %}</dt>
+                                            <dd class="text-foreground">
+                                                {{ duration_label }}
+                                            </dd>
+                                        </div>
+                                    {% endif %}
+                                {% endwith %}
                                 {% if proposal.min_age %}
                                     <div>
                                         <dt class="text-xs text-foreground-muted">{% translate "Minimum Age" %}</dt>
