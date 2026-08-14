@@ -202,3 +202,9 @@ If you fix a papercut, remove it.
 - 2026-08-14: agent-browser screenshot failed when screenshots/ did not already
   exist; the direct CLI does not create parent directories, unlike mise run
   shots.
+- 2026-08-14: A read-only review subagent ran `git restore --worktree .` in the
+  shared worktree and erased concurrent parent edits; read-only delegation needs
+  isolated worktrees or enforced write guards.
+- 2026-08-14: `mise run messages` failed twice because varlock required
+  deployment/test-only secrets (including SUPPORT_EMAIL) even though catalog
+  extraction does not use them; the task needs a safe local environment.

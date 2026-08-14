@@ -1,9 +1,15 @@
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Protocol, TypedDict
 
+from ludamus.pacts.legacy import NotFoundError
+
 if TYPE_CHECKING:
     from ludamus.pacts.crowd import UserDTO
     from ludamus.pacts.legacy import SpaceDTO, TrackDTO, TrackListItemDTO
+
+
+class TrackSelectionInvalidError(NotFoundError):
+    pass
 
 
 class TrackFormData(TypedDict):

@@ -59,6 +59,8 @@ class FakeSettingsRepo:
 
 def _service(fields):
     repos = FacilitatorPanelRepos(
+        events=MagicMock(),
+        facilitator_identities=MagicMock(),
         facilitators=FakeFacilitatorsRepo(),
         personal_data_fields=FakeFieldsRepo(fields),
         personal_data_field_values=object(),
@@ -147,6 +149,8 @@ def _merge_service(facilitators, fields=(), values=None):
         lambda facilitator_pk, _event_id: (values or {}).get(facilitator_pk, {})
     )
     repos = FacilitatorPanelRepos(
+        events=MagicMock(),
+        facilitator_identities=MagicMock(),
         facilitators=facilitators_repo,
         personal_data_fields=FakeFieldsRepo(list(fields)),
         personal_data_field_values=values_repo,
@@ -528,6 +532,8 @@ class TestCreateFacilitator:
             pk=_CREATED_PK, **data
         )
         repos = FacilitatorPanelRepos(
+            events=MagicMock(),
+            facilitator_identities=MagicMock(),
             facilitators=facilitators_repo,
             personal_data_fields=FakeFieldsRepo(list(fields)),
             personal_data_field_values=MagicMock(),
@@ -537,7 +543,40 @@ class TestCreateFacilitator:
             users=object(),
             guilds=MagicMock(),
         )
+        repos.facilitator_identities.find_by_event_and_display_name.return_value = None
         return FacilitatorPanelService(_FakeTransaction(), repos), repos
+
+    def test_find_or_create_returns_exact_existing_facilitator_under_event_lock(self):
+        service, repos = self._create_service()
+        existing = SimpleNamespace(pk=9, display_name="Alice")
+        repos.facilitator_identities.find_by_event_and_display_name.return_value = (
+            existing
+        )
+
+        result = service.find_or_create_facilitator(
+            event_id=10,
+            data=FacilitatorCreateData(
+                display_name="Alice", base_slug="alice", accreditation_type="none"
+            ),
+        )
+
+        assert result is existing
+        repos.events.lock.assert_called_once_with(10)
+        repos.facilitators.create.assert_not_called()
+
+    def test_find_or_create_creates_missing_facilitator_under_event_lock(self):
+        service, repos = self._create_service()
+
+        result = service.find_or_create_facilitator(
+            event_id=10,
+            data=FacilitatorCreateData(
+                display_name="Alice", base_slug="alice", accreditation_type="none"
+            ),
+        )
+
+        assert result.pk == _CREATED_PK
+        repos.events.lock.assert_called_once_with(10)
+        repos.facilitators.create.assert_called_once()
 
     def test_uniquifies_a_colliding_slug(self):
         service, repos = self._create_service(taken_slugs=("alice",))
@@ -806,6 +845,8 @@ class FakeOrganizerRepo:
 
 def _organizer_service(facilitators):
     repos = FacilitatorPanelRepos(
+        events=MagicMock(),
+        facilitator_identities=MagicMock(),
         facilitators=facilitators,
         personal_data_fields=FakeFieldsRepo([]),
         personal_data_field_values=object(),

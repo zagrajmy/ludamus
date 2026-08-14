@@ -163,8 +163,8 @@ agent (or a local script) walks these.
 9. list_sessions / list_events       → spot-check counts vs parser totals
 ```
 
-Idempotency: `list_sessions` + match on `(title, start_time, space)` before
-create; or accept “run once on empty event” and delete the event to retry.
+Idempotency: use the event-scoped `source_row_id` as the sole retry key.
+`create_sessions` returns the existing session when that key is retried.
 
 ## Local parser (outside MCP)
 

@@ -40,6 +40,9 @@ sphere. The endpoint loads only organizer-scoped tools, so maintainer tools
 are structurally unreachable from it. Old tokens that omit `event_id` fail
 auth.
 
+The organizer tier provides programme verbs for spaces, time slots, tracks,
+and sessions, with writes scoped to one event per token and sphere-wide reads.
+
 ## Architecture
 
 The MCP gate follows GLIMPSE. It is a transport, not an agent: the app has no
@@ -71,11 +74,9 @@ don't get re-derived or contradicted:
   clients. [Executor](https://github.com/RhysSullivan/executor) is the
   recommended client-side control plane (catalog, policy, pause-for-approval,
   audit).
-- The organizer tier ships programme verbs (spaces, slots, tracks, sessions)
-  scoped to one event per token, with sphere-wide reads. The attendee tier
-  comes later on the same registry: scope-tagged tools and a separate
-  endpoint per trust level, so the security boundary stays filtering at
-  wiring time rather than per-call policy checks.
+- The attendee tier comes later on the same registry: scope-tagged tools and
+  a separate endpoint per trust level, so the security boundary stays
+  filtering at wiring time rather than per-call policy checks.
 - WebMCP also comes later. Once the W3C `navigator.modelContext` API
   stabilizes, annotate existing forms (declarative API) so in-browser agents
   act in the user's own session, reusing the same tool definitions over a

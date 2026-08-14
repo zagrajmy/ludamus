@@ -1,4 +1,7 @@
+from __future__ import annotations
+
 from datetime import UTC, datetime
+from typing import TYPE_CHECKING
 
 from django.db import IntegrityError, transaction
 from django.db.models import (
@@ -59,12 +62,15 @@ from ludamus.pacts.chronology import (
     PartySessionSeatDTO,
     SessionCardStatsDTO,
 )
-from ludamus.pacts.legacy import AgendaItemDTO, EventCreateData, LocationData
+from ludamus.pacts.legacy import AgendaItemDTO, LocationData
 from ludamus.pacts.multiverse import EventSlugConflictError
 from ludamus.pacts.panel import (
     EventPanelSettingsDTO,
     EventPanelSettingsRepositoryProtocol,
 )
+
+if TYPE_CHECKING:
+    from ludamus.pacts.event import EventCreateData
 
 
 def event_dto(event: Event) -> EventDTO:
@@ -248,6 +254,13 @@ class EventRepository(EventRepositoryProtocol):
         except Event.DoesNotExist as exception:
             raise NotFoundError from exception
         return event_dto(event)
+
+    @staticmethod
+    def lock(event_id: int) -> None:
+        try:
+            Event.objects.select_for_update().get(pk=event_id)
+        except Event.DoesNotExist as error:
+            raise NotFoundError from error
 
     @staticmethod
     def read_by_slug(slug: str, sphere_id: int) -> EventDTO:

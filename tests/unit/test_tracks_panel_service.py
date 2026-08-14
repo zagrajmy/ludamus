@@ -4,7 +4,7 @@ import pytest
 
 from ludamus.mills.tracks import TracksPanelService
 from ludamus.pacts import NotFoundError
-from ludamus.pacts.tracks import TrackFormData
+from ludamus.pacts.tracks import TrackFormData, TrackSelectionInvalidError
 
 
 def _data(*, name="Alpha", is_public=True, space_pks=(), manager_pks=()):
@@ -121,50 +121,42 @@ class TestTracksPanelService:
         with pytest.raises(NotFoundError):
             service.get_edit_context(event_pk=42, sphere_id=3, track_slug="foreign")
 
-    def test_create_drops_foreign_space_and_manager_pks(
+    def test_create_rejects_foreign_space_and_manager_pks(
         self, service, transaction, tracks, spaces, spheres
     ):
         spaces.list_by_event.return_value = [MagicMock(pk=1), MagicMock(pk=2)]
         spheres.list_managers.return_value = [MagicMock(pk=7)]
 
-        service.create(
-            event_pk=42,
-            sphere_id=3,
-            data=_data(space_pks=[1, 2, 999], manager_pks=[7, 888]),
-        )
+        with pytest.raises(TrackSelectionInvalidError):
+            service.create(
+                event_pk=42,
+                sphere_id=3,
+                data=_data(space_pks=[1, 2, 999], manager_pks=[7, 888]),
+            )
 
         transaction.atomic.assert_called_once_with()
-        tracks.create.assert_called_once_with(
-            {
-                "event_pk": 42,
-                "name": "Alpha",
-                "is_public": True,
-                "space_pks": [1, 2],
-                "manager_pks": [7],
-            }
-        )
+        tracks.create.assert_not_called()
 
-    def test_update_scopes_track_and_submitted_pks(
+    def test_update_rejects_foreign_submitted_pks(
         self, service, transaction, tracks, spaces, spheres
     ):
         tracks.read_by_slug.return_value = MagicMock(pk=5)
         spaces.list_by_event.return_value = [MagicMock(pk=2)]
         spheres.list_managers.return_value = []
 
-        service.update(
-            event_pk=42,
-            sphere_id=3,
-            track_slug="alpha",
-            data=_data(
-                name="Beta", is_public=False, space_pks=[2, 999], manager_pks=[888]
-            ),
-        )
+        with pytest.raises(TrackSelectionInvalidError):
+            service.update(
+                event_pk=42,
+                sphere_id=3,
+                track_slug="alpha",
+                data=_data(
+                    name="Beta", is_public=False, space_pks=[2, 999], manager_pks=[888]
+                ),
+            )
 
         transaction.atomic.assert_called_once_with()
         tracks.read_by_slug.assert_called_once_with(42, "alpha")
-        tracks.update.assert_called_once_with(
-            5, {"name": "Beta", "is_public": False, "space_pks": [2], "manager_pks": []}
-        )
+        tracks.update.assert_not_called()
 
     def test_update_foreign_track_slug_raises_without_side_effects(
         self, service, tracks

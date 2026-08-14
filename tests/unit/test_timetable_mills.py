@@ -737,6 +737,7 @@ class TestAssignUnassignScope:
             service.unassign_session(session_pk=1, event_pk=1)
 
         mock_uow.atomic.assert_called_once()
+        mock_uow.sessions.lock.assert_called_once_with(1)
         mock_uow.agenda_items.delete.assert_called_once_with(agenda_item.pk)
         mock_uow.schedule_change_logs.create.assert_called_once()
 
@@ -805,6 +806,19 @@ class TestAssignUnassignScope:
 
         mock_uow.agenda_items.create.assert_called_once()
 
+    def test_assign_rejects_naive_datetimes(self, service, mock_uow):
+        placement = self._placement()
+        naive = SessionPlacement(
+            space_pk=placement.space_pk,
+            start_time=placement.start_time.replace(tzinfo=None),
+            end_time=placement.end_time.replace(tzinfo=None),
+        )
+
+        with pytest.raises(PlacementRejectedError, match="must include a timezone"):
+            service.assign_session(session_pk=1, placement=naive, event_pk=1)
+
+        mock_uow.agenda_items.create.assert_not_called()
+
     def test_assign_rejects_an_inverted_time_range(self, service, mock_uow):
         placement = self._placement()
         inverted = SessionPlacement(
@@ -834,6 +848,7 @@ class TestAssignUnassignScope:
 
         service.assign_session(session_pk=1, placement=self._placement(), event_pk=1)
 
+        mock_uow.sessions.lock.assert_called_once_with(1)
         created = mock_uow.agenda_items.create.call_args.args[0]
         assert created["session_confirmed"] is True
 

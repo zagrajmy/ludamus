@@ -40,7 +40,12 @@ from ludamus.pacts.chronology import (
     TimetableGridFilter,
     TrackProgressDTO,
 )
-from ludamus.pacts.timetable import PlacementRejectedError
+from ludamus.pacts.timetable import (
+    ConflictDetectionServiceProtocol,
+    PlacementRejectedError,
+    TimetableOverviewServiceProtocol,
+    TimetableServiceProtocol,
+)
 from ludamus.specs.timetable import (
     TIMETABLE_ROOM_PAGE_SIZE,
     TIMETABLE_SLOT_MINUTES,
@@ -188,7 +193,7 @@ def _day_range(
     )
 
 
-class TimetableService:
+class TimetableService(TimetableServiceProtocol):
     def __init__(self, transaction: TransactionProtocol, repos: TimetableRepos) -> None:
         self._transaction = transaction
         self._repos = repos
@@ -440,12 +445,18 @@ class TimetableService:
         event_pk: int,
         user_pk: int | None = None,
     ) -> None:
+        if (
+            placement.start_time.utcoffset() is None
+            or placement.end_time.utcoffset() is None
+        ):
+            raise PlacementRejectedError("placement datetimes must include a timezone")
         if placement.end_time <= placement.start_time:
             raise PlacementRejectedError("end_time must be after start_time")
         with self._transaction.atomic():
             require_session_in_event(
                 sessions=self._repos.sessions, session_pk=session_pk, event_pk=event_pk
             )
+            self._repos.sessions.lock(session_pk)
             self._require_space_in_event(placement.space_pk, event_pk)
             self._require_placement_in_time_slots(placement, event_pk)
             self._repos.spaces.lock(placement.space_pk)
@@ -488,15 +499,16 @@ class TimetableService:
     def unassign_session(
         self, *, session_pk: int, event_pk: int, user_pk: int | None = None
     ) -> None:
-        require_session_in_event(
-            sessions=self._repos.sessions, session_pk=session_pk, event_pk=event_pk
-        )
-        if (
-            agenda_item := self._repos.agenda_items.read_by_session(session_pk)
-        ) is None:
-            raise NotFoundError
-        event = self._repos.sessions.read_event(session_pk)
         with self._transaction.atomic():
+            require_session_in_event(
+                sessions=self._repos.sessions, session_pk=session_pk, event_pk=event_pk
+            )
+            self._repos.sessions.lock(session_pk)
+            if (
+                agenda_item := self._repos.agenda_items.read_by_session(session_pk)
+            ) is None:
+                raise NotFoundError
+            event = self._repos.sessions.read_event(session_pk)
             self._repos.agenda_items.delete(agenda_item.pk)
             log_data: ScheduleChangeLogData = {
                 "event_id": event.pk,
@@ -597,7 +609,7 @@ class _EventConflictContext(NamedTuple):
     spaces: dict[int, SpaceDTO]
 
 
-class ConflictDetectionService:
+class ConflictDetectionService(ConflictDetectionServiceProtocol):
     def __init__(self, repos: TimetableRepos) -> None:
         self._repos = repos
 
@@ -917,7 +929,7 @@ def _duration_hours(start: datetime, end: datetime) -> float:
     return max((end - start).total_seconds() / 3600, 0.0)
 
 
-class TimetableOverviewService:
+class TimetableOverviewService(TimetableOverviewServiceProtocol):
     def __init__(self, repos: TimetableRepos) -> None:
         self._repos = repos
 

@@ -131,6 +131,8 @@ class Services:
         return FacilitatorPanelService(
             self._transaction,
             FacilitatorPanelRepos(
+                events=self._repos.events,
+                facilitator_identities=self._repos.facilitator_identities,
                 facilitators=self._repos.facilitators,
                 personal_data_fields=self._repos.personal_data_fields,
                 personal_data_field_values=self._repos.personal_data_field_values,

@@ -125,10 +125,9 @@ class TestTrackCreatePageView:
         assert track.spaces.filter(pk=space.pk).exists()
         assert track.managers.filter(pk=active_user.pk).exists()
 
-    def test_post_drops_foreign_event_space_and_foreign_manager(
+    def test_post_rejects_foreign_event_space_and_foreign_manager(
         self, authenticated_client, active_user, sphere, event
     ):
-        """Spaces from another event and non-sphere managers are not attached."""
         sphere.managers.add(active_user)
         foreign_space = SpaceFactory()  # belongs to a different event
         foreign_user = UserFactory()  # not a manager of this sphere
@@ -143,15 +142,8 @@ class TestTrackCreatePageView:
             },
         )
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.SUCCESS, "Track created successfully.")],
-            url=f"/panel/event/{event.slug}/tracks/",
-        )
-        track = Track.objects.get(event=event, name="Gamma Track")
-        assert not track.spaces.filter(pk=foreign_space.pk).exists()
-        assert not track.managers.filter(pk=foreign_user.pk).exists()
+        assert_response(response, HTTPStatus.UNPROCESSABLE_ENTITY)
+        assert not Track.objects.filter(event=event, name="Gamma Track").exists()
 
     def test_post_shows_error_for_empty_name(self, panel_client, active_user, event):
         response = panel_client.post(self.get_url(event), data={"name": ""})

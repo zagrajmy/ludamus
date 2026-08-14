@@ -1,11 +1,31 @@
 from datetime import datetime
 from enum import StrEnum
-from typing import Protocol
+from typing import Protocol, TypedDict
 
 from pydantic import BaseModel, ConfigDict
 
 from ludamus.pacts.guild import GuildMarkDTO
-from ludamus.pacts.legacy import EventDTO, PanelStatsDTO, TimeSlotDTO
+from ludamus.pacts.legacy import (
+    EventDTO,
+    EventRepositoryProtocol,
+    PanelStatsDTO,
+    TimeSlotDTO,
+)
+
+
+class EventCreateData(TypedDict):
+    name: str
+    slug: str
+    description: str
+    start_time: datetime
+    end_time: datetime
+    publication_time: datetime | None
+    auto_confirm_sessions: bool
+
+
+class EventsRepositoryProtocol(EventRepositoryProtocol, Protocol):
+    @staticmethod
+    def create(sphere_id: int, data: EventCreateData) -> EventDTO: ...
 
 
 class FacilitatorListItemDTO(BaseModel):

@@ -33,8 +33,8 @@ test.describe("Event detail page", () => {
   });
 
   test("shows both endpoints of a multi-day event", async ({ page }) => {
-    const eventPeriod = page.locator("[data-event-period]");
-    const endpoints = eventPeriod.locator("time");
+    const eventHeading = page.getByRole("heading", { name: "Autumn Open Playtest" });
+    const endpoints = eventHeading.locator("..").locator("time");
 
     await expect(endpoints).toHaveCount(2);
     await expect(endpoints.nth(0)).toContainText(/.+ · \d{1,2}:\d{2}/);
@@ -43,7 +43,9 @@ test.describe("Event detail page", () => {
     const datetimes = await endpoints.evaluateAll((elements) =>
       elements.map((element) => element.getAttribute("datetime")),
     );
-    expect(datetimes[0]?.slice(0, 10)).not.toBe(datetimes[1]?.slice(0, 10));
+    expect(datetimes[0]).not.toBeNull();
+    expect(datetimes[1]).not.toBeNull();
+    expect(datetimes[0]!.slice(0, 10)).not.toBe(datetimes[1]!.slice(0, 10));
   });
 
   test("renders session cards with locations and opens detail modal", async ({ page }) => {

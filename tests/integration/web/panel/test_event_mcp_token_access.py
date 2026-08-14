@@ -99,3 +99,10 @@ class TestEventMcpTokenAccess:
                 "private",
             },
         )
+        payload = signing.loads(token, salt=SIGNING_SALT)
+        assert payload == {
+            "user_id": active_user.pk,
+            "scope": ToolScope.ORGANIZER.value,
+            "sphere_id": event.sphere_id,
+            "event_id": event.pk,
+        }

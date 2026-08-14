@@ -620,16 +620,6 @@ class EventSettingsDTO(BaseModel):
     pk: int
 
 
-class EventCreateData(TypedDict):
-    name: str
-    slug: str
-    description: str
-    start_time: datetime
-    end_time: datetime
-    publication_time: datetime | None
-    auto_confirm_sessions: bool
-
-
 class EventUpdateData(TypedDict, total=False):
     """Write shape for updating event fields."""
 
@@ -1033,8 +1023,6 @@ class EventRepositoryProtocol(Protocol):
     def read_by_slug(slug: str, sphere_id: int) -> EventDTO: ...
     @staticmethod
     def get_stats_data(event_id: int) -> EventStatsData: ...
-    @staticmethod
-    def create(sphere_id: int, data: EventCreateData) -> EventDTO: ...
     @staticmethod
     def update(event_id: int, data: EventUpdateData) -> None: ...
 

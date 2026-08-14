@@ -34,6 +34,10 @@ if TYPE_CHECKING:
     from ludamus.pacts.venues import SpaceRecordDTO
 
 
+def _validation_message(error: ValidationError | SpaceValidationError) -> str:
+    return error.messages[0] if isinstance(error, ValidationError) else str(error)
+
+
 def suggest_copy_name(name: str) -> str:
     # Bump an existing "(Copy)" / "(Copy N)" suffix instead of stacking them.
     if match := re.match(r"^(.+?) \(Copy(?: (\d+))?\)$", name):
@@ -116,11 +120,8 @@ class SpaceCreatePageView(PanelAccessMixin, EventContextMixin, View):
                         location=form.cleaned_data.get("location") or "",
                     ),
                 )
-            except (ValidationError, SpaceValidationError) as exc:
-                message = (
-                    exc.messages[0] if isinstance(exc, ValidationError) else str(exc)
-                )
-                form.add_error(None, message)
+            except (ValidationError, SpaceValidationError) as error:
+                form.add_error(None, _validation_message(error))
             else:
                 messages.success(self.request, _("Space created successfully."))
                 return redirect("panel:venues", slug=slug)
@@ -204,11 +205,8 @@ class SpaceEditPageView(PanelAccessMixin, EventContextMixin, View):
                         location=form.cleaned_data.get("location") or "",
                     ),
                 )
-            except (ValidationError, SpaceValidationError) as exc:
-                message = (
-                    exc.messages[0] if isinstance(exc, ValidationError) else str(exc)
-                )
-                form.add_error(None, message)
+            except (ValidationError, SpaceValidationError) as error:
+                form.add_error(None, _validation_message(error))
             else:
                 messages.success(self.request, _("Space updated successfully."))
                 return redirect("panel:venues", slug=slug)

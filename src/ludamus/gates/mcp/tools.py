@@ -10,9 +10,9 @@ from __future__ import annotations
 import json
 import re
 from datetime import datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Annotated
 
-from pydantic import BaseModel, Field, TypeAdapter, field_validator
+from pydantic import BaseModel, Field, StringConstraints, TypeAdapter, field_validator
 
 from ludamus.gates.mcp.organizer_context import actor_sphere
 from ludamus.gates.mcp.programme_tools import programme_tools
@@ -35,6 +35,9 @@ if TYPE_CHECKING:
 _SPHERE_LIST = TypeAdapter(list[SphereListItemDTO])
 _EVENT_LIST = TypeAdapter(list[EventListItemDTO])
 _ANNOUNCEMENT_LIST = TypeAdapter(list[AnnouncementDTO])
+type _NonBlankName = Annotated[
+    str, StringConstraints(strip_whitespace=True, min_length=1, max_length=255)
+]
 
 
 class _EmptyInput(BaseModel):
@@ -323,7 +326,7 @@ class OrganizerGetEventTool(Tool[_EventSlugInput]):
 
 
 class _CreateEventInput(_SphereInput):
-    name: str = Field(max_length=255)
+    name: _NonBlankName
     slug: str = Field(max_length=50, description="URL slug; unique within the sphere")
     description: str = ""
     start_time: datetime

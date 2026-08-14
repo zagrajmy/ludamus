@@ -15,6 +15,7 @@ from ludamus.links.db.django.models import (
     Announcement,
     ScheduleChangeLog,
     Space,
+    Track,
 )
 from ludamus.pacts.mcp import ToolScope
 from tests.integration.conftest import (
@@ -682,6 +683,24 @@ class TestOrganizerProgrammeTools:
         assert result["content"][0]["text"] == (
             "A space holding a scheduled session cannot contain other spaces."
         )
+
+    def test_create_track_rejects_foreign_space_without_side_effects(
+        self, client, org_token, sphere, event
+    ):
+        sibling = EventFactory(sphere=sphere)
+        foreign_space = SpaceFactory(event=sibling)
+
+        response = call_org_tool(
+            client,
+            org_token,
+            "create_track",
+            {"name": "Foreign room track", "space_ids": [foreign_space.pk]},
+        )
+
+        result = response.json()["result"]
+        assert result["isError"] is True
+        assert result["content"][0]["text"] == "Resource not found"
+        assert not Track.objects.filter(event=event, name="Foreign room track").exists()
 
     def test_create_space_rejects_foreign_parent(
         self, client, org_token, sphere, event

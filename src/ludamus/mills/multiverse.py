@@ -14,8 +14,8 @@ from ludamus.pacts.multiverse import (
 )
 
 if TYPE_CHECKING:
+    from ludamus.pacts.event import EventCreateData, EventsRepositoryProtocol
     from ludamus.pacts.legacy import (
-        EventCreateData,
         EventDTO,
         EventListItemDTO,
         EventRepositoryProtocol,
@@ -123,7 +123,7 @@ class EventsService:
         self,
         *,
         transaction: TransactionProtocol,
-        events: EventRepositoryProtocol,
+        events: EventsRepositoryProtocol,
         spheres: SphereRepositoryProtocol,
     ) -> None:
         self._transaction = transaction

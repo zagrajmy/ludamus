@@ -2,15 +2,16 @@ from __future__ import annotations
 
 import json
 from datetime import datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Annotated
 
 from django.utils.text import slugify
-from pydantic import BaseModel, Field, TypeAdapter, field_validator
+from pydantic import BaseModel, Field, StringConstraints, TypeAdapter, field_validator
 
 from ludamus.gates.mcp.organizer_context import actor_sphere, token_event
 from ludamus.gates.mcp.registry import Tool, ToolCall, ToolError
 from ludamus.pacts import NotFoundError
 from ludamus.pacts.chronology import SessionPlacement
+from ludamus.pacts.durations import normalize_duration
 from ludamus.pacts.event import FacilitatorListItemDTO
 from ludamus.pacts.legacy import (
     EventDTO,
@@ -38,6 +39,9 @@ if TYPE_CHECKING:
 
 _PROPOSAL_CATEGORY_LIST = TypeAdapter(list[ProposalCategoryDTO])
 _JSON_OBJECT = TypeAdapter(dict[str, object])
+type _NonBlankName = Annotated[
+    str, StringConstraints(strip_whitespace=True, min_length=1, max_length=255)
+]
 
 
 class _AwareDatetimeRange(BaseModel):
@@ -184,15 +188,7 @@ class OrganizerListFacilitatorsTool(Tool[_EventIdInput]):
 
 
 class _CreateSpaceInput(BaseModel):
-    name: str = Field(min_length=1, max_length=255)
-
-    @field_validator("name")
-    @classmethod
-    def _non_blank_name(cls, value: str) -> str:
-        if not (stripped := value.strip()):
-            raise ValueError("name must be non-empty")
-        return stripped
-
+    name: _NonBlankName
     parent_id: int | None = Field(
         default=None, description="Null creates a venue root; otherwise nest under it"
     )
@@ -253,7 +249,7 @@ class OrganizerCreateTimeSlotTool(Tool[_CreateTimeSlotInput]):
 
 
 class _CreateTrackInput(BaseModel):
-    name: str = Field(max_length=255)
+    name: _NonBlankName
     is_public: bool = True
     space_ids: list[int] = Field(default_factory=list)
     manager_ids: list[int] = Field(default_factory=list)
@@ -282,7 +278,7 @@ class OrganizerCreateTrackTool(Tool[_CreateTrackInput]):
 
 
 class _CreateProposalCategoryInput(BaseModel):
-    name: str = Field(max_length=255)
+    name: _NonBlankName
 
 
 class OrganizerCreateProposalCategoryTool(Tool[_CreateProposalCategoryInput]):
@@ -299,7 +295,7 @@ class OrganizerCreateProposalCategoryTool(Tool[_CreateProposalCategoryInput]):
 
 
 class _FindOrCreateFacilitatorInput(BaseModel):
-    display_name: str = Field(max_length=255)
+    display_name: _NonBlankName
 
 
 class OrganizerFindOrCreateFacilitatorTool(Tool[_FindOrCreateFacilitatorInput]):
@@ -313,13 +309,7 @@ class OrganizerFindOrCreateFacilitatorTool(Tool[_FindOrCreateFacilitatorInput]):
     @staticmethod
     def handle(call: ToolCall[_FindOrCreateFacilitatorInput]) -> str:
         event = token_event(services=call.services, actor=call.actor)
-        context = call.services.facilitator_panel.list_context(
-            event_id=event.pk, query=FacilitatorListQuery(search=call.data.display_name)
-        )
-        for facilitator in context.facilitators:
-            if facilitator.display_name == call.data.display_name:
-                return facilitator.model_dump_json(indent=2)
-        created = call.services.facilitator_panel.create_facilitator(
+        facilitator = call.services.facilitator_panel.find_or_create_facilitator(
             event_id=event.pk,
             data=FacilitatorCreateData(
                 display_name=call.data.display_name,
@@ -328,7 +318,7 @@ class OrganizerFindOrCreateFacilitatorTool(Tool[_FindOrCreateFacilitatorInput]):
             ),
             user_id=call.actor.user_id,
         )
-        return created.model_dump_json(indent=2)
+        return facilitator.model_dump_json(indent=2)
 
 
 class _CreateSessionInput(BaseModel):
@@ -343,12 +333,22 @@ class _CreateSessionInput(BaseModel):
             raise ValueError("source_row_id must be non-empty")
         return stripped
 
-    title: str = Field(max_length=255)
+    title: _NonBlankName
     category_id: int
     description: str = ""
     duration: str = Field(
         default="", description="ISO-8601 duration, e.g. PT1H or PT45M"
     )
+
+    @field_validator("duration")
+    @classmethod
+    def _canonical_duration(cls, value: str) -> str:
+        if not value:
+            return ""
+        if not (normalized := normalize_duration(value)):
+            raise ValueError("duration must be a positive ISO-8601 duration")
+        return normalized
+
     display_name: str = Field(default="", description="Defaults to title when empty")
     facilitator_ids: list[int] = Field(default_factory=list)
     track_ids: list[int] = Field(default_factory=list)

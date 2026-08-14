@@ -462,6 +462,22 @@ class FacilitatorPanelService(FacilitatorPanelServiceProtocol):
                 )
             return facilitator
 
+    def find_or_create_facilitator(
+        self, *, event_id: int, data: FacilitatorCreateData, user_id: int | None = None
+    ) -> FacilitatorDTO:
+        with self._transaction.atomic():
+            self._repos.events.lock(event_id)
+            existing = (
+                self._repos.facilitator_identities.find_by_event_and_display_name(
+                    event_id, data.display_name
+                )
+            )
+            if existing is not None:
+                return existing
+            return self.create_facilitator(
+                event_id=event_id, data=data, user_id=user_id
+            )
+
     def facilitator_history(
         self, *, event_id: int, facilitator_slug: str
     ) -> tuple[str, list[FacilitatorChangeLogDTO]]:

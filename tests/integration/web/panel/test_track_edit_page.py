@@ -130,10 +130,9 @@ class TestTrackEditPageView:
         track.refresh_from_db()
         assert track.name == "Updated Track"
 
-    def test_post_drops_foreign_event_space_and_foreign_manager(
+    def test_post_rejects_foreign_event_space_and_foreign_manager(
         self, authenticated_client, active_user, sphere, event
     ):
-        """Spaces from another event and non-sphere managers are not attached."""
         sphere.managers.add(active_user)
         track = self.make_track(event)
         foreign_space = SpaceFactory()  # belongs to a different event
@@ -149,15 +148,11 @@ class TestTrackEditPageView:
             },
         )
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.SUCCESS, "Track updated successfully.")],
-            url=f"/panel/event/{event.slug}/tracks/",
-        )
+        assert_response(response, HTTPStatus.UNPROCESSABLE_ENTITY)
         track.refresh_from_db()
-        assert not track.spaces.filter(pk=foreign_space.pk).exists()
-        assert not track.managers.filter(pk=foreign_user.pk).exists()
+        assert track.name == "Alpha Track"
+        assert not track.spaces.exists()
+        assert not track.managers.exists()
 
     def test_post_shows_error_for_empty_name(self, panel_client, active_user, event):
         track = self.make_track(event)

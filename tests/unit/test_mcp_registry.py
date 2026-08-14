@@ -178,6 +178,25 @@ def test_create_event_rejects_naive_datetime():
         )
 
 
+def test_create_event_rejects_blank_name():
+    registry = build_registry(ToolScope.MAINTAINER)
+    actor = ActorContext(user_id=1, scope=ToolScope.MAINTAINER)
+
+    with pytest.raises(ToolError, match="Invalid arguments"):
+        registry.call(
+            services=_FakeServices(),
+            actor=actor,
+            name="create_event",
+            arguments={
+                "sphere_id": 1,
+                "name": "   ",
+                "slug": "blank-name",
+                "start_time": "2026-09-25T10:00:00+02:00",
+                "end_time": "2026-09-27T18:00:00+02:00",
+            },
+        )
+
+
 def test_create_event_rejects_blank_slug():
     registry = build_registry(ToolScope.MAINTAINER)
     actor = ActorContext(user_id=1, scope=ToolScope.MAINTAINER)
@@ -286,6 +305,48 @@ def test_assign_sessions_rejects_duplicate_session_ids():
             actor=_organizer_actor(),
             name="assign_sessions",
             arguments={"assignments": [assignment, assignment]},
+        )
+
+
+@pytest.mark.parametrize(
+    ("tool_name", "arguments"),
+    (
+        ("create_space", {"name": "   "}),
+        ("create_track", {"name": "   "}),
+        ("create_proposal_category", {"name": "   "}),
+        ("find_or_create_facilitator", {"display_name": "   "}),
+        (
+            "create_session",
+            {"source_row_id": "row-1", "title": "   ", "category_id": 5},
+        ),
+    ),
+)
+def test_programme_tools_reject_blank_names(tool_name, arguments):
+    registry = build_registry(ToolScope.ORGANIZER)
+
+    with pytest.raises(ToolError, match="Invalid arguments"):
+        registry.call(
+            services=_FakeServices(),
+            actor=_organizer_actor(),
+            name=tool_name,
+            arguments=arguments,
+        )
+
+
+def test_create_session_rejects_malformed_duration():
+    registry = build_registry(ToolScope.ORGANIZER)
+
+    with pytest.raises(ToolError, match="Invalid arguments"):
+        registry.call(
+            services=_FakeServices(),
+            actor=_organizer_actor(),
+            name="create_session",
+            arguments={
+                "source_row_id": "row-1",
+                "title": "Session",
+                "category_id": 5,
+                "duration": "whenever",
+            },
         )
 
 

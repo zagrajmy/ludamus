@@ -86,7 +86,7 @@
                                 {% icon "calendar-days" class="w-4 h-4 text-coral-600" variant="mini" %}
                             </div>
                             {% with start_day=event.start_time|date:"Y-m-d" end_day=event.end_time|date:"Y-m-d" %}
-                                <div data-event-period>
+                                <div>
                                     {% if start_day == end_day %}
                                         <div class="font-medium leading-none text-foreground">
                                             <time datetime="{{ event.start_time|date:'c' }}">{{ event.start_time|date:"l, F j" }}</time>

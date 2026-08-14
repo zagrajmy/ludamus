@@ -4,7 +4,7 @@ import pytest
 from django.db import IntegrityError
 
 from ludamus.links.db.django.repositories import EventRepository
-from ludamus.pacts.legacy import EventCreateData
+from ludamus.pacts.event import EventCreateData
 
 
 def test_create_does_not_report_a_date_constraint_as_a_slug_conflict(sphere):

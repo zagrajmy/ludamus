@@ -13,8 +13,8 @@ from typing import TYPE_CHECKING, Protocol
 from pydantic import BaseModel, ConfigDict, Field
 
 if TYPE_CHECKING:
+    from ludamus.pacts.event import EventCreateData
     from ludamus.pacts.legacy import (
-        EventCreateData,
         EventDTO,
         EventListItemDTO,
         SphereDTO,

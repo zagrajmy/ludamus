@@ -8,6 +8,7 @@ from ludamus.pacts.tracks import (
     TrackEditFormContextDTO,
     TrackFormContextDTO,
     TrackFormData,
+    TrackSelectionInvalidError,
     TracksPanelServiceProtocol,
 )
 
@@ -75,11 +76,17 @@ class TracksPanelService(TracksPanelServiceProtocol):
         valid_manager_pks = {
             manager.pk for manager in self._spheres.list_managers(sphere_id)
         }
+        requested_space_pks = set(data["space_pks"])
+        requested_manager_pks = set(data["manager_pks"])
+        if not requested_space_pks <= valid_space_pks:
+            raise TrackSelectionInvalidError
+        if not requested_manager_pks <= valid_manager_pks:
+            raise TrackSelectionInvalidError
         return TrackFormData(
             name=data["name"],
             is_public=data["is_public"],
-            space_pks=sorted(set(data["space_pks"]) & valid_space_pks),
-            manager_pks=sorted(set(data["manager_pks"]) & valid_manager_pks),
+            space_pks=sorted(requested_space_pks),
+            manager_pks=sorted(requested_manager_pks),
         )
 
     def create(self, *, event_pk: int, sphere_id: int, data: TrackFormData) -> TrackDTO:

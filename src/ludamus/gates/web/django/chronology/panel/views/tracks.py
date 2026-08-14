@@ -4,9 +4,8 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
 from django.contrib import messages
+from django.http import HttpResponse
 from django.shortcuts import redirect
 from django.template.response import TemplateResponse
 from django.utils.translation import gettext as _
@@ -19,10 +18,7 @@ from ludamus.gates.web.django.chronology.panel.views.base import (
 )
 from ludamus.gates.web.django.forms import TrackForm
 from ludamus.pacts import NotFoundError
-from ludamus.pacts.tracks import TrackFormData
-
-if TYPE_CHECKING:
-    from django.http import HttpResponse
+from ludamus.pacts.tracks import TrackFormData, TrackSelectionInvalidError
 
 
 def _submitted_pks(request: PanelRequest, field: str) -> list[int]:
@@ -99,11 +95,16 @@ class TrackCreatePageView(PanelAccessMixin, EventContextMixin, View):
             )
             return TemplateResponse(self.request, "panel/track-create.html", context)
 
-        service.create(
-            event_pk=current_event.pk,
-            sphere_id=sphere_id,
-            data=_submitted_track_data(request=self.request, form=form),
-        )
+        try:
+            service.create(
+                event_pk=current_event.pk,
+                sphere_id=sphere_id,
+                data=_submitted_track_data(request=self.request, form=form),
+            )
+        except TrackSelectionInvalidError:
+            return HttpResponse(
+                _("Choose spaces and managers from this event."), status=422
+            )
         messages.success(self.request, _("Track created successfully."))
         return redirect("panel:tracks", slug=slug)
 
@@ -163,6 +164,10 @@ class TrackEditPageView(PanelAccessMixin, EventContextMixin, View):
                 sphere_id=sphere_id,
                 track_slug=track_slug,
                 data=_submitted_track_data(request=self.request, form=form),
+            )
+        except TrackSelectionInvalidError:
+            return HttpResponse(
+                _("Choose spaces and managers from this event."), status=422
             )
         except NotFoundError:
             messages.error(self.request, _("Track not found."))

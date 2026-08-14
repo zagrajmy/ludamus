@@ -6,6 +6,8 @@ from typing import TYPE_CHECKING, Protocol
 
 from pydantic import BaseModel, ConfigDict
 
+from ludamus.pacts.legacy import EventRepositoryProtocol, FacilitatorRepositoryProtocol
+
 if TYPE_CHECKING:
     from ludamus.pacts.crowd import UserDTO, UserRepositoryProtocol
     from ludamus.pacts.event import FacilitatorListItemDTO
@@ -15,7 +17,6 @@ if TYPE_CHECKING:
         FacilitatorChangeLogDTO,
         FacilitatorChangeLogRepositoryProtocol,
         FacilitatorDTO,
-        FacilitatorRepositoryProtocol,
         PersonalDataFieldRepositoryProtocol,
         PersonalDataFieldValueRepositoryProtocol,
         ProposalCategoryDTO,
@@ -188,10 +189,24 @@ class ProposalPanelRepos:
     time_slots: TimeSlotRepositoryProtocol
 
 
+class FacilitatorPanelEventRepositoryProtocol(EventRepositoryProtocol, Protocol):
+    @staticmethod
+    def lock(event_id: int) -> None: ...
+
+
+class FacilitatorIdentityRepositoryProtocol(Protocol):
+    @staticmethod
+    def find_by_event_and_display_name(
+        event_id: int, display_name: str
+    ) -> FacilitatorDTO | None: ...
+
+
 @dataclass
 class FacilitatorPanelRepos:  # pylint: disable=too-many-instance-attributes
     """The repos the panel's facilitator list reads and writes through."""
 
+    events: FacilitatorPanelEventRepositoryProtocol
+    facilitator_identities: FacilitatorIdentityRepositoryProtocol
     facilitators: FacilitatorRepositoryProtocol
     personal_data_fields: PersonalDataFieldRepositoryProtocol
     personal_data_field_values: PersonalDataFieldValueRepositoryProtocol
@@ -307,6 +322,9 @@ class FacilitatorPanelServiceProtocol(PanelColumnServiceProtocol, Protocol):
         self, *, event_id: int, facilitator_slug: str
     ) -> FacilitatorDetailContextDTO: ...
     def create_facilitator(
+        self, *, event_id: int, data: FacilitatorCreateData, user_id: int | None = None
+    ) -> FacilitatorDTO: ...
+    def find_or_create_facilitator(
         self, *, event_id: int, data: FacilitatorCreateData, user_id: int | None = None
     ) -> FacilitatorDTO: ...
     def facilitator_history(
