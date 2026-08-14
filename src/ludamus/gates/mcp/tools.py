@@ -12,7 +12,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING
 
 from django.utils.text import slugify
-from pydantic import BaseModel, Field, TypeAdapter
+from pydantic import BaseModel, Field, TypeAdapter, field_validator
 
 from ludamus.gates.mcp.registry import Tool, ToolError, ToolRegistry
 from ludamus.pacts import NotFoundError
@@ -22,7 +22,6 @@ from ludamus.pacts.legacy import (
     EventDTO,
     EventListItemDTO,
     SessionListItemDTO,
-    SessionStatus,
     TimeSlotDTO,
     TrackListItemDTO,
 )
@@ -56,6 +55,48 @@ _ANNOUNCEMENT_LIST = TypeAdapter(list[AnnouncementDTO])
 
 class _EmptyInput(BaseModel):
     pass
+
+
+def _require_aware_datetime(value: datetime, *, field: str) -> datetime:
+    if value.tzinfo is None or value.tzinfo.utcoffset(value) is None:
+        message = f"{field} must be timezone-aware"
+        raise ValueError(message)
+    return value
+
+
+def _validate_slug(value: str) -> str:
+    stripped = value.strip()
+    if not stripped or "/" in stripped:
+        raise ValueError("slug must be a non-empty URL slug without '/'")
+    return stripped
+
+
+_AUDIT_REDACTED_KEYS: dict[str, frozenset[str]] = {
+    "find_or_create_facilitator": frozenset({"display_name"}),
+    "create_session": frozenset({"display_name", "description"}),
+}
+
+
+def sanitize_audit_arguments(
+    tool_name: str, arguments: dict[str, object]
+) -> dict[str, object]:
+    redact = _AUDIT_REDACTED_KEYS.get(tool_name)
+    if redact is None:
+        return arguments
+    return {
+        key: "[redacted]" if key in redact else value
+        for key, value in arguments.items()
+    }
+
+
+class _AwareDatetimeRange(BaseModel):
+    start_time: datetime
+    end_time: datetime
+
+    @field_validator("start_time", "end_time")
+    @classmethod
+    def _aware_datetimes(cls, value: datetime) -> datetime:
+        return _require_aware_datetime(value, field="datetime")
 
 
 def _render_sphere(services: ServicesProtocol, sphere_id: int) -> str:
@@ -385,6 +426,23 @@ class _CreateEventInput(BaseModel):
         description="Confirm sessions when first assigned to the timetable",
     )
 
+    @field_validator("slug")
+    @classmethod
+    def _valid_slug(cls, value: str) -> str:
+        return _validate_slug(value)
+
+    @field_validator("start_time", "end_time")
+    @classmethod
+    def _aware_event_datetimes(cls, value: datetime) -> datetime:
+        return _require_aware_datetime(value, field="datetime")
+
+    @field_validator("publication_time")
+    @classmethod
+    def _aware_publication_time(cls, value: datetime | None) -> datetime | None:
+        if value is None:
+            return None
+        return _require_aware_datetime(value, field="publication_time")
+
 
 class OrganizerCreateEventTool(Tool[_CreateEventInput]):
     name = "create_event"
@@ -574,9 +632,8 @@ class OrganizerCreateSpaceTool(Tool[_CreateSpaceInput]):
         return space.model_dump_json(indent=2)
 
 
-class _CreateTimeSlotInput(_EventIdInput):
-    start_time: datetime
-    end_time: datetime
+class _CreateTimeSlotInput(_EventIdInput, _AwareDatetimeRange):
+    pass
 
 
 class OrganizerCreateTimeSlotTool(Tool[_CreateTimeSlotInput]):
@@ -685,6 +742,9 @@ class OrganizerFindOrCreateFacilitatorTool(Tool[_FindOrCreateFacilitatorInput]):
 
 
 class _CreateSessionInput(_EventIdInput):
+    source_row_id: str = Field(
+        max_length=64, description="Deterministic idempotency key for this source row"
+    )
     title: str = Field(max_length=255)
     category_id: int
     description: str = ""
@@ -732,8 +792,9 @@ class OrganizerCreateSessionTool(Tool[_CreateSessionInput]):
             raise NotFoundError
         title = call.data.title
         try:
-            session_id = call.services.proposal_panel.create_proposal(
+            session_id = call.services.proposal_panel.create_accepted_session(
                 event_id=event.pk,
+                source_row_id=call.data.source_row_id.strip(),
                 draft=ProposalDraft(
                     data={
                         "category_id": call.data.category_id,
@@ -745,7 +806,6 @@ class OrganizerCreateSessionTool(Tool[_CreateSessionInput]):
                         "min_age": call.data.min_age,
                         "participants_limit": call.data.participants_limit,
                         "presenter_id": None,
-                        "status": SessionStatus.PENDING,
                         "title": title,
                     },
                     base_slug=slugify(title),
@@ -755,20 +815,15 @@ class OrganizerCreateSessionTool(Tool[_CreateSessionInput]):
             )
         except DatabaseConstraintError as error:
             raise ToolError("Could not create session") from error
-        call.services.proposal_status.mark_accepted(
-            event_pk=event.pk, session_pk=session_id
-        )
         session = call.services.proposal_panel.read_proposal(
             event_id=event.pk, proposal_id=session_id
         )
         return session.model_dump_json(indent=2)
 
 
-class _AssignSessionInput(_EventIdInput):
+class _AssignSessionInput(_EventIdInput, _AwareDatetimeRange):
     session_id: int
     space_id: int
-    start_time: datetime
-    end_time: datetime
 
 
 class OrganizerAssignSessionTool(Tool[_AssignSessionInput]):

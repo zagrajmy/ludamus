@@ -116,8 +116,6 @@ class ConnectionsService:
 
 
 class EventsService:
-    """Sphere-scoped event listing and create."""
-
     def __init__(
         self, transaction: TransactionProtocol, events: EventRepositoryProtocol
     ) -> None:

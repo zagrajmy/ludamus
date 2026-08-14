@@ -571,7 +571,7 @@ class TimetableOverviewPageView(PanelAccessMixin, EventContextMixin, View):
         overview = self.request.services.timetable_overview
 
         context["heatmap"] = overview.build_heatmap(
-            current_event.pk, tz=get_current_timezone()
+            event_pk=current_event.pk, tz=get_current_timezone()
         )
         context["track_progress"] = overview.track_progress(current_event.pk)
         context["capacity_hours"] = overview.capacity_hours(current_event.pk)

@@ -2,7 +2,7 @@ import pytest
 from pydantic import BaseModel
 
 from ludamus.gates.mcp.registry import Tool, ToolCall, ToolError, ToolRegistry
-from ludamus.gates.mcp.tools import build_registry
+from ludamus.gates.mcp.tools import build_registry, sanitize_audit_arguments
 from ludamus.pacts.mcp import ActorContext, ToolScope
 
 MAINTAINER_TOOL_NAMES = [
@@ -111,3 +111,57 @@ def test_invalid_arguments_message_hides_input_values():
     message = str(excinfo.value)
     assert message == "Invalid arguments: suffix: Input should be a valid string"
     assert "424242" not in message
+
+
+def test_sanitize_audit_arguments_redacts_sensitive_fields():
+    arguments = {
+        "event_id": 1,
+        "display_name": "Alice",
+        "description": "Secret plot",
+        "title": "Workshop",
+    }
+
+    redacted = sanitize_audit_arguments("create_session", arguments)
+
+    assert redacted == {
+        "event_id": 1,
+        "display_name": "[redacted]",
+        "description": "[redacted]",
+        "title": "Workshop",
+    }
+
+
+def test_create_event_rejects_naive_datetime():
+    registry = build_registry(ToolScope.ORGANIZER)
+    actor = ActorContext(user_id=1, scope=ToolScope.ORGANIZER, sphere_id=1)
+
+    with pytest.raises(ToolError, match="timezone-aware"):
+        registry.call(
+            services=_FakeServices(),
+            actor=actor,
+            name="create_event",
+            arguments={
+                "name": "Bad tz",
+                "slug": "bad-tz",
+                "start_time": "2026-09-25T10:00:00",
+                "end_time": "2026-09-27T18:00:00+02:00",
+            },
+        )
+
+
+def test_create_event_rejects_blank_slug():
+    registry = build_registry(ToolScope.ORGANIZER)
+    actor = ActorContext(user_id=1, scope=ToolScope.ORGANIZER, sphere_id=1)
+
+    with pytest.raises(ToolError, match="non-empty URL slug"):
+        registry.call(
+            services=_FakeServices(),
+            actor=actor,
+            name="create_event",
+            arguments={
+                "name": "Bad slug",
+                "slug": "   ",
+                "start_time": "2026-09-25T10:00:00+02:00",
+                "end_time": "2026-09-27T18:00:00+02:00",
+            },
+        )

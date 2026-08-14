@@ -6,7 +6,7 @@ the file grows past ~12 top-level members or 1000 lines.
 """
 
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import date, datetime, tzinfo
 from enum import StrEnum, auto
 from typing import TYPE_CHECKING, Literal, Protocol, TypedDict
 
@@ -564,6 +564,15 @@ class TimetableRepos:
 
 
 class TimetableServiceProtocol(Protocol):
+    def space_filter_options(self, event_pk: int) -> list[MultiselectOptionDTO]: ...
+    def build_grid(
+        self,
+        *,
+        event_pk: int,
+        tz: tzinfo,
+        space_page: int = 1,
+        filters: TimetableGridFilter | None = None,
+    ) -> TimetableGridDTO: ...
     def assign_session(
         self,
         *,
@@ -575,3 +584,38 @@ class TimetableServiceProtocol(Protocol):
     def unassign_session(
         self, *, session_pk: int, event_pk: int, user_pk: int | None = None
     ) -> None: ...
+    def revert_change(
+        self, *, log_pk: int, event_pk: int, user_pk: int | None = None
+    ) -> None: ...
+
+
+class ConflictDetectionServiceProtocol(Protocol):
+    def detect_for_assignment(
+        self, event_pk: int, session_pk: int
+    ) -> list[ConflictDTO]: ...
+    def list_all_for_track(
+        self, event_pk: int, track_pk: int | None
+    ) -> list[ConflictDTO]: ...
+    def list_grid_warnings(
+        self,
+        *,
+        event_pk: int,
+        track_pk: int | None,
+        items: list[AgendaItemDTO],
+        spaces: list[SpaceDTO],
+    ) -> tuple[list[ConflictDTO], list[PreferredSlotViolationDTO]]: ...
+    def list_preferred_slot_violations(
+        self, event_pk: int, track_pk: int | None
+    ) -> list[PreferredSlotViolationDTO]: ...
+
+
+class TimetableOverviewServiceProtocol(Protocol):
+    def get_all_conflicts(self, event_pk: int) -> list[ConflictDTO]: ...
+    def build_heatmap(
+        self, *, event_pk: int, tz: tzinfo, conflicts: list[ConflictDTO] | None = None
+    ) -> HeatmapDTO: ...
+    def all_conflicts_grouped(
+        self, event_pk: int, conflicts: list[ConflictDTO] | None = None
+    ) -> dict[str, list[ConflictDTO]]: ...
+    def track_progress(self, event_pk: int) -> list[TrackProgressDTO]: ...
+    def capacity_hours(self, event_pk: int) -> CapacityHoursDTO: ...

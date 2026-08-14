@@ -16,6 +16,7 @@ from ludamus.gates.mcp.registry import (
     ToolError,
     UnknownToolError,
 )
+from ludamus.gates.mcp.tools import sanitize_audit_arguments
 from ludamus.pacts import NotFoundError
 
 if TYPE_CHECKING:
@@ -94,9 +95,11 @@ def _call_tool(
             name=name,
             arguments=arguments,
         )
-    # Audit trail (#480): one line per tools/call.
-    # %r on client-controlled values: repr escapes newlines, so a crafted
-    # tool name cannot inject fake audit lines.
+    audit_arguments = (
+        sanitize_audit_arguments(name, arguments)
+        if isinstance(name, str) and isinstance(arguments, dict)
+        else arguments
+    )
     logger.info(
         "mcp.tools_call user_id=%s scope=%s sphere_id=%s tool=%r outcome=%s "
         "arguments=%r",
@@ -105,7 +108,7 @@ def _call_tool(
         actor.sphere_id,
         name,
         outcome,
-        arguments,
+        audit_arguments,
     )
     if outcome in {"invalid-params", "unknown-tool"}:
         return error_response(message_id=message_id, code=INVALID_PARAMS, message=text)
@@ -149,7 +152,6 @@ def handle_message(
             message_id=message_id, code=INVALID_REQUEST, message="Invalid request"
         )
     if message_id is None:
-        # A notification (e.g. notifications/initialized): accept, no response.
         return None
 
     params = message.get("params")

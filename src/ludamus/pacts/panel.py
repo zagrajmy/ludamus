@@ -96,9 +96,6 @@ class EventPanelSettingsRepositoryProtocol(Protocol):
 
 SCHEDULED_FILTER = "scheduled"
 
-# Explicit "no status filter" value. An absent param means the pending backlog,
-# so "show everything" has to travel in the query — forms, the Clear link and
-# post-action redirects all echo it back.
 STATUS_ALL = "all"
 
 
@@ -171,6 +168,9 @@ class ProposalPanelServiceProtocol(PanelColumnServiceProtocol, Protocol):
         self, *, session_ids: list[int], field_ids: list[int]
     ) -> dict[int, dict[str, str | list[str] | bool]]: ...
     def create_proposal(self, *, event_id: int, draft: ProposalDraft) -> int: ...
+    def create_accepted_session(
+        self, *, event_id: int, source_row_id: str, draft: ProposalDraft
+    ) -> int: ...
 
 
 @dataclass
@@ -209,9 +209,6 @@ class FacilitatorListQuery:
     search: str = ""
     accreditation: str = ""
     flagged: bool = False
-    # "", "mine" or "unassigned" — one choice, so "filter by me" and "filter by
-    # nobody" can never both be asked for. `current_user_id` is who "mine"
-    # means, not a filter of its own.
     organizer: str = ""
     current_user_id: int | None = None
     sort: str = ""

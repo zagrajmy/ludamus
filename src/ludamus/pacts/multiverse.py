@@ -136,11 +136,11 @@ class SphereDirectoryRepositoryProtocol(Protocol):
 
 
 class EventSlugConflictError(Exception):
-    """Another event in the sphere already uses that slug."""
+    pass
 
 
 class EventDatesInvalidError(Exception):
-    """Event end_time must be strictly after start_time."""
+    pass
 
 
 class EventsServiceProtocol(Protocol):

@@ -224,6 +224,43 @@ class TestOrganizerTools:
         get = call_org_tool(client, org_token, "get_event", {"slug": "bachanalia-2026"})
         assert json.loads(tool_text(get))["pk"] == created["pk"]
 
+    def test_create_event_rejects_reversed_dates(self, client, org_token):
+        response = call_org_tool(
+            client,
+            org_token,
+            "create_event",
+            {
+                "name": "Bad dates",
+                "slug": "bad-dates",
+                "description": "",
+                "start_time": "2026-09-27T18:00:00+02:00",
+                "end_time": "2026-09-25T10:00:00+02:00",
+                "publication_time": "2026-01-01T00:00:00+02:00",
+            },
+        )
+
+        result = response.json()["result"]
+        assert result["isError"] is True
+        assert result["content"][0]["text"] == "end_time must be after start_time"
+
+    def test_create_event_rejects_duplicate_slug(self, client, org_token):
+        payload = {
+            "name": "Bachanalia Fantastyczne 2026",
+            "slug": "bachanalia-dup",
+            "description": "",
+            "start_time": "2026-09-25T10:00:00+02:00",
+            "end_time": "2026-09-27T18:00:00+02:00",
+            "publication_time": "2026-01-01T00:00:00+02:00",
+        }
+        first = call_org_tool(client, org_token, "create_event", payload)
+        assert json.loads(tool_text(first))["slug"] == "bachanalia-dup"
+
+        second = call_org_tool(client, org_token, "create_event", payload)
+
+        result = second.json()["result"]
+        assert result["isError"] is True
+        assert result["content"][0]["text"] == "Slug already taken: bachanalia-dup"
+
     def test_programme_tools_reject_foreign_event(self, client, org_token, sphere):
         foreign = EventFactory(sphere=SphereFactory())
 

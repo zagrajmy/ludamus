@@ -9,11 +9,16 @@ from ludamus.pacts import SessionStatus
 from ludamus.pacts.panel import ProposalDraft, ProposalListQuery, ProposalPanelRepos
 
 _NEW_PROPOSAL_ID = 42
+_EXISTING_SESSION_ID = 99
 
 
 class _FakeTransaction:
     @contextmanager
     def savepoint(self):
+        yield
+
+    @contextmanager
+    def atomic(self):
         yield
 
 
@@ -155,8 +160,6 @@ class TestProposalPanelService:
 
     @pytest.mark.parametrize("sort", ("bogus", "field_999", "field_"))
     def test_unknown_sort_key_never_reaches_the_query(self, service, sessions, sort):
-        # A tampered `sort` — including one naming another event's field — falls
-        # back to the default order instead of being handed to the repo.
         result = service.list_context(event_id=1, query=ProposalListQuery(sort=sort))
 
         assert not result.sort
@@ -181,7 +184,12 @@ class TestProposalPanelService:
 
         assert proposal_id == _NEW_PROPOSAL_ID
         sessions.create.assert_called_once_with(
-            {"title": "Dragon Heist", "slug": "dragon-heist"}, facilitator_ids=[7]
+            {
+                "title": "Dragon Heist",
+                "slug": "dragon-heist",
+                "status": SessionStatus.PENDING,
+            },
+            facilitator_ids=[7],
         )
         sessions.save_field_values.assert_called_once_with(
             _NEW_PROPOSAL_ID,
@@ -199,3 +207,39 @@ class TestProposalPanelService:
 
         sessions.save_field_values.assert_not_called()
         sessions.set_time_slots.assert_not_called()
+
+    def test_create_accepted_session_returns_existing_ident(self, service, sessions):
+        sessions.find_id_by_ident.return_value = _EXISTING_SESSION_ID
+
+        session_id = service.create_accepted_session(
+            event_id=1,
+            source_row_id="row-1",
+            draft=ProposalDraft(data={"title": "Retry"}, base_slug="retry"),
+        )
+
+        assert session_id == _EXISTING_SESSION_ID
+        sessions.create.assert_not_called()
+
+    def test_create_accepted_session_creates_accepted_with_ident(
+        self, service, sessions
+    ):
+        sessions.find_id_by_ident.return_value = None
+        sessions.slug_exists.return_value = False
+        sessions.create.return_value = _NEW_PROPOSAL_ID
+
+        session_id = service.create_accepted_session(
+            event_id=1,
+            source_row_id="row-1",
+            draft=ProposalDraft(data={"title": "New"}, base_slug="new"),
+        )
+
+        assert session_id == _NEW_PROPOSAL_ID
+        sessions.create.assert_called_once_with(
+            {
+                "title": "New",
+                "slug": "new",
+                "status": SessionStatus.ACCEPTED,
+                "ident": "row-1",
+            },
+            facilitator_ids=[],
+        )

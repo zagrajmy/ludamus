@@ -430,17 +430,18 @@ class TimetableService:
         ) is None:
             raise NotFoundError
         event = self._repos.sessions.read_event(session_pk)
-        self._repos.agenda_items.delete(agenda_item.pk)
-        log_data: ScheduleChangeLogData = {
-            "event_id": event.pk,
-            "session_id": session_pk,
-            "user_id": user_pk,
-            "action": ScheduleChangeAction.UNASSIGN,
-            "old_space_id": agenda_item.space_id,
-            "old_start_time": agenda_item.start_time,
-            "old_end_time": agenda_item.end_time,
-        }
-        self._repos.schedule_change_logs.create(log_data)
+        with self._transaction.atomic():
+            self._repos.agenda_items.delete(agenda_item.pk)
+            log_data: ScheduleChangeLogData = {
+                "event_id": event.pk,
+                "session_id": session_pk,
+                "user_id": user_pk,
+                "action": ScheduleChangeAction.UNASSIGN,
+                "old_space_id": agenda_item.space_id,
+                "old_start_time": agenda_item.start_time,
+                "old_end_time": agenda_item.end_time,
+            }
+            self._repos.schedule_change_logs.create(log_data)
 
     def revert_change(
         self, *, log_pk: int, event_pk: int, user_pk: int | None = None
@@ -840,7 +841,7 @@ class TimetableOverviewService:
         )
 
     def build_heatmap(
-        self, event_pk: int, tz: tzinfo, conflicts: list[ConflictDTO] | None = None
+        self, *, event_pk: int, tz: tzinfo, conflicts: list[ConflictDTO] | None = None
     ) -> HeatmapDTO:
         spaces = _leaves_in_tree_order(self._repos.spaces.list_by_event(event_pk))
         all_items = self._repos.agenda_items.list_by_event(event_pk)

@@ -12,6 +12,7 @@ if TYPE_CHECKING:
 
     from ludamus.pacts.bookmarks import BookmarkServiceProtocol
     from ludamus.pacts.chronology import (
+        ConflictDetectionServiceProtocol,
         EventIntegrationsServiceProtocol,
         PartySessionHistoryServiceProtocol,
         ProposalAcceptanceServiceProtocol,
@@ -21,6 +22,7 @@ if TYPE_CHECKING:
         SessionDeletionServiceProtocol,
         SessionModalServiceProtocol,
         SessionSelfEditServiceProtocol,
+        TimetableOverviewServiceProtocol,
         TimetableServiceProtocol,
     )
     from ludamus.pacts.crowd import (
@@ -194,6 +196,10 @@ class ServicesProtocol(Protocol):
     def tracks_panel(self) -> TracksPanelServiceProtocol: ...
     @property
     def timetable(self) -> TimetableServiceProtocol: ...
+    @property
+    def timetable_conflicts(self) -> ConflictDetectionServiceProtocol: ...
+    @property
+    def timetable_overview(self) -> TimetableOverviewServiceProtocol: ...
     @property
     def encounters(self) -> EncounterServiceProtocol: ...
     @property

@@ -723,6 +723,23 @@ class TestAssignUnassignScope:
 
         mock_uow.agenda_items.delete.assert_not_called()
 
+    def test_unassign_log_failure_rolls_back_inside_atomic(self, service, mock_uow):
+        mock_uow.sessions.read_event.return_value = self._event(1)
+        agenda_item = MagicMock()
+        agenda_item.pk = 5
+        agenda_item.space_id = 2
+        agenda_item.start_time = datetime(2026, 1, 1, 10, 0, tzinfo=UTC)
+        agenda_item.end_time = datetime(2026, 1, 1, 11, 0, tzinfo=UTC)
+        mock_uow.agenda_items.read_by_session.return_value = agenda_item
+        mock_uow.schedule_change_logs.create.side_effect = RuntimeError("log failed")
+
+        with pytest.raises(RuntimeError, match="log failed"):
+            service.unassign_session(session_pk=1, event_pk=1)
+
+        mock_uow.atomic.assert_called_once()
+        mock_uow.agenda_items.delete.assert_called_once_with(agenda_item.pk)
+        mock_uow.schedule_change_logs.create.assert_called_once()
+
     def _arrange_acceptable_assignment(self, mock_uow, *, auto_confirm_sessions):
         mock_uow.sessions.read_event.return_value = self._event(
             1, auto_confirm_sessions=auto_confirm_sessions
