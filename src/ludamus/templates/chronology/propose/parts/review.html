@@ -58,14 +58,16 @@
                             {% endif %}
                         </dd>
                     </div>
-                    {% if review.duration %}
-                        <div>
-                            <dt class="text-xs text-foreground-muted">{% translate "Duration" %}</dt>
-                            <dd class="text-foreground">
-                                {{ review.duration|format_duration }}
-                            </dd>
-                        </div>
-                    {% endif %}
+                    {% with duration_label=review.duration|format_duration %}
+                        {% if duration_label %}
+                            <div>
+                                <dt class="text-xs text-foreground-muted">{% translate "Duration" %}</dt>
+                                <dd class="text-foreground">
+                                    {{ duration_label }}
+                                </dd>
+                            </div>
+                        {% endif %}
+                    {% endwith %}
                     {% for field in review.session_fields %}
                         {% if field.is_public %}
                             <div>

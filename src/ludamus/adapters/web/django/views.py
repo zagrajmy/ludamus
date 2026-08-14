@@ -55,6 +55,7 @@ from ludamus.gates.web.django.entities import (
 )
 from ludamus.gates.web.django.event.enroll_presentation import build_enroll_actions
 from ludamus.gates.web.django.helpers import placeholder_cover_url
+from ludamus.gates.web.django.sphere.marks import attach_guild_marks
 from ludamus.links.db.django.models import (
     AgendaItem,
     Event,
@@ -64,6 +65,7 @@ from ludamus.links.db.django.models import (
     SessionParticipation,
     SessionParticipationStatus,
 )
+from ludamus.links.db.django.repositories.chronology import public_scheduled_sessions
 from ludamus.links.db.django.repositories.sessions import (
     annotate_session_participation_counts,
     field_value_dto,
@@ -283,11 +285,11 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
         if not self.object.is_published and not has_panel_access(self.request):
             raise Http404
 
-        # Get all sessions for this event that are published
+        # Get all sessions for this event that are published. A private track
+        # is unlisted here for everyone, panel access included, so a manager
+        # previewing the page sees the schedule participants will get.
         event_sessions = annotate_session_participation_counts(
-            with_session_card_relations(
-                Session.objects.filter(event=self.object, agenda_item__isnull=False)
-            )
+            with_session_card_relations(public_scheduled_sessions(self.object.pk))
         ).order_by("agenda_item__start_time")
 
         shadowbanned_ids: frozenset[int] = frozenset()
@@ -660,6 +662,7 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
                 ),
                 session=SessionDTO.model_validate(session),
                 presenter=presenter,
+                presenter_is_shadowbanned=presenter.pk in shadowbanned_ids,
                 field_values=_field_value_dtos_from_models(session.field_values.all()),
                 track_names=[t.name for t in session.tracks.all() if t.is_public],
                 category_name=session.category.name if session.category else "",
@@ -719,6 +722,11 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
 
         # Set user participation data for authenticated users and anonymous users
         self._set_user_participations(sessions_data, event_sessions)
+        attach_guild_marks(
+            sessions_data,
+            guilds=self.request.services.guilds,
+            sphere_id=self.request.context.current_sphere_id,
+        )
 
         return sessions_data
 
@@ -791,8 +799,6 @@ def _guest_participations(
 
 
 def _event_allows_anonymous_enrollment(event: Event, session: Session) -> bool:
-    # Callers reach here only for scheduled sessions: _get_session_or_redirect
-    # already redirects unscheduled ones (no AgendaItem) before this runs.
     return any(
         config.allow_anonymous_enrollment and config.is_session_eligible(session)
         for config in event.get_active_enrollment_configs()
@@ -815,7 +821,9 @@ def _get_session_or_redirect(
     viewer_id = request.context.current_user_id
     if session.presenter_id in request.services.shadowban.banning_owner_ids(viewer_id):
         fake_full_session(session)
-    if not AgendaItem.objects.filter(session_id=session.pk).exists():
+    if not AgendaItem.objects.filter(session_id=session.pk).exists() and not (
+        session.session_participations.filter(user_id=viewer_id).exists()
+    ):
         raise RedirectError(
             reverse("web:index"),
             error=_("No enrollment configuration is available for this session."),
@@ -1635,8 +1643,7 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
             return False
 
         # A cancellation in the same batch frees its held seat (CONFIRMED or
-        # OFFERED) — exactly the statuses get_available_slots already counts as
-        # occupied — so credit it back before checking capacity.
+        # OFFERED both occupy capacity) — credit it back before checking.
         cancelling_user_ids = {
             req.user.pk for req in enrollment_requests if req.choice == "cancel"
         }

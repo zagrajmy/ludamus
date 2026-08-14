@@ -28,9 +28,15 @@
                 {# the transition's first frame. #}
                 <h3 class="w-fit text-3xl font-bold leading-tight tracking-tight text-foreground-primary"
                     data-morph="title">{{ data.session.title }}</h3>
-                <div class="flex items-center gap-2.5 my-3.5 min-w-0 flex-nowrap overflow-hidden">
-                    <span class="shrink-0" data-morph="avatar">
-                        {% include "components/avatar.html" with user=data.presenter size="size-8" %}
+                {# This row must not clip: the avatar's warning badge and guild #}
+                {# notch hang 4px off its edges, and it used to be overflow-hidden, #}
+                {# which shaved them. Nothing here needs it — the name bounds itself #}
+                {# with max-w + truncate, and the card's own overflow-hidden is the #}
+                {# backstop, 20px of padding away from the avatar. #}
+                <div class="flex items-center gap-2.5 my-3.5 min-w-0 flex-nowrap">
+                    <span class="shrink-0 relative" data-morph="avatar">
+                        {% include "components/avatar.html" with user=data.presenter size="size-8" danger_ring=data.presenter_is_shadowbanned %}
+                        {% include "components/guild_notch.html" with guild=data.guild flagged=data.presenter_is_shadowbanned ring="ring-2 ring-neutral-50 dark:ring-neutral-800" %}
                     </span>
                     <span class="shrink-0 max-w-[12rem] truncate text-base font-medium text-foreground-secondary"
                           data-morph="host"
@@ -62,10 +68,12 @@
                         {% icon "map-pin" class="size-4 shrink-0 text-foreground-muted/80" variant="mini" %}
                         <span class="truncate" title="{{ data.location_label }}">{{ data.location_label }}</span>
                     {% endif %}
-                    {% if data.session.duration %}
-                        {% icon "clock" class="size-4 shrink-0 text-foreground-muted/80" variant="mini" %}
-                        <span class="shrink-0">{{ data.session.duration|format_duration }}</span>
-                    {% endif %}
+                    {% with duration_label=data.session.duration|format_duration %}
+                        {% if duration_label %}
+                            {% icon "clock" class="size-4 shrink-0 text-foreground-muted/80" variant="mini" %}
+                            <span class="shrink-0">{{ duration_label }}</span>
+                        {% endif %}
+                    {% endwith %}
                 </div>
                 <div class="shrink-0 flex items-center gap-2">
                     {% if data.is_pending_proposal %}

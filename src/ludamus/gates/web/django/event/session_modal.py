@@ -41,6 +41,9 @@ class SessionModalComponentView(View):
             event_banned=event_banned,
             banned_presenter_ids=banned_by,
             shadowbanned_ids=shadowbanned_ids,
+            guild=request.services.guilds.mark_for_session(
+                sphere_id=request.context.current_sphere_id, session_pk=session_id
+            ),
         )
         return TemplateResponse(
             request,

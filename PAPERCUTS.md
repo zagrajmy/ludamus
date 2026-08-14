@@ -333,8 +333,55 @@ If you fix a papercut, remove it.
   permissions on /etc/ssh/ssh_config.d/20-systemd-ssh-proxy.conf'. Committing
   works, pushing needs the user to run it (or the file's mode fixed to 0644
   root:root).
+- 2026-08-07: docs/agents/sandbox.md documents the python3.14 install as
+  apt+deadsnakes, but the CC-web egress proxy 403s ppa.launchpadcontent.net, so
+  mise install leaves no 3.14 and the Python suite can't run. 3.13 is not a
+  fallback — the code relies on 3.14 PEP 649 deferred annotations
+  (pacts/legacy.py:229 uses SessionStatus 35 lines before its definition), so
+  imports NameError. I wrongly concluded the sandbox couldn't run tests at all.
+  `uv python install 3.14` fetches python-build-standalone from GitHub releases
+  (reachable) in ~4s; worth making that the documented fallback in the
+  SessionStart hook.
 - 2026-08-02: `mise run test:py -- PATHS` appends the paths to the task's fixed
   'pytest -n auto tests/integration tests/unit', so a targeted run silently
   becomes the whole suite. Had to kill it and call .venv/bin/pytest directly.
   Calling pytest directly then needs `PYTHONPATH=src` and `. ./.env.test`
   sourced by hand — two more retries before a targeted run started.
+- 2026-08-11: Burned a CI round because `djlint <path> --check` and the
+  `lint:djlint` task disagree. The task is
+  `djlint src --quiet --lint --check --format-css --format-js --profile=django`,
+  and `--format-css` is what reformats CSS inside `<style>` blocks — without it
+  my template checked clean locally and failed on CI, naming a file I had just
+  checked. Nothing in the local output hints that a flag is missing. Copying the
+  task's exact argv is the only reliable check when mise itself is unavailable;
+  worth a line in docs/agents/sandbox.md next to the oxfmt note below.
+- 2026-08-11: Hand-wrote a Playwright test and CI's `checks` job failed on oxfmt
+  formatting. oxfmt only runs through `aube exec` inside lint:hk, which the
+  sandbox's egress proxy blocks, so there is no way to format TS locally before
+  pushing. Worked around it with `npm i oxfmt@0.56.0` in a scratch dir, run from
+  the repo root so it picks up .oxfmtrc.json — that plain npm install is
+  reachable is worth documenting in docs/agents/sandbox.md.
+- 2026-08-12: compiling the PL catalog (mise run messages-compile) reddens 5
+  guild tests: sphere/guilds.py builds its message constants at import with
+  gettext (not lazy), so they freeze to Polish while the tests assert English.
+  CI never compiles the .mo, so it is green there. Deleted the local .mo to
+  match CI.
+- 2026-08-12: markdownlint's pre-commit autofix rewrites a line that begins with
+  an issue reference (#834) into '# 834', turning it into an H1 and then failing
+  MD022/MD025 on its own fix. Had to rewrap the paragraph so no line starts with
+  '#'.
+- 2026-08-12: `pkill -f "django runserver"` killed my own shell — the pattern
+  matches the tool's command line too, so the bash call died with exit 144 mid-
+  script (twice, once leaving a half-written file). Killing the dev server
+  needs the pid from `ps -eo pid,cmd | grep "[d]jango runserver"`.
+- 2026-08-12: Ran `vite build` while a hand-started `django runserver` was up,
+  so the running process kept serving the old hashed CSS filename the build had
+  just deleted. Pages rendered unstyled and a Playwright hover-opacity
+  assertion failed as if the CSS were missing — it was a 404. `mise run
+  test:e2e:serve` watches the manifest and bounces itself; a hand-rolled
+  runserver doesn't, so restart it after every client build.
+- 2026-08-12: Asserting a flash message in Playwright is a race. Flashes are
+  `data-flash="transient"` and flash.ts removes them 5s after load, which a
+  slow local page load can outlast — `expect(getByText("Guild created."))`
+  timed out while the row it announced was right there. Assert the durable page
+  state instead.

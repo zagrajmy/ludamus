@@ -1,0 +1,76 @@
+{% extends "panel/base.html" %}
+{% load i18n %}
+{% load tessera %}
+{% block title %}
+    {{ guild.name }}
+{% endblock title %}
+{% block page_title %}
+    {{ guild.name }}
+{% endblock page_title %}
+{% block page_subtitle %}
+    {{ current_sphere.name }} · {% translate "Guilds" %}
+{% endblock page_subtitle %}
+{% block header_actions %}
+    {% translate "Back to guilds" as t_back %}
+    {% url 'multiverse:panel:guilds' as back_url %}
+    {% tessera_button t_back href=back_url variant="secondary" %}
+{% endblock header_actions %}
+{% block content %}
+    <div class="p-4 lg:p-6 grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+        <form method="post" enctype="multipart/form-data" class="card p-6">
+            {% csrf_token %}
+            <h2 class="text-lg font-semibold text-foreground mb-4">{% translate "Guild details" %}</h2>
+            {% tessera_errors form %}
+            {% include "multiverse/panel/guilds/_form.html" %}
+            <div class="mt-6">
+                {% translate "Save" as t_save %}
+                {% tessera_button t_save icon="check" full_width_mobile=False %}
+            </div>
+        </form>
+        <div class="card p-6">
+            <h2 class="text-lg font-semibold text-foreground mb-1">{% translate "Presenters" %}</h2>
+            <p class="text-sm text-foreground-muted mb-4">
+                {% blocktranslate %}This guild's mark appears beside these people on every programme card they present.{% endblocktranslate %}
+            </p>
+            <form method="post"
+                  action="{% url 'multiverse:panel:guild-member-add' pk=guild.pk %}"
+                  class="mb-6">
+                {% csrf_token %}
+                {% tessera_field member_form.identifier %}
+                <datalist id="guild-presenter-suggestions">
+                    {% for name in presenter_names %}
+                        <option value="{{ name }}"></option>
+                    {% endfor %}
+                </datalist>
+                <div class="mt-3">
+                    {% translate "Add presenter" as t_add %}
+                    {% tessera_button t_add icon="plus" full_width_mobile=False %}
+                </div>
+            </form>
+            {% if roster %}
+                <ul class="divide-y divide-border border-t border-border">
+                    {% for row in roster %}
+                        <li class="flex items-center gap-3 py-3">
+                            {% include "components/avatar.html" with user=row.member size="size-8" %}
+                            <span class="min-w-0 flex-1">
+                                <span class="block truncate text-sm font-medium text-foreground">{{ row.name }}</span>
+                                {% if row.subtitle %}
+                                    <span class="block truncate text-xs text-foreground-muted">{{ row.subtitle }}</span>
+                                {% endif %}
+                            </span>
+                            <form method="post" action="{{ row.remove_url }}">
+                                {% csrf_token %}
+                                <button type="submit" class="icon-btn text-danger hover:text-danger/80">
+                                    {% icon "x-mark" class="w-4 h-4" %}
+                                    <span class="sr-only">{% blocktranslate with name=row.name %}Remove {{ name }} from this guild{% endblocktranslate %}</span>
+                                </button>
+                            </form>
+                        </li>
+                    {% endfor %}
+                </ul>
+            {% else %}
+                <p class="border-t border-border pt-4 text-sm text-foreground-muted">{% translate "Nobody in this guild yet." %}</p>
+            {% endif %}
+        </div>
+    </div>
+{% endblock content %}

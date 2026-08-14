@@ -12,6 +12,9 @@ from ludamus.gates.web.django.chronology.event_presentation import (
 from ludamus.gates.web.django.entities import UserInfo
 from ludamus.gates.web.django.event.enroll_presentation import EnrollActions, SeatBadge
 from ludamus.links.db.django.models import (
+    Facilitator,
+    Guild,
+    GuildMembership,
     SessionField,
     SessionFieldValue,
     SessionParticipation,
@@ -26,6 +29,7 @@ from ludamus.pacts import (
     SessionFieldValueDTO,
 )
 from ludamus.pacts.crowd import UserDTO
+from ludamus.pacts.guild import GuildMarkDTO
 from tests.integration.conftest import (
     AgendaItemFactory,
     EventFactory,
@@ -37,8 +41,6 @@ from tests.integration.web.chronology.helpers import make_half_full_session
 
 _TEMPLATE = "chronology/parts/session-modal.html"
 
-# Spelled out rather than re-derived through build_enroll_actions, so these
-# pin the wire format the footer renders, not just the view's arithmetic.
 _ENROLL = EnrollActions(
     submit_value="enroll",
     submit_label="Enroll",
@@ -675,4 +677,76 @@ class TestSessionModalComponentView:
                 "enroll_actions": None,
             },
             contains=f'id="session-{agenda_item.session.pk}"',
+        )
+
+
+class TestGuildMarkInTheModal:
+    def test_modal_carries_the_presenters_guild(
+        self, active_user, agenda_item, client, event, sphere
+    ):
+        session = agenda_item.session
+        guild = Guild.objects.create(sphere=sphere, name="Topory", slug="topory")
+        GuildMembership.objects.create(sphere=sphere, guild=guild, member=active_user)
+
+        response = client.get(_url(event, session.pk))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name=_TEMPLATE,
+            context_data={
+                "data": _expected_session_data(
+                    agenda_item=agenda_item,
+                    session=session,
+                    presenter=active_user,
+                    guild=GuildMarkDTO(pk=guild.pk, name="Topory", logo_url=""),
+                ),
+                "event": EventDTO.model_validate(event),
+                "event_banned": False,
+                "enroll_actions": None,
+            },
+        )
+
+    def test_modal_carries_an_accountless_facilitators_guild(
+        self, agenda_item, client, event, sphere
+    ):
+        session = agenda_item.session
+        session.presenter = None
+        session.display_name = "Imported"
+        session.save()
+        guild = Guild.objects.create(sphere=sphere, name="Topory", slug="topory")
+        facilitator = Facilitator.objects.create(
+            event=event,
+            display_name="Imported",
+            slug="imported",
+            user=None,
+            guild=guild,
+        )
+        session.facilitators.add(facilitator)
+
+        response = client.get(_url(event, session.pk))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name=_TEMPLATE,
+            context_data={
+                "data": _expected_session_data(
+                    agenda_item=agenda_item,
+                    session=session,
+                    presenter_info=UserInfo(
+                        avatar_url=None,
+                        discord_username="",
+                        full_name="Imported",
+                        name="Imported",
+                        pk=0,
+                        slug="",
+                        username="Imported",
+                    ),
+                    guild=GuildMarkDTO(pk=guild.pk, name="Topory", logo_url=""),
+                ),
+                "event": EventDTO.model_validate(event),
+                "event_banned": False,
+                "enroll_actions": None,
+            },
         )

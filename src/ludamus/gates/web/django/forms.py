@@ -18,11 +18,13 @@ from ludamus.gates.web.django.dynamic_fields import (
     CustomAnswerFormMixin,
     build_dynamic_fields,
 )
-from ludamus.gates.web.django.templatetags.cfp_tags import (
-    build_duration,
-    format_duration,
-)
 from ludamus.pacts.discounts import DiscountKind
+from ludamus.pacts.durations import (
+    MAX_DURATION_HOURS,
+    MAX_DURATION_MINUTES,
+    build_duration,
+    duration_choices,
+)
 from ludamus.pacts.images import ALLOWED_IMAGE_FORMATS, IMAGE_ACCEPT, LOGO_ACCEPT
 from ludamus.pacts.legacy import PromotionMode
 from ludamus.pacts.submissions import AccreditationType
@@ -31,6 +33,7 @@ if TYPE_CHECKING:
     from collections.abc import Iterable, Sequence
 
     from django.core.files.uploadedfile import UploadedFile
+    from django.utils.functional import _StrPromise
     from lxml.etree import _Element as Element
 
     from ludamus.pacts import SessionFieldRequirementDTO
@@ -187,11 +190,19 @@ def cover_image_field() -> forms.ImageField:
     )
 
 
-def _logo_field() -> forms.FileField:
+def logo_field(*, help_text: str | _StrPromise | None = None) -> forms.FileField:
+    # Public like cover_image_field(): the guild panel lives in another module
+    # and must not restate the accepted types or the contain-fit hint.
     return forms.FileField(
         required=False,
         label=_("Logo"),
-        help_text=_(
+        # Attached here rather than in each form's clean_logo: a logo field
+        # cannot then exist without its validation. Django short-circuits the
+        # False (clear) case before validators run, and validate_uploaded_logo
+        # early-returns on empty, so behaviour is unchanged.
+        validators=[validate_uploaded_logo],
+        help_text=help_text
+        or _(
             "Shown on the printable schedule. Max 8 MB. JPG, PNG, WebP, AVIF, or SVG."
         ),
         widget=forms.ClearableFileInput(
@@ -231,7 +242,7 @@ class EventSettingsForm(forms.Form):
         required=False, widget=forms.Textarea(attrs={"rows": 3})
     )
     cover_image = cover_image_field()
-    logo = _logo_field()
+    logo = logo_field()
     start_time = forms.DateTimeField(
         widget=_datetime_local_widget(),
         input_formats=_DATETIME_LOCAL_FORMATS,
@@ -285,11 +296,6 @@ class EventSettingsForm(forms.Form):
         validate_uploaded_image(image)
         return image
 
-    def clean_logo(self) -> object:
-        logo = self.cleaned_data.get("logo")
-        validate_uploaded_logo(logo)
-        return logo
-
 
 class SphereSettingsForm(forms.Form):
     """Form for sphere-wide settings."""
@@ -299,12 +305,7 @@ class SphereSettingsForm(forms.Form):
         label=_("Allow facilitators to edit their own sessions"),
         help_text=_("Default for the whole sphere. Events can override this setting."),
     )
-    logo = _logo_field()
-
-    def clean_logo(self) -> object:
-        logo = self.cleaned_data.get("logo")
-        validate_uploaded_logo(logo)
-        return logo
+    logo = logo_field()
 
 
 class ProposalSettingsForm(forms.Form):
@@ -619,13 +620,17 @@ class TrackForm(forms.Form):
     is_public = forms.BooleanField(
         required=False,
         initial=True,
-        help_text=_("Public tracks are shown to proposers in the submission wizard."),
+        help_text=_(
+            "Public tracks are shown to proposers in the submission wizard, and"
+            " their sessions appear on the event schedule."
+        ),
     )
 
 
-class SessionEditForm(forms.Form):
-    """Form for editing session fields by an organizer."""
+CUSTOM_DURATION = "custom"
 
+
+class SessionEditForm(forms.Form):
     title = forms.CharField(
         max_length=255,
         strip=True,
@@ -650,7 +655,15 @@ class SessionEditForm(forms.Form):
         help_text=_("Empty or 0 = no limit"),
     )
     min_age = forms.IntegerField(required=False, min_value=0, label=_("Minimum Age"))
-    duration = forms.CharField(required=False, label=_("Duration"))
+    # Not a field: the name a subclass's picker takes. Declared so the shared
+    # duration partial can ask whether there is one to render.
+    duration = None
+    duration_hours = forms.IntegerField(
+        required=False, min_value=0, max_value=MAX_DURATION_HOURS, label=_("Hours")
+    )
+    duration_minutes = forms.IntegerField(
+        required=False, min_value=0, max_value=MAX_DURATION_MINUTES, label=_("Minutes")
+    )
     cover_image = cover_image_field()
 
     def clean_cover_image(self) -> object:
@@ -658,15 +671,6 @@ class SessionEditForm(forms.Form):
         validate_uploaded_image(image)
         return image
 
-
-CUSTOM_DURATION = "custom"
-MAX_DURATION_HOURS = 23
-MAX_DURATION_MINUTES = 59
-
-
-class _ComposedDurationForm(SessionEditForm):
-    # A session stores one ISO duration, but the organizer may type it as hours
-    # plus minutes, so the composed value has to land back on `duration`.
     # Returns nothing: the composed value is written straight into
     # cleaned_data, which Django keeps when clean() returns None.
     def clean(self) -> None:
@@ -685,16 +689,16 @@ class _ComposedDurationForm(SessionEditForm):
 
 
 def _duration_field(durations: Sequence[str]) -> forms.ChoiceField | None:
-    # No configured durations means the steppers are the whole control, so the
-    # inherited free-text field is dropped (a None entry removes it).
-    if not durations:
+    # No configured durations means the steppers are the whole control, so no
+    # picker is added at all.
+    if not (labelled := duration_choices(durations)):
         return None
     return forms.ChoiceField(
         required=False,
         label=_("Duration"),
         choices=[
             ("", "---"),
-            *((d, format_duration(d)) for d in durations),
+            *labelled,
             # Kept last: the template reveals the steppers with a CSS
             # :last-child selector rather than JavaScript.
             (CUSTOM_DURATION, _("Custom")),
@@ -720,13 +724,6 @@ def create_proposal_form(
         )
     }
 
-    attrs["duration_hours"] = forms.IntegerField(
-        required=False, min_value=0, max_value=MAX_DURATION_HOURS, label=_("Hours")
-    )
-    attrs["duration_minutes"] = forms.IntegerField(
-        required=False, min_value=0, max_value=MAX_DURATION_MINUTES, label=_("Minutes")
-    )
-
     custom_required = build_dynamic_fields(
         fields=attrs, requirements=requirements, prefix="session"
     )
@@ -737,7 +734,7 @@ def create_proposal_form(
         "custom_required_keys": custom_required,
     }
     return type(
-        "ProposalCreateForm", (CustomAnswerFormMixin, _ComposedDurationForm), namespace
+        "ProposalCreateForm", (CustomAnswerFormMixin, SessionEditForm), namespace
     )
 
 
