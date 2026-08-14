@@ -80,8 +80,7 @@ def _validate_draft_time_slots(
 def _validate_draft_category(
     *, event_id: int, draft: ProposalDraft, repos: ProposalPanelRepos
 ) -> None:
-    category_id = draft.data.get("category_id")
-    if category_id is None:
+    if (category_id := draft.data.get("category_id")) is None:
         return
     category_pks = {
         category.pk for category in repos.proposal_categories.list_by_event(event_id)

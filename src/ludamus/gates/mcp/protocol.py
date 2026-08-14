@@ -46,8 +46,7 @@ _AUDIT_REDACTED_KEYS: dict[str, frozenset[str]] = {
 
 
 def sanitize_audit_arguments(tool_name: str, arguments: JsonDict) -> JsonDict:
-    redact = _AUDIT_REDACTED_KEYS.get(tool_name)
-    if redact is None:
+    if (redact := _AUDIT_REDACTED_KEYS.get(tool_name)) is None:
         return arguments
     return {
         key: "[redacted]" if key in redact else value
