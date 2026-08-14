@@ -10,7 +10,7 @@ the report says which.
 
 What the night does not do is read the review it posted. Answering a review is
 somebody's decision and this runs at 3am with nobody to ask — so every action
-item stays an open thread, and ``ship`` is the cast that goes through them with
+item stays an open thread, and ``pr_review`` is the cast that goes through them with
 you in the morning.
 
 The push comes before the review and not after: an inline review comment has to
@@ -343,7 +343,7 @@ async def push_work(work: Work) -> Transition:
 
 # Where a branch's night ends, whichever way it went: green means the gates went
 # green and the review is up, and blocked means it did not — the reviews are not
-# the night's to have an opinion about, and `ship` is what answers them.
+# the night's to have an opinion about, and `pr_review` is what answers them.
 def _ended(work: Work) -> Closed:
     return Closed(work=work, outcome="blocked" if work.blocked else "green")
 

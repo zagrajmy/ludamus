@@ -76,7 +76,7 @@ class Checked(BaseModel):
     url: str
     # What the night could say about the branch, which is a fact about the build
     # and never about the reviews: whether the gates went green and the work went
-    # up. What the review threads say is `ship`'s to read.
+    # up. What the review threads say is `pr_review`'s to read.
     outcome: Literal["green", "blocked"]
     # None when git could not say. Nothing to push and "we could not tell" are
     # different answers, and the report prints them differently.
@@ -304,7 +304,7 @@ def report_card(run: Run) -> Report:
             row.branch for row in run.checked if row.unpushed is None or row.unpushed
         ],
         to_fix=[row.branch for row in run.checked if row.outcome == "blocked"],
-        # What `ship` can be run on in the morning: green, pushed, and carrying a
+        # What `pr_review` can be run on in the morning: green, pushed, and carrying a
         # review somebody has to answer.
         ready=[row.branch for row in run.checked if row.outcome == "green"],
         not_reached=[pull.branch for pull in run.queue],

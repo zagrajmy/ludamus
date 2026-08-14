@@ -1,6 +1,6 @@
 import pytest
 
-from ludamus.edges.rituals.ship import Branch
+from ludamus.edges.rituals.pr_review import Branch
 from ludamus.edges.rituals.state import PullRequest, Run, Work
 
 

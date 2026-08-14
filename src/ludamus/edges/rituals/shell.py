@@ -54,7 +54,7 @@ LIST = (
 # it is how you ask for the review again.
 THERMO_LABEL = "pr::thermo"
 # Every review thread on this branch is answered and settled, and the gates were
-# green when that happened. Put on by `ship` and by nothing else: `pr_check`
+# green when that happened. Put on by `pr_review` and by nothing else: `pr_check`
 # never reads the threads, so the night is in no position to claim it.
 QA_LABEL = "pr::qa"
 # Hands off this one. It is read at the listing and nowhere else, so a branch
@@ -98,7 +98,7 @@ def quoted(value: str) -> str:
 # GraphQL rather than `pulls/<number>/comments`, because the REST endpoint
 # carries no resolution state at all: it answers a settled thread and a live one
 # identically, and a cast that cannot tell them apart works twice.
-# Both ids ride along, because `ship` answers these threads and then settles
+# Both ids ride along, because `pr_review` answers these threads and then settles
 # them: the reply endpoint takes `databaseId` and the mutation takes `id`, and
 # whoever has to go back for either has already guessed at one.
 _THREADS = """\
@@ -131,7 +131,7 @@ _OPEN_ONES = (
 )
 
 
-# How many threads nobody has settled, which is the whole of what `ship` asks of
+# How many threads nobody has settled, which is the whole of what `pr_review` asks of
 # a candidate — and, at the end, of the branch it just worked on.
 def unsettled(number: int) -> str:
     return threads(number, part=_OPEN_ONES)

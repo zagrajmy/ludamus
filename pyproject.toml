@@ -537,7 +537,7 @@ ignore_names = [
     "test_func",
     # Vekna rituals
     "pr_check",
-    "ship",
+    "pr_review",
 ]
 
 ignore_decorators = [

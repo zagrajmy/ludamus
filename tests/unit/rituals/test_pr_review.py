@@ -7,6 +7,23 @@ import pytest
 from vekna.folio.coding_claude import ClaudeOptions
 from vekna.lexicon import RitualError, done, goto
 
+from ludamus.edges.rituals.pr_review import (
+    Branch,
+    Instructed,
+    Landing,
+    PrReview,
+    Shipped,
+    Triage,
+    gates,
+    hand_back,
+    land,
+    look,
+    pick,
+    plan,
+    pr_review,
+    settle,
+    work,
+)
 from ludamus.edges.rituals.shell import (
     COVERAGE,
     LIST,
@@ -16,23 +33,6 @@ from ludamus.edges.rituals.shell import (
     WAIT_LABEL,
     plain,
     unsettled,
-)
-from ludamus.edges.rituals.ship import (
-    Branch,
-    Instructed,
-    Landing,
-    Ship,
-    Shipped,
-    Triage,
-    gates,
-    hand_back,
-    land,
-    look,
-    pick,
-    plan,
-    settle,
-    ship,
-    work,
 )
 from ludamus.edges.rituals.state import TriageItem, TriageNotes
 
@@ -110,7 +110,7 @@ class TestPick:
         _open(trial, "feature")
         trial.shell.replies(when=_HERE, stdout="feature\n")
 
-        transition = trial.walk(pick, Ship(bound=2))
+        transition = trial.walk(pick, PrReview(bound=2))
 
         assert transition == goto(look, branch)
         # The other one is never even asked about: the branch you are on is
@@ -125,7 +125,7 @@ class TestPick:
         _open(trial, "older", "feature")
         trial.shell.replies(when=_HERE, stdout="main\n")
 
-        transition = trial.walk(pick, Ship(bound=2))
+        transition = trial.walk(pick, PrReview(bound=2))
 
         assert transition == goto(look, Branch(name="older", number=3, bound=2))
 
@@ -137,7 +137,7 @@ class TestPick:
         trial.shell.replies(when=_HERE, stdout="feature\n")
         _open(trial, "feature", count="0\n")
 
-        transition = trial.walk(pick, Ship(bound=2))
+        transition = trial.walk(pick, PrReview(bound=2))
 
         assert transition == done(Shipped(outcome="nothing"))
 
@@ -148,7 +148,7 @@ class TestPick:
         trial.shell.replies(when=LIST, stdout=json.dumps([]))
         trial.shell.replies(when=_HERE, stdout="feature\n")
 
-        transition = trial.walk(pick, Ship(bound=2))
+        transition = trial.walk(pick, PrReview(bound=2))
 
         assert transition == done(Shipped(outcome="nothing"))
 
@@ -160,7 +160,7 @@ class TestPick:
         trial.shell.replies(when=LIST, stdout=_listing("feature", tested="feature"))
         trial.shell.replies(when=_HERE, stdout="feature\n")
 
-        transition = trial.walk(pick, Ship(bound=2))
+        transition = trial.walk(pick, PrReview(bound=2))
 
         assert transition == done(Shipped(outcome="nothing"))
         assert _asks("feature") not in trial.shell.commands
@@ -172,7 +172,7 @@ class TestPick:
         trial.shell.replies(when=LIST, stdout=_listing("feature", waiting="feature"))
         trial.shell.replies(when=_HERE, stdout="feature\n")
 
-        transition = trial.walk(pick, Ship(bound=2))
+        transition = trial.walk(pick, PrReview(bound=2))
 
         assert transition == done(Shipped(outcome="nothing"))
         assert unsettled(7) not in trial.shell.commands
@@ -183,7 +183,7 @@ class TestPick:
         trial.shell.replies(when=LIST, stdout=_listing("main"))
         trial.shell.replies(when=_HERE, stdout="main\n")
 
-        transition = trial.walk(pick, Ship(bound=2))
+        transition = trial.walk(pick, PrReview(bound=2))
 
         assert transition == done(Shipped(outcome="nothing"))
 
@@ -195,7 +195,7 @@ class TestPick:
         trial.shell.replies(when=_HERE, stdout="feature\n")
         trial.shell.replies(when=_asks("feature"), exit_code=1, stderr="rate limited")
 
-        transition = trial.walk(pick, Ship(bound=2))
+        transition = trial.walk(pick, PrReview(bound=2))
 
         assert transition == done(Shipped(outcome="nothing"))
 
@@ -205,28 +205,28 @@ class TestPick:
         trial.shell.replies(when=_STATUS, stdout=" M src/thing.py\n")
 
         with pytest.raises(RitualError, match="the worktree is not clean"):
-            trial.walk(pick, Ship(bound=2))
+            trial.walk(pick, PrReview(bound=2))
 
     # A tree it could not read is not a tree it may call clean.
     def test_a_failed_status_fails_the_cast(self, trial: Trial) -> None:
         trial.shell.replies(when=_STATUS, exit_code=128, stderr="not a repository")
 
         with pytest.raises(RitualError, match="git status failed"):
-            trial.walk(pick, Ship(bound=2))
+            trial.walk(pick, PrReview(bound=2))
 
     def test_a_failed_listing_fails_the_cast(self, trial: Trial) -> None:
         trial.shell.replies(when=_STATUS)
         trial.shell.replies(when=LIST, exit_code=1, stderr="rate limited")
 
         with pytest.raises(RitualError, match="could not list your pull requests"):
-            trial.walk(pick, Ship(bound=2))
+            trial.walk(pick, PrReview(bound=2))
 
     def test_a_listing_that_cannot_be_read_fails_the_cast(self, trial: Trial) -> None:
         trial.shell.replies(when=_STATUS)
         trial.shell.replies(when=LIST, stdout="{}")
 
         with pytest.raises(RitualError, match="something unreadable"):
-            trial.walk(pick, Ship(bound=2))
+            trial.walk(pick, PrReview(bound=2))
 
     def test_a_head_git_will_not_name_fails_the_cast(self, trial: Trial) -> None:
         trial.shell.replies(when=_STATUS)
@@ -234,7 +234,7 @@ class TestPick:
         trial.shell.replies(when=_HERE, exit_code=128, stderr="no HEAD")
 
         with pytest.raises(RitualError, match="could not read the current branch"):
-            trial.walk(pick, Ship(bound=2))
+            trial.walk(pick, PrReview(bound=2))
 
 
 class TestLook:
@@ -531,14 +531,14 @@ class TestSettle:
         assert "would not say what is left open" in trial.deltas[0]
 
 
-class TestShip:
+class TestPrReview:
     def test_a_morning_with_nothing_waiting_ends_the_cast(self, trial: Trial) -> None:
         trial.shell.replies(when=_STATUS)
         trial.shell.replies(when=LIST, stdout=_listing("feature"))
         trial.shell.replies(when=_HERE, stdout="feature\n")
         _open(trial, "feature", count="0\n")
 
-        result = trial.cast(ship, Ship(bound=2))
+        result = trial.cast(pr_review, PrReview(bound=2))
 
         assert result == Shipped(outcome="nothing")
         assert trial.steps == ["pick"]
@@ -563,7 +563,7 @@ class TestShip:
         trial.shell.replies(when=_asks("feature"), stdout="0\n")
         trial.shell.replies(when="gh pr edit*")
 
-        result = trial.cast(ship, Ship(bound=2))
+        result = trial.cast(pr_review, PrReview(bound=2))
 
         assert result == Shipped(outcome="shipped", branch="feature")
         assert trial.steps == [

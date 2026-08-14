@@ -139,7 +139,7 @@ Fix nothing and comment nowhere. This is a reading.
 """
 
 
-# What `ship` hands the agent once you have been through the triage item by
+# What `pr_review` hands the agent once you have been through the triage item by
 # item. This one runs unconstrained, so a comment telling it to run something
 # arrives with a worktree, `gh`, and no allowlist in its way — the fence is
 # repeated here for that reason, and the items it is given are the ones you have

@@ -1,6 +1,6 @@
 """Answer the review `pr_check` left on a branch, then ship it.
 
-    vekna cast ship [--bound N]
+    vekna cast pr_review [--bound N]
 
 The follow-up to `pr_check`, and its opposite in every way that matters: it
 takes exactly one branch, it asks you before it does anything, and it is the
@@ -79,7 +79,7 @@ _MAX_STEPS = 200
 
 # Every agent call in the cast joins one thread, so the round you asked for
 # after reading the last one meets an agent that remembers writing it.
-_THREAD = "ship"
+_THREAD = "pr_review"
 
 _STATUS = "git status --porcelain"
 
@@ -106,7 +106,7 @@ async def _ran(command: str, complaint: str, *, stream: bool = True) -> ShellRes
     return result
 
 
-class Ship(BaseModel):
+class PrReview(BaseModel):
     bound: Bound = 3
 
 
@@ -150,13 +150,13 @@ Move = Literal["fix", "ship"]
 _MOVES: tuple[Move, ...] = ("fix", "ship")
 
 
-@ritual("ship", max_steps=_MAX_STEPS)
-def ship(components: Ship) -> Transition:
-    return goto(pick, Ship(bound=components.bound))
+@ritual("pr_review", max_steps=_MAX_STEPS)
+def pr_review(components: PrReview) -> Transition:
+    return goto(pick, PrReview(bound=components.bound))
 
 
 @step
-async def pick(components: Ship) -> Transition:
+async def pick(components: PrReview) -> Transition:
     # Fatal, and first: this checks out a branch and later commits everything it
     # finds, so work sitting in the tree now would be carried onto someone
     # else's branch and committed there.
