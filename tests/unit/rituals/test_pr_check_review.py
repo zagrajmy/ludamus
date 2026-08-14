@@ -18,8 +18,8 @@ from ludamus.edges.rituals.shell import (
     CR_LABEL,
     QA_LABEL,
     THERMO_LABEL,
-    rooted,
-    triage_path,
+    TRIAGE_TITLE,
+    triage_comment,
 )
 from ludamus.edges.rituals.state import (
     Closed,
@@ -38,7 +38,10 @@ _QA_COMMIT = (
     "git add -A && (git diff --cached --quiet || "
     "git commit -m 'docs: manual test scenarios for this branch')"
 )
-_TRIAGE_FILE = rooted(f"test -f {triage_path('feature')}")
+_READ_TRIAGE = triage_comment(7)
+# The command as it is answered, rather than as it is run: `when` is a glob, and
+# the jq in it is full of brackets a glob reads as a character class.
+_READS = "gh pr view 7 --json comments*"
 _NOTES = TriageNotes(
     items=[
         TriageItem(where="src/thing.py", what="the guard is missing", priority="p1"),
@@ -228,7 +231,7 @@ class TestWriteTriage:
         self, trial: Trial, work: Work
     ) -> None:
         trial.coding.replies("wrote the triage")
-        trial.shell.replies(when=_TRIAGE_FILE)
+        trial.shell.replies(when=_READS, stdout=f"{TRIAGE_TITLE}\np1: one\n")
         trial.shell.replies(when="gh pr edit*")
 
         transition = trial.walk(write_triage, Triaged(work=work, notes=_NOTES))
@@ -240,37 +243,48 @@ class TestWriteTriage:
                 outcome="triage",
             ),
         )
-        # Left in `.local` and never committed: the file is a note to `ship`,
-        # not part of the branch.
+        # Posted on the pull request and never committed: the triage is a note
+        # to `ship`, not part of the branch.
         assert trial.shell.commands == [
-            _TRIAGE_FILE,
+            _READ_TRIAGE,
             f"gh pr edit 7 --add-label {CR_LABEL}",
         ]
         assert "the guard is missing" in trial.coding.prompts[0]
 
-    # The label promises a triage, so the file is asked for by name: nothing is
-    # committed here, and an agent that answered without writing would otherwise
+    # The label promises a triage, so the comment is read back: nothing is
+    # committed here, and an agent that answered without posting would otherwise
     # earn the branch a promise nobody can keep.
-    def test_a_triage_that_was_never_written_sets_the_branch_aside(
+    def test_a_triage_that_was_never_posted_sets_the_branch_aside(
         self, trial: Trial, work: Work
     ) -> None:
         trial.coding.replies("thought about it")
-        trial.shell.replies(when=_TRIAGE_FILE, exit_code=1)
+        trial.shell.replies(when=_READS)
 
         transition = trial.walk(write_triage, Triaged(work=work, notes=_NOTES))
 
         assert transition == goto(
-            set_aside,
-            work.model_copy(
-                update={"note": f"the agent wrote no {triage_path('feature')}"}
-            ),
+            set_aside, work.model_copy(update={"note": "the agent posted no triage"})
+        )
+
+    # A triage nothing can read is one `ship` will not find either, so a `gh`
+    # that would not answer lands in the same place.
+    def test_a_reading_that_fails_sets_the_branch_aside(
+        self, trial: Trial, work: Work
+    ) -> None:
+        trial.coding.replies("posted it")
+        trial.shell.replies(when=_READS, exit_code=1, stderr="rate limited")
+
+        transition = trial.walk(write_triage, Triaged(work=work, notes=_NOTES))
+
+        assert transition == goto(
+            set_aside, work.model_copy(update={"note": "the agent posted no triage"})
         )
 
     def test_a_label_that_will_not_go_on_sets_the_branch_aside(
         self, trial: Trial, work: Work
     ) -> None:
         trial.coding.replies("wrote it")
-        trial.shell.replies(when=_TRIAGE_FILE)
+        trial.shell.replies(when=_READS, stdout=f"{TRIAGE_TITLE}\np1: one\n")
         trial.shell.replies(when="gh pr edit*", exit_code=1, stderr="rate limited")
 
         transition = trial.walk(write_triage, Triaged(work=work, notes=_NOTES))

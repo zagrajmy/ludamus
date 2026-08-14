@@ -13,7 +13,7 @@ from ludamus.edges.rituals.pr_check import (
     report,
     set_aside,
 )
-from ludamus.edges.rituals.shell import COVERAGE, PR_FIX, QA_LABEL, plain
+from ludamus.edges.rituals.shell import COVERAGE, PR_FIX, QA_LABEL, TRIAGE_TITLE, plain
 from ludamus.edges.rituals.state import (
     Checked,
     Closed,
@@ -31,7 +31,9 @@ if TYPE_CHECKING:
 
 _AHEAD = "test feature = *"
 _PUSH = "git push https-origin feature"
-_WROTE_TRIAGE = "cd *test -f .local/triage-feature.md"
+# A glob, not the command: the jq `triage_comment` builds is full of brackets a
+# glob reads as a character class, so the exact string answers nothing.
+_READ_TRIAGE = "gh pr view 7 --json comments*"
 _RELEASE = "if git rev-parse*MERGE_HEAD*git stash push*"
 # Red, red, green: enough to prove the second repair meets the same agent.
 _GATE_ROUNDS = 3
@@ -363,8 +365,8 @@ class TestWholeCast:
             ),
             when="Read the open*",
         )
-        trial.coding.replies("wrote the triage", when="Write `.local*")
-        trial.shell.replies(when=_WROTE_TRIAGE)
+        trial.coding.replies("posted the triage", when="Write up the review*")
+        trial.shell.replies(when=_READ_TRIAGE, stdout=f"{TRIAGE_TITLE}\np1: one\n")
 
         result = trial.cast(pr_check, PrCheck(bound=1))
 

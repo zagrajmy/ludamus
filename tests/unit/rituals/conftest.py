@@ -27,4 +27,4 @@ def work() -> Work:
 
 @pytest.fixture
 def branch() -> Branch:
-    return Branch(name="feature", bound=2)
+    return Branch(name="feature", number=7, bound=2)

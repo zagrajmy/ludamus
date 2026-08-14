@@ -11,11 +11,10 @@ from ludamus.edges.rituals.shell import (
     COVERAGE,
     LIST,
     PR_FIX,
-    TRIAGE_GLOB,
+    TRIAGE_TITLE,
     WAIT_LABEL,
     plain,
-    rooted,
-    triage_path,
+    triage_comment,
 )
 from ludamus.edges.rituals.ship import (
     Branch,
@@ -38,33 +37,45 @@ if TYPE_CHECKING:
 
 _STATUS = "git status --porcelain"
 _HERE = "git rev-parse --abbrev-ref HEAD"
-_LS = rooted(f"ls -1 {TRIAGE_GLOB} 2>/dev/null")
-_TRIAGE = triage_path("feature")
-_CAT = paged(rooted(f"cat {_TRIAGE}"))
+_TRIAGE = f"{TRIAGE_TITLE}\n\np1: the guard is missing\n"
+_READ = triage_comment(7)
+_PAGED = paged(_READ)
+# The command as it is answered, rather than as it is run: `when` is a glob, and
+# the jq in it is full of brackets a glob reads as a character class.
+_READS = "gh pr view 7 --json comments*"
+_PAGES = "if :*gh pr view 7 --json comments*"
 _REPORT = "Diff Coverage\nsrc/thing.py (80.0%): Missing lines 12-14\n"
 _COVERED = "Diff Coverage\nTotal: 10 lines\nMissing: 0 lines\n"
+
+
+# Fixed per name rather than counted off the listing: `feature` is the pull
+# request every fixture here is built around, and the triage is now read by
+# number.
+_NUMBERS = {"feature": 7, "older": 3, "main": 9}
 
 
 def _listing(*branches: str, waiting: str = "") -> str:
     rows = [
         {
-            "number": number,
+            "number": _NUMBERS[name],
             "title": f"Add {name}",
-            "url": f"https://github.com/fancysnake/ludamus/pull/{number}",
+            "url": f"https://github.com/fancysnake/ludamus/pull/{_NUMBERS[name]}",
             "headRefName": name,
             "baseRefName": "main",
             # Ascending with the listing, so the first name given is also the
             # one that has been waiting longest.
-            "updatedAt": f"2026-08-0{number}T22:00:00Z",
+            "updatedAt": f"2026-08-0{spot}T22:00:00Z",
             "labels": [{"name": WAIT_LABEL}] if name == waiting else [],
         }
-        for number, name in enumerate(branches, start=1)
+        for spot, name in enumerate(branches, start=1)
     ]
     return json.dumps(rows)
 
 
-def _triaged(*branches: str) -> str:
-    return "".join(f"{triage_path(name)}\n" for name in branches)
+def _triaged(trial: Trial, *branches: str) -> None:
+    for name in branches:
+        pattern = f"gh pr view {_NUMBERS[name]} --json comments*"
+        trial.shell.replies(when=pattern, stdout=_TRIAGE)
 
 
 class TestPick:
@@ -73,50 +84,57 @@ class TestPick:
     ) -> None:
         trial.shell.replies(when=_STATUS)
         trial.shell.replies(when=LIST, stdout=_listing("older", "feature"))
-        trial.shell.replies(when=_LS, stdout=_triaged("older", "feature"))
+        _triaged(trial, "feature")
         trial.shell.replies(when=_HERE, stdout="feature\n")
 
         transition = trial.walk(pick, Ship(bound=2))
 
         assert transition == goto(look, branch)
+        # The other one is never even asked about: the branch you are on is
+        # read first, and a triage on it is where the looking stops.
+        assert triage_comment(_NUMBERS["older"]) not in trial.shell.commands
 
     # Somebody else's terminal is on the other one, and neither cast has to know
     # that to leave it alone.
     def test_a_branch_you_are_not_on_is_taken_oldest_first(self, trial: Trial) -> None:
         trial.shell.replies(when=_STATUS)
         trial.shell.replies(when=LIST, stdout=_listing("older", "feature"))
-        trial.shell.replies(when=_LS, stdout=_triaged("older", "feature"))
+        _triaged(trial, "older", "feature")
         trial.shell.replies(when=_HERE, stdout="main\n")
 
         transition = trial.walk(pick, Ship(bound=2))
 
-        assert transition == goto(look, Branch(name="older", bound=2))
+        assert transition == goto(look, Branch(name="older", number=3, bound=2))
 
+    # An empty read, not a failed one: `gh` is content with a pull request
+    # nobody has commented on.
     def test_a_pull_request_without_a_triage_is_not_taken(self, trial: Trial) -> None:
         trial.shell.replies(when=_STATUS)
         trial.shell.replies(when=LIST, stdout=_listing("feature"))
-        trial.shell.replies(when=_LS, exit_code=2)
+        trial.shell.replies(when=_HERE, stdout="feature\n")
+        trial.shell.replies(when=_READS)
 
         transition = trial.walk(pick, Ship(bound=2))
 
         assert transition == done(Shipped(outcome="nothing"))
 
-    # The label is how a branch is parked, and a triage sitting in `.local` does
-    # not un-park it.
+    # The label is how a branch is parked, and a triage comment on it does not
+    # un-park it.
     def test_a_waiting_pull_request_is_left_alone(self, trial: Trial) -> None:
         trial.shell.replies(when=_STATUS)
         trial.shell.replies(when=LIST, stdout=_listing("feature", waiting="feature"))
-        trial.shell.replies(when=_LS, stdout=_triaged("feature"))
+        trial.shell.replies(when=_HERE, stdout="feature\n")
 
         transition = trial.walk(pick, Ship(bound=2))
 
         assert transition == done(Shipped(outcome="nothing"))
+        assert _READ not in trial.shell.commands
 
     # This cast ends in a commit and a push on whatever branch it takes.
     def test_main_is_never_taken(self, trial: Trial) -> None:
         trial.shell.replies(when=_STATUS)
         trial.shell.replies(when=LIST, stdout=_listing("main"))
-        trial.shell.replies(when=_LS, stdout=_triaged("main"))
+        trial.shell.replies(when=_HERE, stdout="main\n")
 
         transition = trial.walk(pick, Ship(bound=2))
 
@@ -154,7 +172,6 @@ class TestPick:
     def test_a_head_git_will_not_name_fails_the_cast(self, trial: Trial) -> None:
         trial.shell.replies(when=_STATUS)
         trial.shell.replies(when=LIST, stdout=_listing("feature"))
-        trial.shell.replies(when=_LS, stdout=_triaged("feature"))
         trial.shell.replies(when=_HERE, exit_code=128, stderr="no HEAD")
 
         with pytest.raises(RitualError, match="could not read the current branch"):
@@ -166,17 +183,16 @@ class TestLook:
         self, trial: Trial, branch: Branch
     ) -> None:
         trial.shell.replies(when="git checkout*")
-        trial.shell.replies(when=_CAT)
+        trial.shell.replies(when=_PAGES)
         trial.decide.answers(answer=True, when="work on feature?")
         trial.decide.answers(answer="fix p1, file p3", when="*done with it?*")
 
         transition = trial.walk(look, branch)
 
         assert transition == goto(
-            work,
-            Instructed(branch=branch, prompt=triage_work(_TRIAGE) + "fix p1, file p3"),
+            work, Instructed(branch=branch, prompt=triage_work(7) + "fix p1, file p3")
         )
-        assert _CAT in trial.shell.commands
+        assert _PAGED in trial.shell.commands
 
     # The standing prompt is a complete instruction on its own, so saying
     # nothing is saying "do that".
@@ -184,19 +200,19 @@ class TestLook:
         self, trial: Trial, branch: Branch
     ) -> None:
         trial.shell.replies(when="git checkout*")
-        trial.shell.replies(when=_CAT)
+        trial.shell.replies(when=_PAGES)
         trial.decide.answers(answer=True, when="work on feature?")
         trial.decide.answers(answer="", when="*done with it?*")
 
         transition = trial.walk(look, branch)
 
         assert transition == goto(
-            work, Instructed(branch=branch, prompt=triage_work(_TRIAGE))
+            work, Instructed(branch=branch, prompt=triage_work(7))
         )
 
     def test_saying_no_ends_the_cast(self, trial: Trial, branch: Branch) -> None:
         trial.shell.replies(when="git checkout*")
-        trial.shell.replies(when=_CAT)
+        trial.shell.replies(when=_PAGES)
         trial.decide.answers(answer=False, when="work on feature?")
 
         transition = trial.walk(look, branch)
@@ -219,11 +235,11 @@ class TestWork:
         trial.coding.replies("resolved two threads")
 
         transition = trial.walk(
-            work, Instructed(branch=branch, prompt=triage_work(_TRIAGE) + "fix p1")
+            work, Instructed(branch=branch, prompt=triage_work(7) + "fix p1")
         )
 
         assert transition == goto(hand_back, branch)
-        assert _TRIAGE in trial.coding.prompts[0]
+        assert triage_comment(7, part="{id, body}") in trial.coding.prompts[0]
         assert trial.coding.prompts[0].endswith("fix p1")
 
     # The agent is mid-thread by then, and repeating the standing instructions
@@ -358,7 +374,8 @@ class TestShip:
     def test_a_night_with_no_triage_ends_the_cast(self, trial: Trial) -> None:
         trial.shell.replies(when=_STATUS)
         trial.shell.replies(when=LIST, stdout=_listing("feature"))
-        trial.shell.replies(when=_LS, exit_code=2)
+        trial.shell.replies(when=_HERE, stdout="feature\n")
+        trial.shell.replies(when=_READS)
 
         result = trial.cast(ship, Ship(bound=2))
 
@@ -368,10 +385,10 @@ class TestShip:
     def test_a_triaged_branch_goes_all_the_way_to_the_gates(self, trial: Trial) -> None:
         trial.shell.replies(when=_STATUS)
         trial.shell.replies(when=LIST, stdout=_listing("feature"))
-        trial.shell.replies(when=_LS, stdout=_triaged("feature"))
+        _triaged(trial, "feature")
         trial.shell.replies(when=_HERE, stdout="feature\n")
         trial.shell.replies(when="git checkout*")
-        trial.shell.replies(when=_CAT)
+        trial.shell.replies(when=_PAGES)
         trial.decide.answers(answer=True, when="work on feature?")
         trial.decide.answers(answer="fix p1 and p2", when="*done with it?*")
         trial.coding.replies("resolved the threads")

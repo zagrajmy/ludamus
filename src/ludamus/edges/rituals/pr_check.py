@@ -7,18 +7,19 @@ base branch is merged in, the gates are made green, the coverage gap is closed,
 the night's work is pushed, a quality review is posted unless the branch already
 carries ``pr::thermo``, and the open review comments are triaged. A branch ends
 the night either labelled ``pr::qa`` with a ``qa.md`` of manual scenarios, or
-with a triage in ``.local`` saying what still has to be done. Whatever this run
-put in front of you to read — a quality review it posted, a triage it wrote —
-also earns the branch ``pr::cr``.
+with a triage comment saying what still has to be done. Whatever this run put in
+front of you to read — a quality review it posted, a triage it wrote — also
+earns the branch ``pr::cr``.
 
 The push comes before the review and not after: an inline review comment has to
 anchor to a line of the pull request's diff, and a line that exists only in this
 clone is a line GitHub answers 422 on. So a review of unpushed work is a review
 that loses half its comments to the fallback.
 
-The triage is written to ``.local/triage-<branch>.md``, which is gitignored: it
-is a note from the night to the morning, and a branch should not carry a commit
-adding it and another taking it back out. ``ship`` is what reads it.
+The triage is posted as a comment on the pull request, opening ``## Night
+triage``: it is a note from the night to the morning, and it belongs on the page
+the morning is already looking at rather than in a file on the machine that ran
+the night. ``ship`` is what reads it.
 
 A branch the gates would not go green on is still read. It stands down rather
 than stopping: the worktree is released, so the reading happens on the last
@@ -78,7 +79,7 @@ from .agent import (
     fix_gates,
     resolve,
     thermo,
-    triage_file,
+    triage_post,
 )
 from .shell import (
     CONTINUE_MERGE,
@@ -99,10 +100,9 @@ from .shell import (
     plain,
     quoted,
     release,
-    rooted,
     said,
     stash_name,
-    triage_path,
+    triage_comment,
     verdict,
 )
 from .state import (
@@ -457,21 +457,23 @@ async def mark_qa(work: Work) -> Transition:
     return goto(finish_pr, Closed(work=work, outcome="qa"))
 
 
-# The triage is left in `.local`, not on the branch: it is a note from the night
-# to whoever runs `ship` in the morning, and a commit adding it is a commit
+# The triage goes on the pull request, not on the branch: it is a note from the
+# night to whoever runs `ship` in the morning, and a commit adding it is a commit
 # somebody has to take back out. Nothing to commit, so what stands in for the
-# commit's evidence is asking for the file by name — an agent that answered
-# without writing anything would otherwise earn the branch a `pr::cr` promising
-# a triage that is not there.
+# commit's evidence is reading the comment back — an agent that answered without
+# posting anything would otherwise earn the branch a `pr::cr` promising a triage
+# that is not there. A `gh` that would not answer counts the same way: a triage
+# nothing can read is a triage `ship` will not find either.
 @step
 async def write_triage(triaged: Triaged) -> Transition:
     work = triaged.work
-    path = triage_path(work.pr.branch)
-    if fallen := await ask(triage_file(path) + triaged.notes.model_dump_json(indent=2)):
+    number = work.pr.number
+    posted = triage_post(number) + triaged.notes.model_dump_json(indent=2)
+    if fallen := await ask(posted):
         return goto(report, abandoned(work, fallen.reason))
-    written = await shell(rooted(f"test -f {quoted(path)}"))
-    if written.exit_code:
-        return goto(set_aside, work_with(work, note=f"the agent wrote no {path}"))
+    written = await shell(triage_comment(number), stream=False)
+    if not written.stdout.strip():
+        return goto(set_aside, work_with(work, note="the agent posted no triage"))
     marked = await shell(label(CR_LABEL, number=work.pr.number))
     if marked.exit_code:
         reason = f"could not add the {CR_LABEL} label: {said(marked)}"

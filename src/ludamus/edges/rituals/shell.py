@@ -81,29 +81,30 @@ BANNER = "Diff Coverage"
 # matches every run there is.
 MISSING = "Missing lines"
 
-# Where a night's triage is left. Gitignored, and one file per branch: a triage
-# is a note between two rituals rather than part of the branch, and committing
-# it means somebody taking it back out once the work is done.
-TRIAGE_DIR = ".local"
-TRIAGE_GLOB = f"{TRIAGE_DIR}/triage-*.md"
+# Where a night's triage is left: a comment on the pull request, opening with
+# this line so it can be told from everyone else's. On the pull request rather
+# than in a file, because a note about a branch belongs on the branch's own
+# page — visible without being told where to look, and readable from whatever
+# clone you sit down at in the morning. `ship` is what reads it.
+TRIAGE_TITLE = "## Night triage"
 
 
 def quoted(value: str) -> str:
     return shlex.quote(value)
 
 
-# Slashes become dashes: a branch name is a path and this is one file.
-# ponytail: `a/b` and `a-b` land on the same name. Two branches that close
-# together, both open, both triaged the same night, is not a thing that happens
-# here; if it did, the cost is one triage read twice.
-def triage_path(branch: str) -> str:
-    return f"{TRIAGE_DIR}/triage-{branch.replace('/', '-')}.md"
-
-
-# Everything above names a path from the repository root, and a cast started
-# from a subdirectory would resolve it against wherever you were standing.
-def rooted(command: str) -> str:
-    return f'cd "$(git rev-parse --show-toplevel)" && {command}'
+# The triage comment, or nothing at all: an empty answer is how both rituals ask
+# "is there one". The exit code says nothing here — `gh` is content with a pull
+# request nobody has commented on — so every caller reads the text.
+# `last`, because a branch triaged on two nights carries two comments and the
+# later one is the live one. `// empty` keeps jq's `null` out of the answer,
+# which would otherwise read as a triage saying the word null.
+def triage_comment(number: int, *, part: str = ".body") -> str:
+    picked = f'select(.body | startswith("{TRIAGE_TITLE}"))'
+    return (
+        f"gh pr view {number} --json comments "
+        f"-q '[.comments[] | {picked}] | last | {part} // empty'"
+    )
 
 
 # Cursor moves and colour. `plain` above stops most of these being written at

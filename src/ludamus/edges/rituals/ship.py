@@ -8,11 +8,11 @@ thing that commits what comes out. `pr_check` runs at 3am and answers nobody;
 this runs while you are sitting there and does nothing you have not read.
 
 One branch, and then it stops. A branch is a candidate when its pull request is
-open, yours, not labelled `pr::wait`, and a triage for it is waiting in
-`.local` — and of those, the branch you are standing on wins. The triage goes
-through your pager, you say what should be done with it, and an agent does that:
-fixes what you said to fix, answers and resolves the review threads either way,
-and files the rest as issues.
+open, yours, not labelled `pr::wait`, and carrying a `## Night triage` comment —
+and of those, the branch you are standing on wins. The triage goes through your
+pager, you say what should be done with it, and an agent does that: fixes what
+you said to fix, answers and resolves the review threads either way, and files
+the rest as issues.
 
 Then you read what it did and say `fix` or `ship`. `fix` takes another
 instruction and hands it to the same agent, which remembers the round before.
@@ -21,8 +21,9 @@ commits and pushes what came out.
 
 Nothing here is a queue, which is what makes it safe to run in several terminals
 at once: preferring the branch you are on means two terminals on two branches
-never reach for the same work, and a triage this cast answers is deleted from
-`.local`, which takes that branch out of every later cast's reckoning.
+never reach for the same work, and a triage this cast answers in full is deleted
+off the pull request, which takes that branch out of every later cast's
+reckoning.
 """
 
 from typing import Literal
@@ -38,15 +39,13 @@ from .shell import (
     LIST,
     MISSING,
     PR_FIX,
-    TRIAGE_GLOB,
     WAIT_LABEL,
     commit,
     coverage_report,
     plain,
     quoted,
-    rooted,
     said,
-    triage_path,
+    triage_comment,
 )
 from .state import PULLS, Bound, modified, wears
 
@@ -106,6 +105,10 @@ class Ship(BaseModel):
 
 class Branch(BaseModel):
     name: str
+    # Carried rather than looked up again: everything below this reads or writes
+    # the triage comment, and that is addressed by pull request and not by
+    # branch.
+    number: int
     bound: Bound
 
 
@@ -156,45 +159,52 @@ async def pick(components: Ship) -> Transition:
     except ValidationError as error:
         msg = f"gh returned something unreadable: {error}"
         raise RitualError(msg) from error
-    # The exit code is data: `ls` matching nothing is the answer that no branch
-    # was triaged, not a failure to look.
-    found = await shell(rooted(f"ls -1 {TRIAGE_GLOB} 2>/dev/null"), stream=False)
-    waiting = set(found.stdout.split())
-    carried = [
+    open_prs = [
         pull
         for pull in sorted(pulls, key=modified)
-        if pull.branch != _MAIN
-        and not wears(pull, WAIT_LABEL)
-        and triage_path(pull.branch) in waiting
+        if pull.branch != _MAIN and not wears(pull, WAIT_LABEL)
     ]
-    if not carried:
-        emit_delta("no pull request of yours is carrying a triage")
-        return done(Shipped(outcome="nothing"))
     here = await _ran(_HERE, "could not read the current branch", stream=False)
     # You have just finished working on this branch and the triage on it is what
     # you sat down for. Anything else is a cast that moves you off it to page
     # something you were not thinking about — and it is also what keeps two
     # terminals on two branches from reaching for the same one.
     mine = here.stdout.strip()
-    taking = next((pull for pull in carried if pull.branch == mine), carried[0])
-    return goto(look, Branch(name=taking.branch, bound=components.bound))
+    ordered = [pull for pull in open_prs if pull.branch == mine] + [
+        pull for pull in open_prs if pull.branch != mine
+    ]
+    # A call per pull request, and asked in the order the answer is wanted in, so
+    # the branch you are standing on costs one and stops there. The exit code is
+    # not the answer: `gh` is content with a pull request nobody has commented
+    # on, and an empty read is what says no triage is waiting.
+    for pull in ordered:
+        carried = await shell(triage_comment(pull.number), stream=False)
+        if carried.stdout.strip():
+            branch = Branch(
+                name=pull.branch, number=pull.number, bound=components.bound
+            )
+            return goto(look, branch)
+    emit_delta("no pull request of yours is carrying a triage")
+    return done(Shipped(outcome="nothing"))
 
 
 @step
 async def look(branch: Branch) -> Transition:
-    path = triage_path(branch.name)
     await _ran(
         f"git checkout {quoted(branch.name)}", f"could not check out {branch.name}"
     )
-    # Not read back: this is shown to you, on your terminal, and what it says is
-    # the thing you are about to answer.
-    await shell(paged(rooted(f"cat {quoted(path)}")))
+    # Read a second time, and not carried down from `pick`: what you are about to
+    # answer should be what the pull request says now, not what it said before a
+    # checkout that may have taken a while. Not read back either — this is shown
+    # to you, on your terminal.
+    await shell(paged(triage_comment(branch.number)))
     if not await decide(f"work on {branch.name}?"):
         return done(Shipped(outcome="declined", branch=branch.name))
     # An empty answer is an answer: the prompt below is already a complete
     # instruction, and saying nothing means "do that".
     told = await decide("what should be done with it?", free=True)
-    return goto(work, Instructed(branch=branch, prompt=triage_work(path) + told))
+    prompt = triage_work(branch.number) + told
+    return goto(work, Instructed(branch=branch, prompt=prompt))
 
 
 # The agent writes code, opens issues and answers review threads, so it runs at
