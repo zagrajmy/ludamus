@@ -53,12 +53,10 @@ LIST = (
 # and a label is also something you can take off, which is the point: removing
 # it is how you ask for the review again.
 THERMO_LABEL = "pr::thermo"
+# Every review thread on this branch is answered and settled, and the gates were
+# green when that happened. Put on by `ship` and by nothing else: `pr_check`
+# never reads the threads, so the night is in no position to claim it.
 QA_LABEL = "pr::qa"
-# What this run put in front of a human to read: a quality review it posted, or
-# a triage it wrote. A pull request that was already labelled reviewed on an
-# earlier night does not earn the label again — the label marks the night's
-# work, not the branch's history.
-CR_LABEL = "pr::cr"
 # Hands off this one. It is read at the listing and nowhere else, so a branch
 # wearing it is never taken, never touched, and never reported on — which is
 # the whole point: it is how you keep a pull request out of the night without
@@ -91,30 +89,52 @@ BANNER = "Diff Coverage"
 # matches every run there is.
 MISSING = "Missing lines"
 
-# Where a night's triage is left: a comment on the pull request, opening with
-# this line so it can be told from everyone else's. On the pull request rather
-# than in a file, because a note about a branch belongs on the branch's own
-# page — visible without being told where to look, and readable from whatever
-# clone you sit down at in the morning. `ship` is what reads it.
-TRIAGE_TITLE = "## Night triage"
-
 
 def quoted(value: str) -> str:
     return shlex.quote(value)
 
 
-# The triage comment, or nothing at all: an empty answer is how both rituals ask
-# "is there one". The exit code says nothing here — `gh` is content with a pull
-# request nobody has commented on — so every caller reads the text.
-# `last`, because a branch triaged on two nights carries two comments and the
-# later one is the live one. `// empty` keeps jq's `null` out of the answer,
-# which would otherwise read as a triage saying the word null.
-def triage_comment(number: int, *, part: str = ".body") -> str:
-    picked = f'select(.body | startswith("{TRIAGE_TITLE}"))'
+# The review threads on a pull request, with everything either reader wants.
+# GraphQL rather than `pulls/<number>/comments`, because the REST endpoint
+# carries no resolution state at all: it answers a settled thread and a live one
+# identically, and a cast that cannot tell them apart works twice.
+# Both ids ride along, because `ship` answers these threads and then settles
+# them: the reply endpoint takes `databaseId` and the mutation takes `id`, and
+# whoever has to go back for either has already guessed at one.
+_THREADS = """\
+query($owner: String!, $repo: String!, $number: Int!) {
+  repository(owner: $owner, name: $repo) {
+    pullRequest(number: $number) {
+      reviewThreads(first: 100) { nodes {
+        id isResolved path line
+        comments(first: 50) { nodes { databaseId author { login } body } } } } } } }"""
+
+
+# One command, whoever runs it: a step counting what is outstanding and an agent
+# reading what it says are asking the same question of the same query.
+# `gh` knows which repository this is, but graphql variables are not a REST path
+# and nothing fills an `{owner}` in for them — so the slug is asked for once and
+# split by the shell rather than by a second call.
+def threads(number: int, *, part: str = "") -> str:
+    asked = f" -q {quoted(part)}" if part else ""
     return (
-        f"gh pr view {number} --json comments "
-        f"-q '[.comments[] | {picked}] | last | {part} // empty'"
+        'slug="$(gh repo view --json nameWithOwner -q .nameWithOwner)" && '
+        f"gh api graphql -f query={quoted(_THREADS)}"
+        ' -f owner="${slug%/*}" -f repo="${slug#*/}"'
+        f" -F number={number}{asked}"
     )
+
+
+_OPEN_ONES = (
+    "[.data.repository.pullRequest.reviewThreads.nodes[]"
+    " | select(.isResolved | not)] | length"
+)
+
+
+# How many threads nobody has settled, which is the whole of what `ship` asks of
+# a candidate — and, at the end, of the branch it just worked on.
+def unsettled(number: int) -> str:
+    return threads(number, part=_OPEN_ONES)
 
 
 # Cursor moves and colour. `plain` above stops most of these being written at

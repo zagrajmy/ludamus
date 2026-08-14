@@ -13,7 +13,7 @@ from ludamus.edges.rituals.pr_check import (
     report,
     set_aside,
 )
-from ludamus.edges.rituals.shell import COVERAGE, PR_FIX, QA_LABEL, TRIAGE_TITLE, plain
+from ludamus.edges.rituals.shell import COVERAGE, PR_FIX, plain
 from ludamus.edges.rituals.state import (
     Checked,
     Closed,
@@ -21,7 +21,6 @@ from ludamus.edges.rituals.state import (
     PullRequest,
     Report,
     Run,
-    TriageItem,
     TriageNotes,
     Work,
 )
@@ -31,9 +30,6 @@ if TYPE_CHECKING:
 
 _AHEAD = "test feature = *"
 _PUSH = "git push https-origin feature"
-# A glob, not the command: the jq `triage_comment` builds is full of brackets a
-# glob reads as a character class, so the exact string answers nothing.
-_READ_TRIAGE = "gh pr view 7 --json comments*"
 _RELEASE = "if git rev-parse*MERGE_HEAD*git stash push*"
 # Red, red, green: enough to prove the second repair meets the same agent.
 _GATE_ROUNDS = 3
@@ -41,7 +37,7 @@ _QA_ROW = Checked(
     number=7,
     branch="feature",
     url="https://github.com/fancysnake/ludamus/pull/7",
-    outcome="qa",
+    outcome="green",
     unpushed=2,
 )
 
@@ -54,7 +50,7 @@ class TestFinishPr:
     ) -> None:
         trial.shell.replies(when=_AHEAD, stdout="2\n")
 
-        transition = trial.walk(finish_pr, Closed(work=work, outcome="qa"))
+        transition = trial.walk(finish_pr, Closed(work=work, outcome="green"))
 
         assert transition == goto(next_pr, Run(bound=3, checked=[_QA_ROW]))
 
@@ -65,7 +61,7 @@ class TestFinishPr:
     ) -> None:
         trial.shell.replies(when=_AHEAD, exit_code=1)
 
-        transition = trial.walk(finish_pr, Closed(work=work, outcome="qa"))
+        transition = trial.walk(finish_pr, Closed(work=work, outcome="green"))
 
         assert transition == goto(
             next_pr,
@@ -213,7 +209,7 @@ class TestReport:
     # Unknown counts as needing a push: this is read by someone deciding what to
     # do next, and "we could not tell" is not "nothing to do".
     def test_a_row_git_could_not_count_still_needs_pushing(self, trial: Trial) -> None:
-        unknown = _QA_ROW.model_copy(update={"outcome": "triage", "unpushed": None})
+        unknown = _QA_ROW.model_copy(update={"outcome": "blocked", "unpushed": None})
 
         transition = trial.walk(report, Run(bound=3, checked=[unknown]))
 
@@ -250,7 +246,7 @@ class TestReport:
 
 
 class TestWholeCast:
-    def test_a_clean_branch_walks_the_night_and_ends_labelled_for_qa(
+    def test_a_clean_branch_walks_the_night_and_ends_green(
         self, trial: Trial, pull: PullRequest
     ) -> None:
         trial.shell.replies(
@@ -270,7 +266,6 @@ class TestWholeCast:
         # remote: a night that got everything up says so.
         trial.shell.replies(when=_AHEAD, stdout="0\n")
         trial.coding.replies("posted the review", when="Review the changes*")
-        trial.coding.replies(TriageNotes(items=[]), when="Read the open*")
 
         result = trial.cast(pr_check, PrCheck(bound=3))
 
@@ -288,8 +283,6 @@ class TestWholeCast:
             "cover",
             "push_work",
             "quality_review",
-            "read_comments",
-            "mark_qa",
             "finish_pr",
             "next_pr",
             "report",
@@ -331,8 +324,8 @@ class TestWholeCast:
 
     # This is not a gate and does not fail fast: a pull request nobody can build
     # still has reviewers waiting on it, so the branch stands down and takes the
-    # same reading as any other before it is reported blocked.
-    def test_a_branch_that_will_not_go_green_is_still_reviewed_and_triaged(
+    # same review as any other before it is reported blocked.
+    def test_a_branch_that_will_not_go_green_is_still_reviewed(
         self, trial: Trial, pull: PullRequest
     ) -> None:
         trial.shell.replies(
@@ -353,18 +346,6 @@ class TestWholeCast:
         trial.shell.replies(when=_AHEAD, stdout="3\n")
         trial.coding.replies("tried", when="*is this project's gate*", always=True)
         trial.coding.replies("posted the review", when="Review the changes*")
-        trial.coding.replies(
-            TriageNotes(
-                items=[
-                    TriageItem(
-                        where="src/thing.py", what="the guard is missing", priority="p1"
-                    )
-                ]
-            ),
-            when="Read the open*",
-        )
-        trial.coding.replies("posted the triage", when="Write up the review*")
-        trial.shell.replies(when=_READ_TRIAGE, stdout=f"{TRIAGE_TITLE}\np1: one\n")
 
         result = trial.cast(pr_check, PrCheck(bound=1))
 
@@ -374,16 +355,11 @@ class TestWholeCast:
                     update={
                         "outcome": "blocked",
                         "unpushed": 3,
-                        "note": (
-                            "`mise run pr-fix` is still red:\n1 failed; "
-                            "p1: 1, p2: 0, p3: 0"
-                        ),
+                        "note": "`mise run pr-fix` is still red:\n1 failed",
                     }
                 )
             ],
             to_push=["feature"],
-            # A branch nobody could make green is the clearest thing on the list
-            # there is to do, and this one was triaged as well.
             to_fix=["feature"],
         )
         assert trial.steps == [
@@ -397,15 +373,11 @@ class TestWholeCast:
             "stand_down",
             "push_work",
             "quality_review",
-            "read_comments",
-            "write_triage",
             "finish_pr",
             "next_pr",
             "report",
         ]
-        # Never `pr::qa`: nobody can test a branch that will not build.
-        assert not any(QA_LABEL in command for command in trial.shell.commands)
-        # And the review is told what already stopped it, so it does not spend an
+        # The review is told what already stopped it, so it does not spend an
         # action item on a thing the report says.
         assert "already known not to be green" in trial.coding.prompts[1]
 

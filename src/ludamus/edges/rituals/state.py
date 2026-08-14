@@ -9,7 +9,7 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, ValidationError
 
-from .shell import QA_LABEL, WAIT_LABEL
+from .shell import WAIT_LABEL
 
 # A bound counts attempts at one step, so zero would mean a step that may never
 # be tried at all; past five a repair loop has stopped being a repair loop.
@@ -74,7 +74,10 @@ class Checked(BaseModel):
     number: int
     branch: str
     url: str
-    outcome: Literal["qa", "triage", "blocked"]
+    # What the night could say about the branch, which is a fact about the build
+    # and never about the reviews: whether the gates went green and the work went
+    # up. What the review threads say is `ship`'s to read.
+    outcome: Literal["green", "blocked"]
     # None when git could not say. Nothing to push and "we could not tell" are
     # different answers, and the report prints them differently.
     unpushed: int | None
@@ -126,6 +129,13 @@ class TriageItem(BaseModel):
     where: str
     what: str
     priority: Literal["p1", "p2", "p3"]
+    # What the reading would do about it, which is what happens when you say
+    # nothing: an item you agree with costs you a return key.
+    action: Literal["fix", "reject", "file"]
+    # The thread this came off, carried so the round that answers it addresses
+    # the thread the item is actually about rather than the one it matched by
+    # eye. The graphql node id, which is what the resolve mutation takes.
+    thread: str
 
 
 # What the agent returns, and no more: which branch this triage belongs to is
@@ -134,14 +144,9 @@ class TriageNotes(BaseModel):
     items: list[TriageItem]
 
 
-class Triaged(BaseModel):
-    work: Work
-    notes: TriageNotes
-
-
 class Closed(BaseModel):
     work: Work
-    outcome: Literal["qa", "triage", "blocked"]
+    outcome: Literal["green", "blocked"]
 
 
 class Report(BaseModel):
@@ -272,11 +277,7 @@ def abandoned(work: Work, reason: str) -> Run:
 
 # --- the report ------------------------------------------------------------
 
-_OUTCOME = {
-    "qa": f"ready to test ({QA_LABEL})",
-    "triage": "triage written",
-    "blocked": "blocked",
-}
+_OUTCOME = {"green": "green and reviewed", "blocked": "blocked"}
 
 
 def _names(items: list[str]) -> str:
@@ -302,13 +303,10 @@ def report_card(run: Run) -> Report:
         to_push=[
             row.branch for row in run.checked if row.unpushed is None or row.unpushed
         ],
-        # Blocked counts as needing fixing, whether or not a triage was written:
-        # a branch nobody could make green is the clearest thing on the list
-        # there is to do, and one that was also triaged has two.
-        to_fix=[
-            row.branch for row in run.checked if row.outcome in {"triage", "blocked"}
-        ],
-        ready=[row.branch for row in run.checked if row.outcome == "qa"],
+        to_fix=[row.branch for row in run.checked if row.outcome == "blocked"],
+        # What `ship` can be run on in the morning: green, pushed, and carrying a
+        # review somebody has to answer.
+        ready=[row.branch for row in run.checked if row.outcome == "green"],
         not_reached=[pull.branch for pull in run.queue],
         failed=run.stopped,
     )

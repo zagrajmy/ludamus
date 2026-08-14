@@ -1,20 +1,21 @@
-"""Taking one triaged branch, working through it, and shipping what comes out."""
+"""Taking one reviewed branch, answering it item by item, and shipping it."""
 
 import json
 from typing import TYPE_CHECKING
 
 import pytest
+from vekna.folio.coding_claude import ClaudeOptions
 from vekna.lexicon import RitualError, done, goto
 
-from ludamus.edges.rituals.agent import triage_work
 from ludamus.edges.rituals.shell import (
     COVERAGE,
     LIST,
     PR_FIX,
-    TRIAGE_TITLE,
+    QA_LABEL,
+    THERMO_LABEL,
     WAIT_LABEL,
     plain,
-    triage_comment,
+    unsettled,
 )
 from ludamus.edges.rituals.ship import (
     Branch,
@@ -22,39 +23,55 @@ from ludamus.edges.rituals.ship import (
     Landing,
     Ship,
     Shipped,
+    Triage,
     gates,
     hand_back,
     land,
     look,
-    paged,
     pick,
+    plan,
+    settle,
     ship,
     work,
 )
+from ludamus.edges.rituals.state import TriageItem, TriageNotes
 
 if TYPE_CHECKING:
     from vekna.trial import Trial
 
 _STATUS = "git status --porcelain"
 _HERE = "git rev-parse --abbrev-ref HEAD"
-_TRIAGE = f"{TRIAGE_TITLE}\n\np1: the guard is missing\n"
-_READ = triage_comment(7)
-_PAGED = paged(_READ)
-# The command as it is answered, rather than as it is run: `when` is a glob, and
-# the jq in it is full of brackets a glob reads as a character class.
-_READS = "gh pr view 7 --json comments*"
-_PAGES = "if :*gh pr view 7 --json comments*"
 _REPORT = "Diff Coverage\nsrc/thing.py (80.0%): Missing lines 12-14\n"
 _COVERED = "Diff Coverage\nTotal: 10 lines\nMissing: 0 lines\n"
-
+_READING = "Triage the open review threads*"
+_ITEM = TriageItem(
+    where="src/thing.py",
+    what="the guard is missing",
+    priority="p1",
+    action="fix",
+    thread="PRRT_1",
+)
+_ALSO = TriageItem(
+    where="docs/thing.md",
+    what="stale example",
+    priority="p3",
+    action="file",
+    thread="PRRT_2",
+)
 
 # Fixed per name rather than counted off the listing: `feature` is the pull
-# request every fixture here is built around, and the triage is now read by
-# number.
+# request every fixture here is built around, and the threads are read by number.
 _NUMBERS = {"feature": 7, "older": 3, "main": 9}
 
 
-def _listing(*branches: str, waiting: str = "") -> str:
+# The command as it is answered rather than as it is run: `when` is a glob, and
+# the jq that ends this one is full of brackets a glob reads as a character
+# class.
+def _asks(name: str) -> str:
+    return f"slug=*-F number={_NUMBERS[name]} -q *"
+
+
+def _listing(*branches: str, waiting: str = "", tested: str = "") -> str:
     rows = [
         {
             "number": _NUMBERS[name],
@@ -65,17 +82,23 @@ def _listing(*branches: str, waiting: str = "") -> str:
             # Ascending with the listing, so the first name given is also the
             # one that has been waiting longest.
             "updatedAt": f"2026-08-0{spot}T22:00:00Z",
-            "labels": [{"name": WAIT_LABEL}] if name == waiting else [],
+            "labels": [
+                {"name": one}
+                for one in (
+                    THERMO_LABEL,
+                    *([WAIT_LABEL] if name == waiting else []),
+                    *([QA_LABEL] if name == tested else []),
+                )
+            ],
         }
         for spot, name in enumerate(branches, start=1)
     ]
     return json.dumps(rows)
 
 
-def _triaged(trial: Trial, *branches: str) -> None:
+def _open(trial: Trial, *branches: str, count: str = "2\n") -> None:
     for name in branches:
-        pattern = f"gh pr view {_NUMBERS[name]} --json comments*"
-        trial.shell.replies(when=pattern, stdout=_TRIAGE)
+        trial.shell.replies(when=_asks(name), stdout=count)
 
 
 class TestPick:
@@ -84,41 +107,65 @@ class TestPick:
     ) -> None:
         trial.shell.replies(when=_STATUS)
         trial.shell.replies(when=LIST, stdout=_listing("older", "feature"))
-        _triaged(trial, "feature")
+        _open(trial, "feature")
         trial.shell.replies(when=_HERE, stdout="feature\n")
 
         transition = trial.walk(pick, Ship(bound=2))
 
         assert transition == goto(look, branch)
         # The other one is never even asked about: the branch you are on is
-        # read first, and a triage on it is where the looking stops.
-        assert triage_comment(_NUMBERS["older"]) not in trial.shell.commands
+        # asked first, and an open thread on it is where the looking stops.
+        assert unsettled(_NUMBERS["older"]) not in trial.shell.commands
 
     # Somebody else's terminal is on the other one, and neither cast has to know
     # that to leave it alone.
     def test_a_branch_you_are_not_on_is_taken_oldest_first(self, trial: Trial) -> None:
         trial.shell.replies(when=_STATUS)
         trial.shell.replies(when=LIST, stdout=_listing("older", "feature"))
-        _triaged(trial, "older", "feature")
+        _open(trial, "older", "feature")
         trial.shell.replies(when=_HERE, stdout="main\n")
 
         transition = trial.walk(pick, Ship(bound=2))
 
         assert transition == goto(look, Branch(name="older", number=3, bound=2))
 
-    # An empty read, not a failed one: `gh` is content with a pull request
-    # nobody has commented on.
-    def test_a_pull_request_without_a_triage_is_not_taken(self, trial: Trial) -> None:
+    def test_a_branch_with_every_thread_settled_is_not_taken(
+        self, trial: Trial
+    ) -> None:
         trial.shell.replies(when=_STATUS)
         trial.shell.replies(when=LIST, stdout=_listing("feature"))
         trial.shell.replies(when=_HERE, stdout="feature\n")
-        trial.shell.replies(when=_READS)
+        _open(trial, "feature", count="0\n")
 
         transition = trial.walk(pick, Ship(bound=2))
 
         assert transition == done(Shipped(outcome="nothing"))
 
-    # The label is how a branch is parked, and a triage comment on it does not
+    # No review has been posted on it, so there is nothing here to answer. The
+    # night is what puts that label on.
+    def test_an_unreviewed_pull_request_is_not_taken(self, trial: Trial) -> None:
+        trial.shell.replies(when=_STATUS)
+        trial.shell.replies(when=LIST, stdout=json.dumps([]))
+        trial.shell.replies(when=_HERE, stdout="feature\n")
+
+        transition = trial.walk(pick, Ship(bound=2))
+
+        assert transition == done(Shipped(outcome="nothing"))
+
+    # Answered in full by an earlier cast, and the label is what says so.
+    def test_a_pull_request_already_labelled_for_qa_is_not_taken(
+        self, trial: Trial
+    ) -> None:
+        trial.shell.replies(when=_STATUS)
+        trial.shell.replies(when=LIST, stdout=_listing("feature", tested="feature"))
+        trial.shell.replies(when=_HERE, stdout="feature\n")
+
+        transition = trial.walk(pick, Ship(bound=2))
+
+        assert transition == done(Shipped(outcome="nothing"))
+        assert _asks("feature") not in trial.shell.commands
+
+    # The label is how a branch is parked, and an open thread on it does not
     # un-park it.
     def test_a_waiting_pull_request_is_left_alone(self, trial: Trial) -> None:
         trial.shell.replies(when=_STATUS)
@@ -128,13 +175,25 @@ class TestPick:
         transition = trial.walk(pick, Ship(bound=2))
 
         assert transition == done(Shipped(outcome="nothing"))
-        assert _READ not in trial.shell.commands
+        assert unsettled(7) not in trial.shell.commands
 
     # This cast ends in a commit and a push on whatever branch it takes.
     def test_main_is_never_taken(self, trial: Trial) -> None:
         trial.shell.replies(when=_STATUS)
         trial.shell.replies(when=LIST, stdout=_listing("main"))
         trial.shell.replies(when=_HERE, stdout="main\n")
+
+        transition = trial.walk(pick, Ship(bound=2))
+
+        assert transition == done(Shipped(outcome="nothing"))
+
+    # A count nobody could take is not a branch with nothing to do, and it is
+    # not one to check out on a guess either.
+    def test_a_count_gh_will_not_give_skips_the_branch(self, trial: Trial) -> None:
+        trial.shell.replies(when=_STATUS)
+        trial.shell.replies(when=LIST, stdout=_listing("feature"))
+        trial.shell.replies(when=_HERE, stdout="feature\n")
+        trial.shell.replies(when=_asks("feature"), exit_code=1, stderr="rate limited")
 
         transition = trial.walk(pick, Ship(bound=2))
 
@@ -179,45 +238,71 @@ class TestPick:
 
 
 class TestLook:
-    def test_the_triage_is_shown_before_the_questions(
+    # The reading happens after the checkout: an item is triaged against this
+    # branch's code, and until then that is somebody else's code.
+    def test_the_reading_runs_on_the_branch_and_its_items_go_on(
         self, trial: Trial, branch: Branch
     ) -> None:
         trial.shell.replies(when="git checkout*")
-        trial.shell.replies(when=_PAGES)
-        trial.decide.answers(answer=True, when="work on feature?")
-        trial.decide.answers(answer="fix p1, file p3", when="*done with it?*")
+        trial.decide.answers(answer=True, when="read the review*")
+        trial.coding.replies(TriageNotes(items=[_ITEM]), when=_READING)
 
         transition = trial.walk(look, branch)
 
-        assert transition == goto(
-            work, Instructed(branch=branch, prompt=triage_work(7) + "fix p1, file p3")
-        )
-        assert _PAGED in trial.shell.commands
+        assert transition == goto(plan, Triage(branch=branch, items=[_ITEM]))
+        assert trial.shell.commands == ["git checkout feature"]
 
-    # The standing prompt is a complete instruction on its own, so saying
-    # nothing is saying "do that".
-    def test_saying_nothing_sends_the_standing_instruction(
+    # The one constrained agent call in either ritual: it is handed text a
+    # stranger wrote, so the allowlist enforces read-only rather than the prompt
+    # asking for it.
+    def test_the_reading_agent_is_bound_by_an_allowlist(
         self, trial: Trial, branch: Branch
     ) -> None:
         trial.shell.replies(when="git checkout*")
-        trial.shell.replies(when=_PAGES)
-        trial.decide.answers(answer=True, when="work on feature?")
-        trial.decide.answers(answer="", when="*done with it?*")
+        trial.decide.answers(answer=True, when="read the review*")
+        trial.coding.replies(TriageNotes(items=[_ITEM]), when=_READING)
 
-        transition = trial.walk(look, branch)
+        trial.walk(look, branch)
 
-        assert transition == goto(
-            work, Instructed(branch=branch, prompt=triage_work(7))
+        assert trial.coding.calls[0].focus_options == ClaudeOptions(
+            permission_mode="dontAsk",
+            allowed_tools=["Bash", "Read", "Grep", "Glob"],
+            effort="high",
         )
 
     def test_saying_no_ends_the_cast(self, trial: Trial, branch: Branch) -> None:
         trial.shell.replies(when="git checkout*")
-        trial.shell.replies(when=_PAGES)
-        trial.decide.answers(answer=False, when="work on feature?")
+        trial.decide.answers(answer=False, when="read the review*")
 
         transition = trial.walk(look, branch)
 
         assert transition == done(Shipped(outcome="declined", branch="feature"))
+        assert not trial.coding.prompts
+
+    # `pick` only got here on a thread nobody had settled, so this is the
+    # reading disagreeing with gh — and nothing is committed on that.
+    def test_a_reading_that_finds_nothing_ends_the_cast(
+        self, trial: Trial, branch: Branch
+    ) -> None:
+        trial.shell.replies(when="git checkout*")
+        trial.decide.answers(answer=True, when="read the review*")
+        trial.coding.replies(TriageNotes(items=[]), when=_READING)
+
+        transition = trial.walk(look, branch)
+
+        assert transition == done(Shipped(outcome="nothing", branch="feature"))
+
+    # An answer outside the schema, and an agent that died mid-flight, both end
+    # a cast that has nothing to show for itself yet.
+    def test_a_reading_that_cannot_be_read_fails_the_cast(
+        self, trial: Trial, branch: Branch
+    ) -> None:
+        trial.shell.replies(when="git checkout*")
+        trial.decide.answers(answer=True, when="read the review*")
+        trial.coding.replies("no idea, sorry", when=_READING)
+
+        with pytest.raises(RitualError, match="did not answer in the shape"):
+            trial.walk(look, branch)
 
     def test_a_failed_checkout_fails_the_cast(
         self, trial: Trial, branch: Branch
@@ -228,19 +313,58 @@ class TestLook:
             trial.walk(look, branch)
 
 
+class TestPlan:
+    # What you say about an item rides down with that item's own thread, so the
+    # round that answers it is not matching your words to a thread by eye.
+    def test_every_item_is_asked_about_and_carries_your_answer(
+        self, trial: Trial, branch: Branch
+    ) -> None:
+        trial.decide.answers(answer="it guards the empty case", when="1.*")
+        trial.decide.answers(answer="not worth an issue, reject it", when="2.*")
+
+        transition = trial.walk(plan, Triage(branch=branch, items=[_ITEM, _ALSO]))
+
+        assert isinstance(transition.payload, Instructed)
+        prompt = transition.payload.prompt
+        assert "thread: PRRT_1\n   what I want: it guards the empty case" in prompt
+        assert "thread: PRRT_2\n   what I want: not worth an issue, reject it" in prompt
+
+    # The reading already proposed something, and saying nothing is agreeing
+    # with it.
+    def test_saying_nothing_takes_the_readings_own_proposal(
+        self, trial: Trial, branch: Branch
+    ) -> None:
+        trial.decide.answers(answer="", when="1.*")
+
+        transition = trial.walk(plan, Triage(branch=branch, items=[_ITEM]))
+
+        assert isinstance(transition.payload, Instructed)
+        assert "what I want: fix it, as the reading says" in transition.payload.prompt
+
+    def test_the_triage_goes_on_your_terminal_before_the_first_question(
+        self, trial: Trial, branch: Branch
+    ) -> None:
+        trial.decide.answers(answer="", when="1.*")
+        trial.decide.answers(answer="", when="2.*")
+
+        trial.walk(plan, Triage(branch=branch, items=[_ITEM, _ALSO]))
+
+        assert "2 outstanding — p1: 1, p2: 0, p3: 1" in trial.deltas[0]
+        assert "the guard is missing" in trial.deltas[0]
+
+
 class TestWork:
     def test_the_prompt_is_sent_as_it_was_assembled(
         self, trial: Trial, branch: Branch
     ) -> None:
-        trial.coding.replies("resolved two threads")
+        trial.coding.replies("settled two threads")
 
         transition = trial.walk(
-            work, Instructed(branch=branch, prompt=triage_work(7) + "fix p1")
+            work, Instructed(branch=branch, prompt="the triage: fix p1")
         )
 
         assert transition == goto(hand_back, branch)
-        assert triage_comment(7, part="{id, body}") in trial.coding.prompts[0]
-        assert trial.coding.prompts[0].endswith("fix p1")
+        assert trial.coding.prompts == ["the triage: fix p1"]
 
     # The agent is mid-thread by then, and repeating the standing instructions
     # would argue with what it has just been told.
@@ -346,7 +470,7 @@ class TestGates:
 
 
 class TestLand:
-    def test_the_triage_work_is_committed_and_pushed(
+    def test_the_work_is_committed_and_pushed(
         self, trial: Trial, branch: Branch
     ) -> None:
         trial.shell.replies(when="git add*")
@@ -354,7 +478,7 @@ class TestLand:
 
         transition = trial.walk(land, branch)
 
-        assert transition == done(Shipped(outcome="shipped", branch="feature"))
+        assert transition == goto(settle, branch)
 
     def test_a_failed_commit_fails_the_cast(self, trial: Trial, branch: Branch) -> None:
         trial.shell.replies(when="git add*", exit_code=1, stderr="hook refused")
@@ -370,35 +494,85 @@ class TestLand:
             trial.walk(land, branch)
 
 
+class TestSettle:
+    # The label is a claim about the threads, so it is asked of gh rather than
+    # assumed off the round that said it had settled them.
+    def test_a_branch_with_nothing_left_open_earns_the_label(
+        self, trial: Trial, branch: Branch
+    ) -> None:
+        trial.shell.replies(when=_asks("feature"), stdout="0\n")
+        trial.shell.replies(when="gh pr edit*")
+
+        transition = trial.walk(settle, branch)
+
+        assert transition == done(Shipped(outcome="shipped", branch="feature"))
+        assert f"gh pr edit 7 --add-label {QA_LABEL}" in trial.shell.commands
+
+    # Shipped either way — the work is committed and up by now — and what is
+    # left over is said out loud rather than labelled over.
+    def test_threads_left_open_are_reported_and_not_labelled(
+        self, trial: Trial, branch: Branch
+    ) -> None:
+        trial.shell.replies(when=_asks("feature"), stdout="2\n")
+
+        transition = trial.walk(settle, branch)
+
+        assert transition == done(Shipped(outcome="shipped", branch="feature"))
+        assert "2 review threads are still open on feature" in trial.deltas[0]
+
+    def test_a_count_gh_will_not_give_labels_nothing(
+        self, trial: Trial, branch: Branch
+    ) -> None:
+        trial.shell.replies(when=_asks("feature"), exit_code=1, stderr="rate limited")
+
+        transition = trial.walk(settle, branch)
+
+        assert transition == done(Shipped(outcome="shipped", branch="feature"))
+        assert "would not say what is left open" in trial.deltas[0]
+
+
 class TestShip:
-    def test_a_night_with_no_triage_ends_the_cast(self, trial: Trial) -> None:
+    def test_a_morning_with_nothing_waiting_ends_the_cast(self, trial: Trial) -> None:
         trial.shell.replies(when=_STATUS)
         trial.shell.replies(when=LIST, stdout=_listing("feature"))
         trial.shell.replies(when=_HERE, stdout="feature\n")
-        trial.shell.replies(when=_READS)
+        _open(trial, "feature", count="0\n")
 
         result = trial.cast(ship, Ship(bound=2))
 
         assert result == Shipped(outcome="nothing")
         assert trial.steps == ["pick"]
 
-    def test_a_triaged_branch_goes_all_the_way_to_the_gates(self, trial: Trial) -> None:
+    def test_a_reviewed_branch_goes_all_the_way_to_the_label(
+        self, trial: Trial
+    ) -> None:
         trial.shell.replies(when=_STATUS)
         trial.shell.replies(when=LIST, stdout=_listing("feature"))
-        _triaged(trial, "feature")
+        trial.shell.replies(when=_asks("feature"), stdout="1\n")
         trial.shell.replies(when=_HERE, stdout="feature\n")
         trial.shell.replies(when="git checkout*")
-        trial.shell.replies(when=_PAGES)
-        trial.decide.answers(answer=True, when="work on feature?")
-        trial.decide.answers(answer="fix p1 and p2", when="*done with it?*")
-        trial.coding.replies("resolved the threads")
+        trial.decide.answers(answer=True, when="read the review*")
+        trial.coding.replies(TriageNotes(items=[_ITEM]), when=_READING)
+        trial.decide.answers(answer="fix it", when="1.*")
+        trial.coding.replies("settled the thread", when="Below is a triage*")
         trial.decide.answers(answer="ship", when="*ship it?*")
         trial.shell.replies(when=plain(PR_FIX))
         trial.shell.replies(when=plain(COVERAGE), stdout=_COVERED)
         trial.shell.replies(when="git add*")
         trial.shell.replies(when="git push*")
+        trial.shell.replies(when=_asks("feature"), stdout="0\n")
+        trial.shell.replies(when="gh pr edit*")
 
         result = trial.cast(ship, Ship(bound=2))
 
         assert result == Shipped(outcome="shipped", branch="feature")
-        assert trial.steps == ["pick", "look", "work", "hand_back", "gates", "land"]
+        assert trial.steps == [
+            "pick",
+            "look",
+            "plan",
+            "work",
+            "hand_back",
+            "gates",
+            "land",
+            "settle",
+        ]

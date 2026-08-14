@@ -1,31 +1,41 @@
-"""Work through the triage `pr_check` left on a branch, then ship it.
+"""Answer the review `pr_check` left on a branch, then ship it.
 
     vekna cast ship [--bound N]
 
 The follow-up to `pr_check`, and its opposite in every way that matters: it
 takes exactly one branch, it asks you before it does anything, and it is the
 thing that commits what comes out. `pr_check` runs at 3am and answers nobody;
-this runs while you are sitting there and does nothing you have not read.
+this runs while you are sitting there and does nothing you have not said.
 
 One branch, and then it stops. A branch is a candidate when its pull request is
-open, yours, not labelled `pr::wait`, and carrying a `## Night triage` comment —
-and of those, the branch you are standing on wins. The triage goes through your
-pager, you say what should be done with it, and an agent does that: fixes what
-you said to fix, answers and resolves the review threads either way, and files
-the rest as issues.
+open, yours, labelled `pr::thermo`, not labelled `pr::wait` or `pr::qa`, and
+carrying a review thread nobody has settled — and of those, the branch you are
+standing on wins.
+
+The triage is read here rather than fetched: an agent reads the open threads
+against the code as it stands and hands back one item per thread, with a
+priority and what it would do about it. That list goes on your terminal and
+nowhere else — nothing is posted, and the threads are untouched until you have
+been through them.
+
+Then you answer them one at a time, in your own words: what the thing is
+supposed to do, why an item is wrong, which of two readings was meant. Saying
+nothing takes the reading's own proposal. What comes out of that goes to one
+agent, which fixes what you said to fix, files what you said to file, and
+answers and settles every thread either way.
 
 Then you read what it did and say `fix` or `ship`. `fix` takes another
 instruction and hands it to the same agent, which remembers the round before.
 `ship` runs this project's two gates, repairs them up to `--bound` times, and
-commits and pushes what came out.
+commits and pushes what came out. A branch that ends with nothing left open
+earns `pr::qa`, which is also what takes it out of every later cast's reckoning.
 
 Nothing here is a queue, which is what makes it safe to run in several terminals
 at once: preferring the branch you are on means two terminals on two branches
-never reach for the same work, and a triage this cast answers in full is deleted
-off the pull request, which takes that branch out of every later cast's
-reckoning.
+never reach for the same work.
 """
 
+from itertools import starmap
 from typing import Literal
 
 from pydantic import BaseModel, ValidationError
@@ -33,21 +43,34 @@ from vekna.folio.flow import decide
 from vekna.folio.shell import ShellResult, shell
 from vekna.lexicon import RitualError, Transition, done, emit_delta, goto, ritual, step
 
-from .agent import COVER, ask, fix_gates, triage_work
+from .agent import (
+    COVER,
+    READING,
+    Fallen,
+    Misread,
+    ask,
+    ask_for,
+    fix_gates,
+    triage_read,
+    triage_work,
+)
 from .shell import (
     COVERAGE,
     LIST,
     MISSING,
     PR_FIX,
+    QA_LABEL,
     REMOTE,
+    THERMO_LABEL,
     commit,
     coverage_report,
+    label,
     plain,
     quoted,
     said,
-    triage_comment,
+    unsettled,
 )
-from .state import Bound, unreadable, wanted
+from .state import Bound, TriageItem, TriageNotes, counted, unreadable, wanted, wears
 
 # The human loop above has no business bound — it goes round as long as you keep
 # saying `fix`, which is a person spending their own evening. This is the
@@ -70,22 +93,6 @@ _MAIN = "main"
 _HERE = "git rev-parse --abbrev-ref HEAD"
 
 
-# The one place this ritual writes to the terminal instead of into the rite:
-# what this fetches is for you to read, not for the cast to capture and hand on.
-# `>/dev/tty` is that terminal, and `</dev/tty` is where anything `gh` decides
-# to page through would read your keys, since the cast holds stdin for its own
-# prompts. Whether a terminal is there at all is asked with a redirection that
-# writes nothing, rather than by running the command and reading its exit code:
-# what is being run is a network call, and a probe should not cost one.
-def paged(command: str) -> str:
-    return (
-        # `2>/dev/null` first, because a redirection that fails is reported by
-        # bash on the stderr it has at that moment.
-        f"if : 2>/dev/null >/dev/tty; then {command} >/dev/tty </dev/tty 2>&1;"
-        f" else {command}; fi"
-    )
-
-
 # Every fatal call in this ritual is the same three lines around one command, so
 # they are written once and each step keeps the two things that differ: what to
 # run, and what to say when it will not run. `pr_check` cannot share this — it
@@ -105,11 +112,15 @@ class Ship(BaseModel):
 
 class Branch(BaseModel):
     name: str
-    # Carried rather than looked up again: everything below this reads or writes
-    # the triage comment, and that is addressed by pull request and not by
-    # branch.
+    # Carried rather than looked up again: everything below this reads or answers
+    # review threads, and those are addressed by pull request and not by branch.
     number: int
     bound: Bound
+
+
+class Triage(BaseModel):
+    branch: Branch
+    items: list[TriageItem]
 
 
 class Instructed(BaseModel):
@@ -158,29 +169,46 @@ async def pick(components: Ship) -> Transition:
         pulls = wanted(listed.stdout)
     except ValidationError as error:
         raise RitualError(unreadable(error)) from error
-    open_prs = [pull for pull in pulls if pull.branch != _MAIN]
+    # Reviewed by the night and not yet answered by anyone: `pr::thermo` is what
+    # says a review was posted, and an unsettled thread is what says it is still
+    # waiting. A branch with neither has nothing here to do.
+    reviewed = [
+        pull
+        for pull in pulls
+        if pull.branch != _MAIN
+        and wears(pull, THERMO_LABEL)
+        and not wears(pull, QA_LABEL)
+    ]
     here = await _ran(_HERE, "could not read the current branch", stream=False)
-    # You have just finished working on this branch and the triage on it is what
-    # you sat down for. Anything else is a cast that moves you off it to page
+    # You have just finished working on this branch and the review on it is what
+    # you sat down for. Anything else is a cast that moves you off it to read
     # something you were not thinking about — and it is also what keeps two
     # terminals on two branches from reaching for the same one.
     mine = here.stdout.strip()
-    ordered = [pull for pull in open_prs if pull.branch == mine] + [
-        pull for pull in open_prs if pull.branch != mine
+    ordered = [pull for pull in reviewed if pull.branch == mine] + [
+        pull for pull in reviewed if pull.branch != mine
     ]
-    # A call per pull request, and asked in the order the answer is wanted in, so
-    # the branch you are standing on costs one and stops there. The exit code is
-    # not the answer: `gh` is content with a pull request nobody has commented
-    # on, and an empty read is what says no triage is waiting.
+    # A call per pull request, asked in the order the answer is wanted in, so the
+    # branch you are standing on costs one and stops there.
     for pull in ordered:
-        carried = await shell(triage_comment(pull.number), stream=False)
-        if carried.stdout.strip():
+        if await _open_threads(pull.number):
             branch = Branch(
                 name=pull.branch, number=pull.number, bound=components.bound
             )
             return goto(look, branch)
-    emit_delta("no pull request of yours is carrying a triage")
+    emit_delta("no pull request of yours has a review waiting")
     return done(Shipped(outcome="nothing"))
+
+
+# What is outstanding on a pull request, and `None` where `gh` would not say.
+# A count nobody could take is not "nothing to do": `pick` skips that branch
+# rather than claiming it is clean, and the ending below says so out loud.
+async def _open_threads(number: int) -> int | None:
+    asked = await shell(unsettled(number), stream=False)
+    text = asked.stdout.strip()
+    if asked.exit_code or not text.isdigit():
+        return None
+    return int(text)
 
 
 @step
@@ -188,18 +216,59 @@ async def look(branch: Branch) -> Transition:
     await _ran(
         f"git checkout {quoted(branch.name)}", f"could not check out {branch.name}"
     )
-    # Read a second time, and not carried down from `pick`: what you are about to
-    # answer should be what the pull request says now, not what it said before a
-    # checkout that may have taken a while. Not read back either — this is shown
-    # to you, on your terminal.
-    await shell(paged(triage_comment(branch.number)))
-    if not await decide(f"work on {branch.name}?"):
+    if not await decide(f"read the review on {branch.name}?"):
         return done(Shipped(outcome="declined", branch=branch.name))
-    # An empty answer is an answer: the prompt below is already a complete
-    # instruction, and saying nothing means "do that".
-    told = await decide("what should be done with it?", free=True)
-    prompt = triage_work(branch.number) + told
-    return goto(work, Instructed(branch=branch, prompt=prompt))
+    # Read on the branch and not before it: an item is triaged against the code
+    # as it stands, and until the checkout above that was somebody else's code.
+    read = await ask_for(triage_read(branch.number), output=TriageNotes, opts=READING)
+    if isinstance(read, Fallen | Misread):
+        raise RitualError(read.reason)
+    # `pick` only got here on a thread nobody had settled, so an empty reading is
+    # the reading disagreeing with `gh` rather than a branch with nothing to do.
+    # Nothing is committed and nothing is labelled on the strength of that.
+    if not read.items:
+        emit_delta(f"the reading found nothing on {branch.name}, but gh says otherwise")
+        return done(Shipped(outcome="nothing", branch=branch.name))
+    return goto(plan, Triage(branch=branch, items=read.items))
+
+
+# One item to a line, priority first, because this is read on a terminal by
+# somebody deciding what to do with it rather than by an agent.
+def _shown(index: int, item: TriageItem) -> str:
+    return f"{index}. [{item.priority}/{item.action}] {item.where} — {item.what}"
+
+
+@step
+async def plan(triage: Triage) -> Transition:
+    tally = counted(TriageNotes(items=triage.items))
+    emit_delta(
+        "\n".join(
+            [
+                f"{len(triage.items)} outstanding — {tally}",
+                "",
+                *starmap(_shown, enumerate(triage.items, start=1)),
+            ]
+        )
+    )
+    told: list[str] = []
+    for number, item in enumerate(triage.items, start=1):
+        # Free text and not a choice: an item is answered by saying how the thing
+        # is supposed to work, which no four options carry. An empty answer is an
+        # answer too — the reading already proposed something, and saying nothing
+        # is agreeing with it.
+        said_now = await decide(f"{_shown(number, item)}\n->", free=True)
+        told.append(said_now or f"{item.action} it, as the reading says")
+    return goto(work, Instructed(branch=triage.branch, prompt=_asked(triage, told)))
+
+
+def _asked(triage: Triage, told: list[str]) -> str:
+    items = "\n\n".join(
+        f"{_shown(number, item)}\n   thread: {item.thread}\n   what I want: {answer}"
+        for number, (item, answer) in enumerate(
+            zip(triage.items, told, strict=True), start=1
+        )
+    )
+    return triage_work(triage.branch.number, items)
 
 
 # The agent writes code, opens issues and answers review threads, so it runs at
@@ -265,4 +334,25 @@ async def land(branch: Branch) -> Transition:
     await _ran(
         f"git push {REMOTE} {quoted(branch.name)}", f"could not push {branch.name}"
     )
+    return goto(settle, branch)
+
+
+# The last thing anybody asks of the branch, and the one place `pr::qa` is put
+# on: the work is committed and up, and the label says every thread that stood
+# open when this started has been answered and settled. Asked of `gh` rather
+# than assumed off the round that just ran — the agent was told to settle each
+# thread, and told is not done.
+# Not fatal either way: what is left over is yours to look at, and the branch is
+# shipped whatever the count says.
+@step
+async def settle(branch: Branch) -> Transition:
+    left = await _open_threads(branch.number)
+    if left is None:
+        emit_delta(f"gh would not say what is left open on {branch.name}")
+    elif left:
+        emit_delta(f"{left} review threads are still open on {branch.name}")
+    else:
+        labelled = await shell(label(QA_LABEL, number=branch.number))
+        if labelled.exit_code:
+            emit_delta(f"could not add the {QA_LABEL} label: {said(labelled)}")
     return done(Shipped(outcome="shipped", branch=branch.name))

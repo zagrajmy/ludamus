@@ -4,29 +4,25 @@
 
 Every pull request you have open is taken in turn, oldest-modified first: its
 base branch is merged in, the gates are made green, the coverage gap is closed,
-the night's work is pushed, a quality review is posted unless the branch already
-carries ``pr::thermo``, and the open review comments are triaged. A branch ends
-the night either labelled ``pr::qa`` — green, reviewed, and nothing outstanding
-— or with a triage comment saying what still has to be done. Whatever this run
-put in front of you to read — a quality review it posted, a triage it wrote —
-also earns the branch ``pr::cr``.
+the night's work is pushed, and a quality review is posted unless the branch
+already carries ``pr::thermo``. A branch ends the night green or blocked, and
+the report says which.
+
+What the night does not do is read the review it posted. Answering a review is
+somebody's decision and this runs at 3am with nobody to ask — so every action
+item stays an open thread, and ``ship`` is the cast that goes through them with
+you in the morning.
 
 The push comes before the review and not after: an inline review comment has to
 anchor to a line of the pull request's diff, and a line that exists only in this
 clone is a line GitHub answers 422 on. So a review of unpushed work is a review
 that loses half its comments to the fallback.
 
-The triage is posted as a comment on the pull request, opening ``## Night
-triage``: it is a note from the night to the morning, and it belongs on the page
-the morning is already looking at rather than in a file on the machine that ran
-the night. ``ship`` is what reads it.
-
-A branch the gates would not go green on is still read. It stands down rather
-than stopping: the worktree is released, so the reading happens on the last
-commit that was any good, and then it is reviewed and triaged like any other
-before being reported blocked. What it does not get is ``pr::qa``, because
-nobody can test a branch that will not build. This is not a gate and does not
-try to fail fast — an hour more spent is worth a pull request read properly.
+A branch the gates would not go green on is still reviewed. It stands down
+rather than stopping: the worktree is released, so the reading happens on the
+last commit that was any good, and then it is reviewed like any other before
+being reported blocked. This is not a gate and does not try to fail fast — an
+hour more spent is worth a pull request read properly.
 
 A pull request labelled ``pr::wait`` is left alone entirely: it is dropped at
 the listing, so nothing checks it out and it appears nowhere in the report.
@@ -67,27 +63,13 @@ from pydantic import ValidationError
 from vekna.folio.shell import shell
 from vekna.lexicon import RitualError, Transition, done, emit_delta, goto, ritual, step
 
-from .agent import (
-    COVER,
-    READING,
-    TRIAGE_READ,
-    Fallen,
-    Misread,
-    ask,
-    ask_for,
-    fix_gates,
-    resolve,
-    thermo,
-    triage_post,
-)
+from .agent import COVER, ask, fix_gates, resolve, thermo
 from .shell import (
     CONTINUE_MERGE,
     COVERAGE,
-    CR_LABEL,
     LIST,
     MISSING,
     PR_FIX,
-    QA_LABEL,
     REMOTE,
     STASHED,
     THERMO_LABEL,
@@ -101,7 +83,6 @@ from .shell import (
     release,
     said,
     stash_name,
-    triage_comment,
     verdict,
 )
 from .state import (
@@ -110,13 +91,10 @@ from .state import (
     Labels,
     PrCheck,
     Run,
-    Triaged,
-    TriageNotes,
     Work,
     abandoned,
     charged,
     cleared,
-    counted,
     exhausted,
     joined,
     report_card,
@@ -363,6 +341,13 @@ async def push_work(work: Work) -> Transition:
     return goto(quality_review, work)
 
 
+# Where a branch's night ends, whichever way it went: green means the gates went
+# green and the review is up, and blocked means it did not — the reviews are not
+# the night's to have an opinion about, and `ship` is what answers them.
+def _ended(work: Work) -> Closed:
+    return Closed(work=work, outcome="blocked" if work.blocked else "green")
+
+
 # The one step with no budget and no loop, because there is nothing here to
 # retry against. The other three read back what the agent did — the index, the
 # gate, the coverage report — and go round again while it is still wrong. What
@@ -387,86 +372,17 @@ async def quality_review(work: Work) -> Transition:
         return goto(set_aside, work_with(work, note=unread))
     # An earlier night's review, which is not this night's work to label.
     if any(one.name == THERMO_LABEL for one in labels.labels):
-        return goto(read_comments, work)
+        return goto(finish_pr, _ended(work))
     if fallen := await ask(
         thermo(number=work.pr.number, base=work.pr.base, reason=work.reason),
         key=f"review-{work.pr.number}",
     ):
         return goto(report, abandoned(work, fallen.reason))
-    marked = await shell(label(THERMO_LABEL, CR_LABEL, number=work.pr.number))
+    marked = await shell(label(THERMO_LABEL, number=work.pr.number))
     if marked.exit_code:
         reason = f"could not label the review just posted: {said(marked)}"
         return goto(set_aside, work_with(work, note=reason))
-    return goto(read_comments, work)
-
-
-@step
-async def read_comments(work: Work) -> Transition:
-    notes = await ask_for(
-        f"{TRIAGE_READ}\npull request: {work.pr.url}", output=TriageNotes, opts=READING
-    )
-    if isinstance(notes, Fallen):
-        return goto(report, abandoned(work, notes.reason))
-    # This branch loses its triage and nothing else: the run carries on, and a
-    # blocked row says why rather than a whole night ending on one bad answer.
-    if isinstance(notes, Misread):
-        misread = f"the triage was unreadable: {notes.reason}"
-        return goto(set_aside, work_with(work, note=misread))
-    # Nothing to triage is an answer, and the good one: the branch goes to QA —
-    # unless it is one nobody can build, which is not a branch to hand a tester
-    # however clean its reviews are.
-    if not notes.items:
-        if work.blocked:
-            return goto(finish_pr, Closed(work=work, outcome="blocked"))
-        return goto(mark_qa, work)
-    return goto(write_triage, Triaged(work=work, notes=notes))
-
-
-# The whole of what a clean branch earns: a label, and no agent spent on it.
-# The scenarios a night could write are scenarios nobody asked for — what this
-# says is "the gates are green and the reviews are answered, it is yours to
-# test", and that is a fact about the branch rather than a document about it.
-@step
-async def mark_qa(work: Work) -> Transition:
-    labelled = await shell(label(QA_LABEL, number=work.pr.number))
-    if labelled.exit_code:
-        reason = f"could not add the {QA_LABEL} label: {said(labelled)}"
-        return goto(set_aside, work_with(work, note=reason))
-    return goto(finish_pr, Closed(work=work, outcome="qa"))
-
-
-# The triage goes on the pull request, not on the branch: it is a note from the
-# night to whoever runs `ship` in the morning, and a commit adding it is a commit
-# somebody has to take back out. Nothing to commit, so what stands in for the
-# commit's evidence is reading the comment back — an agent that answered without
-# posting anything would otherwise earn the branch a `pr::cr` promising a triage
-# that is not there. A `gh` that would not answer counts the same way: a triage
-# nothing can read is a triage `ship` will not find either.
-@step
-async def write_triage(triaged: Triaged) -> Transition:
-    work = triaged.work
-    number = work.pr.number
-    posted = triage_post(number) + triaged.notes.model_dump_json(indent=2)
-    if fallen := await ask(posted):
-        return goto(report, abandoned(work, fallen.reason))
-    written = await shell(triage_comment(number), stream=False)
-    if not written.stdout.strip():
-        return goto(set_aside, work_with(work, note="the agent posted no triage"))
-    marked = await shell(label(CR_LABEL, number=work.pr.number))
-    if marked.exit_code:
-        reason = f"could not add the {CR_LABEL} label: {said(marked)}"
-        return goto(set_aside, work_with(work, note=reason))
-    # The tally joins the note rather than replacing it, so a branch that stood
-    # down keeps the stash its work went into. What stopped it rides in `reason`
-    # and needs no help from here.
-    tallied = joined(work.note, counted(triaged.notes))
-    return goto(
-        finish_pr,
-        Closed(
-            work=work_with(work, note=tallied),
-            outcome="blocked" if work.blocked else "triage",
-        ),
-    )
+    return goto(finish_pr, _ended(work))
 
 
 @step
