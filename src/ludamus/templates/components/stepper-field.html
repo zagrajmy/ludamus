@@ -1,7 +1,7 @@
 {% load i18n %}
 {% load tessera %}
 {# Number input rendered as a − / + stepper. Always pass `name`. #}
-{# Optional: id, value, min, max, required, disabled, has_errors, aria_describedby #}
+{# Optional: id, value, min, max, required, disabled, has_errors, aria_describedby, aria_label #}
 {# The input stays a real number field so the control degrades to typing #}
 {# without JS; src/stepper.ts drives the buttons via [data-stepper-*]. #}
 <span data-stepper
@@ -24,7 +24,8 @@
            {% if required|default:False %}required{% endif %}
            {% if disabled|default:False %}disabled{% endif %}
            {% if has_errors|default:False %}aria-invalid="true"{% endif %}
-           {% if aria_describedby|default:"" %}aria-describedby="{{ aria_describedby }}"{% endif %}>
+           {% if aria_describedby|default:"" %}aria-describedby="{{ aria_describedby }}"{% endif %}
+           {% if aria_label|default:"" %}aria-label="{{ aria_label }}"{% endif %}>
     <button type="button"
             data-stepper-up
             aria-label="{% translate "Increase" %}"

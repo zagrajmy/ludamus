@@ -9,6 +9,7 @@ from django.test import Client
 from django.urls import reverse
 
 from ludamus.links.db.django.models import (
+    AgendaItem,
     Notification,
     SessionParticipation,
     SessionParticipationStatus,
@@ -957,7 +958,7 @@ class TestSessionEnrollmentAnonymousPageView:
             messages=[
                 (
                     messages.ERROR,
-                    "No enrollment configuration is available for this session.",
+                    "Anonymous enrollment is not available for this session.",
                 )
             ],
             url="/",
@@ -989,3 +990,84 @@ class TestSessionEnrollmentAnonymousPageView:
             ],
             url="/",
         )
+
+    @pytest.mark.parametrize("method", ("get", "post"))
+    def test_unscheduled_session_with_limit_to_end_time_config(
+        self,
+        pending_session,
+        anonymous_user_factory,
+        client,
+        method,
+        sphere,
+        enrollment_config,
+    ):
+        user = anonymous_user_factory()
+        _prepare_anonymous_enrollable_session(enrollment_config)
+        enrollment_config.limit_to_end_time = True
+        enrollment_config.save()
+        _activate_anonymous_client(
+            client,
+            sphere=sphere,
+            event=enrollment_config.event,
+            user_code=_anonymous_user_code(user),
+        )
+
+        response = getattr(client, method)(
+            self.get_url(pending_session.id, pending_session.event.slug)
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[
+                (
+                    messages.ERROR,
+                    "No enrollment configuration is available for this session.",
+                )
+            ],
+            url=reverse(
+                "web:chronology:event", kwargs={"slug": enrollment_config.event.slug}
+            ),
+        )
+
+    def test_post_cancel_after_agenda_item_removed(
+        self, agenda_item, anonymous_user_factory, client, sphere, enrollment_config
+    ):
+        session = agenda_item.session
+        user = anonymous_user_factory()
+        _prepare_anonymous_enrollable_session(enrollment_config)
+        enrollment_config.limit_to_end_time = True
+        enrollment_config.save()
+        SessionParticipation.objects.create(
+            session=session, user=user, status=SessionParticipationStatus.CONFIRMED
+        )
+        _activate_anonymous_client(
+            client,
+            sphere=sphere,
+            event=enrollment_config.event,
+            user_code=_anonymous_user_code(user),
+        )
+        AgendaItem.objects.filter(session_id=session.pk).delete()
+
+        response = client.post(
+            self.get_url(session.id, session.event.slug),
+            data={"name": "johny", "action": "cancel"},
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[
+                (
+                    messages.SUCCESS,
+                    (
+                        "Successfully cancelled enrollment in session: "
+                        f"{session.title}"
+                    ),
+                )
+            ],
+            url=reverse("web:chronology:event", kwargs={"slug": session.event.slug}),
+        )
+        assert not SessionParticipation.objects.filter(
+            session=session, user=user
+        ).exists()

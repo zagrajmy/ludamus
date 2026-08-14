@@ -23,6 +23,7 @@ from ludamus.links.db.django.models import (
     Track,
 )
 from ludamus.pacts import EventDTO, EventProposalSettingsDTO, ProposalCategoryDTO
+from ludamus.pacts.images import StoredFile
 from tests.integration.conftest import (
     PNG_BYTES,
     ProposalCategoryFactory,
@@ -338,10 +339,11 @@ class TestProposeSessionPageView:
             },
             format="multipart",
         )
-        cover_path = authenticated_client.session[f"propose_{event.slug}"][
-            "cover_image_temp"
-        ]
+        wizard = authenticated_client.session[f"propose_{event.slug}"]
+        cover_path = wizard["cover_image_temp"]
         cover_url = default_storage.url(cover_path)
+        assert wizard["cover_image_temp_name"] == "cover.png"
+        assert "cover.png" not in cover_path
 
         response = authenticated_client.post(
             self._get_details_url(event.slug),
@@ -354,7 +356,9 @@ class TestProposeSessionPageView:
         )
 
         assert response.status_code == HTTPStatus.OK
-        assert response.context["image_form"].initial["cover_image"] == cover_url
+        assert response.context["image_form"].initial["cover_image"] == StoredFile(
+            cover_url, "cover.png"
+        )
 
     def test_post_same_category_preserves_wizard_data(
         self, authenticated_client, event, faker, time_zone
@@ -1528,6 +1532,7 @@ class TestProposeSessionPageView:
         proposal = Session.objects.get(title="Test Session")
         assert proposal.cover_image
         assert proposal.cover_image_url.startswith("/media/sessions/")
+        assert proposal.cover_image_original_name == "cover.png"
 
     def test_submit_rejects_too_large_cover_image(
         self, authenticated_client, event, faker, time_zone, proposal_category

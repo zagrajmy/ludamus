@@ -27,4 +27,9 @@ urlpatterns = [
         guilds.GuildMemberRemoveActionView.as_view(),
         name="guild-member-remove",
     ),
+    path(
+        "guilds/<int:pk>/facilitators/<int:facilitator_pk>/do/remove",
+        guilds.GuildFacilitatorRemoveActionView.as_view(),
+        name="guild-facilitator-remove",
+    ),
 ]

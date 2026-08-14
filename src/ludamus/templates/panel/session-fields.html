@@ -59,7 +59,7 @@
                         </thead>
                         <tbody class="bg-bg-secondary divide-y divide-border">
                             {% for entry in fields %}
-                                <tr>
+                                <tr class="hover:bg-bg-tertiary">
                                     <td class="px-6 py-4 text-sm font-medium text-foreground max-w-xs truncate">
                                         {% if entry.field.icon %}
                                             {% icon entry.field.icon class="w-4 h-4 inline mr-1 text-foreground-muted" %}
@@ -102,6 +102,7 @@
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                         <a href="{% url 'panel:session-field-edit' slug=current_event.slug field_slug=entry.field.slug %}"
+                                           data-row-action
                                            class="text-primary hover:text-primary/80 mr-4">{% translate "Edit" %}</a>
                                         <form method="post"
                                               action="{% url 'panel:session-field-delete' slug=current_event.slug field_slug=entry.field.slug %}"

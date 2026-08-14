@@ -1,4 +1,3 @@
-# The presenter's guild mark riding along on their programme cards.
 from http import HTTPStatus
 
 import pytest
@@ -6,7 +5,7 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
 
 from ludamus.adapters.web.django.views import COMPACT_SCHEDULE_MIN_SESSIONS
-from ludamus.links.db.django.models import Guild, GuildMembership
+from ludamus.links.db.django.models import Facilitator, Guild, GuildMembership
 from ludamus.pacts.guild import GuildMarkDTO
 from tests.integration.conftest import (
     PNG_BYTES,
@@ -17,9 +16,6 @@ from tests.integration.conftest import (
 from tests.integration.utils import assert_response
 
 
-# test_event_page.py asserts the event page context exhaustively, so these
-# tests look at the marks alone — plus the card count and the schedule mode,
-# which say the marks were read off the page the test meant to render.
 class EventPageMarks:
     def __init__(
         self, marks: list[GuildMarkDTO], *, cards: int = 1, compact: bool = False
@@ -159,10 +155,34 @@ class TestGuildMarkOnCards:
             template_name=["chronology/event.html"],
         )
 
+    def test_card_carries_an_accountless_facilitators_guild(
+        self, client, event, agenda_item, guild
+    ):
+        session = agenda_item.session
+        session.presenter = None
+        session.display_name = "Imported"
+        session.save()
+        facilitator = Facilitator.objects.create(
+            event=event,
+            display_name="Imported",
+            slug="imported",
+            user=None,
+            guild=guild,
+        )
+        session.facilitators.add(facilitator)
 
-# At COMPACT_SCHEDULE_MIN_SESSIONS the page swaps to the compact rows. That is
-# the shape a real convention renders in, so the mark has to survive the switch
-# — the card grid is the small-event case, not the common one.
+        response = client.get(_url(event))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=EventPageMarks(
+                [GuildMarkDTO(pk=guild.pk, name="Topory", logo_url="")]
+            ),
+            template_name=["chronology/event.html"],
+        )
+
+
 class TestGuildMarkOnTheCompactSchedule:
     def test_compact_rows_carry_the_guild(
         self, client, event, agenda_item, active_user, sphere, guild, space
@@ -171,8 +191,6 @@ class TestGuildMarkOnTheCompactSchedule:
         session.presenter = active_user
         session.save()
         GuildMembership.objects.create(sphere=sphere, guild=guild, member=active_user)
-        # One short of the threshold: the marked session is the card that tips
-        # the page into the compact layout, so this lands exactly on it.
         for index in range(COMPACT_SCHEDULE_MIN_SESSIONS - 1):
             extra = SessionFactory(event=event, slug=f"filler-{index}")
             AgendaItemFactory(

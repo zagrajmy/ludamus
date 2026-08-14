@@ -5,17 +5,34 @@ from django.contrib import messages
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
 
-from ludamus.links.db.django.models import Guild, GuildMembership
+from ludamus.gates.web.django.sphere.guilds import RosterRow
+from ludamus.links.db.django.models import Facilitator, Guild, GuildMembership
 from ludamus.links.db.django.users import display_avatar_url
-from ludamus.pacts.guild import GuildDTO, GuildMemberDTO, GuildSummaryDTO
-from tests.integration.conftest import PNG_BYTES, SphereFactory, UserFactory
-from tests.integration.utils import assert_login_required, assert_response
+from ludamus.mills.event import is_proposal_active
+from ludamus.pacts import EventDTO
+from ludamus.pacts.guild import (
+    GuildDTO,
+    GuildFacilitatorMemberDTO,
+    GuildMembershipMemberDTO,
+    GuildSummaryDTO,
+)
+from tests.integration.conftest import (
+    PNG_BYTES,
+    EventFactory,
+    SphereFactory,
+    UserFactory,
+)
+from tests.integration.utils import (
+    assert_login_required,
+    assert_response,
+    assert_response_404,
+)
 from tests.integration.web.multiverse.helpers import (
     assert_not_a_sphere_manager,
-    sphere_panel_context,
+    sphere_sidebar_context,
 )
 
-GUILDS_PANEL_CONTEXT = sphere_panel_context(active_tab="guilds")
+GUILDS_PANEL_CONTEXT = sphere_sidebar_context(active_nav="guilds")
 LIST_URL = reverse("multiverse:panel:guilds")
 
 
@@ -203,8 +220,10 @@ class TestGuildEditPageView:
                 "guild": GuildDTO(
                     pk=guild.pk, name="Topory", slug="topory", members=[]
                 ),
+                "roster": [],
                 "form": ANY,
                 "member_form": ANY,
+                "presenter_names": [],
             },
         )
 
@@ -233,19 +252,90 @@ class TestGuildEditPageView:
                     name="Topory",
                     slug="topory",
                     members=[
-                        GuildMemberDTO(
+                        GuildMembershipMemberDTO(
                             membership_pk=membership.pk,
-                            user_pk=presenter.pk,
                             name="Marek",
                             full_name=presenter.full_name,
                             email="marek@example.com",
-                            slug=presenter.slug,
                             avatar_url=display_avatar_url(presenter),
                         )
                     ],
                 ),
+                "roster": [
+                    RosterRow(
+                        member=GuildMembershipMemberDTO(
+                            membership_pk=membership.pk,
+                            name="Marek",
+                            full_name=presenter.full_name,
+                            email="marek@example.com",
+                            avatar_url=display_avatar_url(presenter),
+                        ),
+                        name="Marek",
+                        remove_url=reverse(
+                            "multiverse:panel:guild-member-remove",
+                            kwargs={"pk": guild.pk, "membership_pk": membership.pk},
+                        ),
+                        subtitle="marek@example.com",
+                    )
+                ],
                 "form": ANY,
                 "member_form": ANY,
+                "presenter_names": [],
+            },
+        )
+
+    def test_get_lists_an_accountless_facilitator_on_the_roster(
+        self, authenticated_client, active_user, sphere
+    ):
+        sphere.managers.add(active_user)
+        guild = _guild(sphere)
+        event = EventFactory(sphere=sphere)
+        event_dto = EventDTO.model_validate(event)
+        facilitator = Facilitator.objects.create(
+            event=event, display_name="Bea", slug="bea", user=None, guild=guild
+        )
+
+        response = authenticated_client.get(_edit_url(guild))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="multiverse/panel/guilds/edit.html",
+            context_data={
+                **GUILDS_PANEL_CONTEXT,
+                "events": [event_dto],
+                "current_event": event_dto,
+                "is_proposal_active": is_proposal_active(event_dto),
+                "guild": GuildDTO(
+                    pk=guild.pk,
+                    name="Topory",
+                    slug="topory",
+                    members=[
+                        GuildFacilitatorMemberDTO(
+                            facilitator_pk=facilitator.pk,
+                            name="Bea",
+                            event_name=event.name,
+                        )
+                    ],
+                ),
+                "roster": [
+                    RosterRow(
+                        member=GuildFacilitatorMemberDTO(
+                            facilitator_pk=facilitator.pk,
+                            name="Bea",
+                            event_name=event.name,
+                        ),
+                        name="Bea",
+                        remove_url=reverse(
+                            "multiverse:panel:guild-facilitator-remove",
+                            kwargs={"pk": guild.pk, "facilitator_pk": facilitator.pk},
+                        ),
+                        subtitle=event.name,
+                    )
+                ],
+                "form": ANY,
+                "member_form": ANY,
+                "presenter_names": ["Bea"],
             },
         )
 
@@ -268,8 +358,10 @@ class TestGuildEditPageView:
                 "guild": GuildDTO(
                     pk=guild.pk, name="Topory", slug="topory", members=[]
                 ),
+                "roster": [],
                 "form": ANY,
                 "member_form": ANY,
+                "presenter_names": [],
             },
         )
 
@@ -457,8 +549,59 @@ class TestGuildMemberAddActionView:
             HTTPStatus.FOUND,
             url=_edit_url(guild),
             messages=[
-                (messages.ERROR, "No account matches that email or Discord username.")
+                (
+                    messages.ERROR,
+                    "No presenter matches that name, email or Discord username.",
+                )
             ],
+        )
+
+    def test_post_adds_an_accountless_presenter_by_name(
+        self, authenticated_client, active_user, sphere
+    ):
+        sphere.managers.add(active_user)
+        guild = _guild(sphere)
+        event = EventFactory(sphere=sphere)
+        facilitator = Facilitator.objects.create(
+            event=event, display_name="Bea", slug="bea", user=None
+        )
+
+        response = authenticated_client.post(self._url(guild), {"identifier": "Bea"})
+
+        facilitator.refresh_from_db()
+        assert facilitator.guild_id == guild.pk
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=_edit_url(guild),
+            messages=[(messages.SUCCESS, "Presenter added.")],
+        )
+
+    def test_post_adds_every_accountless_row_sharing_the_name(
+        self, authenticated_client, active_user, sphere
+    ):
+        sphere.managers.add(active_user)
+        guild = _guild(sphere)
+        first = EventFactory(sphere=sphere)
+        second = EventFactory(sphere=sphere)
+        bea_first = Facilitator.objects.create(
+            event=first, display_name="Bea", slug="bea", user=None
+        )
+        bea_second = Facilitator.objects.create(
+            event=second, display_name="Bea", slug="bea", user=None
+        )
+
+        response = authenticated_client.post(self._url(guild), {"identifier": "Bea"})
+
+        bea_first.refresh_from_db()
+        bea_second.refresh_from_db()
+        assert bea_first.guild_id == guild.pk
+        assert bea_second.guild_id == guild.pk
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=_edit_url(guild),
+            messages=[(messages.SUCCESS, "Presenter added.")],
         )
 
     def test_post_refuses_a_guild_from_another_sphere(
@@ -534,6 +677,46 @@ class TestGuildMemberRemoveActionView:
         )
 
 
+class TestGuildFacilitatorRosterRemove:
+    def test_post_clears_the_facilitator_guild(
+        self, authenticated_client, active_user, sphere
+    ):
+        sphere.managers.add(active_user)
+        guild = _guild(sphere)
+        event = EventFactory(sphere=sphere)
+        facilitator = Facilitator.objects.create(
+            event=event, display_name="Bea", slug="bea", user=None, guild=guild
+        )
+
+        response = authenticated_client.post(
+            reverse(
+                "multiverse:panel:guild-facilitator-remove",
+                kwargs={"pk": guild.pk, "facilitator_pk": facilitator.pk},
+            )
+        )
+
+        facilitator.refresh_from_db()
+        assert facilitator.guild_id is None
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=_edit_url(guild),
+            messages=[(messages.SUCCESS, "Presenter removed.")],
+        )
+
+    def test_post_with_an_unknown_kind_is_not_found(
+        self, authenticated_client, active_user, sphere
+    ):
+        sphere.managers.add(active_user)
+        guild = _guild(sphere)
+
+        response = authenticated_client.post(
+            f"/multiverse/panel/guilds/{guild.pk}/nope/1/do/remove"
+        )
+
+        assert_response_404(response)
+
+
 class TestGuildMemberAddOutcomes:
     @staticmethod
     def _url(guild):
@@ -576,7 +759,10 @@ class TestGuildMemberAddOutcomes:
             messages=[
                 (
                     messages.ERROR,
-                    "More than one account matches. Use the exact email address.",
+                    (
+                        "More than one presenter matches. Use the exact email "
+                        "if they have an account."
+                    ),
                 )
             ],
         )
@@ -593,5 +779,5 @@ class TestGuildMemberAddOutcomes:
             response,
             HTTPStatus.FOUND,
             url=_edit_url(guild),
-            messages=[(messages.ERROR, "Give an email or Discord username.")],
+            messages=[(messages.ERROR, "Give a name, email or Discord username.")],
         )
