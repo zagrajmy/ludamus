@@ -575,6 +575,9 @@ class TestSettle:
 
         assert transition == done(Shipped(outcome="shipped", branch="feature"))
         assert "would not say what is left open" in trial.deltas[0]
+        # The label is a claim about the threads, and a count nobody could take
+        # is in no position to make it.
+        assert label(QA_LABEL, number=7) not in trial.shell.commands
 
 
 class TestPrReview:
