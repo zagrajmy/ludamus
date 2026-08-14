@@ -55,6 +55,7 @@ ORGANIZER_TOOL_NAMES = [
     "list_spaces",
     "list_time_slots",
     "list_tracks",
+    "list_proposal_categories",
     "list_sessions",
     "list_facilitators",
     "create_space",
@@ -63,7 +64,9 @@ ORGANIZER_TOOL_NAMES = [
     "create_proposal_category",
     "find_or_create_facilitator",
     "create_session",
+    "create_sessions",
     "assign_session",
+    "assign_sessions",
     "list_announcements",
 ]
 
@@ -133,6 +136,29 @@ def test_sanitize_audit_arguments_redacts_sensitive_fields():
     }
 
 
+def test_sanitize_batch_audit_arguments_keeps_only_correlation_keys():
+    arguments = {
+        "sessions": [
+            {
+                "source_row_id": "row-1",
+                "display_name": "Alice",
+                "description": "Secret plot",
+                "title": "Workshop",
+            },
+            {
+                "source_row_id": "row-2",
+                "display_name": "Bob",
+                "description": "Another secret",
+                "title": "Panel",
+            },
+        ]
+    }
+
+    redacted = sanitize_audit_arguments("create_sessions", arguments)
+
+    assert redacted == {"session_count": 2, "source_row_ids": ["row-1", "row-2"]}
+
+
 def test_create_event_rejects_naive_datetime():
     registry = build_registry(ToolScope.MAINTAINER)
     actor = ActorContext(user_id=1, scope=ToolScope.MAINTAINER)
@@ -187,6 +213,79 @@ def test_create_event_rejects_a_slug_that_cannot_match_its_url():
                 "start_time": "2026-09-25T10:00:00+02:00",
                 "end_time": "2026-09-27T18:00:00+02:00",
             },
+        )
+
+
+def _organizer_actor():
+    return ActorContext(user_id=7, scope=ToolScope.ORGANIZER, sphere_id=3, event_id=11)
+
+
+def _session_input(source_row_id: str) -> dict[str, str | int]:
+    return {"source_row_id": source_row_id, "title": "Session", "category_id": 5}
+
+
+@pytest.mark.parametrize("count", (0, 251))
+def test_create_sessions_enforces_batch_bounds(count):
+    registry = build_registry(ToolScope.ORGANIZER)
+    sessions = [_session_input(f"row-{index}") for index in range(count)]
+
+    with pytest.raises(ToolError, match="Invalid arguments"):
+        registry.call(
+            services=_FakeServices(),
+            actor=_organizer_actor(),
+            name="create_sessions",
+            arguments={"sessions": sessions},
+        )
+
+
+def test_create_sessions_rejects_duplicate_source_ids():
+    registry = build_registry(ToolScope.ORGANIZER)
+
+    with pytest.raises(ToolError, match="must be unique within a batch"):
+        registry.call(
+            services=_FakeServices(),
+            actor=_organizer_actor(),
+            name="create_sessions",
+            arguments={"sessions": [_session_input("same"), _session_input("same")]},
+        )
+
+
+@pytest.mark.parametrize("count", (0, 251))
+def test_assign_sessions_enforces_batch_bounds(count):
+    registry = build_registry(ToolScope.ORGANIZER)
+    assignment = {
+        "session_id": 1,
+        "space_id": 2,
+        "start_time": "2026-09-25T10:00:00+02:00",
+        "end_time": "2026-09-25T11:00:00+02:00",
+    }
+
+    with pytest.raises(ToolError, match="Invalid arguments"):
+        registry.call(
+            services=_FakeServices(),
+            actor=_organizer_actor(),
+            name="assign_sessions",
+            arguments={
+                "assignments": [{**assignment, "session_id": i} for i in range(count)]
+            },
+        )
+
+
+def test_assign_sessions_rejects_duplicate_session_ids():
+    registry = build_registry(ToolScope.ORGANIZER)
+    assignment = {
+        "session_id": 1,
+        "space_id": 2,
+        "start_time": "2026-09-25T10:00:00+02:00",
+        "end_time": "2026-09-25T11:00:00+02:00",
+    }
+
+    with pytest.raises(ToolError, match="must be unique within a batch"):
+        registry.call(
+            services=_FakeServices(),
+            actor=_organizer_actor(),
+            name="assign_sessions",
+            arguments={"assignments": [assignment, assignment]},
         )
 
 

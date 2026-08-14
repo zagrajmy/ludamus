@@ -1,8 +1,10 @@
+from unittest.mock import MagicMock
+
 import pytest
 
 from ludamus.mills.venues import SpaceTreeService, VenuesService
 from ludamus.pacts import NotFoundError
-from ludamus.pacts.venues import SpaceRecordDTO, SpaceTreeNodeDTO
+from ludamus.pacts.venues import SpaceInputDTO, SpaceRecordDTO, SpaceTreeNodeDTO
 
 
 def _node(*, pk, name, children=()):
@@ -137,3 +139,30 @@ class TestResolveScope:
     def test_unknown_scope_raises(self):
         with pytest.raises(NotFoundError):
             _service().resolve_scope(1, 999)
+
+
+class TestCreateSpace:
+    def test_rejects_parent_from_another_event_inside_transaction(self):
+        transaction = MagicMock()
+        spaces = MagicMock()
+        spaces.read.return_value = SpaceRecordDTO(
+            pk=7,
+            event_id=2,
+            parent_id=None,
+            name="Foreign",
+            slug="foreign",
+            capacity=None,
+            description="",
+            order=0,
+        )
+        service = SpaceTreeService(transaction, spaces)
+
+        with pytest.raises(NotFoundError):
+            service.create(
+                event_id=1,
+                parent_id=7,
+                data=SpaceInputDTO(name="Nested", capacity=None),
+            )
+
+        transaction.atomic.assert_called_once()
+        spaces.create.assert_not_called()

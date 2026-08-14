@@ -85,6 +85,7 @@ agent (or a local script) walks these.
 | `list_spaces` | `space_tree.list_tree` | Return flat leaves + path labels for agents |
 | `list_time_slots` | `panel_time_slots.list_for_event` | |
 | `list_tracks` | `tracks_panel` list | |
+| `list_proposal_categories` | `proposal_categories.get_page_context` | Needed to resume imports after a lost response |
 | `list_sessions` | proposal/session list scoped to event | Needed for idempotent retries |
 | `list_facilitators` | `facilitator_panel` list | Optional if find-or-create returns pk |
 
@@ -103,15 +104,18 @@ agent (or a local script) walks these.
 | Tool | Wraps / new mill | Notes |
 | --- | --- | --- |
 | `find_or_create_facilitator` | `facilitator_panel.create_facilitator` + lookup | Match on display name within event |
-| `create_session` | `proposal_panel.create_proposal` then accept, **or** dedicated “direct accepted session” mill | Must end in `SessionStatus.ACCEPTED` so assign works |
-| `assign_session` | `TimetableService.assign_session` | Requires wiring timetable onto `ServicesProtocol` |
+| `create_session` | dedicated direct accepted-session mill | Must end in `SessionStatus.ACCEPTED` so assign works |
+| `create_sessions` | bounded batch over `create_session` | Up to 250 rows; per-row results and idempotent retries by source id |
+| `assign_session` | `TimetableService.assign_session` | Identical retries are no-ops |
+| `assign_sessions` | bounded batch over `assign_session` | Up to 250 placements with per-row results |
 
 ### Out of scope for v1
 
 - Enrollment config / waitlist
 - Custom session fields / personal data fields
 - Google credentials / Sheets API
-- Bulk transactional import of hundreds of rows in one MCP call
+- One all-or-nothing transaction spanning a whole import; bounded batch tools
+  commit each row independently and report per-row failures
 - Maintainer-tier duplicates (add later if useful; organizer is enough for Bachanalia)
 
 ## Wiring work inside ludamus

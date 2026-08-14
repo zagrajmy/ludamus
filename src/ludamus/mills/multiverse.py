@@ -8,7 +8,10 @@ Sphere-scoped concerns. First feature: import-connections CRUD. Split per
 from typing import TYPE_CHECKING
 
 from ludamus.pacts import NotFoundError
-from ludamus.pacts.multiverse import EventDatesInvalidError
+from ludamus.pacts.multiverse import (
+    EventDatesInvalidError,
+    EventPublicationInvalidError,
+)
 
 if TYPE_CHECKING:
     from ludamus.pacts.legacy import (
@@ -146,6 +149,11 @@ class EventsService:
     def create(self, *, sphere_id: int, data: EventCreateData) -> EventDTO:
         if data["end_time"] <= data["start_time"]:
             raise EventDatesInvalidError
+        if (
+            data["publication_time"] is not None
+            and data["publication_time"] > data["start_time"]
+        ):
+            raise EventPublicationInvalidError
         self._spheres.read(sphere_id)
         with self._transaction.atomic():
             return self._events.create(sphere_id, data)

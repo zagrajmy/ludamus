@@ -143,6 +143,10 @@ class EventDatesInvalidError(Exception):
     pass
 
 
+class EventPublicationInvalidError(Exception):
+    pass
+
+
 class EventsServiceProtocol(Protocol):
     def list_for_sphere(
         self, sphere_id: int, *, include_unpublished: bool

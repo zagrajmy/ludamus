@@ -3,7 +3,7 @@ from http import HTTPStatus
 
 from django.urls import reverse
 
-from tests.integration.conftest import SpaceFactory
+from tests.integration.conftest import SpaceFactory, TimeSlotFactory
 from tests.integration.utils import assert_login_required, assert_response
 from tests.integration.web.panel.helpers import (
     assert_event_not_found,
@@ -67,6 +67,9 @@ class TestTimetableLogPageView:
         assert response.context["logs"] == []
 
     def test_assign_creates_log_entry(self, panel_client, event, proposal_category):
+        TimeSlotFactory(
+            event=event, start_time=event.start_time, end_time=event.end_time
+        )
         space = SpaceFactory(event=event)
         session = make_timetable_session(proposal_category, status="accepted")
         start = event.start_time
@@ -112,6 +115,9 @@ class TestTimetableLogPageView:
     def test_space_filter_returns_only_matching_logs(
         self, panel_client, event, proposal_category
     ):
+        TimeSlotFactory(
+            event=event, start_time=event.start_time, end_time=event.end_time
+        )
         space_a = SpaceFactory(event=event)
         space_b = SpaceFactory(event=event)
         session_a = make_timetable_session(proposal_category, status="accepted")

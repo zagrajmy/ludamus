@@ -4,6 +4,8 @@ from typing import TYPE_CHECKING, Any
 
 from django.template.response import TemplateResponse
 from django.urls import reverse
+from django.utils.decorators import method_decorator
+from django.views.decorators.cache import never_cache
 from django.views.generic.base import View
 
 from ludamus.gates.web.django.event.panel.views.base import (
@@ -20,6 +22,7 @@ if TYPE_CHECKING:
 TEMPLATE = "panel/mcp-token.html"
 
 
+@method_decorator(never_cache, name="dispatch")
 class EventMcpTokenPageView(EventPanelAccessMixin, EventContextMixin, View):
     request: EventPanelRequest
 

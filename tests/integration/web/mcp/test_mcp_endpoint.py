@@ -391,6 +391,28 @@ class TestTools:
         assert result["isError"] is True
         assert result["content"][0]["text"] == "end_time must be after start_time"
 
+    def test_create_event_rejects_publication_after_start(self, client, token, sphere):
+        response = call_tool(
+            client,
+            token,
+            "create_event",
+            {
+                "sphere_id": sphere.pk,
+                "name": "Bad publication",
+                "slug": "bad-publication",
+                "start_time": "2026-09-25T10:00:00+02:00",
+                "end_time": "2026-09-27T18:00:00+02:00",
+                "publication_time": "2026-09-26T10:00:00+02:00",
+            },
+        )
+
+        result = response.json()["result"]
+        assert result["isError"] is True
+        assert (
+            result["content"][0]["text"]
+            == "publication_time must not be after start_time"
+        )
+
     def test_create_event_rejects_unknown_sphere(self, client, token):
         response = call_tool(
             client,

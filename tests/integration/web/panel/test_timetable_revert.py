@@ -8,6 +8,7 @@ from tests.integration.conftest import (
     ProposalCategoryFactory,
     SessionFactory,
     SpaceFactory,
+    TimeSlotFactory,
 )
 from tests.integration.utils import assert_login_required, assert_response
 from tests.integration.web.panel.helpers import (
@@ -68,6 +69,11 @@ class TestTimetableRevertView:
 
     def test_returns_422_for_log_from_another_event(self, panel_client, sphere, event):
         other_event = EventFactory(sphere=sphere)
+        TimeSlotFactory(
+            event=other_event,
+            start_time=other_event.start_time,
+            end_time=other_event.end_time,
+        )
         other_space = SpaceFactory(event=other_event)
         other_session = SessionFactory(
             category=ProposalCategoryFactory(event=other_event),
@@ -103,6 +109,9 @@ class TestTimetableRevertView:
     def test_revert_assign_unschedules_session(
         self, panel_client, event, proposal_category
     ):
+        TimeSlotFactory(
+            event=event, start_time=event.start_time, end_time=event.end_time
+        )
         space = SpaceFactory(event=event)
         session = make_timetable_session(proposal_category, status="accepted")
         start = event.start_time
@@ -167,6 +176,9 @@ class TestTimetableRevertView:
     def test_revert_non_latest_change_returns_422(
         self, panel_client, event, proposal_category
     ):
+        TimeSlotFactory(
+            event=event, start_time=event.start_time, end_time=event.end_time
+        )
         space = SpaceFactory(event=event)
         session = make_timetable_session(proposal_category, status="accepted")
         start = event.start_time
@@ -196,6 +208,9 @@ class TestTimetableRevertView:
     def test_log_page_marks_only_latest_change_revertible(
         self, panel_client, event, proposal_category
     ):
+        TimeSlotFactory(
+            event=event, start_time=event.start_time, end_time=event.end_time
+        )
         space = SpaceFactory(event=event)
         session = make_timetable_session(proposal_category, status="accepted")
         start = event.start_time

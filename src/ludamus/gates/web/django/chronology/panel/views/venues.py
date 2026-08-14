@@ -26,7 +26,7 @@ from ludamus.gates.web.django.forms import (
     create_space_copy_form,
 )
 from ludamus.pacts import NotFoundError
-from ludamus.pacts.venues import SpaceInputDTO
+from ludamus.pacts.venues import SpaceInputDTO, SpaceValidationError
 
 if TYPE_CHECKING:
     from django.http import HttpResponse
@@ -116,8 +116,11 @@ class SpaceCreatePageView(PanelAccessMixin, EventContextMixin, View):
                         location=form.cleaned_data.get("location") or "",
                     ),
                 )
-            except ValidationError as exc:
-                form.add_error(None, exc.messages[0])
+            except (ValidationError, SpaceValidationError) as exc:
+                message = (
+                    exc.messages[0] if isinstance(exc, ValidationError) else str(exc)
+                )
+                form.add_error(None, message)
             else:
                 messages.success(self.request, _("Space created successfully."))
                 return redirect("panel:venues", slug=slug)
@@ -201,8 +204,11 @@ class SpaceEditPageView(PanelAccessMixin, EventContextMixin, View):
                         location=form.cleaned_data.get("location") or "",
                     ),
                 )
-            except ValidationError as exc:
-                form.add_error(None, exc.messages[0])
+            except (ValidationError, SpaceValidationError) as exc:
+                message = (
+                    exc.messages[0] if isinstance(exc, ValidationError) else str(exc)
+                )
+                form.add_error(None, message)
             else:
                 messages.success(self.request, _("Space updated successfully."))
                 return redirect("panel:venues", slug=slug)

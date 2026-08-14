@@ -1,6 +1,6 @@
 from datetime import UTC, datetime
 
-from django.db import IntegrityError
+from django.db import IntegrityError, transaction
 from django.db.models import (
     Count,
     Exists,
@@ -293,9 +293,12 @@ class EventRepository(EventRepositoryProtocol):
     @staticmethod
     def create(sphere_id: int, data: EventCreateData) -> EventDTO:
         try:
-            event = Event.objects.create(sphere_id=sphere_id, **data)
-        except IntegrityError as exc:
-            raise EventSlugConflictError from exc
+            with transaction.atomic():
+                event = Event.objects.create(sphere_id=sphere_id, **data)
+        except IntegrityError as error:
+            if Event.objects.filter(sphere_id=sphere_id, slug=data["slug"]).exists():
+                raise EventSlugConflictError from error
+            raise
         return event_dto(event)
 
     @staticmethod

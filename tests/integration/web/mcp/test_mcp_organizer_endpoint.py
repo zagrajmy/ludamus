@@ -10,13 +10,20 @@ from ludamus.gates.web.django.mcp.tokens import (
     mint_organizer_token,
     mint_token,
 )
-from ludamus.links.db.django.models import AgendaItem, Announcement, Space
+from ludamus.links.db.django.models import (
+    AgendaItem,
+    Announcement,
+    ScheduleChangeLog,
+    Space,
+)
 from ludamus.pacts.mcp import ToolScope
 from tests.integration.conftest import (
+    AgendaItemFactory,
     EventFactory,
     SessionFactory,
     SpaceFactory,
     SphereFactory,
+    TimeSlotFactory,
     UserFactory,
 )
 from tests.integration.utils import assert_response
@@ -30,7 +37,9 @@ WRITE_TOOLS = {
     "create_proposal_category",
     "find_or_create_facilitator",
     "create_session",
+    "create_sessions",
     "assign_session",
+    "assign_sessions",
 }
 
 
@@ -280,18 +289,16 @@ class TestOrganizerTools:
             },
         )
 
-        assert response.json()["error"] == {
-            "code": -32602,
-            "message": "Unknown tool: create_event",
-        }
+        assert_response(response, HTTPStatus.OK)
+        error = response.json()["error"]
+        assert error == {"code": -32602, "message": "Unknown tool: create_event"}
 
     def test_maintainer_tools_are_unreachable(self, client, org_token):
         response = call_org_tool(client, org_token, "list_spheres", {})
 
-        assert response.json()["error"] == {
-            "code": -32602,
-            "message": "Unknown tool: list_spheres",
-        }
+        assert_response(response, HTTPStatus.OK)
+        error = response.json()["error"]
+        assert error == {"code": -32602, "message": "Unknown tool: list_spheres"}
 
 
 class TestOrganizerProgrammeValidation:
@@ -343,6 +350,18 @@ class TestOrganizerProgrammeTools:
                 )
             )
         )
+        categories = json.loads(
+            tool_text(
+                call_org_tool(
+                    client,
+                    org_token,
+                    "list_proposal_categories",
+                    {"event_id": event.pk},
+                )
+            )
+        )
+        assert [item["pk"] for item in categories] == [category["pk"]]
+
         json.loads(
             tool_text(
                 call_org_tool(
@@ -501,6 +520,167 @@ class TestOrganizerProgrammeTools:
                 )
             )[0]["pk"]
             == facilitator["pk"]
+        )
+
+    def test_batch_creates_and_assigns_sessions_idempotently(
+        self, client, org_token, event
+    ):
+        category = json.loads(
+            tool_text(
+                call_org_tool(
+                    client,
+                    org_token,
+                    "create_proposal_category",
+                    {"name": "Batch category"},
+                )
+            )
+        )
+        venue = SpaceFactory(event=event, parent=None, name="Batch venue")
+        room = SpaceFactory(event=event, parent=venue, name="Batch room")
+        TimeSlotFactory(
+            event=event,
+            start_time=event.start_time,
+            end_time=event.start_time + timedelta(hours=4),
+        )
+        sessions = [
+            {
+                "source_row_id": "batch-row-1",
+                "title": "Batch one",
+                "category_id": category["pk"],
+            },
+            {
+                "source_row_id": "batch-row-2",
+                "title": "Batch two",
+                "category_id": category["pk"],
+            },
+        ]
+
+        created = json.loads(
+            tool_text(
+                call_org_tool(
+                    client, org_token, "create_sessions", {"sessions": sessions}
+                )
+            )
+        )
+        retried = json.loads(
+            tool_text(
+                call_org_tool(
+                    client, org_token, "create_sessions", {"sessions": sessions}
+                )
+            )
+        )
+
+        assert created["summary"] == {"total": 2, "succeeded": 2, "failed": 0}
+        session_ids = [item["session"]["pk"] for item in created["results"]]
+        assert [item["session"]["pk"] for item in retried["results"]] == session_ids
+
+        assignments = [
+            {
+                "session_id": session_ids[0],
+                "space_id": room.pk,
+                "start_time": (event.start_time + timedelta(hours=1)).isoformat(),
+                "end_time": (event.start_time + timedelta(hours=2)).isoformat(),
+            },
+            {
+                "session_id": session_ids[1],
+                "space_id": room.pk,
+                "start_time": (event.start_time + timedelta(hours=2)).isoformat(),
+                "end_time": (event.start_time + timedelta(hours=3)).isoformat(),
+            },
+        ]
+
+        assigned = json.loads(
+            tool_text(
+                call_org_tool(
+                    client, org_token, "assign_sessions", {"assignments": assignments}
+                )
+            )
+        )
+        call_org_tool(
+            client, org_token, "assign_sessions", {"assignments": assignments}
+        )
+
+        assert assigned["summary"] == {"total": 2, "succeeded": 2, "failed": 0}
+        assert AgendaItem.objects.filter(session_id__in=session_ids).count() == len(
+            session_ids
+        )
+        assert ScheduleChangeLog.objects.filter(
+            session_id__in=session_ids
+        ).count() == len(session_ids)
+
+    def test_batch_session_failure_reports_each_item_and_keeps_successes(
+        self, client, org_token, event
+    ):
+        category = json.loads(
+            tool_text(
+                call_org_tool(
+                    client,
+                    org_token,
+                    "create_proposal_category",
+                    {"name": "Mixed batch"},
+                )
+            )
+        )
+
+        response = call_org_tool(
+            client,
+            org_token,
+            "create_sessions",
+            {
+                "sessions": [
+                    {
+                        "source_row_id": "mixed-ok",
+                        "title": "Created row",
+                        "category_id": category["pk"],
+                    },
+                    {
+                        "source_row_id": "mixed-bad",
+                        "title": "Rejected row",
+                        "category_id": 999_999,
+                    },
+                ]
+            },
+        )
+
+        result = response.json()["result"]
+        batch = json.loads(result["content"][0]["text"])
+        assert result["isError"] is True
+        assert batch["summary"] == {"total": 2, "succeeded": 1, "failed": 1}
+        assert [item["status"] for item in batch["results"]] == ["ok", "failed"]
+        sessions = json.loads(
+            tool_text(
+                call_org_tool(
+                    client, org_token, "list_sessions", {"event_id": event.pk}
+                )
+            )
+        )
+        assert [session["title"] for session in sessions] == ["Created row"]
+
+    @pytest.mark.parametrize(
+        "arguments", ({"name": "   "}, {"name": "Invalid capacity", "capacity": -1})
+    )
+    def test_create_space_reports_invalid_input(self, client, org_token, arguments):
+        response = call_org_tool(client, org_token, "create_space", arguments)
+
+        result = response.json()["result"]
+        assert result["isError"] is True
+        assert result["content"][0]["text"].startswith("Invalid arguments:")
+
+    def test_create_space_reports_tree_validation_error(self, client, org_token, event):
+        parent = SpaceFactory(event=event, parent=None, name="Scheduled room")
+        AgendaItemFactory(space=parent)
+
+        response = call_org_tool(
+            client,
+            org_token,
+            "create_space",
+            {"name": "Nested room", "parent_id": parent.pk},
+        )
+
+        result = response.json()["result"]
+        assert result["isError"] is True
+        assert result["content"][0]["text"] == (
+            "A space holding a scheduled session cannot contain other spaces."
         )
 
     def test_create_space_rejects_foreign_parent(

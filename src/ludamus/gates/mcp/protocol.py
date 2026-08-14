@@ -45,11 +45,42 @@ _AUDIT_REDACTED_KEYS: dict[str, frozenset[str]] = {
 }
 
 
+def _redact_keys(value: object, keys: frozenset[str]) -> object:
+    if isinstance(value, dict):
+        return {
+            str(key): "[redacted]" if key in keys else _redact_keys(item, keys)
+            for key, item in value.items()
+        }
+    if isinstance(value, list):
+        return [_redact_keys(item, keys) for item in value]
+    return value
+
+
 def sanitize_audit_arguments(tool_name: str, arguments: JsonDict) -> JsonDict:
+    if tool_name == "create_sessions":
+        sessions = arguments.get("sessions")
+        if not isinstance(sessions, list):
+            return {"sessions": "[redacted]"}
+        return {
+            "session_count": len(sessions),
+            "source_row_ids": [
+                item.get("source_row_id") for item in sessions if isinstance(item, dict)
+            ],
+        }
+    if tool_name == "assign_sessions":
+        assignments = arguments.get("assignments")
+        if not isinstance(assignments, list):
+            return {"assignments": "[redacted]"}
+        return {
+            "assignment_count": len(assignments),
+            "session_ids": [
+                item.get("session_id") for item in assignments if isinstance(item, dict)
+            ],
+        }
     if (redact := _AUDIT_REDACTED_KEYS.get(tool_name)) is None:
         return arguments
     return {
-        key: "[redacted]" if key in redact else value
+        key: "[redacted]" if key in redact else _redact_keys(value, redact)
         for key, value in arguments.items()
     }
 

@@ -1,6 +1,7 @@
 from collections import defaultdict
 from typing import TYPE_CHECKING
 
+from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.db.models import Max
 from django.utils.text import slugify
@@ -31,6 +32,7 @@ from ludamus.pacts.venues import (
     SpaceRecordDTO,
     SpaceTreeNodeDTO,
     SpaceTreeRepositoryProtocol,
+    SpaceValidationError,
 )
 
 if TYPE_CHECKING:
@@ -123,7 +125,10 @@ class SpaceTreeRepository(SpaceTreeRepositoryProtocol):
             location=data.location,
             order=(max_order if max_order is not None else -1) + 1,
         )
-        space.full_clean()
+        try:
+            space.full_clean()
+        except ValidationError as error:
+            raise SpaceValidationError("; ".join(error.messages)) from error
         space.save()
         return SpaceRecordDTO.model_validate(space)
 
@@ -156,7 +161,10 @@ class SpaceTreeRepository(SpaceTreeRepositoryProtocol):
         space.capacity = data.capacity
         space.description = data.description
         space.location = data.location
-        space.full_clean()
+        try:
+            space.full_clean()
+        except ValidationError as error:
+            raise SpaceValidationError("; ".join(error.messages)) from error
         space.save()
         return SpaceRecordDTO.model_validate(space)
 

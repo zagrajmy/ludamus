@@ -1,4 +1,4 @@
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from unittest.mock import MagicMock, call
 
 import pytest
@@ -749,9 +749,61 @@ class TestAssignUnassignScope:
         space.parent_id = None
         mock_uow.spaces.list_by_event.return_value = [space]
         mock_uow.agenda_items.read_by_session.return_value = None
+        placement = self._placement()
+        slot = MagicMock()
+        slot.start_time = placement.start_time
+        slot.end_time = placement.end_time
+        mock_uow.time_slots.list_by_event.return_value = [slot]
         session = MagicMock()
         session.status = SessionStatus.ACCEPTED
         mock_uow.sessions.read.return_value = session
+
+    def test_assign_is_a_noop_for_the_existing_placement(self, service, mock_uow):
+        self._arrange_acceptable_assignment(mock_uow, auto_confirm_sessions=True)
+        placement = self._placement()
+        existing = MagicMock()
+        existing.space_id = placement.space_pk
+        existing.start_time = placement.start_time
+        existing.end_time = placement.end_time
+        mock_uow.agenda_items.read_by_session.return_value = existing
+
+        service.assign_session(session_pk=1, placement=placement, event_pk=1)
+
+        mock_uow.agenda_items.delete.assert_not_called()
+        mock_uow.agenda_items.create.assert_not_called()
+        mock_uow.schedule_change_logs.create.assert_not_called()
+
+    def test_assign_rejects_a_placement_outside_time_slot_windows(
+        self, service, mock_uow
+    ):
+        self._arrange_acceptable_assignment(mock_uow, auto_confirm_sessions=True)
+        placement = self._placement()
+        slot = MagicMock()
+        slot.start_time = placement.start_time + timedelta(hours=2)
+        slot.end_time = placement.end_time + timedelta(hours=2)
+        mock_uow.time_slots.list_by_event.return_value = [slot]
+
+        with pytest.raises(PlacementRejectedError, match="time-slot window"):
+            service.assign_session(session_pk=1, placement=placement, event_pk=1)
+
+        mock_uow.agenda_items.create.assert_not_called()
+
+    def test_assign_accepts_a_placement_across_adjacent_time_slots(
+        self, service, mock_uow
+    ):
+        self._arrange_acceptable_assignment(mock_uow, auto_confirm_sessions=True)
+        placement = self._placement()
+        first = MagicMock()
+        first.start_time = placement.start_time
+        first.end_time = placement.start_time + timedelta(minutes=30)
+        second = MagicMock()
+        second.start_time = first.end_time
+        second.end_time = placement.end_time
+        mock_uow.time_slots.list_by_event.return_value = [first, second]
+
+        service.assign_session(session_pk=1, placement=placement, event_pk=1)
+
+        mock_uow.agenda_items.create.assert_called_once()
 
     def test_assign_rejects_an_inverted_time_range(self, service, mock_uow):
         placement = self._placement()

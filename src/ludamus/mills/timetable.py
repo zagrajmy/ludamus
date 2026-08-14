@@ -56,6 +56,9 @@ if TYPE_CHECKING:
 
 
 def conflicting_session_pks(conflicts: Iterable[ConflictDTO]) -> set[int]:
+    # Both ends of a clash are wrong, and only one row carries the pair:
+    # attributing it to the counterpart alone marks the innocent side and
+    # leaves the offending one clean.
     return {
         pk
         for conflict in conflicts
@@ -66,6 +69,9 @@ def conflicting_session_pks(conflicts: Iterable[ConflictDTO]) -> set[int]:
 def _card_states(
     conflicts: Iterable[ConflictDTO], violations: Iterable[PreferredSlotViolationDTO]
 ) -> dict[int, SessionPositionState]:
+    # What each card warns about, resolved once per page so the grid stops
+    # testing the same session against page-wide sets on every element. A clash
+    # outranks a slot violation, so it merges last.
     states: dict[int, SessionPositionState] = {
         violation.session_pk: "slot_violation" for violation in violations
     }
@@ -102,6 +108,9 @@ def _position_sessions(
     for group in groups:
         lane_width_pct = 100.0 / len(group)
         for index, item in enumerate(group):
+            # A session crossing midnight renders on every day it touches,
+            # clipped to that day's range. The real length rides along on the
+            # item, so a drag reschedules the whole session, not the fragment.
             visible_start = max(item.start_time, grid_start)
             visible_end = min(item.end_time, grid_end)
             offset_min = (visible_start - grid_start).total_seconds() / 60
@@ -121,6 +130,10 @@ def _position_sessions(
 
 
 def _walk_tree(nodes: list[SpaceDTO]) -> list[tuple[SpaceDTO, int]]:
+    # Pre-order (node, depth). The grid's leaves, the picker's options and the
+    # ancestor walk all read off this one traversal; a node whose parent_id
+    # names nothing never gets walked, so unreachable rows stay out of all
+    # three.
     children: dict[int | None, list[SpaceDTO]] = defaultdict(list)
     for node in nodes:
         children[node.parent_id].append(node)
@@ -143,12 +156,15 @@ def _leaves(walked: list[tuple[SpaceDTO, int]]) -> list[SpaceDTO]:
 
 
 def _leaves_in_tree_order(nodes: list[SpaceDTO]) -> list[SpaceDTO]:
+    # For the callers that want only the bookable rooms and never the tree.
     return _leaves(_walk_tree(nodes))
 
 
 def _within_selected_spaces(
     walked: list[tuple[SpaceDTO, int]], selected: set[int]
 ) -> set[int]:
+    # A branch stands for every leaf beneath it, so a leaf survives when the
+    # selection names it or any of its ancestors.
     parent_by_pk = {node.pk: node.parent_id for node, _ in walked}
     kept: set[int] = set()
     for node, _ in walked:
@@ -180,6 +196,10 @@ class TimetableService:
         self._walked: list[tuple[SpaceDTO, int]] = []
 
     def _tree(self, event_pk: int) -> list[tuple[SpaceDTO, int]]:
+        # The page builds the grid and the space filter's options from the same
+        # tree; the instance lives for one request and sees one event, so read
+        # and walk it once. Nothing this service writes touches spaces, so
+        # there is nothing to invalidate.
         if self._walked_event_pk != event_pk:
             self._walked = _walk_tree(self._repos.spaces.list_by_event(event_pk))
             self._walked_event_pk = event_pk
@@ -202,6 +222,9 @@ class TimetableService:
         filters = filters or TimetableGridFilter()
         track_pk = filters.track_pk
         date_selection = filters.date_selection
+        # Before the first read that names it, not merely before the render:
+        # `list_space_pks` below would otherwise walk another event's track and
+        # be told it is foreign only later, by `list_grid_warnings`.
         if track_pk is not None:
             require_track_in_event(
                 tracks=self._repos.tracks, track_pk=track_pk, event_pk=event_pk
@@ -216,6 +239,8 @@ class TimetableService:
                 space for space in leaf_spaces if space.pk in track_space_pks
             ]
         if filters.space_pks:
+            # Only pks belonging to this event's tree can match, so a stale or
+            # foreign id in the URL narrows nothing rather than leaking a space.
             kept = _within_selected_spaces(walked, filters.space_pks)
             leaf_spaces = [space for space in leaf_spaces if space.pk in kept]
 
@@ -235,12 +260,24 @@ class TimetableService:
         dates_to_render = (
             available_dates if date_selection == "all" else [date_selection]
         )
+        # The grid shows everything scheduled in the rooms on screen, whoever
+        # booked it. A room's occupancy is what makes a clash visible *before*
+        # it is created, and hiding another track's booking is how two tracks
+        # end up in one room at once.
         all_items = self._repos.agenda_items.list_by_event(event_pk)
+        # Fetched here rather than handed in: the full page and the partial
+        # swap that replaces it have to mark the grid the same way, and passing
+        # the warnings in left every caller free to forget them. The items and
+        # nodes above are handed on so one render is one load of each.
         conflicts, violations = ConflictDetectionService(
             self._repos
         ).list_grid_warnings(
             event_pk=event_pk, track_pk=track_pk, items=all_items, spaces=all_nodes
         )
+        # The unscheduled list filters by facilitator in SQL, so the grid does
+        # too -- same one clause, and a foreign pk is scoped out by the query
+        # rather than by happening to intersect with nothing. The warnings above
+        # still see the whole event, so narrowing the view cannot hide a clash.
         shown_items = (
             self._repos.agenda_items.list_by_event(
                 event_pk, facilitator_pks=filters.facilitator_pks
@@ -270,6 +307,9 @@ class TimetableService:
             page=space_page,
             total_pages=total_pages,
             total_spaces=total_spaces,
+            # Every day renders the same page of spaces -- `groups` already
+            # relies on that -- so the calendar's flat track list is just the
+            # page repeated once per day.
             total_columns=len(spaces) * len(days),
             available_dates=available_dates,
             date_selection=date_selection,
@@ -333,6 +373,9 @@ class TimetableService:
     def _shared_day_span(
         days: list[date], windows_by_date: dict[date, list[SlotWindow]], tz: tzinfo
     ) -> tuple[int, int]:
+        # One span for every rendered day, so 16:00 sits on the same row
+        # whether its day opens at 16:00 or at 10:00. Windows are already
+        # clamped to their local date, so both ends are minutes from midnight.
         midnights = {
             day: datetime.combine(day, datetime.min.time(), tzinfo=tz) for day in days
         }
@@ -377,6 +420,18 @@ class TimetableService:
         if space_pk not in leaf_pks:
             raise NotFoundError
 
+    def _require_placement_in_time_slots(
+        self, placement: SessionPlacement, event_pk: int
+    ) -> None:
+        ranges = _merged_slot_ranges(self._repos.time_slots.list_by_event(event_pk))
+        if not any(
+            placement.start_time >= start and placement.end_time <= end
+            for start, end in ranges
+        ):
+            raise PlacementRejectedError(
+                "placement must fit within an event time-slot window"
+            )
+
     def assign_session(
         self,
         *,
@@ -392,9 +447,16 @@ class TimetableService:
                 sessions=self._repos.sessions, session_pk=session_pk, event_pk=event_pk
             )
             self._require_space_in_event(placement.space_pk, event_pk)
+            self._require_placement_in_time_slots(placement, event_pk)
             self._repos.spaces.lock(placement.space_pk)
-            is_move = self._repos.agenda_items.read_by_session(session_pk) is not None
-            if is_move:
+            existing = self._repos.agenda_items.read_by_session(session_pk)
+            if existing is not None and (
+                existing.space_id == placement.space_pk
+                and existing.start_time == placement.start_time
+                and existing.end_time == placement.end_time
+            ):
+                return
+            if is_move := existing is not None:
                 self.unassign_session(
                     session_pk=session_pk, event_pk=event_pk, user_pk=user_pk
                 )
@@ -527,6 +589,7 @@ def _items_overlap(a: AgendaItemDTO, b: AgendaItemDTO) -> bool:
 
 
 class _EventConflictContext(NamedTuple):
+    # Everything conflict detection needs about an event, loaded once.
     items: list[AgendaItemDTO]
     items_by_space: dict[int, list[AgendaItemDTO]]
     items_by_facilitator: dict[int, list[AgendaItemDTO]]
@@ -541,6 +604,10 @@ class ConflictDetectionService:
     def detect_for_assignment(
         self, event_pk: int, session_pk: int
     ) -> list[ConflictDTO]:
+        # Runs after the assignment commits, so the session's own agenda item
+        # is already in the event context — detect on the real row through the
+        # same in-memory engine as the full listing, so every conflict shape
+        # has exactly one definition.
         context = self._load_event_context(event_pk)
         subject = next(
             (item for item in context.items if item.session_id == session_pk), None
@@ -572,6 +639,9 @@ class ConflictDetectionService:
         items: list[AgendaItemDTO],
         spaces: list[SpaceDTO],
     ) -> tuple[list[ConflictDTO], list[PreferredSlotViolationDTO]]:
+        # The grid has already loaded the event's items and space nodes, and
+        # both warnings run off the same subjects. Taking them as arguments
+        # keeps one render to one load of each instead of three.
         if track_pk is not None:
             require_track_in_event(
                 tracks=self._repos.tracks, track_pk=track_pk, event_pk=event_pk
@@ -597,6 +667,10 @@ class ConflictDetectionService:
         context: _EventConflictContext,
         track_pk: int | None,
     ) -> list[ConflictDTO]:
+        # Everything is loaded up front and overlaps are detected in memory:
+        # a query per scheduled session turns one page load into thousands of
+        # queries at a big event. Overlaps are checked against every scheduled
+        # item in the event so a track page still surfaces cross-track clashes.
         if not subjects:
             return []
 
@@ -646,6 +720,9 @@ class ConflictDetectionService:
     def _detect(
         self, item: AgendaItemDTO, context: _EventConflictContext, *, limit: int
     ) -> list[ConflictDTO]:
+        # The space->event invariant is enforced when assignments are created
+        # but not by the database, so a stale row degrades to a skipped
+        # capacity warning instead of a 500 on the whole grid.
         return [
             *self._space_conflicts(item, context.items_by_space),
             *self._capacity_conflicts(item, context.spaces.get(item.space_id), limit),
@@ -714,11 +791,16 @@ class ConflictDetectionService:
     def _foreign_track_attribution(
         self, session_pks: set[int], current_track_pk: int | None
     ) -> dict[int, tuple[str, list[str]]]:
+        # A clash is often another track's doing; name that track and its
+        # managers so organizers know whom to talk to. Sessions with no track
+        # beyond the current one are simply absent from the result.
         if not session_pks:
             return {}
         names_by_session = self._repos.sessions.list_track_names_by_session(
             sorted(session_pks)
         )
+        # First by name, decided here rather than relied on from the query, so
+        # a session in two other tracks reports the same one run to run.
         named_by_session: dict[int, tuple[int, str]] = {}
         for session_pk, tracks in names_by_session.items():
             others = [
@@ -847,6 +929,8 @@ class TimetableOverviewService:
     def build_heatmap(
         self, *, event_pk: int, tz: tzinfo, conflicts: list[ConflictDTO] | None = None
     ) -> HeatmapDTO:
+        # Only leaf spaces are bookable rooms; a venue or area column would be
+        # permanently empty.
         spaces = _leaves_in_tree_order(self._repos.spaces.list_by_event(event_pk))
         all_items = self._repos.agenda_items.list_by_event(event_pk)
         if conflicts is None:
@@ -920,6 +1004,9 @@ class TimetableOverviewService:
         return grouped
 
     def track_progress(self, event_pk: int) -> list[TrackProgressDTO]:
+        # Counts come from one aggregate query; loading every session row per
+        # track just to count statuses made the overview page O(tracks) in
+        # full-table queries.
         if not (tracks := self._repos.tracks.list_by_event(event_pk)):
             return []
         counts_by_track = self._repos.sessions.count_by_track(event_pk)
@@ -931,6 +1018,9 @@ class TimetableOverviewService:
         no_sessions = TrackSessionCountsDTO()
         for track in tracks:
             counts = counts_by_track.get(track.pk, no_sessions)
+            # Progress is measured against the active pool (everything not
+            # rejected / on hold), so pending proposals still awaiting a
+            # decision count as unscheduled program to place.
             active_count = counts.pending + counts.accepted
             progress_pct = (
                 round(counts.scheduled * 100 / active_count) if active_count else 0
@@ -951,6 +1041,9 @@ class TimetableOverviewService:
         return result
 
     def capacity_hours(self, event_pk: int) -> CapacityHoursDTO:
+        # Capacity = one program slot per room: every room is bookable for the
+        # whole of each event time slot. Scheduled = hours already occupied by
+        # placed agenda items in those rooms. Hours-to-fill is the remainder.
         rooms = _leaves_in_tree_order(self._repos.spaces.list_by_event(event_pk))
         room_count = len(rooms)
 

@@ -83,6 +83,15 @@ don't get re-derived or contradicted:
 - Keep the surface small. If it ever grows large, expose search over tools
   instead of dumping the whole catalog into agent context.
 
+## Programme batches
+
+Organizer clients can keep the singular `create_session` and `assign_session`
+operations for interactive edits. Imports should use `create_sessions` and
+`assign_sessions`, each accepting up to 250 items per call. Batch results stay
+in input order and report failures per item; successful items remain committed.
+`create_sessions` is safe to retry because `source_row_id` is event-scoped and
+idempotent. Retrying an identical assignment is a no-op.
+
 ## Adding a tool
 
 1. Subclass `Tool[YourInput]` in `gates/mcp/tools.py`: pydantic input model
@@ -98,6 +107,7 @@ don't get re-derived or contradicted:
 Domain errors need no new plumbing: `NotFoundError` and invalid arguments
 already map to MCP `isError` results, and unknown tools to JSON-RPC errors.
 
-Every `tools/call` is audit-logged **with its arguments verbatim**. Do not add
-a tool whose arguments carry personal data without adding redaction to the
-audit line first.
+Every `tools/call` is audit-logged. Sensitive fields must be redacted before
+they reach the log; batch tools record only item counts and correlation IDs.
+Do not add a tool whose arguments carry personal data without extending that
+sanitization first.
