@@ -37,26 +37,32 @@
                   class="mb-6">
                 {% csrf_token %}
                 {% tessera_field member_form.identifier %}
+                <datalist id="guild-presenter-suggestions">
+                    {% for name in presenter_names %}
+                        <option value="{{ name }}"></option>
+                    {% endfor %}
+                </datalist>
                 <div class="mt-3">
                     {% translate "Add presenter" as t_add %}
                     {% tessera_button t_add icon="plus" full_width_mobile=False %}
                 </div>
             </form>
-            {% if guild.members %}
+            {% if roster %}
                 <ul class="divide-y divide-border border-t border-border">
-                    {% for member in guild.members %}
+                    {% for row in roster %}
                         <li class="flex items-center gap-3 py-3">
-                            {% include "components/avatar.html" with user=member size="size-8" %}
+                            {% include "components/avatar.html" with user=row.member size="size-8" %}
                             <span class="min-w-0 flex-1">
-                                <span class="block truncate text-sm font-medium text-foreground">{{ member.full_name|default:member.name }}</span>
-                                <span class="block truncate text-xs text-foreground-muted">{{ member.email }}</span>
+                                <span class="block truncate text-sm font-medium text-foreground">{{ row.name }}</span>
+                                {% if row.subtitle %}
+                                    <span class="block truncate text-xs text-foreground-muted">{{ row.subtitle }}</span>
+                                {% endif %}
                             </span>
-                            <form method="post"
-                                  action="{% url 'multiverse:panel:guild-member-remove' pk=guild.pk membership_pk=member.membership_pk %}">
+                            <form method="post" action="{{ row.remove_url }}">
                                 {% csrf_token %}
                                 <button type="submit" class="icon-btn text-danger hover:text-danger/80">
                                     {% icon "x-mark" class="w-4 h-4" %}
-                                    <span class="sr-only">{% blocktranslate with name=member.full_name|default:member.name %}Remove {{ name }} from this guild{% endblocktranslate %}</span>
+                                    <span class="sr-only">{% blocktranslate with name=row.name %}Remove {{ name }} from this guild{% endblocktranslate %}</span>
                                 </button>
                             </form>
                         </li>

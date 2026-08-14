@@ -9,7 +9,7 @@
 {% endblock page_title %}
 {% block page_title_adornment %}
     {% translate "What are tracks?" as t_info_title %}
-    {% translate "Tracks let you group proposals by thematic area. Public tracks are shown to proposers in the submission wizard; private tracks are for internal categorization only." as t_info_body %}
+    {% translate "Tracks let you group proposals by thematic area. Public tracks are shown to proposers in the submission wizard and their sessions appear on the event schedule; sessions in private tracks stay off it." as t_info_body %}
     {% include "components/info_popover.html" with title=t_info_title body=t_info_body %}
 {% endblock page_title_adornment %}
 {% block page_subtitle %}
@@ -55,7 +55,7 @@
                     </thead>
                     <tbody class="bg-bg-secondary divide-y divide-border">
                         {% for track in tracks %}
-                            <tr>
+                            <tr class="hover:bg-bg-tertiary">
                                 <td class="px-6 py-4 text-sm font-medium text-foreground">{{ track.name }}</td>
                                 <td class="px-6 py-4 whitespace-nowrap text-sm">
                                     {% if track.is_public %}
@@ -74,6 +74,7 @@
                                 <td class="px-6 py-4 text-sm">{% include "components/pill_list.html" with items=track.manager_names icon="user" %}</td>
                                 <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                     <a href="{% url 'panel:track-edit' slug=current_event.slug track_slug=track.slug %}"
+                                       data-row-action
                                        class="text-primary hover:text-primary/80 mr-4">{% translate "Edit" %}</a>
                                     <form method="post"
                                           action="{% url 'panel:track-delete' slug=current_event.slug track_slug=track.slug %}"

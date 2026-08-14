@@ -1,8 +1,9 @@
-"""Shared time-slot helpers for the chronology and printing mills.
+"""Shared local-day window helpers for chronology mills and schedule gates.
 
 Time slots are proposer availability windows ("when could you run your
 session?"), not schedule display units — rendered timetables show the real
-session start and end times instead.
+session start and end times instead. Both still need the same local-midnight
+split, so the pure interval math lives here.
 """
 
 from __future__ import annotations
@@ -17,7 +18,7 @@ if TYPE_CHECKING:
 type SlotWindow = tuple[datetime, datetime]
 
 
-def local_day_windows(start: datetime, end: datetime, tz: tzinfo) -> list[SlotWindow]:
+def interval_windows(*, start: datetime, end: datetime, tz: tzinfo) -> list[SlotWindow]:
     # An interval spanning multiple local dates contributes one (start, end)
     # window to each date it touches, clamped to that date's [00:00, 24:00)
     # range. One definition of "a day", shared by slots and by scheduled items.
@@ -37,7 +38,7 @@ def local_day_windows(start: datetime, end: datetime, tz: tzinfo) -> list[SlotWi
 
 
 def slot_windows(slot: TimeSlotDTO, tz: tzinfo) -> list[SlotWindow]:
-    return local_day_windows(slot.start_time, slot.end_time, tz)
+    return interval_windows(start=slot.start_time, end=slot.end_time, tz=tz)
 
 
 def slot_windows_by_local_date(
