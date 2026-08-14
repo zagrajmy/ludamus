@@ -45,7 +45,7 @@ If you fix a papercut, remove it.
 - 2026-07-14: Passed focused pytest paths to mise run test:py, but the task
   appends them after its fixed integration/unit roots and runs the full suite;
   use -k for focused selection.
-- 2026-07-14: Used a test_*party* zsh glob while locating party history tests;
+- 2026-07-14: Used a test\__party_ zsh glob while locating party history tests;
   no match caused zsh to abort before rg. Use rg paths without shell globs.
 - 2026-07-14: Passed a Playwright filename through mise run test:e2e; the task
   ignored it for Playwright, ran all 152 cases, then passed it to coverage
@@ -138,7 +138,7 @@ If you fix a papercut, remove it.
 - 2026-07-23: mise run format returns failure when djlint successfully reformats
   a file, requiring an identical second run to prove cleanliness.
 - 2026-07-23: Focused Playwright runs silently found no tests when an auth spec
-  was paired with the chromium project; use chromium-auth for *.auth.spec.ts.
+  was paired with the chromium project; use chromium-auth for \*.auth.spec.ts.
 - 2026-07-17: `mise run test:py -- some/path.py` silently runs the WHOLE suite:
   the task is 'pytest tests/integration tests/unit' so an appended path is an
   extra target, not a filter. Wasted two 5-minute full runs before noticing.
@@ -274,8 +274,8 @@ If you fix a papercut, remove it.
   It also aborts the rest of panel.spec.ts (serial mode), so 43 tests report
   'did not run'.
 - 2026-08-02: Pre-commit oxlint hook fails with 'Cannot find module eslint-
-  plugin-sonarjs'; the aube store entry node_modules/.aube/eslint-plugin-
-  sonarjs@3.0.6_.../node_modules/eslint-plugin-sonarjs is extracted without a
+  plugin-sonarjs'; the aube store entry node*modules/.aube/eslint-plugin-
+  sonarjs@3.0.6*.../node_modules/eslint-plugin-sonarjs is extracted without a
   package.json (only cjs/docs/types), and 'aube install' reports 'already up to
   date' so it never repairs it. Blocks every commit touching a .ts file.
 - 2026-08-01: mise run lint fails locally on lint:hk: oxlint can't build
@@ -284,7 +284,7 @@ If you fix a papercut, remove it.
   tree, so it's env drift, not a code problem — had to stash and re-run to prove
   my change was innocent.
 - 2026-08-02: mise run check → lint:vulture recursively scanned
-  .claude/worktrees/*/.venv created by review agents, then failed on third-party
+  .claude/worktrees/\*/.venv created by review agents, then failed on third-party
   packages instead of project code.
 - 2026-08-02: mise run shots with a query-string URL → mise preserved literal
   shell quotes in usage_targets, so the generated URL contained apostrophes and
@@ -378,7 +378,7 @@ If you fix a papercut, remove it.
   so the running process kept serving the old hashed CSS filename the build had
   just deleted. Pages rendered unstyled and a Playwright hover-opacity
   assertion failed as if the CSS were missing — it was a 404. `mise run
-  test:e2e:serve` watches the manifest and bounces itself; a hand-rolled
+test:e2e:serve` watches the manifest and bounces itself; a hand-rolled
   runserver doesn't, so restart it after every client build.
 - 2026-08-12: Asserting a flash message in Playwright is a race. Flashes are
   `data-flash="transient"` and flash.ts removes them 5s after load, which a
