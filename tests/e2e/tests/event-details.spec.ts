@@ -32,6 +32,20 @@ test.describe("Event detail page", () => {
     await expect(page.getByText("Upcoming")).toHaveCount(0);
   });
 
+  test("shows both endpoints of a multi-day event", async ({ page }) => {
+    const eventPeriod = page.locator("[data-event-period]");
+    const endpoints = eventPeriod.locator("time");
+
+    await expect(endpoints).toHaveCount(2);
+    await expect(endpoints.nth(0)).toContainText(/.+ · \d{1,2}:\d{2}/);
+    await expect(endpoints.nth(1)).toContainText(/.+ · \d{1,2}:\d{2}/);
+
+    const datetimes = await endpoints.evaluateAll((elements) =>
+      elements.map((element) => element.getAttribute("datetime")),
+    );
+    expect(datetimes[0]?.slice(0, 10)).not.toBe(datetimes[1]?.slice(0, 10));
+  });
+
   test("renders session cards with locations and opens detail modal", async ({ page }) => {
     const sessionCards = page.getByRole("article");
     await expect(sessionCards).toHaveCount(3);

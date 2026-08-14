@@ -904,6 +904,17 @@ def main() -> None:
         share_code="ENCQR1",
     )
 
+    _, foreign_sphere = _create_site("foreign.localhost:8000", name="Foreign Programme")
+    _create_event(
+        foreign_sphere,
+        name="Foreign Programme",
+        slug="foreign-programme",
+        description="Event used to verify sphere-scoped organizer access.",
+        start_offset=timedelta(days=30),
+        duration_hours=8,
+        publication_offset=timedelta(days=1),
+    )
+
 
 if __name__ == "__main__":
     main()
