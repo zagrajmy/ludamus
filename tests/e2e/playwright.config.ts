@@ -80,8 +80,10 @@ export default defineConfig({
           proxy: {
             server: proxyServer,
             // The proxy only fronts external egress; localhost (the app
-            // under test) and 127.0.0.1 must bypass it.
-            bypass: "localhost,127.0.0.1",
+            // under test) and 127.0.0.1 must bypass it. The sphere specs
+            // reach the app under tenant subdomains (another.localhost),
+            // which the bare `localhost` entry does not cover.
+            bypass: "localhost,*.localhost,127.0.0.1",
           },
         }
       : {}),

@@ -97,18 +97,7 @@
                     {% endif %}
                 </div>
             </div>
-            <div>
-                <label class="block text-sm font-medium text-foreground-secondary mb-1"
-                       for="id_duration">{% translate "Duration" %}</label>
-                <input type="text"
-                       name="duration"
-                       id="id_duration"
-                       value="{{ form.duration.value|default:'' }}"
-                       class="w-full border {% if form.duration.errors %}border-danger{% else %}border-border{% endif %} rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary">
-                {% if form.duration.errors %}
-                    <p class="mt-1 text-sm text-danger">{{ form.duration.errors.0 }}</p>
-                {% endif %}
-            </div>
+            <div>{% include "panel/parts/proposal-duration.html" %}</div>
             {% if field_descriptors %}
                 <input type="hidden" name="session_fields_submitted" value="1">
             {% endif %}

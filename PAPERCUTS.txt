@@ -1,0 +1,204 @@
+# Papercuts
+
+Small friction hit while working — retried tool calls, confusing setup steps,
+flaky commands, stale caches, misleading errors, non-obvious gotchas. One or two
+sentences each: what you were doing → what got in the way.
+
+If you fix a papercut, remove it.
+
+<!-- Append new entries below, newest last. -->
+
+- 2026-07-13: dev DB root sphere domain drifted from ROOT_DOMAIN
+  (localhost:8000) -> every request 500s with NotFoundError in
+  middlewares.py:40; error page gives no hint which domain was looked up
+- 2026-07-13: `mise run messages` still scans top-level `worktrees/`,
+  mixing strings and source references from sibling checkouts into the catalog
+  and sometimes finding duplicate POT definitions. Run extraction from a
+  checkout with no nested worktrees until the task excludes them.
+- 2026-07-14: Tried to inspect gettext entries with polib, but the project
+  environment does not install it; used the available gettext CLI instead.
+- 2026-07-14: `mise run test:py -- PATH` still appends the path after its
+  fixed integration and unit roots, so it runs the full suite. Use
+  `mise run test:int -- PATH` for a focused integration test; `test:unit` still
+  has no equivalent target replacement.
+- 2026-07-14: Used a `test_*party*` zsh glob while locating party history tests;
+  no match caused zsh to abort before rg. Use rg paths without shell globs.
+- 2026-07-14: Catbox rejected PR screenshot uploads using the documented image-
+  upload command with HTTP 412; the screenshot workflow needs a reliable host or
+  required request headers documented.
+- 2026-07-14: Built a screenshot asset commit, then zsh parsed
+  `$asset_commit:refs/...` as a variable modifier and corrupted the push
+  refspec; brace variables immediately before colons in zsh.
+- 2026-07-14: Assumed fetched PR review-thread comments were objects with a body
+  field; this repository helper returned a different shape and made the jq audit
+  fail. Document the helper output schema or ship a ready unresolved-thread
+  query.
+- 2026-07-14: Guessed the focused test belonged to TestSessionEnrollPage from
+  its filename; pytest collected zero because the actual class is
+  TestDesiredStateRouting. Locate node IDs before invoking focused tests.
+- 2026-07-14: Ran a standalone Django metadata check after sourcing .env.test;
+  DJANGO_SETTINGS_MODULE was still unset, so setup failed before printing the
+  table name.
+- 2026-07-14: Updating the PR body with gh pr edit failed on the deprecated
+  Projects Classic GraphQL field; gh api with a PTY stdin payload also produced
+  HTTP 400. A direct REST PATCH with a form field worked.
+- 2026-07-14: Targeted Chromium could not launch after an accidentally
+  unfiltered mise task spawned five browsers; stale Playwright Chromium
+  processes hit macOS MachPortRendezvous bootstrap conflicts.
+- 2026-07-14: Ran test:postgres for the new party-invite concurrency check; the
+  task assumes PostgreSQL is already running and all six marked tests failed at
+  setup with connection refused.
+- 2026-07-20: `test_import_views` test
+  `test_get_groups_errors_and_successes_and_folds_successes_by_default` flaked
+  once in a full run, then passed on rerun.
+- 2026-07-23: Running mise tasks in the managed sandbox failed with Operation
+  not permitted, so task discovery required a retry outside the sandbox.
+- 2026-07-23: Checking the seeded manager via user.spheres failed because
+  Sphere.managers keeps Django's default reverse name; use user.sphere_set or
+  query Sphere.managers directly.
+- 2026-07-23: Ran a mixed JS/Python lint batch from src/ludamus/client while
+  passing repository-root-relative paths; every path-based check failed. Run
+  mixed checks from repo root or use paths relative to the chosen workdir.
+- 2026-07-23: Formatting the Playwright test with aube exec -C tests/e2e failed
+  because oxfmt is only available from the repository toolchain; running it from
+  the repository root worked. format:djlint also exits nonzero after
+  successfully reformatting a file, requiring a second pass.
+- 2026-07-23: Running format:djlint for one navbar change reformatted an
+  unrelated dirty template, then exited nonzero. A scoped formatter/check target
+  would avoid disturbing concurrent work.
+- 2026-07-23: Focused Playwright runs silently found no tests when an auth spec
+  was paired with the chromium project; use chromium-auth for \*.auth.spec.ts.
+- 2026-07-23: Wrapped validation commands used zsh reserved variable status, so
+  result capture failed after the tasks completed; use a task-specific exit
+  variable.
+- 2026-07-24: Running a focused E2E via mise run test:e2e with an anchored
+  suite/title grep matched zero tests; Playwright output did not reveal the
+  actual full title. Retried with the unique test-name substring.
+- 2026-07-24: The standalone `tests/e2e` `tsc --noEmit` check is red on
+  unrelated existing errors, so it cannot provide a clean focused-test signal.
+  Playwright still transpiles and executes changed specs successfully.
+- 2026-07-24: test_event_page.py::test_query_count_constant_in_session_count
+  flaked once under parallel run with 'UNIQUE constraint failed: sphere.site_id'
+  — passed on re-run, looks like a test-isolation collision between sphere/site
+  fixtures
+- 2026-07-24: Committed from a new git worktree → hook startup failed because
+  the copied mise.toml was untrusted; trust was required before hooks could run.
+- 2026-07-24: Used agent-browser find role link with an exact Log in name → it
+  reported no element despite the snapshot listing matching links; clicking the
+  snapshot ref worked.
+- 2026-07-24: Created a fresh Playwriter session → the CLI returned an ID but
+  immediately reported that session as missing; reused the user-authorized
+  existing session and created a dedicated page there.
+- 2026-07-24: Passed focused test paths to mise run test:unit after -- → the
+  task still ran the entire tests/unit suite instead of only those paths.
+- 2026-07-24: Ran the documented messages task in a fresh worktree → varlock
+  rejected missing development secrets instead of loading the repository test
+  environment.
+- 2026-07-24: While carving enrollment views out of event_settings.py, removing
+  a shared timezone import also broke pre-existing settings code; Ruff caught
+  the cross-section import coupling before commit.
+- 2026-07-25: Iterated on timetable CSS/TS against a `.env.e2e` server, where
+  `ENV="test"` turns django_vite `dev_mode` off, so each edit needed
+  `aubr build` plus a restart (`--noreload` caches the manifest, and the
+  rebuild deletes the hashed files it points at - the page then renders with
+  no CSS and reads as a layout bug). For an edit loop against the e2e seed,
+  export `ENV=development` and `VITE_PORT`, run the vite dev server, and keep
+  the rest of `.env.e2e`: assets come from vite with HMR, no build, no
+  restart. Build only before handing the page to Playwright.
+- 2026-07-27: mise run check (format+lint) omits messages-check, so a stale PL
+  catalog passes locally and only fails in CI; after any edit that reorders
+  translated strings, run 'mise run messages-check' separately.
+- 2026-07-28: Investigated login in the web sandbox: mise run start failed on
+  varlock validation because the session's .env.local existed but was
+  incomplete, and bootstrap's `if [ ! -f .env.local ]` guard never repairs an
+  existing file; `rm .env.local && mise run bootstrap` regenerates it properly.
+- 2026-07-28: auth0-simulator stays disabled in the sandbox until you hand-roll
+  ~/.portless certs, and Python 3.14 rejects a bare self-signed CA without
+  keyUsage=keyCertSign, so the first cert attempt failed with
+  CERTIFICATE_VERIFY_FAILED.
+- 2026-07-29: ran mise run shots -- '/event/x/print/?material=timetable' — task
+  warned 'not reachable' although the server was up; $usage_targets keeps the
+  shell quotes around each arg, so the URL becomes
+  <http://localhost:8000'/event/>...'. Worked around by calling aubx
+  agent-browser
+  directly.
+- 2026-07-31: every mise task resolves its Python tool from PATH, so any shell
+  that puts ~/.local/bin ahead of the mise shims gets the image's uv-installed
+  pytest/mypy/black instead of .venv's. 'mise run test:py' then dies with
+  ModuleNotFoundError: No module named 'django'. Took a while to spot because
+  the traceback points at tests/conftest.py, not at the wrong interpreter.
+  session-start.sh orders PATH correctly; nothing enforces it elsewhere.
+- 2026-08-01: git push over SSH fails with 'Bad owner or permissions on
+  /etc/ssh/ssh_config.d/20-systemd-ssh-proxy.conf' (symlink owned by
+  nobody:nogroup); worked around with git -c credential.helper='!gh auth git-
+  credential' push <https://github.com/zagrajmy/ludamus.git> HEAD:the-branch
+- 2026-08-02: mise run shots fails on this machine: Chrome aborts with 'No
+  usable sandbox' before writing DevToolsActivePort. Playwright (test:e2e)
+  launches fine, so the wrapper needs --no-sandbox or a note pointing at the e2e
+  screenshots instead.
+- 2026-08-02: mise run test:e2e -- tests/print-flow.spec.ts → the existing
+  hours-window case flaked once under five-worker contention after the new
+  regression case passed; rerunning the regression alone passed.
+- 2026-08-02: Polled api.github.com from a bash loop to wait for CI; the egress
+  proxy 403s it, so the loop parsed an error body as "no checks pending" and
+  reported all-green while the test job was still running. Use the GitHub MCP
+  tools for CI state in a sandbox — curl to api.github.com fails silently enough
+  to look like success.
+- 2026-08-04: Running any mise task with cwd inside .venv/src/vekna fails with
+  'Config files in .../vekna/mise.toml are not trusted' instead of running the
+  repo task. A git-sourced Poetry dependency ships its own mise.toml into the
+  venv and mise's config discovery walks up into it. Needs a 'mise trust' note
+  in docs/agents/sandbox.md.
+- 2026-08-05: mise run messages-check fails locally on 11 pre-existing '#,
+  python-brace-format' flags: the local xgettext strips them, but main and CI
+  both keep them. Regenerating the catalog silently drops the flags, so after
+  'mise run messages' you have to revert the catalog and hand-apply only the
+  real msgid deltas.
+- 2026-08-05: Scoping impeccable to two templates: 'mise run lint:impeccable
+  path/to/file.html' silently drops the paths (the task body has no forwarding),
+  so it scans every tracked HTML/CSS/JS file and looks hung for minutes. That is
+  the same friction logged on 2026-07-14. Call '.venv/bin/python
+  scripts/impeccable_lint.py PATH...' to scope it. Use the venv interpreter
+  specifically: the script uses PEP 758 except syntax at line 102, valid only on
+  3.14, so a bare 'python' (3.11 on PATH here) raises a SyntaxError that reads
+  like a repo bug. Black under 3.14 normalizes to that form, so parenthesizing
+  it fights the formatter and hk reverts the file mid-commit.
+- 2026-08-07: docs/agents/sandbox.md documents the python3.14 install as
+  apt+deadsnakes, but the CC-web egress proxy 403s ppa.launchpadcontent.net, so
+  mise install leaves no 3.14 and the Python suite can't run. 3.13 is not a
+  fallback — the code relies on 3.14 PEP 649 deferred annotations
+  (pacts/legacy.py:229 uses SessionStatus 35 lines before its definition), so
+  imports NameError. I wrongly concluded the sandbox couldn't run tests at all.
+  `uv python install 3.14` fetches python-build-standalone from GitHub releases
+  (reachable) in ~4s; worth making that the documented fallback in the
+  SessionStart hook.
+- 2026-08-11: Burned a CI round because `djlint <path> --check` and the
+  `lint:djlint` task disagree. The task is
+  `djlint src --quiet --lint --check --format-css --format-js --profile=django`,
+  and `--format-css` is what reformats CSS inside `<style>` blocks — without it
+  my template checked clean locally and failed on CI, naming a file I had just
+  checked. Nothing in the local output hints that a flag is missing. Copying the
+  task's exact argv is the only reliable check when mise itself is unavailable;
+  worth a line in docs/agents/sandbox.md next to the oxfmt note below.
+- 2026-08-12: markdownlint's pre-commit autofix rewrites a line that begins with
+  an issue reference (#834) into '# 834', turning it into an H1 and then failing
+  MD022/MD025 on its own fix. Had to rewrap the paragraph so no line starts with
+  '#'.
+- 2026-08-12: `pkill -f "django runserver"` killed my own shell — the pattern
+  matches the tool's command line too, so the bash call died with exit 144 mid-
+  script (twice, once leaving a half-written file). Killing the dev server
+  needs the pid from `ps -eo pid,cmd | grep "[d]jango runserver"`.
+- 2026-08-12: Ran `vite build` while a hand-started `django runserver` was up,
+  so the running process kept serving the old hashed CSS filename the build had
+  just deleted. Pages rendered unstyled and a Playwright hover-opacity
+  assertion failed as if the CSS were missing — it was a 404. `mise run
+  test:e2e:serve` watches the manifest and bounces itself; a hand-rolled
+  runserver doesn't, so restart it after every client build.
+- 2026-08-12: Asserting a flash message in Playwright is a race. Flashes are
+  `data-flash="transient"` and flash.ts removes them 5s after load, which a
+  slow local page load can outlast — `expect(getByText("Guild created."))`
+  timed out while the row it announced was right there. Assert the durable page
+  state instead.
+- 2026-08-12: Ran 'mise run test:py tests/unit/test_chronology_mills.py'
+  expecting a targeted run; the task ignores trailing path args and ran all 3990
+  tests (4 min). 'mise run test:unit -- -k Name' works instead.

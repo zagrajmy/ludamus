@@ -50,7 +50,7 @@
                         </thead>
                         <tbody class="bg-bg-secondary divide-y divide-border">
                             {% for category in categories %}
-                                <tr>
+                                <tr class="hover:bg-bg-tertiary">
                                     <td class="px-6 py-4 text-sm font-medium text-foreground max-w-xs truncate">{{ category.name }}</td>
                                     <td class="px-6 py-4 whitespace-nowrap text-sm text-foreground-muted">
                                         {% with cat_stats=category_stats|get_item:category.pk %}
@@ -75,6 +75,7 @@
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                         <a href="{% url 'panel:cfp-edit' event_slug=current_event.slug category_slug=category.slug %}"
+                                           data-row-action
                                            class="text-primary hover:text-primary/80 mr-4">{% translate "Configure" %}</a>
                                         <form method="post"
                                               action="{% url 'panel:cfp-delete' event_slug=current_event.slug category_slug=category.slug %}"

@@ -10,7 +10,6 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import DataError
 from django.urls import reverse
 
-from ludamus.gates.web.django.forms import MAX_DURATION_HOURS, MAX_DURATION_MINUTES
 from ludamus.links.db.django.models import (
     Facilitator,
     ProposalCategory,
@@ -30,6 +29,7 @@ from ludamus.pacts import (
     TimeSlotDTO,
     TrackDTO,
 )
+from ludamus.pacts.durations import MAX_DURATION_HOURS, MAX_DURATION_MINUTES
 from tests.integration.conftest import EventFactory
 from tests.integration.utils import assert_login_required, assert_response, checkbox_tag
 from tests.integration.web.panel.helpers import (
