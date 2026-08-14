@@ -1,5 +1,7 @@
 import { type Page } from "@playwright/test";
 
+import { installCspViolationCollector } from "./helpers/csp";
+import { assertDropzoneBlobPreview, labeledDropzone, shownFileName } from "./helpers/dropzone";
 import { expect, test } from "./helpers/fixtures";
 
 const SVG_BYTES = Buffer.from(
@@ -8,12 +10,7 @@ const SVG_BYTES = Buffer.from(
 );
 
 const logoInput = (page: Page) => page.getByLabel("Logo", { exact: true });
-
-const logoDropzone = (page: Page) =>
-  logoInput(page).locator("xpath=ancestor::label[@data-dropzone]");
-
-const shownFileName = (page: Page) =>
-  logoDropzone(page).locator("[data-dropzone-name]").filter({ visible: true });
+const logoDropzone = (page: Page) => labeledDropzone(page, "Logo");
 
 const removeSavedLogo = async (page: Page): Promise<void> => {
   await page.goto("/multiverse/panel/");
@@ -36,6 +33,7 @@ test.describe("Sphere logo upload", () => {
   });
 
   test("manager uploads an SVG logo and sees it previewed", async ({ page }) => {
+    await installCspViolationCollector(page);
     await page.goto("/multiverse/panel/");
 
     const dropzone = logoDropzone(page);
@@ -48,7 +46,8 @@ test.describe("Sphere logo upload", () => {
     });
 
     await expect(dropzone.getByText("Click to upload")).toBeHidden();
-    await expect(shownFileName(page)).toHaveText("brand.svg");
+    await expect(shownFileName(dropzone, "brand.svg")).toBeVisible();
+    await assertDropzoneBlobPreview(page, dropzone);
 
     await page.getByRole("button", { name: "Save Settings" }).click();
     await expect(page.getByText("Sphere settings saved successfully.")).toBeVisible();
@@ -57,6 +56,7 @@ test.describe("Sphere logo upload", () => {
     const preview = logoDropzone(page).locator("[data-dropzone-preview]");
     await expect(preview).toHaveAttribute("src", /\.svg$/);
     await expect(preview).toHaveJSProperty("naturalWidth", 60);
+    await expect(shownFileName(logoDropzone(page), "brand.svg")).toBeVisible();
   });
 
   test("rejects an SVG carrying a script", async ({ page }) => {

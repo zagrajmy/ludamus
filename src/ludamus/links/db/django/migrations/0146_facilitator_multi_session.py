@@ -5,7 +5,7 @@ from django.db import migrations, models
 
 class Migration(migrations.Migration):
 
-    dependencies = [("db_main", "0142_guild_guildmembership")]
+    dependencies = [("db_main", "0145_original_filenames")]
 
     operations = [
         migrations.AddField(

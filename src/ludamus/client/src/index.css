@@ -151,6 +151,14 @@
   }
 }
 
+@utility text-box-trim-start {
+  text-box: trim-start cap alphabetic;
+}
+
+@utility text-box-trim-both {
+  text-box: trim-both cap alphabetic;
+}
+
 *,
 *::before,
 *::after {
@@ -401,6 +409,29 @@ button:active {
 }
 
 @layer components {
+  table tbody tr:has([data-row-action]) {
+    position: relative;
+    cursor: pointer;
+  }
+
+  table tbody tr [data-row-action] {
+    position: static;
+  }
+
+  table tbody tr [data-row-action]::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+  }
+
+  table
+    tbody
+    tr:has([data-row-action])
+    :is(a, button, label, input, select, textarea, [data-menu], .btn):not([data-row-action]) {
+    position: relative;
+    z-index: 1;
+  }
+
   .flash-region {
     position: fixed;
     top: max(1rem, env(safe-area-inset-top));
@@ -530,7 +561,7 @@ button:active {
       scale 0.15s,
       box-shadow 0.15s;
     background-color: var(--bg);
-    text-box: trim-both cap alphabetic;
+    @apply text-box-trim-both;
     box-shadow:
       inset 0 1px 0 0 var(--hl1),
       inset 0 3px 5px -3px var(--hl2),

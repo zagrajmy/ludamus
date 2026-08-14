@@ -29,16 +29,16 @@ from ludamus.gates.web.django.chronology.panel.views.columns import (
     column_views,
     facilitator_column_values,
 )
-from ludamus.gates.web.django.dynamic_fields import (
-    answered_value,
-    dynamic_fields_form,
-    field_descriptors,
+from ludamus.gates.web.django.dynamic_fields import answered_value
+from ludamus.gates.web.django.event.panel.views.facilitator_actions import (
+    FacilitatorActionView,
 )
-from ludamus.gates.web.django.forms import (
-    ACCREDITATION_TYPE_LABELS,
-    FacilitatorEditForm,
-    FacilitatorForm,
+from ludamus.gates.web.django.event.panel.views.facilitator_fields import (
+    PERSONAL_PREFIX,
+    personal_descriptors,
+    personal_fields_form,
 )
+from ludamus.gates.web.django.forms import ACCREDITATION_TYPE_LABELS, FacilitatorForm
 from ludamus.gates.web.django.sphere.marks import attach_facilitator_guild_marks
 from ludamus.mills.panel_facilitators import (
     MIN_MERGE_FACILITATORS,
@@ -46,11 +46,7 @@ from ludamus.mills.panel_facilitators import (
     field_reconcile,
     name_reconcile,
 )
-from ludamus.pacts import (
-    FacilitatorUpdateData,
-    NotFoundError,
-    PersonalDataFieldValueData,
-)
+from ludamus.pacts import NotFoundError
 from ludamus.pacts.panel import (
     FacilitatorCreateData,
     FacilitatorListQuery,
@@ -58,99 +54,15 @@ from ludamus.pacts.panel import (
     FacilitatorMergeError,
     MergeErrorReason,
 )
-from ludamus.pacts.submissions import (
-    AccreditationType,
-    FacilitatorActionError,
-    OrganizerActionRefusal,
-)
+from ludamus.pacts.submissions import AccreditationType
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping, Sequence
-
-    from django import forms
-    from django.http import HttpResponse, QueryDict
-    from django.utils.functional import _StrPromise
-
-    from ludamus.pacts import FieldDescriptor, FieldValue, OrganizerFieldDTO
+    from django.http import HttpResponse
 
 
 # A tampered `?organizer=` value falls back to "all", so the toolbar never
 # shows a selected option the list is not actually filtered by.
 _ORGANIZER_FILTERS = ("mine", "unassigned")
-# Why the claim or the step-down did not apply. A double-click and a genuine
-# clash are different stories, so they get different messages.
-_ORGANIZER_REFUSALS: dict[OrganizerActionRefusal, _StrPromise] = {
-    OrganizerActionRefusal.ALREADY_TAKEN: gettext_lazy(
-        "Someone else already handles this facilitator."
-    ),
-    OrganizerActionRefusal.ALREADY_YOURS: gettext_lazy(
-        "You already handle this facilitator."
-    ),
-    OrganizerActionRefusal.ALREADY_FREE: gettext_lazy(
-        "Nobody handles this facilitator."
-    ),
-    OrganizerActionRefusal.NOT_ORGANIZER: gettext_lazy(
-        "Only the person handling this facilitator can step down."
-    ),
-}
-
-
-_PERSONAL_PREFIX = "personal"
-
-
-def _personal_fields_form(
-    *,
-    fields: Sequence[OrganizerFieldDTO],
-    data: QueryDict | None = None,
-    values: Mapping[str, FieldValue] | None = None,
-) -> forms.Form:
-    # The panel records answers on someone's behalf, so nothing is required
-    # here even when the proposal wizard would demand it.
-    return dynamic_fields_form(
-        prefix=_PERSONAL_PREFIX,
-        fields=[(field, False) for field in fields],
-        data=data,
-        initial=values or {},
-    )
-
-
-def _personal_descriptors(
-    fields: Sequence[OrganizerFieldDTO], form: forms.Form
-) -> list[FieldDescriptor]:
-    return field_descriptors(
-        prefix=_PERSONAL_PREFIX, fields=[(field, False) for field in fields], form=form
-    )
-
-
-def _stored_descriptors(
-    items: Sequence[tuple[OrganizerFieldDTO, FieldValue | None]],
-) -> list[FieldDescriptor]:
-    fields = [field for field, _value in items]
-    return _personal_descriptors(
-        fields,
-        _personal_fields_form(
-            fields=fields,
-            values={field.slug: value for field, value in items if value is not None},
-        ),
-    )
-
-
-def _personal_entries(
-    *,
-    form: forms.Form,
-    fields: Sequence[OrganizerFieldDTO],
-    facilitator_id: int,
-    event_id: int,
-) -> list[PersonalDataFieldValueData]:
-    return [
-        PersonalDataFieldValueData(
-            facilitator_id=facilitator_id,
-            event_id=event_id,
-            field_id=field.pk,
-            value=answered_value(prefix=_PERSONAL_PREFIX, field_def=field, form=form),
-        )
-        for field in fields
-    ]
 
 
 def _merge_error_message(reason: MergeErrorReason) -> str:
@@ -274,8 +186,8 @@ class FacilitatorDetailPageView(PanelAccessMixin, EventContextMixin, View):
         context["tab_urls"] = facilitator_detail_tab_urls(slug, facilitator_slug)
         context["facilitator"] = detail.facilitator
         context["linked_user"] = detail.linked_user
-        context["guild"] = self.request.services.guilds.mark_for_user(
-            sphere_id=current_event.sphere_id, user_pk=detail.facilitator.user_id
+        context["guild"] = self.request.services.guilds.mark_for_facilitator(
+            sphere_id=current_event.sphere_id, facilitator_pk=detail.facilitator.pk
         )
         context["accreditation_type_display"] = ACCREDITATION_TYPE_LABELS[
             AccreditationType(detail.facilitator.accreditation_type)
@@ -335,8 +247,8 @@ class FacilitatorCreatePageView(PanelAccessMixin, EventContextMixin, View):
         fields = self.request.services.facilitator_panel.list_fields(current_event.pk)
         context["active_nav"] = "facilitators"
         context["form"] = FacilitatorForm()
-        context["field_descriptors"] = _personal_descriptors(
-            fields, _personal_fields_form(fields=fields)
+        context["field_descriptors"] = personal_descriptors(
+            fields, personal_fields_form(fields=fields)
         )
         return TemplateResponse(self.request, "panel/facilitator-create.html", context)
 
@@ -348,11 +260,11 @@ class FacilitatorCreatePageView(PanelAccessMixin, EventContextMixin, View):
         service = self.request.services.facilitator_panel
         fields = service.list_fields(current_event.pk)
         form = FacilitatorForm(self.request.POST)
-        fields_form = _personal_fields_form(fields=fields, data=self.request.POST)
+        fields_form = personal_fields_form(fields=fields, data=self.request.POST)
         if not form.is_valid() or not fields_form.is_valid():
             context["active_nav"] = "facilitators"
             context["form"] = form
-            context["field_descriptors"] = _personal_descriptors(fields, fields_form)
+            context["field_descriptors"] = personal_descriptors(fields, fields_form)
             return TemplateResponse(
                 self.request, "panel/facilitator-create.html", context
             )
@@ -372,7 +284,7 @@ class FacilitatorCreatePageView(PanelAccessMixin, EventContextMixin, View):
                 ),
                 values={
                     field.pk: answered_value(
-                        prefix=_PERSONAL_PREFIX, field_def=field, form=fields_form
+                        prefix=PERSONAL_PREFIX, field_def=field, form=fields_form
                     )
                     for field in fields
                 },
@@ -381,97 +293,6 @@ class FacilitatorCreatePageView(PanelAccessMixin, EventContextMixin, View):
         )
         messages.success(self.request, _("Facilitator created successfully."))
         return redirect("panel:facilitators", slug=slug)
-
-
-class FacilitatorEditPageView(PanelAccessMixin, EventContextMixin, View):
-    """Edit an existing facilitator."""
-
-    request: PanelRequest
-
-    def get(
-        self, _request: PanelRequest, slug: str, facilitator_slug: str
-    ) -> HttpResponse:
-        context, current_event = self.get_event_context(slug)
-        if current_event is None:
-            return redirect("panel:index")
-
-        try:
-            detail = self.request.services.facilitator_panel.detail_context(
-                event_id=current_event.pk, facilitator_slug=facilitator_slug
-            )
-        except NotFoundError:
-            messages.error(self.request, _("Facilitator not found."))
-            return redirect("panel:facilitators", slug=slug)
-
-        facilitator = detail.facilitator
-        context["active_nav"] = "facilitators"
-        context["facilitator"] = facilitator
-        context["form"] = FacilitatorEditForm(
-            initial={
-                "accreditation_type": facilitator.accreditation_type,
-                "internal_comment": facilitator.internal_comment,
-                "multi_session": facilitator.multi_session,
-            }
-        )
-        context["field_descriptors"] = _stored_descriptors(detail.personal_data_items)
-        return TemplateResponse(self.request, "panel/facilitator-edit.html", context)
-
-    def post(
-        self, _request: PanelRequest, slug: str, facilitator_slug: str
-    ) -> HttpResponse:
-        context, current_event = self.get_event_context(slug)
-        if current_event is None:
-            return redirect("panel:index")
-
-        try:
-            detail = self.request.services.facilitator_panel.detail_context(
-                event_id=current_event.pk, facilitator_slug=facilitator_slug
-            )
-        except NotFoundError:
-            messages.error(self.request, _("Facilitator not found."))
-            return redirect("panel:facilitators", slug=slug)
-
-        facilitator = detail.facilitator
-        form = FacilitatorEditForm(self.request.POST)
-        all_personal_fields = self.request.services.facilitator_panel.list_fields(
-            current_event.pk
-        )
-        fields_form = _personal_fields_form(
-            fields=all_personal_fields, data=self.request.POST
-        )
-        if not form.is_valid() or not fields_form.is_valid():
-            context["active_nav"] = "facilitators"
-            context["facilitator"] = facilitator
-            context["form"] = form
-            context["field_descriptors"] = _personal_descriptors(
-                all_personal_fields, fields_form
-            )
-            return TemplateResponse(
-                self.request, "panel/facilitator-edit.html", context
-            )
-
-        entries = _personal_entries(
-            form=fields_form,
-            fields=all_personal_fields,
-            facilitator_id=facilitator.pk,
-            event_id=current_event.pk,
-        )
-        self.request.services.personal_data_field_values.update_facilitator(
-            event_id=current_event.pk,
-            facilitator_id=facilitator.pk,
-            data=FacilitatorUpdateData(
-                accreditation_type=form.cleaned_data["accreditation_type"],
-                internal_comment=form.cleaned_data["internal_comment"],
-                multi_session=form.cleaned_data["multi_session"],
-            ),
-            entries=entries,
-            user_id=self.request.context.current_user_id,
-        )
-
-        messages.success(self.request, _("Facilitator updated successfully."))
-        return redirect(
-            "panel:facilitator-detail", slug=slug, facilitator_slug=facilitator_slug
-        )
 
 
 class FacilitatorMergePageView(PanelAccessMixin, EventContextMixin, View):
@@ -612,6 +433,7 @@ class FacilitatorMergePageView(PanelAccessMixin, EventContextMixin, View):
         try:
             self.request.services.facilitator_panel.merge(
                 event_id=current_event.pk,
+                sphere_id=current_event.sphere_id,
                 target_slug=self.request.POST.get("target_slug", ""),
                 facilitator_slugs=basket_slugs,
                 data=FacilitatorMergeData(
@@ -637,40 +459,7 @@ class FacilitatorMergePageView(PanelAccessMixin, EventContextMixin, View):
         return redirect("panel:facilitators", slug=slug)
 
 
-class _FacilitatorActionView(PanelAccessMixin, EventContextMixin, View):
-    """Shared POST handler for single-facilitator triage actions."""
-
-    request: PanelRequest
-    http_method_names = ("post",)
-    success_message: str | _StrPromise = ""
-
-    def _apply(self, event_id: int, facilitator_slug: str) -> None:
-        raise NotImplementedError
-
-    def post(
-        self, _request: PanelRequest, slug: str, facilitator_slug: str
-    ) -> HttpResponse:
-        _context, current_event = self.get_event_context(slug)
-        if current_event is None:
-            return redirect("panel:index")
-
-        back = safe_next_url(
-            self.request, reverse("panel:facilitators", kwargs={"slug": slug})
-        )
-        try:
-            self._apply(current_event.pk, facilitator_slug)
-        except NotFoundError:
-            messages.error(self.request, _("Facilitator not found."))
-            return redirect("panel:facilitators", slug=slug)
-        except FacilitatorActionError as exc:
-            messages.error(self.request, _ORGANIZER_REFUSALS[exc.refusal])
-            return redirect(back)
-
-        messages.success(self.request, self.success_message)
-        return redirect(back)
-
-
-class FacilitatorFlagActionView(_FacilitatorActionView):
+class FacilitatorFlagActionView(FacilitatorActionView):
     """Flag a facilitator for deletion (POST only)."""
 
     success_message = gettext_lazy("Facilitator flagged for deletion.")
@@ -681,7 +470,7 @@ class FacilitatorFlagActionView(_FacilitatorActionView):
         )
 
 
-class FacilitatorUnflagActionView(_FacilitatorActionView):
+class FacilitatorUnflagActionView(FacilitatorActionView):
     """Clear a facilitator's deletion flag (POST only)."""
 
     success_message = gettext_lazy("Facilitator unflagged.")
@@ -692,7 +481,7 @@ class FacilitatorUnflagActionView(_FacilitatorActionView):
         )
 
 
-class FacilitatorMarkGuestActionView(_FacilitatorActionView):
+class FacilitatorMarkGuestActionView(FacilitatorActionView):
     """Set a facilitator's accreditation to guest (POST only)."""
 
     success_message = gettext_lazy("Facilitator marked as guest.")
@@ -706,7 +495,7 @@ class FacilitatorMarkGuestActionView(_FacilitatorActionView):
         )
 
 
-class FacilitatorAssignOrganizerActionView(_FacilitatorActionView):
+class FacilitatorAssignOrganizerActionView(FacilitatorActionView):
     """Take an unassigned facilitator on as its organizer (POST only)."""
 
     success_message = gettext_lazy("You now handle this facilitator.")
@@ -719,7 +508,7 @@ class FacilitatorAssignOrganizerActionView(_FacilitatorActionView):
         )
 
 
-class FacilitatorUnassignOrganizerActionView(_FacilitatorActionView):
+class FacilitatorUnassignOrganizerActionView(FacilitatorActionView):
     """Release a facilitator you organize, so someone else can take it."""
 
     success_message = gettext_lazy("Stepped down.")

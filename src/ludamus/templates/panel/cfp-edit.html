@@ -166,14 +166,19 @@
                         </div>
                         <div id="durations-list" class="space-y-2">
                             {% for duration in durations %}
-                                <div class="duration-item flex items-center justify-between py-2 px-3 bg-bg-tertiary rounded-lg">
-                                    <span class="text-sm text-foreground-secondary">{{ duration|format_duration }}</span>
-                                    <input type="hidden" name="durations" value="{{ duration }}">
-                                    <button type="button"
-                                            class="remove-duration text-foreground-muted hover:text-danger transition">
-                                        {% icon "x-mark" class="w-4 h-4" %}
-                                    </button>
-                                </div>
+                                {# An unreadable stored duration is left out entirely, so saving drops it. #}
+                                {% with duration_label=duration|format_duration %}
+                                    {% if duration_label %}
+                                        <div class="duration-item flex items-center justify-between py-2 px-3 bg-bg-tertiary rounded-lg">
+                                            <span class="text-sm text-foreground-secondary">{{ duration_label }}</span>
+                                            <input type="hidden" name="durations" value="{{ duration }}">
+                                            <button type="button"
+                                                    class="remove-duration text-foreground-muted hover:text-danger transition">
+                                                {% icon "x-mark" class="w-4 h-4" %}
+                                            </button>
+                                        </div>
+                                    {% endif %}
+                                {% endwith %}
                             {% empty %}
                                 <p id="no-durations-msg" class="text-sm text-foreground-muted italic">
                                     {% translate "No durations configured yet." %}

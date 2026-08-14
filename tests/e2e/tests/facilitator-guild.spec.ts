@@ -19,6 +19,7 @@ const GUILD = "Kuźnia";
 const LINKED = "Dana Reyes";
 const UNLINKED = "Bob Chen";
 const FACILITATORS_URL = "/panel/event/frostfire-con/facilitators/";
+const UNLINKED_EDIT_URL = "/panel/event/frostfire-con/facilitators/bob-chen/edit/";
 
 const signInAsManager = async (page: Page): Promise<void> => {
   await page.goto("/admin/login/");
@@ -74,13 +75,18 @@ test.describe("Facilitator guild marks", () => {
     await page.close();
   });
 
-  test("a facilitator with no account is not offered a guild she cannot join", async ({ page }) => {
+  test("a facilitator with no account can be attached to a guild", async ({ page }) => {
     await createGuild(page);
     await page.goto(FACILITATORS_URL);
 
-    // Membership hangs off the linked account, so every option would fail.
+    await expect(attachButton(page, UNLINKED)).toHaveCount(1);
+    await attachButton(page, UNLINKED).click();
+    await page.getByRole("button", { name: GUILD }).click();
+
+    const row = facilitatorRow(page, UNLINKED);
+    await expect(row.getByRole("img", { name: `Guild: ${GUILD}` })).toBeVisible();
+    await expect(row).toContainText(GUILD);
     await expect(attachButton(page, UNLINKED)).toHaveCount(0);
-    await expect(attachButton(page, LINKED)).toHaveCount(1);
   });
 
   test("the plus stays out of the way until the row is hovered or focused", async ({ page }) => {
@@ -90,17 +96,18 @@ test.describe("Facilitator guild marks", () => {
     // well be over the table — park it off the rows first.
     await page.mouse.move(0, 0);
     const plus = attachButton(page, LINKED);
+    const hoverReveal = plus.locator("xpath=../..");
 
-    await expect(plus).toHaveCSS("opacity", "0");
+    await expect(hoverReveal).toHaveCSS("opacity", "0");
 
     await facilitatorRow(page, LINKED).hover();
-    await expect(plus).toHaveCSS("opacity", "1");
+    await expect(hoverReveal).toHaveCSS("opacity", "1");
 
     // Keyboard users never hover, so focus has to reveal it too.
     await page.mouse.move(0, 0);
-    await expect(plus).toHaveCSS("opacity", "0");
+    await expect(hoverReveal).toHaveCSS("opacity", "0");
     await plus.focus();
-    await expect(plus).toHaveCSS("opacity", "1");
+    await expect(hoverReveal).toHaveCSS("opacity", "1");
   });
 
   test("a manager attaches a facilitator to a guild from the list", async ({ page }) => {
@@ -133,6 +140,46 @@ test.describe("Facilitator guild marks", () => {
     await expect(page.getByRole("heading", { name: LINKED })).toBeVisible();
     await page.getByRole("link", { name: GUILD }).click();
     await expect(page.getByLabel("Guild name")).toHaveValue(GUILD);
+  });
+
+  test("a manager adds an imported presenter by the name on the programme", async ({ page }) => {
+    await createGuild(page);
+    await guildRow(page).getByRole("link", { name: "Edit" }).click();
+
+    await expect(
+      page.getByText(
+        "Imported presenters have no account — pick them by the name on the programme.",
+      ),
+    ).toBeVisible();
+    await expect(
+      page.locator("#guild-presenter-suggestions").locator("option[value='Bob Chen']"),
+    ).toHaveCount(1);
+
+    await page.getByLabel("Name, email or Discord username").fill(UNLINKED);
+    await page.getByRole("button", { name: "Add presenter" }).click();
+
+    await expect(page.getByText("Presenter added.")).toBeVisible();
+    const roster = page.getByRole("listitem").filter({ hasText: UNLINKED });
+    await expect(roster.first()).toBeVisible();
+    await page.reload();
+    await expect(roster.first()).toBeVisible();
+  });
+
+  test("a manager attaches a guild from the facilitator edit page", async ({ page }) => {
+    await createGuild(page);
+    await page.goto(UNLINKED_EDIT_URL);
+
+    const plus = page.getByRole("button", { name: `Attach ${UNLINKED} to a guild` });
+    await expect(plus).toBeVisible();
+    await expect(plus).toHaveCSS("opacity", "1");
+    await plus.click();
+    await page.getByRole("button", { name: GUILD }).click();
+
+    await expect(page.getByText("Attached to this guild.")).toBeVisible();
+    await expect(page.getByRole("link", { name: GUILD })).toBeVisible();
+    await expect(plus).toHaveCount(0);
+    await page.reload();
+    await expect(page.getByRole("link", { name: GUILD })).toBeVisible();
   });
 
   test("a facilitator with no guild reads as one on her detail page", async ({ page }) => {

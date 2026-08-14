@@ -172,6 +172,7 @@
                                                         title="{{ value }}">
                                                         {% if forloop.first %}
                                                             <a href="{% url 'panel:facilitator-detail' slug=current_event.slug facilitator_slug=facilitator.slug %}"
+                                                               data-row-action
                                                                aria-label="{{ facilitator.display_name }}"
                                                                class="text-primary hover:text-primary/80">
                                                                 {% include "panel/parts/_facilitator_cell.html" with column=column facilitator=facilitator value=value|truncatechars:50 %}
@@ -184,7 +185,12 @@
                                                         {% else %}
                                                             {% include "panel/parts/_facilitator_cell.html" with column=column facilitator=facilitator value=value|truncatechars:40 %}
                                                         {% endif %}
-                                                        {% include "panel/parts/_facilitator_guild_attach.html" with column=column facilitator=facilitator %}
+                                                        {% if column.kind == "guild" and not facilitator.guild %}
+                                                            {# Lit on row hover, keyboard focus, or while the menu is open. #}
+                                                            <span class="inline-block opacity-0 transition group-hover/row:opacity-100 focus-within:opacity-100 has-[[aria-expanded=true]]:opacity-100">
+                                                                {% include "panel/parts/_facilitator_guild_attach.html" with facilitator=facilitator %}
+                                                            </span>
+                                                        {% endif %}
                                                     </td>
                                                 {% endwith %}
                                             {% endfor %}

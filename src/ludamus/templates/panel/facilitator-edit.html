@@ -19,9 +19,11 @@
         {% tessera_button save_label form="facilitator-edit-form" icon="check" %}
     </div>
 {% endblock header_actions %}
+{% block content_shell_class %}
+    p-2 sm:p-4
+{% endblock content_shell_class %}
 {% block content %}
-    <form id="facilitator-edit-form" method="post" class="max-w-2xl">
-        {% csrf_token %}
+    <div class="max-w-2xl">
         <div class="card mb-6">
             <div class="card-body">
                 <h3 class="text-lg font-semibold text-foreground mb-6">{% translate "Facilitator Details" %}</h3>
@@ -48,19 +50,37 @@
                             {% translate "The organizer handling this facilitator. Take them on from the facilitator list." %}
                         </p>
                     </div>
-                    {% tessera_field form.accreditation_type %}
-                    {% tessera_field form.multi_session %}
-                    {% tessera_field form.internal_comment %}
+                    <div>
+                        <dt class="text-xs text-foreground-muted">{% translate "Guild" %}</dt>
+                        <dd class="text-foreground">
+                            {% if guild %}
+                                <a href="{% url 'multiverse:panel:guild-edit' pk=guild.pk %}"
+                                   class="inline-flex items-center gap-1.5 text-primary hover:text-primary/80">
+                                    {% include "components/guild_mark.html" with guild=guild size="size-5" %}
+                                    {{ guild.name }}
+                                </a>
+                            {% else %}
+                                <span class="inline-flex items-center gap-1.5">
+                                    <span class="text-foreground-muted">—</span>
+                                    {% include "panel/parts/_facilitator_guild_attach.html" with facilitator=facilitator %}
+                                </span>
+                            {% endif %}
+                        </dd>
+                    </div>
+                    <form id="facilitator-edit-form" method="post" class="space-y-6">
+                        {% csrf_token %}
+                        {% tessera_field form.accreditation_type %}
+                        {% tessera_field form.multi_session %}
+                        {% tessera_field form.internal_comment %}
+                        {% if field_descriptors %}
+                            <div>
+                                <h3 class="text-lg font-semibold text-foreground mb-6">{% translate "Personal Information" %}</h3>
+                                {% include "panel/_personal_data_fields.html" with descriptors=field_descriptors %}
+                            </div>
+                        {% endif %}
+                    </form>
                 </div>
             </div>
         </div>
-        {% if field_descriptors %}
-            <div class="card mb-6">
-                <div class="card-body">
-                    <h3 class="text-lg font-semibold text-foreground mb-6">{% translate "Personal Information" %}</h3>
-                    {% include "panel/_personal_data_fields.html" with descriptors=field_descriptors %}
-                </div>
-            </div>
-        {% endif %}
-    </form>
+    </div>
 {% endblock content %}

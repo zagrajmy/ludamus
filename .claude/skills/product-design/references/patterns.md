@@ -20,7 +20,7 @@ container.** If you're writing `<input>`, `<select>`, or a bare styled
 | Icon | `{% icon "calendar" %}` | Heroicons. `variant="outline"/"solid"/"mini"/"micro"`, `class="w-5 h-5"`. |
 | Icon-only button | `.icon-btn` + `{% icon %}` + `<span class="sr-only">` | **Must** carry an accessible name (`sr-only` span or `aria-label`). Enforced by `rules/icon-btn-accessible-name.yml`. Variants: `.icon-btn-primary`, `.icon-btn-danger`. |
 | Custom `<select>` | `{% select id=.. name=.. %}<option>…{% endselect %}` | Slot-based, for selects not backed by a form field. Registered as a djlint custom block. |
-| Data table | `{% tessera_table %}<thead>…<tbody>…{% endtessera_table %}` | Wraps your `<thead>/<tbody>` in a card + responsive scroll container. Don't hand-build the card chrome. |
+| Data table | `{% tessera_table %}<thead>…<tbody>…{% endtessera_table %}` | Wraps your `<thead>/<tbody>` in a card + responsive scroll container. Don't hand-build the card chrome. A hoverable row's background follows Edit / Details: mark that link `data-row-action`. |
 | Tab navigation | `{% tabs %}{% tab "key" icon=.. href=.. active=.. %}Label{% endtab %}{% endtabs %}` | For navigation between related views. Tabs are *navigation* — use links, not buttons. |
 | Avatar | `{% include "components/avatar.html" with user=.. size="size-12" %}` | Size via Tailwind `size-*`. |
 
@@ -49,6 +49,10 @@ visibility badges, …). Prefer including those over re-creating their markup.
 - **Containers are a last resort.** Group with spacing and type hierarchy first.
   Add a `card` only when the content is genuinely a separable unit. Nested cards
   are almost always a hierarchy problem.
+- **Hoverable table rows have a default action.** If the row highlights on
+  hover, clicking the background goes to Edit or Details. Put `data-row-action`
+  on that link so Delete, checkboxes, and menus keep their own targets. Shown
+  on `/design`.
 
 ## Theming / styling
 

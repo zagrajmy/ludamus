@@ -16,17 +16,15 @@ def attach_guild_marks(
     guilds: GuildServiceProtocol,
     sphere_id: int,
 ) -> None:
-    # One query for the whole page: the mark hangs off the presenter's guild
-    # membership, so a per-card lookup would be an N+1. Presenter-less sessions
-    # carry pk 0 and are skipped, so a page of them costs no query at all.
-    presenter_pks = [
-        data.presenter.pk for data in sessions_data.values() if data.presenter.pk
-    ]
-    if not presenter_pks:
+    # One query for the whole page: the mark hangs off the person on the
+    # card, so a per-card lookup would be an N+1.
+    if not sessions_data:
         return
-    marks = guilds.marks_for_users(sphere_id=sphere_id, user_pks=presenter_pks)
-    for data in sessions_data.values():
-        data.guild = marks.get(data.presenter.pk)
+    marks = guilds.marks_for_sessions(
+        sphere_id=sphere_id, session_pks=list(sessions_data)
+    )
+    for session_pk, data in sessions_data.items():
+        data.guild = marks.get(session_pk)
 
 
 def attach_facilitator_guild_marks(
@@ -35,12 +33,12 @@ def attach_facilitator_guild_marks(
     guilds: GuildServiceProtocol,
     sphere_id: int,
 ) -> None:
-    # Same one-query-per-page shape as the card version above. Membership hangs
-    # off the linked user, and a facilitator imported from a spreadsheet has
-    # none, so a page of import-created rows costs no query at all.
-    if not (user_pks := [f.user_id for f in facilitators if f.user_id]):
+    # Same one-query-per-page shape as the card version above.
+    if not facilitators:
         return
-    marks = guilds.marks_for_users(sphere_id=sphere_id, user_pks=user_pks)
+    marks = guilds.marks_for_facilitators(
+        sphere_id=sphere_id,
+        facilitator_pks=[facilitator.pk for facilitator in facilitators],
+    )
     for facilitator in facilitators:
-        if facilitator.user_id:
-            facilitator.guild = marks.get(facilitator.user_id)
+        facilitator.guild = marks.get(facilitator.pk)
