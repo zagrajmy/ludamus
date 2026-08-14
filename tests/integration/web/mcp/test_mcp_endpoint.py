@@ -197,6 +197,7 @@ class TestProtocol:
             "get_sphere",
             "list_events",
             "get_event",
+            "create_event",
             "list_announcements",
             "create_announcement",
             "update_announcement",
@@ -342,6 +343,73 @@ class TestTools:
         assert result["isError"] is True
         assert result["content"][0]["text"] == "Resource not found"
 
+    def test_create_event(self, client, token, sphere):
+        create = call_tool(
+            client,
+            token,
+            "create_event",
+            {
+                "sphere_id": sphere.pk,
+                "name": "Bachanalia Fantastyczne 2026",
+                "slug": "bachanalia-2026",
+                "description": "Programme seed dry-run",
+                "start_time": "2026-09-25T10:00:00+02:00",
+                "end_time": "2026-09-27T18:00:00+02:00",
+                "publication_time": "2026-01-01T00:00:00+02:00",
+                "auto_confirm_sessions": True,
+            },
+        )
+        created = json.loads(tool_text(create))
+        assert created["slug"] == "bachanalia-2026"
+        assert created["auto_confirm_sessions"] is True
+
+        get = call_tool(
+            client,
+            token,
+            "get_event",
+            {"sphere_id": sphere.pk, "slug": "bachanalia-2026"},
+        )
+        assert json.loads(tool_text(get))["pk"] == created["pk"]
+
+    def test_create_event_rejects_reversed_dates(self, client, token, sphere):
+        response = call_tool(
+            client,
+            token,
+            "create_event",
+            {
+                "sphere_id": sphere.pk,
+                "name": "Bad dates",
+                "slug": "bad-dates",
+                "description": "",
+                "start_time": "2026-09-27T18:00:00+02:00",
+                "end_time": "2026-09-25T10:00:00+02:00",
+                "publication_time": "2026-01-01T00:00:00+02:00",
+            },
+        )
+
+        result = response.json()["result"]
+        assert result["isError"] is True
+        assert result["content"][0]["text"] == "end_time must be after start_time"
+
+    def test_create_event_rejects_duplicate_slug(self, client, token, sphere):
+        payload = {
+            "sphere_id": sphere.pk,
+            "name": "Bachanalia Fantastyczne 2026",
+            "slug": "bachanalia-dup",
+            "description": "",
+            "start_time": "2026-09-25T10:00:00+02:00",
+            "end_time": "2026-09-27T18:00:00+02:00",
+            "publication_time": "2026-01-01T00:00:00+02:00",
+        }
+        first = call_tool(client, token, "create_event", payload)
+        assert json.loads(tool_text(first))["slug"] == "bachanalia-dup"
+
+        second = call_tool(client, token, "create_event", payload)
+
+        result = second.json()["result"]
+        assert result["isError"] is True
+        assert result["content"][0]["text"] == "Slug already taken: bachanalia-dup"
+
     def test_announcement_crud(self, client, token, sphere):
         create = call_tool(
             client,
@@ -409,13 +477,14 @@ class TestAudit:
             superuser.pk,
             "maintainer",
             None,
+            None,
             "get_sphere",
             "ok",
             {"sphere_id": sphere.pk},
         )
         assert records[0].getMessage() == (
             f"mcp.tools_call user_id={superuser.pk} scope=maintainer "
-            f"sphere_id=None tool='get_sphere' outcome=ok "
+            f"sphere_id=None event_id=None tool='get_sphere' outcome=ok "
             f"arguments={{'sphere_id': {sphere.pk}}}"
         )
 
@@ -429,6 +498,7 @@ class TestAudit:
         assert records[0].args == (
             superuser.pk,
             "maintainer",
+            None,
             None,
             "drop_database",
             "unknown-tool",
@@ -447,6 +517,7 @@ class TestAudit:
         assert records[0].args == (
             superuser.pk,
             "maintainer",
+            None,
             None,
             "get_sphere",
             "invalid-arguments",

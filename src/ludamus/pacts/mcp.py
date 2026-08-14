@@ -14,3 +14,4 @@ class ActorContext:
     user_id: int
     scope: ToolScope
     sphere_id: int | None = None
+    event_id: int | None = None

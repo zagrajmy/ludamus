@@ -1,7 +1,3 @@
-# Sidebar and tab context shared by every sphere-panel page. The pages
-# themselves still live under `multiverse/` and are reached as
-# `multiverse:panel:*`; this helper moved ahead of them because the guild pages
-# in this package need it too, and it is sphere infrastructure, not
 # multiverse-specific.
 from __future__ import annotations
 
@@ -12,12 +8,7 @@ from django.urls import reverse
 from ludamus.gates.web.django.panel import PanelNavContext
 from ludamus.mills.event import is_proposal_active
 
-# The four tabs in _sphere_tabs_nav.html. Closed for the same reason as the
-# nav keys: a strip whose `active_tab` matches no tab selects nothing, and a
-# `tab_urls` key the template does not ask for resolves to "" — pointing the
-# tab at the current page. Reversing in Python catches a renamed *route*;
-# this catches a renamed *key*.
-SphereTab = Literal["general", "announcements", "connections", "mcp"]
+SphereTab = Literal["general", "announcements", "connections"]
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -38,9 +29,6 @@ class SphereSettings(SphereSidebar):
     tab_urls: dict[SphereTab, str]
 
 
-# `current_event` defaults to the most recent sphere event so the event panel
-# sidebar (rendered from `panel/base.html`) has something to link to. A sphere
-# with no events gracefully hides the event-scoped items.
 def sphere_sidebar_context(
     request: MultiverseRequest, *, active_nav: PanelNav
 ) -> SphereSidebar:
@@ -59,11 +47,6 @@ def sphere_sidebar_context(
     }
 
 
-# Named apart from `sphere_sidebar_context` because passing the wrong one fails
-# silently: a tab strip rendered without `active_tab` selects nothing rather
-# than raising. Hrefs are reversed here for the same reason `{% sidebar_link %}`
-# reverses in Python — `{% url … as … %}` would swallow a renamed route and
-# point the whole strip at the current page.
 def sphere_settings_context(
     request: MultiverseRequest, *, active_tab: SphereTab
 ) -> SphereSettings:
@@ -74,6 +57,5 @@ def sphere_settings_context(
             "general": reverse("multiverse:panel:sphere-settings"),
             "announcements": reverse("multiverse:panel:announcements"),
             "connections": reverse("multiverse:panel:connections"),
-            "mcp": reverse("multiverse:panel:mcp-token"),
         },
     }

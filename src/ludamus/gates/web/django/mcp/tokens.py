@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING
 from django.contrib.auth import get_user_model
 from django.core import signing
 
+from ludamus.pacts import NotFoundError
 from ludamus.pacts.mcp import ActorContext, ToolScope
 
 if TYPE_CHECKING:
@@ -25,11 +26,12 @@ def mint_token(user_id: int) -> str:
     return signing.dumps({"user_id": user_id}, salt=SIGNING_SALT)
 
 
-def mint_organizer_token(*, user_id: int, sphere_id: int) -> str:
+def mint_organizer_token(*, user_id: int, sphere_id: int, event_id: int) -> str:
     payload = {
         "user_id": user_id,
         "scope": ToolScope.ORGANIZER.value,
         "sphere_id": sphere_id,
+        "event_id": event_id,
     }
     return signing.dumps(payload, salt=SIGNING_SALT)
 
@@ -52,7 +54,6 @@ def _bearer_payload(request: RootRequest) -> dict[str, object] | None:
 def authenticate_maintainer(request: RootRequest) -> ActorContext | None:
     if (payload := _bearer_payload(request)) is None:
         return None
-    # Pre-#483 maintainer tokens carry no scope field; treat both shapes alike.
     if payload.get("scope") not in {None, ToolScope.MAINTAINER.value}:
         return None
     user_id = payload.get("user_id")
@@ -73,7 +74,12 @@ def authenticate_organizer(request: RootRequest) -> ActorContext | None:
         return None
     user_id = payload.get("user_id")
     sphere_id = payload.get("sphere_id")
-    if not isinstance(user_id, int) or not isinstance(sphere_id, int):
+    event_id = payload.get("event_id")
+    if (
+        not isinstance(user_id, int)
+        or not isinstance(sphere_id, int)
+        or not isinstance(event_id, int)
+    ):
         return None
     user_model = get_user_model()
     row = (
@@ -88,4 +94,15 @@ def authenticate_organizer(request: RootRequest) -> ActorContext | None:
         sphere_id, slug
     ):
         return None
-    return ActorContext(user_id=user_id, scope=ToolScope.ORGANIZER, sphere_id=sphere_id)
+    try:
+        request.services.events.require_in_sphere(
+            sphere_id=sphere_id, event_id=event_id
+        )
+    except NotFoundError:
+        return None
+    return ActorContext(
+        user_id=user_id,
+        scope=ToolScope.ORGANIZER,
+        sphere_id=sphere_id,
+        event_id=event_id,
+    )

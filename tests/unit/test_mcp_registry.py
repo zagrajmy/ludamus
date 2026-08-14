@@ -11,6 +11,7 @@ MAINTAINER_TOOL_NAMES = [
     "get_sphere",
     "list_events",
     "get_event",
+    "create_event",
     "list_announcements",
     "create_announcement",
     "update_announcement",
@@ -47,7 +48,6 @@ ORGANIZER_TOOL_NAMES = [
     "get_sphere",
     "list_events",
     "get_event",
-    "create_event",
     "list_spaces",
     "list_time_slots",
     "list_tracks",
@@ -61,9 +61,6 @@ ORGANIZER_TOOL_NAMES = [
     "create_session",
     "assign_session",
     "list_announcements",
-    "create_announcement",
-    "update_announcement",
-    "delete_announcement",
 ]
 
 
@@ -133,8 +130,8 @@ def test_sanitize_audit_arguments_redacts_sensitive_fields():
 
 
 def test_create_event_rejects_naive_datetime():
-    registry = build_registry(ToolScope.ORGANIZER)
-    actor = ActorContext(user_id=1, scope=ToolScope.ORGANIZER, sphere_id=1)
+    registry = build_registry(ToolScope.MAINTAINER)
+    actor = ActorContext(user_id=1, scope=ToolScope.MAINTAINER)
 
     with pytest.raises(ToolError, match="timezone-aware"):
         registry.call(
@@ -142,6 +139,7 @@ def test_create_event_rejects_naive_datetime():
             actor=actor,
             name="create_event",
             arguments={
+                "sphere_id": 1,
                 "name": "Bad tz",
                 "slug": "bad-tz",
                 "start_time": "2026-09-25T10:00:00",
@@ -151,8 +149,8 @@ def test_create_event_rejects_naive_datetime():
 
 
 def test_create_event_rejects_blank_slug():
-    registry = build_registry(ToolScope.ORGANIZER)
-    actor = ActorContext(user_id=1, scope=ToolScope.ORGANIZER, sphere_id=1)
+    registry = build_registry(ToolScope.MAINTAINER)
+    actor = ActorContext(user_id=1, scope=ToolScope.MAINTAINER)
 
     with pytest.raises(ToolError, match="non-empty URL slug"):
         registry.call(
@@ -160,6 +158,7 @@ def test_create_event_rejects_blank_slug():
             actor=actor,
             name="create_event",
             arguments={
+                "sphere_id": 1,
                 "name": "Bad slug",
                 "slug": "   ",
                 "start_time": "2026-09-25T10:00:00+02:00",

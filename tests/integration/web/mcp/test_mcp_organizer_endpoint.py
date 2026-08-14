@@ -2,15 +2,30 @@ import json
 from http import HTTPStatus
 
 import pytest
+from django.core import signing
 
-from ludamus.gates.web.django.mcp.tokens import mint_organizer_token, mint_token
-from ludamus.links.db.django.models import Announcement
+from ludamus.gates.web.django.mcp.tokens import (
+    SIGNING_SALT,
+    mint_organizer_token,
+    mint_token,
+)
+from ludamus.links.db.django.models import Announcement, Space
+from ludamus.pacts.mcp import ToolScope
 from tests.integration.conftest import EventFactory, SphereFactory, UserFactory
 from tests.integration.utils import assert_response
 from tests.integration.web.mcp.test_mcp_endpoint import tool_text
 from tests.unit.test_mcp_registry import ORGANIZER_TOOL_NAMES
 
 URL = "/mcp/organizer/"
+WRITE_TOOLS = {
+    "create_space",
+    "create_time_slot",
+    "create_track",
+    "create_proposal_category",
+    "find_or_create_facilitator",
+    "create_session",
+    "assign_session",
+}
 
 
 @pytest.fixture(name="manager")
@@ -21,8 +36,10 @@ def manager_fixture(sphere):
 
 
 @pytest.fixture(name="org_token")
-def org_token_fixture(manager, sphere):
-    return mint_organizer_token(user_id=manager.pk, sphere_id=sphere.pk)
+def org_token_fixture(manager, sphere, event):
+    return mint_organizer_token(
+        user_id=manager.pk, sphere_id=sphere.pk, event_id=event.pk
+    )
 
 
 def post_org(client, payload, *, token=None):
@@ -79,8 +96,10 @@ class TestOrganizerAuthentication:
 
         assert_response(response, HTTPStatus.UNAUTHORIZED)
 
-    def test_non_manager_token(self, client, active_user, sphere):
-        token = mint_organizer_token(user_id=active_user.pk, sphere_id=sphere.pk)
+    def test_non_manager_token(self, client, active_user, sphere, event):
+        token = mint_organizer_token(
+            user_id=active_user.pk, sphere_id=sphere.pk, event_id=event.pk
+        )
 
         response = post_org(client, PING, token=token)
 
@@ -88,7 +107,34 @@ class TestOrganizerAuthentication:
 
     def test_manager_of_another_sphere(self, client, manager):
         other = SphereFactory()
-        token = mint_organizer_token(user_id=manager.pk, sphere_id=other.pk)
+        other_event = EventFactory(sphere=other)
+        token = mint_organizer_token(
+            user_id=manager.pk, sphere_id=other.pk, event_id=other_event.pk
+        )
+
+        response = post_org(client, PING, token=token)
+
+        assert_response(response, HTTPStatus.UNAUTHORIZED)
+
+    def test_token_without_event_id(self, client, manager, sphere):
+        token = signing.dumps(
+            {
+                "user_id": manager.pk,
+                "scope": ToolScope.ORGANIZER.value,
+                "sphere_id": sphere.pk,
+            },
+            salt=SIGNING_SALT,
+        )
+
+        response = post_org(client, PING, token=token)
+
+        assert_response(response, HTTPStatus.UNAUTHORIZED)
+
+    def test_token_for_event_outside_sphere(self, client, manager, sphere):
+        foreign = EventFactory(sphere=SphereFactory())
+        token = mint_organizer_token(
+            user_id=manager.pk, sphere_id=sphere.pk, event_id=foreign.pk
+        )
 
         response = post_org(client, PING, token=token)
 
@@ -107,17 +153,21 @@ class TestOrganizerAuthentication:
 
         assert response.json() == {"jsonrpc": "2.0", "id": 1, "result": {}}
 
-    def test_non_manager_superuser_can_ping(self, client, sphere):
+    def test_non_manager_superuser_can_ping(self, client, sphere, event):
         superuser = UserFactory(username="orgroot", is_superuser=True)
-        token = mint_organizer_token(user_id=superuser.pk, sphere_id=sphere.pk)
+        token = mint_organizer_token(
+            user_id=superuser.pk, sphere_id=sphere.pk, event_id=event.pk
+        )
 
         response = post_org(client, PING, token=token)
 
         assert response.json() == {"jsonrpc": "2.0", "id": 1, "result": {}}
 
-    def test_deactivated_superuser(self, client, sphere):
+    def test_deactivated_superuser(self, client, sphere, event):
         superuser = UserFactory(username="orgroot", is_superuser=True, is_active=False)
-        token = mint_organizer_token(user_id=superuser.pk, sphere_id=sphere.pk)
+        token = mint_organizer_token(
+            user_id=superuser.pk, sphere_id=sphere.pk, event_id=event.pk
+        )
 
         response = post_org(client, PING, token=token)
 
@@ -136,112 +186,69 @@ class TestOrganizerTools:
             "sphere_id" not in tool["inputSchema"].get("properties", {})
             for tool in tools
         )
+        assert all(
+            "event_id" not in tool["inputSchema"].get("properties", {})
+            for tool in tools
+            if tool["name"] in WRITE_TOOLS
+        )
 
     def test_get_sphere_uses_token_sphere(self, client, org_token, sphere):
         response = call_org_tool(client, org_token, "get_sphere", {})
 
         assert json.loads(tool_text(response))["pk"] == sphere.pk
 
-    def test_list_events_scoped_to_token_sphere(self, client, org_token, sphere):
-        own = EventFactory(sphere=sphere)
+    def test_list_events_scoped_to_token_sphere(self, client, org_token, sphere, event):
         EventFactory(sphere=SphereFactory())
 
         response = call_org_tool(client, org_token, "list_events", {})
 
         events = json.loads(tool_text(response))
-        assert [item["slug"] for item in events] == [own.slug]
+        assert [item["slug"] for item in events] == [event.slug]
 
-    def test_announcement_crud_scoped_to_token_sphere(self, client, org_token, sphere):
-        create = call_org_tool(
-            client,
-            org_token,
-            "create_announcement",
-            {"title": "Zbiórka wolontariuszy", "content": "Sala 101, sobota 9:00."},
+    def test_list_announcements_scoped_to_token_sphere(self, client, org_token, sphere):
+        Announcement.objects.create(
+            sphere=sphere, title="Zbiórka", content="Sala 101", is_published=True
         )
-        created = json.loads(tool_text(create))
-        announcement = Announcement.objects.get(pk=created["pk"])
-        assert announcement.sphere_id == sphere.pk
-        assert announcement.is_published is False
-
-        update = call_org_tool(
-            client,
-            org_token,
-            "update_announcement",
-            {
-                "announcement_id": created["pk"],
-                "title": "Zbiórka wolontariuszy",
-                "content": "Sala 102, sobota 9:00.",
-                "is_published": True,
-            },
+        Announcement.objects.create(
+            sphere=SphereFactory(), title="Inna sfera", content="", is_published=True
         )
-        assert json.loads(tool_text(update))["is_published"] is True
 
-        delete = call_org_tool(
-            client, org_token, "delete_announcement", {"announcement_id": created["pk"]}
+        listed = json.loads(
+            tool_text(call_org_tool(client, org_token, "list_announcements", {}))
         )
-        assert json.loads(tool_text(delete)) == {"deleted": created["pk"]}
-        assert not Announcement.objects.filter(pk=created["pk"]).exists()
+        assert [item["title"] for item in listed] == ["Zbiórka"]
 
-    def test_create_event_and_get_event(self, client, org_token):
-        create = call_org_tool(
-            client,
-            org_token,
-            "create_event",
-            {
-                "name": "Bachanalia Fantastyczne 2026",
-                "slug": "bachanalia-2026",
-                "description": "Programme seed dry-run",
-                "start_time": "2026-09-25T10:00:00+02:00",
-                "end_time": "2026-09-27T18:00:00+02:00",
-                "publication_time": "2026-01-01T00:00:00+02:00",
-                "auto_confirm_sessions": True,
-            },
-        )
-        created = json.loads(tool_text(create))
-        assert created["slug"] == "bachanalia-2026"
-        assert created["auto_confirm_sessions"] is True
+    def test_get_event_by_slug_in_sphere(self, client, org_token, event):
+        response = call_org_tool(client, org_token, "get_event", {"slug": event.slug})
 
-        get = call_org_tool(client, org_token, "get_event", {"slug": "bachanalia-2026"})
-        assert json.loads(tool_text(get))["pk"] == created["pk"]
+        assert json.loads(tool_text(response))["pk"] == event.pk
 
-    def test_create_event_rejects_reversed_dates(self, client, org_token):
+    def test_list_spaces_reads_sibling_event_in_sphere(self, client, org_token, sphere):
+        sibling = EventFactory(sphere=sphere)
+
         response = call_org_tool(
-            client,
-            org_token,
-            "create_event",
-            {
-                "name": "Bad dates",
-                "slug": "bad-dates",
-                "description": "",
-                "start_time": "2026-09-27T18:00:00+02:00",
-                "end_time": "2026-09-25T10:00:00+02:00",
-                "publication_time": "2026-01-01T00:00:00+02:00",
-            },
+            client, org_token, "list_spaces", {"event_id": sibling.pk}
         )
 
-        result = response.json()["result"]
-        assert result["isError"] is True
-        assert result["content"][0]["text"] == "end_time must be after start_time"
+        assert json.loads(tool_text(response)) == []
 
-    def test_create_event_rejects_duplicate_slug(self, client, org_token):
-        payload = {
-            "name": "Bachanalia Fantastyczne 2026",
-            "slug": "bachanalia-dup",
-            "description": "",
-            "start_time": "2026-09-25T10:00:00+02:00",
-            "end_time": "2026-09-27T18:00:00+02:00",
-            "publication_time": "2026-01-01T00:00:00+02:00",
-        }
-        first = call_org_tool(client, org_token, "create_event", payload)
-        assert json.loads(tool_text(first))["slug"] == "bachanalia-dup"
+    def test_create_space_writes_token_event_only(
+        self, client, org_token, sphere, event
+    ):
+        sibling = EventFactory(sphere=sphere)
 
-        second = call_org_tool(client, org_token, "create_event", payload)
+        created = json.loads(
+            tool_text(
+                call_org_tool(client, org_token, "create_space", {"name": "Aula A"})
+            )
+        )
 
-        result = second.json()["result"]
-        assert result["isError"] is True
-        assert result["content"][0]["text"] == "Slug already taken: bachanalia-dup"
+        assert created["event_id"] == event.pk
+        assert created["event_id"] != sibling.pk
+        assert Space.objects.filter(event=event, name="Aula A").exists()
+        assert not Space.objects.filter(event=sibling).exists()
 
-    def test_programme_tools_reject_foreign_event(self, client, org_token, sphere):
+    def test_programme_tools_reject_foreign_event(self, client, org_token):
         foreign = EventFactory(sphere=SphereFactory())
 
         response = call_org_tool(
@@ -251,6 +258,24 @@ class TestOrganizerTools:
         result = response.json()["result"]
         assert result["isError"] is True
         assert result["content"][0]["text"] == "Resource not found"
+
+    def test_create_event_is_unreachable(self, client, org_token):
+        response = call_org_tool(
+            client,
+            org_token,
+            "create_event",
+            {
+                "name": "Bachanalia Fantastyczne 2026",
+                "slug": "bachanalia-2026",
+                "start_time": "2026-09-25T10:00:00+02:00",
+                "end_time": "2026-09-27T18:00:00+02:00",
+            },
+        )
+
+        assert response.json()["error"] == {
+            "code": -32602,
+            "message": "Unknown tool: create_event",
+        }
 
     def test_maintainer_tools_are_unreachable(self, client, org_token):
         response = call_org_tool(client, org_token, "list_spheres", {})

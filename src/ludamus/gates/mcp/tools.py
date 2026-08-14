@@ -287,6 +287,18 @@ def _actor_sphere(actor: ActorContext) -> int:
     return actor.sphere_id
 
 
+def _actor_event(actor: ActorContext) -> int:
+    if actor.event_id is None:
+        raise ToolError("Token carries no event scope")
+    return actor.event_id
+
+
+def _token_event(*, services: ServicesProtocol, actor: ActorContext) -> EventDTO:
+    return services.events.require_in_sphere(
+        sphere_id=_actor_sphere(actor), event_id=_actor_event(actor)
+    )
+
+
 class OrganizerGetSphereTool(Tool[_EmptyInput]):
     name = "get_sphere"
     description = "Read your sphere's settings and configuration."
@@ -324,58 +336,6 @@ class OrganizerListAnnouncementsTool(Tool[_EmptyInput]):
         return _render_announcements(call.services, _actor_sphere(call.actor))
 
 
-class OrganizerCreateAnnouncementTool(Tool[_AnnouncementBody]):
-    name = "create_announcement"
-    description = "Create an announcement in your sphere (draft by default)."
-    scope = ToolScope.ORGANIZER
-    input_model = _AnnouncementBody
-
-    @staticmethod
-    def handle(call: ToolCall[_AnnouncementBody]) -> str:
-        return _create_announcement(
-            services=call.services, sphere_id=_actor_sphere(call.actor), body=call.data
-        )
-
-
-class _OrgUpdateAnnouncementInput(_AnnouncementBody):
-    announcement_id: int
-
-
-class OrganizerUpdateAnnouncementTool(Tool[_OrgUpdateAnnouncementInput]):
-    name = "update_announcement"
-    description = "Update an announcement's title, content or published flag."
-    scope = ToolScope.ORGANIZER
-    input_model = _OrgUpdateAnnouncementInput
-
-    @staticmethod
-    def handle(call: ToolCall[_OrgUpdateAnnouncementInput]) -> str:
-        return _update_announcement(
-            services=call.services,
-            sphere_id=_actor_sphere(call.actor),
-            announcement_id=call.data.announcement_id,
-            body=call.data,
-        )
-
-
-class _OrgDeleteAnnouncementInput(BaseModel):
-    announcement_id: int
-
-
-class OrganizerDeleteAnnouncementTool(Tool[_OrgDeleteAnnouncementInput]):
-    name = "delete_announcement"
-    description = "Delete an announcement from your sphere permanently."
-    scope = ToolScope.ORGANIZER
-    input_model = _OrgDeleteAnnouncementInput
-
-    @staticmethod
-    def handle(call: ToolCall[_OrgDeleteAnnouncementInput]) -> str:
-        return _delete_announcement(
-            services=call.services,
-            sphere_id=_actor_sphere(call.actor),
-            announcement_id=call.data.announcement_id,
-        )
-
-
 class _EventSlugInput(BaseModel):
     slug: str = Field(description="Event slug (see list_events)")
 
@@ -394,7 +354,7 @@ class OrganizerGetEventTool(Tool[_EventSlugInput]):
         return event.model_dump_json(indent=2)
 
 
-class _CreateEventInput(BaseModel):
+class _CreateEventInput(_SphereInput):
     name: str = Field(max_length=255)
     slug: str = Field(max_length=50, description="URL slug; unique within the sphere")
     description: str = ""
@@ -426,17 +386,17 @@ class _CreateEventInput(BaseModel):
         return _require_aware_datetime(value, field="publication_time")
 
 
-class OrganizerCreateEventTool(Tool[_CreateEventInput]):
+class CreateEventTool(Tool[_CreateEventInput]):
     name = "create_event"
-    description = "Create an event in your sphere."
-    scope = ToolScope.ORGANIZER
+    description = "Create an event in a sphere."
+    scope = ToolScope.MAINTAINER
     input_model = _CreateEventInput
 
     @staticmethod
     def handle(call: ToolCall[_CreateEventInput]) -> str:
         try:
             event = call.services.events.create(
-                sphere_id=_actor_sphere(call.actor),
+                sphere_id=call.data.sphere_id,
                 data={
                     "name": call.data.name,
                     "slug": call.data.slug,
@@ -456,9 +416,7 @@ class OrganizerCreateEventTool(Tool[_CreateEventInput]):
 
 
 class _EventIdInput(BaseModel):
-    event_id: int = Field(
-        description="Event primary key (see create_event / get_event)"
-    )
+    event_id: int = Field(description="Event primary key (see list_events / get_event)")
 
 
 def _require_event(call: ToolCall[_EventIdInput]) -> EventDTO:
@@ -575,7 +533,7 @@ class OrganizerListFacilitatorsTool(Tool[_EventIdInput]):
         )
 
 
-class _CreateSpaceInput(_EventIdInput):
+class _CreateSpaceInput(BaseModel):
     name: str = Field(max_length=255)
     parent_id: int | None = Field(
         default=None, description="Null creates a venue root; otherwise nest under it"
@@ -588,15 +546,15 @@ class _CreateSpaceInput(_EventIdInput):
 class OrganizerCreateSpaceTool(Tool[_CreateSpaceInput]):
     name = "create_space"
     description = (
-        "Create a space in an event's venue tree. parent_id null = venue root; "
-        "leaves hold sessions."
+        "Create a space in this token's event venue tree. parent_id null = "
+        "venue root; leaves hold sessions."
     )
     scope = ToolScope.ORGANIZER
     input_model = _CreateSpaceInput
 
     @staticmethod
     def handle(call: ToolCall[_CreateSpaceInput]) -> str:
-        event = _require_event(call)
+        event = _token_event(services=call.services, actor=call.actor)
         if call.data.parent_id is not None:
             parent = call.services.space_tree.read(call.data.parent_id)
             if parent.event_id != event.pk:
@@ -614,19 +572,19 @@ class OrganizerCreateSpaceTool(Tool[_CreateSpaceInput]):
         return space.model_dump_json(indent=2)
 
 
-class _CreateTimeSlotInput(_EventIdInput, _AwareDatetimeRange):
+class _CreateTimeSlotInput(_AwareDatetimeRange):
     pass
 
 
 class OrganizerCreateTimeSlotTool(Tool[_CreateTimeSlotInput]):
     name = "create_time_slot"
-    description = "Create a day time-slot window for an event."
+    description = "Create a day time-slot window for this token's event."
     scope = ToolScope.ORGANIZER
     input_model = _CreateTimeSlotInput
 
     @staticmethod
     def handle(call: ToolCall[_CreateTimeSlotInput]) -> str:
-        event = _require_event(call)
+        event = _token_event(services=call.services, actor=call.actor)
         errors, created = call.services.panel_time_slots.create(
             event=event, start_time=call.data.start_time, end_time=call.data.end_time
         )
@@ -637,7 +595,7 @@ class OrganizerCreateTimeSlotTool(Tool[_CreateTimeSlotInput]):
         return created.model_dump_json(indent=2)
 
 
-class _CreateTrackInput(_EventIdInput):
+class _CreateTrackInput(BaseModel):
     name: str = Field(max_length=255)
     is_public: bool = True
     space_ids: list[int] = Field(default_factory=list)
@@ -646,13 +604,13 @@ class _CreateTrackInput(_EventIdInput):
 
 class OrganizerCreateTrackTool(Tool[_CreateTrackInput]):
     name = "create_track"
-    description = "Create a programme track (blok) for an event."
+    description = "Create a programme track (blok) for this token's event."
     scope = ToolScope.ORGANIZER
     input_model = _CreateTrackInput
 
     @staticmethod
     def handle(call: ToolCall[_CreateTrackInput]) -> str:
-        event = _require_event(call)
+        event = _token_event(services=call.services, actor=call.actor)
         created = call.services.tracks_panel.create(
             event_pk=event.pk,
             sphere_id=_actor_sphere(call.actor),
@@ -666,38 +624,38 @@ class OrganizerCreateTrackTool(Tool[_CreateTrackInput]):
         return created.model_dump_json(indent=2)
 
 
-class _CreateProposalCategoryInput(_EventIdInput):
+class _CreateProposalCategoryInput(BaseModel):
     name: str = Field(max_length=255)
 
 
 class OrganizerCreateProposalCategoryTool(Tool[_CreateProposalCategoryInput]):
     name = "create_proposal_category"
-    description = "Create a proposal category (rodzaj atrakcji) for an event."
+    description = "Create a proposal category (rodzaj atrakcji) for this token's event."
     scope = ToolScope.ORGANIZER
     input_model = _CreateProposalCategoryInput
 
     @staticmethod
     def handle(call: ToolCall[_CreateProposalCategoryInput]) -> str:
-        event = _require_event(call)
+        event = _token_event(services=call.services, actor=call.actor)
         category = call.services.proposal_categories.create(event.pk, call.data.name)
         return category.model_dump_json(indent=2)
 
 
-class _FindOrCreateFacilitatorInput(_EventIdInput):
+class _FindOrCreateFacilitatorInput(BaseModel):
     display_name: str = Field(max_length=255)
 
 
 class OrganizerFindOrCreateFacilitatorTool(Tool[_FindOrCreateFacilitatorInput]):
     name = "find_or_create_facilitator"
     description = (
-        "Find a facilitator by exact display name within an event, or create one."
+        "Find a facilitator by exact display name in this token's event, or create one."
     )
     scope = ToolScope.ORGANIZER
     input_model = _FindOrCreateFacilitatorInput
 
     @staticmethod
     def handle(call: ToolCall[_FindOrCreateFacilitatorInput]) -> str:
-        event = _require_event(call)
+        event = _token_event(services=call.services, actor=call.actor)
         context = call.services.facilitator_panel.list_context(
             event_id=event.pk, query=FacilitatorListQuery(search=call.data.display_name)
         )
@@ -716,7 +674,7 @@ class OrganizerFindOrCreateFacilitatorTool(Tool[_FindOrCreateFacilitatorInput]):
         return created.model_dump_json(indent=2)
 
 
-class _CreateSessionInput(_EventIdInput):
+class _CreateSessionInput(BaseModel):
     source_row_id: str = Field(
         max_length=64, description="Deterministic idempotency key for this source row"
     )
@@ -736,14 +694,15 @@ class _CreateSessionInput(_EventIdInput):
 class OrganizerCreateSessionTool(Tool[_CreateSessionInput]):
     name = "create_session"
     description = (
-        "Create an accepted session (punkt programu) ready for timetable assign."
+        "Create an accepted session (punkt programu) in this token's event, "
+        "ready for timetable assign."
     )
     scope = ToolScope.ORGANIZER
     input_model = _CreateSessionInput
 
     @staticmethod
     def handle(call: ToolCall[_CreateSessionInput]) -> str:
-        event = _require_event(call)
+        event = _token_event(services=call.services, actor=call.actor)
         title = call.data.title
         try:
             session_id = call.services.proposal_panel.create_accepted_session(
@@ -775,20 +734,22 @@ class OrganizerCreateSessionTool(Tool[_CreateSessionInput]):
         return session.model_dump_json(indent=2)
 
 
-class _AssignSessionInput(_EventIdInput, _AwareDatetimeRange):
+class _AssignSessionInput(_AwareDatetimeRange):
     session_id: int
     space_id: int
 
 
 class OrganizerAssignSessionTool(Tool[_AssignSessionInput]):
     name = "assign_session"
-    description = "Place an accepted session into a space and time window."
+    description = (
+        "Place an accepted session of this token's event into a space and time window."
+    )
     scope = ToolScope.ORGANIZER
     input_model = _AssignSessionInput
 
     @staticmethod
     def handle(call: ToolCall[_AssignSessionInput]) -> str:
-        event = _require_event(call)
+        event = _token_event(services=call.services, actor=call.actor)
         try:
             call.services.timetable.assign_session(
                 session_pk=call.data.session_id,
@@ -815,6 +776,7 @@ def _all_tools() -> tuple[ToolProtocol, ...]:
         GetSphereTool(),
         ListEventsTool(),
         GetEventTool(),
+        CreateEventTool(),
         ListAnnouncementsTool(),
         CreateAnnouncementTool(),
         UpdateAnnouncementTool(),
@@ -822,7 +784,6 @@ def _all_tools() -> tuple[ToolProtocol, ...]:
         OrganizerGetSphereTool(),
         OrganizerListEventsTool(),
         OrganizerGetEventTool(),
-        OrganizerCreateEventTool(),
         OrganizerListSpacesTool(),
         OrganizerListTimeSlotsTool(),
         OrganizerListTracksTool(),
@@ -836,9 +797,6 @@ def _all_tools() -> tuple[ToolProtocol, ...]:
         OrganizerCreateSessionTool(),
         OrganizerAssignSessionTool(),
         OrganizerListAnnouncementsTool(),
-        OrganizerCreateAnnouncementTool(),
-        OrganizerUpdateAnnouncementTool(),
-        OrganizerDeleteAnnouncementTool(),
     )
 
 

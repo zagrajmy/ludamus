@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-13 07:26+0200\n"
+"POT-Creation-Date: 2026-08-14 13:56+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -5706,7 +5706,7 @@ msgid "Connect an MCP client with the token as a Bearer header, for example:"
 msgstr "Połącz klienta MCP, przekazując token w nagłówku Bearer, na przykład:"
 
 #: src/ludamus/templates/mcp/token.html
-#: src/ludamus/templates/multiverse/panel/mcp-token.html
+#: src/ludamus/templates/panel/mcp-token.html
 msgid "MCP access token"
 msgstr "Token dostępu MCP"
 
@@ -5733,7 +5733,7 @@ msgstr ""
 "%(token_max_age_days)s dni."
 
 #: src/ludamus/templates/mcp/token.html
-#: src/ludamus/templates/multiverse/panel/mcp-token.html
+#: src/ludamus/templates/panel/mcp-token.html
 msgid "Generate token"
 msgstr "Wygeneruj token"
 
@@ -5750,11 +5750,6 @@ msgstr "Ogólne"
 #: src/ludamus/templates/multiverse/panel/connections/list.html
 msgid "Import connections"
 msgstr "Połączenia importu"
-
-#: src/ludamus/templates/multiverse/panel/_sphere_tabs_nav.html
-#: src/ludamus/templates/multiverse/panel/mcp-token.html
-msgid "MCP access"
-msgstr "Dostęp MCP"
 
 #: src/ludamus/templates/multiverse/panel/announcements/create.html
 #: src/ludamus/templates/multiverse/panel/announcements/list.html
@@ -5934,28 +5929,6 @@ msgid ""
 msgstr ""
 "Znak gildii pokazuje się obok nazwisk jej członków na każdej karcie "
 "programu, który prowadzą."
-
-#: src/ludamus/templates/multiverse/panel/mcp-token.html
-#, python-format
-msgid ""
-"The token expires after %(token_max_age_days)s days and works only while you "
-"stay a manager of this sphere. Anyone holding it can act with your "
-"permissions — keep it secret."
-msgstr ""
-"Token wygasa po %(token_max_age_days)s dniach i działa tylko dopóki "
-"zarządzasz tą sferą. Każdy, kto go posiada, może działać z Twoimi "
-"uprawnieniami — trzymaj go w tajemnicy."
-
-#: src/ludamus/templates/multiverse/panel/mcp-token.html
-#, python-format
-msgid ""
-"Generate a personal token to connect an MCP client (such as Claude Code or "
-"Executor) to this sphere's organizer API. The token is valid for "
-"%(token_max_age_days)s days."
-msgstr ""
-"Wygeneruj osobisty token, aby połączyć klienta MCP (np. Claude Code lub "
-"Executor) z API organizatora tej sfery. Token jest ważny przez "
-"%(token_max_age_days)s dni."
 
 #: src/ludamus/templates/multiverse/panel/sphere-settings.html
 #: src/ludamus/templates/panel/base.html
@@ -6228,6 +6201,11 @@ msgstr "Wyświetlanie"
 #: src/ludamus/templates/panel/integration-settings.html
 msgid "Integrations"
 msgstr "Integracje"
+
+#: src/ludamus/templates/panel/_event_settings_tabs.html
+#: src/ludamus/templates/panel/mcp-token.html
+msgid "MCP access"
+msgstr "Dostęp MCP"
 
 #: src/ludamus/templates/panel/_facilitator_tabs.html
 #: src/ludamus/templates/panel/facilitator-merge.html
@@ -7613,6 +7591,29 @@ msgstr ""
 #: src/ludamus/templates/panel/item-history.html
 msgid "No changes recorded yet."
 msgstr "Nie zapisano jeszcze żadnych zmian."
+
+#: src/ludamus/templates/panel/mcp-token.html
+#, python-format
+msgid ""
+"The token expires after %(token_max_age_days)s days and works only while you "
+"stay a manager of this sphere. It can read the sphere and write only this "
+"event. Anyone holding it can act with those permissions — keep it secret."
+msgstr ""
+"Token wygasa po %(token_max_age_days)s dniach i działa tylko dopóki "
+"zarządzasz tą sferą. Może odczytywać sferę i zapisywać tylko to wydarzenie. "
+"Każdy, kto go posiada, może działać z tymi uprawnieniami — trzymaj go w "
+"tajemnicy."
+
+#: src/ludamus/templates/panel/mcp-token.html
+#, python-format
+msgid ""
+"Generate a personal token to connect an MCP client (such as Claude Code or "
+"Executor) to this event. The token can read the whole sphere and write only "
+"this event. It is valid for %(token_max_age_days)s days."
+msgstr ""
+"Wygeneruj osobisty token, aby połączyć klienta MCP (np. Claude Code lub "
+"Executor) z tym wydarzeniem. Token może odczytywać całą sferę i zapisywać "
+"tylko to wydarzenie. Jest ważny przez %(token_max_age_days)s dni."
 
 #: src/ludamus/templates/panel/parts/_change-log-table.html
 msgid "Changes"

@@ -116,11 +116,12 @@ def _call_tool(
     else:
         audit_arguments = "[redacted]"
     logger.info(
-        "mcp.tools_call user_id=%s scope=%s sphere_id=%s tool=%r outcome=%s "
-        "arguments=%r",
+        "mcp.tools_call user_id=%s scope=%s sphere_id=%s event_id=%s tool=%r "
+        "outcome=%s arguments=%r",
         actor.user_id,
         actor.scope,
         actor.sphere_id,
+        actor.event_id,
         name,
         outcome,
         audit_arguments,

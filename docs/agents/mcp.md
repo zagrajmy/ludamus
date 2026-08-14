@@ -24,12 +24,21 @@ flag in Django admin; rotate everything by changing `SECRET_KEY`.
 
 ### Organizer tier
 
-Sphere managers get their own endpoint at `/mcp/organizer/`, minted from the
-"MCP access" tab in the sphere panel (`/multiverse/panel/mcp/`). Organizer
-tokens embed the sphere id; tools read the sphere from the token, never from
-client input, and every request re-checks `is_manager`. The endpoint loads
-only organizer-scoped tools, so maintainer tools are structurally unreachable
-from it.
+Sphere managers mint a token from the **MCP access** tab on an event's
+settings (`/panel/event/<slug>/settings/mcp/`). Create the event in the
+panel first — `create_event` is maintainer-only.
+
+Tokens embed `(user_id, sphere_id, event_id)`:
+
+- **Read** can see the whole sphere (sibling events, announcements, programme
+  of another event in the sphere).
+- **Write** always targets the token's event. Write tools do not take
+  `event_id` from the client.
+
+Every request re-checks `is_manager` and that the event still belongs to the
+sphere. The endpoint loads only organizer-scoped tools, so maintainer tools
+are structurally unreachable from it. Old tokens that omit `event_id` fail
+auth.
 
 ## Architecture
 
@@ -62,11 +71,11 @@ don't get re-derived or contradicted:
   clients. [Executor](https://github.com/RhysSullivan/executor) is the
   recommended client-side control plane (catalog, policy, pause-for-approval,
   audit).
-- The organizer tier shipped with a read/announcements toolset; Panel verbs
-  (proposals, scheduling) grow demand-driven. The attendee tier comes later on
-  the same registry: scope-tagged tools and a separate endpoint per trust
-  level, so the security boundary stays filtering at wiring time rather than
-  per-call policy checks.
+- The organizer tier ships programme verbs (spaces, slots, tracks, sessions)
+  scoped to one event per token, with sphere-wide reads. The attendee tier
+  comes later on the same registry: scope-tagged tools and a separate
+  endpoint per trust level, so the security boundary stays filtering at
+  wiring time rather than per-call policy checks.
 - WebMCP also comes later. Once the W3C `navigator.modelContext` API
   stabilizes, annotate existing forms (declarative API) so in-browser agents
   act in the user's own session, reusing the same tool definitions over a

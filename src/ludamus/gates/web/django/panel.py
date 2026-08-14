@@ -13,10 +13,6 @@ from ludamus.pacts.submissions import RequirementSelectionDTO
 if TYPE_CHECKING:
     from django.http import HttpRequest, HttpResponseRedirect, QueryDict
 
-# Every value `active_nav` can take — one per entry in the panel sidebar
-# (`panel/base.html`). A value outside this set highlights nothing, silently.
-# Most producers assign into loosely typed context mappings no type checker
-# sees, so `{% sidebar_link %}` checks both ends at render time.
 PanelNav = Literal[
     "index",
     "cfp",
@@ -35,15 +31,10 @@ PanelNav = Literal[
 PANEL_NAV_KEYS: Final = frozenset(get_args(PanelNav))
 
 
-# Every panel context carries one, so the name is declared once here rather than
-# repeated as a bare `str` in each view module's TypedDict.
 class PanelNavContext(TypedDict):
     active_nav: PanelNav
 
 
-# Every sidebar category. A category with no collapse rules in `panel/base.html`
-# renders a fully wired toggle that visibly does nothing, so `TestSidebarCoverage`
-# checks this set against the rules there.
 PanelCat = Literal["program", "schedule", "settings", "sphere"]
 PANEL_CAT_KEYS: Final = frozenset(get_args(PanelCat))
 
@@ -73,6 +64,7 @@ def settings_tab_urls(slug: str) -> dict[str, str]:
         "integrations": reverse(
             "panel:event-integration-settings", kwargs={"slug": slug}
         ),
+        "mcp": reverse("panel:event-mcp-token", kwargs={"slug": slug}),
     }
 
 
