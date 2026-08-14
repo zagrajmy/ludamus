@@ -7,8 +7,12 @@ Sphere-scoped concerns. First feature: import-connections CRUD. Split per
 
 from typing import TYPE_CHECKING
 
+from ludamus.pacts import NotFoundError
+from ludamus.pacts.multiverse import EventDatesInvalidError
+
 if TYPE_CHECKING:
     from ludamus.pacts.legacy import (
+        EventCreateData,
         EventDTO,
         EventListItemDTO,
         EventRepositoryProtocol,
@@ -112,9 +116,12 @@ class ConnectionsService:
 
 
 class EventsService:
-    """Read-side loader for the public events listing page."""
+    """Sphere-scoped event listing and create."""
 
-    def __init__(self, events: EventRepositoryProtocol) -> None:
+    def __init__(
+        self, transaction: TransactionProtocol, events: EventRepositoryProtocol
+    ) -> None:
+        self._transaction = transaction
         self._events = events
 
     def list_for_sphere(
@@ -126,6 +133,18 @@ class EventsService:
 
     def read_by_slug(self, sphere_id: int, slug: str) -> EventDTO:
         return self._events.read_by_slug(slug, sphere_id)
+
+    def require_in_sphere(self, *, sphere_id: int, event_id: int) -> EventDTO:
+        event = self._events.read(event_id)
+        if event.sphere_id != sphere_id:
+            raise NotFoundError
+        return event
+
+    def create(self, *, sphere_id: int, data: EventCreateData) -> EventDTO:
+        if data["end_time"] <= data["start_time"]:
+            raise EventDatesInvalidError
+        with self._transaction.atomic():
+            return self._events.create(sphere_id, data)
 
 
 class SpherePanelService:
@@ -160,7 +179,6 @@ class SpherePanelService:
         data: SphereUpdateData = {
             "allow_facilitator_session_edit": allow_facilitator_session_edit
         }
-        # None keeps the stored logo, "" removes it, a file replaces it.
         if logo is not None:
             data["logo"] = logo
         with self._transaction.atomic():

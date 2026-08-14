@@ -31,6 +31,14 @@ from ludamus.pacts.legacy import (
 from ludamus.pacts.party import PartyDTO
 
 if TYPE_CHECKING:
+    from ludamus.pacts.legacy import (
+        AgendaItemRepositoryProtocol,
+        ScheduleChangeLogRepositoryProtocol,
+        SessionRepositoryProtocol,
+        SpaceRepositoryProtocol,
+        TimeSlotRepositoryProtocol,
+        TrackRepositoryProtocol,
+    )
     from ludamus.pacts.submissions import ImportRow
 
 
@@ -57,10 +65,6 @@ class CheckResult:
 
 
 class SourceQuestion(BaseModel):
-    # A source-form question described in the importer's own vocabulary: the
-    # prompt plus the field setup a new target field would inherit. Multi-choice
-    # maps to `select` + `is_multiple` (the domain has no multi `checkbox`); an
-    # "other"/free-text option sets `allow_custom` and is dropped from `options`.
     title: str
     field_type: Literal["text", "select", "checkbox"] = "text"
     is_multiple: bool = False
@@ -382,14 +386,9 @@ type SessionPositionState = Literal["normal", "conflict", "slot_violation"]
 class SessionPositionDTO(BaseModel):
     agenda_item: AgendaItemDTO
     start_minutes: int
-    # How tall the block is on this day's column. A session crossing midnight
-    # is clipped to the day it is drawn on and drawn again on the next; its
-    # real length is `agenda_item.session_duration_minutes`.
     duration_minutes: int
     lane_start_pct: float = 0.0
     lane_width_pct: float = 100.0
-    # What the block is warning about, resolved once here so the grid stops
-    # testing the same session against two page-wide sets in four places.
     state: SessionPositionState = "normal"
 
 
@@ -404,8 +403,6 @@ class SpaceColumnDTO(BaseModel):
 
 
 class SpaceGroupDTO(BaseModel):
-    # One header cell spanning the leaf columns that share an immediate parent.
-    # parent_pk None / empty name means the leaves are top-level (no parent).
     parent_pk: int | None
     parent_name: str
     span: int
@@ -415,19 +412,11 @@ class TimetableDayGridDTO(BaseModel):
     date: date
     columns: list[SpaceColumnDTO]
     event_start_iso: str
-    # Each day owns its time axis. Sharing one grid-wide axis would stretch
-    # every column to the union of the days, and a session split at midnight
-    # puts 00:00 on one day and 24:00 on the one before -- a full 24 hours,
-    # mostly empty, on every day of the event.
     total_minutes: int
     time_labels: list[TimeLabelDTO]
 
 
 class MultiselectOptionDTO(BaseModel):
-    # One row of components/multiselect-filter.html. value/label rather than
-    # pk/name because this is the component's contract, not the thing it lists:
-    # spaces use `depth` to indent their tree, facilitators use `meta` for the
-    # columns under the name, and each leaves the other at its default.
     value: int
     label: str
     depth: int = 0
@@ -438,7 +427,6 @@ type DateSelection = date | Literal["all"]
 
 
 class TimetableGridFilter(BaseModel):
-    # What the filter bar narrows the grid by. Empty means "everything".
     track_pk: int | None = None
     date_selection: DateSelection = "all"
     space_pks: set[int] = set()
@@ -468,10 +456,8 @@ class SessionPlacement:
 class ConflictDTO(BaseModel):
     type: ConflictType
     severity: ConflictSeverity
-    # The session that has the problem (the one being placed / examined).
     subject_session_title: str
     subject_session_pk: int
-    # The other session involved in the clash (occupier / co-facilitated).
     session_title: str
     session_pk: int
     facilitator_name: str | None = None
@@ -493,8 +479,6 @@ class TimetableGridDTO(BaseModel):
     total_columns: int
     available_dates: list[date] = []
     date_selection: DateSelection = "all"
-    # The clashes the cards are already coloured for. Carried with the grid so
-    # the page cannot list one set of conflicts while the grid marks another.
     conflicts: list[ConflictDTO] = []
 
 
@@ -553,8 +537,6 @@ class TrackProgressDTO(BaseModel):
 
     @property
     def active_count(self) -> int:
-        # The scheduling target: proposals still in play (not rejected / on
-        # hold). Denominator of the scheduled/total ratio.
         return self.pending_count + self.accepted_count
 
     @property
@@ -569,3 +551,27 @@ class CapacityHoursDTO(BaseModel):
     scheduled_hours: float
     hours_to_fill: float
     filled_pct: int
+
+
+@dataclass
+class TimetableRepos:
+    sessions: SessionRepositoryProtocol
+    agenda_items: AgendaItemRepositoryProtocol
+    spaces: SpaceRepositoryProtocol
+    time_slots: TimeSlotRepositoryProtocol
+    tracks: TrackRepositoryProtocol
+    schedule_change_logs: ScheduleChangeLogRepositoryProtocol
+
+
+class TimetableServiceProtocol(Protocol):
+    def assign_session(
+        self,
+        *,
+        session_pk: int,
+        placement: SessionPlacement,
+        event_pk: int,
+        user_pk: int | None = None,
+    ) -> None: ...
+    def unassign_session(
+        self, *, session_pk: int, event_pk: int, user_pk: int | None = None
+    ) -> None: ...

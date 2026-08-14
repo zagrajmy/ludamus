@@ -21,6 +21,7 @@ if TYPE_CHECKING:
         SessionDeletionServiceProtocol,
         SessionModalServiceProtocol,
         SessionSelfEditServiceProtocol,
+        TimetableServiceProtocol,
     )
     from ludamus.pacts.crowd import (
         ClaimServiceProtocol,
@@ -191,6 +192,8 @@ class ServicesProtocol(Protocol):
     def discounts_export(self) -> DiscountsExportServiceProtocol: ...
     @property
     def tracks_panel(self) -> TracksPanelServiceProtocol: ...
+    @property
+    def timetable(self) -> TimetableServiceProtocol: ...
     @property
     def encounters(self) -> EncounterServiceProtocol: ...
     @property

@@ -133,6 +133,20 @@ class TestOrganizerTools:
         assert [tool["name"] for tool in tools] == [
             "get_sphere",
             "list_events",
+            "get_event",
+            "create_event",
+            "list_spaces",
+            "list_time_slots",
+            "list_tracks",
+            "list_sessions",
+            "list_facilitators",
+            "create_space",
+            "create_time_slot",
+            "create_track",
+            "create_proposal_category",
+            "find_or_create_facilitator",
+            "create_session",
+            "assign_session",
             "list_announcements",
             "create_announcement",
             "update_announcement",
@@ -187,6 +201,39 @@ class TestOrganizerTools:
         )
         assert json.loads(tool_text(delete)) == {"deleted": created["pk"]}
         assert not Announcement.objects.filter(pk=created["pk"]).exists()
+
+    def test_create_event_and_get_event(self, client, org_token):
+        create = call_org_tool(
+            client,
+            org_token,
+            "create_event",
+            {
+                "name": "Bachanalia Fantastyczne 2026",
+                "slug": "bachanalia-2026",
+                "description": "Programme seed dry-run",
+                "start_time": "2026-09-25T10:00:00+02:00",
+                "end_time": "2026-09-27T18:00:00+02:00",
+                "publication_time": "2026-01-01T00:00:00+02:00",
+                "auto_confirm_sessions": True,
+            },
+        )
+        created = json.loads(tool_text(create))
+        assert created["slug"] == "bachanalia-2026"
+        assert created["auto_confirm_sessions"] is True
+
+        get = call_org_tool(client, org_token, "get_event", {"slug": "bachanalia-2026"})
+        assert json.loads(tool_text(get))["pk"] == created["pk"]
+
+    def test_programme_tools_reject_foreign_event(self, client, org_token, sphere):
+        foreign = EventFactory(sphere=SphereFactory())
+
+        response = call_org_tool(
+            client, org_token, "list_spaces", {"event_id": foreign.pk}
+        )
+
+        result = response.json()["result"]
+        assert result["isError"] is True
+        assert result["content"][0]["text"] == "Resource not found"
 
     def test_maintainer_tools_are_unreachable(self, client, org_token):
         response = call_org_tool(client, org_token, "list_spheres", {})

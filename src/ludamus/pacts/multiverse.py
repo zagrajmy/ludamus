@@ -5,6 +5,8 @@ backoffice). Split per `plans/hex_refactor.md` if the file grows past
 ~12 top-level members or 1000 lines.
 """
 
+from __future__ import annotations
+
 from datetime import datetime
 from typing import TYPE_CHECKING, Protocol
 
@@ -12,6 +14,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 if TYPE_CHECKING:
     from ludamus.pacts.legacy import (
+        EventCreateData,
         EventDTO,
         EventListItemDTO,
         SphereDTO,
@@ -132,11 +135,21 @@ class SphereDirectoryRepositoryProtocol(Protocol):
     def list_all() -> list[SphereListItemDTO]: ...
 
 
+class EventSlugConflictError(Exception):
+    """Another event in the sphere already uses that slug."""
+
+
+class EventDatesInvalidError(Exception):
+    """Event end_time must be strictly after start_time."""
+
+
 class EventsServiceProtocol(Protocol):
     def list_for_sphere(
         self, sphere_id: int, *, include_unpublished: bool
     ) -> list[EventListItemDTO]: ...
     def read_by_slug(self, sphere_id: int, slug: str) -> EventDTO: ...
+    def require_in_sphere(self, *, sphere_id: int, event_id: int) -> EventDTO: ...
+    def create(self, *, sphere_id: int, data: EventCreateData) -> EventDTO: ...
 
 
 class SpherePanelServiceProtocol(Protocol):

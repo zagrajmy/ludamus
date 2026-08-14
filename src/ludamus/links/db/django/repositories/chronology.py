@@ -1,5 +1,6 @@
 from datetime import UTC, datetime
 
+from django.db import IntegrityError
 from django.db.models import (
     Count,
     Exists,
@@ -58,7 +59,8 @@ from ludamus.pacts.chronology import (
     PartySessionSeatDTO,
     SessionCardStatsDTO,
 )
-from ludamus.pacts.legacy import AgendaItemDTO, LocationData
+from ludamus.pacts.legacy import AgendaItemDTO, EventCreateData, LocationData
+from ludamus.pacts.multiverse import EventSlugConflictError
 from ludamus.pacts.panel import (
     EventPanelSettingsDTO,
     EventPanelSettingsRepositoryProtocol,
@@ -151,10 +153,6 @@ def session_card_stats(session: Session) -> SessionCardStatsDTO:
 
 
 def hide_private_track_sessions(queryset: QuerySet[Session]) -> QuerySet[Session]:
-    # A session without tracks is public (events that don't use tracks at all);
-    # one with tracks needs at least one public track. Exists() rather than
-    # Count("tracks"): a third aggregate over a m2m fans out the joins and
-    # inflates the participation counts annotated alongside.
     return queryset.filter(
         Exists(Track.objects.filter(sessions=OuterRef("pk"), is_public=True))
         | ~Exists(Track.objects.filter(sessions=OuterRef("pk"), is_public=False))
@@ -276,8 +274,6 @@ class EventRepository(EventRepositoryProtocol):
         Returns:
             EventStatsData with raw counts and IDs for business logic processing.
         """
-        # One aggregate instead of a COUNT per stat: this runs on every panel
-        # page, and a big event pays for each extra scan.
         session_stats = Session.objects.filter(category__event_id=event_id).aggregate(
             pending=Count("id", filter=Q(status=SessionStatus.PENDING)),
             total=Count("id"),
@@ -293,6 +289,14 @@ class EventRepository(EventRepositoryProtocol):
             hosts_count=session_stats["hosts"],
             rooms_count=Space.objects.filter(event_id=event_id).count(),
         )
+
+    @staticmethod
+    def create(sphere_id: int, data: EventCreateData) -> EventDTO:
+        try:
+            event = Event.objects.create(sphere_id=sphere_id, **data)
+        except IntegrityError as exc:
+            raise EventSlugConflictError from exc
+        return event_dto(event)
 
     @staticmethod
     def update(event_id: int, data: EventUpdateData) -> None:

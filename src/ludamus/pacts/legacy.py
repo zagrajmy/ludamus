@@ -56,16 +56,10 @@ class UploadedFileProtocol(Protocol):
 
 
 def parse_uploaded_file(value: object) -> UploadedFileProtocol | None:
-    # Boundary parser: recover a typed upload from the untyped form-data value
-    # (a file on upload, "" / False / None otherwise), so callers narrow once
-    # here instead of casting.
     return value if isinstance(value, UploadedFileProtocol) else None
 
 
 def resolve_uploaded_file_field(raw: object) -> UploadedFileProtocol | str | None:
-    # ClearableFileInput's tri-state in one place: a file on upload becomes the
-    # new value, False clears it (""), and any other value (None / unchanged)
-    # returns None so the caller leaves the stored file untouched.
     if uploaded := parse_uploaded_file(raw):
         return uploaded
     return "" if raw is False else None
@@ -81,9 +75,6 @@ class FacilitatorDTO(BaseModel):
     ident: str = ""
     internal_comment: str = ""
     organizer_id: int | None = None
-    # Annotated by the single-facilitator reads, so a page showing the
-    # organizer needs no second lookup. `create` and `update` return the row
-    # they just wrote, without it.
     organizer_name: str | None = None
     pk: int
     slug: str
@@ -242,9 +233,6 @@ class PendingSessionDTO(BaseModel):
 
 
 class LocationData(TypedDict):
-    # Tree location of a scheduled leaf: its name, its immediate parent (the
-    # grouping unit, empty for a root leaf), and the full "Root > ... > Leaf"
-    # path used as a display label.
     space_name: str
     parent_slug: str
     parent_name: str
@@ -275,8 +263,6 @@ class SessionParticipationStatus(StrEnum):
     OFFERED = auto()
 
 
-# Statuses that occupy (hold) a seat against a session's capacity. An OFFERED
-# seat is held so the same seat is never offered to two waiters at once.
 OCCUPYING_PARTICIPATION_STATUSES = (
     SessionParticipationStatus.CONFIRMED,
     SessionParticipationStatus.OFFERED,
@@ -317,8 +303,6 @@ class SpaceDTO(BaseModel):
 
 
 class SpaceOptionDTO(BaseModel):
-    # A bookable leaf space as a form choice: its pk, display name, and the
-    # immediate-parent name it groups under (empty for a root-level leaf).
     pk: int
     name: str
     group: str
@@ -337,8 +321,6 @@ class TrackDTO(BaseModel):
 
 
 class TrackListItemDTO(BaseModel):
-    # Track enriched with the names of its assigned spaces and managers, for the
-    # panel list view. Names, not pks, so the template renders without extra IO.
     pk: int
     name: str
     slug: str
@@ -348,9 +330,6 @@ class TrackListItemDTO(BaseModel):
 
 
 class TrackSessionCountsDTO(BaseModel):
-    # A track's sessions-per-status breakdown, plus how many accepted ones are
-    # placed on the agenda. Feeds the overview progress bars without loading
-    # session rows.
     pending: int = 0
     accepted: int = 0
     scheduled: int = 0
@@ -618,6 +597,16 @@ class EventSettingsDTO(BaseModel):
 
     displayed_session_field_ids: list[int] = []
     pk: int
+
+
+class EventCreateData(TypedDict):
+    name: str
+    slug: str
+    description: str
+    start_time: datetime
+    end_time: datetime
+    publication_time: datetime | None
+    auto_confirm_sessions: bool
 
 
 class EventUpdateData(TypedDict, total=False):
@@ -1024,6 +1013,8 @@ class EventRepositoryProtocol(Protocol):
     @staticmethod
     def get_stats_data(event_id: int) -> EventStatsData: ...
     @staticmethod
+    def create(sphere_id: int, data: EventCreateData) -> EventDTO: ...
+    @staticmethod
     def update(event_id: int, data: EventUpdateData) -> None: ...
 
 
@@ -1426,9 +1417,6 @@ ContentFieldValue = str | int | bool | list[str] | None
 
 
 class ContentFieldChange(TypedDict):
-    # Identity only — no display text. `field` is the core-column key
-    # (e.g. "title"); for dynamic session fields it is "" and `field_id`
-    # holds the SessionField id. Labels are resolved per-request at render.
     field: str
     field_id: int | None
     old: ContentFieldValue
@@ -1444,11 +1432,6 @@ class ContentChangeLogData(TypedDict):
 
 @dataclass(frozen=True)
 class SessionContentEditData:
-    # The write payload for a single session content edit. `facilitator_ids`
-    # None leaves the assignment untouched; a list (possibly empty) replaces it.
-    # `field_values` None leaves dynamic answers untouched (partial POST guard).
-    # `remove_field_ids` drops answers to fields the session's category no
-    # longer asks for — the only edit the panel allows on those.
     update: SessionUpdateData
     field_values: list[SessionFieldValueData] | None = None
     facilitator_ids: list[int] | None = None
@@ -1471,8 +1454,6 @@ class ContentChangeLogDTO(BaseModel):
 
     @property
     def item_name(self) -> str:
-        # What the shared change-log table shows for "which thing changed",
-        # whichever kind of log it is rendering.
         return self.session_title
 
 
@@ -1514,7 +1495,6 @@ class FacilitatorChangeLogDTO(BaseModel):
 
     @property
     def item_name(self) -> str:
-        # See ContentChangeLogDTO.item_name.
         return self.facilitator_name
 
 

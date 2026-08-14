@@ -71,9 +71,14 @@ from ludamus.mills.submissions.proposal_category_settings import (
     ProposalCategorySettingsService,
 )
 from ludamus.mills.submissions.session_fields import CFPSessionFieldService
+from ludamus.mills.timetable import (
+    ConflictDetectionService,
+    TimetableOverviewService,
+    TimetableService,
+)
 from ludamus.mills.tracks import TracksPanelService
 from ludamus.mills.venues import SpaceTreeService, VenuesService
-from ludamus.pacts.chronology import IntegrationImplementationId
+from ludamus.pacts.chronology import IntegrationImplementationId, TimetableRepos
 from ludamus.pacts.enrollment import EnrollmentRepos
 from ludamus.pacts.event_settings import EventSettingsRepos
 from ludamus.pacts.panel import FacilitatorPanelRepos, ProposalPanelRepos
@@ -199,7 +204,7 @@ class Services:
 
     @cached_property
     def events(self) -> EventsService:
-        return EventsService(self._repos.events)
+        return EventsService(self._transaction, self._repos.events)
 
     @cached_property
     def event_panel(self) -> EventPanelService:
@@ -468,9 +473,6 @@ class Services:
 
     @cached_property
     def proposals_import(self) -> ProposalImportService:
-        # The Chronology integrations service supplies both the saved recipe
-        # (settings_json) and the raw source rows; Submissions interprets them
-        # into proposals.
         return ProposalImportService(
             transaction=self._transaction,
             event_integrations=self.event_integrations,
@@ -493,6 +495,29 @@ class Services:
             spaces=self._repos.spaces,
             spheres=self._repos.spheres,
         )
+
+    @cached_property
+    def _timetable_repos(self) -> TimetableRepos:
+        return TimetableRepos(
+            sessions=self._repos.sessions,
+            agenda_items=self._repos.agenda_items,
+            spaces=self._repos.spaces,
+            time_slots=self._repos.time_slots,
+            tracks=self._repos.tracks,
+            schedule_change_logs=self._repos.schedule_change_logs,
+        )
+
+    @cached_property
+    def timetable(self) -> TimetableService:
+        return TimetableService(self._transaction, self._timetable_repos)
+
+    @cached_property
+    def timetable_conflicts(self) -> ConflictDetectionService:
+        return ConflictDetectionService(self._timetable_repos)
+
+    @cached_property
+    def timetable_overview(self) -> TimetableOverviewService:
+        return TimetableOverviewService(self._timetable_repos)
 
     @cached_property
     def import_field_layout(self) -> ImportFieldLayoutService:
