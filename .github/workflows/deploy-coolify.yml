@@ -202,7 +202,7 @@ jobs:
           # trigger just redeploys the same pinned image.
           deployment_uuid=''
           for attempt in 1 2 3; do
-            deployment_uuid="$(curl -fsS \
+            deployment_uuid="$(curl -fsS -X POST \
               --connect-timeout 10 --max-time 30 \
               -H "Authorization: Bearer $COOLIFY_TOKEN" \
               "$COOLIFY_URL/api/v1/deploy?uuid=$APP_UUID" \
