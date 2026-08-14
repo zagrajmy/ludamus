@@ -113,6 +113,10 @@ has the per-file recipe. New code must use `request.services`; never extend the
 
 ## Translation conventions (Polish)
 
+- `django.po` merge conflict? Don't hand-edit the markers: run
+  `mise run messages-resolve`. It unions both sides and re-extracts, leaving
+  only genuinely diverged translations for you to pick.
+
 - **session** → "punkt programu" (except in "RPG session" → "sesja RPG")
 - **track** → "blok" or "blok programowy"
 - **facilitator** → "twórca programu"
