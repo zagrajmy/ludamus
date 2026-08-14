@@ -1,4 +1,3 @@
-# TODO(hasparus): Fold this module and mills/tracks.py into the event noun
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Protocol, TypedDict
 
