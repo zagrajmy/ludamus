@@ -7,6 +7,9 @@ import pytest
 from django.contrib import messages
 from django.urls import reverse
 
+from ludamus.gates.web.django.chronology.panel.views import (
+    facilitators as facilitators_views,
+)
 from ludamus.gates.web.django.chronology.panel.views.facilitators import (
     BULK_FACILITATOR_ACTIONS,
 )
@@ -161,6 +164,27 @@ class TestFacilitatorBulkActionView:
         assert_response(
             response, HTTPStatus.FOUND, messages=expected_messages, url=expected_url
         )
+
+    def test_post_raises_for_an_offered_action_without_a_branch(
+        self, authenticated_client, active_user, sphere, event, monkeypatch
+    ):
+        # The state the offer list and `_apply` disagree on: the action passes
+        # the membership check and then finds no branch.
+        sphere.managers.add(active_user)
+        _make_facilitator(event, "alice")
+        monkeypatch.setattr(
+            facilitators_views,
+            "BULK_FACILITATOR_ACTIONS",
+            (*BULK_FACILITATOR_ACTIONS, "teleport"),
+        )
+
+        with pytest.raises(
+            ValueError, match="unhandled bulk facilitator action: 'teleport'"
+        ):
+            authenticated_client.post(
+                self.get_url(event),
+                {"action": "teleport", "facilitator_slugs": ["alice"]},
+            )
 
     def test_post_keeps_the_facilitators_that_run_sessions(
         self, authenticated_client, active_user, sphere, event
