@@ -222,8 +222,8 @@ def telling(work: Work, *extra: str) -> str:
     return joined(work.reason, work.note, *extra)
 
 
-def counted(notes: TriageNotes) -> str:
-    tally = Counter(item.priority for item in notes.items)
+def counted(items: list[TriageItem]) -> str:
+    tally = Counter(item.priority for item in items)
     return ", ".join(
         f"{priority}: {tally[priority]}" for priority in ("p1", "p2", "p3")
     )
@@ -305,8 +305,15 @@ def report_card(run: Run) -> Report:
         ],
         to_fix=[row.branch for row in run.checked if row.outcome == "blocked"],
         # What `pr_review` can be run on in the morning: green, pushed, and carrying a
-        # review somebody has to answer.
-        ready=[row.branch for row in run.checked if row.outcome == "green"],
+        # review somebody has to answer. `unpushed` is part of it and not a
+        # detail below it — a branch the night could not push carries a review
+        # anchored to an older head, and naming it here as well as under
+        # `needs pushing` is the report contradicting itself.
+        ready=[
+            row.branch
+            for row in run.checked
+            if row.outcome == "green" and row.unpushed == 0
+        ],
         not_reached=[pull.branch for pull in run.queue],
         failed=run.stopped,
     )

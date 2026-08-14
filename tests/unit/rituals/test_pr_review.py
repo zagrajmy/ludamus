@@ -26,11 +26,15 @@ from ludamus.edges.rituals.pr_review import (
 )
 from ludamus.edges.rituals.shell import (
     COVERAGE,
+    HERE,
     LIST,
     PR_FIX,
     QA_LABEL,
+    STATUS,
     THERMO_LABEL,
     WAIT_LABEL,
+    checkout,
+    label,
     plain,
     unsettled,
 )
@@ -39,8 +43,6 @@ from ludamus.edges.rituals.state import TriageItem, TriageNotes
 if TYPE_CHECKING:
     from vekna.trial import Trial
 
-_STATUS = "git status --porcelain"
-_HERE = "git rev-parse --abbrev-ref HEAD"
 _REPORT = "Diff Coverage\nsrc/thing.py (80.0%): Missing lines 12-14\n"
 _COVERED = "Diff Coverage\nTotal: 10 lines\nMissing: 0 lines\n"
 _READING = "Triage the open review threads*"
@@ -105,10 +107,10 @@ class TestPick:
     def test_the_branch_you_are_standing_on_is_preferred(
         self, trial: Trial, branch: Branch
     ) -> None:
-        trial.shell.replies(when=_STATUS)
+        trial.shell.replies(when=STATUS)
         trial.shell.replies(when=LIST, stdout=_listing("older", "feature"))
         _open(trial, "feature")
-        trial.shell.replies(when=_HERE, stdout="feature\n")
+        trial.shell.replies(when=HERE, stdout="feature\n")
 
         transition = trial.walk(pick, PrReview(bound=2))
 
@@ -120,10 +122,10 @@ class TestPick:
     # Somebody else's terminal is on the other one, and neither cast has to know
     # that to leave it alone.
     def test_a_branch_you_are_not_on_is_taken_oldest_first(self, trial: Trial) -> None:
-        trial.shell.replies(when=_STATUS)
+        trial.shell.replies(when=STATUS)
         trial.shell.replies(when=LIST, stdout=_listing("older", "feature"))
         _open(trial, "older", "feature")
-        trial.shell.replies(when=_HERE, stdout="main\n")
+        trial.shell.replies(when=HERE, stdout="main\n")
 
         transition = trial.walk(pick, PrReview(bound=2))
 
@@ -132,9 +134,9 @@ class TestPick:
     def test_a_branch_with_every_thread_settled_is_not_taken(
         self, trial: Trial
     ) -> None:
-        trial.shell.replies(when=_STATUS)
+        trial.shell.replies(when=STATUS)
         trial.shell.replies(when=LIST, stdout=_listing("feature"))
-        trial.shell.replies(when=_HERE, stdout="feature\n")
+        trial.shell.replies(when=HERE, stdout="feature\n")
         _open(trial, "feature", count="0\n")
 
         transition = trial.walk(pick, PrReview(bound=2))
@@ -144,9 +146,9 @@ class TestPick:
     # No review has been posted on it, so there is nothing here to answer. The
     # night is what puts that label on.
     def test_an_unreviewed_pull_request_is_not_taken(self, trial: Trial) -> None:
-        trial.shell.replies(when=_STATUS)
+        trial.shell.replies(when=STATUS)
         trial.shell.replies(when=LIST, stdout=json.dumps([]))
-        trial.shell.replies(when=_HERE, stdout="feature\n")
+        trial.shell.replies(when=HERE, stdout="feature\n")
 
         transition = trial.walk(pick, PrReview(bound=2))
 
@@ -156,21 +158,21 @@ class TestPick:
     def test_a_pull_request_already_labelled_for_qa_is_not_taken(
         self, trial: Trial
     ) -> None:
-        trial.shell.replies(when=_STATUS)
+        trial.shell.replies(when=STATUS)
         trial.shell.replies(when=LIST, stdout=_listing("feature", tested="feature"))
-        trial.shell.replies(when=_HERE, stdout="feature\n")
+        trial.shell.replies(when=HERE, stdout="feature\n")
 
         transition = trial.walk(pick, PrReview(bound=2))
 
         assert transition == done(Shipped(outcome="nothing"))
-        assert _asks("feature") not in trial.shell.commands
+        assert unsettled(_NUMBERS["feature"]) not in trial.shell.commands
 
     # The label is how a branch is parked, and an open thread on it does not
     # un-park it.
     def test_a_waiting_pull_request_is_left_alone(self, trial: Trial) -> None:
-        trial.shell.replies(when=_STATUS)
+        trial.shell.replies(when=STATUS)
         trial.shell.replies(when=LIST, stdout=_listing("feature", waiting="feature"))
-        trial.shell.replies(when=_HERE, stdout="feature\n")
+        trial.shell.replies(when=HERE, stdout="feature\n")
 
         transition = trial.walk(pick, PrReview(bound=2))
 
@@ -179,59 +181,79 @@ class TestPick:
 
     # This cast ends in a commit and a push on whatever branch it takes.
     def test_main_is_never_taken(self, trial: Trial) -> None:
-        trial.shell.replies(when=_STATUS)
+        trial.shell.replies(when=STATUS)
         trial.shell.replies(when=LIST, stdout=_listing("main"))
-        trial.shell.replies(when=_HERE, stdout="main\n")
+        trial.shell.replies(when=HERE, stdout="main\n")
 
         transition = trial.walk(pick, PrReview(bound=2))
 
         assert transition == done(Shipped(outcome="nothing"))
 
     # A count nobody could take is not a branch with nothing to do, and it is
-    # not one to check out on a guess either.
-    def test_a_count_gh_will_not_give_skips_the_branch(self, trial: Trial) -> None:
-        trial.shell.replies(when=_STATUS)
+    # not one to check out on a guess either. It is also not silence: the
+    # ending says there is no review waiting, and that sentence is a guess
+    # unless it names the branches it could not read.
+    def test_a_count_gh_will_not_give_skips_the_branch_and_is_said_out_loud(
+        self, trial: Trial
+    ) -> None:
+        trial.shell.replies(when=STATUS)
         trial.shell.replies(when=LIST, stdout=_listing("feature"))
-        trial.shell.replies(when=_HERE, stdout="feature\n")
+        trial.shell.replies(when=HERE, stdout="feature\n")
         trial.shell.replies(when=_asks("feature"), exit_code=1, stderr="rate limited")
 
         transition = trial.walk(pick, PrReview(bound=2))
 
         assert transition == done(Shipped(outcome="nothing"))
+        assert trial.deltas == [
+            "gh would not say what is open on feature",
+            "no pull request of yours has a review waiting",
+        ]
+
+    # Every count came back, so there is nothing to confess and the ending
+    # stands on its own.
+    def test_counts_that_all_came_back_say_nothing_extra(self, trial: Trial) -> None:
+        trial.shell.replies(when=STATUS)
+        trial.shell.replies(when=LIST, stdout=_listing("feature"))
+        trial.shell.replies(when=HERE, stdout="feature\n")
+        _open(trial, "feature", count="0\n")
+
+        trial.walk(pick, PrReview(bound=2))
+
+        assert trial.deltas == ["no pull request of yours has a review waiting"]
 
     # Everything below this line moves a branch under you and commits what it
     # finds, so work left in the tree is work that would end up on it.
     def test_a_dirty_worktree_fails_the_cast(self, trial: Trial) -> None:
-        trial.shell.replies(when=_STATUS, stdout=" M src/thing.py\n")
+        trial.shell.replies(when=STATUS, stdout=" M src/thing.py\n")
 
         with pytest.raises(RitualError, match="the worktree is not clean"):
             trial.walk(pick, PrReview(bound=2))
 
     # A tree it could not read is not a tree it may call clean.
     def test_a_failed_status_fails_the_cast(self, trial: Trial) -> None:
-        trial.shell.replies(when=_STATUS, exit_code=128, stderr="not a repository")
+        trial.shell.replies(when=STATUS, exit_code=128, stderr="not a repository")
 
         with pytest.raises(RitualError, match="git status failed"):
             trial.walk(pick, PrReview(bound=2))
 
     def test_a_failed_listing_fails_the_cast(self, trial: Trial) -> None:
-        trial.shell.replies(when=_STATUS)
+        trial.shell.replies(when=STATUS)
         trial.shell.replies(when=LIST, exit_code=1, stderr="rate limited")
 
         with pytest.raises(RitualError, match="could not list your pull requests"):
             trial.walk(pick, PrReview(bound=2))
 
     def test_a_listing_that_cannot_be_read_fails_the_cast(self, trial: Trial) -> None:
-        trial.shell.replies(when=_STATUS)
+        trial.shell.replies(when=STATUS)
         trial.shell.replies(when=LIST, stdout="{}")
 
         with pytest.raises(RitualError, match="something unreadable"):
             trial.walk(pick, PrReview(bound=2))
 
     def test_a_head_git_will_not_name_fails_the_cast(self, trial: Trial) -> None:
-        trial.shell.replies(when=_STATUS)
+        trial.shell.replies(when=STATUS)
         trial.shell.replies(when=LIST, stdout=_listing("feature"))
-        trial.shell.replies(when=_HERE, exit_code=128, stderr="no HEAD")
+        trial.shell.replies(when=HERE, exit_code=128, stderr="no HEAD")
 
         with pytest.raises(RitualError, match="could not read the current branch"):
             trial.walk(pick, PrReview(bound=2))
@@ -250,7 +272,7 @@ class TestLook:
         transition = trial.walk(look, branch)
 
         assert transition == goto(plan, Triage(branch=branch, items=[_ITEM]))
-        assert trial.shell.commands == ["git checkout feature"]
+        assert trial.shell.commands == [checkout("feature")]
 
     # The one constrained agent call in either ritual: it is handed text a
     # stranger wrote, so the allowlist enforces read-only rather than the prompt
@@ -270,7 +292,12 @@ class TestLook:
             effort="high",
         )
 
-    def test_saying_no_ends_the_cast(self, trial: Trial, branch: Branch) -> None:
+    # Asked before anything moves: `pick` reaches a branch you are not standing
+    # on exactly when yours had nothing waiting, so a `no` that had already
+    # checked out would leave you on a branch you never asked for.
+    def test_saying_no_ends_the_cast_where_you_were_standing(
+        self, trial: Trial, branch: Branch
+    ) -> None:
         trial.shell.replies(when="git checkout*")
         trial.decide.answers(answer=False, when="read the review*")
 
@@ -278,6 +305,7 @@ class TestLook:
 
         assert transition == done(Shipped(outcome="declined", branch="feature"))
         assert not trial.coding.prompts
+        assert not trial.shell.commands
 
     # `pick` only got here on a thread nobody had settled, so this is the
     # reading disagreeing with gh — and nothing is committed on that.
@@ -307,6 +335,7 @@ class TestLook:
     def test_a_failed_checkout_fails_the_cast(
         self, trial: Trial, branch: Branch
     ) -> None:
+        trial.decide.answers(answer=True, when="read the review*")
         trial.shell.replies(when="git checkout*", exit_code=1, stderr="in the way")
 
         with pytest.raises(RitualError, match="could not check out feature"):
@@ -408,6 +437,20 @@ class TestHandBack:
         assert transition == goto(
             work, Instructed(branch=branch, prompt="drop the helper")
         )
+
+    # An empty line is an answer here too, and the obvious one: nothing more to
+    # fix. Forwarded it would be an empty instruction to an agent that writes
+    # code, which is a round of unpredictable edits bought with a stray return.
+    def test_saying_nothing_ships_rather_than_asking_the_agent(
+        self, trial: Trial, branch: Branch
+    ) -> None:
+        trial.decide.answers(answer="fix", when="*ship it?*")
+        trial.decide.answers(answer="", when="*fix?*")
+
+        transition = trial.walk(hand_back, branch)
+
+        assert transition == goto(gates, Landing(branch=branch))
+        assert not trial.coding.prompts
 
 
 class TestGates:
@@ -519,6 +562,9 @@ class TestSettle:
 
         assert transition == done(Shipped(outcome="shipped", branch="feature"))
         assert "2 review threads are still open on feature" in trial.deltas[0]
+        # A failed `gh pr edit` is swallowed into a delta here, so the label
+        # going on wrongly would look exactly like this test passing.
+        assert label(QA_LABEL, number=7) not in trial.shell.commands
 
     def test_a_count_gh_will_not_give_labels_nothing(
         self, trial: Trial, branch: Branch
@@ -533,9 +579,9 @@ class TestSettle:
 
 class TestPrReview:
     def test_a_morning_with_nothing_waiting_ends_the_cast(self, trial: Trial) -> None:
-        trial.shell.replies(when=_STATUS)
+        trial.shell.replies(when=STATUS)
         trial.shell.replies(when=LIST, stdout=_listing("feature"))
-        trial.shell.replies(when=_HERE, stdout="feature\n")
+        trial.shell.replies(when=HERE, stdout="feature\n")
         _open(trial, "feature", count="0\n")
 
         result = trial.cast(pr_review, PrReview(bound=2))
@@ -546,10 +592,10 @@ class TestPrReview:
     def test_a_reviewed_branch_goes_all_the_way_to_the_label(
         self, trial: Trial
     ) -> None:
-        trial.shell.replies(when=_STATUS)
+        trial.shell.replies(when=STATUS)
         trial.shell.replies(when=LIST, stdout=_listing("feature"))
         trial.shell.replies(when=_asks("feature"), stdout="1\n")
-        trial.shell.replies(when=_HERE, stdout="feature\n")
+        trial.shell.replies(when=HERE, stdout="feature\n")
         trial.shell.replies(when="git checkout*")
         trial.decide.answers(answer=True, when="read the review*")
         trial.coding.replies(TriageNotes(items=[_ITEM]), when=_READING)

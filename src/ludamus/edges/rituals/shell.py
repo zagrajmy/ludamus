@@ -94,6 +94,26 @@ def quoted(value: str) -> str:
     return shlex.quote(value)
 
 
+# What the tree is carrying that git has not been told about, in the one shape a
+# step can put an `if` around: empty output is a clean worktree.
+STATUS = "git status --porcelain"
+
+# Which branch the worktree is standing on, which is not always the branch a
+# step is working on.
+HERE = "git rev-parse --abbrev-ref HEAD"
+
+
+def checkout(branch: str) -> str:
+    return f"git checkout {quoted(branch)}"
+
+
+# The remote by name rather than the branch's upstream: a branch a ritual has
+# just created a merge on may have none, and both rituals push to the one
+# `ahead` counts against.
+def push(branch: str) -> str:
+    return f"git push {REMOTE} {quoted(branch)}"
+
+
 # The review threads on a pull request, with everything either reader wants.
 # GraphQL rather than `pulls/<number>/comments`, because the REST endpoint
 # carries no resolution state at all: it answers a settled thread and a live one
@@ -279,7 +299,7 @@ def release(branch: str) -> str:
     return (
         "if git rev-parse -q --verify MERGE_HEAD >/dev/null; "
         "then git merge --abort; fi; "
-        'if [ -n "$(git status --porcelain)" ]; '
+        f'if [ -n "$({STATUS})" ]; '
         f"then git stash push -u -m {quoted(stash_name(branch))} >/dev/null "
         f"&& echo {STASHED}; fi"
     )
@@ -292,7 +312,7 @@ def release(branch: str) -> str:
 # None below, which is exactly "we could not tell".
 async def ahead(branch: str) -> int | None:
     counted = await shell(
-        f'test {quoted(branch)} = "$(git rev-parse --abbrev-ref HEAD)" && '
+        f'test {quoted(branch)} = "$({HERE})" && '
         f"git rev-list --count {quoted(f'{REMOTE}/{branch}..HEAD')}",
         stream=False,
     )

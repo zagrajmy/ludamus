@@ -56,17 +56,19 @@ from .agent import (
 )
 from .shell import (
     COVERAGE,
+    HERE,
     LIST,
     MISSING,
     PR_FIX,
     QA_LABEL,
-    REMOTE,
+    STATUS,
     THERMO_LABEL,
+    checkout,
     commit,
     coverage_report,
     label,
     plain,
-    quoted,
+    push,
     said,
     unsettled,
 )
@@ -81,16 +83,10 @@ _MAX_STEPS = 200
 # after reading the last one meets an agent that remembers writing it.
 _THREAD = "pr_review"
 
-_STATUS = "git status --porcelain"
-
 # Never this one, whatever `gh` says about it. This ritual ends in a commit and
 # a push on the branch it takes, and a pull request opened from main — someone
 # else's fork, a mistake — would send both straight there.
 _MAIN = "main"
-
-# Which branch you are standing on, which is the one this ritual would rather
-# take than any other.
-_HERE = "git rev-parse --abbrev-ref HEAD"
 
 
 # Every fatal call in this ritual is the same three lines around one command, so
@@ -160,7 +156,7 @@ async def pick(components: PrReview) -> Transition:
     # Fatal, and first: this checks out a branch and later commits everything it
     # finds, so work sitting in the tree now would be carried onto someone
     # else's branch and committed there.
-    status = await _ran(_STATUS, "git status failed", stream=False)
+    status = await _ran(STATUS, "git status failed", stream=False)
     if dirty := status.stdout.strip():
         msg = f"the worktree is not clean:\n{dirty}"
         raise RitualError(msg)
@@ -179,7 +175,7 @@ async def pick(components: PrReview) -> Transition:
         and wears(pull, THERMO_LABEL)
         and not wears(pull, QA_LABEL)
     ]
-    here = await _ran(_HERE, "could not read the current branch", stream=False)
+    here = await _ran(HERE, "could not read the current branch", stream=False)
     # You have just finished working on this branch and the review on it is what
     # you sat down for. Anything else is a cast that moves you off it to read
     # something you were not thinking about — and it is also what keeps two
@@ -190,19 +186,28 @@ async def pick(components: PrReview) -> Transition:
     ]
     # A call per pull request, asked in the order the answer is wanted in, so the
     # branch you are standing on costs one and stops there.
+    mute: list[str] = []
     for pull in ordered:
-        if await _open_threads(pull.number):
+        left = await _open_threads(pull.number)
+        if left is None:
+            mute.append(pull.branch)
+        elif left:
             branch = Branch(
                 name=pull.branch, number=pull.number, bound=components.bound
             )
             return goto(look, branch)
+    # Said before the ending below and not folded into it: a branch nobody could
+    # get a count for is the one thing that makes "no review waiting" a guess,
+    # and whoever reads that sentence has to know which branches it skipped.
+    if mute:
+        emit_delta(f"gh would not say what is open on {', '.join(mute)}")
     emit_delta("no pull request of yours has a review waiting")
     return done(Shipped(outcome="nothing"))
 
 
 # What is outstanding on a pull request, and `None` where `gh` would not say.
 # A count nobody could take is not "nothing to do": `pick` skips that branch
-# rather than claiming it is clean, and the ending below says so out loud.
+# rather than claiming it is clean, and says which ones it skipped.
 async def _open_threads(number: int) -> int | None:
     asked = await shell(unsettled(number), stream=False)
     text = asked.stdout.strip()
@@ -213,11 +218,13 @@ async def _open_threads(number: int) -> int | None:
 
 @step
 async def look(branch: Branch) -> Transition:
-    await _ran(
-        f"git checkout {quoted(branch.name)}", f"could not check out {branch.name}"
-    )
+    # Asked before the checkout and not after it: `pick` falls through to a
+    # branch you are not on precisely when yours had nothing waiting, so a
+    # question asked from the other side of the move leaves a `no` standing on
+    # someone else's branch with your own gone from under you.
     if not await decide(f"read the review on {branch.name}?"):
         return done(Shipped(outcome="declined", branch=branch.name))
+    await _ran(checkout(branch.name), f"could not check out {branch.name}")
     # Read on the branch and not before it: an item is triaged against the code
     # as it stands, and until the checkout above that was somebody else's code.
     read = await ask_for(triage_read(branch.number), output=TriageNotes, opts=READING)
@@ -240,7 +247,7 @@ def _shown(index: int, item: TriageItem) -> str:
 
 @step
 async def plan(triage: Triage) -> Transition:
-    tally = counted(TriageNotes(items=triage.items))
+    tally = counted(triage.items)
     emit_delta(
         "\n".join(
             [
@@ -286,7 +293,11 @@ async def work(instructed: Instructed) -> Transition:
 async def hand_back(branch: Branch) -> Transition:
     if await decide("fix something else, or ship it?", options=_MOVES) == "ship":
         return goto(gates, Landing(branch=branch))
-    more = await decide("what should it fix?", free=True)
+    # Read rather than forwarded, as in `plan`: an empty line at this prompt is
+    # the obvious thing — nothing more to fix — and the agent on the other side
+    # of it writes code and would make something of an empty instruction.
+    if not (more := await decide("what should it fix?", free=True)):
+        return goto(gates, Landing(branch=branch))
     return goto(work, Instructed(branch=branch, prompt=more))
 
 
@@ -328,12 +339,10 @@ async def land(branch: Branch) -> Transition:
     await _ran(
         commit("chore: act on the review triage"), "could not commit the triage work"
     )
-    # The remote by name, as `pr_check` pushes it: what this ends on is the same
-    # branch that ritual put up, and neither of them is going to guess at an
-    # upstream the other did not set.
-    await _ran(
-        f"git push {REMOTE} {quoted(branch.name)}", f"could not push {branch.name}"
-    )
+    # The same push `pr_check` makes: what this ends on is the branch that ritual
+    # put up, and neither of them is going to guess at an upstream the other did
+    # not set.
+    await _ran(push(branch.name), f"could not push {branch.name}")
     return goto(settle, branch)
 
 

@@ -72,13 +72,16 @@ from .shell import (
     PR_FIX,
     REMOTE,
     STASHED,
+    STATUS,
     THERMO_LABEL,
     ahead,
     already_seen,
+    checkout,
     commit,
     coverage_report,
     label,
     plain,
+    push,
     quoted,
     release,
     said,
@@ -145,7 +148,7 @@ def next_pr(run: Run) -> Transition:
 
 @step
 async def check_clean(work: Work) -> Transition:
-    status = await shell("git status --porcelain", stream=False)
+    status = await shell(STATUS, stream=False)
     if status.exit_code:
         return goto(report, abandoned(work, f"git status failed: {said(status)}"))
     if dirty := status.stdout.strip():
@@ -159,7 +162,7 @@ async def check_clean(work: Work) -> Transition:
 async def sync_branch(work: Work) -> Transition:
     pull = work.pr
     synced = await shell(
-        f"git fetch --prune {REMOTE} && git checkout {quoted(pull.base)}"
+        f"git fetch --prune {REMOTE} && {checkout(pull.base)}"
         f" && git pull --ff-only {REMOTE} {quoted(pull.base)}"
     )
     if synced.exit_code:
@@ -169,7 +172,7 @@ async def sync_branch(work: Work) -> Transition:
     # last night carries commits the remote has not seen, and they are the whole
     # point of the report. A branch that has genuinely diverged stops here.
     taken = await shell(
-        f"git checkout {quoted(pull.branch)} && "
+        f"{checkout(pull.branch)} && "
         f"git merge --ff-only {quoted(f'{REMOTE}/{pull.branch}')}"
     )
     if taken.exit_code:
@@ -324,8 +327,7 @@ async def cover(work: Work) -> Transition:
 
 # Everything the night made of this branch goes up before it is reviewed: an
 # inline comment has to name a line of the pull request's diff, and work sitting
-# in this clone is not in it. The remote is named rather than left to the
-# branch's upstream, because a branch this run created a merge on may have none.
+# in this clone is not in it.
 # Not fatal, and not `set_aside`: a push that will not go through — someone
 # else's commit on the branch, a network that is gone — costs the review its
 # anchors and nothing else, and a review of code you can still read is worth
@@ -334,7 +336,7 @@ async def cover(work: Work) -> Transition:
 # at the end, whoever left it there.
 @step
 async def push_work(work: Work) -> Transition:
-    pushed = await shell(f"git push {REMOTE} {quoted(work.pr.branch)}")
+    pushed = await shell(push(work.pr.branch))
     if pushed.exit_code:
         left = f"could not push: {said(pushed)}"
         return goto(quality_review, work_with(work, note=joined(work.note, left)))
