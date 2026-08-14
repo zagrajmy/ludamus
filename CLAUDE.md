@@ -86,8 +86,15 @@ has the per-file recipe. New code must use `request.services`; never extend the
   def fun(*, a: int, b: str, precision: int) -> int: ...
   ```
 
-- Avoid docstrings. Code should be self-explanatory, and the
-  Arrange-Act-Assert structure in tests obvious from the code itself.
+- A comment carries what the code cannot: why this exists, the domain rule
+  behind it, an assumption or invariant, a warning about a non-obvious side
+  effect, a workaround and the constraint forcing it, a deliberate deviation
+  from the cleaner approach, an issue link for what's left to solve. A
+  function or method over 10 lines may open with a one-line docstring saying
+  what it does; no docstrings otherwise. Never narrate what the code does —
+  no `# int variable`, no `# Arrange`, no docstring moved above the `def` as
+  a `#`, no commented-out code, no history, nothing that goes stale (tests
+  especially). None of the above applies? Refactor until the code says it.
 - Test type follows the layer under test: `mills` gets unit tests; `gates`,
   `links`, `adapters.web`, and templates get integration tests. This holds
   when raising coverage too. Details and the pure-helper exception:
