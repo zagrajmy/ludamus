@@ -1,4 +1,5 @@
 import json
+from datetime import timedelta
 from http import HTTPStatus
 
 import pytest
@@ -11,7 +12,12 @@ from ludamus.gates.web.django.mcp.tokens import (
 )
 from ludamus.links.db.django.models import Announcement, Space
 from ludamus.pacts.mcp import ToolScope
-from tests.integration.conftest import EventFactory, SphereFactory, UserFactory
+from tests.integration.conftest import (
+    EventFactory,
+    SpaceFactory,
+    SphereFactory,
+    UserFactory,
+)
 from tests.integration.utils import assert_response
 from tests.integration.web.mcp.test_mcp_endpoint import tool_text
 from tests.unit.test_mcp_registry import ORGANIZER_TOOL_NAMES
@@ -284,3 +290,210 @@ class TestOrganizerTools:
             "code": -32602,
             "message": "Unknown tool: list_spheres",
         }
+
+
+class TestOrganizerProgrammeTools:
+    def test_programme_seed_happy_path(self, client, org_token, event):
+        slot_start = event.start_time + timedelta(hours=2)
+        slot_end = slot_start + timedelta(hours=2)
+        assign_start = slot_start + timedelta(minutes=30)
+        assign_end = assign_start + timedelta(hours=1)
+
+        category = json.loads(
+            tool_text(
+                call_org_tool(
+                    client, org_token, "create_proposal_category", {"name": "Warsztaty"}
+                )
+            )
+        )
+        json.loads(
+            tool_text(
+                call_org_tool(
+                    client,
+                    org_token,
+                    "create_time_slot",
+                    {
+                        "start_time": slot_start.isoformat(),
+                        "end_time": slot_end.isoformat(),
+                    },
+                )
+            )
+        )
+        venue = json.loads(
+            tool_text(
+                call_org_tool(client, org_token, "create_space", {"name": "Venue"})
+            )
+        )
+        room = json.loads(
+            tool_text(
+                call_org_tool(
+                    client,
+                    org_token,
+                    "create_space",
+                    {"name": "Aula A", "parent_id": venue["pk"]},
+                )
+            )
+        )
+        track = json.loads(
+            tool_text(
+                call_org_tool(client, org_token, "create_track", {"name": "Main"})
+            )
+        )
+        facilitator = json.loads(
+            tool_text(
+                call_org_tool(
+                    client,
+                    org_token,
+                    "find_or_create_facilitator",
+                    {"display_name": "Jan Kowalski"},
+                )
+            )
+        )
+        found = json.loads(
+            tool_text(
+                call_org_tool(
+                    client,
+                    org_token,
+                    "find_or_create_facilitator",
+                    {"display_name": "Jan Kowalski"},
+                )
+            )
+        )
+        assert found["pk"] == facilitator["pk"]
+
+        session = json.loads(
+            tool_text(
+                call_org_tool(
+                    client,
+                    org_token,
+                    "create_session",
+                    {
+                        "source_row_id": "bf25-row-1",
+                        "title": "Wprowadzenie",
+                        "category_id": category["pk"],
+                        "facilitator_ids": [facilitator["pk"]],
+                        "track_ids": [track["pk"]],
+                    },
+                )
+            )
+        )
+        retry = json.loads(
+            tool_text(
+                call_org_tool(
+                    client,
+                    org_token,
+                    "create_session",
+                    {
+                        "source_row_id": "bf25-row-1",
+                        "title": "Wprowadzenie",
+                        "category_id": category["pk"],
+                    },
+                )
+            )
+        )
+        assert retry["pk"] == session["pk"]
+
+        assigned = json.loads(
+            tool_text(
+                call_org_tool(
+                    client,
+                    org_token,
+                    "assign_session",
+                    {
+                        "session_id": session["pk"],
+                        "space_id": room["pk"],
+                        "start_time": assign_start.isoformat(),
+                        "end_time": assign_end.isoformat(),
+                    },
+                )
+            )
+        )
+        assert assigned == {"session_id": session["pk"], "space_id": room["pk"]}
+
+        assert json.loads(
+            tool_text(
+                call_org_tool(client, org_token, "list_spaces", {"event_id": event.pk})
+            )
+        ) == [
+            {
+                "pk": room["pk"],
+                "name": "Aula A",
+                "path": "Venue > Aula A",
+                "capacity": None,
+                "parent_id": venue["pk"],
+            }
+        ]
+        assert (
+            len(
+                json.loads(
+                    tool_text(
+                        call_org_tool(
+                            client, org_token, "list_time_slots", {"event_id": event.pk}
+                        )
+                    )
+                )
+            )
+            == 1
+        )
+        assert (
+            json.loads(
+                tool_text(
+                    call_org_tool(
+                        client, org_token, "list_tracks", {"event_id": event.pk}
+                    )
+                )
+            )[0]["pk"]
+            == track["pk"]
+        )
+        assert (
+            json.loads(
+                tool_text(
+                    call_org_tool(
+                        client, org_token, "list_sessions", {"event_id": event.pk}
+                    )
+                )
+            )[0]["pk"]
+            == session["pk"]
+        )
+        assert (
+            json.loads(
+                tool_text(
+                    call_org_tool(
+                        client, org_token, "list_facilitators", {"event_id": event.pk}
+                    )
+                )
+            )[0]["pk"]
+            == facilitator["pk"]
+        )
+
+    def test_create_space_rejects_foreign_parent(
+        self, client, org_token, sphere, event
+    ):
+        sibling = EventFactory(sphere=sphere)
+        foreign_parent = SpaceFactory(event=sibling, name="Sibling room")
+
+        response = call_org_tool(
+            client,
+            org_token,
+            "create_space",
+            {"name": "Nested", "parent_id": foreign_parent.pk},
+        )
+
+        result = response.json()["result"]
+        assert result["isError"] is True
+        assert result["content"][0]["text"] == "Resource not found"
+
+    def test_create_time_slot_rejects_reversed_range(self, client, org_token, event):
+        start = event.start_time + timedelta(hours=4)
+        end = event.start_time + timedelta(hours=2)
+
+        response = call_org_tool(
+            client,
+            org_token,
+            "create_time_slot",
+            {"start_time": start.isoformat(), "end_time": end.isoformat()},
+        )
+
+        result = response.json()["result"]
+        assert result["isError"] is True
+        assert result["content"][0]["text"] == "start_not_before_end"

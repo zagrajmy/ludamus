@@ -89,3 +89,25 @@ class TestMcpToolCallAudit:
             "description": "[redacted]",
             "title": "Workshop",
         }
+
+    def test_audit_logs_event_id(self, caplog, registry):
+        caplog.set_level(logging.INFO)
+        event_id = 9
+        actor = ActorContext(
+            user_id=7, scope=ToolScope.ORGANIZER, sphere_id=3, event_id=event_id
+        )
+
+        handle_message(
+            registry=registry,
+            services=MagicMock(),
+            actor=actor,
+            message={
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "tools/call",
+                "params": {"name": "get_sphere", "arguments": {}},
+            },
+        )
+
+        record = _tools_call_record(caplog)
+        assert record.args[3] == event_id
