@@ -255,6 +255,7 @@ ignore = [
     "COM",
     "CPY",
     "D1",
+    "DOC",  # No docstring param/return spec
     "FIX",
     "TD003",
     # Left to fix

@@ -54,9 +54,9 @@ def wears(pull: PullRequest, name: str) -> bool:
     return any(label.name == name for label in pull.labels)
 
 
-# Which pull requests a cast takes, and in what order. Both rituals ask the same
-# question of the same listing and differ only in what they do when it will not
-# parse, so the answer is written once and the routing stays with each caller.
+# Both rituals ask the same question of the same listing and differ only in what
+# they do when it will not parse, so the answer is written once and the routing
+# stays with each caller.
 # Parked branches are dropped here rather than skipped later, so one is never
 # checked out, never counted as reached, and never in a report at all.
 # Oldest-modified first: the branch drifting from its base the longest is the
@@ -83,9 +83,7 @@ class Checked(BaseModel):
     note: str = ""
 
 
-# The whole run: what is left to do, what was done, and why it stopped if it
-# stopped. Every step carries it, because the report is owed however the cast
-# ends.
+# Every step carries this, because the report is owed however the cast ends.
 class Run(BaseModel):
     bound: int
     queue: list[PullRequest] = []
@@ -102,9 +100,8 @@ class Run(BaseModel):
     seen: list[str] = []
 
 
-# One pull request in flight. `budgets` dies with this payload, which is what "a
-# branch change clears all budgets" means — a fresh Work is built per pull
-# request and inherits nothing.
+# `budgets` dies with this payload, which is what "a branch change clears all
+# budgets" means — a fresh Work is built per pull request and inherits nothing.
 class Work(BaseModel):
     run: Run
     pr: PullRequest
@@ -213,9 +210,9 @@ def joined(*parts: str) -> str:
     return "; ".join(part for part in parts if part)
 
 
-# What a row has to say, in the order the morning wants it: why the branch
-# stopped first, then whatever the ending that built the row has to add. Every
-# ending goes through here, so no ending can write over another's half.
+# Why the branch stopped comes first, which is the order the morning wants it
+# in. Every ending goes through here, so no ending can write over another's
+# half.
 def telling(work: Work, *extra: str) -> str:
     return joined(work.reason, work.note, *extra)
 

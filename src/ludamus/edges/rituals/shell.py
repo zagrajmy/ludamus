@@ -23,10 +23,9 @@ COVERAGE = "mise run diff-cover"
 REMOTE = "https-origin"
 
 
-# What a step actually runs a gate as. `CI=1` puts every tool in the chain into
-# its log shape rather than its terminal one — no colour, no cursor tricks.
-# Held apart from the names above because those are what the prompts say and
-# what you would type yourself; nobody needs to read the prefix.
+# `CI=1` puts every tool in the chain into its log shape rather than its
+# terminal one — no colour, no cursor tricks. Held apart from the names above
+# because those are what the prompts say and what you would type yourself.
 # It changes more than the rendering, and that is worth knowing before a gate's
 # answer is read as the answer you would have got yourself: under `tests/e2e` it
 # retries a failure twice before it counts, pins the workers, refuses
@@ -121,8 +120,6 @@ query($owner: String!, $repo: String!, $number: Int!) {
         comments(first: 50) { nodes { databaseId author { login } body } } } } } } }"""
 
 
-# One command, whoever runs it: a step counting what is outstanding and an agent
-# reading what it says ask the same question of the same query.
 # `gh` knows which repository this is, but graphql variables are not a REST path
 # and nothing fills an `{owner}` in for them — so the slug is asked for once and
 # split by the shell rather than by a second call.
@@ -142,8 +139,6 @@ _OPEN_ONES = (
 )
 
 
-# How many threads nobody has settled, which is the whole of what `pr_review`
-# asks of a candidate — and, at the end, of the branch it just worked on.
 def unsettled(number: int) -> str:
     return threads(number, part=_OPEN_ONES)
 
@@ -183,10 +178,9 @@ def _tail(text: str) -> str:
 # Each stream gets the budget on its own rather than sharing one, because mise
 # puts its own task chatter on stderr and the tool's verdict on stdout, and a
 # shared budget is won by whichever stream is longer — which is the chatter.
-# Trimmed here rather than at each prompt, because every caller of this hands it
-# to an agent and they all want the same thing: enough of the end to diagnose
-# from. What the report puts in front of a person is `verdict` below, which is a
-# different question and a much smaller answer.
+# Every caller hands this to an agent, so the trimming happens here rather than
+# at each prompt. What a person is shown is `verdict` below, a smaller answer to
+# a different question.
 def said(result: ShellResult) -> str:
     return "\n".join(
         _tail(_plain_text(part))
@@ -195,12 +189,11 @@ def said(result: ShellResult) -> str:
     )
 
 
-# Cutting at diff-cover's own banner drops the suite transcript above it whole
-# and hands on the listing entire, however many files it names. A budget has no
-# business here: this listing is not something an agent reads for a verdict, it
-# is the work list, and a tail of it is an agent asked to cover lines it was
-# never shown — then another full unit and e2e run to reveal the rest. Only
-# where the report never got printed does the trimmed log stand in for it.
+# A budget has no business here: this listing is not something an agent reads
+# for a verdict, it is the work list, and a tail of it is an agent asked to
+# cover lines it was never shown — then another full unit and e2e run to reveal
+# the rest. The banner is what the transcript above it can be cut at. Only where
+# the report never got printed does the trimmed log stand in for it.
 def coverage_report(result: ShellResult) -> str:
     _, banner, rest = result.stdout.partition(BANNER)
     return banner + rest if banner else said(result)
@@ -211,11 +204,11 @@ def coverage_report(result: ShellResult) -> str:
 VERDICT_LINES = 12
 
 
-# The one-screen answer to "what went wrong", for the report rather than for an
-# agent. Only one stream, unlike `said`: stdout is where every tool in these
-# chains says how it ended — pytest's short summary, ruff's count, Playwright's
-# tally — while stderr carries mise's task chatter and, under e2e, a web server
-# logging every request it served, which is thousands of lines of nothing.
+# For the report rather than for an agent, so only one stream, unlike `said`:
+# stdout is where every tool in these chains says how it ended — pytest's short
+# summary, ruff's count, Playwright's tally — while stderr carries mise's task
+# chatter and, under e2e, a web server logging every request it served, which is
+# thousands of lines of nothing.
 # Where stdout said nothing at all, stderr is all there is, and that is the task
 # that died before it started.
 # Blank lines go too: a progress reporter writing over itself leaves hundreds of
@@ -278,10 +271,8 @@ def stash_name(branch: str) -> str:
     return f"pr_check left {branch} unfinished"
 
 
-# What a blocked pull request leaves behind. The next one begins with a clean
-# worktree check, so an abandoned branch cannot be left dirty — and its work is
-# not ours to throw away either. A conflicted merge goes back where it was; the
-# rest goes into a named stash the report points at.
+# The next pull request begins with a clean worktree check, so an abandoned
+# branch cannot be left dirty — and its work is not ours to throw away either.
 # The dirty check is what makes the report's claim true: `git stash push` on a
 # clean tree exits 0 having saved nothing, so a note written off the exit code
 # alone would name a stash that is not there. Echoing our own marker beats

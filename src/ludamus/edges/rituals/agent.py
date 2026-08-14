@@ -94,8 +94,6 @@ gh api graphql -f query='mutation($id: ID!) {
 # are evidence rather than instruction. The agent fetches them itself, so the
 # fence is a standing rule about everything it is about to read — and
 # `READING`'s allowlist is the half that does not depend on it agreeing.
-# Nothing is posted and nothing is fixed: what comes back goes on your terminal,
-# and you say what happens to each item.
 def triage_read(number: int) -> str:
     return f"""\
 Triage the open review threads on pull request #{number} against the code as it
@@ -136,8 +134,7 @@ Fix nothing and comment nowhere. This is a reading.
 """
 
 
-# What `pr_review` hands the agent once you have been through the triage item by
-# item. This one runs unconstrained — a comment telling it to run something
+# Unconstrained, unlike the reading — a comment telling it to run something
 # arrives with a worktree, `gh`, and no allowlist in its way — so the fence is
 # repeated here, and the items are the ones you have already read.
 def triage_work(number: int, items: str) -> str:
@@ -276,8 +273,7 @@ class Misread(BaseModel):
 # and so run at vekna's `bypassPermissions` default — which is the decision an
 # unattended run makes, since a permission prompt at 3am is a hang.
 # Read-only in the sense that matters here: the triage has to reach `gh`, so
-# Bash is on the allowlist, and `dontAsk` denies everything outside it without
-# stopping to prompt.
+# Bash stays, and nothing outside the list gets so far as a prompt.
 READING = CodingOpts(
     focus_options=ClaudeOptions(
         permission_mode="dontAsk",
@@ -287,20 +283,19 @@ READING = CodingOpts(
 )
 
 
-# Every agent call in this ritual goes through one of the two below, and they
-# are the only places that catch broadly. An agent dying mid-flight — a spent
-# token budget, a killed CLI — has to end the run, but the report is owed first,
-# and an exception leaving a step takes the report with it. So the failure comes
-# back as a value, and `report` raises at the end once the list is out.
-# A key means the call joins a thread, so a retry meets an agent that remembers
-# the attempt that just failed rather than reaching for it again.
 def _fallen(error: Exception) -> Fallen:
     return Fallen(reason=f"the agent stopped mid-flight: {error}")
 
 
-# Nothing reads what the agent said back: these calls are judged by what they
-# left in the worktree, which the step that follows reads out of git. So the
-# only answer worth returning is whether the agent was still standing.
+# The two calls below are the only places in this ritual that catch broadly. An
+# agent dying mid-flight — a spent token budget, a killed CLI — has to end the
+# run, but the report is owed first, and an exception leaving a step takes the
+# report with it. So the failure comes back as a value, and `report` raises at
+# the end once the list is out.
+# A key joins the call to a thread, so a retry meets an agent that remembers the
+# attempt that just failed rather than reaching for it again.
+# Nothing reads what an agent said back: these calls are judged by what they
+# left in the worktree, which the step that follows reads out of git.
 async def ask(
     prompt: str, *, opts: CodingOpts | None = None, key: str | None = None
 ) -> Fallen | None:

@@ -123,6 +123,7 @@ def pr_check(components: PrCheck) -> Transition:
 
 @step
 async def list_prs(run: Run) -> Transition:
+    """Ask gh what is open, and queue what the night will take."""
     # `gh`, not an agent holding a fetch tool: it reads private repositories,
     # returns JSON, and listing needs no judgement.
     listed = await shell(LIST, stream=False)
@@ -159,6 +160,7 @@ async def check_clean(work: Work) -> Transition:
 
 @step
 async def sync_branch(work: Work) -> Transition:
+    """Update the base branch, then stand on the branch as the remote has it."""
     pull = work.pr
     synced = await shell(
         f"git fetch --prune {REMOTE} && {checkout(pull.base)}"
@@ -183,6 +185,7 @@ async def sync_branch(work: Work) -> Transition:
 
 @step
 async def merge_base(work: Work) -> Transition:
+    """Merge the base in, telling a conflict from a merge that would not run."""
     merged = await shell(f"git merge --no-edit {quoted(work.pr.base)}")
     if merged.exit_code == 0:
         return goto(gate_check, work)
@@ -199,6 +202,7 @@ async def merge_base(work: Work) -> Transition:
 
 @step
 async def resolve_conflicts(work: Work) -> Transition:
+    """Hand the conflicted files to an agent until the index comes back clean."""
     unmerged = await shell("git diff --name-only --diff-filter=U", stream=False)
     if not unmerged.stdout.strip():
         return goto(gate_check, cleared(work, resolve_conflicts.name))
@@ -218,6 +222,7 @@ async def resolve_conflicts(work: Work) -> Transition:
 
 @step
 async def gate_check(work: Work) -> Transition:
+    """Run the gate, and repair it until it is green or the budget is gone."""
     # Captured rather than streamed, and run `plain`: what comes back here is
     # read twice over — once by an agent, once by you in the morning — and a
     # terminal recording is neither.
@@ -248,6 +253,7 @@ async def gate_check(work: Work) -> Transition:
 
 @step
 async def finish_merge(work: Work) -> Transition:
+    """Close an open merge and commit whatever the repairs left behind."""
     if work.merging:
         continued = await shell(CONTINUE_MERGE)
         if continued.exit_code:
@@ -269,6 +275,7 @@ async def finish_merge(work: Work) -> Transition:
 
 @step
 async def cover(work: Work) -> Transition:
+    """Close the coverage gap, repairing a red suite like any other gate."""
     measured = await shell(plain(COVERAGE), stream=False)
     output = coverage_report(measured)
     missing = MISSING in output
@@ -323,9 +330,6 @@ async def cover(work: Work) -> Transition:
     return goto(cover, charged(work, cover.name))
 
 
-# Everything the night made of this branch goes up before it is reviewed: an
-# inline comment has to name a line of the pull request's diff, and work sitting
-# in this clone is not in it.
 # Not fatal, and not `set_aside`: a push that will not go through — someone
 # else's commit on the branch, a network that is gone — costs the review its
 # anchors and nothing else, and that is worth more than a branch dropped for the
@@ -340,9 +344,8 @@ async def push_work(work: Work) -> Transition:
     return goto(quality_review, work)
 
 
-# Where a branch's night ends, whichever way it went: green means the gates went
-# green and the review is up, blocked means they did not. What the review says
-# is not the night's to have an opinion about — `pr_review` answers it.
+# What the review says is not the night's to have an opinion about — the outcome
+# is the gates' answer, and `pr_review` answers the review.
 def _ended(work: Work) -> Closed:
     return Closed(work=work, outcome="blocked" if work.blocked else "green")
 
@@ -356,6 +359,7 @@ def _ended(work: Work) -> Closed:
 # is yours to notice and ask for again by taking it off.
 @step
 async def quality_review(work: Work) -> Transition:
+    """Post the review, unless the branch already carries the label."""
     seen = await shell(f"gh pr view {work.pr.number} --json labels", stream=False)
     if seen.exit_code:
         return goto(
@@ -386,6 +390,7 @@ async def quality_review(work: Work) -> Transition:
 
 @step
 async def finish_pr(closed: Closed) -> Transition:
+    """Write the branch's row into the run, and go on to the next one."""
     work = closed.work
     row = Checked(
         number=work.pr.number,
@@ -401,10 +406,8 @@ async def finish_pr(closed: Closed) -> Transition:
     return goto(next_pr, run_with(run, checked=[*run.checked, row]))
 
 
-# Giving the worktree back, and what that has to say for itself. Both endings
-# below do this and only one of them stops here, so it is written once. What
-# comes back is this act's own bookkeeping and nothing else — the callers join
-# it to whatever else the row is carrying.
+# What comes back is this act's own bookkeeping and nothing else — the callers
+# join it to whatever else the row is carrying.
 async def _released(work: Work) -> str:
     released = await shell(release(work.pr.branch))
     if released.exit_code:
@@ -414,12 +417,11 @@ async def _released(work: Work) -> str:
     return ""
 
 
-# A branch that will not go green, which is not the same as a branch that
-# cannot be read. The worktree goes back first — half a repair is not something
-# to review and not something to commit a triage on top of — and then it takes
-# the same reading every other pull request gets. It is the steps above this
-# that cannot come here: a checkout that failed leaves you standing on the base
-# branch, and there is nothing there to review.
+# A branch that will not go green is not a branch that cannot be read, so it
+# takes the same reading every other pull request gets. The worktree goes back
+# first: half a repair is not something to review, nor to commit a triage on top
+# of. The steps above this cannot come here — a checkout that failed leaves you
+# standing on the base branch, and there is nothing there to review.
 @step
 async def stand_down(work: Work) -> Transition:
     return goto(push_work, work_with(work, note=await _released(work), blocked=True))
@@ -427,6 +429,7 @@ async def stand_down(work: Work) -> Transition:
 
 @step
 async def set_aside(work: Work) -> Transition:
+    """Give the worktree back and report the branch blocked."""
     # The worktree goes back before the count, not as an argument alongside it:
     # what is left to push is asked of a tree this step has finished with.
     released = await _released(work)

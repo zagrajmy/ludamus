@@ -79,11 +79,9 @@ _THREAD = "pr_review"
 _MAIN = "main"
 
 
-# Every fatal call here is the same three lines around one command, written once
-# with the two things that differ left to the step: what to run, and what to say
-# when it will not. `pr_check` cannot share it — it routes to `set_aside` where
-# this raises — and after it a bare `await shell()` in this file means the exit
-# code is data rather than a failure.
+# `pr_check` cannot share this — it routes to `set_aside` where this raises —
+# and once it exists, a bare `await shell()` in this file means the exit code is
+# data rather than a failure.
 async def _ran(command: str, complaint: str, *, stream: bool = True) -> ShellResult:
     result = await shell(command, stream=stream)
     if result.exit_code:
@@ -142,6 +140,7 @@ def pr_review(components: PrReview) -> Transition:
 
 @step
 async def pick(components: PrReview) -> Transition:
+    """Take the branch whose review is waiting, the one you stand on first."""
     # Fatal, and first: this checks out a branch and later commits everything it
     # finds, so work in the tree now would be committed onto someone else's
     # branch.
@@ -193,9 +192,8 @@ async def pick(components: PrReview) -> Transition:
     return done(Shipped(outcome="nothing"))
 
 
-# What is outstanding on a pull request, and `None` where `gh` would not say —
-# which is not "nothing to do": `pick` skips that branch rather than calling it
-# clean, and names it.
+# `None` where `gh` would not say, which is not "nothing to do": `pick` skips
+# that branch rather than calling it clean, and names it.
 async def _open_threads(number: int) -> int | None:
     asked = await shell(unsettled(number), stream=False)
     text = asked.stdout.strip()
@@ -206,6 +204,7 @@ async def _open_threads(number: int) -> int | None:
 
 @step
 async def look(branch: Branch) -> Transition:
+    """Check the branch out and read its open threads into a triage."""
     # Asked before the checkout: `pick` falls through to a branch you are not on
     # precisely when yours had nothing waiting, so a `no` from the other side of
     # the move leaves you standing on someone else's branch.
@@ -226,14 +225,15 @@ async def look(branch: Branch) -> Transition:
     return goto(plan, Triage(branch=branch, items=read.items))
 
 
-# One item to a line, priority first: this is read on a terminal by somebody
-# deciding what to do with it, not by an agent.
+# One item to a line: this is read on a terminal by somebody deciding what to do
+# with it, not by an agent.
 def _shown(index: int, item: TriageItem) -> str:
     return f"{index}. [{item.priority}/{item.action}] {item.where} — {item.what}"
 
 
 @step
 async def plan(triage: Triage) -> Transition:
+    """Put the triage on your terminal and take your answer to each item."""
     tally = counted(triage.items)
     emit_delta(
         "\n".join(
@@ -298,6 +298,7 @@ async def _fix(landing: Landing, prompt: str) -> None:
 
 @step
 async def gates(landing: Landing) -> Transition:
+    """Run both gates, repairing them up to the bound."""
     # Captured rather than streamed, and run `plain`: an agent reads this, and a
     # terminal recording is not what it wants.
     ran = await shell(plain(PR_FIX), stream=False)
@@ -329,14 +330,14 @@ async def land(branch: Branch) -> Transition:
     return goto(settle, branch)
 
 
-# The last thing asked of the branch, and the one place `pr::qa` goes on: the
-# work is up, and the label says every thread that stood open when this started
-# has been answered and settled. Asked of `gh` rather than assumed off the round
-# that just ran — the agent was told to settle each thread, and told is not done.
+# The one place `pr::qa` goes on, and it is a claim about the threads: asked of
+# `gh` rather than assumed off the round that just ran, because the agent was
+# told to settle each one, and told is not done.
 # Not fatal either way: the branch is shipped whatever the count says, and what
 # is left over is yours to look at.
 @step
 async def settle(branch: Branch) -> Transition:
+    """Label the branch where gh says nothing is left open."""
     left = await _open_threads(branch.number)
     if left is None:
         emit_delta(f"gh would not say what is left open on {branch.name}")
