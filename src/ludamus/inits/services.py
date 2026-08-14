@@ -136,6 +136,7 @@ class Services:
                 panel_settings=self._repos.event_panel_settings,
                 sessions=self._repos.sessions,
                 users=self._repos.active_users,
+                guilds=self._repos.guilds,
             ),
         )
 

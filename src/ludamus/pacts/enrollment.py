@@ -252,8 +252,10 @@ class ParticipationPromotionRepositoryProtocol(Protocol):
     def lock_and_read_state(self, session_id: int) -> PromotionStateDTO | None:
         """Lock the session row and read everything needed to promote.
 
-        Returns None when the session cannot accept promotions (no agenda item
-        / no enrollment config). Counts CONFIRMED + OFFERED as occupying seats.
+        Returns None when the session cannot accept promotions (gone / no
+        agenda item). Counts CONFIRMED + OFFERED as occupying seats. An
+        enrollment window is not required — freed seats still roll to the
+        waitlist after sign-ups close.
         """
 
     def confirm(self, participation_ids: list[int]) -> None: ...

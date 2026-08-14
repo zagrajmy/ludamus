@@ -125,6 +125,7 @@
                                         <tr class="hover:bg-bg-tertiary">
                                             <td class="py-2 pr-4">
                                                 <a class="font-medium text-primary hover:underline"
+                                                   data-row-action
                                                    href="{% url 'panel:timetable-confirmations' slug=current_event.slug %}?track={{ row.track_pk }}">
                                                     {{ row.track_name }}
                                                 </a>

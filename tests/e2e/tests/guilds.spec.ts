@@ -1,5 +1,7 @@
 import { type Page } from "@playwright/test";
 
+import { installCspViolationCollector } from "./helpers/csp";
+import { assertDropzoneBlobPreview, labeledDropzone, shownFileName } from "./helpers/dropzone";
 import { expect, test } from "./helpers/fixtures";
 
 // A 1x1 opaque PNG — the mark only has to be a real raster the browser will
@@ -13,6 +15,7 @@ const GUILD = "Topory";
 const PRESENTER_EMAIL = "e2e@test.local";
 
 const logoInput = (page: Page) => page.getByLabel("Logo", { exact: true });
+const logoDropzone = (page: Page) => labeledDropzone(page, "Logo");
 
 const signInAsManager = async (page: Page): Promise<void> => {
   await page.goto("/admin/login/");
@@ -60,6 +63,7 @@ test.describe("Guilds", () => {
   });
 
   test("a manager creates a guild with a mark and sees it in the list", async ({ page }) => {
+    await installCspViolationCollector(page);
     await page.goto("/multiverse/panel/guilds/create/");
 
     await page.getByLabel("Guild name").fill(GUILD);
@@ -68,6 +72,8 @@ test.describe("Guilds", () => {
       mimeType: "image/png",
       buffer: PNG_BYTES,
     });
+    await expect(shownFileName(logoDropzone(page), "mark.png")).toBeVisible();
+    await assertDropzoneBlobPreview(page, logoDropzone(page));
     await page.getByRole("button", { name: "Create guild" }).click();
 
     await expect(page.getByText("Guild created.")).toBeVisible();
@@ -76,6 +82,29 @@ test.describe("Guilds", () => {
     // The mark is an <img> inside the row, so it is the row's own picture
     // rather than the page-level sphere logo.
     await expect(row.locator("img")).toHaveJSProperty("naturalWidth", 1);
+  });
+
+  test("clicking a hoverable row opens Edit", async ({ page }) => {
+    await page.goto("/multiverse/panel/guilds/create/");
+    await page.getByLabel("Guild name").fill(GUILD);
+    await page.getByRole("button", { name: "Create guild" }).click();
+    await expect(page.getByText("Guild created.")).toBeVisible();
+
+    const row = page.getByRole("row").filter({ hasText: GUILD });
+    await row.getByRole("link", { name: "Delete" }).click();
+    await expect(page).toHaveURL(/\/multiverse\/panel\/guilds\/\d+\/do\/delete\//);
+    await page.getByRole("link", { name: "Cancel" }).click();
+    await expect(page).toHaveURL(/\/multiverse\/panel\/guilds\/$/);
+
+    const presentersCell = row.locator("td").nth(1);
+    const box = await presentersCell.boundingBox();
+    if (box === null) {
+      throw new Error("guild row has no box");
+    }
+    await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+
+    await expect(page).toHaveURL(/\/multiverse\/panel\/guilds\/\d+\/edit\//);
+    await expect(page.getByLabel("Guild name")).toHaveValue(GUILD);
   });
 
   test("a manager adds a presenter and can take them out again", async ({ page }) => {
@@ -91,7 +120,12 @@ test.describe("Guilds", () => {
       .click();
 
     await expect(page.getByText("Nobody in this guild yet.")).toBeVisible();
-    await page.getByLabel("Email or Discord username").fill(PRESENTER_EMAIL);
+    await expect(
+      page.getByText(
+        "Imported presenters have no account — pick them by the name on the programme.",
+      ),
+    ).toBeVisible();
+    await page.getByLabel("Name, email or Discord username").fill(PRESENTER_EMAIL);
     await page.getByRole("button", { name: "Add presenter" }).click();
 
     await expect(page.getByText("Presenter added.")).toBeVisible();
@@ -116,11 +150,11 @@ test.describe("Guilds", () => {
       })
       .click();
 
-    await page.getByLabel("Email or Discord username").fill("nobody@example.com");
+    await page.getByLabel("Name, email or Discord username").fill("nobody@example.com");
     await page.getByRole("button", { name: "Add presenter" }).click();
 
     await expect(
-      page.getByText("No account matches that email or Discord username."),
+      page.getByText("No presenter matches that name, email or Discord username."),
     ).toBeVisible();
     await expect(page.getByText("Nobody in this guild yet.")).toBeVisible();
   });

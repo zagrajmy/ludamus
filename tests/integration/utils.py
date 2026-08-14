@@ -51,6 +51,22 @@ class FormErrorsMatcher:
         return f"FormErrorsMatcher({self.errors})"
 
 
+class FormInitialMatcher:
+    # Compares the named keys only — the rest of `initial` is the form's
+    # business, not the assertion's.
+    def __init__(self, **initial: object) -> None:
+        self.initial = initial
+
+    def __eq__(self, other: object) -> bool:
+        actual = getattr(other, "initial", {})
+        return {key: actual.get(key) for key in self.initial} == self.initial
+
+    __hash__ = None
+
+    def __repr__(self) -> str:
+        return f"FormInitialMatcher({self.initial})"
+
+
 def _assert_messages(response, expected_messages: list[tuple[int, str]]):
     msgs = list(get_messages(response.wsgi_request))
     assert len(msgs) == len(expected_messages), len(msgs)

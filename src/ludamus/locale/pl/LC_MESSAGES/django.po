@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-12 12:12+0200\n"
+"POT-Creation-Date: 2026-08-13 07:26+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -846,7 +846,6 @@ msgstr "Nazwa prowadzącego"
 #: src/ludamus/gates/web/django/chronology/forms.py
 #: src/ludamus/gates/web/django/forms.py
 #: src/ludamus/gates/web/django/templatetags/cfp_tags.py
-#: src/ludamus/templates/chronology/parts/session-edit-form.html
 #: src/ludamus/templates/chronology/propose/parts/details.html
 #: src/ludamus/templates/chronology/propose/parts/review.html
 #: src/ludamus/templates/panel/parts/proposal-duration.html
@@ -1027,6 +1026,14 @@ msgid "None"
 msgstr "Brak"
 
 #: src/ludamus/gates/web/django/chronology/panel/views/columns.py
+#: src/ludamus/templates/design.html
+#: src/ludamus/templates/multiverse/panel/guilds/list.html
+#: src/ludamus/templates/panel/facilitator-detail.html
+#: src/ludamus/templates/panel/facilitator-edit.html
+msgid "Guild"
+msgstr "Gildia"
+
+#: src/ludamus/gates/web/django/chronology/panel/views/columns.py
 #: src/ludamus/templates/chronology/event.html
 #: src/ludamus/templates/chronology/print.html
 #: src/ludamus/templates/panel/facilitator-detail.html
@@ -1083,6 +1090,8 @@ msgstr "Kolumny zaktualizowane."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/discounts.py
 #: src/ludamus/gates/web/django/chronology/panel/views/facilitators.py
+#: src/ludamus/gates/web/django/event/panel/views/facilitator_actions.py
+#: src/ludamus/gates/web/django/event/panel/views/facilitator_edit.py
 msgid "Facilitator not found."
 msgstr "Twórca programu nie został znaleziony."
 
@@ -1196,24 +1205,6 @@ msgid "Proposal settings saved successfully."
 msgstr "Ustawienia zgłoszeń zostały zapisane."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/facilitators.py
-msgid "Someone else already handles this facilitator."
-msgstr "Ten twórca programu jest już przypisany do kogoś innego."
-
-#: src/ludamus/gates/web/django/chronology/panel/views/facilitators.py
-msgid "You already handle this facilitator."
-msgstr "Ten twórca programu jest już przypisany do Ciebie."
-
-#: src/ludamus/gates/web/django/chronology/panel/views/facilitators.py
-msgid "Nobody handles this facilitator."
-msgstr "Ten twórca programu nie jest do nikogo przypisany."
-
-#: src/ludamus/gates/web/django/chronology/panel/views/facilitators.py
-msgid "Only the person handling this facilitator can step down."
-msgstr ""
-"Przypisanie może usunąć tylko osoba, do której twórca programu jest "
-"przypisany."
-
-#: src/ludamus/gates/web/django/chronology/panel/views/facilitators.py
 msgid "Select at least two facilitators to merge."
 msgstr "Wybierz co najmniej dwóch twórców programu do scalenia."
 
@@ -1258,10 +1249,6 @@ msgstr "Twórcy programu"
 #: src/ludamus/gates/web/django/chronology/panel/views/facilitators.py
 msgid "Facilitator created successfully."
 msgstr "Twórca programu został utworzony."
-
-#: src/ludamus/gates/web/django/chronology/panel/views/facilitators.py
-msgid "Facilitator updated successfully."
-msgstr "Twórca programu został zaktualizowany."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/facilitators.py
 msgid "Facilitators merged successfully."
@@ -1407,6 +1394,10 @@ msgstr "Nie znaleziono integracji importu."
 #: src/ludamus/gates/web/django/chronology/panel/views/google_docs_import.py
 msgid "Invalid row submission."
 msgstr "Nieprawidłowe dane wiersza."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/google_docs_import.py
+msgid "Enter a length as whole hours (0-23) and minutes (0-59)."
+msgstr "Podaj długość w pełnych godzinach (0-23) i minutach (0-59)."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/google_docs_import.py
 msgid "Question saved."
@@ -1996,13 +1987,11 @@ msgid "Party name"
 msgstr "Nazwa drużyny"
 
 #: src/ludamus/gates/web/django/crowd/forms.py
-#: src/ludamus/gates/web/django/sphere/forms.py
 #: src/ludamus/templates/crowd/user/parties.html
 msgid "Email or Discord username"
 msgstr "Adres email lub nazwa użytkownika Discord"
 
 #: src/ludamus/gates/web/django/crowd/forms.py
-#: src/ludamus/gates/web/django/sphere/forms.py
 msgid ""
 "Their account email, or the Discord username they signed up with. They need "
 "a Zagrajmy account."
@@ -2384,6 +2373,41 @@ msgstr "Zapisano okno zapisów."
 msgid "Enrollment window deleted."
 msgstr "Usunięto okno zapisów."
 
+#: src/ludamus/gates/web/django/event/panel/views/facilitator_actions.py
+msgid "Someone else already handles this facilitator."
+msgstr "Ten twórca programu jest już przypisany do kogoś innego."
+
+#: src/ludamus/gates/web/django/event/panel/views/facilitator_actions.py
+msgid "You already handle this facilitator."
+msgstr "Ten twórca programu jest już przypisany do Ciebie."
+
+#: src/ludamus/gates/web/django/event/panel/views/facilitator_actions.py
+msgid "Nobody handles this facilitator."
+msgstr "Ten twórca programu nie jest do nikogo przypisany."
+
+#: src/ludamus/gates/web/django/event/panel/views/facilitator_actions.py
+msgid "Only the person handling this facilitator can step down."
+msgstr ""
+"Przypisanie może usunąć tylko osoba, do której twórca programu jest "
+"przypisany."
+
+#: src/ludamus/gates/web/django/event/panel/views/facilitator_actions.py
+msgid "Attached to this guild."
+msgstr "Przypisano do tej gildii."
+
+#: src/ludamus/gates/web/django/event/panel/views/facilitator_actions.py
+msgid "Pick a guild."
+msgstr "Wybierz gildię."
+
+#: src/ludamus/gates/web/django/event/panel/views/facilitator_actions.py
+#: src/ludamus/gates/web/django/sphere/guilds.py
+msgid "Guild not found."
+msgstr "Nie znaleziono gildii."
+
+#: src/ludamus/gates/web/django/event/panel/views/facilitator_edit.py
+msgid "Facilitator updated successfully."
+msgstr "Twórca programu został zaktualizowany."
+
 #: src/ludamus/gates/web/django/event/panel/views/proposal_category_settings.py
 msgid "Category updated successfully."
 msgstr "Kategoria została zaktualizowana."
@@ -2684,10 +2708,12 @@ msgstr "Nazwa bloku programowego jest wymagana."
 #: src/ludamus/gates/web/django/forms.py
 #: src/ludamus/templates/panel/track-create.html
 #: src/ludamus/templates/panel/track-edit.html
-msgid "Public tracks are shown to proposers in the submission wizard."
+msgid ""
+"Public tracks are shown to proposers in the submission wizard, and their "
+"sessions appear on the event schedule."
 msgstr ""
 "Publiczne bloki programowe są widoczne dla zgłaszających w kreatorze "
-"propozycji."
+"propozycji, a ich punkty programu pojawiają się w harmonogramie wydarzenia."
 
 #: src/ludamus/gates/web/django/forms.py
 msgid "Title is required."
@@ -2721,6 +2747,17 @@ msgid "Minimum Age"
 msgstr "Minimalny Wiek"
 
 #: src/ludamus/gates/web/django/forms.py
+#: src/ludamus/templates/chronology/print.html
+#: src/ludamus/templates/panel/parts/import-recipe-row.html
+msgid "Hours"
+msgstr "Godziny"
+
+#: src/ludamus/gates/web/django/forms.py
+#: src/ludamus/templates/panel/parts/import-recipe-row.html
+msgid "Minutes"
+msgstr "Minuty"
+
+#: src/ludamus/gates/web/django/forms.py
 msgid "Enter how long the session lasts."
 msgstr "Podaj, ile trwa punkt programu."
 
@@ -2737,15 +2774,6 @@ msgstr "— Wybierz kategorię —"
 #: src/ludamus/gates/web/django/forms.py
 msgid "Invalid category selection."
 msgstr "Nieprawidłowy wybór kategorii."
-
-#: src/ludamus/gates/web/django/forms.py
-#: src/ludamus/templates/chronology/print.html
-msgid "Hours"
-msgstr "Godziny"
-
-#: src/ludamus/gates/web/django/forms.py
-msgid "Minutes"
-msgstr "Minuty"
 
 #: src/ludamus/gates/web/django/forms.py
 msgid "Standard"
@@ -3064,9 +3092,15 @@ msgstr ""
 "kolor, bez napisów — renderuje się nawet w 14 px. Maks. 8 MB. SVG, PNG, "
 "WebP, JPG lub AVIF."
 
-#: src/ludamus/gates/web/django/sphere/guilds.py
-msgid "Guild not found."
-msgstr "Nie znaleziono gildii."
+#: src/ludamus/gates/web/django/sphere/forms.py
+msgid "Name, email or Discord username"
+msgstr "Nazwa, adres e-mail lub nazwa użytkownika Discord"
+
+#: src/ludamus/gates/web/django/sphere/forms.py
+msgid ""
+"Imported presenters have no account — pick them by the name on the programme."
+msgstr ""
+"Zaimportowani prowadzący nie mają konta — wybierz ich po nazwie z programu."
 
 #: src/ludamus/gates/web/django/sphere/guilds.py
 msgid "Guild created."
@@ -3093,17 +3127,21 @@ msgid "That presenter is already in this guild."
 msgstr "Ten prowadzący już należy do tej gildii."
 
 #: src/ludamus/gates/web/django/sphere/guilds.py
-msgid "No account matches that email or Discord username."
+msgid "No presenter matches that name, email or Discord username."
 msgstr ""
-"Żadne konto nie pasuje do tego adresu e-mail ani nazwy użytkownika Discord."
+"Żaden prowadzący nie pasuje do tej nazwy, adresu e-mail ani nazwy "
+"użytkownika Discord."
 
 #: src/ludamus/gates/web/django/sphere/guilds.py
-msgid "More than one account matches. Use the exact email address."
-msgstr "Pasuje więcej niż jedno konto. Podaj dokładny adres e-mail."
+msgid ""
+"More than one presenter matches. Use the exact email if they have an account."
+msgstr ""
+"Pasuje więcej niż jeden prowadzący. Podaj dokładny adres e-mail, jeśli mają "
+"konto."
 
 #: src/ludamus/gates/web/django/sphere/guilds.py
-msgid "Give an email or Discord username."
-msgstr "Podaj adres e-mail lub nazwę użytkownika Discord."
+msgid "Give a name, email or Discord username."
+msgstr "Podaj nazwę, adres e-mail lub nazwę użytkownika Discord."
 
 #: src/ludamus/gates/web/django/sphere/guilds.py
 msgid "Presenter removed."
@@ -4403,6 +4441,7 @@ msgid "Connection:"
 msgstr "Połączenie:"
 
 #: src/ludamus/templates/chronology/panel/integrations/delete.html
+#: src/ludamus/templates/design.html
 #: src/ludamus/templates/multiverse/panel/announcements/delete.html
 #: src/ludamus/templates/multiverse/panel/announcements/list.html
 #: src/ludamus/templates/multiverse/panel/connections/delete.html
@@ -5315,6 +5354,7 @@ msgstr ""
 "swój profil."
 
 #: src/ludamus/templates/crowd/user/parties.html
+#: src/ludamus/templates/design.html
 #: src/ludamus/templates/multiverse/panel/announcements/list.html
 #: src/ludamus/templates/multiverse/panel/connections/list.html
 #: src/ludamus/templates/multiverse/panel/guilds/list.html
@@ -5578,6 +5618,37 @@ msgstr ""
 #: src/ludamus/templates/crowd/user/safety.html
 msgid "Shadowban by username or email"
 msgstr "Cichy ban po nazwie użytkownika lub e-mailu"
+
+#: src/ludamus/templates/design.html
+msgid ""
+"A hoverable row's background follows the default action — Edit or Details. "
+"Mark that link with data-row-action. Delete and other controls stay their "
+"own targets."
+msgstr ""
+"Kliknięcie tła wiersza otwiera Edycję lub Szczegóły. Oznacz ten link "
+"atrybutem data-row-action. Usuń i pozostałe kontrolki działają osobno."
+
+#: src/ludamus/templates/design.html
+msgid "Example guilds"
+msgstr "Przykładowe gildie"
+
+#: src/ludamus/templates/design.html
+#: src/ludamus/templates/multiverse/panel/announcements/list.html
+#: src/ludamus/templates/multiverse/panel/connections/list.html
+#: src/ludamus/templates/multiverse/panel/guilds/list.html
+#: src/ludamus/templates/panel/bans.html src/ludamus/templates/panel/cfp.html
+#: src/ludamus/templates/panel/discounts/list.html
+#: src/ludamus/templates/panel/enrollment-settings.html
+#: src/ludamus/templates/panel/facilitators.html
+#: src/ludamus/templates/panel/import.html
+#: src/ludamus/templates/panel/integration-settings.html
+#: src/ludamus/templates/panel/parts/_change-log-table.html
+#: src/ludamus/templates/panel/personal-data-fields.html
+#: src/ludamus/templates/panel/proposals.html
+#: src/ludamus/templates/panel/session-fields.html
+#: src/ludamus/templates/panel/tracks.html
+msgid "Actions"
+msgstr "Akcje"
 
 #: src/ludamus/templates/design.html
 msgid "Saved successfully."
@@ -6694,23 +6765,6 @@ msgid "Organization announcements for this sphere"
 msgstr "Ogłoszenia organizacji dla tej sfery"
 
 #: src/ludamus/templates/multiverse/panel/announcements/list.html
-#: src/ludamus/templates/multiverse/panel/connections/list.html
-#: src/ludamus/templates/multiverse/panel/guilds/list.html
-#: src/ludamus/templates/panel/bans.html src/ludamus/templates/panel/cfp.html
-#: src/ludamus/templates/panel/discounts/list.html
-#: src/ludamus/templates/panel/enrollment-settings.html
-#: src/ludamus/templates/panel/facilitators.html
-#: src/ludamus/templates/panel/import.html
-#: src/ludamus/templates/panel/integration-settings.html
-#: src/ludamus/templates/panel/parts/_change-log-table.html
-#: src/ludamus/templates/panel/personal-data-fields.html
-#: src/ludamus/templates/panel/proposals.html
-#: src/ludamus/templates/panel/session-fields.html
-#: src/ludamus/templates/panel/tracks.html
-msgid "Actions"
-msgstr "Akcje"
-
-#: src/ludamus/templates/multiverse/panel/announcements/list.html
 msgid "Draft"
 msgstr "Szkic"
 
@@ -6766,6 +6820,7 @@ msgstr "Brak połączeń."
 
 #: src/ludamus/templates/multiverse/panel/guilds/create.html
 #: src/ludamus/templates/multiverse/panel/guilds/list.html
+#: src/ludamus/templates/panel/parts/_facilitator_guild_attach.html
 msgid "New guild"
 msgstr "Nowa gildia"
 
@@ -6793,22 +6848,22 @@ msgstr "Usunąć gildię „%(name)s”?"
 #, python-format
 msgid ""
 "Its mark stops showing on the programme cards of %(counter)s presenter. "
-"Their account and sessions are untouched."
+"Sessions are untouched."
 msgid_plural ""
 "Its mark stops showing on the programme cards of %(counter)s presenters. "
-"Their accounts and sessions are untouched."
+"Sessions are untouched."
 msgstr[0] ""
 "Jej znak przestanie się pokazywać na kartach programu %(counter)s "
-"prowadzącego. Jego konto i punkty programu zostają nietknięte."
+"prowadzącego. Punkty programu zostają nietknięte."
 msgstr[1] ""
 "Jej znak przestanie się pokazywać na kartach programu %(counter)s "
-"prowadzących. Ich konta i punkty programu zostają nietknięte."
+"prowadzących. Punkty programu zostają nietknięte."
 msgstr[2] ""
 "Jej znak przestanie się pokazywać na kartach programu %(counter)s "
-"prowadzących. Ich konta i punkty programu zostają nietknięte."
+"prowadzących. Punkty programu zostają nietknięte."
 msgstr[3] ""
 "Jej znak przestanie się pokazywać na kartach programu %(counter)s "
-"prowadzącego. Jego konto i punkty programu zostają nietknięte."
+"prowadzącego. Punkty programu zostają nietknięte."
 
 #: src/ludamus/templates/multiverse/panel/guilds/edit.html
 msgid "Back to guilds"
@@ -6847,10 +6902,6 @@ msgstr "Nikogo jeszcze w tej gildii."
 #: src/ludamus/templates/multiverse/panel/guilds/list.html
 msgid "Guilds in this sphere"
 msgstr "Gildie w tej sferze"
-
-#: src/ludamus/templates/multiverse/panel/guilds/list.html
-msgid "Guild"
-msgstr "Gildia"
 
 #: src/ludamus/templates/multiverse/panel/guilds/list.html
 msgid "No guilds yet."
@@ -7531,10 +7582,12 @@ msgid "Define how long sessions of this category can be."
 msgstr "Określ jak długo mogą trwać punkty programu w tej kategorii."
 
 #: src/ludamus/templates/panel/cfp-edit.html
+#: src/ludamus/templates/panel/parts/import-recipe-row.html
 msgid "h"
 msgstr "h"
 
 #: src/ludamus/templates/panel/cfp-edit.html
+#: src/ludamus/templates/panel/parts/import-recipe-row.html
 msgid "min"
 msgstr "min"
 
@@ -8557,6 +8610,15 @@ msgstr "Dostępne"
 msgid "Available columns"
 msgstr "Dostępne kolumny"
 
+#: src/ludamus/templates/panel/parts/_facilitator_guild_attach.html
+#, python-format
+msgid "Attach %(name)s to a guild"
+msgstr "Przypisz %(name)s do gildii"
+
+#: src/ludamus/templates/panel/parts/_facilitator_guild_attach.html
+msgid "This sphere has no guilds yet."
+msgstr "Ta sfera nie ma jeszcze żadnych gildii."
+
 #: src/ludamus/templates/panel/parts/_pagination.html
 #, python-format
 msgid ""
@@ -8745,15 +8807,11 @@ msgstr "Domyślny dla odpowiedzi własnych"
 
 #: src/ludamus/templates/panel/parts/import-recipe-row.html
 msgid ""
-"Map each source answer to an ISO 8601 duration (e.g. PT1H30M for 1 h 30 "
-"min). Answers without a mapping are skipped at import time."
+"Set how long each source answer means. Answers left at zero are skipped at "
+"import time."
 msgstr ""
-"Zmapuj każdą odpowiedź źródłową na czas trwania ISO 8601 (np. PT1H30M dla 1 "
-"g 30 min). Odpowiedzi bez mapowania są pomijane przy imporcie."
-
-#: src/ludamus/templates/panel/parts/import-recipe-row.html
-msgid "ISO 8601 duration"
-msgstr "Czas trwania ISO 8601"
+"Ustaw, jaką długość oznacza każda odpowiedź źródłowa. Odpowiedzi z zerową "
+"długością są pomijane przy imporcie."
 
 #: src/ludamus/templates/panel/parts/import-recipe-row.html
 msgid ""
@@ -9928,12 +9986,13 @@ msgstr "Czym są bloki programowe?"
 #: src/ludamus/templates/panel/tracks.html
 msgid ""
 "Tracks let you group proposals by thematic area. Public tracks are shown to "
-"proposers in the submission wizard; private tracks are for internal "
-"categorization only."
+"proposers in the submission wizard and their sessions appear on the event "
+"schedule; sessions in private tracks stay off it."
 msgstr ""
 "Bloki programowe pozwalają grupować propozycje tematycznie. Publiczne bloki "
-"są widoczne dla zgłaszających w kreatorze propozycji; prywatne służą "
-"wyłącznie do wewnętrznej kategoryzacji."
+"są widoczne dla zgłaszających w kreatorze propozycji, a ich punkty programu "
+"pojawiają się w harmonogramie wydarzenia; punkty programu z prywatnych "
+"bloków się w nim nie pojawiają."
 
 #: src/ludamus/templates/panel/tracks.html
 msgid "Visibility"
@@ -9995,6 +10054,16 @@ msgstr "Brak przechwyconych e-maili."
 
 #~ msgid "Or run an Encounter at zagrajmy.net/encounters"
 #~ msgstr "Albo zorganizuj Spotkanie na zagrajmy.net/encounters"
+
+#~ msgid ""
+#~ "Map each source answer to an ISO 8601 duration (e.g. PT1H30M for 1 h 30 "
+#~ "min). Answers without a mapping are skipped at import time."
+#~ msgstr ""
+#~ "Zmapuj każdą odpowiedź źródłową na czas trwania ISO 8601 (np. PT1H30M dla "
+#~ "1 g 30 min). Odpowiedzi bez mapowania są pomijane przy imporcie."
+
+#~ msgid "ISO 8601 duration"
+#~ msgstr "Czas trwania ISO 8601"
 
 #~ msgid "Toggle category"
 #~ msgstr "Przełącz kategorię"

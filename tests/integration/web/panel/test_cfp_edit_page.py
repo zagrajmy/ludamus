@@ -874,6 +874,25 @@ class TestProposalCategorySettingsPageView:
         category.refresh_from_db()
         assert category.durations == ["PT30M", "PT1H", "PT2H"]
 
+    def test_post_normalizes_durations(self, panel_client, event):
+        category = ProposalCategory.objects.create(
+            event=event, name="RPG Sessions", slug="rpg-sessions"
+        )
+
+        response = panel_client.post(
+            self.get_url(event, category),
+            data={"name": "RPG Sessions", "durations": ["P4H", "50min", "nonsense"]},
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Category updated successfully.")],
+            url=f"/panel/event/{event.slug}/cfp/",
+        )
+        category.refresh_from_db()
+        assert category.durations == ["PT4H", "PT50M"]
+
     def test_post_updates_existing_durations(self, panel_client, event):
         category = ProposalCategory.objects.create(
             event=event,

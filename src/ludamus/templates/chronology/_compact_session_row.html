@@ -7,7 +7,7 @@
 {# contract as _session_card.html so session-filters and the detail modal #}
 {# work unchanged. #}
 <article class="session-wrapper min-w-0">
-    <div class="session group/row relative flex flex-wrap items-center gap-x-2 rounded-lg px-2 py-2 max-sm:pl-12 sm:flex-nowrap sm:gap-x-3 transition-colors has-[a:hover]:duration-0 has-[a:hover]:bg-bg-tertiary dark:has-[a:hover]:bg-bg-tertiary/50 [text-box:trim-start_cap_alphabetic] max-sm:has-[.bookmark-affordance]:pr-11 {% if data.user_enrolled %}bg-coral-50/60 dark:bg-coral-950/40{% endif %} {% if data.is_ended %}opacity-65 has-[a:hover]:opacity-100{% endif %}"
+    <div class="session group/row relative flex flex-wrap items-center gap-x-2 rounded-lg px-2 py-2 max-sm:pl-12 sm:flex-nowrap sm:gap-x-3 transition-colors has-[a:hover]:duration-0 has-[a:hover]:bg-bg-tertiary dark:has-[a:hover]:bg-bg-tertiary/50 max-sm:has-[.bookmark-affordance]:pr-11 {% if data.user_enrolled %}bg-coral-50/60 dark:bg-coral-950/40{% endif %} {% if data.is_ended %}opacity-65 has-[a:hover]:opacity-100{% endif %}"
          data-no-morph
          {% include "chronology/_session_data_attrs.html" %}>
         <a href="?session={{ data.session.pk }}"
@@ -23,16 +23,16 @@
         {# flex parent lets that hold. Inline it would be clipped away by a long #}
         {# title, which is exactly the row where knowing the guild helps most. #}
         <span class="flex min-w-0 flex-1 items-baseline gap-x-1.5">
-            <span class="truncate text-sm font-semibold text-foreground [text-box:trim-start_cap_alphabetic]">{{ data.session.title }}</span>
+            <span class="truncate text-sm font-semibold text-foreground">{{ data.session.title }}</span>
             {% include "components/guild_mark.html" with guild=data.guild size="size-4" extra_class="self-center" %}
-            <span class="truncate text-xs text-foreground-muted [text-box:trim-start_cap_alphabetic]">{{ data.session.display_name }}</span>
+            <span class="truncate text-xs text-foreground-muted">{{ data.session.display_name }}</span>
         </span>
         <span class="shrink-0 text-xs text-foreground-muted max-sm:basis-full sm:whitespace-nowrap sm:text-right"
               title="{{ data.location_label }}">
             {{ data.loc.space_name }}
-            {% if data.session.duration %}
-                · {{ data.session.duration|format_duration }}
-            {% endif %}
+            {% with duration_label=data.session.duration|format_duration %}
+                {% if duration_label %}· {{ duration_label }}{% endif %}
+            {% endwith %}
             {% if data.session.min_age > 0 %}
                 · <span class="font-medium text-coral-600 dark:text-coral-400">{{ data.session.min_age }}+</span>
             {% endif %}

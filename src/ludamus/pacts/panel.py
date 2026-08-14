@@ -8,12 +8,13 @@ from pydantic import BaseModel, ConfigDict
 
 if TYPE_CHECKING:
     from ludamus.pacts.crowd import UserDTO, UserRepositoryProtocol
+    from ludamus.pacts.event import FacilitatorListItemDTO
     from ludamus.pacts.fields import OrganizerFieldDTO
+    from ludamus.pacts.guild import GuildRepositoryProtocol
     from ludamus.pacts.legacy import (
         FacilitatorChangeLogDTO,
         FacilitatorChangeLogRepositoryProtocol,
         FacilitatorDTO,
-        FacilitatorListItemDTO,
         FacilitatorRepositoryProtocol,
         PersonalDataFieldRepositoryProtocol,
         PersonalDataFieldValueRepositoryProtocol,
@@ -183,7 +184,7 @@ class ProposalPanelRepos:
 
 
 @dataclass
-class FacilitatorPanelRepos:
+class FacilitatorPanelRepos:  # pylint: disable=too-many-instance-attributes
     """The repos the panel's facilitator list reads and writes through."""
 
     facilitators: FacilitatorRepositoryProtocol
@@ -193,6 +194,7 @@ class FacilitatorPanelRepos:
     panel_settings: EventPanelSettingsRepositoryProtocol
     sessions: SessionRepositoryProtocol
     users: UserRepositoryProtocol
+    guilds: GuildRepositoryProtocol
 
 
 @dataclass
@@ -315,6 +317,7 @@ class FacilitatorPanelServiceProtocol(PanelColumnServiceProtocol, Protocol):
         self,
         *,
         event_id: int,
+        sphere_id: int,
         target_slug: str,
         facilitator_slugs: list[str],
         data: FacilitatorMergeData,
@@ -323,6 +326,9 @@ class FacilitatorPanelServiceProtocol(PanelColumnServiceProtocol, Protocol):
     def column_values(
         self, *, facilitator_ids: list[int], field_ids: list[int]
     ) -> dict[int, dict[str, str | list[str] | bool]]: ...
+    def assign_guild(
+        self, *, event_id: int, sphere_id: int, facilitator_slug: str, guild_pk: int
+    ) -> bool: ...
     def set_flag(
         self, *, event_id: int, facilitator_slug: str, flagged: bool
     ) -> None: ...

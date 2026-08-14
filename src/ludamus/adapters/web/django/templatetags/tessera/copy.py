@@ -145,7 +145,7 @@ def tessera_copy_chip(
     return format_html(
         '<button type="button" class="{classes}"'
         ' data-copy="{copy}" data-copied-label="{copied}" title="{label}">'
-        '<code class="text-foreground [text-box:trim-both_cap_alphabetic]">'
+        '<code class="text-foreground text-box-trim-both">'
         "{display}</code>"
         "{icon}"
         '<span class="sr-only">{label}</span>'
