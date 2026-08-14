@@ -62,13 +62,12 @@ _ALSO = TriageItem(
 )
 
 # Fixed per name rather than counted off the listing: `feature` is the pull
-# request every fixture here is built around, and the threads are read by number.
+# request every fixture here is built around, and threads are read by number.
 _NUMBERS = {"feature": 7, "older": 3, "main": 9}
 
 
 # The command as it is answered rather than as it is run: `when` is a glob, and
-# the jq that ends this one is full of brackets a glob reads as a character
-# class.
+# the jq that ends this one is full of brackets a glob reads as a character class.
 def _asks(name: str) -> str:
     return f"slug=*-F number={_NUMBERS[name]} -q *"
 
@@ -82,7 +81,7 @@ def _listing(*branches: str, waiting: str = "", tested: str = "") -> str:
             "headRefName": name,
             "baseRefName": "main",
             # Ascending with the listing, so the first name given is also the
-            # one that has been waiting longest.
+            # one waiting longest.
             "updatedAt": f"2026-08-0{spot}T22:00:00Z",
             "labels": [
                 {"name": one}
@@ -115,8 +114,8 @@ class TestPick:
         transition = trial.walk(pick, PrReview(bound=2))
 
         assert transition == goto(look, branch)
-        # The other one is never even asked about: the branch you are on is
-        # asked first, and an open thread on it is where the looking stops.
+        # The other one is never asked about: the branch you are on is asked
+        # first, and an open thread on it is where the looking stops.
         assert unsettled(_NUMBERS["older"]) not in trial.shell.commands
 
     # Somebody else's terminal is on the other one, and neither cast has to know
@@ -143,8 +142,8 @@ class TestPick:
 
         assert transition == done(Shipped(outcome="nothing"))
 
-    # No review has been posted on it, so there is nothing here to answer. The
-    # night is what puts that label on.
+    # No review posted on it, so there is nothing here to answer. The night is
+    # what puts that label on.
     def test_an_unreviewed_pull_request_is_not_taken(self, trial: Trial) -> None:
         trial.shell.replies(when=STATUS)
         trial.shell.replies(when=LIST, stdout=json.dumps([]))
@@ -189,10 +188,9 @@ class TestPick:
 
         assert transition == done(Shipped(outcome="nothing"))
 
-    # A count nobody could take is not a branch with nothing to do, and it is
-    # not one to check out on a guess either. It is also not silence: the
-    # ending says there is no review waiting, and that sentence is a guess
-    # unless it names the branches it could not read.
+    # A count nobody could take is not a branch with nothing to do, nor one to
+    # check out on a guess. It is not silence either: "no review waiting" is a
+    # guess unless it names the branches it could not read.
     def test_a_count_gh_will_not_give_skips_the_branch_and_is_said_out_loud(
         self, trial: Trial
     ) -> None:
@@ -209,8 +207,7 @@ class TestPick:
             "no pull request of yours has a review waiting",
         ]
 
-    # Every count came back, so there is nothing to confess and the ending
-    # stands on its own.
+    # Every count came back, so the ending stands on its own.
     def test_counts_that_all_came_back_say_nothing_extra(self, trial: Trial) -> None:
         trial.shell.replies(when=STATUS)
         trial.shell.replies(when=LIST, stdout=_listing("feature"))
@@ -221,8 +218,8 @@ class TestPick:
 
         assert trial.deltas == ["no pull request of yours has a review waiting"]
 
-    # Everything below this line moves a branch under you and commits what it
-    # finds, so work left in the tree is work that would end up on it.
+    # Everything past here moves a branch under you and commits what it finds,
+    # so work left in the tree is work that would end up on it.
     def test_a_dirty_worktree_fails_the_cast(self, trial: Trial) -> None:
         trial.shell.replies(when=STATUS, stdout=" M src/thing.py\n")
 
@@ -261,7 +258,7 @@ class TestPick:
 
 class TestLook:
     # The reading happens after the checkout: an item is triaged against this
-    # branch's code, and until then that is somebody else's code.
+    # branch's code, and until then that was somebody else's.
     def test_the_reading_runs_on_the_branch_and_its_items_go_on(
         self, trial: Trial, branch: Branch
     ) -> None:
@@ -275,8 +272,7 @@ class TestLook:
         assert trial.shell.commands == [checkout("feature")]
 
     # The one constrained agent call in either ritual: it is handed text a
-    # stranger wrote, so the allowlist enforces read-only rather than the prompt
-    # asking for it.
+    # stranger wrote, so the allowlist enforces read-only, not the prompt.
     def test_the_reading_agent_is_bound_by_an_allowlist(
         self, trial: Trial, branch: Branch
     ) -> None:
@@ -292,9 +288,9 @@ class TestLook:
             effort="high",
         )
 
-    # Asked before anything moves: `pick` reaches a branch you are not standing
-    # on exactly when yours had nothing waiting, so a `no` that had already
-    # checked out would leave you on a branch you never asked for.
+    # Asked before anything moves: `pick` reaches a branch you are not on
+    # exactly when yours had nothing waiting, so a `no` after the checkout would
+    # leave you on a branch you never asked for.
     def test_saying_no_ends_the_cast_where_you_were_standing(
         self, trial: Trial, branch: Branch
     ) -> None:
@@ -307,8 +303,8 @@ class TestLook:
         assert not trial.coding.prompts
         assert not trial.shell.commands
 
-    # `pick` only got here on a thread nobody had settled, so this is the
-    # reading disagreeing with gh — and nothing is committed on that.
+    # `pick` only got here on an unsettled thread, so this is the reading
+    # disagreeing with gh — and nothing is committed on that.
     def test_a_reading_that_finds_nothing_ends_the_cast(
         self, trial: Trial, branch: Branch
     ) -> None:
@@ -320,8 +316,8 @@ class TestLook:
 
         assert transition == done(Shipped(outcome="nothing", branch="feature"))
 
-    # An answer outside the schema, and an agent that died mid-flight, both end
-    # a cast that has nothing to show for itself yet.
+    # An answer outside the schema and an agent that died mid-flight both end a
+    # cast with nothing to show for itself yet.
     def test_a_reading_that_cannot_be_read_fails_the_cast(
         self, trial: Trial, branch: Branch
     ) -> None:
@@ -344,7 +340,7 @@ class TestLook:
 
 class TestPlan:
     # What you say about an item rides down with that item's own thread, so the
-    # round that answers it is not matching your words to a thread by eye.
+    # round answering it is not matching your words to a thread by eye.
     def test_every_item_is_asked_about_and_carries_your_answer(
         self, trial: Trial, branch: Branch
     ) -> None:
@@ -396,7 +392,7 @@ class TestWork:
         assert trial.coding.prompts == ["the triage: fix p1"]
 
     # The agent is mid-thread by then, and repeating the standing instructions
-    # would argue with what it has just been told.
+    # would argue with what it was just told.
     def test_a_later_round_is_the_instruction_alone(
         self, trial: Trial, branch: Branch
     ) -> None:
@@ -409,8 +405,8 @@ class TestWork:
         assert transition == goto(hand_back, branch)
         assert trial.coding.prompts == ["also rename it"]
 
-    # An agent that dies mid-flight — a spent token budget, a killed CLI — and
-    # the unscripted call is that failure's shape here.
+    # An agent that dies mid-flight — a spent token budget, a killed CLI — which
+    # the unscripted call stands in for here.
     def test_an_agent_that_dies_fails_the_cast(
         self, trial: Trial, branch: Branch
     ) -> None:
@@ -438,9 +434,9 @@ class TestHandBack:
             work, Instructed(branch=branch, prompt="drop the helper")
         )
 
-    # An empty line is an answer here too, and the obvious one: nothing more to
-    # fix. Forwarded it would be an empty instruction to an agent that writes
-    # code, which is a round of unpredictable edits bought with a stray return.
+    # An empty line here means nothing more to fix. Forwarded, it would be an
+    # empty instruction to an agent that writes code — a round of unpredictable
+    # edits bought with a stray return.
     def test_saying_nothing_ships_rather_than_asking_the_agent(
         self, trial: Trial, branch: Branch
     ) -> None:
@@ -475,7 +471,7 @@ class TestGates:
         assert transition == goto(gates, Landing(branch=branch, tries=1))
         assert "E501 too long" in trial.coding.prompts[0]
 
-    # diff-cover runs without --fail-under, so this one exits 0 and says so in
+    # diff-cover runs without --fail-under, so this one exits 0 and says it in
     # the report instead.
     def test_missing_lines_are_covered_though_the_gate_exits_zero(
         self, trial: Trial, branch: Branch
@@ -489,8 +485,8 @@ class TestGates:
         assert transition == goto(gates, Landing(branch=branch, tries=1))
         assert "Missing lines 12-14" in trial.coding.prompts[0]
 
-    # A coverage run that will not finish is a red gate like any other, not a
-    # branch with nothing left to cover.
+    # A coverage run that will not finish is a red gate, not a branch with
+    # nothing left to cover.
     def test_a_coverage_run_that_dies_is_repaired_as_a_gate(
         self, trial: Trial, branch: Branch
     ) -> None:
@@ -539,7 +535,7 @@ class TestLand:
 
 class TestSettle:
     # The label is a claim about the threads, so it is asked of gh rather than
-    # assumed off the round that said it had settled them.
+    # assumed off the round that said it settled them.
     def test_a_branch_with_nothing_left_open_earns_the_label(
         self, trial: Trial, branch: Branch
     ) -> None:
@@ -563,7 +559,7 @@ class TestSettle:
         assert transition == done(Shipped(outcome="shipped", branch="feature"))
         assert "2 review threads are still open on feature" in trial.deltas[0]
         # A failed `gh pr edit` is swallowed into a delta here, so the label
-        # going on wrongly would look exactly like this test passing.
+        # going on wrongly would look just like this passing.
         assert label(QA_LABEL, number=7) not in trial.shell.commands
 
     def test_a_count_gh_will_not_give_labels_nothing(

@@ -166,8 +166,8 @@ class TestSyncBranch:
         assert transition.payload.stopped == "could not update main: network down"
 
     # `merge --ff-only`, never `reset --hard`: a branch this ritual worked on
-    # last night carries commits the remote has not seen. A diverged branch is set
-    # aside rather than flattened.
+    # last night carries commits the remote has not seen. A diverged branch is
+    # set aside rather than flattened.
     def test_a_branch_that_has_diverged_is_set_aside(
         self, trial: Trial, work: Work
     ) -> None:

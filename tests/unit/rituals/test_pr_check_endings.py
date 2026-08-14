@@ -201,9 +201,9 @@ class TestReport:
         assert "ready to test:  feature" in trial.deltas[0]
         assert f"not reached:    {pull.branch}" in trial.deltas[0]
 
-    # `pr_review` reads the review the night posted, and a review posted on a
-    # branch that would not push is anchored to an older head. A row cannot be
-    # in both lists: the push is what makes it ready.
+    # `pr_review` reads the review the night posted, and one posted on a branch
+    # that would not push is anchored to an older head. A row cannot be in both
+    # lists: the push is what makes it ready.
     def test_a_green_row_that_would_not_push_is_not_ready(self, trial: Trial) -> None:
         transition = trial.walk(report, Run(bound=3, checked=[_GREEN_ROW]))
 
@@ -267,7 +267,7 @@ class TestWholeCast:
         trial.shell.replies(when="git add -A*", always=True)
         trial.shell.replies(when=_PUSH)
         # Nothing left over, because the push and this count speak to the same
-        # remote: a night that got everything up says so.
+        # remote.
         trial.shell.replies(when=_AHEAD, stdout="0\n")
         trial.coding.replies("posted the review", when="Review the changes*")
 
@@ -324,8 +324,8 @@ class TestWholeCast:
         assert trial.coding.calls[1].resume == "s1"
 
     # This is not a gate and does not fail fast: a pull request nobody can build
-    # still has reviewers waiting on it, so the branch stands down and takes the
-    # same review as any other before it is reported blocked.
+    # still has reviewers waiting, so the branch stands down and takes the same
+    # review as any other before it is reported blocked.
     def test_a_branch_that_will_not_go_green_is_still_reviewed(
         self, trial: Trial, pull: PullRequest
     ) -> None:

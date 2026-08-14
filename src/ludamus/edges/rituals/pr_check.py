@@ -8,15 +8,14 @@ the night's work is pushed, and a quality review is posted unless the branch
 already carries ``pr::thermo``. A branch ends the night green or blocked, and
 the report says which.
 
-What the night does not do is read the review it posted. Answering a review is
-somebody's decision and this runs at 3am with nobody to ask — so every action
-item stays an open thread, and ``pr_review`` is the cast that goes through them with
-you in the morning.
+What the night does not do is read the review it posted. Answering one is
+somebody's decision and this runs at 3am with nobody to ask, so every action
+item stays an open thread and ``pr_review`` goes through them with you in the
+morning.
 
-The push comes before the review and not after: an inline review comment has to
-anchor to a line of the pull request's diff, and a line that exists only in this
-clone is a line GitHub answers 422 on. So a review of unpushed work is a review
-that loses half its comments to the fallback.
+The push comes before the review: an inline comment has to anchor to a line of
+the pull request's diff, and GitHub answers 422 on a line that exists only in
+this clone. A review of unpushed work loses half its comments to the fallback.
 
 A branch the gates would not go green on is still reviewed. It stands down
 rather than stopping: the worktree is released, so the reading happens on the
@@ -330,10 +329,9 @@ async def cover(work: Work) -> Transition:
 # in this clone is not in it.
 # Not fatal, and not `set_aside`: a push that will not go through — someone
 # else's commit on the branch, a network that is gone — costs the review its
-# anchors and nothing else, and a review of code you can still read is worth
-# more than a branch dropped for the night. What is left behind says so twice
-# over: in this note, and in the row's own `unpushed`, which is counted off git
-# at the end, whoever left it there.
+# anchors and nothing else, and that is worth more than a branch dropped for the
+# night. What is left behind is said twice over: in this note, and in the row's
+# `unpushed`, counted off git at the end whoever left it there.
 @step
 async def push_work(work: Work) -> Transition:
     pushed = await shell(push(work.pr.branch))
@@ -344,8 +342,8 @@ async def push_work(work: Work) -> Transition:
 
 
 # Where a branch's night ends, whichever way it went: green means the gates went
-# green and the review is up, and blocked means it did not — the reviews are not
-# the night's to have an opinion about, and `pr_review` is what answers them.
+# green and the review is up, blocked means they did not. What the review says
+# is not the night's to have an opinion about — `pr_review` answers it.
 def _ended(work: Work) -> Closed:
     return Closed(work=work, outcome="blocked" if work.blocked else "green")
 

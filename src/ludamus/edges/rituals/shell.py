@@ -14,13 +14,12 @@ PR_FIX = "mise run pr-fix"
 COVERAGE = "mise run diff-cover"
 
 # Every remote call these rituals make, over https rather than ssh: the sandbox
-# a ritual runs in remaps root to `nobody`, and ssh refuses an
-# `/etc/ssh/ssh_config.d` it reads as owned by a stranger. Both remotes point at
-# the same repository, so this is a route and not a destination.
-# One name for fetching and pushing alike, because `ahead` counts commits
-# against the remote-tracking ref a push moves: a night that fetched from one
-# remote and pushed to the other would report every branch it had just pushed as
-# unpushed.
+# remaps root to `nobody`, and ssh refuses an `/etc/ssh/ssh_config.d` it reads
+# as owned by a stranger. Both remotes point at the same repository, so this is
+# a route and not a destination.
+# One name for fetching and pushing alike, because `ahead` counts against the
+# remote-tracking ref a push moves: fetching from one and pushing to the other
+# would report every branch it had just pushed as unpushed.
 REMOTE = "https-origin"
 
 
@@ -54,8 +53,8 @@ LIST = (
 # it is how you ask for the review again.
 THERMO_LABEL = "pr::thermo"
 # Every review thread on this branch is answered and settled, and the gates were
-# green when that happened. Put on by `pr_review` and by nothing else: `pr_check`
-# never reads the threads, so the night is in no position to claim it.
+# green when that happened. Put on by `pr_review` and nothing else: `pr_check`
+# never reads the threads, so the night cannot claim it.
 QA_LABEL = "pr::qa"
 # Hands off this one. It is read at the listing and nowhere else, so a branch
 # wearing it is never taken, never touched, and never reported on — which is
@@ -81,12 +80,11 @@ BUDGET = 4000
 # at all. See `coverage_report`.
 BANNER = "Diff Coverage"
 
-# The report's own words for a line no test reached, and read from the output
-# rather than the exit code because the exit code does not carry it: the task
-# runs `diff-cover` with no `--fail-under`, so a run that names missing lines
-# still ends 0. Both words and not just "Missing": the summary block below the
-# listing says "Missing: 0 lines" on a clean report too, so the bare word
-# matches every run there is.
+# The report's own words for a line no test reached, read from the output
+# because the exit code does not carry it: the task runs `diff-cover` with no
+# `--fail-under`, so a run that names missing lines still ends 0. Both words and
+# not just "Missing": the summary block says "Missing: 0 lines" on a clean
+# report too, so the bare word matches every run there is.
 MISSING = "Missing lines"
 
 
@@ -98,8 +96,8 @@ def quoted(value: str) -> str:
 # step can put an `if` around: empty output is a clean worktree.
 STATUS = "git status --porcelain"
 
-# Which branch the worktree is standing on, which is not always the branch a
-# step is working on.
+# Which branch the worktree stands on, which is not always the branch a step is
+# working on.
 HERE = "git rev-parse --abbrev-ref HEAD"
 
 
@@ -107,20 +105,18 @@ def checkout(branch: str) -> str:
     return f"git checkout {quoted(branch)}"
 
 
-# The remote by name rather than the branch's upstream: a branch a ritual has
-# just created a merge on may have none, and both rituals push to the one
-# `ahead` counts against.
+# The remote by name rather than the branch's upstream, which a branch a ritual
+# has just merged on may not have. It is the one `ahead` counts against.
 def push(branch: str) -> str:
     return f"git push {REMOTE} {quoted(branch)}"
 
 
 # The review threads on a pull request, with everything either reader wants.
 # GraphQL rather than `pulls/<number>/comments`, because the REST endpoint
-# carries no resolution state at all: it answers a settled thread and a live one
+# carries no resolution state: it answers a settled thread and a live one
 # identically, and a cast that cannot tell them apart works twice.
-# Both ids ride along, because `pr_review` answers these threads and then settles
-# them: the reply endpoint takes `databaseId` and the mutation takes `id`, and
-# whoever has to go back for either has already guessed at one.
+# Both ids ride along, because `pr_review` replies and then settles: the reply
+# endpoint takes `databaseId` and the mutation takes `id`.
 _THREADS = """\
 query($owner: String!, $repo: String!, $number: Int!) {
   repository(owner: $owner, name: $repo) {
@@ -131,7 +127,7 @@ query($owner: String!, $repo: String!, $number: Int!) {
 
 
 # One command, whoever runs it: a step counting what is outstanding and an agent
-# reading what it says are asking the same question of the same query.
+# reading what it says ask the same question of the same query.
 # `gh` knows which repository this is, but graphql variables are not a REST path
 # and nothing fills an `{owner}` in for them — so the slug is asked for once and
 # split by the shell rather than by a second call.
@@ -151,8 +147,8 @@ _OPEN_ONES = (
 )
 
 
-# How many threads nobody has settled, which is the whole of what `pr_review` asks of
-# a candidate — and, at the end, of the branch it just worked on.
+# How many threads nobody has settled, which is the whole of what `pr_review`
+# asks of a candidate — and, at the end, of the branch it just worked on.
 def unsettled(number: int) -> str:
     return threads(number, part=_OPEN_ONES)
 

@@ -55,12 +55,12 @@ def wears(pull: PullRequest, name: str) -> bool:
 
 
 # Which pull requests a cast takes, and in what order. Both rituals ask the same
-# question of the same listing and only differ in what they do when it will not
+# question of the same listing and differ only in what they do when it will not
 # parse, so the answer is written once and the routing stays with each caller.
 # Parked branches are dropped here rather than skipped later, so one is never
 # checked out, never counted as reached, and never in a report at all.
-# Oldest-modified first: the branch that has been drifting from its base the
-# longest is the one most likely to need the night.
+# Oldest-modified first: the branch drifting from its base the longest is the
+# one most likely to need the night.
 def wanted(listing: str) -> list[PullRequest]:
     pulls = PULLS.validate_json(listing)
     return sorted((pull for pull in pulls if not wears(pull, WAIT_LABEL)), key=modified)
@@ -74,9 +74,8 @@ class Checked(BaseModel):
     number: int
     branch: str
     url: str
-    # What the night could say about the branch, which is a fact about the build
-    # and never about the reviews: whether the gates went green and the work went
-    # up. What the review threads say is `pr_review`'s to read.
+    # What the night can say about the branch: whether the gates went green and
+    # the work went up. What the review threads say is `pr_review`'s to read.
     outcome: Literal["green", "blocked"]
     # None when git could not say. Nothing to push and "we could not tell" are
     # different answers, and the report prints them differently.
@@ -132,9 +131,9 @@ class TriageItem(BaseModel):
     # What the reading would do about it, which is what happens when you say
     # nothing: an item you agree with costs you a return key.
     action: Literal["fix", "reject", "file"]
-    # The thread this came off, carried so the round that answers it addresses
-    # the thread the item is actually about rather than the one it matched by
-    # eye. The graphql node id, which is what the resolve mutation takes.
+    # The thread this came off, so the round that answers it addresses the
+    # thread the item is about rather than the one it matched by eye. The
+    # graphql node id, which is what the resolve mutation takes.
     thread: str
 
 
@@ -208,9 +207,8 @@ def modified(pull: PullRequest) -> str:
     return pull.updated_at
 
 
-# A note grows by joining rather than by replacing, so no half of it can write
-# over another's. The separator is decided here and nowhere else — a step with
-# something to add reaches for this rather than for the string.
+# A note grows by joining rather than replacing, so no half of it writes over
+# another's. The separator is decided here and nowhere else.
 def joined(*parts: str) -> str:
     return "; ".join(part for part in parts if part)
 
@@ -304,11 +302,11 @@ def report_card(run: Run) -> Report:
             row.branch for row in run.checked if row.unpushed is None or row.unpushed
         ],
         to_fix=[row.branch for row in run.checked if row.outcome == "blocked"],
-        # What `pr_review` can be run on in the morning: green, pushed, and carrying a
-        # review somebody has to answer. `unpushed` is part of it and not a
-        # detail below it — a branch the night could not push carries a review
-        # anchored to an older head, and naming it here as well as under
-        # `needs pushing` is the report contradicting itself.
+        # What `pr_review` can be run on in the morning: green, pushed, and
+        # carrying a review somebody has to answer. `unpushed` is part of the
+        # condition and not a detail below it — a branch that would not push
+        # carries a review anchored to an older head, and naming it here as well
+        # as under `needs pushing` is the report contradicting itself.
         ready=[
             row.branch
             for row in run.checked

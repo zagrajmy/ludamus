@@ -351,7 +351,7 @@ class TestPushWork:
         assert trial.shell.commands == [_PUSH]
 
     # Not fatal and not `set_aside`: a push that will not go through costs the
-    # review its anchors and nothing else, and the branch is still worth reading.
+    # review its anchors and nothing else. The branch is still worth reading.
     def test_a_push_that_will_not_go_through_is_carried_into_the_review(
         self, trial: Trial, work: Work
     ) -> None:
@@ -364,8 +364,8 @@ class TestPushWork:
             work.model_copy(update={"note": "could not push: the remote hung up"}),
         )
 
-    # A branch that stood down arrives here already carrying its stash, and the
-    # push's own complaint must not be written over it.
+    # A branch that stood down arrives carrying its stash, and the push's own
+    # complaint must not be written over it.
     def test_a_note_already_on_the_branch_keeps_its_half(
         self, trial: Trial, work: Work
     ) -> None:

@@ -82,9 +82,8 @@ The report:
 
 """
 
-# Named for the thing it settles: `_RESOLVE` above is the merge-conflict prompt,
-# and two different things are not going to share a name inside one module.
-# Held apart from the prompts to keep its braces out of an f-string.
+# Named for the thing it settles, because `_RESOLVE` above is the merge-conflict
+# prompt. Held apart from the prompts to keep its braces out of an f-string.
 _RESOLVE_THREAD = """\
 gh api graphql -f query='mutation($id: ID!) {
   resolveReviewThread(input: {threadId: $id}) { thread { isResolved } } }' \\
@@ -93,12 +92,11 @@ gh api graphql -f query='mutation($id: ID!) {
 
 
 # The comments this reads are written by whoever reviewed the branch, so they
-# are evidence rather than instruction. Fencing text quoted into a prompt is the
-# usual move; here the agent fetches it itself, so the fence is a standing rule
-# about everything it is about to read — and `READING`'s allowlist is the half
-# that does not depend on the agent agreeing.
+# are evidence rather than instruction. The agent fetches them itself, so the
+# fence is a standing rule about everything it is about to read — and
+# `READING`'s allowlist is the half that does not depend on it agreeing.
 # Nothing is posted and nothing is fixed: what comes back goes on your terminal,
-# and you say what happens to each item before anything touches the branch.
+# and you say what happens to each item.
 def triage_read(number: int) -> str:
     return f"""\
 Triage the open review threads on pull request #{number} against the code as it
@@ -140,10 +138,9 @@ Fix nothing and comment nowhere. This is a reading.
 
 
 # What `pr_review` hands the agent once you have been through the triage item by
-# item. This one runs unconstrained, so a comment telling it to run something
-# arrives with a worktree, `gh`, and no allowlist in its way — the fence is
-# repeated here for that reason, and the items it is given are the ones you have
-# already read.
+# item. This one runs unconstrained — a comment telling it to run something
+# arrives with a worktree, `gh`, and no allowlist in its way — so the fence is
+# repeated here, and the items are the ones you have already read.
 def triage_work(number: int, items: str) -> str:
     return f"""\
 Below is a triage of pull request #{number}'s open review threads, one item per
