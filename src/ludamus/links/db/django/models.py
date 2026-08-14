@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import math
-import sys
 from datetime import UTC, datetime, timedelta
 from secrets import token_urlsafe
 from typing import TYPE_CHECKING, ClassVar, Never, TypeVar, cast
@@ -27,6 +26,7 @@ from ludamus.pacts import (
 )
 from ludamus.pacts.crowd import UserType
 from ludamus.pacts.discounts import DiscountKind
+from ludamus.pacts.images import ORIGINAL_FILENAME_MAX_LENGTH
 from ludamus.pacts.party import PartyConsentMode, PartyMembershipStatus
 from ludamus.pacts.submissions import AccreditationType, ImportLogStatus
 
@@ -289,6 +289,9 @@ class Sphere(models.Model):
     managers = models.ManyToManyField(User)
     # Branding fallback — used on printables when an event has no logo of its own
     logo = models.FileField(upload_to=unique_upload_to, blank=True)
+    logo_original_name = models.CharField(
+        max_length=ORIGINAL_FILENAME_MAX_LENGTH, blank=True, default=""
+    )
     enabled_pages = models.JSONField(
         default=SpherePage.all_values,
         help_text="List of enabled page identifiers, e.g. ['events', 'encounters']",
@@ -322,6 +325,9 @@ class Guild(models.Model):
     # FileField, not ImageField: the mark is usually an SVG, which Pillow (and
     # therefore ImageField's clean) rejects. validate_uploaded_logo covers it.
     logo = models.FileField(upload_to=unique_upload_to, blank=True)
+    logo_original_name = models.CharField(
+        max_length=ORIGINAL_FILENAME_MAX_LENGTH, blank=True, default=""
+    )
     members: models.ManyToManyField[User, GuildMembership] = models.ManyToManyField(
         User, through="GuildMembership", related_name="guilds"
     )
@@ -388,8 +394,14 @@ class Event(models.Model):
     slug = models.SlugField()
     description = models.TextField(default="", blank=True)
     cover_image = models.ImageField(upload_to=unique_upload_to, blank=True)
+    cover_image_original_name = models.CharField(
+        max_length=ORIGINAL_FILENAME_MAX_LENGTH, blank=True, default=""
+    )
     # Branding — shown on printables (the public /print page)
     logo = models.FileField(upload_to=unique_upload_to, blank=True)
+    logo_original_name = models.CharField(
+        max_length=ORIGINAL_FILENAME_MAX_LENGTH, blank=True, default=""
+    )
     # Time - start and end
     start_time = models.DateTimeField()
     end_time = models.DateTimeField()
@@ -472,6 +484,18 @@ class Event(models.Model):
 
     def get_active_enrollment_configs(self) -> list[EnrollmentConfig]:
         return [config for config in self.enrollment_configs.all() if config.is_active]
+
+    def get_allowance_enrollment_configs(self) -> list[EnrollmentConfig]:
+        if active := self.get_active_enrollment_configs():
+            return active
+        now = datetime.now(tz=UTC)
+        ended = [
+            config for config in self.enrollment_configs.all() if config.end_time <= now
+        ]
+        if not ended:
+            return []
+        latest = max(ended, key=lambda config: (config.end_time, config.pk))
+        return [latest]
 
     def get_eligible_enrollment_configs(
         self, session: Session
@@ -560,20 +584,6 @@ class EnrollmentConfig(models.Model):
     def is_active(self) -> bool:
         return self.start_time < datetime.now(tz=UTC) < self.end_time
 
-    def get_available_slots(self, session: Session) -> int:
-        """Calculate available enrollment slots for a session based on percentage.
-
-        Returns:
-            Number of available slots for enrollment.
-        """
-        if session.participants_limit == 0:
-            return sys.maxsize
-        effective_limit = math.ceil(
-            session.participants_limit * self.percentage_slots / 100
-        )
-        current_enrolled = session.enrolled_count
-        return max(0, effective_limit - current_enrolled)
-
     def is_session_eligible(self, session: Session) -> bool:
         """Check if session is eligible for enrollment under this config.
 
@@ -581,7 +591,8 @@ class EnrollmentConfig(models.Model):
             True if session can be enrolled in under this config.
         """
         if self.limit_to_end_time:
-            return session.agenda_item.start_time < self.end_time
+            agenda_item = getattr(session, "agenda_item", None)
+            return agenda_item is not None and agenda_item.start_time < self.end_time
 
         return True
 
@@ -819,6 +830,13 @@ class Facilitator(SoftDeleteModel):
         blank=True,
         related_name="facilitator_profiles",
     )
+    guild = models.ForeignKey(
+        Guild,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="facilitators",
+    )
     display_name = models.CharField(max_length=255)
     slug = models.SlugField()
     # Import identity key (hash of the operator-chosen facilitator key columns).
@@ -861,6 +879,10 @@ class Facilitator(SoftDeleteModel):
                 condition=~Q(ident=""),
                 name="facilitator_unique_ident_per_event",
             ),
+            models.CheckConstraint(
+                condition=Q(guild__isnull=True) | Q(user__isnull=True),
+                name="facilitator_guild_only_when_accountless",
+            ),
         )
 
     def __str__(self) -> str:
@@ -873,8 +895,10 @@ class SessionManager(AliveManager["Session"]):
     def conflicted_user_ids(self, session: Session, user_ids: list[int]) -> set[int]:
         if not user_ids:
             return set()
-        start = session.agenda_item.start_time
-        end = session.agenda_item.end_time
+        if (agenda_item := getattr(session, "agenda_item", None)) is None:
+            return set()
+        start = agenda_item.start_time
+        end = agenda_item.end_time
         # Superset-safe: never misses a genuine conflict; extra ids the join might
         # return are harmless since callers only probe membership of their own user_ids.
         return set(
@@ -933,6 +957,9 @@ class Session(SoftDeleteModel):
     # Retained on soft-delete so a restore keeps its cover. Follow-up (#330):
     # purge the stored file during hard garbage-collection of dead sessions.
     cover_image = models.ImageField(upload_to=unique_upload_to, blank=True)
+    cover_image_original_name = models.CharField(
+        max_length=ORIGINAL_FILENAME_MAX_LENGTH, blank=True, default=""
+    )
     duration = models.CharField(
         max_length=20,
         default="",
@@ -1518,6 +1545,9 @@ class Encounter(models.Model):
     max_participants = models.PositiveIntegerField(default=0)
     share_code = models.CharField(max_length=6, unique=True)
     header_image = models.ImageField(upload_to=unique_upload_to, blank=True)
+    header_image_original_name = models.CharField(
+        max_length=ORIGINAL_FILENAME_MAX_LENGTH, blank=True, default=""
+    )
     creation_time = models.DateTimeField(auto_now_add=True)
 
     class Meta:

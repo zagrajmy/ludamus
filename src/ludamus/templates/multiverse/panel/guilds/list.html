@@ -50,6 +50,7 @@
                                 {% translate "Row actions" as t_row_actions %}
                                 <div role="group" aria-label="{{ t_row_actions }}">
                                     <a href="{% url 'multiverse:panel:guild-edit' pk=guild.pk %}"
+                                       data-row-action
                                        class="text-primary hover:text-primary/80 mr-4 inline-flex items-center">
                                         {% icon "pencil-square" class="w-4 h-4 mr-1" %}
                                         {% translate "Edit" %}

@@ -6,8 +6,10 @@ from django.contrib import messages
 from django.shortcuts import redirect
 from django.template.response import TemplateResponse
 from django.urls import reverse
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils.text import slugify
 from django.utils.translation import gettext as _
+from django.utils.translation import gettext_lazy
 from django.views.generic.base import View
 
 from ludamus.gates.web.django.multiverse.access import (
@@ -17,11 +19,17 @@ from ludamus.gates.web.django.multiverse.access import (
 from ludamus.gates.web.django.sphere.forms import GuildForm, GuildMemberForm
 from ludamus.gates.web.django.sphere.panel_context import sphere_sidebar_context
 from ludamus.pacts import RedirectError
-from ludamus.pacts.guild import AssignMemberOutcome
+from ludamus.pacts.guild import (
+    AssignMemberOutcome,
+    GuildFacilitatorMemberDTO,
+    GuildMembershipMemberDTO,
+)
+from ludamus.pacts.images import stored_file
 from ludamus.pacts.legacy import resolve_uploaded_file_field
 
 if TYPE_CHECKING:
     from django.http import HttpResponse
+    from django.utils.functional import _StrPromise
 
     from ludamus.pacts.guild import GuildDTO, GuildWriteData
 
@@ -102,7 +110,12 @@ class GuildEditPageView(SphereAccessMixin, View):
         guild = _read_guild(self.request, pk)
         return self._render(
             guild,
-            GuildForm(initial={"name": guild.name, "logo": guild.logo_url or None}),
+            GuildForm(
+                initial={
+                    "name": guild.name,
+                    "logo": stored_file(guild.logo_url, guild.logo_original_name),
+                }
+            ),
         )
 
     def post(self, _request: MultiverseRequest, pk: int) -> HttpResponse:
@@ -126,8 +139,12 @@ class GuildEditPageView(SphereAccessMixin, View):
             {
                 **sphere_sidebar_context(self.request, active_nav="guilds"),
                 "guild": guild,
+                "roster": _roster(guild),
                 "form": form,
                 "member_form": GuildMemberForm(),
+                "presenter_names": self.request.services.guilds.list_facilitator_names(
+                    sphere_id=self.request.context.current_sphere_id
+                ),
             },
         )
 
@@ -158,24 +175,44 @@ class GuildDeletePageView(SphereAccessMixin, View):
 
 class _Notice(NamedTuple):
     level: int
-    text: str
+    text: _StrPromise
 
 
 _ASSIGN_MESSAGES = {
-    AssignMemberOutcome.ASSIGNED: _Notice(messages.SUCCESS, _("Presenter added.")),
+    AssignMemberOutcome.ASSIGNED: _Notice(
+        messages.SUCCESS, gettext_lazy("Presenter added.")
+    ),
     AssignMemberOutcome.MOVED: _Notice(
-        messages.SUCCESS, _("Presenter moved to this guild from another one.")
+        messages.SUCCESS,
+        gettext_lazy("Presenter moved to this guild from another one."),
     ),
     AssignMemberOutcome.ALREADY_MEMBER: _Notice(
-        messages.INFO, _("That presenter is already in this guild.")
+        messages.INFO, gettext_lazy("That presenter is already in this guild.")
     ),
     AssignMemberOutcome.NO_SUCH_USER: _Notice(
-        messages.ERROR, _("No account matches that email or Discord username.")
+        messages.ERROR,
+        gettext_lazy("No presenter matches that name, email or Discord username."),
     ),
     AssignMemberOutcome.AMBIGUOUS_HANDLE: _Notice(
-        messages.ERROR, _("More than one account matches. Use the exact email address.")
+        messages.ERROR,
+        gettext_lazy(
+            "More than one presenter matches. Use the exact email if they "
+            "have an account."
+        ),
     ),
 }
+
+
+def _add_member_return(request: MultiverseRequest, guild_pk: int) -> str:
+    # The guild page is where a manager assigns from normally. The Facilitators
+    # list posts here too and wants its own filters back, so it sends `next`.
+    fallback = reverse("multiverse:panel:guild-edit", kwargs={"pk": guild_pk})
+    next_url = request.POST.get("next") or ""
+    if next_url and url_has_allowed_host_and_scheme(
+        next_url, allowed_hosts={request.get_host()}, require_https=request.is_secure()
+    ):
+        return next_url
+    return fallback
 
 
 class GuildMemberAddActionView(SphereAccessMixin, View):
@@ -185,8 +222,8 @@ class GuildMemberAddActionView(SphereAccessMixin, View):
         _read_guild(self.request, pk)
         form = GuildMemberForm(self.request.POST)
         if not form.is_valid():
-            messages.error(self.request, _("Give an email or Discord username."))
-            return redirect("multiverse:panel:guild-edit", pk=pk)
+            messages.error(self.request, _("Give a name, email or Discord username."))
+            return redirect(_add_member_return(self.request, pk))
 
         outcome = self.request.services.guilds.assign_member(
             sphere_id=self.request.context.current_sphere_id,
@@ -195,7 +232,52 @@ class GuildMemberAddActionView(SphereAccessMixin, View):
         )
         notice = _ASSIGN_MESSAGES[outcome]
         messages.add_message(self.request, notice.level, notice.text)
-        return redirect("multiverse:panel:guild-edit", pk=pk)
+        return redirect(_add_member_return(self.request, pk))
+
+
+class RosterRow(NamedTuple):
+    member: GuildFacilitatorMemberDTO | GuildMembershipMemberDTO
+    name: str
+    remove_url: str
+    subtitle: str | None
+
+
+def _roster(guild: GuildDTO) -> list[RosterRow]:
+    rows: list[RosterRow] = []
+    for member in guild.members:
+        match member:
+            case GuildFacilitatorMemberDTO(
+                facilitator_pk=facilitator_pk, event_name=subtitle, name=name
+            ):
+                url = reverse(
+                    "multiverse:panel:guild-facilitator-remove",
+                    kwargs={"pk": guild.pk, "facilitator_pk": facilitator_pk},
+                )
+            case GuildMembershipMemberDTO(
+                membership_pk=membership_pk,
+                email=subtitle,
+                full_name=full_name,
+                name=name,
+            ):
+                name = full_name or name
+                url = reverse(
+                    "multiverse:panel:guild-member-remove",
+                    kwargs={"pk": guild.pk, "membership_pk": membership_pk},
+                )
+        rows.append(
+            RosterRow(member=member, name=name, remove_url=url, subtitle=subtitle)
+        )
+    return rows
+
+
+def _roster_remove_result(
+    request: MultiverseRequest, *, pk: int, removed: bool
+) -> HttpResponse:
+    if removed:
+        messages.success(request, _("Presenter removed."))
+    else:
+        messages.error(request, _("That presenter is not in this guild."))
+    return redirect("multiverse:panel:guild-edit", pk=pk)
 
 
 class GuildMemberRemoveActionView(SphereAccessMixin, View):
@@ -205,12 +287,24 @@ class GuildMemberRemoveActionView(SphereAccessMixin, View):
         self, _request: MultiverseRequest, *, pk: int, membership_pk: int
     ) -> HttpResponse:
         _read_guild(self.request, pk)
-        if self.request.services.guilds.remove_member(
+        removed = self.request.services.guilds.remove_member(
             sphere_id=self.request.context.current_sphere_id,
             guild_pk=pk,
             membership_pk=membership_pk,
-        ):
-            messages.success(self.request, _("Presenter removed."))
-        else:
-            messages.error(self.request, _("That presenter is not in this guild."))
-        return redirect("multiverse:panel:guild-edit", pk=pk)
+        )
+        return _roster_remove_result(self.request, pk=pk, removed=removed)
+
+
+class GuildFacilitatorRemoveActionView(SphereAccessMixin, View):
+    request: MultiverseRequest
+
+    def post(
+        self, _request: MultiverseRequest, *, pk: int, facilitator_pk: int
+    ) -> HttpResponse:
+        _read_guild(self.request, pk)
+        removed = self.request.services.guilds.clear_facilitator(
+            sphere_id=self.request.context.current_sphere_id,
+            guild_pk=pk,
+            facilitator_pk=facilitator_pk,
+        )
+        return _roster_remove_result(self.request, pk=pk, removed=removed)

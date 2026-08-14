@@ -168,7 +168,7 @@
                                 </thead>
                                 <tbody class="divide-y divide-border">
                                     {% for facilitator in facilitators %}
-                                        <tr class="hover:bg-bg-tertiary {% if facilitator.deleted_at %}bg-danger/5{% endif %}">
+                                        <tr class="group/row hover:bg-bg-tertiary {% if facilitator.deleted_at %}bg-danger/5{% endif %}">
                                             <td class="px-6 py-4">
                                                 {% blocktranslate asvar t_select_row with name=facilitator.display_name %}Select {{ name }}{% endblocktranslate %}
                                                 {% include "components/checkbox-field.html" with name="facilitator_slugs" value=facilitator.slug form_id="bulk-status-form" aria_label=t_select_row hook_class="bulk-row-checkbox" only %}
@@ -180,15 +180,24 @@
                                                         title="{{ value }}">
                                                         {% if forloop.first %}
                                                             <a href="{% url 'panel:facilitator-detail' slug=current_event.slug facilitator_slug=facilitator.slug %}"
+                                                               data-row-action
                                                                aria-label="{{ facilitator.display_name }}"
-                                                               class="text-primary hover:text-primary/80">{{ value|truncatechars:50 }}</a>
+                                                               class="text-primary hover:text-primary/80">
+                                                                {% include "panel/parts/_facilitator_cell.html" with column=column facilitator=facilitator value=value|truncatechars:50 %}
+                                                            </a>
                                                             {% if facilitator.deleted_at %}
                                                                 <span class="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-danger/10 text-danger">
                                                                     {% translate "Deleted" %}
                                                                 </span>
                                                             {% endif %}
                                                         {% else %}
-                                                            {{ value|truncatechars:40 }}
+                                                            {% include "panel/parts/_facilitator_cell.html" with column=column facilitator=facilitator value=value|truncatechars:40 %}
+                                                        {% endif %}
+                                                        {% if column.kind == "guild" and not facilitator.guild %}
+                                                            {# Lit on row hover, keyboard focus, or while the menu is open. #}
+                                                            <span class="inline-block opacity-0 transition group-hover/row:opacity-100 focus-within:opacity-100 has-[[aria-expanded=true]]:opacity-100">
+                                                                {% include "panel/parts/_facilitator_guild_attach.html" with facilitator=facilitator %}
+                                                            </span>
                                                         {% endif %}
                                                     </td>
                                                 {% endwith %}

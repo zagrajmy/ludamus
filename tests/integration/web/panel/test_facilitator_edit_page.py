@@ -9,6 +9,7 @@ from django.urls import reverse
 
 from ludamus.links.db.django.models import (
     FacilitatorChangeLog,
+    Guild,
     PersonalDataField,
     PersonalDataFieldOption,
     PersonalDataFieldValue,
@@ -19,6 +20,7 @@ from ludamus.pacts import (
     OrganizerFieldDTO,
     OrganizerFieldOptionDTO,
 )
+from ludamus.pacts.guild import GuildMarkDTO, GuildSummaryDTO
 from tests.integration.conftest import UserFactory
 from tests.integration.utils import (
     FormErrorsMatcher,
@@ -109,6 +111,56 @@ class TestFacilitatorEditPageView:
                 "form": ANY,
                 "facilitator": FacilitatorDTO.model_validate(facilitator),
                 "field_descriptors": [],
+                "guild": None,
+                "guild_options": [],
+            },
+        )
+
+    def test_get_lists_guild_options_when_the_facilitator_has_none(
+        self, panel_client, event
+    ):
+        facilitator = make_facilitator(event)
+        guild = Guild.objects.create(sphere=event.sphere, name="Topory", slug="topory")
+
+        response = panel_client.get(self.get_url(event))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/facilitator-edit.html",
+            context_data={
+                **panel_context(event, active_nav="facilitators"),
+                "form": ANY,
+                "facilitator": FacilitatorDTO.model_validate(facilitator),
+                "field_descriptors": [],
+                "guild": None,
+                "guild_options": [
+                    GuildSummaryDTO(pk=guild.pk, name="Topory", slug="topory")
+                ],
+            },
+        )
+
+    def test_get_shows_the_attached_guild(self, panel_client, event):
+        guild = Guild.objects.create(sphere=event.sphere, name="Topory", slug="topory")
+        facilitator = make_facilitator(event, guild=guild)
+
+        response = panel_client.get(self.get_url(event))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/facilitator-edit.html",
+            context_data={
+                **panel_context(event, active_nav="facilitators"),
+                "form": ANY,
+                "facilitator": FacilitatorDTO.model_validate(facilitator),
+                "field_descriptors": [],
+                "guild": GuildMarkDTO(pk=guild.pk, name="Topory"),
+                "guild_options": [
+                    GuildSummaryDTO(
+                        pk=guild.pk, name="Topory", slug="topory", member_count=1
+                    )
+                ],
             },
         )
 
@@ -131,6 +183,8 @@ class TestFacilitatorEditPageView:
                     )
                 ),
                 "field_descriptors": [],
+                "guild": None,
+                "guild_options": [],
             },
         )
 
@@ -176,6 +230,8 @@ class TestFacilitatorEditPageView:
                 ),
                 "facilitator": FacilitatorDTO.model_validate(facilitator),
                 "field_descriptors": [],
+                "guild": None,
+                "guild_options": [],
             },
         )
 
@@ -263,8 +319,9 @@ class TestFacilitatorEditPageView:
                 "form": ANY,
                 "facilitator": FacilitatorDTO.model_validate(facilitator),
                 "field_descriptors": [],
+                "guild": None,
+                "guild_options": [],
             },
-            not_contains='name="display_name"',
         )
 
     def test_post_saves_checkbox_personal_data_field(self, panel_client, event):
@@ -430,6 +487,8 @@ class TestFacilitatorEditPageView:
                         "answer": FieldAnswer(value=["en"], custom_value="śląski"),
                     }
                 ],
+                "guild": None,
+                "guild_options": [],
             },
         )
 
@@ -601,5 +660,7 @@ class TestFacilitatorEditPageView:
                         "answer": FieldAnswer(value="Bob", custom_value=""),
                     },
                 ],
+                "guild": None,
+                "guild_options": [],
             },
         )

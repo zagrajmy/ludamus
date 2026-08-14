@@ -71,6 +71,7 @@ def _service(fields):
         panel_settings=FakeSettingsRepo(),
         sessions=object(),
         users=object(),
+        guilds=MagicMock(),
     )
     return FacilitatorPanelService(object(), repos)
 
@@ -128,12 +129,13 @@ _CREATED_PK = 99
 _USER_ID = 7
 
 
-def _facilitator(pk, slug, user_id=None, organizer_id=None):
+def _facilitator(pk, slug, user_id=None, organizer_id=None, guild_id=None):
     return SimpleNamespace(
         pk=pk,
         slug=slug,
         user_id=user_id,
         organizer_id=organizer_id,
+        guild_id=guild_id,
         display_name=slug.title(),
         accreditation_type="none",
     )
@@ -142,8 +144,8 @@ def _facilitator(pk, slug, user_id=None, organizer_id=None):
 def _merge_service(facilitators, fields=(), values=None):
     by_slug = {f.slug: f for f in facilitators}
     facilitators_repo = MagicMock()
-    facilitators_repo.read_by_event_and_slug.side_effect = (
-        lambda _event_id, slug: by_slug[slug]
+    facilitators_repo.read_by_event_and_slug.side_effect = lambda _event_id, slug: (
+        by_slug[slug]
     )
     values_repo = MagicMock()
     values_repo.read_for_facilitator_event.side_effect = (
@@ -157,7 +159,9 @@ def _merge_service(facilitators, fields=(), values=None):
         panel_settings=FakeSettingsRepo(),
         sessions=MagicMock(),
         users=object(),
+        guilds=MagicMock(),
     )
+    repos.guilds.read_member_guild.return_value = None
     return FacilitatorPanelService(_FakeTransaction(), repos), repos
 
 
@@ -178,6 +182,7 @@ class TestFacilitatorMerge:
         with pytest.raises(FacilitatorMergeError) as exc_info:
             service.merge(
                 event_id=1,
+                sphere_id=1,
                 target_slug="alice",
                 facilitator_slugs=["alice"],
                 data=_merge_data(),
@@ -191,6 +196,7 @@ class TestFacilitatorMerge:
         with pytest.raises(FacilitatorMergeError) as exc_info:
             service.merge(
                 event_id=1,
+                sphere_id=1,
                 target_slug="carol",
                 facilitator_slugs=["alice", "bob"],
                 data=_merge_data(),
@@ -204,6 +210,7 @@ class TestFacilitatorMerge:
         with pytest.raises(FacilitatorMergeError) as exc_info:
             service.merge(
                 event_id=1,
+                sphere_id=1,
                 target_slug="alice",
                 facilitator_slugs=["alice", "bob"],
                 data=_merge_data(display_name=""),
@@ -217,6 +224,7 @@ class TestFacilitatorMerge:
         with pytest.raises(FacilitatorMergeError) as exc_info:
             service.merge(
                 event_id=1,
+                sphere_id=1,
                 target_slug="alice",
                 facilitator_slugs=["alice", "bob"],
                 data=_merge_data(accreditation_type="vip"),
@@ -232,6 +240,7 @@ class TestFacilitatorMerge:
         with pytest.raises(FacilitatorMergeError) as exc_info:
             service.merge(
                 event_id=1,
+                sphere_id=1,
                 target_slug="alice",
                 facilitator_slugs=["alice", "bob"],
                 data=_merge_data(),
@@ -250,6 +259,7 @@ class TestFacilitatorMerge:
 
         service.merge(
             event_id=1,
+            sphere_id=1,
             target_slug="alice",
             facilitator_slugs=["alice", "bob"],
             data=_merge_data(
@@ -280,6 +290,7 @@ class TestFacilitatorMerge:
 
         service.merge(
             event_id=1,
+            sphere_id=1,
             target_slug="alice",
             facilitator_slugs=["alice", "bob"],
             data=_merge_data(keep_values_from={5: 42, 6: 2}),
@@ -294,15 +305,187 @@ class TestFacilitatorMerge:
 
         service.merge(
             event_id=1,
+            sphere_id=1,
             target_slug="alice",
             facilitator_slugs=["alice", "bob"],
             data=_merge_data(),
         )
 
         repos.facilitators.update.assert_called_once_with(
-            1, {"display_name": "Alice", "accreditation_type": "none", "user_id": 10}
+            1,
+            {
+                "display_name": "Alice",
+                "accreditation_type": "none",
+                "user_id": 10,
+                "guild_id": None,
+            },
         )
         repos.facilitators.delete.assert_called_once_with(2)
+
+    def test_linking_moves_the_targets_guild_to_membership(self):
+        service, repos = _merge_service(
+            [_facilitator(1, "alice", guild_id=7), _facilitator(2, "bob", user_id=10)]
+        )
+
+        service.merge(
+            event_id=1,
+            sphere_id=3,
+            target_slug="alice",
+            facilitator_slugs=["alice", "bob"],
+            data=_merge_data(),
+        )
+
+        repos.facilitators.update.assert_called_once_with(
+            1,
+            {
+                "display_name": "Alice",
+                "accreditation_type": "none",
+                "user_id": 10,
+                "guild_id": None,
+            },
+        )
+        repos.guilds.assign_member.assert_called_once_with(
+            sphere_id=3, guild_pk=7, user_pk=10
+        )
+        repos.guilds.set_facilitator_guild.assert_not_called()
+
+    def test_empty_target_inherits_an_agreed_source_guild(self):
+        service, repos = _merge_service(
+            [_facilitator(1, "alice"), _facilitator(2, "bob", guild_id=7)]
+        )
+
+        service.merge(
+            event_id=1,
+            sphere_id=3,
+            target_slug="alice",
+            facilitator_slugs=["alice", "bob"],
+            data=_merge_data(),
+        )
+
+        repos.facilitators.update.assert_called_once_with(
+            1, {"display_name": "Alice", "accreditation_type": "none"}
+        )
+        repos.guilds.set_facilitator_guild.assert_called_once_with(
+            sphere_id=3, facilitator_pk=1, guild_pk=7
+        )
+        repos.guilds.assign_member.assert_not_called()
+
+    def test_linked_target_takes_an_agreed_source_guild_as_membership(self):
+        service, repos = _merge_service(
+            [_facilitator(1, "alice", user_id=10), _facilitator(2, "bob", guild_id=7)]
+        )
+
+        service.merge(
+            event_id=1,
+            sphere_id=3,
+            target_slug="alice",
+            facilitator_slugs=["alice", "bob"],
+            data=_merge_data(),
+        )
+
+        repos.facilitators.update.assert_called_once_with(
+            1, {"display_name": "Alice", "accreditation_type": "none"}
+        )
+        repos.guilds.assign_member.assert_called_once_with(
+            sphere_id=3, guild_pk=7, user_pk=10
+        )
+        repos.guilds.set_facilitator_guild.assert_not_called()
+
+    def test_disagreeing_source_guilds_leave_an_empty_target_unassigned(self):
+        service, repos = _merge_service(
+            [
+                _facilitator(1, "alice"),
+                _facilitator(2, "bob", guild_id=7),
+                _facilitator(3, "carol", guild_id=8),
+            ]
+        )
+
+        service.merge(
+            event_id=1,
+            sphere_id=3,
+            target_slug="alice",
+            facilitator_slugs=["alice", "bob", "carol"],
+            data=_merge_data(),
+        )
+
+        repos.guilds.assign_member.assert_not_called()
+        repos.guilds.set_facilitator_guild.assert_not_called()
+        repos.facilitators.update.assert_called_once_with(
+            1, {"display_name": "Alice", "accreditation_type": "none"}
+        )
+
+    def test_incoming_users_membership_blocks_inheriting_a_source_fk(self):
+        service, repos = _merge_service(
+            [
+                _facilitator(1, "alice"),
+                _facilitator(2, "bob", user_id=10),
+                _facilitator(3, "carol", guild_id=7),
+            ]
+        )
+        repos.guilds.read_member_guild.return_value = SimpleNamespace(pk=8)
+
+        service.merge(
+            event_id=1,
+            sphere_id=3,
+            target_slug="alice",
+            facilitator_slugs=["alice", "bob", "carol"],
+            data=_merge_data(),
+        )
+
+        repos.guilds.assign_member.assert_not_called()
+        repos.guilds.set_facilitator_guild.assert_not_called()
+        repos.facilitators.update.assert_called_once_with(
+            1,
+            {
+                "display_name": "Alice",
+                "accreditation_type": "none",
+                "user_id": 10,
+                "guild_id": None,
+            },
+        )
+
+    def test_incoming_users_membership_keeps_a_target_fk_from_moving_them(self):
+        service, repos = _merge_service(
+            [_facilitator(1, "alice", guild_id=7), _facilitator(2, "bob", user_id=10)]
+        )
+        repos.guilds.read_member_guild.return_value = SimpleNamespace(pk=8)
+
+        service.merge(
+            event_id=1,
+            sphere_id=3,
+            target_slug="alice",
+            facilitator_slugs=["alice", "bob"],
+            data=_merge_data(),
+        )
+
+        repos.guilds.assign_member.assert_not_called()
+        repos.guilds.set_facilitator_guild.assert_not_called()
+        repos.facilitators.update.assert_called_once_with(
+            1,
+            {
+                "display_name": "Alice",
+                "accreditation_type": "none",
+                "user_id": 10,
+                "guild_id": None,
+            },
+        )
+
+    def test_linked_target_keeps_its_membership_when_a_source_has_another_guild(self):
+        service, repos = _merge_service(
+            [_facilitator(1, "alice", user_id=10), _facilitator(2, "bob", guild_id=7)]
+        )
+        repos.guilds.read_member_guild.return_value = SimpleNamespace(pk=8)
+
+        service.merge(
+            event_id=1,
+            sphere_id=3,
+            target_slug="alice",
+            facilitator_slugs=["alice", "bob"],
+            data=_merge_data(),
+        )
+
+        repos.guilds.assign_member.assert_not_called()
+        repos.guilds.set_facilitator_guild.assert_not_called()
 
     def test_linked_target_account_stays_untouched(self):
         service, repos = _merge_service(
@@ -311,6 +494,7 @@ class TestFacilitatorMerge:
 
         service.merge(
             event_id=1,
+            sphere_id=1,
             target_slug="alice",
             facilitator_slugs=["alice", "bob"],
             data=_merge_data(),
@@ -342,8 +526,8 @@ class TestCreateFacilitator:
     @staticmethod
     def _create_service(*, taken_slugs=(), fields=()):
         facilitators_repo = MagicMock()
-        facilitators_repo.slug_exists.side_effect = (
-            lambda _event_id, slug: slug in taken_slugs
+        facilitators_repo.slug_exists.side_effect = lambda _event_id, slug: (
+            slug in taken_slugs
         )
         facilitators_repo.create.side_effect = lambda data: SimpleNamespace(
             pk=_CREATED_PK, **data
@@ -356,6 +540,7 @@ class TestCreateFacilitator:
             panel_settings=FakeSettingsRepo(),
             sessions=object(),
             users=object(),
+            guilds=MagicMock(),
         )
         return FacilitatorPanelService(_FakeTransaction(), repos), repos
 
@@ -633,6 +818,7 @@ def _organizer_service(facilitators):
         panel_settings=FakeSettingsRepo(),
         sessions=object(),
         users=object(),
+        guilds=MagicMock(),
     )
     return FacilitatorPanelService(object(), repos)
 
@@ -753,6 +939,7 @@ def _deletion_service(facilitators):
         panel_settings=FakeSettingsRepo(),
         sessions=object(),
         users=object(),
+        guilds=MagicMock(),
     )
     return FacilitatorPanelService(_FakeTransaction(), repos), logs
 
@@ -849,6 +1036,7 @@ class TestFacilitatorHistory:
             panel_settings=FakeSettingsRepo(),
             sessions=object(),
             users=object(),
+            guilds=MagicMock(),
         )
         service = FacilitatorPanelService(_FakeTransaction(), repos)
 
@@ -857,3 +1045,61 @@ class TestFacilitatorHistory:
         )
 
         assert (name, entries) == ("Alice", [deletion_log])
+
+
+class TestAssignGuild:
+    def test_writes_membership_for_a_linked_row(self):
+        service, repos = _merge_service([_facilitator(1, "alice", user_id=10)])
+        repos.facilitators.read_by_event_and_slug.return_value = _facilitator(
+            1, "alice", user_id=10
+        )
+        repos.guilds.assign_member.return_value = True
+
+        outcome = service.assign_guild(
+            event_id=1, sphere_id=3, facilitator_slug="alice", guild_pk=7
+        )
+
+        assert outcome is True
+        repos.guilds.assign_member.assert_called_once_with(
+            sphere_id=3, guild_pk=7, user_pk=10
+        )
+        repos.guilds.set_facilitator_guild.assert_not_called()
+
+    def test_writes_the_fk_for_an_accountless_row(self):
+        service, repos = _merge_service([_facilitator(1, "alice")])
+        repos.facilitators.read_by_event_and_slug.return_value = _facilitator(
+            1, "alice"
+        )
+        repos.guilds.set_facilitator_guild.return_value = True
+
+        outcome = service.assign_guild(
+            event_id=1, sphere_id=3, facilitator_slug="alice", guild_pk=7
+        )
+
+        assert outcome is True
+        repos.guilds.set_facilitator_guild.assert_called_once_with(
+            sphere_id=3, facilitator_pk=1, guild_pk=7
+        )
+        repos.guilds.assign_member.assert_not_called()
+
+    def test_raises_when_the_row_is_missing(self):
+        service, repos = _merge_service([])
+        repos.facilitators.read_by_event_and_slug.side_effect = NotFoundError
+
+        with pytest.raises(NotFoundError):
+            service.assign_guild(
+                event_id=1, sphere_id=3, facilitator_slug="alice", guild_pk=7
+            )
+
+    def test_returns_no_such_guild_when_the_fk_write_is_refused(self):
+        service, repos = _merge_service([_facilitator(1, "alice")])
+        repos.facilitators.read_by_event_and_slug.return_value = _facilitator(
+            1, "alice"
+        )
+        repos.guilds.set_facilitator_guild.return_value = False
+
+        outcome = service.assign_guild(
+            event_id=1, sphere_id=3, facilitator_slug="alice", guild_pk=7
+        )
+
+        assert outcome is False

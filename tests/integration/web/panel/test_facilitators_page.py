@@ -14,10 +14,13 @@ from ludamus.links.db.django.models import (
     EventPanelSettings,
     Facilitator,
     FacilitatorChangeLog,
+    Guild,
+    GuildMembership,
     PersonalDataField,
     PersonalDataFieldValue,
 )
 from ludamus.pacts import FacilitatorListItemDTO, OrganizerFieldDTO
+from ludamus.pacts.guild import GuildMarkDTO, GuildSummaryDTO
 from tests.integration.conftest import (
     EventFactory,
     ProposalCategoryFactory,
@@ -83,16 +86,22 @@ def _field_dto(field):
     )
 
 
-_DEFAULT_KEYS = ["name", "linked", "sessions", "accreditation", "organizer"]
+_DEFAULT_KEYS = ["name", "linked", "guild", "sessions", "accreditation", "organizer"]
 _BUILTIN_LABELS = {
     "name": "Display Name",
     "linked": "Linked User",
+    "guild": "Guild",
     "sessions": "Sessions",
     "accreditation": "Accreditation",
     "organizer": "Organizer",
 }
+# The guild cell is a mark, so the template draws it and the column
+# contributes no string to column_values.
+_BUILTIN_KINDS = {"guild": "guild"}
 _DEFAULT_COLUMNS = [
-    PanelColumnView(key=key, label=_BUILTIN_LABELS[key], kind="text")
+    PanelColumnView(
+        key=key, label=_BUILTIN_LABELS[key], kind=_BUILTIN_KINDS.get(key, "text")
+    )
     for key in _DEFAULT_KEYS
 ]
 
@@ -135,6 +144,7 @@ def _base_context(event):
             (t.value, ACCREDITATION_TYPE_LABELS[t]) for t in AccreditationType
         ],
         "columns": _DEFAULT_COLUMNS,
+        "guild_options": [],
         "column_values": {},
         "filterable_fields": [],
         "filter_fields": {},
@@ -249,6 +259,118 @@ class TestFacilitatorsPageView:
                 },
                 "facilitators": expected,
                 "column_values": _column_values(expected),
+                "page_obj": PageMatcher(number=1, num_pages=1),
+                "page_sizes": _PAGE_SIZES,
+            },
+        )
+
+    def test_guild_column_marks_only_facilitators_linked_to_a_member(
+        self, panel_client, event
+    ):
+        member = UserFactory()
+        guild = Guild.objects.create(sphere=event.sphere, name="Topory", slug="topory")
+        GuildMembership.objects.create(sphere=event.sphere, guild=guild, member=member)
+        Facilitator.objects.create(
+            event=event, display_name="Hanna", slug="hanna", user=member
+        )
+        # The spreadsheet-import case: no account, so no membership to find.
+        Facilitator.objects.create(
+            event=event, display_name="Imported", slug="imported", user=None
+        )
+        # An account but no guild yet — the row that gets offered the way in, so
+        # this is also what renders the attach popover.
+        joinable = UserFactory()
+        Facilitator.objects.create(
+            event=event, display_name="Jonasz", slug="jonasz", user=joinable
+        )
+
+        response = panel_client.get(self.get_url(event))
+
+        rows = response.context["facilitators"]
+        expected = [
+            FacilitatorListItemDTO(
+                accreditation_type="none",
+                display_name="Hanna",
+                guild=GuildMarkDTO(pk=guild.pk, name="Topory"),
+                pk=rows[0].pk,
+                slug="hanna",
+                user_id=member.pk,
+                session_count=0,
+            ),
+            FacilitatorListItemDTO(
+                accreditation_type="none",
+                display_name="Imported",
+                pk=rows[1].pk,
+                slug="imported",
+                user_id=None,
+                session_count=0,
+            ),
+            FacilitatorListItemDTO(
+                accreditation_type="none",
+                display_name="Jonasz",
+                pk=rows[2].pk,
+                slug="jonasz",
+                user_id=joinable.pk,
+                session_count=0,
+            ),
+        ]
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/facilitators.html",
+            context_data={
+                **_base_context(event),
+                "facilitators": expected,
+                "column_values": _column_values(expected),
+                "guild_options": [
+                    GuildSummaryDTO(
+                        pk=guild.pk, name="Topory", slug="topory", member_count=1
+                    )
+                ],
+                "page_obj": PageMatcher(number=1, num_pages=1),
+                "page_sizes": _PAGE_SIZES,
+            },
+        )
+
+    def test_guild_column_marks_an_accountless_facilitator_by_its_own_guild(
+        self, panel_client, event
+    ):
+        guild = Guild.objects.create(sphere=event.sphere, name="Topory", slug="topory")
+        Facilitator.objects.create(
+            event=event,
+            display_name="Imported",
+            slug="imported",
+            user=None,
+            guild=guild,
+        )
+
+        response = panel_client.get(self.get_url(event))
+
+        rows = response.context["facilitators"]
+        expected = [
+            FacilitatorListItemDTO(
+                accreditation_type="none",
+                display_name="Imported",
+                guild=GuildMarkDTO(pk=guild.pk, name="Topory"),
+                pk=rows[0].pk,
+                slug="imported",
+                user_id=None,
+                session_count=0,
+            )
+        ]
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/facilitators.html",
+            context_data={
+                **_base_context(event),
+                "facilitators": expected,
+                "column_values": _column_values(expected),
+                "guild_options": [
+                    GuildSummaryDTO(
+                        pk=guild.pk, name="Topory", slug="topory", member_count=1
+                    )
+                ],
                 "page_obj": PageMatcher(number=1, num_pages=1),
                 "page_sizes": _PAGE_SIZES,
             },
@@ -1537,6 +1659,112 @@ class TestFacilitatorActions:
         assert foreign.accreditation_type == AccreditationType.STANDARD
 
 
+class TestFacilitatorAssignGuild:
+    @staticmethod
+    def _url(event, facilitator):
+        return reverse(
+            "panel:facilitator-assign-guild",
+            kwargs={"slug": event.slug, "facilitator_slug": facilitator.slug},
+        )
+
+    def test_assigns_an_accountless_facilitator(self, panel_client, event):
+        guild = Guild.objects.create(sphere=event.sphere, name="Topory", slug="topory")
+        facilitator = Facilitator.objects.create(
+            event=event, display_name="Imported", slug="imported", user=None
+        )
+
+        response = panel_client.post(
+            self._url(event, facilitator), {"guild_pk": guild.pk}
+        )
+
+        facilitator.refresh_from_db()
+        assert facilitator.guild_id == guild.pk
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Attached to this guild.")],
+            url=reverse("panel:facilitators", kwargs={"slug": event.slug}),
+        )
+
+    def test_assigns_a_linked_facilitator_via_membership(self, panel_client, event):
+        guild = Guild.objects.create(sphere=event.sphere, name="Topory", slug="topory")
+        member = UserFactory()
+        facilitator = Facilitator.objects.create(
+            event=event, display_name="Hanna", slug="hanna", user=member
+        )
+
+        response = panel_client.post(
+            self._url(event, facilitator), {"guild_pk": guild.pk}
+        )
+
+        facilitator.refresh_from_db()
+        assert facilitator.guild_id is None
+        assert GuildMembership.objects.filter(guild=guild, member=member).exists()
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Attached to this guild.")],
+            url=reverse("panel:facilitators", kwargs={"slug": event.slug}),
+        )
+
+    def test_requires_a_guild(self, panel_client, event):
+        facilitator = Facilitator.objects.create(
+            event=event, display_name="Imported", slug="imported", user=None
+        )
+
+        response = panel_client.post(self._url(event, facilitator), {})
+
+        facilitator.refresh_from_db()
+        assert facilitator.guild_id is None
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.ERROR, "Pick a guild.")],
+            url=reverse("panel:facilitators", kwargs={"slug": event.slug}),
+        )
+
+    def test_refuses_a_guild_from_another_sphere(self, panel_client, event):
+        foreign = Guild.objects.create(
+            sphere=EventFactory().sphere, name="Elsewhere", slug="elsewhere"
+        )
+        facilitator = Facilitator.objects.create(
+            event=event, display_name="Imported", slug="imported", user=None
+        )
+
+        response = panel_client.post(
+            self._url(event, facilitator), {"guild_pk": foreign.pk}
+        )
+
+        facilitator.refresh_from_db()
+        assert facilitator.guild_id is None
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.ERROR, "Guild not found.")],
+            url=reverse("panel:facilitators", kwargs={"slug": event.slug}),
+        )
+
+    def test_refuses_a_facilitator_of_another_event(self, panel_client, sphere, event):
+        guild = Guild.objects.create(sphere=event.sphere, name="Topory", slug="topory")
+        foreign = Facilitator.objects.create(
+            event=EventFactory(sphere=sphere),
+            display_name="Imported",
+            slug="imported",
+            user=None,
+        )
+
+        response = panel_client.post(self._url(event, foreign), {"guild_pk": guild.pk})
+
+        foreign.refresh_from_db()
+        assert foreign.guild_id is None
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.ERROR, "Facilitator not found.")],
+            url=reverse("panel:facilitators", kwargs={"slug": event.slug}),
+        )
+
+
 class TestFacilitatorColumns:
     """Configure which columns show on the list, and in what order."""
 
@@ -1632,8 +1860,6 @@ class TestFacilitatorColumns:
         assert settings.facilitator_columns == [f"field_{field.pk}", "sessions"]
 
     def test_post_rejects_a_selection_with_no_valid_column(self, panel_client, event):
-        # Unticking everything used to save "[]", which reads back as "use the
-        # defaults" — the organizer saw every default column return instead.
         EventPanelSettings.objects.create(event=event, facilitator_columns=["name"])
 
         response = panel_client.post(self._url(event), {"columns": ["bogus"]})
@@ -1653,8 +1879,6 @@ class TestFacilitatorColumns:
         assert settings.facilitator_columns == ["name"]
 
     def test_post_replaces_the_previous_set(self, panel_client, event):
-        # Saving is a replace, not an add: the defaults go when they aren't
-        # among the chosen keys.
         EventPanelSettings.objects.create(
             event=event, facilitator_columns=_DEFAULT_KEYS
         )

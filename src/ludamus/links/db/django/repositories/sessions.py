@@ -23,7 +23,10 @@ from ludamus.links.db.django.repositories.chronology import (
     location_data,
     session_card_stats,
 )
-from ludamus.links.db.django.repositories.storage import save_replacing_files
+from ludamus.links.db.django.repositories.storage import (
+    save_replacing_files,
+    with_original_names,
+)
 from ludamus.links.db.django.users import user_dto
 from ludamus.pacts import (
     OCCUPYING_PARTICIPATION_STATUSES,
@@ -253,7 +256,7 @@ class SessionRepository(SessionRepositoryProtocol, SessionModalRepositoryProtoco
         facilitator_ids: Iterable[int] = (),
         track_ids: Iterable[int] = (),
     ) -> int:
-        session = Session.objects.create(**session_data)
+        session = Session.objects.create(**with_original_names(Session, session_data))
         # add(), not set(): the session is brand new, so there is nothing to
         # diff against — set() would first read back the (empty) relation,
         # which turns bulk imports into a query per created session.

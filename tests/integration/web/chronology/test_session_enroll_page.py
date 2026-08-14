@@ -352,6 +352,32 @@ class TestSessionEnrollPageView:
             user=active_user, session=agenda_item.session
         ).exists()
 
+    def test_post_cancel_after_agenda_item_removed(
+        self, agenda_item, authenticated_client, event, active_user
+    ):
+        session = agenda_item.session
+        SessionParticipation.objects.create(
+            user=active_user,
+            session=session,
+            status=SessionParticipationStatus.CONFIRMED,
+        )
+        AgendaItem.objects.filter(session_id=session.pk).delete()
+
+        response = authenticated_client.post(
+            self._get_url(session.pk, session.event.slug),
+            data={f"user_{active_user.id}": "cancel"},
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, f"Cancelled: {active_user.name}")],
+            url=reverse("web:chronology:event", kwargs={"slug": event.slug}),
+        )
+        assert not SessionParticipation.objects.filter(
+            user=active_user, session=session
+        ).exists()
+
     def test_post_enroll_when_no_enrollment_config(
         self, agenda_item, authenticated_client, event, active_user
     ):

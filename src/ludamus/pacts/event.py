@@ -4,7 +4,25 @@ from typing import Protocol
 
 from pydantic import BaseModel, ConfigDict
 
+from ludamus.pacts.guild import GuildMarkDTO
 from ludamus.pacts.legacy import EventDTO, PanelStatsDTO, TimeSlotDTO
+
+
+class FacilitatorListItemDTO(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    accreditation_type: str
+    deleted_at: datetime | None = None
+    display_name: str
+    # Attached by the panel view, not the ORM. Null means no guild.
+    guild: GuildMarkDTO | None = None
+    organizer_id: int | None = None
+    # Annotated by `list_by_event`; null when nobody took the facilitator on.
+    organizer_name: str | None = None
+    pk: int
+    session_count: int
+    slug: str
+    user_id: int | None
 
 
 class TimeSlotValidationError(StrEnum):

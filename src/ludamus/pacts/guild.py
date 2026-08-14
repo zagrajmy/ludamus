@@ -9,12 +9,16 @@ participant-facing port here.
 A presenter belongs to at most one guild per sphere: the mark rendered beside
 their name on a programme card has to be unambiguous, so `assign_member` moves
 a presenter between guilds rather than accumulating memberships.
+
+The two stores are disjoint. Linked facilitators hold the guild on
+`GuildMembership`. Account-less facilitators hold it on `Facilitator.guild`.
+A row with a user cannot also carry the FK.
 """
 
 from __future__ import annotations
 
 from enum import StrEnum
-from typing import TYPE_CHECKING, Protocol, TypedDict
+from typing import TYPE_CHECKING, Literal, NamedTuple, Protocol, TypedDict
 
 from pydantic import BaseModel, ConfigDict
 
@@ -32,6 +36,11 @@ class AssignMemberOutcome(StrEnum):
     AMBIGUOUS_HANDLE = "ambiguous_handle"
 
 
+class GuildMemberKind(StrEnum):
+    MEMBERSHIP = "membership"
+    FACILITATOR = "facilitator"
+
+
 class DeleteGuildOutcome(StrEnum):
     DELETED = "deleted"
     NOT_FOUND = "not_found"
@@ -45,16 +54,27 @@ class GuildWriteData(TypedDict, total=False):
     logo: UploadedFileProtocol | str
 
 
-class GuildMemberDTO(BaseModel):
+class GuildMembershipMemberDTO(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
+    kind: Literal[GuildMemberKind.MEMBERSHIP] = GuildMemberKind.MEMBERSHIP
     membership_pk: int
-    user_pk: int
     name: str
     full_name: str
-    email: str
-    slug: str
+    email: str | None
     avatar_url: str = ""
+
+
+class GuildFacilitatorMemberDTO(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    kind: Literal[GuildMemberKind.FACILITATOR] = GuildMemberKind.FACILITATOR
+    facilitator_pk: int
+    name: str
+    event_name: str
+
+
+GuildMemberDTO = GuildMembershipMemberDTO | GuildFacilitatorMemberDTO
 
 
 class GuildSummaryDTO(BaseModel):
@@ -76,6 +96,7 @@ class GuildDTO(BaseModel):
     name: str
     slug: str
     logo_url: str = ""
+    logo_original_name: str = ""
     members: list[GuildMemberDTO]
 
 
@@ -93,6 +114,12 @@ class GuildMarkDTO(BaseModel):
     logo_url: str = ""
 
 
+class AssignableFacilitatorRef(NamedTuple):
+    pk: int
+    user_id: int | None
+    guild_id: int | None
+
+
 class GuildRepositoryProtocol(Protocol):
     @staticmethod
     def list_for_sphere(*, sphere_id: int) -> list[GuildSummaryDTO]: ...
@@ -107,7 +134,13 @@ class GuildRepositoryProtocol(Protocol):
     @staticmethod
     def delete(*, sphere_id: int, guild_pk: int) -> bool: ...
     @staticmethod
+    def list_facilitator_names(*, sphere_id: int) -> list[str]: ...
+    @staticmethod
     def find_assignable_users(*, identifier: str) -> list[int]: ...
+    @staticmethod
+    def find_assignable_facilitators(
+        *, sphere_id: int, name: str
+    ) -> list[AssignableFacilitatorRef]: ...
     @staticmethod
     def read_member_guild(
         *, sphere_id: int, user_pk: int
@@ -117,8 +150,20 @@ class GuildRepositoryProtocol(Protocol):
     @staticmethod
     def remove_member(*, sphere_id: int, guild_pk: int, membership_pk: int) -> bool: ...
     @staticmethod
-    def marks_for_users(
-        *, sphere_id: int, user_pks: list[int]
+    def set_facilitator_guild(
+        *, sphere_id: int, facilitator_pk: int, guild_pk: int
+    ) -> bool: ...
+    @staticmethod
+    def clear_facilitator(
+        *, sphere_id: int, guild_pk: int, facilitator_pk: int
+    ) -> bool: ...
+    @staticmethod
+    def marks_for_facilitators(
+        *, sphere_id: int, facilitator_pks: list[int]
+    ) -> dict[int, GuildMarkDTO]: ...
+    @staticmethod
+    def marks_for_sessions(
+        *, sphere_id: int, session_pks: list[int]
     ) -> dict[int, GuildMarkDTO]: ...
 
 
@@ -132,15 +177,25 @@ class GuildServiceProtocol(Protocol):
         self, *, sphere_id: int, guild_pk: int, data: GuildWriteData
     ) -> bool: ...
     def delete(self, *, sphere_id: int, guild_pk: int) -> DeleteGuildOutcome: ...
+    def list_facilitator_names(self, *, sphere_id: int) -> list[str]: ...
     def assign_member(
         self, *, sphere_id: int, guild_pk: int, identifier: str
     ) -> AssignMemberOutcome: ...
     def remove_member(
         self, *, sphere_id: int, guild_pk: int, membership_pk: int
     ) -> bool: ...
-    def marks_for_users(
-        self, *, sphere_id: int, user_pks: list[int]
+    def clear_facilitator(
+        self, *, sphere_id: int, guild_pk: int, facilitator_pk: int
+    ) -> bool: ...
+    def marks_for_facilitators(
+        self, *, sphere_id: int, facilitator_pks: list[int]
     ) -> dict[int, GuildMarkDTO]: ...
-    def mark_for_user(
-        self, *, sphere_id: int, user_pk: int | None
+    def mark_for_facilitator(
+        self, *, sphere_id: int, facilitator_pk: int
+    ) -> GuildMarkDTO | None: ...
+    def marks_for_sessions(
+        self, *, sphere_id: int, session_pks: list[int]
+    ) -> dict[int, GuildMarkDTO]: ...
+    def mark_for_session(
+        self, *, sphere_id: int, session_pk: int
     ) -> GuildMarkDTO | None: ...

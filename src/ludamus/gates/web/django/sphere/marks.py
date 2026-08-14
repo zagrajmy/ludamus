@@ -3,7 +3,10 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
+
     from ludamus.gates.web.django.chronology.event_presentation import SessionData
+    from ludamus.pacts import FacilitatorListItemDTO
     from ludamus.pacts.guild import GuildServiceProtocol
 
 
@@ -13,14 +16,29 @@ def attach_guild_marks(
     guilds: GuildServiceProtocol,
     sphere_id: int,
 ) -> None:
-    # One query for the whole page: the mark hangs off the presenter's guild
-    # membership, so a per-card lookup would be an N+1. Presenter-less sessions
-    # carry pk 0 and are skipped, so a page of them costs no query at all.
-    presenter_pks = [
-        data.presenter.pk for data in sessions_data.values() if data.presenter.pk
-    ]
-    if not presenter_pks:
+    # One query for the whole page: the mark hangs off the person on the
+    # card, so a per-card lookup would be an N+1.
+    if not sessions_data:
         return
-    marks = guilds.marks_for_users(sphere_id=sphere_id, user_pks=presenter_pks)
-    for data in sessions_data.values():
-        data.guild = marks.get(data.presenter.pk)
+    marks = guilds.marks_for_sessions(
+        sphere_id=sphere_id, session_pks=list(sessions_data)
+    )
+    for session_pk, data in sessions_data.items():
+        data.guild = marks.get(session_pk)
+
+
+def attach_facilitator_guild_marks(
+    facilitators: Sequence[FacilitatorListItemDTO],
+    *,
+    guilds: GuildServiceProtocol,
+    sphere_id: int,
+) -> None:
+    # Same one-query-per-page shape as the card version above.
+    if not facilitators:
+        return
+    marks = guilds.marks_for_facilitators(
+        sphere_id=sphere_id,
+        facilitator_pks=[facilitator.pk for facilitator in facilitators],
+    )
+    for facilitator in facilitators:
+        facilitator.guild = marks.get(facilitator.pk)

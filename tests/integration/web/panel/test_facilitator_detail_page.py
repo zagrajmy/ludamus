@@ -7,6 +7,8 @@ from unittest.mock import ANY
 from django.urls import reverse
 
 from ludamus.links.db.django.models import (
+    Guild,
+    GuildMembership,
     PersonalDataField,
     PersonalDataFieldValue,
     ProposalCategory,
@@ -19,6 +21,7 @@ from ludamus.pacts import (
     SessionStatus,
 )
 from ludamus.pacts.crowd import UserDTO
+from ludamus.pacts.guild import GuildMarkDTO
 from tests.integration.conftest import UserFactory
 from tests.integration.utils import assert_login_required, assert_response
 from tests.integration.web.panel.helpers import (
@@ -85,6 +88,7 @@ class TestFacilitatorDetailPageView:
                 **panel_context(event, active_nav="facilitators"),
                 **_detail_tabs(event, facilitator.slug),
                 "facilitator": FacilitatorDTO.model_validate(facilitator),
+                "guild": None,
                 "linked_user": None,
                 "accreditation_type_display": "None",
                 "personal_data_items": [],
@@ -107,6 +111,7 @@ class TestFacilitatorDetailPageView:
                 **panel_context(event, active_nav="facilitators"),
                 **_detail_tabs(event, facilitator.slug),
                 "facilitator": FacilitatorDTO.model_validate(facilitator),
+                "guild": None,
                 "linked_user": None,
                 "accreditation_type_display": "None",
                 "personal_data_items": [],
@@ -151,6 +156,7 @@ class TestFacilitatorDetailPageView:
                     "total_sessions": 1,
                 },
                 "facilitator": FacilitatorDTO.model_validate(facilitator),
+                "guild": None,
                 "linked_user": None,
                 "accreditation_type_display": "None",
                 "personal_data_items": [],
@@ -199,6 +205,7 @@ class TestFacilitatorDetailPageView:
                 **panel_context(event, active_nav="facilitators"),
                 **_detail_tabs(event, facilitator.slug),
                 "facilitator": FacilitatorDTO.model_validate(facilitator),
+                "guild": None,
                 "linked_user": None,
                 "accreditation_type_display": "None",
                 "personal_data_items": [],
@@ -232,6 +239,7 @@ class TestFacilitatorDetailPageView:
                 **panel_context(event, active_nav="facilitators"),
                 **_detail_tabs(event, facilitator.slug),
                 "facilitator": FacilitatorDTO.model_validate(facilitator),
+                "guild": None,
                 "linked_user": UserDTO.model_validate(linked),
                 "accreditation_type_display": "None",
                 "personal_data_items": [],
@@ -239,6 +247,56 @@ class TestFacilitatorDetailPageView:
                 "sessions": [],
             },
             contains=["Bob Builder", "bob@example.com"],
+        )
+
+    def test_get_shows_the_guild_of_a_linked_member(self, panel_client, event):
+        linked = UserFactory(name="Bob Builder", email="bob@example.com")
+        guild = Guild.objects.create(sphere=event.sphere, name="Topory", slug="topory")
+        GuildMembership.objects.create(sphere=event.sphere, guild=guild, member=linked)
+        facilitator = make_facilitator(event, user=linked)
+
+        response = panel_client.get(self.get_url(event))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/facilitator-detail.html",
+            context_data={
+                **panel_context(event, active_nav="facilitators"),
+                **_detail_tabs(event, facilitator.slug),
+                "facilitator": FacilitatorDTO.model_validate(facilitator),
+                "guild": GuildMarkDTO(pk=guild.pk, name="Topory"),
+                "linked_user": UserDTO.model_validate(linked),
+                "accreditation_type_display": "None",
+                "personal_data_items": [],
+                "has_personal_data": False,
+                "sessions": [],
+            },
+        )
+
+    def test_get_shows_the_guild_of_an_accountless_facilitator(
+        self, panel_client, event
+    ):
+        guild = Guild.objects.create(sphere=event.sphere, name="Topory", slug="topory")
+        facilitator = make_facilitator(event, guild=guild)
+
+        response = panel_client.get(self.get_url(event))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/facilitator-detail.html",
+            context_data={
+                **panel_context(event, active_nav="facilitators"),
+                **_detail_tabs(event, facilitator.slug),
+                "facilitator": FacilitatorDTO.model_validate(facilitator),
+                "guild": GuildMarkDTO(pk=guild.pk, name="Topory"),
+                "linked_user": None,
+                "accreditation_type_display": "None",
+                "personal_data_items": [],
+                "has_personal_data": False,
+                "sessions": [],
+            },
         )
 
     def test_get_shows_the_organizer(self, panel_client, event):
@@ -259,6 +317,7 @@ class TestFacilitatorDetailPageView:
                         update={"organizer_name": "Olga Organizer"}
                     )
                 ),
+                "guild": None,
                 "linked_user": None,
                 "accreditation_type_display": "None",
                 "personal_data_items": [],
@@ -283,6 +342,7 @@ class TestFacilitatorDetailPageView:
                 **panel_context(event, active_nav="facilitators"),
                 **_detail_tabs(event, facilitator.slug),
                 "facilitator": FacilitatorDTO.model_validate(facilitator),
+                "guild": None,
                 "linked_user": None,
                 "accreditation_type_display": "None",
                 "personal_data_items": [],
@@ -331,6 +391,7 @@ class TestFacilitatorDetailPageView:
                 **panel_context(event, active_nav="facilitators"),
                 **_detail_tabs(event, facilitator.slug),
                 "facilitator": FacilitatorDTO.model_validate(facilitator),
+                "guild": None,
                 "linked_user": None,
                 "accreditation_type_display": "None",
                 "personal_data_items": [],
@@ -352,6 +413,7 @@ class TestFacilitatorDetailPageView:
                 **panel_context(event, active_nav="facilitators"),
                 **_detail_tabs(event, facilitator.slug),
                 "facilitator": FacilitatorDTO.model_validate(facilitator),
+                "guild": None,
                 "linked_user": None,
                 "accreditation_type_display": "Honorary",
                 "personal_data_items": [],
@@ -383,6 +445,7 @@ class TestFacilitatorDetailPageView:
                 **panel_context(event, active_nav="facilitators"),
                 **_detail_tabs(event, facilitator.slug),
                 "facilitator": FacilitatorDTO.model_validate(facilitator),
+                "guild": None,
                 "linked_user": None,
                 "accreditation_type_display": "None",
                 "personal_data_items": [(field_dto, None)],

@@ -57,6 +57,7 @@ def render_input(field: BoundField) -> str:
             ),
             "pattern": attrs.get("pattern", ""),
             "autocomplete": attrs.get("autocomplete", ""),
+            "datalist_id": attrs.get("list", ""),
             "spellcheck": spellcheck or "",
             "has_errors": bool(field.errors),
         },

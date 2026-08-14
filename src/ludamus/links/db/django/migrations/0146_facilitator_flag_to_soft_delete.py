@@ -30,7 +30,10 @@ def deleted_at_to_flag(apps, schema_editor):
 
 class Migration(migrations.Migration):
 
-    dependencies = [("db_main", "0143_facilitator_deleted_at")]
+    dependencies = [
+        ("db_main", "0143_facilitator_deleted_at"),
+        ("db_main", "0145_original_filenames"),
+    ]
 
     operations = [
         migrations.RunPython(flag_to_deleted_at, deleted_at_to_flag),

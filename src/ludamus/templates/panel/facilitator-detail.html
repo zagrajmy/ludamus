@@ -76,6 +76,20 @@
                                     </dd>
                                 </div>
                                 <div>
+                                    <dt class="text-xs text-foreground-muted">{% translate "Guild" %}</dt>
+                                    <dd class="text-foreground">
+                                        {% if guild %}
+                                            <a href="{% url 'multiverse:panel:guild-edit' pk=guild.pk %}"
+                                               class="inline-flex items-center gap-1.5 text-primary hover:text-primary/80">
+                                                {% include "components/guild_mark.html" with guild=guild size="size-5" %}
+                                                {{ guild.name }}
+                                            </a>
+                                        {% else %}
+                                            <span class="text-foreground-muted">—</span>
+                                        {% endif %}
+                                    </dd>
+                                </div>
+                                <div>
                                     <dt class="text-xs text-foreground-muted">{% translate "Organizer" %}</dt>
                                     <dd class="text-foreground">
                                         {% if facilitator.organizer_name %}
