@@ -27,15 +27,10 @@ REMOTE = "https-origin"
 # its log shape rather than its terminal one — no colour, no cursor tricks.
 # Held apart from the names above because those are what the prompts say and
 # what you would type yourself; nobody needs to read the prefix.
-# It is not only the rendering, and the rest is worth knowing before you read a
-# gate's answer as the answer you would have got yourself. `tests/e2e` reads the
-# same variable in five places: a failure is retried twice before it counts, so
-# green here means green within three tries; workers are pinned to two rather
-# than half the cores, so the e2e half of `COVERAGE` is slower; the reporter
-# becomes GitHub's; `test.only` is refused; and Playwright will not attach to a
-# server already on the port, which holds only because `COVERAGE` kills one
-# first. `global-teardown.ts` reads it too, and turns an empty client-coverage
-# report from a shrug into a failure.
+# It changes more than the rendering, and that is worth knowing before a gate's
+# answer is read as the answer you would have got yourself: under `tests/e2e` it
+# retries a failure twice before it counts, pins the workers, refuses
+# `test.only`, and turns an empty client-coverage report into a failure.
 def plain(task: str) -> str:
     return f"CI=1 {task}"
 
@@ -92,12 +87,12 @@ def quoted(value: str) -> str:
     return shlex.quote(value)
 
 
-# What the tree is carrying that git has not been told about, in the one shape a
-# step can put an `if` around: empty output is a clean worktree.
+# Porcelain because a step puts an `if` around it: empty output is a clean
+# worktree.
 STATUS = "git status --porcelain"
 
-# Which branch the worktree stands on, which is not always the branch a step is
-# working on.
+# Where the worktree stands, which is not always the branch a step is working
+# on.
 HERE = "git rev-parse --abbrev-ref HEAD"
 
 

@@ -43,8 +43,6 @@ class TestListPrs:
         assert transition == goto(next_pr, Run(bound=3, queue=[pull, fresher]))
         assert trial.shell.commands == [LIST]
 
-    # Parked, not deferred: it never enters the queue, so it is not reported as
-    # "not reached" either.
     def test_a_branch_labelled_to_wait_is_dropped_before_the_queue(
         self, trial: Trial, pull: PullRequest
     ) -> None:
@@ -92,8 +90,6 @@ class TestNextPr:
     def test_a_pull_request_is_taken_off_the_queue_with_no_budget_carried(
         self, trial: Trial, pull: PullRequest
     ) -> None:
-        # The budgets belong to the branch that spent them, and this is the
-        # only place a branch changes.
         run = Run(bound=3, queue=[pull])
 
         transition = trial.walk(next_pr, run)
@@ -118,8 +114,6 @@ class TestCheckClean:
         assert transition == goto(sync_branch, work)
         assert trial.shell.commands == [_STATUS]
 
-    # Fatal by design: everything past this step moves branches around, and
-    # doing that over uncommitted work is how it gets lost.
     def test_a_dirty_worktree_ends_the_whole_run(
         self, trial: Trial, work: Work
     ) -> None:
@@ -165,9 +159,6 @@ class TestSyncBranch:
         assert isinstance(transition.payload, Run)
         assert transition.payload.stopped == "could not update main: network down"
 
-    # `merge --ff-only`, never `reset --hard`: a branch this ritual worked on
-    # last night carries commits the remote has not seen. A diverged branch is
-    # set aside rather than flattened.
     def test_a_branch_that_has_diverged_is_set_aside(
         self, trial: Trial, work: Work
     ) -> None:
@@ -207,8 +198,6 @@ class TestMergeBase:
             resolve_conflicts, work.model_copy(update={"merging": True})
         )
 
-    # A merge fails for reasons no agent can fix — a stale index lock, a
-    # missing ref — and those are not conflicts.
     def test_a_merge_that_failed_without_conflicts_is_set_aside(
         self, trial: Trial, work: Work
     ) -> None:
@@ -245,8 +234,6 @@ class TestResolveConflicts:
         # lives on the cast, not on one step.
         assert trial.coding.calls[0].resume is None
 
-    # The index decides, not the agent: an empty diff-filter=U is the whole
-    # answer, however confidently the agent reported success.
     def test_an_empty_index_moves_on_and_hands_the_budget_back(
         self, trial: Trial, work: Work
     ) -> None:
@@ -258,8 +245,6 @@ class TestResolveConflicts:
         assert transition == goto(gate_check, work)
         assert not trial.coding.prompts
 
-    # The merge is abandoned, not the pull request: the branch goes back to
-    # where it stood and is read there.
     def test_a_spent_budget_stands_the_branch_down_without_asking_again(
         self, trial: Trial, work: Work
     ) -> None:

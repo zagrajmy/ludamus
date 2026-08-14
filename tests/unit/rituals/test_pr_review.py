@@ -118,8 +118,6 @@ class TestPick:
         # first, and an open thread on it is where the looking stops.
         assert unsettled(_NUMBERS["older"]) not in trial.shell.commands
 
-    # Somebody else's terminal is on the other one, and neither cast has to know
-    # that to leave it alone.
     def test_a_branch_you_are_not_on_is_taken_oldest_first(self, trial: Trial) -> None:
         trial.shell.replies(when=STATUS)
         trial.shell.replies(when=LIST, stdout=_listing("older", "feature"))
@@ -142,8 +140,6 @@ class TestPick:
 
         assert transition == done(Shipped(outcome="nothing"))
 
-    # No review posted on it, so there is nothing here to answer. The night is
-    # what puts that label on.
     def test_an_unreviewed_pull_request_is_not_taken(self, trial: Trial) -> None:
         trial.shell.replies(when=STATUS)
         trial.shell.replies(when=LIST, stdout=json.dumps([]))
@@ -153,7 +149,6 @@ class TestPick:
 
         assert transition == done(Shipped(outcome="nothing"))
 
-    # Answered in full by an earlier cast, and the label is what says so.
     def test_a_pull_request_already_labelled_for_qa_is_not_taken(
         self, trial: Trial
     ) -> None:
@@ -166,8 +161,7 @@ class TestPick:
         assert transition == done(Shipped(outcome="nothing"))
         assert unsettled(_NUMBERS["feature"]) not in trial.shell.commands
 
-    # The label is how a branch is parked, and an open thread on it does not
-    # un-park it.
+    # An open thread on a parked branch does not un-park it.
     def test_a_waiting_pull_request_is_left_alone(self, trial: Trial) -> None:
         trial.shell.replies(when=STATUS)
         trial.shell.replies(when=LIST, stdout=_listing("feature", waiting="feature"))
@@ -178,7 +172,6 @@ class TestPick:
         assert transition == done(Shipped(outcome="nothing"))
         assert unsettled(7) not in trial.shell.commands
 
-    # This cast ends in a commit and a push on whatever branch it takes.
     def test_main_is_never_taken(self, trial: Trial) -> None:
         trial.shell.replies(when=STATUS)
         trial.shell.replies(when=LIST, stdout=_listing("main"))
@@ -188,9 +181,6 @@ class TestPick:
 
         assert transition == done(Shipped(outcome="nothing"))
 
-    # A count nobody could take is not a branch with nothing to do, nor one to
-    # check out on a guess. It is not silence either: "no review waiting" is a
-    # guess unless it names the branches it could not read.
     def test_a_count_gh_will_not_give_skips_the_branch_and_is_said_out_loud(
         self, trial: Trial
     ) -> None:
@@ -207,7 +197,6 @@ class TestPick:
             "no pull request of yours has a review waiting",
         ]
 
-    # Every count came back, so the ending stands on its own.
     def test_counts_that_all_came_back_say_nothing_extra(self, trial: Trial) -> None:
         trial.shell.replies(when=STATUS)
         trial.shell.replies(when=LIST, stdout=_listing("feature"))
@@ -218,8 +207,6 @@ class TestPick:
 
         assert trial.deltas == ["no pull request of yours has a review waiting"]
 
-    # Everything past here moves a branch under you and commits what it finds,
-    # so work left in the tree is work that would end up on it.
     def test_a_dirty_worktree_fails_the_cast(self, trial: Trial) -> None:
         trial.shell.replies(when=STATUS, stdout=" M src/thing.py\n")
 
@@ -257,8 +244,6 @@ class TestPick:
 
 
 class TestLook:
-    # The reading happens after the checkout: an item is triaged against this
-    # branch's code, and until then that was somebody else's.
     def test_the_reading_runs_on_the_branch_and_its_items_go_on(
         self, trial: Trial, branch: Branch
     ) -> None:
@@ -271,8 +256,6 @@ class TestLook:
         assert transition == goto(plan, Triage(branch=branch, items=[_ITEM]))
         assert trial.shell.commands == [checkout("feature")]
 
-    # The one constrained agent call in either ritual: it is handed text a
-    # stranger wrote, so the allowlist enforces read-only, not the prompt.
     def test_the_reading_agent_is_bound_by_an_allowlist(
         self, trial: Trial, branch: Branch
     ) -> None:
@@ -288,9 +271,6 @@ class TestLook:
             effort="high",
         )
 
-    # Asked before anything moves: `pick` reaches a branch you are not on
-    # exactly when yours had nothing waiting, so a `no` after the checkout would
-    # leave you on a branch you never asked for.
     def test_saying_no_ends_the_cast_where_you_were_standing(
         self, trial: Trial, branch: Branch
     ) -> None:
@@ -303,8 +283,6 @@ class TestLook:
         assert not trial.coding.prompts
         assert not trial.shell.commands
 
-    # `pick` only got here on an unsettled thread, so this is the reading
-    # disagreeing with gh — and nothing is committed on that.
     def test_a_reading_that_finds_nothing_ends_the_cast(
         self, trial: Trial, branch: Branch
     ) -> None:
@@ -339,8 +317,6 @@ class TestLook:
 
 
 class TestPlan:
-    # What you say about an item rides down with that item's own thread, so the
-    # round answering it is not matching your words to a thread by eye.
     def test_every_item_is_asked_about_and_carries_your_answer(
         self, trial: Trial, branch: Branch
     ) -> None:
@@ -354,8 +330,6 @@ class TestPlan:
         assert "thread: PRRT_1\n   what I want: it guards the empty case" in prompt
         assert "thread: PRRT_2\n   what I want: not worth an issue, reject it" in prompt
 
-    # The reading already proposed something, and saying nothing is agreeing
-    # with it.
     def test_saying_nothing_takes_the_readings_own_proposal(
         self, trial: Trial, branch: Branch
     ) -> None:
@@ -391,8 +365,6 @@ class TestWork:
         assert transition == goto(hand_back, branch)
         assert trial.coding.prompts == ["the triage: fix p1"]
 
-    # The agent is mid-thread by then, and repeating the standing instructions
-    # would argue with what it was just told.
     def test_a_later_round_is_the_instruction_alone(
         self, trial: Trial, branch: Branch
     ) -> None:
@@ -434,9 +406,6 @@ class TestHandBack:
             work, Instructed(branch=branch, prompt="drop the helper")
         )
 
-    # An empty line here means nothing more to fix. Forwarded, it would be an
-    # empty instruction to an agent that writes code — a round of unpredictable
-    # edits bought with a stray return.
     def test_saying_nothing_ships_rather_than_asking_the_agent(
         self, trial: Trial, branch: Branch
     ) -> None:
@@ -471,8 +440,6 @@ class TestGates:
         assert transition == goto(gates, Landing(branch=branch, tries=1))
         assert "E501 too long" in trial.coding.prompts[0]
 
-    # diff-cover runs without --fail-under, so this one exits 0 and says it in
-    # the report instead.
     def test_missing_lines_are_covered_though_the_gate_exits_zero(
         self, trial: Trial, branch: Branch
     ) -> None:
@@ -534,8 +501,6 @@ class TestLand:
 
 
 class TestSettle:
-    # The label is a claim about the threads, so it is asked of gh rather than
-    # assumed off the round that said it settled them.
     def test_a_branch_with_nothing_left_open_earns_the_label(
         self, trial: Trial, branch: Branch
     ) -> None:
@@ -547,8 +512,6 @@ class TestSettle:
         assert transition == done(Shipped(outcome="shipped", branch="feature"))
         assert f"gh pr edit 7 --add-label {QA_LABEL}" in trial.shell.commands
 
-    # Shipped either way — the work is committed and up by now — and what is
-    # left over is said out loud rather than labelled over.
     def test_threads_left_open_are_reported_and_not_labelled(
         self, trial: Trial, branch: Branch
     ) -> None:

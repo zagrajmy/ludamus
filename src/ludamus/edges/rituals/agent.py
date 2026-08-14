@@ -82,8 +82,7 @@ The report:
 
 """
 
-# Named for the thing it settles, because `_RESOLVE` above is the merge-conflict
-# prompt. Held apart from the prompts to keep its braces out of an f-string.
+# Held apart from the prompts to keep its braces out of an f-string.
 _RESOLVE_THREAD = """\
 gh api graphql -f query='mutation($id: ID!) {
   resolveReviewThread(input: {threadId: $id}) { thread { isResolved } } }' \\

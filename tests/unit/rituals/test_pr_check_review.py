@@ -29,8 +29,6 @@ class TestQualityReview:
         assert "thermo-nuclear code quality review" in trial.coding.prompts[0]
         assert "main...HEAD" in trial.coding.prompts[0]
 
-    # A branch nobody could build is reviewed all the same, and the row says
-    # which of the two it was.
     def test_a_blocked_branch_ends_the_night_blocked(
         self, trial: Trial, work: Work
     ) -> None:
@@ -43,8 +41,6 @@ class TestQualityReview:
 
         assert transition == goto(finish_pr, Closed(work=stood, outcome="blocked"))
 
-    # The label is the only thing standing between a branch and another review,
-    # and an earlier night's review is not this night's work to label.
     def test_a_branch_already_labelled_is_not_reviewed_again(
         self, trial: Trial, work: Work
     ) -> None:

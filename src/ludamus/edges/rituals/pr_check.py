@@ -287,9 +287,8 @@ async def cover(work: Work) -> Transition:
     said_now = verdict(measured)
     # Two different jobs down one budget, because they are the same step going
     # round: lines this branch left uncovered are written up as tests, and a
-    # suite that will not pass at all is repaired like any other red gate. The
-    # second used to end the branch here — a red suite names no missing lines,
-    # so it was read as the coverage tool failing rather than the branch.
+    # suite that will not pass at all is repaired like any other red gate — it
+    # names no missing lines, which is not the coverage tool failing.
     # Which of the two this is decides four things, so it is asked once here and
     # the branches below read straight. Only a red suite is worth remembering
     # across the night: what lines a branch left uncovered is that branch's own

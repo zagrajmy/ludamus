@@ -58,7 +58,6 @@ class TestGateCheck:
         transition = trial.walk(gate_check, spent)
 
         assert transition == goto(finish_merge, work)
-        # `CI=1`, so what comes back is a log rather than a terminal recording.
         assert trial.shell.commands == [plain(PR_FIX)]
 
     def test_a_red_gate_hands_both_streams_to_the_agent(
@@ -77,18 +76,11 @@ class TestGateCheck:
         assert transition == goto(
             gate_check, work.model_copy(update={"budgets": {"gate_check": 1}})
         )
-        # A task that dies before it starts complains on stderr and nowhere
-        # else, so both streams reach the repair agent.
         assert "E501 line too long\n1 failed" in trial.coding.prompts[0]
         assert "do not disable a lint rule" in trial.coding.prompts[0]
-        # The step runs the sweep itself the moment the agent stops, so the
-        # agent is left the narrow loop instead.
         assert "Do not run the whole-repository sweeps" in trial.coding.prompts[0]
         assert "one linter" in trial.coding.prompts[0]
 
-    # It stands down rather than stopping: a branch that will not go green is
-    # still a branch to review, and the verdict rides along so the morning is
-    # told what was red without being handed the whole log.
     def test_a_spent_budget_stands_the_branch_down_without_asking_again(
         self, trial: Trial, work: Work
     ) -> None:
@@ -108,8 +100,6 @@ class TestGateCheck:
         )
         assert not trial.coding.prompts
 
-    # Timings and tallies move between branches; the failing test does not. A
-    # night where one thing is broken everywhere pays for that answer once.
     def test_a_failure_this_run_gave_up_on_is_not_repaired_again(
         self, trial: Trial, work: Work
     ) -> None:
@@ -126,9 +116,6 @@ class TestGateCheck:
         )
         assert not trial.coding.prompts
 
-    # Asked before the first repair and not after, or a branch whose gate says
-    # the same thing twice running would be read as the night's standing
-    # failure and dropped mid-loop.
     def test_a_repair_that_changed_nothing_still_gets_its_budget(
         self, trial: Trial, work: Work
     ) -> None:
@@ -185,9 +172,6 @@ class TestFinishMerge:
 
 
 class TestCover:
-    # Read off the report's own word and not the exit code, which does not carry
-    # this: the task runs `diff-cover` with no `--fail-under`, so a run that
-    # names missing lines still ends 0.
     def test_missing_lines_reach_the_agent(self, trial: Trial, work: Work) -> None:
         trial.shell.replies(when=plain(COVERAGE), stdout=_MISSING)
         trial.coding.replies("wrote the tests")
@@ -201,9 +185,8 @@ class TestCover:
         assert "Do not run the whole-repository sweeps" in trial.coding.prompts[0]
         assert trial.shell.commands == [plain(COVERAGE)]
 
-    # This is what let a red suite through: it names no missing lines, so it was
-    # read as the coverage tool failing rather than the branch, and the pull
-    # request was dropped instead of repaired.
+    # A red suite names no missing lines, which is not the coverage tool
+    # falling over.
     def test_a_red_suite_is_repaired_like_any_other_gate(
         self, trial: Trial, work: Work
     ) -> None:
@@ -238,9 +221,6 @@ class TestCover:
         )
         assert not trial.coding.prompts
 
-    # The whole listing is the work list. A tail of it is an agent asked to
-    # cover lines it was never shown, and then another full unit and e2e run to
-    # reveal the next few.
     def test_every_file_reaches_the_agent_out_from_under_the_suite(
         self, trial: Trial, work: Work
     ) -> None:
@@ -265,8 +245,8 @@ class TestCover:
         assert listing in trial.coding.prompts[0]
         assert "tests/test_0.py PASSED" not in trial.coding.prompts[0]
 
-    # diff-cover's summary block says "Missing: 0 lines" on a clean report too,
-    # so the bare word would send every green run round the loop again.
+    # The summary block says "Missing: 0 lines" here, which the bare word would
+    # match.
     def test_a_clean_report_is_not_read_as_missing_lines(
         self, trial: Trial, work: Work
     ) -> None:
@@ -284,7 +264,6 @@ class TestCover:
 
         transition = trial.walk(cover, work)
 
-        # A commit rite that can never commit anything is noise in the tree.
         assert transition == goto(push_work, work)
         assert trial.shell.commands == [plain(COVERAGE)]
 
@@ -311,9 +290,7 @@ class TestCover:
         assert transition == goto(
             stand_down,
             spent.model_copy(
-                # No `seen`: what lines a branch left uncovered is that branch's
-                # own business, and two of them missing lines in the same file
-                # would look like one standing failure from here.
+                # No `seen`: uncovered lines are that branch's own business.
                 update={
                     "reason": f"`{COVERAGE}` still reports missing lines:\n{_MISSING}"
                 }
@@ -321,8 +298,6 @@ class TestCover:
         )
         assert not trial.coding.prompts
 
-    # The tool falling over rather than the branch — no report at all, so the
-    # trimmed log is what there is to hand on.
     def test_a_run_that_printed_no_report_is_still_repaired(
         self, trial: Trial, work: Work
     ) -> None:
@@ -350,8 +325,6 @@ class TestPushWork:
         assert transition == goto(quality_review, work)
         assert trial.shell.commands == [_PUSH]
 
-    # Not fatal and not `set_aside`: a push that will not go through costs the
-    # review its anchors and nothing else. The branch is still worth reading.
     def test_a_push_that_will_not_go_through_is_carried_into_the_review(
         self, trial: Trial, work: Work
     ) -> None:
@@ -364,8 +337,6 @@ class TestPushWork:
             work.model_copy(update={"note": "could not push: the remote hung up"}),
         )
 
-    # A branch that stood down arrives carrying its stash, and the push's own
-    # complaint must not be written over it.
     def test_a_note_already_on_the_branch_keeps_its_half(
         self, trial: Trial, work: Work
     ) -> None:
