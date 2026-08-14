@@ -113,7 +113,8 @@ has the per-file recipe. New code must use `request.services`; never extend the
 
 ## Translation conventions (Polish)
 
-- `django.po` conflict? `mise run messages-resolve`, never hand-edit.
+- `django.po` conflict? `mise run messages-resolve`; hand-fix only what it
+  flags.
 
 - **session** → "punkt programu" (except in "RPG session" → "sesja RPG")
 - **track** → "blok" or "blok programowy"

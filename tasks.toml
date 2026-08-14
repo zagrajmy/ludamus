@@ -37,12 +37,14 @@ rm -rf "$sides"
 aubr varlock django-admin makemessages -l pl --add-location=file
 sed -i.bak '/^"POT-Creation-Date:/d' "$po"
 rm -f "$po.bak"
-conflicts="$(msgattrib --only-fuzzy --no-obsolete "$po" | grep '^msgid "' | grep -v '^msgid ""' || true)"
-if [ -n "$conflicts" ]; then
-  echo "Both branches translated these entries differently. Keep one variant" >&2
+# Detect via msgfmt statistics, not by grepping msgid lines — a wrapped
+# msgid starts with the same 'msgid ""' as the header and a grep filter
+# would miss it. A fuzzy header doesn't count as a fuzzy translation here.
+if msgfmt --statistics -o /dev/null "$po" 2>&1 | grep -q fuzzy; then
+  echo "Both branches translated some entries differently. Keep one variant" >&2
   echo "per entry, delete the #-#-#-#-# marker lines and the '#, fuzzy' flag," >&2
   echo "then 'git add $po':" >&2
-  printf '%s\n' "$conflicts" >&2
+  msgattrib --only-fuzzy --no-obsolete --no-location "$po" >&2
   exit 1
 fi
 git add "$po"
