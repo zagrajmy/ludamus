@@ -147,10 +147,10 @@ class TestSyncBranch:
         assert transition == goto(merge_base, work)
         assert trial.shell.commands == [
             (
-                "git fetch --prune origin && git checkout main && "
-                "git pull --ff-only origin main"
+                "git fetch --prune https-origin && git checkout main && "
+                "git pull --ff-only https-origin main"
             ),
-            "git checkout feature && git merge --ff-only origin/feature",
+            "git checkout feature && git merge --ff-only https-origin/feature",
         ]
 
     def test_a_base_that_will_not_update_ends_the_whole_run(
@@ -166,7 +166,7 @@ class TestSyncBranch:
         assert transition.payload.stopped == "could not update main: network down"
 
     # `merge --ff-only`, never `reset --hard`: a branch this ritual worked on
-    # last night carries commits origin has not seen. A diverged branch is set
+    # last night carries commits the remote has not seen. A diverged branch is set
     # aside rather than flattened.
     def test_a_branch_that_has_diverged_is_set_aside(
         self, trial: Trial, work: Work

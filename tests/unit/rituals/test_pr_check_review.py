@@ -10,7 +10,6 @@ from ludamus.edges.rituals.pr_check import (
     mark_qa,
     quality_review,
     read_comments,
-    report,
     set_aside,
     write_triage,
 )
@@ -21,23 +20,12 @@ from ludamus.edges.rituals.shell import (
     TRIAGE_TITLE,
     triage_comment,
 )
-from ludamus.edges.rituals.state import (
-    Closed,
-    Run,
-    Triaged,
-    TriageItem,
-    TriageNotes,
-    Work,
-)
+from ludamus.edges.rituals.state import Closed, Triaged, TriageItem, TriageNotes, Work
 
 if TYPE_CHECKING:
     from vekna.trial import Trial
 
 _LABELS = "gh pr view 7 --json labels"
-_QA_COMMIT = (
-    "git add -A && (git diff --cached --quiet || "
-    "git commit -m 'docs: manual test scenarios for this branch')"
-)
 _READ_TRIAGE = triage_comment(7)
 # The command as it is answered, rather than as it is run: `when` is a glob, and
 # the jq in it is full of brackets a glob reads as a character class.
@@ -178,52 +166,33 @@ class TestReadComments:
 
 
 class TestMarkQa:
-    def test_the_file_is_checked_for_before_the_label_goes_on(
+    # One call and no agent: the label is the whole of what a clean branch earns.
+    def test_a_clean_branch_is_labelled_and_finished(
         self, trial: Trial, work: Work
     ) -> None:
-        trial.coding.replies("wrote qa.md")
-        trial.shell.replies(when="test -f qa.md")
-        trial.shell.replies(when="git add -A*")
         trial.shell.replies(when="gh pr edit*")
 
         transition = trial.walk(mark_qa, work)
 
         assert transition == goto(finish_pr, Closed(work=work, outcome="qa"))
-        assert trial.shell.commands == [
-            "test -f qa.md",
-            _QA_COMMIT,
-            f"gh pr edit 7 --add-label {QA_LABEL}",
-        ]
+        assert trial.shell.commands == [f"gh pr edit 7 --add-label {QA_LABEL}"]
+        assert not trial.coding.prompts
 
-    # A green commit does not prove the file exists: `commit` is content with an
-    # empty diff by design, so the label would otherwise promise nothing.
-    def test_a_missing_file_sets_the_branch_aside_unlabelled(
+    # The label is what the morning reads to pick something to test, so a branch
+    # that could not be labelled is not one to report as ready.
+    def test_a_label_that_will_not_go_on_sets_the_branch_aside(
         self, trial: Trial, work: Work
     ) -> None:
-        trial.coding.replies("all done")
-        trial.shell.replies(when="test -f qa.md", exit_code=1)
+        trial.shell.replies(when="gh pr edit*", exit_code=1, stderr="gh is unhappy")
 
         transition = trial.walk(mark_qa, work)
 
         assert transition == goto(
-            set_aside, work.model_copy(update={"note": "the agent wrote no qa.md"})
+            set_aside,
+            work.model_copy(
+                update={"note": f"could not add the {QA_LABEL} label: gh is unhappy"}
+            ),
         )
-        assert trial.shell.commands == ["test -f qa.md"]
-
-    # An agent that dies mid-flight — a spent token budget, a killed CLI — ends
-    # the run, and the unscripted call is that failure's shape here.
-    def test_an_agent_that_dies_ends_the_run_by_way_of_the_report(
-        self, trial: Trial, work: Work
-    ) -> None:
-        transition = trial.walk(mark_qa, work)
-
-        assert isinstance(transition, Goto)
-        assert transition.target is report
-        assert isinstance(transition.payload, Run)
-        assert transition.payload.stopped.startswith("the agent stopped mid-flight")
-        assert [row.note for row in transition.payload.checked] == [
-            f"left mid-flight: {transition.payload.stopped}"
-        ]
 
 
 class TestWriteTriage:

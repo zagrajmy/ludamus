@@ -9,10 +9,11 @@ from ludamus.edges.rituals.pr_check import (
     finish_merge,
     gate_check,
     push_work,
+    quality_review,
     set_aside,
     stand_down,
 )
-from ludamus.edges.rituals.shell import BUDGET, COVERAGE, PR_FIX, plain
+from ludamus.edges.rituals.shell import BUDGET, COVERAGE, PR_FIX, REMOTE, plain
 from ludamus.edges.rituals.state import Run
 
 if TYPE_CHECKING:
@@ -21,6 +22,7 @@ if TYPE_CHECKING:
     from ludamus.edges.rituals.state import Work
 
 _MISSING = "src/ludamus/thing.py (80.0%): Missing lines 12-14"
+_PUSH = f"git push {REMOTE} feature"
 # The same suite failing the same way on two branches, an hour and two commits
 # apart: only the timing and the tally moved.
 _RED = "1 failed\n  panel.spec.ts:77:5 > redirects when empty\n210 passed (6.8m)"
@@ -335,3 +337,51 @@ class TestCover:
             cover, work.model_copy(update={"budgets": {"cover": 1}})
         )
         assert "no coverage data" in trial.coding.prompts[0]
+
+
+class TestPushWork:
+    def test_the_night_goes_up_before_the_review_reads_it(
+        self, trial: Trial, work: Work
+    ) -> None:
+        trial.shell.replies(when=_PUSH)
+
+        transition = trial.walk(push_work, work)
+
+        assert transition == goto(quality_review, work)
+        assert trial.shell.commands == [_PUSH]
+
+    # Not fatal and not `set_aside`: a push that will not go through costs the
+    # review its anchors and nothing else, and the branch is still worth reading.
+    def test_a_push_that_will_not_go_through_is_carried_into_the_review(
+        self, trial: Trial, work: Work
+    ) -> None:
+        trial.shell.replies(when=_PUSH, exit_code=1, stderr="the remote hung up")
+
+        transition = trial.walk(push_work, work)
+
+        assert transition == goto(
+            quality_review,
+            work.model_copy(update={"note": "could not push: the remote hung up"}),
+        )
+
+    # A branch that stood down arrives here already carrying its stash, and the
+    # push's own complaint must not be written over it.
+    def test_a_note_already_on_the_branch_keeps_its_half(
+        self, trial: Trial, work: Work
+    ) -> None:
+        stashed = work.model_copy(update={"note": 'stashed as "left unfinished"'})
+        trial.shell.replies(when=_PUSH, exit_code=1, stderr="the remote hung up")
+
+        transition = trial.walk(push_work, stashed)
+
+        assert transition == goto(
+            quality_review,
+            stashed.model_copy(
+                update={
+                    "note": (
+                        'stashed as "left unfinished"; '
+                        "could not push: the remote hung up"
+                    )
+                }
+            ),
+        )

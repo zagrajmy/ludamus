@@ -39,7 +39,7 @@ from .shell import (
     LIST,
     MISSING,
     PR_FIX,
-    WAIT_LABEL,
+    REMOTE,
     commit,
     coverage_report,
     plain,
@@ -47,7 +47,7 @@ from .shell import (
     said,
     triage_comment,
 )
-from .state import PULLS, Bound, modified, wears
+from .state import Bound, unreadable, wanted
 
 # The human loop above has no business bound — it goes round as long as you keep
 # saying `fix`, which is a person spending their own evening. This is the
@@ -70,13 +70,13 @@ _MAIN = "main"
 _HERE = "git rev-parse --abbrev-ref HEAD"
 
 
-# The one place this ritual writes to the terminal instead of into the rite.
-# `>/dev/tty` gives the command a terminal, so `cat` pages and you can scroll
-# it; `</dev/tty` is where the pager reads your keys, since the cast holds stdin
-# for its own prompts. Whether that terminal is there at all is asked first, and
-# not by running the command and reading its exit code: quitting the pager early
-# kills the command with a broken pipe, and a fallback hung off that would
-# answer by dumping the whole file you just walked away from.
+# The one place this ritual writes to the terminal instead of into the rite:
+# what this fetches is for you to read, not for the cast to capture and hand on.
+# `>/dev/tty` is that terminal, and `</dev/tty` is where anything `gh` decides
+# to page through would read your keys, since the cast holds stdin for its own
+# prompts. Whether a terminal is there at all is asked with a redirection that
+# writes nothing, rather than by running the command and reading its exit code:
+# what is being run is a network call, and a probe should not cost one.
 def paged(command: str) -> str:
     return (
         # `2>/dev/null` first, because a redirection that fails is reported by
@@ -155,15 +155,10 @@ async def pick(components: Ship) -> Transition:
         raise RitualError(msg)
     listed = await _ran(LIST, "gh could not list your pull requests", stream=False)
     try:
-        pulls = PULLS.validate_json(listed.stdout)
+        pulls = wanted(listed.stdout)
     except ValidationError as error:
-        msg = f"gh returned something unreadable: {error}"
-        raise RitualError(msg) from error
-    open_prs = [
-        pull
-        for pull in sorted(pulls, key=modified)
-        if pull.branch != _MAIN and not wears(pull, WAIT_LABEL)
-    ]
+        raise RitualError(unreadable(error)) from error
+    open_prs = [pull for pull in pulls if pull.branch != _MAIN]
     here = await _ran(_HERE, "could not read the current branch", stream=False)
     # You have just finished working on this branch and the triage on it is what
     # you sat down for. Anything else is a cast that moves you off it to page
@@ -266,10 +261,8 @@ async def land(branch: Branch) -> Transition:
     )
     # The remote by name, as `pr_check` pushes it: what this ends on is the same
     # branch that ritual put up, and neither of them is going to guess at an
-    # upstream the other did not set. `https-origin` and not `origin`, because
-    # the sandbox a ritual runs in remaps root to `nobody`, and ssh refuses an
-    # `/etc/ssh/ssh_config.d` it reads as owned by a stranger.
+    # upstream the other did not set.
     await _ran(
-        f"git push https-origin {quoted(branch.name)}", f"could not push {branch.name}"
+        f"git push {REMOTE} {quoted(branch.name)}", f"could not push {branch.name}"
     )
     return done(Shipped(outcome="shipped", branch=branch.name))

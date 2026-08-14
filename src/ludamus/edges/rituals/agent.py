@@ -82,15 +82,6 @@ The report:
 
 """
 
-QA = """\
-Use the `manuel` skill to produce manual test scenarios for what this branch
-changes, and write them to qa.md at the repository root as one checklist a
-human can walk through. Cover the changed behaviour and the neighbouring
-behaviour it could have broken.
-
-Write that file and nothing else: change no source, do not commit, do not push.
-"""
-
 
 def triage_post(number: int) -> str:
     return f"""\

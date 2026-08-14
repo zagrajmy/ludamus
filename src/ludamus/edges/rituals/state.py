@@ -7,9 +7,9 @@ payloads hold, and the report the morning reads.
 from collections import Counter
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
+from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, ValidationError
 
-from .shell import QA_LABEL
+from .shell import QA_LABEL, WAIT_LABEL
 
 # A bound counts attempts at one step, so zero would mean a step that may never
 # be tried at all; past five a repair loop has stopped being a repair loop.
@@ -52,6 +52,22 @@ PULLS: TypeAdapter[list[PullRequest]] = TypeAdapter(list[PullRequest])
 
 def wears(pull: PullRequest, name: str) -> bool:
     return any(label.name == name for label in pull.labels)
+
+
+# Which pull requests a cast takes, and in what order. Both rituals ask the same
+# question of the same listing and only differ in what they do when it will not
+# parse, so the answer is written once and the routing stays with each caller.
+# Parked branches are dropped here rather than skipped later, so one is never
+# checked out, never counted as reached, and never in a report at all.
+# Oldest-modified first: the branch that has been drifting from its base the
+# longest is the one most likely to need the night.
+def wanted(listing: str) -> list[PullRequest]:
+    pulls = PULLS.validate_json(listing)
+    return sorted((pull for pull in pulls if not wears(pull, WAIT_LABEL)), key=modified)
+
+
+def unreadable(error: ValidationError) -> str:
+    return f"gh returned something unreadable: {error}"
 
 
 class Checked(BaseModel):
@@ -187,11 +203,18 @@ def modified(pull: PullRequest) -> str:
     return pull.updated_at
 
 
+# A note grows by joining rather than by replacing, so no half of it can write
+# over another's. The separator is decided here and nowhere else — a step with
+# something to add reaches for this rather than for the string.
+def joined(*parts: str) -> str:
+    return "; ".join(part for part in parts if part)
+
+
 # What a row has to say, in the order the morning wants it: why the branch
 # stopped first, then whatever the ending that built the row has to add. Every
 # ending goes through here, so no ending can write over another's half.
 def telling(work: Work, *extra: str) -> str:
-    return "; ".join(part for part in (work.reason, work.note, *extra) if part)
+    return joined(work.reason, work.note, *extra)
 
 
 def counted(notes: TriageNotes) -> str:

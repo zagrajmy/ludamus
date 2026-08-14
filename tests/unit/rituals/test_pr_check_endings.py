@@ -107,7 +107,7 @@ class TestSetAside:
     def test_a_clean_worktree_leaves_no_stash_in_the_note(
         self, trial: Trial, work: Work
     ) -> None:
-        aside = work.model_copy(update={"note": "the agent wrote no qa.md"})
+        aside = work.model_copy(update={"note": "the agent posted no triage"})
         trial.shell.replies(when=_RELEASE)
         trial.shell.replies(when=_AHEAD, stdout="0\n")
 
@@ -122,7 +122,7 @@ class TestSetAside:
                         update={
                             "outcome": "blocked",
                             "unpushed": 0,
-                            "note": "the agent wrote no qa.md",
+                            "note": "the agent posted no triage",
                         }
                     )
                 ],
@@ -266,16 +266,16 @@ class TestWholeCast:
         trial.shell.replies(when="gh pr edit*", always=True)
         trial.shell.replies(when="git add -A*", always=True)
         trial.shell.replies(when=_PUSH)
-        trial.shell.replies(when="test -f qa.md")
-        trial.shell.replies(when=_AHEAD, stdout="2\n")
+        # Nothing left over, because the push and this count speak to the same
+        # remote: a night that got everything up says so.
+        trial.shell.replies(when=_AHEAD, stdout="0\n")
         trial.coding.replies("posted the review", when="Review the changes*")
         trial.coding.replies(TriageNotes(items=[]), when="Read the open*")
-        trial.coding.replies("wrote qa.md", when="Use the `manuel` skill*")
 
         result = trial.cast(pr_check, PrCheck(bound=3))
 
         assert result == Report(
-            checked=[_QA_ROW], to_push=["feature"], ready=["feature"]
+            checked=[_QA_ROW.model_copy(update={"unpushed": 0})], ready=["feature"]
         )
         assert trial.steps == [
             "list_prs",
@@ -315,12 +315,10 @@ class TestWholeCast:
         trial.shell.replies(when="gh pr edit*", always=True)
         trial.shell.replies(when="git add -A*", always=True)
         trial.shell.replies(when=_PUSH)
-        trial.shell.replies(when="test -f qa.md")
         trial.shell.replies(when=_AHEAD, stdout="2\n")
         trial.coding.replies("tried", when="*is this project's gate*", always=True)
         trial.coding.replies("posted the review", when="Review the changes*")
         trial.coding.replies(TriageNotes(items=[]), when="Read the open*")
-        trial.coding.replies("wrote qa.md", when="Use the `manuel` skill*")
 
         result = trial.cast(pr_check, PrCheck(bound=3))
 

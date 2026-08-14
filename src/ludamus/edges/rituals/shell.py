@@ -13,6 +13,16 @@ from vekna.folio.shell import ShellResult, shell
 PR_FIX = "mise run pr-fix"
 COVERAGE = "mise run diff-cover"
 
+# Every remote call these rituals make, over https rather than ssh: the sandbox
+# a ritual runs in remaps root to `nobody`, and ssh refuses an
+# `/etc/ssh/ssh_config.d` it reads as owned by a stranger. Both remotes point at
+# the same repository, so this is a route and not a destination.
+# One name for fetching and pushing alike, because `ahead` counts commits
+# against the remote-tracking ref a push moves: a night that fetched from one
+# remote and pushed to the other would report every branch it had just pushed as
+# unpushed.
+REMOTE = "https-origin"
+
 
 # What a step actually runs a gate as. `CI=1` puts every tool in the chain into
 # its log shape rather than its terminal one — no colour, no cursor tricks.
@@ -257,13 +267,13 @@ def release(branch: str) -> str:
 
 # HEAD is asked for by name first, because it is not always this branch: a
 # `set_aside` reached from a failed checkout is still standing on the base, and
-# counting `origin/<branch>..HEAD` there measures the base against the branch
+# counting `<remote>/<branch>..HEAD` there measures the base against the branch
 # and reports the answer as unpushed commits. A non-zero exit falls through to
 # None below, which is exactly "we could not tell".
 async def ahead(branch: str) -> int | None:
     counted = await shell(
         f'test {quoted(branch)} = "$(git rev-parse --abbrev-ref HEAD)" && '
-        f"git rev-list --count {quoted(f'origin/{branch}..HEAD')}",
+        f"git rev-list --count {quoted(f'{REMOTE}/{branch}..HEAD')}",
         stream=False,
     )
     if counted.exit_code:

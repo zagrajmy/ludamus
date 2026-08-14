@@ -6,10 +6,10 @@ Every pull request you have open is taken in turn, oldest-modified first: its
 base branch is merged in, the gates are made green, the coverage gap is closed,
 the night's work is pushed, a quality review is posted unless the branch already
 carries ``pr::thermo``, and the open review comments are triaged. A branch ends
-the night either labelled ``pr::qa`` with a ``qa.md`` of manual scenarios, or
-with a triage comment saying what still has to be done. Whatever this run put in
-front of you to read — a quality review it posted, a triage it wrote — also
-earns the branch ``pr::cr``.
+the night either labelled ``pr::qa`` — green, reviewed, and nothing outstanding
+— or with a triage comment saying what still has to be done. Whatever this run
+put in front of you to read — a quality review it posted, a triage it wrote —
+also earns the branch ``pr::cr``.
 
 The push comes before the review and not after: an inline review comment has to
 anchor to a line of the pull request's diff, and a line that exists only in this
@@ -69,7 +69,6 @@ from vekna.lexicon import RitualError, Transition, done, emit_delta, goto, ritua
 
 from .agent import (
     COVER,
-    QA,
     READING,
     TRIAGE_READ,
     Fallen,
@@ -89,9 +88,9 @@ from .shell import (
     MISSING,
     PR_FIX,
     QA_LABEL,
+    REMOTE,
     STASHED,
     THERMO_LABEL,
-    WAIT_LABEL,
     ahead,
     already_seen,
     commit,
@@ -106,7 +105,6 @@ from .shell import (
     verdict,
 )
 from .state import (
-    PULLS,
     Checked,
     Closed,
     Labels,
@@ -120,13 +118,14 @@ from .state import (
     cleared,
     counted,
     exhausted,
-    modified,
+    joined,
     report_card,
     run_with,
     spent,
     summary,
     telling,
-    wears,
+    unreadable,
+    wanted,
     work_with,
 )
 
@@ -151,16 +150,9 @@ async def list_prs(run: Run) -> Transition:
         reason = f"gh could not list your pull requests: {listed.stderr.strip()}"
         return goto(report, run_with(run, stopped=reason))
     try:
-        pulls = PULLS.validate_json(listed.stdout)
+        queue = wanted(listed.stdout)
     except ValidationError as error:
-        unreadable = f"gh returned something unreadable: {error}"
-        return goto(report, run_with(run, stopped=unreadable))
-    # Dropped here rather than skipped later, so a waiting branch is never
-    # checked out, never counted as reached, and never in the report at all.
-    wanted = [pull for pull in pulls if not wears(pull, WAIT_LABEL)]
-    # Oldest-modified first: the branch that has been drifting from its base the
-    # longest is the one most likely to need the night.
-    queue = sorted(wanted, key=modified)
+        return goto(report, run_with(run, stopped=unreadable(error)))
     return goto(next_pr, run_with(run, queue=queue))
 
 
@@ -189,18 +181,18 @@ async def check_clean(work: Work) -> Transition:
 async def sync_branch(work: Work) -> Transition:
     pull = work.pr
     synced = await shell(
-        f"git fetch --prune origin && git checkout {quoted(pull.base)}"
-        f" && git pull --ff-only origin {quoted(pull.base)}"
+        f"git fetch --prune {REMOTE} && git checkout {quoted(pull.base)}"
+        f" && git pull --ff-only {REMOTE} {quoted(pull.base)}"
     )
     if synced.exit_code:
         reason = f"could not update {pull.base}: {said(synced)}"
         return goto(report, abandoned(work, reason))
     # `merge --ff-only`, never `reset --hard`: a branch this ritual worked on
-    # last night carries commits origin has not seen, and they are the whole
+    # last night carries commits the remote has not seen, and they are the whole
     # point of the report. A branch that has genuinely diverged stops here.
     taken = await shell(
         f"git checkout {quoted(pull.branch)} && "
-        f"git merge --ff-only {quoted(f'origin/{pull.branch}')}"
+        f"git merge --ff-only {quoted(f'{REMOTE}/{pull.branch}')}"
     )
     if taken.exit_code:
         return goto(
@@ -361,14 +353,13 @@ async def cover(work: Work) -> Transition:
 # anchors and nothing else, and a review of code you can still read is worth
 # more than a branch dropped for the night. What is left behind says so twice
 # over: in this note, and in the row's own `unpushed`, which is counted off git
-# at the end whoever left it there.
+# at the end, whoever left it there.
 @step
 async def push_work(work: Work) -> Transition:
-    pushed = await shell(f"git push https-origin {quoted(work.pr.branch)}")
+    pushed = await shell(f"git push {REMOTE} {quoted(work.pr.branch)}")
     if pushed.exit_code:
         left = f"could not push: {said(pushed)}"
-        joined = "; ".join(part for part in (work.note, left) if part)
-        return goto(quality_review, work_with(work, note=joined))
+        return goto(quality_review, work_with(work, note=joined(work.note, left)))
     return goto(quality_review, work)
 
 
@@ -392,8 +383,8 @@ async def quality_review(work: Work) -> Transition:
     try:
         labels = Labels.model_validate_json(seen.stdout)
     except ValidationError as error:
-        unreadable = f"gh returned labels this could not read: {error}"
-        return goto(set_aside, work_with(work, note=unreadable))
+        unread = f"gh returned labels this could not read: {error}"
+        return goto(set_aside, work_with(work, note=unread))
     # An earlier night's review, which is not this night's work to label.
     if any(one.name == THERMO_LABEL for one in labels.labels):
         return goto(read_comments, work)
@@ -419,8 +410,8 @@ async def read_comments(work: Work) -> Transition:
     # This branch loses its triage and nothing else: the run carries on, and a
     # blocked row says why rather than a whole night ending on one bad answer.
     if isinstance(notes, Misread):
-        unreadable = f"the triage was unreadable: {notes.reason}"
-        return goto(set_aside, work_with(work, note=unreadable))
+        misread = f"the triage was unreadable: {notes.reason}"
+        return goto(set_aside, work_with(work, note=misread))
     # Nothing to triage is an answer, and the good one: the branch goes to QA —
     # unless it is one nobody can build, which is not a branch to hand a tester
     # however clean its reviews are.
@@ -431,25 +422,12 @@ async def read_comments(work: Work) -> Transition:
     return goto(write_triage, Triaged(work=work, notes=notes))
 
 
-# The label is a promise about a file, so it goes on last and only once the file
-# is there to promise. Asking for it first costs an agent attempt on the paths
-# that then fail to label, which is the cheaper of the two mistakes: a label the
-# morning trusts and a branch that carries no scenarios is the expensive one.
-# The file is asked for by name because a green commit does not prove it exists
-# — `commit` is content with an empty diff, by design, since the repair loops
-# above reach it with nothing to say.
+# The whole of what a clean branch earns: a label, and no agent spent on it.
+# The scenarios a night could write are scenarios nobody asked for — what this
+# says is "the gates are green and the reviews are answered, it is yours to
+# test", and that is a fact about the branch rather than a document about it.
 @step
 async def mark_qa(work: Work) -> Transition:
-    if fallen := await ask(QA):
-        return goto(report, abandoned(work, fallen.reason))
-    written = await shell("test -f qa.md")
-    if written.exit_code:
-        return goto(set_aside, work_with(work, note="the agent wrote no qa.md"))
-    landed = await shell(commit("docs: manual test scenarios for this branch"))
-    if landed.exit_code:
-        return goto(
-            set_aside, work_with(work, note=f"could not commit qa.md: {said(landed)}")
-        )
     labelled = await shell(label(QA_LABEL, number=work.pr.number))
     if labelled.exit_code:
         reason = f"could not add the {QA_LABEL} label: {said(labelled)}"
@@ -481,7 +459,7 @@ async def write_triage(triaged: Triaged) -> Transition:
     # The tally joins the note rather than replacing it, so a branch that stood
     # down keeps the stash its work went into. What stopped it rides in `reason`
     # and needs no help from here.
-    tallied = "; ".join(part for part in (work.note, counted(triaged.notes)) if part)
+    tallied = joined(work.note, counted(triaged.notes))
     return goto(
         finish_pr,
         Closed(
