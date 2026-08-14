@@ -26,7 +26,7 @@ from ludamus.pacts.chronology import (
     SessionPlacement,
     TimetableGridFilter,
 )
-from ludamus.pacts.timetable import TimetableRepos
+from ludamus.pacts.timetable import PlacementRejectedError, TimetableRepos
 
 
 def _timetable_repos(uow) -> TimetableRepos:
@@ -752,6 +752,30 @@ class TestAssignUnassignScope:
         session = MagicMock()
         session.status = SessionStatus.ACCEPTED
         mock_uow.sessions.read.return_value = session
+
+    def test_assign_rejects_an_inverted_time_range(self, service, mock_uow):
+        placement = self._placement()
+        inverted = SessionPlacement(
+            space_pk=placement.space_pk,
+            start_time=placement.end_time,
+            end_time=placement.start_time,
+        )
+
+        with pytest.raises(PlacementRejectedError, match="end_time must be after"):
+            service.assign_session(session_pk=1, placement=inverted, event_pk=1)
+
+        mock_uow.agenda_items.create.assert_not_called()
+
+    def test_assign_rejects_a_session_that_is_not_accepted(self, service, mock_uow):
+        self._arrange_acceptable_assignment(mock_uow, auto_confirm_sessions=True)
+        mock_uow.sessions.read.return_value.status = SessionStatus.PENDING
+
+        with pytest.raises(PlacementRejectedError, match="is not in ACCEPTED status"):
+            service.assign_session(
+                session_pk=1, placement=self._placement(), event_pk=1
+            )
+
+        mock_uow.agenda_items.create.assert_not_called()
 
     def test_assign_confirms_when_event_auto_confirms(self, service, mock_uow):
         self._arrange_acceptable_assignment(mock_uow, auto_confirm_sessions=True)

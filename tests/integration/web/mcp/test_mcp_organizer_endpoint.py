@@ -10,17 +10,17 @@ from ludamus.gates.web.django.mcp.tokens import (
     mint_organizer_token,
     mint_token,
 )
-from ludamus.links.db.django.models import Announcement, Space
+from ludamus.links.db.django.models import AgendaItem, Announcement, Space
 from ludamus.pacts.mcp import ToolScope
 from tests.integration.conftest import (
     EventFactory,
+    SessionFactory,
     SpaceFactory,
     SphereFactory,
     UserFactory,
 )
 from tests.integration.utils import assert_response
 from tests.integration.web.mcp.test_mcp_endpoint import tool_text
-from tests.unit.test_mcp_registry import ORGANIZER_TOOL_NAMES
 
 URL = "/mcp/organizer/"
 WRITE_TOOLS = {
@@ -187,7 +187,9 @@ class TestOrganizerTools:
         )
 
         tools = response.json()["result"]["tools"]
-        assert [tool["name"] for tool in tools] == ORGANIZER_TOOL_NAMES
+        tool_names = {tool["name"] for tool in tools}
+        assert tool_names >= WRITE_TOOLS
+        assert "create_event" not in tool_names
         assert all(
             "sphere_id" not in tool["inputSchema"].get("properties", {})
             for tool in tools
@@ -290,6 +292,41 @@ class TestOrganizerTools:
             "code": -32602,
             "message": "Unknown tool: list_spheres",
         }
+
+
+class TestOrganizerProgrammeValidation:
+    def test_create_session_rejects_blank_source_row_id(self, client, org_token):
+        response = call_org_tool(
+            client,
+            org_token,
+            "create_session",
+            {"source_row_id": "   ", "title": "Bad key", "category_id": 1},
+        )
+
+        result = response.json()["result"]
+        assert result["isError"] is True
+        assert "source_row_id must be non-empty" in result["content"][0]["text"]
+
+    def test_assign_session_rejects_inverted_time_range(self, client, org_token, event):
+        session = SessionFactory(event=event, category=None, status="accepted")
+        space = SpaceFactory(event=event, parent=None)
+
+        response = call_org_tool(
+            client,
+            org_token,
+            "assign_session",
+            {
+                "session_id": session.pk,
+                "space_id": space.pk,
+                "start_time": (event.start_time + timedelta(hours=2)).isoformat(),
+                "end_time": (event.start_time + timedelta(hours=1)).isoformat(),
+            },
+        )
+
+        result = response.json()["result"]
+        assert result["isError"] is True
+        assert result["content"][0]["text"] == "end_time must be after start_time"
+        assert not AgendaItem.objects.filter(session=session).exists()
 
 
 class TestOrganizerProgrammeTools:

@@ -40,6 +40,7 @@ from ludamus.pacts.chronology import (
     TimetableGridFilter,
     TrackProgressDTO,
 )
+from ludamus.pacts.timetable import PlacementRejectedError
 from ludamus.specs.timetable import (
     TIMETABLE_ROOM_PAGE_SIZE,
     TIMETABLE_SLOT_MINUTES,
@@ -384,6 +385,8 @@ class TimetableService:
         event_pk: int,
         user_pk: int | None = None,
     ) -> None:
+        if placement.end_time <= placement.start_time:
+            raise PlacementRejectedError("end_time must be after start_time")
         with self._transaction.atomic():
             require_session_in_event(
                 sessions=self._repos.sessions, session_pk=session_pk, event_pk=event_pk
@@ -398,7 +401,7 @@ class TimetableService:
             session = self._repos.sessions.read(session_pk)
             if session.status != SessionStatus.ACCEPTED:
                 msg = f"Session {session_pk} is not in ACCEPTED status"
-                raise ValueError(msg)
+                raise PlacementRejectedError(msg)
             event = self._repos.sessions.read_event(session_pk)
             self._repos.agenda_items.create(
                 {

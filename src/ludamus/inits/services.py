@@ -205,7 +205,11 @@ class Services:
 
     @cached_property
     def events(self) -> EventsService:
-        return EventsService(self._transaction, self._repos.events)
+        return EventsService(
+            transaction=self._transaction,
+            events=self._repos.events,
+            spheres=self._repos.spheres,
+        )
 
     @cached_property
     def event_panel(self) -> EventPanelService:

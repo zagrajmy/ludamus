@@ -391,6 +391,24 @@ class TestTools:
         assert result["isError"] is True
         assert result["content"][0]["text"] == "end_time must be after start_time"
 
+    def test_create_event_rejects_unknown_sphere(self, client, token):
+        response = call_tool(
+            client,
+            token,
+            "create_event",
+            {
+                "sphere_id": 999_999,
+                "name": "Unknown sphere",
+                "slug": "unknown-sphere",
+                "start_time": "2026-09-25T10:00:00+02:00",
+                "end_time": "2026-09-27T18:00:00+02:00",
+            },
+        )
+
+        result = response.json()["result"]
+        assert result["isError"] is True
+        assert result["content"][0]["text"] == "Resource not found"
+
     def test_create_event_rejects_duplicate_slug(self, client, token, sphere):
         payload = {
             "sphere_id": sphere.pk,

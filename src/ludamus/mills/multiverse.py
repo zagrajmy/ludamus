@@ -117,10 +117,15 @@ class ConnectionsService:
 
 class EventsService:
     def __init__(
-        self, transaction: TransactionProtocol, events: EventRepositoryProtocol
+        self,
+        *,
+        transaction: TransactionProtocol,
+        events: EventRepositoryProtocol,
+        spheres: SphereRepositoryProtocol,
     ) -> None:
         self._transaction = transaction
         self._events = events
+        self._spheres = spheres
 
     def list_for_sphere(
         self, sphere_id: int, *, include_unpublished: bool
@@ -141,6 +146,7 @@ class EventsService:
     def create(self, *, sphere_id: int, data: EventCreateData) -> EventDTO:
         if data["end_time"] <= data["start_time"]:
             raise EventDatesInvalidError
+        self._spheres.read(sphere_id)
         with self._transaction.atomic():
             return self._events.create(sphere_id, data)
 

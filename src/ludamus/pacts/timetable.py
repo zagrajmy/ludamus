@@ -3,6 +3,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Protocol
 
+
+class PlacementRejectedError(Exception):
+    pass
+
+
 if TYPE_CHECKING:
     from datetime import tzinfo
 

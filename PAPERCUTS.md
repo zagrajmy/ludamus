@@ -385,3 +385,6 @@ If you fix a papercut, remove it.
   slow local page load can outlast — `expect(getByText("Guild created."))`
   timed out while the row it announced was right there. Assert the durable page
   state instead.
+- 2026-08-14: agent-browser screenshot failed when screenshots/ did not already
+  exist; the direct CLI does not create parent directories, unlike mise run
+  shots.

@@ -1,3 +1,6 @@
+from datetime import UTC, datetime
+from unittest.mock import MagicMock
+
 import pytest
 from pydantic import BaseModel
 
@@ -5,6 +8,7 @@ from ludamus.gates.mcp.protocol import sanitize_audit_arguments
 from ludamus.gates.mcp.registry import Tool, ToolCall, ToolError, ToolRegistry
 from ludamus.gates.mcp.tools import build_registry
 from ludamus.pacts.mcp import ActorContext, ToolScope
+from ludamus.pacts.timetable import PlacementRejectedError
 
 MAINTAINER_TOOL_NAMES = [
     "list_spheres",
@@ -152,7 +156,7 @@ def test_create_event_rejects_blank_slug():
     registry = build_registry(ToolScope.MAINTAINER)
     actor = ActorContext(user_id=1, scope=ToolScope.MAINTAINER)
 
-    with pytest.raises(ToolError, match="non-empty URL slug"):
+    with pytest.raises(ToolError, match="letters, numbers"):
         registry.call(
             services=_FakeServices(),
             actor=actor,
@@ -165,3 +169,63 @@ def test_create_event_rejects_blank_slug():
                 "end_time": "2026-09-27T18:00:00+02:00",
             },
         )
+
+
+def test_create_event_rejects_a_slug_that_cannot_match_its_url():
+    registry = build_registry(ToolScope.MAINTAINER)
+    actor = ActorContext(user_id=1, scope=ToolScope.MAINTAINER)
+
+    with pytest.raises(ToolError, match="letters, numbers"):
+        registry.call(
+            services=_FakeServices(),
+            actor=actor,
+            name="create_event",
+            arguments={
+                "sphere_id": 1,
+                "name": "Bad slug",
+                "slug": "not a slug",
+                "start_time": "2026-09-25T10:00:00+02:00",
+                "end_time": "2026-09-27T18:00:00+02:00",
+            },
+        )
+
+
+def test_create_session_rejects_blank_idempotency_key():
+    registry = build_registry(ToolScope.ORGANIZER)
+    actor = ActorContext(user_id=7, scope=ToolScope.ORGANIZER, sphere_id=3, event_id=11)
+
+    with pytest.raises(ToolError, match="source_row_id must be non-empty"):
+        registry.call(
+            services=_FakeServices(),
+            actor=actor,
+            name="create_session",
+            arguments={"source_row_id": "   ", "title": "Bad key", "category_id": 5},
+        )
+
+
+def _assign_session_call(*, side_effect: Exception) -> None:
+    services = MagicMock()
+    services.events.require_in_sphere.return_value.pk = 11
+    services.timetable.assign_session.side_effect = side_effect
+    actor = ActorContext(user_id=7, scope=ToolScope.ORGANIZER, sphere_id=3, event_id=11)
+    build_registry(ToolScope.ORGANIZER).call(
+        services=services,
+        actor=actor,
+        name="assign_session",
+        arguments={
+            "session_id": 13,
+            "space_id": 17,
+            "start_time": datetime(2025, 9, 19, 16, 0, tzinfo=UTC),
+            "end_time": datetime(2025, 9, 19, 17, 0, tzinfo=UTC),
+        },
+    )
+
+
+def test_assign_session_converts_placement_rejection_to_tool_error():
+    with pytest.raises(ToolError, match="placement rejected"):
+        _assign_session_call(side_effect=PlacementRejectedError("placement rejected"))
+
+
+def test_assign_session_does_not_hide_unrelated_value_error():
+    with pytest.raises(ValueError, match="unexpected failure"):
+        _assign_session_call(side_effect=ValueError("unexpected failure"))

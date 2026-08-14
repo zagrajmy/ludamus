@@ -36,6 +36,7 @@ from ludamus.pacts.chronology import (
     SessionPlacement,
     TimetableGridFilter,
 )
+from ludamus.pacts.timetable import PlacementRejectedError
 
 if TYPE_CHECKING:
     from ludamus.pacts.legacy import TrackDTO
@@ -473,7 +474,7 @@ class TimetableAssignView(PanelAccessMixin, EventContextMixin, View):
                 event_pk=current_event.pk,
                 user_pk=self.request.user.pk,
             )
-        except ValueError, NotFoundError:
+        except PlacementRejectedError, NotFoundError:
             return HttpResponse(status=422)
 
         self.request.services.waitlist_promotion.fill_freed_seats(session_id=session_pk)

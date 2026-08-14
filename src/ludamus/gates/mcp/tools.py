@@ -8,6 +8,7 @@ business invariants hold for MCP callers exactly as they do for views.
 from __future__ import annotations
 
 import json
+import re
 from datetime import datetime
 from typing import TYPE_CHECKING
 
@@ -41,6 +42,7 @@ from ludamus.pacts.panel import (
 )
 from ludamus.pacts.services import DatabaseConstraintError
 from ludamus.pacts.submissions import AccreditationType
+from ludamus.pacts.timetable import PlacementRejectedError
 from ludamus.pacts.venues import SpaceInputDTO, SpaceTreeNodeDTO
 
 if TYPE_CHECKING:
@@ -66,8 +68,10 @@ def _require_aware_datetime(value: datetime, *, field: str) -> datetime:
 
 def _validate_slug(value: str) -> str:
     stripped = value.strip()
-    if not stripped or "/" in stripped:
-        raise ValueError("slug must be a non-empty URL slug without '/'")
+    if re.fullmatch(r"[-a-zA-Z0-9_]+", stripped) is None:
+        raise ValueError(
+            "slug must contain only letters, numbers, hyphens, or underscores"
+        )
     return stripped
 
 
@@ -678,6 +682,14 @@ class _CreateSessionInput(BaseModel):
     source_row_id: str = Field(
         max_length=64, description="Deterministic idempotency key for this source row"
     )
+
+    @field_validator("source_row_id")
+    @classmethod
+    def _non_blank_source_row_id(cls, value: str) -> str:
+        if not (stripped := value.strip()):
+            raise ValueError("source_row_id must be non-empty")
+        return stripped
+
     title: str = Field(max_length=255)
     category_id: int
     description: str = ""
@@ -707,7 +719,7 @@ class OrganizerCreateSessionTool(Tool[_CreateSessionInput]):
         try:
             session_id = call.services.proposal_panel.create_accepted_session(
                 event_id=event.pk,
-                source_row_id=call.data.source_row_id.strip(),
+                source_row_id=call.data.source_row_id,
                 draft=ProposalDraft(
                     data={
                         "category_id": call.data.category_id,
@@ -761,7 +773,7 @@ class OrganizerAssignSessionTool(Tool[_AssignSessionInput]):
                 event_pk=event.pk,
                 user_pk=call.actor.user_id,
             )
-        except ValueError as error:
+        except PlacementRejectedError as error:
             raise ToolError(str(error)) from error
         result: dict[str, int] = {
             "session_id": call.data.session_id,
