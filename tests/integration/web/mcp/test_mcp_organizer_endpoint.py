@@ -8,6 +8,7 @@ from ludamus.links.db.django.models import Announcement
 from tests.integration.conftest import EventFactory, SphereFactory, UserFactory
 from tests.integration.utils import assert_response
 from tests.integration.web.mcp.test_mcp_endpoint import tool_text
+from tests.unit.test_mcp_registry import ORGANIZER_TOOL_NAMES
 
 URL = "/mcp/organizer/"
 
@@ -130,28 +131,7 @@ class TestOrganizerTools:
         )
 
         tools = response.json()["result"]["tools"]
-        assert [tool["name"] for tool in tools] == [
-            "get_sphere",
-            "list_events",
-            "get_event",
-            "create_event",
-            "list_spaces",
-            "list_time_slots",
-            "list_tracks",
-            "list_sessions",
-            "list_facilitators",
-            "create_space",
-            "create_time_slot",
-            "create_track",
-            "create_proposal_category",
-            "find_or_create_facilitator",
-            "create_session",
-            "assign_session",
-            "list_announcements",
-            "create_announcement",
-            "update_announcement",
-            "delete_announcement",
-        ]
+        assert [tool["name"] for tool in tools] == ORGANIZER_TOOL_NAMES
         assert all(
             "sphere_id" not in tool["inputSchema"].get("properties", {})
             for tool in tools

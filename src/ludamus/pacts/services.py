@@ -12,7 +12,6 @@ if TYPE_CHECKING:
 
     from ludamus.pacts.bookmarks import BookmarkServiceProtocol
     from ludamus.pacts.chronology import (
-        ConflictDetectionServiceProtocol,
         EventIntegrationsServiceProtocol,
         PartySessionHistoryServiceProtocol,
         ProposalAcceptanceServiceProtocol,
@@ -22,8 +21,6 @@ if TYPE_CHECKING:
         SessionDeletionServiceProtocol,
         SessionModalServiceProtocol,
         SessionSelfEditServiceProtocol,
-        TimetableOverviewServiceProtocol,
-        TimetableServiceProtocol,
     )
     from ludamus.pacts.crowd import (
         ClaimServiceProtocol,
@@ -76,6 +73,11 @@ if TYPE_CHECKING:
         PersonalDataFieldValueServiceProtocol,
         ProposalCategorySettingsServiceProtocol,
         ProposalImportServiceProtocol,
+    )
+    from ludamus.pacts.timetable import (
+        ConflictDetectionServiceProtocol,
+        TimetableOverviewServiceProtocol,
+        TimetableServiceProtocol,
     )
     from ludamus.pacts.tracks import TracksPanelServiceProtocol
     from ludamus.pacts.venues import SpaceTreeServiceProtocol, VenuesServiceProtocol

@@ -16,7 +16,6 @@ from ludamus.gates.mcp.registry import (
     ToolError,
     UnknownToolError,
 )
-from ludamus.gates.mcp.tools import sanitize_audit_arguments
 from ludamus.pacts import NotFoundError
 
 if TYPE_CHECKING:
@@ -39,6 +38,21 @@ type JsonDict = dict[str, object]
 type ToolOutcome = Literal[
     "ok", "error", "invalid-arguments", "invalid-params", "unknown-tool"
 ]
+
+_AUDIT_REDACTED_KEYS: dict[str, frozenset[str]] = {
+    "find_or_create_facilitator": frozenset({"display_name"}),
+    "create_session": frozenset({"display_name", "description"}),
+}
+
+
+def sanitize_audit_arguments(tool_name: str, arguments: JsonDict) -> JsonDict:
+    redact = _AUDIT_REDACTED_KEYS.get(tool_name)
+    if redact is None:
+        return arguments
+    return {
+        key: "[redacted]" if key in redact else value
+        for key, value in arguments.items()
+    }
 
 
 def error_response(*, message_id: object, code: int, message: str) -> JsonDict:
@@ -95,11 +109,13 @@ def _call_tool(
             name=name,
             arguments=arguments,
         )
-    audit_arguments = (
-        sanitize_audit_arguments(name, arguments)
-        if isinstance(name, str) and isinstance(arguments, dict)
-        else arguments
-    )
+    audit_arguments: JsonDict | Literal["[redacted]"]
+    if outcome in {"invalid-params", "unknown-tool"}:
+        audit_arguments = "[redacted]"
+    elif isinstance(name, str) and isinstance(arguments, dict):
+        audit_arguments = sanitize_audit_arguments(name, arguments)
+    else:
+        audit_arguments = "[redacted]"
     logger.info(
         "mcp.tools_call user_id=%s scope=%s sphere_id=%s tool=%r outcome=%s "
         "arguments=%r",

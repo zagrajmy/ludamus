@@ -432,7 +432,7 @@ class TestAudit:
             None,
             "drop_database",
             "unknown-tool",
-            {"force": True},
+            "[redacted]",
         )
 
     def test_invalid_arguments_are_logged_distinctly(

@@ -1,8 +1,9 @@
 import pytest
 from pydantic import BaseModel
 
+from ludamus.gates.mcp.protocol import sanitize_audit_arguments
 from ludamus.gates.mcp.registry import Tool, ToolCall, ToolError, ToolRegistry
-from ludamus.gates.mcp.tools import build_registry, sanitize_audit_arguments
+from ludamus.gates.mcp.tools import build_registry
 from ludamus.pacts.mcp import ActorContext, ToolScope
 
 MAINTAINER_TOOL_NAMES = [

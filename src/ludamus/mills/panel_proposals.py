@@ -10,10 +10,11 @@ from ludamus.mills.panel_columns import (
     sanitize_column_keys,
 )
 from ludamus.mills.slugs import unique_slug
-from ludamus.pacts import SessionFieldValueData, SessionStatus
+from ludamus.pacts import NotFoundError, SessionFieldValueData, SessionStatus
 from ludamus.pacts.panel import (
     SCHEDULED_FILTER,
     EmptyColumnSelectionError,
+    ProposalDraft,
     ProposalListContextDTO,
     ProposalPanelRepos,
     ProposalPanelServiceProtocol,
@@ -30,11 +31,7 @@ if TYPE_CHECKING:
         SessionDTO,
         SessionListItemDTO,
     )
-    from ludamus.pacts.panel import (
-        PanelColumnsContextDTO,
-        ProposalDraft,
-        ProposalListQuery,
-    )
+    from ludamus.pacts.panel import PanelColumnsContextDTO, ProposalListQuery
     from ludamus.pacts.services import TransactionProtocol
 
 
@@ -42,6 +39,55 @@ def _resolve_sort(sort: str, fields: Sequence[OrganizerFieldDTO]) -> str:
     key = sort.removeprefix("-")
     valid = {*PROPOSAL_BUILTIN_KEYS, *(f"{FIELD_KEY_PREFIX}{f.pk}" for f in fields)}
     return sort if key in valid else ""
+
+
+def _validate_draft_event_id(*, event_id: int, draft: ProposalDraft) -> None:
+    if draft.data.get("event_id") not in {None, event_id}:
+        raise NotFoundError
+
+
+def _validate_draft_facilitators(
+    *, event_id: int, draft: ProposalDraft, repos: ProposalPanelRepos
+) -> None:
+    for facilitator_id in draft.facilitator_ids:
+        if repos.facilitators.read(facilitator_id).event_id != event_id:
+            raise NotFoundError
+
+
+def _validate_draft_fields(
+    *, event_id: int, draft: ProposalDraft, repos: ProposalPanelRepos
+) -> None:
+    field_pks = {field.pk for field in repos.session_fields.list_by_event(event_id)}
+    if set(draft.field_values) - field_pks:
+        raise NotFoundError
+
+
+def _validate_draft_tracks(
+    *, event_id: int, draft: ProposalDraft, repos: ProposalPanelRepos
+) -> None:
+    for track_id in draft.track_ids:
+        if repos.tracks.read(track_id).event_id != event_id:
+            raise NotFoundError
+
+
+def _validate_draft_time_slots(
+    *, event_id: int, draft: ProposalDraft, repos: ProposalPanelRepos
+) -> None:
+    for time_slot_id in draft.time_slot_ids:
+        repos.time_slots.read_by_event(event_id, time_slot_id)
+
+
+def _validate_draft_category(
+    *, event_id: int, draft: ProposalDraft, repos: ProposalPanelRepos
+) -> None:
+    category_id = draft.data.get("category_id")
+    if category_id is None:
+        return
+    category_pks = {
+        category.pk for category in repos.proposal_categories.list_by_event(event_id)
+    }
+    if category_id not in category_pks:
+        raise NotFoundError
 
 
 class ProposalPanelService(ProposalPanelServiceProtocol):
@@ -158,8 +204,7 @@ class ProposalPanelService(ProposalPanelServiceProtocol):
     def create_accepted_session(
         self, *, event_id: int, source_row_id: str, draft: ProposalDraft
     ) -> int:
-        ident = source_row_id.strip()
-        if not ident:
+        if not (ident := source_row_id.strip()):
             raise ValueError("source_row_id must be non-empty")
         with self._transaction.atomic():
             if existing := self._repos.sessions.find_id_by_ident(event_id, ident):
@@ -177,6 +222,21 @@ class ProposalPanelService(ProposalPanelServiceProtocol):
                     return existing
                 raise
 
+    def _validate_create_draft(self, *, event_id: int, draft: ProposalDraft) -> None:
+        _validate_draft_event_id(event_id=event_id, draft=draft)
+        if draft.facilitator_ids:
+            _validate_draft_facilitators(
+                event_id=event_id, draft=draft, repos=self._repos
+            )
+        _validate_draft_fields(event_id=event_id, draft=draft, repos=self._repos)
+        if draft.track_ids:
+            _validate_draft_tracks(event_id=event_id, draft=draft, repos=self._repos)
+        if draft.time_slot_ids:
+            _validate_draft_time_slots(
+                event_id=event_id, draft=draft, repos=self._repos
+            )
+        _validate_draft_category(event_id=event_id, draft=draft, repos=self._repos)
+
     def _create_session(
         self,
         *,
@@ -185,12 +245,18 @@ class ProposalPanelService(ProposalPanelServiceProtocol):
         ident: str = "",
         status: SessionStatus = SessionStatus.PENDING,
     ) -> int:
+        self._validate_create_draft(event_id=event_id, draft=draft)
         slug = unique_slug(
             base=draft.base_slug,
             default="session",
             exists=lambda s: self._repos.sessions.slug_exists(event_id, s),
         )
-        payload: SessionData = {**draft.data, "slug": slug, "status": status}
+        payload: SessionData = {
+            **draft.data,
+            "event_id": event_id,
+            "slug": slug,
+            "status": status,
+        }
         if ident:
             payload["ident"] = ident
         session_id = self._repos.sessions.create(

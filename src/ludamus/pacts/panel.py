@@ -25,6 +25,8 @@ if TYPE_CHECKING:
         SessionFieldRepositoryProtocol,
         SessionListItemDTO,
         SessionRepositoryProtocol,
+        TimeSlotRepositoryProtocol,
+        TrackRepositoryProtocol,
     )
 
 
@@ -181,6 +183,9 @@ class ProposalPanelRepos:
     session_fields: SessionFieldRepositoryProtocol
     proposal_categories: ProposalCategoryRepositoryProtocol
     panel_settings: EventPanelSettingsRepositoryProtocol
+    facilitators: FacilitatorRepositoryProtocol
+    tracks: TrackRepositoryProtocol
+    time_slots: TimeSlotRepositoryProtocol
 
 
 @dataclass

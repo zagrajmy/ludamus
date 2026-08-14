@@ -25,8 +25,8 @@ from ludamus.pacts.chronology import (
     HeatmapCellStatus,
     SessionPlacement,
     TimetableGridFilter,
-    TimetableRepos,
 )
+from ludamus.pacts.timetable import TimetableRepos
 
 
 def _timetable_repos(uow) -> TimetableRepos:

@@ -17,12 +17,6 @@ if TYPE_CHECKING:
     from ludamus.pacts.services import TransactionProtocol
 
 # TODO(hasparus): fold-back plan for the legacy strangler, blocked while
-# open PRs hold mills/legacy.py:
-#   1. delete PanelService.validate_time_slot from mills/legacy.py (its logic
-#      moved to _validate_time_slot below) and drop its vulture entry,
-#   2. delete PanelService.delete_time_slot and its vulture entry,
-#   3. fold this module into the event noun module so pacts/event.py and
-#      mills/event.py mirror each other and the name stops colliding with
 #      mills/timeslots.py.
 
 
@@ -65,27 +59,20 @@ class PanelTimeSlotsService(PanelTimeSlotsServiceProtocol):
 
     def create(
         self, *, event: EventDTO, start_time: datetime, end_time: datetime
-    ) -> list[TimeSlotValidationError]:
-        # atomic() keeps the write consistent but does not serialize the
-        # check-then-insert: two concurrent requests can both read the same
-        # slots, both pass validation, and insert overlapping slots. Full
-        # enforcement needs a DB exclusion constraint on the slot range.
+    ) -> tuple[list[TimeSlotValidationError], TimeSlotDTO | None]:
         with self._transaction.atomic():
             existing = self._time_slots.list_by_event(event.pk)
             errors = _validate_time_slot(
                 start=start_time, end=end_time, event=event, existing_slots=existing
             )
-            if not errors:
-                self._time_slots.create(event.pk, start_time, end_time)
-            return errors
+            if errors:
+                return errors, None
+            return [], self._time_slots.create(event.pk, start_time, end_time)
 
     def update(
         self, *, event: EventDTO, pk: int, start_time: datetime, end_time: datetime
     ) -> list[TimeSlotValidationError]:
-        # Same unserialized check-then-write race as in create().
         with self._transaction.atomic():
-            # Scope the pk to the panel's event before writing; a foreign pk
-            # raises NotFoundError with no side effects.
             self._time_slots.read_by_event(event.pk, pk)
             existing = [
                 slot

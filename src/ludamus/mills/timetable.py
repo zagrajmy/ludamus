@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import math
 from collections import defaultdict
 from datetime import date, datetime, timedelta, tzinfo
@@ -36,7 +38,6 @@ from ludamus.pacts.chronology import (
     TimetableDayGridDTO,
     TimetableGridDTO,
     TimetableGridFilter,
-    TimetableRepos,
     TrackProgressDTO,
 )
 from ludamus.specs.timetable import (
@@ -50,6 +51,7 @@ if TYPE_CHECKING:
 
     from ludamus.pacts import FacilitatorDTO, SpaceDTO, TimeSlotDTO
     from ludamus.pacts.services import TransactionProtocol
+    from ludamus.pacts.timetable import TimetableRepos
 
 
 def conflicting_session_pks(conflicts: Iterable[ConflictDTO]) -> set[int]:
@@ -118,7 +120,6 @@ def _position_sessions(
 
 
 def _walk_tree(nodes: list[SpaceDTO]) -> list[tuple[SpaceDTO, int]]:
-    # three.
     children: dict[int | None, list[SpaceDTO]] = defaultdict(list)
     for node in nodes:
         children[node.parent_id].append(node)
@@ -916,7 +917,6 @@ class TimetableOverviewService:
         return grouped
 
     def track_progress(self, event_pk: int) -> list[TrackProgressDTO]:
-        # full-table queries.
         if not (tracks := self._repos.tracks.list_by_event(event_pk)):
             return []
         counts_by_track = self._repos.sessions.count_by_track(event_pk)

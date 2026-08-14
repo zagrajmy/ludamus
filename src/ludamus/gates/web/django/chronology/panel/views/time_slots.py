@@ -197,7 +197,7 @@ class TimeSlotCreatePageView(PanelAccessMixin, EventContextMixin, View):
             return TemplateResponse(self.request, "panel/time-slots.html", context)
 
         start_time, end_time = _slot_times(form)
-        errors = self.request.services.panel_time_slots.create(
+        errors, _created = self.request.services.panel_time_slots.create(
             event=current_event, start_time=start_time, end_time=end_time
         )
         if errors:

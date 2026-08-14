@@ -71,24 +71,6 @@ def _validate_slug(value: str) -> str:
     return stripped
 
 
-_AUDIT_REDACTED_KEYS: dict[str, frozenset[str]] = {
-    "find_or_create_facilitator": frozenset({"display_name"}),
-    "create_session": frozenset({"display_name", "description"}),
-}
-
-
-def sanitize_audit_arguments(
-    tool_name: str, arguments: dict[str, object]
-) -> dict[str, object]:
-    redact = _AUDIT_REDACTED_KEYS.get(tool_name)
-    if redact is None:
-        return arguments
-    return {
-        key: "[redacted]" if key in redact else value
-        for key, value in arguments.items()
-    }
-
-
 class _AwareDatetimeRange(BaseModel):
     start_time: datetime
     end_time: datetime
@@ -645,18 +627,13 @@ class OrganizerCreateTimeSlotTool(Tool[_CreateTimeSlotInput]):
     @staticmethod
     def handle(call: ToolCall[_CreateTimeSlotInput]) -> str:
         event = _require_event(call)
-        errors = call.services.panel_time_slots.create(
+        errors, created = call.services.panel_time_slots.create(
             event=event, start_time=call.data.start_time, end_time=call.data.end_time
         )
         if errors:
             raise ToolError(", ".join(error.value for error in errors))
-        slots = call.services.panel_time_slots.list_for_event(event.pk)
-        created = next(
-            slot
-            for slot in slots
-            if slot.start_time == call.data.start_time
-            and slot.end_time == call.data.end_time
-        )
+        if created is None:
+            raise ToolError("Could not create time slot")
         return created.model_dump_json(indent=2)
 
 
@@ -676,7 +653,7 @@ class OrganizerCreateTrackTool(Tool[_CreateTrackInput]):
     @staticmethod
     def handle(call: ToolCall[_CreateTrackInput]) -> str:
         event = _require_event(call)
-        call.services.tracks_panel.create(
+        created = call.services.tracks_panel.create(
             event_pk=event.pk,
             sphere_id=_actor_sphere(call.actor),
             data={
@@ -686,8 +663,6 @@ class OrganizerCreateTrackTool(Tool[_CreateTrackInput]):
                 "manager_pks": call.data.manager_ids,
             },
         )
-        tracks = call.services.tracks_panel.list_tracks(event.pk)
-        created = next(track for track in tracks if track.name == call.data.name)
         return created.model_dump_json(indent=2)
 
 
@@ -769,27 +744,6 @@ class OrganizerCreateSessionTool(Tool[_CreateSessionInput]):
     @staticmethod
     def handle(call: ToolCall[_CreateSessionInput]) -> str:
         event = _require_event(call)
-        categories = {
-            category.pk
-            for category in call.services.proposal_categories.get_page_context(
-                event.pk
-            ).categories
-        }
-        if call.data.category_id not in categories:
-            raise NotFoundError
-        known_facilitators = {
-            item.pk
-            for item in call.services.facilitator_panel.list_context(
-                event_id=event.pk, query=FacilitatorListQuery()
-            ).facilitators
-        }
-        if any(pk not in known_facilitators for pk in call.data.facilitator_ids):
-            raise NotFoundError
-        known_tracks = {
-            track.pk for track in call.services.tracks_panel.list_tracks(event.pk)
-        }
-        if any(pk not in known_tracks for pk in call.data.track_ids):
-            raise NotFoundError
         title = call.data.title
         try:
             session_id = call.services.proposal_panel.create_accepted_session(

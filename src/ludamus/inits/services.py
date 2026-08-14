@@ -78,11 +78,12 @@ from ludamus.mills.timetable import (
 )
 from ludamus.mills.tracks import TracksPanelService
 from ludamus.mills.venues import SpaceTreeService, VenuesService
-from ludamus.pacts.chronology import IntegrationImplementationId, TimetableRepos
+from ludamus.pacts.chronology import IntegrationImplementationId
 from ludamus.pacts.enrollment import EnrollmentRepos
 from ludamus.pacts.event_settings import EventSettingsRepos
 from ludamus.pacts.panel import FacilitatorPanelRepos, ProposalPanelRepos
 from ludamus.pacts.submissions import ImportRepos, ProposalCategorySettingsRepos
+from ludamus.pacts.timetable import TimetableRepos
 
 if TYPE_CHECKING:
     from ludamus.pacts.chronology import IntegrationImplementation
@@ -303,6 +304,9 @@ class Services:
                 session_fields=self._repos.session_fields,
                 proposal_categories=self._repos.proposal_categories,
                 panel_settings=self._repos.event_panel_settings,
+                facilitators=self._repos.facilitators,
+                tracks=self._repos.tracks,
+                time_slots=self._repos.time_slots,
             ),
         )
 

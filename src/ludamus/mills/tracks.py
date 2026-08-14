@@ -15,6 +15,7 @@ if TYPE_CHECKING:
     from ludamus.pacts.legacy import (
         SpaceRepositoryProtocol,
         SphereRepositoryProtocol,
+        TrackDTO,
         TrackListItemDTO,
         TrackRepositoryProtocol,
     )
@@ -70,8 +71,6 @@ class TracksPanelService(TracksPanelServiceProtocol):
     def _scoped(
         self, *, event_pk: int, sphere_id: int, data: TrackFormData
     ) -> TrackFormData:
-        # Submitted pks are request-supplied: keep only spaces of this event
-        # and managers of this sphere, dropping cross-event/sphere tampering.
         valid_space_pks = {space.pk for space in self._spaces.list_by_event(event_pk)}
         valid_manager_pks = {
             manager.pk for manager in self._spheres.list_managers(sphere_id)
@@ -83,10 +82,10 @@ class TracksPanelService(TracksPanelServiceProtocol):
             manager_pks=sorted(set(data["manager_pks"]) & valid_manager_pks),
         )
 
-    def create(self, *, event_pk: int, sphere_id: int, data: TrackFormData) -> None:
+    def create(self, *, event_pk: int, sphere_id: int, data: TrackFormData) -> TrackDTO:
         with self._transaction.atomic():
             scoped = self._scoped(event_pk=event_pk, sphere_id=sphere_id, data=data)
-            self._tracks.create(
+            return self._tracks.create(
                 TrackCreateData(
                     event_pk=event_pk,
                     name=scoped["name"],
@@ -100,8 +99,6 @@ class TracksPanelService(TracksPanelServiceProtocol):
         self, *, event_pk: int, sphere_id: int, track_slug: str, data: TrackFormData
     ) -> None:
         with self._transaction.atomic():
-            # NotFoundError from the event-scoped read surfaces to the caller,
-            # so a foreign track slug 404s without side effects.
             track = self._tracks.read_by_slug(event_pk, track_slug)
             scoped = self._scoped(event_pk=event_pk, sphere_id=sphere_id, data=data)
             self._tracks.update(
