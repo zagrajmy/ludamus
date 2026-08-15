@@ -142,7 +142,19 @@ class TestTrackCreatePageView:
             },
         )
 
-        assert_response(response, HTTPStatus.UNPROCESSABLE_ENTITY)
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/track-create.html",
+            context_data={
+                **panel_context(event, active_nav="tracks"),
+                "form": ANY,
+                "spaces": [],
+                "managers": [UserDTO.model_validate(active_user)],
+                "selected_space_pks": [foreign_space.pk],
+                "selected_manager_pks": [foreign_user.pk],
+            },
+        )
         assert not Track.objects.filter(event=event, name="Gamma Track").exists()
 
     def test_post_shows_error_for_empty_name(self, panel_client, active_user, event):

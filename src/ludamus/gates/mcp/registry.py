@@ -44,12 +44,25 @@ class ToolCall[InputT: BaseModel]:
     data: InputT
 
 
+def redact_keys(value: object, keys: frozenset[str]) -> object:
+    if isinstance(value, dict):
+        return {
+            str(key): "[redacted]" if key in keys else redact_keys(item, keys)
+            for key, item in value.items()
+        }
+    if isinstance(value, list):
+        return [redact_keys(item, keys) for item in value]
+    return value
+
+
 class ToolProtocol(Protocol):
     name: str
     description: str
     scope: ToolScope
 
     def input_schema(self) -> dict[str, object]: ...
+    @classmethod
+    def audit_arguments(cls, arguments: dict[str, object]) -> object: ...
     def run(
         self,
         *,
@@ -61,9 +74,15 @@ class ToolProtocol(Protocol):
 
 class Tool[InputT: BaseModel](ToolProtocol, ABC):
     input_model: type[InputT]
+    # Argument keys carrying personal data, redacted before the audit line.
+    audit_redacted_keys: frozenset[str] = frozenset()
 
     def input_schema(self) -> dict[str, object]:
         return self.input_model.model_json_schema()
+
+    @classmethod
+    def audit_arguments(cls, arguments: dict[str, object]) -> object:
+        return redact_keys(arguments, cls.audit_redacted_keys)
 
     def run(
         self,
@@ -104,6 +123,11 @@ class ToolRegistry:
             }
             for tool in self._tools.values()
         ]
+
+    def audit_arguments(self, name: str, arguments: dict[str, object]) -> object:
+        if (tool := self._tools.get(name)) is None:
+            return "[redacted]"
+        return tool.audit_arguments(arguments)
 
     def call(
         self,

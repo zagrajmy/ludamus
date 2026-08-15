@@ -148,7 +148,20 @@ class TestTrackEditPageView:
             },
         )
 
-        assert_response(response, HTTPStatus.UNPROCESSABLE_ENTITY)
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/track-edit.html",
+            context_data={
+                **panel_context(event, active_nav="tracks"),
+                "track": TrackDTO.model_validate(track),
+                "form": ANY,
+                "spaces": [],
+                "managers": [UserDTO.model_validate(active_user)],
+                "selected_space_pks": [foreign_space.pk],
+                "selected_manager_pks": [foreign_user.pk],
+            },
+        )
         track.refresh_from_db()
         assert track.name == "Alpha Track"
         assert not track.spaces.exists()

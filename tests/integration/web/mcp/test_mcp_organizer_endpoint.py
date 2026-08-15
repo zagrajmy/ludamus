@@ -737,7 +737,10 @@ class TestOrganizerProgrammeTools:
 
         result = response.json()["result"]
         assert result["isError"] is True
-        assert result["content"][0]["text"] == "Resource not found"
+        assert (
+            result["content"][0]["text"]
+            == "space_ids must belong to this event and manager_ids to its sphere"
+        )
         assert not Track.objects.filter(event=event, name="Foreign room track").exists()
 
     def test_create_space_rejects_foreign_parent(

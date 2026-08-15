@@ -10,10 +10,11 @@ from __future__ import annotations
 import json
 import re
 from datetime import datetime
-from typing import TYPE_CHECKING, Annotated
+from typing import TYPE_CHECKING
 
-from pydantic import BaseModel, Field, StringConstraints, TypeAdapter, field_validator
+from pydantic import BaseModel, Field, TypeAdapter, field_validator
 
+from ludamus.gates.mcp.inputs import EmptyInput, NonBlankName, require_aware_datetime
 from ludamus.gates.mcp.organizer_context import actor_sphere
 from ludamus.gates.mcp.programme_tools import programme_tools
 from ludamus.gates.mcp.registry import Tool, ToolCall, ToolError, ToolRegistry
@@ -37,20 +38,6 @@ if TYPE_CHECKING:
 _SPHERE_LIST = TypeAdapter(list[SphereListItemDTO])
 _EVENT_LIST = TypeAdapter(list[EventListItemDTO])
 _ANNOUNCEMENT_LIST = TypeAdapter(list[AnnouncementDTO])
-type _NonBlankName = Annotated[
-    str, StringConstraints(strip_whitespace=True, min_length=1, max_length=255)
-]
-
-
-class _EmptyInput(BaseModel):
-    pass
-
-
-def _require_aware_datetime(value: datetime, *, field: str) -> datetime:
-    if value.tzinfo is None or value.tzinfo.utcoffset(value) is None:
-        message = f"{field} must be timezone-aware"
-        raise ValueError(message)
-    return value
 
 
 def _validate_slug(value: str) -> str:
@@ -60,16 +47,6 @@ def _validate_slug(value: str) -> str:
             "slug must contain only letters, numbers, hyphens, or underscores"
         )
     return stripped
-
-
-class _AwareDatetimeRange(BaseModel):
-    start_time: datetime
-    end_time: datetime
-
-    @field_validator("start_time", "end_time")
-    @classmethod
-    def _aware_datetimes(cls, value: datetime) -> datetime:
-        return _require_aware_datetime(value, field="datetime")
 
 
 def _render_sphere(services: ServicesProtocol, sphere_id: int) -> str:
@@ -122,17 +99,17 @@ class _SphereInput(BaseModel):
     sphere_id: int = Field(description="Sphere primary key (see list_spheres)")
 
 
-class ListSpheresTool(Tool[_EmptyInput]):
+class ListSpheresTool(Tool[EmptyInput]):
     name = "list_spheres"
     description = (
         "List every sphere (community site) with its id, name and domain. "
         "Call this first to discover sphere ids used by the other tools."
     )
     scope = ToolScope.MAINTAINER
-    input_model = _EmptyInput
+    input_model = EmptyInput
 
     @staticmethod
-    def handle(call: ToolCall[_EmptyInput]) -> str:
+    def handle(call: ToolCall[EmptyInput]) -> str:
         spheres = call.services.sites.list_spheres()
         return _SPHERE_LIST.dump_json(spheres, indent=2).decode()
 
@@ -272,14 +249,14 @@ def _announcement_data(body: _AnnouncementBody) -> AnnouncementData:
     )
 
 
-class OrganizerGetSphereTool(Tool[_EmptyInput]):
+class OrganizerGetSphereTool(Tool[EmptyInput]):
     name = "get_sphere"
     description = "Read your sphere's settings and configuration."
     scope = ToolScope.ORGANIZER
-    input_model = _EmptyInput
+    input_model = EmptyInput
 
     @staticmethod
-    def handle(call: ToolCall[_EmptyInput]) -> str:
+    def handle(call: ToolCall[EmptyInput]) -> str:
         return _render_sphere(call.services, actor_sphere(call.actor))
 
 
@@ -298,14 +275,14 @@ class OrganizerListEventsTool(Tool[_ListEventsBody]):
         )
 
 
-class OrganizerListAnnouncementsTool(Tool[_EmptyInput]):
+class OrganizerListAnnouncementsTool(Tool[EmptyInput]):
     name = "list_announcements"
     description = "List your sphere's announcements, published and drafts."
     scope = ToolScope.ORGANIZER
-    input_model = _EmptyInput
+    input_model = EmptyInput
 
     @staticmethod
-    def handle(call: ToolCall[_EmptyInput]) -> str:
+    def handle(call: ToolCall[EmptyInput]) -> str:
         return _render_announcements(call.services, actor_sphere(call.actor))
 
 
@@ -328,7 +305,7 @@ class OrganizerGetEventTool(Tool[_EventSlugInput]):
 
 
 class _CreateEventInput(_SphereInput):
-    name: _NonBlankName
+    name: NonBlankName
     slug: str = Field(max_length=50, description="URL slug; unique within the sphere")
     description: str = ""
     start_time: datetime
@@ -349,14 +326,14 @@ class _CreateEventInput(_SphereInput):
     @field_validator("start_time", "end_time")
     @classmethod
     def _aware_event_datetimes(cls, value: datetime) -> datetime:
-        return _require_aware_datetime(value, field="datetime")
+        return require_aware_datetime(value, field="datetime")
 
     @field_validator("publication_time")
     @classmethod
     def _aware_publication_time(cls, value: datetime | None) -> datetime | None:
         if value is None:
             return None
-        return _require_aware_datetime(value, field="publication_time")
+        return require_aware_datetime(value, field="publication_time")
 
 
 class CreateEventTool(Tool[_CreateEventInput]):

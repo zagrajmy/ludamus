@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime
-from typing import TYPE_CHECKING, Annotated
+from typing import TYPE_CHECKING
 
 from django.utils.text import slugify
-from pydantic import BaseModel, Field, StringConstraints, TypeAdapter, field_validator
+from pydantic import BaseModel, Field, TypeAdapter, field_validator
 
+from ludamus.gates.mcp.inputs import AwareDatetimeRange, EmptyInput, NonBlankName
 from ludamus.gates.mcp.organizer_context import actor_sphere, token_event
 from ludamus.gates.mcp.protocol import JsonDict
 from ludamus.gates.mcp.registry import Tool, ToolCall, ToolError
@@ -31,6 +31,7 @@ from ludamus.pacts.panel import (
 from ludamus.pacts.services import DatabaseConstraintError
 from ludamus.pacts.submissions import AccreditationType
 from ludamus.pacts.timetable import PlacementRejectedError
+from ludamus.pacts.tracks import TrackSelectionInvalidError
 from ludamus.pacts.venues import SpaceInputDTO, SpaceTreeNodeDTO, SpaceValidationError
 
 if TYPE_CHECKING:
@@ -42,25 +43,6 @@ if TYPE_CHECKING:
 
 _PROPOSAL_CATEGORY_LIST = TypeAdapter(list[ProposalCategoryDTO])
 _JSON_OBJECT: TypeAdapter[JsonDict] = TypeAdapter(JsonDict)
-type _NonBlankName = Annotated[
-    str, StringConstraints(strip_whitespace=True, min_length=1, max_length=255)
-]
-
-
-class _AwareDatetimeRange(BaseModel):
-    start_time: datetime
-    end_time: datetime
-
-    @field_validator("start_time", "end_time")
-    @classmethod
-    def _aware_datetimes(cls, value: datetime) -> datetime:
-        if value.tzinfo is None or value.tzinfo.utcoffset(value) is None:
-            raise ValueError("datetime must be timezone-aware")
-        return value
-
-
-class _EmptyInput(BaseModel):
-    pass
 
 
 class _EventIdInput(BaseModel):
@@ -112,14 +94,14 @@ def _flatten_spaces(
     return spaces
 
 
-class OrganizerCurrentEventTool(Tool[_EmptyInput]):
+class OrganizerCurrentEventTool(Tool[EmptyInput]):
     name = "get_current_event"
     description = "Get the event this organizer token can write to."
     scope = ToolScope.ORGANIZER
-    input_model = _EmptyInput
+    input_model = EmptyInput
 
     @staticmethod
-    def handle(call: ToolCall[_EmptyInput]) -> str:
+    def handle(call: ToolCall[EmptyInput]) -> str:
         return token_event(services=call.services, actor=call.actor).model_dump_json(
             indent=2
         )
@@ -254,7 +236,7 @@ class OrganizerListFacilitatorsTool(Tool[_EventIdInput]):
 
 
 class _CreateSpaceInput(BaseModel):
-    name: _NonBlankName
+    name: NonBlankName
     parent_id: int | None = Field(
         default=None, description="Null creates a venue root; otherwise nest under it"
     )
@@ -291,7 +273,7 @@ class OrganizerCreateSpaceTool(Tool[_CreateSpaceInput]):
         return space.model_dump_json(indent=2)
 
 
-class _CreateTimeSlotInput(_AwareDatetimeRange):
+class _CreateTimeSlotInput(AwareDatetimeRange):
     pass
 
 
@@ -315,7 +297,7 @@ class OrganizerCreateTimeSlotTool(Tool[_CreateTimeSlotInput]):
 
 
 class _CreateTrackInput(BaseModel):
-    name: _NonBlankName
+    name: NonBlankName
     is_public: bool = True
     space_ids: list[int] = Field(default_factory=list)
     manager_ids: list[int] = Field(default_factory=list)
@@ -330,21 +312,27 @@ class OrganizerCreateTrackTool(Tool[_CreateTrackInput]):
     @staticmethod
     def handle(call: ToolCall[_CreateTrackInput]) -> str:
         event = token_event(services=call.services, actor=call.actor)
-        created = call.services.tracks_panel.create(
-            event_pk=event.pk,
-            sphere_id=actor_sphere(call.actor),
-            data={
-                "name": call.data.name,
-                "is_public": call.data.is_public,
-                "space_pks": call.data.space_ids,
-                "manager_pks": call.data.manager_ids,
-            },
-        )
+        try:
+            created = call.services.tracks_panel.create(
+                event_pk=event.pk,
+                sphere_id=actor_sphere(call.actor),
+                data={
+                    "name": call.data.name,
+                    "is_public": call.data.is_public,
+                    "space_pks": call.data.space_ids,
+                    "manager_pks": call.data.manager_ids,
+                },
+            )
+        except TrackSelectionInvalidError as error:
+            message = (
+                "space_ids must belong to this event and manager_ids to its sphere"
+            )
+            raise ToolError(message) from error
         return created.model_dump_json(indent=2)
 
 
 class _CreateProposalCategoryInput(BaseModel):
-    name: _NonBlankName
+    name: NonBlankName
 
 
 class OrganizerCreateProposalCategoryTool(Tool[_CreateProposalCategoryInput]):
@@ -361,7 +349,7 @@ class OrganizerCreateProposalCategoryTool(Tool[_CreateProposalCategoryInput]):
 
 
 class _FindOrCreateFacilitatorInput(BaseModel):
-    display_name: _NonBlankName
+    display_name: NonBlankName
 
 
 class OrganizerFindOrCreateFacilitatorTool(Tool[_FindOrCreateFacilitatorInput]):
@@ -371,6 +359,7 @@ class OrganizerFindOrCreateFacilitatorTool(Tool[_FindOrCreateFacilitatorInput]):
     )
     scope = ToolScope.ORGANIZER
     input_model = _FindOrCreateFacilitatorInput
+    audit_redacted_keys = frozenset({"display_name"})
 
     @staticmethod
     def handle(call: ToolCall[_FindOrCreateFacilitatorInput]) -> str:
@@ -385,6 +374,20 @@ class OrganizerFindOrCreateFacilitatorTool(Tool[_FindOrCreateFacilitatorInput]):
             user_id=call.actor.user_id,
         )
         return facilitator.model_dump_json(indent=2)
+
+
+def _batch_audit_arguments(
+    arguments: dict[str, object], *, key: str, item_key: str
+) -> JsonDict:
+    items = arguments.get(key)
+    if not isinstance(items, list):
+        return {key: "[redacted]"}
+    return {
+        f"{key.removesuffix('s')}_count": len(items),
+        f"{item_key}s": [
+            item.get(item_key) for item in items if isinstance(item, dict)
+        ],
+    }
 
 
 def _batch_response[T](
@@ -435,7 +438,7 @@ class _CreateSessionInput(BaseModel):
             raise ValueError("source_row_id must be non-empty")
         return stripped
 
-    title: _NonBlankName
+    title: NonBlankName
     category_id: int
     description: str = ""
     duration: str = Field(
@@ -500,6 +503,7 @@ class OrganizerCreateSessionTool(Tool[_CreateSessionInput]):
     )
     scope = ToolScope.ORGANIZER
     input_model = _CreateSessionInput
+    audit_redacted_keys = frozenset({"display_name", "description"})
 
     @staticmethod
     def handle(call: ToolCall[_CreateSessionInput]) -> str:
@@ -534,6 +538,12 @@ class OrganizerCreateSessionsTool(Tool[_CreateSessionsInput]):
     scope = ToolScope.ORGANIZER
     input_model = _CreateSessionsInput
 
+    @classmethod
+    def audit_arguments(cls, arguments: dict[str, object]) -> object:
+        return _batch_audit_arguments(
+            arguments, key="sessions", item_key="source_row_id"
+        )
+
     @staticmethod
     def handle(call: ToolCall[_CreateSessionsInput]) -> str:
         event = token_event(services=call.services, actor=call.actor)
@@ -548,7 +558,7 @@ class OrganizerCreateSessionsTool(Tool[_CreateSessionsInput]):
         )
 
 
-class _AssignSessionInput(_AwareDatetimeRange):
+class _AssignSessionInput(AwareDatetimeRange):
     session_id: int
     space_id: int
 
@@ -617,6 +627,12 @@ class OrganizerAssignSessionsTool(Tool[_AssignSessionsInput]):
     )
     scope = ToolScope.ORGANIZER
     input_model = _AssignSessionsInput
+
+    @classmethod
+    def audit_arguments(cls, arguments: dict[str, object]) -> object:
+        return _batch_audit_arguments(
+            arguments, key="assignments", item_key="session_id"
+        )
 
     @staticmethod
     def handle(call: ToolCall[_AssignSessionsInput]) -> str:

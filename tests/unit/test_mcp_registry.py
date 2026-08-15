@@ -4,7 +4,6 @@ from unittest.mock import MagicMock
 import pytest
 from pydantic import BaseModel
 
-from ludamus.gates.mcp.protocol import sanitize_audit_arguments
 from ludamus.gates.mcp.registry import Tool, ToolCall, ToolError, ToolRegistry
 from ludamus.gates.mcp.tools import build_registry
 from ludamus.pacts.mcp import ActorContext, ToolScope
@@ -127,7 +126,9 @@ def test_sanitize_audit_arguments_redacts_sensitive_fields():
         "title": "Workshop",
     }
 
-    redacted = sanitize_audit_arguments("create_session", arguments)
+    redacted = build_registry(ToolScope.ORGANIZER).audit_arguments(
+        "create_session", arguments
+    )
 
     assert redacted == {
         "event_id": 1,
@@ -155,7 +156,9 @@ def test_sanitize_batch_audit_arguments_keeps_only_correlation_keys():
         ]
     }
 
-    redacted = sanitize_audit_arguments("create_sessions", arguments)
+    redacted = build_registry(ToolScope.ORGANIZER).audit_arguments(
+        "create_sessions", arguments
+    )
 
     assert redacted == {"session_count": 2, "source_row_ids": ["row-1", "row-2"]}
 

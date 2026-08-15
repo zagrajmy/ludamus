@@ -239,17 +239,10 @@ class ProposalPanelService(ProposalPanelServiceProtocol):
 
     def _validate_create_draft(self, *, event_id: int, draft: ProposalDraft) -> None:
         _validate_draft_event_id(event_id=event_id, draft=draft)
-        if draft.facilitator_ids:
-            _validate_draft_facilitators(
-                event_id=event_id, draft=draft, repos=self._repos
-            )
+        _validate_draft_facilitators(event_id=event_id, draft=draft, repos=self._repos)
         _validate_draft_fields(event_id=event_id, draft=draft, repos=self._repos)
-        if draft.track_ids:
-            _validate_draft_tracks(event_id=event_id, draft=draft, repos=self._repos)
-        if draft.time_slot_ids:
-            _validate_draft_time_slots(
-                event_id=event_id, draft=draft, repos=self._repos
-            )
+        _validate_draft_tracks(event_id=event_id, draft=draft, repos=self._repos)
+        _validate_draft_time_slots(event_id=event_id, draft=draft, repos=self._repos)
         _validate_draft_category(event_id=event_id, draft=draft, repos=self._repos)
 
     def _create_session(

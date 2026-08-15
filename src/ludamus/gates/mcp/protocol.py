@@ -39,51 +39,6 @@ type ToolOutcome = Literal[
     "ok", "error", "invalid-arguments", "invalid-params", "unknown-tool"
 ]
 
-_AUDIT_REDACTED_KEYS: dict[str, frozenset[str]] = {
-    "find_or_create_facilitator": frozenset({"display_name"}),
-    "create_session": frozenset({"display_name", "description"}),
-}
-
-
-def _redact_keys(value: object, keys: frozenset[str]) -> object:
-    if isinstance(value, dict):
-        return {
-            str(key): "[redacted]" if key in keys else _redact_keys(item, keys)
-            for key, item in value.items()
-        }
-    if isinstance(value, list):
-        return [_redact_keys(item, keys) for item in value]
-    return value
-
-
-def sanitize_audit_arguments(tool_name: str, arguments: JsonDict) -> JsonDict:
-    if tool_name == "create_sessions":
-        sessions = arguments.get("sessions")
-        if not isinstance(sessions, list):
-            return {"sessions": "[redacted]"}
-        return {
-            "session_count": len(sessions),
-            "source_row_ids": [
-                item.get("source_row_id") for item in sessions if isinstance(item, dict)
-            ],
-        }
-    if tool_name == "assign_sessions":
-        assignments = arguments.get("assignments")
-        if not isinstance(assignments, list):
-            return {"assignments": "[redacted]"}
-        return {
-            "assignment_count": len(assignments),
-            "session_ids": [
-                item.get("session_id") for item in assignments if isinstance(item, dict)
-            ],
-        }
-    if (redact := _AUDIT_REDACTED_KEYS.get(tool_name)) is None:
-        return arguments
-    return {
-        key: "[redacted]" if key in redact else _redact_keys(value, redact)
-        for key, value in arguments.items()
-    }
-
 
 def error_response(*, message_id: object, code: int, message: str) -> JsonDict:
     return {
@@ -139,13 +94,12 @@ def _call_tool(
             name=name,
             arguments=arguments,
         )
-    audit_arguments: JsonDict | Literal["[redacted]"]
-    if outcome in {"invalid-params", "unknown-tool"}:
-        audit_arguments = "[redacted]"
-    elif isinstance(name, str) and isinstance(arguments, dict):
-        audit_arguments = sanitize_audit_arguments(name, arguments)
+    if outcome in {"invalid-params", "unknown-tool"} or not (
+        isinstance(name, str) and isinstance(arguments, dict)
+    ):
+        audit_arguments: object = "[redacted]"
     else:
-        audit_arguments = "[redacted]"
+        audit_arguments = registry.audit_arguments(name, arguments)
     # Audit trail (#480): one line per tools/call.
     # %r on client-controlled values: repr escapes newlines, so a crafted
     # tool name cannot inject fake audit lines.
