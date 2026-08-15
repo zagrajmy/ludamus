@@ -12,6 +12,7 @@ from django.test import override_settings
 from django.test.utils import CaptureQueriesContext
 from django.urls import resolve, reverse
 from django.utils import timezone
+from freezegun import freeze_time
 
 from ludamus.adapters.web.django.views import EventPageView
 from ludamus.gates.web.django.chronology.event_presentation import (
@@ -332,6 +333,10 @@ class TestEventPageView:
             not_contains="Not Available",
         )
 
+    # Pinned: the ongoing session spans now±1h, so a run near local midnight
+    # would split it across two dates and yield an extra schedule day. The
+    # fixture's dates were built against the real clock, so they move too.
+    @freeze_time("2026-06-15 12:00:00")
     def test_ok_compact_schedule_renders_all_row_variants(
         self, client, event, space, monkeypatch
     ):
@@ -339,6 +344,10 @@ class TestEventPageView:
             "ludamus.adapters.web.django.views.COMPACT_SCHEDULE_MIN_SESSIONS", 1
         )
         now = timezone.now()
+        event.publication_time = now - timedelta(days=14)
+        event.start_time = now + timedelta(days=7)
+        event.end_time = event.start_time + timedelta(hours=8)
+        event.save()
         EnrollmentConfig.objects.create(
             event=event,
             start_time=now - timedelta(days=1),
