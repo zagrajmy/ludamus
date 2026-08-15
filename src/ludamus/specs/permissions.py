@@ -11,8 +11,8 @@ if TYPE_CHECKING:
 ROLE_CAPABILITIES: Mapping[SphereRole, frozenset[Capability]] = MappingProxyType(
     {
         SphereRole.MANAGER: frozenset(Capability),
-        # Reads the panel, changes nothing. Publishing errata lands here when
-        # that page ships.
-        SphereRole.COMMS: frozenset(),
+        # Reads the panel and changes nothing but the errata feed, which is
+        # the job: announcing agenda changes and ticking off the announced.
+        SphereRole.COMMS: frozenset({Capability.ERRATUM_ACK}),
     }
 )

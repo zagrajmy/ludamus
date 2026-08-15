@@ -34,6 +34,7 @@ class Capability(StrEnum):
     # where roles actually differ earn a member — everything else in the panel
     # is PANEL_WRITE.
     PANEL_WRITE = "panel_write"
+    ERRATUM_ACK = "erratum_ack"
 
 
 class DuplicateConnectionDisplayNameError(Exception):

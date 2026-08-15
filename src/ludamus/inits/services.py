@@ -41,6 +41,7 @@ from ludamus.mills.enrollment import (
     NotificationsService,
     WaitlistPromotionService,
 )
+from ludamus.mills.errata import ErrataService
 from ludamus.mills.event import EventConfirmationsService, EventPanelService
 from ludamus.mills.event_settings import EventSettingsService
 from ludamus.mills.guild import GuildService
@@ -204,6 +205,13 @@ class Services:
     @cached_property
     def event_panel(self) -> EventPanelService:
         return EventPanelService(self._repos.events)
+
+    @cached_property
+    def errata(self) -> ErrataService:
+        return ErrataService(
+            events=self._repos.events,
+            schedule_change_logs=self._repos.schedule_change_logs,
+        )
 
     @cached_property
     def confirmations(self) -> EventConfirmationsService:

@@ -1402,6 +1402,8 @@ class ScheduleChangeLogDTO(BaseModel):
     new_start_time: datetime | None
     new_end_time: datetime | None
     creation_time: datetime
+    acknowledgement_time: datetime | None = None
+    acknowledged_by_name: str = ""
 
 
 class ScheduleChangeLogRepositoryProtocol(Protocol):
@@ -1415,6 +1417,14 @@ class ScheduleChangeLogRepositoryProtocol(Protocol):
     def list_by_event(
         event_pk: int, *, space_pk: int | None = None
     ) -> list[ScheduleChangeLogDTO]: ...
+
+    @staticmethod
+    def list_since(event_pk: int, since: datetime) -> list[ScheduleChangeLogDTO]: ...
+
+    @staticmethod
+    def set_acknowledged(
+        *, event_pk: int, log_pks: list[int], user_id: int, acknowledged: bool
+    ) -> None: ...
 
     @staticmethod
     def list_by_session(session_id: int) -> list[ScheduleChangeLogDTO]: ...

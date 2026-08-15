@@ -40,6 +40,7 @@ if TYPE_CHECKING:
         NotificationsServiceProtocol,
         WaitlistPromotionServiceProtocol,
     )
+    from ludamus.pacts.errata import ErrataServiceProtocol
     from ludamus.pacts.event import (
         EventConfirmationsServiceProtocol,
         EventPanelServiceProtocol,
@@ -129,6 +130,8 @@ class ServicesProtocol(Protocol):
     def events(self) -> EventsServiceProtocol: ...
     @property
     def event_panel(self) -> EventPanelServiceProtocol: ...
+    @property
+    def errata(self) -> ErrataServiceProtocol: ...
     @property
     def confirmations(self) -> EventConfirmationsServiceProtocol: ...
     @property

@@ -1718,6 +1718,16 @@ class ScheduleChangeLog(models.Model):
     new_start_time = models.DateTimeField(null=True, blank=True)
     new_end_time = models.DateTimeField(null=True, blank=True)
     creation_time = models.DateTimeField(auto_now_add=True)
+    # Somebody announced this change. Only rows past the event's publication
+    # time are ever offered for it; the rest stay blank forever.
+    acknowledged_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="acknowledged_schedule_change_logs",
+    )
+    acknowledgement_time = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         db_table = "schedule_change_log"

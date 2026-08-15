@@ -7,6 +7,7 @@ from ludamus.gates.web.django.chronology.panel.views import (
     cfp,
     columns,
     discounts,
+    errata,
     event_settings,
     facilitators,
     google_docs_import,
@@ -155,6 +156,12 @@ urlpatterns = [
         "event/<slug:slug>/settings/integrations/",
         event_settings.EventIntegrationSettingsPageView.as_view(),
         name="event-integration-settings",
+    ),
+    path("event/<slug:slug>/errata/", errata.ErrataPageView.as_view(), name="errata"),
+    path(
+        "event/<slug:slug>/errata/do/acknowledge",
+        errata.ErratumAcknowledgeActionView.as_view(),
+        name="erratum-acknowledge",
     ),
     path("event/<slug:slug>/bans/", bans.BansPageView.as_view(), name="bans"),
     path(

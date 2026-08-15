@@ -1,0 +1,84 @@
+{% extends "panel/base.html" %}
+{% load i18n %}
+{% load tessera %}
+{% block title %}
+    {% translate "Errata" %}
+{% endblock title %}
+{% block page_title %}
+    {% translate "Errata" %}
+{% endblock page_title %}
+{% block page_title_adornment %}
+    {% translate "What are errata?" as t_info_title %}
+    {% translate "Everything the agenda gained, lost or moved after it went public. Announce a change, then tick it off — what stays unticked is what the audience has not been told yet." as t_info_body %}
+    {% include "components/info_popover.html" with title=t_info_title body=t_info_body %}
+{% endblock page_title_adornment %}
+{% block page_subtitle %}
+    {% if current_event %}
+        {{ current_event.name }} ·
+        {% blocktranslate count counter=pending_count %}{{ counter }} change to announce{% plural %}{{ counter }} changes to announce{% endblocktranslate %}
+    {% endif %}
+{% endblock page_subtitle %}
+{% block content %}
+    <div class="p-4 flex flex-col gap-6">
+        {% if current_event %}
+            {% if errata %}
+                <ul class="rounded-lg bg-bg-secondary divide-y divide-border">
+                    {% for erratum in errata %}
+                        <li class="flex flex-col sm:flex-row sm:items-center gap-3 p-4 {% if erratum.is_acknowledged %}opacity-60{% endif %}">
+                            <div class="grow">
+                                <p class="text-sm text-foreground">
+                                    {% if erratum.kind == "added" %}
+                                        {% blocktranslate with title=erratum.session_title space=erratum.new_space_name when=erratum.new_start_time|date:"SHORT_DATETIME_FORMAT" %}<strong>{{ title }}</strong> was added to the agenda: {{ space }}, {{ when }}{% endblocktranslate %}
+                                    {% elif erratum.kind == "moved" %}
+                                        {% blocktranslate with title=erratum.session_title old_space=erratum.old_space_name old_when=erratum.old_start_time|date:"SHORT_DATETIME_FORMAT" space=erratum.new_space_name when=erratum.new_start_time|date:"SHORT_DATETIME_FORMAT" %}<strong>{{ title }}</strong> was moved from {{ old_space }}, {{ old_when }} to {{ space }}, {{ when }}{% endblocktranslate %}
+                                    {% else %}
+                                        {% blocktranslate with title=erratum.session_title space=erratum.old_space_name when=erratum.old_start_time|date:"SHORT_DATETIME_FORMAT" %}<strong>{{ title }}</strong> was removed from the agenda: it was {{ space }}, {{ when }}{% endblocktranslate %}
+                                    {% endif %}
+                                </p>
+                                <p class="mt-1 text-xs text-foreground-muted">
+                                    {% blocktranslate with who=erratum.user_name when=erratum.creation_time|date:"SHORT_DATETIME_FORMAT" %}Changed by {{ who }} on {{ when }}{% endblocktranslate %}
+                                    {% if erratum.is_acknowledged %}
+                                        · {% blocktranslate with who=erratum.acknowledged_by_name %}announced by {{ who }}{% endblocktranslate %}
+                                    {% endif %}
+                                </p>
+                            </div>
+                            <form method="post"
+                                  action="{% url 'panel:erratum-acknowledge' slug=current_event.slug %}"
+                                  class="shrink-0">
+                                {% csrf_token %}
+                                {% for log_pk in erratum.log_pks %}<input type="hidden" name="log_pk" value="{{ log_pk }}">{% endfor %}
+                                {% if erratum.is_acknowledged %}
+                                    <input type="hidden" name="acknowledged" value="0">
+                                    {% translate "Undo" as t_undo %}
+                                    {% tessera_button t_undo variant="secondary" size="sm" full_width_mobile=False %}
+                                {% else %}
+                                    <input type="hidden" name="acknowledged" value="1">
+                                    {% translate "Announced" as t_announced %}
+                                    {% tessera_button t_announced variant="primary" size="sm" full_width_mobile=False %}
+                                {% endif %}
+                            </form>
+                        </li>
+                    {% endfor %}
+                </ul>
+            {% elif current_event.publication_time %}
+                <div class="text-center py-8">
+                    {% icon "megaphone" class="w-10 h-10 mx-auto text-foreground-muted mb-2" %}
+                    <h5 class="text-foreground-muted font-medium">{% translate "The agenda has not changed since it went public" %}</h5>
+                </div>
+            {% else %}
+                <div class="text-center py-8">
+                    {% icon "megaphone" class="w-10 h-10 mx-auto text-foreground-muted mb-2" %}
+                    <h5 class="text-foreground-muted font-medium">{% translate "The agenda is not public yet" %}</h5>
+                    <p class="mt-1 text-sm text-foreground-muted">
+                        {% translate "Changes count as errata once the event is published — until then, edit the schedule freely." %}
+                    </p>
+                    <div class="mt-4">
+                        {% translate "Open event settings" as t_settings %}
+                        {% url 'panel:event-settings' slug=current_event.slug as settings_url %}
+                        {% tessera_button t_settings href=settings_url variant="secondary" %}
+                    </div>
+                </div>
+            {% endif %}
+        {% endif %}
+    </div>
+{% endblock content %}
