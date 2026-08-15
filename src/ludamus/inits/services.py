@@ -41,13 +41,16 @@ from ludamus.mills.enrollment import (
     NotificationsService,
     WaitlistPromotionService,
 )
-from ludamus.mills.event import EventConfirmationsService, EventPanelService
+from ludamus.mills.event import (
+    EventConfirmationsService,
+    EventPanelService,
+    EventsService,
+)
 from ludamus.mills.event_settings import EventSettingsService
 from ludamus.mills.guild import GuildService
 from ludamus.mills.multiverse import (
     AnnouncementsService,
     ConnectionsService,
-    EventsService,
     SitesService,
     SpherePanelService,
 )
@@ -483,6 +486,9 @@ class Services:
 
     @cached_property
     def proposals_import(self) -> ProposalImportService:
+        # The Chronology integrations service supplies both the saved recipe
+        # (settings_json) and the raw source rows; Submissions interprets them
+        # into proposals.
         return ProposalImportService(
             transaction=self._transaction,
             event_integrations=self.event_integrations,

@@ -1,5 +1,8 @@
+from __future__ import annotations
+
 from collections import Counter, defaultdict
 from datetime import UTC, datetime
+from typing import TYPE_CHECKING
 
 from ludamus.pacts.event import (
     ConfirmationDashboardDTO,
@@ -11,8 +14,12 @@ from ludamus.pacts.event import (
     ConfirmationTrackRowDTO,
     ConfirmationTrackViewDTO,
     EventConfirmationsServiceProtocol,
+    EventCreateData,
+    EventDatesInvalidError,
     EventPanelContextDTO,
     EventPanelServiceProtocol,
+    EventPublicationInvalidError,
+    EventsRepositoryProtocol,
 )
 from ludamus.pacts.legacy import (
     AgendaItemRepositoryProtocol,
@@ -20,6 +27,7 @@ from ludamus.pacts.legacy import (
     ConfirmationFacilitatorRow,
     ConfirmationSessionRow,
     EventDTO,
+    EventListItemDTO,
     EventRepositoryProtocol,
     EventStatsData,
     FacilitatorRepositoryProtocol,
@@ -27,9 +35,13 @@ from ludamus.pacts.legacy import (
     PanelStatsDTO,
     SessionRepositoryProtocol,
     SessionStatus,
+    SphereRepositoryProtocol,
     TrackRepositoryProtocol,
 )
 from ludamus.specs.confirmations import COUNTED_UNPLACED, SCHEDULED_STATUS, STATUS_ORDER
+
+if TYPE_CHECKING:
+    from ludamus.pacts.services import TransactionProtocol
 
 
 # Panel access only proves you manage an event; every id the request names has
@@ -412,3 +424,39 @@ class EventPanelService(EventPanelServiceProtocol):
             is_proposal_active=is_proposal_active(current_event),
             stats=build_panel_stats(stats_data),
         )
+
+
+class EventsService:
+    def __init__(
+        self,
+        *,
+        transaction: TransactionProtocol,
+        events: EventsRepositoryProtocol,
+        spheres: SphereRepositoryProtocol,
+    ) -> None:
+        self._transaction = transaction
+        self._events = events
+        self._spheres = spheres
+
+    def list_for_sphere(
+        self, sphere_id: int, *, include_unpublished: bool
+    ) -> list[EventListItemDTO]:
+        return self._events.list_for_events_page(
+            sphere_id, include_unpublished=include_unpublished
+        )
+
+    def read_by_slug(self, sphere_id: int, slug: str) -> EventDTO:
+        return self._events.read_by_slug(slug, sphere_id)
+
+    def require_in_sphere(self, *, sphere_id: int, event_id: int) -> EventDTO:
+        return self._events.read_in_sphere(event_id, sphere_id)
+
+    def create(self, *, sphere_id: int, data: EventCreateData) -> EventDTO:
+        if data["end_time"] <= data["start_time"]:
+            raise EventDatesInvalidError
+        publication_time = data["publication_time"]
+        if publication_time is not None and publication_time > data["start_time"]:
+            raise EventPublicationInvalidError
+        self._spheres.read(sphere_id)
+        with self._transaction.atomic():
+            return self._events.create(sphere_id, data)

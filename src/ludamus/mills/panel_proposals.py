@@ -36,6 +36,9 @@ if TYPE_CHECKING:
 
 
 def _resolve_sort(sort: str, fields: Sequence[OrganizerFieldDTO]) -> str:
+    # A sort key naming a built-in column or one of this event's own fields is
+    # passed to the repo; anything else is dropped, so a tampered `sort` falls
+    # back to the default order instead of reaching the query.
     key = sort.removeprefix("-")
     valid = {*PROPOSAL_BUILTIN_KEYS, *(f"{FIELD_KEY_PREFIX}{f.pk}" for f in fields)}
     return sort if key in valid else ""
@@ -120,11 +123,17 @@ class ProposalPanelService(ProposalPanelServiceProtocol):
         if category_pk not in {c.pk for c in categories}:
             category_pk = None
 
+        # Only a real status or the "scheduled" pseudo-filter narrows the list;
+        # anything else (STATUS_ALL, junk) shows every proposal. Which status an
+        # absent param means is the page's call, not this service's.
         status = (
             query.status
             if query.status == SCHEDULED_FILTER or query.status in set(SessionStatus)
             else None
         )
+        # Scheduled is a placement fact, not a status: the "scheduled" option
+        # filters on agenda-item existence, and picking a real status excludes
+        # scheduled sessions so the backlog views stay clean.
         if status == SCHEDULED_FILTER:
             status_filter, scheduled_filter = None, True
         elif status is not None:
@@ -175,6 +184,8 @@ class ProposalPanelService(ProposalPanelServiceProtocol):
         )
 
     def read_proposal(self, *, event_id: int, proposal_id: int) -> SessionDTO:
+        # Every panel page that names a proposal in its URL goes through here,
+        # so a foreign id is NotFound before anything reads or writes it.
         return self._repos.sessions.read_by_event(proposal_id, event_id)
 
     def columns_context(self, event_id: int) -> PanelColumnsContextDTO:
@@ -186,6 +197,8 @@ class ProposalPanelService(ProposalPanelServiceProtocol):
         )
 
     def set_columns(self, *, event_id: int, columns: list[str]) -> None:
+        # An empty result would persist as "use the defaults", so the organizer
+        # who unticked everything would silently get every default column back.
         if not (
             keys := sanitize_column_keys(
                 keys=columns,
@@ -197,6 +210,9 @@ class ProposalPanelService(ProposalPanelServiceProtocol):
         self._repos.panel_settings.update_proposal_columns(event_id, keys)
 
     def create_proposal(self, *, event_id: int, draft: ProposalDraft) -> int:
+        # One savepoint around every write: a constraint/data error rolls the
+        # whole create back and re-raises as DatabaseConstraintError, which the
+        # caller surfaces as an inline form error with the input preserved.
         with self._transaction.savepoint():
             return self._create_session(event_id=event_id, draft=draft)
 
@@ -261,6 +277,8 @@ class ProposalPanelService(ProposalPanelServiceProtocol):
         session_id = self._repos.sessions.create(
             payload, facilitator_ids=draft.facilitator_ids
         )
+        # A brand-new proposal has no answers yet, so a blank input is
+        # "never answered" and stores no row.
         answered = [
             SessionFieldValueData(session_id=session_id, field_id=field_id, value=value)
             for field_id, value in draft.field_values.items()

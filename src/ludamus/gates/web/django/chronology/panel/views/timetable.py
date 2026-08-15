@@ -103,6 +103,8 @@ class _FacilitatorOptions(NamedTuple):
 def _facilitator_options(
     *, request: PanelRequest, event_pk: int, search: str, pinned: set[int]
 ) -> _FacilitatorOptions:
+    # Formatting only -- which people come back, and why the already-picked
+    # ones always do, is the service's business.
     panel = request.services.facilitator_panel
     found = panel.filter_options(
         event_id=event_pk, search=search, pinned=pinned, limit=_FACILITATOR_OPTION_LIMIT
@@ -113,15 +115,24 @@ def _facilitator_options(
     labels = column_views(found.columns, FACILITATOR_COLUMNS)
     options = []
     for facilitator in found.facilitators:
+        # Whichever columns the organizer configured become a meta line under
+        # the name. They carry their own labels because, unlike in the
+        # facilitator table, there are no column headers here to read them
+        # against -- a bare "None · 2 · —" says nothing about who this is.
+        # Placeholders are dropped for the same reason.
         cells = [
             (column.label, cell)
             for column in labels
+            # The name is the row's label, never a meta cell repeating it.
             if column.key != "name"
             and (cell := values[facilitator.pk].get(column.key, "")) not in {"", "—"}
         ]
         options.append(
             MultiselectOptionDTO(
                 value=facilitator.pk,
+                # Always the display name: an organizer is free to order the
+                # list's columns however they like, and a picker labelling
+                # people by session count or phone number names nobody.
                 label=facilitator.display_name,
                 meta=" · ".join(f"{label}: {cell}" for label, cell in cells),
             )
@@ -136,6 +147,9 @@ def _print_url(
     track_pk: int | None,
     date_selection: DateSelection,
 ) -> str:
+    # The print page is preset to the schedule's current view: an active track
+    # filter prints that track, a picked day prints that day — the filters the
+    # organizer already dialed in aren't wasted.
     params: list[tuple[str, str]] = []
     if (track := next((t for t in tracks if t.pk == track_pk), None)) is not None:
         params += [("material", "track-timetable"), ("track", track.slug)]
@@ -215,6 +229,8 @@ class TimetablePageView(PanelAccessMixin, EventContextMixin, View):
             current_event.pk
         )
         context["filter_space_pks"] = space_pks
+        # An unsearched picker shows exactly the already-picked rows, so there
+        # is never a "more matches" tail to report on this path.
         context["facilitator_options"] = _facilitator_options(
             request=self.request,
             event_pk=current_event.pk,
@@ -484,6 +500,9 @@ class TimetableAssignView(PanelAccessMixin, EventContextMixin, View):
                 event_pk=current_event.pk, session_pk=session_pk
             )
         except NotFoundError:
+            # A concurrent unassign can remove the placement between the
+            # committed write and this advisory sweep; that is not a failure
+            # of the assignment, so report no conflicts.
             conflicts = []
 
         trigger_data: dict[str, object] = {"timetableChanged": {}}

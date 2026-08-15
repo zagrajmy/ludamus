@@ -13,13 +13,7 @@ from typing import TYPE_CHECKING, Protocol
 from pydantic import BaseModel, ConfigDict, Field
 
 if TYPE_CHECKING:
-    from ludamus.pacts.event import EventCreateData
-    from ludamus.pacts.legacy import (
-        EventDTO,
-        EventListItemDTO,
-        SphereDTO,
-        UploadedFileProtocol,
-    )
+    from ludamus.pacts.legacy import EventDTO, SphereDTO, UploadedFileProtocol
 
 
 class DuplicateConnectionDisplayNameError(Exception):
@@ -133,27 +127,6 @@ class SphereListItemDTO(BaseModel):
 class SphereDirectoryRepositoryProtocol(Protocol):
     @staticmethod
     def list_all() -> list[SphereListItemDTO]: ...
-
-
-class EventSlugConflictError(Exception):
-    pass
-
-
-class EventDatesInvalidError(Exception):
-    pass
-
-
-class EventPublicationInvalidError(Exception):
-    pass
-
-
-class EventsServiceProtocol(Protocol):
-    def list_for_sphere(
-        self, sphere_id: int, *, include_unpublished: bool
-    ) -> list[EventListItemDTO]: ...
-    def read_by_slug(self, sphere_id: int, slug: str) -> EventDTO: ...
-    def require_in_sphere(self, *, sphere_id: int, event_id: int) -> EventDTO: ...
-    def create(self, *, sphere_id: int, data: EventCreateData) -> EventDTO: ...
 
 
 class SpherePanelServiceProtocol(Protocol):

@@ -146,6 +146,9 @@ def _call_tool(
         audit_arguments = sanitize_audit_arguments(name, arguments)
     else:
         audit_arguments = "[redacted]"
+    # Audit trail (#480): one line per tools/call.
+    # %r on client-controlled values: repr escapes newlines, so a crafted
+    # tool name cannot inject fake audit lines.
     logger.info(
         "mcp.tools_call user_id=%s scope=%s sphere_id=%s event_id=%s tool=%r "
         "outcome=%s arguments=%r",
@@ -199,6 +202,7 @@ def handle_message(
             message_id=message_id, code=INVALID_REQUEST, message="Invalid request"
         )
     if message_id is None:
+        # A notification (e.g. notifications/initialized): accept, no response.
         return None
 
     params = message.get("params")

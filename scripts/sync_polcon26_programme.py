@@ -37,6 +37,14 @@ FIRST_PROGRAMME_COLUMN = 2
 MIN_PRESENTER_NAME_LENGTH = 2
 MAX_SOURCE_ROW_ID_LENGTH = 64
 
+ROOM_NAME_REPAIRS = (
+    ("prelecyjny", "prelekcyjny"),
+    ("prelekcyjny (aula 8 w A16)y", "prelekcyjny (aula 8 w A16)"),
+    ("komiksowy (aula I w A-20)", "komiksowa (aula I w A-20)"),
+)
+UNLABELLED_ROOM_GROUPS = {"Sobota": ((31, 33, "Manga i anime sala 106"),)}
+TRANSPOSED_TITLE_CELLS = {("Sobota", "G10")}
+
 
 @dataclass(frozen=True)
 class SheetData:
@@ -160,6 +168,17 @@ class McpError(RuntimeError):
     pass
 
 
+def failure_detail(response_text: str) -> str:
+    try:
+        payload = cast("dict[str, object]", json.loads(response_text))
+    except json.JSONDecodeError:
+        return response_text
+    results = cast("list[dict[str, object]]", payload.get("results", []))
+    if not (failures := [row for row in results if row.get("status") != "ok"]):
+        return response_text
+    return f"{payload.get('summary')}; failures: {failures}"
+
+
 class McpClient:
     def __init__(self, *, endpoint: str, token: str) -> None:
         self.endpoint = endpoint
@@ -198,7 +217,7 @@ class McpClient:
         content = cast("list[dict[str, object]]", result.get("content", []))
         response_text = str(content[0].get("text", "")) if content else ""
         if result.get("isError"):
-            message = f"{name}: {response_text}"
+            message = f"{name}: {failure_detail(response_text)}"
             raise McpError(message)
         try:
             return json.loads(response_text)
@@ -328,9 +347,8 @@ def room_groups(sheet: SheetData) -> list[tuple[int, int, str]]:
 
 def canonical_room(raw: str) -> str:
     value = " ".join(raw.replace("\n", " ").split()).strip(" []")
-    value = value.replace("prelecyjny", "prelekcyjny")
-    value = value.replace("prelekcyjny (aula 8 w A16)y", "prelekcyjny (aula 8 w A16)")
-    value = value.replace("komiksowy (aula I w A-20)", "komiksowa (aula I w A-20)")
+    for typo, repair in ROOM_NAME_REPAIRS:
+        value = value.replace(typo, repair)
     replacements = (
         (
             r"(?i)^rpg\s*-\s*sesje(?:\s+2h|\s+4h)?\s*\[?sala\s+(\d+)\]?$",
@@ -470,8 +488,7 @@ def _extract_sheet_programme(
     *, sheet_name: str, sheet: SheetData
 ) -> list[ProgrammeItem]:
     groups = room_groups(sheet)
-    if sheet_name == "Sobota":
-        groups.append((31, 33, "Manga i anime sala 106"))
+    groups.extend(UNLABELLED_ROOM_GROUPS.get(sheet_name, ()))
     header_times = _header_times(sheet_name=sheet_name, sheet=sheet)
     first_column, last_column = min(header_times), max(header_times)
     merge_at = _schedule_merges(
@@ -614,8 +631,11 @@ def _extract_programme_item(
         raise ValueError(message)
     last_merged_column, _last_merged_row, _reference = merge
     presenter = _metadata_value(sheet, metadata_rows.get("presenter"), column)
-    if sheet_name == "Sobota" and cell == "G10":
-        title, presenter = str(presenter), title
+    if (sheet_name, cell) in TRANSPOSED_TITLE_CELLS:
+        if not (isinstance(presenter, str) and presenter.strip()):
+            message = f"{sheet_name}!{cell}: expected a transposed title, found none"
+            raise ValueError(message)
+        title, presenter = presenter.strip(), title
     description = clean_description(
         _metadata_value(sheet, metadata_rows.get("description"), column)
     )
@@ -673,20 +693,31 @@ def _metadata_value(sheet: SheetData, row: int | None, column: int) -> object:
     return sheet.cells.get(f"{column_name(column)}{row}") if row is not None else None
 
 
-def _assign_lanes(items: list[ProgrammeItem]) -> None:
-    maximum_lanes: dict[str, int] = defaultdict(int)
+def _lane_counts(items: list[ProgrammeItem]) -> dict[str, int]:
+    counts: dict[str, int] = defaultdict(int)
     for item in items:
-        maximum_lanes[item.physical_room] = max(
-            maximum_lanes[item.physical_room], item.lane_index
-        )
+        counts[item.physical_room] = max(counts[item.physical_room], item.lane_index)
+    return counts
+
+
+def lane_names(physical_room: str, lane_index: int) -> tuple[str, str]:
+    label = "stół" if physical_room.startswith("RPG —") else "stanowisko"
+    return (
+        f"{physical_room} — {label} {lane_index}",
+        f"{label.capitalize()} {lane_index}",
+    )
+
+
+def _assign_lanes(items: list[ProgrammeItem]) -> None:
+    maximum_lanes = _lane_counts(items)
     for item in items:
         if maximum_lanes[item.physical_room] == 1:
             item.venue.room = item.physical_room
             item.venue.leaf_name = item.physical_room
             continue
-        lane_label = "stół" if item.physical_room.startswith("RPG —") else "stanowisko"
-        item.venue.room = f"{item.physical_room} — {lane_label} {item.lane_index}"
-        item.venue.leaf_name = f"{lane_label.capitalize()} {item.lane_index}"
+        item.venue.room, item.venue.leaf_name = lane_names(
+            item.physical_room, item.lane_index
+        )
 
 
 def _validate_items(items: list[ProgrammeItem]) -> None:
@@ -798,11 +829,7 @@ def ensure_spaces(
             "path": VENUE_NAME,
             "parent_id": None,
         }
-    maximum_lanes: dict[str, int] = defaultdict(int)
-    for item in items:
-        maximum_lanes[item.physical_room] = max(
-            maximum_lanes[item.physical_room], item.lane_index
-        )
+    maximum_lanes = _lane_counts(items)
     result = {}
     for physical_room in sorted(maximum_lanes):
         if (lane_count := maximum_lanes[physical_room]) == 1:
@@ -833,9 +860,7 @@ def ensure_spaces(
                 "parent_id": venue_id,
             }
         for lane_index in range(1, lane_count + 1):
-            lane_label = "stół" if physical_room.startswith("RPG —") else "stanowisko"
-            full_name = f"{physical_room} — {lane_label} {lane_index}"
-            leaf_name = f"{lane_label.capitalize()} {lane_index}"
+            full_name, leaf_name = lane_names(physical_room, lane_index)
             path = f"{physical_path} > {leaf_name}"
             result[full_name] = _ensure_leaf_space(
                 client=client,
@@ -995,9 +1020,8 @@ def create_and_assign_sessions(
         response = cast(
             "dict[str, object]", client.call("create_sessions", {"sessions": inputs})
         )
-        _require_batch_success("create_sessions", response)
         for item, row in zip(
-            batch, cast("list[dict[str, object]]", response["results"]), strict=False
+            batch, cast("list[dict[str, object]]", response["results"]), strict=True
         ):
             session = cast("dict[str, object]", row["session"])
             expected = {
@@ -1033,11 +1057,7 @@ def create_and_assign_sessions(
             }
             for item in batch
         ]
-        response = cast(
-            "dict[str, object]",
-            client.call("assign_sessions", {"assignments": assignments}),
-        )
-        _require_batch_success("assign_sessions", response)
+        client.call("assign_sessions", {"assignments": assignments})
         assignment_count += len(assignments)
     return len(created_or_existing), assignment_count
 
@@ -1047,19 +1067,6 @@ def _batches(items: list[ProgrammeItem]) -> list[list[ProgrammeItem]]:
         items[index : index + BATCH_LIMIT]
         for index in range(0, len(items), BATCH_LIMIT)
     ]
-
-
-def _require_batch_success(name: str, response: dict[str, object]) -> None:
-    summary = cast("dict[str, int]", response.get("summary", {}))
-    if summary.get("failed", 0) == 0:
-        return
-    failures = [
-        row
-        for row in cast("list[dict[str, object]]", response.get("results", []))
-        if row.get("status") != "ok"
-    ]
-    message = f"{name}: {summary}; failures: {failures}"
-    raise McpError(message)
 
 
 def parse_args() -> argparse.Namespace:

@@ -43,6 +43,7 @@ if TYPE_CHECKING:
     from ludamus.pacts.event import (
         EventConfirmationsServiceProtocol,
         EventPanelServiceProtocol,
+        EventsServiceProtocol,
         PanelTimeSlotsServiceProtocol,
     )
     from ludamus.pacts.event_settings import EventSettingsServiceProtocol
@@ -50,7 +51,6 @@ if TYPE_CHECKING:
     from ludamus.pacts.multiverse import (
         AnnouncementsServiceProtocol,
         ConnectionsServiceProtocol,
-        EventsServiceProtocol,
         SitesServiceProtocol,
         SpherePanelServiceProtocol,
     )

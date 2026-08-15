@@ -17,14 +17,16 @@ from pydantic import BaseModel, Field, StringConstraints, TypeAdapter, field_val
 from ludamus.gates.mcp.organizer_context import actor_sphere
 from ludamus.gates.mcp.programme_tools import programme_tools
 from ludamus.gates.mcp.registry import Tool, ToolCall, ToolError, ToolRegistry
+from ludamus.pacts.event import (
+    EventDatesInvalidError,
+    EventPublicationInvalidError,
+    EventSlugConflictError,
+)
 from ludamus.pacts.legacy import EventDTO, EventListItemDTO
 from ludamus.pacts.mcp import ToolScope
 from ludamus.pacts.multiverse import (
     AnnouncementData,
     AnnouncementDTO,
-    EventDatesInvalidError,
-    EventPublicationInvalidError,
-    EventSlugConflictError,
     SphereListItemDTO,
 )
 

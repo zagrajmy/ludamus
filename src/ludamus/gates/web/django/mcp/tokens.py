@@ -54,6 +54,7 @@ def _bearer_payload(request: RootRequest) -> dict[str, object] | None:
 def authenticate_maintainer(request: RootRequest) -> ActorContext | None:
     if (payload := _bearer_payload(request)) is None:
         return None
+    # Pre-#483 maintainer tokens carry no scope field; treat both shapes alike.
     if payload.get("scope") not in {None, ToolScope.MAINTAINER.value}:
         return None
     user_id = payload.get("user_id")

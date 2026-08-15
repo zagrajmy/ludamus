@@ -7,16 +7,9 @@ Sphere-scoped concerns. First feature: import-connections CRUD. Split per
 
 from typing import TYPE_CHECKING
 
-from ludamus.pacts.multiverse import (
-    EventDatesInvalidError,
-    EventPublicationInvalidError,
-)
-
 if TYPE_CHECKING:
-    from ludamus.pacts.event import EventCreateData, EventsRepositoryProtocol
     from ludamus.pacts.legacy import (
         EventDTO,
-        EventListItemDTO,
         EventRepositoryProtocol,
         SphereDTO,
         SphereRepositoryProtocol,
@@ -117,42 +110,6 @@ class ConnectionsService:
             self._connections.delete(sphere_id, pk)
 
 
-class EventsService:
-    def __init__(
-        self,
-        *,
-        transaction: TransactionProtocol,
-        events: EventsRepositoryProtocol,
-        spheres: SphereRepositoryProtocol,
-    ) -> None:
-        self._transaction = transaction
-        self._events = events
-        self._spheres = spheres
-
-    def list_for_sphere(
-        self, sphere_id: int, *, include_unpublished: bool
-    ) -> list[EventListItemDTO]:
-        return self._events.list_for_events_page(
-            sphere_id, include_unpublished=include_unpublished
-        )
-
-    def read_by_slug(self, sphere_id: int, slug: str) -> EventDTO:
-        return self._events.read_by_slug(slug, sphere_id)
-
-    def require_in_sphere(self, *, sphere_id: int, event_id: int) -> EventDTO:
-        return self._events.read_in_sphere(event_id, sphere_id)
-
-    def create(self, *, sphere_id: int, data: EventCreateData) -> EventDTO:
-        if data["end_time"] <= data["start_time"]:
-            raise EventDatesInvalidError
-        publication_time = data["publication_time"]
-        if publication_time is not None and publication_time > data["start_time"]:
-            raise EventPublicationInvalidError
-        self._spheres.read(sphere_id)
-        with self._transaction.atomic():
-            return self._events.create(sphere_id, data)
-
-
 class SpherePanelService:
     """Read-side context loader for the multiverse sphere panel."""
 
@@ -185,6 +142,7 @@ class SpherePanelService:
         data: SphereUpdateData = {
             "allow_facilitator_session_edit": allow_facilitator_session_edit
         }
+        # None keeps the stored logo, "" removes it, a file replaces it.
         if logo is not None:
             data["logo"] = logo
         with self._transaction.atomic():
