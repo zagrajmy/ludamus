@@ -49,6 +49,7 @@ _COVERED = "Diff Coverage\nTotal: 10 lines\nMissing: 0 lines\n"
 _READING = "Triage the open review threads*"
 _ITEM = TriageItem(
     where="src/thing.py",
+    raised="add a guard before the loop",
     what="the guard is missing",
     priority="p1",
     action="fix",
@@ -56,6 +57,7 @@ _ITEM = TriageItem(
 )
 _ALSO = TriageItem(
     where="docs/thing.md",
+    raised="the example in the docs no longer runs",
     what="stale example",
     priority="p3",
     action="file",
@@ -63,6 +65,7 @@ _ALSO = TriageItem(
 )
 _STALE = TriageItem(
     where="src/thing.py",
+    raised="rename the helper",
     what="the line it points at is gone",
     priority="p4",
     action="reject",

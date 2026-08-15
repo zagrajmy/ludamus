@@ -163,6 +163,10 @@ class Work(BaseModel):
 
 class TriageItem(BaseModel):
     where: str
+    # What the thread itself asked for, in one line. Without it the decision is
+    # taken on the reading's verdict alone, with no sight of the comment behind
+    # it.
+    raised: str
     what: str
     # p4 is not a smaller p3: it is the thread that has no work in it at all —
     # already done, no longer true, or simply wrong — and it is sorted out of

@@ -131,8 +131,11 @@ I say otherwise:
 - reject — it should not be done, and the thread gets told why
 - file — worth doing, not now: it becomes an issue
 
-Keep `what` to a sentence or two. It is read on a terminal, one item at a time,
-by someone deciding what to do with it.
+`raised` is what the thread itself asked for, in one line and in your own words
+— what the commenter wants, not what you make of it. `what` is your reading:
+what you would do about it and why. Keep `what` to a sentence or two. Both are
+read on a terminal, one item at a time, by someone who has not seen the thread
+and is deciding what to do with it.
 
 Fix nothing and comment nowhere. This is a reading.
 """

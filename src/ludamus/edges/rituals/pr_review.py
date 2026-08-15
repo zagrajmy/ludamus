@@ -251,10 +251,14 @@ async def look(branch: Branch) -> Transition:
     return goto(plan, Triage(branch=branch, items=read.items))
 
 
-# One item to a line: this is read on a terminal by somebody deciding what to do
-# with it, not by an agent.
+# What the thread asked and what the reading would do about it, in that order:
+# this is read on a terminal by somebody deciding what to do with it, not by an
+# agent, and the verdict alone does not say what it is a verdict on.
 def _shown(index: int, item: TriageItem) -> str:
-    return f"{index}. [{item.priority}/{item.action}] {item.where} — {item.what}"
+    return (
+        f"{index}. [{item.priority}/{item.action}] {item.where} — {item.raised}\n"
+        f"   -> {item.what}"
+    )
 
 
 @step
