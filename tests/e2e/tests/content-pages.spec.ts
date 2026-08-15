@@ -28,7 +28,7 @@ test.describe("Content pages", () => {
   test("the footer links to both documents", async ({ page }) => {
     await page.goto("/");
 
-    const footer = page.locator("footer");
+    const footer = page.getByRole("contentinfo");
     await expect(footer.getByRole("link", { name: "Privacy Policy" })).toHaveAttribute(
       "href",
       "/privacy-policy/",

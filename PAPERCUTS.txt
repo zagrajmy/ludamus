@@ -199,3 +199,11 @@ If you fix a papercut, remove it.
   slow local page load can outlast — `expect(getByText("Guild created."))`
   timed out while the row it announced was right there. Assert the durable page
   state instead.
+- 2026-08-15: git commit's hk pre-commit hook (djlint/codespell/yamllint) fails
+  with 'not found' in this worktree because the session PATH bakes in
+  /home/user/ludamus/.venv/bin from the main checkout, but that .venv doesn't
+  exist and I can't create it (write-permission denied outside my worktree).
+  Worked around by prepending the poetry-managed venv's bin dir to PATH for the
+  git commit invocation; poetry install must be run without mise exec (mise
+  exec's venv also resolves to the wrong checkout path) to get a usable venv at
+  all.
