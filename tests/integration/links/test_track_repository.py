@@ -1,4 +1,5 @@
 import pytest
+from django.db import IntegrityError
 
 from ludamus.links.db.django.models import Track
 from ludamus.links.db.django.repositories import TrackRepository
@@ -79,3 +80,29 @@ class TestTrackRepositoryDuplicateName:
         )
 
         assert updated.is_public is False
+
+
+class TestTrackRepositoryReraisesUnrelatedIntegrityError:
+    @staticmethod
+    def _raise_unrelated(*_args, **_kwargs):
+        raise IntegrityError("FOREIGN KEY constraint failed")
+
+    def test_create_reraises_a_constraint_failure_of_another_kind(self, monkeypatch):
+        event = EventFactory.create()
+        monkeypatch.setattr(Track.objects, "create", self._raise_unrelated)
+
+        with pytest.raises(IntegrityError):
+            TrackRepository().create(_create_data(event_pk=event.pk, name="RPG"))
+
+    def test_update_reraises_a_constraint_failure_of_another_kind(self, monkeypatch):
+        event = EventFactory.create()
+        track = Track.objects.create(event=event, name="RPG", slug="rpg")
+        monkeypatch.setattr(Track, "save", self._raise_unrelated)
+
+        with pytest.raises(IntegrityError):
+            TrackRepository().update(
+                track.pk,
+                TrackUpdateData(
+                    name="Board games", is_public=True, space_pks=[], manager_pks=[]
+                ),
+            )

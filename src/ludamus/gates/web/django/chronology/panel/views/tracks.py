@@ -23,6 +23,8 @@ from ludamus.pacts.tracks import DuplicateTrackNameError, TrackFormData
 if TYPE_CHECKING:
     from django.http import HttpResponse
 
+    from ludamus.pacts import EventDTO
+
 
 def _submitted_pks(request: PanelRequest, field: str) -> list[int]:
     return [int(pk) for pk in request.POST.getlist(field) if pk.isdigit()]
@@ -139,37 +141,42 @@ class TrackEditPageView(PanelAccessMixin, EventContextMixin, View):
         if current_event is None:
             return redirect("panel:index")
 
-        form = TrackForm(self.request.POST)
         try:
-            if form.is_valid() and self._updated(
-                form=form, event_pk=current_event.pk, track_slug=track_slug
-            ):
-                messages.success(self.request, _("Track updated successfully."))
-                return redirect("panel:tracks", slug=slug)
-            return self._rerender_edit_form(
+            return self._saved_or_rerendered(
                 context=context,
-                form=form,
-                event_pk=current_event.pk,
+                form=TrackForm(self.request.POST),
+                event=current_event,
                 track_slug=track_slug,
             )
         except NotFoundError:
             messages.error(self.request, _("Track not found."))
             return redirect("panel:tracks", slug=slug)
 
-    def _updated(self, *, form: TrackForm, event_pk: int, track_slug: str) -> bool:
-        # False when the submitted name is already taken; the caller re-renders
-        # the form carrying the inline error this attaches.
-        try:
-            self.request.services.tracks_panel.update(
-                event_pk=event_pk,
-                sphere_id=self.request.context.current_sphere_id,
-                track_slug=track_slug,
-                data=_submitted_track_data(request=self.request, form=form),
-            )
-        except DuplicateTrackNameError:
-            _add_duplicate_name_error(form)
-            return False
-        return True
+    def _saved_or_rerendered(
+        self,
+        *,
+        context: dict[str, object],
+        form: TrackForm,
+        event: EventDTO,
+        track_slug: str,
+    ) -> HttpResponse:
+        if form.is_valid():
+            try:
+                self.request.services.tracks_panel.update(
+                    event_pk=event.pk,
+                    sphere_id=self.request.context.current_sphere_id,
+                    track_slug=track_slug,
+                    data=_submitted_track_data(request=self.request, form=form),
+                )
+            except DuplicateTrackNameError:
+                _add_duplicate_name_error(form)
+            else:
+                messages.success(self.request, _("Track updated successfully."))
+                return redirect("panel:tracks", slug=event.slug)
+
+        return self._rerender_edit_form(
+            context=context, form=form, event_pk=event.pk, track_slug=track_slug
+        )
 
     def _rerender_edit_form(
         self,

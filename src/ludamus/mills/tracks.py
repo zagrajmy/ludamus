@@ -84,8 +84,6 @@ class TracksPanelService(TracksPanelServiceProtocol):
         )
 
     def create(self, *, event_pk: int, sphere_id: int, data: TrackFormData) -> None:
-        # A name another track in this event already holds surfaces as
-        # DuplicateTrackNameError from the repository, rolling this block back.
         with self._transaction.atomic():
             scoped = self._scoped(event_pk=event_pk, sphere_id=sphere_id, data=data)
             self._tracks.create(

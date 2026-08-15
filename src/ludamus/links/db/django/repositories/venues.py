@@ -15,6 +15,7 @@ from ludamus.links.db.django.models import (
     Track,
 )
 from ludamus.links.db.django.repositories import slugs
+from ludamus.links.db.django.repositories.constraints import violates_constraint
 from ludamus.pacts import (
     NotFoundError,
     SpaceDTO,
@@ -343,16 +344,12 @@ class TimeSlotRepository(TimeSlotRepositoryProtocol):
         return TimeSlotDTO.model_validate(time_slot)
 
 
+# A functional index: both engines report it by its own name.
 _TRACK_UNIQUE_NAME_CONSTRAINT = "track_unique_name_per_event"
 
 
 def is_track_name_conflict(exc: IntegrityError) -> bool:
-    # Postgres names the violated index in the error diagnostics; SQLite only
-    # spells it out in the message. Any other constraint is not ours to label.
-    diag = getattr(exc.__cause__, "diag", None)
-    if getattr(diag, "constraint_name", None) == _TRACK_UNIQUE_NAME_CONSTRAINT:
-        return True
-    return _TRACK_UNIQUE_NAME_CONSTRAINT in str(exc)
+    return violates_constraint(exc, _TRACK_UNIQUE_NAME_CONSTRAINT)
 
 
 class TrackRepository(TrackRepositoryProtocol):
