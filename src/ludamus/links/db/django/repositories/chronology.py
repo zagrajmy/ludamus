@@ -263,6 +263,24 @@ class EventRepository(EventRepositoryProtocol):
             raise NotFoundError from error
 
     @staticmethod
+    def read_in_sphere(pk: int, sphere_id: int) -> EventDTO:
+        """Read an event by primary key within a sphere.
+
+        Returns:
+            EventDTO for the requested event.
+
+        Raises:
+            NotFoundError: If the event does not exist in that sphere.
+        """
+        try:
+            event = Event.objects.select_related("proposal_settings").get(
+                id=pk, sphere_id=sphere_id
+            )
+        except Event.DoesNotExist as exception:
+            raise NotFoundError from exception
+        return event_dto(event)
+
+    @staticmethod
     def read_by_slug(slug: str, sphere_id: int) -> EventDTO:
         """Read an event by slug within a sphere.
 

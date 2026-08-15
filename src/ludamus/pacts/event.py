@@ -26,6 +26,8 @@ class EventCreateData(TypedDict):
 class EventsRepositoryProtocol(EventRepositoryProtocol, Protocol):
     @staticmethod
     def create(sphere_id: int, data: EventCreateData) -> EventDTO: ...
+    @staticmethod
+    def read_in_sphere(pk: int, sphere_id: int) -> EventDTO: ...
 
 
 class FacilitatorListItemDTO(BaseModel):
