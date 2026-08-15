@@ -1,6 +1,6 @@
 from datetime import UTC, datetime, timedelta
 from http import HTTPStatus
-from unittest.mock import ANY, Mock, patch
+from unittest.mock import Mock, patch
 
 import pytest
 from django.contrib import messages
@@ -14,7 +14,6 @@ from ludamus.links.db.django.models import (
     PartyMembership,
     SessionParticipation,
     SessionParticipationStatus,
-    User,
     UserEnrollmentConfig,
 )
 from ludamus.pacts.legacy import NotificationKind
@@ -26,6 +25,7 @@ from tests.integration.conftest import (
     UserFactory,
 )
 from tests.integration.utils import assert_response, input_tag
+from tests.integration.web.chronology.helpers import enroll_context, participation_row
 
 
 def _url(agenda_item):
@@ -63,7 +63,9 @@ class TestDirectEnrollmentWithPowerOfAttorney:
     def test_get_offers_full_choices_for_trusting_member(
         self, authenticated_client, active_user, agenda_item
     ):
-        _led_party_with_member(active_user, consent=PartyConsentMode.ACCEPT_BY_DEFAULT)
+        _, member = _led_party_with_member(
+            active_user, consent=PartyConsentMode.ACCEPT_BY_DEFAULT
+        )
 
         response = authenticated_client.get(_url(agenda_item))
 
@@ -71,11 +73,17 @@ class TestDirectEnrollmentWithPowerOfAttorney:
             response,
             HTTPStatus.OK,
             template_name="chronology/enroll_select.html",
-            context_data=ANY,
+            context_data=enroll_context(
+                viewer=active_user,
+                session=agenda_item.session,
+                user_data=[
+                    participation_row(active_user),
+                    participation_row(member, is_member=True),
+                ],
+            ),
+            contains="Mira Member",
+            not_contains="Hold a seat",
         )
-        content = response.content.decode()
-        assert "Mira Member" in content
-        assert "Hold a seat" not in content
 
     @pytest.mark.usefixtures("enrollment_config")
     def test_post_enrolls_member_directly_and_notifies(
@@ -110,7 +118,9 @@ class TestHeldSeatForConsentingMember:
     def test_get_offers_only_held_seat_choice(
         self, authenticated_client, active_user, agenda_item
     ):
-        _led_party_with_member(active_user, consent=PartyConsentMode.ACCEPT_INVITES)
+        _, member = _led_party_with_member(
+            active_user, consent=PartyConsentMode.ACCEPT_INVITES
+        )
 
         response = authenticated_client.get(_url(agenda_item))
 
@@ -118,14 +128,19 @@ class TestHeldSeatForConsentingMember:
             response,
             HTTPStatus.OK,
             template_name="chronology/enroll_select.html",
-            context_data=ANY,
+            context_data=enroll_context(
+                viewer=active_user,
+                session=agenda_item.session,
+                user_data=[
+                    participation_row(active_user),
+                    participation_row(member, is_member=True, needs_accept=True),
+                ],
+            ),
+            # Ticking the box holds a seat the member must approve; the hint
+            # says so and there is no separate waiting-list control.
+            contains=["Mira Member", "needs their approval"],
         )
         content = " ".join(response.content.decode().split())
-        assert "Mira Member" in content
-        # Ticking the box holds a seat the member must approve; the hint says so
-        # and there is no separate waiting-list control.
-        assert "needs their approval" in content
-        member = User.objects.get(username="member")
         assert f'name="user_{member.pk}" value="include"' in content
         assert 'value="waitlist"' not in content
 
@@ -244,7 +259,17 @@ class TestHeldSeatForConsentingMember:
             response,
             HTTPStatus.OK,
             template_name="chronology/enroll_select.html",
-            context_data=ANY,
+            context_data=enroll_context(
+                viewer=active_user,
+                session=agenda_item.session,
+                user_data=[
+                    participation_row(active_user),
+                    participation_row(
+                        member, user_enrolled=True, is_member=True, needs_accept=True
+                    ),
+                ],
+            ),
+            contains="They manage their own enrollment",
         )
         content = " ".join(response.content.decode().split())
         # A member who handles their own enrollment renders as a checked but
@@ -252,7 +277,6 @@ class TestHeldSeatForConsentingMember:
         tag = input_tag(content, member.pk)
         assert "checked" in tag
         assert "disabled" in tag
-        assert "They manage their own enrollment" in content
 
 
 class TestHeldSeatUnavailable:
@@ -280,13 +304,22 @@ class TestHeldSeatUnavailable:
             response,
             HTTPStatus.OK,
             template_name="chronology/enroll_select.html",
-            context_data=ANY,
+            context_data=enroll_context(
+                viewer=active_user,
+                session=agenda_item.session,
+                user_data=[
+                    participation_row(active_user),
+                    participation_row(
+                        member,
+                        has_time_conflict=True,
+                        is_member=True,
+                        needs_accept=True,
+                    ),
+                ],
+            ),
+            contains=["Mira Member", "Time conflict"],
+            not_contains=f'id="user_{member.pk}_enroll"',
         )
-        content = response.content.decode()
-        assert response.status_code == HTTPStatus.OK
-        assert "Mira Member" in content
-        assert f'id="user_{member.pk}_enroll"' not in content
-        assert "Time conflict" in content
 
     def test_hold_rejected_when_viewer_lacks_enrollment_access(
         self, staff_client, staff_user, agenda_item, enrollment_config
@@ -312,7 +345,7 @@ class TestHeldSeatUnavailable:
     def test_pending_invitee_is_not_listed(
         self, authenticated_client, active_user, agenda_item
     ):
-        party, _ = _led_party_with_member(
+        party, member = _led_party_with_member(
             active_user, consent=PartyConsentMode.ACCEPT_BY_DEFAULT
         )
         invitee = UserFactory(username="invited", name="Iga Invited")
@@ -329,12 +362,17 @@ class TestHeldSeatUnavailable:
             response,
             HTTPStatus.OK,
             template_name="chronology/enroll_select.html",
-            context_data=ANY,
+            context_data=enroll_context(
+                viewer=active_user,
+                session=agenda_item.session,
+                user_data=[
+                    participation_row(active_user),
+                    participation_row(member, is_member=True),
+                ],
+            ),
+            contains="Mira Member",
+            not_contains="Iga Invited",
         )
-        content = response.content.decode()
-        assert response.status_code == HTTPStatus.OK
-        assert "Mira Member" in content
-        assert "Iga Invited" not in content
 
     @pytest.mark.usefixtures("enrollment_config")
     def test_race_on_a_member_who_enrolled_themselves_skips(
@@ -485,14 +523,20 @@ class TestMemberAllowanceOnRestrictedEvent:
             response,
             HTTPStatus.OK,
             template_name="chronology/enroll_select.html",
-            context_data=ANY,
+            context_data=enroll_context(
+                viewer=active_user,
+                session=agenda_item.session,
+                user_data=[
+                    participation_row(active_user),
+                    participation_row(member, is_member=True, blocked=True),
+                ],
+            ),
+            contains=["Mira Member", "Access required"],
+            not_contains=[
+                f'id="user_{member.pk}_enroll"',
+                f'id="user_{member.pk}_waitlist"',
+            ],
         )
-        content = response.content.decode()
-        assert response.status_code == HTTPStatus.OK
-        assert "Mira Member" in content
-        assert f'id="user_{member.pk}_enroll"' not in content
-        assert f'id="user_{member.pk}_waitlist"' not in content
-        assert "Access required" in content
 
     def test_consenting_member_without_slots_gets_no_hold_choice(
         self, authenticated_client, active_user, agenda_item, enrollment_config
@@ -508,12 +552,19 @@ class TestMemberAllowanceOnRestrictedEvent:
             response,
             HTTPStatus.OK,
             template_name="chronology/enroll_select.html",
-            context_data=ANY,
+            context_data=enroll_context(
+                viewer=active_user,
+                session=agenda_item.session,
+                user_data=[
+                    participation_row(active_user),
+                    participation_row(
+                        member, is_member=True, needs_accept=True, blocked=True
+                    ),
+                ],
+            ),
+            contains="Access required",
+            not_contains=f'id="user_{member.pk}_enroll"',
         )
-        content = response.content.decode()
-        assert response.status_code == HTTPStatus.OK
-        assert f'id="user_{member.pk}_enroll"' not in content
-        assert "Access required" in content
 
     def test_post_enroll_for_member_without_slots_is_rejected(
         self, authenticated_client, active_user, agenda_item, enrollment_config
@@ -612,7 +663,16 @@ class TestWayOutOfHeldSeat:
             response,
             HTTPStatus.OK,
             template_name="chronology/enroll_select.html",
-            context_data=ANY,
+            context_data=enroll_context(
+                viewer=active_user,
+                session=agenda_item.session,
+                user_data=[
+                    participation_row(active_user),
+                    participation_row(
+                        member, seat_held=True, is_member=True, needs_accept=True
+                    ),
+                ],
+            ),
             # The hold's own flash from the setup POST is rendered on this GET.
             messages=[
                 (
@@ -620,9 +680,9 @@ class TestWayOutOfHeldSeat:
                     f"Seat held (awaiting their approval): {member.name}",
                 )
             ],
+            contains="Seat held — awaiting their approval",
         )
         content = " ".join(response.content.decode().split())
-        assert "Seat held — awaiting their approval" in content
         # The held seat starts checked and stays toggleable, so unchecking it
         # withdraws the seat.
         tag = input_tag(content, member.pk)
