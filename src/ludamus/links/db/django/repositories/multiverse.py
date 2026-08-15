@@ -74,20 +74,20 @@ class SphereRepository(
 
     @staticmethod
     def list_managers(sphere_id: int) -> list[UserDTO]:
-        if not Sphere.objects.filter(pk=sphere_id).exists():
-            raise NotFoundError
         # Only managers: this list is who a track can be handed to, and a
         # comms member has no business owning one.
-        return [
-            UserDTO.model_validate(membership.user)
-            for membership in (
-                SphereMembership.objects.filter(
-                    sphere_id=sphere_id, role=SphereRole.MANAGER
-                )
-                .select_related("user")
-                .order_by("user__name")
+        memberships = list(
+            SphereMembership.objects.filter(
+                sphere_id=sphere_id, role=SphereRole.MANAGER
             )
-        ]
+            .select_related("user")
+            .order_by("user__name")
+        )
+        # An empty result is the only case a missing sphere can hide behind, so
+        # the existence probe runs there and nowhere else.
+        if not memberships and not Sphere.objects.filter(pk=sphere_id).exists():
+            raise NotFoundError
+        return [UserDTO.model_validate(m.user) for m in memberships]
 
     @staticmethod
     def update(sphere_id: int, data: SphereUpdateData) -> None:

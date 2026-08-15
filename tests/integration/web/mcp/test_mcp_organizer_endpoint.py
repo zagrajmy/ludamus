@@ -4,7 +4,8 @@ from http import HTTPStatus
 import pytest
 
 from ludamus.gates.web.django.mcp.tokens import mint_organizer_token, mint_token
-from ludamus.links.db.django.models import Announcement
+from ludamus.links.db.django.models import Announcement, SphereMembership
+from ludamus.pacts.multiverse import SphereRole
 from tests.integration.conftest import EventFactory, SphereFactory, UserFactory
 from tests.integration.utils import assert_response
 from tests.integration.web.mcp.test_mcp_endpoint import tool_text
@@ -88,6 +89,16 @@ class TestOrganizerAuthentication:
     def test_manager_of_another_sphere(self, client, manager):
         other = SphereFactory()
         token = mint_organizer_token(user_id=manager.pk, sphere_id=other.pk)
+
+        response = post_org(client, PING, token=token)
+
+        assert_response(response, HTTPStatus.UNAUTHORIZED)
+
+    def test_comms_member_token(self, client, active_user, sphere):
+        SphereMembership.objects.create(
+            sphere=sphere, user=active_user, role=SphereRole.COMMS
+        )
+        token = mint_organizer_token(user_id=active_user.pk, sphere_id=sphere.pk)
 
         response = post_org(client, PING, token=token)
 

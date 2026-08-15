@@ -14,7 +14,8 @@ from django.http import HttpRequest, HttpResponseRedirect
 from django.shortcuts import redirect
 from django.utils.translation import gettext as _
 
-from ludamus.gates.web.django.access import passes_panel_access
+from ludamus.gates.web.django.access import has_panel_access, passes_panel_access
+from ludamus.gates.web.django.panel import refuse_read_only_write
 from ludamus.pacts.multiverse import Capability
 
 if TYPE_CHECKING:
@@ -42,6 +43,8 @@ class SphereAccessMixin(LoginRequiredMixin, UserPassesTestMixin):
     def handle_no_permission(self) -> HttpResponseRedirect:
         if not self.request.user.is_authenticated:
             return super().handle_no_permission()
+        if has_panel_access(self.request):
+            return refuse_read_only_write(self.request)
         messages.error(
             self.request, _("You don't have permission to access the sphere panel.")
         )

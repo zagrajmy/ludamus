@@ -8,12 +8,17 @@ from django.http import HttpRequest
 from django.urls import reverse
 from django.utils.translation import gettext as _
 
-from ludamus.gates.web.django.access import passes_panel_access
-from ludamus.gates.web.django.panel import PanelPermissionResponseMixin
+from ludamus.gates.web.django.access import has_panel_access, passes_panel_access
+from ludamus.gates.web.django.panel import (
+    PanelPermissionResponseMixin,
+    refuse_read_only_write,
+)
 from ludamus.pacts.legacy import NotFoundError, RedirectError
 from ludamus.pacts.multiverse import Capability
 
 if TYPE_CHECKING:
+    from django.http import HttpResponseRedirect
+
     from ludamus.pacts import AuthenticatedRequestContext, EventDTO
     from ludamus.pacts.services import ServicesProtocol
 
@@ -32,6 +37,11 @@ class EventPanelAccessMixin(PanelPermissionResponseMixin, UserPassesTestMixin):
 
     def test_func(self) -> bool:
         return passes_panel_access(self.request, write_capability=self.write_capability)
+
+    def handle_no_permission(self) -> HttpResponseRedirect:
+        if self.request.user.is_authenticated and has_panel_access(self.request):
+            return refuse_read_only_write(self.request)
+        return super().handle_no_permission()
 
 
 class EventContextMixin:

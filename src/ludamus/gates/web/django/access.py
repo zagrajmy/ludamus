@@ -67,11 +67,11 @@ def has_panel_access(request: _RequestWithServices) -> bool:
 def passes_panel_access(
     request: _RequestWithServices, *, write_capability: Capability
 ) -> bool:
-    # A cheap door, not the authority: any sphere role may read a panel page,
-    # and changing one needs the capability the page stands for. The service
-    # performing the operation checks it again, which is what binds a caller
-    # arriving by CLI or MCP, and what keeps a view that dispatches several
-    # operations from handing all of them to whoever may do one.
+    # The authority for panel writes: any sphere role may read a panel page,
+    # and changing one needs the capability the page stands for. Callers that
+    # never reach a panel view are gated where they arrive instead —
+    # `ProposalAcceptanceService` for CLI and in-app acceptance,
+    # `authenticate_organizer` for MCP.
     if not has_panel_access(request):
         return False
     # Superusers before roles: `panel_access` reports the sphere role first, so

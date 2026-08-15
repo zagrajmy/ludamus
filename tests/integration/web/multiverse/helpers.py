@@ -11,6 +11,7 @@ if TYPE_CHECKING:
     from django.http import HttpResponse
 
 PERMISSION_ERROR = "You don't have permission to access the sphere panel."
+READ_ONLY_ROLE_ERROR = "Your role can read the panel, but not make changes here."
 
 TAB_URLS = {
     "general": "/multiverse/panel/",

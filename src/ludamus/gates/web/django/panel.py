@@ -6,6 +6,7 @@ from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.shortcuts import redirect
 from django.urls import reverse
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils.translation import gettext as _
 
 from ludamus.pacts.submissions import RequirementSelectionDTO
@@ -74,6 +75,20 @@ def settings_tab_urls(slug: str) -> dict[str, str]:
             "panel:event-integration-settings", kwargs={"slug": slug}
         ),
     }
+
+
+# A role that reads the panel but may not change it was denied the write, not
+# the panel: saying otherwise is untrue, and dropping the user on the site
+# index loses the page they were reading. Callers decide *whether* the refusal
+# is a read-only one — they hold the request type that can answer it.
+def refuse_read_only_write(request: HttpRequest) -> HttpResponseRedirect:
+    messages.error(
+        request, _("Your role can read the panel, but not make changes here.")
+    )
+    back = request.META.get("HTTP_REFERER", "")
+    if url_has_allowed_host_and_scheme(back, allowed_hosts={request.get_host()}):
+        return redirect(back)
+    return redirect("web:index")
 
 
 class PanelPermissionResponseMixin(LoginRequiredMixin):

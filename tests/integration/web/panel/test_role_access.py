@@ -8,7 +8,11 @@ from ludamus.links.db.django.models import EventBan, SphereMembership
 from ludamus.pacts.multiverse import SphereRole
 from tests.integration.conftest import UserFactory
 from tests.integration.utils import assert_response
-from tests.integration.web.panel.helpers import assert_not_a_manager, panel_context
+from tests.integration.web.panel.helpers import (
+    READ_ONLY_ROLE_ERROR,
+    assert_not_a_manager,
+    panel_context,
+)
 
 
 @pytest.fixture(name="comms_client")
@@ -42,8 +46,48 @@ class TestCommsRoleOnEventPanel:
 
         response = comms_client.post(self._url(event), data={"identifier": "tm"})
 
-        assert_not_a_manager(response)
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.ERROR, READ_ONLY_ROLE_ERROR)],
+            url="/",
+        )
         assert not EventBan.objects.exists()
+
+    def test_refused_write_returns_to_the_page_it_came_from(self, comms_client, event):
+        response = comms_client.post(
+            self._url(event), data={"identifier": "tm"}, HTTP_REFERER=self._url(event)
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.ERROR, READ_ONLY_ROLE_ERROR)],
+            url=self._url(event),
+        )
+
+    def test_refused_write_ignores_an_off_site_referer(self, comms_client, event):
+        response = comms_client.post(
+            self._url(event),
+            data={"identifier": "tm"},
+            HTTP_REFERER="https://evil.example/panel/",
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.ERROR, READ_ONLY_ROLE_ERROR)],
+            url="/",
+        )
+
+    def test_stranger_still_gets_the_no_panel_access_message(
+        self, authenticated_client, event
+    ):
+        response = authenticated_client.post(
+            self._url(event), data={"identifier": "tm"}
+        )
+
+        assert_not_a_manager(response)
 
     def test_superuser_holding_the_comms_role_still_posts(
         self, comms_client, active_user, event

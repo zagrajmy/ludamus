@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-15 16:55+0200\n"
+"POT-Creation-Date: 2026-08-15 20:28+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -3072,6 +3072,10 @@ msgstr "Zapisano!"
 #: src/ludamus/gates/web/django/notice_board/views.py
 msgid "You have been removed from this encounter."
 msgstr "Zostałeś/aś wypisany/a z tego spotkania."
+
+#: src/ludamus/gates/web/django/panel.py
+msgid "Your role can read the panel, but not make changes here."
+msgstr "Twoja rola pozwala przeglądać panel, ale nie wprowadzać tu zmian."
 
 #: src/ludamus/gates/web/django/panel.py
 msgid "You don't have permission to access the backoffice panel."

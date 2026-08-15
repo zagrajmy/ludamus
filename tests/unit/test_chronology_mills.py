@@ -866,6 +866,20 @@ class TestProposalAcceptanceService:
         )
         spheres.manager_role.assert_not_called()
 
+    def test_accept_session_denied_for_comms_member(
+        self, service, sessions, agenda_items, active_users, spheres
+    ):
+        active_users.read.return_value = _user_dto()
+        spheres.manager_role.return_value = SphereRole.COMMS
+
+        with pytest.raises(ProposalAcceptDeniedError):
+            service.accept_session(
+                session_id=5, space_id=7, time_slot_id=2, user_slug="press", sphere_id=3
+            )
+
+        sessions.update.assert_not_called()
+        agenda_items.create.assert_not_called()
+
     def test_accept_session_denied_for_non_manager(
         self, service, sessions, agenda_items, active_users, spheres
     ):
