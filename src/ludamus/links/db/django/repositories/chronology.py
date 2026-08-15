@@ -68,6 +68,7 @@ from ludamus.pacts.panel import (
     EventPanelSettingsDTO,
     EventPanelSettingsRepositoryProtocol,
 )
+from ludamus.pacts.services import DatabaseConstraintError
 
 if TYPE_CHECKING:
     from ludamus.pacts.event import EventCreateData
@@ -327,7 +328,7 @@ class EventRepository(EventRepositoryProtocol):
         except IntegrityError as error:
             if Event.objects.filter(sphere_id=sphere_id, slug=data["slug"]).exists():
                 raise EventSlugConflictError from error
-            raise
+            raise DatabaseConstraintError from error
         return event_dto(event)
 
     @staticmethod

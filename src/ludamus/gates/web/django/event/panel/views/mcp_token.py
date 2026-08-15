@@ -27,7 +27,8 @@ class EventMcpTokenPageView(EventPanelAccessMixin, EventContextMixin, View):
     request: EventPanelRequest
 
     def get(self, _request: EventPanelRequest, slug: str) -> HttpResponse:
-        return self._render(slug=slug, token=None)
+        context, _current_event = self.require_event_context(slug)
+        return self._render(slug=slug, token=None, context=context)
 
     def post(self, _request: EventPanelRequest, slug: str) -> HttpResponse:
         context, current_event = self.require_event_context(slug)
@@ -39,10 +40,8 @@ class EventMcpTokenPageView(EventPanelAccessMixin, EventContextMixin, View):
         return self._render(slug=slug, token=token, context=context)
 
     def _render(
-        self, *, slug: str, token: str | None, context: dict[str, Any] | None = None
+        self, *, slug: str, token: str | None, context: dict[str, Any]
     ) -> HttpResponse:
-        if context is None:
-            context, _current_event = self.require_event_context(slug)
         context.update(
             active_nav="settings",
             active_tab="mcp",

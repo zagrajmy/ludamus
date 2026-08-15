@@ -6,7 +6,12 @@ import pytest
 
 from ludamus.mills.panel_proposals import ProposalPanelService
 from ludamus.pacts import NotFoundError, SessionStatus
-from ludamus.pacts.panel import ProposalDraft, ProposalListQuery, ProposalPanelRepos
+from ludamus.pacts.panel import (
+    ProposalDraft,
+    ProposalListQuery,
+    ProposalPanelRepos,
+    SourceRowIdMissingError,
+)
 from ludamus.pacts.services import DatabaseConstraintError
 
 _NEW_PROPOSAL_ID = 42
@@ -309,7 +314,7 @@ class TestProposalPanelService:
     def test_create_accepted_session_rejects_blank_source_row_id(
         self, service, sessions
     ):
-        with pytest.raises(ValueError, match="source_row_id must be non-empty"):
+        with pytest.raises(SourceRowIdMissingError):
             service.create_accepted_session(
                 event_id=1,
                 source_row_id="   ",

@@ -78,6 +78,37 @@ def call_org_tool(client, token, name, arguments):
     )
 
 
+def call_org_json(client, token, name, arguments):
+    return json.loads(tool_text(call_org_tool(client, token, name, arguments)))
+
+
+@pytest.fixture(name="programme")
+def programme_fixture(client, org_token):
+    venue = call_org_json(client, org_token, "create_space", {"name": "Venue"})
+    room = call_org_json(
+        client, org_token, "create_space", {"name": "Aula A", "parent_id": venue["pk"]}
+    )
+    track = call_org_json(
+        client, org_token, "create_track", {"name": "Main", "space_ids": [room["pk"]]}
+    )
+    category = call_org_json(
+        client, org_token, "create_proposal_category", {"name": "Warsztaty"}
+    )
+    facilitator = call_org_json(
+        client,
+        org_token,
+        "find_or_create_facilitator",
+        {"display_name": "Jan Kowalski"},
+    )
+    return {
+        "venue": venue,
+        "room": room,
+        "track": track,
+        "category": category,
+        "facilitator": facilitator,
+    }
+
+
 PING = {"jsonrpc": "2.0", "id": 1, "method": "ping"}
 
 
@@ -343,223 +374,203 @@ class TestOrganizerProgrammeValidation:
 
 
 class TestOrganizerProgrammeTools:
-    def test_programme_seed_happy_path(self, client, org_token, event):
+    def test_created_proposal_category_is_listed(
+        self, client, org_token, event, programme
+    ):
+        categories = call_org_json(
+            client, org_token, "list_proposal_categories", {"event_id": event.pk}
+        )
+
+        assert [item["pk"] for item in categories] == [programme["category"]["pk"]]
+
+    def test_created_time_slot_is_listed(self, client, org_token, event):
         slot_start = event.start_time + timedelta(hours=2)
-        slot_end = slot_start + timedelta(hours=2)
-        assign_start = slot_start + timedelta(minutes=30)
-        assign_end = assign_start + timedelta(hours=1)
 
-        category = json.loads(
-            tool_text(
-                call_org_tool(
-                    client, org_token, "create_proposal_category", {"name": "Warsztaty"}
-                )
-            )
-        )
-        categories = json.loads(
-            tool_text(
-                call_org_tool(
-                    client,
-                    org_token,
-                    "list_proposal_categories",
-                    {"event_id": event.pk},
-                )
-            )
-        )
-        assert [item["pk"] for item in categories] == [category["pk"]]
-
-        json.loads(
-            tool_text(
-                call_org_tool(
-                    client,
-                    org_token,
-                    "create_time_slot",
-                    {
-                        "start_time": slot_start.isoformat(),
-                        "end_time": slot_end.isoformat(),
-                    },
-                )
-            )
-        )
-        venue = json.loads(
-            tool_text(
-                call_org_tool(client, org_token, "create_space", {"name": "Venue"})
-            )
-        )
-        room = json.loads(
-            tool_text(
-                call_org_tool(
-                    client,
-                    org_token,
-                    "create_space",
-                    {"name": "Aula A", "parent_id": venue["pk"]},
-                )
-            )
-        )
-        track = json.loads(
-            tool_text(
-                call_org_tool(
-                    client,
-                    org_token,
-                    "create_track",
-                    {"name": "Main", "space_ids": [room["pk"]]},
-                )
-            )
-        )
-        facilitator = json.loads(
-            tool_text(
-                call_org_tool(
-                    client,
-                    org_token,
-                    "find_or_create_facilitator",
-                    {"display_name": "Jan Kowalski"},
-                )
-            )
-        )
-        found = json.loads(
-            tool_text(
-                call_org_tool(
-                    client,
-                    org_token,
-                    "find_or_create_facilitator",
-                    {"display_name": "Jan Kowalski"},
-                )
-            )
-        )
-        assert found["pk"] == facilitator["pk"]
-
-        session = json.loads(
-            tool_text(
-                call_org_tool(
-                    client,
-                    org_token,
-                    "create_session",
-                    {
-                        "source_row_id": "bf25-row-1",
-                        "title": "Wprowadzenie",
-                        "category_id": category["pk"],
-                        "facilitator_ids": [facilitator["pk"]],
-                        "track_ids": [track["pk"]],
-                    },
-                )
-            )
-        )
-        retry = json.loads(
-            tool_text(
-                call_org_tool(
-                    client,
-                    org_token,
-                    "create_session",
-                    {
-                        "source_row_id": "bf25-row-1",
-                        "title": "Wprowadzenie",
-                        "category_id": category["pk"],
-                    },
-                )
-            )
-        )
-        assert retry["pk"] == session["pk"]
-
-        assigned = json.loads(
-            tool_text(
-                call_org_tool(
-                    client,
-                    org_token,
-                    "assign_session",
-                    {
-                        "session_id": session["pk"],
-                        "space_id": room["pk"],
-                        "start_time": assign_start.isoformat(),
-                        "end_time": assign_end.isoformat(),
-                    },
-                )
-            )
-        )
-        assert assigned == {"session_id": session["pk"], "space_id": room["pk"]}
-
-        assert json.loads(
-            tool_text(
-                call_org_tool(client, org_token, "list_spaces", {"event_id": event.pk})
-            )
-        ) == [
+        call_org_tool(
+            client,
+            org_token,
+            "create_time_slot",
             {
-                "pk": room["pk"],
+                "start_time": slot_start.isoformat(),
+                "end_time": (slot_start + timedelta(hours=2)).isoformat(),
+            },
+        )
+
+        slots = call_org_json(
+            client, org_token, "list_time_slots", {"event_id": event.pk}
+        )
+        assert len(slots) == 1
+
+    def test_list_spaces_returns_assignable_leaves(
+        self, client, org_token, event, programme
+    ):
+        spaces = call_org_json(client, org_token, "list_spaces", {"event_id": event.pk})
+
+        assert spaces == [
+            {
+                "pk": programme["room"]["pk"],
                 "name": "Aula A",
                 "path": "Venue > Aula A",
                 "capacity": None,
-                "parent_id": venue["pk"],
+                "parent_id": programme["venue"]["pk"],
             }
         ]
-        assert json.loads(
-            tool_text(
-                call_org_tool(
-                    client,
-                    org_token,
-                    "list_spaces",
-                    {"event_id": event.pk, "include_internal": True},
-                )
-            )
-        ) == [
+
+    def test_list_spaces_include_internal_returns_the_whole_tree(
+        self, client, org_token, event, programme
+    ):
+        spaces = call_org_json(
+            client,
+            org_token,
+            "list_spaces",
+            {"event_id": event.pk, "include_internal": True},
+        )
+
+        assert spaces == [
             {
-                "pk": venue["pk"],
+                "pk": programme["venue"]["pk"],
                 "name": "Venue",
                 "path": "Venue",
                 "capacity": None,
                 "parent_id": None,
             },
             {
-                "pk": room["pk"],
+                "pk": programme["room"]["pk"],
                 "name": "Aula A",
                 "path": "Venue > Aula A",
                 "capacity": None,
-                "parent_id": venue["pk"],
+                "parent_id": programme["venue"]["pk"],
             },
         ]
-        assert (
-            len(
-                json.loads(
-                    tool_text(
-                        call_org_tool(
-                            client, org_token, "list_time_slots", {"event_id": event.pk}
-                        )
-                    )
-                )
-            )
-            == 1
-        )
-        assert json.loads(
-            tool_text(
-                call_org_tool(client, org_token, "list_tracks", {"event_id": event.pk})
-            )
-        )[0] == {
-            "pk": track["pk"],
+
+    def test_list_tracks_reports_its_own_space_ids(
+        self, client, org_token, event, programme
+    ):
+        tracks = call_org_json(client, org_token, "list_tracks", {"event_id": event.pk})
+
+        assert tracks[0] == {
+            "pk": programme["track"]["pk"],
             "name": "Main",
             "slug": "main",
             "is_public": True,
             "space_names": ["Aula A"],
-            "space_ids": [room["pk"]],
+            "space_ids": [programme["room"]["pk"]],
             "manager_names": [],
         }
-        assert (
-            json.loads(
-                tool_text(
-                    call_org_tool(
-                        client, org_token, "list_sessions", {"event_id": event.pk}
-                    )
-                )
-            )[0]["pk"]
-            == session["pk"]
+
+    def test_list_tracks_keeps_same_named_tracks_apart(
+        self, client, org_token, event, programme
+    ):
+        other_room = call_org_json(
+            client,
+            org_token,
+            "create_space",
+            {"name": "Aula B", "parent_id": programme["venue"]["pk"]},
         )
-        assert (
-            json.loads(
-                tool_text(
-                    call_org_tool(
-                        client, org_token, "list_facilitators", {"event_id": event.pk}
-                    )
-                )
-            )[0]["pk"]
-            == facilitator["pk"]
+        twin = call_org_json(
+            client,
+            org_token,
+            "create_track",
+            {"name": "Main", "space_ids": [other_room["pk"]]},
         )
+
+        tracks = call_org_json(client, org_token, "list_tracks", {"event_id": event.pk})
+
+        space_ids = {track["pk"]: track["space_ids"] for track in tracks}
+        assert space_ids[programme["track"]["pk"]] == [programme["room"]["pk"]]
+        assert space_ids[twin["pk"]] == [other_room["pk"]]
+
+    def test_find_or_create_facilitator_is_idempotent(
+        self, client, org_token, event, programme
+    ):
+        found = call_org_json(
+            client,
+            org_token,
+            "find_or_create_facilitator",
+            {"display_name": "Jan Kowalski"},
+        )
+
+        assert found["pk"] == programme["facilitator"]["pk"]
+        listed = call_org_json(
+            client, org_token, "list_facilitators", {"event_id": event.pk}
+        )
+        assert [item["pk"] for item in listed] == [programme["facilitator"]["pk"]]
+
+    def test_create_session_is_idempotent_by_source_row_id(
+        self, client, org_token, event, programme
+    ):
+        session = call_org_json(
+            client,
+            org_token,
+            "create_session",
+            {
+                "source_row_id": "bf25-row-1",
+                "title": "Wprowadzenie",
+                "category_id": programme["category"]["pk"],
+                "facilitator_ids": [programme["facilitator"]["pk"]],
+                "track_ids": [programme["track"]["pk"]],
+            },
+        )
+
+        retry = call_org_json(
+            client,
+            org_token,
+            "create_session",
+            {
+                "source_row_id": "bf25-row-1",
+                "title": "Wprowadzenie",
+                "category_id": programme["category"]["pk"],
+            },
+        )
+
+        assert retry["pk"] == session["pk"]
+        listed = call_org_json(
+            client, org_token, "list_sessions", {"event_id": event.pk}
+        )
+        assert [item["pk"] for item in listed] == [session["pk"]]
+
+    def test_assign_session_places_it_in_a_space(
+        self, client, org_token, event, programme
+    ):
+        slot_start = event.start_time + timedelta(hours=2)
+        call_org_tool(
+            client,
+            org_token,
+            "create_time_slot",
+            {
+                "start_time": slot_start.isoformat(),
+                "end_time": (slot_start + timedelta(hours=2)).isoformat(),
+            },
+        )
+        assign_start = slot_start + timedelta(minutes=30)
+        session = call_org_json(
+            client,
+            org_token,
+            "create_session",
+            {
+                "source_row_id": "bf25-row-1",
+                "title": "Wprowadzenie",
+                "category_id": programme["category"]["pk"],
+            },
+        )
+
+        assigned = call_org_json(
+            client,
+            org_token,
+            "assign_session",
+            {
+                "session_id": session["pk"],
+                "space_id": programme["room"]["pk"],
+                "start_time": assign_start.isoformat(),
+                "end_time": (assign_start + timedelta(hours=1)).isoformat(),
+            },
+        )
+
+        assert assigned == {
+            "session_id": session["pk"],
+            "space_id": programme["room"]["pk"],
+        }
+        assert AgendaItem.objects.filter(session_id=session["pk"]).exists()
 
     def test_batch_creates_and_assigns_sessions_idempotently(
         self, client, org_token, event

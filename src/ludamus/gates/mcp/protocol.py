@@ -84,6 +84,7 @@ def _call_tool(
     if (arguments := params.get("arguments")) is None:
         arguments = {}
     outcome: ToolOutcome
+    audit_arguments: object = "[redacted]"
     if not isinstance(name, str) or not isinstance(arguments, dict):
         outcome, text = "invalid-params", "Invalid tool call params"
     else:
@@ -94,12 +95,8 @@ def _call_tool(
             name=name,
             arguments=arguments,
         )
-    if outcome in {"invalid-params", "unknown-tool"} or not (
-        isinstance(name, str) and isinstance(arguments, dict)
-    ):
-        audit_arguments: object = "[redacted]"
-    else:
-        audit_arguments = registry.audit_arguments(name, arguments)
+        if outcome != "unknown-tool":
+            audit_arguments = registry.audit_arguments(name, arguments)
     # Audit trail (#480): one line per tools/call.
     # %r on client-controlled values: repr escapes newlines, so a crafted
     # tool name cannot inject fake audit lines.

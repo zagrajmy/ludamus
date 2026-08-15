@@ -31,6 +31,10 @@ if TYPE_CHECKING:
     )
 
 
+class SourceRowIdMissingError(Exception):
+    pass
+
+
 class EmptyColumnSelectionError(Exception):
     """A columns chooser submitted nothing this event recognises as a column."""
 

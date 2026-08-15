@@ -20,6 +20,7 @@ from ludamus.pacts.event import (
     EventPanelServiceProtocol,
     EventPublicationInvalidError,
     EventsRepositoryProtocol,
+    EventsServiceProtocol,
 )
 from ludamus.pacts.legacy import (
     AgendaItemRepositoryProtocol,
@@ -426,7 +427,7 @@ class EventPanelService(EventPanelServiceProtocol):
         )
 
 
-class EventsService:
+class EventsService(EventsServiceProtocol):
     def __init__(
         self,
         *,
@@ -457,6 +458,6 @@ class EventsService:
         publication_time = data["publication_time"]
         if publication_time is not None and publication_time > data["start_time"]:
             raise EventPublicationInvalidError
-        self._spheres.read(sphere_id)
         with self._transaction.atomic():
+            self._spheres.read(sphere_id)
             return self._events.create(sphere_id, data)

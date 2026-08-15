@@ -27,6 +27,7 @@ from ludamus.pacts.panel import (
     FacilitatorListQuery,
     ProposalDraft,
     ProposalListQuery,
+    SourceRowIdMissingError,
 )
 from ludamus.pacts.services import DatabaseConstraintError
 from ludamus.pacts.submissions import AccreditationType
@@ -42,6 +43,7 @@ if TYPE_CHECKING:
     from ludamus.pacts.services import ServicesProtocol
 
 _PROPOSAL_CATEGORY_LIST = TypeAdapter(list[ProposalCategoryDTO])
+_TRACK_LIST = TypeAdapter(list[TrackListItemDTO])
 _JSON_OBJECT: TypeAdapter[JsonDict] = TypeAdapter(JsonDict)
 
 
@@ -139,21 +141,6 @@ class OrganizerListTimeSlotsTool(Tool[_EventIdInput]):
         return TypeAdapter(list[TimeSlotDTO]).dump_json(slots, indent=2).decode()
 
 
-class _TrackListItem(TrackListItemDTO):
-    space_ids: list[int]
-
-
-def _space_ids_by_track(nodes: list[SpaceTreeNodeDTO]) -> dict[str, list[int]]:
-    result: dict[str, list[int]] = {}
-    for node in nodes:
-        for track_name in node.track_names:
-            result.setdefault(track_name, []).append(node.space.pk)
-        child_ids = _space_ids_by_track(node.children)
-        for track_name, space_ids in child_ids.items():
-            result.setdefault(track_name, []).extend(space_ids)
-    return result
-
-
 class OrganizerListTracksTool(Tool[_EventIdInput]):
     name = "list_tracks"
     description = "List programme tracks (bloki) for an event."
@@ -162,26 +149,8 @@ class OrganizerListTracksTool(Tool[_EventIdInput]):
 
     @staticmethod
     def handle(call: ToolCall[_EventIdInput]) -> str:
-        event = _require_event(call)
-        tracks: list[TrackListItemDTO] = call.services.tracks_panel.list_tracks(
-            event.pk
-        )
-        space_ids_by_track = _space_ids_by_track(
-            call.services.space_tree.list_tree(event.pk)
-        )
-        result = [
-            _TrackListItem(
-                pk=track.pk,
-                name=track.name,
-                slug=track.slug,
-                is_public=track.is_public,
-                space_names=track.space_names,
-                manager_names=track.manager_names,
-                space_ids=sorted(space_ids_by_track.get(track.name, [])),
-            )
-            for track in tracks
-        ]
-        return TypeAdapter(list[_TrackListItem]).dump_json(result, indent=2).decode()
+        tracks = call.services.tracks_panel.list_tracks(_require_event(call).pk)
+        return _TRACK_LIST.dump_json(tracks, indent=2).decode()
 
 
 class OrganizerListProposalCategoriesTool(Tool[_EventIdInput]):
@@ -192,8 +161,8 @@ class OrganizerListProposalCategoriesTool(Tool[_EventIdInput]):
 
     @staticmethod
     def handle(call: ToolCall[_EventIdInput]) -> str:
-        _require_event(call)
-        context = call.services.proposal_categories.get_page_context(call.data.event_id)
+        event = _require_event(call)
+        context = call.services.proposal_categories.get_page_context(event.pk)
         return _PROPOSAL_CATEGORY_LIST.dump_json(context.categories, indent=2).decode()
 
 
@@ -377,13 +346,13 @@ class OrganizerFindOrCreateFacilitatorTool(Tool[_FindOrCreateFacilitatorInput]):
 
 
 def _batch_audit_arguments(
-    arguments: dict[str, object], *, key: str, item_key: str
+    arguments: dict[str, object], *, key: str, count_key: str, item_key: str
 ) -> JsonDict:
     items = arguments.get(key)
     if not isinstance(items, list):
         return {key: "[redacted]"}
     return {
-        f"{key.removesuffix('s')}_count": len(items),
+        count_key: len(items),
         f"{item_key}s": [
             item.get(item_key) for item in items if isinstance(item, dict)
         ],
@@ -487,6 +456,8 @@ def _create_session(
                 track_ids=data.track_ids,
             ),
         )
+    except SourceRowIdMissingError as error:
+        raise ToolError("source_row_id must be non-empty") from error
     except DatabaseConstraintError as error:
         raise ToolError("Could not create session") from error
     session = services.proposal_panel.read_proposal(
@@ -541,7 +512,10 @@ class OrganizerCreateSessionsTool(Tool[_CreateSessionsInput]):
     @classmethod
     def audit_arguments(cls, arguments: dict[str, object]) -> object:
         return _batch_audit_arguments(
-            arguments, key="sessions", item_key="source_row_id"
+            arguments,
+            key="sessions",
+            count_key="session_count",
+            item_key="source_row_id",
         )
 
     @staticmethod
@@ -631,7 +605,10 @@ class OrganizerAssignSessionsTool(Tool[_AssignSessionsInput]):
     @classmethod
     def audit_arguments(cls, arguments: dict[str, object]) -> object:
         return _batch_audit_arguments(
-            arguments, key="assignments", item_key="session_id"
+            arguments,
+            key="assignments",
+            count_key="assignment_count",
+            item_key="session_id",
         )
 
     @staticmethod

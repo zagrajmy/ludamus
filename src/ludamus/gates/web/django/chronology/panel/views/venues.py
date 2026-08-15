@@ -8,7 +8,6 @@ import re
 from typing import TYPE_CHECKING, Any
 
 from django.contrib import messages
-from django.core.exceptions import ValidationError
 from django.http import JsonResponse
 from django.shortcuts import redirect
 from django.template.response import TemplateResponse
@@ -32,10 +31,6 @@ if TYPE_CHECKING:
     from django.http import HttpResponse
 
     from ludamus.pacts.venues import SpaceRecordDTO
-
-
-def _validation_message(error: ValidationError | SpaceValidationError) -> str:
-    return error.messages[0] if isinstance(error, ValidationError) else str(error)
 
 
 def suggest_copy_name(name: str) -> str:
@@ -120,8 +115,8 @@ class SpaceCreatePageView(PanelAccessMixin, EventContextMixin, View):
                         location=form.cleaned_data.get("location") or "",
                     ),
                 )
-            except (ValidationError, SpaceValidationError) as error:
-                form.add_error(None, _validation_message(error))
+            except SpaceValidationError as error:
+                form.add_error(None, str(error))
             else:
                 messages.success(self.request, _("Space created successfully."))
                 return redirect("panel:venues", slug=slug)
@@ -205,8 +200,8 @@ class SpaceEditPageView(PanelAccessMixin, EventContextMixin, View):
                         location=form.cleaned_data.get("location") or "",
                     ),
                 )
-            except (ValidationError, SpaceValidationError) as error:
-                form.add_error(None, _validation_message(error))
+            except SpaceValidationError as error:
+                form.add_error(None, str(error))
             else:
                 messages.success(self.request, _("Space updated successfully."))
                 return redirect("panel:venues", slug=slug)

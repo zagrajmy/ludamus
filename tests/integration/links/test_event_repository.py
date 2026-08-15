@@ -1,10 +1,10 @@
 from datetime import UTC, datetime, timedelta
 
 import pytest
-from django.db import IntegrityError
 
 from ludamus.links.db.django.repositories import EventRepository
 from ludamus.pacts.event import EventCreateData
+from ludamus.pacts.services import DatabaseConstraintError
 
 
 def test_create_does_not_report_a_date_constraint_as_a_slug_conflict(sphere):
@@ -19,5 +19,5 @@ def test_create_does_not_report_a_date_constraint_as_a_slug_conflict(sphere):
         auto_confirm_sessions=False,
     )
 
-    with pytest.raises(IntegrityError):
+    with pytest.raises(DatabaseConstraintError):
         EventRepository.create(sphere.pk, data)

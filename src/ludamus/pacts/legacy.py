@@ -346,6 +346,7 @@ class TrackListItemDTO(BaseModel):
     name: str
     slug: str
     is_public: bool
+    space_ids: list[int]
     space_names: list[str]
     manager_names: list[str]
 

@@ -1,8 +1,8 @@
 # POLCON 2026 programme sync
 
-Use `scripts/sync_polcon26_programme.py` to normalize the programme workbook and
-seed an existing event through the organizer MCP endpoint. The script uses only
-the Python standard library to read XLSX files.
+Use `scripts/polcon26/` to normalize the programme workbook and
+seed an existing event through the organizer MCP endpoint. It reads the XLSX
+zip with `defusedxml` and talks to the endpoint with `httpx`.
 
 ## Spreadsheet contract
 
@@ -54,7 +54,7 @@ time, or room, and never delete the event to retry an import.
 Always parse and review before writing:
 
 ```bash
-.venv/bin/python scripts/sync_polcon26_programme.py \
+.venv/bin/python -m scripts.polcon26.sync \
   '/path/to/Kopia POLCON26_program.xlsx' \
   --report /tmp/polcon26-programme.json
 ```
@@ -73,7 +73,7 @@ Start with an unpublished event. In another terminal, watch application logs
 and the event's timetable/activity log. Then run:
 
 ```bash
-.venv/bin/python scripts/sync_polcon26_programme.py \
+.venv/bin/python -m scripts.polcon26.sync \
   '/path/to/Kopia POLCON26_program.xlsx' \
   --apply \
   --event-id EVENT_ID \

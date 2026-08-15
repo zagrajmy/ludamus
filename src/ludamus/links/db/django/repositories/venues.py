@@ -432,6 +432,7 @@ class TrackRepository(TrackRepositoryProtocol):
                 name=track.name,
                 slug=track.slug,
                 is_public=track.is_public,
+                space_ids=sorted(s.pk for s in track.spaces.all()),
                 space_names=sorted(s.name for s in track.spaces.all()),
                 manager_names=sorted(m.name for m in track.managers.all()),
             )

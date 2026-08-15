@@ -18,6 +18,7 @@ from ludamus.pacts.panel import (
     ProposalListContextDTO,
     ProposalPanelRepos,
     ProposalPanelServiceProtocol,
+    SourceRowIdMissingError,
 )
 from ludamus.pacts.services import DatabaseConstraintError
 from ludamus.pacts.submissions import is_empty_answer
@@ -220,7 +221,7 @@ class ProposalPanelService(ProposalPanelServiceProtocol):
         self, *, event_id: int, source_row_id: str, draft: ProposalDraft
     ) -> int:
         if not (ident := source_row_id.strip()):
-            raise ValueError("source_row_id must be non-empty")
+            raise SourceRowIdMissingError
         with self._transaction.atomic():
             if existing := self._repos.sessions.find_id_by_ident(event_id, ident):
                 return existing
