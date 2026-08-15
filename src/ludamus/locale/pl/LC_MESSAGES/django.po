@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-14 10:13+0000\n"
+"POT-Creation-Date: 2026-08-15 08:37+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -643,37 +643,30 @@ msgid "%(name)s (manages their own enrollment)"
 msgstr "%(name)s (zarządza swoimi zapisami)"
 
 #: src/ludamus/adapters/web/django/views.py
-#, python-brace-format
 msgid "Enrolled: {}"
 msgstr "Zapisani: {}"
 
 #: src/ludamus/adapters/web/django/views.py
-#, python-brace-format
 msgid "Added to waiting list: {}"
 msgstr "Dodani do listy oczekujących: {}"
 
 #: src/ludamus/adapters/web/django/views.py
-#, python-brace-format
 msgid "Seat held (awaiting their approval): {}"
 msgstr "Miejsce zarezerwowane (czeka na ich zgodę): {}"
 
 #: src/ludamus/adapters/web/django/views.py
-#, python-brace-format
 msgid "Cancelled: {}"
 msgstr "Anulowani: {}"
 
 #: src/ludamus/adapters/web/django/views.py
-#, python-brace-format
 msgid "Skipped (already enrolled or conflicts): {}"
 msgstr "Pominięci (już zapisani lub konflikty): {}"
 
 #: src/ludamus/adapters/web/django/views.py
-#, python-brace-format
 msgid "Guests you bring: {}"
 msgstr "Goście, których zabierasz: {}"
 
 #: src/ludamus/adapters/web/django/views.py
-#, python-brace-format
 msgid ""
 "Not enough spots available. {} spots requested, {} available. Bring fewer "
 "guests or use the waiting list for account holders."
@@ -682,7 +675,6 @@ msgstr ""
 "Zabierz mniej gości lub użyj listy oczekujących dla posiadaczy kont."
 
 #: src/ludamus/adapters/web/django/views.py
-#, python-brace-format
 msgid ""
 "Not enough spots available. {} spots requested, {} available. Please use "
 "waiting list for some users."
@@ -1170,7 +1162,6 @@ msgid "disallowed"
 msgstr "niedozwolone"
 
 #: src/ludamus/gates/web/django/chronology/panel/views/event_settings.py
-#, python-brace-format
 msgid "Use sphere default (currently: {})"
 msgstr "Użyj domyślnego ustawienia sfery (obecnie: {})"
 
@@ -1523,6 +1514,7 @@ msgid "No events available for this sphere."
 msgstr "Brak wydarzeń dostępnych dla tej sfery."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/integrations.py
+#: src/ludamus/gates/web/django/chronology/panel/views/konwencik_export.py
 msgid "Integration not found."
 msgstr "Integracja nie została znaleziona."
 
@@ -1546,6 +1538,29 @@ msgstr "Wybierz implementację i połączenie przed uruchomieniem sprawdzenia."
 #, python-format
 msgid "Unknown implementation: %(id)s"
 msgstr "Nieznana implementacja: %(id)s"
+
+#: src/ludamus/gates/web/django/chronology/panel/views/konwencik_export.py
+#, python-format
+msgid "Export failed: %(error)s"
+msgstr "Eksport nie powiódł się: %(error)s"
+
+#: src/ludamus/gates/web/django/chronology/panel/views/konwencik_export.py
+#, python-format
+msgid "Exported %(count)d session."
+msgid_plural "Exported %(count)d sessions."
+msgstr[0] "Wyeksportowano %(count)d punkt programu."
+msgstr[1] "Wyeksportowano %(count)d punkty programu."
+msgstr[2] "Wyeksportowano %(count)d punktów programu."
+msgstr[3] "Wyeksportowano %(count)d punkty programu."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/konwencik_export.py
+#, python-format
+msgid "%(count)d session skipped: longer than a day."
+msgid_plural "%(count)d sessions skipped: longer than a day."
+msgstr[0] "Pominięto %(count)d punkt programu: dłuższy niż doba."
+msgstr[1] "Pominięto %(count)d punkty programu: dłuższe niż doba."
+msgstr[2] "Pominięto %(count)d punktów programu: dłuższe niż doba."
+msgstr[3] "Pominięto %(count)d punkty programu: dłuższe niż doba."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/personal_data_fields.py
 msgid "Personal data field created successfully."
@@ -1879,7 +1894,6 @@ msgid "Please wait before submitting another proposal."
 msgstr "Poczekaj chwilę przed przesłaniem kolejnego zgłoszenia."
 
 #: src/ludamus/gates/web/django/chronology/views.py
-#, python-brace-format
 msgid "Session proposal '{}' submitted successfully!"
 msgstr "Zgłoszenie punktu programu '{}' zostało pomyślnie przesłane!"
 
@@ -1888,7 +1902,6 @@ msgid "There is already a session scheduled at this space and time."
 msgstr "W tej przestrzeni i w tym czasie jest już zaplanowany punkt programu."
 
 #: src/ludamus/gates/web/django/chronology/views.py
-#, python-brace-format
 msgid "Proposal '{}' has been accepted and added to the agenda."
 msgstr "Zgłoszenie '{}' zostało zaakceptowane i dodane do programu."
 
@@ -7601,6 +7614,10 @@ msgstr "zaplanowanych"
 #: src/ludamus/templates/panel/index.html
 msgid "pending"
 msgstr "oczekujących"
+
+#: src/ludamus/templates/panel/integration-settings.html
+msgid "Export now"
+msgstr "Eksportuj teraz"
 
 #: src/ludamus/templates/panel/integration-settings.html
 msgid ""

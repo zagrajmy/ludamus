@@ -318,6 +318,14 @@ class SessionRepository(SessionRepositoryProtocol, SessionModalRepositoryProtoco
         session.restore()
 
     @staticmethod
+    def list_alive_pks_by_event(event_pk: int) -> list[int]:
+        # `objects` is the alive manager; joins from AgendaItem reach deleted
+        # sessions, so exports intersect against this.
+        return list(
+            Session.objects.filter(event_id=event_pk).values_list("pk", flat=True)
+        )
+
+    @staticmethod
     def list_deleted_by_event(event_pk: int) -> list[SessionListItemDTO]:
         qs = (
             Session.all_objects.filter(

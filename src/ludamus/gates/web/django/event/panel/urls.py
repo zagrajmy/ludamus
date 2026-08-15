@@ -12,6 +12,7 @@ from ludamus.gates.web.django.chronology.panel.views import (
     google_docs_import,
     index,
     integrations,
+    konwencik_export,
     personal_data_fields,
     proposal_edit,
     proposals,
@@ -505,6 +506,11 @@ urlpatterns = [
         "event/<slug:slug>/settings/integrations/<int:pk>/delete/",
         integrations.IntegrationDeletePageView.as_view(),
         name="integration-delete",
+    ),
+    path(
+        "event/<slug:slug>/export/<int:pk>/run/",
+        konwencik_export.KonwencikExportActionView.as_view(),
+        name="konwencik-export-run",
     ),
     path(
         "event/<slug:slug>/import/",

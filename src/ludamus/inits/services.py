@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from functools import cached_property
 from typing import TYPE_CHECKING
+from zoneinfo import ZoneInfo
 
 from django.conf import settings
 
@@ -45,6 +46,7 @@ from ludamus.mills.event import EventConfirmationsService, EventPanelService
 from ludamus.mills.event_settings import EventSettingsService
 from ludamus.mills.guild import GuildService
 from ludamus.mills.integrations import EventIntegrationsService
+from ludamus.mills.konwencik import KonwencikExportService
 from ludamus.mills.multiverse import (
     AnnouncementsService,
     ConnectionsService,
@@ -77,6 +79,7 @@ from ludamus.mills.venues import SpaceTreeService, VenuesService
 from ludamus.pacts.chronology import IntegrationImplementationId
 from ludamus.pacts.enrollment import EnrollmentRepos
 from ludamus.pacts.event_settings import EventSettingsRepos
+from ludamus.pacts.konwencik import KonwencikScheduleRepos
 from ludamus.pacts.panel import FacilitatorPanelRepos, ProposalPanelRepos
 from ludamus.pacts.submissions import ImportRepos, ProposalCategorySettingsRepos
 
@@ -429,6 +432,25 @@ class Services:
             connections=self._repos.connections,
             decryptor=FernetDecryptor(key),
             sheet_writer=GoogleSheetsWriter(),
+        )
+
+    @cached_property
+    def konwencik_export(self) -> KonwencikExportService:
+        key: str = settings.CREDENTIALS_ENCRYPTION_KEY
+        return KonwencikExportService(
+            repos=KonwencikScheduleRepos(
+                agenda_items=self._repos.agenda_items,
+                spaces=self._repos.spaces,
+                tracks=self._repos.tracks,
+                sessions=self._repos.sessions,
+                session_fields=self._repos.session_fields,
+                events=self._repos.events,
+            ),
+            integrations=self._repos.event_integrations,
+            connections=self._repos.connections,
+            decryptor=FernetDecryptor(key),
+            sheet_writer=GoogleSheetsWriter(),
+            zone=ZoneInfo(settings.TIME_ZONE),
         )
 
     @cached_property

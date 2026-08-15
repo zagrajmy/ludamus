@@ -21,6 +21,7 @@ from ludamus.pacts.chronology import (
     IntegrationImplementation,
     IntegrationKind,
 )
+from ludamus.pacts.konwencik import KonwencikSheetConfig
 from ludamus.pacts.sheets import SheetExportError, SheetWriterProtocol
 
 if TYPE_CHECKING:
@@ -80,7 +81,12 @@ class GoogleSheetsWriter(SheetWriterProtocol):
         self._scopes = tuple(scopes)
 
     def write_rows(
-        self, *, secret: bytes, spreadsheet_id: str, rows: list[list[str]]
+        self,
+        *,
+        secret: bytes,
+        spreadsheet_id: str,
+        rows: list[list[str]],
+        tab: str = "",
     ) -> None:
         try:
             session = build_session(secret, self._scopes)
@@ -89,7 +95,7 @@ class GoogleSheetsWriter(SheetWriterProtocol):
         # A1-quote the tab title: a bare title that parses as a cell reference
         # (a tab named "A1") or contains an apostrophe would otherwise be read
         # as a range, writing a single cell instead of the tab.
-        title = _a1_quote(self._first_tab_title(session, spreadsheet_id))
+        title = _a1_quote(self._resolve_tab(session, spreadsheet_id, tab))
         height, width = self._old_extent(
             session=session, spreadsheet_id=spreadsheet_id, title=title
         )
@@ -125,7 +131,9 @@ class GoogleSheetsWriter(SheetWriterProtocol):
         values = response.json().get("values") or []
         return len(values), max((len(row) for row in values), default=0)
 
-    def _first_tab_title(self, session: AuthorizedSession, spreadsheet_id: str) -> str:
+    def _resolve_tab(
+        self, session: AuthorizedSession, spreadsheet_id: str, tab: str
+    ) -> str:
         response = self._call(
             what="Spreadsheet metadata",
             send=lambda: session.get(
@@ -133,10 +141,16 @@ class GoogleSheetsWriter(SheetWriterProtocol):
             ),
         )
         meta = SpreadsheetMeta.model_validate(response.json())
-        if not meta.sheets or not (title := meta.sheets[0].properties.title):
+        titles = [sheet.properties.title for sheet in meta.sheets]
+        if tab:
+            if tab not in titles:
+                msg = f'Spreadsheet has no tab named "{tab}".'
+                raise SheetExportError(msg)
+            return tab
+        if not titles or not titles[0]:
             msg = "Spreadsheet has no sheet tab to write into."
             raise SheetExportError(msg)
-        return title
+        return titles[0]
 
     @staticmethod
     def _call(*, what: str, send: Callable[[], requests.Response]) -> requests.Response:
@@ -150,11 +164,6 @@ class GoogleSheetsWriter(SheetWriterProtocol):
             msg = f"{what} request failed with {response.status_code}: {body}"
             raise SheetExportError(msg)
         return response
-
-
-class KonwencikSheetConfig(BaseModel):
-    spreadsheet_id: str
-    tab: str = "harmonogram"
 
 
 class KonwencikSheetExporter(IntegrationImplementation):

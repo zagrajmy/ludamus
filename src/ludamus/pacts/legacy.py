@@ -197,6 +197,7 @@ class AgendaItemDTO(BaseModel):
     session_duration_minutes: int = 0
     session_status: "SessionStatus | None" = None
     category_name: str | None = None
+    category_id: int | None = None
 
 
 class SessionDTO(BaseModel):
@@ -806,6 +807,8 @@ class SessionRepositoryProtocol(Protocol):
     def restore(pk: int, event_pk: int) -> None: ...
     @staticmethod
     def list_deleted_by_event(event_pk: int) -> list[SessionListItemDTO]: ...
+    @staticmethod
+    def list_alive_pks_by_event(event_pk: int) -> list[int]: ...
     @staticmethod
     def list_by_facilitator(facilitator_id: int) -> list[SessionListItemDTO]: ...
     @staticmethod
