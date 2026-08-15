@@ -95,6 +95,28 @@ class TestFacilitatorDetailPageView:
             contains="Possible duplicate of Bob",
         )
 
+    def test_get_renders_a_collective_facilitator(self, panel_client, event):
+        facilitator = make_facilitator(event, is_collective=True)
+
+        response = panel_client.get(self.get_url(event))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/facilitator-detail.html",
+            context_data={
+                **panel_context(event, active_nav="facilitators"),
+                **_detail_tabs(event, facilitator.slug),
+                "facilitator": FacilitatorDTO.model_validate(facilitator),
+                "guild": None,
+                "linked_user": None,
+                "accreditation_type_display": "None",
+                "personal_data_items": [],
+                "has_personal_data": False,
+                "sessions": [],
+            },
+        )
+
     def test_get_renders_sessions_linking_to_proposal_detail(self, panel_client, event):
         facilitator = make_facilitator(event)
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")

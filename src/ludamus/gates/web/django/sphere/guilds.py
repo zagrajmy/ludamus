@@ -9,6 +9,7 @@ from django.urls import reverse
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils.text import slugify
 from django.utils.translation import gettext as _
+from django.utils.translation import gettext_lazy
 from django.views.generic.base import View
 
 from ludamus.gates.web.django.multiverse.access import (
@@ -28,6 +29,7 @@ from ludamus.pacts.legacy import resolve_uploaded_file_field
 
 if TYPE_CHECKING:
     from django.http import HttpResponse
+    from django.utils.functional import _StrPromise
 
     from ludamus.pacts.guild import GuildDTO, GuildWriteData
 
@@ -173,23 +175,27 @@ class GuildDeletePageView(SphereAccessMixin, View):
 
 class _Notice(NamedTuple):
     level: int
-    text: str
+    text: _StrPromise
 
 
 _ASSIGN_MESSAGES = {
-    AssignMemberOutcome.ASSIGNED: _Notice(messages.SUCCESS, _("Presenter added.")),
+    AssignMemberOutcome.ASSIGNED: _Notice(
+        messages.SUCCESS, gettext_lazy("Presenter added.")
+    ),
     AssignMemberOutcome.MOVED: _Notice(
-        messages.SUCCESS, _("Presenter moved to this guild from another one.")
+        messages.SUCCESS,
+        gettext_lazy("Presenter moved to this guild from another one."),
     ),
     AssignMemberOutcome.ALREADY_MEMBER: _Notice(
-        messages.INFO, _("That presenter is already in this guild.")
+        messages.INFO, gettext_lazy("That presenter is already in this guild.")
     ),
     AssignMemberOutcome.NO_SUCH_USER: _Notice(
-        messages.ERROR, _("No presenter matches that name, email or Discord username.")
+        messages.ERROR,
+        gettext_lazy("No presenter matches that name, email or Discord username."),
     ),
     AssignMemberOutcome.AMBIGUOUS_HANDLE: _Notice(
         messages.ERROR,
-        _(
+        gettext_lazy(
             "More than one presenter matches. Use the exact email if they "
             "have an account."
         ),
