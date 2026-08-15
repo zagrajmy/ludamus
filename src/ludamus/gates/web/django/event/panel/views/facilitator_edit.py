@@ -69,6 +69,7 @@ class FacilitatorEditPageView(EventPanelAccessMixin, EventContextMixin, View):
             initial={
                 "accreditation_type": facilitator.accreditation_type,
                 "internal_comment": facilitator.internal_comment,
+                "is_collective": facilitator.is_collective,
             }
         )
         context["field_descriptors"] = stored_descriptors(detail.personal_data_items)
@@ -134,6 +135,7 @@ class FacilitatorEditPageView(EventPanelAccessMixin, EventContextMixin, View):
             data=FacilitatorUpdateData(
                 accreditation_type=form.cleaned_data["accreditation_type"],
                 internal_comment=form.cleaned_data["internal_comment"],
+                is_collective=form.cleaned_data["is_collective"],
             ),
             entries=entries,
             user_id=self.request.context.current_user_id,

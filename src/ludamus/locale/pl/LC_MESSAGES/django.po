@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-14 22:54+0200\n"
+"POT-Creation-Date: 2026-08-15 08:01+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -2771,6 +2771,20 @@ msgstr "Gość"
 #: src/ludamus/gates/web/django/forms.py
 msgid "Honorary"
 msgstr "Honorowa"
+
+#: src/ludamus/gates/web/django/forms.py
+#: src/ludamus/gates/web/django/templatetags/cfp_tags.py
+#: src/ludamus/templates/panel/facilitator-detail.html
+msgid "Runs program points in parallel"
+msgstr "Prowadzi punkty programu równolegle"
+
+#: src/ludamus/gates/web/django/forms.py
+msgid ""
+"For a guild or the organizer crew — the timetable stops reporting this "
+"facilitator's overlapping program points as a clash."
+msgstr ""
+"Dla gildii lub ekipy organizatorów — harmonogram przestaje zgłaszać "
+"nakładające się punkty programu tego twórcy jako kolizję."
 
 #: src/ludamus/gates/web/django/forms.py
 msgid "Display name is too long (max 255 characters)."
@@ -7017,6 +7031,14 @@ msgid ""
 msgstr ""
 "Nazwa zapisana w pamięci przez kreator zgłoszeń. Kanoniczną nazwą jest nazwa "
 "wyświetlana zgłoszenia."
+
+#: src/ludamus/templates/panel/facilitator-detail.html
+msgid ""
+"The timetable does not report overlapping program points of this facilitator "
+"as a clash."
+msgstr ""
+"Harmonogram nie zgłasza nakładających się punktów programu tego twórcy jako "
+"kolizji."
 
 #: src/ludamus/templates/panel/facilitator-detail.html
 #: src/ludamus/templates/panel/facilitator-edit.html
