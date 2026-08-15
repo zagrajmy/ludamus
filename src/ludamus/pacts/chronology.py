@@ -106,6 +106,7 @@ class EventIntegrationDTO(BaseModel):
     config_json: str
     settings_json: str
     questions_snapshot_json: str = "[]"
+    last_run_json: str = "{}"
 
 
 class EventIntegrationCreateData(TypedDict):
@@ -153,6 +154,14 @@ class EventIntegrationsRepositoryProtocol(Protocol):
     def update_questions_snapshot(
         *, event_id: int, pk: int, questions_snapshot_json: str
     ) -> EventIntegrationDTO: ...
+    @staticmethod
+    def update_last_run(*, event_id: int, pk: int, last_run_json: str) -> None: ...
+    @staticmethod
+    def get_for_update(event_id: int, pk: int) -> EventIntegrationDTO: ...
+    @staticmethod
+    def list_by_kind(
+        kind: IntegrationKind, *, event_ended_after: datetime
+    ) -> list[EventIntegrationDTO]: ...
     @staticmethod
     def delete(event_id: int, pk: int) -> None: ...
 

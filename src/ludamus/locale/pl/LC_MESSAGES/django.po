@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-15 09:21+0200\n"
+"POT-Creation-Date: 2026-08-15 09:55+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -1574,12 +1574,24 @@ msgid "Icon field"
 msgstr "Pole z ikoną"
 
 #: src/ludamus/gates/web/django/chronology/panel/views/konwencik_export.py
+msgid "Keep the Konwencik tab in sync"
+msgstr "Utrzymuj zakładkę Konwencika w synchronizacji"
+
+#: src/ludamus/gates/web/django/chronology/panel/views/konwencik_export.py
+msgid "Re-exports the schedule periodically until the event is over."
+msgstr "Cyklicznie eksportuje harmonogram do zakończenia wydarzenia."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/konwencik_export.py
 msgid "No override"
 msgstr "Bez nadpisania"
 
 #: src/ludamus/gates/web/django/chronology/panel/views/konwencik_export.py
 msgid "Export settings saved."
 msgstr "Zapisano ustawienia eksportu."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/konwencik_export.py
+msgid "An export is already running, try again shortly."
+msgstr "Eksport już trwa, spróbuj za chwilę."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/konwencik_export.py
 #, python-format
@@ -4555,6 +4567,33 @@ msgstr ""
 "arkusza nie są nigdy zmieniane."
 
 #: src/ludamus/templates/chronology/panel/konwencik/settings.html
+msgid "Last export"
+msgstr "Ostatni eksport"
+
+#: src/ludamus/templates/chronology/panel/konwencik/settings.html
+#, python-format
+msgid "%(when)s — %(counter)s session written."
+msgid_plural "%(when)s — %(counter)s sessions written."
+msgstr[0] "%(when)s — zapisano %(counter)s punkt programu."
+msgstr[1] "%(when)s — zapisano %(counter)s punkty programu."
+msgstr[2] "%(when)s — zapisano %(counter)s punktów programu."
+msgstr[3] "%(when)s — zapisano %(counter)s punkty programu."
+
+#: src/ludamus/templates/chronology/panel/konwencik/settings.html
+#, python-format
+msgid "%(when)s — failed: %(hint)s"
+msgstr "%(when)s — niepowodzenie: %(hint)s"
+
+#: src/ludamus/templates/chronology/panel/konwencik/settings.html
+#, python-format
+msgid "%(counter)s session skipped: longer than a day."
+msgid_plural "%(counter)s sessions skipped: longer than a day."
+msgstr[0] "Pominięto %(counter)s punkt programu: dłuższy niż doba."
+msgstr[1] "Pominięto %(counter)s punkty programu: dłuższe niż doba."
+msgstr[2] "Pominięto %(counter)s punktów programu: dłuższe niż doba."
+msgstr[3] "Pominięto %(counter)s punkty programu: dłuższe niż doba."
+
+#: src/ludamus/templates/chronology/panel/konwencik/settings.html
 msgid "Attraction kinds"
 msgstr "Rodzaje atrakcji"
 
@@ -4584,6 +4623,10 @@ msgid ""
 msgstr ""
 "Pole punktu programu, którego odpowiedź zastępuje wartość zapisywaną przez "
 "eksport."
+
+#: src/ludamus/templates/chronology/panel/konwencik/settings.html
+msgid "Synchronisation"
+msgstr "Synchronizacja"
 
 #: src/ludamus/templates/chronology/parts/print_header.html
 msgid "QR code linking to the full schedule"

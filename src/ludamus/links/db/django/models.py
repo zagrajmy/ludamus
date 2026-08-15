@@ -1833,6 +1833,9 @@ class EventIntegration(models.Model):
     config_json = models.TextField(default="{}")
     settings_json = models.TextField(default="{}")
     questions_snapshot_json = models.TextField(default="[]")
+    # Separate from settings_json so an operator's save cannot clobber the
+    # outcome of a run that is still in flight.
+    last_run_json = models.TextField(default="{}")
 
     class Meta:
         db_table = "event_integration"

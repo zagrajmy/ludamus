@@ -404,6 +404,7 @@ def _event_integration_dto(integration: EventIntegration) -> EventIntegrationDTO
         config_json=integration.config_json or "{}",
         settings_json=integration.settings_json or "{}",
         questions_snapshot_json=integration.questions_snapshot_json or "[]",
+        last_run_json=integration.last_run_json or "{}",
     )
 
 
@@ -490,6 +491,41 @@ class EventIntegrationsRepository(EventIntegrationsRepositoryProtocol):
             pk=integration.pk
         )
         return _event_integration_dto(integration)
+
+    @staticmethod
+    def update_last_run(*, event_id: int, pk: int, last_run_json: str) -> None:
+        updated = EventIntegration.objects.filter(pk=pk, event_id=event_id).update(
+            last_run_json=last_run_json
+        )
+        if not updated:
+            raise NotFoundError
+
+    @staticmethod
+    def get_for_update(event_id: int, pk: int) -> EventIntegrationDTO:
+        # Row-locked read: the caller holds the transaction, so a second writer
+        # waits here instead of racing on the settings blob.
+        try:
+            integration = (
+                EventIntegration.objects.select_for_update()
+                .select_related("connection")
+                .get(pk=pk, event_id=event_id)
+            )
+        except EventIntegration.DoesNotExist as exc:
+            raise NotFoundError from exc
+        return _event_integration_dto(integration)
+
+    @staticmethod
+    def list_by_kind(
+        kind: IntegrationKind, *, event_ended_after: datetime
+    ) -> list[EventIntegrationDTO]:
+        # Across every event, so the sweep needs no event list of its own; the
+        # cutoff keeps a finished event from pushing forever.
+        integrations = (
+            EventIntegration.objects.select_related("connection")
+            .filter(kind=kind.value, event__end_time__gte=event_ended_after)
+            .order_by("event_id", "display_name")
+        )
+        return [_event_integration_dto(i) for i in integrations]
 
     @staticmethod
     def delete(event_id: int, pk: int) -> None:

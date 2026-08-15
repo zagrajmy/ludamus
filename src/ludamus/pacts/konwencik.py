@@ -1,6 +1,7 @@
 """Contracts for the Konwencik agenda export."""
 
 from dataclasses import dataclass
+from datetime import datetime
 from typing import TYPE_CHECKING, Protocol
 
 from pydantic import BaseModel
@@ -44,6 +45,22 @@ class KonwencikExportSettings(BaseModel):
     track_colors: dict[int, str] = {}  # Track pk -> "#rrggbb"
     photo_url_field_pk: int | None = None  # SessionField pk
     icon_field_pk: int | None = None
+    sync_enabled: bool = False
+    # Held here, not in a column, so a wedged lock is hand-editable — and so
+    # saving the settings page clears it, which is the escape hatch.
+    export_lock_time: datetime | None = None
+
+
+class KonwencikLastRun(BaseModel):
+    time: datetime
+    ok: bool
+    rows_written: int = 0
+    sessions_skipped: int = 0
+    error_hint: str = ""
+
+
+class ExportInProgressError(Exception):
+    """Raised when another writer holds the export lock."""
 
 
 class KonwencikExportOutcome(BaseModel):
@@ -64,6 +81,7 @@ class KonwencikSettingsContext(BaseModel):
     tracks: list[KonwencikNamedItemDTO]
     session_fields: list[KonwencikNamedItemDTO]
     settings: KonwencikExportSettings
+    last_run: KonwencikLastRun | None
 
 
 class KonwencikExportServiceProtocol(Protocol):
@@ -81,3 +99,4 @@ class KonwencikExportServiceProtocol(Protocol):
         pk: int,
         settings: KonwencikExportSettings,
     ) -> None: ...
+    def run_sweep(self, *, now: datetime) -> int: ...

@@ -1,21 +1,25 @@
 """Pushes an event's scheduled agenda into the tab Konwencik reads."""
 
 import logging
-from datetime import datetime, timedelta, tzinfo
+from datetime import UTC, datetime, timedelta, tzinfo
 from typing import TYPE_CHECKING
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 
 from ludamus.pacts import NotFoundError
+from ludamus.pacts.chronology import IntegrationImplementationId, IntegrationKind
 from ludamus.pacts.konwencik import (
+    ExportInProgressError,
     KonwencikExportOutcome,
     KonwencikExportServiceProtocol,
     KonwencikExportSettings,
+    KonwencikLastRun,
     KonwencikNamedItemDTO,
     KonwencikScheduleRepos,
     KonwencikSettingsContext,
     KonwencikSheetConfig,
 )
+from ludamus.pacts.sheets import SheetExportError
 
 if TYPE_CHECKING:
     from ludamus.pacts import AgendaItemDTO, SpaceDTO, TrackDTO
@@ -27,6 +31,7 @@ if TYPE_CHECKING:
         ConnectionsRepositoryProtocol,
         DecryptorProtocol,
     )
+    from ludamus.pacts.services import TransactionProtocol
     from ludamus.pacts.sheets import SheetWriterProtocol
 
 logger = logging.getLogger(__name__)
@@ -57,6 +62,12 @@ _TIME_FORMAT = "%H:%M"
 # the only field it does have.
 ADULT_MIN_AGE = 18
 ADULT_TITLE_TAG = "[18+]"
+# A lock younger than this means a run is in flight; an older one belonged to
+# a crashed worker and is taken over.
+EXPORT_LOCK_TIMEOUT = timedelta(minutes=15)
+# A finished event must not keep pushing.
+_FINISHED_EVENT_GRACE = timedelta(days=1)
+ERROR_HINT_LIMIT = 500
 
 
 class KonwencikRow(BaseModel):
@@ -119,6 +130,14 @@ def _local_span(item: AgendaItemDTO, zone: tzinfo) -> tuple[datetime, datetime] 
     return None
 
 
+def _last_run(integration: EventIntegrationDTO) -> KonwencikLastRun | None:
+    try:
+        return KonwencikLastRun.model_validate_json(integration.last_run_json or "{}")
+    except ValidationError:
+        # Never run, or a blob from an older shape: the sheet is the output.
+        return None
+
+
 def _order(item: AgendaItemDTO) -> tuple[datetime, str, int]:
     # A stable row order so re-running the export produces an identical sheet.
     return (item.start_time, item.space_name, item.session_id)
@@ -142,7 +161,9 @@ class KonwencikExportService(KonwencikExportServiceProtocol):
         decryptor: DecryptorProtocol,
         sheet_writer: SheetWriterProtocol,
         zone: tzinfo,
+        transaction: TransactionProtocol,
     ) -> None:
+        self._transaction = transaction
         self._repos = repos
         self._integrations = integrations
         self._connections = connections
@@ -177,6 +198,7 @@ class KonwencikExportService(KonwencikExportServiceProtocol):
             settings=KonwencikExportSettings.model_validate_json(
                 integration.settings_json or "{}"
             ),
+            last_run=_last_run(integration),
         )
 
     def save_settings(
@@ -223,6 +245,9 @@ class KonwencikExportService(KonwencikExportServiceProtocol):
                 if settings.icon_field_pk in allowed_fields
                 else None
             ),
+            sync_enabled=settings.sync_enabled,
+            # A save clears the lock on purpose: it is the escape hatch when a
+            # crashed run leaves one behind.
         )
         self._integrations.update_settings(
             event_id=event_pk, pk=pk, settings_json=scoped.model_dump_json()
@@ -238,10 +263,45 @@ class KonwencikExportService(KonwencikExportServiceProtocol):
     def run(self, integration: EventIntegrationDTO) -> KonwencikExportOutcome:
         # No sphere argument: the sweep has no principal, and re-checking an
         # integration's own sphere against itself is a guard that cannot fail.
+        settings = self._claim_lock(integration)
+        try:
+            outcome = self._write_sheet(integration, settings)
+        except SheetExportError as exc:
+            self._finish(integration, error_hint=str(exc))
+            raise
+        self._finish(integration, outcome=outcome)
+        return outcome
+
+    def run_sweep(self, *, now: datetime) -> int:
+        exported = 0
+        for integration in self._integrations.list_by_kind(
+            IntegrationKind.EXPORT, event_ended_after=now - _FINISHED_EVENT_GRACE
+        ):
+            if integration.implementation != (
+                IntegrationImplementationId.KONWENCIK_SHEET_PUSHER
+            ):
+                continue
+            settings = KonwencikExportSettings.model_validate_json(
+                integration.settings_json or "{}"
+            )
+            if not settings.sync_enabled:
+                continue
+            # One event's revoked service account must not stop every other
+            # event's sync.
+            try:
+                self.run(integration)
+            except (SheetExportError, ExportInProgressError, NotFoundError) as exc:
+                logger.warning(
+                    "Konwencik sweep skipped integration %s: %s", integration.pk, exc
+                )
+                continue
+            exported += 1
+        return exported
+
+    def _write_sheet(
+        self, integration: EventIntegrationDTO, settings: KonwencikExportSettings
+    ) -> KonwencikExportOutcome:
         config = KonwencikSheetConfig.model_validate_json(integration.config_json)
-        settings = KonwencikExportSettings.model_validate_json(
-            integration.settings_json or "{}"
-        )
         event = self._repos.events.read(integration.event_id)
         rows, skipped = self._build_rows(event_pk=event.pk, settings=settings)
         matrix = [
@@ -258,6 +318,61 @@ class KonwencikExportService(KonwencikExportServiceProtocol):
             tab=config.tab,
         )
         return KonwencikExportOutcome(rows_written=len(rows), sessions_skipped=skipped)
+
+    def _claim_lock(self, integration: EventIntegrationDTO) -> KonwencikExportSettings:
+        # The manual button and a scheduled tick can overlap, and two full
+        # rewrites racing means the loser's matrix wins.
+        now = datetime.now(UTC)
+        with self._transaction.atomic():
+            fresh = self._integrations.get_for_update(
+                integration.event_id, integration.pk
+            )
+            settings = KonwencikExportSettings.model_validate_json(
+                fresh.settings_json or "{}"
+            )
+            held = settings.export_lock_time
+            if held is not None and now - held < EXPORT_LOCK_TIMEOUT:
+                raise ExportInProgressError
+            # An older lock belonged to a crashed worker, so nothing wedges.
+            settings.export_lock_time = now
+            self._integrations.update_settings(
+                event_id=integration.event_id,
+                pk=integration.pk,
+                settings_json=settings.model_dump_json(),
+            )
+        return settings
+
+    def _finish(
+        self,
+        integration: EventIntegrationDTO,
+        *,
+        outcome: KonwencikExportOutcome | None = None,
+        error_hint: str = "",
+    ) -> None:
+        with self._transaction.atomic():
+            fresh = self._integrations.get_for_update(
+                integration.event_id, integration.pk
+            )
+            settings = KonwencikExportSettings.model_validate_json(
+                fresh.settings_json or "{}"
+            )
+            settings.export_lock_time = None
+            self._integrations.update_settings(
+                event_id=integration.event_id,
+                pk=integration.pk,
+                settings_json=settings.model_dump_json(),
+            )
+            self._integrations.update_last_run(
+                event_id=integration.event_id,
+                pk=integration.pk,
+                last_run_json=KonwencikLastRun(
+                    time=datetime.now(UTC),
+                    ok=outcome is not None,
+                    rows_written=outcome.rows_written if outcome else 0,
+                    sessions_skipped=outcome.sessions_skipped if outcome else 0,
+                    error_hint=error_hint[:ERROR_HINT_LIMIT],
+                ).model_dump_json(),
+            )
 
     def _build_rows(
         self, *, event_pk: int, settings: KonwencikExportSettings

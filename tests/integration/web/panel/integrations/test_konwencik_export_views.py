@@ -8,7 +8,7 @@ the sheet — and what fails — is exercised end to end.
 from __future__ import annotations
 
 import json
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 from http import HTTPStatus
 from unittest.mock import ANY, MagicMock, patch
 
@@ -18,7 +18,11 @@ from django.urls import reverse
 
 from ludamus.links.db.django.models import EventIntegration, SessionField, Track
 from ludamus.pacts.chronology import IntegrationImplementationId, IntegrationKind
-from ludamus.pacts.konwencik import KonwencikExportSettings, KonwencikNamedItemDTO
+from ludamus.pacts.konwencik import (
+    KonwencikExportSettings,
+    KonwencikLastRun,
+    KonwencikNamedItemDTO,
+)
 from tests.integration.conftest import (
     AgendaItemFactory,
     EventFactory,
@@ -275,6 +279,7 @@ class TestKonwencikExportSettingsPageView:
             | {
                 "integration_pk": export_integration.pk,
                 "integration_display_name": "Konwencik",
+                "last_run": None,
                 "icon_formset": ANY,
                 "color_formset": ANY,
                 "overrides_form": ANY,
@@ -352,9 +357,7 @@ class TestKonwencikExportSettingsPageView:
     def test_post_rejects_a_track_from_another_event(
         self, panel_client, event, export_integration
     ):
-        foreign_track = _track(
-            EventFactory(sphere=event.sphere), "Foreign", is_public=True
-        )
+        foreign_track = _track(EventFactory(), "Foreign", is_public=True)
 
         response = panel_client.post(
             _settings_page_url(event, export_integration),
@@ -365,7 +368,23 @@ class TestKonwencikExportSettingsPageView:
             ),
         )
 
-        assert response.status_code == HTTPStatus.OK
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="chronology/panel/konwencik/settings.html",
+            context_data=panel_context(event, active_nav="settings")
+            | {
+                "integration_pk": export_integration.pk,
+                "integration_display_name": "Konwencik",
+                "last_run": None,
+                "icon_formset": ANY,
+                "color_formset": ANY,
+                "overrides_form": ANY,
+                "category_rows": [],
+                # The pk is not one the event owns, so the row has no name.
+                "track_rows": [{"item": None, "form": ANY}],
+            },
+        )
         assert response.context_data["color_formset"].errors == [
             {"pk": ["This does not belong to the event."]}
         ]
@@ -382,7 +401,103 @@ class TestKonwencikExportSettingsPageView:
             data=_post_data(categories=[], tracks=[track], colors={track.pk: "blue"}),
         )
 
-        assert response.status_code == HTTPStatus.OK
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="chronology/panel/konwencik/settings.html",
+            context_data=panel_context(event, active_nav="settings")
+            | {
+                "integration_pk": export_integration.pk,
+                "integration_display_name": "Konwencik",
+                "last_run": None,
+                "icon_formset": ANY,
+                "color_formset": ANY,
+                "overrides_form": ANY,
+                "category_rows": [],
+                "track_rows": [
+                    {
+                        "item": KonwencikNamedItemDTO(pk=track.pk, name="Main"),
+                        "form": ANY,
+                    }
+                ],
+            },
+        )
         assert response.context_data["color_formset"].errors == [
             {"color": ["Use a hex colour, e.g. #1e88e5."]}
         ]
+
+    def test_post_saves_the_sync_toggle(self, panel_client, event, export_integration):
+        response = panel_client.post(
+            _settings_page_url(event, export_integration),
+            data=_post_data(categories=[], tracks=[]) | {"sync_enabled": "on"},
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Export settings saved.")],
+            url=_settings_page_url(event, export_integration),
+        )
+        export_integration.refresh_from_db()
+        assert KonwencikExportSettings.model_validate_json(
+            export_integration.settings_json
+        ).sync_enabled
+
+    def test_post_clears_a_wedged_lock(self, panel_client, event, export_integration):
+        # The save is the documented escape hatch when a crashed run leaves a
+        # lock behind.
+        export_integration.settings_json = KonwencikExportSettings(
+            export_lock_time=datetime.now(UTC)
+        ).model_dump_json()
+        export_integration.save(update_fields=["settings_json"])
+
+        panel_client.post(
+            _settings_page_url(event, export_integration),
+            data=_post_data(categories=[], tracks=[]),
+        )
+
+        export_integration.refresh_from_db()
+        assert (
+            KonwencikExportSettings.model_validate_json(
+                export_integration.settings_json
+            ).export_lock_time
+            is None
+        )
+
+
+@pytest.mark.django_db
+class TestKonwencikExportLock:
+    def test_a_held_lock_refuses_the_manual_export(
+        self, panel_client, event, export_integration, google
+    ):
+        export_integration.settings_json = KonwencikExportSettings(
+            export_lock_time=datetime.now(UTC)
+        ).model_dump_json()
+        export_integration.save(update_fields=["settings_json"])
+
+        response = panel_client.post(_run_url(event, export_integration))
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[
+                (messages.ERROR, "An export is already running, try again shortly.")
+            ],
+            url=_settings_url(event),
+        )
+        google.put.assert_not_called()
+
+    def test_a_run_records_its_outcome(
+        self, panel_client, event, export_integration, google
+    ):
+        _schedule(event, 1)
+
+        panel_client.post(_run_url(event, export_integration))
+
+        export_integration.refresh_from_db()
+        last_run = KonwencikLastRun.model_validate_json(
+            export_integration.last_run_json
+        )
+        assert last_run.ok is True
+        assert last_run.rows_written == 1
+        assert google.put.call_count == 1

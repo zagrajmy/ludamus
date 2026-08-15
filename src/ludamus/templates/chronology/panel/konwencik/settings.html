@@ -38,6 +38,25 @@
                     </p>
                 </div>
             </div>
+            {% if last_run %}
+                <div class="card">
+                    <div class="card-body flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                        <h2 class="text-sm font-medium text-foreground">{% translate "Last export" %}</h2>
+                        <p class="text-sm {% if last_run.ok %}text-foreground-secondary{% else %}text-danger{% endif %}">
+                            {% if last_run.ok %}
+                                {% blocktranslate with when=last_run.time count counter=last_run.rows_written %}{{ when }} — {{ counter }} session written.{% plural %}{{ when }} — {{ counter }} sessions written.{% endblocktranslate %}
+                            {% else %}
+                                {% blocktranslate with when=last_run.time hint=last_run.error_hint %}{{ when }} — failed: {{ hint }}{% endblocktranslate %}
+                            {% endif %}
+                        </p>
+                        {% if last_run.sessions_skipped %}
+                            <p class="text-sm text-warning">
+                                {% blocktranslate count counter=last_run.sessions_skipped %}{{ counter }} session skipped: longer than a day.{% plural %}{{ counter }} sessions skipped: longer than a day.{% endblocktranslate %}
+                            </p>
+                        {% endif %}
+                    </div>
+                </div>
+            {% endif %}
             <form id="konwencik-settings-form" method="post" class="space-y-6">
                 {% csrf_token %}
                 <div class="card">
@@ -86,7 +105,14 @@
                         <p class="text-sm text-foreground-muted">
                             {% translate "A session field whose answer replaces the value the export would otherwise write." %}
                         </p>
-                        {% tessera_form overrides_form %}
+                        {% tessera_field overrides_form.photo_url_field %}
+                        {% tessera_field overrides_form.icon_field %}
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-body space-y-4">
+                        <h2 class="text-lg font-medium text-foreground">{% translate "Synchronisation" %}</h2>
+                        {% tessera_field overrides_form.sync_enabled %}
                     </div>
                 </div>
             </form>

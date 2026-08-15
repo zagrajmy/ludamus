@@ -18,7 +18,7 @@ from ludamus.gates.web.django.chronology.panel.views.base import (
     PanelRequest,
 )
 from ludamus.pacts import NotFoundError
-from ludamus.pacts.konwencik import KonwencikExportSettings
+from ludamus.pacts.konwencik import ExportInProgressError, KonwencikExportSettings
 from ludamus.pacts.sheets import SheetExportError
 
 if TYPE_CHECKING:
@@ -27,7 +27,11 @@ if TYPE_CHECKING:
     from django.forms.formsets import BaseFormSet
     from django.http import HttpResponse, QueryDict
 
-    from ludamus.pacts.konwencik import KonwencikNamedItemDTO, KonwencikSettingsContext
+    from ludamus.pacts.konwencik import (
+        KonwencikLastRun,
+        KonwencikNamedItemDTO,
+        KonwencikSettingsContext,
+    )
 
 ICON_MAX_LENGTH = 64
 _HEX_COLOR = r"^#[0-9a-fA-F]{6}$"
@@ -42,6 +46,7 @@ class _PageContext(TypedDict):
     active_nav: str
     integration_pk: int
     integration_display_name: str
+    last_run: KonwencikLastRun | None
     icon_formset: BaseFormSet[KonwencikIconForm]
     color_formset: BaseFormSet[KonwencikColorForm]
     overrides_form: KonwencikOverridesForm
@@ -50,7 +55,7 @@ class _PageContext(TypedDict):
 
 
 class _ScopedRowForm(forms.Form):
-    """One row of a per-object formset, keyed on a pk the event must own."""
+    """One formset row, keyed on a pk the event must own."""
 
     pk = forms.IntegerField(widget=forms.HiddenInput)
 
@@ -92,6 +97,13 @@ class KonwencikOverridesForm(forms.Form):
         label=gettext_lazy("Photo link field"), required=False
     )
     icon_field = forms.ChoiceField(label=gettext_lazy("Icon field"), required=False)
+    sync_enabled = forms.BooleanField(
+        label=gettext_lazy("Keep the Konwencik tab in sync"),
+        required=False,
+        help_text=gettext_lazy(
+            "Re-exports the schedule periodically until the event is over."
+        ),
+    )
 
     def __init__(
         self, *args: Any, session_fields: Iterable[KonwencikNamedItemDTO], **kwargs: Any
@@ -167,6 +179,7 @@ def _overrides_form(
                 str(settings.photo_url_field_pk) if settings.photo_url_field_pk else ""
             ),
             "icon_field": str(settings.icon_field_pk) if settings.icon_field_pk else "",
+            "sync_enabled": settings.sync_enabled,
         },
     )
 
@@ -187,6 +200,7 @@ def _settings_from(
         },
         photo_url_field_pk=int(photo_raw) if photo_raw else None,
         icon_field_pk=int(icon_raw) if icon_raw else None,
+        sync_enabled=bool(overrides.cleaned_data["sync_enabled"]),
     )
 
 
@@ -278,6 +292,7 @@ def _page_context(
         "active_nav": "settings",
         "integration_pk": pk,
         "integration_display_name": settings_context.display_name,
+        "last_run": settings_context.last_run,
         "icon_formset": icons,
         "color_formset": colors,
         "overrides_form": overrides,
@@ -304,6 +319,11 @@ class KonwencikExportActionView(PanelAccessMixin, EventContextMixin, View):
             )
         except NotFoundError:
             messages.error(self.request, _("Integration not found."))
+            return redirect("panel:event-integration-settings", slug=slug)
+        except ExportInProgressError:
+            messages.error(
+                self.request, _("An export is already running, try again shortly.")
+            )
             return redirect("panel:event-integration-settings", slug=slug)
         except SheetExportError as error:
             messages.error(

@@ -1,4 +1,4 @@
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 from zoneinfo import ZoneInfo
@@ -12,7 +12,16 @@ from ludamus.mills.konwencik import (
     KonwencikRow,
 )
 from ludamus.pacts import AgendaItemDTO, NotFoundError, SpaceDTO, TrackDTO
-from ludamus.pacts.konwencik import KonwencikScheduleRepos
+from ludamus.pacts.chronology import IntegrationImplementationId, IntegrationKind
+from ludamus.pacts.konwencik import (
+    ExportInProgressError,
+    KonwencikExportSettings,
+    KonwencikLastRun,
+    KonwencikScheduleRepos,
+)
+from ludamus.pacts.sheets import SheetExportError
+
+SWEEP_TOTAL = 2
 
 WARSAW = ZoneInfo("Europe/Warsaw")
 _NOW = datetime(2026, 6, 1, 12, 0, tzinfo=UTC)
@@ -104,7 +113,9 @@ def _make_service(
     repos.categories.list_by_event.return_value = []
     repos.events.read.return_value = SimpleNamespace(pk=EVENT_PK, sphere_id=SPHERE_PK)
 
+    transaction = MagicMock()
     integrations = MagicMock()
+    integrations.get_for_update.side_effect = lambda _event_pk, _pk: _integration()
     connections = MagicMock()
     connections.read_secret.return_value = b"blob"
     decryptor = MagicMock()
@@ -117,6 +128,7 @@ def _make_service(
         decryptor=decryptor,
         sheet_writer=writer,
         zone=WARSAW,
+        transaction=transaction,
     )
     return SimpleNamespace(
         service=service,
@@ -124,6 +136,7 @@ def _make_service(
         integrations=integrations,
         connections=connections,
         writer=writer,
+        transaction=transaction,
     )
 
 
@@ -132,9 +145,20 @@ def _integration(*, settings_json="{}"):
         pk=INTEGRATION_PK,
         event_id=EVENT_PK,
         connection_id=CONNECTION_PK,
+        implementation=IntegrationImplementationId.KONWENCIK_SHEET_PUSHER,
         config_json='{"spreadsheet_id": "sheet-1", "tab": "harmonogram"}',
         settings_json=settings_json,
+        last_run_json="{}",
     )
+
+
+def _run(env, settings_json="{}"):
+    # `run` re-reads the row it locks, so the fresh copy is the one whose
+    # settings drive the export.
+    integration = _integration(settings_json=settings_json)
+    env.integrations.get_for_update.side_effect = None
+    env.integrations.get_for_update.return_value = integration
+    return env.service.run(integration)
 
 
 def _written(env):
@@ -179,7 +203,7 @@ class TestKonwencikMatrix:
     def test_writes_key_and_label_header_rows_then_one_row_per_session(self):
         env = _make_service(items=[_item()], spaces=[_space()])
 
-        env.service.run(_integration())
+        _run(env)
 
         rows = _written(env)
         assert rows[0] == KEYS
@@ -189,7 +213,7 @@ class TestKonwencikMatrix:
     def test_writes_the_configured_tab_with_the_decrypted_secret(self):
         env = _make_service(items=[_item()], spaces=[_space()])
 
-        env.service.run(_integration())
+        _run(env)
 
         env.connections.read_secret.assert_called_once_with(SPHERE_PK, CONNECTION_PK)
         env.writer.write_rows.assert_called_once_with(
@@ -203,7 +227,7 @@ class TestKonwencikMatrix:
         items = [_item(), _item(pk=2, session_id=SESSION_PK + 1)]
         env = _make_service(items=items)
 
-        outcome = env.service.run(_integration())
+        outcome = _run(env)
 
         assert outcome.rows_written == len(items)
         assert outcome.sessions_skipped == 0
@@ -214,7 +238,7 @@ class TestKonwencikRowBuilder:
         # 08:00 UTC is 10:00 in Warsaw during summer time.
         env = _make_service(items=[_item()], spaces=[_space()])
 
-        env.service.run(_integration())
+        _run(env)
 
         cells = _cells(env)
         assert cells["id"] == str(SESSION_PK)
@@ -229,7 +253,7 @@ class TestKonwencikRowBuilder:
             items=[_item(session_min_age=ADULT_MIN_AGE)], spaces=[_space()]
         )
 
-        env.service.run(_integration())
+        _run(env)
 
         assert _cells(env)["title"] == "[18+] Dracula"
 
@@ -238,14 +262,14 @@ class TestKonwencikRowBuilder:
             items=[_item(session_min_age=ADULT_MIN_AGE - 1)], spaces=[_space()]
         )
 
-        env.service.run(_integration())
+        _run(env)
 
         assert _cells(env)["title"] == "Dracula"
 
     def test_carries_title_description_speaker_and_category(self):
         env = _make_service(items=[_item()], spaces=[_space()])
 
-        env.service.run(_integration())
+        _run(env)
 
         cells = _cells(env)
         assert cells["title"] == "Dracula"
@@ -260,14 +284,14 @@ class TestKonwencikRowBuilder:
             spaces=[_space(parent_id=40), _space(pk=40, name="Floor 1")],
         )
 
-        env.service.run(_integration())
+        _run(env)
 
         assert _cells(env)["room"] == "RPG 1 (Floor 1)"
 
     def test_a_root_space_has_no_parentheses(self):
         env = _make_service(items=[_item()], spaces=[_space()])
 
-        env.service.run(_integration())
+        _run(env)
 
         assert _cells(env)["room"] == "RPG 1"
 
@@ -279,7 +303,7 @@ class TestKonwencikRowBuilder:
             tracks_by_session={SESSION_PK: {20: "Main block"}},
         )
 
-        env.service.run(_integration())
+        _run(env)
 
         cells = _cells(env)
         assert cells["block"] == "Main block"
@@ -295,13 +319,10 @@ class TestKonwencikRowBuilder:
             tracks_by_session={SESSION_PK: {20: "Main block"}},
         )
 
-        env.service.run(
-            _integration(
-                settings_json=(
-                    '{"category_icons": {"9": "fa.gamepad"},'
-                    ' "track_colors": {"20": "#ff0000"}}'
-                )
-            )
+        _run(
+            env,
+            '{"category_icons": {"9": "fa.gamepad"},'
+            ' "track_colors": {"20": "#ff0000"}}',
         )
 
         cells = _cells(env)
@@ -316,13 +337,7 @@ class TestKonwencikRowBuilder:
             field_values={SESSION_PK: {"icon-field": "fa.trophy"}},
         )
 
-        env.service.run(
-            _integration(
-                settings_json=(
-                    '{"category_icons": {"9": "fa.gamepad"}, "icon_field_pk": 77}'
-                )
-            )
-        )
+        _run(env, '{"category_icons": {"9": "fa.gamepad"}, "icon_field_pk": 77}')
 
         assert _cells(env)["icon"] == "fa.trophy"
 
@@ -334,7 +349,7 @@ class TestKonwencikRowBuilder:
             field_values={SESSION_PK: {"photo-field": "https://example.test/a.png"}},
         )
 
-        env.service.run(_integration(settings_json='{"photo_url_field_pk": 78}'))
+        _run(env, '{"photo_url_field_pk": 78}')
 
         assert _cells(env)["photo_url"] == "https://example.test/a.png"
 
@@ -343,7 +358,7 @@ class TestKonwencikExclusions:
     def test_a_soft_deleted_session_produces_no_row(self):
         env = _make_service(items=[_item()], spaces=[_space()], alive=[])
 
-        outcome = env.service.run(_integration())
+        outcome = _run(env)
 
         assert outcome.rows_written == 0
         assert _written(env) == [KEYS, LABELS]
@@ -352,7 +367,7 @@ class TestKonwencikExclusions:
         # Unscheduled means no agenda item at all, so nothing reaches the mill.
         env = _make_service(items=[], alive=[SESSION_PK])
 
-        assert env.service.run(_integration()).rows_written == 0
+        assert _run(env).rows_written == 0
 
     def test_a_session_whose_only_track_is_private_produces_no_row(self):
         env = _make_service(
@@ -362,14 +377,14 @@ class TestKonwencikExclusions:
             tracks_by_session={SESSION_PK: {21: "Internal"}},
         )
 
-        assert env.service.run(_integration()).rows_written == 0
+        assert _run(env).rows_written == 0
 
     def test_a_session_with_no_tracks_is_exported_with_an_empty_block(self):
         env = _make_service(
             items=[_item()], spaces=[_space()], tracks=[_track()], tracks_by_session={}
         )
 
-        outcome = env.service.run(_integration())
+        outcome = _run(env)
 
         assert outcome.rows_written == 1
         assert not _cells(env)["block"]
@@ -386,11 +401,7 @@ class TestKonwencikTrackChoice:
             tracks_by_session={SESSION_PK: {20: "Beta", 21: "Alpha"}},
         )
 
-        env.service.run(
-            _integration(
-                settings_json='{"track_colors": {"20": "#00ff00", "21": "#0000ff"}}'
-            )
-        )
+        _run(env, '{"track_colors": {"20": "#00ff00", "21": "#0000ff"}}')
 
         cells = _cells(env)
         assert cells["block"] == "Alpha"
@@ -407,7 +418,7 @@ class TestKonwencikTrackChoice:
             tracks_by_session={SESSION_PK: {20: "Beta", 21: "Alpha"}},
         )
 
-        env.service.run(_integration())
+        _run(env)
 
         assert _cells(env)["block"] == "Beta"
 
@@ -424,7 +435,7 @@ class TestKonwencikMidnight:
             spaces=[_space()],
         )
 
-        outcome = env.service.run(_integration())
+        outcome = _run(env)
 
         cells = _cells(env)
         assert outcome.rows_written == 1
@@ -443,7 +454,7 @@ class TestKonwencikMidnight:
             spaces=[_space()],
         )
 
-        outcome = env.service.run(_integration())
+        outcome = _run(env)
 
         assert outcome.rows_written == 0
         assert outcome.sessions_skipped == 1
@@ -459,7 +470,7 @@ class TestKonwencikMidnight:
             spaces=[_space()],
         )
 
-        outcome = env.service.run(_integration())
+        outcome = _run(env)
 
         assert outcome.sessions_skipped == 1
         assert "Dracula" in caplog.text
@@ -486,3 +497,127 @@ class TestKonwencikExportNow:
 
         env.integrations.get.assert_not_called()
         env.writer.write_rows.assert_not_called()
+
+
+def _locked_integration(*, held_ago):
+    lock = (datetime.now(UTC) - held_ago).isoformat()
+    return _integration(settings_json=f'{{"export_lock_time": "{lock}"}}')
+
+
+class TestKonwencikLock:
+    def test_a_run_takes_the_lock_and_releases_it(self):
+        env = _make_service(items=[], spaces=[])
+
+        _run(env)
+
+        saved = [
+            KonwencikExportSettings.model_validate_json(call.kwargs["settings_json"])
+            for call in env.integrations.update_settings.call_args_list
+        ]
+        assert saved[0].export_lock_time is not None
+        assert saved[-1].export_lock_time is None
+
+    def test_a_fresh_lock_refuses_the_run_without_writing(self):
+        env = _make_service(items=[], spaces=[])
+        env.integrations.get_for_update.side_effect = (
+            lambda _event_pk, _pk: _locked_integration(held_ago=timedelta(minutes=1))
+        )
+
+        with pytest.raises(ExportInProgressError):
+            env.service.run(_integration())
+
+        env.writer.write_rows.assert_not_called()
+
+    def test_a_stale_lock_is_taken_over(self):
+        env = _make_service(items=[], spaces=[])
+        env.integrations.get_for_update.side_effect = (
+            lambda _event_pk, _pk: _locked_integration(held_ago=timedelta(hours=2))
+        )
+
+        env.service.run(_integration())
+
+        env.writer.write_rows.assert_called_once()
+
+    def test_a_failed_write_releases_the_lock_and_records_the_hint(self):
+        env = _make_service(items=[], spaces=[])
+        env.writer.write_rows.side_effect = SheetExportError("Spreadsheet write failed")
+
+        with pytest.raises(SheetExportError):
+            env.service.run(_integration())
+
+        last_run = KonwencikLastRun.model_validate_json(
+            env.integrations.update_last_run.call_args.kwargs["last_run_json"]
+        )
+        assert last_run.ok is False
+        assert last_run.error_hint == "Spreadsheet write failed"
+
+    def test_a_successful_run_records_the_counts(self):
+        env = _make_service(items=[_item()], spaces=[_space()])
+
+        _run(env)
+
+        last_run = KonwencikLastRun.model_validate_json(
+            env.integrations.update_last_run.call_args.kwargs["last_run_json"]
+        )
+        assert last_run.ok is True
+        assert last_run.rows_written == 1
+        assert last_run.sessions_skipped == 0
+
+
+def _sync_integration(**overrides):
+    integration = _integration(settings_json='{"sync_enabled": true}')
+    for key, value in overrides.items():
+        setattr(integration, key, value)
+    integration.implementation = overrides.get(
+        "implementation", IntegrationImplementationId.KONWENCIK_SHEET_PUSHER
+    )
+    return integration
+
+
+class TestKonwencikSweep:
+    def test_exports_every_sync_enabled_integration(self):
+        env = _make_service(items=[], spaces=[])
+        env.integrations.list_by_kind.return_value = [
+            _sync_integration(pk=1),
+            _sync_integration(pk=2),
+        ]
+
+        assert env.service.run_sweep(now=_NOW) == SWEEP_TOTAL
+
+    def test_skips_an_integration_whose_sync_is_off(self):
+        env = _make_service(items=[], spaces=[])
+        env.integrations.list_by_kind.return_value = [_integration()]
+
+        assert env.service.run_sweep(now=_NOW) == 0
+        env.writer.write_rows.assert_not_called()
+
+    def test_skips_an_export_of_another_implementation(self):
+        env = _make_service(items=[], spaces=[])
+        env.integrations.list_by_kind.return_value = [
+            _sync_integration(
+                implementation=IntegrationImplementationId.GOOGLE_PROPOSAL_PULLER
+            )
+        ]
+
+        assert env.service.run_sweep(now=_NOW) == 0
+        env.writer.write_rows.assert_not_called()
+
+    def test_keeps_going_after_one_integration_fails(self):
+        env = _make_service(items=[], spaces=[])
+        env.integrations.list_by_kind.return_value = [
+            _sync_integration(pk=1),
+            _sync_integration(pk=2),
+        ]
+        env.writer.write_rows.side_effect = [SheetExportError("denied"), None]
+
+        assert env.service.run_sweep(now=_NOW) == 1
+
+    def test_asks_only_for_events_that_have_not_long_finished(self):
+        env = _make_service(items=[], spaces=[])
+        env.integrations.list_by_kind.return_value = []
+
+        env.service.run_sweep(now=_NOW)
+
+        call = env.integrations.list_by_kind.call_args
+        assert call.args == (IntegrationKind.EXPORT,)
+        assert call.kwargs["event_ended_after"] == _NOW - timedelta(days=1)
