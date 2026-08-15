@@ -199,6 +199,9 @@ If you fix a papercut, remove it.
   slow local page load can outlast — `expect(getByText("Guild created."))`
   timed out while the row it announced was right there. Assert the durable page
   state instead.
+- 2026-08-12: Ran 'mise run test:py tests/unit/test_chronology_mills.py'
+  expecting a targeted run; the task ignores trailing path args and ran all 3990
+  tests (4 min). 'mise run test:unit -- -k Name' works instead.
 - 2026-08-14: agent-browser screenshot failed when screenshots/ did not already
   exist; the direct CLI does not create parent directories, unlike mise run
   shots.
@@ -208,3 +211,8 @@ If you fix a papercut, remove it.
 - 2026-08-14: `mise run messages` failed twice because varlock required
   deployment/test-only secrets (including SUPPORT_EMAIL) even though catalog
   extraction does not use them; the task needs a safe local environment.
+- 2026-08-15: The global 'silence hook' PostToolUse hook on Write|Edit strips
+  every non-preserved comment from the whole file, not just newly added lines.
+  Any agent editing e.g. mills/timetable.py silently wipes its 76 explanatory
+  comments; 108 were lost across one branch before anyone noticed. Bash-driven
+  rewrites bypass it.

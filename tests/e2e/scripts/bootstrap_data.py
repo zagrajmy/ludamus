@@ -540,6 +540,24 @@ def _create_panel_lab_event(sphere: Sphere) -> Event:
     )
     _create_space(north_wing, name="Frost Gallery", slug="frost-gallery", capacity=30)
     _create_space(hearth_lounge, name="Ember Corner", slug="ember-corner", capacity=12)
+    # Holds a scheduled session, so it can never take child spaces — the tree
+    # spec asserts its "add a space inside" control is disabled.
+    booked_hall = _create_venue(
+        event,
+        name="Glacier Amphitheatre",
+        slug="glacier-amphitheatre",
+        address="9 Glacier Parade, Northport",
+    )
+    _create_session(
+        event,
+        booked_hall,
+        title="Frostfire Opening Ceremony",
+        slug="frostfire-opening-ceremony",
+        presenter="Frostfire Crew",
+        description="The convention opens with a welcome from the organisers.",
+        start_offset=timedelta(hours=1),
+        duration_hours=1,
+    )
 
     ProposalCategory.objects.create(
         event=event,

@@ -46,8 +46,15 @@ class SpaceTreeNodeDTO(BaseModel):
     # assembles the tree knows — so all of it is required, never defaulted.
     space: SpaceRecordDTO
     is_leaf: bool
+    # Why the space may not hold child spaces, or None when it may. One field
+    # so the rule and the sentence explaining it can't drift apart.
+    no_children_reason: str | None
     track_names: list[str]
     children: list[SpaceTreeNodeDTO]
+
+    @property
+    def accepts_children(self) -> bool:
+        return self.no_children_reason is None
 
 
 class SpaceInputDTO(BaseModel):
@@ -77,8 +84,6 @@ class SpaceTreeRepositoryProtocol(Protocol):
     def reorder(parent_id: int | None, child_pks: list[int], event_id: int) -> None: ...
     @staticmethod
     def subtree_has_sessions(pk: int) -> bool: ...
-    @staticmethod
-    def space_pks_with_sessions(event_id: int) -> frozenset[int]: ...
     def duplicate(self, pk: int, new_name: str) -> SpaceRecordDTO: ...
     def copy_to_event(self, pk: int, target_event_id: int) -> SpaceRecordDTO: ...
 

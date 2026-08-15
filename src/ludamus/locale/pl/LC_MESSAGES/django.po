@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-15 21:34+0200\n"
+"POT-Creation-Date: 2026-08-15 21:21+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -3221,6 +3221,12 @@ msgid "track"
 msgstr "blok"
 
 #: src/ludamus/links/db/django/models.py
+msgid "A space holding a scheduled session cannot contain other spaces."
+msgstr ""
+"Przestrzeń zawierająca zaplanowany punkt programu nie może zawierać innych "
+"przestrzeni."
+
+#: src/ludamus/links/db/django/models.py
 msgid "date joined"
 msgstr "data dołączenia"
 
@@ -3296,12 +3302,6 @@ msgstr "Przestrzeń nie może być swoim własnym przodkiem."
 #, python-format
 msgid "Spaces can be nested at most %(max)d levels deep."
 msgstr "Przestrzenie można zagnieżdżać maksymalnie na %(max)d poziomów."
-
-#: src/ludamus/links/db/django/models.py
-msgid "A space holding a scheduled session cannot contain other spaces."
-msgstr ""
-"Przestrzeń zawierająca zaplanowany punkt programu nie może zawierać innych "
-"przestrzeni."
 
 #: src/ludamus/links/db/django/models.py
 msgid "A root space with this slug already exists."
@@ -7641,6 +7641,10 @@ msgstr ""
 "zarządzasz tą sferą. Może odczytywać sferę i zapisywać tylko to wydarzenie. "
 "Każdy, kto go posiada, może działać z tymi uprawnieniami — trzymaj go w "
 "tajemnicy."
+"Token wygasa po %(token_max_age_days)s dniach i działa tylko dopóki "
+"zarządzasz tą sferą. Może odczytywać sferę i zapisywać tylko to wydarzenie. "
+"Każdy, kto go posiada, może działać z tymi uprawnieniami — trzymaj go w "
+"tajemnicy."
 
 #: src/ludamus/templates/panel/mcp-token.html
 #, python-format
@@ -7649,6 +7653,9 @@ msgid ""
 "Executor) to this event. The token can read the whole sphere and write only "
 "this event. It is valid for %(token_max_age_days)s days."
 msgstr ""
+"Wygeneruj osobisty token, aby połączyć klienta MCP (np. Claude Code lub "
+"Executor) z tym wydarzeniem. Token może odczytywać całą sferę i zapisywać "
+"tylko to wydarzenie. Jest ważny przez %(token_max_age_days)s dni."
 "Wygeneruj osobisty token, aby połączyć klienta MCP (np. Claude Code lub "
 "Executor) z tym wydarzeniem. Token może odczytywać całą sferę i zapisywać "
 "tylko to wydarzenie. Jest ważny przez %(token_max_age_days)s dni."
