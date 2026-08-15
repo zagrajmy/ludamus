@@ -70,11 +70,11 @@ class TestContentEditRevert:
     @pytest.fixture
     def service(self, repos):
         service = SessionContentEditService(
-            repos.transaction,
-            repos.sessions,
-            repos.session_fields,
-            repos.content_change_logs,
-            MagicMock(),
+            transaction=repos.transaction,
+            sessions=repos.sessions,
+            session_fields=repos.session_fields,
+            content_change_logs=repos.content_change_logs,
+            agenda_items=MagicMock(),
         )
         service.apply = MagicMock()
         return service
@@ -129,7 +129,6 @@ class TestContentEditRevert:
                     SessionFieldValueData(session_id=5, field_id=9, value=["a", "b"]),
                     SessionFieldValueData(session_id=5, field_id=10, value=True),
                 ],
-                resize_agenda_item=True,
             ),
         )
 
@@ -149,9 +148,7 @@ class TestContentEditRevert:
             event_id=1,
             user_id=9,
             data=SessionContentEditData(
-                update={"title": "Old title"},
-                field_values=None,
-                resize_agenda_item=True,
+                update={"title": "Old title"}, field_values=None
             ),
         )
 
@@ -172,9 +169,7 @@ class TestContentEditRevert:
             event_id=1,
             user_id=9,
             data=SessionContentEditData(
-                update={"title": "Old title"},
-                field_values=None,
-                resize_agenda_item=True,
+                update={"title": "Old title"}, field_values=None
             ),
         )
 
@@ -235,9 +230,7 @@ class TestContentEditRevert:
             session_id=5,
             event_id=1,
             user_id=9,
-            data=SessionContentEditData(
-                update={"title": "Old"}, field_values=None, resize_agenda_item=True
-            ),
+            data=SessionContentEditData(update={"title": "Old"}, field_values=None),
         )
 
         # The revert's own audit row (mirrored old/new) is now the latest
@@ -256,9 +249,7 @@ class TestContentEditRevert:
             session_id=5,
             event_id=1,
             user_id=9,
-            data=SessionContentEditData(
-                update={"title": "New"}, field_values=None, resize_agenda_item=True
-            ),
+            data=SessionContentEditData(update={"title": "New"}, field_values=None),
         )
 
     def test_revertible_log_pks_marks_latest_invertible_rows(self, service, repos):
@@ -297,11 +288,11 @@ class TestContentEditStoresAnswers:
     @pytest.fixture
     def service(self, repos):
         return SessionContentEditService(
-            repos.transaction,
-            repos.sessions,
-            repos.session_fields,
-            repos.content_change_logs,
-            repos.agenda_items,
+            transaction=repos.transaction,
+            sessions=repos.sessions,
+            session_fields=repos.session_fields,
+            content_change_logs=repos.content_change_logs,
+            agenda_items=repos.agenda_items,
         )
 
     def test_blank_answer_for_an_unanswered_field_stores_nothing(self, service, repos):
@@ -379,11 +370,11 @@ class TestContentEditResizesAgendaItem:
     @pytest.fixture
     def service(self, repos):
         return SessionContentEditService(
-            repos.transaction,
-            repos.sessions,
-            repos.session_fields,
-            repos.content_change_logs,
-            repos.agenda_items,
+            transaction=repos.transaction,
+            sessions=repos.sessions,
+            session_fields=repos.session_fields,
+            content_change_logs=repos.content_change_logs,
+            agenda_items=repos.agenda_items,
         )
 
     @staticmethod
@@ -392,9 +383,7 @@ class TestContentEditResizesAgendaItem:
             session_id=1,
             event_id=1,
             user_id=9,
-            data=SessionContentEditData(
-                update={"duration": duration}, resize_agenda_item=True
-            ),
+            data=SessionContentEditData(update={"duration": duration}),
         )
 
     def test_a_longer_duration_moves_the_end_time(self, service, repos):
@@ -417,7 +406,11 @@ class TestContentEditResizesAgendaItem:
         repos.agenda_items.read_by_session.assert_not_called()
         repos.agenda_items.update.assert_not_called()
 
-    @pytest.mark.parametrize("duration", ("", "90 minutes"))
+    # "PT2Hjunk" and "P1DT2H" are the ones a lenient parser gets wrong: the
+    # first would resize a real block to two hours, the second to zero.
+    @pytest.mark.parametrize(
+        "duration", ("", "90 minutes", "PT2Hjunk", "P1DT2H", "PT0M")
+    )
     def test_a_duration_that_is_not_a_length_writes_nothing(
         self, service, repos, duration
     ):
@@ -425,12 +418,14 @@ class TestContentEditResizesAgendaItem:
 
         repos.agenda_items.update.assert_not_called()
 
-    def test_an_edit_without_the_flag_writes_nothing(self, service, repos):
+    def test_an_edit_that_does_not_touch_the_duration_writes_nothing(
+        self, service, repos
+    ):
         service.apply(
             session_id=1,
             event_id=1,
             user_id=9,
-            data=SessionContentEditData(update={"duration": "PT2H"}),
+            data=SessionContentEditData(update={"title": "New"}),
         )
 
         repos.agenda_items.read_by_session.assert_not_called()
