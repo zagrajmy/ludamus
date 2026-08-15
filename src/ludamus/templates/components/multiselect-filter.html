@@ -1,0 +1,59 @@
+{% load i18n %}
+{% load tessera %}
+{# Multi-select filter in a disclosure popover, with search over the options. #}
+{# Variables: id, name, label, search_label, options (each .value/.label, #}
+{# optional .depth/.meta), selected_values (collection -- boxes tick #}
+{# themselves), clear_url, search_url (optional). #}
+{# Without search_url the whole option list ships in the DOM and narrows #}
+{# client-side, so typing costs no round trip. With it, the option rows are #}
+{# swapped in per keystroke instead -- for a list too long, too private, or #}
+{# too wide to ship whole. Either way, selections apply on the Apply button, #}
+{# not on tick: the enclosing filter form reloads the page, and one reload #}
+{# per checkbox would make picking a handful unusable. #}
+<div class="relative"
+     data-menu
+     data-multiselect-filter
+     data-autosubmit-ignore>
+    <button type="button"
+            data-menu-button
+            aria-expanded="false"
+            aria-haspopup="true"
+            class="filter-toggle inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-semibold border border-border whitespace-nowrap cursor-pointer bg-bg-secondary text-foreground-muted transition-[color,background-color,border-color,box-shadow] duration-150">
+        {{ label }}
+        {% if selected_values %}
+            <span class="filter-badge is-visible min-w-5 h-5 px-1.5 rounded-full text-[0.6875rem] font-bold leading-5 text-center bg-primary text-white">{{ selected_values|length }}</span>
+        {% endif %}
+        {% icon "chevron-down" variant="mini" class="size-4" %}
+    </button>
+    <div data-menu-panel hidden class="absolute left-0 mt-1 z-40">
+        <div {% include "components/menu_surface.html" with extra_class="w-72 max-w-[calc(100vw-2rem)] rounded-2xl border border-border bg-bg-secondary p-3 shadow-xl" %}>
+            {% translate "Search…" as t_search %}
+            <div data-multiselect-search>
+                {% include "components/text-field.html" with name="" id=id|add:"-search" placeholder=t_search aria_label=search_label autocomplete="off" only %}
+            </div>
+            {# aria-live only where rows are genuinely replaced. Client-side #}
+            {# narrowing just hides them, and announcing every keystroke of #}
+            {# your own typing is noise. #}
+            <div id="{{ id }}-options"
+                 role="group"
+                 aria-label="{{ label }}"
+                 data-multiselect-options
+                 {% if search_url %}aria-live="polite" data-multiselect-url="{{ search_url }}"{% endif %}
+                 {# The first render is never truncated: static lists ship whole #}
+                 {# and a searched one starts at just the already-picked rows. #}
+                 class="mt-2 max-h-64 overflow-y-auto">
+                {% include "components/multiselect-filter-options.html" with has_more=False searched=False %}
+            </div>
+            <p data-multiselect-empty
+               hidden
+               class="py-2 text-sm text-foreground-muted">{% translate "Nothing matches your search." %}</p>
+            <div class="mt-3 flex items-center justify-between gap-2">
+                {% translate "Clear" as t_clear %}
+                <a href="{{ clear_url }}"
+                   class="text-sm text-foreground-muted underline underline-offset-3 hover:no-underline{% if not selected_values %} invisible{% endif %}">{{ t_clear }}</a>
+                {% translate "Apply filters" as t_apply %}
+                {% tessera_button t_apply variant="primary" button_type="submit" size="sm" %}
+            </div>
+        </div>
+    </div>
+</div>

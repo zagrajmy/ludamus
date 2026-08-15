@@ -18,6 +18,8 @@ from ludamus.pacts.legacy import ConfirmationCountsRow, ConfirmationTotalsRow
 if TYPE_CHECKING:
     from datetime import datetime
 
+    from django.db.models import QuerySet
+
 _SELECT_RELATED = ("session", "session__category", "space")
 
 
@@ -33,6 +35,17 @@ def confirmed_item_count() -> Count:
         filter=Q(sessions__agenda_item__session_confirmed=True),
         distinct=True,
     )
+
+
+def _by_facilitators(
+    items: QuerySet[AgendaItem], facilitator_pks: set[int] | None
+) -> QuerySet[AgendaItem]:
+    # An item survives when any picked facilitator runs its session -- the
+    # union the filter bar's checkboxes read as. `distinct` because the join
+    # repeats an item once per matching facilitator.
+    if not facilitator_pks:
+        return items
+    return items.filter(session__facilitators__pk__in=facilitator_pks).distinct()
 
 
 def _to_dto(item: AgendaItem) -> AgendaItemDTO:
@@ -70,17 +83,21 @@ class AgendaItemRepository(AgendaItemRepositoryProtocol):
         return _to_dto(item)
 
     @staticmethod
-    def list_by_event(event_pk: int) -> list[AgendaItemDTO]:
-        items = AgendaItem.objects.filter(session__event_id=event_pk).select_related(
-            *_SELECT_RELATED
-        )
+    def list_by_event(
+        event_pk: int, *, facilitator_pks: set[int] | None = None
+    ) -> list[AgendaItemDTO]:
+        items = _by_facilitators(
+            AgendaItem.objects.filter(session__event_id=event_pk), facilitator_pks
+        ).select_related(*_SELECT_RELATED)
         return [_to_dto(item) for item in items]
 
     @staticmethod
-    def list_by_track(track_pk: int) -> list[AgendaItemDTO]:
-        items = AgendaItem.objects.filter(session__tracks__pk=track_pk).select_related(
-            *_SELECT_RELATED
-        )
+    def list_by_track(
+        track_pk: int, *, facilitator_pks: set[int] | None = None
+    ) -> list[AgendaItemDTO]:
+        items = _by_facilitators(
+            AgendaItem.objects.filter(session__tracks__pk=track_pk), facilitator_pks
+        ).select_related(*_SELECT_RELATED)
         return [_to_dto(item) for item in items]
 
     @staticmethod

@@ -372,12 +372,14 @@ class FacilitatorActionError(Exception):
 
 class FacilitatorListFilters(TypedDict, total=False):
     search: str | None
+    pks: set[int] | None
     accreditation: str | None
     flagged: bool | None
     field_filters: dict[int, str | bool] | None
     organizer_id: int | None
     organizer_unassigned: bool | None
     sort: str | None
+    limit: int | None
 
 
 class HasPk(Protocol):

@@ -11,6 +11,8 @@ from ludamus.links.db.django.models import (
     AccreditationType,
     Facilitator,
     FacilitatorChangeLog,
+    Guild,
+    GuildMembership,
     PersonalDataField,
     PersonalDataFieldValue,
     ProposalCategory,
@@ -727,6 +729,99 @@ class TestFacilitatorMergeConfirm:
             url=reverse("panel:facilitator-merge", kwargs={"slug": event.slug}),
         )
         assert Facilitator.objects.filter(slug="foreign").exists()
+
+    def test_post_moves_an_accountless_targets_guild_onto_the_linked_source(
+        self, panel_client, event
+    ):
+        guild = Guild.objects.create(sphere=event.sphere, name="Topory", slug="topory")
+        target = _make_facilitator(
+            event, display_name="Alice", slug="alice", guild=guild
+        )
+        user = UserFactory()
+        _make_facilitator(event, display_name="Alice Duplicate", slug="alice-dup")
+        Facilitator.objects.filter(slug="alice-dup").update(user=user)
+
+        response = self._merge_alice(panel_client, event)
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Facilitators merged successfully.")],
+            url=reverse("panel:facilitators", kwargs={"slug": event.slug}),
+        )
+        target.refresh_from_db()
+        assert target.user_id == user.pk
+        assert target.guild_id is None
+        assert GuildMembership.objects.filter(
+            sphere=event.sphere, guild=guild, member=user
+        ).exists()
+
+    def test_post_does_not_move_an_incoming_user_into_the_targets_guild(
+        self, panel_client, event
+    ):
+        kept = Guild.objects.create(sphere=event.sphere, name="Kept", slug="kept")
+        other = Guild.objects.create(sphere=event.sphere, name="Other", slug="other")
+        user = UserFactory()
+        GuildMembership.objects.create(sphere=event.sphere, guild=kept, member=user)
+        target = _make_facilitator(
+            event, display_name="Alice", slug="alice", guild=other
+        )
+        _make_facilitator(event, display_name="Alice Duplicate", slug="alice-dup")
+        Facilitator.objects.filter(slug="alice-dup").update(user=user)
+
+        response = self._merge_alice(panel_client, event)
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Facilitators merged successfully.")],
+            url=reverse("panel:facilitators", kwargs={"slug": event.slug}),
+        )
+        target.refresh_from_db()
+        assert target.user_id == user.pk
+        assert target.guild_id is None
+        assert GuildMembership.objects.filter(
+            sphere=event.sphere, guild=kept, member=user
+        ).exists()
+        assert not GuildMembership.objects.filter(guild=other, member=user).exists()
+
+    def test_post_does_not_move_an_incoming_users_membership_to_inherit_a_guild(
+        self, panel_client, event
+    ):
+        kept = Guild.objects.create(sphere=event.sphere, name="Kept", slug="kept")
+        other = Guild.objects.create(sphere=event.sphere, name="Other", slug="other")
+        user = UserFactory()
+        GuildMembership.objects.create(sphere=event.sphere, guild=kept, member=user)
+        target = _make_facilitator(event, display_name="Alice", slug="alice")
+        _make_facilitator(event, display_name="Alice Duplicate", slug="alice-dup")
+        Facilitator.objects.filter(slug="alice-dup").update(user=user)
+        _make_facilitator(
+            event, display_name="Alice Copy", slug="alice-copy", guild=other
+        )
+
+        response = panel_client.post(
+            self.get_url(event),
+            {
+                "facilitator_slugs": ["alice", "alice-dup", "alice-copy"],
+                "target_slug": "alice",
+                "display_name": "Alice",
+                "accreditation_type": "none",
+            },
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Facilitators merged successfully.")],
+            url=reverse("panel:facilitators", kwargs={"slug": event.slug}),
+        )
+        target.refresh_from_db()
+        assert target.user_id == user.pk
+        assert target.guild_id is None
+        assert GuildMembership.objects.filter(
+            sphere=event.sphere, guild=kept, member=user
+        ).exists()
+        assert not GuildMembership.objects.filter(guild=other, member=user).exists()
 
 
 class TestBulkMergeHandoff:

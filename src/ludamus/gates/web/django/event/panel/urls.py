@@ -24,6 +24,8 @@ from ludamus.gates.web.django.chronology.panel.views import (
 from ludamus.gates.web.django.event.panel.views import (
     confirmations,
     enrollment_settings,
+    facilitator_actions,
+    facilitator_edit,
     print_redirects,
     proposal_category_settings,
 )
@@ -56,6 +58,11 @@ _timetable_urlpatterns = [
         "parts/conflicts/",
         timetable.TimetableConflictsPartView.as_view(),
         name="timetable-conflicts-part",
+    ),
+    path(
+        "parts/facilitator-options/",
+        timetable.TimetableFacilitatorOptionsPartView.as_view(),
+        name="timetable-facilitator-options-part",
     ),
     path(
         "do/assign/", timetable.TimetableAssignView.as_view(), name="timetable-assign"
@@ -415,7 +422,7 @@ urlpatterns = [
     ),
     path(
         "event/<slug:slug>/facilitators/<str:facilitator_slug>/edit/",
-        facilitators.FacilitatorEditPageView.as_view(),
+        facilitator_edit.FacilitatorEditPageView.as_view(),
         name="facilitator-edit",
     ),
     path(
@@ -437,6 +444,11 @@ urlpatterns = [
         "event/<slug:slug>/facilitators/<str:facilitator_slug>/do/assign-organizer",
         facilitators.FacilitatorAssignOrganizerActionView.as_view(),
         name="facilitator-assign-organizer",
+    ),
+    path(
+        "event/<slug:slug>/facilitators/<str:facilitator_slug>/do/assign-guild",
+        facilitator_actions.FacilitatorAssignGuildActionView.as_view(),
+        name="facilitator-assign-guild",
     ),
     path(
         "event/<slug:slug>/facilitators/<str:facilitator_slug>/do/unassign-organizer",

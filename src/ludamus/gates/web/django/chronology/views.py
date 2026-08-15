@@ -1,16 +1,11 @@
 from __future__ import annotations
 
-import contextlib
 from datetime import UTC, date, datetime
-from pathlib import PurePosixPath
 from typing import TYPE_CHECKING, Any
-from uuid import uuid4
 
 from django.conf import settings as django_settings
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
-from django.core.files.base import ContentFile
-from django.core.files.storage import default_storage
 from django.http import (
     Http404,
     HttpRequest,
@@ -24,8 +19,6 @@ from django.urls import reverse
 from django.utils.translation import gettext as _
 from django.views.generic.base import View
 
-from ludamus.gates.web.django.access import has_panel_access
-from ludamus.gates.web.django.chronology.event_presentation import present_session_modal
 from ludamus.gates.web.django.dynamic_fields import (
     WizardData,
     answered_value,
@@ -36,7 +29,13 @@ from ludamus.gates.web.django.dynamic_fields import (
     unfold_custom_answers,
 )
 from ludamus.gates.web.django.forms import SessionEditForm
-from ludamus.gates.web.django.helpers import get_client_ip, is_event_published
+from ludamus.gates.web.django.helpers import get_client_ip
+from ludamus.gates.web.django.propose_cover import (
+    delete_wizard_cover,
+    pop_wizard_cover,
+    stash_wizard_cover,
+    wizard_cover_initial,
+)
 from ludamus.gates.web.django.templatetags.cfp_tags import has_field_value
 from ludamus.mills import ProposeSessionService, check_proposal_rate_limit
 from ludamus.mills.chronology import SessionEditNotAllowedError
@@ -48,6 +47,8 @@ from ludamus.pacts import (
     SessionStatus,
 )
 from ludamus.pacts.chronology import SpaceTimeConflictError
+from ludamus.pacts.durations import parse_duration
+from ludamus.pacts.images import stored_file
 
 from .forms import (
     SessionCoverImageForm,
@@ -91,42 +92,6 @@ def _session_key(event_slug: str) -> str:
     return f"propose_{event_slug}"
 
 
-_WIZARD_COVER_KEY = "cover_image_temp"
-
-
-def _delete_wizard_cover(wizard: dict[str, Any]) -> None:
-    if path := wizard.get(_WIZARD_COVER_KEY):
-        default_storage.delete(path)
-    wizard.pop(_WIZARD_COVER_KEY, None)
-
-
-def _stash_wizard_cover(
-    wizard: dict[str, Any], uploaded_file: UploadedFile[bytes]
-) -> None:
-    _delete_wizard_cover(wizard)
-    name = getattr(uploaded_file, "name", "cover")
-    wizard[_WIZARD_COVER_KEY] = default_storage.save(
-        f"propose-wizard/{uuid4().hex}/{name}", uploaded_file
-    )
-
-
-def _wizard_cover_initial(wizard: dict[str, Any]) -> str | None:
-    if (path := wizard.get(_WIZARD_COVER_KEY)) and default_storage.exists(path):
-        return default_storage.url(path)
-    return None
-
-
-def _pop_wizard_cover(wizard: dict[str, Any]) -> ContentFile[bytes] | None:
-    path = wizard.get(_WIZARD_COVER_KEY)
-    wizard.pop(_WIZARD_COVER_KEY, None)
-    if not path or not default_storage.exists(path):
-        return None
-    with default_storage.open(path) as stored:
-        data = stored.read()
-    default_storage.delete(path)
-    return ContentFile(data, name=PurePosixPath(path).name)
-
-
 def _wizard_image_form(
     wizard: dict[str, Any],
     *,
@@ -134,7 +99,7 @@ def _wizard_image_form(
     files: MultiValueDict[str, UploadedFile[bytes]] | None = None,
 ) -> SessionCoverImageForm:
     if data is None and files is None:
-        initial = _wizard_cover_initial(wizard)
+        initial = wizard_cover_initial(wizard)
         return SessionCoverImageForm(
             initial={"cover_image": initial} if initial else None
         )
@@ -146,9 +111,9 @@ def _apply_wizard_cover_from_form(
 ) -> None:
     cover = image_form.cleaned_data.get("cover_image")
     if cover is False:
-        _delete_wizard_cover(wizard)
+        delete_wizard_cover(wizard)
     elif cover:
-        _stash_wizard_cover(wizard, cover)
+        stash_wizard_cover(wizard, cover)
 
 
 def _timeslot_descriptors(
@@ -579,7 +544,7 @@ class ProposeSessionPageView(ProposeWizardMixin, View):
         categories = service.get_categories(event.pk)
 
         old_wizard = request.session.get(_session_key(event_slug), {})
-        _delete_wizard_cover(old_wizard)
+        delete_wizard_cover(old_wizard)
         request.session.pop(_session_key(event_slug), None)
 
         if not _has_category_step(categories):
@@ -642,7 +607,7 @@ class ProposeSessionCategoryComponentView(ProposeWizardMixin, View):
 
         wizard = request.session.get(_session_key(event_slug), {})
         if wizard.get("category_id") != category.pk:
-            _delete_wizard_cover(wizard)
+            delete_wizard_cover(wizard)
             wizard = {"category_id": category.pk}
         request.session[_session_key(event_slug)] = wizard
 
@@ -861,7 +826,7 @@ class ProposeSessionSubmitActionView(ProposeWizardMixin, View):
                     error=_("Please wait before submitting another proposal."),
                 )
 
-        cover = _pop_wizard_cover(wizard)
+        cover = pop_wizard_cover(wizard)
         result = service.submit(event, wizard, cover_image=cover)
 
         del request.session[_session_key(event_slug)]
@@ -916,6 +881,7 @@ class SessionEditView(LoginRequiredMixin, View):
 
     @staticmethod
     def _initial_form(ctx: SessionSelfEditContext) -> SessionEditForm:
+        hours, minutes = parse_duration(ctx.session.duration)
         return SessionEditForm(
             initial={
                 "title": ctx.session.title,
@@ -924,8 +890,11 @@ class SessionEditView(LoginRequiredMixin, View):
                 "contact_email": ctx.session.contact_email,
                 "participants_limit": ctx.session.participants_limit,
                 "min_age": ctx.session.min_age,
-                "duration": ctx.session.duration,
-                "cover_image": ctx.session.cover_image_url or None,
+                "duration_hours": hours or None,
+                "duration_minutes": minutes or None,
+                "cover_image": stored_file(
+                    ctx.session.cover_image_url, ctx.session.cover_image_original_name
+                ),
             }
         )
 
@@ -956,8 +925,10 @@ class SessionEditView(LoginRequiredMixin, View):
     ) -> HttpResponse:
         ctx = self._context(event_slug, session_id)
         form = SessionEditForm(self.request.POST, self.request.FILES)
-        if ctx.session.cover_image_url:
-            form.fields["cover_image"].initial = ctx.session.cover_image_url
+        if cover := stored_file(
+            ctx.session.cover_image_url, ctx.session.cover_image_original_name
+        ):
+            form.fields["cover_image"].initial = cover
         # The fields block only posts when the modal rendered it; without the
         # marker the stored answers are left alone rather than blanked.
         submitted = self.request.POST.get("session_fields_submitted") == "1"
@@ -1049,89 +1020,6 @@ class SessionBookmarkToggleView(View):
         if result is None:
             return JsonResponse({"error": "not-found"}, status=404)
         return JsonResponse({"bookmarked": result.bookmarked, "count": result.count})
-
-
-class SessionModalComponentView(View):
-    request: RootRequest
-
-    def get(
-        self, request: RootRequest, *, event_slug: str, session_id: int
-    ) -> HttpResponse:
-        event = self._get_event(event_slug)
-        shadowbanned_ids, banned_by, event_banned = self._safety(event)
-        dto = request.services.session_modal.read(
-            event_id=event.pk,
-            session_id=session_id,
-            viewer_user_ids=self._viewer_user_ids(),
-            editor_user_id=self.request.context.current_user_id,
-        )
-        if dto is None:
-            raise Http404
-        data = present_session_modal(
-            dto,
-            event_banned=event_banned,
-            banned_presenter_ids=banned_by,
-            shadowbanned_ids=shadowbanned_ids,
-        )
-        return TemplateResponse(
-            request,
-            "chronology/parts/session-modal.html",
-            {"data": data, "event": event, "event_banned": event_banned},
-        )
-
-    def _get_event(self, event_slug: str) -> EventDTO:
-        try:
-            event = self.request.services.events.read_by_slug(
-                self.request.context.current_sphere_id, event_slug
-            )
-        except NotFoundError as exc:
-            raise Http404 from exc
-        if not is_event_published(event) and not has_panel_access(self.request):
-            raise Http404
-        return event
-
-    def _safety(self, event: EventDTO) -> tuple[frozenset[int], set[int], bool]:
-        shadowbanned_ids: frozenset[int] = frozenset()
-        banned_by: set[int] = set()
-        event_banned = False
-        if (current_user_id := self.request.context.current_user_id) is not None:
-            banned_by = self.request.services.shadowban.banning_owner_ids(
-                current_user_id
-            )
-            shadowbanned_ids = frozenset(
-                self.request.services.shadowban.banned_user_ids(current_user_id)
-            )
-            event_banned = self.request.services.event_bans.is_banned(
-                event_id=event.pk, user_id=current_user_id
-            )
-        return shadowbanned_ids, banned_by, event_banned
-
-    def _viewer_user_ids(self) -> list[int]:
-        if (slug := self.request.context.current_user_slug) is not None:
-            user_id = self.request.context.current_user_id
-            ids = [user_id] if user_id is not None else []
-            ids.extend(
-                companion.pk
-                for companion in self.request.services.companions.list_companions(slug)
-            )
-            return ids
-        return self._anonymous_viewer_user_ids()
-
-    def _anonymous_viewer_user_ids(self) -> list[int]:
-        session = self.request.session
-        if not session.get("anonymous_enrollment_active"):
-            return []
-        code = session.get("anonymous_user_code")
-        if code is None or (
-            session.get("anonymous_site_id") != self.request.context.current_site_id
-        ):
-            return []
-        with contextlib.suppress(NotFoundError):
-            user = self.request.services.anonymous_enrollment.get_user_by_code(
-                code=code
-            )
-            return [user.pk]
-        return []
 
 
 class ProposalAcceptPageView(LoginRequiredMixin, View):
