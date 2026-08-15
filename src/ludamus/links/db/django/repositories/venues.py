@@ -6,6 +6,7 @@ from django.db.models import Max
 from django.utils.text import slugify
 
 from ludamus.links.db.django.models import (
+    SPACE_NO_CHILDREN_REASON,
     AgendaItem,
     Event,
     Session,
@@ -73,8 +74,9 @@ class SpaceRepository(SpaceRepositoryProtocol):
 class SpaceTreeRepository(SpaceTreeRepositoryProtocol):
     @staticmethod
     def list_tree(event_pk: int) -> list[SpaceTreeNodeDTO]:
-        # One query for the whole event; assemble the tree in Python. Prefetch
-        # tracks so the panel can show track pills per space without N+1.
+        # Two queries for the whole event — the spaces and the pks holding a
+        # session — then assemble the tree in Python. Prefetch tracks so the
+        # panel can show track pills per space without N+1.
         spaces = list(
             Space.objects.filter(event_id=event_pk)
             .order_by("order", "name")
@@ -92,7 +94,9 @@ class SpaceTreeRepository(SpaceTreeRepositoryProtocol):
             return SpaceTreeNodeDTO(
                 space=SpaceRecordDTO.model_validate(space),
                 is_leaf=not kids,
-                has_sessions=space.pk in with_sessions,
+                no_children_reason=(
+                    str(SPACE_NO_CHILDREN_REASON) if space.pk in with_sessions else None
+                ),
                 track_names=sorted(t.name for t in space.tracks.all()),
                 children=[build(kid) for kid in kids],
             )

@@ -9,7 +9,7 @@ from django.contrib import messages
 from django.urls import reverse
 from django.utils.text import slugify
 
-from ludamus.links.db.django.models import Space, Track
+from ludamus.links.db.django.models import SPACE_NO_CHILDREN_REASON, Space, Track
 from ludamus.pacts.venues import SpaceRecordDTO, SpaceTreeNodeDTO
 from tests.integration.conftest import AgendaItemFactory, EventFactory
 from tests.integration.utils import assert_login_required, assert_response
@@ -30,11 +30,11 @@ def _record(space):
     )
 
 
-def _node(space, *, is_leaf, children=None, track_names=None, has_sessions=False):
+def _node(space, *, is_leaf, children=None, track_names=None, no_children_reason=None):
     return SpaceTreeNodeDTO(
         space=_record(space),
         is_leaf=is_leaf,
-        has_sessions=has_sessions,
+        no_children_reason=no_children_reason,
         track_names=track_names or [],
         children=children or [],
     )
@@ -98,8 +98,8 @@ class TestSpacesTreePage:
         )
 
     def test_marks_a_space_holding_a_session(self, manager_client, event):
-        # has_sessions hides the "add a space inside" action: such a space
-        # cannot become a branch.
+        # no_children_reason disables the "add a space inside" action: such a
+        # space cannot become a branch.
         room = _root(event, "Hall")
         AgendaItemFactory(space=room)
 
@@ -111,7 +111,13 @@ class TestSpacesTreePage:
             template_name="panel/spaces.html",
             context_data={
                 **panel_context(event, active_nav="venues", rooms_count=1),
-                "tree": [_node(room, is_leaf=True, has_sessions=True)],
+                "tree": [
+                    _node(
+                        room,
+                        is_leaf=True,
+                        no_children_reason=str(SPACE_NO_CHILDREN_REASON),
+                    )
+                ],
             },
         )
 
