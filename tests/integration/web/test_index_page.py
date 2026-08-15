@@ -351,7 +351,12 @@ class TestEventsPageView:
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data=ANY,
+            context_data={
+                "announcements": [],
+                "past_events": [],
+                "upcoming_events": [],
+                "view": ANY,
+            },
             template_name=["index.html"],
             contains='href="/panel/"',
         )
@@ -362,7 +367,12 @@ class TestEventsPageView:
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data=ANY,
+            context_data={
+                "announcements": [],
+                "past_events": [],
+                "upcoming_events": [],
+                "view": ANY,
+            },
             template_name=["index.html"],
             not_contains='href="/panel/"',
         )

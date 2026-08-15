@@ -1,9 +1,11 @@
 import re
+from datetime import datetime, timedelta
 from http import HTTPStatus
 from typing import TYPE_CHECKING, Any
 from unittest.mock import ANY
 
 from django.contrib.messages import get_messages
+from django.utils.timezone import now
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -28,6 +30,23 @@ class PageMatcher:
 
     def __repr__(self) -> str:
         return f"PageMatcher(number={self.number}, num_pages={self.num_pages})"
+
+
+class RequestTimeMatcher:
+    # A `now()` the view stamped while handling the request. Freezing time is
+    # not an option — freezegun's fake datetime breaks pydantic schema building
+    # for the DTOs the views return.
+    def __init__(self, *, tolerance: timedelta = timedelta(minutes=1)) -> None:
+        self.tolerance = tolerance
+
+    def __eq__(self, other: object) -> bool:
+        return isinstance(other, datetime) and abs(now() - other) <= self.tolerance
+
+    def __hash__(self) -> int:
+        return hash(self.tolerance)
+
+    def __repr__(self) -> str:
+        return f"RequestTimeMatcher(tolerance={self.tolerance})"
 
 
 class FormErrorsMatcher:
