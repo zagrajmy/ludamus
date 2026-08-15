@@ -298,6 +298,74 @@ class TestKonwencikExportSettingsPageView:
             },
         )
 
+    def test_get_redirects_on_unknown_event(self, panel_client, export_integration):
+        response = panel_client.get(
+            reverse(
+                "panel:konwencik-export-settings",
+                kwargs={"slug": "missing", "pk": export_integration.pk},
+            )
+        )
+
+        assert_event_not_found(response)
+
+    def test_get_renders_a_successful_last_run_with_the_skipped_count(
+        self, panel_client, event, export_integration
+    ):
+        export_integration.last_run_json = KonwencikLastRun(
+            time=datetime.now(UTC), ok=True, rows_written=3, sessions_skipped=1
+        ).model_dump_json()
+        export_integration.save(update_fields=["last_run_json"])
+
+        response = panel_client.get(_settings_page_url(event, export_integration))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="chronology/panel/konwencik/settings.html",
+            context_data=panel_context(event, active_nav="settings")
+            | {
+                "integration_pk": export_integration.pk,
+                "integration_display_name": "Konwencik",
+                "last_run": KonwencikLastRun.model_validate_json(
+                    export_integration.last_run_json
+                ),
+                "icon_formset": ANY,
+                "color_formset": ANY,
+                "overrides_form": ANY,
+                "category_rows": [],
+                "track_rows": [],
+            },
+        )
+
+    def test_get_renders_a_failed_last_run_with_its_hint(
+        self, panel_client, event, export_integration
+    ):
+        export_integration.last_run_json = KonwencikLastRun(
+            time=datetime.now(UTC), ok=False, error_hint="Spreadsheet not shared."
+        ).model_dump_json()
+        export_integration.save(update_fields=["last_run_json"])
+
+        response = panel_client.get(_settings_page_url(event, export_integration))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="chronology/panel/konwencik/settings.html",
+            context_data=panel_context(event, active_nav="settings")
+            | {
+                "integration_pk": export_integration.pk,
+                "integration_display_name": "Konwencik",
+                "last_run": KonwencikLastRun.model_validate_json(
+                    export_integration.last_run_json
+                ),
+                "icon_formset": ANY,
+                "color_formset": ANY,
+                "overrides_form": ANY,
+                "category_rows": [],
+                "track_rows": [],
+            },
+        )
+
     def test_get_with_a_foreign_integration_pk_reports_not_found(
         self, panel_client, event, connection_with_secret
     ):
@@ -390,6 +458,78 @@ class TestKonwencikExportSettingsPageView:
         ]
         export_integration.refresh_from_db()
         assert export_integration.settings_json in {"", "{}"}
+
+    def test_post_redirects_on_unknown_event(self, panel_client, export_integration):
+        response = panel_client.post(
+            reverse(
+                "panel:konwencik-export-settings",
+                kwargs={"slug": "missing", "pk": export_integration.pk},
+            ),
+            data=_post_data(categories=[], tracks=[]),
+        )
+
+        assert_event_not_found(response)
+
+    def test_post_with_a_foreign_integration_pk_reports_not_found(
+        self, panel_client, event, connection_with_secret
+    ):
+        foreign = EventIntegration.objects.create(
+            event=EventFactory(sphere=event.sphere),
+            kind=IntegrationKind.EXPORT.value,
+            implementation=IntegrationImplementationId.KONWENCIK_SHEET_PUSHER.value,
+            connection=connection_with_secret,
+            display_name="Elsewhere",
+            config_json=CONFIG_JSON,
+        )
+
+        response = panel_client.post(
+            _settings_page_url(event, foreign),
+            data=_post_data(categories=[], tracks=[]),
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.ERROR, "Integration not found.")],
+            url=_settings_url(event),
+        )
+        foreign.refresh_from_db()
+        assert foreign.settings_json in {"", "{}"}
+
+    def test_post_re_renders_a_row_whose_pk_is_missing(
+        self, panel_client, event, export_integration
+    ):
+        response = panel_client.post(
+            _settings_page_url(event, export_integration),
+            data=_post_data(categories=[], tracks=[])
+            | {
+                "colors-TOTAL_FORMS": "1",
+                "colors-INITIAL_FORMS": "1",
+                "colors-0-pk": "",
+                "colors-0-color": "#1e88e5",
+            },
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="chronology/panel/konwencik/settings.html",
+            context_data=panel_context(event, active_nav="settings")
+            | {
+                "integration_pk": export_integration.pk,
+                "integration_display_name": "Konwencik",
+                "last_run": None,
+                "icon_formset": ANY,
+                "color_formset": ANY,
+                "overrides_form": ANY,
+                "category_rows": [],
+                # No pk to pair on, so the row has no name to show.
+                "track_rows": [{"item": None, "form": ANY}],
+            },
+        )
+        assert response.context_data["color_formset"].errors == [
+            {"pk": ["This field is required."]}
+        ]
 
     def test_post_rejects_a_colour_that_is_not_hex(
         self, panel_client, event, export_integration

@@ -1,4 +1,6 @@
 import { type Page } from "@playwright/test";
+import fs from "node:fs";
+import path from "node:path";
 
 import { installCspViolationCollector } from "./helpers/csp";
 import { assertDropzoneBlobPreview, labeledDropzone, shownFileName } from "./helpers/dropzone";
@@ -48,8 +50,17 @@ test.describe("Guilds", () => {
     await page.close();
   });
 
-  test("the empty state explains what a guild is and offers the way in", async ({ page }) => {
-    await page.goto("/multiverse/panel/guilds/");
+  // The second seeded sphere, which nothing else puts a guild in: "no guilds"
+  // is a claim about a whole sphere, and facilitator-guild.spec.ts keeps one of
+  // its own in the sphere the rest of this file uses, at its own pace.
+  test("the empty state explains what a guild is and offers the way in", async ({ browser }) => {
+    const statePath = path.join(__dirname, "..", ".auth-state-empty.json");
+    const context = await browser.newContext({
+      storageState: JSON.parse(fs.readFileSync(statePath, "utf8")),
+    });
+    const page = await context.newPage();
+
+    await page.goto("http://another.localhost:8000/multiverse/panel/guilds/");
 
     await expect(page.getByText("No guilds yet.")).toBeVisible();
     await expect(
@@ -60,6 +71,8 @@ test.describe("Guilds", () => {
     await page.getByRole("link", { name: "New guild" }).first().click();
 
     await expect(page.getByLabel("Guild name")).toBeVisible();
+
+    await context.close();
   });
 
   test("a manager creates a guild with a mark and sees it in the list", async ({ page }) => {

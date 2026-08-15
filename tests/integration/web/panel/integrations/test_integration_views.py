@@ -13,7 +13,7 @@ from django.urls import reverse
 from ludamus.gates.web.django.chronology.panel.forms import integration_signature
 from ludamus.gates.web.django.panel import settings_tab_urls
 from ludamus.links.db.django.models import EventIntegration
-from ludamus.pacts.chronology import IntegrationImplementationId
+from ludamus.pacts.chronology import IntegrationImplementationId, IntegrationKind
 from tests.integration.conftest import EventFactory
 from tests.integration.utils import assert_login_required, assert_response
 from tests.integration.web.panel.helpers import (
@@ -94,6 +94,35 @@ class TestEventIntegrationSettingsPageView:
 
     def test_get_renders_settings_page(self, panel_client, event, connection):
         integration = make_integration(event, connection, display_name="Listed")
+
+        response = panel_client.get(_settings_url(event))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/integration-settings.html",
+            context_data=panel_context(event)
+            | {
+                "active_nav": "settings",
+                "active_tab": "integrations",
+                "tab_urls": settings_tab_urls(event.slug),
+                "integrations": [integration_dto(integration)],
+            },
+        )
+
+    def test_get_lists_an_export_integration_with_its_own_actions(
+        self, panel_client, event, connection
+    ):
+        # The Konwencik pusher is the one implementation the list offers
+        # "Export now" and "Configure" for.
+        integration = EventIntegration.objects.create(
+            event=event,
+            kind=IntegrationKind.EXPORT.value,
+            implementation=IntegrationImplementationId.KONWENCIK_SHEET_PUSHER.value,
+            connection=connection,
+            display_name="Konwencik",
+            config_json=json.dumps({"spreadsheet_id": "sheet-1"}),
+        )
 
         response = panel_client.get(_settings_url(event))
 

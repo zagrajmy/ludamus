@@ -196,6 +196,21 @@ class TestGoogleSheetsWriter:
                 secret=SECRET, spreadsheet_id="sheet-1", rows=EXPORT_ROWS
             )
 
+    def test_configured_tab_missing_from_the_spreadsheet_raises(self, google):
+        google.session.get.return_value = _meta_with_title("Arkusz1")
+
+        with pytest.raises(
+            SheetExportError, match='Spreadsheet has no tab named "harmonogram"'
+        ):
+            GoogleSheetsWriter().write_rows(
+                secret=SECRET,
+                spreadsheet_id="sheet-1",
+                rows=EXPORT_ROWS,
+                tab="harmonogram",
+            )
+
+        google.session.put.assert_not_called()
+
     def test_untitled_tab_raises(self, google):
         google.session.get.return_value = _meta_with_title("")
 
