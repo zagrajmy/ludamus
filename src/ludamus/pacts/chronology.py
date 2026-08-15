@@ -37,10 +37,12 @@ if TYPE_CHECKING:
 class IntegrationKind(StrEnum):
     IMPORT = "import"
     TICKETING = "ticketing"
+    EXPORT = "export"
 
 
 class IntegrationImplementationId(StrEnum):
     GOOGLE_PROPOSAL_PULLER = "google-proposal-puller"
+    KONWENCIK_SHEET_PUSHER = "konwencik-sheet-pusher"
 
 
 class CheckOutcome(StrEnum):
@@ -69,10 +71,17 @@ class SourceQuestion(BaseModel):
 
 
 class IntegrationImplementation(Protocol):
+    # What every integration has, whichever way the data flows.
     kind: IntegrationKind
     config_model: type[BaseModel]
 
     def check(self, secret: bytes, config: BaseModel) -> CheckResult: ...
+
+
+class ProposalSourceImplementation(IntegrationImplementation, Protocol):
+    # An integration proposals can be pulled from. Kept apart from the base so
+    # an exporter does not carry three dead stubs, and so mypy rejects one
+    # being registered as a source.
     def fetch_questions(
         self, *, secret: bytes, config: BaseModel, header_row: int = 1
     ) -> list[SourceQuestion]: ...

@@ -59,9 +59,9 @@ def build_session(secret: bytes, scopes: Sequence[str]) -> AuthorizedSession:
     return mount_retries(authorized_session(credentials))
 
 
-def probe(*, session: AuthorizedSession, url: str, what: str) -> CheckResult:
+def probe(*, send: Callable[[], requests.Response], what: str) -> CheckResult:
     try:
-        response = session.get(url, timeout=10)
+        response = send()
     except (requests.RequestException, GoogleAuthError) as exc:
         return CheckResult(
             outcome=CheckOutcome.AUTH_FAILED,

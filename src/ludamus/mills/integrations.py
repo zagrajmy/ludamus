@@ -17,6 +17,7 @@ from ludamus.pacts.chronology import (
     IntegrationImplementation,
     IntegrationImplementationId,
     IntegrationKind,
+    ProposalSourceImplementation,
     SourceQuestion,
 )
 from ludamus.pacts.submissions import ImportRow, ImportSettings, QuestionTarget
@@ -39,22 +40,28 @@ class EventIntegrationsService(EventIntegrationsServiceProtocol):
     """CRUD + check dispatch for per-event integrations.
 
     The registry of `IntegrationImplementation`s is composition-time data
-    passed in from `inits/`; the mill never imports a concrete impl.
+    passed in from `inits/`; the mill never imports a concrete impl. `sources`
+    is the subset proposals can be pulled from — an implementation missing
+    from it has no `fetch_*`, which is the empty result the import methods
+    already return for an unknown identifier.
     """
 
     def __init__(
         self,
+        *,
         transaction: TransactionProtocol,
         integrations: EventIntegrationsRepositoryProtocol,
         connections: ConnectionsRepositoryProtocol,
         decryptor: DecryptorProtocol,
         registry: dict[IntegrationImplementationId, IntegrationImplementation],
+        sources: dict[IntegrationImplementationId, ProposalSourceImplementation],
     ) -> None:
         self._transaction = transaction
         self._integrations = integrations
         self._connections = connections
         self._decryptor = decryptor
         self._registry = registry
+        self._sources = sources
 
     def list_implementations(
         self, kind: IntegrationKind
@@ -102,7 +109,7 @@ class EventIntegrationsService(EventIntegrationsServiceProtocol):
         self, *, sphere_id: int, event_id: int, pk: int
     ) -> list[SourceQuestion]:
         integration = self._integrations.get(event_id, pk)
-        if (impl := self._registry.get(integration.implementation)) is None:
+        if (impl := self._sources.get(integration.implementation)) is None:
             return []
         config = impl.config_model.model_validate_json(integration.config_json)
         settings = ImportSettings.model_validate_json(integration.settings_json or "{}")
@@ -147,7 +154,7 @@ class EventIntegrationsService(EventIntegrationsServiceProtocol):
 
     def fetch_headers(self, *, sphere_id: int, event_id: int, pk: int) -> list[str]:
         integration = self._integrations.get(event_id, pk)
-        if (impl := self._registry.get(integration.implementation)) is None:
+        if (impl := self._sources.get(integration.implementation)) is None:
             return []
         config = impl.config_model.model_validate_json(integration.config_json)
         settings = ImportSettings.model_validate_json(integration.settings_json or "{}")
@@ -203,7 +210,7 @@ class EventIntegrationsService(EventIntegrationsServiceProtocol):
         self, *, sphere_id: int, event_id: int, pk: int
     ) -> list[ImportRow]:
         integration = self._integrations.get(event_id, pk)
-        if (impl := self._registry.get(integration.implementation)) is None:
+        if (impl := self._sources.get(integration.implementation)) is None:
             return []
         config = impl.config_model.model_validate_json(integration.config_json)
         settings = ImportSettings.model_validate_json(integration.settings_json or "{}")

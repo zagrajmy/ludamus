@@ -1,6 +1,7 @@
 {% load i18n %}
 {% if passed %}
-    <span class="text-success font-medium">{% translate "Check passed." %}</span>
+    {% translate "Check passed." as default_pass %}
+    <span class="text-success font-medium">{{ hint|default:default_pass }}</span>
 {% else %}
     {% translate "Check failed." as default_hint %}
     <span class="text-danger font-medium">{{ hint|default:default_hint }}</span>

@@ -11,16 +11,26 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 import requests
+from pydantic import BaseModel
 
 from ludamus.links.google_sheets import (
+    SHEETS_BATCH_UPDATE_URL,
     SHEETS_META_URL,
     SHEETS_UPDATE_URL,
     GoogleSheetsWriter,
+    KonwencikSheetConfig,
+    KonwencikSheetExporter,
 )
+from ludamus.pacts.chronology import CheckOutcome
 from ludamus.pacts.sheets import SheetExportError
 
 SECRET = b'{"type": "service_account"}'
+CONFIG = KonwencikSheetConfig(spreadsheet_id="sheet-1")
 EXPORT_ROWS = [["Creator", "Accreditation type"], ["Alice", "Guest"]]
+
+
+class _OtherConfig(BaseModel):
+    """A config that is not a `KonwencikSheetConfig`."""
 
 
 def _resp(*, ok: bool, status_code: int = 200, text: str = "") -> MagicMock:
@@ -234,3 +244,77 @@ class TestGoogleSheetsWriter:
             GoogleSheetsWriter().write_rows(
                 secret=SECRET, spreadsheet_id="sheet-1", rows=EXPORT_ROWS
             )
+
+
+class TestKonwencikSheetExporterCheck:
+    def test_wrong_config_type(self):
+        result = KonwencikSheetExporter().check(SECRET, _OtherConfig())
+
+        assert result.outcome == CheckOutcome.AUTH_FAILED
+        assert result.hint == "Configuration is not a Konwencik sheet config."
+
+    def test_missing_secret(self):
+        result = KonwencikSheetExporter().check(b"", CONFIG)
+
+        assert result.outcome == CheckOutcome.AUTH_FAILED
+        assert result.hint == "Connection has no service-account credentials."
+
+    def test_write_probe_is_an_empty_batch_update(self, google):
+        google.session.post.return_value = _resp(ok=True)
+        google.session.get.return_value = _meta_with_title("harmonogram")
+
+        result = KonwencikSheetExporter().check(SECRET, CONFIG)
+
+        assert result.outcome == CheckOutcome.OK
+        assert result.hint == 'Write possible, tab "harmonogram".'
+        google.session.post.assert_called_once_with(
+            SHEETS_BATCH_UPDATE_URL.format(sheet_id="sheet-1"),
+            json={"requests": []},
+            timeout=10,
+        )
+
+    def test_viewer_access_is_forbidden_with_the_fix_named(self, google):
+        google.session.post.return_value = _resp(ok=False, status_code=403, text="deny")
+
+        result = KonwencikSheetExporter().check(SECRET, CONFIG)
+
+        assert result.outcome == CheckOutcome.FORBIDDEN
+        assert "Share the spreadsheet as an editor" in result.hint
+        google.session.get.assert_not_called()
+
+    def test_write_probe_failure_short_circuits(self, google):
+        google.session.post.return_value = _resp(ok=False, status_code=404, text="gone")
+
+        result = KonwencikSheetExporter().check(SECRET, CONFIG)
+
+        assert result.outcome == CheckOutcome.NOT_FOUND
+        google.session.get.assert_not_called()
+
+    def test_missing_tab_is_reported_with_the_tabs_found(self, google):
+        google.session.post.return_value = _resp(ok=True)
+        google.session.get.return_value = _meta_with_title("Arkusz1")
+
+        result = KonwencikSheetExporter().check(SECRET, CONFIG)
+
+        assert result.outcome == CheckOutcome.NOT_FOUND
+        assert result.hint == (
+            'Spreadsheet has no tab named "harmonogram". Tabs found: Arkusz1.'
+        )
+
+    def test_metadata_failure_after_a_passing_write_probe(self, google):
+        google.session.post.return_value = _resp(ok=True)
+        google.session.get.return_value = _resp(ok=False, status_code=500, text="boom")
+
+        result = KonwencikSheetExporter().check(SECRET, CONFIG)
+
+        assert result.outcome == CheckOutcome.AUTH_FAILED
+        assert "Unexpected 500 from Google: boom" in result.hint
+
+    def test_metadata_request_exception(self, google):
+        google.session.post.return_value = _resp(ok=True)
+        google.session.get.side_effect = requests.RequestException("timeout")
+
+        result = KonwencikSheetExporter().check(SECRET, CONFIG)
+
+        assert result.outcome == CheckOutcome.AUTH_FAILED
+        assert result.hint == "Spreadsheet metadata request failed: timeout"

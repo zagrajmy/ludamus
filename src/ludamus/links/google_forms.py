@@ -20,8 +20,8 @@ from ludamus.links.google_sheets import (
 from ludamus.pacts.chronology import (
     CheckOutcome,
     CheckResult,
-    IntegrationImplementation,
     IntegrationKind,
+    ProposalSourceImplementation,
     SourceQuestion,
 )
 from ludamus.pacts.submissions import ImportRow
@@ -117,7 +117,7 @@ class GoogleDocsProposalConfig(BaseModel):
     form_id: str
 
 
-class GoogleDocsProposalImporter(IntegrationImplementation):
+class GoogleDocsProposalImporter(ProposalSourceImplementation):
     """Pulls proposals from a Google Sheets responses tab linked to a Form."""
 
     kind: IntegrationKind = IntegrationKind.IMPORT
@@ -138,15 +138,17 @@ class GoogleDocsProposalImporter(IntegrationImplementation):
             return CheckResult(outcome=CheckOutcome.AUTH_FAILED, hint=str(exc))
 
         sheet_outcome = probe(
-            session=session,
-            url=SHEETS_API_URL.format(sheet_id=config.sheet_id),
+            send=lambda: session.get(
+                SHEETS_API_URL.format(sheet_id=config.sheet_id), timeout=10
+            ),
             what="spreadsheet",
         )
         if sheet_outcome.outcome != CheckOutcome.OK:
             return sheet_outcome
         return probe(
-            session=session,
-            url=FORMS_API_URL.format(form_id=config.form_id),
+            send=lambda: session.get(
+                FORMS_API_URL.format(form_id=config.form_id), timeout=10
+            ),
             what="form",
         )
 

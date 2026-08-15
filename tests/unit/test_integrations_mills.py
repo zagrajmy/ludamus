@@ -50,6 +50,14 @@ class _HeaderStubImpl:
         return self._headers
 
 
+class _ExportStubImpl:
+    kind = IntegrationKind.EXPORT
+    config_model = _StrictConfig
+
+    def check(self, secret, config):
+        return CheckResult(outcome=CheckOutcome.OK, hint="")
+
+
 class _TicketingStubImpl:
     kind = IntegrationKind.TICKETING
     config_model = BaseModel
@@ -61,7 +69,7 @@ class _TicketingStubImpl:
 _IMPL = IntegrationImplementationId.GOOGLE_PROPOSAL_PULLER
 
 
-def _make_service(registry):
+def _make_service(registry, sources=None):
     transaction = MagicMock()
     transaction.atomic.return_value.__enter__ = MagicMock(return_value=None)
     transaction.atomic.return_value.__exit__ = MagicMock(return_value=None)
@@ -74,6 +82,7 @@ def _make_service(registry):
         connections=connections,
         decryptor=decryptor,
         registry=registry,
+        sources=registry if sources is None else sources,
     )
     return SimpleNamespace(
         svc=svc,
@@ -202,6 +211,15 @@ class TestEventIntegrationsServiceSnapshotAndFetch:
         assert result == []
         env.connections.read_secret.assert_not_called()
         env.decryptor.decrypt.assert_not_called()
+
+    def test_fetch_questions_returns_empty_for_a_registered_non_source(self):
+        # An exporter is in the registry (so it can be created and checked) but
+        # not in sources, and has no `fetch_*` to call.
+        env = _make_service(registry={_IMPL: _ExportStubImpl()}, sources={})
+        env.integrations.get.return_value = MagicMock(implementation=_IMPL)
+
+        assert env.svc.fetch_questions(sphere_id=1, event_id=2, pk=3) == []
+        env.connections.read_secret.assert_not_called()
 
     def test_populate_snapshot_caches_the_sheet_header_row(self):
         # The header row is what the run tab offers as unique-key columns, so it

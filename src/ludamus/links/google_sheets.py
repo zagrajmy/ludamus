@@ -9,7 +9,18 @@ import requests
 from google.auth.exceptions import GoogleAuthError
 from pydantic import BaseModel, Field
 
-from ludamus.links.google_auth import ERROR_HINT_LIMIT, CredentialsError, build_session
+from ludamus.links.google_auth import (
+    ERROR_HINT_LIMIT,
+    CredentialsError,
+    build_session,
+    probe,
+)
+from ludamus.pacts.chronology import (
+    CheckOutcome,
+    CheckResult,
+    IntegrationImplementation,
+    IntegrationKind,
+)
 from ludamus.pacts.sheets import SheetExportError, SheetWriterProtocol
 
 if TYPE_CHECKING:
@@ -32,6 +43,9 @@ SHEETS_VALUES_URL = (
 SHEETS_UPDATE_URL = (
     "https://sheets.googleapis.com/v4/spreadsheets/{sheet_id}/values/{range}"
     "?valueInputOption=RAW"
+)
+SHEETS_BATCH_UPDATE_URL = (
+    "https://sheets.googleapis.com/v4/spreadsheets/{sheet_id}:batchUpdate"
 )
 
 
@@ -136,3 +150,87 @@ class GoogleSheetsWriter(SheetWriterProtocol):
             msg = f"{what} request failed with {response.status_code}: {body}"
             raise SheetExportError(msg)
         return response
+
+
+class KonwencikSheetConfig(BaseModel):
+    spreadsheet_id: str
+    tab: str = "harmonogram"
+
+
+class KonwencikSheetExporter(IntegrationImplementation):
+    """Pushes an event's agenda into the tab Konwencik reads."""
+
+    kind: IntegrationKind = IntegrationKind.EXPORT
+    config_model: type[BaseModel] = KonwencikSheetConfig
+
+    def __init__(self, scopes: Sequence[str] = SHEETS_WRITE_SCOPES) -> None:
+        self._scopes = tuple(scopes)
+
+    def check(self, secret: bytes, config: BaseModel) -> CheckResult:
+        if not isinstance(config, KonwencikSheetConfig):
+            return CheckResult(
+                outcome=CheckOutcome.AUTH_FAILED,
+                hint="Configuration is not a Konwencik sheet config.",
+            )
+        try:
+            session = build_session(secret, self._scopes)
+        except CredentialsError as exc:
+            return CheckResult(outcome=CheckOutcome.AUTH_FAILED, hint=str(exc))
+
+        # An empty batchUpdate changes nothing but is refused for a viewer, so
+        # unlike a metadata GET it proves the write access the export needs.
+        write = probe(
+            send=lambda: session.post(
+                SHEETS_BATCH_UPDATE_URL.format(sheet_id=config.spreadsheet_id),
+                json={"requests": []},
+                timeout=10,
+            ),
+            what="spreadsheet",
+        )
+        if write.outcome == CheckOutcome.FORBIDDEN:
+            return CheckResult(
+                outcome=write.outcome,
+                hint=(
+                    "Share the spreadsheet as an editor with the service-account "
+                    f"address: {write.hint}"
+                ),
+            )
+        if write.outcome != CheckOutcome.OK:
+            return write
+        return self._check_tab(session=session, config=config)
+
+    @staticmethod
+    def _check_tab(
+        *, session: AuthorizedSession, config: KonwencikSheetConfig
+    ) -> CheckResult:
+        meta_url = SHEETS_META_URL.format(sheet_id=config.spreadsheet_id)
+        try:
+            response = session.get(meta_url, timeout=10)
+        except (requests.RequestException, GoogleAuthError) as exc:
+            return CheckResult(
+                outcome=CheckOutcome.AUTH_FAILED,
+                hint=f"Spreadsheet metadata request failed: {exc}",
+            )
+        if not response.ok:
+            return CheckResult(
+                outcome=CheckOutcome.AUTH_FAILED,
+                hint=(
+                    f"Unexpected {response.status_code} from Google: "
+                    f"{(response.text or '')[:ERROR_HINT_LIMIT]}"
+                ),
+            )
+        titles = [
+            sheet.properties.title
+            for sheet in SpreadsheetMeta.model_validate(response.json()).sheets
+        ]
+        if config.tab not in titles:
+            return CheckResult(
+                outcome=CheckOutcome.NOT_FOUND,
+                hint=(
+                    f'Spreadsheet has no tab named "{config.tab}". '
+                    f"Tabs found: {', '.join(titles) or 'none'}."
+                ),
+            )
+        return CheckResult(
+            outcome=CheckOutcome.OK, hint=f'Write possible, tab "{config.tab}".'
+        )

@@ -13,7 +13,7 @@ from ludamus.links.db.django.schedule_change_log import ScheduleChangeLogReposit
 from ludamus.links.db.django.transaction import DjangoTransaction
 from ludamus.links.encryption import FernetDecryptor, FernetEncryptor
 from ludamus.links.google_forms import GoogleDocsProposalImporter
-from ludamus.links.google_sheets import GoogleSheetsWriter
+from ludamus.links.google_sheets import GoogleSheetsWriter, KonwencikSheetExporter
 from ludamus.links.gravatar import gravatar_url
 from ludamus.links.scheduler import CronSweepOfferScheduler
 from ludamus.links.ticket_api import MembershipApiClient
@@ -81,7 +81,10 @@ from ludamus.pacts.panel import FacilitatorPanelRepos, ProposalPanelRepos
 from ludamus.pacts.submissions import ImportRepos, ProposalCategorySettingsRepos
 
 if TYPE_CHECKING:
-    from ludamus.pacts.chronology import IntegrationImplementation
+    from ludamus.pacts.chronology import (
+        IntegrationImplementation,
+        ProposalSourceImplementation,
+    )
     from ludamus.pacts.enrollment import OfferExpirySchedulerProtocol
 
 
@@ -440,17 +443,24 @@ class Services:
     @cached_property
     def event_integrations(self) -> EventIntegrationsService:
         key: str = settings.CREDENTIALS_ENCRYPTION_KEY
-        registry: dict[IntegrationImplementationId, IntegrationImplementation] = {
+        sources: dict[IntegrationImplementationId, ProposalSourceImplementation] = {
             IntegrationImplementationId.GOOGLE_PROPOSAL_PULLER: (
                 GoogleDocsProposalImporter()
             )
         }
+        registry: dict[IntegrationImplementationId, IntegrationImplementation] = {
+            **sources,
+            IntegrationImplementationId.KONWENCIK_SHEET_PUSHER: (
+                KonwencikSheetExporter()
+            ),
+        }
         return EventIntegrationsService(
-            self._transaction,
-            self._repos.event_integrations,
-            self._repos.connections,
-            FernetDecryptor(key),
-            registry,
+            transaction=self._transaction,
+            integrations=self._repos.event_integrations,
+            connections=self._repos.connections,
+            decryptor=FernetDecryptor(key),
+            registry=registry,
+            sources=sources,
         )
 
     @cached_property
