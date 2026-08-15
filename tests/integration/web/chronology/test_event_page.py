@@ -669,11 +669,6 @@ class TestEventPageView:
                 (later_in_arena, {}),
             )
         }
-        lane_tile = {
-            in_arena.pk: (1, 1, 1),
-            on_stage.pk: (2, 1, 1),
-            later_in_arena.pk: (1, 3, 2),
-        }
         url = self._get_url(event.slug)
         assert_response(
             response,
@@ -718,26 +713,53 @@ class TestEventPageView:
                     RoomLaneDay(
                         day_start=local_start,
                         rooms=["Arena", "Stage"],
+                        # Four hours of lane, 10:00 to 13:00: the two sessions
+                        # at 10:00, an empty 11:00, the two-hour one from
+                        # 12:00, and the hour it runs into.
                         hour_marks=[
                             RoomLaneHourMark(
-                                start=local_start + timedelta(hours=offset),
-                                row=offset + 1,
-                                has_sessions=offset in {0, 2},
-                            )
-                            for offset in range(4)
+                                start=local_start, row=1, has_sessions=True
+                            ),
+                            RoomLaneHourMark(
+                                start=local_start + timedelta(hours=1),
+                                row=2,
+                                has_sessions=False,
+                            ),
+                            RoomLaneHourMark(
+                                start=local_start + timedelta(hours=2),
+                                row=3,
+                                has_sessions=True,
+                            ),
+                            RoomLaneHourMark(
+                                start=local_start + timedelta(hours=3),
+                                row=4,
+                                has_sessions=False,
+                            ),
                         ],
+                        # Arena is column 1 and Stage column 2; the later
+                        # session starts in the third row and spans two.
                         tiles=[
                             RoomLaneTile(
-                                data=cards[session.pk],
-                                slot_hour=timezone.localtime(
-                                    session.agenda_item.start_time
-                                ),
-                                col=col,
-                                row_start=row_start,
-                                row_span=row_span,
-                            )
-                            for session in (in_arena, on_stage, later_in_arena)
-                            for col, row_start, row_span in (lane_tile[session.pk],)
+                                data=cards[in_arena.pk],
+                                slot_hour=local_start,
+                                col=1,
+                                row_start=1,
+                                row_span=1,
+                            ),
+                            RoomLaneTile(
+                                data=cards[on_stage.pk],
+                                slot_hour=local_start,
+                                col=2,
+                                row_start=1,
+                                row_span=1,
+                            ),
+                            RoomLaneTile(
+                                data=cards[later_in_arena.pk],
+                                slot_hour=local_start + timedelta(hours=2),
+                                col=1,
+                                row_start=3,
+                                row_span=2,
+                            ),
                         ],
                     )
                 ],

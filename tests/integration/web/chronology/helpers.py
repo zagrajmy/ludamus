@@ -1,5 +1,6 @@
 """Shared arrange helpers for chronology integration tests."""
 
+from dataclasses import replace
 from unittest.mock import ANY
 
 from django.utils.timezone import localtime
@@ -15,7 +16,6 @@ from ludamus.gates.web.django.chronology.schedule import (
     ScheduleTile,
 )
 from ludamus.gates.web.django.entities import UserInfo
-from ludamus.inits.services import Services
 from ludamus.links.db.django.models import SessionParticipation
 from ludamus.links.gravatar import gravatar_url
 from ludamus.pacts import (
@@ -25,6 +25,13 @@ from ludamus.pacts import (
     SessionParticipationStatus,
 )
 from ludamus.pacts.crowd import UserDTO
+from ludamus.pacts.party import (
+    EnrollmentPartyChoiceDTO,
+    EnrollmentPartyMemberDTO,
+    PartyConsentMode,
+    PartyMembershipStatus,
+    SelectedEnrollmentPartyDTO,
+)
 from tests.integration.conftest import (
     AgendaItemFactory,
     SessionFactory,
@@ -38,30 +45,32 @@ def session_card(agenda_item, *, presenter, **overrides):
     # scenario changes; the rest is an unenrolled, not-yet-open session.
     session = agenda_item.session
     space = agenda_item.space
-    fields = {
-        "agenda_item": AgendaItemDTO.model_validate(agenda_item),
-        "effective_participants_limit": session.participants_limit,
-        "enrolled_count": 0,
-        "full_participant_info": f"0/{session.participants_limit}",
-        "is_enrollment_available": False,
-        "is_full": False,
-        "is_ongoing": False,
-        "presenter": UserInfo.from_user_dto(
+    # Built and then `replace`d rather than merged as dicts: a field renamed on
+    # `SessionData` then fails here, in one place, instead of in every caller.
+    card = SessionData(
+        agenda_item=AgendaItemDTO.model_validate(agenda_item),
+        effective_participants_limit=session.participants_limit,
+        enrolled_count=0,
+        full_participant_info=f"0/{session.participants_limit}",
+        is_enrollment_available=False,
+        is_full=False,
+        is_ongoing=False,
+        presenter=UserInfo.from_user_dto(
             UserDTO.model_validate(presenter), gravatar_url=gravatar_url
         ),
-        "session_participations": [],
-        "session": SessionDTO.model_validate(session),
-        "should_show_as_inactive": False,
-        "loc": LocationData(
+        session_participations=[],
+        session=SessionDTO.model_validate(session),
+        should_show_as_inactive=False,
+        loc=LocationData(
             space_name=space.name,
             parent_slug=space.parent.slug if space.parent else "",
             parent_name=space.parent.name if space.parent else "",
             path=str(space),
         ),
-        "user_enrolled": False,
-        "user_waiting": False,
-    }
-    return SessionData(**(fields | overrides))
+        user_enrolled=False,
+        user_waiting=False,
+    )
+    return replace(card, **overrides)
 
 
 def event_page_context(event, *, url, **overrides):
@@ -120,13 +129,43 @@ def compact_day(cards):
     )
 
 
-def party_context(viewer):
-    # The enroll page's party plumbing, derived from the same service call the
-    # view makes (default selection: no explicit party requested).
-    selection = Services().parties.enrollment_selection(
-        viewer_pk=viewer.pk, requested_party=None
+def party_context(party=None, *, leader_name="", members=()):
+    # The enroll page's party plumbing. The default is a viewer who is in no
+    # party at all; a scenario that gives them one they lead states the pills
+    # the page should show, rather than asking the service the view asks.
+    if party is None:
+        return {"party_choices": [], "selected_party": None}
+    pill = {
+        "pk": party.pk,
+        "name": party.name,
+        "leader_name": leader_name,
+        "is_own_led": True,
+    }
+    return {
+        "party_choices": [EnrollmentPartyChoiceDTO(**pill)],
+        "selected_party": SelectedEnrollmentPartyDTO(**pill, members=list(members)),
+    }
+
+
+def party_member(
+    user,
+    *,
+    is_leader=False,
+    is_login_less=False,
+    consent_mode=PartyConsentMode.ACCEPT_BY_DEFAULT,
+    status=PartyMembershipStatus.ACTIVE,
+):
+    # A row of the selected party. The leader comes first, which is the order
+    # the page lists them in.
+    return EnrollmentPartyMemberDTO(
+        user_pk=user.pk,
+        name=user.name,
+        slug=user.slug,
+        is_login_less=is_login_less,
+        is_leader=is_leader,
+        consent_mode=consent_mode,
+        status=status,
     )
-    return {"party_choices": selection.choices, "selected_party": selection.selected}
 
 
 def participation_row(
@@ -154,9 +193,20 @@ def participation_row(
     )
 
 
-def enroll_context(*, viewer, session, user_data, companions=(), shadowban_warnings=()):
+def enroll_context(
+    *,
+    session,
+    user_data,
+    companions=(),
+    shadowban_warnings=(),
+    party_choices=(),
+    selected_party=None,
+):
     return {
-        **party_context(viewer),
+        # The two party keys, as `party_context` spells them: a caller with a
+        # party splices its result straight in.
+        "party_choices": list(party_choices),
+        "selected_party": selected_party,
         "companions": list(companions),
         "event": session.event,
         "form": ANY,

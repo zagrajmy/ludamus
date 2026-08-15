@@ -353,27 +353,25 @@ def time_slots_page_context(
     days,
     event_days,
     time_slots=(),
-    orphaned_slots=(),
-    continuation_slots=frozenset(),
-    page=0,
-    has_prev=False,
     has_next=False,
     total_pages=1,
     create_form=ANY,
 ):
     # The time-slots page context, shared by the page tests and the create-modal
-    # tests that re-render it.
+    # tests that re-render it. The first page of an event whose slots all fall
+    # inside it is what every caller so far asks for, so the empty orphan list
+    # and the page-zero markers are written here rather than passed in.
     return {
         **panel_context(event, active_nav="cfp"),
         "active_tab": "time_slots",
         "tab_urls": cfp_tab_urls(event),
         "time_slots": list(time_slots),
         "days": days,
-        "orphaned_slots": list(orphaned_slots),
-        "continuation_slots": set(continuation_slots),
+        "orphaned_slots": [],
+        "continuation_slots": set(),
         "event_days": event_days,
-        "page": page,
-        "has_prev": has_prev,
+        "page": 0,
+        "has_prev": False,
         "has_next": has_next,
         "total_pages": total_pages,
         "create_form": create_form,

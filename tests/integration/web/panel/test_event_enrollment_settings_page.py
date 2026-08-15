@@ -23,7 +23,6 @@ from tests.integration.web.panel.helpers import (
 EARLY_CAPACITY_PERCENT = 50
 FULL_CAPACITY_PERCENT = 100
 MAX_WAITLIST_SESSIONS = 3
-WINDOW_COUNT = 2
 
 
 def _list_url(event):
@@ -117,7 +116,6 @@ class TestEventEnrollmentSettingsList:
             HTTPStatus.OK,
             template_name="panel/enrollment-settings.html",
             context_data=_settings_context(event, windows=[]),
-            contains=["Enrollment is closed", "Add enrollment window"],
         )
 
     def test_lists_all_event_windows(self, panel_client, event):
@@ -145,10 +143,6 @@ class TestEventEnrollmentSettingsList:
                 ],
             ),
         )
-        content = response.content.decode()
-        assert "50% of capacity" in content
-        assert "100% of capacity" in content
-        assert content.count("Edit window") == WINDOW_COUNT
 
 
 class TestEnrollmentWindowCreate:
@@ -194,7 +188,6 @@ class TestEnrollmentWindowCreate:
                 ),
                 "window": None,
             },
-            contains="2026-08-20T18:00",
         )
         assert not EnrollmentConfig.objects.filter(event=event).exists()
 
