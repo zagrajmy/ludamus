@@ -3,7 +3,9 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from ludamus.pacts.legacy import TrackCreateData, TrackUpdateData
+from ludamus.pacts.services import DatabaseConstraintError
 from ludamus.pacts.tracks import (
+    DuplicateTrackNameError,
     TrackEditContextDTO,
     TrackEditFormContextDTO,
     TrackFormContextDTO,
@@ -83,18 +85,35 @@ class TracksPanelService(TracksPanelServiceProtocol):
             manager_pks=sorted(set(data["manager_pks"]) & valid_manager_pks),
         )
 
+    def _name_held_by_other(
+        self, *, name: str, event_pk: int, track_pk: int | None
+    ) -> bool:
+        folded = name.casefold()
+        return any(
+            track.name.casefold() == folded and track.pk != track_pk
+            for track in self._tracks.list_by_event(event_pk)
+        )
+
     def create(self, *, event_pk: int, sphere_id: int, data: TrackFormData) -> None:
         with self._transaction.atomic():
             scoped = self._scoped(event_pk=event_pk, sphere_id=sphere_id, data=data)
-            self._tracks.create(
-                TrackCreateData(
-                    event_pk=event_pk,
-                    name=scoped["name"],
-                    is_public=scoped["is_public"],
-                    space_pks=scoped["space_pks"],
-                    manager_pks=scoped["manager_pks"],
-                )
-            )
+            try:
+                with self._transaction.savepoint():
+                    self._tracks.create(
+                        TrackCreateData(
+                            event_pk=event_pk,
+                            name=scoped["name"],
+                            is_public=scoped["is_public"],
+                            space_pks=scoped["space_pks"],
+                            manager_pks=scoped["manager_pks"],
+                        )
+                    )
+            except DatabaseConstraintError as exc:
+                if self._name_held_by_other(
+                    name=scoped["name"], event_pk=event_pk, track_pk=None
+                ):
+                    raise DuplicateTrackNameError from exc
+                raise
 
     def update(
         self, *, event_pk: int, sphere_id: int, track_slug: str, data: TrackFormData
@@ -104,15 +123,23 @@ class TracksPanelService(TracksPanelServiceProtocol):
             # so a foreign track slug 404s without side effects.
             track = self._tracks.read_by_slug(event_pk, track_slug)
             scoped = self._scoped(event_pk=event_pk, sphere_id=sphere_id, data=data)
-            self._tracks.update(
-                track.pk,
-                TrackUpdateData(
-                    name=scoped["name"],
-                    is_public=scoped["is_public"],
-                    space_pks=scoped["space_pks"],
-                    manager_pks=scoped["manager_pks"],
-                ),
-            )
+            try:
+                with self._transaction.savepoint():
+                    self._tracks.update(
+                        track.pk,
+                        TrackUpdateData(
+                            name=scoped["name"],
+                            is_public=scoped["is_public"],
+                            space_pks=scoped["space_pks"],
+                            manager_pks=scoped["manager_pks"],
+                        ),
+                    )
+            except DatabaseConstraintError as exc:
+                if self._name_held_by_other(
+                    name=scoped["name"], event_pk=event_pk, track_pk=track.pk
+                ):
+                    raise DuplicateTrackNameError from exc
+                raise
 
     def delete(self, *, event_pk: int, track_slug: str) -> None:
         with self._transaction.atomic():

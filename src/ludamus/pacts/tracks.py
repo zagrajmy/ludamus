@@ -38,6 +38,10 @@ class TrackEditContextDTO(TrackEditFormContextDTO):
     selected_manager_pks: list[int]
 
 
+class DuplicateTrackNameError(Exception):
+    """Another track in the same event already holds this name."""
+
+
 class TracksPanelServiceProtocol(Protocol):
     def list_tracks(self, event_pk: int) -> list[TrackListItemDTO]: ...
     def get_form_context(

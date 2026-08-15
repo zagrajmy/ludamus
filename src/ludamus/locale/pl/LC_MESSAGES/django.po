@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-15 20:40+0200\n"
+"POT-Creation-Date: 2026-08-15 21:46+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -1791,6 +1791,12 @@ msgstr "Nie można usunąć przedziału czasowego używanego w zgłoszeniach."
 #: src/ludamus/gates/web/django/chronology/panel/views/time_slots.py
 msgid "Time slot deleted successfully."
 msgstr "Przedział czasowy został usunięty."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/tracks.py
+msgid "A track with this name already exists in this event. Pick another name."
+msgstr ""
+"Blok programowy o tej nazwie już istnieje w tym wydarzeniu. Wybierz inną "
+"nazwę."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/tracks.py
 msgid "Track created successfully."

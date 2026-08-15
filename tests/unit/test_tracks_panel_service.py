@@ -4,7 +4,14 @@ import pytest
 
 from ludamus.mills.tracks import TracksPanelService
 from ludamus.pacts import NotFoundError
-from ludamus.pacts.tracks import TrackFormData
+from ludamus.pacts.services import DatabaseConstraintError
+from ludamus.pacts.tracks import DuplicateTrackNameError, TrackFormData
+
+
+def _named_track(*, pk, name):
+    track = MagicMock(pk=pk)
+    track.configure_mock(name=name)
+    return track
 
 
 def _data(*, name="Alpha", is_public=True, space_pks=(), manager_pks=()):
@@ -143,6 +150,56 @@ class TestTracksPanelService:
                 "manager_pks": [7],
             }
         )
+
+    def test_create_reports_a_name_another_track_already_holds(
+        self, service, tracks, spaces, spheres
+    ):
+        spaces.list_by_event.return_value = []
+        spheres.list_managers.return_value = []
+        tracks.create.side_effect = DatabaseConstraintError
+        tracks.list_by_event.return_value = [_named_track(pk=1, name="alpha")]
+
+        with pytest.raises(DuplicateTrackNameError):
+            service.create(event_pk=42, sphere_id=3, data=_data(name="Alpha"))
+
+    def test_create_reraises_a_constraint_failure_of_another_kind(
+        self, service, tracks, spaces, spheres
+    ):
+        spaces.list_by_event.return_value = []
+        spheres.list_managers.return_value = []
+        tracks.create.side_effect = DatabaseConstraintError
+        tracks.list_by_event.return_value = []
+
+        with pytest.raises(DatabaseConstraintError):
+            service.create(event_pk=42, sphere_id=3, data=_data(name="Alpha"))
+
+    def test_update_reports_a_name_another_track_already_holds(
+        self, service, tracks, spaces, spheres
+    ):
+        tracks.read_by_slug.return_value = MagicMock(pk=5)
+        spaces.list_by_event.return_value = []
+        spheres.list_managers.return_value = []
+        tracks.update.side_effect = DatabaseConstraintError
+        tracks.list_by_event.return_value = [_named_track(pk=9, name="beta")]
+
+        with pytest.raises(DuplicateTrackNameError):
+            service.update(
+                event_pk=42, sphere_id=3, track_slug="alpha", data=_data(name="Beta")
+            )
+
+    def test_update_reraises_when_only_the_track_itself_holds_the_name(
+        self, service, tracks, spaces, spheres
+    ):
+        tracks.read_by_slug.return_value = MagicMock(pk=5)
+        spaces.list_by_event.return_value = []
+        spheres.list_managers.return_value = []
+        tracks.update.side_effect = DatabaseConstraintError
+        tracks.list_by_event.return_value = [_named_track(pk=5, name="beta")]
+
+        with pytest.raises(DatabaseConstraintError):
+            service.update(
+                event_pk=42, sphere_id=3, track_slug="alpha", data=_data(name="Beta")
+            )
 
     def test_update_scopes_track_and_submitted_pks(
         self, service, transaction, tracks, spaces, spheres

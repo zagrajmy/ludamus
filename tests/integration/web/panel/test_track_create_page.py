@@ -153,6 +153,50 @@ class TestTrackCreatePageView:
         assert not track.spaces.filter(pk=foreign_space.pk).exists()
         assert not track.managers.filter(pk=foreign_user.pk).exists()
 
+    def test_post_shows_error_for_name_taken_in_this_event(
+        self, panel_client, active_user, event
+    ):
+        Track.objects.create(event=event, name="Alpha Track", slug="alpha-track")
+
+        response = panel_client.post(self.get_url(event), data={"name": "Alpha Track"})
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/track-create.html",
+            context_data={
+                **panel_context(event, active_nav="tracks"),
+                "form": ANY,
+                "spaces": [],
+                "managers": [UserDTO.model_validate(active_user)],
+                "selected_space_pks": [],
+                "selected_manager_pks": [],
+            },
+        )
+        assert Track.objects.filter(event=event).count() == 1
+
+    def test_post_shows_error_for_name_taken_in_another_case(
+        self, panel_client, active_user, event
+    ):
+        Track.objects.create(event=event, name="Alpha Track", slug="alpha-track")
+
+        response = panel_client.post(self.get_url(event), data={"name": "ALPHA track"})
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/track-create.html",
+            context_data={
+                **panel_context(event, active_nav="tracks"),
+                "form": ANY,
+                "spaces": [],
+                "managers": [UserDTO.model_validate(active_user)],
+                "selected_space_pks": [],
+                "selected_manager_pks": [],
+            },
+        )
+        assert Track.objects.filter(event=event).count() == 1
+
     def test_post_shows_error_for_empty_name(self, panel_client, active_user, event):
         response = panel_client.post(self.get_url(event), data={"name": ""})
 

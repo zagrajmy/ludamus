@@ -19,7 +19,7 @@ from ludamus.gates.web.django.chronology.panel.views.base import (
 )
 from ludamus.gates.web.django.forms import TrackForm
 from ludamus.pacts import NotFoundError
-from ludamus.pacts.tracks import TrackFormData
+from ludamus.pacts.tracks import DuplicateTrackNameError, TrackFormData
 
 if TYPE_CHECKING:
     from django.http import HttpResponse
@@ -27,6 +27,13 @@ if TYPE_CHECKING:
 
 def _submitted_pks(request: PanelRequest, field: str) -> list[int]:
     return [int(pk) for pk in request.POST.getlist(field) if pk.isdigit()]
+
+
+def _add_duplicate_name_error(form: TrackForm) -> None:
+    form.add_error(
+        "name",
+        _("A track with this name already exists in this event. Pick another name."),
+    )
 
 
 def _submitted_track_data(*, request: PanelRequest, form: TrackForm) -> TrackFormData:
@@ -85,27 +92,29 @@ class TrackCreatePageView(PanelAccessMixin, EventContextMixin, View):
         sphere_id = self.request.context.current_sphere_id
         form = TrackForm(self.request.POST)
 
-        if not form.is_valid():
-            form_context = service.get_form_context(
-                event_pk=current_event.pk, sphere_id=sphere_id
-            )
-            context["active_nav"] = "tracks"
-            context["form"] = form
-            context["spaces"] = form_context.spaces
-            context["managers"] = form_context.managers
-            context["selected_space_pks"] = _submitted_pks(self.request, "space_pks")
-            context["selected_manager_pks"] = _submitted_pks(
-                self.request, "manager_pks"
-            )
-            return TemplateResponse(self.request, "panel/track-create.html", context)
+        if form.is_valid():
+            try:
+                service.create(
+                    event_pk=current_event.pk,
+                    sphere_id=sphere_id,
+                    data=_submitted_track_data(request=self.request, form=form),
+                )
+            except DuplicateTrackNameError:
+                _add_duplicate_name_error(form)
+            else:
+                messages.success(self.request, _("Track created successfully."))
+                return redirect("panel:tracks", slug=slug)
 
-        service.create(
-            event_pk=current_event.pk,
-            sphere_id=sphere_id,
-            data=_submitted_track_data(request=self.request, form=form),
+        form_context = service.get_form_context(
+            event_pk=current_event.pk, sphere_id=sphere_id
         )
-        messages.success(self.request, _("Track created successfully."))
-        return redirect("panel:tracks", slug=slug)
+        context["active_nav"] = "tracks"
+        context["form"] = form
+        context["spaces"] = form_context.spaces
+        context["managers"] = form_context.managers
+        context["selected_space_pks"] = _submitted_pks(self.request, "space_pks")
+        context["selected_manager_pks"] = _submitted_pks(self.request, "manager_pks")
+        return TemplateResponse(self.request, "panel/track-create.html", context)
 
 
 class TrackEditPageView(PanelAccessMixin, EventContextMixin, View):
@@ -167,6 +176,15 @@ class TrackEditPageView(PanelAccessMixin, EventContextMixin, View):
         except NotFoundError:
             messages.error(self.request, _("Track not found."))
             return redirect("panel:tracks", slug=slug)
+        except DuplicateTrackNameError:
+            _add_duplicate_name_error(form)
+            return self._rerender_edit_form(
+                context=context,
+                form=form,
+                event_pk=current_event.pk,
+                sphere_id=sphere_id,
+                track_slug=track_slug,
+            )
 
         messages.success(self.request, _("Track updated successfully."))
         return redirect("panel:tracks", slug=slug)
