@@ -146,7 +146,7 @@ test.describe("Panel facilitator + proposal CRUD", () => {
 
     // The bin is its own tab, so nothing on the live list has to know deletion
     // exists — and the bin carries only the action that works there.
-    await page.getByRole("link", { name: "Bin" }).click();
+    await page.getByRole("tab", { name: "Bin", exact: true }).click();
 
     await expect(page.getByRole("button", { name: "Restore", exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: "Delete", exact: true })).toBeHidden();

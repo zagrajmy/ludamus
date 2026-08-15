@@ -195,6 +195,17 @@ class TestFacilitatorRepositorySoftDelete:
         with pytest.raises(NotFoundError):
             FacilitatorRepository.read_including_deleted(event.pk, "nobody")
 
+    def test_update_refuses_a_deleted_facilitator(self):
+        event = EventFactory.create()
+        facilitator = _facilitator(event)
+        FacilitatorRepository.soft_delete(facilitator.pk)
+
+        with pytest.raises(NotFoundError):
+            FacilitatorRepository.update(facilitator.pk, {"display_name": "Bob"})
+
+        facilitator.refresh_from_db()
+        assert facilitator.display_name == "Alice"
+
 
 class TestFacilitatorRepositoryLock:
     def test_an_alive_row_locks(self):
@@ -284,6 +295,12 @@ class TestFacilitatorRepositorySessionCount:
 
         assert [f.session_count for f in listed] == [1]
         assert [f.session_count for f in basket] == [1]
+
+    def test_an_empty_basket_lists_nobody(self):
+        event = EventFactory.create()
+        _facilitator(event)
+
+        assert FacilitatorRepository.list_by_slugs(event.pk, []) == []
 
 
 class TestFacilitatorRepositoryRead:
