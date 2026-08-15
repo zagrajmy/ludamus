@@ -35,6 +35,7 @@ from ludamus.links.db.django.models import (
     Track,
 )
 from ludamus.pacts.chronology import IntegrationImplementationId
+from ludamus.pacts.durations import MAX_DURATION_HOURS, MAX_DURATION_MINUTES
 from ludamus.pacts.submissions import (
     EntityRef,
     ImportLogStatus,
@@ -310,8 +311,8 @@ class TestEventImportProposalView:
                     {"option": "18+", "name": "18+", "slug": "18"},
                 ],
                 "option_durations": [
-                    {"option": "do 16", "iso": ""},
-                    {"option": "18+", "iso": ""},
+                    {"option": "do 16", "hours": "", "minutes": ""},
+                    {"option": "18+", "hours": "", "minutes": ""},
                 ],
                 "overrides": [{"raw": "", "replacement": ""}],
                 "catchall_name": "",
@@ -818,6 +819,8 @@ class TestEventImportProposalView:
                 "active_tab": "review",
                 "tab_urls": import_tab_urls(event.slug, integration.pk),
                 "session_columns": SESSION_COLUMNS,
+                "max_duration_hours": MAX_DURATION_HOURS,
+                "max_duration_minutes": MAX_DURATION_MINUTES,
                 "rows": [],
                 "edit_row": None,
                 "edit_nav": None,
@@ -3245,7 +3248,7 @@ class TestImportRowSavePostHelpers:
         # An unrecognised field type falls back to text.
         assert settings.definitions.personal_fields["phone"].type == "text"
 
-    def test_post_saves_duration_target_and_skips_blank_iso(
+    def test_post_saves_duration_target_and_skips_blank_length(
         self, panel_client, event, connection_with_secret
     ):
         integration = make_integration(
@@ -3259,18 +3262,63 @@ class TestImportRowSavePostHelpers:
                 "question_0": "Length",
                 "target_0": "session.duration",
                 "droption_0": ["30 min", "blank"],
-                "driso_0": ["PT30M", "  "],
+                "drhours_0": ["", ""],
+                "drminutes_0": ["30", "  "],
             },
         )
 
-        assert response.status_code == HTTPStatus.FOUND
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=_tab_url(event, integration),
+            messages=[(messages.SUCCESS, "Question saved.")],
+        )
         integration.refresh_from_db()
         target = ImportSettings.model_validate_json(
             integration.settings_json
         ).questions["Length"]
         assert target.to == "session.duration"
-        # The blank-ISO option is dropped; only the mapped one survives.
+        # The zero-length option is dropped; only the mapped one survives.
         assert set(target.values) == {"30 min"}
+        assert target.values["30 min"].iso == "PT30M"
+
+    @pytest.mark.parametrize(
+        ("hours", "minutes"),
+        (("99", "30"), ("-5", "30"), ("1", "abc"), ("9" * 4301, "30")),
+    )
+    def test_post_rejects_duration_the_steppers_would_not_allow(
+        self, panel_client, event, connection_with_secret, hours, minutes
+    ):
+        integration = make_integration(
+            event, connection_with_secret, display_name="Puller"
+        )
+        before = integration.settings_json
+
+        response = panel_client.post(
+            _row_save_url(event, integration),
+            data={
+                "index": "0",
+                "question_0": "Length",
+                "target_0": "session.duration",
+                "droption_0": ["huge"],
+                "drhours_0": [hours],
+                "drminutes_0": [minutes],
+            },
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=f"{_review_url(event, integration)}?edit=0",
+            messages=[
+                (
+                    messages.ERROR,
+                    "Enter a length as whole hours (0-23) and minutes (0-59).",
+                )
+            ],
+        )
+        integration.refresh_from_db()
+        assert integration.settings_json == before
 
     def test_post_skips_blank_time_slot_row(
         self, panel_client, event, connection_with_secret

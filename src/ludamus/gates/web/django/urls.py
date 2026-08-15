@@ -39,9 +39,7 @@ def healthz(_request: HttpRequest) -> JsonResponse:
         with connection.cursor() as cursor:
             cursor.execute("SELECT 1")
         _healthz_cache.update(time=now, ok=True)
-    except (
-        Exception  # ruff:ignore[blind-except]  # pylint: disable=broad-exception-caught
-    ):
+    except Exception:  # ruff:ignore[blind-except]
         _healthz_cache.update(time=now, ok=False)
         return JsonResponse({"status": "error"}, status=503)
     return JsonResponse({"status": "ok"})

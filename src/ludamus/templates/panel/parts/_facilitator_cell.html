@@ -1,0 +1,23 @@
+{% load i18n %}
+{% comment %}
+    One facilitator cell's content. Text cells arrive pre-rendered in `value`;
+    the guild mark stays here because an image isn't a string, and says so by
+    declaring its kind rather than by being named here.
+
+    The guild branch always renders something. Any column can be first, and the
+    first one carries the row's link to the facilitator — an empty cell there
+    would be an invisible, unclickable link. It also covers a guild whose mark
+    has not been uploaded yet, since guild_mark.html renders nothing without one.
+{% endcomment %}
+{% if column.kind == "guild" %}
+    {% if facilitator.guild %}
+        <span class="inline-flex items-center gap-1.5">
+            {% include "components/guild_mark.html" with guild=facilitator.guild size="size-5" %}
+            {{ facilitator.guild.name }}
+        </span>
+    {% else %}
+        —
+    {% endif %}
+{% else %}
+    {{ value }}
+{% endif %}

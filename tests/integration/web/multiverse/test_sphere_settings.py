@@ -12,7 +12,7 @@ from tests.integration.conftest import PNG_BYTES
 from tests.integration.utils import assert_login_required, assert_response
 from tests.integration.web.multiverse.helpers import (
     assert_not_a_sphere_manager,
-    sphere_panel_context,
+    sphere_settings_context,
 )
 
 SVG_BYTES = (
@@ -34,7 +34,7 @@ GIF_BYTES = (
     b"\x02\x02D\x01\x00;"
 )
 
-GENERAL_PANEL_CONTEXT = sphere_panel_context(active_tab="general") | {"form": ANY}
+GENERAL_PANEL_CONTEXT = sphere_settings_context(active_tab="general") | {"form": ANY}
 
 
 class TestSphereSettingsPageView:

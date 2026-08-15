@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING
 
 from django.utils import timezone
 
-from ludamus.mills.timeslots import local_day_windows
+from ludamus.mills.timeslots import interval_windows
 
 if TYPE_CHECKING:
     from ludamus.gates.web.django.chronology.event_presentation import SessionData
@@ -75,8 +75,8 @@ def build_schedule_days(sessions_data: dict[int, SessionData]) -> list[ScheduleD
     )
     tiles_by_date: dict[date, list[ScheduleTile]] = defaultdict(list)
     for item, data in scheduled:
-        for window_start, window_end in local_day_windows(
-            item.start_time, item.end_time, tz
+        for window_start, window_end in interval_windows(
+            start=item.start_time, end=item.end_time, tz=tz
         ):
             tiles_by_date[window_start.date()].append(
                 ScheduleTile(data=data, start=window_start, end=window_end)
@@ -105,39 +105,31 @@ def group_sessions_by_state(
     dict[datetime, list[SessionData]],
     dict[datetime, list[SessionData]],
 ]:
-    current_time = datetime.now(tz=UTC)
+    now = datetime.now(tz=UTC)
     ended: dict[datetime, list[SessionData]] = defaultdict(list)
     current: dict[datetime, list[SessionData]] = defaultdict(list)
     future_unavailable: dict[datetime, list[SessionData]] = defaultdict(list)
-    for session_data in sessions_data.values():
-        if session_data.agenda_item is None:
+    for data in sessions_data.values():
+        if data.agenda_item is None:
             continue
-        session_start_time = session_data.agenda_item.start_time
-        if session_data.agenda_item.end_time <= current_time:
-            ended[session_start_time].append(session_data)
-        elif (
-            not session_data.is_enrollment_available
-            and session_start_time > current_time
-        ):
-            future_unavailable[session_start_time].append(session_data)
+        start = data.agenda_item.start_time
+        if data.agenda_item.end_time <= now:
+            ended[start].append(data)
+        elif not data.is_enrollment_available and start > now:
+            future_unavailable[start].append(data)
         else:
-            current[session_start_time].append(session_data)
+            current[start].append(data)
     return dict(ended), dict(current), dict(future_unavailable)
+
+
+def _room_key(data: SessionData) -> tuple[str, str, str]:
+    return data.loc["space_name"], data.loc["parent_slug"], data.loc["parent_name"]
 
 
 def build_room_lanes(schedule_days: list[ScheduleDay]) -> list[RoomLaneDay]:
     lane_days: list[RoomLaneDay] = []
     for day in schedule_days:
-        keys = sorted(
-            {
-                (
-                    tile.data.loc["space_name"],
-                    tile.data.loc["parent_slug"],
-                    tile.data.loc["parent_name"],
-                )
-                for tile in day.tiles
-            }
-        )
+        keys = sorted({_room_key(tile.data) for tile in day.tiles})
         name_counts = Counter(name for name, _, _ in keys)
         rooms = [
             f"{name} ({parent})" if name_counts[name] > 1 and parent else name
@@ -158,20 +150,15 @@ def build_room_lanes(schedule_days: list[ScheduleDay]) -> list[RoomLaneDay]:
             for offset in range(hour_count)
         ]
 
-        tiles = []
+        tiles: list[RoomLaneTile] = []
         for tile in day.tiles:
-            key = (
-                tile.data.loc["space_name"],
-                tile.data.loc["parent_slug"],
-                tile.data.loc["parent_name"],
-            )
             start_hour = int((tile.start - day_start).total_seconds() // 3600)
             end_offset = (tile.end - day_start).total_seconds() / 3600
             tiles.append(
                 RoomLaneTile(
                     data=tile.data,
                     slot_hour=tile.start.replace(minute=0, second=0, microsecond=0),
-                    col=col_index[key],
+                    col=col_index[_room_key(tile.data)],
                     row_start=start_hour + 1,
                     row_span=max(1, ceil(end_offset) - start_hour),
                 )

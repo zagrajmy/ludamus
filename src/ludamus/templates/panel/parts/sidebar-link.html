@@ -1,0 +1,24 @@
+{% load tessera %}
+{% comment %}
+One entry in the panel sidebar. Rendered by the sidebar_link tag
+(gates/web/django/templatetags/panel_tags.py), which reverses the href and
+resolves `active` before handing this a closed context.
+
+The highlight styles off `[aria-current=page]` rather than re-testing `active`,
+so "highlighted" and "is the current page" cannot drift apart.
+
+Variables:
+  href     resolved destination
+  icon     heroicon name
+  label    visible text; also the title attribute
+  active   this entry is the current page
+  new_tab  open in a new tab
+{% endcomment %}
+<a href="{{ href }}"
+   {% if new_tab %}target="_blank" rel="noopener"{% endif %}
+   {% if active %}aria-current="page"{% endif %}
+   title="{{ label }}"
+   class="sidebar-link flex text-sm items-center px-2 py-3 text-foreground-secondary hover:bg-bg-secondary hover:text-foreground dark:hover:bg-bg-tertiary aria-[current=page]:text-foreground aria-[current=page]:bg-bg-secondary dark:aria-[current=page]:bg-bg-tertiary rounded-lg transition hover:duration-0">
+    {% icon icon class="size-4.5 mr-2" %}
+    <span class="sidebar-label">{{ label }}</span>
+</a>

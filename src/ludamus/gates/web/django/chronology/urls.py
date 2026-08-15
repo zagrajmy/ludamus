@@ -1,5 +1,7 @@
 from django.urls import URLPattern, path
 
+from ludamus.gates.web.django.event.session_modal import SessionModalComponentView
+
 from . import anonymous, views
 
 urlpatterns: list[URLPattern] = [
@@ -10,7 +12,7 @@ urlpatterns: list[URLPattern] = [
     ),
     path(
         "event/<str:event_slug>/session/<int:session_id>/parts/modal",
-        views.SessionModalComponentView.as_view(),
+        SessionModalComponentView.as_view(),
         name="session-modal",
     ),
     path(

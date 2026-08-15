@@ -482,7 +482,9 @@ disable=import-outside-toplevel,
         too-few-public-methods,
         too-many-statements,
         no-member,
-        missing-docstring
+        missing-docstring,
+        # Checked by ruff
+        broad-exception-caught
 
 
 # Enable the message, report, category or checker with the given id(s). You can
