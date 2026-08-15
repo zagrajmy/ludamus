@@ -862,6 +862,10 @@ class Facilitator(models.Model):
     # Reversible triage marker: organizers flag likely duplicates/removals, then
     # act on them (merge or delete) as a separate deliberate step.
     flagged_for_deletion = models.BooleanField(default=False)
+    # A guild, club or the organizer crew itself — not one person, so several
+    # of its program points at the same hour are normal. The timetable skips
+    # its facilitator-overlap check for these.
+    is_collective = models.BooleanField(default=False)
     # Free-form organizer note, never shown to attendees.
     internal_comment = models.TextField(blank=True, default="")
 
