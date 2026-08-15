@@ -24,14 +24,15 @@ from tests.integration.conftest import (
 )
 from tests.integration.utils import assert_login_required, assert_response
 from tests.integration.web.panel.helpers import (
+    SLOT_MINUTES,
     assert_event_not_found,
     assert_not_a_manager,
     assign_payload,
     empty_grid,
+    event_day_start,
     grid_with,
     make_timetable_session,
 )
-from tests.integration.web.panel.test_timetable import SLOT_MINUTES, _day_start
 
 
 class TestTimetableGridPartView:
@@ -88,7 +89,7 @@ class TestTimetableGridPartView:
     def test_all_days_returns_each_day_grid(
         self, panel_client, event, space, time_slot
     ):
-        second_slot = TimeSlotFactory(
+        TimeSlotFactory(
             event=event,
             start_time=time_slot.start_time + timedelta(days=1),
             end_time=time_slot.end_time + timedelta(days=1),
@@ -103,7 +104,7 @@ class TestTimetableGridPartView:
             context_data={
                 "grid": grid_with(
                     spaces=[space],
-                    day_start=_day_start(event),
+                    day_start=event_day_start(event),
                     extra_days=1,
                     total_minutes=SLOT_MINUTES,
                 ),
@@ -111,9 +112,6 @@ class TestTimetableGridPartView:
                 "date_selection": "all",
                 "slug": event.slug,
             },
-        )
-        assert second_slot.start_time.date() == time_slot.start_time.date() + timedelta(
-            days=1
         )
         content = response.content.decode()
         expected_day_count = 2

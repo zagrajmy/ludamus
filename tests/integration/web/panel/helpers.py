@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING
 
 from django.contrib import messages
 from django.urls import reverse
+from django.utils.timezone import localtime
 
 from ludamus.links.db.django.agenda_item import AgendaItemRepository
 from ludamus.links.db.django.models import (
@@ -242,6 +243,16 @@ def assign_payload(*, session, space, start, end):
         "start_time": start.isoformat(),
         "end_time": end.isoformat(),
     }
+
+
+# The `event` fixture starts at UTC midnight and Warsaw is a whole-hour offset,
+# so a slot starting with the event puts the grid's first time label — and its
+# day — on the hour.
+SLOT_MINUTES = 120
+
+
+def event_day_start(event):
+    return localtime(event.start_time)
 
 
 def grid_with(

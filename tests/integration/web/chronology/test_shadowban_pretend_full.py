@@ -5,14 +5,15 @@ import pytest
 from django.urls import reverse
 from zeal import zeal_ignore
 
-from ludamus.gates.web.django.chronology.enrollment_presentation import (
-    SessionUserParticipationData,
-)
+from ludamus.gates.web.django.event.enroll_presentation import EnrollActions
 from ludamus.links.db.django.models import SessionParticipation
-from ludamus.pacts.crowd import UserDTO
+from ludamus.pacts import EventDTO
 from tests.integration.conftest import UserFactory
 from tests.integration.utils import assert_response
-from tests.integration.web.chronology.test_session_enroll_page import _party_context
+from tests.integration.web.chronology.helpers import (
+    enroll_page_context,
+    schedule_context,
+)
 
 
 def _event_url(slug: str) -> str:
@@ -37,34 +38,63 @@ def _is_deniably_full(card):
     )
 
 
-# Matches a chronology context by how its cards are masked — the event page's
-# `sessions` and `hour_data`, or the session modal's `data`. test_event_page.py
-# and test_session_modal.py assert those contexts exhaustively.
-class MaskedCards:
-    def __init__(self, *, pretend_full: list[bool]) -> None:
-        self.pretend_full = pretend_full
+_HOUR_KEYS = ("hour_data", "current_hour_data", "future_unavailable_hour_data")
+# One scheduled session reaches the template three times: as a card in
+# `sessions`, in `hour_data`, and in whichever availability lane it belongs to.
+_CARDS_PER_SESSION = 3
 
-    def __eq__(self, other: object) -> bool:
-        if not isinstance(other, dict):
-            return NotImplemented
-        if "data" in other:
-            cards = [other["data"]]
-        else:
-            cards = list(other.get("sessions", []))
-            hour_cards = [
-                card for hour in other.get("hour_data", {}).values() for card in hour
-            ]
-            if [card.pretend_full for card in hour_cards] != self.pretend_full:
-                return False
-        return [card.pretend_full for card in cards] == self.pretend_full and all(
-            _is_deniably_full(card) for card in cards if card.pretend_full
-        )
 
-    def __hash__(self) -> int:
-        return hash(tuple(self.pretend_full))
+def _card_buckets(response, start_time, *, lane):
+    # The keys the card layout puts a session card under. `hour_data` always
+    # carries it; masking moves it between the availability lanes, because a
+    # pretend-full card claims enrollment is open. A masked card's simulacra
+    # carry a `creation_time` minted at request time, so the buckets read the
+    # cards back and `_is_deniably_full` checks them.
+    buckets = {"sessions": response.context["sessions"]} | {
+        key: {} for key in _HOUR_KEYS
+    }
+    for key in ("hour_data", lane):
+        buckets[key] = {start_time: response.context[key][start_time]}
+    return buckets
 
-    def __repr__(self) -> str:
-        return f"MaskedCards(pretend_full={self.pretend_full!r})"
+
+def _event_page_context(event, buckets, **overrides):
+    # The card-layout event page for a signed-in viewer with no enrollments.
+    url = _event_url(event.slug)
+    return {
+        "ended_hour_data": {},
+        "enrollment_requires_slots": False,
+        "event": event,
+        "filterable_tag_categories": [],
+        "has_track_filter": False,
+        "has_category_filter": False,
+        "object": event,
+        "pending_review_visible": False,
+        "pending_sessions": [],
+        "pending_wizard_view": False,
+        "own_pending_proposals": [],
+        "user_enrollment_config": None,
+        "total_enrolled": 0,
+        "user_enrolled_sessions": [],
+        "event_banned": False,
+        **buckets,
+        **schedule_context(url),
+        "user_enrolled_session_titles": [],
+        "view": ANY,
+        **overrides,
+    }
+
+
+def _every_card(buckets):
+    return [
+        *buckets["sessions"],
+        *(
+            card
+            for key in _HOUR_KEYS
+            for cards in buckets[key].values()
+            for card in cards
+        ),
+    ]
 
 
 def _ban_viewer(agenda_item, viewer, *, username: str):
@@ -92,13 +122,22 @@ class TestShadowbanPretendFull:
 
         response = authenticated_client.get(_event_url(event.slug))
 
+        # The masked card claims an open, fully booked session, so it lands in
+        # the current lane and its invented seats count toward the page total.
+        buckets = _card_buckets(
+            response, agenda_item.start_time, lane="current_hour_data"
+        )
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data=MaskedCards(pretend_full=[True]),
+            context_data=_event_page_context(event, buckets, total_enrolled=10),
             template_name=["chronology/event.html"],
             contains=["Deniable Game"],
         )
+        cards = _every_card(buckets)
+        assert len(cards) == _CARDS_PER_SESSION
+        assert all(card.pretend_full for card in cards)
+        assert all(_is_deniably_full(card) for card in cards)
         # The "Session full" affordance renders in the lazy-loaded modal, which
         # applies the same shadowban masking for the banned viewer.
         modal = authenticated_client.get(
@@ -107,13 +146,27 @@ class TestShadowbanPretendFull:
                 kwargs={"event_slug": event.slug, "session_id": session.pk},
             )
         )
+        modal_card = modal.context["data"]
         assert_response(
             modal,
             HTTPStatus.OK,
-            context_data=MaskedCards(pretend_full=[True]),
+            context_data={
+                "data": modal_card,
+                "event": EventDTO.model_validate(event),
+                "event_banned": False,
+                # The deniable card offers what a genuinely full session would.
+                "enroll_actions": EnrollActions(
+                    submit_value="waitlist",
+                    submit_label="Join waiting list",
+                    submit_icon="clock",
+                    group_label="Enroll with others…",
+                ),
+            },
             template_name="chronology/parts/session-modal.html",
             contains="Session full",
         )
+        assert modal_card.pretend_full
+        assert _is_deniably_full(modal_card)
 
     def test_event_page_untouched_for_other_users(
         self, authenticated_client, agenda_item, event
@@ -128,15 +181,20 @@ class TestShadowbanPretendFull:
 
         response = authenticated_client.get(_event_url(event.slug))
 
+        buckets = _card_buckets(
+            response, agenda_item.start_time, lane="future_unavailable_hour_data"
+        )
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data=MaskedCards(pretend_full=[False]),
+            context_data=_event_page_context(event, buckets),
             template_name=["chronology/event.html"],
             contains="Visible Game",
         )
-        (card,) = response.context["sessions"]
-        assert not card.is_full
+        cards = _every_card(buckets)
+        assert len(cards) == _CARDS_PER_SESSION
+        assert not any(card.pretend_full for card in cards)
+        assert not any(card.is_full for card in cards)
 
     @pytest.mark.usefixtures("enrollment_config")
     def test_enroll_page_renders_standard_full_state(
@@ -149,22 +207,9 @@ class TestShadowbanPretendFull:
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data={
-                **_party_context(active_user),
-                "companions": [],
-                "event": agenda_item.space.event,
-                "form": ANY,
-                "session": session,
-                "shadowban_warnings": [],
-                "user_data": [
-                    SessionUserParticipationData(
-                        user=UserDTO.model_validate(active_user),
-                        user_enrolled=False,
-                        user_waiting=False,
-                        has_time_conflict=False,
-                    )
-                ],
-            },
+            context_data=enroll_page_context(
+                viewer=active_user, agenda_item=agenda_item
+            ),
             template_name="chronology/enroll_select.html",
         )
         page_session = response.context["session"]

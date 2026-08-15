@@ -19,7 +19,6 @@ from ludamus.gates.web.django.event.enroll_presentation import (
     SeatBadge,
     build_enroll_actions,
 )
-from ludamus.inits.services import Services
 from ludamus.links.db.django.models import (
     AgendaItem,
     EnrollmentConfig,
@@ -40,6 +39,7 @@ from tests.integration.conftest import (
     sponsor_user,
 )
 from tests.integration.utils import assert_response, input_tag
+from tests.integration.web.chronology.helpers import enroll_page_context, party_context
 
 
 def _open_window(event, *, percentage_slots):
@@ -51,15 +51,6 @@ def _open_window(event, *, percentage_slots):
         percentage_slots=percentage_slots,
         restrict_to_configured_users=False,
     )
-
-
-def _party_context(viewer):
-    # The enroll page's party plumbing, derived from the same service call the
-    # view makes (default selection: no explicit party requested).
-    selection = Services().parties.enrollment_selection(
-        viewer_pk=viewer.pk, requested_party=None
-    )
-    return {"party_choices": selection.choices, "selected_party": selection.selected}
 
 
 class TestSessionEnrollPageView:
@@ -78,22 +69,9 @@ class TestSessionEnrollPageView:
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data={
-                **_party_context(active_user),
-                "companions": [],
-                "event": agenda_item.space.event,
-                "form": ANY,
-                "session": agenda_item.session,
-                "shadowban_warnings": [],
-                "user_data": [
-                    SessionUserParticipationData(
-                        user=UserDTO.model_validate(active_user),
-                        user_enrolled=False,
-                        user_waiting=False,
-                        has_time_conflict=False,
-                    )
-                ],
-            },
+            context_data=enroll_page_context(
+                viewer=active_user, agenda_item=agenda_item
+            ),
             template_name="chronology/enroll_select.html",
         )
 
@@ -119,7 +97,7 @@ class TestSessionEnrollPageView:
             response,
             HTTPStatus.OK,
             context_data={
-                **_party_context(active_user),
+                **party_context(active_user),
                 "companions": [CompanionDTO.model_validate(companion)],
                 "event": agenda_item.space.event,
                 "form": ANY,
@@ -188,7 +166,7 @@ class TestSessionEnrollPageView:
             response,
             HTTPStatus.OK,
             context_data={
-                **_party_context(active_user),
+                **party_context(active_user),
                 "companions": [],
                 "event": agenda_item.space.event,
                 "form": ANY,
@@ -470,7 +448,7 @@ class TestSessionEnrollPageView:
                 (messages.WARNING, "Please review the enrollment options below."),
             ],
             context_data={
-                **_party_context(active_user),
+                **party_context(active_user),
                 "companions": [],
                 "event": agenda_item.space.event,
                 "form": ANY,
@@ -749,7 +727,7 @@ class TestSessionEnrollPageView:
                 (messages.WARNING, "Please review the enrollment options below."),
             ],
             context_data={
-                **_party_context(active_user),
+                **party_context(active_user),
                 "companions": [],
                 "event": agenda_item.space.event,
                 "form": ANY,
@@ -1034,7 +1012,7 @@ class TestSessionEnrollPageView:
                 ),
             ],
             context_data={
-                **_party_context(staff_user),
+                **party_context(staff_user),
                 "session": agenda_item.session,
                 "event": event,
                 "companions": [],
@@ -1078,7 +1056,7 @@ class TestSessionEnrollPageView:
                 ),
             ],
             context_data={
-                **_party_context(staff_user),
+                **party_context(staff_user),
                 "session": agenda_item.session,
                 "event": event,
                 "companions": [],
@@ -1119,7 +1097,7 @@ class TestSessionEnrollPageView:
                 (messages.WARNING, "Please review the enrollment options below."),
             ],
             context_data={
-                **_party_context(staff_user),
+                **party_context(staff_user),
                 "session": agenda_item.session,
                 "event": event,
                 "companions": [],
@@ -1170,7 +1148,7 @@ class TestSessionEnrollPageView:
                 (messages.WARNING, "Please review the enrollment options below."),
             ],
             context_data={
-                **_party_context(staff_user),
+                **party_context(staff_user),
                 "companions": [CompanionDTO.model_validate(companion)],
                 "session": agenda_item.session,
                 "event": event,
@@ -1407,7 +1385,7 @@ class TestSessionEnrollPageView:
                 (messages.WARNING, "Please review the enrollment options below."),
             ],
             context_data={
-                **_party_context(staff_user),
+                **party_context(staff_user),
                 "companions": [CompanionDTO.model_validate(companion)],
                 "session": agenda_item.session,
                 "event": event,
@@ -1603,7 +1581,7 @@ class TestSessionEnrollPageView:
                 (messages.WARNING, "Please review the enrollment options below."),
             ],
             context_data={
-                **_party_context(active_user),
+                **party_context(active_user),
                 "companions": [],
                 "event": agenda_item.space.event,
                 "form": ANY,
@@ -1657,7 +1635,7 @@ class TestSessionEnrollPageView:
                 ),
             ],
             context_data={
-                **_party_context(active_user),
+                **party_context(active_user),
                 "companions": [CompanionDTO.model_validate(companion)],
                 "event": agenda_item.space.event,
                 "form": ANY,
@@ -1713,7 +1691,7 @@ class TestSessionEnrollPageView:
                 ),
             ],
             context_data={
-                **_party_context(active_user),
+                **party_context(active_user),
                 "companions": [CompanionDTO.model_validate(companion)],
                 "event": agenda_item.space.event,
                 "form": ANY,
@@ -1794,7 +1772,7 @@ class TestSessionEnrollPageView:
                 (messages.WARNING, "Please review the enrollment options below."),
             ],
             context_data={
-                **_party_context(active_user),
+                **party_context(active_user),
                 "companions": [],
                 "event": agenda_item.space.event,
                 "form": ANY,
@@ -1847,7 +1825,7 @@ class TestSessionEnrollPageView:
                 ),
             ],
             context_data={
-                **_party_context(active_user),
+                **party_context(active_user),
                 "session": agenda_item.session,
                 "event": event,
                 "companions": [],
@@ -1924,7 +1902,7 @@ class TestSessionEnrollPageView:
                 ),
             ],
             context_data={
-                **_party_context(active_user),
+                **party_context(active_user),
                 "session": agenda_item.session,
                 "event": event,
                 "companions": [],
@@ -1983,7 +1961,7 @@ class TestSessionEnrollPageView:
                 (messages.WARNING, "Please review the enrollment options below."),
             ],
             context_data={
-                **_party_context(active_user),
+                **party_context(active_user),
                 "companions": [],
                 "event": agenda_item.space.event,
                 "form": ANY,
@@ -2028,7 +2006,7 @@ class TestSessionEnrollPageView:
                 (messages.WARNING, "Please review the enrollment options below."),
             ],
             context_data={
-                **_party_context(active_user),
+                **party_context(active_user),
                 "session": agenda_item.session,
                 "event": event,
                 "companions": [],
@@ -2082,7 +2060,7 @@ class TestSessionEnrollPageView:
                 ),
             ],
             context_data={
-                **_party_context(active_user),
+                **party_context(active_user),
                 "companions": [CompanionDTO.model_validate(companion)],
                 "event": agenda_item.space.event,
                 "form": ANY,
@@ -2142,7 +2120,7 @@ class TestSessionEnrollPageView:
                 (messages.WARNING, "Please review the enrollment options below."),
             ],
             context_data={
-                **_party_context(active_user),
+                **party_context(active_user),
                 "companions": [CompanionDTO.model_validate(companion)],
                 "session": agenda_item.session,
                 "event": event,
@@ -2185,7 +2163,7 @@ class TestSessionEnrollPageView:
                 (messages.WARNING, "Please review the enrollment options below."),
             ],
             context_data={
-                **_party_context(active_user),
+                **party_context(active_user),
                 "companions": [],
                 "session": agenda_item.session,
                 "event": event,
