@@ -749,7 +749,29 @@ ACCREDITATION_TYPE_CHOICES = [
 ]
 
 
-class FacilitatorForm(forms.Form):
+class FacilitatorFieldsForm(forms.Form):
+    # Shared by the create and edit pages; both render fields by name, so the
+    # declaration order here does not reach the templates.
+    accreditation_type = forms.ChoiceField(
+        choices=ACCREDITATION_TYPE_CHOICES,
+        initial=AccreditationType.NONE,
+        required=False,
+        label=_("Accreditation type"),
+    )
+    is_collective = forms.BooleanField(
+        required=False,
+        label=_("Runs program points in parallel"),
+        help_text=_(
+            "For a guild or the organizer crew — the timetable stops reporting"
+            " this facilitator's overlapping program points as a clash."
+        ),
+    )
+
+    def clean_accreditation_type(self) -> str:
+        return self.cleaned_data.get("accreditation_type") or AccreditationType.NONE
+
+
+class FacilitatorForm(FacilitatorFieldsForm):
     """Form for creating a facilitator (display_name is required at creation)."""
 
     display_name = forms.CharField(
@@ -760,12 +782,6 @@ class FacilitatorForm(forms.Form):
             "required": _("Display name is required."),
         },
     )
-    accreditation_type = forms.ChoiceField(
-        choices=ACCREDITATION_TYPE_CHOICES,
-        initial=AccreditationType.NONE,
-        required=False,
-        label=_("Accreditation type"),
-    )
     assign_me = forms.BooleanField(
         initial=True,
         required=False,
@@ -773,19 +789,10 @@ class FacilitatorForm(forms.Form):
         help_text=_("You handle this facilitator until you step down."),
     )
 
-    def clean_accreditation_type(self) -> str:
-        return self.cleaned_data.get("accreditation_type") or AccreditationType.NONE
 
-
-class FacilitatorEditForm(forms.Form):
+class FacilitatorEditForm(FacilitatorFieldsForm):
     # No display_name: it is a read-only cache (the canonical byline lives on
     # the session), so the panel edit form only touches accreditation_type.
-    accreditation_type = forms.ChoiceField(
-        choices=ACCREDITATION_TYPE_CHOICES,
-        initial=AccreditationType.NONE,
-        required=False,
-        label=_("Accreditation type"),
-    )
     internal_comment = forms.CharField(
         required=False,
         strip=True,
@@ -793,9 +800,6 @@ class FacilitatorEditForm(forms.Form):
         label=_("Internal comment"),
         help_text=_("Visible to organizers only."),
     )
-
-    def clean_accreditation_type(self) -> str:
-        return self.cleaned_data.get("accreditation_type") or AccreditationType.NONE
 
 
 DISCOUNT_KIND_LABELS = {
