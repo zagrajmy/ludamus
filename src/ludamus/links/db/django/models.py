@@ -859,6 +859,10 @@ class Facilitator(SoftDeleteModel):
         blank=True,
         related_name="organized_facilitators",
     )
+    # A guild, club or the organizer crew itself — not one person, so several
+    # of its program points at the same hour are normal. The timetable skips
+    # its facilitator-overlap check for these.
+    is_collective = models.BooleanField(default=False)
     # Free-form organizer note, never shown to attendees.
     internal_comment = models.TextField(blank=True, default="")
 

@@ -81,6 +81,7 @@ class FacilitatorDTO(BaseModel):
     guild_id: int | None = None
     ident: str = ""
     internal_comment: str = ""
+    is_collective: bool = False
     organizer_id: int | None = None
     # Annotated by the single-facilitator reads, so a page showing the
     # organizer needs no second lookup. `create` and `update` return the row
@@ -96,6 +97,7 @@ class FacilitatorData(TypedDict, total=False):
     display_name: str
     event_id: int
     ident: str
+    is_collective: bool
     organizer_id: int | None
     slug: str
     user_id: int | None
@@ -106,6 +108,7 @@ class FacilitatorUpdateData(TypedDict, total=False):
     display_name: str
     guild_id: int | None
     internal_comment: str
+    is_collective: bool
     organizer_id: int | None
     user_id: int | None
 
