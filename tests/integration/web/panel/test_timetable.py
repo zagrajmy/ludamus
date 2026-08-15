@@ -1,7 +1,6 @@
 import math
 from datetime import UTC, datetime, timedelta
 from http import HTTPStatus
-from unittest.mock import ANY
 from urllib.parse import urlencode
 
 import pytest
@@ -804,7 +803,7 @@ class TestPanelBaseHeader:
             response,
             HTTPStatus.OK,
             template_name="panel/timetable.html",
-            context_data=ANY,
+            context_data=_page_context(event),
             contains='<span class="sidebar-label">Schedule</span>',
             not_contains="Harmonogram",
         )
@@ -823,7 +822,7 @@ class TestPanelBaseHeader:
             response,
             HTTPStatus.OK,
             template_name="panel/timetable.html",
-            context_data=ANY,
+            context_data=_page_context(event),
             contains="06 Aug 2026",
             not_contains="06 Aug - 06 Aug",
         )
@@ -842,6 +841,6 @@ class TestPanelBaseHeader:
             response,
             HTTPStatus.OK,
             template_name="panel/timetable.html",
-            context_data=ANY,
+            context_data=_page_context(event),
             contains="06 Aug - 08 Aug 2026",
         )

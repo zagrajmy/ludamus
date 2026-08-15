@@ -1,6 +1,5 @@
 from datetime import timedelta
 from http import HTTPStatus
-from unittest.mock import ANY
 
 import pytest
 from django.urls import reverse
@@ -280,12 +279,31 @@ class TestTimetableSessionListPartView:
             response,
             HTTPStatus.OK,
             template_name="panel/parts/timetable-session-list.html",
-            context_data=ANY,
+            context_data={
+                "sessions": [
+                    UnscheduledSessionDTO(
+                        pk=session.pk,
+                        title=session.title,
+                        display_name=session.display_name,
+                        category_name=proposal_category.name,
+                        category_pk=proposal_category.pk,
+                        duration_minutes=0,
+                        participants_limit=10,
+                    )
+                ],
+                "has_more": False,
+                "limit": UNSCHEDULED_LIST_LIMIT,
+                "categories": [ProposalCategoryDTO.model_validate(proposal_category)],
+                "search": "",
+                "category_pk": None,
+                "max_duration_minutes": None,
+                "duration_chips": [("≤30 min", 30), ("≤60 min", 60), ("≤90 min", 90)],
+                "filter_track_pk": None,
+                "date_selection": "all",
+                "slug": event.slug,
+            },
             contains="date=all",
         )
-        context = response.context
-        assert session.pk in [item.pk for item in context["sessions"]]
-        assert context["date_selection"] == "all"
 
     def test_caps_results_at_limit_and_flags_has_more(
         self, panel_client, event, proposal_category
