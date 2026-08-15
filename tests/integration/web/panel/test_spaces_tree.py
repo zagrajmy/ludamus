@@ -30,10 +30,11 @@ def _record(space):
     )
 
 
-def _node(space, *, is_leaf, children=None, track_names=None):
+def _node(space, *, is_leaf, children=None, track_names=None, has_sessions=False):
     return SpaceTreeNodeDTO(
         space=_record(space),
         is_leaf=is_leaf,
+        has_sessions=has_sessions,
         track_names=track_names or [],
         children=children or [],
     )
@@ -93,6 +94,24 @@ class TestSpacesTreePage:
                 "tree": [
                     _node(root, is_leaf=False, children=[_node(leaf, is_leaf=True)])
                 ],
+            },
+        )
+
+    def test_marks_a_space_holding_a_session(self, manager_client, event):
+        # has_sessions hides the "add a space inside" action: such a space
+        # cannot become a branch.
+        room = _root(event, "Hall")
+        AgendaItemFactory(space=room)
+
+        response = manager_client.get(_venues_url(event))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/spaces.html",
+            context_data={
+                **panel_context(event, active_nav="venues", rooms_count=1),
+                "tree": [_node(room, is_leaf=True, has_sessions=True)],
             },
         )
 

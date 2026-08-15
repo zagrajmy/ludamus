@@ -83,6 +83,7 @@ class SpaceTreeRepository(SpaceTreeRepositoryProtocol):
         children_by_parent: dict[int | None, list[Space]] = defaultdict(list)
         for space in spaces:
             children_by_parent[space.parent_id].append(space)
+        with_sessions = SpaceTreeRepository.space_pks_with_sessions(event_pk)
 
         def build(space: Space) -> SpaceTreeNodeDTO:
             # The tree facts come from the sibling map built above, so nothing
@@ -91,6 +92,7 @@ class SpaceTreeRepository(SpaceTreeRepositoryProtocol):
             return SpaceTreeNodeDTO(
                 space=SpaceRecordDTO.model_validate(space),
                 is_leaf=not kids,
+                has_sessions=space.pk in with_sessions,
                 track_names=sorted(t.name for t in space.tracks.all()),
                 children=[build(kid) for kid in kids],
             )

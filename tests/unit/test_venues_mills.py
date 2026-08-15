@@ -19,6 +19,7 @@ def _node(*, pk, name, children=()):
             order=0,
         ),
         is_leaf=not kids,
+        has_sessions=False,
         track_names=[],
         children=kids,
     )

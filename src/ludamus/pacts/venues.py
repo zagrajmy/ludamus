@@ -42,6 +42,7 @@ class SpaceTreeNodeDTO(BaseModel):
     # assembles the tree knows — so all of it is required, never defaulted.
     space: SpaceRecordDTO
     is_leaf: bool
+    has_sessions: bool
     track_names: list[str]
     children: list[SpaceTreeNodeDTO]
 

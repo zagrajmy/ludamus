@@ -35,11 +35,20 @@
             {% endif %}
         </div>
         <div class="flex shrink-0 items-center gap-1">
-            <a href="{% url 'panel:space-create-child' slug=current_event.slug parent_pk=node.space.pk %}"
-               class="icon-btn"
-               aria-label="{% blocktranslate with name=node.space.name %}Add a space inside {{ name }}{% endblocktranslate %}">
-                {% icon "plus" class="w-4 h-4" %}
-            </a>
+            {% if node.has_sessions %}
+                {% translate "A space holding a scheduled session cannot contain other spaces." as t_no_children %}
+                <button type="button"
+                        class="icon-btn cursor-not-allowed opacity-40"
+                        aria-disabled="true"
+                        title="{{ t_no_children }}"
+                        aria-label="{{ t_no_children }}">{% icon "plus" class="w-4 h-4" %}</button>
+            {% else %}
+                <a href="{% url 'panel:space-create-child' slug=current_event.slug parent_pk=node.space.pk %}"
+                   class="icon-btn"
+                   aria-label="{% blocktranslate with name=node.space.name %}Add a space inside {{ name }}{% endblocktranslate %}">
+                    {% icon "plus" class="w-4 h-4" %}
+                </a>
+            {% endif %}
             <a href="{% url 'panel:space-edit' slug=current_event.slug pk=node.space.pk %}"
                class="icon-btn"
                aria-label="{% blocktranslate with name=node.space.name %}Edit {{ name }}{% endblocktranslate %}">
