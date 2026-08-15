@@ -145,10 +145,8 @@ class EventsService:
     def create(self, *, sphere_id: int, data: EventCreateData) -> EventDTO:
         if data["end_time"] <= data["start_time"]:
             raise EventDatesInvalidError
-        if (
-            data["publication_time"] is not None
-            and data["publication_time"] > data["start_time"]
-        ):
+        publication_time = data["publication_time"]
+        if publication_time is not None and publication_time > data["start_time"]:
             raise EventPublicationInvalidError
         self._spheres.read(sphere_id)
         with self._transaction.atomic():

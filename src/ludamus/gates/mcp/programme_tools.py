@@ -8,6 +8,7 @@ from django.utils.text import slugify
 from pydantic import BaseModel, Field, StringConstraints, TypeAdapter, field_validator
 
 from ludamus.gates.mcp.organizer_context import actor_sphere, token_event
+from ludamus.gates.mcp.protocol import JsonDict
 from ludamus.gates.mcp.registry import Tool, ToolCall, ToolError
 from ludamus.pacts import NotFoundError
 from ludamus.pacts.chronology import SessionPlacement
@@ -33,12 +34,14 @@ from ludamus.pacts.timetable import PlacementRejectedError
 from ludamus.pacts.venues import SpaceInputDTO, SpaceTreeNodeDTO, SpaceValidationError
 
 if TYPE_CHECKING:
+    from collections.abc import Callable, Sequence
+
     from ludamus.gates.mcp.registry import ToolProtocol
     from ludamus.pacts.mcp import ActorContext
     from ludamus.pacts.services import ServicesProtocol
 
 _PROPOSAL_CATEGORY_LIST = TypeAdapter(list[ProposalCategoryDTO])
-_JSON_OBJECT = TypeAdapter(dict[str, object])
+_JSON_OBJECT: TypeAdapter[JsonDict] = TypeAdapter(JsonDict)
 type _NonBlankName = Annotated[
     str, StringConstraints(strip_whitespace=True, min_length=1, max_length=255)
 ]
@@ -384,6 +387,42 @@ class OrganizerFindOrCreateFacilitatorTool(Tool[_FindOrCreateFacilitatorInput]):
         return facilitator.model_dump_json(indent=2)
 
 
+def _batch_response[T](
+    items: Sequence[T],
+    *,
+    key_name: str,
+    key_of: Callable[[T], str | int],
+    payload_key: str,
+    run: Callable[[T], str],
+) -> str:
+    results: list[JsonDict] = []
+    failed = 0
+    for index, item in enumerate(items):
+        entry: JsonDict = {"index": index, key_name: key_of(item)}
+        try:
+            item_json = run(item)
+        except (NotFoundError, ToolError) as error:
+            failed += 1
+            reason = "Resource not found" if isinstance(error, NotFoundError) else error
+            entry |= {"status": "failed", "error": str(reason)}
+        else:
+            entry |= {
+                "status": "ok",
+                payload_key: _JSON_OBJECT.validate_json(item_json),
+            }
+        results.append(entry)
+    summary: JsonDict = {
+        "total": len(results),
+        "succeeded": len(results) - failed,
+        "failed": failed,
+    }
+    body: JsonDict = {"summary": summary, "results": results}
+    response = json.dumps(body)
+    if failed:
+        raise ToolError(response)
+    return response
+
+
 class _CreateSessionInput(BaseModel):
     source_row_id: str = Field(
         max_length=64, description="Deterministic idempotency key for this source row"
@@ -497,55 +536,16 @@ class OrganizerCreateSessionsTool(Tool[_CreateSessionsInput]):
 
     @staticmethod
     def handle(call: ToolCall[_CreateSessionsInput]) -> str:
-        results: list[dict[str, object]] = []
-        failed = 0
         event = token_event(services=call.services, actor=call.actor)
-        for index, session in enumerate(call.data.sessions):
-            try:
-                result = _create_session(
-                    services=call.services, event=event, data=session
-                )
-            except NotFoundError:
-                failed += 1
-                results.append(
-                    {
-                        "index": index,
-                        "source_row_id": session.source_row_id,
-                        "status": "failed",
-                        "error": "Resource not found",
-                    }
-                )
-            except ToolError as error:
-                failed += 1
-                results.append(
-                    {
-                        "index": index,
-                        "source_row_id": session.source_row_id,
-                        "status": "failed",
-                        "error": str(error),
-                    }
-                )
-            else:
-                results.append(
-                    {
-                        "index": index,
-                        "source_row_id": session.source_row_id,
-                        "status": "ok",
-                        "session": _JSON_OBJECT.validate_json(result),
-                    }
-                )
-        payload: dict[str, object] = {
-            "summary": {
-                "total": len(results),
-                "succeeded": len(results) - failed,
-                "failed": failed,
-            },
-            "results": results,
-        }
-        response = json.dumps(payload)
-        if failed:
-            raise ToolError(response)
-        return response
+        return _batch_response(
+            call.data.sessions,
+            key_name="source_row_id",
+            key_of=lambda session: session.source_row_id,
+            payload_key="session",
+            run=lambda session: _create_session(
+                services=call.services, event=event, data=session
+            ),
+        )
 
 
 class _AssignSessionInput(_AwareDatetimeRange):
@@ -573,8 +573,8 @@ def _assign_session(
         )
     except PlacementRejectedError as error:
         raise ToolError(str(error)) from error
-    result: dict[str, int] = {"session_id": data.session_id, "space_id": data.space_id}
-    return json.dumps(result)
+    placement: JsonDict = {"session_id": data.session_id, "space_id": data.space_id}
+    return json.dumps(placement)
 
 
 class OrganizerAssignSessionTool(Tool[_AssignSessionInput]):
@@ -620,58 +620,16 @@ class OrganizerAssignSessionsTool(Tool[_AssignSessionsInput]):
 
     @staticmethod
     def handle(call: ToolCall[_AssignSessionsInput]) -> str:
-        results: list[dict[str, object]] = []
-        failed = 0
         event = token_event(services=call.services, actor=call.actor)
-        for index, assignment in enumerate(call.data.assignments):
-            try:
-                result = _assign_session(
-                    services=call.services,
-                    actor=call.actor,
-                    event=event,
-                    data=assignment,
-                )
-            except NotFoundError:
-                failed += 1
-                results.append(
-                    {
-                        "index": index,
-                        "session_id": assignment.session_id,
-                        "status": "failed",
-                        "error": "Resource not found",
-                    }
-                )
-            except ToolError as error:
-                failed += 1
-                results.append(
-                    {
-                        "index": index,
-                        "session_id": assignment.session_id,
-                        "status": "failed",
-                        "error": str(error),
-                    }
-                )
-            else:
-                results.append(
-                    {
-                        "index": index,
-                        "session_id": assignment.session_id,
-                        "status": "ok",
-                        "assignment": _JSON_OBJECT.validate_json(result),
-                    }
-                )
-        payload: dict[str, object] = {
-            "summary": {
-                "total": len(results),
-                "succeeded": len(results) - failed,
-                "failed": failed,
-            },
-            "results": results,
-        }
-        response = json.dumps(payload)
-        if failed:
-            raise ToolError(response)
-        return response
+        return _batch_response(
+            call.data.assignments,
+            key_name="session_id",
+            key_of=lambda assignment: assignment.session_id,
+            payload_key="assignment",
+            run=lambda assignment: _assign_session(
+                services=call.services, actor=call.actor, event=event, data=assignment
+            ),
+        )
 
 
 def programme_tools() -> tuple[ToolProtocol, ...]:
