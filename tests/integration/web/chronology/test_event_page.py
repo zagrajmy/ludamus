@@ -12,6 +12,7 @@ from django.test import override_settings
 from django.test.utils import CaptureQueriesContext
 from django.urls import resolve, reverse
 from django.utils import timezone
+from freezegun import freeze_time
 
 from ludamus.adapters.web.django.views import EventPageView
 from ludamus.gates.web.django.chronology.event_presentation import (
@@ -333,8 +334,16 @@ class TestEventPageView:
         )
 
     def test_ok_compact_schedule_renders_all_row_variants(
-        self, client, event, space, monkeypatch
+        self, client, event, space, monkeypatch, request
     ):
+        # Pinned to local midday: the ended and ongoing sessions sit 3h and 1h
+        # back and one of them straddles the clock, so a run after midnight
+        # would spread them over two local dates and split the first day.
+        freezer = freeze_time(
+            timezone.localtime().replace(hour=12, minute=0, second=0, microsecond=0)
+        )
+        freezer.start()
+        request.addfinalizer(freezer.stop)
         monkeypatch.setattr(
             "ludamus.adapters.web.django.views.COMPACT_SCHEDULE_MIN_SESSIONS", 1
         )
