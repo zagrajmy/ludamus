@@ -57,7 +57,7 @@ def _descriptions(response):
 
 def _get_ok(client, url, template_name, **extra):
     response = client.get(url, **extra)
-    assert_rendered(response, template_name)
+    assert_rendered(response=response, template_name=template_name)
     return response
 
 

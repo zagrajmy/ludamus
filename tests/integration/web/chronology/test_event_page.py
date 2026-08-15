@@ -60,7 +60,7 @@ from tests.integration.conftest import (
     TimeSlotFactory,
     UserFactory,
 )
-from tests.integration.utils import assert_response
+from tests.integration.utils import assert_rendered, assert_response
 from tests.integration.web.chronology.helpers import make_half_full_session
 
 
@@ -543,10 +543,8 @@ class TestEventPageView:
                 kwargs={"event_slug": event.slug, "session_id": scarce.pk},
             )
         )
-        assert_response(
-            modal,
-            HTTPStatus.OK,
-            context_data=modal.context_data,
+        assert_rendered(
+            response=modal,
             template_name="chronology/parts/session-modal.html",
             contains="4/5",
         )
@@ -3916,10 +3914,8 @@ class TestEventPageEditAffordance:
                 kwargs={"event_slug": event.slug, "session_id": session.pk},
             )
         )
-        assert_response(
-            modal,
-            HTTPStatus.OK,
-            context_data=modal.context_data,
+        assert_rendered(
+            response=modal,
             template_name="chronology/parts/session-modal.html",
             contains=[edit_url, f'data-edit-open="{session.pk}"'],
         )

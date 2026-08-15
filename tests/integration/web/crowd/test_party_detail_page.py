@@ -50,6 +50,28 @@ def _context(party_dto, **overrides):
     return context
 
 
+# Matches the party detail context by the location path of each history card.
+# TestPartyDetailSessionHistory asserts that context exhaustively.
+class HistoryPaths:
+    def __init__(self, paths: list[str]) -> None:
+        self.paths = paths
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, dict):
+            return NotImplemented
+        return [
+            card.loc["path"]
+            for group in other.get("history", [])
+            for card in group["cards"]
+        ] == self.paths
+
+    def __hash__(self) -> int:
+        return hash(tuple(self.paths))
+
+    def __repr__(self) -> str:
+        return f"HistoryPaths({self.paths!r})"
+
+
 class TestPartyDetailPageView:
     def test_get_led_party_shows_members_and_forms(
         self, authenticated_client, active_user, companion
@@ -320,6 +342,7 @@ class TestPartyDetailSessionHistory:
         root = SpaceFactory(event=session.event, name="Root")
         branch = SpaceFactory(event=session.event, name="Branch", parent=root)
         leaf = SpaceFactory(event=session.event, name="Leaf", parent=branch)
+        shallow_path = str(agenda_item.space)
         authenticated_client.get(_url(party))
 
         with CaptureQueriesContext(connection) as shallow_queries:
@@ -333,19 +356,16 @@ class TestPartyDetailSessionHistory:
         assert_response(
             shallow_response,
             HTTPStatus.OK,
-            context_data=shallow_response.context_data,
+            context_data=HistoryPaths([shallow_path]),
             template_name=TEMPLATE,
         )
         assert_response(
             deep_response,
             HTTPStatus.OK,
-            context_data=deep_response.context_data,
+            context_data=HistoryPaths(["Root > Branch > Leaf"]),
             template_name=TEMPLATE,
         )
         assert len(deep_queries) == len(shallow_queries)
-        assert deep_response.context["history"][0]["cards"][0].loc["path"] == (
-            "Root > Branch > Leaf"
-        )
 
     def test_event_ban_lookup_is_one_query_across_history_groups(
         self, authenticated_client, active_user, session, agenda_item
