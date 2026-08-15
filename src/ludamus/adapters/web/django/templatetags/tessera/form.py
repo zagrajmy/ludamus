@@ -41,8 +41,14 @@ def tessera_form(form: BaseForm, *, layout: str = "vertical") -> str:
         {% tessera_form form %}
         {% tessera_form form layout="horizontal" %}
     """
-    return format_html_join(
-        "\n", "{}", ((tessera_field(field, layout=layout),) for field in form)
+    # Non-field errors first: a view that calls form.add_error(None, ...) would
+    # otherwise re-render the form with no visible sign anything went wrong.
+    return format_html(
+        "{}\n{}",
+        render_form_errors(form),
+        format_html_join(
+            "\n", "{}", ((tessera_field(field, layout=layout),) for field in form)
+        ),
     )
 
 
