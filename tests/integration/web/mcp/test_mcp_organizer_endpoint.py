@@ -241,6 +241,11 @@ class TestOrganizerTools:
 
         assert json.loads(tool_text(response))["pk"] == event.pk
 
+    def test_get_current_event_returns_token_event(self, client, org_token, event):
+        response = call_org_tool(client, org_token, "get_current_event", {})
+
+        assert json.loads(tool_text(response))["pk"] == event.pk
+
     def test_list_spaces_reads_sibling_event_in_sphere(self, client, org_token, sphere):
         sibling = EventFactory(sphere=sphere)
 
@@ -393,7 +398,12 @@ class TestOrganizerProgrammeTools:
         )
         track = json.loads(
             tool_text(
-                call_org_tool(client, org_token, "create_track", {"name": "Main"})
+                call_org_tool(
+                    client,
+                    org_token,
+                    "create_track",
+                    {"name": "Main", "space_ids": [room["pk"]]},
+                )
             )
         )
         facilitator = json.loads(
@@ -480,6 +490,31 @@ class TestOrganizerProgrammeTools:
                 "parent_id": venue["pk"],
             }
         ]
+        assert json.loads(
+            tool_text(
+                call_org_tool(
+                    client,
+                    org_token,
+                    "list_spaces",
+                    {"event_id": event.pk, "include_internal": True},
+                )
+            )
+        ) == [
+            {
+                "pk": venue["pk"],
+                "name": "Venue",
+                "path": "Venue",
+                "capacity": None,
+                "parent_id": None,
+            },
+            {
+                "pk": room["pk"],
+                "name": "Aula A",
+                "path": "Venue > Aula A",
+                "capacity": None,
+                "parent_id": venue["pk"],
+            },
+        ]
         assert (
             len(
                 json.loads(
@@ -492,16 +527,19 @@ class TestOrganizerProgrammeTools:
             )
             == 1
         )
-        assert (
-            json.loads(
-                tool_text(
-                    call_org_tool(
-                        client, org_token, "list_tracks", {"event_id": event.pk}
-                    )
-                )
-            )[0]["pk"]
-            == track["pk"]
-        )
+        assert json.loads(
+            tool_text(
+                call_org_tool(client, org_token, "list_tracks", {"event_id": event.pk})
+            )
+        )[0] == {
+            "pk": track["pk"],
+            "name": "Main",
+            "slug": "main",
+            "is_public": True,
+            "space_names": ["Aula A"],
+            "space_ids": [room["pk"]],
+            "manager_names": [],
+        }
         assert (
             json.loads(
                 tool_text(

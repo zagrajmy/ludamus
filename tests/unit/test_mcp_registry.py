@@ -52,6 +52,7 @@ ORGANIZER_TOOL_NAMES = [
     "get_sphere",
     "list_events",
     "get_event",
+    "get_current_event",
     "list_spaces",
     "list_time_slots",
     "list_tracks",

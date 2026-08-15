@@ -56,8 +56,19 @@ class _AwareDatetimeRange(BaseModel):
         return value
 
 
+class _EmptyInput(BaseModel):
+    pass
+
+
 class _EventIdInput(BaseModel):
     event_id: int = Field(description="Event primary key (see list_events / get_event)")
+
+
+class _ListSpacesInput(_EventIdInput):
+    include_internal: bool = Field(
+        default=False,
+        description="Include venue and area nodes, not only assignable leaves",
+    )
 
 
 def _require_event(call: ToolCall[_EventIdInput]) -> EventDTO:
@@ -74,14 +85,14 @@ class _SpaceLeaf(BaseModel):
     parent_id: int | None
 
 
-def _flatten_leaves(
-    nodes: list[SpaceTreeNodeDTO], *, prefix: str = ""
+def _flatten_spaces(
+    nodes: list[SpaceTreeNodeDTO], *, include_internal: bool, prefix: str = ""
 ) -> list[_SpaceLeaf]:
-    leaves: list[_SpaceLeaf] = []
+    spaces: list[_SpaceLeaf] = []
     for node in nodes:
         path = f"{prefix} > {node.space.name}" if prefix else node.space.name
-        if node.is_leaf:
-            leaves.append(
+        if include_internal or node.is_leaf:
+            spaces.append(
                 _SpaceLeaf(
                     pk=node.space.pk,
                     name=node.space.name,
@@ -90,24 +101,44 @@ def _flatten_leaves(
                     parent_id=node.space.parent_id,
                 )
             )
-        leaves.extend(_flatten_leaves(node.children, prefix=path))
-    return leaves
+        spaces.extend(
+            _flatten_spaces(
+                node.children, include_internal=include_internal, prefix=path
+            )
+        )
+    return spaces
 
 
-class OrganizerListSpacesTool(Tool[_EventIdInput]):
-    name = "list_spaces"
-    description = (
-        "List leaf spaces (rooms) for an event, with path labels through the "
-        "venue/area tree."
-    )
+class OrganizerCurrentEventTool(Tool[_EmptyInput]):
+    name = "get_current_event"
+    description = "Get the event this organizer token can write to."
     scope = ToolScope.ORGANIZER
-    input_model = _EventIdInput
+    input_model = _EmptyInput
 
     @staticmethod
-    def handle(call: ToolCall[_EventIdInput]) -> str:
+    def handle(call: ToolCall[_EmptyInput]) -> str:
+        return token_event(services=call.services, actor=call.actor).model_dump_json(
+            indent=2
+        )
+
+
+class OrganizerListSpacesTool(Tool[_ListSpacesInput]):
+    name = "list_spaces"
+    description = (
+        "List spaces for an event, with path labels through the venue/area tree. "
+        "Returns assignable leaves unless include_internal is true."
+    )
+    scope = ToolScope.ORGANIZER
+    input_model = _ListSpacesInput
+
+    @staticmethod
+    def handle(call: ToolCall[_ListSpacesInput]) -> str:
         event = _require_event(call)
-        leaves = _flatten_leaves(call.services.space_tree.list_tree(event.pk))
-        return TypeAdapter(list[_SpaceLeaf]).dump_json(leaves, indent=2).decode()
+        spaces = _flatten_spaces(
+            call.services.space_tree.list_tree(event.pk),
+            include_internal=call.data.include_internal,
+        )
+        return TypeAdapter(list[_SpaceLeaf]).dump_json(spaces, indent=2).decode()
 
 
 class OrganizerListTimeSlotsTool(Tool[_EventIdInput]):
@@ -123,6 +154,21 @@ class OrganizerListTimeSlotsTool(Tool[_EventIdInput]):
         return TypeAdapter(list[TimeSlotDTO]).dump_json(slots, indent=2).decode()
 
 
+class _TrackListItem(TrackListItemDTO):
+    space_ids: list[int]
+
+
+def _space_ids_by_track(nodes: list[SpaceTreeNodeDTO]) -> dict[str, list[int]]:
+    result: dict[str, list[int]] = {}
+    for node in nodes:
+        for track_name in node.track_names:
+            result.setdefault(track_name, []).append(node.space.pk)
+        child_ids = _space_ids_by_track(node.children)
+        for track_name, space_ids in child_ids.items():
+            result.setdefault(track_name, []).extend(space_ids)
+    return result
+
+
 class OrganizerListTracksTool(Tool[_EventIdInput]):
     name = "list_tracks"
     description = "List programme tracks (bloki) for an event."
@@ -132,8 +178,25 @@ class OrganizerListTracksTool(Tool[_EventIdInput]):
     @staticmethod
     def handle(call: ToolCall[_EventIdInput]) -> str:
         event = _require_event(call)
-        tracks = call.services.tracks_panel.list_tracks(event.pk)
-        return TypeAdapter(list[TrackListItemDTO]).dump_json(tracks, indent=2).decode()
+        tracks: list[TrackListItemDTO] = call.services.tracks_panel.list_tracks(
+            event.pk
+        )
+        space_ids_by_track = _space_ids_by_track(
+            call.services.space_tree.list_tree(event.pk)
+        )
+        result = [
+            _TrackListItem(
+                pk=track.pk,
+                name=track.name,
+                slug=track.slug,
+                is_public=track.is_public,
+                space_names=track.space_names,
+                manager_names=track.manager_names,
+                space_ids=sorted(space_ids_by_track.get(track.name, [])),
+            )
+            for track in tracks
+        ]
+        return TypeAdapter(list[_TrackListItem]).dump_json(result, indent=2).decode()
 
 
 class OrganizerListProposalCategoriesTool(Tool[_EventIdInput]):
@@ -613,6 +676,7 @@ class OrganizerAssignSessionsTool(Tool[_AssignSessionsInput]):
 
 def programme_tools() -> tuple[ToolProtocol, ...]:
     return (
+        OrganizerCurrentEventTool(),
         OrganizerListSpacesTool(),
         OrganizerListTimeSlotsTool(),
         OrganizerListTracksTool(),

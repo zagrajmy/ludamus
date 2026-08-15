@@ -93,6 +93,9 @@ in input order and report failures per item; successful items remain committed.
 `create_sessions` is safe to retry because `source_row_id` is event-scoped and
 idempotent. Retrying an identical assignment is a no-op.
 
+The [POLCON 2026 programme sync runbook](polcon26-programme-sync.md) documents
+one monitored spreadsheet import, including dry-run review and retry limits.
+
 ## Adding a tool
 
 1. Subclass `Tool[YourInput]` in `gates/mcp/tools.py`: pydantic input model
