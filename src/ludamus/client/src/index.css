@@ -667,6 +667,12 @@ button:active {
     @apply rounded-md before:absolute before:inset-0 before:rounded-md before:border before:border-transparent before:bg-foreground before:opacity-3 before:transition before:duration-150 hover:duration-0 hover:before:opacity-0 hover:before:duration-0 dark:hover:before:opacity-10;
   }
 
+  .icon-btn:disabled,
+  .icon-btn[aria-disabled="true"] {
+    opacity: 0.3;
+    cursor: not-allowed;
+  }
+
   .icon-btn:hover {
     box-shadow: inset 0 0 0 1.25px var(--color-border);
   }
