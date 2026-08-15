@@ -9,6 +9,7 @@ from typing import cast
 from zoneinfo import ZoneInfo
 
 from scripts.polcon26.workbook import (
+    SHEETS,
     SheetData,
     column_index,
     column_name,
@@ -16,14 +17,12 @@ from scripts.polcon26.workbook import (
     row_number,
 )
 
-SHEETS = ("Piątek", "Sobota", "Niedziela")
 SHEET_DATES = {
     "Piątek": date(2026, 9, 25),
     "Sobota": date(2026, 9, 26),
     "Niedziela": date(2026, 9, 27),
 }
 WARSAW = ZoneInfo("Europe/Warsaw")
-BATCH_LIMIT = 250
 HEADER_ROW = 3
 FIRST_PROGRAMME_COLUMN = 2
 MIN_PRESENTER_NAME_LENGTH = 2

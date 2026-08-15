@@ -251,16 +251,25 @@ function postPlacement(
   body.append("csrfmiddlewaretoken", csrfToken());
 
   fetch(grid().dataset.assignUrl!, { body, method: "POST" })
-    .then((resp) => {
+    .then(async (resp) => {
       if (resp.ok) {
         document.body.dispatchEvent(new CustomEvent("timetableChanged"));
         if (placement.backUrl) {
           htmx.ajax("GET", placement.backUrl, { swap: "outerHTML", target: "#left-pane" });
         }
-      } else {
-        alert(`Could not place session (server returned ${resp.status}). ` + `Please try again.`);
-        onFail();
+        return;
       }
+      // The view answers a rejected placement with the reason as plain text;
+      // a status code alone tells the organizer nothing they can act on.
+      let reason = "";
+      try {
+        const text = await resp.text();
+        reason = text.trim();
+      } catch {
+        reason = "";
+      }
+      alert(reason || `Could not place session (server returned ${resp.status}).`);
+      onFail();
     })
     .catch(() => {
       alert("Network error placing session. Please try again.");

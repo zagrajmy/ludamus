@@ -13,7 +13,7 @@ from ludamus.gates.mcp.registry import Tool, ToolCall, ToolError
 from ludamus.pacts import NotFoundError
 from ludamus.pacts.chronology import SessionPlacement
 from ludamus.pacts.durations import normalize_duration
-from ludamus.pacts.event import FacilitatorListItemDTO
+from ludamus.pacts.event import FacilitatorListItemDTO, TimeSlotRejectedError
 from ludamus.pacts.legacy import (
     EventDTO,
     ProposalCategoryDTO,
@@ -272,13 +272,14 @@ class OrganizerCreateTimeSlotTool(Tool[_CreateTimeSlotInput]):
     @staticmethod
     def handle(call: ToolCall[_CreateTimeSlotInput]) -> str:
         event = token_event(services=call.services, actor=call.actor)
-        errors, created = call.services.panel_time_slots.create(
-            event=event, start_time=call.data.start_time, end_time=call.data.end_time
-        )
-        if errors:
-            raise ToolError(", ".join(error.value for error in errors))
-        if created is None:
-            raise ToolError("Could not create time slot")
+        try:
+            created = call.services.panel_time_slots.create(
+                event=event,
+                start_time=call.data.start_time,
+                end_time=call.data.end_time,
+            )
+        except TimeSlotRejectedError as error:
+            raise ToolError(str(error)) from error
         return created.model_dump_json(indent=2)
 
 
@@ -363,7 +364,7 @@ class OrganizerFindOrCreateFacilitatorTool(Tool[_FindOrCreateFacilitatorInput]):
 
 
 def _batch_audit_arguments(
-    arguments: dict[str, object], *, key: str, count_key: str, item_key: str
+    arguments: JsonDict, *, key: str, count_key: str, item_key: str
 ) -> JsonDict:
     items = arguments.get(key)
     if not isinstance(items, list):
@@ -527,7 +528,7 @@ class OrganizerCreateSessionsTool(Tool[_CreateSessionsInput]):
     input_model = _CreateSessionsInput
 
     @classmethod
-    def audit_arguments(cls, arguments: dict[str, object]) -> object:
+    def audit_arguments(cls, arguments: JsonDict) -> object:
         return _batch_audit_arguments(
             arguments,
             key="sessions",
@@ -620,7 +621,7 @@ class OrganizerAssignSessionsTool(Tool[_AssignSessionsInput]):
     input_model = _AssignSessionsInput
 
     @classmethod
-    def audit_arguments(cls, arguments: dict[str, object]) -> object:
+    def audit_arguments(cls, arguments: JsonDict) -> object:
         return _batch_audit_arguments(
             arguments,
             key="assignments",

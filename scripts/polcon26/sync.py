@@ -66,16 +66,9 @@ def main() -> int:
     if not (token := os.environ.get("LUDAMUS_ORGANIZER_MCP_TOKEN", "")):
         raise McpError("LUDAMUS_ORGANIZER_MCP_TOKEN is required with --apply")
     client = McpClient(endpoint=args.endpoint, token=token)
-    space_ids, category_ids, facilitator_ids, track_ids = ensure_supporting_data(
-        client=client, event_id=args.event_id, items=items
-    )
+    refs = ensure_supporting_data(client=client, event_id=args.event_id, items=items)
     session_count, assignment_count = create_and_assign_sessions(
-        client=client,
-        items=items,
-        space_ids=space_ids,
-        category_ids=category_ids,
-        facilitator_ids=facilitator_ids,
-        track_ids=track_ids,
+        client=client, items=items, refs=refs
     )
     print(
         f"Applied {session_count} sessions and {assignment_count} assignments. "

@@ -204,8 +204,9 @@ class TestProposalPanelService:
         session_fields.list_by_event.return_value = [
             SimpleNamespace(pk=3, field_type="select", order=0, name="System")
         ]
-        facilitators.read.return_value = SimpleNamespace(event_id=1)
-        tracks.read.return_value = SimpleNamespace(event_id=1)
+        facilitators.list_by_event.return_value = [SimpleNamespace(pk=7)]
+        tracks.list_by_event.return_value = [SimpleNamespace(pk=4)]
+        time_slots.list_by_event.return_value = [SimpleNamespace(pk=9)]
 
         proposal_id = service.create_proposal(
             event_id=1,
@@ -233,7 +234,7 @@ class TestProposalPanelService:
             _NEW_PROPOSAL_ID,
             [{"session_id": _NEW_PROPOSAL_ID, "field_id": 3, "value": "D&D 5e"}],
         )
-        time_slots.read_by_event.assert_called_once_with(1, 9)
+        time_slots.list_by_event.assert_called_once_with(1)
         sessions.set_time_slots.assert_called_once_with(_NEW_PROPOSAL_ID, [9])
         sessions.set_session_tracks.assert_called_once_with(_NEW_PROPOSAL_ID, [4])
 
@@ -249,7 +250,7 @@ class TestProposalPanelService:
         sessions.create.assert_not_called()
 
     def test_create_rejects_foreign_facilitator(self, service, sessions, facilitators):
-        facilitators.read.return_value = SimpleNamespace(event_id=2)
+        facilitators.list_by_event.return_value = []
 
         with pytest.raises(NotFoundError):
             service.create_proposal(

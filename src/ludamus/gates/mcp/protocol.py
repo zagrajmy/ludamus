@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING, Literal
 
 from ludamus.gates.mcp.registry import (
     InvalidArgumentsError,
+    JsonDict,
     ToolError,
     UnknownToolError,
 )
@@ -34,7 +35,6 @@ INVALID_PARAMS = -32602
 
 logger = logging.getLogger(__name__)
 
-type JsonDict = dict[str, object]
 type ToolOutcome = Literal[
     "ok", "error", "invalid-arguments", "invalid-params", "unknown-tool"
 ]

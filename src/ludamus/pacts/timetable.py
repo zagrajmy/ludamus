@@ -1,11 +1,15 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from enum import StrEnum
 from typing import TYPE_CHECKING, Protocol
 
 
-class PlacementRejectedError(Exception):
-    pass
+class PlacementRejection(StrEnum):
+    NAIVE_DATETIME = "naive_datetime"
+    END_NOT_AFTER_START = "end_not_after_start"
+    OUTSIDE_TIME_SLOTS = "outside_time_slots"
+    SESSION_NOT_ACCEPTED = "session_not_accepted"
 
 
 if TYPE_CHECKING:
@@ -32,6 +36,12 @@ if TYPE_CHECKING:
         TimeSlotRepositoryProtocol,
         TrackRepositoryProtocol,
     )
+
+
+class PlacementRejectedError(Exception):
+    def __init__(self, reason: PlacementRejection, message: str) -> None:
+        super().__init__(message)
+        self.reason = reason
 
 
 @dataclass

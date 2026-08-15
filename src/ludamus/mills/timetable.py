@@ -43,6 +43,7 @@ from ludamus.pacts.chronology import (
 from ludamus.pacts.timetable import (
     ConflictDetectionServiceProtocol,
     PlacementRejectedError,
+    PlacementRejection,
     TimetableOverviewServiceProtocol,
     TimetableServiceProtocol,
 )
@@ -434,7 +435,8 @@ class TimetableService(TimetableServiceProtocol):
             for start, end in ranges
         ):
             raise PlacementRejectedError(
-                "placement must fit within an event time-slot window"
+                PlacementRejection.OUTSIDE_TIME_SLOTS,
+                "placement must fit within an event time-slot window",
             )
 
     def assign_session(
@@ -449,9 +451,15 @@ class TimetableService(TimetableServiceProtocol):
             placement.start_time.utcoffset() is None
             or placement.end_time.utcoffset() is None
         ):
-            raise PlacementRejectedError("placement datetimes must include a timezone")
+            raise PlacementRejectedError(
+                PlacementRejection.NAIVE_DATETIME,
+                "placement datetimes must include a timezone",
+            )
         if placement.end_time <= placement.start_time:
-            raise PlacementRejectedError("end_time must be after start_time")
+            raise PlacementRejectedError(
+                PlacementRejection.END_NOT_AFTER_START,
+                "end_time must be after start_time",
+            )
         with self._transaction.atomic():
             require_session_in_event(
                 sessions=self._repos.sessions, session_pk=session_pk, event_pk=event_pk
@@ -474,7 +482,9 @@ class TimetableService(TimetableServiceProtocol):
             session = self._repos.sessions.read(session_pk)
             if session.status != SessionStatus.ACCEPTED:
                 msg = f"Session {session_pk} is not in ACCEPTED status"
-                raise PlacementRejectedError(msg)
+                raise PlacementRejectedError(
+                    PlacementRejection.SESSION_NOT_ACCEPTED, msg
+                )
             event = self._repos.sessions.read_event(session_pk)
             self._repos.agenda_items.create(
                 {

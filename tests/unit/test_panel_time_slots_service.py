@@ -5,7 +5,7 @@ import pytest
 
 from ludamus.mills.panel_time_slots import PanelTimeSlotsService
 from ludamus.pacts import EventDTO, NotFoundError, TimeSlotDTO
-from ludamus.pacts.event import TimeSlotValidationError
+from ludamus.pacts.event import TimeSlotRejectedError, TimeSlotValidationError
 
 _EVENT_ID = 42
 
@@ -79,9 +79,8 @@ class TestPanelTimeSlotsService:
         start = datetime(2026, 6, 1, 13, 0, tzinfo=UTC)
         end = datetime(2026, 6, 1, 15, 0, tzinfo=UTC)
 
-        errors, created = service.create(event=_event(), start_time=start, end_time=end)
+        created = service.create(event=_event(), start_time=start, end_time=end)
 
-        assert errors == []
         assert created is created_slot
         transaction.atomic.assert_called_once_with()
         time_slots.list_by_event.assert_called_once_with(_EVENT_ID)
@@ -92,10 +91,10 @@ class TestPanelTimeSlotsService:
         start = datetime(2026, 6, 1, 11, 0, tzinfo=UTC)
         end = datetime(2026, 6, 1, 13, 0, tzinfo=UTC)
 
-        errors, created = service.create(event=_event(), start_time=start, end_time=end)
+        with pytest.raises(TimeSlotRejectedError) as excinfo:
+            service.create(event=_event(), start_time=start, end_time=end)
 
-        assert errors == [TimeSlotValidationError.OVERLAPS_EXISTING_SLOT]
-        assert created is None
+        assert excinfo.value.errors == [TimeSlotValidationError.OVERLAPS_EXISTING_SLOT]
         time_slots.create.assert_not_called()
 
     def test_create_returns_outside_event_dates_for_slot_before_event(
@@ -105,10 +104,10 @@ class TestPanelTimeSlotsService:
         start = datetime(2026, 6, 1, 8, 0, tzinfo=UTC)
         end = datetime(2026, 6, 1, 9, 30, tzinfo=UTC)
 
-        errors, created = service.create(event=_event(), start_time=start, end_time=end)
+        with pytest.raises(TimeSlotRejectedError) as excinfo:
+            service.create(event=_event(), start_time=start, end_time=end)
 
-        assert errors == [TimeSlotValidationError.OUTSIDE_EVENT_DATES]
-        assert created is None
+        assert excinfo.value.errors == [TimeSlotValidationError.OUTSIDE_EVENT_DATES]
         time_slots.create.assert_not_called()
 
     def test_create_accumulates_every_broken_rule(self, service, time_slots):
@@ -116,13 +115,13 @@ class TestPanelTimeSlotsService:
         start = datetime(2026, 6, 1, 8, 0, tzinfo=UTC)
         end = datetime(2026, 6, 1, 7, 0, tzinfo=UTC)
 
-        errors, created = service.create(event=_event(), start_time=start, end_time=end)
+        with pytest.raises(TimeSlotRejectedError) as excinfo:
+            service.create(event=_event(), start_time=start, end_time=end)
 
-        assert errors == [
+        assert excinfo.value.errors == [
             TimeSlotValidationError.START_NOT_BEFORE_END,
             TimeSlotValidationError.OUTSIDE_EVENT_DATES,
         ]
-        assert created is None
         time_slots.create.assert_not_called()
 
     def test_update_persists_valid_slot_scoped_to_event(

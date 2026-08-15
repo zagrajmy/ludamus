@@ -13,6 +13,7 @@ from django.shortcuts import redirect
 from django.template.response import TemplateResponse
 from django.urls import reverse
 from django.utils.timezone import get_current_timezone
+from django.utils.translation import gettext as _
 from django.views.generic.base import View
 
 from ludamus.gates.web.django.chronology.panel.views.base import (
@@ -36,7 +37,7 @@ from ludamus.pacts.chronology import (
     SessionPlacement,
     TimetableGridFilter,
 )
-from ludamus.pacts.timetable import PlacementRejectedError
+from ludamus.pacts.timetable import PlacementRejectedError, PlacementRejection
 
 if TYPE_CHECKING:
     from ludamus.pacts.legacy import TrackDTO
@@ -93,6 +94,14 @@ def _as_pk(raw: str) -> int | None:
 
 
 _FACILITATOR_OPTION_LIMIT = 25
+
+
+def _placement_rejection_message(error: PlacementRejectedError) -> str:
+    if error.reason is PlacementRejection.OUTSIDE_TIME_SLOTS:
+        return _("Place the session inside one of the event's time slots.")
+    if error.reason is PlacementRejection.SESSION_NOT_ACCEPTED:
+        return _("Only accepted sessions can be placed on the schedule.")
+    return _("This placement is invalid.")
 
 
 class _FacilitatorOptions(NamedTuple):
@@ -490,7 +499,9 @@ class TimetableAssignView(PanelAccessMixin, EventContextMixin, View):
                 event_pk=current_event.pk,
                 user_pk=self.request.user.pk,
             )
-        except PlacementRejectedError, NotFoundError:
+        except PlacementRejectedError as error:
+            return HttpResponse(_placement_rejection_message(error), status=422)
+        except NotFoundError:
             return HttpResponse(status=422)
 
         self.request.services.waitlist_promotion.fill_freed_seats(session_id=session_pk)

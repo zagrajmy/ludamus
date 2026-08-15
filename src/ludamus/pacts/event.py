@@ -75,6 +75,12 @@ class TimeSlotValidationError(StrEnum):
     OVERLAPS_EXISTING_SLOT = "overlaps_existing_slot"
 
 
+class TimeSlotRejectedError(Exception):
+    def __init__(self, errors: list[TimeSlotValidationError]) -> None:
+        super().__init__(", ".join(error.value for error in errors))
+        self.errors = errors
+
+
 class EventPanelContextDTO(BaseModel):
     events: list[EventDTO]
     current_event: EventDTO
@@ -214,7 +220,7 @@ class PanelTimeSlotsServiceProtocol(Protocol):
     def read(self, *, event_id: int, pk: int) -> TimeSlotDTO: ...
     def create(
         self, *, event: EventDTO, start_time: datetime, end_time: datetime
-    ) -> tuple[list[TimeSlotValidationError], TimeSlotDTO | None]: ...
+    ) -> TimeSlotDTO: ...
     def update(
         self, *, event: EventDTO, pk: int, start_time: datetime, end_time: datetime
     ) -> list[TimeSlotValidationError]: ...

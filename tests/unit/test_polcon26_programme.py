@@ -191,7 +191,7 @@ def _extract_saturday():
     )
 
 
-def test_extract_programme_reads_titles_presenters_and_durations():
+def test_extract_programme_reads_titles_presenters_and_durations() -> None:
     items = sync.extract_programme(
         {name: _sheet_with_one_room() for name in ("Piątek", "Sobota", "Niedziela")}
     )
@@ -205,7 +205,7 @@ def test_extract_programme_reads_titles_presenters_and_durations():
     assert not saturday[1].description
 
 
-def test_extract_programme_dates_each_sheet_from_its_own_day():
+def test_extract_programme_dates_each_sheet_from_its_own_day() -> None:
     items = sync.extract_programme(
         {name: _sheet_with_one_room() for name in ("Piątek", "Sobota", "Niedziela")}
     )
@@ -218,7 +218,7 @@ def test_extract_programme_dates_each_sheet_from_its_own_day():
     }
 
 
-def test_extract_programme_gives_each_row_a_unique_source_row_id():
+def test_extract_programme_gives_each_row_a_unique_source_row_id() -> None:
     items = _extract_saturday()
 
     source_ids = [item.source_row_id for item in items]
@@ -228,14 +228,14 @@ def test_extract_programme_gives_each_row_a_unique_source_row_id():
     )
 
 
-def test_single_lane_room_keeps_its_plain_name():
+def test_single_lane_room_keeps_its_plain_name() -> None:
     items = _extract_saturday()
 
     assert {item.room for item in items} == {"Sala 5"}
     assert {item.leaf_name for item in items} == {"Sala 5"}
 
 
-def test_shared_room_splits_into_numbered_lanes():
+def test_shared_room_splits_into_numbered_lanes() -> None:
     cells = dict(_sheet_with_one_room().cells)
     cells |= {"B7": "Tytuł", "B8": "Prowadzący", "C7": "Druga sesja"}
     sheet = wb.SheetData(cells=cells, merges=("A4:A8", "C4:D4", "E4:E4", "C7:C7"))
@@ -249,7 +249,7 @@ def test_shared_room_splits_into_numbered_lanes():
     assert {item.leaf_name for item in items} == {"Stanowisko 1", "Stanowisko 2"}
 
 
-def test_validate_items_rejects_overlapping_programme_in_one_room():
+def test_validate_items_rejects_overlapping_programme_in_one_room() -> None:
     items = _extract_saturday()
     overlapping = replace(
         items[1], timing=sync.ProgrammeTiming(start=items[0].start, end=items[0].end)
@@ -259,7 +259,7 @@ def test_validate_items_rejects_overlapping_programme_in_one_room():
         sync.validate_items([items[0], overlapping])
 
 
-def test_validate_items_rejects_duplicate_source_row_ids():
+def test_validate_items_rejects_duplicate_source_row_ids() -> None:
     items = _extract_saturday()
 
     with pytest.raises(ValueError, match="Duplicate source_row_id"):

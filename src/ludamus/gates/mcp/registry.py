@@ -25,6 +25,9 @@ if TYPE_CHECKING:
     from ludamus.pacts.services import ServicesProtocol
 
 
+type JsonDict = dict[str, object]
+
+
 class ToolError(Exception):
     """Tool failure reported to the MCP client as an `isError` result."""
 
@@ -60,15 +63,11 @@ class ToolProtocol(Protocol):
     description: str
     scope: ToolScope
 
-    def input_schema(self) -> dict[str, object]: ...
+    def input_schema(self) -> JsonDict: ...
     @classmethod
-    def audit_arguments(cls, arguments: dict[str, object]) -> object: ...
+    def audit_arguments(cls, arguments: JsonDict) -> object: ...
     def run(
-        self,
-        *,
-        services: ServicesProtocol,
-        actor: ActorContext,
-        arguments: dict[str, object],
+        self, *, services: ServicesProtocol, actor: ActorContext, arguments: JsonDict
     ) -> str: ...
 
 
@@ -77,19 +76,15 @@ class Tool[InputT: BaseModel](ToolProtocol, ABC):
     # Argument keys carrying personal data, redacted before the audit line.
     audit_redacted_keys: frozenset[str] = frozenset()
 
-    def input_schema(self) -> dict[str, object]:
+    def input_schema(self) -> JsonDict:
         return self.input_model.model_json_schema()
 
     @classmethod
-    def audit_arguments(cls, arguments: dict[str, object]) -> object:
+    def audit_arguments(cls, arguments: JsonDict) -> object:
         return redact_keys(arguments, cls.audit_redacted_keys)
 
     def run(
-        self,
-        *,
-        services: ServicesProtocol,
-        actor: ActorContext,
-        arguments: dict[str, object],
+        self, *, services: ServicesProtocol, actor: ActorContext, arguments: JsonDict
     ) -> str:
         try:
             data = self.input_model.model_validate(arguments)
@@ -114,7 +109,7 @@ class ToolRegistry:
     def __init__(self, tools: Sequence[ToolProtocol]) -> None:
         self._tools = {tool.name: tool for tool in tools}
 
-    def describe(self) -> list[dict[str, object]]:
+    def describe(self) -> list[JsonDict]:
         return [
             {
                 "name": tool.name,
@@ -124,7 +119,7 @@ class ToolRegistry:
             for tool in self._tools.values()
         ]
 
-    def audit_arguments(self, name: str, arguments: dict[str, object]) -> object:
+    def audit_arguments(self, name: str, arguments: JsonDict) -> object:
         if (tool := self._tools.get(name)) is None:
             return "[redacted]"
         return tool.audit_arguments(arguments)
@@ -135,7 +130,7 @@ class ToolRegistry:
         services: ServicesProtocol,
         actor: ActorContext,
         name: str,
-        arguments: dict[str, object],
+        arguments: JsonDict,
     ) -> str:
         if name not in self._tools:
             raise UnknownToolError(name)

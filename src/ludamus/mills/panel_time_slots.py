@@ -2,7 +2,11 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from ludamus.pacts.event import PanelTimeSlotsServiceProtocol, TimeSlotValidationError
+from ludamus.pacts.event import (
+    PanelTimeSlotsServiceProtocol,
+    TimeSlotRejectedError,
+    TimeSlotValidationError,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -65,7 +69,7 @@ class PanelTimeSlotsService(PanelTimeSlotsServiceProtocol):
 
     def create(
         self, *, event: EventDTO, start_time: datetime, end_time: datetime
-    ) -> tuple[list[TimeSlotValidationError], TimeSlotDTO | None]:
+    ) -> TimeSlotDTO:
         # atomic() keeps the write consistent but does not serialize the
         # check-then-insert: two concurrent requests can both read the same
         # slots, both pass validation, and insert overlapping slots. Full
@@ -76,8 +80,8 @@ class PanelTimeSlotsService(PanelTimeSlotsServiceProtocol):
                 start=start_time, end=end_time, event=event, existing_slots=existing
             )
             if errors:
-                return errors, None
-            return [], self._time_slots.create(event.pk, start_time, end_time)
+                raise TimeSlotRejectedError(errors)
+            return self._time_slots.create(event.pk, start_time, end_time)
 
     def update(
         self, *, event: EventDTO, pk: int, start_time: datetime, end_time: datetime

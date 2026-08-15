@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import cast
 
@@ -12,23 +13,31 @@ from scripts.polcon26.programme import (
     lane_names,
 )
 
+
+@dataclass(frozen=True)
+class ProgrammeRefs:
+    spaces: dict[str, int]
+    categories: dict[str, int]
+    facilitators: dict[str, int]
+    tracks: dict[str, int]
+
+
 VENUE_NAME = "Kampus Uniwersytetu Zielonogórskiego"
 BATCH_LIMIT = 250
 
 
 def ensure_supporting_data(
     *, client: McpClient, event_id: int, items: list[ProgrammeItem]
-) -> tuple[dict[str, int], dict[str, int], dict[str, int], dict[str, int]]:
-    current_event = cast("dict[str, object]", client.call("get_current_event", {}))
+) -> ProgrammeRefs:
+    current_event = client.call_object("get_current_event", {})
     if int(current_event["pk"]) != event_id:
         message = (
             f"Organizer token targets event {current_event['pk']}, "
             f"not --event-id {event_id}"
         )
         raise McpError(message)
-    spaces = cast(
-        "list[dict[str, object]]",
-        client.call("list_spaces", {"event_id": event_id, "include_internal": True}),
+    spaces = client.call_list(
+        "list_spaces", {"event_id": event_id, "include_internal": True}
     )
     space_ids = ensure_spaces(client=client, spaces=spaces, items=items)
     category_ids = ensure_named_rows(
@@ -43,15 +52,17 @@ def ensure_supporting_data(
     for name in sorted(
         {name for item in items for name in item.presenters}, key=str.casefold
     ):
-        row = cast(
-            "dict[str, object]",
-            client.call("find_or_create_facilitator", {"display_name": name}),
-        )
+        row = client.call_object("find_or_create_facilitator", {"display_name": name})
         facilitator_ids[name] = int(row["pk"])
     track_ids = ensure_tracks(
         client=client, event_id=event_id, items=items, space_ids=space_ids
     )
-    return space_ids, category_ids, facilitator_ids, track_ids
+    return ProgrammeRefs(
+        spaces=space_ids,
+        categories=category_ids,
+        facilitators=facilitator_ids,
+        tracks=track_ids,
+    )
 
 
 def ensure_spaces(
@@ -61,15 +72,9 @@ def ensure_spaces(
     if existing_venue := by_path.get(VENUE_NAME):
         venue_id = int(existing_venue["pk"])
     else:
-        venue = cast(
-            "dict[str, object]",
-            client.call(
-                "create_space",
-                {
-                    "name": VENUE_NAME,
-                    "description": "Obiekt główny programu POLCON 2026.",
-                },
-            ),
+        venue = client.call_object(
+            "create_space",
+            {"name": VENUE_NAME, "description": "Obiekt główny programu POLCON 2026."},
         )
         venue_id = int(venue["pk"])
         by_path[VENUE_NAME] = {
@@ -95,11 +100,8 @@ def ensure_spaces(
         if existing_physical := by_path.get(physical_path):
             physical_id = int(existing_physical["pk"])
         else:
-            physical = cast(
-                "dict[str, object]",
-                client.call(
-                    "create_space", {"name": physical_room, "parent_id": venue_id}
-                ),
+            physical = client.call_object(
+                "create_space", {"name": physical_room, "parent_id": venue_id}
             )
             physical_id = int(physical["pk"])
             by_path[physical_path] = {
@@ -131,10 +133,7 @@ def _ensure_leaf_space(
 ) -> int:
     if existing := by_path.get(path):
         return int(existing["pk"])
-    created = cast(
-        "dict[str, object]",
-        client.call("create_space", {"name": name, "parent_id": parent_id}),
-    )
+    created = client.call_object("create_space", {"name": name, "parent_id": parent_id})
     created_id = int(created["pk"])
     by_path[path] = {
         "pk": created_id,
@@ -153,15 +152,11 @@ def ensure_named_rows(
     event_id: int,
     names: set[str],
 ) -> dict[str, int]:
-    rows = cast(
-        "list[dict[str, object]]", client.call(list_tool, {"event_id": event_id})
-    )
+    rows = client.call_list(list_tool, {"event_id": event_id})
     by_name = {str(row["name"]): int(row["pk"]) for row in rows}
     for name in sorted(names):
         if name not in by_name:
-            created = cast(
-                "dict[str, object]", client.call(create_tool, {"name": name})
-            )
+            created = client.call_object(create_tool, {"name": name})
             by_name[name] = int(created["pk"])
     return {name: by_name[name] for name in names}
 
@@ -181,10 +176,7 @@ def ensure_time_slots(*, client: McpClient, event_id: int) -> None:
             datetime(2026, 9, 27, 16, tzinfo=WARSAW),
         ),
     )
-    rows = cast(
-        "list[dict[str, object]]",
-        client.call("list_time_slots", {"event_id": event_id}),
-    )
+    rows = client.call_list("list_time_slots", {"event_id": event_id})
     existing = {
         (_parse_datetime(str(row["start_time"])), _parse_datetime(str(row["end_time"])))
         for row in rows
@@ -208,9 +200,7 @@ def ensure_tracks(
     items: list[ProgrammeItem],
     space_ids: dict[str, int],
 ) -> dict[str, int]:
-    rows = cast(
-        "list[dict[str, object]]", client.call("list_tracks", {"event_id": event_id})
-    )
+    rows = client.call_list("list_tracks", {"event_id": event_id})
     by_name = {str(row["name"]): row for row in rows}
     result = {}
     for name in sorted({item.track for item in items}):
@@ -226,30 +216,21 @@ def ensure_tracks(
                 raise McpError(message)
             result[name] = int(existing["pk"])
             continue
-        created = cast(
-            "dict[str, object]",
-            client.call(
-                "create_track",
-                {
-                    "name": name,
-                    "is_public": True,
-                    "space_ids": expected_space_ids,
-                    "manager_ids": [],
-                },
-            ),
+        created = client.call_object(
+            "create_track",
+            {
+                "name": name,
+                "is_public": True,
+                "space_ids": expected_space_ids,
+                "manager_ids": [],
+            },
         )
         result[name] = int(created["pk"])
     return result
 
 
 def create_and_assign_sessions(
-    *,
-    client: McpClient,
-    items: list[ProgrammeItem],
-    space_ids: dict[str, int],
-    category_ids: dict[str, int],
-    facilitator_ids: dict[str, int],
-    track_ids: dict[str, int],
+    *, client: McpClient, items: list[ProgrammeItem], refs: ProgrammeRefs
 ) -> tuple[int, int]:
     created_or_existing: dict[str, int] = {}
     drift: list[str] = []
@@ -258,17 +239,17 @@ def create_and_assign_sessions(
             {
                 "source_row_id": item.source_row_id,
                 "title": item.title,
-                "category_id": category_ids[item.category],
+                "category_id": refs.categories[item.category],
                 "description": item.description,
                 "duration": iso_duration(item.end - item.start),
-                "facilitator_ids": [facilitator_ids[name] for name in item.presenters],
-                "track_ids": [track_ids[item.track]],
+                "facilitator_ids": [
+                    refs.facilitators[name] for name in item.presenters
+                ],
+                "track_ids": [refs.tracks[item.track]],
             }
             for item in batch
         ]
-        response = cast(
-            "dict[str, object]", client.call("create_sessions", {"sessions": inputs})
-        )
+        response = client.call_object("create_sessions", {"sessions": inputs})
         for item, row in zip(
             batch, cast("list[dict[str, object]]", response["results"]), strict=True
         ):
@@ -277,7 +258,7 @@ def create_and_assign_sessions(
                 "title": item.title,
                 "description": item.description,
                 "duration": iso_duration(item.end - item.start),
-                "category_id": category_ids[item.category],
+                "category_id": refs.categories[item.category],
             }
             differences = [
                 field
@@ -300,7 +281,7 @@ def create_and_assign_sessions(
         assignments = [
             {
                 "session_id": created_or_existing[item.source_row_id],
-                "space_id": space_ids[item.room],
+                "space_id": refs.spaces[item.room],
                 "start_time": item.start.isoformat(),
                 "end_time": item.end.isoformat(),
             }

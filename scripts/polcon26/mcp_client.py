@@ -27,6 +27,24 @@ class McpClient:
         self.token = token
         self.request_id = 0
 
+    def call_object(self, name: str, arguments: dict[str, object]) -> dict[str, object]:
+        result = self.call(name, arguments)
+        if not isinstance(result, dict):
+            message = f"{name}: expected an object, got {type(result).__name__}"
+            raise McpError(message)
+        return result
+
+    def call_list(
+        self, name: str, arguments: dict[str, object]
+    ) -> list[dict[str, object]]:
+        result = self.call(name, arguments)
+        if not isinstance(result, list) or not all(
+            isinstance(row, dict) for row in result
+        ):
+            message = f"{name}: expected a list of objects"
+            raise McpError(message)
+        return cast("list[dict[str, object]]", result)
+
     def call(self, name: str, arguments: dict[str, object]) -> object:
         self.request_id += 1
         payload = {

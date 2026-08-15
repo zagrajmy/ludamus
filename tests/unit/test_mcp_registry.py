@@ -7,7 +7,7 @@ from pydantic import BaseModel
 from ludamus.gates.mcp.registry import Tool, ToolCall, ToolError, ToolRegistry
 from ludamus.gates.mcp.tools import build_registry
 from ludamus.pacts.mcp import ActorContext, ToolScope
-from ludamus.pacts.timetable import PlacementRejectedError
+from ludamus.pacts.timetable import PlacementRejectedError, PlacementRejection
 
 MAINTAINER_TOOL_NAMES = [
     "list_spheres",
@@ -387,7 +387,11 @@ def _assign_session_call(*, side_effect: Exception) -> None:
 
 def test_assign_session_converts_placement_rejection_to_tool_error():
     with pytest.raises(ToolError, match="placement rejected"):
-        _assign_session_call(side_effect=PlacementRejectedError("placement rejected"))
+        _assign_session_call(
+            side_effect=PlacementRejectedError(
+                PlacementRejection.OUTSIDE_TIME_SLOTS, "placement rejected"
+            )
+        )
 
 
 def test_assign_session_does_not_hide_unrelated_value_error():

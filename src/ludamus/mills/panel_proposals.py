@@ -1,5 +1,6 @@
 """The organizer's proposals list: filters, sorting, columns, and create path."""
 
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from ludamus.mills.panel_columns import (
@@ -45,52 +46,13 @@ def _resolve_sort(sort: str, fields: Sequence[OrganizerFieldDTO]) -> str:
     return sort if key in valid else ""
 
 
-def _validate_draft_event_id(*, event_id: int, draft: ProposalDraft) -> None:
-    if draft.data.get("event_id") not in {None, event_id}:
-        raise NotFoundError
-
-
-def _validate_draft_facilitators(
-    *, event_id: int, draft: ProposalDraft, repos: ProposalPanelRepos
-) -> None:
-    for facilitator_id in draft.facilitator_ids:
-        if repos.facilitators.read(facilitator_id).event_id != event_id:
-            raise NotFoundError
-
-
-def _validate_draft_fields(
-    *, event_id: int, draft: ProposalDraft, repos: ProposalPanelRepos
-) -> None:
-    field_pks = {field.pk for field in repos.session_fields.list_by_event(event_id)}
-    if set(draft.field_values) - field_pks:
-        raise NotFoundError
-
-
-def _validate_draft_tracks(
-    *, event_id: int, draft: ProposalDraft, repos: ProposalPanelRepos
-) -> None:
-    for track_id in draft.track_ids:
-        if repos.tracks.read(track_id).event_id != event_id:
-            raise NotFoundError
-
-
-def _validate_draft_time_slots(
-    *, event_id: int, draft: ProposalDraft, repos: ProposalPanelRepos
-) -> None:
-    for time_slot_id in draft.time_slot_ids:
-        repos.time_slots.read_by_event(event_id, time_slot_id)
-
-
-def _validate_draft_category(
-    *, event_id: int, draft: ProposalDraft, repos: ProposalPanelRepos
-) -> None:
-    if (category_id := draft.data.get("category_id")) is None:
-        return
-    category_pks = {
-        category.pk for category in repos.proposal_categories.list_by_event(event_id)
-    }
-    if category_id not in category_pks:
-        raise NotFoundError
+@dataclass(frozen=True)
+class _EventIds:
+    fields: frozenset[int]
+    categories: frozenset[int]
+    facilitators: frozenset[int]
+    tracks: frozenset[int]
+    time_slots: frozenset[int]
 
 
 class ProposalPanelService(ProposalPanelServiceProtocol):
@@ -106,6 +68,7 @@ class ProposalPanelService(ProposalPanelServiceProtocol):
     ) -> None:
         self._transaction = transaction
         self._repos = repos
+        self._known_ids: dict[int, _EventIds] = {}
 
     def list_context(
         self, *, event_id: int, query: ProposalListQuery
@@ -238,13 +201,49 @@ class ProposalPanelService(ProposalPanelServiceProtocol):
                     return existing
                 raise
 
+    def _event_ids(self, event_id: int) -> _EventIds:
+        # One read per event, not per draft: `create_sessions` validates up to
+        # 250 drafts against the same five sets in a single request.
+        if (ids := self._known_ids.get(event_id)) is None:
+            ids = _EventIds(
+                fields=frozenset(
+                    field.pk
+                    for field in self._repos.session_fields.list_by_event(event_id)
+                ),
+                categories=frozenset(
+                    category.pk
+                    for category in self._repos.proposal_categories.list_by_event(
+                        event_id
+                    )
+                ),
+                facilitators=frozenset(
+                    facilitator.pk
+                    for facilitator in self._repos.facilitators.list_by_event(event_id)
+                ),
+                tracks=frozenset(
+                    track.pk for track in self._repos.tracks.list_by_event(event_id)
+                ),
+                time_slots=frozenset(
+                    slot.pk for slot in self._repos.time_slots.list_by_event(event_id)
+                ),
+            )
+            self._known_ids[event_id] = ids
+        return ids
+
     def _validate_create_draft(self, *, event_id: int, draft: ProposalDraft) -> None:
-        _validate_draft_event_id(event_id=event_id, draft=draft)
-        _validate_draft_facilitators(event_id=event_id, draft=draft, repos=self._repos)
-        _validate_draft_fields(event_id=event_id, draft=draft, repos=self._repos)
-        _validate_draft_tracks(event_id=event_id, draft=draft, repos=self._repos)
-        _validate_draft_time_slots(event_id=event_id, draft=draft, repos=self._repos)
-        _validate_draft_category(event_id=event_id, draft=draft, repos=self._repos)
+        if draft.data.get("event_id") not in {None, event_id}:
+            raise NotFoundError
+        ids = self._event_ids(event_id)
+        category_id = draft.data.get("category_id")
+        referenced = (
+            (set(draft.field_values), ids.fields),
+            (set(draft.facilitator_ids), ids.facilitators),
+            (set(draft.track_ids), ids.tracks),
+            (set(draft.time_slot_ids), ids.time_slots),
+            ({category_id} if category_id is not None else set(), ids.categories),
+        )
+        if any(requested - known for requested, known in referenced):
+            raise NotFoundError
 
     def _create_session(
         self,
