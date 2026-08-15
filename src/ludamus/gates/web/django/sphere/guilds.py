@@ -177,7 +177,7 @@ class _Notice(NamedTuple):
     level: int
     # Lazy, not eager: this table is built at import time, when no request has
     # picked a language yet.
-    text: str | _StrPromise
+    text: _StrPromise
 
 
 _ASSIGN_MESSAGES = {
