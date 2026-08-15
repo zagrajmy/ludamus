@@ -1,6 +1,6 @@
 import re
 from dataclasses import replace
-from datetime import UTC, timedelta
+from datetime import UTC, datetime, timedelta
 from http import HTTPStatus
 
 import pytest
@@ -12,6 +12,7 @@ from django.test import override_settings
 from django.test.utils import CaptureQueriesContext
 from django.urls import resolve, reverse
 from django.utils import timezone
+from freezegun import freeze_time
 
 from ludamus.adapters.web.django.views import EventPageView
 from ludamus.gates.web.django.chronology.event_presentation import (
@@ -332,6 +333,10 @@ class TestEventPageView:
             not_contains="Not Available",
         )
 
+    # The ongoing session spans now±1h, which straddles local midnight when the
+    # suite happens to run late: the tile then splits over two dates and the
+    # expected day grouping no longer holds. Midday keeps it on one date.
+    @freeze_time(lambda: datetime.now(UTC).replace(hour=12, minute=0))
     def test_ok_compact_schedule_renders_all_row_variants(
         self, client, event, space, monkeypatch
     ):
