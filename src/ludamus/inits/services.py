@@ -12,13 +12,13 @@ from ludamus.links.db.django.notifications import DjangoUserNotifier
 from ludamus.links.db.django.schedule_change_log import ScheduleChangeLogRepository
 from ludamus.links.db.django.transaction import DjangoTransaction
 from ludamus.links.encryption import FernetDecryptor, FernetEncryptor
-from ludamus.links.google_docs import GoogleDocsProposalImporter, GoogleSheetsWriter
+from ludamus.links.google_forms import GoogleDocsProposalImporter
+from ludamus.links.google_sheets import GoogleSheetsWriter
 from ludamus.links.gravatar import gravatar_url
 from ludamus.links.scheduler import CronSweepOfferScheduler
 from ludamus.links.ticket_api import MembershipApiClient
 from ludamus.mills.bookmarks import BookmarkService
 from ludamus.mills.chronology import (
-    EventIntegrationsService,
     ProposalAcceptanceService,
     ProposalStatusService,
     SessionConfirmationService,
@@ -44,6 +44,7 @@ from ludamus.mills.enrollment import (
 from ludamus.mills.event import EventConfirmationsService, EventPanelService
 from ludamus.mills.event_settings import EventSettingsService
 from ludamus.mills.guild import GuildService
+from ludamus.mills.integrations import EventIntegrationsService
 from ludamus.mills.multiverse import (
     AnnouncementsService,
     ConnectionsService,

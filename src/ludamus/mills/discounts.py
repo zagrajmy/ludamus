@@ -13,7 +13,6 @@ if TYPE_CHECKING:
         DiscountDTO,
         DiscountExportLabels,
         DiscountRepositoryProtocol,
-        SheetWriterProtocol,
     )
     from ludamus.pacts.legacy import FacilitatorDTO, FacilitatorRepositoryProtocol
     from ludamus.pacts.multiverse import (
@@ -21,6 +20,7 @@ if TYPE_CHECKING:
         DecryptorProtocol,
     )
     from ludamus.pacts.services import TransactionProtocol
+    from ludamus.pacts.sheets import SheetWriterProtocol
 
 
 def _roster(

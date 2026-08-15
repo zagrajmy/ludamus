@@ -556,8 +556,8 @@ class TestIntegrationCheckActionView:
         # Mock only google.auth: real GoogleDocsProposalImporter._probe runs and
         # maps the (mocked) HTTP response — we never patch project code.
         with (
-            patch("ludamus.links.google_docs.Credentials.from_service_account_info"),
-            patch("ludamus.links.google_docs.AuthorizedSession") as session_cls,
+            patch("ludamus.links.google_auth.Credentials.from_service_account_info"),
+            patch("ludamus.links.google_auth.AuthorizedSession") as session_cls,
         ):
             session_cls.return_value.get.return_value = MagicMock(ok=True)
             response = panel_client.post(
