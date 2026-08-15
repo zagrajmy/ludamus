@@ -1,4 +1,5 @@
 import re
+from dataclasses import replace
 from datetime import UTC, timedelta
 from http import HTTPStatus
 from unittest.mock import ANY
@@ -20,6 +21,9 @@ from ludamus.gates.web.django.chronology.event_presentation import (
     build_display_field_row,
 )
 from ludamus.gates.web.django.chronology.schedule import (
+    RoomLaneDay,
+    RoomLaneHourMark,
+    RoomLaneTile,
     ScheduleDay,
     ScheduleHour,
     ScheduleTile,
@@ -39,7 +43,6 @@ from ludamus.links.db.django.models import (
     UserEnrollmentConfig,
 )
 from ludamus.links.gravatar import gravatar_url
-from ludamus.mills.timeslots import interval_windows
 from ludamus.pacts import (
     AgendaItemDTO,
     LocationData,
@@ -61,7 +64,12 @@ from tests.integration.conftest import (
     UserFactory,
 )
 from tests.integration.utils import assert_response
-from tests.integration.web.chronology.helpers import make_half_full_session
+from tests.integration.web.chronology.helpers import (
+    compact_day,
+    event_page_context,
+    make_half_full_session,
+    session_card,
+)
 
 
 def _schedule_context(url: str) -> dict[str, object]:
@@ -136,10 +144,17 @@ class TestEventPageView:
     def test_session_card_link_opens_on_current_event(self, agenda_item, client, event):
         response = client.get(self._get_url(event.slug))
 
+        card = session_card(agenda_item, presenter=agenda_item.session.presenter)
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data=ANY,
+            context_data=event_page_context(
+                event,
+                url=self._get_url(event.slug),
+                hour_data={agenda_item.start_time: [card]},
+                future_unavailable_hour_data={agenda_item.start_time: [card]},
+                sessions=[card],
+            ),
             template_name=["chronology/event.html"],
             contains=f'href="?session={agenda_item.session.pk}"',
             not_contains="Missing variable session_link_base",
@@ -271,16 +286,36 @@ class TestEventPageView:
         )
         SessionBookmark.objects.create(user=active_user, session=agenda_item.session)
         # A second, un-bookmarked session renders the inactive toggle state.
-        AgendaItemFactory(
+        other = AgendaItemFactory(
             session=SessionFactory(event=event, category=None), space=space
         )
 
         response = authenticated_client.get(self._get_url(event.slug))
 
+        cards = [
+            session_card(
+                agenda_item,
+                presenter=active_user,
+                bookmark_count=1,
+                user_bookmarked=True,
+                can_edit=True,
+            ),
+            session_card(other, presenter=other.session.presenter),
+        ]
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data=ANY,
+            context_data=event_page_context(
+                event,
+                url=self._get_url(event.slug),
+                compact_schedule=True,
+                hour_data={
+                    agenda_item.start_time: [cards[0]],
+                    other.start_time: [cards[1]],
+                },
+                schedule_days=[compact_day(cards)],
+                sessions=cards,
+            ),
             template_name=["chronology/event.html"],
             contains=[
                 'data-bookmarked="true"',
@@ -412,6 +447,7 @@ class TestEventPageView:
             AgendaItemFactory(
                 session=session, space=space, start_time=start, end_time=end
             )
+            session.refresh_from_db()
             return session
 
         plenty = scheduled(
@@ -435,7 +471,7 @@ class TestEventPageView:
                 status=SessionParticipationStatus.CONFIRMED,
             )
         # Second slot on the same day — covers the append-to-existing-day branch.
-        scheduled(
+        unlimited = scheduled(
             start=day_one + timedelta(hours=3),
             end=day_one + timedelta(hours=4),
             participants_limit=0,
@@ -455,13 +491,13 @@ class TestEventPageView:
             SessionParticipation.objects.create(
                 session=full, user=UserFactory(), status=status
             )
-        scheduled(
+        ended = scheduled(
             start=now - timedelta(hours=3),
             end=now - timedelta(hours=2),
             participants_limit=4,
             min_age=0,
         )
-        scheduled(
+        ongoing = scheduled(
             start=now - timedelta(hours=1),
             end=now + timedelta(hours=1),
             participants_limit=4,
@@ -483,41 +519,156 @@ class TestEventPageView:
 
         response = client.get(self._get_url(event.slug))
 
+        field_value_dto = SessionFieldValueDTO(
+            allow_custom=False,
+            field_icon="puzzle-piece",
+            field_id=game_type.pk,
+            field_name="Game Type",
+            field_question="Game Type",
+            field_slug="game-type",
+            field_type="select",
+            is_public=True,
+            value=["RPG"],
+        )
+        base_cards = {
+            ended.pk: session_card(
+                ended.agenda_item,
+                presenter=ended.presenter,
+                is_enrollment_available=True,
+                # An ended session is also "ongoing" until its window closes;
+                # both flags feed the inactive row treatment.
+                is_ended=True,
+                is_ongoing=True,
+                should_show_as_inactive=True,
+            ),
+            ongoing.pk: session_card(
+                ongoing.agenda_item,
+                presenter=ongoing.presenter,
+                is_enrollment_available=True,
+                is_ongoing=True,
+                should_show_as_inactive=True,
+            ),
+            plenty.pk: session_card(
+                plenty.agenda_item,
+                presenter=plenty.presenter,
+                is_enrollment_available=True,
+                displayed_field_rows=[build_display_field_row(field_value_dto)],
+                field_values=[field_value_dto],
+            ),
+            scarce.pk: session_card(
+                scarce.agenda_item,
+                presenter=scarce.presenter,
+                is_enrollment_available=True,
+                enrolled_count=4,
+                full_participant_info="4/5",
+            ),
+            unlimited.pk: session_card(
+                unlimited.agenda_item,
+                presenter=unlimited.presenter,
+                is_enrollment_available=True,
+                full_participant_info="0",
+            ),
+            full.pk: session_card(
+                full.agenda_item,
+                presenter=full.presenter,
+                is_enrollment_available=True,
+                enrolled_count=2,
+                full_participant_info="2/2, 1 waiting",
+                is_full=True,
+                waiting_count=1,
+            ),
+        }
+
+        def hour_of(session):
+            return timezone.localtime(session.agenda_item.start_time).replace(
+                minute=0, second=0, microsecond=0
+            )
+
+        def with_participants(session):
+            # Every card carries the people already seated on its session.
+            return replace(
+                base_cards[session.pk],
+                session_participations=[
+                    ParticipationInfo(
+                        user=UserInfo.from_user_dto(
+                            UserDTO.model_validate(participation.user),
+                            gravatar_url=gravatar_url,
+                        ),
+                        status=participation.status,
+                        creation_time=participation.creation_time,
+                        is_shadowbanned=False,
+                    )
+                    for participation in (
+                        SessionParticipation.objects.filter(session=session)
+                        .select_related("user")
+                        .order_by("pk")
+                    )
+                ],
+            )
+
+        cards = {
+            session.pk: with_participants(session)
+            for session in (ended, ongoing, plenty, scarce, unlimited, full)
+        }
+
+        def tile(session):
+            return ScheduleTile(
+                data=cards[session.pk],
+                start=timezone.localtime(session.agenda_item.start_time),
+                end=timezone.localtime(session.agenda_item.end_time),
+            )
+
+        # One day per local date, one hour bucket per distinct start hour.
+        expected_days = [
+            ScheduleDay(
+                day_start=hour_of(ended),
+                hours=[
+                    ScheduleHour(start=hour_of(ended), sessions=[cards[ended.pk]]),
+                    ScheduleHour(start=hour_of(ongoing), sessions=[cards[ongoing.pk]]),
+                ],
+                tiles=[tile(ended), tile(ongoing)],
+            ),
+            ScheduleDay(
+                day_start=hour_of(plenty),
+                hours=[
+                    ScheduleHour(
+                        start=hour_of(plenty),
+                        sessions=[cards[plenty.pk], cards[scarce.pk]],
+                    ),
+                    ScheduleHour(
+                        start=hour_of(unlimited), sessions=[cards[unlimited.pk]]
+                    ),
+                ],
+                tiles=[tile(plenty), tile(scarce), tile(unlimited)],
+            ),
+            ScheduleDay(
+                day_start=hour_of(full),
+                hours=[ScheduleHour(start=hour_of(full), sessions=[cards[full.pk]])],
+                tiles=[tile(full)],
+            ),
+        ]
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data=ANY,
+            context_data=event_page_context(
+                event,
+                url=self._get_url(event.slug),
+                compact_schedule=True,
+                sessions=list(cards.values()),
+                filterable_tag_categories=[game_type],
+                schedule_days=expected_days,
+                # 4 seats in `scarce` plus the 2 that fill `full`.
+                total_enrolled=4 + 2,
+                hour_data={
+                    ended.agenda_item.start_time: [cards[ended.pk]],
+                    ongoing.agenda_item.start_time: [cards[ongoing.pk]],
+                    plenty.agenda_item.start_time: [cards[plenty.pk], cards[scarce.pk]],
+                    unlimited.agenda_item.start_time: [cards[unlimited.pk]],
+                    full.agenda_item.start_time: [cards[full.pk]],
+                },
+            ),
             template_name=["chronology/event.html"],
         )
-        days = response.context_data["schedule_days"]
-        # The ended/ongoing sessions may straddle local midnight, so derive the
-        # expected day grouping with the same local-date rule the view uses.
-        expected_dates = sorted(
-            {
-                window_start.date()
-                for start, end in (
-                    (now - timedelta(hours=3), now - timedelta(hours=2)),
-                    (now - timedelta(hours=1), now + timedelta(hours=1)),
-                    (day_one, day_one + timedelta(hours=4)),
-                    (day_one + timedelta(days=1), day_one + timedelta(days=1, hours=1)),
-                )
-                for window_start, __ in interval_windows(
-                    start=start, end=end, tz=timezone.get_current_timezone()
-                )
-            }
-        )
-        assert [
-            timezone.localtime(day.day_start).date() for day in days
-        ] == expected_dates
-        [day_one_entry] = [
-            day
-            for day in days
-            if timezone.localtime(day.day_start).date()
-            == timezone.localtime(day_one).date()
-        ]
-        [morning_slot, afternoon_slot] = day_one_entry.hours
-        assert [s.session.pk for s in morning_slot.sessions] == [plenty.pk, scarce.pk]
-        assert afternoon_slot.start == day_one + timedelta(hours=3)
         content = response.content.decode()
         # The pills render inside their own spans; match with the tag boundary
         # so e.g. the "Enrollment Open" header pill can't satisfy "Open".
@@ -536,7 +687,7 @@ class TestEventPageView:
         # The ledger row no longer carries the enrolled count; it lives in the
         # lazy-loaded session modal's capacity chip instead.
         assert 'title="4 participants enrolled"' not in content
-        assert content.count("data-schedule-day") == len(expected_dates)
+        assert content.count("data-schedule-day") == len(expected_days)
         modal = client.get(
             reverse(
                 "web:chronology:session-modal",
@@ -590,10 +741,90 @@ class TestEventPageView:
 
         response = authenticated_client.get(f"{self._get_url(event.slug)}?view=rooms")
 
+        local_start = timezone.localtime(start)
+        cards = {
+            session.pk: session_card(
+                session.agenda_item, presenter=session.presenter, **overrides
+            )
+            for session, overrides in (
+                (in_arena, {"user_bookmarked": True, "bookmark_count": 1}),
+                (on_stage, {}),
+                (later_in_arena, {}),
+            )
+        }
+        lane_tile = {
+            in_arena.pk: (1, 1, 1),
+            on_stage.pk: (2, 1, 1),
+            later_in_arena.pk: (1, 3, 2),
+        }
+        url = self._get_url(event.slug)
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data=ANY,
+            context_data=event_page_context(
+                event,
+                url=url,
+                compact_schedule=True,
+                sessions=list(cards.values()),
+                hour_data={
+                    start: [cards[in_arena.pk], cards[on_stage.pk]],
+                    start + timedelta(hours=2): [cards[later_in_arena.pk]],
+                },
+                schedule_days=[
+                    ScheduleDay(
+                        day_start=local_start,
+                        hours=[
+                            ScheduleHour(
+                                start=local_start,
+                                sessions=[cards[in_arena.pk], cards[on_stage.pk]],
+                            ),
+                            ScheduleHour(
+                                start=local_start + timedelta(hours=2),
+                                sessions=[cards[later_in_arena.pk]],
+                            ),
+                        ],
+                        tiles=[
+                            ScheduleTile(
+                                data=cards[session.pk],
+                                start=timezone.localtime(
+                                    session.agenda_item.start_time
+                                ),
+                                end=timezone.localtime(session.agenda_item.end_time),
+                            )
+                            for session in (in_arena, on_stage, later_in_arena)
+                        ],
+                    )
+                ],
+                schedule_view_is_list=False,
+                schedule_view_is_rooms=True,
+                room_lane_days=[
+                    RoomLaneDay(
+                        day_start=local_start,
+                        rooms=["Arena", "Stage"],
+                        hour_marks=[
+                            RoomLaneHourMark(
+                                start=local_start + timedelta(hours=offset),
+                                row=offset + 1,
+                                has_sessions=offset in {0, 2},
+                            )
+                            for offset in range(4)
+                        ],
+                        tiles=[
+                            RoomLaneTile(
+                                data=cards[session.pk],
+                                slot_hour=timezone.localtime(
+                                    session.agenda_item.start_time
+                                ),
+                                col=col,
+                                row_start=row_start,
+                                row_span=row_span,
+                            )
+                            for session in (in_arena, on_stage, later_in_arena)
+                            for col, row_start, row_span in [lane_tile[session.pk]]
+                        ],
+                    )
+                ],
+            ),
             template_name=["chronology/event.html"],
             contains=[
                 "schedule-rail",
@@ -603,23 +834,6 @@ class TestEventPageView:
                 'aria-pressed="true"',
             ],
         )
-        # room_lane_days is populated only in the rooms view; its structure is
-        # the subject of this test, so assert it directly.
-        [day] = response.context_data["room_lane_days"]
-        assert day.rooms == ["Arena", "Stage"]
-        assert [(m.row, m.has_sessions) for m in day.hour_marks] == [
-            (1, True),
-            (2, False),
-            (3, True),
-            (4, False),
-        ]
-        assert [
-            (t.data.session.pk, t.col, t.row_start, t.row_span) for t in day.tiles
-        ] == [
-            (in_arena.pk, 1, 1, 1),
-            (on_stage.pk, 2, 1, 1),
-            (later_in_arena.pk, 1, 3, 2),
-        ]
         content = response.content.decode()
         assert re.search(r">\s*Arena\s*</div>", content)
         assert re.search(r">\s*Stage\s*</div>", content)
@@ -729,10 +943,22 @@ class TestEventPageView:
 
         response = client.get(self._get_url(event.slug))
 
+        card = session_card(
+            agenda_item,
+            presenter=agenda_item.session.presenter,
+            is_enrollment_available=True,
+            is_ongoing=True,
+        )
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data=ANY,
+            context_data=event_page_context(
+                event,
+                url=self._get_url(event.slug),
+                hour_data={agenda_item.start_time: [card]},
+                current_hour_data={agenda_item.start_time: [card]},
+                sessions=[card],
+            ),
             template_name=["chronology/event.html"],
         )
         content = response.content.decode()
@@ -1084,10 +1310,17 @@ class TestEventPageView:
 
         response = client.get(self._get_url(event.slug))
 
+        card = session_card(agenda_item, presenter=session.presenter)
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data=ANY,
+            context_data=event_page_context(
+                event,
+                url=self._get_url(event.slug),
+                hour_data={agenda_item.start_time: [card]},
+                future_unavailable_hour_data={agenda_item.start_time: [card]},
+                sessions=[card],
+            ),
             template_name=["chronology/event.html"],
             not_contains="All ages",
         )
@@ -1111,10 +1344,34 @@ class TestEventPageView:
 
         response = client.get(self._get_url(event.slug))
 
+        field_value_dto = SessionFieldValueDTO(
+            allow_custom=False,
+            field_icon="",
+            field_id=session_field.pk,
+            field_name="Genre",
+            field_question="Genre",
+            field_slug="genre",
+            field_type="select",
+            is_public=True,
+            value=["a", "b", "c", "d", "e"],
+        )
+        card = session_card(
+            agenda_item,
+            presenter=session.presenter,
+            displayed_field_rows=[build_display_field_row(field_value_dto)],
+            field_values=[field_value_dto],
+        )
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data=ANY,
+            context_data=event_page_context(
+                event,
+                url=self._get_url(event.slug),
+                filterable_tag_categories=[session_field],
+                hour_data={agenda_item.start_time: [card]},
+                future_unavailable_hour_data={agenda_item.start_time: [card]},
+                sessions=[card],
+            ),
             template_name=["chronology/event.html"],
             contains=["session-tags-more", "+1"],
         )
@@ -1137,6 +1394,66 @@ class TestEventPageView:
             user=UserFactory(),
             status=SessionParticipationStatus.CONFIRMED,
         )
+        session.refresh_from_db()
+        return session
+
+    @classmethod
+    def _tagged_page_context(cls, event, *, url, sessions, session_field):
+        cards = [
+            cls._tagged_card(session, session_field=session_field)
+            for session in sessions
+        ]
+        hour_data = {}
+        for session, card in zip(sessions, cards, strict=True):
+            hour_data.setdefault(session.agenda_item.start_time, []).append(card)
+        return event_page_context(
+            event,
+            url=url,
+            filterable_tag_categories=[session_field],
+            has_category_filter=True,
+            hour_data=hour_data,
+            future_unavailable_hour_data=hour_data,
+            sessions=cards,
+            total_enrolled=len(cards),
+        )
+
+    @staticmethod
+    def _tagged_card(session, *, session_field):
+        field_value_dto = SessionFieldValueDTO(
+            allow_custom=False,
+            field_icon="",
+            field_id=session_field.pk,
+            field_name="Genre",
+            field_question="Genre",
+            field_slug="genre",
+            field_type="select",
+            is_public=True,
+            value=["a", "b"],
+        )
+        return session_card(
+            session.agenda_item,
+            presenter=session.presenter,
+            enrolled_count=1,
+            full_participant_info="1/10",
+            category_name=session.category.name,
+            # The field is public but not on the event's displayed list, so it
+            # reaches the card's values without a display row.
+            field_values=[field_value_dto],
+            session_participations=[
+                ParticipationInfo(
+                    user=UserInfo.from_user_dto(
+                        UserDTO.model_validate(participation.user),
+                        gravatar_url=gravatar_url,
+                    ),
+                    status=participation.status,
+                    creation_time=participation.creation_time,
+                    is_shadowbanned=False,
+                )
+                for participation in SessionParticipation.objects.filter(
+                    session=session
+                ).select_related("user")
+            ],
+        )
 
     def test_query_count_constant_in_session_count(self, client, event, space):
         session_field = SessionField.objects.create(
@@ -1148,10 +1465,12 @@ class TestEventPageView:
             is_multiple=True,
             is_public=True,
         )
-        for _ in range(2):
+        sessions = [
             self._add_scheduled_session(
                 event=event, space=space, session_field=session_field
             )
+            for _ in range(2)
+        ]
         client.get(self._get_url(event.slug))
 
         with CaptureQueriesContext(connection) as small_event_queries:
@@ -1159,21 +1478,33 @@ class TestEventPageView:
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data=ANY,
+            context_data=self._tagged_page_context(
+                event,
+                url=self._get_url(event.slug),
+                sessions=sessions,
+                session_field=session_field,
+            ),
             template_name=["chronology/event.html"],
         )
 
-        for _ in range(6):
+        sessions += [
             self._add_scheduled_session(
                 event=event, space=space, session_field=session_field
             )
+            for _ in range(6)
+        ]
 
         with CaptureQueriesContext(connection) as big_event_queries:
             response = client.get(self._get_url(event.slug))
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data=ANY,
+            context_data=self._tagged_page_context(
+                event,
+                url=self._get_url(event.slug),
+                sessions=sessions,
+                session_field=session_field,
+            ),
             template_name=["chronology/event.html"],
         )
 
@@ -1258,10 +1589,17 @@ class TestEventPageView:
 
         response = client.get(self._get_url(event.slug))
 
+        card = session_card(agenda_item, presenter=session.presenter)
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data=ANY,
+            context_data=event_page_context(
+                event,
+                url=self._get_url(event.slug),
+                hour_data={agenda_item.start_time: [card]},
+                future_unavailable_hour_data={agenda_item.start_time: [card]},
+                sessions=[card],
+            ),
             template_name=["chronology/event.html"],
             not_contains=placeholder_cover_url(session.pk),
         )
@@ -1276,10 +1614,17 @@ class TestEventPageView:
 
         response = client.get(self._get_url(event.slug))
 
+        card = session_card(agenda_item, presenter=session.presenter)
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data=ANY,
+            context_data=event_page_context(
+                event,
+                url=self._get_url(event.slug),
+                hour_data={agenda_item.start_time: [card]},
+                future_unavailable_hour_data={agenda_item.start_time: [card]},
+                sessions=[card],
+            ),
             template_name=["chronology/event.html"],
             contains=placeholder_cover_url(session.pk),
         )
@@ -3481,11 +3826,35 @@ class TestEventPageView:
 
         response = client.get(self._get_url(event.slug))
 
+        field_value_dto = SessionFieldValueDTO(
+            allow_custom=False,
+            field_icon="puzzle-piece",
+            field_id=session_field.pk,
+            field_name="Game Type",
+            field_question="Game Type",
+            field_slug="game-type",
+            field_type="select",
+            is_public=True,
+            value=["Alpha", "Bravo", "Charlie", "Delta", "Echo", "Foxtrot"],
+        )
+        card = session_card(
+            agenda_item,
+            presenter=session.presenter,
+            displayed_field_rows=[build_display_field_row(field_value_dto)],
+            field_values=[field_value_dto],
+        )
         # Four values stay visible; the two extras collapse into the "+N" popover.
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data=ANY,
+            context_data=event_page_context(
+                event,
+                url=self._get_url(event.slug),
+                filterable_tag_categories=[session_field],
+                hour_data={agenda_item.start_time: [card]},
+                future_unavailable_hour_data={agenda_item.start_time: [card]},
+                sessions=[card],
+            ),
             template_name=["chronology/event.html"],
             contains=["+2", "Echo", "Foxtrot"],
         )

@@ -21,8 +21,8 @@ _OVERVIEW_QUERY_LIMIT = 40
 def _query_count(client, url):
     with CaptureQueriesContext(connection) as ctx:
         response = client.get(url)
-    # Status only -- these tests make no claim about the rendered context, so
-    # assert_response would force a context_data=ANY that asserts nothing.
+    # Status only -- the claim here is the query count. What these pages put in
+    # context is pinned, page by page, in their own tests.
     assert response.status_code == HTTPStatus.OK, response.status_code
     return len(ctx.captured_queries)
 
