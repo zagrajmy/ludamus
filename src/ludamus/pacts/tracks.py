@@ -39,7 +39,7 @@ class TrackEditContextDTO(TrackEditFormContextDTO):
 
 
 class DuplicateTrackNameError(Exception):
-    """Another track in the same event already holds this name."""
+    pass
 
 
 class TracksPanelServiceProtocol(Protocol):
