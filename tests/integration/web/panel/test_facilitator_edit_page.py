@@ -273,6 +273,24 @@ class TestFacilitatorEditPageView:
             }
         ]
 
+    def test_post_marks_facilitator_as_collective(
+        self, panel_client, active_user, event
+    ):
+        facilitator = make_facilitator(event)
+
+        panel_client.post(
+            self.get_url(event),
+            data={"accreditation_type": "none", "is_collective": "on"},
+        )
+
+        facilitator.refresh_from_db()
+        assert facilitator.is_collective
+        log = FacilitatorChangeLog.objects.get(facilitator=facilitator)
+        assert log.user_id == active_user.pk
+        assert log.changes == [
+            {"field": "is_collective", "field_id": None, "old": False, "new": True}
+        ]
+
     def test_get_preselects_current_accreditation_type(self, panel_client, event):
         make_facilitator(event, accreditation_type="guest")
 
