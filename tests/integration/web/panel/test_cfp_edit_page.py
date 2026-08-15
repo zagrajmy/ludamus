@@ -23,7 +23,11 @@ from ludamus.pacts import (
     TimeSlotDTO,
 )
 from tests.integration.conftest import EventFactory, SessionFactory, UserFactory
-from tests.integration.utils import assert_login_required, assert_response
+from tests.integration.utils import (
+    FormErrorsMatcher,
+    assert_login_required,
+    assert_response,
+)
 from tests.integration.web.panel.helpers import (
     assert_event_not_found,
     assert_not_a_manager,
@@ -337,7 +341,22 @@ class TestProposalCategorySettingsPageView:
             response,
             HTTPStatus.OK,
             template_name="panel/cfp-edit.html",
-            context_data=ANY,
+            context_data={
+                **panel_context(event, active_nav="cfp"),
+                "category": ProposalCategoryDTO.model_validate(category),
+                "form": ANY,
+                "available_fields": [],
+                "field_requirements": {},
+                "field_order": [],
+                "available_session_fields": [],
+                "session_field_requirements": {},
+                "session_field_order": [],
+                "available_time_slots": [],
+                "time_slot_requirements": {},
+                "time_slot_order": [],
+                "durations": [],
+                "proposal_count": 0,
+            },
         )
 
     def test_get_form_shows_stored_promotion_config(self, panel_client, event):
@@ -378,9 +397,27 @@ class TestProposalCategorySettingsPageView:
             response,
             HTTPStatus.OK,
             template_name="panel/cfp-edit.html",
-            context_data=ANY,
+            context_data={
+                **panel_context(event, active_nav="cfp"),
+                "category": ProposalCategoryDTO.model_validate(category),
+                "form": FormErrorsMatcher(
+                    offer_claim_window_minutes=[
+                        "Set how long a held seat waits for confirmation."
+                    ]
+                ),
+                "available_fields": [],
+                "field_requirements": {},
+                "field_order": [],
+                "available_session_fields": [],
+                "session_field_requirements": {},
+                "session_field_order": [],
+                "available_time_slots": [],
+                "time_slot_requirements": {},
+                "time_slot_order": [],
+                "durations": [],
+                "proposal_count": 0,
+            },
         )
-        assert response.context["form"].errors["offer_claim_window_minutes"]
         category.refresh_from_db()
         assert category.offer_claim_window == timedelta(minutes=60)
 

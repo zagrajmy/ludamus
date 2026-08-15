@@ -7,13 +7,23 @@ from django.utils.timezone import localtime
 
 from ludamus.links.db.django.models import TimeSlot
 from ludamus.pacts import TimeSlotDTO
-from tests.integration.utils import assert_login_required, assert_response
+from tests.integration.utils import (
+    FormInitialMatcher,
+    assert_login_required,
+    assert_response,
+)
 from tests.integration.web.panel.helpers import (
     assert_event_not_found,
     assert_not_a_manager,
     cfp_tab_urls,
+    day_range,
+    empty_days,
     panel_context,
+    time_slots_page_context,
 )
+
+# The page shows three event days at a time.
+DAYS_PER_PAGE = 3
 
 
 class TestTimeSlotsPageView:
@@ -85,9 +95,13 @@ class TestTimeSlotsPageView:
             response,
             HTTPStatus.OK,
             template_name="panel/time-slots.html",
-            context_data=ANY,
+            context_data=time_slots_page_context(
+                event,
+                days=empty_days(event),
+                event_days=day_range(event),
+                create_form=FormInitialMatcher(date=day, end_date=day),
+            ),
         )
-        assert response.context["create_form"].initial == {"date": day, "end_date": day}
 
     def test_get_returns_empty_state_when_no_slots(self, panel_client, event):
         response = panel_client.get(self.get_url(event))
@@ -224,15 +238,20 @@ class TestTimeSlotsPageView:
 
         response = panel_client.get(self.get_url(event))
 
+        first_page_days = day_range(event)[:DAYS_PER_PAGE]
         assert_response(
             response,
             HTTPStatus.OK,
             template_name="panel/time-slots.html",
-            context_data=ANY,
+            context_data=time_slots_page_context(
+                event,
+                days={day.isoformat(): [] for day in first_page_days},
+                event_days=first_page_days,
+                time_slots=[TimeSlotDTO.model_validate(slot)],
+                has_next=True,
+                total_pages=1 + 1,
+            ),
         )
-        assert TimeSlotDTO.model_validate(slot) in response.context["time_slots"]
-        assert response.context["orphaned_slots"] == []
-        assert all(not slots for slots in response.context["days"].values())
 
     def test_get_invalid_page_defaults_to_first_page(self, panel_client, event):
         response = panel_client.get(self.get_url(event), {"page": "abc"})
@@ -241,9 +260,10 @@ class TestTimeSlotsPageView:
             response,
             HTTPStatus.OK,
             template_name="panel/time-slots.html",
-            context_data=ANY,
+            context_data=time_slots_page_context(
+                event, days=empty_days(event), event_days=day_range(event)
+            ),
         )
-        assert response.context["page"] == 0
 
     def test_get_shows_orphaned_slots_before_event_start(self, panel_client, event):
         before_event = event.start_time - timedelta(days=1)

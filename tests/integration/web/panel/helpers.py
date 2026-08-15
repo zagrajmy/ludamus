@@ -2,9 +2,11 @@ import json
 from datetime import UTC, datetime, timedelta
 from http import HTTPStatus
 from typing import TYPE_CHECKING
+from unittest.mock import ANY
 
 from django.contrib import messages
 from django.urls import reverse
+from django.utils.timezone import localtime
 
 from ludamus.links.db.django.agenda_item import AgendaItemRepository
 from ludamus.links.db.django.models import (
@@ -332,6 +334,65 @@ def cfp_tab_urls(event):
         "host": reverse("panel:personal-data-fields", kwargs={"slug": event.slug}),
         "session": reverse("panel:session-fields", kwargs={"slug": event.slug}),
         "time_slots": reverse("panel:time-slots", kwargs={"slug": event.slug}),
+    }
+
+
+def day_range(event):
+    start = localtime(event.start_time).date()
+    end = localtime(event.end_time).date()
+    return [start + timedelta(days=offset) for offset in range((end - start).days + 1)]
+
+
+def empty_days(event):
+    return {day.isoformat(): [] for day in day_range(event)}
+
+
+def time_slots_page_context(
+    event,
+    *,
+    days,
+    event_days,
+    time_slots=(),
+    orphaned_slots=(),
+    continuation_slots=frozenset(),
+    page=0,
+    has_prev=False,
+    has_next=False,
+    total_pages=1,
+    create_form=ANY,
+):
+    # The time-slots page context, shared by the page tests and the create-modal
+    # tests that re-render it.
+    return {
+        **panel_context(event, active_nav="cfp"),
+        "active_tab": "time_slots",
+        "tab_urls": cfp_tab_urls(event),
+        "time_slots": list(time_slots),
+        "days": days,
+        "orphaned_slots": list(orphaned_slots),
+        "continuation_slots": set(continuation_slots),
+        "event_days": event_days,
+        "page": page,
+        "has_prev": has_prev,
+        "has_next": has_next,
+        "total_pages": total_pages,
+        "create_form": create_form,
+    }
+
+
+def settings_tab_urls(event):
+    return {
+        "general": reverse("panel:event-settings", kwargs={"slug": event.slug}),
+        "proposals": reverse(
+            "panel:event-proposal-settings", kwargs={"slug": event.slug}
+        ),
+        "enrollment": reverse(
+            "panel:event-enrollment-settings", kwargs={"slug": event.slug}
+        ),
+        "display": reverse("panel:event-display-settings", kwargs={"slug": event.slug}),
+        "integrations": reverse(
+            "panel:event-integration-settings", kwargs={"slug": event.slug}
+        ),
     }
 
 

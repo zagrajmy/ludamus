@@ -1,27 +1,42 @@
 from datetime import datetime, time, timedelta
 from http import HTTPStatus
-from unittest.mock import ANY
 
 from django.contrib import messages
 from django.urls import reverse
-from django.utils.timezone import get_current_timezone
+from django.utils.timezone import get_current_timezone, localtime
 
 from ludamus.links.db.django.models import TimeSlot
+from ludamus.pacts import TimeSlotDTO
 from tests.integration.conftest import EventFactory
 from tests.integration.utils import assert_login_required, assert_response
 from tests.integration.web.panel.helpers import (
     assert_event_not_found,
     assert_not_a_manager,
+    time_slots_page_context,
 )
 
 
-def _create_modal_form(response):
-    context = response.context_data
-    assert context is not None
+def _create_modal_form(response, *, event, slots=()):
+    start = localtime(event.start_time).date()
+    end = localtime(event.end_time).date()
+    event_days = [
+        start + timedelta(days=offset) for offset in range((end - start).days + 1)
+    ]
+    days = {day.isoformat(): [] for day in event_days}
+    slot_dtos = []
+    for slot in slots:
+        dto = TimeSlotDTO.model_validate(slot)
+        slot_dtos.append(dto)
+        days[localtime(slot.start_time).date().isoformat()].append(dto)
     assert_response(
-        response, HTTPStatus.OK, template_name="panel/time-slots.html", context_data=ANY
+        response,
+        HTTPStatus.OK,
+        template_name="panel/time-slots.html",
+        context_data=time_slots_page_context(
+            event, days=days, event_days=event_days, time_slots=slot_dtos
+        ),
     )
-    return context["create_form"]
+    return response.context_data["create_form"]
 
 
 class TestTimeSlotCreatePageView:
@@ -153,7 +168,7 @@ class TestTimeSlotCreatePageView:
             self.get_url(event), {"date": "", "start_time": "", "end_time": ""}
         )
 
-        assert _create_modal_form(response).errors
+        assert _create_modal_form(response, event=event).errors
 
     def test_get_redirects_on_invalid_event_slug(self, panel_client):
         url = reverse("panel:time-slot-create", kwargs={"slug": "nonexistent"})
@@ -184,7 +199,7 @@ class TestTimeSlotCreatePageView:
             },
         )
 
-        form = _create_modal_form(response)
+        form = _create_modal_form(response, event=event)
         assert "Start must be before end." in form.non_field_errors()
         assert TimeSlot.objects.filter(event=event).count() == 0
 
@@ -201,7 +216,7 @@ class TestTimeSlotCreatePageView:
             },
         )
 
-        form = _create_modal_form(response)
+        form = _create_modal_form(response, event=event)
         assert "Time slot must be within event dates." in form.non_field_errors()
         assert TimeSlot.objects.filter(event=event).count() == 0
 
@@ -218,7 +233,7 @@ class TestTimeSlotCreatePageView:
             },
         )
 
-        form = _create_modal_form(response)
+        form = _create_modal_form(response, event=event)
         assert "Time slot must be within event dates." in form.non_field_errors()
         assert TimeSlot.objects.filter(event=event).count() == 0
 
@@ -226,7 +241,7 @@ class TestTimeSlotCreatePageView:
         date_str = self._event_date_str(event)
         tz = get_current_timezone()
         slot_start = datetime.combine(event.start_time.date(), time(10, 0), tzinfo=tz)
-        TimeSlot.objects.create(
+        existing = TimeSlot.objects.create(
             event=event, start_time=slot_start, end_time=slot_start + timedelta(hours=2)
         )
 
@@ -240,7 +255,7 @@ class TestTimeSlotCreatePageView:
             },
         )
 
-        form = _create_modal_form(response)
+        form = _create_modal_form(response, event=event, slots=[existing])
         assert "Time slot overlaps with an existing slot." in form.non_field_errors()
         assert TimeSlot.objects.filter(event=event).count() == 1
 
@@ -310,6 +325,6 @@ class TestTimeSlotCreatePageView:
             },
         )
 
-        form = _create_modal_form(response)
+        form = _create_modal_form(response, event=event)
         assert "Time slot must be within event dates." in form.non_field_errors()
         assert TimeSlot.objects.filter(event=event).count() == 0
