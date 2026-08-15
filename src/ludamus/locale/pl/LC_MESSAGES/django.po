@@ -3268,6 +3268,12 @@ msgid "track"
 msgstr "blok"
 
 #: src/ludamus/links/db/django/models.py
+msgid "A space holding a scheduled session cannot contain other spaces."
+msgstr ""
+"Przestrzeń zawierająca zaplanowany punkt programu nie może zawierać innych "
+"przestrzeni."
+
+#: src/ludamus/links/db/django/models.py
 msgid "date joined"
 msgstr "data dołączenia"
 
@@ -3343,12 +3349,6 @@ msgstr "Przestrzeń nie może być swoim własnym przodkiem."
 #, python-format
 msgid "Spaces can be nested at most %(max)d levels deep."
 msgstr "Przestrzenie można zagnieżdżać maksymalnie na %(max)d poziomów."
-
-#: src/ludamus/links/db/django/models.py
-msgid "A space holding a scheduled session cannot contain other spaces."
-msgstr ""
-"Przestrzeń zawierająca zaplanowany punkt programu nie może zawierać innych "
-"przestrzeni."
 
 #: src/ludamus/links/db/django/models.py
 msgid "A root space with this slug already exists."
