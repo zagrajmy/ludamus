@@ -76,6 +76,7 @@ def content_field_label(field_key: str) -> str:
         "time_slots": _("Time slots"),
         "accreditation_type": _("Accreditation type"),
         "internal_comment": _("Internal comment"),
+        "is_collective": _("Runs program points in parallel"),
         "merged_from": _("Merged from"),
     }
     return labels.get(field_key, field_key)
