@@ -81,14 +81,14 @@ class SphereRepository(
 
 
 # A plain unique constraint: SQLite names the columns rather than the index.
-_CONNECTION_UNIQUE_DISPLAY_NAME_CONSTRAINTS = (
+_CONNECTION_UNIQUE_DISPLAY_NAME_MARKERS = (
     "connection_unique_display_name_per_sphere",
     "UNIQUE constraint failed: connection.sphere_id, connection.display_name",
 )
 
 
 def is_connection_display_name_conflict(exc: IntegrityError) -> bool:
-    return violates_constraint(exc, *_CONNECTION_UNIQUE_DISPLAY_NAME_CONSTRAINTS)
+    return violates_constraint(exc, *_CONNECTION_UNIQUE_DISPLAY_NAME_MARKERS)
 
 
 class AnnouncementsRepository(AnnouncementsRepositoryProtocol):

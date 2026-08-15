@@ -6,13 +6,14 @@ if TYPE_CHECKING:
     from django.db import IntegrityError
 
 
-def violates_constraint(exc: IntegrityError, *names: str) -> bool:
+def violates_constraint(exc: IntegrityError, *markers: str) -> bool:
     # Postgres names the violated constraint in the error diagnostics. SQLite
     # only spells it out in the message, and how it spells it depends on the
     # constraint: a functional index gives its own name, a plain unique
-    # constraint gives the column list instead — hence several accepted names.
+    # constraint gives the column list instead. Hence markers rather than
+    # names — every accepted spelling, whatever shape the engine reports.
     diag = getattr(exc.__cause__, "diag", None)
-    if getattr(diag, "constraint_name", None) in names:
+    if getattr(diag, "constraint_name", None) in markers:
         return True
     message = str(exc)
-    return any(name in message for name in names)
+    return any(marker in message for marker in markers)
