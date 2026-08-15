@@ -749,7 +749,10 @@ class ConflictDetectionService:
                 session_pk=other.session_id,
                 facilitator_name=facilitator.display_name,
             )
+            # A collective facilitator (guild, organizer crew) is not one
+            # person, so its parallel program points are not a clash.
             for facilitator in facilitators_by_session.get(item.session_id, [])
+            if not facilitator.is_collective
             for other in items_by_facilitator.get(facilitator.pk, [])
             if other.session_id != item.session_id and _items_overlap(item, other)
         ]
