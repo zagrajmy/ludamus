@@ -25,7 +25,10 @@ if TYPE_CHECKING:
     )
     from ludamus.pacts.event import FacilitatorListItemDTO
     from ludamus.pacts.services import ServicesProtocol
-    from ludamus.pacts.submissions import FacilitatorListFilters
+    from ludamus.pacts.submissions import (
+        FacilitatorListFilters,
+        FacilitatorSessionCountsDTO,
+    )
 
 
 class NotFoundError(Exception):
@@ -1323,6 +1326,8 @@ class FacilitatorRepositoryProtocol(Protocol):
         event_id: int, filters: FacilitatorListFilters | None = None
     ) -> list[FacilitatorListItemDTO]: ...
     @staticmethod
+    def list_deleted_by_event(event_id: int) -> list[FacilitatorListItemDTO]: ...
+    @staticmethod
     def list_by_slugs(
         event_id: int, facilitator_slugs: list[str]
     ) -> list[FacilitatorListItemDTO]: ...
@@ -1339,9 +1344,9 @@ class FacilitatorRepositoryProtocol(Protocol):
         event_pk: int, track_pk: int
     ) -> list[ConfirmationFacilitatorRow]: ...
     @staticmethod
-    def lock(pk: int) -> None: ...
+    def lock(pks: Iterable[int]) -> None: ...
     @staticmethod
-    def has_any_session(pk: int) -> bool: ...
+    def count_sessions(pk: int) -> FacilitatorSessionCountsDTO: ...
     @staticmethod
     def delete(pk: int) -> None: ...
     @staticmethod

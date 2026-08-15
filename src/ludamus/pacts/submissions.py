@@ -365,21 +365,33 @@ class OrganizerActionRefusal(StrEnum):
     HAS_SESSIONS = "has_sessions"
 
 
+class FacilitatorSessionCountsDTO(BaseModel):
+    """How many program points name a facilitator, live and deleted apart."""
+
+    live: int
+    deleted: int
+
+
 class FacilitatorActionError(Exception):
     """Raised when a facilitator action cannot apply, with the reason why."""
 
-    def __init__(self, refusal: OrganizerActionRefusal) -> None:
+    def __init__(
+        self,
+        refusal: OrganizerActionRefusal,
+        *,
+        session_counts: FacilitatorSessionCountsDTO | None = None,
+    ) -> None:
         super().__init__(refusal.value)
         self.refusal = refusal
+        # What the refusal is about, when it is about something countable: the
+        # message can then say how many and where instead of what is forbidden.
+        self.session_counts = session_counts
 
 
 class FacilitatorListFilters(TypedDict, total=False):
     search: str | None
     pks: set[int] | None
     accreditation: str | None
-    # True lists the deleted facilitators instead of the live ones — the two
-    # never mix, so a restore is always a deliberate visit to the bin.
-    deleted: bool | None
     field_filters: dict[int, str | bool] | None
     organizer_id: int | None
     organizer_unassigned: bool | None

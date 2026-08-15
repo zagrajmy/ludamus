@@ -323,7 +323,6 @@ class FacilitatorPanelService(FacilitatorPanelServiceProtocol):
         filters: FacilitatorListFilters = {
             "search": query.search or None,
             "accreditation": query.accreditation or None,
-            "deleted": query.deleted or None,
             "field_filters": field_filters or None,
             "organizer_id": (
                 query.current_user_id if query.organizer == "mine" else None
@@ -342,6 +341,9 @@ class FacilitatorPanelService(FacilitatorPanelServiceProtocol):
                 fields=fields,
             ),
         )
+
+    def list_deleted(self, event_id: int) -> list[FacilitatorListItemDTO]:
+        return self._repos.facilitators.list_deleted_by_event(event_id)
 
     def filter_options(
         self, *, event_id: int, search: str, pinned: set[int], limit: int
@@ -755,9 +757,12 @@ class FacilitatorPanelService(FacilitatorPanelServiceProtocol):
             # Before the check, not after: a session assignment committing
             # between the two would otherwise leave this facilitator deleted
             # and still named on the program.
-            self._repos.facilitators.lock(facilitator.pk)
-            if self._repos.facilitators.has_any_session(facilitator.pk):
-                raise FacilitatorActionError(OrganizerActionRefusal.HAS_SESSIONS)
+            self._repos.facilitators.lock([facilitator.pk])
+            counts = self._repos.facilitators.count_sessions(facilitator.pk)
+            if counts.live or counts.deleted:
+                raise FacilitatorActionError(
+                    OrganizerActionRefusal.HAS_SESSIONS, session_counts=counts
+                )
             self._repos.facilitators.soft_delete(facilitator.pk)
             self._log_deletion(
                 event_id=event_id,

@@ -103,7 +103,6 @@ class FacilitatorsPageView(PanelAccessMixin, EventContextMixin, View):
         return FacilitatorListQuery(
             search=self.request.GET.get("search", "").strip(),
             accreditation=(accreditation if accreditation in AccreditationType else ""),
-            deleted=self.request.GET.get("deleted") == "true",
             organizer=(organizer if organizer in _ORGANIZER_FILTERS else ""),
             current_user_id=self.request.context.current_user_id,
             sort=self.request.GET.get("sort", "").strip() or "name",
@@ -151,13 +150,11 @@ class FacilitatorsPageView(PanelAccessMixin, EventContextMixin, View):
         }
         context["filter_search"] = query.search
         context["filter_accreditation"] = query.accreditation or None
-        context["filter_deleted"] = query.deleted
         context["filter_organizer"] = query.organizer
         context["filter_sort"] = query.sort
         context["filters_active"] = bool(
             query.search
             or query.accreditation
-            or query.deleted
             or query.organizer
             or list_context.field_filters
         )
@@ -165,6 +162,27 @@ class FacilitatorsPageView(PanelAccessMixin, EventContextMixin, View):
             (t.value, ACCREDITATION_TYPE_LABELS[t]) for t in AccreditationType
         ]
         return TemplateResponse(self.request, "panel/facilitators.html", context)
+
+
+class FacilitatorBinPageView(PanelAccessMixin, EventContextMixin, View):
+    """List the deleted facilitators, where restore is the only action."""
+
+    request: PanelRequest
+
+    def get(self, _request: PanelRequest, slug: str) -> HttpResponse:
+        context, current_event = self.get_event_context(slug)
+        if current_event is None:
+            return redirect("panel:index")
+
+        deleted = self.request.services.facilitator_panel.list_deleted(current_event.pk)
+        pagination = pagination_context(self.request, deleted)
+
+        context["active_nav"] = "facilitators"
+        context["active_tab"] = "bin"
+        context["tab_urls"] = facilitator_tab_urls(slug)
+        context["facilitators"] = list(pagination["page_obj"].object_list)
+        context.update(pagination)
+        return TemplateResponse(self.request, "panel/facilitator-bin.html", context)
 
 
 class FacilitatorDetailPageView(PanelAccessMixin, EventContextMixin, View):

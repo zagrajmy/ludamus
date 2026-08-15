@@ -1,0 +1,104 @@
+{% extends "panel/base.html" %}
+{% load i18n %}
+{% load tessera %}
+{% load django_vite %}
+{% block title_prefix %}
+    {% translate "Bin" %} -
+{% endblock title_prefix %}
+{% block page_title %}
+    {% translate "Facilitators" %}
+{% endblock page_title %}
+{% block page_subtitle %}
+    {% if current_event %}
+        {{ current_event.name }} · {% translate "Bin" %}
+    {% endif %}
+{% endblock page_subtitle %}
+{% block content %}
+    <div class="p-3 sm:p-4">
+        {% if current_event %}
+            {% tab_shell "panel/_facilitator_tabs.html" %}
+                {% tab_shell_body %}
+                    {% vite_asset 'src/bulk-status.ts' %}
+                    {% if facilitators %}
+                        <p class="text-sm text-foreground-muted mb-4">
+                            {% translate "Deleted facilitators are off the program. Restore one to bring their byline back." %}
+                        </p>
+                        <form method="post"
+                              id="bulk-status-form"
+                              action="{% url 'panel:facilitator-bulk-action' slug=current_event.slug %}">
+                            {% csrf_token %}
+                            <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                            <div class="flex flex-wrap items-center gap-2 mb-3">
+                                <span class="text-sm text-foreground-muted mr-1">
+                                    {% translate "Selected:" %} <span id="bulk-selected-count">0</span>
+                                </span>
+                                <button type="submit"
+                                        name="action"
+                                        value="restore"
+                                        class="btn btn-secondary text-sm bulk-action-btn">{% translate "Restore" %}</button>
+                            </div>
+                        </form>
+                        {% tessera_table %}
+                            <thead class="bg-bg-tertiary">
+                                <tr>
+                                    <th scope="col" class="px-6 py-3 w-12">
+                                        {% translate "Select all facilitators" as t_select_all %}
+                                        {% include "components/checkbox-field.html" with id="bulk-select-all" aria_label=t_select_all only %}
+                                    </th>
+                                    <th scope="col"
+                                        class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
+                                        {% translate "Name" %}
+                                    </th>
+                                    <th scope="col"
+                                        class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
+                                        {% translate "Deleted" %}
+                                    </th>
+                                    <th scope="col"
+                                        class="px-6 py-3 text-right text-xs font-medium text-foreground-muted uppercase tracking-wider">
+                                        {% translate "Actions" %}
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-border">
+                                {% for facilitator in facilitators %}
+                                    <tr class="hover:bg-bg-tertiary">
+                                        <td class="px-6 py-4">
+                                            {% blocktranslate asvar t_select_row with name=facilitator.display_name %}Select {{ name }}{% endblocktranslate %}
+                                            {% include "components/checkbox-field.html" with name="facilitator_slugs" value=facilitator.slug form_id="bulk-status-form" aria_label=t_select_row hook_class="bulk-row-checkbox" only %}
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-foreground">
+                                            <a href="{% url 'panel:facilitator-detail' slug=current_event.slug facilitator_slug=facilitator.slug %}"
+                                               data-row-action
+                                               class="text-primary hover:text-primary/80">{{ facilitator.display_name }}</a>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-foreground-muted">{{ facilitator.deleted_at|date:"SHORT_DATETIME_FORMAT" }}</td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                            <form method="post"
+                                                  action="{% url 'panel:facilitator-restore' slug=current_event.slug facilitator_slug=facilitator.slug %}">
+                                                {% csrf_token %}
+                                                <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                                                {% blocktranslate asvar t_restore_row with name=facilitator.display_name %}Restore {{ name }}{% endblocktranslate %}
+                                                <button type="submit"
+                                                        aria-label="{{ t_restore_row }}"
+                                                        class="btn btn-secondary text-sm">{% translate "Restore" %}</button>
+                                            </form>
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        {% endtessera_table %}
+                        {% include "panel/parts/_pagination.html" %}
+                    {% else %}
+                        <div class="card p-8 text-center">
+                            <p class="text-foreground-muted">{% translate "The bin is empty. Deleted facilitators land here." %}</p>
+                        </div>
+                    {% endif %}
+                {% endtab_shell_body %}
+            {% endtab_shell %}
+        {% else %}
+            <div class="card p-8 text-center">
+                <p class="text-foreground-muted">{% translate "No events available. Create an event to get started." %}</p>
+            </div>
+        {% endif %}
+    </div>
+{% endblock content %}

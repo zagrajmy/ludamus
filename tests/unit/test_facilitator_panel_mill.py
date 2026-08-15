@@ -28,7 +28,11 @@ from ludamus.pacts.panel import (
     FacilitatorPanelRepos,
     MergeErrorReason,
 )
-from ludamus.pacts.submissions import FacilitatorActionError, OrganizerActionRefusal
+from ludamus.pacts.submissions import (
+    FacilitatorActionError,
+    FacilitatorSessionCountsDTO,
+    OrganizerActionRefusal,
+)
 
 
 def _field(pk, field_type="select"):
@@ -903,14 +907,16 @@ _FACILITATOR_PK = 7
 
 
 class FakeDeletionRepo:
-    def __init__(self, *, has_any_session=False):
-        self._has_any_session = has_any_session
+    def __init__(self, *, live_sessions=0, deleted_sessions=0):
+        self._counts = FacilitatorSessionCountsDTO(
+            live=live_sessions, deleted=deleted_sessions
+        )
         self.soft_deleted = _NOT_CALLED
         self.restored = _NOT_CALLED
         self.calls = []
 
-    def lock(self, pk):
-        self.calls.append(("lock", pk))
+    def lock(self, pks):
+        self.calls.append(("lock", list(pks)))
 
     def read_by_event_and_slug(self, _event_id, _slug):
         return FacilitatorDTO.model_construct(pk=_FACILITATOR_PK)
@@ -918,9 +924,9 @@ class FakeDeletionRepo:
     def read_including_deleted(self, _event_id, _slug):
         return FacilitatorDTO.model_construct(pk=_FACILITATOR_PK)
 
-    def has_any_session(self, pk):
-        self.calls.append(("has_any_session", pk))
-        return self._has_any_session
+    def count_sessions(self, pk):
+        self.calls.append(("count_sessions", pk))
+        return self._counts
 
     def soft_delete(self, pk):
         self.soft_deleted = pk
@@ -950,7 +956,7 @@ def _logged_changes(logs):
 
 class TestFacilitatorDeletion:
     def test_a_facilitator_running_sessions_is_not_deleted(self):
-        facilitators = FakeDeletionRepo(has_any_session=True)
+        facilitators = FakeDeletionRepo(live_sessions=1)
         service, logs = _deletion_service(facilitators)
 
         refusal = _refusal(lambda: service.delete(event_id=1, facilitator_slug="alice"))
@@ -958,6 +964,20 @@ class TestFacilitatorDeletion:
         assert refusal == OrganizerActionRefusal.HAS_SESSIONS
         assert facilitators.soft_deleted is _NOT_CALLED
         logs.create.assert_not_called()
+
+    def test_a_facilitator_named_only_on_deleted_sessions_is_not_deleted(self):
+        # The refusal carries the numbers so the message can say which half of
+        # them the organizer cannot see from the facilitator page.
+        facilitators = FakeDeletionRepo(deleted_sessions=2)
+        service, _logs = _deletion_service(facilitators)
+
+        with pytest.raises(FacilitatorActionError) as exc_info:
+            service.delete(event_id=1, facilitator_slug="alice")
+
+        assert exc_info.value.session_counts == FacilitatorSessionCountsDTO(
+            live=0, deleted=2
+        )
+        assert facilitators.soft_deleted is _NOT_CALLED
 
     def test_the_row_is_locked_before_its_sessions_are_counted(self):
         # A session assignment landing between the two would leave a deleted
@@ -968,8 +988,8 @@ class TestFacilitatorDeletion:
         service.delete(event_id=1, facilitator_slug="alice")
 
         assert facilitators.calls == [
-            ("lock", _FACILITATOR_PK),
-            ("has_any_session", _FACILITATOR_PK),
+            ("lock", [_FACILITATOR_PK]),
+            ("count_sessions", _FACILITATOR_PK),
         ]
 
     def test_a_facilitator_without_sessions_is_deleted(self):

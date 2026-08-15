@@ -208,7 +208,6 @@ class FacilitatorListQuery:
 
     search: str = ""
     accreditation: str = ""
-    deleted: bool = False
     # "", "mine" or "unassigned" — one choice, so "filter by me" and "filter by
     # nobody" can never both be asked for. `current_user_id` is who "mine"
     # means, not a filter of its own.
@@ -292,6 +291,7 @@ class FacilitatorPanelServiceProtocol(PanelColumnServiceProtocol, Protocol):
     def list_context(
         self, *, event_id: int, query: FacilitatorListQuery
     ) -> FacilitatorListContextDTO: ...
+    def list_deleted(self, event_id: int) -> list[FacilitatorListItemDTO]: ...
     def filter_options(
         self, *, event_id: int, search: str, pinned: set[int], limit: int
     ) -> FacilitatorFilterOptionsDTO: ...

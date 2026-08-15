@@ -411,6 +411,11 @@ urlpatterns = [
         name="facilitator-merge",
     ),
     path(
+        "event/<slug:slug>/facilitators/bin/",
+        facilitators.FacilitatorBinPageView.as_view(),
+        name="facilitator-bin",
+    ),
+    path(
         "event/<slug:slug>/facilitators/<str:facilitator_slug>/",
         facilitators.FacilitatorDetailPageView.as_view(),
         name="facilitator-detail",

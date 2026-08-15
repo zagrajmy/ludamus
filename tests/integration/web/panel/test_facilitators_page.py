@@ -39,9 +39,19 @@ from tests.integration.web.panel.helpers import (
 _PAGE_SIZES = [10, 20, 50, 100]
 
 _HAS_SESSIONS_ERROR = (
-    "This facilitator is named on sessions, deleted ones included. Remove them"
-    " from those sessions first."
+    "This facilitator is named on 1 session. Remove them from it before deleting."
 )
+
+
+def _has_deleted_sessions_error(event):
+    bin_url = reverse("panel:proposals", kwargs={"slug": event.slug})
+    return (
+        "This facilitator is named on 1 session, 1 of them deleted. Remove them"
+        " from all of these first — the deleted ones are in the"
+        f' <a class="underline" href="{bin_url}#deleted-proposals">proposal'
+        " bin</a>."
+    )
+
 
 _DELETED_AT = datetime(2026, 1, 2, 3, 4, tzinfo=UTC)
 
@@ -62,6 +72,7 @@ def _tab_urls(event):
         "list": reverse("panel:facilitators", kwargs={"slug": event.slug}),
         "merge": reverse("panel:facilitator-merge", kwargs={"slug": event.slug}),
         "columns": reverse("panel:facilitator-columns", kwargs={"slug": event.slug}),
+        "bin": reverse("panel:facilitator-bin", kwargs={"slug": event.slug}),
     }
 
 
@@ -136,7 +147,6 @@ def _base_context(event):
         **_event_context(event),
         "filter_search": "",
         "filter_accreditation": None,
-        "filter_deleted": False,
         "filter_organizer": "",
         "filter_sort": "name",
         "filters_active": False,
@@ -599,46 +609,6 @@ class TestFacilitatorsPageView:
                 "page_obj": PageMatcher(number=1, num_pages=1),
                 "page_sizes": _PAGE_SIZES,
                 "filter_sort": "-name",
-            },
-        )
-
-    def test_deleted_filter(self, panel_client, event):
-        deleted = Facilitator.objects.create(
-            event=event,
-            display_name="Deleted",
-            slug="deleted",
-            user=None,
-            deleted_at=_DELETED_AT,
-        )
-        Facilitator.objects.create(
-            event=event, display_name="Normal", slug="normal", user=None
-        )
-
-        response = panel_client.get(self.get_url(event), {"deleted": "true"})
-
-        expected = [
-            FacilitatorListItemDTO(
-                accreditation_type="none",
-                deleted_at=_DELETED_AT,
-                display_name="Deleted",
-                pk=deleted.pk,
-                slug="deleted",
-                user_id=None,
-                session_count=0,
-            )
-        ]
-        assert_response(
-            response,
-            HTTPStatus.OK,
-            template_name="panel/facilitators.html",
-            context_data={
-                **_base_context(event),
-                "facilitators": expected,
-                "column_values": _column_values(expected),
-                "page_obj": PageMatcher(number=1, num_pages=1),
-                "page_sizes": _PAGE_SIZES,
-                "filter_deleted": True,
-                "filters_active": True,
             },
         )
 
@@ -1187,6 +1157,88 @@ class TestFacilitatorsPageView:
         assert unlisted.context["page_obj"].paginator.per_page == _PAGE_SIZE
 
 
+class TestFacilitatorBinPageView:
+    """Tests for /panel/event/<slug>/facilitators/bin/ page."""
+
+    @staticmethod
+    def get_url(event):
+        return reverse("panel:facilitator-bin", kwargs={"slug": event.slug})
+
+    def test_get_redirects_anonymous_user_to_login(self, client, event):
+        url = self.get_url(event)
+
+        response = client.get(url)
+
+        assert_login_required(response, url)
+
+    def test_get_redirects_non_manager_user(self, authenticated_client, event):
+        response = authenticated_client.get(self.get_url(event))
+
+        assert_not_a_manager(response)
+
+    def test_get_lists_only_deleted_facilitators(self, panel_client, event):
+        deleted = Facilitator.objects.create(
+            event=event,
+            display_name="Deleted",
+            slug="deleted",
+            user=None,
+            deleted_at=_DELETED_AT,
+        )
+        Facilitator.objects.create(
+            event=event, display_name="Normal", slug="normal", user=None
+        )
+
+        response = panel_client.get(self.get_url(event))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/facilitator-bin.html",
+            context_data={
+                **_event_context(event, active_tab="bin"),
+                "facilitators": [
+                    FacilitatorListItemDTO(
+                        accreditation_type="none",
+                        deleted_at=_DELETED_AT,
+                        display_name="Deleted",
+                        pk=deleted.pk,
+                        slug="deleted",
+                        user_id=None,
+                        session_count=0,
+                    )
+                ],
+                "page_obj": PageMatcher(number=1, num_pages=1),
+                "page_sizes": _PAGE_SIZES,
+            },
+        )
+
+    def test_an_empty_bin_lists_nothing(self, panel_client, event):
+        Facilitator.objects.create(
+            event=event, display_name="Normal", slug="normal", user=None
+        )
+
+        response = panel_client.get(self.get_url(event))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/facilitator-bin.html",
+            context_data={
+                **_event_context(event, active_tab="bin"),
+                "facilitators": [],
+                "page_obj": PageMatcher(number=1, num_pages=1),
+                "page_sizes": _PAGE_SIZES,
+            },
+        )
+
+    def test_get_redirects_when_event_not_found(self, panel_client):
+        url = reverse("panel:facilitator-bin", kwargs={"slug": "nonexistent"})
+
+        response = panel_client.get(url)
+
+        assert_event_not_found(response)
+
+
 class TestFacilitatorActions:
     """Delete / restore / mark-as-guest POST actions."""
 
@@ -1278,7 +1330,7 @@ class TestFacilitatorActions:
         assert_response(
             response,
             HTTPStatus.FOUND,
-            messages=[(messages.ERROR, _HAS_SESSIONS_ERROR)],
+            messages=[(messages.ERROR, _has_deleted_sessions_error(event))],
             url=reverse("panel:facilitators", kwargs={"slug": event.slug}),
         )
         facilitator.refresh_from_db()

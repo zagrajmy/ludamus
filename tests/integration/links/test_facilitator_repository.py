@@ -2,8 +2,9 @@ import pytest
 
 from ludamus.links.db.django.models import Facilitator
 from ludamus.links.db.django.repositories import SessionRepository
-from ludamus.links.db.django.repositories.submissions import FacilitatorRepository
+from ludamus.links.db.django.repositories.facilitators import FacilitatorRepository
 from ludamus.pacts import NotFoundError
+from ludamus.pacts.submissions import FacilitatorSessionCountsDTO
 from tests.integration.conftest import (
     EventFactory,
     ProposalCategoryFactory,
@@ -196,17 +197,30 @@ class TestFacilitatorRepositorySoftDelete:
 
 
 class TestFacilitatorRepositoryLock:
-    def test_a_dead_row_locks_too(self):
-        # The delete path locks whatever `read_by_event_and_slug` returned, so
-        # the lock never gets to decide a row is out of scope.
+    def test_an_alive_row_locks(self):
+        event = EventFactory.create()
+        facilitator = _facilitator(event)
+
+        assert FacilitatorRepository.lock([facilitator.pk]) is None
+
+    def test_one_missing_pk_among_alive_ones_is_not_found(self):
+        event = EventFactory.create()
+        facilitator = _facilitator(event)
+
+        with pytest.raises(NotFoundError):
+            FacilitatorRepository.lock([facilitator.pk, 0])
+
+    def test_a_dead_row_is_not_found(self):
         event = EventFactory.create()
         facilitator = _facilitator(event)
         facilitator.soft_delete()
 
-        assert FacilitatorRepository.lock(facilitator.pk) is None
+        with pytest.raises(NotFoundError):
+            FacilitatorRepository.lock([facilitator.pk])
 
-    def test_a_missing_row_is_not_an_error(self):
-        assert FacilitatorRepository.lock(0) is None
+    def test_a_missing_row_is_not_found(self):
+        with pytest.raises(NotFoundError):
+            FacilitatorRepository.lock([0])
 
 
 class TestSessionFacilitatorLinkRejectsDeleted:
@@ -224,30 +238,34 @@ class TestSessionFacilitatorLinkRejectsDeleted:
         assert not session.facilitators.exists()
 
 
-class TestFacilitatorRepositoryHasSessions:
-    def test_a_facilitator_without_sessions_has_none(self):
+class TestFacilitatorRepositoryCountSessions:
+    def test_a_facilitator_without_sessions_counts_none(self):
         event = EventFactory.create()
         facilitator = _facilitator(event)
 
-        assert FacilitatorRepository.has_any_session(facilitator.pk) is False
+        assert FacilitatorRepository.count_sessions(
+            facilitator.pk
+        ) == FacilitatorSessionCountsDTO(live=0, deleted=0)
 
-    def test_a_facilitator_running_a_session_has_sessions(self):
+    def test_live_and_deleted_sessions_are_counted_apart(self):
+        # The deleted half is what the refusal has to name: it is restorable,
+        # and a restore bringing back a session whose facilitator is deleted
+        # would drop the byline.
         event = EventFactory.create()
         facilitator = _facilitator(event)
         _session(event).facilitators.add(facilitator)
+        deleted_session = _session(event)
+        deleted_session.facilitators.add(facilitator)
+        deleted_session.soft_delete()
 
-        assert FacilitatorRepository.has_any_session(facilitator.pk) is True
+        assert FacilitatorRepository.count_sessions(
+            facilitator.pk
+        ) == FacilitatorSessionCountsDTO(live=1, deleted=1)
 
-    def test_a_deleted_session_counts_too(self):
-        # It is restorable, and a restore that brought back a session with a
-        # deleted facilitator would drop the byline.
-        event = EventFactory.create()
-        facilitator = _facilitator(event)
-        session = _session(event)
-        session.facilitators.add(facilitator)
-        session.soft_delete()
-
-        assert FacilitatorRepository.has_any_session(facilitator.pk) is True
+    def test_a_missing_facilitator_counts_none(self):
+        assert FacilitatorRepository.count_sessions(0) == FacilitatorSessionCountsDTO(
+            live=0, deleted=0
+        )
 
 
 class TestFacilitatorRepositorySessionCount:

@@ -125,9 +125,7 @@ test.describe("Panel facilitator + proposal CRUD", () => {
     await page.getByRole("button", { name: `Delete ${facilitator}` }).click();
     await page.getByRole("alertdialog").getByRole("button", { name: "Delete" }).click();
 
-    await expect(
-      page.getByText("This facilitator is named on sessions, deleted ones included."),
-    ).toBeVisible();
+    await expect(page.getByText(/This facilitator is named on \d+ session/)).toBeVisible();
     await expect(page.getByRole("link", { name: facilitator, exact: true })).toBeVisible();
   });
 
@@ -146,10 +144,10 @@ test.describe("Panel facilitator + proposal CRUD", () => {
     await page.getByRole("alertdialog").getByRole("button", { name: "Delete" }).click();
     await expect(page.getByRole("link", { name: spare, exact: true })).toBeHidden();
 
-    // The filter form autosubmits on change; no Filter click needed.
-    await page.getByLabel("Deleted only").check();
+    // The bin is its own tab, so nothing on the live list has to know deletion
+    // exists — and the bin carries only the action that works there.
+    await page.getByRole("link", { name: "Bin" }).click();
 
-    // The bin offers only the actions that work there, in the bulk bar and the row.
     await expect(page.getByRole("button", { name: "Restore", exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: "Delete", exact: true })).toBeHidden();
     await expect(page.getByRole("button", { name: "Merge selected" })).toBeHidden();
