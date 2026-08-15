@@ -1,6 +1,6 @@
 import pytest
 
-from ludamus.edges.rituals.pr_review import Branch
+from ludamus.edges.rituals.pr_review import Branch, Picking
 from ludamus.edges.rituals.state import PullRequest, Run, Work
 
 
@@ -27,4 +27,4 @@ def work() -> Work:
 
 @pytest.fixture
 def branch() -> Branch:
-    return Branch(name="feature", number=7, bound=2)
+    return Branch(picking=Picking(bound=2), name="feature", number=7)

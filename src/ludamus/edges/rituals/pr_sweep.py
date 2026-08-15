@@ -11,14 +11,24 @@ are resolved, the work is pushed, and the report says how each branch ended.
 merges the base in and makes ``mise run pr-fix`` green — lint, types, the unit
 suite — with no browser and no coverage measurement anywhere in it. Then it
 posts the quality review, unless the branch already carries ``pr::thermo``.
+A branch the merge brought nothing to, and that CI is green on top to bottom,
+skips the gate: that tree has been graded already.
+
+Neither gate is re-run whole while a repair is underway. Where mise names the
+task that broke, the next round runs that task alone, and the gate itself runs
+once more when it comes back green — which is also what keeps the installs at
+the head of ``pr-fix`` to one pass per branch rather than one per attempt.
 
 ``pr_cover`` is the slow one, and it asks before it spends: it reads what CI
 made of the branch and, where codecov or the test job is unhappy, runs
 ``mise run diff-cover`` — the unit suite, the e2e suite, then the diff coverage
 report — writes the tests for what the branch left uncovered, and repairs the
-suite where it is the suite that is broken. A pull request whose coverage and
-tests are green on the server is merged, pushed and left. It posts no review:
-the fast pass runs first and that one is where the review comes from.
+suite where it is the suite that is broken. Between rounds it re-measures with
+``mise run test:py:cov:diff``, which is the same report without the browser;
+the full one runs again at the end, and that is the one that counts. A pull
+request whose coverage and tests are green on the server is merged, pushed and
+left. It posts no review: the fast pass runs first and that one is where the
+review comes from.
 
 A branch is left alone rather than reported broken when the checkout will not go
 through, which is what another worktree standing on it looks like. Nothing was
@@ -81,10 +91,11 @@ from pydantic import ValidationError
 from vekna.folio.shell import shell
 from vekna.lexicon import RitualError, Transition, done, emit_delta, goto, ritual, step
 
-from .agent import COVER, ask, fix_gates, resolve, thermo
+from .agent import ask, cover_gap, fix_gates, resolve, thermo
 from .shell import (
     CONTINUE_MERGE,
     COVERAGE,
+    FAST_COVERAGE,
     LIST,
     MISSING,
     PR_FIX,
@@ -99,6 +110,7 @@ from .shell import (
     commit,
     coverage_report,
     label,
+    narrowed,
     plain,
     push,
     quoted,
@@ -116,6 +128,7 @@ from .state import (
     Work,
     abandoned,
     charged,
+    ci_green,
     cleared,
     exhausted,
     joined,
@@ -131,9 +144,10 @@ from .state import (
 )
 
 # The backstop, not the control — the per-step bounds are. Six pull requests
-# through ~9 steps each, with three repair loops that may each burn `--bound`
-# extra turns, comes to a little under 200 at the maximum bound; this sits
-# above that, because tripping it costs the report as well as the run.
+# through ~9 steps each, with three repair loops that may each burn two turns
+# per `--bound` — the narrow task and the gate confirming it — comes to a little
+# over 200 at the maximum bound; this sits above that, because tripping it costs
+# the report as well as the run.
 _MAX_STEPS = 240
 
 
@@ -222,19 +236,24 @@ async def sync_branch(work: Work) -> Transition:
 
 @step
 async def merge_base(work: Work) -> Transition:
-    """Merge the base in, telling a conflict from a merge that would not run."""
+    """Merge the base in, and say whether it brought anything with it."""
+    # Asked before the merge rather than read off it afterwards: git says
+    # "Already up to date" in whatever language the terminal is set to, and a
+    # base already contained in this branch is the same answer in every one.
+    # What it buys is `take_pass` below — a tree CI has already graded.
+    contained = await shell(
+        f"git merge-base --is-ancestor {quoted(work.pr.base)} HEAD", stream=False
+    )
     merged = await shell(f"git merge --no-edit {quoted(work.pr.base)}")
     if merged.exit_code == 0:
-        return goto(take_pass, work)
-    unmerged = await shell("git diff --name-only --diff-filter=U", stream=False)
-    # A merge fails for reasons no agent can fix — a stale index lock, a missing
-    # ref — and those are not conflicts. Unmerged paths are what a conflict is.
-    if not unmerged.stdout.strip():
-        return goto(
-            set_aside,
-            work_with(work, note=f"git merge failed without conflicts: {said(merged)}"),
-        )
-    return goto(resolve_conflicts, work_with(work, merging=True))
+        return goto(take_pass, work_with(work, unchanged=contained.exit_code == 0))
+    # The index is read once, by the step below, which has to read it after
+    # every agent round anyway. What this carries there is why the merge failed,
+    # for the one case that is not a conflict at all.
+    return goto(
+        resolve_conflicts,
+        work_with(work, merging=True, note=f"git merge failed: {said(merged)}"),
+    )
 
 
 @step
@@ -242,7 +261,14 @@ async def resolve_conflicts(work: Work) -> Transition:
     """Hand the conflicted files to an agent until the index comes back clean."""
     unmerged = await shell("git diff --name-only --diff-filter=U", stream=False)
     if not unmerged.stdout.strip():
-        return goto(take_pass, cleared(work, resolve_conflicts.name))
+        # Nothing conflicted and nothing tried yet: the merge failed for a
+        # reason no agent can fix — a stale index lock, a missing ref — and the
+        # note `merge_base` handed over says which.
+        if not spent(work, resolve_conflicts.name):
+            return goto(set_aside, work_with(work, note=f"no conflicts: {work.note}"))
+        return goto(
+            take_pass, cleared(work_with(work, note=""), resolve_conflicts.name)
+        )
     if exhausted(work, resolve_conflicts.name):
         return goto(
             stand_down, work_with(work, reason="the merge conflicts were not resolved")
@@ -253,8 +279,12 @@ async def resolve_conflicts(work: Work) -> Transition:
     ):
         return goto(report, abandoned(work, fallen.reason))
     # Back through this same step, which re-reads git rather than believing the
-    # agent: what decides whether the conflict is gone is the index.
-    return goto(resolve_conflicts, charged(work, resolve_conflicts.name))
+    # agent: what decides whether the conflict is gone is the index. The note
+    # goes now: past here the merge failing is just what a conflict looks like,
+    # and the row is not to be told about it twice.
+    return goto(
+        resolve_conflicts, charged(work_with(work, note=""), resolve_conflicts.name)
+    )
 
 
 # The one place the two passes part. Everything above takes a branch, and takes
@@ -262,42 +292,68 @@ async def resolve_conflicts(work: Work) -> Transition:
 # to do. The fast one owes `pr-fix` green before it commits the merge, and the
 # slow one owes nothing there — its own gate runs the unit suite anyway, so
 # running `pr-fix` first would run it twice for one answer.
+# The fast one also owes nothing where the merge brought nothing in and CI is
+# green on every check: that is the same tree the server already graded, and the
+# gate would spend an hour arriving at the answer it is being handed. The same
+# bargain `check_ci` makes below, on the night's other expensive gate — and the
+# reason to run this pass over everything every night rather than only over what
+# moved.
 @step
-def take_pass(work: Work) -> Transition:
-    if work.run.mode == "refresh":
-        return goto(gate_check, work)
-    return goto(finish_merge, work)
+async def take_pass(work: Work) -> Transition:
+    if work.run.mode != "refresh":
+        return goto(finish_merge, work)
+    if work.unchanged:
+        asked = await shell(checks(work.pr.number), stream=False)
+        if ci_green(asked.stdout):
+            return goto(
+                finish_merge,
+                work_with(work, note="nothing to merge, and CI is green on this tree"),
+            )
+    return goto(gate_check, work)
 
 
 @step
 async def gate_check(work: Work) -> Transition:
     """Run the gate, and repair it until it is green or the budget is gone."""
+    # The task that broke last time round, where mise named one: an agent
+    # working on `lint:mypy` is judged by `lint:mypy`, not by three package
+    # installs and a formatter run in front of it.
+    gate = work.gate or PR_FIX
     # Captured rather than streamed, and run `plain`: what comes back here is
     # read twice over — once by an agent, once by you in the morning — and a
     # terminal recording is neither.
-    gates = await shell(plain(PR_FIX), stream=False)
+    gates = await shell(plain(gate), stream=False)
     if gates.exit_code == 0:
-        return goto(finish_merge, cleared(work, gate_check.name))
+        # A task passing on its own is not the gate passing — it is the reason
+        # to spend the gate. The whole chain runs once more, and that run is
+        # what lands the branch.
+        if gate != PR_FIX:
+            return goto(gate_check, work_with(work, gate=""))
+        return goto(finish_merge, cleared(work_with(work, gate=""), gate_check.name))
     said_now = verdict(gates)
     # Asked before the first repair and not after, so this reads "the branch
     # arrived broken the same way", never "the agent failed to fix it twice".
     if not spent(work, gate_check.name) and already_seen(said_now, work.run.seen):
         return goto(
             stand_down,
-            work_with(work, reason=f"`{PR_FIX}` is red as it already was:\n{said_now}"),
+            work_with(work, reason=f"`{gate}` is red as it already was:\n{said_now}"),
         )
     if exhausted(work, gate_check.name):
         return goto(
             stand_down,
             work_with(
                 work,
-                reason=f"`{PR_FIX}` is still red:\n{said_now}",
+                reason=f"`{gate}` is still red:\n{said_now}",
                 run=run_with(work.run, seen=[*work.run.seen, said_now]),
             ),
         )
-    if fallen := await ask(fix_gates(said(gates)), key=f"gates-{work.pr.number}"):
+    if fallen := await ask(
+        fix_gates(said(gates), gate=gate), key=f"gates-{work.pr.number}"
+    ):
         return goto(report, abandoned(work, fallen.reason))
-    return goto(gate_check, charged(work, gate_check.name))
+    return goto(
+        gate_check, charged(work_with(work, gate=narrowed(gates)), gate_check.name)
+    )
 
 
 @step
@@ -345,10 +401,20 @@ async def check_ci(work: Work) -> Transition:
 @step
 async def cover(work: Work) -> Transition:
     """Close the coverage gap, repairing a red suite like any other gate."""
-    measured = await shell(plain(COVERAGE), stream=False)
+    # The first measurement is the whole thing, because it is the one that
+    # decides whether there is a gap at all. What a repair round re-runs is the
+    # browserless half, or the single task that broke — an agent that has just
+    # written three unit tests does not need a Playwright boot to find out.
+    gate = work.gate or COVERAGE
+    measured = await shell(plain(gate), stream=False)
     output = coverage_report(measured)
     missing = MISSING in output
     if not missing and measured.exit_code == 0:
+        # Anything but the full measurement is a reason to spend the full
+        # measurement, not a branch that is covered: this one leaves the e2e
+        # suite's coverage out, and the record is the run that counts it.
+        if gate != COVERAGE:
+            return goto(cover, work_with(work, gate=""))
         # Only where tests were actually written: most branches pass here first
         # time, and a commit rite that can never commit anything is noise in the
         # tree.
@@ -359,7 +425,7 @@ async def cover(work: Work) -> Transition:
                     set_aside,
                     work_with(work, note=f"could not commit the tests: {said(landed)}"),
                 )
-        return goto(push_work, cleared(work, cover.name))
+        return goto(push_work, cleared(work_with(work, gate=""), cover.name))
     said_now = verdict(measured)
     # Two different jobs down one budget, because they are the same step going
     # round: lines this branch left uncovered are written up as tests, and a
@@ -371,11 +437,19 @@ async def cover(work: Work) -> Transition:
     # business, and two of them missing lines in the same file look identical
     # from here. A suite that will not pass is the thing that repeats.
     if missing:
-        left, asking, run = "still reports missing lines", COVER + output, work.run
+        left = "still reports missing lines"
+        asking = cover_gap(output, partial=gate != COVERAGE)
+        run = work.run
+        # Lines are re-measured without the browser: what an agent writes here
+        # is a test, and the suite that runs it is the one this measures.
+        next_gate = FAST_COVERAGE
     else:
         left = "is still red"
-        asking = fix_gates(said(measured), gate=COVERAGE)
+        asking = fix_gates(said(measured), gate=gate)
         run = run_with(work.run, seen=[*work.run.seen, said_now])
+        # A suite that will not run is repaired against the task that would not
+        # run, where mise named one.
+        next_gate = narrowed(measured) or FAST_COVERAGE
     # Against what the run knew on the way in, never `run` above: that one has
     # this verdict in it already and would recognise nothing but itself.
     if (
@@ -385,18 +459,15 @@ async def cover(work: Work) -> Transition:
     ):
         return goto(
             stand_down,
-            work_with(
-                work, reason=f"`{COVERAGE}` failed as it already did:\n{said_now}"
-            ),
+            work_with(work, reason=f"`{gate}` failed as it already did:\n{said_now}"),
         )
     if exhausted(work, cover.name):
         return goto(
-            stand_down,
-            work_with(work, reason=f"`{COVERAGE}` {left}:\n{said_now}", run=run),
+            stand_down, work_with(work, reason=f"`{gate}` {left}:\n{said_now}", run=run)
         )
     if fallen := await ask(asking, key=f"cover-{work.pr.number}"):
         return goto(report, abandoned(work, fallen.reason))
-    return goto(cover, charged(work, cover.name))
+    return goto(cover, charged(work_with(work, gate=next_gate), cover.name))
 
 
 # Not fatal, and not `set_aside`: a push that will not go through — someone

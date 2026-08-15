@@ -13,6 +13,16 @@ from vekna.folio.shell import ShellResult, shell
 PR_FIX = "mise run pr-fix"
 COVERAGE = "mise run diff-cover"
 
+# The same measurement without the browser: the unit and integration suites and
+# the diff report, and no Playwright boot behind it. What a repair loop re-runs
+# to find out whether the tests an agent just wrote landed — `COVERAGE` is what
+# says so for the record, and it runs once, at the end.
+# It reads `.coverage.unit` alone, so a line only the e2e suite reaches shows up
+# here as uncovered. That makes it a superset of what is really missing, which
+# is the safe direction for a loop: it never calls a gap closed that is not, and
+# the prompt says which measurement this is. See `COVER`.
+FAST_COVERAGE = "mise run test:py:cov:diff"
+
 # Every remote call these rituals make, over https rather than ssh: the sandbox
 # remaps root to `nobody`, and ssh refuses an `/etc/ssh/ssh_config.d` it reads
 # as owned by a stranger. Both remotes point at the same repository, so this is
@@ -231,6 +241,29 @@ def verdict(result: ShellResult) -> str:
         if (stripped := line.rstrip())
     ]
     return "\n".join(lines[-VERDICT_LINES:])
+
+
+# How mise names the task that failed: the leaf's own name, in the prefix it
+# labels that task's output with. A chain stops at the first failure, so the
+# first match is the one that broke and anything after it is a parent repeating
+# the news.
+_FAILED_TASK = re.compile(r"^\[([\w:.-]+)] ERROR task failed", re.MULTILINE)
+
+
+# The one task worth re-running while a repair is underway, instead of the whole
+# gate: `pr-fix` reinstalls three package managers and formats the repository
+# before it reaches the thing that is broken, and paying for that once per
+# attempt is most of what a repair loop costs. The whole gate still runs, once,
+# when the narrow one goes green — a task passing on its own is not the gate
+# passing.
+# Empty where the output does not say: a gate that died before mise named
+# anything, or a shape mise no longer prints. Then the caller runs the gate it
+# would have run anyway.
+def narrowed(result: ShellResult) -> str:
+    for part in (result.stdout, result.stderr):
+        if found := _FAILED_TASK.search(_plain_text(part)):
+            return f"mise run {found.group(1)}"
+    return ""
 
 
 # Timings, counts and timestamps differ on every run, so two runs of the same

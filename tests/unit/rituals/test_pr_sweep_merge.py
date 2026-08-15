@@ -26,6 +26,7 @@ if TYPE_CHECKING:
 
 _STATUS = "git status --porcelain"
 _UNMERGED = "git diff --name-only --diff-filter=U"
+_IS_ANCESTOR = "git merge-base --is-ancestor main HEAD"
 
 
 def _listed(*pulls: PullRequest) -> str:
@@ -194,53 +195,59 @@ class TestSyncBranch:
 
 
 class TestMergeBase:
-    def test_a_clean_merge_goes_straight_to_the_pass(
+    def test_a_merge_that_brought_something_in_goes_on_to_the_pass(
         self, trial: Trial, work: Work
     ) -> None:
+        trial.shell.replies(when=_IS_ANCESTOR, exit_code=1)
         trial.shell.replies(when="git merge --no-edit*")
 
         transition = trial.walk(merge_base, work)
 
         assert transition == goto(take_pass, work)
-        assert trial.shell.commands == ["git merge --no-edit main"]
+        assert trial.shell.commands == [_IS_ANCESTOR, "git merge --no-edit main"]
 
-    def test_conflicts_route_to_the_agent_with_the_merge_still_open(
+    def test_a_base_already_in_the_branch_says_the_tree_did_not_move(
         self, trial: Trial, work: Work
     ) -> None:
-        trial.shell.replies(when="git merge --no-edit*", exit_code=1)
-        trial.shell.replies(when=_UNMERGED, stdout="src/thing.py\n")
+        trial.shell.replies(when=_IS_ANCESTOR)
+        trial.shell.replies(when="git merge --no-edit*")
 
         transition = trial.walk(merge_base, work)
 
         assert transition == goto(
-            resolve_conflicts, work.model_copy(update={"merging": True})
+            take_pass, work.model_copy(update={"unchanged": True})
         )
 
-    def test_a_merge_that_failed_without_conflicts_is_set_aside(
+    def test_a_merge_that_would_not_run_goes_to_the_step_that_reads_the_index(
         self, trial: Trial, work: Work
     ) -> None:
+        trial.shell.replies(when=_IS_ANCESTOR, exit_code=1)
         trial.shell.replies(when="git merge --no-edit*", exit_code=1, stderr="lock")
-        trial.shell.replies(when=_UNMERGED)
 
         transition = trial.walk(merge_base, work)
 
         assert transition == goto(
-            set_aside,
-            work.model_copy(
-                update={"note": "git merge failed without conflicts: lock"}
-            ),
+            resolve_conflicts,
+            work.model_copy(update={"merging": True, "note": "git merge failed: lock"}),
         )
+        # The index is not read here: the step this hands to reads it after
+        # every agent round anyway, and would read it again on arrival.
+        assert _UNMERGED not in trial.shell.commands
 
 
 class TestResolveConflicts:
     def test_the_conflicted_files_reach_the_agent_and_the_budget_goes_up(
         self, trial: Trial, work: Work
     ) -> None:
+        conflicted = work.model_copy(update={"note": "git merge failed: conflicts"})
         trial.shell.replies(when=_UNMERGED, stdout="src/thing.py\n")
         trial.coding.replies("resolved them")
 
-        transition = trial.walk(resolve_conflicts, work)
+        transition = trial.walk(resolve_conflicts, conflicted)
 
+        # The note the merge handed over goes no further: past here, a merge
+        # that failed is only what a conflict looks like, and the branch's row
+        # is not to be told about it.
         assert transition == goto(
             resolve_conflicts,
             work.model_copy(update={"budgets": {"resolve_conflicts": 1}}),
@@ -255,12 +262,32 @@ class TestResolveConflicts:
     def test_an_empty_index_moves_on_and_hands_the_budget_back(
         self, trial: Trial, work: Work
     ) -> None:
-        spent = work.model_copy(update={"budgets": {"resolve_conflicts": 2}})
+        spent = work.model_copy(
+            update={"budgets": {"resolve_conflicts": 2}, "note": "git merge failed: x"}
+        )
         trial.shell.replies(when=_UNMERGED)
 
         transition = trial.walk(resolve_conflicts, spent)
 
         assert transition == goto(take_pass, work)
+        assert not trial.coding.prompts
+
+    # Nothing conflicted and nothing tried: the merge failed for a reason no
+    # agent can fix, and `merge_base` said which in the note.
+    def test_an_empty_index_on_arrival_is_set_aside_with_what_the_merge_said(
+        self, trial: Trial, work: Work
+    ) -> None:
+        arrived = work.model_copy(
+            update={"merging": True, "note": "git merge failed: lock"}
+        )
+        trial.shell.replies(when=_UNMERGED)
+
+        transition = trial.walk(resolve_conflicts, arrived)
+
+        assert transition == goto(
+            set_aside,
+            arrived.model_copy(update={"note": "no conflicts: git merge failed: lock"}),
+        )
         assert not trial.coding.prompts
 
     def test_a_spent_budget_stands_the_branch_down_without_asking_again(

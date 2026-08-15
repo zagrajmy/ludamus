@@ -15,7 +15,7 @@ from ludamus.edges.rituals.pr_sweep import (
     set_aside,
     skip_pr,
 )
-from ludamus.edges.rituals.shell import COVERAGE, PR_FIX, checks, plain
+from ludamus.edges.rituals.shell import COVERAGE, FAST_COVERAGE, PR_FIX, checks, plain
 from ludamus.edges.rituals.state import (
     Checked,
     Closed,
@@ -286,6 +286,9 @@ class TestWholeCast:
         trial.shell.replies(when="git fetch*")
         trial.shell.replies(when="git checkout feature")
         trial.shell.replies(when="git merge --ff-only*")
+        # Not an ancestor: the merge has something to bring in, so the gate is
+        # owed. A tree the merge does not move is `take_pass`'s own question.
+        trial.shell.replies(when="git merge-base*", exit_code=1, always=True)
         trial.shell.replies(when="git merge --no-edit*")
         trial.shell.replies(when=plain(PR_FIX))
         trial.shell.replies(when="gh pr view 7 --json labels", stdout='{"labels": []}')
@@ -331,11 +334,17 @@ class TestWholeCast:
         trial.shell.replies(when="git fetch*")
         trial.shell.replies(when="git checkout feature")
         trial.shell.replies(when="git merge --ff-only*")
+        # Not an ancestor: the merge has something to bring in, so the gate is
+        # owed. A tree the merge does not move is `take_pass`'s own question.
+        trial.shell.replies(when="git merge-base*", exit_code=1, always=True)
         trial.shell.replies(when="git merge --no-edit*")
         trial.shell.replies(
             when=checks(7), stdout='[{"name": "codecov/patch", "state": "FAILURE"}]'
         )
         trial.shell.replies(when=plain(COVERAGE), stdout=_MISSING)
+        # The tests the agent wrote are measured without the browser, and the
+        # full measurement is what says the branch is covered.
+        trial.shell.replies(when=plain(FAST_COVERAGE))
         trial.shell.replies(when=plain(COVERAGE))
         trial.shell.replies(when="git add -A*", always=True)
         trial.shell.replies(when=_PUSH)
@@ -356,6 +365,7 @@ class TestWholeCast:
             "take_pass",
             "finish_merge",
             "check_ci",
+            "cover",
             "cover",
             "cover",
             "push_work",
@@ -380,6 +390,9 @@ class TestWholeCast:
         )
         trial.shell.replies(when="git checkout feature")
         trial.shell.replies(when="git merge --ff-only*")
+        # Not an ancestor: the merge has something to bring in, so the gate is
+        # owed. A tree the merge does not move is `take_pass`'s own question.
+        trial.shell.replies(when="git merge-base*", exit_code=1, always=True)
         trial.shell.replies(when="git merge --no-edit*")
         trial.shell.replies(when=plain(PR_FIX))
         trial.shell.replies(when="gh pr view 7 --json labels", stdout='{"labels": []}')
@@ -421,6 +434,9 @@ class TestWholeCast:
         trial.shell.replies(when="git fetch*")
         trial.shell.replies(when="git checkout feature")
         trial.shell.replies(when="git merge --ff-only*")
+        # Not an ancestor: the merge has something to bring in, so the gate is
+        # owed. A tree the merge does not move is `take_pass`'s own question.
+        trial.shell.replies(when="git merge-base*", exit_code=1, always=True)
         trial.shell.replies(when="git merge --no-edit*")
         trial.shell.replies(when=plain(PR_FIX), exit_code=1, stdout="red")
         trial.shell.replies(when=plain(PR_FIX), exit_code=1, stdout="still red")
@@ -450,6 +466,9 @@ class TestWholeCast:
         trial.shell.replies(when="git fetch*")
         trial.shell.replies(when="git checkout feature")
         trial.shell.replies(when="git merge --ff-only*")
+        # Not an ancestor: the merge has something to bring in, so the gate is
+        # owed. A tree the merge does not move is `take_pass`'s own question.
+        trial.shell.replies(when="git merge-base*", exit_code=1, always=True)
         trial.shell.replies(when="git merge --no-edit*")
         trial.shell.replies(
             when=plain(PR_FIX), exit_code=1, stdout="1 failed", always=True

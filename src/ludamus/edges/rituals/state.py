@@ -55,6 +55,19 @@ def wants_cover(listing: str) -> bool:
     return not watched or any(check.state != _PASSED for check in watched)
 
 
+# Every check, not the watched few: this buys a branch out of the gate
+# altogether, so anything less than the whole board green is worth the hour.
+# False where nobody has said — an empty listing, a `gh` that would not answer,
+# a check still running — because the gate is what finds out, and a skip granted
+# on silence is a red branch pushed and reviewed as green.
+def ci_green(listing: str) -> bool:
+    try:
+        checks = CHECKS.validate_json(listing)
+    except ValidationError:
+        return False
+    return bool(checks) and all(check.state == _PASSED for check in checks)
+
+
 # `gh --json labels` hands back an object per label; the name is the whole
 # question here.
 class Label(BaseModel):
@@ -147,6 +160,15 @@ class Work(BaseModel):
     pr: PullRequest
     budgets: dict[str, int] = {}
     merging: bool = False
+    # What the repair loop should run next, empty for the step's own gate. The
+    # narrow task mise named when the gate broke, so an agent's attempt is
+    # judged by the thing that was wrong rather than by the whole chain in front
+    # of it. One field for both loops rather than one apiece: a cast takes one
+    # pass or the other, so `gate_check` and `cover` never run in the same one.
+    gate: str = ""
+    # The merge brought nothing in, so the tree is the one CI has already
+    # graded. Only ever true before any agent has touched the branch.
+    unchanged: bool = False
     note: str = ""
     # What stopped this branch, in the words of whatever stopped it. Written
     # once, by the step that gave up, and never written over: a branch that
@@ -231,6 +253,8 @@ def work_with(
     run: Run | None = None,
     budgets: dict[str, int] | None = None,
     merging: bool | None = None,
+    gate: str | None = None,
+    unchanged: bool | None = None,
     note: str | None = None,
     reason: str | None = None,
     blocked: bool | None = None,
@@ -240,6 +264,8 @@ def work_with(
         pr=work.pr,
         budgets=work.budgets if budgets is None else budgets,
         merging=work.merging if merging is None else merging,
+        gate=work.gate if gate is None else gate,
+        unchanged=work.unchanged if unchanged is None else unchanged,
         note=work.note if note is None else note,
         reason=work.reason if reason is None else reason,
         blocked=work.blocked if blocked is None else blocked,

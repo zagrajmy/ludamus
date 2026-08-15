@@ -1,16 +1,23 @@
-"""Answer the review `pr_refresh` left on a branch, then ship it.
+"""Answer the reviews `pr_refresh` left on your branches, then ship them.
 
     vekna cast pr_review [--bound N]
 
-The follow-up to `pr_refresh`, and its opposite: one branch, nothing done
-without you saying so, and it is what commits the result.
+The follow-up to `pr_refresh`, and its opposite: nothing done without you saying
+so, and it is what commits the result.
 
 A branch is a candidate when its pull request is open, yours, labelled
 `pr::thermo`, not labelled `pr::wait` or `pr::qa`, and carrying a review thread
-nobody has settled. Of those, the branch you are standing on wins — which is
-also what keeps two terminals on two branches off each other's work. A branch
-whose checkout will not go through, because another worktree is standing on it,
-drops out of the running and the next candidate is offered instead.
+nobody has settled. They are taken one after another, longest-waiting first,
+until every one of them has been through — except that the branch you are
+standing on goes first, which is also what keeps two terminals on two branches
+off each other's work. A branch whose checkout will not go through, because
+another worktree is standing on it, is reported and the next one is offered.
+
+Each branch is asked about as its turn comes, and saying no to one moves on to
+the next rather than ending the cast. The count of what is still open is asked
+per branch, when its turn comes, rather than for all of them up front: the
+sweeps run alongside this and a branch's threads can be settled while the cast
+is standing on another one.
 
 The triage is read rather than fetched: an agent reads the open threads against
 the code as it stands and hands back one item per thread, with a priority and
@@ -22,10 +29,17 @@ reading's own proposal. One agent then fixes what you said to fix, files what
 you said to file, and answers and settles every thread either way.
 
 Then `fix` hands another instruction to the same agent, which remembers the
-round before, or `ship` runs this project's two gates, repairs them up to
-`--bound` times, and commits and pushes what came out. A branch that ends with
-nothing left open earns `pr::qa`, which also takes it out of every later cast's
-reckoning.
+round before, or `ship` runs `pr-fix`, repairs it up to `--bound` times, and
+commits and pushes what came out. A repair runs the one task mise said was
+broken, not the whole gate; the gate itself runs again once that comes back
+green. Diff coverage is not measured here — that is `pr_sweep`'s slow pass, and
+it is the longest job in the toolchain. A branch that ends with nothing left
+open earns `pr::qa`, which also takes it out of every later cast's reckoning.
+
+A gate that will not go green after `--bound` attempts ends the cast rather
+than moving on: the repair work is sitting uncommitted in the worktree, and
+taking another branch would either commit it there or throw it away. The
+branches already shipped are shipped, and the report says where it stopped.
 """
 
 from itertools import starmap
@@ -37,7 +51,6 @@ from vekna.folio.shell import ShellResult, shell
 from vekna.lexicon import RitualError, Transition, done, emit_delta, goto, ritual, step
 
 from .agent import (
-    COVER,
     READING,
     Fallen,
     Misread,
@@ -48,28 +61,37 @@ from .agent import (
     triage_work,
 )
 from .shell import (
-    COVERAGE,
     HERE,
     LIST,
-    MISSING,
     PR_FIX,
     QA_LABEL,
     STATUS,
     THERMO_LABEL,
     checkout,
     commit,
-    coverage_report,
     label,
+    narrowed,
     plain,
     push,
     said,
     unsettled,
 )
-from .state import Bound, TriageItem, TriageNotes, counted, unreadable, wanted, wears
+from .state import (
+    Bound,
+    PullRequest,
+    TriageItem,
+    TriageNotes,
+    counted,
+    unreadable,
+    wanted,
+    wears,
+)
 
 # The engine's backstop and nothing else: the `fix` loop is bounded by the
-# person sitting at it.
-_MAX_STEPS = 200
+# person sitting at it, and the branch loop by how many of them carry a review.
+# A dozen steps a branch, and a cast that goes through twenty of them is a
+# morning nobody has.
+_MAX_STEPS = 400
 
 # One thread for every agent call in the cast, so a later round meets an agent
 # that remembers writing the one before.
@@ -96,23 +118,39 @@ class PrReview(BaseModel):
     bound: Bound = 3
 
 
-# What `pick` needs beyond the components: the branches it has already been
-# through. A branch another worktree is standing on cannot be checked out, and
-# that is only found out one step later — so it comes back here, named, and this
-# is what stops the pick landing on it again.
+Outcome = Literal["shipped", "declined", "elsewhere", "unread", "nothing"]
+
+
+# One branch's ending, in the words of the step that ended it. A branch with
+# nothing open gets none of these: most of them have nothing open, and a report
+# that says so line by line is a report nobody reads to the end.
+class Reviewed(BaseModel):
+    branch: str
+    outcome: Outcome
+    note: str = ""
+
+
+# What the cast is still to do and what it has done. Carried through every step,
+# because every ending goes round again — and the last one owes the report.
 class Picking(BaseModel):
     bound: Bound
-    passed_over: list[str] = []
+    queue: list[PullRequest] = []
+    reviewed: list[Reviewed] = []
+    stopped: str = ""
 
 
 class Branch(BaseModel):
+    # The rest of the cast, riding along: a branch is taken off the queue when
+    # it is picked, so what is here is what comes after this one.
+    picking: Picking
     name: str
     # Carried rather than looked up again: review threads are addressed by pull
     # request and not by branch.
     number: int
-    bound: Bound
-    # Only so `look` can hand it back to `pick` when the checkout fails.
-    passed_over: list[str] = []
+
+    @property
+    def bound(self) -> int:
+        return self.picking.bound
 
 
 class Triage(BaseModel):
@@ -132,14 +170,9 @@ class Instructed(BaseModel):
 class Landing(BaseModel):
     branch: Branch
     tries: int = 0
-
-
-Outcome = Literal["nothing", "declined", "shipped"]
-
-
-class Shipped(BaseModel):
-    outcome: Outcome
-    branch: str = ""
+    # The task that broke last time, where mise named one. Empty is the whole
+    # gate, which is what runs first and what has the last word.
+    gate: str = ""
 
 
 Move = Literal["fix", "ship"]
@@ -148,32 +181,24 @@ _MOVES: tuple[Move, ...] = ("fix", "ship")
 
 @ritual("pr_review", max_steps=_MAX_STEPS)
 def pr_review(components: PrReview) -> Transition:
-    return goto(pick, Picking(bound=components.bound))
+    return goto(queue_up, Picking(bound=components.bound))
 
 
 @step
-async def pick(picking: Picking) -> Transition:
-    """Take the branch whose review is waiting, the one you stand on first."""
-    # Fatal, and first: this checks out a branch and later commits everything it
-    # finds, so work in the tree now would be committed onto someone else's
-    # branch.
-    status = await _ran(STATUS, "git status failed", stream=False)
-    if dirty := status.stdout.strip():
-        msg = f"the worktree is not clean:\n{dirty}"
-        raise RitualError(msg)
+async def queue_up(picking: Picking) -> Transition:
+    """Ask gh which of your branches carry a review, and queue them."""
     listed = await _ran(LIST, "gh could not list your pull requests", stream=False)
     try:
         pulls = wanted(listed.stdout)
     except ValidationError as error:
         raise RitualError(unreadable(error)) from error
     # Reviewed by the night and not yet answered: `pr::thermo` says a review was
-    # posted, an unsettled thread says it is still waiting. A branch with
-    # neither has nothing here to do.
-    reviewed = [
+    # posted, and whether it is still waiting is asked branch by branch in
+    # `pick`. A branch without the label has nothing here to do.
+    carrying = [
         pull
         for pull in pulls
         if pull.branch != _MAIN
-        and pull.branch not in picking.passed_over
         and wears(pull, THERMO_LABEL)
         and not wears(pull, QA_LABEL)
     ]
@@ -181,32 +206,67 @@ async def pick(picking: Picking) -> Transition:
     # You have just finished working on this branch and its review is what you
     # sat down for. Anything else moves you off it to read something you were
     # not thinking about — and it keeps two terminals off each other's work.
+    # The rest follow oldest-modified first, which is the order `wanted` leaves
+    # them in: the review that has been waiting longest is answered first.
     mine = here.stdout.strip()
-    ordered = [pull for pull in reviewed if pull.branch == mine] + [
-        pull for pull in reviewed if pull.branch != mine
+    ordered = [pull for pull in carrying if pull.branch == mine] + [
+        pull for pull in carrying if pull.branch != mine
     ]
-    # A call per pull request, in the order the answer is wanted, so the branch
-    # you are standing on costs one and stops there.
-    mute: list[str] = []
-    for pull in ordered:
-        left = await _open_threads(pull.number)
-        if left is None:
-            mute.append(pull.branch)
-        elif left:
-            branch = Branch(
-                name=pull.branch,
-                number=pull.number,
-                bound=picking.bound,
-                passed_over=picking.passed_over,
-            )
-            return goto(look, branch)
-    # Said apart from the ending below: a branch nobody could get a count for is
-    # what makes "no review waiting" a guess, and whoever reads that sentence
-    # has to know which branches it skipped.
-    if mute:
-        emit_delta(f"gh would not say what is open on {', '.join(mute)}")
-    emit_delta("no pull request of yours has a review waiting")
-    return done(Shipped(outcome="nothing"))
+    return goto(pick, _with(picking, queue=ordered))
+
+
+# The same move `state.run_with` is: build the next payload from the last one,
+# with a field list a type checker can follow.
+def _with(
+    picking: Picking,
+    *,
+    queue: list[PullRequest] | None = None,
+    reviewed: list[Reviewed] | None = None,
+    stopped: str = "",
+) -> Picking:
+    return Picking(
+        bound=picking.bound,
+        queue=picking.queue if queue is None else queue,
+        reviewed=picking.reviewed if reviewed is None else reviewed,
+        stopped=stopped or picking.stopped,
+    )
+
+
+# What a branch's turn came to, written where its turn ended. The queue has
+# already had this branch taken off it, so what goes forward is the rest.
+def _rowed(branch: Branch, outcome: Outcome, note: str = "") -> Picking:
+    row = Reviewed(branch=branch.name, outcome=outcome, note=note)
+    return _with(branch.picking, reviewed=[*branch.picking.reviewed, row])
+
+
+@step
+async def pick(picking: Picking) -> Transition:
+    """Take the next branch whose review is still waiting."""
+    if not picking.queue:
+        return goto(report, picking)
+    # Fatal, and before every checkout, not only the first: this moves branches
+    # around and later commits everything it finds, so work left in the tree
+    # would be committed onto the next branch it takes.
+    status = await _ran(STATUS, "git status failed", stream=False)
+    if dirty := status.stdout.strip():
+        msg = f"the worktree is not clean:\n{dirty}"
+        raise RitualError(msg)
+    pull, *rest = picking.queue
+    left = await _open_threads(pull.number)
+    branch = Branch(
+        picking=_with(picking, queue=rest), name=pull.branch, number=pull.number
+    )
+    if left is None:
+        # A branch nobody could get a count for is not a branch with nothing to
+        # do, so it is said out loud rather than passed over quietly.
+        emit_delta(f"gh would not say what is open on {branch.name}")
+        return goto(pick, _rowed(branch, "unread"))
+    if not left:
+        # The ordinary case, and the reason it earns no row: most branches have
+        # nothing open, and a report listing every one of them is a report
+        # nobody reads to the end.
+        return goto(pick, branch.picking)
+    return goto(look, branch)
 
 
 # `None` where `gh` would not say, which is not "nothing to do": `pick` skips
@@ -222,21 +282,19 @@ async def _open_threads(number: int) -> int | None:
 @step
 async def look(branch: Branch) -> Transition:
     """Check the branch out and read its open threads into a triage."""
-    # Asked before the checkout: `pick` falls through to a branch you are not on
-    # precisely when yours had nothing waiting, so a `no` from the other side of
-    # the move leaves you standing on someone else's branch.
+    # Asked before the checkout: a `no` from the other side of the move leaves
+    # you standing on a branch you did not ask for. Declining takes the next
+    # one — this goes through every branch that has a review waiting, and one
+    # you do not want to read now is not a reason to stop.
     if not await decide(f"read the review on {branch.name}?"):
-        return done(Shipped(outcome="declined", branch=branch.name))
+        return goto(pick, _rowed(branch, "declined"))
     taken = await shell(checkout(branch.name))
     # Not fatal, unlike every other command here: a checkout that will not go
     # through is another worktree standing on the branch, and there is a whole
     # list of other pull requests this could be reading instead.
     if taken.exit_code:
         emit_delta(f"{branch.name} is checked out elsewhere: {said(taken)}")
-        return goto(
-            pick,
-            Picking(bound=branch.bound, passed_over=[*branch.passed_over, branch.name]),
-        )
+        return goto(pick, _rowed(branch, "elsewhere", said(taken)))
     # Read after the checkout: an item is triaged against the code as it stands,
     # and until then that was somebody else's code.
     read = await ask_for(triage_read(branch.number), output=TriageNotes, opts=READING)
@@ -247,7 +305,7 @@ async def look(branch: Branch) -> Transition:
     # Nothing is committed and nothing is labelled on that.
     if not read.items:
         emit_delta(f"the reading found nothing on {branch.name}, but gh says otherwise")
-        return done(Shipped(outcome="nothing", branch=branch.name))
+        return goto(pick, _rowed(branch, "nothing"))
     return goto(plan, Triage(branch=branch, items=read.items))
 
 
@@ -316,37 +374,36 @@ async def hand_back(branch: Branch) -> Transition:
     return goto(work, Instructed(branch=branch, prompt=more))
 
 
-# Another agent attempt is normally yours to approve; here `ship` was the
-# approval, and the bound is what holds the loop.
-async def _fix(landing: Landing, prompt: str) -> None:
-    if landing.tries >= landing.branch.bound:
-        msg = f"the gates are still red after {landing.tries} attempts"
-        raise RitualError(msg)
-    if fallen := await ask(prompt, key=_THREAD):
-        raise RitualError(fallen.reason)
-
-
 @step
 async def gates(landing: Landing) -> Transition:
-    """Run both gates, repairing them up to the bound."""
+    """Run the gate, repairing it up to the bound."""
+    # The task that broke last time round, where mise named one: an agent
+    # working on `lint:mypy` is judged by `lint:mypy`, and not by three package
+    # installs and a formatter run in front of it.
+    gate = landing.gate or PR_FIX
     # Captured rather than streamed, and run `plain`: an agent reads this, and a
     # terminal recording is not what it wants.
-    ran = await shell(plain(PR_FIX), stream=False)
-    if ran.exit_code:
-        prompt = fix_gates(said(ran))
-    else:
-        covered = await shell(plain(COVERAGE), stream=False)
-        report = coverage_report(covered)
-        # Three ways in and one way round, so which prompt to send is all the
-        # branches above decide.
-        if MISSING in report:
-            prompt = COVER + report
-        elif covered.exit_code:
-            prompt = fix_gates(said(covered), gate=COVERAGE)
-        else:
-            return goto(land, landing.branch)
-    await _fix(landing, prompt)
-    return goto(gates, Landing(branch=landing.branch, tries=landing.tries + 1))
+    ran = await shell(plain(gate), stream=False)
+    if not ran.exit_code:
+        # A task passing on its own is the reason to spend the gate, not the
+        # gate passing. What lands the branch is the whole chain going green.
+        if gate != PR_FIX:
+            return goto(gates, Landing(branch=landing.branch, tries=landing.tries))
+        return goto(land, landing.branch)
+    # The repair work is in the worktree and uncommitted, so there is no moving
+    # on to the next branch from here: it would be committed there or thrown
+    # away. The branches already shipped keep their rows.
+    if landing.tries >= landing.branch.bound:
+        stopped = f"`{gate}` is still red after {landing.tries} attempts"
+        return goto(report, _with(landing.branch.picking, stopped=stopped))
+    # Another agent attempt is normally yours to approve; here `ship` was the
+    # approval, and the bound is what holds the loop.
+    if fallen := await ask(fix_gates(said(ran), gate=gate), key=_THREAD):
+        raise RitualError(fallen.reason)
+    return goto(
+        gates,
+        Landing(branch=landing.branch, tries=landing.tries + 1, gate=narrowed(ran)),
+    )
 
 
 @step
@@ -369,12 +426,47 @@ async def land(branch: Branch) -> Transition:
 async def settle(branch: Branch) -> Transition:
     """Label the branch where gh says nothing is left open."""
     left = await _open_threads(branch.number)
+    note = ""
     if left is None:
-        emit_delta(f"gh would not say what is left open on {branch.name}")
+        note = "gh would not say what is left open"
     elif left:
-        emit_delta(f"{left} review threads are still open on {branch.name}")
+        note = f"{left} review threads are still open"
     else:
         labelled = await shell(label(QA_LABEL, number=branch.number))
         if labelled.exit_code:
-            emit_delta(f"could not add the {QA_LABEL} label: {said(labelled)}")
-    return done(Shipped(outcome="shipped", branch=branch.name))
+            note = f"could not add the {QA_LABEL} label: {said(labelled)}"
+    if note:
+        emit_delta(f"{branch.name}: {note}")
+    return goto(pick, _rowed(branch, "shipped", note))
+
+
+_TOLD = {
+    "shipped": "shipped",
+    "declined": "left for later",
+    "elsewhere": "checked out elsewhere",
+    "unread": "gh would not say what is open",
+    "nothing": "the reading found nothing",
+}
+
+
+# Every ending comes here, so the report is owed however the cast ends — the
+# same bargain the sweeps make, and the reason a red gate routes rather than
+# raises.
+@step
+def report(picking: Picking) -> Transition:
+    """Say what each branch came to, and fail the cast where one stopped it."""
+    lines = [f"pr_review — {len(picking.reviewed)} branches"]
+    lines += [
+        f"  {row.branch}: {_TOLD[row.outcome]}" + (f" — {row.note}" if row.note else "")
+        for row in picking.reviewed
+    ] or ["  (none had a review waiting)"]
+    if picking.stopped:
+        # What is left in the queue only means anything here: a cast that ran
+        # to the end left nothing in it.
+        left = ", ".join(pull.branch for pull in picking.queue)
+        lines += ["", f"the cast stopped: {picking.stopped}"]
+        lines += [f"not reached:    {left}"] if left else []
+    emit_delta("\n".join(lines))
+    if picking.stopped:
+        raise RitualError(picking.stopped)
+    return done(picking)

@@ -33,8 +33,9 @@ or one test, named down to the case:
     mise run test:int -- tests/integration/a/test_thing.py::TestThing::test_case
 
 That task adds the whole integration suite to any path outside
-`tests/integration`, so a unit test named that way is a sweep too: keep to a
-node id under `tests/integration`, or leave the unit tests to the gate.
+`tests/integration`, so a unit test named that way is a sweep too. `test:unit`
+narrows to nothing — it runs the unit tree whatever you name after it — but the
+whole of it is seconds, so run `mise run test:unit` as it stands.
 """
 
 _RESOLVE = f"""\
@@ -68,7 +69,7 @@ What it said:
 
 """
 
-COVER = f"""\
+_COVER = f"""\
 The diff coverage report below names lines this branch changed that no test
 exercises. Cover them, following this project's own testing guidelines: read
 CLAUDE.md and whatever testing documentation it points at before writing
@@ -77,10 +78,25 @@ anything, and put each test where that layout says it belongs.
 Do not lower the coverage threshold, edit the coverage configuration, or delete
 the offending code. Do not commit and do not push.
 
-{_FAST_LOOP}
-The report:
+{_FAST_LOOP}"""
+
+
+# What the browserless measurement cannot see. Said only when that is where the
+# report came from: a line the e2e suite covers is uncovered as far as
+# `FAST_COVERAGE` is concerned, and an agent that writes a second test for it
+# has spent the time this measurement was meant to save.
+_NO_E2E = """\
+This report comes from a measurement that did not run the end-to-end suite, so a
+line only a Playwright test reaches appears here as uncovered. Where that is
+what you find, say so and leave it alone — the full measurement runs after you
+and it counts that suite.
 
 """
+
+
+def cover_gap(report: str, *, partial: bool = False) -> str:
+    return f"{_COVER}{_NO_E2E if partial else ''}The report:\n\n{report}"
+
 
 # Held apart from the prompts to keep its braces out of an f-string.
 _RESOLVE_THREAD = """\

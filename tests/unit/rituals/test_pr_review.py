@@ -1,7 +1,7 @@
-"""Taking one reviewed branch, answering it item by item, and shipping it."""
+"""Taking every reviewed branch in turn, answering it item by item, shipping it."""
 
 import json
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import pytest
 from vekna.folio.coding_claude import ClaudeOptions
@@ -13,7 +13,7 @@ from ludamus.edges.rituals.pr_review import (
     Landing,
     Picking,
     PrReview,
-    Shipped,
+    Reviewed,
     Triage,
     gates,
     hand_back,
@@ -22,6 +22,8 @@ from ludamus.edges.rituals.pr_review import (
     pick,
     plan,
     pr_review,
+    queue_up,
+    report,
     settle,
     work,
 )
@@ -39,13 +41,11 @@ from ludamus.edges.rituals.shell import (
     plain,
     unsettled,
 )
-from ludamus.edges.rituals.state import TriageItem, TriageNotes
+from ludamus.edges.rituals.state import PullRequest, TriageItem, TriageNotes
 
 if TYPE_CHECKING:
     from vekna.trial import Trial
 
-_REPORT = "Diff Coverage\nsrc/thing.py (80.0%): Missing lines 12-14\n"
-_COVERED = "Diff Coverage\nTotal: 10 lines\nMissing: 0 lines\n"
 _READING = "Triage the open review threads*"
 _ITEM = TriageItem(
     where="src/thing.py",
@@ -73,8 +73,10 @@ _STALE = TriageItem(
 )
 
 # Fixed per name rather than counted off the listing: `feature` is the pull
-# request every fixture here is built around, and threads are read by number.
+# request every fixture here is built around, threads are read by number, and a
+# branch keeps its place in the queue however it is listed.
 _NUMBERS = {"feature": 7, "older": 3, "main": 9}
+_SPOTS = {"older": 1, "feature": 2, "main": 3}
 
 
 # The command as it is answered rather than as it is run: `when` is a glob, and
@@ -83,189 +85,182 @@ def _asks(name: str) -> str:
     return f"slug=*-F number={_NUMBERS[name]} -q *"
 
 
+def _row(name: str, *, waiting: str = "", tested: str = "") -> dict[str, Any]:
+    return {
+        "number": _NUMBERS[name],
+        "title": f"Add {name}",
+        "url": f"https://github.com/fancysnake/ludamus/pull/{_NUMBERS[name]}",
+        "headRefName": name,
+        "baseRefName": "main",
+        # Ascending with the spot, so the lower one is also the one that has
+        # been waiting longest.
+        "updatedAt": f"2026-08-0{_SPOTS[name]}T22:00:00Z",
+        "labels": [
+            {"name": one}
+            for one in (
+                THERMO_LABEL,
+                *([WAIT_LABEL] if name == waiting else []),
+                *([QA_LABEL] if name == tested else []),
+            )
+        ],
+    }
+
+
 def _listing(*branches: str, waiting: str = "", tested: str = "") -> str:
-    rows = [
-        {
-            "number": _NUMBERS[name],
-            "title": f"Add {name}",
-            "url": f"https://github.com/fancysnake/ludamus/pull/{_NUMBERS[name]}",
-            "headRefName": name,
-            "baseRefName": "main",
-            # Ascending with the listing, so the first name given is also the
-            # one waiting longest.
-            "updatedAt": f"2026-08-0{spot}T22:00:00Z",
-            "labels": [
-                {"name": one}
-                for one in (
-                    THERMO_LABEL,
-                    *([WAIT_LABEL] if name == waiting else []),
-                    *([QA_LABEL] if name == tested else []),
-                )
-            ],
-        }
-        for spot, name in enumerate(branches, start=1)
-    ]
-    return json.dumps(rows)
+    return json.dumps([_row(name, waiting=waiting, tested=tested) for name in branches])
 
 
-def _open(trial: Trial, *branches: str, count: str = "2\n") -> None:
-    for name in branches:
-        trial.shell.replies(when=_asks(name), stdout=count)
+# The same rows as objects, in the order the queue is expected to hold them.
+def _queued(*branches: str) -> list[PullRequest]:
+    return [PullRequest.model_validate(_row(name)) for name in branches]
 
 
-class TestPick:
-    def test_the_branch_you_are_standing_on_is_preferred(
-        self, trial: Trial, branch: Branch
-    ) -> None:
-        trial.shell.replies(when=STATUS)
+def _picked(bound: int = 2, **rest: Any) -> Picking:
+    return Picking(bound=bound, **rest)
+
+
+class TestQueueUp:
+    def test_the_branch_you_are_standing_on_is_first(self, trial: Trial) -> None:
         trial.shell.replies(when=LIST, stdout=_listing("older", "feature"))
-        _open(trial, "feature")
         trial.shell.replies(when=HERE, stdout="feature\n")
 
-        transition = trial.walk(pick, Picking(bound=2))
+        transition = trial.walk(queue_up, _picked())
 
-        assert transition == goto(look, branch)
-        # The other one is never asked about: the branch you are on is asked
-        # first, and an open thread on it is where the looking stops.
-        assert unsettled(_NUMBERS["older"]) not in trial.shell.commands
+        assert transition == goto(pick, _picked(queue=_queued("feature", "older")))
 
-    def test_a_branch_you_are_not_on_is_taken_oldest_first(self, trial: Trial) -> None:
-        trial.shell.replies(when=STATUS)
-        trial.shell.replies(when=LIST, stdout=_listing("older", "feature"))
-        _open(trial, "older", "feature")
-        trial.shell.replies(when=HERE, stdout="main\n")
-
-        transition = trial.walk(pick, Picking(bound=2))
-
-        assert transition == goto(look, Branch(name="older", number=3, bound=2))
-
-    def test_a_branch_already_passed_over_is_not_offered_again(
+    def test_the_rest_wait_in_the_order_they_have_been_waiting(
         self, trial: Trial
     ) -> None:
-        trial.shell.replies(when=STATUS)
-        trial.shell.replies(when=LIST, stdout=_listing("older", "feature"))
-        _open(trial, "feature")
+        trial.shell.replies(when=LIST, stdout=_listing("feature", "older"))
         trial.shell.replies(when=HERE, stdout="main\n")
 
-        transition = trial.walk(pick, Picking(bound=2, passed_over=["older"]))
+        transition = trial.walk(queue_up, _picked())
 
-        assert transition == goto(
-            look, Branch(name="feature", number=7, bound=2, passed_over=["older"])
-        )
+        assert transition == goto(pick, _picked(queue=_queued("older", "feature")))
 
-    def test_a_branch_with_every_thread_settled_is_not_taken(
-        self, trial: Trial
-    ) -> None:
-        trial.shell.replies(when=STATUS)
-        trial.shell.replies(when=LIST, stdout=_listing("feature"))
-        trial.shell.replies(when=HERE, stdout="feature\n")
-        _open(trial, "feature", count="0\n")
-
-        transition = trial.walk(pick, Picking(bound=2))
-
-        assert transition == done(Shipped(outcome="nothing"))
-
-    def test_an_unreviewed_pull_request_is_not_taken(self, trial: Trial) -> None:
-        trial.shell.replies(when=STATUS)
+    def test_an_unreviewed_pull_request_is_not_queued(self, trial: Trial) -> None:
         trial.shell.replies(when=LIST, stdout=json.dumps([]))
         trial.shell.replies(when=HERE, stdout="feature\n")
 
-        transition = trial.walk(pick, Picking(bound=2))
+        transition = trial.walk(queue_up, _picked())
 
-        assert transition == done(Shipped(outcome="nothing"))
+        assert transition == goto(pick, _picked())
 
-    def test_a_pull_request_already_labelled_for_qa_is_not_taken(
+    def test_a_pull_request_already_labelled_for_qa_is_not_queued(
         self, trial: Trial
     ) -> None:
-        trial.shell.replies(when=STATUS)
         trial.shell.replies(when=LIST, stdout=_listing("feature", tested="feature"))
         trial.shell.replies(when=HERE, stdout="feature\n")
 
-        transition = trial.walk(pick, Picking(bound=2))
+        transition = trial.walk(queue_up, _picked())
 
-        assert transition == done(Shipped(outcome="nothing"))
-        assert unsettled(_NUMBERS["feature"]) not in trial.shell.commands
+        assert transition == goto(pick, _picked())
 
     # An open thread on a parked branch does not un-park it.
     def test_a_waiting_pull_request_is_left_alone(self, trial: Trial) -> None:
-        trial.shell.replies(when=STATUS)
         trial.shell.replies(when=LIST, stdout=_listing("feature", waiting="feature"))
         trial.shell.replies(when=HERE, stdout="feature\n")
 
-        transition = trial.walk(pick, Picking(bound=2))
+        transition = trial.walk(queue_up, _picked())
 
-        assert transition == done(Shipped(outcome="nothing"))
-        assert unsettled(7) not in trial.shell.commands
+        assert transition == goto(pick, _picked())
 
-    def test_main_is_never_taken(self, trial: Trial) -> None:
-        trial.shell.replies(when=STATUS)
+    def test_main_is_never_queued(self, trial: Trial) -> None:
         trial.shell.replies(when=LIST, stdout=_listing("main"))
         trial.shell.replies(when=HERE, stdout="main\n")
 
-        transition = trial.walk(pick, Picking(bound=2))
+        transition = trial.walk(queue_up, _picked())
 
-        assert transition == done(Shipped(outcome="nothing"))
+        assert transition == goto(pick, _picked())
 
-    def test_a_count_gh_will_not_give_skips_the_branch_and_is_said_out_loud(
+    def test_a_failed_listing_fails_the_cast(self, trial: Trial) -> None:
+        trial.shell.replies(when=LIST, exit_code=1, stderr="rate limited")
+
+        with pytest.raises(RitualError, match="could not list your pull requests"):
+            trial.walk(queue_up, _picked())
+
+    def test_a_listing_that_cannot_be_read_fails_the_cast(self, trial: Trial) -> None:
+        trial.shell.replies(when=LIST, stdout="{}")
+
+        with pytest.raises(RitualError, match="something unreadable"):
+            trial.walk(queue_up, _picked())
+
+    def test_a_head_git_will_not_name_fails_the_cast(self, trial: Trial) -> None:
+        trial.shell.replies(when=LIST, stdout=_listing("feature"))
+        trial.shell.replies(when=HERE, exit_code=128, stderr="no HEAD")
+
+        with pytest.raises(RitualError, match="could not read the current branch"):
+            trial.walk(queue_up, _picked())
+
+
+class TestPick:
+    def test_a_branch_with_a_thread_open_is_taken_off_the_queue_and_read(
+        self, trial: Trial, branch: Branch
+    ) -> None:
+        trial.shell.replies(when=STATUS)
+        trial.shell.replies(when=_asks("feature"), stdout="2\n")
+
+        transition = trial.walk(pick, _picked(queue=_queued("feature")))
+
+        assert transition == goto(look, branch)
+
+    def test_the_branches_behind_it_ride_along(self, trial: Trial) -> None:
+        trial.shell.replies(when=STATUS)
+        trial.shell.replies(when=_asks("feature"), stdout="2\n")
+
+        transition = trial.walk(pick, _picked(queue=_queued("feature", "older")))
+
+        assert transition == goto(
+            look,
+            Branch(picking=_picked(queue=_queued("older")), name="feature", number=7),
+        )
+        # Asked for the branch whose turn it is and no other: the sweeps run
+        # alongside this, and what is open on `older` is answered when `older`
+        # comes up rather than now.
+        assert unsettled(_NUMBERS["older"]) not in trial.shell.commands
+
+    def test_a_branch_with_every_thread_settled_is_passed_over_without_a_row(
         self, trial: Trial
     ) -> None:
         trial.shell.replies(when=STATUS)
-        trial.shell.replies(when=LIST, stdout=_listing("feature"))
-        trial.shell.replies(when=HERE, stdout="feature\n")
+        trial.shell.replies(when=_asks("feature"), stdout="0\n")
+
+        transition = trial.walk(pick, _picked(queue=_queued("feature")))
+
+        assert transition == goto(pick, _picked())
+        assert not trial.deltas
+
+    def test_a_count_gh_will_not_give_is_reported_and_the_cast_goes_on(
+        self, trial: Trial
+    ) -> None:
+        trial.shell.replies(when=STATUS)
         trial.shell.replies(when=_asks("feature"), exit_code=1, stderr="rate limited")
 
-        transition = trial.walk(pick, Picking(bound=2))
+        transition = trial.walk(pick, _picked(queue=_queued("feature")))
 
-        assert transition == done(Shipped(outcome="nothing"))
-        assert trial.deltas == [
-            "gh would not say what is open on feature",
-            "no pull request of yours has a review waiting",
-        ]
+        assert transition == goto(
+            pick, _picked(reviewed=[Reviewed(branch="feature", outcome="unread")])
+        )
+        assert trial.deltas == ["gh would not say what is open on feature"]
 
-    def test_counts_that_all_came_back_say_nothing_extra(self, trial: Trial) -> None:
-        trial.shell.replies(when=STATUS)
-        trial.shell.replies(when=LIST, stdout=_listing("feature"))
-        trial.shell.replies(when=HERE, stdout="feature\n")
-        _open(trial, "feature", count="0\n")
+    def test_an_empty_queue_ends_at_the_report(self, trial: Trial) -> None:
+        transition = trial.walk(pick, _picked())
 
-        trial.walk(pick, Picking(bound=2))
-
-        assert trial.deltas == ["no pull request of yours has a review waiting"]
+        assert transition == goto(report, _picked())
+        assert not trial.shell.commands
 
     def test_a_dirty_worktree_fails_the_cast(self, trial: Trial) -> None:
         trial.shell.replies(when=STATUS, stdout=" M src/thing.py\n")
 
         with pytest.raises(RitualError, match="the worktree is not clean"):
-            trial.walk(pick, Picking(bound=2))
+            trial.walk(pick, _picked(queue=_queued("feature")))
 
     # A tree it could not read is not a tree it may call clean.
     def test_a_failed_status_fails_the_cast(self, trial: Trial) -> None:
         trial.shell.replies(when=STATUS, exit_code=128, stderr="not a repository")
 
         with pytest.raises(RitualError, match="git status failed"):
-            trial.walk(pick, Picking(bound=2))
-
-    def test_a_failed_listing_fails_the_cast(self, trial: Trial) -> None:
-        trial.shell.replies(when=STATUS)
-        trial.shell.replies(when=LIST, exit_code=1, stderr="rate limited")
-
-        with pytest.raises(RitualError, match="could not list your pull requests"):
-            trial.walk(pick, Picking(bound=2))
-
-    def test_a_listing_that_cannot_be_read_fails_the_cast(self, trial: Trial) -> None:
-        trial.shell.replies(when=STATUS)
-        trial.shell.replies(when=LIST, stdout="{}")
-
-        with pytest.raises(RitualError, match="something unreadable"):
-            trial.walk(pick, Picking(bound=2))
-
-    def test_a_head_git_will_not_name_fails_the_cast(self, trial: Trial) -> None:
-        trial.shell.replies(when=STATUS)
-        trial.shell.replies(when=LIST, stdout=_listing("feature"))
-        trial.shell.replies(when=HERE, exit_code=128, stderr="no HEAD")
-
-        with pytest.raises(RitualError, match="could not read the current branch"):
-            trial.walk(pick, Picking(bound=2))
+            trial.walk(pick, _picked(queue=_queued("feature")))
 
 
 class TestLook:
@@ -296,19 +291,22 @@ class TestLook:
             effort="high",
         )
 
-    def test_saying_no_ends_the_cast_where_you_were_standing(
+    # One you do not want to read now is not a reason to stop: the cast goes
+    # through every branch that has a review waiting.
+    def test_saying_no_takes_the_next_branch(
         self, trial: Trial, branch: Branch
     ) -> None:
-        trial.shell.replies(when="git checkout*")
         trial.decide.answers(answer=False, when="read the review*")
 
         transition = trial.walk(look, branch)
 
-        assert transition == done(Shipped(outcome="declined", branch="feature"))
+        assert transition == goto(
+            pick, _picked(reviewed=[Reviewed(branch="feature", outcome="declined")])
+        )
         assert not trial.coding.prompts
         assert not trial.shell.commands
 
-    def test_a_reading_that_finds_nothing_ends_the_cast(
+    def test_a_reading_that_finds_nothing_takes_the_next_branch(
         self, trial: Trial, branch: Branch
     ) -> None:
         trial.shell.replies(when="git checkout*")
@@ -317,7 +315,9 @@ class TestLook:
 
         transition = trial.walk(look, branch)
 
-        assert transition == done(Shipped(outcome="nothing", branch="feature"))
+        assert transition == goto(
+            pick, _picked(reviewed=[Reviewed(branch="feature", outcome="nothing")])
+        )
 
     # An answer outside the schema and an agent that died mid-flight both end a
     # cast with nothing to show for itself yet.
@@ -333,7 +333,7 @@ class TestLook:
 
     # Another worktree is standing on it, and there is a whole list of other
     # pull requests this could be reading instead.
-    def test_a_branch_that_will_not_check_out_goes_back_to_the_pick(
+    def test_a_branch_that_will_not_check_out_is_reported_and_left(
         self, trial: Trial, branch: Branch
     ) -> None:
         trial.decide.answers(answer=True, when="read the review*")
@@ -341,7 +341,14 @@ class TestLook:
 
         transition = trial.walk(look, branch)
 
-        assert transition == goto(pick, Picking(bound=2, passed_over=["feature"]))
+        assert transition == goto(
+            pick,
+            _picked(
+                reviewed=[
+                    Reviewed(branch="feature", outcome="elsewhere", note="in the way")
+                ]
+            ),
+        )
         assert "checked out elsewhere" in trial.deltas[-1]
         assert not trial.coding.prompts
 
@@ -459,11 +466,8 @@ class TestHandBack:
 
 
 class TestGates:
-    def test_both_gates_green_lands_the_branch(
-        self, trial: Trial, branch: Branch
-    ) -> None:
+    def test_a_green_gate_lands_the_branch(self, trial: Trial, branch: Branch) -> None:
         trial.shell.replies(when=plain(PR_FIX))
-        trial.shell.replies(when=plain(COVERAGE), stdout=_COVERED)
 
         transition = trial.walk(gates, Landing(branch=branch))
 
@@ -480,39 +484,60 @@ class TestGates:
         assert transition == goto(gates, Landing(branch=branch, tries=1))
         assert "E501 too long" in trial.coding.prompts[0]
 
-    def test_missing_lines_are_covered_though_the_gate_exits_zero(
+    # `pr-fix` reinstalls three package managers and formats the repository
+    # before it reaches the thing that broke, and a repair does not pay for
+    # that to find out whether one linter is happy now.
+    def test_the_task_mise_named_is_what_the_repair_is_judged_by(
         self, trial: Trial, branch: Branch
     ) -> None:
-        trial.shell.replies(when=plain(PR_FIX))
-        trial.shell.replies(when=plain(COVERAGE), stdout=_REPORT)
-        trial.coding.replies("wrote the tests")
-
-        transition = trial.walk(gates, Landing(branch=branch))
-
-        assert transition == goto(gates, Landing(branch=branch, tries=1))
-        assert "Missing lines 12-14" in trial.coding.prompts[0]
-
-    # A coverage run that will not finish is a red gate, not a branch with
-    # nothing left to cover.
-    def test_a_coverage_run_that_dies_is_repaired_as_a_gate(
-        self, trial: Trial, branch: Branch
-    ) -> None:
-        trial.shell.replies(when=plain(PR_FIX))
         trial.shell.replies(
-            when=plain(COVERAGE), exit_code=1, stderr="no browser to run"
+            when=plain(PR_FIX),
+            exit_code=1,
+            stdout="thing.py:1: error: Bad",
+            stderr="[lint:mypy] ERROR task failed",
         )
-        trial.coding.replies("installed it")
+        trial.coding.replies("typed it")
 
         transition = trial.walk(gates, Landing(branch=branch))
 
-        assert transition == goto(gates, Landing(branch=branch, tries=1))
-        assert COVERAGE in trial.coding.prompts[0]
+        assert transition == goto(
+            gates, Landing(branch=branch, tries=1, gate="mise run lint:mypy")
+        )
 
-    def test_a_spent_bound_fails_the_cast(self, trial: Trial, branch: Branch) -> None:
+    def test_a_narrow_task_going_green_buys_the_gate_rather_than_the_landing(
+        self, trial: Trial, branch: Branch
+    ) -> None:
+        trial.shell.replies(when=plain("mise run lint:mypy"))
+
+        transition = trial.walk(
+            gates, Landing(branch=branch, tries=1, gate="mise run lint:mypy")
+        )
+
+        assert transition == goto(gates, Landing(branch=branch, tries=1))
+        assert trial.shell.commands == [plain("mise run lint:mypy")]
+
+    # Diff coverage is `pr_sweep`'s slow pass and nobody else's: it is the
+    # longest job in the toolchain, and shipping a triage does not wait on it.
+    def test_the_coverage_gate_is_not_run(self, trial: Trial, branch: Branch) -> None:
+        trial.shell.replies(when=plain(PR_FIX))
+
+        trial.walk(gates, Landing(branch=branch))
+
+        assert plain(COVERAGE) not in trial.shell.commands
+
+    # The repair work is uncommitted, so there is no moving on to another
+    # branch from here.
+    def test_a_spent_bound_stops_the_cast_at_the_report(
+        self, trial: Trial, branch: Branch
+    ) -> None:
         trial.shell.replies(when=plain(PR_FIX), exit_code=1, stdout="still red")
 
-        with pytest.raises(RitualError, match="still red after 2 attempts"):
-            trial.walk(gates, Landing(branch=branch, tries=2))
+        transition = trial.walk(gates, Landing(branch=branch, tries=2))
+
+        assert transition == goto(
+            report, _picked(stopped=f"`{PR_FIX}` is still red after 2 attempts")
+        )
+        assert not trial.coding.prompts
 
 
 class TestLand:
@@ -549,7 +574,9 @@ class TestSettle:
 
         transition = trial.walk(settle, branch)
 
-        assert transition == done(Shipped(outcome="shipped", branch="feature"))
+        assert transition == goto(
+            pick, _picked(reviewed=[Reviewed(branch="feature", outcome="shipped")])
+        )
         assert f"gh pr edit 7 --add-label {QA_LABEL}" in trial.shell.commands
 
     def test_threads_left_open_are_reported_and_not_labelled(
@@ -559,8 +586,19 @@ class TestSettle:
 
         transition = trial.walk(settle, branch)
 
-        assert transition == done(Shipped(outcome="shipped", branch="feature"))
-        assert "2 review threads are still open on feature" in trial.deltas[0]
+        assert transition == goto(
+            pick,
+            _picked(
+                reviewed=[
+                    Reviewed(
+                        branch="feature",
+                        outcome="shipped",
+                        note="2 review threads are still open",
+                    )
+                ]
+            ),
+        )
+        assert "2 review threads are still open" in trial.deltas[0]
         # A failed `gh pr edit` is swallowed into a delta here, so the label
         # going on wrongly would look just like this passing.
         assert label(QA_LABEL, number=7) not in trial.shell.commands
@@ -572,29 +610,76 @@ class TestSettle:
 
         transition = trial.walk(settle, branch)
 
-        assert transition == done(Shipped(outcome="shipped", branch="feature"))
-        assert "would not say what is left open" in trial.deltas[0]
+        assert transition == goto(
+            pick,
+            _picked(
+                reviewed=[
+                    Reviewed(
+                        branch="feature",
+                        outcome="shipped",
+                        note="gh would not say what is left open",
+                    )
+                ]
+            ),
+        )
         # The label is a claim about the threads, and a count nobody could take
         # is in no position to make it.
         assert label(QA_LABEL, number=7) not in trial.shell.commands
 
 
+class TestReport:
+    def test_every_branch_is_said_and_the_cast_ends_with_the_card(
+        self, trial: Trial
+    ) -> None:
+        card = _picked(
+            reviewed=[
+                Reviewed(branch="feature", outcome="shipped"),
+                Reviewed(branch="older", outcome="declined"),
+            ]
+        )
+
+        transition = trial.walk(report, card)
+
+        assert transition == done(card)
+        assert trial.deltas == [
+            "pr_review — 2 branches\n  feature: shipped\n  older: left for later"
+        ]
+
+    def test_a_cast_that_stopped_says_so_and_what_it_never_reached(
+        self, trial: Trial
+    ) -> None:
+        stopped = _picked(queue=_queued("older"), stopped="`pr-fix` is still red")
+
+        with pytest.raises(RitualError, match="still red"):
+            trial.walk(report, stopped)
+
+        # The report comes out before the failure, which is the whole reason a
+        # red gate routes here rather than raising where it happened.
+        assert "the cast stopped" in trial.deltas[0]
+        assert "not reached:    older" in trial.deltas[0]
+
+    def test_a_morning_with_nothing_waiting_says_so(self, trial: Trial) -> None:
+        trial.walk(report, _picked())
+
+        assert "(none had a review waiting)" in trial.deltas[0]
+
+
 class TestPrReview:
     def test_a_morning_with_nothing_waiting_ends_the_cast(self, trial: Trial) -> None:
-        trial.shell.replies(when=STATUS)
+        trial.shell.replies(when=STATUS, always=True)
         trial.shell.replies(when=LIST, stdout=_listing("feature"))
         trial.shell.replies(when=HERE, stdout="feature\n")
-        _open(trial, "feature", count="0\n")
+        trial.shell.replies(when=_asks("feature"), stdout="0\n")
 
         result = trial.cast(pr_review, PrReview(bound=2))
 
-        assert result == Shipped(outcome="nothing")
-        assert trial.steps == ["pick"]
+        assert result == _picked()
+        assert trial.steps == ["queue_up", "pick", "pick", "report"]
 
     def test_a_reviewed_branch_goes_all_the_way_to_the_label(
         self, trial: Trial
     ) -> None:
-        trial.shell.replies(when=STATUS)
+        trial.shell.replies(when=STATUS, always=True)
         trial.shell.replies(when=LIST, stdout=_listing("feature"))
         trial.shell.replies(when=_asks("feature"), stdout="1\n")
         trial.shell.replies(when=HERE, stdout="feature\n")
@@ -605,7 +690,6 @@ class TestPrReview:
         trial.coding.replies("settled the thread", when="Below is a triage*")
         trial.decide.answers(answer="ship", when="*ship it?*")
         trial.shell.replies(when=plain(PR_FIX))
-        trial.shell.replies(when=plain(COVERAGE), stdout=_COVERED)
         trial.shell.replies(when="git add*")
         trial.shell.replies(when="git push*")
         trial.shell.replies(when=_asks("feature"), stdout="0\n")
@@ -613,8 +697,11 @@ class TestPrReview:
 
         result = trial.cast(pr_review, PrReview(bound=2))
 
-        assert result == Shipped(outcome="shipped", branch="feature")
+        assert result == _picked(
+            reviewed=[Reviewed(branch="feature", outcome="shipped")]
+        )
         assert trial.steps == [
+            "queue_up",
             "pick",
             "look",
             "plan",
@@ -623,4 +710,36 @@ class TestPrReview:
             "gates",
             "land",
             "settle",
+            "pick",
+            "report",
+        ]
+
+    # The whole point of the loop: one branch shipped and the next one taken,
+    # in one sitting.
+    def test_the_cast_goes_on_to_the_next_branch(self, trial: Trial) -> None:
+        trial.shell.replies(when=STATUS, always=True)
+        trial.shell.replies(when=LIST, stdout=_listing("older", "feature"))
+        trial.shell.replies(when=HERE, stdout="main\n")
+        trial.shell.replies(when=_asks("older"), stdout="1\n")
+        trial.shell.replies(when=_asks("feature"), stdout="1\n")
+        # Neither is read, so both fall through to the next branch — what is
+        # under test here is that there is a next branch at all.
+        trial.decide.answers(answer=False, when="read the review*", always=True)
+
+        result = trial.cast(pr_review, PrReview(bound=2))
+
+        assert result == _picked(
+            reviewed=[
+                Reviewed(branch="older", outcome="declined"),
+                Reviewed(branch="feature", outcome="declined"),
+            ]
+        )
+        assert trial.steps == [
+            "queue_up",
+            "pick",
+            "look",
+            "pick",
+            "look",
+            "pick",
+            "report",
         ]

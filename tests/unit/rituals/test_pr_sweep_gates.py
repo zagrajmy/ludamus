@@ -16,7 +16,15 @@ from ludamus.edges.rituals.pr_sweep import (
     stand_down,
     take_pass,
 )
-from ludamus.edges.rituals.shell import BUDGET, COVERAGE, PR_FIX, REMOTE, checks, plain
+from ludamus.edges.rituals.shell import (
+    BUDGET,
+    COVERAGE,
+    FAST_COVERAGE,
+    PR_FIX,
+    REMOTE,
+    checks,
+    plain,
+)
 from ludamus.edges.rituals.state import Closed, Run
 
 if TYPE_CHECKING:
@@ -72,6 +80,76 @@ class TestTakePass:
         transition = trial.walk(take_pass, covering)
 
         assert transition == goto(finish_merge, covering)
+        assert not trial.shell.commands
+
+    # The same tree CI has already graded, so the gate has nothing to add.
+    def test_a_tree_the_merge_did_not_move_skips_the_gate_where_ci_is_green(
+        self, trial: Trial, work: Work
+    ) -> None:
+        untouched = work.model_copy(update={"unchanged": True})
+        trial.shell.replies(
+            when=checks(7),
+            stdout=(
+                '[{"name": "test", "state": "SUCCESS"},'
+                ' {"name": "tingle", "state": "SUCCESS"}]'
+            ),
+        )
+
+        transition = trial.walk(take_pass, untouched)
+
+        assert transition == goto(
+            finish_merge,
+            untouched.model_copy(
+                update={"note": "nothing to merge, and CI is green on this tree"}
+            ),
+        )
+
+    # One red check anywhere is worth the hour: this buys the branch out of the
+    # gate altogether, unlike the slow pass's own narrower question.
+    def test_one_unhappy_check_still_buys_the_gate(
+        self, trial: Trial, work: Work
+    ) -> None:
+        untouched = work.model_copy(update={"unchanged": True})
+        trial.shell.replies(
+            when=checks(7),
+            stdout=(
+                '[{"name": "test", "state": "SUCCESS"},'
+                ' {"name": "tingle", "state": "FAILURE"}]'
+            ),
+        )
+
+        transition = trial.walk(take_pass, untouched)
+
+        assert transition == goto(gate_check, untouched)
+
+    # Nobody has said the tree is good, and a skip granted on silence is a red
+    # branch pushed and reviewed as green.
+    def test_a_listing_gh_would_not_give_buys_the_gate_rather_than_the_skip(
+        self, trial: Trial, work: Work
+    ) -> None:
+        untouched = work.model_copy(update={"unchanged": True})
+        trial.shell.replies(when=checks(7), exit_code=1, stderr="no checks reported")
+
+        transition = trial.walk(take_pass, untouched)
+
+        assert transition == goto(gate_check, untouched)
+
+    def test_a_branch_ci_has_not_reported_on_buys_the_gate_too(
+        self, trial: Trial, work: Work
+    ) -> None:
+        untouched = work.model_copy(update={"unchanged": True})
+        trial.shell.replies(when=checks(7), stdout="[]")
+
+        transition = trial.walk(take_pass, untouched)
+
+        assert transition == goto(gate_check, untouched)
+
+    def test_a_tree_the_merge_moved_is_not_asked_about_at_all(
+        self, trial: Trial, work: Work
+    ) -> None:
+        transition = trial.walk(take_pass, work)
+
+        assert transition == goto(gate_check, work)
         assert not trial.shell.commands
 
 
@@ -168,6 +246,65 @@ class TestGateCheck:
         assert "do not disable a lint rule" in trial.coding.prompts[0]
         assert "Do not run the whole-repository sweeps" in trial.coding.prompts[0]
         assert "one linter" in trial.coding.prompts[0]
+
+    # `pr-fix` reinstalls three package managers and formats the repository
+    # before it reaches the thing that broke, and a repair does not pay for that
+    # to find out whether one linter is happy now.
+    def test_the_task_mise_named_is_what_the_repair_is_judged_by(
+        self, trial: Trial, work: Work
+    ) -> None:
+        trial.shell.replies(
+            when=plain(PR_FIX),
+            exit_code=1,
+            stdout="thing.py:1: error: Bad",
+            stderr="[lint:mypy] ERROR task failed",
+        )
+        trial.coding.replies("typed it")
+
+        transition = trial.walk(gate_check, work)
+
+        assert transition == goto(
+            gate_check,
+            work.model_copy(
+                update={"budgets": {"gate_check": 1}, "gate": "mise run lint:mypy"}
+            ),
+        )
+
+    def test_a_narrow_task_going_green_buys_the_gate_rather_than_the_merge(
+        self, trial: Trial, work: Work
+    ) -> None:
+        repairing = work.model_copy(
+            update={"budgets": {"gate_check": 1}, "gate": "mise run lint:mypy"}
+        )
+        trial.shell.replies(when=plain("mise run lint:mypy"))
+
+        transition = trial.walk(gate_check, repairing)
+
+        assert transition == goto(gate_check, repairing.model_copy(update={"gate": ""}))
+        assert trial.shell.commands == [plain("mise run lint:mypy")]
+
+    def test_a_narrow_task_still_red_is_repaired_against_itself(
+        self, trial: Trial, work: Work
+    ) -> None:
+        repairing = work.model_copy(
+            update={"budgets": {"gate_check": 1}, "gate": "mise run lint:mypy"}
+        )
+        trial.shell.replies(
+            when=plain("mise run lint:mypy"),
+            exit_code=1,
+            stdout="thing.py:1: error: Still bad",
+            stderr="[lint:mypy] ERROR task failed",
+        )
+        trial.coding.replies("typed it properly")
+
+        transition = trial.walk(gate_check, repairing)
+
+        assert transition == goto(
+            gate_check, repairing.model_copy(update={"budgets": {"gate_check": 2}})
+        )
+        assert trial.coding.prompts[0].startswith(
+            "`mise run lint:mypy` is this project"
+        )
 
     def test_a_spent_budget_stands_the_branch_down_without_asking_again(
         self, trial: Trial, work: Work
@@ -267,7 +404,8 @@ class TestCover:
         transition = trial.walk(cover, work)
 
         assert transition == goto(
-            cover, work.model_copy(update={"budgets": {"cover": 1}})
+            cover,
+            work.model_copy(update={"budgets": {"cover": 1}, "gate": FAST_COVERAGE}),
         )
         assert _MISSING in trial.coding.prompts[0]
         assert "Do not run the whole-repository sweeps" in trial.coding.prompts[0]
@@ -284,7 +422,8 @@ class TestCover:
         transition = trial.walk(cover, work)
 
         assert transition == goto(
-            cover, work.model_copy(update={"budgets": {"cover": 1}})
+            cover,
+            work.model_copy(update={"budgets": {"cover": 1}, "gate": FAST_COVERAGE}),
         )
         # Named for what is actually red, not for the other gate.
         assert trial.coding.prompts[0].startswith(f"`{COVERAGE}` is this project")
@@ -328,7 +467,8 @@ class TestCover:
         transition = trial.walk(cover, work)
 
         assert transition == goto(
-            cover, work.model_copy(update={"budgets": {"cover": 1}})
+            cover,
+            work.model_copy(update={"budgets": {"cover": 1}, "gate": FAST_COVERAGE}),
         )
         assert listing in trial.coding.prompts[0]
         assert "tests/test_0.py PASSED" not in trial.coding.prompts[0]
@@ -397,9 +537,59 @@ class TestCover:
         transition = trial.walk(cover, work)
 
         assert transition == goto(
-            cover, work.model_copy(update={"budgets": {"cover": 1}})
+            cover,
+            work.model_copy(update={"budgets": {"cover": 1}, "gate": FAST_COVERAGE}),
         )
         assert "no coverage data" in trial.coding.prompts[0]
+
+    # What the agent just wrote is measured without a browser behind it, and
+    # the full run is what says the branch is covered.
+    def test_the_browserless_measurement_buys_the_full_one_rather_than_the_push(
+        self, trial: Trial, work: Work
+    ) -> None:
+        measuring = work.model_copy(
+            update={"budgets": {"cover": 1}, "gate": FAST_COVERAGE}
+        )
+        trial.shell.replies(when=plain(FAST_COVERAGE), stdout=_CLEAN)
+
+        transition = trial.walk(cover, measuring)
+
+        assert transition == goto(cover, measuring.model_copy(update={"gate": ""}))
+        assert trial.shell.commands == [plain(FAST_COVERAGE)]
+
+    def test_a_partial_report_says_so_to_the_agent(
+        self, trial: Trial, work: Work
+    ) -> None:
+        measuring = work.model_copy(
+            update={"budgets": {"cover": 1}, "gate": FAST_COVERAGE}
+        )
+        trial.shell.replies(when=plain(FAST_COVERAGE), stdout=_MISSING)
+        trial.coding.replies("wrote the tests")
+
+        trial.walk(cover, measuring)
+
+        assert "did not run the end-to-end suite" in trial.coding.prompts[0]
+
+    # The suite is what will not run, so that is what the next round runs.
+    def test_a_task_mise_named_is_what_the_next_round_measures(
+        self, trial: Trial, work: Work
+    ) -> None:
+        trial.shell.replies(
+            when=plain(COVERAGE),
+            exit_code=1,
+            stdout=_RED,
+            stderr="[test:py:cov] ERROR task failed",
+        )
+        trial.coding.replies("fixed the test")
+
+        transition = trial.walk(cover, work)
+
+        assert transition == goto(
+            cover,
+            work.model_copy(
+                update={"budgets": {"cover": 1}, "gate": "mise run test:py:cov"}
+            ),
+        )
 
 
 class TestPushWork:

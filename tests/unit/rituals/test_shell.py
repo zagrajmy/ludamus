@@ -7,6 +7,7 @@ from ludamus.edges.rituals.shell import (
     VERDICT_LINES,
     already_seen,
     coverage_report,
+    narrowed,
     said,
     same_verdict,
     verdict,
@@ -168,3 +169,32 @@ class TestCoverageReport:
 
     def test_a_run_that_printed_no_report_falls_back_to_the_trimmed_log(self) -> None:
         assert coverage_report(_ran(stderr="no coverage data")) == "no coverage data"
+
+
+class TestNarrowed:
+    def test_the_task_mise_named_is_the_one_to_run_again(self) -> None:
+        assert (
+            narrowed(_ran(stderr="[lint:mypy] ERROR task failed"))
+            == "mise run lint:mypy"
+        )
+
+    # A chain stops at the first failure, and what comes after it is a parent
+    # repeating the news.
+    def test_the_first_of_several_is_the_one_that_broke(self) -> None:
+        said_it = "[lint:black] ERROR task failed\n[pr-fix] ERROR task failed"
+
+        assert narrowed(_ran(stderr=said_it)) == "mise run lint:black"
+
+    def test_colour_around_the_name_does_not_hide_it(self) -> None:
+        assert (
+            narrowed(_ran(stderr="\x1b[31m[test:py:cov] ERROR task failed\x1b[0m"))
+            == "mise run test:py:cov"
+        )
+
+    # Then the caller runs the whole gate, which is the answer it would have
+    # had anyway.
+    def test_a_run_that_named_nothing_narrows_to_nothing(self) -> None:
+        assert not narrowed(_ran(stderr="Killed"))
+
+    def test_a_task_named_mid_line_is_not_a_verdict(self) -> None:
+        assert not narrowed(_ran(stdout="see what [lint:mypy] ERROR task failed means"))
