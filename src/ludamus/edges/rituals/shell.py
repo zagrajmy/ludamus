@@ -41,14 +41,24 @@ LIST = (
     "--json number,title,headRefName,baseRefName,url,updatedAt,labels"
 )
 
+
+# What CI made of the branch as it stands. Asked rather than assumed, and only
+# by the slow pass: the whole point of it is not to spend an hour of suites on a
+# pull request whose coverage and tests are already green on the server.
+# The exit code is deliberately ignored by the caller — `gh pr checks` answers
+# non-zero for a failing or pending run, which is the answer being asked for.
+def checks(number: int) -> str:
+    return f"gh pr checks {number} --json name,state"
+
+
 # This branch has had its review. Inline review comments are invisible to
 # `gh pr view --json comments`, so a label is what the step can actually see —
 # and a label is also something you can take off, which is the point: removing
 # it is how you ask for the review again.
 THERMO_LABEL = "pr::thermo"
 # Every review thread on this branch is answered and settled, and the gates were
-# green when that happened. Put on by `pr_review` and nothing else: `pr_check`
-# never reads the threads, so the night cannot claim it.
+# green when that happened. Put on by `pr_review` and nothing else: neither
+# sweep reads the threads, so the night cannot claim it.
 QA_LABEL = "pr::qa"
 # Hands off this one. It is read at the listing and nowhere else, so a branch
 # wearing it is never taken, never touched, and never reported on — which is
@@ -268,7 +278,7 @@ CONTINUE_MERGE = (
 # Naming the stash is only worth anything if the morning report says the name,
 # so the step that releases puts this in the row's note.
 def stash_name(branch: str) -> str:
-    return f"pr_check left {branch} unfinished"
+    return f"a pr sweep left {branch} unfinished"
 
 
 # The next pull request begins with a clean worktree check, so an abandoned

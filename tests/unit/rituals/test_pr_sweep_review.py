@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING
 
 from vekna.lexicon import Goto, goto
 
-from ludamus.edges.rituals.pr_check import finish_pr, quality_review, set_aside
+from ludamus.edges.rituals.pr_sweep import finish_pr, quality_review, set_aside
 from ludamus.edges.rituals.shell import THERMO_LABEL
 from ludamus.edges.rituals.state import Closed, Work
 

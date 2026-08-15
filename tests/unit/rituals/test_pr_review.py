@@ -11,6 +11,7 @@ from ludamus.edges.rituals.pr_review import (
     Branch,
     Instructed,
     Landing,
+    Picking,
     PrReview,
     Shipped,
     Triage,
@@ -59,6 +60,13 @@ _ALSO = TriageItem(
     priority="p3",
     action="file",
     thread="PRRT_2",
+)
+_STALE = TriageItem(
+    where="src/thing.py",
+    what="the line it points at is gone",
+    priority="p4",
+    action="reject",
+    thread="PRRT_3",
 )
 
 # Fixed per name rather than counted off the listing: `feature` is the pull
@@ -111,7 +119,7 @@ class TestPick:
         _open(trial, "feature")
         trial.shell.replies(when=HERE, stdout="feature\n")
 
-        transition = trial.walk(pick, PrReview(bound=2))
+        transition = trial.walk(pick, Picking(bound=2))
 
         assert transition == goto(look, branch)
         # The other one is never asked about: the branch you are on is asked
@@ -124,9 +132,23 @@ class TestPick:
         _open(trial, "older", "feature")
         trial.shell.replies(when=HERE, stdout="main\n")
 
-        transition = trial.walk(pick, PrReview(bound=2))
+        transition = trial.walk(pick, Picking(bound=2))
 
         assert transition == goto(look, Branch(name="older", number=3, bound=2))
+
+    def test_a_branch_already_passed_over_is_not_offered_again(
+        self, trial: Trial
+    ) -> None:
+        trial.shell.replies(when=STATUS)
+        trial.shell.replies(when=LIST, stdout=_listing("older", "feature"))
+        _open(trial, "feature")
+        trial.shell.replies(when=HERE, stdout="main\n")
+
+        transition = trial.walk(pick, Picking(bound=2, passed_over=["older"]))
+
+        assert transition == goto(
+            look, Branch(name="feature", number=7, bound=2, passed_over=["older"])
+        )
 
     def test_a_branch_with_every_thread_settled_is_not_taken(
         self, trial: Trial
@@ -136,7 +158,7 @@ class TestPick:
         trial.shell.replies(when=HERE, stdout="feature\n")
         _open(trial, "feature", count="0\n")
 
-        transition = trial.walk(pick, PrReview(bound=2))
+        transition = trial.walk(pick, Picking(bound=2))
 
         assert transition == done(Shipped(outcome="nothing"))
 
@@ -145,7 +167,7 @@ class TestPick:
         trial.shell.replies(when=LIST, stdout=json.dumps([]))
         trial.shell.replies(when=HERE, stdout="feature\n")
 
-        transition = trial.walk(pick, PrReview(bound=2))
+        transition = trial.walk(pick, Picking(bound=2))
 
         assert transition == done(Shipped(outcome="nothing"))
 
@@ -156,7 +178,7 @@ class TestPick:
         trial.shell.replies(when=LIST, stdout=_listing("feature", tested="feature"))
         trial.shell.replies(when=HERE, stdout="feature\n")
 
-        transition = trial.walk(pick, PrReview(bound=2))
+        transition = trial.walk(pick, Picking(bound=2))
 
         assert transition == done(Shipped(outcome="nothing"))
         assert unsettled(_NUMBERS["feature"]) not in trial.shell.commands
@@ -167,7 +189,7 @@ class TestPick:
         trial.shell.replies(when=LIST, stdout=_listing("feature", waiting="feature"))
         trial.shell.replies(when=HERE, stdout="feature\n")
 
-        transition = trial.walk(pick, PrReview(bound=2))
+        transition = trial.walk(pick, Picking(bound=2))
 
         assert transition == done(Shipped(outcome="nothing"))
         assert unsettled(7) not in trial.shell.commands
@@ -177,7 +199,7 @@ class TestPick:
         trial.shell.replies(when=LIST, stdout=_listing("main"))
         trial.shell.replies(when=HERE, stdout="main\n")
 
-        transition = trial.walk(pick, PrReview(bound=2))
+        transition = trial.walk(pick, Picking(bound=2))
 
         assert transition == done(Shipped(outcome="nothing"))
 
@@ -189,7 +211,7 @@ class TestPick:
         trial.shell.replies(when=HERE, stdout="feature\n")
         trial.shell.replies(when=_asks("feature"), exit_code=1, stderr="rate limited")
 
-        transition = trial.walk(pick, PrReview(bound=2))
+        transition = trial.walk(pick, Picking(bound=2))
 
         assert transition == done(Shipped(outcome="nothing"))
         assert trial.deltas == [
@@ -203,7 +225,7 @@ class TestPick:
         trial.shell.replies(when=HERE, stdout="feature\n")
         _open(trial, "feature", count="0\n")
 
-        trial.walk(pick, PrReview(bound=2))
+        trial.walk(pick, Picking(bound=2))
 
         assert trial.deltas == ["no pull request of yours has a review waiting"]
 
@@ -211,28 +233,28 @@ class TestPick:
         trial.shell.replies(when=STATUS, stdout=" M src/thing.py\n")
 
         with pytest.raises(RitualError, match="the worktree is not clean"):
-            trial.walk(pick, PrReview(bound=2))
+            trial.walk(pick, Picking(bound=2))
 
     # A tree it could not read is not a tree it may call clean.
     def test_a_failed_status_fails_the_cast(self, trial: Trial) -> None:
         trial.shell.replies(when=STATUS, exit_code=128, stderr="not a repository")
 
         with pytest.raises(RitualError, match="git status failed"):
-            trial.walk(pick, PrReview(bound=2))
+            trial.walk(pick, Picking(bound=2))
 
     def test_a_failed_listing_fails_the_cast(self, trial: Trial) -> None:
         trial.shell.replies(when=STATUS)
         trial.shell.replies(when=LIST, exit_code=1, stderr="rate limited")
 
         with pytest.raises(RitualError, match="could not list your pull requests"):
-            trial.walk(pick, PrReview(bound=2))
+            trial.walk(pick, Picking(bound=2))
 
     def test_a_listing_that_cannot_be_read_fails_the_cast(self, trial: Trial) -> None:
         trial.shell.replies(when=STATUS)
         trial.shell.replies(when=LIST, stdout="{}")
 
         with pytest.raises(RitualError, match="something unreadable"):
-            trial.walk(pick, PrReview(bound=2))
+            trial.walk(pick, Picking(bound=2))
 
     def test_a_head_git_will_not_name_fails_the_cast(self, trial: Trial) -> None:
         trial.shell.replies(when=STATUS)
@@ -240,7 +262,7 @@ class TestPick:
         trial.shell.replies(when=HERE, exit_code=128, stderr="no HEAD")
 
         with pytest.raises(RitualError, match="could not read the current branch"):
-            trial.walk(pick, PrReview(bound=2))
+            trial.walk(pick, Picking(bound=2))
 
 
 class TestLook:
@@ -306,14 +328,19 @@ class TestLook:
         with pytest.raises(RitualError, match="did not answer in the shape"):
             trial.walk(look, branch)
 
-    def test_a_failed_checkout_fails_the_cast(
+    # Another worktree is standing on it, and there is a whole list of other
+    # pull requests this could be reading instead.
+    def test_a_branch_that_will_not_check_out_goes_back_to_the_pick(
         self, trial: Trial, branch: Branch
     ) -> None:
         trial.decide.answers(answer=True, when="read the review*")
         trial.shell.replies(when="git checkout*", exit_code=1, stderr="in the way")
 
-        with pytest.raises(RitualError, match="could not check out feature"):
-            trial.walk(look, branch)
+        transition = trial.walk(look, branch)
+
+        assert transition == goto(pick, Picking(bound=2, passed_over=["feature"]))
+        assert "checked out elsewhere" in trial.deltas[-1]
+        assert not trial.coding.prompts
 
 
 class TestPlan:
@@ -348,8 +375,18 @@ class TestPlan:
 
         trial.walk(plan, Triage(branch=branch, items=[_ITEM, _ALSO]))
 
-        assert "2 outstanding — p1: 1, p2: 0, p3: 1" in trial.deltas[0]
+        assert "2 outstanding — p1: 1, p2: 0, p3: 1, p4: 0" in trial.deltas[0]
         assert "the guard is missing" in trial.deltas[0]
+
+    def test_a_comment_with_no_work_in_it_is_counted_as_p4(
+        self, trial: Trial, branch: Branch
+    ) -> None:
+        trial.decide.answers(answer="", when="1.*")
+
+        trial.walk(plan, Triage(branch=branch, items=[_STALE]))
+
+        assert "1 outstanding — p1: 0, p2: 0, p3: 0, p4: 1" in trial.deltas[0]
+        assert "[p4/reject]" in trial.deltas[0]
 
 
 class TestWork:

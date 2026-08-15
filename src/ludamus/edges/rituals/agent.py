@@ -119,6 +119,10 @@ Give everything that remains a priority:
 - p1 — must fix before this merges
 - p2 — good to fix, and cheap enough to do now
 - p3 — worth fixing or scheduling later
+- p4 — nothing to do: the comment is wrong, is about code that has since
+  changed, or asks for something already done. It still gets an item, because
+  the thread is still open and still has to be answered — but it takes no work,
+  so its `action` is `reject` and `what` says why the thread can be closed.
 
 And say in `action` what you would do about it, which is what will happen unless
 I say otherwise:

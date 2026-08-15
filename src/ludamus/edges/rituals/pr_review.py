@@ -1,14 +1,16 @@
-"""Answer the review `pr_check` left on a branch, then ship it.
+"""Answer the review `pr_refresh` left on a branch, then ship it.
 
     vekna cast pr_review [--bound N]
 
-The follow-up to `pr_check`, and its opposite: one branch, nothing done without
-you saying so, and it is what commits the result.
+The follow-up to `pr_refresh`, and its opposite: one branch, nothing done
+without you saying so, and it is what commits the result.
 
 A branch is a candidate when its pull request is open, yours, labelled
 `pr::thermo`, not labelled `pr::wait` or `pr::qa`, and carrying a review thread
 nobody has settled. Of those, the branch you are standing on wins — which is
-also what keeps two terminals on two branches off each other's work.
+also what keeps two terminals on two branches off each other's work. A branch
+whose checkout will not go through, because another worktree is standing on it,
+drops out of the running and the next candidate is offered instead.
 
 The triage is read rather than fetched: an agent reads the open threads against
 the code as it stands and hands back one item per thread, with a priority and
@@ -79,7 +81,7 @@ _THREAD = "pr_review"
 _MAIN = "main"
 
 
-# `pr_check` cannot share this — it routes to `set_aside` where this raises —
+# The sweeps cannot share this — they route to `set_aside` where this raises —
 # and once it exists, a bare `await shell()` in this file means the exit code is
 # data rather than a failure.
 async def _ran(command: str, complaint: str, *, stream: bool = True) -> ShellResult:
@@ -94,12 +96,23 @@ class PrReview(BaseModel):
     bound: Bound = 3
 
 
+# What `pick` needs beyond the components: the branches it has already been
+# through. A branch another worktree is standing on cannot be checked out, and
+# that is only found out one step later — so it comes back here, named, and this
+# is what stops the pick landing on it again.
+class Picking(BaseModel):
+    bound: Bound
+    passed_over: list[str] = []
+
+
 class Branch(BaseModel):
     name: str
     # Carried rather than looked up again: review threads are addressed by pull
     # request and not by branch.
     number: int
     bound: Bound
+    # Only so `look` can hand it back to `pick` when the checkout fails.
+    passed_over: list[str] = []
 
 
 class Triage(BaseModel):
@@ -135,11 +148,11 @@ _MOVES: tuple[Move, ...] = ("fix", "ship")
 
 @ritual("pr_review", max_steps=_MAX_STEPS)
 def pr_review(components: PrReview) -> Transition:
-    return goto(pick, PrReview(bound=components.bound))
+    return goto(pick, Picking(bound=components.bound))
 
 
 @step
-async def pick(components: PrReview) -> Transition:
+async def pick(picking: Picking) -> Transition:
     """Take the branch whose review is waiting, the one you stand on first."""
     # Fatal, and first: this checks out a branch and later commits everything it
     # finds, so work in the tree now would be committed onto someone else's
@@ -160,6 +173,7 @@ async def pick(components: PrReview) -> Transition:
         pull
         for pull in pulls
         if pull.branch != _MAIN
+        and pull.branch not in picking.passed_over
         and wears(pull, THERMO_LABEL)
         and not wears(pull, QA_LABEL)
     ]
@@ -180,7 +194,10 @@ async def pick(components: PrReview) -> Transition:
             mute.append(pull.branch)
         elif left:
             branch = Branch(
-                name=pull.branch, number=pull.number, bound=components.bound
+                name=pull.branch,
+                number=pull.number,
+                bound=picking.bound,
+                passed_over=picking.passed_over,
             )
             return goto(look, branch)
     # Said apart from the ending below: a branch nobody could get a count for is
@@ -210,7 +227,16 @@ async def look(branch: Branch) -> Transition:
     # the move leaves you standing on someone else's branch.
     if not await decide(f"read the review on {branch.name}?"):
         return done(Shipped(outcome="declined", branch=branch.name))
-    await _ran(checkout(branch.name), f"could not check out {branch.name}")
+    taken = await shell(checkout(branch.name))
+    # Not fatal, unlike every other command here: a checkout that will not go
+    # through is another worktree standing on the branch, and there is a whole
+    # list of other pull requests this could be reading instead.
+    if taken.exit_code:
+        emit_delta(f"{branch.name} is checked out elsewhere: {said(taken)}")
+        return goto(
+            pick,
+            Picking(bound=branch.bound, passed_over=[*branch.passed_over, branch.name]),
+        )
     # Read after the checkout: an item is triaged against the code as it stands,
     # and until then that was somebody else's code.
     read = await ask_for(triage_read(branch.number), output=TriageNotes, opts=READING)
@@ -324,7 +350,7 @@ async def land(branch: Branch) -> Transition:
     await _ran(
         commit("chore: act on the review triage"), "could not commit the triage work"
     )
-    # The same push `pr_check` makes: this ends on the branch that ritual put
+    # The same push the sweeps make: this ends on the branch they put
     # up, and neither guesses at an upstream the other did not set.
     await _ran(push(branch.name), f"could not push {branch.name}")
     return goto(settle, branch)

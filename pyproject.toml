@@ -255,7 +255,7 @@ ignore = [
     "COM",
     "CPY",
     "D1",
-    "DOC",  # No docstring param/return spec
+    "DOC",   # No docstring param/return spec
     "FIX",
     "TD003",
     # Left to fix
@@ -537,7 +537,8 @@ ignore_names = [
     "modification_time",
     "test_func",
     # Vekna rituals
-    "pr_check",
+    "pr_refresh",
+    "pr_cover",
     "pr_review",
 ]
 

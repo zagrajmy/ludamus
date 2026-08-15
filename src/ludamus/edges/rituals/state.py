@@ -16,8 +16,43 @@ from .shell import WAIT_LABEL
 Bound = Annotated[int, Field(ge=1, le=5)]
 
 
-class PrCheck(BaseModel):
+class PrSweep(BaseModel):
     bound: Bound = 3
+
+
+# Which pass a cast is. The two share every step that takes a branch and writes
+# a row; they part at the gate — the fast pass merges and makes `pr-fix` green,
+# the slow one measures coverage and writes the tests.
+Mode = Literal["refresh", "cover"]
+
+
+# What CI says about one thing it ran. Only these two fields, because the slow
+# pass asks one question of them: is this branch's coverage or test job unhappy.
+class Check(BaseModel):
+    name: str
+    state: str
+
+
+CHECKS: TypeAdapter[list[Check]] = TypeAdapter(list[Check])
+
+# The checks whose unhappiness the slow pass exists to answer: codecov posts
+# `codecov/patch` and `codecov/project` (plus `/client` variants), and the suite
+# runs as `test` and `test-postgres`.
+_COVER_CHECKS = ("codecov/", "test")
+_PASSED = "SUCCESS"
+
+
+# True unless the pull request positively says otherwise: a listing that will
+# not parse, a `gh` that would not answer, a branch CI has not reported on yet —
+# all of them mean nobody has told us the coverage is fine, and the slow pass is
+# the thing that finds out. Only a green codecov and a green suite buy a skip.
+def wants_cover(listing: str) -> bool:
+    try:
+        checks = CHECKS.validate_json(listing)
+    except ValidationError:
+        return True
+    watched = [check for check in checks if check.name.startswith(_COVER_CHECKS)]
+    return not watched or any(check.state != _PASSED for check in watched)
 
 
 # `gh --json labels` hands back an object per label; the name is the whole
@@ -76,7 +111,9 @@ class Checked(BaseModel):
     url: str
     # What the night can say about the branch: whether the gates went green and
     # the work went up. What the review threads say is `pr_review`'s to read.
-    outcome: Literal["green", "blocked"]
+    # `skipped` is neither — the branch was never taken, so there is nothing to
+    # call green or broken.
+    outcome: Literal["green", "blocked", "skipped"]
     # None when git could not say. Nothing to push and "we could not tell" are
     # different answers, and the report prints them differently.
     unpushed: int | None
@@ -86,6 +123,9 @@ class Checked(BaseModel):
 # Every step carries this, because the report is owed however the cast ends.
 class Run(BaseModel):
     bound: int
+    # The fast pass by default: it is the one every shared step was written for,
+    # and the slow one says so at its entrypoint.
+    mode: Mode = "refresh"
     queue: list[PullRequest] = []
     checked: list[Checked] = []
     stopped: str = ""
@@ -124,7 +164,10 @@ class Work(BaseModel):
 class TriageItem(BaseModel):
     where: str
     what: str
-    priority: Literal["p1", "p2", "p3"]
+    # p4 is not a smaller p3: it is the thread that has no work in it at all —
+    # already done, no longer true, or simply wrong — and it is sorted out of
+    # the way so the reading you go through is only the items worth a decision.
+    priority: Literal["p1", "p2", "p3", "p4"]
     # What the reading would do about it, which is what happens when you say
     # nothing: an item you agree with costs you a return key.
     action: Literal["fix", "reject", "file"]
@@ -150,6 +193,7 @@ class Report(BaseModel):
     to_push: list[str] = []
     to_fix: list[str] = []
     ready: list[str] = []
+    left_alone: list[str] = []
     not_reached: list[str] = []
     failed: str = ""
 
@@ -169,6 +213,7 @@ def run_with(
 ) -> Run:
     return Run(
         bound=run.bound,
+        mode=run.mode,
         queue=run.queue if queue is None else queue,
         checked=run.checked if checked is None else checked,
         stopped=run.stopped if stopped is None else stopped,
@@ -220,7 +265,7 @@ def telling(work: Work, *extra: str) -> str:
 def counted(items: list[TriageItem]) -> str:
     tally = Counter(item.priority for item in items)
     return ", ".join(
-        f"{priority}: {tally[priority]}" for priority in ("p1", "p2", "p3")
+        f"{priority}: {tally[priority]}" for priority in ("p1", "p2", "p3", "p4")
     )
 
 
@@ -272,7 +317,11 @@ def abandoned(work: Work, reason: str) -> Run:
 
 # --- the report ------------------------------------------------------------
 
-_OUTCOME = {"green": "green and reviewed", "blocked": "blocked"}
+_OUTCOME = {
+    "green": "green and reviewed",
+    "blocked": "blocked",
+    "skipped": "left alone",
+}
 
 
 def _names(items: list[str]) -> str:
@@ -291,23 +340,24 @@ def _line(row: Checked) -> str:
 
 
 def report_card(run: Run) -> Report:
+    # A branch that was never taken is on none of the work lists: its count is
+    # unknown for the one reason that means nothing is owed, and a checkout that
+    # did not happen leaves nothing to fix either.
+    taken = [row for row in run.checked if row.outcome != "skipped"]
     return Report(
         checked=run.checked,
         # Unknown counts as needing a push: this is read by someone deciding
         # what to do next, and "we could not tell" is not "nothing to do".
-        to_push=[
-            row.branch for row in run.checked if row.unpushed is None or row.unpushed
-        ],
-        to_fix=[row.branch for row in run.checked if row.outcome == "blocked"],
+        to_push=[row.branch for row in taken if row.unpushed is None or row.unpushed],
+        to_fix=[row.branch for row in taken if row.outcome == "blocked"],
+        left_alone=[row.branch for row in run.checked if row.outcome == "skipped"],
         # What `pr_review` can be run on in the morning: green, pushed, and
         # carrying a review somebody has to answer. `unpushed` is part of the
         # condition and not a detail below it — a branch that would not push
         # carries a review anchored to an older head, and naming it here as well
         # as under `needs pushing` is the report contradicting itself.
         ready=[
-            row.branch
-            for row in run.checked
-            if row.outcome == "green" and row.unpushed == 0
+            row.branch for row in taken if row.outcome == "green" and row.unpushed == 0
         ],
         not_reached=[pull.branch for pull in run.queue],
         failed=run.stopped,
@@ -316,7 +366,7 @@ def report_card(run: Run) -> Report:
 
 def summary(run: Run) -> str:
     card = report_card(run)
-    lines = [f"pr_check — {len(run.checked)} checked", ""]
+    lines = [f"pr_{run.mode} — {len(run.checked)} checked", ""]
     lines += [_line(row) for row in run.checked] or ["  (none)"]
     lines += [
         "",
@@ -324,6 +374,11 @@ def summary(run: Run) -> str:
         f"needs fixing:   {_names(card.to_fix)}",
         f"ready to test:  {_names(card.ready)}",
     ]
+    # Only when there are any: a branch held in another worktree is the normal
+    # case for nobody, and a line saying "none" every night trains the eye past
+    # it.
+    if card.left_alone:
+        lines.append(f"left alone:     {_names(card.left_alone)}")
     if card.not_reached:
         lines.append(f"not reached:    {_names(card.not_reached)}")
     if card.failed:

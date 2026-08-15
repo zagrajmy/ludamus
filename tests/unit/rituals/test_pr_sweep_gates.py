@@ -4,17 +4,20 @@ from typing import TYPE_CHECKING
 
 from vekna.lexicon import goto
 
-from ludamus.edges.rituals.pr_check import (
+from ludamus.edges.rituals.pr_sweep import (
+    check_ci,
     cover,
     finish_merge,
+    finish_pr,
     gate_check,
     push_work,
     quality_review,
     set_aside,
     stand_down,
+    take_pass,
 )
-from ludamus.edges.rituals.shell import BUDGET, COVERAGE, PR_FIX, REMOTE, plain
-from ludamus.edges.rituals.state import Run
+from ludamus.edges.rituals.shell import BUDGET, COVERAGE, PR_FIX, REMOTE, checks, plain
+from ludamus.edges.rituals.state import Closed, Run
 
 if TYPE_CHECKING:
     from vekna.trial import Trial
@@ -46,6 +49,91 @@ _TEST_COMMIT = (
     "git add -A && (git diff --cached --quiet || "
     "git commit -m 'test: cover the lines this branch changes')"
 )
+
+
+def _covering(work: Work) -> Work:
+    return work.model_copy(update={"run": Run(bound=3, mode="cover")})
+
+
+class TestTakePass:
+    def test_the_fast_pass_owes_the_gate_before_it_commits(
+        self, trial: Trial, work: Work
+    ) -> None:
+        transition = trial.walk(take_pass, work)
+
+        assert transition == goto(gate_check, work)
+        assert not trial.shell.commands
+
+    def test_the_slow_pass_skips_a_gate_its_own_one_would_run_again(
+        self, trial: Trial, work: Work
+    ) -> None:
+        covering = _covering(work)
+
+        transition = trial.walk(take_pass, covering)
+
+        assert transition == goto(finish_merge, covering)
+        assert not trial.shell.commands
+
+
+class TestCheckCi:
+    def test_an_unhappy_codecov_buys_the_slow_gate(
+        self, trial: Trial, work: Work
+    ) -> None:
+        covering = _covering(work)
+        trial.shell.replies(
+            when=checks(7), stdout='[{"name": "codecov/patch", "state": "FAILURE"}]'
+        )
+
+        transition = trial.walk(check_ci, covering)
+
+        assert transition == goto(cover, covering)
+        assert trial.shell.commands == [checks(7)]
+
+    def test_a_failing_test_job_buys_it_too(self, trial: Trial, work: Work) -> None:
+        covering = _covering(work)
+        trial.shell.replies(
+            when=checks(7),
+            stdout=(
+                '[{"name": "codecov/patch", "state": "SUCCESS"},'
+                ' {"name": "test", "state": "FAILURE"}]'
+            ),
+        )
+
+        transition = trial.walk(check_ci, covering)
+
+        assert transition == goto(cover, covering)
+
+    def test_a_branch_ci_is_happy_with_is_pushed_and_left(
+        self, trial: Trial, work: Work
+    ) -> None:
+        covering = _covering(work)
+        trial.shell.replies(
+            when=checks(7),
+            stdout=(
+                '[{"name": "codecov/patch", "state": "SUCCESS"},'
+                ' {"name": "test", "state": "SUCCESS"},'
+                ' {"name": "tingle", "state": "FAILURE"}]'
+            ),
+        )
+
+        transition = trial.walk(check_ci, covering)
+
+        assert transition == goto(
+            push_work,
+            covering.model_copy(
+                update={"note": "codecov and the test job are green on CI"}
+            ),
+        )
+
+    def test_a_listing_gh_would_not_give_buys_the_gate_rather_than_the_skip(
+        self, trial: Trial, work: Work
+    ) -> None:
+        covering = _covering(work)
+        trial.shell.replies(when=checks(7), exit_code=1, stderr="no checks reported")
+
+        transition = trial.walk(check_ci, covering)
+
+        assert transition == goto(cover, covering)
 
 
 class TestGateCheck:
@@ -142,7 +230,7 @@ class TestFinishMerge:
 
         transition = trial.walk(finish_merge, merging)
 
-        assert transition == goto(cover, work)
+        assert transition == goto(push_work, work)
         assert trial.shell.commands[1] == _MERGE_COMMIT
 
     def test_a_clean_merge_only_commits(self, trial: Trial, work: Work) -> None:
@@ -150,7 +238,7 @@ class TestFinishMerge:
 
         transition = trial.walk(finish_merge, work)
 
-        assert transition == goto(cover, work)
+        assert transition == goto(push_work, work)
         assert trial.shell.commands == [_MERGE_COMMIT]
 
     def test_a_merge_that_will_not_continue_is_set_aside(
@@ -336,6 +424,16 @@ class TestPushWork:
             quality_review,
             work.model_copy(update={"note": "could not push: the remote hung up"}),
         )
+
+    def test_the_slow_pass_pushes_and_posts_no_review(
+        self, trial: Trial, work: Work
+    ) -> None:
+        covering = _covering(work)
+        trial.shell.replies(when=_PUSH)
+
+        transition = trial.walk(push_work, covering)
+
+        assert transition == goto(finish_pr, Closed(work=covering, outcome="green"))
 
     def test_a_note_already_on_the_branch_keeps_its_half(
         self, trial: Trial, work: Work

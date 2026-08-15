@@ -5,17 +5,18 @@ from typing import TYPE_CHECKING
 
 from vekna.lexicon import Goto, goto
 
-from ludamus.edges.rituals.pr_check import (
+from ludamus.edges.rituals.pr_sweep import (
     check_clean,
-    gate_check,
     list_prs,
     merge_base,
     next_pr,
     report,
     resolve_conflicts,
     set_aside,
+    skip_pr,
     stand_down,
     sync_branch,
+    take_pass,
 )
 from ludamus.edges.rituals.shell import LIST, WAIT_LABEL
 from ludamus.edges.rituals.state import Label, PullRequest, Run, Work
@@ -134,7 +135,8 @@ class TestSyncBranch:
         self, trial: Trial, work: Work
     ) -> None:
         trial.shell.replies(when="git fetch*", always=True)
-        trial.shell.replies(when="git checkout feature*", always=True)
+        trial.shell.replies(when="git checkout feature", always=True)
+        trial.shell.replies(when="git merge --ff-only*", always=True)
 
         transition = trial.walk(sync_branch, work)
 
@@ -144,7 +146,8 @@ class TestSyncBranch:
                 "git fetch --prune https-origin && git checkout main && "
                 "git pull --ff-only https-origin main"
             ),
-            "git checkout feature && git merge --ff-only https-origin/feature",
+            "git checkout feature",
+            "git merge --ff-only https-origin/feature",
         ]
 
     def test_a_base_that_will_not_update_ends_the_whole_run(
@@ -159,31 +162,46 @@ class TestSyncBranch:
         assert isinstance(transition.payload, Run)
         assert transition.payload.stopped == "could not update main: network down"
 
+    def test_a_branch_another_worktree_holds_is_skipped_rather_than_blocked(
+        self, trial: Trial, work: Work
+    ) -> None:
+        trial.shell.replies(when="git fetch*")
+        held = "fatal: 'feature' is already used by worktree at /home/radek/other"
+        trial.shell.replies(when="git checkout feature", exit_code=1, stderr=held)
+
+        transition = trial.walk(sync_branch, work)
+
+        assert transition == goto(
+            skip_pr,
+            work.model_copy(update={"note": f"could not take the branch: {held}"}),
+        )
+
     def test_a_branch_that_has_diverged_is_set_aside(
         self, trial: Trial, work: Work
     ) -> None:
         trial.shell.replies(when="git fetch*")
-        trial.shell.replies(
-            when="git checkout feature*", exit_code=1, stderr="diverged"
-        )
+        trial.shell.replies(when="git checkout feature")
+        trial.shell.replies(when="git merge --ff-only*", exit_code=1, stderr="diverged")
 
         transition = trial.walk(sync_branch, work)
 
         assert transition == goto(
             set_aside,
-            work.model_copy(update={"note": "could not take the branch: diverged"}),
+            work.model_copy(
+                update={"note": "could not catch up with the remote: diverged"}
+            ),
         )
 
 
 class TestMergeBase:
-    def test_a_clean_merge_goes_straight_to_the_gates(
+    def test_a_clean_merge_goes_straight_to_the_pass(
         self, trial: Trial, work: Work
     ) -> None:
         trial.shell.replies(when="git merge --no-edit*")
 
         transition = trial.walk(merge_base, work)
 
-        assert transition == goto(gate_check, work)
+        assert transition == goto(take_pass, work)
         assert trial.shell.commands == ["git merge --no-edit main"]
 
     def test_conflicts_route_to_the_agent_with_the_merge_still_open(
@@ -242,7 +260,7 @@ class TestResolveConflicts:
 
         transition = trial.walk(resolve_conflicts, spent)
 
-        assert transition == goto(gate_check, work)
+        assert transition == goto(take_pass, work)
         assert not trial.coding.prompts
 
     def test_a_spent_budget_stands_the_branch_down_without_asking_again(

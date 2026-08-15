@@ -6,18 +6,20 @@ from typing import TYPE_CHECKING
 import pytest
 from vekna.lexicon import RitualError, done, goto
 
-from ludamus.edges.rituals.pr_check import (
+from ludamus.edges.rituals.pr_sweep import (
     finish_pr,
     next_pr,
-    pr_check,
+    pr_cover,
+    pr_refresh,
     report,
     set_aside,
+    skip_pr,
 )
-from ludamus.edges.rituals.shell import COVERAGE, PR_FIX, plain
+from ludamus.edges.rituals.shell import COVERAGE, PR_FIX, checks, plain
 from ludamus.edges.rituals.state import (
     Checked,
     Closed,
-    PrCheck,
+    PrSweep,
     PullRequest,
     Report,
     Run,
@@ -29,6 +31,7 @@ if TYPE_CHECKING:
 
 _AHEAD = "test feature = *"
 _PUSH = "git push https-origin feature"
+_MISSING = "src/ludamus/thing.py (80.0%): Missing lines 12-14"
 _RELEASE = "if git rev-parse*MERGE_HEAD*git stash push*"
 # Red, red, green: enough to prove the second repair meets the same agent.
 _GATE_ROUNDS = 3
@@ -85,7 +88,7 @@ class TestSetAside:
                             "unpushed": 1,
                             "note": (
                                 "`mise run pr-fix` is still red; stashed as "
-                                '"pr_check left feature unfinished"'
+                                '"a pr sweep left feature unfinished"'
                             ),
                         }
                     )
@@ -177,6 +180,36 @@ class TestSetAside:
         )
 
 
+class TestSkipPr:
+    def test_a_branch_never_taken_touches_neither_the_worktree_nor_the_count(
+        self, trial: Trial, work: Work
+    ) -> None:
+        held = work.model_copy(
+            update={"note": "could not take the branch: already used by worktree"}
+        )
+
+        transition = trial.walk(skip_pr, held)
+
+        assert transition == goto(
+            next_pr,
+            Run(
+                bound=3,
+                checked=[
+                    _GREEN_ROW.model_copy(
+                        update={
+                            "outcome": "skipped",
+                            "unpushed": None,
+                            "note": (
+                                "could not take the branch: already used by worktree"
+                            ),
+                        }
+                    )
+                ],
+            ),
+        )
+        assert not trial.shell.commands
+
+
 class TestReport:
     def test_a_finished_night_answers_with_the_card_and_prints_it(
         self, trial: Trial, pull: PullRequest
@@ -207,6 +240,17 @@ class TestReport:
             Report(checked=[unknown], to_push=["feature"], to_fix=["feature"])
         )
         assert "unknown" in trial.deltas[0]
+
+    def test_a_skipped_row_is_on_none_of_the_work_lists(self, trial: Trial) -> None:
+        left = _GREEN_ROW.model_copy(
+            update={"outcome": "skipped", "unpushed": None, "branch": "busy"}
+        )
+
+        transition = trial.walk(report, Run(bound=3, checked=[left]))
+
+        assert transition == done(Report(checked=[left], left_alone=["busy"]))
+        assert "needs pushing:  none" in trial.deltas[0]
+        assert "left alone:     busy" in trial.deltas[0]
 
     def test_a_verdict_in_a_note_is_indented_under_its_row(self, trial: Trial) -> None:
         blocked = _GREEN_ROW.model_copy(
@@ -240,10 +284,10 @@ class TestWholeCast:
         )
         trial.shell.replies(when="git status --porcelain")
         trial.shell.replies(when="git fetch*")
-        trial.shell.replies(when="git checkout feature*")
+        trial.shell.replies(when="git checkout feature")
+        trial.shell.replies(when="git merge --ff-only*")
         trial.shell.replies(when="git merge --no-edit*")
         trial.shell.replies(when=plain(PR_FIX))
-        trial.shell.replies(when=plain(COVERAGE))
         trial.shell.replies(when="gh pr view 7 --json labels", stdout='{"labels": []}')
         trial.shell.replies(when="gh pr edit*", always=True)
         trial.shell.replies(when="git add -A*", always=True)
@@ -253,7 +297,52 @@ class TestWholeCast:
         trial.shell.replies(when=_AHEAD, stdout="0\n")
         trial.coding.replies("posted the review", when="Review the changes*")
 
-        result = trial.cast(pr_check, PrCheck(bound=3))
+        result = trial.cast(pr_refresh, PrSweep(bound=3))
+
+        assert result == Report(
+            checked=[_GREEN_ROW.model_copy(update={"unpushed": 0})], ready=["feature"]
+        )
+        # No coverage anywhere in it: that is the hour the fast pass exists to
+        # not spend.
+        assert trial.steps == [
+            "list_prs",
+            "next_pr",
+            "check_clean",
+            "sync_branch",
+            "merge_base",
+            "take_pass",
+            "gate_check",
+            "finish_merge",
+            "push_work",
+            "quality_review",
+            "finish_pr",
+            "next_pr",
+            "report",
+        ]
+        assert plain(COVERAGE) not in trial.shell.commands
+
+    def test_the_slow_pass_covers_what_ci_complained_about_and_posts_no_review(
+        self, trial: Trial, pull: PullRequest
+    ) -> None:
+        trial.shell.replies(
+            when="gh pr list*", stdout=json.dumps([pull.model_dump(by_alias=True)])
+        )
+        trial.shell.replies(when="git status --porcelain")
+        trial.shell.replies(when="git fetch*")
+        trial.shell.replies(when="git checkout feature")
+        trial.shell.replies(when="git merge --ff-only*")
+        trial.shell.replies(when="git merge --no-edit*")
+        trial.shell.replies(
+            when=checks(7), stdout='[{"name": "codecov/patch", "state": "FAILURE"}]'
+        )
+        trial.shell.replies(when=plain(COVERAGE), stdout=_MISSING)
+        trial.shell.replies(when=plain(COVERAGE))
+        trial.shell.replies(when="git add -A*", always=True)
+        trial.shell.replies(when=_PUSH)
+        trial.shell.replies(when=_AHEAD, stdout="0\n")
+        trial.coding.replies("wrote the tests", when="The diff coverage report*")
+
+        result = trial.cast(pr_cover, PrSweep(bound=3))
 
         assert result == Report(
             checked=[_GREEN_ROW.model_copy(update={"unpushed": 0})], ready=["feature"]
@@ -264,15 +353,61 @@ class TestWholeCast:
             "check_clean",
             "sync_branch",
             "merge_base",
-            "gate_check",
+            "take_pass",
             "finish_merge",
+            "check_ci",
+            "cover",
             "cover",
             "push_work",
-            "quality_review",
             "finish_pr",
             "next_pr",
             "report",
         ]
+        assert plain(PR_FIX) not in trial.shell.commands
+
+    def test_a_branch_another_worktree_holds_is_left_alone_and_the_rest_go_on(
+        self, trial: Trial, pull: PullRequest
+    ) -> None:
+        held = pull.model_copy(update={"number": 9, "branch": "busy"})
+        trial.shell.replies(
+            when="gh pr list*",
+            stdout=json.dumps([one.model_dump(by_alias=True) for one in (held, pull)]),
+        )
+        trial.shell.replies(when="git status --porcelain", always=True)
+        trial.shell.replies(when="git fetch*", always=True)
+        trial.shell.replies(
+            when="git checkout busy", exit_code=1, stderr="already used by worktree"
+        )
+        trial.shell.replies(when="git checkout feature")
+        trial.shell.replies(when="git merge --ff-only*")
+        trial.shell.replies(when="git merge --no-edit*")
+        trial.shell.replies(when=plain(PR_FIX))
+        trial.shell.replies(when="gh pr view 7 --json labels", stdout='{"labels": []}')
+        trial.shell.replies(when="gh pr edit*", always=True)
+        trial.shell.replies(when="git add -A*", always=True)
+        trial.shell.replies(when=_PUSH)
+        trial.shell.replies(when=_AHEAD, stdout="0\n")
+        trial.coding.replies("posted the review", when="Review the changes*")
+
+        result = trial.cast(pr_refresh, PrSweep(bound=3))
+
+        assert result == Report(
+            checked=[
+                _GREEN_ROW.model_copy(
+                    update={
+                        "number": 9,
+                        "branch": "busy",
+                        "outcome": "skipped",
+                        "unpushed": None,
+                        "note": "could not take the branch: already used by worktree",
+                    }
+                ),
+                _GREEN_ROW.model_copy(update={"unpushed": 0}),
+            ],
+            ready=["feature"],
+            left_alone=["busy"],
+        )
+        assert "skip_pr" in trial.steps
 
     # The repair loop is keyed, so the second attempt meets an agent that
     # remembers what the first one already tried.
@@ -284,12 +419,12 @@ class TestWholeCast:
         )
         trial.shell.replies(when="git status --porcelain")
         trial.shell.replies(when="git fetch*")
-        trial.shell.replies(when="git checkout feature*")
+        trial.shell.replies(when="git checkout feature")
+        trial.shell.replies(when="git merge --ff-only*")
         trial.shell.replies(when="git merge --no-edit*")
         trial.shell.replies(when=plain(PR_FIX), exit_code=1, stdout="red")
         trial.shell.replies(when=plain(PR_FIX), exit_code=1, stdout="still red")
         trial.shell.replies(when=plain(PR_FIX))
-        trial.shell.replies(when=plain(COVERAGE))
         trial.shell.replies(when="gh pr view 7 --json labels", stdout='{"labels": []}')
         trial.shell.replies(when="gh pr edit*", always=True)
         trial.shell.replies(when="git add -A*", always=True)
@@ -298,7 +433,7 @@ class TestWholeCast:
         trial.coding.replies("tried", when="*is this project's gate*", always=True)
         trial.coding.replies("posted the review", when="Review the changes*")
 
-        result = trial.cast(pr_check, PrCheck(bound=3))
+        result = trial.cast(pr_refresh, PrSweep(bound=3))
 
         assert result == Report(checked=[_GREEN_ROW], to_push=["feature"])
         assert trial.steps.count("gate_check") == _GATE_ROUNDS
@@ -313,7 +448,8 @@ class TestWholeCast:
         )
         trial.shell.replies(when="git status --porcelain")
         trial.shell.replies(when="git fetch*")
-        trial.shell.replies(when="git checkout feature*")
+        trial.shell.replies(when="git checkout feature")
+        trial.shell.replies(when="git merge --ff-only*")
         trial.shell.replies(when="git merge --no-edit*")
         trial.shell.replies(
             when=plain(PR_FIX), exit_code=1, stdout="1 failed", always=True
@@ -327,7 +463,7 @@ class TestWholeCast:
         trial.coding.replies("tried", when="*is this project's gate*", always=True)
         trial.coding.replies("posted the review", when="Review the changes*")
 
-        result = trial.cast(pr_check, PrCheck(bound=1))
+        result = trial.cast(pr_refresh, PrSweep(bound=1))
 
         assert result == Report(
             checked=[
@@ -348,6 +484,7 @@ class TestWholeCast:
             "check_clean",
             "sync_branch",
             "merge_base",
+            "take_pass",
             "gate_check",
             "gate_check",
             "stand_down",
@@ -368,7 +505,7 @@ class TestWholeCast:
         trial.shell.replies(when="git status --porcelain", stdout=" M src/thing.py\n")
 
         with pytest.raises(RitualError, match="the worktree is not clean"):
-            trial.cast(pr_check, PrCheck(bound=3))
+            trial.cast(pr_refresh, PrSweep(bound=3))
 
         assert "the run failed: the worktree is not clean" in trial.deltas[-1]
         assert trial.steps == ["list_prs", "next_pr", "check_clean", "report"]
