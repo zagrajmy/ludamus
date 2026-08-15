@@ -11,8 +11,8 @@ are resolved, the work is pushed, and the report says how each branch ended.
 merges the base in and makes ``mise run pr-fix`` green — lint, types, the unit
 suite — with no browser and no coverage measurement anywhere in it. Then it
 posts the quality review, unless the branch already carries ``pr::thermo``.
-A branch the merge brought nothing to, and that CI is green on top to bottom,
-skips the gate: that tree has been graded already.
+A branch the merge brought nothing to, and whose lint and test jobs CI is happy
+with, skips the gate: the server has run it over that tree already.
 
 Neither gate is re-run whole while a repair is underway. Where mise names the
 task that broke, the next round runs that task alone, and the gate itself runs
@@ -106,9 +106,9 @@ from .shell import (
     already_seen,
     checkout,
     checks,
-    ci_green,
     commit,
     coverage_report,
+    gates_green,
     label,
     narrowed,
     plain,
@@ -294,22 +294,23 @@ async def resolve_conflicts(work: Work) -> Transition:
 # to do. The fast one owes `pr-fix` green before it commits the merge, and the
 # slow one owes nothing there — its own gate runs the unit suite anyway, so
 # running `pr-fix` first would run it twice for one answer.
-# The fast one also owes nothing where the merge brought nothing in and CI is
-# green on every check: that is the same tree the server already graded, and the
-# gate would spend an hour arriving at the answer it is being handed. The same
-# bargain `check_ci` makes below, on the night's other expensive gate — and the
-# reason to run this pass over everything every night rather than only over what
-# moved.
+# The fast one also owes nothing where the merge brought nothing in and CI's own
+# lint and test jobs are green: that is the same tree the server already ran the
+# gate over, and running it again spends an hour arriving at the answer it is
+# being handed. A red job anywhere else on the board is not that answer — it
+# says nothing about `pr-fix` and buys no hour here. The same bargain `check_ci`
+# makes below, on the night's other expensive gate — and the reason to run this
+# pass over everything every night rather than only over what moved.
 @step
 async def take_pass(work: Work) -> Transition:
     if work.run.mode != "refresh":
         return goto(finish_merge, work)
     if work.unchanged:
         asked = await shell(checks(work.pr.number), stream=False)
-        if ci_green(asked.stdout):
+        if gates_green(asked.stdout):
             return goto(
                 finish_merge,
-                work_with(work, note="nothing to merge, and CI is green on this tree"),
+                work_with(work, note="nothing to merge, and CI ran the gate green"),
             )
     return goto(gate_check, work)
 

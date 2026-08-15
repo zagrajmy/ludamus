@@ -82,16 +82,19 @@ class TestTakePass:
         assert transition == goto(finish_merge, covering)
         assert not trial.shell.commands
 
-    # The same tree CI has already graded, so the gate has nothing to add.
-    def test_a_tree_the_merge_did_not_move_skips_the_gate_where_ci_is_green(
+    # The same tree CI has already run the gate's own jobs over, so running it
+    # here has nothing to add. A red check that is nobody's gate — tingle counts
+    # debt — is not a reason to spend the hour.
+    def test_a_tree_the_merge_did_not_move_skips_the_gate_where_ci_ran_it_green(
         self, trial: Trial, work: Work
     ) -> None:
         untouched = work.model_copy(update={"unchanged": True})
         trial.shell.replies(
             when=checks(7),
             stdout=(
-                '[{"name": "test", "state": "SUCCESS"},'
-                ' {"name": "tingle", "state": "SUCCESS"}]'
+                '[{"name": "checks", "state": "SUCCESS"},'
+                ' {"name": "test", "state": "SUCCESS"},'
+                ' {"name": "tingle", "state": "FAILURE"}]'
             ),
         )
 
@@ -100,21 +103,32 @@ class TestTakePass:
         assert transition == goto(
             finish_merge,
             untouched.model_copy(
-                update={"note": "nothing to merge, and CI is green on this tree"}
+                update={"note": "nothing to merge, and CI ran the gate green"}
             ),
         )
 
-    # One red check anywhere is worth the hour: this buys the branch out of the
-    # gate altogether, unlike the slow pass's own narrower question.
-    def test_one_unhappy_check_still_buys_the_gate(
-        self, trial: Trial, work: Work
-    ) -> None:
+    def test_a_failing_test_job_buys_the_gate(self, trial: Trial, work: Work) -> None:
         untouched = work.model_copy(update={"unchanged": True})
         trial.shell.replies(
             when=checks(7),
             stdout=(
-                '[{"name": "test", "state": "SUCCESS"},'
-                ' {"name": "tingle", "state": "FAILURE"}]'
+                '[{"name": "checks", "state": "SUCCESS"},'
+                ' {"name": "test", "state": "FAILURE"},'
+                ' {"name": "tingle", "state": "SUCCESS"}]'
+            ),
+        )
+
+        transition = trial.walk(take_pass, untouched)
+
+        assert transition == goto(gate_check, untouched)
+
+    def test_a_failing_lint_job_buys_the_gate(self, trial: Trial, work: Work) -> None:
+        untouched = work.model_copy(update={"unchanged": True})
+        trial.shell.replies(
+            when=checks(7),
+            stdout=(
+                '[{"name": "checks", "state": "FAILURE"},'
+                ' {"name": "test", "state": "SUCCESS"}]'
             ),
         )
 

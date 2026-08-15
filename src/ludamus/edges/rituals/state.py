@@ -142,7 +142,7 @@ class Work(BaseModel):
     reason: str = ""
     # This branch will not be made green tonight, and is being read anyway. The
     # reading steps that follow need to know: a branch nobody can merge must not
-    # come out labelled ready to test.
+    # come out reported green.
     blocked: bool = False
 
 
@@ -177,12 +177,11 @@ class Closed(BaseModel):
     outcome: Literal["green", "blocked"]
 
 
+# What the night did, branch by branch, and nothing sorted into work lists on
+# top: this pass refreshes pull requests, it does not triage them, and a list
+# headed "ready to test" is a claim only `pr_review` and you can make.
 class Report(BaseModel):
     checked: list[Checked] = []
-    to_push: list[str] = []
-    to_fix: list[str] = []
-    ready: list[str] = []
-    left_alone: list[str] = []
     not_reached: list[str] = []
     failed: str = ""
 
@@ -310,10 +309,6 @@ _OUTCOME = {
 }
 
 
-def _names(items: list[str]) -> str:
-    return ", ".join(items) if items else "none"
-
-
 def _line(row: Checked) -> str:
     ahead = "unknown" if row.unpushed is None else f"{row.unpushed} unpushed"
     # A blocked row's note carries the gate's verdict, which is a dozen lines of
@@ -326,25 +321,8 @@ def _line(row: Checked) -> str:
 
 
 def report_card(run: Run) -> Report:
-    # A branch that was never taken is on none of the work lists: its count is
-    # unknown for the one reason that means nothing is owed, and a checkout that
-    # did not happen leaves nothing to fix either.
-    taken = [row for row in run.checked if row.outcome != "skipped"]
     return Report(
         checked=run.checked,
-        # Unknown counts as needing a push: this is read by someone deciding
-        # what to do next, and "we could not tell" is not "nothing to do".
-        to_push=[row.branch for row in taken if row.unpushed is None or row.unpushed],
-        to_fix=[row.branch for row in taken if row.outcome == "blocked"],
-        left_alone=[row.branch for row in run.checked if row.outcome == "skipped"],
-        # What `pr_review` can be run on in the morning: green, pushed, and
-        # carrying a review somebody has to answer. `unpushed` is part of the
-        # condition and not a detail below it — a branch that would not push
-        # carries a review anchored to an older head, and naming it here as well
-        # as under `needs pushing` is the report contradicting itself.
-        ready=[
-            row.branch for row in taken if row.outcome == "green" and row.unpushed == 0
-        ],
         not_reached=[pull.branch for pull in run.queue],
         failed=run.stopped,
     )
@@ -354,19 +332,11 @@ def summary(run: Run) -> str:
     card = report_card(run)
     lines = [f"pr_{run.mode} — {len(run.checked)} checked", ""]
     lines += [_line(row) for row in run.checked] or ["  (none)"]
-    lines += [
-        "",
-        f"needs pushing:  {_names(card.to_push)}",
-        f"needs fixing:   {_names(card.to_fix)}",
-        f"ready to test:  {_names(card.ready)}",
-    ]
-    # Only when there are any: a branch held in another worktree is the normal
-    # case for nobody, and a line saying "none" every night trains the eye past
-    # it.
-    if card.left_alone:
-        lines.append(f"left alone:     {_names(card.left_alone)}")
+    # Only when there are any, unlike the rows: a pass that reached every pull
+    # request is the normal night, and a line saying "none" on every one of them
+    # trains the eye past it.
     if card.not_reached:
-        lines.append(f"not reached:    {_names(card.not_reached)}")
+        lines += ["", f"not reached: {', '.join(card.not_reached)}"]
     if card.failed:
         lines += ["", f"the run failed: {card.failed}"]
     return "\n".join(lines) + "\n"

@@ -108,17 +108,25 @@ def wants_cover(listing: str) -> bool:
     return not watched or any(check.state != _PASSED for check in watched)
 
 
-# Every check, not the watched few: this buys a branch out of the gate
-# altogether, so anything less than the whole board green is worth the hour.
+# The CI jobs the gate would only be running again: `checks` is the linters and
+# the translation catalogue, `test` and `test-postgres` are the suite, and
+# `pr-fix` is both of them. The rest of the board is not this pass's business —
+# tingle counts debt, codecov belongs to the slow pass, the code readers post
+# comments — and no amount of `pr-fix` turns any of it green, so a red one there
+# is not worth the hour.
+_GATE_CHECKS = ("checks", "test")
+
+
 # False where nobody has said — an empty listing, a `gh` that would not answer,
 # a check still running — because the gate is what finds out, and a skip granted
 # on silence is a red branch pushed and reviewed as green.
-def ci_green(listing: str) -> bool:
+def gates_green(listing: str) -> bool:
     try:
         checked = CHECKS.validate_json(listing)
     except ValidationError:
         return False
-    return bool(checked) and all(check.state == _PASSED for check in checked)
+    watched = [check for check in checked if check.name.startswith(_GATE_CHECKS)]
+    return bool(watched) and all(check.state == _PASSED for check in watched)
 
 
 STASHED = "stashed"

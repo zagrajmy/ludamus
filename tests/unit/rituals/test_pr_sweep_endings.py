@@ -219,38 +219,28 @@ class TestReport:
 
         transition = trial.walk(report, run)
 
-        assert transition == done(
-            Report(checked=[landed], ready=["feature"], not_reached=["feature"])
-        )
-        assert "ready to test:  feature" in trial.deltas[0]
-        assert f"not reached:    {pull.branch}" in trial.deltas[0]
+        assert transition == done(Report(checked=[landed], not_reached=["feature"]))
+        assert "#7 feature: green and reviewed, 0 unpushed" in trial.deltas[0]
+        assert f"not reached: {pull.branch}" in trial.deltas[0]
 
-    def test_a_green_row_that_would_not_push_is_not_ready(self, trial: Trial) -> None:
-        transition = trial.walk(report, Run(bound=3, checked=[_GREEN_ROW]))
-
-        assert transition == done(Report(checked=[_GREEN_ROW], to_push=["feature"]))
-        assert "ready to test:  none" in trial.deltas[0]
-
-    def test_a_row_git_could_not_count_still_needs_pushing(self, trial: Trial) -> None:
-        unknown = _GREEN_ROW.model_copy(update={"outcome": "blocked", "unpushed": None})
-
-        transition = trial.walk(report, Run(bound=3, checked=[unknown]))
-
-        assert transition == done(
-            Report(checked=[unknown], to_push=["feature"], to_fix=["feature"])
-        )
-        assert "unknown" in trial.deltas[0]
-
-    def test_a_skipped_row_is_on_none_of_the_work_lists(self, trial: Trial) -> None:
+    def test_the_night_sorts_nothing_into_work_lists(self, trial: Trial) -> None:
         left = _GREEN_ROW.model_copy(
             update={"outcome": "skipped", "unpushed": None, "branch": "busy"}
         )
 
-        transition = trial.walk(report, Run(bound=3, checked=[left]))
+        transition = trial.walk(report, Run(bound=3, checked=[_GREEN_ROW, left]))
 
-        assert transition == done(Report(checked=[left], left_alone=["busy"]))
-        assert "needs pushing:  none" in trial.deltas[0]
-        assert "left alone:     busy" in trial.deltas[0]
+        assert transition == done(Report(checked=[_GREEN_ROW, left]))
+        assert "ready to test" not in trial.deltas[0]
+        assert "needs pushing" not in trial.deltas[0]
+
+    def test_a_row_git_could_not_count_says_so(self, trial: Trial) -> None:
+        unknown = _GREEN_ROW.model_copy(update={"outcome": "blocked", "unpushed": None})
+
+        transition = trial.walk(report, Run(bound=3, checked=[unknown]))
+
+        assert transition == done(Report(checked=[unknown]))
+        assert "#7 feature: blocked, unknown" in trial.deltas[0]
 
     def test_a_verdict_in_a_note_is_indented_under_its_row(self, trial: Trial) -> None:
         blocked = _GREEN_ROW.model_copy(
@@ -302,9 +292,7 @@ class TestWholeCast:
 
         result = trial.cast(pr_refresh, PrSweep(bound=3))
 
-        assert result == Report(
-            checked=[_GREEN_ROW.model_copy(update={"unpushed": 0})], ready=["feature"]
-        )
+        assert result == Report(checked=[_GREEN_ROW.model_copy(update={"unpushed": 0})])
         # No coverage anywhere in it: that is the hour the fast pass exists to
         # not spend.
         assert trial.steps == [
@@ -353,9 +341,7 @@ class TestWholeCast:
 
         result = trial.cast(pr_cover, PrSweep(bound=3))
 
-        assert result == Report(
-            checked=[_GREEN_ROW.model_copy(update={"unpushed": 0})], ready=["feature"]
-        )
+        assert result == Report(checked=[_GREEN_ROW.model_copy(update={"unpushed": 0})])
         assert trial.steps == [
             "list_prs",
             "next_pr",
@@ -416,9 +402,7 @@ class TestWholeCast:
                     }
                 ),
                 _GREEN_ROW.model_copy(update={"unpushed": 0}),
-            ],
-            ready=["feature"],
-            left_alone=["busy"],
+            ]
         )
         assert "skip_pr" in trial.steps
 
@@ -451,7 +435,7 @@ class TestWholeCast:
 
         result = trial.cast(pr_refresh, PrSweep(bound=3))
 
-        assert result == Report(checked=[_GREEN_ROW], to_push=["feature"])
+        assert result == Report(checked=[_GREEN_ROW])
         assert trial.steps.count("gate_check") == _GATE_ROUNDS
         assert trial.coding.calls[0].resume is None
         assert trial.coding.calls[1].resume == "s1"
@@ -493,9 +477,7 @@ class TestWholeCast:
                         "note": "`mise run pr-fix` is still red:\n1 failed",
                     }
                 )
-            ],
-            to_push=["feature"],
-            to_fix=["feature"],
+            ]
         )
         assert trial.steps == [
             "list_prs",
