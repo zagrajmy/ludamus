@@ -40,6 +40,11 @@ MAX_SLUG_RETRIES = 10
 RANDOM_SLUG_BYTES = 7  # 10 characters
 SPACE_MAX_DEPTH = 7  # root = depth 1; the tree may nest at most this deep
 DEFAULT_NAME = "Andrzej"
+# The one sentence for the leaf-parent rule: raised by Space.clean, carried to
+# the tree UI on SpaceTreeNodeDTO.no_children_reason. One msgid, one source.
+SPACE_NO_CHILDREN_REASON = _(
+    "A space holding a scheduled session cannot contain other spaces."
+)
 
 
 _SoftDeleteT = TypeVar("_SoftDeleteT", bound=models.Model)
@@ -754,9 +759,7 @@ class Space(models.Model):
         # Attaching under a parent turns that parent into a branch; a branch
         # cannot also hold a scheduled session.
         if self.parent is not None and self.parent.agenda_items.exists():
-            raise ValidationError(
-                _("A space holding a scheduled session cannot contain other spaces.")
-            )
+            raise ValidationError(SPACE_NO_CHILDREN_REASON)
 
     def _validate_root_slug_unique(self) -> None:
         # The (slug, parent) DB constraint can't police roots (SQL treats NULL
