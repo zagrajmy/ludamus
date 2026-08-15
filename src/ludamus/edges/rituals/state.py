@@ -7,9 +7,22 @@ payloads hold, and the report the morning reads.
 from collections import Counter
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
-from .shell import WAIT_LABEL
+# This branch has had its review. Inline review comments are invisible to
+# `gh pr view --json comments`, so a label is what the step can actually see —
+# and a label is also something you can take off, which is the point: removing
+# it is how you ask for the review again.
+THERMO_LABEL = "pr::thermo"
+# Every review thread on this branch is answered and settled, and the gates were
+# green when that happened. Put on by `pr_review` and nothing else: neither
+# sweep reads the threads, so the night cannot claim it.
+QA_LABEL = "pr::qa"
+# Hands off this one. It is read at the listing and nowhere else, so a branch
+# wearing it is never taken, never touched, and never reported on — which is
+# the whole point: it is how you keep a pull request out of the night without
+# closing it.
+WAIT_LABEL = "pr::wait"
 
 # A bound counts attempts at one step, so zero would mean a step that may never
 # be tried at all; past five a repair loop has stopped being a repair loop.
@@ -31,41 +44,6 @@ Mode = Literal["refresh", "cover"]
 class Check(BaseModel):
     name: str
     state: str
-
-
-CHECKS: TypeAdapter[list[Check]] = TypeAdapter(list[Check])
-
-# The checks whose unhappiness the slow pass exists to answer: codecov posts
-# `codecov/patch` and `codecov/project` (plus `/client` variants), and the suite
-# runs as `test` and `test-postgres`.
-_COVER_CHECKS = ("codecov/", "test")
-_PASSED = "SUCCESS"
-
-
-# True unless the pull request positively says otherwise: a listing that will
-# not parse, a `gh` that would not answer, a branch CI has not reported on yet —
-# all of them mean nobody has told us the coverage is fine, and the slow pass is
-# the thing that finds out. Only a green codecov and a green suite buy a skip.
-def wants_cover(listing: str) -> bool:
-    try:
-        checks = CHECKS.validate_json(listing)
-    except ValidationError:
-        return True
-    watched = [check for check in checks if check.name.startswith(_COVER_CHECKS)]
-    return not watched or any(check.state != _PASSED for check in watched)
-
-
-# Every check, not the watched few: this buys a branch out of the gate
-# altogether, so anything less than the whole board green is worth the hour.
-# False where nobody has said — an empty listing, a `gh` that would not answer,
-# a check still running — because the gate is what finds out, and a skip granted
-# on silence is a red branch pushed and reviewed as green.
-def ci_green(listing: str) -> bool:
-    try:
-        checks = CHECKS.validate_json(listing)
-    except ValidationError:
-        return False
-    return bool(checks) and all(check.state == _PASSED for check in checks)
 
 
 # `gh --json labels` hands back an object per label; the name is the whole
@@ -95,23 +73,8 @@ class PullRequest(BaseModel):
     labels: list[Label] = []
 
 
-PULLS: TypeAdapter[list[PullRequest]] = TypeAdapter(list[PullRequest])
-
-
 def wears(pull: PullRequest, name: str) -> bool:
     return any(label.name == name for label in pull.labels)
-
-
-# Both rituals ask the same question of the same listing and differ only in what
-# they do when it will not parse, so the answer is written once and the routing
-# stays with each caller.
-# Parked branches are dropped here rather than skipped later, so one is never
-# checked out, never counted as reached, and never in a report at all.
-# Oldest-modified first: the branch drifting from its base the longest is the
-# one most likely to need the night.
-def wanted(listing: str) -> list[PullRequest]:
-    pulls = PULLS.validate_json(listing)
-    return sorted((pull for pull in pulls if not wears(pull, WAIT_LABEL)), key=modified)
 
 
 def unreadable(error: ValidationError) -> str:
@@ -270,13 +233,6 @@ def work_with(
         reason=work.reason if reason is None else reason,
         blocked=work.blocked if blocked is None else blocked,
     )
-
-
-# A sort key, and it has to be spelled out: `attrgetter` is `attrgetter[Any]`
-# and a lambda's parameter is untyped, so mypy rejects both here. This is the
-# only shape of the three that carries a type.
-def modified(pull: PullRequest) -> str:
-    return pull.updated_at
 
 
 # A note grows by joining rather than replacing, so no half of it writes over

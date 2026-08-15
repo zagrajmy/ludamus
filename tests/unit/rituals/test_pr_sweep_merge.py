@@ -18,8 +18,8 @@ from ludamus.edges.rituals.pr_sweep import (
     sync_branch,
     take_pass,
 )
-from ludamus.edges.rituals.shell import LIST, WAIT_LABEL
-from ludamus.edges.rituals.state import Label, PullRequest, Run, Work
+from ludamus.edges.rituals.shell import LIST
+from ludamus.edges.rituals.state import WAIT_LABEL, Label, PullRequest, Run, Work
 
 if TYPE_CHECKING:
     from vekna.trial import Trial

@@ -102,11 +102,11 @@ from .shell import (
     REMOTE,
     STASHED,
     STATUS,
-    THERMO_LABEL,
     ahead,
     already_seen,
     checkout,
     checks,
+    ci_green,
     commit,
     coverage_report,
     label,
@@ -118,8 +118,11 @@ from .shell import (
     said,
     stash_name,
     verdict,
+    wanted,
+    wants_cover,
 )
 from .state import (
+    THERMO_LABEL,
     Checked,
     Closed,
     Labels,
@@ -128,7 +131,6 @@ from .state import (
     Work,
     abandoned,
     charged,
-    ci_green,
     cleared,
     exhausted,
     joined,
@@ -138,8 +140,6 @@ from .state import (
     summary,
     telling,
     unreadable,
-    wanted,
-    wants_cover,
     work_with,
 )
 
@@ -287,7 +287,9 @@ async def resolve_conflicts(work: Work) -> Transition:
     )
 
 
-# The one place the two passes part. Everything above takes a branch, and takes
+# The first of the three places the two passes part, and the one that decides
+# the rest — `finish_merge` sends the slow pass to its own gate, `push_work`
+# keeps the review to the fast one. Everything above takes a branch, and takes
 # it the same way whichever cast this is; everything below is what the pass came
 # to do. The fast one owes `pr-fix` green before it commits the merge, and the
 # slow one owes nothing there — its own gate runs the unit suite anyway, so
@@ -376,6 +378,10 @@ async def finish_merge(work: Work) -> Transition:
             work_with(work, note=f"could not commit the merge: {said(landed)}"),
         )
     merged = work_with(work, merging=False)
+    # Coverage runs on this side of the merge and the gate on the other: what
+    # `pr-fix` repairs belongs in the merge commit above, while the tests `cover`
+    # writes are a commit of their own and cannot be made with a merge still
+    # open.
     if work.run.mode == "cover":
         return goto(check_ci, merged)
     return goto(push_work, merged)

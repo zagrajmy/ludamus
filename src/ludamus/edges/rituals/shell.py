@@ -1,13 +1,17 @@
-"""What the ritual says to git, gh and mise.
+"""What the ritual says to git, gh and mise, and what it makes of the answer.
 
-Command text and nothing else: every function here builds a string a step runs,
-so what a step does stays readable as a decision rather than as quoting.
+Every command a step runs is built here, and every reading of what came back is
+written beside the command it reads — so what a step does stays readable as a
+decision rather than as quoting.
 """
 
 import re
 import shlex
 
+from pydantic import TypeAdapter, ValidationError
 from vekna.folio.shell import ShellResult, shell
+
+from .state import WAIT_LABEL, Check, PullRequest, wears
 
 # This project's two gates, by the names this project gives them.
 PR_FIX = "mise run pr-fix"
@@ -51,6 +55,27 @@ LIST = (
     "--json number,title,headRefName,baseRefName,url,updatedAt,labels"
 )
 
+PULLS: TypeAdapter[list[PullRequest]] = TypeAdapter(list[PullRequest])
+
+
+# A sort key, and it has to be spelled out: `attrgetter` is `attrgetter[Any]`
+# and a lambda's parameter is untyped, so mypy rejects both here. This is the
+# only shape of the three that carries a type.
+def modified(pull: PullRequest) -> str:
+    return pull.updated_at
+
+
+# Both rituals ask the same question of `LIST` and differ only in what they do
+# when it will not parse, so the answer is written once and the routing stays
+# with each caller.
+# Parked branches are dropped here rather than skipped later, so one is never
+# checked out, never counted as reached, and never in a report at all.
+# Oldest-modified first: the branch drifting from its base the longest is the
+# one most likely to need the night.
+def wanted(listing: str) -> list[PullRequest]:
+    pulls = PULLS.validate_json(listing)
+    return sorted((pull for pull in pulls if not wears(pull, WAIT_LABEL)), key=modified)
+
 
 # What CI made of the branch as it stands. Asked rather than assumed, and only
 # by the slow pass: the whole point of it is not to spend an hour of suites on a
@@ -61,20 +86,40 @@ def checks(number: int) -> str:
     return f"gh pr checks {number} --json name,state"
 
 
-# This branch has had its review. Inline review comments are invisible to
-# `gh pr view --json comments`, so a label is what the step can actually see —
-# and a label is also something you can take off, which is the point: removing
-# it is how you ask for the review again.
-THERMO_LABEL = "pr::thermo"
-# Every review thread on this branch is answered and settled, and the gates were
-# green when that happened. Put on by `pr_review` and nothing else: neither
-# sweep reads the threads, so the night cannot claim it.
-QA_LABEL = "pr::qa"
-# Hands off this one. It is read at the listing and nowhere else, so a branch
-# wearing it is never taken, never touched, and never reported on — which is
-# the whole point: it is how you keep a pull request out of the night without
-# closing it.
-WAIT_LABEL = "pr::wait"
+CHECKS: TypeAdapter[list[Check]] = TypeAdapter(list[Check])
+
+# The checks whose unhappiness the slow pass exists to answer: codecov posts
+# `codecov/patch` and `codecov/project` (plus `/client` variants), and the suite
+# runs as `test` and `test-postgres`.
+_COVER_CHECKS = ("codecov/", "test")
+_PASSED = "SUCCESS"
+
+
+# True unless the pull request positively says otherwise: a listing that will
+# not parse, a `gh` that would not answer, a branch CI has not reported on yet —
+# all of them mean nobody has told us the coverage is fine, and the slow pass is
+# the thing that finds out. Only a green codecov and a green suite buy a skip.
+def wants_cover(listing: str) -> bool:
+    try:
+        checked = CHECKS.validate_json(listing)
+    except ValidationError:
+        return True
+    watched = [check for check in checked if check.name.startswith(_COVER_CHECKS)]
+    return not watched or any(check.state != _PASSED for check in watched)
+
+
+# Every check, not the watched few: this buys a branch out of the gate
+# altogether, so anything less than the whole board green is worth the hour.
+# False where nobody has said — an empty listing, a `gh` that would not answer,
+# a check still running — because the gate is what finds out, and a skip granted
+# on silence is a red branch pushed and reviewed as green.
+def ci_green(listing: str) -> bool:
+    try:
+        checked = CHECKS.validate_json(listing)
+    except ValidationError:
+        return False
+    return bool(checked) and all(check.state == _PASSED for check in checked)
+
 
 STASHED = "stashed"
 

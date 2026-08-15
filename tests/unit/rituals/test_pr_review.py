@@ -16,7 +16,6 @@ from ludamus.edges.rituals.pr_review import (
     Reviewed,
     Triage,
     gates,
-    hand_back,
     land,
     look,
     pick,
@@ -32,16 +31,20 @@ from ludamus.edges.rituals.shell import (
     HERE,
     LIST,
     PR_FIX,
-    QA_LABEL,
     STATUS,
-    THERMO_LABEL,
-    WAIT_LABEL,
     checkout,
     label,
     plain,
     unsettled,
 )
-from ludamus.edges.rituals.state import PullRequest, TriageItem, TriageNotes
+from ludamus.edges.rituals.state import (
+    QA_LABEL,
+    THERMO_LABEL,
+    WAIT_LABEL,
+    PullRequest,
+    TriageItem,
+    TriageNotes,
+)
 
 if TYPE_CHECKING:
     from vekna.trial import Trial
@@ -409,20 +412,19 @@ class TestWork:
             work, Instructed(branch=branch, prompt="the triage: fix p1")
         )
 
-        assert transition == goto(hand_back, branch)
+        assert transition == goto(gates, Landing(branch=branch))
         assert trial.coding.prompts == ["the triage: fix p1"]
 
-    def test_a_later_round_is_the_instruction_alone(
+    # Nothing is scripted for `decide` here, so a question would fail the walk:
+    # the answers given in `plan` are the whole decision.
+    def test_the_gate_is_reached_without_a_question(
         self, trial: Trial, branch: Branch
     ) -> None:
         trial.coding.replies("done")
 
-        transition = trial.walk(
-            work, Instructed(branch=branch, prompt="also rename it")
-        )
+        transition = trial.walk(work, Instructed(branch=branch, prompt="fix p1"))
 
-        assert transition == goto(hand_back, branch)
-        assert trial.coding.prompts == ["also rename it"]
+        assert transition == goto(gates, Landing(branch=branch))
 
     # An agent that dies mid-flight — a spent token budget, a killed CLI — which
     # the unscripted call stands in for here.
@@ -431,38 +433,6 @@ class TestWork:
     ) -> None:
         with pytest.raises(RitualError, match="stopped mid-flight"):
             trial.walk(work, Instructed(branch=branch, prompt="fix p1"))
-
-
-class TestHandBack:
-    def test_shipping_goes_to_the_gates(self, trial: Trial, branch: Branch) -> None:
-        trial.decide.answers(answer="ship")
-
-        transition = trial.walk(hand_back, branch)
-
-        assert transition == goto(gates, Landing(branch=branch))
-
-    def test_fixing_asks_what_and_goes_round_again(
-        self, trial: Trial, branch: Branch
-    ) -> None:
-        trial.decide.answers(answer="fix", when="*ship it?*")
-        trial.decide.answers(answer="drop the helper", when="*fix?*")
-
-        transition = trial.walk(hand_back, branch)
-
-        assert transition == goto(
-            work, Instructed(branch=branch, prompt="drop the helper")
-        )
-
-    def test_saying_nothing_ships_rather_than_asking_the_agent(
-        self, trial: Trial, branch: Branch
-    ) -> None:
-        trial.decide.answers(answer="fix", when="*ship it?*")
-        trial.decide.answers(answer="", when="*fix?*")
-
-        transition = trial.walk(hand_back, branch)
-
-        assert transition == goto(gates, Landing(branch=branch))
-        assert not trial.coding.prompts
 
 
 class TestGates:
@@ -688,7 +658,6 @@ class TestPrReview:
         trial.coding.replies(TriageNotes(items=[_ITEM]), when=_READING)
         trial.decide.answers(answer="fix it", when="1.*")
         trial.coding.replies("settled the thread", when="Below is a triage*")
-        trial.decide.answers(answer="ship", when="*ship it?*")
         trial.shell.replies(when=plain(PR_FIX))
         trial.shell.replies(when="git add*")
         trial.shell.replies(when="git push*")
@@ -706,7 +675,6 @@ class TestPrReview:
             "look",
             "plan",
             "work",
-            "hand_back",
             "gates",
             "land",
             "settle",

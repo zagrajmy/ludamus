@@ -28,9 +28,9 @@ You answer the items one at a time, in your own words; saying nothing takes the
 reading's own proposal. One agent then fixes what you said to fix, files what
 you said to file, and answers and settles every thread either way.
 
-Then `fix` hands another instruction to the same agent, which remembers the
-round before, or `ship` runs `pr-fix`, repairs it up to `--bound` times, and
-commits and pushes what came out. A repair runs the one task mise said was
+Then `pr-fix` runs, is repaired up to `--bound` times, and what came out is
+committed and pushed — no question in between, because the answers you gave
+were the decision. A repair runs the one task mise said was
 broken, not the whole gate; the gate itself runs again once that comes back
 green. Diff coverage is not measured here — that is `pr_sweep`'s slow pass, and
 it is the longest job in the toolchain. A branch that ends with nothing left
@@ -64,9 +64,7 @@ from .shell import (
     HERE,
     LIST,
     PR_FIX,
-    QA_LABEL,
     STATUS,
-    THERMO_LABEL,
     checkout,
     commit,
     label,
@@ -75,15 +73,17 @@ from .shell import (
     push,
     said,
     unsettled,
+    wanted,
 )
 from .state import (
+    QA_LABEL,
+    THERMO_LABEL,
     Bound,
     PullRequest,
     TriageItem,
     TriageNotes,
     counted,
     unreadable,
-    wanted,
     wears,
 )
 
@@ -160,10 +160,8 @@ class Triage(BaseModel):
 
 class Instructed(BaseModel):
     branch: Branch
-    # The whole thing the agent is sent, assembled where the difference between
-    # the opening round and a later one is known: the first says what the job
-    # is, the ones after land in the same keyed session, which already knows.
-    # It is also what the grimoire then shows.
+    # The whole thing the agent is sent, assembled where the triage and your
+    # answers to it are both in hand. It is also what the grimoire then shows.
     prompt: str
 
 
@@ -173,10 +171,6 @@ class Landing(BaseModel):
     # The task that broke last time, where mise named one. Empty is the whole
     # gate, which is what runs first and what has the last word.
     gate: str = ""
-
-
-Move = Literal["fix", "ship"]
-_MOVES: tuple[Move, ...] = ("fix", "ship")
 
 
 @ritual("pr_review", max_steps=_MAX_STEPS)
@@ -357,21 +351,12 @@ def _asked(triage: Triage, told: list[str]) -> str:
 # on a triage you read yourself and a branch you said yes to.
 @step
 async def work(instructed: Instructed) -> Transition:
+    # Straight to the gate, with nothing asked: the triage was answered item by
+    # item a step ago, so a question here is the cast asking whether you meant
+    # what you just said.
     if fallen := await ask(instructed.prompt, key=_THREAD):
         raise RitualError(fallen.reason)
-    return goto(hand_back, instructed.branch)
-
-
-@step
-async def hand_back(branch: Branch) -> Transition:
-    if await decide("fix something else, or ship it?", options=_MOVES) == "ship":
-        return goto(gates, Landing(branch=branch))
-    # Read rather than forwarded, as in `plan`: an empty line here means nothing
-    # more to fix, and the agent on the other side of it writes code and would
-    # make something of an empty instruction.
-    if not (more := await decide("what should it fix?", free=True)):
-        return goto(gates, Landing(branch=branch))
-    return goto(work, Instructed(branch=branch, prompt=more))
+    return goto(gates, Landing(branch=instructed.branch))
 
 
 @step
