@@ -2,7 +2,6 @@
 
 from datetime import UTC, datetime
 from http import HTTPStatus
-from unittest.mock import ANY
 
 from django.urls import reverse
 
@@ -45,6 +44,18 @@ def _make_personal_data_field(event, **kwargs):
     }
     defaults.update(kwargs)
     return PersonalDataField.objects.create(event=event, **defaults)
+
+
+def _field_dto(field):
+    return OrganizerFieldDTO(
+        pk=field.pk,
+        name=field.name,
+        question=field.question,
+        slug=field.slug,
+        field_type=field.field_type,
+        order=field.order,
+        options=[],
+    )
 
 
 def _detail_tabs(event, facilitator_slug):
@@ -484,6 +495,7 @@ class TestFacilitatorDetailPageView:
             ("Nickname", "nickname", "text", "Bob"),
             ("Empty", "empty", "text", ""),
         ]
+        fields = []
         for order, (name, slug, field_type, value) in enumerate(values):
             field = _make_personal_data_field(
                 event,
@@ -496,6 +508,7 @@ class TestFacilitatorDetailPageView:
             PersonalDataFieldValue.objects.create(
                 facilitator=facilitator, event=event, field=field, value=value
             )
+            fields.append(field)
 
         response = panel_client.get(self.get_url(event))
 
@@ -503,6 +516,19 @@ class TestFacilitatorDetailPageView:
             response,
             HTTPStatus.OK,
             template_name="panel/facilitator-detail.html",
-            context_data=ANY,
+            context_data={
+                **panel_context(event, active_nav="facilitators"),
+                **_detail_tabs(event, facilitator.slug),
+                "facilitator": FacilitatorDTO.model_validate(facilitator),
+                "guild": None,
+                "linked_user": None,
+                "accreditation_type_display": "None",
+                "personal_data_items": [
+                    (_field_dto(field), stored)
+                    for field, (*_, stored) in zip(fields, values, strict=True)
+                ],
+                "has_personal_data": True,
+                "sessions": [],
+            },
             contains=["Consent", "Yes", "Declined", "Nickname", "Bob", "Empty"],
         )
