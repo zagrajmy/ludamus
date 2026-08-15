@@ -1,7 +1,7 @@
 from collections import defaultdict
 from typing import TYPE_CHECKING
 
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.db.models import Max
 from django.utils.text import slugify
 
@@ -27,6 +27,7 @@ from ludamus.pacts import (
     TrackRepositoryProtocol,
     TrackUpdateData,
 )
+from ludamus.pacts.tracks import DuplicateTrackNameError
 from ludamus.pacts.venues import (
     SpaceInputDTO,
     SpaceRecordDTO,
@@ -342,18 +343,35 @@ class TimeSlotRepository(TimeSlotRepositoryProtocol):
         return TimeSlotDTO.model_validate(time_slot)
 
 
+_TRACK_UNIQUE_NAME_CONSTRAINT = "track_unique_name_per_event"
+
+
+def is_track_name_conflict(exc: IntegrityError) -> bool:
+    # Postgres names the violated index in the error diagnostics; SQLite only
+    # spells it out in the message. Any other constraint is not ours to label.
+    diag = getattr(exc.__cause__, "diag", None)
+    if getattr(diag, "constraint_name", None) == _TRACK_UNIQUE_NAME_CONSTRAINT:
+        return True
+    return _TRACK_UNIQUE_NAME_CONSTRAINT in str(exc)
+
+
 class TrackRepository(TrackRepositoryProtocol):
     @transaction.atomic
     def create(self, data: TrackCreateData) -> TrackDTO:
         Event.objects.select_for_update().get(pk=data["event_pk"])
         base_slug = slugify(data["name"])
         slug = self.generate_unique_slug(data["event_pk"], base_slug)
-        track = Track.objects.create(
-            event_id=data["event_pk"],
-            name=data["name"],
-            slug=slug,
-            is_public=data["is_public"],
-        )
+        try:
+            track = Track.objects.create(
+                event_id=data["event_pk"],
+                name=data["name"],
+                slug=slug,
+                is_public=data["is_public"],
+            )
+        except IntegrityError as exc:
+            if is_track_name_conflict(exc):
+                raise DuplicateTrackNameError from exc
+            raise
         track.spaces.set(data["space_pks"])
         track.managers.set(data["manager_pks"])
         return TrackDTO.model_validate(track)
@@ -403,7 +421,12 @@ class TrackRepository(TrackRepositoryProtocol):
             track.is_public = data["is_public"]
             needs_save = True
         if needs_save:
-            track.save()
+            try:
+                track.save()
+            except IntegrityError as exc:
+                if is_track_name_conflict(exc):
+                    raise DuplicateTrackNameError from exc
+                raise
         track.spaces.set(data["space_pks"])
         track.managers.set(data["manager_pks"])
         return TrackDTO.model_validate(track)

@@ -23,6 +23,8 @@ def _apps_before_0147():
 
 @pytest.fixture
 def _duplicate_names_allowed():
+    # No teardown: `django_db` rolls the whole test back, schema change
+    # included. A transactional test in this class would have to recreate it.
     with connection.cursor() as cursor:
         cursor.execute("DROP INDEX track_unique_name_per_event")
 
@@ -55,6 +57,18 @@ class TestRenameDuplicateTrackNames:
 
         duplicate.refresh_from_db()
         assert duplicate.name == "rpg (3)"
+
+    def test_leaves_a_counter_name_a_later_track_still_holds(self, event):
+        Track.objects.create(event=event, name="RPG", slug="rpg")
+        duplicate = Track.objects.create(event=event, name="rpg", slug="rpg-2")
+        distinct = Track.objects.create(event=event, name="RPG (2)", slug="rpg-3")
+
+        rename_duplicate_track_names(_apps_before_0147(), None)
+
+        duplicate.refresh_from_db()
+        distinct.refresh_from_db()
+        assert duplicate.name == "rpg (3)"
+        assert distinct.name == "RPG (2)"
 
     def test_truncates_to_the_column_width(self, event):
         long_name = "a" * 255

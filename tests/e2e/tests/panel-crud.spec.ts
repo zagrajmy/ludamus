@@ -10,6 +10,7 @@ test.describe.configure({ mode: "serial" });
 const EVENT = "frostfire-con";
 const FACILITATORS_URL = `/panel/event/${EVENT}/facilitators/`;
 const PROPOSALS_URL = `/panel/event/${EVENT}/proposals/`;
+const TRACKS_URL = `/panel/event/${EVENT}/tracks/`;
 
 const PROPOSAL_TITLE = "Midnight Heist One-Shot";
 const PROPOSAL_TITLE_EDITED = "Midnight Heist One-Shot (revised)";
@@ -115,5 +116,27 @@ test.describe("Panel facilitator + proposal CRUD", () => {
     await page.getByRole("button", { name: "Reject" }).click();
     await page.getByRole("alertdialog").getByRole("button", { name: "Reject" }).click();
     await expect(page.getByText("Rejected", { exact: true })).toBeVisible();
+  });
+
+  test("refuses a track name the event already holds", async ({ page }, testInfo) => {
+    // Retries re-run the whole serial group, so the first track has to be new
+    // each attempt or this test would trip over its own leftovers.
+    const track = testInfo.retry === 0 ? "Neon Alley" : `Neon Alley ${testInfo.retry}`;
+
+    await page.goto(TRACKS_URL);
+    await page.getByRole("link", { name: "New Track" }).first().click();
+    await page.getByLabel("Name").fill(track);
+    await page.getByRole("button", { name: "Create Track" }).click();
+    await page.waitForURL(/\/tracks\/$/);
+
+    // Same name in another case: the form comes back with an inline error and
+    // no second row.
+    await page.getByRole("link", { name: "New Track" }).first().click();
+    await page.getByLabel("Name").fill(track.toUpperCase());
+    await page.getByRole("button", { name: "Create Track" }).click();
+
+    await expect(
+      page.getByText("A track with this name already exists in this event."),
+    ).toBeVisible();
   });
 });

@@ -238,6 +238,22 @@ class TestTrackEditPageView:
             url=f"/panel/event/{event.slug}/tracks/",
         )
 
+    def test_post_redirects_on_invalid_track_slug_with_a_rejected_form(
+        self, panel_client, event
+    ):
+        url = reverse(
+            "panel:track-edit", kwargs={"slug": event.slug, "track_slug": "nonexistent"}
+        )
+
+        response = panel_client.post(url, data={"name": ""})
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.ERROR, "Track not found.")],
+            url=f"/panel/event/{event.slug}/tracks/",
+        )
+
     def test_post_redirects_on_invalid_event_slug(self, panel_client, event):
         track = self.make_track(event)
         url = reverse(

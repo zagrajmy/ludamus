@@ -13,7 +13,7 @@ def _free_name(base, taken):
     while True:
         suffix = f" ({counter})"
         candidate = base[: NAME_MAX_LENGTH - len(suffix)] + suffix
-        if candidate.casefold() not in taken:
+        if candidate.lower() not in taken:
             return candidate
         counter += 1
 
@@ -21,17 +21,24 @@ def _free_name(base, taken):
 def rename_duplicate_track_names(apps, schema_editor):
     del schema_editor
     track_model = apps.get_model("db_main", "Track")
-    seen: dict[int, set[str]] = {}
+    # Every name the event already carries, so a counter suffix never lands on
+    # a distinct track further down the ordering.
+    existing: dict[int, set[str]] = {}
+    for event_id, name in track_model.objects.values_list("event_id", "name"):
+        existing.setdefault(event_id, set()).add(name.lower())
+
+    kept: dict[int, set[str]] = {}
     renamed = 0
-    for track in track_model.objects.order_by("event_id", "creation_time", "pk"):
-        taken = seen.setdefault(track.event_id, set())
-        if track.name.casefold() in taken:
+    tracks = track_model.objects.order_by("event_id", "creation_time", "pk")
+    for track in tracks.iterator():
+        taken = kept.setdefault(track.event_id, set())
+        if track.name.lower() in taken:
             old_name = track.name
-            track.name = _free_name(old_name, taken)
+            track.name = _free_name(old_name, taken | existing[track.event_id])
             track.save(update_fields=["name"])
             renamed += 1
             logger.info("0147: track %s name %r -> %r", track.pk, old_name, track.name)
-        taken.add(track.name.casefold())
+        taken.add(track.name.lower())
 
     logger.info("0147: %s tracks renamed", renamed)
 

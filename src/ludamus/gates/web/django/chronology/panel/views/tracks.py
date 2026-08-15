@@ -1,6 +1,5 @@
 # pylint: disable=duplicate-code
 # TODO(fancysnake): Extract common view boilerplate
-"""Track views (configurable lanes spanning spaces and managers)."""
 
 from __future__ import annotations
 
@@ -30,10 +29,8 @@ def _submitted_pks(request: PanelRequest, field: str) -> list[int]:
 
 
 def _add_duplicate_name_error(form: TrackForm) -> None:
-    form.add_error(
-        "name",
-        _("A track with this name already exists in this event. Pick another name."),
-    )
+    msg = _("A track with this name already exists in this event. Pick another name.")
+    form.add_error("name", msg)
 
 
 def _submitted_track_data(*, request: PanelRequest, form: TrackForm) -> TrackFormData:
@@ -46,8 +43,6 @@ def _submitted_track_data(*, request: PanelRequest, form: TrackForm) -> TrackFor
 
 
 class TracksPageView(PanelAccessMixin, EventContextMixin, View):
-    """List tracks for an event."""
-
     request: PanelRequest
 
     def get(self, _request: PanelRequest, slug: str) -> HttpResponse:
@@ -63,8 +58,6 @@ class TracksPageView(PanelAccessMixin, EventContextMixin, View):
 
 
 class TrackCreatePageView(PanelAccessMixin, EventContextMixin, View):
-    """Create a new track for an event."""
-
     request: PanelRequest
 
     def get(self, _request: PanelRequest, slug: str) -> HttpResponse:
@@ -72,31 +65,20 @@ class TrackCreatePageView(PanelAccessMixin, EventContextMixin, View):
         if current_event is None:
             return redirect("panel:index")
 
-        form_context = self.request.services.tracks_panel.get_form_context(
-            event_pk=current_event.pk, sphere_id=self.request.context.current_sphere_id
-        )
-        context["active_nav"] = "tracks"
-        context["form"] = TrackForm(initial={"is_public": True})
-        context["spaces"] = form_context.spaces
-        context["managers"] = form_context.managers
-        context["selected_space_pks"] = []
-        context["selected_manager_pks"] = []
-        return TemplateResponse(self.request, "panel/track-create.html", context)
+        form = TrackForm(initial={"is_public": True})
+        return self._render_form(context=context, event_pk=current_event.pk, form=form)
 
     def post(self, _request: PanelRequest, slug: str) -> HttpResponse:
         context, current_event = self.get_event_context(slug)
         if current_event is None:
             return redirect("panel:index")
 
-        service = self.request.services.tracks_panel
-        sphere_id = self.request.context.current_sphere_id
         form = TrackForm(self.request.POST)
-
         if form.is_valid():
             try:
-                service.create(
+                self.request.services.tracks_panel.create(
                     event_pk=current_event.pk,
-                    sphere_id=sphere_id,
+                    sphere_id=self.request.context.current_sphere_id,
                     data=_submitted_track_data(request=self.request, form=form),
                 )
             except DuplicateTrackNameError:
@@ -105,8 +87,13 @@ class TrackCreatePageView(PanelAccessMixin, EventContextMixin, View):
                 messages.success(self.request, _("Track created successfully."))
                 return redirect("panel:tracks", slug=slug)
 
-        form_context = service.get_form_context(
-            event_pk=current_event.pk, sphere_id=sphere_id
+        return self._render_form(context=context, event_pk=current_event.pk, form=form)
+
+    def _render_form(
+        self, *, context: dict[str, object], event_pk: int, form: TrackForm
+    ) -> HttpResponse:
+        form_context = self.request.services.tracks_panel.get_form_context(
+            event_pk=event_pk, sphere_id=self.request.context.current_sphere_id
         )
         context["active_nav"] = "tracks"
         context["form"] = form
@@ -118,8 +105,6 @@ class TrackCreatePageView(PanelAccessMixin, EventContextMixin, View):
 
 
 class TrackEditPageView(PanelAccessMixin, EventContextMixin, View):
-    """Edit an existing track."""
-
     request: PanelRequest
 
     def get(self, _request: PanelRequest, slug: str, track_slug: str) -> HttpResponse:
@@ -154,40 +139,37 @@ class TrackEditPageView(PanelAccessMixin, EventContextMixin, View):
         if current_event is None:
             return redirect("panel:index")
 
-        service = self.request.services.tracks_panel
-        sphere_id = self.request.context.current_sphere_id
         form = TrackForm(self.request.POST)
-
         try:
-            if not form.is_valid():
-                return self._rerender_edit_form(
-                    context=context,
-                    form=form,
-                    event_pk=current_event.pk,
-                    sphere_id=sphere_id,
-                    track_slug=track_slug,
-                )
-            service.update(
-                event_pk=current_event.pk,
-                sphere_id=sphere_id,
-                track_slug=track_slug,
-                data=_submitted_track_data(request=self.request, form=form),
-            )
-        except NotFoundError:
-            messages.error(self.request, _("Track not found."))
-            return redirect("panel:tracks", slug=slug)
-        except DuplicateTrackNameError:
-            _add_duplicate_name_error(form)
+            if form.is_valid() and self._updated(
+                form=form, event_pk=current_event.pk, track_slug=track_slug
+            ):
+                messages.success(self.request, _("Track updated successfully."))
+                return redirect("panel:tracks", slug=slug)
             return self._rerender_edit_form(
                 context=context,
                 form=form,
                 event_pk=current_event.pk,
-                sphere_id=sphere_id,
                 track_slug=track_slug,
             )
+        except NotFoundError:
+            messages.error(self.request, _("Track not found."))
+            return redirect("panel:tracks", slug=slug)
 
-        messages.success(self.request, _("Track updated successfully."))
-        return redirect("panel:tracks", slug=slug)
+    def _updated(self, *, form: TrackForm, event_pk: int, track_slug: str) -> bool:
+        # False when the submitted name is already taken; the caller re-renders
+        # the form carrying the inline error this attaches.
+        try:
+            self.request.services.tracks_panel.update(
+                event_pk=event_pk,
+                sphere_id=self.request.context.current_sphere_id,
+                track_slug=track_slug,
+                data=_submitted_track_data(request=self.request, form=form),
+            )
+        except DuplicateTrackNameError:
+            _add_duplicate_name_error(form)
+            return False
+        return True
 
     def _rerender_edit_form(
         self,
@@ -195,11 +177,12 @@ class TrackEditPageView(PanelAccessMixin, EventContextMixin, View):
         context: dict[str, object],
         form: TrackForm,
         event_pk: int,
-        sphere_id: int,
         track_slug: str,
     ) -> HttpResponse:
         edit_context = self.request.services.tracks_panel.get_edit_form_context(
-            event_pk=event_pk, sphere_id=sphere_id, track_slug=track_slug
+            event_pk=event_pk,
+            sphere_id=self.request.context.current_sphere_id,
+            track_slug=track_slug,
         )
         context["active_nav"] = "tracks"
         context["track"] = edit_context.track
@@ -212,8 +195,6 @@ class TrackEditPageView(PanelAccessMixin, EventContextMixin, View):
 
 
 class TrackDeleteActionView(PanelAccessMixin, EventContextMixin, View):
-    """Delete a track (POST only)."""
-
     request: PanelRequest
     http_method_names = ("post",)
 
