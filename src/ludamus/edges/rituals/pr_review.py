@@ -243,7 +243,7 @@ def _rowed(branch: Branch, outcome: Outcome, note: str = "") -> Picking:
 async def pick(picking: Picking) -> Transition:
     """Take the next branch whose review is still waiting."""
     if not picking.queue:
-        return goto(report, picking)
+        return goto(recap, picking)
     # Fatal, and before every checkout, not only the first: this moves branches
     # around and later commits everything it finds, so work left in the tree
     # would be committed onto the next branch it takes.
@@ -395,7 +395,7 @@ async def gates(landing: Landing) -> Transition:
     # away. The branches already shipped keep their rows.
     if landing.tries >= landing.branch.bound:
         stopped = f"`{gate}` is still red after {landing.tries} attempts"
-        return goto(report, _with(landing.branch.picking, stopped=stopped))
+        return goto(recap, _with(landing.branch.picking, stopped=stopped))
     # Another agent attempt is normally yours to approve; here `ship` was the
     # approval, and the bound is what holds the loop.
     if fallen := await ask(fix_gates(said(ran), gate=gate), key=_THREAD):
@@ -453,7 +453,7 @@ _TOLD = {
 # same bargain the sweeps make, and the reason a red gate routes rather than
 # raises.
 @step
-def report(picking: Picking) -> Transition:
+def recap(picking: Picking) -> Transition:
     """Say what each branch came to, and fail the cast where one stopped it."""
     lines = [f"pr_review — {len(picking.reviewed)} branches"]
     lines += [

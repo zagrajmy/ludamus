@@ -23,7 +23,7 @@ from ludamus.edges.rituals.pr_review import (
     plan,
     pr_review,
     queue_up,
-    report,
+    recap,
     settle,
     work,
 )
@@ -246,7 +246,7 @@ class TestPick:
     def test_an_empty_queue_ends_at_the_report(self, trial: Trial) -> None:
         transition = trial.walk(pick, _picked())
 
-        assert transition == goto(report, _picked())
+        assert transition == goto(recap, _picked())
         assert not trial.shell.commands
 
     def test_a_dirty_worktree_fails_the_cast(self, trial: Trial) -> None:
@@ -535,7 +535,7 @@ class TestGates:
         transition = trial.walk(gates, Landing(branch=branch, tries=2))
 
         assert transition == goto(
-            report, _picked(stopped=f"`{PR_FIX}` is still red after 2 attempts")
+            recap, _picked(stopped=f"`{PR_FIX}` is still red after 2 attempts")
         )
         assert not trial.coding.prompts
 
@@ -638,7 +638,7 @@ class TestReport:
             ]
         )
 
-        transition = trial.walk(report, card)
+        transition = trial.walk(recap, card)
 
         assert transition == done(card)
         assert trial.deltas == [
@@ -651,7 +651,7 @@ class TestReport:
         stopped = _picked(queue=_queued("older"), stopped="`pr-fix` is still red")
 
         with pytest.raises(RitualError, match="still red"):
-            trial.walk(report, stopped)
+            trial.walk(recap, stopped)
 
         # The report comes out before the failure, which is the whole reason a
         # red gate routes here rather than raising where it happened.
@@ -659,7 +659,7 @@ class TestReport:
         assert "not reached:    older" in trial.deltas[0]
 
     def test_a_morning_with_nothing_waiting_says_so(self, trial: Trial) -> None:
-        trial.walk(report, _picked())
+        trial.walk(recap, _picked())
 
         assert "(none had a review waiting)" in trial.deltas[0]
 
@@ -674,7 +674,7 @@ class TestPrReview:
         result = trial.cast(pr_review, PrReview(bound=2))
 
         assert result == _picked()
-        assert trial.steps == ["queue_up", "pick", "pick", "report"]
+        assert trial.steps == ["queue_up", "pick", "pick", "recap"]
 
     def test_a_reviewed_branch_goes_all_the_way_to_the_label(
         self, trial: Trial
@@ -711,7 +711,7 @@ class TestPrReview:
             "land",
             "settle",
             "pick",
-            "report",
+            "recap",
         ]
 
     # The whole point of the loop: one branch shipped and the next one taken,
@@ -741,5 +741,5 @@ class TestPrReview:
             "pick",
             "look",
             "pick",
-            "report",
+            "recap",
         ]
