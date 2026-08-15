@@ -432,7 +432,6 @@ class TrackRepository(TrackRepositoryProtocol):
                 name=track.name,
                 slug=track.slug,
                 is_public=track.is_public,
-                space_ids=sorted(s.pk for s in track.spaces.all()),
                 space_names=sorted(s.name for s in track.spaces.all()),
                 manager_names=sorted(m.name for m in track.managers.all()),
             )
@@ -466,6 +465,18 @@ class TrackRepository(TrackRepositoryProtocol):
     @staticmethod
     def list_space_pks(pk: int) -> list[int]:
         return list(Space.objects.filter(tracks__pk=pk).values_list("pk", flat=True))
+
+    @staticmethod
+    def list_space_pks_by_event(event_pk: int) -> dict[int, list[int]]:
+        result: dict[int, list[int]] = {}
+        pairs = (
+            Track.spaces.through.objects.filter(track__event_id=event_pk)
+            .order_by("space_id")
+            .values_list("track_id", "space_id")
+        )
+        for track_pk, space_pk in pairs:
+            result.setdefault(track_pk, []).append(space_pk)
+        return result
 
     @staticmethod
     def list_manager_pks(pk: int) -> list[int]:

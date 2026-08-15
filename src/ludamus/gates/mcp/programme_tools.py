@@ -43,7 +43,7 @@ if TYPE_CHECKING:
     from ludamus.pacts.services import ServicesProtocol
 
 _PROPOSAL_CATEGORY_LIST = TypeAdapter(list[ProposalCategoryDTO])
-_TRACK_LIST = TypeAdapter(list[TrackListItemDTO])
+_TRACK_LIST = TypeAdapter(list["_TrackListItem"])
 _JSON_OBJECT: TypeAdapter[JsonDict] = TypeAdapter(JsonDict)
 
 
@@ -141,6 +141,10 @@ class OrganizerListTimeSlotsTool(Tool[_EventIdInput]):
         return TypeAdapter(list[TimeSlotDTO]).dump_json(slots, indent=2).decode()
 
 
+class _TrackListItem(TrackListItemDTO):
+    space_ids: list[int]
+
+
 class OrganizerListTracksTool(Tool[_EventIdInput]):
     name = "list_tracks"
     description = "List programme tracks (bloki) for an event."
@@ -149,7 +153,20 @@ class OrganizerListTracksTool(Tool[_EventIdInput]):
 
     @staticmethod
     def handle(call: ToolCall[_EventIdInput]) -> str:
-        tracks = call.services.tracks_panel.list_tracks(_require_event(call).pk)
+        event_pk = _require_event(call).pk
+        space_pks = call.services.tracks_panel.list_space_pks_by_event(event_pk)
+        tracks = [
+            _TrackListItem(
+                pk=track.pk,
+                name=track.name,
+                slug=track.slug,
+                is_public=track.is_public,
+                space_names=track.space_names,
+                manager_names=track.manager_names,
+                space_ids=space_pks.get(track.pk, []),
+            )
+            for track in call.services.tracks_panel.list_tracks(event_pk)
+        ]
         return _TRACK_LIST.dump_json(tracks, indent=2).decode()
 
 

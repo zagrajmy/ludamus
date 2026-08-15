@@ -346,7 +346,6 @@ class TrackListItemDTO(BaseModel):
     name: str
     slug: str
     is_public: bool
-    space_ids: list[int]
     space_names: list[str]
     manager_names: list[str]
 
@@ -913,6 +912,8 @@ class TrackRepositoryProtocol(Protocol):
     ) -> list[TrackDTO]: ...
     @staticmethod
     def list_space_pks(pk: int) -> list[int]: ...
+    @staticmethod
+    def list_space_pks_by_event(event_pk: int) -> dict[int, list[int]]: ...
     @staticmethod
     def list_manager_pks(pk: int) -> list[int]: ...
     @staticmethod

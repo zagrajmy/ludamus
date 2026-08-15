@@ -40,6 +40,9 @@ class TracksPanelService(TracksPanelServiceProtocol):
     def list_tracks(self, event_pk: int) -> list[TrackListItemDTO]:
         return self._tracks.list_by_event_with_assignments(event_pk)
 
+    def list_space_pks_by_event(self, event_pk: int) -> dict[int, list[int]]:
+        return self._tracks.list_space_pks_by_event(event_pk)
+
     def get_form_context(self, *, event_pk: int, sphere_id: int) -> TrackFormContextDTO:
         return TrackFormContextDTO(
             spaces=self._spaces.list_by_event(event_pk),

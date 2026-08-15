@@ -69,7 +69,6 @@ class TestTracksPageView:
                         name="Morning Track",
                         slug="morning-track",
                         is_public=True,
-                        space_ids=[],
                         space_names=[],
                         manager_names=[],
                     )
@@ -101,7 +100,6 @@ class TestTracksPageView:
                         name="Morning Track",
                         slug="morning-track",
                         is_public=True,
-                        space_ids=[space.pk],
                         space_names=["Room A"],
                         manager_names=[active_user.name],
                     )
