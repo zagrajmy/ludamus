@@ -9,6 +9,7 @@ if TYPE_CHECKING:
     from ludamus.pacts.legacy import (
         AgendaItemRepositoryProtocol,
         EventRepositoryProtocol,
+        ProposalCategoryRepositoryProtocol,
         SessionFieldRepositoryProtocol,
         SessionRepositoryProtocol,
         SpaceRepositoryProtocol,
@@ -26,6 +27,7 @@ class KonwencikScheduleRepos:
     sessions: SessionRepositoryProtocol
     session_fields: SessionFieldRepositoryProtocol
     events: EventRepositoryProtocol
+    categories: ProposalCategoryRepositoryProtocol
 
 
 class KonwencikSheetConfig(BaseModel):
@@ -49,7 +51,33 @@ class KonwencikExportOutcome(BaseModel):
     sessions_skipped: int
 
 
+class KonwencikNamedItemDTO(BaseModel):
+    """A category, track or session field the settings page offers a row for."""
+
+    pk: int
+    name: str
+
+
+class KonwencikSettingsContext(BaseModel):
+    display_name: str
+    categories: list[KonwencikNamedItemDTO]
+    tracks: list[KonwencikNamedItemDTO]
+    session_fields: list[KonwencikNamedItemDTO]
+    settings: KonwencikExportSettings
+
+
 class KonwencikExportServiceProtocol(Protocol):
     def export_now(
         self, *, sphere_id: int, event_pk: int, pk: int
     ) -> KonwencikExportOutcome: ...
+    def get_settings_context(
+        self, *, sphere_id: int, event_pk: int, pk: int
+    ) -> KonwencikSettingsContext: ...
+    def save_settings(
+        self,
+        *,
+        sphere_id: int,
+        event_pk: int,
+        pk: int,
+        settings: KonwencikExportSettings,
+    ) -> None: ...

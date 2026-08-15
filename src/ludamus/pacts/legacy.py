@@ -198,6 +198,7 @@ class AgendaItemDTO(BaseModel):
     session_status: "SessionStatus | None" = None
     category_name: str | None = None
     category_id: int | None = None
+    session_min_age: int = 0
 
 
 class SessionDTO(BaseModel):

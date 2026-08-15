@@ -11,7 +11,9 @@ from ludamus.pacts.konwencik import (
     KonwencikExportOutcome,
     KonwencikExportServiceProtocol,
     KonwencikExportSettings,
+    KonwencikNamedItemDTO,
     KonwencikScheduleRepos,
+    KonwencikSettingsContext,
     KonwencikSheetConfig,
 )
 
@@ -51,6 +53,10 @@ KONWENCIK_COLUMNS = (
 
 _DAY_FORMAT = "%d.%m.%Y"
 _TIME_FORMAT = "%H:%M"
+# Konwencik has no minimum-age column, so an adults-only session says so in
+# the only field it does have.
+ADULT_MIN_AGE = 18
+ADULT_TITLE_TAG = "[18+]"
 
 
 class KonwencikRow(BaseModel):
@@ -147,12 +153,87 @@ class KonwencikExportService(KonwencikExportServiceProtocol):
     def export_now(
         self, *, sphere_id: int, event_pk: int, pk: int
     ) -> KonwencikExportOutcome:
-        # Panel access proves the sphere, not the ids the request names: scope
-        # both the event and the integration before touching a secret.
+        return self.run(self._scoped(sphere_id=sphere_id, event_pk=event_pk, pk=pk))
+
+    def get_settings_context(
+        self, *, sphere_id: int, event_pk: int, pk: int
+    ) -> KonwencikSettingsContext:
+        integration = self._scoped(sphere_id=sphere_id, event_pk=event_pk, pk=pk)
+        return KonwencikSettingsContext(
+            display_name=integration.display_name,
+            categories=[
+                KonwencikNamedItemDTO(pk=category.pk, name=category.name)
+                for category in self._repos.categories.list_by_event(event_pk)
+            ],
+            tracks=[
+                KonwencikNamedItemDTO(pk=track.pk, name=track.name)
+                for track in self._repos.tracks.list_by_event(event_pk)
+                if track.is_public
+            ],
+            session_fields=[
+                KonwencikNamedItemDTO(pk=field.pk, name=field.name)
+                for field in self._repos.session_fields.list_by_event(event_pk)
+            ],
+            settings=KonwencikExportSettings.model_validate_json(
+                integration.settings_json or "{}"
+            ),
+        )
+
+    def save_settings(
+        self,
+        *,
+        sphere_id: int,
+        event_pk: int,
+        pk: int,
+        settings: KonwencikExportSettings,
+    ) -> None:
+        self._scoped(sphere_id=sphere_id, event_pk=event_pk, pk=pk)
+        # The page is the only writer, but an id it never offered must not
+        # reach the blob: a foreign category or track would silently colour
+        # another event's program.
+        allowed_categories = {
+            category.pk for category in self._repos.categories.list_by_event(event_pk)
+        }
+        allowed_tracks = {
+            track.pk
+            for track in self._repos.tracks.list_by_event(event_pk)
+            if track.is_public
+        }
+        allowed_fields = {
+            field.pk for field in self._repos.session_fields.list_by_event(event_pk)
+        }
+        scoped = KonwencikExportSettings(
+            category_icons={
+                key: value
+                for key, value in settings.category_icons.items()
+                if key in allowed_categories and value
+            },
+            track_colors={
+                key: value
+                for key, value in settings.track_colors.items()
+                if key in allowed_tracks and value
+            },
+            photo_url_field_pk=(
+                settings.photo_url_field_pk
+                if settings.photo_url_field_pk in allowed_fields
+                else None
+            ),
+            icon_field_pk=(
+                settings.icon_field_pk
+                if settings.icon_field_pk in allowed_fields
+                else None
+            ),
+        )
+        self._integrations.update_settings(
+            event_id=event_pk, pk=pk, settings_json=scoped.model_dump_json()
+        )
+
+    def _scoped(self, *, sphere_id: int, event_pk: int, pk: int) -> EventIntegrationDTO:
+        # Panel access proves the sphere, not the ids the request names.
         event = self._repos.events.read(event_pk)
         if event.sphere_id != sphere_id:
             raise NotFoundError
-        return self.run(self._integrations.get(event_pk, pk))
+        return self._integrations.get(event_pk, pk)
 
     def run(self, integration: EventIntegrationDTO) -> KonwencikExportOutcome:
         # No sphere argument: the sweep has no principal, and re-checking an
@@ -295,7 +376,11 @@ def _build_row(
         day=start.strftime(_DAY_FORMAT),
         start=start.strftime(_TIME_FORMAT),
         end=end.strftime(_TIME_FORMAT),
-        title=item.session_title,
+        title=(
+            f"{ADULT_TITLE_TAG} {item.session_title}"
+            if item.session_min_age >= ADULT_MIN_AGE
+            else item.session_title
+        ),
         description=item.session_description,
         speaker=item.presenter_name,
         room=room,

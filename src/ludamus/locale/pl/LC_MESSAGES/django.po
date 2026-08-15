@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-15 08:37+0200\n"
+"POT-Creation-Date: 2026-08-15 09:21+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -1538,6 +1538,48 @@ msgstr "Wybierz implementację i połączenie przed uruchomieniem sprawdzenia."
 #, python-format
 msgid "Unknown implementation: %(id)s"
 msgstr "Nieznana implementacja: %(id)s"
+
+#: src/ludamus/gates/web/django/chronology/panel/views/konwencik_export.py
+msgid "This does not belong to the event."
+msgstr "To nie należy do tego wydarzenia."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/konwencik_export.py
+#: src/ludamus/templates/panel/session-field-create.html
+#: src/ludamus/templates/panel/session-field-edit.html
+msgid "Icon"
+msgstr "Ikona"
+
+#: src/ludamus/gates/web/django/chronology/panel/views/konwencik_export.py
+msgid "Konwencik's own notation, for example fa.gamepad."
+msgstr "Notacja Konwencika, na przykład fa.gamepad."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/konwencik_export.py
+msgid "Background"
+msgstr "Tło"
+
+#: src/ludamus/gates/web/django/chronology/panel/views/konwencik_export.py
+msgid "Use a hex colour, e.g. #1e88e5."
+msgstr "Podaj kolor w zapisie szesnastkowym, np. #1e88e5."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/konwencik_export.py
+msgid "Leave empty for no background."
+msgstr "Zostaw puste, aby nie ustawiać tła."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/konwencik_export.py
+msgid "Photo link field"
+msgstr "Pole z linkiem do zdjęcia"
+
+#: src/ludamus/gates/web/django/chronology/panel/views/konwencik_export.py
+msgid "Icon field"
+msgstr "Pole z ikoną"
+
+#: src/ludamus/gates/web/django/chronology/panel/views/konwencik_export.py
+msgid "No override"
+msgstr "Bez nadpisania"
+
+#: src/ludamus/gates/web/django/chronology/panel/views/konwencik_export.py
+msgid "Export settings saved."
+msgstr "Zapisano ustawienia eksportu."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/konwencik_export.py
 #, python-format
@@ -3185,6 +3227,7 @@ msgid "Participants limit"
 msgstr "Limit uczestników"
 
 #: src/ludamus/gates/web/django/templatetags/cfp_tags.py
+#: src/ludamus/templates/chronology/panel/konwencik/settings.html
 #: src/ludamus/templates/chronology/propose/parts/details.html
 #: src/ludamus/templates/panel/base.html
 #: src/ludamus/templates/panel/proposal-detail.html
@@ -4466,6 +4509,7 @@ msgid "Edit integration"
 msgstr "Edytuj integrację"
 
 #: src/ludamus/templates/chronology/panel/integrations/edit.html
+#: src/ludamus/templates/chronology/panel/konwencik/settings.html
 #: src/ludamus/templates/crowd/user/avatar.html
 #: src/ludamus/templates/crowd/user/edit.html
 #: src/ludamus/templates/multiverse/panel/announcements/edit.html
@@ -4485,6 +4529,61 @@ msgstr "Edytuj integrację"
 #: src/ludamus/templates/panel/time-slot-edit.html
 msgid "Save"
 msgstr "Zapisz"
+
+#: src/ludamus/templates/chronology/panel/konwencik/settings.html
+msgid "Konwencik export"
+msgstr "Eksport do Konwencika"
+
+#: src/ludamus/templates/chronology/panel/konwencik/settings.html
+msgid "Back to integrations"
+msgstr "Wróć do integracji"
+
+#: src/ludamus/templates/chronology/panel/konwencik/settings.html
+#: src/ludamus/templates/panel/integration-settings.html
+msgid "Export now"
+msgstr "Eksportuj teraz"
+
+#: src/ludamus/templates/chronology/panel/konwencik/settings.html
+msgid ""
+"The Konwencik tab is rewritten as plain text on every run. Do not put "
+"formulas, notes or hand-typed rows in it — they are lost on the next export. "
+"Other tabs in the spreadsheet are never touched."
+msgstr ""
+"Zakładka Konwencika jest nadpisywana zwykłym tekstem przy każdym "
+"uruchomieniu. Nie umieszczaj w niej formuł, notatek ani ręcznie wpisanych "
+"wierszy — zostaną utracone przy następnym eksporcie. Pozostałe zakładki "
+"arkusza nie są nigdy zmieniane."
+
+#: src/ludamus/templates/chronology/panel/konwencik/settings.html
+msgid "Attraction kinds"
+msgstr "Rodzaje atrakcji"
+
+#: src/ludamus/templates/chronology/panel/konwencik/settings.html
+msgid ""
+"No attraction kinds yet. Add one in the event settings to give it an icon."
+msgstr ""
+"Nie ma jeszcze rodzajów atrakcji. Dodaj jeden w ustawieniach wydarzenia, aby "
+"nadać mu ikonę."
+
+#: src/ludamus/templates/chronology/panel/konwencik/settings.html
+msgid ""
+"No public tracks yet. A session with no public track is exported without a "
+"track."
+msgstr ""
+"Nie ma jeszcze publicznych bloków. Punkt programu bez publicznego bloku jest "
+"eksportowany bez bloku."
+
+#: src/ludamus/templates/chronology/panel/konwencik/settings.html
+msgid "Overrides"
+msgstr "Nadpisania"
+
+#: src/ludamus/templates/chronology/panel/konwencik/settings.html
+msgid ""
+"A session field whose answer replaces the value the export would otherwise "
+"write."
+msgstr ""
+"Pole punktu programu, którego odpowiedź zastępuje wartość zapisywaną przez "
+"eksport."
 
 #: src/ludamus/templates/chronology/parts/print_header.html
 msgid "QR code linking to the full schedule"
@@ -6742,6 +6841,7 @@ msgid "Submission window"
 msgstr "Okno zgłoszeń"
 
 #: src/ludamus/templates/panel/cfp.html
+#: src/ludamus/templates/panel/integration-settings.html
 msgid "Configure"
 msgstr "Konfiguruj"
 
@@ -7614,10 +7714,6 @@ msgstr "zaplanowanych"
 #: src/ludamus/templates/panel/index.html
 msgid "pending"
 msgstr "oczekujących"
-
-#: src/ludamus/templates/panel/integration-settings.html
-msgid "Export now"
-msgstr "Eksportuj teraz"
 
 #: src/ludamus/templates/panel/integration-settings.html
 msgid ""
@@ -8583,11 +8679,6 @@ msgstr "np. System RPG, Gatunek, Poziom trudności"
 #: src/ludamus/templates/panel/session-field-edit.html
 msgid "e.g., What RPG system will you use?"
 msgstr "np. Jakiego systemu RPG użyjesz?"
-
-#: src/ludamus/templates/panel/session-field-create.html
-#: src/ludamus/templates/panel/session-field-edit.html
-msgid "Icon"
-msgstr "Ikona"
 
 #: src/ludamus/templates/panel/session-field-create.html
 #: src/ludamus/templates/panel/session-field-edit.html

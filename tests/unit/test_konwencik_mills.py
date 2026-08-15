@@ -6,6 +6,7 @@ from zoneinfo import ZoneInfo
 import pytest
 
 from ludamus.mills.konwencik import (
+    ADULT_MIN_AGE,
     KONWENCIK_COLUMNS,
     KonwencikExportService,
     KonwencikRow,
@@ -88,6 +89,7 @@ def _make_service(
         tracks=MagicMock(),
         sessions=MagicMock(),
         session_fields=MagicMock(),
+        categories=MagicMock(),
         events=MagicMock(),
     )
     repos.agenda_items.list_by_event.return_value = list(items)
@@ -99,6 +101,7 @@ def _make_service(
     )
     repos.sessions.list_field_values_for_sessions.return_value = field_values or {}
     repos.session_fields.list_by_event.return_value = list(session_fields)
+    repos.categories.list_by_event.return_value = []
     repos.events.read.return_value = SimpleNamespace(pk=EVENT_PK, sphere_id=SPHERE_PK)
 
     integrations = MagicMock()
@@ -218,6 +221,26 @@ class TestKonwencikRowBuilder:
         assert cells["day"] == "15.08.2026"
         assert cells["start"] == "10:00"
         assert cells["end"] == "12:00"
+
+    def test_an_adults_only_session_carries_the_tag_in_its_title(self):
+        # Konwencik has no minimum-age column, so the title is the only place
+        # the restriction can be stated.
+        env = _make_service(
+            items=[_item(session_min_age=ADULT_MIN_AGE)], spaces=[_space()]
+        )
+
+        env.service.run(_integration())
+
+        assert _cells(env)["title"] == "[18+] Dracula"
+
+    def test_a_session_below_the_adult_age_keeps_its_plain_title(self):
+        env = _make_service(
+            items=[_item(session_min_age=ADULT_MIN_AGE - 1)], spaces=[_space()]
+        )
+
+        env.service.run(_integration())
+
+        assert _cells(env)["title"] == "Dracula"
 
     def test_carries_title_description_speaker_and_category(self):
         env = _make_service(items=[_item()], spaces=[_space()])

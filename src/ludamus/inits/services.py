@@ -445,6 +445,7 @@ class Services:
                 sessions=self._repos.sessions,
                 session_fields=self._repos.session_fields,
                 events=self._repos.events,
+                categories=self._repos.proposal_categories,
             ),
             integrations=self._repos.event_integrations,
             connections=self._repos.connections,

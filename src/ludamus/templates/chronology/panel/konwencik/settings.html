@@ -1,0 +1,95 @@
+{% extends "panel/base.html" %}
+{% load i18n %}
+{% load tessera %}
+{% block title %}
+    {% translate "Konwencik export" %}
+{% endblock title %}
+{% block page_title %}
+    {% translate "Konwencik export" %}
+{% endblock page_title %}
+{% block page_subtitle %}
+    {{ integration_display_name }}
+{% endblock page_subtitle %}
+{% block header_actions %}
+    {% if current_event %}
+        <div class="flex items-center gap-3">
+            {% url 'panel:event-integration-settings' slug=current_event.slug as back_url %}
+            {% translate "Back to integrations" as back_label %}
+            {% tessera_button back_label href=back_url variant="secondary" %}
+            <form method="post"
+                  action="{% url 'panel:konwencik-export-run' slug=current_event.slug pk=integration_pk %}">
+                {% csrf_token %}
+                {% translate "Export now" as export_label %}
+                {% tessera_button export_label variant="secondary" icon="arrow-up-tray" %}
+            </form>
+            {% translate "Save" as save_label %}
+            {% tessera_button save_label form="konwencik-settings-form" icon="check" %}
+        </div>
+    {% endif %}
+{% endblock header_actions %}
+{% block content %}
+    {% if current_event %}
+        <div class="max-w-3xl space-y-6">
+            <div class="card">
+                <div class="card-body flex gap-3">
+                    {% icon "exclamation-triangle" class="w-5 h-5 shrink-0 text-warning" %}
+                    <p class="text-sm text-foreground-secondary">
+                        {% translate "The Konwencik tab is rewritten as plain text on every run. Do not put formulas, notes or hand-typed rows in it — they are lost on the next export. Other tabs in the spreadsheet are never touched." %}
+                    </p>
+                </div>
+            </div>
+            <form id="konwencik-settings-form" method="post" class="space-y-6">
+                {% csrf_token %}
+                <div class="card">
+                    <div class="card-body space-y-4">
+                        <h2 class="text-lg font-medium text-foreground">{% translate "Attraction kinds" %}</h2>
+                        {{ icon_formset.management_form }}
+                        {% for row in category_rows %}
+                            <div class="grid gap-2 sm:grid-cols-3 sm:items-start">
+                                <p class="text-sm font-medium text-foreground sm:pt-2">{% if row.item %}{{ row.item.name }}{% else %}—{% endif %}</p>
+                                <div class="sm:col-span-2">
+                                    {{ row.form.pk }}
+                                    {% for error in row.form.pk.errors %}<p class="mt-1 text-xs text-danger" role="alert">{{ error }}</p>{% endfor %}
+                                    {% tessera_field row.form.icon %}
+                                </div>
+                            </div>
+                        {% empty %}
+                            <p class="text-sm text-foreground-muted">
+                                {% translate "No attraction kinds yet. Add one in the event settings to give it an icon." %}
+                            </p>
+                        {% endfor %}
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-body space-y-4">
+                        <h2 class="text-lg font-medium text-foreground">{% translate "Tracks" %}</h2>
+                        {{ color_formset.management_form }}
+                        {% for row in track_rows %}
+                            <div class="grid gap-2 sm:grid-cols-3 sm:items-start">
+                                <p class="text-sm font-medium text-foreground sm:pt-2">{% if row.item %}{{ row.item.name }}{% else %}—{% endif %}</p>
+                                <div class="sm:col-span-2">
+                                    {{ row.form.pk }}
+                                    {% for error in row.form.pk.errors %}<p class="mt-1 text-xs text-danger" role="alert">{{ error }}</p>{% endfor %}
+                                    {% tessera_field row.form.color %}
+                                </div>
+                            </div>
+                        {% empty %}
+                            <p class="text-sm text-foreground-muted">
+                                {% translate "No public tracks yet. A session with no public track is exported without a track." %}
+                            </p>
+                        {% endfor %}
+                    </div>
+                </div>
+                <div class="card">
+                    <div class="card-body space-y-4">
+                        <h2 class="text-lg font-medium text-foreground">{% translate "Overrides" %}</h2>
+                        <p class="text-sm text-foreground-muted">
+                            {% translate "A session field whose answer replaces the value the export would otherwise write." %}
+                        </p>
+                        {% tessera_form overrides_form %}
+                    </div>
+                </div>
+            </form>
+        </div>
+    {% endif %}
+{% endblock content %}

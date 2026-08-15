@@ -508,6 +508,11 @@ urlpatterns = [
         name="integration-delete",
     ),
     path(
+        "event/<slug:slug>/export/<int:pk>/",
+        konwencik_export.KonwencikExportSettingsPageView.as_view(),
+        name="konwencik-export-settings",
+    ),
+    path(
         "event/<slug:slug>/export/<int:pk>/run/",
         konwencik_export.KonwencikExportActionView.as_view(),
         name="konwencik-export-run",
