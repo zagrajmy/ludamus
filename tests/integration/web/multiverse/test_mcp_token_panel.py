@@ -6,11 +6,11 @@ from django.urls import reverse
 from tests.integration.utils import assert_login_required, assert_response
 from tests.integration.web.multiverse.helpers import (
     assert_not_a_sphere_manager,
-    sphere_panel_context,
+    sphere_settings_context,
 )
 
 URL = reverse("multiverse:panel:mcp-token")
-MCP_PANEL_CONTEXT = sphere_panel_context(active_tab="mcp") | {
+MCP_PANEL_CONTEXT = sphere_settings_context(active_tab="mcp") | {
     "endpoint_url": "http://testserver/mcp/organizer/",
     "token_max_age_days": 30,
 }
