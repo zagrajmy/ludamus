@@ -190,7 +190,7 @@ ranges = ["config"]
 # refactoring
 
 [[metrics]]
-name = "request-di-uow"
+name = "request-di-uow-files"
 type = "regex_spread"
 group = "refactoring"
 pattern = 'request\.di\.uow'
@@ -200,6 +200,15 @@ name = "legacy-files"
 type = "file_count"
 group = "refactoring"
 ranges = ["legacy-code"]
+
+# A file past this many lines has stopped being one thing. Counts crossings
+# both ways, so splitting one back under the gate pays for pushing another over.
+[[metrics]]
+name = "giant-files"
+type = "file_count"
+group = "refactoring"
+ranges = ["python-src"]
+over_lines = 1000
 
 # Old subdomain names (noun/verb migration): chronology+submissions -> event,
 # crowd -> user, multiverse -> sphere, notice_board -> encounter

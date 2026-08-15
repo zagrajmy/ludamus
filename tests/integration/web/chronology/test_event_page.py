@@ -12,6 +12,7 @@ from django.test import override_settings
 from django.test.utils import CaptureQueriesContext
 from django.urls import resolve, reverse
 from django.utils import timezone
+from freezegun import freeze_time
 
 from ludamus.adapters.web.django.views import EventPageView
 from ludamus.gates.web.django.chronology.event_presentation import (
@@ -338,103 +339,113 @@ class TestEventPageView:
         monkeypatch.setattr(
             "ludamus.adapters.web.django.views.COMPACT_SCHEDULE_MIN_SESSIONS", 1
         )
-        now = timezone.now()
-        EnrollmentConfig.objects.create(
-            event=event,
-            start_time=now - timedelta(days=1),
-            end_time=now + timedelta(days=5),
-            percentage_slots=100,
+        # The ended and ongoing rows sit either side of the clock, the ongoing
+        # one running until an hour from now. Arrange and render at local
+        # midday so that window cannot straddle midnight: a session that does
+        # is split across two local dates, and so across two schedule days.
+        midday = timezone.localtime().replace(
+            hour=12, minute=0, second=0, microsecond=0
         )
-        # A limit_to_end_time config marks ongoing sessions as "In Progress".
-        EnrollmentConfig.objects.create(
-            event=event,
-            start_time=now - timedelta(days=1),
-            end_time=now + timedelta(days=5),
-            percentage_slots=100,
-            limit_to_end_time=True,
-        )
-        # Two full days out so the local-date grouping can never collide with
-        # the ended/ongoing sessions, whatever the wall clock is at test time.
-        day_one = (now + timedelta(days=2)).replace(
-            hour=10, minute=0, second=0, microsecond=0
-        )
-
-        def scheduled(*, start, end, **session_kwargs):
-            session = SessionFactory(event=event, category=None, **session_kwargs)
-            AgendaItemFactory(
-                session=session, space=space, start_time=start, end_time=end
+        with freeze_time(midday):
+            now = timezone.now()
+            EnrollmentConfig.objects.create(
+                event=event,
+                start_time=now - timedelta(days=1),
+                end_time=now + timedelta(days=5),
+                percentage_slots=100,
             )
-            session.refresh_from_db()
-            return session
-
-        plenty = scheduled(
-            start=day_one,
-            end=day_one + timedelta(hours=2),
-            participants_limit=10,
-            min_age=16,
-            duration="PT2H",
-        )
-        # Same slot as `plenty` — covers the append-to-existing-hour branch.
-        scarce = scheduled(
-            start=day_one,
-            end=day_one + timedelta(hours=1),
-            participants_limit=5,
-            min_age=0,
-        )
-        for _ in range(4):
-            SessionParticipation.objects.create(
-                session=scarce,
-                user=UserFactory(),
-                status=SessionParticipationStatus.CONFIRMED,
+            # A limit_to_end_time config marks ongoing sessions as "In Progress".
+            EnrollmentConfig.objects.create(
+                event=event,
+                start_time=now - timedelta(days=1),
+                end_time=now + timedelta(days=5),
+                percentage_slots=100,
+                limit_to_end_time=True,
             )
-        # Second slot on the same day — covers the append-to-existing-day branch.
-        unlimited = scheduled(
-            start=day_one + timedelta(hours=3),
-            end=day_one + timedelta(hours=4),
-            participants_limit=0,
-            min_age=0,
-        )
-        full = scheduled(
-            start=day_one + timedelta(days=1),
-            end=day_one + timedelta(days=1, hours=1),
-            participants_limit=2,
-            min_age=0,
-        )
-        for status in (
-            SessionParticipationStatus.CONFIRMED,
-            SessionParticipationStatus.CONFIRMED,
-            SessionParticipationStatus.WAITING,
-        ):
-            SessionParticipation.objects.create(
-                session=full, user=UserFactory(), status=status
+            # Two full days out so the local-date grouping can never collide with
+            # the ended/ongoing sessions, whatever the wall clock is at test time.
+            day_one = (now + timedelta(days=2)).replace(
+                hour=10, minute=0, second=0, microsecond=0
             )
-        ended = scheduled(
-            start=now - timedelta(hours=3),
-            end=now - timedelta(hours=2),
-            participants_limit=4,
-            min_age=0,
-        )
-        ongoing = scheduled(
-            start=now - timedelta(hours=1),
-            end=now + timedelta(hours=1),
-            participants_limit=4,
-            min_age=0,
-        )
-        game_type = SessionField.objects.create(
-            event=event,
-            name="Game Type",
-            question="Game Type",
-            slug="game-type",
-            field_type="select",
-            is_multiple=True,
-            is_public=True,
-            icon="puzzle-piece",
-        )
-        SessionFieldValue.objects.create(session=plenty, field=game_type, value=["RPG"])
-        event_settings, _ = EventSettings.objects.get_or_create(event=event)
-        event_settings.displayed_session_fields.add(game_type)
 
-        response = client.get(self._get_url(event.slug))
+            def scheduled(*, start, end, **session_kwargs):
+                session = SessionFactory(event=event, category=None, **session_kwargs)
+                AgendaItemFactory(
+                    session=session, space=space, start_time=start, end_time=end
+                )
+                session.refresh_from_db()
+                return session
+
+            plenty = scheduled(
+                start=day_one,
+                end=day_one + timedelta(hours=2),
+                participants_limit=10,
+                min_age=16,
+                duration="PT2H",
+            )
+            # Same slot as `plenty` — covers the append-to-existing-hour branch.
+            scarce = scheduled(
+                start=day_one,
+                end=day_one + timedelta(hours=1),
+                participants_limit=5,
+                min_age=0,
+            )
+            for _ in range(4):
+                SessionParticipation.objects.create(
+                    session=scarce,
+                    user=UserFactory(),
+                    status=SessionParticipationStatus.CONFIRMED,
+                )
+            # Second slot on the same day — covers the append-to-existing-day branch.
+            unlimited = scheduled(
+                start=day_one + timedelta(hours=3),
+                end=day_one + timedelta(hours=4),
+                participants_limit=0,
+                min_age=0,
+            )
+            full = scheduled(
+                start=day_one + timedelta(days=1),
+                end=day_one + timedelta(days=1, hours=1),
+                participants_limit=2,
+                min_age=0,
+            )
+            for status in (
+                SessionParticipationStatus.CONFIRMED,
+                SessionParticipationStatus.CONFIRMED,
+                SessionParticipationStatus.WAITING,
+            ):
+                SessionParticipation.objects.create(
+                    session=full, user=UserFactory(), status=status
+                )
+            ended = scheduled(
+                start=now - timedelta(hours=3),
+                end=now - timedelta(hours=2),
+                participants_limit=4,
+                min_age=0,
+            )
+            ongoing = scheduled(
+                start=now - timedelta(hours=1),
+                end=now + timedelta(hours=1),
+                participants_limit=4,
+                min_age=0,
+            )
+            game_type = SessionField.objects.create(
+                event=event,
+                name="Game Type",
+                question="Game Type",
+                slug="game-type",
+                field_type="select",
+                is_multiple=True,
+                is_public=True,
+                icon="puzzle-piece",
+            )
+            SessionFieldValue.objects.create(
+                session=plenty, field=game_type, value=["RPG"]
+            )
+            event_settings, _ = EventSettings.objects.get_or_create(event=event)
+            event_settings.displayed_session_fields.add(game_type)
+
+            response = client.get(self._get_url(event.slug))
 
         field_value_dto = SessionFieldValueDTO(
             allow_custom=False,
