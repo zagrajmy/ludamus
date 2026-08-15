@@ -235,7 +235,7 @@
                                     </thead>
                                     <tbody class="bg-bg-secondary divide-y divide-border">
                                         {% for proposal in proposals %}
-                                            <tr>
+                                            <tr class="hover:bg-bg-tertiary">
                                                 <td class="px-6 py-4">
                                                     {% blocktranslate asvar t_select_row with title=proposal.title %}Select {{ title }}{% endblocktranslate %}
                                                     {% include "components/checkbox-field.html" with name="proposal_ids" value=proposal.pk aria_label=t_select_row hook_class="bulk-row-checkbox" only %}
@@ -247,6 +247,7 @@
                                                             title="{{ value }}">
                                                             {% if forloop.first %}
                                                                 <a href="{% url 'panel:proposal-detail' slug=current_event.slug proposal_id=proposal.pk %}?next={{ request.get_full_path|urlencode }}"
+                                                                   data-row-action
                                                                    aria-label="{{ proposal.title }}"
                                                                    class="text-primary hover:text-primary/80">
                                                                     {% include "panel/parts/_proposal_cell.html" with column=column proposal=proposal value=value only %}

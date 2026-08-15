@@ -6,7 +6,7 @@ import ludamus.pacts.multiverse
 
 
 class Migration(migrations.Migration):
-    dependencies = [("db_main", "0141_eventpanelsettings_proposal_columns")]
+    dependencies = [("db_main", "0146_facilitator_is_collective")]
 
     operations = [
         # `sphere_managers` already exists — Django built it for the plain M2M,

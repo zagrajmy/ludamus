@@ -19,6 +19,7 @@ from ludamus.links.db.django.enrollment import (
 from ludamus.links.db.django.facilitator_change_log import (
     FacilitatorChangeLogRepository,
 )
+from ludamus.links.db.django.guild import GuildRepository
 from ludamus.links.db.django.notifications import NotificationReadRepository
 from ludamus.links.db.django.party import PartyRepository
 from ludamus.links.db.django.printables import PrintablesReminderRepository
@@ -59,6 +60,10 @@ class Repositories:
     @cached_property
     def claims(self) -> ClaimRepository:
         return ClaimRepository()
+
+    @cached_property
+    def guilds(self) -> GuildRepository:
+        return GuildRepository()
 
     @cached_property
     def parties(self) -> PartyRepository:

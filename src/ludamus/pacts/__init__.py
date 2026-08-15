@@ -1,3 +1,4 @@
+from ludamus.pacts.event import FacilitatorListItemDTO
 from ludamus.pacts.fields import (
     FieldAnswer,
     FieldDescriptor,
@@ -48,7 +49,6 @@ from ludamus.pacts.legacy import (
     FacilitatorChangeLogRepositoryProtocol,
     FacilitatorData,
     FacilitatorDTO,
-    FacilitatorListItemDTO,
     FacilitatorRepositoryProtocol,
     FacilitatorUpdateData,
     FieldUsageSummary,

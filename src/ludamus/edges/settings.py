@@ -353,7 +353,7 @@ INTERNAL_IPS = [
 # allows fonts.gstatic.com for the same reason: that stylesheet's
 # @font-face rules point at the actual font files there. img-src stays
 # broad because avatars come from arbitrary Auth0/gravatar HTTPS hosts
-# and media from GCS.
+# and media from GCS, plus blob: for the dropzone's object-URL preview.
 # No report-uri/report-to is configured: there is no violation-ingestion
 # endpoint yet (plan 007's Maintenance notes flagged this as deferred).
 # Violations that slip through can only be seen via browser devtools for
@@ -362,7 +362,7 @@ CSP_POLICY: dict[str, list[str]] = {
     "default-src": [CSP.SELF],
     "script-src": [CSP.SELF, CSP.NONCE],
     "style-src": [CSP.SELF, CSP.UNSAFE_INLINE, "https://fonts.googleapis.com"],
-    "img-src": [CSP.SELF, "data:", "https:"],
+    "img-src": [CSP.SELF, "data:", "blob:", "https:"],
     "font-src": [CSP.SELF, "https://fonts.gstatic.com"],
     "connect-src": [CSP.SELF],
     "object-src": [CSP.NONE],

@@ -16,7 +16,7 @@ from ludamus.gates.web.django.forms import (
     cover_image_field,
     validate_uploaded_image,
 )
-from ludamus.gates.web.django.templatetags.cfp_tags import format_duration
+from ludamus.pacts.durations import duration_choices
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -91,10 +91,9 @@ def build_session_details_form(
         "display_name": forms.CharField(label=_("Presenter name"), max_length=255),
     }
 
-    if durations:
-        duration_choices = [(d, format_duration(d)) for d in durations]
+    if choices := duration_choices(durations):
         fields["duration"] = forms.ChoiceField(
-            label=_("Duration"), choices=[("", "---"), *duration_choices]
+            label=_("Duration"), choices=[("", "---"), *choices]
         )
 
     custom_required = build_dynamic_fields(

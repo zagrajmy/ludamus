@@ -1,0 +1,41 @@
+{% comment %}
+The guild mark as a notch tucked into a presenter's avatar.
+
+Owns one decision: which corner the notch takes. The avatar's own warning badge
+(components/avatar.html, shown when the viewer has shadowbanned that person)
+sits in the bottom-right, so when it is present the notch takes the bottom-left.
+
+The notch mirrors that badge: `size-3.5` against the badge's `size-2.5` icon in
+`p-0.5`, both 14px squircles with the same knockout ring, so a flagged avatar
+reads as a matched pair rather than a disc beside a triangle.
+
+Both hang 5px off the avatar, sitting on its border rather than tucked inside
+it. Dead centre on that border is about 4px: the avatar is a squircle, so its
+edge at 45° runs closer to the middle than a circle's would — with the global
+`corner-shape: superellipse(1.8)` the exponent is 2**1.8 ≈ 3.48, putting that
+point at 2**(-1/3.48) ≈ 0.819 of the half-width, so centring a 14px box there
+wants an overhang of 7 - 0.181 * half-width, i.e. 4.1px on the card's `size-8`
+avatar and 3.7px on the modal's `size-9`. 5px is a pixel further out than that
+on purpose: dead centre, the knockout ring bites into the avatar enough to read
+as a notch cut out of it, and the extra pixel makes the decoration read as
+sitting on top instead. One value covers both avatar sizes.
+
+That overhang only renders if the row holding the avatar lets it: a row that
+clips its horizontal overflow shaves the left-hand notch, because its left edge
+sits on the avatar's. Rows that hold a notch bound their own contents instead of
+clipping — see the presenter row in _session_card.html.
+
+Surfaces that render the mark beside the name rather than on the avatar
+(_compact_session_row.html, _room_lane_tile.html) include guild_mark.html
+directly — there is no corner to contend for there.
+
+Variables:
+  guild    needs .name and .logo_url; renders nothing without a logo
+  flagged  the avatar is showing its warning badge
+  ring     knockout ring matching the surface behind the notch
+{% endcomment %}
+{% if flagged %}
+    {% include "components/guild_mark.html" with guild=guild size="size-3.5" extra_class="absolute -bottom-[5px] -left-[5px]" ring=ring %}
+{% else %}
+    {% include "components/guild_mark.html" with guild=guild size="size-3.5" extra_class="absolute -bottom-[5px] -right-[5px]" ring=ring %}
+{% endif %}

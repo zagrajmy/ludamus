@@ -1,11 +1,14 @@
 from datetime import datetime
 from decimal import Decimal
 from enum import StrEnum
-from typing import Protocol
+from typing import TYPE_CHECKING, Protocol
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from ludamus.pacts.legacy import FacilitatorDTO, FacilitatorListItemDTO
+from ludamus.pacts.event import FacilitatorListItemDTO
+
+if TYPE_CHECKING:
+    from ludamus.pacts.legacy import FacilitatorDTO
 
 
 class DiscountKind(StrEnum):

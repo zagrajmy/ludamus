@@ -8,7 +8,7 @@ from ludamus.pacts.multiverse import SphereRole
 from tests.integration.utils import assert_response
 from tests.integration.web.multiverse.helpers import (
     assert_not_a_sphere_manager,
-    sphere_panel_context,
+    sphere_settings_context,
 )
 
 
@@ -30,7 +30,7 @@ class TestCommsRoleOnSpherePanel:
             HTTPStatus.OK,
             template_name="multiverse/panel/announcements/list.html",
             context_data={
-                **sphere_panel_context(active_tab="announcements"),
+                **sphere_settings_context(active_tab="announcements"),
                 "announcements": [],
             },
         )

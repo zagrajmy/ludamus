@@ -28,10 +28,19 @@ from ludamus.gates.web.django.chronology.panel.views.base import (
     PanelRequest,
     import_tab_urls,
 )
+from ludamus.gates.web.django.event.panel.import_durations import (
+    OptionDuration,
+    duration_values_from_post,
+    option_durations,
+)
 from ludamus.mills.submissions.mapping import MissingKeyColumnsError, slugify
 from ludamus.pacts.chronology import IntegrationImplementationId, IntegrationKind
+from ludamus.pacts.durations import (
+    MAX_DURATION_HOURS,
+    MAX_DURATION_MINUTES,
+    InvalidDurationError,
+)
 from ludamus.pacts.submissions import (
-    DurationSpec,
     EntityRef,
     FieldDefinition,
     FieldDefinitions,
@@ -75,11 +84,6 @@ class OptionEntity(TypedDict):
     option: str
     name: str
     slug: str
-
-
-class OptionDuration(TypedDict):
-    option: str
-    iso: str
 
 
 class OverrideRow(TypedDict):
@@ -209,7 +213,7 @@ def _row(
         # track/category target.
         "option_windows": _option_windows(question, target),
         "option_entities": _option_entities(question, target),
-        "option_durations": _option_durations(question, target),
+        "option_durations": option_durations(question, target),
         "overrides": _override_rows(target),
         "catchall_name": target.catchall.name if target and target.catchall else "",
         "catchall_slug": target.catchall.slug if target and target.catchall else "",
@@ -388,22 +392,6 @@ def _option_entities(
     return rows
 
 
-def _option_durations(
-    question: SourceQuestion, target: QuestionTarget | None
-) -> list[OptionDuration]:
-    # One row per source option, pre-filled with the operator-typed ISO 8601
-    # duration so the (hidden) editor is ready the moment the row becomes a
-    # session-duration target. A blank ISO leaves that option unmapped: the
-    # importer then skips rows whose answer hits this option.
-    configured = target.values if target else {}
-    rows: list[OptionDuration] = []
-    for option in question.options:
-        spec = configured.get(option)
-        iso = spec.iso if isinstance(spec, DurationSpec) else ""
-        rows.append({"option": option, "iso": iso})
-    return rows
-
-
 def _override_rows(target: QuestionTarget | None) -> list[OverrideRow]:
     # One row per saved override, plus a single blank row so the (hidden)
     # editor is ready to fill the moment the operator opens it. Overrides are
@@ -459,6 +447,20 @@ def _definition_from_post(post: QueryDict, index: int) -> FieldDefinition:
     )
 
 
+def _store_definition(
+    *, settings: ImportSettings, target: QuestionTarget, post: QueryDict, index: int
+) -> None:
+    to = target.to or ""
+    if to.startswith("personal."):
+        settings.definitions.personal_fields[to.removeprefix("personal.")] = (
+            _definition_from_post(post, index)
+        )
+    elif to.startswith("field."):
+        settings.definitions.session_fields[to.removeprefix("field.")] = (
+            _definition_from_post(post, index)
+        )
+
+
 def _time_slot_values_from_post(
     post: QueryDict, index: int
 ) -> dict[str, QuestionValue]:
@@ -490,21 +492,6 @@ def _time_slot_values_from_post(
         for option, windows in grouped.items()
     }
     return result
-
-
-def _duration_values_from_post(post: QueryDict, index: int) -> dict[str, QuestionValue]:
-    # Per-option ISO duration rows submit parallel arrays; a blank ISO drops
-    # that option (its answers will be skipped at import time).
-    values: dict[str, QuestionValue] = {}
-    rows = zip(
-        post.getlist(f"droption_{index}"), post.getlist(f"driso_{index}"), strict=False
-    )
-    for option, iso in rows:
-        clean_iso = iso.strip()
-        if not (option and clean_iso):
-            continue
-        values[option] = DurationSpec(iso=clean_iso)
-    return values
 
 
 def _entity_map_from_post(
@@ -554,7 +541,7 @@ def _target_from_post(post: QueryDict, index: int) -> QuestionTarget:
     if choice == "session.duration":
         return QuestionTarget(
             to=choice,
-            values=_duration_values_from_post(post, index),
+            values=duration_values_from_post(post, index),
             overrides=overrides,
         )
     if choice.startswith("session.") or choice == "facilitator.display_name":
@@ -669,6 +656,8 @@ class EventImportReviewView(_ImportTabView):
             )
             settings = ImportSettings.model_validate_json(active.settings_json or "{}")
             context["session_columns"] = SESSION_COLUMNS
+            context["max_duration_hours"] = MAX_DURATION_HOURS
+            context["max_duration_minutes"] = MAX_DURATION_MINUTES
             context["rows"] = [
                 _row(
                     index=index,
@@ -718,28 +707,28 @@ class EventImportRowSaveView(PanelAccessMixin, EventContextMixin, View):
             return redirect("panel:import-review", slug=slug, pk=active.pk)
         index = int(raw_index)
         settings = ImportSettings.model_validate_json(active.settings_json or "{}")
-        target = _target_from_post(self.request.POST, index)
+        review_url = reverse(
+            "panel:import-review", kwargs={"slug": slug, "pk": active.pk}
+        )
+        try:
+            target = _target_from_post(self.request.POST, index)
+        except InvalidDurationError:
+            messages.error(
+                self.request,
+                _("Enter a length as whole hours (0-23) and minutes (0-59)."),
+            )
+            return redirect(f"{review_url}?edit={index}")
         target.confirmed = True
         settings.questions[question] = target
-        if target.to and target.to.startswith("personal."):
-            slug_part = target.to.removeprefix("personal.")
-            settings.definitions.personal_fields[slug_part] = _definition_from_post(
-                self.request.POST, index
-            )
-        elif target.to and target.to.startswith("field."):
-            slug_part = target.to.removeprefix("field.")
-            settings.definitions.session_fields[slug_part] = _definition_from_post(
-                self.request.POST, index
-            )
+        _store_definition(
+            settings=settings, target=target, post=self.request.POST, index=index
+        )
         self.request.services.event_integrations.save_settings(
             event_id=current_event.pk,
             pk=active.pk,
             settings_json=settings.model_dump_json(),
         )
         messages.success(self.request, _("Question saved."))
-        review_url = reverse(
-            "panel:import-review", kwargs={"slug": slug, "pk": active.pk}
-        )
         if self.request.POST.get("stay"):
             # "Just save" — operator is iterating on this question (typically
             # overrides) and wants to land back on the same edit view.

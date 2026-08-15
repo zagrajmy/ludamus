@@ -9,10 +9,10 @@ from ludamus.pacts.multiverse import AnnouncementDTO
 from tests.integration.utils import assert_login_required, assert_response
 from tests.integration.web.multiverse.helpers import (
     assert_not_a_sphere_manager,
-    sphere_panel_context,
+    sphere_settings_context,
 )
 
-ANNOUNCEMENTS_PANEL_CONTEXT = sphere_panel_context(active_tab="announcements")
+ANNOUNCEMENTS_PANEL_CONTEXT = sphere_settings_context(active_tab="announcements")
 
 
 class TestAnnouncementsPageView:

@@ -39,7 +39,7 @@ from ludamus.links.db.django.models import (
     UserEnrollmentConfig,
 )
 from ludamus.links.gravatar import gravatar_url
-from ludamus.mills.timeslots import local_day_windows
+from ludamus.mills.timeslots import interval_windows
 from ludamus.pacts import (
     AgendaItemDTO,
     LocationData,
@@ -501,8 +501,8 @@ class TestEventPageView:
                     (day_one, day_one + timedelta(hours=4)),
                     (day_one + timedelta(days=1), day_one + timedelta(days=1, hours=1)),
                 )
-                for window_start, __ in local_day_windows(
-                    start, end, timezone.get_current_timezone()
+                for window_start, __ in interval_windows(
+                    start=start, end=end, tz=timezone.get_current_timezone()
                 )
             }
         )
@@ -977,6 +977,48 @@ class TestEventPageView:
         assert "__category:RPG" in content
         assert "__category:Board games" in content
         assert "__track:Backstage" not in content
+
+    def test_schedule_hides_sessions_whose_every_track_is_private(
+        self, client, event, space
+    ):
+        public_track = Track.objects.create(
+            event=event, name="Main Hall", slug="main", is_public=True
+        )
+        private_track = Track.objects.create(
+            event=event, name="Backstage", slug="backstage", is_public=False
+        )
+        untracked = SessionFactory(event=event)
+        mixed = SessionFactory(event=event)
+        mixed.tracks.add(public_track, private_track)
+        private_only = SessionFactory(event=event)
+        private_only.tracks.add(private_track)
+        for session in (untracked, mixed, private_only):
+            AgendaItemFactory(session=session, space=space)
+
+        response = client.get(self._get_url(event.slug))
+
+        assert {card.session.pk for card in response.context_data["sessions"]} == {
+            untracked.pk,
+            mixed.pk,
+        }
+
+    @pytest.mark.usefixtures("panel_access_user")
+    def test_schedule_hides_private_tracks_from_panel_access_too(
+        self, authenticated_client, event, space
+    ):
+        event.publication_time = None
+        event.save()
+        private_track = Track.objects.create(
+            event=event, name="Backstage", slug="backstage", is_public=False
+        )
+        private_only = SessionFactory(event=event)
+        private_only.tracks.add(private_track)
+        AgendaItemFactory(session=private_only, space=space)
+
+        response = authenticated_client.get(self._get_url(event.slug))
+
+        assert response.status_code == HTTPStatus.OK
+        assert response.context_data["sessions"] == []
 
     def test_shows_event_cover_image(self, client, event):
         event.cover_image = SimpleUploadedFile(

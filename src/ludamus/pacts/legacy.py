@@ -23,6 +23,7 @@ if TYPE_CHECKING:
         UserDTO,
         UserRepositoryProtocol,
     )
+    from ludamus.pacts.event import FacilitatorListItemDTO
     from ludamus.pacts.multiverse import SphereRole
     from ludamus.pacts.services import ServicesProtocol
     from ludamus.pacts.submissions import FacilitatorListFilters
@@ -77,8 +78,10 @@ class FacilitatorDTO(BaseModel):
     accreditation_type: str
     display_name: str
     event_id: int
+    guild_id: int | None = None
     ident: str = ""
     internal_comment: str = ""
+    is_collective: bool = False
     organizer_id: int | None = None
     # Annotated by the single-facilitator reads, so a page showing the
     # organizer needs no second lookup. `create` and `update` return the row
@@ -94,6 +97,7 @@ class FacilitatorData(TypedDict, total=False):
     display_name: str
     event_id: int
     ident: str
+    is_collective: bool
     organizer_id: int | None
     slug: str
     user_id: int | None
@@ -102,23 +106,10 @@ class FacilitatorData(TypedDict, total=False):
 class FacilitatorUpdateData(TypedDict, total=False):
     accreditation_type: str
     display_name: str
+    guild_id: int | None
     internal_comment: str
+    is_collective: bool
     organizer_id: int | None
-    user_id: int | None
-
-
-class FacilitatorListItemDTO(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    accreditation_type: str
-    display_name: str
-    flagged_for_deletion: bool = False
-    organizer_id: int | None = None
-    # Annotated by `list_by_event`; null when nobody took the facilitator on.
-    organizer_name: str | None = None
-    pk: int
-    session_count: int
-    slug: str
     user_id: int | None
 
 
@@ -217,7 +208,6 @@ class SessionDTO(BaseModel):
 
     category_id: int | None
     contact_email: str
-    cover_image_url: str = ""
     creation_time: datetime
     description: str
     duration: str = ""
@@ -230,6 +220,8 @@ class SessionDTO(BaseModel):
     slug: str
     status: SessionStatus
     title: str
+    cover_image_url: str = ""
+    cover_image_original_name: str = ""
 
 
 class PendingSessionTimeSlotDTO(BaseModel):
@@ -453,10 +445,11 @@ class SphereDTO(BaseModel):
     allow_facilitator_session_edit: bool = True
     default_page: SpherePage
     enabled_pages: list[SpherePage]
-    logo_url: str = ""
     name: str
     pk: int
     site: SiteDTO
+    logo_url: str = ""
+    logo_original_name: str = ""
 
 
 class SphereUpdateData(TypedDict, total=False):
@@ -477,10 +470,8 @@ class EventDTO(BaseModel):
 
     allow_facilitator_session_edit: bool | None = None
     auto_confirm_sessions: bool = False
-    cover_image_url: str = ""
     description: str
     end_time: datetime
-    logo_url: str = ""
     name: str
     pk: int
     proposal_end_time: datetime | None
@@ -491,6 +482,10 @@ class EventDTO(BaseModel):
     start_time: datetime
     use_session_cover_placeholders: bool = False
     use_participants_label: bool = False
+    cover_image_url: str = ""
+    cover_image_original_name: str = ""
+    logo_url: str = ""
+    logo_original_name: str = ""
 
 
 class EventListItemDTO(BaseModel):
@@ -517,7 +512,6 @@ class EncounterDTO(BaseModel):
     description: str
     end_time: datetime | None
     game: str
-    header_image_url: str = ""
     max_participants: int
     pk: int
     place: str
@@ -525,6 +519,8 @@ class EncounterDTO(BaseModel):
     sphere_id: int
     start_time: datetime
     title: str
+    header_image_url: str = ""
+    header_image_original_name: str = ""
 
 
 class EncounterRSVPDTO(BaseModel):

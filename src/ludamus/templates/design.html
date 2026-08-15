@@ -114,6 +114,45 @@
                             </div>
                         </div>
                         <div class="relative bg-background pt-12 px-8 pb-8 min-h-48 flex items-center justify-center sm:col-span-2 lg:col-span-3">
+                            <code class="absolute top-3 left-3 text-xs text-foreground-muted">{% templatetag openblock %} tessera_table {% templatetag closeblock %} · data-row-action</code>
+                            <div class="w-full max-w-2xl">
+                                <p class="mb-4 text-sm text-foreground-muted">
+                                    {% blocktranslate %}A hoverable row's background follows the default action — Edit or Details. Mark that link with data-row-action. Delete and other controls stay their own targets.{% endblocktranslate %}
+                                </p>
+                                {% tessera_table %}
+                                    <caption class="sr-only">{% translate "Example guilds" %}</caption>
+                                    <thead class="bg-bg-tertiary">
+                                        <tr>
+                                            <th scope="col"
+                                                class="px-6 py-3 text-left text-xs font-semibold text-foreground tracking-wider">{% translate "Guild" %}</th>
+                                            <th scope="col"
+                                                class="px-6 py-3 text-right text-xs font-semibold text-foreground tracking-wider">{% translate "Actions" %}</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-border">
+                                        <tr class="hover:bg-bg-tertiary">
+                                            <td class="px-6 py-4 text-sm font-medium text-foreground">Topory</td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                                <a href="#edit"
+                                                   data-row-action
+                                                   class="text-primary hover:text-primary/80 mr-4">{% translate "Edit" %}</a>
+                                                <a href="#delete" class="text-danger hover:text-danger/80">{% translate "Delete" %}</a>
+                                            </td>
+                                        </tr>
+                                        <tr class="hover:bg-bg-tertiary">
+                                            <td class="px-6 py-4 text-sm font-medium text-foreground">Tol Calen</td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                                <a href="#edit"
+                                                   data-row-action
+                                                   class="text-primary hover:text-primary/80 mr-4">{% translate "Edit" %}</a>
+                                                <a href="#delete" class="text-danger hover:text-danger/80">{% translate "Delete" %}</a>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                {% endtessera_table %}
+                            </div>
+                        </div>
+                        <div class="relative bg-background pt-12 px-8 pb-8 min-h-48 flex items-center justify-center sm:col-span-2 lg:col-span-3">
                             <code class="absolute top-3 left-3 text-xs text-foreground-muted">.alert</code>
                             <div class="w-full max-w-2xl flex flex-col gap-4">
                                 {% translate "Saved successfully." as design_flash_success %}
