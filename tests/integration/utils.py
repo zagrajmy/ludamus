@@ -112,6 +112,13 @@ def assert_response(
             assert needle not in content, needle
 
 
+def assert_rendered(response: HttpResponse, template_name: str | list[str]) -> None:
+    # For tests whose subject is rendered markup rather than the context: the
+    # view's own test module asserts what it puts in the context.
+    assert response.status_code == HTTPStatus.OK, response.status_code
+    assert getattr(response, "template_name", None) == template_name
+
+
 def assert_login_required(response: HttpResponse, url: str) -> None:
     assert_response(
         response, HTTPStatus.FOUND, url=f"/crowd/login-required/?next={url}"

@@ -241,7 +241,10 @@ class TestPartyDetailPageView:
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data=response.context_data,
+            context_data=_context(
+                _party_dto(party, active_user, [_member_dto(active_user, party)]),
+                invite_token=party.invite_token,
+            ),
             template_name=TEMPLATE,
         )
         assert len(expanded_queries) == len(baseline_queries)

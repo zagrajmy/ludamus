@@ -1,12 +1,18 @@
 from http import HTTPStatus
+from unittest.mock import ANY
 
 import pytest
 from django.urls import reverse
 from zeal import zeal_ignore
 
+from ludamus.gates.web.django.chronology.enrollment_presentation import (
+    SessionUserParticipationData,
+)
 from ludamus.links.db.django.models import SessionParticipation
+from ludamus.pacts.crowd import UserDTO
 from tests.integration.conftest import UserFactory
 from tests.integration.utils import assert_response
+from tests.integration.web.chronology.test_session_enroll_page import _party_context
 
 
 def _event_url(slug: str) -> str:
@@ -18,6 +24,47 @@ def _enroll_url(session_id: int, event_slug: str) -> str:
         "web:chronology:session-enrollment",
         kwargs={"event_slug": event_slug, "session_id": session_id},
     )
+
+
+def _is_deniably_full(card):
+    # A pretend-full card has to be indistinguishable from a real full one: no
+    # spot left, and every seat taken by a simulacrum (negative pk).
+    return (
+        card.is_full
+        and card.spots_left == 0
+        and card.enrolled_count == card.effective_participants_limit
+        and all(seat.user.pk < 0 for seat in card.session_participations)
+    )
+
+
+# Matches a chronology context by how its cards are masked — the event page's
+# `sessions` and `hour_data`, or the session modal's `data`. test_event_page.py
+# and test_session_modal.py assert those contexts exhaustively.
+class MaskedCards:
+    def __init__(self, *, pretend_full: list[bool]) -> None:
+        self.pretend_full = pretend_full
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, dict):
+            return NotImplemented
+        if "data" in other:
+            cards = [other["data"]]
+        else:
+            cards = list(other.get("sessions", []))
+            hour_cards = [
+                card for hour in other.get("hour_data", {}).values() for card in hour
+            ]
+            if [card.pretend_full for card in hour_cards] != self.pretend_full:
+                return False
+        return [card.pretend_full for card in cards] == self.pretend_full and all(
+            _is_deniably_full(card) for card in cards if card.pretend_full
+        )
+
+    def __hash__(self) -> int:
+        return hash(tuple(self.pretend_full))
+
+    def __repr__(self) -> str:
+        return f"MaskedCards(pretend_full={self.pretend_full!r})"
 
 
 def _ban_viewer(agenda_item, viewer, *, username: str):
@@ -48,18 +95,10 @@ class TestShadowbanPretendFull:
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data=response.context_data,
+            context_data=MaskedCards(pretend_full=[True]),
             template_name=["chronology/event.html"],
             contains=["Deniable Game"],
         )
-        (card,) = response.context["sessions"]
-        assert card.pretend_full
-        assert card.is_full
-        assert card.spots_left == 0
-        assert card.enrolled_count == card.effective_participants_limit
-        assert all(p.user.pk < 0 for p in card.session_participations)
-        (hour_card,) = response.context["hour_data"][agenda_item.start_time]
-        assert hour_card.pretend_full
         # The "Session full" affordance renders in the lazy-loaded modal, which
         # applies the same shadowban masking for the banned viewer.
         modal = authenticated_client.get(
@@ -71,7 +110,7 @@ class TestShadowbanPretendFull:
         assert_response(
             modal,
             HTTPStatus.OK,
-            context_data=modal.context_data,
+            context_data=MaskedCards(pretend_full=[True]),
             template_name="chronology/parts/session-modal.html",
             contains="Session full",
         )
@@ -92,7 +131,7 @@ class TestShadowbanPretendFull:
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data=response.context_data,
+            context_data=MaskedCards(pretend_full=[False]),
             template_name=["chronology/event.html"],
             contains="Visible Game",
         )
@@ -110,7 +149,22 @@ class TestShadowbanPretendFull:
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data=response.context_data,
+            context_data={
+                **_party_context(active_user),
+                "companions": [],
+                "event": agenda_item.space.event,
+                "form": ANY,
+                "session": session,
+                "shadowban_warnings": [],
+                "user_data": [
+                    SessionUserParticipationData(
+                        user=UserDTO.model_validate(active_user),
+                        user_enrolled=False,
+                        user_waiting=False,
+                        has_time_conflict=False,
+                    )
+                ],
+            },
             template_name="chronology/enroll_select.html",
         )
         page_session = response.context["session"]

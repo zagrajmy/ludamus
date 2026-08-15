@@ -28,8 +28,10 @@ from tests.integration.web.panel.helpers import (
     assert_not_a_manager,
     assign_payload,
     empty_grid,
+    grid_with,
     make_timetable_session,
 )
+from tests.integration.web.panel.test_timetable import SLOT_MINUTES, _day_start
 
 
 class TestTimetableGridPartView:
@@ -98,19 +100,25 @@ class TestTimetableGridPartView:
             response,
             HTTPStatus.OK,
             template_name="panel/parts/timetable-grid.html",
-            context_data=response.context_data,
+            context_data={
+                "grid": grid_with(
+                    spaces=[space],
+                    day_start=_day_start(event),
+                    extra_days=1,
+                    total_minutes=SLOT_MINUTES,
+                ),
+                "filter_track_pk": None,
+                "date_selection": "all",
+                "slug": event.slug,
+            },
         )
-        context = response.context
-        assert context["date_selection"] == "all"
-        assert [day.date for day in context["grid"].days] == [
-            time_slot.start_time.date(),
-            second_slot.start_time.date(),
-        ]
+        assert second_slot.start_time.date() == time_slot.start_time.date() + timedelta(
+            days=1
+        )
         content = response.content.decode()
         expected_day_count = 2
         assert content.count('class="timetable-calendar ') == 1
         assert content.count('class="timetable-day-grid ') == expected_day_count
-        assert context["grid"].spaces[0].pk == space.pk
 
 
 class TestTimetableAssignView:
