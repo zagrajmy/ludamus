@@ -439,14 +439,8 @@ class TimetableService(TimetableServiceProtocol):
                 "placement must fit within an event time-slot window",
             )
 
-    def assign_session(
-        self,
-        *,
-        session_pk: int,
-        placement: SessionPlacement,
-        event_pk: int,
-        user_pk: int | None = None,
-    ) -> None:
+    @staticmethod
+    def _require_placeable(placement: SessionPlacement) -> None:
         if (
             placement.start_time.utcoffset() is None
             or placement.end_time.utcoffset() is None
@@ -460,6 +454,21 @@ class TimetableService(TimetableServiceProtocol):
                 PlacementRejection.END_NOT_AFTER_START,
                 "end_time must be after start_time",
             )
+
+    def _require_accepted(self, session_pk: int) -> None:
+        if self._repos.sessions.read(session_pk).status != SessionStatus.ACCEPTED:
+            msg = f"Session {session_pk} is not in ACCEPTED status"
+            raise PlacementRejectedError(PlacementRejection.SESSION_NOT_ACCEPTED, msg)
+
+    def assign_session(
+        self,
+        *,
+        session_pk: int,
+        placement: SessionPlacement,
+        event_pk: int,
+        user_pk: int | None = None,
+    ) -> None:
+        self._require_placeable(placement)
         with self._transaction.atomic():
             require_session_in_event(
                 sessions=self._repos.sessions, session_pk=session_pk, event_pk=event_pk
@@ -479,12 +488,7 @@ class TimetableService(TimetableServiceProtocol):
                 self.unassign_session(
                     session_pk=session_pk, event_pk=event_pk, user_pk=user_pk
                 )
-            session = self._repos.sessions.read(session_pk)
-            if session.status != SessionStatus.ACCEPTED:
-                msg = f"Session {session_pk} is not in ACCEPTED status"
-                raise PlacementRejectedError(
-                    PlacementRejection.SESSION_NOT_ACCEPTED, msg
-                )
+            self._require_accepted(session_pk)
             event = self._repos.sessions.read_event(session_pk)
             self._repos.agenda_items.create(
                 {
@@ -558,10 +562,16 @@ class TimetableService(TimetableServiceProtocol):
                 ):
                     msg = "Cannot revert UNASSIGN: missing original placement data"
                     raise ValueError(msg)
-                session = self._repos.sessions.read(log.session_id)
-                if session.status != SessionStatus.ACCEPTED:
-                    msg = f"Session {log.session_id} is not in ACCEPTED status"
-                    raise ValueError(msg)
+                restored = SessionPlacement(
+                    space_pk=log.old_space_id,
+                    start_time=log.old_start_time,
+                    end_time=log.old_end_time,
+                )
+                # Undo restores a placement that was legitimate when it was
+                # made, so the time-slot windows are not re-checked here: a
+                # window edited afterwards must not strand the change log.
+                self._require_placeable(restored)
+                self._require_accepted(log.session_id)
                 self._repos.agenda_items.create(
                     {
                         "session_id": log.session_id,

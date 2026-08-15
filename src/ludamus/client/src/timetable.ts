@@ -22,6 +22,8 @@ const banner = (): HTMLElement => document.getElementById("assign-mode-banner")!
 
 const filterBar = (): HTMLElement | null => document.getElementById("filter-bar");
 
+const REJECTED_PLACEMENT = 422;
+
 const grid = (): HTMLElement => document.getElementById("timetable-grid")!;
 
 const dayGrids = (): NodeListOf<HTMLElement> =>
@@ -259,14 +261,16 @@ function postPlacement(
         }
         return;
       }
-      // The view answers a rejected placement with the reason as plain text;
-      // a status code alone tells the organizer nothing they can act on.
+      // Only a rejected placement answers with a reason in plain text. Any
+      // other status carries a rendered error page, which must not reach alert().
       let reason = "";
-      try {
-        const text = await resp.text();
-        reason = text.trim();
-      } catch {
-        reason = "";
+      if (resp.status === REJECTED_PLACEMENT) {
+        try {
+          const text = await resp.text();
+          reason = text.trim();
+        } catch {
+          reason = "";
+        }
       }
       alert(reason || `Could not place session (server returned ${resp.status}).`);
       onFail();

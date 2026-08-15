@@ -216,3 +216,8 @@ If you fix a papercut, remove it.
   Any agent editing e.g. mills/timetable.py silently wipes its 76 explanatory
   comments; 108 were lost across one branch before anyone noticed. Bash-driven
   rewrites bypass it.
+- 2026-08-15: tests/integration/web/chronology/test_event_page.py::test_ok_compa
+  ct_schedule_renders_all_row_variants builds fixtures from timezone.now() and
+  its expected schedule_days stop matching once the local clock crosses a day
+  boundary. Fails on plain main from ~21:00 Europe/Warsaw; green on CI only
+  because runners are UTC.

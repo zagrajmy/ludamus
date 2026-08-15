@@ -259,18 +259,14 @@ class OrganizerCreateSpaceTool(Tool[_CreateSpaceInput]):
         return space.model_dump_json(indent=2)
 
 
-class _CreateTimeSlotInput(AwareDatetimeRange):
-    pass
-
-
-class OrganizerCreateTimeSlotTool(Tool[_CreateTimeSlotInput]):
+class OrganizerCreateTimeSlotTool(Tool[AwareDatetimeRange]):
     name = "create_time_slot"
     description = "Create a day time-slot window for this token's event."
     scope = ToolScope.ORGANIZER
-    input_model = _CreateTimeSlotInput
+    input_model = AwareDatetimeRange
 
     @staticmethod
-    def handle(call: ToolCall[_CreateTimeSlotInput]) -> str:
+    def handle(call: ToolCall[AwareDatetimeRange]) -> str:
         event = token_event(services=call.services, actor=call.actor)
         try:
             created = call.services.panel_time_slots.create(

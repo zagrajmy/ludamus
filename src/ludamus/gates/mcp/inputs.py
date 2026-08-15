@@ -12,10 +12,9 @@ class EmptyInput(BaseModel):
     pass
 
 
-def require_aware_datetime(value: datetime, *, field: str) -> datetime:
+def require_aware_datetime(value: datetime) -> datetime:
     if value.tzinfo is None or value.tzinfo.utcoffset(value) is None:
-        message = f"{field} must be timezone-aware"
-        raise ValueError(message)
+        raise ValueError("must be timezone-aware")
     return value
 
 
@@ -26,4 +25,4 @@ class AwareDatetimeRange(BaseModel):
     @field_validator("start_time", "end_time")
     @classmethod
     def _aware_datetimes(cls, value: datetime) -> datetime:
-        return require_aware_datetime(value, field="datetime")
+        return require_aware_datetime(value)

@@ -1,5 +1,5 @@
+from ludamus.links.db.django.facilitator import FacilitatorRepository
 from ludamus.links.db.django.models import Facilitator
-from ludamus.links.db.django.repositories.submissions import FacilitatorRepository
 from tests.integration.conftest import EventFactory, UserFactory
 
 

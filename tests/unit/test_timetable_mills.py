@@ -26,7 +26,11 @@ from ludamus.pacts.chronology import (
     SessionPlacement,
     TimetableGridFilter,
 )
-from ludamus.pacts.timetable import PlacementRejectedError, TimetableRepos
+from ludamus.pacts.timetable import (
+    PlacementRejectedError,
+    PlacementRejection,
+    TimetableRepos,
+)
 
 
 def _timetable_repos(uow) -> TimetableRepos:
@@ -542,6 +546,13 @@ class TestRevertChange:
     def mock_uow(self):
         uow = MagicMock()
         uow.schedule_change_logs.latest_pk_for_session.return_value = 1
+        uow.time_slots.list_by_event.return_value = [
+            TimeSlotDTO(
+                pk=1,
+                start_time=datetime(2026, 1, 1, 10, 0, tzinfo=UTC),
+                end_time=datetime(2026, 1, 1, 12, 0, tzinfo=UTC),
+            )
+        ]
         return uow
 
     @pytest.fixture
@@ -617,8 +628,11 @@ class TestRevertChange:
         session.status = SessionStatus.PENDING
         mock_uow.sessions.read.return_value = session
 
-        with pytest.raises(ValueError, match="is not in ACCEPTED status"):
+        with pytest.raises(PlacementRejectedError) as excinfo:
             service.revert_change(log_pk=1, event_pk=1)
+
+        assert excinfo.value.reason is PlacementRejection.SESSION_NOT_ACCEPTED
+        mock_uow.agenda_items.create.assert_not_called()
 
     def test_revert_unassign_restores_the_original_placement(self, service, mock_uow):
         log = MagicMock()

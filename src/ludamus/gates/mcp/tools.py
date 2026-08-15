@@ -326,14 +326,14 @@ class _CreateEventInput(_SphereInput):
     @field_validator("start_time", "end_time")
     @classmethod
     def _aware_event_datetimes(cls, value: datetime) -> datetime:
-        return require_aware_datetime(value, field="datetime")
+        return require_aware_datetime(value)
 
     @field_validator("publication_time")
     @classmethod
     def _aware_publication_time(cls, value: datetime | None) -> datetime | None:
         if value is None:
             return None
-        return require_aware_datetime(value, field="publication_time")
+        return require_aware_datetime(value)
 
 
 class CreateEventTool(Tool[_CreateEventInput]):

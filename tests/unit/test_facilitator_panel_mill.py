@@ -60,7 +60,6 @@ class FakeSettingsRepo:
 def _service(fields):
     repos = FacilitatorPanelRepos(
         events=MagicMock(),
-        facilitator_identities=MagicMock(),
         facilitators=FakeFacilitatorsRepo(),
         personal_data_fields=FakeFieldsRepo(fields),
         personal_data_field_values=object(),
@@ -150,7 +149,6 @@ def _merge_service(facilitators, fields=(), values=None):
     )
     repos = FacilitatorPanelRepos(
         events=MagicMock(),
-        facilitator_identities=MagicMock(),
         facilitators=facilitators_repo,
         personal_data_fields=FakeFieldsRepo(list(fields)),
         personal_data_field_values=values_repo,
@@ -533,7 +531,6 @@ class TestCreateFacilitator:
         )
         repos = FacilitatorPanelRepos(
             events=MagicMock(),
-            facilitator_identities=MagicMock(),
             facilitators=facilitators_repo,
             personal_data_fields=FakeFieldsRepo(list(fields)),
             personal_data_field_values=MagicMock(),
@@ -543,15 +540,13 @@ class TestCreateFacilitator:
             users=object(),
             guilds=MagicMock(),
         )
-        repos.facilitator_identities.find_by_event_and_display_name.return_value = None
+        repos.facilitators.find_by_event_and_display_name.return_value = None
         return FacilitatorPanelService(_FakeTransaction(), repos), repos
 
     def test_find_or_create_returns_exact_existing_facilitator_under_event_lock(self):
         service, repos = self._create_service()
         existing = SimpleNamespace(pk=9, display_name="Alice")
-        repos.facilitator_identities.find_by_event_and_display_name.return_value = (
-            existing
-        )
+        repos.facilitators.find_by_event_and_display_name.return_value = existing
 
         result = service.find_or_create_facilitator(
             event_id=10,
@@ -846,7 +841,6 @@ class FakeOrganizerRepo:
 def _organizer_service(facilitators):
     repos = FacilitatorPanelRepos(
         events=MagicMock(),
-        facilitator_identities=MagicMock(),
         facilitators=facilitators,
         personal_data_fields=FakeFieldsRepo([]),
         personal_data_field_values=object(),

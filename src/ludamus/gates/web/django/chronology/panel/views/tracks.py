@@ -100,7 +100,9 @@ class TrackCreatePageView(PanelAccessMixin, EventContextMixin, View):
                 data=_submitted_track_data(request=self.request, form=form),
             )
         except TrackSelectionInvalidError:
-            form.add_error(None, _("Choose spaces and managers from this event."))
+            form.add_error(
+                None, _("Choose spaces from this event and managers from this sphere.")
+            )
             return self._rerender_create_form(
                 context=context,
                 form=form,
@@ -187,7 +189,9 @@ class TrackEditPageView(PanelAccessMixin, EventContextMixin, View):
                 data=_submitted_track_data(request=self.request, form=form),
             )
         except TrackSelectionInvalidError:
-            form.add_error(None, _("Choose spaces and managers from this event."))
+            form.add_error(
+                None, _("Choose spaces from this event and managers from this sphere.")
+            )
             return self._rerender_edit_form(
                 context=context,
                 form=form,

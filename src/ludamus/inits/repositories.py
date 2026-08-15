@@ -16,7 +16,6 @@ from ludamus.links.db.django.enrollment import (
     EnrollmentWindowRepository,
     ParticipationPromotionRepository,
 )
-from ludamus.links.db.django.facilitator import FacilitatorIdentityRepository
 from ludamus.links.db.django.facilitator_change_log import (
     FacilitatorChangeLogRepository,
 )
@@ -36,10 +35,6 @@ class Repositories:
     specific repo protocols from this tree, not the tree itself. Buckets
     will appear when the leaf count grows past ~12.
     """
-
-    @cached_property
-    def facilitator_identities(self) -> FacilitatorIdentityRepository:
-        return FacilitatorIdentityRepository()
 
     @cached_property
     def personal_data_fields(self) -> repositories.PersonalDataFieldRepository:

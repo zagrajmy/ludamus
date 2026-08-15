@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
-from django.db import IntegrityError, transaction
+from django.db import IntegrityError
 from django.db.models import (
     Count,
     Exists,
@@ -62,7 +62,6 @@ from ludamus.pacts.chronology import (
     PartySessionSeatDTO,
     SessionCardStatsDTO,
 )
-from ludamus.pacts.event import EventSlugConflictError
 from ludamus.pacts.legacy import AgendaItemDTO, LocationData
 from ludamus.pacts.panel import (
     EventPanelSettingsDTO,
@@ -323,13 +322,14 @@ class EventRepository(EventRepositoryProtocol):
     @staticmethod
     def create(sphere_id: int, data: EventCreateData) -> EventDTO:
         try:
-            with transaction.atomic():
-                event = Event.objects.create(sphere_id=sphere_id, **data)
+            event = Event.objects.create(sphere_id=sphere_id, **data)
         except IntegrityError as error:
-            if Event.objects.filter(sphere_id=sphere_id, slug=data["slug"]).exists():
-                raise EventSlugConflictError from error
             raise DatabaseConstraintError from error
         return event_dto(event)
+
+    @staticmethod
+    def slug_exists(sphere_id: int, slug: str) -> bool:
+        return Event.objects.filter(sphere_id=sphere_id, slug=slug).exists()
 
     @staticmethod
     def update(event_id: int, data: EventUpdateData) -> None:

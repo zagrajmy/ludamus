@@ -1,3 +1,4 @@
+from ludamus.links.db.django.facilitator import FacilitatorRepository
 from ludamus.links.db.django.repositories.chronology import (
     EnrollmentConfigRepository,
     EventIntegrationsRepository,
@@ -21,7 +22,6 @@ from ludamus.links.db.django.repositories.sessions import SessionRepository
 from ludamus.links.db.django.repositories.storage import delete_stored_file
 from ludamus.links.db.django.repositories.submissions import (
     EventProposalSettingsRepository,
-    FacilitatorRepository,
     ImportLogEntryRepository,
     PersonalDataFieldRepository,
     PersonalDataFieldValueRepository,

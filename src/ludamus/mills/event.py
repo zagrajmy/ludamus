@@ -19,6 +19,7 @@ from ludamus.pacts.event import (
     EventPanelContextDTO,
     EventPanelServiceProtocol,
     EventPublicationInvalidError,
+    EventSlugConflictError,
     EventsRepositoryProtocol,
     EventsServiceProtocol,
 )
@@ -39,6 +40,7 @@ from ludamus.pacts.legacy import (
     SphereRepositoryProtocol,
     TrackRepositoryProtocol,
 )
+from ludamus.pacts.services import DatabaseConstraintError
 from ludamus.specs.confirmations import COUNTED_UNPLACED, SCHEDULED_STATUS, STATUS_ORDER
 
 if TYPE_CHECKING:
@@ -460,4 +462,10 @@ class EventsService(EventsServiceProtocol):
             raise EventPublicationInvalidError
         with self._transaction.atomic():
             self._spheres.read(sphere_id)
-            return self._events.create(sphere_id, data)
+            try:
+                with self._transaction.savepoint():
+                    return self._events.create(sphere_id, data)
+            except DatabaseConstraintError as error:
+                if self._events.slug_exists(sphere_id, data["slug"]):
+                    raise EventSlugConflictError from error
+                raise

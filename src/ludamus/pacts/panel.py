@@ -201,19 +201,11 @@ class FacilitatorPanelEventRepositoryProtocol(EventRepositoryProtocol, Protocol)
     def lock(event_id: int) -> None: ...
 
 
-class FacilitatorIdentityRepositoryProtocol(Protocol):
-    @staticmethod
-    def find_by_event_and_display_name(
-        event_id: int, display_name: str
-    ) -> FacilitatorDTO | None: ...
-
-
 @dataclass
 class FacilitatorPanelRepos:  # pylint: disable=too-many-instance-attributes
     """The repos the panel's facilitator list reads and writes through."""
 
     events: FacilitatorPanelEventRepositoryProtocol
-    facilitator_identities: FacilitatorIdentityRepositoryProtocol
     facilitators: FacilitatorRepositoryProtocol
     personal_data_fields: PersonalDataFieldRepositoryProtocol
     personal_data_field_values: PersonalDataFieldValueRepositoryProtocol

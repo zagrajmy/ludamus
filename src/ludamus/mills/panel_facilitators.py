@@ -468,10 +468,8 @@ class FacilitatorPanelService(FacilitatorPanelServiceProtocol):
     ) -> FacilitatorDTO:
         with self._transaction.atomic():
             self._repos.events.lock(event_id)
-            existing = (
-                self._repos.facilitator_identities.find_by_event_and_display_name(
-                    event_id, data.display_name
-                )
+            existing = self._repos.facilitators.find_by_event_and_display_name(
+                event_id, data.display_name
             )
             if existing is not None:
                 return existing

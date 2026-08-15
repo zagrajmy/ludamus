@@ -96,6 +96,15 @@ def _as_pk(raw: str) -> int | None:
 _FACILITATOR_OPTION_LIMIT = 25
 
 
+def _rejection_response(error: PlacementRejectedError) -> HttpResponse:
+    # Plain text: the client shows this body verbatim to the organizer.
+    return HttpResponse(
+        _placement_rejection_message(error),
+        status=422,
+        content_type="text/plain; charset=utf-8",
+    )
+
+
 def _placement_rejection_message(error: PlacementRejectedError) -> str:
     if error.reason is PlacementRejection.OUTSIDE_TIME_SLOTS:
         return _("Place the session inside one of the event's time slots.")
@@ -500,7 +509,7 @@ class TimetableAssignView(PanelAccessMixin, EventContextMixin, View):
                 user_pk=self.request.user.pk,
             )
         except PlacementRejectedError as error:
-            return HttpResponse(_placement_rejection_message(error), status=422)
+            return _rejection_response(error)
         except NotFoundError:
             return HttpResponse(status=422)
 
@@ -693,6 +702,8 @@ class TimetableRevertView(PanelAccessMixin, EventContextMixin, View):
             self.request.services.timetable.revert_change(
                 log_pk=log_pk, event_pk=current_event.pk, user_pk=self.request.user.pk
             )
+        except PlacementRejectedError as error:
+            return _rejection_response(error)
         except ValueError, NotFoundError:
             return HttpResponse(status=422)
 
