@@ -1,0 +1,637 @@
+"""Nighttime pull request maintenance, in two passes.
+
+    vekna cast pr_refresh [--bound N]
+    vekna cast pr_cover [--bound N]
+
+Every pull request you have open is taken in turn, oldest-modified first, and
+both passes take a branch the same way: the base branch is merged in, conflicts
+are resolved, the work is pushed, and the report says how each branch ended.
+
+``pr_refresh`` is the fast one, and it is the one to run over everything: it
+merges the base in and makes ``mise run pr-fix`` green — lint, types, the unit
+suite — with no browser and no coverage measurement anywhere in it. Then it
+posts the quality review, unless the branch already carries ``pr::thermo``.
+A branch the merge brought nothing to, and whose lint and test jobs CI is happy
+with, skips the gate: the server has run it over that tree already.
+
+Neither gate is re-run whole while a repair is underway. Where mise names the
+task that broke, the next round runs that task alone, and the gate itself runs
+once more when it comes back green — which is also what keeps the installs at
+the head of ``pr-fix`` to one pass per branch rather than one per attempt.
+
+``pr_cover`` is the slow one, and it asks before it spends: it reads what CI
+made of the branch and, where codecov or the test job is unhappy, runs
+``mise run diff-cover`` — the unit suite, the e2e suite, then the diff coverage
+report — writes the tests for what the branch left uncovered, and repairs the
+suite where it is the suite that is broken. Between rounds it re-measures with
+``mise run test:py:cov:diff``, which is the same report without the browser;
+the full one runs again at the end, and that is the one that counts. A pull
+request whose coverage and tests are green on the server is merged, pushed and
+left. It posts no review: the fast pass runs first and that one is where the
+review comes from.
+
+A branch is left alone rather than reported broken when the checkout will not go
+through, which is what another worktree standing on it looks like. Nothing was
+touched, so there is nothing to fix, and the pass moves on to the next pull
+request. Checking out the base branch is not the same thing — nothing below it
+can run at all — so that one still ends the run.
+
+What neither pass does is read the review one of them posted. Answering one is
+somebody's decision and this runs at 3am with nobody to ask, so every action
+item stays an open thread and ``pr_review`` goes through them with you in the
+morning.
+
+The push comes before the review: an inline comment has to anchor to a line of
+the pull request's diff, and GitHub answers 422 on a line that exists only in
+this clone. A review of unpushed work loses half its comments to the fallback.
+
+A branch the gates would not go green on is still reviewed. It stands down
+rather than stopping: the worktree is released, so the reading happens on the
+last commit that was any good, and then it is reviewed like any other before
+being reported blocked. This is not a gate and does not try to fail fast — an
+hour more spent is worth a pull request read properly. The slow pass stands a
+branch down the same way and reviews nothing, as it never does.
+
+A pull request labelled ``pr::wait`` is left alone entirely: it is dropped at
+the listing, so nothing checks it out and it appears nowhere in the report.
+That is how you park a branch for a night — or for a month — without closing
+it.
+
+The review is one inline comment per action item, anchored to the code it is
+about, and the branch is labelled ``pr::thermo`` once it is posted. That label
+is the only thing standing between a branch and another review: drop it after
+changing the branch meaningfully, and the next run reviews it again.
+
+A blocked branch's review is provisional, and the label goes on all the same.
+The code it read is by construction about to change — you fix the gate in the
+morning, and that is a meaningful change, so this is one of the times to take
+the label off. It is kept rather than withheld because a branch that stays red
+for a week would otherwise be reviewed from scratch every night of it.
+
+Both run unattended, so they ask you nothing. That is a deliberate break with the
+usual bargain, where spending another agent attempt is a ``decide``: at 3am a
+prompt is a hang, so the budgets below take that decision instead. Agents still
+work permissively inside a step, and what holds them is still the step boundary
+— a gate is green or it is not, a budget is spent or it is not.
+
+Two things end the whole run rather than one branch: a worktree that is not
+clean, and an agent that dies mid-flight (a spent token budget, a killed CLI).
+Both still print the report first, then fail the cast.
+
+Budgets are per step and per branch: a step may be retried ``--bound`` times,
+going green clears its count, and moving to the next pull request clears them
+all. A step that runs out stops trying to fix that pull request only: the
+worktree is released, the branch stands down into the reading above, and it is
+reported blocked. A verdict a step already gave up on once is not paid for
+twice — the next branch whose gate says the same thing stands down without
+spending its budget on an answer this run already has.
+"""
+
+from pydantic import ValidationError
+from vekna.folio.shell import shell
+from vekna.lexicon import RitualError, Transition, done, emit_delta, goto, ritual, step
+
+from .agent import ask, cover_gap, fix_gates, resolve, thermo
+from .shell import (
+    CONTINUE_MERGE,
+    COVERAGE,
+    FAST_COVERAGE,
+    LIST,
+    MISSING,
+    PR_FIX,
+    REMOTE,
+    STASHED,
+    STATUS,
+    ahead,
+    already_seen,
+    checkout,
+    checks,
+    commit,
+    coverage_report,
+    gates_green,
+    label,
+    narrowed,
+    plain,
+    push,
+    quoted,
+    release,
+    said,
+    stash_name,
+    verdict,
+    wanted,
+    wants_cover,
+)
+from .state import (
+    THERMO_LABEL,
+    Checked,
+    Closed,
+    Labels,
+    PrSweep,
+    Run,
+    Work,
+    abandoned,
+    charged,
+    cleared,
+    exhausted,
+    joined,
+    report_card,
+    run_with,
+    spent,
+    summary,
+    telling,
+    unreadable,
+    work_with,
+)
+
+# The backstop, not the control — the per-step bounds are. Six pull requests
+# through ~9 steps each, with three repair loops that may each burn two turns
+# per `--bound` — the narrow task and the gate confirming it — comes to a little
+# over 200 at the maximum bound; this sits above that, because tripping it costs
+# the report as well as the run.
+_MAX_STEPS = 240
+
+
+@ritual("pr_refresh", max_steps=_MAX_STEPS)
+def pr_refresh(components: PrSweep) -> Transition:
+    """Merge the base in, make `pr-fix` green, push, review."""
+    return goto(list_prs, Run(bound=components.bound, mode="refresh"))
+
+
+@ritual("pr_cover", max_steps=_MAX_STEPS)
+def pr_cover(components: PrSweep) -> Transition:
+    """Where CI is unhappy about coverage or tests, close the gap."""
+    return goto(list_prs, Run(bound=components.bound, mode="cover"))
+
+
+@step
+async def list_prs(run: Run) -> Transition:
+    """Ask gh what is open, and queue what the night will take."""
+    # `gh`, not an agent holding a fetch tool: it reads private repositories,
+    # returns JSON, and listing needs no judgement.
+    listed = await shell(LIST, stream=False)
+    if listed.exit_code:
+        reason = f"gh could not list your pull requests: {listed.stderr.strip()}"
+        return goto(report, run_with(run, stopped=reason))
+    try:
+        queue = wanted(listed.stdout)
+    except ValidationError as error:
+        return goto(report, run_with(run, stopped=unreadable(error)))
+    return goto(next_pr, run_with(run, queue=queue))
+
+
+@step
+def next_pr(run: Run) -> Transition:
+    if not run.queue:
+        return goto(report, run)
+    pull, *rest = run.queue
+    # A fresh Work per pull request, so no budget survives the branch change.
+    return goto(check_clean, Work(run=run_with(run, queue=rest), pr=pull))
+
+
+@step
+async def check_clean(work: Work) -> Transition:
+    status = await shell(STATUS, stream=False)
+    if status.exit_code:
+        return goto(report, abandoned(work, f"git status failed: {said(status)}"))
+    if dirty := status.stdout.strip():
+        # Fatal by design: everything below this line moves branches around, and
+        # doing that over someone's uncommitted work is how it gets lost.
+        return goto(report, abandoned(work, f"the worktree is not clean:\n{dirty}"))
+    return goto(sync_branch, work)
+
+
+@step
+async def sync_branch(work: Work) -> Transition:
+    """Update the base branch, then stand on the branch as the remote has it."""
+    pull = work.pr
+    synced = await shell(
+        f"git fetch --prune {REMOTE} && {checkout(pull.base)}"
+        f" && git pull --ff-only {REMOTE} {quoted(pull.base)}"
+    )
+    if synced.exit_code:
+        reason = f"could not update {pull.base}: {said(synced)}"
+        return goto(report, abandoned(work, reason))
+    # On its own rather than chained to the merge below, because the two
+    # failures are different answers: a checkout that will not go through is
+    # another worktree standing on the branch, and that is nobody's fault and
+    # nothing to fix.
+    taken = await shell(checkout(pull.branch))
+    if taken.exit_code:
+        return goto(
+            skip_pr, work_with(work, note=f"could not take the branch: {said(taken)}")
+        )
+    # `merge --ff-only`, never `reset --hard`: a branch this ritual worked on
+    # last night carries commits the remote has not seen, and they are the whole
+    # point of the report. A branch that has genuinely diverged stops here.
+    caught_up = await shell(f"git merge --ff-only {quoted(f'{REMOTE}/{pull.branch}')}")
+    if caught_up.exit_code:
+        return goto(
+            set_aside,
+            work_with(
+                work, note=f"could not catch up with the remote: {said(caught_up)}"
+            ),
+        )
+    return goto(merge_base, work)
+
+
+@step
+async def merge_base(work: Work) -> Transition:
+    """Merge the base in, and say whether it brought anything with it."""
+    # Asked before the merge rather than read off it afterwards: git says
+    # "Already up to date" in whatever language the terminal is set to, and a
+    # base already contained in this branch is the same answer in every one.
+    # What it buys is `take_pass` below — a tree CI has already graded.
+    contained = await shell(
+        f"git merge-base --is-ancestor {quoted(work.pr.base)} HEAD", stream=False
+    )
+    merged = await shell(f"git merge --no-edit {quoted(work.pr.base)}")
+    if merged.exit_code == 0:
+        return goto(take_pass, work_with(work, unchanged=contained.exit_code == 0))
+    # The index is read once, by the step below, which has to read it after
+    # every agent round anyway. What this carries there is why the merge failed,
+    # for the one case that is not a conflict at all.
+    return goto(
+        resolve_conflicts,
+        work_with(work, merging=True, note=f"git merge failed: {said(merged)}"),
+    )
+
+
+@step
+async def resolve_conflicts(work: Work) -> Transition:
+    """Hand the conflicted files to an agent until the index comes back clean."""
+    unmerged = await shell("git diff --name-only --diff-filter=U", stream=False)
+    if not unmerged.stdout.strip():
+        # Nothing conflicted and nothing tried yet: the merge failed for a
+        # reason no agent can fix — a stale index lock, a missing ref — and the
+        # note `merge_base` handed over says which.
+        if not spent(work, resolve_conflicts.name):
+            return goto(set_aside, work_with(work, note=f"no conflicts: {work.note}"))
+        return goto(
+            take_pass, cleared(work_with(work, note=""), resolve_conflicts.name)
+        )
+    if exhausted(work, resolve_conflicts.name):
+        return goto(
+            stand_down, work_with(work, reason="the merge conflicts were not resolved")
+        )
+    if fallen := await ask(
+        resolve(base=work.pr.base, branch=work.pr.branch, files=unmerged.stdout),
+        key=f"merge-{work.pr.number}",
+    ):
+        return goto(report, abandoned(work, fallen.reason))
+    # Back through this same step, which re-reads git rather than believing the
+    # agent: what decides whether the conflict is gone is the index. The note
+    # goes now: past here the merge failing is just what a conflict looks like,
+    # and the row is not to be told about it twice.
+    return goto(
+        resolve_conflicts, charged(work_with(work, note=""), resolve_conflicts.name)
+    )
+
+
+# The first of the three places the two passes part, and the one that decides
+# the rest — `finish_merge` sends the slow pass to its own gate, `push_work`
+# keeps the review to the fast one. Everything above takes a branch, and takes
+# it the same way whichever cast this is; everything below is what the pass came
+# to do. The fast one owes `pr-fix` green before it commits the merge, and the
+# slow one owes nothing there — its own gate runs the unit suite anyway, so
+# running `pr-fix` first would run it twice for one answer.
+# The fast one also owes nothing where the merge brought nothing in and CI's own
+# lint and test jobs are green: that is the same tree the server already ran the
+# gate over, and running it again spends an hour arriving at the answer it is
+# being handed. A red job anywhere else on the board is not that answer — it
+# says nothing about `pr-fix` and buys no hour here. The same bargain `check_ci`
+# makes below, on the night's other expensive gate — and the reason to run this
+# pass over everything every night rather than only over what moved.
+@step
+async def take_pass(work: Work) -> Transition:
+    if work.run.mode != "refresh":
+        return goto(finish_merge, work)
+    if work.unchanged:
+        asked = await shell(checks(work.pr.number), stream=False)
+        if gates_green(asked.stdout):
+            return goto(
+                finish_merge,
+                work_with(work, note="nothing to merge, and CI ran the gate green"),
+            )
+    return goto(gate_check, work)
+
+
+@step
+async def gate_check(work: Work) -> Transition:
+    """Run the gate, and repair it until it is green or the budget is gone."""
+    # The task that broke last time round, where mise named one: an agent
+    # working on `lint:mypy` is judged by `lint:mypy`, not by three package
+    # installs and a formatter run in front of it.
+    gate = work.gate or PR_FIX
+    # Captured rather than streamed, and run `plain`: what comes back here is
+    # read twice over — once by an agent, once by you in the morning — and a
+    # terminal recording is neither.
+    gates = await shell(plain(gate), stream=False)
+    if gates.exit_code == 0:
+        # A task passing on its own is not the gate passing — it is the reason
+        # to spend the gate. The whole chain runs once more, and that run is
+        # what lands the branch.
+        if gate != PR_FIX:
+            return goto(gate_check, work_with(work, gate=""))
+        return goto(finish_merge, cleared(work_with(work, gate=""), gate_check.name))
+    said_now = verdict(gates)
+    # Asked before the first repair and not after, so this reads "the branch
+    # arrived broken the same way", never "the agent failed to fix it twice".
+    if not spent(work, gate_check.name) and already_seen(said_now, work.run.seen):
+        return goto(
+            stand_down,
+            work_with(work, reason=f"`{gate}` is red as it already was:\n{said_now}"),
+        )
+    if exhausted(work, gate_check.name):
+        return goto(
+            stand_down,
+            work_with(
+                work,
+                reason=f"`{gate}` is still red:\n{said_now}",
+                run=run_with(work.run, seen=[*work.run.seen, said_now]),
+            ),
+        )
+    if fallen := await ask(
+        fix_gates(said(gates), gate=gate), key=f"gates-{work.pr.number}"
+    ):
+        return goto(report, abandoned(work, fallen.reason))
+    return goto(
+        gate_check, charged(work_with(work, gate=narrowed(gates)), gate_check.name)
+    )
+
+
+@step
+async def finish_merge(work: Work) -> Transition:
+    """Close an open merge and commit whatever the repairs left behind."""
+    if work.merging:
+        continued = await shell(CONTINUE_MERGE)
+        if continued.exit_code:
+            return goto(
+                set_aside,
+                work_with(work, note=f"could not finish the merge: {said(continued)}"),
+            )
+    # A clean merge leaves the gate repairs uncommitted, and a merge the agent
+    # committed itself leaves them behind too. Either way this is where they
+    # land — and it is a no-op when there is nothing to land.
+    landed = await shell(commit(f"chore: merge {work.pr.base} and fix the gates"))
+    if landed.exit_code:
+        return goto(
+            set_aside,
+            work_with(work, note=f"could not commit the merge: {said(landed)}"),
+        )
+    merged = work_with(work, merging=False)
+    # Coverage runs on this side of the merge and the gate on the other: what
+    # `pr-fix` repairs belongs in the merge commit above, while the tests `cover`
+    # writes are a commit of their own and cannot be made with a merge still
+    # open.
+    if work.run.mode == "cover":
+        return goto(check_ci, merged)
+    return goto(push_work, merged)
+
+
+# Asked of the pull request rather than measured here, because measuring is the
+# hour this pass is trying not to spend: codecov and the test job have already
+# run the suite on the server, and a branch they are both happy with has nothing
+# for the coverage gate to find. Anything less than a clear yes — a check that
+# has not reported, a listing gh would not give — buys the run rather than the
+# skip, since not knowing is the reason this ritual exists.
+@step
+async def check_ci(work: Work) -> Transition:
+    """Ask CI whether this branch is worth the slow gate."""
+    asked = await shell(checks(work.pr.number), stream=False)
+    if wants_cover(asked.stdout):
+        return goto(cover, work)
+    return goto(
+        push_work, work_with(work, note="codecov and the test job are green on CI")
+    )
+
+
+@step
+async def cover(work: Work) -> Transition:
+    """Close the coverage gap, repairing a red suite like any other gate."""
+    # The first measurement is the whole thing, because it is the one that
+    # decides whether there is a gap at all. What a repair round re-runs is the
+    # browserless half, or the single task that broke — an agent that has just
+    # written three unit tests does not need a Playwright boot to find out.
+    gate = work.gate or COVERAGE
+    measured = await shell(plain(gate), stream=False)
+    output = coverage_report(measured)
+    missing = MISSING in output
+    if not missing and measured.exit_code == 0:
+        # Anything but the full measurement is a reason to spend the full
+        # measurement, not a branch that is covered: this one leaves the e2e
+        # suite's coverage out, and the record is the run that counts it.
+        if gate != COVERAGE:
+            return goto(cover, work_with(work, gate=""))
+        # Only where tests were actually written: most branches pass here first
+        # time, and a commit rite that can never commit anything is noise in the
+        # tree.
+        if spent(work, cover.name):
+            landed = await shell(commit("test: cover the lines this branch changes"))
+            if landed.exit_code:
+                return goto(
+                    set_aside,
+                    work_with(work, note=f"could not commit the tests: {said(landed)}"),
+                )
+        return goto(push_work, cleared(work_with(work, gate=""), cover.name))
+    said_now = verdict(measured)
+    # Two different jobs down one budget, because they are the same step going
+    # round: lines this branch left uncovered are written up as tests, and a
+    # suite that will not pass at all is repaired like any other red gate — it
+    # names no missing lines, which is not the coverage tool failing.
+    # Which of the two this is decides four things, so it is asked once here and
+    # the branches below read straight. Only a red suite is worth remembering
+    # across the night: what lines a branch left uncovered is that branch's own
+    # business, and two of them missing lines in the same file look identical
+    # from here. A suite that will not pass is the thing that repeats.
+    if missing:
+        left = "still reports missing lines"
+        asking = cover_gap(output, partial=gate != COVERAGE)
+        run = work.run
+        # Lines are re-measured without the browser: what an agent writes here
+        # is a test, and the suite that runs it is the one this measures.
+        next_gate = FAST_COVERAGE
+    else:
+        left = "is still red"
+        asking = fix_gates(said(measured), gate=gate)
+        run = run_with(work.run, seen=[*work.run.seen, said_now])
+        # A suite that will not run is repaired against the task that would not
+        # run, where mise named one.
+        next_gate = narrowed(measured) or FAST_COVERAGE
+    # Against what the run knew on the way in, never `run` above: that one has
+    # this verdict in it already and would recognise nothing but itself.
+    if (
+        not missing
+        and not spent(work, cover.name)
+        and already_seen(said_now, work.run.seen)
+    ):
+        return goto(
+            stand_down,
+            work_with(work, reason=f"`{gate}` failed as it already did:\n{said_now}"),
+        )
+    if exhausted(work, cover.name):
+        return goto(
+            stand_down, work_with(work, reason=f"`{gate}` {left}:\n{said_now}", run=run)
+        )
+    if fallen := await ask(asking, key=f"cover-{work.pr.number}"):
+        return goto(report, abandoned(work, fallen.reason))
+    return goto(cover, charged(work_with(work, gate=next_gate), cover.name))
+
+
+# Not fatal, and not `set_aside`: a push that will not go through — someone
+# else's commit on the branch, a network that is gone — costs the review its
+# anchors and nothing else, and that is worth more than a branch dropped for the
+# night. What is left behind is said twice over: in this note, and in the row's
+# `unpushed`, counted off git at the end whoever left it there.
+@step
+async def push_work(work: Work) -> Transition:
+    pushed = await shell(push(work.pr.branch))
+    if pushed.exit_code:
+        left = f"could not push: {said(pushed)}"
+        work = work_with(work, note=joined(work.note, left))
+    # The review belongs to the fast pass, which runs first and over everything.
+    # A branch reaching the slow one already carries whatever review it is going
+    # to get, and a second one on the same code is a thread you have to close by
+    # hand for nothing.
+    if work.run.mode == "cover":
+        return goto(finish_pr, _ended(work))
+    return goto(quality_review, work)
+
+
+# What the review says is not the night's to have an opinion about — the outcome
+# is the gates' answer, and `pr_review` answers the review.
+def _ended(work: Work) -> Closed:
+    return Closed(work=work, outcome="blocked" if work.blocked else "green")
+
+
+# The one step with no budget and no loop, because there is nothing here to
+# retry against. The other three read back what the agent did — the index, the
+# gate, the coverage report — and go round again while it is still wrong. What
+# this step would read back is the review it just asked for, and an agent that
+# posted nothing at all is indistinguishable from one that found nothing to
+# post. So the label goes on unconditionally, and a review that came out empty
+# is yours to notice and ask for again by taking it off.
+@step
+async def quality_review(work: Work) -> Transition:
+    """Post the review, unless the branch already carries the label."""
+    seen = await shell(f"gh pr view {work.pr.number} --json labels", stream=False)
+    if seen.exit_code:
+        return goto(
+            set_aside,
+            work_with(
+                work, note=f"gh could not read the labels: {seen.stderr.strip()}"
+            ),
+        )
+    try:
+        labels = Labels.model_validate_json(seen.stdout)
+    except ValidationError as error:
+        unread = f"gh returned labels this could not read: {error}"
+        return goto(set_aside, work_with(work, note=unread))
+    # An earlier night's review, which is not this night's work to label.
+    if any(one.name == THERMO_LABEL for one in labels.labels):
+        return goto(finish_pr, _ended(work))
+    if fallen := await ask(
+        thermo(number=work.pr.number, base=work.pr.base, reason=work.reason),
+        key=f"review-{work.pr.number}",
+    ):
+        return goto(report, abandoned(work, fallen.reason))
+    marked = await shell(label(THERMO_LABEL, number=work.pr.number))
+    if marked.exit_code:
+        reason = f"could not label the review just posted: {said(marked)}"
+        return goto(set_aside, work_with(work, note=reason))
+    return goto(finish_pr, _ended(work))
+
+
+@step
+async def finish_pr(closed: Closed) -> Transition:
+    """Write the branch's row into the run, and go on to the next one."""
+    work = closed.work
+    row = Checked(
+        number=work.pr.number,
+        branch=work.pr.branch,
+        url=work.pr.url,
+        outcome=closed.outcome,
+        # Asked of git rather than tracked in the payload: what needs pushing is
+        # what origin has not got, whoever put it there.
+        unpushed=await ahead(work.pr.branch),
+        note=telling(work),
+    )
+    run = work.run
+    return goto(next_pr, run_with(run, checked=[*run.checked, row]))
+
+
+# What comes back is this act's own bookkeeping and nothing else — the callers
+# join it to whatever else the row is carrying.
+async def _released(work: Work) -> str:
+    released = await shell(release(work.pr.branch))
+    if released.exit_code:
+        return f"the worktree could not be released: {said(released)}"
+    if released.stdout.strip() == STASHED:
+        return f'stashed as "{stash_name(work.pr.branch)}"'
+    return ""
+
+
+# A branch that will not go green is not a branch that cannot be read, so it
+# takes the same reading every other pull request gets. The worktree goes back
+# first: half a repair is not something to review, nor to commit a triage on top
+# of. The steps above this cannot come here — a checkout that failed leaves you
+# standing on the base branch, and there is nothing there to review.
+@step
+async def stand_down(work: Work) -> Transition:
+    return goto(push_work, work_with(work, note=await _released(work), blocked=True))
+
+
+# Nothing to release and nothing to count: this is only reached where the
+# checkout itself would not go through, so the worktree never moved and the
+# branch is exactly as its owner left it. Which is the whole point — another
+# terminal is standing on it, and a pass over every pull request you have open
+# must not be a pass that fails whenever one of them is being worked on.
+@step
+def skip_pr(work: Work) -> Transition:
+    """Leave the branch where it is, and say so in the report."""
+    row = Checked(
+        number=work.pr.number,
+        branch=work.pr.branch,
+        url=work.pr.url,
+        outcome="skipped",
+        unpushed=None,
+        note=telling(work),
+    )
+    run = work.run
+    return goto(next_pr, run_with(run, checked=[*run.checked, row]))
+
+
+@step
+async def set_aside(work: Work) -> Transition:
+    """Give the worktree back and report the branch blocked."""
+    # The worktree goes back before the count, not as an argument alongside it:
+    # what is left to push is asked of a tree this step has finished with.
+    released = await _released(work)
+    row = Checked(
+        number=work.pr.number,
+        branch=work.pr.branch,
+        url=work.pr.url,
+        outcome="blocked",
+        unpushed=await ahead(work.pr.branch),
+        # A branch that stood down and then failed one of the reading steps
+        # arrives here with two things to say, and the second must not cost it
+        # the first: the morning needs to hear the red gate, not only the `gh`
+        # call that came after it.
+        # ponytail: that branch does lose the stash name its first release
+        # wrote, because the reading step's own note replaced it. `stash_name`
+        # is the branch and the row says the branch, so the name is still
+        # derivable; a third slot to keep it whole is not worth the field.
+        note=telling(work, released),
+    )
+    run = work.run
+    return goto(next_pr, run_with(run, checked=[*run.checked, row]))
+
+
+# Nothing to await: this routes and renders, and the contract lets a step say
+# so. The summary is emitted before the failure is raised, which is the whole
+# reason every ending routes here rather than raising where it happened.
+@step
+def report(run: Run) -> Transition:
+    emit_delta(summary(run))
+    if run.stopped:
+        raise RitualError(run.stopped)
+    return done(report_card(run))
