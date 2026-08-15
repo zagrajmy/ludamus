@@ -438,7 +438,7 @@ class FacilitatorPanelService(FacilitatorPanelServiceProtocol):
                     accreditation_type=data.accreditation_type,
                     display_name=data.display_name,
                     event_id=event_id,
-                    multi_session=data.multi_session,
+                    is_collective=data.is_collective,
                     organizer_id=data.organizer_id,
                     slug=slug,
                     user_id=None,

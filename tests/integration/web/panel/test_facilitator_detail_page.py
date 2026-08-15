@@ -95,8 +95,8 @@ class TestFacilitatorDetailPageView:
             contains="Possible duplicate of Bob",
         )
 
-    def test_get_renders_a_multi_session_facilitator(self, panel_client, event):
-        facilitator = make_facilitator(event, multi_session=True)
+    def test_get_renders_a_collective_facilitator(self, panel_client, event):
+        facilitator = make_facilitator(event, is_collective=True)
 
         response = panel_client.get(self.get_url(event))
 

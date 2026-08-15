@@ -276,7 +276,7 @@ class FacilitatorCreatePageView(PanelAccessMixin, EventContextMixin, View):
                 display_name=display_name,
                 base_slug=slugify(display_name),
                 accreditation_type=form.cleaned_data["accreditation_type"],
-                multi_session=form.cleaned_data["multi_session"],
+                is_collective=form.cleaned_data["is_collective"],
                 organizer_id=(
                     self.request.context.current_user_id
                     if form.cleaned_data["assign_me"]

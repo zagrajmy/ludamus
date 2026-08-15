@@ -865,7 +865,7 @@ class Facilitator(models.Model):
     # A guild, club or the organizer crew itself — not one person, so several
     # of its program points at the same hour are normal. The timetable skips
     # its facilitator-overlap check for these.
-    multi_session = models.BooleanField(default=False)
+    is_collective = models.BooleanField(default=False)
     # Free-form organizer note, never shown to attendees.
     internal_comment = models.TextField(blank=True, default="")
 

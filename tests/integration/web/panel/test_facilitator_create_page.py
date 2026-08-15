@@ -103,9 +103,9 @@ class TestFacilitatorCreatePageView:
         )
         assert Facilitator.objects.filter(event=event, display_name="Bob").exists()
 
-    def test_post_creates_a_multi_session_facilitator(self, panel_client, event):
+    def test_post_creates_a_collective_facilitator(self, panel_client, event):
         response = panel_client.post(
-            self.get_url(event), data={"display_name": "Guild", "multi_session": "on"}
+            self.get_url(event), data={"display_name": "Guild", "is_collective": "on"}
         )
 
         assert_response(
@@ -114,7 +114,7 @@ class TestFacilitatorCreatePageView:
             messages=[(messages.SUCCESS, "Facilitator created successfully.")],
             url=reverse("panel:facilitators", kwargs={"slug": event.slug}),
         )
-        assert Facilitator.objects.get(event=event, display_name="Guild").multi_session
+        assert Facilitator.objects.get(event=event, display_name="Guild").is_collective
 
     def test_post_shows_errors_on_invalid_data(self, panel_client, event):
         response = panel_client.post(self.get_url(event), data={"display_name": ""})

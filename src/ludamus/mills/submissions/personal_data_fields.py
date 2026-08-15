@@ -270,42 +270,27 @@ class PersonalDataFieldValueService:
             changes = self._personal_data_changes(
                 event_id=event_id, facilitator_id=facilitator_id, entries=entries
             )
-            accreditation_type = data.get("accreditation_type")
-            if (
-                accreditation_type is not None
-                and facilitator.accreditation_type != accreditation_type
-            ):
-                changes.append(
-                    {
-                        "field": "accreditation_type",
-                        "field_id": None,
-                        "old": facilitator.accreditation_type,
-                        "new": accreditation_type,
-                    }
+            changes += [
+                {"field": name, "field_id": None, "old": old, "new": new}
+                for name, old, new in (
+                    (
+                        "accreditation_type",
+                        facilitator.accreditation_type,
+                        data.get("accreditation_type"),
+                    ),
+                    (
+                        "internal_comment",
+                        facilitator.internal_comment,
+                        data.get("internal_comment"),
+                    ),
+                    (
+                        "is_collective",
+                        facilitator.is_collective,
+                        data.get("is_collective"),
+                    ),
                 )
-            internal_comment = data.get("internal_comment")
-            if (
-                internal_comment is not None
-                and facilitator.internal_comment != internal_comment
-            ):
-                changes.append(
-                    {
-                        "field": "internal_comment",
-                        "field_id": None,
-                        "old": facilitator.internal_comment,
-                        "new": internal_comment,
-                    }
-                )
-            multi_session = data.get("multi_session")
-            if multi_session is not None and facilitator.multi_session != multi_session:
-                changes.append(
-                    {
-                        "field": "multi_session",
-                        "field_id": None,
-                        "old": facilitator.multi_session,
-                        "new": multi_session,
-                    }
-                )
+                if new is not None and old != new
+            ]
             self._facilitators.update(facilitator_id, data)
             storable = self._storable(
                 event_id=event_id, facilitator_id=facilitator_id, entries=entries

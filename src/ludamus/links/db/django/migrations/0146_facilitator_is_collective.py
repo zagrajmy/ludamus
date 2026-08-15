@@ -10,7 +10,7 @@ class Migration(migrations.Migration):
     operations = [
         migrations.AddField(
             model_name="facilitator",
-            name="multi_session",
+            name="is_collective",
             field=models.BooleanField(default=False),
         )
     ]
