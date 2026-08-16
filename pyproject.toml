@@ -82,7 +82,7 @@ pytest-gremlins = "^1.8.1"
 django-coverage-plugin = "^3.2.2"
 yamllint = "1.38.0"
 taplo = "^0.9.3"
-tingle = "^0.4.0"
+tingle = "^0.4.1"
 pytest-xdist = "^3.8.0"
 lxml-stubs = "^0.5.1"
 django-zeal = "^2.2.2"
@@ -255,6 +255,7 @@ ignore = [
     "COM",
     "CPY",
     "D1",
+    "DOC",   # No docstring param/return spec
     "FIX",
     "TD003",
     # Left to fix
@@ -536,7 +537,9 @@ ignore_names = [
     "modification_time",
     "test_func",
     # Vekna rituals
-    "pr_check",
+    "pr_refresh",
+    "pr_cover",
+    "pr_review",
 ]
 
 ignore_decorators = [

@@ -216,13 +216,20 @@ class TestPartiesPageView:
         assert_response(
             one_party_response,
             HTTPStatus.OK,
-            context_data=one_party_response.context_data,
+            context_data=_base_context(
+                parties=[_entry(first, active_user, [_member_dto(active_user, first)])]
+            ),
             template_name="crowd/user/parties.html",
         )
         assert_response(
             two_party_response,
             HTTPStatus.OK,
-            context_data=two_party_response.context_data,
+            context_data=_base_context(
+                parties=[
+                    _entry(first, active_user, [_member_dto(active_user, first)]),
+                    _entry(second, active_user, [_member_dto(active_user, second)]),
+                ]
+            ),
             template_name="crowd/user/parties.html",
         )
         assert len(two_party_queries) == len(one_party_queries)

@@ -24,10 +24,13 @@ from tests.integration.conftest import (
 )
 from tests.integration.utils import assert_login_required, assert_response
 from tests.integration.web.panel.helpers import (
+    SLOT_MINUTES,
     assert_event_not_found,
     assert_not_a_manager,
     assign_payload,
     empty_grid,
+    event_day_start,
+    grid_with,
     make_timetable_session,
 )
 
@@ -86,7 +89,7 @@ class TestTimetableGridPartView:
     def test_all_days_returns_each_day_grid(
         self, panel_client, event, space, time_slot
     ):
-        second_slot = TimeSlotFactory(
+        TimeSlotFactory(
             event=event,
             start_time=time_slot.start_time + timedelta(days=1),
             end_time=time_slot.end_time + timedelta(days=1),
@@ -98,19 +101,22 @@ class TestTimetableGridPartView:
             response,
             HTTPStatus.OK,
             template_name="panel/parts/timetable-grid.html",
-            context_data=response.context_data,
+            context_data={
+                "grid": grid_with(
+                    spaces=[space],
+                    day_start=event_day_start(event),
+                    extra_days=1,
+                    total_minutes=SLOT_MINUTES,
+                ),
+                "filter_track_pk": None,
+                "date_selection": "all",
+                "slug": event.slug,
+            },
         )
-        context = response.context
-        assert context["date_selection"] == "all"
-        assert [day.date for day in context["grid"].days] == [
-            time_slot.start_time.date(),
-            second_slot.start_time.date(),
-        ]
         content = response.content.decode()
         expected_day_count = 2
         assert content.count('class="timetable-calendar ') == 1
         assert content.count('class="timetable-day-grid ') == expected_day_count
-        assert context["grid"].spaces[0].pk == space.pk
 
 
 class TestTimetableAssignView:
