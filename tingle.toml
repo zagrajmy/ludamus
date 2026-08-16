@@ -172,6 +172,7 @@ type = "symbol_uses"
 group = "typing"
 symbol = 'Any'
 ranges = ["python-src"]
+ignore_lines = ['^\s+Any,', 'from typing import.*Any']
 
 [[metrics]]
 name = "type-object"

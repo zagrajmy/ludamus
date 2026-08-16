@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import logging
 from datetime import UTC, datetime
+from typing import Any
 
 from django.core.management.base import BaseCommand
 
@@ -22,7 +23,7 @@ logger = logging.getLogger(__name__)
 class Command(BaseCommand):
     help = "Export the agenda of every sync-enabled event to Konwencik."
 
-    def handle(self, *_args: object, **_options: object) -> None:
+    def handle(self, *args: Any, **kwargs: Any) -> None:
         exported = Services().konwencik_export.run_sweep(now=datetime.now(UTC))
         logger.info("export_konwencik: exported %s integration(s)", exported)
         self.stdout.write(
