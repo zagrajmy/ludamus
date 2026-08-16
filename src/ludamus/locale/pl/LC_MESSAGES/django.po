@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-15 21:33+0200\n"
+"POT-Creation-Date: 2026-08-15 23:50+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -1232,6 +1232,7 @@ msgstr ""
 #: src/ludamus/gates/web/django/chronology/panel/views/facilitators.py
 #: src/ludamus/gates/web/django/templatetags/cfp_tags.py
 #: src/ludamus/templates/panel/base.html
+#: src/ludamus/templates/panel/facilitator-bin.html
 #: src/ludamus/templates/panel/facilitator-columns.html
 #: src/ludamus/templates/panel/facilitator-create.html
 #: src/ludamus/templates/panel/facilitator-detail.html
@@ -1255,12 +1256,12 @@ msgid "Facilitators merged successfully."
 msgstr "Twórcy programu zostali pomyślnie scaleni."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/facilitators.py
-msgid "Facilitator flagged for deletion."
-msgstr "Twórca programu oznaczony do usunięcia."
+msgid "Facilitator deleted."
+msgstr "Twórca programu usunięty."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/facilitators.py
-msgid "Facilitator unflagged."
-msgstr "Usunięto oznaczenie do usunięcia."
+msgid "Facilitator restored."
+msgstr "Twórca programu przywrócony."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/facilitators.py
 msgid "Facilitator marked as guest."
@@ -1300,6 +1301,15 @@ msgstr[0] "Nie znaleziono %(count)d twórcy programu."
 msgstr[1] "Nie znaleziono %(count)d twórców programu."
 msgstr[2] "Nie znaleziono %(count)d twórców programu."
 msgstr[3] "Nie znaleziono %(count)d twórców programu."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/facilitators.py
+#, python-format
+msgid "%(count)d facilitator was skipped: %(reason)s"
+msgid_plural "%(count)d facilitators were skipped: %(reason)s"
+msgstr[0] "Pominięto %(count)d twórcę programu: %(reason)s"
+msgstr[1] "Pominięto %(count)d twórców programu: %(reason)s"
+msgstr[2] "Pominięto %(count)d twórców programu: %(reason)s"
+msgstr[3] "Pominięto %(count)d twórców programu: %(reason)s"
 
 #: src/ludamus/gates/web/django/chronology/panel/views/google_docs_import.py
 #: src/ludamus/gates/web/django/templatetags/cfp_tags.py
@@ -2388,6 +2398,64 @@ msgstr ""
 "przypisany."
 
 #: src/ludamus/gates/web/django/event/panel/views/facilitator_actions.py
+msgid ""
+"This facilitator is named on sessions, deleted ones included. Remove them "
+"from those sessions first."
+msgstr ""
+"Ten twórca programu jest przypisany do punktów programu, w tym usuniętych. "
+"Najpierw usuń go z tych punktów programu."
+
+#: src/ludamus/gates/web/django/event/panel/views/facilitator_actions.py
+#, python-brace-format
+msgid ""
+"This facilitator is named on {count} session. Remove them from it before "
+"deleting."
+msgid_plural ""
+"This facilitator is named on {count} sessions. Remove them from those before "
+"deleting."
+msgstr[0] ""
+"Ten twórca programu jest przypisany do {count} punktu programu. Najpierw "
+"usuń go z niego."
+msgstr[1] ""
+"Ten twórca programu jest przypisany do {count} punktów programu. Najpierw "
+"usuń go z nich."
+msgstr[2] ""
+"Ten twórca programu jest przypisany do {count} punktów programu. Najpierw "
+"usuń go z nich."
+msgstr[3] ""
+"Ten twórca programu jest przypisany do {count} punktu programu. Najpierw "
+"usuń go z niego."
+
+#: src/ludamus/gates/web/django/event/panel/views/facilitator_actions.py
+msgid "proposal bin"
+msgstr "kosz zgłoszeń"
+
+#: src/ludamus/gates/web/django/event/panel/views/facilitator_actions.py
+#, python-brace-format
+msgid ""
+"This facilitator is named on {count} session, {deleted} of them deleted. "
+"Remove them from all of these first — the deleted ones are in the {bin_link}."
+msgid_plural ""
+"This facilitator is named on {count} sessions, {deleted} of them deleted. "
+"Remove them from all of these first — the deleted ones are in the {bin_link}."
+msgstr[0] ""
+"Ten twórca programu jest przypisany do {count} punktu programu (w tym "
+"usuniętych: {deleted}). Najpierw usuń go ze wszystkich — usunięte znajdziesz "
+"tutaj: {bin_link}."
+msgstr[1] ""
+"Ten twórca programu jest przypisany do {count} punktów programu (w tym "
+"usuniętych: {deleted}). Najpierw usuń go ze wszystkich — usunięte znajdziesz "
+"tutaj: {bin_link}."
+msgstr[2] ""
+"Ten twórca programu jest przypisany do {count} punktów programu (w tym "
+"usuniętych: {deleted}). Najpierw usuń go ze wszystkich — usunięte znajdziesz "
+"tutaj: {bin_link}."
+msgstr[3] ""
+"Ten twórca programu jest przypisany do {count} punktu programu (w tym "
+"usuniętych: {deleted}). Najpierw usuń go ze wszystkich — usunięte znajdziesz "
+"tutaj: {bin_link}."
+
+#: src/ludamus/gates/web/django/event/panel/views/facilitator_actions.py
 msgid "Attached to this guild."
 msgstr "Przypisano do tej gildii."
 
@@ -3197,6 +3265,12 @@ msgid "Tracks"
 msgstr "Bloki programowe"
 
 #: src/ludamus/gates/web/django/templatetags/cfp_tags.py
+#: src/ludamus/templates/panel/facilitator-bin.html
+#: src/ludamus/templates/panel/facilitator-detail.html
+msgid "Deleted"
+msgstr "Usunięty"
+
+#: src/ludamus/gates/web/django/templatetags/cfp_tags.py
 msgid "Merged from"
 msgstr "Scalono z"
 
@@ -3916,6 +3990,7 @@ msgstr "Podaj swoje imię, aby dokończyć zapis."
 
 #: src/ludamus/templates/chronology/anonymous_enroll.html
 #: src/ludamus/templates/multiverse/panel/sphere-settings.html
+#: src/ludamus/templates/panel/facilitator-bin.html
 #: src/ludamus/templates/panel/integration-settings.html
 msgid "Name"
 msgstr "Imię"
@@ -4453,6 +4528,7 @@ msgstr "Połączenie:"
 #: src/ludamus/templates/multiverse/panel/guilds/list.html
 #: src/ludamus/templates/panel/_space_tree_node.html
 #: src/ludamus/templates/panel/cfp.html
+#: src/ludamus/templates/panel/facilitators.html
 #: src/ludamus/templates/panel/integration-settings.html
 #: src/ludamus/templates/panel/personal-data-fields.html
 #: src/ludamus/templates/panel/proposal-detail.html
@@ -5640,6 +5716,7 @@ msgstr "Przykładowe gildie"
 #: src/ludamus/templates/panel/bans.html src/ludamus/templates/panel/cfp.html
 #: src/ludamus/templates/panel/discounts/list.html
 #: src/ludamus/templates/panel/enrollment-settings.html
+#: src/ludamus/templates/panel/facilitator-bin.html
 #: src/ludamus/templates/panel/facilitators.html
 #: src/ludamus/templates/panel/import.html
 #: src/ludamus/templates/panel/integration-settings.html
@@ -6256,6 +6333,11 @@ msgstr "Scal"
 msgid "Columns"
 msgstr "Kolumny"
 
+#: src/ludamus/templates/panel/_facilitator_tabs.html
+#: src/ludamus/templates/panel/facilitator-bin.html
+msgid "Bin"
+msgstr "Kosz"
+
 #: src/ludamus/templates/panel/_import_tabs.html
 msgid "Summary"
 msgstr "Podsumowanie"
@@ -6759,6 +6841,7 @@ msgstr ""
 
 #: src/ludamus/templates/panel/cfp.html
 #: src/ludamus/templates/panel/display-settings.html
+#: src/ludamus/templates/panel/facilitator-bin.html
 #: src/ludamus/templates/panel/facilitators.html
 #: src/ludamus/templates/panel/import-log.html
 #: src/ludamus/templates/panel/import-run.html
@@ -7004,6 +7087,46 @@ msgstr ""
 "Dodaj krótką wiadomość, jeśli uczestnicy potrzebują wyjaśnienia tego etapu "
 "zapisów."
 
+#: src/ludamus/templates/panel/facilitator-bin.html
+msgid ""
+"Deleted facilitators are off the program. Restore one to bring their byline "
+"back."
+msgstr ""
+"Usunięci twórcy programu nie pojawiają się w programie. Przywróć twórcę, aby "
+"znów podpisywał swoje punkty programu."
+
+#: src/ludamus/templates/panel/facilitator-bin.html
+#: src/ludamus/templates/panel/facilitators.html
+#: src/ludamus/templates/panel/proposals.html
+msgid "Selected:"
+msgstr "Zaznaczono:"
+
+#: src/ludamus/templates/panel/facilitator-bin.html
+#: src/ludamus/templates/panel/facilitator-detail.html
+#: src/ludamus/templates/panel/proposals.html
+msgid "Restore"
+msgstr "Przywróć"
+
+#: src/ludamus/templates/panel/facilitator-bin.html
+#: src/ludamus/templates/panel/facilitators.html
+msgid "Select all facilitators"
+msgstr "Zaznacz wszystkich twórców programu"
+
+#: src/ludamus/templates/panel/facilitator-bin.html
+#: src/ludamus/templates/panel/facilitators.html
+#, python-format
+msgid "Select %(name)s"
+msgstr "Zaznacz %(name)s"
+
+#: src/ludamus/templates/panel/facilitator-bin.html
+#, python-format
+msgid "Restore %(name)s"
+msgstr "Przywróć %(name)s"
+
+#: src/ludamus/templates/panel/facilitator-bin.html
+msgid "The bin is empty. Deleted facilitators land here."
+msgstr "Kosz jest pusty. Trafiają tu usunięci twórcy programu."
+
 #: src/ludamus/templates/panel/facilitator-columns.html
 msgid "Facilitator columns"
 msgstr "Kolumny twórców programu"
@@ -7034,6 +7157,11 @@ msgstr "Szczegóły twórcy programu"
 #: src/ludamus/templates/panel/facilitator-create.html
 msgid "e.g., Jan Kowalski"
 msgstr "np. Jan Kowalski"
+
+#: src/ludamus/templates/panel/facilitator-detail.html
+msgid "This facilitator is deleted — they show up nowhere in the program."
+msgstr ""
+"Ten twórca programu jest usunięty — nie pojawia się nigdzie w programie."
 
 #: src/ludamus/templates/panel/facilitator-detail.html
 msgid ""
@@ -7169,10 +7297,6 @@ msgid "Nobody"
 msgstr "Nikt"
 
 #: src/ludamus/templates/panel/facilitators.html
-msgid "Flagged for deletion only"
-msgstr "Tylko oznaczeni do usunięcia"
-
-#: src/ludamus/templates/panel/facilitators.html
 #: src/ludamus/templates/panel/proposals.html
 msgid "Filter"
 msgstr "Filtruj"
@@ -7183,38 +7307,12 @@ msgid "Filtering"
 msgstr "Filtrowanie"
 
 #: src/ludamus/templates/panel/facilitators.html
-#: src/ludamus/templates/panel/proposals.html
-msgid "Selected:"
-msgstr "Zaznaczono:"
-
-#: src/ludamus/templates/panel/facilitators.html
-msgid "Flag for deletion"
-msgstr "Oznacz do usunięcia"
-
-#: src/ludamus/templates/panel/facilitators.html
-msgid "Remove flag"
-msgstr "Usuń oznaczenie"
-
-#: src/ludamus/templates/panel/facilitators.html
 msgid "Mark as guest"
 msgstr "Oznacz jako gościa"
 
 #: src/ludamus/templates/panel/facilitators.html
 msgid "Merge selected"
 msgstr "Scal zaznaczonych"
-
-#: src/ludamus/templates/panel/facilitators.html
-msgid "Select all facilitators"
-msgstr "Zaznacz wszystkich twórców programu"
-
-#: src/ludamus/templates/panel/facilitators.html
-#, python-format
-msgid "Select %(name)s"
-msgstr "Zaznacz %(name)s"
-
-#: src/ludamus/templates/panel/facilitators.html
-msgid "Flagged"
-msgstr "Oznaczony"
 
 #: src/ludamus/templates/panel/facilitators.html
 #, python-format
@@ -7254,18 +7352,15 @@ msgid "Mark %(name)s as guest"
 msgstr "Oznacz jako gościa: %(name)s"
 
 #: src/ludamus/templates/panel/facilitators.html
-msgid "Remove deletion flag"
-msgstr "Usuń oznaczenie do usunięcia"
+#, python-format
+msgid ""
+"Delete %(name)s? They disappear from the program; you can restore them later."
+msgstr "Usunąć: %(name)s? Zniknie z programu; możesz go później przywrócić."
 
 #: src/ludamus/templates/panel/facilitators.html
 #, python-format
-msgid "Remove deletion flag from %(name)s"
-msgstr "Usuń oznaczenie do usunięcia: %(name)s"
-
-#: src/ludamus/templates/panel/facilitators.html
-#, python-format
-msgid "Flag %(name)s for deletion"
-msgstr "Oznacz do usunięcia: %(name)s"
+msgid "Delete %(name)s"
+msgstr "Usuń %(name)s"
 
 #: src/ludamus/templates/panel/facilitators.html
 msgid "No facilitators match your filters."
@@ -8566,10 +8661,6 @@ msgstr "Brak przesłanych zgłoszeń."
 msgid "Recently deleted"
 msgstr "Ostatnio usunięte"
 
-#: src/ludamus/templates/panel/proposals.html
-msgid "Restore"
-msgstr "Przywróć"
-
 #: src/ludamus/templates/panel/session-field-create.html
 msgid "New Session Field"
 msgstr "Nowe pole punktu programu"
@@ -9108,6 +9199,9 @@ msgstr "Temat"
 msgid "No emails captured yet."
 msgstr "Brak przechwyconych e-maili."
 
+#~ msgid "Deleted only"
+#~ msgstr "Tylko usunięci"
+
 #~ msgid ""
 #~ "Map each source answer to an ISO 8601 duration (e.g. PT1H30M for 1 h 30 "
 #~ "min). Answers without a mapping are skipped at import time."
@@ -9145,6 +9239,46 @@ msgstr "Brak przechwyconych e-maili."
 #~ msgstr "Nie ma jeszcze czego filtrować."
 
 #, python-format
+#~ msgid "%(count)d facilitator runs sessions and was kept."
+#~ msgid_plural "%(count)d facilitators run sessions and were kept."
+#~ msgstr[0] ""
+#~ "%(count)d twórca programu prowadzi punkty programu i został zachowany."
+#~ msgstr[1] ""
+#~ "%(count)d twórców programu prowadzi punkty programu i zostało zachowanych."
+#~ msgstr[2] ""
+#~ "%(count)d twórców programu prowadzi punkty programu i zostało zachowanych."
+#~ msgstr[3] ""
+#~ "%(count)d twórców programu prowadzi punkty programu i zostało zachowanych."
+
+#~ msgid "Facilitator flagged for deletion."
+#~ msgstr "Twórca programu oznaczony do usunięcia."
+
+#~ msgid "Facilitator unflagged."
+#~ msgstr "Usunięto oznaczenie do usunięcia."
+
+#~ msgid "Flagged for deletion only"
+#~ msgstr "Tylko oznaczeni do usunięcia"
+
+#~ msgid "Flag for deletion"
+#~ msgstr "Oznacz do usunięcia"
+
+#~ msgid "Remove flag"
+#~ msgstr "Usuń oznaczenie"
+
+#~ msgid "Flagged"
+#~ msgstr "Oznaczony"
+
+#~ msgid "Remove deletion flag"
+#~ msgstr "Usuń oznaczenie do usunięcia"
+
+#, python-format
+#~ msgid "Remove deletion flag from %(name)s"
+#~ msgstr "Usuń oznaczenie do usunięcia: %(name)s"
+
+#, python-format
+#~ msgid "Flag %(name)s for deletion"
+#~ msgstr "Oznacz do usunięcia: %(name)s"
+
 #~ msgid "%(scheduled)s scheduled, %(pending)s pending"
 #~ msgstr "%(scheduled)s w harmonogramie, %(pending)s czeka"
 
@@ -9244,10 +9378,6 @@ msgstr "Brak przechwyconych e-maili."
 #~ msgid "Select all"
 #~ msgstr "Zaznacz wszystkie"
 
-#~ msgid "The kept facilitator receives all sessions from the others."
-#~ msgstr ""
-#~ "Zachowany twórca programu przejmuje wszystkie punkty programu pozostałych."
-
 #~ msgid "Keep"
 #~ msgstr "Zachowaj"
 
@@ -9275,9 +9405,6 @@ msgstr "Brak przechwyconych e-maili."
 
 #~ msgid "Shown on public session card"
 #~ msgstr "Widoczne na publicznej karcie punktu programu"
-
-#~ msgid "Facilitator released."
-#~ msgstr "Twórca programu zwolniony."
 
 #~ msgid "Only this facilitator's organizer can release it."
 #~ msgstr "Tylko opiekun tego twórcy programu może go zwolnić."
