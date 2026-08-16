@@ -13,7 +13,6 @@ from ludamus.gates.web.django.chronology.panel.views import (
     google_docs_import,
     index,
     integrations,
-    konwencik_export,
     personal_data_fields,
     proposal_edit,
     proposals,
@@ -28,6 +27,7 @@ from ludamus.gates.web.django.event.panel.views import (
     enrollment_settings,
     facilitator_actions,
     facilitator_edit,
+    konwencik_export,
     print_redirects,
     proposal_category_settings,
 )

@@ -279,7 +279,7 @@ class TestKonwencikExportSettingsPageView:
         assert_response(
             response,
             HTTPStatus.OK,
-            template_name="chronology/panel/konwencik/settings.html",
+            template_name="panel/konwencik-export-settings.html",
             context_data=panel_context(event, active_nav="settings")
             | {
                 "integration_pk": export_integration.pk,
@@ -329,7 +329,7 @@ class TestKonwencikExportSettingsPageView:
         assert_response(
             response,
             HTTPStatus.OK,
-            template_name="chronology/panel/konwencik/settings.html",
+            template_name="panel/konwencik-export-settings.html",
             context_data=panel_context(event, active_nav="settings")
             | {
                 "integration_pk": export_integration.pk,
@@ -358,7 +358,7 @@ class TestKonwencikExportSettingsPageView:
         assert_response(
             response,
             HTTPStatus.OK,
-            template_name="chronology/panel/konwencik/settings.html",
+            template_name="panel/konwencik-export-settings.html",
             context_data=panel_context(event, active_nav="settings")
             | {
                 "integration_pk": export_integration.pk,
@@ -514,7 +514,7 @@ class TestKonwencikExportSettingsPageView:
         assert_response(
             response,
             HTTPStatus.OK,
-            template_name="chronology/panel/konwencik/settings.html",
+            template_name="panel/konwencik-export-settings.html",
             context_data=panel_context(event, active_nav="settings")
             | {
                 "integration_pk": export_integration.pk,
@@ -544,7 +544,7 @@ class TestKonwencikExportSettingsPageView:
         assert_response(
             response,
             HTTPStatus.OK,
-            template_name="chronology/panel/konwencik/settings.html",
+            template_name="panel/konwencik-export-settings.html",
             context_data=panel_context(event, active_nav="settings")
             | {
                 "integration_pk": export_integration.pk,

@@ -12,10 +12,10 @@ from django.utils.translation import gettext as _
 from django.utils.translation import gettext_lazy, ngettext, ngettext_lazy
 from django.views.generic.base import View
 
-from ludamus.gates.web.django.chronology.panel.views.base import (
+from ludamus.gates.web.django.event.panel.views.base import (
     EventContextMixin,
-    PanelAccessMixin,
-    PanelRequest,
+    EventPanelAccessMixin,
+    EventPanelRequest,
 )
 from ludamus.pacts import NotFoundError
 from ludamus.pacts.konwencik import (
@@ -222,12 +222,12 @@ class _Loaded(NamedTuple):
     settings: KonwencikSettingsContext
 
 
-class KonwencikExportSettingsPageView(PanelAccessMixin, EventContextMixin, View):
+class KonwencikExportSettingsPageView(EventPanelAccessMixin, EventContextMixin, View):
     """Per-category icons, per-track colours and the two override fields."""
 
-    request: PanelRequest
+    request: EventPanelRequest
 
-    def get(self, _request: PanelRequest, slug: str, pk: int) -> HttpResponse:
+    def get(self, _request: EventPanelRequest, slug: str, pk: int) -> HttpResponse:
         loaded = self._load(slug, pk)
         if not isinstance(loaded, _Loaded):
             return loaded
@@ -239,7 +239,7 @@ class KonwencikExportSettingsPageView(PanelAccessMixin, EventContextMixin, View)
             overrides=_overrides_form(loaded.settings),
         )
 
-    def post(self, _request: PanelRequest, slug: str, pk: int) -> HttpResponse:
+    def post(self, _request: EventPanelRequest, slug: str, pk: int) -> HttpResponse:
         loaded = self._load(slug, pk)
         if not isinstance(loaded, _Loaded):
             return loaded
@@ -302,7 +302,7 @@ class KonwencikExportSettingsPageView(PanelAccessMixin, EventContextMixin, View)
             ),
         }
         return TemplateResponse(
-            self.request, "chronology/panel/konwencik/settings.html", context
+            self.request, "panel/konwencik-export-settings.html", context
         )
 
 
@@ -327,12 +327,12 @@ def _page_context(
     }
 
 
-class KonwencikExportActionView(PanelAccessMixin, EventContextMixin, View):
+class KonwencikExportActionView(EventPanelAccessMixin, EventContextMixin, View):
     """POST-only: rebuild the Konwencik tab from the current schedule."""
 
-    request: PanelRequest
+    request: EventPanelRequest
 
-    def post(self, _request: PanelRequest, slug: str, pk: int) -> HttpResponse:
+    def post(self, _request: EventPanelRequest, slug: str, pk: int) -> HttpResponse:
         _context, current_event = self.get_event_context(slug)
         if current_event is None:
             return redirect("panel:index")

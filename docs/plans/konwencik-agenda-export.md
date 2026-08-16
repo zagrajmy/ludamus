@@ -261,7 +261,7 @@ named tab instead of `meta.sheets[0]`.
 A JSON textarea cannot offer a row per category and per track, and an
 organizer should not be typing slugs. The settings live on their own panel
 page at `event/<slug>/export/<pk>/`, in its own module —
-`gates/web/django/chronology/panel/views/konwencik_export.py`, holding the
+`gates/web/django/event/panel/views/konwencik_export.py`, holding the
 page view, the forms and both POST actions. Not
 `panel/views/google_docs_import.py` (1213 lines) and not `panel/forms.py`.
 One page, no tab shell — the importer has five tabs because it has five jobs;
