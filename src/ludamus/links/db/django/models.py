@@ -509,8 +509,7 @@ class Event(models.Model):
     def get_seating_enrollment_configs(
         self, session: Session
     ) -> list[EnrollmentConfig]:
-        active_eligible = self.get_eligible_enrollment_configs(session)
-        if active_eligible:
+        if active_eligible := self.get_eligible_enrollment_configs(session):
             return active_eligible
         now = datetime.now(tz=UTC)
         ended_eligible = [
