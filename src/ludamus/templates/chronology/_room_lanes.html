@@ -18,14 +18,20 @@
                  data-room-lanes-head>
                 <div class="room-lanes-grid">
                     <div class="room-lanes-corner sticky left-0 z-10 bg-background"></div>
+                    {# Explicitly placed, not auto-flowed: filtering hides the #}
+                    {# headers of emptied rooms (room-lanes.ts), and an #}
+                    {# auto-placed survivor would slide into the freed column. #}
                     {% for room in day.rooms %}
-                        <div class="truncate px-2 py-1.5 text-xs font-bold uppercase tracking-wide text-foreground-secondary">{{ room }}</div>
+                        <div class="truncate px-2 py-1.5 text-xs font-bold uppercase tracking-wide text-foreground-secondary"
+                             data-lane-col="{{ forloop.counter }}"
+                             style="grid-column: {{ forloop.counter|add:1 }}">{{ room }}</div>
                     {% endfor %}
                     {# Column dividers hang from the header cells and continue down #}
                     {# through the body (matching .room-lanes-rule below), so the #}
                     {# lines stay continuous where cells span rows or are absent. #}
                     {% for room in day.rooms %}
                         <div class="room-lanes-rule"
+                             data-lane-col="{{ forloop.counter }}"
                              style="grid-column: {{ forloop.counter|add:1 }}"></div>
                     {% endfor %}
                 </div>
@@ -35,8 +41,10 @@
                 <div class="room-lanes-grid room-lanes-body">
                     {% for mark in day.hour_marks %}
                         <div class="room-lanes-time sticky left-0 z-40 bg-background pr-1 text-right text-[0.7rem] font-bold tabular-nums text-foreground-muted"
+                             data-lane-row="{{ mark.row }}"
                              style="grid-row: {{ mark.row }}">{{ mark.start|time:"H:i" }}</div>
                         <div class="room-lanes-line border-t border-border/60{% if mark.has_sessions %} time-slot-section scroll-mt-24{% endif %}"
+                             data-lane-row="{{ mark.row }}"
                              style="grid-row: {{ mark.row }};
                                     grid-column: 2 / -1"
                              {% if mark.has_sessions %}id="slot-{{ mark.start|date:'Ymd-H' }}" data-slot-hour="{{ mark.start|date:'Ymd-H' }}"{% endif %}>
@@ -44,11 +52,15 @@
                     {% endfor %}
                     {% for room in day.rooms %}
                         <div class="room-lanes-rule"
+                             data-lane-col="{{ forloop.counter }}"
                              style="grid-column: {{ forloop.counter|add:1 }};
                                     grid-row: 1 / -1"></div>
                     {% endfor %}
                     {% for tile in day.tiles %}
                         <div class="room-lanes-cell p-0.5"
+                             data-tile-col="{{ tile.col }}"
+                             data-tile-row="{{ tile.row_start }}"
+                             data-tile-span="{{ tile.row_span }}"
                              style="grid-column: {{ tile.col|add:1 }};
                                     grid-row: {{ tile.row_start }} / span {{ tile.row_span }}">
                             {% include "chronology/_room_lane_tile.html" with data=tile.data slot_hour=tile.slot_hour %}

@@ -85,11 +85,20 @@
                             <div class="w-8 h-8 bg-coral-100 dark:bg-coral-900/30 rounded-lg flex items-center justify-center">
                                 {% icon "calendar-days" class="w-4 h-4 text-coral-600" variant="mini" %}
                             </div>
-                            <div>
-                                <div class="font-medium leading-none text-foreground">{{ event.start_time|date:"l, F j" }}</div>
-                                <div class="text-foreground-muted leading-none mt-0.5">
-                                    {{ event.start_time|time:"G:i" }} - {{ event.end_time|time:"G:i" }}
-                                </div>
+                            <div data-event-dates>
+                                {% if event.start_time|date:"Ymd" == event.end_time|date:"Ymd" %}
+                                    <div class="font-medium leading-none text-foreground">{{ event.start_time|date:"l, j E" }}</div>
+                                    <div class="text-foreground-muted leading-none mt-0.5">
+                                        {{ event.start_time|time:"G:i" }} – {{ event.end_time|time:"G:i" }}
+                                    </div>
+                                {% else %}
+                                    <div class="font-medium leading-none text-foreground">
+                                        {{ event.start_time|date:"l, j E" }}, {{ event.start_time|time:"G:i" }}
+                                    </div>
+                                    <div class="font-medium leading-none text-foreground mt-1">
+                                        – {{ event.end_time|date:"l, j E" }}, {{ event.end_time|time:"G:i" }}
+                                    </div>
+                                {% endif %}
                             </div>
                         </div>
                     </div>

@@ -32,6 +32,15 @@ test.describe("Event detail page", () => {
     await expect(page.getByText("Upcoming")).toHaveCount(0);
   });
 
+  test("shows both endpoints of a multi-day event", async ({ page }) => {
+    // The seeded event runs 28h, so the header must name the closing day too —
+    // start date with start time, end date with end time.
+    const dates = page.locator("[data-event-dates]");
+    await expect(dates).toHaveText(
+      /\w+, \d{1,2} \w+, \d{1,2}:\d{2}\s*–\s*\w+, \d{1,2} \w+, \d{1,2}:\d{2}/,
+    );
+  });
+
   test("renders session cards with locations and opens detail modal", async ({ page }) => {
     const sessionCards = page.getByRole("article");
     await expect(sessionCards).toHaveCount(3);
