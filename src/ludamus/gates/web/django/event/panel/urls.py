@@ -7,7 +7,6 @@ from ludamus.gates.web.django.chronology.panel.views import (
     cfp,
     columns,
     discounts,
-    errata,
     event_settings,
     facilitators,
     google_docs_import,
@@ -25,6 +24,7 @@ from ludamus.gates.web.django.chronology.panel.views import (
 from ludamus.gates.web.django.event.panel.views import (
     confirmations,
     enrollment_settings,
+    errata,
     facilitator_actions,
     facilitator_edit,
     print_redirects,

@@ -8,19 +8,19 @@ from django.shortcuts import redirect
 from django.template.response import TemplateResponse
 from django.views.generic.base import View
 
-from ludamus.gates.web.django.chronology.panel.views.base import (
+from ludamus.gates.web.django.event.panel.views.base import (
     EventContextMixin,
-    PanelAccessMixin,
-    PanelRequest,
+    EventPanelAccessMixin,
+    EventPanelRequest,
 )
 from ludamus.pacts import NotFoundError
 from ludamus.pacts.multiverse import Capability
 
 
-class ErrataPageView(PanelAccessMixin, EventContextMixin, View):
-    request: PanelRequest
+class ErrataPageView(EventPanelAccessMixin, EventContextMixin, View):
+    request: EventPanelRequest
 
-    def get(self, _request: PanelRequest, slug: str) -> HttpResponse:
+    def get(self, _request: EventPanelRequest, slug: str) -> HttpResponse:
         context, current_event = self.get_event_context(slug)
         if current_event is None:
             return redirect("panel:index")
@@ -33,12 +33,12 @@ class ErrataPageView(PanelAccessMixin, EventContextMixin, View):
         return TemplateResponse(self.request, "panel/errata.html", context)
 
 
-class ErratumAcknowledgeActionView(PanelAccessMixin, EventContextMixin, View):
-    request: PanelRequest
+class ErratumAcknowledgeActionView(EventPanelAccessMixin, EventContextMixin, View):
+    request: EventPanelRequest
     # The one write a comms member may perform.
     write_capability: ClassVar[Capability] = Capability.ERRATUM_ACK
 
-    def post(self, request: PanelRequest, slug: str) -> HttpResponse:
+    def post(self, request: EventPanelRequest, slug: str) -> HttpResponse:
         _context, current_event = self.get_event_context(slug)
         if current_event is None:
             return redirect("panel:index")
