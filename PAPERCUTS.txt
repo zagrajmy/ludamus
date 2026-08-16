@@ -213,3 +213,7 @@ If you fix a papercut, remove it.
 - 2026-08-12: Ran 'mise run test:py tests/unit/test_chronology_mills.py'
   expecting a targeted run; the task ignores trailing path args and ran all 3990
   tests (4 min). 'mise run test:unit -- -k Name' works instead.
+- 2026-08-16: mise run shots breaks on URLs with a query string: mise quotes the
+  arg, so the task builds http://localhost:8000'/path/?view=rooms' and curl
+  reports it unreachable. Had to call aubx agent-browser directly (which then
+  failed on Chrome's sandbox).
