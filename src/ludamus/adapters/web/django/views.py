@@ -656,7 +656,6 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
                     and session.presenter_id == current_user_id
                 ),
                 effective_participants_limit=session.effective_participants_limit,
-                full_participant_info=session.full_participant_info,
                 agenda_item=(
                     AgendaItemDTO.model_validate(agenda_item)
                     if agenda_item is not None

@@ -227,3 +227,8 @@ If you fix a papercut, remove it.
   sandbox network allowlist, so every install dies with
   ERR_AUBE_ADVISORY_CHECK_FAILED after wiping node_modules. Had to hand the
   install back to the user.
+- 2026-08-16: mise run test:py failed with 'sh: 1: pytest: not found' after mise
+  pruned python 3.14.6: .venv/bin/python was a dangling symlink into the removed
+  install, so mise silently skipped venv activation for tasks (mise x still
+  resolved it). Repointed .venv/bin/python + pyvenv.cfg at 3.14 by hand. mise
+  run should say the venv is unusable instead of running the task without it.

@@ -51,7 +51,6 @@ def session_card(agenda_item, *, presenter, **overrides):
         agenda_item=AgendaItemDTO.model_validate(agenda_item),
         effective_participants_limit=session.participants_limit,
         enrolled_count=0,
-        full_participant_info=f"0/{session.participants_limit}",
         is_enrollment_available=False,
         is_full=False,
         is_ongoing=False,
