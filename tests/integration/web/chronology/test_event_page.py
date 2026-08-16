@@ -63,7 +63,7 @@ from tests.integration.conftest import (
     TimeSlotFactory,
     UserFactory,
 )
-from tests.integration.utils import assert_response
+from tests.integration.utils import assert_rendered, assert_response
 from tests.integration.web.chronology.helpers import (
     compact_day,
     event_page_context,
@@ -334,9 +334,10 @@ class TestEventPageView:
         )
 
     # Pinned: the ongoing session spans now±1h, so a run near local midnight
-    # would split it across two dates and yield an extra schedule day. The
-    # fixture's dates were built against the real clock, so they move too.
-    @freeze_time("2026-06-15 12:00:00")
+    # would split it across two dates and yield an extra schedule day. Half
+    # past the local hour (12:30 Europe/Warsaw), so the ended session has a
+    # non-empty window between the hour bucket's start and `now()`.
+    @freeze_time("2026-06-15 10:30:00")
     def test_ok_compact_schedule_renders_all_row_variants(
         self, client, event, space, monkeypatch
     ):
@@ -417,15 +418,18 @@ class TestEventPageView:
             SessionParticipation.objects.create(
                 session=full, user=UserFactory(), status=status
             )
+        # Both windows stay inside the current local hour, and the ongoing one
+        # is cut at midnight: a session crossing local midnight gets a tile per
+        # local date, which would spread the two over two schedule days.
+        local_now = timezone.localtime(now)
+        hour_start = local_now.replace(minute=0, second=0, microsecond=0)
+        midnight = (hour_start + timedelta(days=1)).replace(hour=0)
         ended = scheduled(
-            start=now - timedelta(hours=3),
-            end=now - timedelta(hours=2),
-            participants_limit=4,
-            min_age=0,
+            start=hour_start, end=local_now, participants_limit=4, min_age=0
         )
         ongoing = scheduled(
-            start=now - timedelta(hours=1),
-            end=now + timedelta(hours=1),
+            start=local_now,
+            end=min(local_now + timedelta(hours=1), midnight),
             participants_limit=4,
             min_age=0,
         )
@@ -547,10 +551,11 @@ class TestEventPageView:
         # One day per local date, one hour bucket per distinct start hour.
         expected_days = [
             ScheduleDay(
-                day_start=hour_of(ended),
+                day_start=hour_start,
                 hours=[
-                    ScheduleHour(start=hour_of(ended), sessions=[cards[ended.pk]]),
-                    ScheduleHour(start=hour_of(ongoing), sessions=[cards[ongoing.pk]]),
+                    ScheduleHour(
+                        start=hour_start, sessions=[cards[ended.pk], cards[ongoing.pk]]
+                    )
                 ],
                 tiles=[tile(ended), tile(ongoing)],
             ),
@@ -620,10 +625,8 @@ class TestEventPageView:
                 kwargs={"event_slug": event.slug, "session_id": scarce.pk},
             )
         )
-        assert_response(
-            modal,
-            HTTPStatus.OK,
-            context_data=modal.context_data,
+        assert_rendered(
+            response=modal,
             template_name="chronology/parts/session-modal.html",
             contains="4/5",
         )
@@ -3453,10 +3456,8 @@ class TestEventPageEditAffordance:
                 kwargs={"event_slug": event.slug, "session_id": session.pk},
             )
         )
-        assert_response(
-            modal,
-            HTTPStatus.OK,
-            context_data=modal.context_data,
+        assert_rendered(
+            response=modal,
             template_name="chronology/parts/session-modal.html",
             contains=[edit_url, f'data-edit-open="{session.pk}"'],
         )

@@ -37,6 +37,34 @@ const deleteGuildIfPresent = async (page: Page): Promise<void> => {
 
 test.describe.configure({ mode: "serial" });
 
+// The empty state only renders while the sphere holds no guild at all, and the
+// default sphere is shared with facilitator-guild.spec.ts, which keeps a guild
+// of its own alive for the length of its run. Empty Sphere is nobody else's.
+const EMPTY_SPHERE = "http://another.localhost:8000";
+
+test("the empty state explains what a guild is and offers the way in", async ({ browser }) => {
+  // Its manager signs in by the session cookie bootstrap_data.py wrote for that
+  // host, the way panel.spec.ts reaches the same sphere.
+  const statePath = path.join(__dirname, "..", ".auth-state-empty.json");
+  const storageState = JSON.parse(fs.readFileSync(statePath, "utf8"));
+  const context = await browser.newContext({ storageState });
+  const page = await context.newPage();
+
+  await page.goto(`${EMPTY_SPHERE}/multiverse/panel/guilds/`);
+
+  await expect(page.getByText("No guilds yet.")).toBeVisible();
+  await expect(
+    page.getByText(
+      "A guild's mark shows beside its members' names on every programme card they present.",
+    ),
+  ).toBeVisible();
+  await page.getByRole("link", { name: "New guild" }).first().click();
+
+  await expect(page.getByLabel("Guild name")).toBeVisible();
+
+  await context.close();
+});
+
 test.describe("Guilds", () => {
   test.beforeEach(async ({ page }) => {
     await signInAsManager(page);
@@ -48,31 +76,6 @@ test.describe("Guilds", () => {
     await signInAsManager(page);
     await deleteGuildIfPresent(page);
     await page.close();
-  });
-
-  // The second seeded sphere, which nothing else puts a guild in: "no guilds"
-  // is a claim about a whole sphere, and facilitator-guild.spec.ts keeps one of
-  // its own in the sphere the rest of this file uses, at its own pace.
-  test("the empty state explains what a guild is and offers the way in", async ({ browser }) => {
-    const statePath = path.join(__dirname, "..", ".auth-state-empty.json");
-    const context = await browser.newContext({
-      storageState: JSON.parse(fs.readFileSync(statePath, "utf8")),
-    });
-    const page = await context.newPage();
-
-    await page.goto("http://another.localhost:8000/multiverse/panel/guilds/");
-
-    await expect(page.getByText("No guilds yet.")).toBeVisible();
-    await expect(
-      page.getByText(
-        "A guild's mark shows beside its members' names on every programme card they present.",
-      ),
-    ).toBeVisible();
-    await page.getByRole("link", { name: "New guild" }).first().click();
-
-    await expect(page.getByLabel("Guild name")).toBeVisible();
-
-    await context.close();
   });
 
   test("a manager creates a guild with a mark and sees it in the list", async ({ page }) => {
