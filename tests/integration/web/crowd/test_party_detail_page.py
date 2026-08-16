@@ -241,7 +241,10 @@ class TestPartyDetailPageView:
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data=response.context_data,
+            context_data=_context(
+                _party_dto(party, active_user, [_member_dto(active_user, party)]),
+                invite_token=party.invite_token,
+            ),
             template_name=TEMPLATE,
         )
         assert len(expanded_queries) == len(baseline_queries)
@@ -310,7 +313,7 @@ class TestPartyDetailSessionHistory:
         assert not card.pretend_full
 
     def test_history_query_count_is_constant_across_space_depth(
-        self, authenticated_client, active_user, session, agenda_item
+        self, authenticated_client, active_user, session, agenda_item, space
     ):
         party = sponsor_user(leader=active_user, member=active_user)
         self._enroll_party(party, session, active_user)
@@ -327,22 +330,28 @@ class TestPartyDetailSessionHistory:
         with CaptureQueriesContext(connection) as deep_queries:
             deep_response = authenticated_client.get(_url(party))
 
-        assert_response(
-            shallow_response,
-            HTTPStatus.OK,
-            context_data=shallow_response.context_data,
-            template_name=TEMPLATE,
-        )
-        assert_response(
-            deep_response,
-            HTTPStatus.OK,
-            context_data=deep_response.context_data,
-            template_name=TEMPLATE,
-        )
+        for response in (shallow_response, deep_response):
+            assert_response(
+                response,
+                HTTPStatus.OK,
+                context_data=_context(
+                    _party_dto(party, active_user, [_member_dto(active_user, party)]),
+                    invite_token=party.invite_token,
+                    history=[
+                        {
+                            "event_name": session.event.name,
+                            "event_slug": session.event.slug,
+                            "cards": response.context["history"][0]["cards"],
+                        }
+                    ],
+                ),
+                template_name=TEMPLATE,
+            )
+        [shallow_card] = shallow_response.context["history"][0]["cards"]
+        [deep_card] = deep_response.context["history"][0]["cards"]
+        assert shallow_card.loc["path"] == space.name
+        assert deep_card.loc["path"] == "Root > Branch > Leaf"
         assert len(deep_queries) == len(shallow_queries)
-        assert deep_response.context["history"][0]["cards"][0].loc["path"] == (
-            "Root > Branch > Leaf"
-        )
 
     def test_event_ban_lookup_is_one_query_across_history_groups(
         self, authenticated_client, active_user, session, agenda_item
