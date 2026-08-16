@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-15 21:21+0200\n"
+"POT-Creation-Date: 2026-08-16 07:16+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -1204,6 +1204,16 @@ msgstr "Ustawienia wyświetlania zostały zapisane."
 msgid "Proposal settings saved successfully."
 msgstr "Ustawienia zgłoszeń zostały zapisane."
 
+#: src/ludamus/gates/web/django/chronology/panel/views/event_settings.py
+#: src/ludamus/templates/chronology/panel/konwencik/settings.html
+msgid "Export now"
+msgstr "Eksportuj teraz"
+
+#: src/ludamus/gates/web/django/chronology/panel/views/event_settings.py
+#: src/ludamus/templates/panel/cfp.html
+msgid "Configure"
+msgstr "Konfiguruj"
+
 #: src/ludamus/gates/web/django/chronology/panel/views/facilitators.py
 msgid "Select at least two facilitators to merge."
 msgstr "Wybierz co najmniej dwóch twórców programu do scalenia."
@@ -1549,8 +1559,22 @@ msgid "Unknown implementation: %(id)s"
 msgstr "Nieznana implementacja: %(id)s"
 
 #: src/ludamus/gates/web/django/chronology/panel/views/konwencik_export.py
-msgid "This does not belong to the event."
-msgstr "To nie należy do tego wydarzenia."
+#, python-format
+msgid "%(count)d session skipped: longer than a day."
+msgid_plural "%(count)d sessions skipped: longer than a day."
+msgstr[0] "Pominięto %(count)d punkt programu: dłuższy niż doba."
+msgstr[1] "Pominięto %(count)d punkty programu: dłuższe niż doba."
+msgstr[2] "Pominięto %(count)d punktów programu: dłuższe niż doba."
+msgstr[3] "Pominięto %(count)d punkty programu: dłuższe niż doba."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/konwencik_export.py
+#, python-format
+msgid "%(count)d session skipped: every block it is in is internal."
+msgid_plural "%(count)d sessions skipped: every block they are in is internal."
+msgstr[0] "Pominięto %(count)d punkt programu: wszystkie jego bloki są wewnętrzne."
+msgstr[1] "Pominięto %(count)d punkty programu: wszystkie ich bloki są wewnętrzne."
+msgstr[2] "Pominięto %(count)d punktów programu: wszystkie ich bloki są wewnętrzne."
+msgstr[3] "Pominięto %(count)d punkty programu: wszystkie ich bloki są wewnętrzne."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/konwencik_export.py
 #: src/ludamus/templates/panel/session-field-create.html
@@ -1615,15 +1639,6 @@ msgstr[0] "Wyeksportowano %(count)d punkt programu."
 msgstr[1] "Wyeksportowano %(count)d punkty programu."
 msgstr[2] "Wyeksportowano %(count)d punktów programu."
 msgstr[3] "Wyeksportowano %(count)d punkty programu."
-
-#: src/ludamus/gates/web/django/chronology/panel/views/konwencik_export.py
-#, python-format
-msgid "%(count)d session skipped: longer than a day."
-msgid_plural "%(count)d sessions skipped: longer than a day."
-msgstr[0] "Pominięto %(count)d punkt programu: dłuższy niż doba."
-msgstr[1] "Pominięto %(count)d punkty programu: dłuższe niż doba."
-msgstr[2] "Pominięto %(count)d punktów programu: dłuższe niż doba."
-msgstr[3] "Pominięto %(count)d punkty programu: dłuższe niż doba."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/personal_data_fields.py
 msgid "Personal data field created successfully."
@@ -4576,11 +4591,6 @@ msgid "Back to integrations"
 msgstr "Wróć do integracji"
 
 #: src/ludamus/templates/chronology/panel/konwencik/settings.html
-#: src/ludamus/templates/panel/integration-settings.html
-msgid "Export now"
-msgstr "Eksportuj teraz"
-
-#: src/ludamus/templates/chronology/panel/konwencik/settings.html
 msgid ""
 "The Konwencik tab is rewritten as plain text on every run. Do not put "
 "formulas, notes or hand-typed rows in it — they are lost on the next export. "
@@ -4617,6 +4627,20 @@ msgstr[0] "Pominięto %(counter)s punkt programu: dłuższy niż doba."
 msgstr[1] "Pominięto %(counter)s punkty programu: dłuższe niż doba."
 msgstr[2] "Pominięto %(counter)s punktów programu: dłuższe niż doba."
 msgstr[3] "Pominięto %(counter)s punkty programu: dłuższe niż doba."
+
+#: src/ludamus/templates/chronology/panel/konwencik/settings.html
+#, python-format
+msgid "%(counter)s session skipped: every block it is in is internal."
+msgid_plural ""
+"%(counter)s sessions skipped: every block they are in is internal."
+msgstr[0] ""
+"Pominięto %(counter)s punkt programu: wszystkie jego bloki są wewnętrzne."
+msgstr[1] ""
+"Pominięto %(counter)s punkty programu: wszystkie ich bloki są wewnętrzne."
+msgstr[2] ""
+"Pominięto %(counter)s punktów programu: wszystkie ich bloki są wewnętrzne."
+msgstr[3] ""
+"Pominięto %(counter)s punkty programu: wszystkie ich bloki są wewnętrzne."
 
 #: src/ludamus/templates/chronology/panel/konwencik/settings.html
 msgid "Attraction kinds"
@@ -6907,11 +6931,6 @@ msgstr "Nie wybrano żadnych pól."
 #: src/ludamus/templates/panel/cfp.html
 msgid "Submission window"
 msgstr "Okno zgłoszeń"
-
-#: src/ludamus/templates/panel/cfp.html
-#: src/ludamus/templates/panel/integration-settings.html
-msgid "Configure"
-msgstr "Konfiguruj"
 
 #: src/ludamus/templates/panel/cfp.html
 msgid "Are you sure you want to delete this category?"
@@ -9269,6 +9288,9 @@ msgstr "Temat"
 #: src/ludamus/templates/staging_email_inbox.html
 msgid "No emails captured yet."
 msgstr "Brak przechwyconych e-maili."
+
+#~ msgid "This does not belong to the event."
+#~ msgstr "To nie należy do tego wydarzenia."
 
 #~ msgid ""
 #~ "Map each source answer to an ISO 8601 duration (e.g. PT1H30M for 1 h 30 "

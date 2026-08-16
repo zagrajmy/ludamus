@@ -281,7 +281,9 @@ class TestKonwencikSheetExporterCheck:
         result = KonwencikSheetExporter().check(SECRET, CONFIG)
 
         assert result.outcome == CheckOutcome.OK
-        assert result.hint == 'Write possible, tab "harmonogram".'
+        # No hint on the happy path: the template renders a translated
+        # "Check passed." and a sentence composed in links/ could not be.
+        assert not result.hint
         google.session.post.assert_called_once_with(
             SHEETS_BATCH_UPDATE_URL.format(sheet_id="sheet-1"),
             json={"requests": []},
@@ -323,7 +325,34 @@ class TestKonwencikSheetExporterCheck:
         result = KonwencikSheetExporter().check(SECRET, CONFIG)
 
         assert result.outcome == CheckOutcome.AUTH_FAILED
-        assert "Unexpected 500 from Google: boom" in result.hint
+        assert result.hint == "Spreadsheet metadata request failed with 500: boom"
+
+    def test_a_blank_tab_checks_out_against_the_first_one(self, google):
+        # `write_rows(tab="")` writes the first tab, so a blank tab is a
+        # working configuration and the check has to agree with the writer.
+        google.session.post.return_value = _resp(ok=True)
+        google.session.get.return_value = _meta_with_title("Arkusz1")
+
+        result = KonwencikSheetExporter().check(
+            SECRET, KonwencikSheetConfig(spreadsheet_id="sheet-1", tab="")
+        )
+
+        assert result.outcome == CheckOutcome.OK
+
+    def test_a_blank_tab_on_a_spreadsheet_with_no_tabs_is_not_found(self, google):
+        google.session.post.return_value = _resp(ok=True)
+        google.session.get.return_value = MagicMock(
+            ok=True, json=lambda: {"sheets": []}
+        )
+
+        result = KonwencikSheetExporter().check(
+            SECRET, KonwencikSheetConfig(spreadsheet_id="sheet-1", tab="")
+        )
+
+        assert result.outcome == CheckOutcome.NOT_FOUND
+        assert result.hint == (
+            "Spreadsheet has no sheet tab to write into. Tabs found: none."
+        )
 
     def test_metadata_request_exception(self, google):
         google.session.post.return_value = _resp(ok=True)

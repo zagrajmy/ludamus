@@ -32,9 +32,11 @@ from django.utils.timezone import get_current_timezone
 
 from ludamus.links.db.django.models import (
     AgendaItem,
+    Connection,
     Encounter,
     EnrollmentConfig,
     Event,
+    EventIntegration,
     EventProposalSettings,
     Notification,
     ProposalCategory,
@@ -49,6 +51,7 @@ from ludamus.links.db.django.models import (
     User,
 )
 from ludamus.pacts import SessionStatus
+from ludamus.pacts.chronology import IntegrationImplementationId, IntegrationKind
 from ludamus.pacts.legacy import NotificationKind, SessionParticipationStatus
 
 
@@ -566,6 +569,22 @@ def _create_panel_lab_event(sphere: Sphere) -> Event:
         min_participants_limit=1,
         max_participants_limit=6,
         durations=["PT1H"],
+    )
+    # An export integration so the integrations list renders the two actions
+    # only this implementation carries. The secret stays empty: the spec reads
+    # the row and opens the settings page, and never runs an export, which
+    # would need real Google credentials.
+    EventIntegration.objects.create(
+        event=event,
+        kind=IntegrationKind.EXPORT.value,
+        implementation=IntegrationImplementationId.KONWENCIK_SHEET_PUSHER.value,
+        connection=Connection.objects.create(
+            sphere=event.sphere, display_name="Frostfire Sheets"
+        ),
+        display_name="Konwencik agenda",
+        config_json=json.dumps(
+            {"spreadsheet_id": "frostfire-sheet", "tab": "harmonogram"}
+        ),
     )
     return event
 

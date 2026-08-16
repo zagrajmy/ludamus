@@ -4,6 +4,7 @@ from unittest.mock import MagicMock
 from zoneinfo import ZoneInfo
 
 import pytest
+from pydantic import ValidationError
 
 from ludamus.mills.konwencik import (
     ADULT_MIN_AGE,
@@ -18,6 +19,7 @@ from ludamus.pacts.konwencik import (
     KonwencikExportSettings,
     KonwencikLastRun,
     KonwencikScheduleRepos,
+    KonwencikSkipReason,
 )
 from ludamus.pacts.sheets import SheetExportError
 
@@ -140,13 +142,17 @@ def _make_service(
     )
 
 
-def _integration(*, settings_json="{}"):
+def _integration(
+    *,
+    settings_json="{}",
+    config_json='{"spreadsheet_id": "sheet-1", "tab": "harmonogram"}',
+):
     return SimpleNamespace(
         pk=INTEGRATION_PK,
         event_id=EVENT_PK,
         connection_id=CONNECTION_PK,
         implementation=IntegrationImplementationId.KONWENCIK_SHEET_PUSHER,
-        config_json='{"spreadsheet_id": "sheet-1", "tab": "harmonogram"}',
+        config_json=config_json,
         settings_json=settings_json,
         last_run_json="{}",
     )
@@ -173,30 +179,6 @@ def _cells(env, index=0):
 class TestKonwencikRowShape:
     def test_row_fields_are_the_column_keys_in_order(self):
         assert list(KonwencikRow.model_fields) == KEYS
-
-    def test_as_cells_follows_the_column_order(self):
-        row = KonwencikRow(
-            id="1",
-            day="15.08.2026",
-            start="10:00",
-            end="12:00",
-            title="t",
-            description="d",
-            speaker="s",
-            room="r",
-        )
-
-        assert dict(zip(KEYS, row.as_cells(), strict=True)) == {
-            **dict.fromkeys(KEYS, ""),
-            "id": "1",
-            "day": "15.08.2026",
-            "start": "10:00",
-            "end": "12:00",
-            "title": "t",
-            "description": "d",
-            "speaker": "s",
-            "room": "r",
-        }
 
 
 class TestKonwencikMatrix:
@@ -230,7 +212,7 @@ class TestKonwencikMatrix:
         outcome = _run(env)
 
         assert outcome.rows_written == len(items)
-        assert outcome.sessions_skipped == 0
+        assert outcome.skipped == {}
 
 
 class TestKonwencikRowBuilder:
@@ -377,7 +359,12 @@ class TestKonwencikExclusions:
             tracks_by_session={SESSION_PK: {21: "Internal"}},
         )
 
-        assert _run(env).rows_written == 0
+        outcome = _run(env)
+
+        assert outcome.rows_written == 0
+        # Counted under its own reason: marking a track internal takes its
+        # whole programme out of Konwencik, which the panel has to say.
+        assert outcome.skipped == {KonwencikSkipReason.INTERNAL_TRACKS: 1}
 
     def test_a_session_with_no_tracks_is_exported_with_an_empty_block(self):
         env = _make_service(
@@ -457,7 +444,7 @@ class TestKonwencikMidnight:
         outcome = _run(env)
 
         assert outcome.rows_written == 0
-        assert outcome.sessions_skipped == 1
+        assert outcome.skipped == {KonwencikSkipReason.TOO_LONG: 1}
 
     def test_a_full_day_session_is_skipped_and_logged(self, caplog):
         env = _make_service(
@@ -472,7 +459,7 @@ class TestKonwencikMidnight:
 
         outcome = _run(env)
 
-        assert outcome.sessions_skipped == 1
+        assert outcome.skipped == {KonwencikSkipReason.TOO_LONG: 1}
         assert "Dracula" in caplog.text
 
 
@@ -486,6 +473,23 @@ class TestKonwencikExportNow:
         )
 
         env.integrations.get.assert_called_once_with(EVENT_PK, INTEGRATION_PK)
+
+    def test_another_implementation_in_the_same_event_is_not_found(self):
+        # Panel access proves the sphere, not that this pk is the export's.
+        # An importer's row must not be run against a sheet, nor have its
+        # settings replaced by the Konwencik page's.
+        env = _make_service(items=[], spaces=[])
+        importer = _integration()
+        importer.implementation = IntegrationImplementationId.GOOGLE_PROPOSAL_PULLER
+        env.integrations.get.return_value = importer
+
+        with pytest.raises(NotFoundError):
+            env.service.export_now(
+                sphere_id=SPHERE_PK, event_pk=EVENT_PK, pk=INTEGRATION_PK
+            )
+
+        env.writer.write_rows.assert_not_called()
+        env.integrations.update_settings.assert_not_called()
 
     def test_a_foreign_sphere_raises_without_writing(self):
         env = _make_service(items=[], spaces=[])
@@ -551,6 +555,27 @@ class TestKonwencikLock:
         assert last_run.ok is False
         assert last_run.error_hint == "Spreadsheet write failed"
 
+    def test_a_failure_that_is_not_a_sheet_error_still_releases_the_lock(self):
+        # An unparsable config blob raises before the writer is reached. The
+        # lock has to come off anyway, or the integration wedges until it ages
+        # out with no last_run explaining why.
+        env = _make_service(items=[], spaces=[])
+
+        with pytest.raises(ValidationError):
+            env.service.run(_integration(config_json="not json"))
+
+        saved = [
+            KonwencikExportSettings.model_validate_json(call.kwargs["settings_json"])
+            for call in env.integrations.update_settings.call_args_list
+        ]
+        assert saved[-1].export_lock_time is None
+        assert (
+            KonwencikLastRun.model_validate_json(
+                env.integrations.update_last_run.call_args.kwargs["last_run_json"]
+            ).ok
+            is False
+        )
+
     def test_a_successful_run_records_the_counts(self):
         env = _make_service(items=[_item()], spaces=[_space()])
 
@@ -561,7 +586,7 @@ class TestKonwencikLock:
         )
         assert last_run.ok is True
         assert last_run.rows_written == 1
-        assert last_run.sessions_skipped == 0
+        assert last_run.skipped == {}
 
 
 def _sync_integration(**overrides):
@@ -601,6 +626,17 @@ class TestKonwencikSweep:
 
         assert env.service.run_sweep(now=_NOW) == 0
         env.writer.write_rows.assert_not_called()
+
+    def test_keeps_going_past_an_unreadable_settings_blob(self):
+        # The blob is parsed inside the per-integration guard, so one bad row
+        # costs its own export and not the rest of the sweep.
+        env = _make_service(items=[], spaces=[])
+        env.integrations.list_by_kind.return_value = [
+            _sync_integration(pk=1, settings_json='{"sync_enabled": "maybe"}'),
+            _sync_integration(pk=2),
+        ]
+
+        assert env.service.run_sweep(now=_NOW) == 1
 
     def test_keeps_going_after_one_integration_fails(self):
         env = _make_service(items=[], spaces=[])

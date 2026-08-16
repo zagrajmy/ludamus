@@ -22,6 +22,7 @@ from ludamus.pacts.konwencik import (
     KonwencikExportSettings,
     KonwencikLastRun,
     KonwencikNamedItemDTO,
+    KonwencikSkipReason,
 )
 from tests.integration.conftest import (
     AgendaItemFactory,
@@ -29,7 +30,11 @@ from tests.integration.conftest import (
     ProposalCategoryFactory,
     SessionFactory,
 )
-from tests.integration.utils import assert_login_required, assert_response
+from tests.integration.utils import (
+    FormSetErrorsMatcher,
+    assert_login_required,
+    assert_response,
+)
 from tests.integration.web.panel.helpers import (
     assert_event_not_found,
     assert_not_a_manager,
@@ -312,7 +317,10 @@ class TestKonwencikExportSettingsPageView:
         self, panel_client, event, export_integration
     ):
         export_integration.last_run_json = KonwencikLastRun(
-            time=datetime.now(UTC), ok=True, rows_written=3, sessions_skipped=1
+            time=datetime.now(UTC),
+            ok=True,
+            rows_written=3,
+            skipped={KonwencikSkipReason.TOO_LONG: 1},
         ).model_dump_json()
         export_integration.save(update_fields=["last_run_json"])
 
@@ -422,9 +430,11 @@ class TestKonwencikExportSettingsPageView:
             icon_field_pk=field.pk,
         )
 
-    def test_post_rejects_a_track_from_another_event(
+    def test_post_drops_a_colour_for_a_track_from_another_event(
         self, panel_client, event, export_integration
     ):
+        # The save is the guard: a pk the event does not own never reaches the
+        # blob, and the page does not argue with a request it never offered.
         foreign_track = _track(EventFactory(), "Foreign", is_public=True)
 
         response = panel_client.post(
@@ -438,26 +448,17 @@ class TestKonwencikExportSettingsPageView:
 
         assert_response(
             response,
-            HTTPStatus.OK,
-            template_name="chronology/panel/konwencik/settings.html",
-            context_data=panel_context(event, active_nav="settings")
-            | {
-                "integration_pk": export_integration.pk,
-                "integration_display_name": "Konwencik",
-                "last_run": None,
-                "icon_formset": ANY,
-                "color_formset": ANY,
-                "overrides_form": ANY,
-                "category_rows": [],
-                # The pk is not one the event owns, so the row has no name.
-                "track_rows": [{"item": None, "form": ANY}],
-            },
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Export settings saved.")],
+            url=_settings_page_url(event, export_integration),
         )
-        assert response.context_data["color_formset"].errors == [
-            {"pk": ["This does not belong to the event."]}
-        ]
         export_integration.refresh_from_db()
-        assert export_integration.settings_json in {"", "{}"}
+        assert (
+            KonwencikExportSettings.model_validate_json(
+                export_integration.settings_json
+            ).track_colors
+            == {}
+        )
 
     def test_post_redirects_on_unknown_event(self, panel_client, export_integration):
         response = panel_client.post(
@@ -519,17 +520,16 @@ class TestKonwencikExportSettingsPageView:
                 "integration_pk": export_integration.pk,
                 "integration_display_name": "Konwencik",
                 "last_run": None,
-                "icon_formset": ANY,
-                "color_formset": ANY,
+                "icon_formset": FormSetErrorsMatcher(),
+                "color_formset": FormSetErrorsMatcher(
+                    {"pk": ["This field is required."]}
+                ),
                 "overrides_form": ANY,
                 "category_rows": [],
-                # No pk to pair on, so the row has no name to show.
+                # A row the event has nothing for has no name to show.
                 "track_rows": [{"item": None, "form": ANY}],
             },
         )
-        assert response.context_data["color_formset"].errors == [
-            {"pk": ["This field is required."]}
-        ]
 
     def test_post_rejects_a_colour_that_is_not_hex(
         self, panel_client, event, export_integration
@@ -550,8 +550,10 @@ class TestKonwencikExportSettingsPageView:
                 "integration_pk": export_integration.pk,
                 "integration_display_name": "Konwencik",
                 "last_run": None,
-                "icon_formset": ANY,
-                "color_formset": ANY,
+                "icon_formset": FormSetErrorsMatcher(),
+                "color_formset": FormSetErrorsMatcher(
+                    {"color": ["Use a hex colour, e.g. #1e88e5."]}
+                ),
                 "overrides_form": ANY,
                 "category_rows": [],
                 "track_rows": [
@@ -562,9 +564,6 @@ class TestKonwencikExportSettingsPageView:
                 ],
             },
         )
-        assert response.context_data["color_formset"].errors == [
-            {"color": ["Use a hex colour, e.g. #1e88e5."]}
-        ]
 
     def test_post_saves_the_sync_toggle(self, panel_client, event, export_integration):
         response = panel_client.post(

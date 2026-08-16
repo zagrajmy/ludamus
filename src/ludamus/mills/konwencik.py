@@ -1,6 +1,7 @@
 """Pushes an event's scheduled agenda into the tab Konwencik reads."""
 
 import logging
+from collections import Counter
 from datetime import UTC, datetime, timedelta, tzinfo
 from typing import TYPE_CHECKING
 
@@ -18,6 +19,7 @@ from ludamus.pacts.konwencik import (
     KonwencikScheduleRepos,
     KonwencikSettingsContext,
     KonwencikSheetConfig,
+    KonwencikSkipReason,
 )
 from ludamus.pacts.sheets import SheetExportError
 
@@ -63,8 +65,11 @@ _TIME_FORMAT = "%H:%M"
 ADULT_MIN_AGE = 18
 ADULT_TITLE_TAG = "[18+]"
 # A lock younger than this means a run is in flight; an older one belonged to
-# a crashed worker and is taken over.
-EXPORT_LOCK_TIMEOUT = timedelta(minutes=15)
+# a crashed worker and is taken over. Comfortably longer than the sweep's own
+# cadence, so a run that overruns one tick is not robbed by the next; the cost
+# is that a genuinely crashed worker wedges for this long, which saving the
+# settings page clears by hand.
+EXPORT_LOCK_TIMEOUT = timedelta(minutes=30)
 # A finished event must not keep pushing.
 _FINISHED_EVENT_GRACE = timedelta(days=1)
 ERROR_HINT_LIMIT = 500
@@ -89,24 +94,8 @@ class KonwencikRow(BaseModel):
     icon_background_color: str = ""
 
     def as_cells(self) -> list[str]:
-        # Declaration order is the sheet's column order; the unit test pins it
-        # against KONWENCIK_COLUMNS so the two cannot drift.
-        return [
-            self.id,
-            self.day,
-            self.start,
-            self.end,
-            self.title,
-            self.description,
-            self.speaker,
-            self.room,
-            self.room_position,
-            self.block,
-            self.type,
-            self.photo_url,
-            self.icon,
-            self.icon_background_color,
-        ]
+        by_key: dict[str, str] = self.model_dump()
+        return [by_key[key] for key, _label in KONWENCIK_COLUMNS]
 
 
 def _room_labels(spaces: list[SpaceDTO]) -> dict[int, str]:
@@ -258,7 +247,15 @@ class KonwencikExportService(KonwencikExportServiceProtocol):
         event = self._repos.events.read(event_pk)
         if event.sphere_id != sphere_id:
             raise NotFoundError
-        return self._integrations.get(event_pk, pk)
+        integration = self._integrations.get(event_pk, pk)
+        # The event's other integrations are not this page's to touch: saving
+        # Konwencik settings over an importer's row would destroy its question
+        # mapping, and running against one would push its config at a sheet.
+        if integration.implementation != (
+            IntegrationImplementationId.KONWENCIK_SHEET_PUSHER
+        ):
+            raise NotFoundError
+        return integration
 
     def run(self, integration: EventIntegrationDTO) -> KonwencikExportOutcome:
         # No sphere argument: the sweep has no principal, and re-checking an
@@ -266,7 +263,11 @@ class KonwencikExportService(KonwencikExportServiceProtocol):
         settings = self._claim_lock(integration)
         try:
             outcome = self._write_sheet(integration, settings)
-        except SheetExportError as exc:
+        except Exception as exc:
+            # Every failure releases the lock, not just a sheet one: an
+            # unparsable config, a missing event or a key that no longer
+            # decrypts would otherwise wedge the integration until the lock
+            # ages out, with no last_run saying what happened.
             self._finish(integration, error_hint=str(exc))
             raise
         self._finish(integration, outcome=outcome)
@@ -281,16 +282,22 @@ class KonwencikExportService(KonwencikExportServiceProtocol):
                 IntegrationImplementationId.KONWENCIK_SHEET_PUSHER
             ):
                 continue
-            settings = KonwencikExportSettings.model_validate_json(
-                integration.settings_json or "{}"
-            )
-            if not settings.sync_enabled:
-                continue
-            # One event's revoked service account must not stop every other
-            # event's sync.
+            # One event's revoked service account or unreadable settings blob
+            # must not stop every other event's sync — which means the parse
+            # belongs inside the guard, not before it.
             try:
+                settings = KonwencikExportSettings.model_validate_json(
+                    integration.settings_json or "{}"
+                )
+                if not settings.sync_enabled:
+                    continue
                 self.run(integration)
-            except (SheetExportError, ExportInProgressError, NotFoundError) as exc:
+            except (
+                SheetExportError,
+                ExportInProgressError,
+                NotFoundError,
+                ValidationError,
+            ) as exc:
                 logger.warning(
                     "Konwencik sweep skipped integration %s: %s", integration.pk, exc
                 )
@@ -317,7 +324,7 @@ class KonwencikExportService(KonwencikExportServiceProtocol):
             rows=matrix,
             tab=config.tab,
         )
-        return KonwencikExportOutcome(rows_written=len(rows), sessions_skipped=skipped)
+        return KonwencikExportOutcome(rows_written=len(rows), skipped=skipped)
 
     def _claim_lock(self, integration: EventIntegrationDTO) -> KonwencikExportSettings:
         # The manual button and a scheduled tick can overlap, and two full
@@ -369,14 +376,14 @@ class KonwencikExportService(KonwencikExportServiceProtocol):
                     time=datetime.now(UTC),
                     ok=outcome is not None,
                     rows_written=outcome.rows_written if outcome else 0,
-                    sessions_skipped=outcome.sessions_skipped if outcome else 0,
+                    skipped=outcome.skipped if outcome else {},
                     error_hint=error_hint[:ERROR_HINT_LIMIT],
                 ).model_dump_json(),
             )
 
     def _build_rows(
         self, *, event_pk: int, settings: KonwencikExportSettings
-    ) -> tuple[list[KonwencikRow], int]:
+    ) -> tuple[list[KonwencikRow], dict[KonwencikSkipReason, int]]:
         alive = set(self._repos.sessions.list_alive_pks_by_event(event_pk))
         items = sorted(
             (
@@ -398,16 +405,20 @@ class KonwencikExportService(KonwencikExportServiceProtocol):
         )
 
         rows: list[KonwencikRow] = []
-        skipped = 0
+        skipped: Counter[KonwencikSkipReason] = Counter()
         for item in items:
             session_tracks = tracks_by_session.get(item.session_id, {})
             block = _first_public_track(tracks, session_tracks)
             if session_tracks and block is None:
-                # Every track it belongs to is an internal grouping, so it is
-                # not program a public app should show.
+                skipped[KonwencikSkipReason.INTERNAL_TRACKS] += 1
+                logger.warning(
+                    "Konwencik export skipped session %s (%s): every block internal",
+                    item.session_id,
+                    item.session_title,
+                )
                 continue
             if (span := _local_span(item, self._zone)) is None:
-                skipped += 1
+                skipped[KonwencikSkipReason.TOO_LONG] += 1
                 logger.warning(
                     "Konwencik export skipped session %s (%s): longer than a day",
                     item.session_id,
@@ -424,7 +435,7 @@ class KonwencikExportService(KonwencikExportServiceProtocol):
                     answers=answers.get(item.session_id, {}),
                 )
             )
-        return rows, skipped
+        return rows, dict(skipped)
 
     def _field_answers(
         self,
@@ -449,15 +460,21 @@ class KonwencikExportService(KonwencikExportServiceProtocol):
         raw = self._repos.sessions.list_field_values_for_sessions(
             session_ids, field_pks
         )
-        photo_slug = slugs.get(settings.photo_url_field_pk or 0, "")
-        icon_slug = slugs.get(settings.icon_field_pk or 0, "")
+        photo_slug = _slug_of(slugs, settings.photo_url_field_pk)
+        icon_slug = _slug_of(slugs, settings.icon_field_pk)
         return {
             session_id: {
-                "photo_url": _text(value=values.get(photo_slug)) if photo_slug else "",
-                "icon": _text(value=values.get(icon_slug)) if icon_slug else "",
+                "photo_url": _text(value=values.get(photo_slug)),
+                "icon": _text(value=values.get(icon_slug)),
             }
             for session_id, values in raw.items()
         }
+
+
+def _slug_of(slugs: dict[int, str], pk: int | None) -> str:
+    # No field configured is its own case, not a pk that happens to match
+    # nothing: an unset override never reaches the value store.
+    return slugs.get(pk, "") if pk is not None else ""
 
 
 def _first_public_track(

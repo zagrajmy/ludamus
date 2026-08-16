@@ -1,5 +1,6 @@
 """URL patterns for the event-scoped Panel."""
 
+from django.db.transaction import non_atomic_requests
 from django.urls import include, path
 
 from ludamus.gates.web.django.chronology.panel.views import (
@@ -514,7 +515,12 @@ urlpatterns = [
     ),
     path(
         "event/<slug:slug>/export/<int:pk>/run/",
-        konwencik_export.KonwencikExportActionView.as_view(),
+        # Outside ATOMIC_REQUESTS: the service claims the export lock in its
+        # own transaction and needs that commit visible before it starts
+        # writing the sheet. Wrapped in the request's transaction the claim is
+        # only a savepoint, so a concurrent sweep blocks on the row for the
+        # whole run and then repeats it.
+        non_atomic_requests(konwencik_export.KonwencikExportActionView.as_view()),
         name="konwencik-export-run",
     ),
     path(

@@ -25,7 +25,7 @@ from ludamus.pacts.konwencik import KonwencikSheetConfig
 from ludamus.pacts.sheets import SheetExportError, SheetWriterProtocol
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Sequence
+    from collections.abc import Callable
 
     from google.auth.transport.requests import AuthorizedSession
 
@@ -74,11 +74,54 @@ def _pad_to_extent(
     return padded + [[""] * width] * (height - len(padded))
 
 
+class _TabNotFoundError(SheetExportError):
+    # The spreadsheet answered, and it has no tab to write into. A writer
+    # treats it like any other export failure; a check reports NOT_FOUND
+    # rather than blaming the credentials.
+    pass
+
+
+def _call(*, what: str, send: Callable[[], requests.Response]) -> requests.Response:
+    try:
+        response = send()
+    except (requests.RequestException, GoogleAuthError) as exc:
+        msg = f"{what} request failed: {exc}"
+        raise SheetExportError(msg) from exc
+    if not response.ok:
+        body = (response.text or "")[:ERROR_HINT_LIMIT]
+        msg = f"{what} request failed with {response.status_code}: {body}"
+        raise SheetExportError(msg)
+    return response
+
+
+def _tab_titles(session: AuthorizedSession, spreadsheet_id: str) -> list[str]:
+    response = _call(
+        what="Spreadsheet metadata",
+        send=lambda: session.get(
+            SHEETS_META_URL.format(sheet_id=spreadsheet_id), timeout=10
+        ),
+    )
+    meta = SpreadsheetMeta.model_validate(response.json())
+    return [sheet.properties.title for sheet in meta.sheets]
+
+
+def _resolve_tab(titles: list[str], tab: str) -> str:
+    # A blank tab means the first one. That is the writer's contract, which
+    # the discounts export relies on, so the check has to resolve it the same
+    # way or it reports a red cross on a configuration that exports fine.
+    if tab:
+        if tab not in titles:
+            msg = f'Spreadsheet has no tab named "{tab}".'
+            raise _TabNotFoundError(msg)
+        return tab
+    if not titles or not titles[0]:
+        msg = "Spreadsheet has no sheet tab to write into."
+        raise _TabNotFoundError(msg)
+    return titles[0]
+
+
 class GoogleSheetsWriter(SheetWriterProtocol):
     """Replaces the first tab of a spreadsheet with the given rows."""
-
-    def __init__(self, scopes: Sequence[str] = SHEETS_WRITE_SCOPES) -> None:
-        self._scopes = tuple(scopes)
 
     def write_rows(
         self,
@@ -89,20 +132,20 @@ class GoogleSheetsWriter(SheetWriterProtocol):
         tab: str = "",
     ) -> None:
         try:
-            session = build_session(secret, self._scopes)
+            session = build_session(secret, SHEETS_WRITE_SCOPES)
         except CredentialsError as exc:
             raise SheetExportError(str(exc)) from exc
         # A1-quote the tab title: a bare title that parses as a cell reference
         # (a tab named "A1") or contains an apostrophe would otherwise be read
         # as a range, writing a single cell instead of the tab.
-        title = _a1_quote(self._resolve_tab(session, spreadsheet_id, tab))
+        title = _a1_quote(_resolve_tab(_tab_titles(session, spreadsheet_id), tab))
         height, width = self._old_extent(
             session=session, spreadsheet_id=spreadsheet_id, title=title
         )
         # A single atomic write: padding with "" out to the previous data's
         # extent overwrites stale cells left by a longer or wider export, and
         # a failed request leaves the old data fully intact.
-        self._call(
+        _call(
             what="Spreadsheet write",
             send=lambda: session.put(
                 SHEETS_UPDATE_URL.format(
@@ -113,13 +156,14 @@ class GoogleSheetsWriter(SheetWriterProtocol):
             ),
         )
 
+    @staticmethod
     def _old_extent(
-        self, *, session: AuthorizedSession, spreadsheet_id: str, title: str
+        *, session: AuthorizedSession, spreadsheet_id: str, title: str
     ) -> tuple[int, int]:
         # A bare tab name (no A1 column bounds) returns the tab's whole data
         # region, so the extent is not capped at column Z or cut short by
         # blank cells in column A.
-        response = self._call(
+        response = _call(
             what="Spreadsheet read",
             send=lambda: session.get(
                 SHEETS_VALUES_URL.format(
@@ -131,49 +175,12 @@ class GoogleSheetsWriter(SheetWriterProtocol):
         values = response.json().get("values") or []
         return len(values), max((len(row) for row in values), default=0)
 
-    def _resolve_tab(
-        self, session: AuthorizedSession, spreadsheet_id: str, tab: str
-    ) -> str:
-        response = self._call(
-            what="Spreadsheet metadata",
-            send=lambda: session.get(
-                SHEETS_META_URL.format(sheet_id=spreadsheet_id), timeout=10
-            ),
-        )
-        meta = SpreadsheetMeta.model_validate(response.json())
-        titles = [sheet.properties.title for sheet in meta.sheets]
-        if tab:
-            if tab not in titles:
-                msg = f'Spreadsheet has no tab named "{tab}".'
-                raise SheetExportError(msg)
-            return tab
-        if not titles or not titles[0]:
-            msg = "Spreadsheet has no sheet tab to write into."
-            raise SheetExportError(msg)
-        return titles[0]
-
-    @staticmethod
-    def _call(*, what: str, send: Callable[[], requests.Response]) -> requests.Response:
-        try:
-            response = send()
-        except (requests.RequestException, GoogleAuthError) as exc:
-            msg = f"{what} request failed: {exc}"
-            raise SheetExportError(msg) from exc
-        if not response.ok:
-            body = (response.text or "")[:ERROR_HINT_LIMIT]
-            msg = f"{what} request failed with {response.status_code}: {body}"
-            raise SheetExportError(msg)
-        return response
-
 
 class KonwencikSheetExporter(IntegrationImplementation):
     """Pushes an event's agenda into the tab Konwencik reads."""
 
     kind: IntegrationKind = IntegrationKind.EXPORT
     config_model: type[BaseModel] = KonwencikSheetConfig
-
-    def __init__(self, scopes: Sequence[str] = SHEETS_WRITE_SCOPES) -> None:
-        self._scopes = tuple(scopes)
 
     def check(self, secret: bytes, config: BaseModel) -> CheckResult:
         if not isinstance(config, KonwencikSheetConfig):
@@ -182,7 +189,7 @@ class KonwencikSheetExporter(IntegrationImplementation):
                 hint="Configuration is not a Konwencik sheet config.",
             )
         try:
-            session = build_session(secret, self._scopes)
+            session = build_session(secret, SHEETS_WRITE_SCOPES)
         except CredentialsError as exc:
             return CheckResult(outcome=CheckOutcome.AUTH_FAILED, hint=str(exc))
 
@@ -212,34 +219,18 @@ class KonwencikSheetExporter(IntegrationImplementation):
     def _check_tab(
         *, session: AuthorizedSession, config: KonwencikSheetConfig
     ) -> CheckResult:
-        meta_url = SHEETS_META_URL.format(sheet_id=config.spreadsheet_id)
         try:
-            response = session.get(meta_url, timeout=10)
-        except (requests.RequestException, GoogleAuthError) as exc:
-            return CheckResult(
-                outcome=CheckOutcome.AUTH_FAILED,
-                hint=f"Spreadsheet metadata request failed: {exc}",
-            )
-        if not response.ok:
-            return CheckResult(
-                outcome=CheckOutcome.AUTH_FAILED,
-                hint=(
-                    f"Unexpected {response.status_code} from Google: "
-                    f"{(response.text or '')[:ERROR_HINT_LIMIT]}"
-                ),
-            )
-        titles = [
-            sheet.properties.title
-            for sheet in SpreadsheetMeta.model_validate(response.json()).sheets
-        ]
-        if config.tab not in titles:
+            titles = _tab_titles(session, config.spreadsheet_id)
+        except SheetExportError as exc:
+            return CheckResult(outcome=CheckOutcome.AUTH_FAILED, hint=str(exc))
+        try:
+            _resolve_tab(titles, config.tab)
+        except _TabNotFoundError as exc:
             return CheckResult(
                 outcome=CheckOutcome.NOT_FOUND,
-                hint=(
-                    f'Spreadsheet has no tab named "{config.tab}". '
-                    f"Tabs found: {', '.join(titles) or 'none'}."
-                ),
+                hint=f"{exc} Tabs found: {', '.join(titles) or 'none'}.",
             )
-        return CheckResult(
-            outcome=CheckOutcome.OK, hint=f'Write possible, tab "{config.tab}".'
-        )
+        # No hint on the happy path: the template says "Check passed." in the
+        # organiser's language, and a sentence composed here cannot be
+        # translated.
+        return CheckResult(outcome=CheckOutcome.OK)

@@ -2,14 +2,14 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, TypedDict
+from typing import TYPE_CHECKING, Any, NamedTuple, TypedDict
 
 from django import forms
 from django.contrib import messages
 from django.shortcuts import redirect
 from django.template.response import TemplateResponse
 from django.utils.translation import gettext as _
-from django.utils.translation import gettext_lazy, ngettext
+from django.utils.translation import gettext_lazy, ngettext, ngettext_lazy
 from django.views.generic.base import View
 
 from ludamus.gates.web.django.chronology.panel.views.base import (
@@ -18,7 +18,11 @@ from ludamus.gates.web.django.chronology.panel.views.base import (
     PanelRequest,
 )
 from ludamus.pacts import NotFoundError
-from ludamus.pacts.konwencik import ExportInProgressError, KonwencikExportSettings
+from ludamus.pacts.konwencik import (
+    ExportInProgressError,
+    KonwencikExportSettings,
+    KonwencikSkipReason,
+)
 from ludamus.pacts.sheets import SheetExportError
 
 if TYPE_CHECKING:
@@ -36,8 +40,26 @@ if TYPE_CHECKING:
 ICON_MAX_LENGTH = 64
 _HEX_COLOR = r"^#[0-9a-fA-F]{6}$"
 
+# One sentence per reason the export drops a session, so the panel says which
+# rule bit rather than reporting every skip as an over-long session.
+SKIP_MESSAGES = {
+    KonwencikSkipReason.TOO_LONG: ngettext_lazy(
+        "%(count)d session skipped: longer than a day.",
+        "%(count)d sessions skipped: longer than a day.",
+        "count",
+    ),
+    KonwencikSkipReason.INTERNAL_TRACKS: ngettext_lazy(
+        "%(count)d session skipped: every block it is in is internal.",
+        "%(count)d sessions skipped: every block they are in is internal.",
+        "count",
+    ),
+}
+
 
 class _SettingsRow(TypedDict):
+    # `item` is None only for a surplus row: a hand-crafted POST can raise
+    # TOTAL_FORMS above the number of things the event has, and those rows have
+    # no name to show.
     item: KonwencikNamedItemDTO | None
     form: forms.Form
 
@@ -54,24 +76,19 @@ class _PageContext(TypedDict):
     track_rows: list[_SettingsRow]
 
 
-class _ScopedRowForm(forms.Form):
-    """One formset row, keyed on a pk the event must own."""
+class _RowForm(forms.Form):
+    """One formset row, carrying the pk of the thing it configures.
+
+    Ownership of that pk is not checked here. `save_settings` scopes every id
+    against the event before it writes, which is where the rule belongs, and a
+    second copy in the gate only makes the two disagree about what a foreign pk
+    does.
+    """
 
     pk = forms.IntegerField(widget=forms.HiddenInput)
 
-    def __init__(
-        self, *args: Any, allowed_pks: Iterable[int] = (), **kwargs: Any
-    ) -> None:
-        super().__init__(*args, **kwargs)
-        self._allowed_pks = set(allowed_pks)
 
-    def clean_pk(self) -> int:
-        if (pk := self.cleaned_data["pk"]) not in self._allowed_pks:
-            raise forms.ValidationError(_("This does not belong to the event."))
-        return int(pk)
-
-
-class KonwencikIconForm(_ScopedRowForm):
+class KonwencikIconForm(_RowForm):
     icon = forms.CharField(
         label=gettext_lazy("Icon"),
         required=False,
@@ -81,7 +98,7 @@ class KonwencikIconForm(_ScopedRowForm):
     )
 
 
-class KonwencikColorForm(_ScopedRowForm):
+class KonwencikColorForm(_RowForm):
     color = forms.RegexField(
         label=gettext_lazy("Background"),
         regex=_HEX_COLOR,
@@ -125,18 +142,13 @@ KonwencikColorFormSet = forms.formset_factory(KonwencikColorForm, extra=0)
 def _rows(
     items: Iterable[KonwencikNamedItemDTO], forms_: Iterable[forms.Form]
 ) -> list[_SettingsRow]:
-    # Paired on pk, not position: a re-rendered POST carries whatever rows the
-    # client sent, and a pk the event does not own has no name to show.
-    by_pk = {item.pk: item for item in items}
-    return [{"item": by_pk.get(_row_pk(form)), "form": form} for form in forms_]
-
-
-def _row_pk(form: forms.Form) -> int:
-    raw = form["pk"].value()
-    try:
-        return int(raw)
-    except TypeError, ValueError:
-        return 0
+    # Positional: the formset is built from `items` in this order, so row N
+    # configures item N.
+    named = list(items)
+    return [
+        {"item": named[index] if index < len(named) else None, "form": form}
+        for index, form in enumerate(forms_)
+    ]
 
 
 def _icon_formset(
@@ -145,7 +157,6 @@ def _icon_formset(
     return KonwencikIconFormSet(
         data,
         prefix="icons",
-        form_kwargs={"allowed_pks": [item.pk for item in context.categories]},
         initial=[
             {"pk": item.pk, "icon": context.settings.category_icons.get(item.pk, "")}
             for item in context.categories
@@ -159,7 +170,6 @@ def _color_formset(
     return KonwencikColorFormSet(
         data,
         prefix="colors",
-        form_kwargs={"allowed_pks": [item.pk for item in context.tracks]},
         initial=[
             {"pk": item.pk, "color": context.settings.track_colors.get(item.pk, "")}
             for item in context.tracks
@@ -185,6 +195,7 @@ def _overrides_form(
 
 
 def _settings_from(
+    *,
     icons: BaseFormSet[KonwencikIconForm],
     colors: BaseFormSet[KonwencikColorForm],
     overrides: KonwencikOverridesForm,
@@ -204,12 +215,54 @@ def _settings_from(
     )
 
 
+class _Loaded(NamedTuple):
+    page: dict[str, Any]
+    event_pk: int
+    settings: KonwencikSettingsContext
+
+
 class KonwencikExportSettingsPageView(PanelAccessMixin, EventContextMixin, View):
     """Per-category icons, per-track colours and the two override fields."""
 
     request: PanelRequest
 
     def get(self, _request: PanelRequest, slug: str, pk: int) -> HttpResponse:
+        loaded = self._load(slug, pk)
+        if not isinstance(loaded, _Loaded):
+            return loaded
+        return self._render(
+            loaded,
+            pk=pk,
+            icons=_icon_formset(loaded.settings),
+            colors=_color_formset(loaded.settings),
+            overrides=_overrides_form(loaded.settings),
+        )
+
+    def post(self, _request: PanelRequest, slug: str, pk: int) -> HttpResponse:
+        loaded = self._load(slug, pk)
+        if not isinstance(loaded, _Loaded):
+            return loaded
+
+        icons = _icon_formset(loaded.settings, self.request.POST)
+        colors = _color_formset(loaded.settings, self.request.POST)
+        overrides = _overrides_form(loaded.settings, self.request.POST)
+        if not (icons.is_valid() and colors.is_valid() and overrides.is_valid()):
+            return self._render(
+                loaded, pk=pk, icons=icons, colors=colors, overrides=overrides
+            )
+
+        self.request.services.konwencik_export.save_settings(
+            sphere_id=self.request.context.current_sphere_id,
+            event_pk=loaded.event_pk,
+            pk=pk,
+            settings=_settings_from(icons=icons, colors=colors, overrides=overrides),
+        )
+        messages.success(self.request, _("Export settings saved."))
+        return redirect("panel:konwencik-export-settings", slug=slug, pk=pk)
+
+    def _load(self, slug: str, pk: int) -> _Loaded | HttpResponse:
+        # The redirect is a return value rather than an exception because both
+        # verbs answer the same two ways: no such event, or no such export.
         context, current_event = self.get_event_context(slug)
         if current_event is None:
             return redirect("panel:index")
@@ -224,60 +277,32 @@ class KonwencikExportSettingsPageView(PanelAccessMixin, EventContextMixin, View)
         except NotFoundError:
             messages.error(self.request, _("Integration not found."))
             return redirect("panel:event-integration-settings", slug=slug)
+        return _Loaded(
+            page=context, event_pk=current_event.pk, settings=settings_context
+        )
 
+    def _render(
+        self,
+        loaded: _Loaded,
+        *,
+        pk: int,
+        icons: BaseFormSet[KonwencikIconForm],
+        colors: BaseFormSet[KonwencikColorForm],
+        overrides: KonwencikOverridesForm,
+    ) -> HttpResponse:
+        context = loaded.page
         context.update(
             _page_context(
-                settings_context=settings_context,
+                settings_context=loaded.settings,
                 pk=pk,
-                icons=_icon_formset(settings_context),
-                colors=_color_formset(settings_context),
-                overrides=_overrides_form(settings_context),
+                icons=icons,
+                colors=colors,
+                overrides=overrides,
             )
         )
         return TemplateResponse(
             self.request, "chronology/panel/konwencik/settings.html", context
         )
-
-    def post(self, _request: PanelRequest, slug: str, pk: int) -> HttpResponse:
-        context, current_event = self.get_event_context(slug)
-        if current_event is None:
-            return redirect("panel:index")
-        service = self.request.services.konwencik_export
-        try:
-            settings_context = service.get_settings_context(
-                sphere_id=self.request.context.current_sphere_id,
-                event_pk=current_event.pk,
-                pk=pk,
-            )
-        except NotFoundError:
-            messages.error(self.request, _("Integration not found."))
-            return redirect("panel:event-integration-settings", slug=slug)
-
-        icons = _icon_formset(settings_context, self.request.POST)
-        colors = _color_formset(settings_context, self.request.POST)
-        overrides = _overrides_form(settings_context, self.request.POST)
-        if not (icons.is_valid() and colors.is_valid() and overrides.is_valid()):
-            context.update(
-                _page_context(
-                    settings_context=settings_context,
-                    pk=pk,
-                    icons=icons,
-                    colors=colors,
-                    overrides=overrides,
-                )
-            )
-            return TemplateResponse(
-                self.request, "chronology/panel/konwencik/settings.html", context
-            )
-
-        service.save_settings(
-            sphere_id=self.request.context.current_sphere_id,
-            event_pk=current_event.pk,
-            pk=pk,
-            settings=_settings_from(icons, colors, overrides),
-        )
-        messages.success(self.request, _("Export settings saved."))
-        return redirect("panel:konwencik-export-settings", slug=slug, pk=pk)
 
 
 def _page_context(
@@ -340,14 +365,7 @@ class KonwencikExportActionView(PanelAccessMixin, EventContextMixin, View):
             )
             % {"count": outcome.rows_written},
         )
-        if outcome.sessions_skipped:
-            messages.warning(
-                self.request,
-                ngettext(
-                    "%(count)d session skipped: longer than a day.",
-                    "%(count)d sessions skipped: longer than a day.",
-                    outcome.sessions_skipped,
-                )
-                % {"count": outcome.sessions_skipped},
-            )
+        for reason, count in outcome.skipped.items():
+            if count:
+                messages.warning(self.request, SKIP_MESSAGES[reason] % {"count": count})
         return redirect("panel:event-integration-settings", slug=slug)

@@ -11,6 +11,9 @@ from django.contrib import messages
 from django.urls import reverse
 
 from ludamus.gates.web.django.chronology.panel.forms import integration_signature
+from ludamus.gates.web.django.chronology.panel.views.event_settings import (
+    INTEGRATION_ROW_ACTIONS,
+)
 from ludamus.gates.web.django.panel import settings_tab_urls
 from ludamus.links.db.django.models import EventIntegration
 from ludamus.pacts.chronology import IntegrationImplementationId, IntegrationKind
@@ -88,7 +91,7 @@ class TestEventIntegrationSettingsPageView:
                 "active_nav": "settings",
                 "active_tab": "integrations",
                 "tab_urls": settings_tab_urls(event.slug),
-                "integrations": [],
+                "integration_rows": [],
             },
         )
 
@@ -106,15 +109,17 @@ class TestEventIntegrationSettingsPageView:
                 "active_nav": "settings",
                 "active_tab": "integrations",
                 "tab_urls": settings_tab_urls(event.slug),
-                "integrations": [integration_dto(integration)],
+                "integration_rows": [
+                    {"integration": integration_dto(integration), "actions": ()}
+                ],
             },
         )
 
-    def test_get_lists_an_export_integration_with_its_own_actions(
+    def test_get_gives_an_export_integration_the_konwencik_row_actions(
         self, panel_client, event, connection
     ):
-        # The Konwencik pusher is the one implementation the list offers
-        # "Export now" and "Configure" for.
+        # The row carries its own actions; that they render as a button and a
+        # link is the shared table's business, covered in tests/e2e.
         integration = EventIntegration.objects.create(
             event=event,
             kind=IntegrationKind.EXPORT.value,
@@ -135,7 +140,14 @@ class TestEventIntegrationSettingsPageView:
                 "active_nav": "settings",
                 "active_tab": "integrations",
                 "tab_urls": settings_tab_urls(event.slug),
-                "integrations": [integration_dto(integration)],
+                "integration_rows": [
+                    {
+                        "integration": integration_dto(integration),
+                        "actions": INTEGRATION_ROW_ACTIONS[
+                            IntegrationImplementationId.KONWENCIK_SHEET_PUSHER
+                        ],
+                    }
+                ],
             },
         )
 

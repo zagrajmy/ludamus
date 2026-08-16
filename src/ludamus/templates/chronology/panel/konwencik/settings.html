@@ -49,9 +49,14 @@
                                 {% blocktranslate with when=last_run.time hint=last_run.error_hint %}{{ when }} — failed: {{ hint }}{% endblocktranslate %}
                             {% endif %}
                         </p>
-                        {% if last_run.sessions_skipped %}
+                        {% if last_run.skipped.too_long %}
                             <p class="text-sm text-warning">
-                                {% blocktranslate count counter=last_run.sessions_skipped %}{{ counter }} session skipped: longer than a day.{% plural %}{{ counter }} sessions skipped: longer than a day.{% endblocktranslate %}
+                                {% blocktranslate count counter=last_run.skipped.too_long %}{{ counter }} session skipped: longer than a day.{% plural %}{{ counter }} sessions skipped: longer than a day.{% endblocktranslate %}
+                            </p>
+                        {% endif %}
+                        {% if last_run.skipped.internal_tracks %}
+                            <p class="text-sm text-warning">
+                                {% blocktranslate count counter=last_run.skipped.internal_tracks %}{{ counter }} session skipped: every block it is in is internal.{% plural %}{{ counter }} sessions skipped: every block they are in is internal.{% endblocktranslate %}
                             </p>
                         {% endif %}
                     </div>

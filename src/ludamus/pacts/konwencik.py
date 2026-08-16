@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass
 from datetime import datetime
+from enum import StrEnum
 from typing import TYPE_CHECKING, Protocol
 
 from pydantic import BaseModel
@@ -51,11 +52,21 @@ class KonwencikExportSettings(BaseModel):
     export_lock_time: datetime | None = None
 
 
+class KonwencikSkipReason(StrEnum):
+    """Why a scheduled session did not reach the sheet."""
+
+    # Konwencik can express one midnight and nothing beyond it.
+    TOO_LONG = "too_long"
+    # Every track it belongs to is an internal grouping, so it is not program
+    # a public app should show.
+    INTERNAL_TRACKS = "internal_tracks"
+
+
 class KonwencikLastRun(BaseModel):
     time: datetime
     ok: bool
     rows_written: int = 0
-    sessions_skipped: int = 0
+    skipped: dict[KonwencikSkipReason, int] = {}
     error_hint: str = ""
 
 
@@ -65,7 +76,10 @@ class ExportInProgressError(Exception):
 
 class KonwencikExportOutcome(BaseModel):
     rows_written: int
-    sessions_skipped: int
+    # Counted per reason, so a session dropped for one is not reported as the
+    # other — and so a reason nobody expected shows up in the panel instead of
+    # vanishing.
+    skipped: dict[KonwencikSkipReason, int] = {}
 
 
 class KonwencikNamedItemDTO(BaseModel):
