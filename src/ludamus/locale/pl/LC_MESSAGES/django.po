@@ -7,7 +7,6 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-15 23:50+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -9199,8 +9198,34 @@ msgstr "Temat"
 msgid "No emails captured yet."
 msgstr "Brak przechwyconych e-maili."
 
-#~ msgid "Deleted only"
-#~ msgstr "Tylko usunięci"
+#~ msgid "Facilitator flagged for deletion."
+#~ msgstr "Twórca programu oznaczony do usunięcia."
+
+#~ msgid "Facilitator unflagged."
+#~ msgstr "Usunięto oznaczenie do usunięcia."
+
+#~ msgid "Flagged for deletion only"
+#~ msgstr "Tylko oznaczeni do usunięcia"
+
+#~ msgid "Flag for deletion"
+#~ msgstr "Oznacz do usunięcia"
+
+#~ msgid "Remove flag"
+#~ msgstr "Usuń oznaczenie"
+
+#~ msgid "Flagged"
+#~ msgstr "Oznaczony"
+
+#~ msgid "Remove deletion flag"
+#~ msgstr "Usuń oznaczenie do usunięcia"
+
+#, python-format
+#~ msgid "Remove deletion flag from %(name)s"
+#~ msgstr "Usuń oznaczenie do usunięcia: %(name)s"
+
+#, python-format
+#~ msgid "Flag %(name)s for deletion"
+#~ msgstr "Oznacz do usunięcia: %(name)s"
 
 #~ msgid ""
 #~ "Map each source answer to an ISO 8601 duration (e.g. PT1H30M for 1 h 30 "
@@ -9239,46 +9264,6 @@ msgstr "Brak przechwyconych e-maili."
 #~ msgstr "Nie ma jeszcze czego filtrować."
 
 #, python-format
-#~ msgid "%(count)d facilitator runs sessions and was kept."
-#~ msgid_plural "%(count)d facilitators run sessions and were kept."
-#~ msgstr[0] ""
-#~ "%(count)d twórca programu prowadzi punkty programu i został zachowany."
-#~ msgstr[1] ""
-#~ "%(count)d twórców programu prowadzi punkty programu i zostało zachowanych."
-#~ msgstr[2] ""
-#~ "%(count)d twórców programu prowadzi punkty programu i zostało zachowanych."
-#~ msgstr[3] ""
-#~ "%(count)d twórców programu prowadzi punkty programu i zostało zachowanych."
-
-#~ msgid "Facilitator flagged for deletion."
-#~ msgstr "Twórca programu oznaczony do usunięcia."
-
-#~ msgid "Facilitator unflagged."
-#~ msgstr "Usunięto oznaczenie do usunięcia."
-
-#~ msgid "Flagged for deletion only"
-#~ msgstr "Tylko oznaczeni do usunięcia"
-
-#~ msgid "Flag for deletion"
-#~ msgstr "Oznacz do usunięcia"
-
-#~ msgid "Remove flag"
-#~ msgstr "Usuń oznaczenie"
-
-#~ msgid "Flagged"
-#~ msgstr "Oznaczony"
-
-#~ msgid "Remove deletion flag"
-#~ msgstr "Usuń oznaczenie do usunięcia"
-
-#, python-format
-#~ msgid "Remove deletion flag from %(name)s"
-#~ msgstr "Usuń oznaczenie do usunięcia: %(name)s"
-
-#, python-format
-#~ msgid "Flag %(name)s for deletion"
-#~ msgstr "Oznacz do usunięcia: %(name)s"
-
 #~ msgid "%(scheduled)s scheduled, %(pending)s pending"
 #~ msgstr "%(scheduled)s w harmonogramie, %(pending)s czeka"
 
@@ -9378,6 +9363,10 @@ msgstr "Brak przechwyconych e-maili."
 #~ msgid "Select all"
 #~ msgstr "Zaznacz wszystkie"
 
+#~ msgid "The kept facilitator receives all sessions from the others."
+#~ msgstr ""
+#~ "Zachowany twórca programu przejmuje wszystkie punkty programu pozostałych."
+
 #~ msgid "Keep"
 #~ msgstr "Zachowaj"
 
@@ -9405,6 +9394,9 @@ msgstr "Brak przechwyconych e-maili."
 
 #~ msgid "Shown on public session card"
 #~ msgstr "Widoczne na publicznej karcie punktu programu"
+
+#~ msgid "Facilitator released."
+#~ msgstr "Twórca programu zwolniony."
 
 #~ msgid "Only this facilitator's organizer can release it."
 #~ msgstr "Tylko opiekun tego twórcy programu może go zwolnić."
@@ -9520,3 +9512,18 @@ msgstr "Brak przechwyconych e-maili."
 
 #~ msgid "Session deleted."
 #~ msgstr "Punkt programu został usunięty."
+
+#~ msgid "Deleted only"
+#~ msgstr "Tylko usunięci"
+
+#, python-format
+#~ msgid "%(count)d facilitator runs sessions and was kept."
+#~ msgid_plural "%(count)d facilitators run sessions and were kept."
+#~ msgstr[0] ""
+#~ "%(count)d twórca programu prowadzi punkty programu i został zachowany."
+#~ msgstr[1] ""
+#~ "%(count)d twórców programu prowadzi punkty programu i zostało zachowanych."
+#~ msgstr[2] ""
+#~ "%(count)d twórców programu prowadzi punkty programu i zostało zachowanych."
+#~ msgstr[3] ""
+#~ "%(count)d twórców programu prowadzi punkty programu i zostało zachowanych."
