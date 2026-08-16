@@ -30,7 +30,7 @@ from ludamus.adapters.web.django.forms import (
     RosterMember,
 )
 from ludamus.adapters.web.django.safety_presentation import fake_full_session
-from ludamus.gates.web.django.access import PanelAccess, has_panel_access, panel_access
+from ludamus.gates.web.django.access import has_panel_access, panel_access
 from ludamus.gates.web.django.chronology.enrollment_presentation import (
     PartyMemberFlags,
     SessionUserParticipationData,
@@ -458,13 +458,15 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
         ):
             return context
 
-        if (access := panel_access(self.request)) is not PanelAccess.NONE:
+        if (access := panel_access(self.request)).granted:
             return context | {
                 "pending_sessions": self.request.di.uow.sessions.read_pending_by_event(
                     self.object.pk
                 ),
                 "pending_review_visible": True,
-                "pending_wizard_view": access is PanelAccess.SUPERUSER,
+                # The wizard is the superuser's view of a sphere they have no
+                # part in; one who also holds a role here reviews as that role.
+                "pending_wizard_view": access.is_superuser and access.role is None,
             }
 
         return context | {

@@ -1,4 +1,4 @@
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from http import HTTPStatus
 
 import pytest
@@ -13,6 +13,7 @@ from tests.integration.utils import assert_login_required, assert_response
 from tests.integration.web.panel.helpers import (
     assert_event_not_found,
     assert_not_a_manager,
+    make_timetable_session,
     panel_context,
 )
 
@@ -130,8 +131,7 @@ class TestErrataPageView:
                         old_start_time=None,
                         new_space_name="Room A",
                         new_start_time=_WHEN,
-                        is_acknowledged=False,
-                        acknowledged_by_name="",
+                        acknowledged_by_name=None,
                     )
                 ],
                 "pending_count": 1,
@@ -157,6 +157,7 @@ class TestErrataPageView:
             ScheduleChangeAction.ASSIGN,
             new_space=destination,
             new_start_time=_WHEN,
+            moved_from=out,
         )
 
         response = panel_client.get(self._url(event))
@@ -179,13 +180,39 @@ class TestErrataPageView:
                         old_start_time=_WHEN,
                         new_space_name="Room B",
                         new_start_time=_WHEN,
-                        is_acknowledged=False,
-                        acknowledged_by_name="",
+                        acknowledged_by_name=None,
                     )
                 ],
                 "pending_count": 1,
             },
         )
+
+    def test_a_move_made_on_the_timetable_shows_as_one_erratum(
+        self, panel_client, event, room, proposal_category
+    ):
+        # Through the real assign endpoint: the move is recorded where it
+        # happens, so the page never has to guess two rows back into one.
+        destination = SpaceFactory(event=event, name="Room B")
+        session = make_timetable_session(proposal_category, status="accepted")
+        assign_url = reverse("panel:timetable-assign", kwargs={"slug": event.slug})
+        for space in (room, destination):
+            panel_client.post(
+                assign_url,
+                data={
+                    "session_pk": session.pk,
+                    "space_pk": space.pk,
+                    "start_time": event.start_time.isoformat(),
+                    "end_time": (event.start_time + timedelta(hours=1)).isoformat(),
+                },
+            )
+
+        response = panel_client.get(self._url(event))
+
+        moved, added = response.context_data["errata"]
+        assert added.kind is ErratumKind.ADDED
+        assert moved.kind is ErratumKind.MOVED
+        assert moved.old_space_name == "Room A"
+        assert moved.new_space_name == "Room B"
 
 
 @pytest.mark.django_db
@@ -239,6 +266,7 @@ class TestErratumAcknowledgeActionView:
             ScheduleChangeAction.ASSIGN,
             new_space=SpaceFactory(event=event, name="Room B"),
             new_start_time=_WHEN,
+            moved_from=out,
         )
 
         panel_client.post(
@@ -277,12 +305,73 @@ class TestErratumAcknowledgeActionView:
             new_start_time=_WHEN,
         )
 
-        panel_client.post(
+        response = panel_client.post(
             self._url(event), data={"log_pk": [foreign.pk], "acknowledged": "1"}
         )
 
+        assert_response(response, HTTPStatus.UNPROCESSABLE_ENTITY)
         foreign.refresh_from_db()
         assert foreign.acknowledgement_time is None
+
+    def test_a_malformed_pk_is_refused(self, panel_client, event, pending):
+        response = panel_client.post(
+            self._url(event), data={"log_pk": ["--5"], "acknowledged": "1"}
+        )
+
+        assert_response(response, HTTPStatus.UNPROCESSABLE_ENTITY)
+        pending.refresh_from_db()
+        assert pending.acknowledgement_time is None
+
+    def test_a_row_from_before_publication_is_refused(
+        self, panel_client, sphere, active_user
+    ):
+        unpublished = EventFactory(sphere=sphere, publication_time=None)
+        early = _log(
+            unpublished,
+            SessionFactory(event=unpublished),
+            active_user,
+            ScheduleChangeAction.ASSIGN,
+            new_space=SpaceFactory(event=unpublished),
+            new_start_time=_WHEN,
+        )
+
+        response = panel_client.post(
+            self._url(unpublished), data={"log_pk": [early.pk], "acknowledged": "1"}
+        )
+
+        assert_response(response, HTTPStatus.UNPROCESSABLE_ENTITY)
+        early.refresh_from_db()
+        assert early.acknowledgement_time is None
+
+    def test_half_a_move_is_refused(
+        self, panel_client, event, session, room, active_user
+    ):
+        out = _log(
+            event,
+            session,
+            active_user,
+            ScheduleChangeAction.UNASSIGN,
+            old_space=room,
+            old_start_time=_WHEN,
+        )
+        _log(
+            event,
+            session,
+            active_user,
+            ScheduleChangeAction.ASSIGN,
+            new_space=SpaceFactory(event=event, name="Room B"),
+            new_start_time=_WHEN,
+            moved_from=out,
+        )
+
+        response = panel_client.post(
+            self._url(event), data={"log_pk": [out.pk], "acknowledged": "1"}
+        )
+
+        assert_response(response, HTTPStatus.UNPROCESSABLE_ENTITY)
+        assert not ScheduleChangeLog.objects.filter(
+            acknowledgement_time__isnull=False
+        ).exists()
 
     def test_a_comms_member_may_mark_a_change_announced(
         self, authenticated_client, sphere, active_user, event, pending

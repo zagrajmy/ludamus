@@ -1719,6 +1719,17 @@ class ScheduleChangeLog(models.Model):
     new_start_time = models.DateTimeField(null=True, blank=True)
     new_end_time = models.DateTimeField(null=True, blank=True)
     creation_time = models.DateTimeField(auto_now_add=True)
+    # Moving a session logs the placement it left and the one it landed on;
+    # this is the assign row saying which unassign row it replaced. Readers
+    # that announce changes need the two as one move, and only the write knows
+    # it was one.
+    moved_from = models.OneToOneField(
+        "self",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="moved_to",
+    )
     # Somebody announced this change. Only rows past the event's publication
     # time are ever offered for it; the rest stay blank forever.
     acknowledged_by = models.ForeignKey(

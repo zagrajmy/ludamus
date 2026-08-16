@@ -24,7 +24,7 @@
             {% if errata %}
                 <ul class="rounded-lg bg-bg-secondary divide-y divide-border">
                     {% for erratum in errata %}
-                        <li class="flex flex-col sm:flex-row sm:items-center gap-3 p-4 {% if erratum.is_acknowledged %}opacity-60{% endif %}">
+                        <li class="flex flex-col sm:flex-row sm:items-center gap-3 p-4 {% if erratum.acknowledged_by_name %}opacity-60{% endif %}">
                             <div class="grow">
                                 <p class="text-sm text-foreground">
                                     {% if erratum.kind == "added" %}
@@ -37,7 +37,7 @@
                                 </p>
                                 <p class="mt-1 text-xs text-foreground-muted">
                                     {% blocktranslate with who=erratum.user_name when=erratum.creation_time|date:"SHORT_DATETIME_FORMAT" %}Changed by {{ who }} on {{ when }}{% endblocktranslate %}
-                                    {% if erratum.is_acknowledged %}
+                                    {% if erratum.acknowledged_by_name %}
                                         · {% blocktranslate with who=erratum.acknowledged_by_name %}announced by {{ who }}{% endblocktranslate %}
                                     {% endif %}
                                 </p>
@@ -47,7 +47,7 @@
                                   class="shrink-0">
                                 {% csrf_token %}
                                 {% for log_pk in erratum.log_pks %}<input type="hidden" name="log_pk" value="{{ log_pk }}">{% endfor %}
-                                {% if erratum.is_acknowledged %}
+                                {% if erratum.acknowledged_by_name %}
                                     <input type="hidden" name="acknowledged" value="0">
                                     {% translate "Undo" as t_undo %}
                                     {% tessera_button t_undo variant="secondary" size="sm" full_width_mobile=False %}

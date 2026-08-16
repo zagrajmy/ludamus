@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-15 23:50+0200\n"
+"POT-Creation-Date: 2026-08-16 08:28+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -2363,6 +2363,10 @@ msgstr "Zezwalaj na zapisy bez konta"
 msgid "Enrollment must close after it opens."
 msgstr "Zapisy muszą zamknąć się po ich otwarciu."
 
+#: src/ludamus/gates/web/django/event/panel/views/base.py
+msgid "You don't have permission to access the backoffice panel."
+msgstr "Nie masz uprawnień do panelu organizatora."
+
 #: src/ludamus/gates/web/django/event/panel/views/enrollment_settings.py
 msgid "Enrollment window not found."
 msgstr "Nie znaleziono okna zapisów."
@@ -3155,10 +3159,6 @@ msgstr "Zostałeś/aś wypisany/a z tego spotkania."
 #: src/ludamus/gates/web/django/panel.py
 msgid "Your role can read the panel, but not make changes here."
 msgstr "Twoja rola pozwala przeglądać panel, ale nie wprowadzać tu zmian."
-
-#: src/ludamus/gates/web/django/panel.py
-msgid "You don't have permission to access the backoffice panel."
-msgstr "Nie masz uprawnień do panelu organizatora."
 
 #: src/ludamus/gates/web/django/sphere/forms.py
 msgid "Guild name"

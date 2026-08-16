@@ -8,14 +8,12 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, ClassVar
 
-from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.http import HttpRequest, HttpResponseRedirect
-from django.shortcuts import redirect
 from django.utils.translation import gettext as _
 
 from ludamus.gates.web.django.access import has_panel_access, passes_panel_access
-from ludamus.gates.web.django.panel import refuse_read_only_write
+from ludamus.gates.web.django.panel import refuse_panel_access
 from ludamus.pacts.multiverse import Capability
 
 if TYPE_CHECKING:
@@ -43,9 +41,8 @@ class SphereAccessMixin(LoginRequiredMixin, UserPassesTestMixin):
     def handle_no_permission(self) -> HttpResponseRedirect:
         if not self.request.user.is_authenticated:
             return super().handle_no_permission()
-        if has_panel_access(self.request):
-            return refuse_read_only_write(self.request)
-        messages.error(
-            self.request, _("You don't have permission to access the sphere panel.")
+        return refuse_panel_access(
+            request=self.request,
+            reads_panel=has_panel_access(self.request),
+            message=_("You don't have permission to access the sphere panel."),
         )
-        return redirect("web:index")

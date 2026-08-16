@@ -1,12 +1,11 @@
 from __future__ import annotations
 
-from enum import Enum, auto
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Protocol
-
-from ludamus.pacts.multiverse import Capability, SphereRole
 
 if TYPE_CHECKING:
     from ludamus.pacts import RequestContext
+    from ludamus.pacts.multiverse import Capability, SphereRole
     from ludamus.pacts.services import ServicesProtocol
 
 
@@ -28,40 +27,47 @@ class _RequestWithServices(Protocol):
     def services(self) -> ServicesProtocol: ...
 
 
-class PanelAccess(Enum):
-    NONE = auto()
-    COMMS = auto()
-    MANAGER = auto()
-    SUPERUSER = auto()
-
-
-_ROLE_ACCESS = {
-    SphereRole.MANAGER: PanelAccess.MANAGER,
-    SphereRole.COMMS: PanelAccess.COMMS,
-}
-
 SAFE_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})
 
 
+@dataclass(frozen=True)
+class PanelAccess:
+    """What one request may do in the current sphere — one role lookup."""
+
+    role: SphereRole | None
+    capabilities: frozenset[Capability]
+    is_superuser: bool
+
+    @property
+    def granted(self) -> bool:
+        return self.role is not None or self.is_superuser
+
+    def allows(self, capability: Capability) -> bool:
+        # Superusers before roles: a superuser who also holds a narrow sphere
+        # role must not be demoted by it.
+        return self.is_superuser or capability in self.capabilities
+
+
 def panel_access(request: _RequestWithServices) -> PanelAccess:
-    user_slug = request.context.current_user_slug
-    if (
-        request.user.is_authenticated
-        and user_slug
-        and (
-            role := request.services.sphere_panel.manager_role(
-                request.context.current_sphere_id, user_slug
-            )
-        )
+    # The role lookup is an uncached query and a panel request asks more than
+    # once (page access, then the write capability), so it is resolved into
+    # one value the callers branch on.
+    sphere_access = None
+    if request.user.is_authenticated and (
+        user_slug := request.context.current_user_slug
     ):
-        return _ROLE_ACCESS[role]
-    if request.user.is_superuser:
-        return PanelAccess.SUPERUSER
-    return PanelAccess.NONE
+        sphere_access = request.services.sphere_panel.access(
+            request.context.current_sphere_id, user_slug
+        )
+    return PanelAccess(
+        role=sphere_access.role if sphere_access else None,
+        capabilities=sphere_access.capabilities if sphere_access else frozenset(),
+        is_superuser=request.user.is_superuser,
+    )
 
 
 def has_panel_access(request: _RequestWithServices) -> bool:
-    return panel_access(request) is not PanelAccess.NONE
+    return panel_access(request).granted
 
 
 def passes_panel_access(
@@ -72,16 +78,7 @@ def passes_panel_access(
     # never reach a panel view are gated where they arrive instead —
     # `ProposalAcceptanceService` for CLI and in-app acceptance,
     # `authenticate_organizer` for MCP.
-    if not has_panel_access(request):
+    access = panel_access(request)
+    if not access.granted:
         return False
-    # Superusers before roles: `panel_access` reports the sphere role first, so
-    # a superuser who also holds a narrow one would otherwise be demoted by it.
-    if request.method in SAFE_METHODS or request.user.is_superuser:
-        return True
-    if not (user_slug := request.context.current_user_slug):
-        return False
-    return request.services.sphere_panel.can(
-        sphere_id=request.context.current_sphere_id,
-        user_slug=user_slug,
-        capability=write_capability,
-    )
+    return request.method in SAFE_METHODS or access.allows(write_capability)

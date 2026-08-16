@@ -26,8 +26,9 @@ class ErratumDTO(BaseModel):
     old_start_time: datetime | None
     new_space_name: str | None
     new_start_time: datetime | None
-    is_acknowledged: bool
-    acknowledged_by_name: str
+    # Who announced this change, or nothing when it is still to announce —
+    # one field, so "announced" and "announced by whom" cannot disagree.
+    acknowledged_by_name: str | None
 
 
 class ErrataServiceProtocol(Protocol):

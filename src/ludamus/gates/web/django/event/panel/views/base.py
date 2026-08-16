@@ -3,16 +3,13 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, ClassVar
 
 from django.contrib import messages
-from django.contrib.auth.mixins import UserPassesTestMixin
+from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.http import HttpRequest
 from django.urls import reverse
 from django.utils.translation import gettext as _
 
 from ludamus.gates.web.django.access import has_panel_access, passes_panel_access
-from ludamus.gates.web.django.panel import (
-    PanelPermissionResponseMixin,
-    refuse_read_only_write,
-)
+from ludamus.gates.web.django.panel import refuse_panel_access
 from ludamus.pacts.legacy import NotFoundError, RedirectError
 from ludamus.pacts.multiverse import Capability
 
@@ -28,7 +25,7 @@ class EventPanelRequest(HttpRequest):
     services: ServicesProtocol
 
 
-class EventPanelAccessMixin(PanelPermissionResponseMixin, UserPassesTestMixin):
+class EventPanelAccessMixin(LoginRequiredMixin, UserPassesTestMixin):
     request: EventPanelRequest
 
     # What this page's buttons stand for. A view whose writes a narrower role
@@ -39,9 +36,13 @@ class EventPanelAccessMixin(PanelPermissionResponseMixin, UserPassesTestMixin):
         return passes_panel_access(self.request, write_capability=self.write_capability)
 
     def handle_no_permission(self) -> HttpResponseRedirect:
-        if self.request.user.is_authenticated and has_panel_access(self.request):
-            return refuse_read_only_write(self.request)
-        return super().handle_no_permission()
+        if not self.request.user.is_authenticated:
+            return super().handle_no_permission()
+        return refuse_panel_access(
+            request=self.request,
+            reads_panel=has_panel_access(self.request),
+            message=_("You don't have permission to access the backoffice panel."),
+        )
 
 
 class EventContextMixin:

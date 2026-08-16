@@ -1398,6 +1398,7 @@ class ScheduleChangeLogData(TypedDict, total=False):
     old_end_time: datetime | None
     new_start_time: datetime | None
     new_end_time: datetime | None
+    moved_from_id: int | None
 
 
 class ScheduleChangeLogDTO(BaseModel):
@@ -1419,13 +1420,15 @@ class ScheduleChangeLogDTO(BaseModel):
     new_start_time: datetime | None
     new_end_time: datetime | None
     creation_time: datetime
-    acknowledgement_time: datetime | None = None
-    acknowledged_by_name: str = ""
+    # The unassign row this assign row replaced, when the two were one move.
+    moved_from_id: int | None
+    acknowledgement_time: datetime | None
+    acknowledged_by_name: str
 
 
 class ScheduleChangeLogRepositoryProtocol(Protocol):
     @staticmethod
-    def create(data: ScheduleChangeLogData) -> None: ...
+    def create(data: ScheduleChangeLogData) -> int: ...
 
     @staticmethod
     def read(pk: int) -> ScheduleChangeLogDTO: ...

@@ -425,10 +425,13 @@ class TimetableService:
             self._require_space_in_event(placement.space_pk, event_pk)
             self._uow.spaces.lock(placement.space_pk)
             is_move = self._uow.agenda_items.read_by_session(session_pk) is not None
-            if is_move:
+            moved_from_pk = (
                 self.unassign_session(
                     session_pk=session_pk, event_pk=event_pk, user_pk=user_pk
                 )
+                if is_move
+                else None
+            )
             session = self._uow.sessions.read(session_pk)
             if session.status != SessionStatus.ACCEPTED:
                 msg = f"Session {session_pk} is not in ACCEPTED status"
@@ -451,12 +454,16 @@ class TimetableService:
                 "new_space_id": placement.space_pk,
                 "new_start_time": placement.start_time,
                 "new_end_time": placement.end_time,
+                # A move is recorded as one here and never guessed at later:
+                # the two rows are written together, so only this knows.
+                "moved_from_id": moved_from_pk,
             }
             self._uow.schedule_change_logs.create(log_data)
 
     def unassign_session(
         self, *, session_pk: int, event_pk: int, user_pk: int | None = None
-    ) -> None:
+    ) -> int:
+        """Take a session off the timetable; return the log row it wrote."""
         require_session_in_event(
             sessions=self._uow.sessions, session_pk=session_pk, event_pk=event_pk
         )
@@ -473,7 +480,7 @@ class TimetableService:
             "old_start_time": agenda_item.start_time,
             "old_end_time": agenda_item.end_time,
         }
-        self._uow.schedule_change_logs.create(log_data)
+        return self._uow.schedule_change_logs.create(log_data)
 
     def revert_change(
         self, *, log_pk: int, event_pk: int, user_pk: int | None = None

@@ -37,6 +37,14 @@ class Capability(StrEnum):
     ERRATUM_ACK = "erratum_ack"
 
 
+class SphereAccessDTO(BaseModel):
+    # Who someone is in a sphere and what that lets them do, answered in one
+    # trip: the panel needs both on every request and the role lookup is a
+    # query.
+    role: SphereRole | None
+    capabilities: frozenset[Capability]
+
+
 class DuplicateConnectionDisplayNameError(Exception):
     pass
 
@@ -159,9 +167,7 @@ class EventsServiceProtocol(Protocol):
 
 class SpherePanelServiceProtocol(Protocol):
     def manager_role(self, sphere_id: int, user_slug: str) -> SphereRole | None: ...
-    def can(
-        self, *, sphere_id: int, user_slug: str, capability: Capability
-    ) -> bool: ...
+    def access(self, sphere_id: int, user_slug: str) -> SphereAccessDTO: ...
     def list_events(self, sphere_id: int) -> list[EventDTO]: ...
     def read(self, sphere_id: int) -> SphereDTO: ...
     def update_settings(

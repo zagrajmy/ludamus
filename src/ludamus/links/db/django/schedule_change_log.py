@@ -39,6 +39,7 @@ def _to_dto(log: ScheduleChangeLog) -> ScheduleChangeLogDTO:
             "new_start_time": log.new_start_time,
             "new_end_time": log.new_end_time,
             "creation_time": log.creation_time,
+            "moved_from_id": log.moved_from_id,
             "acknowledgement_time": log.acknowledgement_time,
             "acknowledged_by_name": (
                 log.acknowledged_by.name if log.acknowledged_by else ""
@@ -49,8 +50,8 @@ def _to_dto(log: ScheduleChangeLog) -> ScheduleChangeLogDTO:
 
 class ScheduleChangeLogRepository(ScheduleChangeLogRepositoryProtocol):
     @staticmethod
-    def create(data: ScheduleChangeLogData) -> None:
-        ScheduleChangeLog.objects.create(**data)
+    def create(data: ScheduleChangeLogData) -> int:
+        return ScheduleChangeLog.objects.create(**data).pk
 
     @staticmethod
     def read(pk: int) -> ScheduleChangeLogDTO:
