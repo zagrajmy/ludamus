@@ -7,7 +7,6 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-16 07:16+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -1581,10 +1580,14 @@ msgstr[3] "Pominięto %(count)d punkty programu: dłuższe niż doba."
 #, python-format
 msgid "%(count)d session skipped: every block it is in is internal."
 msgid_plural "%(count)d sessions skipped: every block they are in is internal."
-msgstr[0] "Pominięto %(count)d punkt programu: wszystkie jego bloki są wewnętrzne."
-msgstr[1] "Pominięto %(count)d punkty programu: wszystkie ich bloki są wewnętrzne."
-msgstr[2] "Pominięto %(count)d punktów programu: wszystkie ich bloki są wewnętrzne."
-msgstr[3] "Pominięto %(count)d punkty programu: wszystkie ich bloki są wewnętrzne."
+msgstr[0] ""
+"Pominięto %(count)d punkt programu: wszystkie jego bloki są wewnętrzne."
+msgstr[1] ""
+"Pominięto %(count)d punkty programu: wszystkie ich bloki są wewnętrzne."
+msgstr[2] ""
+"Pominięto %(count)d punktów programu: wszystkie ich bloki są wewnętrzne."
+msgstr[3] ""
+"Pominięto %(count)d punkty programu: wszystkie ich bloki są wewnętrzne."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/konwencik_export.py
 #: src/ludamus/templates/panel/session-field-create.html
@@ -9463,6 +9466,7 @@ msgstr "Brak przechwyconych e-maili."
 #~ msgid "Flag %(name)s for deletion"
 #~ msgstr "Oznacz do usunięcia: %(name)s"
 
+#, python-format
 #~ msgid "%(scheduled)s scheduled, %(pending)s pending"
 #~ msgstr "%(scheduled)s w harmonogramie, %(pending)s czeka"
 
@@ -9704,3 +9708,10 @@ msgstr "Brak przechwyconych e-maili."
 
 #~ msgid "Session deleted."
 #~ msgstr "Punkt programu został usunięty."
+
+#~ msgid "The kept facilitator receives all sessions from the others."
+#~ msgstr ""
+#~ "Zachowany twórca programu przejmuje wszystkie punkty programu pozostałych."
+
+#~ msgid "Facilitator released."
+#~ msgstr "Twórca programu zwolniony."
