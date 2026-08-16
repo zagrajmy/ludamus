@@ -77,7 +77,9 @@ def local_midday_fixture():
     # The schedule groups by local date, so a session placed around `now()`
     # straddles two days when the suite happens to run near midnight. Pin the
     # clock to half past noon; the date stays today's, which the fixtures build
-    # against, and the half hour leaves room for a window that ends at `now()`.
+    # against. Half past, not on the hour, so a window can end at `now()` and a
+    # session can both end before `now()` and start inside the current hour
+    # bucket.
     with freeze_time(
         timezone.localtime().replace(hour=12, minute=30, second=0, microsecond=0)
     ):
