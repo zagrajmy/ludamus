@@ -198,6 +198,10 @@ body {
 .room-lanes {
   --axis-w: 3.25rem;
   --col-min: 10rem;
+  /* room-lanes.ts rebuilds these track lists when a filter empties a track, so
+     the sizes live here once and both consumers name them. */
+  --row-track: minmax(3.5rem, auto);
+  --col-track: minmax(var(--col-min), 1fr);
 }
 
 @media (min-width: 1024px) {
@@ -208,12 +212,14 @@ body {
 
 .room-lanes-grid {
   display: grid;
-  grid-template-columns: var(--axis-w) repeat(var(--rooms), minmax(var(--col-min), 1fr));
-  width: max(100%, calc(var(--axis-w) + var(--rooms) * var(--col-min)));
+  grid-template-columns: var(--axis-w) repeat(var(--rooms), var(--col-track));
+  /* --rooms is the server's room count and stays put; --live-rooms is what
+     survives filtering, and only the min width has to shrink with it. */
+  width: max(100%, calc(var(--axis-w) + var(--live-rooms, var(--rooms)) * var(--col-min)));
 }
 
 .room-lanes-body {
-  grid-template-rows: repeat(var(--rows), minmax(3.5rem, auto));
+  grid-template-rows: repeat(var(--rows), var(--row-track));
 }
 
 .room-lanes-line:first-of-type {
@@ -289,6 +295,12 @@ body {
 
 .dark .room-lanes-rule {
   background: color-mix(in oklch, var(--color-border) 35%, transparent);
+}
+
+/* The collapse gets its own signal: the hour rows double as .time-slot-section,
+   whose [hidden] belongs to session-filters.ts and event-timeline.ts. */
+.room-lanes-collapsed {
+  display: none;
 }
 
 body:has(dialog.modal[open]) .app-scroll {

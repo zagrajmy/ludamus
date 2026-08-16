@@ -150,30 +150,37 @@ test.describe("Rooms view filtering", () => {
   test("collapses the hour rows and room columns a filter empties", async ({ page }) => {
     await page.goto(denseEventUrl);
 
-    const grid = page.locator(".room-lanes-body").first();
-    const gridHeight = async (): Promise<number> => (await grid.boundingBox())!.height;
-    const roomNames = page.locator(".room-lanes-head [data-lane-col]:not(.room-lanes-rule)");
-    const shownRooms = async (): Promise<number> => roomNames.locator("visible=true").count();
+    const lanes = page.locator(".room-lanes").first();
+    // Count what the collapse itself marks, not what is visible: the hour
+    // gridlines double as .time-slot-section, whose [hidden] belongs to
+    // session-filters.ts, and the head's column rules are drawn at zero height.
+    const rowSelector = ".room-lanes-time[data-lane-row]";
+    const roomSelector = ".room-lanes-head [data-lane-col]";
+    const shownRows = async (): Promise<number> =>
+      lanes.locator(`${rowSelector}:not(.room-lanes-collapsed)`).count();
+    const shownRooms = async (): Promise<number> =>
+      lanes.locator(`${roomSelector}:not(.room-lanes-collapsed)`).count();
 
-    await expect(grid).toBeVisible();
-    const fullHeight = await gridHeight();
-    const roomCount = await roomNames.count();
+    await expect(lanes).toBeVisible();
+    const rowCount = await lanes.locator(rowSelector).count();
+    const roomCount = await lanes.locator(roomSelector).count();
+    expect(rowCount).toBeGreaterThan(1);
     expect(roomCount).toBeGreaterThan(1);
 
     // Search one session's title: the rows and columns left holding nothing
     // must collapse rather than keep their server-rendered track size.
-    const title = await page
+    const title = await lanes
       .locator(".room-lanes-cell .session [data-morph='title']")
       .first()
       .innerText();
     await page.locator("#session-filter").fill(title);
 
     await expect.poll(shownRooms).toBeLessThan(roomCount);
-    await expect.poll(gridHeight).toBeLessThan(fullHeight / 2);
+    await expect.poll(shownRows).toBeLessThan(rowCount);
 
     // Clearing the search restores every track.
     await page.locator("#session-filter").fill("");
     await expect.poll(shownRooms).toBe(roomCount);
-    await expect.poll(gridHeight).toBe(fullHeight);
+    await expect.poll(shownRows).toBe(rowCount);
   });
 });

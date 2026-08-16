@@ -39,6 +39,11 @@ test.describe("Event detail page", () => {
     await expect(dates).toHaveText(
       /\w+, \d{1,2} \w+, \d{1,2}:\d{2}\s*–\s*\w+, \d{1,2} \w+, \d{1,2}:\d{2}/,
     );
+
+    // The bug this guards against printed start_time in both halves, which the
+    // pattern above cannot tell apart from a correct range.
+    const [start, end] = (await dates.innerText()).split("–");
+    expect(start.trim()).not.toBe(end.trim());
   });
 
   test("renders session cards with locations and opens detail modal", async ({ page }) => {
