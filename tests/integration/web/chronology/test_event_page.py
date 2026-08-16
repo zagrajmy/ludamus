@@ -63,13 +63,25 @@ from tests.integration.conftest import (
     TimeSlotFactory,
     UserFactory,
 )
-from tests.integration.utils import assert_response
+from tests.integration.utils import assert_rendered, assert_response
 from tests.integration.web.chronology.helpers import (
     compact_day,
     event_page_context,
     make_half_full_session,
     session_card,
 )
+
+
+@pytest.fixture(name="local_midday")
+def local_midday_fixture():
+    # The schedule groups by local date, so a session placed around `now()`
+    # straddles two days when the suite happens to run near midnight. Pin the
+    # clock to half past noon; the date stays today's, which the fixtures build
+    # against, and the half hour leaves room for a window that ends at `now()`.
+    with freeze_time(
+        timezone.localtime().replace(hour=12, minute=30, second=0, microsecond=0)
+    ):
+        yield
 
 
 class TestEventPageView:
@@ -334,16 +346,8 @@ class TestEventPageView:
         )
 
     def test_ok_compact_schedule_renders_all_row_variants(
-        self, client, event, space, monkeypatch, request
+        self, client, event, space, monkeypatch, local_midday
     ):
-        # Pinned to local midday: the ended and ongoing sessions sit 3h and 1h
-        # back and one of them straddles the clock, so a run after midnight
-        # would spread them over two local dates and split the first day.
-        freezer = freeze_time(
-            timezone.localtime().replace(hour=12, minute=0, second=0, microsecond=0)
-        )
-        freezer.start()
-        request.addfinalizer(freezer.stop)
         monkeypatch.setattr(
             "ludamus.adapters.web.django.views.COMPACT_SCHEDULE_MIN_SESSIONS", 1
         )
@@ -417,15 +421,18 @@ class TestEventPageView:
             SessionParticipation.objects.create(
                 session=full, user=UserFactory(), status=status
             )
+        # Both windows stay inside the current local hour, and the ongoing one
+        # is cut at midnight: a session crossing local midnight gets a tile per
+        # local date, which would spread the two over two schedule days.
+        local_now = timezone.localtime(now)
+        hour_start = local_now.replace(minute=0, second=0, microsecond=0)
+        midnight = (hour_start + timedelta(days=1)).replace(hour=0)
         ended = scheduled(
-            start=now - timedelta(hours=3),
-            end=now - timedelta(hours=2),
-            participants_limit=4,
-            min_age=0,
+            start=hour_start, end=local_now, participants_limit=4, min_age=0
         )
         ongoing = scheduled(
-            start=now - timedelta(hours=1),
-            end=now + timedelta(hours=1),
+            start=local_now,
+            end=min(local_now + timedelta(hours=1), midnight),
             participants_limit=4,
             min_age=0,
         )
@@ -547,10 +554,11 @@ class TestEventPageView:
         # One day per local date, one hour bucket per distinct start hour.
         expected_days = [
             ScheduleDay(
-                day_start=hour_of(ended),
+                day_start=hour_start,
                 hours=[
-                    ScheduleHour(start=hour_of(ended), sessions=[cards[ended.pk]]),
-                    ScheduleHour(start=hour_of(ongoing), sessions=[cards[ongoing.pk]]),
+                    ScheduleHour(
+                        start=hour_start, sessions=[cards[ended.pk], cards[ongoing.pk]]
+                    )
                 ],
                 tiles=[tile(ended), tile(ongoing)],
             ),
@@ -620,10 +628,8 @@ class TestEventPageView:
                 kwargs={"event_slug": event.slug, "session_id": scarce.pk},
             )
         )
-        assert_response(
-            modal,
-            HTTPStatus.OK,
-            context_data=modal.context_data,
+        assert_rendered(
+            response=modal,
             template_name="chronology/parts/session-modal.html",
             contains="4/5",
         )
@@ -3453,10 +3459,8 @@ class TestEventPageEditAffordance:
                 kwargs={"event_slug": event.slug, "session_id": session.pk},
             )
         )
-        assert_response(
-            modal,
-            HTTPStatus.OK,
-            context_data=modal.context_data,
+        assert_rendered(
+            response=modal,
             template_name="chronology/parts/session-modal.html",
             contains=[edit_url, f'data-edit-open="{session.pk}"'],
         )

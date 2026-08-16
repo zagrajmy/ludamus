@@ -1,4 +1,6 @@
 import { type Page } from "@playwright/test";
+import fs from "node:fs";
+import path from "node:path";
 
 import { installCspViolationCollector } from "./helpers/csp";
 import { assertDropzoneBlobPreview, labeledDropzone, shownFileName } from "./helpers/dropzone";
@@ -35,6 +37,34 @@ const deleteGuildIfPresent = async (page: Page): Promise<void> => {
 
 test.describe.configure({ mode: "serial" });
 
+// The empty state only renders while the sphere holds no guild at all, and the
+// default sphere is shared with facilitator-guild.spec.ts, which keeps a guild
+// of its own alive for the length of its run. Empty Sphere is nobody else's.
+const EMPTY_SPHERE = "http://another.localhost:8000";
+
+test("the empty state explains what a guild is and offers the way in", async ({ browser }) => {
+  // Its manager signs in by the session cookie bootstrap_data.py wrote for that
+  // host, the way panel.spec.ts reaches the same sphere.
+  const statePath = path.join(__dirname, "..", ".auth-state-empty.json");
+  const storageState = JSON.parse(fs.readFileSync(statePath, "utf8"));
+  const context = await browser.newContext({ storageState });
+  const page = await context.newPage();
+
+  await page.goto(`${EMPTY_SPHERE}/multiverse/panel/guilds/`);
+
+  await expect(page.getByText("No guilds yet.")).toBeVisible();
+  await expect(
+    page.getByText(
+      "A guild's mark shows beside its members' names on every programme card they present.",
+    ),
+  ).toBeVisible();
+  await page.getByRole("link", { name: "New guild" }).first().click();
+
+  await expect(page.getByLabel("Guild name")).toBeVisible();
+
+  await context.close();
+});
+
 test.describe("Guilds", () => {
   test.beforeEach(async ({ page }) => {
     await signInAsManager(page);
@@ -46,20 +76,6 @@ test.describe("Guilds", () => {
     await signInAsManager(page);
     await deleteGuildIfPresent(page);
     await page.close();
-  });
-
-  test("the empty state explains what a guild is and offers the way in", async ({ page }) => {
-    await page.goto("/multiverse/panel/guilds/");
-
-    await expect(page.getByText("No guilds yet.")).toBeVisible();
-    await expect(
-      page.getByText(
-        "A guild's mark shows beside its members' names on every programme card they present.",
-      ),
-    ).toBeVisible();
-    await page.getByRole("link", { name: "New guild" }).first().click();
-
-    await expect(page.getByLabel("Guild name")).toBeVisible();
   });
 
   test("a manager creates a guild with a mark and sees it in the list", async ({ page }) => {

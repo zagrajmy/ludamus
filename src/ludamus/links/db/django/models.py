@@ -843,7 +843,7 @@ class TimeSlot(models.Model):
             raise ValidationError(_("Time slots can't overlap!"))
 
 
-class Facilitator(models.Model):
+class Facilitator(SoftDeleteModel):
     """Program creator / session facilitator, decoupled from User accounts."""
 
     event = models.ForeignKey(
@@ -885,9 +885,6 @@ class Facilitator(models.Model):
         blank=True,
         related_name="organized_facilitators",
     )
-    # Reversible triage marker: organizers flag likely duplicates/removals, then
-    # act on them (merge or delete) as a separate deliberate step.
-    flagged_for_deletion = models.BooleanField(default=False)
     # A guild, club or the organizer crew itself — not one person, so several
     # of its program points at the same hour are normal. The timetable skips
     # its facilitator-overlap check for these.
@@ -899,6 +896,10 @@ class Facilitator(models.Model):
         db_table = "facilitator"
         verbose_name = _("Twórca programu")
         verbose_name_plural = _("Twórcy programu")
+        # Both uniques count deleted rows too, so a dead facilitator keeps
+        # holding its slug and ident. Identity lookups therefore go through
+        # `all_objects` — matching a dead row and restoring it beats colliding
+        # with a reservation the alive-only manager cannot see.
         constraints = (
             models.UniqueConstraint(
                 fields=("event", "slug"), name="facilitator_unique_slug_per_event"

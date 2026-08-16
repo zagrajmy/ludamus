@@ -7,7 +7,10 @@ from django.db import migrations, models
 
 class Migration(migrations.Migration):
 
-    dependencies = [("db_main", "0147_sphere_membership_role")]
+    dependencies = [
+        ("db_main", "0147_facilitator_flag_to_soft_delete"),
+        ("db_main", "0147_sphere_membership_role"),
+    ]
 
     operations = [
         migrations.AddField(
