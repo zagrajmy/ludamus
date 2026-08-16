@@ -8,6 +8,7 @@ from ludamus.links.db.django.repositories.chronology import (
 )
 from ludamus.links.db.django.repositories.discounts import DiscountRepository
 from ludamus.links.db.django.repositories.event import LandingStatsRepository
+from ludamus.links.db.django.repositories.facilitators import FacilitatorRepository
 from ludamus.links.db.django.repositories.multiverse import (
     AnnouncementsRepository,
     ConnectionsRepository,
@@ -22,7 +23,6 @@ from ludamus.links.db.django.repositories.sessions import SessionRepository
 from ludamus.links.db.django.repositories.storage import delete_stored_file
 from ludamus.links.db.django.repositories.submissions import (
     EventProposalSettingsRepository,
-    FacilitatorRepository,
     ImportLogEntryRepository,
     PersonalDataFieldRepository,
     PersonalDataFieldValueRepository,

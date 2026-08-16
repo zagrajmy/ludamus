@@ -40,6 +40,11 @@ MAX_SLUG_RETRIES = 10
 RANDOM_SLUG_BYTES = 7  # 10 characters
 SPACE_MAX_DEPTH = 7  # root = depth 1; the tree may nest at most this deep
 DEFAULT_NAME = "Andrzej"
+# The one sentence for the leaf-parent rule: raised by Space.clean, carried to
+# the tree UI on SpaceTreeNodeDTO.no_children_reason. One msgid, one source.
+SPACE_NO_CHILDREN_REASON = _(
+    "A space holding a scheduled session cannot contain other spaces."
+)
 
 
 _SoftDeleteT = TypeVar("_SoftDeleteT", bound=models.Model)
@@ -754,9 +759,7 @@ class Space(models.Model):
         # Attaching under a parent turns that parent into a branch; a branch
         # cannot also hold a scheduled session.
         if self.parent is not None and self.parent.agenda_items.exists():
-            raise ValidationError(
-                _("A space holding a scheduled session cannot contain other spaces.")
-            )
+            raise ValidationError(SPACE_NO_CHILDREN_REASON)
 
     def _validate_root_slug_unique(self) -> None:
         # The (slug, parent) DB constraint can't police roots (SQL treats NULL
@@ -817,7 +820,7 @@ class TimeSlot(models.Model):
             raise ValidationError(_("Time slots can't overlap!"))
 
 
-class Facilitator(models.Model):
+class Facilitator(SoftDeleteModel):
     """Program creator / session facilitator, decoupled from User accounts."""
 
     event = models.ForeignKey(
@@ -859,9 +862,10 @@ class Facilitator(models.Model):
         blank=True,
         related_name="organized_facilitators",
     )
-    # Reversible triage marker: organizers flag likely duplicates/removals, then
-    # act on them (merge or delete) as a separate deliberate step.
-    flagged_for_deletion = models.BooleanField(default=False)
+    # A guild, club or the organizer crew itself — not one person, so several
+    # of its program points at the same hour are normal. The timetable skips
+    # its facilitator-overlap check for these.
+    is_collective = models.BooleanField(default=False)
     # Free-form organizer note, never shown to attendees.
     internal_comment = models.TextField(blank=True, default="")
 
@@ -869,6 +873,10 @@ class Facilitator(models.Model):
         db_table = "facilitator"
         verbose_name = _("Twórca programu")
         verbose_name_plural = _("Twórcy programu")
+        # Both uniques count deleted rows too, so a dead facilitator keeps
+        # holding its slug and ident. Identity lookups therefore go through
+        # `all_objects` — matching a dead row and restoring it beats colliding
+        # with a reservation the alive-only manager cannot see.
         constraints = (
             models.UniqueConstraint(
                 fields=("event", "slug"), name="facilitator_unique_slug_per_event"

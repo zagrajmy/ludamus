@@ -1,7 +1,7 @@
 """Integration tests for the facilitator detail page."""
 
+from datetime import UTC, datetime
 from http import HTTPStatus
-from unittest.mock import ANY
 
 from django.urls import reverse
 
@@ -31,6 +31,8 @@ from tests.integration.web.panel.helpers import (
     panel_context,
 )
 
+_DELETED_AT = datetime(2026, 1, 2, 3, 4, tzinfo=UTC)
+
 
 def _make_personal_data_field(event, **kwargs):
     defaults = {
@@ -42,6 +44,18 @@ def _make_personal_data_field(event, **kwargs):
     }
     defaults.update(kwargs)
     return PersonalDataField.objects.create(event=event, **defaults)
+
+
+def _field_dto(field):
+    return OrganizerFieldDTO(
+        pk=field.pk,
+        name=field.name,
+        question=field.question,
+        slug=field.slug,
+        field_type=field.field_type,
+        order=field.order,
+        options=[],
+    )
 
 
 def _detail_tabs(event, facilitator_slug):
@@ -93,6 +107,50 @@ class TestFacilitatorDetailPageView:
                 "sessions": [],
             },
             contains="Possible duplicate of Bob",
+        )
+
+    def test_get_renders_a_deleted_facilitator(self, panel_client, event):
+        facilitator = make_facilitator(event, deleted_at=_DELETED_AT)
+
+        response = panel_client.get(self.get_url(event))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/facilitator-detail.html",
+            context_data={
+                **panel_context(event, active_nav="facilitators"),
+                **_detail_tabs(event, facilitator.slug),
+                "facilitator": FacilitatorDTO.model_validate(facilitator),
+                "guild": None,
+                "linked_user": None,
+                "accreditation_type_display": "None",
+                "personal_data_items": [],
+                "has_personal_data": False,
+                "sessions": [],
+            },
+        )
+
+    def test_get_renders_a_collective_facilitator(self, panel_client, event):
+        facilitator = make_facilitator(event, is_collective=True)
+
+        response = panel_client.get(self.get_url(event))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/facilitator-detail.html",
+            context_data={
+                **panel_context(event, active_nav="facilitators"),
+                **_detail_tabs(event, facilitator.slug),
+                "facilitator": FacilitatorDTO.model_validate(facilitator),
+                "guild": None,
+                "linked_user": None,
+                "accreditation_type_display": "None",
+                "personal_data_items": [],
+                "has_personal_data": False,
+                "sessions": [],
+            },
         )
 
     def test_get_renders_sessions_linking_to_proposal_detail(self, panel_client, event):
@@ -149,6 +207,55 @@ class TestFacilitatorDetailPageView:
                 ],
             },
             contains=[f'href="{proposal_url}"', "Attached Session"],
+        )
+
+    def test_get_lists_the_deleted_sessions_that_block_a_deletion(
+        self, panel_client, event
+    ):
+        # The refusal says "deleted ones included", so the page has to show
+        # which ones — otherwise nothing in the facilitator UI names them.
+        facilitator = make_facilitator(event)
+        category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
+        session = Session.objects.create(
+            event=event,
+            category=category,
+            display_name="Host",
+            title="Dead Session",
+            slug="dead-session",
+            participants_limit=4,
+            status="pending",
+            deleted_at=_DELETED_AT,
+        )
+        session.facilitators.add(facilitator)
+
+        response = panel_client.get(self.get_url(event))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/facilitator-detail.html",
+            context_data={
+                **panel_context(event, active_nav="facilitators"),
+                **_detail_tabs(event, facilitator.slug),
+                "facilitator": FacilitatorDTO.model_validate(facilitator),
+                "guild": None,
+                "linked_user": None,
+                "accreditation_type_display": "None",
+                "personal_data_items": [],
+                "has_personal_data": False,
+                "sessions": [
+                    SessionListItemDTO(
+                        category_name="RPG",
+                        creation_time=session.creation_time,
+                        display_name="Host",
+                        is_deleted=True,
+                        is_scheduled=False,
+                        pk=session.pk,
+                        status=SessionStatus.PENDING,
+                        title="Dead Session",
+                    )
+                ],
+            },
         )
 
     def test_get_shows_linked_user_name_and_email(self, panel_client, event):
@@ -388,6 +495,7 @@ class TestFacilitatorDetailPageView:
             ("Nickname", "nickname", "text", "Bob"),
             ("Empty", "empty", "text", ""),
         ]
+        fields = []
         for order, (name, slug, field_type, value) in enumerate(values):
             field = _make_personal_data_field(
                 event,
@@ -400,6 +508,7 @@ class TestFacilitatorDetailPageView:
             PersonalDataFieldValue.objects.create(
                 facilitator=facilitator, event=event, field=field, value=value
             )
+            fields.append(field)
 
         response = panel_client.get(self.get_url(event))
 
@@ -407,6 +516,19 @@ class TestFacilitatorDetailPageView:
             response,
             HTTPStatus.OK,
             template_name="panel/facilitator-detail.html",
-            context_data=ANY,
+            context_data={
+                **panel_context(event, active_nav="facilitators"),
+                **_detail_tabs(event, facilitator.slug),
+                "facilitator": FacilitatorDTO.model_validate(facilitator),
+                "guild": None,
+                "linked_user": None,
+                "accreditation_type_display": "None",
+                "personal_data_items": [
+                    (_field_dto(field), stored)
+                    for field, (*_, stored) in zip(fields, values, strict=True)
+                ],
+                "has_personal_data": True,
+                "sessions": [],
+            },
             contains=["Consent", "Yes", "Declined", "Nickname", "Bob", "Empty"],
         )

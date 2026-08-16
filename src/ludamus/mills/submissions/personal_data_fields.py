@@ -52,6 +52,39 @@ def log_facilitator_changes(
         repo.create(log_data)
 
 
+# Change-log values are stored raw (accreditation types land as "guest"), so
+# the deletion flag does too; the History tab labels it at render time. Both
+# writers — the panel and the importer's restore — go through here, so the two
+# can never disagree about the value the tab renders off.
+_DELETED_LOG_VALUE = "yes"
+
+
+def log_facilitator_deletion(
+    *,
+    repo: FacilitatorChangeLogRepositoryProtocol,
+    event_id: int,
+    facilitator_id: int,
+    user_id: int | None,
+    deleted: bool,
+) -> None:
+    # Taking a facilitator out of the program is the largest state change the
+    # panel makes. `deleted_at` records when and a restore erases even that, so
+    # the log is the only trace of who.
+    change: ContentFieldChange = {
+        "field": "deleted",
+        "field_id": None,
+        "old": "" if deleted else _DELETED_LOG_VALUE,
+        "new": _DELETED_LOG_VALUE if deleted else "",
+    }
+    log_facilitator_changes(
+        repo=repo,
+        event_id=event_id,
+        facilitator_id=facilitator_id,
+        user_id=user_id,
+        changes=[change],
+    )
+
+
 class CFPPersonalDataFieldService(
     CFPFieldCategoryService[
         PersonalDataFieldCreateData, PersonalDataFieldUpdateData, OrganizerFieldDTO
@@ -270,32 +303,27 @@ class PersonalDataFieldValueService:
             changes = self._personal_data_changes(
                 event_id=event_id, facilitator_id=facilitator_id, entries=entries
             )
-            accreditation_type = data.get("accreditation_type")
-            if (
-                accreditation_type is not None
-                and facilitator.accreditation_type != accreditation_type
-            ):
-                changes.append(
-                    {
-                        "field": "accreditation_type",
-                        "field_id": None,
-                        "old": facilitator.accreditation_type,
-                        "new": accreditation_type,
-                    }
+            changes += [
+                {"field": name, "field_id": None, "old": old, "new": new}
+                for name, old, new in (
+                    (
+                        "accreditation_type",
+                        facilitator.accreditation_type,
+                        data.get("accreditation_type"),
+                    ),
+                    (
+                        "internal_comment",
+                        facilitator.internal_comment,
+                        data.get("internal_comment"),
+                    ),
+                    (
+                        "is_collective",
+                        facilitator.is_collective,
+                        data.get("is_collective"),
+                    ),
                 )
-            internal_comment = data.get("internal_comment")
-            if (
-                internal_comment is not None
-                and facilitator.internal_comment != internal_comment
-            ):
-                changes.append(
-                    {
-                        "field": "internal_comment",
-                        "field_id": None,
-                        "old": facilitator.internal_comment,
-                        "new": internal_comment,
-                    }
-                )
+                if new is not None and old != new
+            ]
             self._facilitators.update(facilitator_id, data)
             storable = self._storable(
                 event_id=event_id, facilitator_id=facilitator_id, entries=entries

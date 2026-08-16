@@ -53,7 +53,7 @@ black = "^26.1.0"
 codespell = "^2.4.3"
 deptry = "^0.25.1"
 django-browser-reload = "^1.21.0"
-django-debug-toolbar = "^7.0.0"
+django-debug-toolbar = "^7.1.0"
 django-stubs = "^6.0.5"
 djlint = "^1.39.2"
 factory-boy = "^3.3.3"
@@ -66,7 +66,7 @@ pip-audit = "^2.10.1"
 pylint = "^4.0.3"
 pytest = "^9.0.3"
 pytest-cov = "^7.0.0"
-pytest-django = "^4.11.1"
+pytest-django = "^4.14.0"
 pytest-factoryboy = "^2.8.1"
 pytest-freezeblaster = "^2.0.4"
 responses = "^0.26.0"
@@ -82,7 +82,7 @@ pytest-gremlins = "^1.8.1"
 django-coverage-plugin = "^3.2.2"
 yamllint = "1.38.0"
 taplo = "^0.9.3"
-tingle = "^0.4.0"
+tingle = "^0.4.1"
 pytest-xdist = "^3.8.0"
 lxml-stubs = "^0.5.1"
 django-zeal = "^2.2.2"
@@ -255,6 +255,7 @@ ignore = [
     "COM",
     "CPY",
     "D1",
+    "DOC",   # No docstring param/return spec
     "FIX",
     "TD003",
     # Left to fix
@@ -536,7 +537,9 @@ ignore_names = [
     "modification_time",
     "test_func",
     # Vekna rituals
-    "pr_check",
+    "pr_refresh",
+    "pr_cover",
+    "pr_review",
 ]
 
 ignore_decorators = [
