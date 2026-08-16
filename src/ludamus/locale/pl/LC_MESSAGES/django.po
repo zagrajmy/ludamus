@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-15 23:50+0200\n"
+"POT-Creation-Date: 2026-08-16 08:32+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -795,8 +795,8 @@ msgstr "Maks. uczestników"
 
 #: src/ludamus/gates/web/django/chronology/forms.py
 #: src/ludamus/gates/web/django/forms.py
-msgid "Empty or 0 = no limit"
-msgstr "Puste pole lub 0 = bez limitu"
+msgid "Empty or 0 = no enrollment"
+msgstr "Puste pole lub 0 = bez zapisów"
 
 #: src/ludamus/gates/web/django/chronology/forms.py
 #: src/ludamus/gates/web/django/chronology/panel/views/columns.py
@@ -3749,6 +3749,17 @@ msgstr "Przejdź do %(day)s %(time)s"
 msgid "Open details for %(title)s"
 msgstr "Otwórz szczegóły %(title)s"
 
+#: src/ludamus/templates/chronology/_enrollment_badge.html
+#: src/ludamus/templates/chronology/enroll_select.html
+#: src/ludamus/templates/panel/_event_settings_tabs.html
+#: src/ludamus/templates/panel/enrollment-window-form.html
+msgid "Enrollment"
+msgstr "Zapisy"
+
+#: src/ludamus/templates/chronology/_enrollment_badge.html
+msgid "Enrollment required"
+msgstr "Wymagane zapisy"
+
 #: src/ludamus/templates/chronology/_pending_proposals.html
 msgid "Pending Proposals"
 msgstr "Oczekujące zgłoszenia"
@@ -3848,11 +3859,6 @@ msgstr "oczekuje"
 
 #: src/ludamus/templates/chronology/_session_availability.html
 #: src/ludamus/templates/chronology/_session_card.html
-msgid "Open"
-msgstr "Otwarte"
-
-#: src/ludamus/templates/chronology/_session_availability.html
-#: src/ludamus/templates/chronology/_session_card.html
 #, python-format
 msgid "%(counter)s spot left"
 msgid_plural "%(counter)s spots left"
@@ -3873,10 +3879,6 @@ msgstr[3] "%(counter)s zapisanych uczestników"
 #: src/ludamus/templates/chronology/_session_card.html
 msgid "Awaiting review"
 msgstr "Czeka na akceptację"
-
-#: src/ludamus/templates/chronology/_session_card.html
-msgid "Not Available"
-msgstr "Niedostępne"
 
 #: src/ludamus/templates/chronology/accept_proposal.html
 msgid "Accept Proposal"
@@ -4010,12 +4012,6 @@ msgstr "Dokończ Zapis"
 #: src/ludamus/templates/chronology/anonymous_enroll.html
 msgid "Enroll Now"
 msgstr "Zapisz się teraz"
-
-#: src/ludamus/templates/chronology/enroll_select.html
-#: src/ludamus/templates/panel/_event_settings_tabs.html
-#: src/ludamus/templates/panel/enrollment-window-form.html
-msgid "Enrollment"
-msgstr "Zapisy"
 
 #: src/ludamus/templates/chronology/enroll_select.html
 msgid "Players you shadowbanned are already signed up here"
@@ -4282,6 +4278,10 @@ msgstr "Filtry"
 #: src/ludamus/templates/panel/proposals.html
 msgid "All statuses"
 msgstr "Wszystkie statusy"
+
+#: src/ludamus/templates/chronology/event.html
+msgid "Takes enrollment"
+msgstr "Z zapisami"
 
 #: src/ludamus/templates/chronology/event.html
 msgid "Available spots"
@@ -9198,6 +9198,12 @@ msgstr "Temat"
 #: src/ludamus/templates/staging_email_inbox.html
 msgid "No emails captured yet."
 msgstr "Brak przechwyconych e-maili."
+
+#~ msgid "Open"
+#~ msgstr "Otwarte"
+
+#~ msgid "Not Available"
+#~ msgstr "Niedostępne"
 
 #~ msgid "Deleted only"
 #~ msgstr "Tylko usunięci"

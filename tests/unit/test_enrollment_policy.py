@@ -21,7 +21,6 @@ _SEATS_AT_HALF_PERCENT = 100
 _ALREADY_ENROLLED = 30
 _WIDE_WAITLIST = 5
 _NARROW_WAITLIST = 1
-_UNLIMITED = 1_000_000
 
 
 def _policy(*windows: _Window, is_configured_user: bool = False) -> EnrollmentPolicy:
@@ -113,12 +112,10 @@ class TestCapacityStaysInsideUsableWindows:
 
         assert policy.available_slots(participants_limit=100, enrolled_count=80) == 0
 
-    def test_unlimited_session_stays_unlimited(self) -> None:
+    def test_session_without_enrollment_offers_no_slot(self) -> None:
         policy = _policy(_Window(percentage_slots=_HALF_PERCENT))
 
-        assert (
-            policy.available_slots(participants_limit=0, enrolled_count=99) > _UNLIMITED
-        )
+        assert policy.available_slots(participants_limit=0, enrolled_count=0) == 0
 
 
 class TestAnonymousCapacity:
@@ -173,15 +170,17 @@ class TestAnonymousCapacity:
             participants_limit=_SESSION_LIMIT, enrolled_count=_SEATS_AT_OPEN_PERCENT - 1
         )
 
-    def test_an_unlimited_session_has_no_effective_participants_limit(self) -> None:
+    def test_a_session_without_enrollment_has_no_effective_participants_limit(
+        self,
+    ) -> None:
         policy = _policy(_Window())
 
         assert policy.effective_participants_limit(participants_limit=0) == 0
 
-    def test_an_unlimited_session_is_never_full(self) -> None:
+    def test_a_session_without_enrollment_is_always_full(self) -> None:
         policy = _policy(_Window())
 
-        assert not policy.is_full(participants_limit=0, enrolled_count=_UNLIMITED)
+        assert policy.is_full(participants_limit=0, enrolled_count=0)
 
     def test_no_window_has_no_fullness(self) -> None:
         assert not _policy().is_full(

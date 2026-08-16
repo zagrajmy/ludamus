@@ -36,7 +36,7 @@
             {% if data.session.min_age > 0 %}
                 · <span class="font-medium text-coral-600 dark:text-coral-400">{{ data.session.min_age }}+</span>
             {% endif %}
-            {% if data.is_ended or data.should_show_as_inactive or data.is_enrollment_available %}
+            {% if data.is_ended or data.should_show_as_inactive or data.is_enrollment_available or data.takes_enrollment %}
                 ·
                 {% include "chronology/_session_availability.html" %}
             {% endif %}

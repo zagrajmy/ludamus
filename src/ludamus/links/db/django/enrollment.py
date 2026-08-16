@@ -11,7 +11,6 @@ reads and participation mutations.
 from __future__ import annotations
 
 import logging
-import sys
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
 
@@ -221,8 +220,10 @@ class ParticipationPromotionRepository:
 
     @staticmethod
     def _available_seats(session: Session) -> int:
+        # A limit of 0 means the session takes no enrollment — no seat to
+        # promote a waiting participant into.
         if session.participants_limit == 0:
-            return sys.maxsize
+            return 0
         return max(0, session.effective_participants_limit - session.enrolled_count)
 
     @staticmethod

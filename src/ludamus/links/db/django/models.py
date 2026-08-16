@@ -595,6 +595,11 @@ class EnrollmentConfig(models.Model):
         Returns:
             True if session can be enrolled in under this config.
         """
+        # A limit of 0 means the session takes no enrollment at all, so no
+        # config can make it eligible. The single gate for that rule.
+        if session.participants_limit == 0:
+            return False
+
         if self.limit_to_end_time:
             agenda_item = getattr(session, "agenda_item", None)
             return agenda_item is not None and agenda_item.start_time < self.end_time
@@ -1057,6 +1062,8 @@ class Session(SoftDeleteModel):
     @property
     def is_full(self) -> bool:
         """Check if session is at capacity for enrollment."""
+        # No enrollment is not the same as full — is_enrollment_available is
+        # what closes those sessions, and every caller passes it first.
         if self.participants_limit == 0:
             return False
         return self.enrolled_count >= self.effective_participants_limit

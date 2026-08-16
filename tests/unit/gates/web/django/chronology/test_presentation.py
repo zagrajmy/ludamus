@@ -1,5 +1,4 @@
-import sys
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from unittest.mock import MagicMock
 
 import pytest
@@ -56,10 +55,27 @@ class TestSessionDataSpotsLeft:
 
         assert data.spots_left == 0
 
-    def test_unlimited_returns_maxsize(self):
+    def test_zero_limit_has_no_spots(self):
         data = _make_session_data(effective_participants_limit=0, enrolled_count=5)
 
-        assert data.spots_left == sys.maxsize
+        assert data.spots_left == 0
+
+
+class TestSessionDataTakesEnrollment:
+    @pytest.mark.parametrize(("limit", "expected"), ((0, False), (1, True), (30, True)))
+    def test_reads_the_sessions_own_limit(self, limit, expected):
+        session = MagicMock()
+        session.participants_limit = limit
+        data = _make_session_data(session=session)
+
+        assert data.takes_enrollment is expected
+
+    def test_ignores_a_window_zeroed_effective_limit(self):
+        session = MagicMock()
+        session.participants_limit = 30
+        data = _make_session_data(effective_participants_limit=0, session=session)
+
+        assert data.takes_enrollment is True
 
 
 class TestSessionDataSpotsScarce:
@@ -223,7 +239,39 @@ class TestNightSessions:
 
 
 class TestGroupSessionsByState:
+    @staticmethod
+    def _future_session(*, participants_limit: int) -> SessionData:
+        session = MagicMock()
+        session.participants_limit = participants_limit
+        start = datetime.now(tz=UTC) + timedelta(days=1)
+        return _make_session_data(
+            agenda_item=AgendaItemDTO(
+                start_time=start,
+                end_time=start + timedelta(hours=2),
+                pk=1,
+                session_confirmed=True,
+            ),
+            is_enrollment_available=False,
+            session=session,
+        )
+
     def test_skips_unscheduled_pending_proposal(self):
         pending = _make_session_data(agenda_item=None)
 
         assert group_sessions_by_state({1: pending}) == ({}, {}, {})
+
+    def test_future_session_awaiting_its_window_is_not_yet_available(self):
+        closed = self._future_session(participants_limit=10)
+
+        _, current, future_unavailable = group_sessions_by_state({1: closed})
+
+        assert not current
+        assert list(future_unavailable.values()) == [[closed]]
+
+    def test_future_session_without_enrollment_stays_in_the_schedule(self):
+        no_enrollment = self._future_session(participants_limit=0)
+
+        _, current, future_unavailable = group_sessions_by_state({1: no_enrollment})
+
+        assert list(current.values()) == [[no_enrollment]]
+        assert not future_unavailable

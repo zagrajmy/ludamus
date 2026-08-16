@@ -57,6 +57,20 @@ test.describe("Event detail page", () => {
     await expect(detailDialog).toBeHidden();
   });
 
+  test("session modal drops the Participants tab when nobody signs up", async ({ page }) => {
+    await page.getByRole("link", { name: "Open details for Mega Strategy Lab" }).click();
+    const enrollable = page.getByRole("dialog", { name: "Mega Strategy Lab" });
+    await expect(enrollable.getByRole("tab", { name: /Participants/ })).toBeVisible();
+    await enrollable.getByRole("button", { name: "Close" }).click();
+
+    // Seeded with no participants limit, so there is no roster to show and the
+    // information panel stands alone.
+    await page.getByRole("link", { name: "Open details for Cozy Storytellers Circle" }).click();
+    const dropIn = page.getByRole("dialog", { name: "Cozy Storytellers Circle" });
+    await expect(dropIn).toBeVisible();
+    await expect(dropIn.getByRole("tab")).toHaveCount(0);
+  });
+
   test("opening session modal does not log Transition was skipped", async ({ page }) => {
     const pageErrors: string[] = [];
     page.on("pageerror", (error) => {

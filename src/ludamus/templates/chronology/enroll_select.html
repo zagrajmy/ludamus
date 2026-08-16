@@ -128,7 +128,7 @@
                     <div class="rounded-2xl border border-border bg-bg-secondary overflow-hidden shadow-xl"
                          style="box-shadow: var(--shadow-elevated)"
                          data-enroll-preview
-                         {% if seats_left is not None %}data-seats-left="{{ seats_left }}"{% endif %}
+                         data-seats-left="{{ seats_left }}"
                          data-msg-seat="{% translate "Gets a seat" %}"
                          data-msg-wait="{% translate "Joins the waiting list" %}"
                          data-msg-leave="{% translate "Will leave the session" %}">
@@ -221,7 +221,7 @@
                             {# it truthful as boxes toggle. #}
                             {% enroll_row_state form=form data=user_data.0 viewer_pk=request.user.pk as viewer_state %}
                             {% if viewer_state.box_checked and not viewer_state.checked and not viewer_state.disabled %}
-                                {% if seats_left is None or seats_left > 0 %}
+                                {% if seats_left > 0 %}
                                     {% translate "Join this session" as cta_label %}
                                 {% else %}
                                     {% translate "Join the waiting list" as cta_label %}

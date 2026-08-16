@@ -19,30 +19,34 @@
     <div class="flex-auto min-h-0 flex flex-col overflow-hidden"
          data-session-tabs="{{ data.session.pk }}">
         <!-- Tabs -->
-        {# data-morph makes the bar its own view-transition group so it can fade #}
-        {# in after the card title has flown past it; bg-bg-secondary (the modal #}
-        {# surface colour, so no static change) keeps that group opaque. #}
-        <div class="tab-list shrink-0 bg-bg-secondary"
-             role="tablist"
-             data-morph="tabs">
-            <button role="tab"
-                    aria-selected="true"
-                    aria-controls="info-{{ data.session.pk }}"
-                    class="tab-trigger px-4 py-3 text-sm font-medium flex items-center gap-1.5 [&[aria-selected=false]:hover]:text-foreground/80 active:scale-100!">
-                {% icon "information-circle" class="w-4 h-4" variant="mini" %} {% translate "Information" %}
-            </button>
-            <button tabIndex="-1"
-                    role="tab"
-                    aria-selected="false"
-                    aria-controls="participants-{{ data.session.pk }}"
-                    class="tab-trigger px-4 py-3 text-sm font-medium flex items-center gap-1.5 active:scale-100! [&[aria-selected=false]:hover]:text-foreground/80">
-                {% icon "users" class="w-4 h-4" variant="mini" %} {% translate "Participants" %}
-                <span class="px-1.5 py-0.5 rounded-full text-xs font-semibold bg-coral-100 dark:bg-coral-900/30 text-coral-700 dark:text-coral-400">{{ data.enrolled_count }}</span>
-                {% if data.waiting_count > 0 %}
-                    <span class="px-1.5 py-0.5 rounded-full text-xs font-semibold bg-warning-light text-warning-text">+{{ data.waiting_count }}</span>
-                {% endif %}
-            </button>
-        </div>
+        {# A session that takes no enrollment has no roster to show, so the bar #}
+        {# would be a tab strip over a single panel. #}
+        {% if data.takes_enrollment %}
+            {# data-morph makes the bar its own view-transition group so it can fade #}
+            {# in after the card title has flown past it; bg-bg-secondary (the modal #}
+            {# surface colour, so no static change) keeps that group opaque. #}
+            <div class="tab-list shrink-0 bg-bg-secondary"
+                 role="tablist"
+                 data-morph="tabs">
+                <button role="tab"
+                        aria-selected="true"
+                        aria-controls="info-{{ data.session.pk }}"
+                        class="tab-trigger px-4 py-3 text-sm font-medium flex items-center gap-1.5 [&[aria-selected=false]:hover]:text-foreground/80 active:scale-100!">
+                    {% icon "information-circle" class="w-4 h-4" variant="mini" %} {% translate "Information" %}
+                </button>
+                <button tabIndex="-1"
+                        role="tab"
+                        aria-selected="false"
+                        aria-controls="participants-{{ data.session.pk }}"
+                        class="tab-trigger px-4 py-3 text-sm font-medium flex items-center gap-1.5 active:scale-100! [&[aria-selected=false]:hover]:text-foreground/80">
+                    {% icon "users" class="w-4 h-4" variant="mini" %} {% translate "Participants" %}
+                    <span class="px-1.5 py-0.5 rounded-full text-xs font-semibold bg-coral-100 dark:bg-coral-900/30 text-coral-700 dark:text-coral-400">{{ data.enrolled_count }}</span>
+                    {% if data.waiting_count > 0 %}
+                        <span class="px-1.5 py-0.5 rounded-full text-xs font-semibold bg-warning-light text-warning-text">+{{ data.waiting_count }}</span>
+                    {% endif %}
+                </button>
+            </div>
+        {% endif %}
         <!-- Tab Content -->
         <div class="tab-content flex-auto min-h-0 overflow-y-auto [-webkit-overflow-scrolling:touch] text-foreground">
             <!-- Information Tab -->
@@ -142,7 +146,7 @@
                             {{ data.agenda_item.start_time|time:"G:i" }} - {{ data.agenda_item.end_time|time:"G:i" }}
                         </div>
                     </div>
-                    {% if not data.is_unlimited %}
+                    {% if data.takes_enrollment %}
                         <div class="bg-warm-100 dark:bg-neutral-800 rounded-xl p-4">
                             <div class="text-sm mb-1 text-foreground-muted">{% translate "Capacity" %}</div>
                             <div class="font-medium flex flex-wrap items-center gap-1.5 text-foreground">
@@ -182,77 +186,75 @@
                 {% endif %}
             </div>
             <!-- Participants Tab -->
-            <div id="participants-{{ data.session.pk }}"
-                 role="tabpanel"
-                 class="tab-panel scrollview-fade scrollview-fade-y-16 px-6 py-4"
-                 inert>
-                <!-- Enrolled Participants -->
-                {% with confirmed_participants=data.session_participations|dictsort:"creation_time" %}
-                    {% if data.enrolled_count %}
-                        <h3 class="font-semibold mb-3 text-foreground-secondary">
-                            {% if data.is_unlimited %}
-                                {% translate "Enrolled" %} ({{ data.enrolled_count }})
-                            {% else %}
+            {% if data.takes_enrollment %}
+                <div id="participants-{{ data.session.pk }}"
+                     role="tabpanel"
+                     class="tab-panel scrollview-fade scrollview-fade-y-16 px-6 py-4"
+                     inert>
+                    <!-- Enrolled Participants -->
+                    {% with confirmed_participants=data.session_participations|dictsort:"creation_time" %}
+                        {% if data.enrolled_count %}
+                            <h3 class="font-semibold mb-3 text-foreground-secondary">
                                 {% translate "Enrolled" %} ({{ data.enrolled_count }}/{{ data.effective_participants_limit }})
-                            {% endif %}
-                        </h3>
-                        <div class="space-y-2 mb-6">
-                            {% for participation in confirmed_participants %}
-                                {% if participation.status == 'confirmed' %}
-                                    <div class="flex items-center justify-between p-3 rounded-xl {% if participation.user.pk == current_user.pk %}bg-coral-50 dark:bg-coral-950 border border-coral-200 dark:border-coral-800{% else %}bg-warm-100 dark:bg-neutral-800{% endif %}">
+                            </h3>
+                            <div class="space-y-2 mb-6">
+                                {% for participation in confirmed_participants %}
+                                    {% if participation.status == 'confirmed' %}
+                                        <div class="flex items-center justify-between p-3 rounded-xl {% if participation.user.pk == current_user.pk %}bg-coral-50 dark:bg-coral-950 border border-coral-200 dark:border-coral-800{% else %}bg-warm-100 dark:bg-neutral-800{% endif %}">
+                                            <div class="flex items-center gap-3">
+                                                {% include "components/avatar.html" with user=participation.user size="size-8" danger_ring=participation.is_shadowbanned %}
+                                                <span class="font-medium text-foreground">{{ participation.user.full_name }}</span>
+                                            </div>
+                                            <div class="flex items-center gap-2">
+                                                {% if participation.user.discord_username %}
+                                                    {% include "crowd/user/parts/discord_username.html" with discord_username=participation.user.discord_username %}
+                                                {% endif %}
+                                                {% if participation.user.pk == current_user.pk %}
+                                                    <span class="text-xs font-medium text-coral-600">{% translate "You" %}</span>
+                                                {% endif %}
+                                            </div>
+                                        </div>
+                                    {% endif %}
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                    {% endwith %}
+                    <!-- Waiting List -->
+                    {% if data.waiting_count > 0 %}
+                        <h3 class="font-semibold mb-3 text-foreground-secondary">{% translate "Waiting List" %}</h3>
+                        <div class="space-y-2">
+                            {% for participation in data.session_participations|dictsort:"creation_time" %}
+                                {% if participation.status == 'waiting' %}
+                                    <div class="waiting-list-row flex items-center justify-between p-3 rounded-xl {% if participation.user.pk == current_user.pk %}bg-coral-50 dark:bg-coral-950 border border-coral-200 dark:border-coral-800{% else %}bg-warm-100 dark:bg-neutral-800{% endif %}">
                                         <div class="flex items-center gap-3">
-                                            {% include "components/avatar.html" with user=participation.user size="size-8" danger_ring=participation.is_shadowbanned %}
+                                            <span class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold waiting-position bg-warning-light text-warning-text"
+                                                  data-position-label="{% translate "Waiting list position" %}"></span>
                                             <span class="font-medium text-foreground">{{ participation.user.full_name }}</span>
                                         </div>
                                         <div class="flex items-center gap-2">
-                                            {% if participation.user.discord_username %}
-                                                {% include "crowd/user/parts/discord_username.html" with discord_username=participation.user.discord_username %}
-                                            {% endif %}
                                             {% if participation.user.pk == current_user.pk %}
                                                 <span class="text-xs font-medium text-coral-600">{% translate "You" %}</span>
                                             {% endif %}
+                                            <span class="text-xs text-foreground-muted">{{ participation.creation_time|date:"M j, G:i" }}</span>
                                         </div>
                                     </div>
                                 {% endif %}
                             {% endfor %}
                         </div>
+                    {% else %}
+                        {% if data.session_participations %}
+                            <div class="text-center py-4 text-foreground-muted">
+                                <p class="text-sm">{% translate "No one on the waiting list." %}</p>
+                            </div>
+                        {% endif %}
                     {% endif %}
-                {% endwith %}
-                <!-- Waiting List -->
-                {% if data.waiting_count > 0 %}
-                    <h3 class="font-semibold mb-3 text-foreground-secondary">{% translate "Waiting List" %}</h3>
-                    <div class="space-y-2">
-                        {% for participation in data.session_participations|dictsort:"creation_time" %}
-                            {% if participation.status == 'waiting' %}
-                                <div class="waiting-list-row flex items-center justify-between p-3 rounded-xl {% if participation.user.pk == current_user.pk %}bg-coral-50 dark:bg-coral-950 border border-coral-200 dark:border-coral-800{% else %}bg-warm-100 dark:bg-neutral-800{% endif %}">
-                                    <div class="flex items-center gap-3">
-                                        <span class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold waiting-position bg-warning-light text-warning-text"
-                                              data-position-label="{% translate "Waiting list position" %}"></span>
-                                        <span class="font-medium text-foreground">{{ participation.user.full_name }}</span>
-                                    </div>
-                                    <div class="flex items-center gap-2">
-                                        {% if participation.user.pk == current_user.pk %}
-                                            <span class="text-xs font-medium text-coral-600">{% translate "You" %}</span>
-                                        {% endif %}
-                                        <span class="text-xs text-foreground-muted">{{ participation.creation_time|date:"M j, G:i" }}</span>
-                                    </div>
-                                </div>
-                            {% endif %}
-                        {% endfor %}
-                    </div>
-                {% else %}
-                    {% if data.session_participations %}
-                        <div class="text-center py-4 text-foreground-muted">
-                            <p class="text-sm">{% translate "No one on the waiting list." %}</p>
+                    {% if not data.session_participations %}
+                        <div class="flex items-center justify-center p-4 border-2 border-dashed border-border rounded-xl">
+                            <span class="text-sm text-foreground-muted">{% translate "No participants enrolled yet." %}</span>
                         </div>
                     {% endif %}
-                {% endif %}
-                {% if not data.session_participations %}
-                    <div class="flex items-center justify-center p-4 border-2 border-dashed border-border rounded-xl">
-                        <span class="text-sm text-foreground-muted">{% translate "No participants enrolled yet." %}</span>
-                    </div>
-                {% endif %}
-            </div>
+                </div>
+            {% endif %}
         </div>
     </div>
     {% if data.can_edit %}

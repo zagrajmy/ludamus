@@ -115,7 +115,7 @@ def group_sessions_by_state(
         start = data.agenda_item.start_time
         if data.agenda_item.end_time <= now:
             ended[start].append(data)
-        elif not data.is_enrollment_available and start > now:
+        elif data.takes_enrollment and not data.is_enrollment_available and start > now:
             future_unavailable[start].append(data)
         else:
             current[start].append(data)

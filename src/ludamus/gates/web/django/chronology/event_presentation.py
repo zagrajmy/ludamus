@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import sys
 from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Self, TypedDict
@@ -107,13 +106,13 @@ class SessionData:  # pylint: disable=too-many-instance-attributes
         return self.agenda_item is None
 
     @property
-    def is_unlimited(self) -> bool:
-        return self.effective_participants_limit == 0
+    def takes_enrollment(self) -> bool:
+        # The session's own limit, not the effective one: a 0% seating window
+        # zeroes the effective limit without making the session sign-up-free.
+        return self.session.participants_limit > 0
 
     @property
     def spots_left(self) -> int:
-        if self.effective_participants_limit == 0:
-            return sys.maxsize
         return max(0, self.effective_participants_limit - self.enrolled_count)
 
     _SCARCE_THRESHOLD = 0.2

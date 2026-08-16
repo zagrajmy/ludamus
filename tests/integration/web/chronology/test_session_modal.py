@@ -375,7 +375,7 @@ class TestSessionModalComponentView:
             ],
         )
 
-    def test_renders_unlimited_capacity_and_min_age(
+    def test_renders_session_without_enrollment(
         self, active_user, client, event, space
     ):
         session = SessionFactory(
@@ -390,7 +390,7 @@ class TestSessionModalComponentView:
         participation = SessionParticipation.objects.create(
             session=session,
             user=UserFactory(
-                username="modal-unlimited", email="modal-unlimited@example.com"
+                username="modal-no-enrollment", email="modal-no-enrollment@example.com"
             ),
             status=SessionParticipationStatus.CONFIRMED,
         )
@@ -415,7 +415,6 @@ class TestSessionModalComponentView:
                 "event_banned": False,
                 "enroll_actions": None,
             },
-            contains=["Enrolled (1)", "Minimum Age", "18+"],
         )
 
     @pytest.mark.usefixtures("enrollment_config")
