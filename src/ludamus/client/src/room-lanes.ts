@@ -10,8 +10,8 @@
 const COLLAPSED = "room-lanes-collapsed";
 
 const collapseEmptyTracks = (lanes: HTMLElement): void => {
-  const rowCount = Number(lanes.style.getPropertyValue("--rows"));
-  const roomCount = Number(lanes.style.getPropertyValue("--rooms"));
+  const rowCount = Number(lanes.dataset.rows);
+  const roomCount = Number(lanes.dataset.rooms);
   const tileRows = new Set<number>();
   const liveRows = new Set<number>();
   const liveCols = new Set<number>();

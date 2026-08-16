@@ -183,4 +183,29 @@ test.describe("Rooms view filtering", () => {
     await expect.poll(shownRooms).toBe(roomCount);
     await expect.poll(shownRows).toBe(rowCount);
   });
+
+  // The placement rules moved out of style attributes and into a nonced style
+  // element keyed on the data-* indices (issue #743). Nothing server-side can
+  // tell whether they still land: a missing rule stacks every tile in the first
+  // cell and still renders a plausible-looking page.
+  test("places each tile in the column and row its data attributes name", async ({ page }) => {
+    await page.goto(denseEventUrl);
+
+    const cells = page.locator(".room-lanes-body .room-lanes-cell");
+    await expect(cells.first()).toBeVisible();
+
+    const placements = await cells.evaluateAll((nodes) =>
+      nodes.slice(0, 20).map((node) => {
+        const style = globalThis.getComputedStyle(node);
+        const { tileCol, tileRow, tileSpan } = (node as HTMLElement).dataset;
+        return {
+          expected: [`${Number(tileCol) + 1}`, `${tileRow}`, `span ${tileSpan}`],
+          actual: [style.gridColumnStart, style.gridRowStart, style.gridRowEnd],
+        };
+      }),
+    );
+
+    expect(placements.length).toBeGreaterThan(1);
+    for (const { expected, actual } of placements) expect(actual).toEqual(expected);
+  });
 });

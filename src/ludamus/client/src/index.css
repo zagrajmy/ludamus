@@ -222,6 +222,10 @@ body {
   grid-template-rows: repeat(var(--rows), var(--row-track));
 }
 
+.room-lanes-line {
+  grid-column: 2 / -1;
+}
+
 .room-lanes-line:first-of-type {
   border-top: 0;
 }
@@ -291,6 +295,11 @@ body {
   width: 1px;
   background: color-mix(in oklch, var(--color-border) 60%, transparent);
   pointer-events: none;
+}
+
+/* Header rules hang from their one header row; body rules run the full height. */
+.room-lanes-body .room-lanes-rule {
+  grid-row: 1 / -1;
 }
 
 .dark .room-lanes-rule {
