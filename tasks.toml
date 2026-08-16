@@ -9,7 +9,7 @@ set -eu
 aubr varlock django-admin makemessages -l pl --add-location=file
 # The extraction timestamp guarantees a merge conflict between any two
 # branches that both touched the catalog, and carries no information for a
-# committed file — drop it (msgmerge re-adds it on every rewrite).
+# committed file — drop it (makemessages re-stamps it on every rewrite).
 sed -i.bak '/^"POT-Creation-Date:/d' src/ludamus/locale/pl/LC_MESSAGES/django.po
 rm -f src/ludamus/locale/pl/LC_MESSAGES/django.po.bak
 '''
@@ -33,6 +33,8 @@ fi
 sides="$(mktemp -d)"
 git show ":2:$po" > "$sides/ours.po"
 git show ":3:$po" > "$sides/theirs.po"
+# Transitional: branches cut before the timestamp removal still carry the
+# header in their committed catalogs; drop this strip once none remain.
 sed -i.bak '/^"POT-Creation-Date:/d' "$sides/ours.po" "$sides/theirs.po"
 # Union of both sides: entries added on either side survive; an entry
 # translated differently on each side comes out fuzzy, with both variants
