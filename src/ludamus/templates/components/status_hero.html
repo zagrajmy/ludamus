@@ -1,0 +1,18 @@
+{% load tessera %}
+{% comment %}Status-page hero: icon in a rounded tile, heading, muted lead.
+Every variable is required at the call site (strict template checker) — pass
+error_code="" when there is no HTTP status to show. A non-empty error_code
+switches to the compact variant: the code sits beside the tile and the
+heading/lead tighten up to leave room for the follow-up paragraphs error
+pages add below. Action buttons stay at the call site — they differ
+structurally per page.{% endcomment %}
+<div class="mb-6{% if error_code %} flex items-center gap-4{% endif %}">
+    <div class="w-16 h-16 rounded-2xl flex items-center justify-center bg-white dark:bg-neutral-900">
+        {% icon icon class="w-8 h-8 "|add:icon_color %}
+    </div>
+    {% if error_code %}
+        <span class="text-6xl font-bold text-foreground-muted">{{ error_code }}</span>
+    {% endif %}
+</div>
+<h1 class="{% if error_code %}text-2xl{% else %}text-3xl{% endif %} font-bold mb-3 text-foreground">{{ heading }}</h1>
+<p class="{% if error_code %}mb-2{% else %}text-lg mb-6{% endif %} text-foreground-muted">{{ lead }}</p>

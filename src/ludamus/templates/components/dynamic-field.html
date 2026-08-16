@@ -1,0 +1,57 @@
+{% load i18n markdown_tags %}
+{# One organizer-defined personal-data or session field, switched on its type. #}
+{# Built by the `dynamic_field` tag — call that, never include this directly. #}
+{% translate "Or type a custom value" as custom_placeholder %}
+<div class="flex flex-col gap-y-1 mb-4">
+    {% if field.field_type == "select" and field.is_multiple %}
+        {# A checkbox group has no single control to point a label at, so the #}
+        {# question is the group's legend instead of an orphan <label>. #}
+        <fieldset>
+            <legend class="block text-sm font-medium text-foreground-secondary first-letter:uppercase">
+                {% include "components/dynamic-field-label.html" with icon_name=icon_name label=label is_required=is_required is_public=field.is_public only %}
+            </legend>
+            {% include "components/choice-group.html" with input_type="checkbox" name=name options=options has_errors=errors aria_describedby=described_by only %}
+        </fieldset>
+    {% elif field.field_type == "select" %}
+        <label for="{{ input_id }}"
+               class="block text-sm font-medium text-foreground-secondary first-letter:uppercase">
+            {% include "components/dynamic-field-label.html" with icon_name=icon_name label=label is_required=is_required is_public=field.is_public only %}
+        </label>
+        {% include "components/select.html" with name=name id=input_id choices=choices selected=text_value required=control_required has_errors=errors aria_describedby=described_by only %}
+    {% elif field.field_type == "checkbox" %}
+        <label class="inline-flex items-center cursor-pointer">
+            {% include "components/checkbox-input.html" with name=name id=input_id value="true" checked=is_checked aria_describedby=described_by only %}
+            <span class="ml-2 text-sm text-foreground first-letter:uppercase">
+                {% include "components/dynamic-field-label.html" with icon_name=icon_name label=label is_required=is_required is_public=field.is_public only %}
+            </span>
+        </label>
+    {% else %}
+        <label for="{{ input_id }}"
+               class="block text-sm font-medium text-foreground-secondary first-letter:uppercase">
+            {% include "components/dynamic-field-label.html" with icon_name=icon_name label=label is_required=is_required is_public=field.is_public only %}
+        </label>
+        {% include "components/text-field.html" with name=name id=input_id value=text_value maxlength=field.max_length required=control_required has_errors=errors aria_describedby=described_by only %}
+    {% endif %}
+    {% if offers_custom %}
+        {# A page can offer several write-ins, so the accessible name carries #}
+        {# the question — "or type a custom value" alone names them all alike. #}
+        {% blocktranslate asvar custom_label with question=label %}Custom value for: {{ question }}{% endblocktranslate %}
+        {% include "components/text-field.html" with name=custom_name id=custom_id value=custom_value placeholder=custom_placeholder maxlength=field.max_length aria_label=custom_label has_errors=custom_errors aria_describedby=custom_described_by only %}
+        {% if custom_errors %}
+            <div id="{{ custom_error_id }}">
+                {% for error in custom_errors %}<p class="text-sm text-danger">{{ error }}</p>{% endfor %}
+            </div>
+        {% endif %}
+        {% if field.is_multiple %}
+            {% include "components/write-in-hint.html" %}
+        {% endif %}
+    {% endif %}
+    {% if field.help_text %}
+        <div id="{{ help_id }}" class="text-xs text-foreground-muted">{{ field.help_text|render_markdown }}</div>
+    {% endif %}
+    {% if errors %}
+        <div id="{{ error_id }}">
+            {% for error in errors %}<p class="text-sm text-danger">{{ error }}</p>{% endfor %}
+        </div>
+    {% endif %}
+</div>

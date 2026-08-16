@@ -12,7 +12,7 @@ const hourHasVisibleSection = (hour: string): boolean =>
     ...document.querySelectorAll<HTMLElement>(
       `.time-slot-section[data-slot-hour="${CSS.escape(hour)}"]`,
     ),
-  ].some((section) => section.style.display !== "none");
+  ].some((section) => !section.hidden);
 
 const initScheduleRail = (rail: HTMLElement): void => {
   // The app-shell scrolls #app-scroll, not the document (see app-scroll.ts), so
@@ -45,18 +45,18 @@ const initScheduleRail = (rail: HTMLElement): void => {
     let dayLabel: HTMLElement | null = null;
     let dayHasHours = false;
     const closeDay = (): void => {
-      if (dayLabel) dayLabel.style.display = dayHasHours ? "" : "none";
+      if (dayLabel) dayLabel.hidden = !dayHasHours;
     };
     for (const child of rail.children) {
       if (!(child instanceof HTMLElement)) continue;
       if (child.classList.contains("schedule-rail-hour")) {
         if (!candidates.has(child)) {
-          child.style.display = "none";
+          child.hidden = true;
           continue;
         }
         indexInDay += 1;
         const shown = indexInDay % step === 0;
-        child.style.display = shown ? "" : "none";
+        child.hidden = !shown;
         if (shown) dayHasHours = true;
       } else {
         closeDay();
@@ -81,7 +81,7 @@ const initScheduleRail = (rail: HTMLElement): void => {
       step += 1;
       showEveryNth(step, candidates);
     }
-    const visible = new Set(hourLinks.filter((link) => link.style.display !== "none"));
+    const visible = new Set(hourLinks.filter((link) => !link.hidden));
     visibleLinks = [...visible];
     linkByHour.clear();
     let nearest: HTMLAnchorElement | undefined = visibleLinks[0];

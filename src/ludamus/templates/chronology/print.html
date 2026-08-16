@@ -1,7 +1,7 @@
 {% extends "base.html" %}
-{% load i18n tessera %}
+{% load django_vite i18n tessera %}
 {% block title %}
-    {{ event.name }} — {% translate "Print" %}
+    {{ event.name }} • {% translate "Print" %}
 {% endblock title %}
 {% block body_class %}
     app-shell relative bg-background font-sans text-foreground antialiased print:m-0 print:bg-white print:p-0
@@ -35,40 +35,37 @@
         <div class="grid w-full grid-cols-[minmax(260px,320px)_minmax(0,1fr)] max-[900px]:grid-cols-1 print:block">
             <aside class="sticky top-4 max-h-[calc(100vh-32px)] self-start overflow-auto border-r border-border bg-bg-secondary p-4 shadow-sm max-[900px]:static max-[900px]:max-h-none max-[900px]:border-r-0 max-[900px]:border-b print:hidden">
                 <div>
-                    <form method="get" class="flex flex-col gap-4">
+                    {# Not a form: each control rewrites its own query param and #}
+                    {# reloads (src/print-controls.ts), so there is nothing to #}
+                    {# submit or apply. #}
+                    <div id="print-controls" class="flex flex-col gap-4">
                         <div class="flex flex-col gap-1">
                             <label class="text-sm font-semibold text-foreground-secondary"
                                    for="id_material">{% translate "Printable" %}</label>
-                            {% select id="id_material" name="material" onchange="this.form.submit()" %}
+                            {% select id="id_material" name="material" %}
                                 {% for option in material_options %}
                                     <option value="{{ option.value }}"
                                             {% if material == option.value %}selected{% endif %}>
                                         {{ option.label }}
                                     </option>
                                 {% endfor %}
-                            {% end_select %}
+                            {% endselect %}
                         </div>
-                        {% if print_scopes %}
-                            {% if show_scope_control %}
-                                <div class="flex flex-col gap-1">
-                                    <label class="text-sm font-semibold text-foreground-secondary"
-                                           for="scope-select">{% translate "Scope" %}</label>
-                                    {% select id="scope-select" aria_label=aria_scope onchange="if(this.value!==null){window.location.search=this.value;}" %}
-                                        <option value="?material={{ material|urlencode }}&start={{ range_start_value|urlencode }}&hours={{ range_hours }}"
-                                                {% if not selected_scope %}selected{% endif %}>
-                                            {% translate "Whole event" %}
+                        {% if print_scopes and show_scope_control %}
+                            <div class="flex flex-col gap-1">
+                                <label class="text-sm font-semibold text-foreground-secondary"
+                                       for="scope-select">{% translate "Scope" %}</label>
+                                {% select id="scope-select" name="scope" aria_label=aria_scope %}
+                                    <option value="" {% if not selected_scope %}selected{% endif %}>{% translate "Whole event" %}</option>
+                                    {% for scope in print_scopes %}
+                                        <option value="{{ scope.pk }}"
+                                                {% if selected_scope == scope.pk|stringformat:'s' %}selected{% endif %}>
+                                            {{ scope.name }}
                                         </option>
-                                        {% for scope in print_scopes %}
-                                            <option value="?material={{ material|urlencode }}&scope={{ scope.pk }}&start={{ range_start_value|urlencode }}&hours={{ range_hours }}"
-                                                    {% if selected_scope == scope.pk|stringformat:'s' %}selected{% endif %}>
-                                                {{ scope.name }}
-                                            </option>
-                                        {% endfor %}
-                                    {% end_select %}
-                                </div>
-                            {% endif %}
+                                    {% endfor %}
+                                {% endselect %}
+                            </div>
                         {% endif %}
-                        <input type="hidden" name="scope" value="{{ selected_scope }}">
                         {% if tracks and show_track_control %}
                             <div class="flex flex-col gap-1">
                                 <label class="text-sm font-semibold text-foreground-secondary"
@@ -80,8 +77,12 @@
                                             {{ track.name }}
                                         </option>
                                     {% endfor %}
-                                {% end_select %}
+                                {% endselect %}
                             </div>
+                        {% endif %}
+                        {% if show_descriptions_control %}
+                            {% translate "With descriptions" as t_descriptions %}
+                            {% include "components/checkbox-field.html" with name="descriptions" id="id_descriptions" label=t_descriptions value="1" checked=descriptions %}
                         {% endif %}
                         {% if show_range_controls %}
                             <div class="flex flex-col gap-1">
@@ -101,17 +102,20 @@
                                        name="hours"
                                        min="1"
                                        max="72"
-                                       value="{{ range_hours }}"
+                                       value="{{ range_hours|default_if_none:'' }}"
+                                       placeholder="{% translate "until event end" %}"
                                        class="w-full rounded-lg border border-border bg-bg-secondary px-3 py-2 text-sm text-foreground">
                             </div>
                         {% endif %}
+                        {% if show_unconfirmed_control %}
+                            {% translate "Include unconfirmed sessions" as t_unconfirmed %}
+                            {% include "components/checkbox-field.html" with name="unconfirmed" id="id_unconfirmed" label=t_unconfirmed value="1" checked=unconfirmed %}
+                        {% endif %}
                         <div class="grid gap-2">
-                            {% translate "Apply" as t_apply %}
                             {% translate "Print" as t_print %}
-                            {% tessera_button t_apply variant="secondary" icon="arrow-path" %}
-                            {% tessera_button t_print button_type="button" icon="printer" onclick="window.print()" %}
+                            {% tessera_button t_print button_type="button" icon="printer" data_action="print" %}
                         </div>
-                    </form>
+                    </div>
                     <nav class="mt-4" aria-label="{% translate "Table of contents" %}">
                         <div class="text-sm font-semibold text-foreground-secondary">{% translate "Table of contents" %}</div>
                         <div class="mt-2 grid gap-1 text-sm max-[900px]:max-h-56 max-[900px]:overflow-auto">
@@ -131,6 +135,16 @@
                                         <a class="block rounded-md px-2 py-1.5 text-foreground-muted no-underline hover:bg-background"
                                            href="#area-space-{{ forloop.counter }}">{{ space.space_name }}</a>
                                     {% endif %}
+                                {% endfor %}
+                            {% elif door_cards %}
+                                {% for card in door_cards.cards %}
+                                    <a class="block rounded-md px-2 py-1.5 text-foreground-muted no-underline hover:bg-background"
+                                       href="#door-card-{{ forloop.counter }}">
+                                        {{ card.space_name }}
+                                        <span class="block text-xs">{{ card.day|date:"l, j E" }}</span>
+                                    </a>
+                                {% empty %}
+                                    <span class="px-2 py-1.5 text-foreground-muted">{% translate "No pages" %}</span>
                                 {% endfor %}
                             {% elif session_list %}
                                 <a class="block rounded-md px-2 py-1.5 text-foreground-muted no-underline hover:bg-background"
@@ -167,7 +181,7 @@
                                     <table class="w-full table-fixed border-collapse text-[7pt]">
                                         <thead>
                                             <tr>
-                                                <th class="w-[20mm] border border-neutral-900 border-b-2 p-[1mm] text-left">{% translate "Time slot" %}</th>
+                                                <th class="w-[20mm] border border-neutral-900 border-b-2 p-[1mm] text-left">{% translate "Time" %}</th>
                                                 {% for name in page.space_names %}
                                                     <th class="border border-neutral-900 border-b-2 p-[1mm] text-left">{{ name }}</th>
                                                 {% endfor %}
@@ -200,7 +214,59 @@
                                 <section class="{{ sheet_class }}">
                                     {% include "chronology/parts/print_header.html" with scope_name=timetable.scope_name show_full_schedule_label=True %}
                                     <h2 class="m-0 mb-[3mm] text-[14pt]">{% translate "Timetable" %}</h2>
-                                    <p class="italic text-neutral-500">{% translate "No confirmed sessions scheduled yet." %}</p>
+                                    <p class="italic text-neutral-500">
+                                        {# A manager printing with unconfirmed included sees the honest variant. #}
+                                        {% if unconfirmed %}
+                                            {% translate "No sessions scheduled yet." %}
+                                        {% else %}
+                                            {% translate "No confirmed sessions scheduled yet." %}
+                                        {% endif %}
+                                    </p>
+                                </section>
+                            {% endfor %}
+                        {% elif door_cards %}
+                            {% for card in door_cards.cards %}
+                                {# One A4 page per card: a card hangs on the door for one day. #}
+                                <section class="{{ sheet_class }}"
+                                         id="door-card-{{ forloop.counter }}"
+                                         role="group"
+                                         aria-labelledby="door-card-{{ forloop.counter }}-room door-card-{{ forloop.counter }}-day">
+                                    {% include "chronology/parts/print_header.html" with scope_name=door_cards.scope_name show_full_schedule_label=True %}
+                                    <h2 id="door-card-{{ forloop.counter }}-room"
+                                        class="m-0 mb-[1mm] text-[26pt]">{{ card.space_name }}</h2>
+                                    {% if card.capacity %}
+                                        <p class="m-0 mb-[1mm] text-neutral-500">{% translate "Capacity" %}: {{ card.capacity }}</p>
+                                    {% endif %}
+                                    <h3 id="door-card-{{ forloop.counter }}-day"
+                                        class="m-0 mt-[5mm] mb-[2mm] border-b-[0.5pt] border-neutral-300 text-[12pt]">
+                                        {{ card.day|date:"l, j E" }}
+                                    </h3>
+                                    <table class="w-full border-collapse">
+                                        <thead class="sr-only">
+                                            <tr>
+                                                <th scope="col">{% translate "Time" %}</th>
+                                                <th scope="col">{% translate "Session" context "table column" %}</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for entry in card.entries %}
+                                                <tr class="border-b-[0.5pt] border-neutral-200">
+                                                    <td class="w-[28mm] whitespace-nowrap py-[2mm] pr-[3mm] align-top tabular-nums">
+                                                        {{ entry.start_time|time:"H:i" }}–{{ entry.end_time|time:"H:i" }}
+                                                    </td>
+                                                    <td class="py-[2mm] align-top">
+                                                        <strong>{{ entry.session.title }}</strong>
+                                                        {% if entry.session.presenter_name %}<div class="text-neutral-500">{{ entry.session.presenter_name }}</div>{% endif %}
+                                                    </td>
+                                                </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </section>
+                            {% empty %}
+                                <section class="{{ sheet_class }}">
+                                    {% include "chronology/parts/print_header.html" with scope_name=door_cards.scope_name show_full_schedule_label=True %}
+                                    <p class="italic text-neutral-500">{% translate "No rooms to print." %}</p>
                                 </section>
                             {% endfor %}
                         {% elif area_schedule %}
@@ -210,7 +276,11 @@
                                         {% include "chronology/parts/print_header.html" with scope_name=area_schedule.scope_name show_full_schedule_label=True %}
                                         <h2 class="m-0 mb-[3mm] text-[14pt]">{% translate "Program details" %}</h2>
                                         <p class="mb-[4mm] text-[9pt] text-neutral-500">
-                                            {{ area_schedule.range_start|date:"l, j E Y H:i" }}–{{ area_schedule.range_end|date:"H:i" }}
+                                            {% if area_schedule.range_start|date:"Y-m-d" == area_schedule.range_end|date:"Y-m-d" %}
+                                                {{ area_schedule.range_start|date:"l, j E Y H:i" }}–{{ area_schedule.range_end|date:"H:i" }}
+                                            {% else %}
+                                                {{ area_schedule.range_start|date:"j E Y H:i" }}–{{ area_schedule.range_end|date:"j E Y H:i" }}
+                                            {% endif %}
                                         </p>
                                         <div>
                                             <h3 class="m-0 mb-[2mm] border-b border-neutral-300 text-[13pt]">
@@ -247,7 +317,14 @@
                                         {% if session.description %}<div class="mt-[1mm] whitespace-pre-wrap">{{ session.description }}</div>{% endif %}
                                     </div>
                                 {% empty %}
-                                    <p class="italic text-neutral-500">{% translate "No confirmed sessions scheduled yet." %}</p>
+                                    <p class="italic text-neutral-500">
+                                        {# A manager printing with unconfirmed included sees the honest variant. #}
+                                        {% if unconfirmed %}
+                                            {% translate "No sessions scheduled yet." %}
+                                        {% else %}
+                                            {% translate "No confirmed sessions scheduled yet." %}
+                                        {% endif %}
+                                    </p>
                                 {% endfor %}
                             </section>
                         {% else %}
@@ -262,3 +339,6 @@
         </div>
     </main>
 {% endblock main_region %}
+{% block extra_scripts %}
+    {% vite_asset 'src/print-controls.ts' %}
+{% endblock extra_scripts %}

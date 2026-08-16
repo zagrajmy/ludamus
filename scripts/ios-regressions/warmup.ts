@@ -1,6 +1,6 @@
 import { createIosHarness, sessionName } from "./harness";
 
-const { close, prepareDevice, takeSnapshot } = await createIosHarness(sessionName("warmup"));
+const { close, prepareDevice, takeSnapshot } = createIosHarness(sessionName("warmup"));
 
 try {
   await prepareDevice();

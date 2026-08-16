@@ -1,4 +1,4 @@
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from http import HTTPStatus
 from unittest.mock import ANY
 
@@ -11,6 +11,7 @@ from ludamus.gates.web.django.chronology.enrollment_presentation import (
 )
 from ludamus.inits.services import Services
 from ludamus.links.db.django.models import (
+    EnrollmentConfig,
     Party,
     SessionParticipation,
     SessionParticipationStatus,
@@ -47,7 +48,7 @@ def _guests(agenda_item, viewer):
         session=agenda_item.session,
         enrolled_by=viewer,
         user__user_type=UserType.ANONYMOUS,
-    )
+    ).select_related("user")
 
 
 def _page_context(viewer, agenda_item):
@@ -292,3 +293,42 @@ class TestGuestEnrollment:
             messages=[(messages.SUCCESS, "Guests you bring: 1")],
         )
         assert _guests(agenda_item, active_user).count() == 1
+
+
+class TestFreedGuestSeatDoesNotWidenTheWindow:
+    def test_dropping_a_guest_gives_no_seat_outside_the_viewers_window(
+        self, authenticated_client, active_user, agenda_item, enrollment_config
+    ):
+        _allow_guests(enrollment_config)
+        _reassign_presenter(agenda_item)
+        enrollment_config.restrict_to_configured_users = True
+        enrollment_config.save()
+        now = datetime.now(UTC)
+        EnrollmentConfig.objects.create(
+            event=agenda_item.session.event,
+            start_time=now - timedelta(days=1),
+            end_time=now + timedelta(days=5),
+            percentage_slots=20,
+            allow_anonymous_enrollment=True,
+        )
+        agenda_item.session.participants_limit = 10
+        agenda_item.session.save()
+
+        authenticated_client.post(_url(agenda_item), data={"guests": "1"})
+        assert _guests(agenda_item, active_user).count() == 1
+        for _seat in range(9):
+            SessionParticipation.objects.create(
+                user=UserFactory(),
+                session=agenda_item.session,
+                status=SessionParticipationStatus.CONFIRMED,
+            )
+
+        authenticated_client.post(
+            _url(agenda_item), data={"guests": "0", f"user_{active_user.id}": "enroll"}
+        )
+
+        assert not SessionParticipation.objects.filter(
+            user=active_user,
+            session=agenda_item.session,
+            status=SessionParticipationStatus.CONFIRMED,
+        ).exists()

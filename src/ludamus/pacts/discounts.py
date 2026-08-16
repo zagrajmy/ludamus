@@ -1,9 +1,14 @@
 from datetime import datetime
 from decimal import Decimal
 from enum import StrEnum
-from typing import Protocol
+from typing import TYPE_CHECKING, Protocol
 
 from pydantic import BaseModel, ConfigDict, Field
+
+from ludamus.pacts.event import FacilitatorListItemDTO
+
+if TYPE_CHECKING:
+    from ludamus.pacts.legacy import FacilitatorDTO
 
 
 class DiscountKind(StrEnum):
@@ -44,9 +49,17 @@ class DiscountRepositoryProtocol(Protocol):
     def soft_delete(pk: int) -> None: ...
 
 
+class DiscountRosterEntryDTO(BaseModel):
+    facilitator: FacilitatorListItemDTO
+    discount: DiscountDTO | None
+
+
 class DiscountsServiceProtocol(Protocol):
-    def list_by_event(self, event_pk: int) -> list[DiscountDTO]: ...
-    def get(self, pk: int) -> DiscountDTO: ...
+    def list_roster(self, event_pk: int) -> list[DiscountRosterEntryDTO]: ...
+    def read_scoped(self, *, event_pk: int, pk: int) -> DiscountDTO: ...
+    def read_scoped_facilitator(
+        self, *, event_pk: int, facilitator_id: int
+    ) -> FacilitatorDTO: ...
     def create(self, event_pk: int, data: DiscountData) -> DiscountDTO: ...
     def update(self, pk: int, data: DiscountData) -> DiscountDTO: ...
     def soft_delete(self, pk: int) -> None: ...

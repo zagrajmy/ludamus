@@ -1,0 +1,40 @@
+{% load i18n %}
+{% load tessera %}
+{# The category's configured durations, plus hour/minute steppers for anything #}
+{# it doesn't offer. A category with no durations renders the steppers alone. #}
+{# ponytail: the steppers are revealed by CSS because "Custom" is the last #}
+{# option; give the option a data attribute if that order ever changes. #}
+<div class="group">
+    {% if form.duration %}
+        {% tessera_field form.duration %}
+    {% endif %}
+    <fieldset class="{% if form.duration %}hidden group-has-[option:last-child:checked]:block{% endif %}">
+        <legend class="{% if form.duration %}sr-only{% else %}block text-sm font-medium text-foreground-secondary mb-1{% endif %}">
+            {% if form.duration %}
+                {% translate "Custom duration" %}
+            {% else %}
+                {% translate "Duration" %}
+            {% endif %}
+        </legend>
+        <div class="flex items-end gap-3">
+            <div class="flex flex-col gap-1">
+                {% include "components/label.html" with for_id=form.duration_hours.id_for_label text=form.duration_hours.label only %}
+                {% include "components/stepper-field.html" with name=form.duration_hours.html_name id=form.duration_hours.id_for_label value=form.duration_hours.value|stringformat:"s" min=form.duration_hours.field.min_value|stringformat:"s" max=form.duration_hours.field.max_value|stringformat:"s" has_errors=form.duration_hours.errors aria_describedby=form.duration_hours.errors|yesno:"id_duration_hours_errors," %}
+            </div>
+            <div class="flex flex-col gap-1">
+                {% include "components/label.html" with for_id=form.duration_minutes.id_for_label text=form.duration_minutes.label only %}
+                {% include "components/stepper-field.html" with name=form.duration_minutes.html_name id=form.duration_minutes.id_for_label value=form.duration_minutes.value|stringformat:"s" min=form.duration_minutes.field.min_value|stringformat:"s" max=form.duration_minutes.field.max_value|stringformat:"s" has_errors=form.duration_minutes.errors aria_describedby=form.duration_minutes.errors|yesno:"id_duration_minutes_errors," %}
+            </div>
+        </div>
+        {% if form.duration_hours.errors %}
+            <div id="id_duration_hours_errors" role="alert">
+                {% for error in form.duration_hours.errors %}<p class="text-xs mt-1 text-danger">{{ error }}</p>{% endfor %}
+            </div>
+        {% endif %}
+        {% if form.duration_minutes.errors %}
+            <div id="id_duration_minutes_errors" role="alert">
+                {% for error in form.duration_minutes.errors %}<p class="text-xs mt-1 text-danger">{{ error }}</p>{% endfor %}
+            </div>
+        {% endif %}
+    </fieldset>
+</div>

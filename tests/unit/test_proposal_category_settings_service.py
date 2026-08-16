@@ -5,13 +5,8 @@ from unittest.mock import MagicMock
 from ludamus.mills.submissions.proposal_category_settings import (
     ProposalCategorySettingsService,
 )
-from ludamus.pacts.legacy import (
-    PersonalDataFieldDTO,
-    PromotionMode,
-    ProposalCategoryDTO,
-    SessionFieldDTO,
-    TimeSlotDTO,
-)
+from ludamus.pacts import OrganizerFieldDTO
+from ludamus.pacts.legacy import PromotionMode, ProposalCategoryDTO, TimeSlotDTO
 from ludamus.pacts.submissions import (
     ProposalCategorySettingsData,
     ProposalCategorySettingsRepos,
@@ -46,8 +41,8 @@ def _category() -> ProposalCategoryDTO:
     )
 
 
-def _personal_field(pk: int) -> PersonalDataFieldDTO:
-    return PersonalDataFieldDTO(
+def _personal_field(pk: int) -> OrganizerFieldDTO:
+    return OrganizerFieldDTO(
         field_type="text",
         name=f"Personal {pk}",
         order=pk,
@@ -57,8 +52,8 @@ def _personal_field(pk: int) -> PersonalDataFieldDTO:
     )
 
 
-def _session_field(pk: int) -> SessionFieldDTO:
-    return SessionFieldDTO(
+def _session_field(pk: int) -> OrganizerFieldDTO:
+    return OrganizerFieldDTO(
         field_type="text",
         name=f"Session {pk}",
         order=pk,

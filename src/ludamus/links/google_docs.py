@@ -13,6 +13,7 @@ from google.auth.transport.requests import AuthorizedSession
 from google.oauth2.service_account import Credentials
 from pydantic import BaseModel, ConfigDict, Field
 
+from ludamus.links.retry import mount_retries
 from ludamus.pacts.chronology import (
     CheckOutcome,
     CheckResult,
@@ -87,7 +88,7 @@ def _build_session(secret: bytes, scopes: Sequence[str]) -> AuthorizedSession:
     except (ValueError, GoogleAuthError) as exc:
         msg = f"Invalid service-account credentials: {exc}"
         raise _CredentialsError(msg) from exc
-    return authorized_session(credentials)
+    return mount_retries(authorized_session(credentials))
 
 
 def _disambiguate(titles: list[str]) -> list[str]:

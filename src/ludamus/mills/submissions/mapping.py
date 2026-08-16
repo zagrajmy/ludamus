@@ -9,8 +9,9 @@ from typing import TYPE_CHECKING, Literal, Never
 from pydantic import TypeAdapter, ValidationError
 from unidecode import unidecode
 
-from ludamus.mills.field_values import split_answers
+from ludamus.mills.field_values import split_imported_answers
 from ludamus.pacts import PersonalDataFieldValueData, SessionFieldValueData
+from ludamus.pacts.durations import normalize_duration
 from ludamus.pacts.submissions import (
     DuplicateValueError,
     DurationSpec,
@@ -158,17 +159,17 @@ class DuplicateRowError(Exception):
         self.adopt_ident = adopt_ident
 
 
-class MissingUniqueKeyColumnsError(Exception):
-    # Raised when settings.unique_key_columns names headers the source sheet
-    # doesn't carry (e.g. the English "Timestamp"/"Email Address" defaults saved
-    # against a Polish-localized form whose real headers are "Sygnatura
-    # czasowa"/"Adres e-mail"). Left silent, every row's identity collapses to
-    # the columns that *do* match, so genuinely distinct rows share a slug and
-    # get merged. Abort loudly instead of quietly losing proposals.
+class MissingKeyColumnsError(Exception):
+    # Raised when settings.unique_key_columns or .facilitator_key_columns names
+    # headers the source sheet doesn't carry (e.g. the English
+    # "Timestamp"/"Email Address" defaults saved against a Polish-localized form
+    # whose real headers are "Sygnatura czasowa"/"Adres e-mail"). Left silent,
+    # the identity collapses to the columns that *do* match — distinct rows
+    # share a slug and get merged, and a renamed facilitator silently falls back
+    # to display-name dedup. Abort loudly instead of quietly losing records.
     def __init__(self, columns: list[str]) -> None:
         super().__init__(
-            "Unique-key columns missing from the sheet: "
-            + ", ".join(repr(c) for c in columns)
+            "Key columns missing from the sheet: " + ", ".join(repr(c) for c in columns)
         )
         self.columns = columns
 
@@ -188,8 +189,8 @@ def _duration_iso(target: QuestionTarget, header: str, answer: str) -> str:
     if not answer.strip():
         return ""
     spec = target.values.get(answer)
-    if isinstance(spec, DurationSpec) and spec.iso:
-        return spec.iso
+    if isinstance(spec, DurationSpec) and (iso := normalize_duration(spec.iso)):
+        return iso
     return _skip(f"{header}: unmapped duration answer '{answer}'")
 
 
@@ -248,13 +249,15 @@ def field_answer(
     header: str,
     definitions: dict[str, FieldDefinition],
 ) -> str | list[str]:
+    # Stripped: surrounding whitespace is never part of an answer, so a
+    # whitespace-only cell reads as unanswered and stored values carry no padding.
     target = settings.questions.get(header)
-    raw = cell(target=target, row=row, header=header)
+    raw = cell(target=target, row=row, header=header).strip()
     slug = (target.to or "").split(".", 1)[-1] if target else ""
     definition = definitions.get(slug)
     if definition is None or not definition.multiple:
         return raw
-    return split_answers(raw, definition.options)
+    return split_imported_answers(raw, definition.options)
 
 
 def session_field_values(
@@ -264,18 +267,19 @@ def session_field_values(
     row: ImportRow,
     session_id: int,
 ) -> list[SessionFieldValueData]:
+    # A blank cell writes no row: an unanswered question is absence, not an
+    # empty-string answer. Re-import fills gaps, it never blanks a filled one.
     return [
-        SessionFieldValueData(
-            session_id=session_id,
-            field_id=field_id,
-            value=field_answer(
+        SessionFieldValueData(session_id=session_id, field_id=field_id, value=value)
+        for header, field_id in field_ids.items()
+        if (
+            value := field_answer(
                 settings=settings,
                 row=row,
                 header=header,
                 definitions=settings.definitions.session_fields,
-            ),
+            )
         )
-        for header, field_id in field_ids.items()
     ]
 
 
@@ -287,19 +291,23 @@ def build_personal_data_field_values(
     facilitator_id: int,
     event_id: int,
 ) -> list[PersonalDataFieldValueData]:
+    # A blank cell writes no row — see session_field_values for the rationale.
     return [
         PersonalDataFieldValueData(
             facilitator_id=facilitator_id,
             event_id=event_id,
             field_id=field_id,
-            value=field_answer(
+            value=value,
+        )
+        for header, field_id in field_ids.items()
+        if (
+            value := field_answer(
                 settings=settings,
                 row=row,
                 header=header,
                 definitions=settings.definitions.personal_fields,
-            ),
+            )
         )
-        for header, field_id in field_ids.items()
     ]
 
 

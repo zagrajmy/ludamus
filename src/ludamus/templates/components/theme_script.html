@@ -1,4 +1,5 @@
-<script>
+{% load csp_tags %}
+<script{% nonce %}>
     var MEDIA = '(prefers-color-scheme: dark)';
 
     function disableTransitions() {

@@ -3,7 +3,8 @@ from datetime import UTC, datetime
 
 from ludamus.mills.crowd import CompanionsService, ProfileService
 from ludamus.pacts import NotFoundError
-from ludamus.pacts.crowd import CompanionDTO, UserDTO, UserType
+from ludamus.pacts.crowd import CompanionDTO, UserType
+from tests.unit.factories import user_dto
 
 
 @contextmanager
@@ -21,27 +22,6 @@ class FakeTransaction:
 
     def savepoint(self):
         return _atomic()
-
-
-def _user_dto(**overrides) -> UserDTO:
-    defaults = {
-        "avatar_url": "",
-        "date_joined": datetime(2024, 1, 1, tzinfo=UTC),
-        "discord_username": "",
-        "email": "",
-        "full_name": "",
-        "is_active": True,
-        "is_authenticated": True,
-        "is_staff": False,
-        "is_superuser": False,
-        "name": "",
-        "pk": 1,
-        "slug": "manager",
-        "use_gravatar": False,
-        "user_type": UserType.ACTIVE,
-        "username": "auth0|sub",
-    }
-    return UserDTO(**(defaults | overrides))
 
 
 def _companion_dto(**overrides) -> CompanionDTO:
@@ -146,7 +126,7 @@ def _profile_service(*, users, participations=None, transaction=None):
 
 class TestProfileService:
     def test_read_returns_user(self):
-        service = _profile_service(users=FakeUsers(users=[_user_dto()]))
+        service = _profile_service(users=FakeUsers(users=[user_dto()]))
 
         assert service.read("manager").slug == "manager"
 
@@ -159,14 +139,14 @@ class TestProfileService:
         assert service.confirmed_participations_count(7) == expected
 
     def test_email_in_use_excludes_own_slug(self):
-        users = FakeUsers(users=[_user_dto(email="mine@example.com")])
+        users = FakeUsers(users=[user_dto(email="mine@example.com")])
         service = _profile_service(users=users)
 
         assert service.email_in_use("mine@example.com", exclude_slug="manager") is False
         assert service.email_in_use("mine@example.com", exclude_slug="other") is True
 
     def test_update_writes_in_transaction(self):
-        users = FakeUsers(users=[_user_dto()])
+        users = FakeUsers(users=[user_dto()])
         transaction = FakeTransaction()
         service = _profile_service(users=users, transaction=transaction)
 
@@ -177,7 +157,7 @@ class TestProfileService:
 
     def test_read_avatar_builds_dto(self):
         users = FakeUsers(
-            users=[_user_dto(email="a@b.c", avatar_url="https://auth0/pic")]
+            users=[user_dto(email="a@b.c", avatar_url="https://auth0/pic")]
         )
         service = _profile_service(users=users)
 
@@ -188,7 +168,7 @@ class TestProfileService:
         assert avatar.has_auth0_avatar is True
 
     def test_read_avatar_without_auth0_picture(self):
-        service = _profile_service(users=FakeUsers(users=[_user_dto(email="")]))
+        service = _profile_service(users=FakeUsers(users=[user_dto(email="")]))
 
         avatar = service.read_avatar("manager")
 
@@ -196,7 +176,7 @@ class TestProfileService:
         assert avatar.has_auth0_avatar is False
 
     def test_set_avatar_preference_writes_in_transaction(self):
-        users = FakeUsers(users=[_user_dto()])
+        users = FakeUsers(users=[user_dto()])
         transaction = FakeTransaction()
         service = _profile_service(users=users, transaction=transaction)
 

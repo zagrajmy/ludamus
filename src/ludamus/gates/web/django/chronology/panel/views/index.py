@@ -34,7 +34,7 @@ class PanelIndexRedirectView(PanelAccessMixin, View):
         """
         sphere_id = self.request.context.current_sphere_id
 
-        if not (events := self.request.di.uow.events.list_by_sphere(sphere_id)):
+        if not (events := self.request.services.sphere_panel.list_events(sphere_id)):
             messages.info(self.request, _("No events available for this sphere."))
             return redirect("web:index")
 

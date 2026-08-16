@@ -32,6 +32,7 @@ if TYPE_CHECKING:
         DiscountsExportServiceProtocol,
         DiscountsServiceProtocol,
     )
+    from ludamus.pacts.encounter import EncounterServiceProtocol
     from ludamus.pacts.enrollment import (
         AnonymousEnrollmentServiceProtocol,
         EnrollmentServiceProtocol,
@@ -39,7 +40,13 @@ if TYPE_CHECKING:
         NotificationsServiceProtocol,
         WaitlistPromotionServiceProtocol,
     )
-    from ludamus.pacts.event import EventPanelServiceProtocol
+    from ludamus.pacts.event import (
+        EventConfirmationsServiceProtocol,
+        EventPanelServiceProtocol,
+        PanelTimeSlotsServiceProtocol,
+    )
+    from ludamus.pacts.event_settings import EventSettingsServiceProtocol
+    from ludamus.pacts.guild import GuildServiceProtocol
     from ludamus.pacts.multiverse import (
         AnnouncementsServiceProtocol,
         ConnectionsServiceProtocol,
@@ -47,22 +54,27 @@ if TYPE_CHECKING:
         SitesServiceProtocol,
         SpherePanelServiceProtocol,
     )
+    from ludamus.pacts.panel import (
+        FacilitatorPanelServiceProtocol,
+        ProposalPanelServiceProtocol,
+    )
     from ludamus.pacts.party import PartyServiceProtocol
     from ludamus.pacts.printing import (
         PrintablesReminderServiceProtocol,
         PrintMaterialsServiceProtocol,
     )
+    from ludamus.pacts.proposal_categories import ProposalCategoriesServiceProtocol
     from ludamus.pacts.safety import EventBanServiceProtocol, ShadowbanServiceProtocol
     from ludamus.pacts.submissions import (
         CFPPersonalDataFieldServiceProtocol,
         CFPSessionFieldServiceProtocol,
-        FacilitatorPanelServiceProtocol,
         ImportFieldLayoutServiceProtocol,
         ImportLogServiceProtocol,
         PersonalDataFieldValueServiceProtocol,
         ProposalCategorySettingsServiceProtocol,
         ProposalImportServiceProtocol,
     )
+    from ludamus.pacts.tracks import TracksPanelServiceProtocol
     from ludamus.pacts.venues import SpaceTreeServiceProtocol, VenuesServiceProtocol
 
 
@@ -104,6 +116,8 @@ class ServicesProtocol(Protocol):
     @property
     def companions(self) -> CompanionsServiceProtocol: ...
     @property
+    def guilds(self) -> GuildServiceProtocol: ...
+    @property
     def parties(self) -> PartyServiceProtocol: ...
     @property
     def party_session_history(self) -> PartySessionHistoryServiceProtocol: ...
@@ -115,6 +129,12 @@ class ServicesProtocol(Protocol):
     def events(self) -> EventsServiceProtocol: ...
     @property
     def event_panel(self) -> EventPanelServiceProtocol: ...
+    @property
+    def confirmations(self) -> EventConfirmationsServiceProtocol: ...
+    @property
+    def event_settings(self) -> EventSettingsServiceProtocol: ...
+    @property
+    def panel_time_slots(self) -> PanelTimeSlotsServiceProtocol: ...
     @property
     def sphere_panel(self) -> SpherePanelServiceProtocol: ...
     @property
@@ -129,6 +149,8 @@ class ServicesProtocol(Protocol):
     def session_content_edit(self) -> SessionContentEditServiceProtocol: ...
     @property
     def session_deletion(self) -> SessionDeletionServiceProtocol: ...
+    @property
+    def proposal_panel(self) -> ProposalPanelServiceProtocol: ...
     @property
     def proposal_status(self) -> ProposalStatusServiceProtocol: ...
     @property
@@ -167,3 +189,9 @@ class ServicesProtocol(Protocol):
     def discounts(self) -> DiscountsServiceProtocol: ...
     @property
     def discounts_export(self) -> DiscountsExportServiceProtocol: ...
+    @property
+    def tracks_panel(self) -> TracksPanelServiceProtocol: ...
+    @property
+    def encounters(self) -> EncounterServiceProtocol: ...
+    @property
+    def proposal_categories(self) -> ProposalCategoriesServiceProtocol: ...

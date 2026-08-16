@@ -22,7 +22,15 @@ from pathlib import Path
 # Pinned to main HEAD; bump to `impeccable@3.x.x` once published.
 IMPECCABLE_SPEC = "github:pbakaus/impeccable#346ce25952a6d4150433e8fb1369cb59571ebc30"
 
-IGNORE_PATH_SUBSTRINGS: tuple[str, ...] = ("e2e/playwright-report/", "tailwind.min.js")
+# .claude/ and .agents/: vendored agent skills. impeccable's own detector
+# carries the CSS patterns it hunts for as string literals, so scanning it
+# reports impeccable's rulebook as four gradient-text findings.
+IGNORE_PATH_SUBSTRINGS: tuple[str, ...] = (
+    "e2e/playwright-report/",
+    "tailwind.min.js",
+    ".claude/",
+    ".agents/",
+)
 # tiny-text: design opinion we don't share.
 # single-font: the project deliberately uses one brand font (Outfit)
 # everywhere; this whole-project heuristic flags that by design and isn't
@@ -74,8 +82,7 @@ def run_detect(paths: list[str]) -> list[dict]:
     # impeccable emits JSON on stdout when empty and on stderr when findings exist.
     # Sources may prefix the payload with npm warnings (e.g. git-sourced installs).
     for stream in (result.stdout, result.stderr):
-        payload = _extract_json_array(stream or "")
-        if payload is None:
+        if (payload := _extract_json_array(stream or "")) is None:
             continue
         try:
             data = json.loads(payload)
@@ -149,8 +156,7 @@ def main() -> int:
     args = parser.parse_args()
 
     repo_root = Path.cwd().resolve()
-    paths = args.paths or tracked_ui_files()
-    if not paths:
+    if not (paths := args.paths or tracked_ui_files()):
         print("impeccable: no files to scan", file=sys.stderr)
         return 0
 

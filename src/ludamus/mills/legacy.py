@@ -18,7 +18,6 @@ from ludamus.pacts import (
     EventDTO,
     FacilitatorData,
     FacilitatorDTO,
-    FacilitatorMergeError,
     NotFoundError,
     PersonalDataFieldValueData,
     PersonalFieldRequirementDTO,
@@ -35,6 +34,8 @@ from ludamus.pacts import (
     UploadedFileProtocol,
     WizardData,
 )
+from ludamus.pacts.durations import normalize_duration
+from ludamus.pacts.submissions import is_empty_answer
 from ludamus.specs.encounter import ENCOUNTER_DEFAULT_DURATION
 from ludamus.specs.proposal import PROPOSAL_RATE_LIMIT_SECONDS
 
@@ -350,7 +351,7 @@ class ProposeSessionService:
                 title=title,
                 slug=slug,
                 description=description,
-                duration=str(session_data.get("duration") or ""),
+                duration=normalize_duration(str(session_data.get("duration") or "")),
                 participants_limit=participants_limit,
                 min_age=int(str(session_data.get("min_age") or 0)),
                 contact_email=wizard_data.get("contact_email", ""),
@@ -386,6 +387,11 @@ class ProposeSessionService:
             slug = key.removeprefix("session_")
             if slug.endswith("_custom"):
                 continue
+            # A question the submitter left blank stores no row: the proposal
+            # is new, so absence can only mean "never answered". Checked before
+            # the field lookup — a blank never needs the query.
+            if is_empty_answer(value=value):
+                continue
             try:
                 field_dto = self._uow.session_fields.read_by_slug(event_id, slug)
             except NotFoundError:
@@ -407,6 +413,8 @@ class ProposeSessionService:
                 continue
             slug = key.removeprefix("personal_")
             if slug.endswith("_custom"):
+                continue
+            if is_empty_answer(value=value):
                 continue
             try:
                 field_dto = self._uow.personal_data_fields.read_by_slug(event_id, slug)
@@ -442,20 +450,6 @@ class PanelService:
 
     def __init__(self, uow: UnitOfWorkProtocol) -> None:
         self._uow = uow
-
-    def delete_category(self, category_pk: int) -> bool:
-        """Delete a proposal category if it has no proposals.
-
-        Args:
-            category_pk: The category primary key.
-
-        Returns:
-            True if deleted, False if category has proposals.
-        """
-        if self._uow.proposal_categories.has_proposals(category_pk):
-            return False
-        self._uow.proposal_categories.delete(category_pk)
-        return True
 
     def delete_session_field(self, field_pk: int) -> bool:
         """Delete a session field if not used by session types.
@@ -506,30 +500,3 @@ class PanelService:
                 break
 
         return errors
-
-
-class FacilitatorMergeService:
-    def __init__(self, uow: UnitOfWorkProtocol) -> None:
-        self._uow = uow
-
-    def merge(self, target_id: int, source_ids: list[int]) -> None:
-        if not source_ids:
-            msg = "At least one source facilitator is required"
-            raise FacilitatorMergeError(msg)
-        if target_id in source_ids:
-            msg = "Target cannot be among source facilitators"
-            raise FacilitatorMergeError(msg)
-
-        all_ids = [target_id, *source_ids]
-        linked_count = sum(
-            1 for fid in all_ids if self._uow.facilitators.read(fid).user_id is not None
-        )
-        if linked_count > 1:
-            msg = "Cannot merge facilitators that each have a linked user account."
-            raise FacilitatorMergeError(msg)
-
-        with self._uow.atomic():
-            self._uow.sessions.replace_facilitators_in_sessions(source_ids, target_id)
-            self._uow.personal_data_field_values.delete_by_facilitators(source_ids)
-            for source_id in source_ids:
-                self._uow.facilitators.delete(source_id)

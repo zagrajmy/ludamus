@@ -110,7 +110,7 @@ class CFPPersonalDataFieldService:
         self._fields = fields
         self._categories = categories
 
-    def create(self, event_pk: int, data, requirements) -> PersonalDataFieldDTO:
+    def create(self, event_pk: int, data, requirements) -> OrganizerFieldDTO:
         with self._transaction.atomic():
             field = self._fields.create(event_pk, data)
             if requirements:
@@ -230,7 +230,7 @@ can't name one, the file isn't too big yet. Gates mirror the sitemap
 The old **subdomain** / **bounded context** vocabulary is banned.
 Some directory, URL, template, and test paths still carry the legacy subdomain
 names; they are renamed opportunistically, tracked by the
-`old-subdomain-loc` tingle metric. New code slices by noun.
+`old-subdomain-files` tingle metric. New code slices by noun.
 
 | Legacy subdomain | Noun | Scope |
 | ---------------- | ---- | ----- |
@@ -318,6 +318,11 @@ group, no ownership split.
   context through repository protocols; focused page services own page reads and
   writes. Legacy pages still use `PanelService` for cascade-safe deletion and
   time-slot validation until they migrate.
+- **Confirmations tab:** `EventConfirmationsService` (`mills/event.py`) tracks
+  post-schedule confirmation — an event dashboard, and per track the
+  facilitator → contact email → session status tree the organiser works
+  through. Its reads are flat repository rows assembled in Python, so the query
+  count stays constant; grouping order lives in `specs/confirmations.py`.
 
 <!-- markdownlint-disable MD013 -->
 
@@ -333,6 +338,7 @@ group, no ownership split.
 | Time slots | `panel/views/time_slots.py` | `time-slot*.html` |
 | Tracks | `panel/views/tracks.py` | `track-*.html` |
 | Venues (Space tree) | `panel/views/venues.py` | `spaces.html`, `_space_tree_node.html`, `space-*.html` |
+| Confirmations | `event/panel/views/confirmations.py` | `timetable-confirmations.html`, `parts/confirmation-*.html` |
 
 <!-- markdownlint-enable MD013 -->
 
@@ -406,11 +412,14 @@ accounts.
 Auth0 OAuth login/logout. State token management and JWT validation;
 user upsert on callback.
 
-- **URLs:** `/crowd/auth0/` (namespace `auth0`)
+- **URLs:** `/crowd/auth0/` (namespace `auth0`), `/crowd/login-required/`,
+  `/auth-error/` (the Auth0 tenant's error page setting points at it)
 - **Views:** `gates/web/django/crowd/auth.py` — `Auth0LoginActionView`,
   `Auth0LoginCallbackActionView`, `Auth0LogoutActionView`,
-  `Auth0LogoutRedirectActionView`, `LoginRequiredPageView`
-- **Templates:** `templates/crowd/login_required.html`
+  `Auth0LogoutRedirectActionView`; `gates/web/django/auth_pages.py` —
+  `login_required_page`, `auth_error_page`
+- **Templates:** `templates/crowd/login_required.html`,
+  `templates/crowd/auth_error.html`
 - **Service:** `CrowdAuthService` (`request.services.crowd_auth`) — user
   provisioning on callback, identity sync, sphere-domain checks
 - **External integration:** Auth0 PKCE/state OAuth flow

@@ -1,6 +1,7 @@
 from django.urls import URLPattern, URLResolver, include, path
 from django.views.generic import RedirectView
 
+from ludamus.gates.web.django.auth_pages import login_required_page
 from ludamus.gates.web.django.crowd import auth, profile, views
 
 auth0_urlpatterns = [
@@ -86,9 +87,7 @@ urlpatterns: list[URLPattern | URLResolver] = [
         name="party-invites-decline",
     ),
     path("auth0/", include((auth0_urlpatterns, "auth0"), namespace="auth0")),
-    path(
-        "login-required/", auth.LoginRequiredPageView.as_view(), name="login-required"
-    ),
+    path("login-required/", login_required_page, name="login-required"),
     path("profile/", profile.ProfilePageView.as_view(), name="profile"),
     path(
         "profile/avatar/",

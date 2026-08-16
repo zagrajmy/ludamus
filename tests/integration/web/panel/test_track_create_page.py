@@ -7,29 +7,14 @@ from django.contrib import messages
 from django.urls import reverse
 
 from ludamus.links.db.django.models import Space, Track
-from ludamus.pacts import EventDTO
 from ludamus.pacts.crowd import UserDTO
 from tests.integration.conftest import SpaceFactory, UserFactory
-from tests.integration.utils import assert_response
-
-PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
-
-
-def _base_context(event):
-    return {
-        "current_event": EventDTO.model_validate(event),
-        "events": [EventDTO.model_validate(event)],
-        "is_proposal_active": False,
-        "stats": {
-            "hosts_count": 0,
-            "pending_proposals": 0,
-            "rooms_count": 0,
-            "scheduled_sessions": 0,
-            "total_proposals": 0,
-            "total_sessions": 0,
-        },
-        "active_nav": "tracks",
-    }
+from tests.integration.utils import assert_login_required, assert_response
+from tests.integration.web.panel.helpers import (
+    assert_event_not_found,
+    assert_not_a_manager,
+    panel_context,
+)
 
 
 class TestTrackCreatePageView:
@@ -46,48 +31,29 @@ class TestTrackCreatePageView:
 
         response = client.get(url)
 
-        assert_response(
-            response, HTTPStatus.FOUND, url=f"/crowd/login-required/?next={url}"
-        )
+        assert_login_required(response, url)
 
     def test_get_redirects_non_manager_user(self, authenticated_client, event):
         response = authenticated_client.get(self.get_url(event))
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, PERMISSION_ERROR)],
-            url="/",
-        )
+        assert_not_a_manager(response)
 
-    def test_get_redirects_on_invalid_event_slug(
-        self, authenticated_client, active_user, sphere
-    ):
-        sphere.managers.add(active_user)
+    def test_get_redirects_on_invalid_event_slug(self, panel_client):
         url = reverse("panel:track-create", kwargs={"slug": "nonexistent"})
 
-        response = authenticated_client.get(url)
+        response = panel_client.get(url)
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Event not found.")],
-            url="/panel/",
-        )
+        assert_event_not_found(response)
 
-    def test_get_ok_for_sphere_manager(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
-
-        response = authenticated_client.get(self.get_url(event))
+    def test_get_ok_for_sphere_manager(self, panel_client, active_user, event):
+        response = panel_client.get(self.get_url(event))
 
         assert_response(
             response,
             HTTPStatus.OK,
             template_name="panel/track-create.html",
             context_data={
-                **_base_context(event),
+                **panel_context(event, active_nav="tracks"),
                 "form": ANY,
                 "spaces": [],
                 "managers": [UserDTO.model_validate(active_user)],
@@ -103,43 +69,24 @@ class TestTrackCreatePageView:
 
         response = client.post(url, data={"name": "Alpha Track"})
 
-        assert_response(
-            response, HTTPStatus.FOUND, url=f"/crowd/login-required/?next={url}"
-        )
+        assert_login_required(response, url)
 
     def test_post_redirects_non_manager_user(self, authenticated_client, event):
         response = authenticated_client.post(
             self.get_url(event), data={"name": "Alpha Track"}
         )
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, PERMISSION_ERROR)],
-            url="/",
-        )
+        assert_not_a_manager(response)
 
-    def test_post_redirects_on_invalid_event_slug(
-        self, authenticated_client, active_user, sphere
-    ):
-        sphere.managers.add(active_user)
+    def test_post_redirects_on_invalid_event_slug(self, panel_client):
         url = reverse("panel:track-create", kwargs={"slug": "nonexistent"})
 
-        response = authenticated_client.post(url, data={"name": "Alpha Track"})
+        response = panel_client.post(url, data={"name": "Alpha Track"})
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Event not found.")],
-            url="/panel/",
-        )
+        assert_event_not_found(response)
 
-    def test_post_creates_track_and_redirects(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
-
-        response = authenticated_client.post(
+    def test_post_creates_track_and_redirects(self, panel_client, event):
+        response = panel_client.post(
             self.get_url(event), data={"name": "Alpha Track", "is_public": "on"}
         )
 
@@ -206,19 +153,15 @@ class TestTrackCreatePageView:
         assert not track.spaces.filter(pk=foreign_space.pk).exists()
         assert not track.managers.filter(pk=foreign_user.pk).exists()
 
-    def test_post_shows_error_for_empty_name(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
-
-        response = authenticated_client.post(self.get_url(event), data={"name": ""})
+    def test_post_shows_error_for_empty_name(self, panel_client, active_user, event):
+        response = panel_client.post(self.get_url(event), data={"name": ""})
 
         assert_response(
             response,
             HTTPStatus.OK,
             template_name="panel/track-create.html",
             context_data={
-                **_base_context(event),
+                **panel_context(event, active_nav="tracks"),
                 "form": ANY,
                 "spaces": [],
                 "managers": [UserDTO.model_validate(active_user)],

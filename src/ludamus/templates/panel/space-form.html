@@ -1,14 +1,13 @@
 {% extends "panel/base.html" %}
 {% load i18n %}
 {% load tessera %}
-{% block title_prefix %}
+{% block title %}
     {% if node %}
         {% translate "Edit space" %}
     {% else %}
         {% translate "New space" %}
     {% endif %}
-    -
-{% endblock title_prefix %}
+{% endblock title %}
 {% block page_title %}
     {% if node %}
         {% translate "Edit space" %}
@@ -26,11 +25,8 @@
 {% endblock page_subtitle %}
 {% block content %}
     {% if current_event %}
-        <div class="card max-w-xl p-6">
-            <form method="post"
-                  action=""
-                  class="space-y-4"
-                  onsubmit="this.querySelector('button[type=submit]').disabled = true">
+        <div class="card card-body max-w-xl">
+            <form method="post" action="" class="space-y-4" data-submit-once>
                 {% csrf_token %}
                 {% tessera_form form %}
                 <div class="flex justify-end gap-2 border-t border-border pt-4">

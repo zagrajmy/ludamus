@@ -1,17 +1,16 @@
 """Backoffice management of an event's session fields."""
 
 from ludamus.mills.submissions.field_categories import CFPFieldCategoryService
-from ludamus.pacts.legacy import (
-    SessionFieldCreateData,
-    SessionFieldDTO,
-    SessionFieldUpdateData,
-)
+from ludamus.pacts import OrganizerFieldDTO
+from ludamus.pacts.legacy import SessionFieldCreateData, SessionFieldUpdateData
+from ludamus.pacts.submissions import CFPSessionFieldServiceProtocol
 
 
 class CFPSessionFieldService(
     CFPFieldCategoryService[
-        SessionFieldCreateData, SessionFieldUpdateData, SessionFieldDTO
-    ]
+        SessionFieldCreateData, SessionFieldUpdateData, OrganizerFieldDTO
+    ],
+    CFPSessionFieldServiceProtocol,
 ):
     def _set_categories(self, field_pk: int, scoped: dict[int, bool]) -> None:
         self._categories.set_session_field_categories(field_pk, scoped)

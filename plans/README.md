@@ -33,6 +33,7 @@ deferred finding later.
 | 016 | Delete read_site and SphereDTO.site_id | P3 | S | 006 | DONE |
 | 017 | Enrollment behavior audit and gap-fill tests | P2 | M | — | DONE |
 | 018 | Skip notices warn; cancel works with no config | P2 | S | 017 | DONE |
+| 019 | CSP tightening + enforcement (nonces, drop unsafe-inline/eval) | P2 | M | 007 | DONE |
 
 ## Execution log (2026-07-09)
 

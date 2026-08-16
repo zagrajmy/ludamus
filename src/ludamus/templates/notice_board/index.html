@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load csp_tags %}
 {% load i18n %}
 {% load tessera %}
 {% block title %}
@@ -21,7 +22,7 @@
                     </p>
                 </div>
             </div>
-            <button onclick="dismissEncountersInfo()"
+            <button id="dismiss-encounters-info-btn"
                     class="ml-4 flex-shrink-0 text-foreground-muted opacity-50 hover:opacity-100">
                 {% icon "x-mark" class="w-5 h-5" %}
             </button>
@@ -61,7 +62,7 @@
     </section>
 {% endblock body %}
 {% block extra_scripts %}
-    <script>
+    <script{% nonce %}>
         (function() {
             if (localStorage.getItem('encounters_info_dismissed')) {
                 var banner = document.getElementById('encounters-info-banner');
@@ -74,5 +75,7 @@
             var banner = document.getElementById('encounters-info-banner');
             if (banner) banner.style.display = 'none';
         }
+
+        document.getElementById('dismiss-encounters-info-btn').addEventListener('click', dismissEncountersInfo);
     </script>
 {% endblock extra_scripts %}

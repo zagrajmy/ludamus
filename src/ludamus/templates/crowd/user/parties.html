@@ -59,12 +59,12 @@
                             <form method="post"
                                   action="{% url 'web:crowd:party-invites-accept' pk=invite.membership_pk %}">
                                 {% csrf_token %}
-                                <button type="submit" class="btn btn-primary ">{% translate "Join party" %}</button>
+                                <button type="submit" class="btn btn-primary">{% translate "Join party" %}</button>
                             </form>
                             <form method="post"
                                   action="{% url 'web:crowd:party-invites-decline' pk=invite.membership_pk %}">
                                 {% csrf_token %}
-                                <button type="submit" class="btn btn-secondary ">{% translate "Decline" %}</button>
+                                <button type="submit" class="btn btn-secondary">{% translate "Decline" %}</button>
                             </form>
                         </div>
                     </div>
@@ -238,7 +238,7 @@
             </div>
             {% if can_add_companion %}
                 <a href="?add-companion=1"
-                   class="btn btn-secondary  shrink-0"
+                   class="btn btn-secondary shrink-0"
                    aria-controls="add-companion-modal"
                    aria-haspopup="dialog">
                     {% icon "plus-circle" class="w-4 h-4" %}
@@ -292,7 +292,9 @@
                             <div class="flex gap-1 shrink-0 -mr-1 -mt-1">
                                 <button type="button"
                                         class="icon-btn"
-                                        onclick="document.getElementById('companion-display-{{ row.companion.slug }}').style.display='none'; document.getElementById('companion-edit-{{ row.companion.slug }}').style.display='block'">
+                                        data-action="swap-visibility"
+                                        data-hide="companion-display-{{ row.companion.slug }}"
+                                        data-show="companion-edit-{{ row.companion.slug }}">
                                     {% icon "pencil" class="w-3.5 h-3.5" %}
                                     <span class="sr-only">{% translate "Edit" %}</span>
                                 </button>
@@ -353,7 +355,9 @@
                                 <button type="submit" class="btn btn-primary">{% translate "Save changes" %}</button>
                                 <button type="button"
                                         class="btn btn-secondary"
-                                        onclick="document.getElementById('companion-edit-{{ row.companion.slug }}').style.display='none'; document.getElementById('companion-display-{{ row.companion.slug }}').style.display='block'">
+                                        data-action="swap-visibility"
+                                        data-hide="companion-edit-{{ row.companion.slug }}"
+                                        data-show="companion-display-{{ row.companion.slug }}">
                                     {% icon "x-mark" class="w-4 h-4" %}
                                     {% translate "Cancel" %}
                                 </button>

@@ -3,9 +3,11 @@ from datetime import UTC, datetime
 from unittest.mock import MagicMock
 
 import pytest
+from django.utils import timezone
 
 from ludamus.gates.web.django.chronology.event_presentation import SessionData
 from ludamus.gates.web.django.chronology.schedule import (
+    build_room_lanes,
     build_schedule_days,
     group_sessions_by_state,
 )
@@ -184,6 +186,40 @@ class TestBuildScheduleDays:
         pending = _make_session_data(agenda_item=None)
 
         assert not build_schedule_days({1: pending})
+
+
+class TestNightSessions:
+    @staticmethod
+    def _night_session() -> SessionData:
+        tz = timezone.get_current_timezone()
+        return _make_session_data(
+            agenda_item=AgendaItemDTO(
+                start_time=datetime(2026, 7, 10, 22, tzinfo=tz),
+                end_time=datetime(2026, 7, 11, 2, tzinfo=tz),
+                pk=1,
+                session_confirmed=True,
+            ),
+            loc={"space_name": "Sala A", "parent_slug": "hall", "parent_name": "Hall"},
+        )
+
+    def test_session_crossing_midnight_lands_on_both_days(self):
+        night = self._night_session()
+
+        days = build_schedule_days({1: night})
+
+        assert [[hour.start.hour for hour in day.hours] for day in days] == [[22], [0]]
+        assert [day.hours[0].sessions for day in days] == [[night], [night]]
+
+    def test_room_lanes_clip_the_night_session_at_midnight(self):
+        days = build_room_lanes(build_schedule_days({1: self._night_session()}))
+
+        assert [[mark.start.hour for mark in day.hour_marks] for day in days] == [
+            [22, 23],
+            [0, 1],
+        ]
+        assert [
+            [(tile.row_start, tile.row_span) for tile in day.tiles] for day in days
+        ] == [[(1, 2)], [(1, 2)]]
 
 
 class TestGroupSessionsByState:

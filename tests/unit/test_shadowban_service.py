@@ -50,6 +50,7 @@ class FakeRepo:
             event_slug=self._signup.event_slug,
             event_name=self._signup.event_name,
             session_title=self._signup.session_title,
+            sphere_domain=self._signup.sphere_domain,
             hits=[h for h in self._signup.hits if h.banned_user_id in signed_up_ids],
         )
 
@@ -83,6 +84,7 @@ def _signup(*hits):
         event_slug="con-2026",
         event_name="Con 2026",
         session_title="Deniable Game",
+        sphere_domain="con.example.net",
         hits=list(hits),
     )
 

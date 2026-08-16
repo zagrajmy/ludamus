@@ -7,16 +7,18 @@ from ludamus.pacts import (
     FacilitatorUpdateData,
     FieldUsageSummary,
     NotFoundError,
+    OrganizerFieldDTO,
     PersonalDataFieldValueRepositoryProtocol,
 )
 from ludamus.pacts.legacy import (
     PersonalDataFieldCreateData,
-    PersonalDataFieldDTO,
     PersonalDataFieldUpdateData,
 )
 from ludamus.pacts.submissions import (
+    CFPPersonalDataFieldServiceProtocol,
     PersonalDataFieldEditContextDTO,
     PersonalDataFieldFormContextDTO,
+    is_empty_answer,
 )
 
 if TYPE_CHECKING:
@@ -32,10 +34,62 @@ if TYPE_CHECKING:
     from ludamus.pacts.services import TransactionProtocol
 
 
+def log_facilitator_changes(
+    *,
+    repo: FacilitatorChangeLogRepositoryProtocol,
+    event_id: int,
+    facilitator_id: int,
+    user_id: int | None,
+    changes: list[ContentFieldChange],
+) -> None:
+    if changes:
+        log_data: FacilitatorChangeLogData = {
+            "event_id": event_id,
+            "facilitator_id": facilitator_id,
+            "user_id": user_id,
+            "changes": changes,
+        }
+        repo.create(log_data)
+
+
+# Change-log values are stored raw (accreditation types land as "guest"), so
+# the deletion flag does too; the History tab labels it at render time. Both
+# writers — the panel and the importer's restore — go through here, so the two
+# can never disagree about the value the tab renders off.
+_DELETED_LOG_VALUE = "yes"
+
+
+def log_facilitator_deletion(
+    *,
+    repo: FacilitatorChangeLogRepositoryProtocol,
+    event_id: int,
+    facilitator_id: int,
+    user_id: int | None,
+    deleted: bool,
+) -> None:
+    # Taking a facilitator out of the program is the largest state change the
+    # panel makes. `deleted_at` records when and a restore erases even that, so
+    # the log is the only trace of who.
+    change: ContentFieldChange = {
+        "field": "deleted",
+        "field_id": None,
+        "old": "" if deleted else _DELETED_LOG_VALUE,
+        "new": _DELETED_LOG_VALUE if deleted else "",
+    }
+    log_facilitator_changes(
+        repo=repo,
+        event_id=event_id,
+        facilitator_id=facilitator_id,
+        user_id=user_id,
+        changes=[change],
+    )
+
+
 class CFPPersonalDataFieldService(
     CFPFieldCategoryService[
-        PersonalDataFieldCreateData, PersonalDataFieldUpdateData, PersonalDataFieldDTO
-    ]
+        PersonalDataFieldCreateData, PersonalDataFieldUpdateData, OrganizerFieldDTO
+    ],
+    CFPPersonalDataFieldServiceProtocol,
 ):
     """Backoffice operations for an event's personal-data fields."""
 
@@ -82,16 +136,21 @@ class CFPPersonalDataFieldService(
         return True
 
 
-def _is_blank(*, value: str | list[str] | bool | None) -> bool:
+def _means_unset(*, value: str | list[str] | bool | None) -> bool:
+    # Wider than `is_empty_answer`: for the change log an unchecked checkbox
+    # and a missing row are the same non-event, so `False` counts here too.
+    # Storage keeps them apart — `False` is an answer worth a row.
+    if isinstance(value, str):
+        return not value.strip()
     if isinstance(value, list):
         return not value
-    return value in {None, "", False}
+    return value is None or value is False
 
 
-def _diff_personal_data(
+def diff_personal_data(
     *,
     old_by_slug: dict[str, str | list[str] | bool],
-    fields_by_id: dict[int, PersonalDataFieldDTO],
+    fields_by_id: dict[int, OrganizerFieldDTO],
     entries: list[PersonalDataFieldValueData],
 ) -> list[ContentFieldChange]:
     changes: list[ContentFieldChange] = []
@@ -100,7 +159,7 @@ def _diff_personal_data(
             continue
         old = old_by_slug.get(field.slug)
         new = entry["value"]
-        if _is_blank(value=old) and _is_blank(value=new):
+        if _means_unset(value=old) and _means_unset(value=new):
             continue
         if old != new:
             changes.append(
@@ -146,9 +205,32 @@ class PersonalDataFieldValueService:
         fields_by_id = {
             f.pk: f for f in self._personal_data_fields.list_by_event(event_id)
         }
-        return _diff_personal_data(
+        return diff_personal_data(
             old_by_slug=old_by_slug, fields_by_id=fields_by_id, entries=entries
         )
+
+    def _storable(
+        self,
+        *,
+        event_id: int,
+        facilitator_id: int,
+        entries: list[PersonalDataFieldValueData],
+    ) -> list[PersonalDataFieldValueData]:
+        # A blank input over a field the facilitator has never answered writes
+        # nothing — no row means "never answered", and an empty row would
+        # claim otherwise. Blanking an answer that exists is a real edit and
+        # is stored, which also stops re-import from refilling it.
+        answered = set(
+            self._personal_data_field_values.list_field_ids_for_facilitator_event(
+                facilitator_id, event_id
+            )
+        )
+        return [
+            entry
+            for entry in entries
+            if entry["field_id"] in answered
+            or not is_empty_answer(value=entry["value"])
+        ]
 
     def _log(
         self,
@@ -158,14 +240,13 @@ class PersonalDataFieldValueService:
         user_id: int | None,
         changes: list[ContentFieldChange],
     ) -> None:
-        if changes:
-            log_data: FacilitatorChangeLogData = {
-                "event_id": event_id,
-                "facilitator_id": facilitator_id,
-                "user_id": user_id,
-                "changes": changes,
-            }
-            self._facilitator_change_logs.create(log_data)
+        log_facilitator_changes(
+            repo=self._facilitator_change_logs,
+            event_id=event_id,
+            facilitator_id=facilitator_id,
+            user_id=user_id,
+            changes=changes,
+        )
 
     def update_personal_data(
         self,
@@ -183,8 +264,11 @@ class PersonalDataFieldValueService:
             changes = self._personal_data_changes(
                 event_id=event_id, facilitator_id=facilitator_id, entries=entries
             )
-            if entries:
-                self._personal_data_field_values.save(entries)
+            storable = self._storable(
+                event_id=event_id, facilitator_id=facilitator_id, entries=entries
+            )
+            if storable:
+                self._personal_data_field_values.save(storable)
             self._log(
                 event_id=event_id,
                 facilitator_id=facilitator_id,
@@ -219,35 +303,33 @@ class PersonalDataFieldValueService:
             changes = self._personal_data_changes(
                 event_id=event_id, facilitator_id=facilitator_id, entries=entries
             )
-            accreditation_type = data.get("accreditation_type")
-            if (
-                accreditation_type is not None
-                and facilitator.accreditation_type != accreditation_type
-            ):
-                changes.append(
-                    {
-                        "field": "accreditation_type",
-                        "field_id": None,
-                        "old": facilitator.accreditation_type,
-                        "new": accreditation_type,
-                    }
+            changes += [
+                {"field": name, "field_id": None, "old": old, "new": new}
+                for name, old, new in (
+                    (
+                        "accreditation_type",
+                        facilitator.accreditation_type,
+                        data.get("accreditation_type"),
+                    ),
+                    (
+                        "internal_comment",
+                        facilitator.internal_comment,
+                        data.get("internal_comment"),
+                    ),
+                    (
+                        "is_collective",
+                        facilitator.is_collective,
+                        data.get("is_collective"),
+                    ),
                 )
-            internal_comment = data.get("internal_comment")
-            if (
-                internal_comment is not None
-                and facilitator.internal_comment != internal_comment
-            ):
-                changes.append(
-                    {
-                        "field": "internal_comment",
-                        "field_id": None,
-                        "old": facilitator.internal_comment,
-                        "new": internal_comment,
-                    }
-                )
+                if new is not None and old != new
+            ]
             self._facilitators.update(facilitator_id, data)
-            if entries:
-                self._personal_data_field_values.save(entries)
+            storable = self._storable(
+                event_id=event_id, facilitator_id=facilitator_id, entries=entries
+            )
+            if storable:
+                self._personal_data_field_values.save(storable)
             self._log(
                 event_id=event_id,
                 facilitator_id=facilitator_id,

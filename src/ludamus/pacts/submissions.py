@@ -12,13 +12,8 @@ from typing import TYPE_CHECKING, Literal, Protocol, TypedDict
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from ludamus.pacts.legacy import (
-    PersonalDataFieldDTO,
-    PromotionMode,
-    ProposalCategoryDTO,
-    SessionFieldDTO,
-    TimeSlotDTO,
-)
+from ludamus.pacts.fields import OrganizerFieldDTO
+from ludamus.pacts.legacy import PromotionMode, ProposalCategoryDTO, TimeSlotDTO
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -27,7 +22,6 @@ if TYPE_CHECKING:
     from ludamus.pacts.legacy import (
         FacilitatorChangeLogDTO,
         FacilitatorChangeLogRepositoryProtocol,
-        FacilitatorListItemDTO,
         FacilitatorRepositoryProtocol,
         FacilitatorUpdateData,
         FieldUsageSummary,
@@ -79,14 +73,23 @@ class ImportRow:
         return dict(self._data)
 
     def get_value(self, header: str, default: str = "") -> str:
-        candidates = {
+        # Whitespace-only cells count as absent, so a deduped column pair
+        # where one side is blank resolves to the filled one instead of
+        # reading as a conflict and skipping the whole row. Conflicts are
+        # judged on stripped text — "D&D" and " D&D " are one answer, not a
+        # conflict — but the cell comes back raw, and deliberately so:
+        # `Session.ident` hashes what this method returns, so trimming here
+        # would re-hash every already-imported row whose key cell carried
+        # padding and fork it into a second session. `field_answer()` trims what
+        # actually gets stored.
+        matches = [
             value
             for key, value in self._data.items()
-            if value and _row_header_matches(key, header)
-        }
-        if len(candidates) > 1:
+            if value.strip() and _row_header_matches(key, header)
+        ]
+        if len(candidates := {value.strip() for value in matches}) > 1:
             raise DuplicateValueError(header, sorted(candidates))
-        return next(iter(candidates), default)
+        return matches[0] if matches else default
 
     def has_column(self, header: str) -> bool:
         # Whether the source row carries this column at all (even when empty),
@@ -188,11 +191,27 @@ class ImportSettings(BaseModel):
     # chosen from it: the form schema alone can't offer the metadata columns
     # (timestamp, auto-collected email), whose wording follows the form's
     # locale, so those are mapped like any other column.
+    # `facilitator_key_columns` names the column headers whose values identify a
+    # facilitator across rows and re-fetches (e.g. an email column). Dedup keys
+    # on their hash rather than the display name, so a renamed facilitator stays
+    # one record. Empty keeps the legacy display-name (slug) dedup.
     questions: dict[str, QuestionTarget] = {}
     definitions: FieldDefinitions = Field(default_factory=FieldDefinitions)
     header_row: int = 1
     unique_key_columns: list[str] = []
+    facilitator_key_columns: list[str] = []
     sheet_headers: list[str] = []
+
+
+def is_empty_answer(*, value: str | list[str] | bool | None) -> bool:
+    # No answer was given: a blank (or whitespace-only) text cell, or a
+    # multi-select with nothing picked. `False` and `0` are answers — an
+    # unchecked checkbox means "No" — and stay.
+    if isinstance(value, str):
+        return not value.strip()
+    if isinstance(value, list):
+        return not value
+    return value is None
 
 
 class AccreditationType(StrEnum):
@@ -283,6 +302,7 @@ class ImportRepos:  # pylint: disable=too-many-instance-attributes
     tracks: TrackRepositoryProtocol
     categories: ProposalCategoryRepositoryProtocol
     facilitators: FacilitatorRepositoryProtocol
+    facilitator_change_logs: FacilitatorChangeLogRepositoryProtocol
     log_entries: ImportLogEntryRepositoryProtocol
 
 
@@ -331,115 +351,52 @@ class PersonalDataFieldFormContextDTO:
 class PersonalDataFieldEditContextDTO:
     """Read aggregate for the personal-data-field edit form."""
 
-    field: PersonalDataFieldDTO
+    field: OrganizerFieldDTO
     categories: list[ProposalCategoryDTO]
     required_category_pks: set[int]
     optional_category_pks: set[int]
 
 
+class OrganizerActionRefusal(StrEnum):
+    ALREADY_TAKEN = "already_taken"
+    ALREADY_YOURS = "already_yours"
+    ALREADY_FREE = "already_free"
+    NOT_ORGANIZER = "not_organizer"
+    HAS_SESSIONS = "has_sessions"
+
+
+class FacilitatorSessionCountsDTO(BaseModel):
+    """How many program points name a facilitator, live and deleted apart."""
+
+    live: int
+    deleted: int
+
+
+class FacilitatorActionError(Exception):
+    """Raised when a facilitator action cannot apply, with the reason why."""
+
+    def __init__(
+        self,
+        refusal: OrganizerActionRefusal,
+        *,
+        session_counts: FacilitatorSessionCountsDTO | None = None,
+    ) -> None:
+        super().__init__(refusal.value)
+        self.refusal = refusal
+        # What the refusal is about, when it is about something countable: the
+        # message can then say how many and where instead of what is forbidden.
+        self.session_counts = session_counts
+
+
 class FacilitatorListFilters(TypedDict, total=False):
     search: str | None
+    pks: set[int] | None
     accreditation: str | None
-    flagged: bool | None
     field_filters: dict[int, str | bool] | None
+    organizer_id: int | None
+    organizer_unassigned: bool | None
     sort: str | None
-
-
-class EventPanelSettingsDTO(BaseModel):
-    """Organizer-only backoffice settings for an event."""
-
-    model_config = ConfigDict(from_attributes=True)
-
-    facilitator_columns: list[str] = []
-    pk: int
-
-
-class EventPanelSettingsRepositoryProtocol(Protocol):
-    @staticmethod
-    def read_or_create(event_id: int) -> EventPanelSettingsDTO: ...
-    @staticmethod
-    def update_facilitator_columns(event_id: int, columns: list[str]) -> None: ...
-
-
-@dataclass
-class FacilitatorPanelRepos:
-    """The repos the panel's facilitator list reads and writes through."""
-
-    facilitators: FacilitatorRepositoryProtocol
-    personal_data_fields: PersonalDataFieldRepositoryProtocol
-    personal_data_field_values: PersonalDataFieldValueRepositoryProtocol
-    facilitator_change_logs: FacilitatorChangeLogRepositoryProtocol
-    panel_settings: EventPanelSettingsRepositoryProtocol
-
-
-@dataclass
-class FacilitatorListQuery:
-    """The list's requested view: filters as the request spelled them.
-
-    `raw_field_filters` is keyed by personal-data field pk with the value
-    untouched from the query string; the service resolves it against the
-    event's own fields.
-    """
-
-    search: str = ""
-    accreditation: str = ""
-    flagged: bool = False
-    sort: str = ""
-    raw_field_filters: dict[int, str] = field(default_factory=dict)
-
-
-@dataclass
-class FacilitatorColumnDTO:
-    """One column of the panel's facilitator list.
-
-    `key` is both the column's identity and its sort key — a built-in
-    ("name", "linked", "sessions", "accreditation") or "field_<pk>". `field`
-    is set only for personal-data columns; built-ins label themselves in the
-    template, where the rest of the list's wording lives.
-    """
-
-    key: str
-    field: PersonalDataFieldDTO | None = None
-
-
-@dataclass
-class FacilitatorListContextDTO:
-    """Read aggregate for the panel's facilitator list."""
-
-    facilitators: list[FacilitatorListItemDTO]
-    filterable_fields: list[PersonalDataFieldDTO]
-    field_filters: dict[int, str | bool]
-    columns: list[FacilitatorColumnDTO]
-
-
-@dataclass
-class FacilitatorColumnsContextDTO:
-    """Read aggregate for the facilitator-columns chooser."""
-
-    chosen: list[FacilitatorColumnDTO]
-    available: list[FacilitatorColumnDTO]
-
-
-class FacilitatorPanelServiceProtocol(Protocol):
-    def list_context(
-        self, *, event_id: int, query: FacilitatorListQuery
-    ) -> FacilitatorListContextDTO: ...
-    def column_values(
-        self, *, facilitator_ids: list[int], field_ids: list[int]
-    ) -> dict[int, dict[str, str | list[str] | bool]]: ...
-    def columns_context(self, event_id: int) -> FacilitatorColumnsContextDTO: ...
-    def set_columns(self, *, event_id: int, columns: list[str]) -> None: ...
-    def set_flag(
-        self, *, event_id: int, facilitator_slug: str, flagged: bool
-    ) -> None: ...
-    def set_accreditation(
-        self,
-        *,
-        event_id: int,
-        facilitator_slug: str,
-        accreditation_type: str,
-        user_id: int | None = None,
-    ) -> None: ...
+    limit: int | None
 
 
 class HasPk(Protocol):
@@ -479,10 +436,10 @@ class ProposalCategorySettingsData(BaseModel):
 
 class ProposalCategoryEditContextDTO(BaseModel):
     category: ProposalCategoryDTO
-    available_fields: list[PersonalDataFieldDTO]
+    available_fields: list[OrganizerFieldDTO]
     field_requirements: dict[int, bool]
     field_order: list[int]
-    available_session_fields: list[SessionFieldDTO]
+    available_session_fields: list[OrganizerFieldDTO]
     session_field_requirements: dict[int, bool]
     session_field_order: list[int]
     available_time_slots: list[TimeSlotDTO]
@@ -529,7 +486,7 @@ class CFPSessionFieldServiceProtocol(Protocol):
         event_pk: int,
         data: SessionFieldCreateData,
         category_requirements: RequirementSelectionDTO,
-    ) -> SessionFieldDTO: ...
+    ) -> OrganizerFieldDTO: ...
     def update(
         self,
         *,
@@ -554,7 +511,7 @@ class CFPPersonalDataFieldServiceProtocol(Protocol):
         event_pk: int,
         data: PersonalDataFieldCreateData,
         category_requirements: RequirementSelectionDTO,
-    ) -> PersonalDataFieldDTO: ...
+    ) -> OrganizerFieldDTO: ...
     def update(
         self,
         *,

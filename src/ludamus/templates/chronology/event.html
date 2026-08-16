@@ -8,12 +8,6 @@
 {% block title %}
     {{ event.name }}
 {% endblock title %}
-{% block og_title %}
-    {{ event.name }}
-{% endblock og_title %}
-{% block twitter_title %}
-    {{ event.name }}
-{% endblock twitter_title %}
 {% block meta_description %}
     {% firstof event.description|truncatewords:20 default_description %}
 {% endblock meta_description %}
@@ -426,7 +420,7 @@
             </div>
             <div id="filter-no-results"
                  class="text-center py-12 px-4 text-foreground-muted"
-                 style="display: none">
+                 hidden>
                 {% icon "funnel" class="w-8 h-8 mx-auto mb-2" %}
                 <p class="font-medium">{% translate "No sessions match your filters" %}</p>
                 <button type="button"

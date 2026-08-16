@@ -17,17 +17,22 @@ from ludamus.links.db.django.models import (
     TimeSlotRequirement,
 )
 from ludamus.pacts import (
-    EventDTO,
-    PersonalDataFieldDTO,
+    OrganizerFieldDTO,
     PromotionMode,
     ProposalCategoryDTO,
-    SessionFieldDTO,
     TimeSlotDTO,
 )
 from tests.integration.conftest import EventFactory, SessionFactory, UserFactory
-from tests.integration.utils import assert_response
-
-PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
+from tests.integration.utils import (
+    FormErrorsMatcher,
+    assert_login_required,
+    assert_response,
+)
+from tests.integration.web.panel.helpers import (
+    assert_event_not_found,
+    assert_not_a_manager,
+    panel_context,
+)
 
 
 class TestProposalCategorySettingsPageView:
@@ -50,9 +55,7 @@ class TestProposalCategorySettingsPageView:
 
         response = client.get(url)
 
-        assert_response(
-            response, HTTPStatus.FOUND, url=f"/crowd/login-required/?next={url}"
-        )
+        assert_login_required(response, url)
 
     def test_get_redirects_non_manager_user(self, authenticated_client, event):
         category = ProposalCategory.objects.create(
@@ -61,40 +64,21 @@ class TestProposalCategorySettingsPageView:
 
         response = authenticated_client.get(self.get_url(event, category))
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, PERMISSION_ERROR)],
-            url="/",
-        )
+        assert_not_a_manager(response)
 
-    def test_get_ok_for_sphere_manager(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_get_ok_for_sphere_manager(self, panel_client, event):
         category = ProposalCategory.objects.create(
             event=event, name="RPG Sessions", slug="rpg-sessions"
         )
 
-        response = authenticated_client.get(self.get_url(event, category))
+        response = panel_client.get(self.get_url(event, category))
 
         assert_response(
             response,
             HTTPStatus.OK,
             template_name="panel/cfp-edit.html",
             context_data={
-                "current_event": EventDTO.model_validate(event),
-                "events": [EventDTO.model_validate(event)],
-                "is_proposal_active": False,
-                "stats": {
-                    "hosts_count": 0,
-                    "pending_proposals": 0,
-                    "rooms_count": 0,
-                    "scheduled_sessions": 0,
-                    "total_proposals": 0,
-                    "total_sessions": 0,
-                },
-                "active_nav": "cfp",
+                **panel_context(event, active_nav="cfp"),
                 "category": ProposalCategoryDTO.model_validate(category),
                 "form": ANY,
                 "available_fields": [],
@@ -111,34 +95,23 @@ class TestProposalCategorySettingsPageView:
             },
         )
 
-    def test_get_redirects_on_invalid_event_slug(
-        self, authenticated_client, active_user, sphere
-    ):
-        sphere.managers.add(active_user)
+    def test_get_redirects_on_invalid_event_slug(self, panel_client):
         url = reverse(
             "panel:cfp-edit",
             kwargs={"event_slug": "nonexistent", "category_slug": "any"},
         )
 
-        response = authenticated_client.get(url)
+        response = panel_client.get(url)
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Event not found.")],
-            url="/panel/",
-        )
+        assert_event_not_found(response)
 
-    def test_get_redirects_on_invalid_category_slug(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_get_redirects_on_invalid_category_slug(self, panel_client, event):
         url = reverse(
             "panel:cfp-edit",
             kwargs={"event_slug": event.slug, "category_slug": "nonexistent"},
         )
 
-        response = authenticated_client.get(url)
+        response = panel_client.get(url)
 
         assert_response(
             response,
@@ -157,9 +130,7 @@ class TestProposalCategorySettingsPageView:
 
         response = client.post(url, data={"name": "Workshops"})
 
-        assert_response(
-            response, HTTPStatus.FOUND, url=f"/crowd/login-required/?next={url}"
-        )
+        assert_login_required(response, url)
 
     def test_post_redirects_non_manager_user(self, authenticated_client, event):
         category = ProposalCategory.objects.create(
@@ -170,22 +141,14 @@ class TestProposalCategorySettingsPageView:
             self.get_url(event, category), data={"name": "Workshops"}
         )
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, PERMISSION_ERROR)],
-            url="/",
-        )
+        assert_not_a_manager(response)
 
-    def test_post_updates_category_for_sphere_manager(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_post_updates_category_for_sphere_manager(self, panel_client, event):
         category = ProposalCategory.objects.create(
             event=event, name="RPG Sessions", slug="rpg-sessions"
         )
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event, category), data={"name": "Workshops"}
         )
 
@@ -199,15 +162,12 @@ class TestProposalCategorySettingsPageView:
         assert category.name == "Workshops"
         assert category.slug == "workshops"
 
-    def test_post_updates_waiting_list_offer_settings(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_post_updates_waiting_list_offer_settings(self, panel_client, event):
         category = ProposalCategory.objects.create(
             event=event, name="RPG Sessions", slug="rpg-sessions"
         )
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event, category),
             data={
                 "name": "RPG Sessions",
@@ -226,66 +186,42 @@ class TestProposalCategorySettingsPageView:
         assert category.promotion_mode == "offer_claim"
         assert category.offer_claim_window == timedelta(minutes=15)
 
-    def test_post_generates_unique_slug_on_collision(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_post_generates_unique_slug_on_collision(self, panel_client, event):
         ProposalCategory.objects.create(event=event, name="Workshops", slug="workshops")
         category = ProposalCategory.objects.create(
             event=event, name="RPG Sessions", slug="rpg-sessions"
         )
 
-        authenticated_client.post(
-            self.get_url(event, category), data={"name": "Workshops"}
-        )
+        panel_client.post(self.get_url(event, category), data={"name": "Workshops"})
 
         category.refresh_from_db()
         assert category.name == "Workshops"
         assert category.slug.startswith("workshops-")
 
-    def test_post_keeps_slug_if_name_unchanged(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_post_keeps_slug_if_name_unchanged(self, panel_client, event):
         category = ProposalCategory.objects.create(
             event=event, name="RPG Sessions", slug="rpg-sessions"
         )
 
-        authenticated_client.post(
-            self.get_url(event, category), data={"name": "RPG Sessions"}
-        )
+        panel_client.post(self.get_url(event, category), data={"name": "RPG Sessions"})
 
         category.refresh_from_db()
         assert category.name == "RPG Sessions"
         assert category.slug == "rpg-sessions"
 
-    def test_post_error_on_empty_name_rerenders_form(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_post_error_on_empty_name_rerenders_form(self, panel_client, event):
         category = ProposalCategory.objects.create(
             event=event, name="RPG Sessions", slug="rpg-sessions"
         )
 
-        response = authenticated_client.post(self.get_url(event, category), data={})
+        response = panel_client.post(self.get_url(event, category), data={})
 
         assert_response(
             response,
             HTTPStatus.OK,
             template_name="panel/cfp-edit.html",
             context_data={
-                "current_event": EventDTO.model_validate(event),
-                "events": [EventDTO.model_validate(event)],
-                "is_proposal_active": False,
-                "stats": {
-                    "hosts_count": 0,
-                    "pending_proposals": 0,
-                    "rooms_count": 0,
-                    "scheduled_sessions": 0,
-                    "total_proposals": 0,
-                    "total_sessions": 0,
-                },
-                "active_nav": "cfp",
+                **panel_context(event, active_nav="cfp"),
                 "category": ProposalCategoryDTO.model_validate(category),
                 "form": ANY,
                 "field_order": [],
@@ -304,34 +240,23 @@ class TestProposalCategorySettingsPageView:
         category.refresh_from_db()
         assert category.name == "RPG Sessions"
 
-    def test_post_redirects_on_invalid_event_slug(
-        self, authenticated_client, active_user, sphere
-    ):
-        sphere.managers.add(active_user)
+    def test_post_redirects_on_invalid_event_slug(self, panel_client):
         url = reverse(
             "panel:cfp-edit",
             kwargs={"event_slug": "nonexistent", "category_slug": "any"},
         )
 
-        response = authenticated_client.post(url, data={"name": "Workshops"})
+        response = panel_client.post(url, data={"name": "Workshops"})
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Event not found.")],
-            url="/panel/",
-        )
+        assert_event_not_found(response)
 
-    def test_post_redirects_on_invalid_category_slug(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_post_redirects_on_invalid_category_slug(self, panel_client, event):
         url = reverse(
             "panel:cfp-edit",
             kwargs={"event_slug": event.slug, "category_slug": "nonexistent"},
         )
 
-        response = authenticated_client.post(url, data={"name": "Workshops"})
+        response = panel_client.post(url, data={"name": "Workshops"})
 
         assert_response(
             response,
@@ -341,9 +266,8 @@ class TestProposalCategorySettingsPageView:
         )
 
     def test_post_rejects_category_from_another_event(
-        self, authenticated_client, active_user, sphere, event
+        self, panel_client, sphere, event
     ):
-        sphere.managers.add(active_user)
         other_event = EventFactory(sphere=sphere)
         foreign_category = ProposalCategory.objects.create(
             event=other_event, name="Workshops", slug="workshops"
@@ -353,7 +277,7 @@ class TestProposalCategorySettingsPageView:
             kwargs={"event_slug": event.slug, "category_slug": foreign_category.slug},
         )
 
-        response = authenticated_client.post(url, data={"name": "Renamed"})
+        response = panel_client.post(url, data={"name": "Renamed"})
 
         assert_response(
             response,
@@ -367,9 +291,8 @@ class TestProposalCategorySettingsPageView:
     # Time fields tests
 
     def test_get_form_contains_time_fields_with_initial_values(
-        self, authenticated_client, active_user, sphere, event
+        self, panel_client, event
     ):
-        sphere.managers.add(active_user)
         start = datetime(2025, 3, 1, 10, 0, tzinfo=UTC)
         end = datetime(2025, 4, 30, 23, 59, tzinfo=UTC)
         category = ProposalCategory.objects.create(
@@ -380,25 +303,14 @@ class TestProposalCategorySettingsPageView:
             end_time=end,
         )
 
-        response = authenticated_client.get(self.get_url(event, category))
+        response = panel_client.get(self.get_url(event, category))
 
         assert_response(
             response,
             HTTPStatus.OK,
             template_name="panel/cfp-edit.html",
             context_data={
-                "current_event": EventDTO.model_validate(event),
-                "events": [EventDTO.model_validate(event)],
-                "is_proposal_active": False,
-                "stats": {
-                    "hosts_count": 0,
-                    "pending_proposals": 0,
-                    "rooms_count": 0,
-                    "scheduled_sessions": 0,
-                    "total_proposals": 0,
-                    "total_sessions": 0,
-                },
-                "active_nav": "cfp",
+                **panel_context(event, active_nav="cfp"),
                 "category": ProposalCategoryDTO.model_validate(category),
                 "form": ANY,
                 "available_fields": [],
@@ -429,13 +341,25 @@ class TestProposalCategorySettingsPageView:
             response,
             HTTPStatus.OK,
             template_name="panel/cfp-edit.html",
-            context_data=ANY,
+            context_data={
+                **panel_context(event, active_nav="cfp"),
+                "category": ProposalCategoryDTO.model_validate(category),
+                "form": ANY,
+                "available_fields": [],
+                "field_requirements": {},
+                "field_order": [],
+                "available_session_fields": [],
+                "session_field_requirements": {},
+                "session_field_order": [],
+                "available_time_slots": [],
+                "time_slot_requirements": {},
+                "time_slot_order": [],
+                "durations": [],
+                "proposal_count": 0,
+            },
         )
 
-    def test_get_form_shows_stored_promotion_config(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_get_form_shows_stored_promotion_config(self, panel_client, event):
         window_minutes = 15
         category = ProposalCategory.objects.create(
             event=event,
@@ -445,16 +369,13 @@ class TestProposalCategorySettingsPageView:
             offer_claim_window=timedelta(minutes=window_minutes),
         )
 
-        response = authenticated_client.get(self.get_url(event, category))
+        response = panel_client.get(self.get_url(event, category))
 
         form = response.context["form"]
         assert form.initial["promotion_mode"] == PromotionMode.OFFER_CLAIM.value
         assert form.initial["offer_claim_window_minutes"] == window_minutes
 
-    def test_post_rejects_offer_claim_without_a_claim_window(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_post_rejects_offer_claim_without_a_claim_window(self, panel_client, event):
         category = ProposalCategory.objects.create(
             event=event,
             name="RPG Sessions",
@@ -463,7 +384,7 @@ class TestProposalCategorySettingsPageView:
             offer_claim_window=timedelta(minutes=60),
         )
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event, category),
             data={
                 "name": "RPG Sessions",
@@ -476,21 +397,36 @@ class TestProposalCategorySettingsPageView:
             response,
             HTTPStatus.OK,
             template_name="panel/cfp-edit.html",
-            context_data=ANY,
+            context_data={
+                **panel_context(event, active_nav="cfp"),
+                "category": ProposalCategoryDTO.model_validate(category),
+                "form": FormErrorsMatcher(
+                    offer_claim_window_minutes=[
+                        "Set how long a held seat waits for confirmation."
+                    ]
+                ),
+                "available_fields": [],
+                "field_requirements": {},
+                "field_order": [],
+                "available_session_fields": [],
+                "session_field_requirements": {},
+                "session_field_order": [],
+                "available_time_slots": [],
+                "time_slot_requirements": {},
+                "time_slot_order": [],
+                "durations": [],
+                "proposal_count": 0,
+            },
         )
-        assert response.context["form"].errors["offer_claim_window_minutes"]
         category.refresh_from_db()
         assert category.offer_claim_window == timedelta(minutes=60)
 
-    def test_post_updates_time_fields(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_post_updates_time_fields(self, panel_client, event):
         category = ProposalCategory.objects.create(
             event=event, name="RPG Sessions", slug="rpg-sessions"
         )
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event, category),
             data={
                 "name": "RPG Sessions",
@@ -511,10 +447,7 @@ class TestProposalCategorySettingsPageView:
         assert category.end_time is not None
         assert category.end_time.date() == datetime(2025, 4, 30, tzinfo=UTC).date()
 
-    def test_post_clears_time_fields_when_empty(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_post_clears_time_fields_when_empty(self, panel_client, event):
         category = ProposalCategory.objects.create(
             event=event,
             name="RPG Sessions",
@@ -523,7 +456,7 @@ class TestProposalCategorySettingsPageView:
             end_time=datetime(2025, 4, 30, 23, 59, tzinfo=UTC),
         )
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event, category),
             data={"name": "RPG Sessions", "start_time": "", "end_time": ""},
         )
@@ -540,10 +473,7 @@ class TestProposalCategorySettingsPageView:
 
     # Field requirements tests
 
-    def test_get_includes_available_fields_in_context(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_get_includes_available_fields_in_context(self, panel_client, event):
         category = ProposalCategory.objects.create(
             event=event, name="RPG Sessions", slug="rpg-sessions"
         )
@@ -554,29 +484,18 @@ class TestProposalCategorySettingsPageView:
             event=event, name="Phone", question="What is your phone?", slug="phone"
         )
 
-        response = authenticated_client.get(self.get_url(event, category))
+        response = panel_client.get(self.get_url(event, category))
 
         assert_response(
             response,
             HTTPStatus.OK,
             template_name="panel/cfp-edit.html",
             context_data={
-                "current_event": EventDTO.model_validate(event),
-                "events": [EventDTO.model_validate(event)],
-                "is_proposal_active": False,
-                "stats": {
-                    "hosts_count": 0,
-                    "pending_proposals": 0,
-                    "rooms_count": 0,
-                    "scheduled_sessions": 0,
-                    "total_proposals": 0,
-                    "total_sessions": 0,
-                },
-                "active_nav": "cfp",
+                **panel_context(event, active_nav="cfp"),
                 "category": ProposalCategoryDTO.model_validate(category),
                 "form": ANY,
                 "available_fields": [
-                    PersonalDataFieldDTO(
+                    OrganizerFieldDTO(
                         pk=email_field.pk,
                         name="Email",
                         question="What is your email?",
@@ -585,7 +504,7 @@ class TestProposalCategorySettingsPageView:
                         order=0,
                         options=[],
                     ),
-                    PersonalDataFieldDTO(
+                    OrganizerFieldDTO(
                         pk=phone_field.pk,
                         name="Phone",
                         question="What is your phone?",
@@ -608,10 +527,7 @@ class TestProposalCategorySettingsPageView:
             },
         )
 
-    def test_get_includes_field_requirements_in_context(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_get_includes_field_requirements_in_context(self, panel_client, event):
         category = ProposalCategory.objects.create(
             event=event, name="RPG Sessions", slug="rpg-sessions"
         )
@@ -628,29 +544,18 @@ class TestProposalCategorySettingsPageView:
             category=category, field=phone_field, is_required=False
         )
 
-        response = authenticated_client.get(self.get_url(event, category))
+        response = panel_client.get(self.get_url(event, category))
 
         assert_response(
             response,
             HTTPStatus.OK,
             template_name="panel/cfp-edit.html",
             context_data={
-                "current_event": EventDTO.model_validate(event),
-                "events": [EventDTO.model_validate(event)],
-                "is_proposal_active": False,
-                "stats": {
-                    "hosts_count": 0,
-                    "pending_proposals": 0,
-                    "rooms_count": 0,
-                    "scheduled_sessions": 0,
-                    "total_proposals": 0,
-                    "total_sessions": 0,
-                },
-                "active_nav": "cfp",
+                **panel_context(event, active_nav="cfp"),
                 "category": ProposalCategoryDTO.model_validate(category),
                 "form": ANY,
                 "available_fields": [
-                    PersonalDataFieldDTO(
+                    OrganizerFieldDTO(
                         pk=email_field.pk,
                         name="Email",
                         question="What is your email?",
@@ -659,7 +564,7 @@ class TestProposalCategorySettingsPageView:
                         order=0,
                         options=[],
                     ),
-                    PersonalDataFieldDTO(
+                    OrganizerFieldDTO(
                         pk=phone_field.pk,
                         name="Phone",
                         question="What is your phone?",
@@ -683,9 +588,8 @@ class TestProposalCategorySettingsPageView:
         )
 
     def test_get_returns_empty_field_requirements_when_none_configured(
-        self, authenticated_client, active_user, sphere, event
+        self, panel_client, event
     ):
-        sphere.managers.add(active_user)
         category = ProposalCategory.objects.create(
             event=event, name="RPG Sessions", slug="rpg-sessions"
         )
@@ -693,29 +597,18 @@ class TestProposalCategorySettingsPageView:
             event=event, name="Email", question="What is your email?", slug="email"
         )
 
-        response = authenticated_client.get(self.get_url(event, category))
+        response = panel_client.get(self.get_url(event, category))
 
         assert_response(
             response,
             HTTPStatus.OK,
             template_name="panel/cfp-edit.html",
             context_data={
-                "current_event": EventDTO.model_validate(event),
-                "events": [EventDTO.model_validate(event)],
-                "is_proposal_active": False,
-                "stats": {
-                    "hosts_count": 0,
-                    "pending_proposals": 0,
-                    "rooms_count": 0,
-                    "scheduled_sessions": 0,
-                    "total_proposals": 0,
-                    "total_sessions": 0,
-                },
-                "active_nav": "cfp",
+                **panel_context(event, active_nav="cfp"),
                 "category": ProposalCategoryDTO.model_validate(category),
                 "form": ANY,
                 "available_fields": [
-                    PersonalDataFieldDTO(
+                    OrganizerFieldDTO(
                         pk=email_field.pk,
                         name="Email",
                         question="What is your email?",
@@ -785,10 +678,7 @@ class TestProposalCategorySettingsPageView:
             category=category, time_slot=foreign_slot
         ).exists()
 
-    def test_post_saves_field_requirement_as_required(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_post_saves_field_requirement_as_required(self, panel_client, event):
         category = ProposalCategory.objects.create(
             event=event, name="RPG Sessions", slug="rpg-sessions"
         )
@@ -796,7 +686,7 @@ class TestProposalCategorySettingsPageView:
             event=event, name="Email", question="What is your email?", slug="email"
         )
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event, category),
             data={"name": "RPG Sessions", f"field_{email_field.pk}": "required"},
         )
@@ -812,10 +702,7 @@ class TestProposalCategorySettingsPageView:
         )
         assert requirement.is_required is True
 
-    def test_post_saves_field_requirement_as_optional(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_post_saves_field_requirement_as_optional(self, panel_client, event):
         category = ProposalCategory.objects.create(
             event=event, name="RPG Sessions", slug="rpg-sessions"
         )
@@ -823,7 +710,7 @@ class TestProposalCategorySettingsPageView:
             event=event, name="Phone", question="What is your phone?", slug="phone"
         )
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event, category),
             data={"name": "RPG Sessions", f"field_{phone_field.pk}": "optional"},
         )
@@ -839,10 +726,7 @@ class TestProposalCategorySettingsPageView:
         )
         assert requirement.is_required is False
 
-    def test_post_removes_field_requirement_when_set_to_none(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_post_removes_field_requirement_when_set_to_none(self, panel_client, event):
         category = ProposalCategory.objects.create(
             event=event, name="RPG Sessions", slug="rpg-sessions"
         )
@@ -853,7 +737,7 @@ class TestProposalCategorySettingsPageView:
             category=category, field=email_field, is_required=True
         )
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event, category),
             data={"name": "RPG Sessions", f"field_{email_field.pk}": "none"},
         )
@@ -869,9 +753,8 @@ class TestProposalCategorySettingsPageView:
         ).exists()
 
     def test_post_updates_existing_requirement_from_required_to_optional(
-        self, authenticated_client, active_user, sphere, event
+        self, panel_client, event
     ):
-        sphere.managers.add(active_user)
         category = ProposalCategory.objects.create(
             event=event, name="RPG Sessions", slug="rpg-sessions"
         )
@@ -882,7 +765,7 @@ class TestProposalCategorySettingsPageView:
             category=category, field=email_field, is_required=True
         )
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event, category),
             data={"name": "RPG Sessions", f"field_{email_field.pk}": "optional"},
         )
@@ -898,10 +781,7 @@ class TestProposalCategorySettingsPageView:
         )
         assert requirement.is_required is False
 
-    def test_post_saves_multiple_field_requirements(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_post_saves_multiple_field_requirements(self, panel_client, event):
         category = ProposalCategory.objects.create(
             event=event, name="RPG Sessions", slug="rpg-sessions"
         )
@@ -915,7 +795,7 @@ class TestProposalCategorySettingsPageView:
             event=event, name="Bio", question="Tell us about yourself", slug="bio"
         )
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event, category),
             data={
                 "name": "RPG Sessions",
@@ -949,10 +829,7 @@ class TestProposalCategorySettingsPageView:
 
     # Duration configuration tests
 
-    def test_get_includes_durations_in_context(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_get_includes_durations_in_context(self, panel_client, event):
         category = ProposalCategory.objects.create(
             event=event,
             name="RPG Sessions",
@@ -960,25 +837,14 @@ class TestProposalCategorySettingsPageView:
             durations=["PT1H", "PT2H", "PT3H"],
         )
 
-        response = authenticated_client.get(self.get_url(event, category))
+        response = panel_client.get(self.get_url(event, category))
 
         assert_response(
             response,
             HTTPStatus.OK,
             template_name="panel/cfp-edit.html",
             context_data={
-                "current_event": EventDTO.model_validate(event),
-                "events": [EventDTO.model_validate(event)],
-                "is_proposal_active": False,
-                "stats": {
-                    "hosts_count": 0,
-                    "pending_proposals": 0,
-                    "rooms_count": 0,
-                    "scheduled_sessions": 0,
-                    "total_proposals": 0,
-                    "total_sessions": 0,
-                },
-                "active_nav": "cfp",
+                **panel_context(event, active_nav="cfp"),
                 "category": ProposalCategoryDTO.model_validate(category),
                 "form": ANY,
                 "available_fields": [],
@@ -996,32 +862,20 @@ class TestProposalCategorySettingsPageView:
         )
 
     def test_get_returns_empty_durations_when_none_configured(
-        self, authenticated_client, active_user, sphere, event
+        self, panel_client, event
     ):
-        sphere.managers.add(active_user)
         category = ProposalCategory.objects.create(
             event=event, name="RPG Sessions", slug="rpg-sessions"
         )
 
-        response = authenticated_client.get(self.get_url(event, category))
+        response = panel_client.get(self.get_url(event, category))
 
         assert_response(
             response,
             HTTPStatus.OK,
             template_name="panel/cfp-edit.html",
             context_data={
-                "current_event": EventDTO.model_validate(event),
-                "events": [EventDTO.model_validate(event)],
-                "is_proposal_active": False,
-                "stats": {
-                    "hosts_count": 0,
-                    "pending_proposals": 0,
-                    "rooms_count": 0,
-                    "scheduled_sessions": 0,
-                    "total_proposals": 0,
-                    "total_sessions": 0,
-                },
-                "active_nav": "cfp",
+                **panel_context(event, active_nav="cfp"),
                 "category": ProposalCategoryDTO.model_validate(category),
                 "form": ANY,
                 "available_fields": [],
@@ -1038,15 +892,12 @@ class TestProposalCategorySettingsPageView:
             },
         )
 
-    def test_post_saves_durations(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_post_saves_durations(self, panel_client, event):
         category = ProposalCategory.objects.create(
             event=event, name="RPG Sessions", slug="rpg-sessions"
         )
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event, category),
             data={"name": "RPG Sessions", "durations": ["PT30M", "PT1H", "PT2H"]},
         )
@@ -1060,10 +911,26 @@ class TestProposalCategorySettingsPageView:
         category.refresh_from_db()
         assert category.durations == ["PT30M", "PT1H", "PT2H"]
 
-    def test_post_updates_existing_durations(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_post_normalizes_durations(self, panel_client, event):
+        category = ProposalCategory.objects.create(
+            event=event, name="RPG Sessions", slug="rpg-sessions"
+        )
+
+        response = panel_client.post(
+            self.get_url(event, category),
+            data={"name": "RPG Sessions", "durations": ["P4H", "50min", "nonsense"]},
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Category updated successfully.")],
+            url=f"/panel/event/{event.slug}/cfp/",
+        )
+        category.refresh_from_db()
+        assert category.durations == ["PT4H", "PT50M"]
+
+    def test_post_updates_existing_durations(self, panel_client, event):
         category = ProposalCategory.objects.create(
             event=event,
             name="RPG Sessions",
@@ -1071,7 +938,7 @@ class TestProposalCategorySettingsPageView:
             durations=["PT1H", "PT2H"],
         )
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event, category),
             data={"name": "RPG Sessions", "durations": ["PT30M", "PT45M"]},
         )
@@ -1085,10 +952,7 @@ class TestProposalCategorySettingsPageView:
         category.refresh_from_db()
         assert category.durations == ["PT30M", "PT45M"]
 
-    def test_post_clears_durations_when_empty(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_post_clears_durations_when_empty(self, panel_client, event):
         category = ProposalCategory.objects.create(
             event=event,
             name="RPG Sessions",
@@ -1096,7 +960,7 @@ class TestProposalCategorySettingsPageView:
             durations=["PT1H", "PT2H"],
         )
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event, category), data={"name": "RPG Sessions"}
         )
 
@@ -1109,15 +973,12 @@ class TestProposalCategorySettingsPageView:
         category.refresh_from_db()
         assert category.durations == []
 
-    def test_post_saves_single_duration(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_post_saves_single_duration(self, panel_client, event):
         category = ProposalCategory.objects.create(
             event=event, name="RPG Sessions", slug="rpg-sessions"
         )
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event, category),
             data={
                 "name": "RPG Sessions",
@@ -1137,9 +998,8 @@ class TestProposalCategorySettingsPageView:
     # Session field requirements tests
 
     def test_get_includes_available_session_fields_in_context(
-        self, authenticated_client, active_user, sphere, event
+        self, panel_client, event
     ):
-        sphere.managers.add(active_user)
         category = ProposalCategory.objects.create(
             event=event, name="RPG Sessions", slug="rpg-sessions"
         )
@@ -1153,32 +1013,21 @@ class TestProposalCategorySettingsPageView:
             slug="difficulty",
         )
 
-        response = authenticated_client.get(self.get_url(event, category))
+        response = panel_client.get(self.get_url(event, category))
 
         assert_response(
             response,
             HTTPStatus.OK,
             template_name="panel/cfp-edit.html",
             context_data={
-                "current_event": EventDTO.model_validate(event),
-                "events": [EventDTO.model_validate(event)],
-                "is_proposal_active": False,
-                "stats": {
-                    "hosts_count": 0,
-                    "pending_proposals": 0,
-                    "rooms_count": 0,
-                    "scheduled_sessions": 0,
-                    "total_proposals": 0,
-                    "total_sessions": 0,
-                },
-                "active_nav": "cfp",
+                **panel_context(event, active_nav="cfp"),
                 "category": ProposalCategoryDTO.model_validate(category),
                 "form": ANY,
                 "available_fields": [],
                 "field_requirements": {},
                 "field_order": [],
                 "available_session_fields": [
-                    SessionFieldDTO(
+                    OrganizerFieldDTO(
                         pk=difficulty_field.pk,
                         name="Difficulty",
                         question="What difficulty level?",
@@ -1187,7 +1036,7 @@ class TestProposalCategorySettingsPageView:
                         order=0,
                         options=[],
                     ),
-                    SessionFieldDTO(
+                    OrganizerFieldDTO(
                         pk=genre_field.pk,
                         name="Genre",
                         question="What genre?",
@@ -1208,9 +1057,8 @@ class TestProposalCategorySettingsPageView:
         )
 
     def test_get_includes_session_field_requirements_in_context(
-        self, authenticated_client, active_user, sphere, event
+        self, panel_client, event
     ):
-        sphere.managers.add(active_user)
         category = ProposalCategory.objects.create(
             event=event, name="RPG Sessions", slug="rpg-sessions"
         )
@@ -1230,32 +1078,21 @@ class TestProposalCategorySettingsPageView:
             category=category, field=difficulty_field, is_required=False
         )
 
-        response = authenticated_client.get(self.get_url(event, category))
+        response = panel_client.get(self.get_url(event, category))
 
         assert_response(
             response,
             HTTPStatus.OK,
             template_name="panel/cfp-edit.html",
             context_data={
-                "current_event": EventDTO.model_validate(event),
-                "events": [EventDTO.model_validate(event)],
-                "is_proposal_active": False,
-                "stats": {
-                    "hosts_count": 0,
-                    "pending_proposals": 0,
-                    "rooms_count": 0,
-                    "scheduled_sessions": 0,
-                    "total_proposals": 0,
-                    "total_sessions": 0,
-                },
-                "active_nav": "cfp",
+                **panel_context(event, active_nav="cfp"),
                 "category": ProposalCategoryDTO.model_validate(category),
                 "form": ANY,
                 "available_fields": [],
                 "field_requirements": {},
                 "field_order": [],
                 "available_session_fields": [
-                    SessionFieldDTO(
+                    OrganizerFieldDTO(
                         pk=genre_field.pk,
                         name="Genre",
                         question="What genre?",
@@ -1264,7 +1101,7 @@ class TestProposalCategorySettingsPageView:
                         order=0,
                         options=[],
                     ),
-                    SessionFieldDTO(
+                    OrganizerFieldDTO(
                         pk=difficulty_field.pk,
                         name="Difficulty",
                         question="What difficulty level?",
@@ -1288,9 +1125,8 @@ class TestProposalCategorySettingsPageView:
         )
 
     def test_get_returns_empty_session_field_requirements_when_none_configured(
-        self, authenticated_client, active_user, sphere, event
+        self, panel_client, event
     ):
-        sphere.managers.add(active_user)
         category = ProposalCategory.objects.create(
             event=event, name="RPG Sessions", slug="rpg-sessions"
         )
@@ -1298,32 +1134,21 @@ class TestProposalCategorySettingsPageView:
             event=event, name="Genre", question="What genre?", slug="genre"
         )
 
-        response = authenticated_client.get(self.get_url(event, category))
+        response = panel_client.get(self.get_url(event, category))
 
         assert_response(
             response,
             HTTPStatus.OK,
             template_name="panel/cfp-edit.html",
             context_data={
-                "current_event": EventDTO.model_validate(event),
-                "events": [EventDTO.model_validate(event)],
-                "is_proposal_active": False,
-                "stats": {
-                    "hosts_count": 0,
-                    "pending_proposals": 0,
-                    "rooms_count": 0,
-                    "scheduled_sessions": 0,
-                    "total_proposals": 0,
-                    "total_sessions": 0,
-                },
-                "active_nav": "cfp",
+                **panel_context(event, active_nav="cfp"),
                 "category": ProposalCategoryDTO.model_validate(category),
                 "form": ANY,
                 "available_fields": [],
                 "field_requirements": {},
                 "field_order": [],
                 "available_session_fields": [
-                    SessionFieldDTO(
+                    OrganizerFieldDTO(
                         pk=genre_field.pk,
                         name="Genre",
                         question="What genre?",
@@ -1344,9 +1169,8 @@ class TestProposalCategorySettingsPageView:
         )
 
     def test_post_saves_session_field_requirement_as_required(
-        self, authenticated_client, active_user, sphere, event
+        self, panel_client, event
     ):
-        sphere.managers.add(active_user)
         category = ProposalCategory.objects.create(
             event=event, name="RPG Sessions", slug="rpg-sessions"
         )
@@ -1354,7 +1178,7 @@ class TestProposalCategorySettingsPageView:
             event=event, name="Genre", question="What genre?", slug="genre"
         )
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event, category),
             data={
                 "name": "RPG Sessions",
@@ -1374,9 +1198,8 @@ class TestProposalCategorySettingsPageView:
         assert requirement.is_required is True
 
     def test_post_saves_session_field_requirement_as_optional(
-        self, authenticated_client, active_user, sphere, event
+        self, panel_client, event
     ):
-        sphere.managers.add(active_user)
         category = ProposalCategory.objects.create(
             event=event, name="RPG Sessions", slug="rpg-sessions"
         )
@@ -1384,7 +1207,7 @@ class TestProposalCategorySettingsPageView:
             event=event, name="Genre", question="What genre?", slug="genre"
         )
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event, category),
             data={
                 "name": "RPG Sessions",
@@ -1404,9 +1227,8 @@ class TestProposalCategorySettingsPageView:
         assert requirement.is_required is False
 
     def test_post_removes_session_field_requirement_when_set_to_none(
-        self, authenticated_client, active_user, sphere, event
+        self, panel_client, event
     ):
-        sphere.managers.add(active_user)
         category = ProposalCategory.objects.create(
             event=event, name="RPG Sessions", slug="rpg-sessions"
         )
@@ -1417,7 +1239,7 @@ class TestProposalCategorySettingsPageView:
             category=category, field=genre_field, is_required=True
         )
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event, category),
             data={"name": "RPG Sessions", f"session_field_{genre_field.pk}": "none"},
         )
@@ -1432,10 +1254,7 @@ class TestProposalCategorySettingsPageView:
             category=category, field=genre_field
         ).exists()
 
-    def test_post_saves_multiple_session_field_requirements(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_post_saves_multiple_session_field_requirements(self, panel_client, event):
         category = ProposalCategory.objects.create(
             event=event, name="RPG Sessions", slug="rpg-sessions"
         )
@@ -1455,7 +1274,7 @@ class TestProposalCategorySettingsPageView:
             slug="system",
         )
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event, category),
             data={
                 "name": "RPG Sessions",
@@ -1489,10 +1308,7 @@ class TestProposalCategorySettingsPageView:
 
     # Field ordering tests
 
-    def test_get_includes_field_order_in_context(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_get_includes_field_order_in_context(self, panel_client, event):
         category = ProposalCategory.objects.create(
             event=event, name="RPG Sessions", slug="rpg-sessions"
         )
@@ -1509,7 +1325,7 @@ class TestProposalCategorySettingsPageView:
             category=category, field=phone_field, is_required=False, order=0
         )
 
-        response = authenticated_client.get(self.get_url(event, category))
+        response = panel_client.get(self.get_url(event, category))
 
         # Order should be [phone, email] based on order field
         # (phone has order=0, email has order=1)
@@ -1518,22 +1334,11 @@ class TestProposalCategorySettingsPageView:
             HTTPStatus.OK,
             template_name="panel/cfp-edit.html",
             context_data={
-                "current_event": EventDTO.model_validate(event),
-                "events": [EventDTO.model_validate(event)],
-                "is_proposal_active": False,
-                "stats": {
-                    "hosts_count": 0,
-                    "pending_proposals": 0,
-                    "rooms_count": 0,
-                    "scheduled_sessions": 0,
-                    "total_proposals": 0,
-                    "total_sessions": 0,
-                },
-                "active_nav": "cfp",
+                **panel_context(event, active_nav="cfp"),
                 "category": ProposalCategoryDTO.model_validate(category),
                 "form": ANY,
                 "available_fields": [
-                    PersonalDataFieldDTO(
+                    OrganizerFieldDTO(
                         pk=phone_field.pk,
                         name="Phone",
                         question="What is your phone?",
@@ -1542,7 +1347,7 @@ class TestProposalCategorySettingsPageView:
                         order=0,
                         options=[],
                     ),
-                    PersonalDataFieldDTO(
+                    OrganizerFieldDTO(
                         pk=email_field.pk,
                         name="Email",
                         question="What is your email?",
@@ -1594,22 +1399,11 @@ class TestProposalCategorySettingsPageView:
             HTTPStatus.OK,
             template_name="panel/cfp-edit.html",
             context_data={
-                "current_event": EventDTO.model_validate(event),
-                "events": [EventDTO.model_validate(event)],
-                "is_proposal_active": False,
-                "stats": {
-                    "hosts_count": 0,
-                    "pending_proposals": 0,
-                    "rooms_count": 0,
-                    "scheduled_sessions": 0,
-                    "total_proposals": 0,
-                    "total_sessions": 0,
-                },
-                "active_nav": "cfp",
+                **panel_context(event, active_nav="cfp"),
                 "category": ProposalCategoryDTO.model_validate(category),
                 "form": ANY,
                 "available_fields": [
-                    PersonalDataFieldDTO(
+                    OrganizerFieldDTO(
                         pk=email_field.pk,
                         name="Email",
                         question="What is your email?",
@@ -1618,7 +1412,7 @@ class TestProposalCategorySettingsPageView:
                         order=0,
                         options=[],
                     ),
-                    PersonalDataFieldDTO(
+                    OrganizerFieldDTO(
                         pk=phone_field.pk,
                         name="Phone",
                         question="What is your phone?",
@@ -1642,32 +1436,20 @@ class TestProposalCategorySettingsPageView:
         )
 
     def test_get_returns_empty_field_order_when_none_configured(
-        self, authenticated_client, active_user, sphere, event
+        self, panel_client, event
     ):
-        sphere.managers.add(active_user)
         category = ProposalCategory.objects.create(
             event=event, name="RPG Sessions", slug="rpg-sessions"
         )
 
-        response = authenticated_client.get(self.get_url(event, category))
+        response = panel_client.get(self.get_url(event, category))
 
         assert_response(
             response,
             HTTPStatus.OK,
             template_name="panel/cfp-edit.html",
             context_data={
-                "current_event": EventDTO.model_validate(event),
-                "events": [EventDTO.model_validate(event)],
-                "is_proposal_active": False,
-                "stats": {
-                    "hosts_count": 0,
-                    "pending_proposals": 0,
-                    "rooms_count": 0,
-                    "scheduled_sessions": 0,
-                    "total_proposals": 0,
-                    "total_sessions": 0,
-                },
-                "active_nav": "cfp",
+                **panel_context(event, active_nav="cfp"),
                 "category": ProposalCategoryDTO.model_validate(category),
                 "form": ANY,
                 "available_fields": [],
@@ -1684,10 +1466,7 @@ class TestProposalCategorySettingsPageView:
             },
         )
 
-    def test_post_saves_field_order(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_post_saves_field_order(self, panel_client, event):
         category = ProposalCategory.objects.create(
             event=event, name="RPG Sessions", slug="rpg-sessions"
         )
@@ -1698,7 +1477,7 @@ class TestProposalCategorySettingsPageView:
             event=event, name="Phone", question="What is your phone?", slug="phone"
         )
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event, category),
             data={
                 "name": "RPG Sessions",
@@ -1723,10 +1502,7 @@ class TestProposalCategorySettingsPageView:
         assert phone_req.order == 0
         assert email_req.order == 1
 
-    def test_get_includes_session_field_order_in_context(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_get_includes_session_field_order_in_context(self, panel_client, event):
         category = ProposalCategory.objects.create(
             event=event, name="RPG Sessions", slug="rpg-sessions"
         )
@@ -1746,7 +1522,7 @@ class TestProposalCategorySettingsPageView:
             category=category, field=difficulty_field, is_required=False, order=0
         )
 
-        response = authenticated_client.get(self.get_url(event, category))
+        response = panel_client.get(self.get_url(event, category))
 
         # Order should be [difficulty, genre] based on order field
         assert_response(
@@ -1754,25 +1530,14 @@ class TestProposalCategorySettingsPageView:
             HTTPStatus.OK,
             template_name="panel/cfp-edit.html",
             context_data={
-                "current_event": EventDTO.model_validate(event),
-                "events": [EventDTO.model_validate(event)],
-                "is_proposal_active": False,
-                "stats": {
-                    "hosts_count": 0,
-                    "pending_proposals": 0,
-                    "rooms_count": 0,
-                    "scheduled_sessions": 0,
-                    "total_proposals": 0,
-                    "total_sessions": 0,
-                },
-                "active_nav": "cfp",
+                **panel_context(event, active_nav="cfp"),
                 "category": ProposalCategoryDTO.model_validate(category),
                 "form": ANY,
                 "available_fields": [],
                 "field_requirements": {},
                 "field_order": [],
                 "available_session_fields": [
-                    SessionFieldDTO(
+                    OrganizerFieldDTO(
                         pk=difficulty_field.pk,
                         name="Difficulty",
                         question="What difficulty level?",
@@ -1781,7 +1546,7 @@ class TestProposalCategorySettingsPageView:
                         order=0,
                         options=[],
                     ),
-                    SessionFieldDTO(
+                    OrganizerFieldDTO(
                         pk=genre_field.pk,
                         name="Genre",
                         question="What genre?",
@@ -1835,25 +1600,14 @@ class TestProposalCategorySettingsPageView:
             HTTPStatus.OK,
             template_name="panel/cfp-edit.html",
             context_data={
-                "current_event": EventDTO.model_validate(event),
-                "events": [EventDTO.model_validate(event)],
-                "is_proposal_active": False,
-                "stats": {
-                    "hosts_count": 0,
-                    "pending_proposals": 0,
-                    "rooms_count": 0,
-                    "scheduled_sessions": 0,
-                    "total_proposals": 0,
-                    "total_sessions": 0,
-                },
-                "active_nav": "cfp",
+                **panel_context(event, active_nav="cfp"),
                 "category": ProposalCategoryDTO.model_validate(category),
                 "form": ANY,
                 "available_fields": [],
                 "field_requirements": {},
                 "field_order": [],
                 "available_session_fields": [
-                    SessionFieldDTO(
+                    OrganizerFieldDTO(
                         pk=genre_field.pk,
                         name="Genre",
                         question="What genre?",
@@ -1862,7 +1616,7 @@ class TestProposalCategorySettingsPageView:
                         order=0,
                         options=[],
                     ),
-                    SessionFieldDTO(
+                    OrganizerFieldDTO(
                         pk=difficulty_field.pk,
                         name="Difficulty",
                         question="What difficulty level?",
@@ -1883,32 +1637,20 @@ class TestProposalCategorySettingsPageView:
         )
 
     def test_get_returns_empty_session_field_order_when_none_configured(
-        self, authenticated_client, active_user, sphere, event
+        self, panel_client, event
     ):
-        sphere.managers.add(active_user)
         category = ProposalCategory.objects.create(
             event=event, name="RPG Sessions", slug="rpg-sessions"
         )
 
-        response = authenticated_client.get(self.get_url(event, category))
+        response = panel_client.get(self.get_url(event, category))
 
         assert_response(
             response,
             HTTPStatus.OK,
             template_name="panel/cfp-edit.html",
             context_data={
-                "current_event": EventDTO.model_validate(event),
-                "events": [EventDTO.model_validate(event)],
-                "is_proposal_active": False,
-                "stats": {
-                    "hosts_count": 0,
-                    "pending_proposals": 0,
-                    "rooms_count": 0,
-                    "scheduled_sessions": 0,
-                    "total_proposals": 0,
-                    "total_sessions": 0,
-                },
-                "active_nav": "cfp",
+                **panel_context(event, active_nav="cfp"),
                 "category": ProposalCategoryDTO.model_validate(category),
                 "form": ANY,
                 "available_fields": [],
@@ -1925,10 +1667,7 @@ class TestProposalCategorySettingsPageView:
             },
         )
 
-    def test_post_saves_session_field_order(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_post_saves_session_field_order(self, panel_client, event):
         category = ProposalCategory.objects.create(
             event=event, name="RPG Sessions", slug="rpg-sessions"
         )
@@ -1942,7 +1681,7 @@ class TestProposalCategorySettingsPageView:
             slug="difficulty",
         )
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event, category),
             data={
                 "name": "RPG Sessions",
@@ -1970,32 +1709,20 @@ class TestProposalCategorySettingsPageView:
     # Proposal count tests
 
     def test_get_includes_proposal_count_zero_when_no_proposals(
-        self, authenticated_client, active_user, sphere, event
+        self, panel_client, event
     ):
-        sphere.managers.add(active_user)
         category = ProposalCategory.objects.create(
             event=event, name="RPG Sessions", slug="rpg-sessions"
         )
 
-        response = authenticated_client.get(self.get_url(event, category))
+        response = panel_client.get(self.get_url(event, category))
 
         assert_response(
             response,
             HTTPStatus.OK,
             template_name="panel/cfp-edit.html",
             context_data={
-                "current_event": EventDTO.model_validate(event),
-                "events": [EventDTO.model_validate(event)],
-                "is_proposal_active": False,
-                "stats": {
-                    "hosts_count": 0,
-                    "pending_proposals": 0,
-                    "rooms_count": 0,
-                    "scheduled_sessions": 0,
-                    "total_proposals": 0,
-                    "total_sessions": 0,
-                },
-                "active_nav": "cfp",
+                **panel_context(event, active_nav="cfp"),
                 "category": ProposalCategoryDTO.model_validate(category),
                 "form": ANY,
                 "available_fields": [],
@@ -2013,9 +1740,8 @@ class TestProposalCategorySettingsPageView:
         )
 
     def test_get_includes_proposal_count_with_existing_proposals(
-        self, authenticated_client, active_user, sphere, event
+        self, panel_client, event
     ):
-        sphere.managers.add(active_user)
         category = ProposalCategory.objects.create(
             event=event, name="RPG Sessions", slug="rpg-sessions"
         )
@@ -2023,25 +1749,21 @@ class TestProposalCategorySettingsPageView:
         SessionFactory.create(category=category, status="pending")
         SessionFactory.create(category=category, status="pending")
 
-        response = authenticated_client.get(self.get_url(event, category))
+        response = panel_client.get(self.get_url(event, category))
 
         assert_response(
             response,
             HTTPStatus.OK,
             template_name="panel/cfp-edit.html",
             context_data={
-                "current_event": EventDTO.model_validate(event),
-                "events": [EventDTO.model_validate(event)],
-                "is_proposal_active": False,
-                "stats": {
-                    "hosts_count": 1 + 1 + 1,  # 3 unique presenters
-                    "pending_proposals": 1 + 1 + 1,  # 3 pending sessions
-                    "rooms_count": 0,
-                    "scheduled_sessions": 0,
-                    "total_proposals": 1 + 1 + 1,
-                    "total_sessions": 1 + 1 + 1,  # pending + scheduled
-                },
-                "active_nav": "cfp",
+                **panel_context(
+                    event,
+                    active_nav="cfp",
+                    hosts_count=1 + 1 + 1,
+                    pending_proposals=1 + 1 + 1,
+                    total_proposals=1 + 1 + 1,
+                    total_sessions=1 + 1 + 1,
+                ),
                 "category": ProposalCategoryDTO.model_validate(category),
                 "form": ANY,
                 "available_fields": [],
@@ -2059,9 +1781,8 @@ class TestProposalCategorySettingsPageView:
         )
 
     def test_get_proposal_count_only_counts_proposals_for_this_category(
-        self, authenticated_client, active_user, sphere, event
+        self, panel_client, event
     ):
-        sphere.managers.add(active_user)
         category = ProposalCategory.objects.create(
             event=event, name="RPG Sessions", slug="rpg-sessions"
         )
@@ -2072,25 +1793,21 @@ class TestProposalCategorySettingsPageView:
         SessionFactory.create(category=category, status="pending")
         SessionFactory.create(category=other_category, status="pending")
 
-        response = authenticated_client.get(self.get_url(event, category))
+        response = panel_client.get(self.get_url(event, category))
 
         assert_response(
             response,
             HTTPStatus.OK,
             template_name="panel/cfp-edit.html",
             context_data={
-                "current_event": EventDTO.model_validate(event),
-                "events": [EventDTO.model_validate(event)],
-                "is_proposal_active": False,
-                "stats": {
-                    "hosts_count": 1 + 1 + 1,  # 3 unique presenters
-                    "pending_proposals": 1 + 1 + 1,  # 3 pending sessions total
-                    "rooms_count": 0,
-                    "scheduled_sessions": 0,
-                    "total_proposals": 1 + 1 + 1,
-                    "total_sessions": 1 + 1 + 1,  # pending + scheduled
-                },
-                "active_nav": "cfp",
+                **panel_context(
+                    event,
+                    active_nav="cfp",
+                    hosts_count=1 + 1 + 1,
+                    pending_proposals=1 + 1 + 1,
+                    total_proposals=1 + 1 + 1,
+                    total_sessions=1 + 1 + 1,
+                ),
                 "category": ProposalCategoryDTO.model_validate(category),
                 "form": ANY,
                 "available_fields": [],
@@ -2191,10 +1908,7 @@ class TestProposalCategorySettingsPageView:
 
     # Time slot requirement tests
 
-    def test_get_includes_available_time_slots_in_context(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_get_includes_available_time_slots_in_context(self, panel_client, event):
         category = ProposalCategory.objects.create(
             event=event, name="RPG Sessions", slug="rpg-sessions"
         )
@@ -2208,25 +1922,14 @@ class TestProposalCategorySettingsPageView:
             end_time=day1 + timedelta(hours=5),
         )
 
-        response = authenticated_client.get(self.get_url(event, category))
+        response = panel_client.get(self.get_url(event, category))
 
         assert_response(
             response,
             HTTPStatus.OK,
             template_name="panel/cfp-edit.html",
             context_data={
-                "current_event": EventDTO.model_validate(event),
-                "events": [EventDTO.model_validate(event)],
-                "is_proposal_active": False,
-                "stats": {
-                    "hosts_count": 0,
-                    "pending_proposals": 0,
-                    "rooms_count": 0,
-                    "scheduled_sessions": 0,
-                    "total_proposals": 0,
-                    "total_sessions": 0,
-                },
-                "active_nav": "cfp",
+                **panel_context(event, active_nav="cfp"),
                 "category": ProposalCategoryDTO.model_validate(category),
                 "form": ANY,
                 "available_fields": [],
@@ -2246,10 +1949,7 @@ class TestProposalCategorySettingsPageView:
             },
         )
 
-    def test_get_includes_time_slot_requirements_in_context(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_get_includes_time_slot_requirements_in_context(self, panel_client, event):
         category = ProposalCategory.objects.create(
             event=event, name="RPG Sessions", slug="rpg-sessions"
         )
@@ -2269,25 +1969,14 @@ class TestProposalCategorySettingsPageView:
             category=category, time_slot=slot2, is_required=True
         )
 
-        response = authenticated_client.get(self.get_url(event, category))
+        response = panel_client.get(self.get_url(event, category))
 
         assert_response(
             response,
             HTTPStatus.OK,
             template_name="panel/cfp-edit.html",
             context_data={
-                "current_event": EventDTO.model_validate(event),
-                "events": [EventDTO.model_validate(event)],
-                "is_proposal_active": False,
-                "stats": {
-                    "hosts_count": 0,
-                    "pending_proposals": 0,
-                    "rooms_count": 0,
-                    "scheduled_sessions": 0,
-                    "total_proposals": 0,
-                    "total_sessions": 0,
-                },
-                "active_nav": "cfp",
+                **panel_context(event, active_nav="cfp"),
                 "category": ProposalCategoryDTO.model_validate(category),
                 "form": ANY,
                 "available_fields": [],
@@ -2308,9 +1997,8 @@ class TestProposalCategorySettingsPageView:
         )
 
     def test_get_returns_empty_time_slot_requirements_when_none_configured(
-        self, authenticated_client, active_user, sphere, event
+        self, panel_client, event
     ):
-        sphere.managers.add(active_user)
         category = ProposalCategory.objects.create(
             event=event, name="RPG Sessions", slug="rpg-sessions"
         )
@@ -2319,25 +2007,14 @@ class TestProposalCategorySettingsPageView:
             event=event, start_time=day1, end_time=day1 + timedelta(hours=2)
         )
 
-        response = authenticated_client.get(self.get_url(event, category))
+        response = panel_client.get(self.get_url(event, category))
 
         assert_response(
             response,
             HTTPStatus.OK,
             template_name="panel/cfp-edit.html",
             context_data={
-                "current_event": EventDTO.model_validate(event),
-                "events": [EventDTO.model_validate(event)],
-                "is_proposal_active": False,
-                "stats": {
-                    "hosts_count": 0,
-                    "pending_proposals": 0,
-                    "rooms_count": 0,
-                    "scheduled_sessions": 0,
-                    "total_proposals": 0,
-                    "total_sessions": 0,
-                },
-                "active_nav": "cfp",
+                **panel_context(event, active_nav="cfp"),
                 "category": ProposalCategoryDTO.model_validate(category),
                 "form": ANY,
                 "available_fields": [],
@@ -2354,10 +2031,7 @@ class TestProposalCategorySettingsPageView:
             },
         )
 
-    def test_post_saves_time_slot_requirement_as_required(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_post_saves_time_slot_requirement_as_required(self, panel_client, event):
         category = ProposalCategory.objects.create(
             event=event, name="RPG Sessions", slug="rpg-sessions"
         )
@@ -2366,7 +2040,7 @@ class TestProposalCategorySettingsPageView:
             event=event, start_time=day1, end_time=day1 + timedelta(hours=2)
         )
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event, category),
             data={"name": "RPG Sessions", f"time_slot_{slot.pk}": "required"},
         )
@@ -2381,9 +2055,8 @@ class TestProposalCategorySettingsPageView:
         assert requirement.is_required is True
 
     def test_post_removes_time_slot_requirement_when_set_to_none(
-        self, authenticated_client, active_user, sphere, event
+        self, panel_client, event
     ):
-        sphere.managers.add(active_user)
         category = ProposalCategory.objects.create(
             event=event, name="RPG Sessions", slug="rpg-sessions"
         )
@@ -2395,7 +2068,7 @@ class TestProposalCategorySettingsPageView:
             category=category, time_slot=slot, is_required=True
         )
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event, category),
             data={"name": "RPG Sessions", f"time_slot_{slot.pk}": "none"},
         )
@@ -2410,10 +2083,7 @@ class TestProposalCategorySettingsPageView:
             category=category, time_slot=slot
         ).exists()
 
-    def test_post_saves_multiple_time_slot_requirements(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_post_saves_multiple_time_slot_requirements(self, panel_client, event):
         category = ProposalCategory.objects.create(
             event=event, name="RPG Sessions", slug="rpg-sessions"
         )
@@ -2432,7 +2102,7 @@ class TestProposalCategorySettingsPageView:
             end_time=day1 + timedelta(hours=8),
         )
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event, category),
             data={
                 "name": "RPG Sessions",
@@ -2460,10 +2130,7 @@ class TestProposalCategorySettingsPageView:
             category=category, time_slot=slot3
         ).exists()
 
-    def test_post_saves_time_slot_order(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_post_saves_time_slot_order(self, panel_client, event):
         category = ProposalCategory.objects.create(
             event=event, name="RPG Sessions", slug="rpg-sessions"
         )
@@ -2477,7 +2144,7 @@ class TestProposalCategorySettingsPageView:
             end_time=day1 + timedelta(hours=5),
         )
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event, category),
             data={
                 "name": "RPG Sessions",
@@ -2498,10 +2165,7 @@ class TestProposalCategorySettingsPageView:
         assert slot2_req.order == 0
         assert slot1_req.order == 1
 
-    def test_get_includes_time_slot_order_in_context(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_get_includes_time_slot_order_in_context(self, panel_client, event):
         category = ProposalCategory.objects.create(
             event=event, name="RPG Sessions", slug="rpg-sessions"
         )
@@ -2521,7 +2185,7 @@ class TestProposalCategorySettingsPageView:
             category=category, time_slot=slot2, is_required=True, order=0
         )
 
-        response = authenticated_client.get(self.get_url(event, category))
+        response = panel_client.get(self.get_url(event, category))
 
         # Order should be [slot2, slot1] based on order field
         # (slot2 has order=0, slot1 has order=1)
@@ -2530,18 +2194,7 @@ class TestProposalCategorySettingsPageView:
             HTTPStatus.OK,
             template_name="panel/cfp-edit.html",
             context_data={
-                "current_event": EventDTO.model_validate(event),
-                "events": [EventDTO.model_validate(event)],
-                "is_proposal_active": False,
-                "stats": {
-                    "hosts_count": 0,
-                    "pending_proposals": 0,
-                    "rooms_count": 0,
-                    "scheduled_sessions": 0,
-                    "total_proposals": 0,
-                    "total_sessions": 0,
-                },
-                "active_nav": "cfp",
+                **panel_context(event, active_nav="cfp"),
                 "category": ProposalCategoryDTO.model_validate(category),
                 "form": ANY,
                 "available_fields": [],
@@ -2563,15 +2216,12 @@ class TestProposalCategorySettingsPageView:
 
     # Participant limits tests
 
-    def test_post_saves_participant_limits(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_post_saves_participant_limits(self, panel_client, event):
         category = ProposalCategory.objects.create(
             event=event, name="RPG Sessions", slug="rpg-sessions"
         )
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event, category),
             data={
                 "name": "RPG Sessions",
@@ -2590,10 +2240,7 @@ class TestProposalCategorySettingsPageView:
         assert category.min_participants_limit == int("3")
         assert category.max_participants_limit == int("10")
 
-    def test_post_saves_zero_limits(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_post_saves_zero_limits(self, panel_client, event):
         category = ProposalCategory.objects.create(
             event=event,
             name="RPG Sessions",
@@ -2602,7 +2249,7 @@ class TestProposalCategorySettingsPageView:
             max_participants_limit=20,
         )
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event, category),
             data={
                 "name": "RPG Sessions",
@@ -2621,15 +2268,12 @@ class TestProposalCategorySettingsPageView:
         assert category.min_participants_limit == 0
         assert category.max_participants_limit == 0
 
-    def test_post_empty_limits_default_to_zero(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_post_empty_limits_default_to_zero(self, panel_client, event):
         category = ProposalCategory.objects.create(
             event=event, name="RPG Sessions", slug="rpg-sessions"
         )
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event, category), data={"name": "RPG Sessions"}
         )
 

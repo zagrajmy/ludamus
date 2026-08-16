@@ -19,6 +19,7 @@ from ludamus.links.db.django.enrollment import (
 from ludamus.links.db.django.facilitator_change_log import (
     FacilitatorChangeLogRepository,
 )
+from ludamus.links.db.django.guild import GuildRepository
 from ludamus.links.db.django.notifications import NotificationReadRepository
 from ludamus.links.db.django.party import PartyRepository
 from ludamus.links.db.django.printables import PrintablesReminderRepository
@@ -61,6 +62,10 @@ class Repositories:
         return ClaimRepository()
 
     @cached_property
+    def guilds(self) -> GuildRepository:
+        return GuildRepository()
+
+    @cached_property
     def parties(self) -> PartyRepository:
         return PartyRepository()
 
@@ -83,6 +88,14 @@ class Repositories:
     @cached_property
     def events(self) -> repositories.EventRepository:
         return repositories.EventRepository()
+
+    @cached_property
+    def event_settings(self) -> repositories.EventSettingsRepository:
+        return repositories.EventSettingsRepository()
+
+    @cached_property
+    def event_proposal_settings(self) -> repositories.EventProposalSettingsRepository:
+        return repositories.EventProposalSettingsRepository()
 
     @cached_property
     def sessions(self) -> repositories.SessionRepository:
@@ -187,3 +200,11 @@ class Repositories:
     @cached_property
     def discounts(self) -> repositories.DiscountRepository:
         return repositories.DiscountRepository()
+
+    @cached_property
+    def encounters(self) -> repositories.EncounterRepository:
+        return repositories.EncounterRepository()
+
+    @cached_property
+    def encounter_rsvps(self) -> repositories.EncounterRSVPRepository:
+        return repositories.EncounterRSVPRepository()

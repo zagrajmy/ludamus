@@ -39,7 +39,13 @@ class RequestContextMiddleware:
         sphere_repository = request.di.uow.spheres
         root_sphere = sphere_repository.read_by_domain(settings.ROOT_DOMAIN)
         try:
-            current_sphere = sphere_repository.read_by_domain(request.get_host())
+            # On the root domain (the common case) the current sphere IS the
+            # root sphere; skip the second identical lookup.
+            current_sphere = (
+                root_sphere
+                if request.get_host() == settings.ROOT_DOMAIN
+                else sphere_repository.read_by_domain(request.get_host())
+            )
         except NotFoundError:
             host = request.get_host().split(":", 1)[0]
             if settings.ENV == "development" and (

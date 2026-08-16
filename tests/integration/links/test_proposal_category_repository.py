@@ -10,6 +10,9 @@ from ludamus.links.db.django.models import (
 from ludamus.links.db.django.repositories import ProposalCategoryRepository
 from tests.integration.conftest import EventFactory, ProposalCategoryFactory
 
+# Anything but the DTO's own default of 50, so a fallback would show.
+CONFIGURED_MAX_LENGTH = 300
+
 
 class TestProposalCategoryRepositoryGetOrCreateBySlug:
     def test_creates_a_category_with_the_given_name_and_slug(self):
@@ -64,6 +67,26 @@ class TestListPersonalFieldRequirements:
         )
 
         assert [o.label for o in result[0].field.options] == ["Zeta", "Alpha", "Beta"]
+
+    def test_keeps_the_organizers_max_length(self):
+        category = ProposalCategoryFactory()
+        PersonalDataFieldRequirement.objects.create(
+            category=category,
+            field=PersonalDataField.objects.create(
+                event=category.event,
+                name="Bio",
+                question="Bio?",
+                slug="bio",
+                field_type="text",
+                max_length=CONFIGURED_MAX_LENGTH,
+            ),
+        )
+
+        result = ProposalCategoryRepository.list_personal_field_requirements(
+            category.pk
+        )
+
+        assert result[0].field.max_length == CONFIGURED_MAX_LENGTH
 
     def test_query_count_is_constant_across_fields(self, django_assert_num_queries):
         category = ProposalCategoryFactory()

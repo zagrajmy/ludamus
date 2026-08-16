@@ -33,6 +33,7 @@ from ludamus.mills.crowd import (
     ProfileService,
 )
 from ludamus.mills.discounts import DiscountsExportService, DiscountsService
+from ludamus.mills.encounter import EncounterService
 from ludamus.mills.enrollment import (
     AnonymousEnrollmentService,
     EnrollmentService,
@@ -40,7 +41,9 @@ from ludamus.mills.enrollment import (
     NotificationsService,
     WaitlistPromotionService,
 )
-from ludamus.mills.event import EventPanelService
+from ludamus.mills.event import EventConfirmationsService, EventPanelService
+from ludamus.mills.event_settings import EventSettingsService
+from ludamus.mills.guild import GuildService
 from ludamus.mills.multiverse import (
     AnnouncementsService,
     ConnectionsService,
@@ -48,12 +51,15 @@ from ludamus.mills.multiverse import (
     SitesService,
     SpherePanelService,
 )
+from ludamus.mills.panel_facilitators import FacilitatorPanelService
+from ludamus.mills.panel_proposals import ProposalPanelService
+from ludamus.mills.panel_time_slots import PanelTimeSlotsService
 from ludamus.mills.party import PartyService
 from ludamus.mills.party_history import PartySessionHistoryService
 from ludamus.mills.printing import PrintablesReminderService, PrintMaterialsService
+from ludamus.mills.proposal_categories import ProposalCategoriesService
 from ludamus.mills.safety import EventBanService, ShadowbanService
 from ludamus.mills.session_modal import SessionModalService
-from ludamus.mills.submissions.facilitator_panel import FacilitatorPanelService
 from ludamus.mills.submissions.field_layout import ImportFieldLayoutService
 from ludamus.mills.submissions.import_log import ImportLogService
 from ludamus.mills.submissions.importing import ProposalImportService
@@ -65,14 +71,13 @@ from ludamus.mills.submissions.proposal_category_settings import (
     ProposalCategorySettingsService,
 )
 from ludamus.mills.submissions.session_fields import CFPSessionFieldService
+from ludamus.mills.tracks import TracksPanelService
 from ludamus.mills.venues import SpaceTreeService, VenuesService
 from ludamus.pacts.chronology import IntegrationImplementationId
 from ludamus.pacts.enrollment import EnrollmentRepos
-from ludamus.pacts.submissions import (
-    FacilitatorPanelRepos,
-    ImportRepos,
-    ProposalCategorySettingsRepos,
-)
+from ludamus.pacts.event_settings import EventSettingsRepos
+from ludamus.pacts.panel import FacilitatorPanelRepos, ProposalPanelRepos
+from ludamus.pacts.submissions import ImportRepos, ProposalCategorySettingsRepos
 
 if TYPE_CHECKING:
     from ludamus.pacts.chronology import IntegrationImplementation
@@ -125,6 +130,9 @@ class Services:
                 personal_data_field_values=self._repos.personal_data_field_values,
                 facilitator_change_logs=self._repos.facilitator_change_logs,
                 panel_settings=self._repos.event_panel_settings,
+                sessions=self._repos.sessions,
+                users=self._repos.active_users,
+                guilds=self._repos.guilds,
             ),
         )
 
@@ -162,6 +170,10 @@ class Services:
         )
 
     @cached_property
+    def guilds(self) -> GuildService:
+        return GuildService(transaction=self._transaction, guilds=self._repos.guilds)
+
+    @cached_property
     def parties(self) -> PartyService:
         return PartyService(
             self._transaction, self._repos.parties, DjangoUserNotifier()
@@ -192,6 +204,34 @@ class Services:
     @cached_property
     def event_panel(self) -> EventPanelService:
         return EventPanelService(self._repos.events)
+
+    @cached_property
+    def confirmations(self) -> EventConfirmationsService:
+        return EventConfirmationsService(
+            facilitators=self._repos.facilitators,
+            agenda_items=self._repos.agenda_items,
+            tracks=self._repos.tracks,
+            sessions=self._repos.sessions,
+        )
+
+    @cached_property
+    def event_settings(self) -> EventSettingsService:
+        return EventSettingsService(
+            transaction=self._transaction,
+            repos=EventSettingsRepos(
+                events=self._repos.events,
+                event_settings=self._repos.event_settings,
+                event_proposal_settings=self._repos.event_proposal_settings,
+                proposal_categories=self._repos.proposal_categories,
+                session_fields=self._repos.session_fields,
+            ),
+        )
+
+    @cached_property
+    def panel_time_slots(self) -> PanelTimeSlotsService:
+        return PanelTimeSlotsService(
+            transaction=self._transaction, time_slots=self._repos.time_slots
+        )
 
     @cached_property
     def print_materials(self) -> PrintMaterialsService:
@@ -228,19 +268,17 @@ class Services:
     @cached_property
     def session_content_edit(self) -> SessionContentEditService:
         return SessionContentEditService(
-            self._transaction,
-            self._repos.sessions,
-            self._repos.session_fields,
-            self._repos.content_change_logs,
+            transaction=self._transaction,
+            sessions=self._repos.sessions,
+            session_fields=self._repos.session_fields,
+            content_change_logs=self._repos.content_change_logs,
+            agenda_items=self._repos.agenda_items,
         )
 
     @cached_property
     def session_confirmation(self) -> SessionConfirmationService:
         return SessionConfirmationService(
-            self._transaction,
-            self._repos.agenda_items,
-            self._repos.sessions,
-            self._repos.tracks,
+            self._transaction, self._repos.agenda_items, self._repos.sessions
         )
 
     @cached_property
@@ -250,6 +288,18 @@ class Services:
             self._repos.sessions,
             self._repos.agenda_items,
             ScheduleChangeLogRepository(),
+        )
+
+    @cached_property
+    def proposal_panel(self) -> ProposalPanelService:
+        return ProposalPanelService(
+            self._transaction,
+            ProposalPanelRepos(
+                sessions=self._repos.sessions,
+                session_fields=self._repos.session_fields,
+                proposal_categories=self._repos.proposal_categories,
+                panel_settings=self._repos.event_panel_settings,
+            ),
         )
 
     @cached_property
@@ -355,7 +405,17 @@ class Services:
 
     @cached_property
     def discounts(self) -> DiscountsService:
-        return DiscountsService(self._transaction, self._repos.discounts)
+        return DiscountsService(
+            transaction=self._transaction,
+            discounts=self._repos.discounts,
+            facilitators=self._repos.facilitators,
+        )
+
+    @cached_property
+    def proposal_categories(self) -> ProposalCategoriesService:
+        return ProposalCategoriesService(
+            self._transaction, self._repos.proposal_categories
+        )
 
     @cached_property
     def discounts_export(self) -> DiscountsExportService:
@@ -366,6 +426,15 @@ class Services:
             connections=self._repos.connections,
             decryptor=FernetDecryptor(key),
             sheet_writer=GoogleSheetsWriter(),
+        )
+
+    @cached_property
+    def encounters(self) -> EncounterService:
+        return EncounterService(
+            transaction=self._transaction,
+            encounters=self._repos.encounters,
+            rsvps=self._repos.encounter_rsvps,
+            users=self._repos.active_users,
         )
 
     @cached_property
@@ -395,6 +464,7 @@ class Services:
             self._repos.tracks,
             self._repos.proposal_categories,
             self._repos.facilitators,
+            self._repos.facilitator_change_logs,
             self._repos.import_log_entries,
         )
 
@@ -415,6 +485,15 @@ class Services:
             transaction=self._transaction,
             event_integrations=self.event_integrations,
             repos=self._import_repos,
+        )
+
+    @cached_property
+    def tracks_panel(self) -> TracksPanelService:
+        return TracksPanelService(
+            transaction=self._transaction,
+            tracks=self._repos.tracks,
+            spaces=self._repos.spaces,
+            spheres=self._repos.spheres,
         )
 
     @cached_property

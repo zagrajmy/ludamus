@@ -55,15 +55,11 @@ def sites(request: RootRepositoryRequest) -> SitesContextData:
     )
 
 
-def support(
-    request: HttpRequest,  # ruff: ignore[unused-function-argument]
-) -> dict[str, str]:
+def support(_request: HttpRequest) -> dict[str, str]:
     return {"SUPPORT_EMAIL": settings.SUPPORT_EMAIL}
 
 
-def static_version(
-    request: HttpRequest,  # ruff: ignore[unused-function-argument]
-) -> dict[str, str]:
+def static_version(_request: HttpRequest) -> dict[str, str]:
     return {
         "COMMIT_SHA": settings.COMMIT_SHA,
         "STATIC_VERSION": settings.STATIC_VERSION,
@@ -97,22 +93,13 @@ def current_user(request: RootRepositoryRequest) -> CurrentUserContextData:
 
 class BrandingContextData(TypedDict):
     favicon: str
-    favicon_dark: str
 
 
 def branding(_request: HttpRequest) -> BrandingContextData:
-    # Chrome/Safari ignore an SVG favicon's own prefers-color-scheme media
-    # query in the tab, so we ship a baked dark variant and swap it client-side
-    # (see base.html). Dev is a solid teal mark that reads on either tab bar, so
-    # its dark variant is the same file.
+    # Each SVG adapts to dark tab bars via its own prefers-color-scheme rule
+    # (dev is a solid teal mark that reads on either tab bar as-is).
     if settings.IS_STAGING:
-        return BrandingContextData(
-            favicon="favicon-staging.svg", favicon_dark="favicon-staging-dark.svg"
-        )
+        return BrandingContextData(favicon="favicon-staging.svg")
     if settings.IS_PRODUCTION:
-        return BrandingContextData(
-            favicon="favicon.svg", favicon_dark="favicon-dark.svg"
-        )
-    return BrandingContextData(
-        favicon="favicon-dev.svg", favicon_dark="favicon-dev.svg"
-    )
+        return BrandingContextData(favicon="favicon.svg")
+    return BrandingContextData(favicon="favicon-dev.svg")

@@ -4,8 +4,16 @@
 {% url 'web:crowd:profile-avatar' as avatar_url %}
 {% url 'web:crowd:profile-safety' as safety_url %}
 {% tabs %}
-{% tab "profile" icon="user" href=profile_url %}{% translate "Personal Information" %}{% end_tab %}
-{% tab "parties" icon="users" href=parties_url %}{% translate "Parties" %}{% end_tab %}
-{% tab "avatar" icon="photo" href=avatar_url %}{% translate "Avatar" %}{% end_tab %}
-{% tab "safety" icon="shield-exclamation" href=safety_url %}{% translate "Safety" %}{% end_tab %}
-{% end_tabs %}
+    {% tab "profile" icon="user" href=profile_url %}
+        {% translate "Personal Information" %}
+    {% endtab %}
+    {% tab "parties" icon="users" href=parties_url %}
+        {% translate "Parties" %}
+    {% endtab %}
+    {% tab "avatar" icon="photo" href=avatar_url %}
+        {% translate "Avatar" %}
+    {% endtab %}
+    {% tab "safety" icon="shield-exclamation" href=safety_url %}
+        {% translate "Safety" %}
+    {% endtab %}
+{% endtabs %}

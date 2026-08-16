@@ -100,6 +100,7 @@ class ShadowbanService:
                     event_slug=data.event_slug,
                     event_name=data.event_name,
                     session_title=data.session_title,
+                    sphere_domain=data.sphere_domain,
                     player_names=event_names,
                     session_player_names=session_names,
                 )

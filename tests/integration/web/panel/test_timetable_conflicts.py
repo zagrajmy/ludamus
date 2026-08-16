@@ -6,7 +6,8 @@ from http import HTTPStatus
 
 from django.urls import reverse
 
-from tests.integration.conftest import AgendaItemFactory, SessionFactory, SpaceFactory
+from tests.integration.conftest import AgendaItemFactory, SpaceFactory
+from tests.integration.web.panel.helpers import assign_payload, make_timetable_session
 
 
 class TestConflictDetectionOnAssign:
@@ -17,27 +18,20 @@ class TestConflictDetectionOnAssign:
         return reverse("panel:timetable-assign", kwargs={"slug": event.slug})
 
     def test_assigns_without_conflicts_returns_no_conflict_trigger(
-        self, authenticated_client, active_user, sphere, event, proposal_category
+        self, panel_client, event, proposal_category
     ):
-        sphere.managers.add(active_user)
         space = SpaceFactory(event=event)
-        session = SessionFactory(
-            category=proposal_category,
-            status="accepted",
-            participants_limit=10,
-            min_age=0,
+        session = make_timetable_session(
+            proposal_category, status="accepted", participants_limit=10
         )
         start_time = event.start_time
         end_time = start_time + timedelta(hours=1)
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event),
-            {
-                "session_pk": session.pk,
-                "space_pk": space.pk,
-                "start_time": start_time.isoformat(),
-                "end_time": end_time.isoformat(),
-            },
+            assign_payload(
+                session=session, space=space, start=start_time, end=end_time
+            ),
         )
 
         assert response.status_code == HTTPStatus.NO_CONTENT
@@ -45,15 +39,11 @@ class TestConflictDetectionOnAssign:
         assert "timetableConflicts" not in trigger
 
     def test_space_overlap_conflict_included_in_trigger(
-        self, authenticated_client, active_user, sphere, event, proposal_category
+        self, panel_client, event, proposal_category
     ):
-        sphere.managers.add(active_user)
         space = SpaceFactory(event=event)
-        existing_session = SessionFactory(
-            category=proposal_category,
-            status="accepted",
-            participants_limit=10,
-            min_age=0,
+        existing_session = make_timetable_session(
+            proposal_category, status="accepted", participants_limit=10
         )
         start_time = event.start_time
         end_time = start_time + timedelta(hours=1)
@@ -63,14 +53,11 @@ class TestConflictDetectionOnAssign:
             start_time=start_time,
             end_time=end_time,
         )
-        new_session = SessionFactory(
-            category=proposal_category,
-            status="accepted",
-            participants_limit=10,
-            min_age=0,
+        new_session = make_timetable_session(
+            proposal_category, status="accepted", participants_limit=10
         )
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event),
             {
                 "session_pk": new_session.pk,

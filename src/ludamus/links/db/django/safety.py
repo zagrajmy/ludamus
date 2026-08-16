@@ -207,7 +207,7 @@ class ShadowbanRepository(ShadowbanRepositoryProtocol):
         if not signed_up_ids:
             return None
         agenda_item = (
-            AgendaItem.objects.select_related("session__event")
+            AgendaItem.objects.select_related("session__event__sphere__site")
             .filter(session_id=session_id)
             .order_by("pk")
             .first()
@@ -254,6 +254,7 @@ class ShadowbanRepository(ShadowbanRepositoryProtocol):
             event_slug=event.slug,
             event_name=event.name,
             session_title=agenda_item.session.title,
+            sphere_domain=event.sphere.site.domain,
             hits=list(hits.values()),
         )
 
