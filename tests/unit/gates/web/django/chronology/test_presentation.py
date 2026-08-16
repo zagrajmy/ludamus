@@ -23,7 +23,6 @@ def _make_session_data(
         "presenter": MagicMock(),
         "session": MagicMock(),
         "is_full": enrolled_count >= effective_participants_limit,
-        "full_participant_info": "",
         "effective_participants_limit": effective_participants_limit,
         "enrolled_count": enrolled_count,
         "session_participations": [],
@@ -76,6 +75,40 @@ class TestSessionDataTakesEnrollment:
         data = _make_session_data(effective_participants_limit=0, session=session)
 
         assert data.takes_enrollment is True
+
+
+def _availability_data(limit: int = 30, **overrides) -> SessionData:
+    session = MagicMock()
+    session.participants_limit = limit
+    return _make_session_data(session=session, **overrides)
+
+
+class TestSessionDataAvailability:
+    def test_an_ended_session_wins_over_every_other_term(self):
+        data = _availability_data(
+            is_ended=True, should_show_as_inactive=True, is_full=True
+        )
+
+        assert data.availability == "ended"
+
+    def test_a_session_shut_by_its_end_time_is_in_progress(self):
+        data = _availability_data(should_show_as_inactive=True, is_full=True)
+
+        assert data.availability == "in-progress"
+
+    def test_a_session_without_enrollment_leaves_before_the_window_is_asked(self):
+        data = _availability_data(limit=0, is_enrollment_available=False, is_full=True)
+
+        assert data.availability == "no-enrollment"
+
+    def test_a_shut_window_is_unavailable(self):
+        data = _availability_data(is_enrollment_available=False)
+
+        assert data.availability == "unavailable"
+
+    def test_capacity_and_free_seats_come_last(self):
+        assert _availability_data(is_full=True).availability == "full"
+        assert _availability_data(is_full=False).availability == "available"
 
 
 class TestSessionDataSpotsScarce:

@@ -213,18 +213,10 @@ class ParticipationPromotionRepository:
             promotion_mode=mode,
             offer_claim_window=window,
             presenter_id=session.presenter_id,
-            available_seats=self._available_seats(session),
+            available_seats=session.seats_left,
             waiting=waiting,
             shadowbanned_user_ids=shadowbanned_user_ids,
         )
-
-    @staticmethod
-    def _available_seats(session: Session) -> int:
-        # A limit of 0 means the session takes no enrollment — no seat to
-        # promote a waiting participant into.
-        if session.participants_limit == 0:
-            return 0
-        return max(0, session.effective_participants_limit - session.enrolled_count)
 
     @staticmethod
     def _config_allowances(

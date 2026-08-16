@@ -36,7 +36,9 @@
             {% if data.session.min_age > 0 %}
                 · <span class="font-medium text-coral-600 dark:text-coral-400">{{ data.session.min_age }}+</span>
             {% endif %}
-            {% if data.is_ended or data.should_show_as_inactive or data.is_enrollment_available or data.takes_enrollment %}
+            {# The only state the partial renders nothing for, so the separator #}
+            {# cannot outlive the label it separates. #}
+            {% if data.availability != "no-enrollment" %}
                 ·
                 {% include "chronology/_session_availability.html" %}
             {% endif %}

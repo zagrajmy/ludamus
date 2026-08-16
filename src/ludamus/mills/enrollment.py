@@ -165,15 +165,11 @@ class EnrollmentPolicy:
         )
 
     def effective_participants_limit(self, *, participants_limit: int) -> int:
-        if not self.windows or participants_limit == 0:
+        if not self.windows:
             return 0
         return math.ceil(participants_limit * self.percentage_slots / 100)
 
     def is_full(self, *, participants_limit: int, enrolled_count: int) -> bool:
-        # A limit of 0 means the session takes no enrollment: there is no seat
-        # to hand out, so it can never be joined.
-        if participants_limit == 0:
-            return True
         if not self.windows:
             return False
         return enrolled_count >= self.effective_participants_limit(
@@ -181,10 +177,8 @@ class EnrollmentPolicy:
         )
 
     def available_slots(self, *, participants_limit: int, enrolled_count: int) -> int:
-        if not self.windows or participants_limit == 0:
-            return 0
-        effective_limit = math.ceil(participants_limit * self.percentage_slots / 100)
-        return max(0, effective_limit - enrolled_count)
+        limit = self.effective_participants_limit(participants_limit=participants_limit)
+        return max(0, limit - enrolled_count)
 
 
 def _now() -> datetime:

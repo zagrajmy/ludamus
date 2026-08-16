@@ -1060,10 +1060,17 @@ class Session(SoftDeleteModel):
         return self.participants_limit
 
     @property
+    def seats_left(self) -> int:
+        return max(0, self.effective_participants_limit - self.enrolled_count)
+
+    @property
     def is_full(self) -> bool:
         """Check if session is at capacity for enrollment."""
-        # No enrollment is not the same as full — is_enrollment_available is
-        # what closes those sessions, and every caller passes it first.
+        # "Full" means there was a seat and it is taken. A session that takes no
+        # enrollment never had one, and calling it full would offer its viewers
+        # a waiting list to join and warn a leaver that their seat passes to the
+        # next person waiting. The availability ladder closes those sessions one
+        # step earlier, on takes_enrollment.
         if self.participants_limit == 0:
             return False
         return self.enrolled_count >= self.effective_participants_limit
@@ -1073,25 +1080,6 @@ class Session(SoftDeleteModel):
         """Check if enrollment is available for this session under any active config."""
         active_configs = self.event.get_active_enrollment_configs()
         return any(config.is_session_eligible(self) for config in active_configs)
-
-    @property
-    def full_participant_info(self) -> str:  # pragma: no cover
-        # TODO(@fancysnake): This is used in templates. Rewrite to pass static values
-        # ZAG-16
-        if self.effective_participants_limit == 0:
-            base_info = str(self.enrolled_count)
-        else:
-            base_info = f"{self.enrolled_count}/{self.effective_participants_limit}"
-
-            # Add session limit if different from effective limit
-            if self.effective_participants_limit != self.participants_limit:
-                base_info += f" (session limit: {self.participants_limit})"
-
-        # Add waiting list info
-        if self.waiting_count > 0:
-            base_info += f", {self.waiting_count} waiting"
-
-        return base_info
 
 
 class AgendaItem(models.Model):

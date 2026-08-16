@@ -102,7 +102,9 @@ class TestCapacityStaysInsideUsableWindows:
             == 0
         )
 
-    def test_an_unlimited_session_still_seats_nobody_without_a_window(self) -> None:
+    def test_a_session_without_enrollment_seats_nobody_without_a_usable_window(
+        self,
+    ) -> None:
         policy = _policy(_Window(restrict_to_configured_users=True))
 
         assert policy.available_slots(participants_limit=0, enrolled_count=0) == 0
@@ -176,11 +178,6 @@ class TestAnonymousCapacity:
         policy = _policy(_Window())
 
         assert policy.effective_participants_limit(participants_limit=0) == 0
-
-    def test_a_session_without_enrollment_is_always_full(self) -> None:
-        policy = _policy(_Window())
-
-        assert policy.is_full(participants_limit=0, enrolled_count=0)
 
     def test_no_window_has_no_fullness(self) -> None:
         assert not _policy().is_full(

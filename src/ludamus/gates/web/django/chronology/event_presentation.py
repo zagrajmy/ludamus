@@ -71,7 +71,6 @@ class SessionData:  # pylint: disable=too-many-instance-attributes
     presenter: UserInfo
     session: SessionDTO
     is_full: bool
-    full_participant_info: str
     effective_participants_limit: int
     enrolled_count: int
     session_participations: list[ParticipationInfo]
@@ -110,6 +109,24 @@ class SessionData:  # pylint: disable=too-many-instance-attributes
         # The session's own limit, not the effective one: a 0% seating window
         # zeroes the effective limit without making the session sign-up-free.
         return self.session.participants_limit > 0
+
+    @property
+    def availability(self) -> str:
+        """Name the one availability state every layout and label dispatches on."""
+        # Order matters: a session that takes no sign-up is not "unavailable"
+        # (its window never opens) and not "full" (it never had a seat), so it
+        # leaves the ladder before either term is asked.
+        if self.is_ended:
+            return "ended"
+        if self.should_show_as_inactive:
+            return "in-progress"
+        if not self.takes_enrollment:
+            return "no-enrollment"
+        if not self.is_enrollment_available:
+            return "unavailable"
+        if self.is_full:
+            return "full"
+        return "available"
 
     @property
     def spots_left(self) -> int:
@@ -215,12 +232,15 @@ def fake_full_card(session_data: SessionData) -> SessionData:
     fill = session_data.effective_participants_limit or _SIMULACRA_FILL
     return replace(
         session_data,
+        # The mask has to be consistent with itself: left at 0 the session would
+        # read as taking no enrollment, and the card would render that state
+        # instead of the "Full" the mask exists to show.
+        session=session_data.session.model_copy(update={"participants_limit": fill}),
         effective_participants_limit=fill,
         enrolled_count=fill,
         waiting_count=0,
         is_full=True,
         is_enrollment_available=True,
-        full_participant_info=f"{fill}/{fill}",
         user_enrolled=False,
         user_waiting=False,
         session_participations=_simulacra_participations(min(3, fill)),
@@ -286,7 +306,6 @@ def _party_history_card(item: PartySessionHistoryDTO, *, now: datetime) -> Sessi
         presenter=presenter,
         session=item.session,
         is_full=item.is_full,
-        full_participant_info=item.full_participant_info,
         effective_participants_limit=item.effective_participants_limit,
         enrolled_count=item.enrolled_count,
         session_participations=[
@@ -332,7 +351,6 @@ def present_session_modal(
         presenter=presenter,
         session=dto.session,
         is_full=dto.is_full,
-        full_participant_info=dto.full_participant_info,
         effective_participants_limit=dto.effective_participants_limit,
         enrolled_count=dto.enrolled_count,
         session_participations=[

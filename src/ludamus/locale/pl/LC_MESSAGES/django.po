@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-16 08:32+0200\n"
+"POT-Creation-Date: 2026-08-16 13:07+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -4044,7 +4044,7 @@ msgid "Who should be in this session?"
 msgstr "Kto ma być w tym punkcie programu?"
 
 #: src/ludamus/templates/chronology/enroll_select.html
-#: src/ludamus/templates/chronology/parts/session-modal.html
+#: src/ludamus/templates/chronology/parts/_session_participants_panel.html
 msgid "You"
 msgstr "Ty"
 
@@ -4563,6 +4563,26 @@ msgstr "Edytuj integrację"
 msgid "Save"
 msgstr "Zapisz"
 
+#: src/ludamus/templates/chronology/parts/_session_participants_panel.html
+msgid "Enrolled"
+msgstr "Zapisany"
+
+#: src/ludamus/templates/chronology/parts/_session_participants_panel.html
+msgid "Waiting List"
+msgstr "Lista oczekujących"
+
+#: src/ludamus/templates/chronology/parts/_session_participants_panel.html
+msgid "Waiting list position"
+msgstr "Pozycja na liście oczekujących"
+
+#: src/ludamus/templates/chronology/parts/_session_participants_panel.html
+msgid "No one on the waiting list."
+msgstr "Nikt nie czeka na liście oczekujących."
+
+#: src/ludamus/templates/chronology/parts/_session_participants_panel.html
+msgid "No participants enrolled yet."
+msgstr "Brak zapisanych uczestników."
+
 #: src/ludamus/templates/chronology/parts/print_header.html
 msgid "QR code linking to the full schedule"
 msgstr "Kod QR z odnośnikiem do pełnego harmonogramu"
@@ -4604,26 +4624,6 @@ msgstr "Jesteś zapisany na ten punkt programu"
 #: src/ludamus/templates/chronology/parts/session-modal.html
 msgid "You are on the waiting list"
 msgstr "Jesteś na liście oczekujących"
-
-#: src/ludamus/templates/chronology/parts/session-modal.html
-msgid "Enrolled"
-msgstr "Zapisany"
-
-#: src/ludamus/templates/chronology/parts/session-modal.html
-msgid "Waiting List"
-msgstr "Lista oczekujących"
-
-#: src/ludamus/templates/chronology/parts/session-modal.html
-msgid "Waiting list position"
-msgstr "Pozycja na liście oczekujących"
-
-#: src/ludamus/templates/chronology/parts/session-modal.html
-msgid "No one on the waiting list."
-msgstr "Nikt nie czeka na liście oczekujących."
-
-#: src/ludamus/templates/chronology/parts/session-modal.html
-msgid "No participants enrolled yet."
-msgstr "Brak zapisanych uczestników."
 
 #: src/ludamus/templates/chronology/parts/session-modal.html
 msgid "Edit session"
