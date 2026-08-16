@@ -7,7 +7,6 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-16 09:28+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -9374,6 +9373,13 @@ msgstr "Temat"
 msgid "No emails captured yet."
 msgstr "Brak przechwyconych e-maili."
 
+#~ msgid ""
+#~ "Writes every facilitator with their accreditation type and discount into "
+#~ "the first tab of the selected spreadsheet, replacing its current content."
+#~ msgstr ""
+#~ "Zapisuje wszystkich twórców programu wraz z rodzajem akredytacji i zniżką "
+#~ "do pierwszej zakładki wybranego arkusza, zastępując jego obecną zawartość."
+
 #~ msgid "Deleted only"
 #~ msgstr "Tylko usunięci"
 
@@ -9454,6 +9460,7 @@ msgstr "Brak przechwyconych e-maili."
 #~ msgid "Flag %(name)s for deletion"
 #~ msgstr "Oznacz do usunięcia: %(name)s"
 
+#, python-format
 #~ msgid "%(scheduled)s scheduled, %(pending)s pending"
 #~ msgstr "%(scheduled)s w harmonogramie, %(pending)s czeka"
 
@@ -9695,3 +9702,10 @@ msgstr "Brak przechwyconych e-maili."
 
 #~ msgid "Session deleted."
 #~ msgstr "Punkt programu został usunięty."
+
+#~ msgid "The kept facilitator receives all sessions from the others."
+#~ msgstr ""
+#~ "Zachowany twórca programu przejmuje wszystkie punkty programu pozostałych."
+
+#~ msgid "Facilitator released."
+#~ msgstr "Twórca programu zwolniony."
