@@ -11,8 +11,15 @@ from ludamus.links.db.django.models import (
     SessionFieldOption,
     SessionFieldValue,
 )
+from ludamus.links.db.django.repositories.storage import save_replacing_files
 from ludamus.mills.chronology import SessionEditNotAllowedError, SessionSelfEditService
-from ludamus.pacts import SessionDTO
+from ludamus.pacts import (
+    FieldAnswer,
+    OrganizerFieldDTO,
+    OrganizerFieldOptionDTO,
+    SessionDTO,
+)
+from ludamus.pacts.images import StoredFile
 from tests.integration.conftest import (
     PNG_BYTES,
     EventFactory,
@@ -20,7 +27,11 @@ from tests.integration.conftest import (
     SessionFactory,
     UserFactory,
 )
-from tests.integration.utils import assert_response, assert_response_404
+from tests.integration.utils import (
+    FormInitialMatcher,
+    assert_response,
+    assert_response_404,
+)
 
 FRAGMENT = "chronology/parts/session-edit-form.html"
 
@@ -63,6 +74,30 @@ class TestSessionEditViewGet:
             context_data={
                 "session": _expected_session(owned_session),
                 "form": ANY,
+                "field_descriptors": [],
+                "post_url": url,
+                "saved": False,
+            },
+        )
+
+    def test_stored_duration_prefills_the_steppers(
+        self, authenticated_client, event, owned_session
+    ):
+        owned_session.duration = "PT1H30M"
+        owned_session.save()
+        url = _url(event, owned_session)
+
+        response = authenticated_client.get(url)
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name=FRAGMENT,
+            context_data={
+                "session": _expected_session(owned_session),
+                # The facilitator is offered hours and minutes, never the
+                # stored ISO.
+                "form": FormInitialMatcher(duration_hours=1, duration_minutes=30),
                 "field_descriptors": [],
                 "post_url": url,
                 "saved": False,
@@ -174,6 +209,58 @@ class TestSessionEditViewPost:
         owned_session.refresh_from_db()
         assert owned_session.title == "Updated title"
         assert owned_session.display_name == "Updated name"
+
+    def test_htmx_post_composes_duration_from_the_steppers(
+        self, authenticated_client, event, owned_session
+    ):
+        url = _url(event, owned_session)
+
+        response = authenticated_client.post(
+            url,
+            data=self._data(duration_hours="1", duration_minutes="30"),
+            headers={"hx-request": "true"},
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name=FRAGMENT,
+            context_data={
+                "session": _expected_session(owned_session),
+                "form": ANY,
+                "field_descriptors": [],
+                "post_url": url,
+                "saved": True,
+            },
+        )
+        owned_session.refresh_from_db()
+        assert owned_session.duration == "PT1H30M"
+
+    def test_htmx_post_without_a_length_leaves_the_duration_unset(
+        self, authenticated_client, event, owned_session
+    ):
+        owned_session.duration = "PT2H"
+        owned_session.save()
+        url = _url(event, owned_session)
+
+        response = authenticated_client.post(
+            url, data=self._data(), headers={"hx-request": "true"}
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name=FRAGMENT,
+            context_data={
+                "session": _expected_session(owned_session),
+                "form": ANY,
+                "field_descriptors": [],
+                "post_url": url,
+                "saved": True,
+            },
+        )
+        owned_session.refresh_from_db()
+        assert not owned_session.duration
 
     def test_post_uploads_cover_image(self, authenticated_client, event, owned_session):
         url = _url(event, owned_session)
@@ -297,10 +384,14 @@ class TestSessionEditViewPost:
     def test_invalid_post_keeps_existing_cover_preview(
         self, authenticated_client, event, owned_session
     ):
-        owned_session.cover_image = SimpleUploadedFile(
-            "cover.png", PNG_BYTES, content_type="image/png"
+        save_replacing_files(
+            owned_session,
+            {
+                "cover_image": SimpleUploadedFile(
+                    "cover.png", PNG_BYTES, content_type="image/png"
+                )
+            },
         )
-        owned_session.save()
         cover_url = owned_session.cover_image_url
         url = _url(event, owned_session)
 
@@ -322,8 +413,9 @@ class TestSessionEditViewPost:
                 "saved": False,
             },
         )
-        assert response.context["form"].fields["cover_image"].initial == cover_url
-        assert cover_url.encode() in response.content
+        assert response.context["form"].fields["cover_image"].initial == StoredFile(
+            cover_url, "cover.png"
+        )
 
     def test_non_owner_404_no_write(self, authenticated_client, event):
         category = ProposalCategoryFactory(event=event)
@@ -452,6 +544,70 @@ class TestSessionEditViewPost:
         assert 'name="session_field_genres"' in content
         assert 'name="session_field_system_custom"' in content
         assert 'name="session_field_adult"' in content
+
+    def test_get_splits_a_stored_write_in_across_control_and_companion(
+        self, authenticated_client, event, owned_session
+    ):
+        field = SessionField.objects.create(
+            event=event,
+            name="Genres",
+            question="Which genres?",
+            slug="genres",
+            field_type="select",
+            is_multiple=True,
+            allow_custom=True,
+            order=0,
+        )
+        option = SessionFieldOption.objects.create(
+            field=field, label="Horror", value="horror", order=0
+        )
+        SessionFieldValue.objects.create(
+            session=owned_session, field=field, value=["horror", "kobolds"]
+        )
+        url = _url(event, owned_session)
+
+        response = authenticated_client.get(url)
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name=FRAGMENT,
+            context_data={
+                "session": _expected_session(owned_session),
+                "form": ANY,
+                "field_descriptors": [
+                    {
+                        "field": OrganizerFieldDTO(
+                            allow_custom=True,
+                            field_type="select",
+                            help_text="",
+                            is_multiple=True,
+                            is_public=False,
+                            max_length=50,
+                            name="Genres",
+                            options=[
+                                OrganizerFieldOptionDTO(
+                                    label="Horror",
+                                    order=0,
+                                    pk=option.pk,
+                                    value="horror",
+                                )
+                            ],
+                            order=0,
+                            pk=field.pk,
+                            question="Which genres?",
+                            slug="genres",
+                        ),
+                        "name_prefix": "session_field",
+                        # The stored write-in comes back split: the option on
+                        # the control, the rest beside it.
+                        "answer": FieldAnswer(value=["horror"], custom_value="kobolds"),
+                    }
+                ],
+                "post_url": url,
+                "saved": False,
+            },
+        )
 
     def test_htmx_post_merges_a_write_in_into_a_multi_value_field(
         self, authenticated_client, event, owned_session

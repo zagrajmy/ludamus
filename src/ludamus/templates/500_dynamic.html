@@ -1,3 +1,4 @@
+{% load csp_tags %}
 {% load static %}
 {% load django_vite %}
 {% load i18n %}
@@ -9,8 +10,13 @@
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <meta name="description"
               content="Server error - Something went wrong on our server">
-        <title>Server Error - 500</title>
-        <script>
+        <title>Server Error • 500</title>
+        <!-- This page does not extend base.html (it must stay self-contained
+             so it renders even if something upstream is broken), so it is its
+             own root: this is where its CSP nonce gets generated, and the
+             back-button handler stays inline rather than pulling in a bundled
+             module the broken upstream may not be able to serve. -->
+        <script{% nonce %}>
             (function() {
                 var theme = localStorage.getItem('theme');
                 if (theme === 'light') {
@@ -21,6 +27,15 @@
                     document.documentElement.classList.add('dark');
                 }
             })();
+
+            document.addEventListener('DOMContentLoaded', function() {
+                var backBtn = document.getElementById('history-back-btn');
+                if (backBtn) {
+                    backBtn.addEventListener('click', function() {
+                        history.back();
+                    });
+                }
+            });
         </script>
         {% vite_hmr_client %}
         <link rel="stylesheet" href="{% vite_asset_url 'src/index.css' %}">
@@ -35,7 +50,7 @@
                 <a href="mailto:{{ support_email }}" class="text-primary underline">{{ support_email }}</a>
             </p>
             <div class="flex flex-col sm:flex-row gap-3">
-                <button onclick="history.back()" class="btn btn-secondary">
+                <button id="history-back-btn" class="btn btn-secondary">
                     {% icon "arrow-left" class="w-5 h-5" %}
                     {% translate "Go Back" %}
                 </button>

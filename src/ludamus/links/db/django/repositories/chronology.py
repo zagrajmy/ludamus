@@ -1,11 +1,18 @@
 from datetime import UTC, datetime
 
-from django.db.models import Count, IntegerField, OuterRef, Q, Subquery
+from django.db.models import (
+    Count,
+    Exists,
+    IntegerField,
+    OuterRef,
+    Q,
+    QuerySet,
+    Subquery,
+)
 from django.db.models.functions import Coalesce
 
 from ludamus.links.db.django.models import (
     SPACE_MAX_DEPTH,
-    AgendaItem,
     DomainEnrollmentConfig,
     EnrollmentConfig,
     Event,
@@ -15,6 +22,7 @@ from ludamus.links.db.django.models import (
     Session,
     SessionParticipation,
     Space,
+    Track,
     UserEnrollmentConfig,
 )
 from ludamus.links.db.django.repositories.storage import save_replacing_files
@@ -51,7 +59,7 @@ from ludamus.pacts.chronology import (
     SessionCardStatsDTO,
 )
 from ludamus.pacts.legacy import AgendaItemDTO, LocationData
-from ludamus.pacts.submissions import (
+from ludamus.pacts.panel import (
     EventPanelSettingsDTO,
     EventPanelSettingsRepositoryProtocol,
 )
@@ -142,6 +150,23 @@ def session_card_stats(session: Session) -> SessionCardStatsDTO:
     )
 
 
+def hide_private_track_sessions(queryset: QuerySet[Session]) -> QuerySet[Session]:
+    # A session without tracks is public (events that don't use tracks at all);
+    # one with tracks needs at least one public track. Exists() rather than
+    # Count("tracks"): a third aggregate over a m2m fans out the joins and
+    # inflates the participation counts annotated alongside.
+    return queryset.filter(
+        Exists(Track.objects.filter(sessions=OuterRef("pk"), is_public=True))
+        | ~Exists(Track.objects.filter(sessions=OuterRef("pk"), is_public=False))
+    )
+
+
+def public_scheduled_sessions(event_id: int | OuterRef) -> QuerySet[Session]:
+    return hide_private_track_sessions(
+        Session.objects.filter(event_id=event_id, agenda_item__isnull=False)
+    )
+
+
 def _party_session_history(
     session: Session, *, viewer_pk: int
 ) -> PartySessionHistoryDTO:
@@ -189,17 +214,19 @@ class EventRepository(EventRepositoryProtocol):
     def list_for_events_page(
         sphere_id: int, *, include_unpublished: bool
     ) -> list[EventListItemDTO]:
-        agenda_item_count = (
-            AgendaItem.objects.filter(session__event=OuterRef("pk"))
-            .order_by()
-            .values("session__event")
-            .annotate(count=Count("pk"))
-            .values("count")
+        session_count = Coalesce(
+            Subquery(
+                public_scheduled_sessions(OuterRef("pk"))
+                .order_by()
+                .values("event_id")
+                .annotate(count=Count("pk"))
+                .values("count"),
+                output_field=IntegerField(),
+            ),
+            0,
         )
         events = Event.objects.filter(sphere_id=sphere_id).annotate(
-            session_count=Coalesce(
-                Subquery(agenda_item_count, output_field=IntegerField()), 0
-            )
+            session_count=session_count
         )
         if not include_unpublished:
             events = events.filter(publication_time__lte=datetime.now(tz=UTC))
@@ -249,20 +276,22 @@ class EventRepository(EventRepositoryProtocol):
         Returns:
             EventStatsData with raw counts and IDs for business logic processing.
         """
-        sessions = Session.objects.filter(category__event_id=event_id)
-        scheduled = Session.objects.filter(event_id=event_id, agenda_item__isnull=False)
-        spaces = Space.objects.filter(event_id=event_id)
+        # One aggregate instead of a COUNT per stat: this runs on every panel
+        # page, and a big event pays for each extra scan.
+        session_stats = Session.objects.filter(category__event_id=event_id).aggregate(
+            pending=Count("id", filter=Q(status=SessionStatus.PENDING)),
+            total=Count("id"),
+            hosts=Count("presenter_id", distinct=True),
+        )
 
         return EventStatsData(
-            pending_proposals=sessions.filter(status=SessionStatus.PENDING).count(),
-            scheduled_sessions=scheduled.count(),
-            total_proposals=sessions.count(),
-            unique_host_ids=set(
-                sessions.exclude(presenter_id__isnull=True).values_list(
-                    "presenter_id", flat=True
-                )
-            ),
-            rooms_count=spaces.count(),
+            pending_proposals=session_stats["pending"],
+            scheduled_sessions=Session.objects.filter(
+                event_id=event_id, agenda_item__isnull=False
+            ).count(),
+            total_proposals=session_stats["total"],
+            hosts_count=session_stats["hosts"],
+            rooms_count=Space.objects.filter(event_id=event_id).count(),
         )
 
     @staticmethod
@@ -302,6 +331,12 @@ class EventPanelSettingsRepository(EventPanelSettingsRepositoryProtocol):
     def update_facilitator_columns(event_id: int, columns: list[str]) -> None:
         EventPanelSettings.objects.update_or_create(
             event_id=event_id, defaults={"facilitator_columns": columns}
+        )
+
+    @staticmethod
+    def update_proposal_columns(event_id: int, columns: list[str]) -> None:
+        EventPanelSettings.objects.update_or_create(
+            event_id=event_id, defaults={"proposal_columns": columns}
         )
 
 

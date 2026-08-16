@@ -3,7 +3,7 @@ from decimal import Decimal
 
 from ludamus.mills.discounts import DiscountsExportService
 from ludamus.pacts.discounts import DiscountDTO, DiscountExportLabels, DiscountKind
-from ludamus.pacts.legacy import FacilitatorListItemDTO
+from ludamus.pacts.event import FacilitatorListItemDTO
 
 LABELS = DiscountExportLabels(
     headers=["Twórca", "Typ akredytacji", "Rodzaj", "Wartość", "Notatka"],

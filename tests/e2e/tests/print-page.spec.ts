@@ -47,6 +47,7 @@ test.describe("Public print page", () => {
     const materials = [
       ["timetable", "Timetable"],
       ["track-timetable", "Track timetable"],
+      ["door-cards", "Door cards"],
     ] as const;
 
     await page.goto(densePrintUrl);

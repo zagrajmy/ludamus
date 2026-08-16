@@ -1,3 +1,4 @@
+from ludamus.pacts.event import FacilitatorListItemDTO
 from ludamus.pacts.fields import (
     FieldAnswer,
     FieldDescriptor,
@@ -48,8 +49,6 @@ from ludamus.pacts.legacy import (
     FacilitatorChangeLogRepositoryProtocol,
     FacilitatorData,
     FacilitatorDTO,
-    FacilitatorListItemDTO,
-    FacilitatorMergeError,
     FacilitatorRepositoryProtocol,
     FacilitatorUpdateData,
     FieldUsageSummary,
@@ -110,6 +109,7 @@ from ludamus.pacts.legacy import (
     TrackDTO,
     TrackListItemDTO,
     TrackRepositoryProtocol,
+    TrackSessionCountsDTO,
     TrackUpdateData,
     UnitOfWorkProtocol,
     UnscheduledSessionDTO,
@@ -165,7 +165,6 @@ __all__ = [
     "FacilitatorDTO",
     "FacilitatorData",
     "FacilitatorListItemDTO",
-    "FacilitatorMergeError",
     "FacilitatorRepositoryProtocol",
     "FacilitatorUpdateData",
     "FieldAnswer",
@@ -231,6 +230,7 @@ __all__ = [
     "TrackDTO",
     "TrackListItemDTO",
     "TrackRepositoryProtocol",
+    "TrackSessionCountsDTO",
     "TrackUpdateData",
     "UnitOfWorkProtocol",
     "UnscheduledSessionDTO",

@@ -546,10 +546,11 @@ class TestPromotionRepositoryUnscheduledSession:
         assert offer.participant_ids == [offered.pk]
 
 
-# lock+select session, most-liberal config, waiting list, sponsors, batched
-# conflicts, active configs, user-config __in, domain-config __in, companions +
-# used slots (one config-holding owner), available-seats count, shadowban ids.
-STATE_QUERIES = 12
+# lock+select session, enrollment-configs prefetch (serves both the
+# most-liberal and the active-config checks), waiting list, sponsors, batched
+# conflicts, user-config __in, domain-config __in, companions + used slots
+# (one config-holding owner), available-seats count, shadowban ids.
+STATE_QUERIES = 11
 BASE_WAITERS = 3
 GROWN_WAITERS = 5
 

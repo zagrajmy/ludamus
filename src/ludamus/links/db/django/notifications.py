@@ -230,7 +230,9 @@ class DjangoUserNotifier:
         self, notification: PrintablesReadyNotification
     ) -> None:
         url = _absolute(
-            reverse("panel:print-materials", kwargs={"slug": notification.event_slug}),
+            reverse(
+                "web:chronology:event-print", kwargs={"slug": notification.event_slug}
+            ),
             domain=notification.sphere_domain,
         )
         title = _("Print your materials for %(event)s") % {

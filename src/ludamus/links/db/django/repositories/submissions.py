@@ -1,13 +1,11 @@
-import json
 from typing import Literal, cast
 
-from django.db.models import Count, F, Max, OuterRef, Prefetch, Q, QuerySet, Subquery
+from django.db.models import Count, Max, Prefetch, Q
 from django.utils import timezone as django_timezone
 from django.utils.text import slugify
 
 from ludamus.links.db.django.models import (
     EventProposalSettings,
-    Facilitator,
     ImportLogEntry,
     PersonalDataField,
     PersonalDataFieldOption,
@@ -25,11 +23,6 @@ from ludamus.pacts import (
     CategoryStats,
     EventProposalSettingsDTO,
     EventProposalSettingsRepositoryProtocol,
-    FacilitatorData,
-    FacilitatorDTO,
-    FacilitatorListItemDTO,
-    FacilitatorRepositoryProtocol,
-    FacilitatorUpdateData,
     NotFoundError,
     OrganizerFieldDTO,
     OrganizerFieldOptionDTO,
@@ -51,7 +44,6 @@ from ludamus.pacts import (
     TimeSlotRequirementDTO,
 )
 from ludamus.pacts.submissions import (
-    FacilitatorListFilters,
     ImportLogEntryCreateData,
     ImportLogEntryDTO,
     ImportLogEntryRepositoryProtocol,
@@ -60,16 +52,6 @@ from ludamus.pacts.submissions import (
 
 # The DB stores field_type as a plain CharField; DTOs type it as this Literal.
 _FieldType = Literal["text", "select", "checkbox"]
-
-# Whitelist of sortable facilitator columns -> ORM field. `linked` sorts by
-# user_id so linked/unlinked facilitators group together.
-_FACILITATOR_SORT_FIELDS = {
-    "name": "display_name",
-    "accreditation": "accreditation_type",
-    "sessions": "session_count",
-    "linked": "user_id",
-    "organizer": "organizer__name",
-}
 
 
 def _personal_field_dto(field: PersonalDataField) -> OrganizerFieldDTO:
@@ -107,34 +89,6 @@ def _field_dto(
     )
 
 
-def _readable_facilitators() -> QuerySet[Facilitator]:
-    # Every single-facilitator read carries the organizer's name, so a page
-    # that shows it needs no second lookup through the user repo.
-    return Facilitator.objects.annotate(organizer_name=F("organizer__name"))
-
-
-def _order_facilitators(qs: QuerySet[Facilitator], sort: str) -> QuerySet[Facilitator]:
-    descending = sort.startswith("-")
-    key = sort.lstrip("-")
-    # `field_<pk>` sorts by a personal-data column: annotate its value via a
-    # correlated subquery. JSON values order by their text form — good enough
-    # to line up near-duplicate entries.
-    if key.startswith("field_") and key[len("field_") :].isdigit():
-        field_id = int(key[len("field_") :])
-        qs = qs.annotate(
-            _sort_value=Subquery(
-                PersonalDataFieldValue.objects.filter(
-                    facilitator_id=OuterRef("pk"), field_id=field_id
-                ).values("value")[:1]
-            )
-        )
-        order_field = "_sort_value"
-    else:
-        order_field = _FACILITATOR_SORT_FIELDS.get(key, "display_name")
-    order = f"-{order_field}" if descending else order_field
-    return qs.order_by(order, "display_name", "pk")
-
-
 class EventProposalSettingsRepository(EventProposalSettingsRepositoryProtocol):
     @staticmethod
     def read_or_create_by_event(event_id: int) -> EventProposalSettingsDTO:
@@ -163,9 +117,7 @@ class EventProposalSettingsRepository(EventProposalSettingsRepositoryProtocol):
         settings.save(update_fields=["description"])
 
 
-class ProposalCategoryRepository(  # ruff: ignore[too-many-public-methods]
-    ProposalCategoryRepositoryProtocol
-):
+class ProposalCategoryRepository(ProposalCategoryRepositoryProtocol):
     def create(self, event_id: int, name: str) -> ProposalCategoryDTO:
         base_slug = slugify(name)
         slug = self.generate_unique_slug(event_id, base_slug)
@@ -820,123 +772,6 @@ class SessionFieldRepository(SessionFieldRepositoryProtocol):
     @staticmethod
     def _to_dto(field: SessionField) -> OrganizerFieldDTO:
         return _session_field_dto(field)
-
-
-class FacilitatorRepository(FacilitatorRepositoryProtocol):
-    @staticmethod
-    def create(data: FacilitatorData) -> FacilitatorDTO:
-        facilitator = Facilitator.objects.create(**data)
-        return FacilitatorDTO.model_validate(facilitator)
-
-    @staticmethod
-    def read(pk: int) -> FacilitatorDTO:
-        try:
-            facilitator = _readable_facilitators().get(pk=pk)
-        except Facilitator.DoesNotExist as exc:
-            raise NotFoundError from exc
-        return FacilitatorDTO.model_validate(facilitator)
-
-    @staticmethod
-    def read_by_event_and_slug(event_id: int, slug: str) -> FacilitatorDTO:
-        try:
-            facilitator = _readable_facilitators().get(event_id=event_id, slug=slug)
-        except Facilitator.DoesNotExist as exc:
-            raise NotFoundError from exc
-        return FacilitatorDTO.model_validate(facilitator)
-
-    @staticmethod
-    def read_by_user_and_event(user_id: int, event_id: int) -> FacilitatorDTO:
-        try:
-            facilitator = _readable_facilitators().get(
-                user_id=user_id, event_id=event_id
-            )
-        except Facilitator.DoesNotExist as exc:
-            raise NotFoundError from exc
-        return FacilitatorDTO.model_validate(facilitator)
-
-    @staticmethod
-    def update(pk: int, data: FacilitatorUpdateData) -> FacilitatorDTO:
-        try:
-            facilitator = Facilitator.objects.get(pk=pk)
-        except Facilitator.DoesNotExist as exc:
-            raise NotFoundError from exc
-        for field, value in data.items():
-            setattr(facilitator, field, value)
-        facilitator.save()
-        return FacilitatorDTO.model_validate(facilitator)
-
-    @staticmethod
-    def list_by_event(
-        event_id: int, filters: FacilitatorListFilters | None = None
-    ) -> list[FacilitatorListItemDTO]:
-        filters = filters or {}
-        qs = Facilitator.objects.filter(event_id=event_id).annotate(
-            session_count=Count("sessions", distinct=True),
-            organizer_name=F("organizer__name"),
-        )
-
-        if search := filters.get("search"):
-            # Text personal-data values are stored JSON-encoded; match both the
-            # raw string and its JSON-escaped form (mirrors proposals search).
-            encoded = json.dumps(search)[1:-1]
-            text_value = Q(personal_data__field__field_type="text") & (
-                Q(personal_data__value__icontains=search)
-                | Q(personal_data__value__icontains=encoded)
-            )
-            qs = qs.filter(
-                Q(display_name__icontains=search)
-                | Q(user__name__icontains=search)
-                | text_value
-            ).distinct()
-
-        if accreditation := filters.get("accreditation"):
-            qs = qs.filter(accreditation_type=accreditation)
-
-        if filters.get("flagged"):
-            qs = qs.filter(flagged_for_deletion=True)
-
-        if filters.get("organizer_unassigned"):
-            qs = qs.filter(organizer__isnull=True)
-        elif organizer_id := filters.get("organizer_id"):
-            qs = qs.filter(organizer_id=organizer_id)
-
-        for field_id, value in (filters.get("field_filters") or {}).items():
-            # Each condition is its own join, so different fields AND together.
-            qs = qs.filter(personal_data__field_id=field_id, personal_data__value=value)
-
-        ordered = _order_facilitators(qs, filters.get("sort") or "name")
-        return [FacilitatorListItemDTO.model_validate(f) for f in ordered]
-
-    @staticmethod
-    def set_flag(pk: int, *, flagged: bool) -> None:
-        Facilitator.objects.filter(pk=pk).update(flagged_for_deletion=flagged)
-
-    @staticmethod
-    def claim(pk: int, organizer_id: int) -> bool:
-        # Conditional update, so two organizers clicking at the same moment
-        # cannot both win: the loser's UPDATE matches no row.
-        return bool(
-            Facilitator.objects.filter(pk=pk, organizer__isnull=True).update(
-                organizer_id=organizer_id
-            )
-        )
-
-    @staticmethod
-    def release(pk: int, *, organizer_id: int | None) -> bool:
-        # `organizer_id=None` releases whoever holds it — the superuser escape
-        # for an organizer who has left.
-        qs = Facilitator.objects.filter(pk=pk, organizer__isnull=False)
-        if organizer_id is not None:
-            qs = qs.filter(organizer_id=organizer_id)
-        return bool(qs.update(organizer=None))
-
-    @staticmethod
-    def delete(pk: int) -> None:
-        Facilitator.objects.filter(pk=pk).delete()
-
-    @staticmethod
-    def slug_exists(event_id: int, slug: str) -> bool:
-        return Facilitator.objects.filter(event_id=event_id, slug=slug).exists()
 
 
 class PersonalDataFieldValueRepository(PersonalDataFieldValueRepositoryProtocol):

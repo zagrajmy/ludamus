@@ -1,13 +1,20 @@
 {# Single checkbox, with or without its inline label. #}
 {# Variables: name, id, label, value, checked, checked_values, disabled, size, #}
-{# aria_label, has_errors, aria_controls, aria_expanded, hx_on_change. #}
+{# aria_label, has_errors, aria_controls, aria_expanded, data_action, #}
+{# data_required_target, form_id, hook_class. #}
 {# checked_values is the list/set form of checked, for loops over a picker: #}
 {# pass the collection of selected values and the box ticks itself. #}
 {# aria_controls and aria_expanded are independent — pass either or both. #}
+{# data_action/data_required_target render as data-action/data-required-target #}
+{# for actions.ts's delegated listeners; pass either or both. #}
 {# With a label the checkbox wraps itself in a <label>; without one it renders #}
 {# the bare input, for callers that already provide their own label context #}
 {# (e.g. a whole clickable row) — pass aria_label so it keeps an accessible #}
-{# name. size overrides the default box size classes. #}
+{# name. size overrides the default box size classes. name is optional: a #}
+{# checkbox that only drives client-side behaviour submits nothing. form_id #}
+{# attaches a checkbox that renders outside the form it belongs to, and #}
+{# hook_class carries behaviour hooks (JS selectors), never styling. Both are #}
+{# spelled so they can't collide with a page context that has its own form. #}
 {% if label|default:"" %}
     <label class="inline-flex items-center cursor-pointer">
         {% include "components/checkbox-input.html" %}

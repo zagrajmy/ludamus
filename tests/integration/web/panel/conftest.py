@@ -23,6 +23,14 @@ SCALE_SCHEDULED = 60
 SCALE_UNSCHEDULED = 30
 
 
+@pytest.fixture(name="panel_client")
+def panel_client_fixture(authenticated_client, active_user, sphere):
+    # Panel pages are gated on managing the sphere; every non-authz test
+    # starts from a logged-in manager.
+    sphere.managers.add(active_user)
+    return authenticated_client
+
+
 @pytest.fixture(name="connection")
 def connection_fixture(sphere):
     return Connection.objects.create(sphere=sphere, display_name="API Key A")
@@ -39,6 +47,62 @@ def connection_with_secret_fixture(sphere):
     return Connection.objects.create(
         sphere=sphere, display_name="API Key A", secret=blob
     )
+
+
+def _add_confirmation_facilitators(*, event, category, tracks, count, offset=0):
+    facilitators = []
+    for index in range(offset, offset + count):
+        facilitator = Facilitator.objects.create(
+            event=event,
+            display_name=f"Facilitator {index}",
+            slug=f"facilitator-{index}",
+        )
+        for session_index in range(3):
+            session = SessionFactory(category=category, status="accepted")
+            session.facilitators.add(facilitator)
+            session.tracks.add(tracks[index % len(tracks)])
+            AgendaItem.objects.create(
+                session=session,
+                space=SpaceFactory(event=event, capacity=10),
+                start_time=event.start_time + timedelta(hours=index),
+                end_time=event.start_time + timedelta(hours=index + 1),
+                session_confirmed=session_index == 0,
+            )
+        facilitators.append(facilitator)
+    return facilitators
+
+
+@pytest.fixture(name="confirmations_scale_data")
+def confirmations_scale_data_fixture(event, proposal_category):
+    tracks = [
+        Track.objects.create(
+            event=event, name=f"Track {index}", slug=f"track-{index}", is_public=True
+        )
+        for index in range(3)
+    ]
+    facilitators = _add_confirmation_facilitators(
+        event=event, category=proposal_category, tracks=tracks, count=12
+    )
+    return {
+        "event": event,
+        "category": proposal_category,
+        "tracks": tracks,
+        "facilitators": facilitators,
+    }
+
+
+@pytest.fixture(name="grow_confirmations_data")
+def grow_confirmations_data_fixture():
+    def grow(data):
+        _add_confirmation_facilitators(
+            event=data["event"],
+            category=data["category"],
+            tracks=data["tracks"],
+            count=12,
+            offset=len(data["facilitators"]),
+        )
+
+    return grow
 
 
 @pytest.fixture(name="timetable_scale_data")

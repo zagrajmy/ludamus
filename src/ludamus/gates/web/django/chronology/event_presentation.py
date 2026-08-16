@@ -24,6 +24,7 @@ if TYPE_CHECKING:
         SessionModalDTO,
     )
     from ludamus.pacts.crowd import UserDTO
+    from ludamus.pacts.guild import GuildMarkDTO
 
 
 @dataclass
@@ -90,6 +91,16 @@ class SessionData:  # pylint: disable=too-many-instance-attributes
     is_ended: bool = False
     should_show_as_inactive: bool = False
     pretend_full: bool = False
+    # The person on the card's guild in this sphere, or None. The presenter
+    # when the session has one; otherwise the first facilitator with a guild.
+    # Defaults so the many equality assertions over this dataclass keep passing
+    # for guild-less sessions, which is the overwhelming majority.
+    guild: GuildMarkDTO | None = None
+    # True when the *viewer* shadowbanned the presenter — viewer-relative, like
+    # ParticipationInfo.is_shadowbanned, never global moderation state. Drives
+    # the avatar's warning badge, which decides the guild mark's corner. Set
+    # from a pk, and a presenter-less session's stand-in pk 0 never matches.
+    presenter_is_shadowbanned: bool = False
 
     @property
     def is_pending_proposal(self) -> bool:
@@ -301,6 +312,7 @@ def present_session_modal(
     event_banned: bool,
     banned_presenter_ids: set[int],
     shadowbanned_ids: frozenset[int],
+    guild: GuildMarkDTO | None = None,
 ) -> SessionData:
     if dto.presenter is not None:
         presenter = _user_info(dto.presenter)
@@ -341,6 +353,8 @@ def present_session_modal(
         waiting_count=dto.waiting_count,
         is_ongoing=dto.is_ongoing,
         is_ended=dto.is_ended,
+        guild=guild,
+        presenter_is_shadowbanned=presenter.pk in shadowbanned_ids,
     )
     return mask_session_card(
         card, event_banned=event_banned, banned_presenter_ids=banned_presenter_ids

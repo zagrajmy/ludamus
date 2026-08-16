@@ -29,9 +29,21 @@ test.describe("interface sound toggle", () => {
     await pressToggle(page);
     await expect(toggle(page)).not.toBeChecked();
 
-    await page.reload();
-
-    await expect(toggle(page)).not.toBeChecked();
+    // commit, not load/domcontentloaded: `load` makes the test hostage to the
+    // third-party font requests the page fires, and Firefox intermittently
+    // misses the `domcontentloaded` lifecycle event on reload and hangs. The
+    // assertion below retries, so returning at navigation commit is enough.
+    //
+    // Firefox's navigation driver also occasionally hangs on `commit` itself,
+    // or drops its response binding mid-reload ("was not bound in the
+    // connection") — a driver-level flake, not an app bug (see the flaky-test
+    // report this fixes). Bound the reload so a hung attempt fails fast, and
+    // retry the reload+check as a unit instead of burning the whole test
+    // timeout on one stuck attempt.
+    await expect(async () => {
+      await page.reload({ waitUntil: "commit", timeout: 20_000 });
+      await expect(toggle(page)).not.toBeChecked();
+    }).toPass({ timeout: 60_000 });
   });
 });
 

@@ -8,6 +8,13 @@ const DEBOUNCE_MS = 1000;
 const serialize = (form: HTMLFormElement): string =>
   [...new FormData(form)].map(([key, value]) => `${key}=${String(value)}`).join("&");
 
+// A control inside [data-autosubmit-ignore] applies on its own terms -- a
+// multi-select popover has an Apply button, and its search box narrows the
+// list locally and must never reach the server. Auto-submitting per tick would
+// reload the page under someone still picking.
+const isSelfApplying = (event: Event): boolean =>
+  (event.target as Element | null)?.closest("[data-autosubmit-ignore]") != null;
+
 for (const form of document.querySelectorAll<HTMLFormElement>("form[data-autosubmit]")) {
   let timer: ReturnType<typeof setTimeout> | undefined;
   let lastSubmitted = serialize(form);
@@ -24,14 +31,31 @@ for (const form of document.querySelectorAll<HTMLFormElement>("form[data-autosub
     timer = setTimeout(submit, delay);
   };
 
-  form.addEventListener("change", () => schedule(0));
+  form.addEventListener("change", (event) => {
+    if (!isSelfApplying(event)) schedule(0);
+  });
   form.addEventListener("input", (event) => {
-    if (event.target instanceof HTMLInputElement) schedule(DEBOUNCE_MS);
+    if (event.target instanceof HTMLInputElement && !isSelfApplying(event)) {
+      schedule(DEBOUNCE_MS);
+    }
   });
   form.addEventListener("submit", () => {
     // Enter-key submits bypass `submit()`; sync state so a later blur
     // doesn't re-request the same URL.
     if (timer) clearTimeout(timer);
     lastSubmitted = serialize(form);
+  });
+}
+
+// `select[data-navigate]` options carry URLs (e.g. the page-size picker):
+// choosing one navigates there. Degrades without JS to a no-op control.
+for (const select of document.querySelectorAll<HTMLSelectElement>("select[data-navigate]")) {
+  select.addEventListener("change", () => {
+    // Same-origin guard: option values are server-rendered, but never let a
+    // stray javascript:/external URL through.
+    // Base is href, not origin: values are bare query strings ("?page_size=50")
+    // and must keep the current path.
+    const url = new URL(select.value, globalThis.location.href);
+    if (url.origin === globalThis.location.origin) globalThis.location.assign(url);
   });
 }

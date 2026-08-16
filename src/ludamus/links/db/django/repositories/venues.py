@@ -2,10 +2,11 @@ from collections import defaultdict
 from typing import TYPE_CHECKING
 
 from django.db import transaction
-from django.db.models import Max, Prefetch
+from django.db.models import Max
 from django.utils.text import slugify
 
 from ludamus.links.db.django.models import (
+    SPACE_NO_CHILDREN_REASON,
     AgendaItem,
     Event,
     Session,
@@ -28,7 +29,8 @@ from ludamus.pacts import (
 )
 from ludamus.pacts.venues import (
     SpaceInputDTO,
-    SpaceNodeDTO,
+    SpaceRecordDTO,
+    SpaceTreeNodeDTO,
     SpaceTreeRepositoryProtocol,
 )
 
@@ -71,9 +73,10 @@ class SpaceRepository(SpaceRepositoryProtocol):
 
 class SpaceTreeRepository(SpaceTreeRepositoryProtocol):
     @staticmethod
-    def list_tree(event_pk: int) -> list[SpaceNodeDTO]:
-        # One query for the whole event; assemble the tree in Python. Prefetch
-        # tracks so the panel can show track pills per space without N+1.
+    def list_tree(event_pk: int) -> list[SpaceTreeNodeDTO]:
+        # Two queries for the whole event — the spaces and the pks holding a
+        # session — then assemble the tree in Python. Prefetch tracks so the
+        # panel can show track pills per space without N+1.
         spaces = list(
             Space.objects.filter(event_id=event_pk)
             .order_by("order", "name")
@@ -82,38 +85,36 @@ class SpaceTreeRepository(SpaceTreeRepositoryProtocol):
         children_by_parent: dict[int | None, list[Space]] = defaultdict(list)
         for space in spaces:
             children_by_parent[space.parent_id].append(space)
+        with_sessions = SpaceTreeRepository.space_pks_with_sessions(event_pk)
 
-        def build(space: Space, depth: int) -> SpaceNodeDTO:
+        def build(space: Space) -> SpaceTreeNodeDTO:
+            # The tree facts come from the sibling map built above, so nothing
+            # here goes back to the database.
             kids = children_by_parent.get(space.pk, [])
-            return SpaceNodeDTO(
-                pk=space.pk,
-                event_id=space.event_id,
-                parent_id=space.parent_id,
-                name=space.name,
-                slug=space.slug,
-                capacity=space.capacity,
-                description=space.description,
-                location=space.location,
-                order=space.order,
-                depth=depth,
+            return SpaceTreeNodeDTO(
+                space=SpaceRecordDTO.model_validate(space),
                 is_leaf=not kids,
+                no_children_reason=(
+                    str(SPACE_NO_CHILDREN_REASON) if space.pk in with_sessions else None
+                ),
                 track_names=sorted(t.name for t in space.tracks.all()),
-                children=[build(kid, depth + 1) for kid in kids],
+                children=[build(kid) for kid in kids],
             )
 
-        return [build(root, 1) for root in children_by_parent.get(None, [])]
+        return [build(root) for root in children_by_parent.get(None, [])]
 
-    def read(self, pk: int) -> SpaceNodeDTO:
+    @staticmethod
+    def read(pk: int) -> SpaceRecordDTO:
         try:
             space = Space.objects.get(pk=pk)
         except Space.DoesNotExist as err:
             raise NotFoundError from err
-        return self._node(space)
+        return SpaceRecordDTO.model_validate(space)
 
     @transaction.atomic
     def create(
         self, *, event_id: int, parent_id: int | None, data: SpaceInputDTO
-    ) -> SpaceNodeDTO:
+    ) -> SpaceRecordDTO:
         slug = self.generate_unique_slug(event_id, parent_id, slugify(data.name))
         max_order = Space.objects.filter(
             event_id=event_id, parent_id=parent_id
@@ -130,12 +131,12 @@ class SpaceTreeRepository(SpaceTreeRepositoryProtocol):
         )
         space.full_clean()
         space.save()
-        return self._node(space)
+        return SpaceRecordDTO.model_validate(space)
 
     @transaction.atomic
     def update(
         self, *, pk: int, parent_id: int | None, data: SpaceInputDTO
-    ) -> SpaceNodeDTO:
+    ) -> SpaceRecordDTO:
         try:
             space = Space.objects.select_for_update().get(pk=pk)
         except Space.DoesNotExist as err:
@@ -163,7 +164,7 @@ class SpaceTreeRepository(SpaceTreeRepositoryProtocol):
         space.location = data.location
         space.full_clean()
         space.save()
-        return self._node(space)
+        return SpaceRecordDTO.model_validate(space)
 
     @staticmethod
     def delete(pk: int) -> None:
@@ -235,7 +236,7 @@ class SpaceTreeRepository(SpaceTreeRepositoryProtocol):
         )
 
     @transaction.atomic
-    def duplicate(self, pk: int, new_name: str) -> SpaceNodeDTO:
+    def duplicate(self, pk: int, new_name: str) -> SpaceRecordDTO:
         try:
             source = Space.objects.get(pk=pk)
         except Space.DoesNotExist as err:
@@ -243,17 +244,17 @@ class SpaceTreeRepository(SpaceTreeRepositoryProtocol):
         clone = self._clone_subtree(
             source, event_id=source.event_id, parent_id=source.parent_id, name=new_name
         )
-        return self._node(clone)
+        return SpaceRecordDTO.model_validate(clone)
 
     @transaction.atomic
-    def copy_to_event(self, pk: int, target_event_id: int) -> SpaceNodeDTO:
+    def copy_to_event(self, pk: int, target_event_id: int) -> SpaceRecordDTO:
         try:
             source = Space.objects.get(pk=pk)
         except Space.DoesNotExist as err:
             raise NotFoundError from err
         # The copied subtree becomes a root in the target event.
         clone = self._clone_subtree(source, event_id=target_event_id, parent_id=None)
-        return self._node(clone)
+        return SpaceRecordDTO.model_validate(clone)
 
     def _clone_subtree(
         self,
@@ -277,24 +278,6 @@ class SpaceTreeRepository(SpaceTreeRepositoryProtocol):
         for child in Space.objects.filter(parent_id=source.pk).order_by("order"):
             self._clone_subtree(child, event_id=event_id, parent_id=clone.pk)
         return clone
-
-    @staticmethod
-    def _node(space: Space) -> SpaceNodeDTO:
-        return SpaceNodeDTO(
-            pk=space.pk,
-            event_id=space.event_id,
-            parent_id=space.parent_id,
-            name=space.name,
-            slug=space.slug,
-            capacity=space.capacity,
-            description=space.description,
-            location=space.location,
-            order=space.order,
-            depth=1 + sum(1 for _ in space.iter_ancestors()),
-            is_leaf=not space.children.exists(),
-            track_names=sorted(t.name for t in space.tracks.all()),
-            children=[],
-        )
 
 
 class TimeSlotRepository(TimeSlotRepositoryProtocol):
@@ -488,38 +471,27 @@ class TrackRepository(TrackRepositoryProtocol):
         )
 
     @staticmethod
-    def list_by_sessions(session_pks: Iterable[int]) -> dict[int, list[TrackDTO]]:
-        pks = list(session_pks)
-        sessions = Session.objects.filter(pk__in=pks).prefetch_related(
-            Prefetch("tracks", queryset=Track.objects.order_by("name"))
-        )
-        result: dict[int, list[TrackDTO]] = {pk: [] for pk in pks}
-        for session in sessions:
-            result[session.pk] = [
-                TrackDTO.model_validate(track) for track in session.tracks.all()
-            ]
-        return result
-
-    @staticmethod
-    def list_track_pks_by_sessions(session_pks: Iterable[int]) -> dict[int, list[int]]:
-        # Membership only -- no model hydration, unlike list_by_sessions.
-        result: dict[int, list[int]] = defaultdict(list)
-        rows = Track.objects.filter(sessions__pk__in=session_pks).values_list(
-            "sessions__pk", "pk"
-        )
-        for session_pk, track_pk in rows:
-            result[session_pk].append(track_pk)
-        return dict(result)
-
-    @staticmethod
     def list_manager_names_by_tracks(track_pks: Iterable[int]) -> dict[int, list[str]]:
-        pks = list(track_pks)
         rows = (
-            Track.managers.through.objects.filter(track_id__in=pks)
-            .select_related("user")
-            .order_by("user__name")
+            User.objects.filter(managed_tracks__pk__in=track_pks)
+            .order_by("name")
+            .values_list("managed_tracks__pk", "name")
         )
-        result: dict[int, list[str]] = {pk: [] for pk in pks}
-        for row in rows:
-            result[row.track_id].append(row.user.name)
+        result: dict[int, list[str]] = {}
+        for track_pk, name in rows:
+            result.setdefault(track_pk, []).append(name)
         return result
+
+    @staticmethod
+    def list_manager_names_by_event(event_pk: int) -> dict[int, list[str]]:
+        # Every track's managers in one query — the per-track call above turns
+        # into N+1 the moment a page lists tracks.
+        names: dict[int, list[str]] = {}
+        rows = (
+            Track.objects.filter(event_id=event_pk, managers__isnull=False)
+            .order_by("managers__name")
+            .values_list("pk", "managers__name")
+        )
+        for track_pk, name in rows:
+            names.setdefault(track_pk, []).append(name)
+        return names

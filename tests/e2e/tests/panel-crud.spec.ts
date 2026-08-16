@@ -68,9 +68,9 @@ test.describe("Panel facilitator + proposal CRUD", () => {
 
   test("creates a proposal bound to the facilitator", async ({ page }) => {
     await page.goto(PROPOSALS_URL);
-    // Header button + empty-state CTA both read "Create Session"; take the
+    // Header button + empty-state CTA both read "New Proposal"; take the
     // header one.
-    await page.getByRole("link", { name: "Create Session" }).first().click();
+    await page.getByRole("link", { name: "New Proposal" }).first().click();
 
     // The picker is search-first: rows stay hidden until the search matches.
     await page.getByPlaceholder("Search by name…").fill(facilitator);
@@ -94,7 +94,8 @@ test.describe("Panel facilitator + proposal CRUD", () => {
     await page.getByLabel("Title").fill(PROPOSAL_TITLE_EDITED);
     await page.getByRole("button", { name: "Save" }).click();
 
-    await page.waitForURL(new RegExp(`/proposals/\\d+/$`));
+    // Save returns to the detail page, carrying ?next= so the list filters survive.
+    await page.waitForURL(new RegExp(`/proposals/\\d+/(\\?|$)`));
     await expect(page.getByRole("heading", { name: PROPOSAL_TITLE_EDITED })).toBeVisible();
   });
 
@@ -114,5 +115,53 @@ test.describe("Panel facilitator + proposal CRUD", () => {
     await page.getByRole("button", { name: "Reject" }).click();
     await page.getByRole("alertdialog").getByRole("button", { name: "Reject" }).click();
     await expect(page.getByText("Rejected", { exact: true })).toBeVisible();
+  });
+
+  test("cannot delete a facilitator that runs a session", async ({ page }) => {
+    await page.goto(FACILITATORS_URL);
+
+    // The row's delete always submits; the service refuses and says why, so the
+    // answer is correct even for a session attached since the page rendered.
+    await page.getByRole("button", { name: `Delete ${facilitator}` }).click();
+    await page.getByRole("alertdialog").getByRole("button", { name: "Delete" }).click();
+
+    await expect(page.getByText(/This facilitator is named on \d+ session/)).toBeVisible();
+    await expect(page.getByRole("link", { name: facilitator, exact: true })).toBeVisible();
+  });
+
+  test("deletes and restores a facilitator with no sessions", async ({ page }) => {
+    const spare = `${facilitator} (spare)`;
+
+    await page.goto(FACILITATORS_URL);
+    await page.getByRole("link", { name: "New Facilitator" }).click();
+    await page.getByLabel("Display Name").fill(spare);
+    await page.getByRole("button", { name: "Create Facilitator" }).click();
+    await page.waitForURL(/\/facilitators\/$/);
+
+    // Delete is guarded by a confirm dialog; afterwards the row is gone from
+    // the live list and waiting in the bin.
+    await page.getByRole("button", { name: `Delete ${spare}` }).click();
+    await page.getByRole("alertdialog").getByRole("button", { name: "Delete" }).click();
+    await expect(page.getByRole("link", { name: spare, exact: true })).toBeHidden();
+
+    // The bin is its own tab, so nothing on the live list has to know deletion
+    // exists — and the bin carries only the action that works there.
+    await page.getByRole("tab", { name: "Bin", exact: true }).click();
+
+    await expect(page.getByRole("button", { name: "Restore", exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Delete", exact: true })).toBeHidden();
+    await expect(page.getByRole("button", { name: "Merge selected" })).toBeHidden();
+    await expect(page.getByRole("button", { name: `Mark ${spare} as guest` })).toBeHidden();
+
+    await page.getByRole("link", { name: spare, exact: true }).click();
+
+    // The detail page says so and offers the way back.
+    await expect(
+      page.getByText("This facilitator is deleted — they show up nowhere in the program."),
+    ).toBeVisible();
+    await page.getByRole("button", { name: "Restore" }).click();
+
+    await page.goto(FACILITATORS_URL);
+    await expect(page.getByRole("link", { name: spare, exact: true })).toBeVisible();
   });
 });

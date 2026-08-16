@@ -5,6 +5,8 @@ from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
 
 from ludamus.links.db.django.models import (
+    Guild,
+    GuildMembership,
     Notification,
     Party,
     PartyMembership,
@@ -115,6 +117,15 @@ class TestModelStringRepresentations:
         party = Party.objects.create(leader=active_user, name="Drużyna")
 
         assert str(party) == f"Drużyna (#{party.pk})"
+
+    def test_guild_and_membership_str(self, active_user, sphere):
+        guild = Guild.objects.create(sphere=sphere, name="Topory", slug="topory")
+        membership = GuildMembership.objects.create(
+            sphere=sphere, guild=guild, member=active_user
+        )
+
+        assert str(guild) == "Topory"
+        assert str(membership) == f"{active_user.pk} in guild {guild.pk}"
 
 
 class TestPartyMembershipConstraint:

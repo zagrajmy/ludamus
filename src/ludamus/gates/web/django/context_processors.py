@@ -55,15 +55,11 @@ def sites(request: RootRepositoryRequest) -> SitesContextData:
     )
 
 
-def support(
-    request: HttpRequest,  # ruff: ignore[unused-function-argument]
-) -> dict[str, str]:
+def support(_request: HttpRequest) -> dict[str, str]:
     return {"SUPPORT_EMAIL": settings.SUPPORT_EMAIL}
 
 
-def static_version(
-    request: HttpRequest,  # ruff: ignore[unused-function-argument]
-) -> dict[str, str]:
+def static_version(_request: HttpRequest) -> dict[str, str]:
     return {
         "COMMIT_SHA": settings.COMMIT_SHA,
         "STATIC_VERSION": settings.STATIC_VERSION,

@@ -1,0 +1,50 @@
+{% load i18n tessera %}
+{# Chip picker for a set of sheet-column names (unique-key or facilitator-key). #}
+{# Params: name (POST field + hidden input name), label, help, selected (list), #}
+{# available (candidate columns), empty_label, no_candidates_help. Behaviour is #}
+{# driven by import-recipe.ts via the data-column-keys attributes. #}
+<div>
+    <p class="mb-1 text-sm font-medium text-foreground">{{ label }}</p>
+    <p class="mb-2 text-xs text-foreground-muted">{{ help }}</p>
+    {% if available %}
+        {% blocktranslate asvar remove_label_template with col="__COL__" %}Remove {{ col }}{% endblocktranslate %}
+        <div data-column-keys
+             class="space-y-2"
+             data-name="{{ name }}"
+             data-empty-label="{{ empty_label }}"
+             data-remove-label="{{ remove_label_template }}">
+            <ul data-column-keys-list class="flex flex-wrap gap-2">
+                {% for col in selected %}
+                    <li class="inline-flex max-w-full items-center gap-1 rounded-full border border-border bg-bg-secondary px-3 py-1 text-sm text-foreground-secondary">
+                        <input type="hidden" name="{{ name }}" value="{{ col }}">
+                        <span class="truncate" title="{{ col }}">{{ col }}</span>
+                        <button type="button"
+                                data-column-keys-remove
+                                aria-label="{% blocktranslate with col=col %}Remove {{ col }}{% endblocktranslate %}"
+                                class="ml-1 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-foreground-muted hover:bg-bg-tertiary hover:text-foreground">
+                            {% icon "x-mark" class="w-3 h-3" %}
+                        </button>
+                    </li>
+                {% empty %}
+                    <li data-column-keys-empty class="text-xs text-foreground-muted">{{ empty_label }}</li>
+                {% endfor %}
+            </ul>
+            <div class="flex flex-wrap items-center gap-2">
+                {% select data_column_keys_select="1" aria_label=label class="max-w-xs truncate" %}
+                    <option value="">{% translate "Add column…" %}</option>
+                    {% for col in available %}
+                        {% if col not in selected %}<option value="{{ col }}">{{ col }}</option>{% endif %}
+                    {% endfor %}
+                {% endselect %}
+                <button type="button"
+                        data-column-keys-add
+                        class="btn btn-secondary inline-flex items-center">
+                    {% icon "plus" class="w-4 h-4 mr-1" %}
+                    {% translate "Add" %}
+                </button>
+            </div>
+        </div>
+    {% else %}
+        <p class="text-xs text-foreground-muted">{{ no_candidates_help }}</p>
+    {% endif %}
+</div>

@@ -6,6 +6,7 @@ Creates three facilitators on both the ``autumn-open`` and
   - Alice Morgan (alice-morgan)
   - Alice Morgan Copy (alice-morgan-copy)  — duplicate, used in merge tests
   - Bob Chen (bob-chen)
+  - Dana Reyes (dana-reyes) — ``frostfire-con`` only, linked to an account
 
 Run after ``bootstrap_data.py`` (which creates both events).
 Idempotent — safe to re-run.
@@ -25,14 +26,30 @@ if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
 # pylint: disable=wrong-import-position  # Django imports must be after setup
-import django  # ruff:ignore[module-import-not-at-top-of-file]
+import django
 
 django.setup()
 
-from ludamus.links.db.django.models import (  # ruff:ignore[module-import-not-at-top-of-file]
-    Event,
-    Facilitator,
-)
+from ludamus.links.db.django.models import Event, Facilitator, User
+
+
+def _seed_linked_facilitator(event: Event) -> None:
+    # Her own account, not the shared e2e tester: guild membership is unique per
+    # sphere, so a spec attaching her to a guild would race the guilds spec
+    # adding the tester to another one.
+    user, _ = User.objects.get_or_create(
+        username="e2e-guilded",
+        defaults={
+            "email": "e2e-guilded@test.local",
+            "name": "Dana Reyes",
+            "slug": "e2e-guilded",
+        },
+    )
+    Facilitator.objects.get_or_create(
+        event=event,
+        slug="dana-reyes",
+        defaults={"display_name": "Dana Reyes", "user": user},
+    )
 
 
 def _seed_facilitators(event: Event) -> None:
@@ -58,7 +75,9 @@ def main() -> None:
     # frostfire-con is the dedicated event the panel facilitator/merge tests
     # mutate.
     _seed_facilitators(Event.objects.get(slug="autumn-open"))
-    _seed_facilitators(Event.objects.get(slug="frostfire-con"))
+    panel_lab = Event.objects.get(slug="frostfire-con")
+    _seed_facilitators(panel_lab)
+    _seed_linked_facilitator(panel_lab)
 
 
 if __name__ == "__main__":

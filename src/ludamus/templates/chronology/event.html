@@ -8,12 +8,6 @@
 {% block title %}
     {{ event.name }}
 {% endblock title %}
-{% block og_title %}
-    {{ event.name }}
-{% endblock og_title %}
-{% block twitter_title %}
-    {{ event.name }}
-{% endblock twitter_title %}
 {% block meta_description %}
     {% firstof event.description|truncatewords:20 default_description %}
 {% endblock meta_description %}

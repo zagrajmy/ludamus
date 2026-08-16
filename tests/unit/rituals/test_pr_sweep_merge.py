@@ -1,0 +1,307 @@
+"""Taking a branch: listing, the clean check, the sync and the merge."""
+
+import json
+from typing import TYPE_CHECKING
+
+from vekna.lexicon import Goto, goto
+
+from ludamus.edges.rituals.pr_sweep import (
+    check_clean,
+    list_prs,
+    merge_base,
+    next_pr,
+    report,
+    resolve_conflicts,
+    set_aside,
+    skip_pr,
+    stand_down,
+    sync_branch,
+    take_pass,
+)
+from ludamus.edges.rituals.shell import LIST
+from ludamus.edges.rituals.state import WAIT_LABEL, Label, PullRequest, Run, Work
+
+if TYPE_CHECKING:
+    from vekna.trial import Trial
+
+_STATUS = "git status --porcelain"
+_UNMERGED = "git diff --name-only --diff-filter=U"
+_IS_ANCESTOR = "git merge-base --is-ancestor main HEAD"
+
+
+def _listed(*pulls: PullRequest) -> str:
+    return json.dumps([pull.model_dump(by_alias=True) for pull in pulls])
+
+
+class TestListPrs:
+    def test_the_queue_is_ordered_oldest_modified_first(
+        self, trial: Trial, pull: PullRequest
+    ) -> None:
+        fresher = pull.model_copy(update={"number": 9, "updated_at": "2026-08-05"})
+        trial.shell.replies(when="gh pr list*", stdout=_listed(fresher, pull))
+
+        transition = trial.walk(list_prs, Run(bound=3))
+
+        assert transition == goto(next_pr, Run(bound=3, queue=[pull, fresher]))
+        assert trial.shell.commands == [LIST]
+
+    def test_a_branch_labelled_to_wait_is_dropped_before_the_queue(
+        self, trial: Trial, pull: PullRequest
+    ) -> None:
+        waiting = pull.model_copy(
+            update={"number": 9, "labels": [Label(name=WAIT_LABEL)]}
+        )
+        trial.shell.replies(when="gh pr list*", stdout=_listed(waiting, pull))
+
+        transition = trial.walk(list_prs, Run(bound=3))
+
+        assert transition == goto(next_pr, Run(bound=3, queue=[pull]))
+
+    def test_a_branch_wearing_other_labels_is_still_taken(
+        self, trial: Trial, pull: PullRequest
+    ) -> None:
+        labelled = pull.model_copy(update={"labels": [Label(name="pr::thermo")]})
+        trial.shell.replies(when="gh pr list*", stdout=_listed(labelled))
+
+        transition = trial.walk(list_prs, Run(bound=3))
+
+        assert transition == goto(next_pr, Run(bound=3, queue=[labelled]))
+
+    def test_gh_failing_reports_rather_than_raising(self, trial: Trial) -> None:
+        trial.shell.replies(when="gh pr list*", exit_code=1, stderr="no auth\n")
+
+        transition = trial.walk(list_prs, Run(bound=3))
+
+        assert transition == goto(
+            report,
+            Run(bound=3, stopped="gh could not list your pull requests: no auth"),
+        )
+
+    def test_unreadable_json_reports_rather_than_raising(self, trial: Trial) -> None:
+        trial.shell.replies(when="gh pr list*", stdout="{not json")
+
+        transition = trial.walk(list_prs, Run(bound=3))
+
+        assert isinstance(transition, Goto)
+        assert transition.target is report
+        assert isinstance(transition.payload, Run)
+        assert transition.payload.stopped.startswith("gh returned something unreadable")
+
+
+class TestNextPr:
+    def test_a_pull_request_is_taken_off_the_queue_with_no_budget_carried(
+        self, trial: Trial, pull: PullRequest
+    ) -> None:
+        run = Run(bound=3, queue=[pull])
+
+        transition = trial.walk(next_pr, run)
+
+        assert transition == goto(check_clean, Work(run=Run(bound=3), pr=pull))
+        assert not trial.shell.commands
+
+    def test_an_empty_queue_ends_at_the_report(self, trial: Trial) -> None:
+        transition = trial.walk(next_pr, Run(bound=3, checked=[]))
+
+        assert transition == goto(report, Run(bound=3))
+
+
+class TestCheckClean:
+    def test_a_clean_worktree_goes_on_to_the_sync(
+        self, trial: Trial, work: Work
+    ) -> None:
+        trial.shell.replies(when=_STATUS)
+
+        transition = trial.walk(check_clean, work)
+
+        assert transition == goto(sync_branch, work)
+        assert trial.shell.commands == [_STATUS]
+
+    def test_a_dirty_worktree_ends_the_whole_run(
+        self, trial: Trial, work: Work
+    ) -> None:
+        trial.shell.replies(when=_STATUS, stdout=" M src/thing.py\n")
+
+        transition = trial.walk(check_clean, work)
+
+        assert isinstance(transition, Goto)
+        assert transition.target is report
+        assert isinstance(transition.payload, Run)
+        dirty = "the worktree is not clean:\nM src/thing.py"
+        assert transition.payload.stopped == dirty
+        assert [row.outcome for row in transition.payload.checked] == ["blocked"]
+
+
+class TestSyncBranch:
+    def test_the_base_and_the_branch_are_taken_before_the_merge(
+        self, trial: Trial, work: Work
+    ) -> None:
+        trial.shell.replies(when="git fetch*", always=True)
+        trial.shell.replies(when="git checkout feature", always=True)
+        trial.shell.replies(when="git merge --ff-only*", always=True)
+
+        transition = trial.walk(sync_branch, work)
+
+        assert transition == goto(merge_base, work)
+        assert trial.shell.commands == [
+            (
+                "git fetch --prune https-origin && git checkout main && "
+                "git pull --ff-only https-origin main"
+            ),
+            "git checkout feature",
+            "git merge --ff-only https-origin/feature",
+        ]
+
+    def test_a_base_that_will_not_update_ends_the_whole_run(
+        self, trial: Trial, work: Work
+    ) -> None:
+        trial.shell.replies(when="git fetch*", exit_code=1, stderr="network down")
+
+        transition = trial.walk(sync_branch, work)
+
+        assert isinstance(transition, Goto)
+        assert transition.target is report
+        assert isinstance(transition.payload, Run)
+        assert transition.payload.stopped == "could not update main: network down"
+
+    def test_a_branch_another_worktree_holds_is_skipped_rather_than_blocked(
+        self, trial: Trial, work: Work
+    ) -> None:
+        trial.shell.replies(when="git fetch*")
+        held = "fatal: 'feature' is already used by worktree at /home/radek/other"
+        trial.shell.replies(when="git checkout feature", exit_code=1, stderr=held)
+
+        transition = trial.walk(sync_branch, work)
+
+        assert transition == goto(
+            skip_pr,
+            work.model_copy(update={"note": f"could not take the branch: {held}"}),
+        )
+
+    def test_a_branch_that_has_diverged_is_set_aside(
+        self, trial: Trial, work: Work
+    ) -> None:
+        trial.shell.replies(when="git fetch*")
+        trial.shell.replies(when="git checkout feature")
+        trial.shell.replies(when="git merge --ff-only*", exit_code=1, stderr="diverged")
+
+        transition = trial.walk(sync_branch, work)
+
+        assert transition == goto(
+            set_aside,
+            work.model_copy(
+                update={"note": "could not catch up with the remote: diverged"}
+            ),
+        )
+
+
+class TestMergeBase:
+    def test_a_merge_that_brought_something_in_goes_on_to_the_pass(
+        self, trial: Trial, work: Work
+    ) -> None:
+        trial.shell.replies(when=_IS_ANCESTOR, exit_code=1)
+        trial.shell.replies(when="git merge --no-edit*")
+
+        transition = trial.walk(merge_base, work)
+
+        assert transition == goto(take_pass, work)
+        assert trial.shell.commands == [_IS_ANCESTOR, "git merge --no-edit main"]
+
+    def test_a_base_already_in_the_branch_says_the_tree_did_not_move(
+        self, trial: Trial, work: Work
+    ) -> None:
+        trial.shell.replies(when=_IS_ANCESTOR)
+        trial.shell.replies(when="git merge --no-edit*")
+
+        transition = trial.walk(merge_base, work)
+
+        assert transition == goto(
+            take_pass, work.model_copy(update={"unchanged": True})
+        )
+
+    def test_a_merge_that_would_not_run_goes_to_the_step_that_reads_the_index(
+        self, trial: Trial, work: Work
+    ) -> None:
+        trial.shell.replies(when=_IS_ANCESTOR, exit_code=1)
+        trial.shell.replies(when="git merge --no-edit*", exit_code=1, stderr="lock")
+
+        transition = trial.walk(merge_base, work)
+
+        assert transition == goto(
+            resolve_conflicts,
+            work.model_copy(update={"merging": True, "note": "git merge failed: lock"}),
+        )
+        # The index is not read here: the step this hands to reads it after
+        # every agent round anyway, and would read it again on arrival.
+        assert _UNMERGED not in trial.shell.commands
+
+
+class TestResolveConflicts:
+    def test_the_conflicted_files_reach_the_agent_and_the_budget_goes_up(
+        self, trial: Trial, work: Work
+    ) -> None:
+        conflicted = work.model_copy(update={"note": "git merge failed: conflicts"})
+        trial.shell.replies(when=_UNMERGED, stdout="src/thing.py\n")
+        trial.coding.replies("resolved them")
+
+        transition = trial.walk(resolve_conflicts, conflicted)
+
+        # The note the merge handed over goes no further: past here, a merge
+        # that failed is only what a conflict looks like, and the branch's row
+        # is not to be told about it.
+        assert transition == goto(
+            resolve_conflicts,
+            work.model_copy(update={"budgets": {"resolve_conflicts": 1}}),
+        )
+        assert "src/thing.py" in trial.coding.prompts[0]
+        assert "Merging main into feature" in trial.coding.prompts[0]
+        # First attempt on the thread: there is nothing yet to resume. That the
+        # second one resumes it is a cast-level question — the session book
+        # lives on the cast, not on one step.
+        assert trial.coding.calls[0].resume is None
+
+    def test_an_empty_index_moves_on_and_hands_the_budget_back(
+        self, trial: Trial, work: Work
+    ) -> None:
+        spent = work.model_copy(
+            update={"budgets": {"resolve_conflicts": 2}, "note": "git merge failed: x"}
+        )
+        trial.shell.replies(when=_UNMERGED)
+
+        transition = trial.walk(resolve_conflicts, spent)
+
+        assert transition == goto(take_pass, work)
+        assert not trial.coding.prompts
+
+    # Nothing conflicted and nothing tried: the merge failed for a reason no
+    # agent can fix, and `merge_base` said which in the note.
+    def test_an_empty_index_on_arrival_is_set_aside_with_what_the_merge_said(
+        self, trial: Trial, work: Work
+    ) -> None:
+        arrived = work.model_copy(
+            update={"merging": True, "note": "git merge failed: lock"}
+        )
+        trial.shell.replies(when=_UNMERGED)
+
+        transition = trial.walk(resolve_conflicts, arrived)
+
+        assert transition == goto(
+            set_aside,
+            arrived.model_copy(update={"note": "no conflicts: git merge failed: lock"}),
+        )
+        assert not trial.coding.prompts
+
+    def test_a_spent_budget_stands_the_branch_down_without_asking_again(
+        self, trial: Trial, work: Work
+    ) -> None:
+        spent = work.model_copy(update={"budgets": {"resolve_conflicts": 3}})
+        trial.shell.replies(when=_UNMERGED, stdout="src/thing.py\n")
+
+        transition = trial.walk(resolve_conflicts, spent)
+
+        assert transition == goto(
+            stand_down,
+            spent.model_copy(
+                update={"reason": "the merge conflicts were not resolved"}
+            ),
+        )
+        assert not trial.coding.prompts

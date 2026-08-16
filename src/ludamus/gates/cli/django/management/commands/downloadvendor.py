@@ -31,7 +31,9 @@ class Command(BaseCommand):
 
     help = "Download vendor dependencies to static/vendor/ with SHA-384 verification"
 
-    def add_arguments(self, parser: ArgumentParser) -> None:  # ruff:ignore[no-self-use]
+    def add_arguments(  # ruff: ignore [no-self-use]
+        self, parser: ArgumentParser
+    ) -> None:
         """Add command arguments."""
         parser.add_argument(
             "--force",
@@ -44,9 +46,7 @@ class Command(BaseCommand):
             help="Show what would be downloaded without downloading",
         )
 
-    def handle(
-        self, *args: object, **options: object  # ruff: ignore[unused-method-argument]
-    ) -> None:
+    def handle(self, *args: object, **options: object) -> None:
         force = bool(options["force"])
         dry_run = bool(options["dry_run"])
 

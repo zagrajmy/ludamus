@@ -19,11 +19,11 @@ SRC_DIR = REPO_ROOT / "src"
 if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
-import django  # ruff:ignore[module-import-not-at-top-of-file]
+import django
 
 django.setup()
 
-from ludamus.links.db.django.models import (  # ruff:ignore[module-import-not-at-top-of-file]
+from ludamus.links.db.django.models import (
     Facilitator,
     PersonalDataField,
     PersonalDataFieldOption,
@@ -74,7 +74,7 @@ def main() -> None:
         slug="open-mic", event__slug="open-mic"
     ).first()
     if category is None:
-        print("No open-mic category found.")  # ruff:ignore[print]
+        print("No open-mic category found.")
         return
 
     tone = SessionField.objects.create(
@@ -113,7 +113,7 @@ def main() -> None:
 
     _seed_personal_data(category.event)
 
-    print("Added dynamic fields to the open-mic event.")  # ruff:ignore[print]
+    print("Added dynamic fields to the open-mic event.")
 
 
 if __name__ == "__main__":

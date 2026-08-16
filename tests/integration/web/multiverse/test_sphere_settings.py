@@ -9,9 +9,11 @@ from django.urls import reverse
 from PIL import Image as PILImage
 
 from tests.integration.conftest import PNG_BYTES
-from tests.integration.utils import assert_response
-
-PERMISSION_ERROR = "You don't have permission to access the sphere panel."
+from tests.integration.utils import assert_login_required, assert_response
+from tests.integration.web.multiverse.helpers import (
+    assert_not_a_sphere_manager,
+    sphere_settings_context,
+)
 
 SVG_BYTES = (
     b'<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10">'
@@ -32,21 +34,7 @@ GIF_BYTES = (
     b"\x02\x02D\x01\x00;"
 )
 
-TAB_URLS = {
-    "general": "/multiverse/panel/",
-    "connections": "/multiverse/panel/connections/",
-    "announcements": "/multiverse/panel/announcements/",
-    "mcp": "/multiverse/panel/mcp/",
-}
-GENERAL_PANEL_CONTEXT = {
-    "events": [],
-    "current_event": None,
-    "is_proposal_active": False,
-    "active_nav": "sphere-settings",
-    "active_tab": "general",
-    "tab_urls": TAB_URLS,
-    "form": ANY,
-}
+GENERAL_PANEL_CONTEXT = sphere_settings_context(active_tab="general") | {"form": ANY}
 
 
 class TestSphereSettingsPageView:
@@ -57,19 +45,12 @@ class TestSphereSettingsPageView:
     def test_get_redirects_anonymous_user_to_login(self, client):
         response = client.get(self.url)
 
-        assert_response(
-            response, HTTPStatus.FOUND, url=f"/crowd/login-required/?next={self.url}"
-        )
+        assert_login_required(response, self.url)
 
     def test_get_redirects_non_manager_user(self, authenticated_client):
         response = authenticated_client.get(self.url)
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, PERMISSION_ERROR)],
-            url="/",
-        )
+        assert_not_a_sphere_manager(response)
 
     @pytest.mark.usefixtures("panel_access_user")
     def test_get_ok_for_manager_and_superuser(self, authenticated_client):
@@ -338,11 +319,6 @@ class TestSphereSettingsPageView:
             self.url, data={"allow_facilitator_session_edit": "on"}
         )
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, PERMISSION_ERROR)],
-            url="/",
-        )
+        assert_not_a_sphere_manager(response)
         sphere.refresh_from_db()
         assert sphere.allow_facilitator_session_edit is True

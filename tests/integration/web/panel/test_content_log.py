@@ -1,6 +1,5 @@
 from http import HTTPStatus
 
-from django.contrib import messages
 from django.urls import reverse
 
 from ludamus.links.db.django.models import (
@@ -8,13 +7,14 @@ from ludamus.links.db.django.models import (
     Facilitator,
     FacilitatorChangeLog,
     PersonalDataField,
-    SessionField,
-    SessionFieldRequirement,
 )
 from tests.integration.conftest import SessionFactory
-from tests.integration.utils import assert_response
-
-PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
+from tests.integration.utils import assert_login_required
+from tests.integration.web.panel.helpers import (
+    assert_event_not_found,
+    assert_not_a_manager,
+    make_optional_session_field,
+)
 
 
 def _make_session(proposal_category):
@@ -43,41 +43,22 @@ class TestContentLogPageView:
 
         response = client.get(url)
 
-        assert_response(
-            response, HTTPStatus.FOUND, url=f"/crowd/login-required/?next={url}"
-        )
+        assert_login_required(response, url)
 
     def test_redirects_non_manager_user(self, authenticated_client, event):
         response = authenticated_client.get(self.get_url(event))
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, PERMISSION_ERROR)],
-            url="/",
-        )
+        assert_not_a_manager(response)
 
-    def test_redirects_on_invalid_event_slug(
-        self, authenticated_client, active_user, sphere
-    ):
-        sphere.managers.add(active_user)
+    def test_redirects_on_invalid_event_slug(self, panel_client):
         url = reverse("panel:content-log", kwargs={"slug": "nonexistent"})
 
-        response = authenticated_client.get(url)
+        response = panel_client.get(url)
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Event not found.")],
-            url="/panel/",
-        )
+        assert_event_not_found(response)
 
-    def test_ok_renders_empty_log(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
-
-        response = authenticated_client.get(self.get_url(event))
+    def test_ok_renders_empty_log(self, panel_client, event):
+        response = panel_client.get(self.get_url(event))
 
         assert response.status_code == HTTPStatus.OK
         assert response.templates[0].name == "panel/content-log.html"
@@ -89,12 +70,11 @@ class TestContentLogRecordsEdits:
     """A proposal edit through the panel writes a content-change-log row."""
 
     def test_editing_a_proposal_records_core_field_changes(
-        self, authenticated_client, active_user, sphere, event, proposal_category
+        self, panel_client, active_user, event, proposal_category
     ):
-        sphere.managers.add(active_user)
         session = _make_session(proposal_category)
 
-        authenticated_client.post(
+        panel_client.post(
             reverse(
                 "panel:proposal-edit",
                 kwargs={"slug": event.slug, "proposal_id": session.pk},
@@ -119,15 +99,14 @@ class TestContentLogRecordsEdits:
         } in log.changes
 
     def test_editing_facilitators_records_m2m_change(
-        self, authenticated_client, active_user, sphere, event, proposal_category
+        self, panel_client, event, proposal_category
     ):
-        sphere.managers.add(active_user)
         session = _make_session(proposal_category)
         alice = Facilitator.objects.create(
             event=event, display_name="Alice", slug="alice", user=None
         )
 
-        authenticated_client.post(
+        panel_client.post(
             reverse(
                 "panel:proposal-edit",
                 kwargs={"slug": event.slug, "proposal_id": session.pk},
@@ -152,16 +131,15 @@ class TestContentLogRecordsEdits:
         } in log.changes
 
     def test_resubmitting_same_facilitators_logs_no_m2m_change(
-        self, authenticated_client, active_user, sphere, event, proposal_category
+        self, panel_client, event, proposal_category
     ):
-        sphere.managers.add(active_user)
         session = _make_session(proposal_category)
         alice = Facilitator.objects.create(
             event=event, display_name="Alice", slug="alice", user=None
         )
         session.facilitators.add(alice)
 
-        authenticated_client.post(
+        panel_client.post(
             reverse(
                 "panel:proposal-edit",
                 kwargs={"slug": event.slug, "proposal_id": session.pk},
@@ -181,9 +159,8 @@ class TestContentLogRecordsEdits:
         assert not any(c["field"] == "facilitators" for c in log.changes)
 
     def test_facilitator_edit_logs_accreditation_and_personal_data(
-        self, authenticated_client, active_user, sphere, event
+        self, panel_client, active_user, event
     ):
-        sphere.managers.add(active_user)
         facilitator = Facilitator.objects.create(
             event=event,
             display_name="Alice",
@@ -200,7 +177,7 @@ class TestContentLogRecordsEdits:
             order=0,
         )
 
-        authenticated_client.post(
+        panel_client.post(
             reverse(
                 "panel:facilitator-edit",
                 kwargs={"slug": event.slug, "facilitator_slug": "alice"},
@@ -223,10 +200,7 @@ class TestContentLogRecordsEdits:
             "new": True,
         } in log.changes
 
-    def test_facilitator_changes_render_on_content_log_page(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_facilitator_changes_render_on_content_log_page(self, panel_client, event):
         facilitator = Facilitator.objects.create(
             event=event,
             display_name="Alice",
@@ -235,14 +209,14 @@ class TestContentLogRecordsEdits:
             accreditation_type="none",
         )
 
-        authenticated_client.post(
+        panel_client.post(
             reverse(
                 "panel:facilitator-edit",
                 kwargs={"slug": event.slug, "facilitator_slug": "alice"},
             ),
             data={"accreditation_type": "honorary"},
         )
-        response = authenticated_client.get(
+        response = panel_client.get(
             reverse("panel:content-log", kwargs={"slug": event.slug})
         )
 
@@ -252,9 +226,8 @@ class TestContentLogRecordsEdits:
         assert "Facilitator changes" in response.content.decode()
 
     def test_facilitator_personal_data_field_name_renders_on_log_page(
-        self, authenticated_client, active_user, sphere, event
+        self, panel_client, event
     ):
-        sphere.managers.add(active_user)
         Facilitator.objects.create(
             event=event,
             display_name="Alice",
@@ -271,14 +244,14 @@ class TestContentLogRecordsEdits:
             order=0,
         )
 
-        authenticated_client.post(
+        panel_client.post(
             reverse(
                 "panel:facilitator-edit",
                 kwargs={"slug": event.slug, "facilitator_slug": "alice"},
             ),
             data={"accreditation_type": "none", "personal_vegan": "true"},
         )
-        response = authenticated_client.get(
+        response = panel_client.get(
             reverse("panel:content-log", kwargs={"slug": event.slug})
         )
 
@@ -286,23 +259,12 @@ class TestContentLogRecordsEdits:
         assert "Vegan" in response.content.decode()
 
     def test_editing_a_session_field_records_field_change(
-        self, authenticated_client, active_user, sphere, event, proposal_category
+        self, panel_client, event, proposal_category
     ):
-        sphere.managers.add(active_user)
         session = _make_session(proposal_category)
-        field = SessionField.objects.create(
-            event=event,
-            name="System",
-            question="Which system?",
-            slug="system",
-            field_type="text",
-            order=0,
-        )
-        SessionFieldRequirement.objects.create(
-            category=proposal_category, field=field, is_required=False, order=0
-        )
+        field = make_optional_session_field(event=event, category=proposal_category)
 
-        authenticated_client.post(
+        panel_client.post(
             reverse(
                 "panel:proposal-edit",
                 kwargs={"slug": event.slug, "proposal_id": session.pk},
@@ -325,13 +287,10 @@ class TestContentLogRecordsEdits:
             "new": "Pathfinder",
         } in log.changes
 
-    def test_no_change_writes_no_log(
-        self, authenticated_client, active_user, sphere, event, proposal_category
-    ):
-        sphere.managers.add(active_user)
+    def test_no_change_writes_no_log(self, panel_client, event, proposal_category):
         session = _make_session(proposal_category)
 
-        authenticated_client.post(
+        panel_client.post(
             reverse(
                 "panel:proposal-edit",
                 kwargs={"slug": event.slug, "proposal_id": session.pk},
@@ -351,12 +310,11 @@ class TestContentLogRecordsEdits:
         assert not ContentChangeLog.objects.filter(session=session).exists()
 
     def test_edit_appears_in_log_view(
-        self, authenticated_client, active_user, sphere, event, proposal_category
+        self, panel_client, active_user, event, proposal_category
     ):
-        sphere.managers.add(active_user)
         session = _make_session(proposal_category)
 
-        authenticated_client.post(
+        panel_client.post(
             reverse(
                 "panel:proposal-edit",
                 kwargs={"slug": event.slug, "proposal_id": session.pk},
@@ -370,7 +328,7 @@ class TestContentLogRecordsEdits:
             },
         )
 
-        response = authenticated_client.get(
+        response = panel_client.get(
             reverse("panel:content-log", kwargs={"slug": event.slug})
         )
 

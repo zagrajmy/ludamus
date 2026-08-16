@@ -8,7 +8,13 @@ from ludamus.pacts.crowd import UserType
 from ludamus.pacts.party import PartyConsentMode, PartyMembershipStatus
 from tests.integration.conftest import UserFactory, sponsor_user
 from tests.integration.utils import assert_response
-from tests.integration.web.crowd.test_profile_parties_page import URL, _detail_url
+from tests.integration.web.crowd.test_party_detail_page import _context
+from tests.integration.web.crowd.test_profile_parties_page import (
+    URL,
+    _detail_url,
+    _member_dto,
+    _party_dto,
+)
 
 
 class TestPartyMemberRemoveActionView:
@@ -276,12 +282,19 @@ class TestPartyConsentActionView:
 
     def test_page_renders_toggle_on_own_row(self, authenticated_client, active_user):
         party, _ = self._party_with_me_as_member(active_user)
+        leader = party.leader
         response = authenticated_client.get(_detail_url(party))
 
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data=response.context_data,
+            context_data=_context(
+                _party_dto(
+                    party,
+                    active_user,
+                    [_member_dto(leader, party), _member_dto(active_user, party)],
+                )
+            ),
             template_name="crowd/user/party_detail.html",
             contains="Allow direct enrollment",
         )

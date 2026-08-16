@@ -41,16 +41,22 @@ if TYPE_CHECKING:
         WaitlistPromotionServiceProtocol,
     )
     from ludamus.pacts.event import (
+        EventConfirmationsServiceProtocol,
         EventPanelServiceProtocol,
         PanelTimeSlotsServiceProtocol,
     )
     from ludamus.pacts.event_settings import EventSettingsServiceProtocol
+    from ludamus.pacts.guild import GuildServiceProtocol
     from ludamus.pacts.multiverse import (
         AnnouncementsServiceProtocol,
         ConnectionsServiceProtocol,
         EventsServiceProtocol,
         SitesServiceProtocol,
         SpherePanelServiceProtocol,
+    )
+    from ludamus.pacts.panel import (
+        FacilitatorPanelServiceProtocol,
+        ProposalPanelServiceProtocol,
     )
     from ludamus.pacts.party import PartyServiceProtocol
     from ludamus.pacts.printing import (
@@ -62,7 +68,6 @@ if TYPE_CHECKING:
     from ludamus.pacts.submissions import (
         CFPPersonalDataFieldServiceProtocol,
         CFPSessionFieldServiceProtocol,
-        FacilitatorPanelServiceProtocol,
         ImportFieldLayoutServiceProtocol,
         ImportLogServiceProtocol,
         PersonalDataFieldValueServiceProtocol,
@@ -111,6 +116,8 @@ class ServicesProtocol(Protocol):
     @property
     def companions(self) -> CompanionsServiceProtocol: ...
     @property
+    def guilds(self) -> GuildServiceProtocol: ...
+    @property
     def parties(self) -> PartyServiceProtocol: ...
     @property
     def party_session_history(self) -> PartySessionHistoryServiceProtocol: ...
@@ -122,6 +129,8 @@ class ServicesProtocol(Protocol):
     def events(self) -> EventsServiceProtocol: ...
     @property
     def event_panel(self) -> EventPanelServiceProtocol: ...
+    @property
+    def confirmations(self) -> EventConfirmationsServiceProtocol: ...
     @property
     def event_settings(self) -> EventSettingsServiceProtocol: ...
     @property
@@ -140,6 +149,8 @@ class ServicesProtocol(Protocol):
     def session_content_edit(self) -> SessionContentEditServiceProtocol: ...
     @property
     def session_deletion(self) -> SessionDeletionServiceProtocol: ...
+    @property
+    def proposal_panel(self) -> ProposalPanelServiceProtocol: ...
     @property
     def proposal_status(self) -> ProposalStatusServiceProtocol: ...
     @property
