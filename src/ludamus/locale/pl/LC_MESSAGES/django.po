@@ -794,8 +794,8 @@ msgstr "Maks. uczestników"
 
 #: src/ludamus/gates/web/django/chronology/forms.py
 #: src/ludamus/gates/web/django/forms.py
-msgid "Empty or 0 = no limit"
-msgstr "Puste pole lub 0 = bez limitu"
+msgid "Empty or 0 = no enrollment"
+msgstr "Puste pole lub 0 = bez zapisów"
 
 #: src/ludamus/gates/web/django/chronology/forms.py
 #: src/ludamus/gates/web/django/chronology/panel/views/columns.py
@@ -3748,6 +3748,17 @@ msgstr "Przejdź do %(day)s %(time)s"
 msgid "Open details for %(title)s"
 msgstr "Otwórz szczegóły %(title)s"
 
+#: src/ludamus/templates/chronology/_enrollment_badge.html
+#: src/ludamus/templates/chronology/enroll_select.html
+#: src/ludamus/templates/panel/_event_settings_tabs.html
+#: src/ludamus/templates/panel/enrollment-window-form.html
+msgid "Enrollment"
+msgstr "Zapisy"
+
+#: src/ludamus/templates/chronology/_enrollment_badge.html
+msgid "Enrollment required"
+msgstr "Wymagane zapisy"
+
 #: src/ludamus/templates/chronology/_pending_proposals.html
 msgid "Pending Proposals"
 msgstr "Oczekujące zgłoszenia"
@@ -3847,11 +3858,6 @@ msgstr "oczekuje"
 
 #: src/ludamus/templates/chronology/_session_availability.html
 #: src/ludamus/templates/chronology/_session_card.html
-msgid "Open"
-msgstr "Otwarte"
-
-#: src/ludamus/templates/chronology/_session_availability.html
-#: src/ludamus/templates/chronology/_session_card.html
 #, python-format
 msgid "%(counter)s spot left"
 msgid_plural "%(counter)s spots left"
@@ -3872,10 +3878,6 @@ msgstr[3] "%(counter)s zapisanych uczestników"
 #: src/ludamus/templates/chronology/_session_card.html
 msgid "Awaiting review"
 msgstr "Czeka na akceptację"
-
-#: src/ludamus/templates/chronology/_session_card.html
-msgid "Not Available"
-msgstr "Niedostępne"
 
 #: src/ludamus/templates/chronology/accept_proposal.html
 msgid "Accept Proposal"
@@ -4011,12 +4013,6 @@ msgid "Enroll Now"
 msgstr "Zapisz się teraz"
 
 #: src/ludamus/templates/chronology/enroll_select.html
-#: src/ludamus/templates/panel/_event_settings_tabs.html
-#: src/ludamus/templates/panel/enrollment-window-form.html
-msgid "Enrollment"
-msgstr "Zapisy"
-
-#: src/ludamus/templates/chronology/enroll_select.html
 msgid "Players you shadowbanned are already signed up here"
 msgstr "Gracze, których cicho zbanowałeś, są już tutaj zapisani"
 
@@ -4047,7 +4043,7 @@ msgid "Who should be in this session?"
 msgstr "Kto ma być w tym punkcie programu?"
 
 #: src/ludamus/templates/chronology/enroll_select.html
-#: src/ludamus/templates/chronology/parts/session-modal.html
+#: src/ludamus/templates/chronology/parts/_session_participants_panel.html
 msgid "You"
 msgstr "Ty"
 
@@ -4281,6 +4277,10 @@ msgstr "Filtry"
 #: src/ludamus/templates/panel/proposals.html
 msgid "All statuses"
 msgstr "Wszystkie statusy"
+
+#: src/ludamus/templates/chronology/event.html
+msgid "Takes enrollment"
+msgstr "Z zapisami"
 
 #: src/ludamus/templates/chronology/event.html
 msgid "Available spots"
@@ -4562,6 +4562,26 @@ msgstr "Edytuj integrację"
 msgid "Save"
 msgstr "Zapisz"
 
+#: src/ludamus/templates/chronology/parts/_session_participants_panel.html
+msgid "Enrolled"
+msgstr "Zapisany"
+
+#: src/ludamus/templates/chronology/parts/_session_participants_panel.html
+msgid "Waiting List"
+msgstr "Lista oczekujących"
+
+#: src/ludamus/templates/chronology/parts/_session_participants_panel.html
+msgid "Waiting list position"
+msgstr "Pozycja na liście oczekujących"
+
+#: src/ludamus/templates/chronology/parts/_session_participants_panel.html
+msgid "No one on the waiting list."
+msgstr "Nikt nie czeka na liście oczekujących."
+
+#: src/ludamus/templates/chronology/parts/_session_participants_panel.html
+msgid "No participants enrolled yet."
+msgstr "Brak zapisanych uczestników."
+
 #: src/ludamus/templates/chronology/parts/print_header.html
 msgid "QR code linking to the full schedule"
 msgstr "Kod QR z odnośnikiem do pełnego harmonogramu"
@@ -4603,26 +4623,6 @@ msgstr "Jesteś zapisany na ten punkt programu"
 #: src/ludamus/templates/chronology/parts/session-modal.html
 msgid "You are on the waiting list"
 msgstr "Jesteś na liście oczekujących"
-
-#: src/ludamus/templates/chronology/parts/session-modal.html
-msgid "Enrolled"
-msgstr "Zapisany"
-
-#: src/ludamus/templates/chronology/parts/session-modal.html
-msgid "Waiting List"
-msgstr "Lista oczekujących"
-
-#: src/ludamus/templates/chronology/parts/session-modal.html
-msgid "Waiting list position"
-msgstr "Pozycja na liście oczekujących"
-
-#: src/ludamus/templates/chronology/parts/session-modal.html
-msgid "No one on the waiting list."
-msgstr "Nikt nie czeka na liście oczekujących."
-
-#: src/ludamus/templates/chronology/parts/session-modal.html
-msgid "No participants enrolled yet."
-msgstr "Brak zapisanych uczestników."
 
 #: src/ludamus/templates/chronology/parts/session-modal.html
 msgid "Edit session"
@@ -9198,34 +9198,17 @@ msgstr "Temat"
 msgid "No emails captured yet."
 msgstr "Brak przechwyconych e-maili."
 
-#~ msgid "Facilitator flagged for deletion."
-#~ msgstr "Twórca programu oznaczony do usunięcia."
+#~ msgid "Open"
+#~ msgstr "Otwarte"
 
-#~ msgid "Facilitator unflagged."
-#~ msgstr "Usunięto oznaczenie do usunięcia."
+#~ msgid "Not Available"
+#~ msgstr "Niedostępne"
 
-#~ msgid "Flagged for deletion only"
-#~ msgstr "Tylko oznaczeni do usunięcia"
+#~ msgid "Empty or 0 = no limit"
+#~ msgstr "Puste pole lub 0 = bez limitu"
 
-#~ msgid "Flag for deletion"
-#~ msgstr "Oznacz do usunięcia"
-
-#~ msgid "Remove flag"
-#~ msgstr "Usuń oznaczenie"
-
-#~ msgid "Flagged"
-#~ msgstr "Oznaczony"
-
-#~ msgid "Remove deletion flag"
-#~ msgstr "Usuń oznaczenie do usunięcia"
-
-#, python-format
-#~ msgid "Remove deletion flag from %(name)s"
-#~ msgstr "Usuń oznaczenie do usunięcia: %(name)s"
-
-#, python-format
-#~ msgid "Flag %(name)s for deletion"
-#~ msgstr "Oznacz do usunięcia: %(name)s"
+#~ msgid "Deleted only"
+#~ msgstr "Tylko usunięci"
 
 #~ msgid ""
 #~ "Map each source answer to an ISO 8601 duration (e.g. PT1H30M for 1 h 30 "
@@ -9262,6 +9245,47 @@ msgstr "Brak przechwyconych e-maili."
 
 #~ msgid "Nothing to filter by yet."
 #~ msgstr "Nie ma jeszcze czego filtrować."
+
+#, python-format
+#~ msgid "%(count)d facilitator runs sessions and was kept."
+#~ msgid_plural "%(count)d facilitators run sessions and were kept."
+#~ msgstr[0] ""
+#~ "%(count)d twórca programu prowadzi punkty programu i został zachowany."
+#~ msgstr[1] ""
+#~ "%(count)d twórców programu prowadzi punkty programu i zostało zachowanych."
+#~ msgstr[2] ""
+#~ "%(count)d twórców programu prowadzi punkty programu i zostało zachowanych."
+#~ msgstr[3] ""
+#~ "%(count)d twórców programu prowadzi punkty programu i zostało zachowanych."
+
+#~ msgid "Facilitator flagged for deletion."
+#~ msgstr "Twórca programu oznaczony do usunięcia."
+
+#~ msgid "Facilitator unflagged."
+#~ msgstr "Usunięto oznaczenie do usunięcia."
+
+#~ msgid "Flagged for deletion only"
+#~ msgstr "Tylko oznaczeni do usunięcia"
+
+#~ msgid "Flag for deletion"
+#~ msgstr "Oznacz do usunięcia"
+
+#~ msgid "Remove flag"
+#~ msgstr "Usuń oznaczenie"
+
+#~ msgid "Flagged"
+#~ msgstr "Oznaczony"
+
+#~ msgid "Remove deletion flag"
+#~ msgstr "Usuń oznaczenie do usunięcia"
+
+#, python-format
+#~ msgid "Remove deletion flag from %(name)s"
+#~ msgstr "Usuń oznaczenie do usunięcia: %(name)s"
+
+#, python-format
+#~ msgid "Flag %(name)s for deletion"
+#~ msgstr "Oznacz do usunięcia: %(name)s"
 
 #, python-format
 #~ msgid "%(scheduled)s scheduled, %(pending)s pending"
@@ -9363,10 +9387,6 @@ msgstr "Brak przechwyconych e-maili."
 #~ msgid "Select all"
 #~ msgstr "Zaznacz wszystkie"
 
-#~ msgid "The kept facilitator receives all sessions from the others."
-#~ msgstr ""
-#~ "Zachowany twórca programu przejmuje wszystkie punkty programu pozostałych."
-
 #~ msgid "Keep"
 #~ msgstr "Zachowaj"
 
@@ -9394,9 +9414,6 @@ msgstr "Brak przechwyconych e-maili."
 
 #~ msgid "Shown on public session card"
 #~ msgstr "Widoczne na publicznej karcie punktu programu"
-
-#~ msgid "Facilitator released."
-#~ msgstr "Twórca programu zwolniony."
 
 #~ msgid "Only this facilitator's organizer can release it."
 #~ msgstr "Tylko opiekun tego twórcy programu może go zwolnić."
@@ -9513,17 +9530,9 @@ msgstr "Brak przechwyconych e-maili."
 #~ msgid "Session deleted."
 #~ msgstr "Punkt programu został usunięty."
 
-#~ msgid "Deleted only"
-#~ msgstr "Tylko usunięci"
+#~ msgid "The kept facilitator receives all sessions from the others."
+#~ msgstr ""
+#~ "Zachowany twórca programu przejmuje wszystkie punkty programu pozostałych."
 
-#, python-format
-#~ msgid "%(count)d facilitator runs sessions and was kept."
-#~ msgid_plural "%(count)d facilitators run sessions and were kept."
-#~ msgstr[0] ""
-#~ "%(count)d twórca programu prowadzi punkty programu i został zachowany."
-#~ msgstr[1] ""
-#~ "%(count)d twórców programu prowadzi punkty programu i zostało zachowanych."
-#~ msgstr[2] ""
-#~ "%(count)d twórców programu prowadzi punkty programu i zostało zachowanych."
-#~ msgstr[3] ""
-#~ "%(count)d twórców programu prowadzi punkty programu i zostało zachowanych."
+#~ msgid "Facilitator released."
+#~ msgstr "Twórca programu zwolniony."
