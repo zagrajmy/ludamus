@@ -23,6 +23,13 @@ if [ -z "$(git ls-files --unmerged -- "$po")" ]; then
   echo "ERROR: $po is not mid-merge — nothing to resolve." >&2
   exit 1
 fi
+# Re-extraction reads the working tree, so any other unresolved conflict
+# would leak <<<<<<< markers into the extracted strings.
+if git diff --name-only --diff-filter=U | grep -qvFx "$po"; then
+  echo "ERROR: resolve the other conflicted files first, then re-run:" >&2
+  git diff --name-only --diff-filter=U | grep -vFx "$po" >&2
+  exit 1
+fi
 sides="$(mktemp -d)"
 git show ":2:$po" > "$sides/ours.po"
 git show ":3:$po" > "$sides/theirs.po"
@@ -32,18 +39,15 @@ sed -i.bak '/^"POT-Creation-Date:/d' "$sides/ours.po" "$sides/theirs.po"
 # kept between "#-#-#-#-#  ours.po/theirs.po  #-#-#-#-#" markers.
 msgcat -o "$po" "$sides/ours.po" "$sides/theirs.po"
 rm -rf "$sides"
-# Re-extract to prune entries whose strings are gone from the merged source
-# and to restore canonical ordering.
-aubr varlock django-admin makemessages -l pl --add-location=file
-sed -i.bak '/^"POT-Creation-Date:/d' "$po"
-rm -f "$po.bak"
+# Re-extract to retire entries whose strings are gone from the merged
+# source and to restore canonical ordering.
+mise run messages
 # Detect via msgfmt statistics, not by grepping msgid lines — a wrapped
 # msgid starts with the same 'msgid ""' as the header and a grep filter
-# would miss it. Capturing stats (not piping) lets set -e abort on a hard
-# msgfmt failure. The extra marker grep covers what the stats can't see:
+# would miss it. The extra marker grep covers what the stats can't see:
 # a diverged entry that went obsolete after re-extraction keeps its
 # #-#-#-#-# markers but no longer counts as a fuzzy translation.
-stats="$(msgfmt --statistics -o /dev/null "$po" 2>&1)"
+stats="$(LC_ALL=C msgfmt --statistics -o /dev/null "$po" 2>&1)" || { printf '%s\n' "$stats" >&2; exit 1; }
 echo "$stats"
 if printf '%s' "$stats" | grep -q fuzzy || grep -q '#-#-#-#-#' "$po"; then
   echo "Both branches translated some entries differently. Keep one variant" >&2
@@ -99,7 +103,7 @@ if [ -n "$drift" ]; then
   exit 1
 fi
 # 2. Nothing ships untranslated: msgfmt reports any fuzzy/untranslated entries.
-stats=$(msgfmt --check --statistics -o /dev/null "$po" 2>&1)
+stats=$(LC_ALL=C msgfmt --check --statistics -o /dev/null "$po" 2>&1) || { printf '%s\n' "$stats" >&2; exit 1; }
 echo "$stats"
 if printf '%s' "$stats" | grep -qE 'fuzzy|untranslated'; then
   echo "ERROR: $po has fuzzy/untranslated entries — translate them and commit:" >&2
