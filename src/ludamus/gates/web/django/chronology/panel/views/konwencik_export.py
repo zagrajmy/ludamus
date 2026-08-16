@@ -31,6 +31,7 @@ if TYPE_CHECKING:
     from django.forms.formsets import BaseFormSet
     from django.http import HttpResponse, QueryDict
 
+    from ludamus.gates.web.django.event.panel.views.base import EventPageContext
     from ludamus.pacts.konwencik import (
         KonwencikLastRun,
         KonwencikNamedItemDTO,
@@ -216,7 +217,7 @@ def _settings_from(
 
 
 class _Loaded(NamedTuple):
-    page: dict[str, Any]
+    page: EventPageContext
     event_pk: int
     settings: KonwencikSettingsContext
 
@@ -263,9 +264,9 @@ class KonwencikExportSettingsPageView(PanelAccessMixin, EventContextMixin, View)
     def _load(self, slug: str, pk: int) -> _Loaded | HttpResponse:
         # The redirect is a return value rather than an exception because both
         # verbs answer the same two ways: no such event, or no such export.
-        context, current_event = self.get_event_context(slug)
-        if current_event is None:
+        if (context := self.get_typed_event_context(slug)) is None:
             return redirect("panel:index")
+        current_event = context["current_event"]
         try:
             settings_context = (
                 self.request.services.konwencik_export.get_settings_context(
@@ -290,16 +291,16 @@ class KonwencikExportSettingsPageView(PanelAccessMixin, EventContextMixin, View)
         colors: BaseFormSet[KonwencikColorForm],
         overrides: KonwencikOverridesForm,
     ) -> HttpResponse:
-        context = loaded.page
-        context.update(
-            _page_context(
+        context = {
+            **loaded.page,
+            **_page_context(
                 settings_context=loaded.settings,
                 pk=pk,
                 icons=icons,
                 colors=colors,
                 overrides=overrides,
-            )
-        )
+            ),
+        }
         return TemplateResponse(
             self.request, "chronology/panel/konwencik/settings.html", context
         )

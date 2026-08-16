@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, TypedDict
 
 from django.contrib import messages
 from django.contrib.auth.mixins import UserPassesTestMixin
@@ -29,24 +29,36 @@ class EventPanelAccessMixin(PanelPermissionResponseMixin, UserPassesTestMixin):
         return has_panel_access(self.request)
 
 
+class EventPageContext(TypedDict):
+    events: list[EventDTO]
+    current_event: EventDTO
+    is_proposal_active: bool
+    stats: dict[str, int]
+
+
 class EventContextMixin:
     request: EventPanelRequest
 
-    def get_event_context(self, slug: str) -> tuple[dict[str, object], EventDTO | None]:
+    def get_typed_event_context(self, slug: str) -> EventPageContext | None:
         try:
             page = self.request.services.event_panel.load_context(
                 self.request.context.current_sphere_id, slug
             )
         except NotFoundError:
             messages.error(self.request, _("Event not found."))
-            return {}, None
+            return None
 
         return {
             "events": page.events,
             "current_event": page.current_event,
             "is_proposal_active": page.is_proposal_active,
             "stats": page.stats.model_dump(),
-        }, page.current_event
+        }
+
+    def get_event_context(self, slug: str) -> tuple[dict[str, object], EventDTO | None]:
+        if (context := self.get_typed_event_context(slug)) is None:
+            return {}, None
+        return dict(context), context["current_event"]
 
     def require_event_context(self, slug: str) -> tuple[dict[str, object], EventDTO]:
         context, current_event = self.get_event_context(slug)
