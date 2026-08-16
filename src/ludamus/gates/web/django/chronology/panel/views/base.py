@@ -150,6 +150,7 @@ def facilitator_tab_urls(slug: str) -> dict[str, str]:
         "list": reverse("panel:facilitators", kwargs={"slug": slug}),
         "merge": reverse("panel:facilitator-merge", kwargs={"slug": slug}),
         "columns": reverse("panel:facilitator-columns", kwargs={"slug": slug}),
+        "bin": reverse("panel:facilitator-bin", kwargs={"slug": slug}),
     }
 
 

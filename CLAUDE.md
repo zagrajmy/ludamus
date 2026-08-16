@@ -39,9 +39,9 @@ happy path + one edge case tested.
 
 ## Debt metrics (tingle)
 
-`tingle.toml` counts debt (suppression comments, `Any`, `request.di.uow`,
-legacy LOC, …). `tingle stat --diff` / `tingle report --diff` show what your
-branch adds vs `main`.
+`tingle.toml` counts debt (suppression comments, `Any`, files still touching
+`request.di.uow`, legacy and old-subdomain files, …). `tingle stat --diff` /
+`tingle report --diff` show what your branch adds vs `main`.
 
 `tingle check` (in `mise run lint` / `check`) fails when the branch's metrics
 grow on net — paying debt in one offsets taking it on in another. Read the
@@ -119,6 +119,9 @@ has the per-file recipe. New code must use `request.services`; never extend the
   it. The allowed facade exceptions are listed in the `glimpse` skill.
 
 ## Translation conventions (Polish)
+
+- `django.po` conflict? `mise run messages-resolve`; hand-fix only what it
+  flags.
 
 - **session** → "punkt programu" (except in "RPG session" → "sesja RPG")
 - **track** → "blok" or "blok programowy"
