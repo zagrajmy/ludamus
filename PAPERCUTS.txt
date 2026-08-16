@@ -213,6 +213,11 @@ If you fix a papercut, remove it.
 - 2026-08-12: Ran 'mise run test:py tests/unit/test_chronology_mills.py'
   expecting a targeted run; the task ignores trailing path args and ran all 3990
   tests (4 min). 'mise run test:unit -- -k Name' works instead.
+- 2026-08-16: aube install fails in the agent sandbox: aube-workspace.yaml
+  paranoid:true makes advisoryCheck required, and api.osv.dev is not on the
+  sandbox network allowlist, so every install dies with
+  ERR_AUBE_ADVISORY_CHECK_FAILED after wiping node_modules. Had to hand the
+  install back to the user.
 - 2026-08-16: mise run shots breaks on URLs with a query string: mise quotes the
   arg, so the task builds http://localhost:8000'/path/?view=rooms' and curl
   reports it unreachable. Had to call aubx agent-browser directly (which then
