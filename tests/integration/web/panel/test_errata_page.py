@@ -138,6 +138,47 @@ class TestErrataPageView:
             },
         )
 
+    def test_an_announced_removal_shows_who_announced_it(
+        self, panel_client, event, active_user, session, room
+    ):
+        log = _log(
+            event,
+            session,
+            active_user,
+            ScheduleChangeAction.UNASSIGN,
+            old_space=room,
+            old_start_time=_WHEN,
+            acknowledged_by=active_user,
+            acknowledgement_time=_WHEN,
+        )
+
+        response = panel_client.get(self._url(event))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/errata.html",
+            context_data={
+                **panel_context(event, active_nav="errata", rooms_count=1),
+                "errata": [
+                    ErratumDTO(
+                        log_pks=[log.pk],
+                        kind=ErratumKind.REMOVED,
+                        session_id=session.pk,
+                        session_title=session.title,
+                        user_name=active_user.name,
+                        creation_time=log.creation_time,
+                        old_space_name="Room A",
+                        old_start_time=_WHEN,
+                        new_space_name=None,
+                        new_start_time=None,
+                        acknowledged_by_name=active_user.name,
+                    )
+                ],
+                "pending_count": 0,
+            },
+        )
+
     def test_the_two_rows_of_a_move_show_as_one_erratum(
         self, panel_client, event, active_user, session, room
     ):
@@ -273,6 +314,23 @@ class TestErratumAcknowledgeActionView:
             new_space=room,
             new_start_time=_WHEN,
         )
+
+    def test_unknown_event_reports_not_found(self, panel_client, pending):
+        response = panel_client.post(
+            reverse("panel:erratum-acknowledge", kwargs={"slug": "nope"}),
+            data={"log_pk": [pending.pk], "acknowledged": "1"},
+        )
+
+        assert_event_not_found(response)
+        pending.refresh_from_db()
+        assert pending.acknowledgement_time is None
+
+    def test_a_request_naming_no_row_is_refused(self, panel_client, event, pending):
+        response = panel_client.post(self._url(event), data={"acknowledged": "1"})
+
+        assert_response(response, HTTPStatus.UNPROCESSABLE_ENTITY)
+        pending.refresh_from_db()
+        assert pending.acknowledgement_time is None
 
     def test_manager_marks_a_change_announced(
         self, panel_client, event, pending, active_user
