@@ -23,6 +23,7 @@ from ludamus.pacts.tracks import DuplicateTrackNameError, TrackFormData
 if TYPE_CHECKING:
     from django.http import HttpResponse
 
+    from ludamus.gates.web.django.event.panel.views.base import PanelContext
     from ludamus.pacts import EventDTO
 
 
@@ -92,7 +93,7 @@ class TrackCreatePageView(PanelAccessMixin, EventContextMixin, View):
         return self._render_form(context=context, event_pk=current_event.pk, form=form)
 
     def _render_form(
-        self, *, context: dict[str, object], event_pk: int, form: TrackForm
+        self, *, context: PanelContext, event_pk: int, form: TrackForm
     ) -> HttpResponse:
         form_context = self.request.services.tracks_panel.get_form_context(
             event_pk=event_pk, sphere_id=self.request.context.current_sphere_id
@@ -155,7 +156,7 @@ class TrackEditPageView(PanelAccessMixin, EventContextMixin, View):
     def _saved_or_rerendered(
         self,
         *,
-        context: dict[str, object],
+        context: PanelContext,
         form: TrackForm,
         event: EventDTO,
         track_slug: str,
@@ -179,12 +180,7 @@ class TrackEditPageView(PanelAccessMixin, EventContextMixin, View):
         )
 
     def _rerender_edit_form(
-        self,
-        *,
-        context: dict[str, object],
-        form: TrackForm,
-        event_pk: int,
-        track_slug: str,
+        self, *, context: PanelContext, form: TrackForm, event_pk: int, track_slug: str
     ) -> HttpResponse:
         edit_context = self.request.services.tracks_panel.get_edit_form_context(
             event_pk=event_pk,
