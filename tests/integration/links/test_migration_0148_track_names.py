@@ -9,11 +9,11 @@ from ludamus.links.db.django.models import Track
 from tests.integration.conftest import EventFactory
 
 rename_duplicate_track_names = import_module(
-    "ludamus.links.db.django.migrations.0147_track_unique_name_per_event"
+    "ludamus.links.db.django.migrations.0148_track_unique_name_per_event"
 ).rename_duplicate_track_names
 
 
-def _apps_before_0147():
+def _apps_before_0148():
     return (
         MigrationLoader(connection)
         .project_state(("db_main", "0146_facilitator_is_collective"))
@@ -38,7 +38,7 @@ class TestRenameDuplicateTrackNames:
         third = Track.objects.create(event=event, name="RpG", slug="rpg-3")
 
         with caplog.at_level(logging.INFO):
-            rename_duplicate_track_names(_apps_before_0147(), None)
+            rename_duplicate_track_names(_apps_before_0148(), None)
 
         first.refresh_from_db()
         second.refresh_from_db()
@@ -46,14 +46,14 @@ class TestRenameDuplicateTrackNames:
         assert first.name == "RPG"
         assert second.name == "rpg (2)"
         assert third.name == "RpG (3)"
-        assert "0147: 2 tracks renamed" in caplog.text
+        assert "0148: 2 tracks renamed" in caplog.text
 
     def test_skips_counters_already_taken(self, event):
         Track.objects.create(event=event, name="RPG", slug="rpg")
         Track.objects.create(event=event, name="RPG (2)", slug="rpg-2")
         duplicate = Track.objects.create(event=event, name="rpg", slug="rpg-3")
 
-        rename_duplicate_track_names(_apps_before_0147(), None)
+        rename_duplicate_track_names(_apps_before_0148(), None)
 
         duplicate.refresh_from_db()
         assert duplicate.name == "rpg (3)"
@@ -63,7 +63,7 @@ class TestRenameDuplicateTrackNames:
         duplicate = Track.objects.create(event=event, name="rpg", slug="rpg-2")
         distinct = Track.objects.create(event=event, name="RPG (2)", slug="rpg-3")
 
-        rename_duplicate_track_names(_apps_before_0147(), None)
+        rename_duplicate_track_names(_apps_before_0148(), None)
 
         duplicate.refresh_from_db()
         distinct.refresh_from_db()
@@ -75,7 +75,7 @@ class TestRenameDuplicateTrackNames:
         Track.objects.create(event=event, name=long_name, slug="long")
         duplicate = Track.objects.create(event=event, name=long_name, slug="long-2")
 
-        rename_duplicate_track_names(_apps_before_0147(), None)
+        rename_duplicate_track_names(_apps_before_0148(), None)
 
         duplicate.refresh_from_db()
         assert duplicate.name == "a" * 251 + " (2)"
@@ -87,7 +87,7 @@ class TestRenameDuplicateTrackNames:
         elsewhere = Track.objects.create(event=other_event, name="Alpha", slug="alpha")
 
         with caplog.at_level(logging.INFO):
-            rename_duplicate_track_names(_apps_before_0147(), None)
+            rename_duplicate_track_names(_apps_before_0148(), None)
 
         alpha.refresh_from_db()
         beta.refresh_from_db()
@@ -95,4 +95,4 @@ class TestRenameDuplicateTrackNames:
         assert alpha.name == "Alpha"
         assert beta.name == "Beta"
         assert elsewhere.name == "Alpha"
-        assert "0147: 0 tracks renamed" in caplog.text
+        assert "0148: 0 tracks renamed" in caplog.text

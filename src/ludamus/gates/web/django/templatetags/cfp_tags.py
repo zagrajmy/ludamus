@@ -75,6 +75,7 @@ def content_field_label(field_key: str) -> str:
         "tracks": _("Tracks"),
         "time_slots": _("Time slots"),
         "accreditation_type": _("Accreditation type"),
+        "deleted": _("Deleted"),
         "internal_comment": _("Internal comment"),
         "is_collective": _("Runs program points in parallel"),
         "merged_from": _("Merged from"),

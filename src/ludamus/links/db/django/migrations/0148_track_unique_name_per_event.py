@@ -37,15 +37,15 @@ def rename_duplicate_track_names(apps, schema_editor):
             track.name = _free_name(old_name, taken | existing[track.event_id])
             track.save(update_fields=["name"])
             renamed += 1
-            logger.info("0147: track %s name %r -> %r", track.pk, old_name, track.name)
+            logger.info("0148: track %s name %r -> %r", track.pk, old_name, track.name)
         taken.add(track.name.lower())
 
-    logger.info("0147: %s tracks renamed", renamed)
+    logger.info("0148: %s tracks renamed", renamed)
 
 
 class Migration(migrations.Migration):
 
-    dependencies = [("db_main", "0146_facilitator_is_collective")]
+    dependencies = [("db_main", "0147_facilitator_flag_to_soft_delete")]
 
     operations = [
         migrations.RunPython(rename_duplicate_track_names, migrations.RunPython.noop),
