@@ -924,14 +924,14 @@ tomli = {version = ">=2.0.1", markers = "python_full_version < \"3.15.0\""}
 
 [[package]]
 name = "diff-cover"
-version = "10.4.2"
+version = "10.5.0"
 description = "Run coverage and linting reports on diffs"
 optional = false
 python-versions = ">=3.10"
 groups = ["dev"]
 files = [
-    {file = "diff_cover-10.4.2-py3-none-any.whl", hash = "sha256:dde8ffa4379e2e0e09f33a4bebd525fcbaca1d2fbd9669cff56c7dbc999f2284"},
-    {file = "diff_cover-10.4.2.tar.gz", hash = "sha256:cf96e907775f510c44972d9bc1f26ff12c66423c506b17f7008b0867594d0603"},
+    {file = "diff_cover-10.5.0-py3-none-any.whl", hash = "sha256:5619f924e838b8f8c4c7b243b32a6068d8c449c1766c6f6a1110b152195ed9b9"},
+    {file = "diff_cover-10.5.0.tar.gz", hash = "sha256:a1734543baaaa7d0860a6526016d487be24a0ffe9efb4eca0824c391d4a09d06"},
 ]
 
 [package.dependencies]
@@ -5174,4 +5174,4 @@ dev = ["doc8", "flake8", "flake8-import-order", "rstcheck[sphinx]", "ruff", "sph
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.14.0,<3.15"
-content-hash = "86c493e7d97008e4f2b12ed1239a249e545504557e483547b113eb15daae5aac"
+content-hash = "1466ae3048536e6e42fc7da9f0699b027bda66d0205585b81596b55f5923e403"
