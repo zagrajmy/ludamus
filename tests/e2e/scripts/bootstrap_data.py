@@ -193,6 +193,7 @@ def _create_session(
     description: str,
     start_offset: timedelta,
     duration_hours: int,
+    participants_limit: int = 24,
 ) -> Session:
     session = Session.objects.create(
         event=event,
@@ -200,7 +201,7 @@ def _create_session(
         title=title,
         slug=slug,
         description=description,
-        participants_limit=24,
+        participants_limit=participants_limit,
         min_age=10,
     )
     AgendaItem.objects.create(
@@ -841,6 +842,9 @@ def main() -> None:
         description="Collaborative narrative building with lightweight prompts.",
         start_offset=timedelta(hours=2),
         duration_hours=1,
+        # Drop-in: no sign-up, so the specs have a session the enrollment
+        # filter must exclude and whose modal shows no Participants tab.
+        participants_limit=0,
     )
 
     _create_session(

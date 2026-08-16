@@ -531,7 +531,7 @@ class TestSessionEnrollPageView:
         )
 
     @pytest.mark.usefixtures("enrollment_config")
-    def test_post_ok_unlimited_session(
+    def test_post_session_without_enrollment_refuses(
         self, staff_user, agenda_item, staff_client, session, event
     ):
         session.participants_limit = 0
@@ -544,15 +544,35 @@ class TestSessionEnrollPageView:
 
         assert_response(
             response,
-            HTTPStatus.FOUND,
-            messages=[(messages.SUCCESS, f"Enrolled: {staff_user.name}")],
-            url=reverse("web:chronology:event", kwargs={"slug": event.slug}),
+            HTTPStatus.OK,
+            messages=[
+                (
+                    messages.ERROR,
+                    f"{staff_user.name} cannot enroll: enrollment not available",
+                ),
+                (messages.WARNING, "Please review the enrollment options below."),
+            ],
+            context_data={
+                **party_context(),
+                "companions": [],
+                "session": agenda_item.session,
+                "event": event,
+                "shadowban_warnings": [],
+                "user_data": [
+                    SessionUserParticipationData(
+                        user=UserDTO.model_validate(staff_user),
+                        user_enrolled=False,
+                        user_waiting=False,
+                        has_time_conflict=False,
+                    )
+                ],
+                "form": ANY,
+            },
+            template_name="chronology/enroll_select.html",
         )
-        SessionParticipation.objects.get(
-            user=staff_user,
-            session=agenda_item.session,
-            status=SessionParticipationStatus.CONFIRMED,
-        )
+        assert not SessionParticipation.objects.filter(
+            user=staff_user, session=agenda_item.session
+        ).exists()
 
     @pytest.mark.usefixtures("enrollment_config")
     def test_post_cancel(self, active_user, agenda_item, authenticated_client, event):
@@ -2805,7 +2825,7 @@ class TestSeatProjection:
         )
 
     @pytest.mark.usefixtures("enrollment_config")
-    def test_unlimited_session_has_no_seat_counter(
+    def test_session_without_enrollment_has_no_seats(
         self, staff_user, agenda_item, staff_client
     ):
         session = agenda_item.session
@@ -2821,7 +2841,7 @@ class TestSeatProjection:
             context_data=enroll_context(
                 session=session, user_data=[participation_row(staff_user)]
             ),
-            not_contains="data-seats-left",
+            contains='data-seats-left="0"',
         )
 
     @pytest.mark.usefixtures("enrollment_config")

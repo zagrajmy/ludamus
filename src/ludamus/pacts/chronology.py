@@ -315,7 +315,6 @@ class SessionCardStatsDTO(BaseModel):
     is_full: bool
     is_enrollment_available: bool
     effective_participants_limit: int
-    full_participant_info: str
 
 
 class PartySessionHistoryDTO(SessionCardStatsDTO):

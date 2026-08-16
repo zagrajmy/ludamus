@@ -196,6 +196,13 @@ const initSessionFilters = (): void => {
 
             break;
           }
+          // Spans free and full sessions alike, so it cannot be one more
+          // mutually exclusive data-status value.
+          case "takes-enrollment": {
+            show &&= card.dataset.takesEnrollment === "true";
+
+            break;
+          }
           default: {
             show &&= card.dataset.status === statusValue;
           }

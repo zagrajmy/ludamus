@@ -154,6 +154,7 @@ class TestShadowbanPretendFull:
                 "data": modal_card,
                 "event": EventDTO.model_validate(event),
                 "event_banned": False,
+                "show_roster": True,
                 # The deniable card offers what a genuinely full session would.
                 "enroll_actions": EnrollActions(
                     submit_value="waitlist",
