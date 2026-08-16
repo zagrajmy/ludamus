@@ -1,4 +1,6 @@
 import math
+from collections import defaultdict
+from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING
 
 from ludamus.pacts import NotFoundError
@@ -16,7 +18,6 @@ from ludamus.pacts.submissions import AccreditationType
 
 if TYPE_CHECKING:
     from ludamus.pacts.discounts import (
-        AccreditationWriterProtocol,
         DiscountDTO,
         DiscountExportLabels,
         DiscountRepositoryProtocol,
@@ -27,7 +28,12 @@ if TYPE_CHECKING:
         ScheduledProgramRepositoryProtocol,
         SheetWriterProtocol,
     )
-    from ludamus.pacts.legacy import FacilitatorDTO, FacilitatorRepositoryProtocol
+    from ludamus.pacts.legacy import (
+        FacilitatorChangeLogData,
+        FacilitatorChangeLogRepositoryProtocol,
+        FacilitatorDTO,
+        FacilitatorRepositoryProtocol,
+    )
     from ludamus.pacts.multiverse import (
         ConnectionsRepositoryProtocol,
         DecryptorProtocol,
@@ -61,10 +67,6 @@ def _measure(*, rule: DiscountRuleDTO, load: FacilitatorScheduleRow) -> int:
     return math.ceil(load.minutes / MINUTES_PER_HOUR)
 
 
-def _rule_order(rule: DiscountRuleDTO) -> tuple[int, int]:
-    return rule.order, rule.pk
-
-
 def _first_match(
     rules: list[DiscountRuleDTO], load: FacilitatorScheduleRow
 ) -> DiscountRuleDTO | None:
@@ -95,6 +97,71 @@ def _rule_discount(*, facilitator_id: int, rule: DiscountRuleDTO) -> DiscountDat
     )
 
 
+@dataclass(frozen=True)
+class _DiscountWrite:
+    data: DiscountData
+    pk: int | None = None  # None: the facilitator holds no discount yet
+
+
+@dataclass(frozen=True)
+class _FacilitatorChange:
+    """What the sync decided for one facilitator, before anything is written."""
+
+    facilitator_id: int
+    accreditation_from: AccreditationType
+    accreditation_to: AccreditationType
+    # At most one of these: write the rule discount, withdraw the rule discount
+    # the rules no longer justify, or — both unset — leave the facilitator's
+    # discount alone, hand-assigned or absent.
+    write: _DiscountWrite | None = None
+    withdraw_pk: int | None = None
+
+    @property
+    def accreditation_moved(self) -> bool:
+        return self.accreditation_to is not self.accreditation_from
+
+
+def _plan(
+    *,
+    entry: DiscountRosterEntryDTO,
+    load: FacilitatorScheduleRow | None,
+    rules: list[DiscountRuleDTO],
+) -> _FacilitatorChange:
+    facilitator = entry.facilitator
+    current = AccreditationType(facilitator.accreditation_type)
+    target = _target_accreditation(current=current, scheduled=load is not None)
+    rule = (
+        _first_match(rules, load)
+        if load and target is AccreditationType.CREATOR
+        else None
+    )
+    held = entry.discount
+    change = _FacilitatorChange(
+        facilitator_id=facilitator.pk,
+        accreditation_from=current,
+        accreditation_to=target,
+    )
+    if rule is not None and (held is None or held.from_rules):
+        write = _DiscountWrite(
+            data=_rule_discount(facilitator_id=facilitator.pk, rule=rule),
+            pk=held.pk if held else None,
+        )
+        return replace(change, write=write)
+    if rule is None and held is not None and held.from_rules:
+        return replace(change, withdraw_pk=held.pk)
+    return change
+
+
+def _sync_result(changes: list[_FacilitatorChange]) -> DiscountSyncResultDTO:
+    moved = [change for change in changes if change.accreditation_moved]
+    return DiscountSyncResultDTO(
+        marked=sum(1 for c in moved if c.accreditation_to is AccreditationType.CREATOR),
+        unmarked=sum(1 for c in moved if c.accreditation_to is AccreditationType.NONE),
+        discounts_set=sum(1 for c in changes if c.write is not None),
+        discounts_cleared=sum(1 for c in changes if c.withdraw_pk is not None),
+    )
+
+
 class DiscountsService(DiscountsServiceProtocol):
     def __init__(
         self,
@@ -104,14 +171,14 @@ class DiscountsService(DiscountsServiceProtocol):
         facilitators: FacilitatorRepositoryProtocol,
         rules: DiscountRuleRepositoryProtocol,
         schedule: ScheduledProgramRepositoryProtocol,
-        accreditation: AccreditationWriterProtocol,
+        facilitator_change_logs: FacilitatorChangeLogRepositoryProtocol,
     ) -> None:
         self._transaction = transaction
         self._discounts = discounts
         self._facilitators = facilitators
         self._rules = rules
         self._schedule = schedule
-        self._accreditation = accreditation
+        self._facilitator_change_logs = facilitator_change_logs
 
     def list_roster(self, event_pk: int) -> list[DiscountRosterEntryDTO]:
         return _roster(
@@ -141,83 +208,69 @@ class DiscountsService(DiscountsServiceProtocol):
             return self._rules.delete(event_pk, pk)
 
     def apply_from_agenda(
-        self, *, event_pk: int, user_id: int | None = None
+        self, *, event_pk: int, user_id: int
     ) -> DiscountSyncResultDTO:
         """Mark scheduled facilitators as creators and apply the rule discounts."""
-        marked = unmarked = discounts_set = discounts_cleared = 0
         with self._transaction.atomic():
-            rules = sorted(self._rules.list_for_event(event_pk), key=_rule_order)
+            rules = self._rules.list_for_event(event_pk)
             loads = {
                 row.facilitator_id: row
                 for row in self._schedule.list_facilitator_schedule(event_pk)
             }
-            for entry in _roster(
-                discounts=self._discounts,
-                facilitators=self._facilitators,
-                event_pk=event_pk,
-            ):
-                facilitator = entry.facilitator
-                load = loads.get(facilitator.pk)
-                current = AccreditationType(facilitator.accreditation_type)
-                target = _target_accreditation(
-                    current=current, scheduled=load is not None
-                )
-                if target is not current:
-                    self._accreditation.set_accreditation(
-                        event_id=event_pk,
-                        facilitator_slug=facilitator.slug,
-                        accreditation_type=target.value,
-                        user_id=user_id,
-                    )
-                    if target is AccreditationType.CREATOR:
-                        marked += 1
-                    else:
-                        unmarked += 1
-                match = (
-                    _first_match(rules, load)
-                    if load and target is AccreditationType.CREATOR
-                    else None
-                )
-                discounts_set += self._apply_rule_discount(
+            changes = [
+                _plan(entry=entry, load=loads.get(entry.facilitator.pk), rules=rules)
+                for entry in _roster(
+                    discounts=self._discounts,
+                    facilitators=self._facilitators,
                     event_pk=event_pk,
-                    facilitator_id=facilitator.pk,
-                    current=entry.discount,
-                    rule=match,
                 )
-                discounts_cleared += self._clear_rule_discount(
-                    current=entry.discount, rule=match
-                )
-        return DiscountSyncResultDTO(
-            marked=marked,
-            unmarked=unmarked,
-            discounts_set=discounts_set,
-            discounts_cleared=discounts_cleared,
-        )
+            ]
+            self._write_accreditations(
+                event_pk=event_pk, changes=changes, user_id=user_id
+            )
+            for change in changes:
+                self._write_discount(event_pk=event_pk, change=change)
+        return _sync_result(changes)
 
-    def _apply_rule_discount(
-        self,
-        *,
-        event_pk: int,
-        facilitator_id: int,
-        current: DiscountDTO | None,
-        rule: DiscountRuleDTO | None,
-    ) -> int:
-        if rule is None or (current is not None and not current.from_rules):
-            return 0
-        data = _rule_discount(facilitator_id=facilitator_id, rule=rule)
-        if current is None:
-            self._discounts.create(event_pk, data)
-        else:
-            self._discounts.update(current.pk, data)
-        return 1
+    def _write_accreditations(
+        self, *, event_pk: int, changes: list[_FacilitatorChange], user_id: int
+    ) -> None:
+        """Move every facilitator whose accreditation changed, in one write each."""
+        if not (moved := [c for c in changes if c.accreditation_moved]):
+            return
+        by_target: defaultdict[AccreditationType, list[int]] = defaultdict(list)
+        for change in moved:
+            by_target[change.accreditation_to].append(change.facilitator_id)
+        for target, pks in by_target.items():
+            self._facilitators.set_accreditation(
+                event_id=event_pk, pks=pks, accreditation_type=target.value
+            )
+        logs: list[FacilitatorChangeLogData] = [
+            {
+                "event_id": event_pk,
+                "facilitator_id": change.facilitator_id,
+                "user_id": user_id,
+                "changes": [
+                    {
+                        "field": "accreditation_type",
+                        "field_id": None,
+                        "old": change.accreditation_from.value,
+                        "new": change.accreditation_to.value,
+                    }
+                ],
+            }
+            for change in moved
+        ]
+        self._facilitator_change_logs.create_many(logs)
 
-    def _clear_rule_discount(
-        self, *, current: DiscountDTO | None, rule: DiscountRuleDTO | None
-    ) -> int:
-        if rule is not None or current is None or not current.from_rules:
-            return 0
-        self._discounts.soft_delete(current.pk)
-        return 1
+    def _write_discount(self, *, event_pk: int, change: _FacilitatorChange) -> None:
+        if change.write is not None:
+            if change.write.pk is None:
+                self._discounts.create(event_pk, change.write.data)
+            else:
+                self._discounts.update(change.write.pk, change.write.data)
+        elif change.withdraw_pk is not None:
+            self._discounts.soft_delete(change.withdraw_pk)
 
     def read_scoped(self, *, event_pk: int, pk: int) -> DiscountDTO:
         discount = self._discounts.get(pk)

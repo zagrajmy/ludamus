@@ -214,6 +214,30 @@ class TestDiscountRuleEdit:
         rule.refresh_from_db()
         assert (rule.quantity, rule.percent) == (new_quantity, FULL_OFF)
 
+    def test_post_re_renders_the_rule_beside_the_invalid_form(
+        self, panel_client, event
+    ):
+        rule = _rule(event)
+
+        response = panel_client.post(
+            _edit_url(event, rule), data=_post_data(percent="120")
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/discount-rule-form.html",
+            context_data=_tab_context(
+                event,
+                form=FormErrorsMatcher(
+                    percent=["Ensure this value is less than or equal to 100."]
+                ),
+                rule=DiscountRuleDTO.model_validate(rule),
+            ),
+        )
+        stored = DiscountRule.objects.get(pk=rule.pk)
+        assert (stored.quantity, stored.percent) == (rule.quantity, rule.percent)
+
     def test_get_rejects_a_rule_from_another_event(self, panel_client, sphere, event):
         foreign = _rule(EventFactory(sphere=sphere, slug="other-event"))
 

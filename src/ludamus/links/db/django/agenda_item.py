@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from django.db.models import Count, Q
@@ -23,6 +24,12 @@ if TYPE_CHECKING:
     from django.db.models import QuerySet
 
 _SELECT_RELATED = ("session", "session__category", "space")
+
+
+@dataclass
+class _ScheduleTotals:
+    session_count: int = 0
+    minutes: int = 0
 
 
 # Confirmation counts for any model holding a `sessions` relation (Track,
@@ -140,16 +147,18 @@ class AgendaItemRepository(AgendaItemRepositoryProtocol):
             session__deleted_at__isnull=True,
             session__facilitators__isnull=False,
         ).values_list("session__facilitators", "start_time", "end_time")
-        totals: defaultdict[int, list[int]] = defaultdict(lambda: [0, 0])
+        totals: defaultdict[int, _ScheduleTotals] = defaultdict(_ScheduleTotals)
         for facilitator_id, start_time, end_time in placed:
             total = totals[facilitator_id]
-            total[0] += 1
-            total[1] += int((end_time - start_time).total_seconds() // 60)
+            total.session_count += 1
+            total.minutes += int((end_time - start_time).total_seconds() // 60)
         return [
             FacilitatorScheduleRow(
-                facilitator_id=facilitator_id, session_count=count, minutes=minutes
+                facilitator_id=facilitator_id,
+                session_count=total.session_count,
+                minutes=total.minutes,
             )
-            for facilitator_id, (count, minutes) in totals.items()
+            for facilitator_id, total in totals.items()
         ]
 
     @staticmethod

@@ -152,6 +152,15 @@ class FacilitatorRepository(FacilitatorRepositoryProtocol):
         return FacilitatorDTO.model_validate(facilitator)
 
     @staticmethod
+    def set_accreditation(
+        *, event_id: int, pks: list[int], accreditation_type: str
+    ) -> None:
+        # Scoped by event so a pk from another event cannot be swept along.
+        Facilitator.objects.filter(event_id=event_id, pk__in=pks).update(
+            accreditation_type=accreditation_type
+        )
+
+    @staticmethod
     def list_by_event(
         event_id: int, filters: FacilitatorListFilters | None = None
     ) -> list[FacilitatorListItemDTO]:

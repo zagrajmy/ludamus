@@ -61,6 +61,8 @@ def _form_data(form: DiscountForm, facilitator_id: int) -> DiscountData:
         kind=DiscountKind(form.cleaned_data["kind"]),
         value=form.cleaned_data["value"],
         note=form.cleaned_data["note"],
+        # Hand-assigned: the rule sync leaves this discount alone.
+        from_rules=False,
     )
 
 

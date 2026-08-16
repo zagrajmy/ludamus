@@ -411,7 +411,7 @@ class Services:
             facilitators=self._repos.facilitators,
             rules=self._repos.discount_rules,
             schedule=self._repos.agenda_items,
-            accreditation=self.facilitator_panel,
+            facilitator_change_logs=self._repos.facilitator_change_logs,
         )
 
     @cached_property

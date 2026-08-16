@@ -35,7 +35,9 @@ class DiscountData(BaseModel):
     kind: DiscountKind
     value: Decimal = Field(gt=0)
     note: str = Field(default="", max_length=255)
-    from_rules: bool = False
+    # Who owns the discount: the rule sync withdraws and rewrites its own, and
+    # never touches a hand-assigned one. Every writer states which it is.
+    from_rules: bool
 
 
 class DiscountMethod(StrEnum):
@@ -59,6 +61,8 @@ class DiscountRuleDTO(DiscountRuleData):
 
 
 class DiscountRuleRepositoryProtocol(Protocol):
+    # Ordered by `order`, then `pk`. The sync applies the first rule a
+    # facilitator matches, so the store owns which rule that is.
     @staticmethod
     def list_for_event(event_id: int) -> list[DiscountRuleDTO]: ...
     @staticmethod
@@ -97,17 +101,6 @@ class ScheduledProgramRepositoryProtocol(Protocol):
     def list_facilitator_schedule(event_pk: int) -> list[FacilitatorScheduleRow]: ...
 
 
-class AccreditationWriterProtocol(Protocol):
-    def set_accreditation(
-        self,
-        *,
-        event_id: int,
-        facilitator_slug: str,
-        accreditation_type: str,
-        user_id: int | None = None,
-    ) -> None: ...
-
-
 class DiscountSyncResultDTO(BaseModel):
     marked: int
     unmarked: int
@@ -130,7 +123,7 @@ class DiscountsServiceProtocol(Protocol):
     ) -> DiscountRuleDTO | None: ...
     def delete_rule(self, event_pk: int, pk: int) -> bool: ...
     def apply_from_agenda(
-        self, *, event_pk: int, user_id: int | None = None
+        self, *, event_pk: int, user_id: int
     ) -> DiscountSyncResultDTO: ...
     def read_scoped(self, *, event_pk: int, pk: int) -> DiscountDTO: ...
     def read_scoped_facilitator(

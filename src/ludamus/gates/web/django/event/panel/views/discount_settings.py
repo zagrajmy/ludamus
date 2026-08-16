@@ -19,7 +19,7 @@ from ludamus.gates.web.django.event.panel.views.base import (
     EventPanelRequest,
 )
 from ludamus.gates.web.django.panel import settings_tab_urls
-from ludamus.pacts.discounts import DiscountMethod, DiscountRuleData, DiscountRuleDTO
+from ludamus.pacts.discounts import DiscountRuleData, DiscountRuleDTO
 from ludamus.pacts.legacy import RedirectError
 
 if TYPE_CHECKING:
@@ -28,22 +28,13 @@ if TYPE_CHECKING:
     from ludamus.pacts import EventDTO
 
 _SETTINGS_URL = "panel:event-discount-settings"
+_FORM_TEMPLATE = "panel/discount-rule-form.html"
 
 
 def _rule_not_found(slug: str) -> RedirectError:
     return RedirectError(
         reverse(_SETTINGS_URL, kwargs={"slug": slug}),
         error=_("Discount rule not found."),
-    )
-
-
-def _rule_data(form: DiscountRuleForm) -> DiscountRuleData:
-    cleaned = form.cleaned_data
-    return DiscountRuleData(
-        method=DiscountMethod(cleaned["method"]),
-        quantity=cleaned["quantity"],
-        percent=cleaned["percent"],
-        order=cleaned["order"],
     )
 
 
@@ -58,13 +49,6 @@ class DiscountSettingsViewMixin(EventContextMixin):
             tab_urls=settings_tab_urls(slug),
         )
         return context, current_event
-
-    def render_rule_form(
-        self, *, slug: str, form: DiscountRuleForm, rule: DiscountRuleDTO | None
-    ) -> HttpResponse:
-        context, _current_event = self.tab_context(slug)
-        context.update(form=form, rule=rule)
-        return TemplateResponse(self.request, "panel/discount-rule-form.html", context)
 
 
 class EventDiscountSettingsPageView(
@@ -89,15 +73,21 @@ class DiscountRuleCreatePageView(
     request: EventPanelRequest
 
     def get(self, _request: EventPanelRequest, slug: str) -> HttpResponse:
-        return self.render_rule_form(slug=slug, form=DiscountRuleForm(), rule=None)
+        context, _current_event = self.tab_context(slug)
+        context.update(form=DiscountRuleForm(), rule=None)
+        return TemplateResponse(self.request, _FORM_TEMPLATE, context)
 
     def post(self, _request: EventPanelRequest, slug: str) -> HttpResponse:
         form = DiscountRuleForm(self.request.POST)
         if not form.is_valid():
-            return self.render_rule_form(slug=slug, form=form, rule=None)
+            context, _current_event = self.tab_context(slug)
+            context.update(form=form, rule=None)
+            return TemplateResponse(self.request, _FORM_TEMPLATE, context)
 
         current_event = self.require_current_event(slug)
-        self.request.services.discounts.create_rule(current_event.pk, _rule_data(form))
+        self.request.services.discounts.create_rule(
+            current_event.pk, DiscountRuleData.model_validate(form.cleaned_data)
+        )
         messages.success(self.request, _("Discount rule created."))
         return redirect(_SETTINGS_URL, slug=slug)
 
@@ -106,29 +96,34 @@ class DiscountRuleEditPageView(EventPanelAccessMixin, DiscountSettingsViewMixin,
     request: EventPanelRequest
 
     def get(self, _request: EventPanelRequest, slug: str, pk: int) -> HttpResponse:
-        rule = self._read_rule(slug, pk)
-        return self.render_rule_form(
-            slug=slug, form=DiscountRuleForm(initial=rule.model_dump()), rule=rule
-        )
+        context, current_event = self.tab_context(slug)
+        rule = self._read_rule(slug=slug, event_pk=current_event.pk, pk=pk)
+        context.update(form=DiscountRuleForm(initial=rule.model_dump()), rule=rule)
+        return TemplateResponse(self.request, _FORM_TEMPLATE, context)
 
     def post(self, _request: EventPanelRequest, slug: str, pk: int) -> HttpResponse:
-        rule = self._read_rule(slug, pk)
         form = DiscountRuleForm(self.request.POST)
+        # Only the re-render needs the tab context; the saving path redirects,
+        # so it resolves the event without the sidebar and stats behind it.
         if not form.is_valid():
-            return self.render_rule_form(slug=slug, form=form, rule=rule)
+            context, current_event = self.tab_context(slug)
+            rule = self._read_rule(slug=slug, event_pk=current_event.pk, pk=pk)
+            context.update(form=form, rule=rule)
+            return TemplateResponse(self.request, _FORM_TEMPLATE, context)
 
+        current_event = self.require_current_event(slug)
         updated = self.request.services.discounts.update_rule(
-            event_pk=rule.event_id, pk=pk, data=_rule_data(form)
+            event_pk=current_event.pk,
+            pk=pk,
+            data=DiscountRuleData.model_validate(form.cleaned_data),
         )
         if updated is None:
             raise _rule_not_found(slug)
         messages.success(self.request, _("Discount rule saved."))
         return redirect(_SETTINGS_URL, slug=slug)
 
-    def _read_rule(self, slug: str, pk: int) -> DiscountRuleDTO:
-        current_event = self.require_current_event(slug)
-        rule = self.request.services.discounts.read_rule(current_event.pk, pk)
-        if rule is None:
+    def _read_rule(self, *, slug: str, event_pk: int, pk: int) -> DiscountRuleDTO:
+        if (rule := self.request.services.discounts.read_rule(event_pk, pk)) is None:
             raise _rule_not_found(slug)
         return rule
 
