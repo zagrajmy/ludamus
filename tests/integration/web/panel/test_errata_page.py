@@ -188,7 +188,7 @@ class TestErrataPageView:
         )
 
     def test_a_move_made_on_the_timetable_shows_as_one_erratum(
-        self, panel_client, event, room, proposal_category
+        self, panel_client, event, active_user, room, proposal_category
     ):
         # Through the real assign endpoint: the move is recorded where it
         # happens, so the page never has to guess two rows back into one.
@@ -205,14 +205,56 @@ class TestErrataPageView:
                     "end_time": (event.start_time + timedelta(hours=1)).isoformat(),
                 },
             )
+        # The endpoint stamps the rows, so the times come back off them.
+        first, out, into = ScheduleChangeLog.objects.order_by("pk")
 
         response = panel_client.get(self._url(event))
 
-        moved, added = response.context_data["errata"]
-        assert added.kind is ErratumKind.ADDED
-        assert moved.kind is ErratumKind.MOVED
-        assert moved.old_space_name == "Room A"
-        assert moved.new_space_name == "Room B"
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/errata.html",
+            context_data={
+                **panel_context(
+                    event,
+                    active_nav="errata",
+                    hosts_count=1,
+                    rooms_count=2,
+                    scheduled_sessions=1,
+                    total_sessions=1,
+                    total_proposals=1,
+                ),
+                "errata": [
+                    ErratumDTO(
+                        log_pks=[out.pk, into.pk],
+                        kind=ErratumKind.MOVED,
+                        session_id=session.pk,
+                        session_title=session.title,
+                        user_name=active_user.name,
+                        creation_time=into.creation_time,
+                        old_space_name="Room A",
+                        old_start_time=event.start_time,
+                        new_space_name="Room B",
+                        new_start_time=event.start_time,
+                        acknowledged_by_name=None,
+                    ),
+                    ErratumDTO(
+                        log_pks=[first.pk],
+                        kind=ErratumKind.ADDED,
+                        session_id=session.pk,
+                        session_title=session.title,
+                        user_name=active_user.name,
+                        creation_time=first.creation_time,
+                        old_space_name=None,
+                        old_start_time=None,
+                        new_space_name="Room A",
+                        new_start_time=event.start_time,
+                        acknowledged_by_name=None,
+                    ),
+                ],
+                "pending_count": 2,
+            },
+        )
 
 
 @pytest.mark.django_db
@@ -313,9 +355,12 @@ class TestErratumAcknowledgeActionView:
         foreign.refresh_from_db()
         assert foreign.acknowledgement_time is None
 
-    def test_a_malformed_pk_is_refused(self, panel_client, event, pending):
+    # "²".isdigit() is True and int("²") raises, as does an int literal over
+    # the 4300-digit limit, so neither may reach the service unguarded.
+    @pytest.mark.parametrize("raw_pk", ("--5", "²", "1" * 4301))
+    def test_a_malformed_pk_is_refused(self, panel_client, event, pending, raw_pk):
         response = panel_client.post(
-            self._url(event), data={"log_pk": ["--5"], "acknowledged": "1"}
+            self._url(event), data={"log_pk": [raw_pk], "acknowledged": "1"}
         )
 
         assert_response(response, HTTPStatus.UNPROCESSABLE_ENTITY)

@@ -1,5 +1,3 @@
-"""Post-publication agenda changes — the ones somebody has to announce."""
-
 from datetime import datetime
 from enum import StrEnum, auto
 from typing import Protocol

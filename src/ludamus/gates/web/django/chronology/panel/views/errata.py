@@ -42,16 +42,17 @@ class ErratumAcknowledgeActionView(PanelAccessMixin, EventContextMixin, View):
         _context, current_event = self.get_event_context(slug)
         if current_event is None:
             return redirect("panel:index")
-        raw_pks = request.POST.getlist("log_pk")
-        if not raw_pks or not all(pk.isdigit() for pk in raw_pks):
+        if not (raw_pks := request.POST.getlist("log_pk")):
             return HttpResponse(status=HTTPStatus.UNPROCESSABLE_ENTITY)
         try:
+            # int() is the validation: str.isdigit() would let through
+            # superscripts and other non-ASCII digits it then refuses.
             request.services.errata.set_acknowledged(
                 event_pk=current_event.pk,
                 log_pks=[int(pk) for pk in raw_pks],
                 user_id=request.context.current_user_id,
                 acknowledged=request.POST.get("acknowledged") == "1",
             )
-        except NotFoundError:
+        except ValueError, NotFoundError:
             return HttpResponse(status=HTTPStatus.UNPROCESSABLE_ENTITY)
         return redirect("panel:errata", slug=slug)

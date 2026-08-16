@@ -86,11 +86,7 @@ class ErrataService:
     def set_acknowledged(
         self, *, event_pk: int, log_pks: list[int], user_id: int, acknowledged: bool
     ) -> None:
-        """Tick off one erratum, or refuse.
-
-        Raises:
-            NotFoundError: the pks are not exactly one erratum of this event.
-        """
+        """Tick off one erratum, or refuse."""
         # Only whole errata the page lists may be ticked off: a row from
         # before publication is not an erratum at all, and half a move
         # announces a cancellation that never happened.

@@ -1,5 +1,3 @@
-"""Who may do what in a sphere — the whole policy, in one table."""
-
 from types import MappingProxyType
 from typing import TYPE_CHECKING
 
