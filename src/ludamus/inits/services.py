@@ -409,6 +409,9 @@ class Services:
             transaction=self._transaction,
             discounts=self._repos.discounts,
             facilitators=self._repos.facilitators,
+            rules=self._repos.discount_rules,
+            schedule=self._repos.agenda_items,
+            accreditation=self.facilitator_panel,
         )
 
     @cached_property

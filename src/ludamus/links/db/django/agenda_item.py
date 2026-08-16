@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections import defaultdict
 from typing import TYPE_CHECKING
 
 from django.db.models import Count, Q
@@ -13,6 +14,7 @@ from ludamus.pacts import (
     NotFoundError,
     SessionStatus,
 )
+from ludamus.pacts.discounts import FacilitatorScheduleRow
 from ludamus.pacts.legacy import ConfirmationCountsRow, ConfirmationTotalsRow
 
 if TYPE_CHECKING:
@@ -127,6 +129,28 @@ class AgendaItemRepository(AgendaItemRepositoryProtocol):
     @staticmethod
     def update(pk: int, data: AgendaItemUpdateData) -> None:
         AgendaItem.objects.filter(pk=pk).update(**data)
+
+    @staticmethod
+    def list_facilitator_schedule(event_pk: int) -> list[FacilitatorScheduleRow]:
+        # One row per facilitator with placed program, whether the item is
+        # confirmed or not. Dead sessions are excluded explicitly: the join
+        # bypasses the alive-only default manager.
+        placed = AgendaItem.objects.filter(
+            session__event_id=event_pk,
+            session__deleted_at__isnull=True,
+            session__facilitators__isnull=False,
+        ).values_list("session__facilitators", "start_time", "end_time")
+        totals: defaultdict[int, list[int]] = defaultdict(lambda: [0, 0])
+        for facilitator_id, start_time, end_time in placed:
+            total = totals[facilitator_id]
+            total[0] += 1
+            total[1] += int((end_time - start_time).total_seconds() // 60)
+        return [
+            FacilitatorScheduleRow(
+                facilitator_id=facilitator_id, session_count=count, minutes=minutes
+            )
+            for facilitator_id, (count, minutes) in totals.items()
+        ]
 
     @staticmethod
     def count_confirmations_by_track(event_pk: int) -> list[ConfirmationCountsRow]:

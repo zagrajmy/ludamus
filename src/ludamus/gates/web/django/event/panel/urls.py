@@ -23,6 +23,7 @@ from ludamus.gates.web.django.chronology.panel.views import (
 )
 from ludamus.gates.web.django.event.panel.views import (
     confirmations,
+    discount_settings,
     enrollment_settings,
     facilitator_actions,
     facilitator_edit,
@@ -145,6 +146,26 @@ urlpatterns = [
         "event/<slug:slug>/settings/enrollment/<int:pk>/do/delete",
         enrollment_settings.EnrollmentWindowDeleteActionView.as_view(),
         name="enrollment-window-delete",
+    ),
+    path(
+        "event/<slug:slug>/settings/discounts/",
+        discount_settings.EventDiscountSettingsPageView.as_view(),
+        name="event-discount-settings",
+    ),
+    path(
+        "event/<slug:slug>/settings/discounts/create/",
+        discount_settings.DiscountRuleCreatePageView.as_view(),
+        name="discount-rule-create",
+    ),
+    path(
+        "event/<slug:slug>/settings/discounts/<int:pk>/edit/",
+        discount_settings.DiscountRuleEditPageView.as_view(),
+        name="discount-rule-edit",
+    ),
+    path(
+        "event/<slug:slug>/settings/discounts/<int:pk>/do/delete",
+        discount_settings.DiscountRuleDeleteActionView.as_view(),
+        name="discount-rule-delete",
     ),
     path(
         "event/<slug:slug>/settings/display/",
@@ -464,6 +485,11 @@ urlpatterns = [
         "event/<slug:slug>/discounts/",
         discounts.DiscountsPageView.as_view(),
         name="discounts",
+    ),
+    path(
+        "event/<slug:slug>/discounts/do/sync",
+        discounts.DiscountSyncActionView.as_view(),
+        name="discount-sync",
     ),
     path(
         "event/<slug:slug>/discounts/export/",

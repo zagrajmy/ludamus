@@ -69,6 +69,7 @@ def settings_tab_urls(slug: str) -> dict[str, str]:
         "general": reverse("panel:event-settings", kwargs={"slug": slug}),
         "proposals": reverse("panel:event-proposal-settings", kwargs={"slug": slug}),
         "enrollment": reverse("panel:event-enrollment-settings", kwargs={"slug": slug}),
+        "discounts": reverse("panel:event-discount-settings", kwargs={"slug": slug}),
         "display": reverse("panel:event-display-settings", kwargs={"slug": slug}),
         "integrations": reverse(
             "panel:event-integration-settings", kwargs={"slug": slug}

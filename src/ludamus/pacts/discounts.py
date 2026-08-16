@@ -25,6 +25,7 @@ class DiscountDTO(BaseModel):
     kind: DiscountKind
     value: Decimal
     note: str
+    from_rules: bool
     creation_time: datetime
     modification_time: datetime
 
@@ -34,6 +35,42 @@ class DiscountData(BaseModel):
     kind: DiscountKind
     value: Decimal = Field(gt=0)
     note: str = Field(default="", max_length=255)
+    from_rules: bool = False
+
+
+class DiscountMethod(StrEnum):
+    # What the rule measures on a facilitator's scheduled program.
+    STARTED_HOURS = "started_hours"
+    SESSION_COUNT = "session_count"
+
+
+class DiscountRuleData(BaseModel):
+    method: DiscountMethod
+    quantity: int = Field(gt=0)
+    percent: Decimal = Field(gt=0, le=100)
+    order: int = Field(ge=0)
+
+
+class DiscountRuleDTO(DiscountRuleData):
+    model_config = ConfigDict(from_attributes=True)
+
+    pk: int
+    event_id: int
+
+
+class DiscountRuleRepositoryProtocol(Protocol):
+    @staticmethod
+    def list_for_event(event_id: int) -> list[DiscountRuleDTO]: ...
+    @staticmethod
+    def read(event_id: int, pk: int) -> DiscountRuleDTO | None: ...
+    @staticmethod
+    def create(event_id: int, data: DiscountRuleData) -> DiscountRuleDTO: ...
+    @staticmethod
+    def update(
+        *, event_id: int, pk: int, data: DiscountRuleData
+    ) -> DiscountRuleDTO | None: ...
+    @staticmethod
+    def delete(event_id: int, pk: int) -> bool: ...
 
 
 class DiscountRepositoryProtocol(Protocol):
@@ -49,6 +86,35 @@ class DiscountRepositoryProtocol(Protocol):
     def soft_delete(pk: int) -> None: ...
 
 
+class FacilitatorScheduleRow(BaseModel):
+    facilitator_id: int
+    session_count: int
+    minutes: int
+
+
+class ScheduledProgramRepositoryProtocol(Protocol):
+    @staticmethod
+    def list_facilitator_schedule(event_pk: int) -> list[FacilitatorScheduleRow]: ...
+
+
+class AccreditationWriterProtocol(Protocol):
+    def set_accreditation(
+        self,
+        *,
+        event_id: int,
+        facilitator_slug: str,
+        accreditation_type: str,
+        user_id: int | None = None,
+    ) -> None: ...
+
+
+class DiscountSyncResultDTO(BaseModel):
+    marked: int
+    unmarked: int
+    discounts_set: int
+    discounts_cleared: int
+
+
 class DiscountRosterEntryDTO(BaseModel):
     facilitator: FacilitatorListItemDTO
     discount: DiscountDTO | None
@@ -56,6 +122,16 @@ class DiscountRosterEntryDTO(BaseModel):
 
 class DiscountsServiceProtocol(Protocol):
     def list_roster(self, event_pk: int) -> list[DiscountRosterEntryDTO]: ...
+    def list_rules(self, event_pk: int) -> list[DiscountRuleDTO]: ...
+    def read_rule(self, event_pk: int, pk: int) -> DiscountRuleDTO | None: ...
+    def create_rule(self, event_pk: int, data: DiscountRuleData) -> DiscountRuleDTO: ...
+    def update_rule(
+        self, *, event_pk: int, pk: int, data: DiscountRuleData
+    ) -> DiscountRuleDTO | None: ...
+    def delete_rule(self, event_pk: int, pk: int) -> bool: ...
+    def apply_from_agenda(
+        self, *, event_pk: int, user_id: int | None = None
+    ) -> DiscountSyncResultDTO: ...
     def read_scoped(self, *, event_pk: int, pk: int) -> DiscountDTO: ...
     def read_scoped_facilitator(
         self, *, event_pk: int, facilitator_id: int
@@ -80,7 +156,12 @@ class DiscountExportLabels(BaseModel):
 
 class SheetWriterProtocol(Protocol):
     def write_rows(
-        self, *, secret: bytes, spreadsheet_id: str, rows: list[list[str]]
+        self,
+        *,
+        secret: bytes,
+        spreadsheet_id: str,
+        tab_title: str,
+        rows: list[list[str]],
     ) -> None: ...
 
 
@@ -92,5 +173,6 @@ class DiscountsExportServiceProtocol(Protocol):
         event_pk: int,
         connection_id: int,
         spreadsheet_id: str,
+        tab_title: str,
         labels: DiscountExportLabels,
     ) -> int: ...

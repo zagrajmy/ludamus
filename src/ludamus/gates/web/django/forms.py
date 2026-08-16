@@ -743,6 +743,7 @@ ACCREDITATION_TYPE_LABELS = {
     AccreditationType.STANDARD: _("Standard"),
     AccreditationType.GUEST: _("Guest"),
     AccreditationType.HONORARY: _("Honorary"),
+    AccreditationType.CREATOR: _("Program creator"),
 }
 ACCREDITATION_TYPE_CHOICES = [
     (t.value, ACCREDITATION_TYPE_LABELS[t]) for t in AccreditationType
@@ -845,6 +846,12 @@ class DiscountExportForm(forms.Form):
         max_length=500,
         strip=True,
         help_text=_("Paste the spreadsheet link (or its ID) from the address bar."),
+    )
+    tab = forms.CharField(
+        label=_("Tab name"),
+        max_length=100,
+        strip=True,
+        help_text=_("The tab has to exist already; the export replaces its content."),
     )
 
     def __init__(
