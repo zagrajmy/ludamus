@@ -288,8 +288,14 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
         # Get all sessions for this event that are published. A private track
         # is unlisted here for everyone, panel access included, so a manager
         # previewing the page sees the schedule participants will get.
+        scheduled = public_scheduled_sessions(self.object.pk)
+        # The enrollment view is the same schedule narrowed to what a
+        # participant has to sign up for; a limit of 0 takes no enrollment.
+        enrollment_view = self.request.GET.get("view") == "enrollment"
+        if enrollment_view:
+            scheduled = scheduled.filter(participants_limit__gt=0)
         event_sessions = annotate_session_participation_counts(
-            with_session_card_relations(public_scheduled_sessions(self.object.pk))
+            with_session_card_relations(scheduled)
         ).order_by("agenda_item__start_time")
 
         shadowbanned_ids: frozenset[int] = frozenset()
@@ -323,7 +329,16 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
 
         hour_data = dict(self._get_hour_data(event_sessions, sessions_data))
 
-        if compact_schedule := len(sessions_data) >= COMPACT_SCHEDULE_MIN_SESSIONS:
+        # Counted before the enrollment narrowing: it decides the layout, which
+        # must not switch under the reader on a tab click, and it feeds the
+        # event's own stat card, which sits outside the swapped region and so
+        # would otherwise say one thing on a tab click and another on a reload.
+        scheduled_count = (
+            public_scheduled_sessions(self.object.pk).count()
+            if enrollment_view
+            else len(sessions_data)
+        )
+        if compact_schedule := scheduled_count >= COMPACT_SCHEDULE_MIN_SESSIONS:
             self._set_bookmark_counts(sessions_data)
             if current_user_id:
                 self._set_user_bookmarks(sessions_data, current_user_id)
@@ -349,13 +364,19 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
             {
                 "hour_data": hour_data,
                 "sessions": list(sessions_data.values()),
+                "scheduled_count": scheduled_count,
                 "compact_schedule": compact_schedule,
                 "schedule_days": schedule_days,
-                "schedule_view_is_list": not rooms_view,
+                "schedule_view_is_list": not rooms_view and not enrollment_view,
                 "schedule_view_is_rooms": rooms_view,
+                "schedule_view_is_enrollment": enrollment_view,
+                "has_enrollable_sessions": any(
+                    data.takes_enrollment for data in sessions_data.values()
+                ),
                 "room_lane_days": build_room_lanes(schedule_days) if rooms_view else [],
                 "schedule_list_url": event_url,
                 "schedule_rooms_url": f"{event_url}?view=rooms",
+                "schedule_enrollment_url": f"{event_url}?view=enrollment",
                 "ended_hour_data": ended_hour_data,
                 "current_hour_data": current_hour_data,
                 "future_unavailable_hour_data": future_unavailable_hour_data,

@@ -79,6 +79,10 @@ def _event_page_context(event, buckets, **overrides):
         "event_banned": False,
         **buckets,
         **schedule_context(url),
+        "has_enrollable_sessions": any(
+            card.takes_enrollment for card in buckets["sessions"]
+        ),
+        "scheduled_count": len(buckets["sessions"]),
         "user_enrolled_session_titles": [],
         "view": ANY,
         **overrides,

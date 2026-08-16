@@ -855,6 +855,115 @@ class TestEventPageView:
             contains="session-grid",
         )
 
+    def test_ok_enrollment_view_lists_only_sessions_taking_enrollment(
+        self, agenda_item, client, event, space
+    ):
+        drop_in = SessionFactory(
+            event=event, category=None, participants_limit=0, min_age=0
+        )
+        AgendaItemFactory(session=drop_in, space=space)
+
+        response = client.get(f"{self._get_url(event.slug)}?view=enrollment")
+
+        card = session_card(agenda_item, presenter=agenda_item.session.presenter)
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=event_page_context(
+                event,
+                url=self._get_url(event.slug),
+                hour_data={agenda_item.start_time: [card]},
+                future_unavailable_hour_data={agenda_item.start_time: [card]},
+                sessions=[card],
+                scheduled_count=2,
+                schedule_view_is_list=False,
+                schedule_view_is_enrollment=True,
+            ),
+            template_name=["chronology/event.html"],
+        )
+
+    def test_ok_enrollment_view_keeps_the_layout_of_the_full_schedule(
+        self, agenda_item, client, event, monkeypatch, space
+    ):
+        # Two scheduled sessions, one of them drop-in: the compact layout is
+        # decided on the whole schedule, so narrowing to the single enrollable
+        # session must not drop the reader back to the card grid.
+        monkeypatch.setattr(
+            "ludamus.adapters.web.django.views.COMPACT_SCHEDULE_MIN_SESSIONS", 2
+        )
+        drop_in = SessionFactory(
+            event=event, category=None, participants_limit=0, min_age=0
+        )
+        AgendaItemFactory(session=drop_in, space=space)
+
+        response = client.get(f"{self._get_url(event.slug)}?view=enrollment")
+
+        card = session_card(agenda_item, presenter=agenda_item.session.presenter)
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=event_page_context(
+                event,
+                url=self._get_url(event.slug),
+                compact_schedule=True,
+                hour_data={agenda_item.start_time: [card]},
+                schedule_days=[compact_day([card])],
+                sessions=[card],
+                scheduled_count=2,
+                schedule_view_is_list=False,
+                schedule_view_is_enrollment=True,
+            ),
+            template_name=["chronology/event.html"],
+        )
+
+    def test_ok_enrollment_tab_stays_off_a_schedule_without_enrollment(
+        self, client, event, space
+    ):
+        drop_in = SessionFactory(
+            event=event, category=None, participants_limit=0, min_age=0
+        )
+        agenda_item = AgendaItemFactory(session=drop_in, space=space)
+
+        response = client.get(self._get_url(event.slug))
+
+        card = session_card(agenda_item, presenter=drop_in.presenter)
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=event_page_context(
+                event,
+                url=self._get_url(event.slug),
+                hour_data={agenda_item.start_time: [card]},
+                current_hour_data={agenda_item.start_time: [card]},
+                sessions=[card],
+                has_enrollable_sessions=False,
+            ),
+            template_name=["chronology/event.html"],
+        )
+
+    def test_ok_enrollment_view_empty_when_nothing_takes_enrollment(
+        self, client, event, space
+    ):
+        drop_in = SessionFactory(
+            event=event, category=None, participants_limit=0, min_age=0
+        )
+        AgendaItemFactory(session=drop_in, space=space)
+
+        response = client.get(f"{self._get_url(event.slug)}?view=enrollment")
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=event_page_context(
+                event,
+                url=self._get_url(event.slug),
+                scheduled_count=1,
+                schedule_view_is_list=False,
+                schedule_view_is_enrollment=True,
+            ),
+            template_name=["chronology/event.html"],
+        )
+
     @pytest.mark.usefixtures("enrollment_config")
     def test_ok_live_event_card_slot_shows_now_and_propose(
         self, agenda_item, client, event

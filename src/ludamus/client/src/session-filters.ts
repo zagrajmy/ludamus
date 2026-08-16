@@ -27,10 +27,18 @@ const addOption = (select: HTMLSelectElement, value: string, label: string): voi
   select.append(option);
 };
 
+// Listeners this module puts on `document` rather than on its own controls.
+// The schedule view tabs swap the toolbar and the cards out from under it, so
+// each init aborts the previous one's instead of stacking a closure over
+// detached nodes.
+let documentListeners = new AbortController();
+
 // The filter UI is only rendered when the event has scheduled sessions
 // (`{% if hour_data %}` in the template). The bundle still loads on empty
 // event pages, so bail out cleanly instead of throwing when it's absent.
 const initSessionFilters = (): void => {
+  documentListeners.abort();
+  documentListeners = new AbortController();
   const sessionFilter = byId<HTMLInputElement>("session-filter");
   const statusFilter = byId<HTMLSelectElement>("status-filter");
   const dayFilter = byId<HTMLSelectElement>("day-filter");
@@ -397,12 +405,20 @@ const initSessionFilters = (): void => {
       filterPanel.classList.remove("is-open");
       filterToggle.setAttribute("aria-expanded", "false");
     };
-    document.addEventListener("click", (e) => {
-      const target = e.target as Node | null;
-      if (filterPanel.classList.contains("is-open") && target && !filtersWrapper.contains(target)) {
-        closePanel();
-      }
-    });
+    document.addEventListener(
+      "click",
+      (e) => {
+        const target = e.target as Node | null;
+        if (
+          filterPanel.classList.contains("is-open") &&
+          target &&
+          !filtersWrapper.contains(target)
+        ) {
+          closePanel();
+        }
+      },
+      { signal: documentListeners.signal },
+    );
     filtersWrapper.addEventListener("focusout", (e) => {
       const related = e.relatedTarget as Node | null;
       if (!related || !filtersWrapper.contains(related)) closePanel();
@@ -414,4 +430,17 @@ const initSessionFilters = (): void => {
   }
 };
 
-if (document.getElementById("session-filter")) initSessionFilters();
+// Every control and card above is looked up once, so a swapped-in schedule
+// (the view tabs are hx-boosted) needs the whole init again. The flag rides
+// the search box itself: a swap brings a fresh one, while the other htmx
+// traffic on this page — a session modal loading — leaves the bound one in
+// place, and re-running against it would double every filter's options.
+const bootSessionFilters = (): void => {
+  const searchBox = document.getElementById("session-filter");
+  if (!searchBox || "filtersBound" in searchBox.dataset) return;
+  searchBox.dataset.filtersBound = "";
+  initSessionFilters();
+};
+
+bootSessionFilters();
+document.body.addEventListener("htmx:afterSwap", bootSessionFilters);

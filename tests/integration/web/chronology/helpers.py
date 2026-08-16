@@ -81,9 +81,11 @@ def schedule_context(url):
         "schedule_days": [],
         "schedule_view_is_list": True,
         "schedule_view_is_rooms": False,
+        "schedule_view_is_enrollment": False,
         "room_lane_days": [],
         "schedule_list_url": url,
         "schedule_rooms_url": f"{url}?view=rooms",
+        "schedule_enrollment_url": f"{url}?view=enrollment",
     }
 
 
@@ -115,7 +117,19 @@ def event_page_context(event, *, url, **overrides):
         "user_enrolled_session_titles": [],
         "view": ANY,
     }
-    return context | overrides
+    context |= overrides
+    # Derived from the cards the caller expects, the way the view derives it
+    # from the cards it renders: the Enrollment tab is offered when at least
+    # one of them takes sign-up. Callers still override it to assert the flag
+    # itself.
+    context.setdefault(
+        "has_enrollable_sessions",
+        any(card.takes_enrollment for card in context["sessions"]),
+    )
+    # Only the enrollment view renders fewer cards than the schedule holds, so
+    # everywhere else the two counts are the same number.
+    context.setdefault("scheduled_count", len(context["sessions"]))
+    return context
 
 
 def compact_day(cards):

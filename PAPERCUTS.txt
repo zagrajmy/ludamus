@@ -223,3 +223,8 @@ If you fix a papercut, remove it.
   install, so mise silently skipped venv activation for tasks (mise x still
   resolved it). Repointed .venv/bin/python + pyvenv.cfg at 3.14 by hand. mise
   run should say the venv is unusable instead of running the task without it.
+- 2026-08-16: mise run shots: agent-browser's Chrome dies with 'No usable
+  sandbox' on this host, and --args "--no-sandbox" passed to 'agent-browser
+  open' does not help; also a target containing '?' comes through quoted (URL
+  became http://localhost:8000'/event/x/?view=enrollment'). Fell back to
+  playwright screenshot.
