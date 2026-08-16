@@ -227,3 +227,9 @@ If you fix a papercut, remove it.
   install, so mise silently skipped venv activation for tasks (mise x still
   resolved it). Repointed .venv/bin/python + pyvenv.cfg at 3.14 by hand. mise
   run should say the venv is unusable instead of running the task without it.
+- 2026-08-16: e2e: prep's 'aube install' rewrites node_modules while 'npx
+  playwright test' (already launched by run_e2e.sh) has resolved its own runner
+  copy. When the install actually relinks the store, every spec dies with
+  'Playwright Test did not expect test.describe() to be called here' plus a
+  bogus global-teardown coverage error. Whole suite red, zero code cause, passes
+  on the next run.
