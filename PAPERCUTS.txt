@@ -222,3 +222,8 @@ If you fix a papercut, remove it.
   when its interpreter is stale; repointing .venv/bin/python and pyvenv.cfg at
   the .../installs/python/3.14 alias instead of the patch dir survives the next
   bump.
+- 2026-08-16: aube install fails in the agent sandbox: aube-workspace.yaml
+  paranoid:true makes advisoryCheck required, and api.osv.dev is not on the
+  sandbox network allowlist, so every install dies with
+  ERR_AUBE_ADVISORY_CHECK_FAILED after wiping node_modules. Had to hand the
+  install back to the user.
