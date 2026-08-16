@@ -52,6 +52,39 @@ def log_facilitator_changes(
         repo.create(log_data)
 
 
+# Change-log values are stored raw (accreditation types land as "guest"), so
+# the deletion flag does too; the History tab labels it at render time. Both
+# writers — the panel and the importer's restore — go through here, so the two
+# can never disagree about the value the tab renders off.
+_DELETED_LOG_VALUE = "yes"
+
+
+def log_facilitator_deletion(
+    *,
+    repo: FacilitatorChangeLogRepositoryProtocol,
+    event_id: int,
+    facilitator_id: int,
+    user_id: int | None,
+    deleted: bool,
+) -> None:
+    # Taking a facilitator out of the program is the largest state change the
+    # panel makes. `deleted_at` records when and a restore erases even that, so
+    # the log is the only trace of who.
+    change: ContentFieldChange = {
+        "field": "deleted",
+        "field_id": None,
+        "old": "" if deleted else _DELETED_LOG_VALUE,
+        "new": _DELETED_LOG_VALUE if deleted else "",
+    }
+    log_facilitator_changes(
+        repo=repo,
+        event_id=event_id,
+        facilitator_id=facilitator_id,
+        user_id=user_id,
+        changes=[change],
+    )
+
+
 class CFPPersonalDataFieldService(
     CFPFieldCategoryService[
         PersonalDataFieldCreateData, PersonalDataFieldUpdateData, OrganizerFieldDTO

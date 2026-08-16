@@ -12,6 +12,7 @@ from django.test import override_settings
 from django.test.utils import CaptureQueriesContext
 from django.urls import resolve, reverse
 from django.utils import timezone
+from freezegun import freeze_time
 
 from ludamus.adapters.web.django.views import EventPageView
 from ludamus.gates.web.django.chronology.event_presentation import (
@@ -69,6 +70,17 @@ from tests.integration.web.chronology.helpers import (
     make_half_full_session,
     session_card,
 )
+
+
+@pytest.fixture(name="local_midday")
+def local_midday_fixture():
+    # The schedule groups by local date, so a session placed around `now()`
+    # straddles two days when the suite happens to run near midnight. Pin the
+    # clock to noon; the date stays today's, which the fixtures build against.
+    with freeze_time(
+        timezone.localtime().replace(hour=12, minute=0, second=0, microsecond=0)
+    ):
+        yield
 
 
 class TestEventPageView:
@@ -333,7 +345,7 @@ class TestEventPageView:
         )
 
     def test_ok_compact_schedule_renders_all_row_variants(
-        self, client, event, space, monkeypatch
+        self, client, event, space, monkeypatch, local_midday
     ):
         monkeypatch.setattr(
             "ludamus.adapters.web.django.views.COMPACT_SCHEDULE_MIN_SESSIONS", 1
