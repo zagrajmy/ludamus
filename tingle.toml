@@ -121,6 +121,13 @@ ranges = ["python-tests"]
 
 
 [[metrics]]
+name = "pointless-assert"
+type = "regex_count"
+group = "testing"
+pattern = '=\w+\.context_data'
+ranges = ["python-tests"]
+
+[[metrics]]
 name = "pytest-skip"
 type = "regex_count"
 group = "testing"

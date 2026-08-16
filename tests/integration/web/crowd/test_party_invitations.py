@@ -19,6 +19,7 @@ from ludamus.pacts.party import (
 )
 from tests.integration.conftest import UserFactory
 from tests.integration.utils import assert_response, assert_response_404
+from tests.integration.web.crowd.test_party_detail_page import _context
 from tests.integration.web.crowd.test_profile_parties_page import (
     URL,
     _detail_url,
@@ -376,7 +377,13 @@ class TestPartyCompanionAddActionView:
             response,
             HTTPStatus.OK,
             messages=[(messages.ERROR, "No companion matches that display name.")],
-            context_data=response.context_data,
+            context_data=_context(
+                _party_dto(
+                    party,
+                    active_user,
+                    [_member_dto(leader, party), _member_dto(active_user, party)],
+                )
+            ),
             template_name="crowd/user/party_detail.html",
         )
 
@@ -401,7 +408,10 @@ class TestPartyCompanionAddActionView:
             response,
             HTTPStatus.OK,
             messages=[(messages.ERROR, "No companion matches that display name.")],
-            context_data=response.context_data,
+            context_data=_context(
+                _party_dto(party, active_user, [_member_dto(active_user, party)]),
+                invite_token=party.invite_token,
+            ),
             template_name="crowd/user/party_detail.html",
         )
 

@@ -63,13 +63,26 @@ from tests.integration.conftest import (
     TimeSlotFactory,
     UserFactory,
 )
-from tests.integration.utils import assert_response
+from tests.integration.utils import assert_rendered, assert_response
 from tests.integration.web.chronology.helpers import (
     compact_day,
     event_page_context,
     make_half_full_session,
     session_card,
 )
+
+
+@pytest.fixture(name="local_midday")
+def local_midday_fixture():
+    # The schedule groups by local date, so a session placed around `now()`
+    # straddles two days when the suite happens to run near midnight. Pin the
+    # clock to midday; the date stays today's, which the fixtures build
+    # against. Half past, not on the hour, so a session can both end before
+    # `now()` and start inside the current hour bucket.
+    with freeze_time(
+        timezone.localtime().replace(hour=12, minute=30, second=0, microsecond=0)
+    ):
+        yield
 
 
 class TestEventPageView:
@@ -334,118 +347,111 @@ class TestEventPageView:
         )
 
     def test_ok_compact_schedule_renders_all_row_variants(
-        self, client, event, space, monkeypatch
+        self, client, event, space, monkeypatch, local_midday
     ):
         monkeypatch.setattr(
             "ludamus.adapters.web.django.views.COMPACT_SCHEDULE_MIN_SESSIONS", 1
         )
-        # The ended and ongoing rows sit either side of the clock, the ongoing
-        # one running until an hour from now. Arrange and render at local
-        # midday so that window cannot straddle midnight: a session that does
-        # is split across two local dates, and so across two schedule days.
-        midday = timezone.localtime().replace(
-            hour=12, minute=0, second=0, microsecond=0
+        now = timezone.now()
+        EnrollmentConfig.objects.create(
+            event=event,
+            start_time=now - timedelta(days=1),
+            end_time=now + timedelta(days=5),
+            percentage_slots=100,
         )
-        with freeze_time(midday):
-            now = timezone.now()
-            EnrollmentConfig.objects.create(
-                event=event,
-                start_time=now - timedelta(days=1),
-                end_time=now + timedelta(days=5),
-                percentage_slots=100,
-            )
-            # A limit_to_end_time config marks ongoing sessions as "In Progress".
-            EnrollmentConfig.objects.create(
-                event=event,
-                start_time=now - timedelta(days=1),
-                end_time=now + timedelta(days=5),
-                percentage_slots=100,
-                limit_to_end_time=True,
-            )
-            # Two full days out so the local-date grouping can never collide with
-            # the ended/ongoing sessions, whatever the wall clock is at test time.
-            day_one = (now + timedelta(days=2)).replace(
-                hour=10, minute=0, second=0, microsecond=0
-            )
+        # A limit_to_end_time config marks ongoing sessions as "In Progress".
+        EnrollmentConfig.objects.create(
+            event=event,
+            start_time=now - timedelta(days=1),
+            end_time=now + timedelta(days=5),
+            percentage_slots=100,
+            limit_to_end_time=True,
+        )
+        # Two full days out so the local-date grouping can never collide with
+        # the ended/ongoing sessions, whatever the wall clock is at test time.
+        day_one = (now + timedelta(days=2)).replace(
+            hour=10, minute=0, second=0, microsecond=0
+        )
 
-            def scheduled(*, start, end, **session_kwargs):
-                session = SessionFactory(event=event, category=None, **session_kwargs)
-                AgendaItemFactory(
-                    session=session, space=space, start_time=start, end_time=end
-                )
-                session.refresh_from_db()
-                return session
+        def scheduled(*, start, end, **session_kwargs):
+            session = SessionFactory(event=event, category=None, **session_kwargs)
+            AgendaItemFactory(
+                session=session, space=space, start_time=start, end_time=end
+            )
+            session.refresh_from_db()
+            return session
 
-            plenty = scheduled(
-                start=day_one,
-                end=day_one + timedelta(hours=2),
-                participants_limit=10,
-                min_age=16,
-                duration="PT2H",
+        plenty = scheduled(
+            start=day_one,
+            end=day_one + timedelta(hours=2),
+            participants_limit=10,
+            min_age=16,
+            duration="PT2H",
+        )
+        # Same slot as `plenty` — covers the append-to-existing-hour branch.
+        scarce = scheduled(
+            start=day_one,
+            end=day_one + timedelta(hours=1),
+            participants_limit=5,
+            min_age=0,
+        )
+        for _ in range(4):
+            SessionParticipation.objects.create(
+                session=scarce,
+                user=UserFactory(),
+                status=SessionParticipationStatus.CONFIRMED,
             )
-            # Same slot as `plenty` — covers the append-to-existing-hour branch.
-            scarce = scheduled(
-                start=day_one,
-                end=day_one + timedelta(hours=1),
-                participants_limit=5,
-                min_age=0,
+        # Second slot on the same day — covers the append-to-existing-day branch.
+        unlimited = scheduled(
+            start=day_one + timedelta(hours=3),
+            end=day_one + timedelta(hours=4),
+            participants_limit=0,
+            min_age=0,
+        )
+        full = scheduled(
+            start=day_one + timedelta(days=1),
+            end=day_one + timedelta(days=1, hours=1),
+            participants_limit=2,
+            min_age=0,
+        )
+        for status in (
+            SessionParticipationStatus.CONFIRMED,
+            SessionParticipationStatus.CONFIRMED,
+            SessionParticipationStatus.WAITING,
+        ):
+            SessionParticipation.objects.create(
+                session=full, user=UserFactory(), status=status
             )
-            for _ in range(4):
-                SessionParticipation.objects.create(
-                    session=scarce,
-                    user=UserFactory(),
-                    status=SessionParticipationStatus.CONFIRMED,
-                )
-            # Second slot on the same day — covers the append-to-existing-day branch.
-            unlimited = scheduled(
-                start=day_one + timedelta(hours=3),
-                end=day_one + timedelta(hours=4),
-                participants_limit=0,
-                min_age=0,
-            )
-            full = scheduled(
-                start=day_one + timedelta(days=1),
-                end=day_one + timedelta(days=1, hours=1),
-                participants_limit=2,
-                min_age=0,
-            )
-            for status in (
-                SessionParticipationStatus.CONFIRMED,
-                SessionParticipationStatus.CONFIRMED,
-                SessionParticipationStatus.WAITING,
-            ):
-                SessionParticipation.objects.create(
-                    session=full, user=UserFactory(), status=status
-                )
-            ended = scheduled(
-                start=now - timedelta(hours=3),
-                end=now - timedelta(hours=2),
-                participants_limit=4,
-                min_age=0,
-            )
-            ongoing = scheduled(
-                start=now - timedelta(hours=1),
-                end=now + timedelta(hours=1),
-                participants_limit=4,
-                min_age=0,
-            )
-            game_type = SessionField.objects.create(
-                event=event,
-                name="Game Type",
-                question="Game Type",
-                slug="game-type",
-                field_type="select",
-                is_multiple=True,
-                is_public=True,
-                icon="puzzle-piece",
-            )
-            SessionFieldValue.objects.create(
-                session=plenty, field=game_type, value=["RPG"]
-            )
-            event_settings, _ = EventSettings.objects.get_or_create(event=event)
-            event_settings.displayed_session_fields.add(game_type)
+        # Both windows stay inside the current local hour, and the ongoing one
+        # is cut at midnight: a session crossing local midnight gets a tile per
+        # local date, which would spread the two over two schedule days.
+        local_now = timezone.localtime(now)
+        hour_start = local_now.replace(minute=0, second=0, microsecond=0)
+        midnight = (hour_start + timedelta(days=1)).replace(hour=0)
+        ended = scheduled(
+            start=hour_start, end=local_now, participants_limit=4, min_age=0
+        )
+        ongoing = scheduled(
+            start=local_now,
+            end=min(local_now + timedelta(hours=1), midnight),
+            participants_limit=4,
+            min_age=0,
+        )
+        game_type = SessionField.objects.create(
+            event=event,
+            name="Game Type",
+            question="Game Type",
+            slug="game-type",
+            field_type="select",
+            is_multiple=True,
+            is_public=True,
+            icon="puzzle-piece",
+        )
+        SessionFieldValue.objects.create(session=plenty, field=game_type, value=["RPG"])
+        event_settings, _ = EventSettings.objects.get_or_create(event=event)
+        event_settings.displayed_session_fields.add(game_type)
 
-            response = client.get(self._get_url(event.slug))
+        response = client.get(self._get_url(event.slug))
 
         field_value_dto = SessionFieldValueDTO(
             allow_custom=False,
@@ -549,10 +555,11 @@ class TestEventPageView:
         # One day per local date, one hour bucket per distinct start hour.
         expected_days = [
             ScheduleDay(
-                day_start=hour_of(ended),
+                day_start=hour_start,
                 hours=[
-                    ScheduleHour(start=hour_of(ended), sessions=[cards[ended.pk]]),
-                    ScheduleHour(start=hour_of(ongoing), sessions=[cards[ongoing.pk]]),
+                    ScheduleHour(
+                        start=hour_start, sessions=[cards[ended.pk], cards[ongoing.pk]]
+                    )
                 ],
                 tiles=[tile(ended), tile(ongoing)],
             ),
@@ -622,10 +629,8 @@ class TestEventPageView:
                 kwargs={"event_slug": event.slug, "session_id": scarce.pk},
             )
         )
-        assert_response(
-            modal,
-            HTTPStatus.OK,
-            context_data=modal.context_data,
+        assert_rendered(
+            response=modal,
             template_name="chronology/parts/session-modal.html",
             contains="4/5",
         )
@@ -3455,10 +3460,8 @@ class TestEventPageEditAffordance:
                 kwargs={"event_slug": event.slug, "session_id": session.pk},
             )
         )
-        assert_response(
-            modal,
-            HTTPStatus.OK,
-            context_data=modal.context_data,
+        assert_rendered(
+            response=modal,
             template_name="chronology/parts/session-modal.html",
             contains=[edit_url, f'data-edit-open="{session.pk}"'],
         )

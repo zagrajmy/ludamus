@@ -73,6 +73,21 @@ def session_card(agenda_item, *, presenter, **overrides):
     return replace(card, **overrides)
 
 
+def schedule_context(url):
+    # The compact-schedule context keys shared by every card-layout response;
+    # splatted into the exact-equality context assertions so adding a key is a
+    # one-line change instead of a 36-site sweep.
+    return {
+        "compact_schedule": False,
+        "schedule_days": [],
+        "schedule_view_is_list": True,
+        "schedule_view_is_rooms": False,
+        "room_lane_days": [],
+        "schedule_list_url": url,
+        "schedule_rooms_url": f"{url}?view=rooms",
+    }
+
+
 def event_page_context(event, *, url, **overrides):
     # Every key the event page renders with, defaulted to an event with no
     # schedule. `url` is the page's own path, which the view echoes back as the
@@ -97,13 +112,7 @@ def event_page_context(event, *, url, **overrides):
         "total_enrolled": 0,
         "user_enrolled_sessions": [],
         "event_banned": False,
-        "compact_schedule": False,
-        "schedule_days": [],
-        "schedule_view_is_list": True,
-        "schedule_view_is_rooms": False,
-        "room_lane_days": [],
-        "schedule_list_url": url,
-        "schedule_rooms_url": f"{url}?view=rooms",
+        **schedule_context(url),
         "user_enrolled_session_titles": [],
         "view": ANY,
     }
@@ -214,6 +223,17 @@ def enroll_context(
         "shadowban_warnings": list(shadowban_warnings),
         "user_data": user_data,
     }
+
+
+def enroll_page_context(*, viewer, agenda_item, **overrides):
+    # The enroll page as it renders for a viewer with no companions, no party
+    # and no participation yet.
+    return (
+        enroll_context(
+            session=agenda_item.session, user_data=[participation_row(viewer)]
+        )
+        | overrides
+    )
 
 
 def make_half_full_session(event, *, participants_limit=2):
