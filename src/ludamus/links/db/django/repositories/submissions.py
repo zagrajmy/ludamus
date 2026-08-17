@@ -53,9 +53,6 @@ from ludamus.pacts.submissions import (
 # The DB stores field_type as a plain CharField; DTOs type it as this Literal.
 _FieldType = Literal["text", "select", "checkbox"]
 
-# Whitelist of sortable facilitator columns -> ORM field. `linked` sorts by
-# user_id so linked/unlinked facilitators group together.
-
 
 def _personal_field_dto(field: PersonalDataField) -> OrganizerFieldDTO:
     # Personal-data fields carry no icon, so the DTO's empty default stands.

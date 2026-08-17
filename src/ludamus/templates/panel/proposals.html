@@ -285,7 +285,8 @@
                         {% endif %}
                     </div>
                     {% if deleted_proposals %}
-                        <h2 class="mt-8 mb-3 text-sm font-semibold text-foreground-muted uppercase tracking-wider">
+                        <h2 id="deleted-proposals"
+                            class="mt-8 mb-3 text-sm font-semibold text-foreground-muted uppercase tracking-wider">
                             {% translate "Recently deleted" %}
                         </h2>
                         {% tessera_table %}

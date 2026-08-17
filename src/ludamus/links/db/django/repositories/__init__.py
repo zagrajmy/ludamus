@@ -1,4 +1,3 @@
-from ludamus.links.db.django.facilitator import FacilitatorRepository
 from ludamus.links.db.django.repositories.chronology import (
     EnrollmentConfigRepository,
     EventIntegrationsRepository,
@@ -8,6 +7,7 @@ from ludamus.links.db.django.repositories.chronology import (
     PartySessionHistoryRepository,
 )
 from ludamus.links.db.django.repositories.discounts import DiscountRepository
+from ludamus.links.db.django.repositories.facilitators import FacilitatorRepository
 from ludamus.links.db.django.repositories.multiverse import (
     AnnouncementsRepository,
     ConnectionsRepository,

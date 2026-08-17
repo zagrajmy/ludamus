@@ -246,6 +246,16 @@ def assign_payload(*, session, space, start, end):
     }
 
 
+# The `event` fixture starts at UTC midnight and Warsaw is a whole-hour offset,
+# so a slot starting with the event puts the grid's first time label — and its
+# day — on the hour.
+SLOT_MINUTES = 120
+
+
+def event_day_start(event):
+    return localtime(event.start_time)
+
+
 def grid_with(
     *,
     spaces,
