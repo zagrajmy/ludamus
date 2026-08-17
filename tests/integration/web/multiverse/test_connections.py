@@ -9,10 +9,10 @@ from ludamus.pacts.multiverse import ConnectionDTO
 from tests.integration.utils import assert_login_required, assert_response
 from tests.integration.web.multiverse.helpers import (
     assert_not_a_sphere_manager,
-    sphere_panel_context,
+    sphere_settings_context,
 )
 
-CONNECTIONS_PANEL_CONTEXT = sphere_panel_context(active_tab="connections")
+CONNECTIONS_PANEL_CONTEXT = sphere_settings_context(active_tab="connections")
 
 
 class TestConnectionsPageView:
@@ -150,10 +150,10 @@ class TestConnectionCreatePageView:
         self, authenticated_client, active_user, sphere
     ):
         sphere.managers.add(active_user)
+        secret = '{"client": "abc"}'
 
         response = authenticated_client.post(
-            self.url,
-            data={"display_name": "Konto z kluczem", "secret": '{"client": "abc"}'},
+            self.url, data={"display_name": "Konto z kluczem", "secret": secret}
         )
 
         assert_response(
@@ -165,7 +165,7 @@ class TestConnectionCreatePageView:
         connection = Connection.objects.get(sphere=sphere)
         stored = bytes(connection.secret)
         assert stored
-        assert b"abc" not in stored
+        assert secret.encode() not in stored
 
     def test_post_create_rejects_duplicate_display_name(
         self, authenticated_client, active_user, sphere

@@ -12,7 +12,6 @@ from __future__ import annotations
 import logging
 import math
 import secrets
-import sys
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from secrets import token_urlsafe
@@ -166,24 +165,20 @@ class EnrollmentPolicy:
         )
 
     def effective_participants_limit(self, *, participants_limit: int) -> int:
-        if not self.windows or participants_limit == 0:
+        if not self.windows:
             return 0
         return math.ceil(participants_limit * self.percentage_slots / 100)
 
     def is_full(self, *, participants_limit: int, enrolled_count: int) -> bool:
-        if not self.windows or participants_limit == 0:
+        if not self.windows:
             return False
         return enrolled_count >= self.effective_participants_limit(
             participants_limit=participants_limit
         )
 
     def available_slots(self, *, participants_limit: int, enrolled_count: int) -> int:
-        if not self.windows:
-            return 0
-        if participants_limit == 0:
-            return sys.maxsize
-        effective_limit = math.ceil(participants_limit * self.percentage_slots / 100)
-        return max(0, effective_limit - enrolled_count)
+        limit = self.effective_participants_limit(participants_limit=participants_limit)
+        return max(0, limit - enrolled_count)
 
 
 def _now() -> datetime:
@@ -268,9 +263,7 @@ class WaitlistPromotionService:
         with self._transaction.atomic():
             if (state := self._participations.lock_and_read_state(session_id)) is None:
                 logger.info(
-                    "Session %s promotes nobody: it is gone, unscheduled, or "
-                    "outside every enrollment window",
-                    session_id,
+                    "Session %s promotes nobody: it is gone or unscheduled", session_id
                 )
                 return result
             if not (parties := select_promotable_parties(state)):
@@ -665,18 +658,17 @@ class AnonymousEnrollmentService(AnonymousEnrollmentServiceProtocol):
                 participants_limit=raw_session.participants_limit
             ),
         )
-        # Unscheduled sessions (no agenda item) have no enrollment to join.
-        if not session.has_agenda_item:
-            raise AnonymousEnrollmentError(
-                AnonymousEnrollmentErrorCode.NO_ENROLLMENT_CONFIG,
-                event_slug=self._anonymous_event_slug(request),
-            )
         if (
             request.anonymous_event_id is None
             or session.event_id != request.anonymous_event_id
         ):
             raise AnonymousEnrollmentError(
                 AnonymousEnrollmentErrorCode.NOT_FOR_THIS_SESSION,
+                event_slug=self._anonymous_event_slug(request),
+            )
+        if not session.has_agenda_item and require_active_enrollment:
+            raise AnonymousEnrollmentError(
+                AnonymousEnrollmentErrorCode.NO_ENROLLMENT_CONFIG,
                 event_slug=self._anonymous_event_slug(request),
             )
         if require_active_enrollment and not session.allows_anonymous_enrollment:
@@ -692,6 +684,17 @@ class AnonymousEnrollmentService(AnonymousEnrollmentServiceProtocol):
             raise AnonymousEnrollmentError(
                 AnonymousEnrollmentErrorCode.USER_NOT_FOUND
             ) from None
+        if (
+            not session.has_agenda_item
+            and self._enrollment_repository.read_participation_status(
+                session_id=session.session_id, user_id=user.pk
+            )
+            is None
+        ):
+            raise AnonymousEnrollmentError(
+                AnonymousEnrollmentErrorCode.NO_ENROLLMENT_CONFIG,
+                event_slug=self._anonymous_event_slug(request),
+            )
         return session, user
 
     def _anonymous_event_slug(

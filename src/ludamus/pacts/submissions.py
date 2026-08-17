@@ -21,6 +21,7 @@ if TYPE_CHECKING:
     from ludamus.pacts import PersonalDataFieldValueData
     from ludamus.pacts.legacy import (
         FacilitatorChangeLogDTO,
+        FacilitatorChangeLogRepositoryProtocol,
         FacilitatorRepositoryProtocol,
         FacilitatorUpdateData,
         FieldUsageSummary,
@@ -301,6 +302,7 @@ class ImportRepos:  # pylint: disable=too-many-instance-attributes
     tracks: TrackRepositoryProtocol
     categories: ProposalCategoryRepositoryProtocol
     facilitators: FacilitatorRepositoryProtocol
+    facilitator_change_logs: FacilitatorChangeLogRepositoryProtocol
     log_entries: ImportLogEntryRepositoryProtocol
 
 
@@ -360,21 +362,36 @@ class OrganizerActionRefusal(StrEnum):
     ALREADY_YOURS = "already_yours"
     ALREADY_FREE = "already_free"
     NOT_ORGANIZER = "not_organizer"
+    HAS_SESSIONS = "has_sessions"
+
+
+class FacilitatorSessionCountsDTO(BaseModel):
+    """How many program points name a facilitator, live and deleted apart."""
+
+    live: int
+    deleted: int
 
 
 class FacilitatorActionError(Exception):
     """Raised when a facilitator action cannot apply, with the reason why."""
 
-    def __init__(self, refusal: OrganizerActionRefusal) -> None:
+    def __init__(
+        self,
+        refusal: OrganizerActionRefusal,
+        *,
+        session_counts: FacilitatorSessionCountsDTO | None = None,
+    ) -> None:
         super().__init__(refusal.value)
         self.refusal = refusal
+        # What the refusal is about, when it is about something countable: the
+        # message can then say how many and where instead of what is forbidden.
+        self.session_counts = session_counts
 
 
 class FacilitatorListFilters(TypedDict, total=False):
     search: str | None
     pks: set[int] | None
     accreditation: str | None
-    flagged: bool | None
     field_filters: dict[int, str | bool] | None
     organizer_id: int | None
     organizer_unassigned: bool | None

@@ -15,7 +15,14 @@ FIELD_KEY_PREFIX = "field_"
 
 # Which built-in columns each list offers, in their default order. The gates
 # layer decides what they are called and how their cells render.
-FACILITATOR_BUILTIN_KEYS = ("name", "linked", "sessions", "accreditation", "organizer")
+FACILITATOR_BUILTIN_KEYS = (
+    "name",
+    "linked",
+    "guild",
+    "sessions",
+    "accreditation",
+    "organizer",
+)
 PROPOSAL_BUILTIN_KEYS = ("title", "host", "category", "status", "created")
 
 

@@ -56,7 +56,7 @@ local linters = new Mapping<String, Step> {
 
   // Frontend — oxfmt (Tailwind sorting via .oxfmtrc.json), run as an aube devDep
   ["oxfmt"] = (Builtins.oxfmt) {
-    prefix = "aube exec"
+    prefix = "aube exec --no-install"
     glob = List(
       "**/*.ts",
       "**/*.tsx",
@@ -72,7 +72,7 @@ local linters = new Mapping<String, Step> {
 
   // Frontend — oxlint, run as an aube devDep like oxfmt
   ["oxlint"] = (Builtins.ox_lint) {
-    prefix = "aube exec"
+    prefix = "aube exec --no-install"
   }
 
   // Config / infra
@@ -86,7 +86,7 @@ local linters = new Mapping<String, Step> {
     fix = "dockerfmt -w -n {{files}}"
   }
   ["dclint"] = (Builtins.dclint) {
-    prefix = "aube exec"
+    prefix = "aube exec --no-install"
     glob = List("docker/compose/*.yml", "docker/compose/*.yaml")
   }
   ["markdownlint"] {

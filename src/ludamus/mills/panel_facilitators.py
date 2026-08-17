@@ -13,6 +13,7 @@ from ludamus.mills.slugs import unique_slug
 from ludamus.mills.submissions.personal_data_fields import (
     diff_personal_data,
     log_facilitator_changes,
+    log_facilitator_deletion,
 )
 from ludamus.pacts import FacilitatorData, NotFoundError, PersonalDataFieldValueData
 from ludamus.pacts.panel import (
@@ -192,22 +193,71 @@ def _unique_values(values: Iterable[_FieldValue]) -> list[_FieldValue]:
     return unique
 
 
-def _inherited_organizer(
-    target: FacilitatorDTO, sources: Sequence[FacilitatorDTO]
-) -> int | None:
-    """Decide which organizer the merge writes onto the target.
+def _agreed(candidates: Iterable[int | None]) -> int | None:
+    ids = {value for value in candidates if value is not None}
+    return ids.pop() if len(ids) == 1 else None
+
+
+def _inherited(held: int | None, candidates: Iterable[int | None]) -> int | None:
+    """Decide which related id the merge writes onto the target.
 
     Returns:
-        A source's organizer id when the target is unheld and the sources
-        agree on one. Whoever holds the target keeps it — a merge never takes
-        a facilitator away from its organizer — and disagreeing sources cancel
-        out, so the merged row stays unassigned for someone to claim
-        deliberately.
+        A candidate when the target is unset and the candidates agree on one.
+        Whoever holds the target keeps it — a merge never takes a facilitator
+        away from its organizer or guild — and disagreeing sources cancel out,
+        so the merged row stays unassigned for someone to claim deliberately.
     """
-    if target.organizer_id is not None:
+    if held is not None:
         return None
-    ids = {f.organizer_id for f in sources if f.organizer_id is not None}
-    return ids.pop() if len(ids) == 1 else None
+    return _agreed(candidates)
+
+
+def _guild_to_place(
+    *,
+    target_guild_id: int | None,
+    user_id: int | None,
+    has_membership: bool,
+    source_guild_ids: Iterable[int | None],
+) -> int | None:
+    """Pick the guild the merge writes, if any.
+
+    Returns:
+        None when the surviving user already has a membership — that
+        membership is never moved — or when an account-less target already
+        holds the FK and no user is joining. Otherwise the target's FK (to
+        migrate onto a membership) or an agreed source FK for an unheld row.
+    """
+    if has_membership:
+        return None
+    if target_guild_id is not None:
+        return target_guild_id if user_id is not None else None
+    return _agreed(source_guild_ids)
+
+
+def _merge_update(
+    *,
+    target: FacilitatorDTO,
+    sources: Sequence[FacilitatorDTO],
+    data: FacilitatorMergeData,
+    user_pk: int | None,
+) -> FacilitatorUpdateData:
+    update: FacilitatorUpdateData = {
+        "display_name": data.display_name,
+        "accreditation_type": data.accreditation_type,
+    }
+    if user_pk is not None and target.user_id is None:
+        # The lone linked account rides along to the target instead of
+        # vanishing with its deleted source. The FK must clear in the same
+        # UPDATE: a row cannot carry both.
+        update["user_id"] = user_pk
+        update["guild_id"] = None
+    if (
+        inherited := _inherited(
+            target.organizer_id, (source.organizer_id for source in sources)
+        )
+    ) is not None:
+        update["organizer_id"] = inherited
+    return update
 
 
 MIN_MERGE_FACILITATORS = 2
@@ -273,7 +323,6 @@ class FacilitatorPanelService(FacilitatorPanelServiceProtocol):
         filters: FacilitatorListFilters = {
             "search": query.search or None,
             "accreditation": query.accreditation or None,
-            "flagged": query.flagged or None,
             "field_filters": field_filters or None,
             "organizer_id": (
                 query.current_user_id if query.organizer == "mine" else None
@@ -292,6 +341,9 @@ class FacilitatorPanelService(FacilitatorPanelServiceProtocol):
                 fields=fields,
             ),
         )
+
+    def list_deleted(self, event_id: int) -> list[FacilitatorListItemDTO]:
+        return self._repos.facilitators.list_deleted_by_event(event_id)
 
     def filter_options(
         self, *, event_id: int, search: str, pinned: set[int], limit: int
@@ -352,10 +404,16 @@ class FacilitatorPanelService(FacilitatorPanelServiceProtocol):
         return self._repos.personal_data_fields.list_by_event(event_id)
 
     def detail_context(
-        self, *, event_id: int, facilitator_slug: str
+        self, *, event_id: int, facilitator_slug: str, include_deleted: bool
     ) -> FacilitatorDetailContextDTO:
-        facilitator = self._repos.facilitators.read_by_event_and_slug(
-            event_id, facilitator_slug
+        # Only the detail page asks for a deleted facilitator — it carries the
+        # restore banner. Everywhere else a dead slug is a NotFound.
+        facilitator = (
+            self._repos.facilitators.read_including_deleted(event_id, facilitator_slug)
+            if include_deleted
+            else self._repos.facilitators.read_by_event_and_slug(
+                event_id, facilitator_slug
+            )
         )
         fields = self._repos.personal_data_fields.list_by_event(event_id)
         values = self._repos.personal_data_field_values.read_for_facilitator_event(
@@ -389,6 +447,7 @@ class FacilitatorPanelService(FacilitatorPanelServiceProtocol):
                     accreditation_type=data.accreditation_type,
                     display_name=data.display_name,
                     event_id=event_id,
+                    is_collective=data.is_collective,
                     organizer_id=data.organizer_id,
                     slug=slug,
                     user_id=None,
@@ -416,7 +475,9 @@ class FacilitatorPanelService(FacilitatorPanelServiceProtocol):
     def facilitator_history(
         self, *, event_id: int, facilitator_slug: str
     ) -> tuple[str, list[FacilitatorChangeLogDTO]]:
-        facilitator = self._repos.facilitators.read_by_event_and_slug(
+        # Reads a dead row on purpose: who deleted the facilitator and when is
+        # exactly what the History tab is opened for.
+        facilitator = self._repos.facilitators.read_including_deleted(
             event_id, facilitator_slug
         )
         # ponytail: filters the event-wide log in Python; per-facilitator DB
@@ -475,6 +536,7 @@ class FacilitatorPanelService(FacilitatorPanelServiceProtocol):
         self,
         *,
         event_id: int,
+        sphere_id: int,
         target_slug: str,
         facilitator_slugs: list[str],
         data: FacilitatorMergeData,
@@ -526,17 +588,31 @@ class FacilitatorPanelService(FacilitatorPanelServiceProtocol):
             # diffs against what the merge actually replaced.
             old_values = values_by_holder[target.pk]
 
-            update: FacilitatorUpdateData = {
-                "display_name": data.display_name,
-                "accreditation_type": data.accreditation_type,
-            }
-            if linked and linked[0].pk != target.pk:
-                # The lone linked account rides along to the target instead of
-                # vanishing with its deleted source.
-                update["user_id"] = linked[0].user_id
-            if (inherited := _inherited_organizer(target, sources)) is not None:
-                update["organizer_id"] = inherited
+            user_pk = linked[0].user_id if linked else None
+            update = _merge_update(
+                target=target, sources=sources, data=data, user_pk=user_pk
+            )
+            membership = (
+                self._repos.guilds.read_member_guild(
+                    sphere_id=sphere_id, user_pk=user_pk
+                )
+                if user_pk is not None
+                else None
+            )
+            guild_pk = _guild_to_place(
+                target_guild_id=target.guild_id,
+                user_id=user_pk,
+                has_membership=membership is not None,
+                source_guild_ids=(source.guild_id for source in sources),
+            )
             self._repos.facilitators.update(target.pk, update)
+            if guild_pk is not None:
+                self._place_guild(
+                    sphere_id=sphere_id,
+                    facilitator_pk=target.pk,
+                    user_pk=user_pk,
+                    guild_pk=guild_pk,
+                )
             if entries:
                 self._repos.personal_data_field_values.save(entries)
             self._repos.sessions.replace_facilitators_in_sessions(source_ids, target.pk)
@@ -668,11 +744,84 @@ class FacilitatorPanelService(FacilitatorPanelServiceProtocol):
             raise EmptyColumnSelectionError
         self._repos.panel_settings.update_facilitator_columns(event_id, keys)
 
-    def set_flag(self, *, event_id: int, facilitator_slug: str, flagged: bool) -> None:
-        facilitator = self._repos.facilitators.read_by_event_and_slug(
-            event_id, facilitator_slug
+    def delete(
+        self, *, event_id: int, facilitator_slug: str, user_id: int | None = None
+    ) -> None:
+        # A facilitator named on sessions cannot be deleted: their byline would
+        # vanish from the program with nothing on the session saying why. The
+        # sessions go first, or the facilitator stays.
+        with self._transaction.atomic():
+            facilitator = self._repos.facilitators.read_by_event_and_slug(
+                event_id, facilitator_slug
+            )
+            # Before the check, not after: a session assignment committing
+            # between the two would otherwise leave this facilitator deleted
+            # and still named on the program.
+            self._repos.facilitators.lock([facilitator.pk])
+            counts = self._repos.facilitators.count_sessions(facilitator.pk)
+            if counts.live or counts.deleted:
+                raise FacilitatorActionError(
+                    OrganizerActionRefusal.HAS_SESSIONS, session_counts=counts
+                )
+            self._repos.facilitators.soft_delete(facilitator.pk)
+            self._log_deletion(
+                event_id=event_id,
+                facilitator_id=facilitator.pk,
+                user_id=user_id,
+                deleted=True,
+            )
+
+    def restore(
+        self, *, event_id: int, facilitator_slug: str, user_id: int | None = None
+    ) -> None:
+        with self._transaction.atomic():
+            # The only write that reads a dead row on purpose.
+            facilitator = self._repos.facilitators.read_including_deleted(
+                event_id, facilitator_slug
+            )
+            self._repos.facilitators.restore(facilitator.pk)
+            self._log_deletion(
+                event_id=event_id,
+                facilitator_id=facilitator.pk,
+                user_id=user_id,
+                deleted=False,
+            )
+
+    def _log_deletion(
+        self, *, event_id: int, facilitator_id: int, user_id: int | None, deleted: bool
+    ) -> None:
+        log_facilitator_deletion(
+            repo=self._repos.facilitator_change_logs,
+            event_id=event_id,
+            facilitator_id=facilitator_id,
+            user_id=user_id,
+            deleted=deleted,
         )
-        self._repos.facilitators.set_flag(facilitator.pk, flagged=flagged)
+
+    def _place_guild(
+        self, *, sphere_id: int, facilitator_pk: int, user_pk: int | None, guild_pk: int
+    ) -> bool:
+        if user_pk is not None:
+            return self._repos.guilds.assign_member(
+                sphere_id=sphere_id, guild_pk=guild_pk, user_pk=user_pk
+            )
+        return self._repos.guilds.set_facilitator_guild(
+            sphere_id=sphere_id, facilitator_pk=facilitator_pk, guild_pk=guild_pk
+        )
+
+    def assign_guild(
+        self, *, event_id: int, sphere_id: int, facilitator_slug: str, guild_pk: int
+    ) -> bool:
+        with self._transaction.atomic():
+            facilitator = self._repos.facilitators.read_by_event_and_slug(
+                event_id, facilitator_slug
+            )
+            return self._place_guild(
+                sphere_id=sphere_id,
+                facilitator_pk=facilitator.pk,
+                user_pk=facilitator.user_id,
+                guild_pk=guild_pk,
+            )
 
     def assign_organizer(
         self, *, event_id: int, facilitator_slug: str, organizer_id: int

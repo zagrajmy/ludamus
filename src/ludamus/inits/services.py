@@ -43,6 +43,7 @@ from ludamus.mills.enrollment import (
 )
 from ludamus.mills.event import EventConfirmationsService, EventPanelService
 from ludamus.mills.event_settings import EventSettingsService
+from ludamus.mills.guild import GuildService
 from ludamus.mills.multiverse import (
     AnnouncementsService,
     ConnectionsService,
@@ -131,6 +132,7 @@ class Services:
                 panel_settings=self._repos.event_panel_settings,
                 sessions=self._repos.sessions,
                 users=self._repos.active_users,
+                guilds=self._repos.guilds,
             ),
         )
 
@@ -166,6 +168,10 @@ class Services:
             spheres=self._repos.spheres,
             claims=self.claims,
         )
+
+    @cached_property
+    def guilds(self) -> GuildService:
+        return GuildService(transaction=self._transaction, guilds=self._repos.guilds)
 
     @cached_property
     def parties(self) -> PartyService:
@@ -262,10 +268,11 @@ class Services:
     @cached_property
     def session_content_edit(self) -> SessionContentEditService:
         return SessionContentEditService(
-            self._transaction,
-            self._repos.sessions,
-            self._repos.session_fields,
-            self._repos.content_change_logs,
+            transaction=self._transaction,
+            sessions=self._repos.sessions,
+            session_fields=self._repos.session_fields,
+            content_change_logs=self._repos.content_change_logs,
+            agenda_items=self._repos.agenda_items,
         )
 
     @cached_property
@@ -457,6 +464,7 @@ class Services:
             self._repos.tracks,
             self._repos.proposal_categories,
             self._repos.facilitators,
+            self._repos.facilitator_change_logs,
             self._repos.import_log_entries,
         )
 

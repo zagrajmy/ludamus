@@ -50,7 +50,7 @@
                             </thead>
                             <tbody class="bg-bg-secondary divide-y divide-border">
                                 {% for integration in integrations %}
-                                    <tr>
+                                    <tr class="hover:bg-bg-tertiary">
                                         <td class="px-6 py-4 text-sm font-medium text-foreground">{{ integration.display_name }}</td>
                                         <td class="px-6 py-4 whitespace-nowrap text-sm text-foreground-secondary">{{ integration.kind|capfirst }}</td>
                                         <td class="px-6 py-4 whitespace-nowrap text-sm text-foreground-secondary">
@@ -61,6 +61,7 @@
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                             <a href="{% url 'panel:integration-edit' slug=current_event.slug pk=integration.pk %}"
+                                               data-row-action
                                                class="text-primary hover:text-primary/80 mr-4">{% translate "Edit" %}</a>
                                             <a href="{% url 'panel:integration-delete' slug=current_event.slug pk=integration.pk %}"
                                                class="text-danger hover:text-danger/80">{% translate "Delete" %}</a>

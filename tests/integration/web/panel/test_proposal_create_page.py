@@ -10,7 +10,6 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import DataError
 from django.urls import reverse
 
-from ludamus.gates.web.django.forms import MAX_DURATION_HOURS, MAX_DURATION_MINUTES
 from ludamus.links.db.django.models import (
     Facilitator,
     ProposalCategory,
@@ -30,6 +29,7 @@ from ludamus.pacts import (
     TimeSlotDTO,
     TrackDTO,
 )
+from ludamus.pacts.durations import MAX_DURATION_HOURS, MAX_DURATION_MINUTES
 from tests.integration.conftest import EventFactory
 from tests.integration.utils import assert_login_required, assert_response, checkbox_tag
 from tests.integration.web.panel.helpers import (
@@ -149,6 +149,35 @@ class TestProposalCreatePageView:
                     " hover:bg-foreground/5 hidden"
                 ),
             ],
+        )
+
+    def test_get_leaves_deleted_facilitators_out_of_the_picker(
+        self, panel_client, event
+    ):
+        ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
+        facilitator = Facilitator.objects.create(
+            event=event, display_name="Alice", slug="alice", user=None
+        )
+        Facilitator.objects.create(
+            event=event,
+            display_name="Deleted",
+            slug="deleted",
+            user=None,
+            deleted_at=datetime(2026, 1, 2, 3, 4, tzinfo=UTC),
+        )
+
+        response = panel_client.get(self.get_url(event))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/proposal-form.html",
+            context_data={
+                **_base_context(event),
+                **_fields_context(event),
+                "form": ANY,
+                "all_facilitators": [facilitator_list_item_dto(facilitator)],
+            },
         )
 
     def test_post_invalid_keeps_selected_facilitator_checked(self, panel_client, event):

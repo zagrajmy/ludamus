@@ -764,10 +764,11 @@ class TestAssignUnassignScope:
         assert created["session_confirmed"] is False
 
 
-def _facilitator(pk, display_name="Alice"):
+def _facilitator(pk, display_name="Alice", *, is_collective=False):
     facilitator = MagicMock()
     facilitator.pk = pk
     facilitator.display_name = display_name
+    facilitator.is_collective = is_collective
     return facilitator
 
 
@@ -912,6 +913,34 @@ class TestListAllForTrack:
         assert conflict.manager_names == ["Basia"]
         uow.sessions.list_track_names_by_session.assert_called_once_with([20])
         uow.tracks.list_manager_names_by_tracks.assert_called_once_with({6})
+
+    def test_collective_facilitator_overlap_is_not_a_conflict(self):
+        subject = _make_item(pk=1, session_id=10, space_id=1)
+        other = _make_item(pk=2, session_id=20, space_id=2, session_title="Other")
+        shared = _facilitator(7, is_collective=True)
+        uow = self._uow(
+            all_items=[subject, other], facilitators={10: [shared], 20: [shared]}
+        )
+
+        conflicts = ConflictDetectionService(uow).list_all_for_track(
+            event_pk=1, track_pk=None
+        )
+
+        assert not conflicts
+
+    def test_collective_facilitator_still_clashes_over_a_space(self):
+        subject = _make_item(pk=1, session_id=10, space_id=1)
+        other = _make_item(pk=2, session_id=20, space_id=1, session_title="Other")
+        shared = _facilitator(7, is_collective=True)
+        uow = self._uow(
+            all_items=[subject, other], facilitators={10: [shared], 20: [shared]}
+        )
+
+        conflicts = ConflictDetectionService(uow).list_all_for_track(
+            event_pk=1, track_pk=None
+        )
+
+        assert [c.type for c in conflicts] == [ConflictType.SPACE_OVERLAP]
 
     def test_attribution_names_the_first_foreign_track_by_name(self):
         # Two foreign tracks, handed over in pk order: the clash still reports

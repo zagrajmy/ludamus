@@ -230,7 +230,7 @@ can't name one, the file isn't too big yet. Gates mirror the sitemap
 The old **subdomain** / **bounded context** vocabulary is banned.
 Some directory, URL, template, and test paths still carry the legacy subdomain
 names; they are renamed opportunistically, tracked by the
-`old-subdomain-loc` tingle metric. New code slices by noun.
+`old-subdomain-files` tingle metric. New code slices by noun.
 
 | Legacy subdomain | Noun | Scope |
 | ---------------- | ---- | ----- |

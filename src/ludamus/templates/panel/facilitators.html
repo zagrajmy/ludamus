@@ -94,10 +94,6 @@
                                         {% endwith %}
                                     {% endwith %}
                                 {% endfor %}
-                                <div class="flex items-center pb-2">
-                                    {% translate "Flagged for deletion only" as t_flagged %}
-                                    {% include "components/checkbox-field.html" with name="flagged" id="filter-flagged" value="true" checked=filter_flagged label=t_flagged only %}
-                                </div>
                                 <div class="flex items-center gap-2">
                                     <button type="submit" class="sr-only">{% translate "Filter" %}</button>
                                     <span id="filter-spinner"
@@ -126,12 +122,8 @@
                                     </span>
                                     <button type="submit"
                                             name="action"
-                                            value="flag"
-                                            class="btn btn-danger text-sm bulk-action-btn">{% translate "Flag for deletion" %}</button>
-                                    <button type="submit"
-                                            name="action"
-                                            value="unflag"
-                                            class="btn btn-secondary text-sm bulk-action-btn">{% translate "Remove flag" %}</button>
+                                            value="delete"
+                                            class="btn btn-danger text-sm bulk-action-btn">{% translate "Delete" %}</button>
                                     <button type="submit"
                                             name="action"
                                             value="mark-guest"
@@ -160,7 +152,7 @@
                                 </thead>
                                 <tbody class="divide-y divide-border">
                                     {% for facilitator in facilitators %}
-                                        <tr class="hover:bg-bg-tertiary {% if facilitator.flagged_for_deletion %}bg-danger/5{% endif %}">
+                                        <tr class="group/row hover:bg-bg-tertiary">
                                             <td class="px-6 py-4">
                                                 {% blocktranslate asvar t_select_row with name=facilitator.display_name %}Select {{ name }}{% endblocktranslate %}
                                                 {% include "components/checkbox-field.html" with name="facilitator_slugs" value=facilitator.slug form_id="bulk-status-form" aria_label=t_select_row hook_class="bulk-row-checkbox" only %}
@@ -172,15 +164,19 @@
                                                         title="{{ value }}">
                                                         {% if forloop.first %}
                                                             <a href="{% url 'panel:facilitator-detail' slug=current_event.slug facilitator_slug=facilitator.slug %}"
+                                                               data-row-action
                                                                aria-label="{{ facilitator.display_name }}"
-                                                               class="text-primary hover:text-primary/80">{{ value|truncatechars:50 }}</a>
-                                                            {% if facilitator.flagged_for_deletion %}
-                                                                <span class="ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-danger/10 text-danger">
-                                                                    {% translate "Flagged" %}
-                                                                </span>
-                                                            {% endif %}
+                                                               class="text-primary hover:text-primary/80">
+                                                                {% include "panel/parts/_facilitator_cell.html" with column=column facilitator=facilitator value=value|truncatechars:50 %}
+                                                            </a>
                                                         {% else %}
-                                                            {{ value|truncatechars:40 }}
+                                                            {% include "panel/parts/_facilitator_cell.html" with column=column facilitator=facilitator value=value|truncatechars:40 %}
+                                                        {% endif %}
+                                                        {% if column.kind == "guild" and not facilitator.guild %}
+                                                            {# Lit on row hover, keyboard focus, or while the menu is open. #}
+                                                            <span class="inline-block opacity-0 transition group-hover/row:opacity-100 focus-within:opacity-100 has-[[aria-expanded=true]]:opacity-100">
+                                                                {% include "panel/parts/_facilitator_guild_attach.html" with facilitator=facilitator %}
+                                                            </span>
                                                         {% endif %}
                                                     </td>
                                                 {% endwith %}
@@ -229,31 +225,24 @@
                                                             </button>
                                                         </form>
                                                     {% endif %}
-                                                    {% if facilitator.flagged_for_deletion %}
-                                                        <form method="post"
-                                                              action="{% url 'panel:facilitator-unflag' slug=current_event.slug facilitator_slug=facilitator.slug %}">
-                                                            {% csrf_token %}
-                                                            <input type="hidden" name="next" value="{{ request.get_full_path }}">
-                                                            <button type="submit"
-                                                                    title="{% translate "Remove deletion flag" %}"
-                                                                    aria-label="{% blocktranslate with name=facilitator.display_name %}Remove deletion flag from {{ name }}{% endblocktranslate %}"
-                                                                    class="text-foreground-muted hover:text-foreground inline-flex items-center">
-                                                                {% icon "arrow-uturn-left" class="w-4 h-4" %}
-                                                            </button>
-                                                        </form>
-                                                    {% else %}
-                                                        <form method="post"
-                                                              action="{% url 'panel:facilitator-flag' slug=current_event.slug facilitator_slug=facilitator.slug %}">
-                                                            {% csrf_token %}
-                                                            <input type="hidden" name="next" value="{{ request.get_full_path }}">
-                                                            <button type="submit"
-                                                                    title="{% translate "Flag for deletion" %}"
-                                                                    aria-label="{% blocktranslate with name=facilitator.display_name %}Flag {{ name }} for deletion{% endblocktranslate %}"
-                                                                    class="text-foreground-muted hover:text-danger inline-flex items-center">
-                                                                {% icon "flag" class="w-4 h-4" %}
-                                                            </button>
-                                                        </form>
-                                                    {% endif %}
+                                                    {% comment %}
+                                                        Always submittable: the service owns "named on sessions ⇒
+                                                        not deletable" and answers at click time, when a session
+                                                        may have been attached since this page rendered.
+                                                    {% endcomment %}
+                                                    <form method="post"
+                                                          action="{% url 'panel:facilitator-delete' slug=current_event.slug facilitator_slug=facilitator.slug %}"
+                                                          data-confirm="{% blocktranslate with name=facilitator.display_name %}Delete {{ name }}? They disappear from the program; you can restore them later.{% endblocktranslate %}"
+                                                          data-confirm-action="{% translate "Delete" %}">
+                                                        {% csrf_token %}
+                                                        <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                                                        <button type="submit"
+                                                                title="{% translate "Delete" %}"
+                                                                aria-label="{% blocktranslate with name=facilitator.display_name %}Delete {{ name }}{% endblocktranslate %}"
+                                                                class="text-foreground-muted hover:text-danger inline-flex items-center">
+                                                            {% icon "trash" class="w-4 h-4" %}
+                                                        </button>
+                                                    </form>
                                                     <a href="{% url 'panel:facilitator-edit' slug=current_event.slug facilitator_slug=facilitator.slug %}"
                                                        class="text-primary hover:text-primary/80 inline-flex items-center">
                                                         {% icon "pencil-square" class="w-4 h-4 mr-1" %}

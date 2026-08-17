@@ -12,7 +12,7 @@ from ludamus.pacts.discounts import (
     DiscountKind,
     DiscountRosterEntryDTO,
 )
-from ludamus.pacts.legacy import FacilitatorListItemDTO
+from ludamus.pacts.event import FacilitatorListItemDTO
 
 
 @contextmanager

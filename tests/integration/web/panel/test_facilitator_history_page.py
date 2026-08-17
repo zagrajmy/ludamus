@@ -153,6 +153,61 @@ class TestFacilitatorHistoryPageView:
             contains=["Alice"],
         )
 
+    def test_renders_the_history_of_a_deleted_facilitator(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        # The deletion entry is what the History tab is opened for, so the
+        # deleted row has to be readable here.
+        sphere.managers.add(active_user)
+        alice = Facilitator.objects.create(
+            event=event, display_name="Alice", slug="alice", user=None
+        )
+        authenticated_client.post(
+            reverse(
+                "panel:facilitator-delete",
+                kwargs={"slug": event.slug, "facilitator_slug": "alice"},
+            )
+        )
+        log = FacilitatorChangeLog.objects.get(facilitator=alice)
+
+        response = authenticated_client.get(self.get_url(event, "alice"))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            # The delete POST's flash was never rendered, so it lands here.
+            messages=[(messages.SUCCESS, "Facilitator deleted.")],
+            template_name="panel/item-history.html",
+            context_data={
+                **_base_context(event),
+                "active_tab": "history",
+                "tab_urls": _tab_urls(event, "alice"),
+                "item_name": "Alice",
+                "back_url": reverse("panel:facilitators", kwargs={"slug": event.slug}),
+                "back_label": "Facilitators",
+                "logs": [
+                    FacilitatorChangeLogDTO(
+                        pk=log.pk,
+                        event_id=event.pk,
+                        facilitator_id=alice.pk,
+                        facilitator_name="Alice",
+                        user_id=active_user.pk,
+                        user_name=active_user.name,
+                        changes=[
+                            {
+                                "field": "deleted",
+                                "field_id": None,
+                                "old": "",
+                                "new": "yes",
+                            }
+                        ],
+                        creation_time=log.creation_time,
+                    )
+                ],
+                "field_names": {},
+            },
+        )
+
     def test_renders_empty_history(
         self, authenticated_client, active_user, sphere, event
     ):

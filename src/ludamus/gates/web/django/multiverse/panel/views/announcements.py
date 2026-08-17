@@ -14,7 +14,7 @@ from ludamus.gates.web.django.multiverse.access import (
     SphereAccessMixin,
 )
 from ludamus.gates.web.django.multiverse.panel.forms import AnnouncementForm
-from ludamus.gates.web.django.multiverse.panel.views.base import sphere_panel_context
+from ludamus.gates.web.django.sphere.panel_context import sphere_settings_context
 from ludamus.pacts import NotFoundError, RedirectError
 from ludamus.pacts.multiverse import AnnouncementData
 
@@ -46,7 +46,7 @@ class AnnouncementsPageView(SphereAccessMixin, View):
             self.request,
             "multiverse/panel/announcements/list.html",
             {
-                **sphere_panel_context(self.request, active_tab="announcements"),
+                **sphere_settings_context(self.request, active_tab="announcements"),
                 "announcements": announcements,
             },
         )
@@ -60,7 +60,7 @@ class AnnouncementCreatePageView(SphereAccessMixin, View):
             self.request,
             "multiverse/panel/announcements/create.html",
             {
-                **sphere_panel_context(self.request, active_tab="announcements"),
+                **sphere_settings_context(self.request, active_tab="announcements"),
                 "form": AnnouncementForm(),
             },
         )
@@ -72,7 +72,7 @@ class AnnouncementCreatePageView(SphereAccessMixin, View):
                 self.request,
                 "multiverse/panel/announcements/create.html",
                 {
-                    **sphere_panel_context(self.request, active_tab="announcements"),
+                    **sphere_settings_context(self.request, active_tab="announcements"),
                     "form": form,
                 },
             )
@@ -104,7 +104,7 @@ class AnnouncementEditPageView(SphereAccessMixin, View):
             self.request,
             "multiverse/panel/announcements/edit.html",
             {
-                **sphere_panel_context(self.request, active_tab="announcements"),
+                **sphere_settings_context(self.request, active_tab="announcements"),
                 "form": form,
                 "announcement": announcement,
             },
@@ -123,7 +123,7 @@ class AnnouncementEditPageView(SphereAccessMixin, View):
                 self.request,
                 "multiverse/panel/announcements/edit.html",
                 {
-                    **sphere_panel_context(self.request, active_tab="announcements"),
+                    **sphere_settings_context(self.request, active_tab="announcements"),
                     "form": form,
                     "announcement": announcement,
                 },
@@ -148,7 +148,7 @@ class AnnouncementDeletePageView(SphereAccessMixin, View):
             self.request,
             "multiverse/panel/announcements/delete.html",
             {
-                **sphere_panel_context(self.request, active_tab="announcements"),
+                **sphere_settings_context(self.request, active_tab="announcements"),
                 "announcement": announcement,
             },
         )

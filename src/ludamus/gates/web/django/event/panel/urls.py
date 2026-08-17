@@ -24,6 +24,8 @@ from ludamus.gates.web.django.chronology.panel.views import (
 from ludamus.gates.web.django.event.panel.views import (
     confirmations,
     enrollment_settings,
+    facilitator_actions,
+    facilitator_edit,
     print_redirects,
     proposal_category_settings,
 )
@@ -409,6 +411,11 @@ urlpatterns = [
         name="facilitator-merge",
     ),
     path(
+        "event/<slug:slug>/facilitators/bin/",
+        facilitators.FacilitatorBinPageView.as_view(),
+        name="facilitator-bin",
+    ),
+    path(
         "event/<slug:slug>/facilitators/<str:facilitator_slug>/",
         facilitators.FacilitatorDetailPageView.as_view(),
         name="facilitator-detail",
@@ -420,18 +427,18 @@ urlpatterns = [
     ),
     path(
         "event/<slug:slug>/facilitators/<str:facilitator_slug>/edit/",
-        facilitators.FacilitatorEditPageView.as_view(),
+        facilitator_edit.FacilitatorEditPageView.as_view(),
         name="facilitator-edit",
     ),
     path(
-        "event/<slug:slug>/facilitators/<str:facilitator_slug>/do/flag",
-        facilitators.FacilitatorFlagActionView.as_view(),
-        name="facilitator-flag",
+        "event/<slug:slug>/facilitators/<str:facilitator_slug>/do/delete",
+        facilitators.FacilitatorDeleteActionView.as_view(),
+        name="facilitator-delete",
     ),
     path(
-        "event/<slug:slug>/facilitators/<str:facilitator_slug>/do/unflag",
-        facilitators.FacilitatorUnflagActionView.as_view(),
-        name="facilitator-unflag",
+        "event/<slug:slug>/facilitators/<str:facilitator_slug>/do/restore",
+        facilitators.FacilitatorRestoreActionView.as_view(),
+        name="facilitator-restore",
     ),
     path(
         "event/<slug:slug>/facilitators/<str:facilitator_slug>/do/mark-guest",
@@ -442,6 +449,11 @@ urlpatterns = [
         "event/<slug:slug>/facilitators/<str:facilitator_slug>/do/assign-organizer",
         facilitators.FacilitatorAssignOrganizerActionView.as_view(),
         name="facilitator-assign-organizer",
+    ),
+    path(
+        "event/<slug:slug>/facilitators/<str:facilitator_slug>/do/assign-guild",
+        facilitator_actions.FacilitatorAssignGuildActionView.as_view(),
+        name="facilitator-assign-guild",
     ),
     path(
         "event/<slug:slug>/facilitators/<str:facilitator_slug>/do/unassign-organizer",
