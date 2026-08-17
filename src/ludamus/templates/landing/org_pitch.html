@@ -1,4 +1,4 @@
-{% load i18n %}
+{% load i18n tessera %}
 {% translate "Who is it for" as t_aud %}
 <section class="pb-[clamp(3rem,7vh,5rem)] group-has-[#aud-gracz:checked]/aud:hidden"
          aria-label="{{ t_aud }}">
@@ -29,7 +29,7 @@
         <a class="btn btn-primary"
            href="mailto:kontakt@zagrajmy.net?subject={% translate 'A plan for my event' %}">{% translate "Run your event with Zagrajmy" %}</a>
         <p class="mt-3 text-sm text-foreground-muted">
-            {% translate "or write to" %} <span class="select-all font-semibold text-foreground-secondary">kontakt@zagrajmy.net</span>
+            {% translate "or write to" %} {% tessera_copy_chip "kontakt@zagrajmy.net" %}
         </p>
     </div>
 </section>

@@ -40,6 +40,11 @@ run = [
     "mise run gunicorn",
 ]
 
+# --keep-alive must stay above the fronting proxy's idle timeout (Coolify's
+# Traefik: 180s by default, but it only reuses connections it opened, so the
+# race window is what matters, not the full timeout). With gunicorn's 2s
+# default, Traefik keeps sending requests down a connection gunicorn has just
+# closed and the user gets a 502 with nothing in the app log.
 [tasks.gunicorn]
 run = """
 gunicorn \
@@ -48,6 +53,9 @@ gunicorn \
     --threads 2 \
     --worker-class gthread \
     --worker-tmp-dir /dev/shm \
+    --keep-alive 190 \
+    --timeout 60 \
+    --graceful-timeout 30 \
     --access-logfile - \
     --error-logfile - \
     --chdir /app/src ludamus.edges.wsgi:application

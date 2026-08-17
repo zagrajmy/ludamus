@@ -359,7 +359,8 @@ the print artifacts (printouts, door card, step-6 stage) stay light on purpose.
         align-items: center;
         gap: 0.7rem;
         opacity: 0;
-        transition: opacity 0.45s;
+        visibility: hidden;
+        transition: opacity 0.45s, visibility 0s linear 0.45s;
         pointer-events: none;
     }
 
@@ -370,6 +371,8 @@ the print artifacts (printouts, door card, step-6 stage) stay light on purpose.
     #k5:checked~.sc .ctx5,
     #k6:checked~.sc .ctx6 {
         opacity: 1;
+        visibility: visible;
+        transition-delay: 0s;
     }
 
     /* grid scaffold */
@@ -856,7 +859,8 @@ the print artifacts (printouts, door card, step-6 stage) stay light on purpose.
             animation: none !important;
         }
 
-        .landing a.btn {
+        .landing a.btn,
+        .landing .ktabs {
             display: none;
         }
 

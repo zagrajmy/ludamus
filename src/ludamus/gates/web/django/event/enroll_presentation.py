@@ -65,7 +65,8 @@ def build_enroll_actions(
     *,
     is_enrollment_available: bool,
     is_ended: bool,
-    # An unlimited session is never full, so capacity needs no second flag.
+    # Capacity only. A session that takes no sign-up reports False here rather
+    # than True, so the waitlist wording below is never offered for one.
     is_full: bool,
     user_enrolled: bool,
     user_waiting: bool,
