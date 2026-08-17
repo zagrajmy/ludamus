@@ -219,7 +219,7 @@ test.describe("Rooms view filtering", () => {
     await expect(cells.first()).toBeVisible();
 
     const placements = await cells.evaluateAll((nodes) =>
-      nodes.slice(0, 20).map((node) => {
+      nodes.map((node) => {
         const style = globalThis.getComputedStyle(node);
         const { tileCol, tileRow, tileSpan } = (node as HTMLElement).dataset;
         return {
