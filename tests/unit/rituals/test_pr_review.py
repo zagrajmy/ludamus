@@ -149,7 +149,9 @@ class TestQueueUp:
 
         assert transition == goto(pick, _picked())
 
-    def test_a_pull_request_already_labelled_for_qa_is_not_queued(
+    # The label says what the threads were when it went on, and nothing takes it
+    # off again; whether one is open now is `pick`'s question.
+    def test_a_pull_request_already_labelled_for_qa_is_still_queued(
         self, trial: Trial
     ) -> None:
         trial.shell.replies(when=LIST, stdout=_listing("feature", tested="feature"))
@@ -157,7 +159,8 @@ class TestQueueUp:
 
         transition = trial.walk(queue_up, _picked())
 
-        assert transition == goto(pick, _picked())
+        queued = [PullRequest.model_validate(_row("feature", tested="feature"))]
+        assert transition == goto(pick, _picked(queue=queued))
 
     # An open thread on a parked branch does not un-park it.
     def test_a_waiting_pull_request_is_left_alone(self, trial: Trial) -> None:

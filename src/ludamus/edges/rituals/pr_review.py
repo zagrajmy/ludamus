@@ -6,8 +6,11 @@ The follow-up to `pr_refresh`, and its opposite: nothing done without you saying
 so, and it is what commits the result.
 
 A branch is a candidate when its pull request is open, yours, labelled
-`pr::thermo`, not labelled `pr::wait` or `pr::qa`, and carrying a review thread
-nobody has settled. They are taken one after another, longest-waiting first,
+`pr::thermo`, not labelled `pr::wait`, and carrying a review thread nobody has
+settled. `pr::qa` says nothing here: it is what the threads were when it went
+on, and what they are now is what `gh` is asked branch by branch — a thread
+opened after the label would otherwise never be seen again. They are taken one
+after another, longest-waiting first,
 until every one of them has been through — except that the branch you are
 standing on goes first, which is also what keeps two terminals on two branches
 off each other's work. A branch whose checkout will not go through, because
@@ -34,7 +37,7 @@ were the decision. A repair runs the one task mise said was
 broken, not the whole gate; the gate itself runs again once that comes back
 green. Diff coverage is not measured here — that is `pr_sweep`'s slow pass, and
 it is the longest job in the toolchain. A branch that ends with nothing left
-open earns `pr::qa`, which also takes it out of every later cast's reckoning.
+open earns `pr::qa`.
 
 A gate that will not go green after `--bound` attempts ends the cast rather
 than moving on: the repair work is sitting uncommitted in the worktree, and
@@ -188,13 +191,12 @@ async def queue_up(picking: Picking) -> Transition:
         raise RitualError(unreadable(error)) from error
     # Reviewed by the night and not yet answered: `pr::thermo` says a review was
     # posted, and whether it is still waiting is asked branch by branch in
-    # `pick`. A branch without the label has nothing here to do.
+    # `pick`. A branch without the label has nothing here to do. `pr::qa` is not
+    # read: it is a claim about the threads at the moment it went on, and a
+    # thread opened afterwards would be invisible for good — nothing takes the
+    # label off again.
     carrying = [
-        pull
-        for pull in pulls
-        if pull.branch != _MAIN
-        and wears(pull, THERMO_LABEL)
-        and not wears(pull, QA_LABEL)
+        pull for pull in pulls if pull.branch != _MAIN and wears(pull, THERMO_LABEL)
     ]
     here = await _ran(HERE, "could not read the current branch", stream=False)
     # You have just finished working on this branch and its review is what you
