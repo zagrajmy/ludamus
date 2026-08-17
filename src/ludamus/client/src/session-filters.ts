@@ -437,7 +437,13 @@ const initSessionFilters = (): void => {
 // place, and re-running against it would double every filter's options.
 const bootSessionFilters = (): void => {
   const searchBox = document.getElementById("session-filter");
-  if (!searchBox || "filtersBound" in searchBox.dataset) return;
+  // A swap to a schedule without a toolbar never reaches initSessionFilters,
+  // so the previous toolbar's document listeners have to be dropped here.
+  if (!searchBox) {
+    documentListeners.abort();
+    return;
+  }
+  if ("filtersBound" in searchBox.dataset) return;
   searchBox.dataset.filtersBound = "";
   initSessionFilters();
 };

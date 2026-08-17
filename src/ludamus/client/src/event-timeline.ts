@@ -131,7 +131,7 @@ const initScheduleRail = (rail: HTMLElement): void => {
     ...document.querySelectorAll<HTMLElement>(".time-slot-section[data-slot-hour]"),
   ];
   const visible = new Set<HTMLElement>();
-  const observer = (railObserver = new IntersectionObserver(
+  railObserver = new IntersectionObserver(
     (entries) => {
       for (const entry of entries) {
         if (entry.isIntersecting) visible.add(entry.target as HTMLElement);
@@ -151,8 +151,8 @@ const initScheduleRail = (rail: HTMLElement): void => {
       if (link) setActive(link);
     },
     { root: scrollRoot, rootMargin: "-12% 0px -70% 0px", threshold: 0 },
-  ));
-  for (const section of sections) observer.observe(section);
+  );
+  for (const section of sections) railObserver.observe(section);
 
   // Drag-to-scrub: treat the rail like a slider. Move/end listeners live on the
   // window so the scrub keeps tracking when the pointer strays off the narrow
@@ -241,7 +241,14 @@ const initScheduleRail = (rail: HTMLElement): void => {
 // htmx traffic — a session modal loading — leaves the bound one alone.
 const bootScheduleRail = (): void => {
   const rail = document.querySelector<HTMLElement>(".schedule-rail");
-  if (!rail || "railBound" in rail.dataset) return;
+  // A swap to a layout without a rail never reaches initScheduleRail, so the
+  // previous rail's wiring has to be dropped here instead.
+  if (!rail) {
+    railListeners.abort();
+    railObserver?.disconnect();
+    return;
+  }
+  if ("railBound" in rail.dataset) return;
   rail.dataset.railBound = "";
   initScheduleRail(rail);
 };

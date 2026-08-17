@@ -4262,6 +4262,10 @@ msgid "Switch to This Code"
 msgstr "Przełącz na Ten Kod"
 
 #: src/ludamus/templates/chronology/event.html
+msgid "Sessions with enrollment"
+msgstr "Punkty programu z zapisami"
+
+#: src/ludamus/templates/chronology/event.html
 #: src/ludamus/templates/chronology/propose/base.html
 msgid "Propose Session"
 msgstr "Zgłoś punkt programu"

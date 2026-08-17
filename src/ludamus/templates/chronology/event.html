@@ -263,7 +263,16 @@
         <!-- Section Header -->
         <div class="flex items-center justify-between mb-6">
             <div class="flex items-center gap-3">
-                <h2 class="text-xl font-bold text-foreground">{% translate "Sessions" %}</h2>
+                {# The badge counts what this view renders, while the stat card #}
+                {# above counts the whole schedule — so the enrollment view #}
+                {# names its narrower set instead of repeating "Sessions". #}
+                <h2 class="text-xl font-bold text-foreground">
+                    {% if schedule_view_is_enrollment %}
+                        {% translate "Sessions with enrollment" %}
+                    {% else %}
+                        {% translate "Sessions" %}
+                    {% endif %}
+                </h2>
                 <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-base translate-y-[.5px] font-semibold bg-coral-100 dark:bg-coral-900/30 text-coral-700 dark:text-coral-400">
                     {{ sessions|length }}
                 </span>

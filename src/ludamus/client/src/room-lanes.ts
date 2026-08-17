@@ -5,9 +5,15 @@
 let laneListeners = new AbortController();
 
 const initRoomLanes = (): void => {
-  const scrollers = [...document.querySelectorAll<HTMLElement>("[data-room-lanes-scroll]")].filter(
-    (scroller) => !("lanesBound" in scroller.dataset),
-  );
+  const grids = [...document.querySelectorAll<HTMLElement>("[data-room-lanes-scroll]")];
+  // Leaving the Rooms view takes the whole grid with it, and nothing later will
+  // abort for us, so drop the resize listener rather than leave it measuring
+  // detached scrollers.
+  if (grids.length === 0) {
+    laneListeners.abort();
+    return;
+  }
+  const scrollers = grids.filter((scroller) => !("lanesBound" in scroller.dataset));
   if (scrollers.length === 0) return;
 
   laneListeners.abort();

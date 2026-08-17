@@ -289,10 +289,7 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
         # is unlisted here for everyone, panel access included, so a manager
         # previewing the page sees the schedule participants will get.
         scheduled = public_scheduled_sessions(self.object.pk)
-        # The enrollment view is the same schedule narrowed to what a
-        # participant has to sign up for; a limit of 0 takes no enrollment.
-        if enrollment_view := self.request.GET.get("view") == "enrollment":
-            scheduled = scheduled.filter(participants_limit__gt=0)
+        enrollment_view = self.request.GET.get("view") == "enrollment"
         event_sessions = annotate_session_participation_counts(
             with_session_card_relations(scheduled)
         ).order_by("agenda_item__start_time")
@@ -328,19 +325,36 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
 
         hour_data = dict(self._get_hour_data(event_sessions, sessions_data))
 
-        # Counted before the enrollment narrowing: it decides the layout, which
-        # must not switch under the reader on a tab click, and it feeds the
-        # event's own stat card, which sits outside the swapped region and so
-        # would otherwise say one thing on a tab click and another on a reload.
-        scheduled_count = (
-            public_scheduled_sessions(self.object.pk).count()
-            if enrollment_view
-            else len(sessions_data)
-        )
+        scheduled_count = len(sessions_data)
         if compact_schedule := scheduled_count >= COMPACT_SCHEDULE_MIN_SESSIONS:
             self._set_bookmark_counts(sessions_data)
             if current_user_id:
                 self._set_user_bookmarks(sessions_data, current_user_id)
+
+        # Everything the page states about the event itself is read off the
+        # whole schedule: these blocks render outside #schedule-region, so a
+        # figure taken after the narrowing below would say one thing on a tab
+        # click and another on a reload. The layout switch is whole-event for
+        # the same reason - it must not flip under the reader on a tab click.
+        total_enrolled = sum(s.enrolled_count for s in sessions_data.values())
+        user_enrolled_sessions = [s for s in sessions_data.values() if s.user_enrolled]
+        has_enrollable_sessions = any(
+            data.takes_enrollment for data in sessions_data.values()
+        )
+
+        # The enrollment view is the same schedule narrowed to what a
+        # participant has to sign up for; a limit of 0 takes no enrollment.
+        if enrollment_view:
+            sessions_data = {
+                sid: data
+                for sid, data in sessions_data.items()
+                if data.takes_enrollment
+            }
+            hour_data = {
+                hour: enrollable
+                for hour, cards in hour_data.items()
+                if (enrollable := [c for c in cards if c.takes_enrollment])
+            }
 
         # The ended/current/future grouping only feeds the card-grid layout;
         # the compact schedule renders from schedule_days instead, so skip the
@@ -369,9 +383,7 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
                 "schedule_view_is_list": not rooms_view and not enrollment_view,
                 "schedule_view_is_rooms": rooms_view,
                 "schedule_view_is_enrollment": enrollment_view,
-                "has_enrollable_sessions": any(
-                    data.takes_enrollment for data in sessions_data.values()
-                ),
+                "has_enrollable_sessions": has_enrollable_sessions,
                 "room_lane_days": build_room_lanes(schedule_days) if rooms_view else [],
                 "schedule_list_url": event_url,
                 "schedule_rooms_url": f"{event_url}?view=rooms",
@@ -379,12 +391,10 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
                 "ended_hour_data": ended_hour_data,
                 "current_hour_data": current_hour_data,
                 "future_unavailable_hour_data": future_unavailable_hour_data,
-                "total_enrolled": sum(s.enrolled_count for s in sessions_data.values()),
-                "user_enrolled_sessions": [
-                    s for s in sessions_data.values() if s.user_enrolled
-                ],
+                "total_enrolled": total_enrolled,
+                "user_enrolled_sessions": user_enrolled_sessions,
                 "user_enrolled_session_titles": [
-                    s.session.title for s in sessions_data.values() if s.user_enrolled
+                    s.session.title for s in user_enrolled_sessions
                 ],
                 "event_banned": event_banned,
             }

@@ -118,17 +118,8 @@ def event_page_context(event, *, url, **overrides):
         "view": ANY,
     }
     context |= overrides
-    # Derived from the cards the caller expects, the way the view derives it
-    # from the cards it renders: the Enrollment tab is offered when at least
-    # one of them takes sign-up. Callers still override it to assert the flag
-    # itself.
-    context.setdefault(
-        "has_enrollable_sessions",
-        any(card.takes_enrollment for card in context["sessions"]),
-    )
-    # Only the enrollment view renders fewer cards than the schedule holds, so
-    # everywhere else the two counts are the same number.
-    context.setdefault("scheduled_count", len(context["sessions"]))
+    context.setdefault("has_enrollable_sessions", False)
+    context.setdefault("scheduled_count", 0)
     return context
 
 
