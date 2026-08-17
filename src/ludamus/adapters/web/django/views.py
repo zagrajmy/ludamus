@@ -291,8 +291,7 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
         scheduled = public_scheduled_sessions(self.object.pk)
         # The enrollment view is the same schedule narrowed to what a
         # participant has to sign up for; a limit of 0 takes no enrollment.
-        enrollment_view = self.request.GET.get("view") == "enrollment"
-        if enrollment_view:
+        if enrollment_view := self.request.GET.get("view") == "enrollment":
             scheduled = scheduled.filter(participants_limit__gt=0)
         event_sessions = annotate_session_participation_counts(
             with_session_card_relations(scheduled)
