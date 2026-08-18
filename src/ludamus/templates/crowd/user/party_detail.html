@@ -87,7 +87,7 @@
                 <li class="flex items-center gap-3 py-2.5 {% if not forloop.last %}border-b border-border{% endif %}">
                     {% include "components/avatar.html" with user=member size="size-9" %}
                     <div class="min-w-0 flex-1">
-                        <p class="text-sm font-medium text-foreground truncate">{{ member.full_name }}</p>
+                        <p class="text-sm font-medium text-foreground truncate" data-ph-mask>{{ member.full_name }}</p>
                         {% if member.is_leader %}
                             <p class="text-xs text-foreground-muted">{% translate "leader" %}</p>
                         {% elif member.status == "invited" %}

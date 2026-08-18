@@ -51,6 +51,18 @@ const initPosthog = (config: PosthogServerConfig): void => {
   });
 };
 
+// The profile Privacy tab shows the stored choice: the server cannot know it
+// (localStorage never leaves the browser), so elements carry the translated
+// labels in data attributes and this fills the right one in.
+const renderConsentState = (): void => {
+  const consent = readConsent();
+  for (const el of document.querySelectorAll<HTMLElement>("[data-consent-state]")) {
+    const { labelAccepted = "", labelDeclined = "", labelUnset = "" } = el.dataset;
+    el.textContent =
+      consent === "accepted" ? labelAccepted : consent === "declined" ? labelDeclined : labelUnset;
+  }
+};
+
 const applyChoice = (config: PosthogServerConfig, choice: "accepted" | "declined"): void => {
   localStorage.setItem(STORAGE_KEY, choice);
   if (choice === "accepted") {
@@ -73,6 +85,7 @@ const init = (): void => {
 
   const consent = readConsent();
   if (consent === "accepted") initPosthog(config);
+  renderConsentState();
 
   const banner = document.getElementById("consent-banner");
   if (!(banner instanceof HTMLElement)) return;
@@ -83,6 +96,7 @@ const init = (): void => {
       const { consentChoice } = button.dataset;
       if (consentChoice !== "accepted" && consentChoice !== "declined") return;
       applyChoice(config, consentChoice);
+      renderConsentState();
       banner.hidden = true;
     });
   }

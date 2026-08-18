@@ -1,0 +1,31 @@
+# Per-Dockerfile ignore for docker/verification.Dockerfile (BuildKit resolves
+# <dockerfile>.dockerignore before the root .dockerignore). Unlike the deploy
+# image, verification needs almost the whole repo — tests, templates, lint
+# configs — so this list only strips what can never affect a check run.
+.git
+.venv
+.aube
+node_modules
+**/node_modules
+.claude/worktrees
+**/__pycache__/
+**/.mypy_cache
+**/.pytest_cache
+**/.ruff_cache
+**/.hypothesis
+**/*.pyc
+**/*.sqlite3
+.coverage
+.coverage.*
+coverage.xml
+htmlcov
+staticfiles
+media
+screenshots
+test-results
+tests/e2e/test-results
+tests/e2e/playwright-report
+src/ludamus/static/vite
+.env.local
+.env.*.local
+.posthog_cli_token

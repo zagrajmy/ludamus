@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-08-15 08:01+0200\n"
+"POT-Creation-Date: 2026-08-18 15:40+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -4811,6 +4811,7 @@ msgid "Analytics consent"
 msgstr "Zgoda na analitykę"
 
 #: src/ludamus/templates/components/consent-banner.html
+#: src/ludamus/templates/crowd/user/privacy.html
 #, python-format
 msgid ""
 "With your consent we use PostHog analytics — including session replays with "
@@ -5142,6 +5143,11 @@ msgstr "Awatar"
 #: src/ludamus/templates/crowd/user/_profile_tabs.html
 msgid "Safety"
 msgstr "Bezpieczeństwo"
+
+#: src/ludamus/templates/crowd/user/_profile_tabs.html
+#: src/ludamus/templates/crowd/user/privacy.html
+msgid "Privacy"
+msgstr "Prywatność"
 
 #: src/ludamus/templates/crowd/user/avatar.html
 msgid "Provider avatar"
@@ -5568,6 +5574,46 @@ msgid ""
 msgstr ""
 "Drużyna zapisuje się na punkty programu razem i razem przesuwa się w kolejce "
 "oczekujących. Możesz ją opuścić w dowolnym momencie."
+
+#: src/ludamus/templates/crowd/user/privacy.html
+msgid "Analytics"
+msgstr "Analityka"
+
+#: src/ludamus/templates/crowd/user/privacy.html
+msgid "Your current choice:"
+msgstr "Twój obecny wybór:"
+
+#: src/ludamus/templates/crowd/user/privacy.html
+msgid "analytics allowed"
+msgstr "analityka włączona"
+
+#: src/ludamus/templates/crowd/user/privacy.html
+msgid "analytics declined"
+msgstr "analityka odrzucona"
+
+#: src/ludamus/templates/crowd/user/privacy.html
+msgid "not decided yet"
+msgstr "jeszcze nie zdecydowano"
+
+#: src/ludamus/templates/crowd/user/privacy.html
+msgid ""
+"The choice is stored only in this browser — on another device or after "
+"clearing site data you will be asked again."
+msgstr ""
+"Wybór jest zapisany tylko w tej przeglądarce — na innym urządzeniu lub po "
+"wyczyszczeniu danych strony zapytamy ponownie."
+
+#: src/ludamus/templates/crowd/user/privacy.html
+msgid "Change your choice"
+msgstr "Zmień swój wybór"
+
+#: src/ludamus/templates/crowd/user/privacy.html
+msgid ""
+"Analytics are not configured on this server. Nothing is collected, so there "
+"is nothing to decide here."
+msgstr ""
+"Analityka nie jest skonfigurowana na tym serwerze. Nic nie jest zbierane, "
+"więc nie ma tu nic do decydowania."
 
 #: src/ludamus/templates/crowd/user/safety.html
 msgid "Shadowbanned players"

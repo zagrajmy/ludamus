@@ -57,7 +57,7 @@ set once here and inherited by the forms below.
     <div class="flex flex-col gap-4 border-t border-border p-4">
         {% for group in facilitator.email_groups %}
             <div class="flex flex-col gap-2">
-                <div class="flex flex-wrap items-center gap-2">
+                <div class="flex flex-wrap items-center gap-2" data-ph-mask>
                     {% if group.contact_email %}
                         {% tessera_copy_chip group.contact_email %}
                     {% else %}

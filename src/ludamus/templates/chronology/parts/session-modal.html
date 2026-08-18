@@ -64,7 +64,7 @@
                     {# the room wraps that same value becomes the row gap and pushes #}
                     {# a sub-label 12px off the name it belongs to. #}
                     <div class="flex flex-1 items-center gap-x-3 gap-y-0.5 flex-wrap min-w-0">
-                        <div class="font-medium text-foreground" data-morph="host">{{ data.presenter.full_name }}</div>
+                        <div class="font-medium text-foreground" data-morph="host" data-ph-mask>{{ data.presenter.full_name }}</div>
                         {% if data.location_label %}
                             {# The room sits beside a name that is still flying in from #}
                             {# the card, so at its final spot it reads as arriving alone. #}
@@ -202,7 +202,7 @@
                                     <div class="flex items-center justify-between p-3 rounded-xl {% if participation.user.pk == current_user.pk %}bg-coral-50 dark:bg-coral-950 border border-coral-200 dark:border-coral-800{% else %}bg-warm-100 dark:bg-neutral-800{% endif %}">
                                         <div class="flex items-center gap-3">
                                             {% include "components/avatar.html" with user=participation.user size="size-8" danger_ring=participation.is_shadowbanned %}
-                                            <span class="font-medium text-foreground">{{ participation.user.full_name }}</span>
+                                            <span class="font-medium text-foreground" data-ph-mask>{{ participation.user.full_name }}</span>
                                         </div>
                                         <div class="flex items-center gap-2">
                                             {% if participation.user.discord_username %}
@@ -228,7 +228,7 @@
                                     <div class="flex items-center gap-3">
                                         <span class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold waiting-position bg-warning-light text-warning-text"
                                               data-position-label="{% translate "Waiting list position" %}"></span>
-                                        <span class="font-medium text-foreground">{{ participation.user.full_name }}</span>
+                                        <span class="font-medium text-foreground" data-ph-mask>{{ participation.user.full_name }}</span>
                                     </div>
                                     <div class="flex items-center gap-2">
                                         {% if participation.user.pk == current_user.pk %}

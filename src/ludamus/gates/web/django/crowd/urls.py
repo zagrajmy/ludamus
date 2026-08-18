@@ -104,6 +104,11 @@ urlpatterns: list[URLPattern | URLResolver] = [
         name="profile-safety",
     ),
     path(
+        "profile/privacy/",
+        profile.ProfilePrivacyPageView.as_view(),
+        name="profile-privacy",
+    ),
+    path(
         "profile/companions/",
         profile.ProfileCompanionsPageView.as_view(),
         name="profile-companions",
