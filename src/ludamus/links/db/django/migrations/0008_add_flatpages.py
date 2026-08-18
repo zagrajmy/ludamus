@@ -1,11 +1,10 @@
-# Emptied when the legal pages moved to src/ludamus/content and
-# django.contrib.flatpages was uninstalled. The file has to stay: 0009 depends
-# on it by name, so deleting it would break the graph.
+# Deliberately empty. 0009 depends on this migration by name, so the file has to
+# stay even though nothing it did survives.
 #
-# It used to seed /privacy-policy/ and /terms-of-service/ as flatpages holding
-# the literal string "<placeholder>". Keeping that body would break a fresh
-# migrate outright — neither the dependency on that app nor
-# apps.get_model("flatpages", ...) can resolve once it is gone.
+# It seeded /privacy-policy/ and /terms-of-service/ as django.contrib.flatpages
+# rows holding the literal string "<placeholder>". That app is not installed, so
+# neither a dependency on it nor apps.get_model("flatpages", ...) resolves, and
+# a fresh migrate would fail on the old body.
 #
 # Databases that already ran it keep their rows and the django_flatpage tables.
 # Nothing reads them any more; drop them whenever it suits.
