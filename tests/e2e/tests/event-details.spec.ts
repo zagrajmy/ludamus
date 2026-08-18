@@ -73,6 +73,23 @@ test.describe("Event detail page", () => {
     await expect(detailDialog).toBeHidden();
   });
 
+  test("session modal drops the Participants tab when nobody signs up", async ({ page }) => {
+    await page.getByRole("link", { name: "Open details for Mega Strategy Lab" }).click();
+    const enrollable = page.getByRole("dialog", { name: "Mega Strategy Lab" });
+    await expect(enrollable.getByRole("tab", { name: /Participants/ })).toBeVisible();
+    await enrollable.getByRole("button", { name: "Close" }).click();
+
+    // Seeded with no participants limit, so there is no roster to show and the
+    // information panel stands alone.
+    await page.getByRole("link", { name: "Open details for Cozy Storytellers Circle" }).click();
+    const dropIn = page.getByRole("dialog", { name: "Cozy Storytellers Circle" });
+    await expect(dropIn).toBeVisible();
+    await expect(dropIn.getByRole("tab")).toHaveCount(0);
+    // The information section drops the tab vocabulary with the bar: a panel
+    // announcing itself as a tabpanel with no tab to select it is invalid ARIA.
+    await expect(dropIn.getByRole("tabpanel")).toHaveCount(0);
+  });
+
   test("opening session modal does not log Transition was skipped", async ({ page }) => {
     const pageErrors: string[] = [];
     page.on("pageerror", (error) => {
@@ -425,7 +442,9 @@ test.describe("Event detail page", () => {
 
     const mobileModalLayout = await page.evaluate(() => {
       const dialog = document.querySelector("dialog[open]");
-      const tabContent = dialog?.querySelector('[role="tabpanel"]')?.parentElement;
+      // By class, not by role: a drop-in session's modal has no tab bar, so its
+      // information panel carries no tabpanel role to find the container by.
+      const tabContent = dialog?.querySelector(".tab-content");
       if (!(dialog instanceof HTMLElement) || !(tabContent instanceof HTMLElement)) return null;
 
       const dialogBox = dialog.getBoundingClientRect();
@@ -445,7 +464,7 @@ test.describe("Event detail page", () => {
 
     const touchMoveAllowed = await page.evaluate(() => {
       const dialog = document.querySelector("dialog[open]");
-      const activePanel = dialog?.querySelector('[role="tabpanel"][data-active]');
+      const activePanel = dialog?.querySelector(".tab-panel[data-active]");
       const text = activePanel?.querySelector("p");
       if (!dialog || !(activePanel instanceof HTMLElement) || !text) return false;
 

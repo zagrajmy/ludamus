@@ -154,7 +154,6 @@ def session_card_stats(session: Session) -> SessionCardStatsDTO:
         is_full=session.is_full,
         is_enrollment_available=session.is_enrollment_available,
         effective_participants_limit=session.effective_participants_limit,
-        full_participant_info=session.full_participant_info,
     )
 
 
