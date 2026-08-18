@@ -3,7 +3,7 @@ from __future__ import annotations
 import atexit
 import logging
 from functools import cache
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Protocol
 
 from django.conf import settings
 from posthog import Posthog
@@ -16,8 +16,28 @@ logger = logging.getLogger(__name__)
 ANONYMOUS = "anonymous"
 
 
+class AnalyticsClient(Protocol):
+    """The slice of posthog-js's server counterpart this module relies on.
+
+    posthog ships py.typed but leaks Any through its own annotations. Naming
+    the surface here keeps the rest of the module checked, and makes the
+    contract a fake has to satisfy explicit.
+    """
+
+    def capture_exception(
+        self,
+        exception: BaseException,
+        *,
+        distinct_id: str,
+        properties: dict[str, object],
+        disable_geoip: bool,
+    ) -> str | None: ...
+
+    def shutdown(self) -> None: ...
+
+
 @cache
-def client() -> Posthog | None:
+def client() -> AnalyticsClient | None:
     """Build the PostHog client once, or None when analytics is unconfigured."""
     if not settings.POSTHOG_API_KEY:
         return None
@@ -50,8 +70,7 @@ def _distinct_id(request: HttpRequest) -> str:
 
 def report_exception(exception: BaseException, request: HttpRequest) -> None:
     """Report a server-side fault, tagged with the user pk for debugging."""
-    posthog = client()
-    if posthog is None:
+    if (posthog := client()) is None:
         return
 
     # The pk rides along as distinct_id so a report can be traced back to the

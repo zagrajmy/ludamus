@@ -20,8 +20,7 @@ def report_request_exception(*, request: HttpRequest, **_kwargs: Signal | None) 
     # Django converts a view exception into a response before it propagates
     # back through the middleware stack, so a middleware-based hook never sees
     # it. This signal does.
-    exception = sys.exc_info()[1]
-    if exception is None:
+    if (exception := sys.exc_info()[1]) is None:
         return
     try:
         analytics.report_exception(exception, request)
