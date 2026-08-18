@@ -6,12 +6,14 @@ from tests.integration.utils import assert_response
 
 
 class TestProfilePrivacyPageView:
-    URL = reverse("web:crowd:profile-privacy")
+    URL = reverse("user:profile-privacy")
 
     def test_unauthenticated_redirects(self, client):
         response = client.get(self.URL)
 
-        assert response.status_code == HTTPStatus.FOUND
+        assert_response(
+            response, HTTPStatus.FOUND, url=f"/crowd/login-required/?next={self.URL}"
+        )
 
     def test_get(self, authenticated_client):
         # The analytics on/off split lives in the template via the analytics

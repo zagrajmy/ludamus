@@ -2,21 +2,16 @@
 // Tool names arrive namespaced (zagrajmy_<tool>) so they can't shadow Pi's
 // built-ins, and results pass through as text blocks the model reads as-is.
 
-import { McpClient } from "./mcp-client";
 import type { GoblinConfig } from "./config";
-import type {
-  McpContentBlock,
-  PiExtensionContext,
-  PiToolDefinition,
-  PiToolResult,
-} from "./types";
+import type { McpContentBlock, PiExtensionContext, PiToolDefinition, PiToolResult } from "./types";
+
+import { McpClient } from "./mcp-client";
 
 const asText = (blocks: McpContentBlock[]): PiToolResult["content"] =>
   blocks.map((block) => ({
     type: "text",
-    text: block.type === "text" && typeof block.text === "string"
-      ? block.text
-      : JSON.stringify(block),
+    text:
+      block.type === "text" && typeof block.text === "string" ? block.text : JSON.stringify(block),
   }));
 
 export const registerZagrajmyTools = async (
