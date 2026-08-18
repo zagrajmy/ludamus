@@ -19,6 +19,7 @@ from django.urls import reverse
 from django.utils.translation import gettext as _
 from django.views.generic.base import View
 
+from ludamus.adapters.web.django.apps import get_posthog_client
 from ludamus.gates.web.django.dynamic_fields import (
     WizardData,
     answered_value,
@@ -829,6 +830,11 @@ class ProposeSessionSubmitActionView(ProposeWizardMixin, View):
         cover = pop_wizard_cover(wizard)
         result = service.submit(event, wizard, cover_image=cover)
 
+        if posthog_client := get_posthog_client():
+            posthog_client.capture(
+                "session_proposal_submitted",
+                properties={"anonymous": not request.user.is_authenticated},
+            )
         del request.session[_session_key(event_slug)]
 
         messages.success(
@@ -1019,6 +1025,11 @@ class SessionBookmarkToggleView(View):
         )
         if result is None:
             return JsonResponse({"error": "not-found"}, status=404)
+        if posthog_client := get_posthog_client():
+            posthog_client.capture(
+                "session_bookmark_toggled",
+                properties={"bookmarked": result.bookmarked},
+            )
         return JsonResponse({"bookmarked": result.bookmarked, "count": result.count})
 
 

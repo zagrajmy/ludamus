@@ -10,6 +10,7 @@ from django.template.response import TemplateResponse
 from django.utils.translation import gettext as _
 from django.views.generic.base import View
 
+from ludamus.adapters.web.django.apps import get_posthog_client
 from ludamus.gates.web.django.crowd.forms import (
     PartyCompanionForm,
     PartyInviteForm,
@@ -64,6 +65,8 @@ class PartyCreateActionView(LoginRequiredMixin, View):
                 leader_pk=request.context.current_user_id,
                 name=form.cleaned_data["name"],
             )
+            if posthog_client := get_posthog_client():
+                posthog_client.capture("party_created")
             messages.success(request, _("Party created."))
             return redirect("web:crowd:party-detail", pk=party_pk)
         messages.error(request, _("Give the party a name."))
@@ -220,6 +223,10 @@ class PartyJoinPageView(LoginRequiredMixin, View):
             messages.error(request, _("This invite link is invalid."))
             return redirect("web:crowd:profile-parties")
         if result.joined:
+            if posthog_client := get_posthog_client():
+                posthog_client.capture(
+                    "party_joined", properties={"join_method": "link"}
+                )
             messages.success(request, _("You joined the party."))
         else:
             messages.info(request, _("You're already in this party."))
@@ -234,6 +241,10 @@ class PartyInviteAcceptActionView(LoginRequiredMixin, View):
         if request.services.parties.accept_invite(
             user_pk=request.context.current_user_id, membership_pk=pk
         ):
+            if posthog_client := get_posthog_client():
+                posthog_client.capture(
+                    "party_joined", properties={"join_method": "invite"}
+                )
             messages.success(request, _("You joined the party."))
         else:
             messages.error(request, _("This invitation is no longer valid."))
