@@ -1,5 +1,4 @@
 import re
-from http import HTTPStatus
 from pathlib import Path
 
 import pytest
@@ -8,7 +7,7 @@ from django.urls import reverse
 
 import ludamus
 from tests.integration.conftest import PNG_BYTES, EncounterFactory, EventFactory
-from tests.integration.utils import assert_response
+from tests.integration.utils import assert_rendered
 
 PRODUCT_PITCH = (
     "A convention without spreadsheet chaos. Programme proposals, a schedule of"
@@ -59,14 +58,7 @@ def _descriptions(response):
 
 def _get_ok(client, url, template_name, **extra):
     response = client.get(url, **extra)
-    # Every test here reads <head>. What each view puts in the context is
-    # asserted by that view's own test module, so this passes it through.
-    assert_response(
-        response,
-        HTTPStatus.OK,
-        context_data=response.context_data,
-        template_name=template_name,
-    )
+    assert_rendered(response=response, template_name=template_name)
     return response
 
 

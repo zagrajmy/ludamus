@@ -268,10 +268,11 @@ class Services:
     @cached_property
     def session_content_edit(self) -> SessionContentEditService:
         return SessionContentEditService(
-            self._transaction,
-            self._repos.sessions,
-            self._repos.session_fields,
-            self._repos.content_change_logs,
+            transaction=self._transaction,
+            sessions=self._repos.sessions,
+            session_fields=self._repos.session_fields,
+            content_change_logs=self._repos.content_change_logs,
+            agenda_items=self._repos.agenda_items,
         )
 
     @cached_property
@@ -463,6 +464,7 @@ class Services:
             self._repos.tracks,
             self._repos.proposal_categories,
             self._repos.facilitators,
+            self._repos.facilitator_change_logs,
             self._repos.import_log_entries,
         )
 
