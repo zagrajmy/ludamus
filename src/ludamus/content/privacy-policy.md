@@ -1,6 +1,6 @@
 # POLITYKA PRYWATNOŚCI
 
-**Data ostatniej aktualizacji: 22.06.2025**
+**Data ostatniej aktualizacji: 18.08.2026**
 
 ## 1. ADMINISTRATOR DANYCH
 
@@ -19,7 +19,6 @@ W ramach świadczonych usług przetwarzamy następujące kategorie danych osobow
 ### 2.1 Dane rejestracyjne:
 
 - Pseudonim (identyfikator użytkownika)
-- Data urodzenia
 - Adres email
 - Unikalny identyfikator z systemu Auth0
 
@@ -42,26 +41,26 @@ Przetwarzamy Państwa dane osobowe w następujących celach:
 ### 3.1 Świadczenie usługi zapisów na wydarzenia
 
 - **Podstawa prawna:** prawnie uzasadniony interes (art. 6 ust. 1 lit. f RODO)
-- **Dane:** pseudonim, data urodzenia, email, identyfikator Auth0
+- **Dane:** pseudonim, email, identyfikator Auth0
 - **Opis:** umożliwienie rejestracji, zarządzania kontem i zapisów na wydarzenia; interes polega na świadczeniu usługi społecznościowej organizacji wydarzeń
 
-### 3.2 Weryfikacja wieku użytkowników
-
-- **Podstawa prawna:** prawnie uzasadniony interes (art. 6 ust. 1 lit. f RODO)
-- **Dane:** data urodzenia
-- **Opis:** zapewnienie bezpieczeństwa nieletnich i zgodności z regulaminem; interes polega na ochronie dzieci
-
-### 3.3 Komunikacja z użytkownikami (planowana)
+### 3.2 Komunikacja z użytkownikami (planowana)
 
 - **Podstawa prawna:** prawnie uzasadniony interes (art. 6 ust. 1 lit. f RODO)
 - **Dane:** email
 - **Opis:** wysyłanie powiadomień o wydarzeniach, potwierdzeń zapisów, komunikatów administracyjnych; interes polega na efektywnej komunikacji związanej ze świadczoną usługą
 
-### 3.4 Funkcjonowanie technicznej strony serwisu
+### 3.3 Funkcjonowanie technicznej strony serwisu
 
 - **Podstawa prawna:** prawnie uzasadniony interes (art. 6 ust. 1 lit. f RODO)
 - **Dane:** cookies, IP, dane techniczne
 - **Opis:** zapewnienie stabilności, bezpieczeństwa i funkcjonalności serwisu
+
+### 3.4 Analityka korzystania z serwisu
+
+- **Podstawa prawna:** zgoda użytkownika (art. 6 ust. 1 lit. a RODO)
+- **Dane:** zdarzenia dotyczące korzystania z serwisu, nagrania sesji z zamaskowaną zawartością wszystkich pól formularzy, zgłoszenia błędów występujących w przeglądarce, dane techniczne przeglądarki
+- **Opis:** sprawdzanie, w jaki sposób serwis jest używany, i szybsze usuwanie błędów. Narzędzie analityczne uruchamia się dopiero po wyrażeniu zgody — przed jej wyrażeniem nie wysyłamy żadnych danych. Zgodę można w każdej chwili wycofać, co zatrzymuje zbieranie danych i nagrywanie sesji
 
 ## 4. ODBIORCY DANYCH
 
@@ -72,9 +71,13 @@ Państwa dane osobowe mogą być przekazywane następującym odbiorcom:
 - **OVH SAS** (Francja) - dostawca usług hostingowych
 - **Auth0** (USA/UE) - dostawca usług uwierzytelniania
 
-### 4.2 Ewentualni przyszli odbiorcy:
+### 4.2 Dostawcy analityki:
 
-W przyszłości możemy korzystać z usług analitycznych (np. Piwik Analytics) - o każdej takiej zmianie poinformujemy poprzez aktualizację niniejszej polityki.
+- **PostHog** - narzędzie analityczne, dane trafiają na serwery w Unii Europejskiej (`eu.i.posthog.com`). Dane przekazujemy wyłącznie użytkownikom, którzy wyrazili zgodę zgodnie z punktem 3.4
+
+### 4.3 Ewentualni przyszli odbiorcy:
+
+W przyszłości możemy korzystać z kolejnych usług - o każdej takiej zmianie poinformujemy poprzez aktualizację niniejszej polityki.
 
 ## 5. TRANSFER DANYCH DO PAŃSTW TRZECICH
 
@@ -92,7 +95,7 @@ Dane osobowe przechowujemy:
 - **Dane konta:** do momentu usunięcia konta przez użytkownika lub na jego żądanie
 - **Historia aktywności:** do momentu usunięcia konta
 - **Logi techniczne:** maksymalnie 12 miesięcy
-- **Dane analityczne:** zgodnie z polityką konkretnego narzędzia (jeśli będzie używane)
+- **Dane analityczne:** zgodnie z polityką narzędzia analitycznego wskazanego w punkcie 4.2
 
 ## 7. PRAWA UŻYTKOWNIKÓW
 
@@ -139,11 +142,12 @@ Konto zostanie usunięte w ciągu 30 dni od otrzymania żądania.
 ### 9.1 Rodzaje używanych cookies:
 
 - **Cookies sesji:** niezbędne do funkcjonowania strony
-- **Cookies ustawień:** przechowywanie preferencji użytkownika (np. szablon strony)
+- **Cookies ustawień:** przechowywanie preferencji użytkownika (np. szablon strony oraz decyzja o zgodzie na analitykę)
+- **Cookies analityczne:** zapisywane przez narzędzie analityczne wskazane w punkcie 4.2, wyłącznie po wyrażeniu zgody
 
 ### 9.2 Zarządzanie cookies:
 
-Można zarządzać cookies poprzez ustawienia przeglądarki. Wyłączenie cookies może wpłynąć na funkcjonalność serwisu.
+Można zarządzać cookies poprzez ustawienia przeglądarki. Wyłączenie cookies może wpłynąć na funkcjonalność serwisu. Zgodę na cookies analityczne można w każdej chwili wycofać, korzystając z odnośnika "Ustawienia analityki" w stopce serwisu.
 
 ## 10. BEZPIECZEŃSTWO DANYCH
 
@@ -159,12 +163,13 @@ Stosujemy odpowiednie środki techniczne i organizacyjne w celu ochrony danych o
 ### 11.1 Ograniczenia wiekowe:
 
 - Serwis nie jest przeznaczony dla osób poniżej 16 roku życia
-- Jeśli użytkownik poda wiek poniżej 16 lat, jego konto zostanie zablokowane
+- Nie zbieramy daty urodzenia i nie weryfikujemy wieku użytkowników
+- Konto zgłoszone jako należące do osoby poniżej 16 roku życia usuwamy
 
 ### 11.2 Zapisy dzieci przez opiekunów:
 
 - Dorosły użytkownik może dodać dziecko do swojego konta
-- Wymagane jest podanie pseudonimu i daty urodzenia dziecka
+- Wymagane jest podanie pseudonimu dziecka
 - Opiekun ponosi pełną odpowiedzialność za dane dziecka
 
 ## 12. ZMIANY POLITYKI PRYWATNOŚCI
