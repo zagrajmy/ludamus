@@ -8,6 +8,10 @@ if TYPE_CHECKING:
     from ludamus.pacts.legacy import SpaceDTO, TrackDTO, TrackListItemDTO
 
 
+class TrackSelectionInvalidError(Exception):
+    pass
+
+
 class TrackFormData(TypedDict):
     name: str
     is_public: bool
@@ -44,6 +48,7 @@ class DuplicateTrackNameError(Exception):
 
 class TracksPanelServiceProtocol(Protocol):
     def list_tracks(self, event_pk: int) -> list[TrackListItemDTO]: ...
+    def list_space_pks_by_event(self, event_pk: int) -> dict[int, list[int]]: ...
     def get_form_context(
         self, *, event_pk: int, sphere_id: int
     ) -> TrackFormContextDTO: ...
@@ -53,7 +58,12 @@ class TracksPanelServiceProtocol(Protocol):
     def get_edit_context(
         self, *, event_pk: int, sphere_id: int, track_slug: str
     ) -> TrackEditContextDTO: ...
-    def create(self, *, event_pk: int, sphere_id: int, data: TrackFormData) -> None: ...
+    def create(
+        self, *, event_pk: int, sphere_id: int, data: TrackFormData
+    ) -> TrackDTO: ...
+    def find_or_create(
+        self, *, event_pk: int, sphere_id: int, data: TrackFormData
+    ) -> TrackDTO: ...
     def update(
         self, *, event_pk: int, sphere_id: int, track_slug: str, data: TrackFormData
     ) -> None: ...

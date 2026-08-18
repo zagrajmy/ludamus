@@ -217,6 +217,25 @@ If you fix a papercut, remove it.
   from timezone.now() and fails near local midnight — CI went red on a tracks-
   only PR, and the same test fails on main at that hour. Pin the clock instead
   of chasing the branch.
+- 2026-08-14: agent-browser screenshot failed when screenshots/ did not already
+  exist; the direct CLI does not create parent directories, unlike mise run
+  shots.
+- 2026-08-14: A read-only review subagent ran `git restore --worktree .` in the
+  shared worktree and erased concurrent parent edits; read-only delegation needs
+  isolated worktrees or enforced write guards.
+- 2026-08-14: `mise run messages` failed twice because varlock required
+  deployment/test-only secrets (including SUPPORT_EMAIL) even though catalog
+  extraction does not use them; the task needs a safe local environment.
+- 2026-08-15: The global 'silence hook' PostToolUse hook on Write|Edit strips
+  every non-preserved comment from the whole file, not just newly added lines.
+  Any agent editing e.g. mills/timetable.py silently wipes its 76 explanatory
+  comments; 108 were lost across one branch before anyone noticed. Bash-driven
+  rewrites bypass it.
+- 2026-08-15: tests/integration/web/chronology/test_event_page.py::test_ok_compa
+  ct_schedule_renders_all_row_variants builds fixtures from timezone.now() and
+  its expected schedule_days stop matching once the local clock crosses a day
+  boundary. Fails on plain main from ~21:00 Europe/Warsaw; green on CI only
+  because runners are UTC.
 - 2026-08-16: aube install fails in the agent sandbox: aube-workspace.yaml
   paranoid:true makes advisoryCheck required, and api.osv.dev is not on the
   sandbox network allowlist, so every install dies with

@@ -51,7 +51,7 @@ class EventContextMixin:
             "stats": page.stats.model_dump(),
         }, page.current_event
 
-    def require_event_context(self, slug: str) -> tuple[dict[str, object], EventDTO]:
+    def require_event_context(self, slug: str) -> tuple[PanelContext, EventDTO]:
         context, current_event = self.get_event_context(slug)
         if current_event is None:
             raise RedirectError(reverse("panel:index"))

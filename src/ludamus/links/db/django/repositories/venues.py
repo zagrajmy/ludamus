@@ -1,6 +1,7 @@
 from collections import defaultdict
 from typing import TYPE_CHECKING
 
+from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
 from django.db.models import Max
 from django.utils.text import slugify
@@ -34,6 +35,7 @@ from ludamus.pacts.venues import (
     SpaceRecordDTO,
     SpaceTreeNodeDTO,
     SpaceTreeRepositoryProtocol,
+    SpaceValidationError,
 )
 
 if TYPE_CHECKING:
@@ -131,7 +133,10 @@ class SpaceTreeRepository(SpaceTreeRepositoryProtocol):
             location=data.location,
             order=(max_order if max_order is not None else -1) + 1,
         )
-        space.full_clean()
+        try:
+            space.full_clean()
+        except ValidationError as error:
+            raise SpaceValidationError("; ".join(error.messages)) from error
         space.save()
         return SpaceRecordDTO.model_validate(space)
 
@@ -164,7 +169,10 @@ class SpaceTreeRepository(SpaceTreeRepositoryProtocol):
         space.capacity = data.capacity
         space.description = data.description
         space.location = data.location
-        space.full_clean()
+        try:
+            space.full_clean()
+        except ValidationError as error:
+            raise SpaceValidationError("; ".join(error.messages)) from error
         space.save()
         return SpaceRecordDTO.model_validate(space)
 
@@ -383,6 +391,13 @@ class TrackRepository(TrackRepositoryProtocol):
         return TrackDTO.model_validate(track)
 
     @staticmethod
+    def find_by_event_and_name(event_pk: int, name: str) -> TrackDTO | None:
+        # iexact mirrors the Lower("name") uniqueness constraint, so a lookup
+        # never misses the row an insert would collide with.
+        track = Track.objects.filter(event_id=event_pk, name__iexact=name).first()
+        return TrackDTO.model_validate(track) if track else None
+
+    @staticmethod
     def read_by_slug(event_pk: int, slug: str) -> TrackDTO:
         try:
             track = Track.objects.get(event_id=event_pk, slug=slug)
@@ -483,6 +498,18 @@ class TrackRepository(TrackRepositoryProtocol):
     @staticmethod
     def list_space_pks(pk: int) -> list[int]:
         return list(Space.objects.filter(tracks__pk=pk).values_list("pk", flat=True))
+
+    @staticmethod
+    def list_space_pks_by_event(event_pk: int) -> dict[int, list[int]]:
+        result: dict[int, list[int]] = {}
+        pairs = (
+            Track.spaces.through.objects.filter(track__event_id=event_pk)
+            .order_by("space_id")
+            .values_list("track_id", "space_id")
+        )
+        for track_pk, space_pk in pairs:
+            result.setdefault(track_pk, []).append(space_pk)
+        return result
 
     @staticmethod
     def list_manager_pks(pk: int) -> list[int]:

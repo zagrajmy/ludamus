@@ -191,6 +191,13 @@ gsutil -m rsync -r /var/lib/ludamus/media gs://<bucket>/<location>
 - `MEMBERSHIP_API_TIMEOUT` — timeout in seconds, default `30` — P(opt)
 - `MEMBERSHIP_API_CHECK_INTERVAL` — minutes, default `15` — P(opt)
 
+**PostHog analytics — Prologue** (optional, any scope):
+
+- `POSTHOG_API_KEY` — public project key; analytics and the consent banner
+  are entirely disabled when unset — L(opt) D(opt) P(opt)
+- `POSTHOG_HOST` — ingestion host, default `https://eu.i.posthog.com`;
+  point it at a first-party reverse proxy when one exists — L(opt) D(opt) P(opt)
+
 **Docker Compose** (prod only, from `prod.yaml`):
 
 - `WEB_PORT` — host port for web service, default `8000` — P(opt)
