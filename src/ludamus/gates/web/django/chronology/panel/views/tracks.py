@@ -24,6 +24,8 @@ from ludamus.pacts.tracks import TrackFormData, TrackSelectionInvalidError
 if TYPE_CHECKING:
     from django.http import HttpResponse
 
+    from ludamus.gates.web.django.event.panel.views.base import PanelContext
+
 
 def _submitted_pks(request: PanelRequest, field: str) -> list[int]:
     return [int(pk) for pk in request.POST.getlist(field) if pk.isdigit()]
@@ -113,12 +115,7 @@ class TrackCreatePageView(PanelAccessMixin, EventContextMixin, View):
         return redirect("panel:tracks", slug=slug)
 
     def _rerender_create_form(
-        self,
-        *,
-        context: dict[str, object],
-        form: TrackForm,
-        event_pk: int,
-        sphere_id: int,
+        self, *, context: PanelContext, form: TrackForm, event_pk: int, sphere_id: int
     ) -> HttpResponse:
         form_context = self.request.services.tracks_panel.get_form_context(
             event_pk=event_pk, sphere_id=sphere_id
@@ -209,7 +206,7 @@ class TrackEditPageView(PanelAccessMixin, EventContextMixin, View):
     def _rerender_edit_form(
         self,
         *,
-        context: dict[str, object],
+        context: PanelContext,
         form: TrackForm,
         event_pk: int,
         sphere_id: int,
