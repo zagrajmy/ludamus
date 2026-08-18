@@ -16,12 +16,9 @@ TAB_URLS = {
     "general": "/multiverse/panel/",
     "announcements": "/multiverse/panel/announcements/",
     "connections": "/multiverse/panel/connections/",
-    "mcp": "/multiverse/panel/mcp/",
 }
 
 
-# Mirrors gates.web.django.sphere.panel_context, which needs a live request and
-# so cannot be imported here.
 def sphere_sidebar_context(*, active_nav: str) -> dict:
     return {
         "events": [],
