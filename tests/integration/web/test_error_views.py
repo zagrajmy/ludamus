@@ -290,3 +290,17 @@ class TestExceptionReporting:
             got_request_exception.send(sender=None, request=request)
 
         assert "Could not report an exception to PostHog" in caplog.text
+
+    def test_no_active_exception_reports_nothing(self, monkeypatch):
+        # Anything may send this signal; only an active exception is a fault.
+        reported = []
+        monkeypatch.setattr(
+            "ludamus.links.analytics.reporting.report_exception",
+            lambda exception, _request: reported.append(str(exception)),
+        )
+        request = HttpRequest()
+        request.path = "/events"
+
+        got_request_exception.send(sender=None, request=request)
+
+        assert reported == []

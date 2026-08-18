@@ -72,3 +72,17 @@ class TestReportException:
         _, kwargs = posthog.capture_exception.call_args
         assert kwargs["properties"]["$process_person_profile"] is False
         assert kwargs["disable_geoip"] is True
+
+    def test_an_unreadable_user_still_reports_anonymously(self, monkeypatch, caplog):
+        # got_request_exception also fires for middleware that raises before
+        # AuthenticationMiddleware, leaving request.user unset.
+        posthog = MagicMock()
+        monkeypatch.setattr(analytics, "client", lambda: posthog)
+        request = HttpRequest()
+        request.path = "/events"
+
+        analytics.report_exception(ValueError("boom"), request)
+
+        _, kwargs = posthog.capture_exception.call_args
+        assert kwargs["distinct_id"] == "anonymous"
+        assert "Could not resolve the user for a fault report" in caplog.text
