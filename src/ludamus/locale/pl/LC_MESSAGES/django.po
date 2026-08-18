@@ -7089,10 +7089,13 @@ msgstr "Przejdź do połączeń"
 #: src/ludamus/templates/panel/discounts/list.html
 msgid ""
 "Apply the agenda? Creators with scheduled program get their rule discount, "
-"and discounts assigned by hand stay untouched."
+"creators left without it lose the creator mark and the discount the rules "
+"gave them, and discounts assigned by hand stay untouched."
 msgstr ""
 "Zastosować agendę? Twórcy programu z zaplanowanym programem dostaną zniżkę z "
-"reguł, a zniżki przyznane ręcznie zostaną bez zmian."
+"reguł, twórcy programu bez zaplanowanego programu stracą oznaczenie twórcy "
+"programu i zniżkę przyznaną przez reguły, a zniżki przyznane ręcznie zostaną "
+"bez zmian."
 
 #: src/ludamus/templates/panel/discounts/list.html
 msgid "Apply agenda"

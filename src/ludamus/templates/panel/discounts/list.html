@@ -19,7 +19,7 @@
                 <form method="post"
                       action="{% url 'panel:discount-sync' slug=current_event.slug %}"
                       class="contents"
-                      data-confirm="{% translate 'Apply the agenda? Creators with scheduled program get their rule discount, and discounts assigned by hand stay untouched.' %}"
+                      data-confirm="{% translate 'Apply the agenda? Creators with scheduled program get their rule discount, creators left without it lose the creator mark and the discount the rules gave them, and discounts assigned by hand stay untouched.' %}"
                       data-confirm-action="{% translate 'Apply agenda' %}">
                     {% csrf_token %}
                     {% translate "Apply agenda" as t_sync %}
