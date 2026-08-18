@@ -86,6 +86,14 @@ class TestTesseraForm:
         assert "<script>" not in html
         assert "&lt;script&gt;" in html or "&#x27;" in html or "&quot;" in html
 
+    def test_renders_non_field_errors(self) -> None:
+        form = SimpleForm(data={})
+        form.add_error(None, "A space holding a session cannot contain other spaces.")
+
+        html = tessera_form(form)
+
+        assert "A space holding a session cannot contain other spaces." in html
+
 
 class TestTesseraField:
     def test_renders_text_input(self) -> None:
