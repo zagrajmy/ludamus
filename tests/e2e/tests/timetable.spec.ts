@@ -971,12 +971,16 @@ test.describe("Timetable", () => {
     await leftPane.getByRole("button", { name: "Assign" }).click();
     await expect(page.locator("#assign-mode-banner")).not.toHaveClass(/hidden/);
 
+    const assignmentResponse = page.waitForResponse(
+      (response) =>
+        response.url().endsWith("/timetable/do/assign/") && response.request().method() === "POST",
+    );
     await page
       .locator(".timetable-column.assign-mode-active")
       .first()
-      .click({ position: { x: 50, y: 30 } });
+      .click({ position: { x: 50, y: 1 } });
+    expect((await assignmentResponse).status()).toBe(204);
 
-    await expect(page.locator("#assign-mode-banner")).toHaveClass(/hidden/, { timeout: 5000 });
     await expect(page.locator("#timetable-grid").getByText("Dungeon Crawl")).toBeVisible({
       timeout: 10000,
     });

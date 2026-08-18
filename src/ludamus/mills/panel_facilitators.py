@@ -13,6 +13,7 @@ from ludamus.mills.slugs import unique_slug
 from ludamus.mills.submissions.personal_data_fields import (
     diff_personal_data,
     log_facilitator_changes,
+    log_facilitator_deletion,
 )
 from ludamus.pacts import FacilitatorData, NotFoundError, PersonalDataFieldValueData
 from ludamus.pacts.panel import (
@@ -322,7 +323,6 @@ class FacilitatorPanelService(FacilitatorPanelServiceProtocol):
         filters: FacilitatorListFilters = {
             "search": query.search or None,
             "accreditation": query.accreditation or None,
-            "flagged": query.flagged or None,
             "field_filters": field_filters or None,
             "organizer_id": (
                 query.current_user_id if query.organizer == "mine" else None
@@ -341,6 +341,9 @@ class FacilitatorPanelService(FacilitatorPanelServiceProtocol):
                 fields=fields,
             ),
         )
+
+    def list_deleted(self, event_id: int) -> list[FacilitatorListItemDTO]:
+        return self._repos.facilitators.list_deleted_by_event(event_id)
 
     def filter_options(
         self, *, event_id: int, search: str, pinned: set[int], limit: int
@@ -401,10 +404,16 @@ class FacilitatorPanelService(FacilitatorPanelServiceProtocol):
         return self._repos.personal_data_fields.list_by_event(event_id)
 
     def detail_context(
-        self, *, event_id: int, facilitator_slug: str
+        self, *, event_id: int, facilitator_slug: str, include_deleted: bool
     ) -> FacilitatorDetailContextDTO:
-        facilitator = self._repos.facilitators.read_by_event_and_slug(
-            event_id, facilitator_slug
+        # Only the detail page asks for a deleted facilitator — it carries the
+        # restore banner. Everywhere else a dead slug is a NotFound.
+        facilitator = (
+            self._repos.facilitators.read_including_deleted(event_id, facilitator_slug)
+            if include_deleted
+            else self._repos.facilitators.read_by_event_and_slug(
+                event_id, facilitator_slug
+            )
         )
         fields = self._repos.personal_data_fields.list_by_event(event_id)
         values = self._repos.personal_data_field_values.read_for_facilitator_event(
@@ -438,6 +447,7 @@ class FacilitatorPanelService(FacilitatorPanelServiceProtocol):
                     accreditation_type=data.accreditation_type,
                     display_name=data.display_name,
                     event_id=event_id,
+                    is_collective=data.is_collective,
                     organizer_id=data.organizer_id,
                     slug=slug,
                     user_id=None,
@@ -462,10 +472,26 @@ class FacilitatorPanelService(FacilitatorPanelServiceProtocol):
                 )
             return facilitator
 
+    def find_or_create_facilitator(
+        self, *, event_id: int, data: FacilitatorCreateData, user_id: int | None = None
+    ) -> FacilitatorDTO:
+        with self._transaction.atomic():
+            self._repos.events.lock(event_id)
+            existing = self._repos.facilitators.find_by_event_and_display_name(
+                event_id, data.display_name
+            )
+            if existing is not None:
+                return existing
+            return self.create_facilitator(
+                event_id=event_id, data=data, user_id=user_id
+            )
+
     def facilitator_history(
         self, *, event_id: int, facilitator_slug: str
     ) -> tuple[str, list[FacilitatorChangeLogDTO]]:
-        facilitator = self._repos.facilitators.read_by_event_and_slug(
+        # Reads a dead row on purpose: who deleted the facilitator and when is
+        # exactly what the History tab is opened for.
+        facilitator = self._repos.facilitators.read_including_deleted(
             event_id, facilitator_slug
         )
         # ponytail: filters the event-wide log in Python; per-facilitator DB
@@ -732,6 +758,60 @@ class FacilitatorPanelService(FacilitatorPanelServiceProtocol):
             raise EmptyColumnSelectionError
         self._repos.panel_settings.update_facilitator_columns(event_id, keys)
 
+    def delete(
+        self, *, event_id: int, facilitator_slug: str, user_id: int | None = None
+    ) -> None:
+        # A facilitator named on sessions cannot be deleted: their byline would
+        # vanish from the program with nothing on the session saying why. The
+        # sessions go first, or the facilitator stays.
+        with self._transaction.atomic():
+            facilitator = self._repos.facilitators.read_by_event_and_slug(
+                event_id, facilitator_slug
+            )
+            # Before the check, not after: a session assignment committing
+            # between the two would otherwise leave this facilitator deleted
+            # and still named on the program.
+            self._repos.facilitators.lock([facilitator.pk])
+            counts = self._repos.facilitators.count_sessions(facilitator.pk)
+            if counts.live or counts.deleted:
+                raise FacilitatorActionError(
+                    OrganizerActionRefusal.HAS_SESSIONS, session_counts=counts
+                )
+            self._repos.facilitators.soft_delete(facilitator.pk)
+            self._log_deletion(
+                event_id=event_id,
+                facilitator_id=facilitator.pk,
+                user_id=user_id,
+                deleted=True,
+            )
+
+    def restore(
+        self, *, event_id: int, facilitator_slug: str, user_id: int | None = None
+    ) -> None:
+        with self._transaction.atomic():
+            # The only write that reads a dead row on purpose.
+            facilitator = self._repos.facilitators.read_including_deleted(
+                event_id, facilitator_slug
+            )
+            self._repos.facilitators.restore(facilitator.pk)
+            self._log_deletion(
+                event_id=event_id,
+                facilitator_id=facilitator.pk,
+                user_id=user_id,
+                deleted=False,
+            )
+
+    def _log_deletion(
+        self, *, event_id: int, facilitator_id: int, user_id: int | None, deleted: bool
+    ) -> None:
+        log_facilitator_deletion(
+            repo=self._repos.facilitator_change_logs,
+            event_id=event_id,
+            facilitator_id=facilitator_id,
+            user_id=user_id,
+            deleted=deleted,
+        )
+
     def _place_guild(
         self, *, sphere_id: int, facilitator_pk: int, user_pk: int | None, guild_pk: int
     ) -> bool:
@@ -756,12 +836,6 @@ class FacilitatorPanelService(FacilitatorPanelServiceProtocol):
                 user_pk=facilitator.user_id,
                 guild_pk=guild_pk,
             )
-
-    def set_flag(self, *, event_id: int, facilitator_slug: str, flagged: bool) -> None:
-        facilitator = self._repos.facilitators.read_by_event_and_slug(
-            event_id, facilitator_slug
-        )
-        self._repos.facilitators.set_flag(facilitator.pk, flagged=flagged)
 
     def assign_organizer(
         self, *, event_id: int, facilitator_slug: str, organizer_id: int

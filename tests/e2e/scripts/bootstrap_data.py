@@ -190,6 +190,7 @@ def _create_session(
     description: str,
     start_offset: timedelta,
     duration_hours: int,
+    participants_limit: int = 24,
 ) -> Session:
     session = Session.objects.create(
         event=event,
@@ -197,7 +198,7 @@ def _create_session(
         title=title,
         slug=slug,
         description=description,
-        participants_limit=24,
+        participants_limit=participants_limit,
         min_age=10,
     )
     AgendaItem.objects.create(
@@ -540,6 +541,24 @@ def _create_panel_lab_event(sphere: Sphere) -> Event:
     )
     _create_space(north_wing, name="Frost Gallery", slug="frost-gallery", capacity=30)
     _create_space(hearth_lounge, name="Ember Corner", slug="ember-corner", capacity=12)
+    # Holds a scheduled session, so it can never take child spaces — the tree
+    # spec asserts its "add a space inside" control is disabled.
+    booked_hall = _create_venue(
+        event,
+        name="Glacier Amphitheatre",
+        slug="glacier-amphitheatre",
+        address="9 Glacier Parade, Northport",
+    )
+    _create_session(
+        event,
+        booked_hall,
+        title="Frostfire Opening Ceremony",
+        slug="frostfire-opening-ceremony",
+        presenter="Frostfire Crew",
+        description="The convention opens with a welcome from the organisers.",
+        start_offset=timedelta(hours=1),
+        duration_hours=1,
+    )
 
     ProposalCategory.objects.create(
         event=event,
@@ -804,6 +823,9 @@ def main() -> None:
         description="Collaborative narrative building with lightweight prompts.",
         start_offset=timedelta(hours=2),
         duration_hours=1,
+        # Drop-in: no sign-up, so the specs have a session the enrollment
+        # filter must exclude and whose modal shows no Participants tab.
+        participants_limit=0,
     )
 
     _create_session(
@@ -902,6 +924,17 @@ def main() -> None:
         place="Tester's place",
         max_participants=4,
         share_code="ENCQR1",
+    )
+
+    _, foreign_sphere = _create_site("foreign.localhost:8000", name="Foreign Programme")
+    _create_event(
+        foreign_sphere,
+        name="Foreign Programme",
+        slug="foreign-programme",
+        description="Event used to verify sphere-scoped organizer access.",
+        start_offset=timedelta(days=30),
+        duration_hours=8,
+        publication_offset=timedelta(days=1),
     )
 
 

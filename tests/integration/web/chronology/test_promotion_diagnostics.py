@@ -158,7 +158,7 @@ class TestPromotionAfterEnrollmentCloses:
         assert result.promoted == [participation.pk]
         assert participation.status == SessionParticipationStatus.CONFIRMED.value
 
-    def test_unlimited_session_promotes_after_close(self, session, waiter):
+    def test_session_without_enrollment_promotes_nobody(self, session, waiter):
         session.participants_limit = 0
         session.save()
         participation = SessionParticipation.objects.create(
@@ -168,8 +168,8 @@ class TestPromotionAfterEnrollmentCloses:
         result = _service().fill_freed_seats(session_id=session.pk)
 
         participation.refresh_from_db()
-        assert result.promoted == [participation.pk]
-        assert participation.status == SessionParticipationStatus.CONFIRMED.value
+        assert not result.promoted
+        assert participation.status == SessionParticipationStatus.WAITING.value
 
     def test_future_only_windows_do_not_block_promotion(self, session, event, waiter):
         now = datetime.now(UTC)

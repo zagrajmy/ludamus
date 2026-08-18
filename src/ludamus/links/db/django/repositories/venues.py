@@ -1,11 +1,13 @@
 from collections import defaultdict
 from typing import TYPE_CHECKING
 
+from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.db.models import Max
 from django.utils.text import slugify
 
 from ludamus.links.db.django.models import (
+    SPACE_NO_CHILDREN_REASON,
     AgendaItem,
     Event,
     Session,
@@ -31,6 +33,7 @@ from ludamus.pacts.venues import (
     SpaceRecordDTO,
     SpaceTreeNodeDTO,
     SpaceTreeRepositoryProtocol,
+    SpaceValidationError,
 )
 
 if TYPE_CHECKING:
@@ -73,8 +76,9 @@ class SpaceRepository(SpaceRepositoryProtocol):
 class SpaceTreeRepository(SpaceTreeRepositoryProtocol):
     @staticmethod
     def list_tree(event_pk: int) -> list[SpaceTreeNodeDTO]:
-        # One query for the whole event; assemble the tree in Python. Prefetch
-        # tracks so the panel can show track pills per space without N+1.
+        # Two queries for the whole event — the spaces and the pks holding a
+        # session — then assemble the tree in Python. Prefetch tracks so the
+        # panel can show track pills per space without N+1.
         spaces = list(
             Space.objects.filter(event_id=event_pk)
             .order_by("order", "name")
@@ -83,6 +87,7 @@ class SpaceTreeRepository(SpaceTreeRepositoryProtocol):
         children_by_parent: dict[int | None, list[Space]] = defaultdict(list)
         for space in spaces:
             children_by_parent[space.parent_id].append(space)
+        with_sessions = SpaceTreeRepository.space_pks_with_sessions(event_pk)
 
         def build(space: Space) -> SpaceTreeNodeDTO:
             # The tree facts come from the sibling map built above, so nothing
@@ -91,6 +96,9 @@ class SpaceTreeRepository(SpaceTreeRepositoryProtocol):
             return SpaceTreeNodeDTO(
                 space=SpaceRecordDTO.model_validate(space),
                 is_leaf=not kids,
+                no_children_reason=(
+                    str(SPACE_NO_CHILDREN_REASON) if space.pk in with_sessions else None
+                ),
                 track_names=sorted(t.name for t in space.tracks.all()),
                 children=[build(kid) for kid in kids],
             )
@@ -123,7 +131,10 @@ class SpaceTreeRepository(SpaceTreeRepositoryProtocol):
             location=data.location,
             order=(max_order if max_order is not None else -1) + 1,
         )
-        space.full_clean()
+        try:
+            space.full_clean()
+        except ValidationError as error:
+            raise SpaceValidationError("; ".join(error.messages)) from error
         space.save()
         return SpaceRecordDTO.model_validate(space)
 
@@ -156,7 +167,10 @@ class SpaceTreeRepository(SpaceTreeRepositoryProtocol):
         space.capacity = data.capacity
         space.description = data.description
         space.location = data.location
-        space.full_clean()
+        try:
+            space.full_clean()
+        except ValidationError as error:
+            raise SpaceValidationError("; ".join(error.messages)) from error
         space.save()
         return SpaceRecordDTO.model_validate(space)
 
@@ -457,6 +471,18 @@ class TrackRepository(TrackRepositoryProtocol):
     @staticmethod
     def list_space_pks(pk: int) -> list[int]:
         return list(Space.objects.filter(tracks__pk=pk).values_list("pk", flat=True))
+
+    @staticmethod
+    def list_space_pks_by_event(event_pk: int) -> dict[int, list[int]]:
+        result: dict[int, list[int]] = {}
+        pairs = (
+            Track.spaces.through.objects.filter(track__event_id=event_pk)
+            .order_by("space_id")
+            .values_list("track_id", "space_id")
+        )
+        for track_pk, space_pk in pairs:
+            result.setdefault(track_pk, []).append(space_pk)
+        return result
 
     @staticmethod
     def list_manager_pks(pk: int) -> list[int]:

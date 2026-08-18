@@ -63,6 +63,30 @@ test.describe("Event filter panel", () => {
     await expect(card("Przygoda w Mieście Neonów")).toBeHidden();
   });
 
+  test("filters down to the sessions that take enrollment", async ({ page }) => {
+    await page.goto("/event/autumn-open/");
+
+    const card = (title: string) => page.locator(".session", { hasText: title });
+
+    await page.getByRole("button", { name: "Filters" }).click();
+    await page.locator("#status-filter").selectOption("takes-enrollment");
+
+    await expect(card("Mega Strategy Lab")).toBeVisible();
+    await expect(card("Przygoda w Mieście Neonów")).toBeVisible();
+    // Seeded with no participants limit: a drop-in nobody signs up for.
+    await expect(card("Cozy Storytellers Circle")).toBeHidden();
+    await expect(page.locator("#active-filter-chips")).toContainText("Takes enrollment");
+  });
+
+  test("marks sessions that take enrollment while the window is shut", async ({ page }) => {
+    // The closed-enrollment event has no enrollment window at all, so no card
+    // carries a seat count — the badge is the only enrollment signal there.
+    await page.goto("/event/closed-enrollment/");
+
+    const card = page.locator(".session", { hasText: "Late Resignation Demo 1" });
+    await expect(card.getByTitle("Enrollment required")).toBeVisible();
+  });
+
   test("filters by host name case-insensitively", async ({ page }) => {
     await page.goto("/event/autumn-open/");
 
