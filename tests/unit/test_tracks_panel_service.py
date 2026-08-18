@@ -86,6 +86,17 @@ class TestTracksPanelService:
 
         assert service.find_or_create(event_pk=42, sphere_id=3, data=_data()) is created
 
+    def test_find_or_create_reraises_when_the_race_winner_cannot_be_found(
+        self, service, tracks, spaces, spheres
+    ):
+        tracks.find_by_event_and_name.side_effect = [None, None]
+        tracks.create.side_effect = DuplicateTrackNameError
+        spaces.list_by_event.return_value = []
+        spheres.list_managers.return_value = []
+
+        with pytest.raises(DuplicateTrackNameError):
+            service.find_or_create(event_pk=42, sphere_id=3, data=_data())
+
     def test_find_or_create_yields_to_the_winner_of_a_concurrent_create(
         self, service, tracks, spaces, spheres
     ):

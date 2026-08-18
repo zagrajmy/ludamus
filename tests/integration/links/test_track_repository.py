@@ -34,6 +34,17 @@ class TestTrackRepositoryGetOrCreateBySlug:
         assert second == first
         assert Track.objects.filter(event=event).count() == 1
 
+    def test_reuses_an_existing_track_by_name_when_the_slug_drifted(self):
+        event = EventFactory.create()
+        first = TrackRepository.get_or_create_by_slug(event.pk, "RPG", "rpg")
+
+        # Mapping slugs are operator-typed, so a slug miss is not proof the
+        # track is new -- the name is what the constraint holds unique.
+        second = TrackRepository.get_or_create_by_slug(event.pk, "rpg", "rpg-sessions")
+
+        assert second == first
+        assert Track.objects.filter(event=event).count() == 1
+
 
 class TestTrackRepositoryDuplicateName:
     def test_create_reports_a_name_another_track_holds_in_any_case(self):

@@ -2,6 +2,7 @@ import logging
 
 import django.db.models.functions.text
 from django.db import migrations, models
+from django.db.models import Value
 from django.db.models.functions import Lower
 
 logger = logging.getLogger(__name__)
@@ -9,12 +10,25 @@ logger = logging.getLogger(__name__)
 NAME_MAX_LENGTH = 255
 
 
-def _free_name(base, taken):
+def _folded(track_model, event_id, name):
+    # One folding authority: the database, exactly as the constraint folds.
+    # Deciding any of this with str.lower() lets Python and the database
+    # disagree on a name and abort AddConstraint mid-deploy.
+    return (
+        track_model.objects.filter(event_id=event_id)
+        .annotate(folded_name=Lower("name"))
+        .filter(folded_name=Lower(Value(name)))
+    )
+
+
+def _free_name(track_model, event_id, base):
+    # Every track of this event is already stored, renames included, so asking
+    # the database covers both the names kept so far and the ones still ahead.
     counter = 2
     while True:
         suffix = f" ({counter})"
         candidate = base[: NAME_MAX_LENGTH - len(suffix)] + suffix
-        if candidate.lower() not in taken:
+        if not _folded(track_model, event_id, candidate).exists():
             return candidate
         counter += 1
 
@@ -22,28 +36,22 @@ def _free_name(base, taken):
 def rename_duplicate_track_names(apps, schema_editor):
     del schema_editor
     track_model = apps.get_model("db_main", "Track")
-    # Every name the event already carries, so a counter suffix never lands on
-    # a distinct track further down the ordering.
-    # Fold in the database, the same way the constraint about to be added
-    # does. Deciding duplication with str.lower() here would let the two
-    # disagree on a name and abort AddConstraint mid-deploy.
-    existing: dict[int, set[str]] = {}
-    folded = track_model.objects.annotate(folded_name=Lower("name"))
-    for event_id, folded_name in folded.values_list("event_id", "folded_name"):
-        existing.setdefault(event_id, set()).add(folded_name)
-
     kept: dict[int, set[str]] = {}
     renamed = 0
+    folded = track_model.objects.annotate(folded_name=Lower("name"))
     tracks = folded.order_by("event_id", "creation_time", "pk")
     for track in tracks.iterator():
+        # The oldest row of each name keeps it; every later one counts up.
         taken = kept.setdefault(track.event_id, set())
         if track.folded_name in taken:
             old_name = track.name
-            track.name = _free_name(old_name, taken | existing[track.event_id])
+            track.name = _free_name(track_model, track.event_id, old_name)
             track.save(update_fields=["name"])
             renamed += 1
             logger.info("0148: track %s name %r -> %r", track.pk, old_name, track.name)
-            taken.add(track.name.lower())
+            taken.add(
+                folded.filter(pk=track.pk).values_list("folded_name", flat=True).first()
+            )
         else:
             taken.add(track.folded_name)
 
