@@ -3,14 +3,8 @@
 // fetch, so the isolate bundle carries no SDK. Server-side, the endpoint is
 // Django's /mcp/ (docs/agents/mcp.md).
 
-import type {
-  GoblinConfig,
-} from "./config";
-import type {
-  JsonRpcResponse,
-  McpToolCallResult,
-  McpToolDescriptor,
-} from "./types";
+import type { GoblinConfig } from "./config";
+import type { JsonRpcResponse, McpToolCallResult, McpToolDescriptor } from "./types";
 
 const PROTOCOL_VERSION = "2025-06-18";
 

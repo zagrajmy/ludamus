@@ -11,7 +11,11 @@
 # changes between branches. Never used by deploys — that's docker/Dockerfile.
 # Context filtering lives in docker/verification.Dockerfile.dockerignore
 # (per-Dockerfile ignore; the root .dockerignore stays deploy-shaped).
-FROM jdxcode/mise:2026.2
+#
+# Newer than docker/Dockerfile's 2026.2 on purpose: this image parses the
+# repo's full mise.toml, which uses task fields (raw_args) the 2026.2 mise
+# rejects; the deploy image only ever reads the minimal docker/mise.toml.
+FROM jdxcode/mise:2026.8.8
 
 # hadolint ignore=DL3008
 RUN apt-get update \

@@ -2,9 +2,10 @@
 // bridge does the rest. Config comes from the isolate's environment, where
 // the secrets-broker Actor injects ZAGRAJMY_MCP_URL / ZAGRAJMY_MCP_TOKEN.
 
-import { readConfig } from "./config";
-import { registerZagrajmyTools } from "./bridge";
 import type { PiExtensionContext } from "./types";
+
+import { registerZagrajmyTools } from "./bridge";
+import { readConfig } from "./config";
 
 export const activate = async (
   context: PiExtensionContext,
