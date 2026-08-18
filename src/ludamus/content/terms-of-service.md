@@ -167,7 +167,7 @@ Użytkownik nie może:
 1. W sprawach nieuregulowanych w Regulaminie stosuje się przepisy prawa polskiego.
 2. Wszelkie spory będą rozstrzygane przez sądy polskie właściwe dla siedziby Administratora.
 3. W przypadku uznania któregokolwiek postanowienia Regulaminu za nieważne, pozostałe postanowienia pozostają w mocy.
-4. Regulamin wchodzi w życie z dniem [DATA].
+4. Regulamin wchodzi w życie z dniem 18.08.2026.
 
 ## § 11. KONTAKT
 
