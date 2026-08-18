@@ -59,6 +59,25 @@ def support(_request: HttpRequest) -> dict[str, str]:
     return {"SUPPORT_EMAIL": settings.SUPPORT_EMAIL}
 
 
+class PosthogConfig(TypedDict):
+    api_key: str
+    host: str
+
+
+class AnalyticsContextData(TypedDict):
+    posthog_config: PosthogConfig | None
+
+
+def analytics(_request: HttpRequest) -> AnalyticsContextData:
+    if not settings.POSTHOG_API_KEY:
+        return AnalyticsContextData(posthog_config=None)
+    return AnalyticsContextData(
+        posthog_config=PosthogConfig(
+            api_key=settings.POSTHOG_API_KEY, host=settings.POSTHOG_HOST
+        )
+    )
+
+
 def static_version(_request: HttpRequest) -> dict[str, str]:
     return {
         "COMMIT_SHA": settings.COMMIT_SHA,
