@@ -1,6 +1,25 @@
+import sys
 from importlib import import_module
+from typing import TYPE_CHECKING, Any
 
 from django.apps import AppConfig
+from django.core.signals import got_request_exception
+from django.dispatch import receiver
+
+from ludamus.gates.web.django import analytics
+
+if TYPE_CHECKING:
+    from django.http import HttpRequest
+
+
+@receiver(got_request_exception)
+def report_request_exception(*, request: HttpRequest, **_kwargs: Any) -> None:
+    # Django converts a view exception into a response before it propagates
+    # back through the middleware stack, so a middleware-based hook never sees
+    # it. This signal does.
+    exception = sys.exc_info()[1]
+    if exception is not None:
+        analytics.report_exception(exception, request)
 
 
 class WebGatesConfig(AppConfig):

@@ -14,7 +14,6 @@ from django.utils.translation import gettext_lazy
 from django.views.decorators.cache import cache_control
 from django.views.generic.base import TemplateView, View
 
-from ludamus.adapters.web.django.apps import get_posthog_client
 from ludamus.gates.web.django.entities import UserInfo
 from ludamus.gates.web.django.helpers import get_client_ip as _get_client_ip
 from ludamus.gates.web.django.meta import encounter_description
@@ -194,8 +193,6 @@ class EncounterCreatePageView(LoginRequiredMixin, View):
             data["header_image"] = form.cleaned_data["header_image"]
 
         encounter = self.request.services.encounters.create(data)
-        if posthog_client := get_posthog_client():
-            posthog_client.capture("encounter_created")
         return redirect(
             reverse(
                 "web:notice-board:encounter-detail",
@@ -367,8 +364,6 @@ class EncounterRSVPActionView(LoginRequiredMixin, View):
             case RSVPOutcome.ALREADY_SIGNED_UP:
                 messages.warning(request, _("You have already signed up."))
             case RSVPOutcome.CREATED:
-                if posthog_client := get_posthog_client():
-                    posthog_client.capture("encounter_rsvp_created")
                 messages.success(request, _("You have signed up!"))
         return redirect(
             reverse(
@@ -388,8 +383,6 @@ class EncounterCancelRSVPActionView(LoginRequiredMixin, View):
         except NotFoundError as exc:
             raise Http404 from exc
 
-        if posthog_client := get_posthog_client():
-            posthog_client.capture("encounter_rsvp_cancelled")
         messages.success(request, _("You have been removed from this encounter."))
         return redirect(
             reverse(

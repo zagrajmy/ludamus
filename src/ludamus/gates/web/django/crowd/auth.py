@@ -24,7 +24,6 @@ from pydantic import BaseModel, ConfigDict
 from pydantic import ValidationError as PydanticValidationError
 
 from ludamus.adapters.oauth import oauth
-from ludamus.adapters.web.django.apps import get_posthog_client
 from ludamus.pacts import RedirectError
 from ludamus.pacts.crowd import ClaimOutcome, UserData
 
@@ -180,8 +179,6 @@ class Auth0LoginCallbackActionView(RedirectView):
         user = self._provision_user(userinfo)
 
         _login_user(self.request, user.slug)
-        if posthog_client := get_posthog_client():
-            posthog_client.capture("user_logged_in", properties={"method": "auth0"})
         if self.request.session.get("anonymous_enrollment_active"):
             self.request.session.pop("anonymous_user_code", None)
             self.request.session.pop("anonymous_enrollment_active", None)
@@ -295,8 +292,6 @@ class Auth0LogoutActionView(RedirectView):
     def get_redirect_url(self, *args: Any, **kwargs: Any) -> str | None:
         redirect_to = super().get_redirect_url(*args, **kwargs)
 
-        if posthog_client := get_posthog_client():
-            posthog_client.capture("user_logged_out")
         django_logout(self.request)
 
         last_domain = self.request.services.sites.read(
