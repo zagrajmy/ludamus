@@ -116,6 +116,10 @@ class TracksPanelService(TracksPanelServiceProtocol):
         # existing track keeps its spaces; the caller checks they cover what
         # it needs.
         with self._transaction.atomic():
+            # Scope the submitted pks even when the name is taken, so a
+            # foreign space_id is refused on both paths and not just the one
+            # that happens to insert.
+            self._scoped(event_pk=event_pk, sphere_id=sphere_id, data=data)
             if existing := self._tracks.find_by_event_and_name(event_pk, data["name"]):
                 return existing
             try:

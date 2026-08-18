@@ -3,7 +3,8 @@ from typing import TYPE_CHECKING
 
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
-from django.db.models import Max
+from django.db.models import Max, Value
+from django.db.models.functions import Lower
 from django.utils.text import slugify
 
 from ludamus.links.db.django.models import (
@@ -360,6 +361,17 @@ def is_track_name_conflict(exc: IntegrityError) -> bool:
     return violates_constraint(exc, _TRACK_UNIQUE_NAME_CONSTRAINT)
 
 
+def _track_by_name(event_id: int, name: str) -> Track | None:
+    # Fold with Lower, exactly like the track_unique_name_per_event
+    # constraint. iexact would fold with UPPER instead, which disagrees on a
+    # handful of codepoints and cannot use the expression index.
+    return (
+        Track.objects.alias(folded_name=Lower("name"))
+        .filter(event_id=event_id, folded_name=Lower(Value(name)))
+        .first()
+    )
+
+
 class TrackRepository(TrackRepositoryProtocol):
     @transaction.atomic
     def create(self, data: TrackCreateData) -> TrackDTO:
@@ -392,9 +404,7 @@ class TrackRepository(TrackRepositoryProtocol):
 
     @staticmethod
     def find_by_event_and_name(event_pk: int, name: str) -> TrackDTO | None:
-        # iexact mirrors the Lower("name") uniqueness constraint, so a lookup
-        # never misses the row an insert would collide with.
-        track = Track.objects.filter(event_id=event_pk, name__iexact=name).first()
+        track = _track_by_name(event_pk, name)
         return TrackDTO.model_validate(track) if track else None
 
     @staticmethod
@@ -408,10 +418,15 @@ class TrackRepository(TrackRepositoryProtocol):
 
     @staticmethod
     def get_or_create_by_slug(event_id: int, name: str, slug: str) -> int:
-        track, _ = Track.objects.get_or_create(
-            event_id=event_id, slug=slug, defaults={"name": name}
-        )
-        return track.pk
+        # Slugs are operator-typed in the import mapping and drift from the
+        # slug a track actually carries, so a miss here is not proof the track
+        # is new. Names are unique per event, so check that before inserting
+        # rather than letting the constraint raise.
+        if track := Track.objects.filter(event_id=event_id, slug=slug).first():
+            return track.pk
+        if existing := _track_by_name(event_id, name):
+            return existing.pk
+        return Track.objects.create(event_id=event_id, slug=slug, name=name).pk
 
     @transaction.atomic
     def update(self, pk: int, data: TrackUpdateData) -> TrackDTO:
