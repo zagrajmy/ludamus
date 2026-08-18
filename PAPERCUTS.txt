@@ -213,6 +213,10 @@ If you fix a papercut, remove it.
 - 2026-08-12: Ran 'mise run test:py tests/unit/test_chronology_mills.py'
   expecting a targeted run; the task ignores trailing path args and ran all 3990
   tests (4 min). 'mise run test:unit -- -k Name' works instead.
+- 2026-08-15: test_ok_compact_schedule_renders_all_row_variants builds fixtures
+  from timezone.now() and fails near local midnight — CI went red on a tracks-
+  only PR, and the same test fails on main at that hour. Pin the clock instead
+  of chasing the branch.
 - 2026-08-14: agent-browser screenshot failed when screenshots/ did not already
   exist; the direct CLI does not create parent directories, unlike mise run
   shots.

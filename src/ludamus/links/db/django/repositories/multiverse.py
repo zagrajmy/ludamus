@@ -2,6 +2,7 @@ from django.db import IntegrityError
 from django.db.models import ProtectedError
 
 from ludamus.links.db.django.models import Announcement, Connection, Sphere
+from ludamus.links.db.django.repositories.constraints import violates_constraint
 from ludamus.links.db.django.repositories.storage import save_replacing_files
 from ludamus.pacts import (
     NotFoundError,
@@ -79,24 +80,15 @@ class SphereRepository(
         save_replacing_files(sphere, data)
 
 
-_CONNECTION_UNIQUE_DISPLAY_NAME_CONSTRAINT = "connection_unique_display_name_per_sphere"
-_SQLITE_CONNECTION_UNIQUE_DISPLAY_NAME_CONSTRAINT = (
-    "UNIQUE constraint failed: connection.sphere_id, connection.display_name"
+# A plain unique constraint: SQLite names the columns rather than the index.
+_CONNECTION_UNIQUE_DISPLAY_NAME_MARKERS = (
+    "connection_unique_display_name_per_sphere",
+    "UNIQUE constraint failed: connection.sphere_id, connection.display_name",
 )
 
 
 def is_connection_display_name_conflict(exc: IntegrityError) -> bool:
-    diag = getattr(exc.__cause__, "diag", None)
-    if (
-        getattr(diag, "constraint_name", None)
-        == _CONNECTION_UNIQUE_DISPLAY_NAME_CONSTRAINT
-    ):
-        return True
-    message = str(exc)
-    return (
-        _CONNECTION_UNIQUE_DISPLAY_NAME_CONSTRAINT in message
-        or _SQLITE_CONNECTION_UNIQUE_DISPLAY_NAME_CONSTRAINT in message
-    )
+    return violates_constraint(exc, *_CONNECTION_UNIQUE_DISPLAY_NAME_MARKERS)
 
 
 class AnnouncementsRepository(AnnouncementsRepositoryProtocol):

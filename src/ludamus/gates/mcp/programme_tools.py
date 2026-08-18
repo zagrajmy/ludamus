@@ -284,7 +284,11 @@ class _CreateTrackInput(BaseModel):
 
 class OrganizerCreateTrackTool(Tool[_CreateTrackInput]):
     name = "create_track"
-    description = "Create a programme track (blok) for this token's event."
+    description = (
+        "Create a programme track (blok) for this token's event, or return the "
+        "one that already carries this name. Names identify a track, so a "
+        "repeated import never adds a second copy."
+    )
     scope = ToolScope.ORGANIZER
     input_model = _CreateTrackInput
 
@@ -292,7 +296,7 @@ class OrganizerCreateTrackTool(Tool[_CreateTrackInput]):
     def handle(call: ToolCall[_CreateTrackInput]) -> str:
         event = token_event(services=call.services, actor=call.actor)
         try:
-            created = call.services.tracks_panel.create(
+            created = call.services.tracks_panel.find_or_create(
                 event_pk=event.pk,
                 sphere_id=actor_sphere(call.actor),
                 data={
