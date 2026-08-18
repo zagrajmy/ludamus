@@ -12,7 +12,7 @@
          hidden>
     <div class="max-w-7xl mx-auto px-4 md:px-6 lg:px-8 py-4 flex flex-col sm:flex-row sm:items-center gap-3">
         <p class="text-sm text-foreground-secondary grow [&_a]:text-primary [&_a]:hover:underline">
-            {% url 'django.contrib.flatpages.views.flatpage' url='/privacy-policy/' as privacy_url %}
+            {% url 'privacy-policy' as privacy_url %}
             {% blocktranslate trimmed %}
                 With your consent we use PostHog analytics — including session
                 replays with all inputs masked — to see how the site is used and

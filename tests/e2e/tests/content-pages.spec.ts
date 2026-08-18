@@ -1,7 +1,7 @@
 import { expect, test } from "./helpers/fixtures";
 
-// The documents are Polish whatever the interface language is, so these
-// assertions read the document's own headings rather than translated chrome.
+// The documents are Polish whatever the interface language is, so the heading
+// assertions read the document's own headings.
 test.describe("Content pages", () => {
   test("privacy policy renders from the markdown file", async ({ page }) => {
     await page.goto("/privacy-policy/");

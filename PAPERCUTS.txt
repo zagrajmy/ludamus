@@ -231,3 +231,6 @@ If you fix a papercut, remove it.
   install, so mise silently skipped venv activation for tasks (mise x still
   resolved it). Repointed .venv/bin/python + pyvenv.cfg at 3.14 by hand. mise
   run should say the venv is unusable instead of running the task without it.
+- 2026-08-18: mise run lint:tingle failed with 'unknown type regex_spread'
+  because a stale tingle resolved ahead of the project venv on PATH; running
+  .venv/bin/tingle check directly worked.
