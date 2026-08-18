@@ -43,6 +43,10 @@ if TYPE_CHECKING:
     from ludamus.pacts.services import ServicesProtocol
 
 _PROPOSAL_CATEGORY_LIST = TypeAdapter(list[ProposalCategoryDTO])
+_SPACE_LEAF_LIST = TypeAdapter(list["_SpaceLeaf"])
+_TIME_SLOT_LIST = TypeAdapter(list[TimeSlotDTO])
+_SESSION_LIST = TypeAdapter(list[SessionListItemDTO])
+_FACILITATOR_LIST = TypeAdapter(list[FacilitatorListItemDTO])
 _TRACK_LIST = TypeAdapter(list["_TrackListItem"])
 _JSON_OBJECT: TypeAdapter[JsonDict] = TypeAdapter(JsonDict)
 
@@ -125,7 +129,7 @@ class OrganizerListSpacesTool(Tool[_ListSpacesInput]):
             call.services.space_tree.list_tree(event.pk),
             include_internal=call.data.include_internal,
         )
-        return TypeAdapter(list[_SpaceLeaf]).dump_json(spaces, indent=2).decode()
+        return _SPACE_LEAF_LIST.dump_json(spaces, indent=2).decode()
 
 
 class OrganizerListTimeSlotsTool(Tool[_EventIdInput]):
@@ -138,7 +142,7 @@ class OrganizerListTimeSlotsTool(Tool[_EventIdInput]):
     def handle(call: ToolCall[_EventIdInput]) -> str:
         event = _require_event(call)
         slots = call.services.panel_time_slots.list_for_event(event.pk)
-        return TypeAdapter(list[TimeSlotDTO]).dump_json(slots, indent=2).decode()
+        return _TIME_SLOT_LIST.dump_json(slots, indent=2).decode()
 
 
 class _TrackListItem(TrackListItemDTO):
@@ -195,11 +199,7 @@ class OrganizerListSessionsTool(Tool[_EventIdInput]):
         context = call.services.proposal_panel.list_context(
             event_id=event.pk, query=ProposalListQuery()
         )
-        return (
-            TypeAdapter(list[SessionListItemDTO])
-            .dump_json(context.proposals, indent=2)
-            .decode()
-        )
+        return _SESSION_LIST.dump_json(context.proposals, indent=2).decode()
 
 
 class OrganizerListFacilitatorsTool(Tool[_EventIdInput]):
@@ -214,11 +214,7 @@ class OrganizerListFacilitatorsTool(Tool[_EventIdInput]):
         context = call.services.facilitator_panel.list_context(
             event_id=event.pk, query=FacilitatorListQuery()
         )
-        return (
-            TypeAdapter(list[FacilitatorListItemDTO])
-            .dump_json(context.facilitators, indent=2)
-            .decode()
-        )
+        return _FACILITATOR_LIST.dump_json(context.facilitators, indent=2).decode()
 
 
 class _CreateSpaceInput(BaseModel):

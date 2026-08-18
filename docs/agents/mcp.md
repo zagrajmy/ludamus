@@ -98,7 +98,8 @@ one monitored spreadsheet import, including dry-run review and retry limits.
 
 ## Adding a tool
 
-1. Subclass `Tool[YourInput]` in `gates/mcp/tools.py`: pydantic input model
+1. Subclass `Tool[YourInput]` in `gates/mcp/tools.py` — or, for an organizer
+   programme verb, `gates/mcp/programme_tools.py`: pydantic input model
    (field descriptions become the client-facing schema), `name`,
    `description`, a `scope` (`ToolScope` from `pacts/mcp.py` — the endpoint
    loads only its tier's tools), and a `handle(call)` that reads
