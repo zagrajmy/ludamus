@@ -5,7 +5,7 @@ import pytest
 
 from scripts.polcon26 import programme as sync
 from scripts.polcon26 import workbook as wb
-from scripts.polcon26.mcp_client import failure_detail
+from scripts.polcon26.mcp_client import McpClient, McpError, failure_detail
 
 
 @pytest.mark.parametrize(
@@ -158,6 +158,29 @@ def test_failure_detail_summarizes_batch_failures() -> None:
 
 def test_failure_detail_passes_through_plain_text() -> None:
     assert failure_detail("boom") == "boom"
+
+
+@pytest.mark.parametrize(
+    "response_text", ("123", "null", '"just a string"', "[1, 2]", '{"results": 7}')
+)
+def test_failure_detail_passes_through_non_report_json(response_text: str) -> None:
+    assert failure_detail(response_text) == response_text
+
+
+@pytest.mark.parametrize(
+    "endpoint",
+    ("http://localhost:8000/mcp/organizer/", "https://zagrajmy.pl/mcp/organizer/"),
+)
+def test_client_accepts_loopback_http_and_any_https(endpoint: str) -> None:
+    assert McpClient(endpoint=endpoint, token="t").endpoint == endpoint
+
+
+@pytest.mark.parametrize(
+    "endpoint", ("http://zagrajmy.pl/mcp/organizer/", "ftp://example.invalid/")
+)
+def test_client_refuses_to_send_the_token_in_the_clear(endpoint: str) -> None:
+    with pytest.raises(McpError):
+        McpClient(endpoint=endpoint, token="t")
 
 
 def _sheet_with_one_room():

@@ -135,9 +135,8 @@ class TestPanelTimeSlotsService:
         start = datetime(2026, 6, 1, 10, 0, tzinfo=UTC)
         end = datetime(2026, 6, 1, 12, 30, tzinfo=UTC)
 
-        errors = service.update(event=_event(), pk=1, start_time=start, end_time=end)
+        service.update(event=_event(), pk=1, start_time=start, end_time=end)
 
-        assert errors == []
         transaction.atomic.assert_called_once_with()
         time_slots.read_by_event.assert_called_once_with(_EVENT_ID, 1)
         time_slots.update.assert_called_once_with(1, start, end)
@@ -148,20 +147,20 @@ class TestPanelTimeSlotsService:
         start = datetime(2026, 6, 1, 10, 30, tzinfo=UTC)
         end = datetime(2026, 6, 1, 11, 30, tzinfo=UTC)
 
-        errors = service.update(event=_event(), pk=1, start_time=start, end_time=end)
+        service.update(event=_event(), pk=1, start_time=start, end_time=end)
 
-        assert errors == []
         time_slots.update.assert_called_once_with(1, start, end)
 
-    def test_update_returns_errors_without_writing(self, service, time_slots):
+    def test_update_rejects_a_broken_slot_without_writing(self, service, time_slots):
         time_slots.read_by_event.return_value = _slot(pk=1)
         time_slots.list_by_event.return_value = [_slot(pk=1)]
         start = datetime(2026, 6, 1, 15, 0, tzinfo=UTC)
         end = datetime(2026, 6, 1, 14, 0, tzinfo=UTC)
 
-        errors = service.update(event=_event(), pk=1, start_time=start, end_time=end)
+        with pytest.raises(TimeSlotRejectedError) as excinfo:
+            service.update(event=_event(), pk=1, start_time=start, end_time=end)
 
-        assert errors == [TimeSlotValidationError.START_NOT_BEFORE_END]
+        assert excinfo.value.errors == [TimeSlotValidationError.START_NOT_BEFORE_END]
         time_slots.update.assert_not_called()
 
     def test_update_foreign_pk_raises_without_side_effects(self, service, time_slots):

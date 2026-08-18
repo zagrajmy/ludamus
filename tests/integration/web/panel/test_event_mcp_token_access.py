@@ -50,6 +50,22 @@ class TestEventMcpTokenAccess:
 
         assert_event_not_found(response)
 
+    def test_refuses_to_mint_for_an_event_from_another_sphere(
+        self, panel_client, monkeypatch
+    ):
+        foreign = EventFactory(sphere=SphereFactory(), slug="foreign-event")
+        minted = []
+        monkeypatch.setattr(
+            "ludamus.gates.web.django.event.panel.views.mcp_token."
+            "mint_organizer_token",
+            lambda **kwargs: minted.append(kwargs),
+        )
+
+        response = panel_client.post(_url(foreign))
+
+        assert_event_not_found(response)
+        assert not minted
+
     def test_manager_mints_exact_event_scoped_token(
         self, panel_client, event, active_user
     ):

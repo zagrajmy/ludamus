@@ -77,7 +77,9 @@ def load_workbook(path: Path) -> dict[str, SheetData]:
             archive_path = target.removeprefix("/")
             if not archive_path.startswith("xl/"):
                 archive_path = f"xl/{archive_path}"
-            result[name] = _load_sheet(archive, archive_path, shared_strings)
+            result[name] = _load_sheet(
+                archive=archive, path=archive_path, shared_strings=shared_strings
+            )
     if missing := set(SHEETS) - result.keys():
         message = f"Workbook is missing sheets: {', '.join(sorted(missing))}"
         raise ValueError(message)
@@ -95,7 +97,7 @@ def _shared_strings(archive: zipfile.ZipFile) -> list[str]:
 
 
 def _load_sheet(
-    archive: zipfile.ZipFile, path: str, shared_strings: list[str]
+    *, archive: zipfile.ZipFile, path: str, shared_strings: list[str]
 ) -> SheetData:
     root = defusedxml.ElementTree.fromstring(archive.read(path))
     cells: dict[str, object] = {}

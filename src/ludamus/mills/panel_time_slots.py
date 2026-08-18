@@ -85,7 +85,7 @@ class PanelTimeSlotsService(PanelTimeSlotsServiceProtocol):
 
     def update(
         self, *, event: EventDTO, pk: int, start_time: datetime, end_time: datetime
-    ) -> list[TimeSlotValidationError]:
+    ) -> None:
         # Same unserialized check-then-write race as in create().
         with self._transaction.atomic():
             # Scope the pk to the panel's event before writing; a foreign pk
@@ -99,9 +99,9 @@ class PanelTimeSlotsService(PanelTimeSlotsServiceProtocol):
             errors = _validate_time_slot(
                 start=start_time, end=end_time, event=event, existing_slots=existing
             )
-            if not errors:
-                self._time_slots.update(pk, start_time, end_time)
-            return errors
+            if errors:
+                raise TimeSlotRejectedError(errors)
+            self._time_slots.update(pk, start_time, end_time)
 
     def delete(self, *, event_id: int, pk: int) -> bool:
         with self._transaction.atomic():

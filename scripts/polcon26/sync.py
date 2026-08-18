@@ -47,7 +47,9 @@ def main() -> int:
         "sessions": [item.report_data() for item in items],
     }
     if args.report:
-        args.report.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n")
+        args.report.write_text(
+            json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+        )
     print(json.dumps(report["summary"], ensure_ascii=False, indent=2))
     displayed_warnings = warnings[:25]
     for warning in displayed_warnings:

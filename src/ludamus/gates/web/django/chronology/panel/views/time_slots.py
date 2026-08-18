@@ -270,9 +270,13 @@ class TimeSlotEditPageView(PanelAccessMixin, EventContextMixin, View):
             return TemplateResponse(self.request, "panel/time-slot-edit.html", context)
 
         start_time, end_time = _slot_times(form)
-        errors = self.request.services.panel_time_slots.update(
-            event=current_event, pk=pk, start_time=start_time, end_time=end_time
-        )
+        errors: list[TimeSlotValidationError] = []
+        try:
+            self.request.services.panel_time_slots.update(
+                event=current_event, pk=pk, start_time=start_time, end_time=end_time
+            )
+        except TimeSlotRejectedError as error:
+            errors = error.errors
         if errors:
             _add_slot_errors(form, errors)
             context["active_nav"] = "cfp"

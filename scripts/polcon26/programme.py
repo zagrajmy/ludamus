@@ -424,7 +424,9 @@ def _extract_lane_programme(
     region_end: int,
     lane_index: int,
 ) -> list[ProgrammeItem]:
-    metadata_rows = _metadata_rows(sheet, title_row, region_end)
+    metadata_rows = _metadata_rows(
+        sheet=sheet, first_row=title_row, last_row=region_end
+    )
     result = []
     for column in range(first_column, last_column + 1):
         item = _extract_programme_item(
@@ -462,16 +464,22 @@ def _extract_programme_item(
         message = f"{sheet_name}!{cell}: scheduled title is not merged"
         raise ValueError(message)
     last_merged_column, _last_merged_row, _reference = merge
-    presenter = _metadata_value(sheet, metadata_rows.get("presenter"), column)
+    presenter = _metadata_value(
+        sheet=sheet, row=metadata_rows.get("presenter"), column=column
+    )
     if (sheet_name, cell) in TRANSPOSED_TITLE_CELLS:
         if not (isinstance(presenter, str) and presenter.strip()):
             message = f"{sheet_name}!{cell}: expected a transposed title, found none"
             raise ValueError(message)
         title, presenter = presenter.strip(), title
     description = clean_description(
-        _metadata_value(sheet, metadata_rows.get("description"), column)
+        _metadata_value(
+            sheet=sheet, row=metadata_rows.get("description"), column=column
+        )
     )
-    system = _metadata_value(sheet, metadata_rows.get("system"), column)
+    system = _metadata_value(
+        sheet=sheet, row=metadata_rows.get("system"), column=column
+    )
     if isinstance(system, str) and system.strip():
         description = f"System: {system.strip()}\n\n{description}".strip()
     minutes = round(header_times[column] * 24 * 60)
@@ -505,7 +513,9 @@ def _extract_programme_item(
     )
 
 
-def _metadata_rows(sheet: SheetData, first_row: int, last_row: int) -> dict[str, int]:
+def _metadata_rows(
+    *, sheet: SheetData, first_row: int, last_row: int
+) -> dict[str, int]:
     result: dict[str, int] = {}
     for row in range(first_row + 1, last_row + 1):
         label = sheet.cells.get(f"B{row}")
@@ -521,7 +531,7 @@ def _metadata_rows(sheet: SheetData, first_row: int, last_row: int) -> dict[str,
     return result
 
 
-def _metadata_value(sheet: SheetData, row: int | None, column: int) -> object:
+def _metadata_value(*, sheet: SheetData, row: int | None, column: int) -> object:
     return sheet.cells.get(f"{column_name(column)}{row}") if row is not None else None
 
 

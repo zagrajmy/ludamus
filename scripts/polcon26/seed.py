@@ -208,10 +208,12 @@ def ensure_tracks(
         expected_space_ids = sorted({space_ids[item.room] for item in track_items})
         if existing := by_name.get(name):
             actual_space_ids = sorted(cast("list[int]", existing["space_ids"]))
-            if actual_space_ids != expected_space_ids:
+            # Extra spaces are the organizer's business; only a missing one
+            # would leave part of this import's programme off the track.
+            if missing := sorted(set(expected_space_ids) - set(actual_space_ids)):
                 message = (
-                    f"Track {name!r} has space IDs {actual_space_ids}, expected "
-                    f"{expected_space_ids}. Update it in the organizer panel."
+                    f"Track {name!r} has space IDs {actual_space_ids}, missing "
+                    f"{missing}. Update it in the organizer panel."
                 )
                 raise McpError(message)
             result[name] = int(existing["pk"])
