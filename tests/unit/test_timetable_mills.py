@@ -1,4 +1,4 @@
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from unittest.mock import MagicMock, call
 
 import pytest
@@ -26,6 +26,36 @@ from ludamus.pacts.chronology import (
     SessionPlacement,
     TimetableGridFilter,
 )
+from ludamus.pacts.timetable import (
+    PlacementRejectedError,
+    PlacementRejection,
+    TimetableRepos,
+)
+
+
+def _timetable_repos(uow) -> TimetableRepos:
+    return TimetableRepos(
+        sessions=uow.sessions,
+        agenda_items=uow.agenda_items,
+        spaces=uow.spaces,
+        time_slots=uow.time_slots,
+        tracks=uow.tracks,
+        schedule_change_logs=uow.schedule_change_logs,
+    )
+
+
+def _timetable_service(uow) -> TimetableService:
+    transaction = MagicMock()
+    transaction.atomic = uow.atomic
+    return TimetableService(transaction, _timetable_repos(uow))
+
+
+def _conflict_service(uow) -> ConflictDetectionService:
+    return ConflictDetectionService(_timetable_repos(uow))
+
+
+def _overview_service(uow) -> TimetableOverviewService:
+    return TimetableOverviewService(_timetable_repos(uow))
 
 
 def _make_item(**overrides):
@@ -44,7 +74,6 @@ def _make_item(**overrides):
 
 class TestBuildGridOverlappingSessions:
     def test_overlapping_items_are_placed_side_by_side(self):
-        # Overlapping items extend the lane group and share the column width.
         uow = MagicMock()
         event = MagicMock()
         event.start_time = datetime(2026, 1, 1, 10, 0, tzinfo=UTC)
@@ -90,7 +119,7 @@ class TestBuildGridOverlappingSessions:
         )
         uow.agenda_items.list_by_event.return_value = [item_a, item_b, item_c]
 
-        svc = TimetableService(uow)
+        svc = _timetable_service(uow)
         grid = svc.build_grid(event_pk=1, tz=UTC)
 
         sessions = grid.days[0].columns[0].sessions
@@ -143,7 +172,7 @@ class TestBuildGridOverlappingSessions:
             ),
         ]
 
-        grid = TimetableService(uow).build_grid(
+        grid = _timetable_service(uow).build_grid(
             event_pk=1, tz=UTC, filters=TimetableGridFilter(date_selection="all")
         )
 
@@ -156,7 +185,6 @@ class TestBuildGridOverlappingSessions:
             day.columns[0].sessions[0].agenda_item.session_title for day in grid.days
         ] == ["Day one", "Day two"]
         # 10:00-12:00 and 11:00-13:00 share one 10:00-13:00 axis, so 11:00 is
-        # the same row on both days and day two's session starts an hour down.
         assert [day.total_minutes for day in grid.days] == [3 * 60, 3 * 60]
         assert [
             [label.time.strftime("%H:%M") for label in day.time_labels]
@@ -167,9 +195,6 @@ class TestBuildGridOverlappingSessions:
             60,
         ]
         assert grid.date_selection == "all"
-        # One render, one load -- of the items and of the space nodes -- however
-        # many days the grid spans. The warnings run off what the grid already
-        # fetched instead of asking again.
         uow.agenda_items.list_by_event.assert_called_once_with(1)
         uow.spaces.list_by_event.assert_called_once_with(1)
 
@@ -207,7 +232,6 @@ class TestBuildGridOverlappingSessions:
             start_time=datetime(2026, 1, 1, 10, 30, tzinfo=UTC),
             end_time=datetime(2026, 1, 1, 11, 30, tzinfo=UTC),
         )
-        # Clear of both, so it stays a plain card while the clash is marked.
         untracked = _make_item(
             pk=3,
             session_id=3,
@@ -216,8 +240,6 @@ class TestBuildGridOverlappingSessions:
             end_time=datetime(2026, 1, 1, 12, 0, tzinfo=UTC),
         )
         uow.agenda_items.list_by_event.return_value = [mine, theirs, untracked]
-        # Only `mine` is in the filtered track; the other two are drawn anyway
-        # because they occupy a room on screen.
         uow.agenda_items.list_by_track.return_value = [mine]
         uow.tracks.read.return_value = _event_track(event_pk=1)
         uow.sessions.read_facilitators_by_sessions.return_value = {}
@@ -226,12 +248,11 @@ class TestBuildGridOverlappingSessions:
         uow.sessions.list_track_names_by_session.return_value = {}
         uow.tracks.list_manager_names_by_tracks.return_value = {}
 
-        grid = TimetableService(uow).build_grid(
+        grid = _timetable_service(uow).build_grid(
             event_pk=1, tz=UTC, filters=TimetableGridFilter(track_pk=5)
         )
 
         sessions = grid.days[0].columns[0].sessions
-        # Both ends of the clash are red, even though only one is in the track.
         assert [(pos.agenda_item.session_title, pos.state) for pos in sessions] == [
             ("Mine", "conflict"),
             ("Theirs", "conflict"),
@@ -260,14 +281,13 @@ class TestBuildGridOverlappingSessions:
         ]
         uow.agenda_items.list_by_event.return_value = []
 
-        grid = TimetableService(uow).build_grid(
+        grid = _timetable_service(uow).build_grid(
             event_pk=1,
             tz=UTC,
             filters=TimetableGridFilter(date_selection=date(2027, 1, 1)),
         )
 
         assert grid.date_selection == date(2026, 1, 1)
-        # The selected day owns only its own side of midnight: 22:00 -> 24:00.
         assert [day.total_minutes for day in grid.days] == [2 * 60]
 
     def test_overnight_slot_adds_the_day_it_reaches_into(self):
@@ -301,14 +321,12 @@ class TestBuildGridOverlappingSessions:
         )
         uow.agenda_items.list_by_event.return_value = [night_owl]
 
-        grid = TimetableService(uow).build_grid(
+        grid = _timetable_service(uow).build_grid(
             event_pk=1, tz=UTC, filters=TimetableGridFilter(date_selection="all")
         )
 
         assert grid.available_dates == [date(2026, 1, 1), date(2026, 1, 2)]
         day_one, day_two = grid.days
-        # Jan 2 opens at 00:00 and Jan 1's slot runs to midnight, so both days
-        # take the full 00:00 -> 24:00 axis to keep the rows aligned.
         assert [day.total_minutes for day in grid.days] == [24 * 60, 24 * 60]
         assert day_one.time_labels[0].time.strftime("%H:%M") == "00:00"
         assert day_two.time_labels[0].time.strftime("%H:%M") == "00:00"
@@ -342,7 +360,7 @@ class TestBuildGridOverlappingSessions:
         )
         uow.agenda_items.list_by_event.return_value = [night_owl]
 
-        grid = TimetableService(uow).build_grid(
+        grid = _timetable_service(uow).build_grid(
             event_pk=1, tz=UTC, filters=TimetableGridFilter(date_selection="all")
         )
 
@@ -355,8 +373,6 @@ class TestBuildGridOverlappingSessions:
         )
         assert (friday.start_minutes, friday.duration_minutes) == (22 * 60, 2 * 60)
         assert (saturday.start_minutes, saturday.duration_minutes) == (0, 2 * 60)
-        # The real length rides along on the item, so a drag moves all four
-        # hours rather than the visible fragment.
         assert friday.agenda_item.session_duration_minutes == 4 * 60
 
 
@@ -377,7 +393,6 @@ class TestSpaceFilter:
 
     @pytest.fixture
     def uow(self):
-        # Building 1 -> Floor 2 -> Rooms 3, 4; Building 5 -> Room 6.
         uow = MagicMock()
         uow.spaces.list_by_event.return_value = [
             self._space(pk=1, name="Building A"),
@@ -398,7 +413,7 @@ class TestSpaceFilter:
         return uow
 
     def test_options_list_every_node_with_its_depth(self, uow):
-        options = TimetableService(uow).space_filter_options(1)
+        options = _timetable_service(uow).space_filter_options(1)
 
         assert [(o.value, o.label, o.depth) for o in options] == [
             (1, "Building A", 0),
@@ -410,13 +425,13 @@ class TestSpaceFilter:
         ]
 
     def test_unfiltered_grid_shows_every_leaf(self, uow):
-        grid = TimetableService(uow).build_grid(event_pk=1, tz=UTC)
+        grid = _timetable_service(uow).build_grid(event_pk=1, tz=UTC)
 
         assert [space.pk for space in grid.spaces] == [3, 4, 6]
 
     @staticmethod
     def _grid_for(uow, space_pks):
-        return TimetableService(uow).build_grid(
+        return _timetable_service(uow).build_grid(
             event_pk=1, tz=UTC, filters=TimetableGridFilter(space_pks=space_pks)
         )
 
@@ -485,7 +500,7 @@ class TestFacilitatorFilter:
         ]
 
     def test_no_facilitator_picked_asks_for_every_item(self, uow):
-        grid = TimetableService(uow).build_grid(event_pk=1, tz=UTC)
+        grid = _timetable_service(uow).build_grid(event_pk=1, tz=UTC)
 
         assert self._session_pks(grid) == [1, 2]
         uow.agenda_items.list_by_event.assert_called_once_with(1)
@@ -496,20 +511,18 @@ class TestFacilitatorFilter:
             [_make_item(pk=1, session_id=1)],
         ]
 
-        grid = TimetableService(uow).build_grid(
+        grid = _timetable_service(uow).build_grid(
             event_pk=1, tz=UTC, filters=TimetableGridFilter(facilitator_pks={7})
         )
 
         assert self._session_pks(grid) == [1]
-        # The warnings still run off the whole event, so narrowing the view
-        # cannot hide a clash with somebody else's booking.
         assert uow.agenda_items.list_by_event.call_args_list == [
             call(1),
             call(1, facilitator_pks={7}),
         ]
 
     def test_several_facilitators_reach_the_query_as_one_set(self, uow):
-        TimetableService(uow).build_grid(
+        _timetable_service(uow).build_grid(
             event_pk=1, tz=UTC, filters=TimetableGridFilter(facilitator_pks={7, 8})
         )
 
@@ -521,7 +534,7 @@ class TestFacilitatorFilter:
     def test_facilitator_with_nothing_scheduled_empties_the_grid(self, uow):
         uow.agenda_items.list_by_event.return_value = []
 
-        grid = TimetableService(uow).build_grid(
+        grid = _timetable_service(uow).build_grid(
             event_pk=1, tz=UTC, filters=TimetableGridFilter(facilitator_pks={7})
         )
 
@@ -532,22 +545,26 @@ class TestRevertChange:
     @pytest.fixture
     def mock_uow(self):
         uow = MagicMock()
-        # By default the log under test (pk 1, session 1) is the latest change.
         uow.schedule_change_logs.latest_pk_for_session.return_value = 1
+        uow.time_slots.list_by_event.return_value = [
+            TimeSlotDTO(
+                pk=1,
+                start_time=datetime(2026, 1, 1, 10, 0, tzinfo=UTC),
+                end_time=datetime(2026, 1, 1, 12, 0, tzinfo=UTC),
+            )
+        ]
         return uow
 
     @pytest.fixture
     def service(self, mock_uow):
-        return TimetableService(mock_uow)
+        return _timetable_service(mock_uow)
 
     def test_revert_rejects_non_latest_change(self, service, mock_uow):
-        # Only the most recent change for a session may be reverted.
         log = MagicMock()
         log.event_id = 1
         log.action = ScheduleChangeAction.ASSIGN
         log.session_id = 1
         mock_uow.schedule_change_logs.read.return_value = log
-        # A newer change (pk 2) exists for the same session.
         mock_uow.schedule_change_logs.latest_pk_for_session.return_value = 2
 
         with pytest.raises(ValueError, match="latest change"):
@@ -558,7 +575,6 @@ class TestRevertChange:
     def test_revert_raises_not_found_for_log_from_another_event(
         self, service, mock_uow
     ):
-        # A log belonging to another event is rejected before reverting.
         log = MagicMock()
         log.event_id = 2
         log.action = ScheduleChangeAction.ASSIGN
@@ -573,7 +589,6 @@ class TestRevertChange:
     def test_revert_assign_raises_not_found_when_no_agenda_item(
         self, service, mock_uow
     ):
-        # Reverting an ASSIGN whose agenda item is already gone is a no-op delete.
         log = MagicMock()
         log.event_id = 1
         log.action = ScheduleChangeAction.ASSIGN
@@ -587,7 +602,6 @@ class TestRevertChange:
     def test_revert_unassign_raises_when_missing_placement_data(
         self, service, mock_uow
     ):
-        # An UNASSIGN log without its original placement cannot be reverted.
         log = MagicMock()
         log.event_id = 1
         log.action = ScheduleChangeAction.UNASSIGN
@@ -601,7 +615,6 @@ class TestRevertChange:
             service.revert_change(log_pk=1, event_pk=1)
 
     def test_revert_unassign_raises_when_session_not_accepted(self, service, mock_uow):
-        # The session must still be ACCEPTED to revert an unassign.
         log = MagicMock()
         log.event_id = 1
         log.action = ScheduleChangeAction.UNASSIGN
@@ -615,8 +628,11 @@ class TestRevertChange:
         session.status = SessionStatus.PENDING
         mock_uow.sessions.read.return_value = session
 
-        with pytest.raises(ValueError, match="is not in ACCEPTED status"):
+        with pytest.raises(PlacementRejectedError) as excinfo:
             service.revert_change(log_pk=1, event_pk=1)
+
+        assert excinfo.value.reason is PlacementRejection.SESSION_NOT_ACCEPTED
+        mock_uow.agenda_items.create.assert_not_called()
 
     def test_revert_unassign_restores_the_original_placement(self, service, mock_uow):
         log = MagicMock()
@@ -654,7 +670,6 @@ class TestRevertChange:
         )
 
     def test_revert_unknown_action_raises(self, service, mock_uow):
-        # An unknown action type is rejected instead of guessed at.
         log = MagicMock()
         log.event_id = 1
         log.action = "UNKNOWN_ACTION"
@@ -674,7 +689,7 @@ class TestAssignUnassignScope:
 
     @pytest.fixture
     def service(self, mock_uow):
-        return TimetableService(mock_uow)
+        return _timetable_service(mock_uow)
 
     @staticmethod
     def _event(pk, *, auto_confirm_sessions=True):
@@ -722,24 +737,132 @@ class TestAssignUnassignScope:
 
         mock_uow.agenda_items.delete.assert_not_called()
 
+    def test_unassign_log_failure_rolls_back_inside_atomic(self, service, mock_uow):
+        mock_uow.sessions.read_event.return_value = self._event(1)
+        agenda_item = MagicMock()
+        agenda_item.pk = 5
+        agenda_item.space_id = 2
+        agenda_item.start_time = datetime(2026, 1, 1, 10, 0, tzinfo=UTC)
+        agenda_item.end_time = datetime(2026, 1, 1, 11, 0, tzinfo=UTC)
+        mock_uow.agenda_items.read_by_session.return_value = agenda_item
+        mock_uow.schedule_change_logs.create.side_effect = RuntimeError("log failed")
+
+        with pytest.raises(RuntimeError, match="log failed"):
+            service.unassign_session(session_pk=1, event_pk=1)
+
+        mock_uow.atomic.assert_called_once()
+        mock_uow.sessions.lock.assert_called_once_with(1)
+        mock_uow.agenda_items.delete.assert_called_once_with(agenda_item.pk)
+        mock_uow.schedule_change_logs.create.assert_called_once()
+
     def _arrange_acceptable_assignment(self, mock_uow, *, auto_confirm_sessions):
         mock_uow.sessions.read_event.return_value = self._event(
             1, auto_confirm_sessions=auto_confirm_sessions
         )
         space = MagicMock()
         space.pk = 1
-        space.parent_id = None  # a childless root is a leaf (a bookable room)
+        space.parent_id = None
         mock_uow.spaces.list_by_event.return_value = [space]
         mock_uow.agenda_items.read_by_session.return_value = None
+        placement = self._placement()
+        slot = MagicMock()
+        slot.start_time = placement.start_time
+        slot.end_time = placement.end_time
+        mock_uow.time_slots.list_by_event.return_value = [slot]
         session = MagicMock()
         session.status = SessionStatus.ACCEPTED
         mock_uow.sessions.read.return_value = session
+
+    def test_assign_is_a_noop_for_the_existing_placement(self, service, mock_uow):
+        self._arrange_acceptable_assignment(mock_uow, auto_confirm_sessions=True)
+        placement = self._placement()
+        existing = MagicMock()
+        existing.space_id = placement.space_pk
+        existing.start_time = placement.start_time
+        existing.end_time = placement.end_time
+        mock_uow.agenda_items.read_by_session.return_value = existing
+
+        service.assign_session(session_pk=1, placement=placement, event_pk=1)
+
+        mock_uow.agenda_items.delete.assert_not_called()
+        mock_uow.agenda_items.create.assert_not_called()
+        mock_uow.schedule_change_logs.create.assert_not_called()
+
+    def test_assign_rejects_a_placement_outside_time_slot_windows(
+        self, service, mock_uow
+    ):
+        self._arrange_acceptable_assignment(mock_uow, auto_confirm_sessions=True)
+        placement = self._placement()
+        slot = MagicMock()
+        slot.start_time = placement.start_time + timedelta(hours=2)
+        slot.end_time = placement.end_time + timedelta(hours=2)
+        mock_uow.time_slots.list_by_event.return_value = [slot]
+
+        with pytest.raises(PlacementRejectedError, match="time-slot window"):
+            service.assign_session(session_pk=1, placement=placement, event_pk=1)
+
+        mock_uow.agenda_items.create.assert_not_called()
+
+    def test_assign_accepts_a_placement_across_adjacent_time_slots(
+        self, service, mock_uow
+    ):
+        self._arrange_acceptable_assignment(mock_uow, auto_confirm_sessions=True)
+        placement = self._placement()
+        first = MagicMock()
+        first.start_time = placement.start_time
+        first.end_time = placement.start_time + timedelta(minutes=30)
+        second = MagicMock()
+        second.start_time = first.end_time
+        second.end_time = placement.end_time
+        mock_uow.time_slots.list_by_event.return_value = [first, second]
+
+        service.assign_session(session_pk=1, placement=placement, event_pk=1)
+
+        mock_uow.agenda_items.create.assert_called_once()
+
+    def test_assign_rejects_naive_datetimes(self, service, mock_uow):
+        placement = self._placement()
+        naive = SessionPlacement(
+            space_pk=placement.space_pk,
+            start_time=placement.start_time.replace(tzinfo=None),
+            end_time=placement.end_time.replace(tzinfo=None),
+        )
+
+        with pytest.raises(PlacementRejectedError, match="must include a timezone"):
+            service.assign_session(session_pk=1, placement=naive, event_pk=1)
+
+        mock_uow.agenda_items.create.assert_not_called()
+
+    def test_assign_rejects_an_inverted_time_range(self, service, mock_uow):
+        placement = self._placement()
+        inverted = SessionPlacement(
+            space_pk=placement.space_pk,
+            start_time=placement.end_time,
+            end_time=placement.start_time,
+        )
+
+        with pytest.raises(PlacementRejectedError, match="end_time must be after"):
+            service.assign_session(session_pk=1, placement=inverted, event_pk=1)
+
+        mock_uow.agenda_items.create.assert_not_called()
+
+    def test_assign_rejects_a_session_that_is_not_accepted(self, service, mock_uow):
+        self._arrange_acceptable_assignment(mock_uow, auto_confirm_sessions=True)
+        mock_uow.sessions.read.return_value.status = SessionStatus.PENDING
+
+        with pytest.raises(PlacementRejectedError, match="is not in ACCEPTED status"):
+            service.assign_session(
+                session_pk=1, placement=self._placement(), event_pk=1
+            )
+
+        mock_uow.agenda_items.create.assert_not_called()
 
     def test_assign_confirms_when_event_auto_confirms(self, service, mock_uow):
         self._arrange_acceptable_assignment(mock_uow, auto_confirm_sessions=True)
 
         service.assign_session(session_pk=1, placement=self._placement(), event_pk=1)
 
+        mock_uow.sessions.lock.assert_called_once_with(1)
         created = mock_uow.agenda_items.create.call_args.args[0]
         assert created["session_confirmed"] is True
 
@@ -755,7 +878,6 @@ class TestAssignUnassignScope:
 
     def test_move_unconfirms_even_when_event_auto_confirms(self, service, mock_uow):
         self._arrange_acceptable_assignment(mock_uow, auto_confirm_sessions=True)
-        # An existing agenda item means this assignment is a move.
         mock_uow.agenda_items.read_by_session.return_value = MagicMock()
 
         service.assign_session(session_pk=1, placement=self._placement(), event_pk=1)
@@ -821,7 +943,6 @@ class TestListAllForTrack:
             all_items if subjects is None else subjects
         )
         uow.spaces.list_by_event.return_value = list(spaces)
-        # Detection indexes limits directly, so the default covers every item.
         uow.sessions.read_participants_limits.return_value = (
             limits if limits is not None else {i.session_id: 0 for i in all_items}
         )
@@ -836,11 +957,8 @@ class TestListAllForTrack:
         second = _make_item(pk=2, session_id=20, space_id=1, session_title="Second")
         uow = self._uow(all_items=[first, second])
 
-        conflicts = ConflictDetectionService(uow).list_all_for_track(
-            event_pk=1, track_pk=None
-        )
+        conflicts = _conflict_service(uow).list_all_for_track(event_pk=1, track_pk=None)
 
-        # One conflict for the pair, not one per direction.
         assert len(conflicts) == 1
         assert conflicts[0].type == ConflictType.SPACE_OVERLAP
         assert conflicts[0].subject_session_pk == _SUBJECT_SESSION_PK
@@ -857,9 +975,7 @@ class TestListAllForTrack:
         )
         uow = self._uow(all_items=[first, second])
 
-        conflicts = ConflictDetectionService(uow).list_all_for_track(
-            event_pk=1, track_pk=None
-        )
+        conflicts = _conflict_service(uow).list_all_for_track(event_pk=1, track_pk=None)
 
         assert not conflicts
 
@@ -877,9 +993,7 @@ class TestListAllForTrack:
         item = _make_item(pk=1, session_id=10, space_id=1)
         uow = self._uow(all_items=[item], spaces=[space], limits={10: _SESSION_LIMIT})
 
-        conflicts = ConflictDetectionService(uow).list_all_for_track(
-            event_pk=1, track_pk=None
-        )
+        conflicts = _conflict_service(uow).list_all_for_track(event_pk=1, track_pk=None)
 
         assert len(conflicts) == 1
         assert conflicts[0].type == ConflictType.CAPACITY_EXCEEDED
@@ -887,8 +1001,6 @@ class TestListAllForTrack:
         assert conflicts[0].session_limit == _SESSION_LIMIT
 
     def test_capacity_check_skips_a_session_missing_from_limits(self):
-        # A session absent from the limits map counts as limitless-free, not
-        # as a crash: the sweep must survive a repo answer that omits it.
         now = datetime(2026, 1, 1, 10, 0, tzinfo=UTC)
         space = SpaceDTO(
             capacity=_ROOM_CAPACITY,
@@ -902,9 +1014,7 @@ class TestListAllForTrack:
         item = _make_item(pk=1, session_id=10, space_id=1)
         uow = self._uow(all_items=[item], spaces=[space], limits={})
 
-        conflicts = ConflictDetectionService(uow).list_all_for_track(
-            event_pk=1, track_pk=None
-        )
+        conflicts = _conflict_service(uow).list_all_for_track(event_pk=1, track_pk=None)
 
         assert not conflicts
 
@@ -920,9 +1030,7 @@ class TestListAllForTrack:
         uow.sessions.list_track_names_by_session.return_value = {20: {6: "Board games"}}
         uow.tracks.list_manager_names_by_tracks.return_value = {6: ["Basia"]}
 
-        conflicts = ConflictDetectionService(uow).list_all_for_track(
-            event_pk=1, track_pk=5
-        )
+        conflicts = _conflict_service(uow).list_all_for_track(event_pk=1, track_pk=5)
 
         assert len(conflicts) == 1
         conflict = conflicts[0]
@@ -962,8 +1070,6 @@ class TestListAllForTrack:
         assert [c.type for c in conflicts] == [ConflictType.SPACE_OVERLAP]
 
     def test_attribution_names_the_first_foreign_track_by_name(self):
-        # Two foreign tracks, handed over in pk order: the clash still reports
-        # the alphabetically first one, whatever order the rows arrive in.
         subject = _make_item(pk=1, session_id=10, space_id=1)
         other = _make_item(pk=2, session_id=20, space_id=2, session_title="Other")
         shared = _facilitator(7)
@@ -977,17 +1083,13 @@ class TestListAllForTrack:
         }
         uow.tracks.list_manager_names_by_tracks.return_value = {7: ["Basia"]}
 
-        conflicts = ConflictDetectionService(uow).list_all_for_track(
-            event_pk=1, track_pk=5
-        )
+        conflicts = _conflict_service(uow).list_all_for_track(event_pk=1, track_pk=5)
 
         assert conflicts[0].track_name == "Board games"
         assert conflicts[0].manager_names == ["Basia"]
         uow.tracks.list_manager_names_by_tracks.assert_called_once_with({7})
 
     def test_no_other_tracks_returns_conflict_unchanged(self):
-        # Attribution filtering removes the current track, leaving nothing to
-        # attribute the clash to.
         current_track_pk = 5
         subject = _make_item(pk=1, session_id=10, space_id=1)
         other = _make_item(pk=2, session_id=20, space_id=2, session_title="Other")
@@ -1001,7 +1103,7 @@ class TestListAllForTrack:
             20: {current_track_pk: "Track"}
         }
 
-        conflicts = ConflictDetectionService(uow).list_all_for_track(
+        conflicts = _conflict_service(uow).list_all_for_track(
             event_pk=1, track_pk=current_track_pk
         )
 
@@ -1020,7 +1122,7 @@ class TestListAllForTrack:
         ]
         uow = self._uow(all_items=items)
 
-        ConflictDetectionService(uow).list_all_for_track(event_pk=1, track_pk=None)
+        _conflict_service(uow).list_all_for_track(event_pk=1, track_pk=None)
 
         uow.sessions.read.assert_not_called()
         uow.sessions.read_facilitators.assert_not_called()
@@ -1030,13 +1132,11 @@ class TestListAllForTrack:
         uow.sessions.read_facilitators_by_sessions.assert_called_once()
 
     def test_detect_for_assignment_reuses_the_batched_engine(self):
-        # Runs post-commit: the session's own agenda item is in the context,
-        # self-excludes, and still clashes with another session in the space.
         own = _make_item(pk=1, session_id=10, space_id=1)
         other = _make_item(pk=2, session_id=20, space_id=1, session_title="Other")
         uow = self._uow(all_items=[own, other])
 
-        conflicts = ConflictDetectionService(uow).detect_for_assignment(
+        conflicts = _conflict_service(uow).detect_for_assignment(
             event_pk=1, session_pk=10
         )
 
@@ -1049,9 +1149,7 @@ class TestListAllForTrack:
         uow = self._uow(all_items=[_make_item(pk=1, session_id=10, space_id=1)])
 
         with pytest.raises(NotFoundError):
-            ConflictDetectionService(uow).detect_for_assignment(
-                event_pk=1, session_pk=99
-            )
+            _conflict_service(uow).detect_for_assignment(event_pk=1, session_pk=99)
 
 
 class TestListPreferredSlotViolations:
@@ -1079,7 +1177,7 @@ class TestListPreferredSlotViolations:
         )
         uow = self._uow(items=[item], preferred={10: [slot]})
 
-        violations = ConflictDetectionService(uow).list_preferred_slot_violations(
+        violations = _conflict_service(uow).list_preferred_slot_violations(
             event_pk=1, track_pk=None
         )
 
@@ -1101,7 +1199,7 @@ class TestListPreferredSlotViolations:
         uow.sessions.list_track_names_by_session.return_value = {10: {6: "Board games"}}
         uow.tracks.list_manager_names_by_tracks.return_value = {6: ["Basia"]}
 
-        violations = ConflictDetectionService(uow).list_preferred_slot_violations(
+        violations = _conflict_service(uow).list_preferred_slot_violations(
             event_pk=1, track_pk=5
         )
 
@@ -1136,7 +1234,7 @@ class TestTrackProgress:
         }
         uow.tracks.list_manager_names_by_tracks.return_value = {1: ["Ala"]}
 
-        result = TimetableOverviewService(uow).track_progress(event_pk=1)
+        result = _overview_service(uow).track_progress(event_pk=1)
 
         assert [r.track_pk for r in result] == [1, 2]
         first = result[0]
@@ -1157,7 +1255,7 @@ class TestTrackProgress:
         uow = MagicMock()
         uow.tracks.list_by_event.return_value = []
 
-        assert not TimetableOverviewService(uow).track_progress(event_pk=1)
+        assert not _overview_service(uow).track_progress(event_pk=1)
 
         uow.sessions.count_by_track.assert_not_called()
 
@@ -1176,7 +1274,6 @@ class TestTimetableOverviewServiceDefaults:
         return uow
 
     def test_build_heatmap_fetches_conflicts_when_none(self, mock_uow):
-        # conflicts=None makes build_heatmap fetch conflicts itself.
         svc = TimetableOverviewService(mock_uow)
         result = svc.build_heatmap(event_pk=1, tz=UTC, conflicts=None)
 
@@ -1184,7 +1281,6 @@ class TestTimetableOverviewServiceDefaults:
         assert not result.days
 
     def test_build_heatmap_columns_are_leaf_spaces_only(self, mock_uow):
-        # Venue (1) > area (2) > rooms (3, 4): only the rooms are bookable.
         mock_uow.spaces.list_by_event.return_value = [
             _space(1),
             _space(2, parent_id=1),
@@ -1197,7 +1293,6 @@ class TestTimetableOverviewServiceDefaults:
                 datetime(2026, 1, 1, 11, 0, tzinfo=UTC),
             )
         ]
-        # An item in room 3 must survive the leaf filter and colour its cell.
         mock_uow.agenda_items.list_by_event.return_value = [_make_item(space_id=3)]
         svc = TimetableOverviewService(mock_uow)
 
@@ -1211,9 +1306,6 @@ class TestTimetableOverviewServiceDefaults:
         ]
 
     def test_build_heatmap_marks_both_ends_of_a_clash(self, mock_uow):
-        # A conflict row names one session as subject and the other as
-        # counterpart, and only one row is kept per pair. Both are in the
-        # clash, so neither room may read as merely scheduled.
         mock_uow.spaces.list_by_event.return_value = [_space(3), _space(4)]
         mock_uow.time_slots.list_by_event.return_value = [
             _slot(
@@ -1244,7 +1336,6 @@ class TestTimetableOverviewServiceDefaults:
         ]
 
     def test_all_conflicts_grouped_fetches_conflicts_when_none(self, mock_uow):
-        # conflicts=None makes all_conflicts_grouped fetch conflicts itself.
         svc = TimetableOverviewService(mock_uow)
         result = svc.all_conflicts_grouped(event_pk=1, conflicts=None)
 
@@ -1280,7 +1371,7 @@ class TestTimetableOverviewCapacityHours:
     def test_empty_event_has_zero_everywhere(self):
         uow = self._uow(spaces=[], slots=[], items=[])
 
-        result = TimetableOverviewService(uow).capacity_hours(event_pk=1)
+        result = _overview_service(uow).capacity_hours(event_pk=1)
 
         assert result == CapacityHoursDTO(
             room_count=0,
@@ -1292,7 +1383,6 @@ class TestTimetableOverviewCapacityHours:
         )
 
     def test_capacity_is_rooms_times_slot_hours(self):
-        # 2 rooms, two 2h slots => 2 * 4h = 8h capacity, nothing scheduled.
         slots = [
             _slot(
                 datetime(2026, 1, 1, 10, 0, tzinfo=UTC),
@@ -1305,7 +1395,7 @@ class TestTimetableOverviewCapacityHours:
         ]
         uow = self._uow(spaces=[_space(1), _space(2)], slots=slots, items=[])
 
-        result = TimetableOverviewService(uow).capacity_hours(event_pk=1)
+        result = _overview_service(uow).capacity_hours(event_pk=1)
 
         assert result == CapacityHoursDTO(
             room_count=2,
@@ -1317,8 +1407,6 @@ class TestTimetableOverviewCapacityHours:
         )
 
     def test_branch_spaces_are_not_bookable_rooms(self):
-        # A venue node with two rooms under it: only the leaves count, or the
-        # un-bookable branch would inflate capacity.
         slots = [
             _slot(
                 datetime(2026, 1, 1, 10, 0, tzinfo=UTC),
@@ -1328,7 +1416,7 @@ class TestTimetableOverviewCapacityHours:
         spaces = [_space(1), _space(2, parent_id=1), _space(3, parent_id=1)]
         uow = self._uow(spaces=spaces, slots=slots, items=[])
 
-        result = TimetableOverviewService(uow).capacity_hours(event_pk=1)
+        result = _overview_service(uow).capacity_hours(event_pk=1)
 
         assert result == CapacityHoursDTO(
             room_count=2,
@@ -1346,7 +1434,6 @@ class TestTimetableOverviewCapacityHours:
                 datetime(2026, 1, 1, 12, 0, tzinfo=UTC),
             )
         ]
-        # 2 rooms * 2h = 4h capacity; one 1h item scheduled => 3h left, 25%.
         items = [
             _make_item(
                 space_id=1,
@@ -1356,7 +1443,7 @@ class TestTimetableOverviewCapacityHours:
         ]
         uow = self._uow(spaces=[_space(1), _space(2)], slots=slots, items=items)
 
-        result = TimetableOverviewService(uow).capacity_hours(event_pk=1)
+        result = _overview_service(uow).capacity_hours(event_pk=1)
 
         assert result == CapacityHoursDTO(
             room_count=2,
@@ -1384,7 +1471,7 @@ class TestTimetableOverviewCapacityHours:
         ]
         uow = self._uow(spaces=[_space(1)], slots=slots, items=items)
 
-        result = TimetableOverviewService(uow).capacity_hours(event_pk=1)
+        result = _overview_service(uow).capacity_hours(event_pk=1)
 
         assert result == CapacityHoursDTO(
             room_count=1,
@@ -1402,7 +1489,6 @@ class TestTimetableOverviewCapacityHours:
                 datetime(2026, 1, 1, 11, 0, tzinfo=UTC),
             )
         ]
-        # 1 room * 1h = 1h capacity, but a 2h item is scheduled in it.
         items = [
             _make_item(
                 space_id=1,
@@ -1412,7 +1498,7 @@ class TestTimetableOverviewCapacityHours:
         ]
         uow = self._uow(spaces=[_space(1)], slots=slots, items=items)
 
-        result = TimetableOverviewService(uow).capacity_hours(event_pk=1)
+        result = _overview_service(uow).capacity_hours(event_pk=1)
 
         assert result == CapacityHoursDTO(
             room_count=1,
@@ -1430,7 +1516,6 @@ class TestTimetableOverviewCapacityHours:
                 datetime(2026, 1, 1, 11, 0, tzinfo=UTC),
             )
         ]
-        # Only room 1 belongs to the event; the item sits in room 99.
         items = [
             _make_item(
                 space_id=99,
@@ -1440,7 +1525,7 @@ class TestTimetableOverviewCapacityHours:
         ]
         uow = self._uow(spaces=[_space(1)], slots=slots, items=items)
 
-        result = TimetableOverviewService(uow).capacity_hours(event_pk=1)
+        result = _overview_service(uow).capacity_hours(event_pk=1)
 
         assert result == CapacityHoursDTO(
             room_count=1,
@@ -1452,7 +1537,6 @@ class TestTimetableOverviewCapacityHours:
         )
 
     def test_odd_duration_slot_rounds_to_one_decimal(self):
-        # 90-minute slot => 1.5h; one room, nothing scheduled.
         slots = [
             _slot(
                 datetime(2026, 1, 1, 10, 0, tzinfo=UTC),
@@ -1461,7 +1545,7 @@ class TestTimetableOverviewCapacityHours:
         ]
         uow = self._uow(spaces=[_space(1)], slots=slots, items=[])
 
-        result = TimetableOverviewService(uow).capacity_hours(event_pk=1)
+        result = _overview_service(uow).capacity_hours(event_pk=1)
 
         assert result == CapacityHoursDTO(
             room_count=1,

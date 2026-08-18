@@ -20,6 +20,9 @@ if TYPE_CHECKING:
     from ludamus.pacts.services import ServicesProtocol
 
 
+type PanelContext = dict[str, object]
+
+
 class EventPanelRequest(HttpRequest):
     context: AuthenticatedRequestContext
     services: ServicesProtocol
@@ -48,7 +51,7 @@ class EventPanelAccessMixin(LoginRequiredMixin, UserPassesTestMixin):
 class EventContextMixin:
     request: EventPanelRequest
 
-    def get_event_context(self, slug: str) -> tuple[dict[str, object], EventDTO | None]:
+    def get_event_context(self, slug: str) -> tuple[PanelContext, EventDTO | None]:
         try:
             page = self.request.services.event_panel.load_context(
                 self.request.context.current_sphere_id, slug
@@ -64,7 +67,7 @@ class EventContextMixin:
             "stats": page.stats.model_dump(),
         }, page.current_event
 
-    def require_event_context(self, slug: str) -> tuple[dict[str, object], EventDTO]:
+    def require_event_context(self, slug: str) -> tuple[PanelContext, EventDTO]:
         context, current_event = self.get_event_context(slug)
         if current_event is None:
             raise RedirectError(reverse("panel:index"))

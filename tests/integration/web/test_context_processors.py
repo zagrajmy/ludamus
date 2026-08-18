@@ -17,6 +17,28 @@ class TestSitesContext:
         assert has_panel_access is False
 
 
+class TestAnalyticsContext:
+    def test_configured_key_exposes_posthog_config(self, client, settings):
+        settings.POSTHOG_API_KEY = "phc_integration"
+        settings.POSTHOG_HOST = "https://eu.i.posthog.com"
+
+        response = client.get(reverse("web:events"))
+
+        posthog_config = response.context["posthog_config"]
+        assert posthog_config == {
+            "api_key": "phc_integration",
+            "host": "https://eu.i.posthog.com",
+        }
+
+    def test_unset_key_leaks_no_posthog_config(self, client, settings):
+        settings.POSTHOG_API_KEY = ""
+
+        response = client.get(reverse("web:events"))
+
+        posthog_config = response.context["posthog_config"]
+        assert posthog_config is None
+
+
 class TestCurrentUserContext:
     def test_authenticated_render_exposes_current_user(
         self, authenticated_client, active_user

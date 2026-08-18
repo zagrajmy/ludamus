@@ -27,6 +27,7 @@ from ludamus.gates.web.django.event.panel.views import (
     errata,
     facilitator_actions,
     facilitator_edit,
+    mcp_token,
     print_redirects,
     proposal_category_settings,
 )
@@ -162,6 +163,11 @@ urlpatterns = [
         "event/<slug:slug>/errata/do/acknowledge",
         errata.ErratumAcknowledgeActionView.as_view(),
         name="erratum-acknowledge",
+    ),
+    path(
+        "event/<slug:slug>/settings/mcp/",
+        mcp_token.EventMcpTokenPageView.as_view(),
+        name="event-mcp-token",
     ),
     path("event/<slug:slug>/bans/", bans.BansPageView.as_view(), name="bans"),
     path(

@@ -5,6 +5,8 @@ backoffice). Split per `plans/hex_refactor.md` if the file grows past
 ~12 top-level members or 1000 lines.
 """
 
+from __future__ import annotations
+
 from datetime import datetime
 from enum import StrEnum
 from typing import TYPE_CHECKING, Protocol
@@ -12,12 +14,7 @@ from typing import TYPE_CHECKING, Protocol
 from pydantic import BaseModel, ConfigDict, Field
 
 if TYPE_CHECKING:
-    from ludamus.pacts.legacy import (
-        EventDTO,
-        EventListItemDTO,
-        SphereDTO,
-        UploadedFileProtocol,
-    )
+    from ludamus.pacts.legacy import EventDTO, SphereDTO, UploadedFileProtocol
 
 
 class SphereRole(StrEnum):
@@ -156,13 +153,6 @@ class SphereListItemDTO(BaseModel):
 class SphereDirectoryRepositoryProtocol(Protocol):
     @staticmethod
     def list_all() -> list[SphereListItemDTO]: ...
-
-
-class EventsServiceProtocol(Protocol):
-    def list_for_sphere(
-        self, sphere_id: int, *, include_unpublished: bool
-    ) -> list[EventListItemDTO]: ...
-    def read_by_slug(self, sphere_id: int, slug: str) -> EventDTO: ...
 
 
 class SpherePanelServiceProtocol(Protocol):

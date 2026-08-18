@@ -8,7 +8,12 @@ from ludamus.links.db.django.models import ScheduleChangeLog, SphereMembership
 from ludamus.pacts.errata import ErratumDTO, ErratumKind
 from ludamus.pacts.legacy import ScheduleChangeAction
 from ludamus.pacts.multiverse import SphereRole
-from tests.integration.conftest import EventFactory, SessionFactory, SpaceFactory
+from tests.integration.conftest import (
+    EventFactory,
+    SessionFactory,
+    SpaceFactory,
+    TimeSlotFactory,
+)
 from tests.integration.utils import assert_login_required, assert_response
 from tests.integration.web.panel.helpers import (
     assert_event_not_found,
@@ -234,6 +239,9 @@ class TestErrataPageView:
         # Through the real assign endpoint: the move is recorded where it
         # happens, so the page never has to guess two rows back into one.
         destination = SpaceFactory(event=event, name="Room B")
+        TimeSlotFactory(
+            event=event, start_time=event.start_time, end_time=event.end_time
+        )
         session = make_timetable_session(proposal_category, status="accepted")
         assign_url = reverse("panel:timetable-assign", kwargs={"slug": event.slug})
         for space in (room, destination):

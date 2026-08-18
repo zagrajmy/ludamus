@@ -91,10 +91,6 @@ class Repositories:
         return repositories.EventRepository()
 
     @cached_property
-    def schedule_change_logs(self) -> ScheduleChangeLogRepository:
-        return ScheduleChangeLogRepository()
-
-    @cached_property
     def event_settings(self) -> repositories.EventSettingsRepository:
         return repositories.EventSettingsRepository()
 
@@ -157,6 +153,10 @@ class Repositories:
     @cached_property
     def agenda_items(self) -> AgendaItemRepository:
         return AgendaItemRepository()
+
+    @cached_property
+    def schedule_change_logs(self) -> ScheduleChangeLogRepository:
+        return ScheduleChangeLogRepository()
 
     @cached_property
     def content_change_logs(self) -> ContentChangeLogRepository:

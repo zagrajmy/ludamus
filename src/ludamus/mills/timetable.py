@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import math
 from collections import defaultdict
 from datetime import date, datetime, timedelta, tzinfo
@@ -38,6 +40,13 @@ from ludamus.pacts.chronology import (
     TimetableGridFilter,
     TrackProgressDTO,
 )
+from ludamus.pacts.timetable import (
+    ConflictDetectionServiceProtocol,
+    PlacementRejectedError,
+    PlacementRejection,
+    TimetableOverviewServiceProtocol,
+    TimetableServiceProtocol,
+)
 from ludamus.specs.timetable import (
     TIMETABLE_ROOM_PAGE_SIZE,
     TIMETABLE_SLOT_MINUTES,
@@ -47,7 +56,9 @@ from ludamus.specs.timetable import (
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
-    from ludamus.pacts import FacilitatorDTO, SpaceDTO, TimeSlotDTO, UnitOfWorkProtocol
+    from ludamus.pacts import FacilitatorDTO, SpaceDTO, TimeSlotDTO
+    from ludamus.pacts.services import TransactionProtocol
+    from ludamus.pacts.timetable import TimetableRepos
 
 
 def conflicting_session_pks(conflicts: Iterable[ConflictDTO]) -> set[int]:
@@ -183,9 +194,10 @@ def _day_range(
     )
 
 
-class TimetableService:
-    def __init__(self, uow: UnitOfWorkProtocol) -> None:
-        self._uow = uow
+class TimetableService(TimetableServiceProtocol):
+    def __init__(self, transaction: TransactionProtocol, repos: TimetableRepos) -> None:
+        self._transaction = transaction
+        self._repos = repos
         self._walked_event_pk: int | None = None
         self._walked: list[tuple[SpaceDTO, int]] = []
 
@@ -195,7 +207,7 @@ class TimetableService:
         # and walk it once. Nothing this service writes touches spaces, so
         # there is nothing to invalidate.
         if self._walked_event_pk != event_pk:
-            self._walked = _walk_tree(self._uow.spaces.list_by_event(event_pk))
+            self._walked = _walk_tree(self._repos.spaces.list_by_event(event_pk))
             self._walked_event_pk = event_pk
         return self._walked
 
@@ -221,14 +233,14 @@ class TimetableService:
         # be told it is foreign only later, by `list_grid_warnings`.
         if track_pk is not None:
             require_track_in_event(
-                tracks=self._uow.tracks, track_pk=track_pk, event_pk=event_pk
+                tracks=self._repos.tracks, track_pk=track_pk, event_pk=event_pk
             )
         walked = self._tree(event_pk)
         all_nodes = [node for node, _ in walked]
         node_name_by_pk = {node.pk: node.name for node in all_nodes}
         leaf_spaces = _leaves(walked)
         if track_pk is not None:
-            track_space_pks = set(self._uow.tracks.list_space_pks(track_pk))
+            track_space_pks = set(self._repos.tracks.list_space_pks(track_pk))
             leaf_spaces = [
                 space for space in leaf_spaces if space.pk in track_space_pks
             ]
@@ -244,7 +256,7 @@ class TimetableService:
         start = (space_page - 1) * TIMETABLE_ROOM_PAGE_SIZE
         spaces = leaf_spaces[start : start + TIMETABLE_ROOM_PAGE_SIZE]
 
-        all_slots = self._uow.time_slots.list_by_event(event_pk)
+        all_slots = self._repos.time_slots.list_by_event(event_pk)
         windows_by_date = slot_windows_by_local_date(all_slots, tz)
         available_dates = sorted(windows_by_date)
         if date_selection != "all" and date_selection not in windows_by_date:
@@ -258,12 +270,14 @@ class TimetableService:
         # booked it. A room's occupancy is what makes a clash visible *before*
         # it is created, and hiding another track's booking is how two tracks
         # end up in one room at once.
-        all_items = self._uow.agenda_items.list_by_event(event_pk)
+        all_items = self._repos.agenda_items.list_by_event(event_pk)
         # Fetched here rather than handed in: the full page and the partial
         # swap that replaces it have to mark the grid the same way, and passing
         # the warnings in left every caller free to forget them. The items and
         # nodes above are handed on so one render is one load of each.
-        conflicts, violations = ConflictDetectionService(self._uow).list_grid_warnings(
+        conflicts, violations = ConflictDetectionService(
+            self._repos
+        ).list_grid_warnings(
             event_pk=event_pk, track_pk=track_pk, items=all_items, spaces=all_nodes
         )
         # The unscheduled list filters by facilitator in SQL, so the grid does
@@ -271,7 +285,7 @@ class TimetableService:
         # rather than by happening to intersect with nothing. The warnings above
         # still see the whole event, so narrowing the view cannot hide a clash.
         shown_items = (
-            self._uow.agenda_items.list_by_event(
+            self._repos.agenda_items.list_by_event(
                 event_pk, facilitator_pks=filters.facilitator_pks
             )
             if filters.facilitator_pks
@@ -405,10 +419,46 @@ class TimetableService:
     def _require_space_in_event(self, space_pk: int, event_pk: int) -> None:
         leaf_pks = {
             space.pk
-            for space in _leaves_in_tree_order(self._uow.spaces.list_by_event(event_pk))
+            for space in _leaves_in_tree_order(
+                self._repos.spaces.list_by_event(event_pk)
+            )
         }
         if space_pk not in leaf_pks:
             raise NotFoundError
+
+    def _require_placement_in_time_slots(
+        self, placement: SessionPlacement, event_pk: int
+    ) -> None:
+        ranges = _merged_slot_ranges(self._repos.time_slots.list_by_event(event_pk))
+        if not any(
+            placement.start_time >= start and placement.end_time <= end
+            for start, end in ranges
+        ):
+            raise PlacementRejectedError(
+                PlacementRejection.OUTSIDE_TIME_SLOTS,
+                "placement must fit within an event time-slot window",
+            )
+
+    @staticmethod
+    def _require_placeable(placement: SessionPlacement) -> None:
+        if (
+            placement.start_time.utcoffset() is None
+            or placement.end_time.utcoffset() is None
+        ):
+            raise PlacementRejectedError(
+                PlacementRejection.NAIVE_DATETIME,
+                "placement datetimes must include a timezone",
+            )
+        if placement.end_time <= placement.start_time:
+            raise PlacementRejectedError(
+                PlacementRejection.END_NOT_AFTER_START,
+                "end_time must be after start_time",
+            )
+
+    def _require_accepted(self, session_pk: int) -> None:
+        if self._repos.sessions.read(session_pk).status != SessionStatus.ACCEPTED:
+            msg = f"Session {session_pk} is not in ACCEPTED status"
+            raise PlacementRejectedError(PlacementRejection.SESSION_NOT_ACCEPTED, msg)
 
     def assign_session(
         self,
@@ -418,26 +468,32 @@ class TimetableService:
         event_pk: int,
         user_pk: int | None = None,
     ) -> None:
-        with self._uow.atomic():
+        self._require_placeable(placement)
+        with self._transaction.atomic():
             require_session_in_event(
-                sessions=self._uow.sessions, session_pk=session_pk, event_pk=event_pk
+                sessions=self._repos.sessions, session_pk=session_pk, event_pk=event_pk
             )
+            self._repos.sessions.lock(session_pk)
             self._require_space_in_event(placement.space_pk, event_pk)
-            self._uow.spaces.lock(placement.space_pk)
-            is_move = self._uow.agenda_items.read_by_session(session_pk) is not None
+            self._require_placement_in_time_slots(placement, event_pk)
+            self._repos.spaces.lock(placement.space_pk)
+            existing = self._repos.agenda_items.read_by_session(session_pk)
+            if existing is not None and (
+                existing.space_id == placement.space_pk
+                and existing.start_time == placement.start_time
+                and existing.end_time == placement.end_time
+            ):
+                return
             moved_from_pk = (
                 self.unassign_session(
                     session_pk=session_pk, event_pk=event_pk, user_pk=user_pk
                 )
-                if is_move
+                if (is_move := existing is not None)
                 else None
             )
-            session = self._uow.sessions.read(session_pk)
-            if session.status != SessionStatus.ACCEPTED:
-                msg = f"Session {session_pk} is not in ACCEPTED status"
-                raise ValueError(msg)
-            event = self._uow.sessions.read_event(session_pk)
-            self._uow.agenda_items.create(
+            self._require_accepted(session_pk)
+            event = self._repos.sessions.read_event(session_pk)
+            self._repos.agenda_items.create(
                 {
                     "session_id": session_pk,
                     "space_id": placement.space_pk,
@@ -458,49 +514,53 @@ class TimetableService:
                 # the two rows are written together, so only this knows.
                 "moved_from_id": moved_from_pk,
             }
-            self._uow.schedule_change_logs.create(log_data)
+            self._repos.schedule_change_logs.create(log_data)
 
     def unassign_session(
         self, *, session_pk: int, event_pk: int, user_pk: int | None = None
     ) -> int:
         """Take a session off the timetable; return the log row it wrote."""
-        require_session_in_event(
-            sessions=self._uow.sessions, session_pk=session_pk, event_pk=event_pk
-        )
-        if (agenda_item := self._uow.agenda_items.read_by_session(session_pk)) is None:
-            raise NotFoundError
-        event = self._uow.sessions.read_event(session_pk)
-        self._uow.agenda_items.delete(agenda_item.pk)
-        log_data: ScheduleChangeLogData = {
-            "event_id": event.pk,
-            "session_id": session_pk,
-            "user_id": user_pk,
-            "action": ScheduleChangeAction.UNASSIGN,
-            "old_space_id": agenda_item.space_id,
-            "old_start_time": agenda_item.start_time,
-            "old_end_time": agenda_item.end_time,
-        }
-        return self._uow.schedule_change_logs.create(log_data)
+        with self._transaction.atomic():
+            require_session_in_event(
+                sessions=self._repos.sessions, session_pk=session_pk, event_pk=event_pk
+            )
+            self._repos.sessions.lock(session_pk)
+            if (
+                agenda_item := self._repos.agenda_items.read_by_session(session_pk)
+            ) is None:
+                raise NotFoundError
+            event = self._repos.sessions.read_event(session_pk)
+            self._repos.agenda_items.delete(agenda_item.pk)
+            log_data: ScheduleChangeLogData = {
+                "event_id": event.pk,
+                "session_id": session_pk,
+                "user_id": user_pk,
+                "action": ScheduleChangeAction.UNASSIGN,
+                "old_space_id": agenda_item.space_id,
+                "old_start_time": agenda_item.start_time,
+                "old_end_time": agenda_item.end_time,
+            }
+            return self._repos.schedule_change_logs.create(log_data)
 
     def revert_change(
         self, *, log_pk: int, event_pk: int, user_pk: int | None = None
     ) -> None:
-        log = self._uow.schedule_change_logs.read(log_pk)
+        log = self._repos.schedule_change_logs.read(log_pk)
         if log.event_id != event_pk:
             raise NotFoundError
-        with self._uow.atomic():
-            self._uow.sessions.lock(log.session_id)
-            latest_pk = self._uow.schedule_change_logs.latest_pk_for_session(
+        with self._transaction.atomic():
+            self._repos.sessions.lock(log.session_id)
+            latest_pk = self._repos.schedule_change_logs.latest_pk_for_session(
                 event_pk, log.session_id
             )
             if latest_pk != log_pk:
                 msg = "Only the latest change for a session can be reverted"
                 raise ValueError(msg)
             if log.action == ScheduleChangeAction.ASSIGN:
-                agenda_item = self._uow.agenda_items.read_by_session(log.session_id)
+                agenda_item = self._repos.agenda_items.read_by_session(log.session_id)
                 if agenda_item is None:
                     raise NotFoundError
-                self._uow.agenda_items.delete(agenda_item.pk)
+                self._repos.agenda_items.delete(agenda_item.pk)
             elif log.action == ScheduleChangeAction.UNASSIGN:
                 if (
                     log.old_space_id is None
@@ -509,11 +569,17 @@ class TimetableService:
                 ):
                     msg = "Cannot revert UNASSIGN: missing original placement data"
                     raise ValueError(msg)
-                session = self._uow.sessions.read(log.session_id)
-                if session.status != SessionStatus.ACCEPTED:
-                    msg = f"Session {log.session_id} is not in ACCEPTED status"
-                    raise ValueError(msg)
-                self._uow.agenda_items.create(
+                restored = SessionPlacement(
+                    space_pk=log.old_space_id,
+                    start_time=log.old_start_time,
+                    end_time=log.old_end_time,
+                )
+                # Undo restores a placement that was legitimate when it was
+                # made, so the time-slot windows are not re-checked here: a
+                # window edited afterwards must not strand the change log.
+                self._require_placeable(restored)
+                self._require_accepted(log.session_id)
+                self._repos.agenda_items.create(
                     {
                         "session_id": log.session_id,
                         "space_id": log.old_space_id,
@@ -525,7 +591,7 @@ class TimetableService:
             else:
                 msg = f"Cannot revert action: {log.action}"
                 raise ValueError(msg)
-            event = self._uow.sessions.read_event(log.session_id)
+            event = self._repos.sessions.read_event(log.session_id)
             revert_log: ScheduleChangeLogData = {
                 "event_id": event.pk,
                 "session_id": log.session_id,
@@ -540,7 +606,7 @@ class TimetableService:
                 revert_log["new_space_id"] = log.old_space_id
                 revert_log["new_start_time"] = log.old_start_time
                 revert_log["new_end_time"] = log.old_end_time
-            self._uow.schedule_change_logs.create(revert_log)
+            self._repos.schedule_change_logs.create(revert_log)
 
 
 def _slot_start(slot: TimeSlotDTO) -> datetime:
@@ -570,9 +636,9 @@ class _EventConflictContext(NamedTuple):
     spaces: dict[int, SpaceDTO]
 
 
-class ConflictDetectionService:
-    def __init__(self, uow: UnitOfWorkProtocol) -> None:
-        self._uow = uow
+class ConflictDetectionService(ConflictDetectionServiceProtocol):
+    def __init__(self, repos: TimetableRepos) -> None:
+        self._repos = repos
 
     def detect_for_assignment(
         self, event_pk: int, session_pk: int
@@ -587,7 +653,7 @@ class ConflictDetectionService:
         )
         if subject is None:
             raise NotFoundError
-        limits = self._uow.sessions.read_participants_limits({session_pk})
+        limits = self._repos.sessions.read_participants_limits({session_pk})
         return self._detect(subject, context, limit=limits.get(session_pk, 0))
 
     def list_all_for_track(
@@ -595,7 +661,7 @@ class ConflictDetectionService:
     ) -> list[ConflictDTO]:
         if track_pk is not None:
             require_track_in_event(
-                tracks=self._uow.tracks, track_pk=track_pk, event_pk=event_pk
+                tracks=self._repos.tracks, track_pk=track_pk, event_pk=event_pk
             )
         context = self._load_event_context(event_pk)
         return self._conflicts(
@@ -617,7 +683,7 @@ class ConflictDetectionService:
         # keeps one render to one load of each instead of three.
         if track_pk is not None:
             require_track_in_event(
-                tracks=self._uow.tracks, track_pk=track_pk, event_pk=event_pk
+                tracks=self._repos.tracks, track_pk=track_pk, event_pk=event_pk
             )
         context = self._build_context(items=items, spaces=spaces)
         subjects = self._subjects(context, track_pk)
@@ -631,7 +697,7 @@ class ConflictDetectionService:
     ) -> list[AgendaItemDTO]:
         if track_pk is None:
             return context.items
-        return self._uow.agenda_items.list_by_track(track_pk)
+        return self._repos.agenda_items.list_by_track(track_pk)
 
     def _conflicts(
         self,
@@ -647,7 +713,7 @@ class ConflictDetectionService:
         if not subjects:
             return []
 
-        limits = self._uow.sessions.read_participants_limits(
+        limits = self._repos.sessions.read_participants_limits(
             {item.session_id for item in subjects}
         )
         all_conflicts: list[ConflictDTO] = []
@@ -666,14 +732,14 @@ class ConflictDetectionService:
 
     def _load_event_context(self, event_pk: int) -> _EventConflictContext:
         return self._build_context(
-            items=self._uow.agenda_items.list_by_event(event_pk),
-            spaces=self._uow.spaces.list_by_event(event_pk),
+            items=self._repos.agenda_items.list_by_event(event_pk),
+            spaces=self._repos.spaces.list_by_event(event_pk),
         )
 
     def _build_context(
         self, *, items: list[AgendaItemDTO], spaces: list[SpaceDTO]
     ) -> _EventConflictContext:
-        facilitators_by_session = self._uow.sessions.read_facilitators_by_sessions(
+        facilitators_by_session = self._repos.sessions.read_facilitators_by_sessions(
             {item.session_id for item in items}
         )
         items_by_space: dict[int, list[AgendaItemDTO]] = defaultdict(list)
@@ -772,7 +838,7 @@ class ConflictDetectionService:
         # beyond the current one are simply absent from the result.
         if not session_pks:
             return {}
-        names_by_session = self._uow.sessions.list_track_names_by_session(
+        names_by_session = self._repos.sessions.list_track_names_by_session(
             sorted(session_pks)
         )
         # First by name, decided here rather than relied on from the query, so
@@ -786,7 +852,7 @@ class ConflictDetectionService:
             ]
             if others:
                 named_by_session[session_pk] = min(others, key=itemgetter(1))
-        manager_names = self._uow.tracks.list_manager_names_by_tracks(
+        manager_names = self._repos.tracks.list_manager_names_by_tracks(
             {track_pk for track_pk, _ in named_by_session.values()}
         )
         return {
@@ -827,13 +893,13 @@ class ConflictDetectionService:
     ) -> list[PreferredSlotViolationDTO]:
         if track_pk is not None:
             require_track_in_event(
-                tracks=self._uow.tracks, track_pk=track_pk, event_pk=event_pk
+                tracks=self._repos.tracks, track_pk=track_pk, event_pk=event_pk
             )
         return self._violations(
             (
-                self._uow.agenda_items.list_by_event(event_pk)
+                self._repos.agenda_items.list_by_event(event_pk)
                 if track_pk is None
-                else self._uow.agenda_items.list_by_track(track_pk)
+                else self._repos.agenda_items.list_by_track(track_pk)
             ),
             track_pk,
         )
@@ -844,8 +910,10 @@ class ConflictDetectionService:
         if not scheduled:
             return []
 
-        preferred_by_session = self._uow.sessions.read_preferred_time_slots_by_sessions(
-            {item.session_id for item in scheduled}
+        preferred_by_session = (
+            self._repos.sessions.read_preferred_time_slots_by_sessions(
+                {item.session_id for item in scheduled}
+            )
         )
 
         violating: list[tuple[AgendaItemDTO, list[TimeSlotDTO]]] = []
@@ -891,22 +959,22 @@ def _duration_hours(start: datetime, end: datetime) -> float:
     return max((end - start).total_seconds() / 3600, 0.0)
 
 
-class TimetableOverviewService:
-    def __init__(self, uow: UnitOfWorkProtocol) -> None:
-        self._uow = uow
+class TimetableOverviewService(TimetableOverviewServiceProtocol):
+    def __init__(self, repos: TimetableRepos) -> None:
+        self._repos = repos
 
     def get_all_conflicts(self, event_pk: int) -> list[ConflictDTO]:
-        return ConflictDetectionService(self._uow).list_all_for_track(
+        return ConflictDetectionService(self._repos).list_all_for_track(
             event_pk, track_pk=None
         )
 
     def build_heatmap(
-        self, event_pk: int, tz: tzinfo, conflicts: list[ConflictDTO] | None = None
+        self, *, event_pk: int, tz: tzinfo, conflicts: list[ConflictDTO] | None = None
     ) -> HeatmapDTO:
         # Only leaf spaces are bookable rooms; a venue or area column would be
         # permanently empty.
-        spaces = _leaves_in_tree_order(self._uow.spaces.list_by_event(event_pk))
-        all_items = self._uow.agenda_items.list_by_event(event_pk)
+        spaces = _leaves_in_tree_order(self._repos.spaces.list_by_event(event_pk))
+        all_items = self._repos.agenda_items.list_by_event(event_pk)
         if conflicts is None:
             conflicts = self.get_all_conflicts(event_pk)
         conflict_pks = conflicting_session_pks(conflicts)
@@ -918,7 +986,7 @@ class TimetableOverviewService:
                 space_items[item.space_id].append(item)
 
         windows_by_date = slot_windows_by_local_date(
-            self._uow.time_slots.list_by_event(event_pk), tz
+            self._repos.time_slots.list_by_event(event_pk), tz
         )
 
         slot_delta = timedelta(minutes=TIMETABLE_SLOT_MINUTES)
@@ -981,10 +1049,10 @@ class TimetableOverviewService:
         # Counts come from one aggregate query; loading every session row per
         # track just to count statuses made the overview page O(tracks) in
         # full-table queries.
-        if not (tracks := self._uow.tracks.list_by_event(event_pk)):
+        if not (tracks := self._repos.tracks.list_by_event(event_pk)):
             return []
-        counts_by_track = self._uow.sessions.count_by_track(event_pk)
-        manager_names = self._uow.tracks.list_manager_names_by_tracks(
+        counts_by_track = self._repos.sessions.count_by_track(event_pk)
+        manager_names = self._repos.tracks.list_manager_names_by_tracks(
             {track.pk for track in tracks}
         )
 
@@ -1018,17 +1086,17 @@ class TimetableOverviewService:
         # Capacity = one program slot per room: every room is bookable for the
         # whole of each event time slot. Scheduled = hours already occupied by
         # placed agenda items in those rooms. Hours-to-fill is the remainder.
-        rooms = _leaves_in_tree_order(self._uow.spaces.list_by_event(event_pk))
+        rooms = _leaves_in_tree_order(self._repos.spaces.list_by_event(event_pk))
         room_count = len(rooms)
 
-        slots = self._uow.time_slots.list_by_event(event_pk)
+        slots = self._repos.time_slots.list_by_event(event_pk)
         slot_hours = sum(_duration_hours(s.start_time, s.end_time) for s in slots)
         capacity_hours = slot_hours * room_count
 
         room_pks = {s.pk for s in rooms}
         scheduled_hours = sum(
             _duration_hours(item.start_time, item.end_time)
-            for item in self._uow.agenda_items.list_by_event(event_pk)
+            for item in self._repos.agenda_items.list_by_event(event_pk)
             if item.space_id in room_pks
         )
 

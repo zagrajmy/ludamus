@@ -74,6 +74,7 @@ def settings_tab_urls(slug: str) -> dict[str, str]:
         "integrations": reverse(
             "panel:event-integration-settings", kwargs={"slug": slug}
         ),
+        "mcp": reverse("panel:event-mcp-token", kwargs={"slug": slug}),
     }
 
 
