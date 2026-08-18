@@ -459,4 +459,6 @@ def _no_posthog_client(monkeypatch):
     # client pointed at eu.i.posthog.com, start its consumer threads, and keep
     # it for the whole session.
     monkeypatch.setattr("ludamus.links.analytics.reporting.Posthog", MagicMock())
+    # Setup only: a test that monkeypatches client() has not had that patch
+    # undone yet at teardown, and cache_clear does not exist on the stand-in.
     reporting.client.cache_clear()

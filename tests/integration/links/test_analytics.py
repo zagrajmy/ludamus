@@ -1,17 +1,9 @@
 from unittest.mock import MagicMock
 
-import pytest
 from django.contrib.auth.models import AnonymousUser
 from django.http import HttpRequest
 
 from ludamus.links.analytics import reporting as analytics
-
-
-@pytest.fixture(autouse=True)
-def _reset_client():
-    # Clear on setup only: tearing down after monkeypatch has restored the
-    # real function is not guaranteed, and the next test clears it anyway.
-    analytics.client.cache_clear()
 
 
 class TestClient:
