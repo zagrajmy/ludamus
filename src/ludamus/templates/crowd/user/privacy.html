@@ -9,15 +9,7 @@
         {% translate "Analytics" %}
     </h6>
     {% if posthog_config %}
-        <p class="text-sm text-foreground-muted [&_a]:text-primary [&_a]:hover:underline">
-            {% url 'django.contrib.flatpages.views.flatpage' url='/privacy-policy/' as privacy_url %}
-            {% blocktranslate trimmed %}
-                With your consent we use PostHog analytics — including session
-                replays with all inputs masked — to see how the site is used and
-                to fix errors faster. Nothing is stored before you agree.
-                Details in the <a href="{{ privacy_url }}">Privacy Policy</a>.
-            {% endblocktranslate %}
-        </p>
+        {% include "components/consent-copy.html" %}
         {# prologue.ts fills [data-consent-state] from localStorage — the choice lives in this browser, not on the server. #}
         <p class="text-sm mt-3">
             {% translate "Your current choice:" %}

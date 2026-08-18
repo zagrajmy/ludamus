@@ -130,6 +130,7 @@
                             {% endif %}
                             <form method="post"
                                   action="{% url 'web:crowd:profile-companions-delete' slug=member.slug %}"
+                                  data-ph-block
                                   data-confirm="{% blocktranslate with name=member.full_name %}Delete companion {{ name }}? This also removes their party memberships and enrollments.{% endblocktranslate %}"
                                   data-confirm-action="{% translate "Delete companion" %}">
                                 {% csrf_token %}
@@ -154,6 +155,7 @@
                             {% if member.status == "invited" %}
                                 <form method="post"
                                       action="{% url 'web:crowd:parties-member-remove' pk=party.pk membership_pk=member.membership_pk %}"
+                                      data-ph-block
                                       data-confirm="{% blocktranslate with name=member.full_name %}Withdraw the invitation for {{ name }}?{% endblocktranslate %}"
                                       data-confirm-action="{% translate "Withdraw invitation" %}">
                                     {% csrf_token %}
@@ -165,6 +167,7 @@
                             {% else %}
                                 <form method="post"
                                       action="{% url 'web:crowd:parties-member-remove' pk=party.pk membership_pk=member.membership_pk %}"
+                                      data-ph-block
                                       data-confirm="{% blocktranslate with name=member.full_name %}Remove {{ name }} from this party?{% endblocktranslate %}"
                                       data-confirm-action="{% translate "Remove member" %}">
                                     {% csrf_token %}

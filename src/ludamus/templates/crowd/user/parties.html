@@ -333,6 +333,7 @@
                                 </form>
                                 <form method="post"
                                       action="{% url 'web:crowd:profile-companions-delete' slug=row.companion.slug %}"
+                                      data-ph-block
                                       data-confirm="{% blocktranslate with name=row.companion.full_name %}Delete companion {{ name }}? This also removes their party memberships and enrollments.{% endblocktranslate %}"
                                       data-confirm-action="{% translate "Delete companion" %}">
                                     {% csrf_token %}

@@ -10,7 +10,10 @@ import { collecting, coverageOptions } from "../../coverage";
 // any page script runs — the fixed bottom banner would otherwise cover the
 // bottom strip of every viewport and swallow clicks suite-wide. The consent
 // spec opts back into the pristine state with `test.use({ consentSeed: null })`.
-export const test = base.extend<{ clientCoverage: void; consentSeed: string | null }>({
+export const test = base.extend<{
+  clientCoverage: void;
+  consentSeed: "accepted" | "declined" | null;
+}>({
   consentSeed: ["declined", { option: true }],
   context: async ({ context, consentSeed }, use) => {
     if (consentSeed !== null) {

@@ -148,7 +148,9 @@
                                     <label class="flex items-center gap-3 px-4 py-3 transition-colors {% if state.disabled %}opacity-60 cursor-not-allowed{% else %}cursor-pointer hover:bg-bg-tertiary{% endif %}">
                                         {% include "components/avatar.html" with user=row.user size="size-10" %}
                                         <span class="min-w-0 flex-1">
-                                            <span class="block font-medium truncate" data-ph-mask>
+                                            <span class="block font-medium truncate"
+                                                  id="enroll-name-{{ row.user.pk }}"
+                                                  data-ph-mask>
                                                 {% if row.user.pk == request.user.pk %}
                                                     {% translate "You" %}
                                                     {% if row.user.full_name %}· {{ row.user.full_name }}{% endif %}
@@ -170,8 +172,15 @@
                                                 <span data-seat-hint hidden class="font-medium" aria-live="polite"></span>
                                             </span>
                                         </span>
-                                        {% blocktranslate asvar include_label with name=row.user.full_name %}Include {{ name }}{% endblocktranslate %}
-                                        {% include "components/checkbox-field.html" with name=state.field_name value="include" size="w-5 h-5" aria_label=include_label checked=state.box_checked disabled=state.disabled label="" %}
+                                        {# aria-labelledby, not a generated aria-label: the name must stay #}
+                                        {# out of attribute values so session replay can mask it — replay #}
+                                        {# masks text nodes, never attributes. #}
+                                        <span id="enroll-include-{{ row.user.pk }}" class="sr-only">{% translate "Include" %}</span>
+                                        {% with pk_str=row.user.pk|stringformat:"s" %}
+                                            {% with labelledby="enroll-include-"|add:pk_str|add:" enroll-name-"|add:pk_str %}
+                                                {% include "components/checkbox-field.html" with name=state.field_name value="include" size="w-5 h-5" aria_labelledby=labelledby checked=state.box_checked disabled=state.disabled label="" %}
+                                            {% endwith %}
+                                        {% endwith %}
                                     </label>
                                 </li>
                             {% endfor %}

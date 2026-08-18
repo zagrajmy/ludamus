@@ -68,7 +68,11 @@ export class McpClient {
   async #post(payload: Record<string, unknown>): Promise<Response> {
     const headers: Record<string, string> = {
       "content-type": "application/json",
-      accept: "application/json, text/event-stream",
+      // JSON only, honestly: #call parses response.json() unconditionally,
+      // so advertising text/event-stream would invite an SSE body this
+      // client cannot read. Django's /mcp/ answers JSON; add real SSE
+      // handling before widening this header.
+      accept: "application/json",
       authorization: `Bearer ${this.#config.readToken()}`,
       "mcp-protocol-version": PROTOCOL_VERSION,
     };

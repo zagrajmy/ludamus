@@ -46,6 +46,13 @@ const initPosthog = (config: PosthogServerConfig): void => {
     persistence: "localStorage+cookie",
     session_recording: {
       maskAllInputs: true,
+      // maskTextSelector masks TEXT NODES only — rrweb records attribute
+      // values verbatim. Any element carrying PII in an attribute (a name in
+      // aria-label or data-confirm copy, an email in a data-copy chip or a
+      // mailto: href) must therefore be excluded from the recording entirely
+      // with data-ph-block; it shows as a same-size placeholder in replay.
+      // The pii-attribute-needs-block ast-grep rule enforces the pairing.
+      blockSelector: "[data-ph-block]",
       maskTextSelector: "[data-ph-mask]",
     },
   });
