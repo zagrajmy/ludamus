@@ -1,5 +1,9 @@
-from datetime import UTC, datetime
+from __future__ import annotations
 
+from datetime import UTC, datetime
+from typing import TYPE_CHECKING
+
+from django.db import IntegrityError
 from django.db.models import (
     Count,
     Exists,
@@ -63,6 +67,10 @@ from ludamus.pacts.panel import (
     EventPanelSettingsDTO,
     EventPanelSettingsRepositoryProtocol,
 )
+from ludamus.pacts.services import DatabaseConstraintError
+
+if TYPE_CHECKING:
+    from ludamus.pacts.event import EventCreateData
 
 
 def event_dto(event: Event) -> EventDTO:
@@ -251,6 +259,23 @@ class EventRepository(EventRepositoryProtocol):
         return event_dto(event)
 
     @staticmethod
+    def lock(event_id: int) -> None:
+        try:
+            Event.objects.select_for_update().get(pk=event_id)
+        except Event.DoesNotExist as error:
+            raise NotFoundError from error
+
+    @staticmethod
+    def read_in_sphere(pk: int, sphere_id: int) -> EventDTO:
+        try:
+            event = Event.objects.select_related("proposal_settings").get(
+                id=pk, sphere_id=sphere_id
+            )
+        except Event.DoesNotExist as exception:
+            raise NotFoundError from exception
+        return event_dto(event)
+
+    @staticmethod
     def read_by_slug(slug: str, sphere_id: int) -> EventDTO:
         """Read an event by slug within a sphere.
 
@@ -292,6 +317,18 @@ class EventRepository(EventRepositoryProtocol):
             hosts_count=session_stats["hosts"],
             rooms_count=Space.objects.filter(event_id=event_id).count(),
         )
+
+    @staticmethod
+    def create(sphere_id: int, data: EventCreateData) -> EventDTO:
+        try:
+            event = Event.objects.create(sphere_id=sphere_id, **data)
+        except IntegrityError as error:
+            raise DatabaseConstraintError from error
+        return event_dto(event)
+
+    @staticmethod
+    def slug_exists(sphere_id: int, slug: str) -> bool:
+        return Event.objects.filter(sphere_id=sphere_id, slug=slug).exists()
 
     @staticmethod
     def update(event_id: int, data: EventUpdateData) -> None:

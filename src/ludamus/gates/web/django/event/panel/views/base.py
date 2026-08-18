@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, TypedDict
+from typing import TYPE_CHECKING, TypedDict
 
 from django.contrib import messages
 from django.contrib.auth.mixins import UserPassesTestMixin
@@ -15,6 +15,9 @@ from ludamus.pacts.legacy import NotFoundError, RedirectError
 if TYPE_CHECKING:
     from ludamus.pacts import AuthenticatedRequestContext, EventDTO
     from ludamus.pacts.services import ServicesProtocol
+
+
+type PanelContext = dict[str, object]
 
 
 class EventPanelRequest(HttpRequest):
@@ -55,12 +58,12 @@ class EventContextMixin:
             "stats": page.stats.model_dump(),
         }
 
-    def get_event_context(self, slug: str) -> tuple[dict[str, Any], EventDTO | None]:
+    def get_event_context(self, slug: str) -> tuple[PanelContext, EventDTO | None]:
         if (context := self.get_typed_event_context(slug)) is None:
             return {}, None
         return dict(context), context["current_event"]
 
-    def require_event_context(self, slug: str) -> tuple[dict[str, Any], EventDTO]:
+    def require_event_context(self, slug: str) -> tuple[PanelContext, EventDTO]:
         context, current_event = self.get_event_context(slug)
         if current_event is None:
             raise RedirectError(reverse("panel:index"))

@@ -45,14 +45,17 @@ from ludamus.mills.enrollment import (
     NotificationsService,
     WaitlistPromotionService,
 )
-from ludamus.mills.event import EventConfirmationsService, EventPanelService
+from ludamus.mills.event import (
+    EventConfirmationsService,
+    EventPanelService,
+    EventsService,
+)
 from ludamus.mills.event_settings import EventSettingsService
 from ludamus.mills.guild import GuildService
 from ludamus.mills.integrations import EventIntegrationsService
 from ludamus.mills.multiverse import (
     AnnouncementsService,
     ConnectionsService,
-    EventsService,
     SitesService,
     SpherePanelService,
 )
@@ -76,6 +79,11 @@ from ludamus.mills.submissions.proposal_category_settings import (
     ProposalCategorySettingsService,
 )
 from ludamus.mills.submissions.session_fields import CFPSessionFieldService
+from ludamus.mills.timetable import (
+    ConflictDetectionService,
+    TimetableOverviewService,
+    TimetableService,
+)
 from ludamus.mills.tracks import TracksPanelService
 from ludamus.mills.venues import SpaceTreeService, VenuesService
 from ludamus.pacts.chronology import IntegrationImplementationId
@@ -83,6 +91,7 @@ from ludamus.pacts.enrollment import EnrollmentRepos
 from ludamus.pacts.event_settings import EventSettingsRepos
 from ludamus.pacts.panel import FacilitatorPanelRepos, ProposalPanelRepos
 from ludamus.pacts.submissions import ImportRepos, ProposalCategorySettingsRepos
+from ludamus.pacts.timetable import TimetableRepos
 
 if TYPE_CHECKING:
     from ludamus.mills.konwencik import KonwencikExportService
@@ -134,6 +143,7 @@ class Services:
         return FacilitatorPanelService(
             self._transaction,
             FacilitatorPanelRepos(
+                events=self._repos.events,
                 facilitators=self._repos.facilitators,
                 personal_data_fields=self._repos.personal_data_fields,
                 personal_data_field_values=self._repos.personal_data_field_values,
@@ -208,7 +218,11 @@ class Services:
 
     @cached_property
     def events(self) -> EventsService:
-        return EventsService(self._repos.events)
+        return EventsService(
+            transaction=self._transaction,
+            events=self._repos.events,
+            spheres=self._repos.spheres,
+        )
 
     @cached_property
     def event_panel(self) -> EventPanelService:
@@ -308,6 +322,9 @@ class Services:
                 session_fields=self._repos.session_fields,
                 proposal_categories=self._repos.proposal_categories,
                 panel_settings=self._repos.event_panel_settings,
+                facilitators=self._repos.facilitators,
+                tracks=self._repos.tracks,
+                time_slots=self._repos.time_slots,
             ),
         )
 
@@ -515,6 +532,29 @@ class Services:
             spaces=self._repos.spaces,
             spheres=self._repos.spheres,
         )
+
+    @cached_property
+    def _timetable_repos(self) -> TimetableRepos:
+        return TimetableRepos(
+            sessions=self._repos.sessions,
+            agenda_items=self._repos.agenda_items,
+            spaces=self._repos.spaces,
+            time_slots=self._repos.time_slots,
+            tracks=self._repos.tracks,
+            schedule_change_logs=self._repos.schedule_change_logs,
+        )
+
+    @cached_property
+    def timetable(self) -> TimetableService:
+        return TimetableService(self._transaction, self._timetable_repos)
+
+    @cached_property
+    def timetable_conflicts(self) -> ConflictDetectionService:
+        return ConflictDetectionService(self._timetable_repos)
+
+    @cached_property
+    def timetable_overview(self) -> TimetableOverviewService:
+        return TimetableOverviewService(self._timetable_repos)
 
     @cached_property
     def import_field_layout(self) -> ImportFieldLayoutService:
