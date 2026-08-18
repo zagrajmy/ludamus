@@ -172,6 +172,17 @@ If you fix a papercut, remove it.
   `uv python install 3.14` fetches python-build-standalone from GitHub releases
   (reachable) in ~4s; worth making that the documented fallback in the
   SessionStart hook.
+- 2026-08-07: mise run messages rewrites the whole PL catalog with this
+  machine's xgettext: it strips every '#, python-brace-format' flag and rewraps
+  two msgstrs, so CI's messages-check (which regenerates with a newer gettext
+  and diffs) fails on a catalog that is locally 'fresh'. Had to hand-revert 11
+  flag lines and 2 wrappings to get a diff containing only real changes.
+- 2026-08-08: git push over SSH fails in this worktree: 'Bad owner or
+  permissions on /etc/ssh/ssh_config.d/20-systemd-ssh-proxy.conf' (symlink owned
+  by nobody:nogroup). Worked around with: git -c credential.helper='!gh auth
+  git-credential' push https://github.com/zagrajmy/ludamus.git HEAD:the-branch.
+  Also, no local Postgres and no docker, so 'mise run test:postgres' errors on
+  connection refused for all 7 marked tests.
 - 2026-08-11: Burned a CI round because `djlint <path> --check` and the
   `lint:djlint` task disagree. The task is
   `djlint src --quiet --lint --check --format-css --format-js --profile=django`,
@@ -199,6 +210,9 @@ If you fix a papercut, remove it.
   slow local page load can outlast — `expect(getByText("Guild created."))`
   timed out while the row it announced was right there. Assert the durable page
   state instead.
+- 2026-08-12: Ran 'mise run test:py tests/unit/test_chronology_mills.py'
+  expecting a targeted run; the task ignores trailing path args and ran all 3990
+  tests (4 min). 'mise run test:unit -- -k Name' works instead.
 - 2026-08-15: git commit's hk pre-commit hook (djlint/codespell/yamllint) fails
   with 'not found' in this worktree because the session PATH bakes in
   /home/user/ludamus/.venv/bin from the main checkout, but that .venv doesn't
@@ -207,3 +221,13 @@ If you fix a papercut, remove it.
   git commit invocation; poetry install must be run without mise exec (mise
   exec's venv also resolves to the wrong checkout path) to get a usable venv at
   all.
+- 2026-08-16: aube install fails in the agent sandbox: aube-workspace.yaml
+  paranoid:true makes advisoryCheck required, and api.osv.dev is not on the
+  sandbox network allowlist, so every install dies with
+  ERR_AUBE_ADVISORY_CHECK_FAILED after wiping node_modules. Had to hand the
+  install back to the user.
+- 2026-08-16: mise run test:py failed with 'sh: 1: pytest: not found' after mise
+  pruned python 3.14.6: .venv/bin/python was a dangling symlink into the removed
+  install, so mise silently skipped venv activation for tasks (mise x still
+  resolved it). Repointed .venv/bin/python + pyvenv.cfg at 3.14 by hand. mise
+  run should say the venv is unusable instead of running the task without it.
