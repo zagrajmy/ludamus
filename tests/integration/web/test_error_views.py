@@ -303,4 +303,4 @@ class TestExceptionReporting:
 
         got_request_exception.send(sender=None, request=request)
 
-        assert reported == []
+        assert not reported
