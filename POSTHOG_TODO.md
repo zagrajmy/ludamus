@@ -20,10 +20,13 @@ one copy change.
 
 ## Blocking
 
-- [ ] **Privacy policy.** The banner copy now separates analytics from fault
-      reports; the policy has to say the same thing. PR #787 moves it out of
-      flatpages into `src/ludamus/content/privacy-policy.md`, so wait for that
-      and edit the file rather than the database.
+- [ ] **Add the server half to the privacy policy.** PR #787 moves the policy
+      into `src/ludamus/content/privacy-policy.md` and adds a §3.4 covering
+      analytics, but deliberately only the client side: the fault reporter does
+      not exist on that branch, and describing processing that does not happen
+      yet is the same defect §3.2 carried for ten months. Whoever merges this
+      second adds it — fault reports go out regardless of consent, carrying the
+      account pk and request path, building no person and deriving no location.
 - [ ] **Retarget the banner's privacy link when #787 lands.** It deletes
       flatpages, so `{% url 'django.contrib.flatpages.views.flatpage'
       url='/privacy-policy/' %}` in `components/consent-banner.html` becomes a
