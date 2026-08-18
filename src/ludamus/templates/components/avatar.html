@@ -13,7 +13,8 @@
             <div class="absolute inset-0 {{ border_class }} {% if is_danger %}ring-2 ring-danger{% endif %} rounded-full overflow-hidden">
                 <div class="absolute inset-0 {{ name_value|avatar_bg_class }} flex items-center justify-center"
                      aria-hidden="true">
-                    <span class="{{ text_class }} font-semibold {{ name_value|avatar_text_class }}">{{ name_value|slice:":2"|upper }}</span>
+                    <span class="{{ text_class }} font-semibold {{ name_value|avatar_text_class }}"
+                          data-ph-mask>{{ name_value|slice:":2"|upper }}</span>
                 </div>
                 {% if user.avatar_url %}
                     {# data-avatar-image: avatar.ts hides the image when it fails to load, so the initials below show through instead of a broken-image glyph. #}

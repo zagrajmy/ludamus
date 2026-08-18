@@ -299,6 +299,16 @@ class ProfileAvatarPageView(LoginRequiredMixin, View):
         return redirect("web:crowd:profile-avatar")
 
 
+class ProfilePrivacyPageView(LoginRequiredMixin, View):
+    request: AuthenticatedRootRequest
+
+    @staticmethod
+    def get(request: AuthenticatedRootRequest) -> TemplateResponse:
+        return TemplateResponse(
+            request, "crowd/user/privacy.html", {"profile_active_tab": "privacy"}
+        )
+
+
 class ProfileShadowbanPageView(LoginRequiredMixin, View):
     request: AuthenticatedRootRequest
 

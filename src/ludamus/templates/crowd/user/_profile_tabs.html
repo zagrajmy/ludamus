@@ -3,6 +3,7 @@
 {% url 'web:crowd:profile-parties' as parties_url %}
 {% url 'web:crowd:profile-avatar' as avatar_url %}
 {% url 'web:crowd:profile-safety' as safety_url %}
+{% url 'web:crowd:profile-privacy' as privacy_url %}
 {% tabs %}
     {% tab "profile" icon="user" href=profile_url %}
         {% translate "Personal Information" %}
@@ -15,5 +16,8 @@
     {% endtab %}
     {% tab "safety" icon="shield-exclamation" href=safety_url %}
         {% translate "Safety" %}
+    {% endtab %}
+    {% tab "privacy" icon="finger-print" href=privacy_url %}
+        {% translate "Privacy" %}
     {% endtab %}
 {% endtabs %}

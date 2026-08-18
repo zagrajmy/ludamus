@@ -1,0 +1,49 @@
+name: Verification image smoke
+
+# Trial II — docker/verification.Dockerfile is the container an agent runs
+# `mise run verify` in before asking for review. Nothing deploys from it, so
+# this workflow only proves the image still assembles and the toolchain
+# resolves; it fires when the image definition (or this workflow) changes,
+# and on demand.
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - docker/verification.Dockerfile
+      - docker/verification.Dockerfile.dockerignore
+      - .github/workflows/verification-image.yml
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build the verification image
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/verification.Dockerfile
+          load: true
+          tags: ludamus-verify:smoke
+          cache-from: type=gha,scope=verification
+          cache-to: type=gha,mode=max,scope=verification
+
+      - name: Toolchain smoke
+        run: |
+          docker run --rm ludamus-verify:smoke exec -- sh -c '
+            set -ex
+            python --version
+            node --version
+            poetry --version
+            hk --version
+            pytest --version
+            aube exec -C tests/e2e playwright --version
+          '

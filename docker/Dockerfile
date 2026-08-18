@@ -93,8 +93,20 @@ RUN mise exec -- poetry install --only main
 # Copy application code
 COPY --chown=appuser:appuser src ./src
 
-# Run Django commands that need source code
-RUN mise run build-frontend && mise run dj compilemessages
+# PostHog error tracking wants the source maps Vite already emits. The token
+# arrives as a BuildKit secret (never a layer), and the whole step degrades
+# to a plain build when the secret is absent or empty — local builds and
+# forks stay network-quiet. inject must run here, before the runtime
+# collectstatic hashes the files it annotates.
+ARG POSTHOG_CLI_ENV_ID
+ENV POSTHOG_CLI_ENV_ID=${POSTHOG_CLI_ENV_ID}
+RUN --mount=type=secret,id=posthog_cli_token,mode=0444 \
+    mise run build-frontend && mise run dj compilemessages \
+    && if [ -s /run/secrets/posthog_cli_token ]; then \
+        POSTHOG_CLI_TOKEN="$(cat /run/secrets/posthog_cli_token)" mise run posthog-sourcemaps; \
+    else \
+        echo "posthog_cli_token secret absent - skipping source map upload"; \
+    fi
 
 # Expose port
 EXPOSE 8000

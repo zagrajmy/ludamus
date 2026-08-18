@@ -25,7 +25,7 @@
                     {% for warning in shadowban_warnings %}
                         <li class="flex items-center gap-2">
                             {% include "components/avatar.html" with user=warning.user size="size-8" danger_ring=True %}
-                            <span class="font-medium">{{ warning.user.full_name }}</span>
+                            <span class="font-medium" data-ph-mask>{{ warning.user.full_name }}</span>
                             <span class="text-sm text-foreground-muted">
                                 {% blocktranslate with date=warning.shadowbanned_at|date:"SHORT_DATE_FORMAT" %}shadowbanned on {{ date }}{% endblocktranslate %}
                             </span>
@@ -147,7 +147,7 @@
                                     <label class="flex items-center gap-3 px-4 py-3 transition-colors {% if state.disabled %}opacity-60 cursor-not-allowed{% else %}cursor-pointer hover:bg-bg-tertiary{% endif %}">
                                         {% include "components/avatar.html" with user=row.user size="size-10" %}
                                         <span class="min-w-0 flex-1">
-                                            <span class="block font-medium truncate">
+                                            <span class="block font-medium truncate" data-ph-mask>
                                                 {% if row.user.pk == request.user.pk %}
                                                     {% translate "You" %}
                                                     {% if row.user.full_name %}· {{ row.user.full_name }}{% endif %}

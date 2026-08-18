@@ -40,6 +40,9 @@ jobs:
           MEDIA_ROOT: ${{ vars.MEDIA_ROOT }}
           GS_BUCKET_NAME: ${{ vars.GS_BUCKET_NAME }}
           GS_LOCATION: ${{ vars.GS_LOCATION }}
+          POSTHOG_API_KEY: ${{ vars.POSTHOG_API_KEY }}
+          POSTHOG_HOST: ${{ vars.POSTHOG_HOST }}
+          POSTHOG_CLI_ENV_ID: ${{ vars.POSTHOG_CLI_ENV_ID }}
           POSTGRES_DATA_PATH: ${{ vars.POSTGRES_DATA_PATH }}
           STATIC_DATA_PATH: ${{ vars.STATIC_DATA_PATH }}
           MEDIA_DATA_PATH: ${{ vars.MEDIA_DATA_PATH }}
@@ -62,6 +65,7 @@ jobs:
                    AUTH0_CLIENT_ID AUTH0_CLIENT_SECRET AUTH0_DOMAIN \
                    MEMBERSHIP_API_BASE_URL MEMBERSHIP_API_TOKEN \
                    EMAIL_URL SUPPORT_EMAIL STATIC_ROOT MEDIA_ROOT \
+                   POSTHOG_API_KEY POSTHOG_HOST POSTHOG_CLI_ENV_ID \
                    POSTGRES_DATA_PATH STATIC_DATA_PATH MEDIA_DATA_PATH \
                    WEB_PORT \
                    GS_BUCKET_NAME GS_CREDENTIALS_JSON GS_LOCATION; do
@@ -81,13 +85,23 @@ jobs:
           # discarded so resolved values never reach the run log.
           npx -y varlock@1.12.0 load > /dev/null
 
-      - name: Upload .env.local to host
+      - name: Materialize PostHog CLI token for the image build
+        env:
+          POSTHOG_CLI_TOKEN: ${{ secrets.POSTHOG_CLI_TOKEN }}
+        run: |
+          # A BuildKit secret file, kept out of .env.local so the personal API
+          # key never enters container env. Always created: when the GitHub
+          # secret is unset the file is empty and docker/Dockerfile skips the
+          # source map upload instead of failing.
+          printf '%s' "${POSTHOG_CLI_TOKEN}" > .posthog_cli_token
+
+      - name: Upload .env.local and build secret to host
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.PRODUCTION_HOST }}
           username: ${{ secrets.PRODUCTION_USER }}
           key: ${{ secrets.PRODUCTION_DEPLOY_KEY }}
-          source: .env.local
+          source: .env.local,.posthog_cli_token
           target: ludamus/
 
       - name: Deploy
@@ -105,7 +119,7 @@ jobs:
           script: |
             set -ex
             cd ludamus/
-            chmod 600 .env.local
+            chmod 600 .env.local .posthog_cli_token
             git fetch
             # -f: discard local drift in tracked files; .env.local is untracked
             git checkout -f $GITHUB_COMMIT_SHA
