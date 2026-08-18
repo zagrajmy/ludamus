@@ -315,6 +315,23 @@ test.describe("Backoffice Panel", () => {
     await expect(page.getByText("Workshop Room", { exact: true })).toBeVisible();
   });
 
+  test("offers no add-inside action on a space holding a session", async ({ page }) => {
+    await page.goto("/panel/event/frostfire-con/venues/");
+
+    const bookedNode = page.getByRole("listitem").filter({
+      has: page.getByText("Glacier Amphitheatre", { exact: true }),
+    });
+    const label = "Add a space inside Glacier Amphitheatre";
+    await expect(bookedNode.getByRole("link", { name: label })).toHaveCount(0);
+    await expect(bookedNode.getByRole("button", { name: label })).toHaveAttribute(
+      "aria-disabled",
+      "true",
+    );
+    await expect(
+      bookedNode.getByText("A space holding a scheduled session cannot contain other spaces."),
+    ).toBeAttached();
+  });
+
   test("edits a space", async ({ page }) => {
     await page.goto("/panel/event/frostfire-con/venues/");
     await page.getByRole("link", { name: "Edit Frost Gallery" }).click();

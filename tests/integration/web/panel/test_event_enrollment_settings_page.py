@@ -1,22 +1,28 @@
 from datetime import UTC, datetime
 from http import HTTPStatus
-from unittest.mock import ANY
 
 from django.contrib import messages
 from django.urls import reverse
 
 from ludamus.links.db.django.models import EnrollmentConfig
+from ludamus.pacts.enrollment import EnrollmentWindowDTO
 from tests.integration.conftest import EventFactory, SphereFactory
-from tests.integration.utils import assert_login_required, assert_response
+from tests.integration.utils import (
+    FormErrorsMatcher,
+    RequestTimeMatcher,
+    assert_login_required,
+    assert_response,
+)
 from tests.integration.web.panel.helpers import (
     assert_event_not_found,
     assert_not_a_manager,
+    panel_context,
+    settings_tab_urls,
 )
 
 EARLY_CAPACITY_PERCENT = 50
 FULL_CAPACITY_PERCENT = 100
 MAX_WAITLIST_SESSIONS = 3
-WINDOW_COUNT = 2
 
 
 def _list_url(event):
@@ -49,6 +55,16 @@ def _post_data(**overrides):
     }
     data.update(overrides)
     return data
+
+
+def _settings_context(event, *, windows):
+    return {
+        **panel_context(event, active_nav="settings"),
+        "active_tab": "enrollment",
+        "tab_urls": settings_tab_urls(event),
+        "windows": windows,
+        "now": RequestTimeMatcher(),
+    }
 
 
 def _window(event, **overrides):
@@ -99,17 +115,14 @@ class TestEventEnrollmentSettingsList:
             response,
             HTTPStatus.OK,
             template_name="panel/enrollment-settings.html",
-            context_data=ANY,
+            context_data=_settings_context(event, windows=[]),
         )
-        content = response.content.decode()
-        assert "Enrollment is closed" in content
-        assert "Add enrollment window" in content
 
     def test_lists_all_event_windows(self, panel_client, event):
-        _window(
+        early = _window(
             event, banner_text="Early access", percentage_slots=EARLY_CAPACITY_PERCENT
         )
-        _window(
+        general = _window(
             event,
             start_time=datetime(2026, 8, 21, 10, tzinfo=UTC),
             end_time=datetime(2026, 8, 25, 18, tzinfo=UTC),
@@ -122,12 +135,14 @@ class TestEventEnrollmentSettingsList:
             response,
             HTTPStatus.OK,
             template_name="panel/enrollment-settings.html",
-            context_data=ANY,
+            context_data=_settings_context(
+                event,
+                windows=[
+                    EnrollmentWindowDTO.model_validate(early),
+                    EnrollmentWindowDTO.model_validate(general),
+                ],
+            ),
         )
-        content = response.content.decode()
-        assert "50% of capacity" in content
-        assert "100% of capacity" in content
-        assert content.count("Edit window") == WINDOW_COUNT
 
 
 class TestEnrollmentWindowCreate:
@@ -164,11 +179,16 @@ class TestEnrollmentWindowCreate:
             response,
             HTTPStatus.OK,
             template_name="panel/enrollment-window-form.html",
-            context_data=ANY,
+            context_data={
+                **panel_context(event, active_nav="settings"),
+                "active_tab": "enrollment",
+                "tab_urls": settings_tab_urls(event),
+                "form": FormErrorsMatcher(
+                    __all__=["Enrollment must close after it opens."]
+                ),
+                "window": None,
+            },
         )
-        content = response.content.decode()
-        assert "Enrollment must close after it opens." in content
-        assert "2026-08-20T18:00" in content
         assert not EnrollmentConfig.objects.filter(event=event).exists()
 
 

@@ -12,8 +12,8 @@ class FacilitatorListItemDTO(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     accreditation_type: str
+    deleted_at: datetime | None = None
     display_name: str
-    flagged_for_deletion: bool = False
     # Attached by the panel view, not the ORM. Null means no guild.
     guild: GuildMarkDTO | None = None
     organizer_id: int | None = None

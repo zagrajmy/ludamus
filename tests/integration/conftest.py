@@ -296,6 +296,13 @@ def party_companion(active_user, companion):
     return companion
 
 
+@pytest.fixture
+def own_party(active_user, companion):
+    # The same sponsorship `party_companion` sets up, handed back as the party
+    # itself: what a test needs to name the pills the enroll page shows.
+    return sponsor_user(leader=active_user, member=companion)
+
+
 @pytest.fixture(name="staff_user")
 def staff_user_fixture():
     return UserFactory(username="staffuser", is_staff=True)

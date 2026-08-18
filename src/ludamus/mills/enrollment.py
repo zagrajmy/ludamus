@@ -12,7 +12,6 @@ from __future__ import annotations
 import logging
 import math
 import secrets
-import sys
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from secrets import token_urlsafe
@@ -166,24 +165,20 @@ class EnrollmentPolicy:
         )
 
     def effective_participants_limit(self, *, participants_limit: int) -> int:
-        if not self.windows or participants_limit == 0:
+        if not self.windows:
             return 0
         return math.ceil(participants_limit * self.percentage_slots / 100)
 
     def is_full(self, *, participants_limit: int, enrolled_count: int) -> bool:
-        if not self.windows or participants_limit == 0:
+        if not self.windows:
             return False
         return enrolled_count >= self.effective_participants_limit(
             participants_limit=participants_limit
         )
 
     def available_slots(self, *, participants_limit: int, enrolled_count: int) -> int:
-        if not self.windows:
-            return 0
-        if participants_limit == 0:
-            return sys.maxsize
-        effective_limit = math.ceil(participants_limit * self.percentage_slots / 100)
-        return max(0, effective_limit - enrolled_count)
+        limit = self.effective_participants_limit(participants_limit=participants_limit)
+        return max(0, limit - enrolled_count)
 
 
 def _now() -> datetime:

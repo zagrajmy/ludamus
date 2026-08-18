@@ -151,6 +151,35 @@ class TestProposalCreatePageView:
             ],
         )
 
+    def test_get_leaves_deleted_facilitators_out_of_the_picker(
+        self, panel_client, event
+    ):
+        ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
+        facilitator = Facilitator.objects.create(
+            event=event, display_name="Alice", slug="alice", user=None
+        )
+        Facilitator.objects.create(
+            event=event,
+            display_name="Deleted",
+            slug="deleted",
+            user=None,
+            deleted_at=datetime(2026, 1, 2, 3, 4, tzinfo=UTC),
+        )
+
+        response = panel_client.get(self.get_url(event))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/proposal-form.html",
+            context_data={
+                **_base_context(event),
+                **_fields_context(event),
+                "form": ANY,
+                "all_facilitators": [facilitator_list_item_dto(facilitator)],
+            },
+        )
+
     def test_post_invalid_keeps_selected_facilitator_checked(self, panel_client, event):
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
         facilitator = Facilitator.objects.create(

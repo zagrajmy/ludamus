@@ -3,8 +3,65 @@ description = "Run any django-admin subcommand"
 run = "aubr varlock django-admin"
 
 [messages]
-description = "Extract translatable strings into locale/pl (file-only locations, no line numbers)"
-run = "aubr varlock django-admin makemessages -l pl --add-location=file"
+description = "Extract translatable strings into locale/pl (file-only locations, no timestamps)"
+run = '''
+set -eu
+aubr varlock django-admin makemessages -l pl --add-location=file
+# The extraction timestamp guarantees a merge conflict between any two
+# branches that both touched the catalog, and carries no information for a
+# committed file — drop it (makemessages re-stamps it on every rewrite).
+sed -i.bak '/^"POT-Creation-Date:/d' src/ludamus/locale/pl/LC_MESSAGES/django.po
+rm -f src/ludamus/locale/pl/LC_MESSAGES/django.po.bak
+'''
+
+[messages-resolve]
+description = "Resolve a merge conflict in django.po: union both sides, re-extract, flag diverged translations"
+run = '''
+set -eu
+po=src/ludamus/locale/pl/LC_MESSAGES/django.po
+if [ -z "$(git ls-files --unmerged -- "$po")" ]; then
+  echo "ERROR: $po is not mid-merge — nothing to resolve." >&2
+  exit 1
+fi
+# Re-extraction reads the working tree, so any other unresolved conflict
+# would leak <<<<<<< markers into the extracted strings.
+if git diff --name-only --diff-filter=U | grep -qvFx "$po"; then
+  echo "ERROR: resolve the other conflicted files first, then re-run:" >&2
+  git diff --name-only --diff-filter=U | grep -vFx "$po" >&2
+  exit 1
+fi
+sides="$(mktemp -d)"
+git show ":2:$po" > "$sides/ours.po"
+git show ":3:$po" > "$sides/theirs.po"
+# Transitional: branches cut before the timestamp removal still carry the
+# header in their committed catalogs; drop this strip once none remain.
+sed -i.bak '/^"POT-Creation-Date:/d' "$sides/ours.po" "$sides/theirs.po"
+# Union of both sides: entries added on either side survive; an entry
+# translated differently on each side comes out fuzzy, with both variants
+# kept between "#-#-#-#-#  ours.po/theirs.po  #-#-#-#-#" markers.
+msgcat -o "$po" "$sides/ours.po" "$sides/theirs.po"
+rm -rf "$sides"
+# Re-extract to retire entries whose strings are gone from the merged
+# source and to restore canonical ordering.
+mise run messages
+# Detect via msgfmt statistics, not by grepping msgid lines — a wrapped
+# msgid starts with the same 'msgid ""' as the header and a grep filter
+# would miss it. The extra marker grep covers what the stats can't see:
+# a diverged entry that went obsolete after re-extraction keeps its
+# #-#-#-#-# markers but no longer counts as a fuzzy translation.
+stats="$(LC_ALL=C msgfmt --statistics -o /dev/null "$po" 2>&1)" || { printf '%s\n' "$stats" >&2; exit 1; }
+echo "$stats"
+if printf '%s' "$stats" | grep -q fuzzy || grep -q '#-#-#-#-#' "$po"; then
+  echo "Both branches translated some entries differently. Keep one variant" >&2
+  echo "per entry, delete the #-#-#-#-# marker lines and the '#, fuzzy' flag," >&2
+  echo "then 'git add $po':" >&2
+  msgattrib --only-fuzzy --no-obsolete --no-location "$po" >&2
+  grep -n '#-#-#-#-#' "$po" >&2 || true
+  exit 1
+fi
+git add "$po"
+echo "Resolved: both sides merged, catalog re-extracted, $po staged."
+'''
 
 [messages-compile]
 description = "Compile locale/pl translations to .mo"
@@ -37,7 +94,9 @@ po=src/ludamus/locale/pl/LC_MESSAGES/django.po
 pre="$(mktemp)"
 cp "$po" "$pre"
 django-admin makemessages -l pl --add-location=file
-drift="$(diff -I'POT-Creation-Date' "$pre" "$po" || true)"
+sed -i.bak '/^"POT-Creation-Date:/d' "$po"
+rm -f "$po.bak"
+drift="$(diff "$pre" "$po" || true)"
 cp "$pre" "$po"
 rm -f "$pre"
 if [ -n "$drift" ]; then
@@ -46,7 +105,7 @@ if [ -n "$drift" ]; then
   exit 1
 fi
 # 2. Nothing ships untranslated: msgfmt reports any fuzzy/untranslated entries.
-stats=$(msgfmt --check --statistics -o /dev/null "$po" 2>&1)
+stats=$(LC_ALL=C msgfmt --check --statistics -o /dev/null "$po" 2>&1) || { printf '%s\n' "$stats" >&2; exit 1; }
 echo "$stats"
 if printf '%s' "$stats" | grep -qE 'fuzzy|untranslated'; then
   echo "ERROR: $po has fuzzy/untranslated entries — translate them and commit:" >&2

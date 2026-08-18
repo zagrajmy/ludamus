@@ -57,9 +57,9 @@ def build_session_details_form(
     # The only place a category's participant bounds bind — the panel form and a
     # facilitator's self-edit are deliberately unbounded — so a category of large
     # rooms can refuse a two-person session. A floor also makes the number
-    # mandatory; with neither bound the field is optional and 0 means no limit.
-    # 0 stays valid under a ceiling too: limitless no-sign-up sessions exist in
-    # every category.
+    # mandatory; with neither bound the field is optional and 0 means the
+    # session takes no enrollment. 0 stays valid under a ceiling too:
+    # no-sign-up sessions exist in every category.
     participants_kwargs: dict[str, Any] = {
         "label": _("Max participants"),
         "min_value": min_limit,
@@ -71,7 +71,7 @@ def build_session_details_form(
         participants_kwargs |= {
             "required": False,
             "initial": 0,
-            "help_text": _("Empty or 0 = no limit"),
+            "help_text": _("Empty or 0 = no enrollment"),
         }
 
     fields: dict[str, forms.Field] = {

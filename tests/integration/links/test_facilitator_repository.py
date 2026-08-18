@@ -1,6 +1,16 @@
+import pytest
+
 from ludamus.links.db.django.models import Facilitator
-from ludamus.links.db.django.repositories.submissions import FacilitatorRepository
-from tests.integration.conftest import EventFactory, UserFactory
+from ludamus.links.db.django.repositories import SessionRepository
+from ludamus.links.db.django.repositories.facilitators import FacilitatorRepository
+from ludamus.pacts import NotFoundError
+from ludamus.pacts.submissions import FacilitatorSessionCountsDTO
+from tests.integration.conftest import (
+    EventFactory,
+    ProposalCategoryFactory,
+    SessionFactory,
+    UserFactory,
+)
 
 
 def _facilitator(event, organizer=None):
@@ -11,6 +21,10 @@ def _facilitator(event, organizer=None):
         accreditation_type="none",
         organizer=organizer,
     )
+
+
+def _session(event):
+    return SessionFactory(category=ProposalCategoryFactory(event=event), event=event)
 
 
 class TestFacilitatorRepositoryClaim:
@@ -83,6 +97,210 @@ class TestFacilitatorRepositoryRelease:
         released = FacilitatorRepository.release(facilitator.pk, organizer_id=None)
 
         assert released is False
+
+
+class TestFacilitatorRepositorySoftDelete:
+    def test_soft_delete_stamps_the_row_and_hides_it_from_the_default_manager(self):
+        event = EventFactory.create()
+        facilitator = _facilitator(event)
+
+        FacilitatorRepository.soft_delete(facilitator.pk)
+
+        facilitator.refresh_from_db()
+        assert facilitator.deleted_at is not None
+        assert not Facilitator.objects.filter(pk=facilitator.pk).exists()
+
+    def test_soft_deleting_an_already_deleted_facilitator_is_not_found(self):
+        event = EventFactory.create()
+        facilitator = _facilitator(event)
+        FacilitatorRepository.soft_delete(facilitator.pk)
+        stamped_at = Facilitator.all_objects.get(pk=facilitator.pk).deleted_at
+
+        with pytest.raises(NotFoundError):
+            FacilitatorRepository.soft_delete(facilitator.pk)
+
+        assert Facilitator.all_objects.get(pk=facilitator.pk).deleted_at == stamped_at
+
+    def test_delete_destroys_the_row(self):
+        event = EventFactory.create()
+        facilitator = _facilitator(event)
+
+        FacilitatorRepository.delete(facilitator.pk)
+
+        assert not Facilitator.all_objects.filter(pk=facilitator.pk).exists()
+
+    def test_a_deleted_facilitator_keeps_holding_its_slug(self):
+        event = EventFactory.create()
+        facilitator = _facilitator(event)
+        FacilitatorRepository.soft_delete(facilitator.pk)
+
+        assert FacilitatorRepository.slug_exists(event.pk, "alice") is True
+
+    def test_a_deleted_facilitator_still_matches_by_ident(self):
+        event = EventFactory.create()
+        facilitator = _facilitator(event)
+        FacilitatorRepository.set_ident(facilitator.pk, "ident-1")
+        FacilitatorRepository.soft_delete(facilitator.pk)
+
+        found = FacilitatorRepository.find_by_ident(event.pk, "ident-1")
+
+        assert found is not None
+        assert found.pk == facilitator.pk
+        assert found.deleted_at is not None
+
+    def test_find_by_ident_without_a_match_is_none(self):
+        event = EventFactory.create()
+
+        assert FacilitatorRepository.find_by_ident(event.pk, "nobody") is None
+
+    def test_restore_brings_a_deleted_facilitator_back(self):
+        event = EventFactory.create()
+        facilitator = _facilitator(event)
+        FacilitatorRepository.soft_delete(facilitator.pk)
+
+        FacilitatorRepository.restore(facilitator.pk)
+
+        facilitator.refresh_from_db()
+        assert facilitator.deleted_at is None
+        assert Facilitator.objects.filter(pk=facilitator.pk).exists()
+
+    def test_restoring_a_live_facilitator_is_not_found(self):
+        event = EventFactory.create()
+        facilitator = _facilitator(event)
+
+        with pytest.raises(NotFoundError):
+            FacilitatorRepository.restore(facilitator.pk)
+
+    def test_read_by_event_and_slug_leaves_out_a_deleted_facilitator(self):
+        event = EventFactory.create()
+        facilitator = _facilitator(event)
+        FacilitatorRepository.soft_delete(facilitator.pk)
+
+        with pytest.raises(NotFoundError):
+            FacilitatorRepository.read_by_event_and_slug(event.pk, "alice")
+
+    def test_read_including_deleted_reaches_a_deleted_facilitator(self):
+        event = EventFactory.create()
+        facilitator = _facilitator(event)
+        FacilitatorRepository.soft_delete(facilitator.pk)
+
+        found = FacilitatorRepository.read_including_deleted(event.pk, "alice")
+
+        assert found.pk == facilitator.pk
+        assert found.deleted_at is not None
+
+    def test_read_including_deleted_without_a_row_is_not_found(self):
+        event = EventFactory.create()
+
+        with pytest.raises(NotFoundError):
+            FacilitatorRepository.read_including_deleted(event.pk, "nobody")
+
+    def test_update_refuses_a_deleted_facilitator(self):
+        event = EventFactory.create()
+        facilitator = _facilitator(event)
+        FacilitatorRepository.soft_delete(facilitator.pk)
+
+        with pytest.raises(NotFoundError):
+            FacilitatorRepository.update(facilitator.pk, {"display_name": "Bob"})
+
+        facilitator.refresh_from_db()
+        assert facilitator.display_name == "Alice"
+
+
+class TestFacilitatorRepositoryLock:
+    def test_an_alive_row_locks(self):
+        event = EventFactory.create()
+        facilitator = _facilitator(event)
+
+        assert FacilitatorRepository.lock([facilitator.pk]) is None
+
+    def test_one_missing_pk_among_alive_ones_is_not_found(self):
+        event = EventFactory.create()
+        facilitator = _facilitator(event)
+
+        with pytest.raises(NotFoundError):
+            FacilitatorRepository.lock([facilitator.pk, 0])
+
+    def test_a_dead_row_is_not_found(self):
+        event = EventFactory.create()
+        facilitator = _facilitator(event)
+        facilitator.soft_delete()
+
+        with pytest.raises(NotFoundError):
+            FacilitatorRepository.lock([facilitator.pk])
+
+    def test_a_missing_row_is_not_found(self):
+        with pytest.raises(NotFoundError):
+            FacilitatorRepository.lock([0])
+
+
+class TestSessionFacilitatorLinkRejectsDeleted:
+    # The other ordering of the deletion race: the delete wins the lock, so the
+    # assignment must find the row gone rather than write a link onto it.
+    def test_set_facilitators_refuses_a_deleted_facilitator(self):
+        event = EventFactory.create()
+        facilitator = _facilitator(event)
+        session = _session(event)
+        facilitator.soft_delete()
+
+        with pytest.raises(NotFoundError):
+            SessionRepository.set_facilitators(session.pk, [facilitator.pk])
+
+        assert not session.facilitators.exists()
+
+
+class TestFacilitatorRepositoryCountSessions:
+    def test_a_facilitator_without_sessions_counts_none(self):
+        event = EventFactory.create()
+        facilitator = _facilitator(event)
+
+        assert FacilitatorRepository.count_sessions(
+            facilitator.pk
+        ) == FacilitatorSessionCountsDTO(live=0, deleted=0)
+
+    def test_live_and_deleted_sessions_are_counted_apart(self):
+        # The deleted half is what the refusal has to name: it is restorable,
+        # and a restore bringing back a session whose facilitator is deleted
+        # would drop the byline.
+        event = EventFactory.create()
+        facilitator = _facilitator(event)
+        _session(event).facilitators.add(facilitator)
+        deleted_session = _session(event)
+        deleted_session.facilitators.add(facilitator)
+        deleted_session.soft_delete()
+
+        assert FacilitatorRepository.count_sessions(
+            facilitator.pk
+        ) == FacilitatorSessionCountsDTO(live=1, deleted=1)
+
+    def test_a_missing_facilitator_counts_none(self):
+        assert FacilitatorRepository.count_sessions(0) == FacilitatorSessionCountsDTO(
+            live=0, deleted=0
+        )
+
+
+class TestFacilitatorRepositorySessionCount:
+    def test_the_list_and_the_merge_basket_agree(self):
+        # Both feed FacilitatorListItemDTO.session_count; an organizer picking a
+        # merge survivor must not see a different number than the list showed.
+        event = EventFactory.create()
+        facilitator = _facilitator(event)
+        _session(event).facilitators.add(facilitator)
+        deleted_session = _session(event)
+        deleted_session.facilitators.add(facilitator)
+        deleted_session.soft_delete()
+
+        listed = FacilitatorRepository.list_by_event(event.pk)
+        basket = FacilitatorRepository.list_by_slugs(event.pk, [facilitator.slug])
+
+        assert [f.session_count for f in listed] == [1]
+        assert [f.session_count for f in basket] == [1]
+
+    def test_an_empty_basket_lists_nobody(self):
+        event = EventFactory.create()
+        _facilitator(event)
+
+        assert FacilitatorRepository.list_by_slugs(event.pk, []) == []
 
 
 class TestFacilitatorRepositoryRead:

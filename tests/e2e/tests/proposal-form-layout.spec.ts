@@ -51,6 +51,6 @@ test.describe("Proposal form layout", () => {
 
     await limit.fill("500");
     expect(await limit.evaluate((input: HTMLInputElement) => input.checkValidity())).toBe(true);
-    await expect(page.getByText(/Empty or 0 = no limit/)).toBeVisible();
+    await expect(page.getByText(/Empty or 0 = no enrollment/)).toBeVisible();
   });
 });

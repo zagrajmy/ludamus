@@ -3,6 +3,7 @@ import re
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
+from django.db import transaction
 from django.db.models import Count, Exists, F, OuterRef, Q, QuerySet, Subquery
 
 from ludamus.links.db.django.models import (
@@ -22,6 +23,7 @@ from ludamus.links.db.django.repositories.chronology import (
     location_data,
     session_card_stats,
 )
+from ludamus.links.db.django.repositories.facilitators import FacilitatorRepository
 from ludamus.links.db.django.repositories.storage import (
     save_replacing_files,
     with_original_names,
@@ -224,6 +226,7 @@ class SessionRepository(SessionRepositoryProtocol, SessionModalRepositoryProtoco
         )
 
     @staticmethod
+    @transaction.atomic
     def create(
         session_data: SessionData,
         *,
@@ -237,8 +240,9 @@ class SessionRepository(SessionRepositoryProtocol, SessionModalRepositoryProtoco
         # which turns bulk imports into a query per created session.
         if time_slot_ids:
             session.time_slots.add(*time_slot_ids)
-        if facilitator_ids:
-            session.facilitators.add(*facilitator_ids)
+        if facilitator_pks := list(facilitator_ids):
+            FacilitatorRepository.lock(facilitator_pks)
+            session.facilitators.add(*facilitator_pks)
         if track_ids:
             session.tracks.add(*track_ids)
         return session.pk
@@ -346,8 +350,10 @@ class SessionRepository(SessionRepositoryProtocol, SessionModalRepositoryProtoco
 
     @staticmethod
     def list_by_facilitator(facilitator_id: int) -> list[SessionListItemDTO]:
+        # Through `all_objects`: a deleted session holds up deleting the
+        # facilitator, so the page that refuses the deletion has to name it.
         qs = (
-            Session.objects.filter(facilitators__id=facilitator_id)
+            Session.all_objects.filter(facilitators__id=facilitator_id)
             .select_related("category")
             .annotate(
                 is_scheduled=Exists(
@@ -365,6 +371,7 @@ class SessionRepository(SessionRepositoryProtocol, SessionModalRepositoryProtoco
                 status=SessionStatus(s.status),
                 creation_time=s.creation_time,
                 is_scheduled=s.is_scheduled,
+                is_deleted=s.deleted_at is not None,
             )
             for s in qs
         ]
@@ -750,8 +757,12 @@ class SessionRepository(SessionRepositoryProtocol, SessionModalRepositoryProtoco
         session_ids: Iterable[int],
     ) -> dict[int, list[FacilitatorDTO]]:
         ids = list(session_ids)
+        # The through table has no manager of its own, so the deleted-facilitator
+        # filter the `facilitators` accessor applies has to be spelled out here.
         rows = (
-            Session.facilitators.through.objects.filter(session_id__in=ids)
+            Session.facilitators.through.objects.filter(
+                session_id__in=ids, facilitator__deleted_at__isnull=True
+            )
             .select_related("facilitator")
             .order_by("facilitator__display_name")
         )
@@ -816,16 +827,20 @@ class SessionRepository(SessionRepositoryProtocol, SessionModalRepositoryProtoco
         }
 
     @staticmethod
+    @transaction.atomic
     def set_facilitators(session_id: int, facilitator_ids: list[int]) -> None:
         try:
             session = Session.objects.get(pk=session_id)
         except Session.DoesNotExist as err:
             msg = f"Session with pk '{session_id}' not found"
             raise NotFoundError(msg) from err
+        FacilitatorRepository.lock(facilitator_ids)
         session.facilitators.set(facilitator_ids)
 
     @staticmethod
+    @transaction.atomic
     def replace_facilitators_in_sessions(source_ids: list[int], target_id: int) -> None:
+        FacilitatorRepository.lock([target_id])
         for session in Session.objects.filter(facilitators__in=source_ids).distinct():
             session.facilitators.add(target_id)
             session.facilitators.remove(*source_ids)

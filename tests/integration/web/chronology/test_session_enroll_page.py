@@ -19,7 +19,6 @@ from ludamus.gates.web.django.event.enroll_presentation import (
     SeatBadge,
     build_enroll_actions,
 )
-from ludamus.inits.services import Services
 from ludamus.links.db.django.models import (
     AgendaItem,
     EnrollmentConfig,
@@ -40,6 +39,25 @@ from tests.integration.conftest import (
     sponsor_user,
 )
 from tests.integration.utils import assert_response, input_tag
+from tests.integration.web.chronology.helpers import (
+    enroll_context,
+    participation_row,
+    party_context,
+    party_member,
+)
+
+
+def _companion_pills(party, *, leader, companion):
+    # The pills a leader sponsoring one login-less companion should see: their
+    # own unnamed party, selected, with the two of them on it.
+    return party_context(
+        party,
+        leader_name=leader.name,
+        members=[
+            party_member(leader, is_leader=True),
+            party_member(companion, is_login_less=True),
+        ],
+    )
 
 
 def _open_window(event, *, percentage_slots):
@@ -51,15 +69,6 @@ def _open_window(event, *, percentage_slots):
         percentage_slots=percentage_slots,
         restrict_to_configured_users=False,
     )
-
-
-def _party_context(viewer):
-    # The enroll page's party plumbing, derived from the same service call the
-    # view makes (default selection: no explicit party requested).
-    selection = Services().parties.enrollment_selection(
-        viewer_pk=viewer.pk, requested_party=None
-    )
-    return {"party_choices": selection.choices, "selected_party": selection.selected}
 
 
 class TestSessionEnrollPageView:
@@ -79,7 +88,7 @@ class TestSessionEnrollPageView:
             response,
             HTTPStatus.OK,
             context_data={
-                **_party_context(active_user),
+                **party_context(),
                 "companions": [],
                 "event": agenda_item.space.event,
                 "form": ANY,
@@ -97,9 +106,8 @@ class TestSessionEnrollPageView:
             template_name="chronology/enroll_select.html",
         )
 
-    @pytest.mark.usefixtures("party_companion")
     def test_get_renders_one_include_checkbox_per_row(
-        self, active_user, companion, authenticated_client, agenda_item
+        self, active_user, companion, own_party, authenticated_client, agenda_item
     ):
         # The desired-state redesign: one "Include" checkbox per person, checked
         # when they are already in, unchecked otherwise. No enroll/waitlist split.
@@ -119,7 +127,7 @@ class TestSessionEnrollPageView:
             response,
             HTTPStatus.OK,
             context_data={
-                **_party_context(active_user),
+                **_companion_pills(own_party, leader=active_user, companion=companion),
                 "companions": [CompanionDTO.model_validate(companion)],
                 "event": agenda_item.space.event,
                 "form": ANY,
@@ -188,7 +196,7 @@ class TestSessionEnrollPageView:
             response,
             HTTPStatus.OK,
             context_data={
-                **_party_context(active_user),
+                **party_context(),
                 "companions": [],
                 "event": agenda_item.space.event,
                 "form": ANY,
@@ -470,7 +478,7 @@ class TestSessionEnrollPageView:
                 (messages.WARNING, "Please review the enrollment options below."),
             ],
             context_data={
-                **_party_context(active_user),
+                **party_context(),
                 "companions": [],
                 "event": agenda_item.space.event,
                 "form": ANY,
@@ -523,7 +531,7 @@ class TestSessionEnrollPageView:
         )
 
     @pytest.mark.usefixtures("enrollment_config")
-    def test_post_ok_unlimited_session(
+    def test_post_session_without_enrollment_refuses(
         self, staff_user, agenda_item, staff_client, session, event
     ):
         session.participants_limit = 0
@@ -536,15 +544,35 @@ class TestSessionEnrollPageView:
 
         assert_response(
             response,
-            HTTPStatus.FOUND,
-            messages=[(messages.SUCCESS, f"Enrolled: {staff_user.name}")],
-            url=reverse("web:chronology:event", kwargs={"slug": event.slug}),
+            HTTPStatus.OK,
+            messages=[
+                (
+                    messages.ERROR,
+                    f"{staff_user.name} cannot enroll: enrollment not available",
+                ),
+                (messages.WARNING, "Please review the enrollment options below."),
+            ],
+            context_data={
+                **party_context(),
+                "companions": [],
+                "session": agenda_item.session,
+                "event": event,
+                "shadowban_warnings": [],
+                "user_data": [
+                    SessionUserParticipationData(
+                        user=UserDTO.model_validate(staff_user),
+                        user_enrolled=False,
+                        user_waiting=False,
+                        has_time_conflict=False,
+                    )
+                ],
+                "form": ANY,
+            },
+            template_name="chronology/enroll_select.html",
         )
-        SessionParticipation.objects.get(
-            user=staff_user,
-            session=agenda_item.session,
-            status=SessionParticipationStatus.CONFIRMED,
-        )
+        assert not SessionParticipation.objects.filter(
+            user=staff_user, session=agenda_item.session
+        ).exists()
 
     @pytest.mark.usefixtures("enrollment_config")
     def test_post_cancel(self, active_user, agenda_item, authenticated_client, event):
@@ -749,7 +777,7 @@ class TestSessionEnrollPageView:
                 (messages.WARNING, "Please review the enrollment options below."),
             ],
             context_data={
-                **_party_context(active_user),
+                **party_context(),
                 "companions": [],
                 "event": agenda_item.space.event,
                 "form": ANY,
@@ -1034,7 +1062,7 @@ class TestSessionEnrollPageView:
                 ),
             ],
             context_data={
-                **_party_context(staff_user),
+                **party_context(),
                 "session": agenda_item.session,
                 "event": event,
                 "companions": [],
@@ -1078,7 +1106,7 @@ class TestSessionEnrollPageView:
                 ),
             ],
             context_data={
-                **_party_context(staff_user),
+                **party_context(),
                 "session": agenda_item.session,
                 "event": event,
                 "companions": [],
@@ -1119,7 +1147,7 @@ class TestSessionEnrollPageView:
                 (messages.WARNING, "Please review the enrollment options below."),
             ],
             context_data={
-                **_party_context(staff_user),
+                **party_context(),
                 "session": agenda_item.session,
                 "event": event,
                 "companions": [],
@@ -1141,7 +1169,7 @@ class TestSessionEnrollPageView:
         self, staff_user, agenda_item, staff_client, event, enrollment_config, companion
     ):
         PartyMembership.objects.filter(member=companion).delete()
-        sponsor_user(leader=staff_user, member=companion)
+        party = sponsor_user(leader=staff_user, member=companion)
         UserEnrollmentConfig.objects.create(
             enrollment_config=enrollment_config,
             user_email=staff_user.email,
@@ -1170,7 +1198,7 @@ class TestSessionEnrollPageView:
                 (messages.WARNING, "Please review the enrollment options below."),
             ],
             context_data={
-                **_party_context(staff_user),
+                **_companion_pills(party, leader=staff_user, companion=companion),
                 "companions": [CompanionDTO.model_validate(companion)],
                 "session": agenda_item.session,
                 "event": event,
@@ -1373,7 +1401,7 @@ class TestSessionEnrollPageView:
         self, staff_user, agenda_item, staff_client, event, enrollment_config, companion
     ):
         PartyMembership.objects.filter(member=companion).delete()
-        sponsor_user(leader=staff_user, member=companion)
+        party = sponsor_user(leader=staff_user, member=companion)
         UserEnrollmentConfig.objects.create(
             enrollment_config=enrollment_config,
             user_email=staff_user.email,
@@ -1407,7 +1435,7 @@ class TestSessionEnrollPageView:
                 (messages.WARNING, "Please review the enrollment options below."),
             ],
             context_data={
-                **_party_context(staff_user),
+                **_companion_pills(party, leader=staff_user, companion=companion),
                 "companions": [CompanionDTO.model_validate(companion)],
                 "session": agenda_item.session,
                 "event": event,
@@ -1603,7 +1631,7 @@ class TestSessionEnrollPageView:
                 (messages.WARNING, "Please review the enrollment options below."),
             ],
             context_data={
-                **_party_context(active_user),
+                **party_context(),
                 "companions": [],
                 "event": agenda_item.space.event,
                 "form": ANY,
@@ -1621,11 +1649,11 @@ class TestSessionEnrollPageView:
             template_name="chronology/enroll_select.html",
         )
 
-    @pytest.mark.usefixtures("party_companion")
     def test_post_companion_cant_join_waitlist_no_manager_user_config(
         self,
         active_user,
         companion,
+        own_party,
         agenda_item,
         enrollment_config,
         authenticated_client,
@@ -1657,7 +1685,7 @@ class TestSessionEnrollPageView:
                 ),
             ],
             context_data={
-                **_party_context(active_user),
+                **_companion_pills(own_party, leader=active_user, companion=companion),
                 "companions": [CompanionDTO.model_validate(companion)],
                 "event": agenda_item.space.event,
                 "form": ANY,
@@ -1681,11 +1709,11 @@ class TestSessionEnrollPageView:
             template_name="chronology/enroll_select.html",
         )
 
-    @pytest.mark.usefixtures("party_companion")
     def test_post_companion_cant_enroll_no_manager_email(
         self,
         active_user,
         companion,
+        own_party,
         agenda_item,
         enrollment_config,
         authenticated_client,
@@ -1713,7 +1741,7 @@ class TestSessionEnrollPageView:
                 ),
             ],
             context_data={
-                **_party_context(active_user),
+                **_companion_pills(own_party, leader=active_user, companion=companion),
                 "companions": [CompanionDTO.model_validate(companion)],
                 "event": agenda_item.space.event,
                 "form": ANY,
@@ -1794,7 +1822,7 @@ class TestSessionEnrollPageView:
                 (messages.WARNING, "Please review the enrollment options below."),
             ],
             context_data={
-                **_party_context(active_user),
+                **party_context(),
                 "companions": [],
                 "event": agenda_item.space.event,
                 "form": ANY,
@@ -1847,7 +1875,7 @@ class TestSessionEnrollPageView:
                 ),
             ],
             context_data={
-                **_party_context(active_user),
+                **party_context(),
                 "session": agenda_item.session,
                 "event": event,
                 "companions": [],
@@ -1924,7 +1952,7 @@ class TestSessionEnrollPageView:
                 ),
             ],
             context_data={
-                **_party_context(active_user),
+                **party_context(),
                 "session": agenda_item.session,
                 "event": event,
                 "companions": [],
@@ -1983,7 +2011,7 @@ class TestSessionEnrollPageView:
                 (messages.WARNING, "Please review the enrollment options below."),
             ],
             context_data={
-                **_party_context(active_user),
+                **party_context(),
                 "companions": [],
                 "event": agenda_item.space.event,
                 "form": ANY,
@@ -2028,7 +2056,7 @@ class TestSessionEnrollPageView:
                 (messages.WARNING, "Please review the enrollment options below."),
             ],
             context_data={
-                **_party_context(active_user),
+                **party_context(),
                 "session": agenda_item.session,
                 "event": event,
                 "companions": [],
@@ -2046,11 +2074,11 @@ class TestSessionEnrollPageView:
             template_name="chronology/enroll_select.html",
         )
 
-    @pytest.mark.usefixtures("party_companion")
     def test_post_companion_cant_enroll_no_manager_config(
         self,
         active_user,
         companion,
+        own_party,
         agenda_item,
         enrollment_config,
         authenticated_client,
@@ -2082,7 +2110,7 @@ class TestSessionEnrollPageView:
                 ),
             ],
             context_data={
-                **_party_context(active_user),
+                **_companion_pills(own_party, leader=active_user, companion=companion),
                 "companions": [CompanionDTO.model_validate(companion)],
                 "event": agenda_item.space.event,
                 "form": ANY,
@@ -2106,10 +2134,10 @@ class TestSessionEnrollPageView:
             template_name="chronology/enroll_select.html",
         )
 
-    @pytest.mark.usefixtures("party_companion")
     def test_post_restricted_companion_cant_enroll(
         self,
         companion,
+        own_party,
         agenda_item,
         authenticated_client,
         event,
@@ -2142,7 +2170,7 @@ class TestSessionEnrollPageView:
                 (messages.WARNING, "Please review the enrollment options below."),
             ],
             context_data={
-                **_party_context(active_user),
+                **_companion_pills(own_party, leader=active_user, companion=companion),
                 "companions": [CompanionDTO.model_validate(companion)],
                 "session": agenda_item.session,
                 "event": event,
@@ -2185,7 +2213,7 @@ class TestSessionEnrollPageView:
                 (messages.WARNING, "Please review the enrollment options below."),
             ],
             context_data={
-                **_party_context(active_user),
+                **party_context(),
                 "companions": [],
                 "session": agenda_item.session,
                 "event": event,
@@ -2739,7 +2767,7 @@ class TestSeatProjection:
         )
 
     @pytest.mark.usefixtures("enrollment_config")
-    def test_projection_scaffolding(self, agenda_item, staff_client):
+    def test_projection_scaffolding(self, staff_user, agenda_item, staff_client):
         session = agenda_item.session
         session.participants_limit = 2
         session.save(update_fields=["participants_limit"])
@@ -2755,20 +2783,25 @@ class TestSeatProjection:
             response,
             HTTPStatus.OK,
             template_name="chronology/enroll_select.html",
-            context_data=ANY,
+            context_data=enroll_context(
+                session=session, user_data=[participation_row(staff_user)]
+            ),
+            contains=[
+                'data-seats-left="1"',
+                "data-enroll-preview",
+                'data-msg-seat="Gets a seat"',
+                'data-msg-wait="Joins the waiting list"',
+                'data-msg-leave="Will leave the session"',
+                'data-current-in="0"',
+                'data-occupies-seat="0"',
+                "data-seat-hint",
+            ],
         )
-        content = " ".join(response.content.decode().split())
-        assert 'data-seats-left="1"' in content
-        assert "data-enroll-preview" in content
-        assert 'data-msg-seat="Gets a seat"' in content
-        assert 'data-msg-wait="Joins the waiting list"' in content
-        assert 'data-msg-leave="Will leave the session"' in content
-        assert 'data-current-in="0"' in content
-        assert 'data-occupies-seat="0"' in content
-        assert "data-seat-hint" in content
 
     @pytest.mark.usefixtures("enrollment_config")
-    def test_full_session_projects_zero_seats(self, agenda_item, staff_client):
+    def test_full_session_projects_zero_seats(
+        self, staff_user, agenda_item, staff_client
+    ):
         session = agenda_item.session
         session.participants_limit = 1
         session.save(update_fields=["participants_limit"])
@@ -2784,15 +2817,17 @@ class TestSeatProjection:
             response,
             HTTPStatus.OK,
             template_name="chronology/enroll_select.html",
-            context_data=ANY,
+            context_data=enroll_context(
+                session=session, user_data=[participation_row(staff_user)]
+            ),
+            # The header capacity pill carries the count; the panel projects it.
+            contains=["1/1", 'data-seats-left="0"'],
         )
-        content = " ".join(response.content.decode().split())
-        # The header capacity pill carries the count; the panel projects it.
-        assert "1/1" in content
-        assert 'data-seats-left="0"' in content
 
     @pytest.mark.usefixtures("enrollment_config")
-    def test_unlimited_session_has_no_seat_counter(self, agenda_item, staff_client):
+    def test_session_without_enrollment_has_no_seats(
+        self, staff_user, agenda_item, staff_client
+    ):
         session = agenda_item.session
         session.participants_limit = 0
         session.save(update_fields=["participants_limit"])
@@ -2803,10 +2838,11 @@ class TestSeatProjection:
             response,
             HTTPStatus.OK,
             template_name="chronology/enroll_select.html",
-            context_data=ANY,
+            context_data=enroll_context(
+                session=session, user_data=[participation_row(staff_user)]
+            ),
+            contains='data-seats-left="0"',
         )
-        content = " ".join(response.content.decode().split())
-        assert "data-seats-left" not in content
 
     @pytest.mark.usefixtures("enrollment_config")
     def test_enrolled_viewer_row_occupies_a_seat(
@@ -2825,11 +2861,12 @@ class TestSeatProjection:
             response,
             HTTPStatus.OK,
             template_name="chronology/enroll_select.html",
-            context_data=ANY,
+            context_data=enroll_context(
+                session=session,
+                user_data=[participation_row(staff_user, user_enrolled=True)],
+            ),
+            contains=['data-current-in="1"', 'data-occupies-seat="1"'],
         )
-        content = " ".join(response.content.decode().split())
-        assert 'data-current-in="1"' in content
-        assert 'data-occupies-seat="1"' in content
 
     @pytest.mark.usefixtures("enrollment_config")
     def test_waiting_viewer_row_frees_no_seat(
@@ -2848,11 +2885,12 @@ class TestSeatProjection:
             response,
             HTTPStatus.OK,
             template_name="chronology/enroll_select.html",
-            context_data=ANY,
+            context_data=enroll_context(
+                session=session,
+                user_data=[participation_row(staff_user, user_waiting=True)],
+            ),
+            contains=['data-current-in="1"', 'data-occupies-seat="0"'],
         )
-        content = " ".join(response.content.decode().split())
-        assert 'data-current-in="1"' in content
-        assert 'data-occupies-seat="0"' in content
 
 
 @pytest.mark.django_db
@@ -2865,7 +2903,9 @@ class TestDesiredStateEdgeCases:
         )
 
     @pytest.mark.usefixtures("enrollment_config")
-    def test_min_age_shows_in_the_meta_strip(self, agenda_item, staff_client):
+    def test_min_age_shows_in_the_meta_strip(
+        self, staff_user, agenda_item, staff_client
+    ):
         session = agenda_item.session
         session.min_age = 16
         session.save(update_fields=["min_age"])
@@ -2876,7 +2916,9 @@ class TestDesiredStateEdgeCases:
             response,
             HTTPStatus.OK,
             template_name="chronology/enroll_select.html",
-            context_data=ANY,
+            context_data=enroll_context(
+                session=session, user_data=[participation_row(staff_user)]
+            ),
             contains=["16+"],
         )
 
@@ -2894,7 +2936,23 @@ class TestDesiredStateEdgeCases:
             response,
             HTTPStatus.OK,
             template_name="chronology/parts/session-enroll-actions.html",
-            context_data=ANY,
+            context_data={
+                "event_slug": agenda_item.session.event.slug,
+                "session_pk": agenda_item.session.pk,
+                "viewer_pk": staff_user.pk,
+                "actions": EnrollActions(
+                    submit_value="enroll",
+                    submit_label="Enroll",
+                    submit_icon="user-plus",
+                    badge=None,
+                    group_label="Enroll with others…",
+                ),
+                "enroll_error": (
+                    f"Invalid choice for {staff_user.name}: bogus "
+                    "Please review the enrollment options below."
+                ),
+                "notice": "",
+            },
             messages=[
                 (messages.ERROR, f"Invalid choice for {staff_user.name}: bogus"),
                 (messages.WARNING, "Please review the enrollment options below."),
@@ -2987,15 +3045,17 @@ class TestOutcomeStatedCta:
             response,
             HTTPStatus.OK,
             template_name="chronology/enroll_select.html",
-            context_data=ANY,
+            context_data=enroll_context(
+                session=agenda_item.session, user_data=[participation_row(staff_user)]
+            ),
+            contains=">Join this session</button>",
         )
         content = " ".join(response.content.decode().split())
-        assert ">Join this session</button>" in content
         assert "checked" in input_tag(content, staff_user.pk)
 
     @pytest.mark.usefixtures("enrollment_config")
     def test_full_session_cta_says_join_the_waiting_list(
-        self, agenda_item, staff_client
+        self, staff_user, agenda_item, staff_client
     ):
         session = agenda_item.session
         session.participants_limit = 1
@@ -3012,10 +3072,11 @@ class TestOutcomeStatedCta:
             response,
             HTTPStatus.OK,
             template_name="chronology/enroll_select.html",
-            context_data=ANY,
+            context_data=enroll_context(
+                session=session, user_data=[participation_row(staff_user)]
+            ),
+            contains=">Join the waiting list</button>",
         )
-        content = " ".join(response.content.decode().split())
-        assert ">Join the waiting list</button>" in content
 
     @pytest.mark.usefixtures("enrollment_config")
     def test_enrolled_viewer_gets_confirm(self, staff_user, agenda_item, staff_client):
@@ -3033,7 +3094,9 @@ class TestOutcomeStatedCta:
             response,
             HTTPStatus.OK,
             template_name="chronology/enroll_select.html",
-            context_data=ANY,
+            context_data=enroll_context(
+                session=agenda_item.session,
+                user_data=[participation_row(staff_user, user_enrolled=True)],
+            ),
+            contains=">Confirm</button>",
         )
-        content = " ".join(response.content.decode().split())
-        assert ">Confirm</button>" in content

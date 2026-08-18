@@ -15,6 +15,7 @@ from tests.integration.web.panel.helpers import (
     assert_event_not_found,
     assert_not_a_manager,
     panel_context,
+    settings_tab_urls,
 )
 
 # The settings page renders a cover image and a logo dropzone.
@@ -88,7 +89,12 @@ class TestEventSettingsPageViewGet:
             response,
             HTTPStatus.OK,
             template_name="panel/settings.html",
-            context_data=ANY,
+            context_data={
+                **panel_context(event, active_nav="settings"),
+                "active_tab": "general",
+                "tab_urls": settings_tab_urls(event),
+                "form": ANY,
+            },
         )
         content = response.content
         assert content.count(b"data-dropzone-input") == DROPZONE_COUNT

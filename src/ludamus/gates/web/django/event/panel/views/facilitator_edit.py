@@ -56,7 +56,9 @@ class FacilitatorEditPageView(EventPanelAccessMixin, EventContextMixin, View):
 
         try:
             detail = self.request.services.facilitator_panel.detail_context(
-                event_id=current_event.pk, facilitator_slug=facilitator_slug
+                event_id=current_event.pk,
+                facilitator_slug=facilitator_slug,
+                include_deleted=False,
             )
         except NotFoundError:
             messages.error(self.request, _("Facilitator not found."))
@@ -91,7 +93,9 @@ class FacilitatorEditPageView(EventPanelAccessMixin, EventContextMixin, View):
 
         try:
             detail = self.request.services.facilitator_panel.detail_context(
-                event_id=current_event.pk, facilitator_slug=facilitator_slug
+                event_id=current_event.pk,
+                facilitator_slug=facilitator_slug,
+                include_deleted=False,
             )
         except NotFoundError:
             messages.error(self.request, _("Facilitator not found."))

@@ -12,7 +12,7 @@ mirrored across the two layers, and fill in `specs/` with the business
 invariants those mills currently inline. Retire the wildcard facades.
 New carves use noun names; modules already carved under legacy subdomain
 names (`chronology`, `multiverse`, `submissions`, `crowd`) keep them until
-an opportunistic rename — the `old-subdomain-loc` tingle metric tracks
+an opportunistic rename — the `old-subdomain-files` tingle metric tracks
 that debt.
 
 ## Why

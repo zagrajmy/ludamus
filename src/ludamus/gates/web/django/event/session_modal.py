@@ -52,6 +52,14 @@ class SessionModalComponentView(View):
                 "data": data,
                 "event": event,
                 "event_banned": event_banned,
+                # Drives both the tab bar and the roster panel it selects, so a
+                # panel can never render without a tab owning it. An organizer
+                # can drop a limit to 0 after people have signed up: those
+                # participations still exist, and the people holding them have
+                # to be able to see they are on the list.
+                "show_roster": (
+                    data.takes_enrollment or bool(data.session_participations)
+                ),
                 # Modal-only: the event page patches is_ended onto its cards
                 # after construction, so this is wrong on a card.
                 "enroll_actions": build_enroll_actions(

@@ -1,9 +1,11 @@
 import re
+from datetime import datetime, timedelta
 from http import HTTPStatus
 from typing import TYPE_CHECKING, Any
 from unittest.mock import ANY
 
 from django.contrib.messages import get_messages
+from django.utils.timezone import now
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -28,6 +30,23 @@ class PageMatcher:
 
     def __repr__(self) -> str:
         return f"PageMatcher(number={self.number}, num_pages={self.num_pages})"
+
+
+class RequestTimeMatcher:
+    # A `now()` the view stamped while handling the request. Freezing time is
+    # not an option — freezegun's fake datetime breaks pydantic schema building
+    # for the DTOs the views return.
+    def __init__(self, *, tolerance: timedelta = timedelta(minutes=1)) -> None:
+        self.tolerance = tolerance
+
+    def __eq__(self, other: object) -> bool:
+        return isinstance(other, datetime) and abs(now() - other) <= self.tolerance
+
+    def __hash__(self) -> int:
+        return hash(self.tolerance)
+
+    def __repr__(self) -> str:
+        return f"RequestTimeMatcher(tolerance={self.tolerance})"
 
 
 class FormErrorsMatcher:
@@ -100,6 +119,15 @@ def assert_response(
     for key, value in (default_fields | response_fields).items():
         assert getattr(response, key, None) == value
 
+    _assert_content(response=response, contains=contains, not_contains=not_contains)
+
+
+def _assert_content(
+    *,
+    response: HttpResponse,
+    contains: str | Iterable[str],
+    not_contains: str | Iterable[str],
+) -> None:
     needles = [contains] if isinstance(contains, str) else list(contains)
     absent = [not_contains] if isinstance(not_contains, str) else list(not_contains)
     assert "" not in needles, "empty substring is not a meaningful content check"
@@ -110,6 +138,19 @@ def assert_response(
             assert needle in content, needle
         for needle in absent:
             assert needle not in content, needle
+
+
+def assert_rendered(
+    *,
+    response: HttpResponse,
+    template_name: str | list[str],
+    contains: str | Iterable[str] = (),
+) -> None:
+    # For tests whose subject is rendered markup rather than the context: the
+    # view's own test module asserts what it puts in the context.
+    assert response.status_code == HTTPStatus.OK, response.status_code
+    assert getattr(response, "template_name", None) == template_name
+    _assert_content(response=response, contains=contains, not_contains=())
 
 
 def assert_login_required(response: HttpResponse, url: str) -> None:

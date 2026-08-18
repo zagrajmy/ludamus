@@ -81,28 +81,20 @@
                             {% icon "light-bulb" class="w-3.5 h-3.5" variant="mini" %}
                             {% translate "Awaiting review" %}
                         </span>
-                    {% elif not data.is_ended and data.is_enrollment_available and not data.should_show_as_inactive %}
-                        {% if data.is_full %}
-                            {% if data.waiting_count > 0 %}
-                                <span class="text-sm font-medium text-foreground-muted">{{ data.waiting_count }} {% translate "waiting" %}</span>
-                            {% endif %}
-                        {% elif data.is_unlimited %}
-                            <span class="text-sm font-semibold text-teal-700 dark:text-teal-400">{% translate "Open" %}</span>
-                        {% else %}
-                            <span class="text-sm font-semibold {% if data.spots_scarce %}text-coral-600 dark:text-coral-400{% else %}text-teal-700 dark:text-teal-400{% endif %}">
-                                {% blocktranslate count counter=data.spots_left %}{{ counter }} spot left{% plural %}{{ counter }} spots left{% endblocktranslate %}
-                            </span>
+                    {% elif data.availability == "full" %}
+                        {% if data.waiting_count > 0 %}
+                            <span class="text-sm font-medium text-foreground-muted">{{ data.waiting_count }} {% translate "waiting" %}</span>
                         {% endif %}
-                    {% else %}
-                        <span class="text-xs font-medium text-foreground-muted">
-                            {% if data.is_ended %}
-                                {% translate "Ended" %}
-                            {% elif data.should_show_as_inactive %}
-                                {% translate "In Progress" %}
-                            {% else %}
-                                {% translate "Not Available" %}
-                            {% endif %}
+                    {% elif data.availability == "available" %}
+                        <span class="text-sm font-semibold {% if data.spots_scarce %}text-coral-600 dark:text-coral-400{% else %}text-teal-700 dark:text-teal-400{% endif %}">
+                            {% blocktranslate count counter=data.spots_left %}{{ counter }} spot left{% plural %}{{ counter }} spots left{% endblocktranslate %}
                         </span>
+                    {% elif data.availability == "ended" %}
+                        <span class="text-xs font-medium text-foreground-muted">{% translate "Ended" %}</span>
+                    {% elif data.availability == "in-progress" %}
+                        <span class="text-xs font-medium text-foreground-muted">{% translate "In Progress" %}</span>
+                    {% elif data.availability == "unavailable" %}
+                        {% include "chronology/_enrollment_badge.html" %}
                     {% endif %}
                 </div>
             </div>

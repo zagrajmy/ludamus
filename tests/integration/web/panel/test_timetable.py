@@ -1,7 +1,6 @@
 import math
 from datetime import UTC, datetime, timedelta
 from http import HTTPStatus
-from unittest.mock import ANY
 from urllib.parse import urlencode
 
 import pytest
@@ -26,9 +25,11 @@ from tests.integration.utils import (
     assert_response_404,
 )
 from tests.integration.web.panel.helpers import (
+    SLOT_MINUTES,
     assert_event_not_found,
     assert_not_a_manager,
     empty_grid,
+    event_day_start,
     grid_with,
     panel_context,
     schedule_outside_preferred_slot,
@@ -37,10 +38,6 @@ from tests.integration.web.panel.helpers import (
     timetable_tab_urls,
 )
 
-# The `event` fixture starts at UTC midnight and Warsaw is a whole-hour offset,
-# so a slot starting with the event puts the grid's first time label — and its
-# day — on the hour.
-SLOT_MINUTES = 120
 HOUR_MINUTES = 60
 
 
@@ -85,10 +82,6 @@ def _print_url(event, **params):
 
 def _scheduled_stats(count):
     return {"rooms_count": 1, "scheduled_sessions": count, "total_sessions": count}
-
-
-def _day_start(event):
-    return localtime(event.start_time)
 
 
 def _page_context(event, *, stats=None, **overrides):
@@ -193,7 +186,7 @@ class TestTimetablePageView:
                 # while the day still sets its span.
                 grid=grid_with(
                     spaces=[],
-                    day_start=_day_start(event),
+                    day_start=event_day_start(event),
                     total_minutes=SLOT_MINUTES,
                     date_selection=day,
                 ),
@@ -216,7 +209,7 @@ class TestTimetablePageView:
                 stats={"rooms_count": 1},
                 grid=grid_with(
                     spaces=[space],
-                    day_start=_day_start(event),
+                    day_start=event_day_start(event),
                     total_minutes=SLOT_MINUTES,
                 ),
             ),
@@ -239,7 +232,7 @@ class TestTimetablePageView:
                 stats=_scheduled_stats(1),
                 grid=grid_with(
                     spaces=[space],
-                    day_start=_day_start(event),
+                    day_start=event_day_start(event),
                     total_minutes=SLOT_MINUTES,
                     sessions_by_space={
                         space.pk: [
@@ -273,7 +266,7 @@ class TestTimetablePageView:
                 stats={"rooms_count": 1},
                 grid=grid_with(
                     spaces=[space],
-                    day_start=_day_start(event),
+                    day_start=event_day_start(event),
                     extra_days=1,
                     total_minutes=SLOT_MINUTES,
                 ),
@@ -313,7 +306,7 @@ class TestTimetablePageView:
                 stats={"rooms_count": room_count},
                 grid=grid_with(
                     spaces=rooms,
-                    day_start=_day_start(event),
+                    day_start=event_day_start(event),
                     extra_days=day_count - 1,
                     total_minutes=SLOT_MINUTES,
                 ),
@@ -334,7 +327,9 @@ class TestTimetablePageView:
             context_data=_page_context(
                 event,
                 grid=grid_with(
-                    spaces=[], day_start=_day_start(event), total_minutes=SLOT_MINUTES
+                    spaces=[],
+                    day_start=event_day_start(event),
+                    total_minutes=SLOT_MINUTES,
                 ),
             ),
         )
@@ -356,7 +351,7 @@ class TestTimetablePageView:
                 stats=_scheduled_stats(1),
                 grid=grid_with(
                     spaces=[space],
-                    day_start=_day_start(event),
+                    day_start=event_day_start(event),
                     total_minutes=SLOT_MINUTES,
                     sessions_by_space={
                         space.pk: [
@@ -399,7 +394,7 @@ class TestTimetablePageView:
                 stats=_scheduled_stats(1),
                 grid=grid_with(
                     spaces=[space],
-                    day_start=_day_start(event),
+                    day_start=event_day_start(event),
                     total_minutes=SLOT_MINUTES,
                     sessions_by_space={
                         space.pk: [
@@ -738,7 +733,7 @@ class TestTimetablePageView:
                 stats={"rooms_count": room_count},
                 grid=grid_with(
                     spaces=rooms[page_start : page_start + TIMETABLE_ROOM_PAGE_SIZE],
-                    day_start=_day_start(event),
+                    day_start=event_day_start(event),
                     total_minutes=SLOT_MINUTES,
                     page=middle_page,
                     total_pages=expected_pages,
@@ -776,7 +771,7 @@ class TestTimetablePageView:
                 },
                 grid=grid_with(
                     spaces=[space],
-                    day_start=_day_start(event),
+                    day_start=event_day_start(event),
                     total_minutes=6 * HOUR_MINUTES,
                     sessions_by_space={
                         space.pk: [
@@ -808,7 +803,7 @@ class TestPanelBaseHeader:
             response,
             HTTPStatus.OK,
             template_name="panel/timetable.html",
-            context_data=ANY,
+            context_data=_page_context(event),
             contains='<span class="sidebar-label">Schedule</span>',
             not_contains="Harmonogram",
         )
@@ -827,7 +822,7 @@ class TestPanelBaseHeader:
             response,
             HTTPStatus.OK,
             template_name="panel/timetable.html",
-            context_data=ANY,
+            context_data=_page_context(event),
             contains="06 Aug 2026",
             not_contains="06 Aug - 06 Aug",
         )
@@ -846,6 +841,6 @@ class TestPanelBaseHeader:
             response,
             HTTPStatus.OK,
             template_name="panel/timetable.html",
-            context_data=ANY,
+            context_data=_page_context(event),
             contains="06 Aug - 08 Aug 2026",
         )

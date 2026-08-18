@@ -4,8 +4,8 @@
 // seated in row order against the seats left, cancels in the same submit free
 // their seats first. Unticking someone currently in shows they will leave.
 //
-// Config rides on the [data-enroll-preview] root: data-seats-left (a number, or
-// absent for an unlimited session) and the translated hint strings. Rows carry
+// Config rides on the [data-enroll-preview] root: data-seats-left (a number)
+// and the translated hint strings. Rows carry
 // data-current-in (person is enrolled/waiting/holding) and data-occupies-seat
 // (their departure frees a confirmed seat — waiting list spots don't).
 
@@ -31,7 +31,6 @@ const paint = (hint: HTMLElement, kind: HintTone | null, text = ""): void => {
 };
 
 if (root) {
-  const unlimited = root.dataset.seatsLeft === undefined;
   const seatsLeft = Number(root.dataset.seatsLeft ?? 0);
   const rows = [...root.querySelectorAll<HTMLElement>("[data-enroll-row]")];
   // The footer tally aggregates the row hints into one glanceable instrument:
@@ -70,9 +69,9 @@ if (root) {
       if (!box || !hint) continue;
       const currentIn = row.dataset.currentIn === "1";
       if (box.checked && !currentIn) {
-        if (unlimited || free > 0) {
+        if (free > 0) {
           paint(hint, "seat", root.dataset.msgSeat ?? "");
-          if (!unlimited) free -= 1;
+          free -= 1;
           seated += 1;
           if (row === rows[0] && !box.disabled) viewerJoins = "seat";
         } else {

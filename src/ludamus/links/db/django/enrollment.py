@@ -11,7 +11,6 @@ reads and participation mutations.
 from __future__ import annotations
 
 import logging
-import sys
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
 
@@ -214,16 +213,10 @@ class ParticipationPromotionRepository:
             promotion_mode=mode,
             offer_claim_window=window,
             presenter_id=session.presenter_id,
-            available_seats=self._available_seats(session),
+            available_seats=session.seats_left,
             waiting=waiting,
             shadowbanned_user_ids=shadowbanned_user_ids,
         )
-
-    @staticmethod
-    def _available_seats(session: Session) -> int:
-        if session.participants_limit == 0:
-            return sys.maxsize
-        return max(0, session.effective_participants_limit - session.enrolled_count)
 
     @staticmethod
     def _config_allowances(

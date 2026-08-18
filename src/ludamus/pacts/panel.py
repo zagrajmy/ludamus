@@ -208,7 +208,6 @@ class FacilitatorListQuery:
 
     search: str = ""
     accreditation: str = ""
-    flagged: bool = False
     # "", "mine" or "unassigned" — one choice, so "filter by me" and "filter by
     # nobody" can never both be asked for. `current_user_id` is who "mine"
     # means, not a filter of its own.
@@ -292,6 +291,7 @@ class FacilitatorPanelServiceProtocol(PanelColumnServiceProtocol, Protocol):
     def list_context(
         self, *, event_id: int, query: FacilitatorListQuery
     ) -> FacilitatorListContextDTO: ...
+    def list_deleted(self, event_id: int) -> list[FacilitatorListItemDTO]: ...
     def filter_options(
         self, *, event_id: int, search: str, pinned: set[int], limit: int
     ) -> FacilitatorFilterOptionsDTO: ...
@@ -303,7 +303,7 @@ class FacilitatorPanelServiceProtocol(PanelColumnServiceProtocol, Protocol):
     ) -> list[FacilitatorListItemDTO]: ...
     def list_fields(self, event_id: int) -> list[OrganizerFieldDTO]: ...
     def detail_context(
-        self, *, event_id: int, facilitator_slug: str
+        self, *, event_id: int, facilitator_slug: str, include_deleted: bool
     ) -> FacilitatorDetailContextDTO: ...
     def create_facilitator(
         self, *, event_id: int, data: FacilitatorCreateData, user_id: int | None = None
@@ -327,12 +327,15 @@ class FacilitatorPanelServiceProtocol(PanelColumnServiceProtocol, Protocol):
     def column_values(
         self, *, facilitator_ids: list[int], field_ids: list[int]
     ) -> dict[int, dict[str, str | list[str] | bool]]: ...
+    def delete(
+        self, *, event_id: int, facilitator_slug: str, user_id: int | None = None
+    ) -> None: ...
+    def restore(
+        self, *, event_id: int, facilitator_slug: str, user_id: int | None = None
+    ) -> None: ...
     def assign_guild(
         self, *, event_id: int, sphere_id: int, facilitator_slug: str, guild_pk: int
     ) -> bool: ...
-    def set_flag(
-        self, *, event_id: int, facilitator_slug: str, flagged: bool
-    ) -> None: ...
     def assign_organizer(
         self, *, event_id: int, facilitator_slug: str, organizer_id: int
     ) -> None: ...

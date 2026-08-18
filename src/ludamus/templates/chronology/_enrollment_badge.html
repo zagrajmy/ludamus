@@ -1,0 +1,8 @@
+{% load i18n %}
+{# "You have to sign up for this one" indicator, shared by the card and the #}
+{# compact row. Only rendered where no seat count is shown — a live #}
+{# "3 spots left" already answers the question, and a second badge beside it #}
+{# is noise on a long schedule. #}
+{% translate "Enrollment" as enrollment_label %}
+{% translate "Enrollment required" as enrollment_title %}
+{% include "components/_field_pill.html" with value=enrollment_label title=enrollment_title icon="user-plus" size="sm" %}

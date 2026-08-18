@@ -80,10 +80,12 @@ export default defineConfig({
           proxy: {
             server: proxyServer,
             // The proxy only fronts external egress; localhost (the app
-            // under test) and 127.0.0.1 must bypass it. The sphere specs
-            // reach the app under tenant subdomains (another.localhost),
-            // which the bare `localhost` entry does not cover.
-            bypass: "localhost,*.localhost,127.0.0.1",
+            // under test) and 127.0.0.1 must bypass it. The suffix entry
+            // covers the per-sphere hosts the multi-tenant specs use
+            // (another.localhost), which the bare `localhost` entry does
+            // not cover; the leading-dot form is the one Firefox's
+            // no_proxies_on also understands.
+            bypass: "localhost,.localhost,127.0.0.1",
           },
         }
       : {}),
@@ -105,6 +107,7 @@ export default defineConfig({
         /panel\.spec\.ts/,
         /panel-crud\.spec\.ts/,
         /facilitator-guild\.spec\.ts/,
+        /guilds\.spec\.ts/,
         /confirmations\.spec\.ts/,
         /timetable\.spec\.ts/,
         /cover-images\.spec\.ts/,

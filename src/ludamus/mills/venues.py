@@ -102,13 +102,12 @@ class SpaceTreeService(SpaceTreeServiceProtocol):
         # node itself, its descendants (a cycle), and spaces already holding a
         # scheduled session (a leaf-with-session can't become a branch). Root is
         # offered separately by the caller as the "Top level" option.
-        blocked = self._spaces.space_pks_with_sessions(event_pk)
         targets: list[tuple[int, str]] = []
 
         def walk(node: SpaceTreeNodeDTO, prefix: str, *, under_self: bool) -> None:
             path = f"{prefix} > {node.space.name}" if prefix else node.space.name
             skip = under_self or node.space.pk == pk
-            if not skip and node.space.pk not in blocked:
+            if not skip and node.accepts_children:
                 targets.append((node.space.pk, path))
             for child in node.children:
                 walk(child, path, under_self=skip)
