@@ -404,6 +404,7 @@ def settings_tab_urls(event):
         "integrations": reverse(
             "panel:event-integration-settings", kwargs={"slug": event.slug}
         ),
+        "mcp": reverse("panel:event-mcp-token", kwargs={"slug": event.slug}),
     }
 
 
