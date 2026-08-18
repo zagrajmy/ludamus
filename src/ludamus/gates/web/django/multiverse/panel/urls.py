@@ -5,7 +5,6 @@ from django.urls import include, path
 from ludamus.gates.web.django.multiverse.panel.views import (
     announcements,
     connections,
-    mcp_token,
     sphere_settings,
 )
 
@@ -34,7 +33,6 @@ urlpatterns = [
         name="announcement-delete",
     ),
     path("", include("ludamus.gates.web.django.sphere.urls")),
-    path("mcp/", mcp_token.OrganizerMcpTokenPageView.as_view(), name="mcp-token"),
     path("connections/", connections.ConnectionsPageView.as_view(), name="connections"),
     path(
         "connections/create/",

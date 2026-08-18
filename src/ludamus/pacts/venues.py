@@ -7,6 +7,10 @@ from typing import Protocol
 from pydantic import BaseModel, ConfigDict
 
 
+class SpaceValidationError(Exception):
+    pass
+
+
 class PrintScopeOptionDTO(BaseModel):
     # A selectable print scope: any non-leaf node, labelled by its tree path.
     pk: int

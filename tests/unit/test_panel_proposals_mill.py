@@ -5,15 +5,27 @@ from unittest.mock import MagicMock
 import pytest
 
 from ludamus.mills.panel_proposals import ProposalPanelService
-from ludamus.pacts import SessionStatus
-from ludamus.pacts.panel import ProposalDraft, ProposalListQuery, ProposalPanelRepos
+from ludamus.pacts import NotFoundError, SessionStatus
+from ludamus.pacts.panel import (
+    ProposalDraft,
+    ProposalListQuery,
+    ProposalPanelRepos,
+    SourceRowIdMissingError,
+)
+from ludamus.pacts.services import DatabaseConstraintError
 
 _NEW_PROPOSAL_ID = 42
+_EXISTING_SESSION_ID = 99
+_IDENT_LOOKUPS_ON_CONSTRAINT = 2
 
 
 class _FakeTransaction:
     @contextmanager
     def savepoint(self):
+        yield
+
+    @contextmanager
+    def atomic(self):
         yield
 
 
@@ -44,7 +56,28 @@ class TestProposalPanelService:
         return repo
 
     @pytest.fixture
-    def service(self, sessions, session_fields, proposal_categories, panel_settings):
+    def facilitators(self):
+        return MagicMock()
+
+    @pytest.fixture
+    def tracks(self):
+        return MagicMock()
+
+    @pytest.fixture
+    def time_slots(self):
+        return MagicMock()
+
+    @pytest.fixture
+    def service(
+        self,
+        sessions,
+        session_fields,
+        proposal_categories,
+        panel_settings,
+        facilitators,
+        tracks,
+        time_slots,
+    ):
         return ProposalPanelService(
             _FakeTransaction(),
             ProposalPanelRepos(
@@ -52,6 +85,9 @@ class TestProposalPanelService:
                 session_fields=session_fields,
                 proposal_categories=proposal_categories,
                 panel_settings=panel_settings,
+                facilitators=facilitators,
+                tracks=tracks,
+                time_slots=time_slots,
             ),
         )
 
@@ -155,39 +191,78 @@ class TestProposalPanelService:
 
     @pytest.mark.parametrize("sort", ("bogus", "field_999", "field_"))
     def test_unknown_sort_key_never_reaches_the_query(self, service, sessions, sort):
-        # A tampered `sort` — including one naming another event's field — falls
-        # back to the default order instead of being handed to the repo.
         result = service.list_context(event_id=1, query=ProposalListQuery(sort=sort))
 
         assert not result.sort
         assert sessions.list_sessions_by_event.call_args[0][1]["sort"] is None
 
     def test_create_writes_session_field_values_and_slots_together(
-        self, service, sessions
+        self, service, sessions, session_fields, facilitators, tracks, time_slots
     ):
         sessions.slug_exists.return_value = False
         sessions.create.return_value = _NEW_PROPOSAL_ID
+        session_fields.list_by_event.return_value = [
+            SimpleNamespace(pk=3, field_type="select", order=0, name="System")
+        ]
+        facilitators.list_by_event.return_value = [SimpleNamespace(pk=7)]
+        tracks.list_by_event.return_value = [SimpleNamespace(pk=4)]
+        time_slots.list_by_event.return_value = [SimpleNamespace(pk=9)]
 
         proposal_id = service.create_proposal(
             event_id=1,
             draft=ProposalDraft(
-                data={"title": "Dragon Heist"},
+                data={"title": "Dragon Heist", "event_id": 1},
                 base_slug="dragon-heist",
                 facilitator_ids=[7],
                 field_values={3: "D&D 5e"},
+                track_ids=[4],
                 time_slot_ids=[9],
             ),
         )
 
         assert proposal_id == _NEW_PROPOSAL_ID
         sessions.create.assert_called_once_with(
-            {"title": "Dragon Heist", "slug": "dragon-heist"}, facilitator_ids=[7]
+            {
+                "title": "Dragon Heist",
+                "event_id": 1,
+                "slug": "dragon-heist",
+                "status": SessionStatus.PENDING,
+            },
+            facilitator_ids=[7],
         )
         sessions.save_field_values.assert_called_once_with(
             _NEW_PROPOSAL_ID,
             [{"session_id": _NEW_PROPOSAL_ID, "field_id": 3, "value": "D&D 5e"}],
         )
+        time_slots.list_by_event.assert_called_once_with(1)
         sessions.set_time_slots.assert_called_once_with(_NEW_PROPOSAL_ID, [9])
+        sessions.set_session_tracks.assert_called_once_with(_NEW_PROPOSAL_ID, [4])
+
+    def test_create_rejects_foreign_event_id_in_draft(self, service, sessions):
+        with pytest.raises(NotFoundError):
+            service.create_proposal(
+                event_id=1,
+                draft=ProposalDraft(
+                    data={"title": "Foreign", "event_id": 2}, base_slug="foreign"
+                ),
+            )
+
+        sessions.create.assert_not_called()
+
+    def test_create_rejects_foreign_facilitator(self, service, sessions, facilitators):
+        facilitators.list_by_event.return_value = []
+
+        with pytest.raises(NotFoundError):
+            service.create_proposal(
+                event_id=1,
+                draft=ProposalDraft(
+                    data={"title": "Bad host", "event_id": 1},
+                    base_slug="bad-host",
+                    facilitator_ids=[7],
+                ),
+            )
+
+        sessions.create.assert_not_called()
 
     def test_create_skips_empty_field_values_and_slots(self, service, sessions):
         sessions.slug_exists.return_value = False
@@ -199,3 +274,91 @@ class TestProposalPanelService:
 
         sessions.save_field_values.assert_not_called()
         sessions.set_time_slots.assert_not_called()
+
+    def test_create_accepted_session_returns_existing_ident(self, service, sessions):
+        sessions.find_id_by_ident.return_value = _EXISTING_SESSION_ID
+
+        session_id = service.create_accepted_session(
+            event_id=1,
+            source_row_id="row-1",
+            draft=ProposalDraft(data={"title": "Retry"}, base_slug="retry"),
+        )
+
+        assert session_id == _EXISTING_SESSION_ID
+        sessions.create.assert_not_called()
+
+    def test_create_accepted_session_creates_accepted_with_ident(
+        self, service, sessions
+    ):
+        sessions.find_id_by_ident.return_value = None
+        sessions.slug_exists.return_value = False
+        sessions.create.return_value = _NEW_PROPOSAL_ID
+
+        session_id = service.create_accepted_session(
+            event_id=1,
+            source_row_id="row-1",
+            draft=ProposalDraft(data={"title": "New"}, base_slug="new"),
+        )
+
+        assert session_id == _NEW_PROPOSAL_ID
+        sessions.create.assert_called_once_with(
+            {
+                "title": "New",
+                "event_id": 1,
+                "slug": "new",
+                "status": SessionStatus.ACCEPTED,
+                "ident": "row-1",
+            },
+            facilitator_ids=[],
+        )
+
+    def test_create_accepted_session_rejects_blank_source_row_id(
+        self, service, sessions
+    ):
+        with pytest.raises(SourceRowIdMissingError):
+            service.create_accepted_session(
+                event_id=1,
+                source_row_id="   ",
+                draft=ProposalDraft(data={"title": "Blank"}, base_slug="blank"),
+            )
+
+        sessions.create.assert_not_called()
+
+    def test_create_accepted_session_recovers_from_constraint_error(
+        self, service, sessions, monkeypatch
+    ):
+        sessions.find_id_by_ident.side_effect = [None, _EXISTING_SESSION_ID]
+        monkeypatch.setattr(
+            service,
+            "_create_session",
+            MagicMock(side_effect=DatabaseConstraintError("duplicate ident")),
+        )
+
+        session_id = service.create_accepted_session(
+            event_id=1,
+            source_row_id="row-1",
+            draft=ProposalDraft(data={"title": "Race"}, base_slug="race"),
+        )
+
+        assert session_id == _EXISTING_SESSION_ID
+        assert sessions.find_id_by_ident.call_count == _IDENT_LOOKUPS_ON_CONSTRAINT
+
+    def test_create_accepted_session_reraises_when_ident_still_missing(
+        self, service, sessions, monkeypatch
+    ):
+        sessions.find_id_by_ident.return_value = None
+        monkeypatch.setattr(
+            service,
+            "_create_session",
+            MagicMock(side_effect=DatabaseConstraintError("duplicate ident")),
+        )
+
+        with pytest.raises(DatabaseConstraintError):
+            service.create_accepted_session(
+                event_id=1,
+                source_row_id="row-1",
+                draft=ProposalDraft(data={"title": "Race"}, base_slug="race"),
+            )
+
+        assert sessions.find_id_by_ident.call_count == _IDENT_LOOKUPS_ON_CONSTRAINT
+        sessions.create.assert_not_called()
