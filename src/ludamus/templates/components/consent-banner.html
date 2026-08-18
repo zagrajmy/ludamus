@@ -9,7 +9,7 @@
     The copy separates analytics from fault reports because the two have
     different gates: PostHog never initializes in the browser before consent,
     while server-side exception reports go out either way, carrying the user pk
-    but building no person (links/posthog.py).
+    but building no person (links/analytics/reporting.py).
 {% endcomment %}
 <section id="consent-banner"
          class="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-bg-secondary/95 backdrop-blur-lg"

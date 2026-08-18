@@ -8,14 +8,14 @@ one copy change.
 - **Client** (`prologue.ts`) — pageviews, session replay, JS exceptions.
   Consent-gated in localStorage; PostHog is never initialized before the
   visitor accepts. Identifies by user pk, resets on logout.
-- **Server** (`links/analytics.py`) — faults only, reported from a
+- **Server** (`links/analytics/reporting.py`) — faults only, reported from a
   `got_request_exception` receiver. Tagged with the user pk so a report is
   traceable, but always `$process_person_profile: False` and
   `disable_geoip: True`: no person is built, no properties accumulate, no
   location is derived. The server cannot read localStorage, so a report has to
   be safe to send for someone who declined.
 - **No server-side product analytics.** The wizard's ten hand-placed
-  `capture()` calls were removed — they duplicated client autocapture and fired
+  `capture()` calls were removed. They duplicated client autocapture and fired
   regardless of consent.
 
 ## Blocking
@@ -69,9 +69,11 @@ does nothing on its own — something has to load it, which is what the compose
   Coolify has no source-IP allowlist, that lives in the cloud/host firewall,
   and `ufw` does not work for Docker-published ports. Revisit only when app
   table joins are actually wanted, and revise the privacy policy first.
-- **No `PosthogContextMiddleware`.** It cannot see view exceptions — Django
-  turns those into a response before they reach it — which is why the
-  `got_request_exception` receiver exists instead.
+- **No `PosthogContextMiddleware`.** It tags events with the visitor's email
+  and `$ip` and builds person context, which is the opposite of the posture
+  above. Its `process_exception` hook would also only cover views, while
+  `got_request_exception` also fires for middleware that raises and for a 500
+  handler that fails.
 
 ## Open question
 

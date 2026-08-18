@@ -258,7 +258,7 @@ class TestExceptionReporting:
         # tests/integration/links/test_analytics.py.
         reported = []
         monkeypatch.setattr(
-            "ludamus.links.analytics.report_exception",
+            "ludamus.links.analytics.reporting.report_exception",
             lambda exception, _request: reported.append(str(exception)),
         )
         request = HttpRequest()
@@ -278,7 +278,9 @@ class TestExceptionReporting:
         def explode(_exception, _request):
             raise RuntimeError("posthog is down")
 
-        monkeypatch.setattr("ludamus.links.analytics.report_exception", explode)
+        monkeypatch.setattr(
+            "ludamus.links.analytics.reporting.report_exception", explode
+        )
         request = HttpRequest()
         request.path = "/events"
 

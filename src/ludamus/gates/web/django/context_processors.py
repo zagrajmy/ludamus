@@ -81,7 +81,9 @@ def analytics(request: HttpRequest) -> AnalyticsContextData:
         posthog_config=PosthogConfig(
             api_key=settings.POSTHOG_API_KEY,
             host=settings.POSTHOG_HOST,
-            user_id=str(user.pk) if user and user.is_authenticated else None,
+            user_id=(
+                str(user.pk) if user is not None and user.is_authenticated else None
+            ),
         )
     )
 

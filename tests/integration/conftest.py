@@ -11,6 +11,7 @@ from factory import Faker, LazyAttribute, Sequence, SubFactory
 from factory.django import DjangoModelFactory
 from pytest_factoryboy import register
 
+from ludamus.links.analytics import reporting
 from ludamus.links.db.django.models import (
     AgendaItem,
     Encounter,
@@ -457,4 +458,5 @@ def _no_posthog_client(monkeypatch):
     # test setting POSTHOG_API_KEY and provoking a 500 would build a real
     # client pointed at eu.i.posthog.com, start its consumer threads, and keep
     # it for the whole session.
-    monkeypatch.setattr("ludamus.links.analytics.Posthog", MagicMock())
+    monkeypatch.setattr("ludamus.links.analytics.reporting.Posthog", MagicMock())
+    reporting.client.cache_clear()

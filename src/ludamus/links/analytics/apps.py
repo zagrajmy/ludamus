@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 from django.apps import AppConfig
 from django.core.signals import got_request_exception
 
-from ludamus.links import analytics
+from ludamus.links.analytics import reporting
 
 if TYPE_CHECKING:
     from django.dispatch import Signal
@@ -17,13 +17,14 @@ logger = logging.getLogger(__name__)
 
 
 def report_request_exception(*, request: HttpRequest, **_kwargs: Signal | None) -> None:
-    # Django converts a view exception into a response before it propagates
-    # back through the middleware stack, so a middleware-based hook never sees
-    # it. This signal does.
+    # process_exception() would see a view raising, and posthog's own
+    # PosthogContextMiddleware uses exactly that. This signal is wider: it also
+    # fires for middleware that raises, and again when the 500 handler itself
+    # fails — the cases _distinct_id() is written to survive.
     if (exception := sys.exc_info()[1]) is None:
         return
     try:
-        analytics.report_exception(exception, request)
+        reporting.report_exception(exception, request)
     except Exception:
         # send(), not send_robust(): anything raising here would escape
         # handle_uncaught_exception and replace the 500 page with a traceback.
@@ -38,7 +39,7 @@ class AnalyticsConfig(AppConfig):
     re-exports legacy, which imports models before the registry is ready.
     """
 
-    name = "ludamus.links"
+    name = "ludamus.links.analytics"
     label = "analytics"
 
     def ready(self) -> None:

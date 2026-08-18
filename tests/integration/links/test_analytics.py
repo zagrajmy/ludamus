@@ -4,7 +4,7 @@ import pytest
 from django.contrib.auth.models import AnonymousUser
 from django.http import HttpRequest
 
-from ludamus.links import analytics
+from ludamus.links.analytics import reporting as analytics
 
 
 @pytest.fixture(autouse=True)
