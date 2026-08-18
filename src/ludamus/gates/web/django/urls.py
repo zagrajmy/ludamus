@@ -58,7 +58,10 @@ urlpatterns: list[URLResolver | URLPattern] = [
     ),
     # Same "crowd/" prefix as the legacy namespace on purpose: URLs keep their
     # shape while pages migrate from web:crowd:* to user:* one at a time.
-    path("crowd/", include("ludamus.gates.web.django.user.urls", namespace="user")),
+    path(
+        "crowd/",
+        include(("ludamus.gates.web.django.user.urls", "user"), namespace="user"),
+    ),
     path("mcp/", include("ludamus.gates.web.django.mcp.urls", namespace="mcp")),
     path("admin/", admin.site.urls),
     path("page/", include("django.contrib.flatpages.urls")),
