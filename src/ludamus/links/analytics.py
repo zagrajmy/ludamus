@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import atexit
+import logging
 from functools import cache
 from typing import TYPE_CHECKING
 
@@ -9,6 +10,10 @@ from posthog import Posthog
 
 if TYPE_CHECKING:
     from django.http import HttpRequest
+
+logger = logging.getLogger(__name__)
+
+ANONYMOUS = "anonymous"
 
 
 @cache
@@ -30,6 +35,19 @@ def client() -> Posthog | None:
     return posthog
 
 
+def _distinct_id(request: HttpRequest) -> str:
+    # got_request_exception also fires for middleware faults, where
+    # AuthenticationMiddleware may not have run, and resolving the lazy user
+    # hits the database — which is the very thing that is down when the 500 is
+    # a database failure. Neither may cost us the report.
+    try:
+        user = request.user
+        return str(user.pk) if user.is_authenticated else ANONYMOUS
+    except Exception:
+        logger.exception("Could not resolve the user for a fault report")
+        return ANONYMOUS
+
+
 def report_exception(exception: BaseException, request: HttpRequest) -> None:
     """Report a server-side fault, tagged with the user pk for debugging."""
     posthog = client()
@@ -43,11 +61,9 @@ def report_exception(exception: BaseException, request: HttpRequest) -> None:
     # That combination makes the event searchable by pk without building a
     # person, accumulating properties, or starting a cross-event timeline.
     # disable_geoip keeps the ingestion IP from becoming location data.
-    user = request.user
-    identified = user.is_authenticated
     posthog.capture_exception(
         exception,
-        distinct_id=str(user.pk) if identified else "anonymous",
+        distinct_id=_distinct_id(request),
         properties={"$process_person_profile": False, "path": request.path},
         disable_geoip=True,
     )

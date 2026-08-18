@@ -8,7 +8,7 @@ one copy change.
 - **Client** (`prologue.ts`) — pageviews, session replay, JS exceptions.
   Consent-gated in localStorage; PostHog is never initialized before the
   visitor accepts. Identifies by user pk, resets on logout.
-- **Server** (`gates/web/django/analytics.py`) — faults only, reported from a
+- **Server** (`links/analytics.py`) — faults only, reported from a
   `got_request_exception` receiver. Tagged with the user pk so a report is
   traceable, but always `$process_person_profile: False` and
   `disable_geoip: True`: no person is built, no properties accumulate, no

@@ -252,14 +252,14 @@ def _raise_boom() -> None:
 
 
 class TestExceptionReporting:
-    def test_request_exception_signal_reaches_the_reporter(self, monkeypatch):
-        # WebGatesConfig.ready() connects the receiver; that wiring is what
+    def test_request_exception_reaches_the_reporter(self, monkeypatch):
+        # AnalyticsConfig.ready() connects the receiver; that wiring is what
         # silently stops working. The reporter itself is covered in
-        # tests/integration/links/test_posthog.py.
+        # tests/integration/links/test_analytics.py.
         reported = []
         monkeypatch.setattr(
-            "ludamus.links.posthog.report_exception",
-            lambda exception, request: reported.append((exception, request.path)),
+            "ludamus.links.analytics.report_exception",
+            lambda exception, _request: reported.append(str(exception)),
         )
         request = HttpRequest()
         request.path = "/events"
@@ -269,15 +269,16 @@ class TestExceptionReporting:
         except ValueError:
             got_request_exception.send(sender=None, request=request)
 
-        assert [str(exception) for exception, _ in reported] == ["boom"]
+        assert reported == ["boom"]
 
-    def test_a_broken_reporter_does_not_replace_the_error_page(self, monkeypatch):
-        # got_request_exception is sent with send(), not send_robust(), so a
-        # raise here would escape handle_uncaught_exception.
+    def test_a_failing_reporter_is_swallowed_and_logged(self, monkeypatch, caplog):
+        # got_request_exception is sent with send(), not send_robust(), so an
+        # unguarded raise would escape handle_uncaught_exception and replace the
+        # 500 page with a traceback.
         def explode(_exception, _request):
             raise RuntimeError("posthog is down")
 
-        monkeypatch.setattr("ludamus.links.posthog.report_exception", explode)
+        monkeypatch.setattr("ludamus.links.analytics.report_exception", explode)
         request = HttpRequest()
         request.path = "/events"
 
@@ -285,3 +286,5 @@ class TestExceptionReporting:
             _raise_boom()
         except ValueError:
             got_request_exception.send(sender=None, request=request)
+
+        assert "Could not report an exception to PostHog" in caplog.text

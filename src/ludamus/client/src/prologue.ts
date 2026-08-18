@@ -39,11 +39,12 @@ const syncIdentity = (userId: string | null): void => {
   // previous user identified until we reset. Asking posthog rather than
   // tracking it ourselves keeps one source of truth: a mirror desyncs when
   // site data is cleared, and then nobody is ever identified again.
-  if (userId === null) {
-    if (posthog._isIdentified()) posthog.reset();
-  } else if (posthog.get_distinct_id() !== userId) {
-    posthog.identify(userId);
-  }
+  if (posthog.get_distinct_id() === userId) return;
+  // identify() on an already-identified instance silently re-registers the id
+  // without emitting $identify or linking the anonymous history, so a switch
+  // between accounts has to reset first.
+  if (posthog._isIdentified()) posthog.reset();
+  if (userId !== null) posthog.identify(userId);
 };
 
 const initPosthog = (config: PosthogServerConfig): void => {
@@ -74,11 +75,14 @@ const applyChoice = (config: PosthogServerConfig, choice: "accepted" | "declined
       initPosthog(config);
     }
   } else if (posthog.__loaded) {
-    posthog.stopSessionRecording();
-    posthog.opt_out_capturing();
-    // Withdrawing consent has to drop the identity too, or re-accepting later
+    // reset() before opt_out_capturing(), never after: reset() calls
+    // consent.reset(), which is what clear_opt_in_out_capturing() does, so the
+    // reverse order withdraws consent and then immediately clears the
+    // withdrawal. Dropping the identity matters too, or re-accepting later
     // resumes capture under the person who declined.
+    posthog.stopSessionRecording();
     syncIdentity(null);
+    posthog.opt_out_capturing();
   }
 };
 
