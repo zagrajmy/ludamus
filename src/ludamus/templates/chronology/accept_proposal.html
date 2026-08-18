@@ -31,6 +31,7 @@
                 {% if session.contact_email %}
                     <p class="mt-1 text-sm">
                         <a href="mailto:{{ session.contact_email }}"
+                           data-ph-block
                            class="text-primary hover:underline">{{ session.contact_email }}</a>
                     </p>
                 {% endif %}

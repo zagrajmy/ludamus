@@ -4056,9 +4056,8 @@ msgid "needs their approval"
 msgstr "wymaga ich zgody"
 
 #: src/ludamus/templates/chronology/enroll_select.html
-#, python-format
-msgid "Include %(name)s"
-msgstr "Uwzględnij: %(name)s"
+msgid "Include"
+msgstr "Uwzględnij"
 
 #: src/ludamus/templates/chronology/enroll_select.html
 msgid "Join this session"
@@ -4886,7 +4885,14 @@ msgid "Analytics consent"
 msgstr "Zgoda na analitykę"
 
 #: src/ludamus/templates/components/consent-banner.html
-#: src/ludamus/templates/crowd/user/privacy.html
+msgid "Decline analytics"
+msgstr "Odrzuć analitykę"
+
+#: src/ludamus/templates/components/consent-banner.html
+msgid "Allow analytics"
+msgstr "Włącz analitykę"
+
+#: src/ludamus/templates/components/consent-copy.html
 #, python-format
 msgid ""
 "With your consent we use PostHog analytics — including session replays with "
@@ -4898,14 +4904,6 @@ msgstr ""
 "zamaskowanymi wszystkimi polami — aby zobaczyć, jak serwis jest używany, i "
 "szybciej naprawiać błędy. Nic nie zapisujemy, zanim się nie zgodzisz. "
 "Szczegóły w <a href=\"%(privacy_url)s\">Polityce prywatności</a>."
-
-#: src/ludamus/templates/components/consent-banner.html
-msgid "Decline analytics"
-msgstr "Odrzuć analitykę"
-
-#: src/ludamus/templates/components/consent-banner.html
-msgid "Allow analytics"
-msgstr "Włącz analitykę"
 
 # Login Required Page
 #: src/ludamus/templates/components/dynamic-field-label.html
@@ -9272,6 +9270,10 @@ msgstr "Temat"
 #: src/ludamus/templates/staging_email_inbox.html
 msgid "No emails captured yet."
 msgstr "Brak przechwyconych e-maili."
+
+#, python-format
+#~ msgid "Include %(name)s"
+#~ msgstr "Uwzględnij: %(name)s"
 
 #~ msgid "Open"
 #~ msgstr "Otwarte"

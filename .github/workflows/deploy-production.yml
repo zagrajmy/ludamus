@@ -94,6 +94,9 @@ jobs:
           # secret is unset the file is empty and docker/Dockerfile skips the
           # source map upload instead of failing.
           printf '%s' "${POSTHOG_CLI_TOKEN}" > .posthog_cli_token
+          if [ ! -s .posthog_cli_token ]; then
+            echo "posthog CLI token: absent - the image build will skip the source map upload"
+          fi
 
       - name: Upload .env.local and build secret to host
         uses: appleboy/scp-action@v0.1.7
