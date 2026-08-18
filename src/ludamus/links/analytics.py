@@ -29,7 +29,7 @@ class AnalyticsClient(Protocol):
         exception: BaseException,
         *,
         distinct_id: str,
-        properties: dict[str, object],
+        properties: dict[str, str | bool],
         disable_geoip: bool,
     ) -> str | None: ...
 
