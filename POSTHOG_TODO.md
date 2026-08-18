@@ -25,7 +25,7 @@ one copy change.
       analytics, but deliberately only the client side: the fault reporter does
       not exist on that branch, and describing processing that does not happen
       yet is the same defect §3.2 carried for ten months. Whoever merges this
-      second adds it — fault reports go out regardless of consent, carrying the
+      second adds it. Fault reports go out regardless of consent, carrying
       account pk and request path, building no person and deriving no location.
 - [ ] **Retarget the banner's privacy link when #787 lands.** It deletes
       flatpages, so `{% url 'django.contrib.flatpages.views.flatpage'
