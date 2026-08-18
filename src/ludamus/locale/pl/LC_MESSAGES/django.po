@@ -3569,6 +3569,10 @@ msgstr ""
 "href=\"%(license_url)s\">licencji AGPL-3.0</a>."
 
 #: src/ludamus/templates/base.html
+msgid "Analytics settings"
+msgstr "Ustawienia analityki"
+
+#: src/ludamus/templates/base.html
 msgid "Brand"
 msgstr "Marka"
 
@@ -4876,6 +4880,31 @@ msgstr "%(name_value)s (oznaczony)"
 #: src/ludamus/templates/components/confirm-dialog.html
 msgid "Please confirm"
 msgstr "Potwierdź"
+
+#: src/ludamus/templates/components/consent-banner.html
+msgid "Analytics consent"
+msgstr "Zgoda na analitykę"
+
+#: src/ludamus/templates/components/consent-banner.html
+#, python-format
+msgid ""
+"With your consent we use PostHog analytics — including session replays with "
+"all inputs masked — to see how the site is used and to fix errors faster. "
+"Nothing is stored before you agree. Details in the <a "
+"href=\"%(privacy_url)s\">Privacy Policy</a>."
+msgstr ""
+"Za Twoją zgodą używamy analityki PostHog — w tym nagrań sesji z "
+"zamaskowanymi wszystkimi polami — aby zobaczyć, jak serwis jest używany, i "
+"szybciej naprawiać błędy. Nic nie zapisujemy, zanim się nie zgodzisz. "
+"Szczegóły w <a href=\"%(privacy_url)s\">Polityce prywatności</a>."
+
+#: src/ludamus/templates/components/consent-banner.html
+msgid "Decline analytics"
+msgstr "Odrzuć analitykę"
+
+#: src/ludamus/templates/components/consent-banner.html
+msgid "Allow analytics"
+msgstr "Włącz analitykę"
 
 # Login Required Page
 #: src/ludamus/templates/components/dynamic-field-label.html
