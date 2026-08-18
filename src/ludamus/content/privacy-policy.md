@@ -73,7 +73,7 @@ Państwa dane osobowe mogą być przekazywane następującym odbiorcom:
 
 ### 4.2 Dostawcy analityki:
 
-- **PostHog** - narzędzie analityczne, dane trafiają na serwery w Unii Europejskiej (`eu.i.posthog.com`). Dane przekazujemy wyłącznie użytkownikom, którzy wyrazili zgodę zgodnie z punktem 3.4
+- **PostHog** - narzędzie analityczne, dane trafiają na serwery w Unii Europejskiej (`eu.i.posthog.com`). Przekazujemy wyłącznie dane tych użytkowników, którzy wyrazili zgodę zgodnie z punktem 3.4
 
 ### 4.3 Ewentualni przyszli odbiorcy:
 
