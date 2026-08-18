@@ -1,15 +1,15 @@
 import { expect, test } from "./helpers/fixtures";
 
-// Facilitator + proposal CRUD against the "Frostfire Game Convention" panel-lab
-// event (bootstrap_data.py). A proposal cannot be created without a
+// Facilitator + proposal CRUD against "Cinderpeak Game Days" (bootstrap_data.py),
+// an event seeded for this spec alone. A proposal cannot be created without a
 // facilitator, so the steps build on each other and run serially in one shared
-// browser context, leaving new rows behind. Those leftovers are not private:
-// panel.spec.ts walks the participant proposal wizard on this same event in
-// another worker, so anything left here that the wizard reads — a public track
-// makes it demand a track selection — breaks that spec instead of this one.
+// browser context, leaving new rows behind — nothing else reads this event, so
+// those leftovers stay put. Keep it that way: frostfire-con is shared with nine
+// other specs, and a public track left there makes the proposal wizard demand a
+// track selection, breaking whichever spec walks it next.
 test.describe.configure({ mode: "serial" });
 
-const EVENT = "frostfire-con";
+const EVENT = "cinderpeak-con";
 const FACILITATORS_URL = `/panel/event/${EVENT}/facilitators/`;
 const PROPOSALS_URL = `/panel/event/${EVENT}/proposals/`;
 const TRACKS_URL = `/panel/event/${EVENT}/tracks/`;
@@ -128,10 +128,6 @@ test.describe("Panel facilitator + proposal CRUD", () => {
     await page.goto(TRACKS_URL);
     await page.getByRole("link", { name: "New Track" }).first().click();
     await page.getByLabel("Name").fill(track);
-    // Keep it off the participant side: a public track makes the proposal
-    // wizard demand a track, and this event is shared with the specs that
-    // walk that wizard.
-    await page.getByLabel("Public track").uncheck();
     await page.getByRole("button", { name: "Create Track" }).click();
     await page.waitForURL(/\/tracks\/$/);
 
@@ -139,7 +135,6 @@ test.describe("Panel facilitator + proposal CRUD", () => {
     // no second row.
     await page.getByRole("link", { name: "New Track" }).first().click();
     await page.getByLabel("Name").fill(track.toUpperCase());
-    await page.getByLabel("Public track").uncheck();
     await page.getByRole("button", { name: "Create Track" }).click();
 
     await expect(
