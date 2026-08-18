@@ -101,12 +101,15 @@ jobs:
           # POSTGRES_DATA_PATH, STATIC_DATA_PATH, MEDIA_DATA_PATH and WEB_PORT
           # are absent by design: they configure compose host binds on the VPS
           # and mean nothing to Coolify.
-          # Public baseline committed in .env.production. Sourced rather than
-          # duplicated as GitHub vars so both deploy paths read one file;
-          # anything already in the env (secrets, vars) still wins below.
-          set -a
-          . ./.env.production
-          set +a
+          # Public baseline committed in .env.production, read rather than
+          # duplicated as GitHub vars so both deploy paths use one file. Read,
+          # not sourced: sourcing runs the file as shell (a $(...) in a value
+          # executes on the runner) and assigns unconditionally, which would
+          # let the file silently override a GitHub secret of the same name.
+          while IFS='=' read -r key value; do
+            case "$key" in ''|\#*) continue ;; esac
+            [ -n "$(printenv "$key" || true)" ] || export "$key=$value"
+          done < .env.production
           echo '[]' > envs.json
           for k in ENV IS_STAGING DEBUG USE_POSTGRES DJANGO_SETTINGS_MODULE \
                    ALLOWED_HOSTS ROOT_DOMAIN SESSION_COOKIE_DOMAIN \

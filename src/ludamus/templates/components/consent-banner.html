@@ -8,9 +8,8 @@
 
     The copy separates analytics from fault reports because the two have
     different gates: PostHog never initializes in the browser before consent,
-    while server-side exception reports go out either way (they carry the user
-    pk but build no person — see gates/web/django/analytics.py). Claiming
-    "nothing is stored before you agree" would no longer be true.
+    while server-side exception reports go out either way, carrying the user pk
+    but building no person (links/posthog.py).
 {% endcomment %}
 <section id="consent-banner"
          class="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-bg-secondary/95 backdrop-blur-lg"
@@ -22,9 +21,9 @@
             {% blocktranslate trimmed %}
                 We use analytics to see how people use the site, including
                 session replays with every input masked. It runs only if you
-                agree. Errors work differently: when something breaks, we record
-                what went wrong so we can fix it. Those reports describe the
-                fault, not you. More in the
+                agree. Errors work differently: when something breaks we always
+                record what went wrong, plus your account id if you are signed
+                in, so we can fix it. More in the
                 <a href="{{ privacy_url }}">Privacy Policy</a>.
             {% endblocktranslate %}
         </p>

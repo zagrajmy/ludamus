@@ -1,9 +1,10 @@
 from unittest.mock import MagicMock
 
 import pytest
+from django.contrib.auth.models import AnonymousUser
 from django.http import HttpRequest
 
-from ludamus.gates.web.django import analytics
+from ludamus.links import posthog as analytics
 
 
 @pytest.fixture(autouse=True)
@@ -19,8 +20,9 @@ class TestClient:
 
         assert analytics.client() is None
 
-    def test_configured_key_builds_one_shared_client(self, settings):
+    def test_configured_key_builds_one_shared_client(self, settings, monkeypatch):
         settings.POSTHOG_API_KEY = "phc_integration"
+        monkeypatch.setattr(analytics, "Posthog", MagicMock())
 
         assert analytics.client() is analytics.client()
 
@@ -33,7 +35,10 @@ class TestReportException:
         posthog_class = MagicMock()
         monkeypatch.setattr(analytics, "Posthog", posthog_class)
 
-        analytics.report_exception(ValueError("boom"), HttpRequest())
+        request = HttpRequest()
+        request.user = AnonymousUser()
+
+        analytics.report_exception(ValueError("boom"), request)
 
         posthog_class.assert_not_called()
 
@@ -42,11 +47,12 @@ class TestReportException:
         monkeypatch.setattr(analytics, "client", lambda: posthog)
         request = HttpRequest()
         request.path = "/events"
+        request.user = AnonymousUser()
 
         analytics.report_exception(ValueError("boom"), request)
 
         _, kwargs = posthog.capture_exception.call_args
-        assert kwargs["distinct_id"] == "server"
+        assert kwargs["distinct_id"] == "anonymous"
 
     def test_authenticated_request_reports_the_pk(self, monkeypatch, active_user):
         posthog = MagicMock()

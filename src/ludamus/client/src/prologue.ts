@@ -6,9 +6,7 @@
 //
 // Consent states (stored under STORAGE_KEY in localStorage):
 // - unset:      PostHog is not initialized at all — no events leave the
-//               browser — and the banner shows. The banner's "nothing is
-//               stored before you agree" promise depends on this staying
-//               literally true.
+//               browser — and the banner shows.
 // - "accepted": initialized with durable persistence, capturing opted in,
 //               session recording with every input masked.
 // - "declined": PostHog is never initialized; withdrawing consent on a
@@ -16,7 +14,6 @@
 import posthog from "posthog-js/dist/module.full.no-external";
 
 const STORAGE_KEY = "prologue.consent";
-const UID_KEY = "prologue.uid";
 
 type Consent = "accepted" | "declined" | null;
 
@@ -37,19 +34,15 @@ const readConsent = (): Consent => {
   return stored === "accepted" || stored === "declined" ? stored : null;
 };
 
-// PostHog persists distinct_id across pageloads, so a logout leaves the
-// previous user identified until we reset. UID_KEY records who we last
-// identified, which is the only way to tell "still anonymous" from "just
-// logged out" — posthog exposes no public predicate for it.
 const syncIdentity = (userId: string | null): void => {
-  const stored = localStorage.getItem(UID_KEY);
-  if (stored === userId) return;
-  if (stored !== null) posthog.reset();
+  // PostHog persists distinct_id across pageloads, so a logout leaves the
+  // previous user identified until we reset. Asking posthog rather than
+  // tracking it ourselves keeps one source of truth: a mirror desyncs when
+  // site data is cleared, and then nobody is ever identified again.
   if (userId === null) {
-    localStorage.removeItem(UID_KEY);
-  } else {
+    if (posthog._isIdentified()) posthog.reset();
+  } else if (posthog.get_distinct_id() !== userId) {
     posthog.identify(userId);
-    localStorage.setItem(UID_KEY, userId);
   }
 };
 
@@ -83,7 +76,9 @@ const applyChoice = (config: PosthogServerConfig, choice: "accepted" | "declined
   } else if (posthog.__loaded) {
     posthog.stopSessionRecording();
     posthog.opt_out_capturing();
-    localStorage.removeItem(UID_KEY);
+    // Withdrawing consent has to drop the identity too, or re-accepting later
+    // resumes capture under the person who declined.
+    syncIdentity(null);
   }
 };
 

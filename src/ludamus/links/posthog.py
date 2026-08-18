@@ -20,10 +20,8 @@ def client() -> Posthog | None:
     posthog = Posthog(
         project_api_key=settings.POSTHOG_API_KEY,
         host=settings.POSTHOG_HOST,
-        # Faults are reported through report_exception() below, which keeps
-        # them anonymous. Autocapture would bypass that, and it cannot see view
-        # exceptions anyway — Django turns those into a response before they
-        # reach any hook it installs.
+        # Faults are reported through report_exception(), which decides what a
+        # report may carry. Autocapture would bypass that.
         enable_exception_autocapture=False,
     )
     # Events queue on a background thread; without this the last batch dies
@@ -45,11 +43,11 @@ def report_exception(exception: BaseException, request: HttpRequest) -> None:
     # That combination makes the event searchable by pk without building a
     # person, accumulating properties, or starting a cross-event timeline.
     # disable_geoip keeps the ingestion IP from becoming location data.
-    user = getattr(request, "user", None)
-    identified = user is not None and user.is_authenticated
+    user = request.user
+    identified = user.is_authenticated
     posthog.capture_exception(
         exception,
-        distinct_id=str(user.pk) if identified else "server",
+        distinct_id=str(user.pk) if identified else "anonymous",
         properties={"$process_person_profile": False, "path": request.path},
         disable_geoip=True,
     )

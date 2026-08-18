@@ -3,6 +3,8 @@ from http import HTTPStatus
 import pytest
 from django.conf import settings
 from django.contrib import messages
+from django.core.signals import got_request_exception
+from django.http import HttpRequest
 from django.test import Client
 from django.urls import reverse
 
@@ -243,3 +245,43 @@ class TestErrorViewsIntegration:
         )
         assert response_404.status_code == HTTPStatus.NOT_FOUND
         assert response_500.status_code == HTTPStatus.INTERNAL_SERVER_ERROR
+
+
+def _raise_boom() -> None:
+    raise ValueError("boom")
+
+
+class TestExceptionReporting:
+    def test_request_exception_signal_reaches_the_reporter(self, monkeypatch):
+        # WebGatesConfig.ready() connects the receiver; that wiring is what
+        # silently stops working. The reporter itself is covered in
+        # tests/integration/links/test_posthog.py.
+        reported = []
+        monkeypatch.setattr(
+            "ludamus.links.posthog.report_exception",
+            lambda exception, request: reported.append((exception, request.path)),
+        )
+        request = HttpRequest()
+        request.path = "/events"
+
+        try:
+            _raise_boom()
+        except ValueError:
+            got_request_exception.send(sender=None, request=request)
+
+        assert [str(exception) for exception, _ in reported] == ["boom"]
+
+    def test_a_broken_reporter_does_not_replace_the_error_page(self, monkeypatch):
+        # got_request_exception is sent with send(), not send_robust(), so a
+        # raise here would escape handle_uncaught_exception.
+        def explode(_exception, _request):
+            raise RuntimeError("posthog is down")
+
+        monkeypatch.setattr("ludamus.links.posthog.report_exception", explode)
+        request = HttpRequest()
+        request.path = "/events"
+
+        try:
+            _raise_boom()
+        except ValueError:
+            got_request_exception.send(sender=None, request=request)

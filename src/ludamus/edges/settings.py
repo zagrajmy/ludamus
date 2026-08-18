@@ -378,7 +378,6 @@ CSP_POLICY: dict[str, list[str]] = {
     "img-src": [CSP.SELF, "data:", "blob:", "https:"],
     "font-src": [CSP.SELF, "https://fonts.gstatic.com"],
     "connect-src": [CSP.SELF],
-    "worker-src": [CSP.SELF, "blob:"],
     "object-src": [CSP.NONE],
     "base-uri": [CSP.SELF],
     "form-action": [CSP.SELF],
@@ -389,6 +388,8 @@ CSP_POLICY: dict[str, list[str]] = {
 # ingestion host in connect-src — script-src stays nonce-only.
 if POSTHOG_API_KEY:
     CSP_POLICY["connect-src"].append(POSTHOG_HOST)
+    # Session replay compresses in a worker built from a blob: URL.
+    CSP_POLICY["worker-src"] = [CSP.SELF, "blob:"]
 
 # CSP enforcement is normally production-only (see the block below), but the
 # e2e suite needs to exercise the real enforcing header — a report-only or
