@@ -20,9 +20,14 @@ one copy change.
 
 ## Blocking
 
-- [ ] **Privacy policy flatpage.** The banner copy now separates analytics from
-      fault reports; the policy has to say the same thing. It lives in the
-      database, not the repo, so it needs editing through the admin.
+- [ ] **Privacy policy.** The banner copy now separates analytics from fault
+      reports; the policy has to say the same thing. PR #787 moves it out of
+      flatpages into `src/ludamus/content/privacy-policy.md`, so wait for that
+      and edit the file rather than the database.
+- [ ] **Retarget the banner's privacy link when #787 lands.** It deletes
+      flatpages, so `{% url 'django.contrib.flatpages.views.flatpage'
+      url='/privacy-policy/' %}` in `components/consent-banner.html` becomes a
+      NoReverseMatch. The replacement is `{% url 'privacy-policy' %}`.
 - [ ] **Screenshot the banner** for the PR description. It only renders with
       `POSTHOG_API_KEY` set and no choice stored, so set a key in `.env.local`
       first, then `mise run shots -- /`.
