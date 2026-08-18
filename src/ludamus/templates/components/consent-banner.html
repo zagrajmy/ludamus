@@ -5,6 +5,12 @@
     POSTHOG_API_KEY is configured; src/prologue.ts un-hides it while no
     choice is stored and wires the buttons. Both choices are deliberately
     equal-weight secondary buttons — no dark patterns.
+
+    The copy separates analytics from fault reports because the two have
+    different gates: PostHog never initializes in the browser before consent,
+    while server-side exception reports go out either way (they carry the user
+    pk but build no person — see gates/web/django/analytics.py). Claiming
+    "nothing is stored before you agree" would no longer be true.
 {% endcomment %}
 <section id="consent-banner"
          class="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-bg-secondary/95 backdrop-blur-lg"
@@ -14,10 +20,12 @@
         <p class="text-sm text-foreground-secondary grow [&_a]:text-primary [&_a]:hover:underline">
             {% url 'django.contrib.flatpages.views.flatpage' url='/privacy-policy/' as privacy_url %}
             {% blocktranslate trimmed %}
-                With your consent we use PostHog analytics — including session
-                replays with all inputs masked — to see how the site is used and
-                to fix errors faster. Nothing is stored before you agree.
-                Details in the <a href="{{ privacy_url }}">Privacy Policy</a>.
+                We use analytics to see how people use the site, including
+                session replays with every input masked. It runs only if you
+                agree. Errors work differently: when something breaks, we record
+                what went wrong so we can fix it. Those reports describe the
+                fault, not you. More in the
+                <a href="{{ privacy_url }}">Privacy Policy</a>.
             {% endblocktranslate %}
         </p>
         <div class="flex flex-col-reverse sm:flex-row gap-2 shrink-0">

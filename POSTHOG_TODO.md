@@ -20,16 +20,12 @@ one copy change.
 
 ## Blocking
 
-- [ ] **Banner copy (PL + EN).** It currently promises "Nothing is stored
-      before you agree", which is no longer literally true: fault reports carry
-      the user pk regardless of the choice. Rework to separate error reports
-      from analytics, and update the privacy policy flatpage to match. Use the
-      `product-design` skill; `session` → "punkt programu" and the rest of the
-      glossary in CLAUDE.md apply.
-- [ ] **Verify `worker-src blob:`.** The wizard added it to `CSP_POLICY` with
-      nothing establishing it was needed. Run `tests/e2e/csp-violations.spec.ts`
-      with it removed; if the suite stays green, drop it. A blocked SDK queues
-      events without sending them, so this fails silently either way.
+- [ ] **Privacy policy flatpage.** The banner copy now separates analytics from
+      fault reports; the policy has to say the same thing. It lives in the
+      database, not the repo, so it needs editing through the admin.
+- [ ] **Screenshot the banner** for the PR description. It only renders with
+      `POSTHOG_API_KEY` set and no choice stored, so set a key in `.env.local`
+      first, then `mise run shots -- /`.
 
 ## Verification before merge
 
@@ -49,11 +45,12 @@ listed explicitly because the container runs no varlock — varlock validates
 `.env.local` on the CI runner before upload, and the host's compose CLI just
 reads both files.
 
-- [ ] **The Coolify path does not pick this up.** `.dockerignore` excludes
-      `**/.env.*`, so `.env.production` is not in the image, and
-      `deploy-coolify.yml` has no materialization step — Coolify holds env in
-      its own UI. Set `POSTHOG_API_KEY` there before the cutover, or that
-      deploy silently runs with analytics off.
+`.dockerignore` now un-ignores `.env.production` specifically, and
+`deploy-coolify.yml` sources it before building the env payload it PATCHes to
+Coolify's API, so both deploy paths read the same committed file. Django itself
+reads only `os.environ` (no `read_env`), so the file shipping inside the image
+does nothing on its own — something has to load it, which is what the compose
+`env_file` and the Coolify sourcing step do.
 
 ## Settled
 

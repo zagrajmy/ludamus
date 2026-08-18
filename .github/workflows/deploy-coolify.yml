@@ -101,6 +101,12 @@ jobs:
           # POSTGRES_DATA_PATH, STATIC_DATA_PATH, MEDIA_DATA_PATH and WEB_PORT
           # are absent by design: they configure compose host binds on the VPS
           # and mean nothing to Coolify.
+          # Public baseline committed in .env.production. Sourced rather than
+          # duplicated as GitHub vars so both deploy paths read one file;
+          # anything already in the env (secrets, vars) still wins below.
+          set -a
+          . ./.env.production
+          set +a
           echo '[]' > envs.json
           for k in ENV IS_STAGING DEBUG USE_POSTGRES DJANGO_SETTINGS_MODULE \
                    ALLOWED_HOSTS ROOT_DOMAIN SESSION_COOKIE_DOMAIN \
@@ -109,7 +115,7 @@ jobs:
                    AUTH0_CLIENT_ID AUTH0_CLIENT_SECRET AUTH0_DOMAIN \
                    MEMBERSHIP_API_BASE_URL MEMBERSHIP_API_TOKEN \
                    EMAIL_URL SUPPORT_EMAIL STATIC_ROOT MEDIA_ROOT \
-                   GIT_COMMIT_SHA \
+                   GIT_COMMIT_SHA POSTHOG_API_KEY \
                    GS_BUCKET_NAME GS_CREDENTIALS_JSON GS_LOCATION; do
             v="$(printenv "$k" || true)"
             if [ -n "$v" ]; then
