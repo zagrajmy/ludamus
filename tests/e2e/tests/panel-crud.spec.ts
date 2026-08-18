@@ -38,7 +38,9 @@ test.describe("Panel facilitator + proposal CRUD", () => {
     facilitator = testInfo.retry === 0 ? "Wanda Frost" : `Wanda Frost (retry ${testInfo.retry})`;
 
     await page.goto(FACILITATORS_URL);
-    await page.getByRole("link", { name: "New Facilitator" }).click();
+    // On an empty list the header button and the empty-state CTA both read
+    // "New Facilitator"; take the header one, as the proposal steps do.
+    await page.getByRole("link", { name: "New Facilitator" }).first().click();
 
     await page.getByLabel("Display Name").fill(facilitator);
     await page.getByLabel("Accreditation type").selectOption({ label: "Standard" });
@@ -158,7 +160,7 @@ test.describe("Panel facilitator + proposal CRUD", () => {
     const spare = `${facilitator} (spare)`;
 
     await page.goto(FACILITATORS_URL);
-    await page.getByRole("link", { name: "New Facilitator" }).click();
+    await page.getByRole("link", { name: "New Facilitator" }).first().click();
     await page.getByLabel("Display Name").fill(spare);
     await page.getByRole("button", { name: "Create Facilitator" }).click();
     await page.waitForURL(/\/facilitators\/$/);
