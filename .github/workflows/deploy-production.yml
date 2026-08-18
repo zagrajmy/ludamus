@@ -44,6 +44,9 @@ jobs:
           STATIC_DATA_PATH: ${{ vars.STATIC_DATA_PATH }}
           MEDIA_DATA_PATH: ${{ vars.MEDIA_DATA_PATH }}
           WEB_PORT: ${{ vars.WEB_PORT }}
+          # Public project key — the browser receives it, so it is a variable,
+          # not a secret. Unset leaves analytics (and the consent banner) off.
+          POSTHOG_API_KEY: ${{ vars.POSTHOG_API_KEY }}
           # Sensitive config — GitHub Environment secrets.
           DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
           SECRET_KEY: ${{ secrets.SECRET_KEY }}
@@ -63,7 +66,7 @@ jobs:
                    MEMBERSHIP_API_BASE_URL MEMBERSHIP_API_TOKEN \
                    EMAIL_URL SUPPORT_EMAIL STATIC_ROOT MEDIA_ROOT \
                    POSTGRES_DATA_PATH STATIC_DATA_PATH MEDIA_DATA_PATH \
-                   WEB_PORT \
+                   WEB_PORT POSTHOG_API_KEY \
                    GS_BUCKET_NAME GS_CREDENTIALS_JSON GS_LOCATION; do
             v="$(printenv "$k" || true)"
             if [ -n "$v" ]; then

@@ -16,10 +16,11 @@
 import posthog from "posthog-js/dist/module.full.no-external";
 
 const STORAGE_KEY = "prologue.consent";
+const UID_KEY = "prologue.uid";
 
 type Consent = "accepted" | "declined" | null;
 
-type PosthogServerConfig = { api_key: string; host: string };
+type PosthogServerConfig = { api_key: string; host: string; user_id: string | null };
 
 const readServerConfig = (): PosthogServerConfig | null => {
   const el = document.getElementById("posthog-config");
@@ -36,6 +37,22 @@ const readConsent = (): Consent => {
   return stored === "accepted" || stored === "declined" ? stored : null;
 };
 
+// PostHog persists distinct_id across pageloads, so a logout leaves the
+// previous user identified until we reset. UID_KEY records who we last
+// identified, which is the only way to tell "still anonymous" from "just
+// logged out" — posthog exposes no public predicate for it.
+const syncIdentity = (userId: string | null): void => {
+  const stored = localStorage.getItem(UID_KEY);
+  if (stored === userId) return;
+  if (stored !== null) posthog.reset();
+  if (userId === null) {
+    localStorage.removeItem(UID_KEY);
+  } else {
+    posthog.identify(userId);
+    localStorage.setItem(UID_KEY, userId);
+  }
+};
+
 const initPosthog = (config: PosthogServerConfig): void => {
   posthog.init(config.api_key, {
     api_host: config.host,
@@ -49,6 +66,7 @@ const initPosthog = (config: PosthogServerConfig): void => {
       maskTextSelector: "[data-ph-mask]",
     },
   });
+  syncIdentity(config.user_id);
 };
 
 const applyChoice = (config: PosthogServerConfig, choice: "accepted" | "declined"): void => {
@@ -58,12 +76,14 @@ const applyChoice = (config: PosthogServerConfig, choice: "accepted" | "declined
       posthog.set_config({ persistence: "localStorage+cookie" });
       posthog.opt_in_capturing();
       posthog.startSessionRecording();
+      syncIdentity(config.user_id);
     } else {
       initPosthog(config);
     }
   } else if (posthog.__loaded) {
     posthog.stopSessionRecording();
     posthog.opt_out_capturing();
+    localStorage.removeItem(UID_KEY);
   }
 };
 
