@@ -1,6 +1,6 @@
 # REGULAMIN SERWISU
 
-**Data ostatniej aktualizacji: 22.06.2025**
+**Data ostatniej aktualizacji: 19.08.2026**
 
 ## § 1. POSTANOWIENIA OGÓLNE
 
