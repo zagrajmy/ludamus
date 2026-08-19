@@ -11,6 +11,8 @@
     what PostHog's cookie + localStorage persistence does. Server-side fault
     reports touch no device storage, so they belong in the Privacy Policy
     rather than in a consent prompt.
+
+    Emoji rather than {% icon %}: heroicons has no cookie glyph.
 {% endcomment %}
 <section id="consent-banner"
          class="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-bg-secondary/95 backdrop-blur-lg"
@@ -18,12 +20,11 @@
          hidden>
     <div class="max-w-7xl mx-auto px-4 md:px-6 lg:px-8 py-4 flex flex-col sm:flex-row sm:items-center gap-3">
         <div class="flex items-start sm:items-center gap-3 grow">
-            {% include "components/icon-cookie.html" with size="w-6 h-6 shrink-0 text-primary" %}
+            <span class="text-xl leading-none shrink-0" aria-hidden="true">🍪</span>
             <p class="text-sm text-foreground-secondary [&_a]:text-primary [&_a]:hover:underline">
                 {% url 'django.contrib.flatpages.views.flatpage' url='/privacy-policy/' as privacy_url %}
                 {% blocktranslate trimmed %}
-                    Analytics cookies help us see what to fix. We only set them
-                    if you agree. More in the
+                    Cookies help us see what to fix. More in the
                     <a href="{{ privacy_url }}">Privacy Policy</a>.
                 {% endblocktranslate %}
             </p>
