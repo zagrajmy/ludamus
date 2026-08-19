@@ -31,6 +31,7 @@ from ludamus.gates.web.django.chronology.schedule import (
 from ludamus.gates.web.django.entities import UserInfo
 from ludamus.gates.web.django.helpers import placeholder_cover_url
 from ludamus.links.db.django.models import (
+    Announcement,
     DomainEnrollmentConfig,
     EnrollmentConfig,
     EventSettings,
@@ -53,6 +54,7 @@ from ludamus.pacts import (
     VirtualEnrollmentConfig,
 )
 from ludamus.pacts.crowd import UserDTO
+from ludamus.pacts.multiverse import AnnouncementDTO
 from tests.integration.conftest import (
     PNG_BYTES,
     AgendaItemFactory,
@@ -3381,6 +3383,49 @@ class TestEventPageView:
             context_data=event_page_context(
                 event, url=self._get_url(event.slug), pending_review_visible=True
             ),
+            template_name=["chronology/event.html"],
+        )
+
+
+class TestEventPageAnnouncements:
+    URL_NAME = "web:chronology:event"
+
+    def _get_url(self, slug):
+        return reverse(self.URL_NAME, kwargs={"slug": slug})
+
+    def test_published_event_announcement_is_in_context(self, client, event):
+        announcement = Announcement.objects.create(
+            event=event, title="Doors open at 9", content="Be early."
+        )
+
+        response = client.get(self._get_url(event.slug))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=event_page_context(
+                event,
+                url=self._get_url(event.slug),
+                announcements=[AnnouncementDTO.model_validate(announcement)],
+            ),
+            template_name=["chronology/event.html"],
+        )
+
+    def test_drafts_and_other_scopes_are_excluded(self, client, event, sphere):
+        Announcement.objects.create(
+            event=event, title="Draft", content="c", is_published=False
+        )
+        Announcement.objects.create(sphere=sphere, title="Sphere", content="c")
+        Announcement.objects.create(
+            event=EventFactory(sphere=sphere), title="Other event", content="c"
+        )
+
+        response = client.get(self._get_url(event.slug))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=event_page_context(event, url=self._get_url(event.slug)),
             template_name=["chronology/event.html"],
         )
 

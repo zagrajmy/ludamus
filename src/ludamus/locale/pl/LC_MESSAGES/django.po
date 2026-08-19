@@ -806,6 +806,7 @@ msgstr "Puste pole lub 0 = bez zapisów"
 #: src/ludamus/templates/chronology/propose/parts/details.html
 #: src/ludamus/templates/chronology/propose/parts/review.html
 #: src/ludamus/templates/multiverse/panel/announcements/list.html
+#: src/ludamus/templates/panel/announcements.html
 #: src/ludamus/templates/panel/proposals.html
 msgid "Title"
 msgstr "Tytuł"
@@ -1068,6 +1069,7 @@ msgstr "Kategoria"
 #: src/ludamus/gates/web/django/chronology/panel/views/columns.py
 #: src/ludamus/templates/chronology/event.html
 #: src/ludamus/templates/multiverse/panel/announcements/list.html
+#: src/ludamus/templates/panel/announcements.html
 #: src/ludamus/templates/panel/enrollment-settings.html
 #: src/ludamus/templates/panel/import.html
 #: src/ludamus/templates/panel/proposals.html
@@ -2290,6 +2292,7 @@ msgstr "Zarządzaj miejscami zapisanymi dla innych…"
 #: src/ludamus/templates/multiverse/panel/guilds/create.html
 #: src/ludamus/templates/multiverse/panel/guilds/delete.html
 #: src/ludamus/templates/panel/_time-slot-create-modal.html
+#: src/ludamus/templates/panel/announcement-form.html
 #: src/ludamus/templates/panel/cfp-create.html
 #: src/ludamus/templates/panel/cfp-edit.html
 #: src/ludamus/templates/panel/discounts/edit.html
@@ -2383,6 +2386,23 @@ msgstr "Zezwalaj na zapisy bez konta"
 #: src/ludamus/gates/web/django/event/panel/forms.py
 msgid "Enrollment must close after it opens."
 msgstr "Zapisy muszą zamknąć się po ich otwarciu."
+
+#: src/ludamus/gates/web/django/event/panel/views/announcements.py
+#: src/ludamus/gates/web/django/multiverse/panel/views/announcements.py
+msgid "Announcement not found."
+msgstr "Ogłoszenie nie zostało znalezione."
+
+#: src/ludamus/gates/web/django/event/panel/views/announcements.py
+msgid "Announcement created."
+msgstr "Ogłoszenie zostało utworzone."
+
+#: src/ludamus/gates/web/django/event/panel/views/announcements.py
+msgid "Announcement updated."
+msgstr "Ogłoszenie zostało zaktualizowane."
+
+#: src/ludamus/gates/web/django/event/panel/views/announcements.py
+msgid "Announcement deleted."
+msgstr "Ogłoszenie zostało usunięte."
 
 #: src/ludamus/gates/web/django/event/panel/views/enrollment_settings.py
 msgid "Enrollment window not found."
@@ -2956,6 +2976,7 @@ msgstr "Treść"
 
 #: src/ludamus/gates/web/django/multiverse/panel/forms.py
 #: src/ludamus/templates/multiverse/panel/announcements/list.html
+#: src/ludamus/templates/panel/announcements.html
 msgid "Published"
 msgstr "Opublikowane"
 
@@ -2978,10 +2999,6 @@ msgstr "Wklej sekret połączenia API."
 #: src/ludamus/gates/web/django/multiverse/panel/forms.py
 msgid "Secret is required when replacing."
 msgstr "Sekret jest wymagany przy zastępowaniu."
-
-#: src/ludamus/gates/web/django/multiverse/panel/views/announcements.py
-msgid "Announcement not found."
-msgstr "Ogłoszenie nie zostało znalezione."
 
 #: src/ludamus/gates/web/django/multiverse/panel/views/announcements.py
 msgid "Announcement created successfully."
@@ -4287,6 +4304,10 @@ msgid "Switch to This Code"
 msgstr "Przełącz na Ten Kod"
 
 #: src/ludamus/templates/chronology/event.html
+msgid "Event news"
+msgstr "Aktualności wydarzenia"
+
+#: src/ludamus/templates/chronology/event.html
 #: src/ludamus/templates/chronology/propose/base.html
 msgid "Propose Session"
 msgstr "Zgłoś punkt programu"
@@ -4552,6 +4573,7 @@ msgstr "Połączenie:"
 #: src/ludamus/templates/multiverse/panel/connections/list.html
 #: src/ludamus/templates/multiverse/panel/guilds/list.html
 #: src/ludamus/templates/panel/_space_tree_node.html
+#: src/ludamus/templates/panel/announcements.html
 #: src/ludamus/templates/panel/cfp.html
 #: src/ludamus/templates/panel/facilitators.html
 #: src/ludamus/templates/panel/integration-settings.html
@@ -4573,6 +4595,7 @@ msgstr "Edytuj integrację"
 #: src/ludamus/templates/multiverse/panel/announcements/edit.html
 #: src/ludamus/templates/multiverse/panel/connections/edit.html
 #: src/ludamus/templates/multiverse/panel/guilds/edit.html
+#: src/ludamus/templates/panel/announcement-form.html
 #: src/ludamus/templates/panel/cfp-edit.html
 #: src/ludamus/templates/panel/discounts/edit.html
 #: src/ludamus/templates/panel/display-settings.html
@@ -5485,6 +5508,7 @@ msgstr ""
 #: src/ludamus/templates/multiverse/panel/announcements/list.html
 #: src/ludamus/templates/multiverse/panel/connections/list.html
 #: src/ludamus/templates/multiverse/panel/guilds/list.html
+#: src/ludamus/templates/panel/announcements.html
 #: src/ludamus/templates/panel/discounts/list.html
 #: src/ludamus/templates/panel/facilitator-detail.html
 #: src/ludamus/templates/panel/facilitators.html
@@ -5763,6 +5787,7 @@ msgstr "Przykładowe gildie"
 #: src/ludamus/templates/multiverse/panel/announcements/list.html
 #: src/ludamus/templates/multiverse/panel/connections/list.html
 #: src/ludamus/templates/multiverse/panel/guilds/list.html
+#: src/ludamus/templates/panel/announcements.html
 #: src/ludamus/templates/panel/bans.html src/ludamus/templates/panel/cfp.html
 #: src/ludamus/templates/panel/discounts/list.html
 #: src/ludamus/templates/panel/enrollment-settings.html
@@ -5894,6 +5919,8 @@ msgstr "Połączenia importu"
 
 #: src/ludamus/templates/multiverse/panel/announcements/create.html
 #: src/ludamus/templates/multiverse/panel/announcements/list.html
+#: src/ludamus/templates/panel/announcement-form.html
+#: src/ludamus/templates/panel/announcements.html
 msgid "New announcement"
 msgstr "Nowe ogłoszenie"
 
@@ -5913,6 +5940,7 @@ msgstr ""
 "            "
 
 #: src/ludamus/templates/multiverse/panel/announcements/edit.html
+#: src/ludamus/templates/panel/announcement-form.html
 msgid "Edit announcement"
 msgstr "Edytuj ogłoszenie"
 
@@ -5921,6 +5949,7 @@ msgid "Organization announcements for this sphere"
 msgstr "Ogłoszenia organizacji dla tej sfery"
 
 #: src/ludamus/templates/multiverse/panel/announcements/list.html
+#: src/ludamus/templates/panel/announcements.html
 msgid "Draft"
 msgstr "Szkic"
 
@@ -6495,6 +6524,48 @@ msgstr "Problemy"
 #: src/ludamus/templates/panel/timetable-confirmations.html
 msgid "Confirmations"
 msgstr "Potwierdzenia"
+
+#: src/ludamus/templates/panel/announcement-form.html
+#: src/ludamus/templates/panel/announcements.html
+#: src/ludamus/templates/panel/base.html
+msgid "Announcements"
+msgstr "Ogłoszenia"
+
+#: src/ludamus/templates/panel/announcement-form.html
+msgid "Post announcement"
+msgstr "Opublikuj ogłoszenie"
+
+#: src/ludamus/templates/panel/announcements.html
+msgid "What are announcements?"
+msgstr "Czym są ogłoszenia?"
+
+#: src/ludamus/templates/panel/announcements.html
+msgid ""
+"Announcements are news for the people coming to this event — schedule "
+"changes, venue notes, reminders. Published ones appear at the top of the "
+"public event page; drafts stay in the panel."
+msgstr ""
+"Ogłoszenia to aktualności dla osób wybierających się na to wydarzenie — "
+"zmiany w harmonogramie, informacje o miejscu, przypomnienia. Opublikowane "
+"pojawiają się na górze publicznej strony wydarzenia, a szkice zostają w "
+"panelu."
+
+#: src/ludamus/templates/panel/announcements.html
+msgid "Last edited"
+msgstr "Ostatnia edycja"
+
+#: src/ludamus/templates/panel/announcements.html
+msgid "Are you sure you want to delete this announcement?"
+msgstr "Czy na pewno chcesz usunąć to ogłoszenie?"
+
+#: src/ludamus/templates/panel/announcements.html
+msgid ""
+"No announcements yet. Post one to tell participants about schedule changes, "
+"venue notes, or anything else they should know."
+msgstr ""
+"Nie ma jeszcze żadnych ogłoszeń. Opublikuj pierwsze, aby powiedzieć "
+"uczestnikom o zmianach w harmonogramie, informacjach o miejscu lub "
+"czymkolwiek innym, co powinni wiedzieć."
 
 #: src/ludamus/templates/panel/bans.html src/ludamus/templates/panel/base.html
 msgid "Bans"

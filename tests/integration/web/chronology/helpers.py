@@ -92,6 +92,7 @@ def event_page_context(event, *, url, **overrides):
     # schedule. `url` is the page's own path, which the view echoes back as the
     # list/rooms view links.
     context = {
+        "announcements": [],
         "current_hour_data": {},
         "ended_hour_data": {},
         "enrollment_requires_slots": False,

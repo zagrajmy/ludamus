@@ -265,6 +265,8 @@
             </form>
         </dialog>
     {% endif %}
+    {% translate "Event news" as t_announcements_heading %}
+    {% include "components/announcements.html" with announcements=announcements heading=t_announcements_heading only %}
     <!-- Sessions by Time Slot -->
     <div>
         <!-- Section Header -->

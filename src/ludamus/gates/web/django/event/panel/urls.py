@@ -22,6 +22,7 @@ from ludamus.gates.web.django.chronology.panel.views import (
     venues,
 )
 from ludamus.gates.web.django.event.panel.views import (
+    announcements,
     confirmations,
     enrollment_settings,
     facilitator_actions,
@@ -374,6 +375,26 @@ urlpatterns = [
         "parts/icon-preview/",
         session_fields.IconPreviewPartView.as_view(),
         name="icon-preview",
+    ),
+    path(
+        "event/<slug:slug>/announcements/",
+        announcements.AnnouncementsPageView.as_view(),
+        name="announcements",
+    ),
+    path(
+        "event/<slug:slug>/announcements/create/",
+        announcements.AnnouncementCreatePageView.as_view(),
+        name="announcement-create",
+    ),
+    path(
+        "event/<slug:slug>/announcements/<int:pk>/edit/",
+        announcements.AnnouncementEditPageView.as_view(),
+        name="announcement-edit",
+    ),
+    path(
+        "event/<slug:slug>/announcements/<int:pk>/do/delete",
+        announcements.AnnouncementDeleteActionView.as_view(),
+        name="announcement-delete",
     ),
     path("event/<slug:slug>/tracks/", tracks.TracksPageView.as_view(), name="tracks"),
     path(

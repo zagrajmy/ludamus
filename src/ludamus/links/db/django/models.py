@@ -1804,8 +1804,25 @@ class Discount(SoftDeleteModel):
 
 
 class Announcement(models.Model):
+    """News item scoped to one sphere, one event, or — both null — the platform.
+
+    The scope decides where it renders, and once the notification engine lands
+    (#617) who it fans out to.
+    """
+
     sphere = models.ForeignKey(
-        Sphere, on_delete=models.CASCADE, related_name="announcements"
+        Sphere,
+        on_delete=models.CASCADE,
+        related_name="announcements",
+        null=True,
+        blank=True,
+    )
+    event = models.ForeignKey(
+        Event,
+        on_delete=models.CASCADE,
+        related_name="announcements",
+        null=True,
+        blank=True,
     )
     title = models.CharField(max_length=255)
     content = models.TextField()
@@ -1819,6 +1836,15 @@ class Announcement(models.Model):
         indexes = (
             models.Index(
                 fields=["sphere", "is_published"], name="announcement_sphere_pub_idx"
+            ),
+            models.Index(
+                fields=["event", "is_published"], name="announcement_event_pub_idx"
+            ),
+        )
+        constraints = (
+            models.CheckConstraint(
+                condition=Q(sphere__isnull=True) | Q(event__isnull=True),
+                name="announcement_single_scope",
             ),
         )
 

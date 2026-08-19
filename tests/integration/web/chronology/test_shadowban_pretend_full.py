@@ -62,6 +62,7 @@ def _event_page_context(event, buckets, **overrides):
     # The card-layout event page for a signed-in viewer with no enrollments.
     url = _event_url(event.slug)
     return {
+        "announcements": [],
         "ended_hour_data": {},
         "enrollment_requires_slots": False,
         "event": event,

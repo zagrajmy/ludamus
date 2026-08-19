@@ -16,7 +16,7 @@ from ludamus.gates.web.django.multiverse.access import (
 from ludamus.gates.web.django.multiverse.panel.forms import AnnouncementForm
 from ludamus.gates.web.django.sphere.panel_context import sphere_settings_context
 from ludamus.pacts import NotFoundError, RedirectError
-from ludamus.pacts.multiverse import AnnouncementData
+from ludamus.pacts.multiverse import AnnouncementData, AnnouncementScope
 
 if TYPE_CHECKING:
     from django.http import HttpResponse
@@ -40,8 +40,8 @@ class AnnouncementsPageView(SphereAccessMixin, View):
     request: MultiverseRequest
 
     def get(self, _request: MultiverseRequest) -> HttpResponse:
-        sphere_id = self.request.context.current_sphere_id
-        announcements = self.request.services.announcements.list_for_sphere(sphere_id)
+        scope = AnnouncementScope(sphere_id=self.request.context.current_sphere_id)
+        announcements = self.request.services.announcements.list_for_scope(scope)
         return TemplateResponse(
             self.request,
             "multiverse/panel/announcements/list.html",
@@ -77,8 +77,8 @@ class AnnouncementCreatePageView(SphereAccessMixin, View):
                 },
             )
 
-        sphere_id = self.request.context.current_sphere_id
-        self.request.services.announcements.create(sphere_id, _form_data(form))
+        scope = AnnouncementScope(sphere_id=self.request.context.current_sphere_id)
+        self.request.services.announcements.create(scope, _form_data(form))
         messages.success(self.request, _("Announcement created successfully."))
         return redirect("multiverse:panel:announcements")
 
@@ -87,9 +87,9 @@ class AnnouncementEditPageView(SphereAccessMixin, View):
     request: MultiverseRequest
 
     def get(self, _request: MultiverseRequest, pk: int) -> HttpResponse:
-        sphere_id = self.request.context.current_sphere_id
+        scope = AnnouncementScope(sphere_id=self.request.context.current_sphere_id)
         try:
-            announcement = self.request.services.announcements.get(sphere_id, pk)
+            announcement = self.request.services.announcements.get(scope, pk)
         except NotFoundError:
             raise _announcement_not_found() from None
 
@@ -111,9 +111,9 @@ class AnnouncementEditPageView(SphereAccessMixin, View):
         )
 
     def post(self, _request: MultiverseRequest, pk: int) -> HttpResponse:
-        sphere_id = self.request.context.current_sphere_id
+        scope = AnnouncementScope(sphere_id=self.request.context.current_sphere_id)
         try:
-            announcement = self.request.services.announcements.get(sphere_id, pk)
+            announcement = self.request.services.announcements.get(scope, pk)
         except NotFoundError:
             raise _announcement_not_found() from None
 
@@ -129,7 +129,7 @@ class AnnouncementEditPageView(SphereAccessMixin, View):
                 },
             )
 
-        self.request.services.announcements.update(sphere_id, pk, _form_data(form))
+        self.request.services.announcements.update(scope, pk, _form_data(form))
         messages.success(self.request, _("Announcement updated successfully."))
         return redirect("multiverse:panel:announcements")
 
@@ -138,9 +138,9 @@ class AnnouncementDeletePageView(SphereAccessMixin, View):
     request: MultiverseRequest
 
     def get(self, _request: MultiverseRequest, pk: int) -> HttpResponse:
-        sphere_id = self.request.context.current_sphere_id
+        scope = AnnouncementScope(sphere_id=self.request.context.current_sphere_id)
         try:
-            announcement = self.request.services.announcements.get(sphere_id, pk)
+            announcement = self.request.services.announcements.get(scope, pk)
         except NotFoundError:
             raise _announcement_not_found() from None
 
@@ -154,9 +154,9 @@ class AnnouncementDeletePageView(SphereAccessMixin, View):
         )
 
     def post(self, _request: MultiverseRequest, pk: int) -> HttpResponse:
-        sphere_id = self.request.context.current_sphere_id
+        scope = AnnouncementScope(sphere_id=self.request.context.current_sphere_id)
         try:
-            self.request.services.announcements.delete(sphere_id, pk)
+            self.request.services.announcements.delete(scope, pk)
         except NotFoundError:
             raise _announcement_not_found() from None
 

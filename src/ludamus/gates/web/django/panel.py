@@ -19,6 +19,7 @@ if TYPE_CHECKING:
 # sees, so `{% sidebar_link %}` checks both ends at render time.
 PanelNav = Literal[
     "index",
+    "announcements",
     "cfp",
     "proposals",
     "facilitators",

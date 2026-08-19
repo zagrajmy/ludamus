@@ -1,0 +1,90 @@
+{% extends "panel/base.html" %}
+{% load i18n %}
+{% load tessera %}
+{% block title %}
+    {% translate "Announcements" %}
+{% endblock title %}
+{% block page_title %}
+    {% translate "Announcements" %}
+{% endblock page_title %}
+{% block page_title_adornment %}
+    {% translate "What are announcements?" as t_info_title %}
+    {% translate "Announcements are news for the people coming to this event — schedule changes, venue notes, reminders. Published ones appear at the top of the public event page; drafts stay in the panel." as t_info_body %}
+    {% include "components/info_popover.html" with title=t_info_title body=t_info_body %}
+{% endblock page_title_adornment %}
+{% block page_subtitle %}
+    {{ current_event.name }} · {% translate "Announcements" %}
+{% endblock page_subtitle %}
+{% block header_actions %}
+    {% url 'panel:announcement-create' slug=current_event.slug as create_url %}
+    {% translate "New announcement" as create_label %}
+    {% tessera_button create_label href=create_url icon="plus" %}
+{% endblock header_actions %}
+{% block content %}
+    <div class="panel-bleed">
+        {% if announcements %}
+            {% tessera_table %}
+                <thead class="bg-bg-tertiary">
+                    <tr>
+                        <th scope="col"
+                            class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
+                            {% translate "Title" %}
+                        </th>
+                        <th scope="col"
+                            class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
+                            {% translate "Status" %}
+                        </th>
+                        <th scope="col"
+                            class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
+                            {% translate "Last edited" %}
+                        </th>
+                        <th scope="col"
+                            class="px-6 py-3 text-right text-xs font-medium text-foreground-muted uppercase tracking-wider">
+                            {% translate "Actions" %}
+                        </th>
+                    </tr>
+                </thead>
+                <tbody class="bg-bg-secondary divide-y divide-border">
+                    {% for announcement in announcements %}
+                        <tr class="hover:bg-bg-tertiary">
+                            <td class="px-6 py-4 text-sm font-medium text-foreground">{{ announcement.title }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm">
+                                {% if announcement.is_published %}
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-success-bg text-success-text">
+                                        {% translate "Published" %}
+                                    </span>
+                                {% else %}
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-warning-bg text-warning-text">
+                                        {% translate "Draft" %}
+                                    </span>
+                                {% endif %}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-foreground-secondary">{{ announcement.modification_time|date:"DATETIME_FORMAT" }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                <a href="{% url 'panel:announcement-edit' slug=current_event.slug pk=announcement.pk %}"
+                                   data-row-action
+                                   class="text-primary hover:text-primary/80 mr-4">{% translate "Edit" %}</a>
+                                <form method="post"
+                                      action="{% url 'panel:announcement-delete' slug=current_event.slug pk=announcement.pk %}"
+                                      class="inline"
+                                      data-confirm="{% translate "Are you sure you want to delete this announcement?" %}">
+                                    {% csrf_token %}
+                                    <button type="submit" class="text-danger hover:text-danger/80">{% translate "Delete" %}</button>
+                                </form>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            {% endtessera_table %}
+        {% else %}
+            <div class="card p-8 text-center">
+                <p class="text-foreground-muted mb-4">
+                    {% translate "No announcements yet. Post one to tell participants about schedule changes, venue notes, or anything else they should know." %}
+                </p>
+                {% url 'panel:announcement-create' slug=current_event.slug as create_url %}
+                {% translate "New announcement" as t_create %}
+                {% tessera_button t_create href=create_url icon="plus" %}
+            </div>
+        {% endif %}
+    </div>
+{% endblock content %}
