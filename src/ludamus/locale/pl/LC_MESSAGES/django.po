@@ -1823,6 +1823,12 @@ msgid "This placement is invalid."
 msgstr "To umiejscowienie jest nieprawidłowe."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/tracks.py
+msgid "A track with this name already exists in this event. Pick another name."
+msgstr ""
+"Blok programowy o tej nazwie już istnieje w tym wydarzeniu. Wybierz inną "
+"nazwę."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/tracks.py
 msgid "Choose spaces from this event and managers from this sphere."
 msgstr "Wybierz przestrzenie z tego wydarzenia i prowadzących z tej sfery."
 
@@ -4989,15 +4995,18 @@ msgstr "Zgoda na analitykę"
 #: src/ludamus/templates/components/consent-banner.html
 #, python-format
 msgid ""
-"With your consent we use PostHog analytics — including session replays with "
-"all inputs masked — to see how the site is used and to fix errors faster. "
-"Nothing is stored before you agree. Details in the <a "
+"We use analytics to see how people use the site, including session replays "
+"with every input masked. It runs only if you agree. Errors work differently: "
+"when something breaks we always record what went wrong, plus your account id "
+"if you are signed in, so we can fix it. More in the <a "
 "href=\"%(privacy_url)s\">Privacy Policy</a>."
 msgstr ""
-"Za Twoją zgodą używamy analityki PostHog — w tym nagrań sesji z "
-"zamaskowanymi wszystkimi polami — aby zobaczyć, jak serwis jest używany, i "
-"szybciej naprawiać błędy. Nic nie zapisujemy, zanim się nie zgodzisz. "
-"Szczegóły w <a href=\"%(privacy_url)s\">Polityce prywatności</a>."
+"Używamy analityki, aby zobaczyć, jak ludzie korzystają z serwisu. Obejmuje "
+"to nagrania sesji z zamaskowanymi wszystkimi polami. Działa tylko wtedy, gdy "
+"się zgodzisz. Z błędami jest inaczej: kiedy coś się zepsuje, zawsze "
+"zapisujemy, co poszło nie tak, a jeśli masz zalogowane konto, także jego "
+"identyfikator, żebyśmy mogli to naprawić. Więcej w <a "
+"href=\"%(privacy_url)s\">Polityce prywatności</a>."
 
 #: src/ludamus/templates/components/consent-banner.html
 msgid "Decline analytics"
@@ -9430,6 +9439,18 @@ msgstr "Brak przechwyconych e-maili."
 
 #~ msgid "Empty or 0 = no limit"
 #~ msgstr "Puste pole lub 0 = bez limitu"
+
+#, python-format
+#~ msgid ""
+#~ "With your consent we use PostHog analytics — including session replays "
+#~ "with all inputs masked — to see how the site is used and to fix errors "
+#~ "faster. Nothing is stored before you agree. Details in the <a "
+#~ "href=\"%(privacy_url)s\">Privacy Policy</a>."
+#~ msgstr ""
+#~ "Za Twoją zgodą używamy analityki PostHog — w tym nagrań sesji z "
+#~ "zamaskowanymi wszystkimi polami — aby zobaczyć, jak serwis jest używany, "
+#~ "i szybciej naprawiać błędy. Nic nie zapisujemy, zanim się nie zgodzisz. "
+#~ "Szczegóły w <a href=\"%(privacy_url)s\">Polityce prywatności</a>."
 
 #~ msgid "Open"
 #~ msgstr "Otwarte"
