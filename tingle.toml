@@ -157,6 +157,7 @@ name = "type-ignores"
 type = "regex_count"
 group = "typing"
 pattern = '#\s*type:\s*ignore'
+ignore_lines = ['class.*admin\.TabularInline', 'class.*admin\.ModelAdmin']
 ranges = ["python-src"]
 
 [[metrics]]

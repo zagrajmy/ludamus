@@ -1,18 +1,21 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, TypedDict
+from typing import TYPE_CHECKING, ClassVar, TypedDict
 
 from django.contrib import messages
-from django.contrib.auth.mixins import UserPassesTestMixin
+from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.http import HttpRequest
 from django.urls import reverse
 from django.utils.translation import gettext as _
 
-from ludamus.gates.web.django.access import has_panel_access
-from ludamus.gates.web.django.panel import PanelPermissionResponseMixin
+from ludamus.gates.web.django.access import has_panel_access, passes_panel_access
+from ludamus.gates.web.django.panel import refuse_panel_access
 from ludamus.pacts.legacy import NotFoundError, RedirectError
+from ludamus.pacts.multiverse import Capability
 
 if TYPE_CHECKING:
+    from django.http import HttpResponseRedirect
+
     from ludamus.pacts import AuthenticatedRequestContext, EventDTO
     from ludamus.pacts.services import ServicesProtocol
 
@@ -25,11 +28,24 @@ class EventPanelRequest(HttpRequest):
     services: ServicesProtocol
 
 
-class EventPanelAccessMixin(PanelPermissionResponseMixin, UserPassesTestMixin):
+class EventPanelAccessMixin(LoginRequiredMixin, UserPassesTestMixin):
     request: EventPanelRequest
 
+    # What this page's buttons stand for. A view whose writes a narrower role
+    # may perform names that capability instead; it never names the role.
+    write_capability: ClassVar[Capability] = Capability.PANEL_WRITE
+
     def test_func(self) -> bool:
-        return has_panel_access(self.request)
+        return passes_panel_access(self.request, write_capability=self.write_capability)
+
+    def handle_no_permission(self) -> HttpResponseRedirect:
+        if not self.request.user.is_authenticated:
+            return super().handle_no_permission()
+        return refuse_panel_access(
+            request=self.request,
+            reads_panel=has_panel_access(self.request),
+            message=_("You don't have permission to access the backoffice panel."),
+        )
 
 
 class EventPageContext(TypedDict):

@@ -454,6 +454,9 @@ class TestProposalDetailPageView:
                         new_start_time=datetime(2026, 7, 1, 18, 0, tzinfo=UTC),
                         new_end_time=datetime(2026, 7, 1, 20, 0, tzinfo=UTC),
                         creation_time=log.creation_time,
+                        moved_from_id=None,
+                        acknowledgement_time=None,
+                        acknowledged_by_name="",
                     )
                 ],
                 "field_values": [],

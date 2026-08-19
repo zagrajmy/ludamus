@@ -236,6 +236,15 @@ If you fix a papercut, remove it.
   its expected schedule_days stop matching once the local clock crosses a day
   boundary. Fails on plain main from ~21:00 Europe/Warsaw; green on CI only
   because runners are UTC.
+- 2026-08-16: every mise task died with '<tool>: not found' (pytest, mypy,
+  pylint) mid-session. Cause: mise replaced python 3.14.6 with 3.14.7 and
+  deleted the old install, leaving .venv/bin/python dangling, so every console
+  script's shebang ENOENT'd. Only the shebang-less native binaries (ruff,
+  taplo) kept working, and pylint's one half-run reported E0401 on stdlib
+  imports — both misleading. mise recreates .venv only when it is absent, never
+  when its interpreter is stale; repointing .venv/bin/python and pyvenv.cfg at
+  the .../installs/python/3.14 alias instead of the patch dir survives the next
+  bump.
 - 2026-08-16: aube install fails in the agent sandbox: aube-workspace.yaml
   paranoid:true makes advisoryCheck required, and api.osv.dev is not on the
   sandbox network allowlist, so every install dies with

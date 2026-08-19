@@ -26,6 +26,7 @@ from ludamus.pacts.chronology import (
     ProposalAcceptDeniedError,
     SpaceTimeConflictError,
 )
+from ludamus.pacts.multiverse import SphereRole
 from tests.unit.factories import user_dto
 
 
@@ -578,7 +579,7 @@ class TestProposalAcceptanceService:
         self, service, sessions, active_users, spheres
     ):
         self._arrange_reads(sessions, active_users)
-        spheres.is_manager.return_value = True
+        spheres.manager_role.return_value = SphereRole.MANAGER
 
         context = service.get_accept_context(
             session_id=5, user_slug="manager", sphere_id=3
@@ -603,14 +604,14 @@ class TestProposalAcceptanceService:
 
         assert context is not None
         assert context.can_accept is True
-        spheres.is_manager.assert_not_called()
+        spheres.manager_role.assert_not_called()
 
     def test_can_accept_false_for_non_manager_staff(
         self, service, sessions, active_users, spheres
     ):
         self._arrange_reads(sessions, active_users)
         active_users.read.return_value = _user_dto(is_staff=True)
-        spheres.is_manager.return_value = False
+        spheres.manager_role.return_value = None
 
         context = service.get_accept_context(
             session_id=5, user_slug="staff", sphere_id=3
@@ -618,13 +619,13 @@ class TestProposalAcceptanceService:
 
         assert context is not None
         assert context.can_accept is False
-        spheres.is_manager.assert_called_once_with(3, "staff")
+        spheres.manager_role.assert_called_once_with(3, "staff")
 
     def test_can_accept_falls_back_to_sphere_manager(
         self, service, sessions, active_users, spheres
     ):
         self._arrange_reads(sessions, active_users)
-        spheres.is_manager.return_value = False
+        spheres.manager_role.return_value = None
 
         context = service.get_accept_context(
             session_id=5, user_slug="member", sphere_id=3
@@ -632,7 +633,7 @@ class TestProposalAcceptanceService:
 
         assert context is not None
         assert context.can_accept is False
-        spheres.is_manager.assert_called_once_with(3, "member")
+        spheres.manager_role.assert_called_once_with(3, "member")
 
     def test_accept_session_updates_status_and_creates_agenda_item(
         self, service, sessions, agenda_items, transaction, active_users, spheres
@@ -643,7 +644,7 @@ class TestProposalAcceptanceService:
         )
         agenda_items.list_overlapping_in_space.return_value = []
         active_users.read.return_value = _user_dto()
-        spheres.is_manager.return_value = True
+        spheres.manager_role.return_value = SphereRole.MANAGER
 
         service.accept_session(
             session_id=5, space_id=7, time_slot_id=2, user_slug="manager", sphere_id=3
@@ -678,7 +679,7 @@ class TestProposalAcceptanceService:
             _make_item(pk=9, space_id=7)
         ]
         active_users.read.return_value = _user_dto()
-        spheres.is_manager.return_value = True
+        spheres.manager_role.return_value = SphereRole.MANAGER
 
         with pytest.raises(SpaceTimeConflictError):
             service.accept_session(
@@ -709,13 +710,27 @@ class TestProposalAcceptanceService:
         sessions.update.assert_called_once_with(
             5, {"status": SessionStatus.ACCEPTED, "display_name": "Alice"}
         )
-        spheres.is_manager.assert_not_called()
+        spheres.manager_role.assert_not_called()
+
+    def test_accept_session_denied_for_comms_member(
+        self, service, sessions, agenda_items, active_users, spheres
+    ):
+        active_users.read.return_value = _user_dto()
+        spheres.manager_role.return_value = SphereRole.COMMS
+
+        with pytest.raises(ProposalAcceptDeniedError):
+            service.accept_session(
+                session_id=5, space_id=7, time_slot_id=2, user_slug="press", sphere_id=3
+            )
+
+        sessions.update.assert_not_called()
+        agenda_items.create.assert_not_called()
 
     def test_accept_session_denied_for_non_manager(
         self, service, sessions, agenda_items, active_users, spheres
     ):
         active_users.read.return_value = _user_dto()
-        spheres.is_manager.return_value = False
+        spheres.manager_role.return_value = None
 
         with pytest.raises(ProposalAcceptDeniedError):
             service.accept_session(

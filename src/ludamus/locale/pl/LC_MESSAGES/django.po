@@ -2395,6 +2395,10 @@ msgstr "Zezwalaj na zapisy bez konta"
 msgid "Enrollment must close after it opens."
 msgstr "Zapisy muszą zamknąć się po ich otwarciu."
 
+#: src/ludamus/gates/web/django/event/panel/views/base.py
+msgid "You don't have permission to access the backoffice panel."
+msgstr "Nie masz uprawnień do panelu organizatora."
+
 #: src/ludamus/gates/web/django/event/panel/views/enrollment_settings.py
 msgid "Enrollment window not found."
 msgstr "Nie znaleziono okna zapisów."
@@ -3271,8 +3275,8 @@ msgid "You have been removed from this encounter."
 msgstr "Zostałeś/aś wypisany/a z tego spotkania."
 
 #: src/ludamus/gates/web/django/panel.py
-msgid "You don't have permission to access the backoffice panel."
-msgstr "Nie masz uprawnień do panelu organizatora."
+msgid "Your role can read the panel, but not make changes here."
+msgstr "Twoja rola pozwala przeglądać panel, ale nie wprowadzać tu zmian."
 
 #: src/ludamus/gates/web/django/sphere/forms.py
 msgid "Guild name"
@@ -6732,6 +6736,16 @@ msgid "Print Materials"
 msgstr "Materiały do druku"
 
 #: src/ludamus/templates/panel/base.html
+msgctxt "Sidebar category"
+msgid "Live"
+msgstr "W trakcie"
+
+#: src/ludamus/templates/panel/base.html
+#: src/ludamus/templates/panel/errata.html
+msgid "Errata"
+msgstr "Errata"
+
+#: src/ludamus/templates/panel/base.html
 msgid "Settings"
 msgstr "Ustawienia"
 
@@ -7225,6 +7239,89 @@ msgid ""
 msgstr ""
 "Dodaj krótką wiadomość, jeśli uczestnicy potrzebują wyjaśnienia tego etapu "
 "zapisów."
+
+#: src/ludamus/templates/panel/errata.html
+msgid "What are errata?"
+msgstr "Czym jest errata?"
+
+#: src/ludamus/templates/panel/errata.html
+msgid ""
+"Everything the agenda gained, lost or moved after it went public. Announce a "
+"change, then tick it off — what stays unticked is what the audience has not "
+"been told yet."
+msgstr ""
+"Wszystko, co program zyskał, stracił albo co się w nim przesunęło po "
+"publikacji. Ogłoś zmianę, a potem ją odhacz — nieodhaczone to te zmiany, o "
+"których uczestnicy jeszcze nie wiedzą."
+
+#: src/ludamus/templates/panel/errata.html
+#, python-format
+msgid "%(counter)s change to announce"
+msgid_plural "%(counter)s changes to announce"
+msgstr[0] "%(counter)s zmiana do ogłoszenia"
+msgstr[1] "%(counter)s zmiany do ogłoszenia"
+msgstr[2] "%(counter)s zmian do ogłoszenia"
+msgstr[3] "%(counter)s zmian do ogłoszenia"
+
+#: src/ludamus/templates/panel/errata.html
+#, python-format
+msgid "<strong>%(title)s</strong> was added to the agenda: %(space)s, %(when)s"
+msgstr "<strong>%(title)s</strong> — dodano do programu: %(space)s, %(when)s"
+
+#: src/ludamus/templates/panel/errata.html
+#, python-format
+msgid ""
+"<strong>%(title)s</strong> was moved from %(old_space)s, %(old_when)s to "
+"%(space)s, %(when)s"
+msgstr ""
+"<strong>%(title)s</strong> — przeniesiono z %(old_space)s, %(old_when)s do "
+"%(space)s, %(when)s"
+
+#: src/ludamus/templates/panel/errata.html
+#, python-format
+msgid ""
+"<strong>%(title)s</strong> was removed from the agenda: it was %(space)s, "
+"%(when)s"
+msgstr ""
+"<strong>%(title)s</strong> — usunięto z programu: było %(space)s, %(when)s"
+
+#: src/ludamus/templates/panel/errata.html
+#, python-format
+msgid "Changed by %(who)s on %(when)s"
+msgstr "Zmiana: %(who)s, %(when)s"
+
+#: src/ludamus/templates/panel/errata.html
+#, python-format
+msgid "announced by %(who)s"
+msgstr "ogłoszone przez: %(who)s"
+
+#: src/ludamus/templates/panel/errata.html
+msgid "Undo"
+msgstr "Cofnij"
+
+#: src/ludamus/templates/panel/errata.html
+msgid "Announced"
+msgstr "Ogłoszone"
+
+#: src/ludamus/templates/panel/errata.html
+msgid "The agenda has not changed since it went public"
+msgstr "Program nie zmienił się od publikacji"
+
+#: src/ludamus/templates/panel/errata.html
+msgid "The agenda is not public yet"
+msgstr "Program nie jest jeszcze publiczny"
+
+#: src/ludamus/templates/panel/errata.html
+msgid ""
+"Changes count as errata once the event is published — until then, edit the "
+"schedule freely."
+msgstr ""
+"Zmiany trafiają do erraty dopiero po opublikowaniu wydarzenia — do tego "
+"czasu edytuj harmonogram swobodnie."
+
+#: src/ludamus/templates/panel/errata.html
+msgid "Open event settings"
+msgstr "Otwórz ustawienia wydarzenia"
 
 #: src/ludamus/templates/panel/facilitator-bin.html
 msgid ""
@@ -9472,14 +9569,14 @@ msgstr "Brak przechwyconych e-maili."
 #~ "i szybciej naprawiać błędy. Nic nie zapisujemy, zanim się nie zgodzisz. "
 #~ "Szczegóły w <a href=\"%(privacy_url)s\">Polityce prywatności</a>."
 
+#~ msgid "Empty or 0 = no limit"
+#~ msgstr "Puste pole lub 0 = bez limitu"
+
 #~ msgid "Open"
 #~ msgstr "Otwarte"
 
 #~ msgid "Not Available"
 #~ msgstr "Niedostępne"
-
-#~ msgid "Empty or 0 = no limit"
-#~ msgstr "Puste pole lub 0 = bez limitu"
 
 #~ msgid "Deleted only"
 #~ msgstr "Tylko usunięci"
