@@ -3,6 +3,7 @@
 from http import HTTPStatus
 from unittest.mock import ANY
 
+import pytest
 from django.contrib import messages
 from django.urls import reverse
 
@@ -156,6 +157,29 @@ class TestTrackCreatePageView:
             },
         )
         assert not Track.objects.filter(event=event, name="Gamma Track").exists()
+
+    @pytest.mark.parametrize("posted_name", ("Alpha Track", "ALPHA track"))
+    def test_post_shows_error_for_a_name_taken_in_this_event(
+        self, panel_client, active_user, event, posted_name
+    ):
+        Track.objects.create(event=event, name="Alpha Track", slug="alpha-track")
+
+        response = panel_client.post(self.get_url(event), data={"name": posted_name})
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/track-create.html",
+            context_data={
+                **panel_context(event, active_nav="tracks"),
+                "form": ANY,
+                "spaces": [],
+                "managers": [UserDTO.model_validate(active_user)],
+                "selected_space_pks": [],
+                "selected_manager_pks": [],
+            },
+        )
+        assert Track.objects.filter(event=event).count() == 1
 
     def test_post_shows_error_for_empty_name(self, panel_client, active_user, event):
         response = panel_client.post(self.get_url(event), data={"name": ""})

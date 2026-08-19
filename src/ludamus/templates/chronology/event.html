@@ -86,20 +86,20 @@
                                 {% icon "calendar-days" class="w-4 h-4 text-coral-600" variant="mini" %}
                             </div>
                             {% with start_day=event.start_time|date:"Y-m-d" end_day=event.end_time|date:"Y-m-d" %}
-                                <div>
+                                <div data-event-dates>
                                     {% if start_day == end_day %}
                                         <div class="font-medium leading-none text-foreground">
-                                            <time datetime="{{ event.start_time|date:'c' }}">{{ event.start_time|date:"l, F j" }}</time>
+                                            <time datetime="{{ event.start_time|date:'c' }}">{{ event.start_time|date:"l, j E" }}</time>
                                         </div>
                                         <div class="text-foreground-muted leading-none mt-0.5 tabular-nums">
                                             <time datetime="{{ event.start_time|date:'c' }}">{{ event.start_time|time:"G:i" }}</time>–<time datetime="{{ event.end_time|date:'c' }}">{{ event.end_time|time:"G:i" }}</time>
                                         </div>
                                     {% else %}
                                         <div class="font-medium leading-none text-foreground">
-                                            <time datetime="{{ event.start_time|date:'c' }}">{{ event.start_time|date:"l, F j" }} <span class="text-foreground-muted tabular-nums">· {{ event.start_time|time:"G:i" }}</span></time>
+                                            <time datetime="{{ event.start_time|date:'c' }}">{{ event.start_time|date:"l, j E" }} <span class="text-foreground-muted tabular-nums">· {{ event.start_time|time:"G:i" }}</span></time>
                                         </div>
                                         <div class="font-medium leading-none text-foreground mt-1">
-                                            <span aria-hidden="true">– </span><time datetime="{{ event.end_time|date:'c' }}">{{ event.end_time|date:"l, F j" }} <span class="text-foreground-muted tabular-nums">· {{ event.end_time|time:"G:i" }}</span></time>
+                                            <span aria-hidden="true">– </span><time datetime="{{ event.end_time|date:'c' }}">{{ event.end_time|date:"l, j E" }} <span class="text-foreground-muted tabular-nums">· {{ event.end_time|time:"G:i" }}</span></time>
                                         </div>
                                     {% endif %}
                                 </div>

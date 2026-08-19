@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING
 
 from ludamus.pacts.legacy import TrackCreateData, TrackUpdateData
 from ludamus.pacts.tracks import (
+    DuplicateTrackNameError,
     TrackEditContextDTO,
     TrackEditFormContextDTO,
     TrackFormContextDTO,
@@ -94,18 +95,43 @@ class TracksPanelService(TracksPanelServiceProtocol):
             manager_pks=sorted(requested_manager_pks),
         )
 
+    def _create_scoped(self, *, event_pk: int, scoped: TrackFormData) -> TrackDTO:
+        return self._tracks.create(
+            TrackCreateData(
+                event_pk=event_pk,
+                name=scoped["name"],
+                is_public=scoped["is_public"],
+                space_pks=scoped["space_pks"],
+                manager_pks=scoped["manager_pks"],
+            )
+        )
+
     def create(self, *, event_pk: int, sphere_id: int, data: TrackFormData) -> TrackDTO:
         with self._transaction.atomic():
             scoped = self._scoped(event_pk=event_pk, sphere_id=sphere_id, data=data)
-            return self._tracks.create(
-                TrackCreateData(
-                    event_pk=event_pk,
-                    name=scoped["name"],
-                    is_public=scoped["is_public"],
-                    space_pks=scoped["space_pks"],
-                    manager_pks=scoped["manager_pks"],
-                )
-            )
+            return self._create_scoped(event_pk=event_pk, scoped=scoped)
+
+    def find_or_create(
+        self, *, event_pk: int, sphere_id: int, data: TrackFormData
+    ) -> TrackDTO:
+        # The name is the track's identity, so a repeated import converges on
+        # the row that already carries it instead of adding a second one. The
+        # existing track keeps its spaces; the caller checks they cover what
+        # it needs. Scoping first means a foreign space_id is refused whether
+        # or not the name turns out to be taken.
+        with self._transaction.atomic():
+            scoped = self._scoped(event_pk=event_pk, sphere_id=sphere_id, data=data)
+            if existing := self._tracks.find_by_event_and_name(event_pk, data["name"]):
+                return existing
+            try:
+                return self._create_scoped(event_pk=event_pk, scoped=scoped)
+            except DuplicateTrackNameError:
+                # Lost a race with a concurrent create; the winner's row is
+                # the one both callers asked for.
+                found = self._tracks.find_by_event_and_name(event_pk, data["name"])
+                if found is None:
+                    raise
+                return found
 
     def update(
         self, *, event_pk: int, sphere_id: int, track_slug: str, data: TrackFormData
