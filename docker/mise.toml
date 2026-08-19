@@ -57,6 +57,7 @@ gunicorn \
     --timeout 60 \
     --graceful-timeout 30 \
     --access-logfile - \
+    --access-logformat '%(h)s %(t)s "%(r)s" %(s)s %(b)s %(L)ss "%(a)s"' \
     --error-logfile - \
     --chdir /app/src ludamus.edges.wsgi:application
 """
