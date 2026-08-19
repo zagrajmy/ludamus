@@ -1,6 +1,6 @@
 # POLITYKA PRYWATNOŚCI
 
-**Data ostatniej aktualizacji: 18.08.2026**
+**Data ostatniej aktualizacji: 19.08.2026**
 
 ## 1. ADMINISTRATOR DANYCH
 
@@ -62,6 +62,12 @@ Przetwarzamy Państwa dane osobowe w następujących celach:
 - **Dane:** zdarzenia dotyczące korzystania z serwisu, nagrania sesji z zamaskowaną zawartością wszystkich pól formularzy, zgłoszenia błędów występujących w przeglądarce, dane techniczne przeglądarki
 - **Opis:** sprawdzanie, w jaki sposób serwis jest używany, i szybsze usuwanie błędów. Narzędzie analityczne uruchamia się dopiero po wyrażeniu zgody — przed jej wyrażeniem nie wysyłamy żadnych danych. Zgodę można w każdej chwili wycofać, co zatrzymuje zbieranie danych i nagrywanie sesji
 
+### 3.5 Zgłaszanie błędów serwera
+
+- **Podstawa prawna:** prawnie uzasadniony interes (art. 6 ust. 1 lit. f RODO)
+- **Dane:** treść błędu wraz ze śladem stosu, adres podstrony, na której wystąpił, oraz identyfikator konta zalogowanego użytkownika
+- **Opis:** wykrywanie i naprawianie awarii serwisu; interes polega na utrzymaniu działającej usługi. Zgłoszenie wysyłamy niezależnie od zgody na analitykę, ponieważ bez niego nie dowiedzielibyśmy się, że coś przestało działać. Identyfikator konta pozwala ustalić, kogo awaria dotknęła; nie łączymy go w profil użytkownika ani nie uzupełniamy o lokalizację
+
 ## 4. ODBIORCY DANYCH
 
 Państwa dane osobowe mogą być przekazywane następującym odbiorcom:
@@ -73,7 +79,7 @@ Państwa dane osobowe mogą być przekazywane następującym odbiorcom:
 
 ### 4.2 Dostawcy analityki:
 
-- **PostHog** - narzędzie analityczne, dane trafiają na serwery w Unii Europejskiej (`eu.i.posthog.com`). Przekazujemy wyłącznie dane tych użytkowników, którzy wyrazili zgodę zgodnie z punktem 3.4
+- **PostHog** - narzędzie analityczne, dane trafiają na serwery w Unii Europejskiej (`eu.i.posthog.com`). Dane analityczne z punktu 3.4 przekazujemy wyłącznie za zgodą użytkownika; zgłoszenia błędów serwera z punktu 3.5 wysyłamy niezależnie od zgody
 
 ### 4.3 Ewentualni przyszli odbiorcy:
 
@@ -95,7 +101,7 @@ Dane osobowe przechowujemy:
 - **Dane konta:** do momentu usunięcia konta przez użytkownika lub na jego żądanie
 - **Historia aktywności:** do momentu usunięcia konta
 - **Logi techniczne:** maksymalnie 12 miesięcy
-- **Dane analityczne:** zgodnie z polityką narzędzia analitycznego wskazanego w punkcie 4.2
+- **Dane analityczne i zgłoszenia błędów:** zgodnie z polityką narzędzia analitycznego wskazanego w punkcie 4.2
 
 ## 7. PRAWA UŻYTKOWNIKÓW
 

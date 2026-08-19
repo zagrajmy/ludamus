@@ -31,14 +31,13 @@ Użyte w Regulaminie pojęcia oznaczają:
 2. Rejestracja odbywa się poprzez system Auth0 z możliwością logowania przez Google, Facebook lub bezpośrednie założenie konta.
 3. Podczas rejestracji Użytkownik podaje:
    - pseudonim (nie musi być prawdziwym imieniem i nazwiskiem)
-   - datę urodzenia
    - adres email
 4. Użytkownik może używać tylko jednego Konta w Serwisie.
 
 ### 2.2 Ograniczenia wiekowe
 
 1. Serwis jest przeznaczony dla osób, które ukończyły 16 lat.
-2. Jeśli Użytkownik poda wiek poniżej 16 lat, jego Konto zostanie automatycznie zablokowane.
+2. Zakładając Konto, Użytkownik oświadcza, że ukończył 16 lat. Administrator usuwa Konto zgłoszone jako należące do osoby, która tego wymogu nie spełnia.
 3. Użytkownicy pełnoletni mogą dodawać dzieci do swojego Konta w celu zapisywania ich na wydarzenia.
 4. Za zapisy dzieci pełną odpowiedzialność ponosi dorosły Użytkownik.
 
@@ -167,7 +166,7 @@ Użytkownik nie może:
 1. W sprawach nieuregulowanych w Regulaminie stosuje się przepisy prawa polskiego.
 2. Wszelkie spory będą rozstrzygane przez sądy polskie właściwe dla siedziby Administratora.
 3. W przypadku uznania któregokolwiek postanowienia Regulaminu za nieważne, pozostałe postanowienia pozostają w mocy.
-4. Regulamin wchodzi w życie z dniem 18.08.2026.
+4. Regulamin wchodzi w życie z dniem 19.08.2026.
 
 ## § 11. KONTAKT
 
