@@ -110,9 +110,11 @@
                 <!-- Quick stats -->
                 <div class="flex lg:flex-col gap-3">
                     <div class="flex-1 lg:flex-none bg-gradient-to-br from-teal-50 to-teal-100 dark:from-teal-900/30 dark:to-teal-800/30 rounded-2xl p-4 text-center min-w-[120px]">
-                        <div class="text-3xl font-bold text-teal-700 dark:text-teal-400">{{ sessions|length }}</div>
+                        {# The whole schedule, not the current view: this card #}
+                        {# sits outside the region the view tabs swap. #}
+                        <div class="text-3xl font-bold text-teal-700 dark:text-teal-400">{{ scheduled_count }}</div>
                         <div class="text-sm text-teal-600 dark:text-teal-500">
-                            {% blocktranslate count counter=sessions|length %}Session{% plural %}Sessions{% endblocktranslate %}
+                            {% blocktranslate count counter=scheduled_count %}Session{% plural %}Sessions{% endblocktranslate %}
                         </div>
                     </div>
                     <div class="flex-1 lg:flex-none bg-gradient-to-br from-coral-50 to-coral-100 dark:from-coral-900/30 dark:to-coral-800/30 rounded-2xl p-4 text-center min-w-[120px]">
@@ -268,11 +270,24 @@
     {% translate "Event news" as t_announcements_heading %}
     {% include "components/announcements.html" with announcements=announcements heading=t_announcements_heading only %}
     <!-- Sessions by Time Slot -->
-    <div>
+    {# The whole section is one htmx swap target: the view tabs below carry #}
+    {# hx-boost, so switching between List, Rooms and Enrollment replaces the #}
+    {# count, the filter toolbar and the schedule in one go, leaving no #}
+    {# control describing a session set that is no longer on screen. #}
+    <div id="schedule-region">
         <!-- Section Header -->
         <div class="flex items-center justify-between mb-6">
             <div class="flex items-center gap-3">
-                <h2 class="text-xl font-bold text-foreground">{% translate "Sessions" %}</h2>
+                {# The badge counts what this view renders, while the stat card #}
+                {# above counts the whole schedule — so the enrollment view #}
+                {# names its narrower set instead of repeating "Sessions". #}
+                <h2 class="text-xl font-bold text-foreground">
+                    {% if schedule_view_is_enrollment %}
+                        {% translate "Sessions with enrollment" %}
+                    {% else %}
+                        {% translate "Sessions" %}
+                    {% endif %}
+                </h2>
                 <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-base translate-y-[.5px] font-semibold bg-coral-100 dark:bg-coral-900/30 text-coral-700 dark:text-coral-400">
                     {{ sessions|length }}
                 </span>
@@ -419,8 +434,20 @@
                             </div>
                         </div>
                     </div>
-                    {% if compact_schedule %}
-                        <div class="self-center">{% include "chronology/_schedule_view_tabs.html" %}</div>
+                    {% if compact_schedule or has_enrollable_sessions %}
+                        {# hx-boost rather than hx-get on each tab: {% tab %} renders a #}
+                        {# plain <a> and passes no attribute through, and the boost stays #}
+                        {# scoped to these links. hx-select cuts the region out of the #}
+                        {# full page response, so a shared ?view= link and a tab click #}
+                        {# render from the same branch. History caching is off because a #}
+                        {# restored snapshot would carry DOM the schedule scripts have #}
+                        {# already bound; a back button then re-requests the page instead. #}
+                        <div class="self-center"
+                             hx-boost="true"
+                             hx-target="#schedule-region"
+                             hx-select="#schedule-region"
+                             hx-swap="outerHTML show:top"
+                             hx-history="false">{% include "chronology/_schedule_view_tabs.html" %}</div>
                     {% endif %}
                 </div>
                 <div id="active-filter-chips"
@@ -448,6 +475,15 @@
             {% else %}
                 {% include "chronology/_card_schedule.html" with session_link_base="" %}
             {% endif %}
+        {% elif schedule_view_is_enrollment %}
+            {# Reachable by a shared link after the last limit is cleared: the #}
+            {# tab is hidden once nothing takes enrollment. #}
+            <div class="text-center py-12 px-4 text-foreground-muted">
+                {% icon "user-plus" class="w-8 h-8 mx-auto mb-2" %}
+                <p class="font-medium">{% translate "No session at this event takes enrollment" %}</p>
+                <a href="{{ schedule_list_url }}"
+                   class="text-sm mt-2 inline-block font-semibold text-primary">{% translate "Show the full schedule" %}</a>
+            </div>
         {% endif %}
     </div>
     <!-- The viewer's own proposals, awaiting review -->
@@ -535,9 +571,9 @@
     {% vite_asset 'src/session-filters.ts' %}
     {% vite_asset 'src/session-bookmarks.ts' %}
     {% vite_asset 'src/event-timeline.ts' %}
-    {% if schedule_view_is_rooms %}
-        {% vite_asset 'src/room-lanes.ts' %}
-    {% endif %}
+    {# Unconditional: the view tabs swap the rooms grid in without a page #}
+    {# load, and a module the response never carries cannot wire it. #}
+    {% vite_asset 'src/room-lanes.ts' %}
     {% vite_asset 'src/event-print.ts' %}
 {% endblock extra_scripts %}
 {% block extra_head %}
