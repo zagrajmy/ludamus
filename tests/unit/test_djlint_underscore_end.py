@@ -14,12 +14,12 @@ RULES_FILE = REPO_ROOT / ".djlint_rules.yaml"
 CONFIG_FILE = REPO_ROOT / "pyproject.toml"
 SCRIPTS_DIR = REPO_ROOT / "scripts"
 
-# Upstream djlint 1.44.1's rules/T038.py. scripts/djlint_underscore_end.py is a
+# Upstream djlint 1.44.2's rules/T038.py. scripts/djlint_underscore_end.py is a
 # copy of it with one regex changed; when this no longer matches, re-diff the
 # two files, port anything new, and update the hash. Deleting the copy outright
 # is better still — see the tracking issue in its module docstring.
 UPSTREAM_T038_SHA256 = (
-    "9042d2cab875b75a6d6c802cb7c270c68c056ddccb1165bc23bd4f4f29ee03ac"
+    "55c8550263c08c58e88838761a40997d487c325a2d86b15ee55111c1fdccf2a3"
 )
 
 
