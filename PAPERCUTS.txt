@@ -213,6 +213,10 @@ If you fix a papercut, remove it.
 - 2026-08-12: Ran 'mise run test:py tests/unit/test_chronology_mills.py'
   expecting a targeted run; the task ignores trailing path args and ran all 3990
   tests (4 min). 'mise run test:unit -- -k Name' works instead.
+- 2026-08-15: test_ok_compact_schedule_renders_all_row_variants builds fixtures
+  from timezone.now() and fails near local midnight — CI went red on a tracks-
+  only PR, and the same test fails on main at that hour. Pin the clock instead
+  of chasing the branch.
 - 2026-08-14: agent-browser screenshot failed when screenshots/ did not already
   exist; the direct CLI does not create parent directories, unlike mise run
   shots.
@@ -237,11 +241,21 @@ If you fix a papercut, remove it.
   sandbox network allowlist, so every install dies with
   ERR_AUBE_ADVISORY_CHECK_FAILED after wiping node_modules. Had to hand the
   install back to the user.
+- 2026-08-16: mise run shots breaks on URLs with a query string: mise quotes the
+  arg, so the task builds http://localhost:8000'/path/?view=rooms' and curl
+  reports it unreachable. Had to call aubx agent-browser directly (which then
+  failed on Chrome's sandbox).
 - 2026-08-16: mise run test:py failed with 'sh: 1: pytest: not found' after mise
   pruned python 3.14.6: .venv/bin/python was a dangling symlink into the removed
   install, so mise silently skipped venv activation for tasks (mise x still
   resolved it). Repointed .venv/bin/python + pyvenv.cfg at 3.14 by hand. mise
   run should say the venv is unusable instead of running the task without it.
+- 2026-08-16: e2e: prep's 'aube install' rewrites node_modules while 'npx
+  playwright test' (already launched by run_e2e.sh) has resolved its own runner
+  copy. When the install actually relinks the store, every spec dies with
+  'Playwright Test did not expect test.describe() to be called here' plus a
+  bogus global-teardown coverage error. Whole suite red, zero code cause, passes
+  on the next run.
 - 2026-08-18: Committing in a CLI worktree fails: hk pre-commit runs
   oxlint/oxfmt via 'aube exec --no-install' but node_modules is absent in the
   worktree, so both abort with 'binary not found' and every other hook is
