@@ -14,7 +14,7 @@ from tests.integration.conftest import (
     SpaceFactory,
     TimeSlotFactory,
 )
-from tests.integration.utils import assert_login_required, assert_response
+from tests.integration.utils import PageMatcher, assert_login_required, assert_response
 from tests.integration.web.panel.helpers import (
     assert_event_not_found,
     assert_not_a_manager,
@@ -23,6 +23,7 @@ from tests.integration.web.panel.helpers import (
 )
 
 _WHEN = datetime(2026, 6, 1, 18, 0, tzinfo=UTC)
+_PAGE_SIZES = [10, 20, 50, 100]
 
 
 def _log(event, session, user, action, **kwargs):
@@ -75,6 +76,8 @@ class TestErrataPageView:
                 **panel_context(event, active_nav="errata"),
                 "errata": [],
                 "pending_count": 0,
+                "page_obj": PageMatcher(number=1, num_pages=1),
+                "page_sizes": _PAGE_SIZES,
             },
         )
 
@@ -101,6 +104,8 @@ class TestErrataPageView:
                 **panel_context(unpublished, active_nav="errata", rooms_count=1),
                 "errata": [],
                 "pending_count": 0,
+                "page_obj": PageMatcher(number=1, num_pages=1),
+                "page_sizes": _PAGE_SIZES,
             },
         )
 
@@ -140,6 +145,8 @@ class TestErrataPageView:
                     )
                 ],
                 "pending_count": 1,
+                "page_obj": PageMatcher(number=1, num_pages=1),
+                "page_sizes": _PAGE_SIZES,
             },
         )
 
@@ -181,6 +188,8 @@ class TestErrataPageView:
                     )
                 ],
                 "pending_count": 0,
+                "page_obj": PageMatcher(number=1, num_pages=1),
+                "page_sizes": _PAGE_SIZES,
             },
         )
 
@@ -230,6 +239,8 @@ class TestErrataPageView:
                     )
                 ],
                 "pending_count": 1,
+                "page_obj": PageMatcher(number=1, num_pages=1),
+                "page_sizes": _PAGE_SIZES,
             },
         )
 
@@ -302,6 +313,53 @@ class TestErrataPageView:
                     ),
                 ],
                 "pending_count": 2,
+                "page_obj": PageMatcher(number=1, num_pages=1),
+                "page_sizes": _PAGE_SIZES,
+            },
+        )
+
+    def test_a_long_backlog_is_paginated(
+        self, panel_client, event, active_user, session, room
+    ):
+        added = [
+            _log(
+                event,
+                session,
+                active_user,
+                ScheduleChangeAction.ASSIGN,
+                new_space=room,
+                new_start_time=_WHEN,
+            )
+            for _ in range(11)
+        ]
+
+        response = panel_client.get(self._url(event), {"page_size": "10", "page": "2"})
+
+        # Newest first, so the oldest row is the one left for the second page.
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/errata.html",
+            context_data={
+                **panel_context(event, active_nav="errata", rooms_count=1),
+                "errata": [
+                    ErratumDTO(
+                        log_pks=[added[0].pk],
+                        kind=ErratumKind.ADDED,
+                        session_id=session.pk,
+                        session_title=session.title,
+                        user_name=active_user.name,
+                        creation_time=added[0].creation_time,
+                        old_space_name=None,
+                        old_start_time=None,
+                        new_space_name="Room A",
+                        new_start_time=_WHEN,
+                        acknowledged_by_name=None,
+                    )
+                ],
+                "pending_count": 11,
+                "page_obj": PageMatcher(number=2, num_pages=2),
+                "page_sizes": _PAGE_SIZES,
             },
         )
 
@@ -497,6 +555,92 @@ class TestErratumAcknowledgeActionView:
 
         pending.refresh_from_db()
         assert pending.acknowledgement_time is not None
+
+    def test_several_changes_are_announced_in_one_request(
+        self, panel_client, event, room, active_user, pending
+    ):
+        other = _log(
+            event,
+            SessionFactory(event=event),
+            active_user,
+            ScheduleChangeAction.UNASSIGN,
+            old_space=room,
+            old_start_time=_WHEN,
+        )
+
+        panel_client.post(
+            self._url(event),
+            data={"log_pk": [pending.pk, other.pk], "acknowledged": "1"},
+        )
+
+        assert not ScheduleChangeLog.objects.filter(
+            acknowledgement_time__isnull=True
+        ).exists()
+
+    def test_a_checkbox_carries_both_rows_of_a_move_in_one_value(
+        self, panel_client, event, session, room, active_user
+    ):
+        out = _log(
+            event,
+            session,
+            active_user,
+            ScheduleChangeAction.UNASSIGN,
+            old_space=room,
+            old_start_time=_WHEN,
+        )
+        into = _log(
+            event,
+            session,
+            active_user,
+            ScheduleChangeAction.ASSIGN,
+            new_space=SpaceFactory(event=event, name="Room B"),
+            new_start_time=_WHEN,
+            moved_from=out,
+        )
+
+        panel_client.post(
+            self._url(event),
+            data={"log_pk": [f"{out.pk},{into.pk}"], "acknowledged": "1"},
+        )
+
+        assert not ScheduleChangeLog.objects.filter(
+            acknowledgement_time__isnull=True
+        ).exists()
+
+    def test_a_batch_naming_a_row_of_another_event_changes_nothing(
+        self, panel_client, event, sphere, active_user, pending
+    ):
+        other = EventFactory(sphere=sphere)
+        foreign = _log(
+            other,
+            SessionFactory(event=other),
+            active_user,
+            ScheduleChangeAction.ASSIGN,
+            new_space=SpaceFactory(event=other),
+            new_start_time=_WHEN,
+        )
+
+        response = panel_client.post(
+            self._url(event),
+            data={"log_pk": [pending.pk, foreign.pk], "acknowledged": "1"},
+        )
+
+        assert_response(response, HTTPStatus.UNPROCESSABLE_ENTITY)
+        assert not ScheduleChangeLog.objects.filter(
+            acknowledgement_time__isnull=False
+        ).exists()
+
+    def test_the_organizer_returns_to_the_page_they_came_from(
+        self, panel_client, event, pending
+    ):
+        back = f"{reverse('panel:errata', kwargs={'slug': event.slug})}?page=2"
+
+        response = panel_client.post(
+            self._url(event),
+            data={"log_pk": [pending.pk], "acknowledged": "1", "next": back},
+        )
+
+        assert_response(response, HTTPStatus.FOUND, url=back)
 
     def test_a_stranger_may_not(self, authenticated_client, event, pending):
         response = authenticated_client.post(

@@ -86,15 +86,20 @@ class ErrataService:
     def set_acknowledged(
         self, *, event_pk: int, log_pks: list[int], user_id: int, acknowledged: bool
     ) -> None:
-        """Tick off one erratum, or refuse."""
+        """Tick off one erratum or a batch of them, or refuse."""
         # Only whole errata the page lists may be ticked off: a row from
         # before publication is not an erratum at all, and half a move
-        # announces a cancellation that never happened.
+        # announces a cancellation that never happened. A batch is several of
+        # those at once, so the request has to be a union of whole errata.
         wanted = set(log_pks)
-        if not any(
-            wanted == set(erratum.log_pks) for erratum in self.list_for_event(event_pk)
-        ):
-            msg = f"No erratum of event {event_pk} is exactly {sorted(wanted)}"
+        covered = {
+            pk
+            for erratum in self.list_for_event(event_pk)
+            if set(erratum.log_pks) <= wanted
+            for pk in erratum.log_pks
+        }
+        if not wanted or covered != wanted:
+            msg = f"Not every row of {sorted(wanted)} is an erratum of event {event_pk}"
             raise NotFoundError(msg)
         self._schedule_change_logs.set_acknowledged(
             event_pk=event_pk,

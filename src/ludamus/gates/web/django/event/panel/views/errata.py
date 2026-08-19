@@ -6,13 +6,16 @@ from typing import ClassVar
 from django.http import HttpResponse
 from django.shortcuts import redirect
 from django.template.response import TemplateResponse
+from django.urls import reverse
 from django.views.generic.base import View
 
+from ludamus.gates.web.django.chronology.panel.views.base import pagination_context
 from ludamus.gates.web.django.event.panel.views.base import (
     EventContextMixin,
     EventPanelAccessMixin,
     EventPanelRequest,
 )
+from ludamus.gates.web.django.panel import safe_next_url
 from ludamus.pacts import NotFoundError
 from ludamus.pacts.multiverse import Capability
 
@@ -25,11 +28,14 @@ class ErrataPageView(EventPanelAccessMixin, EventContextMixin, View):
         if current_event is None:
             return redirect("panel:index")
         errata = self.request.services.errata.list_for_event(current_event.pk)
+        pagination = pagination_context(self.request, errata)
         context["active_nav"] = "errata"
-        context["errata"] = errata
+        context["errata"] = list(pagination["page_obj"].object_list)
+        # The subtitle counts the whole backlog, not the page in front of you.
         context["pending_count"] = sum(
             erratum.acknowledged_by_name is None for erratum in errata
         )
+        context.update(pagination)
         return TemplateResponse(self.request, "panel/errata.html", context)
 
 
@@ -45,14 +51,18 @@ class ErratumAcknowledgeActionView(EventPanelAccessMixin, EventContextMixin, Vie
         if not (raw_pks := request.POST.getlist("log_pk")):
             return HttpResponse(status=HTTPStatus.UNPROCESSABLE_ENTITY)
         try:
-            # int() is the validation: str.isdigit() would let through
-            # superscripts and other non-ASCII digits it then refuses.
+            # A checkbox ticks off a whole erratum, so one field may carry the
+            # two rows of a move. int() is the validation: str.isdigit() would
+            # let through superscripts and other non-ASCII digits it then
+            # refuses.
             request.services.errata.set_acknowledged(
                 event_pk=current_event.pk,
-                log_pks=[int(pk) for pk in raw_pks],
+                log_pks=[int(pk) for raw in raw_pks for pk in raw.split(",")],
                 user_id=request.context.current_user_id,
                 acknowledged=request.POST.get("acknowledged") == "1",
             )
         except ValueError, NotFoundError:
             return HttpResponse(status=HTTPStatus.UNPROCESSABLE_ENTITY)
-        return redirect("panel:errata", slug=slug)
+        return redirect(
+            safe_next_url(request, reverse("panel:errata", kwargs={"slug": slug}))
+        )

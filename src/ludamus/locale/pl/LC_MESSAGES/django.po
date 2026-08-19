@@ -1069,6 +1069,7 @@ msgstr "Kategoria"
 #: src/ludamus/templates/chronology/event.html
 #: src/ludamus/templates/multiverse/panel/announcements/list.html
 #: src/ludamus/templates/panel/enrollment-settings.html
+#: src/ludamus/templates/panel/errata.html
 #: src/ludamus/templates/panel/import.html
 #: src/ludamus/templates/panel/proposals.html
 msgid "Status"
@@ -5786,6 +5787,7 @@ msgstr "Przykładowe gildie"
 #: src/ludamus/templates/panel/bans.html src/ludamus/templates/panel/cfp.html
 #: src/ludamus/templates/panel/discounts/list.html
 #: src/ludamus/templates/panel/enrollment-settings.html
+#: src/ludamus/templates/panel/errata.html
 #: src/ludamus/templates/panel/facilitator-bin.html
 #: src/ludamus/templates/panel/facilitators.html
 #: src/ludamus/templates/panel/import.html
@@ -7169,6 +7171,40 @@ msgstr[2] "%(counter)s zmian do ogłoszenia"
 msgstr[3] "%(counter)s zmian do ogłoszenia"
 
 #: src/ludamus/templates/panel/errata.html
+#: src/ludamus/templates/panel/facilitator-bin.html
+#: src/ludamus/templates/panel/facilitators.html
+#: src/ludamus/templates/panel/proposals.html
+msgid "Selected:"
+msgstr "Zaznaczono:"
+
+#: src/ludamus/templates/panel/errata.html
+msgid "Mark as announced"
+msgstr "Oznacz jako ogłoszone"
+
+#: src/ludamus/templates/panel/errata.html
+msgid "Mark as not announced"
+msgstr "Oznacz jako nieogłoszone"
+
+#: src/ludamus/templates/panel/errata.html
+msgid "Select all changes"
+msgstr "Zaznacz wszystkie zmiany"
+
+#: src/ludamus/templates/panel/errata.html
+#: src/ludamus/templates/panel/timetable-log.html
+msgid "Change"
+msgstr "Zmiana"
+
+#: src/ludamus/templates/panel/errata.html
+msgid "Changed by"
+msgstr "Autor zmiany"
+
+#: src/ludamus/templates/panel/errata.html
+#: src/ludamus/templates/panel/proposals.html
+#, python-format
+msgid "Select %(title)s"
+msgstr "Zaznacz %(title)s"
+
+#: src/ludamus/templates/panel/errata.html
 #, python-format
 msgid "<strong>%(title)s</strong> was added to the agenda: %(space)s, %(when)s"
 msgstr "<strong>%(title)s</strong> — dodano do programu: %(space)s, %(when)s"
@@ -7191,22 +7227,31 @@ msgstr ""
 "<strong>%(title)s</strong> — usunięto z programu: było %(space)s, %(when)s"
 
 #: src/ludamus/templates/panel/errata.html
-#, python-format
-msgid "Changed by %(who)s on %(when)s"
-msgstr "Zmiana: %(who)s, %(when)s"
+msgid "Announced"
+msgstr "Ogłoszone"
 
 #: src/ludamus/templates/panel/errata.html
 #, python-format
-msgid "announced by %(who)s"
-msgstr "ogłoszone przez: %(who)s"
+msgid "by %(who)s"
+msgstr "przez: %(who)s"
+
+#: src/ludamus/templates/panel/errata.html
+msgid "To announce"
+msgstr "Do ogłoszenia"
+
+#: src/ludamus/templates/panel/errata.html
+#, python-format
+msgid "Undo the announcement of %(title)s"
+msgstr "Cofnij ogłoszenie: %(title)s"
 
 #: src/ludamus/templates/panel/errata.html
 msgid "Undo"
 msgstr "Cofnij"
 
 #: src/ludamus/templates/panel/errata.html
-msgid "Announced"
-msgstr "Ogłoszone"
+#, python-format
+msgid "Mark %(title)s as announced"
+msgstr "Oznacz jako ogłoszone: %(title)s"
 
 #: src/ludamus/templates/panel/errata.html
 msgid "The agenda has not changed since it went public"
@@ -7235,12 +7280,6 @@ msgid ""
 msgstr ""
 "Usunięci twórcy programu nie pojawiają się w programie. Przywróć twórcę, aby "
 "znów podpisywał swoje punkty programu."
-
-#: src/ludamus/templates/panel/facilitator-bin.html
-#: src/ludamus/templates/panel/facilitators.html
-#: src/ludamus/templates/panel/proposals.html
-msgid "Selected:"
-msgstr "Zaznaczono:"
 
 #: src/ludamus/templates/panel/facilitator-bin.html
 #: src/ludamus/templates/panel/facilitator-detail.html
@@ -8811,11 +8850,6 @@ msgid "Select all proposals"
 msgstr "Zaznacz wszystkie zgłoszenia"
 
 #: src/ludamus/templates/panel/proposals.html
-#, python-format
-msgid "Select %(title)s"
-msgstr "Zaznacz %(title)s"
-
-#: src/ludamus/templates/panel/proposals.html
 msgid "No proposals match the current filters."
 msgstr "Żadne zgłoszenia nie pasują do bieżących filtrów."
 
@@ -9138,10 +9172,6 @@ msgstr "Nie ma jeszcze bloków — utwórz blok, aby podzielić program."
 msgid "Schedule Activity Log"
 msgstr "Dziennik zmian harmonogramu"
 
-#: src/ludamus/templates/panel/timetable-log.html
-msgid "Change"
-msgstr "Zmiana"
-
 #: src/ludamus/templates/panel/timetable-overview.html
 msgid "Hours to fill"
 msgstr "Godziny do zapełnienia"
@@ -9370,6 +9400,10 @@ msgid "No emails captured yet."
 msgstr "Brak przechwyconych e-maili."
 
 #, python-format
+#~ msgid "Changed by %(who)s on %(when)s"
+#~ msgstr "Zmiana: %(who)s, %(when)s"
+
+#, python-format
 #~ msgid ""
 #~ "With your consent we use PostHog analytics — including session replays "
 #~ "with all inputs masked — to see how the site is used and to fix errors "
@@ -9566,9 +9600,6 @@ msgstr "Brak przechwyconych e-maili."
 
 #~ msgid "Search by facilitator or field values"
 #~ msgstr "Szukaj po prowadzącym lub wartościach pól"
-
-#~ msgid "Select all"
-#~ msgstr "Zaznacz wszystkie"
 
 #~ msgid "Keep"
 #~ msgstr "Zachowaj"

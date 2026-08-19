@@ -291,3 +291,41 @@ class TestSetAcknowledged:
         logs.set_acknowledged.assert_called_once_with(
             event_pk=_EVENT_PK, log_pks=[1, 2], user_id=5, acknowledged=True
         )
+
+    def test_several_errata_are_accepted_in_one_batch(self, service, logs):
+        logs.list_since.return_value = [
+            _log(1, ScheduleChangeAction.ASSIGN, new_space="Room A"),
+            _log(2, ScheduleChangeAction.UNASSIGN, session_id=2, old_space="Room B"),
+        ]
+
+        service.set_acknowledged(
+            event_pk=_EVENT_PK, log_pks=[1, 2], user_id=5, acknowledged=True
+        )
+
+        logs.set_acknowledged.assert_called_once_with(
+            event_pk=_EVENT_PK, log_pks=[1, 2], user_id=5, acknowledged=True
+        )
+
+    def test_a_batch_carrying_an_unlisted_row_is_refused_whole(self, service, logs):
+        logs.list_since.return_value = [
+            _log(1, ScheduleChangeAction.ASSIGN, new_space="Room A")
+        ]
+
+        with pytest.raises(NotFoundError):
+            service.set_acknowledged(
+                event_pk=_EVENT_PK, log_pks=[1, 99], user_id=5, acknowledged=True
+            )
+
+        logs.set_acknowledged.assert_not_called()
+
+    def test_an_empty_batch_is_refused(self, service, logs):
+        logs.list_since.return_value = [
+            _log(1, ScheduleChangeAction.ASSIGN, new_space="Room A")
+        ]
+
+        with pytest.raises(NotFoundError):
+            service.set_acknowledged(
+                event_pk=_EVENT_PK, log_pks=[], user_id=5, acknowledged=True
+            )
+
+        logs.set_acknowledged.assert_not_called()

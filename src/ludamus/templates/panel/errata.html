@@ -1,6 +1,7 @@
 {% extends "panel/base.html" %}
 {% load i18n %}
 {% load tessera %}
+{% load django_vite %}
 {% block title %}
     {% translate "Errata" %}
 {% endblock title %}
@@ -22,44 +23,109 @@
     <div class="p-4 flex flex-col gap-6">
         {% if current_event %}
             {% if errata %}
-                <ul class="rounded-lg bg-bg-secondary divide-y divide-border">
-                    {% for erratum in errata %}
-                        <li class="flex flex-col sm:flex-row sm:items-center gap-3 p-4 {% if erratum.acknowledged_by_name %}opacity-60{% endif %}">
-                            <div class="grow">
-                                <p class="text-sm text-foreground">
-                                    {% if erratum.kind == "added" %}
-                                        {% blocktranslate with title=erratum.session_title space=erratum.new_space_name when=erratum.new_start_time|date:"SHORT_DATETIME_FORMAT" %}<strong>{{ title }}</strong> was added to the agenda: {{ space }}, {{ when }}{% endblocktranslate %}
-                                    {% elif erratum.kind == "moved" %}
-                                        {% blocktranslate with title=erratum.session_title old_space=erratum.old_space_name old_when=erratum.old_start_time|date:"SHORT_DATETIME_FORMAT" space=erratum.new_space_name when=erratum.new_start_time|date:"SHORT_DATETIME_FORMAT" %}<strong>{{ title }}</strong> was moved from {{ old_space }}, {{ old_when }} to {{ space }}, {{ when }}{% endblocktranslate %}
-                                    {% else %}
-                                        {% blocktranslate with title=erratum.session_title space=erratum.old_space_name when=erratum.old_start_time|date:"SHORT_DATETIME_FORMAT" %}<strong>{{ title }}</strong> was removed from the agenda: it was {{ space }}, {{ when }}{% endblocktranslate %}
-                                    {% endif %}
-                                </p>
-                                <p class="mt-1 text-xs text-foreground-muted">
-                                    {% blocktranslate with who=erratum.user_name when=erratum.creation_time|date:"SHORT_DATETIME_FORMAT" %}Changed by {{ who }} on {{ when }}{% endblocktranslate %}
-                                    {% if erratum.acknowledged_by_name %}
-                                        · {% blocktranslate with who=erratum.acknowledged_by_name %}announced by {{ who }}{% endblocktranslate %}
-                                    {% endif %}
-                                </p>
-                            </div>
-                            <form method="post"
-                                  action="{% url 'panel:erratum-acknowledge' slug=current_event.slug %}"
-                                  class="shrink-0">
-                                {% csrf_token %}
-                                {% for log_pk in erratum.log_pks %}<input type="hidden" name="log_pk" value="{{ log_pk }}">{% endfor %}
-                                {% if erratum.acknowledged_by_name %}
-                                    <input type="hidden" name="acknowledged" value="0">
-                                    {% translate "Undo" as t_undo %}
-                                    {% tessera_button t_undo variant="secondary" size="sm" full_width_mobile=False %}
-                                {% else %}
-                                    <input type="hidden" name="acknowledged" value="1">
-                                    {% translate "Announced" as t_announced %}
-                                    {% tessera_button t_announced variant="primary" size="sm" full_width_mobile=False %}
-                                {% endif %}
-                            </form>
-                        </li>
-                    {% endfor %}
-                </ul>
+                <div>
+                    {% vite_asset 'src/bulk-status.ts' %}
+                    <form method="post"
+                          id="bulk-status-form"
+                          action="{% url 'panel:erratum-acknowledge' slug=current_event.slug %}">
+                        {% csrf_token %}
+                        <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                        <div class="flex flex-wrap items-center gap-2 mb-3">
+                            <span class="text-sm text-foreground-muted mr-1">
+                                {% translate "Selected:" %} <span id="bulk-selected-count">0</span>
+                            </span>
+                            <button type="submit"
+                                    name="acknowledged"
+                                    value="1"
+                                    class="btn btn-primary text-sm bulk-action-btn">{% translate "Mark as announced" %}</button>
+                            <button type="submit"
+                                    name="acknowledged"
+                                    value="0"
+                                    class="btn btn-secondary text-sm bulk-action-btn">{% translate "Mark as not announced" %}</button>
+                        </div>
+                    </form>
+                    {% tessera_table %}
+                        <thead class="bg-bg-tertiary">
+                            <tr>
+                                <th scope="col" class="px-6 py-3 w-12">
+                                    {% translate "Select all changes" as t_select_all %}
+                                    {% include "components/checkbox-field.html" with id="bulk-select-all" aria_label=t_select_all only %}
+                                </th>
+                                <th scope="col"
+                                    class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
+                                    {% translate "Change" %}
+                                </th>
+                                <th scope="col"
+                                    class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
+                                    {% translate "Changed by" %}
+                                </th>
+                                <th scope="col"
+                                    class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
+                                    {% translate "Status" %}
+                                </th>
+                                <th scope="col"
+                                    class="px-6 py-3 text-right text-xs font-medium text-foreground-muted uppercase tracking-wider">
+                                    {% translate "Actions" %}
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-bg-secondary divide-y divide-border">
+                            {% for erratum in errata %}
+                                <tr class="hover:bg-bg-tertiary">
+                                    <td class="px-6 py-4">
+                                        {% blocktranslate asvar t_select_row with title=erratum.session_title %}Select {{ title }}{% endblocktranslate %}
+                                        {% include "components/checkbox-field.html" with name="log_pk" value=erratum.log_pks|join:"," form_id="bulk-status-form" aria_label=t_select_row hook_class="bulk-row-checkbox" only %}
+                                    </td>
+                                    <td class="px-6 py-4 text-sm text-foreground">
+                                        {% if erratum.kind == "added" %}
+                                            {% blocktranslate with title=erratum.session_title space=erratum.new_space_name when=erratum.new_start_time|date:"SHORT_DATETIME_FORMAT" %}<strong>{{ title }}</strong> was added to the agenda: {{ space }}, {{ when }}{% endblocktranslate %}
+                                        {% elif erratum.kind == "moved" %}
+                                            {% blocktranslate with title=erratum.session_title old_space=erratum.old_space_name old_when=erratum.old_start_time|date:"SHORT_DATETIME_FORMAT" space=erratum.new_space_name when=erratum.new_start_time|date:"SHORT_DATETIME_FORMAT" %}<strong>{{ title }}</strong> was moved from {{ old_space }}, {{ old_when }} to {{ space }}, {{ when }}{% endblocktranslate %}
+                                        {% else %}
+                                            {% blocktranslate with title=erratum.session_title space=erratum.old_space_name when=erratum.old_start_time|date:"SHORT_DATETIME_FORMAT" %}<strong>{{ title }}</strong> was removed from the agenda: it was {{ space }}, {{ when }}{% endblocktranslate %}
+                                        {% endif %}
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-foreground-muted">
+                                        {{ erratum.user_name }}
+                                        <span class="block text-xs">{{ erratum.creation_time|date:"SHORT_DATETIME_FORMAT" }}</span>
+                                    </td>
+                                    <td class="px-6 py-4 text-sm">
+                                        {% if erratum.acknowledged_by_name %}
+                                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-success-bg text-success-text">{% translate "Announced" %}</span>
+                                            <span class="block mt-1 text-xs text-foreground-muted">
+                                                {% blocktranslate with who=erratum.acknowledged_by_name %}by {{ who }}{% endblocktranslate %}
+                                            </span>
+                                        {% else %}
+                                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-warning-bg text-warning-text">{% translate "To announce" %}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                        <form method="post"
+                                              action="{% url 'panel:erratum-acknowledge' slug=current_event.slug %}">
+                                            {% csrf_token %}
+                                            <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                                            {% for log_pk in erratum.log_pks %}<input type="hidden" name="log_pk" value="{{ log_pk }}">{% endfor %}
+                                            {% if erratum.acknowledged_by_name %}
+                                                <input type="hidden" name="acknowledged" value="0">
+                                                {% blocktranslate asvar t_undo_row with title=erratum.session_title %}Undo the announcement of {{ title }}{% endblocktranslate %}
+                                                <button type="submit"
+                                                        aria-label="{{ t_undo_row }}"
+                                                        class="btn btn-secondary text-sm">{% translate "Undo" %}</button>
+                                            {% else %}
+                                                <input type="hidden" name="acknowledged" value="1">
+                                                {% blocktranslate asvar t_announce_row with title=erratum.session_title %}Mark {{ title }} as announced{% endblocktranslate %}
+                                                <button type="submit"
+                                                        aria-label="{{ t_announce_row }}"
+                                                        class="btn btn-primary text-sm">{% translate "Announced" %}</button>
+                                            {% endif %}
+                                        </form>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    {% endtessera_table %}
+                    {% include "panel/parts/_pagination.html" %}
+                </div>
             {% elif current_event.publication_time %}
                 <div class="text-center py-8">
                     {% icon "megaphone" class="w-10 h-10 mx-auto text-foreground-muted mb-2" %}
