@@ -484,10 +484,13 @@ class TimetableService(TimetableServiceProtocol):
                 and existing.end_time == placement.end_time
             ):
                 return
-            if is_move := existing is not None:
+            moved_from_pk = (
                 self.unassign_session(
                     session_pk=session_pk, event_pk=event_pk, user_pk=user_pk
                 )
+                if (is_move := existing is not None)
+                else None
+            )
             self._require_accepted(session_pk)
             event = self._repos.sessions.read_event(session_pk)
             self._repos.agenda_items.create(
@@ -507,12 +510,16 @@ class TimetableService(TimetableServiceProtocol):
                 "new_space_id": placement.space_pk,
                 "new_start_time": placement.start_time,
                 "new_end_time": placement.end_time,
+                # A move is recorded as one here and never guessed at later:
+                # the two rows are written together, so only this knows.
+                "moved_from_id": moved_from_pk,
             }
             self._repos.schedule_change_logs.create(log_data)
 
     def unassign_session(
         self, *, session_pk: int, event_pk: int, user_pk: int | None = None
-    ) -> None:
+    ) -> int:
+        """Take a session off the timetable; return the log row it wrote."""
         with self._transaction.atomic():
             require_session_in_event(
                 sessions=self._repos.sessions, session_pk=session_pk, event_pk=event_pk
@@ -533,7 +540,7 @@ class TimetableService(TimetableServiceProtocol):
                 "old_start_time": agenda_item.start_time,
                 "old_end_time": agenda_item.end_time,
             }
-            self._repos.schedule_change_logs.create(log_data)
+            return self._repos.schedule_change_logs.create(log_data)
 
     def revert_change(
         self, *, log_pk: int, event_pk: int, user_pk: int | None = None

@@ -12,10 +12,12 @@ from ludamus.links.db.django.models import (
     PartyMembership,
     ScheduleChangeAction,
     ScheduleChangeLog,
+    SphereMembership,
     TimeSlot,
     Track,
 )
 from ludamus.pacts.legacy import NotificationKind
+from ludamus.pacts.multiverse import SphereRole
 from tests.integration.conftest import EventFactory
 
 
@@ -118,6 +120,13 @@ class TestModelStringRepresentations:
         party = Party.objects.create(leader=active_user, name="Drużyna")
 
         assert str(party) == f"Drużyna (#{party.pk})"
+
+    def test_sphere_membership_str(self, active_user, sphere):
+        membership = SphereMembership.objects.create(
+            sphere=sphere, user=active_user, role=SphereRole.COMMS
+        )
+
+        assert str(membership) == f"{active_user.pk} is comms of sphere {sphere.pk}"
 
     def test_guild_and_membership_str(self, active_user, sphere):
         guild = Guild.objects.create(sphere=sphere, name="Topory", slug="topory")

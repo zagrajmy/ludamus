@@ -8,12 +8,38 @@ backoffice). Split per `plans/hex_refactor.md` if the file grows past
 from __future__ import annotations
 
 from datetime import datetime
+from enum import StrEnum
 from typing import TYPE_CHECKING, Protocol
 
 from pydantic import BaseModel, ConfigDict, Field
 
 if TYPE_CHECKING:
     from ludamus.pacts.legacy import EventDTO, SphereDTO, UploadedFileProtocol
+
+
+class SphereRole(StrEnum):
+    # Who someone is in a sphere. MANAGER is the historical "sphere manager";
+    # COMMS is the read-mostly one. What each may do is
+    # `specs.permissions.ROLE_CAPABILITIES` — never spelled out at a call site.
+    MANAGER = "manager"
+    COMMS = "comms"
+
+
+class Capability(StrEnum):
+    # An operation a role may be granted. A page names the capability its
+    # buttons stand for; the specs table names who holds it. Only operations
+    # where roles actually differ earn a member — everything else in the panel
+    # is PANEL_WRITE.
+    PANEL_WRITE = "panel_write"
+    ERRATUM_ACK = "erratum_ack"
+
+
+class SphereAccessDTO(BaseModel):
+    # Who someone is in a sphere and what that lets them do, answered in one
+    # trip: the panel needs both on every request and the role lookup is a
+    # query.
+    role: SphereRole | None
+    capabilities: frozenset[Capability]
 
 
 class DuplicateConnectionDisplayNameError(Exception):
@@ -148,7 +174,8 @@ class SphereDirectoryRepositoryProtocol(Protocol):
 
 
 class SpherePanelServiceProtocol(Protocol):
-    def is_manager(self, sphere_id: int, user_slug: str) -> bool: ...
+    def manager_role(self, sphere_id: int, user_slug: str) -> SphereRole | None: ...
+    def access(self, sphere_id: int, user_slug: str) -> SphereAccessDTO: ...
     def list_events(self, sphere_id: int) -> list[EventDTO]: ...
     def read(self, sphere_id: int) -> SphereDTO: ...
     def update_settings(
