@@ -10,12 +10,12 @@ from django.utils.translation import gettext as _
 from django.utils.translation import gettext_lazy, ngettext
 from django.views.generic.base import View
 
-from ludamus.gates.web.django.chronology.panel.views.base import safe_next_url
 from ludamus.gates.web.django.event.panel.views.base import (
     EventContextMixin,
     EventPanelAccessMixin,
     EventPanelRequest,
 )
+from ludamus.gates.web.django.panel import safe_next_url
 from ludamus.gates.web.django.sphere.forms import FacilitatorAssignGuildForm
 from ludamus.pacts import NotFoundError
 from ludamus.pacts.submissions import FacilitatorActionError, OrganizerActionRefusal
