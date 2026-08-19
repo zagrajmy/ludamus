@@ -313,14 +313,17 @@ class TestKonwencikExportSettingsPageView:
 
         assert_event_not_found(response)
 
-    def test_get_renders_a_successful_last_run_with_the_skipped_count(
+    def test_get_renders_a_successful_last_run_with_the_skipped_counts(
         self, panel_client, event, export_integration
     ):
         export_integration.last_run_json = KonwencikLastRun(
             time=datetime.now(UTC),
             ok=True,
             rows_written=3,
-            skipped={KonwencikSkipReason.TOO_LONG: 1},
+            skipped={
+                KonwencikSkipReason.TOO_LONG: 1,
+                KonwencikSkipReason.INTERNAL_TRACKS: 2,
+            },
         ).model_dump_json()
         export_integration.save(update_fields=["last_run_json"])
 
