@@ -60,13 +60,13 @@ Przetwarzamy Państwa dane osobowe w następujących celach:
 
 - **Podstawa prawna:** zgoda użytkownika (art. 6 ust. 1 lit. a RODO)
 - **Dane:** zdarzenia dotyczące korzystania z serwisu, nagrania sesji z zamaskowaną zawartością wszystkich pól formularzy, zgłoszenia błędów występujących w przeglądarce, dane techniczne przeglądarki
-- **Opis:** sprawdzanie, w jaki sposób serwis jest używany, i szybsze usuwanie błędów. Narzędzie analityczne uruchamia się dopiero po wyrażeniu zgody — przed jej wyrażeniem nie wysyłamy żadnych danych. Zgodę można w każdej chwili wycofać, co zatrzymuje zbieranie danych i nagrywanie sesji
+- **Opis:** sprawdzanie, w jaki sposób serwis jest używany, i szybsze usuwanie błędów. Narzędzie analityczne uruchamia się dopiero po wyrażeniu zgody. Wcześniej nie wysyłamy żadnych danych. Zgodę można w każdej chwili wycofać. Wtedy przestajemy zbierać dane i nagrywać sesje
 
 ### 3.5 Zgłaszanie błędów serwera
 
 - **Podstawa prawna:** prawnie uzasadniony interes (art. 6 ust. 1 lit. f RODO)
 - **Dane:** treść błędu wraz ze śladem stosu, adres podstrony, na której wystąpił, oraz identyfikator konta zalogowanego użytkownika
-- **Opis:** wykrywanie i naprawianie awarii serwisu; interes polega na utrzymaniu działającej usługi. Zgłoszenie wysyłamy niezależnie od zgody na analitykę, ponieważ bez niego nie dowiedzielibyśmy się, że coś przestało działać. Identyfikator konta pozwala ustalić, kogo awaria dotknęła; nie łączymy go w profil użytkownika ani nie uzupełniamy o lokalizację
+- **Opis:** wykrywanie i naprawianie awarii serwisu; interes polega na utrzymaniu działającej usługi. Zgłoszenie wysyłamy niezależnie od zgody na analitykę, bo inaczej nie dowiedzielibyśmy się, że coś przestało działać. Identyfikator konta mówi nam, kogo awaria dotknęła. Nie budujemy z niego profilu użytkownika i nie ustalamy na jego podstawie lokalizacji
 
 ## 4. ODBIORCY DANYCH
 
@@ -79,7 +79,7 @@ Państwa dane osobowe mogą być przekazywane następującym odbiorcom:
 
 ### 4.2 Dostawcy analityki:
 
-- **PostHog** - narzędzie analityczne, dane trafiają na serwery w Unii Europejskiej (`eu.i.posthog.com`). Dane analityczne z punktu 3.4 przekazujemy wyłącznie za zgodą użytkownika; zgłoszenia błędów serwera z punktu 3.5 wysyłamy niezależnie od zgody
+- **PostHog** - narzędzie analityczne, dane trafiają na serwery w Unii Europejskiej (`eu.i.posthog.com`). Dane analityczne z punktu 3.4 przekazujemy wyłącznie za zgodą użytkownika. Zgłoszenia błędów serwera z punktu 3.5 wysyłamy niezależnie od zgody
 
 ### 4.3 Ewentualni przyszli odbiorcy:
 
@@ -170,7 +170,7 @@ Stosujemy odpowiednie środki techniczne i organizacyjne w celu ochrony danych o
 
 - Serwis nie jest przeznaczony dla osób poniżej 16 roku życia
 - Nie zbieramy daty urodzenia i nie weryfikujemy wieku użytkowników
-- Konto zgłoszone jako należące do osoby poniżej 16 roku życia usuwamy
+- Usuwamy konto zgłoszone jako należące do osoby poniżej 16 roku życia
 
 ### 11.2 Zapisy dzieci przez opiekunów:
 
