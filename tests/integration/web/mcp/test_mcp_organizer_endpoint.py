@@ -472,7 +472,7 @@ class TestOrganizerProgrammeTools:
             "manager_names": [],
         }
 
-    def test_list_tracks_keeps_same_named_tracks_apart(
+    def test_list_tracks_reports_each_tracks_own_spaces(
         self, client, org_token, event, programme
     ):
         other_room = call_org_json(
@@ -481,18 +481,41 @@ class TestOrganizerProgrammeTools:
             "create_space",
             {"name": "Aula B", "parent_id": programme["venue"]["pk"]},
         )
-        twin = call_org_json(
+        side = call_org_json(
             client,
             org_token,
             "create_track",
-            {"name": "Main", "space_ids": [other_room["pk"]]},
+            {"name": "Side", "space_ids": [other_room["pk"]]},
         )
 
         tracks = call_org_json(client, org_token, "list_tracks", {"event_id": event.pk})
 
         space_ids = {track["pk"]: track["space_ids"] for track in tracks}
         assert space_ids[programme["track"]["pk"]] == [programme["room"]["pk"]]
-        assert space_ids[twin["pk"]] == [other_room["pk"]]
+        assert space_ids[side["pk"]] == [other_room["pk"]]
+
+    def test_create_track_returns_the_track_already_holding_the_name(
+        self, client, org_token, event, programme
+    ):
+        other_room = call_org_json(
+            client,
+            org_token,
+            "create_space",
+            {"name": "Aula B", "parent_id": programme["venue"]["pk"]},
+        )
+
+        again = call_org_json(
+            client,
+            org_token,
+            "create_track",
+            {"name": "main", "space_ids": [other_room["pk"]]},
+        )
+
+        # Same name, different case: one track, and its spaces stay as they are.
+        assert again["pk"] == programme["track"]["pk"]
+        tracks = call_org_json(client, org_token, "list_tracks", {"event_id": event.pk})
+        assert [track["pk"] for track in tracks] == [programme["track"]["pk"]]
+        assert tracks[0]["space_ids"] == [programme["room"]["pk"]]
 
     def test_find_or_create_facilitator_is_idempotent(
         self, client, org_token, event, programme

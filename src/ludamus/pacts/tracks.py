@@ -42,6 +42,10 @@ class TrackEditContextDTO(TrackEditFormContextDTO):
     selected_manager_pks: list[int]
 
 
+class DuplicateTrackNameError(Exception):
+    pass
+
+
 class TracksPanelServiceProtocol(Protocol):
     def list_tracks(self, event_pk: int) -> list[TrackListItemDTO]: ...
     def list_space_pks_by_event(self, event_pk: int) -> dict[int, list[int]]: ...
@@ -55,6 +59,9 @@ class TracksPanelServiceProtocol(Protocol):
         self, *, event_pk: int, sphere_id: int, track_slug: str
     ) -> TrackEditContextDTO: ...
     def create(
+        self, *, event_pk: int, sphere_id: int, data: TrackFormData
+    ) -> TrackDTO: ...
+    def find_or_create(
         self, *, event_pk: int, sphere_id: int, data: TrackFormData
     ) -> TrackDTO: ...
     def update(

@@ -14,6 +14,7 @@ from ludamus.links.db.django.models import (
     ScheduleChangeLog,
     SphereMembership,
     TimeSlot,
+    Track,
 )
 from ludamus.pacts.legacy import NotificationKind
 from ludamus.pacts.multiverse import SphereRole
@@ -135,6 +136,22 @@ class TestModelStringRepresentations:
 
         assert str(guild) == "Topory"
         assert str(membership) == f"{active_user.pk} in guild {guild.pk}"
+
+
+class TestTrackNameConstraint:
+    def test_name_unique_per_event_ignoring_case(self, event):
+        Track.objects.create(event=event, name="RPG", slug="rpg")
+
+        with pytest.raises(IntegrityError), transaction.atomic():
+            Track.objects.create(event=event, name="rpg", slug="rpg-2")
+
+    def test_same_name_allowed_in_another_event(self, event, sphere):
+        other_event = EventFactory(sphere=sphere)
+        Track.objects.create(event=event, name="RPG", slug="rpg")
+
+        Track.objects.create(event=other_event, name="RPG", slug="rpg")
+
+        assert Track.objects.filter(name="RPG", event=other_event).exists()
 
 
 class TestPartyMembershipConstraint:
