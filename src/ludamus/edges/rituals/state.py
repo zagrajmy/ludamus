@@ -14,9 +14,11 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 # and a label is also something you can take off, which is the point: removing
 # it is how you ask for the review again.
 THERMO_LABEL = "pr::thermo"
-# Every review thread on this branch is answered and settled, and the gates were
-# green when that happened. Put on by `pr_review` and nothing else: neither
-# sweep reads the threads, so the night cannot claim it.
+# What the threads were at the moment it went on: every one of them answered and
+# settled, and the gates green. Put on by `pr_review` and nothing else — neither
+# sweep reads the threads, so the night cannot claim it — and read by no code at
+# all. It is a badge for whoever is looking at the board, and nothing takes it
+# off again, so a thread opened afterwards leaves it saying more than it knows.
 QA_LABEL = "pr::qa"
 # Hands off this one. It is read at the listing and nowhere else, so a branch
 # wearing it is never taken, never touched, and never reported on — which is

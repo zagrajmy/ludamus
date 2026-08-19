@@ -1,5 +1,6 @@
 from datetime import UTC, datetime, timedelta
 from secrets import token_urlsafe
+from unittest.mock import MagicMock
 
 import pytest
 from django.contrib.auth import get_user_model
@@ -11,6 +12,7 @@ from factory import Faker, LazyAttribute, Sequence, SubFactory
 from factory.django import DjangoModelFactory
 from pytest_factoryboy import register
 
+from ludamus.links.analytics import reporting
 from ludamus.links.db.django.models import (
     AgendaItem,
     Encounter,
@@ -459,3 +461,15 @@ def encounter_with_rsvps(sphere):
     EncounterRSVPFactory(encounter=encounter)
     EncounterRSVPFactory(encounter=encounter)
     return encounter
+
+
+@pytest.fixture(autouse=True)
+def _no_posthog_client(monkeypatch):
+    # client() memoizes on first call and reads the key from settings, so one
+    # test setting POSTHOG_API_KEY and provoking a 500 would build a real
+    # client pointed at eu.i.posthog.com, start its consumer threads, and keep
+    # it for the whole session.
+    monkeypatch.setattr("ludamus.links.analytics.reporting.Posthog", MagicMock())
+    # Setup only: a test that monkeypatches client() has not had that patch
+    # undone yet at teardown, and cache_clear does not exist on the stand-in.
+    reporting.client.cache_clear()
