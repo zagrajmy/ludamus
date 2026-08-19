@@ -562,6 +562,35 @@ def _create_panel_lab_event(sphere: Sphere) -> Event:
     return event
 
 
+# Dedicated event for panel-crud.spec. That spec runs serially and leaves its
+# facilitators, proposals and tracks behind on purpose, and those leftovers are
+# not inert: a public track makes the proposal wizard demand a track selection,
+# which would fail whichever spec walks that wizard next. Nine specs read
+# frostfire-con, so the leftovers need an event of their own.
+def _create_panel_crud_event(sphere: Sphere) -> Event:
+    event = _create_event(
+        sphere,
+        name="Cinderpeak Game Days",
+        slug="cinderpeak-con",
+        description=(
+            "A spring meet for roleplayers, used by the panel CRUD walkthrough."
+        ),
+        start_offset=timedelta(days=25),
+        duration_hours=10,
+        publication_offset=timedelta(days=2),
+        proposals_open=True,
+    )
+    ProposalCategory.objects.create(
+        event=event,
+        name="RPG Proposals",
+        slug="rpg-proposals",
+        min_participants_limit=1,
+        max_participants_limit=6,
+        durations=["PT1H"],
+    )
+    return event
+
+
 # Dedicated event for the cover-image upload e2e tests. cover-images.spec
 # writes the event's cover image and asserts the initial "no cover yet" state,
 # so it needs an event nothing else mutates.
@@ -847,6 +876,7 @@ def main() -> None:
     # Dedicated events for the mutating panel / cover-image specs, so they
     # never write to autumn-open (kept read-only for the public-page specs).
     _create_panel_lab_event(sphere)
+    _create_panel_crud_event(sphere)
     _create_cover_lab_event(sphere)
     _create_anon_proposals_event(sphere)
 

@@ -167,6 +167,49 @@ class TestTrackEditPageView:
         assert not track.spaces.exists()
         assert not track.managers.exists()
 
+    def test_post_shows_error_when_renaming_onto_another_track(
+        self, panel_client, active_user, event
+    ):
+        track = self.make_track(event)
+        Track.objects.create(event=event, name="Beta Track", slug="beta-track")
+
+        response = panel_client.post(
+            self.get_url(event, track), data={"name": "beta TRACK", "is_public": "on"}
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/track-edit.html",
+            context_data={
+                **panel_context(event, active_nav="tracks"),
+                "track": TrackDTO.model_validate(track),
+                "form": ANY,
+                "spaces": [],
+                "managers": [UserDTO.model_validate(active_user)],
+                "selected_space_pks": [],
+                "selected_manager_pks": [],
+            },
+        )
+        track.refresh_from_db()
+        assert track.name == "Alpha Track"
+
+    def test_post_keeps_its_own_name(self, panel_client, event):
+        track = self.make_track(event)
+
+        response = panel_client.post(
+            self.get_url(event, track), data={"name": "Alpha Track", "is_public": "on"}
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Track updated successfully.")],
+            url=f"/panel/event/{event.slug}/tracks/",
+        )
+        track.refresh_from_db()
+        assert track.name == "Alpha Track"
+
     def test_post_shows_error_for_empty_name(self, panel_client, active_user, event):
         track = self.make_track(event)
 
@@ -195,6 +238,22 @@ class TestTrackEditPageView:
         )
 
         response = panel_client.post(url, data={"name": "Updated Track"})
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.ERROR, "Track not found.")],
+            url=f"/panel/event/{event.slug}/tracks/",
+        )
+
+    def test_post_redirects_on_invalid_track_slug_with_a_rejected_form(
+        self, panel_client, event
+    ):
+        url = reverse(
+            "panel:track-edit", kwargs={"slug": event.slug, "track_slug": "nonexistent"}
+        )
+
+        response = panel_client.post(url, data={"name": ""})
 
         assert_response(
             response,
