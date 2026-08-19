@@ -256,3 +256,8 @@ If you fix a papercut, remove it.
   'Playwright Test did not expect test.describe() to be called here' plus a
   bogus global-teardown coverage error. Whole suite red, zero code cause, passes
   on the next run.
+- 2026-08-18: Committing in a CLI worktree fails: hk pre-commit runs
+  oxlint/oxfmt via 'aube exec --no-install' but node_modules is absent in the
+  worktree, so both abort with 'binary not found' and every other hook is
+  skipped. Had to use --no-verify. Either run aube install per worktree or make
+  the hk steps skip when the binary is missing.
