@@ -7,14 +7,11 @@ so, and it is what commits the result.
 
 A branch is a candidate when its pull request is open, yours, labelled
 `pr::thermo`, not labelled `pr::wait`, and carrying a review thread nobody has
-settled. `pr::qa` says nothing here: it is what the threads were when it went
-on, and what they are now is what `gh` is asked branch by branch — a thread
-opened after the label would otherwise never be seen again. They are taken one
-after another, longest-waiting first,
-until every one of them has been through — except that the branch you are
-standing on goes first, which is also what keeps two terminals on two branches
-off each other's work. A branch whose checkout will not go through, because
-another worktree is standing on it, is reported and the next one is offered.
+settled. They are taken one after another, longest-waiting first, until every
+one of them has been through — except that the branch you are standing on goes
+first, which is also what keeps two terminals on two branches off each other's
+work. A branch whose checkout will not go through, because another worktree is
+standing on it, is reported and the next one is offered.
 
 Each branch is asked about as its turn comes, and saying no to one moves on to
 the next rather than ending the cast. The count of what is still open is asked
@@ -91,7 +88,8 @@ from .state import (
 )
 
 # The engine's backstop and nothing else: the `fix` loop is bounded by the
-# person sitting at it, and the branch loop by how many of them carry a review.
+# person sitting at it, and the branch loop by how many branches were reviewed
+# in the night.
 # A dozen steps a branch, and a cast that goes through twenty of them is a
 # morning nobody has.
 _MAX_STEPS = 400
@@ -240,13 +238,6 @@ async def pick(picking: Picking) -> Transition:
     """Take the next branch whose review is still waiting."""
     if not picking.queue:
         return goto(recap, picking)
-    # Fatal, and before every checkout, not only the first: this moves branches
-    # around and later commits everything it finds, so work left in the tree
-    # would be committed onto the next branch it takes.
-    status = await _ran(STATUS, "git status failed", stream=False)
-    if dirty := status.stdout.strip():
-        msg = f"the worktree is not clean:\n{dirty}"
-        raise RitualError(msg)
     pull, *rest = picking.queue
     left = await _open_threads(pull.number)
     branch = Branch(
@@ -262,6 +253,15 @@ async def pick(picking: Picking) -> Transition:
         # nothing open, and a report listing every one of them is a report
         # nobody reads to the end.
         return goto(pick, branch.picking)
+    # Fatal, and before every checkout, not only the first: `look` moves
+    # branches around and later commits everything it finds, so work left in the
+    # tree would be committed onto the branch it takes. Asked here rather than
+    # at the top of the step because `look` is the only way to a checkout, and a
+    # branch with nothing open never reaches one.
+    status = await _ran(STATUS, "git status failed", stream=False)
+    if dirty := status.stdout.strip():
+        msg = f"the worktree is not clean:\n{dirty}"
+        raise RitualError(msg)
     return goto(look, branch)
 
 
@@ -448,11 +448,13 @@ def recap(picking: Picking) -> Transition:
         for row in picking.reviewed
     ] or ["  (none had a review waiting)"]
     if picking.stopped:
-        # What is left in the queue only means anything here: a cast that ran
-        # to the end left nothing in it.
+        # What is left in the queue only means anything here: a cast that ran to
+        # the end left nothing in it. These are branches `gh` was never asked
+        # about, not branches with work outstanding — one whose threads are all
+        # settled leaves `pick` without a row either way.
         left = ", ".join(pull.branch for pull in picking.queue)
         lines += ["", f"the cast stopped: {picking.stopped}"]
-        lines += [f"not reached:    {left}"] if left else []
+        lines += [f"not polled:     {left}"] if left else []
     emit_delta("\n".join(lines))
     if picking.stopped:
         raise RitualError(picking.stopped)
