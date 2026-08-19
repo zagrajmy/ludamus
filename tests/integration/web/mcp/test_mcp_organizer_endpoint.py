@@ -15,9 +15,11 @@ from ludamus.links.db.django.models import (
     Announcement,
     ScheduleChangeLog,
     Space,
+    SphereMembership,
     Track,
 )
 from ludamus.pacts.mcp import ToolScope
+from ludamus.pacts.multiverse import SphereRole
 from tests.integration.conftest import (
     AgendaItemFactory,
     EventFactory,
@@ -181,6 +183,18 @@ class TestOrganizerAuthentication:
         foreign = EventFactory(sphere=SphereFactory())
         token = mint_organizer_token(
             user_id=manager.pk, sphere_id=sphere.pk, event_id=foreign.pk
+        )
+
+        response = post_org(client, PING, token=token)
+
+        assert_response(response, HTTPStatus.UNAUTHORIZED)
+
+    def test_comms_member_token(self, client, active_user, sphere, event):
+        SphereMembership.objects.create(
+            sphere=sphere, user=active_user, role=SphereRole.COMMS
+        )
+        token = mint_organizer_token(
+            user_id=active_user.pk, sphere_id=sphere.pk, event_id=event.pk
         )
 
         response = post_org(client, PING, token=token)

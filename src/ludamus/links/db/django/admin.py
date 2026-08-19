@@ -17,6 +17,7 @@ from ludamus.links.db.django.models import (
     SessionFieldValue,
     Space,
     Sphere,
+    SphereMembership,
     TimeSlot,
     User,
     UserEnrollmentConfig,
@@ -80,9 +81,17 @@ class SphereAdminForm(forms.ModelForm):  # type: ignore [type-arg]
         return cleaned
 
 
+class SphereMembershipInline(admin.TabularInline):  # type: ignore [type-arg]
+    model = SphereMembership
+    extra = 0
+    autocomplete_fields = ("user",)
+
+
 @admin.register(Sphere)
 class SphereAdmin(admin.ModelAdmin):  # type: ignore [type-arg]
     form = SphereAdminForm
+    inlines = (SphereMembershipInline,)
+    exclude = ("managers",)
 
 
 @admin.register(TimeSlot)
@@ -93,6 +102,7 @@ class TimeSlotAdmin(admin.ModelAdmin):  # type: ignore [type-arg]
 @admin.register(User)
 class UserAdmin(admin.ModelAdmin):  # type: ignore [type-arg]
     list_display = ("name", "user_type", "email", "discord_username")
+    search_fields = ("name", "email")
     prepopulated_fields: ClassVar[dict[str, Sequence[str]]] = {"slug": ("name",)}
 
 

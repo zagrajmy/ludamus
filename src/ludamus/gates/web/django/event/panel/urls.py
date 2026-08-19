@@ -25,6 +25,7 @@ from ludamus.gates.web.django.event.panel.views import (
     confirmations,
     discount_settings,
     enrollment_settings,
+    errata,
     facilitator_actions,
     facilitator_edit,
     mcp_token,
@@ -177,6 +178,12 @@ urlpatterns = [
         "event/<slug:slug>/settings/integrations/",
         event_settings.EventIntegrationSettingsPageView.as_view(),
         name="event-integration-settings",
+    ),
+    path("event/<slug:slug>/errata/", errata.ErrataPageView.as_view(), name="errata"),
+    path(
+        "event/<slug:slug>/errata/do/acknowledge",
+        errata.ErratumAcknowledgeActionView.as_view(),
+        name="erratum-acknowledge",
     ),
     path(
         "event/<slug:slug>/settings/mcp/",

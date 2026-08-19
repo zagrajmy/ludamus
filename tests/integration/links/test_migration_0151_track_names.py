@@ -18,7 +18,12 @@ def apps_before_0151_fixture():
     # The state this migration actually runs against.
     return (
         MigrationLoader(connection)
-        .project_state(("db_main", "0150_discount_from_rules"))
+        .project_state(
+            [
+                ("db_main", "0149_schedulechangelog_moved_from"),
+                ("db_main", "0150_discount_from_rules"),
+            ]
+        )
         .apps
     )
 

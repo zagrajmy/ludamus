@@ -60,7 +60,10 @@ def rename_duplicate_track_names(apps, schema_editor):
 
 class Migration(migrations.Migration):
 
-    dependencies = [("db_main", "0150_discount_from_rules")]
+    dependencies = [
+        ("db_main", "0149_schedulechangelog_moved_from"),
+        ("db_main", "0150_discount_from_rules"),
+    ]
 
     operations = [
         migrations.RunPython(rename_duplicate_track_names, migrations.RunPython.noop),

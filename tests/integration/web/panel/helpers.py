@@ -50,6 +50,7 @@ if TYPE_CHECKING:
     from django.http import HttpResponse
 
 PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
+READ_ONLY_ROLE_ERROR = "Your role can read the panel, but not make changes here."
 EVENT_NOT_FOUND_ERROR = "Event not found."
 PROPOSAL_NOT_FOUND_ERROR = "Proposal not found."
 SCHEDULED_ERROR = (
