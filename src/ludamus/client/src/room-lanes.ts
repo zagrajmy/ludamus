@@ -1,3 +1,70 @@
+// Grid tracks are server-rendered, so filtering — which only hides the tiles
+// (session-filters.ts) — leaves every emptied hour row holding its 3.5rem and
+// every emptied room column its --col-min: three surviving sessions scattered
+// across a full-size table the reader has to scroll. Collapse the tracks that
+// no longer carry a visible tile, and hide the axis labels, gridlines, and
+// column rules that belong to them.
+// The track sizes themselves stay in index.css as --row-track / --col-track and
+// are named, never copied, here: a track list built from literals would drift
+// from the served one, silently and with nothing to catch it.
+const COLLAPSED = "room-lanes-collapsed";
+
+const collapseEmptyTracks = (lanes: HTMLElement): void => {
+  const rowCount = Number(lanes.dataset.rows);
+  const roomCount = Number(lanes.dataset.rooms);
+  const tileRows = new Set<number>();
+  const liveRows = new Set<number>();
+  const liveCols = new Set<number>();
+
+  for (const cell of lanes.querySelectorAll<HTMLElement>(".room-lanes-cell")) {
+    const visible = cell.querySelector(".session-wrapper:not([hidden])") !== null;
+    cell.hidden = !visible;
+    const row = Number(cell.dataset.tileRow);
+    for (let offset = 0; offset < Number(cell.dataset.tileSpan); offset += 1) {
+      tileRows.add(row + offset);
+      if (visible) liveRows.add(row + offset);
+    }
+    if (visible) liveCols.add(Number(cell.dataset.tileCol));
+  }
+
+  // An hour no tile ever covered is a break in the programme, and the server
+  // renders it at full height. Collapsing it would leave a cleared filter
+  // showing a different schedule than the first load did.
+  const rowLives = (row: number): boolean => liveRows.has(row) || !tileRows.has(row);
+
+  for (const el of lanes.querySelectorAll<HTMLElement>("[data-lane-row]")) {
+    el.classList.toggle(COLLAPSED, !rowLives(Number(el.dataset.laneRow)));
+  }
+  for (const el of lanes.querySelectorAll<HTMLElement>("[data-lane-col]")) {
+    el.classList.toggle(COLLAPSED, !liveCols.has(Number(el.dataset.laneCol)));
+  }
+
+  const columns = ["var(--axis-w)"];
+  for (let col = 1; col <= roomCount; col += 1) {
+    columns.push(liveCols.has(col) ? "var(--col-track)" : "0");
+  }
+  for (const grid of lanes.querySelectorAll<HTMLElement>(".room-lanes-grid")) {
+    grid.style.gridTemplateColumns = columns.join(" ");
+  }
+  // The grid's min width is calc(--axis-w + --live-rooms * --col-min); the
+  // surviving columns are what it must now fit. --rooms is the server's input
+  // and is never written back, so the stylesheet's repeat() keeps a valid count.
+  lanes.style.setProperty("--live-rooms", String(liveCols.size));
+
+  const body = lanes.querySelector<HTMLElement>(".room-lanes-body");
+  if (body) {
+    body.style.gridTemplateRows = Array.from({ length: rowCount }, (_, index) =>
+      rowLives(index + 1) ? "var(--row-track)" : "0",
+    ).join(" ");
+  }
+};
+
+for (const lanes of document.querySelectorAll<HTMLElement>(".room-lanes")) {
+  document.addEventListener("schedule:filtered", () => {
+    collapseEmptyTracks(lanes);
+  });
+}
+
 const scrollers = document.querySelectorAll<HTMLElement>("[data-room-lanes-scroll]");
 
 const measureScrollbars = (): void => {
