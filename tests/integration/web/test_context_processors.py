@@ -28,7 +28,18 @@ class TestAnalyticsContext:
         assert posthog_config == {
             "api_key": "phc_integration",
             "host": "https://eu.i.posthog.com",
+            "user_id": None,
         }
+
+    def test_authenticated_render_identifies_by_pk(
+        self, authenticated_client, active_user, settings
+    ):
+        settings.POSTHOG_API_KEY = "phc_integration"
+
+        response = authenticated_client.get(reverse("web:events"))
+
+        posthog_config = response.context["posthog_config"]
+        assert posthog_config["user_id"] == str(active_user.pk)
 
     def test_unset_key_leaks_no_posthog_config(self, client, settings):
         settings.POSTHOG_API_KEY = ""

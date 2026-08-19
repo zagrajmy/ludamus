@@ -116,8 +116,6 @@ logger = logging.getLogger(__name__)
 if TYPE_CHECKING:
     from django.db.models.query import QuerySet
 
-MINIMUM_ALLOWED_USER_AGE = 16
-
 
 @method_decorator(cache_control(public=True, max_age=300), name="get")
 class DesignPageView(TemplateView):
