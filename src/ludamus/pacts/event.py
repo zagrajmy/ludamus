@@ -1,11 +1,57 @@
 from datetime import datetime
 from enum import StrEnum
-from typing import Protocol
+from typing import Protocol, TypedDict
 
 from pydantic import BaseModel, ConfigDict
 
 from ludamus.pacts.guild import GuildMarkDTO
-from ludamus.pacts.legacy import EventDTO, PanelStatsDTO, TimeSlotDTO
+from ludamus.pacts.legacy import (
+    EventDTO,
+    EventListItemDTO,
+    EventRepositoryProtocol,
+    PanelStatsDTO,
+    TimeSlotDTO,
+)
+
+
+class EventCreateData(TypedDict):
+    name: str
+    slug: str
+    description: str
+    start_time: datetime
+    end_time: datetime
+    publication_time: datetime | None
+    auto_confirm_sessions: bool
+
+
+class EventSlugConflictError(Exception):
+    pass
+
+
+class EventDatesInvalidError(Exception):
+    pass
+
+
+class EventPublicationInvalidError(Exception):
+    pass
+
+
+class EventsRepositoryProtocol(EventRepositoryProtocol, Protocol):
+    @staticmethod
+    def create(sphere_id: int, data: EventCreateData) -> EventDTO: ...
+    @staticmethod
+    def read_in_sphere(pk: int, sphere_id: int) -> EventDTO: ...
+    @staticmethod
+    def slug_exists(sphere_id: int, slug: str) -> bool: ...
+
+
+class EventsServiceProtocol(Protocol):
+    def list_for_sphere(
+        self, sphere_id: int, *, include_unpublished: bool
+    ) -> list[EventListItemDTO]: ...
+    def read_by_slug(self, sphere_id: int, slug: str) -> EventDTO: ...
+    def require_in_sphere(self, *, sphere_id: int, event_id: int) -> EventDTO: ...
+    def create(self, *, sphere_id: int, data: EventCreateData) -> EventDTO: ...
 
 
 class FacilitatorListItemDTO(BaseModel):
@@ -29,6 +75,12 @@ class TimeSlotValidationError(StrEnum):
     START_NOT_BEFORE_END = "start_not_before_end"
     OUTSIDE_EVENT_DATES = "outside_event_dates"
     OVERLAPS_EXISTING_SLOT = "overlaps_existing_slot"
+
+
+class TimeSlotRejectedError(Exception):
+    def __init__(self, errors: list[TimeSlotValidationError]) -> None:
+        super().__init__(", ".join(error.value for error in errors))
+        self.errors = errors
 
 
 class EventPanelContextDTO(BaseModel):
@@ -170,10 +222,10 @@ class PanelTimeSlotsServiceProtocol(Protocol):
     def read(self, *, event_id: int, pk: int) -> TimeSlotDTO: ...
     def create(
         self, *, event: EventDTO, start_time: datetime, end_time: datetime
-    ) -> list[TimeSlotValidationError]: ...
+    ) -> TimeSlotDTO: ...
     def update(
         self, *, event: EventDTO, pk: int, start_time: datetime, end_time: datetime
-    ) -> list[TimeSlotValidationError]: ...
+    ) -> None: ...
     def delete(self, *, event_id: int, pk: int) -> bool: ...
 
 
