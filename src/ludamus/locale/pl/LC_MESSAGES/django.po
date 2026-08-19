@@ -1825,6 +1825,12 @@ msgid "This placement is invalid."
 msgstr "To umiejscowienie jest nieprawidłowe."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/tracks.py
+msgid "A track with this name already exists in this event. Pick another name."
+msgstr ""
+"Blok programowy o tej nazwie już istnieje w tym wydarzeniu. Wybierz inną "
+"nazwę."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/tracks.py
 msgid "Choose spaces from this event and managers from this sphere."
 msgstr "Wybierz przestrzenie z tego wydarzenia i prowadzących z tej sfery."
 

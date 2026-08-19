@@ -1649,6 +1649,9 @@ class Track(models.Model):
             models.UniqueConstraint(
                 fields=("event", "slug"), name="track_unique_slug_per_event"
             ),
+            models.UniqueConstraint(
+                Lower("name"), "event", name="track_unique_name_per_event"
+            ),
         )
 
     def __str__(self) -> str:
