@@ -250,6 +250,11 @@ If you fix a papercut, remove it.
   install, so mise silently skipped venv activation for tasks (mise x still
   resolved it). Repointed .venv/bin/python + pyvenv.cfg at 3.14 by hand. mise
   run should say the venv is unusable instead of running the task without it.
+- 2026-08-16: mise run shots: agent-browser's Chrome dies with 'No usable
+  sandbox' on this host, and --args "--no-sandbox" passed to 'agent-browser
+  open' does not help; also a target containing '?' comes through quoted (URL
+  became http://localhost:8000'/event/x/?view=enrollment'). Fell back to
+  playwright screenshot.
 - 2026-08-16: e2e: prep's 'aube install' rewrites node_modules while 'npx
   playwright test' (already launched by run_e2e.sh) has resolved its own runner
   copy. When the install actually relinks the store, every spec dies with
