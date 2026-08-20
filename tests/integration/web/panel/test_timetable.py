@@ -812,6 +812,10 @@ class TestPanelBaseHeader:
         event = EventFactory(
             sphere=sphere,
             slug="one-day",
+            # publication_time too: the factory derives it from now(), and the
+            # header check needs publication_time <= start_time, which a fixed
+            # start_time stops satisfying once the clock passes it.
+            publication_time=datetime(2026, 7, 1, 9, 0, tzinfo=UTC),
             start_time=datetime(2026, 8, 6, 9, 0, tzinfo=UTC),
             end_time=datetime(2026, 8, 6, 18, 0, tzinfo=UTC),
         )
@@ -831,6 +835,7 @@ class TestPanelBaseHeader:
         event = EventFactory(
             sphere=sphere,
             slug="multi-day",
+            publication_time=datetime(2026, 7, 1, 9, 0, tzinfo=UTC),
             start_time=datetime(2026, 8, 6, 9, 0, tzinfo=UTC),
             end_time=datetime(2026, 8, 8, 12, 0, tzinfo=UTC),
         )
