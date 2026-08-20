@@ -12,24 +12,28 @@
 {# Optional: is_own (author's own proposals), wizard_mark (superuser note) #}
 <div class="mt-12 time-slot-section"
      data-time-slot="{% if is_own %}own-proposals{% else %}pending-proposals{% endif %}">
+    {# h2, not h3: this section is a sibling of the schedule region, whose own #}
+    {# label is an h2, and every card title inside is an h3. At h3 the section #}
+    {# became a peer of the cards it labels and heading navigation lost the #}
+    {# boundary between them. #}
     <div class="flex items-center gap-4 mb-4">
         {% if is_own %}
-            <h3 class="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold bg-amber-100 dark:bg-amber-900/10 text-amber-700 dark:text-amber-400">
+            <h2 class="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold bg-amber-100 dark:bg-amber-900/10 text-amber-700 dark:text-amber-400">
                 {% icon "light-bulb" class="w-4 h-4" variant="mini" %}
                 {% translate "Your pending proposals" %}
-            </h3>
+            </h2>
         {% else %}
-            <h3 class="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold bg-warm-200 dark:bg-warm-800/30 text-warm-700 dark:text-warm-400">
+            {% translate "Superuser magic: you see this without being an organizer of this event." as t_wizard %}
+            <h2 class="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold bg-warm-200 dark:bg-warm-800/30 text-warm-700 dark:text-warm-400">
                 {% icon "inbox" class="w-4 h-4" variant="mini" %}
                 {% translate "Proposals to review" %}
+                {# The mark is decoration on the heading, so it stays out of the #}
+                {# heading's accessible name; the sr-only twin below carries it. #}
                 {% if wizard_mark %}
-                    {% translate "Superuser magic: you see this without being an organizer of this event." as t_wizard %}
-                    <span title="{{ t_wizard }}" class="cursor-help">
-                        <span aria-hidden="true">🧙</span>
-                        <span class="sr-only">{{ t_wizard }}</span>
-                    </span>
+                    <span title="{{ t_wizard }}" class="cursor-help" aria-hidden="true">🧙</span>
                 {% endif %}
-            </h3>
+            </h2>
+            {% if wizard_mark %}<span class="sr-only">{{ t_wizard }}</span>{% endif %}
         {% endif %}
         <div class="h-px grow bg-border"></div>
         <span class="text-xs text-foreground-muted">

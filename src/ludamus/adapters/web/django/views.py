@@ -71,8 +71,7 @@ from ludamus.links.db.django.repositories.sessions import (
     field_value_dto,
     own_pending_proposals,
     review_inbox_proposals,
-    with_scheduled_location,
-    with_session_card_relations,
+    with_scheduled_card_relations,
 )
 from ludamus.mills.enrollment import (
     EnrollmentPolicy,
@@ -294,7 +293,7 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
         scheduled = public_scheduled_sessions(self.object.pk)
         enrollment_view = self.request.GET.get("view") == "enrollment"
         event_sessions = annotate_session_participation_counts(
-            with_scheduled_location(with_session_card_relations(scheduled))
+            with_scheduled_card_relations(scheduled)
         ).order_by("agenda_item__start_time")
 
         shadowbanned_ids: frozenset[int] = frozenset()

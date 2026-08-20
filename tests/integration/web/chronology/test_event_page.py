@@ -1849,6 +1849,38 @@ class TestEventPageView:
             template_name=["chronology/event.html"],
         )
 
+    def test_author_loses_sight_of_a_proposal_scheduled_into_a_private_track(
+        self, authenticated_client, event, active_user, pending_session, space
+    ):
+        # A recorded trade-off, not an accident. Both proposal lists mean
+        # "not on the timetable", because a scheduled session commonly keeps
+        # PENDING and status alone would pull the author's whole programme in
+        # here. The cost is this corner: scheduled into a private track, the
+        # session is hidden from the public schedule too, so its own author
+        # sees it nowhere on this page. The panel still shows it.
+        event.proposal_end_time = timezone.now() + timedelta(days=3)
+        event.save(update_fields=["proposal_end_time"])
+        AgendaItemFactory(
+            session=pending_session,
+            space=space,
+            start_time=event.start_time,
+            end_time=event.start_time + timedelta(hours=1),
+        )
+        pending_session.tracks.add(
+            Track.objects.create(
+                event=event, name="Backstage", slug="backstage", is_public=False
+            )
+        )
+
+        response = authenticated_client.get(self._get_url(event.slug))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=event_page_context(event, url=self._get_url(event.slug)),
+            template_name=["chronology/event.html"],
+        )
+
     def test_ok_proposal_author_sees_own_proposal_card(
         self, authenticated_client, event, active_user, pending_session
     ):

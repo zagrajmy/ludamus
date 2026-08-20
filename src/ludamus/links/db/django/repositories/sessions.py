@@ -138,14 +138,25 @@ def with_scheduled_location(queryset: QuerySet[Session]) -> QuerySet[Session]:
     )
 
 
+def with_scheduled_card_relations(queryset: QuerySet[Session]) -> QuerySet[Session]:
+    """Load everything a scheduled session's card prints, including its room."""
+    # Named so a scheduled caller cannot half-remember the pairing: forgetting
+    # with_scheduled_location silently costs SPACE_MAX_DEPTH parent queries per
+    # row, which no test would catch. Unscheduled callers take the base alone.
+    return with_scheduled_location(with_session_card_relations(queryset))
+
+
 def review_inbox_proposals(event_id: int) -> QuerySet[Session]:
     """Every unscheduled proposal of one event, for an organizer to review."""
     # Scoped by event_id, not category__event_id: Session.category is nullable,
     # so joining through it drops a proposal that has no category from both the
     # review queue and its own author's list. public_scheduled_sessions filters
     # the same way.
-    # agenda_item__isnull scopes this to proposals the review screen can act
-    # on: accepting creates an AgendaItem and a Session has only one, so a
+    # agenda_item__isnull is what "still a proposal" means here, and it is not
+    # the same question as status: a scheduled session commonly keeps PENDING,
+    # so status alone would pull an author's whole programme into their
+    # proposals list. It also scopes the queue to what the review screen can
+    # act on — accepting creates an AgendaItem and a Session has only one, so a
     # pending session already on the timetable cannot be accepted there. Those
     # belong to the panel, whose status machine knows about them.
     # The participation annotation matters as much here as on the scheduled
@@ -259,7 +270,7 @@ class SessionRepository(SessionRepositoryProtocol, SessionModalRepositoryProtoco
             Session.objects.filter(agenda_item__isnull=False)
         )
         try:
-            session = with_scheduled_location(with_session_card_relations(base)).get(
+            session = with_scheduled_card_relations(base).get(
                 pk=session_id, event_id=event_id
             )
         except Session.DoesNotExist:
