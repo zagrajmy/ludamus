@@ -94,7 +94,7 @@
                     {% elif data.availability == "in-progress" %}
                         <span class="text-xs font-medium text-foreground-muted">{% translate "In Progress" %}</span>
                     {% elif data.availability == "unavailable" %}
-                        {% include "chronology/_enrollment_badge.html" %}
+                        {% include "chronology/_session_seat_count.html" with extra_class="text-sm" %}
                     {% endif %}
                 </div>
             </div>

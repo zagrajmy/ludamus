@@ -79,13 +79,10 @@ def schedule_context(url):
     return {
         "compact_schedule": False,
         "schedule_days": [],
-        "schedule_view_is_list": True,
-        "schedule_view_is_rooms": False,
-        "schedule_view_is_enrollment": False,
+        "active_tab": "list",
         "room_lane_days": [],
         "schedule_list_url": url,
         "schedule_rooms_url": f"{url}?view=rooms",
-        "schedule_enrollment_url": f"{url}?view=enrollment",
     }
 
 
