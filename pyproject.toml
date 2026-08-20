@@ -27,7 +27,7 @@ requires-poetry = ">=2.0,<3"
 [tool.poetry.dependencies]
 authlib = "~1.7.0"
 cryptography = "^50.0.0"
-django = "~6.0.6"
+django = "~6.1.0"
 django-environ = "^0.14.0"
 django-extensions = "^4.1"
 django-vite = "==3.1.0"
@@ -48,6 +48,8 @@ unidecode = "^1.4.0"
 lxml = "^6.1.1"
 urllib3 = "^2.7.0"
 posthog = "^7.39.1"
+httpx = "^0.28.1"
+defusedxml = "^0.7.1"
 
 [tool.poetry.group.dev.dependencies]
 black = "^26.1.0"
@@ -83,7 +85,7 @@ pytest-gremlins = "^1.8.1"
 django-coverage-plugin = "^3.2.2"
 yamllint = "1.38.0"
 taplo = "^0.9.3"
-tingle = "^0.4.1"
+tingle = "^0.5.0"
 pytest-xdist = "^3.8.0"
 lxml-stubs = "^0.5.1"
 django-zeal = "^2.2.2"
@@ -141,7 +143,7 @@ custom_blocks = "select,radio,document_title,sidebar_cat,tab,tabs,tab_shell,tab_
 # DEPTRY
 
 [tool.deptry]
-known_first_party = ["ludamus"]
+known_first_party = ["ludamus", "scripts"]
 
 [tool.deptry.per_rule_ignores]
 DEP002 = [
