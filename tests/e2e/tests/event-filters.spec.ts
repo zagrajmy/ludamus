@@ -233,3 +233,36 @@ test.describe("Rooms view filtering", () => {
     for (const { expected, actual } of placements) expect(actual).toEqual(expected);
   });
 });
+
+test.describe("Room filter", () => {
+  const denseEventUrl = "/chronology/event/kapitularz-2025-anonymized/";
+
+  test("groups the rooms under their parent space, in panel order", async ({ page }) => {
+    await page.goto(denseEventUrl);
+    await page.getByRole("button", { name: "Filters" }).click();
+
+    const spaceFilter = page.locator("#space-filter");
+    await expect(page.locator("#space-filter-group")).toBeVisible();
+
+    // Panel order, not the alphabet: the tables come before the tents, and
+    // "Cosplay Forum" — first alphabetically — is neither.
+    const options = await spaceFilter.locator("optgroup option").allInnerTexts();
+    expect(options.slice(0, 3)).toEqual(["Miniature Painting", "RPG Table 1", "RPG Table 2"]);
+    await expect(spaceFilter.locator("optgroup")).toHaveAttribute("label", "Default Area");
+  });
+
+  test("narrows the list to the chosen room", async ({ page }) => {
+    await page.goto(denseEventUrl);
+    await page.getByRole("button", { name: "Filters" }).click();
+
+    const total = await page.locator(".session-wrapper").count();
+    const room = await page.locator("#space-filter option").nth(1).getAttribute("value");
+    if (!room) throw new Error("room filter has no options");
+    await page.locator("#space-filter").selectOption(room);
+
+    const visible = page.locator(".session-wrapper:not([hidden])");
+    await expect.poll(() => visible.count()).toBeLessThan(total);
+    for (const card of await visible.locator(".session").all())
+      await expect(card).toHaveAttribute("data-space", room);
+  });
+});

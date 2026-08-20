@@ -6,6 +6,7 @@ from django.urls import reverse
 from django.utils.timezone import localtime
 
 from ludamus.gates.web.django.chronology.schedule import (
+    RoomLane,
     RoomLaneDay,
     RoomLaneHourMark,
     RoomLaneTile,
@@ -155,7 +156,11 @@ class TestEventPageBookmarkCounts:
                 room_lane_days=[
                     RoomLaneDay(
                         day_start=hour_start,
-                        rooms=[agenda_item.space.name],
+                        rooms=[
+                            RoomLane(
+                                name=agenda_item.space.name, group="", starts_group=True
+                            )
+                        ],
                         hour_marks=[
                             RoomLaneHourMark(
                                 start=hour_start, row=1, has_sessions=True

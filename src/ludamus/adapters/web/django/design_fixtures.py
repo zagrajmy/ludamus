@@ -44,6 +44,7 @@ def _mock_venue_and_space() -> LocationData:
         "parent_slug": "main-hall",
         "parent_name": "Main Hall",
         "path": "Main Hall > Table 1",
+        "sort_key": "000000|Main Hall|main-hall|000000|Table 1|table-1",
     }
 
 

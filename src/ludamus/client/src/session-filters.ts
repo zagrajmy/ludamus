@@ -20,7 +20,11 @@ const escapeRegExp = (value: string): string =>
 const selectedLabel = (select: HTMLSelectElement): string =>
   select.options.item(select.selectedIndex)?.text ?? "";
 
-const addOption = (select: HTMLSelectElement, value: string, label: string): void => {
+const addOption = (
+  select: HTMLOptGroupElement | HTMLSelectElement,
+  value: string,
+  label: string,
+): void => {
   const option = document.createElement("option");
   option.value = value;
   option.textContent = label;
@@ -44,6 +48,7 @@ const initSessionFilters = (): void => {
   const dayFilter = byId<HTMLSelectElement>("day-filter");
   const hourFilter = byId<HTMLSelectElement>("hour-filter");
   const venueFilter = byId<HTMLSelectElement>("venue-filter");
+  const spaceFilter = byId<HTMLSelectElement>("space-filter");
   const minAgeFilter = byId<HTMLInputElement>("min-age-filter");
   const maxAgeFilter = byId<HTMLInputElement>("max-age-filter");
   const filterToggle = byId("filter-toggle");
@@ -137,6 +142,38 @@ const initSessionFilters = (): void => {
     document.getElementById("venue-filter-group")?.classList.remove("hidden");
   }
 
+  // Populate the room filter. The option value is the space's sort key, so
+  // sorting the entries lays the rooms out in the panel's tree order and lands
+  // every room of a parent space in one run — which is what the <optgroup>s are
+  // cut from. Rooms with no parent go straight onto the select.
+  const spaceMap = new Map<string, { group: string; name: string }>(); // sort key -> labels
+  for (const card of sessionCards) {
+    const spaceKey = card.dataset.space;
+    if (spaceKey && !spaceMap.has(spaceKey)) {
+      spaceMap.set(spaceKey, {
+        group: card.dataset.venueName ?? "",
+        name: card.dataset.spaceName ?? spaceKey,
+      });
+    }
+  }
+  let currentGroup: HTMLOptGroupElement | undefined;
+  // Codepoint order, not localeCompare: the key's structure is carried by its
+  // "|" separators, and collation treats punctuation as ignorable.
+  for (const [key, { group, name }] of [...spaceMap.entries()].sort(([a], [b]) =>
+    a < b ? -1 : Number(a > b),
+  )) {
+    if (!group) currentGroup = undefined;
+    else if (currentGroup?.label !== group) {
+      currentGroup = document.createElement("optgroup");
+      currentGroup.label = group;
+      spaceFilter.append(currentGroup);
+    }
+    addOption(currentGroup ?? spaceFilter, key, name);
+  }
+  if (spaceMap.size > 1) {
+    document.getElementById("space-filter-group")?.classList.remove("hidden");
+  }
+
   // Populate options for each tag filter category created by the template.
   for (const select of document.querySelectorAll<HTMLSelectElement>(".tag-filter")) {
     const categorySlug = select.dataset.category;
@@ -166,6 +203,7 @@ const initSessionFilters = (): void => {
     const dayValue = dayFilter.value;
     const hourValue = hourFilter.value;
     const venueValue = venueFilter.value;
+    const spaceValue = spaceFilter.value;
     const minAgeValue = minAgeFilter.value;
     const maxAgeValue = maxAgeFilter.value;
 
@@ -220,6 +258,7 @@ const initSessionFilters = (): void => {
       if (dayValue) show &&= card.dataset.day === dayValue;
       if (hourValue) show &&= card.dataset.hour === hourValue;
       if (venueValue) show &&= card.dataset.venue === venueValue;
+      if (spaceValue) show &&= card.dataset.space === spaceValue;
 
       if (minAgeValue || maxAgeValue) {
         const sessionMinAge = Number.parseInt(card.dataset.minAge ?? "", 10) || 0;
@@ -288,6 +327,7 @@ const initSessionFilters = (): void => {
     dayFilter.value = "";
     hourFilter.value = "";
     venueFilter.value = "";
+    spaceFilter.value = "";
     minAgeFilter.value = "";
     maxAgeFilter.value = "";
     for (const categorySlug of Object.keys(tagFilters)) {
@@ -339,6 +379,7 @@ const initSessionFilters = (): void => {
     pushSelectChip(dayFilter);
     pushSelectChip(hourFilter);
     pushSelectChip(venueFilter);
+    pushSelectChip(spaceFilter);
     pushAgeChip(minAgeFilter, filterChipsBar.dataset.minAgeLabel ?? "Age ≥");
     pushAgeChip(maxAgeFilter, filterChipsBar.dataset.maxAgeLabel ?? "Age ≤");
     for (const cat of Object.keys(tagFilters)) pushSelectChip(tagFilters[cat]);
@@ -390,6 +431,7 @@ const initSessionFilters = (): void => {
   dayFilter.addEventListener("change", filterSessions);
   hourFilter.addEventListener("change", filterSessions);
   venueFilter.addEventListener("change", filterSessions);
+  spaceFilter.addEventListener("change", filterSessions);
   minAgeFilter.addEventListener("input", filterSessions);
   maxAgeFilter.addEventListener("input", filterSessions);
 

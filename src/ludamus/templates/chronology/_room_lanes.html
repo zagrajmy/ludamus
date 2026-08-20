@@ -57,9 +57,17 @@
                     {# Explicitly placed, not auto-flowed: filtering hides the #}
                     {# headers of emptied rooms (room-lanes.ts), and an #}
                     {# auto-placed survivor would slide into the freed column. #}
+                    {# Two stacked lines per column: the parent space, printed #}
+                    {# only above the first column of its run, then the room. #}
+                    {# The empty line on the other columns keeps the room names #}
+                    {# on one baseline. #}
                     {% for room in day.rooms %}
-                        <div class="truncate px-2 py-1.5 text-xs font-bold uppercase tracking-wide text-foreground-secondary"
-                             data-lane-col="{{ forloop.counter }}">{{ room }}</div>
+                        <div class="px-2 py-1.5" data-lane-col="{{ forloop.counter }}">
+                            <div class="truncate text-[0.625rem] font-semibold uppercase tracking-widest text-foreground-muted">
+                                {% if room.starts_group %}{{ room.group }}{% endif %}&nbsp;
+                            </div>
+                            <div class="truncate text-xs font-bold uppercase tracking-wide text-foreground-secondary">{{ room.name }}</div>
+                        </div>
                     {% endfor %}
                     {# Column dividers hang from the header cells and continue down #}
                     {# through the body (matching .room-lanes-rule below), so the #}

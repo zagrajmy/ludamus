@@ -4350,6 +4350,17 @@ msgid "All venues"
 msgstr "Wszystkie lokalizacje"
 
 #: src/ludamus/templates/chronology/event.html
+#: src/ludamus/templates/panel/_space_tree_node.html
+#: src/ludamus/templates/panel/parts/timetable-session-detail.html
+#: src/ludamus/templates/panel/timetable-log.html
+msgid "Room"
+msgstr "Sala"
+
+#: src/ludamus/templates/chronology/event.html
+msgid "All rooms"
+msgstr "Wszystkie sale"
+
+#: src/ludamus/templates/chronology/event.html
 msgid "Age range"
 msgstr "Przedział wiekowy"
 
@@ -6406,12 +6417,6 @@ msgstr "Dziennik"
 #, python-format
 msgid "Reorder %(name)s — use the arrow keys"
 msgstr "Zmień kolejność: %(name)s — użyj strzałek"
-
-#: src/ludamus/templates/panel/_space_tree_node.html
-#: src/ludamus/templates/panel/parts/timetable-session-detail.html
-#: src/ludamus/templates/panel/timetable-log.html
-msgid "Room"
-msgstr "Sala"
 
 #: src/ludamus/templates/panel/_space_tree_node.html
 msgid "Group"

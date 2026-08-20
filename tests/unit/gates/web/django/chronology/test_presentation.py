@@ -153,12 +153,13 @@ class TestSessionDataWaitingCount:
         assert data.waiting_count == waiting
 
 
-def _loc(path="", parent_slug="", parent_name="", space_name=""):
+def _loc(path="", parent_slug="", parent_name="", space_name="", sort_key=""):
     return {
         "space_name": space_name,
         "parent_slug": parent_slug,
         "parent_name": parent_name,
         "path": path,
+        "sort_key": sort_key,
     }
 
 
@@ -248,7 +249,7 @@ class TestNightSessions:
                 pk=1,
                 session_confirmed=True,
             ),
-            loc={"space_name": "Sala A", "parent_slug": "hall", "parent_name": "Hall"},
+            loc=_loc(space_name="Sala A", parent_slug="hall", parent_name="Hall"),
         )
 
     def test_session_crossing_midnight_lands_on_both_days(self):
@@ -269,6 +270,52 @@ class TestNightSessions:
         assert [
             [(tile.row_start, tile.row_span) for tile in day.tiles] for day in days
         ] == [[(1, 2)], [(1, 2)]]
+
+
+class TestRoomLaneOrdering:
+    @staticmethod
+    def _in_room(*, parent_name: str, space_name: str, sort_key: str) -> SessionData:
+        tz = timezone.get_current_timezone()
+        return _make_session_data(
+            agenda_item=AgendaItemDTO(
+                start_time=datetime(2026, 7, 10, 10, tzinfo=tz),
+                end_time=datetime(2026, 7, 10, 11, tzinfo=tz),
+                pk=1,
+                session_confirmed=True,
+            ),
+            loc=_loc(space_name=space_name, parent_name=parent_name, sort_key=sort_key),
+        )
+
+    def test_columns_follow_the_space_tree_not_the_alphabet(self):
+        # "Aula" sorts first alphabetically but sits on the second floor, which
+        # the organizer ordered last.
+        sessions = {
+            1: self._in_room(
+                parent_name="Piętro 2",
+                space_name="Aula",
+                sort_key="000001|Piętro 2|p2|000000|Aula|aula",
+            ),
+            2: self._in_room(
+                parent_name="Piętro 1",
+                space_name="Sala B",
+                sort_key="000000|Piętro 1|p1|000001|Sala B|sala-b",
+            ),
+            3: self._in_room(
+                parent_name="Piętro 1",
+                space_name="Sala A",
+                sort_key="000000|Piętro 1|p1|000000|Sala A|sala-a",
+            ),
+        }
+
+        days = build_room_lanes(build_schedule_days(sessions))
+
+        assert [
+            (lane.group, lane.name, lane.starts_group) for lane in days[0].rooms
+        ] == [
+            ("Piętro 1", "Sala A", True),
+            ("Piętro 1", "Sala B", False),
+            ("Piętro 2", "Aula", True),
+        ]
 
 
 class TestGroupSessionsByState:

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections import Counter, defaultdict
+from collections import defaultdict
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
 from math import ceil
@@ -54,9 +54,19 @@ class RoomLaneHourMark:
 
 
 @dataclass
+class RoomLane:
+    # One room column. `group` is the parent space it hangs under, printed once
+    # above the first column of the run (`starts_group`) so the header reads as
+    # the space tree rather than a flat row of room names.
+    name: str
+    group: str
+    starts_group: bool
+
+
+@dataclass
 class RoomLaneDay:
     day_start: datetime
-    rooms: list[str]
+    rooms: list[RoomLane]
     hour_marks: list[RoomLaneHourMark]
     tiles: list[RoomLaneTile]
 
@@ -123,18 +133,30 @@ def group_sessions_by_state(
 
 
 def _room_key(data: SessionData) -> tuple[str, str, str]:
-    return data.loc["space_name"], data.loc["parent_slug"], data.loc["parent_name"]
+    # sort_key first: it carries the whole ancestor chain's panel ordering, so
+    # sorting on it lays the columns out in tree order and puts every room of a
+    # parent space side by side.
+    return data.loc["sort_key"], data.loc["space_name"], data.loc["parent_name"]
+
+
+def _room_lanes(keys: list[tuple[str, str, str]]) -> list[RoomLane]:
+    lanes: list[RoomLane] = []
+    # Sentinel: a root-level room's parent is "", and that run still opens a
+    # group of its own rather than continuing the previous parent's.
+    previous_group = "\x00"
+    for _, name, parent in keys:
+        lanes.append(
+            RoomLane(name=name, group=parent, starts_group=parent != previous_group)
+        )
+        previous_group = parent
+    return lanes
 
 
 def build_room_lanes(schedule_days: list[ScheduleDay]) -> list[RoomLaneDay]:
     lane_days: list[RoomLaneDay] = []
     for day in schedule_days:
         keys = sorted({_room_key(tile.data) for tile in day.tiles})
-        name_counts = Counter(name for name, _, _ in keys)
-        rooms = [
-            f"{name} ({parent})" if name_counts[name] > 1 and parent else name
-            for name, _, parent in keys
-        ]
+        rooms = _room_lanes(keys)
         col_index = {key: index + 1 for index, key in enumerate(keys)}
 
         day_start = day.day_start
