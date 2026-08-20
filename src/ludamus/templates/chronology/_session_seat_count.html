@@ -1,6 +1,7 @@
 {% load i18n %}
 {# The seat count, shared by the card and the compact row. Rendered where #}
-{# sign-up is shut: "3 spots left" would read as an invitation, so state the #}
+{# sign-up is not open — a shut window, or a proposal that has no seats to #}
+{# offer yet: "3 spots left" would read as an invitation, so state the #}
 {# session's own cap instead of what is left of it. #}
 {# Variables: data, extra_class (the caller's type scale). #}
 <span class="{% if extra_class %}{{ extra_class }} {% endif %}font-medium tabular-nums text-foreground-muted">
