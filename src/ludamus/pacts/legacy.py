@@ -231,14 +231,6 @@ class SessionDTO(BaseModel):
     cover_image_original_name: str = ""
 
 
-class PendingSessionTimeSlotDTO(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    end_time: datetime
-    pk: int
-    start_time: datetime
-
-
 class LocationData(TypedDict):
     # Tree location of a scheduled leaf: its name, its immediate parent (the
     # grouping unit, empty for a root leaf), and the full "Root > ... > Leaf"

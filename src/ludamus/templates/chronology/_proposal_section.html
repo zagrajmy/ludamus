@@ -1,0 +1,54 @@
+{% load i18n %}
+{% load tessera %}
+{# One grid of proposal cards under a labelled heading, for both audiences: #}
+{# the organizer's review queue, and the author's own submissions. The two #}
+{# differ only in wording and in where a card leads, so they share this #}
+{# markup — chiefly the grid class list, which must not drift between them. #}
+{# The branch stays here rather than at the two call sites because the #}
+{# accessible name interpolates the title per card, and blocktranslate #}
+{# cannot take its message from a variable. #}
+{# Variables: cards (list[SessionData]), event #}
+{# Optional: is_own (author's own proposals), wizard_mark (superuser note) #}
+<div class="mt-12 time-slot-section"
+     data-time-slot="{% if is_own %}own-proposals{% else %}pending-proposals{% endif %}">
+    <div class="flex items-center gap-4 mb-4">
+        {% if is_own %}
+            <div class="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold bg-amber-100 dark:bg-amber-900/10 text-amber-700 dark:text-amber-400">
+                {% icon "light-bulb" class="w-4 h-4" variant="mini" %}
+                {% translate "Your pending proposals" %}
+            </div>
+        {% else %}
+            <div class="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold bg-warm-200 dark:bg-warm-800/30 text-warm-700 dark:text-warm-400">
+                {% icon "inbox" class="w-4 h-4" variant="mini" %}
+                {% translate "Proposals to review" %}
+                {% if wizard_mark %}
+                    {% translate "Superuser magic: you see this without being an organizer of this event." as t_wizard %}
+                    <span title="{{ t_wizard }}" class="cursor-help">
+                        <span aria-hidden="true">🧙</span>
+                        <span class="sr-only">{{ t_wizard }}</span>
+                    </span>
+                {% endif %}
+            </div>
+        {% endif %}
+        <div class="h-px grow bg-border"></div>
+        <span class="text-xs text-foreground-muted">
+            {% if is_own %}
+                {% blocktranslate count counter=cards|length %}{{ counter }} proposal{% plural %}{{ counter }} proposals{% endblocktranslate %}
+            {% else %}
+                {% blocktranslate count counter=cards|length %}{{ counter }} waiting{% plural %}{{ counter }} waiting{% endblocktranslate %}
+            {% endif %}
+        </span>
+    </div>
+    <div class="session-grid grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
+        {% for data in cards %}
+            {% if is_own %}
+                {% url 'web:chronology:session-edit' event_slug=event.slug session_id=data.session.pk as card_url %}
+                {% blocktranslate with title=data.session.title asvar card_label %}Edit proposal {{ title }}{% endblocktranslate %}
+            {% else %}
+                {% url 'web:chronology:session-accept' event_slug=event.slug session_id=data.session.pk as card_url %}
+                {% blocktranslate with title=data.session.title asvar card_label %}Review proposal {{ title }}{% endblocktranslate %}
+            {% endif %}
+            {% include "chronology/_session_card.html" with session_link_base="" proposal_url=card_url proposal_action_label=card_label %}
+        {% endfor %}
+    </div>
+</div>

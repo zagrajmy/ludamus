@@ -294,6 +294,9 @@
                                                         {% if design_session_data_ended %}
                                                             {% include "chronology/_session_card.html" with data=design_session_data_ended session_link_base="" %}
                                                         {% endif %}
+                                                        {% if design_session_proposal %}
+                                                            {% include "chronology/_session_card.html" with data=design_session_proposal session_link_base="" proposal_url="#" proposal_action_label="Review proposal" %}
+                                                        {% endif %}
                                                     </div>
                                                 </div>
                                                 <div class="relative bg-background pt-12 px-8 pb-8 min-h-48 flex flex-col items-center justify-center gap-4 sm:col-span-2 lg:col-span-3">

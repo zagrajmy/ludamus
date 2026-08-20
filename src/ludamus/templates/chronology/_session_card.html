@@ -4,16 +4,18 @@
 <article class="session-wrapper h-full min-w-0">
     {# A proposal is not on the timetable yet, and says so twice over: a dashed #}
     {# border — this codebase's mark for a slot with nothing real in it — on a #}
-    {# newsprint ground. Both are near the limit of perceptible on purpose; #}
+    {# warmer ground. Both are near the limit of perceptible on purpose; #}
     {# neither is a status colour, and three of these in a grid must still read #}
     {# as the event page. #}
-    <div class="session relative flex h-full w-full flex-col overflow-hidden rounded-2xl border ring-offset-[.5px] hover:ring-1 hover:ring-neutral-200 dark:hover:ring-neutral-600 hover:[--pb-scale:1.01] duration-100 ring-offset-background {% if data.is_pending_proposal %}bg-newsprint dark:bg-newsprint-dark border-dashed border-warm-400 dark:border-warm-700{% else %}bg-neutral-50 dark:bg-neutral-800 border-border{% endif %} {% if data.user_enrolled %}ring-2 ring-coral-400{% endif %}"
+    {# The surface is named once, as --card-surface, because the guild notch's #}
+    {# ring has to punch through the same colour — see the presenter row. #}
+    <div class="session relative flex h-full w-full flex-col overflow-hidden rounded-2xl border ring-offset-[.5px] hover:ring-1 hover:ring-neutral-200 dark:hover:ring-neutral-600 hover:[--pb-scale:1.01] duration-100 ring-offset-background bg-(--card-surface) {% if data.is_unscheduled %}[--card-surface:var(--color-proposal-surface)] border-dashed border-warm-400 dark:border-warm-700{% else %}[--card-surface:var(--color-neutral-50)] dark:[--card-surface:var(--color-neutral-800)] border-border{% endif %} {% if data.user_enrolled %}ring-2 ring-coral-400{% endif %}"
          {% include "chronology/_session_data_attrs.html" %}>
-        {% if data.is_pending_proposal %}
+        {% if data.is_unscheduled %}
             {# proposal_url is the page that acts on the proposal — the review #}
-            {# screen for an organizer, the edit form for its author. Callers #}
-            {# that have no such page (the design gallery) pass none and get an #}
-            {# inert card rather than one that looks clickable and is not. #}
+            {# screen for an organizer, the edit form for its author. Guarded #}
+            {# so a caller with no such page gets an inert card rather than a #}
+            {# link to nowhere; every caller today passes one. #}
             {% if proposal_url %}
                 <a href="{{ proposal_url }}"
                    class="session-link absolute inset-0 z-10 rounded-2xl">
@@ -53,12 +55,10 @@
                     <span class="shrink-0 relative" data-morph="avatar">
                         {% include "components/avatar.html" with user=data.presenter size="size-8" danger_ring=data.presenter_is_shadowbanned %}
                         {# The notch reads as cut out of the card, so its ring #}
-                        {# takes the card's surface colour, proposal included. #}
-                        {% if data.is_pending_proposal %}
-                            {% include "components/guild_notch.html" with guild=data.guild flagged=data.presenter_is_shadowbanned ring="ring-2 ring-newsprint dark:ring-newsprint-dark" %}
-                        {% else %}
-                            {% include "components/guild_notch.html" with guild=data.guild flagged=data.presenter_is_shadowbanned ring="ring-2 ring-neutral-50 dark:ring-neutral-800" %}
-                        {% endif %}
+                        {# has to be the card's own surface — --card-surface is #}
+                        {# set beside that background above, so the two cannot #}
+                        {# drift the way two hardcoded class lists would. #}
+                        {% include "components/guild_notch.html" with guild=data.guild flagged=data.presenter_is_shadowbanned ring="ring-2 ring-(--card-surface)" %}
                     </span>
                     <span class="shrink-0 max-w-[12rem] truncate text-base font-medium text-foreground-secondary"
                           data-morph="host"
@@ -89,7 +89,7 @@
                     {# Where a scheduled session states its room, a proposal #}
                     {# states the slot it is asking for. A different icon for a #}
                     {# different modality: the pin is a fact, the calendar a wish. #}
-                    {% if data.is_pending_proposal %}
+                    {% if data.is_unscheduled %}
                         {% icon "calendar-days" class="size-4 shrink-0 text-foreground-muted/80" variant="mini" %}
                         {% include "chronology/_proposal_slot.html" %}
                     {% elif data.location_label %}
@@ -109,7 +109,7 @@
                     {# same word three times on one screen. This slot carries the #}
                     {# capacity the author asked for — muted, so a requested #}
                     {# number never reads as a live one. #}
-                    {% if data.is_pending_proposal %}
+                    {% if data.availability == "proposal" %}
                         <span class="text-sm font-medium text-foreground-muted">
                             {% blocktranslate count limit=data.session.participants_limit %}{{ limit }} seat{% plural %}{{ limit }} seats{% endblocktranslate %}
                         </span>

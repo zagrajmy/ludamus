@@ -1594,7 +1594,7 @@ class TestEventPageView:
             template_name=["chronology/event.html"],
         )
 
-    def test_ok_superuser_pending_proposals_rendered(
+    def test_ok_superuser_sees_preferred_slots_earliest_first(
         self, authenticated_client, event, active_user, pending_session
     ):
         active_user.is_staff = True
@@ -1602,12 +1602,14 @@ class TestEventPageView:
         active_user.save()
         event.proposal_end_time = timezone.now() + timedelta(days=3)
         event.save(update_fields=["proposal_end_time"])
-        for offset in _PREFERRED_SLOT_OFFSETS:
-            pending_session.time_slots.add(
-                TimeSlotFactory(
-                    event=event, start_time=event.start_time + timedelta(hours=offset)
-                )
+        # Added latest-first, so a card that echoed insertion order would fail.
+        slots = [
+            TimeSlotFactory(
+                event=event, start_time=event.start_time + timedelta(hours=offset)
             )
+            for offset in reversed(_PREFERRED_SLOT_OFFSETS)
+        ]
+        pending_session.time_slots.add(*slots)
         flexible_session = SessionFactory(
             category=pending_session.category,
             presenter=active_user,
@@ -1623,12 +1625,11 @@ class TestEventPageView:
             flexible_session, presenter=active_user, can_edit=True
         )
         expected_pending = proposal_card(
-            pending_session, presenter=active_user, can_edit=True
+            pending_session,
+            presenter=active_user,
+            can_edit=True,
+            slots=sorted(slots, key=lambda slot: slot.start_time),
         )
-        assert len(expected_pending.preferred_time_slots) == len(
-            _PREFERRED_SLOT_OFFSETS
-        )
-        assert not expected_flexible.preferred_time_slots
         assert_response(
             response,
             HTTPStatus.OK,
@@ -1640,6 +1641,40 @@ class TestEventPageView:
                 pending_wizard_view=True,
             ),
             template_name=["chronology/event.html"],
+        )
+
+    def test_review_inbox_query_count_constant_in_proposal_count(
+        self, authenticated_client, event, active_user, pending_session
+    ):
+        # The review queue is unbounded, so it has to cost the same at 1 and at
+        # 5. It doesn't for free: the card reads enrolled_count/waiting_count,
+        # which fall back to a COUNT per instance unless the queryset carries
+        # annotate_session_participation_counts. zeal can't catch that — it
+        # instruments relation traversal, not .count() on a related manager.
+        active_user.is_staff = True
+        active_user.is_superuser = True
+        active_user.save()
+        event.proposal_end_time = timezone.now() + timedelta(days=3)
+        event.save(update_fields=["proposal_end_time"])
+
+        with CaptureQueriesContext(connection) as one_proposal:
+            authenticated_client.get(self._get_url(event.slug))
+
+        for _ in range(4):
+            SessionFactory(
+                category=pending_session.category,
+                presenter=active_user,
+                display_name=active_user.name,
+                participants_limit=5,
+                min_age=0,
+                status="pending",
+            )
+
+        with CaptureQueriesContext(connection) as five_proposals:
+            authenticated_client.get(self._get_url(event.slug))
+
+        assert len(five_proposals.captured_queries) == len(
+            one_proposal.captured_queries
         )
 
     def test_ok_superuser_organizer_sees_no_wizard_emoji(

@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 from django.db import transaction
-from django.db.models import Count, Exists, F, OuterRef, Q, QuerySet, Subquery
+from django.db.models import Count, Exists, F, OuterRef, Prefetch, Q, QuerySet, Subquery
 
 from ludamus.links.db.django.models import (
     SPACE_MAX_DEPTH,
@@ -127,6 +127,32 @@ def with_session_card_relations(queryset: QuerySet[Session]) -> QuerySet[Session
         "field_values__field",
         "event__enrollment_configs",
         "tracks",
+    )
+
+
+def pending_proposals_for_cards(event_id: int) -> QuerySet[Session]:
+    """Unscheduled proposals of one event, loaded for the session-card layout."""
+    # agenda_item__isnull scopes this to proposals the review screen can act
+    # on: accepting creates an AgendaItem and a Session has only one, so a
+    # pending session already on the timetable cannot be accepted there. Those
+    # belong to the panel, whose status machine knows about them.
+    # The participation annotation matters as much here as on the scheduled
+    # path: without it every card re-counts its own participants, and the
+    # review queue is unbounded.
+    return (
+        annotate_session_participation_counts(
+            with_session_card_relations(
+                Session.objects.filter(
+                    category__event_id=event_id,
+                    status=SessionStatus.PENDING,
+                    agenda_item__isnull=True,
+                )
+            )
+        )
+        .prefetch_related(
+            Prefetch("time_slots", queryset=TimeSlot.objects.order_by("start_time"))
+        )
+        .order_by("-creation_time")
     )
 
 

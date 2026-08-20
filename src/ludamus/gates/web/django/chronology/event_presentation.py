@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, Self, TypedDict
 
 from ludamus.gates.web.django.entities import UserInfo
 from ludamus.pacts import EventListItemDTO
-from ludamus.pacts.legacy import PendingSessionTimeSlotDTO, SessionParticipationStatus
+from ludamus.pacts.legacy import SessionParticipationStatus, TimeSlotDTO
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -102,10 +102,12 @@ class SessionData:  # pylint: disable=too-many-instance-attributes
     # Slots the author would accept, earliest first. Only ever populated for a
     # pending proposal: a scheduled session states its real time via
     # agenda_item, and reading the m2m for one would cost a query per card.
-    preferred_time_slots: list[PendingSessionTimeSlotDTO] = field(default_factory=list)
+    preferred_time_slots: list[TimeSlotDTO] = field(default_factory=list)
 
     @property
-    def is_pending_proposal(self) -> bool:
+    def is_unscheduled(self) -> bool:
+        # Not "is a proposal": status and scheduling are separate axes, and a
+        # PENDING session that already holds an agenda item is scheduled.
         return self.agenda_item is None
 
     @property
@@ -119,7 +121,12 @@ class SessionData:  # pylint: disable=too-many-instance-attributes
         """Name the one availability state every layout and label dispatches on."""
         # Order matters: a session that takes no sign-up is not "unavailable"
         # (its window never opens) and not "full" (it never had a seat), so it
-        # leaves the ladder before either term is asked.
+        # leaves the ladder before either term is asked. A proposal leaves
+        # first of all: every term below is about a seat it does not have yet,
+        # and this string reaches the DOM as data-status, where answering
+        # "unavailable" would put proposals behind the enrollment filters.
+        if self.is_unscheduled:
+            return "proposal"
         if self.is_ended:
             return "ended"
         if self.should_show_as_inactive:

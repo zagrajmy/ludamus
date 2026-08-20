@@ -15,7 +15,7 @@ data-tag-categories="{{ data.filter_categories }}"
 {# session as in progress, while the label waits for a limit_to_end_time #}
 {# window to shut it (should_show_as_inactive). #}
 data-status="{% if data.is_ongoing and not data.is_ended %}in-progress{% else %}{{ data.availability }}{% endif %}"
-data-takes-enrollment="{% if data.takes_enrollment %}true{% else %}false{% endif %}"
+data-takes-enrollment="{% if data.takes_enrollment and not data.is_unscheduled %}true{% else %}false{% endif %}"
 data-user-enrolled="{% if data.user_enrolled %}true{% else %}false{% endif %}"
 data-user-waiting="{% if data.user_waiting %}true{% else %}false{% endif %}"
 data-bookmarked="{% if data.user_bookmarked %}true{% else %}false{% endif %}"

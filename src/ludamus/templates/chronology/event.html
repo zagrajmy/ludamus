@@ -486,25 +486,7 @@
     </div>
     <!-- The viewer's own proposals, awaiting review -->
     {% if own_pending_proposals %}
-        <div class="mt-12 time-slot-section" data-time-slot="own-proposals">
-            <div class="flex items-center gap-4 mb-4">
-                <div class="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold bg-amber-100 dark:bg-amber-900/10 text-amber-700 dark:text-amber-400">
-                    {% icon "light-bulb" class="w-4 h-4" variant="mini" %}
-                    {% translate "Your pending proposals" %}
-                </div>
-                <div class="h-px grow bg-border"></div>
-                <span class="text-xs text-foreground-muted">
-                    {% blocktranslate count counter=own_pending_proposals|length %}{{ counter }} proposal{% plural %}{{ counter }} proposals{% endblocktranslate %}
-                </span>
-            </div>
-            <div class="session-grid grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
-                {% for data in own_pending_proposals %}
-                    {% url 'web:chronology:session-edit' event_slug=event.slug session_id=data.session.pk as edit_url %}
-                    {% blocktranslate with title=data.session.title asvar t_edit %}Edit proposal {{ title }}{% endblocktranslate %}
-                    {% include "chronology/_session_card.html" with session_link_base="" proposal_url=edit_url proposal_action_label=t_edit %}
-                {% endfor %}
-            </div>
-        </div>
+        {% include "chronology/_proposal_section.html" with cards=own_pending_proposals is_own=True %}
     {% endif %}
     <!-- Propose Session CTA -->
     {% if event.is_proposal_active %}
@@ -528,7 +510,7 @@
     {% endif %}
     <!-- Proposals Section (superusers and sphere managers) -->
     {% if pending_review_visible and event.is_proposal_active and pending_sessions %}
-        {% include "chronology/_pending_proposals.html" %}
+        {% include "chronology/_proposal_section.html" with cards=pending_sessions wizard_mark=pending_wizard_view %}
     {% endif %}
     {# Session detail modals are fetched on first open (see modal.ts): the URL #}
     {# template carries a `0` session-id placeholder, injected dialogs land here. #}
