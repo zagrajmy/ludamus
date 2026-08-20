@@ -2,9 +2,30 @@
 {% load cfp_tags %}
 {% load tessera %}
 <article class="session-wrapper h-full min-w-0">
-    <div class="session relative flex h-full w-full flex-col overflow-hidden rounded-2xl bg-neutral-50 dark:bg-neutral-800 border border-border ring-offset-[.5px] hover:ring-1 hover:ring-neutral-200 dark:hover:ring-neutral-600 hover:[--pb-scale:1.01] duration-100 ring-offset-background {% if data.user_enrolled %}ring-2 ring-coral-400{% endif %}"
+    {# A proposal is not on the timetable yet, and says so twice over: a dashed #}
+    {# border — this codebase's mark for a slot with nothing real in it — on a #}
+    {# warmer ground. Both are near the limit of perceptible on purpose; #}
+    {# neither is a status colour, and three of these in a grid must still read #}
+    {# as the event page. #}
+    {# The surface is named once, as --card-surface, because the guild notch's #}
+    {# ring has to punch through the same colour — see the presenter row. #}
+    {# The hover lift is conditional on there being somewhere to go: an #}
+    {# author's proposal card has no link yet (#906), and a card that lifts #}
+    {# under the cursor and then does nothing is a worse lie than a flat one. #}
+    <div class="session relative flex h-full w-full flex-col overflow-hidden rounded-2xl border duration-100 ring-offset-background ring-offset-[.5px] bg-(--card-surface) {% if data.is_unscheduled %}[--card-surface:var(--color-proposal-surface)] border-dashed border-warm-400 dark:border-warm-700{% else %}[--card-surface:var(--color-neutral-50)] dark:[--card-surface:var(--color-neutral-800)] border-border{% endif %} {% if not data.is_unscheduled or proposal_url %}hover:ring-1 hover:ring-neutral-200 dark:hover:ring-neutral-600 hover:[--pb-scale:1.01]{% endif %} {% if data.user_enrolled %}ring-2 ring-coral-400{% endif %}"
          {% include "chronology/_session_data_attrs.html" %}>
-        {% if not data.is_pending_proposal %}
+        {% if data.is_unscheduled %}
+            {# proposal_url is the page that acts on the proposal: the review #}
+            {# screen, for an organizer. Guarded because the author's own card #}
+            {# has no such page yet — see _proposal_section.html — and an empty #}
+            {# href would link the card to the page it is already on. #}
+            {% if proposal_url %}
+                <a href="{{ proposal_url }}"
+                   class="session-link absolute inset-0 z-10 rounded-2xl">
+                    <span class="sr-only">{{ proposal_action_label }}</span>
+                </a>
+            {% endif %}
+        {% else %}
             <a href="{{ session_link_base }}?session={{ data.session.pk }}"
                class="session-link absolute inset-0 z-10 rounded-2xl"
                aria-haspopup="dialog"
@@ -36,7 +57,11 @@
                 <div class="flex items-center gap-2.5 my-3.5 min-w-0 flex-nowrap">
                     <span class="shrink-0 relative" data-morph="avatar">
                         {% include "components/avatar.html" with user=data.presenter size="size-8" danger_ring=data.presenter_is_shadowbanned %}
-                        {% include "components/guild_notch.html" with guild=data.guild flagged=data.presenter_is_shadowbanned ring="ring-2 ring-neutral-50 dark:ring-neutral-800" %}
+                        {# The notch reads as cut out of the card, so its ring #}
+                        {# has to be the card's own surface — --card-surface is #}
+                        {# set beside that background above, so the two cannot #}
+                        {# drift the way two hardcoded class lists would. #}
+                        {% include "components/guild_notch.html" with guild=data.guild flagged=data.presenter_is_shadowbanned ring="ring-2 ring-(--card-surface)" %}
                     </span>
                     <span class="shrink-0 max-w-[12rem] truncate text-base font-medium text-foreground-secondary"
                           data-morph="host"
@@ -64,7 +89,13 @@
             <div class="mt-auto pt-4 flex items-center justify-between gap-3 min-w-0"
                  data-morph="meta">
                 <div class="flex items-center gap-1.5 text-sm text-foreground-secondary min-w-0 overflow-hidden">
-                    {% if data.location_label %}
+                    {# Where a scheduled session states its room, a proposal #}
+                    {# states the slot it is asking for. A different icon for a #}
+                    {# different modality: the pin is a fact, the calendar a wish. #}
+                    {% if data.is_unscheduled %}
+                        {% icon "calendar-days" class="size-4 shrink-0 text-foreground-muted/80" variant="mini" %}
+                        {% include "chronology/_proposal_slot.html" %}
+                    {% elif data.location_label %}
                         {% icon "map-pin" class="size-4 shrink-0 text-foreground-muted/80" variant="mini" %}
                         <span class="truncate" title="{{ data.location_label }}">{{ data.location_label }}</span>
                     {% endif %}
@@ -76,11 +107,22 @@
                     {% endwith %}
                 </div>
                 <div class="shrink-0 flex items-center gap-2">
-                    {% if data.is_pending_proposal %}
-                        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-amber-100 dark:bg-amber-900/10 text-amber-700 dark:text-amber-400">
-                            {% icon "light-bulb" class="w-3.5 h-3.5" variant="mini" %}
-                            {% translate "Awaiting review" %}
-                        </span>
+                    {# No "awaiting review" pill: every card under the proposals #}
+                    {# heading is awaiting review, and saying so per card is the #}
+                    {# same word three times on one screen. This slot carries the #}
+                    {# capacity the author asked for — muted, so a requested #}
+                    {# number never reads as a live one. #}
+                    {% if data.is_unscheduled %}
+                        {# The same seat count the shut-window arm below states, #}
+                        {# and for the same reason: a cap, not spots left. #}
+                        {# Guarded because a limit of 0 means the proposal takes #}
+                        {# no sign-up at all ("Empty or 0 = no enrollment") — #}
+                        {# there availability answers "no-enrollment" and matches #}
+                        {# no arm, while a proposal leaves the ladder first, so #}
+                        {# only this arm can say it. "0 seats" would read as full. #}
+                        {% if data.session.participants_limit %}
+                            {% include "chronology/_session_seat_count.html" with extra_class="text-sm" %}
+                        {% endif %}
                     {% elif data.availability == "full" %}
                         {% if data.waiting_count > 0 %}
                             <span class="text-sm font-medium text-foreground-muted">{{ data.waiting_count }} {% translate "waiting" %}</span>

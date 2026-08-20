@@ -70,7 +70,9 @@ from ludamus.links.db.django.repositories.chronology import public_scheduled_ses
 from ludamus.links.db.django.repositories.sessions import (
     annotate_session_participation_counts,
     field_value_dto,
-    with_session_card_relations,
+    own_pending_proposals,
+    review_inbox_proposals,
+    with_scheduled_card_relations,
 )
 from ludamus.mills.enrollment import (
     EnrollmentPolicy,
@@ -87,8 +89,8 @@ from ludamus.pacts import (
     RedirectError,
     SessionDTO,
     SessionFieldValueDTO,
-    SessionStatus,
     SpherePage,
+    TimeSlotDTO,
 )
 from ludamus.pacts.crowd import CompanionDTO, UserDTO, UserType
 from ludamus.pacts.enrollment import SeatHoldRequest
@@ -103,6 +105,7 @@ from .design_fixtures import (
     mock_form,
     mock_session_data,
     mock_session_data_ended,
+    mock_session_proposal,
     mock_user,
 )
 from .forms import create_enrollment_form
@@ -128,6 +131,7 @@ class DesignPageView(TemplateView):
         context["design_event"] = mock_event_info()
         context["design_session_data"] = mock_session_data()
         context["design_session_data_ended"] = mock_session_data_ended()
+        context["design_session_proposal"] = mock_session_proposal()
         context["design_user"] = mock_user()
         context["design_form"] = mock_form()
         context["design_radio_options"] = [
@@ -289,7 +293,7 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
         # previewing the page sees the schedule participants will get.
         scheduled = public_scheduled_sessions(self.object.pk)
         event_sessions = annotate_session_participation_counts(
-            with_session_card_relations(scheduled)
+            with_scheduled_card_relations(scheduled)
         ).order_by("agenda_item__start_time")
 
         shadowbanned_ids: frozenset[int] = frozenset()
@@ -404,7 +408,7 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
             _get_public_select_fields(self.object), sessions_data.values()
         )
         context.update(filter_availability(sessions_data.values()))
-        context.update(self._get_pending_sessions_context())
+        context.update(self._get_pending_sessions_context(shadowbanned_ids))
 
         return context
 
@@ -455,7 +459,9 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
         self.request.session.pop("anonymous_event_id", None)
         self.request.session.pop("anonymous_site_id", None)
 
-    def _get_pending_sessions_context(self) -> dict[str, Any]:
+    def _get_pending_sessions_context(
+        self, shadowbanned_ids: frozenset[int]
+    ) -> dict[str, Any]:
         context: dict[str, Any] = {
             "pending_sessions": [],
             "pending_review_visible": False,
@@ -468,10 +474,16 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
         ):
             return context
 
+        # The review block only renders while the call for proposals is open,
+        # so one place decides that — building its cards for a shut CFP meant
+        # a whole card pipeline per organizer page view, discarded in the
+        # template.
         if (access := panel_access(self.request)).granted:
+            if not self.object.is_proposal_active:
+                return context
             return context | {
-                "pending_sessions": self.request.di.uow.sessions.read_pending_by_event(
-                    self.object.pk
+                "pending_sessions": self._proposal_cards(
+                    review_inbox_proposals(self.object.pk), shadowbanned_ids
                 ),
                 "pending_review_visible": True,
                 # The wizard is the superuser's view of a sphere they have no
@@ -480,21 +492,25 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
             }
 
         return context | {
-            "own_pending_proposals": list(
-                self._get_session_data(self._get_own_pending_sessions()).values()
+            "own_pending_proposals": self._proposal_cards(
+                own_pending_proposals(
+                    event_id=self.object.pk,
+                    presenter_id=self.request.context.current_user_id,
+                ),
+                shadowbanned_ids,
             )
         }
 
-    def _get_own_pending_sessions(self) -> QuerySet[Session]:
-        # The author's unscheduled proposals, rendered as schedule-style cards.
-        # Same eager-loading shape as event_sessions (agenda_item is null here).
-        return with_session_card_relations(
-            Session.objects.filter(
-                category__event_id=self.object.pk,
-                status=SessionStatus.PENDING,
-                presenter_id=self.request.context.current_user_id,
-            )
-        ).order_by("-creation_time")
+    def _proposal_cards(
+        self, proposals: QuerySet[Session], shadowbanned_ids: frozenset[int]
+    ) -> list[SessionData]:
+        # The shadowban ids, but deliberately not mask_session_card: the mask
+        # rewrites participants_limit to a fabricated fill, and an organizer
+        # has to judge the capacity the author actually asked for. The ids
+        # alone are what the danger ring reads, and without them a presenter
+        # the viewer shadowbanned would be ringed on their scheduled card and
+        # clean on their proposal, on the same page.
+        return list(self._get_session_data(proposals, shadowbanned_ids).values())
 
     def _set_user_participations(
         self, sessions: dict[int, SessionData], event_sessions: QuerySet[Session]
@@ -698,6 +714,16 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
                     )
                     for sp in session.session_participations.all()
                 ],
+                # Only an unscheduled proposal has preferences worth reading;
+                # its queryset is the one that prefetches them.
+                preferred_time_slots=(
+                    []
+                    if agenda_item
+                    else [
+                        TimeSlotDTO.model_validate(slot)
+                        for slot in session.time_slots.all()
+                    ]
+                ),
             )
 
         # Check if any active enrollment config has limit_to_end_time enabled

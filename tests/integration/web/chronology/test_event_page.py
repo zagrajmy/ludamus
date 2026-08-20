@@ -46,8 +46,6 @@ from ludamus.links.gravatar import gravatar_url
 from ludamus.pacts import (
     AgendaItemDTO,
     LocationData,
-    PendingSessionDTO,
-    PendingSessionTimeSlotDTO,
     SessionDTO,
     SessionFieldValueDTO,
     VirtualEnrollmentConfig,
@@ -68,8 +66,16 @@ from tests.integration.web.chronology.helpers import (
     compact_day,
     event_page_context,
     make_half_full_session,
+    proposal_card,
     session_card,
 )
+
+# Hour offsets from the event start for the proposal that names preferred
+# slots: three of them, so the card shows the earliest and counts the rest.
+_PREFERRED_SLOT_OFFSETS = (0, 2, 4)
+
+# The review queue the query-count guard grows to, from one proposal.
+_PROPOSALS_IN_QUEUE = 5
 
 
 @pytest.fixture(name="local_midday")
@@ -1522,38 +1528,27 @@ class TestEventPageView:
             contains=placeholder_cover_url(session.pk),
         )
 
-    def test_ok_superuser_proposal(
+    def test_closed_call_for_proposals_builds_no_review_queue(
         self, authenticated_client, event, active_user, pending_session
     ):
+        # The event fixture's CFP has already shut. The block does not render
+        # then, so the cards are not built either — they used to be, and
+        # discarded in the template.
+        assert not event.is_proposal_active
         active_user.is_staff = True
         active_user.is_superuser = True
         active_user.save()
+
         response = authenticated_client.get(self._get_url(event.slug))
 
-        expected_pending = PendingSessionDTO(
-            contact_email=pending_session.contact_email,
-            creation_time=pending_session.creation_time,
-            description=pending_session.description,
-            participants_limit=pending_session.participants_limit,
-            pk=pending_session.pk,
-            display_name=pending_session.display_name,
-            time_slots=[],
-            title=pending_session.title,
-        )
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data=event_page_context(
-                event,
-                url=self._get_url(event.slug),
-                pending_sessions=[expected_pending],
-                pending_review_visible=True,
-                pending_wizard_view=True,
-            ),
+            context_data=event_page_context(event, url=self._get_url(event.slug)),
             template_name=["chronology/event.html"],
         )
 
-    def test_ok_superuser_pending_proposals_rendered(
+    def test_ok_superuser_sees_preferred_slots_earliest_first(
         self, authenticated_client, event, active_user, pending_session
     ):
         active_user.is_staff = True
@@ -1561,12 +1556,14 @@ class TestEventPageView:
         active_user.save()
         event.proposal_end_time = timezone.now() + timedelta(days=3)
         event.save(update_fields=["proposal_end_time"])
-        for offset in (0, 2, 4):
-            pending_session.time_slots.add(
-                TimeSlotFactory(
-                    event=event, start_time=event.start_time + timedelta(hours=offset)
-                )
+        # Added latest-first, so a card that echoed insertion order would fail.
+        slots = [
+            TimeSlotFactory(
+                event=event, start_time=event.start_time + timedelta(hours=offset)
             )
+            for offset in reversed(_PREFERRED_SLOT_OFFSETS)
+        ]
+        pending_session.time_slots.add(*slots)
         flexible_session = SessionFactory(
             category=pending_session.category,
             presenter=active_user,
@@ -1578,28 +1575,14 @@ class TestEventPageView:
 
         response = authenticated_client.get(self._get_url(event.slug))
 
-        expected_flexible = PendingSessionDTO(
-            contact_email=flexible_session.contact_email,
-            creation_time=flexible_session.creation_time,
-            description=flexible_session.description,
-            participants_limit=flexible_session.participants_limit,
-            pk=flexible_session.pk,
-            display_name=flexible_session.display_name,
-            time_slots=[],
-            title=flexible_session.title,
+        expected_flexible = proposal_card(
+            flexible_session, presenter=active_user, can_edit=True
         )
-        expected_pending = PendingSessionDTO(
-            contact_email=pending_session.contact_email,
-            creation_time=pending_session.creation_time,
-            description=pending_session.description,
-            participants_limit=pending_session.participants_limit,
-            pk=pending_session.pk,
-            display_name=pending_session.display_name,
-            time_slots=[
-                PendingSessionTimeSlotDTO.model_validate(ts)
-                for ts in pending_session.time_slots.all()
-            ],
-            title=pending_session.title,
+        expected_pending = proposal_card(
+            pending_session,
+            presenter=active_user,
+            can_edit=True,
+            slots=sorted(slots, key=lambda slot: slot.start_time),
         )
         assert_response(
             response,
@@ -1612,7 +1595,50 @@ class TestEventPageView:
                 pending_wizard_view=True,
             ),
             template_name=["chronology/event.html"],
-            contains=["Pending Proposals", "+1 more", "Flexible", "🧙"],
+        )
+
+    def test_review_inbox_query_count_constant_in_proposal_count(
+        self, authenticated_client, event, active_user, pending_session
+    ):
+        # The review queue is unbounded, so it has to cost the same at 1 and at
+        # 5. It doesn't for free: the card reads enrolled_count/waiting_count,
+        # which fall back to a COUNT per instance unless the queryset carries
+        # annotate_session_participation_counts. zeal can't catch that — it
+        # instruments relation traversal, not .count() on a related manager.
+        active_user.is_staff = True
+        active_user.is_superuser = True
+        active_user.save()
+        event.proposal_end_time = timezone.now() + timedelta(days=3)
+        event.save(update_fields=["proposal_end_time"])
+
+        # Warm up first, as the scheduled-session counterpart above does: one-off
+        # per-process work would otherwise land inside the smaller capture.
+        authenticated_client.get(self._get_url(event.slug))
+
+        with CaptureQueriesContext(connection) as one_proposal:
+            first = authenticated_client.get(self._get_url(event.slug))
+
+        for _ in range(4):
+            SessionFactory(
+                category=pending_session.category,
+                presenter=active_user,
+                display_name=active_user.name,
+                participants_limit=5,
+                min_age=0,
+                status="pending",
+            )
+
+        with CaptureQueriesContext(connection) as five_proposals:
+            last = authenticated_client.get(self._get_url(event.slug))
+
+        # Both responses are asserted, or a queue that quietly stopped
+        # rendering would satisfy the count comparison perfectly.
+        assert first.status_code == HTTPStatus.OK
+        assert len(first.context["pending_sessions"]) == 1
+        assert last.status_code == HTTPStatus.OK
+        assert len(last.context["pending_sessions"]) == _PROPOSALS_IN_QUEUE
+        assert len(five_proposals.captured_queries) == len(
+            one_proposal.captured_queries
         )
 
     def test_ok_superuser_organizer_sees_no_wizard_emoji(
@@ -1627,15 +1653,8 @@ class TestEventPageView:
 
         response = authenticated_client.get(self._get_url(event.slug))
 
-        expected_pending = PendingSessionDTO(
-            contact_email=pending_session.contact_email,
-            creation_time=pending_session.creation_time,
-            description=pending_session.description,
-            participants_limit=pending_session.participants_limit,
-            pk=pending_session.pk,
-            display_name=pending_session.display_name,
-            time_slots=[],
-            title=pending_session.title,
+        expected_pending = proposal_card(
+            pending_session, presenter=active_user, can_edit=True
         )
         assert_response(
             response,
@@ -1647,7 +1666,6 @@ class TestEventPageView:
                 pending_review_visible=True,
             ),
             template_name=["chronology/event.html"],
-            contains="Pending Proposals",
             not_contains="🧙",
         )
 
@@ -1660,15 +1678,8 @@ class TestEventPageView:
 
         response = authenticated_client.get(self._get_url(event.slug))
 
-        expected_pending = PendingSessionDTO(
-            contact_email=pending_session.contact_email,
-            creation_time=pending_session.creation_time,
-            description=pending_session.description,
-            participants_limit=pending_session.participants_limit,
-            pk=pending_session.pk,
-            display_name=pending_session.display_name,
-            time_slots=[],
-            title=pending_session.title,
+        expected_pending = proposal_card(
+            pending_session, presenter=active_user, can_edit=True
         )
         assert_response(
             response,
@@ -1680,8 +1691,149 @@ class TestEventPageView:
                 pending_review_visible=True,
             ),
             template_name=["chronology/event.html"],
-            contains=["Pending Proposals", "Review & accept"],
             not_contains="🧙",
+        )
+
+    def test_shadowbanned_presenter_is_flagged_on_their_proposal_card(
+        self, authenticated_client, event, active_user, pending_session
+    ):
+        # The same presenter must not be ringed on a scheduled card and clean
+        # on a proposal: both card sets read the viewer's shadowban list.
+        active_user.is_staff = True
+        active_user.is_superuser = True
+        active_user.save()
+        event.proposal_end_time = timezone.now() + timedelta(days=3)
+        event.save(update_fields=["proposal_end_time"])
+        presenter = UserFactory()
+        pending_session.presenter = presenter
+        pending_session.save(update_fields=["presenter"])
+        active_user.shadowbanned.add(presenter)
+
+        response = authenticated_client.get(self._get_url(event.slug))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=event_page_context(
+                event,
+                url=self._get_url(event.slug),
+                pending_sessions=[
+                    proposal_card(
+                        pending_session,
+                        presenter=presenter,
+                        presenter_is_shadowbanned=True,
+                    )
+                ],
+                pending_review_visible=True,
+                pending_wizard_view=True,
+            ),
+            template_name=["chronology/event.html"],
+        )
+
+    def test_proposal_without_a_category_still_reaches_the_review_queue(
+        self, authenticated_client, event, active_user, pending_session
+    ):
+        # Session.category is nullable, so scoping the queue through it would
+        # drop this proposal from the organizer's view and its author's alike.
+        active_user.is_staff = True
+        active_user.is_superuser = True
+        active_user.save()
+        event.proposal_end_time = timezone.now() + timedelta(days=3)
+        event.save(update_fields=["proposal_end_time"])
+        pending_session.category = None
+        pending_session.save(update_fields=["category"])
+
+        response = authenticated_client.get(self._get_url(event.slug))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=event_page_context(
+                event,
+                url=self._get_url(event.slug),
+                pending_sessions=[
+                    proposal_card(pending_session, presenter=active_user, can_edit=True)
+                ],
+                pending_review_visible=True,
+                pending_wizard_view=True,
+            ),
+            template_name=["chronology/event.html"],
+        )
+
+    def test_scheduled_pending_session_is_not_offered_for_review(
+        self, authenticated_client, event, active_user, pending_session, space
+    ):
+        # A pending session already on the timetable cannot be accepted:
+        # accepting creates an AgendaItem and a session may only have one. It
+        # belongs to the panel, not to the event page's review inbox.
+        active_user.is_staff = True
+        active_user.is_superuser = True
+        active_user.save()
+        event.proposal_end_time = timezone.now() + timedelta(days=3)
+        event.save(update_fields=["proposal_end_time"])
+        agenda_item = AgendaItemFactory(
+            session=pending_session,
+            space=space,
+            start_time=event.start_time,
+            end_time=event.start_time + timedelta(hours=1),
+        )
+
+        response = authenticated_client.get(self._get_url(event.slug))
+
+        # It leaves the review inbox and joins the programme instead.
+        card = session_card(
+            agenda_item,
+            presenter=active_user,
+            can_edit=True,
+            category_name=pending_session.category.name,
+        )
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=event_page_context(
+                event,
+                url=self._get_url(event.slug),
+                hour_data={agenda_item.start_time: [card]},
+                future_unavailable_hour_data={agenda_item.start_time: [card]},
+                sessions=[card],
+                scheduled_count=1,
+                has_enrollable_sessions=True,
+                pending_review_visible=True,
+                pending_wizard_view=True,
+            ),
+            template_name=["chronology/event.html"],
+        )
+
+    def test_author_loses_sight_of_a_proposal_scheduled_into_a_private_track(
+        self, authenticated_client, event, active_user, pending_session, space
+    ):
+        # A recorded trade-off, not an accident. Both proposal lists mean
+        # "not on the timetable", because a scheduled session commonly keeps
+        # PENDING and status alone would pull the author's whole programme in
+        # here. The cost is this corner: scheduled into a private track, the
+        # session is hidden from the public schedule too, so its own author
+        # sees it nowhere on this page. The panel still shows it.
+        event.proposal_end_time = timezone.now() + timedelta(days=3)
+        event.save(update_fields=["proposal_end_time"])
+        AgendaItemFactory(
+            session=pending_session,
+            space=space,
+            start_time=event.start_time,
+            end_time=event.start_time + timedelta(hours=1),
+        )
+        pending_session.tracks.add(
+            Track.objects.create(
+                event=event, name="Backstage", slug="backstage", is_public=False
+            )
+        )
+
+        response = authenticated_client.get(self._get_url(event.slug))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=event_page_context(event, url=self._get_url(event.slug)),
+            template_name=["chronology/event.html"],
         )
 
     def test_ok_proposal_author_sees_own_proposal_card(
@@ -1693,20 +1845,8 @@ class TestEventPageView:
 
         response = authenticated_client.get(self._get_url(event.slug))
 
-        expected_card = SessionData(
-            agenda_item=None,
-            is_enrollment_available=False,
-            presenter=UserInfo.from_user_dto(
-                UserDTO.model_validate(active_user), gravatar_url=gravatar_url
-            ),
-            session=SessionDTO.model_validate(pending_session),
-            is_full=False,
-            effective_participants_limit=10,
-            enrolled_count=0,
-            session_participations=[],
-            loc=LocationData(space_name="", parent_slug="", parent_name="", path=""),
-            can_edit=True,
-            category_name=pending_session.category.name,
+        expected_card = proposal_card(
+            pending_session, presenter=active_user, can_edit=True
         )
         assert_response(
             response,
@@ -1717,12 +1857,6 @@ class TestEventPageView:
                 own_pending_proposals=[expected_card],
             ),
             template_name=["chronology/event.html"],
-            contains=[
-                "Your pending proposals",
-                pending_session.title,
-                "Awaiting review",
-            ],
-            not_contains=["Pending Proposals", "Review & accept"],
         )
 
     def test_ok_participations(
@@ -1796,8 +1930,6 @@ class TestEventPageView:
                 url=self._get_url(event.slug),
                 future_unavailable_hour_data={agenda_item.start_time: [session_data]},
                 hour_data={agenda_item.start_time: [session_data]},
-                pending_review_visible=True,
-                pending_wizard_view=True,
                 sessions=[session_data],
                 total_enrolled=1,
                 user_enrolled_sessions=[session_data],

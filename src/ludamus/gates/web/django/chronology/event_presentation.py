@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Protocol, Self, TypedDict
 
 from ludamus.gates.web.django.entities import UserInfo
 from ludamus.pacts import EventListItemDTO
-from ludamus.pacts.legacy import SessionParticipationStatus
+from ludamus.pacts.legacy import SessionParticipationStatus, TimeSlotDTO
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Iterator, Sequence
@@ -100,23 +100,37 @@ class SessionData:  # pylint: disable=too-many-instance-attributes
     # the avatar's warning badge, which decides the guild mark's corner. Set
     # from a pk, and a presenter-less session's stand-in pk 0 never matches.
     presenter_is_shadowbanned: bool = False
+    # Slots the author would accept, earliest first. Only ever populated for a
+    # pending proposal: a scheduled session states its real time via
+    # agenda_item, and reading the m2m for one would cost a query per card.
+    preferred_time_slots: list[TimeSlotDTO] = field(default_factory=list)
 
     @property
-    def is_pending_proposal(self) -> bool:
+    def is_unscheduled(self) -> bool:
+        # Not "is a proposal": status and scheduling are separate axes, and a
+        # PENDING session that already holds an agenda item is scheduled.
         return self.agenda_item is None
 
     @property
     def takes_enrollment(self) -> bool:
         # The session's own limit, not the effective one: a 0% seating window
         # zeroes the effective limit without making the session sign-up-free.
-        return self.session.participants_limit > 0
+        # An unscheduled proposal has no seat to take yet whatever its limit
+        # says, and this answer reaches the enrollment filters as
+        # data-takes-enrollment.
+        return not self.is_unscheduled and self.session.participants_limit > 0
 
     @property
     def availability(self) -> str:
         """Name the one availability state every layout and label dispatches on."""
         # Order matters: a session that takes no sign-up is not "unavailable"
         # (its window never opens) and not "full" (it never had a seat), so it
-        # leaves the ladder before either term is asked.
+        # leaves the ladder before either term is asked. A proposal leaves
+        # first of all: every term below is about a seat it does not have yet,
+        # and this string reaches the DOM as data-status, where answering
+        # "unavailable" would put proposals behind the enrollment filters.
+        if self.is_unscheduled:
+            return "proposal"
         if self.is_ended:
             return "ended"
         if self.should_show_as_inactive:
@@ -258,6 +272,10 @@ def _simulacra_participations(count: int) -> list[ParticipationInfo]:
 
 
 def fake_full_card(session_data: SessionData) -> SessionData:
+    # Assumes a scheduled card. An unscheduled proposal leaves both availability
+    # and takes_enrollment before any faked field is read, so the mask would be
+    # a silent no-op on one — nothing routes a proposal here today, and nothing
+    # should start without revisiting that.
     fill = session_data.effective_participants_limit or _SIMULACRA_FILL
     return replace(
         session_data,
