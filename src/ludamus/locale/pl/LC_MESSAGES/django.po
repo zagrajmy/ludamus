@@ -3587,8 +3587,8 @@ msgstr ""
 "href=\"%(license_url)s\">licencji AGPL-3.0</a>."
 
 #: src/ludamus/templates/base.html
-msgid "Analytics settings"
-msgstr "Ustawienia analityki"
+msgid "Cookie settings"
+msgstr "Ustawienia ciasteczek"
 
 #: src/ludamus/templates/base.html
 msgid "Brand"
@@ -4921,32 +4921,25 @@ msgid "Please confirm"
 msgstr "Potwierdź"
 
 #: src/ludamus/templates/components/consent-banner.html
-msgid "Analytics consent"
-msgstr "Zgoda na analitykę"
+msgid "Cookie consent"
+msgstr "Zgoda na ciasteczka"
 
 #: src/ludamus/templates/components/consent-banner.html
 #, python-format
 msgid ""
-"We use analytics to see how people use the site, including session replays "
-"with every input masked. It runs only if you agree. Errors work differently: "
-"when something breaks we always record what went wrong, plus your account id "
-"if you are signed in, so we can fix it. More in the <a "
+"Cookies help us see what to fix. More in the <a "
 "href=\"%(privacy_url)s\">Privacy Policy</a>."
 msgstr ""
-"Używamy analityki, aby zobaczyć, jak ludzie korzystają z serwisu. Obejmuje "
-"to nagrania sesji z zamaskowanymi wszystkimi polami. Działa tylko wtedy, gdy "
-"się zgodzisz. Z błędami jest inaczej: kiedy coś się zepsuje, zawsze "
-"zapisujemy, co poszło nie tak, a jeśli masz zalogowane konto, także jego "
-"identyfikator, żebyśmy mogli to naprawić. Więcej w <a "
+"Ciasteczka pomagają nam zobaczyć, co poprawić. Więcej w <a "
 "href=\"%(privacy_url)s\">Polityce prywatności</a>."
 
 #: src/ludamus/templates/components/consent-banner.html
-msgid "Decline analytics"
-msgstr "Odrzuć analitykę"
+msgid "No cookies!"
+msgstr "Żadnych ciastek!"
 
 #: src/ludamus/templates/components/consent-banner.html
-msgid "Allow analytics"
-msgstr "Włącz analitykę"
+msgid "Cool"
+msgstr "Spoko"
 
 # Login Required Page
 #: src/ludamus/templates/components/dynamic-field-label.html
@@ -9380,6 +9373,33 @@ msgstr "Temat"
 #: src/ludamus/templates/staging_email_inbox.html
 msgid "No emails captured yet."
 msgstr "Brak przechwyconych e-maili."
+
+#~ msgid "Analytics settings"
+#~ msgstr "Ustawienia analityki"
+
+#~ msgid "Analytics consent"
+#~ msgstr "Zgoda na analitykę"
+
+#, python-format
+#~ msgid ""
+#~ "We use analytics to see how people use the site, including session "
+#~ "replays with every input masked. It runs only if you agree. Errors work "
+#~ "differently: when something breaks we always record what went wrong, plus "
+#~ "your account id if you are signed in, so we can fix it. More in the <a "
+#~ "href=\"%(privacy_url)s\">Privacy Policy</a>."
+#~ msgstr ""
+#~ "Używamy analityki, aby zobaczyć, jak ludzie korzystają z serwisu. "
+#~ "Obejmuje to nagrania sesji z zamaskowanymi wszystkimi polami. Działa "
+#~ "tylko wtedy, gdy się zgodzisz. Z błędami jest inaczej: kiedy coś się "
+#~ "zepsuje, zawsze zapisujemy, co poszło nie tak, a jeśli masz zalogowane "
+#~ "konto, także jego identyfikator, żebyśmy mogli to naprawić. Więcej w <a "
+#~ "href=\"%(privacy_url)s\">Polityce prywatności</a>."
+
+#~ msgid "Decline analytics"
+#~ msgstr "Odrzuć analitykę"
+
+#~ msgid "Allow analytics"
+#~ msgstr "Włącz analitykę"
 
 #, python-format
 #~ msgid ""
