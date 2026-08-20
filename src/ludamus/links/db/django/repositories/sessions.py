@@ -36,8 +36,6 @@ from ludamus.pacts import (
     EventDTO,
     FacilitatorDTO,
     NotFoundError,
-    PendingSessionDTO,
-    PendingSessionTimeSlotDTO,
     SessionData,
     SessionDTO,
     SessionFieldValueData,
@@ -427,32 +425,6 @@ class SessionRepository(SessionRepositoryProtocol, SessionModalRepositoryProtoco
     @staticmethod
     def count_by_category(category_id: int) -> int:
         return Session.objects.filter(category_id=category_id).count()
-
-    @staticmethod
-    def read_pending_by_event(event_id: int) -> list[PendingSessionDTO]:
-        sessions = (
-            Session.objects.filter(
-                category__event_id=event_id, status=SessionStatus.PENDING
-            )
-            .prefetch_related("time_slots")
-            .order_by("-creation_time")
-        )
-        return [
-            PendingSessionDTO(
-                contact_email=s.contact_email,
-                creation_time=s.creation_time,
-                description=s.description,
-                participants_limit=s.participants_limit,
-                pk=s.pk,
-                display_name=s.display_name,
-                time_slots=[
-                    PendingSessionTimeSlotDTO.model_validate(ts)
-                    for ts in s.time_slots.all()
-                ],
-                title=s.title,
-            )
-            for s in sessions
-        ]
 
     @staticmethod
     def read_preferred_time_slot_ids(session_id: int) -> list[int]:

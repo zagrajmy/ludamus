@@ -2,9 +2,25 @@
 {% load cfp_tags %}
 {% load tessera %}
 <article class="session-wrapper h-full min-w-0">
-    <div class="session relative flex h-full w-full flex-col overflow-hidden rounded-2xl bg-neutral-50 dark:bg-neutral-800 border border-border ring-offset-[.5px] hover:ring-1 hover:ring-neutral-200 dark:hover:ring-neutral-600 hover:[--pb-scale:1.01] duration-100 ring-offset-background {% if data.user_enrolled %}ring-2 ring-coral-400{% endif %}"
+    {# A proposal is not on the timetable yet, and says so twice over: a dashed #}
+    {# border — this codebase's mark for a slot with nothing real in it — on a #}
+    {# newsprint ground. Both are near the limit of perceptible on purpose; #}
+    {# neither is a status colour, and three of these in a grid must still read #}
+    {# as the event page. #}
+    <div class="session relative flex h-full w-full flex-col overflow-hidden rounded-2xl border ring-offset-[.5px] hover:ring-1 hover:ring-neutral-200 dark:hover:ring-neutral-600 hover:[--pb-scale:1.01] duration-100 ring-offset-background {% if data.is_pending_proposal %}bg-newsprint dark:bg-newsprint-dark border-dashed border-warm-400 dark:border-warm-700{% else %}bg-neutral-50 dark:bg-neutral-800 border-border{% endif %} {% if data.user_enrolled %}ring-2 ring-coral-400{% endif %}"
          {% include "chronology/_session_data_attrs.html" %}>
-        {% if not data.is_pending_proposal %}
+        {% if data.is_pending_proposal %}
+            {# proposal_url is the page that acts on the proposal — the review #}
+            {# screen for an organizer, the edit form for its author. Callers #}
+            {# that have no such page (the design gallery) pass none and get an #}
+            {# inert card rather than one that looks clickable and is not. #}
+            {% if proposal_url %}
+                <a href="{{ proposal_url }}"
+                   class="session-link absolute inset-0 z-10 rounded-2xl">
+                    <span class="sr-only">{{ proposal_action_label }}</span>
+                </a>
+            {% endif %}
+        {% else %}
             <a href="{{ session_link_base }}?session={{ data.session.pk }}"
                class="session-link absolute inset-0 z-10 rounded-2xl"
                aria-haspopup="dialog"
@@ -36,7 +52,13 @@
                 <div class="flex items-center gap-2.5 my-3.5 min-w-0 flex-nowrap">
                     <span class="shrink-0 relative" data-morph="avatar">
                         {% include "components/avatar.html" with user=data.presenter size="size-8" danger_ring=data.presenter_is_shadowbanned %}
-                        {% include "components/guild_notch.html" with guild=data.guild flagged=data.presenter_is_shadowbanned ring="ring-2 ring-neutral-50 dark:ring-neutral-800" %}
+                        {# The notch reads as cut out of the card, so its ring #}
+                        {# takes the card's surface colour, proposal included. #}
+                        {% if data.is_pending_proposal %}
+                            {% include "components/guild_notch.html" with guild=data.guild flagged=data.presenter_is_shadowbanned ring="ring-2 ring-newsprint dark:ring-newsprint-dark" %}
+                        {% else %}
+                            {% include "components/guild_notch.html" with guild=data.guild flagged=data.presenter_is_shadowbanned ring="ring-2 ring-neutral-50 dark:ring-neutral-800" %}
+                        {% endif %}
                     </span>
                     <span class="shrink-0 max-w-[12rem] truncate text-base font-medium text-foreground-secondary"
                           data-morph="host"
@@ -64,7 +86,13 @@
             <div class="mt-auto pt-4 flex items-center justify-between gap-3 min-w-0"
                  data-morph="meta">
                 <div class="flex items-center gap-1.5 text-sm text-foreground-secondary min-w-0 overflow-hidden">
-                    {% if data.location_label %}
+                    {# Where a scheduled session states its room, a proposal #}
+                    {# states the slot it is asking for. A different icon for a #}
+                    {# different modality: the pin is a fact, the calendar a wish. #}
+                    {% if data.is_pending_proposal %}
+                        {% icon "calendar-days" class="size-4 shrink-0 text-foreground-muted/80" variant="mini" %}
+                        {% include "chronology/_proposal_slot.html" %}
+                    {% elif data.location_label %}
                         {% icon "map-pin" class="size-4 shrink-0 text-foreground-muted/80" variant="mini" %}
                         <span class="truncate" title="{{ data.location_label }}">{{ data.location_label }}</span>
                     {% endif %}
@@ -76,10 +104,14 @@
                     {% endwith %}
                 </div>
                 <div class="shrink-0 flex items-center gap-2">
+                    {# No "awaiting review" pill: every card under the proposals #}
+                    {# heading is awaiting review, and saying so per card is the #}
+                    {# same word three times on one screen. This slot carries the #}
+                    {# capacity the author asked for — muted, so a requested #}
+                    {# number never reads as a live one. #}
                     {% if data.is_pending_proposal %}
-                        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-amber-100 dark:bg-amber-900/10 text-amber-700 dark:text-amber-400">
-                            {% icon "light-bulb" class="w-3.5 h-3.5" variant="mini" %}
-                            {% translate "Awaiting review" %}
+                        <span class="text-sm font-medium text-foreground-muted">
+                            {% blocktranslate count limit=data.session.participants_limit %}{{ limit }} seat{% plural %}{{ limit }} seats{% endblocktranslate %}
                         </span>
                     {% elif data.availability == "full" %}
                         {% if data.waiting_count > 0 %}

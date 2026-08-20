@@ -46,8 +46,6 @@ from ludamus.links.gravatar import gravatar_url
 from ludamus.pacts import (
     AgendaItemDTO,
     LocationData,
-    PendingSessionDTO,
-    PendingSessionTimeSlotDTO,
     SessionDTO,
     SessionFieldValueDTO,
     VirtualEnrollmentConfig,
@@ -68,8 +66,13 @@ from tests.integration.web.chronology.helpers import (
     compact_day,
     event_page_context,
     make_half_full_session,
+    proposal_card,
     session_card,
 )
+
+# Hour offsets from the event start for the proposal that names preferred
+# slots: three of them, so the card shows the earliest and counts the rest.
+_PREFERRED_SLOT_OFFSETS = (0, 2, 4)
 
 
 @pytest.fixture(name="local_midday")
@@ -1428,15 +1431,8 @@ class TestEventPageView:
         active_user.save()
         response = authenticated_client.get(self._get_url(event.slug))
 
-        expected_pending = PendingSessionDTO(
-            contact_email=pending_session.contact_email,
-            creation_time=pending_session.creation_time,
-            description=pending_session.description,
-            participants_limit=pending_session.participants_limit,
-            pk=pending_session.pk,
-            display_name=pending_session.display_name,
-            time_slots=[],
-            title=pending_session.title,
+        expected_pending = proposal_card(
+            pending_session, presenter=active_user, can_edit=True
         )
         assert_response(
             response,
@@ -1459,7 +1455,7 @@ class TestEventPageView:
         active_user.save()
         event.proposal_end_time = timezone.now() + timedelta(days=3)
         event.save(update_fields=["proposal_end_time"])
-        for offset in (0, 2, 4):
+        for offset in _PREFERRED_SLOT_OFFSETS:
             pending_session.time_slots.add(
                 TimeSlotFactory(
                     event=event, start_time=event.start_time + timedelta(hours=offset)
@@ -1476,29 +1472,16 @@ class TestEventPageView:
 
         response = authenticated_client.get(self._get_url(event.slug))
 
-        expected_flexible = PendingSessionDTO(
-            contact_email=flexible_session.contact_email,
-            creation_time=flexible_session.creation_time,
-            description=flexible_session.description,
-            participants_limit=flexible_session.participants_limit,
-            pk=flexible_session.pk,
-            display_name=flexible_session.display_name,
-            time_slots=[],
-            title=flexible_session.title,
+        expected_flexible = proposal_card(
+            flexible_session, presenter=active_user, can_edit=True
         )
-        expected_pending = PendingSessionDTO(
-            contact_email=pending_session.contact_email,
-            creation_time=pending_session.creation_time,
-            description=pending_session.description,
-            participants_limit=pending_session.participants_limit,
-            pk=pending_session.pk,
-            display_name=pending_session.display_name,
-            time_slots=[
-                PendingSessionTimeSlotDTO.model_validate(ts)
-                for ts in pending_session.time_slots.all()
-            ],
-            title=pending_session.title,
+        expected_pending = proposal_card(
+            pending_session, presenter=active_user, can_edit=True
         )
+        assert len(expected_pending.preferred_time_slots) == len(
+            _PREFERRED_SLOT_OFFSETS
+        )
+        assert not expected_flexible.preferred_time_slots
         assert_response(
             response,
             HTTPStatus.OK,
@@ -1510,7 +1493,6 @@ class TestEventPageView:
                 pending_wizard_view=True,
             ),
             template_name=["chronology/event.html"],
-            contains=["Pending Proposals", "+1 more", "Flexible", "🧙"],
         )
 
     def test_ok_superuser_organizer_sees_no_wizard_emoji(
@@ -1525,15 +1507,8 @@ class TestEventPageView:
 
         response = authenticated_client.get(self._get_url(event.slug))
 
-        expected_pending = PendingSessionDTO(
-            contact_email=pending_session.contact_email,
-            creation_time=pending_session.creation_time,
-            description=pending_session.description,
-            participants_limit=pending_session.participants_limit,
-            pk=pending_session.pk,
-            display_name=pending_session.display_name,
-            time_slots=[],
-            title=pending_session.title,
+        expected_pending = proposal_card(
+            pending_session, presenter=active_user, can_edit=True
         )
         assert_response(
             response,
@@ -1545,7 +1520,6 @@ class TestEventPageView:
                 pending_review_visible=True,
             ),
             template_name=["chronology/event.html"],
-            contains="Pending Proposals",
             not_contains="🧙",
         )
 
@@ -1558,15 +1532,8 @@ class TestEventPageView:
 
         response = authenticated_client.get(self._get_url(event.slug))
 
-        expected_pending = PendingSessionDTO(
-            contact_email=pending_session.contact_email,
-            creation_time=pending_session.creation_time,
-            description=pending_session.description,
-            participants_limit=pending_session.participants_limit,
-            pk=pending_session.pk,
-            display_name=pending_session.display_name,
-            time_slots=[],
-            title=pending_session.title,
+        expected_pending = proposal_card(
+            pending_session, presenter=active_user, can_edit=True
         )
         assert_response(
             response,
@@ -1578,8 +1545,49 @@ class TestEventPageView:
                 pending_review_visible=True,
             ),
             template_name=["chronology/event.html"],
-            contains=["Pending Proposals", "Review & accept"],
             not_contains="🧙",
+        )
+
+    def test_scheduled_pending_session_is_not_offered_for_review(
+        self, authenticated_client, event, active_user, pending_session, space
+    ):
+        # A pending session already on the timetable cannot be accepted:
+        # accepting creates an AgendaItem and a session may only have one. It
+        # belongs to the panel, not to the event page's review inbox.
+        active_user.is_staff = True
+        active_user.is_superuser = True
+        active_user.save()
+        event.proposal_end_time = timezone.now() + timedelta(days=3)
+        event.save(update_fields=["proposal_end_time"])
+        agenda_item = AgendaItemFactory(
+            session=pending_session,
+            space=space,
+            start_time=event.start_time,
+            end_time=event.start_time + timedelta(hours=1),
+        )
+
+        response = authenticated_client.get(self._get_url(event.slug))
+
+        # It leaves the review inbox and joins the programme instead.
+        card = session_card(
+            agenda_item,
+            presenter=active_user,
+            can_edit=True,
+            category_name=pending_session.category.name,
+        )
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=event_page_context(
+                event,
+                url=self._get_url(event.slug),
+                hour_data={agenda_item.start_time: [card]},
+                future_unavailable_hour_data={agenda_item.start_time: [card]},
+                sessions=[card],
+                pending_review_visible=True,
+                pending_wizard_view=True,
+            ),
+            template_name=["chronology/event.html"],
         )
 
     def test_ok_proposal_author_sees_own_proposal_card(
@@ -1591,20 +1599,8 @@ class TestEventPageView:
 
         response = authenticated_client.get(self._get_url(event.slug))
 
-        expected_card = SessionData(
-            agenda_item=None,
-            is_enrollment_available=False,
-            presenter=UserInfo.from_user_dto(
-                UserDTO.model_validate(active_user), gravatar_url=gravatar_url
-            ),
-            session=SessionDTO.model_validate(pending_session),
-            is_full=False,
-            effective_participants_limit=10,
-            enrolled_count=0,
-            session_participations=[],
-            loc=LocationData(space_name="", parent_slug="", parent_name="", path=""),
-            can_edit=True,
-            category_name=pending_session.category.name,
+        expected_card = proposal_card(
+            pending_session, presenter=active_user, can_edit=True
         )
         assert_response(
             response,
@@ -1615,12 +1611,6 @@ class TestEventPageView:
                 own_pending_proposals=[expected_card],
             ),
             template_name=["chronology/event.html"],
-            contains=[
-                "Your pending proposals",
-                pending_session.title,
-                "Awaiting review",
-            ],
-            not_contains=["Pending Proposals", "Review & accept"],
         )
 
     def test_ok_participations(

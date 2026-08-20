@@ -13,6 +13,7 @@ from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db import transaction
+from django.db.models import Prefetch
 from django.http import Http404, HttpResponse
 from django.shortcuts import redirect
 from django.template.response import TemplateResponse
@@ -64,6 +65,7 @@ from ludamus.links.db.django.models import (
     SessionFieldValue,
     SessionParticipation,
     SessionParticipationStatus,
+    TimeSlot,
 )
 from ludamus.links.db.django.repositories.chronology import public_scheduled_sessions
 from ludamus.links.db.django.repositories.sessions import (
@@ -91,6 +93,7 @@ from ludamus.pacts import (
 )
 from ludamus.pacts.crowd import CompanionDTO, UserDTO, UserType
 from ludamus.pacts.enrollment import SeatHoldRequest
+from ludamus.pacts.legacy import PendingSessionTimeSlotDTO
 from ludamus.pacts.party import (
     PartyConsentMode,
     PartyEnrolledNotification,
@@ -460,8 +463,8 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
 
         if (access := panel_access(self.request)) is not PanelAccess.NONE:
             return context | {
-                "pending_sessions": self.request.di.uow.sessions.read_pending_by_event(
-                    self.object.pk
+                "pending_sessions": list(
+                    self._get_session_data(self._get_pending_sessions()).values()
                 ),
                 "pending_review_visible": True,
                 "pending_wizard_view": access is PanelAccess.SUPERUSER,
@@ -469,20 +472,42 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
 
         return context | {
             "own_pending_proposals": list(
-                self._get_session_data(self._get_own_pending_sessions()).values()
+                self._get_session_data(
+                    self._get_pending_sessions(
+                        presenter_id=self.request.context.current_user_id
+                    )
+                ).values()
             )
         }
 
-    def _get_own_pending_sessions(self) -> QuerySet[Session]:
-        # The author's unscheduled proposals, rendered as schedule-style cards.
-        # Same eager-loading shape as event_sessions (agenda_item is null here).
-        return with_session_card_relations(
-            Session.objects.filter(
-                category__event_id=self.object.pk,
-                status=SessionStatus.PENDING,
-                presenter_id=self.request.context.current_user_id,
+    def _get_pending_sessions(
+        self, *, presenter_id: int | None = None
+    ) -> QuerySet[Session]:
+        """Unscheduled proposals as schedule-style cards, newest first."""
+        # Both audiences render the same card, so both read the same shape:
+        # the organizer's whole review queue, or one author's own proposals.
+        # Same eager-loading as event_sessions (agenda_item is null here), plus
+        # the preferred slots the card's meta row names in place of a room.
+        #
+        # agenda_item__isnull scopes this to proposals the review screen can
+        # actually act on: accept_session creates an AgendaItem, and Session
+        # has only one, so a pending session already on the timetable cannot be
+        # accepted there. Those belong to the panel, which has a status machine
+        # that knows about them (ProposalScheduledError).
+        queryset = Session.objects.filter(
+            category__event_id=self.object.pk,
+            status=SessionStatus.PENDING,
+            agenda_item__isnull=True,
+        )
+        if presenter_id is not None:
+            queryset = queryset.filter(presenter_id=presenter_id)
+        return (
+            with_session_card_relations(queryset)
+            .prefetch_related(
+                Prefetch("time_slots", queryset=TimeSlot.objects.order_by("start_time"))
             )
-        ).order_by("-creation_time")
+            .order_by("-creation_time")
+        )
 
     def _set_user_participations(
         self, sessions: dict[int, SessionData], event_sessions: QuerySet[Session]
@@ -686,6 +711,17 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
                     )
                     for sp in session.session_participations.all()
                 ],
+                # Only a proposal has preferences worth reading: for a
+                # scheduled session agenda_item states the real time, and
+                # touching the m2m would cost a query per card.
+                preferred_time_slots=(
+                    []
+                    if agenda_item is not None
+                    else [
+                        PendingSessionTimeSlotDTO.model_validate(slot)
+                        for slot in session.time_slots.all()
+                    ]
+                ),
             )
 
         # Check if any active enrollment config has limit_to_end_time enabled

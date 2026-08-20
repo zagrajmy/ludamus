@@ -31,6 +31,14 @@
   --color-warm-800: #3d3732;
   --color-warm-900: #252220;
 
+  /* Ground for a proposal card: the session card's neutral surface, warmed a
+     few points toward yellow so an unscheduled proposal reads as a different
+     stock of paper rather than a highlighted row. Deliberately near the limit
+     of perceptible — the dashed border carries the other half of the signal,
+     and foreground-muted has to stay above 4.5:1 on it. */
+  --color-newsprint: #faf9f4;
+  --color-newsprint-dark: #272622;
+
   --color-coral-50: #fef5f3;
   --color-coral-100: #ffe5df;
   --color-coral-200: #ffcfc5;

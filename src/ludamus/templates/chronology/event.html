@@ -463,7 +463,9 @@
             </div>
             <div class="session-grid grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
                 {% for data in own_pending_proposals %}
-                    {% include "chronology/_session_card.html" with session_link_base="" %}
+                    {% url 'web:chronology:session-edit' event_slug=event.slug session_id=data.session.pk as edit_url %}
+                    {% blocktranslate with title=data.session.title asvar t_edit %}Edit proposal {{ title }}{% endblocktranslate %}
+                    {% include "chronology/_session_card.html" with session_link_base="" proposal_url=edit_url proposal_action_label=t_edit %}
                 {% endfor %}
             </div>
         </div>

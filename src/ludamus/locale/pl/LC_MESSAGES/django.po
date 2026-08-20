@@ -3786,8 +3786,8 @@ msgid "Enrollment required"
 msgstr "Wymagane zapisy"
 
 #: src/ludamus/templates/chronology/_pending_proposals.html
-msgid "Pending Proposals"
-msgstr "Oczekujące zgłoszenia"
+msgid "Proposals to review"
+msgstr "Zgłoszenia do rozpatrzenia"
 
 #: src/ludamus/templates/chronology/_pending_proposals.html
 msgid "Superuser magic: you see this without being an organizer of this event."
@@ -3796,39 +3796,20 @@ msgstr ""
 "wydarzenia."
 
 #: src/ludamus/templates/chronology/_pending_proposals.html
-#: src/ludamus/templates/chronology/anonymous_enroll.html
-#: src/ludamus/templates/chronology/parts/session-modal.html
-msgid "Participants"
-msgstr "Uczestnicy"
+#, python-format
+msgid "%(counter)s waiting"
+msgid_plural "%(counter)s waiting"
+msgstr[0] "%(counter)s czeka"
+msgstr[1] "%(counter)s czekają"
+msgstr[2] "%(counter)s czeka"
+msgstr[3] "%(counter)s czeka"
 
 #: src/ludamus/templates/chronology/_pending_proposals.html
-msgid "Review & accept"
-msgstr "Przejrzyj i zaakceptuj"
+#, python-format
+msgid "Review proposal %(title)s"
+msgstr "Rozpatrz zgłoszenie %(title)s"
 
-#: src/ludamus/templates/chronology/_pending_proposals.html
-#: src/ludamus/templates/panel/parts/import-recipe-row.html
-msgid "Proposal"
-msgstr "Zgłoszenie"
-
-#: src/ludamus/templates/chronology/_pending_proposals.html
-#: src/ludamus/templates/chronology/anonymous_enroll.html
-msgid "Host"
-msgstr "Prowadzący"
-
-#: src/ludamus/templates/chronology/_pending_proposals.html
-msgid "Submitted"
-msgstr "Przesłane"
-
-#: src/ludamus/templates/chronology/_pending_proposals.html
-msgid "Preferred Times"
-msgstr "Preferowane czasy"
-
-#: src/ludamus/templates/chronology/_pending_proposals.html
-#: src/ludamus/templates/panel/timetable-log.html
-msgid "Action"
-msgstr "Akcja"
-
-#: src/ludamus/templates/chronology/_pending_time_slots.html
+#: src/ludamus/templates/chronology/_proposal_slot.html
 #, python-format
 msgid "+%(counter)s more"
 msgid_plural "+%(counter)s more"
@@ -3837,9 +3818,9 @@ msgstr[1] "+%(counter)s więcej"
 msgstr[2] "+%(counter)s więcej"
 msgstr[3] "+%(counter)s więcej"
 
-#: src/ludamus/templates/chronology/_pending_time_slots.html
-msgid "Flexible"
-msgstr "Elastyczny"
+#: src/ludamus/templates/chronology/_proposal_slot.html
+msgid "Any time"
+msgstr "Dowolny termin"
 
 #: src/ludamus/templates/chronology/_schedule_view_tabs.html
 msgid "Schedule view"
@@ -3902,17 +3883,6 @@ msgstr[2] "%(counter)s zapisanych uczestników"
 msgstr[3] "%(counter)s zapisanych uczestników"
 
 #: src/ludamus/templates/chronology/_session_card.html
-msgid "Awaiting review"
-msgstr "Czeka na akceptację"
-
-#: src/ludamus/templates/chronology/accept_proposal.html
-msgid "Accept Proposal"
-msgstr "Zaakceptuj zgłoszenie"
-
-#: src/ludamus/templates/chronology/accept_proposal.html
-msgid "Pick a space and time, then add it to the agenda."
-msgstr "Wybierz przestrzeń i godzinę, a następnie dodaj do harmonogramu."
-
 #: src/ludamus/templates/chronology/accept_proposal.html
 #, python-format
 msgid "%(limit)s seat"
@@ -3921,6 +3891,14 @@ msgstr[0] "%(limit)s miejsce"
 msgstr[1] "%(limit)s miejsca"
 msgstr[2] "%(limit)s miejsc"
 msgstr[3] "%(limit)s miejsc"
+
+#: src/ludamus/templates/chronology/accept_proposal.html
+msgid "Accept Proposal"
+msgstr "Zaakceptuj zgłoszenie"
+
+#: src/ludamus/templates/chronology/accept_proposal.html
+msgid "Pick a space and time, then add it to the agenda."
+msgstr "Wybierz przestrzeń i godzinę, a następnie dodaj do harmonogramu."
 
 #: src/ludamus/templates/chronology/accept_proposal.html
 msgid "submitted"
@@ -3977,6 +3955,15 @@ msgstr "Twój Anonimowy Kod"
 #: src/ludamus/templates/chronology/event.html
 msgid "Save this code to manage your enrollment later"
 msgstr "Zachowaj ten kod, aby później zarządzać swoim zapisem"
+
+#: src/ludamus/templates/chronology/anonymous_enroll.html
+msgid "Host"
+msgstr "Prowadzący"
+
+#: src/ludamus/templates/chronology/anonymous_enroll.html
+#: src/ludamus/templates/chronology/parts/session-modal.html
+msgid "Participants"
+msgstr "Uczestnicy"
 
 #: src/ludamus/templates/chronology/anonymous_enroll.html
 #: src/ludamus/templates/chronology/parts/session-modal.html
@@ -4429,6 +4416,11 @@ msgstr[0] "%(counter)s zgłoszenie"
 msgstr[1] "%(counter)s zgłoszenia"
 msgstr[2] "%(counter)s zgłoszeń"
 msgstr[3] "%(counter)s zgłoszenia"
+
+#: src/ludamus/templates/chronology/event.html
+#, python-format
+msgid "Edit proposal %(title)s"
+msgstr "Edytuj zgłoszenie %(title)s"
 
 #: src/ludamus/templates/chronology/event.html
 msgid "Want to host a session?"
@@ -7967,6 +7959,10 @@ msgid "Maps to"
 msgstr "Mapuje na"
 
 #: src/ludamus/templates/panel/parts/import-recipe-row.html
+msgid "Proposal"
+msgstr "Zgłoszenie"
+
+#: src/ludamus/templates/panel/parts/import-recipe-row.html
 msgid "New personal field…"
 msgstr "Nowe pole danych osobowych…"
 
@@ -9026,6 +9022,10 @@ msgid "Schedule Activity Log"
 msgstr "Dziennik zmian harmonogramu"
 
 #: src/ludamus/templates/panel/timetable-log.html
+msgid "Action"
+msgstr "Akcja"
+
+#: src/ludamus/templates/panel/timetable-log.html
 msgid "Change"
 msgstr "Zmiana"
 
@@ -9255,6 +9255,24 @@ msgstr "Temat"
 #: src/ludamus/templates/staging_email_inbox.html
 msgid "No emails captured yet."
 msgstr "Brak przechwyconych e-maili."
+
+#~ msgid "Pending Proposals"
+#~ msgstr "Oczekujące zgłoszenia"
+
+#~ msgid "Review & accept"
+#~ msgstr "Przejrzyj i zaakceptuj"
+
+#~ msgid "Submitted"
+#~ msgstr "Przesłane"
+
+#~ msgid "Preferred Times"
+#~ msgstr "Preferowane czasy"
+
+#~ msgid "Flexible"
+#~ msgstr "Elastyczny"
+
+#~ msgid "Awaiting review"
+#~ msgstr "Czeka na akceptację"
 
 #~ msgid "Open"
 #~ msgstr "Otwarte"

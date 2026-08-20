@@ -16,7 +16,7 @@ from ludamus.gates.web.django.chronology.schedule import (
     ScheduleTile,
 )
 from ludamus.gates.web.django.entities import UserInfo
-from ludamus.links.db.django.models import SessionParticipation
+from ludamus.links.db.django.models import SessionParticipation, TimeSlot
 from ludamus.links.gravatar import gravatar_url
 from ludamus.pacts import (
     AgendaItemDTO,
@@ -25,6 +25,7 @@ from ludamus.pacts import (
     SessionParticipationStatus,
 )
 from ludamus.pacts.crowd import UserDTO
+from ludamus.pacts.legacy import PendingSessionTimeSlotDTO
 from ludamus.pacts.party import (
     EnrollmentPartyChoiceDTO,
     EnrollmentPartyMemberDTO,
@@ -68,6 +69,34 @@ def session_card(agenda_item, *, presenter, **overrides):
         ),
         user_enrolled=False,
         user_waiting=False,
+    )
+    return replace(card, **overrides)
+
+
+def proposal_card(session, *, presenter, **overrides):
+    # A pending proposal's card: the same component as session_card, minus
+    # everything an agenda item supplies — no time, no space, nothing to enroll
+    # in — plus the slots the author would accept.
+    card = SessionData(
+        agenda_item=None,
+        category_name=session.category.name if session.category else "",
+        effective_participants_limit=session.participants_limit,
+        enrolled_count=0,
+        is_enrollment_available=False,
+        is_full=False,
+        loc=LocationData(space_name="", parent_slug="", parent_name="", path=""),
+        # Queried off TimeSlot rather than session.time_slots: the N+1 detector
+        # counts a deferred relation touched once per instance, and a test that
+        # builds two expected cards would trip it on the arrange step alone.
+        preferred_time_slots=[
+            PendingSessionTimeSlotDTO.model_validate(slot)
+            for slot in TimeSlot.objects.filter(session=session).order_by("start_time")
+        ],
+        presenter=UserInfo.from_user_dto(
+            UserDTO.model_validate(presenter), gravatar_url=gravatar_url
+        ),
+        session=SessionDTO.model_validate(session),
+        session_participations=[],
     )
     return replace(card, **overrides)
 

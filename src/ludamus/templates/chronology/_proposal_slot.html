@@ -1,0 +1,22 @@
+{% load i18n %}
+{# The slot a proposal is asking for, as one line of a card's meta row: the #}
+{# earliest preferred slot as a range, plus a count of the rest. A range is #}
+{# what makes it read as a slot — a bare date reads as a submission stamp. #}
+{# Variables: data (SessionData) #}
+{% if data.preferred_time_slots %}
+    {% with slot=data.preferred_time_slots.0 %}
+        <span class="truncate tabular-nums"
+              title="{{ slot.start_time|date:'l, j E, G:i' }}–{{ slot.end_time|date:'G:i' }}">
+            {{ slot.start_time|date:"D, G:i" }}–{{ slot.end_time|date:"G:i" }}
+        </span>
+    {% endwith %}
+    {% with extra=data.preferred_time_slots|length|add:"-1" %}
+        {% if extra %}
+            <span class="shrink-0 text-foreground-muted">
+                {% blocktranslate count counter=extra %}+{{ counter }} more{% plural %}+{{ counter }} more{% endblocktranslate %}
+            </span>
+        {% endif %}
+    {% endwith %}
+{% else %}
+    <span class="shrink-0">{% translate "Any time" %}</span>
+{% endif %}
