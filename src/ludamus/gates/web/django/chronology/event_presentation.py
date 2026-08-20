@@ -3,14 +3,14 @@ from __future__ import annotations
 from collections import defaultdict
 from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING, Self, TypedDict
+from typing import TYPE_CHECKING, Protocol, Self, TypedDict
 
 from ludamus.gates.web.django.entities import UserInfo
 from ludamus.pacts import EventListItemDTO
 from ludamus.pacts.legacy import SessionParticipationStatus
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable, Iterator
+    from collections.abc import Iterable, Iterator, Sequence
 
     from ludamus.pacts import (
         AgendaItemDTO,
@@ -188,6 +188,10 @@ class SessionData:  # pylint: disable=too-many-instance-attributes
         return self.loc.get("path", "")
 
 
+class _SelectField(Protocol):
+    slug: str
+
+
 # A dropdown is only worth showing when there's more than one value to pick
 # between, matching how Venue/Day/Hour reveal themselves. Every filter on the
 # event page clears this same bar; the two helpers below only differ in where
@@ -202,19 +206,23 @@ def filter_availability(cards: Iterable[SessionData]) -> dict[str, bool]:
     }
 
 
-def filterable_field_slugs(cards: Iterable[SessionData]) -> set[str]:
-    """Find the organizer-defined select fields worth offering as a filter.
+def filterable_tag_fields(
+    fields: Sequence[_SelectField], cards: Iterable[SessionData]
+) -> list[_SelectField]:
+    """Keep the organizer-defined select fields worth offering as a filter.
 
     Returns:
-        The slugs whose answers split the schedule more than one way. A field
-        nobody answered, or one every session answers the same way, is left
-        out rather than drawn as a label above an "All ..." box.
+        The fields whose answers split the schedule more than one way, in the
+        order given. A field nobody answered, or one every session answers the
+        same way, is left out rather than drawn as a label above an "All ..."
+        box.
     """
     answers: dict[str, set[str]] = defaultdict(set)
     for card in cards:
         for slug, value in card.public_select_answers():
             answers[slug].add(value)
-    return {slug for slug, values in answers.items() if len(values) > 1}
+    worth_picking = {slug for slug, values in answers.items() if len(values) > 1}
+    return [field for field in fields if field.slug in worth_picking]
 
 
 class EventInfo(EventListItemDTO):

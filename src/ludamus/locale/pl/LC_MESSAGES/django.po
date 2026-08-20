@@ -3865,17 +3865,6 @@ msgid "In Progress"
 msgstr "W Trakcie"
 
 #: src/ludamus/templates/chronology/_session_availability.html
-#: src/ludamus/templates/chronology/_session_card.html
-#: src/ludamus/templates/panel/_space_tree_node.html
-#, python-format
-msgid "%(counter)s seat"
-msgid_plural "%(counter)s seats"
-msgstr[0] "%(counter)s miejsce"
-msgstr[1] "%(counter)s miejsca"
-msgstr[2] "%(counter)s miejsc"
-msgstr[3] "%(counter)s miejsc"
-
-#: src/ludamus/templates/chronology/_session_availability.html
 #: src/ludamus/templates/chronology/event.html
 msgid "Full"
 msgstr "Pełne"
@@ -3908,6 +3897,16 @@ msgstr[3] "%(counter)s zapisanych uczestników"
 #: src/ludamus/templates/chronology/_session_card.html
 msgid "Awaiting review"
 msgstr "Czeka na akceptację"
+
+#: src/ludamus/templates/chronology/_session_seat_count.html
+#: src/ludamus/templates/panel/_space_tree_node.html
+#, python-format
+msgid "%(counter)s seat"
+msgid_plural "%(counter)s seats"
+msgstr[0] "%(counter)s miejsce"
+msgstr[1] "%(counter)s miejsca"
+msgstr[2] "%(counter)s miejsc"
+msgstr[3] "%(counter)s miejsc"
 
 #: src/ludamus/templates/chronology/accept_proposal.html
 msgid "Accept Proposal"

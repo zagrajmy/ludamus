@@ -725,8 +725,7 @@ class TestEventPageView:
                         ],
                     )
                 ],
-                schedule_view_is_list=False,
-                schedule_view_is_rooms=True,
+                active_tab="rooms",
                 room_lane_days=[
                     RoomLaneDay(
                         day_start=local_start,

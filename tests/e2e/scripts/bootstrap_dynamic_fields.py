@@ -38,7 +38,10 @@ from ludamus.links.db.django.models import (
 
 TONE_OPTIONS = (("Comedy", "comedy"), ("Horror", "horror"))
 DIET_OPTIONS = (("Vegan", "vegan"), ("Gluten-free", "gluten-free"))
-MOOD_OPTIONS = (("Cosy", "cosy"), ("Tense", "tense"))
+# Keyed by session slug, not by position: the filter under test needs two
+# distinct answers, and a schedule that gains a session must not quietly
+# leave Mood with one.
+MOOD_BY_SESSION = {"mega-strategy": "Cosy", "story-circle": "Tense"}
 FORMAT_OPTIONS = (("Freeform", "freeform"),)
 
 
@@ -93,9 +96,9 @@ def _seed_schedule_filter_fields() -> None:
         is_public=True,
         order=0,
     )
-    for order, (label, value) in enumerate(MOOD_OPTIONS):
+    for order, label in enumerate(sorted(set(MOOD_BY_SESSION.values()))):
         SessionFieldOption.objects.create(
-            field=mood, label=label, value=value, order=order
+            field=mood, label=label, value=label.lower(), order=order
         )
 
     unanswered = SessionField.objects.create(
@@ -113,8 +116,8 @@ def _seed_schedule_filter_fields() -> None:
             field=unanswered, label=label, value=value, order=order
         )
 
-    sessions = list(Session.objects.filter(event=event).order_by("pk"))
-    for session, (label, _value) in zip(sessions, MOOD_OPTIONS, strict=False):
+    for slug, label in MOOD_BY_SESSION.items():
+        session = Session.objects.get(event=event, slug=slug)
         SessionFieldValue.objects.create(field=mood, session=session, value=[label])
 
 

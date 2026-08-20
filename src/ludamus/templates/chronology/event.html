@@ -290,6 +290,9 @@
         </div>
         {% if hour_data %}
             <!-- Filter Controls -->
+            {# Assigned once: the checkbox below and its chip label further #}
+            {# down have to say the same thing. #}
+            {% translate "Only with enrollment" as t_enrollment_only %}
             <div class="mb-3 sm:mb-6">
                 {# The search field sets the row height; the Filters button and #}
                 {# the view tabs stretch to it (h-full, and a flex wrapper for #}
@@ -326,7 +329,6 @@
                             <div class="flex flex-wrap gap-3 grow pt-3.5">
                                 {% if has_enrollable_sessions %}
                                     <div class="w-full">
-                                        {% translate "Only with enrollment" as t_enrollment_only %}
                                         {% include "components/checkbox-field.html" with id="enrollment-filter" label=t_enrollment_only only %}
                                     </div>
                                 {% endif %}
@@ -457,7 +459,7 @@
                      data-clear-all-label="{% translate "Clear all" %}"
                      data-min-age-label="{% translate "Age ≥" %}"
                      data-max-age-label="{% translate "Age ≤" %}"
-                     data-enrollment-label="{% translate "Only with enrollment" %}">
+                     data-enrollment-label="{{ t_enrollment_only }}">
                     <div class="overflow-hidden">
                         <div class="filter-chips-bar-inner" data-filter-chips-inner></div>
                     </div>

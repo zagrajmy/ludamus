@@ -41,7 +41,7 @@ from ludamus.gates.web.django.chronology.event_presentation import (
     SessionData,
     build_display_field_row,
     filter_availability,
-    filterable_field_slugs,
+    filterable_tag_fields,
     mask_session_card,
 )
 from ludamus.gates.web.django.chronology.schedule import (
@@ -361,8 +361,7 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
                 "scheduled_count": scheduled_count,
                 "compact_schedule": compact_schedule,
                 "schedule_days": schedule_days,
-                "schedule_view_is_list": not rooms_view,
-                "schedule_view_is_rooms": rooms_view,
+                "active_tab": "rooms" if rooms_view else "list",
                 "has_enrollable_sessions": has_enrollable_sessions,
                 "room_lane_days": build_room_lanes(schedule_days) if rooms_view else [],
                 "schedule_list_url": event_url,
@@ -401,15 +400,9 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
         context["enrollment_requires_slots"] = requires_slots
         context.update(self._get_anonymous_context())
 
-        # Only the fields whose answers split this schedule reach the panel:
-        # the same bar track/category clear just below, and Venue/Day/Hour in
-        # session-filters.ts.
-        filterable = filterable_field_slugs(sessions_data.values())
-        context["filterable_tag_categories"] = [
-            field
-            for field in _get_public_select_fields(self.object)
-            if field.slug in filterable
-        ]
+        context["filterable_tag_categories"] = filterable_tag_fields(
+            _get_public_select_fields(self.object), sessions_data.values()
+        )
         context.update(filter_availability(sessions_data.values()))
         context.update(self._get_pending_sessions_context())
 
