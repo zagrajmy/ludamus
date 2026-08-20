@@ -3795,14 +3795,14 @@ msgid "Your pending proposals"
 msgstr "Twoje oczekujące zgłoszenia"
 
 #: src/ludamus/templates/chronology/_proposal_section.html
-msgid "Proposals to review"
-msgstr "Zgłoszenia do rozpatrzenia"
-
-#: src/ludamus/templates/chronology/_proposal_section.html
 msgid "Superuser magic: you see this without being an organizer of this event."
 msgstr ""
 "Magia superużytkownika: widzisz tę sekcję, choć nie organizujesz tego "
 "wydarzenia."
+
+#: src/ludamus/templates/chronology/_proposal_section.html
+msgid "Proposals to review"
+msgstr "Zgłoszenia do rozpatrzenia"
 
 #: src/ludamus/templates/chronology/_proposal_section.html
 #, python-format
