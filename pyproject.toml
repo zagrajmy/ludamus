@@ -47,6 +47,7 @@ dbos = ">=2.28.0,<3"
 unidecode = "^1.4.0"
 lxml = "^6.1.1"
 urllib3 = "^2.7.0"
+posthog = "^7.39.1"
 
 [tool.poetry.group.dev.dependencies]
 black = "^26.1.0"
@@ -55,7 +56,7 @@ deptry = "^0.25.1"
 django-browser-reload = "^1.21.0"
 django-debug-toolbar = "^7.1.0"
 django-stubs = "^6.0.5"
-djlint = "^1.39.2"
+djlint = "^1.44.2"
 factory-boy = "^3.3.3"
 faker = "^40.36.0"
 freezegun = "^1.5.2"
@@ -221,6 +222,7 @@ module = [
     "ludamus.links.db.django.*",
     "ludamus.links.ticket_api",
     "ludamus.links.google_docs",
+    "ludamus.links.analytics.*",
 ]
 disallow_any_expr = false
 

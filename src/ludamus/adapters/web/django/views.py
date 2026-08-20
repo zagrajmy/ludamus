@@ -30,7 +30,7 @@ from ludamus.adapters.web.django.forms import (
     RosterMember,
 )
 from ludamus.adapters.web.django.safety_presentation import fake_full_session
-from ludamus.gates.web.django.access import PanelAccess, has_panel_access, panel_access
+from ludamus.gates.web.django.access import has_panel_access, panel_access
 from ludamus.gates.web.django.chronology.enrollment_presentation import (
     PartyMemberFlags,
     SessionUserParticipationData,
@@ -319,8 +319,10 @@ class EventPageView(AudienceCachedResponseMixin, DetailView):  # type: ignore [t
         # Get all sessions for this event that are published. A private track
         # is unlisted here for everyone, panel access included, so a manager
         # previewing the page sees the schedule participants will get.
+        scheduled = public_scheduled_sessions(self.object.pk)
+        enrollment_view = self.request.GET.get("view") == "enrollment"
         event_sessions = annotate_session_participation_counts(
-            with_session_card_relations(public_scheduled_sessions(self.object.pk))
+            with_session_card_relations(scheduled)
         ).order_by("agenda_item__start_time")
 
         shadowbanned_ids: frozenset[int] = frozenset()
@@ -354,10 +356,36 @@ class EventPageView(AudienceCachedResponseMixin, DetailView):  # type: ignore [t
 
         hour_data = dict(self._get_hour_data(event_sessions, sessions_data))
 
-        if compact_schedule := len(sessions_data) >= COMPACT_SCHEDULE_MIN_SESSIONS:
+        scheduled_count = len(sessions_data)
+        if compact_schedule := scheduled_count >= COMPACT_SCHEDULE_MIN_SESSIONS:
             self._set_bookmark_counts(sessions_data)
             if current_user_id:
                 self._set_user_bookmarks(sessions_data, current_user_id)
+
+        # Everything the page states about the event itself is read off the
+        # whole schedule: these blocks render outside #schedule-region, so a
+        # figure taken after the narrowing below would say one thing on a tab
+        # click and another on a reload. The layout switch is whole-event for
+        # the same reason - it must not flip under the reader on a tab click.
+        total_enrolled = sum(s.enrolled_count for s in sessions_data.values())
+        user_enrolled_sessions = [s for s in sessions_data.values() if s.user_enrolled]
+        has_enrollable_sessions = any(
+            data.takes_enrollment for data in sessions_data.values()
+        )
+
+        # The enrollment view is the same schedule narrowed to what a
+        # participant has to sign up for; a limit of 0 takes no enrollment.
+        if enrollment_view:
+            sessions_data = {
+                sid: data
+                for sid, data in sessions_data.items()
+                if data.takes_enrollment
+            }
+            hour_data = {
+                hour: enrollable
+                for hour, cards in hour_data.items()
+                if (enrollable := [c for c in cards if c.takes_enrollment])
+            }
 
         # The ended/current/future grouping only feeds the card-grid layout;
         # the compact schedule renders from schedule_days instead, so skip the
@@ -380,22 +408,24 @@ class EventPageView(AudienceCachedResponseMixin, DetailView):  # type: ignore [t
             {
                 "hour_data": hour_data,
                 "sessions": list(sessions_data.values()),
+                "scheduled_count": scheduled_count,
                 "compact_schedule": compact_schedule,
                 "schedule_days": schedule_days,
-                "schedule_view_is_list": not rooms_view,
+                "schedule_view_is_list": not rooms_view and not enrollment_view,
                 "schedule_view_is_rooms": rooms_view,
+                "schedule_view_is_enrollment": enrollment_view,
+                "has_enrollable_sessions": has_enrollable_sessions,
                 "room_lane_days": build_room_lanes(schedule_days) if rooms_view else [],
                 "schedule_list_url": event_url,
                 "schedule_rooms_url": f"{event_url}?view=rooms",
+                "schedule_enrollment_url": f"{event_url}?view=enrollment",
                 "ended_hour_data": ended_hour_data,
                 "current_hour_data": current_hour_data,
                 "future_unavailable_hour_data": future_unavailable_hour_data,
-                "total_enrolled": sum(s.enrolled_count for s in sessions_data.values()),
-                "user_enrolled_sessions": [
-                    s for s in sessions_data.values() if s.user_enrolled
-                ],
+                "total_enrolled": total_enrolled,
+                "user_enrolled_sessions": user_enrolled_sessions,
                 "user_enrolled_session_titles": [
-                    s.session.title for s in sessions_data.values() if s.user_enrolled
+                    s.session.title for s in user_enrolled_sessions
                 ],
                 "event_banned": event_banned,
             }
@@ -489,13 +519,15 @@ class EventPageView(AudienceCachedResponseMixin, DetailView):  # type: ignore [t
         ):
             return context
 
-        if (access := panel_access(self.request)) is not PanelAccess.NONE:
+        if (access := panel_access(self.request)).granted:
             return context | {
                 "pending_sessions": self.request.di.uow.sessions.read_pending_by_event(
                     self.object.pk
                 ),
                 "pending_review_visible": True,
-                "pending_wizard_view": access is PanelAccess.SUPERUSER,
+                # The wizard is the superuser's view of a sphere they have no
+                # part in; one who also holds a role here reviews as that role.
+                "pending_wizard_view": access.is_superuser and access.role is None,
             }
 
         return context | {
@@ -685,7 +717,6 @@ class EventPageView(AudienceCachedResponseMixin, DetailView):  # type: ignore [t
                     and session.presenter_id == current_user_id
                 ),
                 effective_participants_limit=session.effective_participants_limit,
-                full_participant_info=session.full_participant_info,
                 agenda_item=(
                     AgendaItemDTO.model_validate(agenda_item)
                     if agenda_item is not None

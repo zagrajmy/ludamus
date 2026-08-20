@@ -190,6 +190,7 @@ def _create_session(
     description: str,
     start_offset: timedelta,
     duration_hours: int,
+    participants_limit: int = 24,
 ) -> Session:
     session = Session.objects.create(
         event=event,
@@ -197,7 +198,7 @@ def _create_session(
         title=title,
         slug=slug,
         description=description,
-        participants_limit=24,
+        participants_limit=participants_limit,
         min_age=10,
     )
     AgendaItem.objects.create(
@@ -570,6 +571,35 @@ def _create_panel_lab_event(sphere: Sphere) -> Event:
     return event
 
 
+# Dedicated event for panel-crud.spec. That spec runs serially and leaves its
+# facilitators, proposals and tracks behind on purpose, and those leftovers are
+# not inert: a public track makes the proposal wizard demand a track selection,
+# which would fail whichever spec walks that wizard next. Nine specs read
+# frostfire-con, so the leftovers need an event of their own.
+def _create_panel_crud_event(sphere: Sphere) -> Event:
+    event = _create_event(
+        sphere,
+        name="Cinderpeak Game Days",
+        slug="cinderpeak-con",
+        description=(
+            "A spring meet for roleplayers, used by the panel CRUD walkthrough."
+        ),
+        start_offset=timedelta(days=25),
+        duration_hours=10,
+        publication_offset=timedelta(days=2),
+        proposals_open=True,
+    )
+    ProposalCategory.objects.create(
+        event=event,
+        name="RPG Proposals",
+        slug="rpg-proposals",
+        min_participants_limit=1,
+        max_participants_limit=6,
+        durations=["PT1H"],
+    )
+    return event
+
+
 # Dedicated event for the cover-image upload e2e tests. cover-images.spec
 # writes the event's cover image and asserts the initial "no cover yet" state,
 # so it needs an event nothing else mutates.
@@ -822,6 +852,9 @@ def main() -> None:
         description="Collaborative narrative building with lightweight prompts.",
         start_offset=timedelta(hours=2),
         duration_hours=1,
+        # Drop-in: no sign-up, so the specs have a session the enrollment
+        # filter must exclude and whose modal shows no Participants tab.
+        participants_limit=0,
     )
 
     _create_session(
@@ -874,6 +907,7 @@ def main() -> None:
     # Dedicated events for the mutating panel / cover-image specs, so they
     # never write to autumn-open (kept read-only for the public-page specs).
     _create_panel_lab_event(sphere)
+    _create_panel_crud_event(sphere)
     _create_cover_lab_event(sphere)
     _create_anon_proposals_event(sphere)
 
@@ -920,6 +954,17 @@ def main() -> None:
         place="Tester's place",
         max_participants=4,
         share_code="ENCQR1",
+    )
+
+    _, foreign_sphere = _create_site("foreign.localhost:8000", name="Foreign Programme")
+    _create_event(
+        foreign_sphere,
+        name="Foreign Programme",
+        slug="foreign-programme",
+        description="Event used to verify sphere-scoped organizer access.",
+        start_offset=timedelta(days=30),
+        duration_hours=8,
+        publication_offset=timedelta(days=1),
     )
 
 

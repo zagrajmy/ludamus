@@ -80,9 +80,10 @@ from tests.integration.web.chronology.helpers import (
 def local_midday_fixture():
     # The schedule groups by local date, so a session placed around `now()`
     # straddles two days when the suite happens to run near midnight. Pin the
-    # clock to midday; the date stays today's, which the fixtures build
-    # against. Half past, not on the hour, so a session can both end before
-    # `now()` and start inside the current hour bucket.
+    # clock to half past noon; the date stays today's, which the fixtures build
+    # against. Half past, not on the hour, so a window can end at `now()` and a
+    # session can both end before `now()` and start inside the current hour
+    # bucket.
     with freeze_time(
         timezone.localtime().replace(hour=12, minute=30, second=0, microsecond=0)
     ):
@@ -139,6 +140,8 @@ class TestEventPageView:
                 hour_data={agenda_item.start_time: [card]},
                 future_unavailable_hour_data={agenda_item.start_time: [card]},
                 sessions=[card],
+                has_enrollable_sessions=True,
+                scheduled_count=1,
             ),
             template_name=["chronology/event.html"],
             contains=f'href="?session={agenda_item.session.pk}"',
@@ -181,7 +184,6 @@ class TestEventPageView:
             agenda_item=AgendaItemDTO.model_validate(agenda_item),
             effective_participants_limit=10,
             enrolled_count=0,
-            full_participant_info="0/10",
             is_enrollment_available=False,
             is_full=False,
             is_ongoing=False,
@@ -230,6 +232,8 @@ class TestEventPageView:
                 sessions=[session_data],
                 compact_schedule=True,
                 schedule_days=[schedule_day],
+                has_enrollable_sessions=True,
+                scheduled_count=1,
             ),
             template_name=["chronology/event.html"],
             contains=[
@@ -278,6 +282,8 @@ class TestEventPageView:
                 },
                 schedule_days=[compact_day(cards)],
                 sessions=cards,
+                has_enrollable_sessions=True,
+                scheduled_count=2,
             ),
             template_name=["chronology/event.html"],
             contains=[
@@ -303,7 +309,6 @@ class TestEventPageView:
             agenda_item=AgendaItemDTO.model_validate(agenda_item),
             effective_participants_limit=10,
             enrolled_count=0,
-            full_participant_info="0/10",
             is_enrollment_available=False,
             is_full=False,
             is_ongoing=False,
@@ -351,6 +356,8 @@ class TestEventPageView:
                 sessions=[session_data],
                 compact_schedule=True,
                 schedule_days=[schedule_day],
+                has_enrollable_sessions=True,
+                scheduled_count=1,
             ),
             template_name=["chronology/event.html"],
             not_contains="Not Available",
@@ -412,7 +419,7 @@ class TestEventPageView:
                 status=SessionParticipationStatus.CONFIRMED,
             )
         # Second slot on the same day — covers the append-to-existing-day branch.
-        unlimited = scheduled(
+        no_enrollment = scheduled(
             start=day_one + timedelta(hours=3),
             end=day_one + timedelta(hours=4),
             participants_limit=0,
@@ -504,20 +511,15 @@ class TestEventPageView:
                 presenter=scarce.presenter,
                 is_enrollment_available=True,
                 enrolled_count=4,
-                full_participant_info="4/5",
             ),
-            unlimited.pk: session_card(
-                unlimited.agenda_item,
-                presenter=unlimited.presenter,
-                is_enrollment_available=True,
-                full_participant_info="0",
+            no_enrollment.pk: session_card(
+                no_enrollment.agenda_item, presenter=no_enrollment.presenter
             ),
             full.pk: session_card(
                 full.agenda_item,
                 presenter=full.presenter,
                 is_enrollment_available=True,
                 enrolled_count=2,
-                full_participant_info="2/2, 1 waiting",
                 is_full=True,
                 waiting_count=1,
             ),
@@ -552,7 +554,7 @@ class TestEventPageView:
 
         cards = {
             session.pk: with_participants(session)
-            for session in (ended, ongoing, plenty, scarce, unlimited, full)
+            for session in (ended, ongoing, plenty, scarce, no_enrollment, full)
         }
 
         def tile(session):
@@ -581,10 +583,10 @@ class TestEventPageView:
                         sessions=[cards[plenty.pk], cards[scarce.pk]],
                     ),
                     ScheduleHour(
-                        start=hour_of(unlimited), sessions=[cards[unlimited.pk]]
+                        start=hour_of(no_enrollment), sessions=[cards[no_enrollment.pk]]
                     ),
                 ],
-                tiles=[tile(plenty), tile(scarce), tile(unlimited)],
+                tiles=[tile(plenty), tile(scarce), tile(no_enrollment)],
             ),
             ScheduleDay(
                 day_start=hour_of(full),
@@ -608,19 +610,20 @@ class TestEventPageView:
                     ended.agenda_item.start_time: [cards[ended.pk]],
                     ongoing.agenda_item.start_time: [cards[ongoing.pk]],
                     plenty.agenda_item.start_time: [cards[plenty.pk], cards[scarce.pk]],
-                    unlimited.agenda_item.start_time: [cards[unlimited.pk]],
+                    no_enrollment.agenda_item.start_time: [cards[no_enrollment.pk]],
                     full.agenda_item.start_time: [cards[full.pk]],
                 },
+                has_enrollable_sessions=True,
+                scheduled_count=6,
             ),
             template_name=["chronology/event.html"],
         )
         content = response.content.decode()
         # The pills render inside their own spans; match with the tag boundary
-        # so e.g. the "Enrollment Open" header pill can't satisfy "Open".
+        # so e.g. the "Enrollment Open" header pill can't satisfy a pill label.
         for label in (
             "10 spots left",
             "1 spot left",
-            "Open",
             "Full",
             "Ended",
             "In Progress",
@@ -789,6 +792,8 @@ class TestEventPageView:
                         ],
                     )
                 ],
+                has_enrollable_sessions=True,
+                scheduled_count=3,
             ),
             template_name=["chronology/event.html"],
             contains=[
@@ -817,7 +822,6 @@ class TestEventPageView:
             agenda_item=AgendaItemDTO.model_validate(agenda_item),
             effective_participants_limit=10,
             enrolled_count=0,
-            full_participant_info="0/10",
             is_enrollment_available=False,
             is_full=False,
             is_ongoing=False,
@@ -865,9 +869,123 @@ class TestEventPageView:
                 sessions=[session_data],
                 compact_schedule=True,
                 schedule_days=[schedule_day],
+                has_enrollable_sessions=True,
+                scheduled_count=1,
             ),
             template_name=["chronology/event.html"],
             contains="session-grid",
+        )
+
+    def test_ok_enrollment_view_lists_only_sessions_taking_enrollment(
+        self, agenda_item, client, event, space
+    ):
+        drop_in = SessionFactory(
+            event=event, category=None, participants_limit=0, min_age=0
+        )
+        AgendaItemFactory(session=drop_in, space=space)
+
+        response = client.get(f"{self._get_url(event.slug)}?view=enrollment")
+
+        card = session_card(agenda_item, presenter=agenda_item.session.presenter)
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=event_page_context(
+                event,
+                url=self._get_url(event.slug),
+                hour_data={agenda_item.start_time: [card]},
+                future_unavailable_hour_data={agenda_item.start_time: [card]},
+                sessions=[card],
+                scheduled_count=2,
+                schedule_view_is_list=False,
+                schedule_view_is_enrollment=True,
+                has_enrollable_sessions=True,
+            ),
+            template_name=["chronology/event.html"],
+        )
+
+    def test_ok_enrollment_view_keeps_the_layout_of_the_full_schedule(
+        self, agenda_item, client, event, monkeypatch, space
+    ):
+        # Two scheduled sessions, one of them drop-in: the compact layout is
+        # decided on the whole schedule, so narrowing to the single enrollable
+        # session must not drop the reader back to the card grid.
+        monkeypatch.setattr(
+            "ludamus.adapters.web.django.views.COMPACT_SCHEDULE_MIN_SESSIONS", 2
+        )
+        drop_in = SessionFactory(
+            event=event, category=None, participants_limit=0, min_age=0
+        )
+        AgendaItemFactory(session=drop_in, space=space)
+
+        response = client.get(f"{self._get_url(event.slug)}?view=enrollment")
+
+        card = session_card(agenda_item, presenter=agenda_item.session.presenter)
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=event_page_context(
+                event,
+                url=self._get_url(event.slug),
+                compact_schedule=True,
+                hour_data={agenda_item.start_time: [card]},
+                schedule_days=[compact_day([card])],
+                sessions=[card],
+                scheduled_count=2,
+                schedule_view_is_list=False,
+                schedule_view_is_enrollment=True,
+                has_enrollable_sessions=True,
+            ),
+            template_name=["chronology/event.html"],
+        )
+
+    def test_ok_enrollment_tab_stays_off_a_schedule_without_enrollment(
+        self, client, event, space
+    ):
+        drop_in = SessionFactory(
+            event=event, category=None, participants_limit=0, min_age=0
+        )
+        agenda_item = AgendaItemFactory(session=drop_in, space=space)
+
+        response = client.get(self._get_url(event.slug))
+
+        card = session_card(agenda_item, presenter=drop_in.presenter)
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=event_page_context(
+                event,
+                url=self._get_url(event.slug),
+                hour_data={agenda_item.start_time: [card]},
+                current_hour_data={agenda_item.start_time: [card]},
+                sessions=[card],
+                has_enrollable_sessions=False,
+                scheduled_count=1,
+            ),
+            template_name=["chronology/event.html"],
+        )
+
+    def test_ok_enrollment_view_empty_when_nothing_takes_enrollment(
+        self, client, event, space
+    ):
+        drop_in = SessionFactory(
+            event=event, category=None, participants_limit=0, min_age=0
+        )
+        AgendaItemFactory(session=drop_in, space=space)
+
+        response = client.get(f"{self._get_url(event.slug)}?view=enrollment")
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=event_page_context(
+                event,
+                url=self._get_url(event.slug),
+                scheduled_count=1,
+                schedule_view_is_list=False,
+                schedule_view_is_enrollment=True,
+            ),
+            template_name=["chronology/event.html"],
         )
 
     @pytest.mark.usefixtures("enrollment_config")
@@ -901,6 +1019,8 @@ class TestEventPageView:
                 hour_data={agenda_item.start_time: [card]},
                 current_hour_data={agenda_item.start_time: [card]},
                 sessions=[card],
+                has_enrollable_sessions=True,
+                scheduled_count=1,
             ),
             template_name=["chronology/event.html"],
         )
@@ -972,7 +1092,6 @@ class TestEventPageView:
             agenda_item=AgendaItemDTO.model_validate(agenda_item),
             effective_participants_limit=10,
             enrolled_count=0,
-            full_participant_info="0/10",
             is_enrollment_available=False,
             is_full=False,
             is_ongoing=False,
@@ -1004,6 +1123,8 @@ class TestEventPageView:
                 future_unavailable_hour_data={agenda_item.start_time: [session_data]},
                 hour_data={agenda_item.start_time: [session_data]},
                 sessions=[session_data],
+                has_enrollable_sessions=True,
+                scheduled_count=1,
             ),
             template_name=["chronology/event.html"],
         )
@@ -1152,6 +1273,8 @@ class TestEventPageView:
                 hour_data={agenda_item.start_time: [card]},
                 future_unavailable_hour_data={agenda_item.start_time: [card]},
                 sessions=[card],
+                has_enrollable_sessions=True,
+                scheduled_count=1,
             ),
             template_name=["chronology/event.html"],
             not_contains="All ages",
@@ -1203,6 +1326,8 @@ class TestEventPageView:
                 hour_data={agenda_item.start_time: [card]},
                 future_unavailable_hour_data={agenda_item.start_time: [card]},
                 sessions=[card],
+                has_enrollable_sessions=True,
+                scheduled_count=1,
             ),
             template_name=["chronology/event.html"],
             contains=["session-tags-more", "+1"],
@@ -1230,7 +1355,9 @@ class TestEventPageView:
         return session
 
     @classmethod
-    def _tagged_page_context(cls, event, *, url, sessions, session_field):
+    def _tagged_page_context(
+        cls, event, *, url, sessions, session_field, scheduled_count
+    ):
         cards = [
             cls._tagged_card(session, session_field=session_field)
             for session in sessions
@@ -1247,6 +1374,8 @@ class TestEventPageView:
             future_unavailable_hour_data=hour_data,
             sessions=cards,
             total_enrolled=len(cards),
+            has_enrollable_sessions=True,
+            scheduled_count=scheduled_count,
         )
 
     @staticmethod
@@ -1266,7 +1395,6 @@ class TestEventPageView:
             session.agenda_item,
             presenter=session.presenter,
             enrolled_count=1,
-            full_participant_info="1/10",
             category_name=session.category.name,
             # The field is public but not on the event's displayed list, so it
             # reaches the card's values without a display row.
@@ -1315,6 +1443,7 @@ class TestEventPageView:
                 url=self._get_url(event.slug),
                 sessions=sessions,
                 session_field=session_field,
+                scheduled_count=2,
             ),
             template_name=["chronology/event.html"],
         )
@@ -1336,6 +1465,7 @@ class TestEventPageView:
                 url=self._get_url(event.slug),
                 sessions=sessions,
                 session_field=session_field,
+                scheduled_count=8,
             ),
             template_name=["chronology/event.html"],
         )
@@ -1357,7 +1487,6 @@ class TestEventPageView:
             agenda_item=AgendaItemDTO.model_validate(agenda_item),
             effective_participants_limit=10,
             enrolled_count=0,
-            full_participant_info="0/10",
             is_enrollment_available=False,
             is_full=False,
             is_ongoing=False,
@@ -1389,6 +1518,8 @@ class TestEventPageView:
                 future_unavailable_hour_data={agenda_item.start_time: [session_data]},
                 hour_data={agenda_item.start_time: [session_data]},
                 sessions=[session_data],
+                has_enrollable_sessions=True,
+                scheduled_count=1,
             ),
             template_name=["chronology/event.html"],
         )
@@ -1412,6 +1543,8 @@ class TestEventPageView:
                 hour_data={agenda_item.start_time: [card]},
                 future_unavailable_hour_data={agenda_item.start_time: [card]},
                 sessions=[card],
+                has_enrollable_sessions=True,
+                scheduled_count=1,
             ),
             template_name=["chronology/event.html"],
             not_contains=placeholder_cover_url(session.pk),
@@ -1437,6 +1570,8 @@ class TestEventPageView:
                 hour_data={agenda_item.start_time: [card]},
                 future_unavailable_hour_data={agenda_item.start_time: [card]},
                 sessions=[card],
+                has_enrollable_sessions=True,
+                scheduled_count=1,
             ),
             template_name=["chronology/event.html"],
             contains=placeholder_cover_url(session.pk),
@@ -1621,7 +1756,6 @@ class TestEventPageView:
             ),
             session=SessionDTO.model_validate(pending_session),
             is_full=False,
-            full_participant_info="0/10",
             effective_participants_limit=10,
             enrolled_count=0,
             session_participations=[],
@@ -1668,7 +1802,6 @@ class TestEventPageView:
             effective_participants_limit=10,
             enrolled_count=1,
             waiting_count=1,
-            full_participant_info="1/10, 1 waiting",
             is_enrollment_available=False,
             is_full=False,
             is_ongoing=False,
@@ -1724,6 +1857,8 @@ class TestEventPageView:
                 total_enrolled=1,
                 user_enrolled_sessions=[session_data],
                 user_enrolled_session_titles=[session_data.session.title],
+                has_enrollable_sessions=True,
+                scheduled_count=1,
             ),
             template_name=["chronology/event.html"],
         )
@@ -1739,7 +1874,6 @@ class TestEventPageView:
             agenda_item=AgendaItemDTO.model_validate(agenda_item),
             effective_participants_limit=10,
             enrolled_count=0,
-            full_participant_info="0/10",
             is_enrollment_available=False,
             is_full=False,
             is_ongoing=False,
@@ -1771,11 +1905,13 @@ class TestEventPageView:
                 future_unavailable_hour_data={agenda_item.start_time: [session_data]},
                 hour_data={agenda_item.start_time: [session_data]},
                 sessions=[session_data],
+                has_enrollable_sessions=True,
+                scheduled_count=1,
             ),
             template_name=["chronology/event.html"],
         )
 
-    def test_ok_unlimited_session(
+    def test_ok_session_without_enrollment(
         self, active_user, agenda_item, client, event, session
     ):
         session.participants_limit = 0
@@ -1788,7 +1924,6 @@ class TestEventPageView:
             agenda_item=AgendaItemDTO.model_validate(agenda_item),
             effective_participants_limit=0,
             enrolled_count=0,
-            full_participant_info="0",
             is_enrollment_available=False,
             is_full=False,
             is_ongoing=False,
@@ -1817,9 +1952,10 @@ class TestEventPageView:
             context_data=event_page_context(
                 event,
                 url=self._get_url(event.slug),
-                future_unavailable_hour_data={agenda_item.start_time: [session_data]},
+                current_hour_data={agenda_item.start_time: [session_data]},
                 hour_data={agenda_item.start_time: [session_data]},
                 sessions=[session_data],
+                scheduled_count=1,
             ),
             template_name=["chronology/event.html"],
         )
@@ -1841,7 +1977,6 @@ class TestEventPageView:
             agenda_item=AgendaItemDTO.model_validate(agenda_item),
             effective_participants_limit=10,
             enrolled_count=0,
-            full_participant_info="0/10",
             is_enrollment_available=False,
             is_full=False,
             is_ongoing=False,
@@ -1880,6 +2015,8 @@ class TestEventPageView:
                 future_unavailable_hour_data={agenda_item.start_time: [session_data]},
                 hour_data={agenda_item.start_time: [session_data]},
                 sessions=[session_data],
+                has_enrollable_sessions=True,
+                scheduled_count=1,
             ),
             template_name=["chronology/event.html"],
         )
@@ -1894,7 +2031,6 @@ class TestEventPageView:
             agenda_item=AgendaItemDTO.model_validate(agenda_item),
             effective_participants_limit=10,
             enrolled_count=0,
-            full_participant_info="0/10",
             is_enrollment_available=False,
             is_full=False,
             is_ongoing=True,
@@ -1927,6 +2063,8 @@ class TestEventPageView:
                 ended_hour_data={agenda_item.start_time: [session_data]},
                 hour_data={agenda_item.start_time: [session_data]},
                 sessions=[session_data],
+                has_enrollable_sessions=True,
+                scheduled_count=1,
             ),
             template_name=["chronology/event.html"],
         )
@@ -1941,7 +2079,6 @@ class TestEventPageView:
             agenda_item=AgendaItemDTO.model_validate(agenda_item),
             effective_participants_limit=10,
             enrolled_count=0,
-            full_participant_info="0/10",
             is_enrollment_available=False,
             is_full=False,
             is_ongoing=True,
@@ -1973,6 +2110,8 @@ class TestEventPageView:
                 current_hour_data={agenda_item.start_time: [session_data]},
                 hour_data={agenda_item.start_time: [session_data]},
                 sessions=[session_data],
+                has_enrollable_sessions=True,
+                scheduled_count=1,
             ),
             template_name=["chronology/event.html"],
         )
@@ -2135,7 +2274,6 @@ class TestEventPageView:
             agenda_item=AgendaItemDTO.model_validate(agenda_item),
             effective_participants_limit=10,
             enrolled_count=1,
-            full_participant_info="1/10",
             is_enrollment_available=False,
             is_full=False,
             is_ongoing=False,
@@ -2181,6 +2319,8 @@ class TestEventPageView:
                 total_enrolled=1,
                 user_enrolled_sessions=[session_data],
                 user_enrolled_session_titles=[session_data.session.title],
+                has_enrollable_sessions=True,
+                scheduled_count=1,
             ),
             template_name=["chronology/event.html"],
         )
@@ -2199,7 +2339,6 @@ class TestEventPageView:
             agenda_item=AgendaItemDTO.model_validate(agenda_item),
             effective_participants_limit=10,
             enrolled_count=0,
-            full_participant_info="0/10",
             is_enrollment_available=True,
             is_full=False,
             is_ongoing=True,
@@ -2231,6 +2370,8 @@ class TestEventPageView:
                 current_hour_data={agenda_item.start_time: [session_data]},
                 hour_data={agenda_item.start_time: [session_data]},
                 sessions=[session_data],
+                has_enrollable_sessions=True,
+                scheduled_count=1,
             ),
             template_name=["chronology/event.html"],
         )
@@ -2279,7 +2420,6 @@ class TestEventPageView:
             agenda_item=AgendaItemDTO.model_validate(agenda_item),
             effective_participants_limit=10,
             enrolled_count=0,
-            full_participant_info="0/10",
             is_enrollment_available=True,
             is_full=False,
             is_ongoing=True,
@@ -2315,6 +2455,8 @@ class TestEventPageView:
                 user_enrollment_config=VirtualEnrollmentConfig(
                     allowed_slots=7 + 8, has_domain_config=False, has_user_config=True
                 ),
+                has_enrollable_sessions=True,
+                scheduled_count=1,
             ),
             template_name=["chronology/event.html"],
             contains="Enrollment Open",
@@ -2352,7 +2494,6 @@ class TestEventPageView:
             agenda_item=AgendaItemDTO.model_validate(agenda_item),
             effective_participants_limit=10,
             enrolled_count=0,
-            full_participant_info="0/10",
             is_enrollment_available=True,
             is_full=False,
             is_ongoing=True,
@@ -2388,6 +2529,8 @@ class TestEventPageView:
                 user_enrollment_config=VirtualEnrollmentConfig(
                     allowed_slots=slots, has_domain_config=False, has_user_config=True
                 ),
+                has_enrollable_sessions=True,
+                scheduled_count=1,
             ),
             template_name=["chronology/event.html"],
         )
@@ -2428,7 +2571,6 @@ class TestEventPageView:
             agenda_item=AgendaItemDTO.model_validate(agenda_item),
             effective_participants_limit=10,
             enrolled_count=0,
-            full_participant_info="0/10",
             is_enrollment_available=True,
             is_full=False,
             is_ongoing=True,
@@ -2464,6 +2606,8 @@ class TestEventPageView:
                 user_enrollment_config=VirtualEnrollmentConfig(
                     allowed_slots=slots, has_domain_config=True, has_user_config=False
                 ),
+                has_enrollable_sessions=True,
+                scheduled_count=1,
             ),
             template_name=["chronology/event.html"],
         )
@@ -2501,7 +2645,6 @@ class TestEventPageView:
             agenda_item=AgendaItemDTO.model_validate(agenda_item),
             effective_participants_limit=10,
             enrolled_count=0,
-            full_participant_info="0/10",
             is_enrollment_available=True,
             is_full=False,
             is_ongoing=True,
@@ -2539,6 +2682,8 @@ class TestEventPageView:
                     has_domain_config=True,
                     has_user_config=True,
                 ),
+                has_enrollable_sessions=True,
+                scheduled_count=1,
             ),
             template_name=["chronology/event.html"],
         )
@@ -2576,7 +2721,6 @@ class TestEventPageView:
             agenda_item=AgendaItemDTO.model_validate(agenda_item),
             effective_participants_limit=10,
             enrolled_count=0,
-            full_participant_info="0/10",
             is_enrollment_available=True,
             is_full=False,
             is_ongoing=True,
@@ -2609,6 +2753,8 @@ class TestEventPageView:
                 enrollment_requires_slots=True,
                 hour_data={agenda_item.start_time: [session_data]},
                 sessions=[session_data],
+                has_enrollable_sessions=True,
+                scheduled_count=1,
             ),
             template_name=["chronology/event.html"],
         )
@@ -2646,7 +2792,6 @@ class TestEventPageView:
             agenda_item=AgendaItemDTO.model_validate(agenda_item),
             effective_participants_limit=10,
             enrolled_count=0,
-            full_participant_info="0/10",
             is_enrollment_available=True,
             is_full=False,
             is_ongoing=True,
@@ -2679,6 +2824,8 @@ class TestEventPageView:
                 enrollment_requires_slots=True,
                 hour_data={agenda_item.start_time: [session_data]},
                 sessions=[session_data],
+                has_enrollable_sessions=True,
+                scheduled_count=1,
             ),
             template_name=["chronology/event.html"],
         )
@@ -2728,7 +2875,6 @@ class TestEventPageView:
             agenda_item=AgendaItemDTO.model_validate(agenda_item),
             effective_participants_limit=10,
             enrolled_count=0,
-            full_participant_info="0/10",
             is_enrollment_available=True,
             is_full=False,
             is_ongoing=True,
@@ -2764,6 +2910,8 @@ class TestEventPageView:
                 user_enrollment_config=VirtualEnrollmentConfig(
                     allowed_slots=slots, has_domain_config=False, has_user_config=True
                 ),
+                has_enrollable_sessions=True,
+                scheduled_count=1,
             ),
             template_name=["chronology/event.html"],
         )
@@ -2803,7 +2951,6 @@ class TestEventPageView:
             agenda_item=AgendaItemDTO.model_validate(agenda_item),
             effective_participants_limit=10,
             enrolled_count=0,
-            full_participant_info="0/10",
             is_enrollment_available=True,
             is_full=False,
             is_ongoing=True,
@@ -2839,6 +2986,8 @@ class TestEventPageView:
                 user_enrollment_config=VirtualEnrollmentConfig(
                     allowed_slots=0, has_domain_config=False, has_user_config=True
                 ),
+                has_enrollable_sessions=True,
+                scheduled_count=1,
             ),
             template_name=["chronology/event.html"],
         )
@@ -2887,7 +3036,6 @@ class TestEventPageView:
             agenda_item=AgendaItemDTO.model_validate(agenda_item),
             effective_participants_limit=10,
             enrolled_count=0,
-            full_participant_info="0/10",
             is_enrollment_available=True,
             is_full=False,
             is_ongoing=True,
@@ -2923,6 +3071,8 @@ class TestEventPageView:
                 user_enrollment_config=VirtualEnrollmentConfig(
                     allowed_slots=0, has_domain_config=False, has_user_config=True
                 ),
+                has_enrollable_sessions=True,
+                scheduled_count=1,
             ),
             template_name=["chronology/event.html"],
         )
@@ -2965,7 +3115,6 @@ class TestEventPageView:
             agenda_item=AgendaItemDTO.model_validate(agenda_item),
             effective_participants_limit=10,
             enrolled_count=0,
-            full_participant_info="0/10",
             is_enrollment_available=True,
             is_full=False,
             is_ongoing=True,
@@ -3001,6 +3150,8 @@ class TestEventPageView:
                 user_enrollment_config=VirtualEnrollmentConfig(
                     allowed_slots=0, has_domain_config=False, has_user_config=True
                 ),
+                has_enrollable_sessions=True,
+                scheduled_count=1,
             ),
             template_name=["chronology/event.html"],
         )
@@ -3044,7 +3195,6 @@ class TestEventPageView:
             effective_participants_limit=10,
             enrolled_count=0,
             displayed_field_rows=[build_display_field_row(field_value_dto)],
-            full_participant_info="0/10",
             is_enrollment_available=False,
             is_full=False,
             is_ongoing=False,
@@ -3078,6 +3228,8 @@ class TestEventPageView:
                 future_unavailable_hour_data={agenda_item.start_time: [session_data]},
                 hour_data={agenda_item.start_time: [session_data]},
                 sessions=[session_data],
+                has_enrollable_sessions=True,
+                scheduled_count=1,
             ),
             template_name=["chronology/event.html"],
         )
@@ -3135,6 +3287,8 @@ class TestEventPageView:
                 hour_data={agenda_item.start_time: [card]},
                 future_unavailable_hour_data={agenda_item.start_time: [card]},
                 sessions=[card],
+                has_enrollable_sessions=True,
+                scheduled_count=1,
             ),
             template_name=["chronology/event.html"],
             contains=["+2", "Echo", "Foxtrot"],
@@ -3163,7 +3317,6 @@ class TestEventPageView:
             agenda_item=AgendaItemDTO.model_validate(agenda_item),
             effective_participants_limit=10,
             enrolled_count=0,
-            full_participant_info="0/10",
             is_enrollment_available=False,
             is_full=False,
             is_ongoing=False,
@@ -3208,6 +3361,8 @@ class TestEventPageView:
                 future_unavailable_hour_data={agenda_item.start_time: [session_data]},
                 hour_data={agenda_item.start_time: [session_data]},
                 sessions=[session_data],
+                has_enrollable_sessions=True,
+                scheduled_count=1,
             ),
             template_name=["chronology/event.html"],
         )
@@ -3249,7 +3404,6 @@ class TestEventPageView:
             effective_participants_limit=10,
             enrolled_count=0,
             displayed_field_rows=[build_display_field_row(field_value_dto)],
-            full_participant_info="0/10",
             is_enrollment_available=False,
             is_full=False,
             is_ongoing=False,
@@ -3282,6 +3436,8 @@ class TestEventPageView:
                 future_unavailable_hour_data={agenda_item.start_time: [session_data]},
                 hour_data={agenda_item.start_time: [session_data]},
                 sessions=[session_data],
+                has_enrollable_sessions=True,
+                scheduled_count=1,
             ),
             template_name=["chronology/event.html"],
         )
@@ -3324,7 +3480,6 @@ class TestEventPageView:
             effective_participants_limit=10,
             enrolled_count=0,
             displayed_field_rows=[build_display_field_row(field_value_dto)],
-            full_participant_info="0/10",
             is_enrollment_available=False,
             is_full=False,
             is_ongoing=False,
@@ -3357,6 +3512,8 @@ class TestEventPageView:
                 future_unavailable_hour_data={agenda_item.start_time: [session_data]},
                 hour_data={agenda_item.start_time: [session_data]},
                 sessions=[session_data],
+                has_enrollable_sessions=True,
+                scheduled_count=1,
             ),
             template_name=["chronology/event.html"],
         )

@@ -652,7 +652,7 @@ class SessionEditForm(forms.Form):
         min_value=0,
         validators=[STORAGE_LIMIT_VALIDATOR],
         label=_("Participants Limit"),
-        help_text=_("Empty or 0 = no limit"),
+        help_text=_("Empty or 0 = no enrollment"),
     )
     min_age = forms.IntegerField(required=False, min_value=0, label=_("Minimum Age"))
     # Not a field: the name a subclass's picker takes. Declared so the shared
