@@ -3824,11 +3824,6 @@ msgstr[3] "%(counter)s czeka"
 
 #: src/ludamus/templates/chronology/_proposal_section.html
 #, python-format
-msgid "Edit proposal %(title)s"
-msgstr "Edytuj zgłoszenie %(title)s"
-
-#: src/ludamus/templates/chronology/_proposal_section.html
-#, python-format
 msgid "Review proposal %(title)s"
 msgstr "Rozpatrz zgłoszenie %(title)s"
 
@@ -9361,6 +9356,10 @@ msgstr "Temat"
 #: src/ludamus/templates/staging_email_inbox.html
 msgid "No emails captured yet."
 msgstr "Brak przechwyconych e-maili."
+
+#, python-format
+#~ msgid "Edit proposal %(title)s"
+#~ msgstr "Edytuj zgłoszenie %(title)s"
 
 #~ msgid "Analytics settings"
 #~ msgstr "Ustawienia analityki"

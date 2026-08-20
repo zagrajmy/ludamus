@@ -74,6 +74,9 @@ from tests.integration.web.chronology.helpers import (
 # slots: three of them, so the card shows the earliest and counts the rest.
 _PREFERRED_SLOT_OFFSETS = (0, 2, 4)
 
+# The review queue the query-count guard grows to, from one proposal.
+_PROPOSALS_IN_QUEUE = 5
+
 
 @pytest.fixture(name="local_midday")
 def local_midday_fixture():
@@ -1653,8 +1656,12 @@ class TestEventPageView:
         event.proposal_end_time = timezone.now() + timedelta(days=3)
         event.save(update_fields=["proposal_end_time"])
 
+        # Warm up first, as the scheduled-session counterpart above does: one-off
+        # per-process work would otherwise land inside the smaller capture.
+        authenticated_client.get(self._get_url(event.slug))
+
         with CaptureQueriesContext(connection) as one_proposal:
-            authenticated_client.get(self._get_url(event.slug))
+            first = authenticated_client.get(self._get_url(event.slug))
 
         for _ in range(4):
             SessionFactory(
@@ -1667,8 +1674,14 @@ class TestEventPageView:
             )
 
         with CaptureQueriesContext(connection) as five_proposals:
-            authenticated_client.get(self._get_url(event.slug))
+            last = authenticated_client.get(self._get_url(event.slug))
 
+        # Both responses are asserted, or a queue that quietly stopped
+        # rendering would satisfy the count comparison perfectly.
+        assert first.status_code == HTTPStatus.OK
+        assert len(first.context["pending_sessions"]) == 1
+        assert last.status_code == HTTPStatus.OK
+        assert len(last.context["pending_sessions"]) == _PROPOSALS_IN_QUEUE
         assert len(five_proposals.captured_queries) == len(
             one_proposal.captured_queries
         )
