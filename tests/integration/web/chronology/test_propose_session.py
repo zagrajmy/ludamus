@@ -2651,7 +2651,7 @@ class TestAnonymousProposalSubmission:
         self._set_wizard_full(client, event, proposal_category)
 
         with patch(
-            "ludamus.gates.web.django.chronology.views.check_proposal_rate_limit",
+            "ludamus.gates.web.django.event.propose.check_proposal_rate_limit",
             return_value=False,
         ):
             response = client.post(self._url(event.slug, "submit"))
@@ -2692,7 +2692,7 @@ class TestAnonymousProposalSubmission:
         self._enable_anonymous(event)
 
         with patch(
-            "ludamus.gates.web.django.chronology.views.check_proposal_rate_limit",
+            "ludamus.gates.web.django.event.propose.check_proposal_rate_limit",
             return_value=True,
         ):
             self._set_wizard_full(client, event, proposal_category)
