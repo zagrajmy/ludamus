@@ -4301,16 +4301,16 @@ msgid "Propose Session"
 msgstr "Zgłoś punkt programu"
 
 #: src/ludamus/templates/chronology/event.html
+msgid "Only with enrollment"
+msgstr "Tylko z zapisami"
+
+#: src/ludamus/templates/chronology/event.html
 msgid "Search sessions..."
 msgstr "Szukaj punktów programu..."
 
 #: src/ludamus/templates/chronology/event.html
 msgid "Filters"
 msgstr "Filtry"
-
-#: src/ludamus/templates/chronology/event.html
-msgid "Only with enrollment"
-msgstr "Tylko z zapisami"
 
 #: src/ludamus/templates/chronology/event.html
 #: src/ludamus/templates/panel/proposals.html

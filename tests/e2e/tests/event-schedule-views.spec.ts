@@ -11,7 +11,8 @@ const NEON = "Przygoda w Mieście Neonów";
 // Seeded with no participants limit: the drop-in the enrollment filter leaves out.
 const COZY = "Cozy Storytellers Circle";
 
-const card = (page: Page, title: string) => page.locator(".session", { hasText: title });
+const card = (page: Page, title: string) =>
+  page.getByRole("link", { name: `Open details for ${title}` });
 
 // Set after load; a full navigation would wipe it, an htmx swap keeps it.
 const markPage = (page: Page) =>
@@ -52,7 +53,7 @@ test.describe("Enrollment filter", () => {
   });
 
   test("narrows the schedule to the sessions that take sign-up", async ({ page }) => {
-    await expect(page.locator(".session")).toHaveCount(3);
+    await expect(page.getByRole("link", { name: /^Open details for / })).toHaveCount(3);
     await markPage(page);
 
     await enrollmentOnly(page).check();
