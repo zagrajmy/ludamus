@@ -42,6 +42,7 @@ from ludamus.links.db.django.models import (
     SessionField,
     SessionFieldOption,
     SessionFieldRequirement,
+    SessionFieldValue,
     SessionParticipation,
     Space,
     Sphere,
@@ -832,7 +833,7 @@ def main() -> None:
 
     tester = User.objects.get(username="e2e-tester")
 
-    _create_session(
+    mega_session = _create_session(
         upcoming_event,
         east_wing_space,
         title="Mega Strategy Lab",
@@ -857,7 +858,7 @@ def main() -> None:
         participants_limit=0,
     )
 
-    _create_session(
+    neon_session = _create_session(
         upcoming_event,
         fireside_space,
         title="Przygoda w Mieście Neonów",
@@ -873,6 +874,34 @@ def main() -> None:
         # Scheduled on the event's second day so the day/hour filters appear.
         start_offset=timedelta(days=1, hours=1),
         duration_hours=1,
+    )
+
+    # An allow_custom field with one used choice, one unused choice and one
+    # written-in value: the public filter dropdown must offer only the used
+    # choice, while the written-in value stays findable through search.
+    tone = SessionField.objects.create(
+        event=upcoming_event,
+        name="Tone",
+        question="What tone should players expect?",
+        slug="tone",
+        field_type="select",
+        is_multiple=True,
+        allow_custom=True,
+        is_public=True,
+        icon="musical-note",
+        order=0,
+    )
+    for order, (value, label) in enumerate(
+        (("lighthearted", "Lighthearted"), ("grimdark", "Grimdark"))
+    ):
+        SessionFieldOption.objects.create(
+            field=tone, value=value, label=label, order=order
+        )
+    SessionFieldValue.objects.create(
+        session=mega_session, field=tone, value=["lighthearted"]
+    )
+    SessionFieldValue.objects.create(
+        session=neon_session, field=tone, value=["kalamburowy"]
     )
 
     proposal_category = ProposalCategory.objects.create(

@@ -81,17 +81,23 @@ const initSessionFilters = (): void => {
       .normalize("NFD")
       .replaceAll(COMBINING_MARKS, "");
 
-  // Precompute the searchable haystack (title + host + description) once per
-  // card. The text is static, so there's no need to re-normalize it on every
-  // keystroke; the description is read from the card's existing paragraph
-  // rather than duplicated into the DOM.
+  // Precompute the searchable haystack (title + host + description + field
+  // values) once per card. The text is static, so there's no need to
+  // re-normalize it on every keystroke; the description is read from the
+  // card's existing paragraph rather than duplicated into the DOM. Field
+  // values ride here because a value typed into an allow_custom field is not
+  // a choice and so never becomes a filter option — search is where it is
+  // findable.
   const cardHaystacks = new Map<HTMLElement, string>();
   for (const card of sessionCards) {
     const descEl = card.querySelector("[data-session-description]");
     const description = descEl ? (descEl.textContent ?? "") : "";
+    const tags = (card.dataset.tags ?? "").replaceAll(",", " ");
     cardHaystacks.set(
       card,
-      normalizeText(`${card.dataset.title ?? ""} ${card.dataset.host ?? ""} ${description}`),
+      normalizeText(
+        `${card.dataset.title ?? ""} ${card.dataset.host ?? ""} ${description} ${tags}`,
+      ),
     );
   }
 
@@ -156,7 +162,18 @@ const initSessionFilters = (): void => {
       }
     }
 
-    for (const tag of [...categoryTags].sort()) addOption(select, tag, tag);
+    // A session field filters by its defined choices only, which the template
+    // renders: a value typed into an allow_custom field reaches the card but
+    // is not a choice, and search is where it stays findable. So only drop the
+    // choices no session uses. The synthetic __track / __category selects have
+    // no field behind them and are still built from the cards.
+    if (categorySlug.startsWith("__")) {
+      for (const tag of [...categoryTags].sort()) addOption(select, tag, tag);
+    } else {
+      for (const option of [...select.options].slice(1)) {
+        if (!categoryTags.has(option.value)) option.remove();
+      }
+    }
     select.addEventListener("change", filterSessions);
   }
 

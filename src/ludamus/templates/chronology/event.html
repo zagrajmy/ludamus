@@ -425,6 +425,8 @@
                                                     data-category="{{ field.slug }}"
                                                     id="tag-filter-{{ field.slug }}">
                                                 <option value="">{% translate "All" %} {{ field.name }}</option>
+                                                {# Only the field's defined choices: an allow_custom field's typed-in values are not filter options. #}
+                                                {% for option in field.options.all %}<option value="{{ option.value }}">{{ option.label }}</option>{% endfor %}
                                             </select>
                                         </div>
                                     {% endfor %}

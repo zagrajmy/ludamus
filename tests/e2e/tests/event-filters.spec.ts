@@ -87,6 +87,31 @@ test.describe("Event filter panel", () => {
     await expect(card.getByTitle("Enrollment required")).toBeVisible();
   });
 
+  test("offers a field's used choices only, never a written-in value", async ({ page }) => {
+    await page.goto("/event/autumn-open/");
+
+    // "Tone" allows custom answers: Mega Strategy Lab picked the "Lighthearted"
+    // choice, the neon session wrote in "kalamburowy", and "Grimdark" is a
+    // choice nobody picked.
+    const toneFilter = page.locator("#tag-filter-tone");
+    await expect(toneFilter.locator("option")).toHaveText(["All Tone", "Lighthearted"]);
+
+    const card = (title: string) => page.locator(".session", { hasText: title });
+    await toneFilter.selectOption("lighthearted");
+    await expect(card("Mega Strategy Lab")).toBeVisible();
+    await expect(card("Przygoda w Mieście Neonów")).toBeHidden();
+  });
+
+  test("finds a written-in field value through the search box", async ({ page }) => {
+    await page.goto("/event/autumn-open/");
+
+    const card = (title: string) => page.locator(".session", { hasText: title });
+    await page.locator("#session-filter").fill("kalamburowy");
+
+    await expect(card("Przygoda w Mieście Neonów")).toBeVisible();
+    await expect(card("Mega Strategy Lab")).toBeHidden();
+  });
+
   test("filters by host name case-insensitively", async ({ page }) => {
     await page.goto("/event/autumn-open/");
 

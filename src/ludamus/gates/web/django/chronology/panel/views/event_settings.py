@@ -187,6 +187,7 @@ class EventDisplaySettingsPageView(PanelAccessMixin, EventContextMixin, View):
         )
         context["fields"] = display.fields
         context["filterable_field_ids"] = display.displayed_field_ids
+        context["has_non_public_fields"] = display.has_non_public_fields
 
         return TemplateResponse(self.request, "panel/display-settings.html", context)
 

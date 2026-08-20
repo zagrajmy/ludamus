@@ -237,9 +237,9 @@ def _get_displayed_field_ids(event: Event) -> set[int]:
 
 def _get_public_select_fields(event: Event) -> list[Any]:
     return list(
-        event.session_fields.filter(field_type="select", is_public=True).order_by(
-            "order", "name"
-        )
+        event.session_fields.filter(field_type="select", is_public=True)
+        .prefetch_related("options")
+        .order_by("order", "name")
     )
 
 

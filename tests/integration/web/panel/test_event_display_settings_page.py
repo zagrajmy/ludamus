@@ -46,13 +46,14 @@ def _expected_field(field):
     )
 
 
-def _expected_context(event, *, fields):
+def _expected_context(event, *, fields, has_non_public_fields=False):
     return {
         **panel_context(event, active_nav="settings"),
         "active_tab": "display",
         "tab_urls": settings_tab_urls(event.slug),
         "fields": fields,
         "filterable_field_ids": [],
+        "has_non_public_fields": has_non_public_fields,
     }
 
 
@@ -105,7 +106,23 @@ class TestEventDisplaySettingsPageViewGet:
             response,
             HTTPStatus.OK,
             template_name="panel/display-settings.html",
-            context_data=_expected_context(event, fields=[_expected_field(public)]),
+            context_data=_expected_context(
+                event, fields=[_expected_field(public)], has_non_public_fields=True
+            ),
+        )
+
+    def test_flags_events_whose_fields_are_all_private(self, panel_client, event):
+        _create_session_field(event, name="Private", slug="private", is_public=False)
+
+        response = panel_client.get(self.get_url(event))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/display-settings.html",
+            context_data=_expected_context(
+                event, fields=[], has_non_public_fields=True
+            ),
         )
 
     def test_redirects_on_invalid_slug(self, panel_client):
