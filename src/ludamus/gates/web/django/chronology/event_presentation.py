@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections import defaultdict
 from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Self, TypedDict
@@ -9,7 +10,7 @@ from ludamus.pacts import EventListItemDTO
 from ludamus.pacts.legacy import SessionParticipationStatus
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable
+    from collections.abc import Iterable, Iterator
 
     from ludamus.pacts import (
         AgendaItemDTO,
@@ -142,26 +143,29 @@ class SessionData:  # pylint: disable=too-many-instance-attributes
             self.spots_left / self.effective_participants_limit < self._SCARCE_THRESHOLD
         )
 
+    def public_select_answers(self) -> Iterator[tuple[str, str]]:
+        """Yield every (field slug, value) a public select field carries.
+
+        Yields:
+            One pair per selected value, in field order.
+        """
+        for field_value in self.field_values:
+            if (
+                field_value.field_type == "select"
+                and field_value.is_public
+                and isinstance(field_value.value, list)
+            ):
+                for value in field_value.value:
+                    yield field_value.field_slug, str(value)
+
     @property
     def public_tags(self) -> str:
-        return ",".join(
-            str(value)
-            for field_value in self.field_values
-            if field_value.field_type == "select"
-            and field_value.is_public
-            and isinstance(field_value.value, list)
-            for value in field_value.value
-        )
+        return ",".join(value for _slug, value in self.public_select_answers())
 
     @property
     def public_tag_categories(self) -> str:
         return ";".join(
-            f"{field_value.field_slug}:{value}"
-            for field_value in self.field_values
-            if field_value.field_type == "select"
-            and field_value.is_public
-            and isinstance(field_value.value, list)
-            for value in field_value.value
+            f"{slug}:{value}" for slug, value in self.public_select_answers()
         )
 
     @property
@@ -184,9 +188,11 @@ class SessionData:  # pylint: disable=too-many-instance-attributes
         return self.loc.get("path", "")
 
 
+# A dropdown is only worth showing when there's more than one value to pick
+# between, matching how Venue/Day/Hour reveal themselves. Every filter on the
+# event page clears this same bar; the two helpers below only differ in where
+# they read the values from.
 def filter_availability(cards: Iterable[SessionData]) -> dict[str, bool]:
-    # A track/category dropdown is only worth showing when there's more than one
-    # value to pick between, matching how Venue/Day/Hour reveal themselves.
     card_list = list(cards)
     tracks = {name for c in card_list for name in c.track_names}
     categories = {c.category_name for c in card_list if c.category_name}
@@ -194,6 +200,21 @@ def filter_availability(cards: Iterable[SessionData]) -> dict[str, bool]:
         "has_track_filter": len(tracks) > 1,
         "has_category_filter": len(categories) > 1,
     }
+
+
+def filterable_field_slugs(cards: Iterable[SessionData]) -> set[str]:
+    """Find the organizer-defined select fields worth offering as a filter.
+
+    Returns:
+        The slugs whose answers split the schedule more than one way. A field
+        nobody answered, or one every session answers the same way, is left
+        out rather than drawn as a label above an "All ..." box.
+    """
+    answers: dict[str, set[str]] = defaultdict(set)
+    for card in cards:
+        for slug, value in card.public_select_answers():
+            answers[slug].add(value)
+    return {slug for slug, values in answers.items() if len(values) > 1}
 
 
 class EventInfo(EventListItemDTO):

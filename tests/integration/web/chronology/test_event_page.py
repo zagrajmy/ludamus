@@ -592,7 +592,6 @@ class TestEventPageView:
                 url=self._get_url(event.slug),
                 compact_schedule=True,
                 sessions=list(cards.values()),
-                filterable_tag_categories=[game_type],
                 schedule_days=expected_days,
                 # 4 seats in `scarce` plus the 2 that fill `full`.
                 total_enrolled=4 + 2,
@@ -1317,6 +1316,49 @@ class TestEventPageView:
                     session=session
                 ).select_related("user")
             ],
+        )
+
+    def test_ok_filter_panel_leaves_out_a_field_nobody_answered(
+        self, client, event, space
+    ):
+        genre = SessionField.objects.create(
+            event=event,
+            name="Genre",
+            question="Genre",
+            slug="genre",
+            field_type="select",
+            is_multiple=True,
+            is_public=True,
+        )
+        SessionField.objects.create(
+            event=event,
+            name="Format",
+            question="Format",
+            slug="format",
+            field_type="select",
+            is_multiple=True,
+            is_public=True,
+        )
+        sessions = [
+            self._add_scheduled_session(event=event, space=space, session_field=genre)
+            for _ in range(2)
+        ]
+
+        response = client.get(self._get_url(event.slug))
+
+        # Both fields are public selects on the event; only Genre is answered,
+        # so only Genre reaches the panel.
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=self._tagged_page_context(
+                event,
+                url=self._get_url(event.slug),
+                sessions=sessions,
+                session_field=genre,
+                scheduled_count=2,
+            ),
+            template_name=["chronology/event.html"],
         )
 
     def test_query_count_constant_in_session_count(self, client, event, space):
@@ -3128,7 +3170,6 @@ class TestEventPageView:
             context_data=event_page_context(
                 event,
                 url=self._get_url(event.slug),
-                filterable_tag_categories=[session_field],
                 future_unavailable_hour_data={agenda_item.start_time: [session_data]},
                 hour_data={agenda_item.start_time: [session_data]},
                 sessions=[session_data],

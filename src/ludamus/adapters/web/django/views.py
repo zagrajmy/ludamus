@@ -41,6 +41,7 @@ from ludamus.gates.web.django.chronology.event_presentation import (
     SessionData,
     build_display_field_row,
     filter_availability,
+    filterable_field_slugs,
     mask_session_card,
 )
 from ludamus.gates.web.django.chronology.schedule import (
@@ -400,7 +401,15 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
         context["enrollment_requires_slots"] = requires_slots
         context.update(self._get_anonymous_context())
 
-        context["filterable_tag_categories"] = _get_public_select_fields(self.object)
+        # Only the fields whose answers split this schedule reach the panel:
+        # the same bar track/category clear just below, and Venue/Day/Hour in
+        # session-filters.ts.
+        filterable = filterable_field_slugs(sessions_data.values())
+        context["filterable_tag_categories"] = [
+            field
+            for field in _get_public_select_fields(self.object)
+            if field.slug in filterable
+        ]
         context.update(filter_availability(sessions_data.values()))
         context.update(self._get_pending_sessions_context())
 

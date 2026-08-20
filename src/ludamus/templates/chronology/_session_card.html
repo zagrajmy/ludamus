@@ -94,9 +94,7 @@
                     {% elif data.availability == "in-progress" %}
                         <span class="text-xs font-medium text-foreground-muted">{% translate "In Progress" %}</span>
                     {% elif data.availability == "unavailable" %}
-                        <span class="text-sm font-medium tabular-nums text-foreground-muted">
-                            {% blocktranslate count counter=data.effective_participants_limit %}{{ counter }} seat{% plural %}{{ counter }} seats{% endblocktranslate %}
-                        </span>
+                        {% include "chronology/_session_seat_count.html" with extra_class="text-sm" %}
                     {% endif %}
                 </div>
             </div>

@@ -3,6 +3,9 @@ import { type Locator, type Page } from "@playwright/test";
 import { expect, test } from "./helpers/fixtures";
 
 const MOBILE_WIDTH = 375;
+// The dense seeded event, on the canonical path: /chronology/event/<slug>/ is
+// a permanent redirect kept for links shared before that segment was dropped.
+const DENSE_EVENT_URL = "/event/kapitularz-2025-anonymized/";
 
 test.describe("Event filter panel", () => {
   test("filter panel does not overflow viewport on mobile", async ({ browser }) => {
@@ -31,20 +34,20 @@ test.describe("Event filter panel", () => {
 
     // The dense event is the one that carries all three controls: the view
     // switcher only appears where there is a second layout to switch to.
-    await page.goto("/chronology/event/kapitularz-2025-anonymized/");
+    await page.goto(DENSE_EVENT_URL);
 
     const box = async (locator: Locator) => {
       const rect = await locator.boundingBox();
       if (!rect) throw new Error("toolbar control is not laid out");
       return rect;
     };
-    const search = await box(page.locator("#session-filter"));
+    const search = await box(page.getByRole("textbox", { name: "Search sessions..." }));
     const filters = await box(page.getByRole("button", { name: "Filters" }));
     const tabs = await box(page.getByRole("tablist"));
 
     for (const control of [filters, tabs]) {
-      expect(control.height).toBeCloseTo(search.height, 1);
-      expect(control.y).toBeCloseTo(search.y, 1);
+      expect(Math.abs(control.height - search.height)).toBeLessThanOrEqual(1);
+      expect(Math.abs(control.y - search.y)).toBeLessThanOrEqual(1);
     }
 
     await context.close();
@@ -112,9 +115,9 @@ test.describe("Event filter panel", () => {
     // Both fields are public selects on this event, so both reach the panel.
     // Only Mood is answered two ways; Format, which nobody answered, would be
     // a select whose one option narrows nothing.
-    await expect(page.locator("#tag-filter-mood")).toBeVisible();
-    await expect(page.locator("#tag-filter-format")).toBeHidden();
-    // Track clears the same bar server-side, before the select is rendered.
+    await expect(page.getByRole("combobox", { name: "Mood" })).toBeVisible();
+    await expect(page.locator("#tag-filter-format")).toHaveCount(0);
+    // Track clears the same bar, through the same server-side rule.
     await expect(page.locator("#tag-filter-__track")).toHaveCount(0);
   });
 
@@ -213,7 +216,7 @@ test.describe("Event fuzzy search", () => {
 });
 
 test.describe("Rooms view filtering", () => {
-  const denseEventUrl = "/chronology/event/kapitularz-2025-anonymized/?view=rooms";
+  const denseEventUrl = `${DENSE_EVENT_URL}?view=rooms`;
 
   test("collapses the hour rows and room columns a filter empties", async ({ page }) => {
     await page.goto(denseEventUrl);

@@ -46,6 +46,8 @@ const initSessionFilters = (): void => {
   const venueFilter = byId<HTMLSelectElement>("venue-filter");
   const minAgeFilter = byId<HTMLInputElement>("min-age-filter");
   const maxAgeFilter = byId<HTMLInputElement>("max-age-filter");
+  // Not byId: the checkbox is absent when nothing at this event takes
+  // enrollment, and a typed query says so without an `as` cast.
   const enrollmentFilter = document.querySelector<HTMLInputElement>("#enrollment-filter");
   const filterToggle = byId("filter-toggle");
   const filterPanel = byId("filter-panel");
@@ -158,9 +160,6 @@ const initSessionFilters = (): void => {
     }
 
     for (const tag of [...categoryTags].sort()) addOption(select, tag, tag);
-    // Fewer than two answers on the schedule and the select has nothing to
-    // pick between — the bar Day/Hour/Venue clear before they appear.
-    if (categoryTags.size < 2) select.closest("[data-filter-group]")?.classList.add("hidden");
     select.addEventListener("change", filterSessions);
   }
 
@@ -341,9 +340,7 @@ const initSessionFilters = (): void => {
           enrollmentFilter.checked = false;
           filterSessions();
         },
-        // The checkbox is short enough to say the same thing as a chip, so
-        // it carries no separate chip copy to translate and keep in sync.
-        label: enrollmentFilter.closest("label")?.textContent?.trim() ?? "",
+        label: filterChipsBar.dataset.enrollmentLabel ?? "",
       });
     }
     pushSelectChip(statusFilter);
