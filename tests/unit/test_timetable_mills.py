@@ -885,6 +885,25 @@ class TestAssignUnassignScope:
         created = mock_uow.agenda_items.create.call_args.args[0]
         assert created["session_confirmed"] is False
 
+    def test_move_records_the_row_it_left(self, service, mock_uow):
+        self._arrange_acceptable_assignment(mock_uow, auto_confirm_sessions=True)
+        mock_uow.agenda_items.read_by_session.return_value = MagicMock()
+        unassign_log_pk = 77
+        mock_uow.schedule_change_logs.create.return_value = unassign_log_pk
+
+        service.assign_session(session_pk=1, placement=self._placement(), event_pk=1)
+
+        assign_log = mock_uow.schedule_change_logs.create.call_args.args[0]
+        assert assign_log["moved_from_id"] == unassign_log_pk
+
+    def test_a_plain_assignment_leaves_nothing_behind(self, service, mock_uow):
+        self._arrange_acceptable_assignment(mock_uow, auto_confirm_sessions=True)
+
+        service.assign_session(session_pk=1, placement=self._placement(), event_pk=1)
+
+        assign_log = mock_uow.schedule_change_logs.create.call_args.args[0]
+        assert assign_log["moved_from_id"] is None
+
 
 def _facilitator(pk, display_name="Alice", *, is_collective=False):
     facilitator = MagicMock()
