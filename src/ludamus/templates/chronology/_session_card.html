@@ -17,14 +17,16 @@
     <div class="session relative flex h-full w-full flex-col overflow-hidden rounded-2xl border ring-offset-[.5px] hover:ring-1 hover:ring-neutral-200 dark:hover:ring-neutral-600 hover:[--pb-scale:1.01] duration-100 ring-offset-background bg-(--card-surface) {{ surface_classes }} {% if data.user_enrolled %}ring-2 ring-coral-400{% endif %}"
          {% include "chronology/_session_data_attrs.html" %}>
         {% if data.is_unscheduled %}
-            {# proposal_url is the page that acts on the proposal — the review #}
-            {# screen for an organizer, the edit form for its author. Required: #}
-            {# a card that renders unlinked looks clickable and is not, and #}
-            {# would say so nowhere. #}
-            <a href="{{ proposal_url }}"
-               class="session-link absolute inset-0 z-10 rounded-2xl">
-                <span class="sr-only">{{ proposal_action_label }}</span>
-            </a>
+            {# proposal_url is the page that acts on the proposal: the review #}
+            {# screen, for an organizer. Guarded because the author's own card #}
+            {# has no such page yet — see _proposal_section.html — and an empty #}
+            {# href would link the card to the page it is already on. #}
+            {% if proposal_url %}
+                <a href="{{ proposal_url }}"
+                   class="session-link absolute inset-0 z-10 rounded-2xl">
+                    <span class="sr-only">{{ proposal_action_label }}</span>
+                </a>
+            {% endif %}
         {% else %}
             <a href="{{ session_link_base }}?session={{ data.session.pk }}"
                class="session-link absolute inset-0 z-10 rounded-2xl"

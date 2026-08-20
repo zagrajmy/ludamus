@@ -509,7 +509,7 @@
         </div>
     {% endif %}
     <!-- Proposals Section (superusers and sphere managers) -->
-    {% if pending_review_visible and event.is_proposal_active and pending_sessions %}
+    {% if pending_review_visible and pending_sessions %}
         {% include "chronology/_proposal_section.html" with cards=pending_sessions wizard_mark=pending_wizard_view %}
     {% endif %}
     {# Session detail modals are fetched on first open (see modal.ts): the URL #}

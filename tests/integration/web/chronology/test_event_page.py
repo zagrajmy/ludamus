@@ -1570,27 +1570,23 @@ class TestEventPageView:
             contains=placeholder_cover_url(session.pk),
         )
 
-    def test_ok_superuser_proposal(
+    def test_closed_call_for_proposals_builds_no_review_queue(
         self, authenticated_client, event, active_user, pending_session
     ):
+        # The event fixture's CFP has already shut. The block does not render
+        # then, so the cards are not built either — they used to be, and
+        # discarded in the template.
+        assert not event.is_proposal_active
         active_user.is_staff = True
         active_user.is_superuser = True
         active_user.save()
+
         response = authenticated_client.get(self._get_url(event.slug))
 
-        expected_pending = proposal_card(
-            pending_session, presenter=active_user, can_edit=True
-        )
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data=event_page_context(
-                event,
-                url=self._get_url(event.slug),
-                pending_sessions=[expected_pending],
-                pending_review_visible=True,
-                pending_wizard_view=True,
-            ),
+            context_data=event_page_context(event, url=self._get_url(event.slug)),
             template_name=["chronology/event.html"],
         )
 
@@ -1934,8 +1930,6 @@ class TestEventPageView:
                 url=self._get_url(event.slug),
                 future_unavailable_hour_data={agenda_item.start_time: [session_data]},
                 hour_data={agenda_item.start_time: [session_data]},
-                pending_review_visible=True,
-                pending_wizard_view=True,
                 sessions=[session_data],
                 total_enrolled=1,
                 user_enrolled_sessions=[session_data],

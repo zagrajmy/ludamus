@@ -264,16 +264,6 @@ def _field_value_dtos_from_models(
 COMPACT_SCHEDULE_MIN_SESSIONS = 20
 
 
-def _preferred_slot_dtos(session: Session, *, scheduled: bool) -> list[TimeSlotDTO]:
-    # Only a proposal has preferences worth reading: for a scheduled session
-    # agenda_item states the real time, and touching the m2m would cost a
-    # query per card — the proposal querysets prefetch it, the schedule's
-    # does not.
-    if scheduled:
-        return []
-    return [TimeSlotDTO.model_validate(slot) for slot in session.time_slots.all()]
-
-
 @method_decorator([cache_control(private=True, max_age=180), vary_cookie], name="get")
 class EventPageView(DetailView):  # type: ignore [type-arg]
     template_name = "chronology/event.html"
@@ -503,7 +493,13 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
         ):
             return context
 
+        # The review block only renders while the call for proposals is open,
+        # so one place decides that — building its cards for a shut CFP meant
+        # a whole card pipeline per organizer page view, discarded in the
+        # template.
         if (access := panel_access(self.request)).granted:
+            if not self.object.is_proposal_active:
+                return context
             return context | {
                 "pending_sessions": self._proposal_cards(
                     review_inbox_proposals(self.object.pk), shadowbanned_ids
@@ -737,8 +733,15 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
                     )
                     for sp in session.session_participations.all()
                 ],
-                preferred_time_slots=_preferred_slot_dtos(
-                    session, scheduled=agenda_item is not None
+                # Only an unscheduled proposal has preferences worth reading;
+                # its queryset is the one that prefetches them.
+                preferred_time_slots=(
+                    []
+                    if agenda_item
+                    else [
+                        TimeSlotDTO.model_validate(slot)
+                        for slot in session.time_slots.all()
+                    ]
                 ),
             )
 
