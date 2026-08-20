@@ -47,7 +47,7 @@
             {# base template — so linking a whole card at it navigates to an #}
             {# unstyled page, and 404s outright where facilitator self-edit is #}
             {# switched off. Giving that view a page mode is its own change; #}
-            {# until then an unlinked card is the honest state, as on main. #}
+            {# until then (#906) an unlinked card is the honest state. #}
             {% if is_own %}
                 {% firstof "" as card_url %}
                 {% firstof "" as card_label %}
