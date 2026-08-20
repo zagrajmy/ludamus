@@ -439,7 +439,7 @@
                     {# card-grid event has a single view and no control to offer. #}
                     {% if compact_schedule %}
                         {# hx-boost rather than hx-get on each tab: {% tab %} renders a #}
-                        {# plain <a> and passes no attribute through, and the boost stays #}
+                        {# plain anchor and passes no attribute through, and the boost stays #}
                         {# scoped to these links. hx-select cuts the region out of the #}
                         {# full page response, so a shared ?view= link and a tab click #}
                         {# render from the same branch. History caching is off because a #}
