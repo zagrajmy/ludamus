@@ -24,6 +24,7 @@ if TYPE_CHECKING:
         UserRepositoryProtocol,
     )
     from ludamus.pacts.event import FacilitatorListItemDTO
+    from ludamus.pacts.multiverse import SphereRole
     from ludamus.pacts.services import ServicesProtocol
     from ludamus.pacts.submissions import (
         FacilitatorListFilters,
@@ -772,7 +773,7 @@ class SphereRepositoryProtocol(Protocol):
     @staticmethod
     def read(pk: int) -> SphereDTO: ...
     @staticmethod
-    def is_manager(sphere_id: int, user_slug: str) -> bool: ...
+    def manager_role(sphere_id: int, user_slug: str) -> SphereRole | None: ...
     @staticmethod
     def list_managers(sphere_id: int) -> list[UserDTO]: ...
     @staticmethod
@@ -902,6 +903,8 @@ class TrackRepositoryProtocol(Protocol):
     def get_or_create_by_slug(event_id: int, name: str, slug: str) -> int: ...
     @staticmethod
     def read(pk: int) -> TrackDTO: ...
+    @staticmethod
+    def find_by_event_and_name(event_pk: int, name: str) -> TrackDTO | None: ...
     @staticmethod
     def read_by_slug(event_pk: int, slug: str) -> TrackDTO: ...
     def update(self, pk: int, data: TrackUpdateData) -> TrackDTO: ...
@@ -1403,6 +1406,7 @@ class ScheduleChangeLogData(TypedDict, total=False):
     old_end_time: datetime | None
     new_start_time: datetime | None
     new_end_time: datetime | None
+    moved_from_id: int | None
 
 
 class ScheduleChangeLogDTO(BaseModel):
@@ -1424,11 +1428,15 @@ class ScheduleChangeLogDTO(BaseModel):
     new_start_time: datetime | None
     new_end_time: datetime | None
     creation_time: datetime
+    # The unassign row this assign row replaced, when the two were one move.
+    moved_from_id: int | None
+    acknowledgement_time: datetime | None
+    acknowledged_by_name: str
 
 
 class ScheduleChangeLogRepositoryProtocol(Protocol):
     @staticmethod
-    def create(data: ScheduleChangeLogData) -> None: ...
+    def create(data: ScheduleChangeLogData) -> int: ...
 
     @staticmethod
     def read(pk: int) -> ScheduleChangeLogDTO: ...
@@ -1437,6 +1445,14 @@ class ScheduleChangeLogRepositoryProtocol(Protocol):
     def list_by_event(
         event_pk: int, *, space_pk: int | None = None
     ) -> list[ScheduleChangeLogDTO]: ...
+
+    @staticmethod
+    def list_since(event_pk: int, since: datetime) -> list[ScheduleChangeLogDTO]: ...
+
+    @staticmethod
+    def set_acknowledged(
+        *, event_pk: int, log_pks: list[int], user_id: int, acknowledged: bool
+    ) -> None: ...
 
     @staticmethod
     def list_by_session(session_id: int) -> list[ScheduleChangeLogDTO]: ...

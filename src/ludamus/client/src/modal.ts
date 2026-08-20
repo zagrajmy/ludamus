@@ -549,6 +549,9 @@ setupModalCloseTriggers();
 const setupFallbackLinkHandlers = (): void => {
   for (const link of document.querySelectorAll<HTMLAnchorElement>("a[href][aria-controls]")) {
     if (Object.hasOwn(link.dataset, "modalReload")) continue;
+    // Re-run after an htmx swap brings new cards in; the links that survived
+    // it keep the one handler they already have.
+    if (Object.hasOwn(link.dataset, "modalFallbackBound")) continue;
     const modalId = link.getAttribute("aria-controls");
     const href = link.getAttribute("href");
     if (!modalId || !href) continue;
@@ -560,6 +563,7 @@ const setupFallbackLinkHandlers = (): void => {
     )
       continue;
 
+    link.dataset.modalFallbackBound = "";
     link.addEventListener("click", (e) => {
       e.preventDefault();
       void ensureModalLoaded(modalId).then((ok) => {
@@ -570,6 +574,9 @@ const setupFallbackLinkHandlers = (): void => {
   }
 };
 
-if (!navigation) setupFallbackLinkHandlers();
+if (!navigation) {
+  setupFallbackLinkHandlers();
+  document.body.addEventListener("htmx:afterSwap", setupFallbackLinkHandlers);
+}
 
 export { closeModal, openModal };

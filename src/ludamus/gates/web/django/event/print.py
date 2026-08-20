@@ -14,10 +14,11 @@ from django.utils.timezone import get_current_timezone, localtime, make_aware
 from django.utils.translation import gettext_lazy as _
 from django.views.generic.base import View
 
-from ludamus.gates.web.django.access import has_panel_access
+from ludamus.gates.web.django.access import panel_access
 from ludamus.gates.web.django.helpers import is_event_published
 from ludamus.mills.qr import qr_svg
 from ludamus.pacts import NotFoundError
+from ludamus.pacts.multiverse import Capability
 from ludamus.pacts.printing import PrintQueryDTO
 
 if TYPE_CHECKING:
@@ -186,7 +187,12 @@ class PublicEventPrintView(View):
             raise Http404 from exc
 
         published = is_event_published(event)
-        panel_user = has_panel_access(request)
+        access = panel_access(request)
+        panel_user = access.granted
+        # A comms member reads this page and changes nothing by opening it:
+        # the printed-materials signal and the unconfirmed sessions are the
+        # organizers' business.
+        manages_event = access.allows(Capability.PANEL_WRITE)
         if not published and not panel_user:
             raise Http404
 
@@ -196,7 +202,7 @@ class PublicEventPrintView(View):
         except NotFoundError as exc:
             raise Http404 from exc
 
-        if panel_user:
+        if manages_event:
             # A manager opening the print page is our signal that this event's
             # organizers have printed, which suppresses the pre-event reminder.
             request.services.printables_reminder.mark_printed(event.pk)
@@ -209,7 +215,7 @@ class PublicEventPrintView(View):
         )
         # Only sphere managers may pull unconfirmed sessions onto paper; for
         # everyone else the param is ignored, not an error.
-        unconfirmed = panel_user and request.GET.get("unconfirmed") == "1"
+        unconfirmed = manages_event and request.GET.get("unconfirmed") == "1"
         confirmed_only = not unconfirmed
 
         service = request.services.print_materials
@@ -274,7 +280,7 @@ class PublicEventPrintView(View):
                 "show_track_control": material_spec.show_track_control,
                 "show_descriptions_control": material_spec.supports_descriptions,
                 "show_range_controls": material_spec.show_range_controls,
-                "show_unconfirmed_control": panel_user,
+                "show_unconfirmed_control": manages_event,
                 "descriptions": descriptions,
                 "unconfirmed": unconfirmed,
                 "selected_scope": str(scope_pk) if scope_pk is not None else "",
