@@ -71,6 +71,7 @@ from ludamus.links.db.django.repositories.sessions import (
     field_value_dto,
     own_pending_proposals,
     review_inbox_proposals,
+    with_scheduled_location,
     with_session_card_relations,
 )
 from ludamus.mills.enrollment import (
@@ -303,7 +304,7 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
         scheduled = public_scheduled_sessions(self.object.pk)
         enrollment_view = self.request.GET.get("view") == "enrollment"
         event_sessions = annotate_session_participation_counts(
-            with_session_card_relations(scheduled)
+            with_scheduled_location(with_session_card_relations(scheduled))
         ).order_by("agenda_item__start_time")
 
         shadowbanned_ids: frozenset[int] = frozenset()
@@ -516,7 +517,8 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
         return context | {
             "own_pending_proposals": self._proposal_cards(
                 own_pending_proposals(
-                    self.object.pk, self.request.context.current_user_id
+                    event_id=self.object.pk,
+                    presenter_id=self.request.context.current_user_id,
                 ),
                 shadowbanned_ids,
             )
@@ -525,9 +527,12 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
     def _proposal_cards(
         self, proposals: QuerySet[Session], shadowbanned_ids: frozenset[int]
     ) -> list[SessionData]:
-        # Same masking the scheduled cards get: without it a presenter the
-        # viewer shadowbanned wears the danger ring on their scheduled card and
-        # not on their proposal, on the same page.
+        # The shadowban ids, but deliberately not mask_session_card: the mask
+        # rewrites participants_limit to a fabricated fill, and an organizer
+        # has to judge the capacity the author actually asked for. The ids
+        # alone are what the danger ring reads, and without them a presenter
+        # the viewer shadowbanned would be ringed on their scheduled card and
+        # clean on their proposal, on the same page.
         return list(self._get_session_data(proposals, shadowbanned_ids).values())
 
     def _set_user_participations(

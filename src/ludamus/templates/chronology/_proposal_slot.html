@@ -2,21 +2,22 @@
 {# The slot a proposal is asking for, as one line of a card's meta row: the #}
 {# earliest preferred slot as a range, plus a count of the rest. A range is #}
 {# what makes it read as a slot — a bare date reads as a submission stamp. #}
+{# No title attributes: the card's content wrapper carries #}
+{# **:pointer-events-none so the full-bleed link owns every hover, and a #}
+{# native tooltip on a descendant can never fire. The overflow names its #}
+{# slots to assistive tech instead, which also survives touch. #}
 {# Variables: data (SessionData) #}
 {% if data.preferred_time_slots %}
     {% with slot=data.preferred_time_slots.0 %}
-        <span class="truncate tabular-nums"
-              title="{{ slot.start_time|date:'l, j E, G:i' }}–{{ slot.end_time|date:'G:i' }}">
-            {{ slot.start_time|date:"D, G:i" }}–{{ slot.end_time|date:"G:i" }}
-        </span>
+        <span class="truncate tabular-nums">{{ slot.start_time|date:"D, G:i" }}–{{ slot.end_time|date:"G:i" }}</span>
     {% endwith %}
     {% with extra=data.preferred_time_slots|length|add:"-1" %}
         {% if extra %}
-            {# The count names what it hides: the card has room for one slot, #}
-            {# and an organizer sizing a proposal against the schedule should #}
-            {# not have to open the review screen to see the rest. #}
-            <span class="shrink-0 text-foreground-muted" title="{% for slot in data.preferred_time_slots|slice:"1:" %}{{ slot.start_time|date:'D, G:i' }}–{{ slot.end_time|date:'G:i' }}{% if not forloop.last %}, {% endif %}{% endfor %}">
+            <span class="shrink-0 text-foreground-muted">
                 {% blocktranslate count counter=extra %}+{{ counter }} more{% plural %}+{{ counter }} more{% endblocktranslate %}
+                <span class="sr-only">
+                    {% for slot in data.preferred_time_slots|slice:"1:" %}{{ slot.start_time|date:"l, j E, G:i" }}–{{ slot.end_time|date:"G:i" }}{% if not forloop.last %}, {% endif %}{% endfor %}
+                </span>
             </span>
         {% endif %}
     {% endwith %}

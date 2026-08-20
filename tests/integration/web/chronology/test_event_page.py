@@ -1730,6 +1730,42 @@ class TestEventPageView:
             not_contains="🧙",
         )
 
+    def test_shadowbanned_presenter_is_flagged_on_their_proposal_card(
+        self, authenticated_client, event, active_user, pending_session
+    ):
+        # The same presenter must not be ringed on a scheduled card and clean
+        # on a proposal: both card sets read the viewer's shadowban list.
+        active_user.is_staff = True
+        active_user.is_superuser = True
+        active_user.save()
+        event.proposal_end_time = timezone.now() + timedelta(days=3)
+        event.save(update_fields=["proposal_end_time"])
+        presenter = UserFactory()
+        pending_session.presenter = presenter
+        pending_session.save(update_fields=["presenter"])
+        active_user.shadowbanned.add(presenter)
+
+        response = authenticated_client.get(self._get_url(event.slug))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=event_page_context(
+                event,
+                url=self._get_url(event.slug),
+                pending_sessions=[
+                    proposal_card(
+                        pending_session,
+                        presenter=presenter,
+                        presenter_is_shadowbanned=True,
+                    )
+                ],
+                pending_review_visible=True,
+                pending_wizard_view=True,
+            ),
+            template_name=["chronology/event.html"],
+        )
+
     def test_proposal_without_a_category_still_reaches_the_review_queue(
         self, authenticated_client, event, active_user, pending_session
     ):

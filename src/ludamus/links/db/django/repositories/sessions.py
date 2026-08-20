@@ -114,14 +114,14 @@ def annotate_session_participation_counts(
 
 
 def with_session_card_relations(queryset: QuerySet[Session]) -> QuerySet[Session]:
-    # str(space) walks the whole ancestor chain, so eager-load every level up to
-    # the max nesting depth to avoid per-row parent queries.
+    # Everything a card needs whether or not it is on the timetable —
+    # agenda_item included, because the card projector asks every session
+    # whether it has one, and answering that per row is a query. Only its
+    # space chain is scheduled-only: a scheduled queryset composes
+    # with_scheduled_location on top, an unscheduled one must not, or it pays
+    # SPACE_MAX_DEPTH LEFT JOINs that are NULL on every row.
     return queryset.select_related(
-        "presenter",
-        "agenda_item__space" + "__parent" * (SPACE_MAX_DEPTH - 1),
-        "event",
-        "event__sphere",
-        "category",
+        "presenter", "agenda_item", "event", "event__sphere", "category"
     ).prefetch_related(
         "session_participations__user",
         "field_values__field",
@@ -130,7 +130,16 @@ def with_session_card_relations(queryset: QuerySet[Session]) -> QuerySet[Session
     )
 
 
-def _unscheduled_proposals(event_id: int) -> QuerySet[Session]:
+def with_scheduled_location(queryset: QuerySet[Session]) -> QuerySet[Session]:
+    # str(space) walks the whole ancestor chain, so eager-load every level up to
+    # the max nesting depth to avoid per-row parent queries.
+    return queryset.select_related(
+        "agenda_item__space" + "__parent" * (SPACE_MAX_DEPTH - 1)
+    )
+
+
+def review_inbox_proposals(event_id: int) -> QuerySet[Session]:
+    """Every unscheduled proposal of one event, for an organizer to review."""
     # Scoped by event_id, not category__event_id: Session.category is nullable,
     # so joining through it drops a proposal that has no category from both the
     # review queue and its own author's list. public_scheduled_sessions filters
@@ -159,14 +168,11 @@ def _unscheduled_proposals(event_id: int) -> QuerySet[Session]:
     )
 
 
-def review_inbox_proposals(event_id: int) -> QuerySet[Session]:
-    """Every unscheduled proposal of one event, for an organizer to review."""
-    return _unscheduled_proposals(event_id)
-
-
-def own_pending_proposals(event_id: int, presenter_id: int) -> QuerySet[Session]:
-    """One author's unscheduled proposals of an event."""
-    return _unscheduled_proposals(event_id).filter(presenter_id=presenter_id)
+def own_pending_proposals(*, event_id: int, presenter_id: int) -> QuerySet[Session]:
+    """Narrow the review queue to one author's own proposals."""
+    # Keyword-only: both arguments are ints and either order type-checks, but
+    # transposing them shows one user another user's proposals.
+    return review_inbox_proposals(event_id).filter(presenter_id=presenter_id)
 
 
 def field_value_dto(fv: SessionFieldValue) -> SessionFieldValueDTO:
@@ -253,7 +259,7 @@ class SessionRepository(SessionRepositoryProtocol, SessionModalRepositoryProtoco
             Session.objects.filter(agenda_item__isnull=False)
         )
         try:
-            session = with_session_card_relations(base).get(
+            session = with_scheduled_location(with_session_card_relations(base)).get(
                 pk=session_id, event_id=event_id
             )
         except Session.DoesNotExist:

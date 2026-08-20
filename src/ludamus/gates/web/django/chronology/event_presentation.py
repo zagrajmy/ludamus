@@ -243,6 +243,10 @@ def _simulacra_participations(count: int) -> list[ParticipationInfo]:
 
 
 def fake_full_card(session_data: SessionData) -> SessionData:
+    # Assumes a scheduled card. An unscheduled proposal leaves both availability
+    # and takes_enrollment before any faked field is read, so the mask would be
+    # a silent no-op on one — nothing routes a proposal here today, and nothing
+    # should start without revisiting that.
     fill = session_data.effective_participants_limit or _SIMULACRA_FILL
     return replace(
         session_data,
