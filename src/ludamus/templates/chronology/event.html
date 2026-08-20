@@ -274,7 +274,7 @@
     {# control describing a session set that is no longer on screen. #}
     <div id="schedule-region">
         <!-- Section Header -->
-        <div class="flex items-center justify-between mb-6">
+        <div class="flex items-center justify-between mb-4 sm:mb-6">
             <div class="flex items-center gap-3">
                 {# The badge counts what this view renders, while the stat card #}
                 {# above counts the whole schedule — so the enrollment view #}
@@ -299,7 +299,11 @@
         </div>
         {% if hour_data %}
             <!-- Filter Controls -->
-            <div class="mb-6">
+            <div class="mb-4 sm:mb-6">
+                {# The search field sets the row height; the Filters button and #}
+                {# the view tabs stretch to it (h-full, and a flex wrapper for #}
+                {# the tab strip) instead of each landing on whatever its own #}
+                {# padding adds up to. #}
                 <div class="flex gap-1 sm:gap-2 items-stretch">
                     <div class="relative flex-1">
                         <span class="absolute left-3.5 top-1/2 -translate-y-1/2 text-foreground-muted">
@@ -315,7 +319,7 @@
                     </div>
                     <div class="filters-popover-wrapper relative overflow-visible">
                         <button type="button"
-                                class="filter-toggle filter-toggle-anchor inline-flex items-center gap-2 p-2.5 sm:p-3 rounded-2xl text-sm font-semibold border border-border whitespace-nowrap cursor-pointer bg-bg-secondary text-foreground-muted transition-[color,background-color,border-color,box-shadow] duration-150"
+                                class="filter-toggle filter-toggle-anchor inline-flex h-full items-center gap-2 p-2.5 sm:p-3 rounded-2xl text-sm font-semibold border border-border whitespace-nowrap cursor-pointer bg-bg-secondary text-foreground-muted transition-[color,background-color,border-color,box-shadow] duration-150"
                                 id="filter-toggle"
                                 aria-expanded="false"
                                 aria-controls="filter-panel"
@@ -440,7 +444,7 @@
                         {# render from the same branch. History caching is off because a #}
                         {# restored snapshot would carry DOM the schedule scripts have #}
                         {# already bound; a back button then re-requests the page instead. #}
-                        <div class="self-center"
+                        <div class="flex"
                              hx-boost="true"
                              hx-target="#schedule-region"
                              hx-select="#schedule-region"

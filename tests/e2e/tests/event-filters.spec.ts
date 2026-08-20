@@ -1,4 +1,4 @@
-import { type Page } from "@playwright/test";
+import { type Locator, type Page } from "@playwright/test";
 
 import { expect, test } from "./helpers/fixtures";
 
@@ -19,6 +19,31 @@ test.describe("Event filter panel", () => {
     expect(box).not.toBeNull();
     expect(box!.x).toBeGreaterThanOrEqual(0);
     expect(box!.x + box!.width).toBeLessThanOrEqual(MOBILE_WIDTH);
+
+    await context.close();
+  });
+
+  test("the toolbar controls line up with the search field on mobile", async ({ browser }) => {
+    const context = await browser.newContext({
+      viewport: { width: MOBILE_WIDTH, height: 812 },
+    });
+    const page = await context.newPage();
+
+    await page.goto("/event/autumn-open/");
+
+    const box = async (locator: Locator) => {
+      const rect = await locator.boundingBox();
+      if (!rect) throw new Error("toolbar control is not laid out");
+      return rect;
+    };
+    const search = await box(page.locator("#session-filter"));
+    const filters = await box(page.getByRole("button", { name: "Filters" }));
+    const tabs = await box(page.getByRole("tablist"));
+
+    for (const control of [filters, tabs]) {
+      expect(control.height).toBeCloseTo(search.height, 1);
+      expect(control.y).toBeCloseTo(search.y, 1);
+    }
 
     await context.close();
   });
