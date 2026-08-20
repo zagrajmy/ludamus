@@ -3778,17 +3778,6 @@ msgstr "Przejdź do %(day)s %(time)s"
 msgid "Open details for %(title)s"
 msgstr "Otwórz szczegóły %(title)s"
 
-#: src/ludamus/templates/chronology/_enrollment_badge.html
-#: src/ludamus/templates/chronology/enroll_select.html
-#: src/ludamus/templates/panel/_event_settings_tabs.html
-#: src/ludamus/templates/panel/enrollment-window-form.html
-msgid "Enrollment"
-msgstr "Zapisy"
-
-#: src/ludamus/templates/chronology/_enrollment_badge.html
-msgid "Enrollment required"
-msgstr "Wymagane zapisy"
-
 #: src/ludamus/templates/chronology/_pending_proposals.html
 msgid "Pending Proposals"
 msgstr "Oczekujące zgłoszenia"
@@ -3874,6 +3863,17 @@ msgstr "Zakończona"
 #: src/ludamus/templates/chronology/_session_card.html
 msgid "In Progress"
 msgstr "W Trakcie"
+
+#: src/ludamus/templates/chronology/_session_availability.html
+#: src/ludamus/templates/chronology/_session_card.html
+#: src/ludamus/templates/panel/_space_tree_node.html
+#, python-format
+msgid "%(counter)s seat"
+msgid_plural "%(counter)s seats"
+msgstr[0] "%(counter)s miejsce"
+msgstr[1] "%(counter)s miejsca"
+msgstr[2] "%(counter)s miejsc"
+msgstr[3] "%(counter)s miejsc"
 
 #: src/ludamus/templates/chronology/_session_availability.html
 #: src/ludamus/templates/chronology/event.html
@@ -4041,6 +4041,12 @@ msgstr "Dokończ Zapis"
 #: src/ludamus/templates/chronology/anonymous_enroll.html
 msgid "Enroll Now"
 msgstr "Zapisz się teraz"
+
+#: src/ludamus/templates/chronology/enroll_select.html
+#: src/ludamus/templates/panel/_event_settings_tabs.html
+#: src/ludamus/templates/panel/enrollment-window-form.html
+msgid "Enrollment"
+msgstr "Zapisy"
 
 #: src/ludamus/templates/chronology/enroll_select.html
 msgid "Players you shadowbanned are already signed up here"
@@ -6396,15 +6402,6 @@ msgstr "Sala"
 #: src/ludamus/templates/panel/_space_tree_node.html
 msgid "Group"
 msgstr "Grupa"
-
-#: src/ludamus/templates/panel/_space_tree_node.html
-#, python-format
-msgid "%(counter)s seat"
-msgid_plural "%(counter)s seats"
-msgstr[0] "%(counter)s miejsce"
-msgstr[1] "%(counter)s miejsca"
-msgstr[2] "%(counter)s miejsc"
-msgstr[3] "%(counter)s miejsc"
 
 #: src/ludamus/templates/panel/_space_tree_node.html
 #, python-format
@@ -9348,6 +9345,9 @@ msgstr "Temat"
 #: src/ludamus/templates/staging_email_inbox.html
 msgid "No emails captured yet."
 msgstr "Brak przechwyconych e-maili."
+
+#~ msgid "Enrollment required"
+#~ msgstr "Wymagane zapisy"
 
 #~ msgid "Takes enrollment"
 #~ msgstr "Z zapisami"

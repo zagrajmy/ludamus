@@ -118,13 +118,17 @@ test.describe("Event filter panel", () => {
     await expect(page.locator("#tag-filter-__track")).toHaveCount(0);
   });
 
-  test("marks sessions that take enrollment while the window is shut", async ({ page }) => {
-    // The closed-enrollment event has no enrollment window at all, so no card
-    // carries a seat count — the badge is the only enrollment signal there.
+  test("states the room size while the enrollment window is shut", async ({ page }) => {
+    // The closed-enrollment event has no enrollment window at all, so nothing
+    // here can say "spots left" — the seats a session holds is what is left to
+    // tell, and it is the size, not the remainder.
     await page.goto("/event/closed-enrollment/");
 
-    const card = page.locator(".session", { hasText: "Late Resignation Demo 1" });
-    await expect(card.getByTitle("Enrollment required")).toBeVisible();
+    const card = (title: string) => page.locator(".session", { hasText: title });
+    await expect(card("Late Resignation Demo 1")).toContainText("5 seats");
+    await expect(card("Late Resignation Demo 1")).not.toContainText("spots left");
+    // Seeded with a single seat: the other side of the plural.
+    await expect(card("Late Waiting List Demo 1")).toContainText("1 seat");
   });
 
   test("filters by host name case-insensitively", async ({ page }) => {
