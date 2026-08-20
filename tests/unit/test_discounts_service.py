@@ -454,3 +454,27 @@ class TestApplyFromAgenda:
 
         assert repo.soft_deleted == [pk]
         assert result.discounts_cleared == 1
+
+    def test_rerun_updates_the_rule_discount_in_place(self):
+        pk = 4
+        percent = Decimal(75)
+        result, repo, _facilitators, _change_logs = self._apply(
+            list_items=[_list_item(pk=1, accreditation_type="creator")],
+            rows=[_load(1, minutes=60)],
+            rules=[_rule(1, quantity=1, percent=percent)],
+            discounts=[_dto(pk, facilitator_id=1, from_rules=True)],
+        )
+
+        assert not repo.created
+        assert repo.updated == [
+            (
+                pk,
+                DiscountData(
+                    facilitator_id=1,
+                    kind=DiscountKind.PERCENT,
+                    value=percent,
+                    from_rules=True,
+                ),
+            )
+        ]
+        assert result.discounts_set == 1

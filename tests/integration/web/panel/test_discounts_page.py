@@ -189,6 +189,30 @@ class TestDiscountsPageView:
             contains="20.00",
         )
 
+    def test_list_marks_a_discount_the_rules_assigned(self, panel_client, event):
+        facilitator = _make_facilitator(event, accreditation_type="creator")
+        discount = _make_discount(event, facilitator, from_rules=True)
+
+        response = panel_client.get(self.get_url(event))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/discounts/list.html",
+            context_data={
+                **panel_context(event, active_nav="discounts"),
+                "assignments": [],
+                "rows": [
+                    {
+                        "facilitator": _facilitator_list_dto(facilitator),
+                        "accreditation_type_display": "Program creator",
+                        "discount": DiscountDTO.model_validate(discount),
+                    }
+                ],
+            },
+            contains="From rules",
+        )
+
 
 class TestDiscountCreatePageView:
     @staticmethod
