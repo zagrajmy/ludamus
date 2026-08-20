@@ -44,6 +44,7 @@ def _to_dto(log: ScheduleChangeLog) -> ScheduleChangeLogDTO:
             "acknowledged_by_name": (
                 log.acknowledged_by.name if log.acknowledged_by else ""
             ),
+            "important": log.important,
         }
     )
 
@@ -95,6 +96,14 @@ class ScheduleChangeLogRepository(ScheduleChangeLogRepositoryProtocol):
         ScheduleChangeLog.objects.filter(event_id=event_pk, pk__in=log_pks).update(
             acknowledged_by=user_id if acknowledged else None,
             acknowledgement_time=timezone.now() if acknowledged else None,
+        )
+
+    @staticmethod
+    def set_important(*, event_pk: int, log_pks: list[int], important: bool) -> None:
+        # Scoped by event, like every other write here: the pks a request names
+        # prove nothing about which event the caller manages.
+        ScheduleChangeLog.objects.filter(event_id=event_pk, pk__in=log_pks).update(
+            important=important
         )
 
     @staticmethod

@@ -42,6 +42,7 @@ def _erratum(*logs: ScheduleChangeLogDTO) -> ErratumDTO:
         new_space_name=last.new_space_name,
         new_start_time=last.new_start_time,
         acknowledged_by_name=_acknowledgement(*logs),
+        important=any(log.important for log in logs),
     )
 
 
@@ -77,20 +78,22 @@ class ErrataService:
             return []
         logs = self._schedule_change_logs.list_since(event_pk, event.publication_time)
         errata = _read_moves(logs)
+        # Important first, then newest: what the audience must hear about
+        # cannot sink below a week of routine reshuffling.
         errata.sort(
-            key=lambda erratum: (erratum.creation_time, erratum.log_pks[-1]),
+            key=lambda erratum: (
+                erratum.important,
+                erratum.creation_time,
+                erratum.log_pks[-1],
+            ),
             reverse=True,
         )
         return errata
 
-    def set_acknowledged(
-        self, *, event_pk: int, log_pks: list[int], user_id: int, acknowledged: bool
-    ) -> None:
-        """Tick off one erratum or a batch of them, or refuse."""
-        # Only whole errata the page lists may be ticked off: a row from
-        # before publication is not an erratum at all, and half a move
-        # announces a cancellation that never happened. A batch is several of
-        # those at once, so the request has to be a union of whole errata.
+    def _check_whole_errata(self, event_pk: int, log_pks: list[int]) -> None:
+        """Refuse anything but a union of whole errata this event lists."""
+        # A row from before publication is not an erratum at all, and half a
+        # move announces a cancellation that never happened.
         wanted = set(log_pks)
         covered = {
             pk
@@ -101,6 +104,20 @@ class ErrataService:
         if not wanted or covered != wanted:
             msg = f"Not every row of {sorted(wanted)} is an erratum of event {event_pk}"
             raise NotFoundError(msg)
+
+    def set_important(
+        self, *, event_pk: int, log_pks: list[int], important: bool
+    ) -> None:
+        self._check_whole_errata(event_pk, log_pks)
+        self._schedule_change_logs.set_important(
+            event_pk=event_pk, log_pks=log_pks, important=important
+        )
+
+    def set_acknowledged(
+        self, *, event_pk: int, log_pks: list[int], user_id: int, acknowledged: bool
+    ) -> None:
+        """Tick off one erratum or a batch of them, or refuse."""
+        self._check_whole_errata(event_pk, log_pks)
         self._schedule_change_logs.set_acknowledged(
             event_pk=event_pk,
             log_pks=log_pks,

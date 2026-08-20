@@ -90,6 +90,11 @@
                                         <span class="block text-xs">{{ erratum.creation_time|date:"SHORT_DATETIME_FORMAT" }}</span>
                                     </td>
                                     <td class="px-6 py-4 text-sm">
+                                        {% if erratum.important %}
+                                            <span class="inline-flex items-center gap-1 mb-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-danger-bg text-danger-text">
+                                                {% icon "star" variant="solid" class="w-3 h-3" %}{% translate "Important" %}
+                                            </span>
+                                        {% endif %}
                                         {% if erratum.acknowledged_by_name %}
                                             <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-success-bg text-success-text">{% translate "Announced" %}</span>
                                             <span class="block mt-1 text-xs text-foreground-muted">
@@ -100,25 +105,52 @@
                                         {% endif %}
                                     </td>
                                     <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                        <form method="post"
-                                              action="{% url 'panel:erratum-acknowledge' slug=current_event.slug %}">
-                                            {% csrf_token %}
-                                            <input type="hidden" name="next" value="{{ request.get_full_path }}">
-                                            {% for log_pk in erratum.log_pks %}<input type="hidden" name="log_pk" value="{{ log_pk }}">{% endfor %}
-                                            {% if erratum.acknowledged_by_name %}
-                                                <input type="hidden" name="acknowledged" value="0">
-                                                {% blocktranslate asvar t_undo_row with title=erratum.session_title %}Undo the announcement of {{ title }}{% endblocktranslate %}
-                                                <button type="submit"
-                                                        aria-label="{{ t_undo_row }}"
-                                                        class="btn btn-secondary text-sm">{% translate "Undo" %}</button>
-                                            {% else %}
-                                                <input type="hidden" name="acknowledged" value="1">
-                                                {% blocktranslate asvar t_announce_row with title=erratum.session_title %}Mark {{ title }} as announced{% endblocktranslate %}
-                                                <button type="submit"
-                                                        aria-label="{{ t_announce_row }}"
-                                                        class="btn btn-primary text-sm">{% translate "Announced" %}</button>
-                                            {% endif %}
-                                        </form>
+                                        <div class="flex items-center justify-end gap-2">
+                                            <form method="post"
+                                                  action="{% url 'panel:erratum-important' slug=current_event.slug %}">
+                                                {% csrf_token %}
+                                                <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                                                {% for log_pk in erratum.log_pks %}<input type="hidden" name="log_pk" value="{{ log_pk }}">{% endfor %}
+                                                {% if erratum.important %}
+                                                    <input type="hidden" name="important" value="0">
+                                                    {% blocktranslate asvar t_unimportant_row with title=erratum.session_title %}Stop showing {{ title }} first{% endblocktranslate %}
+                                                    <button type="submit"
+                                                            aria-label="{{ t_unimportant_row }}"
+                                                            title="{{ t_unimportant_row }}"
+                                                            class="btn btn-secondary text-sm text-danger-text">
+                                                        {% icon "star" variant="solid" class="w-4 h-4" %}
+                                                    </button>
+                                                {% else %}
+                                                    <input type="hidden" name="important" value="1">
+                                                    {% blocktranslate asvar t_important_row with title=erratum.session_title %}Show {{ title }} first{% endblocktranslate %}
+                                                    <button type="submit"
+                                                            aria-label="{{ t_important_row }}"
+                                                            title="{{ t_important_row }}"
+                                                            class="btn btn-secondary text-sm">
+                                                        {% icon "star" class="w-4 h-4" %}
+                                                    </button>
+                                                {% endif %}
+                                            </form>
+                                            <form method="post"
+                                                  action="{% url 'panel:erratum-acknowledge' slug=current_event.slug %}">
+                                                {% csrf_token %}
+                                                <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                                                {% for log_pk in erratum.log_pks %}<input type="hidden" name="log_pk" value="{{ log_pk }}">{% endfor %}
+                                                {% if erratum.acknowledged_by_name %}
+                                                    <input type="hidden" name="acknowledged" value="0">
+                                                    {% blocktranslate asvar t_undo_row with title=erratum.session_title %}Undo the announcement of {{ title }}{% endblocktranslate %}
+                                                    <button type="submit"
+                                                            aria-label="{{ t_undo_row }}"
+                                                            class="btn btn-secondary text-sm">{% translate "Undo" %}</button>
+                                                {% else %}
+                                                    <input type="hidden" name="acknowledged" value="1">
+                                                    {% blocktranslate asvar t_announce_row with title=erratum.session_title %}Mark {{ title }} as announced{% endblocktranslate %}
+                                                    <button type="submit"
+                                                            aria-label="{{ t_announce_row }}"
+                                                            class="btn btn-primary text-sm">{% translate "Announced" %}</button>
+                                                {% endif %}
+                                            </form>
+                                        </div>
                                     </td>
                                 </tr>
                             {% endfor %}

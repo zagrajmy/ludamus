@@ -142,9 +142,75 @@ class TestErrataPageView:
                         new_space_name="Room A",
                         new_start_time=_WHEN,
                         acknowledged_by_name=None,
+                        important=False,
                     )
                 ],
                 "pending_count": 1,
+                "page_obj": PageMatcher(number=1, num_pages=1),
+                "page_sizes": _PAGE_SIZES,
+            },
+        )
+
+    def test_an_important_change_is_listed_before_a_newer_one(
+        self, panel_client, event, active_user, session, room
+    ):
+        important = _log(
+            event,
+            session,
+            active_user,
+            ScheduleChangeAction.ASSIGN,
+            new_space=room,
+            new_start_time=_WHEN,
+            important=True,
+        )
+        newer = _log(
+            event,
+            SessionFactory(event=event),
+            active_user,
+            ScheduleChangeAction.ASSIGN,
+            new_space=room,
+            new_start_time=_WHEN,
+        )
+
+        response = panel_client.get(self._url(event))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/errata.html",
+            context_data={
+                **panel_context(event, active_nav="errata", rooms_count=1),
+                "errata": [
+                    ErratumDTO(
+                        log_pks=[important.pk],
+                        kind=ErratumKind.ADDED,
+                        session_id=session.pk,
+                        session_title=session.title,
+                        user_name=active_user.name,
+                        creation_time=important.creation_time,
+                        old_space_name=None,
+                        old_start_time=None,
+                        new_space_name="Room A",
+                        new_start_time=_WHEN,
+                        acknowledged_by_name=None,
+                        important=True,
+                    ),
+                    ErratumDTO(
+                        log_pks=[newer.pk],
+                        kind=ErratumKind.ADDED,
+                        session_id=newer.session_id,
+                        session_title=newer.session.title,
+                        user_name=active_user.name,
+                        creation_time=newer.creation_time,
+                        old_space_name=None,
+                        old_start_time=None,
+                        new_space_name="Room A",
+                        new_start_time=_WHEN,
+                        acknowledged_by_name=None,
+                        important=False,
+                    ),
+                ],
+                "pending_count": 2,
                 "page_obj": PageMatcher(number=1, num_pages=1),
                 "page_sizes": _PAGE_SIZES,
             },
@@ -185,6 +251,7 @@ class TestErrataPageView:
                         new_space_name=None,
                         new_start_time=None,
                         acknowledged_by_name=active_user.name,
+                        important=False,
                     )
                 ],
                 "pending_count": 0,
@@ -236,6 +303,7 @@ class TestErrataPageView:
                         new_space_name="Room B",
                         new_start_time=_WHEN,
                         acknowledged_by_name=None,
+                        important=False,
                     )
                 ],
                 "pending_count": 1,
@@ -297,6 +365,7 @@ class TestErrataPageView:
                         new_space_name="Room B",
                         new_start_time=event.start_time,
                         acknowledged_by_name=None,
+                        important=False,
                     ),
                     ErratumDTO(
                         log_pks=[first.pk],
@@ -310,6 +379,7 @@ class TestErrataPageView:
                         new_space_name="Room A",
                         new_start_time=event.start_time,
                         acknowledged_by_name=None,
+                        important=False,
                     ),
                 ],
                 "pending_count": 2,
@@ -355,6 +425,7 @@ class TestErrataPageView:
                         new_space_name="Room A",
                         new_start_time=_WHEN,
                         acknowledged_by_name=None,
+                        important=False,
                     )
                 ],
                 "pending_count": 11,
@@ -650,3 +721,143 @@ class TestErratumAcknowledgeActionView:
         assert_not_a_manager(response)
         pending.refresh_from_db()
         assert pending.acknowledgement_time is None
+
+
+@pytest.mark.django_db
+class TestErratumImportantActionView:
+    @staticmethod
+    def _url(event):
+        return reverse("panel:erratum-important", kwargs={"slug": event.slug})
+
+    @pytest.fixture(name="pending")
+    def pending_fixture(self, event, session, room, active_user):
+        return _log(
+            event,
+            session,
+            active_user,
+            ScheduleChangeAction.ASSIGN,
+            new_space=room,
+            new_start_time=_WHEN,
+        )
+
+    def test_unknown_event_reports_not_found(self, panel_client, pending):
+        response = panel_client.post(
+            reverse("panel:erratum-important", kwargs={"slug": "nope"}),
+            data={"log_pk": [pending.pk], "important": "1"},
+        )
+
+        assert_event_not_found(response)
+        pending.refresh_from_db()
+        assert not pending.important
+
+    def test_a_request_naming_no_row_is_refused(self, panel_client, event, pending):
+        response = panel_client.post(self._url(event), data={"important": "1"})
+
+        assert_response(response, HTTPStatus.UNPROCESSABLE_ENTITY)
+        pending.refresh_from_db()
+        assert not pending.important
+
+    def test_manager_marks_a_change_important(self, panel_client, event, pending):
+        response = panel_client.post(
+            self._url(event), data={"log_pk": [pending.pk], "important": "1"}
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=reverse("panel:errata", kwargs={"slug": event.slug}),
+        )
+        pending.refresh_from_db()
+        assert pending.important
+
+    def test_the_flag_can_be_taken_back(self, panel_client, event, pending):
+        pending.important = True
+        pending.save()
+
+        panel_client.post(
+            self._url(event), data={"log_pk": [pending.pk], "important": "0"}
+        )
+
+        pending.refresh_from_db()
+        assert not pending.important
+
+    def test_both_rows_of_a_move_are_flagged_together(
+        self, panel_client, event, session, room, active_user
+    ):
+        out = _log(
+            event,
+            session,
+            active_user,
+            ScheduleChangeAction.UNASSIGN,
+            old_space=room,
+            old_start_time=_WHEN,
+        )
+        into = _log(
+            event,
+            session,
+            active_user,
+            ScheduleChangeAction.ASSIGN,
+            new_space=SpaceFactory(event=event, name="Room B"),
+            new_start_time=_WHEN,
+            moved_from=out,
+        )
+
+        panel_client.post(
+            self._url(event), data={"log_pk": [out.pk, into.pk], "important": "1"}
+        )
+
+        assert not ScheduleChangeLog.objects.filter(important=False).exists()
+
+    def test_a_log_row_of_another_event_is_untouched(
+        self, panel_client, event, sphere, active_user
+    ):
+        other = EventFactory(sphere=sphere)
+        foreign = _log(
+            other,
+            SessionFactory(event=other),
+            active_user,
+            ScheduleChangeAction.ASSIGN,
+            new_space=SpaceFactory(event=other),
+            new_start_time=_WHEN,
+        )
+
+        response = panel_client.post(
+            self._url(event), data={"log_pk": [foreign.pk], "important": "1"}
+        )
+
+        assert_response(response, HTTPStatus.UNPROCESSABLE_ENTITY)
+        foreign.refresh_from_db()
+        assert not foreign.important
+
+    @pytest.mark.parametrize("raw_pk", ("--5", "²", "1" * 4301))
+    def test_a_malformed_pk_is_refused(self, panel_client, event, pending, raw_pk):
+        response = panel_client.post(
+            self._url(event), data={"log_pk": [raw_pk], "important": "1"}
+        )
+
+        assert_response(response, HTTPStatus.UNPROCESSABLE_ENTITY)
+        pending.refresh_from_db()
+        assert not pending.important
+
+    def test_a_stranger_may_not(self, authenticated_client, event, pending):
+        response = authenticated_client.post(
+            self._url(event), data={"log_pk": [pending.pk], "important": "1"}
+        )
+
+        assert_not_a_manager(response)
+        pending.refresh_from_db()
+        assert not pending.important
+
+    def test_a_comms_member_may_flag_a_change(
+        self, authenticated_client, sphere, active_user, event, pending
+    ):
+        SphereMembership.objects.create(
+            sphere=sphere, user=active_user, role=SphereRole.COMMS
+        )
+
+        authenticated_client.post(
+            self._url(event), data={"log_pk": [pending.pk], "important": "1"}
+        )
+
+        pending.refresh_from_db()
+        assert pending.important

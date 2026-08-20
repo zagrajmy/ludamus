@@ -7227,6 +7227,10 @@ msgstr ""
 "<strong>%(title)s</strong> — usunięto z programu: było %(space)s, %(when)s"
 
 #: src/ludamus/templates/panel/errata.html
+msgid "Important"
+msgstr "Ważne"
+
+#: src/ludamus/templates/panel/errata.html
 msgid "Announced"
 msgstr "Ogłoszone"
 
@@ -7238,6 +7242,16 @@ msgstr "przez: %(who)s"
 #: src/ludamus/templates/panel/errata.html
 msgid "To announce"
 msgstr "Do ogłoszenia"
+
+#: src/ludamus/templates/panel/errata.html
+#, python-format
+msgid "Stop showing %(title)s first"
+msgstr "Przestań pokazywać %(title)s na początku"
+
+#: src/ludamus/templates/panel/errata.html
+#, python-format
+msgid "Show %(title)s first"
+msgstr "Pokaż %(title)s na początku"
 
 #: src/ludamus/templates/panel/errata.html
 #, python-format
