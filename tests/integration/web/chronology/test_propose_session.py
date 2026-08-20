@@ -1,8 +1,8 @@
 from datetime import timedelta
 from http import HTTPStatus
-from unittest.mock import patch
 
 from django.contrib import messages
+from django.core.cache import cache
 from django.core.files.storage import default_storage
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
@@ -2650,11 +2650,10 @@ class TestAnonymousProposalSubmission:
         self._enable_anonymous(event)
         self._set_wizard_full(client, event, proposal_category)
 
-        with patch(
-            "ludamus.gates.web.django.event.propose.check_proposal_rate_limit",
-            return_value=False,
-        ):
-            response = client.post(self._url(event.slug, "submit"))
+        cache.set(f"proposal_rate:{event.pk}:9.9.9.9", 1)
+        response = client.post(
+            self._url(event.slug, "submit"), HTTP_X_FORWARDED_FOR="9.9.9.9"
+        )
 
         assert response.status_code == HTTPStatus.FOUND
         assert Session.objects.count() == 0
@@ -2691,17 +2690,19 @@ class TestAnonymousProposalSubmission:
         self._activate_proposals(event, faker, time_zone)
         self._enable_anonymous(event)
 
-        with patch(
-            "ludamus.gates.web.django.event.propose.check_proposal_rate_limit",
-            return_value=True,
-        ):
-            self._set_wizard_full(client, event, proposal_category)
-            first = client.post(self._url(event.slug, "submit"))
-            assert first.status_code == HTTPStatus.FOUND
+        # Distinct IPs: the rate limiter is per-IP, and this test is about slug
+        # collisions rather than throttling.
+        self._set_wizard_full(client, event, proposal_category)
+        first = client.post(
+            self._url(event.slug, "submit"), HTTP_X_FORWARDED_FOR="10.0.0.1"
+        )
+        assert first.status_code == HTTPStatus.FOUND
 
-            self._set_wizard_full(client, event, proposal_category)
-            second = client.post(self._url(event.slug, "submit"))
-            assert second.status_code == HTTPStatus.FOUND
+        self._set_wizard_full(client, event, proposal_category)
+        second = client.post(
+            self._url(event.slug, "submit"), HTTP_X_FORWARDED_FOR="10.0.0.2"
+        )
+        assert second.status_code == HTTPStatus.FOUND
 
         expected_facilitator_count = 2
         facilitators = Facilitator.objects.filter(

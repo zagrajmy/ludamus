@@ -65,6 +65,7 @@ if TYPE_CHECKING:
         PrintMaterialsServiceProtocol,
     )
     from ludamus.pacts.proposal_categories import ProposalCategoriesServiceProtocol
+    from ludamus.pacts.propose import ProposeSessionServiceProtocol
     from ludamus.pacts.safety import EventBanServiceProtocol, ShadowbanServiceProtocol
     from ludamus.pacts.submissions import (
         CFPPersonalDataFieldServiceProtocol,
@@ -109,6 +110,8 @@ class ServicesProtocol(Protocol):
     def personal_data_field_values(self) -> PersonalDataFieldValueServiceProtocol: ...
     @property
     def proposal_category_settings(self) -> ProposalCategorySettingsServiceProtocol: ...
+    @property
+    def propose_session(self) -> ProposeSessionServiceProtocol: ...
     @property
     def facilitator_panel(self) -> FacilitatorPanelServiceProtocol: ...
     @property
