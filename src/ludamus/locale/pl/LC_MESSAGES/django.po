@@ -3779,7 +3779,6 @@ msgid "Open details for %(title)s"
 msgstr "Otwórz szczegóły %(title)s"
 
 #: src/ludamus/templates/chronology/_enrollment_badge.html
-#: src/ludamus/templates/chronology/_schedule_view_tabs.html
 #: src/ludamus/templates/chronology/enroll_select.html
 #: src/ludamus/templates/panel/_event_settings_tabs.html
 #: src/ludamus/templates/panel/enrollment-window-form.html
@@ -4292,10 +4291,6 @@ msgid "Switch to This Code"
 msgstr "Przełącz na Ten Kod"
 
 #: src/ludamus/templates/chronology/event.html
-msgid "Sessions with enrollment"
-msgstr "Punkty programu z zapisami"
-
-#: src/ludamus/templates/chronology/event.html
 #: src/ludamus/templates/chronology/propose/base.html
 msgid "Propose Session"
 msgstr "Zgłoś punkt programu"
@@ -4309,13 +4304,13 @@ msgid "Filters"
 msgstr "Filtry"
 
 #: src/ludamus/templates/chronology/event.html
+msgid "Only with enrollment"
+msgstr "Tylko z zapisami"
+
+#: src/ludamus/templates/chronology/event.html
 #: src/ludamus/templates/panel/proposals.html
 msgid "All statuses"
 msgstr "Wszystkie statusy"
-
-#: src/ludamus/templates/chronology/event.html
-msgid "Takes enrollment"
-msgstr "Z zapisami"
 
 #: src/ludamus/templates/chronology/event.html
 msgid "Available spots"
@@ -4425,14 +4420,6 @@ msgstr "Żadne punkty programu nie pasują do filtrów"
 #: src/ludamus/templates/chronology/event.html
 msgid "Clear all filters"
 msgstr "Wyczyść wszystkie filtry"
-
-#: src/ludamus/templates/chronology/event.html
-msgid "No session at this event takes enrollment"
-msgstr "Żaden punkt programu na tym wydarzeniu nie wymaga zapisów"
-
-#: src/ludamus/templates/chronology/event.html
-msgid "Show the full schedule"
-msgstr "Pokaż pełny harmonogram"
 
 #: src/ludamus/templates/chronology/event.html
 msgid "Your pending proposals"
@@ -9361,6 +9348,15 @@ msgstr "Temat"
 #: src/ludamus/templates/staging_email_inbox.html
 msgid "No emails captured yet."
 msgstr "Brak przechwyconych e-maili."
+
+#~ msgid "Takes enrollment"
+#~ msgstr "Z zapisami"
+
+#~ msgid "No session at this event takes enrollment"
+#~ msgstr "Żaden punkt programu na tym wydarzeniu nie wymaga zapisów"
+
+#~ msgid "Show the full schedule"
+#~ msgstr "Pokaż pełny harmonogram"
 
 #~ msgid "Analytics settings"
 #~ msgstr "Ustawienia analityki"

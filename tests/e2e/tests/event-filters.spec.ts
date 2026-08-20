@@ -29,7 +29,9 @@ test.describe("Event filter panel", () => {
     });
     const page = await context.newPage();
 
-    await page.goto("/event/autumn-open/");
+    // The dense event is the one that carries all three controls: the view
+    // switcher only appears where there is a second layout to switch to.
+    await page.goto("/chronology/event/kapitularz-2025-anonymized/");
 
     const box = async (locator: Locator) => {
       const rect = await locator.boundingBox();
@@ -94,13 +96,26 @@ test.describe("Event filter panel", () => {
     const card = (title: string) => page.locator(".session", { hasText: title });
 
     await page.getByRole("button", { name: "Filters" }).click();
-    await page.locator("#status-filter").selectOption("takes-enrollment");
+    await page.getByRole("checkbox", { name: "Only with enrollment" }).check();
 
     await expect(card("Mega Strategy Lab")).toBeVisible();
     await expect(card("Przygoda w Mieście Neonów")).toBeVisible();
     // Seeded with no participants limit: a drop-in nobody signs up for.
     await expect(card("Cozy Storytellers Circle")).toBeHidden();
-    await expect(page.locator("#active-filter-chips")).toContainText("Takes enrollment");
+    await expect(page.locator("#active-filter-chips")).toContainText("Only with enrollment");
+  });
+
+  test("hides a select field the schedule gives nothing to pick between", async ({ page }) => {
+    await page.goto("/event/autumn-open/");
+    await page.getByRole("button", { name: "Filters" }).click();
+
+    // Both fields are public selects on this event, so both reach the panel.
+    // Only Mood is answered two ways; Format, which nobody answered, would be
+    // a select whose one option narrows nothing.
+    await expect(page.locator("#tag-filter-mood")).toBeVisible();
+    await expect(page.locator("#tag-filter-format")).toBeHidden();
+    // Track clears the same bar server-side, before the select is rendered.
+    await expect(page.locator("#tag-filter-__track")).toHaveCount(0);
   });
 
   test("marks sessions that take enrollment while the window is shut", async ({ page }) => {

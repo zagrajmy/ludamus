@@ -287,7 +287,6 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
         # is unlisted here for everyone, panel access included, so a manager
         # previewing the page sees the schedule participants will get.
         scheduled = public_scheduled_sessions(self.object.pk)
-        enrollment_view = self.request.GET.get("view") == "enrollment"
         event_sessions = annotate_session_participation_counts(
             with_session_card_relations(scheduled)
         ).order_by("agenda_item__start_time")
@@ -329,30 +328,13 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
             if current_user_id:
                 self._set_user_bookmarks(sessions_data, current_user_id)
 
-        # Everything the page states about the event itself is read off the
-        # whole schedule: these blocks render outside #schedule-region, so a
-        # figure taken after the narrowing below would say one thing on a tab
-        # click and another on a reload. The layout switch is whole-event for
-        # the same reason - it must not flip under the reader on a tab click.
         total_enrolled = sum(s.enrolled_count for s in sessions_data.values())
         user_enrolled_sessions = [s for s in sessions_data.values() if s.user_enrolled]
+        # Gates the filter panel's enrollment checkbox; a limit of 0 takes no
+        # enrollment, so an event of drop-ins offers nothing to narrow to.
         has_enrollable_sessions = any(
             data.takes_enrollment for data in sessions_data.values()
         )
-
-        # The enrollment view is the same schedule narrowed to what a
-        # participant has to sign up for; a limit of 0 takes no enrollment.
-        if enrollment_view:
-            sessions_data = {
-                sid: data
-                for sid, data in sessions_data.items()
-                if data.takes_enrollment
-            }
-            hour_data = {
-                hour: enrollable
-                for hour, cards in hour_data.items()
-                if (enrollable := [c for c in cards if c.takes_enrollment])
-            }
 
         # The ended/current/future grouping only feeds the card-grid layout;
         # the compact schedule renders from schedule_days instead, so skip the
@@ -378,14 +360,12 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
                 "scheduled_count": scheduled_count,
                 "compact_schedule": compact_schedule,
                 "schedule_days": schedule_days,
-                "schedule_view_is_list": not rooms_view and not enrollment_view,
+                "schedule_view_is_list": not rooms_view,
                 "schedule_view_is_rooms": rooms_view,
-                "schedule_view_is_enrollment": enrollment_view,
                 "has_enrollable_sessions": has_enrollable_sessions,
                 "room_lane_days": build_room_lanes(schedule_days) if rooms_view else [],
                 "schedule_list_url": event_url,
                 "schedule_rooms_url": f"{event_url}?view=rooms",
-                "schedule_enrollment_url": f"{event_url}?view=enrollment",
                 "ended_hour_data": ended_hour_data,
                 "current_hour_data": current_hour_data,
                 "future_unavailable_hour_data": future_unavailable_hour_data,

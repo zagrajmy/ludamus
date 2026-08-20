@@ -3,9 +3,12 @@ import { type Page } from "@playwright/test";
 import { expect, test } from "./helpers/fixtures";
 
 const EVENT_URL = "/event/autumn-open/";
+// The dense seeded event: the only one over the compact-schedule threshold,
+// so the only one that offers a second layout to switch to.
+const DENSE_EVENT_URL = "/chronology/event/kapitularz-2025-anonymized/";
 const MEGA = "Mega Strategy Lab";
 const NEON = "Przygoda w Mieście Neonów";
-// Seeded with no participants limit: the drop-in the enrollment view leaves out.
+// Seeded with no participants limit: the drop-in the enrollment filter leaves out.
 const COZY = "Cozy Storytellers Circle";
 
 const card = (page: Page, title: string) => page.locator(".session", { hasText: title });
@@ -21,39 +24,62 @@ const stayedOnPage = (page: Page) =>
     () => (globalThis as unknown as { __sameDocument?: boolean }).__sameDocument === true,
   );
 
+const enrollmentOnly = (page: Page) => page.getByRole("checkbox", { name: "Only with enrollment" });
+
 test.describe("Event schedule views", () => {
-  test.beforeEach(async ({ page }) => {
+  test("the view switcher offers nothing when the schedule has one layout", async ({ page }) => {
     await page.goto(EVENT_URL);
+
+    await expect(page.getByRole("tablist", { name: "Schedule view" })).toHaveCount(0);
   });
 
-  test("the enrollment tab swaps in only the sessions that take sign-up", async ({ page }) => {
+  test("the rooms tab swaps the layout in without leaving the page", async ({ page }) => {
+    await page.goto(DENSE_EVENT_URL);
+    await markPage(page);
+
+    await page.getByRole("tab", { name: "Rooms" }).click();
+
+    await expect(page.locator(".room-lanes").first()).toBeVisible();
+    await expect(page).toHaveURL(/\?view=rooms$/);
+    expect(await stayedOnPage(page)).toBe(true);
+  });
+});
+
+test.describe("Enrollment filter", () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto(EVENT_URL);
+    await page.getByRole("button", { name: "Filters" }).click();
+  });
+
+  test("narrows the schedule to the sessions that take sign-up", async ({ page }) => {
     await expect(page.locator(".session")).toHaveCount(3);
     await markPage(page);
 
-    await page.getByRole("tab", { name: "Enrollment" }).click();
+    await enrollmentOnly(page).check();
 
     await expect(card(page, MEGA)).toBeVisible();
     await expect(card(page, NEON)).toBeVisible();
-    await expect(card(page, COZY)).toHaveCount(0);
-    await expect(page).toHaveURL(/\?view=enrollment$/);
-    expect(await stayedOnPage(page)).toBe(true);
-  });
-
-  test("the list tab brings the whole schedule back", async ({ page }) => {
-    await page.getByRole("tab", { name: "Enrollment" }).click();
-    await expect(page.locator(".session")).toHaveCount(2);
-    await markPage(page);
-
-    await page.getByRole("tab", { name: "List" }).click();
-
-    await expect(page.locator(".session")).toHaveCount(3);
+    await expect(card(page, COZY)).toBeHidden();
+    // A filter, not a view: no request, no URL to share, nothing reloaded.
     await expect(page).toHaveURL(EVENT_URL);
     expect(await stayedOnPage(page)).toBe(true);
   });
 
-  test("search still filters the sessions the swap brought in", async ({ page }) => {
-    await page.getByRole("tab", { name: "Enrollment" }).click();
-    await expect(page.locator(".session")).toHaveCount(2);
+  test("clearing its chip brings the whole schedule back", async ({ page }) => {
+    await enrollmentOnly(page).check();
+    await expect(card(page, COZY)).toBeHidden();
+
+    await page
+      .locator(".filter-chip", { hasText: "Only with enrollment" })
+      .getByRole("button")
+      .click();
+
+    await expect(card(page, COZY)).toBeVisible();
+    await expect(enrollmentOnly(page)).not.toBeChecked();
+  });
+
+  test("search still filters the sessions it left on screen", async ({ page }) => {
+    await enrollmentOnly(page).check();
 
     await page.locator("#session-filter").fill("mega");
 
