@@ -69,7 +69,8 @@ from ludamus.links.db.django.repositories.chronology import public_scheduled_ses
 from ludamus.links.db.django.repositories.sessions import (
     annotate_session_participation_counts,
     field_value_dto,
-    pending_proposals_for_cards,
+    own_pending_proposals,
+    review_inbox_proposals,
     with_session_card_relations,
 )
 from ludamus.mills.enrollment import (
@@ -262,6 +263,16 @@ def _field_value_dtos_from_models(
 COMPACT_SCHEDULE_MIN_SESSIONS = 20
 
 
+def _preferred_slot_dtos(session: Session, *, scheduled: bool) -> list[TimeSlotDTO]:
+    # Only a proposal has preferences worth reading: for a scheduled session
+    # agenda_item states the real time, and touching the m2m would cost a
+    # query per card — the proposal querysets prefetch it, the schedule's
+    # does not.
+    if scheduled:
+        return []
+    return [TimeSlotDTO.model_validate(slot) for slot in session.time_slots.all()]
+
+
 @method_decorator([cache_control(private=True, max_age=180), vary_cookie], name="get")
 class EventPageView(DetailView):  # type: ignore [type-arg]
     template_name = "chronology/event.html"
@@ -425,7 +436,7 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
 
         context["filterable_tag_categories"] = _get_public_select_fields(self.object)
         context.update(filter_availability(sessions_data.values()))
-        context.update(self._get_pending_sessions_context())
+        context.update(self._get_pending_sessions_context(shadowbanned_ids))
 
         return context
 
@@ -476,7 +487,9 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
         self.request.session.pop("anonymous_event_id", None)
         self.request.session.pop("anonymous_site_id", None)
 
-    def _get_pending_sessions_context(self) -> dict[str, Any]:
+    def _get_pending_sessions_context(
+        self, shadowbanned_ids: frozenset[int]
+    ) -> dict[str, Any]:
         context: dict[str, Any] = {
             "pending_sessions": [],
             "pending_review_visible": False,
@@ -489,10 +502,11 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
         ):
             return context
 
-        proposals = pending_proposals_for_cards(self.object.pk)
         if (access := panel_access(self.request)).granted:
             return context | {
-                "pending_sessions": self._proposal_cards(proposals),
+                "pending_sessions": self._proposal_cards(
+                    review_inbox_proposals(self.object.pk), shadowbanned_ids
+                ),
                 "pending_review_visible": True,
                 # The wizard is the superuser's view of a sphere they have no
                 # part in; one who also holds a role here reviews as that role.
@@ -501,12 +515,20 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
 
         return context | {
             "own_pending_proposals": self._proposal_cards(
-                proposals.filter(presenter_id=self.request.context.current_user_id)
+                own_pending_proposals(
+                    self.object.pk, self.request.context.current_user_id
+                ),
+                shadowbanned_ids,
             )
         }
 
-    def _proposal_cards(self, proposals: QuerySet[Session]) -> list[SessionData]:
-        return list(self._get_session_data(proposals).values())
+    def _proposal_cards(
+        self, proposals: QuerySet[Session], shadowbanned_ids: frozenset[int]
+    ) -> list[SessionData]:
+        # Same masking the scheduled cards get: without it a presenter the
+        # viewer shadowbanned wears the danger ring on their scheduled card and
+        # not on their proposal, on the same page.
+        return list(self._get_session_data(proposals, shadowbanned_ids).values())
 
     def _set_user_participations(
         self, sessions: dict[int, SessionData], event_sessions: QuerySet[Session]
@@ -710,16 +732,8 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
                     )
                     for sp in session.session_participations.all()
                 ],
-                # Only a proposal has preferences worth reading: for a
-                # scheduled session agenda_item states the real time, and
-                # touching the m2m would cost a query per card.
-                preferred_time_slots=(
-                    []
-                    if agenda_item is not None
-                    else [
-                        TimeSlotDTO.model_validate(slot)
-                        for slot in session.time_slots.all()
-                    ]
+                preferred_time_slots=_preferred_slot_dtos(
+                    session, scheduled=agenda_item is not None
                 ),
             )
 

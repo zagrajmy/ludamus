@@ -168,7 +168,11 @@ def mock_session_data() -> SessionData:
 def mock_session_proposal() -> SessionData:
     """Build the card's unscheduled variant: no agenda item, preferred slots."""
     data = mock_session_data()
-    start = datetime.now(UTC).replace(hour=10, minute=0, second=0, microsecond=0)
+    # Same week as the mock event, which sits seven days out — a proposal
+    # asking for a slot that already happened reads as a bug in the gallery.
+    start = (datetime.now(UTC) + timedelta(days=7)).replace(
+        hour=10, minute=0, second=0, microsecond=0
+    )
     return replace(
         data,
         agenda_item=None,

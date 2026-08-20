@@ -1730,6 +1730,36 @@ class TestEventPageView:
             not_contains="🧙",
         )
 
+    def test_proposal_without_a_category_still_reaches_the_review_queue(
+        self, authenticated_client, event, active_user, pending_session
+    ):
+        # Session.category is nullable, so scoping the queue through it would
+        # drop this proposal from the organizer's view and its author's alike.
+        active_user.is_staff = True
+        active_user.is_superuser = True
+        active_user.save()
+        event.proposal_end_time = timezone.now() + timedelta(days=3)
+        event.save(update_fields=["proposal_end_time"])
+        pending_session.category = None
+        pending_session.save(update_fields=["category"])
+
+        response = authenticated_client.get(self._get_url(event.slug))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=event_page_context(
+                event,
+                url=self._get_url(event.slug),
+                pending_sessions=[
+                    proposal_card(pending_session, presenter=active_user, can_edit=True)
+                ],
+                pending_review_visible=True,
+                pending_wizard_view=True,
+            ),
+            template_name=["chronology/event.html"],
+        )
+
     def test_scheduled_pending_session_is_not_offered_for_review(
         self, authenticated_client, event, active_user, pending_session, space
     ):

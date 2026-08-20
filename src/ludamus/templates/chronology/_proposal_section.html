@@ -1,9 +1,10 @@
 {% load i18n %}
 {% load tessera %}
 {# One grid of proposal cards under a labelled heading, for both audiences: #}
-{# the organizer's review queue, and the author's own submissions. The two #}
-{# differ only in wording and in where a card leads, so they share this #}
-{# markup — chiefly the grid class list, which must not drift between them. #}
+{# the organizer's review queue, and the author's own submissions. They are #}
+{# the same block seen from two sides — a proposal the author is waiting on is #}
+{# the proposal the organizer is looking at — so they share this markup rather #}
+{# than being two copies that answer the same question differently. #}
 {# The branch stays here rather than at the two call sites because the #}
 {# accessible name interpolates the title per card, and blocktranslate #}
 {# cannot take its message from a variable. #}

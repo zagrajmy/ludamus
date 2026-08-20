@@ -15,7 +15,7 @@
             {# The count names what it hides: the card has room for one slot, #}
             {# and an organizer sizing a proposal against the schedule should #}
             {# not have to open the review screen to see the rest. #}
-            <span class="shrink-0 text-foreground-muted" title="{% for slot in data.preferred_time_slots %}{{ slot.start_time|date:'D, G:i' }}–{{ slot.end_time|date:'G:i' }}{% if not forloop.last %}, {% endif %}{% endfor %}">
+            <span class="shrink-0 text-foreground-muted" title="{% for slot in data.preferred_time_slots|slice:"1:" %}{{ slot.start_time|date:'D, G:i' }}–{{ slot.end_time|date:'G:i' }}{% if not forloop.last %}, {% endif %}{% endfor %}">
                 {% blocktranslate count counter=extra %}+{{ counter }} more{% plural %}+{{ counter }} more{% endblocktranslate %}
             </span>
         {% endif %}

@@ -3790,17 +3790,30 @@ msgstr "Zapisy"
 msgid "Enrollment required"
 msgstr "Wymagane zapisy"
 
-#: src/ludamus/templates/chronology/_pending_proposals.html
+#: src/ludamus/templates/chronology/_proposal_section.html
+msgid "Your pending proposals"
+msgstr "Twoje oczekujące zgłoszenia"
+
+#: src/ludamus/templates/chronology/_proposal_section.html
 msgid "Proposals to review"
 msgstr "Zgłoszenia do rozpatrzenia"
 
-#: src/ludamus/templates/chronology/_pending_proposals.html
+#: src/ludamus/templates/chronology/_proposal_section.html
 msgid "Superuser magic: you see this without being an organizer of this event."
 msgstr ""
 "Magia superużytkownika: widzisz tę sekcję, choć nie organizujesz tego "
 "wydarzenia."
 
-#: src/ludamus/templates/chronology/_pending_proposals.html
+#: src/ludamus/templates/chronology/_proposal_section.html
+#, python-format
+msgid "%(counter)s proposal"
+msgid_plural "%(counter)s proposals"
+msgstr[0] "%(counter)s zgłoszenie"
+msgstr[1] "%(counter)s zgłoszenia"
+msgstr[2] "%(counter)s zgłoszeń"
+msgstr[3] "%(counter)s zgłoszenia"
+
+#: src/ludamus/templates/chronology/_proposal_section.html
 #, python-format
 msgid "%(counter)s waiting"
 msgid_plural "%(counter)s waiting"
@@ -3809,7 +3822,12 @@ msgstr[1] "%(counter)s czekają"
 msgstr[2] "%(counter)s czeka"
 msgstr[3] "%(counter)s czeka"
 
-#: src/ludamus/templates/chronology/_pending_proposals.html
+#: src/ludamus/templates/chronology/_proposal_section.html
+#, python-format
+msgid "Edit proposal %(title)s"
+msgstr "Edytuj zgłoszenie %(title)s"
+
+#: src/ludamus/templates/chronology/_proposal_section.html
 #, python-format
 msgid "Review proposal %(title)s"
 msgstr "Rozpatrz zgłoszenie %(title)s"
@@ -4420,24 +4438,6 @@ msgstr "Żaden punkt programu na tym wydarzeniu nie wymaga zapisów"
 #: src/ludamus/templates/chronology/event.html
 msgid "Show the full schedule"
 msgstr "Pokaż pełny harmonogram"
-
-#: src/ludamus/templates/chronology/event.html
-msgid "Your pending proposals"
-msgstr "Twoje oczekujące zgłoszenia"
-
-#: src/ludamus/templates/chronology/event.html
-#, python-format
-msgid "%(counter)s proposal"
-msgid_plural "%(counter)s proposals"
-msgstr[0] "%(counter)s zgłoszenie"
-msgstr[1] "%(counter)s zgłoszenia"
-msgstr[2] "%(counter)s zgłoszeń"
-msgstr[3] "%(counter)s zgłoszenia"
-
-#: src/ludamus/templates/chronology/event.html
-#, python-format
-msgid "Edit proposal %(title)s"
-msgstr "Edytuj zgłoszenie %(title)s"
 
 #: src/ludamus/templates/chronology/event.html
 msgid "Want to host a session?"

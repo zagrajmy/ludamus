@@ -9,19 +9,22 @@
     {# as the event page. #}
     {# The surface is named once, as --card-surface, because the guild notch's #}
     {# ring has to punch through the same colour — see the presenter row. #}
-    <div class="session relative flex h-full w-full flex-col overflow-hidden rounded-2xl border ring-offset-[.5px] hover:ring-1 hover:ring-neutral-200 dark:hover:ring-neutral-600 hover:[--pb-scale:1.01] duration-100 ring-offset-background bg-(--card-surface) {% if data.is_unscheduled %}[--card-surface:var(--color-proposal-surface)] border-dashed border-warm-400 dark:border-warm-700{% else %}[--card-surface:var(--color-neutral-50)] dark:[--card-surface:var(--color-neutral-800)] border-border{% endif %} {% if data.user_enrolled %}ring-2 ring-coral-400{% endif %}"
+    {% if data.is_unscheduled %}
+        {% firstof "[--card-surface:var(--color-proposal-surface)] border-dashed border-warm-400 dark:border-warm-700" as surface_classes %}
+    {% else %}
+        {% firstof "[--card-surface:var(--color-neutral-50)] dark:[--card-surface:var(--color-neutral-800)] border-border" as surface_classes %}
+    {% endif %}
+    <div class="session relative flex h-full w-full flex-col overflow-hidden rounded-2xl border ring-offset-[.5px] hover:ring-1 hover:ring-neutral-200 dark:hover:ring-neutral-600 hover:[--pb-scale:1.01] duration-100 ring-offset-background bg-(--card-surface) {{ surface_classes }} {% if data.user_enrolled %}ring-2 ring-coral-400{% endif %}"
          {% include "chronology/_session_data_attrs.html" %}>
         {% if data.is_unscheduled %}
             {# proposal_url is the page that acts on the proposal — the review #}
-            {# screen for an organizer, the edit form for its author. Guarded #}
-            {# so a caller with no such page gets an inert card rather than a #}
-            {# link to nowhere; every caller today passes one. #}
-            {% if proposal_url %}
-                <a href="{{ proposal_url }}"
-                   class="session-link absolute inset-0 z-10 rounded-2xl">
-                    <span class="sr-only">{{ proposal_action_label }}</span>
-                </a>
-            {% endif %}
+            {# screen for an organizer, the edit form for its author. Required: #}
+            {# a card that renders unlinked looks clickable and is not, and #}
+            {# would say so nowhere. #}
+            <a href="{{ proposal_url }}"
+               class="session-link absolute inset-0 z-10 rounded-2xl">
+                <span class="sr-only">{{ proposal_action_label }}</span>
+            </a>
         {% else %}
             <a href="{{ session_link_base }}?session={{ data.session.pk }}"
                class="session-link absolute inset-0 z-10 rounded-2xl"
@@ -109,7 +112,7 @@
                     {# same word three times on one screen. This slot carries the #}
                     {# capacity the author asked for — muted, so a requested #}
                     {# number never reads as a live one. #}
-                    {% if data.availability == "proposal" %}
+                    {% if data.is_unscheduled %}
                         <span class="text-sm font-medium text-foreground-muted">
                             {% blocktranslate count limit=data.session.participants_limit %}{{ limit }} seat{% plural %}{{ limit }} seats{% endblocktranslate %}
                         </span>

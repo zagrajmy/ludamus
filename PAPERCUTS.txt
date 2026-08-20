@@ -275,3 +275,9 @@ If you fix a papercut, remove it.
   worktree, so both abort with 'binary not found' and every other hook is
   skipped. Had to use --no-verify. Either run aube install per worktree or make
   the hk steps skip when the binary is missing.
+- 2026-08-20: Playwright's reuseExistingServer:!isCI silently reused a stale
+  `django-admin runserver --noreload` I had left on :8000 for screenshots, so
+  `mise run test:e2e` tested pre-edit Python and failed on an assertion that was
+  actually correct. Took a while to spot because the failure looked like a real
+  regression. A note in the e2e docs, or a staleness check on the reused server,
+  would have saved it.

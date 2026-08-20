@@ -130,8 +130,11 @@ def with_session_card_relations(queryset: QuerySet[Session]) -> QuerySet[Session
     )
 
 
-def pending_proposals_for_cards(event_id: int) -> QuerySet[Session]:
-    """Unscheduled proposals of one event, loaded for the session-card layout."""
+def _unscheduled_proposals(event_id: int) -> QuerySet[Session]:
+    # Scoped by event_id, not category__event_id: Session.category is nullable,
+    # so joining through it drops a proposal that has no category from both the
+    # review queue and its own author's list. public_scheduled_sessions filters
+    # the same way.
     # agenda_item__isnull scopes this to proposals the review screen can act
     # on: accepting creates an AgendaItem and a Session has only one, so a
     # pending session already on the timetable cannot be accepted there. Those
@@ -143,7 +146,7 @@ def pending_proposals_for_cards(event_id: int) -> QuerySet[Session]:
         annotate_session_participation_counts(
             with_session_card_relations(
                 Session.objects.filter(
-                    category__event_id=event_id,
+                    event_id=event_id,
                     status=SessionStatus.PENDING,
                     agenda_item__isnull=True,
                 )
@@ -154,6 +157,16 @@ def pending_proposals_for_cards(event_id: int) -> QuerySet[Session]:
         )
         .order_by("-creation_time")
     )
+
+
+def review_inbox_proposals(event_id: int) -> QuerySet[Session]:
+    """Every unscheduled proposal of one event, for an organizer to review."""
+    return _unscheduled_proposals(event_id)
+
+
+def own_pending_proposals(event_id: int, presenter_id: int) -> QuerySet[Session]:
+    """One author's unscheduled proposals of an event."""
+    return _unscheduled_proposals(event_id).filter(presenter_id=presenter_id)
 
 
 def field_value_dto(fv: SessionFieldValue) -> SessionFieldValueDTO:

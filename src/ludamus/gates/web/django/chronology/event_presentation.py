@@ -114,7 +114,10 @@ class SessionData:  # pylint: disable=too-many-instance-attributes
     def takes_enrollment(self) -> bool:
         # The session's own limit, not the effective one: a 0% seating window
         # zeroes the effective limit without making the session sign-up-free.
-        return self.session.participants_limit > 0
+        # An unscheduled proposal has no seat to take yet whatever its limit
+        # says, and this answer reaches the enrollment filters as
+        # data-takes-enrollment.
+        return not self.is_unscheduled and self.session.participants_limit > 0
 
     @property
     def availability(self) -> str:
