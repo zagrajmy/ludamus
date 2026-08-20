@@ -120,7 +120,13 @@ class EventFactory(DjangoModelFactory):
     sphere = SubFactory(SphereFactory)
     start_time = LazyAttribute(lambda __: datetime.now(UTC) + timedelta(days=7))
     end_time = LazyAttribute(lambda o: o.start_time + timedelta(hours=8))
-    publication_time = LazyAttribute(lambda __: datetime.now(UTC) - timedelta(days=14))
+    # Published two weeks ago, but never after the event starts: the
+    # event_date_times constraint requires publication_time <= start_time, and
+    # a test pinning start_time to a fixed date would otherwise start failing
+    # once the clock passed it.
+    publication_time = LazyAttribute(
+        lambda o: min(datetime.now(UTC) - timedelta(days=14), o.start_time)
+    )
     proposal_start_time = LazyAttribute(lambda o: o.start_time - timedelta(days=10))
     proposal_end_time = LazyAttribute(lambda o: o.start_time - timedelta(days=6))
 
