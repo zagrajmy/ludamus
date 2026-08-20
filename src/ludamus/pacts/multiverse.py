@@ -11,7 +11,7 @@ from datetime import datetime
 from enum import StrEnum
 from typing import TYPE_CHECKING, Protocol
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 if TYPE_CHECKING:
     from ludamus.pacts.legacy import EventDTO, SphereDTO, UploadedFileProtocol
@@ -51,16 +51,23 @@ class ConnectionInUseError(Exception):
 
 
 class AnnouncementScope(BaseModel):
-    """Which audience an announcement belongs to.
-
-    Both ids null is the platform-wide scope; the model's
-    `announcement_single_scope` constraint rejects setting both.
-    """
+    """Which audience an announcement belongs to: one sphere or one event."""
 
     model_config = ConfigDict(frozen=True)
 
     sphere_id: int | None = None
     event_id: int | None = None
+
+    @model_validator(mode="after")
+    def check_single_owner(self) -> AnnouncementScope:
+        # A scope carrying both ids filters `sphere AND event`, which no legal
+        # row can match, and one carrying neither names an audience that does
+        # not exist — either way the read comes back empty and reads as "not
+        # found". `announcement_single_scope` says the same thing on write.
+        if (self.sphere_id is None) == (self.event_id is None):
+            msg = "AnnouncementScope needs exactly one of sphere_id, event_id"
+            raise ValueError(msg)
+        return self
 
 
 class AnnouncementDTO(BaseModel):

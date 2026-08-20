@@ -697,6 +697,22 @@ msgstr "Brak zmian."
 msgid "Please select at least one user to enroll."
 msgstr "Wybierz przynajmniej jednego użytkownika do zapisu."
 
+#: src/ludamus/gates/web/django/announcements.py
+msgid "Announcement not found."
+msgstr "Ogłoszenie nie zostało znalezione."
+
+#: src/ludamus/gates/web/django/announcements.py
+msgid "Announcement created."
+msgstr "Ogłoszenie zostało utworzone."
+
+#: src/ludamus/gates/web/django/announcements.py
+msgid "Announcement updated."
+msgstr "Ogłoszenie zostało zaktualizowane."
+
+#: src/ludamus/gates/web/django/announcements.py
+msgid "Announcement deleted."
+msgstr "Ogłoszenie zostało usunięte."
+
 #: src/ludamus/gates/web/django/chronology/anonymous.py
 #: src/ludamus/gates/web/django/chronology/panel/views/event_settings.py
 #: src/ludamus/gates/web/django/chronology/views.py
@@ -800,7 +816,6 @@ msgstr "Puste pole lub 0 = bez zapisów"
 #: src/ludamus/gates/web/django/chronology/forms.py
 #: src/ludamus/gates/web/django/chronology/panel/views/columns.py
 #: src/ludamus/gates/web/django/forms.py
-#: src/ludamus/gates/web/django/multiverse/panel/forms.py
 #: src/ludamus/gates/web/django/templatetags/cfp_tags.py
 #: src/ludamus/templates/chronology/parts/session-edit-form.html
 #: src/ludamus/templates/chronology/propose/parts/details.html
@@ -2387,23 +2402,6 @@ msgstr "Zezwalaj na zapisy bez konta"
 msgid "Enrollment must close after it opens."
 msgstr "Zapisy muszą zamknąć się po ich otwarciu."
 
-#: src/ludamus/gates/web/django/event/panel/views/announcements.py
-#: src/ludamus/gates/web/django/multiverse/panel/views/announcements.py
-msgid "Announcement not found."
-msgstr "Ogłoszenie nie zostało znalezione."
-
-#: src/ludamus/gates/web/django/event/panel/views/announcements.py
-msgid "Announcement created."
-msgstr "Ogłoszenie zostało utworzone."
-
-#: src/ludamus/gates/web/django/event/panel/views/announcements.py
-msgid "Announcement updated."
-msgstr "Ogłoszenie zostało zaktualizowane."
-
-#: src/ludamus/gates/web/django/event/panel/views/announcements.py
-msgid "Announcement deleted."
-msgstr "Ogłoszenie zostało usunięte."
-
 #: src/ludamus/gates/web/django/event/panel/views/base.py
 msgid "You don't have permission to access the backoffice panel."
 msgstr "Nie masz uprawnień do panelu organizatora."
@@ -2561,6 +2559,20 @@ msgid ""
 msgstr ""
 "Wyświetlone w harmonogramie do druku. Maks. 8 MB. JPG, PNG, WebP, AVIF lub "
 "SVG."
+
+#: src/ludamus/gates/web/django/forms.py
+msgid "Content"
+msgstr "Treść"
+
+#: src/ludamus/gates/web/django/forms.py
+#: src/ludamus/templates/multiverse/panel/announcements/list.html
+#: src/ludamus/templates/panel/announcements.html
+msgid "Published"
+msgstr "Opublikowane"
+
+#: src/ludamus/gates/web/django/forms.py
+msgid "Visible on the public page. Uncheck to keep it as a draft."
+msgstr "Widoczne na stronie publicznej. Odznacz, aby zostawić jako szkic."
 
 #: src/ludamus/gates/web/django/forms.py
 msgid "Event name is too long (max 255 characters)."
@@ -2975,20 +2987,6 @@ msgid "You don't have permission to access the sphere panel."
 msgstr "Nie masz uprawnień do panelu sfery."
 
 #: src/ludamus/gates/web/django/multiverse/panel/forms.py
-msgid "Content"
-msgstr "Treść"
-
-#: src/ludamus/gates/web/django/multiverse/panel/forms.py
-#: src/ludamus/templates/multiverse/panel/announcements/list.html
-#: src/ludamus/templates/panel/announcements.html
-msgid "Published"
-msgstr "Opublikowane"
-
-#: src/ludamus/gates/web/django/multiverse/panel/forms.py
-msgid "Visible on the public page. Uncheck to keep it as a draft."
-msgstr "Widoczne na stronie publicznej. Odznacz, aby zostawić jako szkic."
-
-#: src/ludamus/gates/web/django/multiverse/panel/forms.py
 msgid "Replace secret"
 msgstr "Zastąp sekret"
 
@@ -3003,18 +3001,6 @@ msgstr "Wklej sekret połączenia API."
 #: src/ludamus/gates/web/django/multiverse/panel/forms.py
 msgid "Secret is required when replacing."
 msgstr "Sekret jest wymagany przy zastępowaniu."
-
-#: src/ludamus/gates/web/django/multiverse/panel/views/announcements.py
-msgid "Announcement created successfully."
-msgstr "Ogłoszenie zostało utworzone."
-
-#: src/ludamus/gates/web/django/multiverse/panel/views/announcements.py
-msgid "Announcement updated successfully."
-msgstr "Ogłoszenie zostało zaktualizowane."
-
-#: src/ludamus/gates/web/django/multiverse/panel/views/announcements.py
-msgid "Announcement deleted successfully."
-msgstr "Ogłoszenie zostało usunięte."
 
 #: src/ludamus/gates/web/django/multiverse/panel/views/connections.py
 msgid "A connection with this display name already exists."
@@ -9439,6 +9425,15 @@ msgstr "Temat"
 #: src/ludamus/templates/staging_email_inbox.html
 msgid "No emails captured yet."
 msgstr "Brak przechwyconych e-maili."
+
+#~ msgid "Announcement created successfully."
+#~ msgstr "Ogłoszenie zostało utworzone."
+
+#~ msgid "Announcement updated successfully."
+#~ msgstr "Ogłoszenie zostało zaktualizowane."
+
+#~ msgid "Announcement deleted successfully."
+#~ msgstr "Ogłoszenie zostało usunięte."
 
 #, python-format
 #~ msgid ""

@@ -1,6 +1,9 @@
 from contextlib import contextmanager
 from datetime import UTC, datetime
 
+import pytest
+from pydantic import ValidationError
+
 from ludamus.mills.multiverse import AnnouncementsService
 from ludamus.pacts.multiverse import (
     AnnouncementData,
@@ -143,3 +146,12 @@ class TestAnnouncementsService:
 
         assert transaction.entered == 1
         assert repo.deleted == [(SPHERE, pk)]
+
+
+class TestAnnouncementScope:
+    @pytest.mark.parametrize(
+        "kwargs", ({}, {"sphere_id": 1, "event_id": 1}), ids=["neither", "both"]
+    )
+    def test_rejects_scope_without_exactly_one_owner(self, kwargs):
+        with pytest.raises(ValidationError):
+            AnnouncementScope(**kwargs)

@@ -1848,10 +1848,11 @@ class Discount(SoftDeleteModel):
 
 
 class Announcement(models.Model):
-    """News item scoped to one sphere, one event, or — both null — the platform.
+    """News item scoped to exactly one owner: a sphere or an event.
 
     The scope decides where it renders, and once the notification engine lands
-    (#617) who it fans out to.
+    (#617) who it fans out to. A platform-wide scope (neither owner set) is
+    part of #617; `announcement_single_scope` relaxes to `|` when it ships.
     """
 
     sphere = models.ForeignKey(
@@ -1887,7 +1888,7 @@ class Announcement(models.Model):
         )
         constraints = (
             models.CheckConstraint(
-                condition=Q(sphere__isnull=True) | Q(event__isnull=True),
+                condition=Q(sphere__isnull=True) ^ Q(event__isnull=True),
                 name="announcement_single_scope",
             ),
         )

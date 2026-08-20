@@ -41,7 +41,7 @@ class Migration(migrations.Migration):
             model_name="announcement",
             constraint=models.CheckConstraint(
                 condition=models.Q(
-                    ("sphere__isnull", True), ("event__isnull", True), _connector="OR"
+                    ("sphere__isnull", True), ("event__isnull", True), _connector="XOR"
                 ),
                 name="announcement_single_scope",
             ),

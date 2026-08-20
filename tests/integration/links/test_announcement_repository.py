@@ -1,4 +1,5 @@
 import pytest
+from django.db import IntegrityError
 
 from ludamus.links.db.django.models import Announcement
 from ludamus.links.db.django.repositories import AnnouncementsRepository
@@ -185,3 +186,15 @@ class TestAnnouncementsRepositoryWrite:
             )
 
         assert Announcement.objects.filter(pk=announcement.pk).exists()
+
+
+class TestAnnouncementScopeConstraint:
+    def test_both_owners_are_rejected(self, sphere, event):
+        with pytest.raises(IntegrityError):
+            Announcement.objects.create(
+                sphere=sphere, event=event, title="T", content="C"
+            )
+
+    def test_no_owner_is_rejected(self):
+        with pytest.raises(IntegrityError):
+            Announcement.objects.create(title="T", content="C")

@@ -117,8 +117,16 @@ def _scoped(scope: AnnouncementScope) -> QuerySet[Announcement]:
     # announcement outside the scope it proved access to. An unset scope side
     # is spelled as `isnull` rather than `field_id=None`, which django-stubs
     # rejects as a lookup value.
-    sphere = Q(sphere_id=scope.sphere_id) if scope.sphere_id else Q(sphere__isnull=True)
-    event = Q(event_id=scope.event_id) if scope.event_id else Q(event__isnull=True)
+    sphere = (
+        Q(sphere_id=scope.sphere_id)
+        if scope.sphere_id is not None
+        else Q(sphere__isnull=True)
+    )
+    event = (
+        Q(event_id=scope.event_id)
+        if scope.event_id is not None
+        else Q(event__isnull=True)
+    )
     return Announcement.objects.filter(sphere, event)
 
 

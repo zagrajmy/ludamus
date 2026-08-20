@@ -1,5 +1,6 @@
 """Integration tests for the event announcements panel pages and delete action."""
 
+from datetime import timedelta
 from http import HTTPStatus
 from unittest.mock import ANY
 
@@ -7,6 +8,7 @@ from django.contrib import messages
 from django.urls import reverse
 
 from ludamus.links.db.django.models import Announcement
+from ludamus.pacts import EventDTO
 from ludamus.pacts.multiverse import AnnouncementDTO
 from tests.integration.conftest import EventFactory
 from tests.integration.utils import assert_login_required, assert_response
@@ -98,6 +100,35 @@ class TestAnnouncementsPageView:
             },
         )
 
+    def test_get_excludes_a_sibling_event_in_the_same_sphere(
+        self, panel_client, event, sphere
+    ):
+        # The panel context lets both events through, so the announcement
+        # scope is the only thing keeping them apart here.
+        sibling = EventFactory(
+            sphere=sphere,
+            slug="sibling",
+            start_time=event.start_time + timedelta(days=7),
+            end_time=event.end_time + timedelta(days=7),
+        )
+        make_announcement(sibling, title="Sibling news")
+
+        response = panel_client.get(self.get_url(event))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/announcements.html",
+            context_data={
+                **panel_context(event, active_nav="announcements"),
+                "events": [
+                    EventDTO.model_validate(sibling),
+                    EventDTO.model_validate(event),
+                ],
+                "announcements": [],
+            },
+        )
+
 
 class TestAnnouncementCreatePageView:
     @staticmethod
@@ -126,7 +157,7 @@ class TestAnnouncementCreatePageView:
             context_data={
                 **panel_context(event, active_nav="announcements"),
                 "form": ANY,
-                "announcement_pk": None,
+                "announcement": None,
             },
         )
 
@@ -165,7 +196,7 @@ class TestAnnouncementCreatePageView:
             context_data={
                 **panel_context(event, active_nav="announcements"),
                 "form": ANY,
-                "announcement_pk": None,
+                "announcement": None,
             },
         )
         assert not Announcement.objects.exists()
@@ -205,7 +236,7 @@ class TestAnnouncementEditPageView:
             context_data={
                 **panel_context(event, active_nav="announcements"),
                 "form": ANY,
-                "announcement_pk": announcement.pk,
+                "announcement": AnnouncementDTO.model_validate(announcement),
             },
         )
 
@@ -255,7 +286,7 @@ class TestAnnouncementEditPageView:
             context_data={
                 **panel_context(event, active_nav="announcements"),
                 "form": ANY,
-                "announcement_pk": announcement.pk,
+                "announcement": AnnouncementDTO.model_validate(announcement),
             },
         )
         announcement.refresh_from_db()
