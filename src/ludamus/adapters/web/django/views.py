@@ -518,7 +518,6 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
         # the organizer's whole review queue, or one author's own proposals.
         # Same eager-loading as event_sessions (agenda_item is null here), plus
         # the preferred slots the card's meta row names in place of a room.
-        #
         # agenda_item__isnull scopes this to proposals the review screen can
         # actually act on: accept_session creates an AgendaItem, and Session
         # has only one, so a pending session already on the timetable cannot be

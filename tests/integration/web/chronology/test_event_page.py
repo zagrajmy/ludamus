@@ -1731,6 +1731,8 @@ class TestEventPageView:
                 hour_data={agenda_item.start_time: [card]},
                 future_unavailable_hour_data={agenda_item.start_time: [card]},
                 sessions=[card],
+                scheduled_count=1,
+                has_enrollable_sessions=True,
                 pending_review_visible=True,
                 pending_wizard_view=True,
             ),
