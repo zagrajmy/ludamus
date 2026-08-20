@@ -113,15 +113,15 @@
                     {# capacity the author asked for — muted, so a requested #}
                     {# number never reads as a live one. #}
                     {% if data.is_unscheduled %}
-                        {# A limit of 0 means the proposal takes no sign-up #}
-                        {# at all ("Empty or 0 = no enrollment"), so it says #}
-                        {# nothing here, as the scheduled card does: there #}
-                        {# availability answers "no-enrollment" and matches no #}
-                        {# arm below. "0 seats" would read as full. #}
+                        {# The same seat count the shut-window arm below states, #}
+                        {# and for the same reason: a cap, not spots left. #}
+                        {# Guarded because a limit of 0 means the proposal takes #}
+                        {# no sign-up at all ("Empty or 0 = no enrollment") — #}
+                        {# there availability answers "no-enrollment" and matches #}
+                        {# no arm, while a proposal leaves the ladder first, so #}
+                        {# only this arm can say it. "0 seats" would read as full. #}
                         {% if data.session.participants_limit %}
-                            <span class="text-sm font-medium text-foreground-muted">
-                                {% blocktranslate count limit=data.session.participants_limit %}{{ limit }} seat{% plural %}{{ limit }} seats{% endblocktranslate %}
-                            </span>
+                            {% include "chronology/_session_seat_count.html" with extra_class="text-sm" %}
                         {% endif %}
                     {% elif data.availability == "full" %}
                         {% if data.waiting_count > 0 %}
@@ -136,7 +136,7 @@
                     {% elif data.availability == "in-progress" %}
                         <span class="text-xs font-medium text-foreground-muted">{% translate "In Progress" %}</span>
                     {% elif data.availability == "unavailable" %}
-                        {% include "chronology/_enrollment_badge.html" %}
+                        {% include "chronology/_session_seat_count.html" with extra_class="text-sm" %}
                     {% endif %}
                 </div>
             </div>

@@ -598,7 +598,6 @@ class TestEventPageView:
                 url=self._get_url(event.slug),
                 compact_schedule=True,
                 sessions=list(cards.values()),
-                filterable_tag_categories=[game_type],
                 schedule_days=expected_days,
                 # 4 seats in `scarce` plus the 2 that fill `full`.
                 total_enrolled=4 + 2,
@@ -732,8 +731,7 @@ class TestEventPageView:
                         ],
                     )
                 ],
-                schedule_view_is_list=False,
-                schedule_view_is_rooms=True,
+                active_tab="rooms",
                 room_lane_days=[
                     RoomLaneDay(
                         day_start=local_start,
@@ -872,70 +870,7 @@ class TestEventPageView:
             contains="session-grid",
         )
 
-    def test_ok_enrollment_view_lists_only_sessions_taking_enrollment(
-        self, agenda_item, client, event, space
-    ):
-        drop_in = SessionFactory(
-            event=event, category=None, participants_limit=0, min_age=0
-        )
-        AgendaItemFactory(session=drop_in, space=space)
-
-        response = client.get(f"{self._get_url(event.slug)}?view=enrollment")
-
-        card = session_card(agenda_item, presenter=agenda_item.session.presenter)
-        assert_response(
-            response,
-            HTTPStatus.OK,
-            context_data=event_page_context(
-                event,
-                url=self._get_url(event.slug),
-                hour_data={agenda_item.start_time: [card]},
-                future_unavailable_hour_data={agenda_item.start_time: [card]},
-                sessions=[card],
-                scheduled_count=2,
-                schedule_view_is_list=False,
-                schedule_view_is_enrollment=True,
-                has_enrollable_sessions=True,
-            ),
-            template_name=["chronology/event.html"],
-        )
-
-    def test_ok_enrollment_view_keeps_the_layout_of_the_full_schedule(
-        self, agenda_item, client, event, monkeypatch, space
-    ):
-        # Two scheduled sessions, one of them drop-in: the compact layout is
-        # decided on the whole schedule, so narrowing to the single enrollable
-        # session must not drop the reader back to the card grid.
-        monkeypatch.setattr(
-            "ludamus.adapters.web.django.views.COMPACT_SCHEDULE_MIN_SESSIONS", 2
-        )
-        drop_in = SessionFactory(
-            event=event, category=None, participants_limit=0, min_age=0
-        )
-        AgendaItemFactory(session=drop_in, space=space)
-
-        response = client.get(f"{self._get_url(event.slug)}?view=enrollment")
-
-        card = session_card(agenda_item, presenter=agenda_item.session.presenter)
-        assert_response(
-            response,
-            HTTPStatus.OK,
-            context_data=event_page_context(
-                event,
-                url=self._get_url(event.slug),
-                compact_schedule=True,
-                hour_data={agenda_item.start_time: [card]},
-                schedule_days=[compact_day([card])],
-                sessions=[card],
-                scheduled_count=2,
-                schedule_view_is_list=False,
-                schedule_view_is_enrollment=True,
-                has_enrollable_sessions=True,
-            ),
-            template_name=["chronology/event.html"],
-        )
-
-    def test_ok_enrollment_tab_stays_off_a_schedule_without_enrollment(
+    def test_ok_enrollment_filter_stays_off_a_schedule_without_enrollment(
         self, client, event, space
     ):
         drop_in = SessionFactory(
@@ -957,29 +892,6 @@ class TestEventPageView:
                 sessions=[card],
                 has_enrollable_sessions=False,
                 scheduled_count=1,
-            ),
-            template_name=["chronology/event.html"],
-        )
-
-    def test_ok_enrollment_view_empty_when_nothing_takes_enrollment(
-        self, client, event, space
-    ):
-        drop_in = SessionFactory(
-            event=event, category=None, participants_limit=0, min_age=0
-        )
-        AgendaItemFactory(session=drop_in, space=space)
-
-        response = client.get(f"{self._get_url(event.slug)}?view=enrollment")
-
-        assert_response(
-            response,
-            HTTPStatus.OK,
-            context_data=event_page_context(
-                event,
-                url=self._get_url(event.slug),
-                scheduled_count=1,
-                schedule_view_is_list=False,
-                schedule_view_is_enrollment=True,
             ),
             template_name=["chronology/event.html"],
         )
@@ -1409,6 +1321,49 @@ class TestEventPageView:
                     session=session
                 ).select_related("user")
             ],
+        )
+
+    def test_ok_filter_panel_leaves_out_a_field_nobody_answered(
+        self, client, event, space
+    ):
+        genre = SessionField.objects.create(
+            event=event,
+            name="Genre",
+            question="Genre",
+            slug="genre",
+            field_type="select",
+            is_multiple=True,
+            is_public=True,
+        )
+        SessionField.objects.create(
+            event=event,
+            name="Format",
+            question="Format",
+            slug="format",
+            field_type="select",
+            is_multiple=True,
+            is_public=True,
+        )
+        sessions = [
+            self._add_scheduled_session(event=event, space=space, session_field=genre)
+            for _ in range(2)
+        ]
+
+        response = client.get(self._get_url(event.slug))
+
+        # Both fields are public selects on the event; only Genre is answered,
+        # so only Genre reaches the panel.
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=self._tagged_page_context(
+                event,
+                url=self._get_url(event.slug),
+                sessions=sessions,
+                session_field=genre,
+                scheduled_count=2,
+            ),
+            template_name=["chronology/event.html"],
         )
 
     def test_query_count_constant_in_session_count(self, client, event, space):
@@ -3346,7 +3301,6 @@ class TestEventPageView:
             context_data=event_page_context(
                 event,
                 url=self._get_url(event.slug),
-                filterable_tag_categories=[session_field],
                 future_unavailable_hour_data={agenda_item.start_time: [session_data]},
                 hour_data={agenda_item.start_time: [session_data]},
                 sessions=[session_data],

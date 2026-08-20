@@ -3778,18 +3778,6 @@ msgstr "Przejdź do %(day)s %(time)s"
 msgid "Open details for %(title)s"
 msgstr "Otwórz szczegóły %(title)s"
 
-#: src/ludamus/templates/chronology/_enrollment_badge.html
-#: src/ludamus/templates/chronology/_schedule_view_tabs.html
-#: src/ludamus/templates/chronology/enroll_select.html
-#: src/ludamus/templates/panel/_event_settings_tabs.html
-#: src/ludamus/templates/panel/enrollment-window-form.html
-msgid "Enrollment"
-msgstr "Zapisy"
-
-#: src/ludamus/templates/chronology/_enrollment_badge.html
-msgid "Enrollment required"
-msgstr "Wymagane zapisy"
-
 #: src/ludamus/templates/chronology/_proposal_section.html
 msgid "Your pending proposals"
 msgstr "Twoje oczekujące zgłoszenia"
@@ -3900,15 +3888,15 @@ msgstr[1] "%(counter)s zapisani uczestnicy"
 msgstr[2] "%(counter)s zapisanych uczestników"
 msgstr[3] "%(counter)s zapisanych uczestników"
 
-#: src/ludamus/templates/chronology/_session_card.html
-#: src/ludamus/templates/chronology/accept_proposal.html
+#: src/ludamus/templates/chronology/_session_seat_count.html
+#: src/ludamus/templates/panel/_space_tree_node.html
 #, python-format
-msgid "%(limit)s seat"
-msgid_plural "%(limit)s seats"
-msgstr[0] "%(limit)s miejsce"
-msgstr[1] "%(limit)s miejsca"
-msgstr[2] "%(limit)s miejsc"
-msgstr[3] "%(limit)s miejsc"
+msgid "%(counter)s seat"
+msgid_plural "%(counter)s seats"
+msgstr[0] "%(counter)s miejsce"
+msgstr[1] "%(counter)s miejsca"
+msgstr[2] "%(counter)s miejsc"
+msgstr[3] "%(counter)s miejsc"
 
 #: src/ludamus/templates/chronology/accept_proposal.html
 msgid "Accept Proposal"
@@ -3917,6 +3905,15 @@ msgstr "Zaakceptuj zgłoszenie"
 #: src/ludamus/templates/chronology/accept_proposal.html
 msgid "Pick a space and time, then add it to the agenda."
 msgstr "Wybierz przestrzeń i godzinę, a następnie dodaj do harmonogramu."
+
+#: src/ludamus/templates/chronology/accept_proposal.html
+#, python-format
+msgid "%(limit)s seat"
+msgid_plural "%(limit)s seats"
+msgstr[0] "%(limit)s miejsce"
+msgstr[1] "%(limit)s miejsca"
+msgstr[2] "%(limit)s miejsc"
+msgstr[3] "%(limit)s miejsc"
 
 #: src/ludamus/templates/chronology/accept_proposal.html
 msgid "submitted"
@@ -4042,6 +4039,12 @@ msgstr "Dokończ Zapis"
 #: src/ludamus/templates/chronology/anonymous_enroll.html
 msgid "Enroll Now"
 msgstr "Zapisz się teraz"
+
+#: src/ludamus/templates/chronology/enroll_select.html
+#: src/ludamus/templates/panel/_event_settings_tabs.html
+#: src/ludamus/templates/panel/enrollment-window-form.html
+msgid "Enrollment"
+msgstr "Zapisy"
 
 #: src/ludamus/templates/chronology/enroll_select.html
 msgid "Players you shadowbanned are already signed up here"
@@ -4292,13 +4295,13 @@ msgid "Switch to This Code"
 msgstr "Przełącz na Ten Kod"
 
 #: src/ludamus/templates/chronology/event.html
-msgid "Sessions with enrollment"
-msgstr "Punkty programu z zapisami"
-
-#: src/ludamus/templates/chronology/event.html
 #: src/ludamus/templates/chronology/propose/base.html
 msgid "Propose Session"
 msgstr "Zgłoś punkt programu"
+
+#: src/ludamus/templates/chronology/event.html
+msgid "Only with enrollment"
+msgstr "Tylko z zapisami"
 
 #: src/ludamus/templates/chronology/event.html
 msgid "Search sessions..."
@@ -4312,10 +4315,6 @@ msgstr "Filtry"
 #: src/ludamus/templates/panel/proposals.html
 msgid "All statuses"
 msgstr "Wszystkie statusy"
-
-#: src/ludamus/templates/chronology/event.html
-msgid "Takes enrollment"
-msgstr "Z zapisami"
 
 #: src/ludamus/templates/chronology/event.html
 msgid "Available spots"
@@ -4425,14 +4424,6 @@ msgstr "Żadne punkty programu nie pasują do filtrów"
 #: src/ludamus/templates/chronology/event.html
 msgid "Clear all filters"
 msgstr "Wyczyść wszystkie filtry"
-
-#: src/ludamus/templates/chronology/event.html
-msgid "No session at this event takes enrollment"
-msgstr "Żaden punkt programu na tym wydarzeniu nie wymaga zapisów"
-
-#: src/ludamus/templates/chronology/event.html
-msgid "Show the full schedule"
-msgstr "Pokaż pełny harmonogram"
 
 #: src/ludamus/templates/chronology/event.html
 msgid "Want to host a session?"
@@ -6396,15 +6387,6 @@ msgstr "Sala"
 #: src/ludamus/templates/panel/_space_tree_node.html
 msgid "Group"
 msgstr "Grupa"
-
-#: src/ludamus/templates/panel/_space_tree_node.html
-#, python-format
-msgid "%(counter)s seat"
-msgid_plural "%(counter)s seats"
-msgstr[0] "%(counter)s miejsce"
-msgstr[1] "%(counter)s miejsca"
-msgstr[2] "%(counter)s miejsc"
-msgstr[3] "%(counter)s miejsc"
 
 #: src/ludamus/templates/panel/_space_tree_node.html
 #, python-format
@@ -9357,6 +9339,39 @@ msgstr "Temat"
 msgid "No emails captured yet."
 msgstr "Brak przechwyconych e-maili."
 
+#~ msgid "Enrollment required"
+#~ msgstr "Wymagane zapisy"
+
+#~ msgid "Sessions with enrollment"
+#~ msgstr "Punkty programu z zapisami"
+
+#~ msgid "Takes enrollment"
+#~ msgstr "Z zapisami"
+
+#~ msgid "No session at this event takes enrollment"
+#~ msgstr "Żaden punkt programu na tym wydarzeniu nie wymaga zapisów"
+
+#~ msgid "Show the full schedule"
+#~ msgstr "Pokaż pełny harmonogram"
+
+#~ msgid "Pending Proposals"
+#~ msgstr "Oczekujące zgłoszenia"
+
+#~ msgid "Review & accept"
+#~ msgstr "Przejrzyj i zaakceptuj"
+
+#~ msgid "Submitted"
+#~ msgstr "Przesłane"
+
+#~ msgid "Preferred Times"
+#~ msgstr "Preferowane czasy"
+
+#~ msgid "Flexible"
+#~ msgstr "Elastyczny"
+
+#~ msgid "Awaiting review"
+#~ msgstr "Czeka na akceptację"
+
 #, python-format
 #~ msgid "Edit proposal %(title)s"
 #~ msgstr "Edytuj zgłoszenie %(title)s"
@@ -9384,24 +9399,6 @@ msgstr "Brak przechwyconych e-maili."
 
 #~ msgid "Allow analytics"
 #~ msgstr "Włącz analitykę"
-
-#~ msgid "Pending Proposals"
-#~ msgstr "Oczekujące zgłoszenia"
-
-#~ msgid "Review & accept"
-#~ msgstr "Przejrzyj i zaakceptuj"
-
-#~ msgid "Submitted"
-#~ msgstr "Przesłane"
-
-#~ msgid "Preferred Times"
-#~ msgstr "Preferowane czasy"
-
-#~ msgid "Flexible"
-#~ msgstr "Elastyczny"
-
-#~ msgid "Awaiting review"
-#~ msgstr "Czeka na akceptację"
 
 #~ msgid "Open"
 #~ msgstr "Otwarte"
