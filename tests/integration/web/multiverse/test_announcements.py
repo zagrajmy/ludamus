@@ -135,7 +135,7 @@ class TestAnnouncementCreatePageView:
         assert_response(
             response,
             HTTPStatus.FOUND,
-            messages=[(messages.SUCCESS, "Announcement created.")],
+            messages=[(messages.SUCCESS, "Announcement created successfully.")],
             url="/multiverse/panel/announcements/",
         )
         announcement = Announcement.objects.get(sphere=sphere)
@@ -210,7 +210,7 @@ class TestAnnouncementEditPageView:
         assert_response(
             response,
             HTTPStatus.FOUND,
-            messages=[(messages.SUCCESS, "Announcement updated.")],
+            messages=[(messages.SUCCESS, "Announcement updated successfully.")],
             url="/multiverse/panel/announcements/",
         )
         announcement.refresh_from_db()
@@ -321,7 +321,7 @@ class TestAnnouncementDeletePageView:
         assert_response(
             response,
             HTTPStatus.FOUND,
-            messages=[(messages.SUCCESS, "Announcement deleted.")],
+            messages=[(messages.SUCCESS, "Announcement deleted successfully.")],
             url="/multiverse/panel/announcements/",
         )
         assert not Announcement.objects.filter(pk=announcement.pk).exists()

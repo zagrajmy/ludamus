@@ -702,15 +702,15 @@ msgid "Announcement not found."
 msgstr "Ogłoszenie nie zostało znalezione."
 
 #: src/ludamus/gates/web/django/announcements.py
-msgid "Announcement created."
+msgid "Announcement created successfully."
 msgstr "Ogłoszenie zostało utworzone."
 
 #: src/ludamus/gates/web/django/announcements.py
-msgid "Announcement updated."
+msgid "Announcement updated successfully."
 msgstr "Ogłoszenie zostało zaktualizowane."
 
 #: src/ludamus/gates/web/django/announcements.py
-msgid "Announcement deleted."
+msgid "Announcement deleted successfully."
 msgstr "Ogłoszenie zostało usunięte."
 
 #: src/ludamus/gates/web/django/chronology/anonymous.py
@@ -9396,15 +9396,6 @@ msgstr "Temat"
 #: src/ludamus/templates/staging_email_inbox.html
 msgid "No emails captured yet."
 msgstr "Brak przechwyconych e-maili."
-
-#~ msgid "Announcement created successfully."
-#~ msgstr "Ogłoszenie zostało utworzone."
-
-#~ msgid "Announcement updated successfully."
-#~ msgstr "Ogłoszenie zostało zaktualizowane."
-
-#~ msgid "Announcement deleted successfully."
-#~ msgstr "Ogłoszenie zostało usunięte."
 
 #~ msgid "Enrollment required"
 #~ msgstr "Wymagane zapisy"

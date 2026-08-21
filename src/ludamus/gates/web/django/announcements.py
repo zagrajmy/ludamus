@@ -105,7 +105,7 @@ class AnnouncementCreateBase(AnnouncementViewBase):
             return self.render_form(page, form=form, announcement=None)
 
         page.announcements.create(page.scope, _form_data(form))
-        messages.success(self.request, _("Announcement created."))
+        messages.success(self.request, _("Announcement created successfully."))
         return redirect(page.list_url)
 
 
@@ -136,7 +136,7 @@ class AnnouncementEditBase(AnnouncementViewBase):
         except NotFoundError:
             raise _not_found(page) from None
 
-        messages.success(self.request, _("Announcement updated."))
+        messages.success(self.request, _("Announcement updated successfully."))
         return redirect(page.list_url)
 
 
@@ -148,5 +148,5 @@ class AnnouncementDeleteBase(AnnouncementViewBase):
         except NotFoundError:
             raise _not_found(page) from None
 
-        messages.success(self.request, _("Announcement deleted."))
+        messages.success(self.request, _("Announcement deleted successfully."))
         return redirect(page.list_url)
