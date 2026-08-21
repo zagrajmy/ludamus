@@ -38,6 +38,11 @@ if TYPE_CHECKING:
     from ludamus.pacts.services import TransactionProtocol
 
 
+# Matches the 50-char SlugField on the User model. A slug wider than this makes
+# the insert fail, so the provider-derived slug is truncated to fit.
+_SLUG_MAX_LENGTH = 50
+
+
 def _token() -> str:
     return secrets.token_urlsafe(48)
 
@@ -113,14 +118,34 @@ class CrowdAuthService(CrowdAuthServiceProtocol):
         data = create_data.copy()
         if self._users.email_exists(data.get("email", "")):
             data["email"] = ""
+        data["slug"] = self._free_slug(data.get("slug", ""))
         try:
             with self._transaction.savepoint():
                 self._users.create(data)
-        except DatabaseConstraintError:
-            # A concurrent callback for the same identity inserted the row
-            # between our read_by_username miss and this insert; adopt it.
-            pass
+        except DatabaseConstraintError as error:
+            # A concurrent callback for the same identity may have inserted the
+            # row between our read_by_username miss and this insert; adopt it.
+            # If no such row exists the insert failed for a real reason (e.g.
+            # the username is held by a non-ACTIVE row), so surface the database
+            # error instead of masking it as a bare NotFoundError.
+            try:
+                return self._users.read_by_username(username)
+            except NotFoundError:
+                raise error from error.__cause__
         return self._users.read_by_username(username)
+
+    def _free_slug(self, base: str) -> str:
+        """Return a slug that fits the SlugField and no account already owns."""
+        slug = base[:_SLUG_MAX_LENGTH].strip("-")
+        if slug and not self._users.slug_exists(slug):
+            return slug
+        # The base is empty or taken; append a random suffix that still fits.
+        while True:
+            suffix = secrets.token_hex(4)
+            head = slug[: _SLUG_MAX_LENGTH - len(suffix) - 1].strip("-")
+            candidate = f"{head}-{suffix}".strip("-")
+            if not self._users.slug_exists(candidate):
+                return candidate
 
     def sync_identity(self, *, user_slug: str, data: UserData) -> UserDTO:
         updates = data.copy()
