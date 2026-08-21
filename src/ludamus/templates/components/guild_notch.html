@@ -35,7 +35,7 @@ Variables:
   ring     knockout ring matching the surface behind the notch
 {% endcomment %}
 {% if flagged %}
-    {% include "components/guild_mark.html" with guild=guild size="size-3.5" extra_class="absolute -bottom-[5px] -left-[5px]" ring=ring %}
+    {% include "components/guild_mark.html" with guild=guild size="size-3.5" extra_class="absolute -bottom-0.75 -left-0.75" ring=ring %}
 {% else %}
-    {% include "components/guild_mark.html" with guild=guild size="size-3.5" extra_class="absolute -bottom-[5px] -right-[5px]" ring=ring %}
+    {% include "components/guild_mark.html" with guild=guild size="size-3.5" extra_class="absolute -bottom-0.75 -right-0.75" ring=ring %}
 {% endif %}

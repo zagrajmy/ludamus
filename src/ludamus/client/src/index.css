@@ -1,13 +1,44 @@
-@import url("https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap");
 @import "tailwindcss";
 
 @import "./progressive-blur.css";
 @import "./brand-mark.css";
+@import "./consent-banner.css";
 @import "./modal.css";
 @import "./filters.css";
 @import "./tabs.css";
 @import "./timetable.css";
 @import "./import-recipe.css";
+
+/* Outfit, self-hosted (fonts/OFL.txt): the two woff2 files and their
+   unicode-range split are vendored verbatim from Google Fonts' variable-font
+   subsets. Polish text pulls both files (every diacritic except ó lives in
+   latin-ext), so the split mostly buys per-file caching; only a purely
+   Latin-1 page skips the latin-ext download. Self-hosted rather than
+   @import'ed from fonts.googleapis.com — an external stylesheet is
+   render-blocking, so its latency (or a proxy that stalls it, as in agent
+   sandboxes) delays DOMContentLoaded and with it every module script on
+   the page. */
+@font-face {
+  font-family: "Outfit";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("./fonts/outfit-latin-ext.woff2") format("woff2");
+  unicode-range:
+    U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329,
+    U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F,
+    U+A720-A7FF;
+}
+@font-face {
+  font-family: "Outfit";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("./fonts/outfit-latin.woff2") format("woff2");
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+    U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
 
 @plugin "@tailwindcss/typography";
 @plugin "@hasparus/tailwind/scrollview-fade";
