@@ -12,18 +12,18 @@
       rel="stylesheet">
 <style>
   :root {
-    /* Brand tokens, mirrored from client/src/index.css. */
-    --coral: #f85a3c;
+    /* Brand token, mirrored from client/src/index.css. */
     --warm-900: #252220;
 
     /* --- scrim knobs (tweak in the widget, paste back here) --- */
     --scrim-tint: 24 18 32;      /* rgb triplet the scrim darkens toward */
-    --scrim-opacity: 0.88;       /* alpha at the anchored edge */
-    --scrim-angle: 96deg;        /* gradient direction */
-    --scrim-mid-stop: 38%;       /* where the falloff reaches half strength */
-    --scrim-end-stop: 72%;       /* where the scrim is fully clear */
-    --scrim-floor: 0.16;         /* uniform darkening across the whole frame */
-    --scrim-vignette: 0.34;       /* extra weight pulled into the bottom edge */
+    --scrim-opacity: 0.72;       /* alpha at the centre of the core */
+    --scrim-spread-x: 68%;       /* core half-width */
+    --scrim-spread-y: 62%;       /* core half-height */
+    --scrim-mid-stop: 42%;       /* where the falloff reaches half strength */
+    --scrim-end-stop: 100%;      /* where the core is fully clear */
+    --scrim-floor: 0.2;          /* uniform darkening across the whole frame */
+    --scrim-vignette: 0.3;       /* extra weight pulled into the bottom edge */
 
     /* --- text shadow knobs --- */
     --text-shadow-blur: 26px;
@@ -69,15 +69,17 @@
     transform-origin: center;
   }
 
-  /* Three stacked passes: a directional wedge anchored to the text side, a
-     uniform floor so mid-tones in the painting cannot creep up under the
-     wordmark, and a bottom vignette that seats the card on darker ground. */
+  /* Three stacked passes: an elliptical core centred on the content, a uniform
+     floor so mid-tones in the painting cannot creep up under the wordmark, and
+     a bottom vignette that seats the card on darker ground. The core is radial
+     rather than a side wedge because the type is centred over the brightest
+     part of the painting -- the cylinder's end cap. */
   .card__scrim {
     position: absolute;
     inset: 0;
     background:
-      linear-gradient(
-        var(--scrim-angle),
+      radial-gradient(
+        ellipse var(--scrim-spread-x) var(--scrim-spread-y) at 50% 50%,
         rgb(var(--scrim-tint) / var(--scrim-opacity)) 0%,
         rgb(var(--scrim-tint) / calc(var(--scrim-opacity) * 0.5)) var(--scrim-mid-stop),
         rgb(var(--scrim-tint) / 0) var(--scrim-end-stop)
@@ -95,10 +97,11 @@
     inset: 0;
     display: flex;
     flex-direction: column;
+    align-items: center;
     justify-content: center;
     gap: 34px;
-    padding: 0 0 0 76px;
-    max-width: 760px;
+    padding: 0 72px;
+    text-align: center;
     color: #fff;
     text-shadow:
       0 var(--text-shadow-y) var(--text-shadow-blur)
@@ -107,7 +110,7 @@
 
   /* The lockup ships as outlined paths, so it needs no webfont to be correct. */
   .card__lockup {
-    width: 470px;
+    width: 640px;
     height: auto;
     display: block;
     filter: drop-shadow(
@@ -121,15 +124,6 @@
     font-weight: 500;
     line-height: 1.18;
     letter-spacing: -0.015em;
-    max-width: 19ch;
-  }
-
-  .card__rule {
-    width: 84px;
-    height: 6px;
-    border-radius: 999px;
-    background: var(--coral);
-    box-shadow: 0 2px 18px rgb(var(--scrim-tint) / 0.55);
   }
 </style>
 
@@ -142,7 +136,6 @@
       <title>zagrajmy</title>
       <!--LOCKUP_BODY-->
     </svg>
-    <div class="card__rule"></div>
     <p class="card__tagline"><!--TAGLINE--></p>
   </div>
 </div>
