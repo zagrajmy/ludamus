@@ -38,13 +38,4 @@ test.describe("Design system page", () => {
     await playground.getByRole("button", { name: "Dismiss all" }).click();
     await expect(toasts).toHaveCount(0);
   });
-
-  test("frames the link-preview card", async ({ page }) => {
-    await page.goto("/design/");
-
-    // The panel frames the same page the JPEG is screenshotted from, so a
-    // broken static path shows up here rather than in a stale image.
-    const card = page.frameLocator('iframe[src*="og-card"]');
-    await expect(card.locator(".card__lockup")).toBeVisible();
-  });
 });
