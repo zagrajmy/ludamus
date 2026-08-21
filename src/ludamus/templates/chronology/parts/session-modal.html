@@ -68,7 +68,7 @@
                     {# the room wraps that same value becomes the row gap and pushes #}
                     {# a sub-label 12px off the name it belongs to. #}
                     <div class="flex flex-1 items-center gap-x-3 gap-y-0.5 flex-wrap min-w-0">
-                        <div class="font-medium text-foreground" data-morph="host">{{ data.presenter.full_name }}</div>
+                        <div class="font-medium text-foreground" data-morph="host" data-ph-mask>{{ data.presenter.full_name }}</div>
                         {% if data.location_label %}
                             {# The room sits beside a name that is still flying in from #}
                             {# the card, so at its final spot it reads as arriving alone. #}

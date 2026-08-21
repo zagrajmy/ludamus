@@ -91,6 +91,29 @@ test.describe("Profile — Parties (parties.html)", () => {
   });
 });
 
+test.describe("Profile — Privacy (privacy.html)", () => {
+  // The suite fixture pre-answers the consent banner with "declined", so the
+  // tab must report that choice and let the user change it in place.
+  test("shows the analytics choice and reopens the consent banner", async ({ page }) => {
+    await page.goto("/crowd/profile/privacy/");
+
+    await expect(page.getByRole("tab", { name: /Privacy/ })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    await expect(page.getByText("Your current choice:")).toBeVisible();
+    await expect(page.getByText("analytics declined")).toBeVisible();
+
+    await page.getByRole("button", { name: "Change your choice" }).click();
+    const banner = page.getByRole("region", { name: "Analytics consent" });
+    await expect(banner).toBeVisible();
+    await banner.getByRole("button", { name: "Allow analytics" }).click();
+
+    await expect(banner).toBeHidden();
+    await expect(page.getByText("analytics allowed")).toBeVisible();
+  });
+});
+
 test.describe("Profile — Avatar (avatar.html)", () => {
   test("shows avatar selection page", async ({ page }) => {
     await page.goto("/crowd/profile/avatar/");

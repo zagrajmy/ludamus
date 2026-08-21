@@ -4087,9 +4087,8 @@ msgid "needs their approval"
 msgstr "wymaga ich zgody"
 
 #: src/ludamus/templates/chronology/enroll_select.html
-#, python-format
-msgid "Include %(name)s"
-msgstr "Uwzględnij: %(name)s"
+msgid "Include"
+msgstr "Uwzględnij"
 
 #: src/ludamus/templates/chronology/enroll_select.html
 msgid "Join this session"
@@ -4904,6 +4903,14 @@ msgid "Cookie consent"
 msgstr "Zgoda na ciasteczka"
 
 #: src/ludamus/templates/components/consent-banner.html
+msgid "No cookies!"
+msgstr "Żadnych ciastek!"
+
+#: src/ludamus/templates/components/consent-banner.html
+msgid "Cool"
+msgstr "Spoko"
+
+#: src/ludamus/templates/components/consent-copy.html
 #, python-format
 msgid ""
 "Cookies help us see what to fix. More in the <a "
@@ -4911,14 +4918,6 @@ msgid ""
 msgstr ""
 "Ciasteczka pomagają nam zobaczyć, co poprawić. Więcej w <a "
 "href=\"%(privacy_url)s\">Polityce prywatności</a>."
-
-#: src/ludamus/templates/components/consent-banner.html
-msgid "No cookies!"
-msgstr "Żadnych ciastek!"
-
-#: src/ludamus/templates/components/consent-banner.html
-msgid "Cool"
-msgstr "Spoko"
 
 # Login Required Page
 #: src/ludamus/templates/components/dynamic-field-label.html
@@ -5231,6 +5230,11 @@ msgstr "Awatar"
 #: src/ludamus/templates/crowd/user/_profile_tabs.html
 msgid "Safety"
 msgstr "Bezpieczeństwo"
+
+#: src/ludamus/templates/crowd/user/_profile_tabs.html
+#: src/ludamus/templates/crowd/user/privacy.html
+msgid "Privacy"
+msgstr "Prywatność"
 
 #: src/ludamus/templates/crowd/user/avatar.html
 msgid "Provider avatar"
@@ -5657,6 +5661,46 @@ msgid ""
 msgstr ""
 "Drużyna zapisuje się na punkty programu razem i razem przesuwa się w kolejce "
 "oczekujących. Możesz ją opuścić w dowolnym momencie."
+
+#: src/ludamus/templates/crowd/user/privacy.html
+msgid "Analytics"
+msgstr "Analityka"
+
+#: src/ludamus/templates/crowd/user/privacy.html
+msgid "Your current choice:"
+msgstr "Twój obecny wybór:"
+
+#: src/ludamus/templates/crowd/user/privacy.html
+msgid "analytics allowed"
+msgstr "analityka włączona"
+
+#: src/ludamus/templates/crowd/user/privacy.html
+msgid "analytics declined"
+msgstr "analityka odrzucona"
+
+#: src/ludamus/templates/crowd/user/privacy.html
+msgid "not decided yet"
+msgstr "jeszcze nie zdecydowano"
+
+#: src/ludamus/templates/crowd/user/privacy.html
+msgid ""
+"The choice is stored only in this browser — on another device or after "
+"clearing site data you will be asked again."
+msgstr ""
+"Wybór jest zapisany tylko w tej przeglądarce — na innym urządzeniu lub po "
+"wyczyszczeniu danych strony zapytamy ponownie."
+
+#: src/ludamus/templates/crowd/user/privacy.html
+msgid "Change your choice"
+msgstr "Zmień swój wybór"
+
+#: src/ludamus/templates/crowd/user/privacy.html
+msgid ""
+"Analytics are not configured on this server. Nothing is collected, so there "
+"is nothing to decide here."
+msgstr ""
+"Analityka nie jest skonfigurowana na tym serwerze. Nic nie jest zbierane, "
+"więc nie ma tu nic do decydowania."
 
 #: src/ludamus/templates/crowd/user/safety.html
 msgid "Shadowbanned players"
@@ -9340,20 +9384,11 @@ msgstr "Temat"
 msgid "No emails captured yet."
 msgstr "Brak przechwyconych e-maili."
 
+#~ msgid "Analytics settings"
+#~ msgstr "Ustawienia analityki"
+
 #~ msgid "Enrollment required"
 #~ msgstr "Wymagane zapisy"
-
-#~ msgid "Sessions with enrollment"
-#~ msgstr "Punkty programu z zapisami"
-
-#~ msgid "Takes enrollment"
-#~ msgstr "Z zapisami"
-
-#~ msgid "No session at this event takes enrollment"
-#~ msgstr "Żaden punkt programu na tym wydarzeniu nie wymaga zapisów"
-
-#~ msgid "Show the full schedule"
-#~ msgstr "Pokaż pełny harmonogram"
 
 #~ msgid "Pending Proposals"
 #~ msgstr "Oczekujące zgłoszenia"
@@ -9373,15 +9408,17 @@ msgstr "Brak przechwyconych e-maili."
 #~ msgid "Awaiting review"
 #~ msgstr "Czeka na akceptację"
 
-#, python-format
-#~ msgid "Edit proposal %(title)s"
-#~ msgstr "Edytuj zgłoszenie %(title)s"
-
-#~ msgid "Analytics settings"
-#~ msgstr "Ustawienia analityki"
+#~ msgid "Takes enrollment"
+#~ msgstr "Z zapisami"
 
 #~ msgid "Analytics consent"
 #~ msgstr "Zgoda na analitykę"
+
+#~ msgid "Decline analytics"
+#~ msgstr "Odrzuć analitykę"
+
+#~ msgid "Allow analytics"
+#~ msgstr "Włącz analitykę"
 
 #, python-format
 #~ msgid ""
@@ -9395,11 +9432,29 @@ msgstr "Brak przechwyconych e-maili."
 #~ "i szybciej naprawiać błędy. Nic nie zapisujemy, zanim się nie zgodzisz. "
 #~ "Szczegóły w <a href=\"%(privacy_url)s\">Polityce prywatności</a>."
 
-#~ msgid "Decline analytics"
-#~ msgstr "Odrzuć analitykę"
+#, python-format
+#~ msgid ""
+#~ "The token expires after %(token_max_age_days)s days and works only while "
+#~ "you stay a manager of this sphere. Anyone holding it can act with your "
+#~ "permissions — keep it secret."
+#~ msgstr ""
+#~ "Token wygasa po %(token_max_age_days)s dniach i działa tylko dopóki "
+#~ "zarządzasz tą sferą. Każdy, kto go posiada, może działać z Twoimi "
+#~ "uprawnieniami — trzymaj go w tajemnicy."
 
-#~ msgid "Allow analytics"
-#~ msgstr "Włącz analitykę"
+#, python-format
+#~ msgid ""
+#~ "Generate a personal token to connect an MCP client (such as Claude Code "
+#~ "or Executor) to this sphere's organizer API. The token is valid for "
+#~ "%(token_max_age_days)s days."
+#~ msgstr ""
+#~ "Wygeneruj osobisty token, aby połączyć klienta MCP (np. Claude Code lub "
+#~ "Executor) z API organizatora tej sfery. Token jest ważny przez "
+#~ "%(token_max_age_days)s dni."
+
+#, python-format
+#~ msgid "Include %(name)s"
+#~ msgstr "Uwzględnij: %(name)s"
 
 #~ msgid "Open"
 #~ msgstr "Otwarte"
@@ -9739,6 +9794,19 @@ msgstr "Brak przechwyconych e-maili."
 
 #~ msgid "Facilitator released."
 #~ msgstr "Twórca programu zwolniony."
+
+#~ msgid "Sessions with enrollment"
+#~ msgstr "Punkty programu z zapisami"
+
+#~ msgid "No session at this event takes enrollment"
+#~ msgstr "Żaden punkt programu na tym wydarzeniu nie wymaga zapisów"
+
+#~ msgid "Show the full schedule"
+#~ msgstr "Pokaż pełny harmonogram"
+
+#, python-format
+#~ msgid "Edit proposal %(title)s"
+#~ msgstr "Edytuj zgłoszenie %(title)s"
 
 #, python-format
 #~ msgid ""

@@ -57,10 +57,29 @@ const initPosthog = (config: PosthogServerConfig): void => {
     persistence: "localStorage+cookie",
     session_recording: {
       maskAllInputs: true,
+      // maskTextSelector masks TEXT NODES only — rrweb records attribute
+      // values verbatim. Any element carrying PII in an attribute (a name in
+      // aria-label or data-confirm copy, an email in a data-copy chip or a
+      // mailto: href) must therefore be excluded from the recording entirely
+      // with data-ph-block; it shows as a same-size placeholder in replay.
+      // The pii-attribute-needs-block ast-grep rule enforces the pairing.
+      blockSelector: "[data-ph-block]",
       maskTextSelector: "[data-ph-mask]",
     },
   });
   syncIdentity(config.user_id);
+};
+
+// The profile Privacy tab shows the stored choice: the server cannot know it
+// (localStorage never leaves the browser), so elements carry the translated
+// labels in data attributes and this fills the right one in.
+const renderConsentState = (): void => {
+  const consent = readConsent();
+  for (const el of document.querySelectorAll<HTMLElement>("[data-consent-state]")) {
+    const { labelAccepted = "", labelDeclined = "", labelUnset = "" } = el.dataset;
+    el.textContent =
+      consent === "accepted" ? labelAccepted : consent === "declined" ? labelDeclined : labelUnset;
+  }
 };
 
 const applyChoice = (config: PosthogServerConfig, choice: "accepted" | "declined"): void => {
@@ -92,6 +111,7 @@ const init = (): void => {
 
   const consent = readConsent();
   if (consent === "accepted") initPosthog(config);
+  renderConsentState();
 
   const banner = document.getElementById("consent-banner");
   if (!(banner instanceof HTMLElement)) return;
@@ -102,6 +122,7 @@ const init = (): void => {
       const { consentChoice } = button.dataset;
       if (consentChoice !== "accepted" && consentChoice !== "declined") return;
       applyChoice(config, consentChoice);
+      renderConsentState();
       banner.hidden = true;
     });
   }

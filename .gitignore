@@ -142,6 +142,9 @@ celerybeat.pid
 # per-environment baselines; .env.local and .env.{ENV}.local hold
 # per-developer overrides.
 .env*.local
+# BuildKit secret file for the PostHog CLI, materialized by the deploy
+# workflow next to .env.local — never committed.
+.posthog_cli_token
 .venv
 env/
 venv/
