@@ -820,7 +820,10 @@ class DiscountForm(forms.Form):
         decimal_places=2,
         min_value=Decimal("0.01"),
         label=_("Value"),
-        widget=forms.NumberInput(attrs={"inputmode": "decimal"}),
+        # Django derives step="0.01" from decimal_places; combined with
+        # min="0.01" the browser's float step check rejects plain 50 and
+        # suggests 50.01. step="any" drops it; the server still enforces 2dp.
+        widget=forms.NumberInput(attrs={"inputmode": "decimal", "step": "any"}),
         error_messages={
             "required": _("Value is required."),
             "min_value": _("Value must be greater than zero."),

@@ -49,7 +49,7 @@ class DiscountMethod(StrEnum):
 class DiscountRuleData(BaseModel):
     method: DiscountMethod
     quantity: int = Field(gt=0)
-    percent: Decimal = Field(gt=0, le=100)
+    percent: Decimal = Field(ge=0, le=100)
     order: int = Field(ge=0)
 
 

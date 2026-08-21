@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from decimal import Decimal
-
 from django import forms
 from django.utils.translation import gettext_lazy as _
 
@@ -91,14 +89,14 @@ class DiscountRuleForm(forms.Form):
         initial=1,
         help_text=_("How many hours or program points the creator has to reach."),
     )
-    percent = forms.DecimalField(
+    percent = forms.IntegerField(
         label=_("Discount"),
-        max_digits=5,
-        decimal_places=2,
-        min_value=Decimal("0.01"),
-        max_value=Decimal(100),
+        min_value=0,
+        max_value=100,
         help_text=_("Percentage taken off the ticket price."),
-        widget=forms.NumberInput(attrs={"inputmode": "decimal"}),
+        # Whole tens only: the browser's step check uses min as its base, so
+        # min and step must line up or 50 reads as invalid.
+        widget=forms.NumberInput(attrs={"inputmode": "numeric", "step": "10"}),
     )
     order = forms.IntegerField(
         label=_("Order"),

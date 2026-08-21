@@ -135,6 +135,10 @@ def _plan(
         if load and target is AccreditationType.CREATOR
         else None
     )
+    # A 0% rule is a deliberate "nothing at this tier": it still shadows the
+    # rules below it, it just leaves the facilitator without a discount.
+    if rule is not None and not rule.percent:
+        rule = None
     held = entry.discount
     change = _FacilitatorChange(
         facilitator_id=facilitator.pk,

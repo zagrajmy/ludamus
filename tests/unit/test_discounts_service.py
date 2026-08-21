@@ -360,6 +360,18 @@ class TestApplyFromAgenda:
 
         assert [data.value for _event_pk, data in repo.created] == [high]
 
+    def test_zero_percent_rule_shadows_the_rules_below_it(self):
+        _result, repo, _facilitators, _change_logs = self._apply(
+            list_items=[_list_item(pk=1, accreditation_type="none")],
+            rows=[_load(1, minutes=240)],
+            rules=[
+                _rule(1, quantity=4, percent=0, order=0),
+                _rule(2, quantity=1, percent=25, order=1),
+            ],
+        )
+
+        assert not repo.created
+
     def test_session_count_rule_measures_scheduled_points(self):
         _result, repo, _facilitators, _change_logs = self._apply(
             list_items=[_list_item(pk=1, accreditation_type="none")],
