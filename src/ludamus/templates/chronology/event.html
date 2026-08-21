@@ -27,7 +27,7 @@
 {% endblock header_section %}
 {% block body %}
     {% include "chronology/decorative_background_blobs.html" %}
-    <div class="relative rounded-3xl shadow-xl overflow-hidden mb-8 bg-bg-secondary"
+    <div class="relative rounded-3xl shadow-xl overflow-hidden mb-6 sm:mb-8 bg-bg-secondary"
          style="box-shadow: var(--shadow-elevated)">
         {% if event.cover_image_url %}
             <div class="h-56 sm:h-72 bg-cover bg-center"
@@ -271,23 +271,14 @@
     {% include "components/announcements.html" with announcements=announcements heading=t_announcements_heading only %}
     <!-- Sessions by Time Slot -->
     {# The whole section is one htmx swap target: the view tabs below carry #}
-    {# hx-boost, so switching between List, Rooms and Enrollment replaces the #}
-    {# count, the filter toolbar and the schedule in one go, leaving no #}
-    {# control describing a session set that is no longer on screen. #}
+    {# hx-boost, so switching between List and Rooms replaces the count, the #}
+    {# filter toolbar and the schedule in one go, leaving no control #}
+    {# describing a session set that is no longer on screen. #}
     <div id="schedule-region">
         <!-- Section Header -->
-        <div class="flex items-center justify-between mb-6">
+        <div class="flex items-center justify-between mb-3 sm:mb-6">
             <div class="flex items-center gap-3">
-                {# The badge counts what this view renders, while the stat card #}
-                {# above counts the whole schedule — so the enrollment view #}
-                {# names its narrower set instead of repeating "Sessions". #}
-                <h2 class="text-xl font-bold text-foreground">
-                    {% if schedule_view_is_enrollment %}
-                        {% translate "Sessions with enrollment" %}
-                    {% else %}
-                        {% translate "Sessions" %}
-                    {% endif %}
-                </h2>
+                <h2 class="text-xl font-bold text-foreground">{% translate "Sessions" %}</h2>
                 <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-base translate-y-[.5px] font-semibold bg-coral-100 dark:bg-coral-900/30 text-coral-700 dark:text-coral-400">
                     {{ sessions|length }}
                 </span>
@@ -301,7 +292,14 @@
         </div>
         {% if hour_data %}
             <!-- Filter Controls -->
-            <div class="mb-6">
+            {# Assigned once: the checkbox below and its chip label further #}
+            {# down have to say the same thing. #}
+            {% translate "Only with enrollment" as t_enrollment_only %}
+            <div class="mb-3 sm:mb-6">
+                {# The search field sets the row height; the Filters button and #}
+                {# the view tabs stretch to it (h-full, and a flex wrapper for #}
+                {# the tab strip) instead of each landing on whatever its own #}
+                {# padding adds up to. #}
                 <div class="flex gap-1 sm:gap-2 items-stretch">
                     <div class="relative flex-1">
                         <span class="absolute left-3.5 top-1/2 -translate-y-1/2 text-foreground-muted">
@@ -317,7 +315,7 @@
                     </div>
                     <div class="filters-popover-wrapper relative overflow-visible">
                         <button type="button"
-                                class="filter-toggle filter-toggle-anchor inline-flex items-center gap-2 p-2.5 sm:p-3 rounded-2xl text-sm font-semibold border border-border whitespace-nowrap cursor-pointer bg-bg-secondary text-foreground-muted transition-[color,background-color,border-color,box-shadow] duration-150"
+                                class="filter-toggle filter-toggle-anchor inline-flex h-full items-center gap-2 p-2.5 sm:p-3 rounded-2xl text-sm font-semibold border border-border whitespace-nowrap cursor-pointer bg-bg-secondary text-foreground-muted transition-[color,background-color,border-color,box-shadow] duration-150"
                                 id="filter-toggle"
                                 aria-expanded="false"
                                 aria-controls="filter-panel"
@@ -331,13 +329,17 @@
                         {# anchor math in session-filters.ts relies on that. #}
                         <div id="filter-panel" class="filter-panel shadow-xl">
                             <div class="flex flex-wrap gap-3 grow pt-3.5">
+                                {% if has_enrollable_sessions %}
+                                    <div class="w-full">
+                                        {% include "components/checkbox-field.html" with id="enrollment-filter" label=t_enrollment_only only %}
+                                    </div>
+                                {% endif %}
                                 <div class="flex flex-col gap-1.5">
                                     <label class="text-xs font-bold uppercase tracking-widest text-foreground-muted"
                                            for="status-filter">{% translate "Status" %}</label>
                                     <select id="status-filter"
                                             class="filter-input w-full py-2 px-3 rounded-xl border border-border text-sm font-medium bg-bg-secondary text-foreground transition-[border-color,box-shadow] duration-150">
                                         <option value="">{% translate "All statuses" %}</option>
-                                        <option value="takes-enrollment">{% translate "Takes enrollment" %}</option>
                                         <option value="available">{% translate "Available spots" %}</option>
                                         <option value="full">{% translate "Full" %}</option>
                                         <option value="in-progress">{% translate "In progress" %}</option>
@@ -434,15 +436,18 @@
                             </div>
                         </div>
                     </div>
-                    {% if compact_schedule or has_enrollable_sessions %}
+                    {# The switcher exists for the rooms grid, which renders from #}
+                    {# schedule_days — only the compact layout builds those, so a #}
+                    {# card-grid event has a single view and no control to offer. #}
+                    {% if compact_schedule %}
                         {# hx-boost rather than hx-get on each tab: {% tab %} renders a #}
-                        {# plain <a> and passes no attribute through, and the boost stays #}
+                        {# plain anchor and passes no attribute through, and the boost stays #}
                         {# scoped to these links. hx-select cuts the region out of the #}
                         {# full page response, so a shared ?view= link and a tab click #}
                         {# render from the same branch. History caching is off because a #}
                         {# restored snapshot would carry DOM the schedule scripts have #}
                         {# already bound; a back button then re-requests the page instead. #}
-                        <div class="self-center"
+                        <div class="flex"
                              hx-boost="true"
                              hx-target="#schedule-region"
                              hx-select="#schedule-region"
@@ -455,7 +460,8 @@
                      data-remove-filter-label="{% translate "Remove filter" %}"
                      data-clear-all-label="{% translate "Clear all" %}"
                      data-min-age-label="{% translate "Age ≥" %}"
-                     data-max-age-label="{% translate "Age ≤" %}">
+                     data-max-age-label="{% translate "Age ≤" %}"
+                     data-enrollment-label="{{ t_enrollment_only }}">
                     <div class="overflow-hidden">
                         <div class="filter-chips-bar-inner" data-filter-chips-inner></div>
                     </div>
@@ -475,36 +481,11 @@
             {% else %}
                 {% include "chronology/_card_schedule.html" with session_link_base="" %}
             {% endif %}
-        {% elif schedule_view_is_enrollment %}
-            {# Reachable by a shared link after the last limit is cleared: the #}
-            {# tab is hidden once nothing takes enrollment. #}
-            <div class="text-center py-12 px-4 text-foreground-muted">
-                {% icon "user-plus" class="w-8 h-8 mx-auto mb-2" %}
-                <p class="font-medium">{% translate "No session at this event takes enrollment" %}</p>
-                <a href="{{ schedule_list_url }}"
-                   class="text-sm mt-2 inline-block font-semibold text-primary">{% translate "Show the full schedule" %}</a>
-            </div>
         {% endif %}
     </div>
     <!-- The viewer's own proposals, awaiting review -->
     {% if own_pending_proposals %}
-        <div class="mt-12 time-slot-section" data-time-slot="own-proposals">
-            <div class="flex items-center gap-4 mb-4">
-                <div class="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold bg-amber-100 dark:bg-amber-900/10 text-amber-700 dark:text-amber-400">
-                    {% icon "light-bulb" class="w-4 h-4" variant="mini" %}
-                    {% translate "Your pending proposals" %}
-                </div>
-                <div class="h-px grow bg-border"></div>
-                <span class="text-xs text-foreground-muted">
-                    {% blocktranslate count counter=own_pending_proposals|length %}{{ counter }} proposal{% plural %}{{ counter }} proposals{% endblocktranslate %}
-                </span>
-            </div>
-            <div class="session-grid grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
-                {% for data in own_pending_proposals %}
-                    {% include "chronology/_session_card.html" with session_link_base="" %}
-                {% endfor %}
-            </div>
-        </div>
+        {% include "chronology/_proposal_section.html" with cards=own_pending_proposals is_own=True %}
     {% endif %}
     <!-- Propose Session CTA -->
     {% if event.is_proposal_active %}
@@ -527,8 +508,8 @@
         </div>
     {% endif %}
     <!-- Proposals Section (superusers and sphere managers) -->
-    {% if pending_review_visible and event.is_proposal_active and pending_sessions %}
-        {% include "chronology/_pending_proposals.html" %}
+    {% if pending_review_visible and pending_sessions %}
+        {% include "chronology/_proposal_section.html" with cards=pending_sessions wizard_mark=pending_wizard_view %}
     {% endif %}
     {# Session detail modals are fetched on first open (see modal.ts): the URL #}
     {# template carries a `0` session-id placeholder, injected dialogs land here. #}
