@@ -46,6 +46,9 @@ const initSessionFilters = (): void => {
   const venueFilter = byId<HTMLSelectElement>("venue-filter");
   const minAgeFilter = byId<HTMLInputElement>("min-age-filter");
   const maxAgeFilter = byId<HTMLInputElement>("max-age-filter");
+  // Not byId: the checkbox is absent when nothing at this event takes
+  // enrollment, and a typed query says so without an `as` cast.
+  const enrollmentFilter = document.querySelector<HTMLInputElement>("#enrollment-filter");
   const filterToggle = byId("filter-toggle");
   const filterPanel = byId("filter-panel");
   const filterChipsBar = byId("active-filter-chips");
@@ -163,6 +166,7 @@ const initSessionFilters = (): void => {
   function filterSessions(): void {
     const searchTokens = normalizeText(sessionFilter.value).split(/\s+/).filter(Boolean);
     const statusValue = statusFilter.value;
+    const enrollmentOnly = enrollmentFilter?.checked ?? false;
     const dayValue = dayFilter.value;
     const hourValue = hourFilter.value;
     const venueValue = venueFilter.value;
@@ -204,19 +208,13 @@ const initSessionFilters = (): void => {
 
             break;
           }
-          // Spans free and full sessions alike, so it cannot be one more
-          // mutually exclusive data-status value.
-          case "takes-enrollment": {
-            show &&= card.dataset.takesEnrollment === "true";
-
-            break;
-          }
           default: {
             show &&= card.dataset.status === statusValue;
           }
         }
       }
 
+      if (enrollmentOnly) show &&= card.dataset.takesEnrollment === "true";
       if (dayValue) show &&= card.dataset.day === dayValue;
       if (hourValue) show &&= card.dataset.hour === hourValue;
       if (venueValue) show &&= card.dataset.venue === venueValue;
@@ -285,6 +283,7 @@ const initSessionFilters = (): void => {
   function clearAllFilters(): void {
     sessionFilter.value = "";
     statusFilter.value = "";
+    if (enrollmentFilter) enrollmentFilter.checked = false;
     dayFilter.value = "";
     hourFilter.value = "";
     venueFilter.value = "";
@@ -335,6 +334,15 @@ const initSessionFilters = (): void => {
       });
     };
 
+    if (enrollmentFilter?.checked) {
+      chips.push({
+        clear: () => {
+          enrollmentFilter.checked = false;
+          filterSessions();
+        },
+        label: filterChipsBar.dataset.enrollmentLabel ?? "",
+      });
+    }
     pushSelectChip(statusFilter);
     pushSelectChip(dayFilter);
     pushSelectChip(hourFilter);
@@ -387,6 +395,7 @@ const initSessionFilters = (): void => {
 
   sessionFilter.addEventListener("input", filterSessions);
   statusFilter.addEventListener("change", filterSessions);
+  enrollmentFilter?.addEventListener("change", filterSessions);
   dayFilter.addEventListener("change", filterSessions);
   hourFilter.addEventListener("change", filterSessions);
   venueFilter.addEventListener("change", filterSessions);
