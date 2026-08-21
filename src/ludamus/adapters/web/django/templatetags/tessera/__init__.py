@@ -8,11 +8,11 @@ Usage:
 
     {% select id="color" name="color" required=True %}
         <option value="">Pick one...</option>
-    {% endselect %}
+    {% end_select %}
 
     {% tabs %}
-        {% tab "home" icon="home" href="/home/" active=True %}Home{% endtab %}
-    {% endtabs %}
+        {% tab "home" icon="home" href="/home/" active=True %}Home{% end_tab %}
+    {% end_tabs %}
 
     {% tessera_form form %}
     {% tessera_field form.name %}

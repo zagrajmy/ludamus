@@ -289,3 +289,14 @@ If you fix a papercut, remove it.
   actually correct. Took a while to spot because the failure looked like a real
   regression. A note in the e2e docs, or a staleness check on the reused server,
   would have saved it.
+- 2026-08-19: hk pre-commit failed with a ruff TOML parse error (unrelated to my
+  diff) because poetry's virtualenvs.in-project was unset, so poetry installed
+  into a cache-dir venv while mise/hk resolved a stray global
+  /root/.local/bin/ruff 0.15.8 that doesn't understand a rule alias the pinned
+  0.16.3 does. Fixed with 'poetry config virtualenvs.in-project true' +
+  reinstall into .venv.
+- 2026-08-21: hk pre-commit inside this worktree resolved a stray global
+  /root/.local/bin/ruff 0.15.8 and missing djlint/codespell because Bash tool
+  calls don't persist PATH across invocations; also node_modules was absent
+  (aube install needed for oxfmt). Had to export .venv/bin first and run 'aube
+  install' + 'git commit' in the same Bash call.

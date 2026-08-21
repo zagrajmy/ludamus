@@ -178,8 +178,8 @@
                         </a>
                     </div>
                 {% endif %}
-            {% endtab_shell_body %}
-        {% endtab_shell %}
+            {% end_tab_shell_body %}
+        {% end_tab_shell %}
         {% include "panel/_time-slot-create-modal.html" with modal_id="time-slot-create-modal" form=create_form current_event=current_event csrf_token=csrf_token only %}
     {% else %}
         <div class="card p-8 text-center">
