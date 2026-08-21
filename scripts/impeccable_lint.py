@@ -25,11 +25,14 @@ IMPECCABLE_SPEC = "github:pbakaus/impeccable#346ce25952a6d4150433e8fb1369cb59571
 # .claude/ and .agents/: vendored agent skills. impeccable's own detector
 # carries the CSS patterns it hunts for as string literals, so scanning it
 # reports impeccable's rulebook as four gradient-text findings.
+# static/og-card/: white type over a painting, with a measured scrim doing the
+# work; the detector sees no background colour and reads it as white-on-white.
 IGNORE_PATH_SUBSTRINGS: tuple[str, ...] = (
     "e2e/playwright-report/",
     "tailwind.min.js",
     ".claude/",
     ".agents/",
+    "static/og-card/",
 )
 # tiny-text: design opinion we don't share.
 # single-font: the project deliberately uses one brand font (Outfit)

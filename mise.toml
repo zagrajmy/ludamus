@@ -355,7 +355,7 @@ done
 '''
 
 [tasks.og-image]
-description = "Re-render the link-preview card to src/ludamus/static/og-image.jpg from scripts/og-image/template.html"
+description = "Re-render the link-preview card to src/ludamus/static/og-image.jpg from src/ludamus/static/og-card/"
 dir = "{{ config_root }}"
 run = "node scripts/og-image/build.mjs"
 

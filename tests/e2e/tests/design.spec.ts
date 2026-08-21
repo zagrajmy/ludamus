@@ -38,4 +38,16 @@ test.describe("Design system page", () => {
     await playground.getByRole("button", { name: "Dismiss all" }).click();
     await expect(toasts).toHaveCount(0);
   });
+
+  test("frames the link-preview card in Outfit", async ({ page }) => {
+    await page.goto("/design/");
+
+    const card = page.frameLocator('iframe[src*="og-card"]');
+    const tagline = card.locator(".card__tagline");
+    await expect(tagline).toHaveText("konwent bez chaosu w\u00a0arkuszach");
+    // The card self-hosts Outfit; a broken font path silently falls back.
+    await expect
+      .poll(() => tagline.evaluate(() => document.fonts.check("500 46px Outfit")))
+      .toBe(true);
+  });
 });

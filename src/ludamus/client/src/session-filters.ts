@@ -1,7 +1,3 @@
-// Search + filtering for the event page session list. Reads everything it
-// needs from `data-*` attributes the Django template renders onto each card,
-// so this module stays free of server-side coupling.
-
 const byId = <T extends HTMLElement = HTMLElement>(id: string): T => {
   const el = document.getElementById(id);
   if (!el) throw new Error(`Event filters: missing #${id}`);
@@ -27,15 +23,8 @@ const addOption = (select: HTMLSelectElement, value: string, label: string): voi
   select.append(option);
 };
 
-// Listeners this module puts on `document` rather than on its own controls.
-// The schedule view tabs swap the toolbar and the cards out from under it, so
-// each init aborts the previous one's instead of stacking a closure over
-// detached nodes.
 let documentListeners = new AbortController();
 
-// The filter UI is only rendered when the event has scheduled sessions
-// (`{% if hour_data %}` in the template). The bundle still loads on empty
-// event pages, so bail out cleanly instead of throwing when it's absent.
 const initSessionFilters = (): void => {
   documentListeners.abort();
   documentListeners = new AbortController();
@@ -46,8 +35,6 @@ const initSessionFilters = (): void => {
   const venueFilter = byId<HTMLSelectElement>("venue-filter");
   const minAgeFilter = byId<HTMLInputElement>("min-age-filter");
   const maxAgeFilter = byId<HTMLInputElement>("max-age-filter");
-  // Not byId: the checkbox is absent when nothing at this event takes
-  // enrollment, and a typed query says so without an `as` cast.
   const enrollmentFilter = document.querySelector<HTMLInputElement>("#enrollment-filter");
   const filterToggle = byId("filter-toggle");
   const filterPanel = byId("filter-panel");
@@ -62,10 +49,6 @@ const initSessionFilters = (): void => {
 
   const tagFilters: Record<string, HTMLSelectElement> = {};
 
-  // Fold diacritics and lowercase so "swiata" matches "Świata". NFD splits
-  // accented letters into base + combining mark, but some letters (e.g. "ł",
-  // "ø", "ß") have no decomposition, so map those explicitly before stripping
-  // the combining marks.
   const COMBINING_MARKS = /[\u0300-\u036F]/g;
   const NON_DECOMPOSING_MAP: Record<string, string> = {
     æ: "ae",
@@ -84,10 +67,6 @@ const initSessionFilters = (): void => {
       .normalize("NFD")
       .replaceAll(COMBINING_MARKS, "");
 
-  // Precompute the searchable haystack (title + host + description) once per
-  // card. The text is static, so there's no need to re-normalize it on every
-  // keystroke; the description is read from the card's existing paragraph
-  // rather than duplicated into the DOM.
   const cardHaystacks = new Map<HTMLElement, string>();
   for (const card of sessionCards) {
     const descEl = card.querySelector("[data-session-description]");
@@ -98,9 +77,7 @@ const initSessionFilters = (): void => {
     );
   }
 
-  // Populate day filter dropdown from session data. Only relevant for multi-day
-  // events, so reveal it once more than one day is present.
-  const dayMap = new Map<string, string>(); // ISO date -> human-readable label
+  const dayMap = new Map<string, string>();
   for (const card of sessionCards) {
     const { day } = card.dataset;
     if (day && !dayMap.has(day)) dayMap.set(day, card.dataset.dayLabel ?? day);
@@ -111,8 +88,6 @@ const initSessionFilters = (): void => {
     document.getElementById("day-filter-group")?.classList.remove("hidden");
   }
 
-  // Populate hour filter dropdown from session data. Reveal it once more than
-  // one start hour is present.
   const hourSet = new Set<string>();
   for (const card of sessionCards) {
     if (card.dataset.hour) hourSet.add(card.dataset.hour);
@@ -121,13 +96,11 @@ const initSessionFilters = (): void => {
   if (hourSet.size > 1) {
     document.getElementById("hour-filter-group")?.classList.remove("hidden");
   }
-  // Reveal the shared Day/Hour row when either filter is in play.
   if (dayMap.size > 1 || hourSet.size > 1) {
     document.getElementById("day-hour-filter-group")?.classList.remove("hidden");
   }
 
-  // Populate venue filter dropdown from session data.
-  const venueMap = new Map<string, string>(); // slug -> name
+  const venueMap = new Map<string, string>();
   for (const card of sessionCards) {
     const venueSlug = card.dataset.venue;
     if (venueSlug && !venueMap.has(venueSlug)) {
@@ -140,13 +113,11 @@ const initSessionFilters = (): void => {
     document.getElementById("venue-filter-group")?.classList.remove("hidden");
   }
 
-  // Populate options for each tag filter category created by the template.
   for (const select of document.querySelectorAll<HTMLSelectElement>(".tag-filter")) {
     const categorySlug = select.dataset.category;
     if (!categorySlug) continue;
     tagFilters[categorySlug] = select;
 
-    // Parse tags from session data for this category only.
     const categoryTags = new Set<string>();
     for (const card of sessionCards) {
       const tagCategoriesData = card.dataset.tagCategories;
@@ -182,10 +153,6 @@ const initSessionFilters = (): void => {
     for (const card of sessionCards) {
       let show = true;
 
-      // Fuzzy text filter: every token must appear somewhere in the precomputed
-      // title + host + description haystack, so "Bestie Świata Jakub" matches a
-      // "Bestie Świata" session hosted by "Jakub", and a word from the blurb
-      // matches too.
       if (searchTokens.length > 0) {
         const haystack = cardHaystacks.get(card) ?? "";
         show &&= searchTokens.every((token) => haystack.includes(token));
@@ -232,9 +199,6 @@ const initSessionFilters = (): void => {
         for (const categorySlug of Object.keys(activeTagFilters)) {
           const requiredTag = escapeRegExp(activeTagFilters[categorySlug]);
           const escapedCategory = escapeRegExp(categorySlug);
-          // Match a whole `slug:value` entry, anchored to the `;` delimiters
-          // (or string ends) so one category can't impersonate another whose
-          // slug it is a substring of.
           const categoryPattern = new RegExp(
             `(?:^|;)${escapedCategory}:${requiredTag}(?:;|$)`,
             "i",
@@ -248,13 +212,9 @@ const initSessionFilters = (): void => {
       }
 
       const cardContainer = card.closest<HTMLElement>(".session-wrapper");
-      // divide-y-visible (index.css) selects on the [hidden] attribute this
-      // write toggles, so the hiding mechanism can't change without updating
-      // that utility.
       if (cardContainer) cardContainer.hidden = !show;
     }
 
-    // Hide empty time slot sections. The card and ledger layouts nest their
     for (const section of document.querySelectorAll<HTMLElement>(".time-slot-section")) {
       const cardGrid = section.querySelector(".session-grid") ?? section;
       let visibleCards = cardGrid.querySelectorAll(".session-wrapper:not([hidden])");
@@ -266,7 +226,6 @@ const initSessionFilters = (): void => {
       section.hidden = visibleCards.length === 0;
     }
 
-    // Compact schedule groups slots under day headers; hide a day whose every
     // slot is now empty so the header doesn't dangle. No-op on the card layout.
     for (const day of document.querySelectorAll<HTMLElement>("[data-schedule-day]")) {
       const visibleSlots = day.querySelectorAll(".time-slot-section:not([hidden])");
@@ -275,8 +234,6 @@ const initSessionFilters = (): void => {
 
     updateFilterUI();
 
-    // The hour rail (event-timeline.ts) owns its markers' visibility; tell it
-    // the set of visible sections changed so it can refit itself.
     document.dispatchEvent(new CustomEvent("schedule:filtered"));
   }
 
@@ -407,7 +364,6 @@ const initSessionFilters = (): void => {
     filterToggle.setAttribute("aria-expanded", String(isOpen));
   });
 
-  // Close filter panel when clicking outside or focus leaves.
   const filtersWrapper = filterToggle.closest<HTMLElement>(".filters-popover-wrapper");
   if (filtersWrapper) {
     const closePanel = (): void => {
@@ -428,9 +384,10 @@ const initSessionFilters = (): void => {
       },
       { signal: documentListeners.signal },
     );
-    filtersWrapper.addEventListener("focusout", (e) => {
-      const related = e.relatedTarget as Node | null;
-      if (!related || !filtersWrapper.contains(related)) closePanel();
+    filtersWrapper.addEventListener("focusout", () => {
+      requestAnimationFrame(() => {
+        if (!filtersWrapper.contains(document.activeElement)) closePanel();
+      });
     });
   }
 
@@ -439,15 +396,8 @@ const initSessionFilters = (): void => {
   }
 };
 
-// Every control and card above is looked up once, so a swapped-in schedule
-// (the view tabs are hx-boosted) needs the whole init again. The flag rides
-// the search box itself: a swap brings a fresh one, while the other htmx
-// traffic on this page — a session modal loading — leaves the bound one in
-// place, and re-running against it would double every filter's options.
 const bootSessionFilters = (): void => {
   const searchBox = document.getElementById("session-filter");
-  // A swap to a schedule without a toolbar never reaches initSessionFilters,
-  // so the previous toolbar's document listeners have to be dropped here.
   if (!searchBox) {
     documentListeners.abort();
     return;
