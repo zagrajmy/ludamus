@@ -289,3 +289,20 @@ If you fix a papercut, remove it.
   actually correct. Took a while to spot because the failure looked like a real
   regression. A note in the e2e docs, or a staleness check on the reused server,
   would have saved it.
+- 2026-08-21: mise run bootstrap crashes generating .env.local:
+  cryptography.fernet.Fernet needs _cffi_backend which pyo3/system python3 lacks
+  in this sandbox (ModuleNotFoundError). Worked around by generating
+  CREDENTIALS_ENCRYPTION_KEY via
+  base64.urlsafe_b64encode(secrets.token_bytes(32)) instead of
+  Fernet.generate_key(). Also: the bootstrap script's 'if [ ! -f .env.local ]'
+  check silently skips secret generation when an empty .env.local already exists
+  (e.g. from a fresh worktree), so a stale empty file leaves the env permanently
+  invalid with no clear error pointing at the cause.
+- 2026-08-21: In this worktree (.claude/worktrees/<id>), 'mise env'/'mise run'
+  resolved PATH to the sibling /home/user/ludamus/.venv/bin instead of this
+  worktree's own .venv/bin (mise walks up past the worktree root and also picks
+  up the outer repo's mise.toml, whose venv wins). Every aubr/mise-run django-
+  admin, yamllint, and the pre-commit hook failed with ENOENT/command-not-found
+  until I prepended the worktree's own .venv/bin (and
+  /home/linuxbrew/.linuxbrew/bin for msgfmt) to PATH by hand before each
+  command.
