@@ -15,6 +15,7 @@
     "oxfmt": "0.56.0",
     "oxlint": "1.70.0",
     "portless": "0.13.0",
+    "tailwindcss": "4.1.16",
     "typescript": "5.9.3",
     "varlock": "1.12.0"
   },

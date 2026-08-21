@@ -21,6 +21,7 @@ from ludamus.links.db.django.facilitator_change_log import (
 )
 from ludamus.links.db.django.guild import GuildRepository
 from ludamus.links.db.django.notifications import NotificationReadRepository
+from ludamus.links.db.django.parley import ParleyRepository
 from ludamus.links.db.django.party import PartyRepository
 from ludamus.links.db.django.printables import PrintablesReminderRepository
 from ludamus.links.db.django.safety import EventBanRepository, ShadowbanRepository
@@ -213,3 +214,7 @@ class Repositories:
     @cached_property
     def encounter_rsvps(self) -> repositories.EncounterRSVPRepository:
         return repositories.EncounterRSVPRepository()
+
+    @cached_property
+    def parley(self) -> ParleyRepository:
+        return ParleyRepository()

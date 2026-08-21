@@ -1,5 +1,8 @@
 import { defineConfig } from "oxlint";
+import { fileURLToPath } from "node:url";
 import baseConfig from "@hasparus/oxlint-config";
+
+const tailwindEntryPoint = fileURLToPath(new URL("src/index.css", import.meta.url));
 
 export default defineConfig({
   extends: [baseConfig],
@@ -12,4 +15,7 @@ export default defineConfig({
       },
     },
   ],
+  settings: {
+    "better-tailwindcss": { entryPoint: tailwindEntryPoint },
+  },
 });

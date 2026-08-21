@@ -12,6 +12,7 @@ from ludamus.links.db.django.models import (
     Event,
     EventProposalSettings,
     Facilitator,
+    ParleyReport,
     ProposalCategory,
     Session,
     SessionFieldValue,
@@ -26,6 +27,9 @@ from ludamus.pacts import SpherePage
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
+
+
+admin.site.register(ParleyReport)
 
 
 @admin.register(AgendaItem)

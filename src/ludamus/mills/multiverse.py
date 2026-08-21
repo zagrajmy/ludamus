@@ -115,8 +115,6 @@ class ConnectionsService:
 
 
 class SpherePanelService:
-    """Read-side context loader for the multiverse sphere panel."""
-
     def __init__(
         self,
         transaction: TransactionProtocol,
@@ -147,10 +145,12 @@ class SpherePanelService:
         sphere_id: int,
         *,
         allow_facilitator_session_edit: bool,
+        parley_enabled: bool,
         logo: UploadedFileProtocol | str | None = None,
     ) -> None:
         data: SphereUpdateData = {
-            "allow_facilitator_session_edit": allow_facilitator_session_edit
+            "allow_facilitator_session_edit": allow_facilitator_session_edit,
+            "parley_enabled": parley_enabled,
         }
         # None keeps the stored logo, "" removes it, a file replaces it.
         if logo is not None:

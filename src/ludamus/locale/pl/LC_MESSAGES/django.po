@@ -2614,6 +2614,15 @@ msgid "Default for the whole sphere. Events can override this setting."
 msgstr "Domyślne dla całej sfery. Wydarzenia mogą nadpisać to ustawienie."
 
 #: src/ludamus/gates/web/django/forms.py
+msgid "Enable Parley conversations"
+msgstr "Włącz rozmowy Parley"
+
+#: src/ludamus/gates/web/django/forms.py
+msgid "Show the sphere room and eligible program-item rooms to active users."
+msgstr ""
+"Pokaż aktywnym użytkownikom pokój sfery i dostępne pokoje punktów programu."
+
+#: src/ludamus/gates/web/django/forms.py
 msgid "Category name is too long (max 255 characters)."
 msgstr "Nazwa kategorii jest za długa (max 255 znaków)."
 
@@ -3181,6 +3190,170 @@ msgstr "Zostałeś/aś wypisany/a z tego spotkania."
 msgid "Your role can read the panel, but not make changes here."
 msgstr "Twoja rola pozwala przeglądać panel, ale nie wprowadzać tu zmian."
 
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "Parley"
+msgstr "Parley"
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "Close Parley"
+msgstr "Zamknij Parley"
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "Gathering conversations…"
+msgstr "Zbieramy rozmowy…"
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "Parley lost the thread. Reconnecting…"
+msgstr "Parley zgubiło wątek. Łączymy ponownie…"
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "Quiet in here. Say hello before someone starts a rules debate."
+msgstr "Ale tu cicho. Przywitaj się, zanim ktoś zacznie dyskusję o zasadach."
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "You found the table first. Leave a note for the others."
+msgstr "Pierwsza osoba przy stole! Zostaw wiadomość dla pozostałych."
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "This parley has ended, but you can still read what was said."
+msgstr "Ta rozmowa już się skończyła, ale nadal możesz ją przeczytać."
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "people around"
+msgstr "osób tutaj"
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "Message"
+msgstr "Wiadomość"
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "Send message"
+msgstr "Wyślij wiadomość"
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "Conversations"
+msgstr "Rozmowy"
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "Back to conversations"
+msgstr "Wróć do rozmów"
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "Load earlier messages"
+msgstr "Wczytaj wcześniejsze wiadomości"
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "Message deleted"
+msgstr "Wiadomość usunięta"
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "Try again"
+msgstr "Spróbuj ponownie"
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "Sending…"
+msgstr "Wysyłanie…"
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "Write a message…"
+msgstr "Napisz wiadomość…"
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "Could not connect to Parley."
+msgstr "Nie udało się połączyć z Parley."
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "Messages can be up to 1,000 characters."
+msgstr "Wiadomość może mieć najwyżej 1000 znaków."
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "This conversation is archived."
+msgstr "Ta rozmowa została zarchiwizowana."
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "Your Parley access expired. Reopen Parley to continue."
+msgstr "Twój dostęp do Parley wygasł. Otwórz Parley ponownie, aby kontynuować."
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "You do not have permission to do that."
+msgstr "Nie masz uprawnień, aby to zrobić."
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "That message could not be sent."
+msgstr "Nie udało się wysłać tej wiadomości."
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "Your writing access is currently muted."
+msgstr "Nie możesz obecnie pisać w tej rozmowie."
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "Too many messages. Wait a moment and try again."
+msgstr "Za dużo wiadomości. Zaczekaj chwilę i spróbuj ponownie."
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "Something went wrong. Try again."
+msgstr "Coś poszło nie tak. Spróbuj ponownie."
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "Delete message"
+msgstr "Usuń wiadomość"
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "online"
+msgstr "online"
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "Programme point"
+msgstr "Punkt programu"
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "Common room"
+msgstr "Pokój wspólny"
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "Delete as moderator"
+msgstr "Usuń jako moderator"
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "Mute for 1 hour"
+msgstr "Wycisz na godzinę"
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "Mute for 24 hours"
+msgstr "Wycisz na 24 godziny"
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "Mute for 7 days"
+msgstr "Wycisz na 7 dni"
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "Mute indefinitely"
+msgstr "Wycisz bezterminowo"
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "Change writing access"
+msgstr "Zmień dostęp do pisania"
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "Restore writing access"
+msgstr "Przywróć dostęp do pisania"
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "Unread"
+msgstr "Nieprzeczytane"
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "Copy message link"
+msgstr "Kopiuj link do wiadomości"
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "Report message"
+msgstr "Zgłoś wiadomość"
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "Message reported."
+msgstr "Wiadomość została zgłoszona."
+
 #: src/ludamus/gates/web/django/sphere/forms.py
 msgid "Guild name"
 msgstr "Nazwa gildii"
@@ -3605,6 +3778,10 @@ msgstr "Polityka prywatności"
 #: src/ludamus/templates/base.html
 msgid "Terms of Service"
 msgstr "Regulamin"
+
+#: src/ludamus/templates/base.html
+msgid "Open Parley"
+msgstr "Otwórz Parley"
 
 #: src/ludamus/templates/brand.html
 msgid "Logo & Brand Guidelines"
@@ -9349,20 +9526,16 @@ msgstr "Temat"
 msgid "No emails captured yet."
 msgstr "Brak przechwyconych e-maili."
 
-#~ msgid "Enrollment required"
-#~ msgstr "Wymagane zapisy"
+#~ msgid "Facilitator flagged for deletion."
+#~ msgstr "Twórca programu oznaczony do usunięcia."
 
-#~ msgid "Sessions with enrollment"
-#~ msgstr "Punkty programu z zapisami"
+#~ msgid "Facilitator unflagged."
+#~ msgstr "Usunięto oznaczenie do usunięcia."
 
-#~ msgid "Takes enrollment"
-#~ msgstr "Z zapisami"
-
-#~ msgid "No session at this event takes enrollment"
-#~ msgstr "Żaden punkt programu na tym wydarzeniu nie wymaga zapisów"
-
-#~ msgid "Show the full schedule"
-#~ msgstr "Pokaż pełny harmonogram"
+#~ msgid "Public tracks are shown to proposers in the submission wizard."
+#~ msgstr ""
+#~ "Publiczne bloki programowe są widoczne dla zgłaszających w kreatorze "
+#~ "propozycji."
 
 #~ msgid "Pending Proposals"
 #~ msgstr "Oczekujące zgłoszenia"
@@ -9379,102 +9552,46 @@ msgstr "Brak przechwyconych e-maili."
 #~ msgid "Flexible"
 #~ msgstr "Elastyczny"
 
-#~ msgid "Awaiting review"
-#~ msgstr "Czeka na akceptację"
-
-#, python-format
-#~ msgid "Edit proposal %(title)s"
-#~ msgstr "Edytuj zgłoszenie %(title)s"
-
-#~ msgid "Analytics settings"
-#~ msgstr "Ustawienia analityki"
-
-#~ msgid "Analytics consent"
-#~ msgstr "Zgoda na analitykę"
-
-#, python-format
-#~ msgid ""
-#~ "With your consent we use PostHog analytics — including session replays "
-#~ "with all inputs masked — to see how the site is used and to fix errors "
-#~ "faster. Nothing is stored before you agree. Details in the <a "
-#~ "href=\"%(privacy_url)s\">Privacy Policy</a>."
-#~ msgstr ""
-#~ "Za Twoją zgodą używamy analityki PostHog — w tym nagrań sesji z "
-#~ "zamaskowanymi wszystkimi polami — aby zobaczyć, jak serwis jest używany, "
-#~ "i szybciej naprawiać błędy. Nic nie zapisujemy, zanim się nie zgodzisz. "
-#~ "Szczegóły w <a href=\"%(privacy_url)s\">Polityce prywatności</a>."
-
-#~ msgid "Decline analytics"
-#~ msgstr "Odrzuć analitykę"
-
-#~ msgid "Allow analytics"
-#~ msgstr "Włącz analitykę"
-
 #~ msgid "Open"
 #~ msgstr "Otwarte"
+
+#~ msgid "Awaiting review"
+#~ msgstr "Czeka na akceptację"
 
 #~ msgid "Not Available"
 #~ msgstr "Niedostępne"
 
-#~ msgid "Empty or 0 = no limit"
-#~ msgstr "Puste pole lub 0 = bez limitu"
-
-#~ msgid "Deleted only"
-#~ msgstr "Tylko usunięci"
-
+#, python-format
 #~ msgid ""
-#~ "Map each source answer to an ISO 8601 duration (e.g. PT1H30M for 1 h 30 "
-#~ "min). Answers without a mapping are skipped at import time."
+#~ "The token expires after %(token_max_age_days)s days and works only while "
+#~ "you stay a manager of this sphere. Anyone holding it can act with your "
+#~ "permissions — keep it secret."
 #~ msgstr ""
-#~ "Zmapuj każdą odpowiedź źródłową na czas trwania ISO 8601 (np. PT1H30M dla "
-#~ "1 g 30 min). Odpowiedzi bez mapowania są pomijane przy imporcie."
+#~ "Token wygasa po %(token_max_age_days)s dniach i działa tylko dopóki "
+#~ "zarządzasz tą sferą. Każdy, kto go posiada, może działać z Twoimi "
+#~ "uprawnieniami — trzymaj go w tajemnicy."
 
-#~ msgid "ISO 8601 duration"
-#~ msgstr "Czas trwania ISO 8601"
+#, python-format
+#~ msgid ""
+#~ "Generate a personal token to connect an MCP client (such as Claude Code "
+#~ "or Executor) to this sphere's organizer API. The token is valid for "
+#~ "%(token_max_age_days)s days."
+#~ msgstr ""
+#~ "Wygeneruj osobisty token, aby połączyć klienta MCP (np. Claude Code lub "
+#~ "Executor) z API organizatora tej sfery. Token jest ważny przez "
+#~ "%(token_max_age_days)s dni."
 
 #~ msgid "Toggle category"
 #~ msgstr "Przełącz kategorię"
 
-#, python-format
-#~ msgid ""
-#~ "\n"
-#~ "                            Scheduled in %(space)s, %(start)s – %(end)s\n"
-#~ "                        "
-#~ msgstr ""
-#~ "\n"
-#~ "                            Zaplanowano w %(space)s, %(start)s – %(end)s\n"
-#~ "                        "
+#~ msgid "Set minimum and maximum participant limits for this category."
+#~ msgstr "Ustaw minimalny i maksymalny limit uczestników dla tej kategorii."
 
-#, python-format
-#~ msgid ""
-#~ "\n"
-#~ "                            Imported via %(name)s on %(at)s\n"
-#~ "                        "
-#~ msgstr ""
-#~ "\n"
-#~ "                            Zaimportowano przez %(name)s — %(at)s\n"
-#~ "                        "
+#~ msgid "Statistics"
+#~ msgstr "Statystyki"
 
-#~ msgid "Nothing to filter by yet."
-#~ msgstr "Nie ma jeszcze czego filtrować."
-
-#, python-format
-#~ msgid "%(count)d facilitator runs sessions and was kept."
-#~ msgid_plural "%(count)d facilitators run sessions and were kept."
-#~ msgstr[0] ""
-#~ "%(count)d twórca programu prowadzi punkty programu i został zachowany."
-#~ msgstr[1] ""
-#~ "%(count)d twórców programu prowadzi punkty programu i zostało zachowanych."
-#~ msgstr[2] ""
-#~ "%(count)d twórców programu prowadzi punkty programu i zostało zachowanych."
-#~ msgstr[3] ""
-#~ "%(count)d twórców programu prowadzi punkty programu i zostało zachowanych."
-
-#~ msgid "Facilitator flagged for deletion."
-#~ msgstr "Twórca programu oznaczony do usunięcia."
-
-#~ msgid "Facilitator unflagged."
-#~ msgstr "Usunięto oznaczenie do usunięcia."
+#~ msgid "Submissions"
+#~ msgstr "Zgłoszenia"
 
 #~ msgid "Flagged for deletion only"
 #~ msgstr "Tylko oznaczeni do usunięcia"
@@ -9499,27 +9616,50 @@ msgstr "Brak przechwyconych e-maili."
 #~ msgid "Flag %(name)s for deletion"
 #~ msgstr "Oznacz do usunięcia: %(name)s"
 
+#~ msgid ""
+#~ "Map each source answer to an ISO 8601 duration (e.g. PT1H30M for 1 h 30 "
+#~ "min). Answers without a mapping are skipped at import time."
+#~ msgstr ""
+#~ "Zmapuj każdą odpowiedź źródłową na czas trwania ISO 8601 (np. PT1H30M dla "
+#~ "1 g 30 min). Odpowiedzi bez mapowania są pomijane przy imporcie."
+
+#~ msgid "ISO 8601 duration"
+#~ msgstr "Czas trwania ISO 8601"
+
 #, python-format
-#~ msgid "%(scheduled)s scheduled, %(pending)s pending"
-#~ msgstr "%(scheduled)s w harmonogramie, %(pending)s czeka"
+#~ msgid ""
+#~ "\n"
+#~ "                            Scheduled in %(space)s, %(start)s – %(end)s\n"
+#~ "                        "
+#~ msgstr ""
+#~ "\n"
+#~ "                            Zaplanowano w %(space)s, %(start)s – %(end)s\n"
+#~ "                        "
 
-#~ msgid "Statistics"
-#~ msgstr "Statystyki"
-
-#~ msgid "Submissions"
-#~ msgstr "Zgłoszenia"
-
-#~ msgid "Set minimum and maximum participant limits for this category."
-#~ msgstr "Ustaw minimalny i maksymalny limit uczestników dla tej kategorii."
-
-#~ msgid "That is more people than we can store."
-#~ msgstr "To więcej osób, niż jesteśmy w stanie zapisać."
+#, python-format
+#~ msgid ""
+#~ "\n"
+#~ "                            Imported via %(name)s on %(at)s\n"
+#~ "                        "
+#~ msgstr ""
+#~ "\n"
+#~ "                            Zaimportowano przez %(name)s — %(at)s\n"
+#~ "                        "
 
 #~ msgid "Confirm block"
 #~ msgstr "Potwierdź blok"
 
 #~ msgid "Confirm all"
 #~ msgstr "Potwierdź wszystkie"
+
+#~ msgid ""
+#~ "Tracks let you group proposals by thematic area. Public tracks are shown "
+#~ "to proposers in the submission wizard; private tracks are for internal "
+#~ "categorization only."
+#~ msgstr ""
+#~ "Bloki programowe pozwalają grupować propozycje tematycznie. Publiczne "
+#~ "bloki są widoczne dla zgłaszających w kreatorze propozycji; prywatne "
+#~ "służą wyłącznie do wewnętrznej kategoryzacji."
 
 #~ msgid "Whole event…"
 #~ msgstr "Całe wydarzenie…"
@@ -9599,6 +9739,10 @@ msgstr "Brak przechwyconych e-maili."
 #~ msgid "Select all"
 #~ msgstr "Zaznacz wszystkie"
 
+#~ msgid "The kept facilitator receives all sessions from the others."
+#~ msgstr ""
+#~ "Zachowany twórca programu przejmuje wszystkie punkty programu pozostałych."
+
 #~ msgid "Keep"
 #~ msgstr "Zachowaj"
 
@@ -9626,6 +9770,9 @@ msgstr "Brak przechwyconych e-maili."
 
 #~ msgid "Shown on public session card"
 #~ msgstr "Widoczne na publicznej karcie punktu programu"
+
+#~ msgid "Facilitator released."
+#~ msgstr "Twórca programu zwolniony."
 
 #~ msgid "Only this facilitator's organizer can release it."
 #~ msgstr "Tylko opiekun tego twórcy programu może go zwolnić."
@@ -9739,15 +9886,79 @@ msgstr "Brak przechwyconych e-maili."
 #~ "Nie można scalić tych twórców programu. Sprawdź wybór, cel scalania i "
 #~ "powiązane konta."
 
+#~ msgid "Enrollment required"
+#~ msgstr "Wymagane zapisy"
+
+#~ msgid "Sessions with enrollment"
+#~ msgstr "Punkty programu z zapisami"
+
+#~ msgid "Takes enrollment"
+#~ msgstr "Z zapisami"
+
+#~ msgid "No session at this event takes enrollment"
+#~ msgstr "Żaden punkt programu na tym wydarzeniu nie wymaga zapisów"
+
+#~ msgid "Show the full schedule"
+#~ msgstr "Pokaż pełny harmonogram"
+
+#, python-format
+#~ msgid "Edit proposal %(title)s"
+#~ msgstr "Edytuj zgłoszenie %(title)s"
+
+#~ msgid "Analytics settings"
+#~ msgstr "Ustawienia analityki"
+
+#~ msgid "Analytics consent"
+#~ msgstr "Zgoda na analitykę"
+
+#, python-format
+#~ msgid ""
+#~ "With your consent we use PostHog analytics — including session replays "
+#~ "with all inputs masked — to see how the site is used and to fix errors "
+#~ "faster. Nothing is stored before you agree. Details in the <a "
+#~ "href=\"%(privacy_url)s\">Privacy Policy</a>."
+#~ msgstr ""
+#~ "Za Twoją zgodą używamy analityki PostHog — w tym nagrań sesji z "
+#~ "zamaskowanymi wszystkimi polami — aby zobaczyć, jak serwis jest używany, "
+#~ "i szybciej naprawiać błędy. Nic nie zapisujemy, zanim się nie zgodzisz. "
+#~ "Szczegóły w <a href=\"%(privacy_url)s\">Polityce prywatności</a>."
+
+#~ msgid "Decline analytics"
+#~ msgstr "Odrzuć analitykę"
+
+#~ msgid "Allow analytics"
+#~ msgstr "Włącz analitykę"
+
+#~ msgid "Empty or 0 = no limit"
+#~ msgstr "Puste pole lub 0 = bez limitu"
+
+#~ msgid "Deleted only"
+#~ msgstr "Tylko usunięci"
+
+#~ msgid "Nothing to filter by yet."
+#~ msgstr "Nie ma jeszcze czego filtrować."
+
+#, python-format
+#~ msgid "%(count)d facilitator runs sessions and was kept."
+#~ msgid_plural "%(count)d facilitators run sessions and were kept."
+#~ msgstr[0] ""
+#~ "%(count)d twórca programu prowadzi punkty programu i został zachowany."
+#~ msgstr[1] ""
+#~ "%(count)d twórców programu prowadzi punkty programu i zostało zachowanych."
+#~ msgstr[2] ""
+#~ "%(count)d twórców programu prowadzi punkty programu i zostało zachowanych."
+#~ msgstr[3] ""
+#~ "%(count)d twórców programu prowadzi punkty programu i zostało zachowanych."
+
+#, python-format
+#~ msgid "%(scheduled)s scheduled, %(pending)s pending"
+#~ msgstr "%(scheduled)s w harmonogramie, %(pending)s czeka"
+
+#~ msgid "That is more people than we can store."
+#~ msgstr "To więcej osób, niż jesteśmy w stanie zapisać."
+
 #~ msgid "Session deleted."
 #~ msgstr "Punkt programu został usunięty."
-
-#~ msgid "The kept facilitator receives all sessions from the others."
-#~ msgstr ""
-#~ "Zachowany twórca programu przejmuje wszystkie punkty programu pozostałych."
-
-#~ msgid "Facilitator released."
-#~ msgstr "Twórca programu zwolniony."
 
 #, python-format
 #~ msgid ""

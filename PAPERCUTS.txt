@@ -163,6 +163,16 @@ If you fix a papercut, remove it.
   3.14, so a bare 'python' (3.11 on PATH here) raises a SyntaxError that reads
   like a repo bug. Black under 3.14 normalizes to that form, so parenthesizing
   it fights the formatter and hk reverts the file mid-commit.
+- 2026-08-06: Ran mise tasks in the workspace sandbox → mise failed with
+  Operation not permitted until rerun outside the sandbox; the error did not
+  identify the blocked path.
+- 2026-08-06: Ran pytest directly for a targeted check → settings failed before
+  collection because repository test env is only loaded by mise tasks; the
+  failure did not suggest mise run test:py.
+- 2026-08-06: Tried the previously documented hidden _pytest task for focused
+  tests → task no longer exists; mise tasks is required to find its replacement.
+- 2026-08-06: Tried aube --cwd for package-local checks; aube uses -C/--dir
+  instead, so every command failed before running.
 - 2026-08-07: docs/agents/sandbox.md documents the python3.14 install as
   apt+deadsnakes, but the CC-web egress proxy 403s ppa.launchpadcontent.net, so
   mise install leaves no 3.14 and the Python suite can't run. 3.13 is not a
