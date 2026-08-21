@@ -1,6 +1,15 @@
 // Search + filtering for the event page session list. Reads everything it
 // needs from `data-*` attributes the Django template renders onto each card,
-// so this module stays free of server-side coupling.
+// so this module stays free of server-side coupling. Active filters are
+// mirrored into the query string (replace-only, see url-state.ts): a filtered
+// view is shareable and survives reloads and view-tab swaps without becoming
+// history entries or server round trips.
+
+import { hrefWithSearchParams, replaceSearchParams } from "./url-state";
+
+// filterSessions runs per keystroke, and Safari rate-limits replaceState hard
+// enough (~100 calls per 30s) that typing unthrottled could trip it.
+const URL_SYNC_DEBOUNCE_MS = 300;
 
 const byId = <T extends HTMLElement = HTMLElement>(id: string): T => {
   const el = document.getElementById(id);
@@ -162,6 +171,106 @@ const initSessionFilters = (): void => {
     for (const tag of [...categoryTags].sort()) addOption(select, tag, tag);
     select.addEventListener("change", filterSessions);
   }
+
+  // Controls whose value lives in the query string too. Param names must stay
+  // clear of what other modules push on this page: `session` and
+  // `enter-code` (modal.ts trigger links) and the view switcher's `view`.
+  interface MirroredControl {
+    read: () => string;
+    write: (value: string) => void;
+  }
+
+  const mirrored = new Map<string, MirroredControl>();
+  const mirrorInput = (name: string, input: HTMLInputElement): void => {
+    mirrored.set(name, {
+      read: () => input.value.trim(),
+      write: (value) => {
+        input.value = value;
+      },
+    });
+  };
+  // Assigning a value no <option> carries leaves a select on "", so a stale
+  // deep link (a venue renamed, a tag gone) degrades to "all", not an error.
+  const mirrorSelect = (name: string, select: HTMLSelectElement): void => {
+    mirrored.set(name, {
+      read: () => select.value,
+      write: (value) => {
+        select.value = value;
+      },
+    });
+  };
+
+  mirrorInput("q", sessionFilter);
+  mirrorSelect("status", statusFilter);
+  if (enrollmentFilter) {
+    mirrored.set("enrollment", {
+      read: () => (enrollmentFilter.checked ? "1" : ""),
+      write: (value) => {
+        enrollmentFilter.checked = value !== "";
+      },
+    });
+  }
+  mirrorSelect("day", dayFilter);
+  mirrorSelect("hour", hourFilter);
+  mirrorSelect("venue", venueFilter);
+  mirrorInput("age-min", minAgeFilter);
+  mirrorInput("age-max", maxAgeFilter);
+  // `__track` and `__category` are the template's own pseudo-categories, so
+  // they get clean names; organizer-defined categories are event-scoped slugs,
+  // prefixed so one named e.g. "status" cannot shadow a built-in param.
+  const TAG_PARAM_NAMES: Record<string, string> = { __category: "category", __track: "track" };
+  for (const [slug, select] of Object.entries(tagFilters)) {
+    mirrorSelect(TAG_PARAM_NAMES[slug] ?? `tag-${slug}`, select);
+  }
+
+  const mirrorState = (): Map<string, string | null> =>
+    new Map([...mirrored].map(([name, control]) => [name, control.read() || null]));
+
+  let urlSyncTimer: ReturnType<typeof setTimeout> | undefined;
+  documentListeners.signal.addEventListener("abort", () => clearTimeout(urlSyncTimer));
+  const scheduleUrlSync = (): void => {
+    clearTimeout(urlSyncTimer);
+    urlSyncTimer = setTimeout(() => {
+      const state = mirrorState();
+      replaceSearchParams(state);
+      // The view tabs are hx-boosted GETs to `?view=…`; splice the mirror
+      // into their hrefs so open-in-new-tab keeps the filters. A plain click
+      // ignores this — htmx captured the href at process time — and is
+      // covered by the htmx:configRequest listener below instead.
+      for (const tab of document.querySelectorAll<HTMLAnchorElement>(
+        '#schedule-region a[role="tab"][href]',
+      )) {
+        tab.setAttribute("href", hrefWithSearchParams(tab.getAttribute("href") ?? "", state));
+      }
+    }, URL_SYNC_DEBOUNCE_MS);
+  };
+
+  // Filters survive a view-tab switch by riding the pushed URL: the mirror is
+  // spliced into the boosted request path at send time (fresh, no debounce
+  // staleness), and the swapped-in toolbar reads it back off location.
+  document.body.addEventListener(
+    "htmx:configRequest",
+    (event) => {
+      const { detail } = event as CustomEvent<{ elt: Element; path: string }>;
+      if (!detail.elt.matches('#schedule-region a[role="tab"]')) return;
+      detail.path = hrefWithSearchParams(detail.path, mirrorState());
+    },
+    { signal: documentListeners.signal },
+  );
+
+  /** Read the query string back into the controls; true when anything moved. */
+  const applyUrlState = (): boolean => {
+    const params = new URLSearchParams(globalThis.location.search);
+    let changed = false;
+    for (const [name, control] of mirrored) {
+      const target = params.get(name) ?? "";
+      const before = control.read();
+      if (before === target) continue;
+      control.write(target);
+      changed ||= control.read() !== before;
+    }
+    return changed;
+  };
 
   function filterSessions(): void {
     const searchTokens = normalizeText(sessionFilter.value).split(/\s+/).filter(Boolean);
@@ -382,6 +491,8 @@ const initSessionFilters = (): void => {
       filterChipsBar.classList.remove("has-chips");
     }
 
+    scheduleUrlSync();
+
     const visibleCards = document.querySelectorAll(".session-wrapper:not([hidden])");
     const anyFilterActive = chips.length > 0 || sessionFilter.value.trim() !== "";
     if (filterNoResults) {
@@ -437,6 +548,22 @@ const initSessionFilters = (): void => {
   if (clearFiltersFromNoResults) {
     clearFiltersFromNoResults.addEventListener("click", clearAllFilters);
   }
+
+  // Back/forward can land on an entry whose query differs (a view-tab push
+  // made under other filters); the URL is the truth on traversal, so read it
+  // back in. Traversals across modal entries carry identical filter params,
+  // leaving this a no-op while a modal morph runs.
+  globalThis.addEventListener(
+    "popstate",
+    () => {
+      if (applyUrlState()) filterSessions();
+    },
+    { signal: documentListeners.signal },
+  );
+
+  // Deep links: seed the controls from the query string and run the filters
+  // once. A parameterless load skips the pass — and with it any replaceState.
+  if (applyUrlState()) filterSessions();
 };
 
 // Every control and card above is looked up once, so a swapped-in schedule

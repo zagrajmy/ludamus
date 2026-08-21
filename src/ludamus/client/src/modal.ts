@@ -447,6 +447,21 @@ document.addEventListener(
   true,
 );
 
+// Trigger hrefs carry only their own param (`?session=5`), so letting one
+// commit as-is would drop the rest of the query — the schedule's `?view=` and
+// the filter mirror (url-state.ts). Once the intercepted navigation has
+// committed, splice back whatever the destination did not itself set.
+const restoreCarriedParams = (carried: URLSearchParams): void => {
+  const url = new URL(globalThis.location.href);
+  let restored = false;
+  for (const [name, value] of carried) {
+    if (url.searchParams.has(name)) continue;
+    url.searchParams.set(name, value);
+    restored = true;
+  }
+  if (restored) globalThis.history.replaceState(globalThis.history.state, "", url);
+};
+
 if (navigation) {
   navigation.addEventListener("navigate", (e) => {
     if (e.navigationType !== "push") return;
@@ -479,9 +494,13 @@ if (navigation) {
       )
         continue;
 
+      // Read before the navigation commits: the handler below runs after,
+      // when location already shows the bare trigger href.
+      const carriedParams = new URLSearchParams(globalThis.location.search);
       e.intercept({
         focusReset: "manual",
         async handler() {
+          restoreCarriedParams(carriedParams);
           if (await ensureModalLoaded(modalId)) {
             await openModal(modalId, { updateUrl: false });
           } else {

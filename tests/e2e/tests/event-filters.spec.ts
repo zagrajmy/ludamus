@@ -215,6 +215,73 @@ test.describe("Event fuzzy search", () => {
   });
 });
 
+test.describe("Filter state in the URL", () => {
+  const card = (page: Page, title: string) => page.locator(".session", { hasText: title });
+
+  test("mirrors active filters into the URL without adding history entries", async ({ page }) => {
+    await page.goto("/events/");
+    await page.goto("/event/autumn-open/");
+
+    await page.locator("#session-filter").fill("alex");
+    await page.getByRole("button", { name: "Filters" }).click();
+    await page.getByRole("checkbox", { name: "Only with enrollment" }).check();
+
+    // Poll the later edit: the sync that carries it reads every control, so
+    // once `enrollment` lands, `q` is in the same write.
+    await expect.poll(() => new URL(page.url()).searchParams.get("enrollment")).toBe("1");
+    expect(new URL(page.url()).searchParams.get("q")).toBe("alex");
+
+    // The mirror is replaceState-only: Back leaves the page in one step
+    // instead of walking through every filter edit.
+    await page.goBack();
+    expect(new URL(page.url()).pathname).toBe("/events/");
+  });
+
+  test("restores filters from a shared URL", async ({ page }) => {
+    await page.goto("/event/autumn-open/?hour=12%3A00&q=circle");
+
+    await expect(card(page, "Cozy Storytellers Circle")).toBeVisible();
+    await expect(card(page, "Mega Strategy Lab")).toBeHidden();
+    await expect(card(page, "Przygoda w Mieście Neonów")).toBeHidden();
+
+    await expect(page.locator("#session-filter")).toHaveValue("circle");
+    await expect(page.locator("#active-filter-chips")).toContainText("12:00");
+  });
+
+  test("keeps the mirror through a session modal opening and closing", async ({ page }) => {
+    await page.goto("/event/autumn-open/");
+    await page.locator("#session-filter").fill("mega");
+    await expect.poll(() => new URL(page.url()).searchParams.get("q")).toBe("mega");
+
+    // The trigger href is a bare `?session=<pk>`; opening must not cost the
+    // URL its filter params, and closing must drop only the session param.
+    await page.getByRole("link", { name: "Open details for Mega Strategy Lab" }).click();
+    await expect(page.locator("dialog.modal[open]")).toBeVisible();
+    await expect.poll(() => new URL(page.url()).searchParams.get("q")).toBe("mega");
+    expect(new URL(page.url()).searchParams.has("session")).toBe(true);
+
+    await page.keyboard.press("Escape");
+    await expect.poll(() => new URL(page.url()).searchParams.has("session")).toBe(false);
+    expect(new URL(page.url()).searchParams.get("q")).toBe("mega");
+  });
+
+  test("carries filters across the schedule view switch", async ({ page }) => {
+    await page.goto(DENSE_EVENT_URL);
+
+    const title = await page.locator(".session").first().getAttribute("data-title");
+    if (!title) throw new Error("first session card is missing data-title");
+    await page.locator("#session-filter").fill(title);
+    await expect.poll(() => new URL(page.url()).searchParams.get("q")).toBe(title);
+
+    await page.getByRole("tab", { name: "Rooms" }).click();
+
+    await expect.poll(() => new URL(page.url()).searchParams.get("view")).toBe("rooms");
+    expect(new URL(page.url()).searchParams.get("q")).toBe(title);
+    // The swapped-in toolbar re-reads the mirror off the pushed URL.
+    await expect(page.locator("#session-filter")).toHaveValue(title);
+  });
+});
+
 test.describe("Rooms view filtering", () => {
   const denseEventUrl = `${DENSE_EVENT_URL}?view=rooms`;
 
