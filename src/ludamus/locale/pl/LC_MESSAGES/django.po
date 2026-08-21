@@ -4123,6 +4123,7 @@ msgid "Proposals Open"
 msgstr "Zgłoszenia otwarte"
 
 #: src/ludamus/templates/chronology/event.html
+msgctxt "date range"
 msgid "to"
 msgstr "do"
 
