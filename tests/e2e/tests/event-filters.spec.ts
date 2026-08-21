@@ -343,12 +343,23 @@ test.describe("Room filter", () => {
       .first()
       .getAttribute("value");
     if (!venue) throw new Error("location filter has no venue option");
+    const venueId = venue.replace("venue:", "");
+    const spacesOf = (selector: string) =>
+      page
+        .locator(selector)
+        .evaluateAll((nodes) =>
+          [...new Set(nodes.map((node) => (node as HTMLElement).dataset.space))].sort(),
+        );
+    const rooms = await spacesOf(`.session[data-venue="${venueId}"]`);
+    expect(rooms.length).toBeGreaterThan(1);
+
     await page.locator("#space-filter").selectOption(venue);
 
     const visible = page.locator(".session-wrapper:not([hidden])");
     await expect.poll(() => visible.count()).toBeGreaterThan(0);
     for (const card of await visible.locator(".session").all())
-      await expect(card).toHaveAttribute("data-venue", venue.replace("venue:", ""));
+      await expect(card).toHaveAttribute("data-venue", venueId);
+    expect(await spacesOf(".session-wrapper:not([hidden]) .session")).toEqual(rooms);
   });
 
   test("narrows the list to the chosen room", async ({ page }) => {
