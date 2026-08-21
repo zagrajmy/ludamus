@@ -4,9 +4,11 @@
      `@starting-style` supplies the entrance's from-state and `allow-discrete`
      keeps the node painted until the exit finishes.
 
-     Values are the modal's: it enters on `.modal[open]`'s spring and leaves on
+     Values are the modal's — it enters on `.modal[open]`'s spring and leaves on
      `modal-close-out`'s shape, so the two overlays that pop over a page read as
-     the same gesture. The blur bridging the fade is the filter panel's. */
+     the same gesture — but each duration is cut: a corner card is a fraction of
+     a modal's size, and the same timing on less travel reads as sluggish. The
+     blur bridging the fade is the filter panel's. */
   .consent-banner {
     display: block;
     /* It lives in the bottom-left corner, so it grows out of that corner
@@ -19,10 +21,10 @@
     transform: scale(1) translateY(0);
     filter: blur(0);
     transition:
-      opacity 0.35s var(--ease-spring-a-bit),
-      transform 0.35s var(--ease-spring-a-bit),
-      filter 150ms ease,
-      display 0.35s allow-discrete;
+      opacity 0.28s var(--ease-spring-a-bit),
+      transform 0.28s var(--ease-spring-a-bit),
+      filter 120ms ease,
+      display 0.28s allow-discrete;
   }
 
   @starting-style {
@@ -41,10 +43,10 @@
     transform: scale(0.96) translateY(8px);
     filter: blur(6px);
     transition:
-      opacity 0.26s var(--ease-out),
-      transform 0.26s var(--ease-out),
-      filter 0.26s var(--ease-out),
-      display 0.26s allow-discrete;
+      opacity 0.2s var(--ease-out),
+      transform 0.2s var(--ease-out),
+      filter 0.2s var(--ease-out),
+      display 0.2s allow-discrete;
   }
 
   @media (prefers-reduced-motion: reduce) {
