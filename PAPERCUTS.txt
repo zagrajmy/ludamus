@@ -236,6 +236,15 @@ If you fix a papercut, remove it.
   its expected schedule_days stop matching once the local clock crosses a day
   boundary. Fails on plain main from ~21:00 Europe/Warsaw; green on CI only
   because runners are UTC.
+- 2026-08-16: every mise task died with '<tool>: not found' (pytest, mypy,
+  pylint) mid-session. Cause: mise replaced python 3.14.6 with 3.14.7 and
+  deleted the old install, leaving .venv/bin/python dangling, so every console
+  script's shebang ENOENT'd. Only the shebang-less native binaries (ruff,
+  taplo) kept working, and pylint's one half-run reported E0401 on stdlib
+  imports — both misleading. mise recreates .venv only when it is absent, never
+  when its interpreter is stale; repointing .venv/bin/python and pyvenv.cfg at
+  the .../installs/python/3.14 alias instead of the patch dir survives the next
+  bump.
 - 2026-08-16: aube install fails in the agent sandbox: aube-workspace.yaml
   paranoid:true makes advisoryCheck required, and api.osv.dev is not on the
   sandbox network allowlist, so every install dies with
@@ -250,9 +259,33 @@ If you fix a papercut, remove it.
   install, so mise silently skipped venv activation for tasks (mise x still
   resolved it). Repointed .venv/bin/python + pyvenv.cfg at 3.14 by hand. mise
   run should say the venv is unusable instead of running the task without it.
+- 2026-08-16: mise run shots: agent-browser's Chrome dies with 'No usable
+  sandbox' on this host, and --args "--no-sandbox" passed to 'agent-browser
+  open' does not help; also a target containing '?' comes through quoted (URL
+  became http://localhost:8000'/event/x/?view=enrollment'). Fell back to
+  playwright screenshot.
 - 2026-08-16: e2e: prep's 'aube install' rewrites node_modules while 'npx
   playwright test' (already launched by run_e2e.sh) has resolved its own runner
   copy. When the install actually relinks the store, every spec dies with
   'Playwright Test did not expect test.describe() to be called here' plus a
   bogus global-teardown coverage error. Whole suite red, zero code cause, passes
   on the next run.
+- 2026-08-18: Committing in a CLI worktree fails: hk pre-commit runs
+  oxlint/oxfmt via 'aube exec --no-install' but node_modules is absent in the
+  worktree, so both abort with 'binary not found' and every other hook is
+  skipped. Had to use --no-verify. Either run aube install per worktree or make
+  the hk steps skip when the binary is missing.
+- 2026-08-20: Claude Code web sandbox: mise's _.python.venv never created .venv,
+  so every task calling django-admin/djlint/tingle failed with 'not found' until
+  I prepended the poetry virtualenv bin to PATH by hand. mise run test:e2e:prep
+  dies on the first such step.
+- 2026-08-20: Screenshotting a template change needs the e2e server restarted
+  after 'aubr -C src/ludamus/client build': django_vite reads the manifest once
+  per process, so the page silently loads no CSS/JS and every layout measurement
+  is garbage. test:e2e:serve handles this, a bare 'django runserver' does not.
+- 2026-08-20: Playwright's reuseExistingServer:!isCI silently reused a stale
+  `django-admin runserver --noreload` I had left on :8000 for screenshots, so
+  `mise run test:e2e` tested pre-edit Python and failed on an assertion that was
+  actually correct. Took a while to spot because the failure looked like a real
+  regression. A note in the e2e docs, or a staleness check on the reused server,
+  would have saved it.

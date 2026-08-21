@@ -119,6 +119,7 @@ the sphere.{% endcomment %}
         /* One pair per PanelCat member; TestSidebarCoverage checks none is missing. */
         html.catc-program [data-cat="program"] .sidebar-cat-body,
         html.catc-schedule [data-cat="schedule"] .sidebar-cat-body,
+        html.catc-live [data-cat="live"] .sidebar-cat-body,
         html.catc-settings [data-cat="settings"] .sidebar-cat-body,
         html.catc-sphere [data-cat="sphere"] .sidebar-cat-body {
             display: none;
@@ -126,6 +127,7 @@ the sphere.{% endcomment %}
 
         html.catc-program [data-cat="program"] .sidebar-cat-chevron,
         html.catc-schedule [data-cat="schedule"] .sidebar-cat-chevron,
+        html.catc-live [data-cat="live"] .sidebar-cat-chevron,
         html.catc-settings [data-cat="settings"] .sidebar-cat-chevron,
         html.catc-sphere [data-cat="sphere"] .sidebar-cat-chevron {
             transform: rotate(-90deg);
@@ -209,6 +211,11 @@ the sphere.{% endcomment %}
                             {% translate "Print Materials" as t_print %}
                             {# The public print page is the one canonical print page; it opens in a new tab so the panel stays put. #}
                             {% sidebar_link url="web:chronology:event-print" slug=current_event.slug icon="printer" label=t_print new_tab=True %}
+                        {% endsidebar_cat %}
+                        {% translate "Live" context "Sidebar category" as t_live_cat %}
+                        {% sidebar_cat key="live" label=t_live_cat %}
+                            {% translate "Errata" as t_errata %}
+                            {% sidebar_link url="panel:errata" slug=current_event.slug icon="megaphone" label=t_errata key="errata" %}
                         {% endsidebar_cat %}
                         {% translate "Settings" as t_settings %}
                         {% sidebar_cat key="settings" label=t_settings %}

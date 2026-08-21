@@ -3,7 +3,8 @@ from datetime import timedelta
 from django.urls import reverse
 from django.utils.timezone import localdate
 
-from ludamus.links.db.django.models import Track
+from ludamus.links.db.django.models import SphereMembership, Track
+from ludamus.pacts.multiverse import SphereRole
 from ludamus.pacts.printing import (
     DoorCardDTO,
     DoorCardEntryDTO,
@@ -307,6 +308,30 @@ class TestPublicEventPrintMaterials:
         assert "Cookie" in response.headers.get("Vary", "")
         event.refresh_from_db()
         assert event.printables_last_printed_at is not None
+
+    def test_comms_visit_neither_marks_printed_nor_sees_unconfirmed(
+        self, authenticated_client, active_user, sphere, event, session, space
+    ):
+        SphereMembership.objects.create(
+            sphere=sphere, user=active_user, role=SphereRole.COMMS
+        )
+        AgendaItemFactory(
+            session=session,
+            space=space,
+            session_confirmed=False,
+            start_time=event.start_time,
+            end_time=event.start_time + timedelta(hours=1),
+        )
+
+        response = authenticated_client.get(self._url(event.slug), {"unconfirmed": "1"})
+
+        _assert_print_ok(
+            response,
+            print_scopes=[_scope(space)],
+            timetable=_timetable_document(event=event, pages=[]),
+        )
+        event.refresh_from_db()
+        assert event.printables_last_printed_at is None
 
     def test_participant_visit_does_not_mark_printed(self, client, event):
         response = client.get(self._url(event.slug))

@@ -23,6 +23,7 @@ from ludamus.pacts import (
     LocationData,
     SessionDTO,
     SessionParticipationStatus,
+    TimeSlotDTO,
 )
 from ludamus.pacts.crowd import UserDTO
 from ludamus.pacts.party import (
@@ -72,6 +73,31 @@ def session_card(agenda_item, *, presenter, **overrides):
     return replace(card, **overrides)
 
 
+def proposal_card(session, *, presenter, slots=(), **overrides):
+    # A pending proposal's card: the same component as session_card, minus
+    # everything an agenda item supplies — no time, no space, nothing to enroll
+    # in — plus the slots the author would accept.
+    # `slots` is stated by the caller, in the order the card should show them,
+    # rather than re-read from the session: an expectation that re-runs the
+    # production query cannot catch that query ordering wrongly.
+    card = SessionData(
+        agenda_item=None,
+        category_name=session.category.name if session.category else "",
+        effective_participants_limit=session.participants_limit,
+        enrolled_count=0,
+        is_enrollment_available=False,
+        is_full=False,
+        loc=LocationData(space_name="", parent_slug="", parent_name="", path=""),
+        preferred_time_slots=[TimeSlotDTO.model_validate(slot) for slot in slots],
+        presenter=UserInfo.from_user_dto(
+            UserDTO.model_validate(presenter), gravatar_url=gravatar_url
+        ),
+        session=SessionDTO.model_validate(session),
+        session_participations=[],
+    )
+    return replace(card, **overrides)
+
+
 def schedule_context(url):
     # The compact-schedule context keys shared by every card-layout response;
     # splatted into the exact-equality context assertions so adding a key is a
@@ -79,8 +105,7 @@ def schedule_context(url):
     return {
         "compact_schedule": False,
         "schedule_days": [],
-        "schedule_view_is_list": True,
-        "schedule_view_is_rooms": False,
+        "active_tab": "list",
         "room_lane_days": [],
         "schedule_list_url": url,
         "schedule_rooms_url": f"{url}?view=rooms",
@@ -115,7 +140,10 @@ def event_page_context(event, *, url, **overrides):
         "user_enrolled_session_titles": [],
         "view": ANY,
     }
-    return context | overrides
+    context |= overrides
+    context.setdefault("has_enrollable_sessions", False)
+    context.setdefault("scheduled_count", 0)
+    return context
 
 
 def compact_day(cards):

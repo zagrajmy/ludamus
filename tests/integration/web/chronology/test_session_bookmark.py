@@ -117,6 +117,8 @@ class TestEventPageBookmarkCounts:
                 },
                 schedule_days=[compact_day(cards)],
                 sessions=cards,
+                has_enrollable_sessions=True,
+                scheduled_count=2,
             ),
             template_name=["chronology/event.html"],
             contains="Bookmarked by 2 people",
@@ -148,8 +150,7 @@ class TestEventPageBookmarkCounts:
                 compact_schedule=True,
                 hour_data={agenda_item.start_time: [card]},
                 schedule_days=[compact_day([card])],
-                schedule_view_is_list=False,
-                schedule_view_is_rooms=True,
+                active_tab="rooms",
                 room_lane_days=[
                     RoomLaneDay(
                         day_start=hour_start,
@@ -176,6 +177,8 @@ class TestEventPageBookmarkCounts:
                     )
                 ],
                 sessions=[card],
+                has_enrollable_sessions=True,
+                scheduled_count=1,
             ),
             template_name=["chronology/event.html"],
             contains="Bookmarked by 1 person",
@@ -220,6 +223,8 @@ class TestEventPageBookmarkCounts:
                 },
                 schedule_days=[compact_day(cards)],
                 sessions=cards,
+                has_enrollable_sessions=True,
+                scheduled_count=2,
             ),
             template_name=["chronology/event.html"],
             contains=['tabular-nums ">3</span>', 'tabular-nums hidden">0</span>'],

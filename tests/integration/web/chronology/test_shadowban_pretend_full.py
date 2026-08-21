@@ -79,6 +79,8 @@ def _event_page_context(event, buckets, **overrides):
         "event_banned": False,
         **buckets,
         **schedule_context(url),
+        "has_enrollable_sessions": False,
+        "scheduled_count": 0,
         "user_enrolled_session_titles": [],
         "view": ANY,
         **overrides,
@@ -130,7 +132,13 @@ class TestShadowbanPretendFull:
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data=_event_page_context(event, buckets, total_enrolled=10),
+            context_data=_event_page_context(
+                event,
+                buckets,
+                total_enrolled=10,
+                has_enrollable_sessions=True,
+                scheduled_count=1,
+            ),
             template_name=["chronology/event.html"],
             contains=["Deniable Game"],
         )
@@ -188,7 +196,9 @@ class TestShadowbanPretendFull:
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data=_event_page_context(event, buckets),
+            context_data=_event_page_context(
+                event, buckets, has_enrollable_sessions=True, scheduled_count=1
+            ),
             template_name=["chronology/event.html"],
             contains="Visible Game",
         )
