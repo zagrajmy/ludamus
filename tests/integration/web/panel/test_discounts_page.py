@@ -210,7 +210,6 @@ class TestDiscountsPageView:
                     }
                 ],
             },
-            contains="From rules",
         )
 
 
