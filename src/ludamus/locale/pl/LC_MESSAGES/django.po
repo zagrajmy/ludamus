@@ -5813,6 +5813,10 @@ msgstr "Koralowy stół"
 msgid "Download"
 msgstr "Pobierz"
 
+#: src/ludamus/templates/design.html
+msgid "Link preview card"
+msgstr "Karta podglądu linku"
+
 #: src/ludamus/templates/index.html
 #: src/ludamus/templates/multiverse/panel/_sphere_tabs_nav.html
 #: src/ludamus/templates/multiverse/panel/announcements/list.html
