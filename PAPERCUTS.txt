@@ -289,3 +289,7 @@ If you fix a papercut, remove it.
   actually correct. Took a while to spot because the failure looked like a real
   regression. A note in the e2e docs, or a staleness check on the reused server,
   would have saved it.
+- 2026-08-21: Full local e2e in the web sandbox: 15 auth/panel specs + the
+  anonymous-code modal reopen test fail deterministically (86 more don't run),
+  while CI passes the same commits — sandbox env issue, not code; cost a bisect
+  via origin/main checkout of client files to prove it
