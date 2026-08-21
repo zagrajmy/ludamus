@@ -307,3 +307,9 @@ If you fix a papercut, remove it.
   actually correct. Took a while to spot because the failure looked like a real
   regression. A note in the e2e docs, or a staleness check on the reused server,
   would have saved it.
+- 2026-08-21: Fresh worktree at .claude/worktrees/: .venv is absent (write-
+  permission denied outside the shared checkout), so hk's pre-commit codespell
+  step failed with 'command not found' even after prepending the poetry venv bin
+  for git. Root cause: PATH must be exported for the whole shell session before
+  invoking git commit, not just prefixed on the git commit line, since hk re-
+  execs sub-hooks.
