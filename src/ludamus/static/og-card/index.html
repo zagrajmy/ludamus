@@ -113,12 +113,15 @@
         align-items: center;
         justify-content: center;
         padding: 0 4.5rem;
-        padding-top: 0.25rem;
         color: #fff;
     }
 
-    /* The lockup ships as outlined paths, so it needs no webfont to be correct. */
+    /* The lockup ships as outlined paths, so it needs no webfont to be correct.
+     Nudged off dead centre because the painting's horizon sits above it, so
+     optical centre is a touch below geometric. Translated rather than padded:
+     padding on a centred box moves it half the distance you asked for. */
     .card__lockup {
+        translate: 0 0.25rem;
         width: 40rem;
         height: auto;
         display: block;
