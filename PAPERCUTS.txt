@@ -259,6 +259,13 @@ If you fix a papercut, remove it.
   install, so mise silently skipped venv activation for tasks (mise x still
   resolved it). Repointed .venv/bin/python + pyvenv.cfg at 3.14 by hand. mise
   run should say the venv is unusable instead of running the task without it.
+- 2026-08-08: Weekly flaky-test scan found
+  test_print_document_title_names_the_document_and_the_event
+  (test_page_metadata.py) failed twice on unrelated main commits (0f90b147f6,
+  3a2f9f5c5a) this week with AttributeError: 'HttpResponseRedirect' object has
+  no attribute 'context_data', then passed again with no related fix; could
+  not reproduce in 3 local full-suite pytest -n auto runs. Quarantined with a
+  skip pending root-cause.
 - 2026-08-16: mise run shots: agent-browser's Chrome dies with 'No usable
   sandbox' on this host, and --args "--no-sandbox" passed to 'agent-browser
   open' does not help; also a target containing '?' comes through quoted (URL
