@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from http import HTTPStatus
-from typing import ClassVar
+from typing import TYPE_CHECKING, ClassVar
 
 from django.http import HttpResponse
 from django.shortcuts import redirect
@@ -9,15 +9,17 @@ from django.template.response import TemplateResponse
 from django.urls import reverse
 from django.views.generic.base import View
 
-from ludamus.gates.web.django.chronology.panel.views.base import pagination_context
 from ludamus.gates.web.django.event.panel.views.base import (
     EventContextMixin,
     EventPanelAccessMixin,
     EventPanelRequest,
 )
-from ludamus.gates.web.django.panel import safe_next_url
+from ludamus.gates.web.django.panel import pagination_context, safe_next_url
 from ludamus.pacts import NotFoundError
 from ludamus.pacts.multiverse import Capability
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 
 class ErrataPageView(EventPanelAccessMixin, EventContextMixin, View):
@@ -40,12 +42,31 @@ class ErrataPageView(EventPanelAccessMixin, EventContextMixin, View):
 
 
 def _posted_log_pks(request: EventPanelRequest) -> list[int]:
-    # A checkbox ticks off a whole erratum, so one field may carry the two rows
-    # of a move. int() is the validation: str.isdigit() would let through
-    # superscripts and other non-ASCII digits it then refuses.
+    # A tick marks a whole erratum, so one field carries every row of it —
+    # comma-joined, because the two rows of a move travel together. int() is
+    # the validation: str.isdigit() would let through superscripts and other
+    # non-ASCII digits it then refuses.
     return [
         int(pk) for raw in request.POST.getlist("log_pk") for pk in raw.split(",") if pk
     ]
+
+
+def _erratum_action(
+    *, view: EventContextMixin, slug: str, write: Callable[[int], None]
+) -> HttpResponse:
+    """Scope the event, apply one errata flag, and return to the list."""
+    _context, current_event = view.get_event_context(slug)
+    if current_event is None:
+        return redirect("panel:index")
+    try:
+        write(current_event.pk)
+    except ValueError, NotFoundError:
+        # A batch is all or nothing: a row of another event, or half a move,
+        # refuses the whole post rather than quietly flagging the rest.
+        return HttpResponse(status=HTTPStatus.UNPROCESSABLE_ENTITY)
+    return redirect(
+        safe_next_url(view.request, reverse("panel:errata", kwargs={"slug": slug}))
+    )
 
 
 class ErratumAcknowledgeActionView(EventPanelAccessMixin, EventContextMixin, View):
@@ -54,20 +75,15 @@ class ErratumAcknowledgeActionView(EventPanelAccessMixin, EventContextMixin, Vie
     write_capability: ClassVar[Capability] = Capability.ERRATUM_ACK
 
     def post(self, request: EventPanelRequest, slug: str) -> HttpResponse:
-        _context, current_event = self.get_event_context(slug)
-        if current_event is None:
-            return redirect("panel:index")
-        try:
-            request.services.errata.set_acknowledged(
-                event_pk=current_event.pk,
+        return _erratum_action(
+            view=self,
+            slug=slug,
+            write=lambda event_pk: request.services.errata.set_acknowledged(
+                event_pk=event_pk,
                 log_pks=_posted_log_pks(request),
                 user_id=request.context.current_user_id,
                 acknowledged=request.POST.get("acknowledged") == "1",
-            )
-        except ValueError, NotFoundError:
-            return HttpResponse(status=HTTPStatus.UNPROCESSABLE_ENTITY)
-        return redirect(
-            safe_next_url(request, reverse("panel:errata", kwargs={"slug": slug}))
+            ),
         )
 
 
@@ -78,17 +94,12 @@ class ErratumImportantActionView(EventPanelAccessMixin, EventContextMixin, View)
     write_capability: ClassVar[Capability] = Capability.ERRATUM_ACK
 
     def post(self, request: EventPanelRequest, slug: str) -> HttpResponse:
-        _context, current_event = self.get_event_context(slug)
-        if current_event is None:
-            return redirect("panel:index")
-        try:
-            request.services.errata.set_important(
-                event_pk=current_event.pk,
+        return _erratum_action(
+            view=self,
+            slug=slug,
+            write=lambda event_pk: request.services.errata.set_important(
+                event_pk=event_pk,
                 log_pks=_posted_log_pks(request),
                 important=request.POST.get("important") == "1",
-            )
-        except ValueError, NotFoundError:
-            return HttpResponse(status=HTTPStatus.UNPROCESSABLE_ENTITY)
-        return redirect(
-            safe_next_url(request, reverse("panel:errata", kwargs={"slug": slug}))
+            ),
         )

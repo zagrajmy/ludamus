@@ -63,6 +63,23 @@ def events_fixture():
 def logs_fixture():
     logs = MagicMock()
     logs.list_since.return_value = []
+
+    # Stands in for the repository's scoped read: the rows a batch names, plus
+    # the other half of every move among them, out of the same seeded log.
+    def erratum_rows(*, since, log_pks, **_):
+        wanted = set(log_pks)
+        window = [
+            row for row in logs.list_since.return_value if row.creation_time >= since
+        ]
+        named = {
+            row.pk for row in window if row.pk in wanted or row.moved_from_id in wanted
+        }
+        left_behind = {
+            row.moved_from_id for row in window if row.pk in named and row.moved_from_id
+        }
+        return [row for row in window if row.pk in named | left_behind]
+
+    logs.list_erratum_rows.side_effect = erratum_rows
     return logs
 
 
@@ -198,6 +215,29 @@ class TestListForEvent:
 
         assert [erratum.log_pks for erratum in errata] == [[1], [2]]
 
+    def test_an_announced_important_change_sinks_below_the_backlog(self, service, logs):
+        logs.list_since.return_value = [
+            _log(
+                2,
+                ScheduleChangeAction.ASSIGN,
+                session_id=9,
+                at=_PUBLISHED + timedelta(hours=1),
+                new_space="Room B",
+            ),
+            _log(
+                1,
+                ScheduleChangeAction.ASSIGN,
+                new_space="Room A",
+                important=True,
+                acknowledgement_time=_PUBLISHED + timedelta(hours=2),
+                acknowledged_by_name="Comms",
+            ),
+        ]
+
+        errata = service.list_for_event(_EVENT_PK)
+
+        assert [erratum.log_pks for erratum in errata] == [[2], [1]]
+
     def test_a_move_is_important_when_either_of_its_rows_is(self, service, logs):
         logs.list_since.return_value = [
             _log(
@@ -263,6 +303,20 @@ class TestSetAcknowledged:
 
         logs.set_acknowledged.assert_called_once_with(
             event_pk=_EVENT_PK, log_pks=[1], user_id=5, acknowledged=True
+        )
+
+    def test_it_checks_the_batch_without_reading_the_whole_log(self, service, logs):
+        logs.list_since.return_value = [
+            _log(1, ScheduleChangeAction.ASSIGN, new_space="Room A")
+        ]
+
+        service.set_acknowledged(
+            event_pk=_EVENT_PK, log_pks=[1], user_id=5, acknowledged=True
+        )
+
+        logs.list_since.assert_not_called()
+        logs.list_erratum_rows.assert_called_once_with(
+            event_pk=_EVENT_PK, since=_PUBLISHED, log_pks=[1]
         )
 
     def test_a_row_the_page_never_listed_is_refused(self, service, logs):

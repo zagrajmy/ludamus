@@ -78,10 +78,13 @@ class ErrataService:
             return []
         logs = self._schedule_change_logs.list_since(event_pk, event.publication_time)
         errata = _read_moves(logs)
-        # Important first, then newest: what the audience must hear about
-        # cannot sink below a week of routine reshuffling.
+        # Still to announce first, then important, then newest: what the
+        # audience must hear about cannot sink below a week of routine
+        # reshuffling, and announcing it is what retires it — the star stays
+        # on as history, so it must not keep finished work at the top.
         errata.sort(
             key=lambda erratum: (
+                erratum.acknowledged_by_name is None,
                 erratum.important,
                 erratum.creation_time,
                 erratum.log_pks[-1],
@@ -93,16 +96,24 @@ class ErrataService:
     def _check_whole_errata(self, event_pk: int, log_pks: list[int]) -> None:
         """Refuse anything but a union of whole errata this event lists."""
         # A row from before publication is not an erratum at all, and half a
-        # move announces a cancellation that never happened.
+        # move announces a cancellation that never happened. Reading only the
+        # named rows and their move partners keeps a write's cost tied to the
+        # batch, not to a log that grows for the life of the event.
         wanted = set(log_pks)
+        msg = f"Not every row of {sorted(wanted)} is an erratum of event {event_pk}"
+        event = self._events.read(event_pk)
+        if not wanted or event.publication_time is None:
+            raise NotFoundError(msg)
+        rows = self._schedule_change_logs.list_erratum_rows(
+            event_pk=event_pk, since=event.publication_time, log_pks=log_pks
+        )
         covered = {
             pk
-            for erratum in self.list_for_event(event_pk)
+            for erratum in _read_moves(rows)
             if set(erratum.log_pks) <= wanted
             for pk in erratum.log_pks
         }
-        if not wanted or covered != wanted:
-            msg = f"Not every row of {sorted(wanted)} is an erratum of event {event_pk}"
+        if covered != wanted:
             raise NotFoundError(msg)
 
     def set_important(
