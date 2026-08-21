@@ -44,6 +44,7 @@ def _to_dto(log: ScheduleChangeLog) -> ScheduleChangeLogDTO:
             "acknowledged_by_name": (
                 log.acknowledged_by.name if log.acknowledged_by else ""
             ),
+            "important": log.important,
         }
     )
 
@@ -87,6 +88,36 @@ class ScheduleChangeLogRepository(ScheduleChangeLogRepositoryProtocol):
         return [_to_dto(log) for log in qs]
 
     @staticmethod
+    def list_erratum_rows(
+        *, event_pk: int, since: datetime, log_pks: list[int]
+    ) -> list[ScheduleChangeLogDTO]:
+        """Read the named rows plus the other half of every move among them.
+
+        Enough to decide whether a batch names whole errata, without reading
+        the event's whole log — which grows for the life of the event while a
+        batch stays the size of a page.
+        """
+        window = ScheduleChangeLog.objects.filter(
+            event_id=event_pk, creation_time__gte=since
+        )
+        named = Q(pk__in=log_pks) | Q(moved_from_id__in=log_pks)
+        # A named row may be the landing half of a move, whose other half this
+        # batch reaches only through moved_from_id — and a partner from before
+        # publication is no erratum, so ask the window for it rather than
+        # following the FK.
+        left_behind = {
+            pk
+            for pk in window.filter(named).values_list("moved_from_id", flat=True)
+            if pk
+        }
+        qs = (
+            window.filter(named | Q(pk__in=left_behind))
+            .select_related(*_SELECT_RELATED)
+            .order_by("-creation_time", "-pk")
+        )
+        return [_to_dto(log) for log in qs]
+
+    @staticmethod
     def set_acknowledged(
         *, event_pk: int, log_pks: list[int], user_id: int, acknowledged: bool
     ) -> None:
@@ -95,6 +126,14 @@ class ScheduleChangeLogRepository(ScheduleChangeLogRepositoryProtocol):
         ScheduleChangeLog.objects.filter(event_id=event_pk, pk__in=log_pks).update(
             acknowledged_by=user_id if acknowledged else None,
             acknowledgement_time=timezone.now() if acknowledged else None,
+        )
+
+    @staticmethod
+    def set_important(*, event_pk: int, log_pks: list[int], important: bool) -> None:
+        # Scoped by event, like every other write here: the pks a request names
+        # prove nothing about which event the caller manages.
+        ScheduleChangeLog.objects.filter(event_id=event_pk, pk__in=log_pks).update(
+            important=important
         )
 
     @staticmethod
