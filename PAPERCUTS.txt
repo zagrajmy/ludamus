@@ -311,6 +311,9 @@ If you fix a papercut, remove it.
   anonymous-code modal reopen test fail deterministically (86 more don't run),
   while CI passes the same commits — sandbox env issue, not code; cost a bisect
   via origin/main checkout of client files to prove it
+- 2026-08-21: Running the production-image validation initially failed because
+  the Docker daemon was unavailable; I had to start OrbStack manually before the
+  build could run.
 - 2026-08-21: Fresh worktree at .claude/worktrees/: .venv is absent (write-
   permission denied outside the shared checkout), so hk's pre-commit codespell
   step failed with 'command not found' even after prepending the poetry venv bin
