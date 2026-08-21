@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% load i18n %}
+{% load django_vite %}
+{% block title %}
+    {% translate "Zagrajmy • conventions and events" %}
+{% endblock title %}
+{% block title_suffix %}
+{% endblock title_suffix %}
+{% block meta_description %}
+    {% translate "Zagrajmy runs your event programme: proposals, review, the schedule, the event page, enrollment with waiting lists, and print. Write to us: kontakt@zagrajmy.net" %}
+{% endblock meta_description %}
+{% block og_description %}
+    {% translate "Zagrajmy runs your event programme: proposals, review, the schedule, the event page, enrollment with waiting lists, and print. Write to us: kontakt@zagrajmy.net" %}
+{% endblock og_description %}
+{% block twitter_description %}
+    {% translate "Zagrajmy runs your event programme: proposals, review, the schedule, the event page, enrollment with waiting lists, and print. Write to us: kontakt@zagrajmy.net" %}
+{% endblock twitter_description %}
+{% comment %}
+    The landing's full-bleed strips need a main without the shell's max-width,
+    so the whole main region is replaced.
+{% endcomment %}
+{% block main_region %}
+    {% if messages %}
+        <div class="flash-region"
+             role="region"
+             aria-live="polite"
+             aria-label="{% translate "Notifications" %}">{% include "components/flash-messages.html" %}</div>
+    {% endif %}
+    <main class="grow flex flex-col w-full mb-8">
+        {% include "landing/landing.html" %}
+    </main>
+{% endblock main_region %}
+{% block extra_head %}
+    {% comment %}
+        Ctrl+P works right here: hide the interactive chrome and, for dark-mode
+        visitors, print with the light palette (dark text on unprinted white).
+    {% endcomment %}
+    {% include "_print_chrome.html" %}
+{% endblock extra_head %}
+{% block extra_scripts %}
+    {% vite_asset 'src/landing.ts' %}
+{% endblock extra_scripts %}

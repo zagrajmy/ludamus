@@ -22,6 +22,8 @@ from ludamus.pacts.event import (
     EventSlugConflictError,
     EventsRepositoryProtocol,
     EventsServiceProtocol,
+    LandingStatsDTO,
+    LandingStatsRepositoryProtocol,
 )
 from ludamus.pacts.legacy import (
     AgendaItemRepositoryProtocol,
@@ -427,6 +429,14 @@ class EventPanelService(EventPanelServiceProtocol):
             is_proposal_active=is_proposal_active(current_event),
             stats=build_panel_stats(stats_data),
         )
+
+
+class LandingService:
+    def __init__(self, stats: LandingStatsRepositoryProtocol) -> None:
+        self._stats = stats
+
+    def stats(self) -> LandingStatsDTO:
+        return self._stats.count_landing_stats()
 
 
 class EventsService(EventsServiceProtocol):
