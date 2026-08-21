@@ -61,8 +61,8 @@ test.describe("Enrollment filter", () => {
     await expect(card(page, MEGA)).toBeVisible();
     await expect(card(page, NEON)).toBeVisible();
     await expect(card(page, COZY)).toBeHidden();
-    // A filter, not a view: no request, no URL to share, nothing reloaded.
-    await expect(page).toHaveURL(EVENT_URL);
+    // A filter, not a view: the URL mirror writes the param, nothing reloads.
+    await expect(page).toHaveURL(`${EVENT_URL}?enrollment=1`);
     expect(await stayedOnPage(page)).toBe(true);
   });
 
