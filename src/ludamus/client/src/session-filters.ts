@@ -1,3 +1,27 @@
+// Search + filtering for the event page session list. Reads everything it
+// needs from `data-*` attributes the Django template renders onto each card,
+// so this module stays free of server-side coupling. Active filters are
+// mirrored into the query string (replace-only, see url-state.ts): a filtered
+// view is shareable and survives reloads and view-tab swaps without becoming
+// history entries or server round trips.
+
+import {
+  flagParam,
+  hrefWithSearchParams,
+  intParam,
+  replaceSearchParams,
+  type SearchParamCodec,
+  stringParam,
+} from "./url-state";
+
+// Matches the min/max attributes on the age inputs; a shared bound would be
+// a template/TS coupling for two literals.
+const ageParam = intParam(0, 99);
+
+// filterSessions runs per keystroke, and Safari rate-limits replaceState hard
+// enough (~100 calls per 30s) that typing unthrottled could trip it.
+const URL_SYNC_DEBOUNCE_MS = 300;
+
 const byId = <T extends HTMLElement = HTMLElement>(id: string): T => {
   const el = document.getElementById(id);
   if (!el) throw new Error(`Event filters: missing #${id}`);
@@ -133,6 +157,147 @@ const initSessionFilters = (): void => {
     for (const tag of [...categoryTags].sort()) addOption(select, tag, tag);
     select.addEventListener("change", filterSessions);
   }
+
+  // Controls whose value lives in the query string too, each bound through a
+  // typed codec from url-state.ts (which also lists the reserved param names
+  // a mirror must stay clear of). The codec is the type boundary: the erased
+  // entry below only ever moves raw URL strings, so a parse and a serialize
+  // that disagree can't typecheck their way in.
+  interface MirrorEntry {
+    /** Push a raw URL value into the control, through the codec. */
+    applyRaw: (raw: string | null) => void;
+    /** Does the control already hold what `raw` decodes to? */
+    matchesRaw: (raw: string | null) => boolean;
+    /** Current control value, URL-encoded; null when the param drops. */
+    readRaw: () => string | null;
+  }
+
+  const mirrored = new Map<string, MirrorEntry>();
+  const mirror = <T>(
+    name: string,
+    codec: SearchParamCodec<T>,
+    read: () => T,
+    write: (value: T) => void,
+  ): void => {
+    mirrored.set(name, {
+      applyRaw: (raw) => {
+        write(codec.parse(raw));
+      },
+      matchesRaw: (raw) => read() === codec.parse(raw),
+      readRaw: () => codec.serialize(read()),
+    });
+  };
+
+  const mirrorInput = (name: string, input: HTMLInputElement): void => {
+    mirror(
+      name,
+      stringParam,
+      () => input.value,
+      (value) => {
+        input.value = value;
+      },
+    );
+  };
+  // Assigning a value no <option> carries leaves a select on "", so a stale
+  // deep link (a venue renamed, a tag gone) degrades to "all", not an error.
+  // That makes the DOM the value schema here; the options are built from the
+  // cards at init, so a static codec could only restate them, worse.
+  const mirrorSelect = (name: string, select: HTMLSelectElement): void => {
+    mirror(
+      name,
+      stringParam,
+      () => select.value,
+      (value) => {
+        select.value = value;
+      },
+    );
+  };
+  // A number input's value is "" or a numeric string, never garbage; the
+  // codec adds the range check the attribute alone doesn't enforce on load.
+  const mirrorAge = (name: string, input: HTMLInputElement): void => {
+    mirror(
+      name,
+      ageParam,
+      () => (input.value === "" ? null : Number(input.value)),
+      (value) => {
+        input.value = value === null ? "" : String(value);
+      },
+    );
+  };
+
+  mirrorInput("q", sessionFilter);
+  mirrorSelect("status", statusFilter);
+  if (enrollmentFilter) {
+    mirror(
+      "enrollment",
+      flagParam,
+      () => enrollmentFilter.checked,
+      (value) => {
+        enrollmentFilter.checked = value;
+      },
+    );
+  }
+  mirrorSelect("day", dayFilter);
+  mirrorSelect("hour", hourFilter);
+  mirrorSelect("venue", venueFilter);
+  mirrorAge("age-min", minAgeFilter);
+  mirrorAge("age-max", maxAgeFilter);
+  // `__track` and `__category` are the template's own pseudo-categories, so
+  // they get clean names; organizer-defined categories are event-scoped slugs,
+  // prefixed so one named e.g. "status" cannot shadow a built-in param.
+  const TAG_PARAM_NAMES: Record<string, string> = { __category: "category", __track: "track" };
+  for (const [slug, select] of Object.entries(tagFilters)) {
+    mirrorSelect(TAG_PARAM_NAMES[slug] ?? `tag-${slug}`, select);
+  }
+
+  const mirrorState = (): Map<string, string | null> =>
+    new Map([...mirrored].map(([name, entry]) => [name, entry.readRaw()]));
+
+  let urlSyncTimer: ReturnType<typeof setTimeout> | undefined;
+  documentListeners.signal.addEventListener("abort", () => clearTimeout(urlSyncTimer));
+  const scheduleUrlSync = (): void => {
+    clearTimeout(urlSyncTimer);
+    urlSyncTimer = setTimeout(() => {
+      const state = mirrorState();
+      replaceSearchParams(state);
+      // The view tabs are hx-boosted GETs to `?view=…`; splice the mirror
+      // into their hrefs so open-in-new-tab keeps the filters. A plain click
+      // ignores this — htmx captured the href at process time — and is
+      // covered by the htmx:configRequest listener below instead.
+      for (const tab of document.querySelectorAll<HTMLAnchorElement>(
+        '#schedule-region a[role="tab"][href]',
+      )) {
+        tab.setAttribute("href", hrefWithSearchParams(tab.getAttribute("href") ?? "", state));
+      }
+    }, URL_SYNC_DEBOUNCE_MS);
+  };
+
+  // Filters survive a view-tab switch by riding the pushed URL: the mirror is
+  // spliced into the boosted request path at send time (fresh, no debounce
+  // staleness), and the swapped-in toolbar reads it back off location.
+  document.body.addEventListener(
+    "htmx:configRequest",
+    (event) => {
+      const { detail } = event as CustomEvent<{ elt: Element; path: string }>;
+      if (!detail.elt.matches('#schedule-region a[role="tab"]')) return;
+      detail.path = hrefWithSearchParams(detail.path, mirrorState());
+    },
+    { signal: documentListeners.signal },
+  );
+
+  /** Read the query string back into the controls; true when anything moved. */
+  const applyUrlState = (): boolean => {
+    const params = new URLSearchParams(globalThis.location.search);
+    let changed = false;
+    for (const [name, entry] of mirrored) {
+      const raw = params.get(name);
+      if (entry.matchesRaw(raw)) continue;
+      const before = entry.readRaw();
+      entry.applyRaw(raw);
+      changed ||= entry.readRaw() !== before;
+    }
+    return changed;
+  };
 
   function filterSessions(): void {
     const searchTokens = normalizeText(sessionFilter.value).split(/\s+/).filter(Boolean);
@@ -339,6 +504,8 @@ const initSessionFilters = (): void => {
       filterChipsBar.classList.remove("has-chips");
     }
 
+    scheduleUrlSync();
+
     const visibleCards = document.querySelectorAll(".session-wrapper:not([hidden])");
     const anyFilterActive = chips.length > 0 || sessionFilter.value.trim() !== "";
     if (filterNoResults) {
@@ -390,6 +557,22 @@ const initSessionFilters = (): void => {
   if (clearFiltersFromNoResults) {
     clearFiltersFromNoResults.addEventListener("click", clearAllFilters);
   }
+
+  // Back/forward can land on an entry whose query differs (a view-tab push
+  // made under other filters); the URL is the truth on traversal, so read it
+  // back in. Traversals across modal entries carry identical filter params,
+  // leaving this a no-op while a modal morph runs.
+  globalThis.addEventListener(
+    "popstate",
+    () => {
+      if (applyUrlState()) filterSessions();
+    },
+    { signal: documentListeners.signal },
+  );
+
+  // Deep links: seed the controls from the query string and run the filters
+  // once. A parameterless load skips the pass — and with it any replaceState.
+  if (applyUrlState()) filterSessions();
 };
 
 const bootSessionFilters = (): void => {
