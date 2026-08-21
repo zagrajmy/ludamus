@@ -300,7 +300,12 @@ test.describe("Backoffice Panel", () => {
     await page.getByRole("button", { name: "Create space" }).click();
 
     await expect(page.getByText("Space created successfully.")).toBeVisible();
-    await expect(page.getByText("Community Library", { exact: true })).toBeVisible();
+    // Unscoped exact-text lookup, same trap as "lists the space tree for the
+    // event" above: a serial retry replays this test from the top without
+    // undoing the earlier attempt's insert, so a later attempt sees two
+    // "Community Library" nodes and an exact match becomes a strict-mode
+    // violation (CI run 32138614309). .first() only needs one to exist.
+    await expect(page.getByText("Community Library", { exact: true }).first()).toBeVisible();
   });
 
   test("creates a nested space inside a parent", async ({ page }) => {
