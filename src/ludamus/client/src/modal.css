@@ -88,7 +88,7 @@
 ::view-transition-group(morph-title),
 ::view-transition-group(morph-host),
 ::view-transition-group(morph-avatar),
-::view-transition-group(morph-desc) {
+::view-transition-group(morph-footer) {
   animation-duration: var(--vt-morph-duration);
   animation-timing-function: var(--vt-morph-ease);
 }
@@ -108,13 +108,14 @@
   mix-blend-mode: normal;
 }
 
-/* Card content that the modal re-renders elsewhere (or drops) is cut the moment
-   the morph starts. Without this the card's tag pills and its meta row keep
-   painting under the description as it grows past them — the container snapshot
-   they belong to fades over 55% of the morph, which is long enough to read. */
+/* Each of these carries its own name, so it is lifted out of the card's snapshot
+   into a group of its own, and an old-only group is appended after
+   session-morph — it paints on top of the arriving modal, not behind it. None of
+   them appears in the paired-group timing above either, so without this they
+   would sit crisply legible over the new modal for the UA's default 0.25s fade.
+   Cut them at the start instead. Same treatment the title and host already get. */
 ::view-transition-old(morph-title),
 ::view-transition-old(morph-host),
-::view-transition-old(morph-desc),
 ::view-transition-old(morph-tags),
 ::view-transition-old(morph-meta),
 ::view-transition-old(morph-time) {
@@ -122,9 +123,38 @@
   opacity: 0;
 }
 
-/* Modal chrome with no card counterpart is captured as a new-only group, which
-   the spec appends after every paired group — so these paint above the morphing
-   description and, being opaque, finally occlude it. */
+/* The tab bar exists only in the modal, so it is captured as a new-only group —
+   no old geometry to interpolate, so it renders at its final layout for the whole
+   morph while the sheet is still a fraction of its final width. Nesting it inside
+   session-morph puts it under the container's transform and clip, so it travels
+   and crops with the sheet. It keeps its name, which is what separates this from
+   dropping the name: the stagger below still applies, so the bar still waits for
+   the title to fly past instead of painting over it.
+
+   The footer does not want this. Nesting fixes where a group is drawn but not
+   where it starts from, and a new-only group starts at its own slot inside the
+   container — which for a card in the last column is the far right of the
+   viewport, so the bar slid in sideways. It is paired instead: see the anchor in
+   _session_card.html.
+
+   Level 2, and no WebKit support yet — Safari drops the declaration and keeps the
+   flat behaviour for the tabs. That degrades well because the cost is
+   proportional to how far the sheet travels sideways, and on a phone it barely
+   does: the dialog is near full-width, so the card grows ~11% in width against
+   ~108% in height. */
+[data-morph="tabs"] {
+  view-transition-group: nearest;
+}
+
+/* The anchor renders nothing, so its snapshot is an empty strip. Cut it rather
+   than let it cross-fade for the UA's default 0.25s over the arriving bar. */
+::view-transition-old(morph-footer) {
+  animation: none;
+  opacity: 0;
+}
+
+/* The footer carries the modal's surface colour because the container snapshot
+   underneath is mid-cross-fade with the card and would otherwise show through. */
 ::view-transition-new(morph-footer) {
   animation-duration: var(--vt-morph-duration);
   animation-timing-function: var(--vt-morph-ease);
@@ -144,9 +174,38 @@
     calc(var(--vt-morph-duration) * 0.5) both;
 }
 
+/* The venue gets its own ramp rather than sharing the one above. It is small,
+   secondary text with no counterpart on the card, so a bare opacity fade over
+   0.4 of the morph reads as switching on rather than arriving. Resolving it out
+   of a blur gives the eye something to track, and running to exactly 1.0 (0.5
+   delay + 0.5 duration) lands it as the morph settles without extending the
+   transition — the pseudo-elements live until the longest animation on them
+   ends. Safari rasterises `filter` on a view-transition snapshot; the page-blur
+   keyframes below already rely on that. */
+::view-transition-new(morph-venue) {
+  animation: vt-venue-in calc(var(--vt-morph-duration) * 0.5) var(--vt-morph-ease)
+    calc(var(--vt-morph-duration) * 0.5) both;
+}
+
 @keyframes vt-chrome-in {
   from {
     opacity: 0;
+  }
+}
+
+/* 8px, not the 4px the backdrop uses: this is 14px secondary text, and at 4px
+   the frames are almost indistinguishable from a plain fade. Both ends are
+   written out because interpolating a blur against an implicit `none` relies on
+   filter list-identity rules, and being explicit costs one line. */
+@keyframes vt-venue-in {
+  from {
+    opacity: 0;
+    filter: blur(8px);
+  }
+
+  to {
+    opacity: 1;
+    filter: blur(0);
   }
 }
 
@@ -256,24 +315,8 @@
       display 0.2s allow-discrete;
   }
 
-  ::view-transition-group(session-morph),
-  ::view-transition-group(morph-title),
-  ::view-transition-group(morph-host),
-  ::view-transition-group(morph-avatar),
-  ::view-transition-group(morph-desc),
-  ::view-transition-old(session-morph),
-  ::view-transition-new(session-morph),
-  ::view-transition-old(morph-title),
-  ::view-transition-old(morph-host),
-  ::view-transition-old(morph-desc),
-  ::view-transition-old(morph-tags),
-  ::view-transition-old(morph-meta),
-  ::view-transition-old(morph-time),
-  ::view-transition-old(morph-avatar),
-  ::view-transition-new(morph-avatar),
-  ::view-transition-new(morph-tabs),
-  ::view-transition-new(morph-desc-label),
-  ::view-transition-new(morph-footer) {
-    animation: none;
-  }
+  /* No morph rules here on purpose. `canMorph` in modal.ts refuses to start a
+     session morph under reduced motion, so no session-morph / morph-* name is
+     ever applied and every such selector would be dead. The gate lives in the
+     JS because it also has to pick the non-animated open path. */
 }

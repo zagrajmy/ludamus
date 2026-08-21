@@ -13,14 +13,11 @@
 {% block header_actions %}
     {% if current_event %}
         <div class="flex items-center gap-3">
-            <a href="{% url 'panel:event-integration-settings' slug=current_event.slug %}"
-               class="btn btn-secondary">{% translate "Cancel" %}</a>
-            <button type="submit"
-                    form="integration-form"
-                    class="btn btn-primary flex items-center">
-                {% icon "plus" class="w-4 h-4 mr-2" %}
-                {% translate "Create" %}
-            </button>
+            {% url 'panel:event-integration-settings' slug=current_event.slug as cancel_url %}
+            {% translate "Cancel" as cancel_label %}
+            {% tessera_button cancel_label href=cancel_url variant="secondary" %}
+            {% translate "Create" as create_label %}
+            {% tessera_button create_label form="integration-form" icon="plus" %}
         </div>
     {% endif %}
 {% endblock header_actions %}

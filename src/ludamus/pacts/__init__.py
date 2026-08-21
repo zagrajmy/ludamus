@@ -1,3 +1,4 @@
+from ludamus.pacts.event import FacilitatorListItemDTO
 from ludamus.pacts.fields import (
     FieldAnswer,
     FieldDescriptor,
@@ -48,7 +49,6 @@ from ludamus.pacts.legacy import (
     FacilitatorChangeLogRepositoryProtocol,
     FacilitatorData,
     FacilitatorDTO,
-    FacilitatorListItemDTO,
     FacilitatorRepositoryProtocol,
     FacilitatorUpdateData,
     FieldUsageSummary,
@@ -57,8 +57,6 @@ from ludamus.pacts.legacy import (
     NotFoundError,
     NotificationKind,
     PanelStatsDTO,
-    PendingSessionDTO,
-    PendingSessionTimeSlotDTO,
     PersonalDataFieldCreateData,
     PersonalDataFieldRepositoryProtocol,
     PersonalDataFieldUpdateData,
@@ -178,8 +176,6 @@ __all__ = [
     "OrganizerFieldDTO",
     "OrganizerFieldOptionDTO",
     "PanelStatsDTO",
-    "PendingSessionDTO",
-    "PendingSessionTimeSlotDTO",
     "PersonalDataFieldCreateData",
     "PersonalDataFieldRepositoryProtocol",
     "PersonalDataFieldUpdateData",

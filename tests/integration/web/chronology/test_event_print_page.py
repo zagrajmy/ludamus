@@ -53,6 +53,41 @@ def _confirmed_item(event, session, space):
     )
 
 
+def _timetable_document(*, event, pages, scope_name=None):
+    return PrintTimetableDocumentDTO(
+        event_name=event.name,
+        event_description=event.description,
+        event_start=event.start_time,
+        event_end=event.end_time,
+        scope_name=scope_name,
+        is_complete=False,
+        pages=pages,
+    )
+
+
+def _one_hour_page(*, event, session, space):
+    return PrintTimetablePageDTO(
+        day=event.start_time.date(),
+        space_names=[space.name],
+        rows=[
+            PrintTimetableRowDTO(
+                start_time=event.start_time,
+                end_time=event.start_time + timedelta(hours=1),
+                cells=[
+                    PrintTimetableCellDTO(
+                        sessions=[
+                            PrintSessionDTO(
+                                title=session.title, presenter_name=session.display_name
+                            )
+                        ]
+                    )
+                ],
+            )
+        ],
+        space_range_name=None,
+    )
+
+
 def _area_schedule_document(*, event, session, space):
     return AreaScheduleDocumentDTO(
         event_name=event.name,
@@ -531,14 +566,8 @@ class TestPublicEventPrintView:
                 "show_range_controls": True,
                 "show_unconfirmed_control": False,
                 "show_track_control": True,
-                "timetable": PrintTimetableDocumentDTO(
-                    event_name=event.name,
-                    event_description=event.description,
-                    event_start=event.start_time,
-                    event_end=event.end_time,
-                    scope_name=track.name,
-                    is_complete=False,
-                    pages=[],
+                "timetable": _timetable_document(
+                    event=event, pages=[], scope_name=track.name
                 ),
                 "tracks": [
                     PrintOptionDTO(pk=track.pk, name=track.name, slug=track.slug)
@@ -579,36 +608,10 @@ class TestPublicEventPrintView:
                 "show_range_controls": True,
                 "show_unconfirmed_control": False,
                 "show_track_control": False,
-                "timetable": PrintTimetableDocumentDTO(
-                    event_name=event.name,
-                    event_description=event.description,
-                    event_start=event.start_time,
-                    event_end=event.end_time,
+                "timetable": _timetable_document(
+                    event=event,
+                    pages=[_one_hour_page(event=event, session=session, space=space)],
                     scope_name=space.name,
-                    is_complete=False,
-                    pages=[
-                        PrintTimetablePageDTO(
-                            day=event.start_time.date(),
-                            space_names=[space.name],
-                            rows=[
-                                PrintTimetableRowDTO(
-                                    start_time=event.start_time,
-                                    end_time=event.start_time + timedelta(hours=1),
-                                    cells=[
-                                        PrintTimetableCellDTO(
-                                            sessions=[
-                                                PrintSessionDTO(
-                                                    title=session.title,
-                                                    presenter_name="Test User",
-                                                )
-                                            ]
-                                        )
-                                    ],
-                                )
-                            ],
-                            space_range_name=None,
-                        )
-                    ],
                 ),
                 "tracks": [],
             },
@@ -657,36 +660,10 @@ class TestPublicEventPrintView:
                 "show_range_controls": True,
                 "show_unconfirmed_control": False,
                 "show_track_control": True,
-                "timetable": PrintTimetableDocumentDTO(
-                    event_name=event.name,
-                    event_description=event.description,
-                    event_start=event.start_time,
-                    event_end=event.end_time,
+                "timetable": _timetable_document(
+                    event=event,
+                    pages=[_one_hour_page(event=event, session=session, space=space)],
                     scope_name=track.name,
-                    is_complete=False,
-                    pages=[
-                        PrintTimetablePageDTO(
-                            day=event.start_time.date(),
-                            space_names=[space.name],
-                            rows=[
-                                PrintTimetableRowDTO(
-                                    start_time=event.start_time,
-                                    end_time=event.start_time + timedelta(hours=1),
-                                    cells=[
-                                        PrintTimetableCellDTO(
-                                            sessions=[
-                                                PrintSessionDTO(
-                                                    title=session.title,
-                                                    presenter_name="Test User",
-                                                )
-                                            ]
-                                        )
-                                    ],
-                                )
-                            ],
-                            space_range_name=None,
-                        )
-                    ],
                 ),
                 "tracks": [
                     PrintOptionDTO(pk=track.pk, name=track.name, slug=track.slug)

@@ -75,8 +75,9 @@ class ParleyTimeWindow(BaseModel):
 
 
 class ParleyRepositoryProtocol(Protocol):
+    @staticmethod
     def read_access(
-        self, *, sphere_id: int, user_id: int, window: ParleyTimeWindow
+        *, sphere_id: int, user_id: int, window: ParleyTimeWindow
     ) -> ParleyAccessDTO | None: ...
 
     def create_report(

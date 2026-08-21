@@ -16,14 +16,11 @@
 {% block header_actions %}
     {% if current_event %}
         <div class="flex items-center space-x-3">
-            <a href="{% url 'panel:personal-data-fields' slug=current_event.slug %}"
-               class="btn btn-secondary">{% translate "Cancel" %}</a>
-            <button type="submit"
-                    form="personal-data-field-form"
-                    class="btn btn-primary flex items-center">
-                {% icon "plus" class="w-4 h-4 mr-2" %}
-                {% translate "Create" %}
-            </button>
+            {% url 'panel:personal-data-fields' slug=current_event.slug as cancel_url %}
+            {% translate "Cancel" as cancel_label %}
+            {% tessera_button cancel_label href=cancel_url variant="secondary" %}
+            {% translate "Create" as create_label %}
+            {% tessera_button create_label form="personal-data-field-form" icon="plus" %}
         </div>
     {% endif %}
 {% endblock header_actions %}
@@ -167,7 +164,7 @@
                     </script>
                 </div>
             </div>
-            <div class="bg-bg-secondary rounded-2xl shadow-(--shadow-card) border border-border p-6 mt-6">
+            <div class="card p-6 mt-6">
                 <h3 class="text-lg font-semibold text-foreground mb-1">{% translate "Categories" %}</h3>
                 <p class="text-sm text-foreground-muted mb-6">{% translate "Select which categories should include this field." %}</p>
                 {% if categories %}

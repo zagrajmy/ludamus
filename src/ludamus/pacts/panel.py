@@ -6,15 +6,17 @@ from typing import TYPE_CHECKING, Protocol
 
 from pydantic import BaseModel, ConfigDict
 
+from ludamus.pacts.legacy import EventRepositoryProtocol, FacilitatorRepositoryProtocol
+
 if TYPE_CHECKING:
     from ludamus.pacts.crowd import UserDTO, UserRepositoryProtocol
+    from ludamus.pacts.event import FacilitatorListItemDTO
     from ludamus.pacts.fields import OrganizerFieldDTO
+    from ludamus.pacts.guild import GuildRepositoryProtocol
     from ludamus.pacts.legacy import (
         FacilitatorChangeLogDTO,
         FacilitatorChangeLogRepositoryProtocol,
         FacilitatorDTO,
-        FacilitatorListItemDTO,
-        FacilitatorRepositoryProtocol,
         PersonalDataFieldRepositoryProtocol,
         PersonalDataFieldValueRepositoryProtocol,
         ProposalCategoryDTO,
@@ -24,7 +26,13 @@ if TYPE_CHECKING:
         SessionFieldRepositoryProtocol,
         SessionListItemDTO,
         SessionRepositoryProtocol,
+        TimeSlotRepositoryProtocol,
+        TrackRepositoryProtocol,
     )
+
+
+class SourceRowIdMissingError(Exception):
+    pass
 
 
 class EmptyColumnSelectionError(Exception):
@@ -94,6 +102,11 @@ class EventPanelSettingsRepositoryProtocol(Protocol):
 
 
 SCHEDULED_FILTER = "scheduled"
+
+# Explicit "no status filter" value. An absent param means the pending backlog,
+# so "show everything" has to travel in the query — forms, the Clear link and
+# post-action redirects all echo it back.
+STATUS_ALL = "all"
 
 
 @dataclass
@@ -165,6 +178,9 @@ class ProposalPanelServiceProtocol(PanelColumnServiceProtocol, Protocol):
         self, *, session_ids: list[int], field_ids: list[int]
     ) -> dict[int, dict[str, str | list[str] | bool]]: ...
     def create_proposal(self, *, event_id: int, draft: ProposalDraft) -> int: ...
+    def create_accepted_session(
+        self, *, event_id: int, source_row_id: str, draft: ProposalDraft
+    ) -> int: ...
 
 
 @dataclass
@@ -175,12 +191,21 @@ class ProposalPanelRepos:
     session_fields: SessionFieldRepositoryProtocol
     proposal_categories: ProposalCategoryRepositoryProtocol
     panel_settings: EventPanelSettingsRepositoryProtocol
+    facilitators: FacilitatorRepositoryProtocol
+    tracks: TrackRepositoryProtocol
+    time_slots: TimeSlotRepositoryProtocol
+
+
+class FacilitatorPanelEventRepositoryProtocol(EventRepositoryProtocol, Protocol):
+    @staticmethod
+    def lock(event_id: int) -> None: ...
 
 
 @dataclass
-class FacilitatorPanelRepos:
+class FacilitatorPanelRepos:  # pylint: disable=too-many-instance-attributes
     """The repos the panel's facilitator list reads and writes through."""
 
+    events: FacilitatorPanelEventRepositoryProtocol
     facilitators: FacilitatorRepositoryProtocol
     personal_data_fields: PersonalDataFieldRepositoryProtocol
     personal_data_field_values: PersonalDataFieldValueRepositoryProtocol
@@ -188,6 +213,7 @@ class FacilitatorPanelRepos:
     panel_settings: EventPanelSettingsRepositoryProtocol
     sessions: SessionRepositoryProtocol
     users: UserRepositoryProtocol
+    guilds: GuildRepositoryProtocol
 
 
 @dataclass
@@ -201,7 +227,6 @@ class FacilitatorListQuery:
 
     search: str = ""
     accreditation: str = ""
-    flagged: bool = False
     # "", "mine" or "unassigned" — one choice, so "filter by me" and "filter by
     # nobody" can never both be asked for. `current_user_id` is who "mine"
     # means, not a filter of its own.
@@ -222,6 +247,13 @@ class FacilitatorListContextDTO:
 
 
 @dataclass
+class FacilitatorFilterOptionsDTO:
+    facilitators: list[FacilitatorListItemDTO]
+    columns: list[PanelColumnDTO]
+    has_more: bool
+
+
+@dataclass
 class FacilitatorCreateData:
     """A new facilitator as the create form spelled it.
 
@@ -232,6 +264,7 @@ class FacilitatorCreateData:
     display_name: str
     base_slug: str
     accreditation_type: str
+    is_collective: bool = False
     organizer_id: int | None = None
     values: dict[int, str | list[str] | bool] = field(default_factory=dict)
 
@@ -277,6 +310,10 @@ class FacilitatorPanelServiceProtocol(PanelColumnServiceProtocol, Protocol):
     def list_context(
         self, *, event_id: int, query: FacilitatorListQuery
     ) -> FacilitatorListContextDTO: ...
+    def list_deleted(self, event_id: int) -> list[FacilitatorListItemDTO]: ...
+    def filter_options(
+        self, *, event_id: int, search: str, pinned: set[int], limit: int
+    ) -> FacilitatorFilterOptionsDTO: ...
     def merge_basket(
         self, *, event_id: int, slugs: list[str]
     ) -> list[FacilitatorListItemDTO]: ...
@@ -285,9 +322,12 @@ class FacilitatorPanelServiceProtocol(PanelColumnServiceProtocol, Protocol):
     ) -> list[FacilitatorListItemDTO]: ...
     def list_fields(self, event_id: int) -> list[OrganizerFieldDTO]: ...
     def detail_context(
-        self, *, event_id: int, facilitator_slug: str
+        self, *, event_id: int, facilitator_slug: str, include_deleted: bool
     ) -> FacilitatorDetailContextDTO: ...
     def create_facilitator(
+        self, *, event_id: int, data: FacilitatorCreateData, user_id: int | None = None
+    ) -> FacilitatorDTO: ...
+    def find_or_create_facilitator(
         self, *, event_id: int, data: FacilitatorCreateData, user_id: int | None = None
     ) -> FacilitatorDTO: ...
     def facilitator_history(
@@ -300,6 +340,7 @@ class FacilitatorPanelServiceProtocol(PanelColumnServiceProtocol, Protocol):
         self,
         *,
         event_id: int,
+        sphere_id: int,
         target_slug: str,
         facilitator_slugs: list[str],
         data: FacilitatorMergeData,
@@ -308,9 +349,15 @@ class FacilitatorPanelServiceProtocol(PanelColumnServiceProtocol, Protocol):
     def column_values(
         self, *, facilitator_ids: list[int], field_ids: list[int]
     ) -> dict[int, dict[str, str | list[str] | bool]]: ...
-    def set_flag(
-        self, *, event_id: int, facilitator_slug: str, flagged: bool
+    def delete(
+        self, *, event_id: int, facilitator_slug: str, user_id: int | None = None
     ) -> None: ...
+    def restore(
+        self, *, event_id: int, facilitator_slug: str, user_id: int | None = None
+    ) -> None: ...
+    def assign_guild(
+        self, *, event_id: int, sphere_id: int, facilitator_slug: str, guild_pk: int
+    ) -> bool: ...
     def assign_organizer(
         self, *, event_id: int, facilitator_slug: str, organizer_id: int
     ) -> None: ...

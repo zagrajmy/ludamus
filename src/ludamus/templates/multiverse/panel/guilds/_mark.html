@@ -1,0 +1,14 @@
+{% load i18n %}
+{# Guild mark on a fixed light plate, so a dark transparent upload stays visible #}
+{# in dark mode too. Variables: guild (needs .name/.logo_url), size (Tailwind). #}
+{% if guild.logo_url %}
+    <img src="{{ guild.logo_url }}"
+         alt=""
+         width="40"
+         height="40"
+         loading="lazy"
+         class="{{ size|default:'size-8' }} shrink-0 rounded-full bg-white object-contain p-0.5 ring-1 ring-border">
+{% else %}
+    <span class="{{ size|default:'size-8' }} shrink-0 rounded-full bg-bg-tertiary ring-1 ring-border flex items-center justify-center text-xs font-bold text-foreground-muted"
+          aria-hidden="true">{{ guild.name|slice:":2"|upper }}</span>
+{% endif %}

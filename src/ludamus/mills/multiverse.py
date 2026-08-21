@@ -7,10 +7,12 @@ Sphere-scoped concerns. First feature: import-connections CRUD. Split per
 
 from typing import TYPE_CHECKING
 
+from ludamus.pacts.multiverse import SphereAccessDTO
+from ludamus.specs.permissions import ROLE_CAPABILITIES
+
 if TYPE_CHECKING:
     from ludamus.pacts.legacy import (
         EventDTO,
-        EventListItemDTO,
         EventRepositoryProtocol,
         SphereDTO,
         SphereRepositoryProtocol,
@@ -26,6 +28,7 @@ if TYPE_CHECKING:
         EncryptorProtocol,
         SphereDirectoryRepositoryProtocol,
         SphereListItemDTO,
+        SphereRole,
     )
     from ludamus.pacts.services import TransactionProtocol
 
@@ -111,23 +114,6 @@ class ConnectionsService:
             self._connections.delete(sphere_id, pk)
 
 
-class EventsService:
-    """Read-side loader for the public events listing page."""
-
-    def __init__(self, events: EventRepositoryProtocol) -> None:
-        self._events = events
-
-    def list_for_sphere(
-        self, sphere_id: int, *, include_unpublished: bool
-    ) -> list[EventListItemDTO]:
-        return self._events.list_for_events_page(
-            sphere_id, include_unpublished=include_unpublished
-        )
-
-    def read_by_slug(self, sphere_id: int, slug: str) -> EventDTO:
-        return self._events.read_by_slug(slug, sphere_id)
-
-
 class SpherePanelService:
     def __init__(
         self,
@@ -139,8 +125,14 @@ class SpherePanelService:
         self._spheres = spheres
         self._events = events
 
-    def is_manager(self, sphere_id: int, user_slug: str) -> bool:
-        return self._spheres.is_manager(sphere_id, user_slug)
+    def manager_role(self, sphere_id: int, user_slug: str) -> SphereRole | None:
+        return self._spheres.manager_role(sphere_id, user_slug)
+
+    def access(self, sphere_id: int, user_slug: str) -> SphereAccessDTO:
+        role = self._spheres.manager_role(sphere_id, user_slug)
+        return SphereAccessDTO(
+            role=role, capabilities=ROLE_CAPABILITIES[role] if role else frozenset()
+        )
 
     def list_events(self, sphere_id: int) -> list[EventDTO]:
         return self._events.list_by_sphere(sphere_id)

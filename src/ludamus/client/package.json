@@ -33,6 +33,7 @@
     "@shadcn/react": "0.2.0",
     "agents": "0.20.1",
     "cuelume": "0.1.0",
+    "posthog-js": "1.410.5",
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "slugify": "1.6.6"

@@ -2,27 +2,20 @@
 
 from __future__ import annotations
 
-from posixpath import basename
 from typing import TYPE_CHECKING
-from urllib.parse import unquote, urlsplit
 
 from django.forms import ImageField
 from django.template.loader import render_to_string
+
+from ludamus.pacts.images import StoredFile
 
 if TYPE_CHECKING:
     from django.forms import BoundField
 
 
 def _initial_url_and_name(initial: object) -> tuple[str | None, str]:
-    # A bound file (FieldFile) exposes `.url`; an initial passed as a plain
-    # URL string (e.g. from a DTO that doesn't carry the model file) is used
-    # as the URL directly, deriving a display name from its path.
-    if not initial:
-        return None, ""
-    if (url := getattr(initial, "url", None)) is not None:
-        return url, str(initial)
-    if isinstance(initial, str):
-        return initial, unquote(basename(urlsplit(initial).path))
+    if isinstance(initial, StoredFile):
+        return initial.url, initial.original_name
     return None, ""
 
 

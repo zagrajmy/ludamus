@@ -94,13 +94,13 @@ def parse_color(value: str) -> Rgb | None:
     return None
 
 
-def hex_color_of(rgb: Rgb) -> str:
-    red, green, blue = rgb
-    return f"#{red:02x}{green:02x}{blue:02x}"
-
-
 def local_name(tag: str) -> str:
     return tag.rsplit("}", 1)[-1]
+
+
+def hex_color(rgb: Rgb) -> str:
+    red, green, blue = rgb
+    return f"#{red:02x}{green:02x}{blue:02x}"
 
 
 def _finding(lint_id: str, severity: str, msg: str) -> Finding:
@@ -216,13 +216,13 @@ def _tiny_features(elements: list[Element], canvas: float | None) -> list[str]:
 def _contrast_findings(inks: set[Rgb]) -> list[Finding]:
     findings = []
     for rgb in sorted(inks):
-        hex_color = hex_color_of(rgb)
+        ink = hex_color(rgb)
         if (vs_white := contrast(rgb, WHITE)) < CONTRAST_WHITE_MIN:
             findings.append(
                 _finding(
                     "contrast-white",
                     "warn",
-                    f"{hex_color} vs white {vs_white:.1f}:1 (< {CONTRAST_WHITE_MIN}:1)",
+                    f"{ink} vs white {vs_white:.1f}:1 (< {CONTRAST_WHITE_MIN}:1)",
                 )
             )
         if (vs_dark := contrast(rgb, DARK_REF)) < CONTRAST_DARK_MIN:
@@ -230,7 +230,7 @@ def _contrast_findings(inks: set[Rgb]) -> list[Finding]:
                 _finding(
                     "contrast-dark",
                     "info",
-                    f"{hex_color} vs #171717 {vs_dark:.1f}:1 - weak in dark"
+                    f"{ink} vs #171717 {vs_dark:.1f}:1 - weak in dark"
                     f" mode (white-logo gate is {CONTRAST_DARK_MIN}:1)",
                 )
             )
@@ -304,7 +304,7 @@ def lint_file(path: Path) -> dict[str, Any]:
     errors = [finding for finding in findings if finding["severity"] == "error"]
     return {
         "file": str(path),
-        "inks": [hex_color_of(rgb) for rgb in sorted(inks)],
+        "inks": [hex_color(rgb) for rgb in sorted(inks)],
         "path_nodes": node_count,
         "findings": findings,
         "gate_failures": [finding["id"] for finding in errors],

@@ -138,10 +138,7 @@ def badge_classes(variant: str) -> str:
 
 
 @register.simple_tag
-def enroll_seats_left(session: Session) -> int | None:
-    # None means unlimited. Mirrors EnrollmentConfig.get_available_slots for the
-    # most liberal config: effective_participants_limit already applies that
-    # config's percentage, and enrolled_count counts the occupying statuses.
-    if session.participants_limit == 0:
-        return None
-    return max(0, session.effective_participants_limit - session.enrolled_count)
+def enroll_seats_left(session: Session) -> int:
+    # Bound once with `as` so the page's three readings share one evaluation of
+    # the counting properties behind it.
+    return session.seats_left

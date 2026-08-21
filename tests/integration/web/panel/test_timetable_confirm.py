@@ -2,7 +2,6 @@ import json
 from datetime import timedelta
 from http import HTTPStatus
 
-from django.contrib import messages
 from django.urls import reverse
 
 from tests.integration.conftest import (
@@ -12,9 +11,11 @@ from tests.integration.conftest import (
     SessionFactory,
     SpaceFactory,
 )
-from tests.integration.utils import assert_response
-
-PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
+from tests.integration.utils import assert_login_required, assert_response
+from tests.integration.web.panel.helpers import (
+    assert_event_not_found,
+    assert_not_a_manager,
+)
 
 
 class TestTimetableConfirmView:
@@ -43,47 +44,31 @@ class TestTimetableConfirmView:
 
         response = client.post(url, data={"agenda_item_pk": 1, "confirmed": "true"})
 
-        assert_response(
-            response, HTTPStatus.FOUND, url=f"/crowd/login-required/?next={url}"
-        )
+        assert_login_required(response, url)
 
     def test_redirects_non_manager_user(self, authenticated_client, event):
         response = authenticated_client.post(
             self.get_url(event), data={"agenda_item_pk": 1, "confirmed": "true"}
         )
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, PERMISSION_ERROR)],
-            url="/",
-        )
+        assert_not_a_manager(response)
 
-    def test_missing_agenda_item_pk_returns_422(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
-
-        response = authenticated_client.post(self.get_url(event), data={})
+    def test_missing_agenda_item_pk_returns_422(self, panel_client, event):
+        response = panel_client.post(self.get_url(event), data={})
 
         assert_response(response, HTTPStatus.UNPROCESSABLE_ENTITY)
 
-    def test_unknown_agenda_item_returns_422(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
-
-        response = authenticated_client.post(
+    def test_unknown_agenda_item_returns_422(self, panel_client, event):
+        response = panel_client.post(
             self.get_url(event), data={"agenda_item_pk": 99999, "confirmed": "true"}
         )
 
         assert_response(response, HTTPStatus.UNPROCESSABLE_ENTITY)
 
-    def test_confirm_persists(self, authenticated_client, active_user, sphere, event):
-        sphere.managers.add(active_user)
+    def test_confirm_persists(self, panel_client, event):
         agenda_item = self._scheduled_agenda_item(event)
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event),
             data={"agenda_item_pk": agenda_item.pk, "confirmed": "true"},
         )
@@ -93,13 +78,12 @@ class TestTimetableConfirmView:
         agenda_item.refresh_from_db()
         assert agenda_item.session_confirmed is True
 
-    def test_unconfirm_persists(self, authenticated_client, active_user, sphere, event):
-        sphere.managers.add(active_user)
+    def test_unconfirm_persists(self, panel_client, event):
         agenda_item = self._scheduled_agenda_item(event)
         agenda_item.session_confirmed = True
         agenda_item.save()
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event),
             data={"agenda_item_pk": agenda_item.pk, "confirmed": "false"},
         )
@@ -110,13 +94,12 @@ class TestTimetableConfirmView:
         assert agenda_item.session_confirmed is False
 
     def test_returns_422_for_agenda_item_from_another_event(
-        self, authenticated_client, active_user, sphere, event
+        self, panel_client, sphere, event
     ):
-        sphere.managers.add(active_user)
         other_event = EventFactory(sphere=sphere)
         other_item = self._scheduled_agenda_item(other_event)
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event),
             data={"agenda_item_pk": other_item.pk, "confirmed": "true"},
         )
@@ -125,13 +108,10 @@ class TestTimetableConfirmView:
         other_item.refresh_from_db()
         assert other_item.session_confirmed is False
 
-    def test_invalid_confirmed_value_returns_422(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_invalid_confirmed_value_returns_422(self, panel_client, event):
         agenda_item = self._scheduled_agenda_item(event)
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             self.get_url(event),
             data={"agenda_item_pk": agenda_item.pk, "confirmed": "maybe"},
         )
@@ -140,19 +120,11 @@ class TestTimetableConfirmView:
         agenda_item.refresh_from_db()
         assert agenda_item.session_confirmed is False
 
-    def test_redirects_on_invalid_event_slug(
-        self, authenticated_client, active_user, sphere
-    ):
-        sphere.managers.add(active_user)
+    def test_redirects_on_invalid_event_slug(self, panel_client):
         url = reverse("panel:timetable-confirm", kwargs={"slug": "nonexistent"})
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             url, data={"agenda_item_pk": 1, "confirmed": "true"}
         )
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Event not found.")],
-            url="/panel/",
-        )
+        assert_event_not_found(response)

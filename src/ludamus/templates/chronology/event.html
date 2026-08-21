@@ -2,6 +2,7 @@
 {% load i18n %}
 {% load tessera %}
 {% load cfp_tags %}
+{% load date_tags %}
 {% load django_vite %}
 {% load markdown_tags %}
 {% load meta_tags %}
@@ -27,7 +28,7 @@
 {% endblock header_section %}
 {% block body %}
     {% include "chronology/decorative_background_blobs.html" %}
-    <div class="relative rounded-3xl shadow-xl overflow-hidden mb-8 bg-bg-secondary"
+    <div class="relative rounded-3xl shadow-xl overflow-hidden mb-6 sm:mb-8 bg-bg-secondary"
          style="box-shadow: var(--shadow-elevated)">
         {% if event.cover_image_url %}
             <div class="h-56 sm:h-72 bg-cover bg-center"
@@ -85,21 +86,44 @@
                             <div class="w-8 h-8 bg-coral-100 dark:bg-coral-900/30 rounded-lg flex items-center justify-center">
                                 {% icon "calendar-days" class="w-4 h-4 text-coral-600" variant="mini" %}
                             </div>
-                            <div>
-                                <div class="font-medium leading-none text-foreground">{{ event.start_time|date:"l, F j" }}</div>
-                                <div class="text-foreground-muted leading-none mt-0.5">
-                                    {{ event.start_time|time:"G:i" }} - {{ event.end_time|time:"G:i" }}
+                            {% with start_day=event.start_time|date:"Y-m-d" end_day=event.end_time|date:"Y-m-d" %}
+                                {# Where supported, centers the glyphs against the icon rather #}
+                                {# than the line box, whose ascender padding outweighs its #}
+                                {# descender here. #}
+                                <div class="text-box-trim-both" data-event-dates>
+                                    {% if start_day == end_day %}
+                                        <div class="font-medium leading-none text-foreground">
+                                            <time datetime="{{ event.start_time|date:'c' }}">{{ event.start_time|date:"l, j E" }}</time>
+                                        </div>
+                                        <div class="text-foreground-muted leading-none mt-0.5 tabular-nums">
+                                            <time datetime="{{ event.start_time|date:'c' }}">{{ event.start_time|time:"G:i" }}</time>–<time datetime="{{ event.end_time|date:'c' }}">{{ event.end_time|time:"G:i" }}</time>
+                                        </div>
+                                    {% else %}
+                                        {# Each hour stays with its own date: this is the page that #}
+                                        {# answers "when does it start", and a lone "16:00–17:00" #}
+                                        {# under a date range reads as daily opening hours. #}
+                                        {# Comma, not the "·" the single-day branch uses: inside a #}
+                                        {# range it has to read as weaker than the dash joining the #}
+                                        {# endpoints, and two spaced mid-height marks are not. #}
+                                        <div class="font-medium leading-tight text-foreground">
+                                            <time class="whitespace-nowrap" datetime="{{ event.start_time|date:'c' }}">{{ event.start_time|short_date }}, <span class="text-foreground-muted tabular-nums">{{ event.start_time|time:"G:i" }}</span></time>
+                                            <span aria-hidden="true">–</span><span class="sr-only">{% translate "to" context "date range" %}</span>
+                                            <time class="whitespace-nowrap" datetime="{{ event.end_time|date:'c' }}">{{ event.end_time|short_date }}, <span class="text-foreground-muted tabular-nums">{{ event.end_time|time:"G:i" }}</span></time>
+                                        </div>
+                                    {% endif %}
                                 </div>
-                            </div>
+                            {% endwith %}
                         </div>
                     </div>
                 </div>
                 <!-- Quick stats -->
                 <div class="flex lg:flex-col gap-3">
                     <div class="flex-1 lg:flex-none bg-gradient-to-br from-teal-50 to-teal-100 dark:from-teal-900/30 dark:to-teal-800/30 rounded-2xl p-4 text-center min-w-[120px]">
-                        <div class="text-3xl font-bold text-teal-700 dark:text-teal-400">{{ sessions|length }}</div>
+                        {# The whole schedule, not the current view: this card #}
+                        {# sits outside the region the view tabs swap. #}
+                        <div class="text-3xl font-bold text-teal-700 dark:text-teal-400">{{ scheduled_count }}</div>
                         <div class="text-sm text-teal-600 dark:text-teal-500">
-                            {% blocktranslate count counter=sessions|length %}Session{% plural %}Sessions{% endblocktranslate %}
+                            {% blocktranslate count counter=scheduled_count %}Session{% plural %}Sessions{% endblocktranslate %}
                         </div>
                     </div>
                     <div class="flex-1 lg:flex-none bg-gradient-to-br from-coral-50 to-coral-100 dark:from-coral-900/30 dark:to-coral-800/30 rounded-2xl p-4 text-center min-w-[120px]">
@@ -253,9 +277,13 @@
         </dialog>
     {% endif %}
     <!-- Sessions by Time Slot -->
-    <div>
+    {# The whole section is one htmx swap target: the view tabs below carry #}
+    {# hx-boost, so switching between List and Rooms replaces the count, the #}
+    {# filter toolbar and the schedule in one go, leaving no control #}
+    {# describing a session set that is no longer on screen. #}
+    <div id="schedule-region">
         <!-- Section Header -->
-        <div class="flex items-center justify-between mb-6">
+        <div class="flex items-center justify-between mb-3">
             <div class="flex items-center gap-3">
                 <h2 class="text-xl font-bold text-foreground">{% translate "Sessions" %}</h2>
                 <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-base translate-y-[.5px] font-semibold bg-coral-100 dark:bg-coral-900/30 text-coral-700 dark:text-coral-400">
@@ -271,7 +299,14 @@
         </div>
         {% if hour_data %}
             <!-- Filter Controls -->
-            <div class="mb-6">
+            {# Assigned once: the checkbox below and its chip label further #}
+            {# down have to say the same thing. #}
+            {% translate "Only with enrollment" as t_enrollment_only %}
+            <div class="mb-3">
+                {# The search field sets the row height; the Filters button and #}
+                {# the view tabs stretch to it (h-full, and a flex wrapper for #}
+                {# the tab strip) instead of each landing on whatever its own #}
+                {# padding adds up to. #}
                 <div class="flex gap-1 sm:gap-2 items-stretch">
                     <div class="relative flex-1">
                         <span class="absolute left-3.5 top-1/2 -translate-y-1/2 text-foreground-muted">
@@ -287,7 +322,7 @@
                     </div>
                     <div class="filters-popover-wrapper relative overflow-visible">
                         <button type="button"
-                                class="filter-toggle filter-toggle-anchor inline-flex items-center gap-2 p-2.5 sm:p-3 rounded-2xl text-sm font-semibold border border-border whitespace-nowrap cursor-pointer bg-bg-secondary text-foreground-muted transition-[color,background-color,border-color,box-shadow] duration-150"
+                                class="filter-toggle filter-toggle-anchor inline-flex h-full items-center gap-2 p-2.5 sm:p-3 rounded-2xl text-sm font-semibold border border-border whitespace-nowrap cursor-pointer bg-bg-secondary text-foreground-muted transition-[color,background-color,border-color,box-shadow] duration-150"
                                 id="filter-toggle"
                                 aria-expanded="false"
                                 aria-controls="filter-panel"
@@ -301,6 +336,11 @@
                         {# anchor math in session-filters.ts relies on that. #}
                         <div id="filter-panel" class="filter-panel shadow-xl">
                             <div class="flex flex-wrap gap-3 grow pt-3.5">
+                                {% if has_enrollable_sessions %}
+                                    <div class="w-full">
+                                        {% include "components/checkbox-field.html" with id="enrollment-filter" label=t_enrollment_only only %}
+                                    </div>
+                                {% endif %}
                                 <div class="flex flex-col gap-1.5">
                                     <label class="text-xs font-bold uppercase tracking-widest text-foreground-muted"
                                            for="status-filter">{% translate "Status" %}</label>
@@ -403,8 +443,23 @@
                             </div>
                         </div>
                     </div>
+                    {# The switcher exists for the rooms grid, which renders from #}
+                    {# schedule_days — only the compact layout builds those, so a #}
+                    {# card-grid event has a single view and no control to offer. #}
                     {% if compact_schedule %}
-                        <div class="self-center">{% include "chronology/_schedule_view_tabs.html" %}</div>
+                        {# hx-boost rather than hx-get on each tab: {% tab %} renders a #}
+                        {# plain anchor and passes no attribute through, and the boost stays #}
+                        {# scoped to these links. hx-select cuts the region out of the #}
+                        {# full page response, so a shared ?view= link and a tab click #}
+                        {# render from the same branch. History caching is off because a #}
+                        {# restored snapshot would carry DOM the schedule scripts have #}
+                        {# already bound; a back button then re-requests the page instead. #}
+                        <div class="flex"
+                             hx-boost="true"
+                             hx-target="#schedule-region"
+                             hx-select="#schedule-region"
+                             hx-swap="outerHTML show:top"
+                             hx-history="false">{% include "chronology/_schedule_view_tabs.html" %}</div>
                     {% endif %}
                 </div>
                 <div id="active-filter-chips"
@@ -412,7 +467,8 @@
                      data-remove-filter-label="{% translate "Remove filter" %}"
                      data-clear-all-label="{% translate "Clear all" %}"
                      data-min-age-label="{% translate "Age ≥" %}"
-                     data-max-age-label="{% translate "Age ≤" %}">
+                     data-max-age-label="{% translate "Age ≤" %}"
+                     data-enrollment-label="{{ t_enrollment_only }}">
                     <div class="overflow-hidden">
                         <div class="filter-chips-bar-inner" data-filter-chips-inner></div>
                     </div>
@@ -436,23 +492,7 @@
     </div>
     <!-- The viewer's own proposals, awaiting review -->
     {% if own_pending_proposals %}
-        <div class="mt-12 time-slot-section" data-time-slot="own-proposals">
-            <div class="flex items-center gap-4 mb-4">
-                <div class="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold bg-amber-100 dark:bg-amber-900/10 text-amber-700 dark:text-amber-400">
-                    {% icon "light-bulb" class="w-4 h-4" variant="mini" %}
-                    {% translate "Your pending proposals" %}
-                </div>
-                <div class="h-px grow bg-border"></div>
-                <span class="text-xs text-foreground-muted">
-                    {% blocktranslate count counter=own_pending_proposals|length %}{{ counter }} proposal{% plural %}{{ counter }} proposals{% endblocktranslate %}
-                </span>
-            </div>
-            <div class="session-grid grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
-                {% for data in own_pending_proposals %}
-                    {% include "chronology/_session_card.html" with session_link_base="" %}
-                {% endfor %}
-            </div>
-        </div>
+        {% include "chronology/_proposal_section.html" with cards=own_pending_proposals is_own=True %}
     {% endif %}
     <!-- Propose Session CTA -->
     {% if event.is_proposal_active %}
@@ -475,8 +515,8 @@
         </div>
     {% endif %}
     <!-- Proposals Section (superusers and sphere managers) -->
-    {% if pending_review_visible and event.is_proposal_active and pending_sessions %}
-        {% include "chronology/_pending_proposals.html" %}
+    {% if pending_review_visible and pending_sessions %}
+        {% include "chronology/_proposal_section.html" with cards=pending_sessions wizard_mark=pending_wizard_view %}
     {% endif %}
     {# Session detail modals are fetched on first open (see modal.ts): the URL #}
     {# template carries a `0` session-id placeholder, injected dialogs land here. #}
@@ -519,9 +559,9 @@
     {% vite_asset 'src/session-filters.ts' %}
     {% vite_asset 'src/session-bookmarks.ts' %}
     {% vite_asset 'src/event-timeline.ts' %}
-    {% if schedule_view_is_rooms %}
-        {% vite_asset 'src/room-lanes.ts' %}
-    {% endif %}
+    {# Unconditional: the view tabs swap the rooms grid in without a page #}
+    {# load, and a module the response never carries cannot wire it. #}
+    {% vite_asset 'src/room-lanes.ts' %}
     {% vite_asset 'src/event-print.ts' %}
 {% endblock extra_scripts %}
 {% block extra_head %}

@@ -18,8 +18,8 @@ from tests.integration.conftest import (
 from tests.integration.utils import assert_response
 
 
-@pytest.fixture(autouse=True)
-def parley_settings(settings):
+@pytest.fixture(name="parley_settings", autouse=True)
+def _parley_settings(settings):
     private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
     settings.PARLEY_AGENT_HOST = "parley.example.com"
     settings.PARLEY_SIGNING_PRIVATE_KEY = private_key.private_bytes(

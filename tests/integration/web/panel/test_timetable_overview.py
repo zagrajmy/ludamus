@@ -1,16 +1,20 @@
 from datetime import timedelta
 from http import HTTPStatus
 
-from django.contrib import messages
 from django.urls import reverse
 
 from ludamus.links.db.django.models import Track
-from ludamus.pacts import EventDTO
 from ludamus.pacts.chronology import CapacityHoursDTO, HeatmapDTO, TrackProgressDTO
 from tests.integration.conftest import AgendaItemFactory, SessionFactory, SpaceFactory
-from tests.integration.utils import assert_response
-
-PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
+from tests.integration.utils import assert_login_required, assert_response
+from tests.integration.web.panel.helpers import (
+    assert_event_not_found,
+    assert_not_a_manager,
+    make_timetable_session,
+    panel_context,
+    schedule_session,
+    timetable_tab_urls,
+)
 
 
 def _empty_heatmap():
@@ -40,89 +44,42 @@ class TestTimetableOverviewPageView:
 
         response = client.get(url)
 
-        assert_response(
-            response, HTTPStatus.FOUND, url=f"/crowd/login-required/?next={url}"
-        )
+        assert_login_required(response, url)
 
     def test_redirects_non_manager_user(self, authenticated_client, event):
         response = authenticated_client.get(self.get_url(event))
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, PERMISSION_ERROR)],
-            url="/",
-        )
+        assert_not_a_manager(response)
 
-    def test_redirects_on_invalid_event_slug(
-        self, authenticated_client, active_user, sphere
-    ):
-        sphere.managers.add(active_user)
+    def test_redirects_on_invalid_event_slug(self, panel_client):
         url = reverse("panel:timetable-overview", kwargs={"slug": "nonexistent"})
 
-        response = authenticated_client.get(url)
+        response = panel_client.get(url)
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Event not found.")],
-            url="/panel/",
-        )
+        assert_event_not_found(response)
 
-    def test_ok_returns_overview_template(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
-
-        response = authenticated_client.get(self.get_url(event))
+    def test_ok_returns_overview_template(self, panel_client, event):
+        response = panel_client.get(self.get_url(event))
 
         assert_response(
             response,
             HTTPStatus.OK,
             template_name="panel/timetable-overview.html",
             context_data={
-                "current_event": EventDTO.model_validate(event),
-                "events": [EventDTO.model_validate(event)],
-                "is_proposal_active": False,
-                "stats": {
-                    "hosts_count": 0,
-                    "pending_proposals": 0,
-                    "rooms_count": 0,
-                    "scheduled_sessions": 0,
-                    "total_proposals": 0,
-                    "total_sessions": 0,
-                },
-                "active_nav": "timetable",
+                **panel_context(event, active_nav="timetable"),
                 "heatmap": _empty_heatmap(),
                 "track_progress": [],
                 "capacity_hours": _empty_capacity_hours(),
                 "slug": event.slug,
-                "tab_urls": {
-                    "timetable": reverse(
-                        "panel:timetable", kwargs={"slug": event.slug}
-                    ),
-                    "log": reverse("panel:timetable-log", kwargs={"slug": event.slug}),
-                    "overview": reverse(
-                        "panel:timetable-overview", kwargs={"slug": event.slug}
-                    ),
-                    "problems": reverse(
-                        "panel:timetable-problems", kwargs={"slug": event.slug}
-                    ),
-                    "confirmations": reverse(
-                        "panel:timetable-confirmations", kwargs={"slug": event.slug}
-                    ),
-                },
+                "tab_urls": timetable_tab_urls(event),
                 "active_tab": "overview",
             },
         )
 
-    def test_heatmap_has_correct_structure(
-        self, authenticated_client, active_user, sphere, event, time_slot
-    ):
-        sphere.managers.add(active_user)
+    def test_heatmap_has_correct_structure(self, panel_client, event, time_slot):
         SpaceFactory(event=event)
 
-        response = authenticated_client.get(self.get_url(event))
+        response = panel_client.get(self.get_url(event))
 
         assert response.status_code == HTTPStatus.OK
         heatmap = response.context["heatmap"]
@@ -132,9 +89,8 @@ class TestTimetableOverviewPageView:
         assert time_slot is not None
 
     def test_track_progress_denominator_is_active_pool_with_status_pills(
-        self, authenticated_client, active_user, sphere, event, proposal_category
+        self, panel_client, active_user, event, proposal_category
     ):
-        sphere.managers.add(active_user)
         track = Track.objects.create(
             event=event, name="Test Track", slug="test-track", is_public=True
         )
@@ -155,7 +111,7 @@ class TestTimetableOverviewPageView:
         make("rejected", 1)
         make("on_hold", 1)
 
-        response = authenticated_client.get(self.get_url(event))
+        response = panel_client.get(self.get_url(event))
 
         assert_response(
             response,
@@ -171,18 +127,14 @@ class TestTimetableOverviewPageView:
                 'title="On hold"',
             ],
             context_data={
-                "current_event": EventDTO.model_validate(event),
-                "events": [EventDTO.model_validate(event)],
-                "is_proposal_active": False,
-                "stats": {
-                    "hosts_count": 1,
-                    "pending_proposals": 3,
-                    "rooms_count": 0,
-                    "scheduled_sessions": 0,
-                    "total_proposals": 3 + 3 + 1 + 1,
-                    "total_sessions": 3 + 0,  # pending + scheduled
-                },
-                "active_nav": "timetable",
+                **panel_context(
+                    event,
+                    active_nav="timetable",
+                    hosts_count=1,
+                    pending_proposals=3,
+                    total_proposals=3 + 3 + 1 + 1,
+                    total_sessions=3 + 0,
+                ),
                 "heatmap": _empty_heatmap(),
                 "track_progress": [
                     TrackProgressDTO(
@@ -199,42 +151,16 @@ class TestTimetableOverviewPageView:
                 ],
                 "capacity_hours": _empty_capacity_hours(),
                 "slug": event.slug,
-                "tab_urls": {
-                    "timetable": reverse(
-                        "panel:timetable", kwargs={"slug": event.slug}
-                    ),
-                    "log": reverse("panel:timetable-log", kwargs={"slug": event.slug}),
-                    "overview": reverse(
-                        "panel:timetable-overview", kwargs={"slug": event.slug}
-                    ),
-                    "problems": reverse(
-                        "panel:timetable-problems", kwargs={"slug": event.slug}
-                    ),
-                    "confirmations": reverse(
-                        "panel:timetable-confirmations", kwargs={"slug": event.slug}
-                    ),
-                },
+                "tab_urls": timetable_tab_urls(event),
                 "active_tab": "overview",
             },
         )
 
     def test_capacity_hours_reports_hours_left_to_fill(
-        self,
-        authenticated_client,
-        active_user,
-        sphere,
-        event,
-        proposal_category,
-        time_slot,
+        self, panel_client, event, proposal_category, time_slot
     ):
-        sphere.managers.add(active_user)
         space = SpaceFactory(event=event)
-        session = SessionFactory(
-            category=proposal_category,
-            status="pending",
-            participants_limit=5,
-            min_age=0,
-        )
+        session = make_timetable_session(proposal_category)
         start = event.start_time
         AgendaItemFactory(
             session=session,
@@ -243,7 +169,7 @@ class TestTimetableOverviewPageView:
             end_time=start + timedelta(hours=1),
         )
 
-        response = authenticated_client.get(self.get_url(event))
+        response = panel_client.get(self.get_url(event))
 
         assert response.status_code == HTTPStatus.OK
         assert response.context["capacity_hours"] == CapacityHoursDTO(
@@ -257,27 +183,13 @@ class TestTimetableOverviewPageView:
         assert time_slot is not None
 
     def test_heatmap_shows_scheduled_cell_status(
-        self,
-        authenticated_client,
-        active_user,
-        sphere,
-        event,
-        proposal_category,
-        time_slot,
+        self, panel_client, event, proposal_category, time_slot
     ):
-        sphere.managers.add(active_user)
         space = SpaceFactory(event=event)
-        session = SessionFactory(
-            category=proposal_category,
-            status="pending",
-            participants_limit=5,
-            min_age=0,
-        )
-        start = event.start_time
-        end = start + timedelta(hours=1)
-        AgendaItemFactory(session=session, space=space, start_time=start, end_time=end)
+        session = make_timetable_session(proposal_category)
+        schedule_session(session=session, space=space, start=event.start_time)
 
-        response = authenticated_client.get(self.get_url(event))
+        response = panel_client.get(self.get_url(event))
 
         assert response.status_code == HTTPStatus.OK
         heatmap = response.context["heatmap"]

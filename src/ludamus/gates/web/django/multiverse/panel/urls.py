@@ -1,11 +1,10 @@
 """URL patterns for the multiverse panel bounded context."""
 
-from django.urls import path
+from django.urls import include, path
 
 from ludamus.gates.web.django.multiverse.panel.views import (
     announcements,
     connections,
-    mcp_token,
     sphere_settings,
 )
 
@@ -33,7 +32,7 @@ urlpatterns = [
         announcements.AnnouncementDeletePageView.as_view(),
         name="announcement-delete",
     ),
-    path("mcp/", mcp_token.OrganizerMcpTokenPageView.as_view(), name="mcp-token"),
+    path("", include("ludamus.gates.web.django.sphere.urls")),
     path("connections/", connections.ConnectionsPageView.as_view(), name="connections"),
     path(
         "connections/create/",

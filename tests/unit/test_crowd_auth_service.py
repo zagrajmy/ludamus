@@ -1,10 +1,10 @@
 from contextlib import contextmanager
-from datetime import UTC, datetime
 
 from ludamus.mills.crowd import CrowdAuthService
 from ludamus.pacts import NotFoundError
-from ludamus.pacts.crowd import ClaimOutcome, ClaimResultDTO, UserDTO, UserType
+from ludamus.pacts.crowd import ClaimOutcome, ClaimResultDTO, UserDTO
 from ludamus.pacts.services import DatabaseConstraintError
+from tests.unit.factories import user_dto
 
 
 @contextmanager
@@ -27,24 +27,7 @@ class FakeTransaction:
 
 
 def _user_dto(**overrides) -> UserDTO:
-    defaults = {
-        "avatar_url": "",
-        "date_joined": datetime(2024, 1, 1, tzinfo=UTC),
-        "discord_username": "",
-        "email": "",
-        "full_name": "",
-        "is_active": True,
-        "is_authenticated": True,
-        "is_staff": False,
-        "is_superuser": False,
-        "name": "",
-        "pk": 1,
-        "slug": "auth0user",
-        "use_gravatar": False,
-        "user_type": UserType.ACTIVE,
-        "username": "auth0|sub",
-    }
-    return UserDTO(**(defaults | overrides))
+    return user_dto(**{"slug": "auth0user", **overrides})
 
 
 class FakeUsers:

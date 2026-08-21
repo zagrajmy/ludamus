@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Any, ClassVar, cast
 
 from django import forms
 from django.core.exceptions import ValidationError
+from django.core.validators import MaxValueValidator
 from django.utils.translation import gettext as _gettext
 from django.utils.translation import gettext_lazy as _
 from lxml import etree
@@ -17,11 +18,13 @@ from ludamus.gates.web.django.dynamic_fields import (
     CustomAnswerFormMixin,
     build_dynamic_fields,
 )
-from ludamus.gates.web.django.templatetags.cfp_tags import (
-    build_duration,
-    format_duration,
-)
 from ludamus.pacts.discounts import DiscountKind
+from ludamus.pacts.durations import (
+    MAX_DURATION_HOURS,
+    MAX_DURATION_MINUTES,
+    build_duration,
+    duration_choices,
+)
 from ludamus.pacts.images import ALLOWED_IMAGE_FORMATS, IMAGE_ACCEPT, LOGO_ACCEPT
 from ludamus.pacts.legacy import PromotionMode
 from ludamus.pacts.submissions import AccreditationType
@@ -30,9 +33,10 @@ if TYPE_CHECKING:
     from collections.abc import Iterable, Sequence
 
     from django.core.files.uploadedfile import UploadedFile
+    from django.utils.functional import _StrPromise
     from lxml.etree import _Element as Element
 
-    from ludamus.pacts import ProposalCategoryDTO, SessionFieldRequirementDTO
+    from ludamus.pacts import SessionFieldRequirementDTO
     from ludamus.pacts.multiverse import ConnectionDTO
 
 _DATETIME_LOCAL_FORMATS = ["%Y-%m-%dT%H:%M", "%Y-%m-%dT%H:%M:%S"]
@@ -45,6 +49,16 @@ MAX_IMAGE_PIXELS = 24_000_000
 # Hand-written rather than joined from IMAGE_FORMATS: it is translated user copy,
 # and a comma-joined list of MIME types reads nothing like a sentence.
 COVER_IMAGE_HELP_TEXT = _("Max 8 MB. JPG, PNG, WebP, or AVIF.")
+# Width of the PositiveIntegerField column on Postgres (`integer`). Dev sqlite
+# is wider, so an overflow only ever surfaces in production. A validator rather
+# than `max_value` on every field writing the column: validators reject
+# server-side without renting a max attribute on the input. Without it the
+# panel falls back to its generic "couldn't save" (its savepoint converts the
+# DataError) and the facilitator self-edit, which catches nothing, 500s.
+MAX_STORED_PARTICIPANTS_LIMIT = 2_147_483_647
+STORAGE_LIMIT_VALIDATOR = MaxValueValidator(
+    MAX_STORED_PARTICIPANTS_LIMIT, message=_("Enter a smaller number.")
+)
 
 
 def validate_uploaded_image_size(image: object) -> None:
@@ -108,7 +122,7 @@ def _svg_element_is_safe(element: Element) -> bool:
     return True
 
 
-def _validate_uploaded_svg(uploaded: UploadedFile) -> None:
+def _validate_uploaded_svg(uploaded: UploadedFile[bytes]) -> None:
     uploaded.seek(0)
     try:
         # fromstring, not parse: parse() takes a filename too, so passing an
@@ -129,7 +143,7 @@ def _validate_uploaded_svg(uploaded: UploadedFile) -> None:
         raise ValidationError(_gettext("Invalid or unsafe SVG file."))
 
 
-def _validate_uploaded_raster_logo(uploaded: UploadedFile) -> None:
+def _validate_uploaded_raster_logo(uploaded: UploadedFile[bytes]) -> None:
     uploaded.seek(0)
     try:
         with Image.open(uploaded) as pil_image:
@@ -148,14 +162,14 @@ def _validate_uploaded_raster_logo(uploaded: UploadedFile) -> None:
     )
 
 
-def _looks_like_svg(uploaded: UploadedFile) -> bool:
+def _looks_like_svg(uploaded: UploadedFile[bytes]) -> bool:
     uploaded.seek(0)
     head: bytes = uploaded.read(64)
     uploaded.seek(0)
     return head.lstrip(b"\xef\xbb\xbf \t\r\n").startswith(b"<")
 
 
-def validate_uploaded_logo(uploaded: UploadedFile | None) -> None:
+def validate_uploaded_logo(uploaded: UploadedFile[bytes] | None) -> None:
     if not uploaded:
         return
     validate_uploaded_image_size(uploaded)
@@ -176,11 +190,19 @@ def cover_image_field() -> forms.ImageField:
     )
 
 
-def _logo_field() -> forms.FileField:
+def logo_field(*, help_text: str | _StrPromise | None = None) -> forms.FileField:
+    # Public like cover_image_field(): the guild panel lives in another module
+    # and must not restate the accepted types or the contain-fit hint.
     return forms.FileField(
         required=False,
         label=_("Logo"),
-        help_text=_(
+        # Attached here rather than in each form's clean_logo: a logo field
+        # cannot then exist without its validation. Django short-circuits the
+        # False (clear) case before validators run, and validate_uploaded_logo
+        # early-returns on empty, so behaviour is unchanged.
+        validators=[validate_uploaded_logo],
+        help_text=help_text
+        or _(
             "Shown on the printable schedule. Max 8 MB. JPG, PNG, WebP, AVIF, or SVG."
         ),
         widget=forms.ClearableFileInput(
@@ -220,7 +242,7 @@ class EventSettingsForm(forms.Form):
         required=False, widget=forms.Textarea(attrs={"rows": 3})
     )
     cover_image = cover_image_field()
-    logo = _logo_field()
+    logo = logo_field()
     start_time = forms.DateTimeField(
         widget=_datetime_local_widget(),
         input_formats=_DATETIME_LOCAL_FORMATS,
@@ -274,11 +296,6 @@ class EventSettingsForm(forms.Form):
         validate_uploaded_image(image)
         return image
 
-    def clean_logo(self) -> object:
-        logo = self.cleaned_data.get("logo")
-        validate_uploaded_logo(logo)
-        return logo
-
 
 class SphereSettingsForm(forms.Form):
     """Form for sphere-wide settings."""
@@ -295,12 +312,7 @@ class SphereSettingsForm(forms.Form):
             "Show the sphere room and eligible program-item rooms to active users."
         ),
     )
-    logo = _logo_field()
-
-    def clean_logo(self) -> object:
-        logo = self.cleaned_data.get("logo")
-        validate_uploaded_logo(logo)
-        return logo
+    logo = logo_field()
 
 
 class ProposalSettingsForm(forms.Form):
@@ -615,13 +627,17 @@ class TrackForm(forms.Form):
     is_public = forms.BooleanField(
         required=False,
         initial=True,
-        help_text=_("Public tracks are shown to proposers in the submission wizard."),
+        help_text=_(
+            "Public tracks are shown to proposers in the submission wizard, and"
+            " their sessions appear on the event schedule."
+        ),
     )
 
 
-class SessionEditForm(forms.Form):
-    """Form for editing session fields by an organizer."""
+CUSTOM_DURATION = "custom"
 
+
+class SessionEditForm(forms.Form):
     title = forms.CharField(
         max_length=255,
         strip=True,
@@ -639,10 +655,22 @@ class SessionEditForm(forms.Form):
     )
     contact_email = forms.EmailField(required=False, label=_("Contact Email"))
     participants_limit = forms.IntegerField(
-        required=False, min_value=0, label=_("Participants Limit")
+        required=False,
+        min_value=0,
+        validators=[STORAGE_LIMIT_VALIDATOR],
+        label=_("Participants Limit"),
+        help_text=_("Empty or 0 = no enrollment"),
     )
     min_age = forms.IntegerField(required=False, min_value=0, label=_("Minimum Age"))
-    duration = forms.CharField(required=False, label=_("Duration"))
+    # Not a field: the name a subclass's picker takes. Declared so the shared
+    # duration partial can ask whether there is one to render.
+    duration = None
+    duration_hours = forms.IntegerField(
+        required=False, min_value=0, max_value=MAX_DURATION_HOURS, label=_("Hours")
+    )
+    duration_minutes = forms.IntegerField(
+        required=False, min_value=0, max_value=MAX_DURATION_MINUTES, label=_("Minutes")
+    )
     cover_image = cover_image_field()
 
     def clean_cover_image(self) -> object:
@@ -650,28 +678,6 @@ class SessionEditForm(forms.Form):
         validate_uploaded_image(image)
         return image
 
-
-def _participants_limit_field(*, min_limit: int, max_limit: int) -> forms.IntegerField:
-    # Stays optional (blank = no limit, as organizers expect) but honours the
-    # category's configured bounds when one is set.
-    kwargs: dict[str, Any] = {
-        "required": False,
-        "min_value": min_limit or 0,
-        "label": _("Participants Limit"),
-    }
-    if max_limit:
-        kwargs["max_value"] = max_limit
-    return forms.IntegerField(**kwargs)
-
-
-CUSTOM_DURATION = "custom"
-MAX_DURATION_HOURS = 23
-MAX_DURATION_MINUTES = 59
-
-
-class _ComposedDurationForm(SessionEditForm):
-    # A session stores one ISO duration, but the organizer may type it as hours
-    # plus minutes, so the composed value has to land back on `duration`.
     # Returns nothing: the composed value is written straight into
     # cleaned_data, which Django keeps when clean() returns None.
     def clean(self) -> None:
@@ -690,16 +696,16 @@ class _ComposedDurationForm(SessionEditForm):
 
 
 def _duration_field(durations: Sequence[str]) -> forms.ChoiceField | None:
-    # No configured durations means the steppers are the whole control, so the
-    # inherited free-text field is dropped (a None entry removes it).
-    if not durations:
+    # No configured durations means the steppers are the whole control, so no
+    # picker is added at all.
+    if not (labelled := duration_choices(durations)):
         return None
     return forms.ChoiceField(
         required=False,
         label=_("Duration"),
         choices=[
             ("", "---"),
-            *((d, format_duration(d)) for d in durations),
+            *labelled,
             # Kept last: the template reveals the steppers with a CSS
             # :last-child selector rather than JavaScript.
             (CUSTOM_DURATION, _("Custom")),
@@ -707,11 +713,13 @@ def _duration_field(durations: Sequence[str]) -> forms.ChoiceField | None:
     )
 
 
+# Takes durations rather than the category: a category's participant bounds bind
+# the submission wizard only (chronology.forms.build_session_details_form).
 def create_proposal_form(
     categories: list[tuple[int, str]],
     *,
     requirements: Sequence[SessionFieldRequirementDTO] = (),
-    category: ProposalCategoryDTO | None = None,
+    durations: Sequence[str] = (),
 ) -> type[SessionEditForm]:
     attrs: dict[str, forms.Field] = {
         "category_id": forms.ChoiceField(
@@ -723,32 +731,17 @@ def create_proposal_form(
         )
     }
 
-    if category and (
-        category.min_participants_limit or category.max_participants_limit
-    ):
-        attrs["participants_limit"] = _participants_limit_field(
-            min_limit=category.min_participants_limit,
-            max_limit=category.max_participants_limit,
-        )
-
-    attrs["duration_hours"] = forms.IntegerField(
-        required=False, min_value=0, max_value=MAX_DURATION_HOURS, label=_("Hours")
-    )
-    attrs["duration_minutes"] = forms.IntegerField(
-        required=False, min_value=0, max_value=MAX_DURATION_MINUTES, label=_("Minutes")
-    )
-
     custom_required = build_dynamic_fields(
         fields=attrs, requirements=requirements, prefix="session"
     )
 
     namespace: dict[str, forms.Field | tuple[str, ...] | None] = {
         **attrs,
-        "duration": _duration_field(category.durations if category else []),
+        "duration": _duration_field(durations),
         "custom_required_keys": custom_required,
     }
     return type(
-        "ProposalCreateForm", (CustomAnswerFormMixin, _ComposedDurationForm), namespace
+        "ProposalCreateForm", (CustomAnswerFormMixin, SessionEditForm), namespace
     )
 
 
@@ -763,7 +756,29 @@ ACCREDITATION_TYPE_CHOICES = [
 ]
 
 
-class FacilitatorForm(forms.Form):
+class FacilitatorFieldsForm(forms.Form):
+    # Shared by the create and edit pages; both render fields by name, so the
+    # declaration order here does not reach the templates.
+    accreditation_type = forms.ChoiceField(
+        choices=ACCREDITATION_TYPE_CHOICES,
+        initial=AccreditationType.NONE,
+        required=False,
+        label=_("Accreditation type"),
+    )
+    is_collective = forms.BooleanField(
+        required=False,
+        label=_("Runs program points in parallel"),
+        help_text=_(
+            "For a guild or the organizer crew — the timetable stops reporting"
+            " this facilitator's overlapping program points as a clash."
+        ),
+    )
+
+    def clean_accreditation_type(self) -> str:
+        return self.cleaned_data.get("accreditation_type") or AccreditationType.NONE
+
+
+class FacilitatorForm(FacilitatorFieldsForm):
     """Form for creating a facilitator (display_name is required at creation)."""
 
     display_name = forms.CharField(
@@ -774,12 +789,6 @@ class FacilitatorForm(forms.Form):
             "required": _("Display name is required."),
         },
     )
-    accreditation_type = forms.ChoiceField(
-        choices=ACCREDITATION_TYPE_CHOICES,
-        initial=AccreditationType.NONE,
-        required=False,
-        label=_("Accreditation type"),
-    )
     assign_me = forms.BooleanField(
         initial=True,
         required=False,
@@ -787,19 +796,10 @@ class FacilitatorForm(forms.Form):
         help_text=_("You handle this facilitator until you step down."),
     )
 
-    def clean_accreditation_type(self) -> str:
-        return self.cleaned_data.get("accreditation_type") or AccreditationType.NONE
 
-
-class FacilitatorEditForm(forms.Form):
+class FacilitatorEditForm(FacilitatorFieldsForm):
     # No display_name: it is a read-only cache (the canonical byline lives on
     # the session), so the panel edit form only touches accreditation_type.
-    accreditation_type = forms.ChoiceField(
-        choices=ACCREDITATION_TYPE_CHOICES,
-        initial=AccreditationType.NONE,
-        required=False,
-        label=_("Accreditation type"),
-    )
     internal_comment = forms.CharField(
         required=False,
         strip=True,
@@ -807,9 +807,6 @@ class FacilitatorEditForm(forms.Form):
         label=_("Internal comment"),
         help_text=_("Visible to organizers only."),
     )
-
-    def clean_accreditation_type(self) -> str:
-        return self.cleaned_data.get("accreditation_type") or AccreditationType.NONE
 
 
 DISCOUNT_KIND_LABELS = {

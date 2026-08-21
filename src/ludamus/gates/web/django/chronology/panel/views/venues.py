@@ -8,7 +8,6 @@ import re
 from typing import TYPE_CHECKING, Any
 
 from django.contrib import messages
-from django.core.exceptions import ValidationError
 from django.http import JsonResponse
 from django.shortcuts import redirect
 from django.template.response import TemplateResponse
@@ -26,12 +25,12 @@ from ludamus.gates.web.django.forms import (
     create_space_copy_form,
 )
 from ludamus.pacts import NotFoundError
-from ludamus.pacts.venues import SpaceInputDTO
+from ludamus.pacts.venues import SpaceInputDTO, SpaceValidationError
 
 if TYPE_CHECKING:
     from django.http import HttpResponse
 
-    from ludamus.pacts.venues import SpaceNodeDTO
+    from ludamus.pacts.venues import SpaceRecordDTO
 
 
 def suggest_copy_name(name: str) -> str:
@@ -65,7 +64,7 @@ class SpaceCreatePageView(PanelAccessMixin, EventContextMixin, View):
 
     def _parent(
         self, current_event_pk: int, parent_pk: int | None
-    ) -> SpaceNodeDTO | None:
+    ) -> SpaceRecordDTO | None:
         if parent_pk is None:
             return None
         parent = self.request.services.space_tree.read(parent_pk)
@@ -116,8 +115,8 @@ class SpaceCreatePageView(PanelAccessMixin, EventContextMixin, View):
                         location=form.cleaned_data.get("location") or "",
                     ),
                 )
-            except ValidationError as exc:
-                form.add_error(None, exc.messages[0])
+            except SpaceValidationError as error:
+                form.add_error(None, str(error))
             else:
                 messages.success(self.request, _("Space created successfully."))
                 return redirect("panel:venues", slug=slug)
@@ -134,7 +133,7 @@ class SpaceEditPageView(PanelAccessMixin, EventContextMixin, View):
 
     request: PanelRequest
 
-    def _node(self, current_event_pk: int, pk: int) -> SpaceNodeDTO:
+    def _node(self, current_event_pk: int, pk: int) -> SpaceRecordDTO:
         node = self.request.services.space_tree.read(pk)
         if node.event_id != current_event_pk:
             raise NotFoundError
@@ -201,8 +200,8 @@ class SpaceEditPageView(PanelAccessMixin, EventContextMixin, View):
                         location=form.cleaned_data.get("location") or "",
                     ),
                 )
-            except ValidationError as exc:
-                form.add_error(None, exc.messages[0])
+            except SpaceValidationError as error:
+                form.add_error(None, str(error))
             else:
                 messages.success(self.request, _("Space updated successfully."))
                 return redirect("panel:venues", slug=slug)
@@ -276,7 +275,7 @@ class SpaceCopyPageView(PanelAccessMixin, EventContextMixin, View):
 
     def _node_and_choices(
         self, context: dict[str, Any], current_event_pk: int, pk: int
-    ) -> tuple[SpaceNodeDTO, list[tuple[int, str]]]:
+    ) -> tuple[SpaceRecordDTO, list[tuple[int, str]]]:
         node = self.request.services.space_tree.read(pk)
         if node.event_id != current_event_pk:
             raise NotFoundError

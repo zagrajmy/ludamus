@@ -121,6 +121,13 @@ ranges = ["python-tests"]
 
 
 [[metrics]]
+name = "pointless-assert"
+type = "regex_count"
+group = "testing"
+pattern = '=\w+\.context_data'
+ranges = ["python-tests"]
+
+[[metrics]]
 name = "pytest-skip"
 type = "regex_count"
 group = "testing"
@@ -150,6 +157,7 @@ name = "type-ignores"
 type = "regex_count"
 group = "typing"
 pattern = '#\s*type:\s*ignore'
+ignore_lines = ['class.*admin\.TabularInline', 'class.*admin\.ModelAdmin']
 ranges = ["python-src"]
 
 [[metrics]]
@@ -190,22 +198,31 @@ ranges = ["config"]
 # refactoring
 
 [[metrics]]
-name = "request-di-uow"
-type = "regex_count"
+name = "request-di-uow-files"
+type = "regex_spread"
 group = "refactoring"
 pattern = 'request\.di\.uow'
 
 [[metrics]]
-name = "legacy-loc"
-type = "line_count"
+name = "legacy-files"
+type = "file_count"
 group = "refactoring"
 ranges = ["legacy-code"]
+
+# A file past this many lines has stopped being one thing. Counts crossings
+# both ways, so splitting one back under the gate pays for pushing another over.
+[[metrics]]
+name = "giant-files"
+type = "file_count"
+group = "refactoring"
+ranges = ["python-src"]
+over_lines = 1000
 
 # Old subdomain names (noun/verb migration): chronology+submissions -> event,
 # crowd -> user, multiverse -> sphere, notice_board -> encounter
 [[metrics]]
-name = "old-subdomain-loc"
-type = "line_count"
+name = "old-subdomain-files"
+type = "file_count"
 group = "refactoring"
 ranges = ["old-subdomain-modules"]
 

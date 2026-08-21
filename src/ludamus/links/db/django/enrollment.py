@@ -141,12 +141,6 @@ class ParticipationPromotionRepository:
             return None
         event = session.event
 
-        if (config := event.get_most_liberal_config(session)) is None:
-            logger.info(
-                "Session %s sits outside every active enrollment window", session_id
-            )
-            return None
-
         category = session.category
         mode = (
             PromotionMode(category.promotion_mode)
@@ -219,7 +213,7 @@ class ParticipationPromotionRepository:
             promotion_mode=mode,
             offer_claim_window=window,
             presenter_id=session.presenter_id,
-            available_seats=config.get_available_slots(session),
+            available_seats=session.seats_left,
             waiting=waiting,
             shadowbanned_user_ids=shadowbanned_user_ids,
         )
@@ -230,7 +224,7 @@ class ParticipationPromotionRepository:
     ) -> tuple[dict[str, int], dict[str, int]]:
         emails = {email for email in owner_emails if email}
         domains = {email.split("@")[1] for email in emails if "@" in email}
-        configs = event.get_active_enrollment_configs()
+        configs = event.get_allowance_enrollment_configs()
         user_allowed: dict[str, int] = {}
         user_rows = UserEnrollmentConfig.objects.filter(
             enrollment_config__in=configs, user_email__in=emails

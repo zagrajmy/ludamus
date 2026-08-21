@@ -8,11 +8,14 @@ from ludamus.links.db.django.models import (
     PersonalDataField,
     PersonalDataFieldRequirement,
 )
-from ludamus.pacts import EventDTO
 from tests.integration.conftest import ProposalCategoryFactory
-from tests.integration.utils import assert_response
-
-PERMISSION_ERROR = "You don't have permission to access the backoffice panel."
+from tests.integration.utils import assert_login_required, assert_response
+from tests.integration.web.panel.helpers import (
+    assert_event_not_found,
+    assert_not_a_manager,
+    make_workshop_and_talk,
+    panel_context,
+)
 
 
 class TestPersonalDataFieldCreatePageView:
@@ -29,44 +32,22 @@ class TestPersonalDataFieldCreatePageView:
 
         response = client.get(url)
 
-        assert_response(
-            response, HTTPStatus.FOUND, url=f"/crowd/login-required/?next={url}"
-        )
+        assert_login_required(response, url)
 
     def test_get_redirects_non_manager_user(self, authenticated_client, event):
         response = authenticated_client.get(self.get_url(event))
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, PERMISSION_ERROR)],
-            url="/",
-        )
+        assert_not_a_manager(response)
 
-    def test_get_ok_for_sphere_manager(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
-
-        response = authenticated_client.get(self.get_url(event))
+    def test_get_ok_for_sphere_manager(self, panel_client, event):
+        response = panel_client.get(self.get_url(event))
 
         assert_response(
             response,
             HTTPStatus.OK,
             template_name="panel/personal-data-field-create.html",
             context_data={
-                "current_event": EventDTO.model_validate(event),
-                "events": [EventDTO.model_validate(event)],
-                "is_proposal_active": False,
-                "stats": {
-                    "hosts_count": 0,
-                    "pending_proposals": 0,
-                    "rooms_count": 0,
-                    "scheduled_sessions": 0,
-                    "total_proposals": 0,
-                    "total_sessions": 0,
-                },
-                "active_nav": "cfp",
+                **panel_context(event, active_nav="cfp"),
                 "categories": [],
                 "form": ANY,
                 "required_category_pks": set(),
@@ -75,22 +56,14 @@ class TestPersonalDataFieldCreatePageView:
         )
         assert response.context["current_event"].pk == event.pk
 
-    def test_get_redirects_on_invalid_event_slug(
-        self, authenticated_client, active_user, sphere
-    ):
-        sphere.managers.add(active_user)
+    def test_get_redirects_on_invalid_event_slug(self, panel_client):
         url = reverse(
             "panel:personal-data-field-create", kwargs={"slug": "nonexistent"}
         )
 
-        response = authenticated_client.get(url)
+        response = panel_client.get(url)
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Event not found.")],
-            url="/panel/",
-        )
+        assert_event_not_found(response)
 
     # POST tests
 
@@ -101,9 +74,7 @@ class TestPersonalDataFieldCreatePageView:
             url, data={"name": "Email", "question": "What is your email?"}
         )
 
-        assert_response(
-            response, HTTPStatus.FOUND, url=f"/crowd/login-required/?next={url}"
-        )
+        assert_login_required(response, url)
 
     def test_post_redirects_non_manager_user(self, authenticated_client, event):
         response = authenticated_client.post(
@@ -111,19 +82,10 @@ class TestPersonalDataFieldCreatePageView:
             data={"name": "Email", "question": "What is your email?"},
         )
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, PERMISSION_ERROR)],
-            url="/",
-        )
+        assert_not_a_manager(response)
 
-    def test_post_creates_field_for_sphere_manager(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
-
-        response = authenticated_client.post(
+    def test_post_creates_field_for_sphere_manager(self, panel_client, event):
+        response = panel_client.post(
             self.get_url(event),
             data={"name": "Email", "question": "What is your email?"},
         )
@@ -136,12 +98,8 @@ class TestPersonalDataFieldCreatePageView:
         )
         assert PersonalDataField.objects.filter(event=event, name="Email").exists()
 
-    def test_post_generates_slug_from_name(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
-
-        authenticated_client.post(
+    def test_post_generates_slug_from_name(self, panel_client, event):
+        panel_client.post(
             self.get_url(event),
             data={"name": "Phone Number", "question": "What is your phone number?"},
         )
@@ -149,15 +107,12 @@ class TestPersonalDataFieldCreatePageView:
         field = PersonalDataField.objects.get(event=event)
         assert field.slug == "phone-number"
 
-    def test_post_generates_unique_slug_on_collision(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
+    def test_post_generates_unique_slug_on_collision(self, panel_client, event):
         PersonalDataField.objects.create(
             event=event, name="Email", question="What is your email?", slug="email"
         )
 
-        authenticated_client.post(
+        panel_client.post(
             self.get_url(event),
             data={"name": "Email", "question": "What is your email?"},
         )
@@ -167,12 +122,8 @@ class TestPersonalDataFieldCreatePageView:
         new_field = fields.exclude(slug="email").first()
         assert new_field.slug.startswith("email-")
 
-    def test_post_error_on_empty_name_rerenders_form(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
-
-        response = authenticated_client.post(self.get_url(event), data={})
+    def test_post_error_on_empty_name_rerenders_form(self, panel_client, event):
+        response = panel_client.post(self.get_url(event), data={})
 
         assert response.context["form"].errors
         assert_response(
@@ -180,18 +131,7 @@ class TestPersonalDataFieldCreatePageView:
             HTTPStatus.OK,
             template_name="panel/personal-data-field-create.html",
             context_data={
-                "current_event": EventDTO.model_validate(event),
-                "events": [EventDTO.model_validate(event)],
-                "is_proposal_active": False,
-                "stats": {
-                    "hosts_count": 0,
-                    "pending_proposals": 0,
-                    "rooms_count": 0,
-                    "scheduled_sessions": 0,
-                    "total_proposals": 0,
-                    "total_sessions": 0,
-                },
-                "active_nav": "cfp",
+                **panel_context(event, active_nav="cfp"),
                 "categories": [],
                 "form": ANY,
                 "required_category_pks": set(),
@@ -200,31 +140,19 @@ class TestPersonalDataFieldCreatePageView:
         )
         assert not PersonalDataField.objects.filter(event=event).exists()
 
-    def test_post_redirects_on_invalid_event_slug(
-        self, authenticated_client, active_user, sphere
-    ):
-        sphere.managers.add(active_user)
+    def test_post_redirects_on_invalid_event_slug(self, panel_client):
         url = reverse(
             "panel:personal-data-field-create", kwargs={"slug": "nonexistent"}
         )
 
-        response = authenticated_client.post(
+        response = panel_client.post(
             url, data={"name": "Email", "question": "What is your email?"}
         )
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Event not found.")],
-            url="/panel/",
-        )
+        assert_event_not_found(response)
 
-    def test_post_creates_text_field_by_default(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
-
-        authenticated_client.post(
+    def test_post_creates_text_field_by_default(self, panel_client, event):
+        panel_client.post(
             self.get_url(event),
             data={"name": "Email", "question": "What is your email?"},
         )
@@ -232,12 +160,8 @@ class TestPersonalDataFieldCreatePageView:
         field = PersonalDataField.objects.get(event=event)
         assert field.field_type == "text"
 
-    def test_post_creates_select_field_with_options(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
-
-        authenticated_client.post(
+    def test_post_creates_select_field_with_options(self, panel_client, event):
+        panel_client.post(
             self.get_url(event),
             data={
                 "name": "Country",
@@ -256,12 +180,8 @@ class TestPersonalDataFieldCreatePageView:
         assert options[1].label == "Germany"
         assert options[2].label == "France"
 
-    def test_post_ignores_options_for_text_field(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
-
-        authenticated_client.post(
+    def test_post_ignores_options_for_text_field(self, panel_client, event):
+        panel_client.post(
             self.get_url(event),
             data={
                 "name": "Email",
@@ -276,11 +196,9 @@ class TestPersonalDataFieldCreatePageView:
         assert field.options.count() == 0
 
     def test_post_creates_field_with_is_multiple_false_by_default(
-        self, authenticated_client, active_user, sphere, event
+        self, panel_client, event
     ):
-        sphere.managers.add(active_user)
-
-        authenticated_client.post(
+        panel_client.post(
             self.get_url(event),
             data={
                 "name": "Country",
@@ -293,12 +211,8 @@ class TestPersonalDataFieldCreatePageView:
         field = PersonalDataField.objects.get(event=event)
         assert field.is_multiple is False
 
-    def test_post_creates_select_field_with_is_multiple_true(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
-
-        authenticated_client.post(
+    def test_post_creates_select_field_with_is_multiple_true(self, panel_client, event):
+        panel_client.post(
             self.get_url(event),
             data={
                 "name": "Languages",
@@ -313,12 +227,8 @@ class TestPersonalDataFieldCreatePageView:
         assert field.field_type == "select"
         assert field.is_multiple is True
 
-    def test_post_ignores_is_multiple_for_text_field(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
-
-        authenticated_client.post(
+    def test_post_ignores_is_multiple_for_text_field(self, panel_client, event):
+        panel_client.post(
             self.get_url(event),
             data={
                 "name": "Email",
@@ -333,11 +243,9 @@ class TestPersonalDataFieldCreatePageView:
         assert field.is_multiple is False
 
     def test_post_creates_field_with_allow_custom_false_by_default(
-        self, authenticated_client, active_user, sphere, event
+        self, panel_client, event
     ):
-        sphere.managers.add(active_user)
-
-        authenticated_client.post(
+        panel_client.post(
             self.get_url(event),
             data={
                 "name": "Country",
@@ -351,11 +259,9 @@ class TestPersonalDataFieldCreatePageView:
         assert field.allow_custom is False
 
     def test_post_creates_select_field_with_allow_custom_true(
-        self, authenticated_client, active_user, sphere, event
+        self, panel_client, event
     ):
-        sphere.managers.add(active_user)
-
-        authenticated_client.post(
+        panel_client.post(
             self.get_url(event),
             data={
                 "name": "Country",
@@ -370,12 +276,8 @@ class TestPersonalDataFieldCreatePageView:
         assert field.field_type == "select"
         assert field.allow_custom is True
 
-    def test_post_ignores_allow_custom_for_text_field(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
-
-        authenticated_client.post(
+    def test_post_ignores_allow_custom_for_text_field(self, panel_client, event):
+        panel_client.post(
             self.get_url(event),
             data={
                 "name": "Email",
@@ -391,25 +293,19 @@ class TestPersonalDataFieldCreatePageView:
 
     # Category assignment tests
 
-    def test_get_includes_categories_in_context(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
-        ProposalCategoryFactory(event=event, name="Workshop")
-        ProposalCategoryFactory(event=event, name="Talk")
+    def test_get_includes_categories_in_context(self, panel_client, event):
+        make_workshop_and_talk(event)
 
-        response = authenticated_client.get(self.get_url(event))
+        response = panel_client.get(self.get_url(event))
 
         assert len(response.context["categories"]) == 1 + 1  # Workshop + Talk
 
     def test_post_with_category_assignments_creates_requirements(
-        self, authenticated_client, active_user, sphere, event
+        self, panel_client, event
     ):
-        sphere.managers.add(active_user)
-        cat1 = ProposalCategoryFactory(event=event, name="Workshop")
-        cat2 = ProposalCategoryFactory(event=event, name="Talk")
+        cat1, cat2 = make_workshop_and_talk(event)
 
-        authenticated_client.post(
+        panel_client.post(
             self.get_url(event),
             data={
                 "name": "Email",
@@ -427,12 +323,11 @@ class TestPersonalDataFieldCreatePageView:
         assert reqs == {cat1.pk: True, cat2.pk: False}
 
     def test_post_without_category_assignments_creates_no_requirements(
-        self, authenticated_client, active_user, sphere, event
+        self, panel_client, event
     ):
-        sphere.managers.add(active_user)
         ProposalCategoryFactory(event=event, name="Workshop")
 
-        authenticated_client.post(
+        panel_client.post(
             self.get_url(event),
             data={"name": "Email", "question": "What is your email?"},
         )

@@ -18,13 +18,16 @@
      whose sessions are absolutely positioned, contributes nothing. */
   .timetable-day-strip {
     display: grid;
-    grid-template-columns: var(--timetable-time-column) repeat(
-        var(--total-columns),
-        minmax(var(--timetable-column-min), 1fr)
-      );
+    /* Gutter, rooms, gutter, rooms: every day owns its time axis, so the track
+       list alternates and cannot be expressed as one repeat(). The template
+       unrolls it into --day-strip-tracks. */
+    grid-template-columns: var(--day-strip-tracks);
     width: max(
       100%,
-      calc(var(--timetable-time-column) + var(--total-columns) * var(--timetable-column-min))
+      calc(
+        var(--day-count) * var(--timetable-time-column) + var(--total-columns) *
+          var(--timetable-column-min)
+      )
     );
   }
 
@@ -42,7 +45,7 @@
   .timetable-day-grid {
     display: grid;
     grid-template-columns: subgrid;
-    grid-column: span var(--columns-per-day);
+    grid-column: span var(--day-span);
   }
 
   .timetable-day-header {
@@ -50,16 +53,18 @@
     grid-template-rows: subgrid;
   }
 
-  /* Pinned explicitly: the day headers span rows, and auto-placement resolves
-     row-spanning items before auto-placed ones, so an unpinned corner would be
-     pushed past the first day. */
+  /* Pinned explicitly so the group and room cells auto-place from the second
+     track: the corner sits under the day title, over the day's time axis.
+     Row 1 collapses to zero in the single-day view, which is what drops the
+     date row. */
   .timetable-corner {
-    grid-row: 1 / -1;
+    grid-row: 2 / -1;
     grid-column: 1;
   }
 
   .timetable-time-axis {
     grid-column: 1;
+    position: relative;
   }
 
   .timetable-day-title {
@@ -122,10 +127,10 @@
   }
 
   /* A day boundary reads the same as a room boundary once the header scrolls
-     out of view, so the day's first column carries a stronger rule. It cannot
-     go on the day itself: border on a subgrid insets its tracks. */
-  .timetable-day-grid + .timetable-day-grid > .timetable-column:first-child {
-    border-left-color: var(--color-foreground-muted);
+     out of view, so the day's time axis carries a stronger rule. It cannot go
+     on the day itself: border on a subgrid insets its tracks. */
+  .timetable-day-grid + .timetable-day-grid > .timetable-time-axis {
+    border-left: 1px solid var(--color-foreground-muted);
   }
 
   .timetable-time-axis,

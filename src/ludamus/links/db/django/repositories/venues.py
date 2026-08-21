@@ -1,11 +1,14 @@
 from collections import defaultdict
 from typing import TYPE_CHECKING
 
-from django.db import transaction
-from django.db.models import Max
+from django.core.exceptions import ValidationError
+from django.db import IntegrityError, transaction
+from django.db.models import Max, Value
+from django.db.models.functions import Lower
 from django.utils.text import slugify
 
 from ludamus.links.db.django.models import (
+    SPACE_NO_CHILDREN_REASON,
     AgendaItem,
     Event,
     Session,
@@ -14,6 +17,7 @@ from ludamus.links.db.django.models import (
     Track,
 )
 from ludamus.links.db.django.repositories import slugs
+from ludamus.links.db.django.repositories.constraints import violates_constraint
 from ludamus.pacts import (
     NotFoundError,
     SpaceDTO,
@@ -26,10 +30,13 @@ from ludamus.pacts import (
     TrackRepositoryProtocol,
     TrackUpdateData,
 )
+from ludamus.pacts.tracks import DuplicateTrackNameError
 from ludamus.pacts.venues import (
     SpaceInputDTO,
-    SpaceNodeDTO,
+    SpaceRecordDTO,
+    SpaceTreeNodeDTO,
     SpaceTreeRepositoryProtocol,
+    SpaceValidationError,
 )
 
 if TYPE_CHECKING:
@@ -71,9 +78,10 @@ class SpaceRepository(SpaceRepositoryProtocol):
 
 class SpaceTreeRepository(SpaceTreeRepositoryProtocol):
     @staticmethod
-    def list_tree(event_pk: int) -> list[SpaceNodeDTO]:
-        # One query for the whole event; assemble the tree in Python. Prefetch
-        # tracks so the panel can show track pills per space without N+1.
+    def list_tree(event_pk: int) -> list[SpaceTreeNodeDTO]:
+        # Two queries for the whole event — the spaces and the pks holding a
+        # session — then assemble the tree in Python. Prefetch tracks so the
+        # panel can show track pills per space without N+1.
         spaces = list(
             Space.objects.filter(event_id=event_pk)
             .order_by("order", "name")
@@ -82,38 +90,36 @@ class SpaceTreeRepository(SpaceTreeRepositoryProtocol):
         children_by_parent: dict[int | None, list[Space]] = defaultdict(list)
         for space in spaces:
             children_by_parent[space.parent_id].append(space)
+        with_sessions = SpaceTreeRepository.space_pks_with_sessions(event_pk)
 
-        def build(space: Space, depth: int) -> SpaceNodeDTO:
+        def build(space: Space) -> SpaceTreeNodeDTO:
+            # The tree facts come from the sibling map built above, so nothing
+            # here goes back to the database.
             kids = children_by_parent.get(space.pk, [])
-            return SpaceNodeDTO(
-                pk=space.pk,
-                event_id=space.event_id,
-                parent_id=space.parent_id,
-                name=space.name,
-                slug=space.slug,
-                capacity=space.capacity,
-                description=space.description,
-                location=space.location,
-                order=space.order,
-                depth=depth,
+            return SpaceTreeNodeDTO(
+                space=SpaceRecordDTO.model_validate(space),
                 is_leaf=not kids,
+                no_children_reason=(
+                    str(SPACE_NO_CHILDREN_REASON) if space.pk in with_sessions else None
+                ),
                 track_names=sorted(t.name for t in space.tracks.all()),
-                children=[build(kid, depth + 1) for kid in kids],
+                children=[build(kid) for kid in kids],
             )
 
-        return [build(root, 1) for root in children_by_parent.get(None, [])]
+        return [build(root) for root in children_by_parent.get(None, [])]
 
-    def read(self, pk: int) -> SpaceNodeDTO:
+    @staticmethod
+    def read(pk: int) -> SpaceRecordDTO:
         try:
             space = Space.objects.get(pk=pk)
         except Space.DoesNotExist as err:
             raise NotFoundError from err
-        return self._node(space)
+        return SpaceRecordDTO.model_validate(space)
 
     @transaction.atomic
     def create(
         self, *, event_id: int, parent_id: int | None, data: SpaceInputDTO
-    ) -> SpaceNodeDTO:
+    ) -> SpaceRecordDTO:
         slug = self.generate_unique_slug(event_id, parent_id, slugify(data.name))
         max_order = Space.objects.filter(
             event_id=event_id, parent_id=parent_id
@@ -128,14 +134,17 @@ class SpaceTreeRepository(SpaceTreeRepositoryProtocol):
             location=data.location,
             order=(max_order if max_order is not None else -1) + 1,
         )
-        space.full_clean()
+        try:
+            space.full_clean()
+        except ValidationError as error:
+            raise SpaceValidationError("; ".join(error.messages)) from error
         space.save()
-        return self._node(space)
+        return SpaceRecordDTO.model_validate(space)
 
     @transaction.atomic
     def update(
         self, *, pk: int, parent_id: int | None, data: SpaceInputDTO
-    ) -> SpaceNodeDTO:
+    ) -> SpaceRecordDTO:
         try:
             space = Space.objects.select_for_update().get(pk=pk)
         except Space.DoesNotExist as err:
@@ -161,9 +170,12 @@ class SpaceTreeRepository(SpaceTreeRepositoryProtocol):
         space.capacity = data.capacity
         space.description = data.description
         space.location = data.location
-        space.full_clean()
+        try:
+            space.full_clean()
+        except ValidationError as error:
+            raise SpaceValidationError("; ".join(error.messages)) from error
         space.save()
-        return self._node(space)
+        return SpaceRecordDTO.model_validate(space)
 
     @staticmethod
     def delete(pk: int) -> None:
@@ -235,7 +247,7 @@ class SpaceTreeRepository(SpaceTreeRepositoryProtocol):
         )
 
     @transaction.atomic
-    def duplicate(self, pk: int, new_name: str) -> SpaceNodeDTO:
+    def duplicate(self, pk: int, new_name: str) -> SpaceRecordDTO:
         try:
             source = Space.objects.get(pk=pk)
         except Space.DoesNotExist as err:
@@ -243,17 +255,17 @@ class SpaceTreeRepository(SpaceTreeRepositoryProtocol):
         clone = self._clone_subtree(
             source, event_id=source.event_id, parent_id=source.parent_id, name=new_name
         )
-        return self._node(clone)
+        return SpaceRecordDTO.model_validate(clone)
 
     @transaction.atomic
-    def copy_to_event(self, pk: int, target_event_id: int) -> SpaceNodeDTO:
+    def copy_to_event(self, pk: int, target_event_id: int) -> SpaceRecordDTO:
         try:
             source = Space.objects.get(pk=pk)
         except Space.DoesNotExist as err:
             raise NotFoundError from err
         # The copied subtree becomes a root in the target event.
         clone = self._clone_subtree(source, event_id=target_event_id, parent_id=None)
-        return self._node(clone)
+        return SpaceRecordDTO.model_validate(clone)
 
     def _clone_subtree(
         self,
@@ -277,29 +289,6 @@ class SpaceTreeRepository(SpaceTreeRepositoryProtocol):
         for child in Space.objects.filter(parent_id=source.pk).order_by("order"):
             self._clone_subtree(child, event_id=event_id, parent_id=clone.pk)
         return clone
-
-    @staticmethod
-    def _node(space: Space) -> SpaceNodeDTO:
-        return SpaceNodeDTO(
-            pk=space.pk,
-            event_id=space.event_id,
-            parent_id=space.parent_id,
-            name=space.name,
-            slug=space.slug,
-            capacity=space.capacity,
-            description=space.description,
-            location=space.location,
-            order=space.order,
-            depth=1 + sum(1 for _ in space.iter_ancestors()),
-            is_leaf=not space.children.exists(),
-            # Explicit query, not `space.tracks.all()`: _node also runs on
-            # just-created instances where nothing is prefetched, and a view
-            # can build two nodes per request (parent + new child).
-            track_names=sorted(
-                Track.objects.filter(spaces__pk=space.pk).values_list("name", flat=True)
-            ),
-            children=[],
-        )
 
 
 class TimeSlotRepository(TimeSlotRepositoryProtocol):
@@ -364,18 +353,42 @@ class TimeSlotRepository(TimeSlotRepositoryProtocol):
         return TimeSlotDTO.model_validate(time_slot)
 
 
+# A functional index: both engines report it by its own name.
+_TRACK_UNIQUE_NAME_CONSTRAINT = "track_unique_name_per_event"
+
+
+def is_track_name_conflict(exc: IntegrityError) -> bool:
+    return violates_constraint(exc, _TRACK_UNIQUE_NAME_CONSTRAINT)
+
+
+def _track_by_name(event_id: int, name: str) -> Track | None:
+    # Fold with Lower, exactly like the track_unique_name_per_event
+    # constraint. iexact would fold with UPPER instead, which disagrees on a
+    # handful of codepoints and cannot use the expression index.
+    return (
+        Track.objects.alias(folded_name=Lower("name"))
+        .filter(event_id=event_id, folded_name=Lower(Value(name)))
+        .first()
+    )
+
+
 class TrackRepository(TrackRepositoryProtocol):
     @transaction.atomic
     def create(self, data: TrackCreateData) -> TrackDTO:
         Event.objects.select_for_update().get(pk=data["event_pk"])
         base_slug = slugify(data["name"])
         slug = self.generate_unique_slug(data["event_pk"], base_slug)
-        track = Track.objects.create(
-            event_id=data["event_pk"],
-            name=data["name"],
-            slug=slug,
-            is_public=data["is_public"],
-        )
+        try:
+            track = Track.objects.create(
+                event_id=data["event_pk"],
+                name=data["name"],
+                slug=slug,
+                is_public=data["is_public"],
+            )
+        except IntegrityError as exc:
+            if is_track_name_conflict(exc):
+                raise DuplicateTrackNameError from exc
+            raise
         track.spaces.set(data["space_pks"])
         track.managers.set(data["manager_pks"])
         return TrackDTO.model_validate(track)
@@ -390,6 +403,11 @@ class TrackRepository(TrackRepositoryProtocol):
         return TrackDTO.model_validate(track)
 
     @staticmethod
+    def find_by_event_and_name(event_pk: int, name: str) -> TrackDTO | None:
+        track = _track_by_name(event_pk, name)
+        return TrackDTO.model_validate(track) if track else None
+
+    @staticmethod
     def read_by_slug(event_pk: int, slug: str) -> TrackDTO:
         try:
             track = Track.objects.get(event_id=event_pk, slug=slug)
@@ -400,10 +418,15 @@ class TrackRepository(TrackRepositoryProtocol):
 
     @staticmethod
     def get_or_create_by_slug(event_id: int, name: str, slug: str) -> int:
-        track, _ = Track.objects.get_or_create(
-            event_id=event_id, slug=slug, defaults={"name": name}
-        )
-        return track.pk
+        # Slugs are operator-typed in the import mapping and drift from the
+        # slug a track actually carries, so a miss here is not proof the track
+        # is new. Names are unique per event, so check that before inserting
+        # rather than letting the constraint raise.
+        if track := Track.objects.filter(event_id=event_id, slug=slug).first():
+            return track.pk
+        if existing := _track_by_name(event_id, name):
+            return existing.pk
+        return Track.objects.create(event_id=event_id, slug=slug, name=name).pk
 
     @transaction.atomic
     def update(self, pk: int, data: TrackUpdateData) -> TrackDTO:
@@ -425,7 +448,12 @@ class TrackRepository(TrackRepositoryProtocol):
             track.is_public = data["is_public"]
             needs_save = True
         if needs_save:
-            track.save()
+            try:
+                track.save()
+            except IntegrityError as exc:
+                if is_track_name_conflict(exc):
+                    raise DuplicateTrackNameError from exc
+                raise
         track.spaces.set(data["space_pks"])
         track.managers.set(data["manager_pks"])
         return TrackDTO.model_validate(track)
@@ -487,31 +515,22 @@ class TrackRepository(TrackRepositoryProtocol):
         return list(Space.objects.filter(tracks__pk=pk).values_list("pk", flat=True))
 
     @staticmethod
+    def list_space_pks_by_event(event_pk: int) -> dict[int, list[int]]:
+        result: dict[int, list[int]] = {}
+        pairs = (
+            Track.spaces.through.objects.filter(track__event_id=event_pk)
+            .order_by("space_id")
+            .values_list("track_id", "space_id")
+        )
+        for track_pk, space_pk in pairs:
+            result.setdefault(track_pk, []).append(space_pk)
+        return result
+
+    @staticmethod
     def list_manager_pks(pk: int) -> list[int]:
         return list(
             User.objects.filter(managed_tracks__pk=pk).values_list("pk", flat=True)
         )
-
-    @staticmethod
-    def list_by_sessions(session_ids: Iterable[int]) -> dict[int, list[TrackDTO]]:
-        # Two constant queries: the session→track pairs, then the track rows.
-        # The one-query through-table walk (see read_facilitators_by_sessions)
-        # doesn't type-check here: `tracks` is declared with a lazy "Track"
-        # string reference, so django-stubs resolves the auto-created through
-        # model to Never and mypy rejects `Session.tracks.through.objects`.
-        pairs = (
-            Session.objects.filter(pk__in=session_ids, tracks__isnull=False)
-            .order_by("tracks__name")
-            .values_list("pk", "tracks__pk")
-        )
-        tracks = {
-            track.pk: TrackDTO.model_validate(track)
-            for track in Track.objects.filter(sessions__pk__in=session_ids).distinct()
-        }
-        result: dict[int, list[TrackDTO]] = {}
-        for session_pk, track_pk in pairs:
-            result.setdefault(session_pk, []).append(tracks[track_pk])
-        return result
 
     @staticmethod
     def list_manager_names_by_tracks(track_pks: Iterable[int]) -> dict[int, list[str]]:

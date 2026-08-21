@@ -157,6 +157,16 @@ test.describe("Backoffice Panel", () => {
     );
   });
 
+  test("shows the footer without scrolling on a tall viewport", async ({ page }) => {
+    await page.setViewportSize({ width: 1600, height: 1400 });
+    await page.goto("/panel/");
+
+    const overflow = await page
+      .locator("#app-scroll")
+      .evaluate((element) => element.scrollHeight - element.clientHeight);
+    expect(overflow).toBeLessThanOrEqual(1);
+  });
+
   test("does not scale panel category collapsibles on pointer down", async ({ page }) => {
     await page.goto("/panel/");
 
@@ -165,6 +175,29 @@ test.describe("Backoffice Panel", () => {
     await page.mouse.down();
     await expect(category).toHaveCSS("scale", "1");
     await page.mouse.up();
+  });
+
+  test("reports the panel category's collapsed state to assistive tech", async ({ page }) => {
+    await page.goto("/panel/");
+
+    const category = page.getByRole("button", { name: "Program" });
+    const links = page.locator(`#${await category.getAttribute("aria-controls")}`);
+    await expect(category).toHaveAttribute("aria-expanded", "true");
+    await expect(links).toBeVisible();
+
+    await category.click();
+
+    await expect(category).toHaveAttribute("aria-expanded", "false");
+    await expect(links).toBeHidden();
+
+    // The collapsed set is restored from localStorage before paint, but the
+    // header ships as expanded — a reload has to reconcile the two.
+    await page.reload();
+
+    await expect(page.getByRole("button", { name: "Program" })).toHaveAttribute(
+      "aria-expanded",
+      "false",
+    );
   });
 
   test("keeps the sidebar toggle at the top while scrolling", async ({ page }) => {
@@ -267,7 +300,12 @@ test.describe("Backoffice Panel", () => {
     await page.getByRole("button", { name: "Create space" }).click();
 
     await expect(page.getByText("Space created successfully.")).toBeVisible();
-    await expect(page.getByText("Community Library", { exact: true })).toBeVisible();
+    // Unscoped exact-text lookup, same trap as "lists the space tree for the
+    // event" above: a serial retry replays this test from the top without
+    // undoing the earlier attempt's insert, so a later attempt sees two
+    // "Community Library" nodes and an exact match becomes a strict-mode
+    // violation (CI run 32138614309). .first() only needs one to exist.
+    await expect(page.getByText("Community Library", { exact: true }).first()).toBeVisible();
   });
 
   test("creates a nested space inside a parent", async ({ page }) => {
@@ -280,6 +318,23 @@ test.describe("Backoffice Panel", () => {
 
     await expect(page.getByText("Space created successfully.")).toBeVisible();
     await expect(page.getByText("Workshop Room", { exact: true })).toBeVisible();
+  });
+
+  test("offers no add-inside action on a space holding a session", async ({ page }) => {
+    await page.goto("/panel/event/frostfire-con/venues/");
+
+    const bookedNode = page.getByRole("listitem").filter({
+      has: page.getByText("Glacier Amphitheatre", { exact: true }),
+    });
+    const label = "Add a space inside Glacier Amphitheatre";
+    await expect(bookedNode.getByRole("link", { name: label })).toHaveCount(0);
+    await expect(bookedNode.getByRole("button", { name: label })).toHaveAttribute(
+      "aria-disabled",
+      "true",
+    );
+    await expect(
+      bookedNode.getByText("A space holding a scheduled session cannot contain other spaces."),
+    ).toBeAttached();
   });
 
   test("edits a space", async ({ page }) => {

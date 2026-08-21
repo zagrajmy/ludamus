@@ -46,9 +46,19 @@ export MISE_ENV=sandbox
 # (pytest has no django, mypy has no mypy_django_plugin); if the shims are
 # appended, the venv lands after the container's bare /usr/local/bin/python
 # and every `mise run` task fails with "No module named 'django'".
+# `.venv/bin` sits between them because mise cannot shim the interpreter here:
+# mise.sandbox.toml disables the `python` tool (apt provides 3.14, `_.python.venv`
+# builds .venv from it), so no `python` shim is generated and a bare `python` in
+# an agent's shell falls through to the image's /usr/local/bin/python 3.11. That
+# reads as a repo bug the moment it meets 3.14-only syntax — PEP 758's
+# unparenthesized `except A, B:` in scripts/impeccable_lint.py raises SyntaxError
+# there, and "fixing" it fights Black, which normalizes back to it under 3.14.
+# Same trap for black/pytest/mypy: the ~/.local/bin copies are plugin-less.
+# The directory need not exist yet — `mise install` below creates it, and PATH
+# is only resolved once the agent runs a command.
 if [ -n "${CLAUDE_ENV_FILE:-}" ]; then
   # ~/.local/bin carries the container image's user-level binaries.
-  echo "export PATH=\"$HOME/.local/share/mise/shims:$HOME/.local/bin:\$PATH\"" \
+  echo "export PATH=\"$HOME/.local/share/mise/shims:$CLAUDE_PROJECT_DIR/.venv/bin:$HOME/.local/bin:\$PATH\"" \
     >> "$CLAUDE_ENV_FILE"
   echo "export MISE_ENV=sandbox" >> "$CLAUDE_ENV_FILE"
 fi

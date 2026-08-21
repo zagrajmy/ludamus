@@ -6,7 +6,7 @@ from ludamus.links.db.django.repositories import SpaceTreeRepository
 from ludamus.links.db.django.transaction import DjangoTransaction
 from ludamus.mills.venues import SpaceTreeService
 from ludamus.pacts import NotFoundError
-from ludamus.pacts.venues import SpaceInputDTO
+from ludamus.pacts.venues import SpaceInputDTO, SpaceValidationError
 from tests.integration.conftest import AgendaItemFactory
 
 
@@ -41,9 +41,7 @@ class TestSpaceTreeRepositoryCreate:
         )
 
         assert root.parent_id is None
-        assert root.depth == 1
         assert child.parent_id == root.pk
-        assert child.depth == root.depth + 1
         assert child.capacity == capacity
 
     def test_creates_leaf_with_location(self, event, repo):
@@ -54,7 +52,7 @@ class TestSpaceTreeRepositoryCreate:
         )
 
         assert leaf.location == "Building B, room 214"
-        assert repo.list_tree(event.pk)[0].location == "Building B, room 214"
+        assert repo.list_tree(event.pk)[0].space.location == "Building B, room 214"
 
     def test_same_name_under_parent_gets_unique_slug(self, event, repo):
         root = repo.create(event_id=event.pk, parent_id=None, data=space_input("Hall"))
@@ -82,14 +80,14 @@ class TestSpaceTreeRepositoryCreate:
             )
             parent_id = node.pk
 
-        with pytest.raises(ValidationError):
+        with pytest.raises(SpaceValidationError):
             repo.create(event_id=event.pk, parent_id=parent_id, data=space_input("L"))
 
     def test_leaf_with_session_rejects_child(self, event, repo):
         leaf = repo.create(event_id=event.pk, parent_id=None, data=space_input("Room"))
         AgendaItemFactory(space=Space.objects.get(pk=leaf.pk))
 
-        with pytest.raises(ValidationError):
+        with pytest.raises(SpaceValidationError):
             repo.create(event_id=event.pk, parent_id=leaf.pk, data=space_input("Sub"))
 
 
@@ -175,11 +173,11 @@ class TestSpaceTreeRepositoryMutations:
         tree = repo.list_tree(event.pk)
 
         assert len(tree) == 1
+        assert tree[0].space.pk == root.pk
         assert tree[0].is_leaf is False
-        assert tree[0].depth == 1
         assert len(tree[0].children) == 1
         assert tree[0].children[0].is_leaf is True
-        assert tree[0].children[0].depth == tree[0].depth + 1
+        assert tree[0].children[0].space.parent_id == root.pk
 
     def test_list_tree_exposes_assigned_track_names(self, event, repo):
         leaf = repo.create(

@@ -15,24 +15,13 @@
 {% block header_actions %}
     {% if current_event %}
         <div class="flex items-center space-x-3">
-            <a href="{% url 'panel:cfp' slug=current_event.slug %}"
-               class="btn btn-secondary">{% translate "Cancel" %}</a>
-            <button type="submit"
-                    form="cfp-create-form"
-                    name="action"
-                    value="create"
-                    class="btn btn-secondary flex items-center">
-                {% icon "plus" class="w-4 h-4 mr-2" %}
-                {% translate "Create" %}
-            </button>
-            <button type="submit"
-                    form="cfp-create-form"
-                    name="action"
-                    value="create_and_configure"
-                    class="btn btn-primary flex items-center">
-                {% icon "cog-6-tooth" class="w-4 h-4 mr-2" %}
-                {% translate "Add and configure" %}
-            </button>
+            {% url 'panel:cfp' slug=current_event.slug as cancel_url %}
+            {% translate "Cancel" as cancel_label %}
+            {% tessera_button cancel_label href=cancel_url variant="secondary" %}
+            {% translate "Create" as create_label %}
+            {% tessera_button create_label form="cfp-create-form" name="action" value="create" variant="secondary" icon="plus" %}
+            {% translate "Add and configure" as configure_label %}
+            {% tessera_button configure_label form="cfp-create-form" name="action" value="create_and_configure" icon="cog-6-tooth" %}
         </div>
     {% endif %}
 {% endblock header_actions %}

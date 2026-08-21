@@ -15,14 +15,11 @@
 {% block header_actions %}
     {% if current_event %}
         <div class="flex items-center gap-3">
-            <a href="{% url 'panel:tracks' slug=current_event.slug %}"
-               class="btn btn-secondary">{% translate "Cancel" %}</a>
-            <button type="submit"
-                    form="track-create-form"
-                    class="btn btn-primary flex items-center">
-                {% icon "plus" class="w-4 h-4 mr-2" %}
-                {% translate "Create Track" %}
-            </button>
+            {% url 'panel:tracks' slug=current_event.slug as cancel_url %}
+            {% translate "Cancel" as cancel_label %}
+            {% tessera_button cancel_label href=cancel_url variant="secondary" %}
+            {% translate "Create Track" as create_label %}
+            {% tessera_button create_label form="track-create-form" icon="plus" %}
         </div>
     {% endif %}
 {% endblock header_actions %}
@@ -55,7 +52,7 @@
                                 <span class="text-sm font-medium text-foreground">{% translate "Public track" %}</span>
                             </label>
                             <p class="mt-1 text-xs text-foreground-muted">
-                                {% translate "Public tracks are shown to proposers in the submission wizard." %}
+                                {% translate "Public tracks are shown to proposers in the submission wizard, and their sessions appear on the event schedule." %}
                             </p>
                         </div>
                         {% if spaces %}

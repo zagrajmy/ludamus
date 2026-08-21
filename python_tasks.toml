@@ -45,11 +45,8 @@ run = "mypy {{ env.SRC_PATHS }}"
 env = { _.file = '.env.test' }
 
 ["lint:pylint"]
-description = "Run Pylint on source, scripts and tests (duplicate-code disabled for tests)"
-run = [
-    "pylint -j 0 {{ env.SRC_PATHS }} {{ env.SCRIPT_PATHS }}",
-    "pylint -j 0 --disable=duplicate-code {{ env.TEST_PATHS }}",
-]
+description = "Run Pylint on source, scripts and tests"
+run = ["pylint -j 0 {{ env.SRC_PATHS }} {{ env.SCRIPT_PATHS }} {{ env.TEST_PATHS }}"]
 
 ["lint:ruff"]
 description = "Check Python with Ruff"
@@ -147,7 +144,11 @@ env = { _.file = '.env.test' }
 
 ["test:int:cov"]
 description = "Run integration tests"
-run = { task = "test:int", args = ["--cov=tests.integration", "--cov={{env.PACKAGE}}", "--cov={{env.SRC_PATHS}}/{{env.PACKAGE}}/templates/"] }
+run = { task = "test:int", args = [
+    "--cov=tests.integration",
+    "--cov={{env.PACKAGE}}",
+    "--cov={{env.SRC_PATHS}}/{{env.PACKAGE}}/templates/",
+] }
 env = { _.file = '.env.test' }
 
 ["test:int:cov:diff"]
@@ -185,5 +186,7 @@ description = "Format, lint and test all Python code"
 run = [
     { task = "format:py" },
     { task = "lint:py" },
-    { task = "test:py", args = ["-xvv"] },
+    { task = "test:py", args = [
+        "-xvv",
+    ] },
 ]

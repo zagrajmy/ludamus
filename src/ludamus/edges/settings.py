@@ -43,6 +43,11 @@ env = environ.Env(
     GS_BUCKET_NAME=(str, ""),
     GS_CREDENTIALS_JSON=(str, ""),
     GS_LOCATION=(str, ""),
+    # PostHog (Prologue) — public project key; analytics is off when unset.
+    # Host is env-swappable so a first-party reverse proxy can replace the
+    # EU ingestion endpoint without a code change.
+    POSTHOG_API_KEY=(str, ""),
+    POSTHOG_HOST=(str, "https://eu.i.posthog.com"),
     # Membership API
     MEMBERSHIP_API_BASE_URL=(str, ""),
     MEMBERSHIP_API_CHECK_INTERVAL=(int, 15),
@@ -127,6 +132,7 @@ INSTALLED_APPS = [
     "ludamus.links.db.django.apps.DBMainConfig",
     "ludamus.gates.cli.django.apps.CliGatesConfig",
     "ludamus.gates.web.django.apps.WebGatesConfig",
+    "ludamus.links.analytics.apps.AnalyticsConfig",
 ]
 
 MIDDLEWARE = [
@@ -205,6 +211,7 @@ TEMPLATES = [
                 "ludamus.gates.web.django.context_processors.sites",
                 "ludamus.gates.web.django.context_processors.branding",
                 "ludamus.gates.web.django.context_processors.support",
+                "ludamus.gates.web.django.context_processors.analytics",
                 "ludamus.gates.web.django.context_processors.static_version",
                 "ludamus.gates.web.django.context_processors.current_user",
                 "django.contrib.auth.context_processors.auth",
@@ -331,6 +338,13 @@ AUTH0_DOMAIN = env("AUTH0_DOMAIN")
 
 SUPPORT_EMAIL = env("SUPPORT_EMAIL")
 
+# Analytics (Prologue — PostHog). The client bundles posthog-js with its
+# no-external build, so the browser only ever *connects* to POSTHOG_HOST;
+# no third-party script is loaded. Consent gating lives in
+# src/ludamus/client/src/prologue.ts.
+POSTHOG_API_KEY = env("POSTHOG_API_KEY")
+POSTHOG_HOST = env("POSTHOG_HOST")
+
 INTERNAL_IPS = [
     # ...
     "127.0.0.1",
@@ -348,15 +362,12 @@ INTERNAL_IPS = [
 # style-src keeps 'unsafe-inline': inline style="..." attributes are
 # pervasive across the templates and nonce-ing attributes (as opposed to
 # <style> blocks) isn't supported by the CSP spec the same way — narrowing
-# that is a separate, larger effort, not covered here. It also allows
-# fonts.googleapis.com: src/ludamus/client/src/index.css @imports the
-# Outfit font's stylesheet from there — discovered by the e2e CSP-violation
-# spec (csp-violations.spec.ts) actually enforcing the policy; report-only
-# never surfaced it since nothing blocks under report-only. font-src
-# allows fonts.gstatic.com for the same reason: that stylesheet's
-# @font-face rules point at the actual font files there. img-src stays
+# that is a separate, larger effort, not covered here. The Outfit font is
+# self-hosted (src/ludamus/client/src/fonts), so style-src and font-src no
+# longer carry the fonts.googleapis.com / fonts.gstatic.com allowances the
+# old @import needed. img-src stays
 # broad because avatars come from arbitrary Auth0/gravatar HTTPS hosts
-# and media from GCS.
+# and media from GCS, plus blob: for the dropzone's object-URL preview.
 # No report-uri/report-to is configured: there is no violation-ingestion
 # endpoint yet (plan 007's Maintenance notes flagged this as deferred).
 # Violations that slip through can only be seen via browser devtools for
@@ -364,15 +375,22 @@ INTERNAL_IPS = [
 CSP_POLICY: dict[str, list[str]] = {
     "default-src": [CSP.SELF],
     "script-src": [CSP.SELF, CSP.NONCE],
-    "style-src": [CSP.SELF, CSP.UNSAFE_INLINE, "https://fonts.googleapis.com"],
-    "img-src": [CSP.SELF, "data:", "https:"],
-    "font-src": [CSP.SELF, "https://fonts.gstatic.com"],
+    "style-src": [CSP.SELF, CSP.UNSAFE_INLINE],
+    "img-src": [CSP.SELF, "data:", "blob:", "https:"],
+    "font-src": [CSP.SELF],
     "connect-src": [CSP.SELF],
     "object-src": [CSP.NONE],
     "base-uri": [CSP.SELF],
     "form-action": [CSP.SELF],
     "frame-ancestors": [CSP.NONE],
 }
+
+# posthog-js is bundled (no-external build), so PostHog only needs the
+# ingestion host in connect-src — script-src stays nonce-only.
+if POSTHOG_API_KEY:
+    CSP_POLICY["connect-src"].append(POSTHOG_HOST)
+    # Session replay compresses in a worker built from a blob: URL.
+    CSP_POLICY["worker-src"] = [CSP.SELF, "blob:"]
 
 # CSP enforcement is normally production-only (see the block below), but the
 # e2e suite needs to exercise the real enforcing header — a report-only or
@@ -553,6 +571,15 @@ LOGGING = {
         "django.security": {
             "handlers": ["console"],
             "level": "WARNING" if IS_PRODUCTION else "INFO",
+            "propagate": False,
+        },
+        # runserver logs a line per request, every static asset included. A
+        # human watching a dev server wants that; the e2e suite produces
+        # thousands of them around the one line saying which test failed, and
+        # they are what a captured run hands on to whoever reads it next.
+        "django.server": {
+            "handlers": ["console"],
+            "level": "WARNING" if IN_TESTS else "INFO",
             "propagate": False,
         },
     },

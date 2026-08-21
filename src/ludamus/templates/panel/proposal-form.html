@@ -27,10 +27,10 @@
             {% tessera_button t_cancel href=cancel_url variant="secondary" %}
             {% if proposal %}
                 {% translate "Save" as t_save %}
-                {% tessera_button t_save icon="check" form="proposal-form" full_width_mobile=False %}
+                {% tessera_button t_save icon="check" form="proposal-form" %}
             {% else %}
                 {% translate "Create Proposal" as t_create %}
-                {% tessera_button t_create icon="plus" form="proposal-form" full_width_mobile=False %}
+                {% tessera_button t_create icon="plus" form="proposal-form" %}
             {% endif %}
         </div>
     {% endif %}
@@ -68,7 +68,7 @@
                                         {{ label }}
                                     </option>
                                 {% endfor %}
-                            {% end_select %}
+                            {% endselect %}
                             {% if form.category_id.errors %}
                                 <p id="id_category_id_errors" class="text-xs mt-1 text-danger">{{ form.category_id.errors.0 }}</p>
                             {% endif %}
@@ -80,7 +80,8 @@
                         </div>
                         <div>{% tessera_field form.description %}</div>
                         {# Participants limit and duration live in the swapped #}
-                        {# region below: the category rebuilds them, min age it doesn't. #}
+                        {# region below: the category rebuilds the duration #}
+                        {# choices; min age never changes with it. #}
                         <div>{% tessera_field form.min_age %}</div>
                     </div>
                 </div>

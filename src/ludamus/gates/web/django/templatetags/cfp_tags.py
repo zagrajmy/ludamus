@@ -1,16 +1,16 @@
 from __future__ import annotations
 
-import re
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING
 
 from django import template
 from django.utils import timezone
 from django.utils.translation import gettext as _
 
 from ludamus.gates.web.django.helpers import placeholder_cover_url
+from ludamus.pacts.durations import format_duration
 
 if TYPE_CHECKING:
-    from ludamus.pacts import SessionDTO
+    from ludamus.pacts import ProposalCategoryDTO, SessionDTO
 
 register = template.Library()
 
@@ -26,14 +26,14 @@ def session_cover_image(context: dict[str, object], session: SessionDTO) -> str:
 
 
 @register.filter
-def cfp_status(category: Any) -> dict[str, str]:  # type: ignore[misc] # ruff:ignore[any-type]
+def cfp_status(category: ProposalCategoryDTO) -> dict[str, str]:
     """Return status info for a proposal category.
 
     Returns:
         Dict with 'label' and 'class' keys for styling the status badge.
     """
-    start_time = getattr(category, "start_time", None)
-    end_time = getattr(category, "end_time", None)
+    start_time = category.start_time
+    end_time = category.end_time
 
     if not start_time and not end_time:
         return {"label": _("Not set"), "class": "bg-gray-100 text-gray-600"}
@@ -75,14 +75,16 @@ def content_field_label(field_key: str) -> str:
         "tracks": _("Tracks"),
         "time_slots": _("Time slots"),
         "accreditation_type": _("Accreditation type"),
+        "deleted": _("Deleted"),
         "internal_comment": _("Internal comment"),
+        "is_collective": _("Runs program points in parallel"),
         "merged_from": _("Merged from"),
     }
     return labels.get(field_key, field_key)
 
 
 @register.filter
-def get_item(dictionary: dict[Any, Any], key: Any) -> Any:  # type: ignore[misc] # ruff:ignore[any-type]
+def get_item[Key, Value](dictionary: dict[Key, Value], key: Key) -> Value | None:
     """Get an item from a dictionary by key.
 
     Returns:
@@ -141,7 +143,7 @@ def has_field_value(value: object) -> bool:
 
 
 @register.filter
-def format_field_value(value: Any) -> str:  # type: ignore[misc] # ruff:ignore[any-type]
+def format_field_value(value: object) -> str:
     """Format a session field value for display.
 
     Returns:
@@ -154,47 +156,4 @@ def format_field_value(value: Any) -> str:  # type: ignore[misc] # ruff:ignore[a
     return str(value)
 
 
-def parse_duration(iso_duration: str) -> tuple[int, int]:
-    """Split an ISO 8601 duration into hours and minutes.
-
-    Returns:
-        (hours, minutes), both 0 for anything unparsable.
-    """
-    if not (match := re.match(r"PT(?:(\d+)H)?(?:(\d+)M)?", iso_duration or "")):
-        return 0, 0
-    return int(match.group(1) or 0), int(match.group(2) or 0)
-
-
-def build_duration(*, hours: int, minutes: int) -> str:
-    """Compose an ISO 8601 duration, empty when both parts are zero.
-
-    Returns:
-        A string like "PT1H30M", "PT45M" or "".
-    """
-    if not hours and not minutes:
-        return ""
-    return "PT" + (f"{hours}H" if hours else "") + (f"{minutes}M" if minutes else "")
-
-
-@register.filter
-def format_duration(iso_duration: str) -> str:
-    """Format ISO 8601 duration string to human-readable format.
-
-    Args:
-        iso_duration: ISO 8601 duration string (e.g., "PT1H45M", "PT30M", "PT2H")
-
-    Returns:
-        Human-readable duration (e.g., "1h 45min", "30min", "2h")
-    """
-    if not iso_duration:
-        return ""
-
-    hours, minutes = parse_duration(iso_duration)
-
-    if hours and minutes:
-        return f"{hours}h {minutes}min"
-    if hours:
-        return f"{hours}h"
-    if minutes:
-        return f"{minutes}min"
-    return iso_duration
+register.filter("format_duration", format_duration)

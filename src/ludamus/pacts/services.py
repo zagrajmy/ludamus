@@ -40,16 +40,18 @@ if TYPE_CHECKING:
         NotificationsServiceProtocol,
         WaitlistPromotionServiceProtocol,
     )
+    from ludamus.pacts.errata import ErrataServiceProtocol
     from ludamus.pacts.event import (
         EventConfirmationsServiceProtocol,
         EventPanelServiceProtocol,
+        EventsServiceProtocol,
         PanelTimeSlotsServiceProtocol,
     )
     from ludamus.pacts.event_settings import EventSettingsServiceProtocol
+    from ludamus.pacts.guild import GuildServiceProtocol
     from ludamus.pacts.multiverse import (
         AnnouncementsServiceProtocol,
         ConnectionsServiceProtocol,
-        EventsServiceProtocol,
         SitesServiceProtocol,
         SpherePanelServiceProtocol,
     )
@@ -73,6 +75,11 @@ if TYPE_CHECKING:
         PersonalDataFieldValueServiceProtocol,
         ProposalCategorySettingsServiceProtocol,
         ProposalImportServiceProtocol,
+    )
+    from ludamus.pacts.timetable import (
+        ConflictDetectionServiceProtocol,
+        TimetableOverviewServiceProtocol,
+        TimetableServiceProtocol,
     )
     from ludamus.pacts.tracks import TracksPanelServiceProtocol
     from ludamus.pacts.venues import SpaceTreeServiceProtocol, VenuesServiceProtocol
@@ -118,6 +125,8 @@ class ServicesProtocol(Protocol):
     @property
     def companions(self) -> CompanionsServiceProtocol: ...
     @property
+    def guilds(self) -> GuildServiceProtocol: ...
+    @property
     def parties(self) -> PartyServiceProtocol: ...
     @property
     def party_session_history(self) -> PartySessionHistoryServiceProtocol: ...
@@ -129,6 +138,8 @@ class ServicesProtocol(Protocol):
     def events(self) -> EventsServiceProtocol: ...
     @property
     def event_panel(self) -> EventPanelServiceProtocol: ...
+    @property
+    def errata(self) -> ErrataServiceProtocol: ...
     @property
     def confirmations(self) -> EventConfirmationsServiceProtocol: ...
     @property
@@ -191,6 +202,12 @@ class ServicesProtocol(Protocol):
     def discounts_export(self) -> DiscountsExportServiceProtocol: ...
     @property
     def tracks_panel(self) -> TracksPanelServiceProtocol: ...
+    @property
+    def timetable(self) -> TimetableServiceProtocol: ...
+    @property
+    def timetable_conflicts(self) -> ConflictDetectionServiceProtocol: ...
+    @property
+    def timetable_overview(self) -> TimetableOverviewServiceProtocol: ...
     @property
     def encounters(self) -> EncounterServiceProtocol: ...
     @property

@@ -23,6 +23,14 @@ SCALE_SCHEDULED = 60
 SCALE_UNSCHEDULED = 30
 
 
+@pytest.fixture(name="panel_client")
+def panel_client_fixture(authenticated_client, active_user, sphere):
+    # Panel pages are gated on managing the sphere; every non-authz test
+    # starts from a logged-in manager.
+    sphere.managers.add(active_user)
+    return authenticated_client
+
+
 @pytest.fixture(name="connection")
 def connection_fixture(sphere):
     return Connection.objects.create(sphere=sphere, display_name="API Key A")

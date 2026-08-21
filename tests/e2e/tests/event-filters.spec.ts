@@ -1,8 +1,9 @@
-import { type Page } from "@playwright/test";
+import { type Locator, type Page } from "@playwright/test";
 
 import { expect, test } from "./helpers/fixtures";
 
 const MOBILE_WIDTH = 375;
+const DENSE_EVENT_URL = "/event/kapitularz-2025-anonymized/";
 
 test.describe("Event filter panel", () => {
   test("filter panel does not overflow viewport on mobile", async ({ browser }) => {
@@ -19,6 +20,31 @@ test.describe("Event filter panel", () => {
     expect(box).not.toBeNull();
     expect(box!.x).toBeGreaterThanOrEqual(0);
     expect(box!.x + box!.width).toBeLessThanOrEqual(MOBILE_WIDTH);
+
+    await context.close();
+  });
+
+  test("the toolbar controls line up with the search field on mobile", async ({ browser }) => {
+    const context = await browser.newContext({
+      viewport: { width: MOBILE_WIDTH, height: 812 },
+    });
+    const page = await context.newPage();
+
+    await page.goto(DENSE_EVENT_URL);
+
+    const box = async (locator: Locator) => {
+      const rect = await locator.boundingBox();
+      if (!rect) throw new Error("toolbar control is not laid out");
+      return rect;
+    };
+    const search = await box(page.getByRole("textbox", { name: "Search sessions..." }));
+    const filters = await box(page.getByRole("button", { name: "Filters" }));
+    const tabs = await box(page.getByRole("tablist"));
+
+    for (const control of [filters, tabs]) {
+      expect(Math.abs(control.height - search.height)).toBeLessThanOrEqual(1);
+      expect(Math.abs(control.y - search.y)).toBeLessThanOrEqual(1);
+    }
 
     await context.close();
   });
@@ -42,12 +68,9 @@ test.describe("Event filter panel", () => {
     await page.getByRole("button", { name: "Filters" }).click();
     await expect(page.locator("#filter-panel.is-open")).toBeVisible();
 
-    // Day and hour filters only surface for multi-day events.
     await expect(page.locator("#day-filter-group")).toBeVisible();
     await expect(page.locator("#hour-filter-group")).toBeVisible();
 
-    // Select the day holding the neon-city adventure by its value (read from the
-    // card itself), so the test doesn't depend on option order or the date.
     const neonDay = await card("Przygoda w Mieście Neonów").getAttribute("data-day");
     if (!neonDay) throw new Error("neon-city card is missing data-day");
     await page.locator("#day-filter").selectOption(neonDay);
@@ -55,7 +78,6 @@ test.describe("Event filter panel", () => {
     await expect(card("Mega Strategy Lab")).toBeHidden();
     await expect(card("Cozy Storytellers Circle")).toBeHidden();
 
-    // Clearing the day and filtering by start hour narrows to the noon session.
     await page.locator("#day-filter").selectOption("");
     await page.locator("#hour-filter").selectOption("12:00");
     await expect(card("Cozy Storytellers Circle")).toBeVisible();
@@ -63,12 +85,45 @@ test.describe("Event filter panel", () => {
     await expect(card("Przygoda w Mieście Neonów")).toBeHidden();
   });
 
+  test("filters down to the sessions that take enrollment", async ({ page }) => {
+    await page.goto("/event/autumn-open/");
+
+    const card = (title: string) => page.locator(".session", { hasText: title });
+
+    await page.getByRole("button", { name: "Filters" }).click();
+    await page.locator("label").filter({ hasText: "Only with enrollment" }).click();
+    await expect(page.locator("#filter-panel.is-open")).toBeVisible();
+    await expect(page.getByRole("checkbox", { name: "Only with enrollment" })).toBeChecked();
+
+    await expect(card("Mega Strategy Lab")).toBeVisible();
+    await expect(card("Przygoda w Mieście Neonów")).toBeVisible();
+    await expect(card("Cozy Storytellers Circle")).toBeHidden();
+    await expect(page.locator("#active-filter-chips")).toContainText("Only with enrollment");
+  });
+
+  test("hides a select field the schedule gives nothing to pick between", async ({ page }) => {
+    await page.goto("/event/autumn-open/");
+    await page.getByRole("button", { name: "Filters" }).click();
+
+    await expect(page.getByRole("combobox", { name: "Mood" })).toBeVisible();
+    await expect(page.locator("#tag-filter-format")).toHaveCount(0);
+    await expect(page.locator("#tag-filter-__track")).toHaveCount(0);
+  });
+
+  test("states the room size while the enrollment window is shut", async ({ page }) => {
+    await page.goto("/event/closed-enrollment/");
+
+    const card = (title: string) => page.locator(".session", { hasText: title });
+    await expect(card("Late Resignation Demo 1")).toContainText("5 seats");
+    await expect(card("Late Resignation Demo 1")).not.toContainText("spots left");
+    await expect(card("Late Waiting List Demo 1")).toContainText("1 seat");
+  });
+
   test("filters by host name case-insensitively", async ({ page }) => {
     await page.goto("/event/autumn-open/");
 
     const card = (title: string) => page.locator(".session", { hasText: title });
 
-    // "Alex Morgan" hosts Mega Strategy Lab; a lowercase query must still match.
     await page.locator("#session-filter").fill("alex");
     await expect(card("Mega Strategy Lab")).toBeVisible();
     await expect(card("Cozy Storytellers Circle")).toBeHidden();
@@ -76,8 +131,6 @@ test.describe("Event filter panel", () => {
 });
 
 test.describe("Event fuzzy search", () => {
-  // Each session card exposes an accessible link "Open details for <title>",
-  // so we can assert on cards by role + name rather than CSS classes.
   const card = (page: Page, title: string) =>
     page.getByRole("link", { name: `Open details for ${title}` });
 
@@ -94,8 +147,6 @@ test.describe("Event fuzzy search", () => {
   });
 
   test("matches multiple tokens across title and host, ignoring diacritics", async ({ page }) => {
-    // "Przygoda w Mieście Neonów" hosted by "Radek Włodarczyk": tokens span the
-    // title (sans diacritics) and the host name.
     await searchBox(page).fill("przygoda neonow radek");
 
     await expect(card(page, NEON)).toBeVisible();
@@ -104,8 +155,6 @@ test.describe("Event fuzzy search", () => {
   });
 
   test('folds the Polish "ł", which NFD leaves intact', async ({ page }) => {
-    // Host "Radek Włodarczyk": "ł" has no NFD decomposition, so the
-    // stroke-less query "wlodarczyk" only matches with the explicit fold.
     await searchBox(page).fill("wlodarczyk");
 
     await expect(card(page, NEON)).toBeVisible();
@@ -120,7 +169,6 @@ test.describe("Event fuzzy search", () => {
   });
 
   test("matches a word that only appears in the description", async ({ page }) => {
-    // "Jumanji" is in the neon session's blurb, not its title or host.
     await searchBox(page).fill("jumanji");
 
     await expect(card(page, NEON)).toBeVisible();
@@ -129,7 +177,6 @@ test.describe("Event fuzzy search", () => {
   });
 
   test("combines a title token with a description token", async ({ page }) => {
-    // "neonow" comes from the title, "jumanji" from the description.
     await searchBox(page).fill("neonow jumanji");
 
     await expect(card(page, NEON)).toBeVisible();
@@ -141,5 +188,128 @@ test.describe("Event fuzzy search", () => {
 
     await expect(card(page, MEGA)).toBeHidden();
     await expect(page.getByText("No sessions match your filters")).toBeVisible();
+  });
+});
+
+test.describe("Filter state in the URL", () => {
+  const card = (page: Page, title: string) => page.locator(".session", { hasText: title });
+
+  test("mirrors active filters into the URL without adding history entries", async ({ page }) => {
+    await page.goto("/events/");
+    await page.goto("/event/autumn-open/");
+
+    await page.locator("#session-filter").fill("alex");
+    await page.getByRole("button", { name: "Filters" }).click();
+    await page.getByRole("checkbox", { name: "Only with enrollment" }).check();
+
+    // Poll the later edit: the sync that carries it reads every control, so
+    // once `enrollment` lands, `q` is in the same write.
+    await expect.poll(() => new URL(page.url()).searchParams.get("enrollment")).toBe("1");
+    expect(new URL(page.url()).searchParams.get("q")).toBe("alex");
+
+    // The mirror is replaceState-only: Back leaves the page in one step
+    // instead of walking through every filter edit.
+    await page.goBack();
+    expect(new URL(page.url()).pathname).toBe("/events/");
+  });
+
+  test("restores filters from a shared URL", async ({ page }) => {
+    await page.goto("/event/autumn-open/?hour=12%3A00&q=circle");
+
+    await expect(card(page, "Cozy Storytellers Circle")).toBeVisible();
+    await expect(card(page, "Mega Strategy Lab")).toBeHidden();
+    await expect(card(page, "Przygoda w Mieście Neonów")).toBeHidden();
+
+    await expect(page.locator("#session-filter")).toHaveValue("circle");
+    await expect(page.locator("#active-filter-chips")).toContainText("12:00");
+  });
+
+  test("keeps the mirror through a session modal opening and closing", async ({ page }) => {
+    await page.goto("/event/autumn-open/");
+    await page.locator("#session-filter").fill("mega");
+    await expect.poll(() => new URL(page.url()).searchParams.get("q")).toBe("mega");
+
+    // The trigger href is a bare `?session=<pk>`; opening must not cost the
+    // URL its filter params, and closing must drop only the session param.
+    await page.getByRole("link", { name: "Open details for Mega Strategy Lab" }).click();
+    await expect(page.locator("dialog.modal[open]")).toBeVisible();
+    await expect.poll(() => new URL(page.url()).searchParams.get("q")).toBe("mega");
+    expect(new URL(page.url()).searchParams.has("session")).toBe(true);
+
+    await page.keyboard.press("Escape");
+    await expect.poll(() => new URL(page.url()).searchParams.has("session")).toBe(false);
+    expect(new URL(page.url()).searchParams.get("q")).toBe("mega");
+  });
+
+  test("carries filters across the schedule view switch", async ({ page }) => {
+    await page.goto(DENSE_EVENT_URL);
+
+    const title = await page.locator(".session").first().getAttribute("data-title");
+    if (!title) throw new Error("first session card is missing data-title");
+    await page.locator("#session-filter").fill(title);
+    await expect.poll(() => new URL(page.url()).searchParams.get("q")).toBe(title);
+
+    await page.getByRole("tab", { name: "Rooms" }).click();
+
+    await expect.poll(() => new URL(page.url()).searchParams.get("view")).toBe("rooms");
+    expect(new URL(page.url()).searchParams.get("q")).toBe(title);
+    // The swapped-in toolbar re-reads the mirror off the pushed URL.
+    await expect(page.locator("#session-filter")).toHaveValue(title);
+  });
+});
+
+test.describe("Rooms view filtering", () => {
+  const denseEventUrl = `${DENSE_EVENT_URL}?view=rooms`;
+
+  test("collapses the hour rows and room columns a filter empties", async ({ page }) => {
+    await page.goto(denseEventUrl);
+
+    const lanes = page.locator(".room-lanes").first();
+    const rowSelector = ".room-lanes-time[data-lane-row]";
+    const roomSelector = ".room-lanes-head [data-lane-col]";
+    const shownRows = async (): Promise<number> =>
+      lanes.locator(`${rowSelector}:not(.room-lanes-collapsed)`).count();
+    const shownRooms = async (): Promise<number> =>
+      lanes.locator(`${roomSelector}:not(.room-lanes-collapsed)`).count();
+
+    await expect(lanes).toBeVisible();
+    const rowCount = await lanes.locator(rowSelector).count();
+    const roomCount = await lanes.locator(roomSelector).count();
+    expect(rowCount).toBeGreaterThan(1);
+    expect(roomCount).toBeGreaterThan(1);
+
+    const title = await lanes
+      .locator(".room-lanes-cell .session [data-morph='title']")
+      .first()
+      .innerText();
+    await page.locator("#session-filter").fill(title);
+
+    await expect.poll(shownRooms).toBeLessThan(roomCount);
+    await expect.poll(shownRows).toBeLessThan(rowCount);
+
+    await page.locator("#session-filter").fill("");
+    await expect.poll(shownRooms).toBe(roomCount);
+    await expect.poll(shownRows).toBe(rowCount);
+  });
+
+  test("places each tile in the column and row its data attributes name", async ({ page }) => {
+    await page.goto(denseEventUrl);
+
+    const cells = page.locator(".room-lanes-body .room-lanes-cell");
+    await expect(cells.first()).toBeVisible();
+
+    const placements = await cells.evaluateAll((nodes) =>
+      nodes.map((node) => {
+        const style = globalThis.getComputedStyle(node);
+        const { tileCol, tileRow, tileSpan } = (node as HTMLElement).dataset;
+        return {
+          expected: [`${Number(tileCol) + 1}`, `${tileRow}`, `span ${tileSpan}`],
+          actual: [style.gridColumnStart, style.gridRowStart, style.gridRowEnd],
+        };
+      }),
+    );
+
+    expect(placements.length).toBeGreaterThan(1);
+    for (const { expected, actual } of placements) expect(actual).toEqual(expected);
   });
 });

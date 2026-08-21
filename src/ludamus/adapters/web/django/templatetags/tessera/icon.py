@@ -7,7 +7,6 @@ from typing import TYPE_CHECKING
 
 from django.conf import settings
 from django.utils.html import escape
-from django.utils.safestring import mark_safe
 from heroicons import IconDoesNotExist
 from heroicons.templatetags.heroicons import (
     heroicon_micro,
@@ -49,10 +48,10 @@ def icon(name: str, *, variant: str = "outline", **kwargs: object) -> str:
         kwargs |= {"style": escape(s)}
 
     try:
-        result = renderer(name, **kwargs)
+        # heroicons already returns a SafeString.
+        return renderer(name, **kwargs)
     except IconDoesNotExist:
         if settings.DEBUG:
             raise
         logger.warning("Icon %r (variant=%s) not found, rendering empty", name, variant)
         return ""
-    return mark_safe(result)  # ruff:ignore[suspicious-mark-safe-usage]

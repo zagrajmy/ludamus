@@ -21,6 +21,7 @@ from ludamus.gates.web.django.forms import EventSettingsForm, ProposalSettingsFo
 from ludamus.gates.web.django.panel import settings_tab_urls
 from ludamus.pacts import EventUpdateData, NotFoundError
 from ludamus.pacts.event_settings import EventSlugTakenError, ProposalSettingsUpdateData
+from ludamus.pacts.images import stored_file
 from ludamus.pacts.legacy import resolve_uploaded_file_field
 
 if TYPE_CHECKING:
@@ -99,8 +100,13 @@ class EventSettingsPageView(PanelAccessMixin, EventContextMixin, View):
                 "name": current_event.name,
                 "slug": current_event.slug,
                 "description": current_event.description,
-                "cover_image": current_event.cover_image_url or None,
-                "logo": current_event.logo_url or None,
+                "cover_image": stored_file(
+                    current_event.cover_image_url,
+                    current_event.cover_image_original_name,
+                ),
+                "logo": stored_file(
+                    current_event.logo_url, current_event.logo_original_name
+                ),
                 "start_time": localtime(current_event.start_time),
                 "end_time": localtime(current_event.end_time),
                 "publication_time": (

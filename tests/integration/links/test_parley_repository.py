@@ -18,13 +18,13 @@ from tests.integration.conftest import (
 )
 
 
-@pytest.fixture
-def now() -> datetime:
+@pytest.fixture(name="now")
+def _now() -> datetime:
     return datetime(2026, 8, 6, 12, tzinfo=UTC)
 
 
-@pytest.fixture
-def window(now: datetime) -> ParleyTimeWindow:
+@pytest.fixture(name="window")
+def _window(now: datetime) -> ParleyTimeWindow:
     return ParleyTimeWindow(
         now=now,
         retained_after=now - PARLEY_SESSION_RETENTION,
@@ -41,6 +41,7 @@ def test_returns_only_confirmed_and_facilitated_sessions(
     sphere.save()
     event = EventFactory(
         sphere=sphere,
+        publication_time=now - timedelta(days=3),
         start_time=now - timedelta(hours=1),
         end_time=now + timedelta(days=1),
     )
@@ -84,6 +85,7 @@ def test_manager_sees_unbanned_unexpired_sessions_only(
     sphere.managers.add(active_user)
     event = EventFactory(
         sphere=sphere,
+        publication_time=now - timedelta(days=3),
         start_time=now - timedelta(days=2),
         end_time=now - timedelta(days=1),
     )
