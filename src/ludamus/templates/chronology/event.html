@@ -99,10 +99,13 @@
                                         {# Abbreviated weekday and month keep the range on one line; #}
                                         {# each hour stays glued to its own endpoint, because a lone #}
                                         {# "16:00–17:00" under a date range reads as daily opening hours. #}
+                                        {# Comma, not the "·" the single-day branch uses: inside a range #}
+                                        {# it has to read as weaker than the dash joining the endpoints, #}
+                                        {# and two spaced mid-height marks give no such hierarchy. #}
                                         <div class="font-medium leading-tight text-foreground">
-                                            <time class="whitespace-nowrap" datetime="{{ event.start_time|date:'c' }}">{{ event.start_time|short_date }} <span class="text-foreground-muted tabular-nums">· {{ event.start_time|time:"G:i" }}</span></time>
+                                            <time class="whitespace-nowrap" datetime="{{ event.start_time|date:'c' }}">{{ event.start_time|short_date }}, <span class="text-foreground-muted tabular-nums">{{ event.start_time|time:"G:i" }}</span></time>
                                             <span aria-hidden="true">–</span><span class="sr-only">{% translate "to" %}</span>
-                                            <time class="whitespace-nowrap" datetime="{{ event.end_time|date:'c' }}">{{ event.end_time|short_date }} <span class="text-foreground-muted tabular-nums">· {{ event.end_time|time:"G:i" }}</span></time>
+                                            <time class="whitespace-nowrap" datetime="{{ event.end_time|date:'c' }}">{{ event.end_time|short_date }}, <span class="text-foreground-muted tabular-nums">{{ event.end_time|time:"G:i" }}</span></time>
                                         </div>
                                     {% endif %}
                                 </div>
