@@ -20,17 +20,12 @@ one copy change.
 
 ## Blocking
 
-- [ ] **Add the server half to the privacy policy.** PR #787 moves the policy
-      into `src/ludamus/content/privacy-policy.md` and adds a §3.4 covering
-      analytics, but deliberately only the client side: the fault reporter does
-      not exist on that branch, and describing processing that does not happen
-      yet is the same defect §3.2 carried for ten months. Whoever merges this
-      second adds it. Fault reports go out regardless of consent, carrying
-      account pk and request path, building no person and deriving no location.
-- [ ] **Retarget the banner's privacy link when #787 lands.** It deletes
-      flatpages, so `{% url 'django.contrib.flatpages.views.flatpage'
-      url='/privacy-policy/' %}` in `components/consent-banner.html` becomes a
-      NoReverseMatch. The replacement is `{% url 'privacy-policy' %}`.
+- [x] **Add the server half to the privacy policy.** Done on #787 as §3.5,
+      legitimate interest, with §4.2 corrected — it claimed consent covered
+      everything sent to PostHog.
+- [x] **Retarget the banner's privacy link when #787 lands.** Done on #787.
+      The footer's e2e assertion pins the same `privacy-policy` URL name, so a
+      rename fails loudly there rather than silently emptying the banner href.
 - [ ] **Screenshot the banner** for the PR description. It only renders with
       `POSTHOG_API_KEY` set and no choice stored, so set a key in `.env.local`
       first, then `mise run shots -- /`.
