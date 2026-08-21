@@ -244,6 +244,17 @@ class LocationData(TypedDict):
     sort_key: str
 
 
+# A session that is not on the agenda has no space to describe. Shared, so
+# treat it as read-only: nothing writes through a LocationData today.
+NO_LOCATION: LocationData = {
+    "space_name": "",
+    "parent_slug": "",
+    "parent_name": "",
+    "path": "",
+    "sort_key": "",
+}
+
+
 class SessionStatus(StrEnum):
     PENDING = auto()
     ACCEPTED = auto()

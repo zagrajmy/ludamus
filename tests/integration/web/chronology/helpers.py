@@ -20,8 +20,8 @@ from ludamus.links.db.django.models import SessionParticipation
 from ludamus.links.db.django.repositories.chronology import location_data
 from ludamus.links.gravatar import gravatar_url
 from ludamus.pacts import (
+    NO_LOCATION,
     AgendaItemDTO,
-    LocationData,
     SessionDTO,
     SessionParticipationStatus,
     TimeSlotDTO,
@@ -83,9 +83,7 @@ def proposal_card(session, *, presenter, slots=(), **overrides):
         enrolled_count=0,
         is_enrollment_available=False,
         is_full=False,
-        loc=LocationData(
-            space_name="", parent_slug="", parent_name="", path="", sort_key=""
-        ),
+        loc=NO_LOCATION,
         preferred_time_slots=[TimeSlotDTO.model_validate(slot) for slot in slots],
         presenter=UserInfo.from_user_dto(
             UserDTO.model_validate(presenter), gravatar_url=gravatar_url

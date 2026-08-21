@@ -4,7 +4,7 @@ from collections import defaultdict
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
 from math import ceil
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, NamedTuple
 
 from django.utils import timezone
 
@@ -57,9 +57,12 @@ class RoomLaneHourMark:
 class RoomLane:
     # One room column. `group` is the parent space it hangs under, printed once
     # above the first column of the run (`starts_group`) so the header reads as
-    # the space tree rather than a flat row of room names.
+    # the space tree rather than a flat row of room names. `group_key` is that
+    # parent's identity, which the client needs to reprint the label when
+    # filtering collapses the column that carried it.
     name: str
     group: str
+    group_key: str
     starts_group: bool
 
 
@@ -132,23 +135,46 @@ def group_sessions_by_state(
     return dict(ended), dict(current), dict(future_unavailable)
 
 
-def _room_key(data: SessionData) -> tuple[str, str, str]:
-    # sort_key first: it carries the whole ancestor chain's panel ordering, so
-    # sorting on it lays the columns out in tree order and puts every room of a
-    # parent space side by side.
-    return data.loc["sort_key"], data.loc["space_name"], data.loc["parent_name"]
+class _RoomKey(NamedTuple):
+    # sort_key first, and alone enough to order the columns: it carries the
+    # whole ancestor chain's panel ordering, so sorting on it lays the columns
+    # out in tree order and puts every room of a parent space side by side. The
+    # rest of the fields ride along as labels.
+    sort_key: str
+    parent_key: str
+    name: str
+    parent_name: str
 
 
-def _room_lanes(keys: list[tuple[str, str, str]]) -> list[RoomLane]:
+def _room_key(data: SessionData) -> _RoomKey:
+    sort_key = data.loc["sort_key"]
+    return _RoomKey(
+        sort_key=sort_key,
+        # The parent's identity, not its name: Space enforces slug uniqueness
+        # only per parent, so two branches can carry the same parent name and
+        # must not merge into one header run. The chain minus the space's own
+        # three segments is exactly the parent's key, and "" at the root.
+        parent_key="|".join(sort_key.split("|")[:-3]),
+        name=data.loc["space_name"],
+        parent_name=data.loc["parent_name"],
+    )
+
+
+def _room_lanes(keys: list[_RoomKey]) -> list[RoomLane]:
     lanes: list[RoomLane] = []
-    # Sentinel: a root-level room's parent is "", and that run still opens a
-    # group of its own rather than continuing the previous parent's.
-    previous_group = "\x00"
-    for _, name, parent in keys:
+    # None, not "": a root-level room's parent key is "", and that run still
+    # opens a group of its own rather than continuing the previous parent's.
+    previous_group: str | None = None
+    for key in keys:
         lanes.append(
-            RoomLane(name=name, group=parent, starts_group=parent != previous_group)
+            RoomLane(
+                name=key.name,
+                group=key.parent_name,
+                group_key=key.parent_key,
+                starts_group=key.parent_key != previous_group,
+            )
         )
-        previous_group = parent
+        previous_group = key.parent_key
     return lanes
 
 

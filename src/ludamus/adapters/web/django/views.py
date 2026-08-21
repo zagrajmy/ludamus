@@ -83,11 +83,11 @@ from ludamus.mills.enrollment import (
     restricts_everyone,
 )
 from ludamus.pacts import (
+    NO_LOCATION,
     OCCUPYING_PARTICIPATION_STATUSES,
     AgendaItemDTO,
     EventDTO,
     EventListItemDTO,
-    LocationData,
     NotFoundError,
     RedirectError,
     SessionDTO,
@@ -653,9 +653,7 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
             loc = (
                 location_data(agenda_item.space)
                 if agenda_item is not None
-                else LocationData(
-                    space_name="", parent_slug="", parent_name="", path="", sort_key=""
-                )
+                else NO_LOCATION
             )
             if session.presenter_id:
                 presenter_dto = UserDTO.model_validate(session.presenter)

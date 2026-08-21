@@ -14,6 +14,7 @@ from ludamus.gates.web.django.chronology.event_presentation import (
 )
 from ludamus.gates.web.django.entities import UserInfo
 from ludamus.pacts import (
+    NO_LOCATION,
     AgendaItemDTO,
     LocationData,
     SessionDTO,
@@ -178,9 +179,7 @@ def mock_session_proposal() -> SessionData:
         data,
         agenda_item=None,
         is_enrollment_available=False,
-        loc=LocationData(
-            space_name="", parent_slug="", parent_name="", path="", sort_key=""
-        ),
+        loc=NO_LOCATION,
         session_participations=[],
         enrolled_count=0,
         preferred_time_slots=[

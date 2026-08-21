@@ -157,7 +157,10 @@ class TestEventPageBookmarkCounts:
                         day_start=hour_start,
                         rooms=[
                             RoomLane(
-                                name=agenda_item.space.name, group="", starts_group=True
+                                name=agenda_item.space.name,
+                                group="",
+                                group_key="",
+                                starts_group=True,
                             )
                         ],
                         hour_marks=[

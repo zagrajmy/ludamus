@@ -719,8 +719,12 @@ class TestEventPageView:
                     RoomLaneDay(
                         day_start=local_start,
                         rooms=[
-                            RoomLane(name="Arena", group="", starts_group=True),
-                            RoomLane(name="Stage", group="", starts_group=False),
+                            RoomLane(
+                                name="Arena", group="", group_key="", starts_group=True
+                            ),
+                            RoomLane(
+                                name="Stage", group="", group_key="", starts_group=False
+                            ),
                         ],
                         # Four hours of lane, 10:00 to 13:00: the two sessions
                         # at 10:00, an empty 11:00, the two-hour one from

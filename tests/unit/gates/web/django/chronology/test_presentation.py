@@ -10,7 +10,7 @@ from ludamus.gates.web.django.chronology.schedule import (
     build_schedule_days,
     group_sessions_by_state,
 )
-from ludamus.pacts import AgendaItemDTO
+from ludamus.pacts import NO_LOCATION, AgendaItemDTO
 from ludamus.pacts.legacy import SessionFieldValueDTO
 
 
@@ -153,14 +153,8 @@ class TestSessionDataWaitingCount:
         assert data.waiting_count == waiting
 
 
-def _loc(path="", parent_slug="", parent_name="", space_name="", sort_key=""):
-    return {
-        "space_name": space_name,
-        "parent_slug": parent_slug,
-        "parent_name": parent_name,
-        "path": path,
-        "sort_key": sort_key,
-    }
+def _loc(**overrides):
+    return {**NO_LOCATION, **overrides}
 
 
 class TestSessionDataLocationLabel:
@@ -316,6 +310,26 @@ class TestRoomLaneOrdering:
             ("Piętro 1", "Sala B", False),
             ("Piętro 2", "Aula", True),
         ]
+
+    def test_same_named_parents_in_different_branches_stay_apart(self):
+        sessions = {
+            1: self._in_room(
+                parent_name="Parter",
+                space_name="Sala A",
+                sort_key="000000|Budynek A|a|000000|Parter|parter|000000|Sala A|sala-a",
+            ),
+            2: self._in_room(
+                parent_name="Parter",
+                space_name="Sala B",
+                sort_key="000001|Budynek B|b|000000|Parter|parter|000000|Sala B|sala-b",
+            ),
+        }
+
+        days = build_room_lanes(build_schedule_days(sessions))
+
+        assert [
+            (lane.group, lane.name, lane.starts_group) for lane in days[0].rooms
+        ] == [("Parter", "Sala A", True), ("Parter", "Sala B", True)]
 
 
 class TestGroupSessionsByState:

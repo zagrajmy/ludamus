@@ -292,10 +292,30 @@ test.describe("Room filter", () => {
     await expect(page.locator("#space-filter-group")).toBeVisible();
 
     // Panel order, not the alphabet: the tables come before the tents, and
-    // "Cosplay Forum" — first alphabetically — is neither.
-    const options = await spaceFilter.locator("optgroup option").allInnerTexts();
+    // "Cosplay Forum" — first alphabetically — is neither. The venue's own
+    // option opens each group, so it is not one of the rooms being ordered.
+    const options = await spaceFilter
+      .locator('optgroup option:not([value^="venue:"])')
+      .allInnerTexts();
     expect(options.slice(0, 3)).toEqual(["Miniature Painting", "RPG Table 1", "RPG Table 2"]);
-    await expect(spaceFilter.locator("optgroup")).toHaveAttribute("label", "Default Area");
+    await expect(spaceFilter.locator("optgroup").first()).toHaveAttribute("label", "Default Area");
+  });
+
+  test("narrows the list to every room of the chosen venue", async ({ page }) => {
+    await page.goto(denseEventUrl);
+    await page.getByRole("button", { name: "Filters" }).click();
+
+    const venue = await page
+      .locator('#space-filter option[value^="venue:"]')
+      .first()
+      .getAttribute("value");
+    if (!venue) throw new Error("location filter has no venue option");
+    await page.locator("#space-filter").selectOption(venue);
+
+    const visible = page.locator(".session-wrapper:not([hidden])");
+    await expect.poll(() => visible.count()).toBeGreaterThan(0);
+    for (const card of await visible.locator(".session").all())
+      await expect(card).toHaveAttribute("data-venue", venue.replace("venue:", ""));
   });
 
   test("narrows the list to the chosen room", async ({ page }) => {
@@ -303,7 +323,10 @@ test.describe("Room filter", () => {
     await page.getByRole("button", { name: "Filters" }).click();
 
     const total = await page.locator(".session-wrapper").count();
-    const room = await page.locator("#space-filter option").nth(1).getAttribute("value");
+    const room = await page
+      .locator('#space-filter option:not([value^="venue:"])')
+      .nth(1)
+      .getAttribute("value");
     if (!room) throw new Error("room filter has no options");
     await page.locator("#space-filter").selectOption(room);
 
