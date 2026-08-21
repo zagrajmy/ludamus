@@ -129,8 +129,9 @@ export default defineConfig({
         // newPage() hangs until the test times out — whichever spec happens
         // to run first is the one that "fails". The kernel sysctls still
         // report userns as allowed, so there is nothing to feature-detect;
-        // gate on the same proxy signal the CSP exclusion above uses. Real
-        // CI (no HTTPS_PROXY) keeps Firefox's content sandbox on.
+        // gate on the sandbox's egress proxy — the same `proxyServer`
+        // signal `use.proxy` reads above. Real CI (no HTTPS_PROXY) keeps
+        // Firefox's content sandbox on.
         ...(proxyServer
           ? { launchOptions: { env: { ...process.env, MOZ_DISABLE_CONTENT_SANDBOX: "1" } } }
           : {}),
