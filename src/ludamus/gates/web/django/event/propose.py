@@ -32,8 +32,6 @@ from ludamus.gates.web.django.propose_cover import (
     wizard_cover_initial,
 )
 from ludamus.gates.web.django.templatetags.cfp_tags import has_field_value
-from ludamus.mills import ProposeSessionService, check_proposal_rate_limit
-from ludamus.mills.event import is_proposal_active
 from ludamus.pacts import NotFoundError, RedirectError
 
 if TYPE_CHECKING:
@@ -50,6 +48,7 @@ if TYPE_CHECKING:
         ProposalCategoryDTO,
         TimeSlotRequirementDTO,
     )
+    from ludamus.pacts.propose import ProposeSessionServiceProtocol
 
     BaseView = View
 else:
@@ -106,7 +105,9 @@ def _has_category_step(categories: Sequence[ProposalCategoryDTO]) -> bool:
     return len(categories) != 1
 
 
-def _event_has_category_step(service: ProposeSessionService, event: EventDTO) -> bool:
+def _event_has_category_step(
+    service: ProposeSessionServiceProtocol, event: EventDTO
+) -> bool:
     return _has_category_step(service.get_categories(event.pk))
 
 
@@ -147,7 +148,7 @@ _ALL_WIZARD_STEP_KEYS: tuple[str, ...] = (
 
 
 def _wizard_steps(
-    service: ProposeSessionService,
+    service: ProposeSessionServiceProtocol,
     category: ProposalCategoryDTO | None,
     *,
     has_category: bool = True,
@@ -178,12 +179,12 @@ def _login_nudge_context(request: HttpRequest) -> dict[str, object]:
 def _proposal_settings(
     request: RootRequest, event: EventDTO
 ) -> EventProposalSettingsDTO:
-    return request.di.uow.event_proposal_settings.read_by_event(event.pk)
+    return request.services.propose_session.get_proposal_settings(event.pk)
 
 
 def _render_category(
     request: RootRequest,
-    service: ProposeSessionService,
+    service: ProposeSessionServiceProtocol,
     event: EventDTO,
     event_slug: str,
 ) -> HttpResponse:
@@ -217,7 +218,7 @@ def _render_category(
 
 def _personal_context(
     request: RootRequest,
-    service: ProposeSessionService,
+    service: ProposeSessionServiceProtocol,
     event: EventDTO,
     category: ProposalCategoryDTO,
 ) -> dict[str, object]:
@@ -226,7 +227,9 @@ def _personal_context(
     wizard = request.session.get(_session_key(event.slug), {})
     stored: WizardData = wizard.get("personal_data") or {
         f"personal_{slug}": value
-        for slug, value in service.get_saved_personal_data(event.pk).items()
+        for slug, value in service.get_saved_personal_data(
+            event.pk, user_id=request.context.current_user_id
+        ).items()
     }
     initial = unfold_custom_answers(
         stored=stored, fields=[req.field for req in requirements], prefix="personal"
@@ -258,7 +261,7 @@ def _personal_context(
 
 def _render_personal(
     request: RootRequest,
-    service: ProposeSessionService,
+    service: ProposeSessionServiceProtocol,
     event: EventDTO,
     category: ProposalCategoryDTO,
 ) -> HttpResponse:
@@ -271,7 +274,7 @@ def _render_personal(
 
 def _render_timeslots(
     request: RootRequest,
-    service: ProposeSessionService,
+    service: ProposeSessionServiceProtocol,
     event: EventDTO,
     category: ProposalCategoryDTO,
 ) -> HttpResponse:
@@ -304,7 +307,7 @@ def _render_timeslots(
 
 def _render_details(
     request: RootRequest,
-    service: ProposeSessionService,
+    service: ProposeSessionServiceProtocol,
     event: EventDTO,
     category: ProposalCategoryDTO,
 ) -> HttpResponse:
@@ -349,7 +352,7 @@ def _render_details(
 
 def _render_review(
     request: RootRequest,
-    service: ProposeSessionService,
+    service: ProposeSessionServiceProtocol,
     event: EventDTO,
     category: ProposalCategoryDTO,
 ) -> HttpResponse:
@@ -427,8 +430,8 @@ def _render_review(
     )
 
 
-def _service(request: RootRequest) -> ProposeSessionService:
-    return ProposeSessionService(request.di.uow, request.context)
+def _service(request: RootRequest) -> ProposeSessionServiceProtocol:
+    return request.services.propose_session
 
 
 class ProposeWizardMixin(BaseView):
@@ -441,31 +444,33 @@ class ProposeWizardMixin(BaseView):
             event_slug = str(kwargs.get("event_slug", ""))
             service = _service(self.request)
             try:
-                event = self._get_event(service, event_slug)
+                event = self._get_event(
+                    service=service,
+                    event_slug=event_slug,
+                    sphere_id=self.request.context.current_sphere_id,
+                )
             except RedirectError as exc:
                 if exc.error:
                     messages.error(request, exc.error)
                 return redirect(exc.url)
-            proposal_settings = (
-                self.request.di.uow.event_proposal_settings.read_or_create_by_event(
-                    event.pk
-                )
-            )
+            proposal_settings = service.get_or_create_proposal_settings(event.pk)
             if not proposal_settings.allow_anonymous_proposals:
                 login_url = getattr(django_settings, "LOGIN_URL", "/login/")
                 return redirect(f"{login_url}?next={request.path}")
         return super().dispatch(request, *args, **kwargs)
 
     @staticmethod
-    def _get_event(service: ProposeSessionService, event_slug: str) -> EventDTO:
+    def _get_event(
+        *, service: ProposeSessionServiceProtocol, event_slug: str, sphere_id: int
+    ) -> EventDTO:
         try:
-            event = service.get_event(event_slug)
+            event = service.get_event(event_slug, sphere_id=sphere_id)
         except NotFoundError:
             raise RedirectError(
                 reverse("web:index"), error=_("Event not found.")
             ) from None
 
-        if not is_proposal_active(event):
+        if not service.is_proposal_active(event):
             redirect_url = (
                 reverse("web:chronology:event", kwargs={"slug": event_slug})
                 if event.publication_time is not None
@@ -482,7 +487,7 @@ class ProposeWizardMixin(BaseView):
     @staticmethod
     def _get_wizard_category(
         request: RootRequest,
-        service: ProposeSessionService,
+        service: ProposeSessionServiceProtocol,
         event: EventDTO,
         event_slug: str,
     ) -> ProposalCategoryDTO:
@@ -508,7 +513,11 @@ class ProposeWizardMixin(BaseView):
 class ProposeSessionPageView(ProposeWizardMixin, View):
     def get(self, request: RootRequest, event_slug: str) -> HttpResponse:
         service = _service(request)
-        event = self._get_event(service, event_slug)
+        event = self._get_event(
+            service=service,
+            event_slug=event_slug,
+            sphere_id=request.context.current_sphere_id,
+        )
         categories = service.get_categories(event.pk)
 
         old_wizard = request.session.get(_session_key(event_slug), {})
@@ -541,7 +550,11 @@ class ProposeSessionPageView(ProposeWizardMixin, View):
 class ProposeSessionCategoryComponentView(ProposeWizardMixin, View):
     def post(self, request: RootRequest, event_slug: str) -> HttpResponse:
         service = _service(request)
-        event = self._get_event(service, event_slug)
+        event = self._get_event(
+            service=service,
+            event_slug=event_slug,
+            sphere_id=request.context.current_sphere_id,
+        )
 
         if request.POST.get("back"):
             return _render_category(request, service, event, event_slug)
@@ -585,7 +598,11 @@ class ProposeSessionCategoryComponentView(ProposeWizardMixin, View):
 class ProposeSessionPersonalComponentView(ProposeWizardMixin, View):
     def post(self, request: RootRequest, event_slug: str) -> HttpResponse:
         service = _service(request)
-        event = self._get_event(service, event_slug)
+        event = self._get_event(
+            service=service,
+            event_slug=event_slug,
+            sphere_id=request.context.current_sphere_id,
+        )
         category = self._get_wizard_category(request, service, event, event_slug)
 
         if request.POST.get("back"):
@@ -639,7 +656,11 @@ class ProposeSessionPersonalComponentView(ProposeWizardMixin, View):
 class ProposeSessionTimeslotsComponentView(ProposeWizardMixin, View):
     def post(self, request: RootRequest, event_slug: str) -> HttpResponse:
         service = _service(request)
-        event = self._get_event(service, event_slug)
+        event = self._get_event(
+            service=service,
+            event_slug=event_slug,
+            sphere_id=request.context.current_sphere_id,
+        )
         category = self._get_wizard_category(request, service, event, event_slug)
 
         requirements = service.get_timeslot_requirements(category.pk)
@@ -687,7 +708,11 @@ class ProposeSessionTimeslotsComponentView(ProposeWizardMixin, View):
 class ProposeSessionDetailsComponentView(ProposeWizardMixin, View):
     def post(self, request: RootRequest, event_slug: str) -> HttpResponse:
         service = _service(request)
-        event = self._get_event(service, event_slug)
+        event = self._get_event(
+            service=service,
+            event_slug=event_slug,
+            sphere_id=request.context.current_sphere_id,
+        )
         category = self._get_wizard_category(request, service, event, event_slug)
 
         if request.POST.get("back"):
@@ -762,7 +787,11 @@ class ProposeSessionDetailsComponentView(ProposeWizardMixin, View):
 class ProposeSessionReviewComponentView(ProposeWizardMixin, View):
     def post(self, request: RootRequest, event_slug: str) -> HttpResponse:
         service = _service(request)
-        event = self._get_event(service, event_slug)
+        event = self._get_event(
+            service=service,
+            event_slug=event_slug,
+            sphere_id=request.context.current_sphere_id,
+        )
         category = self._get_wizard_category(request, service, event, event_slug)
         return _render_review(request, service, event, category)
 
@@ -770,7 +799,11 @@ class ProposeSessionReviewComponentView(ProposeWizardMixin, View):
 class ProposeSessionSubmitActionView(ProposeWizardMixin, View):
     def post(self, request: RootRequest, event_slug: str) -> HttpResponse:
         service = _service(request)
-        event = self._get_event(service, event_slug)
+        event = self._get_event(
+            service=service,
+            event_slug=event_slug,
+            sphere_id=request.context.current_sphere_id,
+        )
         self._get_wizard_category(request, service, event, event_slug)
         wizard = request.session.get(_session_key(event_slug), {})
         session_data = wizard.get("session_data", {})
@@ -785,7 +818,7 @@ class ProposeSessionSubmitActionView(ProposeWizardMixin, View):
 
         if not getattr(request.user, "is_authenticated", False):
             ip = get_client_ip(request)
-            if not check_proposal_rate_limit(request.di.cache, ip, event.pk):
+            if not service.check_rate_limit(ip=ip, event_id=event.pk):
                 raise RedirectError(
                     reverse(
                         "web:chronology:session-propose",
@@ -795,7 +828,13 @@ class ProposeSessionSubmitActionView(ProposeWizardMixin, View):
                 )
 
         cover = pop_wizard_cover(wizard)
-        result = service.submit(event, wizard, cover_image=cover)
+        result = service.submit(
+            event,
+            wizard,
+            user_id=request.context.current_user_id,
+            user_slug=request.context.current_user_slug,
+            cover_image=cover,
+        )
 
         del request.session[_session_key(event_slug)]
 
