@@ -2,6 +2,7 @@
 {% load i18n %}
 {% load tessera %}
 {% load cfp_tags %}
+{% load date_tags %}
 {% load django_vite %}
 {% load markdown_tags %}
 {% load meta_tags %}
@@ -95,11 +96,13 @@
                                             <time datetime="{{ event.start_time|date:'c' }}">{{ event.start_time|time:"G:i" }}</time>–<time datetime="{{ event.end_time|date:'c' }}">{{ event.end_time|time:"G:i" }}</time>
                                         </div>
                                     {% else %}
-                                        <div class="font-medium leading-none text-foreground">
-                                            <time datetime="{{ event.start_time|date:'c' }}">{{ event.start_time|date:"l, j E" }} <span class="text-foreground-muted tabular-nums">· {{ event.start_time|time:"G:i" }}</span></time>
-                                        </div>
-                                        <div class="font-medium leading-none text-foreground mt-1">
-                                            <span aria-hidden="true">– </span><time datetime="{{ event.end_time|date:'c' }}">{{ event.end_time|date:"l, j E" }} <span class="text-foreground-muted tabular-nums">· {{ event.end_time|time:"G:i" }}</span></time>
+                                        {# Abbreviated weekday and month keep the range on one line; #}
+                                        {# each hour stays glued to its own endpoint, because a lone #}
+                                        {# "16:00–17:00" under a date range reads as daily opening hours. #}
+                                        <div class="font-medium leading-tight text-foreground">
+                                            <time class="whitespace-nowrap" datetime="{{ event.start_time|date:'c' }}">{{ event.start_time|short_date }} <span class="text-foreground-muted tabular-nums">· {{ event.start_time|time:"G:i" }}</span></time>
+                                            <span aria-hidden="true">–</span><span class="sr-only">{% translate "to" %}</span>
+                                            <time class="whitespace-nowrap" datetime="{{ event.end_time|date:'c' }}">{{ event.end_time|short_date }} <span class="text-foreground-muted tabular-nums">· {{ event.end_time|time:"G:i" }}</span></time>
                                         </div>
                                     {% endif %}
                                 </div>

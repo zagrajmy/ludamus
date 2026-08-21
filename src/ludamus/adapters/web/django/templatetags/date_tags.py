@@ -51,6 +51,19 @@ def _format_date_range(start: datetime, end: datetime) -> str:
 
 
 @register.filter
+def short_date(value: datetime) -> str:
+    weekday = date_format(value, format="D", use_l10n=True)
+    day = date_format(value, format="j", use_l10n=False)
+    month = date_format(value, format="M", use_l10n=True)
+    # Django's pl catalog capitalizes the abbreviated month ("Wrz") but not the
+    # genitive one the long form uses ("września"), so the abbreviation would
+    # read louder than the date it replaces. Mirror the long form's case.
+    if date_format(value, format="E", use_l10n=True).islower():
+        month = month.lower()
+    return f"{weekday} {day} {month}"
+
+
+@register.filter
 def format_datetime_range(obj: DateTimeRangeProtocol) -> str:
     start = timezone.localtime(obj.start_time)
     end = timezone.localtime(obj.end_time)

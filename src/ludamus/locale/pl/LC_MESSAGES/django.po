@@ -4123,6 +4123,10 @@ msgid "Proposals Open"
 msgstr "Zgłoszenia otwarte"
 
 #: src/ludamus/templates/chronology/event.html
+msgid "to"
+msgstr "do"
+
+#: src/ludamus/templates/chronology/event.html
 msgid "Session"
 msgid_plural "Sessions"
 msgstr[0] "Punkt programu"
