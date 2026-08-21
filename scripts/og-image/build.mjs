@@ -52,22 +52,23 @@ try {
     viewport: { width: WIDTH, height: HEIGHT },
     deviceScaleFactor: 2,
   });
-  await page.goto(pathToFileURL(CARD).href);
-  // A missing face or painting must fail the build, not bake a fallback in.
-  await page.waitForFunction(() =>
-    document.fonts.ready.then(() => document.fonts.check("500 46px Outfit")),
-  );
-  await page.waitForFunction(() => {
+  await page.goto(pathToFileURL(CARD).href, { waitUntil: "load" });
+  // A missing painting must fail the build, not ship a card of flat brand
+  // colour. Decoding the bitmap the card references beats fetch(): no polling,
+  // a real answer about the pixels, and no reliance on what file:// allows.
+  const painted = await page.evaluate(() => {
     const url = /url\("([^"]+)"\)/.exec(
       getComputedStyle(document.querySelector(".card__art")).backgroundImage,
     )?.[1];
-    return url
-      ? fetch(url).then(
-          (r) => r.ok,
-          () => false,
-        )
-      : false;
+    if (!url) return false;
+    const img = new Image();
+    img.src = url;
+    return img.decode().then(
+      () => true,
+      () => false,
+    );
   });
+  if (!painted) throw new Error(`painting missing or unreadable next to ${CARD}`);
   await page.locator(".card").screenshot({
     path: OUTPUT,
     type: "jpeg",

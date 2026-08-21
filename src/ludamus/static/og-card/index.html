@@ -1,49 +1,29 @@
+<!DOCTYPE html>
 <!--
   Source of truth for the 1200x630 link-preview card. scripts/og-image/build.mjs
   screenshots this page to src/ludamus/static/og-image.jpg; /design/ frames it
   live, so the panel there cannot drift from what the card is built from.
 
   Background: Rick Guidice's cylindrical-colony painting for NASA Ames
-  (public domain, NASA), downscaled to 2600px. Outfit is SIL OFL 1.1.
+  (public domain, NASA), downscaled to 2600px. The card sets no type -- the
+  tagline lives in og:description, which unfurls render under the image in the
+  reader's locale -- so it needs no webfont.
 -->
 <meta charset="utf-8">
 <title>zagrajmy</title>
 <style>
-    /* Self-hosted: a CDN font fails silently offline and bakes a fallback face
-     into the shipped JPEG. Only the tagline needs it -- the lockup is paths. */
-    @font-face {
-        font-family: "Outfit";
-        font-style: normal;
-        font-weight: 500;
-        src: url("outfit-500-latin.woff2") format("woff2");
-        unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
-            U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191,
-            U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
-    }
-
-    @font-face {
-        font-family: "Outfit";
-        font-style: normal;
-        font-weight: 500;
-        src: url("outfit-500-latin-ext.woff2") format("woff2");
-        unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7,
-            U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F,
-            U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F,
-            U+A720-A7FF;
-    }
-
     :root {
         /* Brand token, mirrored from client/src/index.css. */
         --warm-900: #252220;
 
-        /* --- scrim knobs (tweak in the widget, paste back here) --- */
+        /* --- scrim knobs --- */
         --scrim-tint: 24 18 32;
         /* rgb triplet the scrim darkens toward */
         --scrim-opacity: 0.72;
         /* alpha at the centre of the core */
         --scrim-spread-x: 68%;
         /* core half-width */
-        --scrim-spread-y: 62%;
+        --scrim-spread-y: 42%;
         /* core half-height */
         --scrim-mid-stop: 42%;
         /* where the falloff reaches half strength */
@@ -54,7 +34,7 @@
         --scrim-vignette: 0.3;
         /* extra weight pulled into the bottom edge */
 
-        /* --- text shadow knobs --- */
+        /* --- lockup shadow knobs --- */
         --text-shadow-blur: 1.625rem;
         --text-shadow-opacity: 0.62;
         --text-shadow-y: 0.125rem;
@@ -89,7 +69,6 @@
         width: 75rem;
         height: 39.375rem;
         background: var(--warm-900);
-        font-family: "Outfit", system-ui, sans-serif;
         isolation: isolate;
     }
 
@@ -105,11 +84,13 @@
         transform-origin: center;
     }
 
-    /* Three stacked passes: an elliptical core centred on the content, a uniform
+    /* Three stacked passes: an elliptical core centred on the lockup, a uniform
      floor so mid-tones in the painting cannot creep up under the wordmark, and
      a bottom vignette that seats the card on darker ground. The core is radial
-     rather than a side wedge because the type is centred over the brightest
-     part of the painting -- the cylinder's end cap. */
+     rather than a side wedge because the lockup sits over the brightest part of
+     the painting -- the cylinder's end cap. Measured contrast floor under the
+     lockup box is 3.65:1, clearing the 3:1 bar for large text; without the
+     scrim it is 1.09:1. */
     .card__scrim {
         position: absolute;
         inset: 0;
@@ -131,12 +112,8 @@
         flex-direction: column;
         align-items: center;
         justify-content: center;
-        gap: 1.125rem;
         padding: 0 4.5rem;
-        text-align: center;
         color: #fff;
-        text-shadow:
-            0 var(--text-shadow-y) var(--text-shadow-blur) rgb(var(--scrim-tint) / var(--text-shadow-opacity));
     }
 
     /* The lockup ships as outlined paths, so it needs no webfont to be correct. */
@@ -146,20 +123,13 @@
         display: block;
         filter: drop-shadow(0 var(--text-shadow-y) var(--text-shadow-blur) rgb(var(--scrim-tint) / var(--text-shadow-opacity)));
     }
-
-    .card__tagline {
-        font-size: 2.875rem;
-        font-weight: 500;
-        line-height: 1.18;
-        letter-spacing: -0.015em;
-    }
 </style>
 <div class="card">
     <div class="card__art"></div>
     <div class="card__scrim"></div>
     <div class="card__content">
         <svg class="card__lockup"
-             viewBox="0 0 258 76"
+             viewBox="10.29 20.28 235.19 41.32"
              fill="none"
              xmlns="http://www.w3.org/2000/svg"
              role="img">
@@ -180,6 +150,5 @@
             <path transform="translate(184.77 52) scale(0.044000 -0.044000)" d="M54 0V486H207V0ZM365 0V284Q365 320.5 342.5 341.0Q320 361.5 286.5 361.5Q263.5 361.5 245.5 352.25Q227.5 343 217.25 325.75Q207 308.5 207 284L147.5 310Q147.5 367.5 172.75 409.0Q198 450.5 241.0 473.25Q284 496 338 496Q388.5 496 429.25 473.0Q470 450 494.0 408.75Q518 367.5 518 310.5V0ZM676 0V284Q676 320.5 653.5 341.0Q631 361.5 597.5 361.5Q575 361.5 556.75 352.25Q538.5 343 528.25 325.75Q518 308.5 518 284L429.5 295.5Q432 357.5 459.25 402.25Q486.5 447 532.25 471.5Q578 496 635 496Q690.5 496 734.25 472.5Q778 449 803.5 405.5Q829 362 829 301V0Z" fill="currentColor" />
             <path transform="translate(222.18 52) scale(0.044000 -0.044000)" d="M203.5 -2.5 4 486H168.5L295.5 98.5H235L365 486H529.5L321.5 -2.5ZM78.5 -205 224.5 110 321.5 -2.5 235.5 -205Z" fill="currentColor" />
         </svg>
-        <p class="card__tagline">konwent bez chaosu w&nbsp;arkuszach</p>
     </div>
 </div>
