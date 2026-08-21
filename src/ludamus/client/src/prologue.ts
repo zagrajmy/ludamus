@@ -6,9 +6,7 @@
 //
 // Consent states (stored under STORAGE_KEY in localStorage):
 // - unset:      PostHog is not initialized at all — no events leave the
-//               browser — and the banner shows. The banner's "nothing is
-//               stored before you agree" promise depends on this staying
-//               literally true.
+//               browser — and the banner shows.
 // - "accepted": initialized with durable persistence, capturing opted in,
 //               session recording with every input masked.
 // - "declined": PostHog is never initialized; withdrawing consent on a
@@ -19,7 +17,7 @@ const STORAGE_KEY = "prologue.consent";
 
 type Consent = "accepted" | "declined" | null;
 
-type PosthogServerConfig = { api_key: string; host: string };
+type PosthogServerConfig = { api_key: string; host: string; user_id: string | null };
 
 const readServerConfig = (): PosthogServerConfig | null => {
   const el = document.getElementById("posthog-config");
@@ -34,6 +32,19 @@ const readServerConfig = (): PosthogServerConfig | null => {
 const readConsent = (): Consent => {
   const stored = localStorage.getItem(STORAGE_KEY);
   return stored === "accepted" || stored === "declined" ? stored : null;
+};
+
+const syncIdentity = (userId: string | null): void => {
+  // PostHog persists distinct_id across pageloads, so a logout leaves the
+  // previous user identified until we reset. Asking posthog rather than
+  // tracking it ourselves keeps one source of truth: a mirror desyncs when
+  // site data is cleared, and then nobody is ever identified again.
+  if (posthog.get_distinct_id() === userId) return;
+  // identify() on an already-identified instance silently re-registers the id
+  // without emitting $identify or linking the anonymous history, so a switch
+  // between accounts has to reset first.
+  if (posthog._isIdentified()) posthog.reset();
+  if (userId !== null) posthog.identify(userId);
 };
 
 const initPosthog = (config: PosthogServerConfig): void => {
@@ -56,6 +67,7 @@ const initPosthog = (config: PosthogServerConfig): void => {
       maskTextSelector: "[data-ph-mask]",
     },
   });
+  syncIdentity(config.user_id);
 };
 
 // The profile Privacy tab shows the stored choice: the server cannot know it
@@ -77,11 +89,18 @@ const applyChoice = (config: PosthogServerConfig, choice: "accepted" | "declined
       posthog.set_config({ persistence: "localStorage+cookie" });
       posthog.opt_in_capturing();
       posthog.startSessionRecording();
+      syncIdentity(config.user_id);
     } else {
       initPosthog(config);
     }
   } else if (posthog.__loaded) {
+    // reset() before opt_out_capturing(), never after: reset() calls
+    // consent.reset(), which is what clear_opt_in_out_capturing() does, so the
+    // reverse order withdraws consent and then immediately clears the
+    // withdrawal. Dropping the identity matters too, or re-accepting later
+    // resumes capture under the person who declined.
     posthog.stopSessionRecording();
+    syncIdentity(null);
     posthog.opt_out_capturing();
   }
 };

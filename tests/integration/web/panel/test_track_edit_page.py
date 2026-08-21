@@ -130,10 +130,9 @@ class TestTrackEditPageView:
         track.refresh_from_db()
         assert track.name == "Updated Track"
 
-    def test_post_drops_foreign_event_space_and_foreign_manager(
+    def test_post_rejects_foreign_event_space_and_foreign_manager(
         self, authenticated_client, active_user, sphere, event
     ):
-        """Spaces from another event and non-sphere managers are not attached."""
         sphere.managers.add(active_user)
         track = self.make_track(event)
         foreign_space = SpaceFactory()  # belongs to a different event
@@ -151,13 +150,65 @@ class TestTrackEditPageView:
 
         assert_response(
             response,
+            HTTPStatus.OK,
+            template_name="panel/track-edit.html",
+            context_data={
+                **panel_context(event, active_nav="tracks"),
+                "track": TrackDTO.model_validate(track),
+                "form": ANY,
+                "spaces": [],
+                "managers": [UserDTO.model_validate(active_user)],
+                "selected_space_pks": [foreign_space.pk],
+                "selected_manager_pks": [foreign_user.pk],
+            },
+        )
+        track.refresh_from_db()
+        assert track.name == "Alpha Track"
+        assert not track.spaces.exists()
+        assert not track.managers.exists()
+
+    def test_post_shows_error_when_renaming_onto_another_track(
+        self, panel_client, active_user, event
+    ):
+        track = self.make_track(event)
+        Track.objects.create(event=event, name="Beta Track", slug="beta-track")
+
+        response = panel_client.post(
+            self.get_url(event, track), data={"name": "beta TRACK", "is_public": "on"}
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/track-edit.html",
+            context_data={
+                **panel_context(event, active_nav="tracks"),
+                "track": TrackDTO.model_validate(track),
+                "form": ANY,
+                "spaces": [],
+                "managers": [UserDTO.model_validate(active_user)],
+                "selected_space_pks": [],
+                "selected_manager_pks": [],
+            },
+        )
+        track.refresh_from_db()
+        assert track.name == "Alpha Track"
+
+    def test_post_keeps_its_own_name(self, panel_client, event):
+        track = self.make_track(event)
+
+        response = panel_client.post(
+            self.get_url(event, track), data={"name": "Alpha Track", "is_public": "on"}
+        )
+
+        assert_response(
+            response,
             HTTPStatus.FOUND,
             messages=[(messages.SUCCESS, "Track updated successfully.")],
             url=f"/panel/event/{event.slug}/tracks/",
         )
         track.refresh_from_db()
-        assert not track.spaces.filter(pk=foreign_space.pk).exists()
-        assert not track.managers.filter(pk=foreign_user.pk).exists()
+        assert track.name == "Alpha Track"
 
     def test_post_shows_error_for_empty_name(self, panel_client, active_user, event):
         track = self.make_track(event)
@@ -187,6 +238,22 @@ class TestTrackEditPageView:
         )
 
         response = panel_client.post(url, data={"name": "Updated Track"})
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.ERROR, "Track not found.")],
+            url=f"/panel/event/{event.slug}/tracks/",
+        )
+
+    def test_post_redirects_on_invalid_track_slug_with_a_rejected_form(
+        self, panel_client, event
+    ):
+        url = reverse(
+            "panel:track-edit", kwargs={"slug": event.slug, "track_slug": "nonexistent"}
+        )
+
+        response = panel_client.post(url, data={"name": ""})
 
         assert_response(
             response,
