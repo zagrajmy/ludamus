@@ -2,6 +2,7 @@
 {% load i18n %}
 {% load tessera %}
 {% load cfp_tags %}
+{% load date_tags %}
 {% load django_vite %}
 {% load markdown_tags %}
 {% load meta_tags %}
@@ -86,7 +87,10 @@
                                 {% icon "calendar-days" class="w-4 h-4 text-coral-600" variant="mini" %}
                             </div>
                             {% with start_day=event.start_time|date:"Y-m-d" end_day=event.end_time|date:"Y-m-d" %}
-                                <div data-event-dates>
+                                {# Where supported, centers the glyphs against the icon rather #}
+                                {# than the line box, whose ascender padding outweighs its #}
+                                {# descender here. #}
+                                <div class="text-box-trim-both" data-event-dates>
                                     {% if start_day == end_day %}
                                         <div class="font-medium leading-none text-foreground">
                                             <time datetime="{{ event.start_time|date:'c' }}">{{ event.start_time|date:"l, j E" }}</time>
@@ -95,11 +99,16 @@
                                             <time datetime="{{ event.start_time|date:'c' }}">{{ event.start_time|time:"G:i" }}</time>–<time datetime="{{ event.end_time|date:'c' }}">{{ event.end_time|time:"G:i" }}</time>
                                         </div>
                                     {% else %}
-                                        <div class="font-medium leading-none text-foreground">
-                                            <time datetime="{{ event.start_time|date:'c' }}">{{ event.start_time|date:"l, j E" }} <span class="text-foreground-muted tabular-nums">· {{ event.start_time|time:"G:i" }}</span></time>
-                                        </div>
-                                        <div class="font-medium leading-none text-foreground mt-1">
-                                            <span aria-hidden="true">– </span><time datetime="{{ event.end_time|date:'c' }}">{{ event.end_time|date:"l, j E" }} <span class="text-foreground-muted tabular-nums">· {{ event.end_time|time:"G:i" }}</span></time>
+                                        {# Each hour stays with its own date: this is the page that #}
+                                        {# answers "when does it start", and a lone "16:00–17:00" #}
+                                        {# under a date range reads as daily opening hours. #}
+                                        {# Comma, not the "·" the single-day branch uses: inside a #}
+                                        {# range it has to read as weaker than the dash joining the #}
+                                        {# endpoints, and two spaced mid-height marks are not. #}
+                                        <div class="font-medium leading-tight text-foreground">
+                                            <time class="whitespace-nowrap" datetime="{{ event.start_time|date:'c' }}">{{ event.start_time|short_date }}, <span class="text-foreground-muted tabular-nums">{{ event.start_time|time:"G:i" }}</span></time>
+                                            <span aria-hidden="true">–</span><span class="sr-only">{% translate "to" context "date range" %}</span>
+                                            <time class="whitespace-nowrap" datetime="{{ event.end_time|date:'c' }}">{{ event.end_time|short_date }}, <span class="text-foreground-muted tabular-nums">{{ event.end_time|time:"G:i" }}</span></time>
                                         </div>
                                     {% endif %}
                                 </div>

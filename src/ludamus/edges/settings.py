@@ -357,13 +357,10 @@ INTERNAL_IPS = [
 # style-src keeps 'unsafe-inline': inline style="..." attributes are
 # pervasive across the templates and nonce-ing attributes (as opposed to
 # <style> blocks) isn't supported by the CSP spec the same way — narrowing
-# that is a separate, larger effort, not covered here. It also allows
-# fonts.googleapis.com: src/ludamus/client/src/index.css @imports the
-# Outfit font's stylesheet from there — discovered by the e2e CSP-violation
-# spec (csp-violations.spec.ts) actually enforcing the policy; report-only
-# never surfaced it since nothing blocks under report-only. font-src
-# allows fonts.gstatic.com for the same reason: that stylesheet's
-# @font-face rules point at the actual font files there. img-src stays
+# that is a separate, larger effort, not covered here. The Outfit font is
+# self-hosted (src/ludamus/client/src/fonts), so style-src and font-src no
+# longer carry the fonts.googleapis.com / fonts.gstatic.com allowances the
+# old @import needed. img-src stays
 # broad because avatars come from arbitrary Auth0/gravatar HTTPS hosts
 # and media from GCS, plus blob: for the dropzone's object-URL preview.
 # No report-uri/report-to is configured: there is no violation-ingestion
@@ -373,9 +370,9 @@ INTERNAL_IPS = [
 CSP_POLICY: dict[str, list[str]] = {
     "default-src": [CSP.SELF],
     "script-src": [CSP.SELF, CSP.NONCE],
-    "style-src": [CSP.SELF, CSP.UNSAFE_INLINE, "https://fonts.googleapis.com"],
+    "style-src": [CSP.SELF, CSP.UNSAFE_INLINE],
     "img-src": [CSP.SELF, "data:", "blob:", "https:"],
-    "font-src": [CSP.SELF, "https://fonts.gstatic.com"],
+    "font-src": [CSP.SELF],
     "connect-src": [CSP.SELF],
     "object-src": [CSP.NONE],
     "base-uri": [CSP.SELF],
