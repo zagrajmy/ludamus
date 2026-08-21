@@ -284,3 +284,13 @@ If you fix a papercut, remove it.
   reported all-green while the test job was still running. Use the GitHub MCP
   tools for CI state in a sandbox — curl to api.github.com fails silently enough
   to look like success.
+- 2026-08-06: Ran mise tasks in the workspace sandbox → mise failed with
+  Operation not permitted until rerun outside the sandbox; the error did not
+  identify the blocked path.
+- 2026-08-06: Ran pytest directly for a targeted check → settings failed before
+  collection because repository test env is only loaded by mise tasks; the
+  failure did not suggest mise run test:py.
+- 2026-08-06: Tried the previously documented hidden _pytest task for focused
+  tests → task no longer exists; mise tasks is required to find its replacement.
+- 2026-08-06: Tried aube --cwd for package-local checks; aube uses -C/--dir
+  instead, so every command failed before running.

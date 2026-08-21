@@ -168,10 +168,25 @@
         </div>
         <span hidden aria-hidden="true" data-commit-sha="{{ COMMIT_SHA }}"></span>
         {% include "components/confirm-dialog.html" %}
+        {% if current_sphere.parley_enabled and current_user and current_user.is_active %}
+            <div data-parley-root data-bootstrap-url="{% url 'parley_bootstrap' %}">
+                <button type="button"
+                        data-parley-launcher
+                        aria-controls="parley-panel"
+                        aria-expanded="false"
+                        class="fixed z-40 right-4 bottom-[max(1rem,env(safe-area-inset-bottom))] size-14 rounded-full bg-primary text-foreground-inverse shadow-lg hover:bg-primary-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-border-focus"
+                        aria-label="{% translate 'Open Parley' %}">
+                    <span aria-hidden="true" class="text-xl">✦</span>
+                </button>
+            </div>
+        {% endif %}
         <!-- Scripts -->
         <script src="{% static 'vendor/htmx.min.js' %}"></script>
         {% include "components/theme_script.html" %}
         {% vite_asset 'src/actions.ts' %}
+        {% if current_sphere.parley_enabled and current_user and current_user.is_active %}
+            {% vite_asset 'src/parley/index.ts' %}
+        {% endif %}
         {% vite_asset 'src/app-scroll.ts' %}
         {% vite_asset 'src/confirm.ts' %}
         {% vite_asset 'src/sound.ts' %}

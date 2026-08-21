@@ -20,6 +20,8 @@
     "@simulacrum/auth0-simulator": "0.11.4",
     "@tailwindcss/typography": "0.5.19",
     "@tailwindcss/vite": "4.2.4",
+    "@types/react": "19.2.8",
+    "@types/react-dom": "19.2.3",
     "oxfmt": "0.56.0",
     "oxlint": "1.70.0",
     "postcss-nested": "7.0.2",
@@ -28,7 +30,11 @@
     "vite": "8.0.16"
   },
   "dependencies": {
+    "@shadcn/react": "0.2.0",
+    "agents": "0.20.1",
     "cuelume": "0.1.0",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
     "slugify": "1.6.6"
   }
 }

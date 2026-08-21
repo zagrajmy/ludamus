@@ -288,6 +288,13 @@ class SphereSettingsForm(forms.Form):
         label=_("Allow facilitators to edit their own sessions"),
         help_text=_("Default for the whole sphere. Events can override this setting."),
     )
+    parley_enabled = forms.BooleanField(
+        required=False,
+        label=_("Enable Parley conversations"),
+        help_text=_(
+            "Show the sphere room and eligible program-item rooms to active users."
+        ),
+    )
     logo = _logo_field()
 
     def clean_logo(self) -> object:

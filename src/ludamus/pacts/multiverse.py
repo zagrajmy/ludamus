@@ -148,6 +148,7 @@ class SpherePanelServiceProtocol(Protocol):
         sphere_id: int,
         *,
         allow_facilitator_session_edit: bool,
+        parley_enabled: bool,
         logo: UploadedFileProtocol | str | None = None,
     ) -> None: ...
 

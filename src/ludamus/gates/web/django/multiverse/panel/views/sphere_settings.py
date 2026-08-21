@@ -1,5 +1,3 @@
-"""Sphere settings — general tab (sphere-wide defaults)."""
-
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
@@ -23,8 +21,6 @@ if TYPE_CHECKING:
 
 
 class SphereSettingsPageView(SphereAccessMixin, View):
-    """Display and edit the current sphere's settings."""
-
     request: MultiverseRequest
 
     def get(self, _request: MultiverseRequest) -> HttpResponse:
@@ -35,6 +31,7 @@ class SphereSettingsPageView(SphereAccessMixin, View):
         context["form"] = SphereSettingsForm(
             initial={
                 "allow_facilitator_session_edit": sphere.allow_facilitator_session_edit,
+                "parley_enabled": sphere.parley_enabled,
                 "logo": sphere.logo_url or None,
             }
         )
@@ -54,6 +51,7 @@ class SphereSettingsPageView(SphereAccessMixin, View):
             allow_facilitator_session_edit=form.cleaned_data[
                 "allow_facilitator_session_edit"
             ],
+            parley_enabled=form.cleaned_data["parley_enabled"],
             logo=resolve_uploaded_file_field(form.cleaned_data.get("logo")),
         )
         messages.success(self.request, _("Sphere settings saved successfully."))
