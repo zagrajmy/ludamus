@@ -14,6 +14,7 @@ import requests
 from pydantic import BaseModel
 
 from ludamus.links.google_sheets import (
+    NOOP_WRITE_REQUEST,
     SHEETS_BATCH_UPDATE_URL,
     SHEETS_META_URL,
     SHEETS_UPDATE_URL,
@@ -274,7 +275,7 @@ class TestKonwencikSheetExporterCheck:
         assert result.outcome == CheckOutcome.AUTH_FAILED
         assert result.hint == "Connection has no service-account credentials."
 
-    def test_write_probe_is_an_empty_batch_update(self, google):
+    def test_write_probe_is_a_no_op_batch_update(self, google):
         google.session.post.return_value = _resp(ok=True)
         google.session.get.return_value = _meta_with_title("harmonogram")
 
@@ -286,7 +287,7 @@ class TestKonwencikSheetExporterCheck:
         assert not result.hint
         google.session.post.assert_called_once_with(
             SHEETS_BATCH_UPDATE_URL.format(sheet_id="sheet-1"),
-            json={"requests": []},
+            json={"requests": [NOOP_WRITE_REQUEST]},
             timeout=10,
         )
 

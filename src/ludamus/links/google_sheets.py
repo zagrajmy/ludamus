@@ -48,6 +48,13 @@ SHEETS_UPDATE_URL = (
 SHEETS_BATCH_UPDATE_URL = (
     "https://sheets.googleapis.com/v4/spreadsheets/{sheet_id}:batchUpdate"
 )
+# Deletes developer metadata under a key nothing ever writes: it matches
+# nothing and changes nothing, but still needs write access to be accepted.
+NOOP_WRITE_REQUEST = {
+    "deleteDeveloperMetadata": {
+        "dataFilter": {"developerMetadataLookup": {"metadataKey": "ludamus-check"}}
+    }
+}
 
 
 class _SheetProperties(BaseModel):
@@ -193,12 +200,14 @@ class KonwencikSheetExporter(IntegrationImplementation):
         except CredentialsError as exc:
             return CheckResult(outcome=CheckOutcome.AUTH_FAILED, hint=str(exc))
 
-        # An empty batchUpdate changes nothing but is refused for a viewer, so
-        # unlike a metadata GET it proves the write access the export needs.
+        # A no-op batchUpdate is refused for a viewer, so unlike a metadata GET
+        # it proves the write access the export needs. An empty request list
+        # would be simpler, but Google rejects it with a 400 ("Must specify at
+        # least one request") before it ever looks at permissions.
         write = probe(
             send=lambda: session.post(
                 SHEETS_BATCH_UPDATE_URL.format(sheet_id=config.spreadsheet_id),
-                json={"requests": []},
+                json={"requests": [NOOP_WRITE_REQUEST]},
                 timeout=10,
             ),
             what="spreadsheet",
