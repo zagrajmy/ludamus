@@ -933,6 +933,32 @@ def main() -> None:
     )
     pending_session.time_slots.add(proposal_slot)
 
+    # A second proposal covering the card's other two arms: no participants
+    # limit at all (which must render nothing, not "0 seats"), and more
+    # preferred slots than the meta row can name.
+    open_session = Session.objects.create(
+        event=upcoming_event,
+        presenter=tester,
+        display_name="E2E Tester",
+        contact_email="e2e@test.local",
+        category=proposal_category,
+        title="Open Table Proposal",
+        slug="open-table-proposal",
+        description="No sign-up, several possible times.",
+        duration="PT1H",
+        participants_limit=0,
+        min_age=0,
+        status=SessionStatus.PENDING,
+    )
+    open_session.time_slots.set(
+        TimeSlot.objects.create(
+            event=upcoming_event,
+            start_time=upcoming_event.start_time + timedelta(hours=offset),
+            end_time=upcoming_event.start_time + timedelta(hours=offset + 1),
+        )
+        for offset in (3, 5, 7)
+    )
+
     # Dedicated events for the mutating panel / cover-image specs, so they
     # never write to autumn-open (kept read-only for the public-page specs).
     _create_panel_lab_event(sphere)
