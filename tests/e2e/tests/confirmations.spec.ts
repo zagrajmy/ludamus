@@ -3,10 +3,18 @@ import { expect, test } from "./helpers/fixtures";
 const DASHBOARD_URL = "/panel/event/harbour-days/timetable/confirmations/";
 
 // The specs tick real checkboxes on the seeded `harbour-days` event, so they
-// share one worker and run in order. Every mutation is undone before the test
-// that made it ends: a serial retry re-runs the whole block against the
-// database the failed attempt left behind, and nothing re-seeds in between.
+// share one worker and run in order. Nothing re-seeds between attempts —
+// bootstrap_confirmations.py is get_or_create throughout — so an afterEach puts
+// the seeded state back whether the test passed or failed, and a serial retry
+// re-runs the block against the state it expects.
 test.describe.configure({ mode: "serial" });
+
+// The one placed session the seed leaves confirmed; the other two start clear.
+const SEEDED_CONFIRMATIONS: [string, boolean][] = [
+  ["Dragons of the Harbour", true],
+  ["Wizards of the Pier", false],
+  ["Club Night", false],
+];
 
 async function login(page) {
   await page.goto("/admin/login/");
@@ -25,9 +33,13 @@ async function openMainProgramme(page) {
 
 // A card renders folded only while its facilitator is fully confirmed, so
 // unfolding one has to be conditional: a blind summary click closes the rest.
+// The restore hook can reach a card an HTMX swap is still replacing, hence the
+// polling waits around the one-shot attribute read.
 async function unfold(facilitatorCard) {
+  await expect(facilitatorCard).toBeVisible();
   if ((await facilitatorCard.getAttribute("open")) === null) {
     await facilitatorCard.locator("summary").click();
+    await expect(facilitatorCard).toHaveAttribute("open", "");
   }
 }
 
@@ -35,9 +47,49 @@ function card(page, name: string) {
   return page.locator("details").filter({ has: page.getByText(name, { exact: true }) });
 }
 
+// A row's text opens with its session title — after the template's own
+// indentation, which `hasText` hands to a regex unnormalized — so an anchored
+// match lands on the row and not on the status group or the card above it.
+// Naming the row keeps a restore off checkbox position, which only ever lined
+// up by accident of the seed's start hours and email ordering.
+function row(facilitatorCard, title: string) {
+  return facilitatorCard
+    .locator("div")
+    .filter({ hasText: new RegExp(`^\\s*${title}`) })
+    .first();
+}
+
 test.describe("Confirmations", () => {
   test.beforeEach(async ({ page }) => {
     await login(page);
+  });
+
+  // Every mutation these specs make is Ada's, and each undo is a no-op when the
+  // test did not get that far — so one hook restores from any state, including
+  // the state a failed assertion left behind.
+  test.afterEach(async ({ page }) => {
+    await openMainProgramme(page);
+    const ada = card(page, "Ada McCall");
+
+    const stepDown = ada.getByRole("button", { name: "Step down" });
+    if (await stepDown.count()) {
+      await stepDown.click();
+      await expect(ada.getByText("Nobody handles this facilitator")).toBeVisible();
+    }
+
+    await unfold(ada);
+    let confirmed = await ada.locator("input[type=checkbox]:checked").count();
+    for (const [title, seeded] of SEEDED_CONFIRMATIONS) {
+      const box = row(ada, title).locator("input[type=checkbox]");
+      if ((await box.isChecked()) === seeded) {
+        continue;
+      }
+      await box.setChecked(seeded);
+      confirmed += seeded ? 1 : -1;
+      // The counter is the swap landing: waiting on it keeps the next undo off
+      // a card that is about to be replaced.
+      await expect(ada.getByText(`${confirmed}/3`, { exact: true })).toBeVisible();
+    }
   });
 
   test("dashboard reports progress and the sessions nobody facilitates", async ({ page }) => {
@@ -81,11 +133,7 @@ test.describe("Confirmations", () => {
     await expect(scheduled).toHaveCount(3);
 
     // On hold and rejected are listed, but there is nothing to tick on them.
-    const onHoldRow = ada
-      .locator("div")
-      .filter({ hasText: /^Maybe: Harbour Larp/ })
-      .first();
-    await expect(onHoldRow.locator("input[type=checkbox]")).toHaveCount(0);
+    await expect(row(ada, "Maybe: Harbour Larp").locator("input[type=checkbox]")).toHaveCount(0);
   });
 
   test("counted states never appear as rows", async ({ page }) => {
@@ -113,15 +161,12 @@ test.describe("Confirmations", () => {
     const ada = card(page, "Ada McCall");
     await expect(ada.getByText("1/3", { exact: true })).toBeVisible();
 
-    const wizards = ada
-      .locator("form")
-      .filter({ has: page.locator("input[name=agenda_item_pk]") })
-      .nth(1);
-    await wizards.locator("input[type=checkbox]").check();
+    const wizards = row(ada, "Wizards of the Pier").locator("input[type=checkbox]");
+    await wizards.check();
 
     await expect(ada.getByText("2/3", { exact: true })).toBeVisible();
 
-    await wizards.locator("input[type=checkbox]").uncheck();
+    await wizards.uncheck();
 
     await expect(ada.getByText("1/3", { exact: true })).toBeVisible();
   });
@@ -134,16 +179,6 @@ test.describe("Confirmations", () => {
 
     await expect(ada.getByText("3/3", { exact: true })).toBeVisible();
     await expect(ada).not.toHaveAttribute("open", "");
-
-    // Back to the seeded 1/3. A fully confirmed Ada renders folded and drops
-    // the "Confirm everything" button, so leaving her that way costs the block
-    // its retry.
-    await unfold(ada);
-    const boxes = ada.locator("input[type=checkbox]");
-    await boxes.nth(1).uncheck();
-    await expect(ada.getByText("2/3", { exact: true })).toBeVisible();
-    await boxes.nth(2).uncheck();
-    await expect(ada.getByText("1/3", { exact: true })).toBeVisible();
   });
 
   test("copying an address hands over its scheduled program, without the pending one", async ({
@@ -153,7 +188,6 @@ test.describe("Confirmations", () => {
     await context.grantPermissions(["clipboard-read", "clipboard-write"]);
     await openMainProgramme(page);
     const ada = card(page, "Ada McCall");
-    await unfold(ada);
 
     await ada.getByRole("button", { name: "Copy details" }).first().click();
 
@@ -193,9 +227,5 @@ test.describe("Confirmations", () => {
 
     await expect(page).toHaveURL(/confirmations/);
     await expect(page.getByText(/Handled by/).first()).toBeVisible();
-
-    // Hand it back, so a retry still finds an unclaimed facilitator to take on.
-    await ada.getByRole("button", { name: "Step down" }).click();
-    await expect(ada.getByText("Nobody handles this facilitator")).toBeVisible();
   });
 });
