@@ -1,6 +1,6 @@
 # REGULAMIN SERWISU
 
-**Data ostatniej aktualizacji: 19.08.2026**
+**Data ostatniej aktualizacji: 21.08.2026**
 
 ## § 1. POSTANOWIENIA OGÓLNE
 
@@ -36,8 +36,8 @@ Użyte w Regulaminie pojęcia oznaczają:
 
 ### 2.2 Ograniczenia wiekowe
 
-1. Serwis jest przeznaczony dla osób, które ukończyły 16 lat.
-2. Zakładając Konto, Użytkownik oświadcza, że ukończył 16 lat. Administrator usuwa Konto zgłoszone jako należące do osoby, która tego wymogu nie spełnia.
+1. Konto może założyć wyłącznie osoba, która ukończyła 16 lat.
+2. Po uzyskaniu wiarygodnej informacji, że właściciel Konta nie spełnia tego wymogu, Administrator może usunąć Konto.
 3. Użytkownicy pełnoletni mogą dodawać dzieci do swojego Konta w celu zapisywania ich na wydarzenia.
 4. Za zapisy dzieci pełną odpowiedzialność ponosi dorosły Użytkownik.
 
@@ -166,7 +166,7 @@ Użytkownik nie może:
 1. W sprawach nieuregulowanych w Regulaminie stosuje się przepisy prawa polskiego.
 2. Wszelkie spory będą rozstrzygane przez sądy polskie właściwe dla siedziby Administratora.
 3. W przypadku uznania któregokolwiek postanowienia Regulaminu za nieważne, pozostałe postanowienia pozostają w mocy.
-4. Regulamin wchodzi w życie z dniem 19.08.2026.
+4. Regulamin wchodzi w życie z dniem 28.08.2026.
 
 ## § 11. KONTAKT
 

@@ -1,6 +1,6 @@
 # POLITYKA PRYWATNOŚCI
 
-**Data ostatniej aktualizacji: 19.08.2026**
+**Data ostatniej aktualizacji: 21.08.2026**
 
 ## 1. ADMINISTRATOR DANYCH
 
@@ -59,14 +59,14 @@ Przetwarzamy Państwa dane osobowe w następujących celach:
 ### 3.4 Analityka korzystania z serwisu
 
 - **Podstawa prawna:** zgoda użytkownika (art. 6 ust. 1 lit. a RODO)
-- **Dane:** zdarzenia dotyczące korzystania z serwisu, nagrania sesji z zamaskowaną zawartością wszystkich pól formularzy, zgłoszenia błędów występujących w przeglądarce, dane techniczne przeglądarki
-- **Opis:** sprawdzanie, w jaki sposób serwis jest używany, i szybsze usuwanie błędów. Narzędzie analityczne uruchamia się dopiero po wyrażeniu zgody. Wcześniej nie wysyłamy żadnych danych. Zgodę można w każdej chwili wycofać. Wtedy przestajemy zbierać dane i nagrywać sesje
+- **Dane:** identyfikator konta zalogowanego użytkownika, zdarzenia dotyczące korzystania z serwisu, nagrania sesji z zamaskowaną zawartością wszystkich pól formularzy, zgłoszenia błędów występujących w przeglądarce, dane techniczne przeglądarki
+- **Opis:** sprawdzanie, w jaki sposób serwis jest używany, i szybsze usuwanie błędów. Narzędzie analityczne uruchamia się dopiero po wyrażeniu zgody. Przed wyrażeniem zgody nie wysyłamy danych opisanych w tym punkcie. Zgodę można w każdej chwili wycofać. Wtedy przestajemy zbierać dane i nagrywać sesje
 
 ### 3.5 Zgłaszanie błędów serwera
 
 - **Podstawa prawna:** prawnie uzasadniony interes (art. 6 ust. 1 lit. f RODO)
 - **Dane:** treść błędu wraz ze śladem stosu, adres podstrony, na której wystąpił, oraz identyfikator konta zalogowanego użytkownika
-- **Opis:** wykrywanie i naprawianie awarii serwisu; interes polega na utrzymaniu działającej usługi. Zgłoszenie wysyłamy niezależnie od zgody na analitykę, bo inaczej nie dowiedzielibyśmy się, że coś przestało działać. Identyfikator konta mówi nam, kogo awaria dotknęła. Nie budujemy z niego profilu użytkownika i nie ustalamy na jego podstawie lokalizacji
+- **Opis:** wykrywanie i naprawianie awarii serwisu; interes polega na utrzymaniu działającej usługi. Zgłoszenia techniczne wysyłamy niezależnie od zgody na analitykę. Ograniczamy je do danych potrzebnych do rozpoznania i usunięcia awarii. Nie wykorzystujemy ich do analizy zachowania użytkownika ani podejmowania decyzji dotyczących użytkownika.
 
 ## 4. ODBIORCY DANYCH
 
@@ -168,9 +168,9 @@ Stosujemy odpowiednie środki techniczne i organizacyjne w celu ochrony danych o
 
 ### 11.1 Ograniczenia wiekowe:
 
-- Serwis nie jest przeznaczony dla osób poniżej 16 roku życia
+- Konto może założyć wyłącznie osoba, która ukończyła 16 lat
 - Nie zbieramy daty urodzenia i nie weryfikujemy wieku użytkowników
-- Usuwamy konto zgłoszone jako należące do osoby poniżej 16 roku życia
+- Po uzyskaniu wiarygodnej informacji, że właściciel konta nie spełnia tego wymogu, Administrator może usunąć konto
 
 ### 11.2 Zapisy dzieci przez opiekunów:
 
