@@ -159,12 +159,12 @@ def session_card_stats(session: Session) -> SessionCardStatsDTO:
 
 def hide_private_track_sessions(queryset: QuerySet[Session]) -> QuerySet[Session]:
     # A session without tracks is public (events that don't use tracks at all);
-    # one with tracks needs at least one public track. Exists() rather than
+    # one with tracks needs every one of them public, so a session sitting in
+    # both a public and a private track stays hidden. Exists() rather than
     # Count("tracks"): a third aggregate over a m2m fans out the joins and
     # inflates the participation counts annotated alongside.
     return queryset.filter(
-        Exists(Track.objects.filter(sessions=OuterRef("pk"), is_public=True))
-        | ~Exists(Track.objects.filter(sessions=OuterRef("pk"), is_public=False))
+        ~Exists(Track.objects.filter(sessions=OuterRef("pk"), is_public=False))
     )
 
 

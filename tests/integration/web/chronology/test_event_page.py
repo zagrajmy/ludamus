@@ -1064,14 +1064,21 @@ class TestEventPageView:
             event=event, name="Backstage", slug="backstage", is_public=False
         )
         session_a = SessionFactory(event=event, category=category_a, min_age=0)
-        session_a.tracks.add(track_a, private_track)
+        session_a.tracks.add(track_a)
         session_b = SessionFactory(event=event, category=category_b, min_age=0)
         session_b.tracks.add(track_b)
+        session_private = SessionFactory(event=event, category=category_a, min_age=0)
+        session_private.tracks.add(private_track)
         AgendaItemFactory(session=session_a, space=space)
         AgendaItemFactory(
             session=session_b,
             space=space,
             start_time=timezone.now() + timedelta(days=7, hours=3),
+        )
+        AgendaItemFactory(
+            session=session_private,
+            space=space,
+            start_time=timezone.now() + timedelta(days=7, hours=6),
         )
 
         response = client.get(self._get_url(event.slug))
@@ -1088,9 +1095,7 @@ class TestEventPageView:
         assert "__category:Board games" in content
         assert "__track:Backstage" not in content
 
-    def test_schedule_hides_sessions_whose_every_track_is_private(
-        self, client, event, space
-    ):
+    def test_schedule_hides_sessions_with_any_private_track(self, client, event, space):
         public_track = Track.objects.create(
             event=event, name="Main Hall", slug="main", is_public=True
         )
@@ -1098,18 +1103,20 @@ class TestEventPageView:
             event=event, name="Backstage", slug="backstage", is_public=False
         )
         untracked = SessionFactory(event=event)
+        public_only = SessionFactory(event=event)
+        public_only.tracks.add(public_track)
         mixed = SessionFactory(event=event)
         mixed.tracks.add(public_track, private_track)
         private_only = SessionFactory(event=event)
         private_only.tracks.add(private_track)
-        for session in (untracked, mixed, private_only):
+        for session in (untracked, public_only, mixed, private_only):
             AgendaItemFactory(session=session, space=space)
 
         response = client.get(self._get_url(event.slug))
 
         assert {card.session.pk for card in response.context_data["sessions"]} == {
             untracked.pk,
-            mixed.pk,
+            public_only.pk,
         }
 
     @pytest.mark.usefixtures("panel_access_user")
