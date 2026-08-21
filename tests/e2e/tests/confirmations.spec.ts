@@ -3,7 +3,9 @@ import { expect, test } from "./helpers/fixtures";
 const DASHBOARD_URL = "/panel/event/harbour-days/timetable/confirmations/";
 
 // The specs tick real checkboxes on the seeded `harbour-days` event, so they
-// run in order and share one worker.
+// share one worker and run in order. Every mutation is undone before the test
+// that made it ends: a serial retry re-runs the whole block against the
+// database the failed attempt left behind, and nothing re-seeds in between.
 test.describe.configure({ mode: "serial" });
 
 async function login(page) {
@@ -19,6 +21,14 @@ async function openMainProgramme(page) {
   await page.goto(DASHBOARD_URL);
   await page.getByRole("link", { name: "Main Programme" }).click();
   await expect(page.getByText("Ada McCall")).toBeVisible();
+}
+
+// A card renders folded only while its facilitator is fully confirmed, so
+// unfolding one has to be conditional: a blind summary click closes the rest.
+async function unfold(facilitatorCard) {
+  if ((await facilitatorCard.getAttribute("open")) === null) {
+    await facilitatorCard.locator("summary").click();
+  }
 }
 
 function card(page, name: string) {
@@ -96,7 +106,9 @@ test.describe("Confirmations", () => {
     ).toBeVisible();
   });
 
-  test("ticking a checkbox swaps the card and moves the counter", async ({ page }) => {
+  test("ticking a checkbox moves the counter, unticking gives the confirmation back", async ({
+    page,
+  }) => {
     await openMainProgramme(page);
     const ada = card(page, "Ada McCall");
     await expect(ada.getByText("1/3", { exact: true })).toBeVisible();
@@ -108,17 +120,7 @@ test.describe("Confirmations", () => {
     await wizards.locator("input[type=checkbox]").check();
 
     await expect(ada.getByText("2/3", { exact: true })).toBeVisible();
-  });
 
-  test("unticking gives the confirmation back", async ({ page }) => {
-    await openMainProgramme(page);
-    const ada = card(page, "Ada McCall");
-    await expect(ada.getByText("2/3", { exact: true })).toBeVisible();
-
-    const wizards = ada
-      .locator("form")
-      .filter({ has: page.locator("input[name=agenda_item_pk]") })
-      .nth(1);
     await wizards.locator("input[type=checkbox]").uncheck();
 
     await expect(ada.getByText("1/3", { exact: true })).toBeVisible();
@@ -132,6 +134,16 @@ test.describe("Confirmations", () => {
 
     await expect(ada.getByText("3/3", { exact: true })).toBeVisible();
     await expect(ada).not.toHaveAttribute("open", "");
+
+    // Back to the seeded 1/3. A fully confirmed Ada renders folded and drops
+    // the "Confirm everything" button, so leaving her that way costs the block
+    // its retry.
+    await unfold(ada);
+    const boxes = ada.locator("input[type=checkbox]");
+    await boxes.nth(1).uncheck();
+    await expect(ada.getByText("2/3", { exact: true })).toBeVisible();
+    await boxes.nth(2).uncheck();
+    await expect(ada.getByText("1/3", { exact: true })).toBeVisible();
   });
 
   test("copying an address hands over its scheduled program, without the pending one", async ({
@@ -141,7 +153,7 @@ test.describe("Confirmations", () => {
     await context.grantPermissions(["clipboard-read", "clipboard-write"]);
     await openMainProgramme(page);
     const ada = card(page, "Ada McCall");
-    await ada.locator("summary").click();
+    await unfold(ada);
 
     await ada.getByRole("button", { name: "Copy details" }).first().click();
 
@@ -176,11 +188,14 @@ test.describe("Confirmations", () => {
   test("an unclaimed facilitator can be taken on from the list", async ({ page }) => {
     await openMainProgramme(page);
     const ada = card(page, "Ada McCall");
-    await ada.locator("summary").click();
 
     await ada.getByRole("button", { name: "Take this on" }).click();
 
     await expect(page).toHaveURL(/confirmations/);
     await expect(page.getByText(/Handled by/).first()).toBeVisible();
+
+    // Hand it back, so a retry still finds an unclaimed facilitator to take on.
+    await ada.getByRole("button", { name: "Step down" }).click();
+    await expect(ada.getByText("Nobody handles this facilitator")).toBeVisible();
   });
 });
