@@ -3177,6 +3177,14 @@ msgstr "Zapisano!"
 msgid "You have been removed from this encounter."
 msgstr "Zostałeś/aś wypisany/a z tego spotkania."
 
+#: src/ludamus/gates/web/django/pages.py src/ludamus/templates/base.html
+msgid "Privacy Policy"
+msgstr "Polityka prywatności"
+
+#: src/ludamus/gates/web/django/pages.py src/ludamus/templates/base.html
+msgid "Terms of Service"
+msgstr "Regulamin"
+
 #: src/ludamus/gates/web/django/panel.py
 msgid "Your role can read the panel, but not make changes here."
 msgstr "Twoja rola pozwala przeglądać panel, ale nie wprowadzać tu zmian."
@@ -3597,14 +3605,6 @@ msgstr "Marka"
 #: src/ludamus/templates/base.html
 msgid "Contact"
 msgstr "Kontakt"
-
-#: src/ludamus/templates/base.html
-msgid "Privacy Policy"
-msgstr "Polityka prywatności"
-
-#: src/ludamus/templates/base.html
-msgid "Terms of Service"
-msgstr "Regulamin"
 
 #: src/ludamus/templates/brand.html
 msgid "Logo & Brand Guidelines"
@@ -5155,6 +5155,12 @@ msgstr "Widoczne tylko dla organizatorów"
 msgid "semicolon separated"
 msgstr "po średniku"
 
+#: src/ludamus/templates/content/page.html
+#: src/ludamus/templates/crowd/auth_error.html
+#: src/ludamus/templates/crowd/login_required.html
+msgid "Back to Home"
+msgstr "Powrót do strony głównej"
+
 # Auth error page
 #: src/ludamus/templates/crowd/auth_error.html
 msgid "Login failed"
@@ -5173,12 +5179,6 @@ msgstr ""
 #: src/ludamus/templates/crowd/auth_error.html
 msgid "Log in again"
 msgstr "Zaloguj się ponownie"
-
-#: src/ludamus/templates/crowd/auth_error.html
-#: src/ludamus/templates/crowd/login_required.html
-#: src/ludamus/templates/flatpages/default.html
-msgid "Back to Home"
-msgstr "Powrót do strony głównej"
 
 #: src/ludamus/templates/crowd/auth_error.html
 msgid "Error ID"

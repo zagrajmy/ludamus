@@ -22,7 +22,7 @@
                   aria-hidden="true">🍪</span>
             <p class="text-sm text-foreground-secondary [&_a]:text-primary [&_a]:hover:underline text-balance">
                 {% translate "Cookies help us see what to fix." %}
-                {% url 'django.contrib.flatpages.views.flatpage' url='/privacy-policy/' as privacy_url %}
+                {% url 'privacy-policy' as privacy_url %}
                 {% blocktranslate trimmed %}
                     More in the <a href="{{ privacy_url }}">Privacy Policy</a>.
                 {% endblocktranslate %}
