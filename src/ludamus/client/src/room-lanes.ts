@@ -59,31 +59,63 @@ const collapseEmptyTracks = (lanes: HTMLElement): void => {
   }
 };
 
-for (const lanes of document.querySelectorAll<HTMLElement>(".room-lanes")) {
-  document.addEventListener("schedule:filtered", () => {
-    collapseEmptyTracks(lanes);
-  });
-}
+// The rooms grid lives inside the schedule region the view tabs swap
+// (hx-boost), so every lookup below re-runs against the new markup and the
+// previous grid's resize listener goes with it. The flag rides each scroller,
+// so the page's other htmx traffic — a session modal loading — is a no-op.
+let laneListeners = new AbortController();
 
-const scrollers = document.querySelectorAll<HTMLElement>("[data-room-lanes-scroll]");
+const initRoomLanes = (): void => {
+  const grids = [...document.querySelectorAll<HTMLElement>("[data-room-lanes-scroll]")];
+  // Leaving the Rooms view takes the whole grid with it, and nothing later will
+  // abort for us, so drop the resize listener rather than leave it measuring
+  // detached scrollers.
+  if (grids.length === 0) {
+    laneListeners.abort();
+    return;
+  }
+  const scrollers = grids.filter((scroller) => !("lanesBound" in scroller.dataset));
+  if (scrollers.length === 0) return;
 
-const measureScrollbars = (): void => {
+  laneListeners.abort();
+  laneListeners = new AbortController();
+  const { signal } = laneListeners;
+
+  const measureScrollbars = (): void => {
+    for (const scroller of scrollers) {
+      const reserved = scroller.offsetHeight - scroller.clientHeight;
+      scroller.style.setProperty("--room-lanes-sb", `${Math.max(reserved, 14)}px`);
+    }
+  };
+  measureScrollbars();
+  globalThis.addEventListener("resize", measureScrollbars, { signal });
+
   for (const scroller of scrollers) {
-    const reserved = scroller.offsetHeight - scroller.clientHeight;
-    scroller.style.setProperty("--room-lanes-sb", `${Math.max(reserved, 14)}px`);
+    scroller.dataset.lanesBound = "";
+    // schedule:filtered rides the swapped-in grid too: the listener closes over
+    // this instance of .room-lanes, so it goes out with the shared controller
+    // instead of collapsing tracks in a detached tree.
+    const lanes = scroller.closest<HTMLElement>(".room-lanes");
+    if (lanes) {
+      document.addEventListener(
+        "schedule:filtered",
+        () => {
+          collapseEmptyTracks(lanes);
+        },
+        { signal },
+      );
+    }
+    const head = scroller.parentElement?.querySelector<HTMLElement>("[data-room-lanes-head]");
+    if (!head) continue;
+    scroller.addEventListener(
+      "scroll",
+      () => {
+        head.scrollLeft = scroller.scrollLeft;
+      },
+      { passive: true, signal },
+    );
   }
 };
-measureScrollbars();
-globalThis.addEventListener("resize", measureScrollbars);
 
-for (const scroller of scrollers) {
-  const head = scroller.parentElement?.querySelector<HTMLElement>("[data-room-lanes-head]");
-  if (!head) continue;
-  scroller.addEventListener(
-    "scroll",
-    () => {
-      head.scrollLeft = scroller.scrollLeft;
-    },
-    { passive: true },
-  );
-}
+initRoomLanes();
+document.body.addEventListener("htmx:afterSwap", initRoomLanes);

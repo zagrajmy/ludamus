@@ -2384,6 +2384,10 @@ msgstr "Zezwalaj na zapisy bez konta"
 msgid "Enrollment must close after it opens."
 msgstr "Zapisy muszą zamknąć się po ich otwarciu."
 
+#: src/ludamus/gates/web/django/event/panel/views/base.py
+msgid "You don't have permission to access the backoffice panel."
+msgstr "Nie masz uprawnień do panelu organizatora."
+
 #: src/ludamus/gates/web/django/event/panel/views/enrollment_settings.py
 msgid "Enrollment window not found."
 msgstr "Nie znaleziono okna zapisów."
@@ -3182,8 +3186,8 @@ msgid "Terms of Service"
 msgstr "Regulamin"
 
 #: src/ludamus/gates/web/django/panel.py
-msgid "You don't have permission to access the backoffice panel."
-msgstr "Nie masz uprawnień do panelu organizatora."
+msgid "Your role can read the panel, but not make changes here."
+msgstr "Twoja rola pozwala przeglądać panel, ale nie wprowadzać tu zmian."
 
 #: src/ludamus/gates/web/django/sphere/forms.py
 msgid "Guild name"
@@ -3591,8 +3595,8 @@ msgstr ""
 "href=\"%(license_url)s\">licencji AGPL-3.0</a>."
 
 #: src/ludamus/templates/base.html
-msgid "Analytics settings"
-msgstr "Ustawienia analityki"
+msgid "Cookie settings"
+msgstr "Ustawienia ciasteczek"
 
 #: src/ludamus/templates/base.html
 msgid "Brand"
@@ -3774,61 +3778,45 @@ msgstr "Przejdź do %(day)s %(time)s"
 msgid "Open details for %(title)s"
 msgstr "Otwórz szczegóły %(title)s"
 
-#: src/ludamus/templates/chronology/_enrollment_badge.html
-#: src/ludamus/templates/chronology/enroll_select.html
-#: src/ludamus/templates/panel/_event_settings_tabs.html
-#: src/ludamus/templates/panel/enrollment-window-form.html
-msgid "Enrollment"
-msgstr "Zapisy"
+#: src/ludamus/templates/chronology/_proposal_section.html
+msgid "Your pending proposals"
+msgstr "Twoje oczekujące zgłoszenia"
 
-#: src/ludamus/templates/chronology/_enrollment_badge.html
-msgid "Enrollment required"
-msgstr "Wymagane zapisy"
-
-#: src/ludamus/templates/chronology/_pending_proposals.html
-msgid "Pending Proposals"
-msgstr "Oczekujące zgłoszenia"
-
-#: src/ludamus/templates/chronology/_pending_proposals.html
+#: src/ludamus/templates/chronology/_proposal_section.html
 msgid "Superuser magic: you see this without being an organizer of this event."
 msgstr ""
 "Magia superużytkownika: widzisz tę sekcję, choć nie organizujesz tego "
 "wydarzenia."
 
-#: src/ludamus/templates/chronology/_pending_proposals.html
-#: src/ludamus/templates/chronology/anonymous_enroll.html
-#: src/ludamus/templates/chronology/parts/session-modal.html
-msgid "Participants"
-msgstr "Uczestnicy"
+#: src/ludamus/templates/chronology/_proposal_section.html
+msgid "Proposals to review"
+msgstr "Zgłoszenia do rozpatrzenia"
 
-#: src/ludamus/templates/chronology/_pending_proposals.html
-msgid "Review & accept"
-msgstr "Przejrzyj i zaakceptuj"
+#: src/ludamus/templates/chronology/_proposal_section.html
+#, python-format
+msgid "%(counter)s proposal"
+msgid_plural "%(counter)s proposals"
+msgstr[0] "%(counter)s zgłoszenie"
+msgstr[1] "%(counter)s zgłoszenia"
+msgstr[2] "%(counter)s zgłoszeń"
+msgstr[3] "%(counter)s zgłoszenia"
 
-#: src/ludamus/templates/chronology/_pending_proposals.html
-#: src/ludamus/templates/panel/parts/import-recipe-row.html
-msgid "Proposal"
-msgstr "Zgłoszenie"
+#: src/ludamus/templates/chronology/_proposal_section.html
+#, python-format
+msgid "%(counter)s waiting"
+msgid_plural "%(counter)s waiting"
+msgstr[0] "%(counter)s czeka"
+msgstr[1] "%(counter)s czekają"
+msgstr[2] "%(counter)s czeka"
+msgstr[3] "%(counter)s czeka"
 
-#: src/ludamus/templates/chronology/_pending_proposals.html
-#: src/ludamus/templates/chronology/anonymous_enroll.html
-msgid "Host"
-msgstr "Prowadzący"
+#: src/ludamus/templates/chronology/_proposal_section.html
+#: src/ludamus/templates/design.html
+#, python-format
+msgid "Review proposal %(title)s"
+msgstr "Rozpatrz zgłoszenie %(title)s"
 
-#: src/ludamus/templates/chronology/_pending_proposals.html
-msgid "Submitted"
-msgstr "Przesłane"
-
-#: src/ludamus/templates/chronology/_pending_proposals.html
-msgid "Preferred Times"
-msgstr "Preferowane czasy"
-
-#: src/ludamus/templates/chronology/_pending_proposals.html
-#: src/ludamus/templates/panel/timetable-log.html
-msgid "Action"
-msgstr "Akcja"
-
-#: src/ludamus/templates/chronology/_pending_time_slots.html
+#: src/ludamus/templates/chronology/_proposal_slot.html
 #, python-format
 msgid "+%(counter)s more"
 msgid_plural "+%(counter)s more"
@@ -3837,9 +3825,9 @@ msgstr[1] "+%(counter)s więcej"
 msgstr[2] "+%(counter)s więcej"
 msgstr[3] "+%(counter)s więcej"
 
-#: src/ludamus/templates/chronology/_pending_time_slots.html
-msgid "Flexible"
-msgstr "Elastyczny"
+#: src/ludamus/templates/chronology/_proposal_slot.html
+msgid "Any time"
+msgstr "Dowolny termin"
 
 #: src/ludamus/templates/chronology/_schedule_view_tabs.html
 msgid "Schedule view"
@@ -3901,9 +3889,15 @@ msgstr[1] "%(counter)s zapisani uczestnicy"
 msgstr[2] "%(counter)s zapisanych uczestników"
 msgstr[3] "%(counter)s zapisanych uczestników"
 
-#: src/ludamus/templates/chronology/_session_card.html
-msgid "Awaiting review"
-msgstr "Czeka na akceptację"
+#: src/ludamus/templates/chronology/_session_seat_count.html
+#: src/ludamus/templates/panel/_space_tree_node.html
+#, python-format
+msgid "%(counter)s seat"
+msgid_plural "%(counter)s seats"
+msgstr[0] "%(counter)s miejsce"
+msgstr[1] "%(counter)s miejsca"
+msgstr[2] "%(counter)s miejsc"
+msgstr[3] "%(counter)s miejsc"
 
 #: src/ludamus/templates/chronology/accept_proposal.html
 msgid "Accept Proposal"
@@ -3979,6 +3973,15 @@ msgid "Save this code to manage your enrollment later"
 msgstr "Zachowaj ten kod, aby później zarządzać swoim zapisem"
 
 #: src/ludamus/templates/chronology/anonymous_enroll.html
+msgid "Host"
+msgstr "Prowadzący"
+
+#: src/ludamus/templates/chronology/anonymous_enroll.html
+#: src/ludamus/templates/chronology/parts/session-modal.html
+msgid "Participants"
+msgstr "Uczestnicy"
+
+#: src/ludamus/templates/chronology/anonymous_enroll.html
 #: src/ludamus/templates/chronology/parts/session-modal.html
 #: src/ludamus/templates/chronology/print.html
 #: src/ludamus/templates/panel/parts/_change-log-table.html
@@ -4037,6 +4040,12 @@ msgstr "Dokończ Zapis"
 #: src/ludamus/templates/chronology/anonymous_enroll.html
 msgid "Enroll Now"
 msgstr "Zapisz się teraz"
+
+#: src/ludamus/templates/chronology/enroll_select.html
+#: src/ludamus/templates/panel/_event_settings_tabs.html
+#: src/ludamus/templates/panel/enrollment-window-form.html
+msgid "Enrollment"
+msgstr "Zapisy"
 
 #: src/ludamus/templates/chronology/enroll_select.html
 msgid "Players you shadowbanned are already signed up here"
@@ -4292,6 +4301,10 @@ msgid "Propose Session"
 msgstr "Zgłoś punkt programu"
 
 #: src/ludamus/templates/chronology/event.html
+msgid "Only with enrollment"
+msgstr "Tylko z zapisami"
+
+#: src/ludamus/templates/chronology/event.html
 msgid "Search sessions..."
 msgstr "Szukaj punktów programu..."
 
@@ -4303,10 +4316,6 @@ msgstr "Filtry"
 #: src/ludamus/templates/panel/proposals.html
 msgid "All statuses"
 msgstr "Wszystkie statusy"
-
-#: src/ludamus/templates/chronology/event.html
-msgid "Takes enrollment"
-msgstr "Z zapisami"
 
 #: src/ludamus/templates/chronology/event.html
 msgid "Available spots"
@@ -4416,19 +4425,6 @@ msgstr "Żadne punkty programu nie pasują do filtrów"
 #: src/ludamus/templates/chronology/event.html
 msgid "Clear all filters"
 msgstr "Wyczyść wszystkie filtry"
-
-#: src/ludamus/templates/chronology/event.html
-msgid "Your pending proposals"
-msgstr "Twoje oczekujące zgłoszenia"
-
-#: src/ludamus/templates/chronology/event.html
-#, python-format
-msgid "%(counter)s proposal"
-msgid_plural "%(counter)s proposals"
-msgstr[0] "%(counter)s zgłoszenie"
-msgstr[1] "%(counter)s zgłoszenia"
-msgstr[2] "%(counter)s zgłoszeń"
-msgstr[3] "%(counter)s zgłoszenia"
 
 #: src/ludamus/templates/chronology/event.html
 msgid "Want to host a session?"
@@ -4904,32 +4900,25 @@ msgid "Please confirm"
 msgstr "Potwierdź"
 
 #: src/ludamus/templates/components/consent-banner.html
-msgid "Analytics consent"
-msgstr "Zgoda na analitykę"
+msgid "Cookie consent"
+msgstr "Zgoda na ciasteczka"
 
 #: src/ludamus/templates/components/consent-banner.html
 #, python-format
 msgid ""
-"We use analytics to see how people use the site, including session replays "
-"with every input masked. It runs only if you agree. Errors work differently: "
-"when something breaks we always record what went wrong, plus your account id "
-"if you are signed in, so we can fix it. More in the <a "
+"Cookies help us see what to fix. More in the <a "
 "href=\"%(privacy_url)s\">Privacy Policy</a>."
 msgstr ""
-"Używamy analityki, aby zobaczyć, jak ludzie korzystają z serwisu. Obejmuje "
-"to nagrania sesji z zamaskowanymi wszystkimi polami. Działa tylko wtedy, gdy "
-"się zgodzisz. Z błędami jest inaczej: kiedy coś się zepsuje, zawsze "
-"zapisujemy, co poszło nie tak, a jeśli masz zalogowane konto, także jego "
-"identyfikator, żebyśmy mogli to naprawić. Więcej w <a "
+"Ciasteczka pomagają nam zobaczyć, co poprawić. Więcej w <a "
 "href=\"%(privacy_url)s\">Polityce prywatności</a>."
 
 #: src/ludamus/templates/components/consent-banner.html
-msgid "Decline analytics"
-msgstr "Odrzuć analitykę"
+msgid "No cookies!"
+msgstr "Żadnych ciastek!"
 
 #: src/ludamus/templates/components/consent-banner.html
-msgid "Allow analytics"
-msgstr "Włącz analitykę"
+msgid "Cool"
+msgstr "Spoko"
 
 # Login Required Page
 #: src/ludamus/templates/components/dynamic-field-label.html
@@ -6402,15 +6391,6 @@ msgstr "Grupa"
 
 #: src/ludamus/templates/panel/_space_tree_node.html
 #, python-format
-msgid "%(counter)s seat"
-msgid_plural "%(counter)s seats"
-msgstr[0] "%(counter)s miejsce"
-msgstr[1] "%(counter)s miejsca"
-msgstr[2] "%(counter)s miejsc"
-msgstr[3] "%(counter)s miejsc"
-
-#: src/ludamus/templates/panel/_space_tree_node.html
-#, python-format
 msgid "Add a space inside %(name)s"
 msgstr "Dodaj przestrzeń wewnątrz %(name)s"
 
@@ -6618,6 +6598,16 @@ msgstr "Lokalizacje"
 #: src/ludamus/templates/panel/base.html
 msgid "Print Materials"
 msgstr "Materiały do druku"
+
+#: src/ludamus/templates/panel/base.html
+msgctxt "Sidebar category"
+msgid "Live"
+msgstr "W trakcie"
+
+#: src/ludamus/templates/panel/base.html
+#: src/ludamus/templates/panel/errata.html
+msgid "Errata"
+msgstr "Errata"
 
 #: src/ludamus/templates/panel/base.html
 msgid "Settings"
@@ -7117,6 +7107,89 @@ msgid ""
 msgstr ""
 "Dodaj krótką wiadomość, jeśli uczestnicy potrzebują wyjaśnienia tego etapu "
 "zapisów."
+
+#: src/ludamus/templates/panel/errata.html
+msgid "What are errata?"
+msgstr "Czym jest errata?"
+
+#: src/ludamus/templates/panel/errata.html
+msgid ""
+"Everything the agenda gained, lost or moved after it went public. Announce a "
+"change, then tick it off — what stays unticked is what the audience has not "
+"been told yet."
+msgstr ""
+"Wszystko, co program zyskał, stracił albo co się w nim przesunęło po "
+"publikacji. Ogłoś zmianę, a potem ją odhacz — nieodhaczone to te zmiany, o "
+"których uczestnicy jeszcze nie wiedzą."
+
+#: src/ludamus/templates/panel/errata.html
+#, python-format
+msgid "%(counter)s change to announce"
+msgid_plural "%(counter)s changes to announce"
+msgstr[0] "%(counter)s zmiana do ogłoszenia"
+msgstr[1] "%(counter)s zmiany do ogłoszenia"
+msgstr[2] "%(counter)s zmian do ogłoszenia"
+msgstr[3] "%(counter)s zmian do ogłoszenia"
+
+#: src/ludamus/templates/panel/errata.html
+#, python-format
+msgid "<strong>%(title)s</strong> was added to the agenda: %(space)s, %(when)s"
+msgstr "<strong>%(title)s</strong> — dodano do programu: %(space)s, %(when)s"
+
+#: src/ludamus/templates/panel/errata.html
+#, python-format
+msgid ""
+"<strong>%(title)s</strong> was moved from %(old_space)s, %(old_when)s to "
+"%(space)s, %(when)s"
+msgstr ""
+"<strong>%(title)s</strong> — przeniesiono z %(old_space)s, %(old_when)s do "
+"%(space)s, %(when)s"
+
+#: src/ludamus/templates/panel/errata.html
+#, python-format
+msgid ""
+"<strong>%(title)s</strong> was removed from the agenda: it was %(space)s, "
+"%(when)s"
+msgstr ""
+"<strong>%(title)s</strong> — usunięto z programu: było %(space)s, %(when)s"
+
+#: src/ludamus/templates/panel/errata.html
+#, python-format
+msgid "Changed by %(who)s on %(when)s"
+msgstr "Zmiana: %(who)s, %(when)s"
+
+#: src/ludamus/templates/panel/errata.html
+#, python-format
+msgid "announced by %(who)s"
+msgstr "ogłoszone przez: %(who)s"
+
+#: src/ludamus/templates/panel/errata.html
+msgid "Undo"
+msgstr "Cofnij"
+
+#: src/ludamus/templates/panel/errata.html
+msgid "Announced"
+msgstr "Ogłoszone"
+
+#: src/ludamus/templates/panel/errata.html
+msgid "The agenda has not changed since it went public"
+msgstr "Program nie zmienił się od publikacji"
+
+#: src/ludamus/templates/panel/errata.html
+msgid "The agenda is not public yet"
+msgstr "Program nie jest jeszcze publiczny"
+
+#: src/ludamus/templates/panel/errata.html
+msgid ""
+"Changes count as errata once the event is published — until then, edit the "
+"schedule freely."
+msgstr ""
+"Zmiany trafiają do erraty dopiero po opublikowaniu wydarzenia — do tego "
+"czasu edytuj harmonogram swobodnie."
+
+#: src/ludamus/templates/panel/errata.html
+msgid "Open event settings"
+msgstr "Otwórz ustawienia wydarzenia"
 
 #: src/ludamus/templates/panel/facilitator-bin.html
 msgid ""
@@ -7968,6 +8041,10 @@ msgstr "Szukaj twórców programu po nazwie"
 #: src/ludamus/templates/panel/parts/import-recipe-row.html
 msgid "Maps to"
 msgstr "Mapuje na"
+
+#: src/ludamus/templates/panel/parts/import-recipe-row.html
+msgid "Proposal"
+msgstr "Zgłoszenie"
 
 #: src/ludamus/templates/panel/parts/import-recipe-row.html
 msgid "New personal field…"
@@ -9029,6 +9106,10 @@ msgid "Schedule Activity Log"
 msgstr "Dziennik zmian harmonogramu"
 
 #: src/ludamus/templates/panel/timetable-log.html
+msgid "Action"
+msgstr "Akcja"
+
+#: src/ludamus/templates/panel/timetable-log.html
 msgid "Change"
 msgstr "Zmiana"
 
@@ -9259,6 +9340,49 @@ msgstr "Temat"
 msgid "No emails captured yet."
 msgstr "Brak przechwyconych e-maili."
 
+#~ msgid "Enrollment required"
+#~ msgstr "Wymagane zapisy"
+
+#~ msgid "Sessions with enrollment"
+#~ msgstr "Punkty programu z zapisami"
+
+#~ msgid "Takes enrollment"
+#~ msgstr "Z zapisami"
+
+#~ msgid "No session at this event takes enrollment"
+#~ msgstr "Żaden punkt programu na tym wydarzeniu nie wymaga zapisów"
+
+#~ msgid "Show the full schedule"
+#~ msgstr "Pokaż pełny harmonogram"
+
+#~ msgid "Pending Proposals"
+#~ msgstr "Oczekujące zgłoszenia"
+
+#~ msgid "Review & accept"
+#~ msgstr "Przejrzyj i zaakceptuj"
+
+#~ msgid "Submitted"
+#~ msgstr "Przesłane"
+
+#~ msgid "Preferred Times"
+#~ msgstr "Preferowane czasy"
+
+#~ msgid "Flexible"
+#~ msgstr "Elastyczny"
+
+#~ msgid "Awaiting review"
+#~ msgstr "Czeka na akceptację"
+
+#, python-format
+#~ msgid "Edit proposal %(title)s"
+#~ msgstr "Edytuj zgłoszenie %(title)s"
+
+#~ msgid "Analytics settings"
+#~ msgstr "Ustawienia analityki"
+
+#~ msgid "Analytics consent"
+#~ msgstr "Zgoda na analitykę"
+
 #, python-format
 #~ msgid ""
 #~ "With your consent we use PostHog analytics — including session replays "
@@ -9270,6 +9394,12 @@ msgstr "Brak przechwyconych e-maili."
 #~ "zamaskowanymi wszystkimi polami — aby zobaczyć, jak serwis jest używany, "
 #~ "i szybciej naprawiać błędy. Nic nie zapisujemy, zanim się nie zgodzisz. "
 #~ "Szczegóły w <a href=\"%(privacy_url)s\">Polityce prywatności</a>."
+
+#~ msgid "Decline analytics"
+#~ msgstr "Odrzuć analitykę"
+
+#~ msgid "Allow analytics"
+#~ msgstr "Włącz analitykę"
 
 #~ msgid "Open"
 #~ msgstr "Otwarte"
@@ -9609,3 +9739,18 @@ msgstr "Brak przechwyconych e-maili."
 
 #~ msgid "Facilitator released."
 #~ msgstr "Twórca programu zwolniony."
+
+#, python-format
+#~ msgid ""
+#~ "We use analytics to see how people use the site, including session "
+#~ "replays with every input masked. It runs only if you agree. Errors work "
+#~ "differently: when something breaks we always record what went wrong, plus "
+#~ "your account id if you are signed in, so we can fix it. More in the <a "
+#~ "href=\"%(privacy_url)s\">Privacy Policy</a>."
+#~ msgstr ""
+#~ "Używamy analityki, aby zobaczyć, jak ludzie korzystają z serwisu. "
+#~ "Obejmuje to nagrania sesji z zamaskowanymi wszystkimi polami. Działa "
+#~ "tylko wtedy, gdy się zgodzisz. Z błędami jest inaczej: kiedy coś się "
+#~ "zepsuje, zawsze zapisujemy, co poszło nie tak, a jeśli masz zalogowane "
+#~ "konto, także jego identyfikator, żebyśmy mogli to naprawić. Więcej w <a "
+#~ "href=\"%(privacy_url)s\">Polityce prywatności</a>."
