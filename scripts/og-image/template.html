@@ -6,11 +6,12 @@
   exposes, so values dialled in there paste straight back into :root.
 -->
 <meta charset="utf-8">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap"
-      rel="stylesheet">
 <style>
+  /* Outfit, mirrored into the build dir by build.mjs. Pulling it from the CDN
+     at render time fails silently offline and bakes a fallback face into the
+     shipped JPEG. */
+  <!--FONT_FACE-->
+
   :root {
     /* Brand token, mirrored from client/src/index.css. */
     --warm-900: #252220;
@@ -99,7 +100,7 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 34px;
+    gap: 18px;
     padding: 0 72px;
     text-align: center;
     color: #fff;
