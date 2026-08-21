@@ -39,11 +39,11 @@ def test_format_datetime_range_names_one_day_once() -> None:
 
 
 @freeze_time("2026-06-01")
-def test_format_datetime_range_collapses_a_shared_month() -> None:
+def test_format_datetime_range_dates_each_hour_of_a_multi_day_event() -> None:
     weekend = _Range(FRIDAY, datetime(2026, 9, 6, 17, 0, tzinfo=WARSAW))
 
     with translation.override("pl"):
-        assert format_datetime_range(weekend) == "4–6 wrz, 16:00 – 17:00"
+        assert format_datetime_range(weekend) == "4 wrz, 16:00 – 6 wrz, 17:00"
 
 
 @freeze_time("2026-06-01")
@@ -51,18 +51,7 @@ def test_format_datetime_range_keeps_the_english_month_first() -> None:
     weekend = _Range(FRIDAY, datetime(2026, 9, 6, 17, 0, tzinfo=WARSAW))
 
     with translation.override("en"):
-        assert format_datetime_range(weekend) == "Sep 4–6, 4 p.m. – 5 p.m."
-
-
-@freeze_time("2026-06-01")
-def test_format_datetime_range_names_both_months_across_a_month_boundary() -> None:
-    turn_of_month = _Range(
-        datetime(2026, 9, 28, 16, 0, tzinfo=WARSAW),
-        datetime(2026, 10, 2, 17, 0, tzinfo=WARSAW),
-    )
-
-    with translation.override("pl"):
-        assert format_datetime_range(turn_of_month) == "28 wrz – 2 paź, 16:00 – 17:00"
+        assert format_datetime_range(weekend) == "Sep 4, 4 p.m. – Sep 6, 5 p.m."
 
 
 @freeze_time("2025-06-01")
@@ -70,7 +59,7 @@ def test_format_datetime_range_adds_the_year_outside_the_current_one() -> None:
     weekend = _Range(FRIDAY, datetime(2026, 9, 6, 17, 0, tzinfo=WARSAW))
 
     with translation.override("pl"):
-        assert format_datetime_range(weekend) == "4–6 wrz 2026, 16:00 – 17:00"
+        assert format_datetime_range(weekend) == "4 wrz 2026, 16:00 – 6 wrz 2026, 17:00"
 
 
 @freeze_time("2026-06-01")
@@ -82,5 +71,5 @@ def test_format_datetime_range_dates_both_sides_of_a_new_year() -> None:
 
     with translation.override("pl"):
         assert (
-            format_datetime_range(new_year) == "30 gru 2026 – 2 sty 2027, 20:00 – 04:00"
+            format_datetime_range(new_year) == "30 gru 2026, 20:00 – 2 sty 2027, 04:00"
         )

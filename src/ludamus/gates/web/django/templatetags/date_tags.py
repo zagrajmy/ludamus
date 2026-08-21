@@ -30,34 +30,21 @@ def _time(value: datetime) -> str:
     return time_format(value, format="TIME_FORMAT", use_l10n=True)
 
 
-def _collapsed_days(*, start: datetime, end: datetime, spec: str) -> str:
-    # Two days of one month print as a single date carrying a day range, on
-    # whichever side of the month the locale puts the day: "Sep 4–6", "4–6 wrz".
-    day = "j" if "j" in spec else "d"
-    head, _, tail = spec.partition(day)
-    days = f"{date_format(start, format=day)}–{date_format(end, format=day)}"
-    # An empty spec makes date_format fall back to DATE_FORMAT, so each side is
-    # rendered only where the locale put something.
-    left = date_format(start, format=head) if head else ""
-    right = date_format(end, format=tail) if tail else ""
-    return f"{left}{days}{right}"
-
-
 def _format_date_range(start: datetime, end: datetime) -> str:
-    """Render a range as "4–6 wrz, 18:00 – 19:00", collapsing what repeats."""
+    """Render a range as "4 wrz, 18:00 – 6 wrz, 19:00", dropping a repeated date."""
     # A listing is overwhelmingly about the current year; the events outside it,
     # and any range that crosses a new year, have to say which one.
     spec = _short_spec(
         with_year=start.year != end.year or start.year != timezone.localtime().year
     )
-
+    # Each hour keeps its own date. Collapsing them ("4–6 wrz, 18:00 – 19:00")
+    # is shorter but reads as the hours the event runs on each of those days.
     if start.date() == end.date():
-        dates = date_format(start, format=spec)
-    elif (start.year, start.month) == (end.year, end.month):
-        dates = _collapsed_days(start=start, end=end, spec=spec)
-    else:
-        dates = f"{date_format(start, format=spec)} – {date_format(end, format=spec)}"
-    return f"{dates}, {_time(start)} – {_time(end)}"
+        return f"{date_format(start, format=spec)}, {_time(start)} – {_time(end)}"
+    return (
+        f"{date_format(start, format=spec)}, {_time(start)} – "
+        f"{date_format(end, format=spec)}, {_time(end)}"
+    )
 
 
 @register.filter
