@@ -5,7 +5,18 @@
 // view is shareable and survives reloads and view-tab swaps without becoming
 // history entries or server round trips.
 
-import { hrefWithSearchParams, replaceSearchParams } from "./url-state";
+import {
+  flagParam,
+  hrefWithSearchParams,
+  intParam,
+  replaceSearchParams,
+  type SearchParamCodec,
+  stringParam,
+} from "./url-state";
+
+// Matches the min/max attributes on the age inputs; a shared bound would be
+// a template/TS coupling for two literals.
+const ageParam = intParam(0, 99);
 
 // filterSessions runs per keystroke, and Safari rate-limits replaceState hard
 // enough (~100 calls per 30s) that typing unthrottled could trip it.
@@ -172,49 +183,90 @@ const initSessionFilters = (): void => {
     select.addEventListener("change", filterSessions);
   }
 
-  // Controls whose value lives in the query string too. Param names must stay
-  // clear of what other modules push on this page: `session` and
-  // `enter-code` (modal.ts trigger links) and the view switcher's `view`.
-  interface MirroredControl {
-    read: () => string;
-    write: (value: string) => void;
+  // Controls whose value lives in the query string too, each bound through a
+  // typed codec from url-state.ts (which also lists the reserved param names
+  // a mirror must stay clear of). The codec is the type boundary: the erased
+  // entry below only ever moves raw URL strings, so a parse and a serialize
+  // that disagree can't typecheck their way in.
+  interface MirrorEntry {
+    /** Push a raw URL value into the control, through the codec. */
+    applyRaw: (raw: string | null) => void;
+    /** Does the control already hold what `raw` decodes to? */
+    matchesRaw: (raw: string | null) => boolean;
+    /** Current control value, URL-encoded; null when the param drops. */
+    readRaw: () => string | null;
   }
 
-  const mirrored = new Map<string, MirroredControl>();
-  const mirrorInput = (name: string, input: HTMLInputElement): void => {
+  const mirrored = new Map<string, MirrorEntry>();
+  const mirror = <T>(
+    name: string,
+    codec: SearchParamCodec<T>,
+    read: () => T,
+    write: (value: T) => void,
+  ): void => {
     mirrored.set(name, {
-      read: () => input.value.trim(),
-      write: (value) => {
+      applyRaw: (raw) => {
+        write(codec.parse(raw));
+      },
+      matchesRaw: (raw) => read() === codec.parse(raw),
+      readRaw: () => codec.serialize(read()),
+    });
+  };
+
+  const mirrorInput = (name: string, input: HTMLInputElement): void => {
+    mirror(
+      name,
+      stringParam,
+      () => input.value,
+      (value) => {
         input.value = value;
       },
-    });
+    );
   };
   // Assigning a value no <option> carries leaves a select on "", so a stale
   // deep link (a venue renamed, a tag gone) degrades to "all", not an error.
+  // That makes the DOM the value schema here; the options are built from the
+  // cards at init, so a static codec could only restate them, worse.
   const mirrorSelect = (name: string, select: HTMLSelectElement): void => {
-    mirrored.set(name, {
-      read: () => select.value,
-      write: (value) => {
+    mirror(
+      name,
+      stringParam,
+      () => select.value,
+      (value) => {
         select.value = value;
       },
-    });
+    );
+  };
+  // A number input's value is "" or a numeric string, never garbage; the
+  // codec adds the range check the attribute alone doesn't enforce on load.
+  const mirrorAge = (name: string, input: HTMLInputElement): void => {
+    mirror(
+      name,
+      ageParam,
+      () => (input.value === "" ? null : Number(input.value)),
+      (value) => {
+        input.value = value === null ? "" : String(value);
+      },
+    );
   };
 
   mirrorInput("q", sessionFilter);
   mirrorSelect("status", statusFilter);
   if (enrollmentFilter) {
-    mirrored.set("enrollment", {
-      read: () => (enrollmentFilter.checked ? "1" : ""),
-      write: (value) => {
-        enrollmentFilter.checked = value !== "";
+    mirror(
+      "enrollment",
+      flagParam,
+      () => enrollmentFilter.checked,
+      (value) => {
+        enrollmentFilter.checked = value;
       },
-    });
+    );
   }
   mirrorSelect("day", dayFilter);
   mirrorSelect("hour", hourFilter);
   mirrorSelect("venue", venueFilter);
-  mirrorInput("age-min", minAgeFilter);
-  mirrorInput("age-max", maxAgeFilter);
+  mirrorAge("age-min", minAgeFilter);
+  mirrorAge("age-max", maxAgeFilter);
   // `__track` and `__category` are the template's own pseudo-categories, so
   // they get clean names; organizer-defined categories are event-scoped slugs,
   // prefixed so one named e.g. "status" cannot shadow a built-in param.
@@ -224,7 +276,7 @@ const initSessionFilters = (): void => {
   }
 
   const mirrorState = (): Map<string, string | null> =>
-    new Map([...mirrored].map(([name, control]) => [name, control.read() || null]));
+    new Map([...mirrored].map(([name, entry]) => [name, entry.readRaw()]));
 
   let urlSyncTimer: ReturnType<typeof setTimeout> | undefined;
   documentListeners.signal.addEventListener("abort", () => clearTimeout(urlSyncTimer));
@@ -262,12 +314,12 @@ const initSessionFilters = (): void => {
   const applyUrlState = (): boolean => {
     const params = new URLSearchParams(globalThis.location.search);
     let changed = false;
-    for (const [name, control] of mirrored) {
-      const target = params.get(name) ?? "";
-      const before = control.read();
-      if (before === target) continue;
-      control.write(target);
-      changed ||= control.read() !== before;
+    for (const [name, entry] of mirrored) {
+      const raw = params.get(name);
+      if (entry.matchesRaw(raw)) continue;
+      const before = entry.readRaw();
+      entry.applyRaw(raw);
+      changed ||= entry.readRaw() !== before;
     }
     return changed;
   };
