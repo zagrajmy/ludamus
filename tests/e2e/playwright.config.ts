@@ -25,11 +25,12 @@ const BASE_URL = process.env.E2E_BASE_URL ?? `http://localhost:8000`;
 // Sandboxed dev/CI containers that mandate an egress proxy (see
 // docs/agents/sandbox.md) export HTTPS_PROXY for regular processes like curl
 // or node's fetch, but Playwright-launched browsers don't pick that up on
-// their own — an external request (e.g. index.css's Google Fonts @import,
-// now allowed by the enforcing CSP's style-src/font-src) just hangs instead
-// of failing fast, which can even block Firefox's domcontentloaded. Passing
-// it through here is a no-op wherever the proxy isn't set, e.g. real CI with
-// normal outbound internet access.
+// their own — an external request (e.g. posthog ingestion, when enabled)
+// just hangs instead of failing fast, which can even block Firefox's
+// domcontentloaded. The app's pages themselves make no external requests
+// since the Outfit font moved in-repo (client/src/fonts). Passing the proxy
+// through here is a no-op wherever it isn't set, e.g. real CI with normal
+// outbound internet access.
 const proxyServer = process.env.HTTPS_PROXY ?? process.env.https_proxy;
 
 const WEB_COMMAND = "mise run test:e2e:prep && exec mise run test:e2e:serve";
@@ -120,17 +121,6 @@ export default defineConfig({
         // preview; Firefox's slow loads make it time out where Chromium fits
         // comfortably. print-page.spec.ts keeps Firefox coverage of the page.
         /print-flow\.spec\.ts/,
-        // csp-violations.spec.ts's panel test hangs Playwright's Firefox
-        // specifically in sandboxed dev containers: index.css @imports the
-        // Outfit font from fonts.googleapis.com (now allowed by the
-        // enforcing CSP's style-src/font-src — see settings.CSP_POLICY),
-        // and Firefox's request context doesn't reliably use the `use.proxy`
-        // config the sandbox's egress proxy requires (Chromium does, and
-        // passes cleanly with zero CSP violations — this isn't a CSP or
-        // product bug, verified with page-level request tracing). So exclude
-        // it from Firefox ONLY when a proxy is present; real CI (normal
-        // internet, no HTTPS_PROXY) keeps Firefox CSP coverage.
-        ...(proxyServer ? [/csp-violations\.spec\.ts/] : []),
       ],
       use: {
         ...devices["Desktop Firefox"],
@@ -140,8 +130,9 @@ export default defineConfig({
         // newPage() hangs until the test times out — whichever spec happens
         // to run first is the one that "fails". The kernel sysctls still
         // report userns as allowed, so there is nothing to feature-detect;
-        // gate on the same proxy signal the CSP exclusion above uses. Real
-        // CI (no HTTPS_PROXY) keeps Firefox's content sandbox on.
+        // gate on the sandbox's egress proxy — the same `proxyServer`
+        // signal `use.proxy` reads above. Real CI (no HTTPS_PROXY) keeps
+        // Firefox's content sandbox on.
         ...(proxyServer
           ? { launchOptions: { env: { ...process.env, MOZ_DISABLE_CONTENT_SANDBOX: "1" } } }
           : {}),

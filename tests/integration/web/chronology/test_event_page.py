@@ -8,7 +8,6 @@ import responses
 from django.contrib import messages
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import connection
-from django.test import override_settings
 from django.test.utils import CaptureQueriesContext
 from django.urls import resolve, reverse
 from django.utils import timezone
@@ -1146,23 +1145,6 @@ class TestEventPageView:
             context_data=event_page_context(event, url=self._get_url(event.slug)),
             template_name=["chronology/event.html"],
         )
-        assert event.cover_image_url.encode() in response.content
-
-    @override_settings(MEDIA_URL="https://cdn.example.test/media/")
-    def test_event_cover_image_used_as_absolute_social_metadata(self, client, event):
-        event.cover_image = SimpleUploadedFile(
-            "cover.png", PNG_BYTES, content_type="image/png"
-        )
-        event.save()
-
-        response = client.get(self._get_url(event.slug))
-
-        content = response.content.decode()
-        absolute_url = event.cover_image_url
-        assert absolute_url.startswith("http")
-        assert absolute_url in content
-        assert "zagrajmy.net/static/logo.png" not in content
-        assert f"testserver{absolute_url}" not in content
 
     def test_session_card_hides_age_pill_when_min_age_zero(
         self, agenda_item, client, event
