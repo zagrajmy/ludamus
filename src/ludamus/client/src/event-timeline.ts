@@ -14,7 +14,18 @@ const hourHasVisibleSection = (hour: string): boolean =>
     ),
   ].some((section) => !section.hidden);
 
+// Window- and document-level listeners, plus the scroll-spy observer, all
+// close over one rail. The view tabs swap that rail out (hx-boost), so an
+// init drops the previous rail's wiring before laying down its own.
+let railListeners = new AbortController();
+let railObserver: IntersectionObserver | undefined;
+
 const initScheduleRail = (rail: HTMLElement): void => {
+  railListeners.abort();
+  railListeners = new AbortController();
+  railObserver?.disconnect();
+  const { signal } = railListeners;
+
   // The app-shell scrolls #app-scroll, not the document (see app-scroll.ts), so
   // both the scroll-spy viewport and programmatic scrolling target it.
   const scrollRoot = document.getElementById("app-scroll");
@@ -96,8 +107,8 @@ const initScheduleRail = (rail: HTMLElement): void => {
     }
   };
   fitRail();
-  globalThis.addEventListener("resize", fitRail);
-  document.addEventListener("schedule:filtered", fitRail);
+  globalThis.addEventListener("resize", fitRail, { signal });
+  document.addEventListener("schedule:filtered", fitRail, { signal });
 
   const scrollToLink = (link: HTMLAnchorElement): void => {
     const id = link.getAttribute("href")?.slice(1);
@@ -120,7 +131,7 @@ const initScheduleRail = (rail: HTMLElement): void => {
     ...document.querySelectorAll<HTMLElement>(".time-slot-section[data-slot-hour]"),
   ];
   const visible = new Set<HTMLElement>();
-  const observer = new IntersectionObserver(
+  railObserver = new IntersectionObserver(
     (entries) => {
       for (const entry of entries) {
         if (entry.isIntersecting) visible.add(entry.target as HTMLElement);
@@ -141,7 +152,7 @@ const initScheduleRail = (rail: HTMLElement): void => {
     },
     { root: scrollRoot, rootMargin: "-12% 0px -70% 0px", threshold: 0 },
   );
-  for (const section of sections) observer.observe(section);
+  for (const section of sections) railObserver.observe(section);
 
   // Drag-to-scrub: treat the rail like a slider. Move/end listeners live on the
   // window so the scrub keeps tracking when the pointer strays off the narrow
@@ -184,11 +195,15 @@ const initScheduleRail = (rail: HTMLElement): void => {
     scrubPointerId = event.pointerId;
     scrubTo(event.clientY);
   });
-  globalThis.addEventListener("pointermove", (event) => {
-    if (!dragging || event.pointerId !== scrubPointerId) return;
-    rail.classList.add("is-scrubbing");
-    scrubTo(event.clientY);
-  });
+  globalThis.addEventListener(
+    "pointermove",
+    (event) => {
+      if (!dragging || event.pointerId !== scrubPointerId) return;
+      rail.classList.add("is-scrubbing");
+      scrubTo(event.clientY);
+    },
+    { signal },
+  );
   const endDrag = (event: PointerEvent): void => {
     if (!dragging || event.pointerId !== scrubPointerId) return;
     dragging = false;
@@ -201,8 +216,8 @@ const initScheduleRail = (rail: HTMLElement): void => {
       swallowClick = false;
     }, 0);
   };
-  globalThis.addEventListener("pointerup", endDrag);
-  globalThis.addEventListener("pointercancel", endDrag);
+  globalThis.addEventListener("pointerup", endDrag, { signal });
+  globalThis.addEventListener("pointercancel", endDrag, { signal });
 
   rail.addEventListener("contextmenu", (event) => event.preventDefault());
 
@@ -219,17 +234,24 @@ const initScheduleRail = (rail: HTMLElement): void => {
     },
     { capture: true },
   );
-
-  const scrollKey = `schedule-scroll:${location.pathname}`;
-  const viewTabs = document.querySelectorAll<HTMLAnchorElement>(
-    'a[data-tab="list"], a[data-tab="rooms"]',
-  );
-  for (const tab of viewTabs) {
-    tab.addEventListener("click", () => {
-      if (scrollRoot) sessionStorage.setItem(scrollKey, String(scrollRoot.scrollTop));
-    });
-  }
 };
 
-const rail = document.querySelector<HTMLElement>(".schedule-rail");
-if (rail) initScheduleRail(rail);
+// The view tabs are hx-boosted, so the rail and every section it spies on are
+// replaced without a page load. The flag rides the rail, so the page's other
+// htmx traffic — a session modal loading — leaves the bound one alone.
+const bootScheduleRail = (): void => {
+  const rail = document.querySelector<HTMLElement>(".schedule-rail");
+  // A swap to a layout without a rail never reaches initScheduleRail, so the
+  // previous rail's wiring has to be dropped here instead.
+  if (!rail) {
+    railListeners.abort();
+    railObserver?.disconnect();
+    return;
+  }
+  if ("railBound" in rail.dataset) return;
+  rail.dataset.railBound = "";
+  initScheduleRail(rail);
+};
+
+bootScheduleRail();
+document.body.addEventListener("htmx:afterSwap", bootScheduleRail);

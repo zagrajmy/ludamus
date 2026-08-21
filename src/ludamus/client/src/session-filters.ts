@@ -27,10 +27,18 @@ const addOption = (select: HTMLSelectElement, value: string, label: string): voi
   select.append(option);
 };
 
+// Listeners this module puts on `document` rather than on its own controls.
+// The schedule view tabs swap the toolbar and the cards out from under it, so
+// each init aborts the previous one's instead of stacking a closure over
+// detached nodes.
+let documentListeners = new AbortController();
+
 // The filter UI is only rendered when the event has scheduled sessions
 // (`{% if hour_data %}` in the template). The bundle still loads on empty
 // event pages, so bail out cleanly instead of throwing when it's absent.
 const initSessionFilters = (): void => {
+  documentListeners.abort();
+  documentListeners = new AbortController();
   const sessionFilter = byId<HTMLInputElement>("session-filter");
   const statusFilter = byId<HTMLSelectElement>("status-filter");
   const dayFilter = byId<HTMLSelectElement>("day-filter");
@@ -38,6 +46,9 @@ const initSessionFilters = (): void => {
   const venueFilter = byId<HTMLSelectElement>("venue-filter");
   const minAgeFilter = byId<HTMLInputElement>("min-age-filter");
   const maxAgeFilter = byId<HTMLInputElement>("max-age-filter");
+  // Not byId: the checkbox is absent when nothing at this event takes
+  // enrollment, and a typed query says so without an `as` cast.
+  const enrollmentFilter = document.querySelector<HTMLInputElement>("#enrollment-filter");
   const filterToggle = byId("filter-toggle");
   const filterPanel = byId("filter-panel");
   const filterChipsBar = byId("active-filter-chips");
@@ -155,6 +166,7 @@ const initSessionFilters = (): void => {
   function filterSessions(): void {
     const searchTokens = normalizeText(sessionFilter.value).split(/\s+/).filter(Boolean);
     const statusValue = statusFilter.value;
+    const enrollmentOnly = enrollmentFilter?.checked ?? false;
     const dayValue = dayFilter.value;
     const hourValue = hourFilter.value;
     const venueValue = venueFilter.value;
@@ -196,19 +208,13 @@ const initSessionFilters = (): void => {
 
             break;
           }
-          // Spans free and full sessions alike, so it cannot be one more
-          // mutually exclusive data-status value.
-          case "takes-enrollment": {
-            show &&= card.dataset.takesEnrollment === "true";
-
-            break;
-          }
           default: {
             show &&= card.dataset.status === statusValue;
           }
         }
       }
 
+      if (enrollmentOnly) show &&= card.dataset.takesEnrollment === "true";
       if (dayValue) show &&= card.dataset.day === dayValue;
       if (hourValue) show &&= card.dataset.hour === hourValue;
       if (venueValue) show &&= card.dataset.venue === venueValue;
@@ -277,6 +283,7 @@ const initSessionFilters = (): void => {
   function clearAllFilters(): void {
     sessionFilter.value = "";
     statusFilter.value = "";
+    if (enrollmentFilter) enrollmentFilter.checked = false;
     dayFilter.value = "";
     hourFilter.value = "";
     venueFilter.value = "";
@@ -327,6 +334,15 @@ const initSessionFilters = (): void => {
       });
     };
 
+    if (enrollmentFilter?.checked) {
+      chips.push({
+        clear: () => {
+          enrollmentFilter.checked = false;
+          filterSessions();
+        },
+        label: filterChipsBar.dataset.enrollmentLabel ?? "",
+      });
+    }
     pushSelectChip(statusFilter);
     pushSelectChip(dayFilter);
     pushSelectChip(hourFilter);
@@ -379,6 +395,7 @@ const initSessionFilters = (): void => {
 
   sessionFilter.addEventListener("input", filterSessions);
   statusFilter.addEventListener("change", filterSessions);
+  enrollmentFilter?.addEventListener("change", filterSessions);
   dayFilter.addEventListener("change", filterSessions);
   hourFilter.addEventListener("change", filterSessions);
   venueFilter.addEventListener("change", filterSessions);
@@ -397,12 +414,20 @@ const initSessionFilters = (): void => {
       filterPanel.classList.remove("is-open");
       filterToggle.setAttribute("aria-expanded", "false");
     };
-    document.addEventListener("click", (e) => {
-      const target = e.target as Node | null;
-      if (filterPanel.classList.contains("is-open") && target && !filtersWrapper.contains(target)) {
-        closePanel();
-      }
-    });
+    document.addEventListener(
+      "click",
+      (e) => {
+        const target = e.target as Node | null;
+        if (
+          filterPanel.classList.contains("is-open") &&
+          target &&
+          !filtersWrapper.contains(target)
+        ) {
+          closePanel();
+        }
+      },
+      { signal: documentListeners.signal },
+    );
     filtersWrapper.addEventListener("focusout", (e) => {
       const related = e.relatedTarget as Node | null;
       if (!related || !filtersWrapper.contains(related)) closePanel();
@@ -414,4 +439,23 @@ const initSessionFilters = (): void => {
   }
 };
 
-if (document.getElementById("session-filter")) initSessionFilters();
+// Every control and card above is looked up once, so a swapped-in schedule
+// (the view tabs are hx-boosted) needs the whole init again. The flag rides
+// the search box itself: a swap brings a fresh one, while the other htmx
+// traffic on this page — a session modal loading — leaves the bound one in
+// place, and re-running against it would double every filter's options.
+const bootSessionFilters = (): void => {
+  const searchBox = document.getElementById("session-filter");
+  // A swap to a schedule without a toolbar never reaches initSessionFilters,
+  // so the previous toolbar's document listeners have to be dropped here.
+  if (!searchBox) {
+    documentListeners.abort();
+    return;
+  }
+  if ("filtersBound" in searchBox.dataset) return;
+  searchBox.dataset.filtersBound = "";
+  initSessionFilters();
+};
+
+bootSessionFilters();
+document.body.addEventListener("htmx:afterSwap", bootSessionFilters);
