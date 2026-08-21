@@ -34,12 +34,15 @@ test.describe("Event detail page", () => {
 
   test("shows both endpoints of a multi-day event", async ({ page }) => {
     // The seeded event runs 28h, so the header must name the closing day too —
-    // start date with start time, end date with end time.
+    // start date with start time, end date with end time, each abbreviated to
+    // "Fri Sep 4, 16:00" (the English order; the suite runs in English) so the
+    // range stays on one line.
     const endpoints = page.locator("[data-event-dates] time");
+    const compact = /^[A-Za-z]{3} [A-Za-z]{3} \d{1,2}, \d{1,2}:\d{2}$/;
 
     await expect(endpoints).toHaveCount(2);
-    await expect(endpoints.nth(0)).toContainText(/.+ · \d{1,2}:\d{2}/);
-    await expect(endpoints.nth(1)).toContainText(/.+ · \d{1,2}:\d{2}/);
+    await expect(endpoints.nth(0)).toHaveText(compact);
+    await expect(endpoints.nth(1)).toHaveText(compact);
 
     // The bug this guards against printed start_time in both halves, which the
     // patterns above cannot tell apart from a correct range.

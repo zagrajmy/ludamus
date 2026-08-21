@@ -4123,6 +4123,11 @@ msgid "Proposals Open"
 msgstr "Zgłoszenia otwarte"
 
 #: src/ludamus/templates/chronology/event.html
+msgctxt "date range"
+msgid "to"
+msgstr "do"
+
+#: src/ludamus/templates/chronology/event.html
 msgid "Session"
 msgid_plural "Sessions"
 msgstr[0] "Punkt programu"
@@ -5807,6 +5812,10 @@ msgstr "Koralowy stół"
 #: src/ludamus/templates/design.html
 msgid "Download"
 msgstr "Pobierz"
+
+#: src/ludamus/templates/design.html
+msgid "Link preview card"
+msgstr "Karta podglądu linku"
 
 #: src/ludamus/templates/index.html
 #: src/ludamus/templates/multiverse/panel/_sphere_tabs_nav.html
