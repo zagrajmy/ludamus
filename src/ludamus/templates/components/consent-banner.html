@@ -17,8 +17,9 @@
          aria-label="{% translate "Cookie consent" %}"
          hidden>
     <div class="p-4 flex flex-col gap-3">
-        <div class="flex items-start gap-3">
-            <span class="text-xl leading-none shrink-0" aria-hidden="true">🍪</span>
+        <div class="flex items-start gap-2.5">
+            <span class="text-xl leading-none translate-y-[-.25px] shrink-0"
+                  aria-hidden="true">🍪</span>
             <p class="text-sm text-foreground-secondary [&_a]:text-primary [&_a]:hover:underline text-balance">
                 {% translate "Cookies help us see what to fix." %}
                 {% url 'django.contrib.flatpages.views.flatpage' url='/privacy-policy/' as privacy_url %}
