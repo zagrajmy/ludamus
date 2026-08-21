@@ -151,8 +151,7 @@ class TestEventPageBookmarkCounts:
                 compact_schedule=True,
                 hour_data={agenda_item.start_time: [card]},
                 schedule_days=[compact_day([card])],
-                schedule_view_is_list=False,
-                schedule_view_is_rooms=True,
+                active_tab="rooms",
                 room_lane_days=[
                     RoomLaneDay(
                         day_start=hour_start,

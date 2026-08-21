@@ -41,6 +41,7 @@ from ludamus.gates.web.django.chronology.event_presentation import (
     SessionData,
     build_display_field_row,
     filter_availability,
+    filterable_tag_fields,
     mask_session_card,
 )
 from ludamus.gates.web.django.chronology.schedule import (
@@ -72,7 +73,9 @@ from ludamus.links.db.django.repositories.chronology import (
 from ludamus.links.db.django.repositories.sessions import (
     annotate_session_participation_counts,
     field_value_dto,
-    with_session_card_relations,
+    own_pending_proposals,
+    review_inbox_proposals,
+    with_scheduled_card_relations,
 )
 from ludamus.mills.enrollment import (
     EnrollmentPolicy,
@@ -89,8 +92,8 @@ from ludamus.pacts import (
     RedirectError,
     SessionDTO,
     SessionFieldValueDTO,
-    SessionStatus,
     SpherePage,
+    TimeSlotDTO,
 )
 from ludamus.pacts.crowd import CompanionDTO, UserDTO, UserType
 from ludamus.pacts.enrollment import SeatHoldRequest
@@ -105,6 +108,7 @@ from .design_fixtures import (
     mock_form,
     mock_session_data,
     mock_session_data_ended,
+    mock_session_proposal,
     mock_user,
 )
 from .forms import create_enrollment_form
@@ -130,6 +134,7 @@ class DesignPageView(TemplateView):
         context["design_event"] = mock_event_info()
         context["design_session_data"] = mock_session_data()
         context["design_session_data_ended"] = mock_session_data_ended()
+        context["design_session_proposal"] = mock_session_proposal()
         context["design_user"] = mock_user()
         context["design_form"] = mock_form()
         context["design_radio_options"] = [
@@ -290,9 +295,8 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
         # is unlisted here for everyone, panel access included, so a manager
         # previewing the page sees the schedule participants will get.
         scheduled = public_scheduled_sessions(self.object.pk)
-        enrollment_view = self.request.GET.get("view") == "enrollment"
         event_sessions = annotate_session_participation_counts(
-            with_session_card_relations(scheduled)
+            with_scheduled_card_relations(scheduled)
         ).order_by("agenda_item__start_time")
 
         shadowbanned_ids: frozenset[int] = frozenset()
@@ -332,30 +336,13 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
             if current_user_id:
                 self._set_user_bookmarks(sessions_data, current_user_id)
 
-        # Everything the page states about the event itself is read off the
-        # whole schedule: these blocks render outside #schedule-region, so a
-        # figure taken after the narrowing below would say one thing on a tab
-        # click and another on a reload. The layout switch is whole-event for
-        # the same reason - it must not flip under the reader on a tab click.
         total_enrolled = sum(s.enrolled_count for s in sessions_data.values())
         user_enrolled_sessions = [s for s in sessions_data.values() if s.user_enrolled]
+        # Gates the filter panel's enrollment checkbox; a limit of 0 takes no
+        # enrollment, so an event of drop-ins offers nothing to narrow to.
         has_enrollable_sessions = any(
             data.takes_enrollment for data in sessions_data.values()
         )
-
-        # The enrollment view is the same schedule narrowed to what a
-        # participant has to sign up for; a limit of 0 takes no enrollment.
-        if enrollment_view:
-            sessions_data = {
-                sid: data
-                for sid, data in sessions_data.items()
-                if data.takes_enrollment
-            }
-            hour_data = {
-                hour: enrollable
-                for hour, cards in hour_data.items()
-                if (enrollable := [c for c in cards if c.takes_enrollment])
-            }
 
         # The ended/current/future grouping only feeds the card-grid layout;
         # the compact schedule renders from schedule_days instead, so skip the
@@ -381,14 +368,11 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
                 "scheduled_count": scheduled_count,
                 "compact_schedule": compact_schedule,
                 "schedule_days": schedule_days,
-                "schedule_view_is_list": not rooms_view and not enrollment_view,
-                "schedule_view_is_rooms": rooms_view,
-                "schedule_view_is_enrollment": enrollment_view,
+                "active_tab": "rooms" if rooms_view else "list",
                 "has_enrollable_sessions": has_enrollable_sessions,
                 "room_lane_days": build_room_lanes(schedule_days) if rooms_view else [],
                 "schedule_list_url": event_url,
                 "schedule_rooms_url": f"{event_url}?view=rooms",
-                "schedule_enrollment_url": f"{event_url}?view=enrollment",
                 "ended_hour_data": ended_hour_data,
                 "current_hour_data": current_hour_data,
                 "future_unavailable_hour_data": future_unavailable_hour_data,
@@ -423,9 +407,11 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
         context["enrollment_requires_slots"] = requires_slots
         context.update(self._get_anonymous_context())
 
-        context["filterable_tag_categories"] = _get_public_select_fields(self.object)
+        context["filterable_tag_categories"] = filterable_tag_fields(
+            _get_public_select_fields(self.object), sessions_data.values()
+        )
         context.update(filter_availability(sessions_data.values()))
-        context.update(self._get_pending_sessions_context())
+        context.update(self._get_pending_sessions_context(shadowbanned_ids))
 
         return context
 
@@ -476,7 +462,9 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
         self.request.session.pop("anonymous_event_id", None)
         self.request.session.pop("anonymous_site_id", None)
 
-    def _get_pending_sessions_context(self) -> dict[str, Any]:
+    def _get_pending_sessions_context(
+        self, shadowbanned_ids: frozenset[int]
+    ) -> dict[str, Any]:
         context: dict[str, Any] = {
             "pending_sessions": [],
             "pending_review_visible": False,
@@ -489,10 +477,16 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
         ):
             return context
 
+        # The review block only renders while the call for proposals is open,
+        # so one place decides that — building its cards for a shut CFP meant
+        # a whole card pipeline per organizer page view, discarded in the
+        # template.
         if (access := panel_access(self.request)).granted:
+            if not self.object.is_proposal_active:
+                return context
             return context | {
-                "pending_sessions": self.request.di.uow.sessions.read_pending_by_event(
-                    self.object.pk
+                "pending_sessions": self._proposal_cards(
+                    review_inbox_proposals(self.object.pk), shadowbanned_ids
                 ),
                 "pending_review_visible": True,
                 # The wizard is the superuser's view of a sphere they have no
@@ -501,21 +495,25 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
             }
 
         return context | {
-            "own_pending_proposals": list(
-                self._get_session_data(self._get_own_pending_sessions()).values()
+            "own_pending_proposals": self._proposal_cards(
+                own_pending_proposals(
+                    event_id=self.object.pk,
+                    presenter_id=self.request.context.current_user_id,
+                ),
+                shadowbanned_ids,
             )
         }
 
-    def _get_own_pending_sessions(self) -> QuerySet[Session]:
-        # The author's unscheduled proposals, rendered as schedule-style cards.
-        # Same eager-loading shape as event_sessions (agenda_item is null here).
-        return with_session_card_relations(
-            Session.objects.filter(
-                category__event_id=self.object.pk,
-                status=SessionStatus.PENDING,
-                presenter_id=self.request.context.current_user_id,
-            )
-        ).order_by("-creation_time")
+    def _proposal_cards(
+        self, proposals: QuerySet[Session], shadowbanned_ids: frozenset[int]
+    ) -> list[SessionData]:
+        # The shadowban ids, but deliberately not mask_session_card: the mask
+        # rewrites participants_limit to a fabricated fill, and an organizer
+        # has to judge the capacity the author actually asked for. The ids
+        # alone are what the danger ring reads, and without them a presenter
+        # the viewer shadowbanned would be ringed on their scheduled card and
+        # clean on their proposal, on the same page.
+        return list(self._get_session_data(proposals, shadowbanned_ids).values())
 
     def _set_user_participations(
         self, sessions: dict[int, SessionData], event_sessions: QuerySet[Session]
@@ -714,6 +712,16 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
                     )
                     for sp in session.session_participations.all()
                 ],
+                # Only an unscheduled proposal has preferences worth reading;
+                # its queryset is the one that prefetches them.
+                preferred_time_slots=(
+                    []
+                    if agenda_item
+                    else [
+                        TimeSlotDTO.model_validate(slot)
+                        for slot in session.time_slots.all()
+                    ]
+                ),
             )
 
         # Check if any active enrollment config has limit_to_end_time enabled
