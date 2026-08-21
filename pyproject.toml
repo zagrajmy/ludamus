@@ -85,11 +85,11 @@ pytest-gremlins = "^1.8.1"
 django-coverage-plugin = "^3.2.2"
 yamllint = "1.38.0"
 taplo = "^0.9.3"
-tingle = "^0.5.0"
+tingle = "^0.7.0"
 pytest-xdist = "^3.8.0"
 lxml-stubs = "^0.5.1"
 django-zeal = "^2.2.2"
-vekna = { git = "https://github.com/fancysnake/vekna.git", rev = "v0.4.0" }
+vekna = { git = "https://github.com/fancysnake/vekna.git", rev = "v0.6.0" }
 
 [tool.black]
 line-length = 88

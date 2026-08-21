@@ -650,18 +650,18 @@ files = [
 
 [[package]]
 name = "claude-agent-sdk"
-version = "0.2.142"
+version = "0.2.143"
 description = "Python SDK for Claude Code"
 optional = false
 python-versions = ">=3.10"
 groups = ["dev"]
 files = [
-    {file = "claude_agent_sdk-0.2.142-py3-none-macosx_11_0_arm64.whl", hash = "sha256:194a5936c3b0f7d92846b28c017887aa5c1ec290392ab1c5af1f956d1e227675"},
-    {file = "claude_agent_sdk-0.2.142-py3-none-macosx_11_0_x86_64.whl", hash = "sha256:c1c7a5b58a0cfbed55fbdce95c06e54a6e3002c7c823d5f7320c8cc4fd92dad2"},
-    {file = "claude_agent_sdk-0.2.142-py3-none-manylinux_2_17_aarch64.whl", hash = "sha256:cb22f42694dbd54c9236a4c448f44eed9e32a6175fb030afafe51f0b618875c2"},
-    {file = "claude_agent_sdk-0.2.142-py3-none-manylinux_2_17_x86_64.whl", hash = "sha256:306ba2f47229b87c8ec17463972d9d86417f608df86cb15a2109185dad22559e"},
-    {file = "claude_agent_sdk-0.2.142-py3-none-win_amd64.whl", hash = "sha256:bcc7e5b08594c5dcd94463bc7e13d493e2aa7e9e9a15f2e263458e94cb630bd2"},
-    {file = "claude_agent_sdk-0.2.142.tar.gz", hash = "sha256:05e38a4b9bc8e4b859969de8c437f241a698581b330606a1b34ad692e1819e8c"},
+    {file = "claude_agent_sdk-0.2.143-py3-none-macosx_11_0_arm64.whl", hash = "sha256:4c5e03839543a71ccf15ac11838e65bee3a9d65bd6b0c5e05791228741fdf4d3"},
+    {file = "claude_agent_sdk-0.2.143-py3-none-macosx_11_0_x86_64.whl", hash = "sha256:faf459f28f4e6932578a5685657d3044fe0899076c25cee5343a7a6e91c72590"},
+    {file = "claude_agent_sdk-0.2.143-py3-none-manylinux_2_17_aarch64.whl", hash = "sha256:7c7ef51dcba0614322f2f17a62f9ffe598b67b150f94067d15d5410e5bdc9aad"},
+    {file = "claude_agent_sdk-0.2.143-py3-none-manylinux_2_17_x86_64.whl", hash = "sha256:501519142d38387a78c49bdbe3819608fc7bb472da25ecd0052525caa921f197"},
+    {file = "claude_agent_sdk-0.2.143-py3-none-win_amd64.whl", hash = "sha256:5887e737de17fdb20e0516b8b4cac6ff1e0ffd9f5b62c8d156200878ce048e09"},
+    {file = "claude_agent_sdk-0.2.143.tar.gz", hash = "sha256:6b7391db88887bf27735d17c2045bc682107a364bac276cb47b13022284bb302"},
 ]
 
 [package.dependencies]
@@ -3437,14 +3437,14 @@ testing = ["coverage", "pytest", "pytest-benchmark"]
 
 [[package]]
 name = "posthog"
-version = "7.39.2"
+version = "7.42.0"
 description = "Integrate PostHog into any python application."
 optional = false
 python-versions = ">=3.10"
 groups = ["main"]
 files = [
-    {file = "posthog-7.39.2-py3-none-any.whl", hash = "sha256:ca149ee4f6595a04150c2bea477995652384df45ca4db9ed372c0f81e0cd9646"},
-    {file = "posthog-7.39.2.tar.gz", hash = "sha256:bb74ac23f99054ea6ca25f76586cd6707b29afcffb5f0e78b0f16cc63019ed2b"},
+    {file = "posthog-7.42.0-py3-none-any.whl", hash = "sha256:6429c9a4145572a8f54ab00330bbfe987340025d3a464212505be814b2b0950d"},
+    {file = "posthog-7.42.0.tar.gz", hash = "sha256:c7e9297446208d413c3071348f101f4c05e32fba4228ac0a85e9d0014c2a274e"},
 ]
 
 [package.dependencies]
@@ -4921,14 +4921,14 @@ syntax = ["tree-sitter (>=0.25.0) ; python_version >= \"3.10\"", "tree-sitter-ba
 
 [[package]]
 name = "tingle"
-version = "0.5.0"
+version = "0.7.0"
 description = "Constant refactoring monitoring tool"
 optional = false
 python-versions = "<4.0,>=3.11"
 groups = ["dev"]
 files = [
-    {file = "tingle-0.5.0-py3-none-any.whl", hash = "sha256:4d1bbc2bc9fd759dbd5c7809cbed663ab2a1ffc7441fdce4517f99538b7f4496"},
-    {file = "tingle-0.5.0.tar.gz", hash = "sha256:b027f2513f0ee4f54385172290919baea7ecd76a07bc0ffc401cc67ab3d5b74d"},
+    {file = "tingle-0.7.0-py3-none-any.whl", hash = "sha256:c29e3ceb6e993ad42443d32f0061ab99a51c824a6d7a52cca3517953b98359a2"},
+    {file = "tingle-0.7.0.tar.gz", hash = "sha256:355d6c46e7b76ad0d8b9ffe196585521749adc366dbd252d9cbb4f0dd93a9ee8"},
 ]
 
 [package.dependencies]
@@ -5226,8 +5226,8 @@ standard = ["httptools (>=0.8.0)", "python-dotenv (>=0.13)", "pyyaml (>=5.1)", "
 
 [[package]]
 name = "vekna"
-version = "0.4.0"
-description = "Coding agent overseer"
+version = "0.6.0"
+description = "Run coding agents as rituals: ordinary Python programs whose steps you control"
 optional = false
 python-versions = ">=3.11,<4"
 groups = ["dev"]
@@ -5245,8 +5245,8 @@ trial = ["pytest (>=8.0,<10.0)"]
 [package.source]
 type = "git"
 url = "https://github.com/fancysnake/vekna.git"
-reference = "v0.4.0"
-resolved_reference = "0fa4a6fedf1cfb0390da155de0e75111d118a34f"
+reference = "v0.6.0"
+resolved_reference = "783e24bd102a47c9db49c49528c0c3264db563fd"
 
 [[package]]
 name = "vulture"
@@ -5427,4 +5427,4 @@ dev = ["doc8", "flake8", "flake8-import-order", "rstcheck[sphinx]", "ruff", "sph
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.14.0,<3.15"
-content-hash = "604f9a79e8a75a5e603b7f7ed2c544d9bfedb188f50e33a2befb98d908aa4664"
+content-hash = "223d87fb7e5cc4ea3b69785753086eb8962b9c3a1467c12067af3e9259a04844"
