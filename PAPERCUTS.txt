@@ -282,3 +282,17 @@ If you fix a papercut, remove it.
   invocations, and the full 259-file tracked scan. scripts/impeccable_lint.py's
   failure path prints only the exit code and the two (empty) streams, never the
   command, so a transient npx death is unrepairable from what the gate says.
+- 2026-08-20: Claude Code web sandbox: mise's _.python.venv never created .venv,
+  so every task calling django-admin/djlint/tingle failed with 'not found' until
+  I prepended the poetry virtualenv bin to PATH by hand. mise run test:e2e:prep
+  dies on the first such step.
+- 2026-08-20: Screenshotting a template change needs the e2e server restarted
+  after 'aubr -C src/ludamus/client build': django_vite reads the manifest once
+  per process, so the page silently loads no CSS/JS and every layout measurement
+  is garbage. test:e2e:serve handles this, a bare 'django runserver' does not.
+- 2026-08-20: Playwright's reuseExistingServer:!isCI silently reused a stale
+  `django-admin runserver --noreload` I had left on :8000 for screenshots, so
+  `mise run test:e2e` tested pre-edit Python and failed on an assertion that was
+  actually correct. Took a while to spot because the failure looked like a real
+  regression. A note in the e2e docs, or a staleness check on the reused server,
+  would have saved it.

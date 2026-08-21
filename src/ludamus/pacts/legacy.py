@@ -233,27 +233,6 @@ class SessionDTO(BaseModel):
     cover_image_original_name: str = ""
 
 
-class PendingSessionTimeSlotDTO(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    end_time: datetime
-    pk: int
-    start_time: datetime
-
-
-class PendingSessionDTO(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    contact_email: str
-    creation_time: datetime
-    description: str
-    participants_limit: int
-    pk: int
-    display_name: str
-    time_slots: list[PendingSessionTimeSlotDTO]
-    title: str
-
-
 class LocationData(TypedDict):
     # Tree location of a scheduled leaf: its name, its immediate parent (the
     # grouping unit, empty for a root leaf), and the full "Root > ... > Leaf"
@@ -833,8 +812,6 @@ class SessionRepositoryProtocol(Protocol):
     def read_time_slots(session_id: int) -> list[TimeSlotDTO]: ...
     @staticmethod
     def count_by_category(category_id: int) -> int: ...
-    @staticmethod
-    def read_pending_by_event(event_id: int) -> list[PendingSessionDTO]: ...
     @staticmethod
     def read_preferred_time_slot_ids(session_id: int) -> list[int]: ...
     @staticmethod
