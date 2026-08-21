@@ -289,7 +289,3 @@ If you fix a papercut, remove it.
   actually correct. Took a while to spot because the failure looked like a real
   regression. A note in the e2e docs, or a staleness check on the reused server,
   would have saved it.
-- 2026-08-21: mise tasks that shell out to django-admin/djlint/codespell
-  (test:e2e:prep, the hk pre-commit hook) fail with 'not found' in a sandbox
-  where poetry's venv lives in ~/.cache/pypoetry rather than .venv; had to
-  prepend the venv bin dir to PATH by hand.
