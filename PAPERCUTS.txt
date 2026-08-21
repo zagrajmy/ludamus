@@ -295,3 +295,8 @@ If you fix a papercut, remove it.
   /root/.local/bin/ruff 0.15.8 that doesn't understand a rule alias the pinned
   0.16.3 does. Fixed with 'poetry config virtualenvs.in-project true' +
   reinstall into .venv.
+- 2026-08-21: hk pre-commit inside this worktree resolved a stray global
+  /root/.local/bin/ruff 0.15.8 and missing djlint/codespell because Bash tool
+  calls don't persist PATH across invocations; also node_modules was absent
+  (aube install needed for oxfmt). Had to export .venv/bin first and run 'aube
+  install' + 'git commit' in the same Bash call.
