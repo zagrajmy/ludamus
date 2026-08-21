@@ -1,0 +1,148 @@
+<!--
+  Source of truth for the 1200x630 link-preview card rendered to
+  src/ludamus/static/og-image.jpg by build.mjs.
+
+  The scrim knobs below are the same custom properties the tweaking widget
+  exposes, so values dialled in there paste straight back into :root.
+-->
+<meta charset="utf-8">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet">
+<style>
+  :root {
+    /* Brand tokens, mirrored from client/src/index.css. */
+    --coral: #f85a3c;
+    --warm-900: #252220;
+
+    /* --- scrim knobs (tweak in the widget, paste back here) --- */
+    --scrim-tint: 24 18 32;      /* rgb triplet the scrim darkens toward */
+    --scrim-opacity: 0.88;       /* alpha at the anchored edge */
+    --scrim-angle: 96deg;        /* gradient direction */
+    --scrim-mid-stop: 38%;       /* where the falloff reaches half strength */
+    --scrim-end-stop: 72%;       /* where the scrim is fully clear */
+    --scrim-floor: 0.16;         /* uniform darkening across the whole frame */
+    --scrim-vignette: 0.34;       /* extra weight pulled into the bottom edge */
+
+    /* --- text shadow knobs --- */
+    --text-shadow-blur: 26px;
+    --text-shadow-opacity: 0.62;
+    --text-shadow-y: 2px;
+
+    /* --- background framing --- */
+    --bg-position-x: 62%;
+    --bg-position-y: 42%;
+    --bg-scale: 1.06;
+  }
+
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  body {
+    width: 1200px;
+    height: 630px;
+    overflow: hidden;
+  }
+
+  .card {
+    position: relative;
+    width: 1200px;
+    height: 630px;
+    background: var(--warm-900);
+    font-family: "Outfit", system-ui, sans-serif;
+    isolation: isolate;
+  }
+
+  /* The painting. Scaled slightly past cover so the framing has room to move
+     without exposing an edge. */
+  .card__art {
+    position: absolute;
+    inset: 0;
+    background-image: url("colony.jpg");
+    background-size: cover;
+    background-position: var(--bg-position-x) var(--bg-position-y);
+    transform: scale(var(--bg-scale));
+    transform-origin: center;
+  }
+
+  /* Three stacked passes: a directional wedge anchored to the text side, a
+     uniform floor so mid-tones in the painting cannot creep up under the
+     wordmark, and a bottom vignette that seats the card on darker ground. */
+  .card__scrim {
+    position: absolute;
+    inset: 0;
+    background:
+      linear-gradient(
+        var(--scrim-angle),
+        rgb(var(--scrim-tint) / var(--scrim-opacity)) 0%,
+        rgb(var(--scrim-tint) / calc(var(--scrim-opacity) * 0.5)) var(--scrim-mid-stop),
+        rgb(var(--scrim-tint) / 0) var(--scrim-end-stop)
+      ),
+      linear-gradient(
+        to top,
+        rgb(var(--scrim-tint) / var(--scrim-vignette)) 0%,
+        rgb(var(--scrim-tint) / 0) 42%
+      ),
+      rgb(var(--scrim-tint) / var(--scrim-floor));
+  }
+
+  .card__content {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 34px;
+    padding: 0 0 0 76px;
+    max-width: 760px;
+    color: #fff;
+    text-shadow:
+      0 var(--text-shadow-y) var(--text-shadow-blur)
+      rgb(var(--scrim-tint) / var(--text-shadow-opacity));
+  }
+
+  /* The lockup ships as outlined paths, so it needs no webfont to be correct. */
+  .card__lockup {
+    width: 470px;
+    height: auto;
+    display: block;
+    filter: drop-shadow(
+      0 var(--text-shadow-y) var(--text-shadow-blur)
+      rgb(var(--scrim-tint) / var(--text-shadow-opacity))
+    );
+  }
+
+  .card__tagline {
+    font-size: 46px;
+    font-weight: 500;
+    line-height: 1.18;
+    letter-spacing: -0.015em;
+    max-width: 19ch;
+  }
+
+  .card__rule {
+    width: 84px;
+    height: 6px;
+    border-radius: 999px;
+    background: var(--coral);
+    box-shadow: 0 2px 18px rgb(var(--scrim-tint) / 0.55);
+  }
+</style>
+
+<div class="card">
+  <div class="card__art"></div>
+  <div class="card__scrim"></div>
+  <div class="card__content">
+    <svg class="card__lockup" viewBox="0 0 258 76" fill="none"
+         xmlns="http://www.w3.org/2000/svg" role="img">
+      <title>zagrajmy</title>
+      <!--LOCKUP_BODY-->
+    </svg>
+    <div class="card__rule"></div>
+    <p class="card__tagline"><!--TAGLINE--></p>
+  </div>
+</div>
