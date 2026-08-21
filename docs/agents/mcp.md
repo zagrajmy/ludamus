@@ -24,12 +24,24 @@ flag in Django admin; rotate everything by changing `SECRET_KEY`.
 
 ### Organizer tier
 
-Sphere managers get their own endpoint at `/mcp/organizer/`, minted from the
-"MCP access" tab in the sphere panel (`/multiverse/panel/mcp/`). Organizer
-tokens embed the sphere id; tools read the sphere from the token, never from
-client input, and every request re-checks `is_manager`. The endpoint loads
-only organizer-scoped tools, so maintainer tools are structurally unreachable
-from it.
+Sphere managers mint a token from the **MCP access** tab on an event's
+settings (`/panel/event/<slug>/settings/mcp/`). Create the event in the
+panel first — `create_event` is maintainer-only.
+
+Tokens embed `(user_id, sphere_id, event_id)`:
+
+- **Read** can see the whole sphere (sibling events, announcements, programme
+  of another event in the sphere).
+- **Write** always targets the token's event. Write tools do not take
+  `event_id` from the client.
+
+Every request re-checks `is_manager` and that the event still belongs to the
+sphere. The endpoint loads only organizer-scoped tools, so maintainer tools
+are structurally unreachable from it. Old tokens that omit `event_id` fail
+auth.
+
+The organizer tier provides programme verbs for spaces, time slots, tracks,
+and sessions, with writes scoped to one event per token and sphere-wide reads.
 
 ## Architecture
 
@@ -62,11 +74,9 @@ don't get re-derived or contradicted:
   clients. [Executor](https://github.com/RhysSullivan/executor) is the
   recommended client-side control plane (catalog, policy, pause-for-approval,
   audit).
-- The organizer tier shipped with a read/announcements toolset; Panel verbs
-  (proposals, scheduling) grow demand-driven. The attendee tier comes later on
-  the same registry: scope-tagged tools and a separate endpoint per trust
-  level, so the security boundary stays filtering at wiring time rather than
-  per-call policy checks.
+- The attendee tier comes later on the same registry: scope-tagged tools and
+  a separate endpoint per trust level, so the security boundary stays
+  filtering at wiring time rather than per-call policy checks.
 - WebMCP also comes later. Once the W3C `navigator.modelContext` API
   stabilizes, annotate existing forms (declarative API) so in-browser agents
   act in the user's own session, reusing the same tool definitions over a
@@ -74,9 +84,22 @@ don't get re-derived or contradicted:
 - Keep the surface small. If it ever grows large, expose search over tools
   instead of dumping the whole catalog into agent context.
 
+## Programme batches
+
+Organizer clients can keep the singular `create_session` and `assign_session`
+operations for interactive edits. Imports should use `create_sessions` and
+`assign_sessions`, each accepting up to 250 items per call. Batch results stay
+in input order and report failures per item; successful items remain committed.
+`create_sessions` is safe to retry because `source_row_id` is event-scoped and
+idempotent. Retrying an identical assignment is a no-op.
+
+The [POLCON 2026 programme sync runbook](polcon26-programme-sync.md) documents
+one monitored spreadsheet import, including dry-run review and retry limits.
+
 ## Adding a tool
 
-1. Subclass `Tool[YourInput]` in `gates/mcp/tools.py`: pydantic input model
+1. Subclass `Tool[YourInput]` in `gates/mcp/tools.py` — or, for an organizer
+   programme verb, `gates/mcp/programme_tools.py`: pydantic input model
    (field descriptions become the client-facing schema), `name`,
    `description`, a `scope` (`ToolScope` from `pacts/mcp.py` — the endpoint
    loads only its tier's tools), and a `handle(call)` that reads
@@ -89,6 +112,7 @@ don't get re-derived or contradicted:
 Domain errors need no new plumbing: `NotFoundError` and invalid arguments
 already map to MCP `isError` results, and unknown tools to JSON-RPC errors.
 
-Every `tools/call` is audit-logged **with its arguments verbatim**. Do not add
-a tool whose arguments carry personal data without adding redaction to the
-audit line first.
+Every `tools/call` is audit-logged. Sensitive fields must be redacted before
+they reach the log; batch tools record only item counts and correlation IDs.
+Do not add a tool whose arguments carry personal data without extending that
+sanitization first.

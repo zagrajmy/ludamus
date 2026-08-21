@@ -91,6 +91,19 @@ class FacilitatorRepository(FacilitatorRepositoryProtocol):
         return FacilitatorDTO.model_validate(facilitator)
 
     @staticmethod
+    def find_by_event_and_display_name(
+        event_id: int, display_name: str
+    ) -> FacilitatorDTO | None:
+        facilitator = (
+            _readable_facilitators()
+            .filter(event_id=event_id, display_name=display_name)
+            .first()
+        )
+        if facilitator is None:
+            return None
+        return FacilitatorDTO.model_validate(facilitator)
+
+    @staticmethod
     def read_by_event_and_slug(event_id: int, slug: str) -> FacilitatorDTO:
         try:
             facilitator = _readable_facilitators().get(event_id=event_id, slug=slug)

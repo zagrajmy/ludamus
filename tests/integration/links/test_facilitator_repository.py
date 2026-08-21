@@ -179,6 +179,34 @@ class TestFacilitatorRepositorySoftDelete:
         with pytest.raises(NotFoundError):
             FacilitatorRepository.read_by_event_and_slug(event.pk, "alice")
 
+    def test_find_by_display_name_matches_within_the_event(self):
+        event = EventFactory.create()
+        facilitator = _facilitator(event)
+        _facilitator(EventFactory.create())
+
+        found = FacilitatorRepository.find_by_event_and_display_name(event.pk, "Alice")
+
+        assert found is not None
+        assert found.pk == facilitator.pk
+
+    def test_find_by_display_name_leaves_out_a_deleted_facilitator(self):
+        event = EventFactory.create()
+        facilitator = _facilitator(event)
+        FacilitatorRepository.soft_delete(facilitator.pk)
+
+        assert (
+            FacilitatorRepository.find_by_event_and_display_name(event.pk, "Alice")
+            is None
+        )
+
+    def test_find_by_display_name_without_a_match_is_none(self):
+        event = EventFactory.create()
+
+        assert (
+            FacilitatorRepository.find_by_event_and_display_name(event.pk, "Alice")
+            is None
+        )
+
     def test_read_including_deleted_reaches_a_deleted_facilitator(self):
         event = EventFactory.create()
         facilitator = _facilitator(event)

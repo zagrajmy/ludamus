@@ -6,12 +6,12 @@ The follow-up to `pr_refresh`, and its opposite: nothing done without you saying
 so, and it is what commits the result.
 
 A branch is a candidate when its pull request is open, yours, labelled
-`pr::thermo`, not labelled `pr::wait` or `pr::qa`, and carrying a review thread
-nobody has settled. They are taken one after another, longest-waiting first,
-until every one of them has been through — except that the branch you are
-standing on goes first, which is also what keeps two terminals on two branches
-off each other's work. A branch whose checkout will not go through, because
-another worktree is standing on it, is reported and the next one is offered.
+`pr::thermo`, not labelled `pr::wait`, and carrying a review thread nobody has
+settled. They are taken one after another, longest-waiting first, until every
+one of them has been through — except that the branch you are standing on goes
+first, which is also what keeps two terminals on two branches off each other's
+work. A branch whose checkout will not go through, because another worktree is
+standing on it, is reported and the next one is offered.
 
 Each branch is asked about as its turn comes, and saying no to one moves on to
 the next rather than ending the cast. The count of what is still open is asked
@@ -34,7 +34,7 @@ were the decision. A repair runs the one task mise said was
 broken, not the whole gate; the gate itself runs again once that comes back
 green. Diff coverage is not measured here — that is `pr_sweep`'s slow pass, and
 it is the longest job in the toolchain. A branch that ends with nothing left
-open earns `pr::qa`, which also takes it out of every later cast's reckoning.
+open earns `pr::qa`.
 
 A gate that will not go green after `--bound` attempts ends the cast rather
 than moving on: the repair work is sitting uncommitted in the worktree, and
@@ -88,7 +88,8 @@ from .state import (
 )
 
 # The engine's backstop and nothing else: the `fix` loop is bounded by the
-# person sitting at it, and the branch loop by how many of them carry a review.
+# person sitting at it, and the branch loop by how many branches were reviewed
+# in the night.
 # A dozen steps a branch, and a cast that goes through twenty of them is a
 # morning nobody has.
 _MAX_STEPS = 400
@@ -188,13 +189,12 @@ async def queue_up(picking: Picking) -> Transition:
         raise RitualError(unreadable(error)) from error
     # Reviewed by the night and not yet answered: `pr::thermo` says a review was
     # posted, and whether it is still waiting is asked branch by branch in
-    # `pick`. A branch without the label has nothing here to do.
+    # `pick`. A branch without the label has nothing here to do. `pr::qa` is not
+    # read: it is a claim about the threads at the moment it went on, and a
+    # thread opened afterwards would be invisible for good — nothing takes the
+    # label off again.
     carrying = [
-        pull
-        for pull in pulls
-        if pull.branch != _MAIN
-        and wears(pull, THERMO_LABEL)
-        and not wears(pull, QA_LABEL)
+        pull for pull in pulls if pull.branch != _MAIN and wears(pull, THERMO_LABEL)
     ]
     here = await _ran(HERE, "could not read the current branch", stream=False)
     # You have just finished working on this branch and its review is what you
@@ -238,13 +238,6 @@ async def pick(picking: Picking) -> Transition:
     """Take the next branch whose review is still waiting."""
     if not picking.queue:
         return goto(recap, picking)
-    # Fatal, and before every checkout, not only the first: this moves branches
-    # around and later commits everything it finds, so work left in the tree
-    # would be committed onto the next branch it takes.
-    status = await _ran(STATUS, "git status failed", stream=False)
-    if dirty := status.stdout.strip():
-        msg = f"the worktree is not clean:\n{dirty}"
-        raise RitualError(msg)
     pull, *rest = picking.queue
     left = await _open_threads(pull.number)
     branch = Branch(
@@ -260,6 +253,15 @@ async def pick(picking: Picking) -> Transition:
         # nothing open, and a report listing every one of them is a report
         # nobody reads to the end.
         return goto(pick, branch.picking)
+    # Fatal, and before every checkout, not only the first: `look` moves
+    # branches around and later commits everything it finds, so work left in the
+    # tree would be committed onto the branch it takes. Asked here rather than
+    # at the top of the step because `look` is the only way to a checkout, and a
+    # branch with nothing open never reaches one.
+    status = await _ran(STATUS, "git status failed", stream=False)
+    if dirty := status.stdout.strip():
+        msg = f"the worktree is not clean:\n{dirty}"
+        raise RitualError(msg)
     return goto(look, branch)
 
 
@@ -446,11 +448,13 @@ def recap(picking: Picking) -> Transition:
         for row in picking.reviewed
     ] or ["  (none had a review waiting)"]
     if picking.stopped:
-        # What is left in the queue only means anything here: a cast that ran
-        # to the end left nothing in it.
+        # What is left in the queue only means anything here: a cast that ran to
+        # the end left nothing in it. These are branches `gh` was never asked
+        # about, not branches with work outstanding — one whose threads are all
+        # settled leaves `pick` without a row either way.
         left = ", ".join(pull.branch for pull in picking.queue)
         lines += ["", f"the cast stopped: {picking.stopped}"]
-        lines += [f"not reached:    {left}"] if left else []
+        lines += [f"not polled:     {left}"] if left else []
     emit_delta("\n".join(lines))
     if picking.stopped:
         raise RitualError(picking.stopped)

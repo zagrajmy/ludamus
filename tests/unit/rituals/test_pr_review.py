@@ -114,8 +114,11 @@ def _listing(*branches: str, waiting: str = "", tested: str = "") -> str:
 
 
 # The same rows as objects, in the order the queue is expected to hold them.
-def _queued(*branches: str) -> list[PullRequest]:
-    return [PullRequest.model_validate(_row(name)) for name in branches]
+def _queued(*branches: str, waiting: str = "", tested: str = "") -> list[PullRequest]:
+    return [
+        PullRequest.model_validate(_row(name, waiting=waiting, tested=tested))
+        for name in branches
+    ]
 
 
 def _picked(bound: int = 2, **rest: Any) -> Picking:
@@ -149,7 +152,7 @@ class TestQueueUp:
 
         assert transition == goto(pick, _picked())
 
-    def test_a_pull_request_already_labelled_for_qa_is_not_queued(
+    def test_a_pull_request_already_labelled_for_qa_is_still_queued(
         self, trial: Trial
     ) -> None:
         trial.shell.replies(when=LIST, stdout=_listing("feature", tested="feature"))
@@ -157,7 +160,9 @@ class TestQueueUp:
 
         transition = trial.walk(queue_up, _picked())
 
-        assert transition == goto(pick, _picked())
+        assert transition == goto(
+            pick, _picked(queue=_queued("feature", tested="feature"))
+        )
 
     # An open thread on a parked branch does not un-park it.
     def test_a_waiting_pull_request_is_left_alone(self, trial: Trial) -> None:
@@ -222,21 +227,22 @@ class TestPick:
         # comes up rather than now.
         assert unsettled(_NUMBERS["older"]) not in trial.shell.commands
 
+    # Nothing to check out, so nothing is asked of the worktree: a cast where
+    # every branch is settled has no tree to spoil.
     def test_a_branch_with_every_thread_settled_is_passed_over_without_a_row(
         self, trial: Trial
     ) -> None:
-        trial.shell.replies(when=STATUS)
         trial.shell.replies(when=_asks("feature"), stdout="0\n")
 
         transition = trial.walk(pick, _picked(queue=_queued("feature")))
 
         assert transition == goto(pick, _picked())
         assert not trial.deltas
+        assert STATUS not in trial.shell.commands
 
     def test_a_count_gh_will_not_give_is_reported_and_the_cast_goes_on(
         self, trial: Trial
     ) -> None:
-        trial.shell.replies(when=STATUS)
         trial.shell.replies(when=_asks("feature"), exit_code=1, stderr="rate limited")
 
         transition = trial.walk(pick, _picked(queue=_queued("feature")))
@@ -253,6 +259,7 @@ class TestPick:
         assert not trial.shell.commands
 
     def test_a_dirty_worktree_fails_the_cast(self, trial: Trial) -> None:
+        trial.shell.replies(when=_asks("feature"), stdout="2\n")
         trial.shell.replies(when=STATUS, stdout=" M src/thing.py\n")
 
         with pytest.raises(RitualError, match="the worktree is not clean"):
@@ -260,6 +267,7 @@ class TestPick:
 
     # A tree it could not read is not a tree it may call clean.
     def test_a_failed_status_fails_the_cast(self, trial: Trial) -> None:
+        trial.shell.replies(when=_asks("feature"), stdout="2\n")
         trial.shell.replies(when=STATUS, exit_code=128, stderr="not a repository")
 
         with pytest.raises(RitualError, match="git status failed"):
@@ -615,7 +623,7 @@ class TestReport:
             "pr_review — 2 branches\n  feature: shipped\n  older: left for later"
         ]
 
-    def test_a_cast_that_stopped_says_so_and_what_it_never_reached(
+    def test_a_cast_that_stopped_says_so_and_what_it_never_polled(
         self, trial: Trial
     ) -> None:
         stopped = _picked(queue=_queued("older"), stopped="`pr-fix` is still red")
@@ -626,7 +634,7 @@ class TestReport:
         # The report comes out before the failure, which is the whole reason a
         # red gate routes here rather than raising where it happened.
         assert "the cast stopped" in trial.deltas[0]
-        assert "not reached:    older" in trial.deltas[0]
+        assert "not polled:     older" in trial.deltas[0]
 
     def test_a_morning_with_nothing_waiting_says_so(self, trial: Trial) -> None:
         trial.walk(recap, _picked())

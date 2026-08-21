@@ -1,8 +1,11 @@
-import { type Page } from "@playwright/test";
+import { type Locator, type Page } from "@playwright/test";
 
 import { expect, test } from "./helpers/fixtures";
 
 const MOBILE_WIDTH = 375;
+// The dense seeded event, on the canonical path: /chronology/event/<slug>/ is
+// a permanent redirect kept for links shared before that segment was dropped.
+const DENSE_EVENT_URL = "/event/kapitularz-2025-anonymized/";
 
 test.describe("Event filter panel", () => {
   test("filter panel does not overflow viewport on mobile", async ({ browser }) => {
@@ -19,6 +22,33 @@ test.describe("Event filter panel", () => {
     expect(box).not.toBeNull();
     expect(box!.x).toBeGreaterThanOrEqual(0);
     expect(box!.x + box!.width).toBeLessThanOrEqual(MOBILE_WIDTH);
+
+    await context.close();
+  });
+
+  test("the toolbar controls line up with the search field on mobile", async ({ browser }) => {
+    const context = await browser.newContext({
+      viewport: { width: MOBILE_WIDTH, height: 812 },
+    });
+    const page = await context.newPage();
+
+    // The dense event is the one that carries all three controls: the view
+    // switcher only appears where there is a second layout to switch to.
+    await page.goto(DENSE_EVENT_URL);
+
+    const box = async (locator: Locator) => {
+      const rect = await locator.boundingBox();
+      if (!rect) throw new Error("toolbar control is not laid out");
+      return rect;
+    };
+    const search = await box(page.getByRole("textbox", { name: "Search sessions..." }));
+    const filters = await box(page.getByRole("button", { name: "Filters" }));
+    const tabs = await box(page.getByRole("tablist"));
+
+    for (const control of [filters, tabs]) {
+      expect(Math.abs(control.height - search.height)).toBeLessThanOrEqual(1);
+      expect(Math.abs(control.y - search.y)).toBeLessThanOrEqual(1);
+    }
 
     await context.close();
   });
@@ -69,22 +99,39 @@ test.describe("Event filter panel", () => {
     const card = (title: string) => page.locator(".session", { hasText: title });
 
     await page.getByRole("button", { name: "Filters" }).click();
-    await page.locator("#status-filter").selectOption("takes-enrollment");
+    await page.getByRole("checkbox", { name: "Only with enrollment" }).check();
 
     await expect(card("Mega Strategy Lab")).toBeVisible();
     await expect(card("Przygoda w Mieście Neonów")).toBeVisible();
     // Seeded with no participants limit: a drop-in nobody signs up for.
     await expect(card("Cozy Storytellers Circle")).toBeHidden();
-    await expect(page.locator("#active-filter-chips")).toContainText("Takes enrollment");
+    await expect(page.locator("#active-filter-chips")).toContainText("Only with enrollment");
   });
 
-  test("marks sessions that take enrollment while the window is shut", async ({ page }) => {
-    // The closed-enrollment event has no enrollment window at all, so no card
-    // carries a seat count — the badge is the only enrollment signal there.
+  test("hides a select field the schedule gives nothing to pick between", async ({ page }) => {
+    await page.goto("/event/autumn-open/");
+    await page.getByRole("button", { name: "Filters" }).click();
+
+    // Both fields are public selects on this event, so both reach the panel.
+    // Only Mood is answered two ways; Format, which nobody answered, would be
+    // a select whose one option narrows nothing.
+    await expect(page.getByRole("combobox", { name: "Mood" })).toBeVisible();
+    await expect(page.locator("#tag-filter-format")).toHaveCount(0);
+    // Track clears the same bar, through the same server-side rule.
+    await expect(page.locator("#tag-filter-__track")).toHaveCount(0);
+  });
+
+  test("states the room size while the enrollment window is shut", async ({ page }) => {
+    // The closed-enrollment event has no enrollment window at all, so nothing
+    // here can say "spots left" — the seats a session holds is what is left to
+    // tell, and it is the size, not the remainder.
     await page.goto("/event/closed-enrollment/");
 
-    const card = page.locator(".session", { hasText: "Late Resignation Demo 1" });
-    await expect(card.getByTitle("Enrollment required")).toBeVisible();
+    const card = (title: string) => page.locator(".session", { hasText: title });
+    await expect(card("Late Resignation Demo 1")).toContainText("5 seats");
+    await expect(card("Late Resignation Demo 1")).not.toContainText("spots left");
+    // Seeded with a single seat: the other side of the plural.
+    await expect(card("Late Waiting List Demo 1")).toContainText("1 seat");
   });
 
   test("filters by host name case-insensitively", async ({ page }) => {
@@ -165,5 +212,71 @@ test.describe("Event fuzzy search", () => {
 
     await expect(card(page, MEGA)).toBeHidden();
     await expect(page.getByText("No sessions match your filters")).toBeVisible();
+  });
+});
+
+test.describe("Rooms view filtering", () => {
+  const denseEventUrl = `${DENSE_EVENT_URL}?view=rooms`;
+
+  test("collapses the hour rows and room columns a filter empties", async ({ page }) => {
+    await page.goto(denseEventUrl);
+
+    const lanes = page.locator(".room-lanes").first();
+    // Count what the collapse itself marks, not what is visible: the hour
+    // gridlines double as .time-slot-section, whose [hidden] belongs to
+    // session-filters.ts, and the head's column rules are drawn at zero height.
+    const rowSelector = ".room-lanes-time[data-lane-row]";
+    const roomSelector = ".room-lanes-head [data-lane-col]";
+    const shownRows = async (): Promise<number> =>
+      lanes.locator(`${rowSelector}:not(.room-lanes-collapsed)`).count();
+    const shownRooms = async (): Promise<number> =>
+      lanes.locator(`${roomSelector}:not(.room-lanes-collapsed)`).count();
+
+    await expect(lanes).toBeVisible();
+    const rowCount = await lanes.locator(rowSelector).count();
+    const roomCount = await lanes.locator(roomSelector).count();
+    expect(rowCount).toBeGreaterThan(1);
+    expect(roomCount).toBeGreaterThan(1);
+
+    // Search one session's title: the rows and columns left holding nothing
+    // must collapse rather than keep their server-rendered track size.
+    const title = await lanes
+      .locator(".room-lanes-cell .session [data-morph='title']")
+      .first()
+      .innerText();
+    await page.locator("#session-filter").fill(title);
+
+    await expect.poll(shownRooms).toBeLessThan(roomCount);
+    await expect.poll(shownRows).toBeLessThan(rowCount);
+
+    // Clearing the search restores every track.
+    await page.locator("#session-filter").fill("");
+    await expect.poll(shownRooms).toBe(roomCount);
+    await expect.poll(shownRows).toBe(rowCount);
+  });
+
+  // The placement rules moved out of style attributes and into a nonced style
+  // element keyed on the data-* indices (issue #743). Nothing server-side can
+  // tell whether they still land: a missing rule stacks every tile in the first
+  // cell and still renders a plausible-looking page.
+  test("places each tile in the column and row its data attributes name", async ({ page }) => {
+    await page.goto(denseEventUrl);
+
+    const cells = page.locator(".room-lanes-body .room-lanes-cell");
+    await expect(cells.first()).toBeVisible();
+
+    const placements = await cells.evaluateAll((nodes) =>
+      nodes.map((node) => {
+        const style = globalThis.getComputedStyle(node);
+        const { tileCol, tileRow, tileSpan } = (node as HTMLElement).dataset;
+        return {
+          expected: [`${Number(tileCol) + 1}`, `${tileRow}`, `span ${tileSpan}`],
+          actual: [style.gridColumnStart, style.gridRowStart, style.gridRowEnd],
+        };
+      }),
+    );
+
+    expect(placements.length).toBeGreaterThan(1);
+    for (const { expected, actual } of placements) expect(actual).toEqual(expected);
   });
 });

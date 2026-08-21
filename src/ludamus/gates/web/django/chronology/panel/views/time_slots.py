@@ -25,7 +25,7 @@ from ludamus.gates.web.django.chronology.panel.views.base import (
 from ludamus.gates.web.django.forms import TimeSlotForm
 from ludamus.gates.web.django.panel import PanelNavContext
 from ludamus.pacts import NotFoundError
-from ludamus.pacts.event import TimeSlotValidationError
+from ludamus.pacts.event import TimeSlotRejectedError, TimeSlotValidationError
 
 if TYPE_CHECKING:
     from django.http import HttpResponse
@@ -197,9 +197,13 @@ class TimeSlotCreatePageView(PanelAccessMixin, EventContextMixin, View):
             return TemplateResponse(self.request, "panel/time-slots.html", context)
 
         start_time, end_time = _slot_times(form)
-        errors = self.request.services.panel_time_slots.create(
-            event=current_event, start_time=start_time, end_time=end_time
-        )
+        errors: list[TimeSlotValidationError] = []
+        try:
+            self.request.services.panel_time_slots.create(
+                event=current_event, start_time=start_time, end_time=end_time
+            )
+        except TimeSlotRejectedError as error:
+            errors = error.errors
         if errors:
             _add_slot_errors(form, errors)
             context.update(
@@ -266,9 +270,13 @@ class TimeSlotEditPageView(PanelAccessMixin, EventContextMixin, View):
             return TemplateResponse(self.request, "panel/time-slot-edit.html", context)
 
         start_time, end_time = _slot_times(form)
-        errors = self.request.services.panel_time_slots.update(
-            event=current_event, pk=pk, start_time=start_time, end_time=end_time
-        )
+        errors: list[TimeSlotValidationError] = []
+        try:
+            self.request.services.panel_time_slots.update(
+                event=current_event, pk=pk, start_time=start_time, end_time=end_time
+            )
+        except TimeSlotRejectedError as error:
+            errors = error.errors
         if errors:
             _add_slot_errors(form, errors)
             context["active_nav"] = "cfp"

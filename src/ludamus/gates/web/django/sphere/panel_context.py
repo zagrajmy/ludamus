@@ -12,12 +12,12 @@ from django.urls import reverse
 from ludamus.gates.web.django.panel import PanelNavContext
 from ludamus.mills.event import is_proposal_active
 
-# The four tabs in _sphere_tabs_nav.html. Closed for the same reason as the
+# The three tabs in _sphere_tabs_nav.html. Closed for the same reason as the
 # nav keys: a strip whose `active_tab` matches no tab selects nothing, and a
 # `tab_urls` key the template does not ask for resolves to "" — pointing the
 # tab at the current page. Reversing in Python catches a renamed *route*;
 # this catches a renamed *key*.
-SphereTab = Literal["general", "announcements", "connections", "mcp"]
+SphereTab = Literal["general", "announcements", "connections"]
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -74,6 +74,5 @@ def sphere_settings_context(
             "general": reverse("multiverse:panel:sphere-settings"),
             "announcements": reverse("multiverse:panel:announcements"),
             "connections": reverse("multiverse:panel:connections"),
-            "mcp": reverse("multiverse:panel:mcp-token"),
         },
     }

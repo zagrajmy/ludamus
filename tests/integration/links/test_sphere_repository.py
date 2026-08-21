@@ -1,9 +1,12 @@
 import pytest
 from django.core.files.uploadedfile import SimpleUploadedFile
 
+from ludamus.links.db.django.models import SphereMembership
 from ludamus.links.db.django.repositories import SphereRepository
 from ludamus.pacts import NotFoundError, SiteDTO, SphereDTO
-from tests.integration.conftest import PNG_BYTES
+from ludamus.pacts.crowd import UserDTO
+from ludamus.pacts.multiverse import SphereRole
+from tests.integration.conftest import PNG_BYTES, UserFactory
 
 
 class TestSphereRepositoryDomainExists:
@@ -55,3 +58,21 @@ class TestSphereRepositoryLogoUpdate:
         sphere.refresh_from_db()
         assert not sphere.logo
         assert not storage.exists(old_name)
+
+
+class TestSphereRepositoryListManagers:
+    def test_returns_managers_only(self, sphere, django_assert_num_queries):
+        manager = UserFactory(username="boss", name="Boss")
+        SphereMembership.objects.create(
+            sphere=sphere, user=manager, role=SphereRole.MANAGER
+        )
+        SphereMembership.objects.create(
+            sphere=sphere,
+            user=UserFactory(username="press", name="Press"),
+            role=SphereRole.COMMS,
+        )
+
+        with django_assert_num_queries(1):
+            result = SphereRepository.list_managers(sphere.pk)
+
+        assert result == [UserDTO.model_validate(manager)]

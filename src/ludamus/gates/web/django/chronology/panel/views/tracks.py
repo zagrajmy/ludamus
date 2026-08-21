@@ -19,14 +19,26 @@ from ludamus.gates.web.django.chronology.panel.views.base import (
 )
 from ludamus.gates.web.django.forms import TrackForm
 from ludamus.pacts import NotFoundError
-from ludamus.pacts.tracks import TrackFormData
+from ludamus.pacts.tracks import (
+    DuplicateTrackNameError,
+    TrackFormData,
+    TrackSelectionInvalidError,
+)
 
 if TYPE_CHECKING:
     from django.http import HttpResponse
 
+    from ludamus.gates.web.django.event.panel.views.base import PanelContext
+    from ludamus.pacts.tracks import TrackEditFormContextDTO
+
 
 def _submitted_pks(request: PanelRequest, field: str) -> list[int]:
     return [int(pk) for pk in request.POST.getlist(field) if pk.isdigit()]
+
+
+def _add_duplicate_name_error(form: TrackForm) -> None:
+    msg = _("A track with this name already exists in this event. Pick another name.")
+    form.add_error("name", msg)
 
 
 def _submitted_track_data(*, request: PanelRequest, form: TrackForm) -> TrackFormData:
@@ -86,26 +98,45 @@ class TrackCreatePageView(PanelAccessMixin, EventContextMixin, View):
         form = TrackForm(self.request.POST)
 
         if not form.is_valid():
-            form_context = service.get_form_context(
-                event_pk=current_event.pk, sphere_id=sphere_id
+            return self._rerender_create_form(
+                context=context,
+                form=form,
+                event_pk=current_event.pk,
+                sphere_id=sphere_id,
             )
-            context["active_nav"] = "tracks"
-            context["form"] = form
-            context["spaces"] = form_context.spaces
-            context["managers"] = form_context.managers
-            context["selected_space_pks"] = _submitted_pks(self.request, "space_pks")
-            context["selected_manager_pks"] = _submitted_pks(
-                self.request, "manager_pks"
-            )
-            return TemplateResponse(self.request, "panel/track-create.html", context)
 
-        service.create(
-            event_pk=current_event.pk,
-            sphere_id=sphere_id,
-            data=_submitted_track_data(request=self.request, form=form),
+        try:
+            service.create(
+                event_pk=current_event.pk,
+                sphere_id=sphere_id,
+                data=_submitted_track_data(request=self.request, form=form),
+            )
+        except TrackSelectionInvalidError:
+            form.add_error(
+                None, _("Choose spaces from this event and managers from this sphere.")
+            )
+        except DuplicateTrackNameError:
+            _add_duplicate_name_error(form)
+        else:
+            messages.success(self.request, _("Track created successfully."))
+            return redirect("panel:tracks", slug=slug)
+        return self._rerender_create_form(
+            context=context, form=form, event_pk=current_event.pk, sphere_id=sphere_id
         )
-        messages.success(self.request, _("Track created successfully."))
-        return redirect("panel:tracks", slug=slug)
+
+    def _rerender_create_form(
+        self, *, context: PanelContext, form: TrackForm, event_pk: int, sphere_id: int
+    ) -> HttpResponse:
+        form_context = self.request.services.tracks_panel.get_form_context(
+            event_pk=event_pk, sphere_id=sphere_id
+        )
+        context["active_nav"] = "tracks"
+        context["form"] = form
+        context["spaces"] = form_context.spaces
+        context["managers"] = form_context.managers
+        context["selected_space_pks"] = _submitted_pks(self.request, "space_pks")
+        context["selected_manager_pks"] = _submitted_pks(self.request, "manager_pks")
+        return TemplateResponse(self.request, "panel/track-create.html", context)
 
 
 class TrackEditPageView(PanelAccessMixin, EventContextMixin, View):
@@ -147,42 +178,51 @@ class TrackEditPageView(PanelAccessMixin, EventContextMixin, View):
 
         service = self.request.services.tracks_panel
         sphere_id = self.request.context.current_sphere_id
-        form = TrackForm(self.request.POST)
-
+        # Read the track before touching the form, so a stale slug redirects
+        # from one obvious place instead of from whichever render happens to
+        # ask for it first.
         try:
-            if not form.is_valid():
-                return self._rerender_edit_form(
-                    context=context,
-                    form=form,
-                    event_pk=current_event.pk,
-                    sphere_id=sphere_id,
-                    track_slug=track_slug,
-                )
-            service.update(
-                event_pk=current_event.pk,
-                sphere_id=sphere_id,
-                track_slug=track_slug,
-                data=_submitted_track_data(request=self.request, form=form),
+            edit_context = service.get_edit_form_context(
+                event_pk=current_event.pk, sphere_id=sphere_id, track_slug=track_slug
             )
         except NotFoundError:
             messages.error(self.request, _("Track not found."))
             return redirect("panel:tracks", slug=slug)
 
-        messages.success(self.request, _("Track updated successfully."))
-        return redirect("panel:tracks", slug=slug)
+        form = TrackForm(self.request.POST)
+        if form.is_valid():
+            try:
+                service.update(
+                    event_pk=current_event.pk,
+                    sphere_id=sphere_id,
+                    track_slug=track_slug,
+                    data=_submitted_track_data(request=self.request, form=form),
+                )
+            except TrackSelectionInvalidError:
+                form.add_error(
+                    None,
+                    _("Choose spaces from this event and managers from this sphere."),
+                )
+            except DuplicateTrackNameError:
+                _add_duplicate_name_error(form)
+            except NotFoundError:
+                messages.error(self.request, _("Track not found."))
+                return redirect("panel:tracks", slug=slug)
+            else:
+                messages.success(self.request, _("Track updated successfully."))
+                return redirect("panel:tracks", slug=slug)
 
-    def _rerender_edit_form(
+        return self._render_edit_form(
+            context=context, form=form, edit_context=edit_context
+        )
+
+    def _render_edit_form(
         self,
         *,
-        context: dict[str, object],
+        context: PanelContext,
         form: TrackForm,
-        event_pk: int,
-        sphere_id: int,
-        track_slug: str,
+        edit_context: TrackEditFormContextDTO,
     ) -> HttpResponse:
-        edit_context = self.request.services.tracks_panel.get_edit_form_context(
-            event_pk=event_pk, sphere_id=sphere_id, track_slug=track_slug
-        )
         context["active_nav"] = "tracks"
         context["track"] = edit_context.track
         context["form"] = form

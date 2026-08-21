@@ -812,6 +812,7 @@ class TestPanelBaseHeader:
         event = EventFactory(
             sphere=sphere,
             slug="one-day",
+            publication_time=datetime(2026, 7, 1, tzinfo=UTC),
             start_time=datetime(2026, 8, 6, 9, 0, tzinfo=UTC),
             end_time=datetime(2026, 8, 6, 18, 0, tzinfo=UTC),
         )
@@ -831,6 +832,7 @@ class TestPanelBaseHeader:
         event = EventFactory(
             sphere=sphere,
             slug="multi-day",
+            publication_time=datetime(2026, 7, 1, tzinfo=UTC),
             start_time=datetime(2026, 8, 6, 9, 0, tzinfo=UTC),
             end_time=datetime(2026, 8, 8, 12, 0, tzinfo=UTC),
         )

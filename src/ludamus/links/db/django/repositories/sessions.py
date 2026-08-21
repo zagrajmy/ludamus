@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 from django.db import transaction
-from django.db.models import Count, Exists, F, OuterRef, Q, QuerySet, Subquery
+from django.db.models import Count, Exists, F, OuterRef, Prefetch, Q, QuerySet, Subquery
 
 from ludamus.links.db.django.models import (
     SPACE_MAX_DEPTH,
@@ -36,8 +36,6 @@ from ludamus.pacts import (
     EventDTO,
     FacilitatorDTO,
     NotFoundError,
-    PendingSessionDTO,
-    PendingSessionTimeSlotDTO,
     SessionData,
     SessionDTO,
     SessionFieldValueData,
@@ -116,20 +114,76 @@ def annotate_session_participation_counts(
 
 
 def with_session_card_relations(queryset: QuerySet[Session]) -> QuerySet[Session]:
-    # str(space) walks the whole ancestor chain, so eager-load every level up to
-    # the max nesting depth to avoid per-row parent queries.
+    # Everything a card needs whether or not it is on the timetable —
+    # agenda_item included, because the card projector asks every session
+    # whether it has one, and answering that per row is a query. Only its
+    # space chain is scheduled-only: a scheduled queryset composes
+    # with_scheduled_location on top, an unscheduled one must not, or it pays
+    # SPACE_MAX_DEPTH LEFT JOINs that are NULL on every row.
     return queryset.select_related(
-        "presenter",
-        "agenda_item__space" + "__parent" * (SPACE_MAX_DEPTH - 1),
-        "event",
-        "event__sphere",
-        "category",
+        "presenter", "agenda_item", "event", "event__sphere", "category"
     ).prefetch_related(
         "session_participations__user",
         "field_values__field",
         "event__enrollment_configs",
         "tracks",
     )
+
+
+def with_scheduled_location(queryset: QuerySet[Session]) -> QuerySet[Session]:
+    # str(space) walks the whole ancestor chain, so eager-load every level up to
+    # the max nesting depth to avoid per-row parent queries.
+    return queryset.select_related(
+        "agenda_item__space" + "__parent" * (SPACE_MAX_DEPTH - 1)
+    )
+
+
+def with_scheduled_card_relations(queryset: QuerySet[Session]) -> QuerySet[Session]:
+    """Load everything a scheduled session's card prints, including its room."""
+    # Named so a scheduled caller cannot half-remember the pairing: forgetting
+    # with_scheduled_location silently costs SPACE_MAX_DEPTH parent queries per
+    # row, which no test would catch. Unscheduled callers take the base alone.
+    return with_scheduled_location(with_session_card_relations(queryset))
+
+
+def review_inbox_proposals(event_id: int) -> QuerySet[Session]:
+    """Every unscheduled proposal of one event, for an organizer to review."""
+    # Scoped by event_id, not category__event_id: Session.category is nullable,
+    # so joining through it drops a proposal that has no category from both the
+    # review queue and its own author's list. public_scheduled_sessions filters
+    # the same way.
+    # agenda_item__isnull is what "still a proposal" means here, and it is not
+    # the same question as status: a scheduled session commonly keeps PENDING,
+    # so status alone would pull an author's whole programme into their
+    # proposals list. It also scopes the queue to what the review screen can
+    # act on — accepting creates an AgendaItem and a Session has only one, so a
+    # pending session already on the timetable cannot be accepted there. Those
+    # belong to the panel, whose status machine knows about them.
+    # The participation annotation matters as much here as on the scheduled
+    # path: without it every card re-counts its own participants, and the
+    # review queue is unbounded.
+    return (
+        annotate_session_participation_counts(
+            with_session_card_relations(
+                Session.objects.filter(
+                    event_id=event_id,
+                    status=SessionStatus.PENDING,
+                    agenda_item__isnull=True,
+                )
+            )
+        )
+        .prefetch_related(
+            Prefetch("time_slots", queryset=TimeSlot.objects.order_by("start_time"))
+        )
+        .order_by("-creation_time")
+    )
+
+
+def own_pending_proposals(*, event_id: int, presenter_id: int) -> QuerySet[Session]:
+    """Narrow the review queue to one author's own proposals."""
+    # Keyword-only: both arguments are ints and either order type-checks, but
+    # transposing them shows one user another user's proposals.
+    return review_inbox_proposals(event_id).filter(presenter_id=presenter_id)
 
 
 def field_value_dto(fv: SessionFieldValue) -> SessionFieldValueDTO:
@@ -216,7 +270,7 @@ class SessionRepository(SessionRepositoryProtocol, SessionModalRepositoryProtoco
             Session.objects.filter(agenda_item__isnull=False)
         )
         try:
-            session = with_session_card_relations(base).get(
+            session = with_scheduled_card_relations(base).get(
                 pk=session_id, event_id=event_id
             )
         except Session.DoesNotExist:
@@ -427,32 +481,6 @@ class SessionRepository(SessionRepositoryProtocol, SessionModalRepositoryProtoco
     @staticmethod
     def count_by_category(category_id: int) -> int:
         return Session.objects.filter(category_id=category_id).count()
-
-    @staticmethod
-    def read_pending_by_event(event_id: int) -> list[PendingSessionDTO]:
-        sessions = (
-            Session.objects.filter(
-                category__event_id=event_id, status=SessionStatus.PENDING
-            )
-            .prefetch_related("time_slots")
-            .order_by("-creation_time")
-        )
-        return [
-            PendingSessionDTO(
-                contact_email=s.contact_email,
-                creation_time=s.creation_time,
-                description=s.description,
-                participants_limit=s.participants_limit,
-                pk=s.pk,
-                display_name=s.display_name,
-                time_slots=[
-                    PendingSessionTimeSlotDTO.model_validate(ts)
-                    for ts in s.time_slots.all()
-                ],
-                title=s.title,
-            )
-            for s in sessions
-        ]
 
     @staticmethod
     def read_preferred_time_slot_ids(session_id: int) -> list[int]:

@@ -84,7 +84,10 @@ def _spaces_and_tracks(event: Event) -> tuple[list[Space], dict[int, Track]]:
     tracks: dict[int, Track] = {}
     for b in range(BUILDINGS):
         building = Space.objects.create(
-            event=event, parent=None, name=f"{fake.city()} Hall", slug=f"building-{b}"
+            event=event,
+            parent=None,
+            name=f"{fake.unique.city()} Hall",
+            slug=f"building-{b}",
         )
         track = Track.objects.create(
             event=event,

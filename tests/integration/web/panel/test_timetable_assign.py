@@ -35,6 +35,10 @@ from tests.integration.web.panel.helpers import (
 )
 
 
+def _allow_assignments(event):
+    TimeSlotFactory(event=event, start_time=event.start_time, end_time=event.end_time)
+
+
 class TestTimetableGridPartView:
     """Tests for /panel/event/<slug>/timetable/parts/grid/ partial."""
 
@@ -155,6 +159,7 @@ class TestTimetableAssignView:
     ):
         event.auto_confirm_sessions = True
         event.save()
+        _allow_assignments(event)
         space = SpaceFactory(event=event)
         session = make_timetable_session(
             proposal_category, status="accepted", participants_limit=10
@@ -179,6 +184,7 @@ class TestTimetableAssignView:
         self, panel_client, sphere
     ):
         event = EventFactory(sphere=sphere, auto_confirm_sessions=False)
+        _allow_assignments(event)
         space = SpaceFactory(event=event)
         session = SessionFactory(
             category=ProposalCategoryFactory(event=event),
@@ -202,6 +208,7 @@ class TestTimetableAssignView:
 
     @pytest.mark.usefixtures("enrollment_config")
     def test_assign_promotes_waiter(self, panel_client, event, proposal_category):
+        _allow_assignments(event)
         space = SpaceFactory(event=event)
         session = make_timetable_session(
             proposal_category, status="accepted", participants_limit=10
@@ -250,6 +257,7 @@ class TestTimetableAssignView:
     def test_reassigns_already_scheduled_session_to_new_slot(
         self, panel_client, event, proposal_category
     ):
+        _allow_assignments(event)
         old_space = SpaceFactory(event=event)
         new_space = SpaceFactory(event=event)
         session = make_timetable_session(
@@ -294,6 +302,7 @@ class TestTimetableAssignView:
         # A concurrent unassign can remove the placement between the committed
         # write and the advisory conflict sweep; the response must stay 204.
         sphere.managers.add(active_user)
+        _allow_assignments(event)
         space = SpaceFactory(event=event)
         session = SessionFactory(
             category=proposal_category,

@@ -129,6 +129,7 @@ INSTALLED_APPS = [
     "ludamus.links.db.django.apps.DBMainConfig",
     "ludamus.gates.cli.django.apps.CliGatesConfig",
     "ludamus.gates.web.django.apps.WebGatesConfig",
+    "ludamus.links.analytics.apps.AnalyticsConfig",
 ]
 
 MIDDLEWARE = [
@@ -388,6 +389,8 @@ CSP_POLICY: dict[str, list[str]] = {
 # ingestion host in connect-src — script-src stays nonce-only.
 if POSTHOG_API_KEY:
     CSP_POLICY["connect-src"].append(POSTHOG_HOST)
+    # Session replay compresses in a worker built from a blob: URL.
+    CSP_POLICY["worker-src"] = [CSP.SELF, "blob:"]
 
 # CSP enforcement is normally production-only (see the block below), but the
 # e2e suite needs to exercise the real enforcing header — a report-only or

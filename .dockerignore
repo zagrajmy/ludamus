@@ -40,6 +40,8 @@
 **/*.sqlite3
 **/.env
 **/.env.*
+# Committed public baseline; every other env file stays out.
+!.env.production
 **/venv/
 **/ENV/
 **/.venv/

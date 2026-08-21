@@ -13,6 +13,7 @@ from django.shortcuts import redirect
 from django.template.response import TemplateResponse
 from django.urls import reverse
 from django.utils.timezone import get_current_timezone
+from django.utils.translation import gettext as _
 from django.views.generic.base import View
 
 from ludamus.gates.web.django.chronology.panel.views.base import (
@@ -25,11 +26,6 @@ from ludamus.gates.web.django.chronology.panel.views.columns import (
     column_views,
     facilitator_column_values,
 )
-from ludamus.mills.timetable import (
-    ConflictDetectionService,
-    TimetableOverviewService,
-    TimetableService,
-)
 from ludamus.pacts import (
     UNSCHEDULED_LIST_LIMIT,
     NotFoundError,
@@ -41,6 +37,7 @@ from ludamus.pacts.chronology import (
     SessionPlacement,
     TimetableGridFilter,
 )
+from ludamus.pacts.timetable import PlacementRejectedError, PlacementRejection
 
 if TYPE_CHECKING:
     from ludamus.pacts.legacy import TrackDTO
@@ -97,6 +94,23 @@ def _as_pk(raw: str) -> int | None:
 
 
 _FACILITATOR_OPTION_LIMIT = 25
+
+
+def _rejection_response(error: PlacementRejectedError) -> HttpResponse:
+    # Plain text: the client shows this body verbatim to the organizer.
+    return HttpResponse(
+        _placement_rejection_message(error),
+        status=422,
+        content_type="text/plain; charset=utf-8",
+    )
+
+
+def _placement_rejection_message(error: PlacementRejectedError) -> str:
+    if error.reason is PlacementRejection.OUTSIDE_TIME_SLOTS:
+        return _("Place the session inside one of the event's time slots.")
+    if error.reason is PlacementRejection.SESSION_NOT_ACCEPTED:
+        return _("Only accepted sessions can be placed on the schedule.")
+    return _("This placement is invalid.")
 
 
 class _FacilitatorOptions(NamedTuple):
@@ -204,7 +218,7 @@ class TimetablePageView(PanelAccessMixin, EventContextMixin, View):
         facilitator_pks = _parse_pks(self.request.GET, "facilitator")
 
         uow = self.request.di.uow
-        timetable_service = TimetableService(uow)
+        timetable_service = self.request.services.timetable
         grid = timetable_service.build_grid(
             event_pk=current_event.pk,
             tz=get_current_timezone(),
@@ -444,7 +458,7 @@ class TimetableGridPartView(PanelAccessMixin, EventContextMixin, View):
 
         date_selection = _parse_date_selection(self.request.GET.get("date"))
 
-        grid = TimetableService(self.request.di.uow).build_grid(
+        grid = self.request.services.timetable.build_grid(
             event_pk=current_event.pk,
             tz=get_current_timezone(),
             space_page=room_page,
@@ -487,21 +501,22 @@ class TimetableAssignView(PanelAccessMixin, EventContextMixin, View):
         except KeyError, ValueError:
             return HttpResponse(status=422)
 
-        uow = self.request.di.uow
         try:
-            TimetableService(uow).assign_session(
+            self.request.services.timetable.assign_session(
                 session_pk=session_pk,
                 placement=placement,
                 event_pk=current_event.pk,
                 user_pk=self.request.user.pk,
             )
-        except ValueError, NotFoundError:
+        except PlacementRejectedError as error:
+            return _rejection_response(error)
+        except NotFoundError:
             return HttpResponse(status=422)
 
         self.request.services.waitlist_promotion.fill_freed_seats(session_id=session_pk)
 
         try:
-            conflicts = ConflictDetectionService(uow).detect_for_assignment(
+            conflicts = self.request.services.timetable_conflicts.detect_for_assignment(
                 event_pk=current_event.pk, session_pk=session_pk
             )
         except NotFoundError:
@@ -535,9 +550,8 @@ class TimetableUnassignView(PanelAccessMixin, EventContextMixin, View):
         except KeyError, ValueError:
             return HttpResponse(status=422)
 
-        uow = self.request.di.uow
         try:
-            TimetableService(uow).unassign_session(
+            self.request.services.timetable.unassign_session(
                 session_pk=session_pk,
                 event_pk=current_event.pk,
                 user_pk=self.request.user.pk,
@@ -594,11 +608,10 @@ class TimetableOverviewPageView(PanelAccessMixin, EventContextMixin, View):
 
         context["active_nav"] = "timetable"
 
-        uow = self.request.di.uow
-        overview = TimetableOverviewService(uow)
+        overview = self.request.services.timetable_overview
 
         context["heatmap"] = overview.build_heatmap(
-            current_event.pk, tz=get_current_timezone()
+            event_pk=current_event.pk, tz=get_current_timezone()
         )
         context["track_progress"] = overview.track_progress(current_event.pk)
         context["capacity_hours"] = overview.capacity_hours(current_event.pk)
@@ -620,9 +633,8 @@ class TimetableProblemsPageView(PanelAccessMixin, EventContextMixin, View):
 
         context["active_nav"] = "timetable"
 
-        uow = self.request.di.uow
-        conflict_service = ConflictDetectionService(uow)
-        overview = TimetableOverviewService(uow)
+        conflict_service = self.request.services.timetable_conflicts
+        overview = self.request.services.timetable_overview
         all_conflicts = overview.get_all_conflicts(current_event.pk)
         slot_violations = conflict_service.list_preferred_slot_violations(
             event_pk=current_event.pk, track_pk=None
@@ -686,11 +698,12 @@ class TimetableRevertView(PanelAccessMixin, EventContextMixin, View):
         except KeyError, ValueError:
             return HttpResponse(status=422)
 
-        uow = self.request.di.uow
         try:
-            TimetableService(uow).revert_change(
+            self.request.services.timetable.revert_change(
                 log_pk=log_pk, event_pk=current_event.pk, user_pk=self.request.user.pk
             )
+        except PlacementRejectedError as error:
+            return _rejection_response(error)
         except ValueError, NotFoundError:
             return HttpResponse(status=422)
 
@@ -709,7 +722,7 @@ class TimetableConflictsPartView(PanelAccessMixin, EventContextMixin, View):
 
         _, _, filter_track_pk = self.get_track_filter_context(current_event.pk)
 
-        conflicts = ConflictDetectionService(self.request.di.uow).list_all_for_track(
+        conflicts = self.request.services.timetable_conflicts.list_all_for_track(
             event_pk=current_event.pk, track_pk=filter_track_pk
         )
 

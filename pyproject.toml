@@ -47,6 +47,7 @@ dbos = ">=2.28.0,<3"
 unidecode = "^1.4.0"
 lxml = "^6.1.1"
 urllib3 = "^2.7.0"
+posthog = "^7.39.1"
 
 [tool.poetry.group.dev.dependencies]
 black = "^26.1.0"
@@ -221,6 +222,7 @@ module = [
     "ludamus.links.db.django.*",
     "ludamus.links.ticket_api",
     "ludamus.links.google_docs",
+    "ludamus.links.analytics.*",
 ]
 disallow_any_expr = false
 

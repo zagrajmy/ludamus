@@ -90,7 +90,14 @@ class SpaceTreeService(SpaceTreeServiceProtocol):
     def create(
         self, *, event_id: int, parent_id: int | None, data: SpaceInputDTO
     ) -> SpaceRecordDTO:
-        return self._spaces.create(event_id=event_id, parent_id=parent_id, data=data)
+        with self._transaction.atomic():
+            if parent_id is not None:
+                parent = self._spaces.read(parent_id)
+                if parent.event_id != event_id:
+                    raise NotFoundError
+            return self._spaces.create(
+                event_id=event_id, parent_id=parent_id, data=data
+            )
 
     def update(
         self, *, pk: int, parent_id: int | None, data: SpaceInputDTO

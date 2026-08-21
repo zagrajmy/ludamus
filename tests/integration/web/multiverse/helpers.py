@@ -11,17 +11,15 @@ if TYPE_CHECKING:
     from django.http import HttpResponse
 
 PERMISSION_ERROR = "You don't have permission to access the sphere panel."
+READ_ONLY_ROLE_ERROR = "Your role can read the panel, but not make changes here."
 
 TAB_URLS = {
     "general": "/multiverse/panel/",
     "announcements": "/multiverse/panel/announcements/",
     "connections": "/multiverse/panel/connections/",
-    "mcp": "/multiverse/panel/mcp/",
 }
 
 
-# Mirrors gates.web.django.sphere.panel_context, which needs a live request and
-# so cannot be imported here.
 def sphere_sidebar_context(*, active_nav: str) -> dict:
     return {
         "events": [],

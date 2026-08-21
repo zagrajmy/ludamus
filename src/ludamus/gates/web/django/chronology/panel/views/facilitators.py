@@ -23,7 +23,6 @@ from ludamus.gates.web.django.chronology.panel.views.base import (
     facilitator_tab_urls,
     format_field_value,
     pagination_context,
-    safe_next_url,
 )
 from ludamus.gates.web.django.chronology.panel.views.columns import (
     FACILITATOR_COLUMNS,
@@ -41,6 +40,7 @@ from ludamus.gates.web.django.event.panel.views.facilitator_fields import (
     personal_fields_form,
 )
 from ludamus.gates.web.django.forms import ACCREDITATION_TYPE_LABELS, FacilitatorForm
+from ludamus.gates.web.django.panel import safe_next_url
 from ludamus.gates.web.django.sphere.marks import attach_facilitator_guild_marks
 from ludamus.mills.panel_facilitators import (
     MIN_MERGE_FACILITATORS,

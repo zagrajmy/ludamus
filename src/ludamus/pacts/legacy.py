@@ -24,6 +24,7 @@ if TYPE_CHECKING:
         UserRepositoryProtocol,
     )
     from ludamus.pacts.event import FacilitatorListItemDTO
+    from ludamus.pacts.multiverse import SphereRole
     from ludamus.pacts.services import ServicesProtocol
     from ludamus.pacts.submissions import (
         FacilitatorListFilters,
@@ -228,27 +229,6 @@ class SessionDTO(BaseModel):
     title: str
     cover_image_url: str = ""
     cover_image_original_name: str = ""
-
-
-class PendingSessionTimeSlotDTO(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    end_time: datetime
-    pk: int
-    start_time: datetime
-
-
-class PendingSessionDTO(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    contact_email: str
-    creation_time: datetime
-    description: str
-    participants_limit: int
-    pk: int
-    display_name: str
-    time_slots: list[PendingSessionTimeSlotDTO]
-    title: str
 
 
 class LocationData(TypedDict):
@@ -772,7 +752,7 @@ class SphereRepositoryProtocol(Protocol):
     @staticmethod
     def read(pk: int) -> SphereDTO: ...
     @staticmethod
-    def is_manager(sphere_id: int, user_slug: str) -> bool: ...
+    def manager_role(sphere_id: int, user_slug: str) -> SphereRole | None: ...
     @staticmethod
     def list_managers(sphere_id: int) -> list[UserDTO]: ...
     @staticmethod
@@ -828,8 +808,6 @@ class SessionRepositoryProtocol(Protocol):
     def read_time_slots(session_id: int) -> list[TimeSlotDTO]: ...
     @staticmethod
     def count_by_category(category_id: int) -> int: ...
-    @staticmethod
-    def read_pending_by_event(event_id: int) -> list[PendingSessionDTO]: ...
     @staticmethod
     def read_preferred_time_slot_ids(session_id: int) -> list[int]: ...
     @staticmethod
@@ -903,6 +881,8 @@ class TrackRepositoryProtocol(Protocol):
     @staticmethod
     def read(pk: int) -> TrackDTO: ...
     @staticmethod
+    def find_by_event_and_name(event_pk: int, name: str) -> TrackDTO | None: ...
+    @staticmethod
     def read_by_slug(event_pk: int, slug: str) -> TrackDTO: ...
     def update(self, pk: int, data: TrackUpdateData) -> TrackDTO: ...
     @staticmethod
@@ -919,6 +899,8 @@ class TrackRepositoryProtocol(Protocol):
     ) -> list[TrackDTO]: ...
     @staticmethod
     def list_space_pks(pk: int) -> list[int]: ...
+    @staticmethod
+    def list_space_pks_by_event(event_pk: int) -> dict[int, list[int]]: ...
     @staticmethod
     def list_manager_pks(pk: int) -> list[int]: ...
     @staticmethod
@@ -1312,6 +1294,10 @@ class FacilitatorRepositoryProtocol(Protocol):
     @staticmethod
     def read_by_event_and_slug(event_id: int, slug: str) -> FacilitatorDTO: ...
     @staticmethod
+    def find_by_event_and_display_name(
+        event_id: int, display_name: str
+    ) -> FacilitatorDTO | None: ...
+    @staticmethod
     def read_including_deleted(event_id: int, slug: str) -> FacilitatorDTO: ...
     @staticmethod
     def read_by_user_and_event(user_id: int, event_id: int) -> FacilitatorDTO: ...
@@ -1397,6 +1383,7 @@ class ScheduleChangeLogData(TypedDict, total=False):
     old_end_time: datetime | None
     new_start_time: datetime | None
     new_end_time: datetime | None
+    moved_from_id: int | None
 
 
 class ScheduleChangeLogDTO(BaseModel):
@@ -1418,11 +1405,15 @@ class ScheduleChangeLogDTO(BaseModel):
     new_start_time: datetime | None
     new_end_time: datetime | None
     creation_time: datetime
+    # The unassign row this assign row replaced, when the two were one move.
+    moved_from_id: int | None
+    acknowledgement_time: datetime | None
+    acknowledged_by_name: str
 
 
 class ScheduleChangeLogRepositoryProtocol(Protocol):
     @staticmethod
-    def create(data: ScheduleChangeLogData) -> None: ...
+    def create(data: ScheduleChangeLogData) -> int: ...
 
     @staticmethod
     def read(pk: int) -> ScheduleChangeLogDTO: ...
@@ -1431,6 +1422,14 @@ class ScheduleChangeLogRepositoryProtocol(Protocol):
     def list_by_event(
         event_pk: int, *, space_pk: int | None = None
     ) -> list[ScheduleChangeLogDTO]: ...
+
+    @staticmethod
+    def list_since(event_pk: int, since: datetime) -> list[ScheduleChangeLogDTO]: ...
+
+    @staticmethod
+    def set_acknowledged(
+        *, event_pk: int, log_pks: list[int], user_id: int, acknowledged: bool
+    ) -> None: ...
 
     @staticmethod
     def list_by_session(session_id: int) -> list[ScheduleChangeLogDTO]: ...

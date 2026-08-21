@@ -1,7 +1,13 @@
 from django.db import IntegrityError
 from django.db.models import ProtectedError
 
-from ludamus.links.db.django.models import Announcement, Connection, Sphere
+from ludamus.links.db.django.models import (
+    Announcement,
+    Connection,
+    Sphere,
+    SphereMembership,
+)
+from ludamus.links.db.django.repositories.constraints import violates_constraint
 from ludamus.links.db.django.repositories.storage import save_replacing_files
 from ludamus.pacts import (
     NotFoundError,
@@ -20,6 +26,7 @@ from ludamus.pacts.multiverse import (
     DuplicateConnectionDisplayNameError,
     SphereDirectoryRepositoryProtocol,
     SphereListItemDTO,
+    SphereRole,
 )
 
 
@@ -58,16 +65,30 @@ class SphereRepository(
         return SphereDTO.model_validate(sphere)
 
     @staticmethod
-    def is_manager(sphere_id: int, user_slug: str) -> bool:
-        return Sphere.objects.filter(id=sphere_id, managers__slug=user_slug).exists()
+    def manager_role(sphere_id: int, user_slug: str) -> SphereRole | None:
+        role = (
+            SphereMembership.objects.filter(sphere_id=sphere_id, user__slug=user_slug)
+            .values_list("role", flat=True)
+            .first()
+        )
+        return SphereRole(role) if role else None
 
     @staticmethod
     def list_managers(sphere_id: int) -> list[UserDTO]:
-        try:
-            sphere = Sphere.objects.get(pk=sphere_id)
-        except Sphere.DoesNotExist as err:
-            raise NotFoundError from err
-        return [UserDTO.model_validate(u) for u in sphere.managers.order_by("name")]
+        # Only managers: this list is who a track can be handed to, and a
+        # comms member has no business owning one.
+        memberships = list(
+            SphereMembership.objects.filter(
+                sphere_id=sphere_id, role=SphereRole.MANAGER
+            )
+            .select_related("user")
+            .order_by("user__name")
+        )
+        # An empty result is the only case a missing sphere can hide behind, so
+        # the existence probe runs there and nowhere else.
+        if not memberships and not Sphere.objects.filter(pk=sphere_id).exists():
+            raise NotFoundError
+        return [UserDTO.model_validate(m.user) for m in memberships]
 
     @staticmethod
     def update(sphere_id: int, data: SphereUpdateData) -> None:
@@ -79,24 +100,15 @@ class SphereRepository(
         save_replacing_files(sphere, data)
 
 
-_CONNECTION_UNIQUE_DISPLAY_NAME_CONSTRAINT = "connection_unique_display_name_per_sphere"
-_SQLITE_CONNECTION_UNIQUE_DISPLAY_NAME_CONSTRAINT = (
-    "UNIQUE constraint failed: connection.sphere_id, connection.display_name"
+# A plain unique constraint: SQLite names the columns rather than the index.
+_CONNECTION_UNIQUE_DISPLAY_NAME_MARKERS = (
+    "connection_unique_display_name_per_sphere",
+    "UNIQUE constraint failed: connection.sphere_id, connection.display_name",
 )
 
 
 def is_connection_display_name_conflict(exc: IntegrityError) -> bool:
-    diag = getattr(exc.__cause__, "diag", None)
-    if (
-        getattr(diag, "constraint_name", None)
-        == _CONNECTION_UNIQUE_DISPLAY_NAME_CONSTRAINT
-    ):
-        return True
-    message = str(exc)
-    return (
-        _CONNECTION_UNIQUE_DISPLAY_NAME_CONSTRAINT in message
-        or _SQLITE_CONNECTION_UNIQUE_DISPLAY_NAME_CONSTRAINT in message
-    )
+    return violates_constraint(exc, *_CONNECTION_UNIQUE_DISPLAY_NAME_MARKERS)
 
 
 class AnnouncementsRepository(AnnouncementsRepositoryProtocol):

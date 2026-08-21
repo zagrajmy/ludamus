@@ -6,7 +6,7 @@ from ludamus.links.db.django.repositories import SpaceTreeRepository
 from ludamus.links.db.django.transaction import DjangoTransaction
 from ludamus.mills.venues import SpaceTreeService
 from ludamus.pacts import NotFoundError
-from ludamus.pacts.venues import SpaceInputDTO
+from ludamus.pacts.venues import SpaceInputDTO, SpaceValidationError
 from tests.integration.conftest import AgendaItemFactory
 
 
@@ -80,14 +80,14 @@ class TestSpaceTreeRepositoryCreate:
             )
             parent_id = node.pk
 
-        with pytest.raises(ValidationError):
+        with pytest.raises(SpaceValidationError):
             repo.create(event_id=event.pk, parent_id=parent_id, data=space_input("L"))
 
     def test_leaf_with_session_rejects_child(self, event, repo):
         leaf = repo.create(event_id=event.pk, parent_id=None, data=space_input("Room"))
         AgendaItemFactory(space=Space.objects.get(pk=leaf.pk))
 
-        with pytest.raises(ValidationError):
+        with pytest.raises(SpaceValidationError):
             repo.create(event_id=event.pk, parent_id=leaf.pk, data=space_input("Sub"))
 
 

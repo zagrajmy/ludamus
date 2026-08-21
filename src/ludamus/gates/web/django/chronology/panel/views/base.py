@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Any
 from django.core.paginator import Page, Paginator
 from django.http import Http404
 from django.urls import reverse
-from django.utils.http import url_has_allowed_host_and_scheme, urlencode
+from django.utils.http import urlencode
 from django.utils.translation import gettext as _
 
 from ludamus.gates.web.django.event.panel.views.base import (
@@ -17,6 +17,7 @@ from ludamus.gates.web.django.event.panel.views.base import (
     EventPanelAccessMixin,
     EventPanelRequest,
 )
+from ludamus.gates.web.django.panel import safe_next_url
 
 if TYPE_CHECKING:
     from collections.abc import Mapping, Sequence
@@ -41,17 +42,6 @@ def pagination_context[T](request: HttpRequest, items: Sequence[T]) -> dict[str,
     # sizes `paginate` actually honours.
     page_obj = paginate(request, items)
     return {"page_obj": page_obj, "page_sizes": list(PAGE_SIZES)}
-
-
-def safe_next_url(request: HttpRequest, fallback: str) -> str:
-    # Actions post it, links carry it in the query — both spellings mean "the
-    # list the organizer came from", filters and all.
-    next_url = request.POST.get("next") or request.GET.get("next") or ""
-    if next_url and url_has_allowed_host_and_scheme(
-        next_url, allowed_hosts={request.get_host()}, require_https=request.is_secure()
-    ):
-        return next_url
-    return fallback
 
 
 def back_to_proposals(request: HttpRequest, slug: str) -> str:
