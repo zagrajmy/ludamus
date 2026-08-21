@@ -317,3 +317,7 @@ If you fix a papercut, remove it.
   for git. Root cause: PATH must be exported for the whole shell session before
   invoking git commit, not just prefixed on the git commit line, since hk re-
   execs sub-hooks.
+- 2026-08-21: Running focused pytest directly from a worktree failed because ENV
+  was unset; the traceback only later explained pytest-django could not
+  initialize. Use mise run test:int -- PATH so the task supplies the test
+  environment.
