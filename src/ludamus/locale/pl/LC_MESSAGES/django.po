@@ -699,8 +699,8 @@ msgstr "Wybierz przynajmniej jednego użytkownika do zapisu."
 
 #: src/ludamus/gates/web/django/chronology/anonymous.py
 #: src/ludamus/gates/web/django/chronology/panel/views/event_settings.py
-#: src/ludamus/gates/web/django/chronology/views.py
 #: src/ludamus/gates/web/django/event/panel/views/base.py
+#: src/ludamus/gates/web/django/event/propose.py
 msgid "Event not found."
 msgstr "Festiwal nie został znaleziony."
 
@@ -1877,44 +1877,6 @@ msgid "Space copied to %(event)s successfully."
 msgstr "Przestrzeń została skopiowana do %(event)s."
 
 #: src/ludamus/gates/web/django/chronology/views.py
-msgid "Proposal submission is not currently active for this event."
-msgstr "Składanie zgłoszeń nie jest obecnie aktywne dla tego wydarzenia."
-
-#: src/ludamus/gates/web/django/chronology/views.py
-msgid "Please select a category first."
-msgstr "Najpierw wybierz kategorię."
-
-#: src/ludamus/gates/web/django/chronology/views.py
-msgid "Invalid category."
-msgstr "Nieprawidłowa kategoria."
-
-#: src/ludamus/gates/web/django/chronology/views.py
-#: src/ludamus/gates/web/django/forms.py
-msgid "Please select a category."
-msgstr "Wybierz kategorię."
-
-#: src/ludamus/gates/web/django/chronology/views.py
-msgid "Please select at least one time slot."
-msgstr "Wybierz przynajmniej jeden przedział czasowy."
-
-#: src/ludamus/gates/web/django/chronology/views.py
-msgid "Please select at least one track."
-msgstr "Wybierz przynajmniej jedną ścieżkę."
-
-#: src/ludamus/gates/web/django/chronology/views.py
-msgid "Missing session details. Please start over."
-msgstr "Brak szczegółów punktu programu. Zacznij od nowa."
-
-#: src/ludamus/gates/web/django/chronology/views.py
-msgid "Please wait before submitting another proposal."
-msgstr "Poczekaj chwilę przed przesłaniem kolejnego zgłoszenia."
-
-#: src/ludamus/gates/web/django/chronology/views.py
-#, python-brace-format
-msgid "Session proposal '{}' submitted successfully!"
-msgstr "Zgłoszenie punktu programu '{}' zostało pomyślnie przesłane!"
-
-#: src/ludamus/gates/web/django/chronology/views.py
 msgid "There is already a session scheduled at this space and time."
 msgstr "W tej przestrzeni i w tym czasie jest już zaplanowany punkt programu."
 
@@ -2517,6 +2479,44 @@ msgstr "Lista punktów programu"
 #: src/ludamus/gates/web/django/event/print.py
 msgid "Door cards"
 msgstr "Tabliczki na drzwi"
+
+#: src/ludamus/gates/web/django/event/propose.py
+msgid "Proposal submission is not currently active for this event."
+msgstr "Składanie zgłoszeń nie jest obecnie aktywne dla tego wydarzenia."
+
+#: src/ludamus/gates/web/django/event/propose.py
+msgid "Please select a category first."
+msgstr "Najpierw wybierz kategorię."
+
+#: src/ludamus/gates/web/django/event/propose.py
+msgid "Invalid category."
+msgstr "Nieprawidłowa kategoria."
+
+#: src/ludamus/gates/web/django/event/propose.py
+#: src/ludamus/gates/web/django/forms.py
+msgid "Please select a category."
+msgstr "Wybierz kategorię."
+
+#: src/ludamus/gates/web/django/event/propose.py
+msgid "Please select at least one time slot."
+msgstr "Wybierz przynajmniej jeden przedział czasowy."
+
+#: src/ludamus/gates/web/django/event/propose.py
+msgid "Please select at least one track."
+msgstr "Wybierz przynajmniej jedną ścieżkę."
+
+#: src/ludamus/gates/web/django/event/propose.py
+msgid "Missing session details. Please start over."
+msgstr "Brak szczegółów punktu programu. Zacznij od nowa."
+
+#: src/ludamus/gates/web/django/event/propose.py
+msgid "Please wait before submitting another proposal."
+msgstr "Poczekaj chwilę przed przesłaniem kolejnego zgłoszenia."
+
+#: src/ludamus/gates/web/django/event/propose.py
+#, python-brace-format
+msgid "Session proposal '{}' submitted successfully!"
+msgstr "Zgłoszenie punktu programu '{}' zostało pomyślnie przesłane!"
 
 #: src/ludamus/gates/web/django/forms.py
 msgid "Max 8 MB. JPG, PNG, WebP, or AVIF."
