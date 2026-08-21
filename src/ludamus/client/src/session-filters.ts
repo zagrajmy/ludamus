@@ -370,24 +370,20 @@ const initSessionFilters = (): void => {
       filterPanel.classList.remove("is-open");
       filterToggle.setAttribute("aria-expanded", "false");
     };
-    document.addEventListener(
-      "click",
-      (e) => {
-        const target = e.target as Node | null;
-        if (
-          filterPanel.classList.contains("is-open") &&
-          target &&
-          !filtersWrapper.contains(target)
-        ) {
-          closePanel();
-        }
-      },
-      { signal: documentListeners.signal },
-    );
-    filtersWrapper.addEventListener("focusout", () => {
-      requestAnimationFrame(() => {
-        if (!filtersWrapper.contains(document.activeElement)) closePanel();
-      });
+    const closeWhenOutside = (target: EventTarget | null): void => {
+      if (
+        filterPanel.classList.contains("is-open") &&
+        target instanceof Node &&
+        !filtersWrapper.contains(target)
+      ) {
+        closePanel();
+      }
+    };
+    document.addEventListener("click", (e) => closeWhenOutside(e.target), {
+      signal: documentListeners.signal,
+    });
+    document.addEventListener("focusin", (e) => closeWhenOutside(e.target), {
+      signal: documentListeners.signal,
     });
   }
 

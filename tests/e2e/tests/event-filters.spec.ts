@@ -91,7 +91,7 @@ test.describe("Event filter panel", () => {
     const card = (title: string) => page.locator(".session", { hasText: title });
 
     await page.getByRole("button", { name: "Filters" }).click();
-    await page.getByText("Only with enrollment").click();
+    await page.locator("label").filter({ hasText: "Only with enrollment" }).click();
     await expect(page.locator("#filter-panel.is-open")).toBeVisible();
     await expect(page.getByRole("checkbox", { name: "Only with enrollment" })).toBeChecked();
 
