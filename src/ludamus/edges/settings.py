@@ -10,7 +10,6 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
 import json
-from importlib import import_module
 from pathlib import Path
 from urllib.parse import quote
 
@@ -154,26 +153,25 @@ if DEBUG:
     MIDDLEWARE.append("django_browser_reload.middleware.BrowserReloadMiddleware")
 
 
-def _skip_zeal_generic_fk_patch() -> None:
-    # Django 6.1 moved GenericForeignKey.__get__ onto GenericForeignKeyDescriptor,
-    # so django-zeal 2.2.2 patching the field class raises AttributeError and
-    # takes app startup down with it. No model here declares a generic relation,
-    # so dropping this one patch costs no detection.
-    # ponytail: delete once django-zeal patches the descriptor; a model with a
-    # GenericForeignKey would need it back.
-    pass
-
-
 # django-zeal flags every N+1 as it happens (a related-field lazy load
 # repeated across a loop). Active everywhere except production: the dev
 # server and pytest raise so a regression cannot land unnoticed; the e2e
 # server (ENV=test, DEBUG off) logs instead, so a hotspot exercised through
 # the UI shows up in server output without failing unrelated UI tests.
 if DEBUG or IN_TESTS:
-    # Imported by name and swapped through vars(): zeal ships no py.typed, so
-    # neither a real import nor an attribute assignment type-checks.
-    zeal_patch = import_module("zeal.patch")
-    vars(zeal_patch)["patch_generic_foreign_key"] = _skip_zeal_generic_fk_patch
+    import zeal.patch
+
+    def _skip_zeal_generic_fk_patch() -> None:
+        # Django 6.1 moved GenericForeignKey.__get__ onto GenericForeignKeyDescriptor,
+        # so django-zeal 2.2.2 patching the field class raises AttributeError and
+        # takes app startup down with it. No model here declares a generic relation
+        # (tests/integration/test_no_generic_foreign_keys.py holds that line), so
+        # dropping this one patch costs no detection.
+        # ponytail: delete once django-zeal patches the descriptor; a model with a
+        # GenericForeignKey would need it back.
+        pass
+
+    zeal.patch.patch_generic_foreign_key = _skip_zeal_generic_fk_patch
     INSTALLED_APPS.append("zeal")  # patches ORM descriptors in AppConfig.ready
     MIDDLEWARE.insert(0, "zeal.middleware.zeal_middleware")
     ZEAL_RAISE = DEBUG or env("ZEAL_RAISE")
