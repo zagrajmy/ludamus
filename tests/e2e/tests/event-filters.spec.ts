@@ -3,8 +3,6 @@ import { type Locator, type Page } from "@playwright/test";
 import { expect, test } from "./helpers/fixtures";
 
 const MOBILE_WIDTH = 375;
-// The dense seeded event, on the canonical path: /chronology/event/<slug>/ is
-// a permanent redirect kept for links shared before that segment was dropped.
 const DENSE_EVENT_URL = "/event/kapitularz-2025-anonymized/";
 
 test.describe("Event filter panel", () => {
@@ -32,8 +30,6 @@ test.describe("Event filter panel", () => {
     });
     const page = await context.newPage();
 
-    // The dense event is the one that carries all three controls: the view
-    // switcher only appears where there is a second layout to switch to.
     await page.goto(DENSE_EVENT_URL);
 
     const box = async (locator: Locator) => {
@@ -72,12 +68,9 @@ test.describe("Event filter panel", () => {
     await page.getByRole("button", { name: "Filters" }).click();
     await expect(page.locator("#filter-panel.is-open")).toBeVisible();
 
-    // Day and hour filters only surface for multi-day events.
     await expect(page.locator("#day-filter-group")).toBeVisible();
     await expect(page.locator("#hour-filter-group")).toBeVisible();
 
-    // Select the day holding the neon-city adventure by its value (read from the
-    // card itself), so the test doesn't depend on option order or the date.
     const neonDay = await card("Przygoda w Mieście Neonów").getAttribute("data-day");
     if (!neonDay) throw new Error("neon-city card is missing data-day");
     await page.locator("#day-filter").selectOption(neonDay);
@@ -85,7 +78,6 @@ test.describe("Event filter panel", () => {
     await expect(card("Mega Strategy Lab")).toBeHidden();
     await expect(card("Cozy Storytellers Circle")).toBeHidden();
 
-    // Clearing the day and filtering by start hour narrows to the noon session.
     await page.locator("#day-filter").selectOption("");
     await page.locator("#hour-filter").selectOption("12:00");
     await expect(card("Cozy Storytellers Circle")).toBeVisible();
@@ -99,11 +91,12 @@ test.describe("Event filter panel", () => {
     const card = (title: string) => page.locator(".session", { hasText: title });
 
     await page.getByRole("button", { name: "Filters" }).click();
-    await page.getByRole("checkbox", { name: "Only with enrollment" }).check();
+    await page.locator("label").filter({ hasText: "Only with enrollment" }).click();
+    await expect(page.locator("#filter-panel.is-open")).toBeVisible();
+    await expect(page.getByRole("checkbox", { name: "Only with enrollment" })).toBeChecked();
 
     await expect(card("Mega Strategy Lab")).toBeVisible();
     await expect(card("Przygoda w Mieście Neonów")).toBeVisible();
-    // Seeded with no participants limit: a drop-in nobody signs up for.
     await expect(card("Cozy Storytellers Circle")).toBeHidden();
     await expect(page.locator("#active-filter-chips")).toContainText("Only with enrollment");
   });
@@ -112,25 +105,17 @@ test.describe("Event filter panel", () => {
     await page.goto("/event/autumn-open/");
     await page.getByRole("button", { name: "Filters" }).click();
 
-    // Both fields are public selects on this event, so both reach the panel.
-    // Only Mood is answered two ways; Format, which nobody answered, would be
-    // a select whose one option narrows nothing.
     await expect(page.getByRole("combobox", { name: "Mood" })).toBeVisible();
     await expect(page.locator("#tag-filter-format")).toHaveCount(0);
-    // Track clears the same bar, through the same server-side rule.
     await expect(page.locator("#tag-filter-__track")).toHaveCount(0);
   });
 
   test("states the room size while the enrollment window is shut", async ({ page }) => {
-    // The closed-enrollment event has no enrollment window at all, so nothing
-    // here can say "spots left" — the seats a session holds is what is left to
-    // tell, and it is the size, not the remainder.
     await page.goto("/event/closed-enrollment/");
 
     const card = (title: string) => page.locator(".session", { hasText: title });
     await expect(card("Late Resignation Demo 1")).toContainText("5 seats");
     await expect(card("Late Resignation Demo 1")).not.toContainText("spots left");
-    // Seeded with a single seat: the other side of the plural.
     await expect(card("Late Waiting List Demo 1")).toContainText("1 seat");
   });
 
@@ -139,7 +124,6 @@ test.describe("Event filter panel", () => {
 
     const card = (title: string) => page.locator(".session", { hasText: title });
 
-    // "Alex Morgan" hosts Mega Strategy Lab; a lowercase query must still match.
     await page.locator("#session-filter").fill("alex");
     await expect(card("Mega Strategy Lab")).toBeVisible();
     await expect(card("Cozy Storytellers Circle")).toBeHidden();
@@ -147,8 +131,6 @@ test.describe("Event filter panel", () => {
 });
 
 test.describe("Event fuzzy search", () => {
-  // Each session card exposes an accessible link "Open details for <title>",
-  // so we can assert on cards by role + name rather than CSS classes.
   const card = (page: Page, title: string) =>
     page.getByRole("link", { name: `Open details for ${title}` });
 
@@ -165,8 +147,6 @@ test.describe("Event fuzzy search", () => {
   });
 
   test("matches multiple tokens across title and host, ignoring diacritics", async ({ page }) => {
-    // "Przygoda w Mieście Neonów" hosted by "Radek Włodarczyk": tokens span the
-    // title (sans diacritics) and the host name.
     await searchBox(page).fill("przygoda neonow radek");
 
     await expect(card(page, NEON)).toBeVisible();
@@ -175,8 +155,6 @@ test.describe("Event fuzzy search", () => {
   });
 
   test('folds the Polish "ł", which NFD leaves intact', async ({ page }) => {
-    // Host "Radek Włodarczyk": "ł" has no NFD decomposition, so the
-    // stroke-less query "wlodarczyk" only matches with the explicit fold.
     await searchBox(page).fill("wlodarczyk");
 
     await expect(card(page, NEON)).toBeVisible();
@@ -191,7 +169,6 @@ test.describe("Event fuzzy search", () => {
   });
 
   test("matches a word that only appears in the description", async ({ page }) => {
-    // "Jumanji" is in the neon session's blurb, not its title or host.
     await searchBox(page).fill("jumanji");
 
     await expect(card(page, NEON)).toBeVisible();
@@ -200,7 +177,6 @@ test.describe("Event fuzzy search", () => {
   });
 
   test("combines a title token with a description token", async ({ page }) => {
-    // "neonow" comes from the title, "jumanji" from the description.
     await searchBox(page).fill("neonow jumanji");
 
     await expect(card(page, NEON)).toBeVisible();
@@ -289,9 +265,6 @@ test.describe("Rooms view filtering", () => {
     await page.goto(denseEventUrl);
 
     const lanes = page.locator(".room-lanes").first();
-    // Count what the collapse itself marks, not what is visible: the hour
-    // gridlines double as .time-slot-section, whose [hidden] belongs to
-    // session-filters.ts, and the head's column rules are drawn at zero height.
     const rowSelector = ".room-lanes-time[data-lane-row]";
     const roomSelector = ".room-lanes-head [data-lane-col]";
     const shownRows = async (): Promise<number> =>
@@ -305,8 +278,6 @@ test.describe("Rooms view filtering", () => {
     expect(rowCount).toBeGreaterThan(1);
     expect(roomCount).toBeGreaterThan(1);
 
-    // Search one session's title: the rows and columns left holding nothing
-    // must collapse rather than keep their server-rendered track size.
     const title = await lanes
       .locator(".room-lanes-cell .session [data-morph='title']")
       .first()
@@ -316,16 +287,11 @@ test.describe("Rooms view filtering", () => {
     await expect.poll(shownRooms).toBeLessThan(roomCount);
     await expect.poll(shownRows).toBeLessThan(rowCount);
 
-    // Clearing the search restores every track.
     await page.locator("#session-filter").fill("");
     await expect.poll(shownRooms).toBe(roomCount);
     await expect.poll(shownRows).toBe(rowCount);
   });
 
-  // The placement rules moved out of style attributes and into a nonced style
-  // element keyed on the data-* indices (issue #743). Nothing server-side can
-  // tell whether they still land: a missing rule stacks every tile in the first
-  // cell and still renders a plausible-looking page.
   test("places each tile in the column and row its data attributes name", async ({ page }) => {
     await page.goto(denseEventUrl);
 
