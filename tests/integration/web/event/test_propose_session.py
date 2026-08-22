@@ -2200,8 +2200,8 @@ class TestProposeSessionPageView:
     ):
         self._activate_proposals(event, faker, time_zone)
         categories = [
-            ProposalCategoryFactory(event=event),
-            ProposalCategoryFactory(event=event),
+            ProposalCategoryFactory(event=event, name="Board Game"),
+            ProposalCategoryFactory(event=event, name="RPG Session"),
         ]
 
         response = authenticated_client.post(self._get_category_url(event.slug), {})
