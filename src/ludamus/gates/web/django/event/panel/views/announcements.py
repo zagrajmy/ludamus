@@ -24,8 +24,9 @@ class EventAnnouncementPageMixin(EventPanelAccessMixin, EventContextMixin):
 
     def page(self, **kwargs: str) -> AnnouncementPage:
         slug = kwargs["slug"]
-        context, current_event = self.require_event_context(slug)
-        context["active_nav"] = "announcements"
+        context, current_event = self.require_sidebar_context(
+            slug, active_nav="announcements"
+        )
         return AnnouncementPage(
             announcements=self.request.services.announcements,
             scope=AnnouncementScope(event_id=current_event.pk),

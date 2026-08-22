@@ -15,7 +15,7 @@ from tests.integration.utils import assert_login_required, assert_response
 from tests.integration.web.panel.helpers import (
     assert_event_not_found,
     assert_not_a_manager,
-    panel_context,
+    sidebar_context,
 )
 
 NOT_FOUND_ERROR = "Announcement not found."
@@ -59,7 +59,7 @@ class TestAnnouncementsPageView:
             HTTPStatus.OK,
             template_name="panel/announcements.html",
             context_data={
-                **panel_context(event, active_nav="announcements"),
+                **sidebar_context(event, active_nav="announcements"),
                 "announcements": [],
             },
         )
@@ -75,7 +75,7 @@ class TestAnnouncementsPageView:
             HTTPStatus.OK,
             template_name="panel/announcements.html",
             context_data={
-                **panel_context(event, active_nav="announcements"),
+                **sidebar_context(event, active_nav="announcements"),
                 "announcements": [
                     AnnouncementDTO.model_validate(published),
                     AnnouncementDTO.model_validate(draft),
@@ -95,7 +95,7 @@ class TestAnnouncementsPageView:
             HTTPStatus.OK,
             template_name="panel/announcements.html",
             context_data={
-                **panel_context(event, active_nav="announcements"),
+                **sidebar_context(event, active_nav="announcements"),
                 "announcements": [],
             },
         )
@@ -120,7 +120,7 @@ class TestAnnouncementsPageView:
             HTTPStatus.OK,
             template_name="panel/announcements.html",
             context_data={
-                **panel_context(event, active_nav="announcements"),
+                **sidebar_context(event, active_nav="announcements"),
                 "events": [
                     EventDTO.model_validate(sibling),
                     EventDTO.model_validate(event),
@@ -155,7 +155,7 @@ class TestAnnouncementCreatePageView:
             HTTPStatus.OK,
             template_name="panel/announcement-form.html",
             context_data={
-                **panel_context(event, active_nav="announcements"),
+                **sidebar_context(event, active_nav="announcements"),
                 "form": ANY,
                 "announcement": None,
             },
@@ -194,7 +194,7 @@ class TestAnnouncementCreatePageView:
             HTTPStatus.OK,
             template_name="panel/announcement-form.html",
             context_data={
-                **panel_context(event, active_nav="announcements"),
+                **sidebar_context(event, active_nav="announcements"),
                 "form": ANY,
                 "announcement": None,
             },
@@ -234,7 +234,7 @@ class TestAnnouncementEditPageView:
             HTTPStatus.OK,
             template_name="panel/announcement-form.html",
             context_data={
-                **panel_context(event, active_nav="announcements"),
+                **sidebar_context(event, active_nav="announcements"),
                 "form": ANY,
                 "announcement": AnnouncementDTO.model_validate(announcement),
             },
@@ -284,7 +284,7 @@ class TestAnnouncementEditPageView:
             HTTPStatus.OK,
             template_name="panel/announcement-form.html",
             context_data={
-                **panel_context(event, active_nav="announcements"),
+                **sidebar_context(event, active_nav="announcements"),
                 "form": ANY,
                 "announcement": AnnouncementDTO.model_validate(announcement),
             },

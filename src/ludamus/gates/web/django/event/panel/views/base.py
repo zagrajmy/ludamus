@@ -16,7 +16,9 @@ from ludamus.pacts.multiverse import Capability
 if TYPE_CHECKING:
     from django.http import HttpResponseRedirect
 
+    from ludamus.gates.web.django.panel import PanelNav, PanelSidebarContext
     from ludamus.pacts import AuthenticatedRequestContext, EventDTO
+    from ludamus.pacts.event import EventPanelContextDTO
     from ludamus.pacts.services import ServicesProtocol
 
 
@@ -51,13 +53,17 @@ class EventPanelAccessMixin(LoginRequiredMixin, UserPassesTestMixin):
 class EventContextMixin:
     request: EventPanelRequest
 
-    def get_event_context(self, slug: str) -> tuple[PanelContext, EventDTO | None]:
+    def load_panel_context(self, slug: str) -> EventPanelContextDTO | None:
         try:
-            page = self.request.services.event_panel.load_context(
+            return self.request.services.event_panel.load_context(
                 self.request.context.current_sphere_id, slug
             )
         except NotFoundError:
             messages.error(self.request, _("Event not found."))
+            return None
+
+    def get_event_context(self, slug: str) -> tuple[PanelContext, EventDTO | None]:
+        if (page := self.load_panel_context(slug)) is None:
             return {}, None
 
         return {
@@ -65,6 +71,20 @@ class EventContextMixin:
             "current_event": page.current_event,
             "is_proposal_active": page.is_proposal_active,
             "stats": page.stats.model_dump(),
+        }, page.current_event
+
+    # The typed half of `get_event_context`: everything `panel/base.html` reads
+    # and nothing else, so a page whose context is a TypedDict can take it.
+    def require_sidebar_context(
+        self, slug: str, *, active_nav: PanelNav
+    ) -> tuple[PanelSidebarContext, EventDTO]:
+        if (page := self.load_panel_context(slug)) is None:
+            raise RedirectError(reverse("panel:index"))
+        return {
+            "events": page.events,
+            "current_event": page.current_event,
+            "is_proposal_active": page.is_proposal_active,
+            "active_nav": active_nav,
         }, page.current_event
 
     def require_event_context(self, slug: str) -> tuple[PanelContext, EventDTO]:

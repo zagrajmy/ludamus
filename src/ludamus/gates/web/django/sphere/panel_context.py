@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, Literal
 
 from django.urls import reverse
 
-from ludamus.gates.web.django.panel import PanelNavContext
+from ludamus.gates.web.django.panel import PanelSidebarContext
 from ludamus.mills.event import is_proposal_active
 
 # The three tabs in _sphere_tabs_nav.html. Closed for the same reason as the
@@ -20,20 +20,11 @@ from ludamus.mills.event import is_proposal_active
 SphereTab = Literal["general", "announcements", "connections"]
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
-
     from ludamus.gates.web.django.multiverse.access import MultiverseRequest
     from ludamus.gates.web.django.panel import PanelNav
-    from ludamus.pacts import EventDTO
 
 
-class SphereSidebar(PanelNavContext):
-    events: Sequence[EventDTO]
-    current_event: EventDTO | None
-    is_proposal_active: bool
-
-
-class SphereSettings(SphereSidebar):
+class SphereSettings(PanelSidebarContext):
     active_tab: SphereTab
     tab_urls: dict[SphereTab, str]
 
@@ -43,7 +34,7 @@ class SphereSettings(SphereSidebar):
 # with no events gracefully hides the event-scoped items.
 def sphere_sidebar_context(
     request: MultiverseRequest, *, active_nav: PanelNav
-) -> SphereSidebar:
+) -> PanelSidebarContext:
     events = request.services.sphere_panel.list_events(
         request.context.current_sphere_id
     )

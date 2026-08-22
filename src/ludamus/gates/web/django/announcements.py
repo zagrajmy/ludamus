@@ -25,6 +25,7 @@ if TYPE_CHECKING:
 
     from django.http import HttpRequest, HttpResponse
 
+    from ludamus.gates.web.django.panel import PanelSidebarContext
     from ludamus.pacts.multiverse import (
         AnnouncementDTO,
         AnnouncementScope,
@@ -36,7 +37,7 @@ class AnnouncementPage(NamedTuple):
     announcements: AnnouncementsServiceProtocol
     scope: AnnouncementScope
     list_url: str
-    context: dict[str, object]
+    context: PanelSidebarContext
 
 
 def _not_found(page: AnnouncementPage) -> RedirectError:

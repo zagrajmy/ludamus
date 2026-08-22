@@ -33,9 +33,7 @@ class SphereAnnouncementPageMixin(SphereAccessMixin):
             announcements=self.request.services.announcements,
             scope=AnnouncementScope(sphere_id=self.request.context.current_sphere_id),
             list_url=reverse("multiverse:panel:announcements"),
-            context={
-                **sphere_settings_context(self.request, active_tab="announcements")
-            },
+            context=sphere_settings_context(self.request, active_tab="announcements"),
         )
 
 
