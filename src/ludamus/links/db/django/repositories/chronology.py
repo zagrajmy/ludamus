@@ -4,15 +4,7 @@ from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 from django.db import IntegrityError
-from django.db.models import (
-    Count,
-    Exists,
-    IntegerField,
-    OuterRef,
-    Q,
-    QuerySet,
-    Subquery,
-)
+from django.db.models import Count, IntegerField, OuterRef, Q, QuerySet, Subquery
 from django.db.models.functions import Coalesce
 
 from ludamus.links.db.django.models import (
@@ -26,7 +18,6 @@ from ludamus.links.db.django.models import (
     Session,
     SessionParticipation,
     Space,
-    Track,
     UserEnrollmentConfig,
 )
 from ludamus.links.db.django.repositories.storage import save_replacing_files
@@ -163,20 +154,14 @@ def session_card_stats(session: Session) -> SessionCardStatsDTO:
     )
 
 
-def hide_private_track_sessions(queryset: QuerySet[Session]) -> QuerySet[Session]:
-    # A session without tracks is public (events that don't use tracks at all);
-    # one with tracks needs at least one public track. Exists() rather than
-    # Count("tracks"): a third aggregate over a m2m fans out the joins and
-    # inflates the participation counts annotated alongside.
-    return queryset.filter(
-        Exists(Track.objects.filter(sessions=OuterRef("pk"), is_public=True))
-        | ~Exists(Track.objects.filter(sessions=OuterRef("pk"), is_public=False))
-    )
-
-
 def public_scheduled_sessions(event_id: int | OuterRef) -> QuerySet[Session]:
-    return hide_private_track_sessions(
-        Session.objects.filter(event_id=event_id, agenda_item__isnull=False)
+    # A session without tracks is public (events that don't use tracks at all);
+    # one with tracks needs every one of them public, so a session sitting in
+    # both a public and a private track stays hidden. exclude() over the m2m
+    # compiles to a correlated NOT EXISTS, so it neither fans the joins out nor
+    # inflates the participation counts annotated alongside.
+    return Session.objects.filter(event_id=event_id, agenda_item__isnull=False).exclude(
+        tracks__is_public=False
     )
 
 

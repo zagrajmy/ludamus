@@ -687,7 +687,10 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
                 presenter=presenter,
                 presenter_is_shadowbanned=presenter.pk in shadowbanned_ids,
                 field_values=_field_value_dtos_from_models(session.field_values.all()),
-                track_names=[t.name for t in session.tracks.all() if t.is_public],
+                # Unfiltered: the schedule queryset drops a session with any
+                # private track outright, so the only cards left carrying one
+                # are proposals, whose readers are organizers and the author.
+                track_names=[t.name for t in session.tracks.all()],
                 category_name=session.category.name if session.category else "",
                 # is_session_eligible dereferences agenda_item, and an
                 # unscheduled proposal can't be enrolled in anyway.
