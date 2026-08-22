@@ -1,164 +1,65 @@
+"""Sphere announcement views (news shown on the sphere landing page)."""
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from django.contrib import messages
-from django.shortcuts import redirect
 from django.template.response import TemplateResponse
 from django.urls import reverse
-from django.utils.translation import gettext as _
-from django.views.generic.base import View
 
+from ludamus.gates.web.django.announcements import (
+    AnnouncementCreateBase,
+    AnnouncementDeleteBase,
+    AnnouncementEditBase,
+    AnnouncementPage,
+    AnnouncementsListBase,
+)
 from ludamus.gates.web.django.multiverse.access import (
     MultiverseRequest,
     SphereAccessMixin,
 )
-from ludamus.gates.web.django.multiverse.panel.forms import AnnouncementForm
 from ludamus.gates.web.django.sphere.panel_context import sphere_settings_context
-from ludamus.pacts import NotFoundError, RedirectError
-from ludamus.pacts.multiverse import AnnouncementData
+from ludamus.pacts.multiverse import AnnouncementScope
 
 if TYPE_CHECKING:
-    from django.http import HttpResponse
+    from django.http import HttpRequest, HttpResponse
 
 
-def _announcement_not_found() -> RedirectError:
-    return RedirectError(
-        reverse("multiverse:panel:announcements"), error=_("Announcement not found.")
-    )
-
-
-def _form_data(form: AnnouncementForm) -> AnnouncementData:
-    return AnnouncementData(
-        title=form.cleaned_data["title"],
-        content=form.cleaned_data["content"],
-        is_published=form.cleaned_data["is_published"],
-    )
-
-
-class AnnouncementsPageView(SphereAccessMixin, View):
+class SphereAnnouncementPageMixin(SphereAccessMixin):
     request: MultiverseRequest
 
-    def get(self, _request: MultiverseRequest) -> HttpResponse:
-        sphere_id = self.request.context.current_sphere_id
-        announcements = self.request.services.announcements.list_for_sphere(sphere_id)
-        return TemplateResponse(
-            self.request,
-            "multiverse/panel/announcements/list.html",
-            {
-                **sphere_settings_context(self.request, active_tab="announcements"),
-                "announcements": announcements,
-            },
+    def page(self, **_kwargs: str) -> AnnouncementPage:
+        return AnnouncementPage(
+            announcements=self.request.services.announcements,
+            scope=AnnouncementScope(sphere_id=self.request.context.current_sphere_id),
+            list_url=reverse("multiverse:panel:announcements"),
+            context=sphere_settings_context(self.request, active_tab="announcements"),
         )
 
 
-class AnnouncementCreatePageView(SphereAccessMixin, View):
+class AnnouncementsPageView(SphereAnnouncementPageMixin, AnnouncementsListBase):
     request: MultiverseRequest
-
-    def get(self, _request: MultiverseRequest) -> HttpResponse:
-        return TemplateResponse(
-            self.request,
-            "multiverse/panel/announcements/create.html",
-            {
-                **sphere_settings_context(self.request, active_tab="announcements"),
-                "form": AnnouncementForm(),
-            },
-        )
-
-    def post(self, _request: MultiverseRequest) -> HttpResponse:
-        form = AnnouncementForm(self.request.POST)
-        if not form.is_valid():
-            return TemplateResponse(
-                self.request,
-                "multiverse/panel/announcements/create.html",
-                {
-                    **sphere_settings_context(self.request, active_tab="announcements"),
-                    "form": form,
-                },
-            )
-
-        sphere_id = self.request.context.current_sphere_id
-        self.request.services.announcements.create(sphere_id, _form_data(form))
-        messages.success(self.request, _("Announcement created successfully."))
-        return redirect("multiverse:panel:announcements")
+    template_name = "multiverse/panel/announcements/list.html"
 
 
-class AnnouncementEditPageView(SphereAccessMixin, View):
+class AnnouncementCreatePageView(SphereAnnouncementPageMixin, AnnouncementCreateBase):
     request: MultiverseRequest
-
-    def get(self, _request: MultiverseRequest, pk: int) -> HttpResponse:
-        sphere_id = self.request.context.current_sphere_id
-        try:
-            announcement = self.request.services.announcements.get(sphere_id, pk)
-        except NotFoundError:
-            raise _announcement_not_found() from None
-
-        form = AnnouncementForm(
-            initial={
-                "title": announcement.title,
-                "content": announcement.content,
-                "is_published": announcement.is_published,
-            }
-        )
-        return TemplateResponse(
-            self.request,
-            "multiverse/panel/announcements/edit.html",
-            {
-                **sphere_settings_context(self.request, active_tab="announcements"),
-                "form": form,
-                "announcement": announcement,
-            },
-        )
-
-    def post(self, _request: MultiverseRequest, pk: int) -> HttpResponse:
-        sphere_id = self.request.context.current_sphere_id
-        try:
-            announcement = self.request.services.announcements.get(sphere_id, pk)
-        except NotFoundError:
-            raise _announcement_not_found() from None
-
-        form = AnnouncementForm(self.request.POST)
-        if not form.is_valid():
-            return TemplateResponse(
-                self.request,
-                "multiverse/panel/announcements/edit.html",
-                {
-                    **sphere_settings_context(self.request, active_tab="announcements"),
-                    "form": form,
-                    "announcement": announcement,
-                },
-            )
-
-        self.request.services.announcements.update(sphere_id, pk, _form_data(form))
-        messages.success(self.request, _("Announcement updated successfully."))
-        return redirect("multiverse:panel:announcements")
+    template_name = "multiverse/panel/announcements/create.html"
 
 
-class AnnouncementDeletePageView(SphereAccessMixin, View):
+class AnnouncementEditPageView(SphereAnnouncementPageMixin, AnnouncementEditBase):
     request: MultiverseRequest
+    template_name = "multiverse/panel/announcements/edit.html"
 
-    def get(self, _request: MultiverseRequest, pk: int) -> HttpResponse:
-        sphere_id = self.request.context.current_sphere_id
-        try:
-            announcement = self.request.services.announcements.get(sphere_id, pk)
-        except NotFoundError:
-            raise _announcement_not_found() from None
 
+class AnnouncementDeletePageView(SphereAnnouncementPageMixin, AnnouncementDeleteBase):
+    request: MultiverseRequest
+    template_name = "multiverse/panel/announcements/delete.html"
+
+    def get(self, _request: HttpRequest, pk: int, **kwargs: str) -> HttpResponse:
+        page = self.page(**kwargs)
         return TemplateResponse(
             self.request,
-            "multiverse/panel/announcements/delete.html",
-            {
-                **sphere_settings_context(self.request, active_tab="announcements"),
-                "announcement": announcement,
-            },
+            self.template_name,
+            {**page.context, "announcement": self.read(page, pk)},
         )
-
-    def post(self, _request: MultiverseRequest, pk: int) -> HttpResponse:
-        sphere_id = self.request.context.current_sphere_id
-        try:
-            self.request.services.announcements.delete(sphere_id, pk)
-        except NotFoundError:
-            raise _announcement_not_found() from None
-
-        messages.success(self.request, _("Announcement deleted successfully."))
-        return redirect("multiverse:panel:announcements")

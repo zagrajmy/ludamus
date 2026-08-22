@@ -1,5 +1,5 @@
 from django.db import IntegrityError
-from django.db.models import ProtectedError
+from django.db.models import ProtectedError, Q, QuerySet
 
 from ludamus.links.db.django.models import (
     Announcement,
@@ -19,6 +19,7 @@ from ludamus.pacts.crowd import SphereDomainRepositoryProtocol, UserDTO
 from ludamus.pacts.multiverse import (
     AnnouncementData,
     AnnouncementDTO,
+    AnnouncementScope,
     AnnouncementsRepositoryProtocol,
     ConnectionDTO,
     ConnectionInUseError,
@@ -111,33 +112,49 @@ def is_connection_display_name_conflict(exc: IntegrityError) -> bool:
     return violates_constraint(exc, *_CONNECTION_UNIQUE_DISPLAY_NAME_MARKERS)
 
 
+def _scoped(scope: AnnouncementScope) -> QuerySet[Announcement]:
+    # Every read and write goes through here, so a caller can never reach an
+    # announcement outside the scope it proved access to. An unset scope side
+    # is spelled as `isnull` rather than `field_id=None`, which django-stubs
+    # rejects as a lookup value.
+    sphere = (
+        Q(sphere_id=scope.sphere_id)
+        if scope.sphere_id is not None
+        else Q(sphere__isnull=True)
+    )
+    event = (
+        Q(event_id=scope.event_id)
+        if scope.event_id is not None
+        else Q(event__isnull=True)
+    )
+    return Announcement.objects.filter(sphere, event)
+
+
 class AnnouncementsRepository(AnnouncementsRepositoryProtocol):
     @staticmethod
-    def list_for_sphere(sphere_id: int) -> list[AnnouncementDTO]:
+    def list_for_scope(scope: AnnouncementScope) -> list[AnnouncementDTO]:
+        return [AnnouncementDTO.model_validate(a) for a in _scoped(scope)]
+
+    @staticmethod
+    def list_published(scope: AnnouncementScope) -> list[AnnouncementDTO]:
         return [
             AnnouncementDTO.model_validate(a)
-            for a in Announcement.objects.filter(sphere_id=sphere_id)
+            for a in _scoped(scope).filter(is_published=True)
         ]
 
     @staticmethod
-    def list_published(sphere_id: int) -> list[AnnouncementDTO]:
-        return [
-            AnnouncementDTO.model_validate(a)
-            for a in Announcement.objects.filter(sphere_id=sphere_id, is_published=True)
-        ]
-
-    @staticmethod
-    def get(sphere_id: int, pk: int) -> AnnouncementDTO:
+    def get(scope: AnnouncementScope, pk: int) -> AnnouncementDTO:
         try:
-            announcement = Announcement.objects.get(pk=pk, sphere_id=sphere_id)
+            announcement = _scoped(scope).get(pk=pk)
         except Announcement.DoesNotExist as exc:
             raise NotFoundError from exc
         return AnnouncementDTO.model_validate(announcement)
 
     @staticmethod
-    def create(sphere_id: int, data: AnnouncementData) -> AnnouncementDTO:
+    def create(scope: AnnouncementScope, data: AnnouncementData) -> AnnouncementDTO:
         announcement = Announcement.objects.create(
-            sphere_id=sphere_id,
+            sphere_id=scope.sphere_id,
+            event_id=scope.event_id,
             title=data.title,
             content=data.content,
             is_published=data.is_published,
@@ -145,9 +162,11 @@ class AnnouncementsRepository(AnnouncementsRepositoryProtocol):
         return AnnouncementDTO.model_validate(announcement)
 
     @staticmethod
-    def update(sphere_id: int, pk: int, data: AnnouncementData) -> AnnouncementDTO:
+    def update(
+        scope: AnnouncementScope, pk: int, data: AnnouncementData
+    ) -> AnnouncementDTO:
         try:
-            announcement = Announcement.objects.get(pk=pk, sphere_id=sphere_id)
+            announcement = _scoped(scope).get(pk=pk)
         except Announcement.DoesNotExist as exc:
             raise NotFoundError from exc
         announcement.title = data.title
@@ -159,8 +178,8 @@ class AnnouncementsRepository(AnnouncementsRepositoryProtocol):
         return AnnouncementDTO.model_validate(announcement)
 
     @staticmethod
-    def delete(sphere_id: int, pk: int) -> None:
-        deleted, _ = Announcement.objects.filter(pk=pk, sphere_id=sphere_id).delete()
+    def delete(scope: AnnouncementScope, pk: int) -> None:
+        deleted, _ = _scoped(scope).filter(pk=pk).delete()
         if not deleted:
             raise NotFoundError
 

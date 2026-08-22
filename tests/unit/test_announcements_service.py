@@ -1,8 +1,19 @@
 from contextlib import contextmanager
 from datetime import UTC, datetime
 
+import pytest
+from pydantic import ValidationError
+
 from ludamus.mills.multiverse import AnnouncementsService
-from ludamus.pacts.multiverse import AnnouncementData, AnnouncementDTO
+from ludamus.pacts.multiverse import (
+    AnnouncementData,
+    AnnouncementDTO,
+    AnnouncementScope,
+)
+
+SPHERE = AnnouncementScope(sphere_id=1)
+OTHER_SPHERE = AnnouncementScope(sphere_id=2)
+EVENT = AnnouncementScope(event_id=1)
 
 
 @contextmanager
@@ -19,16 +30,21 @@ class FakeTransaction:
         return _atomic()
 
 
-def _dto(pk, *, sphere_id=1, is_published=True):
+def _dto(pk, *, scope=SPHERE, is_published=True):
     return AnnouncementDTO(
         pk=pk,
-        sphere_id=sphere_id,
+        sphere_id=scope.sphere_id,
+        event_id=scope.event_id,
         title=f"title-{pk}",
         content=f"content-{pk}",
         is_published=is_published,
         creation_time=datetime(2026, 6, 16, tzinfo=UTC),
         modification_time=datetime(2026, 6, 16, tzinfo=UTC),
     )
+
+
+def _scope_of(dto):
+    return AnnouncementScope(sphere_id=dto.sphere_id, event_id=dto.event_id)
 
 
 class FakeRepo:
@@ -39,41 +55,49 @@ class FakeRepo:
         self.updated = []
         self.deleted = []
 
-    def list_for_sphere(self, sphere_id):
-        return [d for d in self._all if d.sphere_id == sphere_id]
+    def list_for_scope(self, scope):
+        return [d for d in self._all if _scope_of(d) == scope]
 
-    def list_published(self, sphere_id):
-        return [d for d in self._published if d.sphere_id == sphere_id]
+    def list_published(self, scope):
+        return [d for d in self._published if _scope_of(d) == scope]
 
-    def get(self, sphere_id, pk):
-        return next(d for d in self._all if d.sphere_id == sphere_id and d.pk == pk)
+    def get(self, scope, pk):
+        return next(d for d in self._all if _scope_of(d) == scope and d.pk == pk)
 
-    def create(self, sphere_id, data):
-        self.created.append((sphere_id, data))
-        return _dto(99, sphere_id=sphere_id, is_published=data.is_published)
+    def create(self, scope, data):
+        self.created.append((scope, data))
+        return _dto(99, scope=scope, is_published=data.is_published)
 
-    def update(self, sphere_id, pk, data):
-        self.updated.append((sphere_id, pk, data))
-        return _dto(pk, sphere_id=sphere_id, is_published=data.is_published)
+    def update(self, scope, pk, data):
+        self.updated.append((scope, pk, data))
+        return _dto(pk, scope=scope, is_published=data.is_published)
 
-    def delete(self, sphere_id, pk):
-        self.deleted.append((sphere_id, pk))
+    def delete(self, scope, pk):
+        self.deleted.append((scope, pk))
 
 
 class TestAnnouncementsService:
-    def test_list_for_sphere_delegates_scoped_to_sphere(self):
-        repo = FakeRepo(all_items=[_dto(1), _dto(2, sphere_id=2)])
+    def test_list_for_scope_delegates_scoped(self):
+        repo = FakeRepo(all_items=[_dto(1), _dto(2, scope=OTHER_SPHERE)])
         service = AnnouncementsService(FakeTransaction(), repo)
 
-        result = service.list_for_sphere(1)
+        result = service.list_for_scope(SPHERE)
 
         assert [d.pk for d in result] == [1]
+
+    def test_list_for_scope_separates_event_from_sphere(self):
+        repo = FakeRepo(all_items=[_dto(1), _dto(2, scope=EVENT)])
+        service = AnnouncementsService(FakeTransaction(), repo)
+
+        result = service.list_for_scope(EVENT)
+
+        assert [d.pk for d in result] == [2]
 
     def test_list_published_delegates(self):
         repo = FakeRepo(published=[_dto(1)])
         service = AnnouncementsService(FakeTransaction(), repo)
 
-        result = service.list_published(1)
+        result = service.list_published(SPHERE)
 
         assert [d.pk for d in result] == [1]
 
@@ -82,7 +106,7 @@ class TestAnnouncementsService:
         repo = FakeRepo(all_items=[_dto(pk)])
         service = AnnouncementsService(FakeTransaction(), repo)
 
-        result = service.get(1, pk)
+        result = service.get(SPHERE, pk)
 
         assert result.pk == pk
 
@@ -93,10 +117,10 @@ class TestAnnouncementsService:
         service = AnnouncementsService(transaction, repo)
         data = AnnouncementData(title="t", content="c", is_published=True)
 
-        result = service.create(1, data)
+        result = service.create(EVENT, data)
 
         assert transaction.entered == 1
-        assert repo.created == [(1, data)]
+        assert repo.created == [(EVENT, data)]
         assert result.pk == created_pk
 
     def test_update_runs_in_transaction(self):
@@ -106,18 +130,28 @@ class TestAnnouncementsService:
         service = AnnouncementsService(transaction, repo)
         data = AnnouncementData(title="t", content="c", is_published=False)
 
-        result = service.update(1, pk, data)
+        result = service.update(SPHERE, pk, data)
 
         assert transaction.entered == 1
-        assert repo.updated == [(1, pk, data)]
+        assert repo.updated == [(SPHERE, pk, data)]
         assert result.pk == pk
 
     def test_delete_runs_in_transaction(self):
+        pk = 5
         repo = FakeRepo()
         transaction = FakeTransaction()
         service = AnnouncementsService(transaction, repo)
 
-        service.delete(1, 5)
+        service.delete(SPHERE, pk)
 
         assert transaction.entered == 1
-        assert repo.deleted == [(1, 5)]
+        assert repo.deleted == [(SPHERE, pk)]
+
+
+class TestAnnouncementScope:
+    @pytest.mark.parametrize(
+        "kwargs", ({}, {"sphere_id": 1, "event_id": 1}), ids=["neither", "both"]
+    )
+    def test_rejects_scope_without_exactly_one_owner(self, kwargs):
+        with pytest.raises(ValidationError):
+            AnnouncementScope(**kwargs)

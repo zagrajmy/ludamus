@@ -22,6 +22,7 @@ if TYPE_CHECKING:
     from ludamus.pacts.multiverse import (
         AnnouncementData,
         AnnouncementDTO,
+        AnnouncementScope,
         AnnouncementsRepositoryProtocol,
         ConnectionDTO,
         ConnectionsRepositoryProtocol,
@@ -42,28 +43,30 @@ class AnnouncementsService:
         self._transaction = transaction
         self._announcements = announcements
 
-    def list_for_sphere(self, sphere_id: int) -> list[AnnouncementDTO]:
-        return self._announcements.list_for_sphere(sphere_id)
+    def list_for_scope(self, scope: AnnouncementScope) -> list[AnnouncementDTO]:
+        return self._announcements.list_for_scope(scope)
 
-    def list_published(self, sphere_id: int) -> list[AnnouncementDTO]:
-        return self._announcements.list_published(sphere_id)
+    def list_published(self, scope: AnnouncementScope) -> list[AnnouncementDTO]:
+        return self._announcements.list_published(scope)
 
-    def get(self, sphere_id: int, pk: int) -> AnnouncementDTO:
-        return self._announcements.get(sphere_id, pk)
+    def get(self, scope: AnnouncementScope, pk: int) -> AnnouncementDTO:
+        return self._announcements.get(scope, pk)
 
-    def create(self, sphere_id: int, data: AnnouncementData) -> AnnouncementDTO:
-        with self._transaction.atomic():
-            return self._announcements.create(sphere_id, data)
-
-    def update(
-        self, sphere_id: int, pk: int, data: AnnouncementData
+    def create(
+        self, scope: AnnouncementScope, data: AnnouncementData
     ) -> AnnouncementDTO:
         with self._transaction.atomic():
-            return self._announcements.update(sphere_id, pk, data)
+            return self._announcements.create(scope, data)
 
-    def delete(self, sphere_id: int, pk: int) -> None:
+    def update(
+        self, scope: AnnouncementScope, pk: int, data: AnnouncementData
+    ) -> AnnouncementDTO:
         with self._transaction.atomic():
-            self._announcements.delete(sphere_id, pk)
+            return self._announcements.update(scope, pk, data)
+
+    def delete(self, scope: AnnouncementScope, pk: int) -> None:
+        with self._transaction.atomic():
+            self._announcements.delete(scope, pk)
 
 
 class ConnectionsService:

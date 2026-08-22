@@ -276,6 +276,8 @@
             </form>
         </dialog>
     {% endif %}
+    {% translate "Event news" as t_announcements_heading %}
+    {% include "components/announcements.html" with announcements=announcements heading=t_announcements_heading only %}
     <!-- Sessions by Time Slot -->
     {# The whole section is one htmx swap target: the view tabs below carry #}
     {# hx-boost, so switching between List and Rooms replaces the count, the #}

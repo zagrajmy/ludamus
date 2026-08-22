@@ -559,5 +559,6 @@ ignore_decorators = [
     "@register.tag",
     "@admin.register",
     "@field_validator",
+    "@model_validator",
 ]
 sort_by_size = true

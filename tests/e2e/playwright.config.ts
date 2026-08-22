@@ -107,6 +107,7 @@ export default defineConfig({
         /.*\.auth\.spec\.ts/,
         /panel\.spec\.ts/,
         /panel-crud\.spec\.ts/,
+        /event-announcements\.spec\.ts/,
         /facilitator-guild\.spec\.ts/,
         /guilds\.spec\.ts/,
         /confirmations\.spec\.ts/,

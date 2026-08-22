@@ -11,7 +11,7 @@ from datetime import datetime
 from enum import StrEnum
 from typing import TYPE_CHECKING, Protocol
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 if TYPE_CHECKING:
     from ludamus.pacts.legacy import EventDTO, SphereDTO, UploadedFileProtocol
@@ -50,11 +50,32 @@ class ConnectionInUseError(Exception):
     pass
 
 
+class AnnouncementScope(BaseModel):
+    """Which audience an announcement belongs to: one sphere or one event."""
+
+    model_config = ConfigDict(frozen=True)
+
+    sphere_id: int | None = None
+    event_id: int | None = None
+
+    @model_validator(mode="after")
+    def check_single_owner(self) -> AnnouncementScope:
+        # A scope carrying both ids filters `sphere AND event`, which no legal
+        # row can match, and one carrying neither names an audience that does
+        # not exist — either way the read comes back empty and reads as "not
+        # found". `announcement_single_scope` says the same thing on write.
+        if (self.sphere_id is None) == (self.event_id is None):
+            msg = "AnnouncementScope needs exactly one of sphere_id, event_id"
+            raise ValueError(msg)
+        return self
+
+
 class AnnouncementDTO(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     pk: int
-    sphere_id: int
+    sphere_id: int | None
+    event_id: int | None
     title: str
     content: str
     is_published: bool
@@ -70,28 +91,32 @@ class AnnouncementData(BaseModel):
 
 class AnnouncementsRepositoryProtocol(Protocol):
     @staticmethod
-    def list_for_sphere(sphere_id: int) -> list[AnnouncementDTO]: ...
+    def list_for_scope(scope: AnnouncementScope) -> list[AnnouncementDTO]: ...
     @staticmethod
-    def list_published(sphere_id: int) -> list[AnnouncementDTO]: ...
+    def list_published(scope: AnnouncementScope) -> list[AnnouncementDTO]: ...
     @staticmethod
-    def get(sphere_id: int, pk: int) -> AnnouncementDTO: ...
+    def get(scope: AnnouncementScope, pk: int) -> AnnouncementDTO: ...
     @staticmethod
-    def create(sphere_id: int, data: AnnouncementData) -> AnnouncementDTO: ...
+    def create(scope: AnnouncementScope, data: AnnouncementData) -> AnnouncementDTO: ...
     @staticmethod
-    def update(sphere_id: int, pk: int, data: AnnouncementData) -> AnnouncementDTO: ...
+    def update(
+        scope: AnnouncementScope, pk: int, data: AnnouncementData
+    ) -> AnnouncementDTO: ...
     @staticmethod
-    def delete(sphere_id: int, pk: int) -> None: ...
+    def delete(scope: AnnouncementScope, pk: int) -> None: ...
 
 
 class AnnouncementsServiceProtocol(Protocol):
-    def list_for_sphere(self, sphere_id: int) -> list[AnnouncementDTO]: ...
-    def list_published(self, sphere_id: int) -> list[AnnouncementDTO]: ...
-    def get(self, sphere_id: int, pk: int) -> AnnouncementDTO: ...
-    def create(self, sphere_id: int, data: AnnouncementData) -> AnnouncementDTO: ...
-    def update(
-        self, sphere_id: int, pk: int, data: AnnouncementData
+    def list_for_scope(self, scope: AnnouncementScope) -> list[AnnouncementDTO]: ...
+    def list_published(self, scope: AnnouncementScope) -> list[AnnouncementDTO]: ...
+    def get(self, scope: AnnouncementScope, pk: int) -> AnnouncementDTO: ...
+    def create(
+        self, scope: AnnouncementScope, data: AnnouncementData
     ) -> AnnouncementDTO: ...
-    def delete(self, sphere_id: int, pk: int) -> None: ...
+    def update(
+        self, scope: AnnouncementScope, pk: int, data: AnnouncementData
+    ) -> AnnouncementDTO: ...
+    def delete(self, scope: AnnouncementScope, pk: int) -> None: ...
 
 
 class ConnectionDTO(BaseModel):

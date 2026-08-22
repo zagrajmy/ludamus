@@ -293,6 +293,10 @@ If you fix a papercut, remove it.
   wrapper had nothing to print. It cleared on its own. run_detect should surface
   npm's own exit path rather than only the child's streams, otherwise a registry
   hiccup is indistinguishable from a real finding.
+- 2026-08-19: mise run start / dev both die in the sandbox: portless proxy can't
+  write ~/.portless/proxy.log (EROFS). mise run test:e2e:serve works instead,
+  and mise run shots fails too (agent-browser's Chrome has no usable sandbox) —
+  had to screenshot through a throwaway Playwright spec.
 - 2026-08-20: Claude Code web sandbox: mise's _.python.venv never created .venv,
   so every task calling django-admin/djlint/tingle failed with 'not found' until
   I prepended the poetry virtualenv bin to PATH by hand. mise run test:e2e:prep

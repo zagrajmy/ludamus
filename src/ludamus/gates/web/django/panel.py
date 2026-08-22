@@ -17,12 +17,15 @@ if TYPE_CHECKING:
     from django.core.paginator import Page
     from django.http import HttpRequest, HttpResponseRedirect, QueryDict
 
+    from ludamus.pacts import EventDTO
+
 # Every value `active_nav` can take — one per entry in the panel sidebar
 # (`panel/base.html`). A value outside this set highlights nothing, silently.
 # Most producers assign into loosely typed context mappings no type checker
 # sees, so `{% sidebar_link %}` checks both ends at render time.
 PanelNav = Literal[
     "index",
+    "announcements",
     "cfp",
     "proposals",
     "facilitators",
@@ -44,6 +47,14 @@ PANEL_NAV_KEYS: Final = frozenset(get_args(PanelNav))
 # repeated as a bare `str` in each view module's TypedDict.
 class PanelNavContext(TypedDict):
     active_nav: PanelNav
+
+
+# What `panel/base.html` needs for its chrome: the event selector, the title
+# suffix and the proposals badge. Pages with more to render extend it.
+class PanelSidebarContext(PanelNavContext):
+    events: Sequence[EventDTO]
+    current_event: EventDTO | None
+    is_proposal_active: bool
 
 
 # Every sidebar category. A category with no collapse rules in `panel/base.html`

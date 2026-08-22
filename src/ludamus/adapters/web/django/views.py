@@ -97,6 +97,7 @@ from ludamus.pacts import (
 )
 from ludamus.pacts.crowd import CompanionDTO, UserDTO, UserType
 from ludamus.pacts.enrollment import SeatHoldRequest
+from ludamus.pacts.multiverse import AnnouncementScope
 from ludamus.pacts.party import (
     PartyConsentMode,
     PartyEnrolledNotification,
@@ -206,7 +207,7 @@ class EventsPageView(TemplateView):
         context = super().get_context_data(**kwargs)
         sphere_id = self.request.context.current_sphere_id
         context["announcements"] = self.request.services.announcements.list_published(
-            sphere_id
+            AnnouncementScope(sphere_id=sphere_id)
         )
         items = self.request.services.events.list_for_sphere(
             sphere_id, include_unpublished=has_panel_access(self.request)
@@ -290,6 +291,10 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
 
         if not self.object.is_published and not has_panel_access(self.request):
             raise Http404
+
+        context["announcements"] = self.request.services.announcements.list_published(
+            AnnouncementScope(event_id=self.object.pk)
+        )
 
         # Get all sessions for this event that are published. A private track
         # is unlisted here for everyone, panel access included, so a manager

@@ -28,6 +28,7 @@ from ludamus.pacts.mcp import ToolScope
 from ludamus.pacts.multiverse import (
     AnnouncementData,
     AnnouncementDTO,
+    AnnouncementScope,
     SphereListItemDTO,
 )
 
@@ -63,14 +64,18 @@ def _render_events(
 
 
 def _render_announcements(services: ServicesProtocol, sphere_id: int) -> str:
-    items = services.announcements.list_for_sphere(sphere_id)
+    items = services.announcements.list_for_scope(
+        AnnouncementScope(sphere_id=sphere_id)
+    )
     return _ANNOUNCEMENT_LIST.dump_json(items, indent=2).decode()
 
 
 def _create_announcement(
     *, services: ServicesProtocol, sphere_id: int, body: _AnnouncementBody
 ) -> str:
-    created = services.announcements.create(sphere_id, _announcement_data(body))
+    created = services.announcements.create(
+        AnnouncementScope(sphere_id=sphere_id), _announcement_data(body)
+    )
     return created.model_dump_json(indent=2)
 
 
@@ -82,7 +87,9 @@ def _update_announcement(
     body: _AnnouncementBody,
 ) -> str:
     updated = services.announcements.update(
-        sphere_id, announcement_id, _announcement_data(body)
+        AnnouncementScope(sphere_id=sphere_id),
+        announcement_id,
+        _announcement_data(body),
     )
     return updated.model_dump_json(indent=2)
 
@@ -90,7 +97,9 @@ def _update_announcement(
 def _delete_announcement(
     *, services: ServicesProtocol, sphere_id: int, announcement_id: int
 ) -> str:
-    services.announcements.delete(sphere_id, announcement_id)
+    services.announcements.delete(
+        AnnouncementScope(sphere_id=sphere_id), announcement_id
+    )
     result: dict[str, int] = {"deleted": announcement_id}
     return json.dumps(result)
 

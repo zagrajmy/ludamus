@@ -94,18 +94,24 @@ PROPOSAL_FILTER_CONTEXT = {
 }
 
 
-def panel_context(event, *, active_nav: str | None = None, **stats: int) -> dict:
-    # Every panel page renders the sidebar from these keys. Pass stats that
-    # differ from empty as keyword arguments: panel_context(event, rooms_count=2)
+def sidebar_context(event, *, active_nav: str | None = None) -> dict:
+    # Every panel page renders the sidebar from these keys.
     context = {
         "current_event": EventDTO.model_validate(event),
         "events": [EventDTO.model_validate(event)],
         "is_proposal_active": False,
-        "stats": EMPTY_STATS | stats,
     }
     if active_nav:
         context["active_nav"] = active_nav
     return context
+
+
+def panel_context(event, *, active_nav: str | None = None, **stats: int) -> dict:
+    # Pages built on `get_event_context` carry the dashboard stats too. Pass
+    # stats that differ from empty as keyword arguments, e.g. rooms_count=2.
+    return sidebar_context(event, active_nav=active_nav) | {
+        "stats": EMPTY_STATS | stats
+    }
 
 
 def assert_not_a_manager(response: HttpResponse) -> None:

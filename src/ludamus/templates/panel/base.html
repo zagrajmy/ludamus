@@ -187,6 +187,8 @@ the sphere.{% endcomment %}
                     {% if current_event %}
                         {% translate "Dashboard" as t_dashboard %}
                         {% sidebar_link url="panel:event-index" slug=current_event.slug icon="home" label=t_dashboard key="index" %}
+                        {% translate "Announcements" as t_announcements %}
+                        {% sidebar_link url="panel:announcements" slug=current_event.slug icon="megaphone" label=t_announcements key="announcements" %}
                         {% translate "Program" as t_program %}
                         {% sidebar_cat key="program" label=t_program %}
                             {% translate "Call for Proposals" as t_cfp %}

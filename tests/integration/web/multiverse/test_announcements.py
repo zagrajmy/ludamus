@@ -92,7 +92,11 @@ class TestAnnouncementCreatePageView:
             response,
             HTTPStatus.OK,
             template_name="multiverse/panel/announcements/create.html",
-            context_data={**ANNOUNCEMENTS_PANEL_CONTEXT, "form": ANY},
+            context_data={
+                **ANNOUNCEMENTS_PANEL_CONTEXT,
+                "form": ANY,
+                "announcement": None,
+            },
             not_contains='aria-describedby="id_title_errors"',
         )
 
@@ -110,7 +114,11 @@ class TestAnnouncementCreatePageView:
             response,
             HTTPStatus.OK,
             template_name="multiverse/panel/announcements/create.html",
-            context_data={**ANNOUNCEMENTS_PANEL_CONTEXT, "form": ANY},
+            context_data={
+                **ANNOUNCEMENTS_PANEL_CONTEXT,
+                "form": ANY,
+                "announcement": None,
+            },
             contains=['aria-describedby="id_title_errors"', 'id="id_title_errors"'],
         )
         assert not Announcement.objects.filter(sphere=sphere).exists()

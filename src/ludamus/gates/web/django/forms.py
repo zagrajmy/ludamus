@@ -224,6 +224,20 @@ def _datetime_local_widget() -> forms.DateTimeInput:
     )
 
 
+class AnnouncementForm(forms.Form):
+    # Shared: the sphere panel and the event panel post the same three fields.
+    title = forms.CharField(label=_("Title"), max_length=255, strip=True)
+    content = forms.CharField(
+        label=_("Content"), max_length=50000, widget=forms.Textarea(attrs={"rows": 8})
+    )
+    is_published = forms.BooleanField(
+        label=_("Published"),
+        required=False,
+        initial=True,
+        help_text=_("Visible on the public page. Uncheck to keep it as a draft."),
+    )
+
+
 class EventSettingsForm(forms.Form):
     """Form for event settings."""
 
