@@ -60,7 +60,11 @@ from tests.integration.conftest import (
     TimeSlotFactory,
     UserFactory,
 )
-from tests.integration.utils import assert_rendered, assert_response
+from tests.integration.utils import (
+    assert_cache_control,
+    assert_rendered,
+    assert_response,
+)
 from tests.integration.web.chronology.helpers import (
     compact_day,
     event_page_context,
@@ -107,8 +111,14 @@ class TestEventPageView:
             template_name=["chronology/event.html"],
             contains="Upcoming",
             not_contains="Enrollment Open",
-            cache_control={"private", "max-age=180"},
+            cache_control={"public", "max-age=180"},
         )
+        assert "Cookie" in response.headers.get("Vary", "")
+
+    def test_authenticated_response_is_private(self, authenticated_client, event):
+        response = authenticated_client.get(self._get_url(event.slug))
+
+        assert_cache_control(response, {"private", "max-age=180"})
         assert "Cookie" in response.headers.get("Vary", "")
 
     def test_offered_seats_count_toward_capacity(self, client, sphere):
