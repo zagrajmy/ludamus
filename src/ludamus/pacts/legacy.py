@@ -1423,6 +1423,7 @@ class ScheduleChangeLogDTO(BaseModel):
     moved_from_id: int | None
     acknowledgement_time: datetime | None
     acknowledged_by_name: str
+    important: bool
 
 
 class ScheduleChangeLogRepositoryProtocol(Protocol):
@@ -1441,8 +1442,18 @@ class ScheduleChangeLogRepositoryProtocol(Protocol):
     def list_since(event_pk: int, since: datetime) -> list[ScheduleChangeLogDTO]: ...
 
     @staticmethod
+    def list_erratum_rows(
+        *, event_pk: int, since: datetime, log_pks: list[int]
+    ) -> list[ScheduleChangeLogDTO]: ...
+
+    @staticmethod
     def set_acknowledged(
         *, event_pk: int, log_pks: list[int], user_id: int, acknowledged: bool
+    ) -> None: ...
+
+    @staticmethod
+    def set_important(
+        *, event_pk: int, log_pks: list[int], important: bool
     ) -> None: ...
 
     @staticmethod
