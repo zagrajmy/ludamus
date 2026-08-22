@@ -27,7 +27,7 @@ requires-poetry = ">=2.0,<3"
 [tool.poetry.dependencies]
 authlib = "~1.7.0"
 cryptography = "^50.0.0"
-django = "~6.0.6"
+django = "~6.1.0"
 django-environ = "^0.14.0"
 django-extensions = "^4.1"
 django-vite = "==3.1.0"
@@ -83,11 +83,11 @@ pytest-gremlins = "^1.8.1"
 django-coverage-plugin = "^3.2.2"
 yamllint = "1.38.0"
 taplo = "^0.9.3"
-tingle = "^0.4.1"
+tingle = "^0.7.0"
 pytest-xdist = "^3.8.0"
 lxml-stubs = "^0.5.1"
 django-zeal = "^2.2.2"
-vekna = { git = "https://github.com/fancysnake/vekna.git", rev = "v0.4.0" }
+vekna = { git = "https://github.com/fancysnake/vekna.git", rev = "v0.6.0" }
 
 [tool.black]
 line-length = 88
@@ -145,7 +145,7 @@ custom_blocks = "select,radio,document_title,sidebar_cat,tab,tabs,tab_shell,tab_
 # DEPTRY
 
 [tool.deptry]
-known_first_party = ["ludamus"]
+known_first_party = ["ludamus", "scripts"]
 
 [tool.deptry.per_rule_ignores]
 DEP002 = [
@@ -159,7 +159,7 @@ DEP002 = [
     "whitenoise",
     "django-storages",
 ]
-DEP004 = ["debug_toolbar", "vekna"]
+DEP004 = ["debug_toolbar", "vekna", "zeal"]
 
 # MYPY
 
@@ -214,6 +214,10 @@ ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
 module = ["markdown"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["zeal.*"]
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]

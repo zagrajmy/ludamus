@@ -4,7 +4,7 @@ import json
 from typing import cast
 from urllib.parse import urlparse
 
-import httpx
+import requests
 
 
 class McpError(RuntimeError):
@@ -79,22 +79,19 @@ class McpClient:
             "params": {"name": name, "arguments": arguments},
         }
         try:
-            response = httpx.post(
+            response = requests.post(
                 self.endpoint,
                 json=payload,
                 headers={"Authorization": f"Bearer {self.token}"},
                 timeout=60,
             )
-            response.raise_for_status()
-            body = cast("dict[str, object]", response.json())
-        except httpx.HTTPStatusError as error:
-            message = (
-                f"{name}: HTTP {error.response.status_code}: {error.response.text}"
-            )
-            raise McpError(message) from error
-        except httpx.RequestError as error:
+        except requests.RequestException as error:
             message = f"{name}: {error}"
             raise McpError(message) from error
+        if not response.ok:
+            message = f"{name}: HTTP {response.status_code}: {response.text}"
+            raise McpError(message)
+        body = cast("dict[str, object]", response.json())
         if "error" in body:
             message = f"{name}: {body['error']}"
             raise McpError(message)
