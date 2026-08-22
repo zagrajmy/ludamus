@@ -1011,6 +1011,7 @@ msgstr "Kategoria"
 #: src/ludamus/templates/chronology/event.html
 #: src/ludamus/templates/multiverse/panel/announcements/list.html
 #: src/ludamus/templates/panel/enrollment-settings.html
+#: src/ludamus/templates/panel/errata.html
 #: src/ludamus/templates/panel/import.html
 #: src/ludamus/templates/panel/proposals.html
 msgid "Status"
@@ -4556,6 +4557,7 @@ msgstr "Połączenie:"
 #: src/ludamus/templates/panel/cfp.html
 #: src/ludamus/templates/panel/facilitators.html
 #: src/ludamus/templates/panel/integration-settings.html
+#: src/ludamus/templates/panel/parts/_bulk_actions_facilitators.html
 #: src/ludamus/templates/panel/personal-data-fields.html
 #: src/ludamus/templates/panel/proposal-detail.html
 #: src/ludamus/templates/panel/session-fields.html
@@ -5618,6 +5620,7 @@ msgstr "Przykładowe gildie"
 #: src/ludamus/templates/panel/bans.html src/ludamus/templates/panel/cfp.html
 #: src/ludamus/templates/panel/discounts/list.html
 #: src/ludamus/templates/panel/enrollment-settings.html
+#: src/ludamus/templates/panel/errata.html
 #: src/ludamus/templates/panel/facilitator-bin.html
 #: src/ludamus/templates/panel/facilitators.html
 #: src/ludamus/templates/panel/import.html
@@ -7141,6 +7144,25 @@ msgstr[2] "%(counter)s zmian do ogłoszenia"
 msgstr[3] "%(counter)s zmian do ogłoszenia"
 
 #: src/ludamus/templates/panel/errata.html
+msgid "Select all changes"
+msgstr "Zaznacz wszystkie zmiany"
+
+#: src/ludamus/templates/panel/errata.html
+#: src/ludamus/templates/panel/timetable-log.html
+msgid "Change"
+msgstr "Zmiana"
+
+#: src/ludamus/templates/panel/errata.html
+msgid "Changed by"
+msgstr "Autor zmiany"
+
+#: src/ludamus/templates/panel/errata.html
+#: src/ludamus/templates/panel/proposals.html
+#, python-format
+msgid "Select %(title)s"
+msgstr "Zaznacz %(title)s"
+
+#: src/ludamus/templates/panel/errata.html
 #, python-format
 msgid "<strong>%(title)s</strong> was added to the agenda: %(space)s, %(when)s"
 msgstr "<strong>%(title)s</strong> — dodano do programu: %(space)s, %(when)s"
@@ -7163,22 +7185,50 @@ msgstr ""
 "<strong>%(title)s</strong> — usunięto z programu: było %(space)s, %(when)s"
 
 #: src/ludamus/templates/panel/errata.html
-#, python-format
-msgid "Changed by %(who)s on %(when)s"
-msgstr "Zmiana: %(who)s, %(when)s"
+msgid "Important"
+msgstr "Ważne"
+
+#: src/ludamus/templates/panel/errata.html
+msgid "Announced"
+msgstr "Ogłoszone"
 
 #: src/ludamus/templates/panel/errata.html
 #, python-format
-msgid "announced by %(who)s"
-msgstr "ogłoszone przez: %(who)s"
+msgid "by %(who)s"
+msgstr "przez: %(who)s"
+
+#: src/ludamus/templates/panel/errata.html
+msgid "To announce"
+msgstr "Do ogłoszenia"
+
+#: src/ludamus/templates/panel/errata.html
+#, python-format
+msgid "Stop showing %(title)s first"
+msgstr "Przestań pokazywać %(title)s na początku"
+
+#: src/ludamus/templates/panel/errata.html
+#, python-format
+msgid "Show %(title)s first"
+msgstr "Pokaż %(title)s na początku"
+
+#: src/ludamus/templates/panel/errata.html
+#, python-format
+msgid "Undo the announcement of %(title)s"
+msgstr "Cofnij ogłoszenie: %(title)s"
 
 #: src/ludamus/templates/panel/errata.html
 msgid "Undo"
 msgstr "Cofnij"
 
 #: src/ludamus/templates/panel/errata.html
-msgid "Announced"
-msgstr "Ogłoszone"
+#, python-format
+msgid "Mark %(title)s as announced"
+msgstr "Oznacz jako ogłoszone: %(title)s"
+
+#: src/ludamus/templates/panel/errata.html
+#: src/ludamus/templates/panel/parts/_bulk_actions_errata.html
+msgid "Mark as announced"
+msgstr "Oznacz jako ogłoszone"
 
 #: src/ludamus/templates/panel/errata.html
 msgid "The agenda has not changed since it went public"
@@ -7210,18 +7260,6 @@ msgstr ""
 
 #: src/ludamus/templates/panel/facilitator-bin.html
 #: src/ludamus/templates/panel/facilitators.html
-#: src/ludamus/templates/panel/proposals.html
-msgid "Selected:"
-msgstr "Zaznaczono:"
-
-#: src/ludamus/templates/panel/facilitator-bin.html
-#: src/ludamus/templates/panel/facilitator-detail.html
-#: src/ludamus/templates/panel/proposals.html
-msgid "Restore"
-msgstr "Przywróć"
-
-#: src/ludamus/templates/panel/facilitator-bin.html
-#: src/ludamus/templates/panel/facilitators.html
 msgid "Select all facilitators"
 msgstr "Zaznacz wszystkich twórców programu"
 
@@ -7235,6 +7273,13 @@ msgstr "Zaznacz %(name)s"
 #, python-format
 msgid "Restore %(name)s"
 msgstr "Przywróć %(name)s"
+
+#: src/ludamus/templates/panel/facilitator-bin.html
+#: src/ludamus/templates/panel/facilitator-detail.html
+#: src/ludamus/templates/panel/parts/_bulk_actions_facilitator_bin.html
+#: src/ludamus/templates/panel/proposals.html
+msgid "Restore"
+msgstr "Przywróć"
 
 #: src/ludamus/templates/panel/facilitator-bin.html
 msgid "The bin is empty. Deleted facilitators land here."
@@ -7420,14 +7465,6 @@ msgid "Filtering"
 msgstr "Filtrowanie"
 
 #: src/ludamus/templates/panel/facilitators.html
-msgid "Mark as guest"
-msgstr "Oznacz jako gościa"
-
-#: src/ludamus/templates/panel/facilitators.html
-msgid "Merge selected"
-msgstr "Scal zaznaczonych"
-
-#: src/ludamus/templates/panel/facilitators.html
 #, python-format
 msgid "Take %(name)s on? You handle them until you step down."
 msgstr ""
@@ -7458,6 +7495,11 @@ msgstr "Usuń przypisanie"
 #, python-format
 msgid "Step down from %(name)s"
 msgstr "Usuń przypisanie twórcy %(name)s"
+
+#: src/ludamus/templates/panel/facilitators.html
+#: src/ludamus/templates/panel/parts/_bulk_actions_facilitators.html
+msgid "Mark as guest"
+msgstr "Oznacz jako gościa"
 
 #: src/ludamus/templates/panel/facilitators.html
 #, python-format
@@ -7872,6 +7914,42 @@ msgstr ""
 "osobisty token, aby połączyć klienta MCP (np. Claude Code lub Executor) z "
 "tym wydarzeniem. Token może odczytywać całą sferę i zapisywać tylko to "
 "wydarzenie. Jest ważny przez %(token_max_age_days)s dni."
+
+#: src/ludamus/templates/panel/parts/_bulk_actions_errata.html
+msgid "Mark as not announced"
+msgstr "Oznacz jako nieogłoszone"
+
+#: src/ludamus/templates/panel/parts/_bulk_actions_facilitators.html
+msgid "Merge selected"
+msgstr "Scal zaznaczonych"
+
+#: src/ludamus/templates/panel/parts/_bulk_actions_proposals.html
+msgid "Set status:"
+msgstr "Ustaw status:"
+
+#: src/ludamus/templates/panel/parts/_bulk_actions_proposals.html
+#: src/ludamus/templates/panel/proposal-detail.html
+msgid "Accept"
+msgstr "Zaakceptuj"
+
+#: src/ludamus/templates/panel/parts/_bulk_actions_proposals.html
+#: src/ludamus/templates/panel/proposal-detail.html
+msgid "Hold"
+msgstr "Do rezerwy"
+
+#: src/ludamus/templates/panel/parts/_bulk_actions_proposals.html
+#: src/ludamus/templates/panel/proposal-detail.html
+msgid "Move to pending"
+msgstr "Przywróć do oczekujących"
+
+#: src/ludamus/templates/panel/parts/_bulk_actions_proposals.html
+#: src/ludamus/templates/panel/proposal-detail.html
+msgid "Reject"
+msgstr "Odrzuć"
+
+#: src/ludamus/templates/panel/parts/_bulk_toolbar.html
+msgid "Selected:"
+msgstr "Zaznaczono:"
 
 #: src/ludamus/templates/panel/parts/_change-log-table.html
 msgid "Changes"
@@ -8592,26 +8670,6 @@ msgid "This is the current status."
 msgstr "To jest obecny status."
 
 #: src/ludamus/templates/panel/proposal-detail.html
-#: src/ludamus/templates/panel/proposals.html
-msgid "Move to pending"
-msgstr "Przywróć do oczekujących"
-
-#: src/ludamus/templates/panel/proposal-detail.html
-#: src/ludamus/templates/panel/proposals.html
-msgid "Accept"
-msgstr "Zaakceptuj"
-
-#: src/ludamus/templates/panel/proposal-detail.html
-#: src/ludamus/templates/panel/proposals.html
-msgid "Hold"
-msgstr "Do rezerwy"
-
-#: src/ludamus/templates/panel/proposal-detail.html
-#: src/ludamus/templates/panel/proposals.html
-msgid "Reject"
-msgstr "Odrzuć"
-
-#: src/ludamus/templates/panel/proposal-detail.html
 msgid "Are you sure you want to reject this proposal?"
 msgstr "Czy na pewno chcesz odrzucić to zgłoszenie?"
 
@@ -8779,17 +8837,8 @@ msgid "On the timetable"
 msgstr "W harmonogramie"
 
 #: src/ludamus/templates/panel/proposals.html
-msgid "Set status:"
-msgstr "Ustaw status:"
-
-#: src/ludamus/templates/panel/proposals.html
 msgid "Select all proposals"
 msgstr "Zaznacz wszystkie zgłoszenia"
-
-#: src/ludamus/templates/panel/proposals.html
-#, python-format
-msgid "Select %(title)s"
-msgstr "Zaznacz %(title)s"
 
 #: src/ludamus/templates/panel/proposals.html
 msgid "No proposals match the current filters."
@@ -9118,10 +9167,6 @@ msgstr "Dziennik zmian harmonogramu"
 msgid "Action"
 msgstr "Akcja"
 
-#: src/ludamus/templates/panel/timetable-log.html
-msgid "Change"
-msgstr "Zmiana"
-
 #: src/ludamus/templates/panel/timetable-overview.html
 msgid "Hours to fill"
 msgstr "Godziny do zapełnienia"
@@ -9352,18 +9397,6 @@ msgstr "Brak przechwyconych e-maili."
 #~ msgid "Enrollment required"
 #~ msgstr "Wymagane zapisy"
 
-#~ msgid "Sessions with enrollment"
-#~ msgstr "Punkty programu z zapisami"
-
-#~ msgid "Takes enrollment"
-#~ msgstr "Z zapisami"
-
-#~ msgid "No session at this event takes enrollment"
-#~ msgstr "Żaden punkt programu na tym wydarzeniu nie wymaga zapisów"
-
-#~ msgid "Show the full schedule"
-#~ msgstr "Pokaż pełny harmonogram"
-
 #~ msgid "Pending Proposals"
 #~ msgstr "Oczekujące zgłoszenia"
 
@@ -9382,15 +9415,52 @@ msgstr "Brak przechwyconych e-maili."
 #~ msgid "Awaiting review"
 #~ msgstr "Czeka na akceptację"
 
+#~ msgid "Sessions with enrollment"
+#~ msgstr "Punkty programu z zapisami"
+
+#~ msgid "Takes enrollment"
+#~ msgstr "Z zapisami"
+
+#~ msgid "No session at this event takes enrollment"
+#~ msgstr "Żaden punkt programu na tym wydarzeniu nie wymaga zapisów"
+
+#~ msgid "Show the full schedule"
+#~ msgstr "Pokaż pełny harmonogram"
+
 #, python-format
-#~ msgid "Edit proposal %(title)s"
-#~ msgstr "Edytuj zgłoszenie %(title)s"
+#~ msgid "Changed by %(who)s on %(when)s"
+#~ msgstr "Zmiana: %(who)s, %(when)s"
+
+#, python-format
+#~ msgid "announced by %(who)s"
+#~ msgstr "ogłoszone przez: %(who)s"
 
 #~ msgid "Analytics settings"
 #~ msgstr "Ustawienia analityki"
 
 #~ msgid "Analytics consent"
 #~ msgstr "Zgoda na analitykę"
+
+#, python-format
+#~ msgid ""
+#~ "We use analytics to see how people use the site, including session "
+#~ "replays with every input masked. It runs only if you agree. Errors work "
+#~ "differently: when something breaks we always record what went wrong, plus "
+#~ "your account id if you are signed in, so we can fix it. More in the <a "
+#~ "href=\"%(privacy_url)s\">Privacy Policy</a>."
+#~ msgstr ""
+#~ "Używamy analityki, aby zobaczyć, jak ludzie korzystają z serwisu. "
+#~ "Obejmuje to nagrania sesji z zamaskowanymi wszystkimi polami. Działa "
+#~ "tylko wtedy, gdy się zgodzisz. Z błędami jest inaczej: kiedy coś się "
+#~ "zepsuje, zawsze zapisujemy, co poszło nie tak, a jeśli masz zalogowane "
+#~ "konto, także jego identyfikator, żebyśmy mogli to naprawić. Więcej w <a "
+#~ "href=\"%(privacy_url)s\">Polityce prywatności</a>."
+
+#~ msgid "Decline analytics"
+#~ msgstr "Odrzuć analitykę"
+
+#~ msgid "Allow analytics"
+#~ msgstr "Włącz analitykę"
 
 #, python-format
 #~ msgid ""
@@ -9404,20 +9474,14 @@ msgstr "Brak przechwyconych e-maili."
 #~ "i szybciej naprawiać błędy. Nic nie zapisujemy, zanim się nie zgodzisz. "
 #~ "Szczegóły w <a href=\"%(privacy_url)s\">Polityce prywatności</a>."
 
-#~ msgid "Decline analytics"
-#~ msgstr "Odrzuć analitykę"
-
-#~ msgid "Allow analytics"
-#~ msgstr "Włącz analitykę"
+#~ msgid "Empty or 0 = no limit"
+#~ msgstr "Puste pole lub 0 = bez limitu"
 
 #~ msgid "Open"
 #~ msgstr "Otwarte"
 
 #~ msgid "Not Available"
 #~ msgstr "Niedostępne"
-
-#~ msgid "Empty or 0 = no limit"
-#~ msgstr "Puste pole lub 0 = bez limitu"
 
 #~ msgid "Deleted only"
 #~ msgstr "Tylko usunięci"
@@ -9596,9 +9660,6 @@ msgstr "Brak przechwyconych e-maili."
 #~ msgid "Search by facilitator or field values"
 #~ msgstr "Szukaj po prowadzącym lub wartościach pól"
 
-#~ msgid "Select all"
-#~ msgstr "Zaznacz wszystkie"
-
 #~ msgid "Keep"
 #~ msgstr "Zachowaj"
 
@@ -9750,16 +9811,8 @@ msgstr "Brak przechwyconych e-maili."
 #~ msgstr "Twórca programu zwolniony."
 
 #, python-format
-#~ msgid ""
-#~ "We use analytics to see how people use the site, including session "
-#~ "replays with every input masked. It runs only if you agree. Errors work "
-#~ "differently: when something breaks we always record what went wrong, plus "
-#~ "your account id if you are signed in, so we can fix it. More in the <a "
-#~ "href=\"%(privacy_url)s\">Privacy Policy</a>."
-#~ msgstr ""
-#~ "Używamy analityki, aby zobaczyć, jak ludzie korzystają z serwisu. "
-#~ "Obejmuje to nagrania sesji z zamaskowanymi wszystkimi polami. Działa "
-#~ "tylko wtedy, gdy się zgodzisz. Z błędami jest inaczej: kiedy coś się "
-#~ "zepsuje, zawsze zapisujemy, co poszło nie tak, a jeśli masz zalogowane "
-#~ "konto, także jego identyfikator, żebyśmy mogli to naprawić. Więcej w <a "
-#~ "href=\"%(privacy_url)s\">Polityce prywatności</a>."
+#~ msgid "Edit proposal %(title)s"
+#~ msgstr "Edytuj zgłoszenie %(title)s"
+
+#~ msgid "Select all"
+#~ msgstr "Zaznacz wszystkie"
