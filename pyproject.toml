@@ -159,7 +159,7 @@ DEP002 = [
     "whitenoise",
     "django-storages",
 ]
-DEP004 = ["debug_toolbar", "vekna"]
+DEP004 = ["debug_toolbar", "vekna", "zeal"]
 
 # MYPY
 
