@@ -210,18 +210,17 @@ class TestEventSettingsService:
         context = service.get_display_context(sphere_id=SPHERE_ID, slug="conf")
 
         assert context == EventDisplaySettingsContextDTO(
-            fields=[public_field], displayed_field_ids=[1], has_non_public_fields=True
+            fields=[public_field], displayed_field_ids=[1], has_any_fields=True
         )
         events.read_by_slug.assert_called_once_with("conf", SPHERE_ID)
         session_fields.list_by_event.assert_called_once_with(7)
         event_settings.read_or_create.assert_called_once_with(7)
 
-    def test_get_display_context_reports_no_hidden_fields_when_all_are_public(
+    def test_get_display_context_reports_an_event_without_any_fields(
         self, service, events, event_settings, session_fields
     ):
         events.read_by_slug.return_value = _event(pk=7)
-        public_field = _session_field(pk=1, slug="public")
-        session_fields.list_by_event.return_value = [public_field]
+        session_fields.list_by_event.return_value = []
         event_settings.read_or_create.return_value = EventSettingsDTO(
             displayed_session_field_ids=[], pk=5
         )
@@ -229,7 +228,7 @@ class TestEventSettingsService:
         context = service.get_display_context(sphere_id=SPHERE_ID, slug="conf")
 
         assert context == EventDisplaySettingsContextDTO(
-            fields=[public_field], displayed_field_ids=[], has_non_public_fields=False
+            fields=[], displayed_field_ids=[], has_any_fields=False
         )
 
     def test_get_display_context_raises_for_event_outside_sphere(

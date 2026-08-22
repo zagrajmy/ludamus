@@ -66,7 +66,7 @@ class EventSettingsService(EventSettingsServiceProtocol):
         return EventDisplaySettingsContextDTO(
             fields=public_fields,
             displayed_field_ids=display_settings.displayed_session_field_ids,
-            has_non_public_fields=len(public_fields) != len(fields),
+            has_any_fields=bool(fields),
         )
 
     def update_displayed_fields(

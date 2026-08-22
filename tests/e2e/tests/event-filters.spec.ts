@@ -105,9 +105,39 @@ test.describe("Event filter panel", () => {
     await page.goto("/event/autumn-open/");
     await page.getByRole("button", { name: "Filters" }).click();
 
+    // A filter that survives has something to pick: the two answered moods.
     await expect(page.getByRole("combobox", { name: "Mood" })).toBeVisible();
+    await expect(page.locator("#tag-filter-mood").locator("option")).toHaveText([
+      "All Mood",
+      "Cosy",
+      "Tense",
+    ]);
     await expect(page.locator("#tag-filter-format")).toHaveCount(0);
     await expect(page.locator("#tag-filter-__track")).toHaveCount(0);
+  });
+
+  test("the track filter offers the tracks the schedule uses", async ({ page }) => {
+    await page.goto(DENSE_EVENT_URL);
+
+    // Track and category options are rendered by the server like every other
+    // filter's; the client only drops the ones no session carries.
+    const trackFilter = page.locator("#tag-filter-__track");
+    await expect(trackFilter.locator("option")).toHaveText([
+      "All tracks",
+      "Contests",
+      "Cosplay",
+      "Miniature Painting",
+      "Publisher Tables",
+      "RPG",
+      "Workshops",
+    ]);
+
+    const shown = page.locator(".session:visible");
+    const total = await shown.count();
+    await trackFilter.selectOption("Cosplay");
+
+    await expect(shown).not.toHaveCount(total);
+    await expect(shown.first()).toContainText("Cosplay");
   });
 
   test("states the room size while the enrollment window is shut", async ({ page }) => {
@@ -122,14 +152,14 @@ test.describe("Event filter panel", () => {
   test("offers a field's used choices only, never a written-in value", async ({ page }) => {
     await page.goto("/event/autumn-open/");
 
-    // "Tone" allows custom answers: Mega Strategy Lab picked the "Lighthearted"
-    // choice, the neon session wrote in "kalamburowy", and "Grimdark" is a
-    // choice nobody picked.
+    // "Tone" allows custom answers: Mega Strategy Lab picked "Lighthearted",
+    // the neon session picked "Grimdark" and wrote in "kalamburowy" beside it,
+    // and "Solemn" is a choice nobody picked.
     const toneFilter = page.locator("#tag-filter-tone");
-    await expect(toneFilter.locator("option")).toHaveText(["All Tone", "Lighthearted"]);
+    await expect(toneFilter.locator("option")).toHaveText(["All Tone", "Lighthearted", "Grimdark"]);
 
     const card = (title: string) => page.locator(".session", { hasText: title });
-    await toneFilter.selectOption("lighthearted");
+    await toneFilter.selectOption("Lighthearted");
     await expect(card("Mega Strategy Lab")).toBeVisible();
     await expect(card("Przygoda w Mieście Neonów")).toBeHidden();
   });

@@ -43,10 +43,9 @@ class EventSettingsRepos:
 class EventDisplaySettingsContextDTO:
     fields: list[OrganizerFieldDTO]
     displayed_field_ids: list[int]
-    # Private fields can never be shown publicly, so an event whose fields are
-    # all private ends up with the same empty list as one with no fields at
-    # all; the page has to tell those two apart to say what to do next.
-    has_non_public_fields: bool
+    # `fields` holds the public ones only, so this tells an event whose fields
+    # are all private apart from one with no fields at all.
+    has_any_fields: bool
 
 
 class ProposalSettingsUpdateData(TypedDict):

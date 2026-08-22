@@ -160,17 +160,15 @@ const initSessionFilters = (): void => {
       }
     }
 
-    // A session field filters by its defined choices only, which the template
-    // renders: a value typed into an allow_custom field reaches the card but
-    // is not a choice, and search is where it stays findable. So only drop the
-    // choices no session uses. The synthetic __track / __category selects have
-    // no field behind them and are still built from the cards.
-    if (categorySlug.startsWith("__")) {
-      for (const tag of [...categoryTags].sort()) addOption(select, tag, tag);
-    } else {
-      for (const option of [...select.options].slice(1)) {
-        if (!categoryTags.has(option.value)) option.remove();
-      }
+    // One rule for every tag filter: the server renders what can be picked,
+    // this drops what no card uses. A session field offers its defined choices
+    // only — a value typed into an allow_custom field reaches the card but is
+    // not a choice, and search is where it stays findable.
+    // querySelectorAll, not select.options: the live collection would skip an
+    // option as the one before it is removed. The valueless "All ..."
+    // placeholder stays.
+    for (const option of select.querySelectorAll("option")) {
+      if (option.value && !categoryTags.has(option.value)) option.remove();
     }
     select.addEventListener("change", filterSessions);
   }

@@ -495,6 +495,38 @@ def _create_enroll_states_scenario(sphere: Sphere) -> None:
     # keep offering the tester a way in however often the spec runs.
 
 
+# A public select field that allows custom answers, for the event-filter e2e:
+# two of its three choices are picked, one is picked by nobody, and one session
+# writes in a value of its own. The filter must offer the two picked choices
+# only, leaving the written-in value to the search box. Options carry
+# value == label, the way every code path that creates one does.
+def _create_tone_field_scenario(
+    event: Event, *, picked_session: Session, mixed_session: Session
+) -> None:
+    tone = SessionField.objects.create(
+        event=event,
+        name="Tone",
+        question="What tone should players expect?",
+        slug="tone",
+        field_type="select",
+        is_multiple=True,
+        allow_custom=True,
+        is_public=True,
+        icon="musical-note",
+        order=0,
+    )
+    for order, value in enumerate(("Lighthearted", "Grimdark", "Solemn")):
+        SessionFieldOption.objects.create(
+            field=tone, value=value, label=value, order=order
+        )
+    SessionFieldValue.objects.create(
+        session=picked_session, field=tone, value=["Lighthearted"]
+    )
+    SessionFieldValue.objects.create(
+        session=mixed_session, field=tone, value=["Grimdark", "kalamburowy"]
+    )
+
+
 # Dedicated event for the backoffice panel e2e tests. panel.spec mutates
 # venues, CFP config and facilitators, so it gets its own event — keeping
 # autumn-open read-only for the public-page specs makes the suite safe to run
@@ -845,32 +877,8 @@ def main() -> None:
         duration_hours=1,
     )
 
-    # An allow_custom field with one used choice, one unused choice and one
-    # written-in value: the public filter dropdown must offer only the used
-    # choice, while the written-in value stays findable through search.
-    tone = SessionField.objects.create(
-        event=upcoming_event,
-        name="Tone",
-        question="What tone should players expect?",
-        slug="tone",
-        field_type="select",
-        is_multiple=True,
-        allow_custom=True,
-        is_public=True,
-        icon="musical-note",
-        order=0,
-    )
-    for order, (value, label) in enumerate(
-        (("lighthearted", "Lighthearted"), ("grimdark", "Grimdark"))
-    ):
-        SessionFieldOption.objects.create(
-            field=tone, value=value, label=label, order=order
-        )
-    SessionFieldValue.objects.create(
-        session=mega_session, field=tone, value=["lighthearted"]
-    )
-    SessionFieldValue.objects.create(
-        session=neon_session, field=tone, value=["kalamburowy"]
+    _create_tone_field_scenario(
+        upcoming_event, picked_session=mega_session, mixed_session=neon_session
     )
 
     proposal_category = ProposalCategory.objects.create(
