@@ -20,14 +20,9 @@ from ludamus.links.db.django.models import (
     SessionParticipation,
     SessionParticipationStatus,
 )
+from ludamus.links.db.django.repositories.chronology import location_data
 from ludamus.links.gravatar import gravatar_url
-from ludamus.pacts import (
-    AgendaItemDTO,
-    EventDTO,
-    LocationData,
-    SessionDTO,
-    SessionFieldValueDTO,
-)
+from ludamus.pacts import AgendaItemDTO, EventDTO, SessionDTO, SessionFieldValueDTO
 from ludamus.pacts.crowd import UserDTO
 from ludamus.pacts.guild import GuildMarkDTO
 from tests.integration.conftest import (
@@ -131,12 +126,7 @@ def _expected_session_data(
         effective_participants_limit=10,
         enrolled_count=0,
         session_participations=[],
-        loc=LocationData(
-            space_name=space.name,
-            parent_slug=space.parent.slug if space.parent else "",
-            parent_name=space.parent.name if space.parent else "",
-            path=str(space),
-        ),
+        loc=location_data(space),
         can_edit=False,
         user_enrolled=False,
         user_waiting=False,

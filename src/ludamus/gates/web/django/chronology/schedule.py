@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-from collections import Counter, defaultdict
+from collections import defaultdict
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
 from math import ceil
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, NamedTuple
 
 from django.utils import timezone
 
@@ -54,9 +54,22 @@ class RoomLaneHourMark:
 
 
 @dataclass
+class RoomLane:
+    # One room column. `group` is the parent space it hangs under, printed once
+    # above the first column of the run (`starts_group`) so the header reads as
+    # the space tree rather than a flat row of room names. `group_key` is that
+    # parent's identity, which the client needs to reprint the label when
+    # filtering collapses the column that carried it.
+    name: str
+    group: str
+    group_key: str
+    starts_group: bool
+
+
+@dataclass
 class RoomLaneDay:
     day_start: datetime
-    rooms: list[str]
+    rooms: list[RoomLane]
     hour_marks: list[RoomLaneHourMark]
     tiles: list[RoomLaneTile]
 
@@ -122,19 +135,54 @@ def group_sessions_by_state(
     return dict(ended), dict(current), dict(future_unavailable)
 
 
-def _room_key(data: SessionData) -> tuple[str, str, str]:
-    return data.loc["space_name"], data.loc["parent_slug"], data.loc["parent_name"]
+class _RoomKey(NamedTuple):
+    # sort_key first, and alone enough to order the columns: it carries the
+    # whole ancestor chain's panel ordering, so sorting on it lays the columns
+    # out in tree order and puts every room of a parent space side by side. The
+    # rest of the fields ride along as labels.
+    sort_key: str
+    parent_key: str
+    name: str
+    parent_name: str
+
+
+def _room_key(data: SessionData) -> _RoomKey:
+    sort_key = data.loc["sort_key"]
+    return _RoomKey(
+        sort_key=sort_key,
+        # The parent's identity, not its name: Space enforces slug uniqueness
+        # only per parent, so two branches can carry the same parent name and
+        # must not merge into one header run. The chain minus the space's own
+        # three segments is exactly the parent's key, and "" at the root.
+        parent_key="|".join(sort_key.split("|")[:-3]),
+        name=data.loc["space_name"],
+        parent_name=data.loc["parent_name"],
+    )
+
+
+def _room_lanes(keys: list[_RoomKey]) -> list[RoomLane]:
+    lanes: list[RoomLane] = []
+    # None, not "": a root-level room's parent key is "", and that run still
+    # opens a group of its own rather than continuing the previous parent's.
+    previous_group: str | None = None
+    for key in keys:
+        lanes.append(
+            RoomLane(
+                name=key.name,
+                group=key.parent_name,
+                group_key=key.parent_key,
+                starts_group=key.parent_key != previous_group,
+            )
+        )
+        previous_group = key.parent_key
+    return lanes
 
 
 def build_room_lanes(schedule_days: list[ScheduleDay]) -> list[RoomLaneDay]:
     lane_days: list[RoomLaneDay] = []
     for day in schedule_days:
         keys = sorted({_room_key(tile.data) for tile in day.tiles})
-        name_counts = Counter(name for name, _, _ in keys)
-        rooms = [
-            f"{name} ({parent})" if name_counts[name] > 1 and parent else name
-            for name, _, parent in keys
-        ]
+        rooms = _room_lanes(keys)
         col_index = {key: index + 1 for index, key in enumerate(keys)}
 
         day_start = day.day_start

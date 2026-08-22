@@ -66,7 +66,10 @@ from ludamus.links.db.django.models import (
     SessionParticipation,
     SessionParticipationStatus,
 )
-from ludamus.links.db.django.repositories.chronology import public_scheduled_sessions
+from ludamus.links.db.django.repositories.chronology import (
+    location_data,
+    public_scheduled_sessions,
+)
 from ludamus.links.db.django.repositories.sessions import (
     annotate_session_participation_counts,
     field_value_dto,
@@ -80,11 +83,11 @@ from ludamus.mills.enrollment import (
     restricts_everyone,
 )
 from ludamus.pacts import (
+    NO_LOCATION,
     OCCUPYING_PARTICIPATION_STATUSES,
     AgendaItemDTO,
     EventDTO,
     EventListItemDTO,
-    LocationData,
     NotFoundError,
     RedirectError,
     SessionDTO,
@@ -647,18 +650,11 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
             except AgendaItem.DoesNotExist:
                 # Pending proposal: not scheduled yet, so no time or space.
                 agenda_item = None
-            if agenda_item is not None:
-                space = agenda_item.space
-                loc = LocationData(
-                    space_name=space.name,
-                    parent_slug=space.parent.slug if space.parent else "",
-                    parent_name=space.parent.name if space.parent else "",
-                    path=str(space),
-                )
-            else:
-                loc = LocationData(
-                    space_name="", parent_slug="", parent_name="", path=""
-                )
+            loc = (
+                location_data(agenda_item.space)
+                if agenda_item is not None
+                else NO_LOCATION
+            )
             if session.presenter_id:
                 presenter_dto = UserDTO.model_validate(session.presenter)
                 presenter = UserInfo.from_user_dto(
