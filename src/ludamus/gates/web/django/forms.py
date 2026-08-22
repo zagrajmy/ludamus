@@ -743,6 +743,7 @@ ACCREDITATION_TYPE_LABELS = {
     AccreditationType.STANDARD: _("Standard"),
     AccreditationType.GUEST: _("Guest"),
     AccreditationType.HONORARY: _("Honorary"),
+    AccreditationType.CREATOR: _("Program creator"),
 }
 ACCREDITATION_TYPE_CHOICES = [
     (t.value, ACCREDITATION_TYPE_LABELS[t]) for t in AccreditationType
@@ -819,7 +820,10 @@ class DiscountForm(forms.Form):
         decimal_places=2,
         min_value=Decimal("0.01"),
         label=_("Value"),
-        widget=forms.NumberInput(attrs={"inputmode": "decimal"}),
+        # Django derives step="0.01" from decimal_places; combined with
+        # min="0.01" the browser's float step check rejects plain 50 and
+        # suggests 50.01. step="any" drops it; the server still enforces 2dp.
+        widget=forms.NumberInput(attrs={"inputmode": "decimal", "step": "any"}),
         error_messages={
             "required": _("Value is required."),
             "min_value": _("Value must be greater than zero."),
@@ -845,6 +849,12 @@ class DiscountExportForm(forms.Form):
         max_length=500,
         strip=True,
         help_text=_("Paste the spreadsheet link (or its ID) from the address bar."),
+    )
+    tab = forms.CharField(
+        label=_("Tab name"),
+        max_length=100,
+        strip=True,
+        help_text=_("The tab has to exist already; the export replaces its content."),
     )
 
     def __init__(

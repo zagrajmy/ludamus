@@ -61,6 +61,8 @@ def _form_data(form: DiscountForm, facilitator_id: int) -> DiscountData:
         kind=DiscountKind(form.cleaned_data["kind"]),
         value=form.cleaned_data["value"],
         note=form.cleaned_data["note"],
+        # Hand-assigned: the rule sync leaves this discount alone.
+        from_rules=False,
     )
 
 
@@ -257,6 +259,37 @@ class DiscountDeleteActionView(PanelAccessMixin, EventContextMixin, View):
         return redirect("panel:discounts", slug=slug)
 
 
+class DiscountSyncActionView(PanelAccessMixin, EventContextMixin, View):
+    """Re-derive creator accreditation and rule discounts from the agenda."""
+
+    request: PanelRequest
+    http_method_names = ("post",)
+
+    def post(self, _request: PanelRequest, slug: str) -> HttpResponse:
+        _context, current_event = self.get_event_context(slug)
+        if current_event is None:
+            return redirect("panel:index")
+
+        result = self.request.services.discounts.apply_from_agenda(
+            event_pk=current_event.pk, user_id=self.request.context.current_user_id
+        )
+        messages.success(
+            self.request,
+            _(
+                "Agenda applied — marked as creators: %(marked)d, unmarked:"
+                " %(unmarked)d, discounts assigned: %(set)d, discounts withdrawn:"
+                " %(cleared)d."
+            )
+            % {
+                "marked": result.marked,
+                "unmarked": result.unmarked,
+                "set": result.discounts_set,
+                "cleared": result.discounts_cleared,
+            },
+        )
+        return redirect("panel:discounts", slug=slug)
+
+
 def _export_labels() -> DiscountExportLabels:
     return DiscountExportLabels(
         headers=[
@@ -309,6 +342,7 @@ class DiscountExportPageView(PanelAccessMixin, EventContextMixin, View):
                 event_pk=current_event.pk,
                 connection_id=int(form.cleaned_data["connection"]),
                 spreadsheet_id=form.cleaned_data["spreadsheet"],
+                tab_title=form.cleaned_data["tab"],
                 labels=_export_labels(),
             )
         except NotFoundError:

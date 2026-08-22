@@ -1,10 +1,12 @@
 from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 
 import pytest
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
 
 from ludamus.links.db.django.models import (
+    DiscountRule,
     Guild,
     GuildMembership,
     Notification,
@@ -16,6 +18,7 @@ from ludamus.links.db.django.models import (
     TimeSlot,
     Track,
 )
+from ludamus.pacts.discounts import DiscountMethod
 from ludamus.pacts.legacy import NotificationKind
 from ludamus.pacts.multiverse import SphereRole
 from tests.integration.conftest import EventFactory
@@ -136,6 +139,16 @@ class TestModelStringRepresentations:
 
         assert str(guild) == "Topory"
         assert str(membership) == f"{active_user.pk} in guild {guild.pk}"
+
+    def test_discount_rule_str(self, event):
+        rule = DiscountRule.objects.create(
+            event=event,
+            method=DiscountMethod.STARTED_HOURS.value,
+            quantity=4,
+            percent=Decimal("50.00"),
+        )
+
+        assert str(rule) == "started_hours >= 4 -> 50.00%"
 
 
 class TestTrackNameConstraint:

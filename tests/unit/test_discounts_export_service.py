@@ -7,7 +7,7 @@ from ludamus.pacts.event import FacilitatorListItemDTO
 
 LABELS = DiscountExportLabels(
     headers=["Twórca", "Typ akredytacji", "Rodzaj", "Wartość", "Notatka"],
-    accreditation_types={"guest": "Gość", "none": "Brak"},
+    accreditation_types={"guest": "Gość", "honorary": "Honorowa", "none": "Brak"},
     kinds={"percent": "Procent", "amount": "Kwota"},
 )
 
@@ -31,6 +31,7 @@ def _discount(pk, *, event_id=1, facilitator_id=1, kind=DiscountKind.PERCENT):
         kind=kind,
         value=Decimal("15.50"),
         note=f"note-{pk}",
+        from_rules=False,
         creation_time=datetime(2026, 6, 19, tzinfo=UTC),
         modification_time=datetime(2026, 6, 19, tzinfo=UTC),
     )
@@ -77,8 +78,8 @@ class FakeWriter:
     def __init__(self):
         self.calls = []
 
-    def write_rows(self, *, secret, spreadsheet_id, rows):
-        self.calls.append((secret, spreadsheet_id, rows))
+    def write_rows(self, *, secret, spreadsheet_id, tab_title, rows):
+        self.calls.append((secret, spreadsheet_id, tab_title, rows))
 
 
 def _service(
@@ -99,7 +100,7 @@ class TestDiscountsExportService:
         facilitators = FakeFacilitators(
             [
                 _facilitator(1, display_name="Alice", accreditation_type="guest"),
-                _facilitator(2, display_name="Bob", accreditation_type="none"),
+                _facilitator(2, display_name="Bob", accreditation_type="honorary"),
             ]
         )
         discounts = FakeDiscounts(
@@ -118,6 +119,7 @@ class TestDiscountsExportService:
             event_pk=1,
             connection_id=7,
             spreadsheet_id="sheet-1",
+            tab_title="Akredytacje",
             labels=LABELS,
         )
 
@@ -126,12 +128,38 @@ class TestDiscountsExportService:
             (
                 b"plaintext",
                 "sheet-1",
+                "Akredytacje",
                 [
                     ["Twórca", "Typ akredytacji", "Rodzaj", "Wartość", "Notatka"],
                     ["Alice", "Gość", "Procent", "15.50", "note-11"],
-                    ["Bob", "Brak", "Kwota", "15.50", "note-10"],
+                    ["Bob", "Honorowa", "Kwota", "15.50", "note-10"],
                 ],
             )
+        ]
+
+    def test_facilitators_without_accreditation_are_left_out(self):
+        facilitators = FakeFacilitators(
+            [
+                _facilitator(1, display_name="Alice", accreditation_type="guest"),
+                _facilitator(2, display_name="Bob", accreditation_type="none"),
+            ]
+        )
+        writer = FakeWriter()
+        service = _service(facilitators=facilitators, writer=writer)
+
+        count = service.export_to_sheet(
+            sphere_id=3,
+            event_pk=1,
+            connection_id=7,
+            spreadsheet_id="sheet-1",
+            tab_title="Akredytacje",
+            labels=LABELS,
+        )
+
+        assert count == 1
+        assert writer.calls[0][3] == [
+            ["Twórca", "Typ akredytacji", "Rodzaj", "Wartość", "Notatka"],
+            ["Alice", "Gość", "", "", ""],
         ]
 
     def test_facilitator_without_discount_gets_empty_cells(self):
@@ -144,11 +172,12 @@ class TestDiscountsExportService:
             event_pk=1,
             connection_id=7,
             spreadsheet_id="sheet-1",
+            tab_title="Akredytacje",
             labels=LABELS,
         )
 
         assert count == 1
-        assert writer.calls[0][2][1] == ["Alice", "Gość", "", "", ""]
+        assert writer.calls[0][3][1] == ["Alice", "Gość", "", "", ""]
 
     def test_unknown_labels_fall_back_to_raw_values(self):
         facilitators = FakeFacilitators(
@@ -168,10 +197,11 @@ class TestDiscountsExportService:
             event_pk=1,
             connection_id=7,
             spreadsheet_id="sheet-1",
+            tab_title="Akredytacje",
             labels=labels,
         )
 
-        assert writer.calls[0][2][1] == [
+        assert writer.calls[0][3][1] == [
             "Alice",
             "honorary",
             "percent",
@@ -189,6 +219,7 @@ class TestDiscountsExportService:
             event_pk=1,
             connection_id=7,
             spreadsheet_id="sheet-1",
+            tab_title="Akredytacje",
             labels=LABELS,
         )
 
@@ -206,6 +237,7 @@ class TestDiscountsExportService:
             event_pk=1,
             connection_id=7,
             spreadsheet_id="sheet-1",
+            tab_title="Akredytacje",
             labels=LABELS,
         )
 
@@ -230,8 +262,9 @@ class TestDiscountsExportService:
             event_pk=1,
             connection_id=7,
             spreadsheet_id="sheet-1",
+            tab_title="Akredytacje",
             labels=LABELS,
         )
 
         assert facilitators.listed_events == [1]
-        assert writer.calls[0][2][1] == ["Alice", "Gość", "Procent", "15.50", "note-10"]
+        assert writer.calls[0][3][1] == ["Alice", "Gość", "Procent", "15.50", "note-10"]

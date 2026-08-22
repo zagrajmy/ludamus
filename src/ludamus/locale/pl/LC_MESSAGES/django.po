@@ -1112,6 +1112,15 @@ msgid "Discount removed successfully."
 msgstr "Zniżka została usunięta."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/discounts.py
+#, python-format
+msgid ""
+"Agenda applied — marked as creators: %(marked)d, unmarked: %(unmarked)d, "
+"discounts assigned: %(set)d, discounts withdrawn: %(cleared)d."
+msgstr ""
+"Zastosowano agendę: oznaczono twórców programu: %(marked)d, odznaczono: "
+"%(unmarked)d, przyznano zniżek: %(set)d, wycofano: %(cleared)d."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/discounts.py
 msgid "Creator"
 msgstr "Twórca programu"
 
@@ -2293,6 +2302,7 @@ msgstr "Zarządzaj miejscami zapisanymi dla innych…"
 #: src/ludamus/templates/panel/_time-slot-create-modal.html
 #: src/ludamus/templates/panel/cfp-create.html
 #: src/ludamus/templates/panel/cfp-edit.html
+#: src/ludamus/templates/panel/discount-rule-form.html
 #: src/ludamus/templates/panel/discounts/edit.html
 #: src/ludamus/templates/panel/discounts/export.html
 #: src/ludamus/templates/panel/discounts/list.html
@@ -2385,9 +2395,72 @@ msgstr "Zezwalaj na zapisy bez konta"
 msgid "Enrollment must close after it opens."
 msgstr "Zapisy muszą zamknąć się po ich otwarciu."
 
+#: src/ludamus/gates/web/django/event/panel/forms.py
+msgid "Started hours"
+msgstr "Rozpoczęte godziny"
+
+#: src/ludamus/gates/web/django/event/panel/forms.py
+msgid "Program points"
+msgstr "Punkty programu"
+
+#: src/ludamus/gates/web/django/event/panel/forms.py
+msgid "What counts"
+msgstr "Co się liczy"
+
+#: src/ludamus/gates/web/django/event/panel/forms.py
+msgid ""
+"Started hours round the creator's total scheduled time up: 1 h 50 min counts "
+"as 2."
+msgstr ""
+"Rozpoczęte godziny zaokrąglają w górę łączny zaplanowany czas twórcy "
+"programu: 1 h 50 min to 2."
+
+#: src/ludamus/gates/web/django/event/panel/forms.py
+msgid "At least"
+msgstr "Co najmniej"
+
+#: src/ludamus/gates/web/django/event/panel/forms.py
+msgid "How many hours or program points the creator has to reach."
+msgstr "Ile godzin lub punktów programu musi zebrać twórca programu."
+
+#: src/ludamus/gates/web/django/event/panel/forms.py
+#: src/ludamus/templates/panel/discount-rules.html
+#: src/ludamus/templates/panel/discounts/list.html
+msgid "Discount"
+msgstr "Zniżka"
+
+#: src/ludamus/gates/web/django/event/panel/forms.py
+msgid "Percentage taken off the ticket price."
+msgstr "Procent odejmowany od ceny biletu."
+
+#: src/ludamus/gates/web/django/event/panel/forms.py
+#: src/ludamus/templates/panel/discount-rules.html
+msgid "Order"
+msgstr "Kolejność"
+
+#: src/ludamus/gates/web/django/event/panel/forms.py
+msgid "Rules are checked from the lowest number; the first match wins."
+msgstr "Reguły sprawdzamy od najniższej liczby; wygrywa pierwsza pasująca."
+
 #: src/ludamus/gates/web/django/event/panel/views/base.py
 msgid "You don't have permission to access the backoffice panel."
 msgstr "Nie masz uprawnień do panelu organizatora."
+
+#: src/ludamus/gates/web/django/event/panel/views/discount_settings.py
+msgid "Discount rule not found."
+msgstr "Nie znaleziono reguły zniżki."
+
+#: src/ludamus/gates/web/django/event/panel/views/discount_settings.py
+msgid "Discount rule created."
+msgstr "Reguła zniżki została dodana."
+
+#: src/ludamus/gates/web/django/event/panel/views/discount_settings.py
+msgid "Discount rule saved."
+msgstr "Reguła zniżki została zapisana."
+
+#: src/ludamus/gates/web/django/event/panel/views/discount_settings.py
+msgid "Discount rule deleted."
+msgstr "Reguła zniżki została usunięta."
 
 #: src/ludamus/gates/web/django/event/panel/views/enrollment_settings.py
 msgid "Enrollment window not found."
@@ -2879,6 +2952,10 @@ msgid "Honorary"
 msgstr "Honorowa"
 
 #: src/ludamus/gates/web/django/forms.py
+msgid "Program creator"
+msgstr "Twórca programu"
+
+#: src/ludamus/gates/web/django/forms.py
 #: src/ludamus/gates/web/django/templatetags/cfp_tags.py
 #: src/ludamus/templates/panel/facilitator-detail.html
 msgid "Runs program points in parallel"
@@ -2947,6 +3024,14 @@ msgstr "Link do arkusza Google"
 #: src/ludamus/gates/web/django/forms.py
 msgid "Paste the spreadsheet link (or its ID) from the address bar."
 msgstr "Wklej link do arkusza (lub jego ID) z paska adresu."
+
+#: src/ludamus/gates/web/django/forms.py
+msgid "Tab name"
+msgstr "Nazwa zakładki"
+
+#: src/ludamus/gates/web/django/forms.py
+msgid "The tab has to exist already; the export replaces its content."
+msgstr "Zakładka musi już istnieć; eksport zastąpi jej zawartość."
 
 #: src/ludamus/gates/web/django/forms.py
 msgid "Enter a Google Sheets link or a spreadsheet ID."
@@ -5764,6 +5849,7 @@ msgstr "Przykładowe gildie"
 #: src/ludamus/templates/multiverse/panel/connections/list.html
 #: src/ludamus/templates/multiverse/panel/guilds/list.html
 #: src/ludamus/templates/panel/bans.html src/ludamus/templates/panel/cfp.html
+#: src/ludamus/templates/panel/discount-rules.html
 #: src/ludamus/templates/panel/discounts/list.html
 #: src/ludamus/templates/panel/enrollment-settings.html
 #: src/ludamus/templates/panel/errata.html
@@ -6340,6 +6426,13 @@ msgid "Change history"
 msgstr "Historia zmian"
 
 #: src/ludamus/templates/panel/_event_settings_tabs.html
+#: src/ludamus/templates/panel/base.html
+#: src/ludamus/templates/panel/discount-rule-form.html
+#: src/ludamus/templates/panel/discounts/list.html
+msgid "Discounts"
+msgstr "Zniżki"
+
+#: src/ludamus/templates/panel/_event_settings_tabs.html
 msgid "Display"
 msgstr "Wyświetlanie"
 
@@ -6585,11 +6678,6 @@ msgid "Call for Proposals"
 msgstr "Nabór zgłoszeń"
 
 #: src/ludamus/templates/panel/base.html
-#: src/ludamus/templates/panel/discounts/list.html
-msgid "Discounts"
-msgstr "Zniżki"
-
-#: src/ludamus/templates/panel/base.html
 #: src/ludamus/templates/panel/import-json.html
 #: src/ludamus/templates/panel/import-log.html
 #: src/ludamus/templates/panel/import-review.html
@@ -6627,6 +6715,7 @@ msgid "Settings"
 msgstr "Ustawienia"
 
 #: src/ludamus/templates/panel/base.html
+#: src/ludamus/templates/panel/discount-rules.html
 #: src/ludamus/templates/panel/display-settings.html
 #: src/ludamus/templates/panel/enrollment-settings.html
 #: src/ludamus/templates/panel/integration-settings.html
@@ -6912,6 +7001,80 @@ msgstr "Zmiany twórców programu"
 msgid "Facilitator"
 msgstr "Prowadzący"
 
+#: src/ludamus/templates/panel/discount-rule-form.html
+msgid "Edit discount rule"
+msgstr "Edytuj regułę zniżki"
+
+#: src/ludamus/templates/panel/discount-rule-form.html
+msgid "Add discount rule"
+msgstr "Dodaj regułę zniżki"
+
+#: src/ludamus/templates/panel/discount-rule-form.html
+msgid "Save rule"
+msgstr "Zapisz regułę"
+
+#: src/ludamus/templates/panel/discount-rule-form.html
+msgid "When the rule applies"
+msgstr "Kiedy reguła działa"
+
+#: src/ludamus/templates/panel/discount-rule-form.html
+msgid "Only program scheduled in the agenda counts towards the rule."
+msgstr "Do reguły liczy się tylko program zaplanowany w agendzie."
+
+#: src/ludamus/templates/panel/discount-rule-form.html
+msgid "What the creator gets"
+msgstr "Co dostaje twórca programu"
+
+#: src/ludamus/templates/panel/discount-rules.html
+#: src/ludamus/templates/panel/discounts/list.html
+msgid "Discount rules"
+msgstr "Reguły zniżek"
+
+#: src/ludamus/templates/panel/discount-rules.html
+msgid "Add rule"
+msgstr "Dodaj regułę"
+
+#: src/ludamus/templates/panel/discount-rules.html
+msgid ""
+"Syncing the discounts page with the agenda gives every program creator the "
+"discount from the first rule they match."
+msgstr ""
+"Zastosowanie agendy na stronie zniżek przyznaje każdemu twórcy programu "
+"zniżkę z pierwszej pasującej reguły."
+
+#: src/ludamus/templates/panel/discount-rules.html
+msgid "Condition"
+msgstr "Warunek"
+
+#: src/ludamus/templates/panel/discount-rules.html
+#, python-format
+msgid "%(measure)s: at least %(quantity)s"
+msgstr "%(measure)s: co najmniej %(quantity)s"
+
+#: src/ludamus/templates/panel/discount-rules.html
+msgid "Edit rule"
+msgstr "Edytuj regułę"
+
+#: src/ludamus/templates/panel/discount-rules.html
+msgid ""
+"Delete this discount rule? Creators keep the discount they already have "
+"until the next sync."
+msgstr ""
+"Usunąć tę regułę zniżki? Twórcy programu zachowają obecne zniżki do "
+"następnego zastosowania agendy."
+
+#: src/ludamus/templates/panel/discount-rules.html
+msgid "Delete rule"
+msgstr "Usuń regułę"
+
+#: src/ludamus/templates/panel/discount-rules.html
+msgid "No discount rules yet"
+msgstr "Nie ma jeszcze reguł zniżek"
+
+#: src/ludamus/templates/panel/discount-rules.html
+msgid "Add a rule to have the agenda sync assign discounts on its own."
+msgstr "Dodaj regułę, aby zniżki przyznawały się na podstawie agendy."
+
 #: src/ludamus/templates/panel/discounts/edit.html
 msgid "Edit discount"
 msgstr "Edytuj zniżkę"
@@ -6928,11 +7091,11 @@ msgstr "Zniżki twórców programu"
 
 #: src/ludamus/templates/panel/discounts/export.html
 msgid ""
-"Writes every facilitator with their accreditation type and discount into the "
-"first tab of the selected spreadsheet, replacing its current content."
+"Writes every accredited facilitator with their accreditation type and "
+"discount into the chosen tab, replacing its current content."
 msgstr ""
-"Zapisuje wszystkich twórców programu wraz z rodzajem akredytacji i zniżką do "
-"pierwszej zakładki wybranego arkusza, zastępując jego obecną zawartość."
+"Zapisuje twórców programu z akredytacją wraz z jej rodzajem i zniżką do "
+"wybranej zakładki, zastępując jej obecną zawartość."
 
 #: src/ludamus/templates/panel/discounts/export.html
 msgid ""
@@ -6959,8 +7122,23 @@ msgid "Go to connections"
 msgstr "Przejdź do połączeń"
 
 #: src/ludamus/templates/panel/discounts/list.html
-msgid "Discount"
-msgstr "Zniżka"
+msgid ""
+"Apply the agenda? Creators with scheduled program get their rule discount, "
+"creators left without it lose the creator mark and the discount the rules "
+"gave them, and discounts assigned by hand stay untouched."
+msgstr ""
+"Zastosować agendę? Twórcy programu z zaplanowanym programem dostaną zniżkę z "
+"reguł, twórcy programu bez zaplanowanego programu stracą oznaczenie twórcy "
+"programu i zniżkę przyznaną przez reguły, a zniżki przyznane ręcznie zostaną "
+"bez zmian."
+
+#: src/ludamus/templates/panel/discounts/list.html
+msgid "Apply agenda"
+msgstr "Zastosuj agendę"
+
+#: src/ludamus/templates/panel/discounts/list.html
+msgid "From rules"
+msgstr "Z reguł"
 
 #: src/ludamus/templates/panel/discounts/list.html
 msgid "Are you sure you want to remove this discount?"
@@ -9401,6 +9579,21 @@ msgstr "Brak przechwyconych e-maili."
 #~ msgid "All venues"
 #~ msgstr "Wszystkie lokalizacje"
 
+#~ msgid ""
+#~ "Writes every facilitator with their accreditation type and discount into "
+#~ "the first tab of the selected spreadsheet, replacing its current content."
+#~ msgstr ""
+#~ "Zapisuje wszystkich twórców programu wraz z rodzajem akredytacji i zniżką "
+#~ "do pierwszej zakładki wybranego arkusza, zastępując jego obecną zawartość."
+
+#, python-format
+#~ msgid "Changed by %(who)s on %(when)s"
+#~ msgstr "Zmiana: %(who)s, %(when)s"
+
+#, python-format
+#~ msgid "announced by %(who)s"
+#~ msgstr "ogłoszone przez: %(who)s"
+
 #~ msgid "Enrollment required"
 #~ msgstr "Wymagane zapisy"
 
@@ -9434,14 +9627,6 @@ msgstr "Brak przechwyconych e-maili."
 #~ msgid "Show the full schedule"
 #~ msgstr "Pokaż pełny harmonogram"
 
-#, python-format
-#~ msgid "Changed by %(who)s on %(when)s"
-#~ msgstr "Zmiana: %(who)s, %(when)s"
-
-#, python-format
-#~ msgid "announced by %(who)s"
-#~ msgstr "ogłoszone przez: %(who)s"
-
 #~ msgid "Analytics settings"
 #~ msgstr "Ustawienia analityki"
 
@@ -9469,6 +9654,9 @@ msgstr "Brak przechwyconych e-maili."
 #~ msgid "Allow analytics"
 #~ msgstr "Włącz analitykę"
 
+#~ msgid "Empty or 0 = no limit"
+#~ msgstr "Puste pole lub 0 = bez limitu"
+
 #, python-format
 #~ msgid ""
 #~ "With your consent we use PostHog analytics — including session replays "
@@ -9480,9 +9668,6 @@ msgstr "Brak przechwyconych e-maili."
 #~ "zamaskowanymi wszystkimi polami — aby zobaczyć, jak serwis jest używany, "
 #~ "i szybciej naprawiać błędy. Nic nie zapisujemy, zanim się nie zgodzisz. "
 #~ "Szczegóły w <a href=\"%(privacy_url)s\">Polityce prywatności</a>."
-
-#~ msgid "Empty or 0 = no limit"
-#~ msgstr "Puste pole lub 0 = bez limitu"
 
 #~ msgid "Open"
 #~ msgstr "Otwarte"
@@ -9667,6 +9852,9 @@ msgstr "Brak przechwyconych e-maili."
 #~ msgid "Search by facilitator or field values"
 #~ msgstr "Szukaj po prowadzącym lub wartościach pól"
 
+#~ msgid "Select all"
+#~ msgstr "Zaznacz wszystkie"
+
 #~ msgid "Keep"
 #~ msgstr "Zachowaj"
 
@@ -9820,6 +10008,3 @@ msgstr "Brak przechwyconych e-maili."
 #, python-format
 #~ msgid "Edit proposal %(title)s"
 #~ msgstr "Edytuj zgłoszenie %(title)s"
-
-#~ msgid "Select all"
-#~ msgstr "Zaznacz wszystkie"

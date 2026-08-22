@@ -48,19 +48,22 @@ def rename_duplicate_track_names(apps, schema_editor):
             track.name = _free_name(track_model, track.event_id, old_name)
             track.save(update_fields=["name"])
             renamed += 1
-            logger.info("0150: track %s name %r -> %r", track.pk, old_name, track.name)
+            logger.info("0151: track %s name %r -> %r", track.pk, old_name, track.name)
             taken.add(
                 folded.filter(pk=track.pk).values_list("folded_name", flat=True).first()
             )
         else:
             taken.add(track.folded_name)
 
-    logger.info("0150: %s tracks renamed", renamed)
+    logger.info("0151: %s tracks renamed", renamed)
 
 
 class Migration(migrations.Migration):
 
-    dependencies = [("db_main", "0149_schedulechangelog_moved_from")]
+    dependencies = [
+        ("db_main", "0149_schedulechangelog_moved_from"),
+        ("db_main", "0150_discount_from_rules"),
+    ]
 
     operations = [
         migrations.RunPython(rename_duplicate_track_names, migrations.RunPython.noop),
