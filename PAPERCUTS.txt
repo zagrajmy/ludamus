@@ -331,3 +331,8 @@ If you fix a papercut, remove it.
   was unset; the traceback only later explained pytest-django could not
   initialize. Use mise run test:int -- PATH so the task supplies the test
   environment.
+- 2026-08-22: mise run messages-resolve failed: 'aubr varlock django-admin
+  makemessages' crashes at django.setup() — zeal.patch.patch_generic_foreign_key
+  does GenericForeignKey.__get__, which no longer exists in the installed
+  Django. Worked around by running makemessages with DEBUG=false so settings
+  skip the zeal app. mise run messages / messages-check hit the same crash.

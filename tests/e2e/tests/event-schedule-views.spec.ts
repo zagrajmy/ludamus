@@ -61,8 +61,8 @@ test.describe("Enrollment filter", () => {
     await expect(card(page, MEGA)).toBeVisible();
     await expect(card(page, NEON)).toBeVisible();
     await expect(card(page, COZY)).toBeHidden();
-    // A filter, not a view: no request, nothing reloaded. The state rides a
-    // replaceState mirror, so the query string moves but the document doesn't.
+    // A filter, not a view: the URL mirror is a replaceState, so no request
+    // goes out and nothing reloads.
     await expect(page).toHaveURL(`${EVENT_URL}?enrollment=1`);
     expect(await stayedOnPage(page)).toBe(true);
   });
