@@ -2758,6 +2758,7 @@ msgid "Capacity must be at least 1."
 msgstr "Pojemność musi wynosić co najmniej 1."
 
 #: src/ludamus/gates/web/django/forms.py
+#: src/ludamus/templates/chronology/event.html
 msgid "Location"
 msgstr "Lokalizacja"
 
@@ -4348,11 +4349,11 @@ msgid "Bookmarked"
 msgstr "Z zakładką"
 
 #: src/ludamus/templates/chronology/event.html
-msgid "Venue"
-msgstr "Lokalizacja"
+msgid "all rooms"
+msgstr "wszystkie sale"
 
 #: src/ludamus/templates/chronology/event.html
-msgid "All venues"
+msgid "All locations"
 msgstr "Wszystkie lokalizacje"
 
 #: src/ludamus/templates/chronology/event.html
@@ -9393,6 +9394,12 @@ msgstr "Temat"
 #: src/ludamus/templates/staging_email_inbox.html
 msgid "No emails captured yet."
 msgstr "Brak przechwyconych e-maili."
+
+#~ msgid "Venue"
+#~ msgstr "Lokalizacja"
+
+#~ msgid "All venues"
+#~ msgstr "Wszystkie lokalizacje"
 
 #~ msgid "Enrollment required"
 #~ msgstr "Wymagane zapisy"

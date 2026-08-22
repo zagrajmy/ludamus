@@ -1,11 +1,16 @@
+import zipfile
 from dataclasses import replace
 from datetime import timedelta
+from typing import TYPE_CHECKING
 
 import pytest
 
 from scripts.polcon26 import programme as sync
 from scripts.polcon26 import workbook as wb
 from scripts.polcon26.mcp_client import McpClient, McpError, failure_detail
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 @pytest.mark.parametrize(
@@ -287,3 +292,61 @@ def test_validate_items_rejects_duplicate_source_row_ids() -> None:
 
     with pytest.raises(ValueError, match="Duplicate source_row_id"):
         sync.validate_items([items[0], items[0]])
+
+
+_MAIN_NS = "http://schemas.openxmlformats.org/spreadsheetml/2006/main"
+_DOC_NS = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
+_PKG_NS = "http://schemas.openxmlformats.org/package/2006/relationships"
+_SHEET_XML = (
+    f'<worksheet xmlns="{_MAIN_NS}"><sheetData>'
+    '<row r="3"><c r="C3"><v>0.5</v></c></row>'
+    '<row r="4"><c r="C4" t="s"><v>0</v></c></row>'
+    "</sheetData>"
+    '<mergeCells><mergeCell ref="C4:D4"/></mergeCells></worksheet>'
+).encode()
+
+
+def _write_workbook(path: Path, names: tuple[str, ...]) -> None:
+    sheets = "".join(
+        f'<sheet name="{name}" sheetId="{index}" r:id="rId{index}"/>'
+        for index, name in enumerate(names, start=1)
+    )
+    relationships = "".join(
+        f'<Relationship Id="rId{index}" Target="worksheets/sheet{index}.xml"/>'
+        for index in range(1, len(names) + 1)
+    )
+    with zipfile.ZipFile(path, "w") as archive:
+        archive.writestr(
+            "xl/workbook.xml",
+            f'<workbook xmlns="{_MAIN_NS}" xmlns:r="{_DOC_NS}">'
+            f"<sheets>{sheets}</sheets></workbook>",
+        )
+        archive.writestr(
+            "xl/_rels/workbook.xml.rels",
+            f'<Relationships xmlns="{_PKG_NS}">{relationships}</Relationships>',
+        )
+        archive.writestr(
+            "xl/sharedStrings.xml",
+            f'<sst xmlns="{_MAIN_NS}"><si><t>Wprowadzenie</t></si></sst>',
+        )
+        for index in range(1, len(names) + 1):
+            archive.writestr(f"xl/worksheets/sheet{index}.xml", _SHEET_XML)
+
+
+def test_load_workbook_reads_cells_merges_and_shared_strings(tmp_path: Path) -> None:
+    path = tmp_path / "programme.xlsx"
+    _write_workbook(path, wb.SHEETS)
+
+    sheets = wb.load_workbook(path)
+
+    assert sorted(sheets) == sorted(wb.SHEETS)
+    assert sheets["Sobota"].cells == {"C3": "0.5", "C4": "Wprowadzenie"}
+    assert sheets["Sobota"].merges == ("C4:D4",)
+
+
+def test_load_workbook_rejects_a_workbook_missing_a_day(tmp_path: Path) -> None:
+    path = tmp_path / "programme.xlsx"
+    _write_workbook(path, ("Piątek",))
+
+    with pytest.raises(ValueError, match="missing sheets: Niedziela, Sobota"):
+        wb.load_workbook(path)
