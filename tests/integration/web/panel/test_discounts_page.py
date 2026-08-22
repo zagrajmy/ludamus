@@ -588,8 +588,8 @@ class TestDiscountExportPageView:
 
     def _post(self, client, event, connection, session):
         with (
-            patch("ludamus.links.google_docs.Credentials.from_service_account_info"),
-            patch("ludamus.links.google_docs.AuthorizedSession") as session_cls,
+            patch("ludamus.links.google_auth.Credentials.from_service_account_info"),
+            patch("ludamus.links.google_auth.AuthorizedSession") as session_cls,
         ):
             session_cls.return_value = session
             return client.post(

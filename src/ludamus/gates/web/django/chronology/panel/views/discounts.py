@@ -23,12 +23,8 @@ from ludamus.gates.web.django.forms import (
 )
 from ludamus.gates.web.django.panel import PanelNavContext
 from ludamus.pacts import NotFoundError
-from ludamus.pacts.discounts import (
-    DiscountData,
-    DiscountExportLabels,
-    DiscountKind,
-    SheetExportError,
-)
+from ludamus.pacts.discounts import DiscountData, DiscountExportLabels, DiscountKind
+from ludamus.pacts.sheets import SheetExportError
 from ludamus.pacts.submissions import AccreditationType
 
 if TYPE_CHECKING:

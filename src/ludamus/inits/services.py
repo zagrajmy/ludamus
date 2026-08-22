@@ -5,20 +5,24 @@ from typing import TYPE_CHECKING
 
 from django.conf import settings
 
-from ludamus.inits.builders import build_printables_reminder, build_waitlist_promotion
+from ludamus.inits.builders import (
+    build_konwencik_export,
+    build_printables_reminder,
+    build_waitlist_promotion,
+)
 from ludamus.inits.dbos_scheduler import DBOSOfferExpiryScheduler
 from ludamus.inits.repositories import Repositories
 from ludamus.links.db.django.notifications import DjangoUserNotifier
 from ludamus.links.db.django.schedule_change_log import ScheduleChangeLogRepository
 from ludamus.links.db.django.transaction import DjangoTransaction
 from ludamus.links.encryption import FernetDecryptor, FernetEncryptor
-from ludamus.links.google_docs import GoogleDocsProposalImporter, GoogleSheetsWriter
+from ludamus.links.google_forms import GoogleDocsProposalImporter
+from ludamus.links.google_sheets import GoogleSheetsWriter, KonwencikSheetExporter
 from ludamus.links.gravatar import gravatar_url
 from ludamus.links.scheduler import CronSweepOfferScheduler
 from ludamus.links.ticket_api import MembershipApiClient
 from ludamus.mills.bookmarks import BookmarkService
 from ludamus.mills.chronology import (
-    EventIntegrationsService,
     ProposalAcceptanceService,
     ProposalStatusService,
     SessionConfirmationService,
@@ -49,6 +53,7 @@ from ludamus.mills.event import (
 )
 from ludamus.mills.event_settings import EventSettingsService
 from ludamus.mills.guild import GuildService
+from ludamus.mills.integrations import EventIntegrationsService
 from ludamus.mills.multiverse import (
     AnnouncementsService,
     ConnectionsService,
@@ -90,7 +95,11 @@ from ludamus.pacts.submissions import ImportRepos, ProposalCategorySettingsRepos
 from ludamus.pacts.timetable import TimetableRepos
 
 if TYPE_CHECKING:
-    from ludamus.pacts.chronology import IntegrationImplementation
+    from ludamus.mills.konwencik import KonwencikExportService
+    from ludamus.pacts.chronology import (
+        IntegrationImplementation,
+        ProposalSourceImplementation,
+    )
     from ludamus.pacts.enrollment import OfferExpirySchedulerProtocol
 
 
@@ -454,6 +463,10 @@ class Services:
         )
 
     @cached_property
+    def konwencik_export(self) -> KonwencikExportService:
+        return build_konwencik_export()
+
+    @cached_property
     def encounters(self) -> EncounterService:
         return EncounterService(
             transaction=self._transaction,
@@ -465,17 +478,24 @@ class Services:
     @cached_property
     def event_integrations(self) -> EventIntegrationsService:
         key: str = settings.CREDENTIALS_ENCRYPTION_KEY
-        registry: dict[IntegrationImplementationId, IntegrationImplementation] = {
+        sources: dict[IntegrationImplementationId, ProposalSourceImplementation] = {
             IntegrationImplementationId.GOOGLE_PROPOSAL_PULLER: (
                 GoogleDocsProposalImporter()
             )
         }
+        registry: dict[IntegrationImplementationId, IntegrationImplementation] = {
+            **sources,
+            IntegrationImplementationId.KONWENCIK_SHEET_PUSHER: (
+                KonwencikSheetExporter()
+            ),
+        }
         return EventIntegrationsService(
-            self._transaction,
-            self._repos.event_integrations,
-            self._repos.connections,
-            FernetDecryptor(key),
-            registry,
+            transaction=self._transaction,
+            integrations=self._repos.event_integrations,
+            connections=self._repos.connections,
+            decryptor=FernetDecryptor(key),
+            registry=registry,
+            sources=sources,
         )
 
     @cached_property

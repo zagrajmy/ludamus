@@ -87,7 +87,7 @@ ranges = ["python-tests"]
 base = "tingle.builtins.unittest_mock.any_used"
 name = "mock-ANY"
 ranges = ["python-tests"]
-ignore_lines = ['(?:\b|_)(view|form|import)\b']
+ignore_lines = ['(?:\b|_)(view|form|formset|import)\b']
 
 [[metrics]]
 name = "pointless-assert"
@@ -131,6 +131,7 @@ base = "tingle.builtins.mypy.overrides"
 base = "tingle.builtins.python.any_used"
 name = "type-any"
 ranges = ["python-src"]
+ignore_lines = ['^\s+Any,', 'from typing import.*Any']
 
 [[metrics]]
 name = "type-object"

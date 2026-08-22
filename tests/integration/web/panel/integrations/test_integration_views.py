@@ -11,9 +11,12 @@ from django.contrib import messages
 from django.urls import reverse
 
 from ludamus.gates.web.django.chronology.panel.forms import integration_signature
+from ludamus.gates.web.django.chronology.panel.views.event_settings import (
+    INTEGRATION_ROW_ACTIONS,
+)
 from ludamus.gates.web.django.panel import settings_tab_urls
 from ludamus.links.db.django.models import EventIntegration
-from ludamus.pacts.chronology import IntegrationImplementationId
+from ludamus.pacts.chronology import IntegrationImplementationId, IntegrationKind
 from tests.integration.conftest import EventFactory
 from tests.integration.utils import assert_login_required, assert_response
 from tests.integration.web.panel.helpers import (
@@ -88,7 +91,7 @@ class TestEventIntegrationSettingsPageView:
                 "active_nav": "settings",
                 "active_tab": "integrations",
                 "tab_urls": settings_tab_urls(event.slug),
-                "integrations": [],
+                "integration_rows": [],
             },
         )
 
@@ -106,7 +109,45 @@ class TestEventIntegrationSettingsPageView:
                 "active_nav": "settings",
                 "active_tab": "integrations",
                 "tab_urls": settings_tab_urls(event.slug),
-                "integrations": [integration_dto(integration)],
+                "integration_rows": [
+                    {"integration": integration_dto(integration), "actions": ()}
+                ],
+            },
+        )
+
+    def test_get_gives_an_export_integration_the_konwencik_row_actions(
+        self, panel_client, event, connection
+    ):
+        # The row carries its own actions; that they render as a button and a
+        # link is the shared table's business, covered in tests/e2e.
+        integration = EventIntegration.objects.create(
+            event=event,
+            kind=IntegrationKind.EXPORT.value,
+            implementation=IntegrationImplementationId.KONWENCIK_SHEET_PUSHER.value,
+            connection=connection,
+            display_name="Konwencik",
+            config_json=json.dumps({"spreadsheet_id": "sheet-1"}),
+        )
+
+        response = panel_client.get(_settings_url(event))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/integration-settings.html",
+            context_data=panel_context(event)
+            | {
+                "active_nav": "settings",
+                "active_tab": "integrations",
+                "tab_urls": settings_tab_urls(event.slug),
+                "integration_rows": [
+                    {
+                        "integration": integration_dto(integration),
+                        "actions": INTEGRATION_ROW_ACTIONS[
+                            IntegrationImplementationId.KONWENCIK_SHEET_PUSHER
+                        ],
+                    }
+                ],
             },
         )
 
@@ -556,8 +597,8 @@ class TestIntegrationCheckActionView:
         # Mock only google.auth: real GoogleDocsProposalImporter._probe runs and
         # maps the (mocked) HTTP response — we never patch project code.
         with (
-            patch("ludamus.links.google_docs.Credentials.from_service_account_info"),
-            patch("ludamus.links.google_docs.AuthorizedSession") as session_cls,
+            patch("ludamus.links.google_auth.Credentials.from_service_account_info"),
+            patch("ludamus.links.google_auth.AuthorizedSession") as session_cls,
         ):
             session_cls.return_value.get.return_value = MagicMock(ok=True)
             response = panel_client.post(

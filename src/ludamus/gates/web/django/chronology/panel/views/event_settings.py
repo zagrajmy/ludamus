@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Any, TypedDict
 
 from django import forms
 from django.contrib import messages
@@ -10,6 +11,7 @@ from django.shortcuts import redirect
 from django.template.response import TemplateResponse
 from django.utils.timezone import localtime
 from django.utils.translation import gettext as _
+from django.utils.translation import gettext_lazy
 from django.views.generic.base import View
 
 from ludamus.gates.web.django.chronology.panel.views.base import (
@@ -20,12 +22,14 @@ from ludamus.gates.web.django.chronology.panel.views.base import (
 from ludamus.gates.web.django.forms import EventSettingsForm, ProposalSettingsForm
 from ludamus.gates.web.django.panel import settings_tab_urls
 from ludamus.pacts import EventUpdateData, NotFoundError
+from ludamus.pacts.chronology import EventIntegrationDTO, IntegrationImplementationId
 from ludamus.pacts.event_settings import EventSlugTakenError, ProposalSettingsUpdateData
 from ludamus.pacts.images import stored_file
 from ludamus.pacts.legacy import resolve_uploaded_file_field
 
 if TYPE_CHECKING:
     from django.http import HttpResponse
+    from django.utils.functional import _StrPromise
 
 
 def _override_to_choice(*, value: bool | None) -> str:
@@ -275,6 +279,43 @@ class EventProposalSettingsPageView(PanelAccessMixin, EventContextMixin, View):
         return redirect("panel:event-proposal-settings", slug=slug)
 
 
+@dataclass(frozen=True)
+class IntegrationRowAction:
+    """One extra panel page an implementation puts on its row in the list."""
+
+    label: _StrPromise
+    url_name: str
+    icon: str = ""
+    # A run is a state change, so it posts; a settings page is a link.
+    is_post: bool = False
+
+
+# The pages each implementation adds, keyed on the implementation itself. The
+# shared list renders whatever a row carries, so a new export brings its own
+# buttons and renaming an id moves them with it instead of silently dropping
+# them, which a string literal in the template did.
+INTEGRATION_ROW_ACTIONS: dict[
+    IntegrationImplementationId, tuple[IntegrationRowAction, ...]
+] = {
+    IntegrationImplementationId.KONWENCIK_SHEET_PUSHER: (
+        IntegrationRowAction(
+            label=gettext_lazy("Export now"),
+            url_name="panel:konwencik-export-run",
+            icon="arrow-up-tray",
+            is_post=True,
+        ),
+        IntegrationRowAction(
+            label=gettext_lazy("Configure"), url_name="panel:konwencik-export-settings"
+        ),
+    )
+}
+
+
+class _IntegrationRow(TypedDict):
+    integration: EventIntegrationDTO
+    actions: tuple[IntegrationRowAction, ...]
+
+
 class EventIntegrationSettingsPageView(PanelAccessMixin, EventContextMixin, View):
     """Integrations tab — flat CRUD list across all kinds."""
 
@@ -285,12 +326,19 @@ class EventIntegrationSettingsPageView(PanelAccessMixin, EventContextMixin, View
         if current_event is None:
             return redirect("panel:index")
 
+        integrations = self.request.services.event_integrations.list_for_event(
+            current_event.pk
+        )
         context["active_nav"] = "settings"
         context["active_tab"] = "integrations"
         context["tab_urls"] = settings_tab_urls(slug)
-        context["integrations"] = (
-            self.request.services.event_integrations.list_for_event(current_event.pk)
-        )
+        context["integration_rows"] = [
+            _IntegrationRow(
+                integration=integration,
+                actions=INTEGRATION_ROW_ACTIONS.get(integration.implementation, ()),
+            )
+            for integration in integrations
+        ]
         return TemplateResponse(
             self.request, "panel/integration-settings.html", context
         )

@@ -32,7 +32,7 @@ class Migration(migrations.Migration):
 
     dependencies = [
         ("db_main", "0143_facilitator_deleted_at"),
-        ("db_main", "0146_facilitator_is_collective"),
+        ("db_main", "0147_eventintegration_last_run_json"),
     ]
 
     operations = [
