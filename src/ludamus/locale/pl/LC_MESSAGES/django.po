@@ -2831,6 +2831,7 @@ msgid "Capacity must be at least 1."
 msgstr "Pojemność musi wynosić co najmniej 1."
 
 #: src/ludamus/gates/web/django/forms.py
+#: src/ludamus/templates/chronology/event.html
 msgid "Location"
 msgstr "Lokalizacja"
 
@@ -4433,11 +4434,11 @@ msgid "Bookmarked"
 msgstr "Z zakładką"
 
 #: src/ludamus/templates/chronology/event.html
-msgid "Venue"
-msgstr "Lokalizacja"
+msgid "all rooms"
+msgstr "wszystkie sale"
 
 #: src/ludamus/templates/chronology/event.html
-msgid "All venues"
+msgid "All locations"
 msgstr "Wszystkie lokalizacje"
 
 #: src/ludamus/templates/chronology/event.html
@@ -9572,13 +9573,11 @@ msgstr "Temat"
 msgid "No emails captured yet."
 msgstr "Brak przechwyconych e-maili."
 
-#, python-format
-#~ msgid "Changed by %(who)s on %(when)s"
-#~ msgstr "Zmiana: %(who)s, %(when)s"
+#~ msgid "Venue"
+#~ msgstr "Lokalizacja"
 
-#, python-format
-#~ msgid "announced by %(who)s"
-#~ msgstr "ogłoszone przez: %(who)s"
+#~ msgid "All venues"
+#~ msgstr "Wszystkie lokalizacje"
 
 #~ msgid ""
 #~ "Writes every facilitator with their accreditation type and discount into "
@@ -9586,6 +9585,14 @@ msgstr "Brak przechwyconych e-maili."
 #~ msgstr ""
 #~ "Zapisuje wszystkich twórców programu wraz z rodzajem akredytacji i zniżką "
 #~ "do pierwszej zakładki wybranego arkusza, zastępując jego obecną zawartość."
+
+#, python-format
+#~ msgid "Changed by %(who)s on %(when)s"
+#~ msgstr "Zmiana: %(who)s, %(when)s"
+
+#, python-format
+#~ msgid "announced by %(who)s"
+#~ msgstr "ogłoszone przez: %(who)s"
 
 #~ msgid "Enrollment required"
 #~ msgstr "Wymagane zapisy"

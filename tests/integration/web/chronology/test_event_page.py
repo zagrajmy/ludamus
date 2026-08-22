@@ -20,6 +20,7 @@ from ludamus.gates.web.django.chronology.event_presentation import (
     build_display_field_row,
 )
 from ludamus.gates.web.django.chronology.schedule import (
+    RoomLane,
     RoomLaneDay,
     RoomLaneHourMark,
     RoomLaneTile,
@@ -41,10 +42,10 @@ from ludamus.links.db.django.models import (
     Track,
     UserEnrollmentConfig,
 )
+from ludamus.links.db.django.repositories.chronology import location_data
 from ludamus.links.gravatar import gravatar_url
 from ludamus.pacts import (
     AgendaItemDTO,
-    LocationData,
     SessionDTO,
     SessionFieldValueDTO,
     VirtualEnrollmentConfig,
@@ -188,16 +189,7 @@ class TestEventPageView:
             session_participations=[],
             session=SessionDTO.model_validate(agenda_item.session),
             should_show_as_inactive=False,
-            loc=LocationData(
-                space_name=agenda_item.space.name,
-                parent_slug=(
-                    agenda_item.space.parent.slug if agenda_item.space.parent else ""
-                ),
-                parent_name=(
-                    agenda_item.space.parent.name if agenda_item.space.parent else ""
-                ),
-                path=str(agenda_item.space),
-            ),
+            loc=location_data(agenda_item.space),
             user_enrolled=False,
             user_waiting=False,
         )
@@ -313,16 +305,7 @@ class TestEventPageView:
             session_participations=[],
             session=SessionDTO.model_validate(agenda_item.session),
             should_show_as_inactive=False,
-            loc=LocationData(
-                space_name=agenda_item.space.name,
-                parent_slug=(
-                    agenda_item.space.parent.slug if agenda_item.space.parent else ""
-                ),
-                parent_name=(
-                    agenda_item.space.parent.name if agenda_item.space.parent else ""
-                ),
-                path=str(agenda_item.space),
-            ),
+            loc=location_data(agenda_item.space),
             user_enrolled=False,
             user_waiting=False,
         )
@@ -734,7 +717,14 @@ class TestEventPageView:
                 room_lane_days=[
                     RoomLaneDay(
                         day_start=local_start,
-                        rooms=["Arena", "Stage"],
+                        rooms=[
+                            RoomLane(
+                                name="Arena", group="", group_key="", starts_group=True
+                            ),
+                            RoomLane(
+                                name="Stage", group="", group_key="", starts_group=False
+                            ),
+                        ],
                         # Four hours of lane, 10:00 to 13:00: the two sessions
                         # at 10:00, an empty 11:00, the two-hour one from
                         # 12:00, and the hour it runs into.
@@ -824,16 +814,7 @@ class TestEventPageView:
             session_participations=[],
             session=SessionDTO.model_validate(agenda_item.session),
             should_show_as_inactive=False,
-            loc=LocationData(
-                space_name=agenda_item.space.name,
-                parent_slug=(
-                    agenda_item.space.parent.slug if agenda_item.space.parent else ""
-                ),
-                parent_name=(
-                    agenda_item.space.parent.name if agenda_item.space.parent else ""
-                ),
-                path=str(agenda_item.space),
-            ),
+            loc=location_data(agenda_item.space),
             user_enrolled=False,
             user_waiting=False,
         )
@@ -1008,16 +989,7 @@ class TestEventPageView:
             session_participations=[],
             session=SessionDTO.model_validate(session),
             should_show_as_inactive=False,
-            loc=LocationData(
-                space_name=agenda_item.space.name,
-                parent_slug=(
-                    agenda_item.space.parent.slug if agenda_item.space.parent else ""
-                ),
-                parent_name=(
-                    agenda_item.space.parent.name if agenda_item.space.parent else ""
-                ),
-                path=str(agenda_item.space),
-            ),
+            loc=location_data(agenda_item.space),
             user_enrolled=False,
             user_waiting=False,
         )
@@ -1059,11 +1031,8 @@ class TestEventPageView:
         track_b = Track.objects.create(
             event=event, name="Side Room", slug="side", is_public=True
         )
-        private_track = Track.objects.create(
-            event=event, name="Backstage", slug="backstage", is_public=False
-        )
         session_a = SessionFactory(event=event, category=category_a, min_age=0)
-        session_a.tracks.add(track_a, private_track)
+        session_a.tracks.add(track_a)
         session_b = SessionFactory(event=event, category=category_b, min_age=0)
         session_b.tracks.add(track_b)
         AgendaItemFactory(session=session_a, space=space)
@@ -1080,16 +1049,13 @@ class TestEventPageView:
         # proves has_track_filter / has_category_filter).
         assert 'data-category="__track"' in content
         assert 'data-category="__category"' in content
-        # Cards carry the filter pairs; private tracks stay hidden.
+        # Cards carry the filter pairs.
         assert "__track:Main Hall" in content
         assert "__track:Side Room" in content
         assert "__category:RPG" in content
         assert "__category:Board games" in content
-        assert "__track:Backstage" not in content
 
-    def test_schedule_hides_sessions_whose_every_track_is_private(
-        self, client, event, space
-    ):
+    def test_schedule_hides_sessions_with_any_private_track(self, client, event, space):
         public_track = Track.objects.create(
             event=event, name="Main Hall", slug="main", is_public=True
         )
@@ -1097,19 +1063,53 @@ class TestEventPageView:
             event=event, name="Backstage", slug="backstage", is_public=False
         )
         untracked = SessionFactory(event=event)
+        public_only = SessionFactory(event=event)
+        public_only.tracks.add(public_track)
         mixed = SessionFactory(event=event)
         mixed.tracks.add(public_track, private_track)
         private_only = SessionFactory(event=event)
         private_only.tracks.add(private_track)
-        for session in (untracked, mixed, private_only):
-            AgendaItemFactory(session=session, space=space)
+        items = {
+            session: AgendaItemFactory(session=session, space=space)
+            for session in (untracked, public_only, mixed, private_only)
+        }
+        visible = [
+            session_card(
+                items[untracked],
+                presenter=untracked.presenter,
+                category_name=untracked.category.name,
+            ),
+            session_card(
+                items[public_only],
+                presenter=public_only.presenter,
+                category_name=public_only.category.name,
+                track_names=["Main Hall"],
+            ),
+        ]
+        # The factory staggers agenda items by a microsecond, so each visible
+        # session lands in its own bucket.
+        hour_data = {
+            items[untracked].start_time: [visible[0]],
+            items[public_only].start_time: [visible[1]],
+        }
 
         response = client.get(self._get_url(event.slug))
 
-        assert {card.session.pk for card in response.context_data["sessions"]} == {
-            untracked.pk,
-            mixed.pk,
-        }
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=event_page_context(
+                event,
+                url=self._get_url(event.slug),
+                hour_data=hour_data,
+                future_unavailable_hour_data=hour_data,
+                sessions=visible,
+                has_category_filter=True,
+                has_enrollable_sessions=True,
+                scheduled_count=len(visible),
+            ),
+            template_name=["chronology/event.html"],
+        )
 
     @pytest.mark.usefixtures("panel_access_user")
     def test_schedule_hides_private_tracks_from_panel_access_too(
@@ -1429,16 +1429,7 @@ class TestEventPageView:
             session_participations=[],
             session=SessionDTO.model_validate(session),
             should_show_as_inactive=False,
-            loc=LocationData(
-                space_name=agenda_item.space.name,
-                parent_slug=(
-                    agenda_item.space.parent.slug if agenda_item.space.parent else ""
-                ),
-                parent_name=(
-                    agenda_item.space.parent.name if agenda_item.space.parent else ""
-                ),
-                path=str(agenda_item.space),
-            ),
+            loc=location_data(agenda_item.space),
             user_enrolled=False,
             user_waiting=False,
         )
@@ -1841,6 +1832,36 @@ class TestEventPageView:
             template_name=["chronology/event.html"],
         )
 
+    def test_ok_proposal_card_names_its_private_track(
+        self, authenticated_client, event, active_user, pending_session
+    ):
+        event.proposal_end_time = timezone.now() + timedelta(days=3)
+        event.save(update_fields=["proposal_end_time"])
+        pending_session.tracks.add(
+            Track.objects.create(
+                event=event, name="Backstage", slug="backstage", is_public=False
+            )
+        )
+
+        response = authenticated_client.get(self._get_url(event.slug))
+
+        expected_card = proposal_card(
+            pending_session,
+            presenter=active_user,
+            can_edit=True,
+            track_names=["Backstage"],
+        )
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=event_page_context(
+                event,
+                url=self._get_url(event.slug),
+                own_pending_proposals=[expected_card],
+            ),
+            template_name=["chronology/event.html"],
+        )
+
     def test_ok_participations(
         self, authenticated_client, event, active_user, session, companion, agenda_item
     ):
@@ -1887,20 +1908,7 @@ class TestEventPageView:
             ],
             session=SessionDTO.model_validate(session),
             should_show_as_inactive=False,
-            loc=LocationData(
-                space_name=session.agenda_item.space.name,
-                parent_slug=(
-                    session.agenda_item.space.parent.slug
-                    if session.agenda_item.space.parent
-                    else ""
-                ),
-                parent_name=(
-                    session.agenda_item.space.parent.name
-                    if session.agenda_item.space.parent
-                    else ""
-                ),
-                path=str(session.agenda_item.space),
-            ),
+            loc=location_data(session.agenda_item.space),
             user_enrolled=True,
             user_waiting=True,
         )
@@ -1940,16 +1948,7 @@ class TestEventPageView:
             session_participations=[],
             session=SessionDTO.model_validate(session),
             should_show_as_inactive=False,
-            loc=LocationData(
-                space_name=agenda_item.space.name,
-                parent_slug=(
-                    agenda_item.space.parent.slug if agenda_item.space.parent else ""
-                ),
-                parent_name=(
-                    agenda_item.space.parent.name if agenda_item.space.parent else ""
-                ),
-                path=str(agenda_item.space),
-            ),
+            loc=location_data(agenda_item.space),
             user_enrolled=False,
             user_waiting=False,
         )
@@ -1990,16 +1989,7 @@ class TestEventPageView:
             session_participations=[],
             session=SessionDTO.model_validate(session),
             should_show_as_inactive=False,
-            loc=LocationData(
-                space_name=agenda_item.space.name,
-                parent_slug=(
-                    agenda_item.space.parent.slug if agenda_item.space.parent else ""
-                ),
-                parent_name=(
-                    agenda_item.space.parent.name if agenda_item.space.parent else ""
-                ),
-                path=str(agenda_item.space),
-            ),
+            loc=location_data(agenda_item.space),
             user_enrolled=False,
             user_waiting=False,
         )
@@ -2051,16 +2041,7 @@ class TestEventPageView:
             session_participations=[],
             session=SessionDTO.model_validate(session),
             should_show_as_inactive=False,
-            loc=LocationData(
-                space_name=agenda_item.space.name,
-                parent_slug=(
-                    agenda_item.space.parent.slug if agenda_item.space.parent else ""
-                ),
-                parent_name=(
-                    agenda_item.space.parent.name if agenda_item.space.parent else ""
-                ),
-                path=str(agenda_item.space),
-            ),
+            loc=location_data(agenda_item.space),
             user_enrolled=False,
             user_waiting=False,
             category_name=session.category.name,
@@ -2100,16 +2081,7 @@ class TestEventPageView:
             session_participations=[],
             session=SessionDTO.model_validate(agenda_item.session),
             should_show_as_inactive=False,
-            loc=LocationData(
-                space_name=agenda_item.space.name,
-                parent_slug=(
-                    agenda_item.space.parent.slug if agenda_item.space.parent else ""
-                ),
-                parent_name=(
-                    agenda_item.space.parent.name if agenda_item.space.parent else ""
-                ),
-                path=str(agenda_item.space),
-            ),
+            loc=location_data(agenda_item.space),
             user_enrolled=False,
             user_waiting=False,
         )
@@ -2147,16 +2119,7 @@ class TestEventPageView:
             session_participations=[],
             session=SessionDTO.model_validate(agenda_item.session),
             should_show_as_inactive=False,
-            loc=LocationData(
-                space_name=agenda_item.space.name,
-                parent_slug=(
-                    agenda_item.space.parent.slug if agenda_item.space.parent else ""
-                ),
-                parent_name=(
-                    agenda_item.space.parent.name if agenda_item.space.parent else ""
-                ),
-                path=str(agenda_item.space),
-            ),
+            loc=location_data(agenda_item.space),
             user_enrolled=False,
             user_waiting=False,
         )
@@ -2351,16 +2314,7 @@ class TestEventPageView:
             ],
             session=SessionDTO.model_validate(agenda_item.session),
             should_show_as_inactive=False,
-            loc=LocationData(
-                space_name=agenda_item.space.name,
-                parent_slug=(
-                    agenda_item.space.parent.slug if agenda_item.space.parent else ""
-                ),
-                parent_name=(
-                    agenda_item.space.parent.name if agenda_item.space.parent else ""
-                ),
-                path=str(agenda_item.space),
-            ),
+            loc=location_data(agenda_item.space),
             user_enrolled=True,
             user_waiting=False,
         )
@@ -2407,16 +2361,7 @@ class TestEventPageView:
             session_participations=[],
             session=SessionDTO.model_validate(agenda_item.session),
             should_show_as_inactive=True,
-            loc=LocationData(
-                space_name=agenda_item.space.name,
-                parent_slug=(
-                    agenda_item.space.parent.slug if agenda_item.space.parent else ""
-                ),
-                parent_name=(
-                    agenda_item.space.parent.name if agenda_item.space.parent else ""
-                ),
-                path=str(agenda_item.space),
-            ),
+            loc=location_data(agenda_item.space),
             user_enrolled=False,
             user_waiting=False,
         )
@@ -2488,16 +2433,7 @@ class TestEventPageView:
             session_participations=[],
             session=SessionDTO.model_validate(agenda_item.session),
             should_show_as_inactive=False,
-            loc=LocationData(
-                space_name=agenda_item.space.name,
-                parent_slug=(
-                    agenda_item.space.parent.slug if agenda_item.space.parent else ""
-                ),
-                parent_name=(
-                    agenda_item.space.parent.name if agenda_item.space.parent else ""
-                ),
-                path=str(agenda_item.space),
-            ),
+            loc=location_data(agenda_item.space),
             user_enrolled=False,
             user_waiting=False,
         )
@@ -2562,16 +2498,7 @@ class TestEventPageView:
             session_participations=[],
             session=SessionDTO.model_validate(agenda_item.session),
             should_show_as_inactive=False,
-            loc=LocationData(
-                space_name=agenda_item.space.name,
-                parent_slug=(
-                    agenda_item.space.parent.slug if agenda_item.space.parent else ""
-                ),
-                parent_name=(
-                    agenda_item.space.parent.name if agenda_item.space.parent else ""
-                ),
-                path=str(agenda_item.space),
-            ),
+            loc=location_data(agenda_item.space),
             user_enrolled=False,
             user_waiting=False,
         )
@@ -2639,16 +2566,7 @@ class TestEventPageView:
             session_participations=[],
             session=SessionDTO.model_validate(agenda_item.session),
             should_show_as_inactive=False,
-            loc=LocationData(
-                space_name=agenda_item.space.name,
-                parent_slug=(
-                    agenda_item.space.parent.slug if agenda_item.space.parent else ""
-                ),
-                parent_name=(
-                    agenda_item.space.parent.name if agenda_item.space.parent else ""
-                ),
-                path=str(agenda_item.space),
-            ),
+            loc=location_data(agenda_item.space),
             user_enrolled=False,
             user_waiting=False,
         )
@@ -2713,16 +2631,7 @@ class TestEventPageView:
             session_participations=[],
             session=SessionDTO.model_validate(agenda_item.session),
             should_show_as_inactive=False,
-            loc=LocationData(
-                space_name=agenda_item.space.name,
-                parent_slug=(
-                    agenda_item.space.parent.slug if agenda_item.space.parent else ""
-                ),
-                parent_name=(
-                    agenda_item.space.parent.name if agenda_item.space.parent else ""
-                ),
-                path=str(agenda_item.space),
-            ),
+            loc=location_data(agenda_item.space),
             user_enrolled=False,
             user_waiting=False,
         )
@@ -2789,16 +2698,7 @@ class TestEventPageView:
             session_participations=[],
             session=SessionDTO.model_validate(agenda_item.session),
             should_show_as_inactive=False,
-            loc=LocationData(
-                space_name=agenda_item.space.name,
-                parent_slug=(
-                    agenda_item.space.parent.slug if agenda_item.space.parent else ""
-                ),
-                parent_name=(
-                    agenda_item.space.parent.name if agenda_item.space.parent else ""
-                ),
-                path=str(agenda_item.space),
-            ),
+            loc=location_data(agenda_item.space),
             user_enrolled=False,
             user_waiting=False,
         )
@@ -2860,16 +2760,7 @@ class TestEventPageView:
             session_participations=[],
             session=SessionDTO.model_validate(agenda_item.session),
             should_show_as_inactive=False,
-            loc=LocationData(
-                space_name=agenda_item.space.name,
-                parent_slug=(
-                    agenda_item.space.parent.slug if agenda_item.space.parent else ""
-                ),
-                parent_name=(
-                    agenda_item.space.parent.name if agenda_item.space.parent else ""
-                ),
-                path=str(agenda_item.space),
-            ),
+            loc=location_data(agenda_item.space),
             user_enrolled=False,
             user_waiting=False,
         )
@@ -2943,16 +2834,7 @@ class TestEventPageView:
             session_participations=[],
             session=SessionDTO.model_validate(agenda_item.session),
             should_show_as_inactive=False,
-            loc=LocationData(
-                space_name=agenda_item.space.name,
-                parent_slug=(
-                    agenda_item.space.parent.slug if agenda_item.space.parent else ""
-                ),
-                parent_name=(
-                    agenda_item.space.parent.name if agenda_item.space.parent else ""
-                ),
-                path=str(agenda_item.space),
-            ),
+            loc=location_data(agenda_item.space),
             user_enrolled=False,
             user_waiting=False,
         )
@@ -3019,16 +2901,7 @@ class TestEventPageView:
             session_participations=[],
             session=SessionDTO.model_validate(agenda_item.session),
             should_show_as_inactive=False,
-            loc=LocationData(
-                space_name=agenda_item.space.name,
-                parent_slug=(
-                    agenda_item.space.parent.slug if agenda_item.space.parent else ""
-                ),
-                parent_name=(
-                    agenda_item.space.parent.name if agenda_item.space.parent else ""
-                ),
-                path=str(agenda_item.space),
-            ),
+            loc=location_data(agenda_item.space),
             user_enrolled=False,
             user_waiting=False,
         )
@@ -3104,16 +2977,7 @@ class TestEventPageView:
             session_participations=[],
             session=SessionDTO.model_validate(agenda_item.session),
             should_show_as_inactive=False,
-            loc=LocationData(
-                space_name=agenda_item.space.name,
-                parent_slug=(
-                    agenda_item.space.parent.slug if agenda_item.space.parent else ""
-                ),
-                parent_name=(
-                    agenda_item.space.parent.name if agenda_item.space.parent else ""
-                ),
-                path=str(agenda_item.space),
-            ),
+            loc=location_data(agenda_item.space),
             user_enrolled=False,
             user_waiting=False,
         )
@@ -3183,16 +3047,7 @@ class TestEventPageView:
             session_participations=[],
             session=SessionDTO.model_validate(agenda_item.session),
             should_show_as_inactive=False,
-            loc=LocationData(
-                space_name=agenda_item.space.name,
-                parent_slug=(
-                    agenda_item.space.parent.slug if agenda_item.space.parent else ""
-                ),
-                parent_name=(
-                    agenda_item.space.parent.name if agenda_item.space.parent else ""
-                ),
-                path=str(agenda_item.space),
-            ),
+            loc=location_data(agenda_item.space),
             user_enrolled=False,
             user_waiting=False,
         )
@@ -3263,16 +3118,7 @@ class TestEventPageView:
             session_participations=[],
             session=SessionDTO.model_validate(session),
             should_show_as_inactive=False,
-            loc=LocationData(
-                space_name=agenda_item.space.name,
-                parent_slug=(
-                    agenda_item.space.parent.slug if agenda_item.space.parent else ""
-                ),
-                parent_name=(
-                    agenda_item.space.parent.name if agenda_item.space.parent else ""
-                ),
-                path=str(agenda_item.space),
-            ),
+            loc=location_data(agenda_item.space),
             field_values=[field_value_dto],
             user_enrolled=False,
             user_waiting=False,
@@ -3384,16 +3230,7 @@ class TestEventPageView:
             session_participations=[],
             session=SessionDTO.model_validate(session),
             should_show_as_inactive=False,
-            loc=LocationData(
-                space_name=agenda_item.space.name,
-                parent_slug=(
-                    agenda_item.space.parent.slug if agenda_item.space.parent else ""
-                ),
-                parent_name=(
-                    agenda_item.space.parent.name if agenda_item.space.parent else ""
-                ),
-                path=str(agenda_item.space),
-            ),
+            loc=location_data(agenda_item.space),
             field_values=[
                 SessionFieldValueDTO(
                     allow_custom=False,
@@ -3471,16 +3308,7 @@ class TestEventPageView:
             session_participations=[],
             session=SessionDTO.model_validate(session),
             should_show_as_inactive=False,
-            loc=LocationData(
-                space_name=agenda_item.space.name,
-                parent_slug=(
-                    agenda_item.space.parent.slug if agenda_item.space.parent else ""
-                ),
-                parent_name=(
-                    agenda_item.space.parent.name if agenda_item.space.parent else ""
-                ),
-                path=str(agenda_item.space),
-            ),
+            loc=location_data(agenda_item.space),
             field_values=[field_value_dto],
             user_enrolled=False,
             user_waiting=False,
@@ -3547,16 +3375,7 @@ class TestEventPageView:
             session_participations=[],
             session=SessionDTO.model_validate(session),
             should_show_as_inactive=False,
-            loc=LocationData(
-                space_name=agenda_item.space.name,
-                parent_slug=(
-                    agenda_item.space.parent.slug if agenda_item.space.parent else ""
-                ),
-                parent_name=(
-                    agenda_item.space.parent.name if agenda_item.space.parent else ""
-                ),
-                path=str(agenda_item.space),
-            ),
+            loc=location_data(agenda_item.space),
             field_values=[field_value_dto],
             user_enrolled=False,
             user_waiting=False,

@@ -14,6 +14,7 @@ from ludamus.gates.web.django.chronology.event_presentation import (
 )
 from ludamus.gates.web.django.entities import UserInfo
 from ludamus.pacts import (
+    NO_LOCATION,
     AgendaItemDTO,
     LocationData,
     SessionDTO,
@@ -46,6 +47,7 @@ def _mock_venue_and_space() -> LocationData:
         "parent_slug": "main-hall",
         "parent_name": "Main Hall",
         "path": "Main Hall > Table 1",
+        "sort_key": "000000|Main Hall|main-hall|000000|Table 1|table-1",
     }
 
 
@@ -177,7 +179,7 @@ def mock_session_proposal() -> SessionData:
         data,
         agenda_item=None,
         is_enrollment_available=False,
-        loc=LocationData(space_name="", parent_slug="", parent_name="", path=""),
+        loc=NO_LOCATION,
         session_participations=[],
         enrolled_count=0,
         preferred_time_slots=[
