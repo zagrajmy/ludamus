@@ -6997,6 +6997,18 @@ msgstr ""
 
 #: src/ludamus/templates/panel/display-settings.html
 msgid ""
+"Every session field is private. Mark a field as shown on the public session "
+"card to make it available here."
+msgstr ""
+"Wszystkie pola punktu programu są prywatne. Oznacz pole jako widoczne na "
+"publicznej karcie punktu programu, aby było dostępne tutaj."
+
+#: src/ludamus/templates/panel/display-settings.html
+msgid "Go to session fields"
+msgstr "Przejdź do pól punktu programu"
+
+#: src/ludamus/templates/panel/display-settings.html
+msgid ""
 "No session fields defined. Create session fields in the CFP section first."
 msgstr ""
 "Nie zdefiniowano pól punktu programu. Najpierw utwórz pola w sekcji zgłoszeń."

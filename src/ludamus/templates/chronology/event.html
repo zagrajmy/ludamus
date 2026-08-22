@@ -412,7 +412,7 @@
                                         </select>
                                     </div>
                                 </div>
-                                {% if has_track_filter %}
+                                {% if track_filter_names %}
                                     <div class="flex flex-col gap-1.5 grow">
                                         <label class="text-xs font-bold uppercase tracking-widest grow text-foreground-muted"
                                                for="tag-filter-__track">{% translate "Track" %}</label>
@@ -420,10 +420,11 @@
                                                 data-category="__track"
                                                 id="tag-filter-__track">
                                             <option value="">{% translate "All tracks" %}</option>
+                                            {% for name in track_filter_names %}<option value="{{ name }}">{{ name }}</option>{% endfor %}
                                         </select>
                                     </div>
                                 {% endif %}
-                                {% if has_category_filter %}
+                                {% if category_filter_names %}
                                     <div class="flex flex-col gap-1.5 grow">
                                         <label class="text-xs font-bold uppercase tracking-widest grow text-foreground-muted"
                                                for="tag-filter-__category">{% translate "Category" context "participant filter" %}</label>
@@ -431,6 +432,7 @@
                                                 data-category="__category"
                                                 id="tag-filter-__category">
                                             <option value="">{% translate "All categories" context "participant filter" %}</option>
+                                            {% for name in category_filter_names %}<option value="{{ name }}">{{ name }}</option>{% endfor %}
                                         </select>
                                     </div>
                                 {% endif %}
@@ -443,6 +445,9 @@
                                                     data-category="{{ field.slug }}"
                                                     id="tag-filter-{{ field.slug }}">
                                                 <option value="">{% translate "All" %} {{ field.name }}</option>
+                                                {# Only the field's defined choices: an allow_custom field's typed-in values are not filter options. #}
+                                                {# The value, not the label: cards, modal and search all carry the raw value. #}
+                                                {% for option in field.sorted_options %}<option value="{{ option.value }}">{{ option.value }}</option>{% endfor %}
                                             </select>
                                         </div>
                                     {% endfor %}
