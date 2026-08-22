@@ -19,15 +19,11 @@ from ludamus.links.db.django.models import (
     SessionFieldValue,
     SessionParticipation,
     SessionParticipationStatus,
+    Track,
 )
+from ludamus.links.db.django.repositories.chronology import location_data
 from ludamus.links.gravatar import gravatar_url
-from ludamus.pacts import (
-    AgendaItemDTO,
-    EventDTO,
-    LocationData,
-    SessionDTO,
-    SessionFieldValueDTO,
-)
+from ludamus.pacts import AgendaItemDTO, EventDTO, SessionDTO, SessionFieldValueDTO
 from ludamus.pacts.crowd import UserDTO
 from ludamus.pacts.guild import GuildMarkDTO
 from tests.integration.conftest import (
@@ -131,12 +127,7 @@ def _expected_session_data(
         effective_participants_limit=10,
         enrolled_count=0,
         session_participations=[],
-        loc=LocationData(
-            space_name=space.name,
-            parent_slug=space.parent.slug if space.parent else "",
-            parent_name=space.parent.name if space.parent else "",
-            path=str(space),
-        ),
+        loc=location_data(space),
         can_edit=False,
         user_enrolled=False,
         user_waiting=False,
@@ -228,6 +219,25 @@ class TestSessionModalComponentView:
         )
 
     def test_unscheduled_session_404(self, client, event, session):
+        response = client.get(_url(event, session.pk))
+
+        assert_response_404(response)
+
+    @pytest.mark.parametrize("public_too", (True, False))
+    def test_private_track_session_404(self, agenda_item, client, event, public_too):
+        session = agenda_item.session
+        if public_too:
+            session.tracks.add(
+                Track.objects.create(
+                    event=event, name="Main Hall", slug="main", is_public=True
+                )
+            )
+        session.tracks.add(
+            Track.objects.create(
+                event=event, name="Backstage", slug="backstage", is_public=False
+            )
+        )
+
         response = client.get(_url(event, session.pk))
 
         assert_response_404(response)

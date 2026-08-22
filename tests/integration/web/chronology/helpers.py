@@ -17,10 +17,11 @@ from ludamus.gates.web.django.chronology.schedule import (
 )
 from ludamus.gates.web.django.entities import UserInfo
 from ludamus.links.db.django.models import SessionParticipation
+from ludamus.links.db.django.repositories.chronology import location_data
 from ludamus.links.gravatar import gravatar_url
 from ludamus.pacts import (
+    NO_LOCATION,
     AgendaItemDTO,
-    LocationData,
     SessionDTO,
     SessionParticipationStatus,
     TimeSlotDTO,
@@ -61,12 +62,7 @@ def session_card(agenda_item, *, presenter, **overrides):
         session_participations=[],
         session=SessionDTO.model_validate(session),
         should_show_as_inactive=False,
-        loc=LocationData(
-            space_name=space.name,
-            parent_slug=space.parent.slug if space.parent else "",
-            parent_name=space.parent.name if space.parent else "",
-            path=str(space),
-        ),
+        loc=location_data(space),
         user_enrolled=False,
         user_waiting=False,
     )
@@ -87,7 +83,7 @@ def proposal_card(session, *, presenter, slots=(), **overrides):
         enrolled_count=0,
         is_enrollment_available=False,
         is_full=False,
-        loc=LocationData(space_name="", parent_slug="", parent_name="", path=""),
+        loc=NO_LOCATION,
         preferred_time_slots=[TimeSlotDTO.model_validate(slot) for slot in slots],
         presenter=UserInfo.from_user_dto(
             UserDTO.model_validate(presenter), gravatar_url=gravatar_url

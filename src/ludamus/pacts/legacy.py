@@ -234,11 +234,25 @@ class SessionDTO(BaseModel):
 class LocationData(TypedDict):
     # Tree location of a scheduled leaf: its name, its immediate parent (the
     # grouping unit, empty for a root leaf), and the full "Root > ... > Leaf"
-    # path used as a display label.
+    # path used as a display label. sort_key encodes the panel ordering of the
+    # whole ancestor chain, so rooms line up building > floor > room instead of
+    # alphabetically; empty for an unscheduled session.
     space_name: str
     parent_slug: str
     parent_name: str
     path: str
+    sort_key: str
+
+
+# A session that is not on the agenda has no space to describe. Shared, so
+# treat it as read-only: nothing writes through a LocationData today.
+NO_LOCATION: LocationData = {
+    "space_name": "",
+    "parent_slug": "",
+    "parent_name": "",
+    "path": "",
+    "sort_key": "",
+}
 
 
 class SessionStatus(StrEnum):
