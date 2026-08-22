@@ -186,6 +186,11 @@ urlpatterns = [
         name="erratum-acknowledge",
     ),
     path(
+        "event/<slug:slug>/errata/do/important",
+        errata.ErratumImportantActionView.as_view(),
+        name="erratum-important",
+    ),
+    path(
         "event/<slug:slug>/settings/mcp/",
         mcp_token.EventMcpTokenPageView.as_view(),
         name="event-mcp-token",
