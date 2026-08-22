@@ -457,6 +457,7 @@ class TestProposalDetailPageView:
                         moved_from_id=None,
                         acknowledgement_time=None,
                         acknowledged_by_name="",
+                        important=False,
                     )
                 ],
                 "field_values": [],
