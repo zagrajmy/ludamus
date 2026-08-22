@@ -18,7 +18,7 @@ from ludamus.pacts.durations import normalize_duration
 from ludamus.pacts.submissions import is_empty_answer
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Callable, Mapping
 
     from ludamus.pacts import (
         EventDTO,
@@ -32,6 +32,7 @@ if TYPE_CHECKING:
         UploadedFileProtocol,
         WizardData,
     )
+    from ludamus.pacts.fields import FieldValue
     from ludamus.pacts.propose import ProposeRepos
     from ludamus.pacts.services import TransactionProtocol
 
@@ -177,10 +178,16 @@ class ProposeSessionService:
                 facilitator_ids=[facilitator.pk],
             )
 
-            self._save_session_field_values(session_id, event.pk, session_data)
+            self._save_session_field_values(
+                session_id=session_id, event_id=event.pk, session_data=session_data
+            )
 
             if personal_data := wizard_data.get("personal_data", {}):
-                self._save_personal_data(event.pk, personal_data, facilitator)
+                self._save_personal_data(
+                    event_id=event.pk,
+                    personal_data=personal_data,
+                    facilitator=facilitator,
+                )
 
             if track_pks := wizard_data.get("track_pks", []):
                 self._repos.sessions.set_session_tracks(session_id, track_pks)
@@ -188,20 +195,28 @@ class ProposeSessionService:
         return ProposeSessionResult(session_id=session_id, title=title)
 
     def _save_session_field_values(
-        self, session_id: int, event_id: int, session_data: object
+        self,
+        *,
+        session_id: int,
+        event_id: int,
+        session_data: Mapping[str, FieldValue | int],
     ) -> None:
-        data = session_data if isinstance(session_data, dict) else {}  # type: ignore [misc]
         values: list[SessionFieldValueData] = []
-        for key, value in data.items():
-            if not isinstance(key, str) or not key.startswith("session_"):
+        for key, value in session_data.items():
+            if not key.startswith("session_"):
                 continue
             slug = key.removeprefix("session_")
             if slug.endswith("_custom"):
                 continue
+            # Organizer fields are text/select/checkbox only, so an answer is
+            # never a plain int. The ints session_data also carries are builtins
+            # (participants_limit, min_age), which never wear the prefix.
+            if isinstance(value, int) and not isinstance(value, bool):
+                continue
             # A question the submitter left blank stores no row: the proposal
             # is new, so absence can only mean "never answered". Checked before
             # the field lookup — a blank never needs the query.
-            if is_empty_answer(value=value):
+            if value is None or is_empty_answer(value=value):
                 continue
             try:
                 field_dto = self._repos.session_fields.read_by_slug(event_id, slug)
@@ -216,7 +231,11 @@ class ProposeSessionService:
             self._repos.sessions.save_field_values(session_id, values)
 
     def _save_personal_data(
-        self, event_id: int, personal_data: dict[str, str], facilitator: FacilitatorDTO
+        self,
+        *,
+        event_id: int,
+        personal_data: dict[str, str],
+        facilitator: FacilitatorDTO,
     ) -> None:
         entries: list[PersonalDataFieldValueData] = []
         for key, value in personal_data.items():
