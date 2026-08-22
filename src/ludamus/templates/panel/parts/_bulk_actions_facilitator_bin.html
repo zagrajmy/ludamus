@@ -1,0 +1,5 @@
+{# Buttons of the facilitator-bin bulk-status toolbar; see #}
+{# _bulk_toolbar.html. #}
+{% load i18n %}
+{% translate "Restore" as t_restore %}
+{% include "panel/parts/_bulk_action_button.html" with label=t_restore name="action" value="restore" variant="secondary" only %}
