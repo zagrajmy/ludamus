@@ -1738,6 +1738,10 @@ class ScheduleChangeLog(models.Model):
         related_name="acknowledged_schedule_change_logs",
     )
     acknowledgement_time = models.DateTimeField(null=True, blank=True)
+    # This change is worth announcing before the rest; the errata page floats
+    # it to the top. Both rows of a move carry it, so either row read alone
+    # still says so.
+    important = models.BooleanField(default=False)
 
     class Meta:
         db_table = "schedule_change_log"

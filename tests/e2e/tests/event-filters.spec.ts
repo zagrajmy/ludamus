@@ -313,3 +313,70 @@ test.describe("Rooms view filtering", () => {
     for (const { expected, actual } of placements) expect(actual).toEqual(expected);
   });
 });
+
+test.describe("Room filter", () => {
+  const denseEventUrl = "/chronology/event/kapitularz-2025-anonymized/";
+
+  test("groups the rooms under their parent space, in panel order", async ({ page }) => {
+    await page.goto(denseEventUrl);
+    await page.getByRole("button", { name: "Filters" }).click();
+
+    const spaceFilter = page.locator("#space-filter");
+    await expect(page.locator("#space-filter-group")).toBeVisible();
+
+    // Panel order, not the alphabet: the tables come before the tents, and
+    // "Cosplay Forum" — first alphabetically — is neither. The venue's own
+    // option opens each group, so it is not one of the rooms being ordered.
+    const options = await spaceFilter
+      .locator('optgroup option:not([value^="venue:"])')
+      .allInnerTexts();
+    expect(options.slice(0, 3)).toEqual(["Miniature Painting", "RPG Table 1", "RPG Table 2"]);
+    await expect(spaceFilter.locator("optgroup").first()).toHaveAttribute("label", "Default Area");
+  });
+
+  test("narrows the list to every room of the chosen venue", async ({ page }) => {
+    await page.goto(denseEventUrl);
+    await page.getByRole("button", { name: "Filters" }).click();
+
+    const venue = await page
+      .locator('#space-filter option[value^="venue:"]')
+      .first()
+      .getAttribute("value");
+    if (!venue) throw new Error("location filter has no venue option");
+    const venueId = venue.replace("venue:", "");
+    const spacesOf = (selector: string) =>
+      page
+        .locator(selector)
+        .evaluateAll((nodes) =>
+          [...new Set(nodes.map((node) => (node as HTMLElement).dataset.space))].sort(),
+        );
+    const rooms = await spacesOf(`.session[data-venue="${venueId}"]`);
+    expect(rooms.length).toBeGreaterThan(1);
+
+    await page.locator("#space-filter").selectOption(venue);
+
+    const visible = page.locator(".session-wrapper:not([hidden])");
+    await expect.poll(() => visible.count()).toBeGreaterThan(0);
+    for (const card of await visible.locator(".session").all())
+      await expect(card).toHaveAttribute("data-venue", venueId);
+    expect(await spacesOf(".session-wrapper:not([hidden]) .session")).toEqual(rooms);
+  });
+
+  test("narrows the list to the chosen room", async ({ page }) => {
+    await page.goto(denseEventUrl);
+    await page.getByRole("button", { name: "Filters" }).click();
+
+    const total = await page.locator(".session-wrapper").count();
+    const room = await page
+      .locator('#space-filter option:not([value^="venue:"])')
+      .nth(1)
+      .getAttribute("value");
+    if (!room) throw new Error("room filter has no options");
+    await page.locator("#space-filter").selectOption(room);
+
+    const visible = page.locator(".session-wrapper:not([hidden])");
+    await expect.poll(() => visible.count()).toBeLessThan(total);
+    for (const card of await visible.locator(".session").all())
+      await expect(card).toHaveAttribute("data-space", room);
+  });
+});

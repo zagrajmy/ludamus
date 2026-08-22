@@ -42,6 +42,7 @@ def _erratum(*logs: ScheduleChangeLogDTO) -> ErratumDTO:
         new_space_name=last.new_space_name,
         new_start_time=last.new_start_time,
         acknowledged_by_name=_acknowledgement(*logs),
+        important=any(log.important for log in logs),
     )
 
 
@@ -77,25 +78,57 @@ class ErrataService:
             return []
         logs = self._schedule_change_logs.list_since(event_pk, event.publication_time)
         errata = _read_moves(logs)
+        # Still to announce first, then important, then newest: what the
+        # audience must hear about cannot sink below a week of routine
+        # reshuffling, and announcing it is what retires it — the star stays
+        # on as history, so it must not keep finished work at the top.
         errata.sort(
-            key=lambda erratum: (erratum.creation_time, erratum.log_pks[-1]),
+            key=lambda erratum: (
+                erratum.acknowledged_by_name is None,
+                erratum.important,
+                erratum.creation_time,
+                erratum.log_pks[-1],
+            ),
             reverse=True,
         )
         return errata
 
+    def _check_whole_errata(self, event_pk: int, log_pks: list[int]) -> None:
+        """Refuse anything but a union of whole errata this event lists."""
+        # A row from before publication is not an erratum at all, and half a
+        # move announces a cancellation that never happened. Reading only the
+        # named rows and their move partners keeps a write's cost tied to the
+        # batch, not to a log that grows for the life of the event.
+        wanted = set(log_pks)
+        msg = f"Not every row of {sorted(wanted)} is an erratum of event {event_pk}"
+        event = self._events.read(event_pk)
+        if not wanted or event.publication_time is None:
+            raise NotFoundError(msg)
+        rows = self._schedule_change_logs.list_erratum_rows(
+            event_pk=event_pk, since=event.publication_time, log_pks=log_pks
+        )
+        covered = {
+            pk
+            for erratum in _read_moves(rows)
+            if set(erratum.log_pks) <= wanted
+            for pk in erratum.log_pks
+        }
+        if covered != wanted:
+            raise NotFoundError(msg)
+
+    def set_important(
+        self, *, event_pk: int, log_pks: list[int], important: bool
+    ) -> None:
+        self._check_whole_errata(event_pk, log_pks)
+        self._schedule_change_logs.set_important(
+            event_pk=event_pk, log_pks=log_pks, important=important
+        )
+
     def set_acknowledged(
         self, *, event_pk: int, log_pks: list[int], user_id: int, acknowledged: bool
     ) -> None:
-        """Tick off one erratum, or refuse."""
-        # Only whole errata the page lists may be ticked off: a row from
-        # before publication is not an erratum at all, and half a move
-        # announces a cancellation that never happened.
-        wanted = set(log_pks)
-        if not any(
-            wanted == set(erratum.log_pks) for erratum in self.list_for_event(event_pk)
-        ):
-            msg = f"No erratum of event {event_pk} is exactly {sorted(wanted)}"
-            raise NotFoundError(msg)
+        """Tick off one erratum or a batch of them, or refuse."""
+        self._check_whole_errata(event_pk, log_pks)
         self._schedule_change_logs.set_acknowledged(
             event_pk=event_pk,
             log_pks=log_pks,
