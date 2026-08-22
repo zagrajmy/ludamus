@@ -291,7 +291,7 @@
                 </span>
             </div>
             {% if event.is_proposal_active %}
-                <a href="{% url 'web:chronology:session-propose' event_slug=event.slug %}"
+                <a href="{% url 'web:event:session-propose' event_slug=event.slug %}"
                    class="btn btn-primary text-sm">
                     {% icon "plus" class="w-4 h-4" variant="mini" %} {% translate "Propose Session" %}
                 </a>
@@ -516,7 +516,7 @@
                         Propose your own session and find players!
                     {% endblocktranslate %}
                 </p>
-                <a href="{% url 'web:chronology:session-propose' event_slug=event.slug %}"
+                <a href="{% url 'web:event:session-propose' event_slug=event.slug %}"
                    class="btn btn-primary text-base">{% translate "Propose a session" %}</a>
             </div>
         </div>
