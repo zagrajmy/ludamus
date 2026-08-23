@@ -81,8 +81,6 @@ env.AUTH0_CLIENT_ID = "test-auth0-client-id"
 env.AUTH0_CLIENT_SECRET = "test-auth0-client-secret"
 env.AUTH0_DOMAIN = "auth0.example.com"
 env.CREDENTIALS_ENCRYPTION_KEY = "gWc408f8j3ZQUm5Ly4EXQC2EwFRf50AhePkmZKL5N9E="
-env.MEMBERSHIP_API_BASE_URL = "https://membership-test.example.com/api/v1/endpoint"
-env.MEMBERSHIP_API_TOKEN = "membership-test-token"
 run = '''
 set -eu
 mise bootstrap packages apply --yes

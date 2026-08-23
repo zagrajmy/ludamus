@@ -34,7 +34,6 @@ jobs:
           DB_USER: ${{ vars.DB_USER }}
           AUTH0_CLIENT_ID: ${{ vars.AUTH0_CLIENT_ID }}
           AUTH0_DOMAIN: ${{ vars.AUTH0_DOMAIN }}
-          MEMBERSHIP_API_BASE_URL: ${{ vars.MEMBERSHIP_API_BASE_URL }}
           SUPPORT_EMAIL: ${{ vars.SUPPORT_EMAIL }}
           STATIC_ROOT: ${{ vars.STATIC_ROOT }}
           MEDIA_ROOT: ${{ vars.MEDIA_ROOT }}
@@ -49,7 +48,6 @@ jobs:
           SECRET_KEY: ${{ secrets.SECRET_KEY }}
           CREDENTIALS_ENCRYPTION_KEY: ${{ secrets.CREDENTIALS_ENCRYPTION_KEY }}
           AUTH0_CLIENT_SECRET: ${{ secrets.AUTH0_CLIENT_SECRET }}
-          MEMBERSHIP_API_TOKEN: ${{ secrets.MEMBERSHIP_API_TOKEN }}
           GS_CREDENTIALS_JSON: ${{ secrets.GS_CREDENTIALS_JSON }}
           EMAIL_URL: ${{ secrets.EMAIL_URL }}
         run: |
@@ -60,7 +58,6 @@ jobs:
                    DB_HOST DB_PORT DB_NAME DB_USER DB_PASSWORD \
                    SECRET_KEY CREDENTIALS_ENCRYPTION_KEY \
                    AUTH0_CLIENT_ID AUTH0_CLIENT_SECRET AUTH0_DOMAIN \
-                   MEMBERSHIP_API_BASE_URL MEMBERSHIP_API_TOKEN \
                    EMAIL_URL SUPPORT_EMAIL STATIC_ROOT MEDIA_ROOT \
                    POSTGRES_DATA_PATH STATIC_DATA_PATH MEDIA_DATA_PATH \
                    WEB_PORT \

@@ -1,62 +1,116 @@
-"""External API integration for membership lookup."""
+"""Resolves the ticketing API an event is configured to talk to."""
 
 from __future__ import annotations
 
 import logging
-from functools import cached_property
+from typing import TYPE_CHECKING
 
-import requests
-from django.conf import settings
+from pydantic import ValidationError
 
-from ludamus.links.retry import mount_retries
-from ludamus.pacts import MembershipAPIError
+from ludamus.pacts.chronology import IntegrationKind, TicketingIntegrationImplementation
+from ludamus.pacts.legacy import NotFoundError
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
+
+    from pydantic import BaseModel
+
+    from ludamus.pacts.chronology import (
+        EventIntegrationsRepositoryProtocol,
+        IntegrationImplementation,
+        IntegrationImplementationId,
+    )
+    from ludamus.pacts.legacy import TicketAPIProtocol
+    from ludamus.pacts.multiverse import (
+        ConnectionsRepositoryProtocol,
+        DecryptorProtocol,
+    )
 
 logger = logging.getLogger(__name__)
 
 
-class MembershipApiClient:
-    """Client for external membership API integration."""
+class _BoundTicketApi:
+    """One event's ticketing implementation with its credentials attached."""
 
-    def __init__(self) -> None:
-        self.base_url = settings.MEMBERSHIP_API_BASE_URL
-        self.token = settings.MEMBERSHIP_API_TOKEN
-        self.timeout = settings.MEMBERSHIP_API_TIMEOUT
+    def __init__(
+        self,
+        *,
+        implementation: TicketingIntegrationImplementation,
+        secret: bytes,
+        config: BaseModel,
+    ) -> None:
+        self._implementation = implementation
+        self._secret = secret
+        self._config = config
 
-    @cached_property
-    def session(self) -> requests.Session:
-        # The injector builds this client per request, so the pooling a
-        # Session exists for never happens — but the unconfigured deployment
-        # (no MEMBERSHIP_API_BASE_URL) must not pay for adapters and pools it
-        # will never send through. Lazy keeps that path free.
-        return mount_retries(requests.Session())
+    def fetch_membership_count(self, user_email: str) -> int:
+        return self._implementation.fetch_membership_count(
+            secret=self._secret, config=self._config, user_email=user_email
+        )
 
-    def fetch_membership_count(self, email: str) -> int:
-        # The membership API is optional: when no base URL is configured there
-        # is nothing to look up, so signal "unavailable" without a request.
-        if not self.base_url:
-            # Global state, identical for every user, so the email adds no
-            # diagnostic value here — and keeps it out of the logs.
-            logger.debug("Membership API not configured; skipping lookup")
-            raise MembershipAPIError
 
-        try:
-            response = self.session.get(
-                self.base_url,
-                params={"email": email},
-                headers={"Authorization": f"Token {self.token}"},
-                timeout=self.timeout,
+class TicketApiResolver:
+    """Turns an event's ticketing integration row into a usable API client.
+
+    Every failure mode — no integration, unknown implementation, unparsable
+    config, deleted connection, empty secret — resolves to None, so enrollment
+    silently falls back to whatever user and domain configs already exist
+    instead of erroring on an event that never wired up ticketing.
+    """
+
+    def __init__(
+        self,
+        integrations: EventIntegrationsRepositoryProtocol,
+        connections: ConnectionsRepositoryProtocol,
+        decryptor: DecryptorProtocol,
+        registry: Mapping[IntegrationImplementationId, IntegrationImplementation],
+    ) -> None:
+        self._integrations = integrations
+        self._connections = connections
+        self._decryptor = decryptor
+        self._registry = registry
+        # One enrollment read asks per active window, and an enroll POST asks
+        # again per party member; the answer cannot change within a request.
+        self._cache: dict[int, TicketAPIProtocol | None] = {}
+
+    def resolve(self, *, event_id: int, sphere_id: int) -> TicketAPIProtocol | None:
+        if event_id not in self._cache:
+            self._cache[event_id] = self._resolve(
+                event_id=event_id, sphere_id=sphere_id
             )
-            response.raise_for_status()
+        return self._cache[event_id]
 
-            data = response.json()
-            membership_count: int = data.get("membership_count", 0)
-
-            logger.info("Fetched membership count %d", membership_count)
-        except requests.RequestException as exception:
-            logger.exception("Failed to fetch membership")
-            raise MembershipAPIError from exception
-        except Exception as exception:
-            logger.exception("Unexpected error fetching membership")
-            raise MembershipAPIError from exception
-
-        return membership_count
+    def _resolve(self, *, event_id: int, sphere_id: int) -> TicketAPIProtocol | None:
+        for integration in self._integrations.list_for_event(
+            event_id, IntegrationKind.TICKETING
+        ):
+            implementation = self._registry.get(integration.implementation)
+            if not isinstance(implementation, TicketingIntegrationImplementation):
+                continue
+            try:
+                config = implementation.config_model.model_validate_json(
+                    integration.config_json
+                )
+            except ValidationError:
+                logger.warning(
+                    "Ticketing integration %d has an invalid config", integration.pk
+                )
+                continue
+            try:
+                blob = self._connections.read_secret(
+                    sphere_id, integration.connection_id
+                )
+            except NotFoundError:
+                logger.warning(
+                    "Ticketing integration %d points at a missing connection",
+                    integration.pk,
+                )
+                continue
+            if not blob:
+                continue
+            return _BoundTicketApi(
+                implementation=implementation,
+                secret=self._decryptor.decrypt(blob),
+                config=config,
+            )
+        return None

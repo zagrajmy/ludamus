@@ -8,7 +8,7 @@ the file grows past ~12 top-level members or 1000 lines.
 from dataclasses import dataclass
 from datetime import date, datetime
 from enum import StrEnum, auto
-from typing import TYPE_CHECKING, Literal, Protocol, TypedDict
+from typing import TYPE_CHECKING, Literal, Protocol, TypedDict, runtime_checkable
 
 from pydantic import BaseModel, ConfigDict
 
@@ -41,6 +41,7 @@ class IntegrationKind(StrEnum):
 
 class IntegrationImplementationId(StrEnum):
     GOOGLE_PROPOSAL_PULLER = "google-proposal-puller"
+    SKLEP_KAPITULARZ = "sklep-kapitularz"
 
 
 class CheckOutcome(StrEnum):
@@ -69,10 +70,18 @@ class SourceQuestion(BaseModel):
 
 
 class IntegrationImplementation(Protocol):
+    # What every integration shares: which kind it serves, the shape of its
+    # per-event config, and a credential probe the panel can run. Everything
+    # provider-specific (auth header format, response payload shape) stays
+    # behind the kind-specific subprotocols below.
     kind: IntegrationKind
     config_model: type[BaseModel]
 
     def check(self, secret: bytes, config: BaseModel) -> CheckResult: ...
+
+
+@runtime_checkable
+class ImportIntegrationImplementation(IntegrationImplementation, Protocol):
     def fetch_questions(
         self, *, secret: bytes, config: BaseModel, header_row: int = 1
     ) -> list[SourceQuestion]: ...
@@ -82,6 +91,13 @@ class IntegrationImplementation(Protocol):
     def fetch_responses(
         self, *, secret: bytes, config: BaseModel, header_row: int = 1
     ) -> list[ImportRow]: ...
+
+
+@runtime_checkable
+class TicketingIntegrationImplementation(IntegrationImplementation, Protocol):
+    def fetch_membership_count(
+        self, *, secret: bytes, config: BaseModel, user_email: str
+    ) -> int: ...
 
 
 class EventIntegrationDTO(BaseModel):

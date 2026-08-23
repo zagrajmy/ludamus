@@ -77,11 +77,7 @@ from ludamus.links.db.django.repositories.sessions import (
     review_inbox_proposals,
     with_scheduled_card_relations,
 )
-from ludamus.mills.enrollment import (
-    EnrollmentPolicy,
-    get_user_enrollment_config,
-    restricts_everyone,
-)
+from ludamus.mills.enrollment import EnrollmentPolicy, restricts_everyone
 from ludamus.pacts import (
     NO_LOCATION,
     OCCUPYING_PARTICIPATION_STATUSES,
@@ -390,12 +386,8 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
         slug = self.request.context.current_user_slug
         user_email = self.request.di.uow.active_users.read(slug).email if slug else None
         if user_email:
-            user_enrollment_config = get_user_enrollment_config(
-                event=EventDTO.model_validate(self.object),
-                user_email=user_email,
-                enrollment_config_repo=self.request.di.uow.enrollment_configs,
-                ticket_api=self.request.di.ticket_api,
-                check_interval_minutes=settings.MEMBERSHIP_API_CHECK_INTERVAL,
+            user_enrollment_config = self.request.services.enrollment.virtual_config(
+                event=EventDTO.model_validate(self.object), user_email=user_email
             )
         context["user_enrollment_config"] = user_enrollment_config
 

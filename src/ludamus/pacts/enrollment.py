@@ -315,18 +315,29 @@ class EnrollmentParticipationRepositoryProtocol(Protocol):
     def create_confirmed(seat: GuestSeatData) -> None: ...
 
 
+class TicketApiResolverProtocol(Protocol):
+    """Finds the ticketing API an event is configured to use, if any.
+
+    Returns None when the event has no ticketing integration (or it is
+    unusable: bad config, missing connection, empty secret), which is what
+    keeps membership lookups off events that never opted into one.
+    """
+
+    def resolve(self, *, event_id: int, sphere_id: int) -> TicketAPIProtocol | None: ...
+
+
 @dataclass(frozen=True)
 class EnrollmentRepos:
     # The repos the enrollment service reads rosters and writes guest seats
-    # through; `ticket_api` rides along because membership lookups always
-    # accompany the config reads. Mirrors the `ImportRepos` bundle the
+    # through; `ticket_api_resolver` rides along because membership lookups
+    # always accompany the config reads. Mirrors the `ImportRepos` bundle the
     # submissions services use to keep a many-repo constructor within the
     # argument-count limit.
     users: UserRepositoryProtocol
     anonymous_users: UserRepositoryProtocol
     enrollment_configs: EnrollmentConfigRepositoryProtocol
     participations: EnrollmentParticipationRepositoryProtocol
-    ticket_api: TicketAPIProtocol
+    ticket_api_resolver: TicketApiResolverProtocol
 
 
 class EnrollmentServiceProtocol(Protocol):

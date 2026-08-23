@@ -15,7 +15,8 @@ from ludamus.links.encryption import FernetDecryptor, FernetEncryptor
 from ludamus.links.google_docs import GoogleDocsProposalImporter, GoogleSheetsWriter
 from ludamus.links.gravatar import gravatar_url
 from ludamus.links.scheduler import CronSweepOfferScheduler
-from ludamus.links.ticket_api import MembershipApiClient
+from ludamus.links.sklep_kapitularz import SklepKapitularzIntegration
+from ludamus.links.ticket_api import TicketApiResolver
 from ludamus.mills.bookmarks import BookmarkService
 from ludamus.mills.chronology import (
     EventIntegrationsService,
@@ -403,7 +404,7 @@ class Services:
 
     @cached_property
     def enrollment(self) -> EnrollmentService:
-        membership_check_interval: int = settings.MEMBERSHIP_API_CHECK_INTERVAL
+        key: str = settings.CREDENTIALS_ENCRYPTION_KEY
         return EnrollmentService(
             transaction=self._transaction,
             repos=EnrollmentRepos(
@@ -411,9 +412,13 @@ class Services:
                 anonymous_users=self._repos.anonymous_users,
                 enrollment_configs=self._repos.enrollment_configs,
                 participations=self._repos.enrollment_participations,
-                ticket_api=MembershipApiClient(),
+                ticket_api_resolver=TicketApiResolver(
+                    self._repos.event_integrations,
+                    self._repos.connections,
+                    FernetDecryptor(key),
+                    self._integration_registry,
+                ),
             ),
-            membership_check_interval=membership_check_interval,
         )
 
     @cached_property
@@ -465,19 +470,25 @@ class Services:
         )
 
     @cached_property
-    def event_integrations(self) -> EventIntegrationsService:
-        key: str = settings.CREDENTIALS_ENCRYPTION_KEY
-        registry: dict[IntegrationImplementationId, IntegrationImplementation] = {
+    def _integration_registry(
+        self,
+    ) -> dict[IntegrationImplementationId, IntegrationImplementation]:
+        return {
             IntegrationImplementationId.GOOGLE_PROPOSAL_PULLER: (
                 GoogleDocsProposalImporter()
-            )
+            ),
+            IntegrationImplementationId.SKLEP_KAPITULARZ: SklepKapitularzIntegration(),
         }
+
+    @cached_property
+    def event_integrations(self) -> EventIntegrationsService:
+        key: str = settings.CREDENTIALS_ENCRYPTION_KEY
         return EventIntegrationsService(
             self._transaction,
             self._repos.event_integrations,
             self._repos.connections,
             FernetDecryptor(key),
-            registry,
+            self._integration_registry,
         )
 
     @cached_property

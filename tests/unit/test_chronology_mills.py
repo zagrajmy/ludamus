@@ -518,6 +518,9 @@ class _HeaderStubImpl:
     def fetch_headers(self, **_kwargs):
         return self._headers
 
+    def fetch_responses(self, **_kwargs):
+        return []
+
 
 class _TicketingStubImpl:
     kind = IntegrationKind.TICKETING

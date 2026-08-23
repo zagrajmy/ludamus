@@ -18,7 +18,6 @@ from ludamus.pacts.legacy import (
 
 _NOW = datetime(2026, 6, 4, 12, 0, tzinfo=UTC)
 _EVENT_ID = 11
-_CHECK_INTERVAL = 60
 _ALLOWED_SLOTS = 3
 _SESSION_ID = 42
 _PARTY_ID = 9
@@ -154,16 +153,33 @@ class FakeEnrollmentConfigs:
 
 
 class FakeTicketAPI:
-    def __init__(self):
+    def __init__(self, membership_count=0):
         self.calls: list[str] = []
+        self._membership_count = membership_count
 
     def fetch_membership_count(self, user_email):
         self.calls.append(user_email)
-        return 0
+        return self._membership_count
+
+
+class FakeTicketApiResolver:
+    # `ticket_api=None` models an event with no ticketing integration.
+    def __init__(self, ticket_api=None):
+        self.ticket_api = ticket_api
+        self.seen: list[tuple[int, int]] = []
+
+    def resolve(self, *, event_id, sphere_id):
+        self.seen.append((event_id, sphere_id))
+        return self.ticket_api
 
 
 def _service(
-    *, users=None, anonymous_users=None, enrollment_configs=None, participations=None
+    *,
+    users=None,
+    anonymous_users=None,
+    enrollment_configs=None,
+    participations=None,
+    ticket_api_resolver=None,
 ):
     return EnrollmentService(
         transaction=FakeTransaction(),
@@ -180,9 +196,12 @@ def _service(
             participations=(
                 participations if participations is not None else FakeParticipations()
             ),
-            ticket_api=FakeTicketAPI(),
+            ticket_api_resolver=(
+                ticket_api_resolver
+                if ticket_api_resolver is not None
+                else FakeTicketApiResolver(FakeTicketAPI())
+            ),
         ),
-        membership_check_interval=_CHECK_INTERVAL,
     )
 
 
@@ -282,20 +301,63 @@ class TestEnrollmentService:
             allowed_slots=4, has_domain_config=False, has_user_config=True
         )
 
+    def test_virtual_config_keeps_stored_slots_without_a_ticketing_integration(self):
+        # A stale zero-slot row would normally trigger a refresh; with no
+        # integration the stored row stands and nothing is fetched.
+        service = _service(
+            enrollment_configs=FakeEnrollmentConfigs(
+                configs=[_enrollment_config()], user_config=_user_config(0)
+            ),
+            ticket_api_resolver=FakeTicketApiResolver(),
+        )
+
+        config = service.virtual_config(event=_event(), user_email="viewer@example.com")
+
+        assert config == VirtualEnrollmentConfig(
+            allowed_slots=0, has_domain_config=False, has_user_config=True
+        )
+
+    def test_virtual_config_is_none_without_integration_and_without_stored_config(self):
+        service = _service(
+            enrollment_configs=FakeEnrollmentConfigs(configs=[_enrollment_config()]),
+            ticket_api_resolver=FakeTicketApiResolver(),
+        )
+
+        config = service.virtual_config(event=_event(), user_email="viewer@example.com")
+
+        assert config is None
+
+    def test_virtual_config_does_not_resolve_ticketing_without_an_open_window(self):
+        resolver = FakeTicketApiResolver(FakeTicketAPI())
+        service = _service(
+            enrollment_configs=FakeEnrollmentConfigs(), ticket_api_resolver=resolver
+        )
+
+        service.virtual_config(event=_event(), user_email="viewer@example.com")
+
+        assert not resolver.seen
+
+    def test_virtual_config_resolves_ticketing_once_across_windows(self):
+        resolver = FakeTicketApiResolver(FakeTicketAPI())
+        service = _service(
+            enrollment_configs=FakeEnrollmentConfigs(
+                configs=[_enrollment_config(), _enrollment_config(pk=6)],
+                user_config=_user_config(4),
+            ),
+            ticket_api_resolver=resolver,
+        )
+
+        service.virtual_config(event=_event(), user_email="viewer@example.com")
+
+        assert resolver.seen == [(_EVENT_ID, 1)]
+
     def test_has_slot_access_false_without_email(self):
         ticket_api = FakeTicketAPI()
-        service = EnrollmentService(
-            transaction=FakeTransaction(),
-            repos=EnrollmentRepos(
-                users=FakeUsers(),
-                anonymous_users=FakeUsers(),
-                enrollment_configs=FakeEnrollmentConfigs(
-                    configs=[_enrollment_config()], user_config=_user_config(4)
-                ),
-                participations=FakeParticipations(),
-                ticket_api=ticket_api,
+        service = _service(
+            enrollment_configs=FakeEnrollmentConfigs(
+                configs=[_enrollment_config()], user_config=_user_config(4)
             ),
-            membership_check_interval=_CHECK_INTERVAL,
+            ticket_api_resolver=FakeTicketApiResolver(ticket_api),
         )
 
         assert service.has_slot_access(event=_event(), user_email="") is False
@@ -364,9 +426,8 @@ class TestEnrollmentService:
                 anonymous_users=anonymous_users,
                 enrollment_configs=FakeEnrollmentConfigs(),
                 participations=participations,
-                ticket_api=FakeTicketAPI(),
+                ticket_api_resolver=FakeTicketApiResolver(FakeTicketAPI()),
             ),
-            membership_check_interval=_CHECK_INTERVAL,
         )
 
         service.create_guests(

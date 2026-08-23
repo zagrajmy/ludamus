@@ -32,6 +32,7 @@ from ludamus.pacts.chronology import (
     EventIntegrationsRepositoryProtocol,
     EventIntegrationsServiceProtocol,
     EventIntegrationUpdateData,
+    ImportIntegrationImplementation,
     IntegrationCheckRequest,
     IntegrationImplementation,
     IntegrationImplementationId,
@@ -879,7 +880,7 @@ class EventIntegrationsService(EventIntegrationsServiceProtocol):
         self, *, sphere_id: int, event_id: int, pk: int
     ) -> list[SourceQuestion]:
         integration = self._integrations.get(event_id, pk)
-        if (impl := self._registry.get(integration.implementation)) is None:
+        if (impl := self._import_implementation(integration)) is None:
             return []
         config = impl.config_model.model_validate_json(integration.config_json)
         settings = ImportSettings.model_validate_json(integration.settings_json or "{}")
@@ -924,7 +925,7 @@ class EventIntegrationsService(EventIntegrationsServiceProtocol):
 
     def fetch_headers(self, *, sphere_id: int, event_id: int, pk: int) -> list[str]:
         integration = self._integrations.get(event_id, pk)
-        if (impl := self._registry.get(integration.implementation)) is None:
+        if (impl := self._import_implementation(integration)) is None:
             return []
         config = impl.config_model.model_validate_json(integration.config_json)
         settings = ImportSettings.model_validate_json(integration.settings_json or "{}")
@@ -980,7 +981,7 @@ class EventIntegrationsService(EventIntegrationsServiceProtocol):
         self, *, sphere_id: int, event_id: int, pk: int
     ) -> list[ImportRow]:
         integration = self._integrations.get(event_id, pk)
-        if (impl := self._registry.get(integration.implementation)) is None:
+        if (impl := self._import_implementation(integration)) is None:
             return []
         config = impl.config_model.model_validate_json(integration.config_json)
         settings = ImportSettings.model_validate_json(integration.settings_json or "{}")
@@ -1025,3 +1026,13 @@ class EventIntegrationsService(EventIntegrationsServiceProtocol):
         impl = self._registry.get(identifier)
         if impl is None or impl.kind != kind:
             raise IntegrationImplementationNotFoundError(identifier)
+
+    def _import_implementation(
+        self, integration: EventIntegrationDTO
+    ) -> ImportIntegrationImplementation | None:
+        # Only import implementations answer the fetch_* calls; a ticketing row
+        # reaching one would be a routing mistake, not a fetch with no results.
+        impl = self._registry.get(integration.implementation)
+        if not isinstance(impl, ImportIntegrationImplementation):
+            return None
+        return impl
