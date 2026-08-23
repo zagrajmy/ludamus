@@ -856,15 +856,29 @@ class DiscountExportForm(forms.Form):
         strip=True,
         help_text=_("The tab has to exist already; the export replaces its content."),
     )
+    columns = forms.MultipleChoiceField(
+        label=_("Columns"),
+        widget=forms.CheckboxSelectMultiple,
+        help_text=_(
+            "Facilitator and personal data written before the discount columns."
+            " Pick what this sheet needs; nothing is exported by default."
+        ),
+    )
 
     def __init__(
-        self, *args: Any, connections: Iterable[ConnectionDTO], **kwargs: Any
+        self,
+        *args: Any,
+        connections: Iterable[ConnectionDTO],
+        columns: Iterable[tuple[str, str]] = (),
+        **kwargs: Any,
     ) -> None:
         super().__init__(*args, **kwargs)
         connection_field = cast("forms.ChoiceField", self.fields["connection"])
         connection_field.choices = [
             (str(connection.pk), connection.display_name) for connection in connections
         ]
+        columns_field = cast("forms.MultipleChoiceField", self.fields["columns"])
+        columns_field.choices = list(columns)
 
     def clean_spreadsheet(self) -> str:
         raw = str(self.cleaned_data["spreadsheet"])

@@ -2,14 +2,19 @@ from datetime import UTC, datetime
 from decimal import Decimal
 
 from ludamus.mills.discounts import DiscountsExportService
-from ludamus.pacts.discounts import DiscountDTO, DiscountExportLabels, DiscountKind
+from ludamus.pacts.discounts import (
+    DiscountDTO,
+    DiscountExportColumns,
+    DiscountExportLabels,
+    DiscountKind,
+)
 from ludamus.pacts.event import FacilitatorListItemDTO
 
 LABELS = DiscountExportLabels(
-    headers=["Twórca", "Typ akredytacji", "Rodzaj", "Wartość", "Notatka"],
-    accreditation_types={"guest": "Gość", "honorary": "Honorowa", "none": "Brak"},
+    headers=["Rodzaj", "Wartość", "Notatka"],
     kinds={"percent": "Procent", "amount": "Kwota"},
 )
+NO_COLUMNS = DiscountExportColumns()
 
 
 def _facilitator(pk, *, display_name="Alice", accreditation_type="guest"):
@@ -94,6 +99,18 @@ def _service(
     )
 
 
+def _export(service, *, labels=LABELS, columns=NO_COLUMNS):
+    return service.export_to_sheet(
+        sphere_id=3,
+        event_pk=1,
+        connection_id=7,
+        spreadsheet_id="sheet-1",
+        tab_title="Akredytacje",
+        labels=labels,
+        columns=columns,
+    )
+
+
 class TestDiscountsExportService:
     def test_writes_header_and_labelled_rows_in_facilitator_order(self):
         facilitator_count = 2
@@ -114,14 +131,7 @@ class TestDiscountsExportService:
             discounts=discounts, facilitators=facilitators, writer=writer
         )
 
-        count = service.export_to_sheet(
-            sphere_id=3,
-            event_pk=1,
-            connection_id=7,
-            spreadsheet_id="sheet-1",
-            tab_title="Akredytacje",
-            labels=LABELS,
-        )
+        count = _export(service)
 
         assert count == facilitator_count
         assert writer.calls == [
@@ -130,11 +140,47 @@ class TestDiscountsExportService:
                 "sheet-1",
                 "Akredytacje",
                 [
-                    ["Twórca", "Typ akredytacji", "Rodzaj", "Wartość", "Notatka"],
-                    ["Alice", "Gość", "Procent", "15.50", "note-11"],
-                    ["Bob", "Honorowa", "Kwota", "15.50", "note-10"],
+                    ["Rodzaj", "Wartość", "Notatka"],
+                    ["Procent", "15.50", "note-11"],
+                    ["Kwota", "15.50", "note-10"],
                 ],
             )
+        ]
+
+    def test_chosen_columns_are_written_before_the_discount_ones(self):
+        facilitators = FakeFacilitators(
+            [_facilitator(1), _facilitator(2, display_name="Bob")]
+        )
+        discounts = FakeDiscounts([_discount(10, facilitator_id=1)])
+        writer = FakeWriter()
+        service = _service(
+            discounts=discounts, facilitators=facilitators, writer=writer
+        )
+
+        _export(
+            service,
+            columns=DiscountExportColumns(
+                headers=["Imię", "Opiekun"],
+                cells={1: ["Alicja", "Ola"], 2: ["Bogdan", ""]},
+            ),
+        )
+
+        assert writer.calls[0][3] == [
+            ["Imię", "Opiekun", "Rodzaj", "Wartość", "Notatka"],
+            ["Alicja", "Ola", "Procent", "15.50", "note-10"],
+            ["Bogdan", "", "", "", ""],
+        ]
+
+    def test_facilitator_without_chosen_column_values_keeps_the_discount_cells(self):
+        facilitators = FakeFacilitators([_facilitator(1)])
+        writer = FakeWriter()
+        service = _service(facilitators=facilitators, writer=writer)
+
+        _export(service, columns=DiscountExportColumns(headers=["Imię"], cells={}))
+
+        assert writer.calls[0][3] == [
+            ["Imię", "Rodzaj", "Wartość", "Notatka"],
+            ["", "", ""],
         ]
 
     def test_facilitators_without_accreditation_are_left_out(self):
@@ -147,37 +193,10 @@ class TestDiscountsExportService:
         writer = FakeWriter()
         service = _service(facilitators=facilitators, writer=writer)
 
-        count = service.export_to_sheet(
-            sphere_id=3,
-            event_pk=1,
-            connection_id=7,
-            spreadsheet_id="sheet-1",
-            tab_title="Akredytacje",
-            labels=LABELS,
-        )
+        count = _export(service)
 
         assert count == 1
-        assert writer.calls[0][3] == [
-            ["Twórca", "Typ akredytacji", "Rodzaj", "Wartość", "Notatka"],
-            ["Alice", "Gość", "", "", ""],
-        ]
-
-    def test_facilitator_without_discount_gets_empty_cells(self):
-        facilitators = FakeFacilitators([_facilitator(1)])
-        writer = FakeWriter()
-        service = _service(facilitators=facilitators, writer=writer)
-
-        count = service.export_to_sheet(
-            sphere_id=3,
-            event_pk=1,
-            connection_id=7,
-            spreadsheet_id="sheet-1",
-            tab_title="Akredytacje",
-            labels=LABELS,
-        )
-
-        assert count == 1
-        assert writer.calls[0][3][1] == ["Alice", "Gość", "", "", ""]
+        assert writer.calls[0][3] == [["Rodzaj", "Wartość", "Notatka"], ["", "", ""]]
 
     def test_unknown_labels_fall_back_to_raw_values(self):
         facilitators = FakeFacilitators(
@@ -188,40 +207,17 @@ class TestDiscountsExportService:
         service = _service(
             discounts=discounts, facilitators=facilitators, writer=writer
         )
-        labels = DiscountExportLabels(
-            headers=LABELS.headers, accreditation_types={}, kinds={}
-        )
 
-        service.export_to_sheet(
-            sphere_id=3,
-            event_pk=1,
-            connection_id=7,
-            spreadsheet_id="sheet-1",
-            tab_title="Akredytacje",
-            labels=labels,
-        )
+        _export(service, labels=DiscountExportLabels(headers=LABELS.headers, kinds={}))
 
-        assert writer.calls[0][3][1] == [
-            "Alice",
-            "honorary",
-            "percent",
-            "15.50",
-            "note-10",
-        ]
+        assert writer.calls[0][3][1] == ["percent", "15.50", "note-10"]
 
     def test_reads_and_decrypts_the_connection_secret(self):
         connections = FakeConnections(blob=b"cipher")
         decryptor = FakeDecryptor()
         service = _service(connections=connections, decryptor=decryptor)
 
-        service.export_to_sheet(
-            sphere_id=3,
-            event_pk=1,
-            connection_id=7,
-            spreadsheet_id="sheet-1",
-            tab_title="Akredytacje",
-            labels=LABELS,
-        )
+        _export(service)
 
         assert connections.read == [(3, 7)]
         assert decryptor.blobs == [b"cipher"]
@@ -232,14 +228,7 @@ class TestDiscountsExportService:
         writer = FakeWriter()
         service = _service(connections=connections, decryptor=decryptor, writer=writer)
 
-        service.export_to_sheet(
-            sphere_id=3,
-            event_pk=1,
-            connection_id=7,
-            spreadsheet_id="sheet-1",
-            tab_title="Akredytacje",
-            labels=LABELS,
-        )
+        _export(service)
 
         assert not decryptor.blobs
         assert writer.calls[0][0] == b""
@@ -257,14 +246,7 @@ class TestDiscountsExportService:
             discounts=discounts, facilitators=facilitators, writer=writer
         )
 
-        service.export_to_sheet(
-            sphere_id=3,
-            event_pk=1,
-            connection_id=7,
-            spreadsheet_id="sheet-1",
-            tab_title="Akredytacje",
-            labels=LABELS,
-        )
+        _export(service)
 
         assert facilitators.listed_events == [1]
-        assert writer.calls[0][3][1] == ["Alice", "Gość", "Procent", "15.50", "note-10"]
+        assert writer.calls[0][3][1] == ["Procent", "15.50", "note-10"]

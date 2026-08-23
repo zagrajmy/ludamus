@@ -14,6 +14,8 @@ from ludamus.links.db.django.models import (
     Discount,
     DiscountRule,
     Facilitator,
+    PersonalDataField,
+    PersonalDataFieldValue,
 )
 from ludamus.links.db.django.repositories import ConnectionsRepository
 from ludamus.pacts import FacilitatorDTO, FacilitatorListItemDTO, NotFoundError
@@ -724,7 +726,7 @@ class TestDiscountExportPageView:
     def get_url(event):
         return reverse("panel:discount-export", kwargs={"slug": event.slug})
 
-    def _post(self, client, event, connection, session):
+    def _post(self, client, event, connection, session, columns=("name",)):
         with (
             patch("ludamus.links.google_docs.Credentials.from_service_account_info"),
             patch("ludamus.links.google_docs.AuthorizedSession") as session_cls,
@@ -736,6 +738,7 @@ class TestDiscountExportPageView:
                     "connection": str(connection.pk),
                     "spreadsheet": SPREADSHEET_URL,
                     "tab": "Sheet1",
+                    "columns": list(columns),
                 },
             )
 
@@ -816,18 +819,72 @@ class TestDiscountExportPageView:
             "/values/%27Sheet1%27%21A1?valueInputOption=RAW",
             json={
                 "values": [
-                    [
-                        "Creator",
-                        "Accreditation type",
-                        "Discount kind",
-                        "Discount value",
-                        "Note",
-                    ],
-                    ["Alice", "Guest", "Percent", "15.00", "VIP"],
+                    ["Display Name", "Discount kind", "Discount value", "Note"],
+                    ["Alice", "Percent", "15.00", "VIP"],
                 ]
             },
             timeout=30,
         )
+
+    def test_post_writes_the_chosen_facilitator_and_personal_columns(
+        self, panel_client, event, connection_with_secret, active_user
+    ):
+        facilitator = _make_facilitator(
+            event, accreditation_type="guest", organizer=active_user
+        )
+        _make_discount(event, facilitator, value=Decimal("15.00"), note="VIP")
+        field = PersonalDataField.objects.create(
+            event=event,
+            name="Surname",
+            question="Your surname?",
+            slug="surname",
+            field_type="text",
+            order=0,
+        )
+        PersonalDataFieldValue.objects.create(
+            facilitator=facilitator, event=event, field=field, value="Kowalska"
+        )
+        session = _google_write_session()
+
+        self._post(
+            panel_client,
+            event,
+            connection_with_secret,
+            session,
+            columns=("organizer", f"field_{field.pk}"),
+        )
+
+        assert session.put.call_args.kwargs["json"] == {
+            "values": [
+                ["Organizer", "Surname", "Discount kind", "Discount value", "Note"],
+                [active_user.name, "Kowalska", "Percent", "15.00", "VIP"],
+            ]
+        }
+
+    def test_post_without_columns_rejects_the_export(
+        self, panel_client, event, connection_with_secret
+    ):
+        _make_facilitator(event)
+        session = _google_write_session()
+
+        response = self._post(
+            panel_client, event, connection_with_secret, session, columns=()
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/discounts/export.html",
+            context_data={
+                **panel_context(event, active_nav="discounts"),
+                "form": ANY,
+                "has_connections": True,
+            },
+        )
+        assert response.context["form"].errors == {
+            "columns": ["This field is required."]
+        }
+        session.put.assert_not_called()
 
     def test_post_shows_error_when_google_rejects_the_write(
         self, panel_client, event, connection_with_secret
@@ -915,6 +972,7 @@ class TestDiscountExportPageView:
                 "connection": str(connection.pk),
                 "spreadsheet": "not a sheet",
                 "tab": "Sheet1",
+                "columns": ["name"],
             },
         )
 

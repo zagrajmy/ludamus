@@ -19,6 +19,7 @@ from ludamus.pacts.submissions import AccreditationType
 if TYPE_CHECKING:
     from ludamus.pacts.discounts import (
         DiscountDTO,
+        DiscountExportColumns,
         DiscountExportLabels,
         DiscountRepositoryProtocol,
         DiscountRuleData,
@@ -328,6 +329,7 @@ class DiscountsExportService(DiscountsExportServiceProtocol):
         spreadsheet_id: str,
         tab_title: str,
         labels: DiscountExportLabels,
+        columns: DiscountExportColumns,
     ) -> int:
         # `read_secret` raises NotFoundError for a connection outside the
         # sphere, so a forged connection id cannot borrow another sphere's
@@ -345,15 +347,12 @@ class DiscountsExportService(DiscountsExportServiceProtocol):
             )
             if entry.facilitator.accreditation_type != AccreditationType.NONE
         ]
-        rows = [list(labels.headers)]
+        rows = [[*columns.headers, *labels.headers]]
         for entry in entries:
             facilitator, discount = entry.facilitator, entry.discount
             rows.append(
                 [
-                    facilitator.display_name,
-                    labels.accreditation_types.get(
-                        facilitator.accreditation_type, facilitator.accreditation_type
-                    ),
+                    *columns.cells.get(facilitator.pk, []),
                     labels.kinds.get(discount.kind, discount.kind) if discount else "",
                     str(discount.value) if discount else "",
                     discount.note if discount else "",

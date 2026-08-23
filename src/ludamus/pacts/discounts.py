@@ -139,12 +139,21 @@ class SheetExportError(Exception):
 
 
 class DiscountExportLabels(BaseModel):
-    # Localized strings the export sheet is rendered with. Built at the gate
-    # (where gettext lives) so the mill stays framework-free; maps are keyed
-    # by the raw enum values stored on the DTOs.
+    # Localized strings for the discount columns the sheet always writes.
+    # Built at the gate (where gettext lives) so the mill stays framework-free;
+    # `kinds` is keyed by the raw enum values stored on the DTOs.
     headers: list[str]
-    accreditation_types: dict[str, str]
     kinds: dict[str, str]
+
+
+class DiscountExportColumns(BaseModel):
+    # The facilitator and personal-data columns the organizer picked for this
+    # export, written before the discount ones. Headers and cells are rendered
+    # at the gate (that is where a facilitator column knows what it is called
+    # and how it reads); `cells` is keyed by facilitator pk and each list is
+    # aligned with `headers`.
+    headers: list[str] = []
+    cells: dict[int, list[str]] = {}
 
 
 class SheetWriterProtocol(Protocol):
@@ -168,4 +177,5 @@ class DiscountsExportServiceProtocol(Protocol):
         spreadsheet_id: str,
         tab_title: str,
         labels: DiscountExportLabels,
+        columns: DiscountExportColumns,
     ) -> int: ...

@@ -1063,19 +1063,6 @@ msgstr ""
 "%(unmarked)d, przyznano zniżek: %(set)d, wycofano: %(cleared)d."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/discounts.py
-msgid "Creator"
-msgstr "Twórca programu"
-
-#: src/ludamus/gates/web/django/chronology/panel/views/discounts.py
-#: src/ludamus/gates/web/django/forms.py
-#: src/ludamus/gates/web/django/templatetags/cfp_tags.py
-#: src/ludamus/templates/panel/discounts/list.html
-#: src/ludamus/templates/panel/facilitator-create.html
-#: src/ludamus/templates/panel/facilitator-detail.html
-msgid "Accreditation type"
-msgstr "Rodzaj akredytacji"
-
-#: src/ludamus/gates/web/django/chronology/panel/views/discounts.py
 msgid "Discount kind"
 msgstr "Rodzaj zniżki"
 
@@ -2957,6 +2944,14 @@ msgstr "Twórca programu"
 
 #: src/ludamus/gates/web/django/forms.py
 #: src/ludamus/gates/web/django/templatetags/cfp_tags.py
+#: src/ludamus/templates/panel/discounts/list.html
+#: src/ludamus/templates/panel/facilitator-create.html
+#: src/ludamus/templates/panel/facilitator-detail.html
+msgid "Accreditation type"
+msgstr "Rodzaj akredytacji"
+
+#: src/ludamus/gates/web/django/forms.py
+#: src/ludamus/gates/web/django/templatetags/cfp_tags.py
 #: src/ludamus/templates/panel/facilitator-detail.html
 msgid "Runs program points in parallel"
 msgstr "Prowadzi punkty programu równolegle"
@@ -3032,6 +3027,23 @@ msgstr "Nazwa zakładki"
 #: src/ludamus/gates/web/django/forms.py
 msgid "The tab has to exist already; the export replaces its content."
 msgstr "Zakładka musi już istnieć; eksport zastąpi jej zawartość."
+
+#: src/ludamus/gates/web/django/forms.py
+#: src/ludamus/templates/panel/_facilitator_tabs.html
+#: src/ludamus/templates/panel/_proposal_tabs.html
+#: src/ludamus/templates/panel/facilitator-columns.html
+#: src/ludamus/templates/panel/parts/_columns_chooser.html
+#: src/ludamus/templates/panel/proposal-columns.html
+msgid "Columns"
+msgstr "Kolumny"
+
+#: src/ludamus/gates/web/django/forms.py
+msgid ""
+"Facilitator and personal data written before the discount columns. Pick what "
+"this sheet needs; nothing is exported by default."
+msgstr ""
+"Dane twórcy programu i dane osobowe zapisywane przed kolumnami zniżki. "
+"Wybierz to, czego potrzebuje ten arkusz; domyślnie nie eksportujemy niczego."
 
 #: src/ludamus/gates/web/django/forms.py
 msgid "Enter a Google Sheets link or a spreadsheet ID."
@@ -6452,14 +6464,6 @@ msgid "Merge"
 msgstr "Scal"
 
 #: src/ludamus/templates/panel/_facilitator_tabs.html
-#: src/ludamus/templates/panel/_proposal_tabs.html
-#: src/ludamus/templates/panel/facilitator-columns.html
-#: src/ludamus/templates/panel/parts/_columns_chooser.html
-#: src/ludamus/templates/panel/proposal-columns.html
-msgid "Columns"
-msgstr "Kolumny"
-
-#: src/ludamus/templates/panel/_facilitator_tabs.html
 #: src/ludamus/templates/panel/facilitator-bin.html
 msgid "Bin"
 msgstr "Kosz"
@@ -7091,11 +7095,11 @@ msgstr "Zniżki twórców programu"
 
 #: src/ludamus/templates/panel/discounts/export.html
 msgid ""
-"Writes every accredited facilitator with their accreditation type and "
-"discount into the chosen tab, replacing its current content."
+"Writes every accredited facilitator with their discount into the chosen tab, "
+"replacing its current content."
 msgstr ""
-"Zapisuje twórców programu z akredytacją wraz z jej rodzajem i zniżką do "
-"wybranej zakładki, zastępując jej obecną zawartość."
+"Zapisuje twórców programu z akredytacją wraz ze zniżką do wybranej zakładki, "
+"zastępując jej obecną zawartość."
 
 #: src/ludamus/templates/panel/discounts/export.html
 msgid ""
@@ -9584,6 +9588,9 @@ msgstr "Temat"
 #: src/ludamus/templates/staging_email_inbox.html
 msgid "No emails captured yet."
 msgstr "Brak przechwyconych e-maili."
+
+#~ msgid "Creator"
+#~ msgstr "Twórca programu"
 
 #~ msgid "Venue"
 #~ msgstr "Lokalizacja"

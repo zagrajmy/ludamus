@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections import defaultdict
+from collections import Counter, defaultdict
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
@@ -29,7 +29,7 @@ _SELECT_RELATED = ("session", "session__category", "space")
 @dataclass
 class _ScheduleTotals:
     session_count: int = 0
-    minutes: int = 0
+    minutes: float = 0.0
 
 
 # Confirmation counts for any model holding a `sessions` relation (Track,
@@ -142,21 +142,31 @@ class AgendaItemRepository(AgendaItemRepositoryProtocol):
         # One row per facilitator with placed program, whether the item is
         # confirmed or not. Dead sessions are excluded explicitly: the join
         # bypasses the alive-only default manager.
-        placed = AgendaItem.objects.filter(
-            session__event_id=event_pk,
-            session__deleted_at__isnull=True,
-            session__facilitators__isnull=False,
-        ).values_list("session__facilitators", "start_time", "end_time")
+        placed = list(
+            AgendaItem.objects.filter(
+                session__event_id=event_pk,
+                session__deleted_at__isnull=True,
+                session__facilitators__isnull=False,
+            ).values_list(
+                "session_id", "session__facilitators", "start_time", "end_time"
+            )
+        )
+        # A co-run session is one slot of program, not one per person: its
+        # length splits between everyone named on it, so two facilitators
+        # sharing a two-hour session get an hour each toward their tier.
+        shares = Counter(session_id for session_id, *_ in placed)
         totals: defaultdict[int, _ScheduleTotals] = defaultdict(_ScheduleTotals)
-        for facilitator_id, start_time, end_time in placed:
+        for session_id, facilitator_id, start_time, end_time in placed:
             total = totals[facilitator_id]
             total.session_count += 1
-            total.minutes += int((end_time - start_time).total_seconds() // 60)
+            total.minutes += (
+                (end_time - start_time).total_seconds() / 60 / shares[session_id]
+            )
         return [
             FacilitatorScheduleRow(
                 facilitator_id=facilitator_id,
                 session_count=total.session_count,
-                minutes=total.minutes,
+                minutes=round(total.minutes),
             )
             for facilitator_id, total in totals.items()
         ]
