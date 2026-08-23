@@ -48,6 +48,7 @@ from ludamus.pacts import (
     PersonalDataFieldValueData,
     SessionFieldValueData,
     SessionStatus,
+    TrackDTO,
 )
 from ludamus.pacts.multiverse import ConnectionDTO
 from ludamus.pacts.services import DatabaseConstraintError
@@ -739,6 +740,71 @@ class TestProposeSessionService:
                 )
             ]
         )
+
+    @pytest.fixture
+    def submitted_event(self):
+        now = datetime.now(tz=UTC)
+        return EventDTO(
+            description="Test",
+            end_time=now + timedelta(days=7),
+            name="Test Event",
+            pk=1,
+            proposal_end_time=now + timedelta(days=1),
+            proposal_start_time=now - timedelta(days=1),
+            publication_time=now - timedelta(days=2),
+            slug="test-event",
+            sphere_id=1,
+            start_time=now + timedelta(days=5),
+        )
+
+    @pytest.fixture
+    def submitting_repos(self, mock_repos):
+        mock_repos.sessions.slug_exists.return_value = False
+        mock_repos.facilitators.slug_exists.return_value = False
+        mock_repos.facilitators.create.return_value = FacilitatorDTO(
+            accreditation_type="none",
+            display_name="Anon Host",
+            event_id=1,
+            pk=10,
+            slug="anon-host",
+            user_id=None,
+        )
+        mock_repos.sessions.create.return_value = 99
+        mock_repos.tracks.list_public_by_event.return_value = [
+            TrackDTO.model_construct(pk=7, event_id=1)
+        ]
+        return mock_repos
+
+    def test_submit_keeps_only_tracks_of_the_current_event(
+        self, service, submitting_repos, submitted_event
+    ):
+        result = service.submit(
+            submitted_event,
+            {
+                "category_id": 1,
+                "session_data": {"title": "Test Session", "display_name": "Anon Host"},
+                "track_pks": [7, 999],
+            },
+        )
+
+        submitting_repos.tracks.list_public_by_event.assert_called_once_with(1)
+        submitting_repos.sessions.set_session_tracks.assert_called_once_with(
+            result.session_id, [7]
+        )
+
+    def test_submit_attaches_no_tracks_when_all_are_foreign(
+        self, service, submitting_repos, submitted_event
+    ):
+        service.submit(
+            submitted_event,
+            {
+                "category_id": 1,
+                "session_data": {"title": "Test Session", "display_name": "Anon Host"},
+                "track_pks": [999],
+            },
+        )
+
+        submitting_repos.sessions.set_session_tracks.assert_not_called()
 
     def test_get_saved_personal_data_returns_empty_for_anonymous(
         self, service, mock_repos

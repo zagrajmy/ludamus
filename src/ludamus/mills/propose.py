@@ -190,7 +190,15 @@ class ProposeSessionService:
                 )
 
             if track_pks := wizard_data.get("track_pks", []):
-                self._repos.sessions.set_session_tracks(session_id, track_pks)
+                # Track ids come from wizard state, so they are trusted only
+                # after being matched against this event's own public tracks —
+                # a foreign event's track must never be attached.
+                allowed = {
+                    track.pk
+                    for track in self._repos.tracks.list_public_by_event(event.pk)
+                }
+                if scoped := [pk for pk in track_pks if pk in allowed]:
+                    self._repos.sessions.set_session_tracks(session_id, scoped)
 
         return ProposeSessionResult(session_id=session_id, title=title)
 
