@@ -1,4 +1,4 @@
-from ludamus.gates.web.django.chronology.forms import build_session_details_form
+from ludamus.gates.web.django.event.propose_forms import build_session_details_form
 from tests.unit.factories import category
 
 
