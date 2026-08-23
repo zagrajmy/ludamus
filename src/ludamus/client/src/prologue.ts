@@ -11,13 +11,49 @@
 //               session recording with every input masked.
 // - "declined": PostHog is never initialized; withdrawing consent on a
 //               pageload where it already runs opts out and stops recording.
-import posthog from "posthog-js/dist/module.full.no-external";
+import posthog, {
+  type BeforeSendFn,
+  type CaptureResult,
+} from "posthog-js/dist/module.full.no-external";
 
 const STORAGE_KEY = "prologue.consent";
 
 type Consent = "accepted" | "declined" | null;
 
 type PosthogServerConfig = { api_key: string; host: string; user_id: string | null };
+
+// One entry of the $exception event's $exception_list, narrowed to the fields
+// the opaque-error filter reads.
+type CapturedException = {
+  value?: string;
+  mechanism?: { synthetic?: boolean };
+  stacktrace?: { frames?: unknown[] };
+};
+
+// A cross-origin script that throws hands window.onerror an opaque
+// "Script error." (empty in some browsers) with no stack and a synthetic
+// mechanism. Every bundle here is same-origin under a strict script-src, so
+// such an event can only come from a browser extension or an injected content
+// script, neither of which the CSP governs. It is unactionable, so drop it
+// rather than let it be the project's only browser exception.
+const isOpaqueScriptError = (cr: CaptureResult): boolean => {
+  const list: unknown = cr.properties.$exception_list;
+  if (!Array.isArray(list) || list.length === 0) return false;
+  return (list as CapturedException[]).every((exception) => {
+    const value = exception.value ?? "";
+    const stackless = !exception.stacktrace?.frames?.length;
+    return (
+      exception.mechanism?.synthetic === true &&
+      stackless &&
+      (value === "" || value === "Script error.")
+    );
+  });
+};
+
+const dropOpaqueScriptErrors: BeforeSendFn = (cr) => {
+  if (cr && cr.event === "$exception" && isOpaqueScriptError(cr)) return null;
+  return cr;
+};
 
 const readServerConfig = (): PosthogServerConfig | null => {
   const el = document.getElementById("posthog-config");
@@ -50,6 +86,7 @@ const syncIdentity = (userId: string | null): void => {
 const initPosthog = (config: PosthogServerConfig): void => {
   posthog.init(config.api_key, {
     api_host: config.host,
+    before_send: dropOpaqueScriptErrors,
     capture_exceptions: true,
     defaults: "2025-05-24",
     disable_external_dependency_loading: true,
