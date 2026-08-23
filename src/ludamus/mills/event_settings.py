@@ -60,15 +60,13 @@ class EventSettingsService(EventSettingsServiceProtocol):
         self, *, sphere_id: int, slug: str
     ) -> EventDisplaySettingsContextDTO:
         event = self._repos.events.read_by_slug(slug, sphere_id)
-        public_fields = [
-            field
-            for field in self._repos.session_fields.list_by_event(event.pk)
-            if field.is_public
-        ]
+        fields = self._repos.session_fields.list_by_event(event.pk)
+        public_fields = [field for field in fields if field.is_public]
         display_settings = self._repos.event_settings.read_or_create(event.pk)
         return EventDisplaySettingsContextDTO(
             fields=public_fields,
             displayed_field_ids=display_settings.displayed_session_field_ids,
+            has_any_fields=bool(fields),
         )
 
     def update_displayed_fields(

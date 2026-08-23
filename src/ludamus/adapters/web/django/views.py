@@ -239,14 +239,6 @@ def _get_displayed_field_ids(event: Event) -> set[int]:
     return set()
 
 
-def _get_public_select_fields(event: Event) -> list[Any]:
-    return list(
-        event.session_fields.filter(field_type="select", is_public=True).order_by(
-            "order", "name"
-        )
-    )
-
-
 def _field_value_dtos_from_models(
     field_values: Iterable[SessionFieldValue],
 ) -> list[SessionFieldValueDTO]:
@@ -399,8 +391,17 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
         context["enrollment_requires_slots"] = requires_slots
         context.update(self._get_anonymous_context())
 
+        # The repository hands back DTOs with their options prefetched, so the
+        # filter panel reads its choices without the template walking the ORM.
+        public_select_fields = [
+            field
+            for field in self.request.di.uow.session_fields.list_by_event(
+                self.object.pk
+            )
+            if field.field_type == "select" and field.is_public
+        ]
         context["filterable_tag_categories"] = filterable_tag_fields(
-            _get_public_select_fields(self.object), sessions_data.values()
+            public_select_fields, sessions_data.values()
         )
         context.update(filter_availability(sessions_data.values()))
         context.update(self._get_pending_sessions_context(shadowbanned_ids))
