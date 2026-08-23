@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import UTC, date, datetime
+from functools import cached_property
 from typing import TYPE_CHECKING, Any
 
 from django.conf import settings as django_settings
@@ -12,17 +13,17 @@ from django.urls import reverse
 from django.utils.translation import gettext as _
 from django.views.generic.base import View
 
-from ludamus.gates.web.django.chronology.forms import (
-    SessionCoverImageForm,
-    build_personal_data_form,
-    build_session_details_form,
-)
 from ludamus.gates.web.django.dynamic_fields import (
     WizardData,
     field_descriptors,
     fold_custom_answers,
     requirement_fields,
     unfold_custom_answers,
+)
+from ludamus.gates.web.django.event.propose_forms import (
+    SessionCoverImageForm,
+    build_personal_data_form,
+    build_session_details_form,
 )
 from ludamus.gates.web.django.helpers import get_client_ip
 from ludamus.gates.web.django.propose_cover import (
@@ -35,9 +36,10 @@ from ludamus.gates.web.django.templatetags.cfp_tags import has_field_value
 from ludamus.pacts import NotFoundError, RedirectError
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping, Sequence
+    from collections.abc import Callable, Mapping, Sequence
 
     from django.core.files.uploadedfile import UploadedFile
+    from django.forms import Form
     from django.utils.datastructures import MultiValueDict
 
     from ludamus.gates.web.django.entities import RootRequest
@@ -45,28 +47,63 @@ if TYPE_CHECKING:
         EventDTO,
         EventProposalSettingsDTO,
         OrganizerFieldDTO,
+        PersonalFieldRequirementDTO,
         ProposalCategoryDTO,
+        SessionFieldRequirementDTO,
         TimeSlotRequirementDTO,
     )
     from ludamus.pacts.propose import ProposeSessionServiceProtocol
 
-    BaseView = View
-else:
-    BaseView = object
+# The half-finished proposal parked in the session between steps. Loosely typed
+# because it is whatever the session round-trips as JSON, not a domain object.
+type WizardState = dict[str, Any]
+# What a step hands its template.
+type StepContext = dict[str, object]
+
+# The wizard in submission order. Which of them an event actually shows is
+# decided per request by `_Wizard.steps`; nothing else may assume a fixed
+# neighbour, because a skipped step changes what "next" and "back" mean.
+_STEP_KEYS: tuple[str, ...] = ("category", "personal", "timeslots", "details", "review")
+_STEP_TEMPLATES = {key: f"event/propose/parts/{key}.html" for key in _STEP_KEYS}
 
 
 def _session_key(event_slug: str) -> str:
     return f"propose_{event_slug}"
 
 
+def _propose_url(event_slug: str) -> str:
+    return reverse("web:event:session-propose", kwargs={"event_slug": event_slug})
+
+
+class _WizardState:
+    """The wizard's session dict, written back on the way out of the block.
+
+    Django only persists a session value on assignment, so every mutation used
+    to need a hand-written write-back. Leaving the block stores what it
+    changed, `return` and `raise` included.
+    """
+
+    def __init__(self, request: RootRequest, event_slug: str) -> None:
+        self._session = request.session
+        self._key = _session_key(event_slug)
+        self._state: WizardState = {}
+
+    def __enter__(self) -> WizardState:
+        self._state = self._session.get(self._key, {})
+        return self._state
+
+    def __exit__(self, *_exc: object) -> None:
+        self._session[self._key] = self._state
+
+
 def _wizard_image_form(
-    wizard: dict[str, Any],
+    state: WizardState,
     *,
     data: Mapping[str, Any] | None = None,
     files: MultiValueDict[str, UploadedFile[bytes]] | None = None,
 ) -> SessionCoverImageForm:
     if data is None and files is None:
-        initial = wizard_cover_initial(wizard)
+        initial = wizard_cover_initial(state)
         return SessionCoverImageForm(
             initial={"cover_image": initial} if initial else None
         )
@@ -74,17 +111,17 @@ def _wizard_image_form(
 
 
 def _apply_wizard_cover_from_form(
-    wizard: dict[str, Any], image_form: SessionCoverImageForm
+    state: WizardState, image_form: SessionCoverImageForm
 ) -> None:
     cover = image_form.cleaned_data.get("cover_image")
     if cover is False:
-        delete_wizard_cover(wizard)
+        delete_wizard_cover(state)
     elif cover:
-        stash_wizard_cover(wizard, cover)
+        stash_wizard_cover(state, cover)
 
 
 def _timeslot_descriptors(
-    requirements: Sequence[TimeSlotRequirementDTO], selected_ids: list[int]
+    requirements: Sequence[TimeSlotRequirementDTO], selected_ids: Sequence[int]
 ) -> list[dict[str, object]]:
     flat = sorted(requirements, key=lambda req: req.time_slot.start_time)
     selected = set(selected_ids)
@@ -101,32 +138,6 @@ def _timeslot_descriptors(
     return [{"day": day, "slots": slots} for day, slots in sorted(groups.items())]
 
 
-def _has_category_step(categories: Sequence[ProposalCategoryDTO]) -> bool:
-    return len(categories) != 1
-
-
-def _event_has_category_step(
-    service: ProposeSessionServiceProtocol, event: EventDTO
-) -> bool:
-    return _has_category_step(service.get_categories(event.pk))
-
-
-def _has_timeslots_step(requirements: Sequence[TimeSlotRequirementDTO]) -> bool:
-    return len(requirements) > 1
-
-
-def _store_single_timeslot(
-    request: RootRequest,
-    event_slug: str,
-    requirements: Sequence[TimeSlotRequirementDTO],
-) -> None:
-    if len(requirements) != 1:
-        return
-    wizard = request.session.get(_session_key(event_slug), {})
-    wizard["time_slot_ids"] = [requirements[0].time_slot_id]
-    request.session[_session_key(event_slug)] = wizard
-
-
 def _display_value(field: OrganizerFieldDTO, raw: object) -> object:
     if isinstance(raw, bool):
         return raw
@@ -138,235 +149,19 @@ def _display_value(field: OrganizerFieldDTO, raw: object) -> object:
     return raw
 
 
-_ALL_WIZARD_STEP_KEYS: tuple[str, ...] = (
-    "category",
-    "personal",
-    "timeslots",
-    "details",
-    "review",
-)
-
-
-def _wizard_steps(
-    service: ProposeSessionServiceProtocol,
-    category: ProposalCategoryDTO | None,
+def _review_fields(
     *,
-    has_category: bool = True,
-    has_timeslots: bool | None = None,
-) -> list[dict[str, str]]:
-    if has_timeslots is None:
-        has_timeslots = (
-            True
-            if category is None
-            else _has_timeslots_step(service.get_timeslot_requirements(category.pk))
-        )
-    return [
-        {"key": key}
-        for key in _ALL_WIZARD_STEP_KEYS
-        if (key != "category" or has_category) and (key != "timeslots" or has_timeslots)
-    ]
-
-
-def _login_nudge_context(request: HttpRequest) -> dict[str, object]:
-    return {
-        "show_login_nudge": not getattr(request.user, "is_authenticated", False),
-        "login_url": (
-            f"{getattr(django_settings, 'LOGIN_URL', '/login/')}?next={request.path}"
-        ),
-    }
-
-
-def _proposal_settings(
-    request: RootRequest, event: EventDTO
-) -> EventProposalSettingsDTO:
-    return request.services.propose_session.get_proposal_settings(event.pk)
-
-
-def _render_category(
-    request: RootRequest,
-    service: ProposeSessionServiceProtocol,
-    event: EventDTO,
-    event_slug: str,
-) -> HttpResponse:
-    categories = service.get_categories(event.pk)
-    if not _has_category_step(categories):
-        wizard = request.session.get(_session_key(event_slug), {})
-        wizard["category_id"] = categories[0].pk
-        request.session[_session_key(event_slug)] = wizard
-        personal_context = _personal_context(request, service, event, categories[0])
-        return TemplateResponse(
-            request, "chronology/propose/parts/personal.html", personal_context
-        )
-
-    wizard = request.session.get(_session_key(event_slug), {})
-    selected_id = wizard.get("category_id")
-
-    context: dict[str, object] = {
-        "event": event,
-        "proposal_settings": _proposal_settings(request, event),
-        "categories": categories,
-        "selected_category_id": selected_id,
-        "current_step": "category",
-        "wizard_steps": _wizard_steps(
-            service, None, has_category=_has_category_step(categories)
-        ),
-        **_login_nudge_context(request),
-    }
-
-    return TemplateResponse(request, "chronology/propose/parts/category.html", context)
-
-
-def _personal_context(
-    request: RootRequest,
-    service: ProposeSessionServiceProtocol,
-    event: EventDTO,
-    category: ProposalCategoryDTO,
-) -> dict[str, object]:
-    requirements = service.get_personal_requirements(category.pk)
-
-    wizard = request.session.get(_session_key(event.slug), {})
-    stored: WizardData = wizard.get("personal_data") or {
-        f"personal_{slug}": value
-        for slug, value in service.get_saved_personal_data(
-            event.pk, user_id=request.context.current_user_id
-        ).items()
-    }
-    initial = unfold_custom_answers(
-        stored=stored, fields=[req.field for req in requirements], prefix="personal"
-    )
-
-    initial["contact_email"] = wizard.get(
-        "contact_email", getattr(request.user, "email", "")
-    )
-
-    form = build_personal_data_form(requirements)(initial=initial)
-    has_category = _event_has_category_step(service, event)
-
-    context: dict[str, object] = {
-        "event": event,
-        "proposal_settings": _proposal_settings(request, event),
-        "category": category,
-        "form": form,
-        "field_descriptors": field_descriptors(
-            prefix="personal", fields=requirement_fields(requirements), form=form
-        ),
-        "current_step": "personal",
-        "wizard_steps": _wizard_steps(service, category, has_category=has_category),
-        "show_back_button": has_category,
-    }
-    if not has_category:
-        context.update(_login_nudge_context(request))
-    return context
-
-
-def _render_personal(
-    request: RootRequest,
-    service: ProposeSessionServiceProtocol,
-    event: EventDTO,
-    category: ProposalCategoryDTO,
-) -> HttpResponse:
-    return TemplateResponse(
-        request,
-        "chronology/propose/parts/personal.html",
-        _personal_context(request, service, event, category),
-    )
-
-
-def _render_timeslots(
-    request: RootRequest,
-    service: ProposeSessionServiceProtocol,
-    event: EventDTO,
-    category: ProposalCategoryDTO,
-) -> HttpResponse:
-    requirements = service.get_timeslot_requirements(category.pk)
-    if not _has_timeslots_step(requirements):
-        _store_single_timeslot(request, event.slug, requirements)
-        return _render_details(request, service, event, category)
-
-    wizard = request.session.get(_session_key(event.slug), {})
-    selected_ids = wizard.get("time_slot_ids", [])
-
-    return TemplateResponse(
-        request,
-        "chronology/propose/parts/timeslots.html",
-        {
-            "event": event,
-            "proposal_settings": _proposal_settings(request, event),
-            "category": category,
-            "slot_descriptors": _timeslot_descriptors(requirements, selected_ids),
-            "current_step": "timeslots",
-            "wizard_steps": _wizard_steps(
-                service,
-                category,
-                has_category=_event_has_category_step(service, event),
-                has_timeslots=True,
-            ),
-        },
-    )
-
-
-def _render_details(
-    request: RootRequest,
-    service: ProposeSessionServiceProtocol,
-    event: EventDTO,
-    category: ProposalCategoryDTO,
-) -> HttpResponse:
-    requirements = service.get_session_requirements(category.pk)
-    public_tracks = service.get_public_tracks(event.pk)
-
-    wizard = request.session.get(_session_key(event.slug), {})
-    initial = unfold_custom_answers(
-        stored=wizard.get("session_data", {}),
-        fields=[req.field for req in requirements],
-        prefix="session",
-    )
-    if "display_name" not in initial:
-        initial["display_name"] = getattr(request.user, "name", "")
-
-    form = build_session_details_form(requirements, category=category)(initial=initial)
-
-    selected_track_pks = wizard.get("track_pks", [])
-
-    return TemplateResponse(
-        request,
-        "chronology/propose/parts/details.html",
-        {
-            "event": event,
-            "proposal_settings": _proposal_settings(request, event),
-            "category": category,
-            "form": form,
-            "image_form": _wizard_image_form(wizard),
-            "durations": category.durations,
-            "field_descriptors": field_descriptors(
-                prefix="session", fields=requirement_fields(requirements), form=form
-            ),
-            "public_tracks": public_tracks,
-            "selected_track_pks": selected_track_pks,
-            "current_step": "details",
-            "wizard_steps": _wizard_steps(
-                service, category, has_category=_event_has_category_step(service, event)
-            ),
-        },
-    )
-
-
-def _render_review(
-    request: RootRequest,
-    service: ProposeSessionServiceProtocol,
-    event: EventDTO,
-    category: ProposalCategoryDTO,
-) -> HttpResponse:
-    wizard = request.session.get(_session_key(event.slug), {})
-    session_data = wizard.get("session_data", {})
-    personal_data = wizard.get("personal_data", {})
-    time_slot_ids = wizard.get("time_slot_ids", [])
-
-    session_fields = []
-    for req in service.get_session_requirements(category.pk):
-        key = f"session_{req.field.slug}"
-        value = session_data.get(key)
+    requirements: (
+        Sequence[PersonalFieldRequirementDTO] | Sequence[SessionFieldRequirementDTO]
+    ),
+    answers: Mapping[str, object],
+    prefix: str,
+) -> list[dict[str, object]]:
+    fields: list[dict[str, object]] = []
+    for req in requirements:
+        value = answers.get(f"{prefix}_{req.field.slug}")
         if has_field_value(value):
-            session_fields.append(
+            fields.append(
                 {
                     "name": req.field.question,
                     "value": _display_value(req.field, value),
@@ -374,29 +169,229 @@ def _render_review(
                     "icon": req.field.icon,
                 }
             )
+    return fields
 
-    personal_fields = []
-    for p_req in service.get_personal_requirements(category.pk):
-        key = f"personal_{p_req.field.slug}"
-        value = personal_data.get(key)
-        if has_field_value(value):
-            personal_fields.append(
-                {
-                    "name": p_req.field.question,
-                    "value": _display_value(p_req.field, value),
-                    "is_public": p_req.field.is_public,
-                }
-            )
 
-    time_slots: list[dict[str, object]] = []
-    if time_slot_ids:
-        ts_reqs = service.get_timeslot_requirements(category.pk)
-        time_slot_id_set = set(time_slot_ids)
-        time_slots = _timeslot_descriptors(
-            [req for req in ts_reqs if req.time_slot_id in time_slot_id_set],
-            time_slot_ids,
+def _login_nudge_context(request: HttpRequest) -> StepContext:
+    return {
+        "show_login_nudge": not request.user.is_authenticated,
+        "login_url": f"{django_settings.LOGIN_URL}?next={request.path}",
+    }
+
+
+class _Wizard:
+    """One request's view of the wizard: its event, its category, its steps.
+
+    Everything a step needs from the service is resolved at most once here, so
+    drawing the tab strip cannot smuggle in a query per render helper.
+    """
+
+    def __init__(
+        self,
+        *,
+        request: RootRequest,
+        service: ProposeSessionServiceProtocol,
+        event: EventDTO,
+        picked: ProposalCategoryDTO | None = None,
+    ) -> None:
+        self.request = request
+        self.service = service
+        self.event = event
+        self.picked = picked
+
+    @cached_property
+    def categories(self) -> list[ProposalCategoryDTO]:
+        return self.service.get_categories(self.event.pk)
+
+    @cached_property
+    def category(self) -> ProposalCategoryDTO | None:
+        # One category is not a choice, so the wizard makes it for the proposer
+        # and every step behaves as if it had been picked.
+        if self.picked is None and len(self.categories) == 1:
+            return self.categories[0]
+        return self.picked
+
+    @cached_property
+    def proposal_settings(self) -> EventProposalSettingsDTO:
+        return self.service.get_proposal_settings(self.event.pk)
+
+    @cached_property
+    def timeslot_requirements(self) -> list[TimeSlotRequirementDTO]:
+        if self.category is None:
+            return []
+        return self.service.get_timeslot_requirements(self.category.pk)
+
+    @cached_property
+    def steps(self) -> tuple[str, ...]:
+        # One time slot is no more a choice than one category. Before a category
+        # is chosen the time-slot step is assumed present: the strip must not
+        # grow a step the moment the first choice is made.
+        shows_timeslots = self.category is None or len(self.timeslot_requirements) > 1
+        return tuple(
+            key
+            for key in _STEP_KEYS
+            if (key != "category" or len(self.categories) != 1)
+            and (key != "timeslots" or shows_timeslots)
         )
 
+    @property
+    def chosen(self) -> ProposalCategoryDTO:
+        if self.category is None:
+            raise RedirectError(
+                _propose_url(self.event.slug),
+                error=_("Please select a category first."),
+            )
+        return self.category
+
+    def at_or_before(self, step: str) -> str:
+        """Return where "back" lands: this step, or the last one shown before it."""
+        shown = [
+            key for key in _STEP_KEYS[: _STEP_KEYS.index(step) + 1] if key in self.steps
+        ]
+        return shown[-1] if shown else self.steps[0]
+
+    def after(self, step: str) -> str:
+        rest = _STEP_KEYS[_STEP_KEYS.index(step) + 1 :]
+        return next(key for key in rest if key in self.steps)
+
+    def base_context(self, step: str) -> StepContext:
+        return {
+            "event": self.event,
+            "proposal_settings": self.proposal_settings,
+            "current_step": step,
+            "wizard_steps": list(self.steps),
+        }
+
+
+def _category_context(
+    wizard: _Wizard, state: WizardState, *, error: str | None = None
+) -> StepContext:
+    return {
+        **wizard.base_context("category"),
+        "categories": wizard.categories,
+        "selected_category_id": state.get("category_id"),
+        "error": error,
+        **_login_nudge_context(wizard.request),
+    }
+
+
+def _personal_context(
+    wizard: _Wizard, state: WizardState, *, form: Form | None = None
+) -> StepContext:
+    category = wizard.chosen
+    requirements = wizard.service.get_personal_requirements(category.pk)
+
+    if form is None:
+        stored: WizardData = state.get("personal_data") or {
+            f"personal_{slug}": value
+            for slug, value in wizard.service.get_saved_personal_data(
+                event_id=wizard.event.pk, user_id=wizard.request.context.current_user_id
+            ).items()
+        }
+        initial = unfold_custom_answers(
+            stored=stored, fields=[req.field for req in requirements], prefix="personal"
+        )
+        # AnonymousUser carries no `email`, and an anonymous proposer is exactly
+        # who this step exists for.
+        initial["contact_email"] = state.get(
+            "contact_email", getattr(wizard.request.user, "email", "")
+        )
+        form = build_personal_data_form(requirements)(initial=initial)
+
+    has_category = "category" in wizard.steps
+    context: StepContext = {
+        **wizard.base_context("personal"),
+        "category": category,
+        "form": form,
+        "field_descriptors": field_descriptors(
+            prefix="personal", fields=requirement_fields(requirements), form=form
+        ),
+        "show_back_button": has_category,
+    }
+    if not has_category:
+        context.update(_login_nudge_context(wizard.request))
+    return context
+
+
+def _timeslots_context(
+    wizard: _Wizard, state: WizardState, *, error: str | None = None
+) -> StepContext:
+    selected_ids = [] if error else state.get("time_slot_ids", [])
+    return {
+        **wizard.base_context("timeslots"),
+        "category": wizard.chosen,
+        "slot_descriptors": _timeslot_descriptors(
+            wizard.timeslot_requirements, selected_ids
+        ),
+        "error": error,
+    }
+
+
+def _details_context(
+    wizard: _Wizard,
+    state: WizardState,
+    *,
+    form: Form | None = None,
+    image_form: SessionCoverImageForm | None = None,
+    selected_track_pks: Sequence[int] | None = None,
+    track_error: str | None = None,
+) -> StepContext:
+    category = wizard.chosen
+    requirements = wizard.service.get_session_requirements(category.pk)
+
+    if form is None:
+        initial = unfold_custom_answers(
+            stored=state.get("session_data", {}),
+            fields=[req.field for req in requirements],
+            prefix="session",
+        )
+        if "display_name" not in initial:
+            # AnonymousUser carries no `name`.
+            initial["display_name"] = getattr(wizard.request.user, "name", "")
+        form = build_session_details_form(requirements, category=category)(
+            initial=initial
+        )
+
+    return {
+        **wizard.base_context("details"),
+        "category": category,
+        "form": form,
+        "image_form": image_form or _wizard_image_form(state),
+        "durations": category.durations,
+        "field_descriptors": field_descriptors(
+            prefix="session", fields=requirement_fields(requirements), form=form
+        ),
+        "public_tracks": wizard.service.get_public_tracks(wizard.event.pk),
+        "selected_track_pks": (
+            state.get("track_pks", [])
+            if selected_track_pks is None
+            else list(selected_track_pks)
+        ),
+        "track_error": track_error,
+    }
+
+
+def _review_context(wizard: _Wizard, state: WizardState) -> StepContext:
+    category = wizard.chosen
+    session_fields = _review_fields(
+        requirements=wizard.service.get_session_requirements(category.pk),
+        answers=state.get("session_data", {}),
+        prefix="session",
+    )
+    personal_fields = _review_fields(
+        requirements=wizard.service.get_personal_requirements(category.pk),
+        answers=state.get("personal_data", {}),
+        prefix="personal",
+    )
+
+    time_slot_ids = state.get("time_slot_ids", [])
+    selected = set(time_slot_ids)
+    time_slots = _timeslot_descriptors(
+        [req for req in wizard.timeslot_requirements if req.time_slot_id in selected],
+        time_slot_ids,
+    )
+
+    session_data = state.get("session_data", {})
     review: dict[str, object] = {
         "category_name": category.name,
         "display_name": session_data.get("display_name", ""),
@@ -405,66 +400,74 @@ def _render_review(
         "participants_limit": session_data.get("participants_limit", ""),
         "min_age": session_data.get("min_age", 0),
         "duration": session_data.get("duration", ""),
-        "contact_email": wizard.get("contact_email", ""),
-        "session_fields": session_fields,
+        "contact_email": state.get("contact_email", ""),
+        "public_session_fields": [f for f in session_fields if f["is_public"]],
         "private_session_fields": [f for f in session_fields if not f["is_public"]],
-        "personal_fields": personal_fields,
         "public_personal_fields": [f for f in personal_fields if f["is_public"]],
         "private_personal_fields": [f for f in personal_fields if not f["is_public"]],
         "time_slots": time_slots,
     }
 
+    return {**wizard.base_context("review"), "category": category, "review": review}
+
+
+_STEP_CONTEXTS: dict[str, Callable[[_Wizard, WizardState], StepContext]] = {
+    "category": _category_context,
+    "personal": _personal_context,
+    "timeslots": _timeslots_context,
+    "details": _details_context,
+    "review": _review_context,
+}
+
+
+def _step_context(wizard: _Wizard, step: str) -> StepContext:
+    with _WizardState(wizard.request, wizard.event.slug) as state:
+        # The proposer never sees a one-slot event's time-slot step, so the only
+        # answer is recorded as the step is walked past.
+        if step == "details" and len(wizard.timeslot_requirements) == 1:
+            state["time_slot_ids"] = [wizard.timeslot_requirements[0].time_slot_id]
+        return _STEP_CONTEXTS[step](wizard, state)
+
+
+def _render(wizard: _Wizard, step: str) -> HttpResponse:
     return TemplateResponse(
-        request,
-        "chronology/propose/parts/review.html",
-        {
-            "event": event,
-            "proposal_settings": _proposal_settings(request, event),
-            "category": category,
-            "review": review,
-            "current_step": "review",
-            "wizard_steps": _wizard_steps(
-                service, category, has_category=_event_has_category_step(service, event)
-            ),
-        },
+        wizard.request, _STEP_TEMPLATES[step], _step_context(wizard, step)
     )
 
 
-def _service(request: RootRequest) -> ProposeSessionServiceProtocol:
-    return request.services.propose_session
-
-
-class ProposeWizardMixin(BaseView):
+class ProposeWizardMixin(View):
     request: RootRequest
 
     def dispatch(
         self, request: HttpRequest, *args: object, **kwargs: object
     ) -> HttpResponseBase:
-        if not getattr(request.user, "is_authenticated", False):
-            event_slug = str(kwargs.get("event_slug", ""))
-            service = _service(self.request)
-            try:
-                event = self._get_event(
-                    service=service,
-                    event_slug=event_slug,
-                    sphere_id=self.request.context.current_sphere_id,
-                )
-            except RedirectError as exc:
-                if exc.error:
-                    messages.error(request, exc.error)
-                return redirect(exc.url)
-            proposal_settings = service.get_or_create_proposal_settings(event.pk)
-            if not proposal_settings.allow_anonymous_proposals:
-                login_url = getattr(django_settings, "LOGIN_URL", "/login/")
-                return redirect(f"{login_url}?next={request.path}")
+        if not request.user.is_authenticated:
+            service = self.request.services.propose_session
+            event = self._get_event(service, str(kwargs.get("event_slug", "")))
+            settings = service.get_or_create_proposal_settings(event.pk)
+            if not settings.allow_anonymous_proposals:
+                return redirect(f"{django_settings.LOGIN_URL}?next={request.path}")
         return super().dispatch(request, *args, **kwargs)
 
-    @staticmethod
+    def _wizard(
+        self, request: RootRequest, event_slug: str, *, with_category: bool
+    ) -> _Wizard:
+        service = request.services.propose_session
+        event = self._get_event(service, event_slug)
+        category = (
+            self._get_wizard_category(request=request, service=service, event=event)
+            if with_category
+            else None
+        )
+        return _Wizard(request=request, service=service, event=event, picked=category)
+
     def _get_event(
-        *, service: ProposeSessionServiceProtocol, event_slug: str, sphere_id: int
+        self, service: ProposeSessionServiceProtocol, event_slug: str
     ) -> EventDTO:
         try:
-            event = service.get_event(event_slug, sphere_id=sphere_id)
+            event = service.get_event(
+                event_slug, self.request.context.current_sphere_id
+            )
         except NotFoundError:
             raise RedirectError(
                 reverse("web:index"), error=_("Event not found.")
@@ -486,354 +489,222 @@ class ProposeWizardMixin(BaseView):
 
     @staticmethod
     def _get_wizard_category(
-        request: RootRequest,
-        service: ProposeSessionServiceProtocol,
-        event: EventDTO,
-        event_slug: str,
+        *, request: RootRequest, service: ProposeSessionServiceProtocol, event: EventDTO
     ) -> ProposalCategoryDTO:
-        wizard = request.session.get(_session_key(event_slug), {})
-        if not (category_id := wizard.get("category_id")):
+        state = request.session.get(_session_key(event.slug), {})
+        if not (category_id := state.get("category_id")):
             raise RedirectError(
-                reverse(
-                    "web:chronology:session-propose", kwargs={"event_slug": event_slug}
-                ),
-                error=_("Please select a category first."),
+                _propose_url(event.slug), error=_("Please select a category first.")
             )
         try:
             return service.get_category(int(category_id), event.pk)
-        except NotFoundError:
+        except NotFoundError, ValueError:
             raise RedirectError(
-                reverse(
-                    "web:chronology:session-propose", kwargs={"event_slug": event_slug}
-                ),
-                error=_("Invalid category."),
+                _propose_url(event.slug), error=_("Invalid category.")
             ) from None
 
 
-class ProposeSessionPageView(ProposeWizardMixin, View):
+class ProposeSessionPageView(ProposeWizardMixin):
     def get(self, request: RootRequest, event_slug: str) -> HttpResponse:
-        service = _service(request)
-        event = self._get_event(
-            service=service,
-            event_slug=event_slug,
-            sphere_id=request.context.current_sphere_id,
-        )
-        categories = service.get_categories(event.pk)
+        service = request.services.propose_session
+        event = self._get_event(service, event_slug)
 
-        old_wizard = request.session.get(_session_key(event_slug), {})
-        delete_wizard_cover(old_wizard)
-        request.session.pop(_session_key(event_slug), None)
+        delete_wizard_cover(request.session.pop(_session_key(event_slug), {}))
 
-        if not _has_category_step(categories):
+        wizard = _Wizard(request=request, service=service, event=event)
+        if wizard.category is not None:
             request.session[_session_key(event_slug)] = {
-                "category_id": categories[0].pk
-            }
-            context = _personal_context(request, service, event, categories[0])
-            context["wizard_part_template"] = "chronology/propose/parts/personal.html"
-        else:
-            context = {
-                "event": event,
-                "proposal_settings": _proposal_settings(request, event),
-                "categories": categories,
-                "step": "category",
-                "current_step": "category",
-                "wizard_steps": _wizard_steps(
-                    service, None, has_category=_has_category_step(categories)
-                ),
-                "wizard_part_template": "chronology/propose/parts/category.html",
-                **_login_nudge_context(request),
+                "category_id": wizard.category.pk
             }
 
-        return TemplateResponse(request, "chronology/propose/base.html", context)
-
-
-class ProposeSessionCategoryComponentView(ProposeWizardMixin, View):
-    def post(self, request: RootRequest, event_slug: str) -> HttpResponse:
-        service = _service(request)
-        event = self._get_event(
-            service=service,
-            event_slug=event_slug,
-            sphere_id=request.context.current_sphere_id,
+        step = wizard.steps[0]
+        return TemplateResponse(
+            request,
+            "event/propose/base.html",
+            {
+                **_step_context(wizard, step),
+                "wizard_part_template": _STEP_TEMPLATES[step],
+            },
         )
+
+
+class ProposeSessionCategoryComponentView(ProposeWizardMixin):
+    def post(self, request: RootRequest, event_slug: str) -> HttpResponse:
+        wizard = self._wizard(request, event_slug, with_category=False)
 
         if request.POST.get("back"):
-            return _render_category(request, service, event, event_slug)
+            return _render(wizard, wizard.at_or_before("category"))
 
         if not (category_id := request.POST.get("category_id")):
-            categories = service.get_categories(event.pk)
-            ctx: dict[str, object] = {
-                "event": event,
-                "proposal_settings": _proposal_settings(request, event),
-                "categories": categories,
-                "error": _("Please select a category."),
-                "current_step": "category",
-                "wizard_steps": _wizard_steps(
-                    service, None, has_category=_has_category_step(categories)
-                ),
-                **_login_nudge_context(request),
-            }
-            return TemplateResponse(
-                request, "chronology/propose/parts/category.html", ctx
-            )
+            with _WizardState(request, event_slug) as state:
+                context = _category_context(
+                    wizard, state, error=_("Please select a category.")
+                )
+            return TemplateResponse(request, _STEP_TEMPLATES["category"], context)
 
         try:
-            category = service.get_category(int(category_id), event.pk)
-        except NotFoundError:
+            category = wizard.service.get_category(int(category_id), wizard.event.pk)
+        except NotFoundError, ValueError:
             raise RedirectError(
-                reverse(
-                    "web:chronology:session-propose", kwargs={"event_slug": event_slug}
-                ),
-                error=_("Invalid category."),
+                _propose_url(event_slug), error=_("Invalid category.")
             ) from None
 
-        wizard = request.session.get(_session_key(event_slug), {})
-        if wizard.get("category_id") != category.pk:
-            delete_wizard_cover(wizard)
-            wizard = {"category_id": category.pk}
-        request.session[_session_key(event_slug)] = wizard
+        with _WizardState(request, event_slug) as state:
+            if state.get("category_id") != category.pk:
+                delete_wizard_cover(state)
+                state.clear()
+                state["category_id"] = category.pk
 
-        return _render_personal(request, service, event, category)
-
-
-class ProposeSessionPersonalComponentView(ProposeWizardMixin, View):
-    def post(self, request: RootRequest, event_slug: str) -> HttpResponse:
-        service = _service(request)
-        event = self._get_event(
-            service=service,
-            event_slug=event_slug,
-            sphere_id=request.context.current_sphere_id,
+        picked = _Wizard(
+            request=request, service=wizard.service, event=wizard.event, picked=category
         )
-        category = self._get_wizard_category(request, service, event, event_slug)
+        return _render(picked, picked.after("category"))
+
+
+class ProposeSessionPersonalComponentView(ProposeWizardMixin):
+    def post(self, request: RootRequest, event_slug: str) -> HttpResponse:
+        wizard = self._wizard(request, event_slug, with_category=True)
 
         if request.POST.get("back"):
-            return _render_personal(request, service, event, category)
+            return _render(wizard, wizard.at_or_before("personal"))
 
-        requirements = service.get_personal_requirements(category.pk)
-
-        form_class = build_personal_data_form(requirements)
-        form = form_class(data=request.POST)
+        requirements = wizard.service.get_personal_requirements(wizard.chosen.pk)
+        form = build_personal_data_form(requirements)(data=request.POST)
 
         if not form.is_valid():
-            has_category = _event_has_category_step(service, event)
-            context: dict[str, object] = {
-                "event": event,
-                "proposal_settings": _proposal_settings(request, event),
-                "category": category,
-                "form": form,
-                "field_descriptors": field_descriptors(
-                    prefix="personal",
-                    fields=requirement_fields(requirements),
-                    form=form,
-                ),
-                "current_step": "personal",
-                "wizard_steps": _wizard_steps(
-                    service, category, has_category=has_category
-                ),
-                "show_back_button": has_category,
-            }
-            if not has_category:
-                context.update(_login_nudge_context(request))
-            return TemplateResponse(
-                request, "chronology/propose/parts/personal.html", context
-            )
+            with _WizardState(request, event_slug) as state:
+                context = _personal_context(wizard, state, form=form)
+            return TemplateResponse(request, _STEP_TEMPLATES["personal"], context)
 
-        wizard = request.session.get(_session_key(event_slug), {})
         folded = fold_custom_answers(
             cleaned=form.cleaned_data, requirements=requirements, prefix="personal"
         )
-        wizard["personal_data"] = {
-            key: value
-            for key, value in folded.items()
-            if key != "contact_email" and value
-        }
+        with _WizardState(request, event_slug) as state:
+            state["personal_data"] = {
+                key: value
+                for key, value in folded.items()
+                if key != "contact_email" and value
+            }
+            state["contact_email"] = form.cleaned_data["contact_email"]
 
-        wizard["contact_email"] = form.cleaned_data["contact_email"]
-        request.session[_session_key(event_slug)] = wizard
-
-        return _render_timeslots(request, service, event, category)
+        return _render(wizard, wizard.after("personal"))
 
 
-class ProposeSessionTimeslotsComponentView(ProposeWizardMixin, View):
+class ProposeSessionTimeslotsComponentView(ProposeWizardMixin):
     def post(self, request: RootRequest, event_slug: str) -> HttpResponse:
-        service = _service(request)
-        event = self._get_event(
-            service=service,
-            event_slug=event_slug,
-            sphere_id=request.context.current_sphere_id,
-        )
-        category = self._get_wizard_category(request, service, event, event_slug)
+        wizard = self._wizard(request, event_slug, with_category=True)
 
-        requirements = service.get_timeslot_requirements(category.pk)
         if request.POST.get("back"):
-            if not _has_timeslots_step(requirements):
-                return _render_personal(request, service, event, category)
-            return _render_timeslots(request, service, event, category)
+            return _render(wizard, wizard.at_or_before("timeslots"))
 
-        if not _has_timeslots_step(requirements):
-            _store_single_timeslot(request, event_slug, requirements)
-            return _render_details(request, service, event, category)
+        if "timeslots" not in wizard.steps:
+            return _render(wizard, wizard.after("timeslots"))
 
-        selected_ids = request.POST.getlist("time_slot_ids")
-        valid_ids = {str(r.time_slot_id) for r in requirements}
+        valid_ids = {str(req.time_slot_id) for req in wizard.timeslot_requirements}
+        selected_ids = [
+            sid for sid in request.POST.getlist("time_slot_ids") if sid in valid_ids
+        ]
 
         if not selected_ids:
-            return TemplateResponse(
-                request,
-                "chronology/propose/parts/timeslots.html",
-                {
-                    "event": event,
-                    "proposal_settings": _proposal_settings(request, event),
-                    "category": category,
-                    "slot_descriptors": _timeslot_descriptors(requirements, []),
-                    "error": _("Please select at least one time slot."),
-                    "current_step": "timeslots",
-                    "wizard_steps": _wizard_steps(
-                        service,
-                        category,
-                        has_category=_event_has_category_step(service, event),
-                        has_timeslots=True,
-                    ),
-                },
-            )
+            with _WizardState(request, event_slug) as state:
+                context = _timeslots_context(
+                    wizard, state, error=_("Please select at least one time slot.")
+                )
+            return TemplateResponse(request, _STEP_TEMPLATES["timeslots"], context)
 
-        selected_ids = [sid for sid in selected_ids if sid in valid_ids]
+        with _WizardState(request, event_slug) as state:
+            state["time_slot_ids"] = [int(sid) for sid in selected_ids]
 
-        wizard = request.session.get(_session_key(event_slug), {})
-        wizard["time_slot_ids"] = [int(sid) for sid in selected_ids]
-        request.session[_session_key(event_slug)] = wizard
-
-        return _render_details(request, service, event, category)
+        return _render(wizard, wizard.after("timeslots"))
 
 
-class ProposeSessionDetailsComponentView(ProposeWizardMixin, View):
+class ProposeSessionDetailsComponentView(ProposeWizardMixin):
     def post(self, request: RootRequest, event_slug: str) -> HttpResponse:
-        service = _service(request)
-        event = self._get_event(
-            service=service,
-            event_slug=event_slug,
-            sphere_id=request.context.current_sphere_id,
-        )
-        category = self._get_wizard_category(request, service, event, event_slug)
+        wizard = self._wizard(request, event_slug, with_category=True)
 
         if request.POST.get("back"):
-            return _render_details(request, service, event, category)
+            return _render(wizard, wizard.at_or_before("details"))
 
-        requirements = service.get_session_requirements(category.pk)
-        form_class = build_session_details_form(requirements, category=category)
-        form = form_class(data=request.POST)
-        wizard = request.session.get(_session_key(event_slug), {})
-        image_form = _wizard_image_form(wizard, data=request.POST, files=request.FILES)
+        requirements = wizard.service.get_session_requirements(wizard.chosen.pk)
+        form = build_session_details_form(requirements, category=wizard.chosen)(
+            data=request.POST
+        )
 
-        public_tracks = service.get_public_tracks(event.pk)
+        valid_track_ids = {
+            str(track.pk) for track in wizard.service.get_public_tracks(wizard.event.pk)
+        }
         selected_track_pks = [
-            int(pk) for pk in request.POST.getlist("track_pks") if pk.isdigit()
+            int(pk) for pk in request.POST.getlist("track_pks") if pk in valid_track_ids
         ]
-        track_error: str | None = None
-        if public_tracks and not selected_track_pks:
-            track_error = _("Please select at least one track.")
+        track_error = (
+            _("Please select at least one track.")
+            if valid_track_ids and not selected_track_pks
+            else None
+        )
 
-        if image_form.is_valid():
-            _apply_wizard_cover_from_form(wizard, image_form)
-            request.session[_session_key(event_slug)] = wizard
-
-        if not form.is_valid() or track_error or not image_form.is_valid():
-            display_image_form = (
-                _wizard_image_form(wizard) if image_form.is_valid() else image_form
+        with _WizardState(request, event_slug) as state:
+            image_form = _wizard_image_form(
+                state, data=request.POST, files=request.FILES
             )
-            return TemplateResponse(
-                request,
-                "chronology/propose/parts/details.html",
-                {
-                    "event": event,
-                    "proposal_settings": _proposal_settings(request, event),
-                    "category": category,
-                    "form": form,
-                    "image_form": display_image_form,
-                    "durations": category.durations,
-                    "field_descriptors": field_descriptors(
-                        prefix="session",
-                        fields=requirement_fields(requirements),
-                        form=form,
-                    ),
-                    "current_step": "details",
-                    "wizard_steps": _wizard_steps(
-                        service,
-                        category,
-                        has_category=_event_has_category_step(service, event),
-                    ),
-                    "public_tracks": public_tracks,
-                    "selected_track_pks": selected_track_pks,
-                    "track_error": track_error,
-                },
+            # The upload is stashed before the step is known good so a rejected
+            # form re-renders with the picture the proposer already chose.
+            if cover_ok := image_form.is_valid():
+                _apply_wizard_cover_from_form(state, image_form)
+
+            if not form.is_valid() or track_error or not cover_ok:
+                context = _details_context(
+                    wizard,
+                    state,
+                    form=form,
+                    image_form=None if cover_ok else image_form,
+                    selected_track_pks=selected_track_pks,
+                    track_error=track_error,
+                )
+                return TemplateResponse(request, _STEP_TEMPLATES["details"], context)
+
+            folded = fold_custom_answers(
+                cleaned=form.cleaned_data, requirements=requirements, prefix="session"
             )
+            state["session_data"] = {
+                key: value for key, value in folded.items() if value
+            }
+            state["track_pks"] = selected_track_pks
 
-        valid_track_ids = {str(t.pk) for t in public_tracks}
-        track_pks = [
-            int(tid)
-            for tid in request.POST.getlist("track_pks")
-            if tid in valid_track_ids
-        ]
-
-        folded = fold_custom_answers(
-            cleaned=form.cleaned_data, requirements=requirements, prefix="session"
-        )
-        wizard["session_data"] = {key: value for key, value in folded.items() if value}
-        wizard["track_pks"] = track_pks
-        request.session[_session_key(event_slug)] = wizard
-
-        return _render_review(request, service, event, category)
+        return _render(wizard, wizard.after("details"))
 
 
-class ProposeSessionReviewComponentView(ProposeWizardMixin, View):
+class ProposeSessionReviewComponentView(ProposeWizardMixin):
     def post(self, request: RootRequest, event_slug: str) -> HttpResponse:
-        service = _service(request)
-        event = self._get_event(
-            service=service,
-            event_slug=event_slug,
-            sphere_id=request.context.current_sphere_id,
-        )
-        category = self._get_wizard_category(request, service, event, event_slug)
-        return _render_review(request, service, event, category)
+        wizard = self._wizard(request, event_slug, with_category=True)
+        return _render(wizard, "review")
 
 
-class ProposeSessionSubmitActionView(ProposeWizardMixin, View):
+class ProposeSessionSubmitActionView(ProposeWizardMixin):
     def post(self, request: RootRequest, event_slug: str) -> HttpResponse:
-        service = _service(request)
-        event = self._get_event(
-            service=service,
-            event_slug=event_slug,
-            sphere_id=request.context.current_sphere_id,
-        )
-        self._get_wizard_category(request, service, event, event_slug)
-        wizard = request.session.get(_session_key(event_slug), {})
-        session_data = wizard.get("session_data", {})
+        wizard = self._wizard(request, event_slug, with_category=True)
+        state = request.session.get(_session_key(event_slug), {})
 
-        if not session_data.get("title"):
+        if not state.get("session_data", {}).get("title"):
             raise RedirectError(
-                reverse(
-                    "web:chronology:session-propose", kwargs={"event_slug": event_slug}
-                ),
+                _propose_url(event_slug),
                 error=_("Missing session details. Please start over."),
             )
 
-        if not getattr(request.user, "is_authenticated", False):
+        if not request.user.is_authenticated:
             ip = get_client_ip(request)
-            if not service.check_rate_limit(ip=ip, event_id=event.pk):
+            if not wizard.service.check_rate_limit(ip=ip, event_id=wizard.event.pk):
                 raise RedirectError(
-                    reverse(
-                        "web:chronology:session-propose",
-                        kwargs={"event_slug": event_slug},
-                    ),
+                    _propose_url(event_slug),
                     error=_("Please wait before submitting another proposal."),
                 )
 
-        cover = pop_wizard_cover(wizard)
-        result = service.submit(
-            event,
-            wizard,
+        cover = pop_wizard_cover(state)
+        result = wizard.service.submit(
+            wizard.event,
+            state,
+            cover_image=cover,
             user_id=request.context.current_user_id,
             user_slug=request.context.current_user_slug,
-            cover_image=cover,
         )
 
         del request.session[_session_key(event_slug)]

@@ -10,11 +10,14 @@ from ludamus.pacts.legacy import (
     OrganizerFieldDTO,
     PersonalDataFieldValueData,
     SessionFieldValueData,
+    TrackDTO,
 )
 from ludamus.pacts.propose import ProposeRepos
 
 EXPECTED_SESSION_ID = 99
 FACILITATOR_PK = 10
+OWN_TRACK_PK = 7
+FOREIGN_TRACK_PK = 999
 
 
 class FakeCache:
@@ -62,29 +65,41 @@ def _field(pk, slug):
     )
 
 
-@pytest.fixture
-def repos():
+@pytest.fixture(name="repos")
+def repos_fixture():
     return ProposeRepos(
         events=MagicMock(),
-        proposal_settings=MagicMock(),
+        event_proposal_settings=MagicMock(),
         categories=MagicMock(),
         tracks=MagicMock(),
-        facilitators=MagicMock(),
         sessions=MagicMock(),
         session_fields=MagicMock(),
         personal_fields=MagicMock(),
-        personal_field_values=MagicMock(),
+        personal_data_field_values=MagicMock(),
+        facilitators=MagicMock(),
         users=MagicMock(),
     )
 
 
-@pytest.fixture
-def cache():
+@pytest.fixture(name="submitting_repos")
+def submitting_repos_fixture(repos):
+    repos.sessions.slug_exists.return_value = False
+    repos.facilitators.slug_exists.return_value = False
+    repos.facilitators.create.return_value = _facilitator()
+    repos.sessions.create.return_value = EXPECTED_SESSION_ID
+    repos.tracks.list_public_by_event.return_value = [
+        TrackDTO.model_construct(pk=OWN_TRACK_PK, event_id=1)
+    ]
+    return repos
+
+
+@pytest.fixture(name="cache")
+def cache_fixture():
     return FakeCache()
 
 
-@pytest.fixture
-def service(repos, cache):
+@pytest.fixture(name="service")
+def service_fixture(repos, cache):
     return ProposeSessionService(transaction=MagicMock(), repos=repos, cache=cache)
 
 
@@ -155,7 +170,7 @@ class TestSubmit:
                 )
             ],
         )
-        repos.personal_field_values.save.assert_called_once_with(
+        repos.personal_data_field_values.save.assert_called_once_with(
             [
                 PersonalDataFieldValueData(
                     facilitator_id=FACILITATOR_PK, event_id=1, field_id=1, value="a@x.z"
@@ -163,13 +178,62 @@ class TestSubmit:
             ]
         )
 
+    def test_keeps_only_tracks_of_the_current_event(self, service, submitting_repos):
+        result = service.submit(
+            _event(),
+            {
+                "category_id": 1,
+                "session_data": {"title": "Test Session", "display_name": "Anon Host"},
+                "track_pks": [OWN_TRACK_PK, FOREIGN_TRACK_PK],
+            },
+            user_id=None,
+            user_slug=None,
+        )
+
+        submitting_repos.tracks.list_public_by_event.assert_called_once_with(1)
+        submitting_repos.sessions.set_session_tracks.assert_called_once_with(
+            result.session_id, [OWN_TRACK_PK]
+        )
+
+    def test_attaches_no_tracks_when_all_are_foreign(self, service, submitting_repos):
+        service.submit(
+            _event(),
+            {
+                "category_id": 1,
+                "session_data": {"title": "Test Session", "display_name": "Anon Host"},
+                "track_pks": [FOREIGN_TRACK_PK],
+            },
+            user_id=None,
+            user_slug=None,
+        )
+
+        submitting_repos.sessions.set_session_tracks.assert_not_called()
+
+    def test_skips_int_session_answers(self, service, submitting_repos):
+        service.submit(
+            _event(),
+            {
+                "category_id": 1,
+                "session_data": {
+                    "title": "Test Session",
+                    "display_name": "Anon Host",
+                    "session_players": 4,
+                },
+            },
+            user_id=None,
+            user_slug=None,
+        )
+
+        submitting_repos.session_fields.read_by_slug.assert_not_called()
+        submitting_repos.sessions.save_field_values.assert_not_called()
+
 
 class TestGetSavedPersonalData:
     def test_returns_empty_for_anonymous(self, service, repos):
-        result = service.get_saved_personal_data(1, user_id=None)
+        result = service.get_saved_personal_data(event_id=1, user_id=None)
 
         assert result == {}
-        repos.personal_field_values.read_for_facilitator_event.assert_not_called()
+        repos.personal_data_field_values.read_for_facilitator_event.assert_not_called()
         repos.facilitators.read_by_user_and_event.assert_not_called()
 
 

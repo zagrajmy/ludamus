@@ -1,7 +1,6 @@
-from __future__ import annotations
+"""Contracts for proposing a session: the wizard's ports and its service face."""
 
-from dataclasses import dataclass
-from typing import TYPE_CHECKING, Protocol
+from typing import TYPE_CHECKING, NamedTuple, Protocol
 
 if TYPE_CHECKING:
     from ludamus.pacts.crowd import UserRepositoryProtocol
@@ -28,23 +27,25 @@ if TYPE_CHECKING:
     )
 
 
-@dataclass
-class ProposeRepos:
+class ProposeRepos(NamedTuple):
+    """The repos the propose wizard reads its steps and writes a proposal through."""
+
     events: EventRepositoryProtocol
-    proposal_settings: EventProposalSettingsRepositoryProtocol
+    event_proposal_settings: EventProposalSettingsRepositoryProtocol
     categories: ProposalCategoryRepositoryProtocol
     tracks: TrackRepositoryProtocol
-    facilitators: FacilitatorRepositoryProtocol
     sessions: SessionRepositoryProtocol
     session_fields: SessionFieldRepositoryProtocol
     personal_fields: PersonalDataFieldRepositoryProtocol
-    personal_field_values: PersonalDataFieldValueRepositoryProtocol
+    personal_data_field_values: PersonalDataFieldValueRepositoryProtocol
+    facilitators: FacilitatorRepositoryProtocol
     users: UserRepositoryProtocol
 
 
 class ProposeSessionServiceProtocol(Protocol):
-    def get_event(self, slug: str, *, sphere_id: int) -> EventDTO: ...
-    def is_proposal_active(self, event: EventDTO) -> bool: ...
+    def get_event(self, slug: str, sphere_id: int) -> EventDTO: ...
+    @staticmethod
+    def is_proposal_active(event: EventDTO) -> bool: ...
     def get_proposal_settings(self, event_id: int) -> EventProposalSettingsDTO: ...
     def get_or_create_proposal_settings(
         self, event_id: int
@@ -62,7 +63,7 @@ class ProposeSessionServiceProtocol(Protocol):
     ) -> list[TimeSlotRequirementDTO]: ...
     def get_public_tracks(self, event_id: int) -> list[TrackDTO]: ...
     def get_saved_personal_data(
-        self, event_id: int, *, user_id: int | None
+        self, *, event_id: int, user_id: int | None
     ) -> dict[str, str | list[str] | bool]: ...
     def check_rate_limit(self, *, ip: str, event_id: int) -> bool: ...
     def submit(
@@ -70,7 +71,7 @@ class ProposeSessionServiceProtocol(Protocol):
         event: EventDTO,
         wizard_data: WizardData,
         *,
-        user_id: int | None,
-        user_slug: str | None,
         cover_image: UploadedFileProtocol | None = None,
+        user_id: int | None = None,
+        user_slug: str | None = None,
     ) -> ProposeSessionResult: ...

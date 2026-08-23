@@ -5,10 +5,14 @@ import zipfile
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-import defusedxml.ElementTree
+from lxml import etree
 
 if TYPE_CHECKING:
     from pathlib import Path
+
+# libxml2 caps entity amplification (no billion laughs); unresolved entities
+# also close off XXE. See https://lxml.de/FAQ.html#is-lxml-vulnerable-to-xml-bombs
+_PARSER = etree.XMLParser(resolve_entities=False, no_network=True)
 
 SHEETS = ("Piątek", "Sobota", "Niedziela")
 XML_NS = {
@@ -60,9 +64,9 @@ def parse_range(reference: str) -> tuple[int, int, int, int]:
 def load_workbook(path: Path) -> dict[str, SheetData]:
     with zipfile.ZipFile(path) as archive:
         shared_strings = _shared_strings(archive)
-        workbook = defusedxml.ElementTree.fromstring(archive.read("xl/workbook.xml"))
-        relationships = defusedxml.ElementTree.fromstring(
-            archive.read("xl/_rels/workbook.xml.rels")
+        workbook = etree.fromstring(archive.read("xl/workbook.xml"), _PARSER)
+        relationships = etree.fromstring(
+            archive.read("xl/_rels/workbook.xml.rels"), _PARSER
         )
         targets = {
             item.attrib["Id"]: item.attrib["Target"]
@@ -89,7 +93,7 @@ def load_workbook(path: Path) -> dict[str, SheetData]:
 def _shared_strings(archive: zipfile.ZipFile) -> list[str]:
     if "xl/sharedStrings.xml" not in archive.namelist():
         return []
-    root = defusedxml.ElementTree.fromstring(archive.read("xl/sharedStrings.xml"))
+    root = etree.fromstring(archive.read("xl/sharedStrings.xml"), _PARSER)
     return [
         "".join(node.text or "" for node in item.iter(f"{{{XML_NS['main']}}}t"))
         for item in root.findall("main:si", XML_NS)
@@ -99,7 +103,7 @@ def _shared_strings(archive: zipfile.ZipFile) -> list[str]:
 def _load_sheet(
     *, archive: zipfile.ZipFile, path: str, shared_strings: list[str]
 ) -> SheetData:
-    root = defusedxml.ElementTree.fromstring(archive.read(path))
+    root = etree.fromstring(archive.read(path), _PARSER)
     cells: dict[str, object] = {}
     for node in root.findall(".//main:c", XML_NS):
         reference = node.attrib["r"]
