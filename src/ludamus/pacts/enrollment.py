@@ -1,9 +1,9 @@
 """Protocols and DTOs for enrollment: waitlist promotion and anonymous flows.
 
 Bottom-layer contracts consumed by the enrollment mills
-(`WaitlistPromotionService`, `AnonymousEnrollmentService`,
-`NotificationsService`). The services depend on these ports (repositories,
-notifier, scheduler) so their decisions stay unit-testable with fakes.
+(`WaitlistPromotionService`, `AnonymousEnrollmentService`). The services depend
+on these ports (repositories, notifier, scheduler) so their decisions stay
+unit-testable with fakes.
 """
 
 from dataclasses import dataclass
@@ -218,38 +218,6 @@ class EnrollmentSettingsServiceProtocol(Protocol):
         self, *, event_id: int, pk: int, data: EnrollmentWindowData
     ) -> EnrollmentWindowDTO | None: ...
     def delete_window(self, event_id: int, pk: int) -> bool: ...
-
-
-class NotificationDTO(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    pk: int
-    kind: str
-    title: str
-    body: str
-    url: str
-    creation_time: datetime
-    is_read: bool
-
-
-class NavbarNotificationsDTO(BaseModel):
-    unread_count: int
-    items: list[NotificationDTO]
-
-
-class NotificationReadRepositoryProtocol(Protocol):
-    def unread_count(self, user_id: int) -> int: ...
-    def list_recent(self, user_id: int, limit: int) -> list[NotificationDTO]: ...
-    def list_all(self, user_id: int) -> list[NotificationDTO]: ...
-    def mark_read_one(self, user_id: int, pk: int) -> NotificationDTO | None: ...
-    def mark_all_read(self, user_id: int) -> None: ...
-
-
-class NotificationsServiceProtocol(Protocol):
-    def get_navbar(self, user_id: int) -> NavbarNotificationsDTO: ...
-    def list_for_user(self, user_id: int) -> list[NotificationDTO]: ...
-    def open(self, user_id: int, pk: int) -> NotificationDTO | None: ...
-    def mark_all_read(self, user_id: int) -> None: ...
 
 
 class ParticipationPromotionRepositoryProtocol(Protocol):

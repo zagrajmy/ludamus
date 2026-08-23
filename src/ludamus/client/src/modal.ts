@@ -36,7 +36,7 @@ interface Navigation {
   addEventListener(type: "navigate", handler: (e: NavigateEvent) => void): void;
 }
 
-/** ~16% lack Navigation API (Firefox on Android, IE11, older Safari). Click interception only in old browsers. */
+/** ~16% lack Navigation API (Firefox on Android, IE11, older Safari); there, every trigger falls back to a click handler. */
 const { navigation } = globalThis as { navigation?: Navigation };
 
 const openingModals = new Set<string>();
@@ -580,12 +580,20 @@ globalThis.addEventListener("popstate", syncModalsFromUrl);
 syncModalsFromUrl();
 setupModalCloseTriggers();
 
-const setupFallbackLinkHandlers = (): void => {
+// A trigger whose href leaves the current path can't be URL-addressed: the
+// notification rows sit in the navbar, so one notification would get as many
+// `?notification=` URLs as there are pages carrying the bell. Those open where
+// the reader already is and leave the address bar alone; their href stays the
+// real server route, which is what a no-JS click follows.
+const opensInPlace = (href: string): boolean =>
+  new URL(href, location.href).pathname !== location.pathname;
+
+const setupModalLinkHandlers = (): void => {
   for (const link of document.querySelectorAll<HTMLAnchorElement>("a[href][aria-controls]")) {
     if (Object.hasOwn(link.dataset, "modalReload")) continue;
     // Re-run after an htmx swap brings new cards in; the links that survived
     // it keep the one handler they already have.
-    if (Object.hasOwn(link.dataset, "modalFallbackBound")) continue;
+    if (Object.hasOwn(link.dataset, "modalClickBound")) continue;
     const modalId = link.getAttribute("aria-controls");
     const href = link.getAttribute("href");
     if (!modalId || !href) continue;
@@ -597,20 +605,23 @@ const setupFallbackLinkHandlers = (): void => {
     )
       continue;
 
-    link.dataset.modalFallbackBound = "";
+    // Same-path triggers are the Navigation API's job where it exists; without
+    // it every trigger needs the click handler.
+    const inPlace = opensInPlace(href);
+    if (navigation && !inPlace) continue;
+
+    link.dataset.modalClickBound = "";
     link.addEventListener("click", (e) => {
       e.preventDefault();
       void ensureModalLoaded(modalId).then((ok) => {
-        if (ok) void openModal(modalId);
+        if (ok) void openModal(modalId, { updateUrl: !inPlace });
         else globalThis.location.assign(href);
       });
     });
   }
 };
 
-if (!navigation) {
-  setupFallbackLinkHandlers();
-  document.body.addEventListener("htmx:afterSwap", setupFallbackLinkHandlers);
-}
+setupModalLinkHandlers();
+document.body.addEventListener("htmx:afterSwap", setupModalLinkHandlers);
 
 export { closeModal, openModal };

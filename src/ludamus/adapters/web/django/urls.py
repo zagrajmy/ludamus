@@ -58,8 +58,8 @@ urlpatterns = [
         name="notifications",
     ),
     path(
-        "notifications/<int:pk>/open",
-        notifications_gate.NotificationOpenView.as_view(),
+        "notifications/<int:pk>/do/open",
+        notifications_gate.NotificationOpenActionView.as_view(),
         name="notification-open",
     ),
     path(

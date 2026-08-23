@@ -4749,6 +4749,35 @@ msgstr "pojemność"
 msgid "This printable is not available for this event."
 msgstr "Ten wydruk nie jest dostępny dla tego wydarzenia."
 
+#: src/ludamus/templates/components/_pagination.html
+#, python-format
+msgid ""
+"\n"
+"                Page %(page)s of %(total)s\n"
+"            "
+msgstr ""
+"\n"
+"                Strona %(page)s z %(total)s\n"
+"            "
+
+#: src/ludamus/templates/components/_pagination.html
+msgid "Per page:"
+msgstr "Na stronę:"
+
+#: src/ludamus/templates/components/_pagination.html
+#: src/ludamus/templates/panel/parts/import-review-region.html
+#: src/ludamus/templates/panel/parts/timetable-grid.html
+#: src/ludamus/templates/panel/time-slots.html
+msgid "Previous"
+msgstr "Poprzednia"
+
+#: src/ludamus/templates/components/_pagination.html
+#: src/ludamus/templates/panel/parts/import-review-region.html
+#: src/ludamus/templates/panel/parts/timetable-grid.html
+#: src/ludamus/templates/panel/time-slots.html
+msgid "Next"
+msgstr "Następna"
+
 #: src/ludamus/templates/components/avatar.html
 #, python-format
 msgid "%(name_value)s (flagged)"
@@ -8030,35 +8059,6 @@ msgstr "Przypisz %(name)s do gildii"
 #: src/ludamus/templates/panel/parts/_facilitator_guild_attach.html
 msgid "This sphere has no guilds yet."
 msgstr "Ta sfera nie ma jeszcze żadnych gildii."
-
-#: src/ludamus/templates/panel/parts/_pagination.html
-#, python-format
-msgid ""
-"\n"
-"                Page %(page)s of %(total)s\n"
-"            "
-msgstr ""
-"\n"
-"                Strona %(page)s z %(total)s\n"
-"            "
-
-#: src/ludamus/templates/panel/parts/_pagination.html
-msgid "Per page:"
-msgstr "Na stronę:"
-
-#: src/ludamus/templates/panel/parts/_pagination.html
-#: src/ludamus/templates/panel/parts/import-review-region.html
-#: src/ludamus/templates/panel/parts/timetable-grid.html
-#: src/ludamus/templates/panel/time-slots.html
-msgid "Previous"
-msgstr "Poprzednia"
-
-#: src/ludamus/templates/panel/parts/_pagination.html
-#: src/ludamus/templates/panel/parts/import-review-region.html
-#: src/ludamus/templates/panel/parts/timetable-grid.html
-#: src/ludamus/templates/panel/time-slots.html
-msgid "Next"
-msgstr "Następna"
 
 #: src/ludamus/templates/panel/parts/confirmation-facilitator-card.html
 #, python-format

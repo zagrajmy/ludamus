@@ -38,7 +38,6 @@ from ludamus.mills.enrollment import (
     AnonymousEnrollmentService,
     EnrollmentService,
     EnrollmentSettingsService,
-    NotificationsService,
     WaitlistPromotionService,
 )
 from ludamus.mills.errata import ErrataService
@@ -55,6 +54,7 @@ from ludamus.mills.multiverse import (
     SitesService,
     SpherePanelService,
 )
+from ludamus.mills.notifications import NotificationsService
 from ludamus.mills.panel_facilitators import FacilitatorPanelService
 from ludamus.mills.panel_proposals import ProposalPanelService
 from ludamus.mills.panel_time_slots import PanelTimeSlotsService

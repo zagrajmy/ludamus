@@ -32,7 +32,8 @@
                 {% endif %}
             </div>
             {% for notification in navbar_notifications.items %}
-                <a {% if notification.url %}href="{% url 'web:notification-open' notification.pk %}"{% else %}href="?notification={{ notification.pk }}" aria-controls="notification-modal-{{ notification.pk }}" aria-haspopup="dialog"{% endif %}
+                <a href="{% url 'web:notification-open' notification.pk %}"
+                   {% if not notification.url %}aria-controls="notification-modal-{{ notification.pk }}" aria-haspopup="dialog"{% endif %}
                    class="block px-3.5 py-3 text-sm border-b last:border-b-0 transition-colors duration-150 hover:bg-bg-tertiary border-border {% if not notification.is_read %}bg-bg-tertiary/40{% endif %}">
                     <span class="block font-medium text-foreground-primary">{{ notification.title }}</span>
                     {% if notification.body %}
@@ -42,12 +43,10 @@
             {% empty %}
                 <p class="px-3.5 py-4 text-sm text-foreground-secondary mb-0">{% translate "No notifications yet." %}</p>
             {% endfor %}
-            {% if navbar_notifications.items %}
-                <a href="{% url 'web:notifications' %}"
-                   class="block px-3.5 py-2.5 text-sm text-center rounded-b-lg font-medium transition-colors duration-150 text-foreground-secondary hover:text-foreground-primary hover:bg-bg-tertiary">
-                    {% translate "View all" %}
-                </a>
-            {% endif %}
+            <a href="{% url 'web:notifications' %}"
+               class="block px-3.5 py-2.5 text-sm text-center rounded-b-lg font-medium transition-colors duration-150 text-foreground-secondary hover:text-foreground-primary hover:bg-bg-tertiary">
+                {% translate "View all" %}
+            </a>
         </div>
     </div>
     {# One lazy-fetch container for content-notification overlays; the navbar #}

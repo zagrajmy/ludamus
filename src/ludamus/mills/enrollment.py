@@ -1,4 +1,4 @@
-"""Enrollment services: waitlist promotion, anonymous enrollment, notifications.
+"""Enrollment services: waitlist promotion and anonymous enrollment.
 
 Each service owns its decisions and transactional boundary, delegating IO to
 injected ports (repositories, notifier, scheduler) so the logic stays
@@ -40,8 +40,6 @@ from ludamus.pacts.enrollment import (
     GuestSeatData,
     HeldSeatData,
     InvalidEnrollmentWindowError,
-    NavbarNotificationsDTO,
-    NotificationDTO,
     OfferNotification,
     PromotionNotification,
     PromotionResult,
@@ -74,7 +72,6 @@ if TYPE_CHECKING:
         EnrollmentWindowData,
         EnrollmentWindowDTO,
         EnrollmentWindowRepositoryProtocol,
-        NotificationReadRepositoryProtocol,
         OfferDTO,
         OfferExpirySchedulerProtocol,
         OfferRecipientDTO,
@@ -86,8 +83,6 @@ if TYPE_CHECKING:
         WaitlistPromotionServiceProtocol,
     )
     from ludamus.pacts.services import TransactionProtocol
-
-_NAVBAR_NOTIFICATION_LIMIT = 10
 
 
 class EnrollmentWindowLike(Protocol):
@@ -453,37 +448,6 @@ class WaitlistPromotionService:
         for participation_id in lapsed:
             self.expire_offer(participation_id=participation_id)
         return len(lapsed)
-
-
-class NotificationsService:
-    """Read path for the navbar notifications dropdown + mark-as-read."""
-
-    def __init__(
-        self,
-        transaction: TransactionProtocol,
-        notifications: NotificationReadRepositoryProtocol,
-    ) -> None:
-        self._transaction = transaction
-        self._notifications = notifications
-
-    def get_navbar(self, user_id: int) -> NavbarNotificationsDTO:
-        return NavbarNotificationsDTO(
-            unread_count=self._notifications.unread_count(user_id),
-            items=self._notifications.list_recent(user_id, _NAVBAR_NOTIFICATION_LIMIT),
-        )
-
-    def list_for_user(self, user_id: int) -> list[NotificationDTO]:
-        return self._notifications.list_all(user_id)
-
-    def open(self, user_id: int, pk: int) -> NotificationDTO | None:
-        # Opening a notification marks it read; returns the row so the caller can
-        # redirect to its url (destination kinds) or render it (content kinds).
-        with self._transaction.atomic():
-            return self._notifications.mark_read_one(user_id, pk)
-
-    def mark_all_read(self, user_id: int) -> None:
-        with self._transaction.atomic():
-            self._notifications.mark_all_read(user_id)
 
 
 def build_anonymous_user(slug: str, name: str = "") -> UserData:

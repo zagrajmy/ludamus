@@ -3,8 +3,8 @@ from http import HTTPStatus
 from django.urls import reverse
 
 from ludamus.links.db.django.models import Notification
-from ludamus.pacts.enrollment import NotificationDTO
 from ludamus.pacts.legacy import NotificationKind
+from ludamus.pacts.notifications import NotificationDTO
 from tests.integration.conftest import UserFactory
 from tests.integration.utils import (
     PageMatcher,
@@ -50,7 +50,6 @@ class TestNotificationsPageView:
             template_name="notifications/index.html",
             context_data={
                 "notifications": [],
-                "active_nav": "notifications",
                 "page_obj": PageMatcher(number=1, num_pages=1),
                 "page_sizes": _PAGE_SIZES,
             },
@@ -70,8 +69,26 @@ class TestNotificationsPageView:
             template_name="notifications/index.html",
             context_data={
                 "notifications": [_dto(newer), _dto(older)],
-                "active_nav": "notifications",
                 "page_obj": PageMatcher(number=1, num_pages=1),
+                "page_sizes": _PAGE_SIZES,
+            },
+        )
+
+    def test_second_page_holds_only_its_own_window(
+        self, authenticated_client, active_user
+    ):
+        made = [_make_notification(active_user, title=f"n{i}") for i in range(12)]
+
+        response = authenticated_client.get(f"{self._url()}?page_size=10&page=2")
+
+        # Newest first, so page 2 of 12 is the two oldest.
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="notifications/index.html",
+            context_data={
+                "notifications": [_dto(made[1]), _dto(made[0])],
+                "page_obj": PageMatcher(number=2, num_pages=2),
                 "page_sizes": _PAGE_SIZES,
             },
         )
@@ -88,14 +105,13 @@ class TestNotificationsPageView:
             template_name="notifications/index.html",
             context_data={
                 "notifications": [],
-                "active_nav": "notifications",
                 "page_obj": PageMatcher(number=1, num_pages=1),
                 "page_sizes": _PAGE_SIZES,
             },
         )
 
 
-class TestNotificationOpenView:
+class TestNotificationOpenActionView:
     @staticmethod
     def _url(pk):
         return reverse("web:notification-open", kwargs={"pk": pk})
@@ -118,7 +134,20 @@ class TestNotificationOpenView:
         notification.refresh_from_db()
         assert notification.read_at is not None
 
-    def test_content_notification_marks_read_and_lands_on_list(
+    def test_content_notification_marks_read_and_returns_to_the_referer(
+        self, authenticated_client, active_user
+    ):
+        notification = _make_notification(active_user, url="")
+
+        response = authenticated_client.get(
+            self._url(notification.pk), headers={"referer": "/events/?page=2"}
+        )
+
+        assert_response(response, HTTPStatus.FOUND, url="/events/?page=2")
+        notification.refresh_from_db()
+        assert notification.read_at is not None
+
+    def test_content_notification_falls_back_to_the_list(
         self, authenticated_client, active_user
     ):
         notification = _make_notification(active_user, url="")
@@ -128,6 +157,15 @@ class TestNotificationOpenView:
         assert_response(response, HTTPStatus.FOUND, url=reverse("web:notifications"))
         notification.refresh_from_db()
         assert notification.read_at is not None
+
+    def test_offsite_referer_is_refused(self, authenticated_client, active_user):
+        notification = _make_notification(active_user, url="")
+
+        response = authenticated_client.get(
+            self._url(notification.pk), headers={"referer": "https://evil.example/x"}
+        )
+
+        assert_response(response, HTTPStatus.FOUND, url=reverse("web:notifications"))
 
     def test_foreign_notification_is_not_found_and_unchanged(
         self, authenticated_client

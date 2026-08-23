@@ -7,6 +7,10 @@ import { expect, test } from "./helpers/fixtures";
 // notification (read in the overlay). Isolated so opening/marking-read here never
 // disturbs another spec's unread count. Mark-read semantics are covered by the
 // Python integration tests; this spec covers the overlay + list wiring only.
+//
+// The overlay is deliberately not URL-addressable: the bell renders on every
+// page, so a `?notification=` link would give one notification as many
+// addresses as there are pages. It opens in place and leaves the URL alone.
 
 const contentTitle = "Autumn Open: doors to hall B open at 9:00";
 const destinationTitle = "You're in: a spot opened in Dragons & Dungeons";
@@ -34,21 +38,21 @@ test.describe("Notification overlay and list page", () => {
     const dialog = page.getByRole("dialog", { name: contentTitle });
     await expect(dialog).toBeVisible();
     await expect(dialog).toContainText("Bring your badge");
-    await expect(page).toHaveURL(/notification=\d+/);
+    await expect(page).toHaveURL(/\/notifications\/$/);
 
     await page.keyboard.press("Escape");
     await expect(dialog).toBeHidden();
     await expect(page).toHaveURL(/\/notifications\/$/);
   });
 
-  test("the overlay is addressable — a reload reopens it", async ({ page }) => {
-    await page.goto("/notifications/");
-    await page.getByRole("link", { name: new RegExp(contentTitle) }).click();
-    await expect(page).toHaveURL(/notification=\d+/);
+  test("the overlay opens over whatever page the bell was clicked from", async ({ page }) => {
+    await page.goto("/events/");
 
-    await page.reload();
+    await page.getByRole("button", { name: /Notifications/ }).click();
+    await page.getByRole("link", { name: new RegExp(contentTitle) }).click();
 
     await expect(page.getByRole("dialog", { name: contentTitle })).toBeVisible();
+    await expect(page).toHaveURL(/\/events\/$/);
   });
 
   test("a destination notification navigates to its target", async ({ page }) => {

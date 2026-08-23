@@ -20,14 +20,18 @@
             <ul class="rounded-lg border border-border bg-bg-secondary divide-y divide-border overflow-hidden">
                 {% for notification in notifications %}
                     <li>
-                        <a {% if notification.url %}href="{% url 'web:notification-open' notification.pk %}"{% else %}href="?notification={{ notification.pk }}" aria-controls="notification-modal-{{ notification.pk }}" aria-haspopup="dialog"{% endif %}
+                        <a href="{% url 'web:notification-open' notification.pk %}"
+                           {% if not notification.url %}aria-controls="notification-modal-{{ notification.pk }}" aria-haspopup="dialog"{% endif %}
                            class="flex gap-3 px-4 py-3.5 transition-colors duration-150 hover:bg-bg-tertiary {% if not notification.is_read %}bg-bg-tertiary/40{% endif %}">
                             <span class="mt-1.5 shrink-0 size-2 rounded-full {% if notification.is_read %}bg-transparent{% else %}bg-coral-500{% endif %}"
-                                  {% if not notification.is_read %}aria-label="{% translate "Unread" %}"{% else %}aria-hidden="true"{% endif %}></span>
+                                  aria-hidden="true"></span>
                             <span class="min-w-0 flex-1">
-                                <span class="block font-medium text-foreground-primary {% if not notification.is_read %}font-semibold{% endif %}">{{ notification.title }}</span>
+                                {% if not notification.is_read %}
+                                    <span class="sr-only">{% translate "Unread" %}</span>
+                                {% endif %}
+                                <span class="block text-foreground-primary {% if notification.is_read %}font-medium{% else %}font-semibold{% endif %}">{{ notification.title }}</span>
                                 {% if notification.body %}
-                                    <span class="block text-sm mt-0.5 text-foreground-secondary">{{ notification.body }}</span>
+                                    <span class="block text-sm mt-0.5 line-clamp-2 text-foreground-secondary">{{ notification.body }}</span>
                                 {% endif %}
                                 <span class="block text-xs mt-1 text-foreground-muted">{{ notification.creation_time|date:"DATETIME_FORMAT" }}</span>
                             </span>
@@ -35,7 +39,7 @@
                     </li>
                 {% endfor %}
             </ul>
-            {% include "panel/parts/_pagination.html" %}
+            {% include "components/_pagination.html" %}
         {% else %}
             <div class="rounded-lg border border-border bg-bg-secondary px-6 py-12 text-center">
                 {% icon "bell" class="w-8 h-8 mx-auto text-foreground-muted" %}
