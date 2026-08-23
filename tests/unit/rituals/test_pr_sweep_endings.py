@@ -38,9 +38,10 @@ if TYPE_CHECKING:
 
 _AHEAD = "test feature = *"
 _PUSH = "git push https-origin feature"
-_STARTED = checkpoint("refresh", "started", number=7)
-_DONE = checkpoint("refresh", "done", number=7)
-_COVER_DONE = checkpoint("cover", "done", number=7)
+_STARTED = checkpoint("refresh", state="started", number=7)
+_DONE = checkpoint("refresh", state="done", number=7)
+_COVER_STARTED = checkpoint("cover", state="started", number=7)
+_COVER_DONE = checkpoint("cover", state="done", number=7)
 _MISSING = "src/ludamus/thing.py (80.0%): Missing lines 12-14"
 _RELEASE = "if git rev-parse*MERGE_HEAD*git stash push*"
 # Red, red, green: enough to prove the second repair meets the same agent.
@@ -371,6 +372,7 @@ class TestWholeCast:
         result = trial.cast(pr_cover, PrSweep(bound=3))
 
         assert result == Report(checked=[_GREEN_ROW.model_copy(update={"unpushed": 0})])
+        assert _COVER_STARTED in trial.shell.commands
         assert _COVER_DONE in trial.shell.commands
         assert trial.steps == [
             "list_prs",

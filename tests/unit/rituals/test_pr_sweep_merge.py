@@ -27,7 +27,7 @@ if TYPE_CHECKING:
 _STATUS = "git status --porcelain"
 _UNMERGED = "git diff --name-only --diff-filter=U"
 _IS_ANCESTOR = "git merge-base --is-ancestor main HEAD"
-_STARTED = checkpoint("refresh", "started", number=7)
+_STARTED = checkpoint("refresh", state="started", number=7)
 
 
 def _listed(*pulls: PullRequest) -> str:

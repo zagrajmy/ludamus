@@ -20,8 +20,7 @@ _THERMO_SKILL = "~/.claude/skills/thermo-nuclear-code-quality-review/SKILL.md"
 # at worse answers. Naming only `model` leaves vekna's `bypassPermissions`
 # default in place — permission-mode is what flips it, and the writing calls
 # want that default. `READING` sets its own permissions and so names this too.
-_MODEL = "opus"
-_OPUS = CodingOpts(model=_MODEL)
+_OPUS = CodingOpts(model="opus")
 
 
 # The sweep is the ritual's: the step runs it the moment the agent stops, and
@@ -306,7 +305,7 @@ class Misread(BaseModel):
 # Read-only in the sense that matters here: the triage has to reach `gh`, so
 # Bash stays, and nothing outside the list gets so far as a prompt.
 READING = CodingOpts(
-    model=_MODEL,
+    model="opus",
     focus_options=ClaudeOptions(
         permission_mode="dontAsk",
         allowed_tools=["Bash", "Read", "Grep", "Glob"],
@@ -329,11 +328,11 @@ def _fallen(error: Exception) -> Fallen:
 # Nothing reads what an agent said back: these calls are judged by what they
 # left in the worktree, which the step that follows reads out of git.
 async def ask(
-    prompt: str, *, opts: CodingOpts | None = None, key: str | None = None
+    prompt: str, *, opts: CodingOpts = _OPUS, key: str | None = None
 ) -> Fallen | None:
     session = Session.CONTINUE if key is not None else Session.NEW
     try:
-        await coding(prompt, opts=opts or _OPUS, session=session, key=key)
+        await coding(prompt, opts=opts, session=session, key=key)
     except Exception as error:  # ruff: ignore [blind-except]
         return _fallen(error)
     return None
@@ -343,14 +342,12 @@ async def ask_for[OutputT: BaseModel](
     prompt: str,
     *,
     output: type[OutputT],
-    opts: CodingOpts | None = None,
+    opts: CodingOpts = _OPUS,
     key: str | None = None,
 ) -> OutputT | Fallen | Misread:
     session = Session.CONTINUE if key is not None else Session.NEW
     try:
-        return await coding(
-            prompt, output=output, opts=opts or _OPUS, session=session, key=key
-        )
+        return await coding(prompt, output=output, opts=opts, session=session, key=key)
     # Caught ahead of the blind clause and answered differently: an agent whose
     # JSON does not fit the schema is a bad answer, not a dead CLI, and ending
     # the whole night over one would cost every pull request behind this one.

@@ -45,8 +45,8 @@ from ludamus.edges.rituals.state import (
     TriageNotes,
 )
 
-_DONE = checkpoint("review", "done", number=7)
-_STARTED = checkpoint("review", "started", number=7)
+_DONE = checkpoint("review", state="done", number=7)
+_STARTED = checkpoint("review", state="started", number=7)
 
 if TYPE_CHECKING:
     from vekna.trial import Trial
@@ -707,6 +707,8 @@ class TestPrReview:
         assert result == _picked(
             reviewed=[Reviewed(branch="feature", outcome="shipped")]
         )
+        assert _STARTED in trial.shell.commands
+        assert _DONE in trial.shell.commands
         assert trial.steps == [
             "queue_up",
             "pick",

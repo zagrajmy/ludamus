@@ -28,10 +28,10 @@ You answer the items one at a time, in your own words; saying nothing takes the
 reading's own proposal. One agent then fixes what you said to fix, files what
 you said to file, and answers and settles every thread either way.
 
-The branch earns `review:started` the moment the agent is turned loose on the
-triage, and `review:done` once nothing is left open — the two are exclusive, so
-one takes the other off. A branch left with threads still open, or one a gate
-stopped, keeps `review:started`, which is how the morning sees which readings
+The branch earns `v:review:started` the moment the agent is turned loose on the
+triage, and `v:review:done` once nothing is left open — the two are exclusive,
+so one takes the other off. A branch left with threads still open, or one a gate
+stopped, keeps `v:review:started`, which is how the morning sees which readings
 were begun and not finished.
 
 Then `pr-fix` runs, is repaired up to `--bound` times, and what came out is
@@ -71,8 +71,8 @@ from .shell import (
     PR_FIX,
     STATUS,
     checkout,
-    checkpoint,
     commit,
+    mark,
     narrowed,
     plain,
     push,
@@ -117,18 +117,6 @@ async def _ran(command: str, complaint: str, *, stream: bool = True) -> ShellRes
         msg = f"{complaint}: {said(result)}"
         raise RitualError(msg)
     return result
-
-
-# The ritual's checkpoint on the board: `review:started` the moment the agent is
-# turned loose on the triage, `review:done` where nothing is left open. The two
-# are exclusive — adding one takes the other off — so a branch left with threads
-# open, or one a gate stopped, keeps `started`. Best-effort and never fatal: it
-# is a marker, and the branch is shipped whatever gh makes of the label.
-async def _mark(number: int, state: Literal["started", "done"]) -> str:
-    marked = await shell(checkpoint("review", state, number=number))
-    if marked.exit_code:
-        return f"could not mark review:{state}: {said(marked)}"
-    return ""
 
 
 class PrReview(BaseModel):
@@ -372,7 +360,7 @@ async def work(instructed: Instructed) -> Transition:
     # The checkpoint goes on before the agent, not after: this is where the
     # branch starts changing, and a cast that dies here should leave the branch
     # wearing `started`.
-    if note := await _mark(instructed.branch.number, "started"):
+    if note := await mark("review", state="started", number=instructed.branch.number):
         emit_delta(f"{instructed.branch.name}: {note}")
     # Straight to the gate, with nothing asked: the triage was answered item by
     # item a step ago, so a question here is the cast asking whether you meant
@@ -425,11 +413,9 @@ async def land(branch: Branch) -> Transition:
     return goto(settle, branch)
 
 
-# The one place `review:done` goes on, and it is a claim about the threads:
+# The one place the branch is marked done, and it is a claim about the threads:
 # asked of `gh` rather than assumed off the round that just ran, because the
-# agent was told to settle each one, and told is not done. A branch with threads
-# still open keeps `review:started` — the checkpoint says the reading was begun
-# and not finished.
+# agent was told to settle each one, and told is not done.
 # Not fatal either way: the branch is shipped whatever the count says, and what
 # is left over is yours to look at.
 @step
@@ -441,7 +427,7 @@ async def settle(branch: Branch) -> Transition:
     elif left:
         note = f"{left} review threads are still open"
     else:
-        note = await _mark(branch.number, "done")
+        note = await mark("review", state="done", number=branch.number)
     if note:
         emit_delta(f"{branch.name}: {note}")
     return goto(pick, _rowed(branch, "shipped", note))
