@@ -90,7 +90,6 @@ class KonwencikNamedItemDTO(BaseModel):
 
 
 class KonwencikSettingsContext(BaseModel):
-    display_name: str
     categories: list[KonwencikNamedItemDTO]
     tracks: list[KonwencikNamedItemDTO]
     session_fields: list[KonwencikNamedItemDTO]

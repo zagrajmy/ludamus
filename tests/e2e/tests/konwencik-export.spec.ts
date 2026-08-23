@@ -1,14 +1,14 @@
 import { expect, test } from "./helpers/fixtures";
 
-// The integrations list renders per-row actions from data the row carries, so
-// only an export integration gets "Export now" and "Configure". These assert
-// the rendered controls; what the view puts in the context is asserted in
+// The export is its own panel section, reached from the sidebar like the
+// Google Docs import — not from a row action on the integrations list. These
+// assert the rendered chrome; what the view puts in the context is asserted in
 // tests/integration.
 const EVENT = "frostfire-con";
-const INTEGRATIONS_URL = `/panel/event/${EVENT}/settings/integrations/`;
+const TIMETABLE_URL = `/panel/event/${EVENT}/timetable/`;
 const INTEGRATION = "Konwencik agenda";
 
-test.describe("Konwencik export row actions", () => {
+test.describe("Konwencik export", () => {
   test.beforeEach(async ({ page }) => {
     await page.goto("/admin/login/", { waitUntil: "domcontentloaded" });
     await page.getByLabel("Username:").fill("e2e-manager");
@@ -16,23 +16,25 @@ test.describe("Konwencik export row actions", () => {
     await page.getByRole("button", { name: /Log in/i }).click();
   });
 
-  test("the export row offers both of its own actions", async ({ page }) => {
-    await page.goto(INTEGRATIONS_URL);
+  test("a manager reaches the export from the sidebar", async ({ page }) => {
+    await page.goto(TIMETABLE_URL);
 
-    const row = page.getByRole("row", { name: new RegExp(INTEGRATION) });
-    await expect(row.getByRole("button", { name: "Export now" })).toBeVisible();
-    await expect(row.getByRole("link", { name: "Configure" })).toBeVisible();
-  });
+    // The site navbar is a <nav> too, so the sidebar is picked by its label.
+    const sidebar = page.getByRole("navigation", { name: "Panel sections" });
+    const link = sidebar.getByRole("link", { name: "Konwencik export", exact: true });
 
-  test("Configure opens the export settings page", async ({ page }) => {
-    await page.goto(INTEGRATIONS_URL);
+    await link.click();
 
-    const row = page.getByRole("row", { name: new RegExp(INTEGRATION) });
-    await row.getByRole("link", { name: "Configure" }).click();
-
-    await page.waitForURL(/\/export\/\d+\/$/);
+    await expect(page).toHaveURL(new RegExp(`/panel/event/${EVENT}/export/$`));
     await expect(page.getByRole("heading", { name: "Konwencik export" })).toBeVisible();
     await expect(page.getByText(INTEGRATION)).toBeVisible();
+    await expect(link).toHaveAttribute("aria-current", "page");
+  });
+
+  test("the export page offers its own run and save controls", async ({ page }) => {
+    await page.goto(`/panel/event/${EVENT}/export/`);
+
+    await expect(page.getByRole("button", { name: "Export now" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Save" })).toBeVisible();
   });
 });

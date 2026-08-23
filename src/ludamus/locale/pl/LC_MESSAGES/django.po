@@ -1204,16 +1204,6 @@ msgstr "Ustawienia wyświetlania zostały zapisane."
 msgid "Proposal settings saved successfully."
 msgstr "Ustawienia zgłoszeń zostały zapisane."
 
-#: src/ludamus/gates/web/django/chronology/panel/views/event_settings.py
-#: src/ludamus/templates/panel/konwencik-export-settings.html
-msgid "Export now"
-msgstr "Eksportuj teraz"
-
-#: src/ludamus/gates/web/django/chronology/panel/views/event_settings.py
-#: src/ludamus/templates/panel/cfp.html
-msgid "Configure"
-msgstr "Konfiguruj"
-
 #: src/ludamus/gates/web/django/chronology/panel/views/facilitators.py
 msgid "Select at least two facilitators to merge."
 msgstr "Wybierz co najmniej dwóch twórców programu do scalenia."
@@ -6708,6 +6698,11 @@ msgid "Venues"
 msgstr "Lokalizacje"
 
 #: src/ludamus/templates/panel/base.html
+#: src/ludamus/templates/panel/konwencik-export-settings.html
+msgid "Konwencik export"
+msgstr "Eksport do Konwencika"
+
+#: src/ludamus/templates/panel/base.html
 msgid "Print Materials"
 msgstr "Materiały do druku"
 
@@ -6956,6 +6951,10 @@ msgstr "Nie wybrano żadnych pól."
 #: src/ludamus/templates/panel/cfp.html
 msgid "Submission window"
 msgstr "Okno zgłoszeń"
+
+#: src/ludamus/templates/panel/cfp.html
+msgid "Configure"
+msgstr "Konfiguruj"
 
 #: src/ludamus/templates/panel/cfp.html
 msgid "Are you sure you want to delete this category?"
@@ -7983,12 +7982,16 @@ msgid "No changes recorded yet."
 msgstr "Nie zapisano jeszcze żadnych zmian."
 
 #: src/ludamus/templates/panel/konwencik-export-settings.html
-msgid "Konwencik export"
-msgstr "Eksport do Konwencika"
+msgid "Export now"
+msgstr "Eksportuj teraz"
 
 #: src/ludamus/templates/panel/konwencik-export-settings.html
-msgid "Back to integrations"
-msgstr "Wróć do integracji"
+msgid ""
+"No Konwencik export yet. Add one in Settings → Integrations to publish this "
+"event's schedule to a Konwencik spreadsheet."
+msgstr ""
+"Nie ma jeszcze eksportu do Konwencika. Dodaj go w sekcji Ustawienia → "
+"Integracje, aby opublikować harmonogram tego wydarzenia w arkuszu Konwencika."
 
 #: src/ludamus/templates/panel/konwencik-export-settings.html
 msgid ""
@@ -9579,6 +9582,9 @@ msgstr "Temat"
 #: src/ludamus/templates/staging_email_inbox.html
 msgid "No emails captured yet."
 msgstr "Brak przechwyconych e-maili."
+
+#~ msgid "Back to integrations"
+#~ msgstr "Wróć do integracji"
 
 #~ msgid "Venue"
 #~ msgstr "Lokalizacja"

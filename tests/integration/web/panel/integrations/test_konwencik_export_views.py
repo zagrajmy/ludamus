@@ -38,6 +38,7 @@ from tests.integration.utils import (
 from tests.integration.web.panel.helpers import (
     assert_event_not_found,
     assert_not_a_manager,
+    integration_dto,
     panel_context,
 )
 
@@ -46,8 +47,15 @@ _HEADER_ROWS = 2  # machine keys, then Konwencik's own labels
 _SCHEDULED = 3
 
 
-def _settings_url(event) -> str:
-    return reverse("panel:event-integration-settings", kwargs={"slug": event.slug})
+def _export_url(event) -> str:
+    return reverse("panel:konwencik-export", kwargs={"slug": event.slug})
+
+
+def _settings_page_url(event, integration) -> str:
+    return reverse(
+        "panel:konwencik-export-settings",
+        kwargs={"slug": event.slug, "pk": integration.pk},
+    )
 
 
 def _run_url(event, integration) -> str:
@@ -139,7 +147,7 @@ class TestKonwencikExportActionView:
             response,
             HTTPStatus.FOUND,
             messages=[(messages.SUCCESS, "Exported 3 sessions.")],
-            url=_settings_url(event),
+            url=_settings_page_url(event, export_integration),
         )
         written = google.put.call_args.kwargs["json"]["values"]
         assert written[0][0] == "id"
@@ -155,7 +163,7 @@ class TestKonwencikExportActionView:
             response,
             HTTPStatus.FOUND,
             messages=[(messages.SUCCESS, "Exported 0 sessions.")],
-            url=_settings_url(event),
+            url=_settings_page_url(event, export_integration),
         )
         assert len(google.put.call_args.kwargs["json"]["values"]) == _HEADER_ROWS
 
@@ -176,7 +184,7 @@ class TestKonwencikExportActionView:
                 (messages.SUCCESS, "Exported 0 sessions."),
                 (messages.WARNING, "1 session skipped: longer than a day."),
             ],
-            url=_settings_url(event),
+            url=_settings_page_url(event, export_integration),
         )
 
     def test_post_reports_a_failed_write(self, panel_client, event, export_integration):
@@ -196,7 +204,7 @@ class TestKonwencikExportActionView:
                     "Export failed: Spreadsheet write request failed with 500: boom",
                 )
             ],
-            url=_settings_url(event),
+            url=_settings_page_url(event, export_integration),
         )
 
     def test_post_with_a_foreign_integration_pk_reports_not_found(
@@ -217,16 +225,9 @@ class TestKonwencikExportActionView:
             response,
             HTTPStatus.FOUND,
             messages=[(messages.ERROR, "Integration not found.")],
-            url=_settings_url(event),
+            url=_export_url(event),
         )
         google.put.assert_not_called()
-
-
-def _settings_page_url(event, integration) -> str:
-    return reverse(
-        "panel:konwencik-export-settings",
-        kwargs={"slug": event.slug, "pk": integration.pk},
-    )
 
 
 def _post_data(*, categories, tracks, photo="", icon="", icons=None, colors=None):
@@ -267,6 +268,60 @@ class TestKonwencikExportSettingsPageView:
 
         assert_not_a_manager(response)
 
+    def test_get_without_a_pk_opens_the_events_only_export(
+        self, panel_client, event, export_integration
+    ):
+        response = panel_client.get(_export_url(event))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/konwencik-export-settings.html",
+            context_data=panel_context(event, active_nav="konwencik-export")
+            | {
+                "active_integration": integration_dto(export_integration),
+                "last_run": None,
+                "icon_formset": ANY,
+                "color_formset": ANY,
+                "overrides_form": ANY,
+                "category_rows": [],
+                "track_rows": [],
+            },
+        )
+
+    def test_get_without_an_export_configured_renders_the_empty_state(
+        self, panel_client, event
+    ):
+        response = panel_client.get(_export_url(event))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/konwencik-export-settings.html",
+            context_data=panel_context(event, active_nav="konwencik-export")
+            | {"active_integration": None},
+        )
+
+    def test_get_ignores_an_import_integration(self, panel_client, event, connection):
+        EventIntegration.objects.create(
+            event=event,
+            kind=IntegrationKind.IMPORT.value,
+            implementation=IntegrationImplementationId.GOOGLE_PROPOSAL_PULLER.value,
+            connection=connection,
+            display_name="Form",
+            config_json=CONFIG_JSON,
+        )
+
+        response = panel_client.get(_export_url(event))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/konwencik-export-settings.html",
+            context_data=panel_context(event, active_nav="konwencik-export")
+            | {"active_integration": None},
+        )
+
     def test_get_renders_a_row_per_category_and_public_track(
         self, panel_client, event, export_integration
     ):
@@ -280,10 +335,9 @@ class TestKonwencikExportSettingsPageView:
             response,
             HTTPStatus.OK,
             template_name="panel/konwencik-export-settings.html",
-            context_data=panel_context(event, active_nav="settings")
+            context_data=panel_context(event, active_nav="konwencik-export")
             | {
-                "integration_pk": export_integration.pk,
-                "integration_display_name": "Konwencik",
+                "active_integration": integration_dto(export_integration),
                 "last_run": None,
                 "icon_formset": ANY,
                 "color_formset": ANY,
@@ -333,10 +387,9 @@ class TestKonwencikExportSettingsPageView:
             response,
             HTTPStatus.OK,
             template_name="panel/konwencik-export-settings.html",
-            context_data=panel_context(event, active_nav="settings")
+            context_data=panel_context(event, active_nav="konwencik-export")
             | {
-                "integration_pk": export_integration.pk,
-                "integration_display_name": "Konwencik",
+                "active_integration": integration_dto(export_integration),
                 "last_run": KonwencikLastRun.model_validate_json(
                     export_integration.last_run_json
                 ),
@@ -362,10 +415,9 @@ class TestKonwencikExportSettingsPageView:
             response,
             HTTPStatus.OK,
             template_name="panel/konwencik-export-settings.html",
-            context_data=panel_context(event, active_nav="settings")
+            context_data=panel_context(event, active_nav="konwencik-export")
             | {
-                "integration_pk": export_integration.pk,
-                "integration_display_name": "Konwencik",
+                "active_integration": integration_dto(export_integration),
                 "last_run": KonwencikLastRun.model_validate_json(
                     export_integration.last_run_json
                 ),
@@ -395,7 +447,7 @@ class TestKonwencikExportSettingsPageView:
             response,
             HTTPStatus.FOUND,
             messages=[(messages.ERROR, "Integration not found.")],
-            url=_settings_url(event),
+            url=_export_url(event),
         )
 
     def test_post_saves_icons_colours_and_overrides(
@@ -495,7 +547,7 @@ class TestKonwencikExportSettingsPageView:
             response,
             HTTPStatus.FOUND,
             messages=[(messages.ERROR, "Integration not found.")],
-            url=_settings_url(event),
+            url=_export_url(event),
         )
         foreign.refresh_from_db()
         assert foreign.settings_json in {"", "{}"}
@@ -518,10 +570,9 @@ class TestKonwencikExportSettingsPageView:
             response,
             HTTPStatus.OK,
             template_name="panel/konwencik-export-settings.html",
-            context_data=panel_context(event, active_nav="settings")
+            context_data=panel_context(event, active_nav="konwencik-export")
             | {
-                "integration_pk": export_integration.pk,
-                "integration_display_name": "Konwencik",
+                "active_integration": integration_dto(export_integration),
                 "last_run": None,
                 "icon_formset": FormSetErrorsMatcher(),
                 "color_formset": FormSetErrorsMatcher(
@@ -548,10 +599,9 @@ class TestKonwencikExportSettingsPageView:
             response,
             HTTPStatus.OK,
             template_name="panel/konwencik-export-settings.html",
-            context_data=panel_context(event, active_nav="settings")
+            context_data=panel_context(event, active_nav="konwencik-export")
             | {
-                "integration_pk": export_integration.pk,
-                "integration_display_name": "Konwencik",
+                "active_integration": integration_dto(export_integration),
                 "last_run": None,
                 "icon_formset": FormSetErrorsMatcher(),
                 "color_formset": FormSetErrorsMatcher(
@@ -625,7 +675,7 @@ class TestKonwencikExportLock:
             messages=[
                 (messages.ERROR, "An export is already running, try again shortly.")
             ],
-            url=_settings_url(event),
+            url=_settings_page_url(event, export_integration),
         )
         google.put.assert_not_called()
 

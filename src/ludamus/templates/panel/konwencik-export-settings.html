@@ -8,16 +8,17 @@
     {% translate "Konwencik export" %}
 {% endblock page_title %}
 {% block page_subtitle %}
-    {{ integration_display_name }}
+    {% if active_integration %}
+        {{ active_integration.display_name }}
+    {% elif current_event %}
+        {{ current_event.name }}
+    {% endif %}
 {% endblock page_subtitle %}
 {% block header_actions %}
-    {% if current_event %}
+    {% if current_event and active_integration %}
         <div class="flex items-center gap-3">
-            {% url 'panel:event-integration-settings' slug=current_event.slug as back_url %}
-            {% translate "Back to integrations" as back_label %}
-            {% tessera_button back_label href=back_url variant="secondary" %}
             <form method="post"
-                  action="{% url 'panel:konwencik-export-run' slug=current_event.slug pk=integration_pk %}">
+                  action="{% url 'panel:konwencik-export-run' slug=current_event.slug pk=active_integration.pk %}">
                 {% csrf_token %}
                 {% translate "Export now" as export_label %}
                 {% tessera_button export_label variant="secondary" icon="arrow-up-tray" %}
@@ -28,7 +29,13 @@
     {% endif %}
 {% endblock header_actions %}
 {% block content %}
-    {% if current_event %}
+    {% if not active_integration %}
+        <div class="card p-8 text-center">
+            <p class="text-foreground-muted">
+                {% translate "No Konwencik export yet. Add one in Settings → Integrations to publish this event's schedule to a Konwencik spreadsheet." %}
+            </p>
+        </div>
+    {% elif current_event %}
         <div class="max-w-3xl space-y-6">
             <div class="card">
                 <div class="card-body flex gap-3">

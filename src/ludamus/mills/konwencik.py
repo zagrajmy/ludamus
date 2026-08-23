@@ -170,7 +170,6 @@ class KonwencikExportService(KonwencikExportServiceProtocol):
     ) -> KonwencikSettingsContext:
         integration = self._scoped(sphere_id=sphere_id, event_pk=event_pk, pk=pk)
         return KonwencikSettingsContext(
-            display_name=integration.display_name,
             categories=[
                 KonwencikNamedItemDTO(pk=category.pk, name=category.name)
                 for category in self._repos.categories.list_by_event(event_pk)

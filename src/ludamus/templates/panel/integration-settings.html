@@ -21,7 +21,7 @@
     {% if current_event %}
         {% tab_shell "panel/_event_settings_tabs.html" %}
             {% tab_shell_body %}
-                {% if integration_rows %}
+                {% if integrations %}
                     <div class="card overflow-x-auto">
                         <table class="min-w-full divide-y divide-border">
                             <thead class="bg-bg-tertiary">
@@ -49,39 +49,24 @@
                                 </tr>
                             </thead>
                             <tbody class="bg-bg-secondary divide-y divide-border">
-                                {% for row in integration_rows %}
-                                    {% with integration=row.integration %}
-                                        <tr class="hover:bg-bg-tertiary">
-                                            <td class="px-6 py-4 text-sm font-medium text-foreground">{{ integration.display_name }}</td>
-                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-foreground-secondary">{{ integration.kind|capfirst }}</td>
-                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-foreground-secondary">
-                                                <code>{{ integration.implementation }}</code>
-                                            </td>
-                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-foreground-secondary">
-                                                {{ integration.connection_display_name }}
-                                            </td>
-                                            <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                                {% for action in row.actions %}
-                                                    {% if action.is_post %}
-                                                        <form class="inline-block mr-4"
-                                                              method="post"
-                                                              action="{% url action.url_name slug=current_event.slug pk=integration.pk %}">
-                                                            {% csrf_token %}
-                                                            {% tessera_button action.label variant="secondary" size="sm" icon=action.icon %}
-                                                        </form>
-                                                    {% else %}
-                                                        <a href="{% url action.url_name slug=current_event.slug pk=integration.pk %}"
-                                                           class="text-primary hover:text-primary/80 mr-4">{{ action.label }}</a>
-                                                    {% endif %}
-                                                {% endfor %}
-                                                <a href="{% url 'panel:integration-edit' slug=current_event.slug pk=integration.pk %}"
-                                                   data-row-action
-                                                   class="text-primary hover:text-primary/80 mr-4">{% translate "Edit" %}</a>
-                                                <a href="{% url 'panel:integration-delete' slug=current_event.slug pk=integration.pk %}"
-                                                   class="text-danger hover:text-danger/80">{% translate "Delete" %}</a>
-                                            </td>
-                                        </tr>
-                                    {% endwith %}
+                                {% for integration in integrations %}
+                                    <tr class="hover:bg-bg-tertiary">
+                                        <td class="px-6 py-4 text-sm font-medium text-foreground">{{ integration.display_name }}</td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-foreground-secondary">{{ integration.kind|capfirst }}</td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-foreground-secondary">
+                                            <code>{{ integration.implementation }}</code>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-foreground-secondary">
+                                            {{ integration.connection_display_name }}
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                            <a href="{% url 'panel:integration-edit' slug=current_event.slug pk=integration.pk %}"
+                                               data-row-action
+                                               class="text-primary hover:text-primary/80 mr-4">{% translate "Edit" %}</a>
+                                            <a href="{% url 'panel:integration-delete' slug=current_event.slug pk=integration.pk %}"
+                                               class="text-danger hover:text-danger/80">{% translate "Delete" %}</a>
+                                        </td>
+                                    </tr>
                                 {% endfor %}
                             </tbody>
                         </table>

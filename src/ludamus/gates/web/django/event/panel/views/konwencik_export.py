@@ -18,6 +18,7 @@ from ludamus.gates.web.django.event.panel.views.base import (
     EventPanelRequest,
 )
 from ludamus.pacts import NotFoundError
+from ludamus.pacts.chronology import IntegrationImplementationId, IntegrationKind
 from ludamus.pacts.konwencik import (
     ExportInProgressError,
     KonwencikExportSettings,
@@ -32,6 +33,7 @@ if TYPE_CHECKING:
     from django.http import HttpResponse, QueryDict
 
     from ludamus.gates.web.django.event.panel.views.base import EventPageContext
+    from ludamus.pacts.chronology import EventIntegrationDTO
     from ludamus.pacts.konwencik import (
         KonwencikLastRun,
         KonwencikNamedItemDTO,
@@ -67,8 +69,7 @@ class _SettingsRow(TypedDict):
 
 class _PageContext(TypedDict):
     active_nav: str
-    integration_pk: int
-    integration_display_name: str
+    active_integration: EventIntegrationDTO
     last_run: KonwencikLastRun | None
     icon_formset: BaseFormSet[KonwencikIconForm]
     color_formset: BaseFormSet[KonwencikColorForm]
@@ -219,7 +220,20 @@ def _settings_from(
 class _Loaded(NamedTuple):
     page: EventPageContext
     event_pk: int
+    integration: EventIntegrationDTO
     settings: KonwencikSettingsContext
+
+
+def _konwencik_integrations(
+    request: EventPanelRequest, event_pk: int
+) -> list[EventIntegrationDTO]:
+    return [
+        i
+        for i in request.services.event_integrations.list_for_event(
+            event_pk, IntegrationKind.EXPORT
+        )
+        if i.implementation == IntegrationImplementationId.KONWENCIK_SHEET_PUSHER
+    ]
 
 
 class KonwencikExportSettingsPageView(EventPanelAccessMixin, EventContextMixin, View):
@@ -227,19 +241,22 @@ class KonwencikExportSettingsPageView(EventPanelAccessMixin, EventContextMixin, 
 
     request: EventPanelRequest
 
-    def get(self, _request: EventPanelRequest, slug: str, pk: int) -> HttpResponse:
+    def get(
+        self, _request: EventPanelRequest, slug: str, pk: int | None = None
+    ) -> HttpResponse:
         loaded = self._load(slug, pk)
         if not isinstance(loaded, _Loaded):
             return loaded
         return self._render(
             loaded,
-            pk=pk,
             icons=_icon_formset(loaded.settings),
             colors=_color_formset(loaded.settings),
             overrides=_overrides_form(loaded.settings),
         )
 
-    def post(self, _request: EventPanelRequest, slug: str, pk: int) -> HttpResponse:
+    def post(
+        self, _request: EventPanelRequest, slug: str, pk: int | None = None
+    ) -> HttpResponse:
         loaded = self._load(slug, pk)
         if not isinstance(loaded, _Loaded):
             return loaded
@@ -248,45 +265,63 @@ class KonwencikExportSettingsPageView(EventPanelAccessMixin, EventContextMixin, 
         colors = _color_formset(loaded.settings, self.request.POST)
         overrides = _overrides_form(loaded.settings, self.request.POST)
         if not (icons.is_valid() and colors.is_valid() and overrides.is_valid()):
-            return self._render(
-                loaded, pk=pk, icons=icons, colors=colors, overrides=overrides
-            )
+            return self._render(loaded, icons=icons, colors=colors, overrides=overrides)
 
         self.request.services.konwencik_export.save_settings(
             sphere_id=self.request.context.current_sphere_id,
             event_pk=loaded.event_pk,
-            pk=pk,
+            pk=loaded.integration.pk,
             settings=_settings_from(icons=icons, colors=colors, overrides=overrides),
         )
         messages.success(self.request, _("Export settings saved."))
-        return redirect("panel:konwencik-export-settings", slug=slug, pk=pk)
+        return redirect(
+            "panel:konwencik-export-settings", slug=slug, pk=loaded.integration.pk
+        )
 
-    def _load(self, slug: str, pk: int) -> _Loaded | HttpResponse:
-        # The redirect is a return value rather than an exception because both
-        # verbs answer the same two ways: no such event, or no such export.
+    def _load(self, slug: str, pk: int | None) -> _Loaded | HttpResponse:
+        # A response is a return value rather than an exception because both
+        # verbs answer the same three ways: no such event, no such export, or
+        # the empty state.
         if (context := self.get_typed_event_context(slug)) is None:
             return redirect("panel:index")
         current_event = context["current_event"]
-        try:
-            settings_context = (
-                self.request.services.konwencik_export.get_settings_context(
-                    sphere_id=self.request.context.current_sphere_id,
-                    event_pk=current_event.pk,
-                    pk=pk,
-                )
+        integrations = _konwencik_integrations(self.request, current_event.pk)
+        active = (
+            next((i for i in integrations if i.pk == pk), None)
+            if pk is not None
+            else next(iter(integrations), None)
+        )
+        if active is None:
+            # A named pk that is not one of this event's Konwencik exports is a
+            # wrong link; the bare page with none configured is the empty state.
+            if pk is not None:
+                messages.error(self.request, _("Integration not found."))
+                return redirect("panel:konwencik-export", slug=slug)
+            return TemplateResponse(
+                self.request,
+                "panel/konwencik-export-settings.html",
+                {
+                    **context,
+                    "active_nav": "konwencik-export",
+                    "active_integration": None,
+                },
             )
-        except NotFoundError:
-            messages.error(self.request, _("Integration not found."))
-            return redirect("panel:event-integration-settings", slug=slug)
+        settings_context = self.request.services.konwencik_export.get_settings_context(
+            sphere_id=self.request.context.current_sphere_id,
+            event_pk=current_event.pk,
+            pk=active.pk,
+        )
         return _Loaded(
-            page=context, event_pk=current_event.pk, settings=settings_context
+            page=context,
+            event_pk=current_event.pk,
+            integration=active,
+            settings=settings_context,
         )
 
     def _render(
         self,
         loaded: _Loaded,
         *,
-        pk: int,
         icons: BaseFormSet[KonwencikIconForm],
         colors: BaseFormSet[KonwencikColorForm],
         overrides: KonwencikOverridesForm,
@@ -295,7 +330,7 @@ class KonwencikExportSettingsPageView(EventPanelAccessMixin, EventContextMixin, 
             **loaded.page,
             **_page_context(
                 settings_context=loaded.settings,
-                pk=pk,
+                integration=loaded.integration,
                 icons=icons,
                 colors=colors,
                 overrides=overrides,
@@ -309,15 +344,14 @@ class KonwencikExportSettingsPageView(EventPanelAccessMixin, EventContextMixin, 
 def _page_context(
     *,
     settings_context: KonwencikSettingsContext,
-    pk: int,
+    integration: EventIntegrationDTO,
     icons: BaseFormSet[KonwencikIconForm],
     colors: BaseFormSet[KonwencikColorForm],
     overrides: KonwencikOverridesForm,
 ) -> _PageContext:
     return {
-        "active_nav": "settings",
-        "integration_pk": pk,
-        "integration_display_name": settings_context.display_name,
+        "active_nav": "konwencik-export",
+        "active_integration": integration,
         "last_run": settings_context.last_run,
         "icon_formset": icons,
         "color_formset": colors,
@@ -345,17 +379,17 @@ class KonwencikExportActionView(EventPanelAccessMixin, EventContextMixin, View):
             )
         except NotFoundError:
             messages.error(self.request, _("Integration not found."))
-            return redirect("panel:event-integration-settings", slug=slug)
+            return redirect("panel:konwencik-export", slug=slug)
         except ExportInProgressError:
             messages.error(
                 self.request, _("An export is already running, try again shortly.")
             )
-            return redirect("panel:event-integration-settings", slug=slug)
+            return redirect("panel:konwencik-export-settings", slug=slug, pk=pk)
         except SheetExportError as error:
             messages.error(
                 self.request, _("Export failed: %(error)s") % {"error": error}
             )
-            return redirect("panel:event-integration-settings", slug=slug)
+            return redirect("panel:konwencik-export-settings", slug=slug, pk=pk)
 
         messages.success(
             self.request,
@@ -369,4 +403,4 @@ class KonwencikExportActionView(EventPanelAccessMixin, EventContextMixin, View):
         for reason, count in outcome.skipped.items():
             if count:
                 messages.warning(self.request, SKIP_MESSAGES[reason] % {"count": count})
-        return redirect("panel:event-integration-settings", slug=slug)
+        return redirect("panel:konwencik-export-settings", slug=slug, pk=pk)
