@@ -6,7 +6,7 @@ from django.db import migrations, models
 
 class Migration(migrations.Migration):
 
-    dependencies = [("db_main", "0148_alter_facilitator_accreditation_type")]
+    dependencies = [("db_main", "0152_alter_facilitator_accreditation_type")]
 
     operations = [
         migrations.CreateModel(

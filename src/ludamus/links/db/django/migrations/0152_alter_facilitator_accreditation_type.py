@@ -7,7 +7,7 @@ import ludamus.pacts.submissions
 
 class Migration(migrations.Migration):
 
-    dependencies = [("db_main", "0147_facilitator_flag_to_soft_delete")]
+    dependencies = [("db_main", "0151_schedulechangelog_important")]
 
     operations = [
         migrations.AlterField(
