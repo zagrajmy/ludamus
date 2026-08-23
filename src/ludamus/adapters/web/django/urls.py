@@ -1,6 +1,7 @@
 from django.urls import URLPattern, URLResolver, include, path
 from django.views.generic.base import RedirectView, TemplateView
 
+from ludamus.gates.web.django import notifications as notifications_gate
 from ludamus.gates.web.django.auth_pages import auth_error_page
 from ludamus.gates.web.django.chronology import offers
 from ludamus.gates.web.django.chronology import views as chronology_views
@@ -50,6 +51,21 @@ chronology_urls = [
 urlpatterns = [
     path("", views.IndexRedirectView.as_view(), name="index"),
     path("events/", views.EventsPageView.as_view(), name="events"),
+    path(
+        "notifications/",
+        notifications_gate.NotificationsPageView.as_view(),
+        name="notifications",
+    ),
+    path(
+        "notifications/<int:pk>/open",
+        notifications_gate.NotificationOpenView.as_view(),
+        name="notification-open",
+    ),
+    path(
+        "notifications/<int:pk>/parts/modal",
+        notifications_gate.NotificationModalComponentView.as_view(),
+        name="notification-modal",
+    ),
     path(
         "notifications/do/mark-read",
         offers.NotificationsMarkReadView.as_view(),

@@ -3577,6 +3577,7 @@ msgstr ""
 
 #: src/ludamus/templates/base.html
 #: src/ludamus/templates/components/notifications.html
+#: src/ludamus/templates/notifications/index.html
 #: src/ludamus/templates/panel/base.html
 msgid "Notifications"
 msgstr "Powiadomienia"
@@ -4283,6 +4284,7 @@ msgstr "Zakończ"
 #: src/ludamus/templates/chronology/event.html
 #: src/ludamus/templates/chronology/parts/session-modal.html
 #: src/ludamus/templates/crowd/user/party_detail.html
+#: src/ludamus/templates/notifications/parts/modal.html
 msgid "Close"
 msgstr "Zamknij"
 
@@ -5071,12 +5073,17 @@ msgid "unread"
 msgstr "nieprzeczytane"
 
 #: src/ludamus/templates/components/notifications.html
+#: src/ludamus/templates/notifications/index.html
 msgid "Mark all read"
 msgstr "Oznacz wszystkie jako przeczytane"
 
 #: src/ludamus/templates/components/notifications.html
 msgid "No notifications yet."
 msgstr "Brak powiadomień."
+
+#: src/ludamus/templates/components/notifications.html
+msgid "View all"
+msgstr "Zobacz wszystkie"
 
 #: src/ludamus/templates/components/sound_switcher.html
 msgid "Toggle interface sound"
@@ -6282,6 +6289,18 @@ msgstr "Zarejestruj się"
 #: src/ludamus/templates/notice_board/landing.html
 msgid "Example encounters"
 msgstr "Przykładowe spotkania"
+
+#: src/ludamus/templates/notifications/index.html
+msgid "Unread"
+msgstr "Nieprzeczytane"
+
+#: src/ludamus/templates/notifications/index.html
+msgid "No notifications yet"
+msgstr "Brak powiadomień"
+
+#: src/ludamus/templates/notifications/index.html
+msgid "Anything that needs your attention will show up here."
+msgstr "Wszystko, co wymaga Twojej uwagi, pojawi się tutaj."
 
 #: src/ludamus/templates/panel/_cfp_tabs.html
 #: src/ludamus/templates/panel/cfp.html

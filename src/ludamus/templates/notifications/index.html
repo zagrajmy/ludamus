@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% load i18n %}
+{% load tessera %}
+{% block title %}
+    {% translate "Notifications" %}
+{% endblock title %}
+{% block header %}
+    <h1 class="text-2xl sm:text-3xl font-bold text-foreground mb-2">{% translate "Notifications" %}</h1>
+{% endblock header %}
+{% block body %}
+    <div class="max-w-2xl w-full mx-auto">
+        {% if notifications %}
+            <div class="flex justify-end mb-3">
+                <form method="post" action="{% url 'web:notifications-mark-read' %}">
+                    {% csrf_token %}
+                    <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                    <button type="submit" class="btn btn-secondary text-sm">{% translate "Mark all read" %}</button>
+                </form>
+            </div>
+            <ul class="rounded-lg border border-border bg-bg-secondary divide-y divide-border overflow-hidden">
+                {% for notification in notifications %}
+                    <li>
+                        <a {% if notification.url %}href="{% url 'web:notification-open' notification.pk %}"{% else %}href="?notification={{ notification.pk }}" aria-controls="notification-modal-{{ notification.pk }}" aria-haspopup="dialog"{% endif %}
+                           class="flex gap-3 px-4 py-3.5 transition-colors duration-150 hover:bg-bg-tertiary {% if not notification.is_read %}bg-bg-tertiary/40{% endif %}">
+                            <span class="mt-1.5 shrink-0 size-2 rounded-full {% if notification.is_read %}bg-transparent{% else %}bg-coral-500{% endif %}"
+                                  {% if not notification.is_read %}aria-label="{% translate "Unread" %}"{% else %}aria-hidden="true"{% endif %}></span>
+                            <span class="min-w-0 flex-1">
+                                <span class="block font-medium text-foreground-primary {% if not notification.is_read %}font-semibold{% endif %}">{{ notification.title }}</span>
+                                {% if notification.body %}
+                                    <span class="block text-sm mt-0.5 text-foreground-secondary">{{ notification.body }}</span>
+                                {% endif %}
+                                <span class="block text-xs mt-1 text-foreground-muted">{{ notification.creation_time|date:"DATETIME_FORMAT" }}</span>
+                            </span>
+                        </a>
+                    </li>
+                {% endfor %}
+            </ul>
+            {% include "panel/parts/_pagination.html" %}
+        {% else %}
+            <div class="rounded-lg border border-border bg-bg-secondary px-6 py-12 text-center">
+                {% icon "bell" class="w-8 h-8 mx-auto text-foreground-muted" %}
+                <p class="mt-3 font-medium text-foreground-primary">{% translate "No notifications yet" %}</p>
+                <p class="mt-1 text-sm text-foreground-secondary">{% translate "Anything that needs your attention will show up here." %}</p>
+            </div>
+        {% endif %}
+    </div>
+{% endblock body %}

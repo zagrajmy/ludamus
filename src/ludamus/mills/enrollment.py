@@ -41,6 +41,7 @@ from ludamus.pacts.enrollment import (
     HeldSeatData,
     InvalidEnrollmentWindowError,
     NavbarNotificationsDTO,
+    NotificationDTO,
     OfferNotification,
     PromotionNotification,
     PromotionResult,
@@ -470,6 +471,15 @@ class NotificationsService:
             unread_count=self._notifications.unread_count(user_id),
             items=self._notifications.list_recent(user_id, _NAVBAR_NOTIFICATION_LIMIT),
         )
+
+    def list_for_user(self, user_id: int) -> list[NotificationDTO]:
+        return self._notifications.list_all(user_id)
+
+    def open(self, user_id: int, pk: int) -> NotificationDTO | None:
+        # Opening a notification marks it read; returns the row so the caller can
+        # redirect to its url (destination kinds) or render it (content kinds).
+        with self._transaction.atomic():
+            return self._notifications.mark_read_one(user_id, pk)
 
     def mark_all_read(self, user_id: int) -> None:
         with self._transaction.atomic():

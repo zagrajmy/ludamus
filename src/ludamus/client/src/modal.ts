@@ -326,15 +326,39 @@ const closeModal = (
 // stay instant.
 declare const htmx: { process(el: Element): void };
 
-const SESSION_MODAL_PREFIX = "session-";
+// Each lazy source maps a dialog-id prefix to the container carrying a reverse()d
+// URL template (a `0` id placeholder) and how to swap the pk in. Add an entry to
+// lazy-fetch a new modal family; the rest of the machinery is prefix-agnostic.
+interface LazyModalSource {
+  prefix: string;
+  urlAttr: string;
+  urlFor: (template: string, pk: string) => string;
+}
+
+const LAZY_MODAL_SOURCES: LazyModalSource[] = [
+  {
+    prefix: "session-",
+    urlAttr: "data-session-modal-url",
+    urlFor: (template, pk) => template.replace(/\/session\/0\//, `/session/${pk}/`),
+  },
+  {
+    prefix: "notification-modal-",
+    urlAttr: "data-notification-modal-url",
+    urlFor: (template, pk) => template.replace(/\/notifications\/0\//, `/notifications/${pk}/`),
+  },
+];
+
 const inflightModals = new Map<string, Promise<boolean>>();
 
-const modalContainer = (): HTMLElement | null =>
-  document.querySelector<HTMLElement>("[data-session-modal-url]");
+const sourceForId = (id: string): LazyModalSource | null =>
+  LAZY_MODAL_SOURCES.find((source) => id.startsWith(source.prefix)) ?? null;
 
-const sessionModalUrl = (pk: string): string | null => {
-  const template = modalContainer()?.dataset.sessionModalUrl;
-  return template ? template.replace(/\/session\/0\//, `/session/${pk}/`) : null;
+const lazyModalContainer = (source: LazyModalSource): HTMLElement | null =>
+  document.querySelector<HTMLElement>(`[${source.urlAttr}]`);
+
+const lazyModalUrl = (source: LazyModalSource, id: string): string | null => {
+  const template = lazyModalContainer(source)?.getAttribute(source.urlAttr);
+  return template ? source.urlFor(template, id.slice(source.prefix.length)) : null;
 };
 
 const numberWaitingPositions = (root: ParentNode): void => {
@@ -365,7 +389,7 @@ const wireInjectedModal = (dialog: HTMLElement): void => {
   htmx.process(dialog);
 };
 
-const fetchModal = async (id: string, url: string): Promise<boolean> => {
+const fetchModal = async (id: string, url: string, source: LazyModalSource): Promise<boolean> => {
   const response = await fetch(url, {
     headers: { "X-Requested-With": "fetch" },
     signal: AbortSignal.timeout(10_000),
@@ -378,7 +402,7 @@ const fetchModal = async (id: string, url: string): Promise<boolean> => {
   if (!(dialog instanceof HTMLElement) || dialog.id !== id) {
     throw new Error(`modal ${id}: unexpected fragment`);
   }
-  modalContainer()?.append(dialog);
+  lazyModalContainer(source)?.append(dialog);
   wireInjectedModal(dialog);
   return true;
 };
@@ -386,13 +410,14 @@ const fetchModal = async (id: string, url: string): Promise<boolean> => {
 /** Ensure the dialog for `id` is in the DOM, fetching it on first use. */
 const ensureModalLoaded = async (id: string): Promise<boolean> => {
   if (document.getElementById(id)) return true;
-  if (!id.startsWith(SESSION_MODAL_PREFIX)) return false;
-  const url = sessionModalUrl(id.slice(SESSION_MODAL_PREFIX.length));
+  const source = sourceForId(id);
+  if (!source) return false;
+  const url = lazyModalUrl(source, id);
   if (!url) return false;
 
   let pending = inflightModals.get(id);
   if (!pending) {
-    pending = fetchModal(id, url).catch((error: unknown) => {
+    pending = fetchModal(id, url, source).catch((error: unknown) => {
       console.error(error);
       return false;
     });
@@ -402,8 +427,10 @@ const ensureModalLoaded = async (id: string): Promise<boolean> => {
   return pending;
 };
 
-const isLazySessionModal = (id: string): boolean =>
-  id.startsWith(SESSION_MODAL_PREFIX) && modalContainer() !== null;
+const isLazyModal = (id: string): boolean => {
+  const source = sourceForId(id);
+  return source !== null && lazyModalContainer(source) !== null;
+};
 
 const syncModalsFromUrl = (): void => {
   if (openingModals.size > 0) return;
@@ -421,7 +448,7 @@ const syncModalsFromUrl = (): void => {
 
     const target = document.getElementById(modalId);
     if (
-      !isLazySessionModal(modalId) &&
+      !isLazyModal(modalId) &&
       !(target instanceof HTMLDialogElement && target.classList.contains("modal"))
     )
       continue;
@@ -477,7 +504,7 @@ if (navigation) {
 
       const target = document.getElementById(modalId);
       if (
-        !isLazySessionModal(modalId) &&
+        !isLazyModal(modalId) &&
         !(target instanceof HTMLDialogElement && target.classList.contains("modal"))
       )
         continue;
@@ -565,7 +592,7 @@ const setupFallbackLinkHandlers = (): void => {
 
     const target = document.getElementById(modalId);
     if (
-      !isLazySessionModal(modalId) &&
+      !isLazyModal(modalId) &&
       !(target instanceof HTMLDialogElement && target.classList.contains("modal"))
     )
       continue;

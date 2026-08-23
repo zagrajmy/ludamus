@@ -341,6 +341,28 @@ class NotificationReadRepository:
         return [NotificationDTO.model_validate(notification) for notification in recent]
 
     @staticmethod
+    def list_all(user_id: int) -> list[NotificationDTO]:
+        # ponytail: materializes the whole history to paginate in Python (the
+        # errata pattern). Push slicing into the query if a user's backlog grows
+        # large enough to matter.
+        rows = Notification.objects.filter(recipient_id=user_id).order_by(
+            "-creation_time"
+        )
+        return [NotificationDTO.model_validate(notification) for notification in rows]
+
+    @staticmethod
+    def mark_read_one(user_id: int, pk: int) -> NotificationDTO | None:
+        # Scoped by recipient AND pk: a notification addressed to someone else
+        # returns None (the view 404s) and is never mutated.
+        notification = Notification.objects.filter(recipient_id=user_id, pk=pk).first()
+        if notification is None:
+            return None
+        if notification.read_at is None:
+            notification.read_at = datetime.now(UTC)
+            notification.save(update_fields=["read_at"])
+        return NotificationDTO.model_validate(notification)
+
+    @staticmethod
     def mark_all_read(user_id: int) -> None:
         Notification.objects.filter(recipient_id=user_id, read_at__isnull=True).update(
             read_at=datetime.now(UTC)
