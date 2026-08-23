@@ -316,14 +316,15 @@ class EnrollmentParticipationRepositoryProtocol(Protocol):
 
 
 class TicketApiResolverProtocol(Protocol):
-    """Finds the ticketing API an event is configured to use, if any.
+    """Finds the ticketing API an event is configured to use.
 
-    Returns None when the event has no ticketing integration (or it is
-    unusable: bad config, missing connection, empty secret), which is what
-    keeps membership lookups off events that never opted into one.
+    An event with no ticketing integration (or an unusable one: bad config,
+    missing connection, empty or undecryptable secret) gets a client that
+    raises `MembershipAPIError`, so callers have one way to read "no answer
+    available" instead of two.
     """
 
-    def resolve(self, *, event_id: int, sphere_id: int) -> TicketAPIProtocol | None: ...
+    def resolve(self, *, event_id: int, sphere_id: int) -> TicketAPIProtocol: ...
 
 
 @dataclass(frozen=True)

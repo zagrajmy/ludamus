@@ -1622,7 +1622,7 @@ class UnitOfWorkProtocol(Protocol):
 
 
 class TicketAPIProtocol(Protocol):
-    def fetch_membership_count(self, user_email: str) -> int: ...
+    def fetch_membership_count(self, user_email: str, /) -> int: ...
 
 
 DEFAULT_FIELD_MAX_LENGTH = 50

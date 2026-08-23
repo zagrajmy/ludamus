@@ -5,8 +5,9 @@ from __future__ import annotations
 import logging
 
 import requests
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, ValidationError, field_validator
 
+from ludamus.links.http_check import probe_failed, probe_result
 from ludamus.links.retry import mount_retries
 from ludamus.pacts.chronology import (
     CheckOutcome,
@@ -18,13 +19,10 @@ from ludamus.pacts.legacy import MembershipAPIError
 
 logger = logging.getLogger(__name__)
 
-ERROR_HINT_LIMIT = 200
-HTTP_UNAUTHORIZED = 401
-HTTP_FORBIDDEN = 403
-HTTP_NOT_FOUND = 404
 # Nobody's address, so the probe reads a real answer from the shop without
 # touching a real customer's record.
 PROBE_EMAIL = "integration-check@example.invalid"
+PROBE_WHAT = "membership endpoint"
 
 
 class _MembershipResponse(BaseModel):
@@ -40,8 +38,11 @@ class SklepKapitularzConfig(BaseModel):
     @field_validator("base_url")
     @classmethod
     def check_base_url(cls, value: str) -> str:
-        if not value.startswith(("http://", "https://")):
-            message = "base_url must start with http:// or https://"
+        # The connection token travels in an Authorization header and the
+        # member's email in the query string, so plaintext HTTP would put both
+        # in front of every observer on the path.
+        if not value.startswith("https://"):
+            message = "base_url must start with https://"
             raise ValueError(message)
         return value
 
@@ -70,27 +71,20 @@ class SklepKapitularzIntegration(TicketingIntegrationImplementation):
         try:
             response = self._get(secret=secret, config=config, email=PROBE_EMAIL)
         except requests.RequestException as exc:
+            return probe_failed(exc, what=PROBE_WHAT)
+        result = probe_result(response, what=PROBE_WHAT)
+        if result.outcome is not CheckOutcome.OK:
+            return result
+        try:
+            _MembershipResponse.model_validate_json(response.content)
+        except ValidationError as exc:
+            # A login wall or a wrong path answers 200 with HTML. Only a body
+            # the enrollment path can actually read means the wiring works.
             return CheckResult(
-                outcome=CheckOutcome.NOT_FOUND, hint=f"Request failed: {exc}"
+                outcome=CheckOutcome.NOT_FOUND,
+                hint=f"Membership endpoint did not answer with a count: {exc}",
             )
-        if response.ok:
-            return CheckResult(outcome=CheckOutcome.OK)
-        body = (response.text or "")[:ERROR_HINT_LIMIT]
-        if response.status_code == HTTP_UNAUTHORIZED:
-            return CheckResult(outcome=CheckOutcome.AUTH_FAILED, hint=body)
-        if response.status_code == HTTP_FORBIDDEN:
-            return CheckResult(
-                outcome=CheckOutcome.FORBIDDEN,
-                hint=f"Token cannot read memberships: {body}",
-            )
-        if response.status_code == HTTP_NOT_FOUND:
-            return CheckResult(
-                outcome=CheckOutcome.NOT_FOUND, hint=f"Endpoint not found: {body}"
-            )
-        return CheckResult(
-            outcome=CheckOutcome.NOT_FOUND,
-            hint=f"Unexpected {response.status_code} from the shop: {body}",
-        )
+        return result
 
     def fetch_membership_count(
         self, *, secret: bytes, config: BaseModel, user_email: str

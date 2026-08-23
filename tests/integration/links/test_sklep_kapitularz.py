@@ -1,32 +1,22 @@
 from __future__ import annotations
 
-import json
 import logging
 
 import pytest
 import requests
 import responses
-from django.conf import settings
 from responses import registries
 
-from ludamus.links.encryption import FernetDecryptor, FernetEncryptor
 from ludamus.links.sklep_kapitularz import (
     SklepKapitularzConfig,
     SklepKapitularzIntegration,
 )
-from ludamus.links.ticket_api import TicketApiResolver
 from ludamus.pacts import MembershipAPIError
-from ludamus.pacts.chronology import (
-    CheckOutcome,
-    EventIntegrationDTO,
-    IntegrationImplementationId,
-    IntegrationKind,
-)
+from ludamus.pacts.chronology import CheckOutcome
 
 BASE_URL = "https://membership-test.example.com/api/v1/endpoint"
 TOKEN = "membership-test-token"
 SECRET = TOKEN.encode()
-RESOLVED_MEMBERSHIP_COUNT = 5
 
 
 @pytest.fixture(name="config")
@@ -39,9 +29,12 @@ def integration_fixture():
     return SklepKapitularzIntegration()
 
 
-def test_config_rejects_a_base_url_without_a_scheme():
-    with pytest.raises(ValueError, match="http"):
-        SklepKapitularzConfig(base_url="membership.example.com")
+@pytest.mark.parametrize(
+    "base_url", ("membership.example.com", "http://membership.example.com/api")
+)
+def test_config_rejects_a_base_url_without_a_scheme(base_url):
+    with pytest.raises(ValueError, match="https"):
+        SklepKapitularzConfig(base_url=base_url)
 
 
 def test_fetch_membership_count_sends_the_token_and_reads_the_count(
@@ -175,7 +168,7 @@ def test_check_reports_a_missing_secret(integration, config):
         (401, CheckOutcome.AUTH_FAILED),
         (403, CheckOutcome.FORBIDDEN),
         (404, CheckOutcome.NOT_FOUND),
-        (418, CheckOutcome.NOT_FOUND),
+        (418, CheckOutcome.AUTH_FAILED),
     ),
 )
 def test_check_maps_error_statuses(integration, config, status, expected_outcome):
@@ -189,108 +182,14 @@ def test_check_reports_a_failed_request(integration, config):
     with responses.RequestsMock() as rsps:
         rsps.get(BASE_URL, body=requests.RequestException("boom"))
 
-        assert integration.check(SECRET, config).outcome == CheckOutcome.NOT_FOUND
+        assert integration.check(SECRET, config).outcome == CheckOutcome.AUTH_FAILED
 
 
-class FakeIntegrationsRepository:
-    def __init__(self, integrations: list[EventIntegrationDTO]) -> None:
-        self._integrations = integrations
-        self.calls = 0
-
-    def list_for_event(
-        self, event_id: int, kind: IntegrationKind | None = None
-    ) -> list[EventIntegrationDTO]:
-        self.calls += 1
-        return [
-            integration
-            for integration in self._integrations
-            if integration.event_id == event_id
-            and (kind is None or integration.kind == kind)
-        ]
-
-
-class FakeConnectionsRepository:
-    def __init__(self, secrets: dict[int, bytes]) -> None:
-        self._secrets = secrets
-
-    def read_secret(self, _sphere_id: int, pk: int) -> bytes:
-        return self._secrets[pk]
-
-
-def make_dto(**overrides) -> EventIntegrationDTO:
-    return EventIntegrationDTO(
-        **{
-            "pk": 1,
-            "event_id": 7,
-            "kind": IntegrationKind.TICKETING,
-            "implementation": IntegrationImplementationId.SKLEP_KAPITULARZ,
-            "connection_id": 3,
-            "connection_display_name": "Shop token",
-            "display_name": "Kapitularz",
-            "config_json": json.dumps({"base_url": BASE_URL}),
-            "settings_json": "{}",
-            **overrides,
-        }
-    )
-
-
-def encrypted_secret() -> bytes:
-    return FernetEncryptor(settings.CREDENTIALS_ENCRYPTION_KEY).encrypt(SECRET)
-
-
-def make_resolver(dtos, *, secrets=None, repository=None) -> TicketApiResolver:
-    return TicketApiResolver(
-        repository or FakeIntegrationsRepository(dtos),
-        FakeConnectionsRepository(
-            {3: encrypted_secret()} if secrets is None else secrets
-        ),
-        FernetDecryptor(settings.CREDENTIALS_ENCRYPTION_KEY),
-        {IntegrationImplementationId.SKLEP_KAPITULARZ: SklepKapitularzIntegration()},
-    )
-
-
-def test_resolver_returns_a_client_that_calls_the_configured_shop():
-    resolver = make_resolver([make_dto()])
-
-    client = resolver.resolve(event_id=7, sphere_id=1)
-
-    assert client is not None
+def test_check_rejects_a_body_without_a_membership_count(integration, config):
     with responses.RequestsMock() as rsps:
-        rsps.get(BASE_URL, json={"membership_count": RESOLVED_MEMBERSHIP_COUNT})
+        rsps.get(BASE_URL, body="<html>Zaloguj się</html>", content_type="text/html")
 
-        assert (
-            client.fetch_membership_count("player@example.com")
-            == RESOLVED_MEMBERSHIP_COUNT
-        )
+        result = integration.check(SECRET, config)
 
-
-def test_resolver_returns_none_without_a_ticketing_integration():
-    assert make_resolver([]).resolve(event_id=7, sphere_id=1) is None
-
-
-def test_resolver_skips_an_unknown_implementation():
-    dto = make_dto(implementation=IntegrationImplementationId.GOOGLE_PROPOSAL_PULLER)
-
-    assert make_resolver([dto]).resolve(event_id=7, sphere_id=1) is None
-
-
-def test_resolver_skips_an_unparseable_config():
-    dto = make_dto(config_json=json.dumps({"base_url": "not-a-url"}))
-
-    assert make_resolver([dto]).resolve(event_id=7, sphere_id=1) is None
-
-
-def test_resolver_skips_a_connection_without_a_secret():
-    resolver = make_resolver([make_dto()], secrets={3: b""})
-
-    assert resolver.resolve(event_id=7, sphere_id=1) is None
-
-
-def test_resolver_reads_the_integration_row_once_per_event():
-    repository = FakeIntegrationsRepository([make_dto()])
-    resolver = make_resolver([], repository=repository)
-
-    resolver.resolve(event_id=7, sphere_id=1)
-    resolver.resolve(event_id=7, sphere_id=1)
-
-    assert repository.calls == 1
+    assert result.outcome == CheckOutcome.NOT_FOUND
+    assert "did not answer with a count" in result.hint

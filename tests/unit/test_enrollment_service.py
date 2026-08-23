@@ -12,6 +12,7 @@ from ludamus.pacts.enrollment import EnrollmentRepos
 from ludamus.pacts.legacy import (
     EnrollmentConfigDTO,
     EventDTO,
+    MembershipAPIError,
     UserEnrollmentConfigDTO,
     VirtualEnrollmentConfig,
 )
@@ -162,10 +163,16 @@ class FakeTicketAPI:
         return self._membership_count
 
 
+class NoTicketAPI:
+    # What the resolver hands back for an event with no usable ticketing
+    # integration: one way to say "no answer available".
+    def fetch_membership_count(self, user_email):
+        raise MembershipAPIError
+
+
 class FakeTicketApiResolver:
-    # `ticket_api=None` models an event with no ticketing integration.
     def __init__(self, ticket_api=None):
-        self.ticket_api = ticket_api
+        self.ticket_api = ticket_api or NoTicketAPI()
         self.seen: list[tuple[int, int]] = []
 
     def resolve(self, *, event_id, sphere_id):

@@ -8,7 +8,7 @@ the file grows past ~12 top-level members or 1000 lines.
 from dataclasses import dataclass
 from datetime import date, datetime
 from enum import StrEnum, auto
-from typing import TYPE_CHECKING, Literal, Protocol, TypedDict, runtime_checkable
+from typing import TYPE_CHECKING, Literal, Protocol, TypedDict
 
 from pydantic import BaseModel, ConfigDict
 
@@ -80,7 +80,6 @@ class IntegrationImplementation(Protocol):
     def check(self, secret: bytes, config: BaseModel) -> CheckResult: ...
 
 
-@runtime_checkable
 class ImportIntegrationImplementation(IntegrationImplementation, Protocol):
     def fetch_questions(
         self, *, secret: bytes, config: BaseModel, header_row: int = 1
@@ -93,7 +92,6 @@ class ImportIntegrationImplementation(IntegrationImplementation, Protocol):
     ) -> list[ImportRow]: ...
 
 
-@runtime_checkable
 class TicketingIntegrationImplementation(IntegrationImplementation, Protocol):
     def fetch_membership_count(
         self, *, secret: bytes, config: BaseModel, user_email: str

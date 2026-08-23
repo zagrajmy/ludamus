@@ -722,12 +722,9 @@ class AnonymousEnrollmentService(AnonymousEnrollmentServiceProtocol):
 def _refresh_user_config_from_api(
     *,
     user_config: UserEnrollmentConfigDTO,
-    ticket_api: TicketAPIProtocol | None,
+    ticket_api: TicketAPIProtocol,
     enrollment_config_repo: EnrollmentConfigRepositoryProtocol,
 ) -> UserEnrollmentConfigDTO | None:
-    if ticket_api is None:
-        return user_config
-
     try:
         membership_count = ticket_api.fetch_membership_count(user_config.user_email)
     except MembershipAPIError:
@@ -751,12 +748,9 @@ def _create_user_config_from_api(
     *,
     enrollment_config: EnrollmentConfigDTO,
     user_email: str,
-    ticket_api: TicketAPIProtocol | None,
+    ticket_api: TicketAPIProtocol,
     enrollment_config_repo: EnrollmentConfigRepositoryProtocol,
 ) -> UserEnrollmentConfigDTO | None:
-    if ticket_api is None:
-        return None
-
     try:
         membership_count = ticket_api.fetch_membership_count(user_email)
     except MembershipAPIError:
@@ -778,8 +772,7 @@ def get_or_create_user_enrollment_config(
     *,
     enrollment_config: EnrollmentConfigDTO,
     user_email: str,
-    ticket_api: TicketAPIProtocol | None,
-    check_interval_minutes: int,
+    ticket_api: TicketAPIProtocol,
     existing_user_config: UserEnrollmentConfigDTO | None,
     enrollment_config_repo: EnrollmentConfigRepositoryProtocol,
 ) -> UserEnrollmentConfigDTO | None:
@@ -788,7 +781,7 @@ def get_or_create_user_enrollment_config(
             return existing_user_config
 
         time_threshold = datetime.now(tz=UTC) - timedelta(
-            minutes=check_interval_minutes
+            minutes=MEMBERSHIP_CHECK_INTERVAL_MINUTES
         )
 
         if (
@@ -821,18 +814,17 @@ def get_user_enrollment_config(
     virtual_config = VirtualEnrollmentConfig()
 
     now = datetime.now(tz=UTC)
-    ticket_api: TicketAPIProtocol | None = None
-    resolved = False
-    for config in enrollment_config_repo.read_list(
+    configs = enrollment_config_repo.read_list(
         event.pk, max_start_time=now, min_end_time=now
-    ):
-        # Resolved on the first open window, not up front: an event with no
-        # window open right now never touches the integrations table.
-        if not resolved:
-            ticket_api = ticket_api_resolver.resolve(
-                event_id=event.pk, sphere_id=event.sphere_id
-            )
-            resolved = True
+    )
+    # An event with no window open right now never touches the integrations
+    # table, and with nothing to sum it has no virtual config either.
+    if not configs:
+        return None
+    ticket_api = ticket_api_resolver.resolve(
+        event_id=event.pk, sphere_id=event.sphere_id
+    )
+    for config in configs:
         existing_user_config = enrollment_config_repo.read_user_config(
             config, user_email
         )
@@ -840,7 +832,6 @@ def get_user_enrollment_config(
             enrollment_config=config,
             user_email=user_email,
             ticket_api=ticket_api,
-            check_interval_minutes=MEMBERSHIP_CHECK_INTERVAL_MINUTES,
             existing_user_config=existing_user_config,
             enrollment_config_repo=enrollment_config_repo,
         ):
