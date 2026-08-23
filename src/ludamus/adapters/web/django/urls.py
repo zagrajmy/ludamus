@@ -8,6 +8,7 @@ from ludamus.gates.web.django.chronology import views as chronology_views
 from ludamus.gates.web.django.chronology.urls import urlpatterns as chronology_gate_urls
 from ludamus.gates.web.django.crowd.urls import urlpatterns as crowd_gate_urls
 from ludamus.gates.web.django.event.print import PublicEventPrintView
+from ludamus.gates.web.django.event.urls import urlpatterns as event_gate_urls
 from ludamus.gates.web.django.notice_board.urls import (
     authenticated_urlpatterns as encounter_authenticated,
 )
@@ -75,6 +76,7 @@ urlpatterns = [
     path("brand/", TemplateView.as_view(template_name="brand.html"), name="brand"),
     path("dev/emails/", views.StagingEmailInboxView.as_view(), name="staging-emails"),
     path("", include((chronology_urls, "chronology"), namespace="chronology")),
+    path("", include((event_gate_urls, "event"), namespace="event")),
     # Permanent redirects for links shared before the `chronology/` path segment
     # was dropped from public event URLs (issue #543, A4). View names are
     # unchanged, so only externally shared literal URLs need this shim.
