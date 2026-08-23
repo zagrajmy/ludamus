@@ -1695,6 +1695,73 @@ class TestProposeSessionPageView:
         assert proposal.cover_image_url.startswith("/media/sessions/")
         assert proposal.cover_image_original_name == "cover.png"
 
+    def test_submit_survives_cover_cleanup_delete_failure(
+        self, authenticated_client, event, faker, time_zone, proposal_category
+    ):
+        # A storage backend that refuses the cleanup delete must not discard a
+        # completed submission: the cover bytes are already read before delete.
+        self._activate_proposals(event, faker, time_zone)
+        self._set_wizard_category(authenticated_client, event, proposal_category)
+        image = SimpleUploadedFile("cover.png", PNG_BYTES, content_type="image/png")
+        authenticated_client.post(
+            self._get_details_url(event.slug),
+            {
+                "display_name": "Test User",
+                "title": "Test Session",
+                "description": "A test session",
+                "participants_limit": "6",
+                "cover_image": image,
+            },
+            format="multipart",
+        )
+
+        with patch.object(
+            default_storage, "delete", side_effect=OSError("permission denied")
+        ):
+            response = authenticated_client.post(self._get_submit_url(event.slug), {})
+
+        assert response.status_code == HTTPStatus.FOUND
+        proposal = Session.objects.get(title="Test Session")
+        assert proposal.cover_image
+        assert proposal.cover_image_original_name == "cover.png"
+
+    def test_details_clear_survives_cover_delete_failure(
+        self, authenticated_client, event, faker, time_zone, proposal_category
+    ):
+        self._activate_proposals(event, faker, time_zone)
+        self._set_wizard_category(authenticated_client, event, proposal_category)
+        image = SimpleUploadedFile("cover.png", PNG_BYTES, content_type="image/png")
+        authenticated_client.post(
+            self._get_details_url(event.slug),
+            {
+                "display_name": "Test User",
+                "title": "Test Session",
+                "description": "A test session",
+                "participants_limit": "6",
+                "cover_image": image,
+            },
+            format="multipart",
+        )
+
+        with patch.object(
+            default_storage, "delete", side_effect=OSError("permission denied")
+        ):
+            response = authenticated_client.post(
+                self._get_details_url(event.slug),
+                {
+                    "display_name": "Test User",
+                    "title": "Test Session",
+                    "description": "A test session",
+                    "participants_limit": "6",
+                    "cover_image-clear": "on",
+                },
+                format="multipart",
+            )
+
+        assert response.status_code == HTTPStatus.OK
+        wizard = authenticated_client.session[f"propose_{event.slug}"]
+        assert "cover_image_temp" not in wizard
+
     def test_submit_rejects_too_large_cover_image(
         self, authenticated_client, event, faker, time_zone, proposal_category
     ):
