@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from datetime import UTC, date, datetime
 from functools import cached_property
 from typing import TYPE_CHECKING, Any
 
@@ -37,6 +36,7 @@ from ludamus.pacts import NotFoundError, RedirectError
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Mapping, Sequence
+    from datetime import date
 
     from django.core.files.uploadedfile import UploadedFile
     from django.forms import Form
@@ -473,11 +473,10 @@ class ProposeWizardMixin(View):
                 reverse("web:index"), error=_("Event not found.")
             ) from None
 
-        if not service.is_proposal_active(event):
+        if not event.is_proposal_active:
             redirect_url = (
                 reverse("web:chronology:event", kwargs={"slug": event_slug})
-                if event.publication_time is not None
-                and event.publication_time <= datetime.now(tz=UTC)
+                if event.is_published
                 else reverse("web:index")
             )
             raise RedirectError(

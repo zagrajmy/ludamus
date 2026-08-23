@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from ludamus.mills.event import is_proposal_active
 from ludamus.mills.submissions.mapping import generate_unique_slug
 from ludamus.pacts import (
     FacilitatorData,
@@ -59,10 +58,6 @@ class ProposeSessionService(ProposeSessionServiceProtocol):
 
     def get_event(self, slug: str, sphere_id: int) -> EventDTO:
         return self._repos.events.read_by_slug(slug, sphere_id)
-
-    @staticmethod
-    def is_proposal_active(event: EventDTO) -> bool:
-        return is_proposal_active(event)
 
     def get_proposal_settings(self, event_id: int) -> EventProposalSettingsDTO:
         return self._repos.event_proposal_settings.read_by_event(event_id)

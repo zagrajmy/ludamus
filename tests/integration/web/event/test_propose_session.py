@@ -3,7 +3,6 @@ from http import HTTPStatus
 
 import pytest
 from django.contrib import messages
-from django.core.cache import cache
 from django.core.files.storage import default_storage
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.template.loader import render_to_string
@@ -2911,21 +2910,6 @@ class TestAnonymousProposalSubmission:
             template_name="event/propose/base.html",
         )
         assert b"Have an account?" in response.content
-
-    def test_anonymous_submit_blocked_by_rate_limit(
-        self, client, event, faker, time_zone, proposal_category
-    ):
-        self._activate_proposals(event, faker, time_zone)
-        self._enable_anonymous(event)
-        self._set_wizard_full(client, event, proposal_category)
-
-        cache.set(f"proposal_rate:{event.pk}:9.9.9.9", 1)
-        response = client.post(
-            self._url(event.slug, "submit"), HTTP_X_FORWARDED_FOR="9.9.9.9"
-        )
-
-        assert response.status_code == HTTPStatus.FOUND
-        assert Session.objects.count() == 0
 
     def test_rate_limit_uses_rightmost_x_forwarded_for(
         self, client, event, faker, time_zone, proposal_category

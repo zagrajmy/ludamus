@@ -403,25 +403,6 @@ class Services:
         )
 
     @cached_property
-    def propose_session(self) -> ProposeSessionService:
-        return ProposeSessionService(
-            transaction=self._transaction,
-            repos=ProposeRepos(
-                events=self._repos.events,
-                event_proposal_settings=self._repos.event_proposal_settings,
-                categories=self._repos.proposal_categories,
-                tracks=self._repos.tracks,
-                facilitators=self._repos.facilitators,
-                sessions=self._repos.sessions,
-                session_fields=self._repos.session_fields,
-                personal_fields=self._repos.personal_data_fields,
-                personal_data_field_values=self._repos.personal_data_field_values,
-                users=self._repos.active_users,
-            ),
-            cache=DjangoCache(),
-        )
-
-    @cached_property
     def enrollment(self) -> EnrollmentService:
         membership_check_interval: int = settings.MEMBERSHIP_API_CHECK_INTERVAL
         return EnrollmentService(
@@ -532,6 +513,25 @@ class Services:
             transaction=self._transaction,
             event_integrations=self.event_integrations,
             repos=self._import_repos,
+        )
+
+    @cached_property
+    def propose_session(self) -> ProposeSessionService:
+        return ProposeSessionService(
+            transaction=self._transaction,
+            repos=ProposeRepos(
+                events=self._repos.events,
+                event_proposal_settings=self._repos.event_proposal_settings,
+                categories=self._repos.proposal_categories,
+                tracks=self._repos.tracks,
+                sessions=self._repos.sessions,
+                session_fields=self._repos.session_fields,
+                personal_fields=self._repos.personal_data_fields,
+                personal_data_field_values=self._repos.personal_data_field_values,
+                facilitators=self._repos.facilitators,
+                users=self._repos.active_users,
+            ),
+            cache=DjangoCache(),
         )
 
     @cached_property

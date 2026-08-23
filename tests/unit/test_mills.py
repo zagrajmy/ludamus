@@ -11,7 +11,7 @@ from ludamus.mills import (
     outlook_calendar_url,
     render_markdown,
 )
-from ludamus.mills.event import build_panel_stats, is_proposal_active
+from ludamus.mills.event import build_panel_stats
 from ludamus.mills.multiverse import ConnectionsService
 from ludamus.mills.submissions.field_layout import ImportFieldLayoutService
 from ludamus.mills.submissions.import_log import ImportLogService
@@ -389,27 +389,27 @@ class TestIsProposalActive:
         base_event_data["proposal_start_time"] = None
         event = EventDTO(**base_event_data)
 
-        assert is_proposal_active(event) is False
+        assert event.is_proposal_active is False
 
     def test_returns_false_when_proposal_end_time_is_none(self, base_event_data):
         base_event_data["proposal_end_time"] = None
         event = EventDTO(**base_event_data)
 
-        assert is_proposal_active(event) is False
+        assert event.is_proposal_active is False
 
     def test_returns_false_when_both_proposal_times_are_none(self, base_event_data):
         base_event_data["proposal_start_time"] = None
         base_event_data["proposal_end_time"] = None
         event = EventDTO(**base_event_data)
 
-        assert is_proposal_active(event) is False
+        assert event.is_proposal_active is False
 
     def test_returns_true_when_current_time_within_proposal_window(
         self, base_event_data
     ):
         event = EventDTO(**base_event_data)
 
-        assert is_proposal_active(event) is True
+        assert event.is_proposal_active is True
 
     def test_returns_false_when_current_time_before_proposal_window(
         self, base_event_data
@@ -419,7 +419,7 @@ class TestIsProposalActive:
         base_event_data["proposal_end_time"] = now + timedelta(days=2)
         event = EventDTO(**base_event_data)
 
-        assert is_proposal_active(event) is False
+        assert event.is_proposal_active is False
 
     def test_returns_false_when_current_time_after_proposal_window(
         self, base_event_data
@@ -429,20 +429,20 @@ class TestIsProposalActive:
         base_event_data["proposal_end_time"] = now - timedelta(days=1)
         event = EventDTO(**base_event_data)
 
-        assert is_proposal_active(event) is False
+        assert event.is_proposal_active is False
 
     def test_returns_false_when_publication_time_is_none(self, base_event_data):
         base_event_data["publication_time"] = None
         event = EventDTO(**base_event_data)
 
-        assert is_proposal_active(event) is False
+        assert event.is_proposal_active is False
 
     def test_returns_false_when_event_not_yet_published(self, base_event_data):
         now = datetime.now(tz=UTC)
         base_event_data["publication_time"] = now + timedelta(days=1)
         event = EventDTO(**base_event_data)
 
-        assert is_proposal_active(event) is False
+        assert event.is_proposal_active is False
 
 
 class TestGenerateIcsContent:
