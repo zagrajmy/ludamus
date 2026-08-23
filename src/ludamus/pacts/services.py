@@ -66,6 +66,7 @@ if TYPE_CHECKING:
         PrintMaterialsServiceProtocol,
     )
     from ludamus.pacts.proposal_categories import ProposalCategoriesServiceProtocol
+    from ludamus.pacts.propose import ProposeSessionServiceProtocol
     from ludamus.pacts.safety import EventBanServiceProtocol, ShadowbanServiceProtocol
     from ludamus.pacts.submissions import (
         CFPPersonalDataFieldServiceProtocol,
@@ -200,6 +201,7 @@ class ServicesProtocol(Protocol):
     def discounts_export(self) -> DiscountsExportServiceProtocol: ...
     @property
     def konwencik_export(self) -> KonwencikExportServiceProtocol: ...
+    def propose_session(self) -> ProposeSessionServiceProtocol: ...
     @property
     def tracks_panel(self) -> TracksPanelServiceProtocol: ...
     @property
