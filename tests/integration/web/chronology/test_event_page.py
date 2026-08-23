@@ -1063,27 +1063,48 @@ class TestEventPageView:
         session_a.tracks.add(track_a)
         session_b = SessionFactory(event=event, category=category_b, min_age=0)
         session_b.tracks.add(track_b)
-        AgendaItemFactory(session=session_a, space=space)
-        AgendaItemFactory(
+        item_a = AgendaItemFactory(session=session_a, space=space)
+        item_b = AgendaItemFactory(
             session=session_b,
             space=space,
             start_time=timezone.now() + timedelta(days=7, hours=3),
         )
+        cards = [
+            session_card(
+                item_a,
+                presenter=session_a.presenter,
+                category_name=category_a.name,
+                track_names=[track_a.name],
+            ),
+            session_card(
+                item_b,
+                presenter=session_b.presenter,
+                category_name=category_b.name,
+                track_names=[track_b.name],
+            ),
+        ]
+        hour_data = {item_a.start_time: [cards[0]], item_b.start_time: [cards[1]]}
 
         response = client.get(self._get_url(event.slug))
 
-        content = response.content.decode()
-        # Filter controls render, with an option per value — they only appear
-        # when there is more than one, so this also proves the two name lists.
-        assert 'data-category="__track"' in content
-        assert 'data-category="__category"' in content
-        assert response.context["track_filter_names"] == ["Main Hall", "Side Room"]
-        assert response.context["category_filter_names"] == ["Board games", "RPG"]
-        # Cards carry the filter pairs.
-        assert "__track:Main Hall" in content
-        assert "__track:Side Room" in content
-        assert "__category:RPG" in content
-        assert "__category:Board games" in content
+        # Both filters list every value in use — they render only when a field
+        # has more than one, so two names each is what puts the controls up.
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=event_page_context(
+                event,
+                url=self._get_url(event.slug),
+                hour_data=hour_data,
+                future_unavailable_hour_data=hour_data,
+                sessions=cards,
+                track_filter_names=[track_a.name, track_b.name],
+                category_filter_names=[category_b.name, category_a.name],
+                has_enrollable_sessions=True,
+                scheduled_count=len(cards),
+            ),
+            template_name=["chronology/event.html"],
+        )
 
     def test_schedule_hides_sessions_with_any_private_track(self, client, event, space):
         public_track = Track.objects.create(
