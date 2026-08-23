@@ -1,0 +1,11 @@
+{# Buttons of the proposals bulk-status toolbar; see _bulk_toolbar.html. #}
+{% load i18n %}
+<span class="text-sm text-foreground-muted">{% translate "Set status:" %}</span>
+{% translate "Accept" as t_accept %}
+{% include "panel/parts/_bulk_action_button.html" with label=t_accept name="action" value="accept" variant="primary" only %}
+{% translate "Hold" as t_hold %}
+{% include "panel/parts/_bulk_action_button.html" with label=t_hold name="action" value="hold" variant="secondary" only %}
+{% translate "Move to pending" as t_pending %}
+{% include "panel/parts/_bulk_action_button.html" with label=t_pending name="action" value="pending" variant="secondary" only %}
+{% translate "Reject" as t_reject %}
+{% include "panel/parts/_bulk_action_button.html" with label=t_reject name="action" value="reject" variant="danger" only %}

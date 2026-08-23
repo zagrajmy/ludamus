@@ -8,6 +8,7 @@ from ludamus.pacts.fields import (
 )
 from ludamus.pacts.legacy import (
     DEFAULT_FIELD_MAX_LENGTH,
+    NO_LOCATION,
     OCCUPYING_PARTICIPATION_STATUSES,
     UNSCHEDULED_LIST_LIMIT,
     AgendaItemData,
@@ -57,8 +58,6 @@ from ludamus.pacts.legacy import (
     NotFoundError,
     NotificationKind,
     PanelStatsDTO,
-    PendingSessionDTO,
-    PendingSessionTimeSlotDTO,
     PersonalDataFieldCreateData,
     PersonalDataFieldRepositoryProtocol,
     PersonalDataFieldUpdateData,
@@ -123,6 +122,7 @@ from ludamus.pacts.legacy import (
 
 __all__ = [
     "DEFAULT_FIELD_MAX_LENGTH",
+    "NO_LOCATION",
     "OCCUPYING_PARTICIPATION_STATUSES",
     "UNSCHEDULED_LIST_LIMIT",
     "AgendaItemDTO",
@@ -178,8 +178,6 @@ __all__ = [
     "OrganizerFieldDTO",
     "OrganizerFieldOptionDTO",
     "PanelStatsDTO",
-    "PendingSessionDTO",
-    "PendingSessionTimeSlotDTO",
     "PersonalDataFieldCreateData",
     "PersonalDataFieldRepositoryProtocol",
     "PersonalDataFieldUpdateData",

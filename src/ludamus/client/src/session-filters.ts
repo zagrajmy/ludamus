@@ -1,6 +1,26 @@
 // Search + filtering for the event page session list. Reads everything it
 // needs from `data-*` attributes the Django template renders onto each card,
-// so this module stays free of server-side coupling.
+// so this module stays free of server-side coupling. Active filters are
+// mirrored into the query string (replace-only, see url-state.ts): a filtered
+// view is shareable and survives reloads and view-tab swaps without becoming
+// history entries or server round trips.
+
+import {
+  flagParam,
+  hrefWithSearchParams,
+  intParam,
+  replaceSearchParams,
+  type SearchParamCodec,
+  stringParam,
+} from "./url-state";
+
+// Matches the min/max attributes on the age inputs; a shared bound would be
+// a template/TS coupling for two literals.
+const ageParam = intParam(0, 99);
+
+// filterSessions runs per keystroke, and Safari rate-limits replaceState hard
+// enough (~100 calls per 30s) that typing unthrottled could trip it.
+const URL_SYNC_DEBOUNCE_MS = 300;
 
 const byId = <T extends HTMLElement = HTMLElement>(id: string): T => {
   const el = document.getElementById(id);
@@ -14,28 +34,30 @@ const requireChild = <T extends HTMLElement>(parent: HTMLElement, selector: stri
   return el;
 };
 
+// A location option holds either a space's sort key or, prefixed, a venue slug
+// standing for every room under it. Sort keys open with the parent's zero-padded
+// order, so no room's key can be mistaken for one.
+const VENUE_VALUE_PREFIX = "venue:";
+
 const escapeRegExp = (value: string): string =>
   value.replaceAll(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
 
 const selectedLabel = (select: HTMLSelectElement): string =>
   select.options.item(select.selectedIndex)?.text ?? "";
 
-const addOption = (select: HTMLSelectElement, value: string, label: string): void => {
+const addOption = (
+  select: HTMLOptGroupElement | HTMLSelectElement,
+  value: string,
+  label: string,
+): void => {
   const option = document.createElement("option");
   option.value = value;
   option.textContent = label;
   select.append(option);
 };
 
-// Listeners this module puts on `document` rather than on its own controls.
-// The schedule view tabs swap the toolbar and the cards out from under it, so
-// each init aborts the previous one's instead of stacking a closure over
-// detached nodes.
 let documentListeners = new AbortController();
 
-// The filter UI is only rendered when the event has scheduled sessions
-// (`{% if hour_data %}` in the template). The bundle still loads on empty
-// event pages, so bail out cleanly instead of throwing when it's absent.
 const initSessionFilters = (): void => {
   documentListeners.abort();
   documentListeners = new AbortController();
@@ -43,9 +65,10 @@ const initSessionFilters = (): void => {
   const statusFilter = byId<HTMLSelectElement>("status-filter");
   const dayFilter = byId<HTMLSelectElement>("day-filter");
   const hourFilter = byId<HTMLSelectElement>("hour-filter");
-  const venueFilter = byId<HTMLSelectElement>("venue-filter");
+  const spaceFilter = byId<HTMLSelectElement>("space-filter");
   const minAgeFilter = byId<HTMLInputElement>("min-age-filter");
   const maxAgeFilter = byId<HTMLInputElement>("max-age-filter");
+  const enrollmentFilter = document.querySelector<HTMLInputElement>("#enrollment-filter");
   const filterToggle = byId("filter-toggle");
   const filterPanel = byId("filter-panel");
   const filterChipsBar = byId("active-filter-chips");
@@ -59,10 +82,6 @@ const initSessionFilters = (): void => {
 
   const tagFilters: Record<string, HTMLSelectElement> = {};
 
-  // Fold diacritics and lowercase so "swiata" matches "Świata". NFD splits
-  // accented letters into base + combining mark, but some letters (e.g. "ł",
-  // "ø", "ß") have no decomposition, so map those explicitly before stripping
-  // the combining marks.
   const COMBINING_MARKS = /[\u0300-\u036F]/g;
   const NON_DECOMPOSING_MAP: Record<string, string> = {
     æ: "ae",
@@ -81,10 +100,6 @@ const initSessionFilters = (): void => {
       .normalize("NFD")
       .replaceAll(COMBINING_MARKS, "");
 
-  // Precompute the searchable haystack (title + host + description) once per
-  // card. The text is static, so there's no need to re-normalize it on every
-  // keystroke; the description is read from the card's existing paragraph
-  // rather than duplicated into the DOM.
   const cardHaystacks = new Map<HTMLElement, string>();
   for (const card of sessionCards) {
     const descEl = card.querySelector("[data-session-description]");
@@ -95,9 +110,7 @@ const initSessionFilters = (): void => {
     );
   }
 
-  // Populate day filter dropdown from session data. Only relevant for multi-day
-  // events, so reveal it once more than one day is present.
-  const dayMap = new Map<string, string>(); // ISO date -> human-readable label
+  const dayMap = new Map<string, string>();
   for (const card of sessionCards) {
     const { day } = card.dataset;
     if (day && !dayMap.has(day)) dayMap.set(day, card.dataset.dayLabel ?? day);
@@ -108,8 +121,6 @@ const initSessionFilters = (): void => {
     document.getElementById("day-filter-group")?.classList.remove("hidden");
   }
 
-  // Populate hour filter dropdown from session data. Reveal it once more than
-  // one start hour is present.
   const hourSet = new Set<string>();
   for (const card of sessionCards) {
     if (card.dataset.hour) hourSet.add(card.dataset.hour);
@@ -118,32 +129,63 @@ const initSessionFilters = (): void => {
   if (hourSet.size > 1) {
     document.getElementById("hour-filter-group")?.classList.remove("hidden");
   }
-  // Reveal the shared Day/Hour row when either filter is in play.
   if (dayMap.size > 1 || hourSet.size > 1) {
     document.getElementById("day-hour-filter-group")?.classList.remove("hidden");
   }
 
-  // Populate venue filter dropdown from session data.
-  const venueMap = new Map<string, string>(); // slug -> name
+  // Populate the location filter — one control for the whole space tree. The
+  // option value is the space's sort key, so sorting the entries lays the rooms
+  // out in the panel's tree order and lands every room of a parent space in one
+  // run, which is what the <optgroup>s are cut from. Each group opens with an
+  // option selecting the venue whole; rooms with no parent go straight onto the
+  // select.
+  const allRoomsLabel = spaceFilter.dataset.allRoomsLabel ?? "";
+  const spaceMap = new Map<string, { groupKey: string; groupName: string; name: string }>();
   for (const card of sessionCards) {
-    const venueSlug = card.dataset.venue;
-    if (venueSlug && !venueMap.has(venueSlug)) {
-      venueMap.set(venueSlug, card.dataset.venueName ?? venueSlug);
+    const spaceKey = card.dataset.space;
+    if (spaceKey && !spaceMap.has(spaceKey)) {
+      spaceMap.set(spaceKey, {
+        // The run is cut on the parent's slug, never its name: a name is unique
+        // only among its siblings, so two branches can carry the same one and
+        // must not collapse into a single group.
+        groupKey: card.dataset.venue ?? "",
+        groupName: card.dataset.venueName ?? "",
+        name: card.dataset.spaceName ?? spaceKey,
+      });
     }
   }
-  for (const [slug, name] of [...venueMap.entries()].sort((a, b) => a[1].localeCompare(b[1])))
-    addOption(venueFilter, slug, name);
-  if (venueMap.size > 1) {
-    document.getElementById("venue-filter-group")?.classList.remove("hidden");
+  let currentGroup: HTMLOptGroupElement | undefined;
+  let currentGroupKey: string | undefined;
+  // Codepoint order, not localeCompare: the key's structure is carried by its
+  // "|" separators, and collation treats punctuation as ignorable.
+  for (const [key, { groupKey, groupName, name }] of [...spaceMap.entries()].sort(([a], [b]) =>
+    a < b ? -1 : Number(a > b),
+  )) {
+    if (!groupKey) {
+      currentGroup = undefined;
+      currentGroupKey = undefined;
+    } else if (currentGroupKey !== groupKey) {
+      currentGroup = document.createElement("optgroup");
+      currentGroup.label = groupName;
+      currentGroupKey = groupKey;
+      spaceFilter.append(currentGroup);
+      addOption(
+        currentGroup,
+        `${VENUE_VALUE_PREFIX}${groupKey}`,
+        `${groupName} — ${allRoomsLabel}`,
+      );
+    }
+    addOption(currentGroup ?? spaceFilter, key, name);
+  }
+  if (spaceMap.size > 1) {
+    document.getElementById("space-filter-group")?.classList.remove("hidden");
   }
 
-  // Populate options for each tag filter category created by the template.
   for (const select of document.querySelectorAll<HTMLSelectElement>(".tag-filter")) {
     const categorySlug = select.dataset.category;
     if (!categorySlug) continue;
     tagFilters[categorySlug] = select;
 
-    // Parse tags from session data for this category only.
     const categoryTags = new Set<string>();
     for (const card of sessionCards) {
       const tagCategoriesData = card.dataset.tagCategories;
@@ -160,12 +202,154 @@ const initSessionFilters = (): void => {
     select.addEventListener("change", filterSessions);
   }
 
+  // Controls whose value lives in the query string too, each bound through a
+  // typed codec from url-state.ts (which also lists the reserved param names
+  // a mirror must stay clear of). The codec is the type boundary: the erased
+  // entry below only ever moves raw URL strings, so a parse and a serialize
+  // that disagree can't typecheck their way in.
+  interface MirrorEntry {
+    /** Push a raw URL value into the control, through the codec. */
+    applyRaw: (raw: string | null) => void;
+    /** Does the control already hold what `raw` decodes to? */
+    matchesRaw: (raw: string | null) => boolean;
+    /** Current control value, URL-encoded; null when the param drops. */
+    readRaw: () => string | null;
+  }
+
+  const mirrored = new Map<string, MirrorEntry>();
+  const mirror = <T>(
+    name: string,
+    codec: SearchParamCodec<T>,
+    read: () => T,
+    write: (value: T) => void,
+  ): void => {
+    mirrored.set(name, {
+      applyRaw: (raw) => {
+        write(codec.parse(raw));
+      },
+      matchesRaw: (raw) => read() === codec.parse(raw),
+      readRaw: () => codec.serialize(read()),
+    });
+  };
+
+  const mirrorInput = (name: string, input: HTMLInputElement): void => {
+    mirror(
+      name,
+      stringParam,
+      () => input.value,
+      (value) => {
+        input.value = value;
+      },
+    );
+  };
+  // Assigning a value no <option> carries leaves a select on "", so a stale
+  // deep link (a venue renamed, a tag gone) degrades to "all", not an error.
+  // That makes the DOM the value schema here; the options are built from the
+  // cards at init, so a static codec could only restate them, worse.
+  const mirrorSelect = (name: string, select: HTMLSelectElement): void => {
+    mirror(
+      name,
+      stringParam,
+      () => select.value,
+      (value) => {
+        select.value = value;
+      },
+    );
+  };
+  // A number input's value is "" or a numeric string, never garbage; the
+  // codec adds the range check the attribute alone doesn't enforce on load.
+  const mirrorAge = (name: string, input: HTMLInputElement): void => {
+    mirror(
+      name,
+      ageParam,
+      () => (input.value === "" ? null : Number(input.value)),
+      (value) => {
+        input.value = value === null ? "" : String(value);
+      },
+    );
+  };
+
+  mirrorInput("q", sessionFilter);
+  mirrorSelect("status", statusFilter);
+  if (enrollmentFilter) {
+    mirror(
+      "enrollment",
+      flagParam,
+      () => enrollmentFilter.checked,
+      (value) => {
+        enrollmentFilter.checked = value;
+      },
+    );
+  }
+  mirrorSelect("day", dayFilter);
+  mirrorSelect("hour", hourFilter);
+  mirrorSelect("space", spaceFilter);
+  mirrorAge("age-min", minAgeFilter);
+  mirrorAge("age-max", maxAgeFilter);
+  // `__track` and `__category` are the template's own pseudo-categories, so
+  // they get clean names; organizer-defined categories are event-scoped slugs,
+  // prefixed so one named e.g. "status" cannot shadow a built-in param.
+  const TAG_PARAM_NAMES: Record<string, string> = { __category: "category", __track: "track" };
+  for (const [slug, select] of Object.entries(tagFilters)) {
+    mirrorSelect(TAG_PARAM_NAMES[slug] ?? `tag-${slug}`, select);
+  }
+
+  const mirrorState = (): Map<string, string | null> =>
+    new Map([...mirrored].map(([name, entry]) => [name, entry.readRaw()]));
+
+  let urlSyncTimer: ReturnType<typeof setTimeout> | undefined;
+  documentListeners.signal.addEventListener("abort", () => clearTimeout(urlSyncTimer));
+  const scheduleUrlSync = (): void => {
+    clearTimeout(urlSyncTimer);
+    urlSyncTimer = setTimeout(() => {
+      const state = mirrorState();
+      replaceSearchParams(state);
+      // The view tabs are hx-boosted GETs to `?view=…`; splice the mirror
+      // into their hrefs so open-in-new-tab keeps the filters. A plain click
+      // ignores this — htmx captured the href at process time — and is
+      // covered by the htmx:configRequest listener below instead.
+      for (const tab of document.querySelectorAll<HTMLAnchorElement>(
+        '#schedule-region a[role="tab"][href]',
+      )) {
+        tab.setAttribute("href", hrefWithSearchParams(tab.getAttribute("href") ?? "", state));
+      }
+    }, URL_SYNC_DEBOUNCE_MS);
+  };
+
+  // Filters survive a view-tab switch by riding the pushed URL: the mirror is
+  // spliced into the boosted request path at send time (fresh, no debounce
+  // staleness), and the swapped-in toolbar reads it back off location.
+  document.body.addEventListener(
+    "htmx:configRequest",
+    (event) => {
+      const { detail } = event as CustomEvent<{ elt: Element; path: string }>;
+      if (!detail.elt.matches('#schedule-region a[role="tab"]')) return;
+      detail.path = hrefWithSearchParams(detail.path, mirrorState());
+    },
+    { signal: documentListeners.signal },
+  );
+
+  /** Read the query string back into the controls; true when anything moved. */
+  const applyUrlState = (): boolean => {
+    const params = new URLSearchParams(globalThis.location.search);
+    let changed = false;
+    for (const [name, entry] of mirrored) {
+      const raw = params.get(name);
+      if (entry.matchesRaw(raw)) continue;
+      const before = entry.readRaw();
+      entry.applyRaw(raw);
+      changed ||= entry.readRaw() !== before;
+    }
+    return changed;
+  };
+
   function filterSessions(): void {
     const searchTokens = normalizeText(sessionFilter.value).split(/\s+/).filter(Boolean);
     const statusValue = statusFilter.value;
+    const enrollmentOnly = enrollmentFilter?.checked ?? false;
     const dayValue = dayFilter.value;
     const hourValue = hourFilter.value;
-    const venueValue = venueFilter.value;
+    const spaceValue = spaceFilter.value;
     const minAgeValue = minAgeFilter.value;
     const maxAgeValue = maxAgeFilter.value;
 
@@ -178,10 +362,6 @@ const initSessionFilters = (): void => {
     for (const card of sessionCards) {
       let show = true;
 
-      // Fuzzy text filter: every token must appear somewhere in the precomputed
-      // title + host + description haystack, so "Bestie Świata Jakub" matches a
-      // "Bestie Świata" session hosted by "Jakub", and a word from the blurb
-      // matches too.
       if (searchTokens.length > 0) {
         const haystack = cardHaystacks.get(card) ?? "";
         show &&= searchTokens.every((token) => haystack.includes(token));
@@ -204,22 +384,20 @@ const initSessionFilters = (): void => {
 
             break;
           }
-          // Spans free and full sessions alike, so it cannot be one more
-          // mutually exclusive data-status value.
-          case "takes-enrollment": {
-            show &&= card.dataset.takesEnrollment === "true";
-
-            break;
-          }
           default: {
             show &&= card.dataset.status === statusValue;
           }
         }
       }
 
+      if (enrollmentOnly) show &&= card.dataset.takesEnrollment === "true";
       if (dayValue) show &&= card.dataset.day === dayValue;
       if (hourValue) show &&= card.dataset.hour === hourValue;
-      if (venueValue) show &&= card.dataset.venue === venueValue;
+      if (spaceValue) {
+        show &&= spaceValue.startsWith(VENUE_VALUE_PREFIX)
+          ? card.dataset.venue === spaceValue.slice(VENUE_VALUE_PREFIX.length)
+          : card.dataset.space === spaceValue;
+      }
 
       if (minAgeValue || maxAgeValue) {
         const sessionMinAge = Number.parseInt(card.dataset.minAge ?? "", 10) || 0;
@@ -234,9 +412,6 @@ const initSessionFilters = (): void => {
         for (const categorySlug of Object.keys(activeTagFilters)) {
           const requiredTag = escapeRegExp(activeTagFilters[categorySlug]);
           const escapedCategory = escapeRegExp(categorySlug);
-          // Match a whole `slug:value` entry, anchored to the `;` delimiters
-          // (or string ends) so one category can't impersonate another whose
-          // slug it is a substring of.
           const categoryPattern = new RegExp(
             `(?:^|;)${escapedCategory}:${requiredTag}(?:;|$)`,
             "i",
@@ -250,13 +425,9 @@ const initSessionFilters = (): void => {
       }
 
       const cardContainer = card.closest<HTMLElement>(".session-wrapper");
-      // divide-y-visible (index.css) selects on the [hidden] attribute this
-      // write toggles, so the hiding mechanism can't change without updating
-      // that utility.
       if (cardContainer) cardContainer.hidden = !show;
     }
 
-    // Hide empty time slot sections. The card and ledger layouts nest their
     for (const section of document.querySelectorAll<HTMLElement>(".time-slot-section")) {
       const cardGrid = section.querySelector(".session-grid") ?? section;
       let visibleCards = cardGrid.querySelectorAll(".session-wrapper:not([hidden])");
@@ -268,7 +439,6 @@ const initSessionFilters = (): void => {
       section.hidden = visibleCards.length === 0;
     }
 
-    // Compact schedule groups slots under day headers; hide a day whose every
     // slot is now empty so the header doesn't dangle. No-op on the card layout.
     for (const day of document.querySelectorAll<HTMLElement>("[data-schedule-day]")) {
       const visibleSlots = day.querySelectorAll(".time-slot-section:not([hidden])");
@@ -277,17 +447,16 @@ const initSessionFilters = (): void => {
 
     updateFilterUI();
 
-    // The hour rail (event-timeline.ts) owns its markers' visibility; tell it
-    // the set of visible sections changed so it can refit itself.
     document.dispatchEvent(new CustomEvent("schedule:filtered"));
   }
 
   function clearAllFilters(): void {
     sessionFilter.value = "";
     statusFilter.value = "";
+    if (enrollmentFilter) enrollmentFilter.checked = false;
     dayFilter.value = "";
     hourFilter.value = "";
-    venueFilter.value = "";
+    spaceFilter.value = "";
     minAgeFilter.value = "";
     maxAgeFilter.value = "";
     for (const categorySlug of Object.keys(tagFilters)) {
@@ -335,10 +504,19 @@ const initSessionFilters = (): void => {
       });
     };
 
+    if (enrollmentFilter?.checked) {
+      chips.push({
+        clear: () => {
+          enrollmentFilter.checked = false;
+          filterSessions();
+        },
+        label: filterChipsBar.dataset.enrollmentLabel ?? "",
+      });
+    }
     pushSelectChip(statusFilter);
     pushSelectChip(dayFilter);
     pushSelectChip(hourFilter);
-    pushSelectChip(venueFilter);
+    pushSelectChip(spaceFilter);
     pushAgeChip(minAgeFilter, filterChipsBar.dataset.minAgeLabel ?? "Age ≥");
     pushAgeChip(maxAgeFilter, filterChipsBar.dataset.maxAgeLabel ?? "Age ≤");
     for (const cat of Object.keys(tagFilters)) pushSelectChip(tagFilters[cat]);
@@ -374,6 +552,8 @@ const initSessionFilters = (): void => {
       filterChipsBar.classList.remove("has-chips");
     }
 
+    scheduleUrlSync();
+
     const visibleCards = document.querySelectorAll(".session-wrapper:not([hidden])");
     const anyFilterActive = chips.length > 0 || sessionFilter.value.trim() !== "";
     if (filterNoResults) {
@@ -387,9 +567,10 @@ const initSessionFilters = (): void => {
 
   sessionFilter.addEventListener("input", filterSessions);
   statusFilter.addEventListener("change", filterSessions);
+  enrollmentFilter?.addEventListener("change", filterSessions);
   dayFilter.addEventListener("change", filterSessions);
   hourFilter.addEventListener("change", filterSessions);
-  venueFilter.addEventListener("change", filterSessions);
+  spaceFilter.addEventListener("change", filterSessions);
   minAgeFilter.addEventListener("input", filterSessions);
   maxAgeFilter.addEventListener("input", filterSessions);
 
@@ -398,47 +579,52 @@ const initSessionFilters = (): void => {
     filterToggle.setAttribute("aria-expanded", String(isOpen));
   });
 
-  // Close filter panel when clicking outside or focus leaves.
   const filtersWrapper = filterToggle.closest<HTMLElement>(".filters-popover-wrapper");
   if (filtersWrapper) {
     const closePanel = (): void => {
       filterPanel.classList.remove("is-open");
       filterToggle.setAttribute("aria-expanded", "false");
     };
-    document.addEventListener(
-      "click",
-      (e) => {
-        const target = e.target as Node | null;
-        if (
-          filterPanel.classList.contains("is-open") &&
-          target &&
-          !filtersWrapper.contains(target)
-        ) {
-          closePanel();
-        }
-      },
-      { signal: documentListeners.signal },
-    );
-    filtersWrapper.addEventListener("focusout", (e) => {
-      const related = e.relatedTarget as Node | null;
-      if (!related || !filtersWrapper.contains(related)) closePanel();
+    const closeWhenOutside = (target: EventTarget | null): void => {
+      if (
+        filterPanel.classList.contains("is-open") &&
+        target instanceof Node &&
+        !filtersWrapper.contains(target)
+      ) {
+        closePanel();
+      }
+    };
+    document.addEventListener("click", (e) => closeWhenOutside(e.target), {
+      signal: documentListeners.signal,
+    });
+    document.addEventListener("focusin", (e) => closeWhenOutside(e.target), {
+      signal: documentListeners.signal,
     });
   }
 
   if (clearFiltersFromNoResults) {
     clearFiltersFromNoResults.addEventListener("click", clearAllFilters);
   }
+
+  // Back/forward can land on an entry whose query differs (a view-tab push
+  // made under other filters); the URL is the truth on traversal, so read it
+  // back in. Traversals across modal entries carry identical filter params,
+  // leaving this a no-op while a modal morph runs.
+  globalThis.addEventListener(
+    "popstate",
+    () => {
+      if (applyUrlState()) filterSessions();
+    },
+    { signal: documentListeners.signal },
+  );
+
+  // Deep links: seed the controls from the query string and run the filters
+  // once. A parameterless load skips the pass — and with it any replaceState.
+  if (applyUrlState()) filterSessions();
 };
 
-// Every control and card above is looked up once, so a swapped-in schedule
-// (the view tabs are hx-boosted) needs the whole init again. The flag rides
-// the search box itself: a swap brings a fresh one, while the other htmx
-// traffic on this page — a session modal loading — leaves the bound one in
-// place, and re-running against it would double every filter's options.
 const bootSessionFilters = (): void => {
   const searchBox = document.getElementById("session-filter");
-  // A swap to a schedule without a toolbar never reaches initSessionFilters,
-  // so the previous toolbar's document listeners have to be dropped here.
   if (!searchBox) {
     documentListeners.abort();
     return;

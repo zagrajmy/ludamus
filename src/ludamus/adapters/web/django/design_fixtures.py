@@ -1,5 +1,6 @@
 """Mock data for the design system page."""
 
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 
 from django import forms
@@ -13,11 +14,13 @@ from ludamus.gates.web.django.chronology.event_presentation import (
 )
 from ludamus.gates.web.django.entities import UserInfo
 from ludamus.pacts import (
+    NO_LOCATION,
     AgendaItemDTO,
     LocationData,
     SessionDTO,
     SessionFieldValueDTO,
     SessionStatus,
+    TimeSlotDTO,
 )
 
 _DESIGN_PLACEHOLDER_IMAGE = "placeholder-images/01.webp"
@@ -44,6 +47,7 @@ def _mock_venue_and_space() -> LocationData:
         "parent_slug": "main-hall",
         "parent_name": "Main Hall",
         "path": "Main Hall > Table 1",
+        "sort_key": "000000|Main Hall|main-hall|000000|Table 1|table-1",
     }
 
 
@@ -160,6 +164,32 @@ def mock_session_data() -> SessionData:
         loc=_mock_venue_and_space(),
         field_values=field_values,
         displayed_field_rows=[build_display_field_row(fv) for fv in field_values],
+    )
+
+
+def mock_session_proposal() -> SessionData:
+    """Build the card's unscheduled variant: no agenda item, preferred slots."""
+    data = mock_session_data()
+    # Same week as the mock event, which sits seven days out — a proposal
+    # asking for a slot that already happened reads as a bug in the gallery.
+    start = (datetime.now(UTC) + timedelta(days=7)).replace(
+        hour=10, minute=0, second=0, microsecond=0
+    )
+    return replace(
+        data,
+        agenda_item=None,
+        is_enrollment_available=False,
+        loc=NO_LOCATION,
+        session_participations=[],
+        enrolled_count=0,
+        preferred_time_slots=[
+            TimeSlotDTO(pk=1, start_time=start, end_time=start + timedelta(hours=2)),
+            TimeSlotDTO(
+                pk=2,
+                start_time=start + timedelta(hours=4),
+                end_time=start + timedelta(hours=6),
+            ),
+        ],
     )
 
 

@@ -27,10 +27,14 @@ class ErratumDTO(BaseModel):
     # Who announced this change, or nothing when it is still to announce —
     # one field, so "announced" and "announced by whom" cannot disagree.
     acknowledged_by_name: str | None
+    important: bool
 
 
 class ErrataServiceProtocol(Protocol):
     def list_for_event(self, event_pk: int) -> list[ErratumDTO]: ...
     def set_acknowledged(
         self, *, event_pk: int, log_pks: list[int], user_id: int, acknowledged: bool
+    ) -> None: ...
+    def set_important(
+        self, *, event_pk: int, log_pks: list[int], important: bool
     ) -> None: ...
