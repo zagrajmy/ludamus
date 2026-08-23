@@ -18,7 +18,7 @@ from ludamus.edges.rituals.pr_sweep import (
     sync_branch,
     take_pass,
 )
-from ludamus.edges.rituals.shell import LIST
+from ludamus.edges.rituals.shell import LIST, checkpoint
 from ludamus.edges.rituals.state import WAIT_LABEL, Label, PullRequest, Run, Work
 
 if TYPE_CHECKING:
@@ -27,6 +27,7 @@ if TYPE_CHECKING:
 _STATUS = "git status --porcelain"
 _UNMERGED = "git diff --name-only --diff-filter=U"
 _IS_ANCESTOR = "git merge-base --is-ancestor main HEAD"
+_STARTED = checkpoint("refresh", "started", number=7)
 
 
 def _listed(*pulls: PullRequest) -> str:
@@ -198,17 +199,24 @@ class TestMergeBase:
     def test_a_merge_that_brought_something_in_goes_on_to_the_pass(
         self, trial: Trial, work: Work
     ) -> None:
+        trial.shell.replies(when="gh pr edit*")
         trial.shell.replies(when=_IS_ANCESTOR, exit_code=1)
         trial.shell.replies(when="git merge --no-edit*")
 
         transition = trial.walk(merge_base, work)
 
         assert transition == goto(take_pass, work)
-        assert trial.shell.commands == [_IS_ANCESTOR, "git merge --no-edit main"]
+        # The branch is marked started before anything is merged.
+        assert trial.shell.commands == [
+            _STARTED,
+            _IS_ANCESTOR,
+            "git merge --no-edit main",
+        ]
 
     def test_a_base_already_in_the_branch_says_the_tree_did_not_move(
         self, trial: Trial, work: Work
     ) -> None:
+        trial.shell.replies(when="gh pr edit*")
         trial.shell.replies(when=_IS_ANCESTOR)
         trial.shell.replies(when="git merge --no-edit*")
 
@@ -221,6 +229,7 @@ class TestMergeBase:
     def test_a_merge_that_would_not_run_goes_to_the_step_that_reads_the_index(
         self, trial: Trial, work: Work
     ) -> None:
+        trial.shell.replies(when="gh pr edit*")
         trial.shell.replies(when=_IS_ANCESTOR, exit_code=1)
         trial.shell.replies(when="git merge --no-edit*", exit_code=1, stderr="lock")
 

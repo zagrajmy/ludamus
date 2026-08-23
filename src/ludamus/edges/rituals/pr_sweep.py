@@ -57,6 +57,12 @@ the listing, so nothing checks it out and it appears nowhere in the report.
 That is how you park a branch for a night — or for a month — without closing
 it.
 
+Each pass marks its checkpoint on the board: the branch earns ``refresh:started``
+(or ``cover:started``) the moment the merge begins, and ``refresh:done`` (or
+``cover:done``) only where it comes out green — the two are exclusive, so adding
+one takes the other off. A branch left blocked keeps ``started``, which is how
+the morning sees which branches the night began and could not finish.
+
 The review is one inline comment per action item, anchored to the code it is
 about, and the branch is labelled ``pr::thermo`` once it is posted. That label
 is the only thing standing between a branch and another review: drop it after
@@ -87,6 +93,8 @@ twice — the next branch whose gate says the same thing stands down without
 spending its budget on an answer this run already has.
 """
 
+from typing import Literal
+
 from pydantic import ValidationError
 from vekna.folio.shell import shell
 from vekna.lexicon import RitualError, Transition, done, emit_delta, goto, ritual, step
@@ -105,6 +113,7 @@ from .shell import (
     ahead,
     already_seen,
     checkout,
+    checkpoint,
     checks,
     commit,
     coverage_report,
@@ -149,6 +158,18 @@ from .state import (
 # over 200 at the maximum bound; this sits above that, because tripping it costs
 # the report as well as the run.
 _MAX_STEPS = 240
+
+
+# The pass's own checkpoint on the board: `<mode>:started` the moment the merge
+# begins, `<mode>:done` only where the branch came out green. A branch the night
+# could not finish is the one left wearing `started` in the morning. Best-effort
+# and never fatal: it is a board marker, and losing one is not worth abandoning
+# a merge that is about to happen or a branch that just went green.
+async def _checkpoint(work: Work, state: Literal["started", "done"]) -> str:
+    marked = await shell(checkpoint(work.run.mode, state, number=work.pr.number))
+    if marked.exit_code:
+        return f"could not mark {work.run.mode}:{state}: {said(marked)}"
+    return ""
 
 
 @ritual("pr_refresh", max_steps=_MAX_STEPS)
@@ -237,6 +258,12 @@ async def sync_branch(work: Work) -> Transition:
 @step
 async def merge_base(work: Work) -> Transition:
     """Merge the base in, and say whether it brought anything with it."""
+    # The first step that changes the branch, so this is where the checkpoint
+    # goes on: everything above only takes the branch, and `skip_pr` and the
+    # checkout failures never reach here, so a branch nobody touched stays
+    # unmarked.
+    if note := await _checkpoint(work, "started"):
+        emit_delta(f"{work.pr.branch}: {note}")
     # Asked before the merge rather than read off it afterwards: git says
     # "Already up to date" in whatever language the terminal is set to, and a
     # base already contained in this branch is the same answer in every one.
@@ -545,6 +572,10 @@ async def quality_review(work: Work) -> Transition:
 async def finish_pr(closed: Closed) -> Transition:
     """Write the branch's row into the run, and go on to the next one."""
     work = closed.work
+    # Only a green branch is done: a blocked one is left wearing `started`, which
+    # is the whole point of the checkpoint — it says which branches the night
+    # began and could not finish.
+    marked = await _checkpoint(work, "done") if closed.outcome == "green" else ""
     row = Checked(
         number=work.pr.number,
         branch=work.pr.branch,
@@ -553,7 +584,7 @@ async def finish_pr(closed: Closed) -> Transition:
         # Asked of git rather than tracked in the payload: what needs pushing is
         # what origin has not got, whoever put it there.
         unpushed=await ahead(work.pr.branch),
-        note=telling(work),
+        note=telling(work, marked),
     )
     run = work.run
     return goto(next_pr, run_with(run, checked=[*run.checked, row]))

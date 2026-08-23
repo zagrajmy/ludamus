@@ -7,6 +7,7 @@ decision rather than as quoting.
 
 import re
 import shlex
+from typing import Literal
 
 from pydantic import TypeAdapter, ValidationError
 from vekna.folio.shell import ShellResult, shell
@@ -350,6 +351,20 @@ def commit(message: str) -> str:
 def label(*labels: str, number: int) -> str:
     added = " ".join(f"--add-label {quoted(one)}" for one in labels)
     return f"gh pr edit {number} {added}"
+
+
+# A ritual's checkpoint is one claim at a time: `started` means the ritual may
+# have changed this branch and has not finished, `done` that it ended clean.
+# Adding one takes the other off in the same call, so a pull request never
+# wears both halves of a pair — and a branch the night could not finish is the
+# one still wearing `started`.
+def checkpoint(ritual: str, state: Literal["started", "done"], *, number: int) -> str:
+    other = "started" if state == "done" else "done"
+    return (
+        f"gh pr edit {number}"
+        f" --add-label {quoted(f'{ritual}:{state}')}"
+        f" --remove-label {quoted(f'{ritual}:{other}')}"
+    )
 
 
 # The agent was told not to commit the merge, but a step checks rather than

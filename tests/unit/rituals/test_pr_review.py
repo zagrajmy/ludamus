@@ -33,18 +33,20 @@ from ludamus.edges.rituals.shell import (
     PR_FIX,
     STATUS,
     checkout,
-    label,
+    checkpoint,
     plain,
     unsettled,
 )
 from ludamus.edges.rituals.state import (
-    QA_LABEL,
     THERMO_LABEL,
     WAIT_LABEL,
     PullRequest,
     TriageItem,
     TriageNotes,
 )
+
+_DONE = checkpoint("review", "done", number=7)
+_STARTED = checkpoint("review", "started", number=7)
 
 if TYPE_CHECKING:
     from vekna.trial import Trial
@@ -88,7 +90,7 @@ def _asks(name: str) -> str:
     return f"slug=*-F number={_NUMBERS[name]} -q *"
 
 
-def _row(name: str, *, waiting: str = "", tested: str = "") -> dict[str, Any]:
+def _row(name: str, *, waiting: str = "", marked: str = "") -> dict[str, Any]:
     return {
         "number": _NUMBERS[name],
         "title": f"Add {name}",
@@ -103,20 +105,20 @@ def _row(name: str, *, waiting: str = "", tested: str = "") -> dict[str, Any]:
             for one in (
                 THERMO_LABEL,
                 *([WAIT_LABEL] if name == waiting else []),
-                *([QA_LABEL] if name == tested else []),
+                *(["review:done"] if name == marked else []),
             )
         ],
     }
 
 
-def _listing(*branches: str, waiting: str = "", tested: str = "") -> str:
-    return json.dumps([_row(name, waiting=waiting, tested=tested) for name in branches])
+def _listing(*branches: str, waiting: str = "", marked: str = "") -> str:
+    return json.dumps([_row(name, waiting=waiting, marked=marked) for name in branches])
 
 
 # The same rows as objects, in the order the queue is expected to hold them.
-def _queued(*branches: str, waiting: str = "", tested: str = "") -> list[PullRequest]:
+def _queued(*branches: str, waiting: str = "", marked: str = "") -> list[PullRequest]:
     return [
-        PullRequest.model_validate(_row(name, waiting=waiting, tested=tested))
+        PullRequest.model_validate(_row(name, waiting=waiting, marked=marked))
         for name in branches
     ]
 
@@ -152,16 +154,16 @@ class TestQueueUp:
 
         assert transition == goto(pick, _picked())
 
-    def test_a_pull_request_already_labelled_for_qa_is_still_queued(
+    def test_a_pull_request_already_marked_done_is_still_queued(
         self, trial: Trial
     ) -> None:
-        trial.shell.replies(when=LIST, stdout=_listing("feature", tested="feature"))
+        trial.shell.replies(when=LIST, stdout=_listing("feature", marked="feature"))
         trial.shell.replies(when=HERE, stdout="feature\n")
 
         transition = trial.walk(queue_up, _picked())
 
         assert transition == goto(
-            pick, _picked(queue=_queued("feature", tested="feature"))
+            pick, _picked(queue=_queued("feature", marked="feature"))
         )
 
     # An open thread on a parked branch does not un-park it.
@@ -296,6 +298,7 @@ class TestLook:
 
         trial.walk(look, branch)
 
+        assert trial.coding.calls[0].model == "opus"
         assert trial.coding.calls[0].focus_options == ClaudeOptions(
             permission_mode="dontAsk",
             allowed_tools=["Bash", "Read", "Grep", "Glob"],
@@ -414,6 +417,7 @@ class TestWork:
     def test_the_prompt_is_sent_as_it_was_assembled(
         self, trial: Trial, branch: Branch
     ) -> None:
+        trial.shell.replies(when="gh pr edit*")
         trial.coding.replies("settled two threads")
 
         transition = trial.walk(
@@ -423,11 +427,33 @@ class TestWork:
         assert transition == goto(gates, Landing(branch=branch))
         assert trial.coding.prompts == ["the triage: fix p1"]
 
+    # The branch starts changing here, so this is where it earns `review:started`.
+    def test_the_branch_is_marked_started_before_the_agent_runs(
+        self, trial: Trial, branch: Branch
+    ) -> None:
+        trial.shell.replies(when="gh pr edit*")
+        trial.coding.replies("settled two threads")
+
+        trial.walk(work, Instructed(branch=branch, prompt="fix p1"))
+
+        assert trial.shell.commands == [_STARTED]
+
+    # The writing agents run on Opus: the work is merges and gate repairs, and
+    # the cheaper model spends more turns on worse answers.
+    def test_the_agent_runs_on_opus(self, trial: Trial, branch: Branch) -> None:
+        trial.shell.replies(when="gh pr edit*")
+        trial.coding.replies("settled two threads")
+
+        trial.walk(work, Instructed(branch=branch, prompt="fix p1"))
+
+        assert trial.coding.calls[0].model == "opus"
+
     # Nothing is scripted for `decide` here, so a question would fail the walk:
     # the answers given in `plan` are the whole decision.
     def test_the_gate_is_reached_without_a_question(
         self, trial: Trial, branch: Branch
     ) -> None:
+        trial.shell.replies(when="gh pr edit*")
         trial.coding.replies("done")
 
         transition = trial.walk(work, Instructed(branch=branch, prompt="fix p1"))
@@ -439,6 +465,8 @@ class TestWork:
     def test_an_agent_that_dies_fails_the_cast(
         self, trial: Trial, branch: Branch
     ) -> None:
+        trial.shell.replies(when="gh pr edit*")
+
         with pytest.raises(RitualError, match="stopped mid-flight"):
             trial.walk(work, Instructed(branch=branch, prompt="fix p1"))
 
@@ -544,7 +572,7 @@ class TestLand:
 
 
 class TestSettle:
-    def test_a_branch_with_nothing_left_open_earns_the_label(
+    def test_a_branch_with_nothing_left_open_is_marked_done(
         self, trial: Trial, branch: Branch
     ) -> None:
         trial.shell.replies(when=_asks("feature"), stdout="0\n")
@@ -555,9 +583,9 @@ class TestSettle:
         assert transition == goto(
             pick, _picked(reviewed=[Reviewed(branch="feature", outcome="shipped")])
         )
-        assert f"gh pr edit 7 --add-label {QA_LABEL}" in trial.shell.commands
+        assert _DONE in trial.shell.commands
 
-    def test_threads_left_open_are_reported_and_not_labelled(
+    def test_threads_left_open_are_reported_and_not_marked_done(
         self, trial: Trial, branch: Branch
     ) -> None:
         trial.shell.replies(when=_asks("feature"), stdout="2\n")
@@ -577,11 +605,11 @@ class TestSettle:
             ),
         )
         assert "2 review threads are still open" in trial.deltas[0]
-        # A failed `gh pr edit` is swallowed into a delta here, so the label
+        # A failed `gh pr edit` is swallowed into a delta here, so the mark
         # going on wrongly would look just like this passing.
-        assert label(QA_LABEL, number=7) not in trial.shell.commands
+        assert _DONE not in trial.shell.commands
 
-    def test_a_count_gh_will_not_give_labels_nothing(
+    def test_a_count_gh_will_not_give_marks_nothing(
         self, trial: Trial, branch: Branch
     ) -> None:
         trial.shell.replies(when=_asks("feature"), exit_code=1, stderr="rate limited")
@@ -600,9 +628,9 @@ class TestSettle:
                 ]
             ),
         )
-        # The label is a claim about the threads, and a count nobody could take
+        # The mark is a claim about the threads, and a count nobody could take
         # is in no position to make it.
-        assert label(QA_LABEL, number=7) not in trial.shell.commands
+        assert _DONE not in trial.shell.commands
 
 
 class TestReport:
@@ -670,7 +698,9 @@ class TestPrReview:
         trial.shell.replies(when="git add*")
         trial.shell.replies(when="git push*")
         trial.shell.replies(when=_asks("feature"), stdout="0\n")
-        trial.shell.replies(when="gh pr edit*")
+        # Two of them now: `work` marks the branch started, `settle` marks it
+        # done.
+        trial.shell.replies(when="gh pr edit*", always=True)
 
         result = trial.cast(pr_review, PrReview(bound=2))
 

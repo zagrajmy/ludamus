@@ -15,6 +15,14 @@ from .shell import COVERAGE, PR_FIX, threads
 THERMO_TITLE = "Thermo-nuclear code quality review"
 _THERMO_SKILL = "~/.claude/skills/thermo-nuclear-code-quality-review/SKILL.md"
 
+# Every agent in these rituals runs on Opus: the work is merges, gate repairs
+# and a security-grade review, and the cheaper model spends more turns arriving
+# at worse answers. Naming only `model` leaves vekna's `bypassPermissions`
+# default in place — permission-mode is what flips it, and the writing calls
+# want that default. `READING` sets its own permissions and so names this too.
+_MODEL = "opus"
+_OPUS = CodingOpts(model=_MODEL)
+
 
 # The sweep is the ritual's: the step runs it the moment the agent stops, and
 # what it says then is what decides the branch. An agent that runs it too pays
@@ -298,11 +306,12 @@ class Misread(BaseModel):
 # Read-only in the sense that matters here: the triage has to reach `gh`, so
 # Bash stays, and nothing outside the list gets so far as a prompt.
 READING = CodingOpts(
+    model=_MODEL,
     focus_options=ClaudeOptions(
         permission_mode="dontAsk",
         allowed_tools=["Bash", "Read", "Grep", "Glob"],
         effort="high",
-    )
+    ),
 )
 
 
@@ -324,7 +333,7 @@ async def ask(
 ) -> Fallen | None:
     session = Session.CONTINUE if key is not None else Session.NEW
     try:
-        await coding(prompt, opts=opts, session=session, key=key)
+        await coding(prompt, opts=opts or _OPUS, session=session, key=key)
     except Exception as error:  # ruff: ignore [blind-except]
         return _fallen(error)
     return None
@@ -339,7 +348,9 @@ async def ask_for[OutputT: BaseModel](
 ) -> OutputT | Fallen | Misread:
     session = Session.CONTINUE if key is not None else Session.NEW
     try:
-        return await coding(prompt, output=output, opts=opts, session=session, key=key)
+        return await coding(
+            prompt, output=output, opts=opts or _OPUS, session=session, key=key
+        )
     # Caught ahead of the blind clause and answered differently: an agent whose
     # JSON does not fit the schema is a bad answer, not a dead CLI, and ending
     # the whole night over one would cost every pull request behind this one.
