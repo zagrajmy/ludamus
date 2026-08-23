@@ -806,6 +806,24 @@ class TestProposeSessionService:
 
         submitting_repos.sessions.set_session_tracks.assert_not_called()
 
+    def test_submit_skips_int_session_answers(
+        self, service, submitting_repos, submitted_event
+    ):
+        service.submit(
+            submitted_event,
+            {
+                "category_id": 1,
+                "session_data": {
+                    "title": "Test Session",
+                    "display_name": "Anon Host",
+                    "session_players": 4,
+                },
+            },
+        )
+
+        submitting_repos.session_fields.read_by_slug.assert_not_called()
+        submitting_repos.sessions.save_field_values.assert_not_called()
+
     def test_get_saved_personal_data_returns_empty_for_anonymous(
         self, service, mock_repos
     ):

@@ -2,11 +2,16 @@ from datetime import timedelta
 from http import HTTPStatus
 from unittest.mock import patch
 
+import pytest
 from django.contrib import messages
 from django.core.files.storage import default_storage
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.template.loader import render_to_string
+from django.test import RequestFactory
 from django.urls import reverse
 
+from ludamus.gates.web.django.event import propose
+from ludamus.inits.services import Services
 from ludamus.links.db.django.models import (
     EventProposalSettings,
     Facilitator,
@@ -26,6 +31,7 @@ from ludamus.pacts import (
     EventDTO,
     EventProposalSettingsDTO,
     ProposalCategoryDTO,
+    RedirectError,
     TrackDTO,
 )
 from ludamus.pacts.images import StoredFile
@@ -1164,6 +1170,45 @@ class TestProposeSessionPageView:
             == 1
         )
         assert len(review["time_slots"]) == 1
+
+    def test_review_shows_icon_of_public_session_field(
+        self, authenticated_client, event, faker, time_zone, proposal_category
+    ):
+        self._activate_proposals(event, faker, time_zone)
+        field = SessionField.objects.create(
+            event=event,
+            name="RPG System",
+            question="What RPG system will you use?",
+            slug="rpg_system",
+            icon="sparkles",
+            is_public=True,
+        )
+        SessionFieldRequirement.objects.create(
+            category=proposal_category, field=field, is_required=True
+        )
+        self._set_wizard_category(authenticated_client, event, proposal_category)
+
+        response = authenticated_client.post(
+            self._get_details_url(event.slug),
+            {
+                "display_name": "Presenter",
+                "title": "My Session",
+                "description": "A test session",
+                "participants_limit": "4",
+                "session_rpg_system": "D&D 5e",
+            },
+        )
+
+        assert response.status_code == HTTPStatus.OK
+        assert response.template_name == "event/propose/parts/review.html"
+        assert response.context["review"]["public_session_fields"] == [
+            {
+                "name": "What RPG system will you use?",
+                "value": "D&D 5e",
+                "is_public": True,
+                "icon": "sparkles",
+            }
+        ]
 
     def test_post_review_renders_review_step(
         self, authenticated_client, event, faker, time_zone, proposal_category
@@ -2934,3 +2979,53 @@ class TestAnonymousProposalSubmission:
         assert facilitators.count() == expected_facilitator_count
         slugs = list(facilitators.values_list("slug", flat=True))
         assert len(set(slugs)) == expected_facilitator_count
+
+
+# Every HTTP path past the category step resolves a category up front
+# (`with_category=True` redirects without one), so the category-less guards
+# below can only be exercised on a directly built wizard.
+class TestProposeWizardWithoutCategory:
+    @pytest.fixture
+    def wizard(self, event):
+        # Two categories, so the wizard cannot auto-pick one.
+        category = ProposalCategoryFactory(event=event)
+        ProposalCategoryFactory(event=event)
+        TimeSlotRequirement.objects.create(
+            category=category, time_slot=TimeSlotFactory(event=event)
+        )
+        service = Services().propose_session
+        return propose._Wizard(
+            request=RequestFactory().get("/"),
+            service=service,
+            event=service.get_event(event.slug, event.sphere_id),
+        )
+
+    def test_timeslot_requirements_are_empty(self, wizard):
+        assert wizard.timeslot_requirements == []
+
+    def test_chosen_redirects_to_category_step(self, wizard):
+        with pytest.raises(RedirectError) as exc_info:
+            _ = wizard.chosen
+
+        assert exc_info.value.url == reverse(
+            "web:event:session-propose", kwargs={"event_slug": wizard.event.slug}
+        )
+        assert exc_info.value.error == "Please select a category first."
+
+
+class TestProposeTimeslotsTemplate:
+    # No view renders the step with nothing to pick (a slot-less category hides
+    # it), so the auto-advance fallback is exercised by rendering directly.
+    def test_auto_advances_when_no_slots_offered(self, event):
+        html = render_to_string(
+            "event/propose/parts/timeslots.html",
+            {
+                "event": event,
+                "proposal_settings": {"description": ""},
+                "slot_descriptors": [],
+                "csrf_token": "test-token",
+            },
+        )
+
+        assert 'hx-trigger="load"' in html
+        assert '"skip": "1"' in html
