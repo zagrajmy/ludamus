@@ -100,13 +100,19 @@ const initSessionFilters = (): void => {
       .normalize("NFD")
       .replaceAll(COMBINING_MARKS, "");
 
+  // Field values ride in the haystack because a value typed into an
+  // allow_custom field is not a choice and so never becomes a filter option —
+  // search is where it stays findable.
   const cardHaystacks = new Map<HTMLElement, string>();
   for (const card of sessionCards) {
     const descEl = card.querySelector("[data-session-description]");
     const description = descEl ? (descEl.textContent ?? "") : "";
+    const tags = (card.dataset.tags ?? "").replaceAll(",", " ");
     cardHaystacks.set(
       card,
-      normalizeText(`${card.dataset.title ?? ""} ${card.dataset.host ?? ""} ${description}`),
+      normalizeText(
+        `${card.dataset.title ?? ""} ${card.dataset.host ?? ""} ${description} ${tags}`,
+      ),
     );
   }
 
@@ -198,7 +204,16 @@ const initSessionFilters = (): void => {
       }
     }
 
-    for (const tag of [...categoryTags].sort()) addOption(select, tag, tag);
+    // One rule for every tag filter: the server renders what can be picked,
+    // this drops what no card uses. A session field offers its defined choices
+    // only — a value typed into an allow_custom field reaches the card but is
+    // not a choice, and search is where it stays findable.
+    // querySelectorAll, not select.options: the live collection would skip an
+    // option as the one before it is removed. The valueless "All ..."
+    // placeholder stays.
+    for (const option of select.querySelectorAll("option")) {
+      if (option.value && !categoryTags.has(option.value)) option.remove();
+    }
     select.addEventListener("change", filterSessions);
   }
 
