@@ -8,7 +8,6 @@ import markdown as _md
 import nh3
 
 from ludamus.pacts import (
-    CacheProtocol,
     DateTimeRangeProtocol,
     EncounterDetailResult,
     EncounterDTO,
@@ -19,7 +18,6 @@ from ludamus.pacts import (
     UnitOfWorkProtocol,
 )
 from ludamus.specs.encounter import ENCOUNTER_DEFAULT_DURATION
-from ludamus.specs.proposal import PROPOSAL_RATE_LIMIT_SECONDS
 
 _BASE62_CHARS = string.ascii_letters + string.digits
 
@@ -214,19 +212,6 @@ class EncounterService:
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
-
-
-def check_proposal_rate_limit(cache: CacheProtocol, ip: str, event_id: int) -> bool:
-    """Check if an IP is rate-limited for proposal submission on an event.
-
-    Returns:
-        True if the submission is allowed, False if rate-limited.
-    """
-    key = f"proposal_rate:{event_id}:{ip}"
-    if cache.get(key) is not None:
-        return False
-    cache.set(key, 1, timeout=PROPOSAL_RATE_LIMIT_SECONDS)
-    return True
 
 
 class PanelService:
