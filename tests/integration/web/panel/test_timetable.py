@@ -814,6 +814,7 @@ class TestPanelBaseHeader:
             slug="one-day",
             start_time=datetime(2026, 8, 6, 9, 0, tzinfo=UTC),
             end_time=datetime(2026, 8, 6, 18, 0, tzinfo=UTC),
+            publication_time=datetime(2026, 7, 1, 9, 0, tzinfo=UTC),
         )
 
         response = panel_client.get(self.get_url(event))
@@ -833,6 +834,7 @@ class TestPanelBaseHeader:
             slug="multi-day",
             start_time=datetime(2026, 8, 6, 9, 0, tzinfo=UTC),
             end_time=datetime(2026, 8, 8, 12, 0, tzinfo=UTC),
+            publication_time=datetime(2026, 7, 1, 9, 0, tzinfo=UTC),
         )
 
         response = panel_client.get(self.get_url(event))

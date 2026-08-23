@@ -134,12 +134,14 @@ class TestEventsPageView:
             event=event, name="Backstage", slug="backstage", is_public=False
         )
         untracked = SessionFactory(category__event=event)
+        public_only = SessionFactory(category__event=event)
+        public_only.tracks.add(public_track)
         mixed = SessionFactory(category__event=event)
         mixed.tracks.add(public_track, private_track)
         private_only = SessionFactory(category__event=event)
         private_only.tracks.add(private_track)
         deleted = SessionFactory(category__event=event)
-        for session in (untracked, mixed, private_only, deleted):
+        for session in (untracked, public_only, mixed, private_only, deleted):
             AgendaItemFactory(space=space, session=session)
         deleted.soft_delete()
 
