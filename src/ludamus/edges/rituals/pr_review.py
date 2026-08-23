@@ -28,13 +28,18 @@ You answer the items one at a time, in your own words; saying nothing takes the
 reading's own proposal. One agent then fixes what you said to fix, files what
 you said to file, and answers and settles every thread either way.
 
+The branch earns `v:review:started` the moment the agent is turned loose on the
+triage, and `v:review:done` once nothing is left open — the two are exclusive,
+so one takes the other off. A branch left with threads still open, or one a gate
+stopped, keeps `v:review:started`, which is how the morning sees which readings
+were begun and not finished.
+
 Then `pr-fix` runs, is repaired up to `--bound` times, and what came out is
 committed and pushed — no question in between, because the answers you gave
 were the decision. A repair runs the one task mise said was
 broken, not the whole gate; the gate itself runs again once that comes back
 green. Diff coverage is not measured here — that is `pr_sweep`'s slow pass, and
-it is the longest job in the toolchain. A branch that ends with nothing left
-open earns `pr::qa`.
+it is the longest job in the toolchain.
 
 A gate that will not go green after `--bound` attempts ends the cast rather
 than moving on: the repair work is sitting uncommitted in the worktree, and
@@ -67,7 +72,7 @@ from .shell import (
     STATUS,
     checkout,
     commit,
-    label,
+    mark,
     narrowed,
     plain,
     push,
@@ -76,7 +81,6 @@ from .shell import (
     wanted,
 )
 from .state import (
-    QA_LABEL,
     THERMO_LABEL,
     Bound,
     PullRequest,
@@ -189,10 +193,10 @@ async def queue_up(picking: Picking) -> Transition:
         raise RitualError(unreadable(error)) from error
     # Reviewed by the night and not yet answered: `pr::thermo` says a review was
     # posted, and whether it is still waiting is asked branch by branch in
-    # `pick`. A branch without the label has nothing here to do. `pr::qa` is not
-    # read: it is a claim about the threads at the moment it went on, and a
-    # thread opened afterwards would be invisible for good — nothing takes the
-    # label off again.
+    # `pick`. A branch without the label has nothing here to do. `review:done` is
+    # not read: candidacy is the live count of open threads in `pick`, not a
+    # label, so a branch marked done but carrying a thread opened since is still
+    # picked up.
     carrying = [
         pull for pull in pulls if pull.branch != _MAIN and wears(pull, THERMO_LABEL)
     ]
@@ -353,6 +357,11 @@ def _asked(triage: Triage, told: list[str]) -> str:
 # on a triage you read yourself and a branch you said yes to.
 @step
 async def work(instructed: Instructed) -> Transition:
+    # The checkpoint goes on before the agent, not after: this is where the
+    # branch starts changing, and a cast that dies here should leave the branch
+    # wearing `started`.
+    if note := await mark("review", state="started", number=instructed.branch.number):
+        emit_delta(f"{instructed.branch.name}: {note}")
     # Straight to the gate, with nothing asked: the triage was answered item by
     # item a step ago, so a question here is the cast asking whether you meant
     # what you just said.
@@ -404,24 +413,21 @@ async def land(branch: Branch) -> Transition:
     return goto(settle, branch)
 
 
-# The one place `pr::qa` goes on, and it is a claim about the threads: asked of
-# `gh` rather than assumed off the round that just ran, because the agent was
-# told to settle each one, and told is not done.
+# The one place the branch is marked done, and it is a claim about the threads:
+# asked of `gh` rather than assumed off the round that just ran, because the
+# agent was told to settle each one, and told is not done.
 # Not fatal either way: the branch is shipped whatever the count says, and what
 # is left over is yours to look at.
 @step
 async def settle(branch: Branch) -> Transition:
-    """Label the branch where gh says nothing is left open."""
+    """Mark the branch done where gh says nothing is left open."""
     left = await _open_threads(branch.number)
-    note = ""
     if left is None:
         note = "gh would not say what is left open"
     elif left:
         note = f"{left} review threads are still open"
     else:
-        labelled = await shell(label(QA_LABEL, number=branch.number))
-        if labelled.exit_code:
-            note = f"could not add the {QA_LABEL} label: {said(labelled)}"
+        note = await mark("review", state="done", number=branch.number)
     if note:
         emit_delta(f"{branch.name}: {note}")
     return goto(pick, _rowed(branch, "shipped", note))
