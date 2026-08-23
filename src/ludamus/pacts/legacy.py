@@ -12,7 +12,7 @@ from typing import (
 
 from pydantic import BaseModel, ConfigDict
 
-from ludamus.pacts.fields import OrganizerFieldDTO
+from ludamus.pacts.fields import FieldValue, OrganizerFieldDTO
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -688,7 +688,7 @@ class WizardData(TypedDict, total=False):
     category_id: int
     contact_email: str
     personal_data: dict[str, str]
-    session_data: dict[str, object]
+    session_data: dict[str, FieldValue | int]
     time_slot_ids: list[int]
     track_pks: list[int]
 
