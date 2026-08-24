@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+from urllib.parse import quote
 
 from django.template import TemplateSyntaxError
 from django.utils.html import format_html, format_html_join
@@ -47,9 +48,67 @@ _FIT_CLASSES = {
 }
 
 
-def _placeholder_style(placeholder: str) -> str:
+# A twenty-pixel image scaled up by the browser is not a blur — it is twenty
+# pixels, and the eye reads the grid. Wrapping the preview in an SVG that
+# gaussian-blurs it costs no extra request and turns the same bytes into the
+# soft ground next/image ships, whose filter this one follows
+# (packages/next/src/shared/lib/image-blur-svg.ts).
+# The middle four primitives are the part that is not obvious. A plain blur
+# samples the transparency outside the image and fades the edges out; instead
+# the alpha is hard-clamped to 1 (`feColorMatrix`), everything beyond that
+# clamped region is flooded opaque, that flood is laid over the original, and
+# only then is the whole thing blurred — so the second blur has opaque
+# neighbours to sample and the edges stay solid. The first blur pushes the
+# clamped region past the filter's own 10% margin, so the flood itself never
+# shows.
+# The strength is where we part company: next/image blurs at 6.25% of the width
+# because its preview is eight pixels wide and needs that much to hide the grid.
+# Ours is twenty, so 3.75% already leaves no grid to see, and the composition
+# the preview exists to suggest — where the bright half is, which way the
+# subject faces — survives instead of smearing to one colour.
+_BLUR_STD_DEVIATION = 12
+
+# The blur is `_BLUR_STD_DEVIATION` wide in viewBox units, so fixing the box
+# width fixes the blur as a fraction of the image whatever the preview's or the
+# rendered image's pixel size.
+_BLUR_VIEWBOX_WIDTH = 320
+
+# Percent-encoding rather than the HTML escaping this string would otherwise
+# get: the result carries no character an attribute, a `url()`, or a data URI
+# reads as anything but data, and it is a third the size of `&#x27;` twenty
+# times over.
+_SVG_URI_SAFE = "/:;,=+-._~"
+
+
+def _blur_svg_uri(raster: str, *, width: int, height: int) -> str:
+    view_height = max(round(_BLUR_VIEWBOX_WIDTH * height / width), 1)
+    # `slice` always, `contain` included: the placeholder's job is to fill the
+    # box it is holding. Letting it letterbox instead would leave the filter's
+    # flood visible as black bars down the sides.
+    svg = (
+        "<svg xmlns='http://www.w3.org/2000/svg'"
+        f" viewBox='0 0 {_BLUR_VIEWBOX_WIDTH} {view_height}'>"
+        "<filter id='b' color-interpolation-filters='sRGB'>"
+        f"<feGaussianBlur stdDeviation='{_BLUR_STD_DEVIATION}'/>"
+        "<feColorMatrix values='1 0 0 0 0 0 1 0 0 0 0 0 1 0 0 0 0 0 100 -1'"
+        " result='s'/>"
+        "<feFlood x='0' y='0' width='100%' height='100%'/>"
+        "<feComposite operator='out' in='s'/>"
+        "<feComposite in2='SourceGraphic'/>"
+        f"<feGaussianBlur stdDeviation='{_BLUR_STD_DEVIATION}'/>"
+        "</filter>"
+        "<image width='100%' height='100%' x='0' y='0'"
+        f" preserveAspectRatio='xMidYMid slice' style='filter: url(#b)'"
+        f" href='{raster}'/>"
+        "</svg>"
+    )
+    return "data:image/svg+xml," + quote(svg, safe=_SVG_URI_SAFE)
+
+
+def _placeholder_style(placeholder: str, *, width: int, height: int) -> str:
     if _DATA_URI_PATTERN.match(placeholder):
-        return f'background-image:url("{placeholder}")'
+        uri = _blur_svg_uri(placeholder, width=width, height=height)
+        return f'background-image:url("{uri}")'
     if _HEX_COLOR_PATTERN.match(placeholder):
         return f"background-color:{placeholder}"
     msg = (
@@ -57,6 +116,16 @@ def _placeholder_style(placeholder: str) -> str:
         f" or a #rgb/#rrggbb colour, got {placeholder!r}"
     )
     raise TemplateSyntaxError(msg)
+
+
+# Declared int, but a template is free to hand over "640" — and the viewBox
+# below does arithmetic, where a string stops being interchangeable.
+def _pixels(value: int | str) -> int:
+    try:
+        return max(int(value), 1)
+    except (TypeError, ValueError) as error:
+        msg = f"'tessera_image' width and height must be whole pixels, got {value!r}"
+        raise TemplateSyntaxError(msg) from error
 
 
 @register.simple_tag
@@ -112,7 +181,11 @@ def tessera_image(
         msg = f"'tessera_image' fit must be one of {sorted(_FIT_CLASSES)}, got {fit!r}"
         raise TemplateSyntaxError(msg)
 
-    style = _placeholder_style(placeholder) if placeholder else ""
+    style = (
+        _placeholder_style(placeholder, width=_pixels(width), height=_pixels(height))
+        if placeholder
+        else ""
+    )
     classes = clsx(
         _BASE_CLASS,
         _FIT_CLASSES[fit],
@@ -129,16 +202,21 @@ def tessera_image(
             if value is not None and value is not False
         ),
     )
+    # `loading` ahead of `src`, as next/image orders it: a lazy image whose
+    # `src` is set first has already been asked for by the time the hint lands.
+    # Parsed markup sets every attribute before the element is inserted, so the
+    # order costs nothing here — it matters the moment any of this is built by
+    # script instead.
     return format_html(
-        '<img src="{}" alt="{}" width="{}" height="{}" class="{}"'
-        ' loading="{}" decoding="async"{}{}{} data-tessera-image>',
+        '<img loading="{}" decoding="async"{} src="{}" alt="{}"'
+        ' width="{}" height="{}" class="{}"{}{} data-tessera-image>',
+        "eager" if priority else "lazy",
+        SafeString(' fetchpriority="high"') if priority else "",
         src,
         alt,
         width,
         height,
         classes,
-        "eager" if priority else "lazy",
-        SafeString(' fetchpriority="high"') if priority else "",
         format_html(' style="{}"', style) if style else "",
         rendered_attrs,
     )

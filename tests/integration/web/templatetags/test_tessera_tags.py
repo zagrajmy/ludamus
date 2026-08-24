@@ -2,6 +2,7 @@
 
 import re
 from unittest.mock import patch
+from urllib.parse import quote, unquote
 
 import pytest
 from django.template import Context, Template, TemplateSyntaxError
@@ -584,7 +585,31 @@ class TestImage:
     def test_data_uri_placeholder_becomes_a_background(self) -> None:
         html = self._render("placeholder=preview", preview=PREVIEW_URI)
         assert "background-image:url(" in html
-        assert PREVIEW_URI in html
+        assert quote(PREVIEW_URI, safe="/:;,=+-._~") in html
+
+    def test_preview_is_wrapped_in_a_blurring_svg(self) -> None:
+        html = unquote(self._render("placeholder=preview", preview=PREVIEW_URI))
+        assert "data:image/svg+xml," in html
+        assert "feGaussianBlur" in html
+        # The edge-opacity primitives, without which the blur fades out against
+        # whatever is behind the image.
+        assert "feColorMatrix" in html
+        assert "feFlood" in html
+
+    def test_blur_viewbox_follows_the_reserved_ratio(self) -> None:
+        html = unquote(self._render())  # 640x360 reserved, so 320x180 of viewBox
+        assert "viewBox='0 0 320 180'" in unquote(
+            self._render("placeholder=preview", preview=PREVIEW_URI)
+        )
+        assert "viewBox" not in html
+
+    def test_non_numeric_dimensions_are_refused(self) -> None:
+        tpl = Template(
+            "{% load tessera %}"
+            '{% tessera_image src="/x" alt="" width="wide" height=1 placeholder=p %}'
+        )
+        with pytest.raises(TemplateSyntaxError, match="whole pixels"):
+            tpl.render(Context({"p": PREVIEW_URI}))
 
     def test_hex_placeholder_becomes_a_background_colour(self) -> None:
         assert "background-color:#334155" in self._render('placeholder="#334155"')
