@@ -19,13 +19,14 @@
     {% include "components/select.html" with attrs=attrs extra_class=extra_class has_errors=has_errors slot=slot only %}
     {# Unhidden by the script, so the select never flashes beside its own #}
     {# replacement on a slow first paint. #}
-    <div data-combobox-shell hidden>
+    <div data-combobox-shell
+         hidden
+         data-results-label="{% translate "Results" %}">
         <input type="text"
                id="{{ id }}-input"
                role="combobox"
                aria-autocomplete="list"
                aria-expanded="false"
-               aria-controls="{{ id }}-listbox"
                placeholder="{{ placeholder }}"
                autocomplete="off"
                spellcheck="false"
@@ -39,7 +40,6 @@
                 tabindex="-1"
                 aria-label="{{ toggle_label }}"
                 aria-expanded="false"
-                aria-controls="{{ id }}-listbox"
                 data-combobox-toggle
                 class="absolute inset-y-0 right-0 flex items-center px-2.5 text-foreground-muted">
             {% icon "chevron-up-down" variant="mini" class="size-4" aria_hidden="true" %}
@@ -58,11 +58,11 @@
                 data-combobox-listbox
                 class="max-h-60 overflow-y-auto py-1">
             </ul>
-            {# Base UI announces its empty state; cmdk's role=presentation #}
-            {# leaves "no results" silent, which is the wrong half to copy. #}
-            <p role="status"
-               aria-live="polite"
-               aria-atomic="true"
+            {# Visual only. A live region inside a closed popover is display:none #}
+            {# and never announces, and unhiding fixed text is not a content #}
+            {# change either; combobox.ts writes the spoken copy into a region #}
+            {# that lives on the body and is there from page load. #}
+            <p aria-hidden="true"
                hidden
                data-combobox-empty
                class="px-3 py-2 text-sm text-foreground-muted">{{ empty_text }}</p>
@@ -72,9 +72,9 @@
     {# the template where Tailwind can see it. #}
     <template data-combobox-option>
         <li role="option"
-            class="group flex cursor-pointer items-center gap-2 px-3 py-2 text-sm text-foreground data-[active]:bg-bg-tertiary aria-selected:font-semibold">
+            class="group flex cursor-pointer items-center gap-2 px-3 py-2 text-sm text-foreground data-[active]:bg-bg-tertiary data-[chosen]:font-semibold">
             <span data-combobox-option-label class="grow truncate"></span>
-            {% icon "check" variant="mini" class="size-4 text-primary opacity-0 group-aria-selected:opacity-100" aria_hidden="true" %}
+            {% icon "check" variant="mini" class="size-4 text-primary opacity-0 group-data-[chosen]:opacity-100" aria_hidden="true" %}
         </li>
     </template>
 </div>

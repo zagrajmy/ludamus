@@ -36,6 +36,29 @@ const visibleBand = (): { bottom: number; top: number } => {
     : { bottom: globalThis.innerHeight, top: 0 };
 };
 
+// One announcer for the page, on the body and visually hidden — a live region
+// that is `hidden`, or that lives inside a closed popover, is display:none and
+// announces nothing (Roselli's cross-screen-reader testing is unambiguous).
+// role=log with aria-relevant=additions and an appended node per message, so
+// the same text twice is still two announcements, the way React Aria does it.
+let announcer: HTMLElement | undefined;
+const ANNOUNCEMENT_LIFETIME_MS = 7000;
+
+const announce = (message: string): void => {
+  if (!announcer) {
+    announcer = document.createElement("div");
+    announcer.className = "sr-only";
+    announcer.setAttribute("role", "log");
+    announcer.setAttribute("aria-live", "polite");
+    announcer.setAttribute("aria-relevant", "additions");
+    document.body.prepend(announcer);
+  }
+  const line = document.createElement("div");
+  line.textContent = message;
+  announcer.append(line);
+  setTimeout(() => line.remove(), ANNOUNCEMENT_LIFETIME_MS);
+};
+
 const optionUnder = (target: EventTarget | null): Element | null =>
   target instanceof Element ? target.closest("[role='option']") : null;
 
@@ -155,9 +178,13 @@ const upgrade = (root: HTMLElement): void => {
     for (const row of rows) {
       delete row.el.dataset.active;
     }
+    for (const row of rows) row.el.setAttribute("aria-selected", "false");
     const row = shown[index];
     if (row) {
       row.el.dataset.active = "";
+      // On the active option, not on the chosen value: Chrome + VoiceOver only
+      // speaks an aria-activedescendant move when the named option carries it.
+      row.el.setAttribute("aria-selected", "true");
       input.setAttribute("aria-activedescendant", row.el.id);
       row.el.scrollIntoView({ block: "nearest" });
     } else {
@@ -167,6 +194,21 @@ const upgrade = (root: HTMLElement): void => {
     }
   };
 
+  const resultsLabel = shell.dataset.resultsLabel ?? "";
+  const emptyText = empty.textContent?.trim() ?? "";
+  const ANNOUNCE_DEBOUNCE_MS = 1000;
+  let announceTimer: ReturnType<typeof setTimeout> | undefined;
+  /** Say how many rows a query left, for whoever cannot see the list shrink. */
+  const announceResults = (): void => {
+    clearTimeout(announceTimer);
+    announceTimer = setTimeout(() => {
+      // Only while the box has focus: a repopulated list or a deep link is
+      // nobody's search.
+      if (document.activeElement !== input || !isOpen()) return;
+      announce(shown.length === 0 ? emptyText : `${resultsLabel}: ${shown.length}`);
+    }, ANNOUNCE_DEBOUNCE_MS);
+  };
+
   /** Narrow the list to `query`. */
   const applyFilter = (query: string): void => {
     const needle = normalizeText(query.trim());
@@ -174,7 +216,7 @@ const upgrade = (root: HTMLElement): void => {
     for (const row of rows) {
       const matched = !needle || row.search.includes(needle);
       row.el.hidden = !matched;
-      row.el.setAttribute("aria-selected", String(row.value === select.value));
+      row.el.toggleAttribute("data-chosen", row.value === select.value);
       if (matched) shown.push(row);
     }
     empty.hidden = shown.length > 0;
@@ -183,6 +225,11 @@ const upgrade = (root: HTMLElement): void => {
   const setOpen = (open: boolean): void => {
     input.setAttribute("aria-expanded", String(open));
     toggle.setAttribute("aria-expanded", String(open));
+    // "aria-controls only needs to be set when the popup is visible" (APG).
+    for (const el of [input, toggle]) {
+      if (open) el.setAttribute("aria-controls", listbox.id);
+      else el.removeAttribute("aria-controls");
+    }
     if (popoverCapable) {
       if (open) {
         // Only when shut: showPopover() on an open popover throws, and this
@@ -246,6 +293,7 @@ const upgrade = (root: HTMLElement): void => {
     applyFilter(input.value);
     setOpen(true);
     setActive(-1);
+    announceResults();
   });
 
   input.addEventListener("keydown", (event: KeyboardEvent) => {
@@ -257,6 +305,11 @@ const upgrade = (root: HTMLElement): void => {
           move(1);
         }
         event.preventDefault();
+        break;
+      }
+      case "ArrowLeft":
+      case "ArrowRight": {
+        setActive(-1);
         break;
       }
       case "ArrowUp": {

@@ -212,4 +212,35 @@ test.describe("Design system page", () => {
     await expect(combobox).toHaveValue("Cherry");
     await expect(value).toHaveValue("cherry");
   });
+
+  test("speaks the result count and marks the active option", async ({ page }) => {
+    await page.goto("/design/");
+    const combobox = await upgradedCombobox(page, "Fruit");
+    await combobox.click();
+
+    // aria-selected names the option with virtual focus, not the chosen value:
+    // Chrome + VoiceOver stays silent on an activedescendant move otherwise.
+    // Opening already activates the selected option, so this steps past it.
+    await combobox.press("ArrowDown");
+    await expect(page.getByRole("option", { name: "Apple", exact: true })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    await expect(page.getByRole("option", { name: "Any fruit" })).toHaveAttribute(
+      "aria-selected",
+      "false",
+    );
+
+    // Left/Right hand the caret back to the text; NVDA goes quiet about
+    // editing while an option still holds virtual focus.
+    await combobox.press("ArrowRight");
+    await expect(combobox).not.toHaveAttribute("aria-activedescendant", /./);
+
+    // The count reaches a live region on the body — one inside the popup is
+    // display:none until it opens and announces nothing.
+    await combobox.fill("ap");
+    await expect(page.getByRole("log")).toHaveText(/Results: 2/, { timeout: 5000 });
+    await combobox.fill("zzz");
+    await expect(page.getByRole("log")).toContainText("Nothing matches", { timeout: 5000 });
+  });
 });
