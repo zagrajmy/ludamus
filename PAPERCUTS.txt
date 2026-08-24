@@ -324,6 +324,3 @@ If you fix a papercut, remove it.
   was unset; the traceback only later explained pytest-django could not
   initialize. Use mise run test:int -- PATH so the task supplies the test
   environment.
-- 2026-08-24: mise run shots -- /path?query=x fails: usage_targets wraps the arg
-  in literal quotes, so curl probes http://localhost:8000'/path?query=x' and
-  warns the server is down
