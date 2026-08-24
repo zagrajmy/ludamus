@@ -552,3 +552,93 @@ class TestSwitcher:
             Template(
                 '{% load tessera %}{% tessera_segment "a" %}A{% endtessera_segment %}'
             ).render(Context())
+
+
+# A real 1x1 WEBP, base64'd: the shape image_preview produces.
+PREVIEW_URI = "data:image/webp;base64,UklGRhoAAABXRUJQVlA4TA0AAAAvAAAAEAcQERGIiP4HAA=="
+
+
+class TestImage:
+    @staticmethod
+    def _render(extra: str = "", **context: object) -> str:
+        tpl = Template(
+            "{% load tessera %}"
+            '{% tessera_image src="/media/cover.webp" alt="A cover"'
+            " width=640 height=360 " + extra + " %}"
+        )
+        return tpl.render(Context(context))
+
+    def test_reserves_its_box_and_loads_lazily(self) -> None:
+        html = self._render()
+        assert 'width="640"' in html
+        assert 'height="360"' in html
+        assert 'loading="lazy"' in html
+        assert 'decoding="async"' in html
+        assert "fetchpriority" not in html
+
+    def test_priority_loads_eagerly(self) -> None:
+        html = self._render("priority=True")
+        assert 'loading="eager"' in html
+        assert 'fetchpriority="high"' in html
+
+    def test_data_uri_placeholder_becomes_a_background(self) -> None:
+        html = self._render("placeholder=preview", preview=PREVIEW_URI)
+        assert "background-image:url(" in html
+        assert PREVIEW_URI in html
+
+    def test_hex_placeholder_becomes_a_background_colour(self) -> None:
+        assert "background-color:#334155" in self._render('placeholder="#334155"')
+
+    def test_a_loaded_image_uncovers_its_plate(self) -> None:
+        assert "data-[state=loaded]:bg-transparent" in self._render()
+
+    def test_placeholder_pulses_only_without_a_preview(self) -> None:
+        assert "animate-pulse" in self._render()
+        assert "animate-pulse" not in self._render("placeholder=p", p=PREVIEW_URI)
+
+    def test_placeholder_that_could_fetch_a_url_is_refused(self) -> None:
+        with pytest.raises(TemplateSyntaxError, match="placeholder must be"):
+            self._render("placeholder=p", p="url(https://tracker.example/beacon)")
+
+    def test_placeholder_that_appends_a_declaration_is_refused(self) -> None:
+        with pytest.raises(TemplateSyntaxError, match="placeholder must be"):
+            self._render("placeholder=p", p="#fff;background-image:url(//evil)")
+
+    def test_non_image_data_uri_is_refused(self) -> None:
+        with pytest.raises(TemplateSyntaxError, match="placeholder must be"):
+            self._render("placeholder=p", p="data:text/html;base64,PHNjcmlwdD4=")
+
+    def test_fit_drives_both_the_image_and_its_placeholder(self) -> None:
+        html = self._render('fit="contain"')
+        assert "object-contain" in html
+        assert "bg-contain" in html
+
+    def test_unknown_fit_is_refused(self) -> None:
+        with pytest.raises(TemplateSyntaxError, match="fit must be one of"):
+            self._render('fit="stretch"')
+
+    def test_empty_src_renders_nothing(self) -> None:
+        tpl = Template(
+            '{% load tessera %}{% tessera_image src=missing alt="" width=1 height=1 %}'
+        )
+        assert not tpl.render(Context({"missing": ""}))
+
+    def test_missing_dimensions_is_refused(self) -> None:
+        with pytest.raises(TemplateSyntaxError, match="did not receive value"):
+            Template('{% load tessera %}{% tessera_image src="/x" alt="" %}').render(
+                Context()
+            )
+
+    def test_escapes_xss_in_alt(self) -> None:
+        tpl = Template(
+            '{% load tessera %}{% tessera_image src="/x" alt=bad width=1 height=1 %}'
+        )
+        html = tpl.render(Context({"bad": '"><script>alert(1)</script>'}))
+        assert "<script>" not in html
+        assert "&lt;script&gt;" in html
+
+    def test_extra_attributes_render_with_hyphens(self) -> None:
+        html = self._render('class="h-40" sizes="100vw" data_row_action=True')
+        assert "h-40" in html
+        assert 'sizes="100vw"' in html
+        assert 'data-row-action="True"' in html

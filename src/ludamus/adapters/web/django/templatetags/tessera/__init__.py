@@ -6,6 +6,9 @@ Usage:
     {% icon "calendar" %}
     {% icon "calendar" variant="solid" class="w-5 h-5" %}
 
+    {% tessera_image src=event.cover_image_url alt="" width=960 height=540
+                     placeholder=event.cover_image_preview class="w-full h-40" %}
+
     {% select id="color" name="color" required=True %}
         <option value="">Pick one...</option>
     {% endselect %}
@@ -26,6 +29,7 @@ from .dynamic_field import dynamic_field
 from .form import tessera_button, tessera_errors, tessera_field, tessera_form
 from .icon import icon
 from .icon_toggle import tessera_icon_toggle
+from .image import tessera_image
 from .radio import RadioNode, do_radio
 from .select import SelectNode, do_select
 from .switcher import SegmentNode, SwitcherNode, tessera_segment, tessera_switcher
@@ -62,6 +66,7 @@ __all__ = [
     "tessera_field",
     "tessera_form",
     "tessera_icon_toggle",
+    "tessera_image",
     "tessera_segment",
     "tessera_switcher",
 ]

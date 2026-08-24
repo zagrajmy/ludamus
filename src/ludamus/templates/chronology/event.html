@@ -30,10 +30,9 @@
     {% include "chronology/decorative_background_blobs.html" %}
     <div class="relative rounded-3xl shadow-xl overflow-hidden mb-6 sm:mb-8 bg-bg-secondary"
          style="box-shadow: var(--shadow-elevated)">
-        {% if event.cover_image_url %}
-            <div class="h-56 sm:h-72 bg-cover bg-center"
-                 style="background-image: url('{{ event.cover_image_url }}')"></div>
-        {% endif %}
+        {# priority: the hero is the page's largest paint, so it is the one #}
+        {# image on the page that must not wait for the lazy-load threshold. #}
+        {% tessera_image src=event.cover_image_url alt="" width=1200 height=450 placeholder=event.cover_image_preview priority=True class="h-56 w-full sm:h-72" %}
         <div class="p-6 sm:p-8">
             <div class="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-6">
                 <div class="flex-1">

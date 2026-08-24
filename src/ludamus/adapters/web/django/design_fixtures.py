@@ -25,6 +25,16 @@ from ludamus.pacts import (
 
 _DESIGN_PLACEHOLDER_IMAGE = "placeholder-images/01.webp"
 
+# The gallery has no upload to derive a preview from, so this is what
+# links.db.django.previews.image_preview returns for the image above, pasted in
+# rather than recomputed on every render of /design.
+_DESIGN_PLACEHOLDER_PREVIEW = (
+    "data:image/webp;base64,UklGRqIAAABXRUJQVlA4IJYAAAAQBACdASoUAAoAPrVInkmnJCKh"
+    "MAgA4BaJZACdACG0ST6/K/kH478mAAD+l05QkCshhb+nBgIc7J1CWri7dT5ZudyM2n8snMolKPB"
+    "SeGnsD8lCNOEVKN23Uaf8phH+om2rUZxMM8CGDBZoRi3ZfCNBXDZnEm3Qd3VWaYXCvmJVbypTlz"
+    "BrF0daOZKqn0KRzQW1+gAAAAA="
+)
+
 for _dto in (AgendaItemDTO, EventInfo, SessionDTO, SessionFieldValueDTO):
     _dto.model_rebuild()
 
@@ -103,6 +113,7 @@ def mock_event_info() -> EventInfo:
     end = start + timedelta(hours=6)
     return EventInfo(
         cover_image_url=staticfiles_storage.url(_DESIGN_PLACEHOLDER_IMAGE),
+        cover_image_preview=_DESIGN_PLACEHOLDER_PREVIEW,
         description=(
             "Design system preview event. Use this to debug the "
             "event card in isolation."

@@ -15,6 +15,7 @@ from django.utils import timezone
 from django.utils.timezone import localtime
 from django.utils.translation import gettext_lazy as _
 
+from ludamus.links.db.django.previews import PREVIEW_MAX_LENGTH
 from ludamus.links.db.django.uploads import unique_upload_to
 from ludamus.pacts import (
     OCCUPYING_PARTICIPATION_STATUSES,
@@ -424,6 +425,13 @@ class Event(models.Model):
     cover_image = models.ImageField(upload_to=unique_upload_to, blank=True)
     cover_image_original_name = models.CharField(
         max_length=ORIGINAL_FILENAME_MAX_LENGTH, blank=True, default=""
+    )
+    # Derived from the upload by links.db.django.previews, not entered: the
+    # cover at twenty pixels wide, inlined as a data URI so the event card and
+    # the event page have something to show before the cover arrives. Written
+    # by save_replacing_files off the `_preview` suffix.
+    cover_image_preview = models.CharField(
+        max_length=PREVIEW_MAX_LENGTH, blank=True, default=""
     )
     # Branding — shown on printables (the public /print page)
     logo = models.FileField(upload_to=unique_upload_to, blank=True)

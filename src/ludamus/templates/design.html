@@ -276,6 +276,31 @@
                                                         {% include "components/visibility-legend.html" %}
                                                     </div>
                                                 </div>
+                                                <div class="relative bg-background pt-12 px-8 pb-8 min-h-48 sm:col-span-2 lg:col-span-3">
+                                                    <code class="absolute top-3 left-3 text-xs text-foreground-muted">tessera_image</code>
+                                                    <div class="grid w-full grid-cols-2 gap-6 lg:grid-cols-4">
+                                                        <div class="flex flex-col gap-2">
+                                                            <code class="text-xs text-foreground-muted">placeholder=</code>
+                                                            {% tessera_image src=design_event.cover_image_url alt="" width=320 height=180 placeholder=design_event.cover_image_preview class="h-28 w-full rounded-xl" %}
+                                                            <p class="text-xs text-foreground-muted">Opens on the cover at 20px wide, stretched.</p>
+                                                        </div>
+                                                        <div class="flex flex-col gap-2">
+                                                            <code class="text-xs text-foreground-muted">no placeholder</code>
+                                                            {% tessera_image src=design_event.cover_image_url alt="" width=320 height=180 class="h-28 w-full rounded-xl" %}
+                                                            <p class="text-xs text-foreground-muted">A plate, breathing until the bytes land.</p>
+                                                        </div>
+                                                        <div class="flex flex-col gap-2">
+                                                            <code class="text-xs text-foreground-muted">fit="contain"</code>
+                                                            {% tessera_image src=design_event.cover_image_url alt="" width=320 height=180 fit="contain" placeholder="#a69a8c" class="h-28 w-full rounded-xl" %}
+                                                            <p class="text-xs text-foreground-muted">A flat colour works as a placeholder too.</p>
+                                                        </div>
+                                                        <div class="flex flex-col gap-2">
+                                                            <code class="text-xs text-foreground-muted">src that 404s</code>
+                                                            {% tessera_image src="/static/does-not-exist.webp" alt="" width=320 height=180 placeholder=design_event.cover_image_preview class="h-28 w-full rounded-xl" %}
+                                                            <p class="text-xs text-foreground-muted">The blur is dropped — it described an image that never came.</p>
+                                                        </div>
+                                                    </div>
+                                                </div>
                                                 <div class="relative bg-background pt-12 px-8 pb-8 min-h-48 flex items-center justify-center sm:col-span-2 lg:col-span-3">
                                                     <code class="absolute top-3 left-3 text-xs text-foreground-muted">event_card.html</code>
                                                     <div class="w-full grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">

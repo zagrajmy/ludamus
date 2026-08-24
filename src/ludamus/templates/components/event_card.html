@@ -4,11 +4,17 @@
 {# Event card component - expects 'event' in context #}
 {# Optional: 'variant' can be "past" for muted styling #}
 <a href="{% url 'web:chronology:event' slug=event.slug %}"
-   class="relative min-h-56 flex flex-col justify-between overflow-hidden rounded-2xl border border-neutral-200/50 dark:border-neutral-700/50 ring-offset-[.5px] hover:ring-1 hover:ring-neutral-200 dark:hover:ring-neutral-600 duration-100 ring-offset-background bg-bg-secondary"
-   {% if variant == 'past' %}style="filter: saturate(0.7)"{% endif %}>
-    <div class="relative min-h-32 bg-cover bg-center p-3 pb-16 z-10 rounded-xl mt-1 mx-1 [--bg-tint:transparent] dark:[--bg-tint:hsl(0_0_15%/.15)]"
-         style="background-image: linear-gradient(to bottom, var(--bg-tint), var(--bg-tint)), url('{{ event.cover_image_url }}')">
-        <div class="flex flex-wrap gap-2">
+   class="relative min-h-56 flex flex-col justify-between overflow-hidden rounded-2xl border border-neutral-200/50 dark:border-neutral-700/50 ring-offset-[.5px] hover:ring-1 hover:ring-neutral-200 dark:hover:ring-neutral-600 duration-100 ring-offset-background bg-bg-secondary{% if variant == 'past' %} saturate-70{% endif %}">
+    <div class="relative min-h-32 p-3 pb-16 z-10 rounded-xl mt-1 mx-1 overflow-hidden">
+        {# The cover is a picture, not decoration on a box: as an <img> it can #}
+        {# hold its own aspect ratio, load lazily below the fold, and open on #}
+        {# its blurred preview instead of on a hole. #}
+        {% tessera_image src=event.cover_image_url alt="" width=640 height=320 placeholder=event.cover_image_preview priority=priority|default:False class="absolute inset-0 size-full" %}
+        {# Dark mode dims the cover so the badges keep their contrast on a #}
+        {# bright photo. #}
+        <div class="absolute inset-0 dark:bg-[hsl(0_0%_15%/0.15)]"
+             aria-hidden="true"></div>
+        <div class="relative flex flex-wrap gap-2">
             {% if event.is_live %}
                 <span class="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold uppercase tracking-wide text-white"
                       style="background-color: rgba(0,0,0,0.25)">

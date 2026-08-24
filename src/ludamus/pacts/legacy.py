@@ -484,6 +484,9 @@ class EventDTO(BaseModel):
     use_participants_label: bool = False
     cover_image_url: str = ""
     cover_image_original_name: str = ""
+    # The cover at twenty pixels wide, inlined as a data URI: what the card and
+    # the page hero show until the cover itself arrives.
+    cover_image_preview: str = ""
     logo_url: str = ""
     logo_original_name: str = ""
 
@@ -511,6 +514,9 @@ class EventListItemDTO(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     cover_image_url: str = ""
+    # Empty when the event has no cover of its own: the card then falls back to
+    # a stock image, which is static and needs no preview.
+    cover_image_preview: str = ""
     description: str
     end_time: datetime
     is_ended: bool

@@ -72,6 +72,7 @@ export default defineConfig({
         stepper: resolve(rootDir, "src/stepper.ts"),
         "tab-scroll": resolve(rootDir, "src/tab-scroll.ts"),
         tabs: resolve(rootDir, "src/tabs.ts"),
+        "tessera-image": resolve(rootDir, "src/tessera-image.ts"),
         timetable: resolve(rootDir, "src/timetable.ts"),
       },
     },

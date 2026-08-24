@@ -22,7 +22,7 @@ from django.db.models import Count, F, Q
 from ludamus.links.db.django.models import Facilitator, Guild, GuildMembership, Session
 from ludamus.links.db.django.repositories.storage import (
     save_replacing_files,
-    with_original_names,
+    with_file_companions,
 )
 from ludamus.links.db.django.users import display_avatar_url
 from ludamus.pacts.crowd import UserType
@@ -202,7 +202,7 @@ class GuildRepository(GuildRepositoryProtocol):
     @staticmethod
     def create(*, sphere_id: int, data: GuildWriteData) -> int:
         return Guild.objects.create(
-            sphere_id=sphere_id, **with_original_names(Guild, data)
+            sphere_id=sphere_id, **with_file_companions(Guild, data)
         ).pk
 
     @staticmethod

@@ -3,8 +3,10 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
 
+from django.core.files.base import File
 from django.db.models.fields.files import FieldFile
 
+from ludamus.links.db.django.previews import image_preview
 from ludamus.pacts.images import original_filename
 
 if TYPE_CHECKING:
@@ -15,16 +17,36 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-def with_original_names[T: Model, V](
+def _original_name(value: object) -> str:
+    name = getattr(value, "name", "") if value else ""
+    return original_filename(name) if name else ""
+
+
+def _preview(value: object) -> str:
+    # A cleared field arrives as "" and a rename as a plain string; only a file
+    # has bytes to read, and only bytes make a preview.
+    return image_preview(value) if isinstance(value, File) else ""
+
+
+# A field can carry companions the writer never names: what the file was called
+# before storage renamed it, and its inline preview. Both are derived here off
+# the model, so no repository keeps its own list of which fields have which.
+_COMPANIONS = {"_original_name": _original_name, "_preview": _preview}
+
+
+def with_file_companions[T: Model, V](
     model: type[T], data: Mapping[str, V]
 ) -> dict[str, V | str]:
+    """Add each written file field's derived companion fields.
+
+    Returns:
+        The data, plus a value for every companion field the model declares.
+    """
     written: dict[str, V | str] = dict(data)
     for field, value in data.items():
-        companion = f"{field}_original_name"
-        if not hasattr(model, companion):
-            continue
-        name = getattr(value, "name", "") if value else ""
-        written[companion] = original_filename(name) if name else ""
+        for suffix, derive in _COMPANIONS.items():
+            if hasattr(model, companion := f"{field}{suffix}"):
+                written[companion] = derive(value)
     return written
 
 
@@ -47,7 +69,7 @@ def save_replacing_files(instance: Model, data: Mapping[str, object]) -> None:
         if isinstance(current := getattr(instance, key, None), FieldFile)
     }
 
-    written = with_original_names(type(instance), data)
+    written = with_file_companions(type(instance), data)
     for key, value in written.items():
         setattr(instance, key, value)
     instance.save(update_fields=list(written))

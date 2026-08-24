@@ -27,7 +27,7 @@ from ludamus.links.db.django.repositories.chronology import (
 from ludamus.links.db.django.repositories.facilitators import FacilitatorRepository
 from ludamus.links.db.django.repositories.storage import (
     save_replacing_files,
-    with_original_names,
+    with_file_companions,
 )
 from ludamus.links.db.django.users import user_dto
 from ludamus.pacts import (
@@ -290,7 +290,7 @@ class SessionRepository(SessionRepositoryProtocol, SessionModalRepositoryProtoco
         facilitator_ids: Iterable[int] = (),
         track_ids: Iterable[int] = (),
     ) -> int:
-        session = Session.objects.create(**with_original_names(Session, session_data))
+        session = Session.objects.create(**with_file_companions(Session, session_data))
         # add(), not set(): the session is brand new, so there is nothing to
         # diff against — set() would first read back the (empty) relation,
         # which turns bulk imports into a query per created session.

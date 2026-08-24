@@ -35,13 +35,7 @@
             </a>
         {% endif %}
         {% session_cover_image data.session as cover_image_url %}
-        {% if cover_image_url %}
-            <img src="{{ cover_image_url }}"
-                 alt=""
-                 width="640"
-                 height="360"
-                 class="mx-1 mt-1 h-40 w-[calc(100%-0.5rem)] shrink-0 rounded-xl object-cover">
-        {% endif %}
+        {% tessera_image src=cover_image_url alt="" width=640 height=360 class="mx-1 mt-1 h-40 w-[calc(100%-0.5rem)] shrink-0 rounded-xl" %}
         <div class="relative z-10 flex min-h-0 flex-1 flex-col px-5 pb-5 pointer-events-none **:pointer-events-none pt-4">
             <header>
                 {# w-fit keeps the morph group's box on the title text rather than #}

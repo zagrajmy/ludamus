@@ -47,13 +47,7 @@
             {% session_cover_image session as session_cover_url %}
             {% firstof session_cover_url event.cover_image_url as page_cover_url %}
             <div class="card overflow-hidden">
-                {% if page_cover_url %}
-                    <img src="{{ page_cover_url }}"
-                         alt=""
-                         width="640"
-                         height="360"
-                         class="mx-1 mt-1 h-40 w-[calc(100%-0.5rem)] rounded-xl object-cover">
-                {% endif %}
+                {% tessera_image src=page_cover_url alt="" width=640 height=360 class="mx-1 mt-1 h-40 w-[calc(100%-0.5rem)] rounded-xl" %}
                 <div class="card-body">
                     <p class="text-xs font-medium uppercase tracking-wide text-foreground-muted mb-1.5">{% translate "Enrollment" %}</p>
                     <h1 class="text-2xl sm:text-3xl font-bold text-foreground text-balance">{{ session.title }}</h1>

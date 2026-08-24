@@ -5,7 +5,7 @@ from django.db.models import Q
 from ludamus.links.db.django.models import Encounter, EncounterRSVP
 from ludamus.links.db.django.repositories.storage import (
     save_replacing_files,
-    with_original_names,
+    with_file_companions,
 )
 from ludamus.pacts import (
     EncounterData,
@@ -20,7 +20,7 @@ from ludamus.pacts import (
 class EncounterRepository(EncounterRepositoryProtocol):
     @staticmethod
     def create(data: EncounterData) -> EncounterDTO:
-        encounter = Encounter.objects.create(**with_original_names(Encounter, data))
+        encounter = Encounter.objects.create(**with_file_companions(Encounter, data))
         return EncounterDTO.model_validate(encounter)
 
     @staticmethod
