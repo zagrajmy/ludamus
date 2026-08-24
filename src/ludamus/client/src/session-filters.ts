@@ -34,13 +34,22 @@ const requireChild = <T extends HTMLElement>(parent: HTMLElement, selector: stri
   return el;
 };
 
+// A location option holds either a space's sort key or, prefixed, a venue slug
+// standing for every room under it. Sort keys open with the parent's zero-padded
+// order, so no room's key can be mistaken for one.
+const VENUE_VALUE_PREFIX = "venue:";
+
 const escapeRegExp = (value: string): string =>
   value.replaceAll(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
 
 const selectedLabel = (select: HTMLSelectElement): string =>
   select.options.item(select.selectedIndex)?.text ?? "";
 
-const addOption = (select: HTMLSelectElement, value: string, label: string): void => {
+const addOption = (
+  select: HTMLOptGroupElement | HTMLSelectElement,
+  value: string,
+  label: string,
+): void => {
   const option = document.createElement("option");
   option.value = value;
   option.textContent = label;
@@ -56,7 +65,7 @@ const initSessionFilters = (): void => {
   const statusFilter = byId<HTMLSelectElement>("status-filter");
   const dayFilter = byId<HTMLSelectElement>("day-filter");
   const hourFilter = byId<HTMLSelectElement>("hour-filter");
-  const venueFilter = byId<HTMLSelectElement>("venue-filter");
+  const spaceFilter = byId<HTMLSelectElement>("space-filter");
   const minAgeFilter = byId<HTMLInputElement>("min-age-filter");
   const maxAgeFilter = byId<HTMLInputElement>("max-age-filter");
   const enrollmentFilter = document.querySelector<HTMLInputElement>("#enrollment-filter");
@@ -91,13 +100,19 @@ const initSessionFilters = (): void => {
       .normalize("NFD")
       .replaceAll(COMBINING_MARKS, "");
 
+  // Field values ride in the haystack because a value typed into an
+  // allow_custom field is not a choice and so never becomes a filter option —
+  // search is where it stays findable.
   const cardHaystacks = new Map<HTMLElement, string>();
   for (const card of sessionCards) {
     const descEl = card.querySelector("[data-session-description]");
     const description = descEl ? (descEl.textContent ?? "") : "";
+    const tags = (card.dataset.tags ?? "").replaceAll(",", " ");
     cardHaystacks.set(
       card,
-      normalizeText(`${card.dataset.title ?? ""} ${card.dataset.host ?? ""} ${description}`),
+      normalizeText(
+        `${card.dataset.title ?? ""} ${card.dataset.host ?? ""} ${description} ${tags}`,
+      ),
     );
   }
 
@@ -124,17 +139,52 @@ const initSessionFilters = (): void => {
     document.getElementById("day-hour-filter-group")?.classList.remove("hidden");
   }
 
-  const venueMap = new Map<string, string>();
+  // Populate the location filter — one control for the whole space tree. The
+  // option value is the space's sort key, so sorting the entries lays the rooms
+  // out in the panel's tree order and lands every room of a parent space in one
+  // run, which is what the <optgroup>s are cut from. Each group opens with an
+  // option selecting the venue whole; rooms with no parent go straight onto the
+  // select.
+  const allRoomsLabel = spaceFilter.dataset.allRoomsLabel ?? "";
+  const spaceMap = new Map<string, { groupKey: string; groupName: string; name: string }>();
   for (const card of sessionCards) {
-    const venueSlug = card.dataset.venue;
-    if (venueSlug && !venueMap.has(venueSlug)) {
-      venueMap.set(venueSlug, card.dataset.venueName ?? venueSlug);
+    const spaceKey = card.dataset.space;
+    if (spaceKey && !spaceMap.has(spaceKey)) {
+      spaceMap.set(spaceKey, {
+        // The run is cut on the parent's slug, never its name: a name is unique
+        // only among its siblings, so two branches can carry the same one and
+        // must not collapse into a single group.
+        groupKey: card.dataset.venue ?? "",
+        groupName: card.dataset.venueName ?? "",
+        name: card.dataset.spaceName ?? spaceKey,
+      });
     }
   }
-  for (const [slug, name] of [...venueMap.entries()].sort((a, b) => a[1].localeCompare(b[1])))
-    addOption(venueFilter, slug, name);
-  if (venueMap.size > 1) {
-    document.getElementById("venue-filter-group")?.classList.remove("hidden");
+  let currentGroup: HTMLOptGroupElement | undefined;
+  let currentGroupKey: string | undefined;
+  // Codepoint order, not localeCompare: the key's structure is carried by its
+  // "|" separators, and collation treats punctuation as ignorable.
+  for (const [key, { groupKey, groupName, name }] of [...spaceMap.entries()].sort(([a], [b]) =>
+    a < b ? -1 : Number(a > b),
+  )) {
+    if (!groupKey) {
+      currentGroup = undefined;
+      currentGroupKey = undefined;
+    } else if (currentGroupKey !== groupKey) {
+      currentGroup = document.createElement("optgroup");
+      currentGroup.label = groupName;
+      currentGroupKey = groupKey;
+      spaceFilter.append(currentGroup);
+      addOption(
+        currentGroup,
+        `${VENUE_VALUE_PREFIX}${groupKey}`,
+        `${groupName} — ${allRoomsLabel}`,
+      );
+    }
+    addOption(currentGroup ?? spaceFilter, key, name);
+  }
+  if (spaceMap.size > 1) {
+    document.getElementById("space-filter-group")?.classList.remove("hidden");
   }
 
   for (const select of document.querySelectorAll<HTMLSelectElement>(".tag-filter")) {
@@ -154,7 +204,16 @@ const initSessionFilters = (): void => {
       }
     }
 
-    for (const tag of [...categoryTags].sort()) addOption(select, tag, tag);
+    // One rule for every tag filter: the server renders what can be picked,
+    // this drops what no card uses. A session field offers its defined choices
+    // only — a value typed into an allow_custom field reaches the card but is
+    // not a choice, and search is where it stays findable.
+    // querySelectorAll, not select.options: the live collection would skip an
+    // option as the one before it is removed. The valueless "All ..."
+    // placeholder stays.
+    for (const option of select.querySelectorAll("option")) {
+      if (option.value && !categoryTags.has(option.value)) option.remove();
+    }
     select.addEventListener("change", filterSessions);
   }
 
@@ -239,7 +298,7 @@ const initSessionFilters = (): void => {
   }
   mirrorSelect("day", dayFilter);
   mirrorSelect("hour", hourFilter);
-  mirrorSelect("venue", venueFilter);
+  mirrorSelect("space", spaceFilter);
   mirrorAge("age-min", minAgeFilter);
   mirrorAge("age-max", maxAgeFilter);
   // `__track` and `__category` are the template's own pseudo-categories, so
@@ -305,7 +364,7 @@ const initSessionFilters = (): void => {
     const enrollmentOnly = enrollmentFilter?.checked ?? false;
     const dayValue = dayFilter.value;
     const hourValue = hourFilter.value;
-    const venueValue = venueFilter.value;
+    const spaceValue = spaceFilter.value;
     const minAgeValue = minAgeFilter.value;
     const maxAgeValue = maxAgeFilter.value;
 
@@ -349,7 +408,11 @@ const initSessionFilters = (): void => {
       if (enrollmentOnly) show &&= card.dataset.takesEnrollment === "true";
       if (dayValue) show &&= card.dataset.day === dayValue;
       if (hourValue) show &&= card.dataset.hour === hourValue;
-      if (venueValue) show &&= card.dataset.venue === venueValue;
+      if (spaceValue) {
+        show &&= spaceValue.startsWith(VENUE_VALUE_PREFIX)
+          ? card.dataset.venue === spaceValue.slice(VENUE_VALUE_PREFIX.length)
+          : card.dataset.space === spaceValue;
+      }
 
       if (minAgeValue || maxAgeValue) {
         const sessionMinAge = Number.parseInt(card.dataset.minAge ?? "", 10) || 0;
@@ -408,7 +471,7 @@ const initSessionFilters = (): void => {
     if (enrollmentFilter) enrollmentFilter.checked = false;
     dayFilter.value = "";
     hourFilter.value = "";
-    venueFilter.value = "";
+    spaceFilter.value = "";
     minAgeFilter.value = "";
     maxAgeFilter.value = "";
     for (const categorySlug of Object.keys(tagFilters)) {
@@ -468,7 +531,7 @@ const initSessionFilters = (): void => {
     pushSelectChip(statusFilter);
     pushSelectChip(dayFilter);
     pushSelectChip(hourFilter);
-    pushSelectChip(venueFilter);
+    pushSelectChip(spaceFilter);
     pushAgeChip(minAgeFilter, filterChipsBar.dataset.minAgeLabel ?? "Age ≥");
     pushAgeChip(maxAgeFilter, filterChipsBar.dataset.maxAgeLabel ?? "Age ≤");
     for (const cat of Object.keys(tagFilters)) pushSelectChip(tagFilters[cat]);
@@ -522,7 +585,7 @@ const initSessionFilters = (): void => {
   enrollmentFilter?.addEventListener("change", filterSessions);
   dayFilter.addEventListener("change", filterSessions);
   hourFilter.addEventListener("change", filterSessions);
-  venueFilter.addEventListener("change", filterSessions);
+  spaceFilter.addEventListener("change", filterSessions);
   minAgeFilter.addEventListener("input", filterSessions);
   maxAgeFilter.addEventListener("input", filterSessions);
 

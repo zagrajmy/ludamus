@@ -96,7 +96,7 @@ export function MessageItem({
               defaultValue=""
               id={`mute-${message.id}`}
               onChange={(event) => {
-                const {value} = event.currentTarget;
+                const { value } = event.currentTarget;
                 if (value === "") return;
                 mute(
                   message.authorId,

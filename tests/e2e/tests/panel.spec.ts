@@ -878,7 +878,7 @@ test.describe("Backoffice Panel", () => {
       await expect(page.getByText("Session field created successfully.")).toBeVisible();
 
       /* NOTE: the panel UI hides "Required" for checkbox fields because
-           the proposer-side form builder (chronology/forms.py — BooleanField
+           the proposer-side form builder (event/propose_forms.py — BooleanField
            for checkbox) ignores `is_required` anyway. The regression test
            below needs a checkbox stored as required to exercise that
            defensive coercion, so we re-inject the option to craft a
