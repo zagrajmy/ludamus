@@ -271,27 +271,12 @@ body {
   border-top: 0;
 }
 
-.room-lanes-head {
-  mask-image: linear-gradient(
-    90deg,
-    black 0,
-    black var(--axis-w),
-    hsl(0 0% 0% / var(--fade-start-opacity)) var(--axis-w),
-    black calc(var(--axis-w) + var(--fade-size-start, 0px)),
-    black calc(100% - var(--fade-size-end, 0px)),
-    hsl(0 0% 0% / var(--fade-end-opacity))
-  );
-  -webkit-mask-image: linear-gradient(
-    90deg,
-    black 0,
-    black var(--axis-w),
-    hsl(0 0% 0% / var(--fade-start-opacity)) var(--axis-w),
-    black calc(var(--axis-w) + var(--fade-size-start, 0px)),
-    black calc(100% - var(--fade-size-end, 0px)),
-    hsl(0 0% 0% / var(--fade-end-opacity))
-  );
-}
-
+/* Both panes fade their x-overflow edges, but the head also shows the top
+   scrollbar, which the fade must not dim: the second, un-faded mask layer
+   covers the strip it occupies. room-lanes.ts measures the strip into
+   --room-lanes-sb; on the body the var stays 0 — its native scrollbar is
+   hidden below — so the fade covers everything. */
+.room-lanes-head,
 .room-lanes-scroll {
   mask-image:
     linear-gradient(
@@ -329,6 +314,18 @@ body {
     bottom left;
   mask-repeat: no-repeat;
   -webkit-mask-repeat: no-repeat;
+}
+
+/* The body's own scrollbar would surface only at the very end of a
+   screens-tall grid; the sticky strip after it (data-room-lanes-foot in the
+   template) pins that handle to the viewport bottom instead, and hiding the
+   native one keeps the two from stacking at the grid's end. */
+.room-lanes-scroll {
+  scrollbar-width: none;
+}
+
+.room-lanes-scroll::-webkit-scrollbar {
+  display: none;
 }
 
 .room-lanes-rule {

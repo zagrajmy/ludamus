@@ -12,6 +12,7 @@ from ludamus.inits.builders import (
 )
 from ludamus.inits.dbos_scheduler import DBOSOfferExpiryScheduler
 from ludamus.inits.repositories import Repositories
+from ludamus.links.cache import DjangoCache
 from ludamus.links.db.django.notifications import DjangoUserNotifier
 from ludamus.links.db.django.schedule_change_log import ScheduleChangeLogRepository
 from ludamus.links.db.django.transaction import DjangoTransaction
@@ -550,6 +551,7 @@ class Services:
                 facilitators=self._repos.facilitators,
                 users=self._repos.active_users,
             ),
+            cache=DjangoCache(),
         )
 
     @cached_property
