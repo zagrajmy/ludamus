@@ -10,6 +10,10 @@ Usage:
         <option value="">Pick one...</option>
     {% endselect %}
 
+    {% tessera_combobox id="host" name="host" %}
+        <option value="">Everyone</option>
+    {% endtessera_combobox %}
+
     {% tabs %}
         {% tab "home" icon="home" href="/home/" active=True %}Home{% endtab %}
     {% endtabs %}
@@ -21,6 +25,7 @@ Usage:
 """
 
 from ._registry import register
+from .combobox import ComboboxNode, do_combobox
 from .copy import copy_lines, tessera_copy, tessera_copy_chip, tessera_copy_popover
 from .dynamic_field import dynamic_field
 from .form import tessera_button, tessera_errors, tessera_field, tessera_form
@@ -34,6 +39,7 @@ from .table import TableNode, do_tessera_table
 from .tabs import TabNode, TabsNode, do_tab, do_tabs
 
 __all__ = [
+    "ComboboxNode",
     "RadioNode",
     "SegmentNode",
     "SelectNode",
@@ -44,6 +50,7 @@ __all__ = [
     "TableNode",
     "TabsNode",
     "copy_lines",
+    "do_combobox",
     "do_radio",
     "do_select",
     "do_tab",

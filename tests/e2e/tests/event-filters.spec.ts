@@ -189,7 +189,8 @@ test.describe("Event filter panel", () => {
     await page.getByRole("button", { name: "Filters" }).click();
 
     const hostFilter = page.getByRole("combobox", { name: "Host" });
-    await expect(hostFilter.locator("option")).toHaveText([
+    await hostFilter.click();
+    await expect(page.getByRole("listbox", { name: "Host" }).getByRole("option")).toHaveText([
       "All hosts",
       "Alex Morgan",
       "Priya Chen",
@@ -197,10 +198,80 @@ test.describe("Event filter panel", () => {
     ]);
 
     const card = (title: string) => page.getByRole("link", { name: `Open details for ${title}` });
-    await hostFilter.selectOption({ label: "Priya Chen" });
+    await page.getByRole("option", { name: "Priya Chen" }).click();
+    await expect(hostFilter).toHaveValue("Priya Chen");
     await expect(card("Cozy Storytellers Circle")).toBeVisible();
     await expect(card("Mega Strategy Lab")).toBeHidden();
     await expect(card("Przygoda w Mieście Neonów")).toBeHidden();
+  });
+
+  test("the host combobox narrows as you type and commits on Enter", async ({ page }) => {
+    await page.goto("/event/autumn-open/");
+    await page.getByRole("button", { name: "Filters" }).click();
+
+    const hostFilter = page.getByRole("combobox", { name: "Host" });
+    const options = page.getByRole("listbox", { name: "Host" }).getByRole("option");
+    await hostFilter.fill("chen");
+    await expect(options).toHaveText(["Priya Chen"]);
+
+    // DOM focus stays on the input; the active option is named instead.
+    await hostFilter.press("ArrowDown");
+    await expect(hostFilter).toHaveAttribute("aria-activedescendant", /host-filter-option-/);
+    await expect(hostFilter).toBeFocused();
+
+    await hostFilter.press("Enter");
+    await expect(hostFilter).toHaveValue("Priya Chen");
+    await expect(hostFilter).toHaveAttribute("aria-expanded", "false");
+    const card = (title: string) => page.getByRole("link", { name: `Open details for ${title}` });
+    await expect(card("Cozy Storytellers Circle")).toBeVisible();
+    await expect(card("Mega Strategy Lab")).toBeHidden();
+  });
+
+  test("the host combobox says when nothing matches, and Escape restores the pick", async ({
+    page,
+  }) => {
+    await page.goto("/event/autumn-open/");
+    await page.getByRole("button", { name: "Filters" }).click();
+
+    const hostFilter = page.getByRole("combobox", { name: "Host" });
+    await hostFilter.fill("chen");
+    await page.getByRole("option", { name: "Priya Chen" }).click();
+
+    await hostFilter.fill("zzzznomatch");
+    await expect(page.getByText("No host matches your search.")).toBeVisible();
+
+    // A half-typed query is not a value: Escape puts the committed one back.
+    await hostFilter.press("Escape");
+    await expect(hostFilter).toHaveValue("Priya Chen");
+    await expect(hostFilter).toHaveAttribute("aria-expanded", "false");
+
+    // Pressing it again on a closed list clears the pick, as the pattern says.
+    await hostFilter.press("Escape");
+    await expect(hostFilter).toHaveValue("All hosts");
+  });
+
+  test("the host combobox folds diacritics like the search box does", async ({ page }) => {
+    await page.goto("/event/autumn-open/");
+    await page.getByRole("button", { name: "Filters" }).click();
+
+    const hostFilter = page.getByRole("combobox", { name: "Host" });
+    await hostFilter.fill("wlodarczyk");
+    await expect(page.getByRole("listbox", { name: "Host" }).getByRole("option")).toHaveText([
+      "Radek Włodarczyk",
+    ]);
+  });
+
+  test("clearing the filters puts the host combobox back to its placeholder", async ({ page }) => {
+    await page.goto("/event/autumn-open/");
+    await page.getByRole("button", { name: "Filters" }).click();
+
+    const hostFilter = page.getByRole("combobox", { name: "Host" });
+    await hostFilter.click();
+    await page.getByRole("option", { name: "Priya Chen" }).click();
+    await expect(hostFilter).toHaveValue("Priya Chen");
+
+    await page.getByRole("button", { name: "Clear all" }).click();
+    await expect(hostFilter).toHaveValue("All hosts");
   });
 
   test("the age filter keeps the sessions that admit the typed age", async ({ page }) => {
@@ -209,12 +280,12 @@ test.describe("Event filter panel", () => {
 
     // Cozy Storytellers Circle is open to everyone; the other two require 10+.
     const card = (title: string) => page.getByRole("link", { name: `Open details for ${title}` });
-    const ageFilter = page.getByRole("spinbutton", { name: "Required age" });
+    const ageFilter = page.getByRole("spinbutton", { name: "Participant age" });
     await ageFilter.fill("9");
     await expect(card("Cozy Storytellers Circle")).toBeVisible();
     await expect(card("Mega Strategy Lab")).toBeHidden();
     await expect(card("Przygoda w Mieście Neonów")).toBeHidden();
-    await expect(page.getByText("Required age: 9")).toBeVisible();
+    await expect(page.getByText("Participant age: 9")).toBeVisible();
 
     await ageFilter.fill("10");
     await expect(card("Mega Strategy Lab")).toBeVisible();
@@ -331,7 +402,7 @@ test.describe("Filter state in the URL", () => {
     await expect(card(page, "Przygoda w Mieście Neonów")).toBeHidden();
 
     await expect(page.locator("#session-filter")).toHaveValue("circle");
-    await expect(page.getByRole("spinbutton", { name: "Required age" })).toHaveValue("9");
+    await expect(page.getByRole("spinbutton", { name: "Participant age" })).toHaveValue("9");
     await expect(page.locator("#active-filter-chips")).toContainText("12:00");
   });
 
@@ -339,7 +410,7 @@ test.describe("Filter state in the URL", () => {
     await page.goto("/event/autumn-open/?age=120");
 
     await expect(card(page, "Cozy Storytellers Circle")).toBeVisible();
-    await expect(page.getByRole("spinbutton", { name: "Required age" })).toHaveValue("");
+    await expect(page.getByRole("spinbutton", { name: "Participant age" })).toHaveValue("");
   });
 
   test("keeps the mirror through a session modal opening and closing", async ({ page }) => {

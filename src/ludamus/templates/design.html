@@ -227,6 +227,19 @@
                             </div>
                         </div>
                         <div class="relative bg-background pt-12 px-8 pb-8 min-h-48 flex items-center justify-center">
+                            <code class="absolute top-3 left-3 text-xs text-foreground-muted">{% templatetag openblock %} tessera_combobox {% templatetag closeblock %}</code>
+                            <div class="w-full max-w-xs">
+                                <label for="t-combobox" class="sr-only">Fruit</label>
+                                {% tessera_combobox id="t-combobox" name="t-combobox" placeholder="Search fruit…" %}
+                                    <option value="">Any fruit</option>
+                                    <option value="apple">Apple</option>
+                                    <option value="apricot">Apricot</option>
+                                    <option value="blackcurrant">Blackcurrant</option>
+                                    <option value="cherry">Cherry</option>
+                                {% endtessera_combobox %}
+                            </div>
+                        </div>
+                        <div class="relative bg-background pt-12 px-8 pb-8 min-h-48 flex items-center justify-center">
                             <code class="absolute top-3 left-3 text-xs text-foreground-muted">checkbox-field.html</code>
                             {% include "components/checkbox-field.html" with id="t-checkbox" name="t-checkbox" label="Checkbox" checked=True only %}
                         </div>

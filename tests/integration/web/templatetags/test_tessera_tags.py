@@ -297,6 +297,93 @@ class TestSelect:
         assert "&lt;script&gt;" in html or "&#x27;" in html
 
 
+class TestCombobox:
+    def test_renders_select_and_shell(self) -> None:
+        tpl = Template(
+            "{% load tessera %}"
+            '{% tessera_combobox id="host" name="host" %}'
+            '<option value="ada">Ada</option>'
+            "{% endtessera_combobox %}"
+        )
+        html = tpl.render(Context())
+        assert "<select" in html
+        assert 'id="host"' in html
+        assert "Ada" in html
+        assert "data-combobox" in html
+        assert "data-combobox-shell" in html
+
+    def test_input_carries_the_combobox_aria_contract(self) -> None:
+        tpl = Template(
+            '{% load tessera %}{% tessera_combobox id="host" name="host" %}'
+            "{% endtessera_combobox %}"
+        )
+        html = tpl.render(Context())
+        assert 'role="combobox"' in html
+        assert 'aria-autocomplete="list"' in html
+        assert 'aria-expanded="false"' in html
+        assert 'aria-controls="host-listbox"' in html
+        assert 'id="host-input"' in html
+        assert 'role="listbox"' in html
+        assert 'id="host-listbox"' in html
+
+    def test_option_row_template_carries_the_option_role(self) -> None:
+        tpl = Template(
+            '{% load tessera %}{% tessera_combobox id="host" name="host" %}'
+            "{% endtessera_combobox %}"
+        )
+        html = tpl.render(Context())
+        assert "<template" in html
+        assert 'role="option"' in html
+
+    def test_empty_state_is_announced(self) -> None:
+        tpl = Template(
+            '{% load tessera %}{% tessera_combobox id="host" name="host" %}'
+            "{% endtessera_combobox %}"
+        )
+        html = tpl.render(Context())
+        assert 'role="status"' in html
+        assert 'aria-live="polite"' in html
+
+    def test_toggle_is_out_of_the_tab_sequence(self) -> None:
+        tpl = Template(
+            '{% load tessera %}{% tessera_combobox id="host" name="host" %}'
+            "{% endtessera_combobox %}"
+        )
+        html = tpl.render(Context())
+        assert 'tabindex="-1"' in html
+
+    def test_copy_is_overridable(self) -> None:
+        tpl = Template(
+            "{% load tessera %}"
+            '{% tessera_combobox id="host" name="host" placeholder="Find a host" '
+            'empty_text="No hosts" toggle_label="Open hosts" %}'
+            "{% endtessera_combobox %}"
+        )
+        html = tpl.render(Context())
+        assert 'placeholder="Find a host"' in html
+        assert "No hosts" in html
+        assert 'aria-label="Open hosts"' in html
+
+    def test_class_lands_on_both_controls(self) -> None:
+        tpl = Template(
+            '{% load tessera %}{% tessera_combobox id="host" name="host" '
+            'class="filter-input" %}{% endtessera_combobox %}'
+        )
+        html = tpl.render(Context())
+        # The select and the input it is upgraded into.
+        controls = 2
+        assert html.count("filter-input") == controls
+
+    def test_forwards_arbitrary_attributes_to_the_select(self) -> None:
+        tpl = Template(
+            '{% load tessera %}{% tessera_combobox id="host" name="host" '
+            'required=True data_category="who" %}{% endtessera_combobox %}'
+        )
+        html = tpl.render(Context())
+        assert "required" in html
+        assert 'data-category="who"' in html
+
+
 class TestTabs:
     def test_renders_tabs_nav(self) -> None:
         tpl = Template(

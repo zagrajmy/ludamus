@@ -20,6 +20,7 @@ container.** If you're writing `<input>`, `<select>`, or a bare styled
 | Icon | `{% icon "calendar" %}` | Heroicons. `variant="outline"/"solid"/"mini"/"micro"`, `class="w-5 h-5"`. |
 | Icon-only button | `.icon-btn` + `{% icon %}` + `<span class="sr-only">` | **Must** carry an accessible name (`sr-only` span or `aria-label`). Enforced by `rules/icon-btn-accessible-name.yml`. Variants: `.icon-btn-primary`, `.icon-btn-danger`. |
 | Custom `<select>` | `{% select id=.. name=.. %}<option>…{% endselect %}` | Slot-based, for selects not backed by a form field. Registered as a djlint custom block. |
+| Searchable select | `{% tessera_combobox id=.. name=.. %}<option>…{% endtessera_combobox %}` | For lists too long to scroll. Ships a `<select>` the browser upgrades to an ARIA combobox (typeahead, `aria-activedescendant`, top-layer popup); the select stays the value, so forms and `change` listeners are unaffected and it still works without JS. `placeholder=`, `empty_text=`, `toggle_label=` take the copy. djlint custom block. |
 | Data table | `{% tessera_table %}<thead>…<tbody>…{% endtessera_table %}` | Wraps your `<thead>/<tbody>` in a card + responsive scroll container. Don't hand-build the card chrome. A hoverable row's background follows Edit / Details: mark that link `data-row-action`. |
 | Tab navigation | `{% tabs %}{% tab "key" icon=.. href=.. active=.. %}Label{% endtab %}{% endtabs %}` | For navigation between related views. Tabs are *navigation* — use links, not buttons. |
 | Avatar | `{% include "components/avatar.html" with user=.. size="size-12" %}` | Size via Tailwind `size-*`. |
@@ -38,6 +39,11 @@ visibility badges, …). Prefer including those over re-creating their markup.
   a click. For a small fixed set (visibility: public/private; yes/no/maybe),
   render them as a radio group (`choice-group.html` / `RadioSelect`) so all
   options are visible at once. Reserve `<select>` for long or dynamic lists.
+- **Past ~15 options → combobox, not select.** Scrolling stops being a way to
+  find a name once the list is long (an event's facilitators, a venue's rooms).
+  `{% tessera_combobox %}` lets people type instead, and its filtering folds
+  diacritics, so "wlodarczyk" finds "Włodarczyk". Below that, a plain
+  `{% select %}` is less machinery for the same job.
 - **One required option → no widget at all.** If a required choice has a single
   possible value, don't render a picker. tessera already does this via
   `render_forced_choice` / `single_required_choice` — let it. Showing a form

@@ -5,6 +5,7 @@
 // view is shareable and survives reloads and view-tab swaps without becoming
 // history entries or server round trips.
 
+import { normalizeText } from "./text";
 import {
   flagParam,
   hrefWithSearchParams,
@@ -105,6 +106,14 @@ const matchesTag =
 // prefixed so one named e.g. "status" cannot shadow a built-in param.
 const TAG_PARAM_NAMES: Record<string, string> = { __category: "category", __track: "track" };
 
+// A control the combobox module upgraded reads its label off the <select>,
+// and a programmatic write fires no `change` for it to notice. Every write
+// this module makes outside a user gesture — deep links, clear-all, a
+// repopulated list — says so here.
+const syncControl = (el: HTMLElement): void => {
+  el.closest("[data-combobox]")?.dispatchEvent(new CustomEvent("combobox:sync"));
+};
+
 let documentListeners = new AbortController();
 
 const initSessionFilters = (): void => {
@@ -130,24 +139,6 @@ const initSessionFilters = (): void => {
   const sessionCards = document.querySelectorAll<HTMLElement>(".session");
 
   const tagFilters: Record<string, HTMLSelectElement> = {};
-
-  const COMBINING_MARKS = /[\u0300-\u036F]/g;
-  const NON_DECOMPOSING_MAP: Record<string, string> = {
-    æ: "ae",
-    đ: "d",
-    ħ: "h",
-    ı: "i",
-    ł: "l",
-    ø: "o",
-    œ: "oe",
-    ß: "ss",
-  };
-  const normalizeText = (value: string): string =>
-    value
-      .toLowerCase()
-      .replaceAll(/[łøđħıœæß]/g, (char) => NON_DECOMPOSING_MAP[char] ?? char)
-      .normalize("NFD")
-      .replaceAll(COMBINING_MARKS, "");
 
   // Field values ride in the haystack because a value typed into an
   // allow_custom field is not a choice and so never becomes a filter option —
@@ -185,6 +176,7 @@ const initSessionFilters = (): void => {
     entries: [string, string][],
   ): void => {
     for (const [value, label] of entries) addOption(select, value, label);
+    syncControl(select);
     if (entries.length > 1) document.getElementById(groupId)?.classList.remove("hidden");
   };
 
@@ -362,6 +354,7 @@ const initSessionFilters = (): void => {
       () => select.value,
       (value) => {
         select.value = value;
+        syncControl(select);
       },
     );
   };
@@ -488,7 +481,10 @@ const initSessionFilters = (): void => {
   function clearAllFilters(): void {
     sessionFilter.value = "";
     if (enrollmentFilter) enrollmentFilter.checked = false;
-    for (const f of cardFilters) f.el.value = "";
+    for (const f of cardFilters) {
+      f.el.value = "";
+      syncControl(f.el);
+    }
 
     for (const section of document.querySelectorAll<HTMLElement>(".time-slot-section")) {
       section.hidden = false;
@@ -524,6 +520,7 @@ const initSessionFilters = (): void => {
       chips.push({
         clear: () => {
           f.el.value = "";
+          syncControl(f.el);
           filterSessions();
         },
         label: f.chip(),

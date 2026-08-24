@@ -1,0 +1,80 @@
+{% load i18n %}
+{% load tessera %}
+{% load vite_tags %}
+{# The behaviour ships with the component: pages using it need remember no #}
+{# asset, and pages that don't, don't pay for one. Deduped per request. #}
+{% vite_asset_once 'src/combobox.ts' %}
+{# Searchable single-select, per the ARIA combobox pattern with list #}
+{# autocomplete: https://www.w3.org/WAI/ARIA/apg/patterns/combobox/ #}
+{# The <select> is the control — it holds the value, posts with a form and #}
+{# is what `change` listeners bind to. Script-free, it is the whole widget. #}
+{# combobox.ts hides it and drives the shell below in its place, mirroring #}
+{# every pick back onto it. Base UI keeps a hidden field for the same reason; #}
+{# starting from the native element also means no-JS keeps working. #}
+{# Vars: attrs (safe string), id, placeholder, empty_text, toggle_label, #}
+{# extra_class, has_errors, slot (safe string of <option>s). #}
+{# `class` lands on both controls, so the one on screen looks the same #}
+{# whether or not the upgrade ran. #}
+<div class="tessera-combobox relative" data-combobox>
+    {% include "components/select.html" with attrs=attrs extra_class=extra_class has_errors=has_errors slot=slot only %}
+    {# Unhidden by the script, so the select never flashes beside its own #}
+    {# replacement on a slow first paint. #}
+    <div data-combobox-shell hidden>
+        <input type="text"
+               id="{{ id }}-input"
+               role="combobox"
+               aria-autocomplete="list"
+               aria-expanded="false"
+               aria-controls="{{ id }}-listbox"
+               placeholder="{{ placeholder }}"
+               autocomplete="off"
+               spellcheck="false"
+               autocorrect="off"
+               autocapitalize="none"
+               data-combobox-input
+               class="w-full px-3 py-2 pr-9 text-base sm:text-sm rounded-lg border {% if has_errors|default:False %}border-danger{% else %}border-border{% endif %} bg-bg-secondary text-foreground placeholder:text-foreground-muted disabled:opacity-50 disabled:cursor-not-allowed{% if extra_class|default:"" %} {{ extra_class }}{% endif %}">
+        {# tabindex=-1: its job is redundant with the combobox's own keys, so #}
+        {# it must not add a second tab stop (APG). #}
+        <button type="button"
+                tabindex="-1"
+                aria-label="{{ toggle_label }}"
+                aria-expanded="false"
+                aria-controls="{{ id }}-listbox"
+                data-combobox-toggle
+                class="absolute inset-y-0 right-0 flex items-center px-2.5 text-foreground-muted">
+            {% icon "chevron-up-down" variant="mini" class="size-4" aria_hidden="true" %}
+        </button>
+        {# The top layer, because the popup has to escape whatever clips its #}
+        {# surroundings — the event page's filter panel scrolls and is #}
+        {# transformed, which traps even position:fixed. Browsers without #}
+        {# popover ignore the attribute and keep the absolute box below, #}
+        {# which their user can still scroll to. #}
+        <div data-combobox-popup
+             popover="manual"
+             hidden
+             class="absolute left-0 right-0 top-full z-40 mt-1 overflow-hidden rounded-xl border border-border bg-bg-secondary shadow-xl">
+            <ul id="{{ id }}-listbox"
+                role="listbox"
+                data-combobox-listbox
+                class="max-h-60 overflow-y-auto py-1">
+            </ul>
+            {# Base UI announces its empty state; cmdk's role=presentation #}
+            {# leaves "no results" silent, which is the wrong half to copy. #}
+            <p role="status"
+               aria-live="polite"
+               aria-atomic="true"
+               hidden
+               data-combobox-empty
+               class="px-3 py-2 text-sm text-foreground-muted">{{ empty_text }}</p>
+        </div>
+    </div>
+    {# The row the script clones per option, so the option look stays here in #}
+    {# the template where Tailwind can see it. #}
+    <template data-combobox-option>
+        <li role="option"
+            class="group flex cursor-pointer items-center gap-2 px-3 py-2 text-sm text-foreground data-[active]:bg-bg-tertiary aria-selected:font-semibold">
+            <span data-combobox-option-label class="grow truncate"></span>
+            {% icon "check" variant="mini" class="size-4 text-primary opacity-0 group-aria-selected:opacity-100" aria_hidden="true" %}
+        </li>
+    </template>
+</div>
