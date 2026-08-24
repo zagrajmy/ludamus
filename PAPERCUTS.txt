@@ -336,3 +336,10 @@ If you fix a papercut, remove it.
   does GenericForeignKey.__get__, which no longer exists in the installed
   Django. Worked around by running makemessages with DEBUG=false so settings
   skip the zeal app. mise run messages / messages-check hit the same crash.
+- 2026-08-24: mise run diff-cover went red on three e2e tests (event-schedule-
+  views 'rooms tab swaps the layout in', event-filters 'carries filters across
+  the schedule view switch'); all three pass on re-run (32/32 with --repeat-
+  each=8, both browsers) and GitHub CI was green on the same commit. The local
+  suite times out on the heaviest page's 10s assertions when the machine is
+  busy, so a red gate can mean 'another job was running', with nothing in the
+  output saying so.

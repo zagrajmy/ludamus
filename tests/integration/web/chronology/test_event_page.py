@@ -1059,10 +1059,14 @@ class TestEventPageView:
         session_b = SessionFactory(event=event, category=category_b, min_age=0)
         session_b.tracks.add(track_b)
         item_a = AgendaItemFactory(session=session_a, space=space)
+        # Offset from the first item, not from `now()`: the factory anchors its
+        # items to a fixed local hour, so a floating start sorts before item_a
+        # whenever the suite runs in the small hours, and `sessions` comes back
+        # in the other order.
         item_b = AgendaItemFactory(
             session=session_b,
             space=space,
-            start_time=timezone.now() + timedelta(days=7, hours=3),
+            start_time=item_a.start_time + timedelta(hours=3),
         )
         cards = [
             session_card(
