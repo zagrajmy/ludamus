@@ -22,6 +22,7 @@ from ludamus.pacts.event import (
     EventSlugConflictError,
     EventsRepositoryProtocol,
     EventsServiceProtocol,
+    LandingServiceProtocol,
     LandingStatsDTO,
     LandingStatsRepositoryProtocol,
 )
@@ -431,7 +432,7 @@ class EventPanelService(EventPanelServiceProtocol):
         )
 
 
-class LandingService:
+class LandingService(LandingServiceProtocol):
     def __init__(self, stats: LandingStatsRepositoryProtocol) -> None:
         self._stats = stats
 
