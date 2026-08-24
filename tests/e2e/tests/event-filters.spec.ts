@@ -205,6 +205,23 @@ test.describe("Event filter panel", () => {
     await expect(page.locator("#active-filter-chips")).toContainText("Priya Chen");
   });
 
+  test("the age filter keeps the sessions that admit the typed age", async ({ page }) => {
+    await page.goto("/event/autumn-open/");
+    await page.getByRole("button", { name: "Filters" }).click();
+
+    // Cozy Storytellers Circle is open to everyone; the other two require 10+.
+    const card = (title: string) => page.locator(".session", { hasText: title });
+    await page.getByRole("spinbutton", { name: "Required age" }).fill("9");
+    await expect(card("Cozy Storytellers Circle")).toBeVisible();
+    await expect(card("Mega Strategy Lab")).toBeHidden();
+    await expect(card("Przygoda w Mieście Neonów")).toBeHidden();
+    await expect(page.locator("#active-filter-chips")).toContainText("Required age: 9");
+
+    await page.getByRole("spinbutton", { name: "Required age" }).fill("10");
+    await expect(card("Mega Strategy Lab")).toBeVisible();
+    await expect(card("Przygoda w Mieście Neonów")).toBeVisible();
+  });
+
   test("hides the host filter when every session shares one host", async ({ page }) => {
     await page.goto("/event/closed-enrollment/");
     await page.getByRole("button", { name: "Filters" }).click();

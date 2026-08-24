@@ -67,7 +67,7 @@ const initSessionFilters = (): void => {
   const hourFilter = byId<HTMLSelectElement>("hour-filter");
   const spaceFilter = byId<HTMLSelectElement>("space-filter");
   const hostFilter = byId<HTMLSelectElement>("host-filter");
-  const minAgeFilter = byId<HTMLInputElement>("min-age-filter");
+  const ageFilter = byId<HTMLInputElement>("age-filter");
   const enrollmentFilter = document.querySelector<HTMLInputElement>("#enrollment-filter");
   const filterToggle = byId("filter-toggle");
   const filterPanel = byId("filter-panel");
@@ -313,7 +313,7 @@ const initSessionFilters = (): void => {
   mirrorSelect("hour", hourFilter);
   mirrorSelect("space", spaceFilter);
   mirrorSelect("host", hostFilter);
-  mirrorAge("age-min", minAgeFilter);
+  mirrorAge("age", ageFilter);
   // `__track` and `__category` are the template's own pseudo-categories, so
   // they get clean names; organizer-defined categories are event-scoped slugs,
   // prefixed so one named e.g. "status" cannot shadow a built-in param.
@@ -379,7 +379,7 @@ const initSessionFilters = (): void => {
     const hourValue = hourFilter.value;
     const spaceValue = spaceFilter.value;
     const hostValue = hostFilter.value;
-    const minAgeValue = minAgeFilter.value;
+    const ageValue = ageFilter.value;
 
     const activeTagFilters: Record<string, string> = {};
     for (const categorySlug of Object.keys(tagFilters)) {
@@ -429,9 +429,11 @@ const initSessionFilters = (): void => {
 
       if (hostValue) show &&= card.dataset.host === hostValue;
 
-      if (minAgeValue) {
+      // The participant's age against the session's requirement: an
+      // unrestricted session (min age 0) admits everyone, so it always stays.
+      if (ageValue) {
         const sessionMinAge = Number.parseInt(card.dataset.minAge ?? "", 10) || 0;
-        show &&= sessionMinAge >= Number.parseInt(minAgeValue, 10);
+        show &&= sessionMinAge <= Number.parseInt(ageValue, 10);
       }
 
       if (Object.keys(activeTagFilters).length > 0) {
@@ -487,7 +489,7 @@ const initSessionFilters = (): void => {
     hourFilter.value = "";
     spaceFilter.value = "";
     hostFilter.value = "";
-    minAgeFilter.value = "";
+    ageFilter.value = "";
     for (const categorySlug of Object.keys(tagFilters)) {
       tagFilters[categorySlug].value = "";
     }
@@ -547,7 +549,7 @@ const initSessionFilters = (): void => {
     pushSelectChip(hourFilter);
     pushSelectChip(spaceFilter);
     pushSelectChip(hostFilter);
-    pushAgeChip(minAgeFilter, filterChipsBar.dataset.minAgeLabel ?? "Age ≥");
+    pushAgeChip(ageFilter, filterChipsBar.dataset.ageLabel ?? "");
     for (const cat of Object.keys(tagFilters)) pushSelectChip(tagFilters[cat]);
 
     if (chips.length > 0) {
@@ -601,7 +603,7 @@ const initSessionFilters = (): void => {
   hourFilter.addEventListener("change", filterSessions);
   spaceFilter.addEventListener("change", filterSessions);
   hostFilter.addEventListener("change", filterSessions);
-  minAgeFilter.addEventListener("input", filterSessions);
+  ageFilter.addEventListener("input", filterSessions);
 
   filterToggle.addEventListener("click", () => {
     const isOpen = filterPanel.classList.toggle("is-open");

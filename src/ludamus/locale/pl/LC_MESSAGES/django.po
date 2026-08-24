@@ -2493,7 +2493,6 @@ msgstr "Opis"
 
 #: src/ludamus/gates/web/django/event/propose_forms.py
 #: src/ludamus/gates/web/django/templatetags/cfp_tags.py
-#: src/ludamus/templates/chronology/event.html
 #: src/ludamus/templates/chronology/session_tags.html
 #: src/ludamus/templates/event/propose/parts/details.html
 #: src/ludamus/templates/event/propose/parts/review.html
@@ -4359,6 +4358,10 @@ msgid "All locations"
 msgstr "Wszystkie lokalizacje"
 
 #: src/ludamus/templates/chronology/event.html
+msgid "Required age"
+msgstr "Wymagany wiek"
+
+#: src/ludamus/templates/chronology/event.html
 msgid "Day"
 msgstr "Dzień"
 
@@ -4410,10 +4413,6 @@ msgstr "Usuń filtr"
 #: src/ludamus/templates/chronology/event.html
 msgid "Clear all"
 msgstr "Wyczyść wszystko"
-
-#: src/ludamus/templates/chronology/event.html
-msgid "Age ≥"
-msgstr "Wiek ≥"
 
 #: src/ludamus/templates/chronology/event.html
 msgid "No sessions match your filters"
@@ -9396,6 +9395,9 @@ msgstr "Temat"
 #: src/ludamus/templates/staging_email_inbox.html
 msgid "No emails captured yet."
 msgstr "Brak przechwyconych e-maili."
+
+#~ msgid "Age ≥"
+#~ msgstr "Wiek ≥"
 
 #~ msgid "Search sessions..."
 #~ msgstr "Szukaj punktów programu..."
