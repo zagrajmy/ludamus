@@ -335,3 +335,10 @@ If you fix a papercut, remove it.
   was unset; the traceback only later explained pytest-django could not
   initialize. Use mise run test:int -- PATH so the task supplies the test
   environment.
+- 2026-08-24: PR #825 stale-sweep (2026-08-24): main's proposals.html conflict
+  was a real structural refactor (bulk-status form ->
+  panel/parts/_bulk_toolbar.html + _bulk_select.html componentization, not just
+  a closer-spelling clash); taking the old HEAD-side table markup verbatim would
+  have left an orphaned </form> with no opener. Diffed both sides against the
+  merge base to see main had extracted a whole new partial before trusting 'take
+  main's content'.
