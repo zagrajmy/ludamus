@@ -26,7 +26,11 @@ from tests.integration.conftest import (
     SpaceFactory,
     SphereFactory,
 )
-from tests.integration.utils import assert_login_required, assert_response
+from tests.integration.utils import (
+    FormErrorsMatcher,
+    assert_login_required,
+    assert_response,
+)
 from tests.integration.web.panel.helpers import (
     assert_event_not_found,
     assert_not_a_manager,
@@ -877,13 +881,10 @@ class TestDiscountExportPageView:
             template_name="panel/discounts/export.html",
             context_data={
                 **panel_context(event, active_nav="discounts"),
-                "form": ANY,
+                "form": FormErrorsMatcher(columns=["This field is required."]),
                 "has_connections": True,
             },
         )
-        assert response.context["form"].errors == {
-            "columns": ["This field is required."]
-        }
         session.put.assert_not_called()
 
     def test_post_shows_error_when_google_rejects_the_write(
