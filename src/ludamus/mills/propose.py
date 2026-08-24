@@ -15,12 +15,15 @@ from ludamus.pacts import (
     SessionStatus,
 )
 from ludamus.pacts.durations import normalize_duration
+from ludamus.pacts.propose import ProposeSessionServiceProtocol
 from ludamus.pacts.submissions import is_empty_answer
+from ludamus.specs.proposal import PROPOSAL_RATE_LIMIT_SECONDS
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Mapping
 
     from ludamus.pacts import (
+        CacheProtocol,
         EventDTO,
         EventProposalSettingsDTO,
         FacilitatorDTO,
@@ -37,12 +40,17 @@ if TYPE_CHECKING:
     from ludamus.pacts.services import TransactionProtocol
 
 
-class ProposeSessionService:
+class ProposeSessionService(ProposeSessionServiceProtocol):
     def __init__(
-        self, *, transaction: TransactionProtocol, repos: ProposeRepos
+        self,
+        *,
+        transaction: TransactionProtocol,
+        repos: ProposeRepos,
+        cache: CacheProtocol,
     ) -> None:
         self._transaction = transaction
         self._repos = repos
+        self._cache = cache
 
     @staticmethod
     def _generate_unique_slug(title: str, exists: Callable[[str], bool]) -> str:
@@ -97,6 +105,14 @@ class ProposeSessionService:
         return self._repos.personal_data_field_values.read_for_facilitator_event(
             facilitator.pk, event_id
         )
+
+    def check_rate_limit(self, *, ip: str, event_id: int) -> bool:
+        """Reserve a submission slot for an IP, reporting whether it was free."""
+        key = f"proposal_rate:{event_id}:{ip}"
+        if self._cache.get(key) is not None:
+            return False
+        self._cache.set(key, 1, timeout=PROPOSAL_RATE_LIMIT_SECONDS)
+        return True
 
     def _find_or_create_facilitator(
         self, *, event: EventDTO, display_name: str, user_id: int | None

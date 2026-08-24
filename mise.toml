@@ -334,8 +334,11 @@ set -eu
 base="${BASE_URL:-http://localhost:8000}"
 mkdir -p screenshots
 # $usage_targets is mise's non-deprecated multi-value argument contract; the
-# Tera template form is deprecated for removal in mise 2027.5.0.
-for target in ${usage_targets:-}; do
+# Tera template form is deprecated for removal in mise 2027.5.0. mise joins the
+# values shell-quoted, so eval must re-split them — an unquoted expansion would
+# keep the quotes as literal characters in targets like /event/x/?view=rooms.
+eval "set -- ${usage_targets:-}"
+for target in "$@"; do
   case "$target" in
     http*) url="$target" ;;
     *) url="$base$target" ;;
