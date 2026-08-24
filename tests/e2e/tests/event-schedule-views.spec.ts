@@ -44,6 +44,43 @@ test.describe("Event schedule views", () => {
     await expect(page).toHaveURL(/\?view=rooms$/);
     expect(await stayedOnPage(page)).toBe(true);
   });
+
+  test("the grid offers sideways scrollbars on both edges", async ({ page }) => {
+    await page.goto(`${DENSE_EVENT_URL}?view=rooms`);
+    const head = page.locator("[data-room-lanes-head]").first();
+    const foot = page.locator("[data-room-lanes-foot]").first();
+    const body = page.locator("[data-room-lanes-scroll]").first();
+
+    // Real scrollers — that is what puts a scrollbar at the top and the
+    // bottom edge for mouse users. The body's own scrollbar yields to the
+    // foot, which pins to the viewport.
+    for (const handle of [head, foot]) {
+      await expect(handle).toHaveCSS("overflow-x", "auto");
+    }
+    await expect(body).toHaveCSS("scrollbar-width", "none");
+
+    // Targets derived from the actual overflow, so a shrunken fixture fails
+    // on this precondition instead of an opaque clamped-scroll poll timeout.
+    const budget = (handle: typeof head) =>
+      handle.evaluate((el) => el.scrollWidth - el.clientWidth);
+    const max = Math.min(await budget(head), await budget(foot));
+    expect(max).toBeGreaterThanOrEqual(300);
+    const far = Math.floor(max / 2);
+    const near = Math.floor(max / 4);
+
+    // Dragging either handle pans the grid, and the grid drags both along.
+    await head.evaluate((el, left) => {
+      el.scrollLeft = left;
+    }, far);
+    await expect.poll(() => body.evaluate((el) => el.scrollLeft)).toBe(far);
+    await expect.poll(() => foot.evaluate((el) => el.scrollLeft)).toBe(far);
+
+    await foot.evaluate((el, left) => {
+      el.scrollLeft = left;
+    }, near);
+    await expect.poll(() => body.evaluate((el) => el.scrollLeft)).toBe(near);
+    await expect.poll(() => head.evaluate((el) => el.scrollLeft)).toBe(near);
+  });
 });
 
 test.describe("Enrollment filter", () => {

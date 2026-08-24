@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from datetime import UTC, date, datetime
 from functools import cached_property
 from typing import TYPE_CHECKING, Any
 
@@ -33,12 +32,11 @@ from ludamus.gates.web.django.propose_cover import (
     wizard_cover_initial,
 )
 from ludamus.gates.web.django.templatetags.cfp_tags import has_field_value
-from ludamus.mills.event import is_proposal_active
-from ludamus.mills.legacy import check_proposal_rate_limit
 from ludamus.pacts import NotFoundError, RedirectError
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Mapping, Sequence
+    from datetime import date
 
     from django.core.files.uploadedfile import UploadedFile
     from django.forms import Form
@@ -475,11 +473,10 @@ class ProposeWizardMixin(View):
                 reverse("web:index"), error=_("Event not found.")
             ) from None
 
-        if not is_proposal_active(event):
+        if not event.is_proposal_active:
             redirect_url = (
                 reverse("web:chronology:event", kwargs={"slug": event_slug})
-                if event.publication_time is not None
-                and event.publication_time <= datetime.now(tz=UTC)
+                if event.is_published
                 else reverse("web:index")
             )
             raise RedirectError(
@@ -694,7 +691,7 @@ class ProposeSessionSubmitActionView(ProposeWizardMixin):
 
         if not request.user.is_authenticated:
             ip = get_client_ip(request)
-            if not check_proposal_rate_limit(request.di.cache, ip, wizard.event.pk):
+            if not wizard.service.check_rate_limit(ip=ip, event_id=wizard.event.pk):
                 raise RedirectError(
                     _propose_url(event_slug),
                     error=_("Please wait before submitting another proposal."),
