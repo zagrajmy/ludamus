@@ -245,10 +245,42 @@ body {
   --col-track: minmax(var(--col-min), 1fr);
 }
 
+/* md and up: a third wider than the compact tiers (10rem and 11.25rem × 4/3)
+   — phone-width columns read cramped once the screen can afford more. */
+@media (min-width: 768px) {
+  .room-lanes {
+    --col-min: 13.35rem;
+  }
+}
+
 @media (min-width: 1024px) {
   .room-lanes {
-    --col-min: 11.25rem;
+    --col-min: 15rem;
   }
+}
+
+/* Map-style panning, toggled on the body scroller by room-lanes.ts: Space
+   over the grid arms it (grab), an active drag shows grabbing. No selection
+   while a gesture is armed — a pan across the grid must not paint text
+   selection in its wake. */
+.room-lanes-pan-ready,
+.room-lanes-pan-ready * {
+  cursor: grab;
+}
+
+/* The pan runs without pointer capture (same gesture pattern as the timeline
+   rail's scrub), so the grabbing cursor is pinned page-wide for the drag's
+   duration instead of riding whatever the pointer happens to hover. */
+.room-lanes-panning,
+.room-lanes-panning *,
+body:has(.room-lanes-panning),
+body:has(.room-lanes-panning) * {
+  cursor: grabbing;
+}
+
+.room-lanes-pan-ready,
+.room-lanes-panning {
+  user-select: none;
 }
 
 .room-lanes-grid {

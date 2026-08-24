@@ -81,6 +81,64 @@ test.describe("Event schedule views", () => {
     await expect.poll(() => body.evaluate((el) => el.scrollLeft)).toBe(near);
     await expect.poll(() => head.evaluate((el) => el.scrollLeft)).toBe(near);
   });
+
+  test("the grid pans like a map: drag the background, or anything with Space", async ({
+    browserName,
+    page,
+  }) => {
+    test.skip(
+      browserName === "firefox",
+      "Playwright's Firefox driver dispatches no pointerup/mouseup after a drag, so the pan never ends under automation (real Firefox fires mouseup)",
+    );
+
+    await page.goto(`${DENSE_EVENT_URL}?view=rooms`);
+    const body = page.locator("[data-room-lanes-scroll]").first();
+    await body.scrollIntoViewIfNeeded();
+
+    // A background spot inside the viewport: on the grid, not on a tile link.
+    const spot = await body.evaluate((el) => {
+      const rect = el.getBoundingClientRect();
+      const bottom = Math.min(rect.bottom, window.innerHeight);
+      for (let y = bottom - 24; y > rect.top; y -= 48) {
+        for (let x = rect.left + 80; x < rect.right - 24; x += 64) {
+          if (!document.elementFromPoint(x, y)?.closest("a, button")) return { x, y };
+        }
+      }
+      return null;
+    });
+    expect(spot).not.toBeNull();
+    if (!spot) return;
+
+    const appTop = () => page.evaluate(() => document.querySelector(".app-scroll")?.scrollTop ?? 0);
+    const topBefore = await appTop();
+    await page.mouse.move(spot.x, spot.y);
+    await page.mouse.down();
+    await page.mouse.move(spot.x - 180, spot.y + 60, { steps: 6 });
+    await expect(body).toHaveClass(/room-lanes-panning/);
+    await page.mouse.up();
+    await expect(body).not.toHaveClass(/room-lanes-panning/);
+    await expect.poll(() => body.evaluate((el) => el.scrollLeft)).toBeGreaterThanOrEqual(150);
+    expect(await appTop()).toBeLessThan(topBefore);
+
+    // Space turns even a session tile into a map handle, and the pan's
+    // trailing click must not open the session it started on.
+    const tile = page.getByRole("link", { name: /^Open details for / }).first();
+    await tile.scrollIntoViewIfNeeded();
+    const box = await tile.boundingBox();
+    expect(box).not.toBeNull();
+    if (!box) return;
+    const grabbed = await body.evaluate((el) => el.scrollLeft);
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.keyboard.down("Space");
+    await expect(body).toHaveClass(/room-lanes-pan-ready/);
+    await page.mouse.down();
+    await page.mouse.move(box.x + box.width / 2 + 120, box.y + box.height / 2, { steps: 5 });
+    await page.mouse.up();
+    await page.keyboard.up("Space");
+    await expect.poll(() => body.evaluate((el) => el.scrollLeft)).toBeLessThan(grabbed);
+    await expect(page.locator("dialog[open]")).toHaveCount(0);
+    await expect(page).toHaveURL(/\?view=rooms$/);
+  });
 });
 
 test.describe("Enrollment filter", () => {
