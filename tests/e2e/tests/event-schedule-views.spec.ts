@@ -147,6 +147,21 @@ test.describe("Event schedule views", () => {
     await expect.poll(() => body.evaluate((el) => el.scrollLeft)).toBeLessThan(grabbed);
     await expect(page.getByRole("dialog")).toHaveCount(0);
     await expect(page).toHaveURL(/\?view=rooms$/);
+
+    // Space held over the sticky head must be swallowed like over the grid —
+    // its default pages the app scroller, and with the key auto-repeating the
+    // page ran away from under the pan (the head is where a pan often parks
+    // the pointer, since it overlays the grid's top edge).
+    const headBox = await page.locator("[data-room-lanes-head]").first().boundingBox();
+    expect(headBox).not.toBeNull();
+    if (!headBox) return;
+    await page.mouse.move(headBox.x + headBox.width / 2, headBox.y + headBox.height / 2);
+    const topAtHead = await appTop();
+    await page.keyboard.down("Space");
+    await page.keyboard.down("Space");
+    await page.keyboard.up("Space");
+    await page.waitForTimeout(200);
+    expect(await appTop()).toBe(topAtHead);
   });
 });
 

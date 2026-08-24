@@ -111,6 +111,7 @@ const initRoomLanes = (): void => {
   const panes = scrollers.map((scroller) => ({
     foot: scroller.parentElement?.querySelector<HTMLElement>("[data-room-lanes-foot]") ?? null,
     head: scroller.parentElement?.querySelector<HTMLElement>("[data-room-lanes-head]") ?? null,
+    lanes: scroller.closest<HTMLElement>(".room-lanes"),
     scroller,
   }));
 
@@ -134,10 +135,18 @@ const initRoomLanes = (): void => {
   // a pan starting there would fight the very handles this view added.
   // Mouse only: touch already pans natively.
   let spaceHeld = false;
+  // The whole .room-lanes under the pointer, not just the body scroller: the
+  // sticky head overlays the grid's top edge, so a pan routinely parks the
+  // pointer there — and an un-guarded Space over it pages the app scroller.
   let hovered: HTMLElement | null = null;
+  // Gestures currently between pointerdown and their stop: a drag can carry
+  // the pointer clear off the component, and Space must stay swallowed there
+  // too, or its auto-repeat pages the scroller ~30×/s while pointermove snaps
+  // it back — a runaway the user sees as glitching, fast scrolling.
+  let pansLive = 0;
   const paintReady = (): void => {
-    for (const { scroller } of panes) {
-      scroller.classList.toggle(PAN_READY, spaceHeld && scroller === hovered);
+    for (const { lanes, scroller } of panes) {
+      scroller.classList.toggle(PAN_READY, spaceHeld && lanes !== null && lanes === hovered);
     }
   };
   document.addEventListener(
@@ -146,7 +155,7 @@ const initRoomLanes = (): void => {
       if (event.code !== "Space" || isEditable(event.target)) return;
       // Swallow the default on repeats too — each un-prevented one pages the
       // app scroller down mid-gesture.
-      if (hovered) event.preventDefault();
+      if (hovered || pansLive > 0) event.preventDefault();
       if (event.repeat) return;
       spaceHeld = true;
       paintReady();
@@ -173,12 +182,11 @@ const initRoomLanes = (): void => {
     { signal },
   );
 
-  for (const { foot, head, scroller } of panes) {
+  for (const { foot, head, lanes, scroller } of panes) {
     scroller.dataset.lanesBound = "";
     // schedule:filtered rides the swapped-in grid too: the listener closes over
     // this instance of .room-lanes, so it goes out with the shared controller
     // instead of collapsing tracks in a detached tree.
-    const lanes = scroller.closest<HTMLElement>(".room-lanes");
     if (lanes) {
       document.addEventListener(
         "schedule:filtered",
@@ -213,18 +221,18 @@ const initRoomLanes = (): void => {
 
     // Vertical pan moves the page scroller — the grid clips its own y-overflow.
     const page = scroller.closest<HTMLElement>(".app-scroll");
-    scroller.addEventListener(
+    lanes?.addEventListener(
       "pointerenter",
       () => {
-        hovered = scroller;
+        hovered = lanes;
         paintReady();
       },
       { signal },
     );
-    scroller.addEventListener(
+    lanes?.addEventListener(
       "pointerleave",
       () => {
-        if (hovered !== scroller) return;
+        if (hovered !== lanes) return;
         hovered = null;
         paintReady();
       },
@@ -260,6 +268,7 @@ const initRoomLanes = (): void => {
           y: event.clientY,
         };
         let panning = false;
+        pansLive += 1;
         const drag = new AbortController();
         // Dragging a link or selected text must pan, not start a native drag
         // — a dragstart also makes Firefox cancel the pointer stream.
@@ -272,6 +281,7 @@ const initRoomLanes = (): void => {
         );
         const stop = (up: PointerEvent): void => {
           if (up.pointerId !== event.pointerId) return;
+          pansLive -= 1;
           drag.abort();
           scroller.classList.remove(PANNING);
           if (!panning) return;
