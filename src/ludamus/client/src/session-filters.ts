@@ -56,6 +56,55 @@ const addOption = (
   select.append(option);
 };
 
+interface CardFilter {
+  /** Chip text for the active value. */
+  chip: () => string;
+  el: HTMLInputElement | HTMLSelectElement;
+  /** Card passes the active filter; not consulted while the control is empty. */
+  matches: (card: HTMLElement, value: string) => boolean;
+  /** Query-string name; url-state.ts lists the reserved names to stay clear of. */
+  param: string;
+}
+
+const selectFilter = (
+  el: HTMLSelectElement,
+  param: string,
+  matches: CardFilter["matches"],
+): CardFilter => ({ chip: () => selectedLabel(el), el, matches, param });
+
+const dataMatch =
+  (key: "day" | "host" | "hour"): CardFilter["matches"] =>
+  (card, value) =>
+    card.dataset[key] === value;
+
+// The "my-*" statuses are per-viewer flags the card carries separately from
+// its availability status.
+const STATUS_CARD_FLAGS: Record<string, "bookmarked" | "userEnrolled" | "userWaiting"> = {
+  "my-bookmarked": "bookmarked",
+  "my-enrolled": "userEnrolled",
+  "my-waiting": "userWaiting",
+};
+
+const matchesTag =
+  (categorySlug: string): CardFilter["matches"] =>
+  (card, value) => {
+    const requiredTag = escapeRegExp(value);
+    const categoryPattern = new RegExp(
+      `(?:^|;)${escapeRegExp(categorySlug)}:${requiredTag}(?:;|$)`,
+      "i",
+    );
+    const simpleTagPattern = new RegExp(String.raw`\b${requiredTag}\b`, "i");
+    return (
+      categoryPattern.test(card.dataset.tagCategories ?? "") ||
+      simpleTagPattern.test(card.dataset.tags ?? "")
+    );
+  };
+
+// `__track` and `__category` are the template's own pseudo-categories, so
+// they get clean names; organizer-defined categories are event-scoped slugs,
+// prefixed so one named e.g. "status" cannot shadow a built-in param.
+const TAG_PARAM_NAMES: Record<string, string> = { __category: "category", __track: "track" };
+
 let documentListeners = new AbortController();
 
 const initSessionFilters = (): void => {
@@ -116,41 +165,41 @@ const initSessionFilters = (): void => {
     );
   }
 
-  const dayMap = new Map<string, string>();
-  for (const card of sessionCards) {
-    const { day } = card.dataset;
-    if (day && !dayMap.has(day)) dayMap.set(day, card.dataset.dayLabel ?? day);
-  }
-  for (const [value, label] of [...dayMap.entries()].sort((a, b) => a[0].localeCompare(b[0])))
-    addOption(dayFilter, value, label);
-  if (dayMap.size > 1) {
-    document.getElementById("day-filter-group")?.classList.remove("hidden");
-  }
+  /** Distinct values of one card dataset key, keeping first-seen labels. */
+  const cardValues = (key: "day" | "host" | "hour", labelKey?: "dayLabel"): Map<string, string> => {
+    const entries = new Map<string, string>();
+    for (const card of sessionCards) {
+      const value = card.dataset[key];
+      if (value && !entries.has(value))
+        entries.set(value, (labelKey && card.dataset[labelKey]) || value);
+    }
+    return entries;
+  };
 
-  const hourSet = new Set<string>();
-  for (const card of sessionCards) {
-    if (card.dataset.hour) hourSet.add(card.dataset.hour);
-  }
-  for (const hour of [...hourSet].sort()) addOption(hourFilter, hour, hour);
-  if (hourSet.size > 1) {
-    document.getElementById("hour-filter-group")?.classList.remove("hidden");
-  }
-  if (dayMap.size > 1 || hourSet.size > 1) {
+  // Fill a select from sorted [value, label] entries and unhide its group when
+  // there is a real choice — one day (or hour, or host) is nothing to pick
+  // between, so the control stays hidden.
+  const populateChoices = (
+    select: HTMLSelectElement,
+    groupId: string,
+    entries: [string, string][],
+  ): void => {
+    for (const [value, label] of entries) addOption(select, value, label);
+    if (entries.length > 1) document.getElementById(groupId)?.classList.remove("hidden");
+  };
+
+  const dayChoices = [...cardValues("day", "dayLabel")].sort((a, b) => a[0].localeCompare(b[0]));
+  populateChoices(dayFilter, "day-filter-group", dayChoices);
+  const hourChoices = [...cardValues("hour")].sort((a, b) => a[0].localeCompare(b[0]));
+  populateChoices(hourFilter, "hour-filter-group", hourChoices);
+  if (dayChoices.length > 1 || hourChoices.length > 1) {
     document.getElementById("day-hour-filter-group")?.classList.remove("hidden");
   }
-
-  // data-host is lowercased for the search haystack, so it is the match key;
-  // data-host-label carries the display casing for the option text.
-  const hostMap = new Map<string, string>();
-  for (const card of sessionCards) {
-    const { host } = card.dataset;
-    if (host && !hostMap.has(host)) hostMap.set(host, card.dataset.hostLabel ?? host);
-  }
-  for (const [value, label] of [...hostMap.entries()].sort((a, b) => a[1].localeCompare(b[1])))
-    addOption(hostFilter, value, label);
-  if (hostMap.size > 1) {
-    document.getElementById("host-filter-group")?.classList.remove("hidden");
-  }
+  populateChoices(
+    hostFilter,
+    "host-filter-group",
+    [...cardValues("host")].sort((a, b) => a[1].localeCompare(b[1])),
+  );
 
   // Populate the location filter — one control for the whole space tree. The
   // option value is the space's sort key, so sorting the entries lays the rooms
@@ -227,8 +276,40 @@ const initSessionFilters = (): void => {
     for (const option of select.querySelectorAll("option")) {
       if (option.value && !categoryTags.has(option.value)) option.remove();
     }
-    select.addEventListener("change", filterSessions);
   }
+
+  // One entry per value-holding filter control, in panel order. Mirroring,
+  // matching, clearing, chips, and listeners all loop over this list, so a
+  // new filter is one entry here plus its option population above. The search
+  // box and the enrollment checkbox stay outside: neither is a value filter
+  // over one card key (search is tokenized, enrollment is a flag).
+  const cardFilters: CardFilter[] = [
+    selectFilter(statusFilter, "status", (card, value) => {
+      const flag = STATUS_CARD_FLAGS[value];
+      return flag ? card.dataset[flag] === "true" : card.dataset.status === value;
+    }),
+    selectFilter(spaceFilter, "space", (card, value) =>
+      value.startsWith(VENUE_VALUE_PREFIX)
+        ? card.dataset.venue === value.slice(VENUE_VALUE_PREFIX.length)
+        : card.dataset.space === value,
+    ),
+    {
+      chip: () => `${filterChipsBar.dataset.ageLabel ?? ""} ${ageFilter.value}`.trim(),
+      el: ageFilter,
+      // The participant's age against the session's requirement: an
+      // unrestricted session (min age 0) admits everyone, so it always stays.
+      // Number, not parseInt: a number input accepts exponent notation, and
+      // parseInt would read "1e1" as 1.
+      matches: (card, value) => (Number(card.dataset.minAge) || 0) <= Number(value),
+      param: "age",
+    },
+    selectFilter(dayFilter, "day", dataMatch("day")),
+    selectFilter(hourFilter, "hour", dataMatch("hour")),
+    ...Object.entries(tagFilters).map(([slug, select]) =>
+      selectFilter(select, TAG_PARAM_NAMES[slug] ?? `tag-${slug}`, matchesTag(slug)),
+    ),
+    selectFilter(hostFilter, "host", dataMatch("host")),
+  ];
 
   // Controls whose value lives in the query string too, each bound through a
   // typed codec from url-state.ts (which also lists the reserved param names
@@ -298,7 +379,6 @@ const initSessionFilters = (): void => {
   };
 
   mirrorInput("q", sessionFilter);
-  mirrorSelect("status", statusFilter);
   if (enrollmentFilter) {
     mirror(
       "enrollment",
@@ -309,17 +389,10 @@ const initSessionFilters = (): void => {
       },
     );
   }
-  mirrorSelect("day", dayFilter);
-  mirrorSelect("hour", hourFilter);
-  mirrorSelect("space", spaceFilter);
-  mirrorSelect("host", hostFilter);
-  mirrorAge("age", ageFilter);
-  // `__track` and `__category` are the template's own pseudo-categories, so
-  // they get clean names; organizer-defined categories are event-scoped slugs,
-  // prefixed so one named e.g. "status" cannot shadow a built-in param.
-  const TAG_PARAM_NAMES: Record<string, string> = { __category: "category", __track: "track" };
-  for (const [slug, select] of Object.entries(tagFilters)) {
-    mirrorSelect(TAG_PARAM_NAMES[slug] ?? `tag-${slug}`, select);
+  // The age input is the registry's only non-select control.
+  for (const f of cardFilters) {
+    if (f.el instanceof HTMLSelectElement) mirrorSelect(f.param, f.el);
+    else mirrorAge(f.param, f.el);
   }
 
   const mirrorState = (): Map<string, string | null> =>
@@ -373,19 +446,8 @@ const initSessionFilters = (): void => {
 
   function filterSessions(): void {
     const searchTokens = normalizeText(sessionFilter.value).split(/\s+/).filter(Boolean);
-    const statusValue = statusFilter.value;
     const enrollmentOnly = enrollmentFilter?.checked ?? false;
-    const dayValue = dayFilter.value;
-    const hourValue = hourFilter.value;
-    const spaceValue = spaceFilter.value;
-    const hostValue = hostFilter.value;
-    const ageValue = ageFilter.value;
-
-    const activeTagFilters: Record<string, string> = {};
-    for (const categorySlug of Object.keys(tagFilters)) {
-      const filterValue = tagFilters[categorySlug].value;
-      if (filterValue) activeTagFilters[categorySlug] = filterValue;
-    }
+    const activeFilters = cardFilters.filter((f) => f.el.value !== "");
 
     for (const card of sessionCards) {
       let show = true;
@@ -394,66 +456,8 @@ const initSessionFilters = (): void => {
         const haystack = cardHaystacks.get(card) ?? "";
         show &&= searchTokens.every((token) => haystack.includes(token));
       }
-
-      if (statusValue) {
-        switch (statusValue) {
-          case "my-bookmarked": {
-            show &&= card.dataset.bookmarked === "true";
-
-            break;
-          }
-          case "my-enrolled": {
-            show &&= card.dataset.userEnrolled === "true";
-
-            break;
-          }
-          case "my-waiting": {
-            show &&= card.dataset.userWaiting === "true";
-
-            break;
-          }
-          default: {
-            show &&= card.dataset.status === statusValue;
-          }
-        }
-      }
-
       if (enrollmentOnly) show &&= card.dataset.takesEnrollment === "true";
-      if (dayValue) show &&= card.dataset.day === dayValue;
-      if (hourValue) show &&= card.dataset.hour === hourValue;
-      if (spaceValue) {
-        show &&= spaceValue.startsWith(VENUE_VALUE_PREFIX)
-          ? card.dataset.venue === spaceValue.slice(VENUE_VALUE_PREFIX.length)
-          : card.dataset.space === spaceValue;
-      }
-
-      if (hostValue) show &&= card.dataset.host === hostValue;
-
-      // The participant's age against the session's requirement: an
-      // unrestricted session (min age 0) admits everyone, so it always stays.
-      if (ageValue) {
-        const sessionMinAge = Number.parseInt(card.dataset.minAge ?? "", 10) || 0;
-        show &&= sessionMinAge <= Number.parseInt(ageValue, 10);
-      }
-
-      if (Object.keys(activeTagFilters).length > 0) {
-        const cardTagCategories = card.dataset.tagCategories ?? "";
-        const cardTags = card.dataset.tags ?? "";
-        let matchesAllFilters = true;
-        for (const categorySlug of Object.keys(activeTagFilters)) {
-          const requiredTag = escapeRegExp(activeTagFilters[categorySlug]);
-          const escapedCategory = escapeRegExp(categorySlug);
-          const categoryPattern = new RegExp(
-            `(?:^|;)${escapedCategory}:${requiredTag}(?:;|$)`,
-            "i",
-          );
-          const simpleTagPattern = new RegExp(String.raw`\b${requiredTag}\b`, "i");
-          if (!categoryPattern.test(cardTagCategories) && !simpleTagPattern.test(cardTags)) {
-            matchesAllFilters = false;
-          }
-        }
-        show &&= matchesAllFilters;
-      }
+      for (const f of activeFilters) show &&= f.matches(card, f.el.value);
 
       const cardContainer = card.closest<HTMLElement>(".session-wrapper");
       if (cardContainer) cardContainer.hidden = !show;
@@ -483,16 +487,8 @@ const initSessionFilters = (): void => {
 
   function clearAllFilters(): void {
     sessionFilter.value = "";
-    statusFilter.value = "";
     if (enrollmentFilter) enrollmentFilter.checked = false;
-    dayFilter.value = "";
-    hourFilter.value = "";
-    spaceFilter.value = "";
-    hostFilter.value = "";
-    ageFilter.value = "";
-    for (const categorySlug of Object.keys(tagFilters)) {
-      tagFilters[categorySlug].value = "";
-    }
+    for (const f of cardFilters) f.el.value = "";
 
     for (const section of document.querySelectorAll<HTMLElement>(".time-slot-section")) {
       section.hidden = false;
@@ -514,27 +510,6 @@ const initSessionFilters = (): void => {
 
   function updateFilterUI(): void {
     const chips: FilterChip[] = [];
-    const pushSelectChip = (select: HTMLSelectElement): void => {
-      if (!select.value) return;
-      chips.push({
-        clear: () => {
-          select.value = "";
-          filterSessions();
-        },
-        label: selectedLabel(select),
-      });
-    };
-    const pushAgeChip = (input: HTMLInputElement, prefix: string): void => {
-      if (!input.value) return;
-      chips.push({
-        clear: () => {
-          input.value = "";
-          filterSessions();
-        },
-        label: `${prefix} ${input.value}`,
-      });
-    };
-
     if (enrollmentFilter?.checked) {
       chips.push({
         clear: () => {
@@ -544,13 +519,16 @@ const initSessionFilters = (): void => {
         label: filterChipsBar.dataset.enrollmentLabel ?? "",
       });
     }
-    pushSelectChip(statusFilter);
-    pushSelectChip(dayFilter);
-    pushSelectChip(hourFilter);
-    pushSelectChip(spaceFilter);
-    pushSelectChip(hostFilter);
-    pushAgeChip(ageFilter, filterChipsBar.dataset.ageLabel ?? "");
-    for (const cat of Object.keys(tagFilters)) pushSelectChip(tagFilters[cat]);
+    for (const f of cardFilters) {
+      if (!f.el.value) continue;
+      chips.push({
+        clear: () => {
+          f.el.value = "";
+          filterSessions();
+        },
+        label: f.chip(),
+      });
+    }
 
     if (chips.length > 0) {
       filterCountBadge.textContent = String(chips.length);
@@ -597,13 +575,10 @@ const initSessionFilters = (): void => {
   }
 
   sessionFilter.addEventListener("input", filterSessions);
-  statusFilter.addEventListener("change", filterSessions);
   enrollmentFilter?.addEventListener("change", filterSessions);
-  dayFilter.addEventListener("change", filterSessions);
-  hourFilter.addEventListener("change", filterSessions);
-  spaceFilter.addEventListener("change", filterSessions);
-  hostFilter.addEventListener("change", filterSessions);
-  ageFilter.addEventListener("input", filterSessions);
+  for (const f of cardFilters) {
+    f.el.addEventListener(f.el instanceof HTMLSelectElement ? "change" : "input", filterSessions);
+  }
 
   filterToggle.addEventListener("click", () => {
     const isOpen = filterPanel.classList.toggle("is-open");

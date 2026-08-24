@@ -8,10 +8,9 @@
 {# djlint:off #}
 data-title="{{ data.session.title|lower }}"
 data-session-id="{{ data.session.pk }}"
-data-host="{{ data.session.display_name|lower }}"
-{# Lowered above for the search haystack; the original casing rides along #}
-{# as the host filter's option label. #}
-data-host-label="{{ data.session.display_name }}"
+{# As-is casing: the host filter's option value and label both; the search #}
+{# haystack lowercases on its own (normalizeText). #}
+data-host="{{ data.session.display_name }}"
 data-tags="{{ data.public_tags }}"
 data-tag-categories="{{ data.filter_categories }}"
 {# data.availability, with one broader term: the filter counts any started #}

@@ -335,7 +335,7 @@
                         {# The panel div stays the last child of the wrapper; the popover #}
                         {# anchor math in session-filters.ts relies on that. #}
                         <div id="filter-panel" class="filter-panel shadow-xl">
-                            {% with select_class="filter-input rounded-xl text-sm font-medium transition-[border-color,box-shadow] duration-150" %}
+                            {% with select_class="filter-input transition-[border-color,box-shadow] duration-150" label_class="text-xs font-bold uppercase tracking-widest text-foreground-muted" %}
                                 <div class="flex flex-wrap gap-3 grow pt-3.5">
                                     {% if has_enrollable_sessions %}
                                         <div class="w-full">
@@ -343,8 +343,7 @@
                                         </div>
                                     {% endif %}
                                     <div class="flex flex-col gap-1.5">
-                                        <label class="text-xs font-bold uppercase tracking-widest text-foreground-muted"
-                                               for="status-filter">{% translate "Status" %}</label>
+                                        <label class="{{ label_class }}" for="status-filter">{% translate "Status" %}</label>
                                         {% select id="status-filter" class=select_class %}
                                             <option value="">{% translate "All statuses" %}</option>
                                             <option value="available">{% translate "Available spots" %}</option>
@@ -368,8 +367,7 @@
                                     {# the reader pick a venue and a room outside #}
                                     {# it, and answered that with an empty list. #}
                                     <div id="space-filter-group" class="flex flex-col gap-1.5 hidden">
-                                        <label class="text-xs font-bold uppercase tracking-widest text-foreground-muted"
-                                               for="space-filter">{% translate "Location" %}</label>
+                                        <label class="{{ label_class }}" for="space-filter">{% translate "Location" %}</label>
                                         {% translate "all rooms" as t_all_rooms %}
                                         {% select id="space-filter" data_all_rooms_label=t_all_rooms class=select_class %}
                                             <option value="">{% translate "All locations" %}</option>
@@ -380,25 +378,24 @@
                                     {# Sessions carry no upper bound, so this one input is the #}
                                     {# whole filter. #}
                                     <div class="flex flex-col gap-1.5 grow">
-                                        <label class="text-xs font-bold uppercase tracking-widest text-foreground-muted"
-                                               for="age-filter">{% translate "Required age" %}</label>
+                                        <label class="{{ label_class }}" for="age-filter">{% translate "Required age" %}</label>
+                                        {# Mirrors the tessera select/text-field base look so the #}
+                                        {# panel's one bare input matches its component siblings. #}
                                         <input type="number"
-                                               class="filter-input w-full py-2 px-3 rounded-xl border border-border text-sm grow font-medium bg-bg-secondary text-foreground transition-[border-color,box-shadow] duration-150"
+                                               class="filter-input w-full px-3 py-2 text-base sm:text-sm rounded-lg border border-border bg-bg-secondary text-foreground transition-[border-color,box-shadow] duration-150"
                                                id="age-filter"
                                                min="0"
                                                max="99">
                                     </div>
                                     <div id="day-hour-filter-group" class="flex gap-3 grow hidden">
                                         <div id="day-filter-group" class="flex flex-col gap-1.5 grow hidden">
-                                            <label class="text-xs font-bold uppercase tracking-widest text-foreground-muted"
-                                                   for="day-filter">{% translate "Day" %}</label>
+                                            <label class="{{ label_class }}" for="day-filter">{% translate "Day" %}</label>
                                             {% select id="day-filter" class=select_class %}
                                                 <option value="">{% translate "All days" %}</option>
                                             {% endselect %}
                                         </div>
                                         <div id="hour-filter-group" class="flex flex-col gap-1.5 grow hidden">
-                                            <label class="text-xs font-bold uppercase tracking-widest text-foreground-muted"
-                                                   for="hour-filter">{% translate "Hour" %}</label>
+                                            <label class="{{ label_class }}" for="hour-filter">{% translate "Hour" %}</label>
                                             {% select id="hour-filter" class=select_class %}
                                                 <option value="">{% translate "All hours" %}</option>
                                             {% endselect %}
@@ -406,8 +403,7 @@
                                     </div>
                                     {% if track_filter_names %}
                                         <div class="flex flex-col gap-1.5 grow">
-                                            <label class="text-xs font-bold uppercase tracking-widest grow text-foreground-muted"
-                                                   for="tag-filter-__track">{% translate "Track" %}</label>
+                                            <label class="{{ label_class }}" for="tag-filter-__track">{% translate "Track" %}</label>
                                             {% select id="tag-filter-__track" data_category="__track" class=select_class|add:" tag-filter" %}
                                                 <option value="">{% translate "All tracks" %}</option>
                                                 {% for name in track_filter_names %}<option value="{{ name }}">{{ name }}</option>{% endfor %}
@@ -416,8 +412,7 @@
                                     {% endif %}
                                     {% if category_filter_names %}
                                         <div class="flex flex-col gap-1.5 grow">
-                                            <label class="text-xs font-bold uppercase tracking-widest grow text-foreground-muted"
-                                                   for="tag-filter-__category">{% translate "Category" context "participant filter" %}</label>
+                                            <label class="{{ label_class }}" for="tag-filter-__category">{% translate "Category" context "participant filter" %}</label>
                                             {% select id="tag-filter-__category" data_category="__category" class=select_class|add:" tag-filter" %}
                                                 <option value="">{% translate "All categories" context "participant filter" %}</option>
                                                 {% for name in category_filter_names %}<option value="{{ name }}">{{ name }}</option>{% endfor %}
@@ -427,8 +422,7 @@
                                     <div id="tag-filters" class="contents">
                                         {% for field in filterable_tag_categories %}
                                             <div class="flex flex-col gap-1.5 grow">
-                                                <label class="text-xs font-bold uppercase tracking-widest grow text-foreground-muted"
-                                                       for="tag-filter-{{ field.slug }}">{{ field.name }}</label>
+                                                <label class="{{ label_class }}" for="tag-filter-{{ field.slug }}">{{ field.name }}</label>
                                                 {% select id="tag-filter-"|add:field.slug data_category=field.slug class=select_class|add:" tag-filter" %}
                                                     <option value="">{% translate "All" %} {{ field.name }}</option>
                                                     {# Only the field's defined choices: an allow_custom field's typed-in values are not filter options. #}
@@ -443,8 +437,7 @@
                                     {# schedule on screen; one host means nothing to pick #}
                                     {# between, so the control stays hidden. #}
                                     <div id="host-filter-group" class="flex flex-col gap-1.5 grow hidden">
-                                        <label class="text-xs font-bold uppercase tracking-widest text-foreground-muted"
-                                               for="host-filter">{% translate "Host" %}</label>
+                                        <label class="{{ label_class }}" for="host-filter">{% translate "Host" %}</label>
                                         {% select id="host-filter" class=select_class %}
                                             <option value="">{% translate "All hosts" %}</option>
                                         {% endselect %}
