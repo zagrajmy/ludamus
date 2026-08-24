@@ -44,6 +44,27 @@ test.describe("Event schedule views", () => {
     await expect(page).toHaveURL(/\?view=rooms$/);
     expect(await stayedOnPage(page)).toBe(true);
   });
+
+  test("the room header doubles as a top scrollbar for the grid", async ({ page }) => {
+    await page.goto(`${DENSE_EVENT_URL}?view=rooms`);
+    const head = page.locator("[data-room-lanes-head]").first();
+    const body = page.locator("[data-room-lanes-scroll]").first();
+
+    // A real scroller with the grid's full width behind it — that is what puts
+    // a sideways scrollbar at the top for mouse users.
+    await expect(head).toHaveCSS("overflow-x", "auto");
+    expect(await head.evaluate((el) => el.scrollWidth > el.clientWidth)).toBe(true);
+
+    await head.evaluate((el) => {
+      el.scrollLeft = 300;
+    });
+    await expect.poll(() => body.evaluate((el) => el.scrollLeft)).toBe(300);
+
+    await body.evaluate((el) => {
+      el.scrollLeft = 120;
+    });
+    await expect.poll(() => head.evaluate((el) => el.scrollLeft)).toBe(120);
+  });
 });
 
 test.describe("Enrollment filter", () => {

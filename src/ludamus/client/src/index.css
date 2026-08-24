@@ -271,27 +271,12 @@ body {
   border-top: 0;
 }
 
-.room-lanes-head {
-  mask-image: linear-gradient(
-    90deg,
-    black 0,
-    black var(--axis-w),
-    hsl(0 0% 0% / var(--fade-start-opacity)) var(--axis-w),
-    black calc(var(--axis-w) + var(--fade-size-start, 0px)),
-    black calc(100% - var(--fade-size-end, 0px)),
-    hsl(0 0% 0% / var(--fade-end-opacity))
-  );
-  -webkit-mask-image: linear-gradient(
-    90deg,
-    black 0,
-    black var(--axis-w),
-    hsl(0 0% 0% / var(--fade-start-opacity)) var(--axis-w),
-    black calc(var(--axis-w) + var(--fade-size-start, 0px)),
-    black calc(100% - var(--fade-size-end, 0px)),
-    hsl(0 0% 0% / var(--fade-end-opacity))
-  );
-}
-
+/* Both scrollers fade their x-overflow edges, but the fade must not dim the
+   horizontal scrollbar each of them shows: the second, un-faded mask layer
+   covers the bottom strip the scrollbar occupies. room-lanes.ts measures the
+   strip into --room-lanes-sb per element; until then it is 0 and the fade
+   covers everything. */
+.room-lanes-head,
 .room-lanes-scroll {
   mask-image:
     linear-gradient(

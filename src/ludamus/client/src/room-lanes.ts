@@ -95,16 +95,24 @@ const initRoomLanes = (): void => {
   laneListeners = new AbortController();
   const { signal } = laneListeners;
 
+  const panes = scrollers.map((scroller) => ({
+    head: scroller.parentElement?.querySelector<HTMLElement>("[data-room-lanes-head]") ?? null,
+    scroller,
+  }));
+
   const measureScrollbars = (): void => {
-    for (const scroller of scrollers) {
+    for (const { head, scroller } of panes) {
       const reserved = scroller.offsetHeight - scroller.clientHeight;
       scroller.style.setProperty("--room-lanes-sb", `${Math.max(reserved, 14)}px`);
+      // No 14px floor here: with overlay scrollbars the head reserves nothing,
+      // and a floor would punch an unfaded strip through the room-name text.
+      head?.style.setProperty("--room-lanes-sb", `${head.offsetHeight - head.clientHeight}px`);
     }
   };
   measureScrollbars();
   globalThis.addEventListener("resize", measureScrollbars, { signal });
 
-  for (const scroller of scrollers) {
+  for (const { head, scroller } of panes) {
     scroller.dataset.lanesBound = "";
     // schedule:filtered rides the swapped-in grid too: the listener closes over
     // this instance of .room-lanes, so it goes out with the shared controller
@@ -119,12 +127,21 @@ const initRoomLanes = (): void => {
         { signal },
       );
     }
-    const head = scroller.parentElement?.querySelector<HTMLElement>("[data-room-lanes-head]");
     if (!head) continue;
+    // The head scrolls for real — its scrollbar is the grid's top handle — so
+    // the sync runs both ways. No feedback loop: assigning a scrollLeft it
+    // already has fires no scroll event, so the ping-pong stops in one step.
     scroller.addEventListener(
       "scroll",
       () => {
         head.scrollLeft = scroller.scrollLeft;
+      },
+      { passive: true, signal },
+    );
+    head.addEventListener(
+      "scroll",
+      () => {
+        scroller.scrollLeft = head.scrollLeft;
       },
       { passive: true, signal },
     );
