@@ -17,6 +17,25 @@ import { normalizeText } from "./text";
 // stays in the Django template, where Tailwind scans for classes.
 const OPTION_TEMPLATE = "[data-combobox-option]";
 
+/**
+ * The part of the screen a person can actually see, in the coordinates
+ * getBoundingClientRect() speaks.
+ *
+ * Those are layout-viewport coordinates, and so is a fixed (or top-layer)
+ * element's placement — which is exactly why the popup needs no correction
+ * to stay glued to its input. The visible region is the one thing that does
+ * move: an on-screen keyboard shrinks and offsets the *visual* viewport and
+ * leaves the layout viewport alone, so window.innerHeight keeps reporting
+ * room that is now behind the keyboard. offsetTop converts between the two.
+ * This is the boundary Floating UI defaults to, for this same reason.
+ */
+const visibleBand = (): { bottom: number; top: number } => {
+  const viewport = globalThis.visualViewport;
+  return viewport
+    ? { bottom: viewport.offsetTop + viewport.height, top: viewport.offsetTop }
+    : { bottom: globalThis.innerHeight, top: 0 };
+};
+
 const optionUnder = (target: EventTarget | null): Element | null =>
   target instanceof Element ? target.closest("[role='option']") : null;
 
@@ -55,22 +74,57 @@ const upgrade = (root: HTMLElement): void => {
   const popoverCapable = typeof popup.showPopover === "function";
 
   const GAP = 4;
+  // Under this, anchoring has nothing left to offer: the keyboard owns the
+  // screen and a few rows of list are worth more than staying glued.
+  const MIN_ROOM = 120;
 
   const place = (): void => {
     const rect = input.getBoundingClientRect();
+    const band = visibleBand();
+
     popup.style.margin = "0";
     popup.style.position = "fixed";
     popup.style.left = `${rect.left}px`;
     popup.style.width = `${rect.width}px`;
-    // Measured after the width lands, since that decides how the rows wrap.
+    // Measure unconstrained first: the width decides how the rows wrap, and
+    // last call's cap would otherwise be read back as the natural height.
+    listbox.style.removeProperty("max-height");
     popup.style.top = `${rect.bottom + GAP}px`;
     const { height } = popup.getBoundingClientRect();
-    // Flip above when the list would run off the bottom and there is more
-    // room the other way — the one collision case a filter panel really hits.
-    const below = globalThis.innerHeight - rect.bottom - GAP;
-    if (height > below && rect.top - GAP > below) {
-      popup.style.top = `${Math.max(GAP, rect.top - height - GAP)}px`;
+
+    const below = band.bottom - rect.bottom - GAP;
+    const above = rect.top - band.top - GAP;
+    // Flip above when the list would run off the visible bottom and the other
+    // side has more to give.
+    const flipped = height > below && above > below;
+    const room = Math.max(flipped ? above : below, MIN_ROOM);
+
+    // Give the list the room back as scroll rather than letting the popup
+    // spill past the edge; the chrome around it keeps its size either way.
+    if (height > room) {
+      const chrome = height - listbox.getBoundingClientRect().height;
+      listbox.style.maxHeight = `${Math.max(room - chrome, 0)}px`;
     }
+    const settled = Math.min(height, room);
+    const top = flipped ? rect.top - settled - GAP : rect.bottom + GAP;
+    // Clamped, not trusted: WebKit is known to leave offsetTop stale after the
+    // keyboard closes, and a bad anchor should still land on screen.
+    const lowest = Math.max(band.top, band.bottom - settled);
+    popup.style.top = `${Math.min(Math.max(top, band.top), lowest)}px`;
+  };
+
+  // The keyboard fires neither window resize nor window scroll on iOS or on
+  // Android since Chrome 108 — only the visual viewport hears about it. Its
+  // events arrive in a burst as the keyboard animates, so they are coalesced
+  // into one placement per frame.
+  let placeQueued = false;
+  const schedulePlace = (): void => {
+    if (placeQueued) return;
+    placeQueued = true;
+    requestAnimationFrame(() => {
+      placeQueued = false;
+      if (isOpen()) place();
+    });
   };
 
   const isOpen = (): boolean => input.getAttribute("aria-expanded") === "true";
@@ -298,14 +352,19 @@ const upgrade = (root: HTMLElement): void => {
   });
 
   // An anchored popup follows its input; the page moving under it does not.
+  // Window and visual viewport both, because they report disjoint things: a
+  // document scroll reaches only the window, a keyboard or a pinch only the
+  // visual viewport.
   for (const event of ["resize", "scroll"]) {
-    globalThis.addEventListener(
-      event,
-      whileAttached(() => {
-        if (isOpen()) place();
-      }),
-      { capture: true, passive: true, signal: detached.signal },
-    );
+    globalThis.addEventListener(event, whileAttached(schedulePlace), {
+      capture: true,
+      passive: true,
+      signal: detached.signal,
+    });
+    globalThis.visualViewport?.addEventListener(event, whileAttached(schedulePlace), {
+      passive: true,
+      signal: detached.signal,
+    });
   }
 
   syncOptions();

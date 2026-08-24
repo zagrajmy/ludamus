@@ -125,4 +125,47 @@ test.describe("Design system page", () => {
     await combobox.press("Escape");
     await expect(value).toHaveValue("");
   });
+
+  test("keeps the list inside the part of the screen a keyboard leaves", async ({ browser }) => {
+    const context = await browser.newContext({
+      viewport: { width: 390, height: 700 },
+      isMobile: true,
+      hasTouch: true,
+    });
+    const page = await context.newPage();
+    await page.goto("/design/");
+    const combobox = await upgradedCombobox(page, "Fruit");
+    await combobox.scrollIntoViewIfNeeded();
+    await combobox.click();
+
+    // Stand in for the on-screen keyboard: it shrinks and offsets the visual
+    // viewport and leaves the layout viewport — and so window.innerHeight —
+    // untouched, which is exactly the case the placement has to read.
+    const band = await page.evaluate(() => {
+      const viewport = window.visualViewport!;
+      Object.defineProperty(viewport, "height", { configurable: true, value: 320 });
+      Object.defineProperty(viewport, "offsetTop", { configurable: true, value: 180 });
+      viewport.dispatchEvent(new Event("resize"));
+      return { bottom: 180 + 320, innerHeight: window.innerHeight, top: 180 };
+    });
+    // The stub has to be the interesting case: a layout viewport that still
+    // claims the room the keyboard took.
+    expect(band.innerHeight).toBeGreaterThan(band.bottom);
+
+    const popup = page.locator("[data-combobox-popup]");
+    await expect
+      .poll(async () => {
+        const box = await popup.boundingBox();
+        return box ? Math.round(box.y + box.height) : null;
+      })
+      .toBeLessThanOrEqual(band.bottom + 1);
+
+    const box = await popup.boundingBox();
+    expect(box!.y).toBeGreaterThanOrEqual(band.top - 1);
+    // Still worth showing: a list squeezed to nothing would pass the bounds
+    // check above while being useless.
+    expect(box!.height).toBeGreaterThan(80);
+
+    await context.close();
+  });
 });
