@@ -6507,6 +6507,10 @@ msgstr ""
 "od luźnych zgłoszeń do wydruku na drzwiach sali. Wybierz akt."
 
 #: src/ludamus/templates/landing/scena.html
+msgid "Pick an act."
+msgstr "Wybierz akt."
+
+#: src/ludamus/templates/landing/scena.html
 msgctxt "landing walkthrough step"
 msgid "Review"
 msgstr "Akceptacja"

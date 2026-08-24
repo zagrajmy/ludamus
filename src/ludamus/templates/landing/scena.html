@@ -11,12 +11,15 @@
         <p class="reveal mt-3 text-foreground-secondary max-w-[52ch] text-[1.05rem]">
             {% translate "Seven programme items of Board Game Days 2026 travel before your eyes from loose proposals to a printout on the room door. Pick an act." %}
         </p>
-        <input class="sr-only" type="radio" name="landing-krok" id="k1" checked>
-        <input class="sr-only" type="radio" name="landing-krok" id="k2">
-        <input class="sr-only" type="radio" name="landing-krok" id="k3">
-        <input class="sr-only" type="radio" name="landing-krok" id="k4">
-        <input class="sr-only" type="radio" name="landing-krok" id="k5">
-        <input class="sr-only" type="radio" name="landing-krok" id="k6">
+        <fieldset>
+            <legend class="sr-only">{% translate "Pick an act." %}</legend>
+            <input class="sr-only" type="radio" name="landing-krok" id="k1" checked>
+            <input class="sr-only" type="radio" name="landing-krok" id="k2">
+            <input class="sr-only" type="radio" name="landing-krok" id="k3">
+            <input class="sr-only" type="radio" name="landing-krok" id="k4">
+            <input class="sr-only" type="radio" name="landing-krok" id="k5">
+            <input class="sr-only" type="radio" name="landing-krok" id="k6">
+        </fieldset>
         <div class="sc">
             <div class="ktabs">
                 <label for="k1"><b>01</b> {% translate "Proposals" %}</label>
