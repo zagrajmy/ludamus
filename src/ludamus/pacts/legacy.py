@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from datetime import date, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from enum import StrEnum, auto
 from typing import (
     TYPE_CHECKING,
@@ -486,6 +486,25 @@ class EventDTO(BaseModel):
     cover_image_original_name: str = ""
     logo_url: str = ""
     logo_original_name: str = ""
+
+    @property
+    def is_published(self) -> bool:
+        return (
+            self.publication_time is not None
+            and self.publication_time <= datetime.now(tz=UTC)
+        )
+
+    # Proposals only open on a published event — an unpublished one has no
+    # public page to send a facilitator to.
+    @property
+    def is_proposal_active(self) -> bool:
+        current_time = datetime.now(tz=UTC)
+        return bool(
+            self.is_published
+            and self.proposal_start_time is not None
+            and self.proposal_end_time is not None
+            and self.proposal_start_time <= current_time <= self.proposal_end_time
+        )
 
 
 class EventListItemDTO(BaseModel):

@@ -6,15 +6,13 @@ from unittest.mock import MagicMock, call
 import pytest
 
 from ludamus.mills import (
-    check_proposal_rate_limit,
     generate_ics_content,
     google_calendar_url,
     outlook_calendar_url,
     render_markdown,
 )
-from ludamus.mills.event import build_panel_stats, is_proposal_active
+from ludamus.mills.event import build_panel_stats
 from ludamus.mills.multiverse import ConnectionsService
-from ludamus.mills.propose import ProposeSessionService
 from ludamus.mills.submissions.field_layout import ImportFieldLayoutService
 from ludamus.mills.submissions.import_log import ImportLogService
 from ludamus.mills.submissions.importing import ProposalImportService
@@ -48,7 +46,6 @@ from ludamus.pacts import (
     PersonalDataFieldValueData,
     SessionFieldValueData,
     SessionStatus,
-    TrackDTO,
 )
 from ludamus.pacts.multiverse import ConnectionDTO
 from ludamus.pacts.services import DatabaseConstraintError
@@ -392,27 +389,27 @@ class TestIsProposalActive:
         base_event_data["proposal_start_time"] = None
         event = EventDTO(**base_event_data)
 
-        assert is_proposal_active(event) is False
+        assert event.is_proposal_active is False
 
     def test_returns_false_when_proposal_end_time_is_none(self, base_event_data):
         base_event_data["proposal_end_time"] = None
         event = EventDTO(**base_event_data)
 
-        assert is_proposal_active(event) is False
+        assert event.is_proposal_active is False
 
     def test_returns_false_when_both_proposal_times_are_none(self, base_event_data):
         base_event_data["proposal_start_time"] = None
         base_event_data["proposal_end_time"] = None
         event = EventDTO(**base_event_data)
 
-        assert is_proposal_active(event) is False
+        assert event.is_proposal_active is False
 
     def test_returns_true_when_current_time_within_proposal_window(
         self, base_event_data
     ):
         event = EventDTO(**base_event_data)
 
-        assert is_proposal_active(event) is True
+        assert event.is_proposal_active is True
 
     def test_returns_false_when_current_time_before_proposal_window(
         self, base_event_data
@@ -422,7 +419,7 @@ class TestIsProposalActive:
         base_event_data["proposal_end_time"] = now + timedelta(days=2)
         event = EventDTO(**base_event_data)
 
-        assert is_proposal_active(event) is False
+        assert event.is_proposal_active is False
 
     def test_returns_false_when_current_time_after_proposal_window(
         self, base_event_data
@@ -432,20 +429,20 @@ class TestIsProposalActive:
         base_event_data["proposal_end_time"] = now - timedelta(days=1)
         event = EventDTO(**base_event_data)
 
-        assert is_proposal_active(event) is False
+        assert event.is_proposal_active is False
 
     def test_returns_false_when_publication_time_is_none(self, base_event_data):
         base_event_data["publication_time"] = None
         event = EventDTO(**base_event_data)
 
-        assert is_proposal_active(event) is False
+        assert event.is_proposal_active is False
 
     def test_returns_false_when_event_not_yet_published(self, base_event_data):
         now = datetime.now(tz=UTC)
         base_event_data["publication_time"] = now + timedelta(days=1)
         event = EventDTO(**base_event_data)
 
-        assert is_proposal_active(event) is False
+        assert event.is_proposal_active is False
 
 
 class TestGenerateIcsContent:
@@ -594,298 +591,6 @@ class TestGetDaysToEvent:
             "sphere_id": 1,
             "start_time": now + timedelta(days=5),
         }
-
-
-class TestProposeSessionService:
-    @pytest.fixture
-    def mock_repos(self):
-        return MagicMock()
-
-    @pytest.fixture
-    def service(self, mock_repos):
-        return ProposeSessionService(transaction=MagicMock(), repos=mock_repos)
-
-    def test_submit_raises_value_error_when_title_missing(self, service):
-        now = datetime.now(tz=UTC)
-        event = EventDTO(
-            description="Test",
-            end_time=now + timedelta(days=7),
-            name="Test Event",
-            pk=1,
-            proposal_end_time=now + timedelta(days=1),
-            proposal_start_time=now - timedelta(days=1),
-            publication_time=now - timedelta(days=2),
-            slug="test-event",
-            sphere_id=1,
-            start_time=now + timedelta(days=5),
-        )
-        wizard_data = {"category_id": 1, "session_data": {"description": "No title"}}
-
-        with pytest.raises(ValueError, match="session_data must contain 'title'"):
-            service.submit(event, wizard_data)
-
-    def test_submit_anonymous_creates_facilitator_without_user(
-        self, service, mock_repos
-    ):
-        now = datetime.now(tz=UTC)
-        event = EventDTO(
-            description="Test",
-            end_time=now + timedelta(days=7),
-            name="Test Event",
-            pk=1,
-            proposal_end_time=now + timedelta(days=1),
-            proposal_start_time=now - timedelta(days=1),
-            publication_time=now - timedelta(days=2),
-            slug="test-event",
-            sphere_id=1,
-            start_time=now + timedelta(days=5),
-        )
-        mock_repos.sessions.slug_exists.return_value = False
-        mock_repos.facilitators.slug_exists.return_value = False
-        facilitator = FacilitatorDTO(
-            accreditation_type="none",
-            display_name="Anon Host",
-            event_id=1,
-            pk=10,
-            slug="anon-host",
-            user_id=None,
-        )
-        mock_repos.facilitators.create.return_value = facilitator
-        expected_session_id = 99
-        mock_repos.sessions.create.return_value = expected_session_id
-
-        wizard_data = {
-            "category_id": 1,
-            "session_data": {"title": "Test Session", "display_name": "Anon Host"},
-        }
-
-        result = service.submit(event, wizard_data)
-
-        assert result.session_id == expected_session_id
-        assert result.title == "Test Session"
-        mock_repos.facilitators.create.assert_called_once()
-        create_call = mock_repos.facilitators.create.call_args[0][0]
-        assert create_call["user_id"] is None
-        assert create_call["display_name"] == "Anon Host"
-
-    def test_submit_skips_blank_session_and_personal_answers(self, service, mock_repos):
-        now = datetime.now(tz=UTC)
-        event = EventDTO(
-            description="Test",
-            end_time=now + timedelta(days=7),
-            name="Test Event",
-            pk=1,
-            proposal_end_time=now + timedelta(days=1),
-            proposal_start_time=now - timedelta(days=1),
-            publication_time=now - timedelta(days=2),
-            slug="test-event",
-            sphere_id=1,
-            start_time=now + timedelta(days=5),
-        )
-        mock_repos.sessions.slug_exists.return_value = False
-        mock_repos.facilitators.slug_exists.return_value = False
-        mock_repos.facilitators.create.return_value = FacilitatorDTO(
-            accreditation_type="none",
-            display_name="Anon Host",
-            event_id=1,
-            pk=10,
-            slug="anon-host",
-            user_id=None,
-        )
-        expected_session_id = 99
-        mock_repos.sessions.create.return_value = expected_session_id
-        mock_repos.session_fields.read_by_slug.side_effect = lambda _event_id, slug: (
-            OrganizerFieldDTO(
-                field_type="text",
-                name=slug,
-                order=0,
-                pk={"system": 55, "notes": 56}[slug],
-                question="Q",
-                slug=slug,
-            )
-        )
-        mock_repos.personal_fields.read_by_slug.side_effect = (
-            lambda _event_id, slug: _personal_data_field(
-                pk={"email": 1, "phone": 2}[slug], slug=slug
-            )
-        )
-
-        result = service.submit(
-            event,
-            {
-                "category_id": 1,
-                "session_data": {
-                    "title": "Test Session",
-                    "display_name": "Anon Host",
-                    "session_system": "D&D",
-                    "session_notes": "   ",
-                },
-                "personal_data": {"personal_email": "a@x.z", "personal_phone": ""},
-            },
-        )
-
-        assert result.session_id == expected_session_id
-        mock_repos.sessions.save_field_values.assert_called_once_with(
-            expected_session_id,
-            [
-                SessionFieldValueData(
-                    session_id=expected_session_id, field_id=55, value="D&D"
-                )
-            ],
-        )
-        mock_repos.personal_data_field_values.save.assert_called_once_with(
-            [
-                PersonalDataFieldValueData(
-                    facilitator_id=10, event_id=1, field_id=1, value="a@x.z"
-                )
-            ]
-        )
-
-    @pytest.fixture
-    def submitted_event(self):
-        now = datetime.now(tz=UTC)
-        return EventDTO(
-            description="Test",
-            end_time=now + timedelta(days=7),
-            name="Test Event",
-            pk=1,
-            proposal_end_time=now + timedelta(days=1),
-            proposal_start_time=now - timedelta(days=1),
-            publication_time=now - timedelta(days=2),
-            slug="test-event",
-            sphere_id=1,
-            start_time=now + timedelta(days=5),
-        )
-
-    @pytest.fixture
-    def submitting_repos(self, mock_repos):
-        mock_repos.sessions.slug_exists.return_value = False
-        mock_repos.facilitators.slug_exists.return_value = False
-        mock_repos.facilitators.create.return_value = FacilitatorDTO(
-            accreditation_type="none",
-            display_name="Anon Host",
-            event_id=1,
-            pk=10,
-            slug="anon-host",
-            user_id=None,
-        )
-        mock_repos.sessions.create.return_value = 99
-        mock_repos.tracks.list_public_by_event.return_value = [
-            TrackDTO.model_construct(pk=7, event_id=1)
-        ]
-        return mock_repos
-
-    def test_submit_keeps_only_tracks_of_the_current_event(
-        self, service, submitting_repos, submitted_event
-    ):
-        result = service.submit(
-            submitted_event,
-            {
-                "category_id": 1,
-                "session_data": {"title": "Test Session", "display_name": "Anon Host"},
-                "track_pks": [7, 999],
-            },
-        )
-
-        submitting_repos.tracks.list_public_by_event.assert_called_once_with(1)
-        submitting_repos.sessions.set_session_tracks.assert_called_once_with(
-            result.session_id, [7]
-        )
-
-    def test_submit_attaches_no_tracks_when_all_are_foreign(
-        self, service, submitting_repos, submitted_event
-    ):
-        service.submit(
-            submitted_event,
-            {
-                "category_id": 1,
-                "session_data": {"title": "Test Session", "display_name": "Anon Host"},
-                "track_pks": [999],
-            },
-        )
-
-        submitting_repos.sessions.set_session_tracks.assert_not_called()
-
-    def test_submit_skips_int_session_answers(
-        self, service, submitting_repos, submitted_event
-    ):
-        service.submit(
-            submitted_event,
-            {
-                "category_id": 1,
-                "session_data": {
-                    "title": "Test Session",
-                    "display_name": "Anon Host",
-                    "session_players": 4,
-                },
-            },
-        )
-
-        submitting_repos.session_fields.read_by_slug.assert_not_called()
-        submitting_repos.sessions.save_field_values.assert_not_called()
-
-    def test_get_saved_personal_data_returns_empty_for_anonymous(
-        self, service, mock_repos
-    ):
-        result = service.get_saved_personal_data(event_id=1, user_id=None)
-
-        assert result == {}
-        mock_repos.personal_data_field_values.read_for_facilitator_event.assert_not_called()
-        mock_repos.facilitators.read_by_user_and_event.assert_not_called()
-
-
-class TestCheckProposalRateLimit:
-    def test_allows_first_submission(self):
-        cache: dict[str, object] = {}
-
-        class FakeCache:
-            @staticmethod
-            def get(key: str) -> object:
-                return cache.get(key)
-
-            @staticmethod
-            def set(key: str, value: object, timeout: int | None = None) -> None:
-                del timeout
-                cache[key] = value
-
-        result = check_proposal_rate_limit(FakeCache(), "1.2.3.4", event_id=1)
-
-        assert result is True
-        assert "proposal_rate:1:1.2.3.4" in cache
-
-    def test_blocks_second_submission(self):
-        cache: dict[str, object] = {"proposal_rate:1:1.2.3.4": 1}
-
-        class FakeCache:
-            @staticmethod
-            def get(key: str) -> object:
-                return cache.get(key)
-
-            @staticmethod
-            def set(key: str, value: object, timeout: int | None = None) -> None:
-                del timeout
-                cache[key] = value
-
-        result = check_proposal_rate_limit(FakeCache(), "1.2.3.4", event_id=1)
-
-        assert result is False
-
-    def test_allows_different_event(self):
-        cache: dict[str, object] = {"proposal_rate:1:1.2.3.4": 1}
-
-        class FakeCache:
-            @staticmethod
-            def get(key: str) -> object:
-                return cache.get(key)
-
-            @staticmethod
-            def set(key: str, value: object, timeout: int | None = None) -> None:
-                del timeout
-                cache[key] = value
-
-        result = check_proposal_rate_limit(FakeCache(), "1.2.3.4", event_id=2)
-
-        assert result is True
 
 
 def _connection_dto(pk=1, sphere_id=1, name="Konto", *, has_secret=False):

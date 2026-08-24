@@ -96,9 +96,11 @@ def _seed_schedule_filter_fields() -> None:
         is_public=True,
         order=0,
     )
+    # value == label, the way every code path that creates an option does it:
+    # the answers below store the value, and the filter matches on it.
     for order, label in enumerate(sorted(set(MOOD_BY_SESSION.values()))):
         SessionFieldOption.objects.create(
-            field=mood, label=label, value=label.lower(), order=order
+            field=mood, label=label, value=label, order=order
         )
 
     unanswered = SessionField.objects.create(
