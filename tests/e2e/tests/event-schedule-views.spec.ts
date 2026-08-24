@@ -45,24 +45,33 @@ test.describe("Event schedule views", () => {
     expect(await stayedOnPage(page)).toBe(true);
   });
 
-  test("the room header doubles as a top scrollbar for the grid", async ({ page }) => {
+  test("the grid offers sideways scrollbars on both edges", async ({ page }) => {
     await page.goto(`${DENSE_EVENT_URL}?view=rooms`);
     const head = page.locator("[data-room-lanes-head]").first();
+    const foot = page.locator("[data-room-lanes-foot]").first();
     const body = page.locator("[data-room-lanes-scroll]").first();
 
-    // A real scroller with the grid's full width behind it — that is what puts
-    // a sideways scrollbar at the top for mouse users.
-    await expect(head).toHaveCSS("overflow-x", "auto");
-    expect(await head.evaluate((el) => el.scrollWidth > el.clientWidth)).toBe(true);
+    // Real scrollers with the grid's full width behind them — that is what
+    // puts a scrollbar at the top and the bottom edge for mouse users. The
+    // body's own scrollbar yields to the foot, which pins to the viewport.
+    for (const handle of [head, foot]) {
+      await expect(handle).toHaveCSS("overflow-x", "auto");
+      expect(await handle.evaluate((el) => el.scrollWidth > el.clientWidth)).toBe(true);
+    }
+    await expect(foot).toHaveCSS("position", "sticky");
+    await expect(body).toHaveCSS("scrollbar-width", "none");
 
+    // Dragging either handle pans the grid, and the grid drags both along.
     await head.evaluate((el) => {
       el.scrollLeft = 300;
     });
     await expect.poll(() => body.evaluate((el) => el.scrollLeft)).toBe(300);
+    await expect.poll(() => foot.evaluate((el) => el.scrollLeft)).toBe(300);
 
-    await body.evaluate((el) => {
+    await foot.evaluate((el) => {
       el.scrollLeft = 120;
     });
+    await expect.poll(() => body.evaluate((el) => el.scrollLeft)).toBe(120);
     await expect.poll(() => head.evaluate((el) => el.scrollLeft)).toBe(120);
   });
 });

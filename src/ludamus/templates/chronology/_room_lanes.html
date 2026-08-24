@@ -4,12 +4,14 @@
 {# sits in its start-hour row and spans the hours it covers, so longer #}
 {# sessions render taller; rows are auto-height, so a tile is never clipped. #}
 {# The room-name header is pulled out of the horizontal scroller and sticks #}
-{# to the page (room-lanes.ts syncs the two scroll offsets both ways) — #}
-{# native vertical stickiness, no scroll-driven jitter. The header scrolls #}
-{# for real (overflow-x-auto, not hidden) so its scrollbar gives mouse users #}
-{# a sideways handle at the top of the grid; the body's own scrollbar sits #}
-{# below a screen-tall grid and shift+scroll is not common knowledge. #}
-{# The time axis is the grid's first #}
+{# to the page (room-lanes.ts syncs the scroll offsets both ways) — native #}
+{# vertical stickiness, no scroll-driven jitter. Shift+scroll is not common #}
+{# knowledge and the grid runs screens tall, so mouse users get a sideways #}
+{# handle pinned to each edge of the viewport: the header scrolls for real #}
+{# (overflow-x-auto, not hidden), making its scrollbar the top handle, and #}
+{# a sticky strip after the body carries the bottom one — the body's own #}
+{# scrollbar, which would surface only at the grid's very end, is hidden in #}
+{# index.css in its favor. The time axis is the grid's first #}
 {# column, sticky-left; only the right edge fades, so the axis never dims. #}
 {# Hour gridlines with sessions carry the .time-slot-section / #slot-<hour> #}
 {# contract so the hour scrubber and filters keep working. #}
@@ -107,6 +109,17 @@
                         </div>
                     {% endfor %}
                 </div>
+            </div>
+            {# The bottom handle. Its spacer is a 1px .room-lanes-grid, so the #}
+            {# width formula and the collapse code in room-lanes.ts keep it in #}
+            {# step with the body and scrollLeft copies over verbatim. #}
+            {# Decorative for AT and keyboard users — the body scroller stays #}
+            {# reachable — hence aria-hidden and tabindex=-1. #}
+            <div class="sticky bottom-0 z-30 overflow-x-auto overscroll-x-contain bg-background"
+                 data-room-lanes-foot
+                 aria-hidden="true"
+                 tabindex="-1">
+                <div class="room-lanes-grid h-px"></div>
             </div>
         </div>
     </section>

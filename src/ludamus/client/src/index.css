@@ -271,11 +271,11 @@ body {
   border-top: 0;
 }
 
-/* Both scrollers fade their x-overflow edges, but the fade must not dim the
-   horizontal scrollbar each of them shows: the second, un-faded mask layer
-   covers the bottom strip the scrollbar occupies. room-lanes.ts measures the
-   strip into --room-lanes-sb per element; until then it is 0 and the fade
-   covers everything. */
+/* Both panes fade their x-overflow edges, but the head also shows the top
+   scrollbar, which the fade must not dim: the second, un-faded mask layer
+   covers the strip it occupies. room-lanes.ts measures the strip into
+   --room-lanes-sb; on the body the var stays 0 — its native scrollbar is
+   hidden below — so the fade covers everything. */
 .room-lanes-head,
 .room-lanes-scroll {
   mask-image:
@@ -314,6 +314,18 @@ body {
     bottom left;
   mask-repeat: no-repeat;
   -webkit-mask-repeat: no-repeat;
+}
+
+/* The body's own scrollbar would surface only at the very end of a
+   screens-tall grid; the sticky strip after it (data-room-lanes-foot in the
+   template) pins that handle to the viewport bottom instead, and hiding the
+   native one keeps the two from stacking at the grid's end. */
+.room-lanes-scroll {
+  scrollbar-width: none;
+}
+
+.room-lanes-scroll::-webkit-scrollbar {
+  display: none;
 }
 
 .room-lanes-rule {
