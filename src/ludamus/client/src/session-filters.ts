@@ -58,6 +58,8 @@ const addOption = (
 };
 
 interface CardFilter {
+  /** Is the control's value one worth filtering on? */
+  active: (value: string) => boolean;
   /** Chip text for the active value. */
   chip: () => string;
   el: HTMLInputElement | HTMLSelectElement;
@@ -71,7 +73,13 @@ const selectFilter = (
   el: HTMLSelectElement,
   param: string,
   matches: CardFilter["matches"],
-): CardFilter => ({ chip: () => selectedLabel(el), el, matches, param });
+): CardFilter => ({
+  active: (value) => value !== "",
+  chip: () => selectedLabel(el),
+  el,
+  matches,
+  param,
+});
 
 const dataMatch =
   (key: "day" | "host" | "hour"): CardFilter["matches"] =>
@@ -286,12 +294,13 @@ const initSessionFilters = (): void => {
         : card.dataset.space === value,
     ),
     {
+      // min/max on the input bound its spinner, not what can be typed, so an
+      // age only counts once the codec has agreed it is one.
+      active: (value) => ageParam.parse(value) !== null,
       chip: () => `${filterChipsBar.dataset.ageLabel ?? ""} ${ageFilter.value}`.trim(),
       el: ageFilter,
       // The participant's age against the session's requirement: an
       // unrestricted session (min age 0) admits everyone, so it always stays.
-      // Number, not parseInt: a number input accepts exponent notation, and
-      // parseInt would read "1e1" as 1.
       matches: (card, value) => (Number(card.dataset.minAge) || 0) <= Number(value),
       param: "age",
     },
@@ -364,7 +373,7 @@ const initSessionFilters = (): void => {
     mirror(
       name,
       ageParam,
-      () => (input.value === "" ? null : Number(input.value)),
+      () => ageParam.parse(input.value),
       (value) => {
         input.value = value === null ? "" : String(value);
       },
@@ -440,7 +449,7 @@ const initSessionFilters = (): void => {
   function filterSessions(): void {
     const searchTokens = normalizeText(sessionFilter.value).split(/\s+/).filter(Boolean);
     const enrollmentOnly = enrollmentFilter?.checked ?? false;
-    const activeFilters = cardFilters.filter((f) => f.el.value !== "");
+    const activeFilters = cardFilters.filter((f) => f.active(f.el.value));
 
     for (const card of sessionCards) {
       let show = true;
@@ -516,7 +525,7 @@ const initSessionFilters = (): void => {
       });
     }
     for (const f of cardFilters) {
-      if (!f.el.value) continue;
+      if (!f.active(f.el.value)) continue;
       chips.push({
         clear: () => {
           f.el.value = "";

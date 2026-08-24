@@ -55,6 +55,9 @@ interface Row {
 
 const upgrade = (root: HTMLElement): void => {
   const select = requireEl<HTMLSelectElement>(root, "select");
+  // Leave a disabled control alone rather than replacing it with a working
+  // one; the native select stays as the (inert) widget.
+  if (select.disabled) return;
   const shell = requireEl(root, "[data-combobox-shell]");
   const input = requireEl<HTMLInputElement>(root, "[data-combobox-input]");
   const toggle = requireEl(root, "[data-combobox-toggle]");
@@ -137,6 +140,7 @@ const upgrade = (root: HTMLElement): void => {
     for (const [index, option] of [...select.options].entries()) {
       const el = optionTemplate.content.firstElementChild?.cloneNode(true);
       if (!(el instanceof HTMLElement)) continue;
+      if (option.disabled) continue;
       el.id = `${select.id}-option-${index}`;
       const label = option.textContent?.trim() ?? "";
       const labelEl = el.querySelector("[data-combobox-option-label]");
@@ -181,7 +185,9 @@ const upgrade = (root: HTMLElement): void => {
     toggle.setAttribute("aria-expanded", String(open));
     if (popoverCapable) {
       if (open) {
-        popup.showPopover();
+        // Only when shut: showPopover() on an open popover throws, and this
+        // runs on every keystroke.
+        if (!popup.matches(":popover-open")) popup.showPopover();
         place();
       } else if (popup.matches(":popover-open")) {
         popup.hidePopover();
@@ -205,14 +211,15 @@ const upgrade = (root: HTMLElement): void => {
   const commit = (row: Row | undefined): void => {
     if (row) {
       select.value = row.value;
-      input.value = row.label;
       select.dispatchEvent(new Event("change", { bubbles: true }));
     }
-    setOpen(false);
+    // Either way the box shows what is selected: a query that committed
+    // nothing is not a value, and leaving it visible would disagree with the
+    // select underneath.
+    close();
   };
 
   const close = (): void => {
-    // A half-typed query is not a value: restore the label of what is set.
     input.value = labelOf(select.value);
     setOpen(false);
   };
@@ -290,7 +297,11 @@ const upgrade = (root: HTMLElement): void => {
   });
 
   input.addEventListener("click", () => {
-    if (!isOpen()) open("selected");
+    if (isOpen()) return;
+    open("selected");
+    // The box shows the selected option's label, so typing would otherwise
+    // append to it and search for something nobody asked for.
+    input.select();
   });
 
   toggle.addEventListener("click", () => {
@@ -300,6 +311,7 @@ const upgrade = (root: HTMLElement): void => {
       open("selected");
     }
     input.focus();
+    input.select();
   });
 
   listbox.addEventListener("pointerdown", (event: PointerEvent) => {

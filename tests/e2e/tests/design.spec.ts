@@ -168,4 +168,37 @@ test.describe("Design system page", () => {
 
     await context.close();
   });
+
+  test("keeps filtering as more characters arrive", async ({ page }) => {
+    await page.goto("/design/");
+    const combobox = await upgradedCombobox(page, "Fruit");
+
+    // Clicked first, as a person would: that selects the label already in the
+    // box so the typing replaces it.
+    await combobox.click();
+    // Typed one key at a time: re-showing an already-open popover throws, and
+    // the thrown error would take the rest of the keystroke's work with it.
+    await combobox.pressSequentially("apr", { delay: 30 });
+    // Scoped to this combobox's list: every native <select> on the page
+    // contributes options of its own to the accessibility tree.
+    const options = page.getByRole("listbox", { name: "Fruit" }).getByRole("option");
+    await expect(options).toHaveText(["Apricot"]);
+  });
+
+  test("shows the selected option when a query commits nothing", async ({ page }) => {
+    await page.goto("/design/");
+    const combobox = await upgradedCombobox(page, "Fruit");
+    const value = page.locator("#t-combobox");
+
+    await combobox.click();
+    await page.getByRole("option", { name: "Cherry" }).click();
+    await expect(value).toHaveValue("cherry");
+
+    // A query matching nothing, committed with Enter: the box has to fall back
+    // to what is actually selected rather than keep the dead query on screen.
+    await combobox.fill("zzz");
+    await combobox.press("Enter");
+    await expect(combobox).toHaveValue("Cherry");
+    await expect(value).toHaveValue("cherry");
+  });
 });
