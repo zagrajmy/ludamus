@@ -699,8 +699,8 @@ msgstr "Wybierz przynajmniej jednego użytkownika do zapisu."
 
 #: src/ludamus/gates/web/django/chronology/anonymous.py
 #: src/ludamus/gates/web/django/chronology/panel/views/event_settings.py
-#: src/ludamus/gates/web/django/chronology/views.py
 #: src/ludamus/gates/web/django/event/panel/views/base.py
+#: src/ludamus/gates/web/django/event/propose.py
 msgid "Event not found."
 msgstr "Festiwal nie został znaleziony."
 
@@ -780,77 +780,6 @@ msgstr "Nieprawidłowy kod. Sprawdź i spróbuj ponownie."
 #: src/ludamus/gates/web/django/chronology/anonymous.py
 msgid "Code loaded successfully. You can now manage your enrollments."
 msgstr "Kod załadowany pomyślnie. Możesz teraz zarządzać swoimi zapisami."
-
-#: src/ludamus/gates/web/django/chronology/forms.py
-#: src/ludamus/gates/web/django/templatetags/cfp_tags.py
-msgid "Contact email"
-msgstr "Email kontaktowy"
-
-#: src/ludamus/gates/web/django/chronology/forms.py
-#: src/ludamus/templates/chronology/propose/parts/details.html
-#: src/ludamus/templates/chronology/propose/parts/review.html
-msgid "Max participants"
-msgstr "Maks. uczestników"
-
-#: src/ludamus/gates/web/django/chronology/forms.py
-#: src/ludamus/gates/web/django/forms.py
-msgid "Empty or 0 = no enrollment"
-msgstr "Puste pole lub 0 = bez zapisów"
-
-#: src/ludamus/gates/web/django/chronology/forms.py
-#: src/ludamus/gates/web/django/chronology/panel/views/columns.py
-#: src/ludamus/gates/web/django/forms.py
-#: src/ludamus/gates/web/django/multiverse/panel/forms.py
-#: src/ludamus/gates/web/django/templatetags/cfp_tags.py
-#: src/ludamus/templates/chronology/parts/session-edit-form.html
-#: src/ludamus/templates/chronology/propose/parts/details.html
-#: src/ludamus/templates/chronology/propose/parts/review.html
-#: src/ludamus/templates/multiverse/panel/announcements/list.html
-#: src/ludamus/templates/panel/proposals.html
-msgid "Title"
-msgstr "Tytuł"
-
-#: src/ludamus/gates/web/django/chronology/forms.py
-#: src/ludamus/gates/web/django/forms.py
-#: src/ludamus/gates/web/django/templatetags/cfp_tags.py
-#: src/ludamus/templates/chronology/accept_proposal.html
-#: src/ludamus/templates/chronology/anonymous_enroll.html
-#: src/ludamus/templates/chronology/parts/session-edit-form.html
-#: src/ludamus/templates/chronology/propose/parts/details.html
-#: src/ludamus/templates/chronology/propose/parts/review.html
-#: src/ludamus/templates/panel/cfp-edit.html
-#: src/ludamus/templates/panel/proposal-detail.html
-#: src/ludamus/templates/panel/settings.html
-msgid "Description"
-msgstr "Opis"
-
-#: src/ludamus/gates/web/django/chronology/forms.py
-#: src/ludamus/gates/web/django/templatetags/cfp_tags.py
-#: src/ludamus/templates/chronology/propose/parts/details.html
-#: src/ludamus/templates/chronology/propose/parts/review.html
-#: src/ludamus/templates/chronology/session_tags.html
-msgid "Minimum age"
-msgstr "Minimalny wiek"
-
-#: src/ludamus/gates/web/django/chronology/forms.py
-msgid "0 = no age restriction"
-msgstr "0 = brak ograniczenia wiekowego"
-
-#: src/ludamus/gates/web/django/chronology/forms.py
-#: src/ludamus/templates/chronology/propose/parts/details.html
-#: src/ludamus/templates/chronology/propose/parts/review.html
-msgid "Presenter name"
-msgstr "Nazwa prowadzącego"
-
-#: src/ludamus/gates/web/django/chronology/forms.py
-#: src/ludamus/gates/web/django/forms.py
-#: src/ludamus/gates/web/django/templatetags/cfp_tags.py
-#: src/ludamus/templates/chronology/propose/parts/details.html
-#: src/ludamus/templates/chronology/propose/parts/review.html
-#: src/ludamus/templates/panel/parts/proposal-duration.html
-#: src/ludamus/templates/panel/proposal-detail.html
-msgid "Duration"
-msgstr "Czas trwania"
 
 #: src/ludamus/gates/web/django/chronology/forms.py
 msgid "Ungrouped"
@@ -1054,10 +983,23 @@ msgid "Organizer"
 msgstr "Przypisany do"
 
 #: src/ludamus/gates/web/django/chronology/panel/views/columns.py
+#: src/ludamus/gates/web/django/event/propose_forms.py
+#: src/ludamus/gates/web/django/forms.py
+#: src/ludamus/gates/web/django/multiverse/panel/forms.py
+#: src/ludamus/gates/web/django/templatetags/cfp_tags.py
+#: src/ludamus/templates/chronology/parts/session-edit-form.html
+#: src/ludamus/templates/event/propose/parts/details.html
+#: src/ludamus/templates/event/propose/parts/review.html
+#: src/ludamus/templates/multiverse/panel/announcements/list.html
+#: src/ludamus/templates/panel/proposals.html
+msgid "Title"
+msgstr "Tytuł"
+
+#: src/ludamus/gates/web/django/chronology/panel/views/columns.py
 #: src/ludamus/gates/web/django/chronology/panel/views/google_docs_import.py
 #: src/ludamus/gates/web/django/templatetags/cfp_tags.py
-#: src/ludamus/templates/chronology/propose/parts/_stepper.html
-#: src/ludamus/templates/chronology/propose/parts/review.html
+#: src/ludamus/templates/event/propose/parts/_stepper.html
+#: src/ludamus/templates/event/propose/parts/review.html
 #: src/ludamus/templates/panel/parts/import-recipe-row.html
 #: src/ludamus/templates/panel/proposal-detail.html
 #: src/ludamus/templates/panel/proposal-form.html
@@ -1069,6 +1011,7 @@ msgstr "Kategoria"
 #: src/ludamus/templates/chronology/event.html
 #: src/ludamus/templates/multiverse/panel/announcements/list.html
 #: src/ludamus/templates/panel/enrollment-settings.html
+#: src/ludamus/templates/panel/errata.html
 #: src/ludamus/templates/panel/import.html
 #: src/ludamus/templates/panel/proposals.html
 msgid "Status"
@@ -1312,7 +1255,7 @@ msgstr[3] "Pominięto %(count)d twórców programu: %(reason)s"
 
 #: src/ludamus/gates/web/django/chronology/panel/views/google_docs_import.py
 #: src/ludamus/gates/web/django/templatetags/cfp_tags.py
-#: src/ludamus/templates/chronology/propose/parts/_stepper.html
+#: src/ludamus/templates/event/propose/parts/_stepper.html
 #: src/ludamus/templates/panel/parts/import-recipe-row.html
 msgid "Time slots"
 msgstr "Przedziały czasowe"
@@ -1879,44 +1822,6 @@ msgstr "Brak innych wydarzeń do skopiowania."
 #, python-format
 msgid "Space copied to %(event)s successfully."
 msgstr "Przestrzeń została skopiowana do %(event)s."
-
-#: src/ludamus/gates/web/django/chronology/views.py
-msgid "Proposal submission is not currently active for this event."
-msgstr "Składanie zgłoszeń nie jest obecnie aktywne dla tego wydarzenia."
-
-#: src/ludamus/gates/web/django/chronology/views.py
-msgid "Please select a category first."
-msgstr "Najpierw wybierz kategorię."
-
-#: src/ludamus/gates/web/django/chronology/views.py
-msgid "Invalid category."
-msgstr "Nieprawidłowa kategoria."
-
-#: src/ludamus/gates/web/django/chronology/views.py
-#: src/ludamus/gates/web/django/forms.py
-msgid "Please select a category."
-msgstr "Wybierz kategorię."
-
-#: src/ludamus/gates/web/django/chronology/views.py
-msgid "Please select at least one time slot."
-msgstr "Wybierz przynajmniej jeden przedział czasowy."
-
-#: src/ludamus/gates/web/django/chronology/views.py
-msgid "Please select at least one track."
-msgstr "Wybierz przynajmniej jedną ścieżkę."
-
-#: src/ludamus/gates/web/django/chronology/views.py
-msgid "Missing session details. Please start over."
-msgstr "Brak szczegółów punktu programu. Zacznij od nowa."
-
-#: src/ludamus/gates/web/django/chronology/views.py
-msgid "Please wait before submitting another proposal."
-msgstr "Poczekaj chwilę przed przesłaniem kolejnego zgłoszenia."
-
-#: src/ludamus/gates/web/django/chronology/views.py
-#, python-brace-format
-msgid "Session proposal '{}' submitted successfully!"
-msgstr "Zgłoszenie punktu programu '{}' zostało pomyślnie przesłane!"
 
 #: src/ludamus/gates/web/django/chronology/views.py
 msgid "There is already a session scheduled at this space and time."
@@ -2522,6 +2427,102 @@ msgstr "Lista punktów programu"
 msgid "Door cards"
 msgstr "Tabliczki na drzwi"
 
+#: src/ludamus/gates/web/django/event/propose.py
+msgid "Please select a category first."
+msgstr "Najpierw wybierz kategorię."
+
+#: src/ludamus/gates/web/django/event/propose.py
+msgid "Proposal submission is not currently active for this event."
+msgstr "Składanie zgłoszeń nie jest obecnie aktywne dla tego wydarzenia."
+
+#: src/ludamus/gates/web/django/event/propose.py
+msgid "Invalid category."
+msgstr "Nieprawidłowa kategoria."
+
+#: src/ludamus/gates/web/django/event/propose.py
+#: src/ludamus/gates/web/django/forms.py
+msgid "Please select a category."
+msgstr "Wybierz kategorię."
+
+#: src/ludamus/gates/web/django/event/propose.py
+msgid "Please select at least one time slot."
+msgstr "Wybierz przynajmniej jeden przedział czasowy."
+
+#: src/ludamus/gates/web/django/event/propose.py
+msgid "Please select at least one track."
+msgstr "Wybierz przynajmniej jeden blok programowy."
+
+#: src/ludamus/gates/web/django/event/propose.py
+msgid "Missing session details. Please start over."
+msgstr "Brak szczegółów punktu programu. Zacznij od nowa."
+
+#: src/ludamus/gates/web/django/event/propose.py
+msgid "Please wait before submitting another proposal."
+msgstr "Poczekaj chwilę przed przesłaniem kolejnego zgłoszenia."
+
+#: src/ludamus/gates/web/django/event/propose.py
+#, python-brace-format
+msgid "Session proposal '{}' submitted successfully!"
+msgstr "Zgłoszenie punktu programu '{}' zostało pomyślnie przesłane!"
+
+#: src/ludamus/gates/web/django/event/propose_forms.py
+#: src/ludamus/gates/web/django/templatetags/cfp_tags.py
+msgid "Contact email"
+msgstr "Email kontaktowy"
+
+#: src/ludamus/gates/web/django/event/propose_forms.py
+#: src/ludamus/templates/event/propose/parts/details.html
+#: src/ludamus/templates/event/propose/parts/review.html
+msgid "Max participants"
+msgstr "Maks. uczestników"
+
+#: src/ludamus/gates/web/django/event/propose_forms.py
+#: src/ludamus/gates/web/django/forms.py
+msgid "Empty or 0 = no enrollment"
+msgstr "Puste pole lub 0 = bez zapisów"
+
+#: src/ludamus/gates/web/django/event/propose_forms.py
+#: src/ludamus/gates/web/django/forms.py
+#: src/ludamus/gates/web/django/templatetags/cfp_tags.py
+#: src/ludamus/templates/chronology/accept_proposal.html
+#: src/ludamus/templates/chronology/anonymous_enroll.html
+#: src/ludamus/templates/chronology/parts/session-edit-form.html
+#: src/ludamus/templates/event/propose/parts/details.html
+#: src/ludamus/templates/event/propose/parts/review.html
+#: src/ludamus/templates/panel/cfp-edit.html
+#: src/ludamus/templates/panel/proposal-detail.html
+#: src/ludamus/templates/panel/settings.html
+msgid "Description"
+msgstr "Opis"
+
+#: src/ludamus/gates/web/django/event/propose_forms.py
+#: src/ludamus/gates/web/django/templatetags/cfp_tags.py
+#: src/ludamus/templates/chronology/session_tags.html
+#: src/ludamus/templates/event/propose/parts/details.html
+#: src/ludamus/templates/event/propose/parts/review.html
+msgid "Minimum age"
+msgstr "Minimalny wiek"
+
+#: src/ludamus/gates/web/django/event/propose_forms.py
+msgid "0 = no age restriction"
+msgstr "0 = brak ograniczenia wiekowego"
+
+#: src/ludamus/gates/web/django/event/propose_forms.py
+#: src/ludamus/templates/event/propose/parts/details.html
+#: src/ludamus/templates/event/propose/parts/review.html
+msgid "Presenter name"
+msgstr "Nazwa prowadzącego"
+
+#: src/ludamus/gates/web/django/event/propose_forms.py
+#: src/ludamus/gates/web/django/forms.py
+#: src/ludamus/gates/web/django/templatetags/cfp_tags.py
+#: src/ludamus/templates/event/propose/parts/details.html
+#: src/ludamus/templates/event/propose/parts/review.html
+#: src/ludamus/templates/panel/parts/proposal-duration.html
+#: src/ludamus/templates/panel/proposal-detail.html
+msgid "Duration"
+msgstr "Czas trwania"
+
 #: src/ludamus/gates/web/django/forms.py
 msgid "Max 8 MB. JPG, PNG, WebP, or AVIF."
 msgstr "Maks. 8 MB. JPG, PNG, WebP lub AVIF."
@@ -2761,6 +2762,7 @@ msgid "Capacity must be at least 1."
 msgstr "Pojemność musi wynosić co najmniej 1."
 
 #: src/ludamus/gates/web/django/forms.py
+#: src/ludamus/templates/chronology/event.html
 msgid "Location"
 msgstr "Lokalizacja"
 
@@ -2818,8 +2820,8 @@ msgstr "Nazwa wyświetlana jest wymagana."
 
 #: src/ludamus/gates/web/django/forms.py
 #: src/ludamus/templates/chronology/parts/session-edit-form.html
-#: src/ludamus/templates/chronology/propose/parts/personal.html
-#: src/ludamus/templates/chronology/propose/parts/review.html
+#: src/ludamus/templates/event/propose/parts/personal.html
+#: src/ludamus/templates/event/propose/parts/review.html
 #: src/ludamus/templates/panel/proposal-detail.html
 msgid "Contact Email"
 msgstr "Email kontaktowy"
@@ -3181,6 +3183,14 @@ msgstr "Zapisano!"
 msgid "You have been removed from this encounter."
 msgstr "Zostałeś/aś wypisany/a z tego spotkania."
 
+#: src/ludamus/gates/web/django/pages.py src/ludamus/templates/base.html
+msgid "Privacy Policy"
+msgstr "Polityka prywatności"
+
+#: src/ludamus/gates/web/django/pages.py src/ludamus/templates/base.html
+msgid "Terms of Service"
+msgstr "Regulamin"
+
 #: src/ludamus/gates/web/django/panel.py
 msgid "Your role can read the panel, but not make changes here."
 msgstr "Twoja rola pozwala przeglądać panel, ale nie wprowadzać tu zmian."
@@ -3283,7 +3293,7 @@ msgid "Participants limit"
 msgstr "Limit uczestników"
 
 #: src/ludamus/gates/web/django/templatetags/cfp_tags.py
-#: src/ludamus/templates/chronology/propose/parts/details.html
+#: src/ludamus/templates/event/propose/parts/details.html
 #: src/ludamus/templates/panel/base.html
 #: src/ludamus/templates/panel/proposal-detail.html
 #: src/ludamus/templates/panel/proposal-form.html
@@ -3603,14 +3613,6 @@ msgstr "Marka"
 msgid "Contact"
 msgstr "Kontakt"
 
-#: src/ludamus/templates/base.html
-msgid "Privacy Policy"
-msgstr "Polityka prywatności"
-
-#: src/ludamus/templates/base.html
-msgid "Terms of Service"
-msgstr "Regulamin"
-
 #: src/ludamus/templates/brand.html
 msgid "Logo & Brand Guidelines"
 msgstr "Logo i identyfikacja wizualna"
@@ -3926,8 +3928,8 @@ msgid "submitted"
 msgstr "zgłoszono"
 
 #: src/ludamus/templates/chronology/accept_proposal.html
-#: src/ludamus/templates/chronology/propose/parts/review.html
-#: src/ludamus/templates/chronology/propose/parts/timeslots.html
+#: src/ludamus/templates/event/propose/parts/review.html
+#: src/ludamus/templates/event/propose/parts/timeslots.html
 msgid "Preferred Time Slots"
 msgstr "Preferowane przedziały czasowe"
 
@@ -4133,6 +4135,11 @@ msgid "Proposals Open"
 msgstr "Zgłoszenia otwarte"
 
 #: src/ludamus/templates/chronology/event.html
+msgctxt "date range"
+msgid "to"
+msgstr "do"
+
+#: src/ludamus/templates/chronology/event.html
 msgid "Session"
 msgid_plural "Sessions"
 msgstr[0] "Punkt programu"
@@ -4306,7 +4313,7 @@ msgid "Switch to This Code"
 msgstr "Przełącz na Ten Kod"
 
 #: src/ludamus/templates/chronology/event.html
-#: src/ludamus/templates/chronology/propose/base.html
+#: src/ludamus/templates/event/propose/base.html
 msgid "Propose Session"
 msgstr "Zgłoś punkt programu"
 
@@ -4352,11 +4359,11 @@ msgid "Bookmarked"
 msgstr "Z zakładką"
 
 #: src/ludamus/templates/chronology/event.html
-msgid "Venue"
-msgstr "Lokalizacja"
+msgid "all rooms"
+msgstr "wszystkie sale"
 
 #: src/ludamus/templates/chronology/event.html
-msgid "All venues"
+msgid "All locations"
 msgstr "Wszystkie lokalizacje"
 
 #: src/ludamus/templates/chronology/event.html
@@ -4561,6 +4568,7 @@ msgstr "Połączenie:"
 #: src/ludamus/templates/panel/cfp.html
 #: src/ludamus/templates/panel/facilitators.html
 #: src/ludamus/templates/panel/integration-settings.html
+#: src/ludamus/templates/panel/parts/_bulk_actions_facilitators.html
 #: src/ludamus/templates/panel/personal-data-fields.html
 #: src/ludamus/templates/panel/proposal-detail.html
 #: src/ludamus/templates/panel/session-fields.html
@@ -4750,157 +4758,6 @@ msgstr "pojemność"
 msgid "This printable is not available for this event."
 msgstr "Ten wydruk nie jest dostępny dla tego wydarzenia."
 
-#: src/ludamus/templates/chronology/propose/base.html
-msgid "Submit a session proposal for"
-msgstr "Prześlij zgłoszenie punktu programu dla"
-
-#: src/ludamus/templates/chronology/propose/base.html
-msgid ""
-"Proposals are reviewed by organizers. You'll be notified when yours is "
-"accepted and added to the agenda."
-msgstr ""
-"Zgłoszenia są weryfikowane przez organizatorów. Dostaniesz powiadomienie, "
-"gdy Twoje zostanie zaakceptowane i dodane do programu."
-
-#: src/ludamus/templates/chronology/propose/parts/_login_nudge.html
-msgid "Have an account?"
-msgstr "Masz konto?"
-
-#: src/ludamus/templates/chronology/propose/parts/_login_nudge.html
-msgid ""
-"Log in to save your details across submissions, track your proposals, and "
-"skip re-entering personal data next time."
-msgstr ""
-"Zaloguj się, aby zapisać swoje dane między zgłoszeniami, śledzić swoje "
-"propozycje i nie wpisywać danych osobowych ponownie."
-
-#: src/ludamus/templates/chronology/propose/parts/_login_nudge.html
-#: src/ludamus/templates/components/login_button.html
-#: src/ludamus/templates/notice_board/landing.html
-msgid "Log in"
-msgstr "Zaloguj się"
-
-#: src/ludamus/templates/chronology/propose/parts/_stepper.html
-msgid "Proposal progress"
-msgstr "Postęp zgłoszenia"
-
-#: src/ludamus/templates/chronology/propose/parts/_stepper.html
-msgid "Your info"
-msgstr "Twoje dane"
-
-#: src/ludamus/templates/chronology/propose/parts/_stepper.html
-msgctxt "wizard step"
-msgid "Session"
-msgstr "Punkt programu"
-
-#: src/ludamus/templates/chronology/propose/parts/_stepper.html
-#: src/ludamus/templates/panel/_import_tabs.html
-msgid "Review"
-msgstr "Przegląd"
-
-#: src/ludamus/templates/chronology/propose/parts/category.html
-msgid "What would you like to propose?"
-msgstr "Co chcesz zgłosić?"
-
-#: src/ludamus/templates/chronology/propose/parts/category.html
-msgid "Choose the type of session you want to run."
-msgstr "Wybierz typ punktu programu, który chcesz poprowadzić."
-
-#: src/ludamus/templates/chronology/propose/parts/category.html
-#: src/ludamus/templates/chronology/propose/parts/details.html
-#: src/ludamus/templates/chronology/propose/parts/personal.html
-#: src/ludamus/templates/chronology/propose/parts/timeslots.html
-msgid "Continue"
-msgstr "Dalej"
-
-#: src/ludamus/templates/chronology/propose/parts/details.html
-msgid "Session Details"
-msgstr "Szczegóły punktu programu"
-
-#: src/ludamus/templates/chronology/propose/parts/details.html
-msgid "Session info — public by default. A 🔒 marks what only organizers see."
-msgstr ""
-"Informacje o punkcie programu — domyślnie publiczne. 🔒 oznacza pola "
-"widoczne tylko dla organizatorów."
-
-#: src/ludamus/templates/chronology/propose/parts/details.html
-msgid "Select the tracks your session belongs to."
-msgstr "Wybierz bloki programowe dla tego punktu programu."
-
-#: src/ludamus/templates/chronology/propose/parts/details.html
-#: src/ludamus/templates/chronology/propose/parts/personal.html
-#: src/ludamus/templates/chronology/propose/parts/review.html
-#: src/ludamus/templates/chronology/propose/parts/timeslots.html
-#: src/ludamus/templates/panel/facilitator-merge.html
-#: src/ludamus/templates/panel/parts/timetable-session-detail.html
-msgid "Back"
-msgstr "Wróć"
-
-#: src/ludamus/templates/chronology/propose/parts/details.html
-msgid "Session details saved. Next step coming soon."
-msgstr "Szczegóły punktu programu zapisane. Następny krok wkrótce."
-
-#: src/ludamus/templates/chronology/propose/parts/personal.html
-#: src/ludamus/templates/chronology/propose/parts/review.html
-msgid "Your Information"
-msgstr "Twoje dane"
-
-#: src/ludamus/templates/chronology/propose/parts/personal.html
-msgid "Your details — private by default. An 👁 marks what attendees will see."
-msgstr ""
-"Twoje dane — domyślnie prywatne. 👁 oznacza pola widoczne dla uczestników."
-
-# Login Required Page
-#: src/ludamus/templates/chronology/propose/parts/personal.html
-msgid "(required)"
-msgstr "(wymagane)"
-
-#: src/ludamus/templates/chronology/propose/parts/personal.html
-msgid "Email address for notifications about this proposal"
-msgstr "Adres email do powiadomień o tym zgłoszeniu"
-
-#: src/ludamus/templates/chronology/propose/parts/personal.html
-msgid "We'll use this email to notify you about your proposal status."
-msgstr "Na ten adres wyślemy powiadomienia o statusie Twojego zgłoszenia."
-
-#: src/ludamus/templates/chronology/propose/parts/review.html
-msgid "Review & Submit"
-msgstr "Przegląd i wysłanie"
-
-#: src/ludamus/templates/chronology/propose/parts/review.html
-msgid "Please review your proposal before submitting."
-msgstr "Przejrzyj swoje zgłoszenie przed wysłaniem."
-
-#: src/ludamus/templates/chronology/propose/parts/review.html
-msgctxt "proposal review heading"
-msgid "Session"
-msgstr "Punkt programu"
-
-#: src/ludamus/templates/chronology/propose/parts/review.html
-msgid "No limit"
-msgstr "Bez limitu"
-
-#: src/ludamus/templates/chronology/propose/parts/review.html
-msgid "All ages"
-msgstr "Bez ograniczeń"
-
-#: src/ludamus/templates/chronology/propose/parts/review.html
-msgid "Submit Proposal"
-msgstr "Prześlij zgłoszenie"
-
-#: src/ludamus/templates/chronology/propose/parts/timeslots.html
-msgid "Pick every slot you could host."
-msgstr "Zaznacz każdy przedział, w którym możesz poprowadzić."
-
-#: src/ludamus/templates/chronology/propose/parts/timeslots.html
-msgid "Time slots saved. Next step coming soon."
-msgstr "Przedziały czasowe zapisane. Następny krok wkrótce."
-
-#: src/ludamus/templates/chronology/propose/parts/timeslots.html
-msgid "No time slot selection needed. Proceeding to next step."
-msgstr ""
-"Wybór przedziałów czasowych nie jest wymagany. Przechodź do następnego kroku."
-
 #: src/ludamus/templates/components/avatar.html
 #, python-format
 msgid "%(name_value)s (flagged)"
@@ -4915,13 +4772,13 @@ msgid "Cookie consent"
 msgstr "Zgoda na ciasteczka"
 
 #: src/ludamus/templates/components/consent-banner.html
+msgid "Cookies help us see what to fix."
+msgstr "Ciasteczka pomagają nam zobaczyć, co poprawić."
+
+#: src/ludamus/templates/components/consent-banner.html
 #, python-format
-msgid ""
-"Cookies help us see what to fix. More in the <a "
-"href=\"%(privacy_url)s\">Privacy Policy</a>."
-msgstr ""
-"Ciasteczka pomagają nam zobaczyć, co poprawić. Więcej w <a "
-"href=\"%(privacy_url)s\">Polityce prywatności</a>."
+msgid "More in the <a href=\"%(privacy_url)s\">Privacy Policy</a>."
+msgstr "Więcej w <a href=\"%(privacy_url)s\">Polityce prywatności</a>."
 
 #: src/ludamus/templates/components/consent-banner.html
 msgid "No cookies!"
@@ -5012,6 +4869,12 @@ msgstr "Usuń plik"
 #, python-format
 msgid "Guild: %(name)s"
 msgstr "Gildia: %(name)s"
+
+#: src/ludamus/templates/components/login_button.html
+#: src/ludamus/templates/event/propose/parts/_login_nudge.html
+#: src/ludamus/templates/notice_board/landing.html
+msgid "Log in"
+msgstr "Zaloguj się"
 
 #: src/ludamus/templates/components/multiselect-filter-options.html
 #: src/ludamus/templates/components/multiselect-filter.html
@@ -5163,6 +5026,12 @@ msgstr "Widoczne tylko dla organizatorów"
 msgid "semicolon separated"
 msgstr "po średniku"
 
+#: src/ludamus/templates/content/page.html
+#: src/ludamus/templates/crowd/auth_error.html
+#: src/ludamus/templates/crowd/login_required.html
+msgid "Back to Home"
+msgstr "Powrót do strony głównej"
+
 # Auth error page
 #: src/ludamus/templates/crowd/auth_error.html
 msgid "Login failed"
@@ -5181,12 +5050,6 @@ msgstr ""
 #: src/ludamus/templates/crowd/auth_error.html
 msgid "Log in again"
 msgstr "Zaloguj się ponownie"
-
-#: src/ludamus/templates/crowd/auth_error.html
-#: src/ludamus/templates/crowd/login_required.html
-#: src/ludamus/templates/flatpages/default.html
-msgid "Back to Home"
-msgstr "Powrót do strony głównej"
 
 #: src/ludamus/templates/crowd/auth_error.html
 msgid "Error ID"
@@ -5771,6 +5634,7 @@ msgstr "Przykładowe gildie"
 #: src/ludamus/templates/panel/bans.html src/ludamus/templates/panel/cfp.html
 #: src/ludamus/templates/panel/discounts/list.html
 #: src/ludamus/templates/panel/enrollment-settings.html
+#: src/ludamus/templates/panel/errata.html
 #: src/ludamus/templates/panel/facilitator-bin.html
 #: src/ludamus/templates/panel/facilitators.html
 #: src/ludamus/templates/panel/import.html
@@ -5820,6 +5684,155 @@ msgstr "Koralowy stół"
 #: src/ludamus/templates/design.html
 msgid "Download"
 msgstr "Pobierz"
+
+#: src/ludamus/templates/design.html
+msgid "Link preview card"
+msgstr "Karta podglądu linku"
+
+#: src/ludamus/templates/event/propose/base.html
+msgid "Submit a session proposal for"
+msgstr "Prześlij zgłoszenie punktu programu dla"
+
+#: src/ludamus/templates/event/propose/base.html
+msgid ""
+"Proposals are reviewed by organizers. You'll be notified when yours is "
+"accepted and added to the agenda."
+msgstr ""
+"Zgłoszenia są weryfikowane przez organizatorów. Dostaniesz powiadomienie, "
+"gdy Twoje zostanie zaakceptowane i dodane do programu."
+
+#: src/ludamus/templates/event/propose/parts/_login_nudge.html
+msgid "Have an account?"
+msgstr "Masz konto?"
+
+#: src/ludamus/templates/event/propose/parts/_login_nudge.html
+msgid ""
+"Log in to save your details across submissions, track your proposals, and "
+"skip re-entering personal data next time."
+msgstr ""
+"Zaloguj się, aby zapisać swoje dane między zgłoszeniami, śledzić swoje "
+"propozycje i nie wpisywać danych osobowych ponownie."
+
+#: src/ludamus/templates/event/propose/parts/_stepper.html
+msgid "Proposal progress"
+msgstr "Postęp zgłoszenia"
+
+#: src/ludamus/templates/event/propose/parts/_stepper.html
+msgid "Your info"
+msgstr "Twoje dane"
+
+#: src/ludamus/templates/event/propose/parts/_stepper.html
+msgctxt "wizard step"
+msgid "Session"
+msgstr "Punkt programu"
+
+#: src/ludamus/templates/event/propose/parts/_stepper.html
+#: src/ludamus/templates/panel/_import_tabs.html
+msgid "Review"
+msgstr "Przegląd"
+
+#: src/ludamus/templates/event/propose/parts/category.html
+msgid "What would you like to propose?"
+msgstr "Co chcesz zgłosić?"
+
+#: src/ludamus/templates/event/propose/parts/category.html
+msgid "Choose the type of session you want to run."
+msgstr "Wybierz typ punktu programu, który chcesz poprowadzić."
+
+#: src/ludamus/templates/event/propose/parts/category.html
+#: src/ludamus/templates/event/propose/parts/details.html
+#: src/ludamus/templates/event/propose/parts/personal.html
+#: src/ludamus/templates/event/propose/parts/timeslots.html
+msgid "Continue"
+msgstr "Dalej"
+
+#: src/ludamus/templates/event/propose/parts/details.html
+msgid "Session Details"
+msgstr "Szczegóły punktu programu"
+
+#: src/ludamus/templates/event/propose/parts/details.html
+msgid "Session info — public by default. A 🔒 marks what only organizers see."
+msgstr ""
+"Informacje o punkcie programu — domyślnie publiczne. 🔒 oznacza pola "
+"widoczne tylko dla organizatorów."
+
+#: src/ludamus/templates/event/propose/parts/details.html
+msgid "Select the tracks your session belongs to."
+msgstr "Wybierz bloki programowe dla tego punktu programu."
+
+#: src/ludamus/templates/event/propose/parts/details.html
+#: src/ludamus/templates/event/propose/parts/personal.html
+#: src/ludamus/templates/event/propose/parts/review.html
+#: src/ludamus/templates/event/propose/parts/timeslots.html
+#: src/ludamus/templates/panel/facilitator-merge.html
+#: src/ludamus/templates/panel/parts/timetable-session-detail.html
+msgid "Back"
+msgstr "Wróć"
+
+#: src/ludamus/templates/event/propose/parts/details.html
+msgid "Session details saved. Next step coming soon."
+msgstr "Szczegóły punktu programu zapisane. Następny krok wkrótce."
+
+#: src/ludamus/templates/event/propose/parts/personal.html
+#: src/ludamus/templates/event/propose/parts/review.html
+msgid "Your Information"
+msgstr "Twoje dane"
+
+#: src/ludamus/templates/event/propose/parts/personal.html
+msgid "Your details — private by default. An 👁 marks what attendees will see."
+msgstr ""
+"Twoje dane — domyślnie prywatne. 👁 oznacza pola widoczne dla uczestników."
+
+# Login Required Page
+#: src/ludamus/templates/event/propose/parts/personal.html
+msgid "(required)"
+msgstr "(wymagane)"
+
+#: src/ludamus/templates/event/propose/parts/personal.html
+msgid "Email address for notifications about this proposal"
+msgstr "Adres email do powiadomień o tym zgłoszeniu"
+
+#: src/ludamus/templates/event/propose/parts/personal.html
+msgid "We'll use this email to notify you about your proposal status."
+msgstr "Na ten adres wyślemy powiadomienia o statusie Twojego zgłoszenia."
+
+#: src/ludamus/templates/event/propose/parts/review.html
+msgid "Review & Submit"
+msgstr "Przegląd i wysłanie"
+
+#: src/ludamus/templates/event/propose/parts/review.html
+msgid "Please review your proposal before submitting."
+msgstr "Przejrzyj swoje zgłoszenie przed wysłaniem."
+
+#: src/ludamus/templates/event/propose/parts/review.html
+msgctxt "proposal review heading"
+msgid "Session"
+msgstr "Punkt programu"
+
+#: src/ludamus/templates/event/propose/parts/review.html
+msgid "No limit"
+msgstr "Bez limitu"
+
+#: src/ludamus/templates/event/propose/parts/review.html
+msgid "All ages"
+msgstr "Bez ograniczeń"
+
+#: src/ludamus/templates/event/propose/parts/review.html
+msgid "Submit Proposal"
+msgstr "Prześlij zgłoszenie"
+
+#: src/ludamus/templates/event/propose/parts/timeslots.html
+msgid "Pick every slot you could host."
+msgstr "Zaznacz każdy przedział, w którym możesz poprowadzić."
+
+#: src/ludamus/templates/event/propose/parts/timeslots.html
+msgid "Time slots saved. Next step coming soon."
+msgstr "Przedziały czasowe zapisane. Następny krok wkrótce."
+
+#: src/ludamus/templates/event/propose/parts/timeslots.html
+msgid "No time slot selection needed. Proceeding to next step."
+msgstr ""
+"Wybór przedziałów czasowych nie jest wymagany. Przechodź do następnego kroku."
 
 #: src/ludamus/templates/index.html
 #: src/ludamus/templates/multiverse/panel/_sphere_tabs_nav.html
@@ -7945,6 +7958,18 @@ msgstr ""
 
 #: src/ludamus/templates/panel/display-settings.html
 msgid ""
+"Every session field is private. Mark a field as shown on the public session "
+"card to make it available here."
+msgstr ""
+"Wszystkie pola punktu programu są prywatne. Oznacz pole jako widoczne na "
+"publicznej karcie punktu programu, aby było dostępne tutaj."
+
+#: src/ludamus/templates/panel/display-settings.html
+msgid "Go to session fields"
+msgstr "Przejdź do pól punktu programu"
+
+#: src/ludamus/templates/panel/display-settings.html
+msgid ""
 "No session fields defined. Create session fields in the CFP section first."
 msgstr ""
 "Nie zdefiniowano pól punktu programu. Najpierw utwórz pola w sekcji zgłoszeń."
@@ -8089,6 +8114,25 @@ msgstr[2] "%(counter)s zmian do ogłoszenia"
 msgstr[3] "%(counter)s zmian do ogłoszenia"
 
 #: src/ludamus/templates/panel/errata.html
+msgid "Select all changes"
+msgstr "Zaznacz wszystkie zmiany"
+
+#: src/ludamus/templates/panel/errata.html
+#: src/ludamus/templates/panel/timetable-log.html
+msgid "Change"
+msgstr "Zmiana"
+
+#: src/ludamus/templates/panel/errata.html
+msgid "Changed by"
+msgstr "Autor zmiany"
+
+#: src/ludamus/templates/panel/errata.html
+#: src/ludamus/templates/panel/proposals.html
+#, python-format
+msgid "Select %(title)s"
+msgstr "Zaznacz %(title)s"
+
+#: src/ludamus/templates/panel/errata.html
 #, python-format
 msgid "<strong>%(title)s</strong> was added to the agenda: %(space)s, %(when)s"
 msgstr "<strong>%(title)s</strong> — dodano do programu: %(space)s, %(when)s"
@@ -8111,22 +8155,50 @@ msgstr ""
 "<strong>%(title)s</strong> — usunięto z programu: było %(space)s, %(when)s"
 
 #: src/ludamus/templates/panel/errata.html
-#, python-format
-msgid "Changed by %(who)s on %(when)s"
-msgstr "Zmiana: %(who)s, %(when)s"
+msgid "Important"
+msgstr "Ważne"
+
+#: src/ludamus/templates/panel/errata.html
+msgid "Announced"
+msgstr "Ogłoszone"
 
 #: src/ludamus/templates/panel/errata.html
 #, python-format
-msgid "announced by %(who)s"
-msgstr "ogłoszone przez: %(who)s"
+msgid "by %(who)s"
+msgstr "przez: %(who)s"
+
+#: src/ludamus/templates/panel/errata.html
+msgid "To announce"
+msgstr "Do ogłoszenia"
+
+#: src/ludamus/templates/panel/errata.html
+#, python-format
+msgid "Stop showing %(title)s first"
+msgstr "Przestań pokazywać %(title)s na początku"
+
+#: src/ludamus/templates/panel/errata.html
+#, python-format
+msgid "Show %(title)s first"
+msgstr "Pokaż %(title)s na początku"
+
+#: src/ludamus/templates/panel/errata.html
+#, python-format
+msgid "Undo the announcement of %(title)s"
+msgstr "Cofnij ogłoszenie: %(title)s"
 
 #: src/ludamus/templates/panel/errata.html
 msgid "Undo"
 msgstr "Cofnij"
 
 #: src/ludamus/templates/panel/errata.html
-msgid "Announced"
-msgstr "Ogłoszone"
+#, python-format
+msgid "Mark %(title)s as announced"
+msgstr "Oznacz jako ogłoszone: %(title)s"
+
+#: src/ludamus/templates/panel/errata.html
+#: src/ludamus/templates/panel/parts/_bulk_actions_errata.html
+msgid "Mark as announced"
+msgstr "Oznacz jako ogłoszone"
 
 #: src/ludamus/templates/panel/errata.html
 msgid "The agenda has not changed since it went public"
@@ -8158,18 +8230,6 @@ msgstr ""
 
 #: src/ludamus/templates/panel/facilitator-bin.html
 #: src/ludamus/templates/panel/facilitators.html
-#: src/ludamus/templates/panel/proposals.html
-msgid "Selected:"
-msgstr "Zaznaczono:"
-
-#: src/ludamus/templates/panel/facilitator-bin.html
-#: src/ludamus/templates/panel/facilitator-detail.html
-#: src/ludamus/templates/panel/proposals.html
-msgid "Restore"
-msgstr "Przywróć"
-
-#: src/ludamus/templates/panel/facilitator-bin.html
-#: src/ludamus/templates/panel/facilitators.html
 msgid "Select all facilitators"
 msgstr "Zaznacz wszystkich twórców programu"
 
@@ -8183,6 +8243,13 @@ msgstr "Zaznacz %(name)s"
 #, python-format
 msgid "Restore %(name)s"
 msgstr "Przywróć %(name)s"
+
+#: src/ludamus/templates/panel/facilitator-bin.html
+#: src/ludamus/templates/panel/facilitator-detail.html
+#: src/ludamus/templates/panel/parts/_bulk_actions_facilitator_bin.html
+#: src/ludamus/templates/panel/proposals.html
+msgid "Restore"
+msgstr "Przywróć"
 
 #: src/ludamus/templates/panel/facilitator-bin.html
 msgid "The bin is empty. Deleted facilitators land here."
@@ -8368,14 +8435,6 @@ msgid "Filtering"
 msgstr "Filtrowanie"
 
 #: src/ludamus/templates/panel/facilitators.html
-msgid "Mark as guest"
-msgstr "Oznacz jako gościa"
-
-#: src/ludamus/templates/panel/facilitators.html
-msgid "Merge selected"
-msgstr "Scal zaznaczonych"
-
-#: src/ludamus/templates/panel/facilitators.html
 #, python-format
 msgid "Take %(name)s on? You handle them until you step down."
 msgstr ""
@@ -8406,6 +8465,11 @@ msgstr "Usuń przypisanie"
 #, python-format
 msgid "Step down from %(name)s"
 msgstr "Usuń przypisanie twórcy %(name)s"
+
+#: src/ludamus/templates/panel/facilitators.html
+#: src/ludamus/templates/panel/parts/_bulk_actions_facilitators.html
+msgid "Mark as guest"
+msgstr "Oznacz jako gościa"
 
 #: src/ludamus/templates/panel/facilitators.html
 #, python-format
@@ -8820,6 +8884,42 @@ msgstr ""
 "osobisty token, aby połączyć klienta MCP (np. Claude Code lub Executor) z "
 "tym wydarzeniem. Token może odczytywać całą sferę i zapisywać tylko to "
 "wydarzenie. Jest ważny przez %(token_max_age_days)s dni."
+
+#: src/ludamus/templates/panel/parts/_bulk_actions_errata.html
+msgid "Mark as not announced"
+msgstr "Oznacz jako nieogłoszone"
+
+#: src/ludamus/templates/panel/parts/_bulk_actions_facilitators.html
+msgid "Merge selected"
+msgstr "Scal zaznaczonych"
+
+#: src/ludamus/templates/panel/parts/_bulk_actions_proposals.html
+msgid "Set status:"
+msgstr "Ustaw status:"
+
+#: src/ludamus/templates/panel/parts/_bulk_actions_proposals.html
+#: src/ludamus/templates/panel/proposal-detail.html
+msgid "Accept"
+msgstr "Zaakceptuj"
+
+#: src/ludamus/templates/panel/parts/_bulk_actions_proposals.html
+#: src/ludamus/templates/panel/proposal-detail.html
+msgid "Hold"
+msgstr "Do rezerwy"
+
+#: src/ludamus/templates/panel/parts/_bulk_actions_proposals.html
+#: src/ludamus/templates/panel/proposal-detail.html
+msgid "Move to pending"
+msgstr "Przywróć do oczekujących"
+
+#: src/ludamus/templates/panel/parts/_bulk_actions_proposals.html
+#: src/ludamus/templates/panel/proposal-detail.html
+msgid "Reject"
+msgstr "Odrzuć"
+
+#: src/ludamus/templates/panel/parts/_bulk_toolbar.html
+msgid "Selected:"
+msgstr "Zaznaczono:"
 
 #: src/ludamus/templates/panel/parts/_change-log-table.html
 msgid "Changes"
@@ -9540,26 +9640,6 @@ msgid "This is the current status."
 msgstr "To jest obecny status."
 
 #: src/ludamus/templates/panel/proposal-detail.html
-#: src/ludamus/templates/panel/proposals.html
-msgid "Move to pending"
-msgstr "Przywróć do oczekujących"
-
-#: src/ludamus/templates/panel/proposal-detail.html
-#: src/ludamus/templates/panel/proposals.html
-msgid "Accept"
-msgstr "Zaakceptuj"
-
-#: src/ludamus/templates/panel/proposal-detail.html
-#: src/ludamus/templates/panel/proposals.html
-msgid "Hold"
-msgstr "Do rezerwy"
-
-#: src/ludamus/templates/panel/proposal-detail.html
-#: src/ludamus/templates/panel/proposals.html
-msgid "Reject"
-msgstr "Odrzuć"
-
-#: src/ludamus/templates/panel/proposal-detail.html
 msgid "Are you sure you want to reject this proposal?"
 msgstr "Czy na pewno chcesz odrzucić to zgłoszenie?"
 
@@ -9727,17 +9807,8 @@ msgid "On the timetable"
 msgstr "W harmonogramie"
 
 #: src/ludamus/templates/panel/proposals.html
-msgid "Set status:"
-msgstr "Ustaw status:"
-
-#: src/ludamus/templates/panel/proposals.html
 msgid "Select all proposals"
 msgstr "Zaznacz wszystkie zgłoszenia"
-
-#: src/ludamus/templates/panel/proposals.html
-#, python-format
-msgid "Select %(title)s"
-msgstr "Zaznacz %(title)s"
 
 #: src/ludamus/templates/panel/proposals.html
 msgid "No proposals match the current filters."
@@ -10066,10 +10137,6 @@ msgstr "Dziennik zmian harmonogramu"
 msgid "Action"
 msgstr "Akcja"
 
-#: src/ludamus/templates/panel/timetable-log.html
-msgid "Change"
-msgstr "Zmiana"
-
 #: src/ludamus/templates/panel/timetable-overview.html
 msgid "Hours to fill"
 msgstr "Godziny do zapełnienia"
@@ -10296,6 +10363,28 @@ msgstr "Temat"
 #: src/ludamus/templates/staging_email_inbox.html
 msgid "No emails captured yet."
 msgstr "Brak przechwyconych e-maili."
+
+#~ msgid "Venue"
+#~ msgstr "Lokalizacja"
+
+#~ msgid "All venues"
+#~ msgstr "Wszystkie lokalizacje"
+
+#, python-format
+#~ msgid ""
+#~ "Cookies help us see what to fix. More in the <a "
+#~ "href=\"%(privacy_url)s\">Privacy Policy</a>."
+#~ msgstr ""
+#~ "Ciasteczka pomagają nam zobaczyć, co poprawić. Więcej w <a "
+#~ "href=\"%(privacy_url)s\">Polityce prywatności</a>."
+
+#, python-format
+#~ msgid "Changed by %(who)s on %(when)s"
+#~ msgstr "Zmiana: %(who)s, %(when)s"
+
+#, python-format
+#~ msgid "announced by %(who)s"
+#~ msgstr "ogłoszone przez: %(who)s"
 
 #~ msgid "Analytics settings"
 #~ msgstr "Ustawienia analityki"

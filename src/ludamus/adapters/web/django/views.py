@@ -66,7 +66,10 @@ from ludamus.links.db.django.models import (
     SessionParticipation,
     SessionParticipationStatus,
 )
-from ludamus.links.db.django.repositories.chronology import public_scheduled_sessions
+from ludamus.links.db.django.repositories.chronology import (
+    location_data,
+    public_scheduled_sessions,
+)
 from ludamus.links.db.django.repositories.sessions import (
     annotate_session_participation_counts,
     field_value_dto,
@@ -80,11 +83,11 @@ from ludamus.mills.enrollment import (
     restricts_everyone,
 )
 from ludamus.pacts import (
+    NO_LOCATION,
     OCCUPYING_PARTICIPATION_STATUSES,
     AgendaItemDTO,
     EventDTO,
     EventListItemDTO,
-    LocationData,
     NotFoundError,
     RedirectError,
     SessionDTO,
@@ -225,14 +228,6 @@ def _get_displayed_field_ids(event: Event) -> set[int]:
     with suppress(EventSettings.DoesNotExist):
         return set(event.settings.displayed_session_fields.values_list("id", flat=True))
     return set()
-
-
-def _get_public_select_fields(event: Event) -> list[Any]:
-    return list(
-        event.session_fields.filter(field_type="select", is_public=True).order_by(
-            "order", "name"
-        )
-    )
 
 
 def _field_value_dtos_from_models(
@@ -391,8 +386,17 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
         context["enrollment_requires_slots"] = requires_slots
         context.update(self._get_anonymous_context())
 
+        # The repository hands back DTOs with their options prefetched, so the
+        # filter panel reads its choices without the template walking the ORM.
+        public_select_fields = [
+            field
+            for field in self.request.di.uow.session_fields.list_by_event(
+                self.object.pk
+            )
+            if field.field_type == "select" and field.is_public
+        ]
         context["filterable_tag_categories"] = filterable_tag_fields(
-            _get_public_select_fields(self.object), sessions_data.values()
+            public_select_fields, sessions_data.values()
         )
         context.update(filter_availability(sessions_data.values()))
         context.update(self._get_pending_sessions_context(shadowbanned_ids))
@@ -634,18 +638,11 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
             except AgendaItem.DoesNotExist:
                 # Pending proposal: not scheduled yet, so no time or space.
                 agenda_item = None
-            if agenda_item is not None:
-                space = agenda_item.space
-                loc = LocationData(
-                    space_name=space.name,
-                    parent_slug=space.parent.slug if space.parent else "",
-                    parent_name=space.parent.name if space.parent else "",
-                    path=str(space),
-                )
-            else:
-                loc = LocationData(
-                    space_name="", parent_slug="", parent_name="", path=""
-                )
+            loc = (
+                location_data(agenda_item.space)
+                if agenda_item is not None
+                else NO_LOCATION
+            )
             if session.presenter_id:
                 presenter_dto = UserDTO.model_validate(session.presenter)
                 presenter = UserInfo.from_user_dto(
@@ -678,7 +675,10 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
                 presenter=presenter,
                 presenter_is_shadowbanned=presenter.pk in shadowbanned_ids,
                 field_values=_field_value_dtos_from_models(session.field_values.all()),
-                track_names=[t.name for t in session.tracks.all() if t.is_public],
+                # Unfiltered: the schedule queryset drops a session with any
+                # private track outright, so the only cards left carrying one
+                # are proposals, whose readers are organizers and the author.
+                track_names=[t.name for t in session.tracks.all()],
                 category_name=session.category.name if session.category else "",
                 # is_session_eligible dereferences agenda_item, and an
                 # unscheduled proposal can't be enrolled in anyway.

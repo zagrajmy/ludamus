@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from collections import Counter, defaultdict
-from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 from ludamus.pacts.event import (
@@ -66,17 +65,6 @@ def require_track_in_event(
 ) -> None:
     if tracks.read(track_pk).event_id != event_pk:
         raise NotFoundError
-
-
-def is_proposal_active(event: EventDTO) -> bool:
-    current_time = datetime.now(tz=UTC)
-    return bool(
-        event.publication_time is not None
-        and event.publication_time <= current_time
-        and event.proposal_start_time is not None
-        and event.proposal_end_time is not None
-        and event.proposal_start_time <= current_time <= event.proposal_end_time
-    )
 
 
 def build_panel_stats(stats_data: EventStatsData) -> PanelStatsDTO:
@@ -427,7 +415,7 @@ class EventPanelService(EventPanelServiceProtocol):
         return EventPanelContextDTO(
             events=self._events.list_by_sphere(sphere_id),
             current_event=current_event,
-            is_proposal_active=is_proposal_active(current_event),
+            is_proposal_active=current_event.is_proposal_active,
             stats=build_panel_stats(stats_data),
         )
 

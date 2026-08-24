@@ -2,7 +2,7 @@
 
 Use `scripts/polcon26/` to normalize the programme workbook and
 seed an existing event through the organizer MCP endpoint. It reads the XLSX
-zip with `defusedxml` and talks to the endpoint with `httpx`.
+zip with `lxml` and talks to the endpoint with `requests`.
 
 ## Spreadsheet contract
 
