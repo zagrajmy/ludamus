@@ -1,6 +1,16 @@
+import { type Page } from "@playwright/test";
+
 import { expect, test } from "./helpers/fixtures";
 
 test.describe("Design system page", () => {
+  /** The upgraded combobox input — waits out the enhancement, which a native
+   * <select> would otherwise satisfy, since it carries the combobox role too. */
+  const upgradedCombobox = async (page: Page, name: string) => {
+    const combobox = page.getByRole("combobox", { name });
+    await expect(combobox).toHaveAttribute("aria-autocomplete", "list");
+    return combobox;
+  };
+
   test("renders design showcase with component sections", async ({ page }) => {
     await page.goto("/design/");
 
@@ -42,9 +52,8 @@ test.describe("Design system page", () => {
   test("upgrades the combobox and filters its options", async ({ page }) => {
     await page.goto("/design/");
 
-    const combobox = page.getByRole("combobox", { name: "Fruit" });
+    const combobox = await upgradedCombobox(page, "Fruit");
     // The upgrade swaps the control: the select steps aside for the input.
-    await expect(combobox).toHaveAttribute("role", "combobox");
     await expect(page.locator("#t-combobox")).toBeHidden();
 
     await combobox.fill("ap");
@@ -72,5 +81,48 @@ test.describe("Design system page", () => {
     await expect(page.locator("#t-combobox-input")).toBeHidden();
 
     await context.close();
+  });
+
+  test("follows the combobox keyboard contract", async ({ page }) => {
+    await page.goto("/design/");
+    const combobox = await upgradedCombobox(page, "Fruit");
+    const value = page.locator("#t-combobox");
+
+    // Alt+Down opens without moving the active option, per the pattern.
+    await combobox.focus();
+    await combobox.press("Alt+ArrowDown");
+    await expect(combobox).toHaveAttribute("aria-expanded", "true");
+    await expect(combobox).not.toHaveAttribute("aria-activedescendant", /./);
+
+    // Up from there wraps to the last option rather than clamping.
+    await combobox.press("ArrowUp");
+    await expect(page.getByRole("option", { name: "Cherry" })).toHaveAttribute("data-active", "");
+
+    // Alt+Up commits the active option and closes.
+    await combobox.press("Alt+ArrowUp");
+    await expect(value).toHaveValue("cherry");
+    await expect(combobox).toHaveAttribute("aria-expanded", "false");
+
+    // Tab commits the active option on the way out.
+    await combobox.press("ArrowDown");
+    await combobox.press("ArrowDown");
+    await combobox.press("Tab");
+    await expect(value).toHaveValue("apple");
+    await expect(combobox).toHaveAttribute("aria-expanded", "false");
+  });
+
+  test("navigating the list does not change the value until it is committed", async ({ page }) => {
+    await page.goto("/design/");
+    const combobox = await upgradedCombobox(page, "Fruit");
+    const value = page.locator("#t-combobox");
+
+    await combobox.click();
+    await combobox.press("ArrowDown");
+    await combobox.press("ArrowDown");
+    // Moving the active option is not a pick — the select still holds nothing.
+    await expect(value).toHaveValue("");
+
+    await combobox.press("Escape");
+    await expect(value).toHaveValue("");
   });
 });

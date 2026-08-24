@@ -169,6 +169,13 @@ const upgrade = (root: HTMLElement): void => {
       return;
     }
     if (shown.length === 0) return;
+    // With nothing active yet, the ends are where the two keys point — the
+    // modulo below would read the missing option as index -1 and land one
+    // short of the last.
+    if (activeIndex === -1) {
+      setActive(delta > 0 ? 0 : shown.length - 1);
+      return;
+    }
     // Wraps, as the list-autocomplete pattern specifies (the select-only one
     // clamps instead; this input has Home/End bound to the text cursor).
     setActive((activeIndex + delta + shown.length) % shown.length);
