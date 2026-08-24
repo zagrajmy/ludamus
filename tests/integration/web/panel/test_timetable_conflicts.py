@@ -6,7 +6,7 @@ from http import HTTPStatus
 
 from django.urls import reverse
 
-from tests.integration.conftest import AgendaItemFactory, SpaceFactory
+from tests.integration.conftest import AgendaItemFactory, SpaceFactory, TimeSlotFactory
 from tests.integration.web.panel.helpers import assign_payload, make_timetable_session
 
 
@@ -20,6 +20,9 @@ class TestConflictDetectionOnAssign:
     def test_assigns_without_conflicts_returns_no_conflict_trigger(
         self, panel_client, event, proposal_category
     ):
+        TimeSlotFactory(
+            event=event, start_time=event.start_time, end_time=event.end_time
+        )
         space = SpaceFactory(event=event)
         session = make_timetable_session(
             proposal_category, status="accepted", participants_limit=10
@@ -41,6 +44,9 @@ class TestConflictDetectionOnAssign:
     def test_space_overlap_conflict_included_in_trigger(
         self, panel_client, event, proposal_category
     ):
+        TimeSlotFactory(
+            event=event, start_time=event.start_time, end_time=event.end_time
+        )
         space = SpaceFactory(event=event)
         existing_session = make_timetable_session(
             proposal_category, status="accepted", participants_limit=10

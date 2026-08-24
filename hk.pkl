@@ -37,6 +37,8 @@ local linters = new Mapping<String, Step> {
       ".agents/**",
       "aube-lock.yaml",
       "src/ludamus/static/vite/**",
+      "src/ludamus/content/privacy-policy.md",
+      "src/ludamus/content/terms-of-service.md",
     )
     check = "codespell --toml=pyproject.toml {{files}}"
   }
@@ -50,7 +52,7 @@ local linters = new Mapping<String, Step> {
 
   // Frontend — oxfmt (Tailwind sorting via .oxfmtrc.json), run as an aube devDep
   ["oxfmt"] = (Builtins.oxfmt) {
-    prefix = "aube exec"
+    prefix = "aube exec --no-install"
     glob = List(
       "**/*.ts",
       "**/*.tsx",
@@ -66,7 +68,7 @@ local linters = new Mapping<String, Step> {
 
   // Frontend — oxlint, run as an aube devDep like oxfmt
   ["oxlint"] = (Builtins.ox_lint) {
-    prefix = "aube exec"
+    prefix = "aube exec --no-install"
   }
 
   // Config / infra
@@ -80,12 +82,22 @@ local linters = new Mapping<String, Step> {
     fix = "dockerfmt -w -n {{files}}"
   }
   ["dclint"] = (Builtins.dclint) {
-    prefix = "aube exec"
+    prefix = "aube exec --no-install"
     glob = List("docker/compose/*.yml", "docker/compose/*.yaml")
   }
   ["markdownlint"] {
     glob = List("**/*.md")
-    exclude = List(".agents/**", ".claude/**", "**/node_modules/**")
+    // The two legal documents are published text converted verbatim, not repo
+    // documentation. Satisfying MD013/MD026/MD036 would mean rewrapping and
+    // rewording headings in a policy that's already in force. Named individually
+    // rather than by directory, so anything else under content/ stays linted.
+    exclude = List(
+      ".agents/**",
+      ".claude/**",
+      "**/node_modules/**",
+      "src/ludamus/content/privacy-policy.md",
+      "src/ludamus/content/terms-of-service.md",
+    )
     check = "markdownlint-cli2 {{files}}"
     fix = "markdownlint-cli2 --fix {{files}}"
   }

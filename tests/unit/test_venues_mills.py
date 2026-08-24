@@ -1,11 +1,13 @@
+from unittest.mock import MagicMock
+
 import pytest
 
 from ludamus.mills.venues import SpaceTreeService, VenuesService
 from ludamus.pacts import NotFoundError
-from ludamus.pacts.venues import SpaceRecordDTO, SpaceTreeNodeDTO
+from ludamus.pacts.venues import SpaceInputDTO, SpaceRecordDTO, SpaceTreeNodeDTO
 
 
-def _node(*, pk, name, children=()):
+def _node(*, pk, name, children=(), no_children_reason=None):
     kids = list(children)
     return SpaceTreeNodeDTO(
         space=SpaceRecordDTO(
@@ -19,6 +21,7 @@ def _node(*, pk, name, children=()):
             order=0,
         ),
         is_leaf=not kids,
+        no_children_reason=no_children_reason,
         track_names=[],
         children=kids,
     )
@@ -63,32 +66,24 @@ class TestListPrintScopes:
         ]
 
 
-class _ReparentRepo:
-    def __init__(self, roots, with_sessions=()):
-        self._roots = list(roots)
-        self._with_sessions = frozenset(with_sessions)
-
-    def list_tree(self, _event_pk):
-        return list(self._roots)
-
-    def space_pks_with_sessions(self, _event_pk):
-        return self._with_sessions
-
-
 def _space_tree_service(with_sessions=()):
+    def node(*, pk, name, children=()):
+        reason = "Holds a session." if pk in with_sessions else None
+        return _node(pk=pk, name=name, children=children, no_children_reason=reason)
+
     # Budynek A > {Parter > Sala 1, Piętro > Sala 2}; Budynek B > Hala
     tree = [
-        _node(
+        node(
             pk=1,
             name="Budynek A",
             children=[
-                _node(pk=10, name="Parter", children=[_node(pk=100, name="Sala 1")]),
-                _node(pk=20, name="Piętro", children=[_node(pk=200, name="Sala 2")]),
+                node(pk=10, name="Parter", children=[node(pk=100, name="Sala 1")]),
+                node(pk=20, name="Piętro", children=[node(pk=200, name="Sala 2")]),
             ],
         ),
-        _node(pk=2, name="Budynek B", children=[_node(pk=30, name="Hala")]),
+        node(pk=2, name="Budynek B", children=[node(pk=30, name="Hala")]),
     ]
-    return SpaceTreeService(None, _ReparentRepo(tree, with_sessions))
+    return SpaceTreeService(None, _Tree(tree))
 
 
 class TestListReparentTargets:
@@ -137,3 +132,30 @@ class TestResolveScope:
     def test_unknown_scope_raises(self):
         with pytest.raises(NotFoundError):
             _service().resolve_scope(1, 999)
+
+
+class TestCreateSpace:
+    def test_rejects_parent_from_another_event_inside_transaction(self):
+        transaction = MagicMock()
+        spaces = MagicMock()
+        spaces.read.return_value = SpaceRecordDTO(
+            pk=7,
+            event_id=2,
+            parent_id=None,
+            name="Foreign",
+            slug="foreign",
+            capacity=None,
+            description="",
+            order=0,
+        )
+        service = SpaceTreeService(transaction, spaces)
+
+        with pytest.raises(NotFoundError):
+            service.create(
+                event_id=1,
+                parent_id=7,
+                data=SpaceInputDTO(name="Nested", capacity=None),
+            )
+
+        transaction.atomic.assert_called_once()
+        spaces.create.assert_not_called()

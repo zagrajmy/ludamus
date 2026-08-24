@@ -11,7 +11,10 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
-from ludamus.links.db.django.models import Event
+from django.db.models import Prefetch
+
+from ludamus.links.db.django.models import Event, SphereMembership
+from ludamus.pacts.multiverse import SphereRole
 from ludamus.pacts.printing import (
     PrintablesReminderDTO,
     PrintablesReminderRecipientDTO,
@@ -33,16 +36,26 @@ class PrintablesReminderRepository(PrintablesReminderRepositoryProtocol):
                 start_time__lte=now + lead_time,
                 printables_last_printed_at__isnull=True,
                 printables_reminder_sent_at__isnull=True,
+            ).select_related("sphere__site")
+            # Printing is a manager's chore; comms members don't get nagged
+            # about it.
+            .prefetch_related(
+                Prefetch(
+                    "sphere__spheremembership_set",
+                    queryset=SphereMembership.objects.filter(
+                        role=SphereRole.MANAGER
+                    ).select_related("user"),
+                )
             )
-            .select_related("sphere__site")
-            .prefetch_related("sphere__managers")
         )
         reminders: list[PrintablesReminderDTO] = []
         for event in events:
             recipients = [
-                PrintablesReminderRecipientDTO(user_id=manager.pk, email=manager.email)
-                for manager in event.sphere.managers.all()
-                if manager.email
+                PrintablesReminderRecipientDTO(
+                    user_id=membership.user.pk, email=membership.user.email
+                )
+                for membership in event.sphere.spheremembership_set.all()
+                if membership.user.email
             ]
             if not recipients:
                 continue

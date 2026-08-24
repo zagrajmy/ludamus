@@ -1,5 +1,6 @@
 from datetime import UTC, datetime, timedelta
 from secrets import token_urlsafe
+from unittest.mock import MagicMock
 
 import pytest
 from django.contrib.auth import get_user_model
@@ -10,6 +11,7 @@ from factory import Faker, LazyAttribute, Sequence, SubFactory
 from factory.django import DjangoModelFactory
 from pytest_factoryboy import register
 
+from ludamus.links.analytics import reporting
 from ludamus.links.db.django.models import (
     AgendaItem,
     Encounter,
@@ -118,7 +120,15 @@ class EventFactory(DjangoModelFactory):
     sphere = SubFactory(SphereFactory)
     start_time = LazyAttribute(lambda __: datetime.now(UTC) + timedelta(days=7))
     end_time = LazyAttribute(lambda o: o.start_time + timedelta(hours=8))
-    publication_time = LazyAttribute(lambda __: datetime.now(UTC) - timedelta(days=14))
+    # Two invariants at once: never after start_time (the event_date_times
+    # constraint rejects that, which fixed past start_times used to trip) and
+    # always in the past, so an event with a far-future start_time still counts
+    # as published.
+    publication_time = LazyAttribute(
+        lambda o: min(
+            o.start_time - timedelta(days=14), datetime.now(UTC) - timedelta(days=1)
+        )
+    )
     proposal_start_time = LazyAttribute(lambda o: o.start_time - timedelta(days=10))
     proposal_end_time = LazyAttribute(lambda o: o.start_time - timedelta(days=6))
 
@@ -296,6 +306,13 @@ def party_companion(active_user, companion):
     return companion
 
 
+@pytest.fixture
+def own_party(active_user, companion):
+    # The same sponsorship `party_companion` sets up, handed back as the party
+    # itself: what a test needs to name the pills the enroll page shows.
+    return sponsor_user(leader=active_user, member=companion)
+
+
 @pytest.fixture(name="staff_user")
 def staff_user_fixture():
     return UserFactory(username="staffuser", is_staff=True)
@@ -441,3 +458,15 @@ def encounter_with_rsvps(sphere):
     EncounterRSVPFactory(encounter=encounter)
     EncounterRSVPFactory(encounter=encounter)
     return encounter
+
+
+@pytest.fixture(autouse=True)
+def _no_posthog_client(monkeypatch):
+    # client() memoizes on first call and reads the key from settings, so one
+    # test setting POSTHOG_API_KEY and provoking a 500 would build a real
+    # client pointed at eu.i.posthog.com, start its consumer threads, and keep
+    # it for the whole session.
+    monkeypatch.setattr("ludamus.links.analytics.reporting.Posthog", MagicMock())
+    # Setup only: a test that monkeypatches client() has not had that patch
+    # undone yet at teardown, and cache_clear does not exist on the stand-in.
+    reporting.client.cache_clear()

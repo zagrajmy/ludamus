@@ -1,11 +1,12 @@
 from datetime import timedelta
 from http import HTTPStatus
-from unittest.mock import ANY
 
 import pytest
 from django.urls import reverse
 
+from ludamus.links.db.django.models import Facilitator
 from ludamus.pacts import UNSCHEDULED_LIST_LIMIT
+from ludamus.pacts.legacy import ProposalCategoryDTO, UnscheduledSessionDTO
 from tests.integration.conftest import (
     AgendaItemFactory,
     ProposalCategoryFactory,
@@ -142,6 +143,51 @@ class TestTimetableSessionListPartView:
         assert matching.pk in session_pks
         assert other.pk not in session_pks
 
+    def test_facilitator_filter_narrows_the_unassigned_list(
+        self, panel_client, event, proposal_category
+    ):
+        hers = make_timetable_session(
+            proposal_category, status="accepted", participants_limit=10
+        )
+        make_timetable_session(
+            proposal_category, status="accepted", participants_limit=10
+        )
+        alice = Facilitator.objects.create(
+            event=event, display_name="Alice", slug="alice", user=None
+        )
+        hers.facilitators.add(alice)
+
+        response = panel_client.get(self.get_url(event), {"facilitator": str(alice.pk)})
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/parts/timetable-session-list.html",
+            context_data={
+                "sessions": [
+                    UnscheduledSessionDTO(
+                        pk=hers.pk,
+                        title=hers.title,
+                        display_name=hers.display_name,
+                        category_name=proposal_category.name,
+                        category_pk=proposal_category.pk,
+                        duration_minutes=0,
+                        participants_limit=10,
+                    )
+                ],
+                "has_more": False,
+                "limit": UNSCHEDULED_LIST_LIMIT,
+                "categories": [ProposalCategoryDTO.model_validate(proposal_category)],
+                "search": "",
+                "category_pk": None,
+                "max_duration_minutes": None,
+                "duration_chips": [("≤30 min", 30), ("≤60 min", 60), ("≤90 min", 90)],
+                "filter_track_pk": None,
+                "date_selection": "all",
+                "slug": event.slug,
+            },
+        )
+
     def test_category_filter(self, panel_client, event, proposal_category):
         other_category = ProposalCategoryFactory(event=event)
         matching = make_timetable_session(
@@ -233,12 +279,31 @@ class TestTimetableSessionListPartView:
             response,
             HTTPStatus.OK,
             template_name="panel/parts/timetable-session-list.html",
-            context_data=ANY,
+            context_data={
+                "sessions": [
+                    UnscheduledSessionDTO(
+                        pk=session.pk,
+                        title=session.title,
+                        display_name=session.display_name,
+                        category_name=proposal_category.name,
+                        category_pk=proposal_category.pk,
+                        duration_minutes=0,
+                        participants_limit=10,
+                    )
+                ],
+                "has_more": False,
+                "limit": UNSCHEDULED_LIST_LIMIT,
+                "categories": [ProposalCategoryDTO.model_validate(proposal_category)],
+                "search": "",
+                "category_pk": None,
+                "max_duration_minutes": None,
+                "duration_chips": [("≤30 min", 30), ("≤60 min", 60), ("≤90 min", 90)],
+                "filter_track_pk": None,
+                "date_selection": "all",
+                "slug": event.slug,
+            },
             contains="date=all",
         )
-        context = response.context
-        assert session.pk in [item.pk for item in context["sessions"]]
-        assert context["date_selection"] == "all"
 
     def test_caps_results_at_limit_and_flags_has_more(
         self, panel_client, event, proposal_category

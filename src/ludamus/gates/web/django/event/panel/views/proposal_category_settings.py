@@ -17,6 +17,7 @@ from ludamus.gates.web.django.event.panel.views.base import (
 )
 from ludamus.gates.web.django.forms import ProposalCategoryForm
 from ludamus.gates.web.django.panel import parse_requirement_selection
+from ludamus.pacts.durations import normalize_duration
 from ludamus.pacts.legacy import NotFoundError, PromotionMode, RedirectError
 from ludamus.pacts.submissions import (
     ProposalCategoryEditContextDTO,
@@ -61,8 +62,13 @@ def _settings_data(
         description=cleaned["description"],
         start_time=cleaned["start_time"],
         end_time=cleaned["end_time"],
+        # The steppers compose ISO already, but a duration saved before they
+        # existed can still be posted back — normalize so only readable lengths
+        # are stored.
         durations=[
-            duration for duration in request.POST.getlist("durations") if duration
+            normalized
+            for duration in request.POST.getlist("durations")
+            if (normalized := normalize_duration(duration))
         ],
         min_participants_limit=cleaned["min_participants_limit"] or 0,
         max_participants_limit=cleaned["max_participants_limit"] or 0,

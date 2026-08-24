@@ -1,17 +1,17 @@
 import re
+from dataclasses import replace
 from datetime import UTC, timedelta
 from http import HTTPStatus
-from unittest.mock import ANY
 
 import pytest
 import responses
 from django.contrib import messages
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import connection
-from django.test import override_settings
 from django.test.utils import CaptureQueriesContext
 from django.urls import resolve, reverse
 from django.utils import timezone
+from freezegun import freeze_time
 
 from ludamus.adapters.web.django.views import EventPageView
 from ludamus.gates.web.django.chronology.event_presentation import (
@@ -20,6 +20,10 @@ from ludamus.gates.web.django.chronology.event_presentation import (
     build_display_field_row,
 )
 from ludamus.gates.web.django.chronology.schedule import (
+    RoomLane,
+    RoomLaneDay,
+    RoomLaneHourMark,
+    RoomLaneTile,
     ScheduleDay,
     ScheduleHour,
     ScheduleTile,
@@ -32,19 +36,19 @@ from ludamus.links.db.django.models import (
     EventSettings,
     SessionBookmark,
     SessionField,
+    SessionFieldOption,
     SessionFieldValue,
     SessionParticipation,
     SessionParticipationStatus,
     Track,
     UserEnrollmentConfig,
 )
+from ludamus.links.db.django.repositories.chronology import location_data
 from ludamus.links.gravatar import gravatar_url
-from ludamus.mills.timeslots import local_day_windows
 from ludamus.pacts import (
     AgendaItemDTO,
-    LocationData,
-    PendingSessionDTO,
-    PendingSessionTimeSlotDTO,
+    OrganizerFieldDTO,
+    OrganizerFieldOptionDTO,
     SessionDTO,
     SessionFieldValueDTO,
     VirtualEnrollmentConfig,
@@ -60,23 +64,60 @@ from tests.integration.conftest import (
     TimeSlotFactory,
     UserFactory,
 )
-from tests.integration.utils import assert_response
-from tests.integration.web.chronology.helpers import make_half_full_session
+from tests.integration.utils import assert_rendered, assert_response
+from tests.integration.web.chronology.helpers import (
+    compact_day,
+    event_page_context,
+    make_half_full_session,
+    proposal_card,
+    session_card,
+)
 
 
-def _schedule_context(url: str) -> dict[str, object]:
-    # The compact-schedule context keys shared by every card-layout response;
-    # splatted into the exact-equality context assertions so adding a key is a
-    # one-line change instead of a 36-site sweep.
-    return {
-        "compact_schedule": False,
-        "schedule_days": [],
-        "schedule_view_is_list": True,
-        "schedule_view_is_rooms": False,
-        "room_lane_days": [],
-        "schedule_list_url": url,
-        "schedule_rooms_url": f"{url}?view=rooms",
-    }
+def _field_dto(field):
+    # What SessionFieldRepository.list_by_event hands the filter panel.
+    return OrganizerFieldDTO(
+        allow_custom=field.allow_custom,
+        field_type=field.field_type,
+        help_text=field.help_text,
+        icon=field.icon,
+        is_multiple=field.is_multiple,
+        is_public=field.is_public,
+        max_length=field.max_length,
+        name=field.name,
+        options=[
+            OrganizerFieldOptionDTO.model_validate(option)
+            # Queried, not walked off `field`: the helper runs once per
+            # expected context, and the relation is unprefetched here.
+            for option in SessionFieldOption.objects.filter(field=field)
+        ],
+        order=field.order,
+        pk=field.pk,
+        question=field.question,
+        slug=field.slug,
+    )
+
+
+# Hour offsets from the event start for the proposal that names preferred
+# slots: three of them, so the card shows the earliest and counts the rest.
+_PREFERRED_SLOT_OFFSETS = (0, 2, 4)
+
+# The review queue the query-count guard grows to, from one proposal.
+_PROPOSALS_IN_QUEUE = 5
+
+
+@pytest.fixture(name="local_midday")
+def local_midday_fixture():
+    # The schedule groups by local date, so a session placed around `now()`
+    # straddles two days when the suite happens to run near midnight. Pin the
+    # clock to half past noon; the date stays today's, which the fixtures build
+    # against. Half past, not on the hour, so a window can end at `now()` and a
+    # session can both end before `now()` and start inside the current hour
+    # bucket.
+    with freeze_time(
+        timezone.localtime().replace(hour=12, minute=30, second=0, microsecond=0)
+    ):
+        yield
 
 
 class TestEventPageView:
@@ -91,30 +132,7 @@ class TestEventPageView:
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data={
-                "current_hour_data": {},
-                "ended_hour_data": {},
-                "enrollment_requires_slots": False,
-                "event": event,
-                "filterable_tag_categories": [],
-                "has_track_filter": False,
-                "has_category_filter": False,
-                "future_unavailable_hour_data": {},
-                "hour_data": {},
-                "object": event,
-                "pending_review_visible": False,
-                "pending_sessions": [],
-                "pending_wizard_view": False,
-                "own_pending_proposals": [],
-                "sessions": [],
-                "user_enrollment_config": None,
-                "total_enrolled": 0,
-                "user_enrolled_sessions": [],
-                "event_banned": False,
-                **_schedule_context(self._get_url(event.slug)),
-                "user_enrolled_session_titles": [],
-                "view": ANY,
-            },
+            context_data=event_page_context(event, url=self._get_url(event.slug)),
             template_name=["chronology/event.html"],
             contains="Upcoming",
             not_contains="Enrollment Open",
@@ -136,10 +154,19 @@ class TestEventPageView:
     def test_session_card_link_opens_on_current_event(self, agenda_item, client, event):
         response = client.get(self._get_url(event.slug))
 
+        card = session_card(agenda_item, presenter=agenda_item.session.presenter)
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data=ANY,
+            context_data=event_page_context(
+                event,
+                url=self._get_url(event.slug),
+                hour_data={agenda_item.start_time: [card]},
+                future_unavailable_hour_data={agenda_item.start_time: [card]},
+                sessions=[card],
+                has_enrollable_sessions=True,
+                scheduled_count=1,
+            ),
             template_name=["chronology/event.html"],
             contains=f'href="?session={agenda_item.session.pk}"',
             not_contains="Missing variable session_link_base",
@@ -181,7 +208,6 @@ class TestEventPageView:
             agenda_item=AgendaItemDTO.model_validate(agenda_item),
             effective_participants_limit=10,
             enrolled_count=0,
-            full_participant_info="0/10",
             is_enrollment_available=False,
             is_full=False,
             is_ongoing=False,
@@ -191,16 +217,7 @@ class TestEventPageView:
             session_participations=[],
             session=SessionDTO.model_validate(agenda_item.session),
             should_show_as_inactive=False,
-            loc=LocationData(
-                space_name=agenda_item.space.name,
-                parent_slug=(
-                    agenda_item.space.parent.slug if agenda_item.space.parent else ""
-                ),
-                parent_name=(
-                    agenda_item.space.parent.name if agenda_item.space.parent else ""
-                ),
-                path=str(agenda_item.space),
-            ),
+            loc=location_data(agenda_item.space),
             user_enrolled=False,
             user_waiting=False,
         )
@@ -223,36 +240,16 @@ class TestEventPageView:
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data={
-                "current_hour_data": {},
-                "ended_hour_data": {},
-                "enrollment_requires_slots": False,
-                "event": event,
-                "filterable_tag_categories": [],
-                "has_track_filter": False,
-                "has_category_filter": False,
-                "future_unavailable_hour_data": {},
-                "hour_data": {agenda_item.start_time: [session_data]},
-                "object": event,
-                "pending_review_visible": False,
-                "pending_sessions": [],
-                "pending_wizard_view": False,
-                "own_pending_proposals": [],
-                "sessions": [session_data],
-                "user_enrollment_config": None,
-                "total_enrolled": 0,
-                "user_enrolled_sessions": [],
-                "event_banned": False,
-                "compact_schedule": True,
-                "schedule_days": [schedule_day],
-                "schedule_view_is_list": True,
-                "schedule_view_is_rooms": False,
-                "room_lane_days": [],
-                "schedule_list_url": url,
-                "schedule_rooms_url": f"{url}?view=rooms",
-                "user_enrolled_session_titles": [],
-                "view": ANY,
-            },
+            context_data=event_page_context(
+                event,
+                url=url,
+                hour_data={agenda_item.start_time: [session_data]},
+                sessions=[session_data],
+                compact_schedule=True,
+                schedule_days=[schedule_day],
+                has_enrollable_sessions=True,
+                scheduled_count=1,
+            ),
             template_name=["chronology/event.html"],
             contains=[
                 "schedule-rail",
@@ -271,16 +268,38 @@ class TestEventPageView:
         )
         SessionBookmark.objects.create(user=active_user, session=agenda_item.session)
         # A second, un-bookmarked session renders the inactive toggle state.
-        AgendaItemFactory(
+        other = AgendaItemFactory(
             session=SessionFactory(event=event, category=None), space=space
         )
 
         response = authenticated_client.get(self._get_url(event.slug))
 
+        cards = [
+            session_card(
+                agenda_item,
+                presenter=active_user,
+                bookmark_count=1,
+                user_bookmarked=True,
+                can_edit=True,
+            ),
+            session_card(other, presenter=other.session.presenter),
+        ]
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data=ANY,
+            context_data=event_page_context(
+                event,
+                url=self._get_url(event.slug),
+                compact_schedule=True,
+                hour_data={
+                    agenda_item.start_time: [cards[0]],
+                    other.start_time: [cards[1]],
+                },
+                schedule_days=[compact_day(cards)],
+                sessions=cards,
+                has_enrollable_sessions=True,
+                scheduled_count=2,
+            ),
             template_name=["chronology/event.html"],
             contains=[
                 'data-bookmarked="true"',
@@ -305,7 +324,6 @@ class TestEventPageView:
             agenda_item=AgendaItemDTO.model_validate(agenda_item),
             effective_participants_limit=10,
             enrolled_count=0,
-            full_participant_info="0/10",
             is_enrollment_available=False,
             is_full=False,
             is_ongoing=False,
@@ -315,16 +333,7 @@ class TestEventPageView:
             session_participations=[],
             session=SessionDTO.model_validate(agenda_item.session),
             should_show_as_inactive=False,
-            loc=LocationData(
-                space_name=agenda_item.space.name,
-                parent_slug=(
-                    agenda_item.space.parent.slug if agenda_item.space.parent else ""
-                ),
-                parent_name=(
-                    agenda_item.space.parent.name if agenda_item.space.parent else ""
-                ),
-                path=str(agenda_item.space),
-            ),
+            loc=location_data(agenda_item.space),
             user_enrolled=False,
             user_waiting=False,
         )
@@ -346,42 +355,22 @@ class TestEventPageView:
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data={
-                "current_hour_data": {},
-                "ended_hour_data": {},
-                "enrollment_requires_slots": False,
-                "event": event,
-                "filterable_tag_categories": [],
-                "has_track_filter": False,
-                "has_category_filter": False,
-                "future_unavailable_hour_data": {},
-                "hour_data": {agenda_item.start_time: [session_data]},
-                "object": event,
-                "pending_review_visible": False,
-                "pending_sessions": [],
-                "pending_wizard_view": False,
-                "own_pending_proposals": [],
-                "sessions": [session_data],
-                "user_enrollment_config": None,
-                "total_enrolled": 0,
-                "user_enrolled_sessions": [],
-                "event_banned": False,
-                "compact_schedule": True,
-                "schedule_days": [schedule_day],
-                "schedule_view_is_list": True,
-                "schedule_view_is_rooms": False,
-                "room_lane_days": [],
-                "schedule_list_url": url,
-                "schedule_rooms_url": f"{url}?view=rooms",
-                "user_enrolled_session_titles": [],
-                "view": ANY,
-            },
+            context_data=event_page_context(
+                event,
+                url=url,
+                hour_data={agenda_item.start_time: [session_data]},
+                sessions=[session_data],
+                compact_schedule=True,
+                schedule_days=[schedule_day],
+                has_enrollable_sessions=True,
+                scheduled_count=1,
+            ),
             template_name=["chronology/event.html"],
             not_contains="Not Available",
         )
 
     def test_ok_compact_schedule_renders_all_row_variants(
-        self, client, event, space, monkeypatch
+        self, client, event, space, monkeypatch, local_midday
     ):
         monkeypatch.setattr(
             "ludamus.adapters.web.django.views.COMPACT_SCHEDULE_MIN_SESSIONS", 1
@@ -412,6 +401,7 @@ class TestEventPageView:
             AgendaItemFactory(
                 session=session, space=space, start_time=start, end_time=end
             )
+            session.refresh_from_db()
             return session
 
         plenty = scheduled(
@@ -435,7 +425,7 @@ class TestEventPageView:
                 status=SessionParticipationStatus.CONFIRMED,
             )
         # Second slot on the same day — covers the append-to-existing-day branch.
-        scheduled(
+        no_enrollment = scheduled(
             start=day_one + timedelta(hours=3),
             end=day_one + timedelta(hours=4),
             participants_limit=0,
@@ -455,15 +445,18 @@ class TestEventPageView:
             SessionParticipation.objects.create(
                 session=full, user=UserFactory(), status=status
             )
-        scheduled(
-            start=now - timedelta(hours=3),
-            end=now - timedelta(hours=2),
-            participants_limit=4,
-            min_age=0,
+        # Both windows stay inside the current local hour, and the ongoing one
+        # is cut at midnight: a session crossing local midnight gets a tile per
+        # local date, which would spread the two over two schedule days.
+        local_now = timezone.localtime(now)
+        hour_start = local_now.replace(minute=0, second=0, microsecond=0)
+        midnight = (hour_start + timedelta(days=1)).replace(hour=0)
+        ended = scheduled(
+            start=hour_start, end=local_now, participants_limit=4, min_age=0
         )
-        scheduled(
-            start=now - timedelta(hours=1),
-            end=now + timedelta(hours=1),
+        ongoing = scheduled(
+            start=local_now,
+            end=min(local_now + timedelta(hours=1), midnight),
             participants_limit=4,
             min_age=0,
         )
@@ -483,48 +476,159 @@ class TestEventPageView:
 
         response = client.get(self._get_url(event.slug))
 
+        field_value_dto = SessionFieldValueDTO(
+            allow_custom=False,
+            field_icon="puzzle-piece",
+            field_id=game_type.pk,
+            field_name="Game Type",
+            field_question="Game Type",
+            field_slug="game-type",
+            field_type="select",
+            is_public=True,
+            value=["RPG"],
+        )
+        base_cards = {
+            ended.pk: session_card(
+                ended.agenda_item,
+                presenter=ended.presenter,
+                is_enrollment_available=True,
+                # An ended session is also "ongoing" until its window closes;
+                # both flags feed the inactive row treatment.
+                is_ended=True,
+                is_ongoing=True,
+                should_show_as_inactive=True,
+            ),
+            ongoing.pk: session_card(
+                ongoing.agenda_item,
+                presenter=ongoing.presenter,
+                is_enrollment_available=True,
+                is_ongoing=True,
+                should_show_as_inactive=True,
+            ),
+            plenty.pk: session_card(
+                plenty.agenda_item,
+                presenter=plenty.presenter,
+                is_enrollment_available=True,
+                displayed_field_rows=[build_display_field_row(field_value_dto)],
+                field_values=[field_value_dto],
+            ),
+            scarce.pk: session_card(
+                scarce.agenda_item,
+                presenter=scarce.presenter,
+                is_enrollment_available=True,
+                enrolled_count=4,
+            ),
+            no_enrollment.pk: session_card(
+                no_enrollment.agenda_item, presenter=no_enrollment.presenter
+            ),
+            full.pk: session_card(
+                full.agenda_item,
+                presenter=full.presenter,
+                is_enrollment_available=True,
+                enrolled_count=2,
+                is_full=True,
+                waiting_count=1,
+            ),
+        }
+
+        def hour_of(session):
+            return timezone.localtime(session.agenda_item.start_time).replace(
+                minute=0, second=0, microsecond=0
+            )
+
+        def with_participants(session):
+            # Every card carries the people already seated on its session.
+            return replace(
+                base_cards[session.pk],
+                session_participations=[
+                    ParticipationInfo(
+                        user=UserInfo.from_user_dto(
+                            UserDTO.model_validate(participation.user),
+                            gravatar_url=gravatar_url,
+                        ),
+                        status=participation.status,
+                        creation_time=participation.creation_time,
+                        is_shadowbanned=False,
+                    )
+                    for participation in (
+                        SessionParticipation.objects.filter(session=session)
+                        .select_related("user")
+                        .order_by("pk")
+                    )
+                ],
+            )
+
+        cards = {
+            session.pk: with_participants(session)
+            for session in (ended, ongoing, plenty, scarce, no_enrollment, full)
+        }
+
+        def tile(session):
+            return ScheduleTile(
+                data=cards[session.pk],
+                start=timezone.localtime(session.agenda_item.start_time),
+                end=timezone.localtime(session.agenda_item.end_time),
+            )
+
+        # One day per local date, one hour bucket per distinct start hour.
+        expected_days = [
+            ScheduleDay(
+                day_start=hour_start,
+                hours=[
+                    ScheduleHour(
+                        start=hour_start, sessions=[cards[ended.pk], cards[ongoing.pk]]
+                    )
+                ],
+                tiles=[tile(ended), tile(ongoing)],
+            ),
+            ScheduleDay(
+                day_start=hour_of(plenty),
+                hours=[
+                    ScheduleHour(
+                        start=hour_of(plenty),
+                        sessions=[cards[plenty.pk], cards[scarce.pk]],
+                    ),
+                    ScheduleHour(
+                        start=hour_of(no_enrollment), sessions=[cards[no_enrollment.pk]]
+                    ),
+                ],
+                tiles=[tile(plenty), tile(scarce), tile(no_enrollment)],
+            ),
+            ScheduleDay(
+                day_start=hour_of(full),
+                hours=[ScheduleHour(start=hour_of(full), sessions=[cards[full.pk]])],
+                tiles=[tile(full)],
+            ),
+        ]
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data=ANY,
+            context_data=event_page_context(
+                event,
+                url=self._get_url(event.slug),
+                compact_schedule=True,
+                sessions=list(cards.values()),
+                schedule_days=expected_days,
+                # 4 seats in `scarce` plus the 2 that fill `full`.
+                total_enrolled=4 + 2,
+                hour_data={
+                    ended.agenda_item.start_time: [cards[ended.pk]],
+                    ongoing.agenda_item.start_time: [cards[ongoing.pk]],
+                    plenty.agenda_item.start_time: [cards[plenty.pk], cards[scarce.pk]],
+                    no_enrollment.agenda_item.start_time: [cards[no_enrollment.pk]],
+                    full.agenda_item.start_time: [cards[full.pk]],
+                },
+                has_enrollable_sessions=True,
+                scheduled_count=6,
+            ),
             template_name=["chronology/event.html"],
         )
-        days = response.context_data["schedule_days"]
-        # The ended/ongoing sessions may straddle local midnight, so derive the
-        # expected day grouping with the same local-date rule the view uses.
-        expected_dates = sorted(
-            {
-                window_start.date()
-                for start, end in (
-                    (now - timedelta(hours=3), now - timedelta(hours=2)),
-                    (now - timedelta(hours=1), now + timedelta(hours=1)),
-                    (day_one, day_one + timedelta(hours=4)),
-                    (day_one + timedelta(days=1), day_one + timedelta(days=1, hours=1)),
-                )
-                for window_start, __ in local_day_windows(
-                    start, end, timezone.get_current_timezone()
-                )
-            }
-        )
-        assert [
-            timezone.localtime(day.day_start).date() for day in days
-        ] == expected_dates
-        [day_one_entry] = [
-            day
-            for day in days
-            if timezone.localtime(day.day_start).date()
-            == timezone.localtime(day_one).date()
-        ]
-        [morning_slot, afternoon_slot] = day_one_entry.hours
-        assert [s.session.pk for s in morning_slot.sessions] == [plenty.pk, scarce.pk]
-        assert afternoon_slot.start == day_one + timedelta(hours=3)
         content = response.content.decode()
         # The pills render inside their own spans; match with the tag boundary
-        # so e.g. the "Enrollment Open" header pill can't satisfy "Open".
+        # so e.g. the "Enrollment Open" header pill can't satisfy a pill label.
         for label in (
             "10 spots left",
             "1 spot left",
-            "Open",
             "Full",
             "Ended",
             "In Progress",
@@ -536,17 +640,15 @@ class TestEventPageView:
         # The ledger row no longer carries the enrolled count; it lives in the
         # lazy-loaded session modal's capacity chip instead.
         assert 'title="4 participants enrolled"' not in content
-        assert content.count("data-schedule-day") == len(expected_dates)
+        assert content.count("data-schedule-day") == len(expected_days)
         modal = client.get(
             reverse(
                 "web:chronology:session-modal",
                 kwargs={"event_slug": event.slug, "session_id": scarce.pk},
             )
         )
-        assert_response(
-            modal,
-            HTTPStatus.OK,
-            context_data=modal.context_data,
+        assert_rendered(
+            response=modal,
             template_name="chronology/parts/session-modal.html",
             contains="4/5",
         )
@@ -590,10 +692,120 @@ class TestEventPageView:
 
         response = authenticated_client.get(f"{self._get_url(event.slug)}?view=rooms")
 
+        local_start = timezone.localtime(start)
+        cards = {
+            session.pk: session_card(
+                session.agenda_item, presenter=session.presenter, **overrides
+            )
+            for session, overrides in (
+                (in_arena, {"user_bookmarked": True, "bookmark_count": 1}),
+                (on_stage, {}),
+                (later_in_arena, {}),
+            )
+        }
+        url = self._get_url(event.slug)
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data=ANY,
+            context_data=event_page_context(
+                event,
+                url=url,
+                compact_schedule=True,
+                sessions=list(cards.values()),
+                hour_data={
+                    start: [cards[in_arena.pk], cards[on_stage.pk]],
+                    start + timedelta(hours=2): [cards[later_in_arena.pk]],
+                },
+                schedule_days=[
+                    ScheduleDay(
+                        day_start=local_start,
+                        hours=[
+                            ScheduleHour(
+                                start=local_start,
+                                sessions=[cards[in_arena.pk], cards[on_stage.pk]],
+                            ),
+                            ScheduleHour(
+                                start=local_start + timedelta(hours=2),
+                                sessions=[cards[later_in_arena.pk]],
+                            ),
+                        ],
+                        tiles=[
+                            ScheduleTile(
+                                data=cards[session.pk],
+                                start=timezone.localtime(
+                                    session.agenda_item.start_time
+                                ),
+                                end=timezone.localtime(session.agenda_item.end_time),
+                            )
+                            for session in (in_arena, on_stage, later_in_arena)
+                        ],
+                    )
+                ],
+                active_tab="rooms",
+                room_lane_days=[
+                    RoomLaneDay(
+                        day_start=local_start,
+                        rooms=[
+                            RoomLane(
+                                name="Arena", group="", group_key="", starts_group=True
+                            ),
+                            RoomLane(
+                                name="Stage", group="", group_key="", starts_group=False
+                            ),
+                        ],
+                        # Four hours of lane, 10:00 to 13:00: the two sessions
+                        # at 10:00, an empty 11:00, the two-hour one from
+                        # 12:00, and the hour it runs into.
+                        hour_marks=[
+                            RoomLaneHourMark(
+                                start=local_start, row=1, has_sessions=True
+                            ),
+                            RoomLaneHourMark(
+                                start=local_start + timedelta(hours=1),
+                                row=2,
+                                has_sessions=False,
+                            ),
+                            RoomLaneHourMark(
+                                start=local_start + timedelta(hours=2),
+                                row=3,
+                                has_sessions=True,
+                            ),
+                            RoomLaneHourMark(
+                                start=local_start + timedelta(hours=3),
+                                row=4,
+                                has_sessions=False,
+                            ),
+                        ],
+                        # Arena is column 1 and Stage column 2; the later
+                        # session starts in the third row and spans two.
+                        tiles=[
+                            RoomLaneTile(
+                                data=cards[in_arena.pk],
+                                slot_hour=local_start,
+                                col=1,
+                                row_start=1,
+                                row_span=1,
+                            ),
+                            RoomLaneTile(
+                                data=cards[on_stage.pk],
+                                slot_hour=local_start,
+                                col=2,
+                                row_start=1,
+                                row_span=1,
+                            ),
+                            RoomLaneTile(
+                                data=cards[later_in_arena.pk],
+                                slot_hour=local_start + timedelta(hours=2),
+                                col=1,
+                                row_start=3,
+                                row_span=2,
+                            ),
+                        ],
+                    )
+                ],
+                has_enrollable_sessions=True,
+                scheduled_count=3,
+            ),
             template_name=["chronology/event.html"],
             contains=[
                 "schedule-rail",
@@ -603,23 +815,6 @@ class TestEventPageView:
                 'aria-pressed="true"',
             ],
         )
-        # room_lane_days is populated only in the rooms view; its structure is
-        # the subject of this test, so assert it directly.
-        [day] = response.context_data["room_lane_days"]
-        assert day.rooms == ["Arena", "Stage"]
-        assert [(m.row, m.has_sessions) for m in day.hour_marks] == [
-            (1, True),
-            (2, False),
-            (3, True),
-            (4, False),
-        ]
-        assert [
-            (t.data.session.pk, t.col, t.row_start, t.row_span) for t in day.tiles
-        ] == [
-            (in_arena.pk, 1, 1, 1),
-            (on_stage.pk, 2, 1, 1),
-            (later_in_arena.pk, 1, 3, 2),
-        ]
         content = response.content.decode()
         assert re.search(r">\s*Arena\s*</div>", content)
         assert re.search(r">\s*Stage\s*</div>", content)
@@ -638,7 +833,6 @@ class TestEventPageView:
             agenda_item=AgendaItemDTO.model_validate(agenda_item),
             effective_participants_limit=10,
             enrolled_count=0,
-            full_participant_info="0/10",
             is_enrollment_available=False,
             is_full=False,
             is_ongoing=False,
@@ -648,16 +842,7 @@ class TestEventPageView:
             session_participations=[],
             session=SessionDTO.model_validate(agenda_item.session),
             should_show_as_inactive=False,
-            loc=LocationData(
-                space_name=agenda_item.space.name,
-                parent_slug=(
-                    agenda_item.space.parent.slug if agenda_item.space.parent else ""
-                ),
-                parent_name=(
-                    agenda_item.space.parent.name if agenda_item.space.parent else ""
-                ),
-                path=str(agenda_item.space),
-            ),
+            loc=location_data(agenda_item.space),
             user_enrolled=False,
             user_waiting=False,
         )
@@ -679,38 +864,44 @@ class TestEventPageView:
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data={
-                "current_hour_data": {},
-                "ended_hour_data": {},
-                "enrollment_requires_slots": False,
-                "event": event,
-                "filterable_tag_categories": [],
-                "has_track_filter": False,
-                "has_category_filter": False,
-                "future_unavailable_hour_data": {},
-                "hour_data": {agenda_item.start_time: [session_data]},
-                "object": event,
-                "pending_review_visible": False,
-                "pending_sessions": [],
-                "pending_wizard_view": False,
-                "own_pending_proposals": [],
-                "sessions": [session_data],
-                "user_enrollment_config": None,
-                "total_enrolled": 0,
-                "user_enrolled_sessions": [],
-                "event_banned": False,
-                "compact_schedule": True,
-                "schedule_days": [schedule_day],
-                "schedule_view_is_list": True,
-                "schedule_view_is_rooms": False,
-                "room_lane_days": [],
-                "schedule_list_url": url,
-                "schedule_rooms_url": f"{url}?view=rooms",
-                "user_enrolled_session_titles": [],
-                "view": ANY,
-            },
+            context_data=event_page_context(
+                event,
+                url=url,
+                hour_data={agenda_item.start_time: [session_data]},
+                sessions=[session_data],
+                compact_schedule=True,
+                schedule_days=[schedule_day],
+                has_enrollable_sessions=True,
+                scheduled_count=1,
+            ),
             template_name=["chronology/event.html"],
             contains="session-grid",
+        )
+
+    def test_ok_enrollment_filter_stays_off_a_schedule_without_enrollment(
+        self, client, event, space
+    ):
+        drop_in = SessionFactory(
+            event=event, category=None, participants_limit=0, min_age=0
+        )
+        agenda_item = AgendaItemFactory(session=drop_in, space=space)
+
+        response = client.get(self._get_url(event.slug))
+
+        card = session_card(agenda_item, presenter=drop_in.presenter)
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=event_page_context(
+                event,
+                url=self._get_url(event.slug),
+                hour_data={agenda_item.start_time: [card]},
+                current_hour_data={agenda_item.start_time: [card]},
+                sessions=[card],
+                has_enrollable_sessions=False,
+                scheduled_count=1,
+            ),
+            template_name=["chronology/event.html"],
         )
 
     @pytest.mark.usefixtures("enrollment_config")
@@ -729,10 +920,24 @@ class TestEventPageView:
 
         response = client.get(self._get_url(event.slug))
 
+        card = session_card(
+            agenda_item,
+            presenter=agenda_item.session.presenter,
+            is_enrollment_available=True,
+            is_ongoing=True,
+        )
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data=ANY,
+            context_data=event_page_context(
+                event,
+                url=self._get_url(event.slug),
+                hour_data={agenda_item.start_time: [card]},
+                current_hour_data={agenda_item.start_time: [card]},
+                sessions=[card],
+                has_enrollable_sessions=True,
+                scheduled_count=1,
+            ),
             template_name=["chronology/event.html"],
         )
         content = response.content.decode()
@@ -751,30 +956,7 @@ class TestEventPageView:
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data={
-                "current_hour_data": {},
-                "ended_hour_data": {},
-                "enrollment_requires_slots": False,
-                "event": event,
-                "filterable_tag_categories": [],
-                "has_track_filter": False,
-                "has_category_filter": False,
-                "future_unavailable_hour_data": {},
-                "hour_data": {},
-                "object": event,
-                "pending_review_visible": False,
-                "pending_sessions": [],
-                "pending_wizard_view": False,
-                "own_pending_proposals": [],
-                "sessions": [],
-                "user_enrollment_config": None,
-                "total_enrolled": 0,
-                "user_enrolled_sessions": [],
-                "event_banned": False,
-                **_schedule_context(self._get_url(event.slug)),
-                "user_enrolled_session_titles": [],
-                "view": ANY,
-            },
+            context_data=event_page_context(event, url=self._get_url(event.slug)),
             template_name=["chronology/event.html"],
             contains=["Enrollment Open", "Proposals Open"],
             not_contains="Upcoming",
@@ -791,30 +973,7 @@ class TestEventPageView:
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data={
-                "current_hour_data": {},
-                "ended_hour_data": {},
-                "enrollment_requires_slots": False,
-                "event": event,
-                "filterable_tag_categories": [],
-                "has_track_filter": False,
-                "has_category_filter": False,
-                "future_unavailable_hour_data": {},
-                "hour_data": {},
-                "object": event,
-                "pending_review_visible": False,
-                "pending_sessions": [],
-                "pending_wizard_view": False,
-                "own_pending_proposals": [],
-                "sessions": [],
-                "user_enrollment_config": None,
-                "total_enrolled": 0,
-                "user_enrolled_sessions": [],
-                "event_banned": False,
-                **_schedule_context(self._get_url(event.slug)),
-                "user_enrolled_session_titles": [],
-                "view": ANY,
-            },
+            context_data=event_page_context(event, url=self._get_url(event.slug)),
             template_name=["chronology/event.html"],
             contains="Happening now!",
             not_contains="Upcoming",
@@ -831,30 +990,7 @@ class TestEventPageView:
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data={
-                "current_hour_data": {},
-                "ended_hour_data": {},
-                "enrollment_requires_slots": False,
-                "event": event,
-                "filterable_tag_categories": [],
-                "has_track_filter": False,
-                "has_category_filter": False,
-                "future_unavailable_hour_data": {},
-                "hour_data": {},
-                "object": event,
-                "pending_review_visible": False,
-                "pending_sessions": [],
-                "pending_wizard_view": False,
-                "own_pending_proposals": [],
-                "sessions": [],
-                "user_enrollment_config": None,
-                "total_enrolled": 0,
-                "user_enrolled_sessions": [],
-                "event_banned": False,
-                **_schedule_context(self._get_url(event.slug)),
-                "user_enrolled_session_titles": [],
-                "view": ANY,
-            },
+            context_data=event_page_context(event, url=self._get_url(event.slug)),
             template_name=["chronology/event.html"],
             contains="Completed",
             not_contains="Upcoming",
@@ -872,7 +1008,6 @@ class TestEventPageView:
             agenda_item=AgendaItemDTO.model_validate(agenda_item),
             effective_participants_limit=10,
             enrolled_count=0,
-            full_participant_info="0/10",
             is_enrollment_available=False,
             is_full=False,
             is_ongoing=False,
@@ -882,48 +1017,22 @@ class TestEventPageView:
             session_participations=[],
             session=SessionDTO.model_validate(session),
             should_show_as_inactive=False,
-            loc=LocationData(
-                space_name=agenda_item.space.name,
-                parent_slug=(
-                    agenda_item.space.parent.slug if agenda_item.space.parent else ""
-                ),
-                parent_name=(
-                    agenda_item.space.parent.name if agenda_item.space.parent else ""
-                ),
-                path=str(agenda_item.space),
-            ),
+            loc=location_data(agenda_item.space),
             user_enrolled=False,
             user_waiting=False,
         )
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data={
-                "current_hour_data": {},
-                "ended_hour_data": {},
-                "enrollment_requires_slots": False,
-                "event": event,
-                "filterable_tag_categories": [],
-                "has_track_filter": False,
-                "has_category_filter": False,
-                "future_unavailable_hour_data": {
-                    agenda_item.start_time: [session_data]
-                },
-                "hour_data": {agenda_item.start_time: [session_data]},
-                "object": event,
-                "pending_review_visible": False,
-                "pending_sessions": [],
-                "pending_wizard_view": False,
-                "own_pending_proposals": [],
-                "sessions": [session_data],
-                "user_enrollment_config": None,
-                "total_enrolled": 0,
-                "user_enrolled_sessions": [],
-                "event_banned": False,
-                **_schedule_context(self._get_url(event.slug)),
-                "user_enrolled_session_titles": [],
-                "view": ANY,
-            },
+            context_data=event_page_context(
+                event,
+                url=self._get_url(event.slug),
+                future_unavailable_hour_data={agenda_item.start_time: [session_data]},
+                hour_data={agenda_item.start_time: [session_data]},
+                sessions=[session_data],
+                has_enrollable_sessions=True,
+                scheduled_count=1,
+            ),
             template_name=["chronology/event.html"],
         )
         local_start = timezone.localtime(agenda_item.start_time)
@@ -950,33 +1059,128 @@ class TestEventPageView:
         track_b = Track.objects.create(
             event=event, name="Side Room", slug="side", is_public=True
         )
-        private_track = Track.objects.create(
-            event=event, name="Backstage", slug="backstage", is_public=False
-        )
         session_a = SessionFactory(event=event, category=category_a, min_age=0)
-        session_a.tracks.add(track_a, private_track)
+        session_a.tracks.add(track_a)
         session_b = SessionFactory(event=event, category=category_b, min_age=0)
         session_b.tracks.add(track_b)
-        AgendaItemFactory(session=session_a, space=space)
-        AgendaItemFactory(
+        item_a = AgendaItemFactory(session=session_a, space=space)
+        item_b = AgendaItemFactory(
             session=session_b,
             space=space,
             start_time=timezone.now() + timedelta(days=7, hours=3),
         )
+        cards = [
+            session_card(
+                item_a,
+                presenter=session_a.presenter,
+                category_name=category_a.name,
+                track_names=[track_a.name],
+            ),
+            session_card(
+                item_b,
+                presenter=session_b.presenter,
+                category_name=category_b.name,
+                track_names=[track_b.name],
+            ),
+        ]
+        hour_data = {item_a.start_time: [cards[0]], item_b.start_time: [cards[1]]}
 
         response = client.get(self._get_url(event.slug))
 
-        content = response.content.decode()
-        # Filter controls render (only when >1 value exists, so this also
-        # proves has_track_filter / has_category_filter).
-        assert 'data-category="__track"' in content
-        assert 'data-category="__category"' in content
-        # Cards carry the filter pairs; private tracks stay hidden.
-        assert "__track:Main Hall" in content
-        assert "__track:Side Room" in content
-        assert "__category:RPG" in content
-        assert "__category:Board games" in content
-        assert "__track:Backstage" not in content
+        # Both filters list every value in use — they render only when a field
+        # has more than one, so two names each is what puts the controls up.
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=event_page_context(
+                event,
+                url=self._get_url(event.slug),
+                hour_data=hour_data,
+                future_unavailable_hour_data=hour_data,
+                sessions=cards,
+                track_filter_names=[track_a.name, track_b.name],
+                category_filter_names=[category_b.name, category_a.name],
+                has_enrollable_sessions=True,
+                scheduled_count=len(cards),
+            ),
+            template_name=["chronology/event.html"],
+        )
+
+    def test_schedule_hides_sessions_with_any_private_track(self, client, event, space):
+        public_track = Track.objects.create(
+            event=event, name="Main Hall", slug="main", is_public=True
+        )
+        private_track = Track.objects.create(
+            event=event, name="Backstage", slug="backstage", is_public=False
+        )
+        untracked = SessionFactory(event=event)
+        public_only = SessionFactory(event=event)
+        public_only.tracks.add(public_track)
+        mixed = SessionFactory(event=event)
+        mixed.tracks.add(public_track, private_track)
+        private_only = SessionFactory(event=event)
+        private_only.tracks.add(private_track)
+        items = {
+            session: AgendaItemFactory(session=session, space=space)
+            for session in (untracked, public_only, mixed, private_only)
+        }
+        visible = [
+            session_card(
+                items[untracked],
+                presenter=untracked.presenter,
+                category_name=untracked.category.name,
+            ),
+            session_card(
+                items[public_only],
+                presenter=public_only.presenter,
+                category_name=public_only.category.name,
+                track_names=["Main Hall"],
+            ),
+        ]
+        # The factory staggers agenda items by a microsecond, so each visible
+        # session lands in its own bucket.
+        hour_data = {
+            items[untracked].start_time: [visible[0]],
+            items[public_only].start_time: [visible[1]],
+        }
+
+        response = client.get(self._get_url(event.slug))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=event_page_context(
+                event,
+                url=self._get_url(event.slug),
+                hour_data=hour_data,
+                future_unavailable_hour_data=hour_data,
+                sessions=visible,
+                category_filter_names=sorted(
+                    session.category.name for session in (untracked, public_only)
+                ),
+                has_enrollable_sessions=True,
+                scheduled_count=len(visible),
+            ),
+            template_name=["chronology/event.html"],
+        )
+
+    @pytest.mark.usefixtures("panel_access_user")
+    def test_schedule_hides_private_tracks_from_panel_access_too(
+        self, authenticated_client, event, space
+    ):
+        event.publication_time = None
+        event.save()
+        private_track = Track.objects.create(
+            event=event, name="Backstage", slug="backstage", is_public=False
+        )
+        private_only = SessionFactory(event=event)
+        private_only.tracks.add(private_track)
+        AgendaItemFactory(session=private_only, space=space)
+
+        response = authenticated_client.get(self._get_url(event.slug))
+
+        assert response.status_code == HTTPStatus.OK
+        assert response.context_data["sessions"] == []
 
     def test_shows_event_cover_image(self, client, event):
         event.cover_image = SimpleUploadedFile(
@@ -989,49 +1193,9 @@ class TestEventPageView:
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data={
-                "current_hour_data": {},
-                "ended_hour_data": {},
-                "enrollment_requires_slots": False,
-                "event": event,
-                "filterable_tag_categories": [],
-                "has_track_filter": False,
-                "has_category_filter": False,
-                "future_unavailable_hour_data": {},
-                "hour_data": {},
-                "object": event,
-                "pending_review_visible": False,
-                "pending_sessions": [],
-                "pending_wizard_view": False,
-                "own_pending_proposals": [],
-                "sessions": [],
-                "user_enrollment_config": None,
-                "total_enrolled": 0,
-                "user_enrolled_sessions": [],
-                "event_banned": False,
-                **_schedule_context(self._get_url(event.slug)),
-                "user_enrolled_session_titles": [],
-                "view": ANY,
-            },
+            context_data=event_page_context(event, url=self._get_url(event.slug)),
             template_name=["chronology/event.html"],
         )
-        assert event.cover_image_url.encode() in response.content
-
-    @override_settings(MEDIA_URL="https://cdn.example.test/media/")
-    def test_event_cover_image_used_as_absolute_social_metadata(self, client, event):
-        event.cover_image = SimpleUploadedFile(
-            "cover.png", PNG_BYTES, content_type="image/png"
-        )
-        event.save()
-
-        response = client.get(self._get_url(event.slug))
-
-        content = response.content.decode()
-        absolute_url = event.cover_image_url
-        assert absolute_url.startswith("http")
-        assert absolute_url in content
-        assert "zagrajmy.net/static/logo.png" not in content
-        assert f"testserver{absolute_url}" not in content
 
     def test_session_card_hides_age_pill_when_min_age_zero(
         self, agenda_item, client, event
@@ -1042,10 +1206,19 @@ class TestEventPageView:
 
         response = client.get(self._get_url(event.slug))
 
+        card = session_card(agenda_item, presenter=session.presenter)
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data=ANY,
+            context_data=event_page_context(
+                event,
+                url=self._get_url(event.slug),
+                hour_data={agenda_item.start_time: [card]},
+                future_unavailable_hour_data={agenda_item.start_time: [card]},
+                sessions=[card],
+                has_enrollable_sessions=True,
+                scheduled_count=1,
+            ),
             template_name=["chronology/event.html"],
             not_contains="All ages",
         )
@@ -1060,6 +1233,7 @@ class TestEventPageView:
             is_multiple=True,
             is_public=True,
         )
+        self._add_choices(session_field, "a", "b", "c", "d", "e")
         session = agenda_item.session
         SessionFieldValue.objects.create(
             session=session, field=session_field, value=["a", "b", "c", "d", "e"]
@@ -1069,15 +1243,41 @@ class TestEventPageView:
 
         response = client.get(self._get_url(event.slug))
 
+        field_value_dto = SessionFieldValueDTO(
+            allow_custom=False,
+            field_icon="",
+            field_id=session_field.pk,
+            field_name="Genre",
+            field_question="Genre",
+            field_slug="genre",
+            field_type="select",
+            is_public=True,
+            value=["a", "b", "c", "d", "e"],
+        )
+        card = session_card(
+            agenda_item,
+            presenter=session.presenter,
+            displayed_field_rows=[build_display_field_row(field_value_dto)],
+            field_values=[field_value_dto],
+        )
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data=ANY,
+            context_data=event_page_context(
+                event,
+                url=self._get_url(event.slug),
+                filterable_tag_categories=[_field_dto(session_field)],
+                hour_data={agenda_item.start_time: [card]},
+                future_unavailable_hour_data={agenda_item.start_time: [card]},
+                sessions=[card],
+                has_enrollable_sessions=True,
+                scheduled_count=1,
+            ),
             template_name=["chronology/event.html"],
             contains=["session-tags-more", "+1"],
         )
 
-    def _add_scheduled_session(self, *, event, space, session_field):
+    def _add_scheduled_session(self, *, event, space, session_field, values=("a", "b")):
         presenter = UserFactory()
         session = SessionFactory(
             presenter=presenter,
@@ -1088,12 +1288,182 @@ class TestEventPageView:
         )
         AgendaItemFactory(session=session, space=space)
         SessionFieldValue.objects.create(
-            session=session, field=session_field, value=["a", "b"]
+            session=session, field=session_field, value=list(values)
         )
         SessionParticipation.objects.create(
             session=session,
             user=UserFactory(),
             status=SessionParticipationStatus.CONFIRMED,
+        )
+        session.refresh_from_db()
+        return session
+
+    @classmethod
+    def _tagged_page_context(
+        cls,
+        event,
+        *,
+        url,
+        sessions,
+        session_field,
+        scheduled_count,
+        values=("a", "b"),
+        allow_custom=False,
+        filterable=True,
+    ):
+        cards = [
+            cls._tagged_card(
+                session,
+                session_field=session_field,
+                values=values,
+                allow_custom=allow_custom,
+            )
+            for session in sessions
+        ]
+        hour_data = {}
+        for session, card in zip(sessions, cards, strict=True):
+            hour_data.setdefault(session.agenda_item.start_time, []).append(card)
+        return event_page_context(
+            event,
+            url=url,
+            filterable_tag_categories=[_field_dto(session_field)] if filterable else [],
+            category_filter_names=sorted(s.category.name for s in sessions),
+            hour_data=hour_data,
+            future_unavailable_hour_data=hour_data,
+            sessions=cards,
+            total_enrolled=len(cards),
+            has_enrollable_sessions=True,
+            scheduled_count=scheduled_count,
+        )
+
+    @staticmethod
+    def _tagged_card(session, *, session_field, values=("a", "b"), allow_custom=False):
+        field_value_dto = SessionFieldValueDTO(
+            allow_custom=allow_custom,
+            field_icon="",
+            field_id=session_field.pk,
+            field_name="Genre",
+            field_question="Genre",
+            field_slug="genre",
+            field_type="select",
+            is_public=True,
+            value=list(values),
+        )
+        return session_card(
+            session.agenda_item,
+            presenter=session.presenter,
+            enrolled_count=1,
+            category_name=session.category.name,
+            # The field is public but not on the event's displayed list, so it
+            # reaches the card's values without a display row.
+            field_values=[field_value_dto],
+            session_participations=[
+                ParticipationInfo(
+                    user=UserInfo.from_user_dto(
+                        UserDTO.model_validate(participation.user),
+                        gravatar_url=gravatar_url,
+                    ),
+                    status=participation.status,
+                    creation_time=participation.creation_time,
+                    is_shadowbanned=False,
+                )
+                for participation in SessionParticipation.objects.filter(
+                    session=session
+                ).select_related("user")
+            ],
+        )
+
+    @staticmethod
+    def _add_choices(session_field, *values):
+        for order, value in enumerate(values):
+            SessionFieldOption.objects.create(
+                field=session_field, value=value, label=value, order=order
+            )
+
+    def test_ok_filter_panel_leaves_out_a_field_nobody_answered(
+        self, client, event, space
+    ):
+        genre = SessionField.objects.create(
+            event=event,
+            name="Genre",
+            question="Genre",
+            slug="genre",
+            field_type="select",
+            is_multiple=True,
+            is_public=True,
+        )
+        self._add_choices(genre, "a", "b")
+        SessionField.objects.create(
+            event=event,
+            name="Format",
+            question="Format",
+            slug="format",
+            field_type="select",
+            is_multiple=True,
+            is_public=True,
+        )
+        sessions = [
+            self._add_scheduled_session(event=event, space=space, session_field=genre)
+            for _ in range(2)
+        ]
+
+        response = client.get(self._get_url(event.slug))
+
+        # Both fields are public selects on the event; only Genre is answered,
+        # so only Genre reaches the panel.
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=self._tagged_page_context(
+                event,
+                url=self._get_url(event.slug),
+                sessions=sessions,
+                session_field=genre,
+                scheduled_count=2,
+            ),
+            template_name=["chronology/event.html"],
+        )
+
+    def test_ok_filter_panel_leaves_out_a_field_answered_only_with_write_ins(
+        self, client, event, space
+    ):
+        genre = SessionField.objects.create(
+            event=event,
+            name="Genre",
+            question="Genre",
+            slug="genre",
+            field_type="select",
+            is_multiple=True,
+            allow_custom=True,
+            is_public=True,
+        )
+        self._add_choices(genre, "a")
+        written_in = ("gritty", "kalamburowy")
+        sessions = [
+            self._add_scheduled_session(
+                event=event, space=space, session_field=genre, values=written_in
+            )
+            for _ in range(2)
+        ]
+
+        response = client.get(self._get_url(event.slug))
+
+        # Two distinct answers, but neither is one of the field's choices, so
+        # the dropdown would have had nothing to offer.
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=self._tagged_page_context(
+                event,
+                url=self._get_url(event.slug),
+                sessions=sessions,
+                session_field=genre,
+                scheduled_count=2,
+                values=written_in,
+                allow_custom=True,
+                filterable=False,
+            ),
+            template_name=["chronology/event.html"],
         )
 
     def test_query_count_constant_in_session_count(self, client, event, space):
@@ -1106,10 +1476,13 @@ class TestEventPageView:
             is_multiple=True,
             is_public=True,
         )
-        for _ in range(2):
+        self._add_choices(session_field, "a", "b")
+        sessions = [
             self._add_scheduled_session(
                 event=event, space=space, session_field=session_field
             )
+            for _ in range(2)
+        ]
         client.get(self._get_url(event.slug))
 
         with CaptureQueriesContext(connection) as small_event_queries:
@@ -1117,21 +1490,35 @@ class TestEventPageView:
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data=ANY,
+            context_data=self._tagged_page_context(
+                event,
+                url=self._get_url(event.slug),
+                sessions=sessions,
+                session_field=session_field,
+                scheduled_count=2,
+            ),
             template_name=["chronology/event.html"],
         )
 
-        for _ in range(6):
+        sessions += [
             self._add_scheduled_session(
                 event=event, space=space, session_field=session_field
             )
+            for _ in range(6)
+        ]
 
         with CaptureQueriesContext(connection) as big_event_queries:
             response = client.get(self._get_url(event.slug))
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data=ANY,
+            context_data=self._tagged_page_context(
+                event,
+                url=self._get_url(event.slug),
+                sessions=sessions,
+                session_field=session_field,
+                scheduled_count=8,
+            ),
             template_name=["chronology/event.html"],
         )
 
@@ -1152,7 +1539,6 @@ class TestEventPageView:
             agenda_item=AgendaItemDTO.model_validate(agenda_item),
             effective_participants_limit=10,
             enrolled_count=0,
-            full_participant_info="0/10",
             is_enrollment_available=False,
             is_full=False,
             is_ongoing=False,
@@ -1162,48 +1548,22 @@ class TestEventPageView:
             session_participations=[],
             session=SessionDTO.model_validate(session),
             should_show_as_inactive=False,
-            loc=LocationData(
-                space_name=agenda_item.space.name,
-                parent_slug=(
-                    agenda_item.space.parent.slug if agenda_item.space.parent else ""
-                ),
-                parent_name=(
-                    agenda_item.space.parent.name if agenda_item.space.parent else ""
-                ),
-                path=str(agenda_item.space),
-            ),
+            loc=location_data(agenda_item.space),
             user_enrolled=False,
             user_waiting=False,
         )
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data={
-                "current_hour_data": {},
-                "ended_hour_data": {},
-                "enrollment_requires_slots": False,
-                "event": event,
-                "filterable_tag_categories": [],
-                "has_track_filter": False,
-                "has_category_filter": False,
-                "future_unavailable_hour_data": {
-                    agenda_item.start_time: [session_data]
-                },
-                "hour_data": {agenda_item.start_time: [session_data]},
-                "object": event,
-                "pending_review_visible": False,
-                "pending_sessions": [],
-                "pending_wizard_view": False,
-                "own_pending_proposals": [],
-                "sessions": [session_data],
-                "user_enrollment_config": None,
-                "total_enrolled": 0,
-                "user_enrolled_sessions": [],
-                "event_banned": False,
-                **_schedule_context(self._get_url(event.slug)),
-                "user_enrolled_session_titles": [],
-                "view": ANY,
-            },
+            context_data=event_page_context(
+                event,
+                url=self._get_url(event.slug),
+                future_unavailable_hour_data={agenda_item.start_time: [session_data]},
+                hour_data={agenda_item.start_time: [session_data]},
+                sessions=[session_data],
+                has_enrollable_sessions=True,
+                scheduled_count=1,
+            ),
             template_name=["chronology/event.html"],
         )
         assert session.cover_image_url.encode() in response.content
@@ -1216,10 +1576,19 @@ class TestEventPageView:
 
         response = client.get(self._get_url(event.slug))
 
+        card = session_card(agenda_item, presenter=session.presenter)
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data=ANY,
+            context_data=event_page_context(
+                event,
+                url=self._get_url(event.slug),
+                hour_data={agenda_item.start_time: [card]},
+                future_unavailable_hour_data={agenda_item.start_time: [card]},
+                sessions=[card],
+                has_enrollable_sessions=True,
+                scheduled_count=1,
+            ),
             template_name=["chronology/event.html"],
             not_contains=placeholder_cover_url(session.pk),
         )
@@ -1234,63 +1603,44 @@ class TestEventPageView:
 
         response = client.get(self._get_url(event.slug))
 
+        card = session_card(agenda_item, presenter=session.presenter)
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data=ANY,
+            context_data=event_page_context(
+                event,
+                url=self._get_url(event.slug),
+                hour_data={agenda_item.start_time: [card]},
+                future_unavailable_hour_data={agenda_item.start_time: [card]},
+                sessions=[card],
+                has_enrollable_sessions=True,
+                scheduled_count=1,
+            ),
             template_name=["chronology/event.html"],
             contains=placeholder_cover_url(session.pk),
         )
 
-    def test_ok_superuser_proposal(
+    def test_closed_call_for_proposals_builds_no_review_queue(
         self, authenticated_client, event, active_user, pending_session
     ):
+        # The event fixture's CFP has already shut. The block does not render
+        # then, so the cards are not built either — they used to be, and
+        # discarded in the template.
+        assert not event.is_proposal_active
         active_user.is_staff = True
         active_user.is_superuser = True
         active_user.save()
+
         response = authenticated_client.get(self._get_url(event.slug))
 
-        expected_pending = PendingSessionDTO(
-            contact_email=pending_session.contact_email,
-            creation_time=pending_session.creation_time,
-            description=pending_session.description,
-            participants_limit=pending_session.participants_limit,
-            pk=pending_session.pk,
-            display_name=pending_session.display_name,
-            time_slots=[],
-            title=pending_session.title,
-        )
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data={
-                "current_hour_data": {},
-                "ended_hour_data": {},
-                "enrollment_requires_slots": False,
-                "event": event,
-                "filterable_tag_categories": [],
-                "has_track_filter": False,
-                "has_category_filter": False,
-                "future_unavailable_hour_data": {},
-                "hour_data": {},
-                "object": event,
-                "pending_sessions": [expected_pending],
-                "pending_review_visible": True,
-                "own_pending_proposals": [],
-                "pending_wizard_view": True,
-                "sessions": [],
-                "user_enrollment_config": None,
-                "total_enrolled": 0,
-                "user_enrolled_sessions": [],
-                "event_banned": False,
-                **_schedule_context(self._get_url(event.slug)),
-                "user_enrolled_session_titles": [],
-                "view": ANY,
-            },
+            context_data=event_page_context(event, url=self._get_url(event.slug)),
             template_name=["chronology/event.html"],
         )
 
-    def test_ok_superuser_pending_proposals_rendered(
+    def test_ok_superuser_sees_preferred_slots_earliest_first(
         self, authenticated_client, event, active_user, pending_session
     ):
         active_user.is_staff = True
@@ -1298,12 +1648,14 @@ class TestEventPageView:
         active_user.save()
         event.proposal_end_time = timezone.now() + timedelta(days=3)
         event.save(update_fields=["proposal_end_time"])
-        for offset in (0, 2, 4):
-            pending_session.time_slots.add(
-                TimeSlotFactory(
-                    event=event, start_time=event.start_time + timedelta(hours=offset)
-                )
+        # Added latest-first, so a card that echoed insertion order would fail.
+        slots = [
+            TimeSlotFactory(
+                event=event, start_time=event.start_time + timedelta(hours=offset)
             )
+            for offset in reversed(_PREFERRED_SLOT_OFFSETS)
+        ]
+        pending_session.time_slots.add(*slots)
         flexible_session = SessionFactory(
             category=pending_session.category,
             presenter=active_user,
@@ -1315,58 +1667,70 @@ class TestEventPageView:
 
         response = authenticated_client.get(self._get_url(event.slug))
 
-        expected_flexible = PendingSessionDTO(
-            contact_email=flexible_session.contact_email,
-            creation_time=flexible_session.creation_time,
-            description=flexible_session.description,
-            participants_limit=flexible_session.participants_limit,
-            pk=flexible_session.pk,
-            display_name=flexible_session.display_name,
-            time_slots=[],
-            title=flexible_session.title,
+        expected_flexible = proposal_card(
+            flexible_session, presenter=active_user, can_edit=True
         )
-        expected_pending = PendingSessionDTO(
-            contact_email=pending_session.contact_email,
-            creation_time=pending_session.creation_time,
-            description=pending_session.description,
-            participants_limit=pending_session.participants_limit,
-            pk=pending_session.pk,
-            display_name=pending_session.display_name,
-            time_slots=[
-                PendingSessionTimeSlotDTO.model_validate(ts)
-                for ts in pending_session.time_slots.all()
-            ],
-            title=pending_session.title,
+        expected_pending = proposal_card(
+            pending_session,
+            presenter=active_user,
+            can_edit=True,
+            slots=sorted(slots, key=lambda slot: slot.start_time),
         )
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data={
-                "current_hour_data": {},
-                "ended_hour_data": {},
-                "enrollment_requires_slots": False,
-                "event": event,
-                "filterable_tag_categories": [],
-                "has_track_filter": False,
-                "has_category_filter": False,
-                "future_unavailable_hour_data": {},
-                "hour_data": {},
-                "object": event,
-                "pending_sessions": [expected_flexible, expected_pending],
-                "pending_review_visible": True,
-                "own_pending_proposals": [],
-                "pending_wizard_view": True,
-                "sessions": [],
-                "user_enrollment_config": None,
-                "total_enrolled": 0,
-                "user_enrolled_sessions": [],
-                "event_banned": False,
-                **_schedule_context(self._get_url(event.slug)),
-                "user_enrolled_session_titles": [],
-                "view": ANY,
-            },
+            context_data=event_page_context(
+                event,
+                url=self._get_url(event.slug),
+                pending_sessions=[expected_flexible, expected_pending],
+                pending_review_visible=True,
+                pending_wizard_view=True,
+            ),
             template_name=["chronology/event.html"],
-            contains=["Pending Proposals", "+1 more", "Flexible", "🧙"],
+        )
+
+    def test_review_inbox_query_count_constant_in_proposal_count(
+        self, authenticated_client, event, active_user, pending_session
+    ):
+        # The review queue is unbounded, so it has to cost the same at 1 and at
+        # 5. It doesn't for free: the card reads enrolled_count/waiting_count,
+        # which fall back to a COUNT per instance unless the queryset carries
+        # annotate_session_participation_counts. zeal can't catch that — it
+        # instruments relation traversal, not .count() on a related manager.
+        active_user.is_staff = True
+        active_user.is_superuser = True
+        active_user.save()
+        event.proposal_end_time = timezone.now() + timedelta(days=3)
+        event.save(update_fields=["proposal_end_time"])
+
+        # Warm up first, as the scheduled-session counterpart above does: one-off
+        # per-process work would otherwise land inside the smaller capture.
+        authenticated_client.get(self._get_url(event.slug))
+
+        with CaptureQueriesContext(connection) as one_proposal:
+            first = authenticated_client.get(self._get_url(event.slug))
+
+        for _ in range(4):
+            SessionFactory(
+                category=pending_session.category,
+                presenter=active_user,
+                display_name=active_user.name,
+                participants_limit=5,
+                min_age=0,
+                status="pending",
+            )
+
+        with CaptureQueriesContext(connection) as five_proposals:
+            last = authenticated_client.get(self._get_url(event.slug))
+
+        # Both responses are asserted, or a queue that quietly stopped
+        # rendering would satisfy the count comparison perfectly.
+        assert first.status_code == HTTPStatus.OK
+        assert len(first.context["pending_sessions"]) == 1
+        assert last.status_code == HTTPStatus.OK
+        assert len(last.context["pending_sessions"]) == _PROPOSALS_IN_QUEUE
+        assert len(five_proposals.captured_queries) == len(
+            one_proposal.captured_queries
         )
 
     def test_ok_superuser_organizer_sees_no_wizard_emoji(
@@ -1381,45 +1745,19 @@ class TestEventPageView:
 
         response = authenticated_client.get(self._get_url(event.slug))
 
-        expected_pending = PendingSessionDTO(
-            contact_email=pending_session.contact_email,
-            creation_time=pending_session.creation_time,
-            description=pending_session.description,
-            participants_limit=pending_session.participants_limit,
-            pk=pending_session.pk,
-            display_name=pending_session.display_name,
-            time_slots=[],
-            title=pending_session.title,
+        expected_pending = proposal_card(
+            pending_session, presenter=active_user, can_edit=True
         )
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data={
-                "current_hour_data": {},
-                "ended_hour_data": {},
-                "enrollment_requires_slots": False,
-                "event": event,
-                "filterable_tag_categories": [],
-                "has_track_filter": False,
-                "has_category_filter": False,
-                "future_unavailable_hour_data": {},
-                "hour_data": {},
-                "object": event,
-                "pending_sessions": [expected_pending],
-                "pending_review_visible": True,
-                "own_pending_proposals": [],
-                "pending_wizard_view": False,
-                "sessions": [],
-                "user_enrollment_config": None,
-                "total_enrolled": 0,
-                "user_enrolled_sessions": [],
-                "event_banned": False,
-                **_schedule_context(self._get_url(event.slug)),
-                "user_enrolled_session_titles": [],
-                "view": ANY,
-            },
+            context_data=event_page_context(
+                event,
+                url=self._get_url(event.slug),
+                pending_sessions=[expected_pending],
+                pending_review_visible=True,
+            ),
             template_name=["chronology/event.html"],
-            contains="Pending Proposals",
             not_contains="🧙",
         )
 
@@ -1432,46 +1770,162 @@ class TestEventPageView:
 
         response = authenticated_client.get(self._get_url(event.slug))
 
-        expected_pending = PendingSessionDTO(
-            contact_email=pending_session.contact_email,
-            creation_time=pending_session.creation_time,
-            description=pending_session.description,
-            participants_limit=pending_session.participants_limit,
-            pk=pending_session.pk,
-            display_name=pending_session.display_name,
-            time_slots=[],
-            title=pending_session.title,
+        expected_pending = proposal_card(
+            pending_session, presenter=active_user, can_edit=True
         )
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data={
-                "current_hour_data": {},
-                "ended_hour_data": {},
-                "enrollment_requires_slots": False,
-                "event": event,
-                "filterable_tag_categories": [],
-                "has_track_filter": False,
-                "has_category_filter": False,
-                "future_unavailable_hour_data": {},
-                "hour_data": {},
-                "object": event,
-                "pending_sessions": [expected_pending],
-                "pending_review_visible": True,
-                "own_pending_proposals": [],
-                "pending_wizard_view": False,
-                "sessions": [],
-                "user_enrollment_config": None,
-                "total_enrolled": 0,
-                "user_enrolled_sessions": [],
-                "event_banned": False,
-                **_schedule_context(self._get_url(event.slug)),
-                "user_enrolled_session_titles": [],
-                "view": ANY,
-            },
+            context_data=event_page_context(
+                event,
+                url=self._get_url(event.slug),
+                pending_sessions=[expected_pending],
+                pending_review_visible=True,
+            ),
             template_name=["chronology/event.html"],
-            contains=["Pending Proposals", "Review & accept"],
             not_contains="🧙",
+        )
+
+    def test_shadowbanned_presenter_is_flagged_on_their_proposal_card(
+        self, authenticated_client, event, active_user, pending_session
+    ):
+        # The same presenter must not be ringed on a scheduled card and clean
+        # on a proposal: both card sets read the viewer's shadowban list.
+        active_user.is_staff = True
+        active_user.is_superuser = True
+        active_user.save()
+        event.proposal_end_time = timezone.now() + timedelta(days=3)
+        event.save(update_fields=["proposal_end_time"])
+        presenter = UserFactory()
+        pending_session.presenter = presenter
+        pending_session.save(update_fields=["presenter"])
+        active_user.shadowbanned.add(presenter)
+
+        response = authenticated_client.get(self._get_url(event.slug))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=event_page_context(
+                event,
+                url=self._get_url(event.slug),
+                pending_sessions=[
+                    proposal_card(
+                        pending_session,
+                        presenter=presenter,
+                        presenter_is_shadowbanned=True,
+                    )
+                ],
+                pending_review_visible=True,
+                pending_wizard_view=True,
+            ),
+            template_name=["chronology/event.html"],
+        )
+
+    def test_proposal_without_a_category_still_reaches_the_review_queue(
+        self, authenticated_client, event, active_user, pending_session
+    ):
+        # Session.category is nullable, so scoping the queue through it would
+        # drop this proposal from the organizer's view and its author's alike.
+        active_user.is_staff = True
+        active_user.is_superuser = True
+        active_user.save()
+        event.proposal_end_time = timezone.now() + timedelta(days=3)
+        event.save(update_fields=["proposal_end_time"])
+        pending_session.category = None
+        pending_session.save(update_fields=["category"])
+
+        response = authenticated_client.get(self._get_url(event.slug))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=event_page_context(
+                event,
+                url=self._get_url(event.slug),
+                pending_sessions=[
+                    proposal_card(pending_session, presenter=active_user, can_edit=True)
+                ],
+                pending_review_visible=True,
+                pending_wizard_view=True,
+            ),
+            template_name=["chronology/event.html"],
+        )
+
+    def test_scheduled_pending_session_is_not_offered_for_review(
+        self, authenticated_client, event, active_user, pending_session, space
+    ):
+        # A pending session already on the timetable cannot be accepted:
+        # accepting creates an AgendaItem and a session may only have one. It
+        # belongs to the panel, not to the event page's review inbox.
+        active_user.is_staff = True
+        active_user.is_superuser = True
+        active_user.save()
+        event.proposal_end_time = timezone.now() + timedelta(days=3)
+        event.save(update_fields=["proposal_end_time"])
+        agenda_item = AgendaItemFactory(
+            session=pending_session,
+            space=space,
+            start_time=event.start_time,
+            end_time=event.start_time + timedelta(hours=1),
+        )
+
+        response = authenticated_client.get(self._get_url(event.slug))
+
+        # It leaves the review inbox and joins the programme instead.
+        card = session_card(
+            agenda_item,
+            presenter=active_user,
+            can_edit=True,
+            category_name=pending_session.category.name,
+        )
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=event_page_context(
+                event,
+                url=self._get_url(event.slug),
+                hour_data={agenda_item.start_time: [card]},
+                future_unavailable_hour_data={agenda_item.start_time: [card]},
+                sessions=[card],
+                scheduled_count=1,
+                has_enrollable_sessions=True,
+                pending_review_visible=True,
+                pending_wizard_view=True,
+            ),
+            template_name=["chronology/event.html"],
+        )
+
+    def test_author_loses_sight_of_a_proposal_scheduled_into_a_private_track(
+        self, authenticated_client, event, active_user, pending_session, space
+    ):
+        # A recorded trade-off, not an accident. Both proposal lists mean
+        # "not on the timetable", because a scheduled session commonly keeps
+        # PENDING and status alone would pull the author's whole programme in
+        # here. The cost is this corner: scheduled into a private track, the
+        # session is hidden from the public schedule too, so its own author
+        # sees it nowhere on this page. The panel still shows it.
+        event.proposal_end_time = timezone.now() + timedelta(days=3)
+        event.save(update_fields=["proposal_end_time"])
+        AgendaItemFactory(
+            session=pending_session,
+            space=space,
+            start_time=event.start_time,
+            end_time=event.start_time + timedelta(hours=1),
+        )
+        pending_session.tracks.add(
+            Track.objects.create(
+                event=event, name="Backstage", slug="backstage", is_public=False
+            )
+        )
+
+        response = authenticated_client.get(self._get_url(event.slug))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=event_page_context(event, url=self._get_url(event.slug)),
+            template_name=["chronology/event.html"],
         )
 
     def test_ok_proposal_author_sees_own_proposal_card(
@@ -1483,56 +1937,48 @@ class TestEventPageView:
 
         response = authenticated_client.get(self._get_url(event.slug))
 
-        expected_card = SessionData(
-            agenda_item=None,
-            is_enrollment_available=False,
-            presenter=UserInfo.from_user_dto(
-                UserDTO.model_validate(active_user), gravatar_url=gravatar_url
-            ),
-            session=SessionDTO.model_validate(pending_session),
-            is_full=False,
-            full_participant_info="0/10",
-            effective_participants_limit=10,
-            enrolled_count=0,
-            session_participations=[],
-            loc=LocationData(space_name="", parent_slug="", parent_name="", path=""),
-            can_edit=True,
-            category_name=pending_session.category.name,
+        expected_card = proposal_card(
+            pending_session, presenter=active_user, can_edit=True
         )
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data={
-                "current_hour_data": {},
-                "ended_hour_data": {},
-                "enrollment_requires_slots": False,
-                "event": event,
-                "filterable_tag_categories": [],
-                "has_track_filter": False,
-                "has_category_filter": False,
-                "future_unavailable_hour_data": {},
-                "hour_data": {},
-                "object": event,
-                "pending_sessions": [],
-                "pending_review_visible": False,
-                "own_pending_proposals": [expected_card],
-                "pending_wizard_view": False,
-                "sessions": [],
-                "user_enrollment_config": None,
-                "total_enrolled": 0,
-                "user_enrolled_sessions": [],
-                "event_banned": False,
-                **_schedule_context(self._get_url(event.slug)),
-                "user_enrolled_session_titles": [],
-                "view": ANY,
-            },
+            context_data=event_page_context(
+                event,
+                url=self._get_url(event.slug),
+                own_pending_proposals=[expected_card],
+            ),
             template_name=["chronology/event.html"],
-            contains=[
-                "Your pending proposals",
-                pending_session.title,
-                "Awaiting review",
-            ],
-            not_contains=["Pending Proposals", "Review & accept"],
+        )
+
+    def test_ok_proposal_card_names_its_private_track(
+        self, authenticated_client, event, active_user, pending_session
+    ):
+        event.proposal_end_time = timezone.now() + timedelta(days=3)
+        event.save(update_fields=["proposal_end_time"])
+        pending_session.tracks.add(
+            Track.objects.create(
+                event=event, name="Backstage", slug="backstage", is_public=False
+            )
+        )
+
+        response = authenticated_client.get(self._get_url(event.slug))
+
+        expected_card = proposal_card(
+            pending_session,
+            presenter=active_user,
+            can_edit=True,
+            track_names=["Backstage"],
+        )
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=event_page_context(
+                event,
+                url=self._get_url(event.slug),
+                own_pending_proposals=[expected_card],
+            ),
+            template_name=["chronology/event.html"],
         )
 
     def test_ok_participations(
@@ -1557,7 +2003,6 @@ class TestEventPageView:
             effective_participants_limit=10,
             enrolled_count=1,
             waiting_count=1,
-            full_participant_info="1/10, 1 waiting",
             is_enrollment_available=False,
             is_full=False,
             is_ongoing=False,
@@ -1582,52 +2027,25 @@ class TestEventPageView:
             ],
             session=SessionDTO.model_validate(session),
             should_show_as_inactive=False,
-            loc=LocationData(
-                space_name=session.agenda_item.space.name,
-                parent_slug=(
-                    session.agenda_item.space.parent.slug
-                    if session.agenda_item.space.parent
-                    else ""
-                ),
-                parent_name=(
-                    session.agenda_item.space.parent.name
-                    if session.agenda_item.space.parent
-                    else ""
-                ),
-                path=str(session.agenda_item.space),
-            ),
+            loc=location_data(session.agenda_item.space),
             user_enrolled=True,
             user_waiting=True,
         )
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data={
-                "current_hour_data": {},
-                "ended_hour_data": {},
-                "enrollment_requires_slots": False,
-                "event": event,
-                "filterable_tag_categories": [],
-                "has_track_filter": False,
-                "has_category_filter": False,
-                "future_unavailable_hour_data": {
-                    agenda_item.start_time: [session_data]
-                },
-                "hour_data": {agenda_item.start_time: [session_data]},
-                "object": event,
-                "pending_sessions": [],
-                "pending_review_visible": True,
-                "own_pending_proposals": [],
-                "pending_wizard_view": True,
-                "sessions": [session_data],
-                "user_enrollment_config": None,
-                "total_enrolled": 1,
-                "user_enrolled_sessions": [session_data],
-                "event_banned": False,
-                **_schedule_context(self._get_url(event.slug)),
-                "user_enrolled_session_titles": [session_data.session.title],
-                "view": ANY,
-            },
+            context_data=event_page_context(
+                event,
+                url=self._get_url(event.slug),
+                future_unavailable_hour_data={agenda_item.start_time: [session_data]},
+                hour_data={agenda_item.start_time: [session_data]},
+                sessions=[session_data],
+                total_enrolled=1,
+                user_enrolled_sessions=[session_data],
+                user_enrolled_session_titles=[session_data.session.title],
+                has_enrollable_sessions=True,
+                scheduled_count=1,
+            ),
             template_name=["chronology/event.html"],
         )
         assert "Companions" not in response.content.decode()
@@ -1642,7 +2060,6 @@ class TestEventPageView:
             agenda_item=AgendaItemDTO.model_validate(agenda_item),
             effective_participants_limit=10,
             enrolled_count=0,
-            full_participant_info="0/10",
             is_enrollment_available=False,
             is_full=False,
             is_ongoing=False,
@@ -1650,16 +2067,7 @@ class TestEventPageView:
             session_participations=[],
             session=SessionDTO.model_validate(session),
             should_show_as_inactive=False,
-            loc=LocationData(
-                space_name=agenda_item.space.name,
-                parent_slug=(
-                    agenda_item.space.parent.slug if agenda_item.space.parent else ""
-                ),
-                parent_name=(
-                    agenda_item.space.parent.name if agenda_item.space.parent else ""
-                ),
-                path=str(agenda_item.space),
-            ),
+            loc=location_data(agenda_item.space),
             user_enrolled=False,
             user_waiting=False,
         )
@@ -1668,36 +2076,19 @@ class TestEventPageView:
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data={
-                "current_hour_data": {},
-                "ended_hour_data": {},
-                "enrollment_requires_slots": False,
-                "event": event,
-                "filterable_tag_categories": [],
-                "has_track_filter": False,
-                "has_category_filter": False,
-                "future_unavailable_hour_data": {
-                    agenda_item.start_time: [session_data]
-                },
-                "hour_data": {agenda_item.start_time: [session_data]},
-                "object": event,
-                "pending_review_visible": False,
-                "pending_sessions": [],
-                "pending_wizard_view": False,
-                "own_pending_proposals": [],
-                "sessions": [session_data],
-                "user_enrollment_config": None,
-                "total_enrolled": 0,
-                "user_enrolled_sessions": [],
-                "event_banned": False,
-                **_schedule_context(self._get_url(event.slug)),
-                "user_enrolled_session_titles": [],
-                "view": ANY,
-            },
+            context_data=event_page_context(
+                event,
+                url=self._get_url(event.slug),
+                future_unavailable_hour_data={agenda_item.start_time: [session_data]},
+                hour_data={agenda_item.start_time: [session_data]},
+                sessions=[session_data],
+                has_enrollable_sessions=True,
+                scheduled_count=1,
+            ),
             template_name=["chronology/event.html"],
         )
 
-    def test_ok_unlimited_session(
+    def test_ok_session_without_enrollment(
         self, active_user, agenda_item, client, event, session
     ):
         session.participants_limit = 0
@@ -1710,7 +2101,6 @@ class TestEventPageView:
             agenda_item=AgendaItemDTO.model_validate(agenda_item),
             effective_participants_limit=0,
             enrolled_count=0,
-            full_participant_info="0",
             is_enrollment_available=False,
             is_full=False,
             is_ongoing=False,
@@ -1718,16 +2108,7 @@ class TestEventPageView:
             session_participations=[],
             session=SessionDTO.model_validate(session),
             should_show_as_inactive=False,
-            loc=LocationData(
-                space_name=agenda_item.space.name,
-                parent_slug=(
-                    agenda_item.space.parent.slug if agenda_item.space.parent else ""
-                ),
-                parent_name=(
-                    agenda_item.space.parent.name if agenda_item.space.parent else ""
-                ),
-                path=str(agenda_item.space),
-            ),
+            loc=location_data(agenda_item.space),
             user_enrolled=False,
             user_waiting=False,
         )
@@ -1736,32 +2117,14 @@ class TestEventPageView:
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data={
-                "current_hour_data": {},
-                "ended_hour_data": {},
-                "enrollment_requires_slots": False,
-                "event": event,
-                "filterable_tag_categories": [],
-                "has_track_filter": False,
-                "has_category_filter": False,
-                "future_unavailable_hour_data": {
-                    agenda_item.start_time: [session_data]
-                },
-                "hour_data": {agenda_item.start_time: [session_data]},
-                "object": event,
-                "pending_review_visible": False,
-                "pending_sessions": [],
-                "pending_wizard_view": False,
-                "own_pending_proposals": [],
-                "sessions": [session_data],
-                "user_enrollment_config": None,
-                "total_enrolled": 0,
-                "user_enrolled_sessions": [],
-                "event_banned": False,
-                **_schedule_context(self._get_url(event.slug)),
-                "user_enrolled_session_titles": [],
-                "view": ANY,
-            },
+            context_data=event_page_context(
+                event,
+                url=self._get_url(event.slug),
+                current_hour_data={agenda_item.start_time: [session_data]},
+                hour_data={agenda_item.start_time: [session_data]},
+                sessions=[session_data],
+                scheduled_count=1,
+            ),
             template_name=["chronology/event.html"],
         )
 
@@ -1782,7 +2145,6 @@ class TestEventPageView:
             agenda_item=AgendaItemDTO.model_validate(agenda_item),
             effective_participants_limit=10,
             enrolled_count=0,
-            full_participant_info="0/10",
             is_enrollment_available=False,
             is_full=False,
             is_ongoing=False,
@@ -1798,16 +2160,7 @@ class TestEventPageView:
             session_participations=[],
             session=SessionDTO.model_validate(session),
             should_show_as_inactive=False,
-            loc=LocationData(
-                space_name=agenda_item.space.name,
-                parent_slug=(
-                    agenda_item.space.parent.slug if agenda_item.space.parent else ""
-                ),
-                parent_name=(
-                    agenda_item.space.parent.name if agenda_item.space.parent else ""
-                ),
-                path=str(agenda_item.space),
-            ),
+            loc=location_data(agenda_item.space),
             user_enrolled=False,
             user_waiting=False,
             category_name=session.category.name,
@@ -1815,32 +2168,15 @@ class TestEventPageView:
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data={
-                "current_hour_data": {},
-                "ended_hour_data": {},
-                "enrollment_requires_slots": False,
-                "event": event,
-                "filterable_tag_categories": [],
-                "has_track_filter": False,
-                "has_category_filter": False,
-                "future_unavailable_hour_data": {
-                    agenda_item.start_time: [session_data]
-                },
-                "hour_data": {agenda_item.start_time: [session_data]},
-                "object": event,
-                "pending_review_visible": False,
-                "pending_sessions": [],
-                "pending_wizard_view": False,
-                "own_pending_proposals": [],
-                "sessions": [session_data],
-                "user_enrollment_config": None,
-                "total_enrolled": 0,
-                "user_enrolled_sessions": [],
-                "event_banned": False,
-                **_schedule_context(self._get_url(event.slug)),
-                "user_enrolled_session_titles": [],
-                "view": ANY,
-            },
+            context_data=event_page_context(
+                event,
+                url=self._get_url(event.slug),
+                future_unavailable_hour_data={agenda_item.start_time: [session_data]},
+                hour_data={agenda_item.start_time: [session_data]},
+                sessions=[session_data],
+                has_enrollable_sessions=True,
+                scheduled_count=1,
+            ),
             template_name=["chronology/event.html"],
         )
 
@@ -1854,7 +2190,6 @@ class TestEventPageView:
             agenda_item=AgendaItemDTO.model_validate(agenda_item),
             effective_participants_limit=10,
             enrolled_count=0,
-            full_participant_info="0/10",
             is_enrollment_available=False,
             is_full=False,
             is_ongoing=True,
@@ -1865,46 +2200,22 @@ class TestEventPageView:
             session_participations=[],
             session=SessionDTO.model_validate(agenda_item.session),
             should_show_as_inactive=False,
-            loc=LocationData(
-                space_name=agenda_item.space.name,
-                parent_slug=(
-                    agenda_item.space.parent.slug if agenda_item.space.parent else ""
-                ),
-                parent_name=(
-                    agenda_item.space.parent.name if agenda_item.space.parent else ""
-                ),
-                path=str(agenda_item.space),
-            ),
+            loc=location_data(agenda_item.space),
             user_enrolled=False,
             user_waiting=False,
         )
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data={
-                "current_hour_data": {},
-                "ended_hour_data": {agenda_item.start_time: [session_data]},
-                "enrollment_requires_slots": False,
-                "event": event,
-                "filterable_tag_categories": [],
-                "has_track_filter": False,
-                "has_category_filter": False,
-                "future_unavailable_hour_data": {},
-                "hour_data": {agenda_item.start_time: [session_data]},
-                "object": event,
-                "pending_review_visible": False,
-                "pending_sessions": [],
-                "pending_wizard_view": False,
-                "own_pending_proposals": [],
-                "sessions": [session_data],
-                "user_enrollment_config": None,
-                "total_enrolled": 0,
-                "user_enrolled_sessions": [],
-                "event_banned": False,
-                **_schedule_context(self._get_url(event.slug)),
-                "user_enrolled_session_titles": [],
-                "view": ANY,
-            },
+            context_data=event_page_context(
+                event,
+                url=self._get_url(event.slug),
+                ended_hour_data={agenda_item.start_time: [session_data]},
+                hour_data={agenda_item.start_time: [session_data]},
+                sessions=[session_data],
+                has_enrollable_sessions=True,
+                scheduled_count=1,
+            ),
             template_name=["chronology/event.html"],
         )
 
@@ -1918,7 +2229,6 @@ class TestEventPageView:
             agenda_item=AgendaItemDTO.model_validate(agenda_item),
             effective_participants_limit=10,
             enrolled_count=0,
-            full_participant_info="0/10",
             is_enrollment_available=False,
             is_full=False,
             is_ongoing=True,
@@ -1928,46 +2238,22 @@ class TestEventPageView:
             session_participations=[],
             session=SessionDTO.model_validate(agenda_item.session),
             should_show_as_inactive=False,
-            loc=LocationData(
-                space_name=agenda_item.space.name,
-                parent_slug=(
-                    agenda_item.space.parent.slug if agenda_item.space.parent else ""
-                ),
-                parent_name=(
-                    agenda_item.space.parent.name if agenda_item.space.parent else ""
-                ),
-                path=str(agenda_item.space),
-            ),
+            loc=location_data(agenda_item.space),
             user_enrolled=False,
             user_waiting=False,
         )
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data={
-                "current_hour_data": {agenda_item.start_time: [session_data]},
-                "ended_hour_data": {},
-                "enrollment_requires_slots": False,
-                "event": event,
-                "filterable_tag_categories": [],
-                "has_track_filter": False,
-                "has_category_filter": False,
-                "future_unavailable_hour_data": {},
-                "hour_data": {agenda_item.start_time: [session_data]},
-                "object": event,
-                "pending_review_visible": False,
-                "pending_sessions": [],
-                "pending_wizard_view": False,
-                "own_pending_proposals": [],
-                "sessions": [session_data],
-                "user_enrollment_config": None,
-                "total_enrolled": 0,
-                "user_enrolled_sessions": [],
-                "event_banned": False,
-                **_schedule_context(self._get_url(event.slug)),
-                "user_enrolled_session_titles": [],
-                "view": ANY,
-            },
+            context_data=event_page_context(
+                event,
+                url=self._get_url(event.slug),
+                current_hour_data={agenda_item.start_time: [session_data]},
+                hour_data={agenda_item.start_time: [session_data]},
+                sessions=[session_data],
+                has_enrollable_sessions=True,
+                scheduled_count=1,
+            ),
             template_name=["chronology/event.html"],
         )
 
@@ -1983,30 +2269,7 @@ class TestEventPageView:
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data={
-                "current_hour_data": {},
-                "ended_hour_data": {},
-                "enrollment_requires_slots": False,
-                "event": event,
-                "filterable_tag_categories": [],
-                "has_track_filter": False,
-                "has_category_filter": False,
-                "future_unavailable_hour_data": {},
-                "hour_data": {},
-                "object": event,
-                "pending_sessions": [],
-                "pending_review_visible": False,
-                "own_pending_proposals": [],
-                "pending_wizard_view": False,
-                "sessions": [],
-                "user_enrollment_config": None,
-                "total_enrolled": 0,
-                "user_enrolled_sessions": [],
-                "event_banned": False,
-                **_schedule_context(self._get_url(event.slug)),
-                "user_enrolled_session_titles": [],
-                "view": ANY,
-            },
+            context_data=event_page_context(event, url=self._get_url(event.slug)),
             template_name=["chronology/event.html"],
         )
         assert not authenticated_client.session.get("anonymous_user_code")
@@ -2031,32 +2294,12 @@ class TestEventPageView:
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data={
-                "anonymous_code": user.slug.split("_")[1],
-                "anonymous_user_enrollments": [],
-                "current_hour_data": {},
-                "ended_hour_data": {},
-                "enrollment_requires_slots": False,
-                "event": event,
-                "filterable_tag_categories": [],
-                "has_track_filter": False,
-                "has_category_filter": False,
-                "future_unavailable_hour_data": {},
-                "hour_data": {},
-                "object": event,
-                "pending_review_visible": False,
-                "pending_sessions": [],
-                "pending_wizard_view": False,
-                "own_pending_proposals": [],
-                "sessions": [],
-                "user_enrollment_config": None,
-                "total_enrolled": 0,
-                "user_enrolled_sessions": [],
-                "event_banned": False,
-                **_schedule_context(self._get_url(event.slug)),
-                "user_enrolled_session_titles": [],
-                "view": ANY,
-            },
+            context_data=event_page_context(
+                event,
+                url=self._get_url(event.slug),
+                anonymous_code=user.slug.split("_")[1],
+                anonymous_user_enrollments=[],
+            ),
             template_name=["chronology/event.html"],
         )
 
@@ -2074,30 +2317,7 @@ class TestEventPageView:
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data={
-                "current_hour_data": {},
-                "ended_hour_data": {},
-                "enrollment_requires_slots": False,
-                "event": event,
-                "filterable_tag_categories": [],
-                "has_track_filter": False,
-                "has_category_filter": False,
-                "future_unavailable_hour_data": {},
-                "hour_data": {},
-                "object": event,
-                "pending_review_visible": False,
-                "pending_sessions": [],
-                "pending_wizard_view": False,
-                "own_pending_proposals": [],
-                "sessions": [],
-                "user_enrollment_config": None,
-                "total_enrolled": 0,
-                "user_enrolled_sessions": [],
-                "event_banned": False,
-                **_schedule_context(self._get_url(event.slug)),
-                "user_enrolled_session_titles": [],
-                "view": ANY,
-            },
+            context_data=event_page_context(event, url=self._get_url(event.slug)),
             template_name=["chronology/event.html"],
         )
         assert not client.session.get("anonymous_user_code")
@@ -2119,30 +2339,7 @@ class TestEventPageView:
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data={
-                "current_hour_data": {},
-                "ended_hour_data": {},
-                "enrollment_requires_slots": False,
-                "event": event,
-                "filterable_tag_categories": [],
-                "has_track_filter": False,
-                "has_category_filter": False,
-                "future_unavailable_hour_data": {},
-                "hour_data": {},
-                "object": event,
-                "pending_review_visible": False,
-                "pending_sessions": [],
-                "pending_wizard_view": False,
-                "own_pending_proposals": [],
-                "sessions": [],
-                "user_enrollment_config": None,
-                "total_enrolled": 0,
-                "user_enrolled_sessions": [],
-                "event_banned": False,
-                **_schedule_context(self._get_url(event.slug)),
-                "user_enrolled_session_titles": [],
-                "view": ANY,
-            },
+            context_data=event_page_context(event, url=self._get_url(event.slug)),
             template_name=["chronology/event.html"],
         )
         assert not client.session.get("anonymous_user_code")
@@ -2163,30 +2360,7 @@ class TestEventPageView:
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data={
-                "current_hour_data": {},
-                "ended_hour_data": {},
-                "enrollment_requires_slots": False,
-                "event": event,
-                "filterable_tag_categories": [],
-                "has_track_filter": False,
-                "has_category_filter": False,
-                "future_unavailable_hour_data": {},
-                "hour_data": {},
-                "object": event,
-                "pending_review_visible": False,
-                "pending_sessions": [],
-                "pending_wizard_view": False,
-                "own_pending_proposals": [],
-                "sessions": [],
-                "user_enrollment_config": None,
-                "total_enrolled": 0,
-                "user_enrolled_sessions": [],
-                "event_banned": False,
-                **_schedule_context(self._get_url(event.slug)),
-                "user_enrolled_session_titles": [],
-                "view": ANY,
-            },
+            context_data=event_page_context(event, url=self._get_url(event.slug)),
             template_name=["chronology/event.html"],
         )
         assert not client.session.get("anonymous_user_code")
@@ -2210,30 +2384,7 @@ class TestEventPageView:
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data={
-                "current_hour_data": {},
-                "ended_hour_data": {},
-                "enrollment_requires_slots": False,
-                "event": event,
-                "filterable_tag_categories": [],
-                "has_track_filter": False,
-                "has_category_filter": False,
-                "future_unavailable_hour_data": {},
-                "hour_data": {},
-                "object": event,
-                "pending_review_visible": False,
-                "pending_sessions": [],
-                "pending_wizard_view": False,
-                "own_pending_proposals": [],
-                "sessions": [],
-                "user_enrollment_config": None,
-                "total_enrolled": 0,
-                "user_enrolled_sessions": [],
-                "event_banned": False,
-                **_schedule_context(self._get_url(event.slug)),
-                "user_enrolled_session_titles": [],
-                "view": ANY,
-            },
+            context_data=event_page_context(event, url=self._get_url(event.slug)),
             template_name=["chronology/event.html"],
         )
         assert not client.session.get("anonymous_user_code")
@@ -2264,7 +2415,6 @@ class TestEventPageView:
             agenda_item=AgendaItemDTO.model_validate(agenda_item),
             effective_participants_limit=10,
             enrolled_count=1,
-            full_participant_info="1/10",
             is_enrollment_available=False,
             is_full=False,
             is_ongoing=False,
@@ -2283,50 +2433,27 @@ class TestEventPageView:
             ],
             session=SessionDTO.model_validate(agenda_item.session),
             should_show_as_inactive=False,
-            loc=LocationData(
-                space_name=agenda_item.space.name,
-                parent_slug=(
-                    agenda_item.space.parent.slug if agenda_item.space.parent else ""
-                ),
-                parent_name=(
-                    agenda_item.space.parent.name if agenda_item.space.parent else ""
-                ),
-                path=str(agenda_item.space),
-            ),
+            loc=location_data(agenda_item.space),
             user_enrolled=True,
             user_waiting=False,
         )
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data={
-                "anonymous_code": user.slug.split("_")[1],
-                "anonymous_user_enrollments": [participation],
-                "current_hour_data": {},
-                "ended_hour_data": {},
-                "enrollment_requires_slots": False,
-                "event": event,
-                "filterable_tag_categories": [],
-                "has_track_filter": False,
-                "has_category_filter": False,
-                "future_unavailable_hour_data": {
-                    agenda_item.start_time: [session_data]
-                },
-                "hour_data": {agenda_item.start_time: [session_data]},
-                "object": event,
-                "pending_review_visible": False,
-                "pending_sessions": [],
-                "pending_wizard_view": False,
-                "own_pending_proposals": [],
-                "sessions": [session_data],
-                "user_enrollment_config": None,
-                "total_enrolled": 1,
-                "user_enrolled_sessions": [session_data],
-                "event_banned": False,
-                **_schedule_context(self._get_url(event.slug)),
-                "user_enrolled_session_titles": [session_data.session.title],
-                "view": ANY,
-            },
+            context_data=event_page_context(
+                event,
+                url=self._get_url(event.slug),
+                anonymous_code=user.slug.split("_")[1],
+                anonymous_user_enrollments=[participation],
+                future_unavailable_hour_data={agenda_item.start_time: [session_data]},
+                hour_data={agenda_item.start_time: [session_data]},
+                sessions=[session_data],
+                total_enrolled=1,
+                user_enrolled_sessions=[session_data],
+                user_enrolled_session_titles=[session_data.session.title],
+                has_enrollable_sessions=True,
+                scheduled_count=1,
+            ),
             template_name=["chronology/event.html"],
         )
 
@@ -2344,7 +2471,6 @@ class TestEventPageView:
             agenda_item=AgendaItemDTO.model_validate(agenda_item),
             effective_participants_limit=10,
             enrolled_count=0,
-            full_participant_info="0/10",
             is_enrollment_available=True,
             is_full=False,
             is_ongoing=True,
@@ -2354,46 +2480,22 @@ class TestEventPageView:
             session_participations=[],
             session=SessionDTO.model_validate(agenda_item.session),
             should_show_as_inactive=True,
-            loc=LocationData(
-                space_name=agenda_item.space.name,
-                parent_slug=(
-                    agenda_item.space.parent.slug if agenda_item.space.parent else ""
-                ),
-                parent_name=(
-                    agenda_item.space.parent.name if agenda_item.space.parent else ""
-                ),
-                path=str(agenda_item.space),
-            ),
+            loc=location_data(agenda_item.space),
             user_enrolled=False,
             user_waiting=False,
         )
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data={
-                "current_hour_data": {agenda_item.start_time: [session_data]},
-                "ended_hour_data": {},
-                "enrollment_requires_slots": False,
-                "event": event,
-                "filterable_tag_categories": [],
-                "has_track_filter": False,
-                "has_category_filter": False,
-                "future_unavailable_hour_data": {},
-                "hour_data": {agenda_item.start_time: [session_data]},
-                "object": event,
-                "pending_review_visible": False,
-                "pending_sessions": [],
-                "pending_wizard_view": False,
-                "own_pending_proposals": [],
-                "sessions": [session_data],
-                "user_enrollment_config": None,
-                "total_enrolled": 0,
-                "user_enrolled_sessions": [],
-                "event_banned": False,
-                **_schedule_context(self._get_url(event.slug)),
-                "user_enrolled_session_titles": [],
-                "view": ANY,
-            },
+            context_data=event_page_context(
+                event,
+                url=self._get_url(event.slug),
+                current_hour_data={agenda_item.start_time: [session_data]},
+                hour_data={agenda_item.start_time: [session_data]},
+                sessions=[session_data],
+                has_enrollable_sessions=True,
+                scheduled_count=1,
+            ),
             template_name=["chronology/event.html"],
         )
 
@@ -2441,7 +2543,6 @@ class TestEventPageView:
             agenda_item=AgendaItemDTO.model_validate(agenda_item),
             effective_participants_limit=10,
             enrolled_count=0,
-            full_participant_info="0/10",
             is_enrollment_available=True,
             is_full=False,
             is_ongoing=True,
@@ -2451,48 +2552,26 @@ class TestEventPageView:
             session_participations=[],
             session=SessionDTO.model_validate(agenda_item.session),
             should_show_as_inactive=False,
-            loc=LocationData(
-                space_name=agenda_item.space.name,
-                parent_slug=(
-                    agenda_item.space.parent.slug if agenda_item.space.parent else ""
-                ),
-                parent_name=(
-                    agenda_item.space.parent.name if agenda_item.space.parent else ""
-                ),
-                path=str(agenda_item.space),
-            ),
+            loc=location_data(agenda_item.space),
             user_enrolled=False,
             user_waiting=False,
         )
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data={
-                "current_hour_data": {agenda_item.start_time: [session_data]},
-                "ended_hour_data": {},
-                "enrollment_requires_slots": True,
-                "event": event,
-                "filterable_tag_categories": [],
-                "has_track_filter": False,
-                "has_category_filter": False,
-                "future_unavailable_hour_data": {},
-                "hour_data": {agenda_item.start_time: [session_data]},
-                "object": event,
-                "pending_sessions": [],
-                "pending_review_visible": False,
-                "own_pending_proposals": [],
-                "pending_wizard_view": False,
-                "sessions": [session_data],
-                "total_enrolled": 0,
-                "user_enrolled_sessions": [],
-                "event_banned": False,
-                **_schedule_context(self._get_url(event.slug)),
-                "user_enrolled_session_titles": [],
-                "user_enrollment_config": VirtualEnrollmentConfig(
+            context_data=event_page_context(
+                event,
+                url=self._get_url(event.slug),
+                current_hour_data={agenda_item.start_time: [session_data]},
+                enrollment_requires_slots=True,
+                hour_data={agenda_item.start_time: [session_data]},
+                sessions=[session_data],
+                user_enrollment_config=VirtualEnrollmentConfig(
                     allowed_slots=7 + 8, has_domain_config=False, has_user_config=True
                 ),
-                "view": ANY,
-            },
+                has_enrollable_sessions=True,
+                scheduled_count=1,
+            ),
             template_name=["chronology/event.html"],
             contains="Enrollment Open",
         )
@@ -2529,7 +2608,6 @@ class TestEventPageView:
             agenda_item=AgendaItemDTO.model_validate(agenda_item),
             effective_participants_limit=10,
             enrolled_count=0,
-            full_participant_info="0/10",
             is_enrollment_available=True,
             is_full=False,
             is_ongoing=True,
@@ -2539,48 +2617,26 @@ class TestEventPageView:
             session_participations=[],
             session=SessionDTO.model_validate(agenda_item.session),
             should_show_as_inactive=False,
-            loc=LocationData(
-                space_name=agenda_item.space.name,
-                parent_slug=(
-                    agenda_item.space.parent.slug if agenda_item.space.parent else ""
-                ),
-                parent_name=(
-                    agenda_item.space.parent.name if agenda_item.space.parent else ""
-                ),
-                path=str(agenda_item.space),
-            ),
+            loc=location_data(agenda_item.space),
             user_enrolled=False,
             user_waiting=False,
         )
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data={
-                "current_hour_data": {agenda_item.start_time: [session_data]},
-                "ended_hour_data": {},
-                "enrollment_requires_slots": True,
-                "event": event,
-                "filterable_tag_categories": [],
-                "has_track_filter": False,
-                "has_category_filter": False,
-                "future_unavailable_hour_data": {},
-                "hour_data": {agenda_item.start_time: [session_data]},
-                "object": event,
-                "pending_sessions": [],
-                "pending_review_visible": False,
-                "own_pending_proposals": [],
-                "pending_wizard_view": False,
-                "sessions": [session_data],
-                "total_enrolled": 0,
-                "user_enrolled_sessions": [],
-                "event_banned": False,
-                **_schedule_context(self._get_url(event.slug)),
-                "user_enrolled_session_titles": [],
-                "user_enrollment_config": VirtualEnrollmentConfig(
+            context_data=event_page_context(
+                event,
+                url=self._get_url(event.slug),
+                current_hour_data={agenda_item.start_time: [session_data]},
+                enrollment_requires_slots=True,
+                hour_data={agenda_item.start_time: [session_data]},
+                sessions=[session_data],
+                user_enrollment_config=VirtualEnrollmentConfig(
                     allowed_slots=slots, has_domain_config=False, has_user_config=True
                 ),
-                "view": ANY,
-            },
+                has_enrollable_sessions=True,
+                scheduled_count=1,
+            ),
             template_name=["chronology/event.html"],
         )
 
@@ -2620,7 +2676,6 @@ class TestEventPageView:
             agenda_item=AgendaItemDTO.model_validate(agenda_item),
             effective_participants_limit=10,
             enrolled_count=0,
-            full_participant_info="0/10",
             is_enrollment_available=True,
             is_full=False,
             is_ongoing=True,
@@ -2630,48 +2685,26 @@ class TestEventPageView:
             session_participations=[],
             session=SessionDTO.model_validate(agenda_item.session),
             should_show_as_inactive=False,
-            loc=LocationData(
-                space_name=agenda_item.space.name,
-                parent_slug=(
-                    agenda_item.space.parent.slug if agenda_item.space.parent else ""
-                ),
-                parent_name=(
-                    agenda_item.space.parent.name if agenda_item.space.parent else ""
-                ),
-                path=str(agenda_item.space),
-            ),
+            loc=location_data(agenda_item.space),
             user_enrolled=False,
             user_waiting=False,
         )
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data={
-                "current_hour_data": {agenda_item.start_time: [session_data]},
-                "ended_hour_data": {},
-                "enrollment_requires_slots": True,
-                "event": event,
-                "filterable_tag_categories": [],
-                "has_track_filter": False,
-                "has_category_filter": False,
-                "future_unavailable_hour_data": {},
-                "hour_data": {agenda_item.start_time: [session_data]},
-                "object": event,
-                "pending_sessions": [],
-                "pending_review_visible": False,
-                "own_pending_proposals": [],
-                "pending_wizard_view": False,
-                "sessions": [session_data],
-                "total_enrolled": 0,
-                "user_enrolled_sessions": [],
-                "event_banned": False,
-                **_schedule_context(self._get_url(event.slug)),
-                "user_enrolled_session_titles": [],
-                "user_enrollment_config": VirtualEnrollmentConfig(
+            context_data=event_page_context(
+                event,
+                url=self._get_url(event.slug),
+                current_hour_data={agenda_item.start_time: [session_data]},
+                enrollment_requires_slots=True,
+                hour_data={agenda_item.start_time: [session_data]},
+                sessions=[session_data],
+                user_enrollment_config=VirtualEnrollmentConfig(
                     allowed_slots=slots, has_domain_config=True, has_user_config=False
                 ),
-                "view": ANY,
-            },
+                has_enrollable_sessions=True,
+                scheduled_count=1,
+            ),
             template_name=["chronology/event.html"],
         )
 
@@ -2708,7 +2741,6 @@ class TestEventPageView:
             agenda_item=AgendaItemDTO.model_validate(agenda_item),
             effective_participants_limit=10,
             enrolled_count=0,
-            full_participant_info="0/10",
             is_enrollment_available=True,
             is_full=False,
             is_ongoing=True,
@@ -2718,50 +2750,28 @@ class TestEventPageView:
             session_participations=[],
             session=SessionDTO.model_validate(agenda_item.session),
             should_show_as_inactive=False,
-            loc=LocationData(
-                space_name=agenda_item.space.name,
-                parent_slug=(
-                    agenda_item.space.parent.slug if agenda_item.space.parent else ""
-                ),
-                parent_name=(
-                    agenda_item.space.parent.name if agenda_item.space.parent else ""
-                ),
-                path=str(agenda_item.space),
-            ),
+            loc=location_data(agenda_item.space),
             user_enrolled=False,
             user_waiting=False,
         )
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data={
-                "current_hour_data": {agenda_item.start_time: [session_data]},
-                "ended_hour_data": {},
-                "enrollment_requires_slots": True,
-                "event": event,
-                "filterable_tag_categories": [],
-                "has_track_filter": False,
-                "has_category_filter": False,
-                "future_unavailable_hour_data": {},
-                "hour_data": {agenda_item.start_time: [session_data]},
-                "object": event,
-                "pending_sessions": [],
-                "pending_review_visible": False,
-                "own_pending_proposals": [],
-                "pending_wizard_view": False,
-                "sessions": [session_data],
-                "total_enrolled": 0,
-                "user_enrolled_sessions": [],
-                "event_banned": False,
-                **_schedule_context(self._get_url(event.slug)),
-                "user_enrolled_session_titles": [],
-                "user_enrollment_config": VirtualEnrollmentConfig(
+            context_data=event_page_context(
+                event,
+                url=self._get_url(event.slug),
+                current_hour_data={agenda_item.start_time: [session_data]},
+                enrollment_requires_slots=True,
+                hour_data={agenda_item.start_time: [session_data]},
+                sessions=[session_data],
+                user_enrollment_config=VirtualEnrollmentConfig(
                     allowed_slots=primary_slots + domain_slots,
                     has_domain_config=True,
                     has_user_config=True,
                 ),
-                "view": ANY,
-            },
+                has_enrollable_sessions=True,
+                scheduled_count=1,
+            ),
             template_name=["chronology/event.html"],
         )
 
@@ -2798,7 +2808,6 @@ class TestEventPageView:
             agenda_item=AgendaItemDTO.model_validate(agenda_item),
             effective_participants_limit=10,
             enrolled_count=0,
-            full_participant_info="0/10",
             is_enrollment_available=True,
             is_full=False,
             is_ongoing=True,
@@ -2808,46 +2817,23 @@ class TestEventPageView:
             session_participations=[],
             session=SessionDTO.model_validate(agenda_item.session),
             should_show_as_inactive=False,
-            loc=LocationData(
-                space_name=agenda_item.space.name,
-                parent_slug=(
-                    agenda_item.space.parent.slug if agenda_item.space.parent else ""
-                ),
-                parent_name=(
-                    agenda_item.space.parent.name if agenda_item.space.parent else ""
-                ),
-                path=str(agenda_item.space),
-            ),
+            loc=location_data(agenda_item.space),
             user_enrolled=False,
             user_waiting=False,
         )
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data={
-                "current_hour_data": {agenda_item.start_time: [session_data]},
-                "ended_hour_data": {},
-                "enrollment_requires_slots": True,
-                "event": event,
-                "filterable_tag_categories": [],
-                "has_track_filter": False,
-                "has_category_filter": False,
-                "future_unavailable_hour_data": {},
-                "hour_data": {agenda_item.start_time: [session_data]},
-                "object": event,
-                "pending_sessions": [],
-                "pending_review_visible": False,
-                "own_pending_proposals": [],
-                "pending_wizard_view": False,
-                "sessions": [session_data],
-                "user_enrollment_config": None,
-                "total_enrolled": 0,
-                "user_enrolled_sessions": [],
-                "event_banned": False,
-                **_schedule_context(self._get_url(event.slug)),
-                "user_enrolled_session_titles": [],
-                "view": ANY,
-            },
+            context_data=event_page_context(
+                event,
+                url=self._get_url(event.slug),
+                current_hour_data={agenda_item.start_time: [session_data]},
+                enrollment_requires_slots=True,
+                hour_data={agenda_item.start_time: [session_data]},
+                sessions=[session_data],
+                has_enrollable_sessions=True,
+                scheduled_count=1,
+            ),
             template_name=["chronology/event.html"],
         )
 
@@ -2884,7 +2870,6 @@ class TestEventPageView:
             agenda_item=AgendaItemDTO.model_validate(agenda_item),
             effective_participants_limit=10,
             enrolled_count=0,
-            full_participant_info="0/10",
             is_enrollment_available=True,
             is_full=False,
             is_ongoing=True,
@@ -2894,46 +2879,23 @@ class TestEventPageView:
             session_participations=[],
             session=SessionDTO.model_validate(agenda_item.session),
             should_show_as_inactive=False,
-            loc=LocationData(
-                space_name=agenda_item.space.name,
-                parent_slug=(
-                    agenda_item.space.parent.slug if agenda_item.space.parent else ""
-                ),
-                parent_name=(
-                    agenda_item.space.parent.name if agenda_item.space.parent else ""
-                ),
-                path=str(agenda_item.space),
-            ),
+            loc=location_data(agenda_item.space),
             user_enrolled=False,
             user_waiting=False,
         )
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data={
-                "current_hour_data": {agenda_item.start_time: [session_data]},
-                "ended_hour_data": {},
-                "enrollment_requires_slots": True,
-                "event": event,
-                "filterable_tag_categories": [],
-                "has_track_filter": False,
-                "has_category_filter": False,
-                "future_unavailable_hour_data": {},
-                "hour_data": {agenda_item.start_time: [session_data]},
-                "object": event,
-                "pending_sessions": [],
-                "pending_review_visible": False,
-                "own_pending_proposals": [],
-                "pending_wizard_view": False,
-                "sessions": [session_data],
-                "user_enrollment_config": None,
-                "total_enrolled": 0,
-                "user_enrolled_sessions": [],
-                "event_banned": False,
-                **_schedule_context(self._get_url(event.slug)),
-                "user_enrolled_session_titles": [],
-                "view": ANY,
-            },
+            context_data=event_page_context(
+                event,
+                url=self._get_url(event.slug),
+                current_hour_data={agenda_item.start_time: [session_data]},
+                enrollment_requires_slots=True,
+                hour_data={agenda_item.start_time: [session_data]},
+                sessions=[session_data],
+                has_enrollable_sessions=True,
+                scheduled_count=1,
+            ),
             template_name=["chronology/event.html"],
         )
 
@@ -2982,7 +2944,6 @@ class TestEventPageView:
             agenda_item=AgendaItemDTO.model_validate(agenda_item),
             effective_participants_limit=10,
             enrolled_count=0,
-            full_participant_info="0/10",
             is_enrollment_available=True,
             is_full=False,
             is_ongoing=True,
@@ -2992,48 +2953,26 @@ class TestEventPageView:
             session_participations=[],
             session=SessionDTO.model_validate(agenda_item.session),
             should_show_as_inactive=False,
-            loc=LocationData(
-                space_name=agenda_item.space.name,
-                parent_slug=(
-                    agenda_item.space.parent.slug if agenda_item.space.parent else ""
-                ),
-                parent_name=(
-                    agenda_item.space.parent.name if agenda_item.space.parent else ""
-                ),
-                path=str(agenda_item.space),
-            ),
+            loc=location_data(agenda_item.space),
             user_enrolled=False,
             user_waiting=False,
         )
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data={
-                "current_hour_data": {agenda_item.start_time: [session_data]},
-                "ended_hour_data": {},
-                "enrollment_requires_slots": True,
-                "event": event,
-                "filterable_tag_categories": [],
-                "has_track_filter": False,
-                "has_category_filter": False,
-                "future_unavailable_hour_data": {},
-                "hour_data": {agenda_item.start_time: [session_data]},
-                "object": event,
-                "pending_sessions": [],
-                "pending_review_visible": False,
-                "own_pending_proposals": [],
-                "pending_wizard_view": False,
-                "sessions": [session_data],
-                "total_enrolled": 0,
-                "user_enrolled_sessions": [],
-                "event_banned": False,
-                **_schedule_context(self._get_url(event.slug)),
-                "user_enrolled_session_titles": [],
-                "user_enrollment_config": VirtualEnrollmentConfig(
+            context_data=event_page_context(
+                event,
+                url=self._get_url(event.slug),
+                current_hour_data={agenda_item.start_time: [session_data]},
+                enrollment_requires_slots=True,
+                hour_data={agenda_item.start_time: [session_data]},
+                sessions=[session_data],
+                user_enrollment_config=VirtualEnrollmentConfig(
                     allowed_slots=slots, has_domain_config=False, has_user_config=True
                 ),
-                "view": ANY,
-            },
+                has_enrollable_sessions=True,
+                scheduled_count=1,
+            ),
             template_name=["chronology/event.html"],
         )
 
@@ -3072,7 +3011,6 @@ class TestEventPageView:
             agenda_item=AgendaItemDTO.model_validate(agenda_item),
             effective_participants_limit=10,
             enrolled_count=0,
-            full_participant_info="0/10",
             is_enrollment_available=True,
             is_full=False,
             is_ongoing=True,
@@ -3082,48 +3020,26 @@ class TestEventPageView:
             session_participations=[],
             session=SessionDTO.model_validate(agenda_item.session),
             should_show_as_inactive=False,
-            loc=LocationData(
-                space_name=agenda_item.space.name,
-                parent_slug=(
-                    agenda_item.space.parent.slug if agenda_item.space.parent else ""
-                ),
-                parent_name=(
-                    agenda_item.space.parent.name if agenda_item.space.parent else ""
-                ),
-                path=str(agenda_item.space),
-            ),
+            loc=location_data(agenda_item.space),
             user_enrolled=False,
             user_waiting=False,
         )
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data={
-                "current_hour_data": {agenda_item.start_time: [session_data]},
-                "ended_hour_data": {},
-                "enrollment_requires_slots": True,
-                "event": event,
-                "filterable_tag_categories": [],
-                "has_track_filter": False,
-                "has_category_filter": False,
-                "future_unavailable_hour_data": {},
-                "hour_data": {agenda_item.start_time: [session_data]},
-                "object": event,
-                "pending_sessions": [],
-                "pending_review_visible": False,
-                "own_pending_proposals": [],
-                "pending_wizard_view": False,
-                "sessions": [session_data],
-                "user_enrollment_config": VirtualEnrollmentConfig(
+            context_data=event_page_context(
+                event,
+                url=self._get_url(event.slug),
+                current_hour_data={agenda_item.start_time: [session_data]},
+                enrollment_requires_slots=True,
+                hour_data={agenda_item.start_time: [session_data]},
+                sessions=[session_data],
+                user_enrollment_config=VirtualEnrollmentConfig(
                     allowed_slots=0, has_domain_config=False, has_user_config=True
                 ),
-                "total_enrolled": 0,
-                "user_enrolled_sessions": [],
-                "event_banned": False,
-                **_schedule_context(self._get_url(event.slug)),
-                "user_enrolled_session_titles": [],
-                "view": ANY,
-            },
+                has_enrollable_sessions=True,
+                scheduled_count=1,
+            ),
             template_name=["chronology/event.html"],
         )
 
@@ -3171,7 +3087,6 @@ class TestEventPageView:
             agenda_item=AgendaItemDTO.model_validate(agenda_item),
             effective_participants_limit=10,
             enrolled_count=0,
-            full_participant_info="0/10",
             is_enrollment_available=True,
             is_full=False,
             is_ongoing=True,
@@ -3181,48 +3096,26 @@ class TestEventPageView:
             session_participations=[],
             session=SessionDTO.model_validate(agenda_item.session),
             should_show_as_inactive=False,
-            loc=LocationData(
-                space_name=agenda_item.space.name,
-                parent_slug=(
-                    agenda_item.space.parent.slug if agenda_item.space.parent else ""
-                ),
-                parent_name=(
-                    agenda_item.space.parent.name if agenda_item.space.parent else ""
-                ),
-                path=str(agenda_item.space),
-            ),
+            loc=location_data(agenda_item.space),
             user_enrolled=False,
             user_waiting=False,
         )
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data={
-                "current_hour_data": {agenda_item.start_time: [session_data]},
-                "ended_hour_data": {},
-                "enrollment_requires_slots": True,
-                "event": event,
-                "filterable_tag_categories": [],
-                "has_track_filter": False,
-                "has_category_filter": False,
-                "future_unavailable_hour_data": {},
-                "hour_data": {agenda_item.start_time: [session_data]},
-                "object": event,
-                "pending_sessions": [],
-                "pending_review_visible": False,
-                "own_pending_proposals": [],
-                "pending_wizard_view": False,
-                "sessions": [session_data],
-                "total_enrolled": 0,
-                "user_enrolled_sessions": [],
-                "event_banned": False,
-                **_schedule_context(self._get_url(event.slug)),
-                "user_enrolled_session_titles": [],
-                "user_enrollment_config": VirtualEnrollmentConfig(
+            context_data=event_page_context(
+                event,
+                url=self._get_url(event.slug),
+                current_hour_data={agenda_item.start_time: [session_data]},
+                enrollment_requires_slots=True,
+                hour_data={agenda_item.start_time: [session_data]},
+                sessions=[session_data],
+                user_enrollment_config=VirtualEnrollmentConfig(
                     allowed_slots=0, has_domain_config=False, has_user_config=True
                 ),
-                "view": ANY,
-            },
+                has_enrollable_sessions=True,
+                scheduled_count=1,
+            ),
             template_name=["chronology/event.html"],
         )
 
@@ -3264,7 +3157,6 @@ class TestEventPageView:
             agenda_item=AgendaItemDTO.model_validate(agenda_item),
             effective_participants_limit=10,
             enrolled_count=0,
-            full_participant_info="0/10",
             is_enrollment_available=True,
             is_full=False,
             is_ongoing=True,
@@ -3274,48 +3166,26 @@ class TestEventPageView:
             session_participations=[],
             session=SessionDTO.model_validate(agenda_item.session),
             should_show_as_inactive=False,
-            loc=LocationData(
-                space_name=agenda_item.space.name,
-                parent_slug=(
-                    agenda_item.space.parent.slug if agenda_item.space.parent else ""
-                ),
-                parent_name=(
-                    agenda_item.space.parent.name if agenda_item.space.parent else ""
-                ),
-                path=str(agenda_item.space),
-            ),
+            loc=location_data(agenda_item.space),
             user_enrolled=False,
             user_waiting=False,
         )
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data={
-                "current_hour_data": {agenda_item.start_time: [session_data]},
-                "ended_hour_data": {},
-                "enrollment_requires_slots": True,
-                "event": event,
-                "filterable_tag_categories": [],
-                "has_track_filter": False,
-                "has_category_filter": False,
-                "future_unavailable_hour_data": {},
-                "hour_data": {agenda_item.start_time: [session_data]},
-                "object": event,
-                "pending_sessions": [],
-                "pending_review_visible": False,
-                "own_pending_proposals": [],
-                "pending_wizard_view": False,
-                "sessions": [session_data],
-                "total_enrolled": 0,
-                "user_enrolled_sessions": [],
-                "event_banned": False,
-                **_schedule_context(self._get_url(event.slug)),
-                "user_enrolled_session_titles": [],
-                "user_enrollment_config": VirtualEnrollmentConfig(
+            context_data=event_page_context(
+                event,
+                url=self._get_url(event.slug),
+                current_hour_data={agenda_item.start_time: [session_data]},
+                enrollment_requires_slots=True,
+                hour_data={agenda_item.start_time: [session_data]},
+                sessions=[session_data],
+                user_enrollment_config=VirtualEnrollmentConfig(
                     allowed_slots=0, has_domain_config=False, has_user_config=True
                 ),
-                "view": ANY,
-            },
+                has_enrollable_sessions=True,
+                scheduled_count=1,
+            ),
             template_name=["chronology/event.html"],
         )
 
@@ -3358,7 +3228,6 @@ class TestEventPageView:
             effective_participants_limit=10,
             enrolled_count=0,
             displayed_field_rows=[build_display_field_row(field_value_dto)],
-            full_participant_info="0/10",
             is_enrollment_available=False,
             is_full=False,
             is_ongoing=False,
@@ -3368,16 +3237,7 @@ class TestEventPageView:
             session_participations=[],
             session=SessionDTO.model_validate(session),
             should_show_as_inactive=False,
-            loc=LocationData(
-                space_name=agenda_item.space.name,
-                parent_slug=(
-                    agenda_item.space.parent.slug if agenda_item.space.parent else ""
-                ),
-                parent_name=(
-                    agenda_item.space.parent.name if agenda_item.space.parent else ""
-                ),
-                path=str(agenda_item.space),
-            ),
+            loc=location_data(agenda_item.space),
             field_values=[field_value_dto],
             user_enrolled=False,
             user_waiting=False,
@@ -3385,32 +3245,15 @@ class TestEventPageView:
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data={
-                "current_hour_data": {},
-                "ended_hour_data": {},
-                "enrollment_requires_slots": False,
-                "event": event,
-                "filterable_tag_categories": [session_field],
-                "has_track_filter": False,
-                "has_category_filter": False,
-                "future_unavailable_hour_data": {
-                    agenda_item.start_time: [session_data]
-                },
-                "hour_data": {agenda_item.start_time: [session_data]},
-                "object": event,
-                "pending_review_visible": False,
-                "pending_sessions": [],
-                "pending_wizard_view": False,
-                "own_pending_proposals": [],
-                "sessions": [session_data],
-                "user_enrollment_config": None,
-                "total_enrolled": 0,
-                "user_enrolled_sessions": [],
-                "event_banned": False,
-                **_schedule_context(self._get_url(event.slug)),
-                "user_enrolled_session_titles": [],
-                "view": ANY,
-            },
+            context_data=event_page_context(
+                event,
+                url=self._get_url(event.slug),
+                future_unavailable_hour_data={agenda_item.start_time: [session_data]},
+                hour_data={agenda_item.start_time: [session_data]},
+                sessions=[session_data],
+                has_enrollable_sessions=True,
+                scheduled_count=1,
+            ),
             template_name=["chronology/event.html"],
         )
 
@@ -3429,6 +3272,9 @@ class TestEventPageView:
             is_public=True,
             icon="puzzle-piece",
         )
+        self._add_choices(
+            session_field, "Alpha", "Bravo", "Charlie", "Delta", "Echo", "Foxtrot"
+        )
         SessionFieldValue.objects.create(
             session=session,
             field=session_field,
@@ -3439,11 +3285,37 @@ class TestEventPageView:
 
         response = client.get(self._get_url(event.slug))
 
+        field_value_dto = SessionFieldValueDTO(
+            allow_custom=False,
+            field_icon="puzzle-piece",
+            field_id=session_field.pk,
+            field_name="Game Type",
+            field_question="Game Type",
+            field_slug="game-type",
+            field_type="select",
+            is_public=True,
+            value=["Alpha", "Bravo", "Charlie", "Delta", "Echo", "Foxtrot"],
+        )
+        card = session_card(
+            agenda_item,
+            presenter=session.presenter,
+            displayed_field_rows=[build_display_field_row(field_value_dto)],
+            field_values=[field_value_dto],
+        )
         # Four values stay visible; the two extras collapse into the "+N" popover.
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data=ANY,
+            context_data=event_page_context(
+                event,
+                url=self._get_url(event.slug),
+                filterable_tag_categories=[_field_dto(session_field)],
+                hour_data={agenda_item.start_time: [card]},
+                future_unavailable_hour_data={agenda_item.start_time: [card]},
+                sessions=[card],
+                has_enrollable_sessions=True,
+                scheduled_count=1,
+            ),
             template_name=["chronology/event.html"],
             contains=["+2", "Echo", "Foxtrot"],
         )
@@ -3471,7 +3343,6 @@ class TestEventPageView:
             agenda_item=AgendaItemDTO.model_validate(agenda_item),
             effective_participants_limit=10,
             enrolled_count=0,
-            full_participant_info="0/10",
             is_enrollment_available=False,
             is_full=False,
             is_ongoing=False,
@@ -3481,16 +3352,7 @@ class TestEventPageView:
             session_participations=[],
             session=SessionDTO.model_validate(session),
             should_show_as_inactive=False,
-            loc=LocationData(
-                space_name=agenda_item.space.name,
-                parent_slug=(
-                    agenda_item.space.parent.slug if agenda_item.space.parent else ""
-                ),
-                parent_name=(
-                    agenda_item.space.parent.name if agenda_item.space.parent else ""
-                ),
-                path=str(agenda_item.space),
-            ),
+            loc=location_data(agenda_item.space),
             field_values=[
                 SessionFieldValueDTO(
                     allow_custom=False,
@@ -3510,32 +3372,15 @@ class TestEventPageView:
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data={
-                "current_hour_data": {},
-                "ended_hour_data": {},
-                "enrollment_requires_slots": False,
-                "event": event,
-                "filterable_tag_categories": [],
-                "has_track_filter": False,
-                "has_category_filter": False,
-                "future_unavailable_hour_data": {
-                    agenda_item.start_time: [session_data]
-                },
-                "hour_data": {agenda_item.start_time: [session_data]},
-                "object": event,
-                "pending_review_visible": False,
-                "pending_sessions": [],
-                "pending_wizard_view": False,
-                "own_pending_proposals": [],
-                "sessions": [session_data],
-                "user_enrollment_config": None,
-                "total_enrolled": 0,
-                "user_enrolled_sessions": [],
-                "event_banned": False,
-                **_schedule_context(self._get_url(event.slug)),
-                "user_enrolled_session_titles": [],
-                "view": ANY,
-            },
+            context_data=event_page_context(
+                event,
+                url=self._get_url(event.slug),
+                future_unavailable_hour_data={agenda_item.start_time: [session_data]},
+                hour_data={agenda_item.start_time: [session_data]},
+                sessions=[session_data],
+                has_enrollable_sessions=True,
+                scheduled_count=1,
+            ),
             template_name=["chronology/event.html"],
         )
 
@@ -3576,7 +3421,6 @@ class TestEventPageView:
             effective_participants_limit=10,
             enrolled_count=0,
             displayed_field_rows=[build_display_field_row(field_value_dto)],
-            full_participant_info="0/10",
             is_enrollment_available=False,
             is_full=False,
             is_ongoing=False,
@@ -3586,16 +3430,7 @@ class TestEventPageView:
             session_participations=[],
             session=SessionDTO.model_validate(session),
             should_show_as_inactive=False,
-            loc=LocationData(
-                space_name=agenda_item.space.name,
-                parent_slug=(
-                    agenda_item.space.parent.slug if agenda_item.space.parent else ""
-                ),
-                parent_name=(
-                    agenda_item.space.parent.name if agenda_item.space.parent else ""
-                ),
-                path=str(agenda_item.space),
-            ),
+            loc=location_data(agenda_item.space),
             field_values=[field_value_dto],
             user_enrolled=False,
             user_waiting=False,
@@ -3603,32 +3438,15 @@ class TestEventPageView:
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data={
-                "current_hour_data": {},
-                "ended_hour_data": {},
-                "enrollment_requires_slots": False,
-                "event": event,
-                "filterable_tag_categories": [],
-                "has_track_filter": False,
-                "has_category_filter": False,
-                "future_unavailable_hour_data": {
-                    agenda_item.start_time: [session_data]
-                },
-                "hour_data": {agenda_item.start_time: [session_data]},
-                "object": event,
-                "pending_review_visible": False,
-                "pending_sessions": [],
-                "pending_wizard_view": False,
-                "own_pending_proposals": [],
-                "sessions": [session_data],
-                "user_enrollment_config": None,
-                "total_enrolled": 0,
-                "user_enrolled_sessions": [],
-                "event_banned": False,
-                **_schedule_context(self._get_url(event.slug)),
-                "user_enrolled_session_titles": [],
-                "view": ANY,
-            },
+            context_data=event_page_context(
+                event,
+                url=self._get_url(event.slug),
+                future_unavailable_hour_data={agenda_item.start_time: [session_data]},
+                hour_data={agenda_item.start_time: [session_data]},
+                sessions=[session_data],
+                has_enrollable_sessions=True,
+                scheduled_count=1,
+            ),
             template_name=["chronology/event.html"],
         )
 
@@ -3670,7 +3488,6 @@ class TestEventPageView:
             effective_participants_limit=10,
             enrolled_count=0,
             displayed_field_rows=[build_display_field_row(field_value_dto)],
-            full_participant_info="0/10",
             is_enrollment_available=False,
             is_full=False,
             is_ongoing=False,
@@ -3680,16 +3497,7 @@ class TestEventPageView:
             session_participations=[],
             session=SessionDTO.model_validate(session),
             should_show_as_inactive=False,
-            loc=LocationData(
-                space_name=agenda_item.space.name,
-                parent_slug=(
-                    agenda_item.space.parent.slug if agenda_item.space.parent else ""
-                ),
-                parent_name=(
-                    agenda_item.space.parent.name if agenda_item.space.parent else ""
-                ),
-                path=str(agenda_item.space),
-            ),
+            loc=location_data(agenda_item.space),
             field_values=[field_value_dto],
             user_enrolled=False,
             user_waiting=False,
@@ -3697,32 +3505,15 @@ class TestEventPageView:
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data={
-                "current_hour_data": {},
-                "ended_hour_data": {},
-                "enrollment_requires_slots": False,
-                "event": event,
-                "filterable_tag_categories": [],
-                "has_track_filter": False,
-                "has_category_filter": False,
-                "future_unavailable_hour_data": {
-                    agenda_item.start_time: [session_data]
-                },
-                "hour_data": {agenda_item.start_time: [session_data]},
-                "object": event,
-                "pending_review_visible": False,
-                "pending_sessions": [],
-                "pending_wizard_view": False,
-                "own_pending_proposals": [],
-                "sessions": [session_data],
-                "user_enrollment_config": None,
-                "total_enrolled": 0,
-                "user_enrolled_sessions": [],
-                "event_banned": False,
-                **_schedule_context(self._get_url(event.slug)),
-                "user_enrolled_session_titles": [],
-                "view": ANY,
-            },
+            context_data=event_page_context(
+                event,
+                url=self._get_url(event.slug),
+                future_unavailable_hour_data={agenda_item.start_time: [session_data]},
+                hour_data={agenda_item.start_time: [session_data]},
+                sessions=[session_data],
+                has_enrollable_sessions=True,
+                scheduled_count=1,
+            ),
             template_name=["chronology/event.html"],
         )
 
@@ -3766,30 +3557,12 @@ class TestEventPageView:
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data={
-                "current_hour_data": {},
-                "ended_hour_data": {},
-                "enrollment_requires_slots": False,
-                "event": event,
-                "filterable_tag_categories": [],
-                "has_track_filter": False,
-                "has_category_filter": False,
-                "future_unavailable_hour_data": {},
-                "hour_data": {},
-                "object": event,
-                "pending_review_visible": True,
-                "pending_sessions": [],
-                "pending_wizard_view": panel_access_user.is_superuser,
-                "own_pending_proposals": [],
-                "sessions": [],
-                "user_enrollment_config": None,
-                "total_enrolled": 0,
-                "user_enrolled_sessions": [],
-                "event_banned": False,
-                **_schedule_context(self._get_url(event.slug)),
-                "user_enrolled_session_titles": [],
-                "view": ANY,
-            },
+            context_data=event_page_context(
+                event,
+                url=self._get_url(event.slug),
+                pending_review_visible=True,
+                pending_wizard_view=panel_access_user.is_superuser,
+            ),
             template_name=["chronology/event.html"],
         )
 
@@ -3806,30 +3579,9 @@ class TestEventPageView:
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data={
-                "current_hour_data": {},
-                "ended_hour_data": {},
-                "enrollment_requires_slots": False,
-                "event": event,
-                "filterable_tag_categories": [],
-                "has_track_filter": False,
-                "has_category_filter": False,
-                "future_unavailable_hour_data": {},
-                "hour_data": {},
-                "object": event,
-                "pending_review_visible": True,
-                "pending_sessions": [],
-                "pending_wizard_view": False,
-                "own_pending_proposals": [],
-                "sessions": [],
-                "user_enrollment_config": None,
-                "total_enrolled": 0,
-                "user_enrolled_sessions": [],
-                "event_banned": False,
-                **_schedule_context(self._get_url(event.slug)),
-                "user_enrolled_session_titles": [],
-                "view": ANY,
-            },
+            context_data=event_page_context(
+                event, url=self._get_url(event.slug), pending_review_visible=True
+            ),
             template_name=["chronology/event.html"],
         )
 
@@ -3874,10 +3626,8 @@ class TestEventPageEditAffordance:
                 kwargs={"event_slug": event.slug, "session_id": session.pk},
             )
         )
-        assert_response(
-            modal,
-            HTTPStatus.OK,
-            context_data=modal.context_data,
+        assert_rendered(
+            response=modal,
             template_name="chronology/parts/session-modal.html",
             contains=[edit_url, f'data-edit-open="{session.pk}"'],
         )

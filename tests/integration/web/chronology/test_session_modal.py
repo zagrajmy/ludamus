@@ -10,21 +10,22 @@ from ludamus.gates.web.django.chronology.event_presentation import (
     SessionData,
 )
 from ludamus.gates.web.django.entities import UserInfo
+from ludamus.gates.web.django.event.enroll_presentation import EnrollActions, SeatBadge
 from ludamus.links.db.django.models import (
+    Facilitator,
+    Guild,
+    GuildMembership,
     SessionField,
     SessionFieldValue,
     SessionParticipation,
     SessionParticipationStatus,
+    Track,
 )
+from ludamus.links.db.django.repositories.chronology import location_data
 from ludamus.links.gravatar import gravatar_url
-from ludamus.pacts import (
-    AgendaItemDTO,
-    EventDTO,
-    LocationData,
-    SessionDTO,
-    SessionFieldValueDTO,
-)
+from ludamus.pacts import AgendaItemDTO, EventDTO, SessionDTO, SessionFieldValueDTO
 from ludamus.pacts.crowd import UserDTO
+from ludamus.pacts.guild import GuildMarkDTO
 from tests.integration.conftest import (
     AgendaItemFactory,
     EventFactory,
@@ -35,6 +36,48 @@ from tests.integration.utils import assert_response, assert_response_404
 from tests.integration.web.chronology.helpers import make_half_full_session
 
 _TEMPLATE = "chronology/parts/session-modal.html"
+
+_ENROLL = EnrollActions(
+    submit_value="enroll",
+    submit_label="Enroll",
+    submit_icon="user-plus",
+    group_label="Enroll with others…",
+)
+_CANCEL = EnrollActions(
+    submit_value="cancel",
+    submit_label="Cancel",
+    submit_icon="x-mark",
+    badge=SeatBadge(
+        text_class="text-success-text", label="You're enrolled", icon="check-circle"
+    ),
+    group_label="Enroll with others…",
+)
+_LEAVE = EnrollActions(
+    submit_value="cancel",
+    submit_label="Leave",
+    submit_icon="x-mark",
+    badge=SeatBadge(
+        text_class="text-warning-text", label="On the waiting list", icon="clock"
+    ),
+    group_label="Enroll with others…",
+)
+_CLOSED_GROUP_LABEL = "Manage the seats you booked for others…"
+_CLOSED_CANCEL = replace(
+    _CANCEL,
+    confirm=(
+        "Enrollment is closed — once you give up your seat you cannot take it "
+        "back. Cancel anyway?"
+    ),
+    group_label=_CLOSED_GROUP_LABEL,
+)
+_CLOSED_LEAVE = replace(
+    _LEAVE,
+    confirm=(
+        "Enrollment is closed — once you leave the waiting list you cannot "
+        "rejoin it. Leave anyway?"
+    ),
+    group_label=_CLOSED_GROUP_LABEL,
+)
 
 
 def _url(event, session_id):
@@ -81,16 +124,10 @@ def _expected_session_data(
         presenter=presenter_info,
         session=SessionDTO.model_validate(session),
         is_full=False,
-        full_participant_info="0/10",
         effective_participants_limit=10,
         enrolled_count=0,
         session_participations=[],
-        loc=LocationData(
-            space_name=space.name,
-            parent_slug=space.parent.slug if space.parent else "",
-            parent_name=space.parent.name if space.parent else "",
-            path=str(space),
-        ),
+        loc=location_data(space),
         can_edit=False,
         user_enrolled=False,
         user_waiting=False,
@@ -130,6 +167,8 @@ class TestSessionModalComponentView:
                 ),
                 "event": EventDTO.model_validate(event),
                 "event_banned": False,
+                "show_roster": True,
+                "enroll_actions": None,
             },
             contains=[session.title, f'id="session-{session.pk}"'],
         )
@@ -173,11 +212,32 @@ class TestSessionModalComponentView:
                 ),
                 "event": EventDTO.model_validate(event),
                 "event_banned": False,
+                "show_roster": True,
+                "enroll_actions": None,
             },
             contains=f'id="session-{agenda_item.session.pk}"',
         )
 
     def test_unscheduled_session_404(self, client, event, session):
+        response = client.get(_url(event, session.pk))
+
+        assert_response_404(response)
+
+    @pytest.mark.parametrize("public_too", (True, False))
+    def test_private_track_session_404(self, agenda_item, client, event, public_too):
+        session = agenda_item.session
+        if public_too:
+            session.tracks.add(
+                Track.objects.create(
+                    event=event, name="Main Hall", slug="main", is_public=True
+                )
+            )
+        session.tracks.add(
+            Track.objects.create(
+                event=event, name="Backstage", slug="backstage", is_public=False
+            )
+        )
+
         response = client.get(_url(event, session.pk))
 
         assert_response_404(response)
@@ -270,6 +330,8 @@ class TestSessionModalComponentView:
                 ),
                 "event": EventDTO.model_validate(event),
                 "event_banned": False,
+                "show_roster": True,
+                "enroll_actions": None,
             },
             contains=["Genre", "RPG", "Horror", "Notes", "Bring dice"],
         )
@@ -305,7 +367,6 @@ class TestSessionModalComponentView:
                     presenter=presenter,
                     enrolled_count=1,
                     waiting_count=1,
-                    full_participant_info="1/10, 1 waiting",
                     session_participations=[
                         _participation(confirmed_participation),
                         _participation(waiter_participation),
@@ -313,6 +374,8 @@ class TestSessionModalComponentView:
                 ),
                 "event": EventDTO.model_validate(event),
                 "event_banned": False,
+                "show_roster": True,
+                "enroll_actions": None,
             },
             contains=[
                 "gm-handle",
@@ -324,7 +387,7 @@ class TestSessionModalComponentView:
             ],
         )
 
-    def test_renders_unlimited_capacity_and_min_age(
+    def test_renders_session_without_enrollment(
         self, active_user, client, event, space
     ):
         session = SessionFactory(
@@ -339,7 +402,7 @@ class TestSessionModalComponentView:
         participation = SessionParticipation.objects.create(
             session=session,
             user=UserFactory(
-                username="modal-unlimited", email="modal-unlimited@example.com"
+                username="modal-no-enrollment", email="modal-no-enrollment@example.com"
             ),
             status=SessionParticipationStatus.CONFIRMED,
         )
@@ -357,13 +420,45 @@ class TestSessionModalComponentView:
                     presenter=active_user,
                     effective_participants_limit=0,
                     enrolled_count=1,
-                    full_participant_info="1",
                     session_participations=[_participation(participation)],
                 ),
                 "event": EventDTO.model_validate(event),
                 "event_banned": False,
+                "show_roster": True,
+                "enroll_actions": None,
             },
-            contains=["Enrolled (1)", "Minimum Age", "18+"],
+        )
+
+    def test_hides_the_roster_of_a_session_nobody_signed_up_for(
+        self, active_user, client, event, space
+    ):
+        session = SessionFactory(
+            event=event,
+            category=None,
+            presenter=active_user,
+            display_name=active_user.full_name,
+            participants_limit=0,
+        )
+        agenda_item = AgendaItemFactory(session=session, space=space)
+
+        response = client.get(_url(event, session.pk))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name=_TEMPLATE,
+            context_data={
+                "data": _expected_session_data(
+                    agenda_item=agenda_item,
+                    session=session,
+                    presenter=active_user,
+                    effective_participants_limit=0,
+                ),
+                "event": EventDTO.model_validate(event),
+                "event_banned": False,
+                "show_roster": False,
+                "enroll_actions": None,
+            },
         )
 
     @pytest.mark.usefixtures("enrollment_config")
@@ -386,6 +481,8 @@ class TestSessionModalComponentView:
                 ),
                 "event": EventDTO.model_validate(event),
                 "event_banned": False,
+                "show_roster": True,
+                "enroll_actions": _ENROLL,
             },
             contains=["with others"],
             not_contains=["Login to Enroll", "Enroll Anonymously"],
@@ -424,11 +521,13 @@ class TestSessionModalComponentView:
                 ),
                 "event": EventDTO.model_validate(event),
                 "event_banned": False,
+                "show_roster": True,
+                "enroll_actions": None,
             },
             contains=["Mystery Host"],
         )
 
-    def test_viewer_enrolled_shows_status(
+    def test_viewer_enrolled_reaches_the_context(
         self, authenticated_client, active_user, agenda_item, event
     ):
         participation = SessionParticipation.objects.create(
@@ -451,16 +550,16 @@ class TestSessionModalComponentView:
                     can_edit=True,
                     user_enrolled=True,
                     enrolled_count=1,
-                    full_participant_info="1/10",
                     session_participations=[_participation(participation)],
                 ),
                 "event": EventDTO.model_validate(event),
                 "event_banned": False,
+                "show_roster": True,
+                "enroll_actions": _CLOSED_CANCEL,
             },
-            contains=["You are enrolled in this session"],
         )
 
-    def test_viewer_on_waiting_list_shows_status(
+    def test_viewer_on_waiting_list_reaches_the_context(
         self, authenticated_client, active_user, agenda_item, event
     ):
         participation = SessionParticipation.objects.create(
@@ -483,13 +582,13 @@ class TestSessionModalComponentView:
                     can_edit=True,
                     user_waiting=True,
                     waiting_count=1,
-                    full_participant_info="0/10, 1 waiting",
                     session_participations=[_participation(participation)],
                 ),
                 "event": EventDTO.model_validate(event),
                 "event_banned": False,
+                "show_roster": True,
+                "enroll_actions": _CLOSED_LEAVE,
             },
-            contains=["You are on the waiting list"],
         )
 
     @pytest.mark.usefixtures("enrollment_config")
@@ -520,6 +619,8 @@ class TestSessionModalComponentView:
                 ),
                 "event": EventDTO.model_validate(event),
                 "event_banned": False,
+                "show_roster": True,
+                "enroll_actions": _ENROLL,
             },
             contains=["Enroll Anonymously"],
         )
@@ -556,11 +657,12 @@ class TestSessionModalComponentView:
                     is_enrollment_available=True,
                     user_enrolled=True,
                     enrolled_count=1,
-                    full_participant_info="1/10",
                     session_participations=[_participation(participation)],
                 ),
                 "event": EventDTO.model_validate(event),
                 "event_banned": False,
+                "show_roster": True,
+                "enroll_actions": _CANCEL,
             },
             contains=["Manage Enrollment"],
         )
@@ -586,6 +688,8 @@ class TestSessionModalComponentView:
                 ),
                 "event": EventDTO.model_validate(event),
                 "event_banned": False,
+                "show_roster": True,
+                "enroll_actions": None,
             },
             contains=f'id="session-{agenda_item.session.pk}"',
         )
@@ -617,6 +721,82 @@ class TestSessionModalComponentView:
                 ),
                 "event": EventDTO.model_validate(event),
                 "event_banned": False,
+                "show_roster": True,
+                "enroll_actions": None,
             },
             contains=f'id="session-{agenda_item.session.pk}"',
+        )
+
+
+class TestGuildMarkInTheModal:
+    def test_modal_carries_the_presenters_guild(
+        self, active_user, agenda_item, client, event, sphere
+    ):
+        session = agenda_item.session
+        guild = Guild.objects.create(sphere=sphere, name="Topory", slug="topory")
+        GuildMembership.objects.create(sphere=sphere, guild=guild, member=active_user)
+
+        response = client.get(_url(event, session.pk))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name=_TEMPLATE,
+            context_data={
+                "data": _expected_session_data(
+                    agenda_item=agenda_item,
+                    session=session,
+                    presenter=active_user,
+                    guild=GuildMarkDTO(pk=guild.pk, name="Topory", logo_url=""),
+                ),
+                "event": EventDTO.model_validate(event),
+                "event_banned": False,
+                "show_roster": True,
+                "enroll_actions": None,
+            },
+        )
+
+    def test_modal_carries_an_accountless_facilitators_guild(
+        self, agenda_item, client, event, sphere
+    ):
+        session = agenda_item.session
+        session.presenter = None
+        session.display_name = "Imported"
+        session.save()
+        guild = Guild.objects.create(sphere=sphere, name="Topory", slug="topory")
+        facilitator = Facilitator.objects.create(
+            event=event,
+            display_name="Imported",
+            slug="imported",
+            user=None,
+            guild=guild,
+        )
+        session.facilitators.add(facilitator)
+
+        response = client.get(_url(event, session.pk))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name=_TEMPLATE,
+            context_data={
+                "data": _expected_session_data(
+                    agenda_item=agenda_item,
+                    session=session,
+                    presenter_info=UserInfo(
+                        avatar_url=None,
+                        discord_username="",
+                        full_name="Imported",
+                        name="Imported",
+                        pk=0,
+                        slug="",
+                        username="Imported",
+                    ),
+                    guild=GuildMarkDTO(pk=guild.pk, name="Topory", logo_url=""),
+                ),
+                "event": EventDTO.model_validate(event),
+                "event_banned": False,
+                "show_roster": True,
+                "enroll_actions": None,
+            },
         )

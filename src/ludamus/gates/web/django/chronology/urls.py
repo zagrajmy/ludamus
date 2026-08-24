@@ -1,5 +1,7 @@
 from django.urls import URLPattern, path
 
+from ludamus.gates.web.django.event.session_modal import SessionModalComponentView
+
 from . import anonymous, views
 
 urlpatterns: list[URLPattern] = [
@@ -10,7 +12,7 @@ urlpatterns: list[URLPattern] = [
     ),
     path(
         "event/<str:event_slug>/session/<int:session_id>/parts/modal",
-        views.SessionModalComponentView.as_view(),
+        SessionModalComponentView.as_view(),
         name="session-modal",
     ),
     path(
@@ -37,40 +39,5 @@ urlpatterns: list[URLPattern] = [
         "session/<int:session_id>/bookmark/",
         views.SessionBookmarkToggleView.as_view(),
         name="session-bookmark",
-    ),
-    path(
-        "event/<str:event_slug>/session/propose/",
-        views.ProposeSessionPageView.as_view(),
-        name="session-propose",
-    ),
-    path(
-        "event/<str:event_slug>/session/propose/parts/category",
-        views.ProposeSessionCategoryComponentView.as_view(),
-        name="session-propose-category",
-    ),
-    path(
-        "event/<str:event_slug>/session/propose/parts/personal",
-        views.ProposeSessionPersonalComponentView.as_view(),
-        name="session-propose-personal",
-    ),
-    path(
-        "event/<str:event_slug>/session/propose/parts/timeslots",
-        views.ProposeSessionTimeslotsComponentView.as_view(),
-        name="session-propose-timeslots",
-    ),
-    path(
-        "event/<str:event_slug>/session/propose/parts/details",
-        views.ProposeSessionDetailsComponentView.as_view(),
-        name="session-propose-details",
-    ),
-    path(
-        "event/<str:event_slug>/session/propose/parts/review",
-        views.ProposeSessionReviewComponentView.as_view(),
-        name="session-propose-review",
-    ),
-    path(
-        "event/<str:event_slug>/session/propose/do/submit",
-        views.ProposeSessionSubmitActionView.as_view(),
-        name="session-propose-submit",
     ),
 ]

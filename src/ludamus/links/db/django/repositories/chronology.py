@@ -1,11 +1,14 @@
-from datetime import UTC, datetime
+from __future__ import annotations
 
-from django.db.models import Count, IntegerField, OuterRef, Q, Subquery
+from datetime import UTC, datetime
+from typing import TYPE_CHECKING
+
+from django.db import IntegrityError
+from django.db.models import Count, IntegerField, OuterRef, Q, QuerySet, Subquery
 from django.db.models.functions import Coalesce
 
 from ludamus.links.db.django.models import (
     SPACE_MAX_DEPTH,
-    AgendaItem,
     DomainEnrollmentConfig,
     EnrollmentConfig,
     Event,
@@ -55,6 +58,10 @@ from ludamus.pacts.panel import (
     EventPanelSettingsDTO,
     EventPanelSettingsRepositoryProtocol,
 )
+from ludamus.pacts.services import DatabaseConstraintError
+
+if TYPE_CHECKING:
+    from ludamus.pacts.event import EventCreateData
 
 
 def event_dto(event: Event) -> EventDTO:
@@ -123,11 +130,17 @@ class PartySessionHistoryRepository(PartySessionHistoryRepositoryProtocol):
 
 
 def location_data(space: Space) -> LocationData:
+    # Root-down chain of (order, name, slug) triples: sorting on it reproduces
+    # the panel's drag-ordered tree (Space.Meta.ordering) across every level, so
+    # rooms group under their building/floor instead of going flat alphabetical.
+    # The slug makes it unique per space, so it doubles as a filter value.
+    chain = (*reversed(tuple(space.iter_ancestors())), space)
     return LocationData(
         space_name=space.name,
         parent_slug=space.parent.slug if space.parent else "",
         parent_name=space.parent.name if space.parent else "",
         path=str(space),
+        sort_key="|".join(f"{s.order:06d}|{s.name}|{s.slug}" for s in chain),
     )
 
 
@@ -138,7 +151,17 @@ def session_card_stats(session: Session) -> SessionCardStatsDTO:
         is_full=session.is_full,
         is_enrollment_available=session.is_enrollment_available,
         effective_participants_limit=session.effective_participants_limit,
-        full_participant_info=session.full_participant_info,
+    )
+
+
+def public_scheduled_sessions(event_id: int | OuterRef) -> QuerySet[Session]:
+    # A session without tracks is public (events that don't use tracks at all);
+    # one with tracks needs every one of them public, so a session sitting in
+    # both a public and a private track stays hidden. exclude() over the m2m
+    # compiles to a correlated NOT EXISTS, so it neither fans the joins out nor
+    # inflates the participation counts annotated alongside.
+    return Session.objects.filter(event_id=event_id, agenda_item__isnull=False).exclude(
+        tracks__is_public=False
     )
 
 
@@ -189,17 +212,19 @@ class EventRepository(EventRepositoryProtocol):
     def list_for_events_page(
         sphere_id: int, *, include_unpublished: bool
     ) -> list[EventListItemDTO]:
-        agenda_item_count = (
-            AgendaItem.objects.filter(session__event=OuterRef("pk"))
-            .order_by()
-            .values("session__event")
-            .annotate(count=Count("pk"))
-            .values("count")
+        session_count = Coalesce(
+            Subquery(
+                public_scheduled_sessions(OuterRef("pk"))
+                .order_by()
+                .values("event_id")
+                .annotate(count=Count("pk"))
+                .values("count"),
+                output_field=IntegerField(),
+            ),
+            0,
         )
         events = Event.objects.filter(sphere_id=sphere_id).annotate(
-            session_count=Coalesce(
-                Subquery(agenda_item_count, output_field=IntegerField()), 0
-            )
+            session_count=session_count
         )
         if not include_unpublished:
             events = events.filter(publication_time__lte=datetime.now(tz=UTC))
@@ -220,6 +245,23 @@ class EventRepository(EventRepositoryProtocol):
         """
         try:
             event = Event.objects.select_related("proposal_settings").get(id=pk)
+        except Event.DoesNotExist as exception:
+            raise NotFoundError from exception
+        return event_dto(event)
+
+    @staticmethod
+    def lock(event_id: int) -> None:
+        try:
+            Event.objects.select_for_update().get(pk=event_id)
+        except Event.DoesNotExist as error:
+            raise NotFoundError from error
+
+    @staticmethod
+    def read_in_sphere(pk: int, sphere_id: int) -> EventDTO:
+        try:
+            event = Event.objects.select_related("proposal_settings").get(
+                id=pk, sphere_id=sphere_id
+            )
         except Event.DoesNotExist as exception:
             raise NotFoundError from exception
         return event_dto(event)
@@ -266,6 +308,18 @@ class EventRepository(EventRepositoryProtocol):
             hosts_count=session_stats["hosts"],
             rooms_count=Space.objects.filter(event_id=event_id).count(),
         )
+
+    @staticmethod
+    def create(sphere_id: int, data: EventCreateData) -> EventDTO:
+        try:
+            event = Event.objects.create(sphere_id=sphere_id, **data)
+        except IntegrityError as error:
+            raise DatabaseConstraintError from error
+        return event_dto(event)
+
+    @staticmethod
+    def slug_exists(sphere_id: int, slug: str) -> bool:
+        return Event.objects.filter(sphere_id=sphere_id, slug=slug).exists()
 
     @staticmethod
     def update(event_id: int, data: EventUpdateData) -> None:

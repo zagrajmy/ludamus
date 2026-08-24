@@ -193,23 +193,25 @@
     <div class="recipe-durations mt-3 max-w-xl space-y-3 sm:ml-20 {% if row.selected != "session.duration" %}hidden{% endif %}"
          data-row="{{ row.index }}">
         <p class="text-xs text-foreground-muted">
-            {% translate "Map each source answer to an ISO 8601 duration (e.g. PT1H30M for 1 h 30 min). Answers without a mapping are skipped at import time." %}
+            {% translate "Set how long each source answer means. Answers left at zero are skipped at import time." %}
         </p>
+        {% translate "Hours" as hours_label %}
+        {% translate "Minutes" as minutes_label %}
         {% for dur in row.option_durations %}
-            <div class="dr-option rounded-lg border border-border bg-bg-tertiary p-3">
-                <p class="mb-2 text-xs font-medium text-foreground-secondary">{{ dur.option }}</p>
+            <fieldset class="dr-option rounded-lg border border-border bg-bg-tertiary p-3">
+                <legend class="mb-2 text-xs font-medium text-foreground-secondary">{{ dur.option }}</legend>
                 <input type="hidden"
                        name="droption_{{ row.index }}"
                        value="{{ dur.option }}">
-                <input type="text"
-                       name="driso_{{ row.index }}"
-                       value="{{ dur.iso }}"
-                       aria-label="{% translate "ISO 8601 duration" %}"
-                       placeholder="PT1H30M"
-                       pattern="PT(\d+H)?(\d+M)?"
-                       title="PT1H30M"
-                       class="w-full rounded-lg border border-border bg-bg-secondary px-2 py-1 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary">
-            </div>
+                <div class="flex items-center gap-2">
+                    {% with idx=row.index|stringformat:"s" %}
+                        {% include "components/stepper-field.html" with name="drhours_"|add:idx value=dur.hours min="0" max=max_duration_hours|stringformat:"s" aria_label=hours_label %}
+                        <span class="text-sm text-foreground-muted">{% translate "h" %}</span>
+                        {% include "components/stepper-field.html" with name="drminutes_"|add:idx value=dur.minutes min="0" max=max_duration_minutes|stringformat:"s" aria_label=minutes_label %}
+                        <span class="text-sm text-foreground-muted">{% translate "min" %}</span>
+                    {% endwith %}
+                </div>
+            </fieldset>
         {% endfor %}
     </div>
     <div class="recipe-overrides mt-3 max-w-xl space-y-2 sm:ml-20 {% if row.selected == "ignore" %}hidden{% endif %}"

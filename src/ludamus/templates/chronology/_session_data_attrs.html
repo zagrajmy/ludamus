@@ -11,13 +11,22 @@ data-session-id="{{ data.session.pk }}"
 data-host="{{ data.session.display_name|lower }}"
 data-tags="{{ data.public_tags }}"
 data-tag-categories="{{ data.filter_categories }}"
-data-status="{% if data.is_ended %}ended{% elif data.is_ongoing %}in-progress{% elif not data.is_enrollment_available %}unavailable{% elif data.is_full %}full{% else %}available{% endif %}"
+{# data.availability, with one broader term: the filter counts any started #}
+{# session as in progress, while the label waits for a limit_to_end_time #}
+{# window to shut it (should_show_as_inactive). #}
+data-status="{% if data.is_ongoing and not data.is_ended %}in-progress{% else %}{{ data.availability }}{% endif %}"
+data-takes-enrollment="{% if data.takes_enrollment %}true{% else %}false{% endif %}"
 data-user-enrolled="{% if data.user_enrolled %}true{% else %}false{% endif %}"
 data-user-waiting="{% if data.user_waiting %}true{% else %}false{% endif %}"
 data-bookmarked="{% if data.user_bookmarked %}true{% else %}false{% endif %}"
 data-min-age="{{ data.session.min_age }}"
 data-venue="{{ data.loc.parent_slug }}"
 data-venue-name="{{ data.loc.parent_name }}"
+{# sort_key is the space filter's option value: never displayed, unique per #}
+{# space, and sorting on it groups the options under their parent in panel #}
+{# order (see LocationData). data-venue-name is the optgroup label. #}
+data-space="{{ data.loc.sort_key }}"
+data-space-name="{{ data.loc.space_name }}"
 {% if data.agenda_item %}
 data-day="{{ data.agenda_item.start_time|date:'Y-m-d' }}"
 data-day-label="{{ data.agenda_item.start_time|date:'l, j F' }}"

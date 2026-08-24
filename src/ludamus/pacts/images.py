@@ -1,3 +1,4 @@
+from pathlib import PurePosixPath
 from typing import NamedTuple
 
 
@@ -26,3 +27,18 @@ SVG_MIME = "image/svg+xml"
 SVG_SUFFIX = ".svg"
 LOGO_ACCEPT = f"{IMAGE_ACCEPT},{SVG_MIME}"
 UPLOAD_SUFFIXES = IMAGE_SUFFIXES | {SVG_SUFFIX}
+
+ORIGINAL_FILENAME_MAX_LENGTH = 255
+
+
+def original_filename(name: str) -> str:
+    return PurePosixPath(name.replace("\\", "/")).name[:ORIGINAL_FILENAME_MAX_LENGTH]
+
+
+class StoredFile(NamedTuple):
+    url: str
+    original_name: str = ""
+
+
+def stored_file(url: str, original_name: str = "") -> StoredFile | None:
+    return StoredFile(url, original_name) if url else None

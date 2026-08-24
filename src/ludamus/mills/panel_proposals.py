@@ -1,5 +1,6 @@
 """The organizer's proposals list: filters, sorting, columns, and create path."""
 
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from ludamus.mills.panel_columns import (
@@ -10,14 +11,17 @@ from ludamus.mills.panel_columns import (
     sanitize_column_keys,
 )
 from ludamus.mills.slugs import unique_slug
-from ludamus.pacts import SessionFieldValueData, SessionStatus
+from ludamus.pacts import NotFoundError, SessionFieldValueData, SessionStatus
 from ludamus.pacts.panel import (
     SCHEDULED_FILTER,
     EmptyColumnSelectionError,
+    ProposalDraft,
     ProposalListContextDTO,
     ProposalPanelRepos,
     ProposalPanelServiceProtocol,
+    SourceRowIdMissingError,
 )
+from ludamus.pacts.services import DatabaseConstraintError
 from ludamus.pacts.submissions import is_empty_answer
 
 if TYPE_CHECKING:
@@ -29,11 +33,7 @@ if TYPE_CHECKING:
         SessionDTO,
         SessionListItemDTO,
     )
-    from ludamus.pacts.panel import (
-        PanelColumnsContextDTO,
-        ProposalDraft,
-        ProposalListQuery,
-    )
+    from ludamus.pacts.panel import PanelColumnsContextDTO, ProposalListQuery
     from ludamus.pacts.services import TransactionProtocol
 
 
@@ -44,6 +44,15 @@ def _resolve_sort(sort: str, fields: Sequence[OrganizerFieldDTO]) -> str:
     key = sort.removeprefix("-")
     valid = {*PROPOSAL_BUILTIN_KEYS, *(f"{FIELD_KEY_PREFIX}{f.pk}" for f in fields)}
     return sort if key in valid else ""
+
+
+@dataclass(frozen=True)
+class _EventIds:
+    fields: frozenset[int]
+    categories: frozenset[int]
+    facilitators: frozenset[int]
+    tracks: frozenset[int]
+    time_slots: frozenset[int]
 
 
 class ProposalPanelService(ProposalPanelServiceProtocol):
@@ -59,6 +68,7 @@ class ProposalPanelService(ProposalPanelServiceProtocol):
     ) -> None:
         self._transaction = transaction
         self._repos = repos
+        self._known_ids: dict[int, _EventIds] = {}
 
     def list_context(
         self, *, event_id: int, query: ProposalListQuery
@@ -168,28 +178,109 @@ class ProposalPanelService(ProposalPanelServiceProtocol):
         # whole create back and re-raises as DatabaseConstraintError, which the
         # caller surfaces as an inline form error with the input preserved.
         with self._transaction.savepoint():
-            slug = unique_slug(
-                base=draft.base_slug,
-                default="session",
-                exists=lambda s: self._repos.sessions.slug_exists(event_id, s),
+            return self._create_session(event_id=event_id, draft=draft)
+
+    def create_accepted_session(
+        self, *, event_id: int, source_row_id: str, draft: ProposalDraft
+    ) -> int:
+        if not (ident := source_row_id.strip()):
+            raise SourceRowIdMissingError
+        with self._transaction.atomic():
+            if existing := self._repos.sessions.find_id_by_ident(event_id, ident):
+                return existing
+            try:
+                with self._transaction.savepoint():
+                    return self._create_session(
+                        event_id=event_id,
+                        draft=draft,
+                        ident=ident,
+                        status=SessionStatus.ACCEPTED,
+                    )
+            except DatabaseConstraintError:
+                if existing := self._repos.sessions.find_id_by_ident(event_id, ident):
+                    return existing
+                raise
+
+    def _event_ids(self, event_id: int) -> _EventIds:
+        # One read per event, not per draft: `create_sessions` validates up to
+        # 250 drafts against the same five sets in a single request.
+        if (ids := self._known_ids.get(event_id)) is None:
+            ids = _EventIds(
+                fields=frozenset(
+                    field.pk
+                    for field in self._repos.session_fields.list_by_event(event_id)
+                ),
+                categories=frozenset(
+                    category.pk
+                    for category in self._repos.proposal_categories.list_by_event(
+                        event_id
+                    )
+                ),
+                facilitators=frozenset(
+                    facilitator.pk
+                    for facilitator in self._repos.facilitators.list_by_event(event_id)
+                ),
+                tracks=frozenset(
+                    track.pk for track in self._repos.tracks.list_by_event(event_id)
+                ),
+                time_slots=frozenset(
+                    slot.pk for slot in self._repos.time_slots.list_by_event(event_id)
+                ),
             )
-            payload: SessionData = {**draft.data, "slug": slug}
-            session_id = self._repos.sessions.create(
-                payload, facilitator_ids=draft.facilitator_ids
-            )
-            # A brand-new proposal has no answers yet, so a blank input is
-            # "never answered" and stores no row.
-            answered = [
-                SessionFieldValueData(
-                    session_id=session_id, field_id=field_id, value=value
-                )
-                for field_id, value in draft.field_values.items()
-                if not is_empty_answer(value=value)
-            ]
-            if answered:
-                self._repos.sessions.save_field_values(session_id, answered)
-            if draft.track_ids:
-                self._repos.sessions.set_session_tracks(session_id, draft.track_ids)
-            if draft.time_slot_ids:
-                self._repos.sessions.set_time_slots(session_id, draft.time_slot_ids)
-            return session_id
+            self._known_ids[event_id] = ids
+        return ids
+
+    def _validate_create_draft(self, *, event_id: int, draft: ProposalDraft) -> None:
+        if draft.data.get("event_id") not in {None, event_id}:
+            raise NotFoundError
+        ids = self._event_ids(event_id)
+        category_id = draft.data.get("category_id")
+        referenced = (
+            (set(draft.field_values), ids.fields),
+            (set(draft.facilitator_ids), ids.facilitators),
+            (set(draft.track_ids), ids.tracks),
+            (set(draft.time_slot_ids), ids.time_slots),
+            ({category_id} if category_id is not None else set(), ids.categories),
+        )
+        if any(requested - known for requested, known in referenced):
+            raise NotFoundError
+
+    def _create_session(
+        self,
+        *,
+        event_id: int,
+        draft: ProposalDraft,
+        ident: str = "",
+        status: SessionStatus = SessionStatus.PENDING,
+    ) -> int:
+        self._validate_create_draft(event_id=event_id, draft=draft)
+        slug = unique_slug(
+            base=draft.base_slug,
+            default="session",
+            exists=lambda s: self._repos.sessions.slug_exists(event_id, s),
+        )
+        payload: SessionData = {
+            **draft.data,
+            "event_id": event_id,
+            "slug": slug,
+            "status": status,
+        }
+        if ident:
+            payload["ident"] = ident
+        session_id = self._repos.sessions.create(
+            payload, facilitator_ids=draft.facilitator_ids
+        )
+        # A brand-new proposal has no answers yet, so a blank input is
+        # "never answered" and stores no row.
+        answered = [
+            SessionFieldValueData(session_id=session_id, field_id=field_id, value=value)
+            for field_id, value in draft.field_values.items()
+            if not is_empty_answer(value=value)
+        ]
+        if answered:
+            self._repos.sessions.save_field_values(session_id, answered)
+        if draft.track_ids:
+            self._repos.sessions.set_session_tracks(session_id, draft.track_ids)
+        if draft.time_slot_ids:
+            self._repos.sessions.set_time_slots(session_id, draft.time_slot_ids)
+        return session_id

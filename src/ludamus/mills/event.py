@@ -1,5 +1,7 @@
+from __future__ import annotations
+
 from collections import Counter, defaultdict
-from datetime import UTC, datetime
+from typing import TYPE_CHECKING
 
 from ludamus.pacts.event import (
     ConfirmationDashboardDTO,
@@ -11,8 +13,14 @@ from ludamus.pacts.event import (
     ConfirmationTrackRowDTO,
     ConfirmationTrackViewDTO,
     EventConfirmationsServiceProtocol,
+    EventCreateData,
+    EventDatesInvalidError,
     EventPanelContextDTO,
     EventPanelServiceProtocol,
+    EventPublicationInvalidError,
+    EventSlugConflictError,
+    EventsRepositoryProtocol,
+    EventsServiceProtocol,
 )
 from ludamus.pacts.legacy import (
     AgendaItemRepositoryProtocol,
@@ -20,6 +28,7 @@ from ludamus.pacts.legacy import (
     ConfirmationFacilitatorRow,
     ConfirmationSessionRow,
     EventDTO,
+    EventListItemDTO,
     EventRepositoryProtocol,
     EventStatsData,
     FacilitatorRepositoryProtocol,
@@ -27,9 +36,14 @@ from ludamus.pacts.legacy import (
     PanelStatsDTO,
     SessionRepositoryProtocol,
     SessionStatus,
+    SphereRepositoryProtocol,
     TrackRepositoryProtocol,
 )
+from ludamus.pacts.services import DatabaseConstraintError
 from ludamus.specs.confirmations import COUNTED_UNPLACED, SCHEDULED_STATUS, STATUS_ORDER
+
+if TYPE_CHECKING:
+    from ludamus.pacts.services import TransactionProtocol
 
 
 # Panel access only proves you manage an event; every id the request names has
@@ -48,17 +62,6 @@ def require_track_in_event(
 ) -> None:
     if tracks.read(track_pk).event_id != event_pk:
         raise NotFoundError
-
-
-def is_proposal_active(event: EventDTO) -> bool:
-    current_time = datetime.now(tz=UTC)
-    return bool(
-        event.publication_time is not None
-        and event.publication_time <= current_time
-        and event.proposal_start_time is not None
-        and event.proposal_end_time is not None
-        and event.proposal_start_time <= current_time <= event.proposal_end_time
-    )
 
 
 def build_panel_stats(stats_data: EventStatsData) -> PanelStatsDTO:
@@ -409,6 +412,48 @@ class EventPanelService(EventPanelServiceProtocol):
         return EventPanelContextDTO(
             events=self._events.list_by_sphere(sphere_id),
             current_event=current_event,
-            is_proposal_active=is_proposal_active(current_event),
+            is_proposal_active=current_event.is_proposal_active,
             stats=build_panel_stats(stats_data),
         )
+
+
+class EventsService(EventsServiceProtocol):
+    def __init__(
+        self,
+        *,
+        transaction: TransactionProtocol,
+        events: EventsRepositoryProtocol,
+        spheres: SphereRepositoryProtocol,
+    ) -> None:
+        self._transaction = transaction
+        self._events = events
+        self._spheres = spheres
+
+    def list_for_sphere(
+        self, sphere_id: int, *, include_unpublished: bool
+    ) -> list[EventListItemDTO]:
+        return self._events.list_for_events_page(
+            sphere_id, include_unpublished=include_unpublished
+        )
+
+    def read_by_slug(self, sphere_id: int, slug: str) -> EventDTO:
+        return self._events.read_by_slug(slug, sphere_id)
+
+    def require_in_sphere(self, *, sphere_id: int, event_id: int) -> EventDTO:
+        return self._events.read_in_sphere(event_id, sphere_id)
+
+    def create(self, *, sphere_id: int, data: EventCreateData) -> EventDTO:
+        if data["end_time"] <= data["start_time"]:
+            raise EventDatesInvalidError
+        publication_time = data["publication_time"]
+        if publication_time is not None and publication_time > data["start_time"]:
+            raise EventPublicationInvalidError
+        with self._transaction.atomic():
+            self._spheres.read(sphere_id)
+            try:
+                with self._transaction.savepoint():
+                    return self._events.create(sphere_id, data)
+            except DatabaseConstraintError as error:
+                if self._events.slug_exists(sphere_id, data["slug"]):
+                    raise EventSlugConflictError from error
+                raise

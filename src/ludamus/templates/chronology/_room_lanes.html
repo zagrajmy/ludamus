@@ -1,3 +1,4 @@
+{% load csp_tags %}
 {% load i18n %}
 {# Rooms view: a CSS grid — rooms across, whole clock hours down. A session #}
 {# sits in its start-hour row and spans the hours it covers, so longer #}
@@ -8,25 +9,74 @@
 {# column, sticky-left; only the right edge fades, so the axis never dims. #}
 {# Hour gridlines with sessions carry the .time-slot-section / #slot-<hour> #}
 {# contract so the hour scrubber and filters keep working. #}
+{# Grid placement is data-driven, not inline: a style attribute cannot carry a #}
+{# CSP nonce, so the per-index rules live in one nonced style element keyed on #}
+{# the data-* attributes the elements already need (see issue #743). The rules #}
+{# name only integers, so days repeat each other's rules harmlessly, and the #}
+{# rooms/hour_marks loops bound every tile's column, row, and span. #}
+<style{% nonce %}>
+    {% for day in room_lane_days %}
+    .room-lanes[data-rooms="{{ day.rooms|length }}"] {
+        --rooms: {{ day.rooms|length }};
+    }
+
+    .room-lanes[data-rows="{{ day.hour_marks|length }}"] {
+        --rows: {{ day.hour_marks|length }};
+    }
+    {% for room in day.rooms %}
+    [data-lane-col="{{ forloop.counter }}"],
+    [data-tile-col="{{ forloop.counter }}"] {
+        grid-column: {{ forloop.counter|add:1 }};
+    }
+    {% endfor %}
+    {% for mark in day.hour_marks %}
+    [data-lane-row="{{ mark.row }}"] {
+        grid-row: {{ mark.row }};
+    }
+
+    [data-tile-row="{{ mark.row }}"] {
+        grid-row-start: {{ mark.row }};
+    }
+
+    [data-tile-span="{{ mark.row }}"] {
+        grid-row-end: span {{ mark.row }};
+    }
+    {% endfor %}
+    {% endfor %}
+</style>
 {% for day in room_lane_days %}
     <section data-schedule-day class="mb-8 last:mb-0">
         {% include "chronology/_schedule_day_header.html" %}
         <div class="room-lanes"
-             style="--rooms: {{ day.rooms|length }};
-                    --rows: {{ day.hour_marks|length }}">
+             data-rooms="{{ day.rooms|length }}"
+             data-rows="{{ day.hour_marks|length }}">
             <div class="room-lanes-head sticky top-14 z-30 overflow-hidden border-b border-border/60 bg-background backdrop-blur-lg scrollview-fade scrollview-fade-x-8"
                  data-room-lanes-head>
                 <div class="room-lanes-grid">
                     <div class="room-lanes-corner sticky left-0 z-10 bg-background"></div>
+                    {# Explicitly placed, not auto-flowed: filtering hides the #}
+                    {# headers of emptied rooms (room-lanes.ts), and an #}
+                    {# auto-placed survivor would slide into the freed column. #}
+                    {# Two stacked lines per column: the parent space, shown #}
+                    {# only above the first column of its run, then the room. #}
+                    {# Every column carries the parent's name and all but that #}
+                    {# first one hide it — `invisible`, not absent, because #}
+                    {# room-lanes.ts moves the label to the first column left #}
+                    {# standing when a filter collapses the one holding it. #}
                     {% for room in day.rooms %}
-                        <div class="truncate px-2 py-1.5 text-xs font-bold uppercase tracking-wide text-foreground-secondary">{{ room }}</div>
+                        <div class="px-2 py-1.5"
+                             data-lane-col="{{ forloop.counter }}"
+                             data-lane-group="{{ room.group_key }}">
+                            <div class="min-h-[1lh] truncate text-[0.625rem] font-semibold uppercase tracking-widest text-foreground-muted{% if not room.starts_group %} invisible{% endif %}"
+                                 data-lane-group-label>{{ room.group }}</div>
+                            <div class="truncate text-xs font-bold uppercase tracking-wide text-foreground-secondary">{{ room.name }}</div>
+                        </div>
                     {% endfor %}
                     {# Column dividers hang from the header cells and continue down #}
                     {# through the body (matching .room-lanes-rule below), so the #}
                     {# lines stay continuous where cells span rows or are absent. #}
                     {% for room in day.rooms %}
-                        <div class="room-lanes-rule"
-                             style="grid-column: {{ forloop.counter|add:1 }}"></div>
+                        <div class="room-lanes-rule" data-lane-col="{{ forloop.counter }}"></div>
                     {% endfor %}
                 </div>
             </div>
@@ -35,22 +85,20 @@
                 <div class="room-lanes-grid room-lanes-body">
                     {% for mark in day.hour_marks %}
                         <div class="room-lanes-time sticky left-0 z-40 bg-background pr-1 text-right text-[0.7rem] font-bold tabular-nums text-foreground-muted"
-                             style="grid-row: {{ mark.row }}">{{ mark.start|time:"H:i" }}</div>
+                             data-lane-row="{{ mark.row }}">{{ mark.start|time:"H:i" }}</div>
                         <div class="room-lanes-line border-t border-border/60{% if mark.has_sessions %} time-slot-section scroll-mt-24{% endif %}"
-                             style="grid-row: {{ mark.row }};
-                                    grid-column: 2 / -1"
+                             data-lane-row="{{ mark.row }}"
                              {% if mark.has_sessions %}id="slot-{{ mark.start|date:'Ymd-H' }}" data-slot-hour="{{ mark.start|date:'Ymd-H' }}"{% endif %}>
                         </div>
                     {% endfor %}
                     {% for room in day.rooms %}
-                        <div class="room-lanes-rule"
-                             style="grid-column: {{ forloop.counter|add:1 }};
-                                    grid-row: 1 / -1"></div>
+                        <div class="room-lanes-rule" data-lane-col="{{ forloop.counter }}"></div>
                     {% endfor %}
                     {% for tile in day.tiles %}
                         <div class="room-lanes-cell p-0.5"
-                             style="grid-column: {{ tile.col|add:1 }};
-                                    grid-row: {{ tile.row_start }} / span {{ tile.row_span }}">
+                             data-tile-col="{{ tile.col }}"
+                             data-tile-row="{{ tile.row_start }}"
+                             data-tile-span="{{ tile.row_span }}">
                             {% include "chronology/_room_lane_tile.html" with data=tile.data slot_hour=tile.slot_hour %}
                         </div>
                     {% endfor %}

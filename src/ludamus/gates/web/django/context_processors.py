@@ -59,6 +59,35 @@ def support(_request: HttpRequest) -> dict[str, str]:
     return {"SUPPORT_EMAIL": settings.SUPPORT_EMAIL}
 
 
+class PosthogConfig(TypedDict):
+    api_key: str
+    host: str
+    user_id: str | None
+
+
+class AnalyticsContextData(TypedDict):
+    posthog_config: PosthogConfig | None
+
+
+def analytics(request: HttpRequest) -> AnalyticsContextData:
+    if not settings.POSTHOG_API_KEY:
+        return AnalyticsContextData(posthog_config=None)
+    # Identify by pk, not slug: a slug follows a rename and would split one
+    # person across two distinct_ids. request.user rather than the profile
+    # service — the auth middleware already resolved it, so this costs no
+    # extra query.
+    user = getattr(request, "user", None)
+    return AnalyticsContextData(
+        posthog_config=PosthogConfig(
+            api_key=settings.POSTHOG_API_KEY,
+            host=settings.POSTHOG_HOST,
+            user_id=(
+                str(user.pk) if user is not None and user.is_authenticated else None
+            ),
+        )
+    )
+
+
 def static_version(_request: HttpRequest) -> dict[str, str]:
     return {
         "COMMIT_SHA": settings.COMMIT_SHA,

@@ -3,6 +3,8 @@ from http import HTTPStatus
 import pytest
 from django.conf import settings
 from django.contrib import messages
+from django.core.signals import got_request_exception
+from django.http import HttpRequest
 from django.test import Client
 from django.urls import reverse
 
@@ -185,9 +187,15 @@ class TestSemantic404Recovery:
         )
 
     def test_non_event_path_keeps_themed_404(self, client):
-        # A resolvable, non-event path that 404s (a missing flatpage) must not
-        # be swept up by the event fallback.
-        response = client.get("/page/no-such-flatpage/")
+        # A resolvable, non-event path that 404s (an encounter share code that
+        # matches nothing) must not be swept up by the event fallback. Reversed
+        # rather than written out, so the test keeps proving the path resolves
+        # even if that route moves.
+        url = reverse(
+            "web:notice-board:encounter-detail", kwargs={"share_code": "nosuchcode"}
+        )
+
+        response = client.get(url)
 
         assert_response_404(response)
 
@@ -243,3 +251,62 @@ class TestErrorViewsIntegration:
         )
         assert response_404.status_code == HTTPStatus.NOT_FOUND
         assert response_500.status_code == HTTPStatus.INTERNAL_SERVER_ERROR
+
+
+def _raise_boom() -> None:
+    raise ValueError("boom")
+
+
+class TestExceptionReporting:
+    def test_request_exception_reaches_the_reporter(self, monkeypatch):
+        # AnalyticsConfig.ready() connects the receiver; that wiring is what
+        # silently stops working. The reporter itself is covered in
+        # tests/integration/links/test_analytics.py.
+        reported = []
+        monkeypatch.setattr(
+            "ludamus.links.analytics.reporting.report_exception",
+            lambda exception, _request: reported.append(str(exception)),
+        )
+        request = HttpRequest()
+        request.path = "/events"
+
+        try:
+            _raise_boom()
+        except ValueError:
+            got_request_exception.send(sender=None, request=request)
+
+        assert reported == ["boom"]
+
+    def test_a_failing_reporter_is_swallowed_and_logged(self, monkeypatch, caplog):
+        # got_request_exception is sent with send(), not send_robust(), so an
+        # unguarded raise would escape handle_uncaught_exception and replace the
+        # 500 page with a traceback.
+        def explode(_exception, _request):
+            raise RuntimeError("posthog is down")
+
+        monkeypatch.setattr(
+            "ludamus.links.analytics.reporting.report_exception", explode
+        )
+        request = HttpRequest()
+        request.path = "/events"
+
+        try:
+            _raise_boom()
+        except ValueError:
+            got_request_exception.send(sender=None, request=request)
+
+        assert "Could not report an exception to PostHog" in caplog.text
+
+    def test_no_active_exception_reports_nothing(self, monkeypatch):
+        # Anything may send this signal; only an active exception is a fault.
+        reported = []
+        monkeypatch.setattr(
+            "ludamus.links.analytics.reporting.report_exception",
+            lambda exception, _request: reported.append(str(exception)),
+        )
+        request = HttpRequest()
+        request.path = "/events"
+
+        got_request_exception.send(sender=None, request=request)
+
+        assert not reported

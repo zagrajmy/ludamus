@@ -8,6 +8,7 @@ from django.conf import settings
 from ludamus.inits.builders import build_printables_reminder, build_waitlist_promotion
 from ludamus.inits.dbos_scheduler import DBOSOfferExpiryScheduler
 from ludamus.inits.repositories import Repositories
+from ludamus.links.cache import DjangoCache
 from ludamus.links.db.django.notifications import DjangoUserNotifier
 from ludamus.links.db.django.schedule_change_log import ScheduleChangeLogRepository
 from ludamus.links.db.django.transaction import DjangoTransaction
@@ -41,12 +42,17 @@ from ludamus.mills.enrollment import (
     NotificationsService,
     WaitlistPromotionService,
 )
-from ludamus.mills.event import EventConfirmationsService, EventPanelService
+from ludamus.mills.errata import ErrataService
+from ludamus.mills.event import (
+    EventConfirmationsService,
+    EventPanelService,
+    EventsService,
+)
 from ludamus.mills.event_settings import EventSettingsService
+from ludamus.mills.guild import GuildService
 from ludamus.mills.multiverse import (
     AnnouncementsService,
     ConnectionsService,
-    EventsService,
     SitesService,
     SpherePanelService,
 )
@@ -57,6 +63,7 @@ from ludamus.mills.party import PartyService
 from ludamus.mills.party_history import PartySessionHistoryService
 from ludamus.mills.printing import PrintablesReminderService, PrintMaterialsService
 from ludamus.mills.proposal_categories import ProposalCategoriesService
+from ludamus.mills.propose import ProposeSessionService
 from ludamus.mills.safety import EventBanService, ShadowbanService
 from ludamus.mills.session_modal import SessionModalService
 from ludamus.mills.submissions.field_layout import ImportFieldLayoutService
@@ -70,13 +77,20 @@ from ludamus.mills.submissions.proposal_category_settings import (
     ProposalCategorySettingsService,
 )
 from ludamus.mills.submissions.session_fields import CFPSessionFieldService
+from ludamus.mills.timetable import (
+    ConflictDetectionService,
+    TimetableOverviewService,
+    TimetableService,
+)
 from ludamus.mills.tracks import TracksPanelService
 from ludamus.mills.venues import SpaceTreeService, VenuesService
 from ludamus.pacts.chronology import IntegrationImplementationId
 from ludamus.pacts.enrollment import EnrollmentRepos
 from ludamus.pacts.event_settings import EventSettingsRepos
 from ludamus.pacts.panel import FacilitatorPanelRepos, ProposalPanelRepos
+from ludamus.pacts.propose import ProposeRepos
 from ludamus.pacts.submissions import ImportRepos, ProposalCategorySettingsRepos
+from ludamus.pacts.timetable import TimetableRepos
 
 if TYPE_CHECKING:
     from ludamus.pacts.chronology import IntegrationImplementation
@@ -124,6 +138,7 @@ class Services:
         return FacilitatorPanelService(
             self._transaction,
             FacilitatorPanelRepos(
+                events=self._repos.events,
                 facilitators=self._repos.facilitators,
                 personal_data_fields=self._repos.personal_data_fields,
                 personal_data_field_values=self._repos.personal_data_field_values,
@@ -131,6 +146,7 @@ class Services:
                 panel_settings=self._repos.event_panel_settings,
                 sessions=self._repos.sessions,
                 users=self._repos.active_users,
+                guilds=self._repos.guilds,
             ),
         )
 
@@ -168,6 +184,10 @@ class Services:
         )
 
     @cached_property
+    def guilds(self) -> GuildService:
+        return GuildService(transaction=self._transaction, guilds=self._repos.guilds)
+
+    @cached_property
     def parties(self) -> PartyService:
         return PartyService(
             self._transaction, self._repos.parties, DjangoUserNotifier()
@@ -193,11 +213,22 @@ class Services:
 
     @cached_property
     def events(self) -> EventsService:
-        return EventsService(self._repos.events)
+        return EventsService(
+            transaction=self._transaction,
+            events=self._repos.events,
+            spheres=self._repos.spheres,
+        )
 
     @cached_property
     def event_panel(self) -> EventPanelService:
         return EventPanelService(self._repos.events)
+
+    @cached_property
+    def errata(self) -> ErrataService:
+        return ErrataService(
+            events=self._repos.events,
+            schedule_change_logs=self._repos.schedule_change_logs,
+        )
 
     @cached_property
     def confirmations(self) -> EventConfirmationsService:
@@ -262,10 +293,11 @@ class Services:
     @cached_property
     def session_content_edit(self) -> SessionContentEditService:
         return SessionContentEditService(
-            self._transaction,
-            self._repos.sessions,
-            self._repos.session_fields,
-            self._repos.content_change_logs,
+            transaction=self._transaction,
+            sessions=self._repos.sessions,
+            session_fields=self._repos.session_fields,
+            content_change_logs=self._repos.content_change_logs,
+            agenda_items=self._repos.agenda_items,
         )
 
     @cached_property
@@ -292,6 +324,9 @@ class Services:
                 session_fields=self._repos.session_fields,
                 proposal_categories=self._repos.proposal_categories,
                 panel_settings=self._repos.event_panel_settings,
+                facilitators=self._repos.facilitators,
+                tracks=self._repos.tracks,
+                time_slots=self._repos.time_slots,
             ),
         )
 
@@ -457,6 +492,7 @@ class Services:
             self._repos.tracks,
             self._repos.proposal_categories,
             self._repos.facilitators,
+            self._repos.facilitator_change_logs,
             self._repos.import_log_entries,
         )
 
@@ -480,6 +516,25 @@ class Services:
         )
 
     @cached_property
+    def propose_session(self) -> ProposeSessionService:
+        return ProposeSessionService(
+            transaction=self._transaction,
+            repos=ProposeRepos(
+                events=self._repos.events,
+                event_proposal_settings=self._repos.event_proposal_settings,
+                categories=self._repos.proposal_categories,
+                tracks=self._repos.tracks,
+                sessions=self._repos.sessions,
+                session_fields=self._repos.session_fields,
+                personal_fields=self._repos.personal_data_fields,
+                personal_data_field_values=self._repos.personal_data_field_values,
+                facilitators=self._repos.facilitators,
+                users=self._repos.active_users,
+            ),
+            cache=DjangoCache(),
+        )
+
+    @cached_property
     def tracks_panel(self) -> TracksPanelService:
         return TracksPanelService(
             transaction=self._transaction,
@@ -487,6 +542,29 @@ class Services:
             spaces=self._repos.spaces,
             spheres=self._repos.spheres,
         )
+
+    @cached_property
+    def _timetable_repos(self) -> TimetableRepos:
+        return TimetableRepos(
+            sessions=self._repos.sessions,
+            agenda_items=self._repos.agenda_items,
+            spaces=self._repos.spaces,
+            time_slots=self._repos.time_slots,
+            tracks=self._repos.tracks,
+            schedule_change_logs=self._repos.schedule_change_logs,
+        )
+
+    @cached_property
+    def timetable(self) -> TimetableService:
+        return TimetableService(self._transaction, self._timetable_repos)
+
+    @cached_property
+    def timetable_conflicts(self) -> ConflictDetectionService:
+        return ConflictDetectionService(self._timetable_repos)
+
+    @cached_property
+    def timetable_overview(self) -> TimetableOverviewService:
+        return TimetableOverviewService(self._timetable_repos)
 
     @cached_property
     def import_field_layout(self) -> ImportFieldLayoutService:

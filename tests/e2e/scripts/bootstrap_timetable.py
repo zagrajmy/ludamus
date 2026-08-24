@@ -181,7 +181,7 @@ def main() -> None:
             "title": "Board Game Night",
             "display_name": "Casey Rivers",
             "description": "Booked by the other track, in a shared room.",
-            "duration": "PT2H",
+            "duration": "PT1H",
             "participants_limit": 4,
             "min_age": 0,
             "status": "accepted",
@@ -195,7 +195,7 @@ def main() -> None:
         session=foreign_session,
         defaults={
             "start_time": slot_day_two.start_time,
-            "end_time": slot_day_two.end_time,
+            "end_time": slot_day_two.start_time + timedelta(hours=1),
         },
     )
 
@@ -209,6 +209,44 @@ def main() -> None:
         event=event,
         slug="bob-chen",
         defaults={"display_name": "Bob Chen", "user": None},
+    )
+
+    # Scheduled on the second day while it asked for the first one, so the grid
+    # marks a preferred-slot violation. Alone in its column, well within the
+    # room's capacity and with a facilitator of its own — every other way of
+    # flagging a block would overrule the warning this one is here to show.
+    misplaced, _ = Session.objects.get_or_create(
+        event=event,
+        slug="timetable-misplaced-demo",
+        defaults={
+            "title": "Misplaced Demo Game",
+            "display_name": "Cleo Vance",
+            "description": "Scheduled outside the day it asked for.",
+            "duration": "PT1H",
+            "participants_limit": 6,
+            "min_age": 0,
+            "status": "accepted",
+            "category": cat,
+        },
+    )
+    cleo, _ = Facilitator.objects.get_or_create(
+        event=event,
+        slug="cleo-vance",
+        defaults={"display_name": "Cleo Vance", "user": None},
+    )
+    misplaced.tracks.add(track)
+    misplaced.facilitators.add(cleo)
+    misplaced.time_slots.set([slot_day_one])
+    AgendaItem.objects.get_or_create(
+        space=space_b,
+        session=misplaced,
+        defaults={
+            "session_confirmed": False,
+            # The hour after the other track's booking, so the two share a room
+            # without clashing -- a clash would outrank the slot warning.
+            "start_time": slot_day_two.start_time + timedelta(hours=1),
+            "end_time": slot_day_two.end_time,
+        },
     )
 
     # Accepted (unscheduled) sessions for assigning via the timetable
