@@ -11,26 +11,24 @@
     what PostHog's cookie + localStorage persistence does. Server-side fault
     reports touch no device storage, so they belong in the Privacy Policy
     rather than in a consent prompt.
-
-    Emoji rather than {% icon %}: heroicons has no cookie glyph.
 {% endcomment %}
 <section id="consent-banner"
-         class="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-bg-secondary/95 backdrop-blur-lg"
+         class="consent-banner fixed z-40 bottom-3 left-3 right-3 sm:bottom-4 sm:left-4 sm:right-auto sm:max-w-sm rounded-2xl border border-border bg-bg-secondary/95 backdrop-blur-lg shadow-lg"
          aria-label="{% translate "Cookie consent" %}"
          hidden>
-    <div class="max-w-7xl mx-auto px-4 md:px-6 lg:px-8 py-4 flex flex-col sm:flex-row sm:items-center gap-3">
-        <div class="flex items-start sm:items-center gap-2.5 grow">
+    <div class="p-4 flex flex-col gap-3">
+        <div class="flex items-start gap-2.5">
             <span class="text-xl leading-none translate-y-[-.25px] shrink-0"
                   aria-hidden="true">🍪</span>
-            <p class="text-sm text-foreground-secondary [&_a]:text-primary [&_a]:hover:underline">
-                {% url 'django.contrib.flatpages.views.flatpage' url='/privacy-policy/' as privacy_url %}
+            <p class="text-sm text-foreground-secondary [&_a]:text-primary [&_a]:hover:underline text-balance">
+                {% translate "Cookies help us see what to fix." %}
+                {% url 'privacy-policy' as privacy_url %}
                 {% blocktranslate trimmed %}
-                    Cookies help us see what to fix. More in the
-                    <a href="{{ privacy_url }}">Privacy Policy</a>.
+                    More in the <a href="{{ privacy_url }}">Privacy Policy</a>.
                 {% endblocktranslate %}
             </p>
         </div>
-        <div class="flex flex-row gap-2 shrink-0 max-sm:*:grow">
+        <div class="flex flex-row justify-end gap-2">
             {% translate "No cookies!" as decline_label %}
             {% translate "Cool" as allow_label %}
             {% tessera_button decline_label button_type="button" variant="secondary" full_width_mobile=False data_consent_choice="declined" %}

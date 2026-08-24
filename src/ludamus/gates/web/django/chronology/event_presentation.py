@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections import defaultdict
 from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING, Protocol, Self, TypedDict
+from typing import TYPE_CHECKING, Self, TypedDict
 
 from ludamus.gates.web.django.entities import UserInfo
 from ludamus.pacts import EventListItemDTO
@@ -15,6 +15,7 @@ if TYPE_CHECKING:
     from ludamus.pacts import (
         AgendaItemDTO,
         LocationData,
+        OrganizerFieldDTO,
         SessionDTO,
         SessionFieldValueDTO,
     )
@@ -202,27 +203,33 @@ class SessionData:  # pylint: disable=too-many-instance-attributes
         return self.loc.get("path", "")
 
 
-class _SelectField(Protocol):
-    slug: str
+class FilterAvailability(TypedDict):
+    track_filter_names: list[str]
+    category_filter_names: list[str]
 
 
 # A dropdown is only worth showing when there's more than one value to pick
 # between, matching how Venue/Day/Hour reveal themselves. Every filter on the
 # event page clears this same bar; the two helpers below only differ in where
 # they read the values from.
-def filter_availability(cards: Iterable[SessionData]) -> dict[str, bool]:
+def filter_availability(cards: Iterable[SessionData]) -> FilterAvailability:
+    # The names, not a flag: the template renders these two dropdowns' options
+    # itself, so the client follows one rule for every filter — drop the
+    # options no card uses — instead of filling these two from the cards and
+    # the rest from the server. Empty below the bar, so the same list says both
+    # whether to draw the filter and what goes in it.
     card_list = list(cards)
-    tracks = {name for c in card_list for name in c.track_names}
-    categories = {c.category_name for c in card_list if c.category_name}
+    tracks = sorted({name for c in card_list for name in c.track_names})
+    categories = sorted({c.category_name for c in card_list if c.category_name})
     return {
-        "has_track_filter": len(tracks) > 1,
-        "has_category_filter": len(categories) > 1,
+        "track_filter_names": tracks if len(tracks) > 1 else [],
+        "category_filter_names": categories if len(categories) > 1 else [],
     }
 
 
 def filterable_tag_fields(
-    fields: Sequence[_SelectField], cards: Iterable[SessionData]
-) -> list[_SelectField]:
+    fields: Sequence[OrganizerFieldDTO], cards: Iterable[SessionData]
+) -> list[OrganizerFieldDTO]:
     """Keep the organizer-defined select fields worth offering as a filter.
 
     Returns:
@@ -231,12 +238,18 @@ def filterable_tag_fields(
         same way, is left out rather than drawn as a label above an "All ..."
         box.
     """
+    # Only answers that are a defined choice count: the dropdown offers the
+    # field's choices, so a value written into an allow_custom field would
+    # otherwise clear the bar for a field that ends up with nothing to pick.
     answers: dict[str, set[str]] = defaultdict(set)
     for card in cards:
         for slug, value in card.public_select_answers():
             answers[slug].add(value)
-    worth_picking = {slug for slug, values in answers.items() if len(values) > 1}
-    return [field for field in fields if field.slug in worth_picking]
+    return [
+        field
+        for field in fields
+        if len(answers[field.slug] & {option.value for option in field.options}) > 1
+    ]
 
 
 class EventInfo(EventListItemDTO):

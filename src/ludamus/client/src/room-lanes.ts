@@ -39,6 +39,20 @@ const collapseEmptyTracks = (lanes: HTMLElement): void => {
     el.classList.toggle(COLLAPSED, !liveCols.has(Number(el.dataset.laneCol)));
   }
 
+  // The parent-space label is printed once, above the first column of its run,
+  // so collapsing that column takes the label with it. Reprint it on the first
+  // column of the run still standing — by group key, not name, since two
+  // branches can carry the same parent name.
+  const labelled = new Set<string>();
+  for (const cell of lanes.querySelectorAll<HTMLElement>("[data-lane-group]")) {
+    const label = cell.querySelector<HTMLElement>("[data-lane-group-label]");
+    if (!label) continue;
+    const group = cell.dataset.laneGroup ?? "";
+    const live = liveCols.has(Number(cell.dataset.laneCol));
+    label.classList.toggle("invisible", !live || labelled.has(group));
+    if (live) labelled.add(group);
+  }
+
   const columns = ["var(--axis-w)"];
   for (let col = 1; col <= roomCount; col += 1) {
     columns.push(liveCols.has(col) ? "var(--col-track)" : "0");

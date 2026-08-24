@@ -2,8 +2,8 @@
 {% load markdown_tags %}
 {% load tessera %}
 <div id="wizard-content">
-    {% include "chronology/propose/parts/_proposal_description.html" %}
-    {% include "chronology/propose/parts/_stepper.html" %}
+    {% include "event/propose/parts/_proposal_description.html" %}
+    {% include "event/propose/parts/_stepper.html" %}
     {% if form|default:"" %}
         <h2 class="text-lg font-semibold mb-1">{% translate "Session Details" %}</h2>
         <p class="text-sm text-foreground-muted mb-5">
@@ -11,7 +11,7 @@
         </p>
         <form method="post"
               enctype="multipart/form-data"
-              hx-post="{% url 'web:chronology:session-propose-details' event_slug=event.slug %}"
+              hx-post="{% url 'web:event:session-propose-details' event_slug=event.slug %}"
               hx-encoding="multipart/form-data"
               hx-target="#wizard-content"
               hx-swap="outerHTML show:#wizard-content:top">
@@ -150,7 +150,7 @@
             <div class="flex flex-col-reverse sm:grid sm:grid-cols-2 gap-3 pt-6">
                 <button type="button"
                         class="btn btn-secondary"
-                        hx-post="{% url 'web:chronology:session-propose-timeslots' event_slug=event.slug %}"
+                        hx-post="{% url 'web:event:session-propose-timeslots' event_slug=event.slug %}"
                         hx-target="#wizard-content"
                         hx-swap="outerHTML show:#wizard-content:top"
                         hx-vals='{"back": "1"}'>← {% translate "Back" %}</button>

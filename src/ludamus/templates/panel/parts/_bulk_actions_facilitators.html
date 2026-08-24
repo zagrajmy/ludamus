@@ -1,0 +1,8 @@
+{# Buttons of the facilitators bulk-status toolbar; see _bulk_toolbar.html. #}
+{% load i18n %}
+{% translate "Delete" as t_delete %}
+{% include "panel/parts/_bulk_action_button.html" with label=t_delete name="action" value="delete" variant="danger" only %}
+{% translate "Mark as guest" as t_guest %}
+{% include "panel/parts/_bulk_action_button.html" with label=t_guest name="action" value="mark-guest" variant="secondary" only %}
+{% translate "Merge selected" as t_merge %}
+{% include "panel/parts/_bulk_action_button.html" with label=t_merge name="action" value="merge" variant="secondary" only %}

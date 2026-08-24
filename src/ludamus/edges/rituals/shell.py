@@ -7,6 +7,7 @@ decision rather than as quoting.
 
 import re
 import shlex
+from typing import Literal
 
 from pydantic import TypeAdapter, ValidationError
 from vekna.folio.shell import ShellResult, shell
@@ -350,6 +351,38 @@ def commit(message: str) -> str:
 def label(*labels: str, number: int) -> str:
     added = " ".join(f"--add-label {quoted(one)}" for one in labels)
     return f"gh pr edit {number} {added}"
+
+
+# `v:` for vekna, the way `pr::` marks the labels a ritual reads: a bare `wait`
+# and a `pr::wait` already sit side by side on this repository, and a checkpoint
+# named after its ritual alone is one hand-made label away from the same
+# collision.
+def _marker(ritual: str, state: str) -> str:
+    return f"v:{ritual}:{state}"
+
+
+# A ritual's checkpoint is one claim at a time: `started` means the ritual may
+# have changed this branch and has not finished, `done` that it ended clean.
+# Adding one takes the other off in the same call, so a pull request never
+# wears both halves of a pair — and a branch the night could not finish is the
+# one still wearing `started`.
+def checkpoint(ritual: str, *, state: Literal["started", "done"], number: int) -> str:
+    other = "started" if state == "done" else "done"
+    return (
+        f"gh pr edit {number}"
+        f" --add-label {quoted(_marker(ritual, state))}"
+        f" --remove-label {quoted(_marker(ritual, other))}"
+    )
+
+
+# Best-effort and never fatal: a checkpoint is a board marker, and losing one is
+# not worth abandoning a merge that is about to happen or a branch that just
+# went green. What gh made of it comes back as the caller's note instead.
+async def mark(ritual: str, *, state: Literal["started", "done"], number: int) -> str:
+    marked = await shell(checkpoint(ritual, state=state, number=number))
+    if marked.exit_code:
+        return f"could not mark {_marker(ritual, state)}: {said(marked)}"
+    return ""
 
 
 # The agent was told not to commit the merge, but a step checks rather than

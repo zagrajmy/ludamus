@@ -1,0 +1,6 @@
+{# Buttons of the errata bulk-status toolbar; see _bulk_toolbar.html. #}
+{% load i18n %}
+{% translate "Mark as announced" as t_announce %}
+{% include "panel/parts/_bulk_action_button.html" with label=t_announce name="acknowledged" value="1" variant="primary" only %}
+{% translate "Mark as not announced" as t_unannounce %}
+{% include "panel/parts/_bulk_action_button.html" with label=t_unannounce name="acknowledged" value="0" variant="secondary" only %}

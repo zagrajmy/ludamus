@@ -246,6 +246,14 @@ If you fix a papercut, remove it.
   its expected schedule_days stop matching once the local clock crosses a day
   boundary. Fails on plain main from ~21:00 Europe/Warsaw; green on CI only
   because runners are UTC.
+- 2026-08-15: git commit's hk pre-commit hook (djlint/codespell/yamllint) fails
+  with 'not found' in this worktree because the session PATH bakes in
+  /home/user/ludamus/.venv/bin from the main checkout, but that .venv doesn't
+  exist and I can't create it (write-permission denied outside my worktree).
+  Worked around by prepending the poetry-managed venv's bin dir to PATH for the
+  git commit invocation; poetry install must be run without mise exec (mise
+  exec's venv also resolves to the wrong checkout path) to get a usable venv at
+  all.
 - 2026-08-16: every mise task died with '<tool>: not found' (pytest, mypy,
   pylint) mid-session. Cause: mise replaced python 3.14.6 with 3.14.7 and
   deleted the old install, leaving .venv/bin/python dangling, so every console
@@ -285,6 +293,20 @@ If you fix a papercut, remove it.
   worktree, so both abort with 'binary not found' and every other hook is
   skipped. Had to use --no-verify. Either run aube install per worktree or make
   the hk steps skip when the binary is missing.
+- 2026-08-18: mise run lint:tingle failed with 'unknown type regex_spread'
+  because a stale tingle resolved ahead of the project venv on PATH; running
+  .venv/bin/tingle check directly worked.
+- 2026-08-18: lint:impeccable failed for ~20 minutes on every branch, locally
+  and on CI, with a bare 'impeccable failed (exit 1)'. npx installed the
+  SHA-pinned CLI (--help worked, and the cached copy ran clean when invoked by
+  path) but 'npm exec ... detect' exited 1 with no stdout or stderr, so the
+  wrapper had nothing to print. It cleared on its own. run_detect should surface
+  npm's own exit path rather than only the child's streams, otherwise a registry
+  hiccup is indistinguishable from a real finding.
+- 2026-08-20: Claude Code web sandbox: mise's _.python.venv never created .venv,
+  so every task calling django-admin/djlint/tingle failed with 'not found' until
+  I prepended the poetry virtualenv bin to PATH by hand. mise run test:e2e:prep
+  dies on the first such step.
 - 2026-08-20: Screenshotting a template change needs the e2e server restarted
   after 'aubr -C src/ludamus/client build': django_vite reads the manifest once
   per process, so the page silently loads no CSS/JS and every layout measurement
@@ -299,3 +321,16 @@ If you fix a papercut, remove it.
   anonymous-code modal reopen test fail deterministically (86 more don't run),
   while CI passes the same commits — sandbox env issue, not code; cost a bisect
   via origin/main checkout of client files to prove it
+- 2026-08-21: Running the production-image validation initially failed because
+  the Docker daemon was unavailable; I had to start OrbStack manually before the
+  build could run.
+- 2026-08-21: Fresh worktree at .claude/worktrees/: .venv is absent (write-
+  permission denied outside the shared checkout), so hk's pre-commit codespell
+  step failed with 'command not found' even after prepending the poetry venv bin
+  for git. Root cause: PATH must be exported for the whole shell session before
+  invoking git commit, not just prefixed on the git commit line, since hk re-
+  execs sub-hooks.
+- 2026-08-21: Running focused pytest directly from a worktree failed because ENV
+  was unset; the traceback only later explained pytest-django could not
+  initialize. Use mise run test:int -- PATH so the task supplies the test
+  environment.

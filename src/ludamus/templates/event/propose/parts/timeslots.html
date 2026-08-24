@@ -1,13 +1,13 @@
 {% load i18n %}
 <div id="wizard-content">
-    {% include "chronology/propose/parts/_proposal_description.html" %}
-    {% include "chronology/propose/parts/_stepper.html" %}
+    {% include "event/propose/parts/_proposal_description.html" %}
+    {% include "event/propose/parts/_stepper.html" %}
     {% if slot_descriptors|default:"" %}
         <h2 class="text-lg font-semibold mb-1">{% translate "Preferred Time Slots" %}</h2>
         <p class="text-sm text-foreground-muted mb-5">{% translate "Pick every slot you could host." %}</p>
         {% if error|default:"" %}<div class="alert backdrop-blur-lg alert-danger mb-4">{{ error }}</div>{% endif %}
         <form method="post"
-              hx-post="{% url 'web:chronology:session-propose-timeslots' event_slug=event.slug %}"
+              hx-post="{% url 'web:event:session-propose-timeslots' event_slug=event.slug %}"
               hx-target="#wizard-content"
               hx-swap="outerHTML show:#wizard-content:top">
             {% csrf_token %}
@@ -35,7 +35,7 @@
             <div class="flex flex-col-reverse sm:grid sm:grid-cols-2 gap-3 pt-6">
                 <button type="button"
                         class="btn btn-secondary"
-                        hx-post="{% url 'web:chronology:session-propose-personal' event_slug=event.slug %}"
+                        hx-post="{% url 'web:event:session-propose-personal' event_slug=event.slug %}"
                         hx-target="#wizard-content"
                         hx-swap="outerHTML show:#wizard-content:top"
                         hx-vals='{"back": "1"}'>← {% translate "Back" %}</button>
@@ -46,7 +46,7 @@
         <p class="text-sm text-foreground-muted">{% translate "Time slots saved. Next step coming soon." %}</p>
     {% else %}
         <p class="text-sm text-foreground-muted">{% translate "No time slot selection needed. Proceeding to next step." %}</p>
-        <div hx-post="{% url 'web:chronology:session-propose-timeslots' event_slug=event.slug %}"
+        <div hx-post="{% url 'web:event:session-propose-timeslots' event_slug=event.slug %}"
              hx-target="#wizard-content"
              hx-swap="outerHTML show:#wizard-content:top"
              hx-trigger="load"

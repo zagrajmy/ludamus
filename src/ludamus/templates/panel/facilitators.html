@@ -111,35 +111,14 @@
                     {% vite_asset 'src/bulk-status.ts' %}
                     <div id="facilitators-results">
                         {% if facilitators %}
-                            <form method="post"
-                                  id="bulk-status-form"
-                                  action="{% url 'panel:facilitator-bulk-action' slug=current_event.slug %}">
-                                {% csrf_token %}
-                                <input type="hidden" name="next" value="{{ request.get_full_path }}">
-                                <div class="flex flex-wrap items-center gap-2 mb-3">
-                                    <span class="text-sm text-foreground-muted mr-1">
-                                        {% translate "Selected:" %} <span id="bulk-selected-count">0</span>
-                                    </span>
-                                    <button type="submit"
-                                            name="action"
-                                            value="delete"
-                                            class="btn btn-danger text-sm bulk-action-btn">{% translate "Delete" %}</button>
-                                    <button type="submit"
-                                            name="action"
-                                            value="mark-guest"
-                                            class="btn btn-secondary text-sm bulk-action-btn">{% translate "Mark as guest" %}</button>
-                                    <button type="submit"
-                                            name="action"
-                                            value="merge"
-                                            class="btn btn-secondary text-sm bulk-action-btn">{% translate "Merge selected" %}</button>
-                                </div>
-                            </form>
+                            {% url 'panel:facilitator-bulk-action' slug=current_event.slug as bulk_action_url %}
+                            {% include "panel/parts/_bulk_toolbar.html" with action=bulk_action_url actions="panel/parts/_bulk_actions_facilitators.html" %}
                             {% tessera_table %}
                                 <thead class="bg-bg-tertiary">
                                     <tr>
                                         <th scope="col" class="px-6 py-3 w-12">
                                             {% translate "Select all facilitators" as t_select_all %}
-                                            {% include "components/checkbox-field.html" with id="bulk-select-all" aria_label=t_select_all only %}
+                                            {% include "panel/parts/_bulk_select.html" with select_all=True aria_label=t_select_all only %}
                                         </th>
                                         {% for column in columns %}
                                             {% include "panel/parts/_sort_th.html" with column=column.key label=column.label %}
@@ -155,7 +134,7 @@
                                         <tr class="group/row hover:bg-bg-tertiary">
                                             <td class="px-6 py-4">
                                                 {% blocktranslate asvar t_select_row with name=facilitator.display_name %}Select {{ name }}{% endblocktranslate %}
-                                                {% include "components/checkbox-field.html" with name="facilitator_slugs" value=facilitator.slug form_id="bulk-status-form" aria_label=t_select_row hook_class="bulk-row-checkbox" only %}
+                                                {% include "panel/parts/_bulk_select.html" with name="facilitator_slugs" value=facilitator.slug aria_label=t_select_row only %}
                                             </td>
                                             {% for column in columns %}
                                                 {% with value=column_values|get_item:facilitator.pk|get_item:column.key %}

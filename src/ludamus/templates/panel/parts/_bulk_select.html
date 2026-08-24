@@ -1,0 +1,11 @@
+{# The two checkboxes bulk-status.ts drives, in one place so the id and the #}
+{# hook class are spelled once: pass select_all=True for the header box that #}
+{# ticks the page, or name/value for a row box. aria_label is required for #}
+{# both — the boxes carry no visible label. #}
+{# A row box names the form by id rather than sitting inside it, so a page #}
+{# may put its table outside the toolbar form. See _bulk_toolbar.html. #}
+{% if select_all %}
+    {% include "components/checkbox-field.html" with id="bulk-select-all" aria_label=aria_label only %}
+{% else %}
+    {% include "components/checkbox-field.html" with name=name value=value form_id="bulk-status-form" aria_label=aria_label hook_class="bulk-row-checkbox" only %}
+{% endif %}

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from django.core.paginator import Page, Paginator
 from django.http import Http404
 from django.urls import reverse
 from django.utils.http import urlencode
@@ -20,28 +19,11 @@ from ludamus.gates.web.django.event.panel.views.base import (
 from ludamus.gates.web.django.panel import safe_next_url
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping, Sequence
+    from collections.abc import Mapping
 
     from django.http import HttpRequest
 
     from ludamus.pacts import DependencyInjectorProtocol
-
-
-PAGE_SIZES = (10, 20, 50, 100)
-DEFAULT_PAGE_SIZE = 20
-
-
-def paginate[T](request: HttpRequest, items: Sequence[T]) -> Page[T]:
-    raw = request.GET.get("page_size", "")
-    size = int(raw) if raw.isdigit() and int(raw) in PAGE_SIZES else DEFAULT_PAGE_SIZE
-    return Paginator(items, size).get_page(request.GET.get("page"))
-
-
-def pagination_context[T](request: HttpRequest, items: Sequence[T]) -> dict[str, Any]:
-    # The sizes travel with the page so the picker can't drift from the
-    # sizes `paginate` actually honours.
-    page_obj = paginate(request, items)
-    return {"page_obj": page_obj, "page_sizes": list(PAGE_SIZES)}
 
 
 def back_to_proposals(request: HttpRequest, slug: str) -> str:
