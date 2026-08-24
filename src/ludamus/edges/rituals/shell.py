@@ -119,8 +119,8 @@ _UNCOVERED = "in your changes missing coverage"
 # all of them mean nobody has told us the coverage is fine, and the slow pass is
 # the thing that finds out. Only a green codecov, a green suite and a codecov
 # comment naming no uncovered line buy a skip.
-def wants_cover(listing: str, said: str) -> bool:
-    if _UNCOVERED in said:
+def wants_cover(listing: str, comments: str) -> bool:
+    if _UNCOVERED in comments:
         return True
     try:
         checked = CHECKS.validate_json(listing)

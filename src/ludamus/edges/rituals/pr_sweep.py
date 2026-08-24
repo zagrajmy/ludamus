@@ -415,8 +415,8 @@ async def finish_merge(work: Work) -> Transition:
 async def check_ci(work: Work) -> Transition:
     """Ask CI whether this branch is worth the slow gate."""
     asked = await shell(checks(work.pr.number), stream=False)
-    said = await shell(cover_comment(work.pr.number), stream=False)
-    if wants_cover(asked.stdout, said.stdout):
+    commented = await shell(cover_comment(work.pr.number), stream=False)
+    if wants_cover(asked.stdout, commented.stdout):
         return goto(cover, work)
     return goto(
         push_work, work_with(work, note="codecov and the test job are green on CI")
