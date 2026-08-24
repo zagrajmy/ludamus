@@ -42,6 +42,9 @@ from tests.integration.conftest import (
 )
 from tests.integration.utils import assert_response
 
+COVER_LOGGER = "ludamus.gates.web.django.propose_cover"
+SUBMITTED_MESSAGE = "Session proposal 'Test Session' submitted successfully!"
+
 GIF_BYTES = bytes.fromhex(
     "47494638376101000100810000ffffff0000000000000000002c000000000100"
     "010000080400010404003b"
@@ -97,6 +100,21 @@ class TestProposeSessionPageView:
         session = client.session
         session[f"propose_{event.slug}"] = {"category_id": category.pk}
         session.save()
+
+    def _stash_cover(self, client, event_slug):
+        return client.post(
+            self._get_details_url(event_slug),
+            {
+                "display_name": "Test User",
+                "title": "Test Session",
+                "description": "A test session",
+                "participants_limit": "6",
+                "cover_image": SimpleUploadedFile(
+                    "cover.png", PNG_BYTES, content_type="image/png"
+                ),
+            },
+            format="multipart",
+        )
 
     def _set_wizard_full(self, client, event, category, **extra):
         session = client.session
@@ -1673,78 +1691,62 @@ class TestProposeSessionPageView:
     ):
         self._activate_proposals(event, faker, time_zone)
         self._set_wizard_category(authenticated_client, event, proposal_category)
-        image = SimpleUploadedFile("cover.png", PNG_BYTES, content_type="image/png")
-
-        authenticated_client.post(
-            self._get_details_url(event.slug),
-            {
-                "display_name": "Test User",
-                "title": "Test Session",
-                "description": "A test session",
-                "participants_limit": "6",
-                "cover_image": image,
-            },
-            format="multipart",
-        )
+        self._stash_cover(authenticated_client, event.slug)
 
         response = authenticated_client.post(self._get_submit_url(event.slug), {})
 
-        assert response.status_code == HTTPStatus.FOUND
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=reverse("web:chronology:event", kwargs={"slug": event.slug}),
+            messages=[(messages.SUCCESS, SUBMITTED_MESSAGE)],
+        )
         proposal = Session.objects.get(title="Test Session")
         assert proposal.cover_image
         assert proposal.cover_image_url.startswith("/media/sessions/")
         assert proposal.cover_image_original_name == "cover.png"
 
     def test_submit_survives_cover_cleanup_delete_failure(
-        self, authenticated_client, event, faker, time_zone, proposal_category
+        self, authenticated_client, event, faker, time_zone, proposal_category, caplog
     ):
-        # A storage backend that refuses the cleanup delete must not discard a
-        # completed submission: the cover bytes are already read before delete.
+        # A backend that refuses the cleanup delete must not discard a completed
+        # submission: the cover bytes are already read before the delete.
         self._activate_proposals(event, faker, time_zone)
         self._set_wizard_category(authenticated_client, event, proposal_category)
-        image = SimpleUploadedFile("cover.png", PNG_BYTES, content_type="image/png")
-        authenticated_client.post(
-            self._get_details_url(event.slug),
-            {
-                "display_name": "Test User",
-                "title": "Test Session",
-                "description": "A test session",
-                "participants_limit": "6",
-                "cover_image": image,
-            },
-            format="multipart",
-        )
+        self._stash_cover(authenticated_client, event.slug)
 
-        with patch.object(
-            default_storage, "delete", side_effect=OSError("permission denied")
+        with (
+            patch.object(
+                default_storage, "delete", side_effect=OSError("permission denied")
+            ),
+            caplog.at_level("WARNING", logger=COVER_LOGGER),
         ):
             response = authenticated_client.post(self._get_submit_url(event.slug), {})
 
-        assert response.status_code == HTTPStatus.FOUND
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=reverse("web:chronology:event", kwargs={"slug": event.slug}),
+            messages=[(messages.SUCCESS, SUBMITTED_MESSAGE)],
+        )
         proposal = Session.objects.get(title="Test Session")
         assert proposal.cover_image
         assert proposal.cover_image_original_name == "cover.png"
+        # The warning is the only trace of the file left behind in storage.
+        assert "Failed to delete stashed wizard cover" in caplog.text
 
     def test_details_clear_survives_cover_delete_failure(
-        self, authenticated_client, event, faker, time_zone, proposal_category
+        self, authenticated_client, event, faker, time_zone, proposal_category, caplog
     ):
         self._activate_proposals(event, faker, time_zone)
         self._set_wizard_category(authenticated_client, event, proposal_category)
-        image = SimpleUploadedFile("cover.png", PNG_BYTES, content_type="image/png")
-        authenticated_client.post(
-            self._get_details_url(event.slug),
-            {
-                "display_name": "Test User",
-                "title": "Test Session",
-                "description": "A test session",
-                "participants_limit": "6",
-                "cover_image": image,
-            },
-            format="multipart",
-        )
+        self._stash_cover(authenticated_client, event.slug)
 
-        with patch.object(
-            default_storage, "delete", side_effect=OSError("permission denied")
+        with (
+            patch.object(
+                default_storage, "delete", side_effect=OSError("permission denied")
+            ),
+            caplog.at_level("WARNING", logger=COVER_LOGGER),
         ):
             response = authenticated_client.post(
                 self._get_details_url(event.slug),
@@ -1758,9 +1760,39 @@ class TestProposeSessionPageView:
                 format="multipart",
             )
 
-        assert response.status_code == HTTPStatus.OK
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={
+                "category": ProposalCategoryDTO.model_validate(proposal_category),
+                "current_step": "review",
+                "event": EventDTO.model_validate(event),
+                "proposal_settings": EventProposalSettingsDTO(
+                    allow_anonymous_proposals=False, description="", pk=0
+                ),
+                "review": {
+                    "category_name": proposal_category.name,
+                    "contact_email": "",
+                    "description": "A test session",
+                    "display_name": "Test User",
+                    "duration": "",
+                    "min_age": 0,
+                    "participants_limit": 6,
+                    "private_personal_fields": [],
+                    "private_session_fields": [],
+                    "public_personal_fields": [],
+                    "public_session_fields": [],
+                    "time_slots": [],
+                    "title": "Test Session",
+                },
+                "wizard_steps": ["personal", "details", "review"],
+            },
+            template_name="event/propose/parts/review.html",
+        )
         wizard = authenticated_client.session[f"propose_{event.slug}"]
         assert "cover_image_temp" not in wizard
+        assert "cover_image_temp_name" not in wizard
+        assert "Failed to delete stashed wizard cover" in caplog.text
 
     def test_submit_rejects_too_large_cover_image(
         self, authenticated_client, event, faker, time_zone, proposal_category
