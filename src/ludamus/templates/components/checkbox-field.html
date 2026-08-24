@@ -19,7 +19,7 @@
 {# hook_class carries behaviour hooks (JS selectors), never styling. Both are #}
 {# spelled so they can't collide with a page context that has its own form. #}
 {% if label|default:"" %}
-    <label class="inline-flex items-center cursor-pointer">
+    <label class="inline-flex items-center cursor-pointer select-none">
         {% include "components/checkbox-input.html" %}
         <span class="ml-2 text-sm text-foreground">{{ label }}</span>
     </label>
