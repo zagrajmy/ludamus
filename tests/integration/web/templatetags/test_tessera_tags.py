@@ -321,10 +321,12 @@ class TestCombobox:
         assert 'role="combobox"' in html
         assert 'aria-autocomplete="list"' in html
         assert 'aria-expanded="false"' in html
-        assert 'aria-controls="host-listbox"' in html
         assert 'id="host-input"' in html
         assert 'role="listbox"' in html
         assert 'id="host-listbox"' in html
+        # The pattern asks for aria-controls only while the popup shows, so
+        # the script adds it on open and takes it away on close.
+        assert "aria-controls" not in html
 
     def test_option_row_template_carries_the_option_role(self) -> None:
         tpl = Template(
@@ -335,14 +337,18 @@ class TestCombobox:
         assert "<template" in html
         assert 'role="option"' in html
 
-    def test_empty_state_is_announced(self) -> None:
+    def test_empty_state_is_visual_only(self) -> None:
+        # The spoken copy goes to a live region combobox.ts keeps on the body:
+        # one inside this popup would be display:none until it opened, and a
+        # hidden live region announces nothing.
         tpl = Template(
             '{% load tessera %}{% tessera_combobox id="host" name="host" %}'
             "{% endtessera_combobox %}"
         )
         html = tpl.render(Context())
-        assert 'role="status"' in html
-        assert 'aria-live="polite"' in html
+        assert "data-combobox-empty" in html
+        assert 'aria-hidden="true"' in html
+        assert "aria-live" not in html
 
     def test_toggle_is_out_of_the_tab_sequence(self) -> None:
         tpl = Template(
