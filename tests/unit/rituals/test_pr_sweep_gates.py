@@ -23,6 +23,7 @@ from ludamus.edges.rituals.shell import (
     PR_FIX,
     REMOTE,
     checks,
+    cover_comment,
     plain,
 )
 from ludamus.edges.rituals.state import Closed, Run
@@ -33,6 +34,16 @@ if TYPE_CHECKING:
     from ludamus.edges.rituals.state import Work
 
 _MISSING = "src/ludamus/thing.py (80.0%): Missing lines 12-14"
+_GREEN_BOARD = (
+    '[{"name": "codecov/patch", "state": "SUCCESS"},'
+    ' {"name": "test", "state": "SUCCESS"}]'
+)
+# codecov's comment, whose check went green on a drop its threshold tolerates.
+_GAP = (
+    '{"comments": [{"body": "Patch coverage is `96.84211%` with `6 lines`'
+    ' in your changes missing coverage. Please review."}]}'
+)
+_NO_GAP = '{"comments": [{"body": "Project coverage is 96.20%."}]}'
 _PUSH = f"git push {REMOTE} feature"
 # The same suite failing the same way on two branches, an hour and two commits
 # apart: only the timing and the tally moved.
@@ -175,11 +186,12 @@ class TestCheckCi:
         trial.shell.replies(
             when=checks(7), stdout='[{"name": "codecov/patch", "state": "FAILURE"}]'
         )
+        trial.shell.replies(when=cover_comment(7), stdout=_NO_GAP)
 
         transition = trial.walk(check_ci, covering)
 
         assert transition == goto(cover, covering)
-        assert trial.shell.commands == [checks(7)]
+        assert trial.shell.commands == [checks(7), cover_comment(7)]
 
     def test_a_failing_test_job_buys_it_too(self, trial: Trial, work: Work) -> None:
         covering = _covering(work)
@@ -190,6 +202,18 @@ class TestCheckCi:
                 ' {"name": "test", "state": "FAILURE"}]'
             ),
         )
+        trial.shell.replies(when=cover_comment(7), stdout=_NO_GAP)
+
+        transition = trial.walk(check_ci, covering)
+
+        assert transition == goto(cover, covering)
+
+    def test_lines_codecov_reports_uncovered_buy_it_over_a_green_board(
+        self, trial: Trial, work: Work
+    ) -> None:
+        covering = _covering(work)
+        trial.shell.replies(when=checks(7), stdout=_GREEN_BOARD)
+        trial.shell.replies(when=cover_comment(7), stdout=_GAP)
 
         transition = trial.walk(check_ci, covering)
 
@@ -207,6 +231,7 @@ class TestCheckCi:
                 ' {"name": "tingle", "state": "FAILURE"}]'
             ),
         )
+        trial.shell.replies(when=cover_comment(7), stdout=_NO_GAP)
 
         transition = trial.walk(check_ci, covering)
 
@@ -222,6 +247,7 @@ class TestCheckCi:
     ) -> None:
         covering = _covering(work)
         trial.shell.replies(when=checks(7), exit_code=1, stderr="no checks reported")
+        trial.shell.replies(when=cover_comment(7), stdout=_NO_GAP)
 
         transition = trial.walk(check_ci, covering)
 

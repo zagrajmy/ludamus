@@ -96,11 +96,32 @@ _COVER_CHECKS = ("codecov/", "test")
 _PASSED = "SUCCESS"
 
 
+# What codecov itself made of the patch. Its check goes green wherever the drop
+# stays inside the configured threshold, so the board alone lets a branch
+# through carrying lines no test touched — the comment is the only place that
+# names that gap.
+def cover_comment(number: int) -> str:
+    return f"gh pr view {number} --json comments"
+
+
+# codecov's own wording, matched as the sentence rather than the number, since
+# the number is the part that varies: "Patch coverage is 96.84211% with 6 lines
+# in your changes missing coverage."
+# Read off the whole comment listing rather than codecov's own comment, because
+# every other reader on the board would have to quote that sentence verbatim to
+# be mistaken for it — and a mistake here buys the gate, which is the direction
+# this pass errs in anyway.
+_UNCOVERED = "in your changes missing coverage"
+
+
 # True unless the pull request positively says otherwise: a listing that will
 # not parse, a `gh` that would not answer, a branch CI has not reported on yet —
 # all of them mean nobody has told us the coverage is fine, and the slow pass is
-# the thing that finds out. Only a green codecov and a green suite buy a skip.
-def wants_cover(listing: str) -> bool:
+# the thing that finds out. Only a green codecov, a green suite and a codecov
+# comment naming no uncovered line buy a skip.
+def wants_cover(listing: str, said: str) -> bool:
+    if _UNCOVERED in said:
+        return True
     try:
         checked = CHECKS.validate_json(listing)
     except ValidationError:

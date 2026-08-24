@@ -20,7 +20,9 @@ once more when it comes back green — which is also what keeps the installs at
 the head of ``pr-fix`` to one pass per branch rather than one per attempt.
 
 ``pr_cover`` is the slow one, and it asks before it spends: it reads what CI
-made of the branch and, where codecov or the test job is unhappy, runs
+made of the branch — the check board and codecov's own comment, which names
+lines the diff left uncovered even where the check stayed green inside its
+threshold — and, where codecov or the test job is unhappy, runs
 ``mise run diff-cover`` — the unit suite, the e2e suite, then the diff coverage
 report — writes the tests for what the branch left uncovered, and repairs the
 suite where it is the suite that is broken. Between rounds it re-measures with
@@ -114,6 +116,7 @@ from .shell import (
     checkout,
     checks,
     commit,
+    cover_comment,
     coverage_report,
     gates_green,
     label,
@@ -412,7 +415,8 @@ async def finish_merge(work: Work) -> Transition:
 async def check_ci(work: Work) -> Transition:
     """Ask CI whether this branch is worth the slow gate."""
     asked = await shell(checks(work.pr.number), stream=False)
-    if wants_cover(asked.stdout):
+    said = await shell(cover_comment(work.pr.number), stream=False)
+    if wants_cover(asked.stdout, said.stdout):
         return goto(cover, work)
     return goto(
         push_work, work_with(work, note="codecov and the test job are green on CI")
