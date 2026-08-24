@@ -37,7 +37,7 @@ test.describe("Event filter panel", () => {
       if (!rect) throw new Error("toolbar control is not laid out");
       return rect;
     };
-    const search = await box(page.getByRole("textbox", { name: "Search sessions..." }));
+    const search = await box(page.getByRole("textbox", { name: "Search by name or text..." }));
     const filters = await box(page.getByRole("button", { name: "Filters" }));
     const tabs = await box(page.getByRole("tablist"));
 
@@ -183,13 +183,43 @@ test.describe("Event filter panel", () => {
     await expect(card("Mega Strategy Lab")).toBeVisible();
     await expect(card("Cozy Storytellers Circle")).toBeHidden();
   });
+
+  test("the host filter offers the schedule's hosts and narrows to one", async ({ page }) => {
+    await page.goto("/event/autumn-open/");
+    await page.getByRole("button", { name: "Filters" }).click();
+
+    await expect(page.locator("#host-filter-group")).toBeVisible();
+    const hostFilter = page.locator("#host-filter");
+    await expect(hostFilter.locator("option")).toHaveText([
+      "All hosts",
+      "Alex Morgan",
+      "Priya Chen",
+      "Radek Włodarczyk",
+    ]);
+
+    const card = (title: string) => page.locator(".session", { hasText: title });
+    await hostFilter.selectOption({ label: "Priya Chen" });
+    await expect(card("Cozy Storytellers Circle")).toBeVisible();
+    await expect(card("Mega Strategy Lab")).toBeHidden();
+    await expect(card("Przygoda w Mieście Neonów")).toBeHidden();
+    await expect(page.locator("#active-filter-chips")).toContainText("Priya Chen");
+  });
+
+  test("hides the host filter when every session shares one host", async ({ page }) => {
+    await page.goto("/event/closed-enrollment/");
+    await page.getByRole("button", { name: "Filters" }).click();
+    await expect(page.locator("#filter-panel.is-open")).toBeVisible();
+
+    await expect(page.locator("#host-filter-group")).toBeHidden();
+  });
 });
 
 test.describe("Event fuzzy search", () => {
   const card = (page: Page, title: string) =>
     page.getByRole("link", { name: `Open details for ${title}` });
 
-  const searchBox = (page: Page) => page.getByRole("textbox", { name: "Search sessions..." });
+  const searchBox = (page: Page) =>
+    page.getByRole("textbox", { name: "Search by name or text..." });
 
   const MEGA = "Mega Strategy Lab";
   const COZY = "Cozy Storytellers Circle";

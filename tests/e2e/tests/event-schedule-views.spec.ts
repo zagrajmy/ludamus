@@ -81,7 +81,7 @@ test.describe("Enrollment filter", () => {
   test("search still filters the sessions it left on screen", async ({ page }) => {
     await enrollmentOnly(page).check();
 
-    await page.getByRole("textbox", { name: "Search sessions..." }).fill("mega");
+    await page.getByRole("textbox", { name: "Search by name or text..." }).fill("mega");
 
     await expect(card(page, MEGA)).toBeVisible();
     await expect(card(page, NEON)).toBeHidden();
