@@ -154,7 +154,11 @@ const upgrade = (root: HTMLElement): void => {
   };
 
   const isOpen = (): boolean => input.getAttribute("aria-expanded") === "true";
-  const labelOf = (value: string): string => rows.find((row) => row.value === value)?.label ?? "";
+  // Read from the select, not from rows: a disabled option is kept out of the
+  // listbox but can still be the selected one — that is the placeholder idiom,
+  // <option disabled selected> — and the box still has to show its label.
+  const labelOf = (value: string): string =>
+    [...select.options].find((option) => option.value === value)?.textContent?.trim() ?? "";
 
   /** Rebuild the rows from the select, which may be repopulated at any time. */
   const syncOptions = (): void => {

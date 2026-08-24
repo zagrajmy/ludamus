@@ -243,4 +243,22 @@ test.describe("Design system page", () => {
     await combobox.fill("zzz");
     await expect(page.getByRole("log")).toContainText("Nothing matches", { timeout: 5000 });
   });
+
+  test("shows a disabled placeholder's label and keeps it out of the list", async ({ page }) => {
+    await page.goto("/design/");
+    const combobox = await upgradedCombobox(page, "Fruit");
+
+    // <option disabled selected> is the placeholder idiom, and the option a
+    // listbox must not offer is exactly the one the box has to name.
+    await page.evaluate(() => {
+      const select = document.querySelector<HTMLSelectElement>("#t-combobox");
+      select?.options[0]?.setAttribute("disabled", "");
+      select?.closest("[data-combobox]")?.dispatchEvent(new CustomEvent("combobox:sync"));
+    });
+
+    await expect(combobox).toHaveValue("Any fruit");
+    await combobox.click();
+    await expect(page.getByRole("option", { name: "Any fruit" })).toHaveCount(0);
+    await expect(page.getByRole("option", { name: "Apple", exact: true })).toBeVisible();
+  });
 });
