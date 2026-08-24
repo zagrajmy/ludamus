@@ -306,6 +306,9 @@ test.describe("Filter state in the URL", () => {
 
     await page.getByRole("tab", { name: "Rooms" }).click();
 
+    // The dense event's rooms layout is the suite's slowest render; under a
+    // parallel run the boosted GET outlasts the default expect timeout.
+    await expect(page.locator(".room-lanes").first()).toBeVisible({ timeout: 30_000 });
     await expect.poll(() => new URL(page.url()).searchParams.get("view")).toBe("rooms");
     expect(new URL(page.url()).searchParams.get("q")).toBe(title);
     // The swapped-in toolbar re-reads the mirror off the pushed URL.
