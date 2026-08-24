@@ -94,6 +94,14 @@ test.describe("Event schedule views", () => {
     await page.goto(`${DENSE_EVENT_URL}?view=rooms`);
     const body = page.locator("[data-room-lanes-scroll]").first();
     await body.scrollIntoViewIfNeeded();
+    // The pan will move the page up, so give it explicit headroom — on a tall
+    // viewport scrollIntoViewIfNeeded alone can leave the page at 0, where
+    // the vertical assertion could never pass. Scrolled before the spot scan
+    // below, whose coordinates are viewport-relative.
+    await page.evaluate(() => {
+      const app = document.querySelector(".app-scroll");
+      if (app) app.scrollTop += 200;
+    });
 
     // A background spot inside the viewport: on the grid, not on a tile link.
     const spot = await body.evaluate((el) => {
@@ -111,6 +119,7 @@ test.describe("Event schedule views", () => {
 
     const appTop = () => page.evaluate(() => document.querySelector(".app-scroll")?.scrollTop ?? 0);
     const topBefore = await appTop();
+    expect(topBefore).toBeGreaterThan(0);
     await page.mouse.move(spot.x, spot.y);
     await page.mouse.down();
     await page.mouse.move(spot.x - 180, spot.y + 60, { steps: 6 });
@@ -136,7 +145,7 @@ test.describe("Event schedule views", () => {
     await page.mouse.up();
     await page.keyboard.up("Space");
     await expect.poll(() => body.evaluate((el) => el.scrollLeft)).toBeLessThan(grabbed);
-    await expect(page.locator("dialog[open]")).toHaveCount(0);
+    await expect(page.getByRole("dialog")).toHaveCount(0);
     await expect(page).toHaveURL(/\?view=rooms$/);
   });
 });

@@ -162,6 +162,16 @@ const initRoomLanes = (): void => {
     },
     { signal },
   );
+  // A window switch swallows the keyup; a stuck spaceHeld would turn the
+  // next tile click into a pan.
+  globalThis.addEventListener(
+    "blur",
+    () => {
+      spaceHeld = false;
+      paintReady();
+    },
+    { signal },
+  );
 
   for (const { foot, head, scroller } of panes) {
     scroller.dataset.lanesBound = "";
@@ -260,12 +270,28 @@ const initRoomLanes = (): void => {
           },
           { signal: drag.signal },
         );
+        const stop = (up: PointerEvent): void => {
+          if (up.pointerId !== event.pointerId) return;
+          drag.abort();
+          scroller.classList.remove(PANNING);
+          if (!panning) return;
+          swallowClick = true;
+          setTimeout(() => {
+            swallowClick = false;
+          }, 0);
+        };
         // The drag listeners live on the document, so they hear the gesture
         // wherever the pointer roams — no capture needed.
         document.addEventListener(
           "pointermove",
           (move) => {
             if (move.pointerId !== event.pointerId) return;
+            // A missed pointerup — window switch or context menu mid-drag —
+            // would otherwise leave the gesture panning on button-less hovers.
+            if (move.buttons === 0) {
+              stop(move);
+              return;
+            }
             const dx = move.clientX - from.x;
             const dy = move.clientY - from.y;
             // The 4px threshold keeps a plain click from becoming a micro-pan.
@@ -282,16 +308,6 @@ const initRoomLanes = (): void => {
           },
           { signal: drag.signal },
         );
-        const stop = (up: PointerEvent): void => {
-          if (up.pointerId !== event.pointerId) return;
-          drag.abort();
-          scroller.classList.remove(PANNING);
-          if (!panning) return;
-          swallowClick = true;
-          setTimeout(() => {
-            swallowClick = false;
-          }, 0);
-        };
         document.addEventListener("pointerup", stop, { signal: drag.signal });
         document.addEventListener("pointercancel", stop, { signal: drag.signal });
       },
