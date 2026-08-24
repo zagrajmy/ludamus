@@ -1,0 +1,20 @@
+{# The bulk-status toolbar: the form src/bulk-status.ts drives. #}
+{# Variables: action (the URL the batch posts to) and actions (path of a #}
+{# template rendering this page's submit buttons, one #}
+{# _bulk_action_button.html include each). #}
+{# The two ids below plus bulk-action-btn, bulk-select-all and #}
+{# bulk-row-checkbox are bulk-status.ts's whole contract; each is spelled #}
+{# once, here or in _bulk_action_button.html / _bulk_select.html, so a page #}
+{# cannot half-wire the toolbar. The table may sit outside this form: row #}
+{# checkboxes join it by id through _bulk_select.html. #}
+{% load i18n %}
+<form method="post" id="bulk-status-form" action="{{ action }}">
+    {% csrf_token %}
+    <input type="hidden" name="next" value="{{ request.get_full_path }}">
+    <div class="flex flex-wrap items-center gap-2 mb-3">
+        <span class="text-sm text-foreground-muted mr-1">
+            {% translate "Selected:" %} <span id="bulk-selected-count">0</span>
+        </span>
+        {% include actions %}
+    </div>
+</form>

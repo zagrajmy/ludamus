@@ -1,14 +1,14 @@
 {% load i18n markdown_tags tessera %}
 <div id="wizard-content">
-    {% include "chronology/propose/parts/_proposal_description.html" %}
-    {% include "chronology/propose/parts/_stepper.html" %}
-    {% include "chronology/propose/parts/_login_nudge.html" %}
+    {% include "event/propose/parts/_proposal_description.html" %}
+    {% include "event/propose/parts/_stepper.html" %}
+    {% include "event/propose/parts/_login_nudge.html" %}
     <h2 class="text-lg font-semibold mb-1">{% translate "What would you like to propose?" %}</h2>
     <p class="text-sm text-foreground-muted mb-5">{% translate "Choose the type of session you want to run." %}</p>
     {% if error|default:"" %}<div class="alert backdrop-blur-lg alert-danger mb-4">{{ error }}</div>{% endif %}
     {% if categories|default:"" %}
         <form method="post"
-              hx-post="{% url 'web:chronology:session-propose-category' event_slug=event.slug %}"
+              hx-post="{% url 'web:event:session-propose-category' event_slug=event.slug %}"
               hx-target="#wizard-content"
               hx-swap="outerHTML show:#wizard-content:top">
             {% csrf_token %}

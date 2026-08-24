@@ -15,6 +15,13 @@ from .shell import COVERAGE, PR_FIX, threads
 THERMO_TITLE = "Thermo-nuclear code quality review"
 _THERMO_SKILL = "~/.claude/skills/thermo-nuclear-code-quality-review/SKILL.md"
 
+# Every agent in these rituals runs on Opus: the work is merges, gate repairs
+# and a security-grade review, and the cheaper model spends more turns arriving
+# at worse answers. Naming only `model` leaves vekna's `bypassPermissions`
+# default in place — permission-mode is what flips it, and the writing calls
+# want that default. `READING` sets its own permissions and so names this too.
+_OPUS = CodingOpts(model="opus")
+
 
 # The sweep is the ritual's: the step runs it the moment the agent stops, and
 # what it says then is what decides the branch. An agent that runs it too pays
@@ -298,11 +305,12 @@ class Misread(BaseModel):
 # Read-only in the sense that matters here: the triage has to reach `gh`, so
 # Bash stays, and nothing outside the list gets so far as a prompt.
 READING = CodingOpts(
+    model="opus",
     focus_options=ClaudeOptions(
         permission_mode="dontAsk",
         allowed_tools=["Bash", "Read", "Grep", "Glob"],
         effort="high",
-    )
+    ),
 )
 
 
@@ -320,7 +328,7 @@ def _fallen(error: Exception) -> Fallen:
 # Nothing reads what an agent said back: these calls are judged by what they
 # left in the worktree, which the step that follows reads out of git.
 async def ask(
-    prompt: str, *, opts: CodingOpts | None = None, key: str | None = None
+    prompt: str, *, opts: CodingOpts = _OPUS, key: str | None = None
 ) -> Fallen | None:
     session = Session.CONTINUE if key is not None else Session.NEW
     try:
@@ -334,7 +342,7 @@ async def ask_for[OutputT: BaseModel](
     prompt: str,
     *,
     output: type[OutputT],
-    opts: CodingOpts | None = None,
+    opts: CodingOpts = _OPUS,
     key: str | None = None,
 ) -> OutputT | Fallen | Misread:
     session = Session.CONTINUE if key is not None else Session.NEW
