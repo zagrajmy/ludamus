@@ -11,7 +11,10 @@
 {# (overflow-x-auto, not hidden), making its scrollbar the top handle, and #}
 {# a sticky strip after the body carries the bottom one — the body's own #}
 {# scrollbar, which would surface only at the grid's very end, is hidden in #}
-{# index.css in its favor. The time axis is the grid's first #}
+{# index.css in its favor. A strip could carry the top handle too and spare #}
+{# the head's fade-mask carve-out, but a really-scrolling header row also #}
+{# pans directly by trackpad and touch — a deliberate trade. #}
+{# The time axis is the grid's first #}
 {# column, sticky-left; only the right edge fades, so the axis never dims. #}
 {# Hour gridlines with sessions carry the .time-slot-section / #slot-<hour> #}
 {# contract so the hour scrubber and filters keep working. #}
