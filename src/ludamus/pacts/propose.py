@@ -63,6 +63,7 @@ class ProposeSessionServiceProtocol(Protocol):
     def get_saved_personal_data(
         self, *, event_id: int, user_id: int | None
     ) -> dict[str, str | list[str] | bool]: ...
+    def check_rate_limit(self, *, ip: str, event_id: int) -> bool: ...
     def submit(
         self,
         event: EventDTO,
