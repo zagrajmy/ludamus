@@ -57,6 +57,13 @@ the listing, so nothing checks it out and it appears nowhere in the report.
 That is how you park a branch for a night — or for a month — without closing
 it.
 
+Each pass marks its checkpoint on the board: the branch earns
+``v:refresh:started`` (or ``v:cover:started``) the moment the merge begins, and
+``v:refresh:done`` (or ``v:cover:done``) only where it comes out green — the two
+are exclusive, so adding one takes the other off. A branch left blocked keeps
+``started``, which is how the morning sees which branches the night began and
+could not finish.
+
 The review is one inline comment per action item, anchored to the code it is
 about, and the branch is labelled ``pr::thermo`` once it is posted. That label
 is the only thing standing between a branch and another review: drop it after
@@ -110,6 +117,7 @@ from .shell import (
     coverage_report,
     gates_green,
     label,
+    mark,
     narrowed,
     plain,
     push,
@@ -237,6 +245,12 @@ async def sync_branch(work: Work) -> Transition:
 @step
 async def merge_base(work: Work) -> Transition:
     """Merge the base in, and say whether it brought anything with it."""
+    # The first step that changes the branch, so this is where the checkpoint
+    # goes on: everything above only takes the branch, and `skip_pr` and the
+    # checkout failures never reach here, so a branch nobody touched stays
+    # unmarked.
+    if note := await mark(work.run.mode, state="started", number=work.pr.number):
+        emit_delta(f"{work.pr.branch}: {note}")
     # Asked before the merge rather than read off it afterwards: git says
     # "Already up to date" in whatever language the terminal is set to, and a
     # base already contained in this branch is the same answer in every one.
@@ -545,6 +559,12 @@ async def quality_review(work: Work) -> Transition:
 async def finish_pr(closed: Closed) -> Transition:
     """Write the branch's row into the run, and go on to the next one."""
     work = closed.work
+    # Only a green branch is done.
+    marked = (
+        await mark(work.run.mode, state="done", number=work.pr.number)
+        if closed.outcome == "green"
+        else ""
+    )
     row = Checked(
         number=work.pr.number,
         branch=work.pr.branch,
@@ -553,7 +573,7 @@ async def finish_pr(closed: Closed) -> Transition:
         # Asked of git rather than tracked in the payload: what needs pushing is
         # what origin has not got, whoever put it there.
         unpushed=await ahead(work.pr.branch),
-        note=telling(work),
+        note=telling(work, marked),
     )
     run = work.run
     return goto(next_pr, run_with(run, checked=[*run.checked, row]))

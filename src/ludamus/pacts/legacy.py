@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from datetime import date, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from enum import StrEnum, auto
 from typing import (
     TYPE_CHECKING,
@@ -12,7 +12,7 @@ from typing import (
 
 from pydantic import BaseModel, ConfigDict
 
-from ludamus.pacts.fields import OrganizerFieldDTO
+from ludamus.pacts.fields import FieldValue, OrganizerFieldDTO
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -234,11 +234,25 @@ class SessionDTO(BaseModel):
 class LocationData(TypedDict):
     # Tree location of a scheduled leaf: its name, its immediate parent (the
     # grouping unit, empty for a root leaf), and the full "Root > ... > Leaf"
-    # path used as a display label.
+    # path used as a display label. sort_key encodes the panel ordering of the
+    # whole ancestor chain, so rooms line up building > floor > room instead of
+    # alphabetically; empty for an unscheduled session.
     space_name: str
     parent_slug: str
     parent_name: str
     path: str
+    sort_key: str
+
+
+# A session that is not on the agenda has no space to describe. Shared, so
+# treat it as read-only: nothing writes through a LocationData today.
+NO_LOCATION: LocationData = {
+    "space_name": "",
+    "parent_slug": "",
+    "parent_name": "",
+    "path": "",
+    "sort_key": "",
+}
 
 
 class SessionStatus(StrEnum):
@@ -473,6 +487,25 @@ class EventDTO(BaseModel):
     logo_url: str = ""
     logo_original_name: str = ""
 
+    @property
+    def is_published(self) -> bool:
+        return (
+            self.publication_time is not None
+            and self.publication_time <= datetime.now(tz=UTC)
+        )
+
+    # Proposals only open on a published event — an unpublished one has no
+    # public page to send a facilitator to.
+    @property
+    def is_proposal_active(self) -> bool:
+        current_time = datetime.now(tz=UTC)
+        return bool(
+            self.is_published
+            and self.proposal_start_time is not None
+            and self.proposal_end_time is not None
+            and self.proposal_start_time <= current_time <= self.proposal_end_time
+        )
+
 
 class EventListItemDTO(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -674,7 +707,7 @@ class WizardData(TypedDict, total=False):
     category_id: int
     contact_email: str
     personal_data: dict[str, str]
-    session_data: dict[str, object]
+    session_data: dict[str, FieldValue | int]
     time_slot_ids: list[int]
     track_pks: list[int]
 
@@ -1409,6 +1442,7 @@ class ScheduleChangeLogDTO(BaseModel):
     moved_from_id: int | None
     acknowledgement_time: datetime | None
     acknowledged_by_name: str
+    important: bool
 
 
 class ScheduleChangeLogRepositoryProtocol(Protocol):
@@ -1427,8 +1461,18 @@ class ScheduleChangeLogRepositoryProtocol(Protocol):
     def list_since(event_pk: int, since: datetime) -> list[ScheduleChangeLogDTO]: ...
 
     @staticmethod
+    def list_erratum_rows(
+        *, event_pk: int, since: datetime, log_pks: list[int]
+    ) -> list[ScheduleChangeLogDTO]: ...
+
+    @staticmethod
     def set_acknowledged(
         *, event_pk: int, log_pks: list[int], user_id: int, acknowledged: bool
+    ) -> None: ...
+
+    @staticmethod
+    def set_important(
+        *, event_pk: int, log_pks: list[int], important: bool
     ) -> None: ...
 
     @staticmethod

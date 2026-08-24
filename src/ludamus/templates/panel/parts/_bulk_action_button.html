@@ -1,0 +1,8 @@
+{# One submit button of the bulk-status toolbar. #}
+{# Variables: label, name, value, variant (primary/secondary/danger). #}
+{# bulk-action-btn is bulk-status.ts's hook — it disables these while #}
+{# nothing is selected — so the class lives here rather than on each page. #}
+<button type="submit"
+        name="{{ name }}"
+        value="{{ value }}"
+        class="btn btn-{{ variant|default:'secondary' }} text-sm bulk-action-btn">{{ label }}</button>

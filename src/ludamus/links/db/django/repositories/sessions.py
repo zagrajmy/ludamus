@@ -21,6 +21,7 @@ from ludamus.links.db.django.models import (
 from ludamus.links.db.django.repositories.chronology import (
     event_dto,
     location_data,
+    public_scheduled_sessions,
     session_card_stats,
 )
 from ludamus.links.db.django.repositories.facilitators import FacilitatorRepository
@@ -266,13 +267,14 @@ class SessionRepository(SessionRepositoryProtocol, SessionModalRepositoryProtoco
         viewer_user_ids: list[int],
         editor_user_id: int | None,
     ) -> SessionModalDTO | None:
+        # The same queryset the schedule is built from: the modal is public and
+        # unauthenticated, so re-deciding visibility here would leave a session
+        # hidden from the event page readable by anyone walking session ids.
         base = annotate_session_participation_counts(
-            Session.objects.filter(agenda_item__isnull=False)
+            public_scheduled_sessions(event_id)
         )
         try:
-            session = with_scheduled_card_relations(base).get(
-                pk=session_id, event_id=event_id
-            )
+            session = with_scheduled_card_relations(base).get(pk=session_id)
         except Session.DoesNotExist:
             return None
         return _session_modal_dto(

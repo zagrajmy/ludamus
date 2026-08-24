@@ -8,7 +8,6 @@ from django.urls import reverse
 from ludamus.gates.web.django.sphere.guilds import RosterRow
 from ludamus.links.db.django.models import Facilitator, Guild, GuildMembership
 from ludamus.links.db.django.users import display_avatar_url
-from ludamus.mills.event import is_proposal_active
 from ludamus.pacts import EventDTO
 from ludamus.pacts.guild import (
     GuildDTO,
@@ -305,7 +304,7 @@ class TestGuildEditPageView:
                 **GUILDS_PANEL_CONTEXT,
                 "events": [event_dto],
                 "current_event": event_dto,
-                "is_proposal_active": is_proposal_active(event_dto),
+                "is_proposal_active": event_dto.is_proposal_active,
                 "guild": GuildDTO(
                     pk=guild.pk,
                     name="Topory",

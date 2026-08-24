@@ -49,6 +49,12 @@
                                         </label>
                                     {% endfor %}
                                 </div>
+                            {% elif has_any_fields %}
+                                <p class="text-sm text-foreground-muted italic mb-3">
+                                    {% translate "Every session field is private. Mark a field as shown on the public session card to make it available here." %}
+                                </p>
+                                <a class="btn btn-tertiary text-sm"
+                                   href="{% url 'panel:session-fields' slug=current_event.slug %}">{% translate "Go to session fields" %}</a>
                             {% else %}
                                 <p class="text-sm text-foreground-muted italic">
                                     {% translate "No session fields defined. Create session fields in the CFP section first." %}

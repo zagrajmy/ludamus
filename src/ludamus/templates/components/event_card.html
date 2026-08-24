@@ -33,14 +33,18 @@
     <div class="relative p-4 flex-1 flex flex-col">
         <h3 class="mb-3 text-lg font-semibold leading-tight text-foreground">{{ event.name }}</h3>
         {% if event.description %}<p class="mb-4 line-clamp-2 text-sm text-foreground">{{ event.description }}</p>{% endif %}
-        <div class="flex flex-wrap items-center justify-between border-t border-neutral-200/50 dark:border-neutral-700/50 pt-3 text-sm text-foreground-secondary mt-auto">
+        {# gap-y: the two rows only ever sit apart once they wrap, and cap-height #}
+        {# boxes leave nothing between them. 4px is the half-leading the trim #}
+        {# took away, so the pair keeps the rhythm it had. #}
+        <div class="flex flex-wrap items-center justify-between gap-y-1 border-t border-neutral-200/50 dark:border-neutral-700/50 pt-3 text-sm text-foreground-secondary mt-auto">
             <div class="flex items-center gap-1.5">
                 {% icon "calendar" class="h-4 w-4" %}
-                <span>{{ event|format_datetime_range }}</span>
+                {# Trimmed to cap height so the icon centers on the glyphs. #}
+                <span class="text-box-trim-both">{{ event|format_datetime_range }}</span>
             </div>
             <div class="flex items-center gap-1.5">
                 {% icon "squares-2x2" class="h-4 w-4" %}
-                <span>
+                <span class="text-box-trim-both">
                     {% blocktranslate count counter=event.session_count|default:0 %}
                         {{ counter }} session
                     {% plural %}

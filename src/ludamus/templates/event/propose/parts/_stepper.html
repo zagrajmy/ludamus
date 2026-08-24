@@ -4,8 +4,8 @@
     <nav aria-label="{% translate "Proposal progress" %}" class="mb-6">
         <ol class="grid w-full"
             style="grid-template-columns: repeat({{ wizard_steps|length }}, 1fr)">
-            {% for step in wizard_steps %}
-                {% with is_done_step=step.key|is_done:current_step is_current_step=step.key|is_current:current_step %}
+            {% for step_key in wizard_steps %}
+                {% with is_done_step=step_key|is_done:current_step is_current_step=step_key|is_current:current_step %}
                     <li class="flex flex-col items-center relative"
                         {% if is_current_step %}aria-current="step"{% endif %}>
                         {% if not forloop.first %}
@@ -22,15 +22,15 @@
                             {% endif %}
                         </span>
                         <span class="mt-2 text-center text-xs sm:text-sm leading-tight {% if is_current_step %}text-foreground font-medium {% elif is_done_step %}text-foreground {% else %}text-foreground-muted{% endif %}">
-                            {% if step.key == "category" %}
+                            {% if step_key == "category" %}
                                 {% translate "Category" %}
-                            {% elif step.key == "personal" %}
+                            {% elif step_key == "personal" %}
                                 {% translate "Your info" %}
-                            {% elif step.key == "timeslots" %}
+                            {% elif step_key == "timeslots" %}
                                 {% translate "Time slots" %}
-                            {% elif step.key == "details" %}
+                            {% elif step_key == "details" %}
                                 {% translate "Session" context "wizard step" %}
-                            {% elif step.key == "review" %}
+                            {% elif step_key == "review" %}
                                 {% translate "Review" %}
                             {% endif %}
                         </span>

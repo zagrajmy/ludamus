@@ -1,0 +1,11 @@
+# Keep the virtualenv in the project, next to the code that imports from it.
+#
+# mise.toml's `_.python.venv` already points every task at ./.venv, but it only
+# creates that directory when mise manages the interpreter. Sandboxes disable
+# the mise python (mise.sandbox.toml — the egress proxy 403s the download) and
+# take 3.14 from apt instead, so nothing creates .venv there and Poetry falls
+# back to a cache directory no task has on PATH: `mise run test:e2e:prep` and
+# the hk pre-commit hook then die on `django-admin: not found`. Letting Poetry
+# itself own ./.venv makes the layout the same everywhere.
+[virtualenvs]
+in-project = true

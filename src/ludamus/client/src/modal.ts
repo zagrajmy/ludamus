@@ -17,6 +17,9 @@
  * Triggers must be same-path query links (`?x=y`), not buttons: the Navigation API
  * interception below only fires for anchor navigations to the current pathname.
  */
+
+import { restoreCarriedSearchParams } from "./url-state";
+
 interface NavigateEvent {
   canIntercept: boolean;
   destination: { url: string };
@@ -479,9 +482,13 @@ if (navigation) {
       )
         continue;
 
+      // Read before the navigation commits: the handler below runs after,
+      // when location already shows the bare trigger href.
+      const carriedParams = new URLSearchParams(globalThis.location.search);
       e.intercept({
         focusReset: "manual",
         async handler() {
+          restoreCarriedSearchParams(carriedParams);
           if (await ensureModalLoaded(modalId)) {
             await openModal(modalId, { updateUrl: false });
           } else {

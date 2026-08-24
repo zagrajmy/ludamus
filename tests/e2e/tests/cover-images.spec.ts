@@ -59,6 +59,22 @@ test.describe("Event cover image upload", () => {
     await expect(shownFileName(coverDropzone(page), "cover.png")).toBeVisible();
   });
 
+  test("event cover overrides the brand card in link previews", async ({ page }) => {
+    await page.goto("/event/lakeside-weekend/");
+
+    // Object pages override og:image in a standalone block, which djlint
+    // reflows onto its own line, so the rendered attribute carries the
+    // template's indentation. Crawlers strip it; the assertion has to as well.
+    const ogImage = (
+      await page.locator('meta[property="og:image"]').getAttribute("content")
+    )?.trim();
+
+    // Crawlers fetch og:image by URL, so a relative value yields no preview
+    // image at all. Uploads land under a hashed name, hence the loose tail.
+    expect(ogImage).toMatch(/^https?:\/\/.+\/media\/events\/.+\.png$/);
+    expect(ogImage).not.toContain("og-image.jpg");
+  });
+
   test("manager uploads event logo via the dropzone", async ({ page }) => {
     await installCspViolationCollector(page);
     await page.goto("/panel/event/lakeside-weekend/settings/");

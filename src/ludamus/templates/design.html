@@ -371,6 +371,20 @@
                                                         {% tessera_button text=download_label href=logo_pack_url variant="secondary" size="sm" icon="arrow-down-tray" %}
                                                     </div>
                                                 </div>
+                                                <div class="relative bg-background pt-12 px-8 pb-8 min-h-48 flex flex-col items-center justify-center gap-3 sm:col-span-2 lg:col-span-3">
+                                                    <div class="absolute top-3 left-3 flex flex-wrap gap-x-2">
+                                                        <code class="text-xs text-foreground-muted">og-card/index.html</code>
+                                                        <code class="text-xs text-foreground-muted">mise run og-image</code>
+                                                    </div>
+                                                    {# The same page build.mjs screenshots, so this panel cannot go stale. #}
+                                                    <div class="w-full max-w-2xl aspect-[1200/630] overflow-hidden rounded-lg border border-border">
+                                                        <iframe src="{% static 'og-card/index.html' %}"
+                                                                title="{% translate 'Link preview card' %}"
+                                                                loading="lazy"
+                                                                tabindex="-1"
+                                                                class="w-full h-full border-0"></iframe>
+                                                    </div>
+                                                </div>
                                                 <div class="relative bg-background pt-12 px-8 pb-8 min-h-48 flex items-center justify-center sm:col-span-2 lg:col-span-3">
                                                     <div class="absolute top-3 left-3 flex flex-wrap gap-x-2">
                                                         <code class="text-xs text-foreground-muted">tab-shell.html</code>

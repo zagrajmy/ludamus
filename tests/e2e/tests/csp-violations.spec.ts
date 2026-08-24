@@ -118,8 +118,8 @@ test.describe("CSP enforcement doesn't break legitimate scripts", () => {
     // occasionally never fires "load" for panel pages in this environment
     // (same quirk panel.spec.ts's login goto already works around) and
     // that's unrelated to CSP — the violation collector only needs the
-    // scripts to have run, not every subresource (e.g. the Google Fonts
-    // stylesheet) to have finished.
+    // scripts to have run, not every subresource (images, font files) to
+    // have finished.
     await page.goto("/panel/event/frostfire-con/cfp/rpg-proposals/", {
       waitUntil: "domcontentloaded",
     });

@@ -27,8 +27,8 @@ markdownlint-cli2 = "0.23.2"
 # Pinned (not "latest"): fresh macOS runners resolve the dist-tag directly,
 # which skips .npmrc's min-release-age cooldown and picked up the broken
 # 1.32.0 the day it shipped.
-"npm:@endevco/aube" = { version = "1.38.0", npm_args = "--ignore-scripts=false" }
-hk = "1.55.0"
+"npm:@endevco/aube" = { version = "1.41.0", npm_args = "--ignore-scripts=false" }
+hk = "1.56.0"
 actionlint = "1.7.12"
 # `prefix:` (not a bare "0.11.0"): in sandboxes these two resolve to PyPI
 # wrappers that append a packaging revision to the upstream version
@@ -365,6 +365,11 @@ for target in ${usage_targets:-}; do
     || echo "WARN: capture failed for $url" >&2
 done
 '''
+
+[tasks.og-image]
+description = "Re-render the link-preview card to src/ludamus/static/og-image.jpg from src/ludamus/static/og-card/"
+dir = "{{ config_root }}"
+run = "node scripts/og-image/build.mjs"
 
 [tasks.kill]
 description = "Kill dev servers (Django on :8000, Vite on :5173, auth0-simulator on :4400)"

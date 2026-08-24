@@ -18,6 +18,13 @@ installs them from npm everywhere (the unscoped `aube` npm package is
 squatted — only `@endevco/aube` is ours; prod's `docker/mise.toml`
 intentionally keeps the GitHub pin).
 
+Disabling the mise `python` also disables mise's creation of the virtualenv
+`_.python.venv` names, so nothing here would put `.venv` where the session
+hook's `PATH` and every task expect it, and Poetry would install to a cache
+directory instead (`django-admin: not found` on the first task that shells out
+to it). `poetry.toml` closes that gap: `virtualenvs.in-project` makes Poetry own
+`./.venv` on every machine, which is where mise already looked.
+
 The sandbox image pre-bakes GitHub-layout installs of some of these tools.
 When such an install clashes with the alias backend, mise skips installing it
 but cannot list its bin paths — no shim, absent from `mise run` task PATH, hk
