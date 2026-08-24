@@ -127,6 +127,13 @@ test.describe("Design system page", () => {
   });
 
   test("keeps the list inside the part of the screen a keyboard leaves", async ({ browser }) => {
+    // What a keyboard leaves of a 700px-tall screen: it shrinks and offsets
+    // the visual viewport and leaves the layout viewport — and so
+    // window.innerHeight — untouched, which is the case placement must read.
+    const KEYBOARD_TOP = 180;
+    const KEYBOARD_HEIGHT = 320;
+    const bandBottom = KEYBOARD_TOP + KEYBOARD_HEIGHT;
+
     const context = await browser.newContext({
       viewport: { width: 390, height: 700 },
       isMobile: true,
@@ -138,33 +145,37 @@ test.describe("Design system page", () => {
     await combobox.scrollIntoViewIfNeeded();
     await combobox.click();
 
-    // Stand in for the on-screen keyboard: it shrinks and offsets the visual
-    // viewport and leaves the layout viewport — and so window.innerHeight —
-    // untouched, which is exactly the case the placement has to read.
-    const band = await page.evaluate(() => {
-      const viewport = window.visualViewport!;
-      Object.defineProperty(viewport, "height", { configurable: true, value: 320 });
-      Object.defineProperty(viewport, "offsetTop", { configurable: true, value: 180 });
-      viewport.dispatchEvent(new Event("resize"));
-      return { bottom: 180 + 320, innerHeight: window.innerHeight, top: 180 };
-    });
-    // The stub has to be the interesting case: a layout viewport that still
-    // claims the room the keyboard took.
-    expect(band.innerHeight).toBeGreaterThan(band.bottom);
+    const list = page.getByRole("listbox", { name: "Fruit" });
+    const before = await list.boundingBox();
+    // Without this the test could pass on a list that never needed moving —
+    // and would quietly go vacuous the day the page's layout shifts.
+    expect(before!.y + before!.height).toBeGreaterThan(bandBottom);
 
-    const popup = page.locator("[data-combobox-popup]");
+    const innerHeight = await page.evaluate(
+      ({ height, top }) => {
+        const viewport = window.visualViewport!;
+        Object.defineProperty(viewport, "height", { configurable: true, value: height });
+        Object.defineProperty(viewport, "offsetTop", { configurable: true, value: top });
+        viewport.dispatchEvent(new Event("resize"));
+        return window.innerHeight;
+      },
+      { height: KEYBOARD_HEIGHT, top: KEYBOARD_TOP },
+    );
+    // The layout viewport still claims the room the keyboard took: that gap is
+    // the whole bug.
+    expect(innerHeight).toBeGreaterThan(bandBottom);
+
     await expect
       .poll(async () => {
-        const box = await popup.boundingBox();
+        const box = await list.boundingBox();
         return box ? Math.round(box.y + box.height) : null;
       })
-      .toBeLessThanOrEqual(band.bottom + 1);
+      .toBeLessThanOrEqual(bandBottom + 1);
 
-    const box = await popup.boundingBox();
-    expect(box!.y).toBeGreaterThanOrEqual(band.top - 1);
-    // Still worth showing: a list squeezed to nothing would pass the bounds
-    // check above while being useless.
-    expect(box!.height).toBeGreaterThan(80);
+    const after = await list.boundingBox();
+    expect(after!.y).toBeGreaterThanOrEqual(KEYBOARD_TOP - 1);
+    // A list squeezed to nothing would satisfy the bounds while being useless.
+    expect(after!.height).toBeGreaterThan(80);
 
     await context.close();
   });
