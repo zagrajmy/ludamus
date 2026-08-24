@@ -10,6 +10,7 @@ from django.template.loader import render_to_string
 from django.test import RequestFactory
 from django.urls import reverse
 
+from ludamus.gates.web.django import propose_cover
 from ludamus.gates.web.django.event import propose
 from ludamus.inits.services import Services
 from ludamus.links.db.django.models import (
@@ -42,7 +43,7 @@ from tests.integration.conftest import (
 )
 from tests.integration.utils import assert_response
 
-COVER_LOGGER = "ludamus.gates.web.django.propose_cover"
+COVER_LOGGER = propose_cover.__name__
 SUBMITTED_MESSAGE = "Session proposal 'Test Session' submitted successfully!"
 
 GIF_BYTES = bytes.fromhex(
@@ -102,7 +103,7 @@ class TestProposeSessionPageView:
         session.save()
 
     def _stash_cover(self, client, event_slug):
-        return client.post(
+        client.post(
             self._get_details_url(event_slug),
             {
                 "display_name": "Test User",
@@ -115,6 +116,7 @@ class TestProposeSessionPageView:
             },
             format="multipart",
         )
+        return client.session[f"propose_{event_slug}"]["cover_image_temp"]
 
     def _set_wizard_full(self, client, event, category, **extra):
         session = client.session
@@ -259,21 +261,7 @@ class TestProposeSessionPageView:
         cat_a = ProposalCategoryFactory(event=event, name="RPG")
         cat_b = ProposalCategoryFactory(event=event, name="Workshop")
         self._set_wizard_category(authenticated_client, event, cat_a)
-        image = SimpleUploadedFile("cover.png", PNG_BYTES, content_type="image/png")
-        authenticated_client.post(
-            self._get_details_url(event.slug),
-            {
-                "display_name": "Test User",
-                "title": "Test Session",
-                "description": "A test session",
-                "participants_limit": "6",
-                "cover_image": image,
-            },
-            format="multipart",
-        )
-        cover_path = authenticated_client.session[f"propose_{event.slug}"][
-            "cover_image_temp"
-        ]
+        cover_path = self._stash_cover(authenticated_client, event.slug)
         assert default_storage.exists(cover_path)
 
         authenticated_client.post(
@@ -290,21 +278,7 @@ class TestProposeSessionPageView:
     ):
         self._activate_proposals(event, faker, time_zone)
         self._set_wizard_category(authenticated_client, event, proposal_category)
-        image = SimpleUploadedFile("cover.png", PNG_BYTES, content_type="image/png")
-        authenticated_client.post(
-            self._get_details_url(event.slug),
-            {
-                "display_name": "Test User",
-                "title": "Test Session",
-                "description": "A test session",
-                "participants_limit": "6",
-                "cover_image": image,
-            },
-            format="multipart",
-        )
-        cover_path = authenticated_client.session[f"propose_{event.slug}"][
-            "cover_image_temp"
-        ]
+        cover_path = self._stash_cover(authenticated_client, event.slug)
         assert default_storage.exists(cover_path)
 
         authenticated_client.get(self._get_url(event.slug))
@@ -316,21 +290,7 @@ class TestProposeSessionPageView:
     ):
         self._activate_proposals(event, faker, time_zone)
         self._set_wizard_category(authenticated_client, event, proposal_category)
-        image = SimpleUploadedFile("cover.png", PNG_BYTES, content_type="image/png")
-        authenticated_client.post(
-            self._get_details_url(event.slug),
-            {
-                "display_name": "Test User",
-                "title": "Test Session",
-                "description": "A test session",
-                "participants_limit": "6",
-                "cover_image": image,
-            },
-            format="multipart",
-        )
-        cover_path = authenticated_client.session[f"propose_{event.slug}"][
-            "cover_image_temp"
-        ]
+        cover_path = self._stash_cover(authenticated_client, event.slug)
 
         authenticated_client.post(
             self._get_details_url(event.slug),
@@ -352,20 +312,8 @@ class TestProposeSessionPageView:
     ):
         self._activate_proposals(event, faker, time_zone)
         self._set_wizard_category(authenticated_client, event, proposal_category)
-        image = SimpleUploadedFile("cover.png", PNG_BYTES, content_type="image/png")
-        authenticated_client.post(
-            self._get_details_url(event.slug),
-            {
-                "display_name": "Test User",
-                "title": "Test Session",
-                "description": "A test session",
-                "participants_limit": "6",
-                "cover_image": image,
-            },
-            format="multipart",
-        )
+        cover_path = self._stash_cover(authenticated_client, event.slug)
         wizard = authenticated_client.session[f"propose_{event.slug}"]
-        cover_path = wizard["cover_image_temp"]
         cover_url = default_storage.url(cover_path)
         assert wizard["cover_image_temp_name"] == "cover.png"
         assert "cover.png" not in cover_path

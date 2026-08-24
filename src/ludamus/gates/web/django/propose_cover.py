@@ -25,9 +25,9 @@ _WIZARD_COVER_NAME_KEY = "cover_image_temp_name"
 
 
 def _discard_stored_cover(path: str) -> None:
-    # Cleanup only: the caller already read the bytes it needs. A backend that
-    # refuses the delete (a service account without storage.objects.delete)
-    # must not fail the wizard submission, so the stashed file stays in
+    # Cleanup only: nothing downstream needs the stashed file gone. A backend
+    # that refuses the delete (a service account without storage.objects.delete)
+    # must not fail the step that triggered the cleanup, so the file stays in
     # propose-wizard/ and the warning is the only trace it left. Nothing
     # reclaims that prefix yet: https://github.com/zagrajmy/ludamus/issues/942
     try:
