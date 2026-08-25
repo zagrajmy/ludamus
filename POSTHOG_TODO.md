@@ -29,6 +29,17 @@ one copy change.
 - [ ] **Screenshot the banner** for the PR description. It only renders with
       `POSTHOG_API_KEY` set and no choice stored, so set a key in `.env.local`
       first, then `mise run shots -- /`.
+- [ ] **Set `POSTHOG_API_KEY` on the production GitHub Environment.** The
+      Coolify workflow takes it from there now. Unset, production loses
+      analytics on the next deploy.
+- [ ] **Delete `POSTHOG_API_KEY` from the staging Coolify app by hand.** The
+      sync is `PATCH .../envs/bulk`, which upserts: a key the payload omits
+      keeps whatever value is already stored, and staging's was written by
+      every deploy before this. Until it is removed, staging keeps reporting
+      into the production project.
+- [ ] **Delete the staging and test events already ingested,** or accept them.
+      Person records are shared across the two environments, so no filter
+      separates them cleanly.
 
 ## Verification before merge
 
@@ -42,18 +53,12 @@ one copy change.
 
 ## Deployment
 
-`.env.production` is committed (public values only) and listed in
-`docker/compose/prod.yaml`'s `env_file` ahead of `.env.local`. It has to be
-listed explicitly because the container runs no varlock — varlock validates
-`.env.local` on the CI runner before upload, and the host's compose CLI just
-reads both files.
-
-`.dockerignore` now un-ignores `.env.production` specifically, and
-`deploy-coolify.yml` sources it before building the env payload it PATCHes to
-Coolify's API, so both deploy paths read the same committed file. Django itself
-reads only `os.environ` (no `read_env`), so the file shipping inside the image
-does nothing on its own — something has to load it, which is what the compose
-`env_file` and the Coolify sourcing step do.
+The Coolify workflows (`deploy-coolify.yml`, shared by staging and
+production) build their env payload from GitHub Environment vars and secrets
+alone. `.env.production` is read only by the legacy VPS path — varlock when
+`ENV=production`, and `docker/compose/prod.yaml`'s `env_file` ahead of
+`.env.local`. Django reads only `os.environ`, so the file does nothing until
+one of those loads it.
 
 ## Settled
 
@@ -75,22 +80,17 @@ does nothing on its own — something has to load it, which is what the compose
 
 ## Environments
 
-`phc_CpBrrTFf…` is the production project — and, until this change, everyone
-else's too. It is the only project in the org, and two paths fed it traffic
-that was not production:
+`phc_CpBrrTFf…` is the production project, and the only project in the org.
 
-- **Staging.** `deploy-coolify.yml` is shared by both environments and read
-  `.env.production` unconditionally, so staging picked up the production key.
-  Both sides identify by bare Django pk, so staging's user 42 and production's
-  user 42 merged into one PostHog person. The read is now gated on
-  `IS_STAGING`, and `POSTHOG_API_KEY` is a per-environment GitHub variable.
-  Staging sends nothing until someone sets it.
-- **The test suite.** `.env.test` and `.env.e2e` never mentioned
-  `POSTHOG_API_KEY`, so an exported one survived into the run — and the
-  instruction below to put a real key in `.env.local` makes that the expected
-  state for anyone who has looked at the banner. `got_request_exception` fires
-  in tests, so `test_security_headers.py`'s deliberate `RuntimeError("boom")`
-  is sitting in production error tracking. Both files now pin it empty.
-
-Events already ingested from either source are still in the project; nothing
-here removes them.
+- **Production** takes `POSTHOG_API_KEY` from its GitHub Environment, like
+  every other value the Coolify workflow syncs.
+- **Staging** has no key, so analytics is off there. Give it one only by
+  creating a second PostHog project — never by reusing production's. Both
+  halves identify by bare Django pk (`context_processors.py`,
+  `links/analytics/reporting.py`), unqualified by environment, so one key
+  across two databases makes staging's user 42 and production's user 42 a
+  single PostHog person.
+- **Tests** pin the key empty in `.env.test` and `.env.e2e`, and
+  `tests/conftest.py` fails collection if one is set anyway. The integration
+  suite also stubs the client through an autouse fixture, but e2e runs a real
+  server that nothing patches, which is the path the pins exist for.

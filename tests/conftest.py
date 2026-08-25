@@ -2,6 +2,7 @@ import logging
 import zoneinfo
 
 import pytest
+from django.conf import settings as django_settings
 from django.db import connection
 from zeal import zeal_context
 
@@ -9,6 +10,15 @@ from tests.template_checks import MissingTemplateVariableFilter
 
 
 def pytest_configure(config):
+    # The e2e server is a real runserver process with no fixtures patching it,
+    # so a key visible here reaches the live project. .env.test and .env.e2e
+    # pin it empty; fail loudly rather than quietly capturing.
+    if django_settings.POSTHOG_API_KEY:
+        raise pytest.UsageError(
+            "POSTHOG_API_KEY is set; tests would report to a real PostHog "
+            "project. Unset it, or check the pin in .env.test / .env.e2e."
+        )
+
     config.addinivalue_line(
         "markers",
         "postgres: test requires the PostgreSQL backend (e.g. select_for_update "
