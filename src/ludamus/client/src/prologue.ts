@@ -19,7 +19,12 @@ const STORAGE_KEY = "prologue.consent";
 
 type Consent = "accepted" | "declined" | null;
 
-type PosthogServerConfig = { api_key: string; host: string; user_id: string | null };
+type PosthogServerConfig = {
+  api_key: string;
+  environment: string;
+  host: string;
+  user_id: string | null;
+};
 
 const readServerConfig = (): PosthogServerConfig | null => {
   const el = document.getElementById("posthog-config");
@@ -62,6 +67,11 @@ const initPosthog = (config: PosthogServerConfig): void => {
       maskTextSelector: "[data-ph-mask]",
     },
   });
+  // Every event carries the deployment it came from, so staging traffic can be
+  // filtered out of production dashboards. The distinct id is already
+  // namespaced server-side; this is what makes the events themselves
+  // separable, not just the people.
+  posthog.register({ environment: config.environment });
   syncIdentity(config.user_id);
 };
 

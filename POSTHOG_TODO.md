@@ -29,19 +29,22 @@ one copy change.
 - [ ] **Screenshot the banner** for the PR description. It only renders with
       `POSTHOG_API_KEY` set and no choice stored, so set a key in `.env.local`
       first, then `mise run shots -- /`.
-- [ ] **Set `POSTHOG_API_KEY` on the `production-coolify` GitHub Environment**
-      — the one `deploy-production-coolify.yml` names, not `production`, which
-      belongs to the legacy VPS workflow and would be a no-op. Nothing breaks
-      if it is missed: the bulk PATCH below leaves the stored value in place,
-      so the app keeps running on a key no longer declared in the repo.
-- [ ] **Delete `POSTHOG_API_KEY` from the staging Coolify app by hand.** The
-      sync is `PATCH .../envs/bulk`, which upserts: a key the payload omits
-      keeps whatever value is already stored, and staging's was written by
-      every deploy before this. Until it is removed, staging keeps reporting
-      into the production project.
-- [ ] **Delete the staging and test events already ingested,** or accept them.
-      Person records are shared across the two environments, so no filter
-      separates them cleanly.
+- [ ] **Set `POSTHOG_API_KEY` on the `production-coolify` and `staging` GitHub
+      Environments** — `production-coolify` is the one
+      `deploy-production-coolify.yml` names, not `production`, which belongs to
+      the legacy VPS workflow and would be a no-op. Nothing breaks if either is
+      missed: the sync is `PATCH …/envs/bulk`, which upserts, so an omitted key
+      keeps its stored value and the app runs on a key the repo no longer
+      declares.
+- [ ] **Decide whether staging keeps sharing the production project.** It works
+      now that ids are namespaced and events carry `environment`, and a second
+      project would be cleaner still. If it stays shared, add
+      `environment = staging` to the project's test-account filters so it
+      leaves production dashboards by default.
+- [ ] **Clean up the events ingested before namespacing.** Staging and
+      production persons captured under bare pks are already merged, and no
+      filter separates them — the `environment` property only exists on events
+      sent after this lands.
 
 ## Verification before merge
 
@@ -55,9 +58,9 @@ one copy change.
 
 ## Deployment
 
-The Coolify workflows (`deploy-coolify.yml`, shared by staging and
-production) build their env payload from GitHub Environment vars and secrets
-alone. `.env.production` is read only by the legacy VPS path — varlock when
+The Coolify workflows (`deploy-coolify.yml`, shared by staging and production)
+build their env payload from GitHub Environment vars and secrets alone.
+`.env.production` is read only by the legacy VPS path — varlock when
 `ENV=production`, and `docker/compose/prod.yaml`'s `env_file` ahead of
 `.env.local`. Django reads only `os.environ`, so the file does nothing until
 one of those loads it.
@@ -82,19 +85,22 @@ one of those loads it.
 
 ## Environments
 
-`phc_CpBrrTFf…` is the production project, and the only project in the org.
+`phc_CpBrrTFf…` is the only project in the org, and staging reports into it
+deliberately. What keeps the two apart is the distinct id, not the key.
 
-- **Production on Coolify** takes `POSTHOG_API_KEY` from the
-  `production-coolify` GitHub Environment, like every other value that
-  workflow syncs. The legacy VPS still reads it from `.env.production`
-  through compose.
-- **Staging** has no key, so analytics is off there. Give it one only by
-  creating a second PostHog project — never by reusing production's. Both
-  halves identify by bare Django pk (`context_processors.py`,
-  `links/analytics/reporting.py`), unqualified by environment, so one key
-  across two databases makes staging's user 42 and production's user 42 a
-  single PostHog person.
-- **Tests** pin the key empty in `.env.test` and `.env.e2e`, and
-  `tests/conftest.py` fails collection if one is set anyway. The integration
-  suite also stubs the client through an autouse fixture, but e2e runs a real
-  server that nothing patches, which is the path the pins exist for.
+`links/analytics/identity.py` namespaces every id by deployment, and both
+halves use it — `context_processors.analytics` for the browser,
+`reporting.report_exception` for the server. Production keeps bare pks so
+persons captured before namespacing keep their timelines; every other
+deployment is prefixed. Without that, staging's user 42 and production's user
+42 are one PostHog person, because each database runs the same schema with its
+own sequence.
+
+Events also carry an `environment` property — registered as a super property in
+`prologue.ts`, set explicitly on server reports — so staging traffic can be
+filtered out of production dashboards instead of merely being traceable.
+
+Tests never send: `.env.test` and `.env.e2e` pin the key empty, and
+`tests/conftest.py` fails collection if one is set anyway. The integration
+suite also stubs the client through an autouse fixture, but e2e runs a real
+server that nothing patches, which is the path the pins exist for.
