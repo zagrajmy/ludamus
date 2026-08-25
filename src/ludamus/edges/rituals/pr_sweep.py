@@ -20,9 +20,9 @@ once more when it comes back green — which is also what keeps the installs at
 the head of ``pr-fix`` to one pass per branch rather than one per attempt.
 
 ``pr_cover`` is the slow one, and it asks before it spends: it reads what CI
-made of the branch — the check board and codecov's own comment, which names
-lines the diff left uncovered even where the check stayed green inside its
-threshold — and, where codecov or the test job is unhappy, runs
+made of the branch — the check board, including the patch coverage codecov's
+own check run carries, which names a gap even where the check stayed green
+inside its threshold — and, where codecov or the test job is unhappy, runs
 ``mise run diff-cover`` — the unit suite, the e2e suite, then the diff coverage
 report — writes the tests for what the branch left uncovered, and repairs the
 suite where it is the suite that is broken. Between rounds it re-measures with
@@ -116,7 +116,6 @@ from .shell import (
     checkout,
     checks,
     commit,
-    cover_comment,
     coverage_report,
     gates_green,
     label,
@@ -323,7 +322,7 @@ async def take_pass(work: Work) -> Transition:
     if work.run.mode != "refresh":
         return goto(finish_merge, work)
     if work.unchanged:
-        asked = await shell(checks(work.pr.number), stream=False)
+        asked = await shell(checks(work.pr.branch), stream=False)
         if gates_green(asked.stdout):
             return goto(
                 finish_merge,
@@ -409,14 +408,13 @@ async def finish_merge(work: Work) -> Transition:
 # hour this pass is trying not to spend: codecov and the test job have already
 # run the suite on the server, and a branch they are both happy with has nothing
 # for the coverage gate to find. Anything less than a clear yes — a check that
-# has not reported, a listing gh would not give — buys the run rather than the
+# has not reported, a board gh would not give — buys the run rather than the
 # skip, since not knowing is the reason this ritual exists.
 @step
 async def check_ci(work: Work) -> Transition:
     """Ask CI whether this branch is worth the slow gate."""
-    asked = await shell(checks(work.pr.number), stream=False)
-    commented = await shell(cover_comment(work.pr.number), stream=False)
-    if wants_cover(asked.stdout, commented.stdout):
+    asked = await shell(checks(work.pr.branch), stream=False)
+    if wants_cover(asked.stdout):
         return goto(cover, work)
     return goto(
         push_work, work_with(work, note="codecov and the test job are green on CI")

@@ -21,7 +21,6 @@ from ludamus.edges.rituals.shell import (
     PR_FIX,
     checkpoint,
     checks,
-    cover_comment,
     plain,
 )
 from ludamus.edges.rituals.state import (
@@ -356,10 +355,9 @@ class TestWholeCast:
         trial.shell.replies(when="git merge-base*", exit_code=1, always=True)
         trial.shell.replies(when="git merge --no-edit*")
         trial.shell.replies(
-            when=checks(7), stdout='[{"name": "codecov/patch", "state": "FAILURE"}]'
-        )
-        trial.shell.replies(
-            when=cover_comment(7), stdout='{"comments": [{"body": "96.20%"}]}'
+            when=checks("feature"),
+            stdout='{"check_runs": [{"name": "codecov/patch",'
+            ' "conclusion": "failure"}]}',
         )
         trial.shell.replies(when=plain(COVERAGE), stdout=_MISSING)
         # The tests the agent wrote are measured without the browser, and the
