@@ -7,6 +7,7 @@ import requests
 import responses
 from responses import registries
 
+from ludamus.links.google_docs import GoogleDocsProposalConfig
 from ludamus.links.sklep_kapitularz import (
     SklepKapitularzConfig,
     SklepKapitularzIntegration,
@@ -17,6 +18,8 @@ from ludamus.pacts.chronology import CheckOutcome
 BASE_URL = "https://membership-test.example.com/api/v1/endpoint"
 TOKEN = "membership-test-token"
 SECRET = TOKEN.encode()
+# Another implementation's config, the shape the guards are there to refuse.
+OTHER_CONFIG = GoogleDocsProposalConfig(sheet_id="sheet", form_id="form")
 
 
 @pytest.fixture(name="config")
@@ -193,3 +196,25 @@ def test_check_rejects_a_body_without_a_membership_count(integration, config):
 
     assert result.outcome == CheckOutcome.NOT_FOUND
     assert "did not answer with a count" in result.hint
+
+
+def test_check_rejects_a_config_from_another_implementation(integration):
+    with responses.RequestsMock() as rsps:
+        result = integration.check(SECRET, OTHER_CONFIG)
+
+        assert not rsps.calls
+
+    assert result.outcome == CheckOutcome.AUTH_FAILED
+    assert "not a Sklep Kapitularz config" in result.hint
+
+
+def test_fetch_membership_count_rejects_a_config_from_another_implementation(
+    integration,
+):
+    with responses.RequestsMock() as rsps:
+        with pytest.raises(MembershipAPIError):
+            integration.fetch_membership_count(
+                secret=SECRET, config=OTHER_CONFIG, user_email="player@example.com"
+            )
+
+        assert not rsps.calls
