@@ -2,11 +2,17 @@ from datetime import timedelta
 from http import HTTPStatus
 from unittest.mock import patch
 
+import pytest
 from django.contrib import messages
 from django.core.files.storage import default_storage
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.template.loader import render_to_string
+from django.test import RequestFactory
 from django.urls import reverse
 
+from ludamus.gates.web.django import propose_cover
+from ludamus.gates.web.django.event import propose
+from ludamus.inits.services import Services
 from ludamus.links.db.django.models import (
     EventProposalSettings,
     Facilitator,
@@ -22,7 +28,13 @@ from ludamus.links.db.django.models import (
     TimeSlotRequirement,
     Track,
 )
-from ludamus.pacts import EventDTO, EventProposalSettingsDTO, ProposalCategoryDTO
+from ludamus.pacts import (
+    EventDTO,
+    EventProposalSettingsDTO,
+    ProposalCategoryDTO,
+    RedirectError,
+    TrackDTO,
+)
 from ludamus.pacts.images import StoredFile
 from tests.integration.conftest import (
     PNG_BYTES,
@@ -31,6 +43,9 @@ from tests.integration.conftest import (
 )
 from tests.integration.utils import assert_response
 
+COVER_LOGGER = propose_cover.__name__
+SUBMITTED_MESSAGE = "Session proposal 'Test Session' submitted successfully!"
+
 GIF_BYTES = bytes.fromhex(
     "47494638376101000100810000ffffff0000000000000000002c000000000100"
     "010000080400010404003b"
@@ -38,40 +53,39 @@ GIF_BYTES = bytes.fromhex(
 
 
 class TestProposeSessionPageView:
-    URL_NAME = "web:chronology:session-propose"
+    URL_NAME = "web:event:session-propose"
 
     def _get_url(self, event_slug: str) -> str:
         return reverse(self.URL_NAME, kwargs={"event_slug": event_slug})
 
     def _get_category_url(self, event_slug: str) -> str:
         return reverse(
-            "web:chronology:session-propose-category", kwargs={"event_slug": event_slug}
+            "web:event:session-propose-category", kwargs={"event_slug": event_slug}
         )
 
     def _get_personal_url(self, event_slug: str) -> str:
         return reverse(
-            "web:chronology:session-propose-personal", kwargs={"event_slug": event_slug}
+            "web:event:session-propose-personal", kwargs={"event_slug": event_slug}
         )
 
     def _get_timeslots_url(self, event_slug: str) -> str:
         return reverse(
-            "web:chronology:session-propose-timeslots",
-            kwargs={"event_slug": event_slug},
+            "web:event:session-propose-timeslots", kwargs={"event_slug": event_slug}
         )
 
     def _get_details_url(self, event_slug: str) -> str:
         return reverse(
-            "web:chronology:session-propose-details", kwargs={"event_slug": event_slug}
+            "web:event:session-propose-details", kwargs={"event_slug": event_slug}
         )
 
     def _get_review_url(self, event_slug: str) -> str:
         return reverse(
-            "web:chronology:session-propose-review", kwargs={"event_slug": event_slug}
+            "web:event:session-propose-review", kwargs={"event_slug": event_slug}
         )
 
     def _get_submit_url(self, event_slug: str) -> str:
         return reverse(
-            "web:chronology:session-propose-submit", kwargs={"event_slug": event_slug}
+            "web:event:session-propose-submit", kwargs={"event_slug": event_slug}
         )
 
     def _activate_proposals(self, event, faker, time_zone):
@@ -87,6 +101,22 @@ class TestProposeSessionPageView:
         session = client.session
         session[f"propose_{event.slug}"] = {"category_id": category.pk}
         session.save()
+
+    def _stash_cover(self, client, event_slug):
+        client.post(
+            self._get_details_url(event_slug),
+            {
+                "display_name": "Test User",
+                "title": "Test Session",
+                "description": "A test session",
+                "participants_limit": "6",
+                "cover_image": SimpleUploadedFile(
+                    "cover.png", PNG_BYTES, content_type="image/png"
+                ),
+            },
+            format="multipart",
+        )
+        return client.session[f"propose_{event_slug}"]["cover_image_temp"]
 
     def _set_wizard_full(self, client, event, category, **extra):
         session = client.session
@@ -135,20 +165,21 @@ class TestProposeSessionPageView:
                     ProposalCategoryDTO.model_validate(cat1),
                     ProposalCategoryDTO.model_validate(cat2),
                 ],
-                "step": "category",
+                "selected_category_id": None,
+                "error": None,
                 "current_step": "category",
                 "wizard_steps": [
-                    {"key": "category"},
-                    {"key": "personal"},
-                    {"key": "timeslots"},
-                    {"key": "details"},
-                    {"key": "review"},
+                    "category",
+                    "personal",
+                    "timeslots",
+                    "details",
+                    "review",
                 ],
                 "show_login_nudge": False,
                 "login_url": f"/crowd/login-required/?next={self._get_url(event.slug)}",
-                "wizard_part_template": "chronology/propose/parts/category.html",
+                "wizard_part_template": "event/propose/parts/category.html",
             },
-            template_name="chronology/propose/base.html",
+            template_name="event/propose/base.html",
         )
 
     def test_get_skips_single_category(
@@ -171,17 +202,13 @@ class TestProposeSessionPageView:
                 "form": form,
                 "field_descriptors": [],
                 "current_step": "personal",
-                "wizard_steps": [
-                    {"key": "personal"},
-                    {"key": "details"},
-                    {"key": "review"},
-                ],
+                "wizard_steps": ["personal", "details", "review"],
                 "show_back_button": False,
                 "show_login_nudge": False,
                 "login_url": f"/crowd/login-required/?next={self._get_url(event.slug)}",
-                "wizard_part_template": "chronology/propose/parts/personal.html",
+                "wizard_part_template": "event/propose/parts/personal.html",
             },
-            template_name="chronology/propose/base.html",
+            template_name="event/propose/base.html",
         )
         assert form["contact_email"] is not None
 
@@ -234,21 +261,7 @@ class TestProposeSessionPageView:
         cat_a = ProposalCategoryFactory(event=event, name="RPG")
         cat_b = ProposalCategoryFactory(event=event, name="Workshop")
         self._set_wizard_category(authenticated_client, event, cat_a)
-        image = SimpleUploadedFile("cover.png", PNG_BYTES, content_type="image/png")
-        authenticated_client.post(
-            self._get_details_url(event.slug),
-            {
-                "display_name": "Test User",
-                "title": "Test Session",
-                "description": "A test session",
-                "participants_limit": "6",
-                "cover_image": image,
-            },
-            format="multipart",
-        )
-        cover_path = authenticated_client.session[f"propose_{event.slug}"][
-            "cover_image_temp"
-        ]
+        cover_path = self._stash_cover(authenticated_client, event.slug)
         assert default_storage.exists(cover_path)
 
         authenticated_client.post(
@@ -265,21 +278,7 @@ class TestProposeSessionPageView:
     ):
         self._activate_proposals(event, faker, time_zone)
         self._set_wizard_category(authenticated_client, event, proposal_category)
-        image = SimpleUploadedFile("cover.png", PNG_BYTES, content_type="image/png")
-        authenticated_client.post(
-            self._get_details_url(event.slug),
-            {
-                "display_name": "Test User",
-                "title": "Test Session",
-                "description": "A test session",
-                "participants_limit": "6",
-                "cover_image": image,
-            },
-            format="multipart",
-        )
-        cover_path = authenticated_client.session[f"propose_{event.slug}"][
-            "cover_image_temp"
-        ]
+        cover_path = self._stash_cover(authenticated_client, event.slug)
         assert default_storage.exists(cover_path)
 
         authenticated_client.get(self._get_url(event.slug))
@@ -291,21 +290,7 @@ class TestProposeSessionPageView:
     ):
         self._activate_proposals(event, faker, time_zone)
         self._set_wizard_category(authenticated_client, event, proposal_category)
-        image = SimpleUploadedFile("cover.png", PNG_BYTES, content_type="image/png")
-        authenticated_client.post(
-            self._get_details_url(event.slug),
-            {
-                "display_name": "Test User",
-                "title": "Test Session",
-                "description": "A test session",
-                "participants_limit": "6",
-                "cover_image": image,
-            },
-            format="multipart",
-        )
-        cover_path = authenticated_client.session[f"propose_{event.slug}"][
-            "cover_image_temp"
-        ]
+        cover_path = self._stash_cover(authenticated_client, event.slug)
 
         authenticated_client.post(
             self._get_details_url(event.slug),
@@ -327,20 +312,8 @@ class TestProposeSessionPageView:
     ):
         self._activate_proposals(event, faker, time_zone)
         self._set_wizard_category(authenticated_client, event, proposal_category)
-        image = SimpleUploadedFile("cover.png", PNG_BYTES, content_type="image/png")
-        authenticated_client.post(
-            self._get_details_url(event.slug),
-            {
-                "display_name": "Test User",
-                "title": "Test Session",
-                "description": "A test session",
-                "participants_limit": "6",
-                "cover_image": image,
-            },
-            format="multipart",
-        )
+        cover_path = self._stash_cover(authenticated_client, event.slug)
         wizard = authenticated_client.session[f"propose_{event.slug}"]
-        cover_path = wizard["cover_image_temp"]
         cover_url = default_storage.url(cover_path)
         assert wizard["cover_image_temp_name"] == "cover.png"
         assert "cover.png" not in cover_path
@@ -425,7 +398,7 @@ class TestProposeSessionPageView:
         )
 
         assert response.status_code == HTTPStatus.OK
-        assert response.template_name == "chronology/propose/parts/personal.html"
+        assert response.template_name == "event/propose/parts/personal.html"
         assert response.context["form"]["contact_email"] is not None
 
     def test_post_personal_data_valid(
@@ -581,12 +554,7 @@ class TestProposeSessionPageView:
         )
 
         assert response.status_code == HTTPStatus.OK
-        assert response.template_name == "chronology/propose/parts/details.html"
-        assert [s["key"] for s in response.context["wizard_steps"]] == [
-            "personal",
-            "details",
-            "review",
-        ]
+        assert response.template_name == "event/propose/parts/details.html"
         wizard = authenticated_client.session[f"propose_{event.slug}"]
         assert wizard["time_slot_ids"] == [slot.pk]
 
@@ -606,7 +574,7 @@ class TestProposeSessionPageView:
             self._get_personal_url(event.slug), {"contact_email": "test@example.com"}
         )
         assert response.status_code == HTTPStatus.OK
-        assert response.template_name == "chronology/propose/parts/details.html"
+        assert response.template_name == "event/propose/parts/details.html"
         wizard = authenticated_client.session[f"propose_{event.slug}"]
         assert wizard["category_id"] == proposal_category.pk
         assert wizard["time_slot_ids"] == [slot.pk]
@@ -621,7 +589,7 @@ class TestProposeSessionPageView:
             },
         )
         assert response.status_code == HTTPStatus.OK
-        assert response.template_name == "chronology/propose/parts/review.html"
+        assert response.template_name == "event/propose/parts/review.html"
         assert response.context["review"]["category_name"] == proposal_category.name
         assert response.context["review"]["time_slots"][0]["slots"][0]["id"] == slot.pk
 
@@ -698,6 +666,64 @@ class TestProposeSessionPageView:
         wizard = authenticated_client.session[f"propose_{event.slug}"]
         assert wizard["time_slot_ids"] == [slot1.pk]
 
+    def test_post_timeslots_with_only_foreign_id_shows_error(
+        self, authenticated_client, event, faker, time_zone, proposal_category
+    ):
+        self._activate_proposals(event, faker, time_zone)
+        slot1 = TimeSlotFactory(event=event)
+        slot2 = TimeSlotFactory(
+            event=event,
+            start_time=event.start_time + timedelta(hours=3),
+            end_time=event.start_time + timedelta(hours=5),
+        )
+        TimeSlotRequirement.objects.create(category=proposal_category, time_slot=slot1)
+        TimeSlotRequirement.objects.create(category=proposal_category, time_slot=slot2)
+        self._set_wizard_category(authenticated_client, event, proposal_category)
+
+        response = authenticated_client.post(
+            self._get_timeslots_url(event.slug), {"time_slot_ids": ["99999"]}
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={
+                "event": EventDTO.model_validate(event),
+                "proposal_settings": EventProposalSettingsDTO(
+                    allow_anonymous_proposals=False, description="", pk=0
+                ),
+                "category": ProposalCategoryDTO.model_validate(proposal_category),
+                "slot_descriptors": [
+                    {
+                        "day": slot1.start_time.date(),
+                        "slots": [
+                            {
+                                "id": slot1.pk,
+                                "start_time": slot1.start_time,
+                                "end_time": slot1.end_time,
+                                "is_required": True,
+                                "is_selected": False,
+                            },
+                            {
+                                "id": slot2.pk,
+                                "start_time": slot2.start_time,
+                                "end_time": slot2.end_time,
+                                "is_required": True,
+                                "is_selected": False,
+                            },
+                        ],
+                    }
+                ],
+                "error": "Please select at least one time slot.",
+                "current_step": "timeslots",
+                "wizard_steps": ["personal", "timeslots", "details", "review"],
+            },
+            template_name="event/propose/parts/timeslots.html",
+        )
+        assert (
+            "time_slot_ids" not in authenticated_client.session[f"propose_{event.slug}"]
+        )
+
     def test_post_timeslots_skips_when_no_requirements(
         self, authenticated_client, event, faker, time_zone, proposal_category
     ):
@@ -708,7 +734,7 @@ class TestProposeSessionPageView:
 
         assert response.status_code == HTTPStatus.OK
         assert response.context["form"] is not None
-        assert response.template_name == "chronology/propose/parts/details.html"
+        assert response.template_name == "event/propose/parts/details.html"
 
     def test_post_timeslots_preserves_selection(
         self, authenticated_client, event, faker, time_zone, proposal_category
@@ -791,6 +817,49 @@ class TestProposeSessionPageView:
 
         assert response.status_code == HTTPStatus.OK
         assert response.context["track_error"] == "Please select at least one track."
+
+    def test_post_session_details_rejects_foreign_track(
+        self, authenticated_client, event, faker, time_zone, proposal_category
+    ):
+        self._activate_proposals(event, faker, time_zone)
+        self._set_wizard_category(authenticated_client, event, proposal_category)
+        track = Track.objects.create(
+            event=event, name="Fantasy", slug="fantasy", is_public=True
+        )
+
+        response = authenticated_client.post(
+            self._get_details_url(event.slug),
+            {
+                "display_name": "Presenter",
+                "title": "My Session",
+                "description": "A test session",
+                "participants_limit": "4",
+                "track_pks": ["99999"],
+            },
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={
+                "event": EventDTO.model_validate(event),
+                "proposal_settings": EventProposalSettingsDTO(
+                    allow_anonymous_proposals=False, description="", pk=0
+                ),
+                "category": ProposalCategoryDTO.model_validate(proposal_category),
+                "form": response.context["form"],
+                "image_form": response.context["image_form"],
+                "durations": [],
+                "field_descriptors": [],
+                "public_tracks": [TrackDTO.model_validate(track)],
+                "selected_track_pks": [],
+                "track_error": "Please select at least one track.",
+                "current_step": "details",
+                "wizard_steps": ["personal", "details", "review"],
+            },
+            template_name="event/propose/parts/details.html",
+        )
+        assert "track_pks" not in authenticated_client.session[f"propose_{event.slug}"]
 
     def test_post_session_details_with_session_fields(
         self, authenticated_client, event, faker, time_zone, proposal_category
@@ -976,7 +1045,7 @@ class TestProposeSessionPageView:
         )
 
         assert response.status_code == HTTPStatus.OK
-        assert response.template_name == "chronology/propose/parts/personal.html"
+        assert response.template_name == "event/propose/parts/personal.html"
         assert response.context["field_descriptors"]
 
     def test_post_back_from_details_skips_timeslots_when_one_required(
@@ -992,7 +1061,7 @@ class TestProposeSessionPageView:
         )
 
         assert response.status_code == HTTPStatus.OK
-        assert response.template_name == "chronology/propose/parts/personal.html"
+        assert response.template_name == "event/propose/parts/personal.html"
 
     def test_post_back_to_session(
         self, authenticated_client, event, faker, time_zone, proposal_category
@@ -1025,7 +1094,7 @@ class TestProposeSessionPageView:
 
         assert response.status_code == HTTPStatus.OK
         assert response.context["review"]["title"] == "My Session"
-        assert response.template_name == "chronology/propose/parts/review.html"
+        assert response.template_name == "event/propose/parts/review.html"
 
     def test_review_shows_all_wizard_data(
         self, authenticated_client, event, faker, time_zone, proposal_category
@@ -1062,8 +1131,50 @@ class TestProposeSessionPageView:
         assert review["title"] == "Full Session"
         assert review["min_age"] == int("16")
         assert review["category_name"] == proposal_category.name
-        assert len(review["personal_fields"]) == 1
+        assert (
+            len(review["public_personal_fields"] + review["private_personal_fields"])
+            == 1
+        )
         assert len(review["time_slots"]) == 1
+
+    def test_review_shows_icon_of_public_session_field(
+        self, authenticated_client, event, faker, time_zone, proposal_category
+    ):
+        self._activate_proposals(event, faker, time_zone)
+        field = SessionField.objects.create(
+            event=event,
+            name="RPG System",
+            question="What RPG system will you use?",
+            slug="rpg_system",
+            icon="sparkles",
+            is_public=True,
+        )
+        SessionFieldRequirement.objects.create(
+            category=proposal_category, field=field, is_required=True
+        )
+        self._set_wizard_category(authenticated_client, event, proposal_category)
+
+        response = authenticated_client.post(
+            self._get_details_url(event.slug),
+            {
+                "display_name": "Presenter",
+                "title": "My Session",
+                "description": "A test session",
+                "participants_limit": "4",
+                "session_rpg_system": "D&D 5e",
+            },
+        )
+
+        assert response.status_code == HTTPStatus.OK
+        assert response.template_name == "event/propose/parts/review.html"
+        assert response.context["review"]["public_session_fields"] == [
+            {
+                "name": "What RPG system will you use?",
+                "value": "D&D 5e",
+                "is_public": True,
+                "icon": "sparkles",
+            }
+        ]
 
     def test_post_review_renders_review_step(
         self, authenticated_client, event, faker, time_zone, proposal_category
@@ -1074,7 +1185,7 @@ class TestProposeSessionPageView:
         response = authenticated_client.post(self._get_review_url(event.slug), {})
 
         assert response.status_code == HTTPStatus.OK
-        assert response.template_name == "chronology/propose/parts/review.html"
+        assert response.template_name == "event/propose/parts/review.html"
         assert response.context["review"]["title"] == "Test Session"
 
     def test_details_prefills_display_name(
@@ -1331,6 +1442,22 @@ class TestProposeSessionPageView:
 
         assert response.status_code == HTTPStatus.FOUND
 
+    def test_post_category_non_numeric_id_redirects(
+        self, authenticated_client, event, faker, time_zone
+    ):
+        self._activate_proposals(event, faker, time_zone)
+
+        response = authenticated_client.post(
+            self._get_category_url(event.slug), {"category_id": "not-a-number"}
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.ERROR, "Invalid category.")],
+            url=self._get_url(event.slug),
+        )
+
     def test_post_personal_without_email_shows_error(
         self, authenticated_client, event, faker, time_zone, proposal_category
     ):
@@ -1340,7 +1467,7 @@ class TestProposeSessionPageView:
         response = authenticated_client.post(self._get_personal_url(event.slug), {})
 
         assert response.status_code == HTTPStatus.OK
-        assert response.template_name == "chronology/propose/parts/personal.html"
+        assert response.template_name == "event/propose/parts/personal.html"
         assert response.context["form"].errors["contact_email"]
 
     def test_post_personal_advances_when_no_extra_requirements(
@@ -1354,7 +1481,7 @@ class TestProposeSessionPageView:
         )
 
         assert response.status_code == HTTPStatus.OK
-        assert response.template_name == "chronology/propose/parts/details.html"
+        assert response.template_name == "event/propose/parts/details.html"
 
     def test_post_step_without_wizard_category_redirects(
         self, authenticated_client, event, faker, time_zone
@@ -1512,27 +1639,108 @@ class TestProposeSessionPageView:
     ):
         self._activate_proposals(event, faker, time_zone)
         self._set_wizard_category(authenticated_client, event, proposal_category)
-        image = SimpleUploadedFile("cover.png", PNG_BYTES, content_type="image/png")
-
-        authenticated_client.post(
-            self._get_details_url(event.slug),
-            {
-                "display_name": "Test User",
-                "title": "Test Session",
-                "description": "A test session",
-                "participants_limit": "6",
-                "cover_image": image,
-            },
-            format="multipart",
-        )
+        self._stash_cover(authenticated_client, event.slug)
 
         response = authenticated_client.post(self._get_submit_url(event.slug), {})
 
-        assert response.status_code == HTTPStatus.FOUND
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=reverse("web:chronology:event", kwargs={"slug": event.slug}),
+            messages=[(messages.SUCCESS, SUBMITTED_MESSAGE)],
+        )
         proposal = Session.objects.get(title="Test Session")
         assert proposal.cover_image
         assert proposal.cover_image_url.startswith("/media/sessions/")
         assert proposal.cover_image_original_name == "cover.png"
+
+    def test_submit_survives_cover_cleanup_delete_failure(
+        self, authenticated_client, event, faker, time_zone, proposal_category, caplog
+    ):
+        # A backend that refuses the cleanup delete must not discard a completed
+        # submission: the cover bytes are already read before the delete.
+        self._activate_proposals(event, faker, time_zone)
+        self._set_wizard_category(authenticated_client, event, proposal_category)
+        self._stash_cover(authenticated_client, event.slug)
+
+        with (
+            patch.object(
+                default_storage, "delete", side_effect=OSError("permission denied")
+            ),
+            caplog.at_level("WARNING", logger=COVER_LOGGER),
+        ):
+            response = authenticated_client.post(self._get_submit_url(event.slug), {})
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=reverse("web:chronology:event", kwargs={"slug": event.slug}),
+            messages=[(messages.SUCCESS, SUBMITTED_MESSAGE)],
+        )
+        proposal = Session.objects.get(title="Test Session")
+        assert proposal.cover_image
+        assert proposal.cover_image_original_name == "cover.png"
+        # The warning is the only trace of the file left behind in storage.
+        assert "Failed to delete stashed wizard cover" in caplog.text
+
+    def test_details_clear_survives_cover_delete_failure(
+        self, authenticated_client, event, faker, time_zone, proposal_category, caplog
+    ):
+        self._activate_proposals(event, faker, time_zone)
+        self._set_wizard_category(authenticated_client, event, proposal_category)
+        self._stash_cover(authenticated_client, event.slug)
+
+        with (
+            patch.object(
+                default_storage, "delete", side_effect=OSError("permission denied")
+            ),
+            caplog.at_level("WARNING", logger=COVER_LOGGER),
+        ):
+            response = authenticated_client.post(
+                self._get_details_url(event.slug),
+                {
+                    "display_name": "Test User",
+                    "title": "Test Session",
+                    "description": "A test session",
+                    "participants_limit": "6",
+                    "cover_image-clear": "on",
+                },
+                format="multipart",
+            )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={
+                "category": ProposalCategoryDTO.model_validate(proposal_category),
+                "current_step": "review",
+                "event": EventDTO.model_validate(event),
+                "proposal_settings": EventProposalSettingsDTO(
+                    allow_anonymous_proposals=False, description="", pk=0
+                ),
+                "review": {
+                    "category_name": proposal_category.name,
+                    "contact_email": "",
+                    "description": "A test session",
+                    "display_name": "Test User",
+                    "duration": "",
+                    "min_age": 0,
+                    "participants_limit": 6,
+                    "private_personal_fields": [],
+                    "private_session_fields": [],
+                    "public_personal_fields": [],
+                    "public_session_fields": [],
+                    "time_slots": [],
+                    "title": "Test Session",
+                },
+                "wizard_steps": ["personal", "details", "review"],
+            },
+            template_name="event/propose/parts/review.html",
+        )
+        wizard = authenticated_client.session[f"propose_{event.slug}"]
+        assert "cover_image_temp" not in wizard
+        assert "cover_image_temp_name" not in wizard
+        assert "Failed to delete stashed wizard cover" in caplog.text
 
     def test_submit_rejects_too_large_cover_image(
         self, authenticated_client, event, faker, time_zone, proposal_category
@@ -1574,13 +1782,9 @@ class TestProposeSessionPageView:
                 "public_tracks": [],
                 "selected_track_pks": [],
                 "track_error": None,
-                "wizard_steps": [
-                    {"key": "personal"},
-                    {"key": "details"},
-                    {"key": "review"},
-                ],
+                "wizard_steps": ["personal", "details", "review"],
             },
-            template_name="chronology/propose/parts/details.html",
+            template_name="event/propose/parts/details.html",
         )
         assert "cover_image" in response.context["image_form"].errors
         assert not Session.objects.filter(title="Test Session").exists()
@@ -1621,13 +1825,9 @@ class TestProposeSessionPageView:
                 "public_tracks": [],
                 "selected_track_pks": [],
                 "track_error": None,
-                "wizard_steps": [
-                    {"key": "personal"},
-                    {"key": "details"},
-                    {"key": "review"},
-                ],
+                "wizard_steps": ["personal", "details", "review"],
             },
-            template_name="chronology/propose/parts/details.html",
+            template_name="event/propose/parts/details.html",
         )
         assert "cover_image" in response.context["image_form"].errors
         assert not Session.objects.filter(title="Test Session").exists()
@@ -2091,19 +2291,41 @@ class TestProposeSessionPageView:
         self, authenticated_client, event, faker, time_zone
     ):
         self._activate_proposals(event, faker, time_zone)
-        ProposalCategoryFactory(event=event)
-        ProposalCategoryFactory(event=event)
+        categories = [
+            ProposalCategoryFactory(event=event, name="Board Game"),
+            ProposalCategoryFactory(event=event, name="RPG Session"),
+        ]
 
         response = authenticated_client.post(self._get_category_url(event.slug), {})
 
-        assert response.context["current_step"] == "category"
-        assert [s["key"] for s in response.context["wizard_steps"]] == [
-            "category",
-            "personal",
-            "timeslots",
-            "details",
-            "review",
-        ]
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={
+                "event": EventDTO.model_validate(event),
+                "proposal_settings": EventProposalSettingsDTO(
+                    allow_anonymous_proposals=False, description="", pk=0
+                ),
+                "categories": [
+                    ProposalCategoryDTO.model_validate(cat) for cat in categories
+                ],
+                "selected_category_id": None,
+                "error": "Please select a category.",
+                "current_step": "category",
+                "wizard_steps": [
+                    "category",
+                    "personal",
+                    "timeslots",
+                    "details",
+                    "review",
+                ],
+                "show_login_nudge": False,
+                "login_url": (
+                    f"/crowd/login-required/?next={self._get_category_url(event.slug)}"
+                ),
+            },
+            template_name="event/propose/parts/category.html",
+        )
 
     def test_personal_step_stepper_omits_timeslots_when_none_required(
         self, authenticated_client, event, faker, time_zone, proposal_category
@@ -2115,12 +2337,27 @@ class TestProposeSessionPageView:
             self._get_category_url(event.slug), {"category_id": proposal_category.pk}
         )
 
-        assert response.context["current_step"] == "personal"
-        assert [s["key"] for s in response.context["wizard_steps"]] == [
-            "personal",
-            "details",
-            "review",
-        ]
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={
+                "event": EventDTO.model_validate(event),
+                "proposal_settings": EventProposalSettingsDTO(
+                    allow_anonymous_proposals=False, description="", pk=0
+                ),
+                "category": ProposalCategoryDTO.model_validate(proposal_category),
+                "form": response.context["form"],
+                "field_descriptors": [],
+                "current_step": "personal",
+                "wizard_steps": ["personal", "details", "review"],
+                "show_back_button": False,
+                "show_login_nudge": False,
+                "login_url": (
+                    f"/crowd/login-required/?next={self._get_category_url(event.slug)}"
+                ),
+            },
+            template_name="event/propose/parts/personal.html",
+        )
 
     def test_timeslots_step_stepper_includes_timeslots(
         self, authenticated_client, event, faker, time_zone, proposal_category
@@ -2140,13 +2377,42 @@ class TestProposeSessionPageView:
             self._get_timeslots_url(event.slug), {"back": "1"}
         )
 
-        assert response.context["current_step"] == "timeslots"
-        assert [s["key"] for s in response.context["wizard_steps"]] == [
-            "personal",
-            "timeslots",
-            "details",
-            "review",
-        ]
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={
+                "event": EventDTO.model_validate(event),
+                "proposal_settings": EventProposalSettingsDTO(
+                    allow_anonymous_proposals=False, description="", pk=0
+                ),
+                "category": ProposalCategoryDTO.model_validate(proposal_category),
+                "slot_descriptors": [
+                    {
+                        "day": slot1.start_time.date(),
+                        "slots": [
+                            {
+                                "id": slot1.pk,
+                                "start_time": slot1.start_time,
+                                "end_time": slot1.end_time,
+                                "is_required": True,
+                                "is_selected": False,
+                            },
+                            {
+                                "id": slot2.pk,
+                                "start_time": slot2.start_time,
+                                "end_time": slot2.end_time,
+                                "is_required": True,
+                                "is_selected": False,
+                            },
+                        ],
+                    }
+                ],
+                "error": None,
+                "current_step": "timeslots",
+                "wizard_steps": ["personal", "timeslots", "details", "review"],
+            },
+            template_name="event/propose/parts/timeslots.html",
+        )
 
     def test_details_step_stepper_context(
         self, authenticated_client, event, faker, time_zone, proposal_category
@@ -2158,12 +2424,27 @@ class TestProposeSessionPageView:
             self._get_details_url(event.slug), {"back": "1"}
         )
 
-        assert response.context["current_step"] == "details"
-        assert [s["key"] for s in response.context["wizard_steps"]] == [
-            "personal",
-            "details",
-            "review",
-        ]
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={
+                "event": EventDTO.model_validate(event),
+                "proposal_settings": EventProposalSettingsDTO(
+                    allow_anonymous_proposals=False, description="", pk=0
+                ),
+                "category": ProposalCategoryDTO.model_validate(proposal_category),
+                "form": response.context["form"],
+                "image_form": response.context["image_form"],
+                "durations": [],
+                "field_descriptors": [],
+                "public_tracks": [],
+                "selected_track_pks": [],
+                "track_error": None,
+                "current_step": "details",
+                "wizard_steps": ["personal", "details", "review"],
+            },
+            template_name="event/propose/parts/details.html",
+        )
 
     def test_review_step_stepper_context(
         self, authenticated_client, event, faker, time_zone, proposal_category
@@ -2173,12 +2454,35 @@ class TestProposeSessionPageView:
 
         response = authenticated_client.post(self._get_review_url(event.slug), {})
 
-        assert response.context["current_step"] == "review"
-        assert [s["key"] for s in response.context["wizard_steps"]] == [
-            "personal",
-            "details",
-            "review",
-        ]
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={
+                "event": EventDTO.model_validate(event),
+                "proposal_settings": EventProposalSettingsDTO(
+                    allow_anonymous_proposals=False, description="", pk=0
+                ),
+                "category": ProposalCategoryDTO.model_validate(proposal_category),
+                "review": {
+                    "category_name": proposal_category.name,
+                    "display_name": "Test User",
+                    "title": "Test Session",
+                    "description": "",
+                    "participants_limit": 6,
+                    "min_age": 0,
+                    "duration": "",
+                    "contact_email": "proposer@example.com",
+                    "public_session_fields": [],
+                    "private_session_fields": [],
+                    "public_personal_fields": [],
+                    "private_personal_fields": [],
+                    "time_slots": [],
+                },
+                "current_step": "review",
+                "wizard_steps": ["personal", "details", "review"],
+            },
+            template_name="event/propose/parts/review.html",
+        )
 
     def test_review_formats_boolean_field_values(
         self, authenticated_client, event, faker, time_zone, proposal_category
@@ -2210,7 +2514,7 @@ class TestProposeSessionPageView:
         review = response.context["review"]
         projector_field = next(
             f
-            for f in review["session_fields"]
+            for f in review["public_session_fields"] + review["private_session_fields"]
             if f["name"] == "Do you need a projector?"
         )
         assert projector_field["value"] is True
@@ -2247,7 +2551,9 @@ class TestProposeSessionPageView:
 
         review = response.context["review"]
         genre_field = next(
-            f for f in review["session_fields"] if f["name"] == "What genres?"
+            f
+            for f in review["public_session_fields"] + review["private_session_fields"]
+            if f["name"] == "What genres?"
         )
         assert genre_field["value"] == ["Fantasy", "Sci-Fi"]
 
@@ -2283,7 +2589,9 @@ class TestProposeSessionPageView:
 
         review = response.context["review"]
         system_field = next(
-            f for f in review["session_fields"] if f["name"] == "Which system?"
+            f
+            for f in review["public_session_fields"] + review["private_session_fields"]
+            if f["name"] == "Which system?"
         )
         assert system_field["value"] == "Dungeons & Dragons 5e"
 
@@ -2318,7 +2626,9 @@ class TestProposeSessionPageView:
 
         review = response.context["review"]
         system_field = next(
-            f for f in review["session_fields"] if f["name"] == "Which system?"
+            f
+            for f in review["public_session_fields"] + review["private_session_fields"]
+            if f["name"] == "Which system?"
         )
         assert system_field["value"] == "My Homebrew Game"
 
@@ -2347,7 +2657,9 @@ class TestProposeSessionPageView:
 
         review = response.context["review"]
         note_field = next(
-            f for f in review["session_fields"] if f["name"] == "Any notes?"
+            f
+            for f in review["public_session_fields"] + review["private_session_fields"]
+            if f["name"] == "Any notes?"
         )
         assert note_field["value"] == "Some note"
 
@@ -2369,7 +2681,10 @@ class TestProposeSessionPageView:
         response = authenticated_client.post(self._get_review_url(event.slug), {})
 
         review = response.context["review"]
-        field_names = [f["name"] for f in review["session_fields"]]
+        field_names = [
+            f["name"]
+            for f in review["public_session_fields"] + review["private_session_fields"]
+        ]
         assert "What is your optional info?" not in field_names
 
     def test_review_passes_integer_field_values(
@@ -2401,7 +2716,9 @@ class TestProposeSessionPageView:
 
         review = response.context["review"]
         player_count_field = next(
-            f for f in review["session_fields"] if f["name"] == "How many players?"
+            f
+            for f in review["public_session_fields"] + review["private_session_fields"]
+            if f["name"] == "How many players?"
         )
         assert player_count_field["value"] == integer_value
 
@@ -2465,7 +2782,10 @@ class TestProposeSessionPageView:
         response = authenticated_client.post(self._get_review_url(event.slug), {})
 
         review = response.context["review"]
-        all_sf_names = [f["name"] for f in review["session_fields"]]
+        all_sf_names = [
+            f["name"]
+            for f in review["public_session_fields"] + review["private_session_fields"]
+        ]
         assert all_sf_names == ["What genre?", "Internal notes?"]
         private_sf_names = [f["name"] for f in review["private_session_fields"]]
         assert private_sf_names == ["Internal notes?"]
@@ -2478,7 +2798,7 @@ class TestProposeSessionPageView:
 class TestAnonymousProposalSubmission:
     """E2E tests for anonymous proposal submissions via Facilitator model."""
 
-    URL_NAME = "web:chronology:session-propose"
+    URL_NAME = "web:event:session-propose"
 
     def _url(self, event_slug, step=""):
         name = f"{self.URL_NAME}-{step}" if step else self.URL_NAME
@@ -2629,35 +2949,15 @@ class TestAnonymousProposalSubmission:
                 "form": form,
                 "field_descriptors": [],
                 "current_step": "personal",
-                "wizard_steps": [
-                    {"key": "personal"},
-                    {"key": "details"},
-                    {"key": "review"},
-                ],
+                "wizard_steps": ["personal", "details", "review"],
                 "show_back_button": False,
                 "show_login_nudge": True,
                 "login_url": f"/crowd/login-required/?next={self._url(event.slug)}",
-                "wizard_part_template": "chronology/propose/parts/personal.html",
+                "wizard_part_template": "event/propose/parts/personal.html",
             },
-            template_name="chronology/propose/base.html",
+            template_name="event/propose/base.html",
         )
         assert b"Have an account?" in response.content
-
-    def test_anonymous_submit_blocked_by_rate_limit(
-        self, client, event, faker, time_zone, proposal_category
-    ):
-        self._activate_proposals(event, faker, time_zone)
-        self._enable_anonymous(event)
-        self._set_wizard_full(client, event, proposal_category)
-
-        with patch(
-            "ludamus.gates.web.django.chronology.views.check_proposal_rate_limit",
-            return_value=False,
-        ):
-            response = client.post(self._url(event.slug, "submit"))
-
-        assert response.status_code == HTTPStatus.FOUND
-        assert Session.objects.count() == 0
 
     def test_rate_limit_uses_rightmost_x_forwarded_for(
         self, client, event, faker, time_zone, proposal_category
@@ -2691,17 +2991,19 @@ class TestAnonymousProposalSubmission:
         self._activate_proposals(event, faker, time_zone)
         self._enable_anonymous(event)
 
-        with patch(
-            "ludamus.gates.web.django.chronology.views.check_proposal_rate_limit",
-            return_value=True,
-        ):
-            self._set_wizard_full(client, event, proposal_category)
-            first = client.post(self._url(event.slug, "submit"))
-            assert first.status_code == HTTPStatus.FOUND
+        # Distinct IPs: the rate limiter is per-IP, and this test is about slug
+        # collisions rather than throttling.
+        self._set_wizard_full(client, event, proposal_category)
+        first = client.post(
+            self._url(event.slug, "submit"), HTTP_X_FORWARDED_FOR="10.0.0.1"
+        )
+        assert first.status_code == HTTPStatus.FOUND
 
-            self._set_wizard_full(client, event, proposal_category)
-            second = client.post(self._url(event.slug, "submit"))
-            assert second.status_code == HTTPStatus.FOUND
+        self._set_wizard_full(client, event, proposal_category)
+        second = client.post(
+            self._url(event.slug, "submit"), HTTP_X_FORWARDED_FOR="10.0.0.2"
+        )
+        assert second.status_code == HTTPStatus.FOUND
 
         expected_facilitator_count = 2
         facilitators = Facilitator.objects.filter(
@@ -2710,3 +3012,53 @@ class TestAnonymousProposalSubmission:
         assert facilitators.count() == expected_facilitator_count
         slugs = list(facilitators.values_list("slug", flat=True))
         assert len(set(slugs)) == expected_facilitator_count
+
+
+# Every HTTP path past the category step resolves a category up front
+# (`with_category=True` redirects without one), so the category-less guards
+# below can only be exercised on a directly built wizard.
+class TestProposeWizardWithoutCategory:
+    @pytest.fixture
+    def wizard(self, event):
+        # Two categories, so the wizard cannot auto-pick one.
+        category = ProposalCategoryFactory(event=event)
+        ProposalCategoryFactory(event=event)
+        TimeSlotRequirement.objects.create(
+            category=category, time_slot=TimeSlotFactory(event=event)
+        )
+        service = Services().propose_session
+        return propose._Wizard(
+            request=RequestFactory().get("/"),
+            service=service,
+            event=service.get_event(event.slug, event.sphere_id),
+        )
+
+    def test_timeslot_requirements_are_empty(self, wizard):
+        assert wizard.timeslot_requirements == []
+
+    def test_chosen_redirects_to_category_step(self, wizard):
+        with pytest.raises(RedirectError) as exc_info:
+            _ = wizard.chosen
+
+        assert exc_info.value.url == reverse(
+            "web:event:session-propose", kwargs={"event_slug": wizard.event.slug}
+        )
+        assert exc_info.value.error == "Please select a category first."
+
+
+class TestProposeTimeslotsTemplate:
+    # No view renders the step with nothing to pick (a slot-less category hides
+    # it), so the auto-advance fallback is exercised by rendering directly.
+    def test_auto_advances_when_no_slots_offered(self, event):
+        html = render_to_string(
+            "event/propose/parts/timeslots.html",
+            {
+                "event": event,
+                "proposal_settings": {"description": ""},
+                "slot_descriptors": [],
+                "csrf_token": "test-token",
+            },
+        )
+
+        assert 'hx-trigger="load"' in html
+        assert '"skip": "1"' in html

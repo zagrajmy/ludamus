@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from pathlib import PurePosixPath
 from typing import TYPE_CHECKING, Any
 from uuid import uuid4
@@ -17,13 +18,27 @@ from ludamus.pacts.images import (
 if TYPE_CHECKING:
     from django.core.files.uploadedfile import UploadedFile
 
+logger = logging.getLogger(__name__)
+
 _WIZARD_COVER_KEY = "cover_image_temp"
 _WIZARD_COVER_NAME_KEY = "cover_image_temp_name"
 
 
+def _discard_stored_cover(path: str) -> None:
+    # Cleanup only: nothing downstream needs the stashed file gone. A backend
+    # that refuses the delete (a service account without storage.objects.delete)
+    # must not fail the step that triggered the cleanup, so the file stays in
+    # propose-wizard/ and the warning is the only trace it left. Nothing
+    # reclaims that prefix yet: https://github.com/zagrajmy/ludamus/issues/942
+    try:
+        default_storage.delete(path)
+    except Exception:
+        logger.warning("Failed to delete stashed wizard cover %s", path, exc_info=True)
+
+
 def delete_wizard_cover(wizard: dict[str, Any]) -> None:
     if path := wizard.get(_WIZARD_COVER_KEY):
-        default_storage.delete(path)
+        _discard_stored_cover(path)
     wizard.pop(_WIZARD_COVER_KEY, None)
     wizard.pop(_WIZARD_COVER_NAME_KEY, None)
 
@@ -56,5 +71,5 @@ def pop_wizard_cover(wizard: dict[str, Any]) -> ContentFile[bytes] | None:
         return None
     with default_storage.open(path) as stored:
         data = stored.read()
-    default_storage.delete(path)
+    _discard_stored_cover(path)
     return ContentFile(data, name=name)

@@ -39,6 +39,20 @@ const collapseEmptyTracks = (lanes: HTMLElement): void => {
     el.classList.toggle(COLLAPSED, !liveCols.has(Number(el.dataset.laneCol)));
   }
 
+  // The parent-space label is printed once, above the first column of its run,
+  // so collapsing that column takes the label with it. Reprint it on the first
+  // column of the run still standing — by group key, not name, since two
+  // branches can carry the same parent name.
+  const labelled = new Set<string>();
+  for (const cell of lanes.querySelectorAll<HTMLElement>("[data-lane-group]")) {
+    const label = cell.querySelector<HTMLElement>("[data-lane-group-label]");
+    if (!label) continue;
+    const group = cell.dataset.laneGroup ?? "";
+    const live = liveCols.has(Number(cell.dataset.laneCol));
+    label.classList.toggle("invisible", !live || labelled.has(group));
+    if (live) labelled.add(group);
+  }
+
   const columns = ["var(--axis-w)"];
   for (let col = 1; col <= roomCount; col += 1) {
     columns.push(liveCols.has(col) ? "var(--col-track)" : "0");
@@ -81,16 +95,26 @@ const initRoomLanes = (): void => {
   laneListeners = new AbortController();
   const { signal } = laneListeners;
 
+  const panes = scrollers.map((scroller) => ({
+    foot: scroller.parentElement?.querySelector<HTMLElement>("[data-room-lanes-foot]") ?? null,
+    head: scroller.parentElement?.querySelector<HTMLElement>("[data-room-lanes-head]") ?? null,
+    scroller,
+  }));
+
   const measureScrollbars = (): void => {
-    for (const scroller of scrollers) {
-      const reserved = scroller.offsetHeight - scroller.clientHeight;
-      scroller.style.setProperty("--room-lanes-sb", `${Math.max(reserved, 14)}px`);
+    for (const { head } of panes) {
+      // Only the head needs its scrollbar strip carved out of the fade mask;
+      // the body's native scrollbar is hidden (the foot strip stands in) and
+      // the foot carries no mask. No floor under the measurement: with overlay
+      // scrollbars the head reserves nothing, and a floor would punch an
+      // unfaded strip through the room-name text.
+      head?.style.setProperty("--room-lanes-sb", `${head.offsetHeight - head.clientHeight}px`);
     }
   };
   measureScrollbars();
   globalThis.addEventListener("resize", measureScrollbars, { signal });
 
-  for (const scroller of scrollers) {
+  for (const { foot, head, scroller } of panes) {
     scroller.dataset.lanesBound = "";
     // schedule:filtered rides the swapped-in grid too: the listener closes over
     // this instance of .room-lanes, so it goes out with the shared controller
@@ -105,15 +129,28 @@ const initRoomLanes = (): void => {
         { signal },
       );
     }
-    const head = scroller.parentElement?.querySelector<HTMLElement>("[data-room-lanes-head]");
-    if (!head) continue;
+    // The head and foot scroll for real — their scrollbars are the grid's top
+    // and bottom handles — so each one writes back through the scroller, whose
+    // own handler fans the offset out to the other. No feedback loop:
+    // assigning a scrollLeft an element already has fires no scroll event, so
+    // the ping-pong stops in one step.
+    const handles = [head, foot].filter((handle) => handle !== null);
     scroller.addEventListener(
       "scroll",
       () => {
-        head.scrollLeft = scroller.scrollLeft;
+        for (const handle of handles) handle.scrollLeft = scroller.scrollLeft;
       },
       { passive: true, signal },
     );
+    for (const handle of handles) {
+      handle.addEventListener(
+        "scroll",
+        () => {
+          scroller.scrollLeft = handle.scrollLeft;
+        },
+        { passive: true, signal },
+      );
+    }
   }
 };
 
