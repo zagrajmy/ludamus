@@ -84,8 +84,10 @@ one of those loads it.
 
 `phc_CpBrrTFf…` is the production project, and the only project in the org.
 
-- **Production** takes `POSTHOG_API_KEY` from its GitHub Environment, like
-  every other value the Coolify workflow syncs.
+- **Production on Coolify** takes `POSTHOG_API_KEY` from the
+  `production-coolify` GitHub Environment, like every other value that
+  workflow syncs. The legacy VPS still reads it from `.env.production`
+  through compose.
 - **Staging** has no key, so analytics is off there. Give it one only by
   creating a second PostHog project — never by reusing production's. Both
   halves identify by bare Django pk (`context_processors.py`,
