@@ -52,6 +52,10 @@ env = environ.Env(
     # autocapture, session replay, heatmaps and web vitals — from a second
     # origin, and blocking it fails silently: pageviews and exceptions keep
     # arriving. Set both together; a first-party proxy sets them equal.
+    # Never sent to the browser: posthog-js derives this origin from api_host
+    # itself and takes no override for it, so this is a CSP-only mirror of a
+    # computation happening client-side. That is why they cannot be linked in
+    # code and have to move together by hand.
     POSTHOG_ASSETS_HOST=(str, "https://eu-assets.i.posthog.com"),
     # Membership API
     MEMBERSHIP_API_BASE_URL=(str, ""),
@@ -400,9 +404,13 @@ CSP_POLICY: dict[str, list[str]] = {
     "frame-ancestors": [CSP.NONE],
 }
 
-# posthog-js is bundled (no-external build), so PostHog only needs the
-# ingestion host in connect-src — script-src stays nonce-only.
+# posthog-js is bundled (no-external build), so script-src stays nonce-only.
+# connect-src needs both origins: the browser talks to the ingestion host and,
+# for remote config, to the assets host.
 if POSTHOG_API_KEY:
+    # sorted: dedupes when a proxy makes the two equal, and keeps the header
+    # byte-identical across workers, which a bare set would not — string
+    # hashing is randomized per process.
     CSP_POLICY["connect-src"] += sorted({POSTHOG_HOST, POSTHOG_ASSETS_HOST})
     # Session replay compresses in a worker built from a blob: URL.
     CSP_POLICY["worker-src"] = [CSP.SELF, "blob:"]
