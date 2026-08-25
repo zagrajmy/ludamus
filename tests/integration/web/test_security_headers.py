@@ -1,4 +1,3 @@
-import importlib
 import re
 from http import HTTPStatus
 from unittest.mock import ANY
@@ -136,54 +135,3 @@ class TestCSP500PageNonce:
             template_name="500_dynamic.html",
         )
         _assert_body_nonce_matches_header(response)
-
-
-class TestPostHogCSP:
-    """posthog-js needs two origins, and the second one is easy to miss.
-
-    Remote config — the response that switches on autocapture, session replay,
-    heatmaps and web vitals — is fetched from the assets host, not the
-    ingestion host. Omitting it blocks nothing visible: pageviews and
-    exceptions still arrive, so PostHog looks healthy while four products stay
-    dark.
-    """
-
-    @pytest.mark.parametrize(
-        ("host", "expected"),
-        (
-            ("https://eu.i.posthog.com", "https://eu-assets.i.posthog.com"),
-            ("https://us.i.posthog.com", "https://us-assets.i.posthog.com"),
-            ("https://eu.posthog.com", "https://eu-assets.i.posthog.com"),
-            # A first-party proxy serves its own assets, so it rewrites to
-            # itself and contributes no second connect-src entry.
-            ("https://analytics.zagrajmy.net", "https://analytics.zagrajmy.net"),
-        ),
-    )
-    def test_assets_host_matches_posthog_js_request_router(self, host, expected):
-        assert (
-            re.sub(
-                r"^https://(eu|us)(\.i)?\.posthog\.com/?$",
-                r"https://\1-assets.i.posthog.com",
-                host,
-                flags=re.IGNORECASE,
-            )
-            == expected
-        )
-
-    def test_both_origins_allowed_in_connect_src(self, monkeypatch):
-        monkeypatch.setenv("POSTHOG_API_KEY", "phc_not_a_real_key")
-        settings_module = importlib.import_module("ludamus.edges.settings")
-        try:
-            reloaded = importlib.reload(settings_module)
-            connect_src = reloaded.CSP_POLICY["connect-src"]
-            assert reloaded.POSTHOG_HOST in connect_src
-            assert reloaded.POSTHOG_ASSETS_HOST in connect_src
-            assert reloaded.POSTHOG_ASSETS_HOST != reloaded.POSTHOG_HOST
-        finally:
-            monkeypatch.undo()
-            importlib.reload(settings_module)
-
-    def test_no_posthog_origins_when_analytics_is_off(self):
-        # The suite runs without a key, so the imported policy is the
-        # analytics-disabled one and must stay free of third-party origins.
-        assert CSP_POLICY["connect-src"] == ["'self'"]

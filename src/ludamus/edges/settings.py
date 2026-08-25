@@ -10,7 +10,6 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
 import json
-import re
 from pathlib import Path
 from urllib.parse import quote
 
@@ -49,6 +48,11 @@ env = environ.Env(
     # EU ingestion endpoint without a code change.
     POSTHOG_API_KEY=(str, ""),
     POSTHOG_HOST=(str, "https://eu.i.posthog.com"),
+    # posthog-js fetches remote config — the response that switches on
+    # autocapture, session replay, heatmaps and web vitals — from a second
+    # origin, and blocking it fails silently: pageviews and exceptions keep
+    # arriving. Set both together; a first-party proxy sets them equal.
+    POSTHOG_ASSETS_HOST=(str, "https://eu-assets.i.posthog.com"),
     # Membership API
     MEMBERSHIP_API_BASE_URL=(str, ""),
     MEMBERSHIP_API_CHECK_INTERVAL=(int, 15),
@@ -354,19 +358,7 @@ SUPPORT_EMAIL = env("SUPPORT_EMAIL")
 # src/ludamus/client/src/prologue.ts.
 POSTHOG_API_KEY = env("POSTHOG_API_KEY")
 POSTHOG_HOST = env("POSTHOG_HOST")
-# posthog-js fetches its remote config from a second origin: requestRouter's
-# endpointFor("assets", ...) rewrites eu.i.posthog.com to
-# eu-assets.i.posthog.com. That config is what switches on autocapture,
-# session replay, heatmaps and web vitals, so blocking it leaves all four
-# inert while pageviews and exceptions keep working — a silent failure with no
-# error anywhere in PostHog. A proxied or self-hosted host serves its own
-# assets and rewrites to itself, needing no second connect-src entry.
-POSTHOG_ASSETS_HOST = re.sub(
-    r"^https://(eu|us)(\.i)?\.posthog\.com/?$",
-    r"https://\1-assets.i.posthog.com",
-    POSTHOG_HOST,
-    flags=re.IGNORECASE,
-)
+POSTHOG_ASSETS_HOST = env("POSTHOG_ASSETS_HOST")
 
 INTERNAL_IPS = [
     # ...
@@ -411,9 +403,7 @@ CSP_POLICY: dict[str, list[str]] = {
 # posthog-js is bundled (no-external build), so PostHog only needs the
 # ingestion host in connect-src — script-src stays nonce-only.
 if POSTHOG_API_KEY:
-    CSP_POLICY["connect-src"].append(POSTHOG_HOST)
-    if POSTHOG_ASSETS_HOST != POSTHOG_HOST:
-        CSP_POLICY["connect-src"].append(POSTHOG_ASSETS_HOST)
+    CSP_POLICY["connect-src"] += sorted({POSTHOG_HOST, POSTHOG_ASSETS_HOST})
     # Session replay compresses in a worker built from a blob: URL.
     CSP_POLICY["worker-src"] = [CSP.SELF, "blob:"]
 
