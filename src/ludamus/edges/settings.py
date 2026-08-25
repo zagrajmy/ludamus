@@ -10,6 +10,7 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
 import json
+import re
 from pathlib import Path
 from urllib.parse import quote
 
@@ -348,11 +349,24 @@ AUTH0_DOMAIN = env("AUTH0_DOMAIN")
 SUPPORT_EMAIL = env("SUPPORT_EMAIL")
 
 # Analytics (Prologue — PostHog). The client bundles posthog-js with its
-# no-external build, so the browser only ever *connects* to POSTHOG_HOST;
-# no third-party script is loaded. Consent gating lives in
+# no-external build, so the browser loads no third-party script; it only
+# *connects* to the two PostHog origins below. Consent gating lives in
 # src/ludamus/client/src/prologue.ts.
 POSTHOG_API_KEY = env("POSTHOG_API_KEY")
 POSTHOG_HOST = env("POSTHOG_HOST")
+# posthog-js fetches its remote config from a second origin: requestRouter's
+# endpointFor("assets", ...) rewrites eu.i.posthog.com to
+# eu-assets.i.posthog.com. That config is what switches on autocapture,
+# session replay, heatmaps and web vitals, so blocking it leaves all four
+# inert while pageviews and exceptions keep working — a silent failure with no
+# error anywhere in PostHog. A proxied or self-hosted host serves its own
+# assets and rewrites to itself, needing no second connect-src entry.
+POSTHOG_ASSETS_HOST = re.sub(
+    r"^https://(eu|us)(\.i)?\.posthog\.com/?$",
+    r"https://\1-assets.i.posthog.com",
+    POSTHOG_HOST,
+    flags=re.IGNORECASE,
+)
 
 INTERNAL_IPS = [
     # ...
@@ -398,6 +412,8 @@ CSP_POLICY: dict[str, list[str]] = {
 # ingestion host in connect-src — script-src stays nonce-only.
 if POSTHOG_API_KEY:
     CSP_POLICY["connect-src"].append(POSTHOG_HOST)
+    if POSTHOG_ASSETS_HOST != POSTHOG_HOST:
+        CSP_POLICY["connect-src"].append(POSTHOG_ASSETS_HOST)
     # Session replay compresses in a worker built from a blob: URL.
     CSP_POLICY["worker-src"] = [CSP.SELF, "blob:"]
 
