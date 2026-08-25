@@ -7,8 +7,11 @@
 {# detail modals apply. Sections are whole local-clock hours, so the rail #}
 {# markers, section ids, and hour headings are always one-to-one. #}
 {# The view tabs live in the search/filter toolbar row (event.html). #}
-{# ludamus-disable:no-negative-margin -- counters main's px-4 so the schedule spans the full phone width and the hour rail sits at the screen edge #}
-<div class="compact-schedule -mx-4 sm:mx-0"
+{# Full-bleed: the schedule is a map, not prose, so it spans the screen instead #}
+{# of main's centered max-w-7xl column — half main's content box minus half the #}
+{# viewport puts its edges on the viewport's, cancelling both the padding and #}
+{# the auto margins, so the hour rail sits at the screen edge at every width. #}
+<div class="compact-schedule mx-[calc(50%_-_50vw)]"
      data-csrf="{{ csrf_token }}"
      data-bookmark-url-template="{% url 'web:chronology:session-bookmark' session_id=0 %}">
     <div class="flex items-start sm:gap-1">
