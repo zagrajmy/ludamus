@@ -66,16 +66,17 @@ from ludamus.links.db.django.models import (
     SessionParticipation,
     SessionParticipationStatus,
 )
-from ludamus.links.db.django.repositories.chronology import (
-    location_data,
-    public_scheduled_sessions,
-)
+from ludamus.links.db.django.repositories.chronology import location_data
 from ludamus.links.db.django.repositories.sessions import (
     annotate_session_participation_counts,
     field_value_dto,
     own_pending_proposals,
     review_inbox_proposals,
     with_scheduled_card_relations,
+)
+from ludamus.links.db.django.session_visibility import (
+    is_publicly_scheduled,
+    public_scheduled_sessions,
 )
 from ludamus.mills.enrollment import (
     EnrollmentPolicy,
@@ -858,9 +859,16 @@ def _get_session_or_redirect(
     viewer_id = request.context.current_user_id
     if session.presenter_id in request.services.shadowban.banning_owner_ids(viewer_id):
         fake_full_session(session)
-    if not AgendaItem.objects.filter(session_id=session.pk).exists() and not (
-        session.session_participations.filter(user_id=viewer_id).exists()
-    ):
+    has_agenda_item = AgendaItem.objects.filter(session_id=session.pk).exists()
+    has_participation = session.session_participations.filter(
+        user_id=viewer_id
+    ).exists()
+    if has_agenda_item:
+        if not is_publicly_scheduled(event_id=session.event_id, session_id=session.pk):
+            raise RedirectError(
+                reverse("web:index"), error=_("Session not found.")
+            ) from None
+    elif not has_participation:
         raise RedirectError(
             reverse("web:index"),
             error=_("No enrollment configuration is available for this session."),

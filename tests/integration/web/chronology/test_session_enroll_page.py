@@ -26,6 +26,7 @@ from ludamus.links.db.django.models import (
     PartyMembership,
     SessionParticipation,
     SessionParticipationStatus,
+    Track,
     UserEnrollmentConfig,
 )
 from ludamus.pacts.crowd import CompanionDTO, UserDTO
@@ -254,6 +255,32 @@ class TestSessionEnrollPageView:
 
     def test_get_error_404(self, authenticated_client, event):
         response = authenticated_client.get(self._get_url(17, event.slug))
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.ERROR, "Session not found.")],
+            url="/",
+        )
+
+    @pytest.mark.parametrize("public_too", (True, False))
+    def test_private_track_session_rejected(
+        self, agenda_item, authenticated_client, event, public_too
+    ):
+        session = agenda_item.session
+        if public_too:
+            session.tracks.add(
+                Track.objects.create(
+                    event=event, name="Main Hall", slug="main", is_public=True
+                )
+            )
+        session.tracks.add(
+            Track.objects.create(
+                event=event, name="Backstage", slug="backstage", is_public=False
+            )
+        )
+
+        response = authenticated_client.get(self._get_url(session.pk, event.slug))
 
         assert_response(
             response,

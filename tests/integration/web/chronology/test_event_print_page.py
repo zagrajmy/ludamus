@@ -219,6 +219,38 @@ class TestPublicEventPrintView:
         assert 'id="timetable-day-1"' in content
         assert "Timetable" in content
 
+    def test_private_track_session_omitted_from_timetable(
+        self, client, event, session, space
+    ):
+        public_track = Track.objects.create(
+            event=event, name="Main Hall", slug="main", is_public=True
+        )
+        private_track = Track.objects.create(
+            event=event, name="Backstage", slug="backstage", is_public=False
+        )
+        public_session = SessionFactory(event=event)
+        public_session.tracks.add(public_track)
+        private_session = SessionFactory(event=event)
+        private_session.tracks.add(private_track)
+        mixed_session = SessionFactory(event=event)
+        mixed_session.tracks.add(public_track, private_track)
+        for scheduled_session in (public_session, private_session, mixed_session):
+            AgendaItemFactory(
+                session=scheduled_session,
+                space=space,
+                session_confirmed=True,
+                start_time=event.start_time,
+                end_time=event.start_time + timedelta(hours=1),
+            )
+
+        response = client.get(self._url(event.slug))
+
+        assert response.status_code == HTTPStatus.OK
+        content = response.content.decode()
+        assert public_session.title in content
+        assert private_session.title not in content
+        assert mixed_session.title not in content
+
     def test_area_descriptions_render_full_description(
         self, client, event, session, space
     ):
