@@ -222,23 +222,15 @@
 html,
 body {
   height: 100%;
-  scrollbar-gutter: stable;
   -webkit-overflow-scrolling: touch;
 }
 
+/* Every page wears the shell (base.html and the self-contained 500), so the
+   document never scrolls and the root needs no scrollbar gutter — .app-scroll
+   below reserves the only one, for the only scroller there is. */
 .app-shell {
   height: 100dvh;
   overflow: hidden;
-  scrollbar-gutter: auto;
-}
-
-/* The shell's viewport can never scroll — the body above is 100dvh and clipped
-   — so the root's stable gutter above reserves a track that stays empty for
-   good, beside .app-scroll's real scrollbar, costing every page a scrollbar of
-   width where scrollbars take space. Pages that do scroll the document (the
-   self-contained 500, which loads this file with a plain body) keep it. */
-html:has(> .app-shell) {
-  scrollbar-gutter: auto;
 }
 
 .app-scroll {
