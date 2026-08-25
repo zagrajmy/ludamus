@@ -36,6 +36,7 @@ from ludamus.links.db.django.models import (
     EventSettings,
     SessionBookmark,
     SessionField,
+    SessionFieldOption,
     SessionFieldValue,
     SessionParticipation,
     SessionParticipationStatus,
@@ -46,6 +47,8 @@ from ludamus.links.db.django.repositories.chronology import location_data
 from ludamus.links.gravatar import gravatar_url
 from ludamus.pacts import (
     AgendaItemDTO,
+    OrganizerFieldDTO,
+    OrganizerFieldOptionDTO,
     SessionDTO,
     SessionFieldValueDTO,
     VirtualEnrollmentConfig,
@@ -73,6 +76,31 @@ from tests.integration.web.chronology.helpers import (
     proposal_card,
     session_card,
 )
+
+
+def _field_dto(field):
+    # What SessionFieldRepository.list_by_event hands the filter panel.
+    return OrganizerFieldDTO(
+        allow_custom=field.allow_custom,
+        field_type=field.field_type,
+        help_text=field.help_text,
+        icon=field.icon,
+        is_multiple=field.is_multiple,
+        is_public=field.is_public,
+        max_length=field.max_length,
+        name=field.name,
+        options=[
+            OrganizerFieldOptionDTO.model_validate(option)
+            # Queried, not walked off `field`: the helper runs once per
+            # expected context, and the relation is unprefetched here.
+            for option in SessionFieldOption.objects.filter(field=field)
+        ],
+        order=field.order,
+        pk=field.pk,
+        question=field.question,
+        slug=field.slug,
+    )
+
 
 # Hour offsets from the event start for the proposal that names preferred
 # slots: three of them, so the card shows the earliest and counts the rest.
@@ -1045,25 +1073,48 @@ class TestEventPageView:
         session_a.tracks.add(track_a)
         session_b = SessionFactory(event=event, category=category_b, min_age=0)
         session_b.tracks.add(track_b)
-        AgendaItemFactory(session=session_a, space=space)
-        AgendaItemFactory(
+        item_a = AgendaItemFactory(session=session_a, space=space)
+        item_b = AgendaItemFactory(
             session=session_b,
             space=space,
             start_time=timezone.now() + timedelta(days=7, hours=3),
         )
+        cards = [
+            session_card(
+                item_a,
+                presenter=session_a.presenter,
+                category_name=category_a.name,
+                track_names=[track_a.name],
+            ),
+            session_card(
+                item_b,
+                presenter=session_b.presenter,
+                category_name=category_b.name,
+                track_names=[track_b.name],
+            ),
+        ]
+        hour_data = {item_a.start_time: [cards[0]], item_b.start_time: [cards[1]]}
 
         response = client.get(self._get_url(event.slug))
 
-        content = response.content.decode()
-        # Filter controls render (only when >1 value exists, so this also
-        # proves has_track_filter / has_category_filter).
-        assert 'data-category="__track"' in content
-        assert 'data-category="__category"' in content
-        # Cards carry the filter pairs.
-        assert "__track:Main Hall" in content
-        assert "__track:Side Room" in content
-        assert "__category:RPG" in content
-        assert "__category:Board games" in content
+        # Both filters list every value in use — they render only when a field
+        # has more than one, so two names each is what puts the controls up.
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=event_page_context(
+                event,
+                url=self._get_url(event.slug),
+                hour_data=hour_data,
+                future_unavailable_hour_data=hour_data,
+                sessions=cards,
+                track_filter_names=[track_a.name, track_b.name],
+                category_filter_names=[category_b.name, category_a.name],
+                has_enrollable_sessions=True,
+                scheduled_count=len(cards),
+            ),
+            template_name=["chronology/event.html"],
+        )
 
     def test_schedule_hides_sessions_with_any_private_track(self, client, event, space):
         public_track = Track.objects.create(
@@ -1114,7 +1165,9 @@ class TestEventPageView:
                 hour_data=hour_data,
                 future_unavailable_hour_data=hour_data,
                 sessions=visible,
-                has_category_filter=True,
+                category_filter_names=sorted(
+                    session.category.name for session in (untracked, public_only)
+                ),
                 has_enrollable_sessions=True,
                 scheduled_count=len(visible),
             ),
@@ -1190,6 +1243,7 @@ class TestEventPageView:
             is_multiple=True,
             is_public=True,
         )
+        self._add_choices(session_field, "a", "b", "c", "d", "e")
         session = agenda_item.session
         SessionFieldValue.objects.create(
             session=session, field=session_field, value=["a", "b", "c", "d", "e"]
@@ -1222,7 +1276,7 @@ class TestEventPageView:
             context_data=event_page_context(
                 event,
                 url=self._get_url(event.slug),
-                filterable_tag_categories=[session_field],
+                filterable_tag_categories=[_field_dto(session_field)],
                 hour_data={agenda_item.start_time: [card]},
                 future_unavailable_hour_data={agenda_item.start_time: [card]},
                 sessions=[card],
@@ -1233,7 +1287,7 @@ class TestEventPageView:
             contains=["session-tags-more", "+1"],
         )
 
-    def _add_scheduled_session(self, *, event, space, session_field):
+    def _add_scheduled_session(self, *, event, space, session_field, values=("a", "b")):
         presenter = UserFactory()
         session = SessionFactory(
             presenter=presenter,
@@ -1244,7 +1298,7 @@ class TestEventPageView:
         )
         AgendaItemFactory(session=session, space=space)
         SessionFieldValue.objects.create(
-            session=session, field=session_field, value=["a", "b"]
+            session=session, field=session_field, value=list(values)
         )
         SessionParticipation.objects.create(
             session=session,
@@ -1256,10 +1310,24 @@ class TestEventPageView:
 
     @classmethod
     def _tagged_page_context(
-        cls, event, *, url, sessions, session_field, scheduled_count
+        cls,
+        event,
+        *,
+        url,
+        sessions,
+        session_field,
+        scheduled_count,
+        values=("a", "b"),
+        allow_custom=False,
+        filterable=True,
     ):
         cards = [
-            cls._tagged_card(session, session_field=session_field)
+            cls._tagged_card(
+                session,
+                session_field=session_field,
+                values=values,
+                allow_custom=allow_custom,
+            )
             for session in sessions
         ]
         hour_data = {}
@@ -1268,8 +1336,8 @@ class TestEventPageView:
         return event_page_context(
             event,
             url=url,
-            filterable_tag_categories=[session_field],
-            has_category_filter=True,
+            filterable_tag_categories=[_field_dto(session_field)] if filterable else [],
+            category_filter_names=sorted(s.category.name for s in sessions),
             hour_data=hour_data,
             future_unavailable_hour_data=hour_data,
             sessions=cards,
@@ -1279,9 +1347,9 @@ class TestEventPageView:
         )
 
     @staticmethod
-    def _tagged_card(session, *, session_field):
+    def _tagged_card(session, *, session_field, values=("a", "b"), allow_custom=False):
         field_value_dto = SessionFieldValueDTO(
-            allow_custom=False,
+            allow_custom=allow_custom,
             field_icon="",
             field_id=session_field.pk,
             field_name="Genre",
@@ -1289,7 +1357,7 @@ class TestEventPageView:
             field_slug="genre",
             field_type="select",
             is_public=True,
-            value=["a", "b"],
+            value=list(values),
         )
         return session_card(
             session.agenda_item,
@@ -1315,6 +1383,13 @@ class TestEventPageView:
             ],
         )
 
+    @staticmethod
+    def _add_choices(session_field, *values):
+        for order, value in enumerate(values):
+            SessionFieldOption.objects.create(
+                field=session_field, value=value, label=value, order=order
+            )
+
     def test_ok_filter_panel_leaves_out_a_field_nobody_answered(
         self, client, event, space
     ):
@@ -1327,6 +1402,7 @@ class TestEventPageView:
             is_multiple=True,
             is_public=True,
         )
+        self._add_choices(genre, "a", "b")
         SessionField.objects.create(
             event=event,
             name="Format",
@@ -1358,6 +1434,48 @@ class TestEventPageView:
             template_name=["chronology/event.html"],
         )
 
+    def test_ok_filter_panel_leaves_out_a_field_answered_only_with_write_ins(
+        self, client, event, space
+    ):
+        genre = SessionField.objects.create(
+            event=event,
+            name="Genre",
+            question="Genre",
+            slug="genre",
+            field_type="select",
+            is_multiple=True,
+            allow_custom=True,
+            is_public=True,
+        )
+        self._add_choices(genre, "a")
+        written_in = ("gritty", "kalamburowy")
+        sessions = [
+            self._add_scheduled_session(
+                event=event, space=space, session_field=genre, values=written_in
+            )
+            for _ in range(2)
+        ]
+
+        response = client.get(self._get_url(event.slug))
+
+        # Two distinct answers, but neither is one of the field's choices, so
+        # the dropdown would have had nothing to offer.
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=self._tagged_page_context(
+                event,
+                url=self._get_url(event.slug),
+                sessions=sessions,
+                session_field=genre,
+                scheduled_count=2,
+                values=written_in,
+                allow_custom=True,
+                filterable=False,
+            ),
+            template_name=["chronology/event.html"],
+        )
+
     def test_query_count_constant_in_session_count(self, client, event, space):
         session_field = SessionField.objects.create(
             event=event,
@@ -1368,6 +1486,7 @@ class TestEventPageView:
             is_multiple=True,
             is_public=True,
         )
+        self._add_choices(session_field, "a", "b")
         sessions = [
             self._add_scheduled_session(
                 event=event, space=space, session_field=session_field
@@ -3163,6 +3282,9 @@ class TestEventPageView:
             is_public=True,
             icon="puzzle-piece",
         )
+        self._add_choices(
+            session_field, "Alpha", "Bravo", "Charlie", "Delta", "Echo", "Foxtrot"
+        )
         SessionFieldValue.objects.create(
             session=session,
             field=session_field,
@@ -3197,7 +3319,7 @@ class TestEventPageView:
             context_data=event_page_context(
                 event,
                 url=self._get_url(event.slug),
-                filterable_tag_categories=[session_field],
+                filterable_tag_categories=[_field_dto(session_field)],
                 hour_data={agenda_item.start_time: [card]},
                 future_unavailable_hour_data={agenda_item.start_time: [card]},
                 sessions=[card],
