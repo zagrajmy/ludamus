@@ -6,6 +6,24 @@ from django.http import HttpRequest
 from ludamus.links.analytics import reporting as analytics
 
 
+class TestTheSuiteIsMuzzled:
+    """The suite must not be able to reach a real PostHog project.
+
+    `got_request_exception` fires during tests, so any deliberate fault — the
+    `RuntimeError("boom")` in test_security_headers.py, say — is reported for
+    real the moment a key is visible. `.env.test` and `.env.e2e` pin it empty
+    for exactly that reason: varlock loads `.env.local` in every environment,
+    and POSTHOG_TODO.md asks you to put a working key there to see the consent
+    banner.
+    """
+
+    def test_no_api_key_is_configured(self, settings):
+        assert not settings.POSTHOG_API_KEY
+
+    def test_no_client_is_built(self):
+        assert analytics.client() is None
+
+
 class TestClient:
     def test_unset_key_builds_no_client(self, settings):
         settings.POSTHOG_API_KEY = ""

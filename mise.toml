@@ -215,6 +215,9 @@ env.DB_PORT = "5432"
 env.ENV = "test"
 env.MEMBERSHIP_API_BASE_URL = ""
 env.MEMBERSHIP_API_TOKEN = "membership-test-token"
+# This task lists its env inline rather than loading .env.test, so it needs
+# its own copy of the analytics muzzle.
+env.POSTHOG_API_KEY = ""
 env.PYTHONPATH = "src"
 env.ROOT_DOMAIN = "testserver"
 env.SECRET_KEY = "dev-secret-key"

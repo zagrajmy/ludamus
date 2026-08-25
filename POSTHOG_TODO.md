@@ -73,7 +73,24 @@ does nothing on its own — something has to load it, which is what the compose
   `got_request_exception` also fires for middleware that raises and for a 500
   handler that fails.
 
-## Open question
+## Environments
 
-- Is `phc_CpBrrTFf…` the production project, or should production get its own
-  separate from any dev/staging project?
+`phc_CpBrrTFf…` is the production project — and, until this change, everyone
+else's too. It is the only project in the org, and two paths fed it traffic
+that was not production:
+
+- **Staging.** `deploy-coolify.yml` is shared by both environments and read
+  `.env.production` unconditionally, so staging picked up the production key.
+  Both sides identify by bare Django pk, so staging's user 42 and production's
+  user 42 merged into one PostHog person. The read is now gated on
+  `IS_STAGING`, and `POSTHOG_API_KEY` is a per-environment GitHub variable.
+  Staging sends nothing until someone sets it.
+- **The test suite.** `.env.test` and `.env.e2e` never mentioned
+  `POSTHOG_API_KEY`, so an exported one survived into the run — and the
+  instruction below to put a real key in `.env.local` makes that the expected
+  state for anyone who has looked at the banner. `got_request_exception` fires
+  in tests, so `test_security_headers.py`'s deliberate `RuntimeError("boom")`
+  is sitting in production error tracking. Both files now pin it empty.
+
+Events already ingested from either source are still in the project; nothing
+here removes them.
