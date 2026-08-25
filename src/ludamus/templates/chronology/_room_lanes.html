@@ -89,10 +89,7 @@
                     {% endfor %}
                 </div>
             </div>
-            {# cursor-grab, not a pan-only state: a drag anywhere on the grid background #}
-            {# pans it, and session tiles keep the pointer their own link cursor #}
-            {# gives them. Space still arms grab over tiles too (index.css). #}
-            <div class="room-lanes-scroll scrollview-fade scrollview-fade-x-16 cursor-grab overflow-x-auto overflow-y-clip overscroll-x-contain"
+            <div class="room-lanes-scroll scrollview-fade scrollview-fade-x-16 overflow-x-auto overflow-y-clip overscroll-x-contain"
                  data-room-lanes-scroll>
                 <div class="room-lanes-grid room-lanes-body">
                     {% for mark in day.hour_marks %}

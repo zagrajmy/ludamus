@@ -7,11 +7,14 @@
 {# detail modals apply. Sections are whole local-clock hours, so the rail #}
 {# markers, section ids, and hour headings are always one-to-one. #}
 {# The view tabs live in the search/filter toolbar row (event.html). #}
-{# Full-bleed: the schedule is a map, not prose, so it spans the screen instead #}
-{# of main's centered max-w-7xl column — half main's content box minus half the #}
-{# viewport puts its edges on the viewport's, cancelling both the padding and #}
-{# the auto margins, so the hour rail sits at the screen edge at every width. #}
-<div class="compact-schedule mx-[calc(50%_-_50vw)]"
+{# The rooms grid is a map, so it spans the screen rather than main's centered #}
+{# max-w-7xl column (base.html) — cancelling that padding and those auto #}
+{# margins at once. --app-scroll-w, not 100vw: app-scroll.ts measures the #}
+{# scroller because reserved scrollbar gutters make the viewport wider than #}
+{# the box we have to land in. The list is a ledger and reads better in the #}
+{# column, so it only sheds the padding on phones, where its rows need it. #}
+{# ludamus-disable:no-negative-margin -- both branches break out: the grid to the screen edges, the list to the phone's #}
+<div class="compact-schedule {% if active_tab == 'rooms' %}mx-[calc(50%_-_var(--app-scroll-w,100vw)/2)]{% else %}-mx-4 sm:mx-0{% endif %}"
      data-csrf="{{ csrf_token }}"
      data-bookmark-url-template="{% url 'web:chronology:session-bookmark' session_id=0 %}">
     <div class="flex items-start sm:gap-1">

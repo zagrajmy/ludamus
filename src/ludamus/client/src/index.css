@@ -263,6 +263,14 @@ body {
    over the grid arms it (grab), an active drag shows grabbing. No selection
    while a gesture is armed — a pan across the grid must not paint text
    selection in its wake. */
+/* The resting state, before Space is involved: a drag on the grid background
+   pans it, so the cursor says so. Session tiles are links and keep the pointer
+   their own UA rule gives them — an inherited value loses to a declaration
+   matching the element. First in the block, so the two states below win. */
+.room-lanes-scroll {
+  cursor: grab;
+}
+
 .room-lanes-pan-ready,
 .room-lanes-pan-ready * {
   cursor: grab;
