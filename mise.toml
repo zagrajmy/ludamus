@@ -202,9 +202,15 @@ env = { _.file = '.env.e2e' }
 [tasks."test:postgres"]
 description = "Run PostgreSQL-only tests (row locking / concurrency) on real Postgres"
 run = "pytest -m postgres tests/integration"
-# Only the Postgres overrides live here; everything else comes from
-# .env.test, so a value added there reaches this task too.
+# Everything not overridden below comes from .env.test, so a value added
+# there reaches this task too. `_.file` must stay first: mise applies these
+# in document order, and moving it below the siblings would let .env.test's
+# DB_NAME=":memory:" win against USE_POSTGRES=True.
 env._.file = '.env.test'
+# Empty, as it was before this task loaded .env.test: a base URL makes
+# MembershipApiClient.fetch_membership_count issue a live request instead of
+# short-circuiting.
+env.MEMBERSHIP_API_BASE_URL = ""
 env.USE_POSTGRES = "True"
 env.DB_NAME = "ludamus_test"
 env.DB_USER = "postgres"

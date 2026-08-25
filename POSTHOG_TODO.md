@@ -29,9 +29,11 @@ one copy change.
 - [ ] **Screenshot the banner** for the PR description. It only renders with
       `POSTHOG_API_KEY` set and no choice stored, so set a key in `.env.local`
       first, then `mise run shots -- /`.
-- [ ] **Set `POSTHOG_API_KEY` on the production GitHub Environment.** The
-      Coolify workflow takes it from there now. Unset, production loses
-      analytics on the next deploy.
+- [ ] **Set `POSTHOG_API_KEY` on the `production-coolify` GitHub Environment**
+      — the one `deploy-production-coolify.yml` names, not `production`, which
+      belongs to the legacy VPS workflow and would be a no-op. Nothing breaks
+      if it is missed: the bulk PATCH below leaves the stored value in place,
+      so the app keeps running on a key no longer declared in the repo.
 - [ ] **Delete `POSTHOG_API_KEY` from the staging Coolify app by hand.** The
       sync is `PATCH .../envs/bulk`, which upserts: a key the payload omits
       keeps whatever value is already stored, and staging's was written by

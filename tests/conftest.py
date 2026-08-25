@@ -10,9 +10,11 @@ from tests.template_checks import MissingTemplateVariableFilter
 
 
 def pytest_configure(config):
-    # The e2e server is a real runserver process with no fixtures patching it,
-    # so a key visible here reaches the live project. .env.test and .env.e2e
-    # pin it empty; fail loudly rather than quietly capturing.
+    # django_settings, not the `settings` fixture three fixtures below take:
+    # ruff forbids a function-level import, so the name has to be aliased.
+    # Catches a stray export in any pytest run. The e2e server is not covered:
+    # Playwright never loads this file, so `.env.e2e`'s pin is the only thing
+    # standing between that runserver process and the live project.
     if django_settings.POSTHOG_API_KEY:
         raise pytest.UsageError(
             "POSTHOG_API_KEY is set; tests would report to a real PostHog "
