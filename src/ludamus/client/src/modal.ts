@@ -405,6 +405,32 @@ const ensureModalLoaded = async (id: string): Promise<boolean> => {
 const isLazySessionModal = (id: string): boolean =>
   id.startsWith(SESSION_MODAL_PREFIX) && modalContainer() !== null;
 
+// Fetching on click alone puts the network round trip inside the tap-to-open
+// window, in front of the morph. Hover, focus, and touch-down all telegraph
+// the open, so warm the dialog then; ensureModalLoaded dedupes in-flight and
+// already-injected dialogs, and a fetched dialog parks closed (display: none)
+// until openModal shows it. The dwell timer keeps a cursor sweeping across
+// the grid from fetching every tile it crosses.
+const PREFETCH_DWELL_MS = 80;
+let prefetchTimer: ReturnType<typeof setTimeout> | undefined;
+
+const prefetchModal = (event: Event): void => {
+  clearTimeout(prefetchTimer);
+  const { target } = event;
+  if (!(target instanceof Element)) return;
+  const modalId = target.closest("a[href][aria-controls]")?.getAttribute("aria-controls");
+  if (!modalId || !isLazySessionModal(modalId)) return;
+  if (event.type === "pointerover") {
+    prefetchTimer = setTimeout(() => void ensureModalLoaded(modalId), PREFETCH_DWELL_MS);
+  } else {
+    void ensureModalLoaded(modalId);
+  }
+};
+
+document.addEventListener("pointerover", prefetchModal, { passive: true });
+document.addEventListener("focusin", prefetchModal);
+document.addEventListener("touchstart", prefetchModal, { passive: true });
+
 const syncModalsFromUrl = (): void => {
   if (openingModals.size > 0) return;
 

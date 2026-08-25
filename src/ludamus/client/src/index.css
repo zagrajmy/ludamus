@@ -263,6 +263,21 @@ body {
   grid-template-rows: repeat(var(--rows), var(--row-track));
 }
 
+/* A big event puts hundreds of tiles in this grid, and every full-document
+   style/layout pass — the session-morph view transition snapshots the whole
+   page twice, showModal() and the morph's root classes invalidate it again —
+   pays for all of them: ~145ms per pass at 800 tiles, ~1.2s per modal open.
+   content-visibility lets cells outside the viewport (or scrolled out of the
+   horizontal pane) sit those passes out, cutting each to ~40ms. The intrinsic
+   height stands in only for cells that have never rendered — `auto` keeps the
+   real size afterwards — and feeds the row track's `auto` max, so far-away
+   rows are estimated a typical one-hour tile tall until scrolled near. The
+   width leg is inert (columns cap at 1fr) but the shorthand requires it. */
+.room-lanes-cell {
+  content-visibility: auto;
+  contain-intrinsic-size: auto var(--col-min) auto 8.75rem;
+}
+
 .room-lanes-line {
   grid-column: 2 / -1;
 }

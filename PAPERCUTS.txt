@@ -324,3 +324,6 @@ If you fix a papercut, remove it.
   was unset; the traceback only later explained pytest-django could not
   initialize. Use mise run test:int -- PATH so the task supplies the test
   environment.
+- 2026-08-25: mise run bootstrap died mid-venv-seed (FileExistsError in pip
+  dist-info), and rm -rf .venv raced whatever was still writing: two runs to
+  delete it, third bootstrap green
