@@ -324,3 +324,11 @@ If you fix a papercut, remove it.
   was unset; the traceback only later explained pytest-django could not
   initialize. Use mise run test:int -- PATH so the task supplies the test
   environment.
+- 2026-08-26: git fetch origin failed: 'Bad owner or permissions on
+  /etc/ssh/ssh_config.d/20-systemd-ssh-proxy.conf' — could not verify branch
+  base against remote; local origin/main was current so proceeded
+- 2026-08-26: dev DB drift: migration 0150_track_unique_name_per_event unapplied
+  but its index already existed; migrate failed until I fake-applied 0150
+- 2026-08-26: test:py task appends given paths after tests/integration
+  tests/unit, so scoped runs still execute the full suite (~4.5 min); use -k
+  filters instead

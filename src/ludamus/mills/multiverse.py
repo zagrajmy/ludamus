@@ -7,11 +7,14 @@ Sphere-scoped concerns. First feature: import-connections CRUD. Split per
 
 from typing import TYPE_CHECKING
 
+from ludamus.pacts.legacy import SpherePage
 from ludamus.pacts.multiverse import SphereAccessDTO
 from ludamus.specs.permissions import ROLE_CAPABILITIES
 
 if TYPE_CHECKING:
     from ludamus.pacts.legacy import (
+        EncounterPublicPolicy,
+        EncounterRepositoryProtocol,
         EventDTO,
         EventRepositoryProtocol,
         SphereDTO,
@@ -122,10 +125,12 @@ class SpherePanelService:
         transaction: TransactionProtocol,
         spheres: SphereRepositoryProtocol,
         events: EventRepositoryProtocol,
+        encounters: EncounterRepositoryProtocol,
     ) -> None:
         self._transaction = transaction
         self._spheres = spheres
         self._events = events
+        self._encounters = encounters
 
     def manager_role(self, sphere_id: int, user_slug: str) -> SphereRole | None:
         return self._spheres.manager_role(sphere_id, user_slug)
@@ -142,15 +147,34 @@ class SpherePanelService:
     def read(self, sphere_id: int) -> SphereDTO:
         return self._spheres.read(sphere_id)
 
+    def pages_with_content(self, sphere_id: int) -> set[SpherePage]:
+        """Pages whose view would hide existing content if disabled."""
+        pages: set[SpherePage] = set()
+        if self._events.exists_for_sphere(sphere_id):
+            pages.add(SpherePage.EVENTS)
+        if self._encounters.exists_for_sphere(sphere_id):
+            pages.add(SpherePage.ENCOUNTERS)
+        if pages:
+            # The timeline shows published events and public encounters, so any
+            # content at all makes disabling it worth a warning.
+            pages.add(SpherePage.TIMELINE)
+        return pages
+
     def update_settings(
         self,
         sphere_id: int,
         *,
         allow_facilitator_session_edit: bool,
+        enabled_pages: list[SpherePage],
+        default_page: SpherePage,
+        encounter_public_policy: EncounterPublicPolicy,
         logo: UploadedFileProtocol | str | None = None,
     ) -> None:
         data: SphereUpdateData = {
-            "allow_facilitator_session_edit": allow_facilitator_session_edit
+            "allow_facilitator_session_edit": allow_facilitator_session_edit,
+            "enabled_pages": [page.value for page in enabled_pages],
+            "default_page": default_page.value,
+            "encounter_public_policy": encounter_public_policy.value,
         }
         # None keeps the stored logo, "" removes it, a file replaces it.
         if logo is not None:

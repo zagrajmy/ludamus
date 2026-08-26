@@ -18,6 +18,7 @@ from django.utils.translation import gettext_lazy as _
 from ludamus.links.db.django.uploads import unique_upload_to
 from ludamus.pacts import (
     OCCUPYING_PARTICIPATION_STATUSES,
+    EncounterPublicPolicy,
     NotificationKind,
     PromotionMode,
     SessionParticipationStatus,
@@ -308,6 +309,11 @@ class Sphere(models.Model):
         default=SpherePage.EVENTS,
     )
     allow_facilitator_session_edit = models.BooleanField(default=True)
+    encounter_public_policy = models.CharField(
+        max_length=20,
+        choices=[(p.value, p.name.title()) for p in EncounterPublicPolicy],
+        default=EncounterPublicPolicy.DISABLED,
+    )
 
     class Meta:
         db_table = "sphere"
@@ -1568,6 +1574,7 @@ class Encounter(models.Model):
     end_time = models.DateTimeField(blank=True, null=True)
     place = models.CharField(max_length=255, default="", blank=True)
     max_participants = models.PositiveIntegerField(default=0)
+    is_public = models.BooleanField(default=False)
     share_code = models.CharField(max_length=6, unique=True)
     header_image = models.ImageField(upload_to=unique_upload_to, blank=True)
     header_image_original_name = models.CharField(

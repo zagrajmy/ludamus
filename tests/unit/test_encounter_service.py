@@ -4,9 +4,15 @@ from unittest.mock import MagicMock, call
 import pytest
 
 from ludamus.mills.encounter import EncounterService
-from ludamus.pacts import EncounterDTO, EncounterRSVPDTO, NotFoundError
+from ludamus.pacts import (
+    EncounterDTO,
+    EncounterPublicPolicy,
+    EncounterRSVPDTO,
+    NotFoundError,
+)
 from ludamus.pacts.crowd import UserDTO, UserType
 from ludamus.pacts.encounter import EncounterDetailContextDTO, RSVPOutcome
+from ludamus.pacts.multiverse import SphereRole
 
 CREATOR_ID = 10
 OTHER_USER_ID = 20
@@ -85,9 +91,17 @@ class TestEncounterService:
         return collaborators.users
 
     @pytest.fixture
-    def service(self, transaction, encounters, rsvps, users):
+    def spheres(self, collaborators):
+        return collaborators.spheres
+
+    @pytest.fixture
+    def service(self, transaction, encounters, rsvps, users, spheres):
         return EncounterService(
-            transaction=transaction, encounters=encounters, rsvps=rsvps, users=users
+            transaction=transaction,
+            encounters=encounters,
+            rsvps=rsvps,
+            users=users,
+            spheres=spheres,
         )
 
     def test_build_index_merges_mine_and_rsvpd_sorted(
@@ -100,6 +114,7 @@ class TestEncounterService:
         encounters.list_upcoming_by_creator.return_value = [mine]
         encounters.list_upcoming_rsvpd.return_value = [rsvpd, mine]
         encounters.list_past.return_value = []
+        encounters.list_public_upcoming.return_value = []
         rsvps.count_by_encounter.return_value = 2
         users.read_by_id.return_value = _user(
             OTHER_USER_ID, full_name="Anna GM", username="anna"
@@ -124,6 +139,7 @@ class TestEncounterService:
         encounters.list_upcoming_by_creator.return_value = []
         encounters.list_upcoming_rsvpd.return_value = []
         encounters.list_past.return_value = [past]
+        encounters.list_public_upcoming.return_value = []
         rsvps.count_by_encounter.return_value = 1
         users.read_by_id.side_effect = NotFoundError
 
@@ -132,6 +148,41 @@ class TestEncounterService:
         assert result.upcoming == []
         assert [item.organizer_name for item in result.past] == [""]
         assert [item.is_mine for item in result.past] == [False]
+
+    def test_build_index_anonymous_gets_only_public(
+        self, service, encounters, rsvps, users
+    ):
+        public = _encounter(3, creator_id=OTHER_USER_ID)
+        encounters.list_public_upcoming.return_value = [public]
+        rsvps.count_by_encounter.return_value = 4
+        users.read_by_id.return_value = _user(OTHER_USER_ID, full_name="Anna GM")
+
+        result = service.build_index(sphere_id=SPHERE_ID, user_id=None)
+
+        assert result.upcoming == []
+        assert result.past == []
+        assert [item.encounter.pk for item in result.public] == [public.pk]
+        assert [item.is_mine for item in result.public] == [False]
+        assert [item.organizer_name for item in result.public] == ["Anna GM"]
+        encounters.list_upcoming_by_creator.assert_not_called()
+        encounters.list_past.assert_not_called()
+
+    def test_build_index_public_excludes_own_upcoming(
+        self, service, encounters, rsvps, users
+    ):
+        mine = _encounter(1)
+        other_public = _encounter(2, creator_id=OTHER_USER_ID)
+        encounters.list_upcoming_by_creator.return_value = [mine]
+        encounters.list_upcoming_rsvpd.return_value = []
+        encounters.list_past.return_value = []
+        encounters.list_public_upcoming.return_value = [mine, other_public]
+        rsvps.count_by_encounter.return_value = 0
+        users.read_by_id.return_value = _user(OTHER_USER_ID, full_name="Anna GM")
+
+        result = service.build_index(sphere_id=SPHERE_ID, user_id=CREATOR_ID)
+
+        assert [item.encounter.pk for item in result.upcoming] == [mine.pk]
+        assert [item.encounter.pk for item in result.public] == [other_public.pk]
 
     def test_build_detail_assembles_context_and_skips_missing_attendees(
         self, service, encounters, rsvps, users
@@ -198,6 +249,67 @@ class TestEncounterService:
         assert result == created
         encounters.create.assert_called_once_with(data)
         transaction.atomic.assert_not_called()
+
+    @pytest.mark.parametrize(
+        ("policy", "role", "expected"),
+        (
+            (EncounterPublicPolicy.DISABLED, SphereRole.MANAGER, False),
+            (EncounterPublicPolicy.EVERYONE, None, True),
+            (EncounterPublicPolicy.MANAGERS, SphereRole.MANAGER, True),
+            (EncounterPublicPolicy.MANAGERS, SphereRole.COMMS, False),
+            (EncounterPublicPolicy.MANAGERS, None, False),
+        ),
+    )
+    def test_can_set_public_follows_policy_and_role(
+        self, service, spheres, users, policy, role, expected
+    ):
+        spheres.read.return_value.encounter_public_policy = policy
+        spheres.manager_role.return_value = role
+        users.read_by_id.return_value = _user(CREATOR_ID)
+
+        assert (
+            service.can_set_public(sphere_id=SPHERE_ID, user_id=CREATOR_ID) is expected
+        )
+
+    def test_create_strips_public_flag_when_policy_forbids(
+        self, service, encounters, spheres
+    ):
+        spheres.read.return_value.encounter_public_policy = (
+            EncounterPublicPolicy.DISABLED
+        )
+        data = {"sphere_id": SPHERE_ID, "creator_id": CREATOR_ID, "is_public": True}
+
+        service.create(data)
+
+        encounters.create.assert_called_once_with(
+            {"sphere_id": SPHERE_ID, "creator_id": CREATOR_ID}
+        )
+
+    def test_create_keeps_public_flag_when_policy_allows(
+        self, service, encounters, spheres
+    ):
+        spheres.read.return_value.encounter_public_policy = (
+            EncounterPublicPolicy.EVERYONE
+        )
+        data = {"sphere_id": SPHERE_ID, "creator_id": CREATOR_ID, "is_public": True}
+
+        service.create(data)
+
+        encounters.create.assert_called_once_with(data)
+
+    def test_update_owned_preserves_stored_flag_when_policy_forbids(
+        self, service, encounters, spheres
+    ):
+        spheres.read.return_value.encounter_public_policy = (
+            EncounterPublicPolicy.DISABLED
+        )
+        encounters.read.side_effect = [_encounter(1), _encounter(1)]
+
+        service.update_owned(
+            pk=1, user_id=CREATOR_ID, data={"title": "Renamed", "is_public": False}
+        )
+
+        encounters.update.assert_called_once_with(1, {"title": "Renamed"})
 
     def test_read_owned_returns_own_encounter(self, service, encounters):
         encounter = _encounter(1)

@@ -28,6 +28,102 @@ class TestEncountersIndexPageView:
         )
         assert len(response.context_data["sample_encounters"]) == SAMPLE_COUNT
 
+    def test_anonymous_with_public_encounters_sees_index(self, client, sphere):
+        creator = UserFactory(username="pub_organizer", name="Pub Organizer")
+        encounter = EncounterFactory(
+            creator=creator,
+            sphere=sphere,
+            is_public=True,
+            start_time=datetime.now(UTC) + timedelta(days=3),
+        )
+
+        response = client.get(self.URL)
+
+        encounter.refresh_from_db()
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={
+                "upcoming_encounters": [],
+                "past_encounters": [],
+                "public_encounters": [
+                    EncounterIndexItem(
+                        encounter=EncounterDTO.model_validate(encounter),
+                        rsvp_count=0,
+                        is_mine=False,
+                        organizer_name="Pub Organizer",
+                    )
+                ],
+                "view": ANY,
+            },
+            template_name=["notice_board/index.html"],
+        )
+
+    def test_public_encounter_by_other_user_listed_for_authenticated(
+        self, authenticated_client, sphere
+    ):
+        creator = UserFactory(username="pub_organizer", name="Pub Organizer")
+        encounter = EncounterFactory(
+            creator=creator,
+            sphere=sphere,
+            is_public=True,
+            start_time=datetime.now(UTC) + timedelta(days=3),
+        )
+
+        response = authenticated_client.get(self.URL)
+
+        encounter.refresh_from_db()
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={
+                "upcoming_encounters": [],
+                "past_encounters": [],
+                "public_encounters": [
+                    EncounterIndexItem(
+                        encounter=EncounterDTO.model_validate(encounter),
+                        rsvp_count=0,
+                        is_mine=False,
+                        organizer_name="Pub Organizer",
+                    )
+                ],
+                "view": ANY,
+            },
+            template_name=["notice_board/index.html"],
+        )
+
+    def test_own_public_encounter_not_duplicated_in_public_section(
+        self, authenticated_client, active_user, sphere
+    ):
+        encounter = EncounterFactory(
+            creator=active_user,
+            sphere=sphere,
+            is_public=True,
+            start_time=datetime.now(UTC) + timedelta(days=3),
+        )
+
+        response = authenticated_client.get(self.URL)
+
+        encounter.refresh_from_db()
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={
+                "upcoming_encounters": [
+                    EncounterIndexItem(
+                        encounter=EncounterDTO.model_validate(encounter),
+                        rsvp_count=0,
+                        is_mine=True,
+                        organizer_name="",
+                    )
+                ],
+                "past_encounters": [],
+                "public_encounters": [],
+                "view": ANY,
+            },
+            template_name=["notice_board/index.html"],
+        )
+
     def test_ok_empty(self, authenticated_client):
         response = authenticated_client.get(self.URL)
 
@@ -37,6 +133,7 @@ class TestEncountersIndexPageView:
             context_data={
                 "upcoming_encounters": [],
                 "past_encounters": [],
+                "public_encounters": [],
                 "view": ANY,
             },
             template_name=["notice_board/index.html"],
@@ -69,6 +166,7 @@ class TestEncountersIndexPageView:
                     )
                 ],
                 "past_encounters": [],
+                "public_encounters": [],
                 "view": ANY,
             },
             template_name=["notice_board/index.html"],
@@ -101,6 +199,7 @@ class TestEncountersIndexPageView:
                     )
                 ],
                 "past_encounters": [],
+                "public_encounters": [],
                 "view": ANY,
             },
             template_name=["notice_board/index.html"],
@@ -124,6 +223,7 @@ class TestEncountersIndexPageView:
             context_data={
                 "upcoming_encounters": [],
                 "past_encounters": [],
+                "public_encounters": [],
                 "view": ANY,
             },
             template_name=["notice_board/index.html"],
@@ -156,6 +256,7 @@ class TestEncountersIndexPageView:
                         organizer_name="Past Organizer",
                     )
                 ],
+                "public_encounters": [],
                 "view": ANY,
             },
             template_name=["notice_board/index.html"],
@@ -186,6 +287,7 @@ class TestEncountersIndexPageView:
                         organizer_name="",
                     )
                 ],
+                "public_encounters": [],
                 "view": ANY,
             },
             template_name=["notice_board/index.html"],

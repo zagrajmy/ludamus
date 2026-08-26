@@ -8,7 +8,13 @@ from ludamus.pacts.encounter import (
     EncounterServiceProtocol,
     RSVPOutcome,
 )
-from ludamus.pacts.legacy import EncounterIndexItem, EncounterIndexResult, NotFoundError
+from ludamus.pacts.legacy import (
+    EncounterIndexItem,
+    EncounterIndexResult,
+    EncounterPublicPolicy,
+    NotFoundError,
+)
+from ludamus.pacts.multiverse import SphereRole
 
 if TYPE_CHECKING:
     from ludamus.pacts.crowd import UserDTO, UserRepositoryProtocol
@@ -17,6 +23,7 @@ if TYPE_CHECKING:
         EncounterDTO,
         EncounterRepositoryProtocol,
         EncounterRSVPRepositoryProtocol,
+        SphereRepositoryProtocol,
     )
     from ludamus.pacts.services import TransactionProtocol
 
@@ -34,13 +41,32 @@ class EncounterService(EncounterServiceProtocol):
         encounters: EncounterRepositoryProtocol,
         rsvps: EncounterRSVPRepositoryProtocol,
         users: UserRepositoryProtocol,
+        spheres: SphereRepositoryProtocol,
     ) -> None:
         self._transaction = transaction
         self._encounters = encounters
         self._rsvps = rsvps
         self._users = users
+        self._spheres = spheres
 
-    def build_index(self, *, sphere_id: int, user_id: int) -> EncounterIndexResult:
+    def can_set_public(self, *, sphere_id: int, user_id: int) -> bool:
+        policy = self._spheres.read(sphere_id).encounter_public_policy
+        if policy is EncounterPublicPolicy.EVERYONE:
+            return True
+        if policy is EncounterPublicPolicy.MANAGERS:
+            user = self._users.read_by_id(user_id)
+            role = self._spheres.manager_role(sphere_id, user.slug)
+            return role is SphereRole.MANAGER
+        return False
+
+    def build_index(
+        self, *, sphere_id: int, user_id: int | None
+    ) -> EncounterIndexResult:
+        all_public = self._encounters.list_public_upcoming(sphere_id)
+        if user_id is None:
+            return EncounterIndexResult(
+                upcoming=[], past=[], public=self._index_items(all_public, user_id=None)
+            )
         mine = self._encounters.list_upcoming_by_creator(sphere_id, user_id)
         my_ids = {encounter.pk for encounter in mine}
         rsvpd = [
@@ -50,15 +76,19 @@ class EncounterService(EncounterServiceProtocol):
         ]
         upcoming = self._index_items([*mine, *rsvpd], user_id=user_id)
         upcoming.sort(key=lambda item: item.encounter.start_time)
+        personal_ids = {item.encounter.pk for item in upcoming}
         return EncounterIndexResult(
             upcoming=upcoming,
             past=self._index_items(
                 self._encounters.list_past(sphere_id, user_id), user_id=user_id
             ),
+            public=self._index_items(
+                [e for e in all_public if e.pk not in personal_ids], user_id=user_id
+            ),
         )
 
     def _index_items(
-        self, encounters: list[EncounterDTO], *, user_id: int
+        self, encounters: list[EncounterDTO], *, user_id: int | None
     ) -> list[EncounterIndexItem]:
         items: list[EncounterIndexItem] = []
         for encounter in encounters:
@@ -103,6 +133,12 @@ class EncounterService(EncounterServiceProtocol):
         return self._encounters.read_by_share_code(share_code)
 
     def create(self, data: EncounterData) -> EncounterDTO:
+        # The public flag is policy-gated; a forged form value from someone
+        # the sphere policy doesn't cover is dropped, not an error.
+        if "is_public" in data and not self.can_set_public(
+            sphere_id=data["sphere_id"], user_id=data["creator_id"]
+        ):
+            del data["is_public"]
         return self._encounters.create(data)
 
     def read_owned(self, *, pk: int, user_id: int) -> EncounterDTO:
@@ -115,7 +151,13 @@ class EncounterService(EncounterServiceProtocol):
         self, *, pk: int, user_id: int, data: EncounterData
     ) -> EncounterDTO:
         with self._transaction.atomic():
-            self.read_owned(pk=pk, user_id=user_id)
+            encounter = self.read_owned(pk=pk, user_id=user_id)
+            # Dropping the key preserves the stored flag, so a policy flip to
+            # "disabled" never silently unpublishes existing encounters.
+            if "is_public" in data and not self.can_set_public(
+                sphere_id=encounter.sphere_id, user_id=user_id
+            ):
+                del data["is_public"]
             self._encounters.update(pk, data)
             return self._encounters.read(pk)
 

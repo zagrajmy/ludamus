@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, date, datetime, timedelta
 from enum import StrEnum, auto
 from typing import (
@@ -301,10 +301,17 @@ class NotificationKind(StrEnum):
 class SpherePage(StrEnum):
     EVENTS = "events"
     ENCOUNTERS = "encounters"
+    TIMELINE = "timeline"
 
     @classmethod
     def all_values(cls) -> list[str]:
         return [p.value for p in cls]
+
+
+class EncounterPublicPolicy(StrEnum):
+    DISABLED = "disabled"
+    MANAGERS = "managers"
+    EVERYONE = "everyone"
 
 
 class SpaceDTO(BaseModel):
@@ -445,6 +452,7 @@ class SphereDTO(BaseModel):
     allow_facilitator_session_edit: bool = True
     default_page: SpherePage
     enabled_pages: list[SpherePage]
+    encounter_public_policy: EncounterPublicPolicy = EncounterPublicPolicy.DISABLED
     name: str
     pk: int
     site: SiteDTO
@@ -454,6 +462,9 @@ class SphereDTO(BaseModel):
 
 class SphereUpdateData(TypedDict, total=False):
     allow_facilitator_session_edit: bool
+    default_page: str
+    enabled_pages: list[str]
+    encounter_public_policy: str
     logo: UploadedFileProtocol | str
 
 
@@ -531,6 +542,7 @@ class EncounterDTO(BaseModel):
     description: str
     end_time: datetime | None
     game: str
+    is_public: bool = False
     max_participants: int
     pk: int
     place: str
@@ -558,6 +570,7 @@ class EncounterData(TypedDict, total=False):
     end_time: datetime | None
     game: str
     header_image: UploadedFileProtocol | str
+    is_public: bool
     max_participants: int
     place: str
     share_code: str
@@ -590,6 +603,7 @@ class EncounterIndexItem:
 class EncounterIndexResult:
     upcoming: list[EncounterIndexItem]
     past: list[EncounterIndexItem]
+    public: list[EncounterIndexItem] = field(default_factory=list)
 
 
 class EnrollmentConfigDTO(BaseModel):
@@ -1037,6 +1051,8 @@ class AgendaItemRepositoryProtocol(Protocol):
 
 class EventRepositoryProtocol(Protocol):
     @staticmethod
+    def exists_for_sphere(sphere_id: int) -> bool: ...
+    @staticmethod
     def list_by_sphere(sphere_id: int) -> list[EventDTO]: ...
     @staticmethod
     def list_for_events_page(
@@ -1285,6 +1301,8 @@ class EncounterRepositoryProtocol(Protocol):
     @staticmethod
     def create(data: EncounterData) -> EncounterDTO: ...
     @staticmethod
+    def exists_for_sphere(sphere_id: int) -> bool: ...
+    @staticmethod
     def read(pk: int) -> EncounterDTO: ...
     @staticmethod
     def read_by_share_code(share_code: str) -> EncounterDTO: ...
@@ -1294,6 +1312,8 @@ class EncounterRepositoryProtocol(Protocol):
     ) -> list[EncounterDTO]: ...
     @staticmethod
     def list_upcoming_rsvpd(sphere_id: int, user_id: int) -> list[EncounterDTO]: ...
+    @staticmethod
+    def list_public_upcoming(sphere_id: int) -> list[EncounterDTO]: ...
     @staticmethod
     def list_past(sphere_id: int, user_id: int) -> list[EncounterDTO]: ...
     @staticmethod

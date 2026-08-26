@@ -170,8 +170,15 @@ class DomainEnrollmentConfigAdmin(admin.ModelAdmin):  # type: ignore [type-arg]
 
 @admin.register(Encounter)
 class EncounterAdmin(admin.ModelAdmin):  # type: ignore [type-arg]
-    list_display = ("title", "sphere", "creator", "start_time", "share_code")
-    list_filter = ("sphere",)
+    list_display = (
+        "title",
+        "sphere",
+        "creator",
+        "start_time",
+        "share_code",
+        "is_public",
+    )
+    list_filter = ("sphere", "is_public")
     search_fields = ("title",)
 
 

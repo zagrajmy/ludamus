@@ -14,7 +14,13 @@ from typing import TYPE_CHECKING, Protocol
 from pydantic import BaseModel, ConfigDict, Field
 
 if TYPE_CHECKING:
-    from ludamus.pacts.legacy import EventDTO, SphereDTO, UploadedFileProtocol
+    from ludamus.pacts.legacy import (
+        EncounterPublicPolicy,
+        EventDTO,
+        SphereDTO,
+        SpherePage,
+        UploadedFileProtocol,
+    )
 
 
 class SphereRole(StrEnum):
@@ -160,11 +166,15 @@ class SpherePanelServiceProtocol(Protocol):
     def access(self, sphere_id: int, user_slug: str) -> SphereAccessDTO: ...
     def list_events(self, sphere_id: int) -> list[EventDTO]: ...
     def read(self, sphere_id: int) -> SphereDTO: ...
+    def pages_with_content(self, sphere_id: int) -> set[SpherePage]: ...
     def update_settings(
         self,
         sphere_id: int,
         *,
         allow_facilitator_session_edit: bool,
+        enabled_pages: list[SpherePage],
+        default_page: SpherePage,
+        encounter_public_policy: EncounterPublicPolicy,
         logo: UploadedFileProtocol | str | None = None,
     ) -> None: ...
 

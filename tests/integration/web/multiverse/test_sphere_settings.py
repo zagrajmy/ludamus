@@ -8,7 +8,7 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
 from PIL import Image as PILImage
 
-from tests.integration.conftest import PNG_BYTES
+from tests.integration.conftest import PNG_BYTES, EncounterFactory
 from tests.integration.utils import assert_login_required, assert_response
 from tests.integration.web.multiverse.helpers import (
     assert_not_a_sphere_manager,
@@ -34,7 +34,17 @@ GIF_BYTES = (
     b"\x02\x02D\x01\x00;"
 )
 
-GENERAL_PANEL_CONTEXT = sphere_settings_context(active_tab="general") | {"form": ANY}
+GENERAL_PANEL_CONTEXT = sphere_settings_context(active_tab="general") | {
+    "form": ANY,
+    "disable_warning_pages": [],
+    "needs_disable_confirmation": False,
+}
+
+PAGE_DATA = {
+    "enabled_pages": ["events", "encounters"],
+    "default_page": "events",
+    "encounter_public_policy": "disabled",
+}
 
 
 class TestSphereSettingsPageView:
@@ -68,7 +78,7 @@ class TestSphereSettingsPageView:
         sphere.allow_facilitator_session_edit = True
         sphere.save()
 
-        response = authenticated_client.post(self.url, data={})
+        response = authenticated_client.post(self.url, data=PAGE_DATA)
 
         assert_response(
             response,
@@ -85,7 +95,7 @@ class TestSphereSettingsPageView:
         sphere.save()
 
         response = authenticated_client.post(
-            self.url, data={"allow_facilitator_session_edit": "on"}
+            self.url, data=PAGE_DATA | {"allow_facilitator_session_edit": "on"}
         )
 
         assert_response(
@@ -118,7 +128,7 @@ class TestSphereSettingsPageView:
         sphere.managers.add(active_user)
         logo = SimpleUploadedFile("brand.png", PNG_BYTES, content_type="image/png")
 
-        response = authenticated_client.post(self.url, data={"logo": logo})
+        response = authenticated_client.post(self.url, data=PAGE_DATA | {"logo": logo})
 
         assert_response(
             response,
@@ -134,7 +144,7 @@ class TestSphereSettingsPageView:
         sphere.managers.add(active_user)
         logo = SimpleUploadedFile("brand.svg", SVG_BYTES, content_type="image/svg+xml")
 
-        response = authenticated_client.post(self.url, data={"logo": logo})
+        response = authenticated_client.post(self.url, data=PAGE_DATA | {"logo": logo})
 
         assert_response(
             response,
@@ -153,7 +163,7 @@ class TestSphereSettingsPageView:
         malicious = SVG_BYTES.replace(b"</svg>", b"<script>alert(1)</script></svg>")
         logo = SimpleUploadedFile("evil.svg", malicious, content_type="image/svg+xml")
 
-        response = authenticated_client.post(self.url, data={"logo": logo})
+        response = authenticated_client.post(self.url, data=PAGE_DATA | {"logo": logo})
 
         assert_response(
             response,
@@ -171,7 +181,7 @@ class TestSphereSettingsPageView:
         malicious = SVG_BYTES.replace(b"<rect ", b'<rect onload="alert(1)" ')
         logo = SimpleUploadedFile("evil.svg", malicious, content_type="image/svg+xml")
 
-        response = authenticated_client.post(self.url, data={"logo": logo})
+        response = authenticated_client.post(self.url, data=PAGE_DATA | {"logo": logo})
 
         assert_response(
             response,
@@ -200,7 +210,7 @@ class TestSphereSettingsPageView:
         sphere.managers.add(active_user)
         logo = SimpleUploadedFile("evil.svg", malicious, content_type="image/svg+xml")
 
-        response = authenticated_client.post(self.url, data={"logo": logo})
+        response = authenticated_client.post(self.url, data=PAGE_DATA | {"logo": logo})
 
         assert_response(
             response,
@@ -222,7 +232,7 @@ class TestSphereSettingsPageView:
         sphere.managers.add(active_user)
         logo = SimpleUploadedFile(filename, content, content_type="image/gif")
 
-        response = authenticated_client.post(self.url, data={"logo": logo})
+        response = authenticated_client.post(self.url, data=PAGE_DATA | {"logo": logo})
 
         assert_response(
             response,
@@ -246,7 +256,7 @@ class TestSphereSettingsPageView:
         PILImage.new("1", (6000, 5000)).save(bomb, "PNG")
         logo = SimpleUploadedFile("bomb.png", bomb.getvalue(), content_type="image/png")
 
-        response = authenticated_client.post(self.url, data={"logo": logo})
+        response = authenticated_client.post(self.url, data=PAGE_DATA | {"logo": logo})
 
         assert_response(
             response,
@@ -264,7 +274,7 @@ class TestSphereSettingsPageView:
         oversized = PNG_BYTES + b"\x00" * (8 * 1024 * 1024 + 1)
         logo = SimpleUploadedFile("big.png", oversized, content_type="image/png")
 
-        response = authenticated_client.post(self.url, data={"logo": logo})
+        response = authenticated_client.post(self.url, data=PAGE_DATA | {"logo": logo})
 
         assert_response(
             response,
@@ -280,7 +290,9 @@ class TestSphereSettingsPageView:
         sphere.logo = "spheres/drop-me.png"
         sphere.save()
 
-        response = authenticated_client.post(self.url, data={"logo-clear": "on"})
+        response = authenticated_client.post(
+            self.url, data=PAGE_DATA | {"logo-clear": "on"}
+        )
 
         assert_response(
             response,
@@ -299,7 +311,7 @@ class TestSphereSettingsPageView:
         sphere.save()
 
         response = authenticated_client.post(
-            self.url, data={"allow_facilitator_session_edit": "on"}
+            self.url, data=PAGE_DATA | {"allow_facilitator_session_edit": "on"}
         )
 
         assert_response(
@@ -311,12 +323,183 @@ class TestSphereSettingsPageView:
         sphere.refresh_from_db()
         assert sphere.logo.name == "spheres/keep.png"
 
+    def test_post_persists_pages_and_policy(
+        self, authenticated_client, active_user, sphere
+    ):
+        sphere.managers.add(active_user)
+
+        response = authenticated_client.post(
+            self.url,
+            data={
+                "enabled_pages": ["encounters"],
+                "default_page": "encounters",
+                "encounter_public_policy": "managers",
+            },
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Sphere settings saved successfully.")],
+            url=self.url,
+        )
+        sphere.refresh_from_db()
+        assert sphere.enabled_pages == ["encounters"]
+        assert sphere.default_page == "encounters"
+        assert sphere.encounter_public_policy == "managers"
+
+    def test_post_persists_timeline_as_default(
+        self, authenticated_client, active_user, sphere
+    ):
+        sphere.managers.add(active_user)
+
+        response = authenticated_client.post(
+            self.url,
+            data=PAGE_DATA
+            | {"enabled_pages": ["timeline"], "default_page": "timeline"},
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Sphere settings saved successfully.")],
+            url=self.url,
+        )
+        sphere.refresh_from_db()
+        assert sphere.enabled_pages == ["timeline"]
+        assert sphere.default_page == "timeline"
+
+    @pytest.mark.parametrize("policy", ("disabled", "managers", "everyone"))
+    def test_post_persists_each_policy(
+        self, authenticated_client, active_user, sphere, policy
+    ):
+        sphere.managers.add(active_user)
+
+        response = authenticated_client.post(
+            self.url, data=PAGE_DATA | {"encounter_public_policy": policy}
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Sphere settings saved successfully.")],
+            url=self.url,
+        )
+        sphere.refresh_from_db()
+        assert sphere.encounter_public_policy == policy
+
+    def test_post_rejects_default_page_not_enabled(
+        self, authenticated_client, active_user, sphere
+    ):
+        sphere.managers.add(active_user)
+
+        response = authenticated_client.post(
+            self.url, data=PAGE_DATA | {"enabled_pages": ["encounters"]}
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[
+                (messages.ERROR, "The default page must be one of the enabled pages.")
+            ],
+            url=self.url,
+        )
+        sphere.refresh_from_db()
+        assert sphere.enabled_pages == ["events", "encounters", "timeline"]
+
+    def test_post_rejects_no_enabled_pages(
+        self, authenticated_client, active_user, sphere
+    ):
+        sphere.managers.add(active_user)
+
+        response = authenticated_client.post(
+            self.url,
+            data={"default_page": "events", "encounter_public_policy": "disabled"},
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[
+                (messages.ERROR, "At least one page must stay enabled."),
+                (messages.ERROR, "The default page must be one of the enabled pages."),
+            ],
+            url=self.url,
+        )
+        sphere.refresh_from_db()
+        assert sphere.enabled_pages == ["events", "encounters", "timeline"]
+
+    def test_post_disabling_page_with_content_asks_for_confirmation(
+        self, authenticated_client, active_user, sphere
+    ):
+        sphere.managers.add(active_user)
+        EncounterFactory(sphere=sphere)
+
+        response = authenticated_client.post(
+            self.url, data=PAGE_DATA | {"enabled_pages": ["events"]}
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="multiverse/panel/sphere-settings.html",
+            context_data=GENERAL_PANEL_CONTEXT
+            | {
+                "disable_warning_pages": ["Encounters", "Timeline"],
+                "needs_disable_confirmation": True,
+            },
+        )
+        sphere.refresh_from_db()
+        assert sphere.enabled_pages == ["events", "encounters", "timeline"]
+
+    def test_post_disabling_page_with_content_confirmed_saves(
+        self, authenticated_client, active_user, sphere
+    ):
+        sphere.managers.add(active_user)
+        EncounterFactory(sphere=sphere)
+
+        response = authenticated_client.post(
+            self.url,
+            data=PAGE_DATA
+            | {"enabled_pages": ["events"], "confirm_page_disable": "on"},
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Sphere settings saved successfully.")],
+            url=self.url,
+        )
+        sphere.refresh_from_db()
+        assert sphere.enabled_pages == ["events"]
+
+    def test_post_disabling_empty_page_saves_without_confirmation(
+        self, authenticated_client, active_user, sphere
+    ):
+        sphere.managers.add(active_user)
+
+        response = authenticated_client.post(
+            self.url,
+            data=PAGE_DATA
+            | {"enabled_pages": ["encounters"], "default_page": "encounters"},
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Sphere settings saved successfully.")],
+            url=self.url,
+        )
+        sphere.refresh_from_db()
+        assert sphere.enabled_pages == ["encounters"]
+
     def test_post_rejects_non_manager(self, authenticated_client, sphere):
         sphere.allow_facilitator_session_edit = True
         sphere.save()
 
         response = authenticated_client.post(
-            self.url, data={"allow_facilitator_session_edit": "on"}
+            self.url, data=PAGE_DATA | {"allow_facilitator_session_edit": "on"}
         )
 
         assert_not_a_sphere_manager(response)

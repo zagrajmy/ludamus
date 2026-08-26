@@ -24,6 +24,10 @@ class EncounterRepository(EncounterRepositoryProtocol):
         return EncounterDTO.model_validate(encounter)
 
     @staticmethod
+    def exists_for_sphere(sphere_id: int) -> bool:
+        return Encounter.objects.filter(sphere_id=sphere_id).exists()
+
+    @staticmethod
     def read(pk: int) -> EncounterDTO:
         try:
             encounter = Encounter.objects.get(pk=pk)
@@ -57,6 +61,14 @@ class EncounterRepository(EncounterRepositoryProtocol):
             .exclude(creator_id=user_id)
             .order_by("start_time")
         )
+        return [EncounterDTO.model_validate(e) for e in encounters]
+
+    @staticmethod
+    def list_public_upcoming(sphere_id: int) -> list[EncounterDTO]:
+        now = datetime.now(tz=UTC)
+        encounters = Encounter.objects.filter(
+            sphere_id=sphere_id, is_public=True, start_time__gte=now
+        ).order_by("start_time")
         return [EncounterDTO.model_validate(e) for e in encounters]
 
     @staticmethod
