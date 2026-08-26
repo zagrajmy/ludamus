@@ -116,7 +116,7 @@ def copy_lines(*parts: object) -> str:
 
 @register.simple_tag
 def tessera_copy_chip(
-    text: str, *, label: str = "", copied_label: str = "", **kwargs: object
+    text: str, *, label: str = "", copied_label: str = "", **kwargs: str | None
 ) -> str:
     """Render a chip showing ``text``, the short-value copy preset.
 
