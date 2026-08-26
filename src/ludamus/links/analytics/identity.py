@@ -17,7 +17,7 @@ def environment() -> str:
     return "staging" if settings.IS_STAGING else str(settings.ENV)
 
 
-def distinct_id(pk: object) -> str:
+def distinct_id(pk: int) -> str:
     """Namespace a user pk so two databases cannot share one PostHog person.
 
     Every deployment runs the same schema with its own sequence, so a bare pk
