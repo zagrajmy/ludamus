@@ -16,12 +16,65 @@ const COLLAPSED = "room-lanes-collapsed";
 // whole day survives, one scale up.
 const survives = (had: boolean, live: boolean): boolean => live || !had;
 
+type PositionedCell = {
+  cell: HTMLElement;
+  end: number;
+  start: number;
+};
+
+const layoutConflict = (cells: PositionedCell[]): void => {
+  const laneEnds: number[] = [];
+  const assigned: { cell: HTMLElement; lane: number }[] = [];
+  for (const { cell, end, start } of cells) {
+    const lane = laneEnds.findIndex((laneEnd) => laneEnd <= start);
+    const resolvedLane = lane === -1 ? laneEnds.length : lane;
+    laneEnds[resolvedLane] = end;
+    assigned.push({ cell, lane: resolvedLane });
+  }
+  for (const { cell, lane } of assigned) {
+    cell.dataset.tileLane = String(lane);
+    cell.dataset.tileLanes = String(laneEnds.length);
+    cell.style.width = `calc(100% / ${laneEnds.length})`;
+    cell.style.transform = `translateX(${lane * 100}%)`;
+  }
+};
+
+const layoutVisibleConflicts = (cells: HTMLElement[]): void => {
+  const byColumn = new Map<number, PositionedCell[]>();
+  for (const cell of cells) {
+    const start = Number(cell.dataset.tileRow);
+    const positioned = {
+      cell,
+      end: start + Number(cell.dataset.tileSpan),
+      start,
+    };
+    const column = Number(cell.dataset.tileCol);
+    byColumn.set(column, [...(byColumn.get(column) ?? []), positioned]);
+  }
+
+  for (const columnCells of byColumn.values()) {
+    columnCells.sort((left, right) => left.start - right.start || left.end - right.end);
+    let conflict: PositionedCell[] = [];
+    let conflictEnd = 0;
+    for (const positioned of columnCells) {
+      if (conflict.length > 0 && positioned.start >= conflictEnd) {
+        layoutConflict(conflict);
+        conflict = [];
+      }
+      conflict.push(positioned);
+      conflictEnd = Math.max(conflictEnd, positioned.end);
+    }
+    if (conflict.length > 0) layoutConflict(conflict);
+  }
+};
+
 const collapseEmptyTracks = (lanes: HTMLElement): void => {
   const rowCount = Number(lanes.dataset.rows);
   const roomCount = Number(lanes.dataset.rooms);
   const tileRows = new Set<number>();
   const liveRows = new Set<number>();
   const liveCols = new Set<number>();
+  const visibleCells: HTMLElement[] = [];
 
   for (const cell of lanes.querySelectorAll<HTMLElement>(".room-lanes-cell")) {
     const visible = cell.querySelector(".session-wrapper:not([hidden])") !== null;
@@ -31,8 +84,12 @@ const collapseEmptyTracks = (lanes: HTMLElement): void => {
       tileRows.add(row + offset);
       if (visible) liveRows.add(row + offset);
     }
-    if (visible) liveCols.add(Number(cell.dataset.tileCol));
+    if (visible) {
+      liveCols.add(Number(cell.dataset.tileCol));
+      visibleCells.push(cell);
+    }
   }
+  layoutVisibleConflicts(visibleCells);
 
   // The same rule one scale up. Every row declares the day it belongs to, so a
   // filter that empties a whole day takes the day's heading and its blank hours
@@ -47,14 +104,15 @@ const collapseEmptyTracks = (lanes: HTMLElement): void => {
   for (const row of tileRows) tileDays.add(dayOfRow.get(row) ?? -1);
   for (const row of liveRows) liveDays.add(dayOfRow.get(row) ?? -1);
 
+  const dayLives = (day: number): boolean => survives(tileDays.has(day), liveDays.has(day));
   const rowLives = (row: number): boolean => {
     const day = dayOfRow.get(row) ?? -1;
-    return (
-      survives(tileDays.has(day), liveDays.has(day)) &&
-      survives(tileRows.has(row), liveRows.has(row))
-    );
+    return dayLives(day) && survives(tileRows.has(row), liveRows.has(row));
   };
 
+  for (const heading of lanes.querySelectorAll<HTMLElement>("[data-lane-day-heading]")) {
+    heading.classList.toggle(COLLAPSED, !dayLives(Number(heading.dataset.laneDayHeading)));
+  }
   for (const el of lanes.querySelectorAll<HTMLElement>("[data-lane-row]")) {
     el.classList.toggle(COLLAPSED, !rowLives(Number(el.dataset.laneRow)));
   }
@@ -94,6 +152,7 @@ const collapseEmptyTracks = (lanes: HTMLElement): void => {
       rowLives(index + 1) ? "var(--row-track)" : "0",
     ).join(" ");
   }
+  lanes.hidden = liveCols.size === 0;
 };
 
 const dayCell = (from: ParentNode, field: string): HTMLElement | null =>
@@ -278,6 +337,7 @@ const initRoomLanes = (): void => {
     // this instance of .room-lanes, so it goes out with the shared controller
     // instead of collapsing tracks in a detached tree.
     if (lanes) {
+      collapseEmptyTracks(lanes);
       document.addEventListener(
         "schedule:filtered",
         () => {

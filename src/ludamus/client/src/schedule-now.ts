@@ -2,17 +2,18 @@
 // the one thing the server cannot render into this page: it is cacheable, and
 // a line rendered server-side would be stale the moment it was served.
 
-const HOUR_MS = 3_600_000;
 const MINUTE_MS = 60_000;
 
-const pad = (part: number): string => String(part).padStart(2, "0");
-
-const eventClock = (instant: string, at: number): string => {
-  const zone = /(?:Z|(?<sign>[+-])(?<hours>\d\d):(?<minutes>\d\d))$/.exec(instant);
-  const { hours = "0", minutes = "0", sign = "+" } = zone?.groups ?? {};
-  const offset = (sign === "-" ? -1 : 1) * (Number(hours) * 60 + Number(minutes));
-  const shifted = new Date(at + offset * 60_000);
-  return `${pad(shifted.getUTCHours())}:${pad(shifted.getUTCMinutes())}`;
+const eventClock = (at: number): string => {
+  const timeZone =
+    document.querySelector<HTMLElement>("[data-event-time-zone]")?.dataset.eventTimeZone;
+  if (!timeZone) return "";
+  return new Intl.DateTimeFormat("en-GB", {
+    hour: "2-digit",
+    hourCycle: "h23",
+    minute: "2-digit",
+    timeZone,
+  }).format(at);
 };
 
 const setTime = (marker: HTMLElement, text: string): void => {
@@ -28,15 +29,15 @@ const placeInGrid = (at: number): void => {
 
   for (const line of document.querySelectorAll<HTMLElement>("[data-hour-start]")) {
     if (line.classList.contains("room-lanes-collapsed")) continue;
-    const instant = line.dataset.hourStart ?? "";
-    const start = Date.parse(instant);
-    if (Number.isNaN(start) || at < start || at >= start + HOUR_MS) continue;
+    const start = Date.parse(line.dataset.hourStart ?? "");
+    const end = Date.parse(line.dataset.hourEnd ?? "");
+    if (Number.isNaN(start) || Number.isNaN(end) || at < start || at >= end) continue;
     const overlay = marker.parentElement;
     if (!overlay) return;
     const row = line.getBoundingClientRect();
     const overlayTop = overlay.getBoundingClientRect().top;
-    marker.style.top = `${row.top - overlayTop + row.height * ((at - start) / HOUR_MS)}px`;
-    setTime(marker, eventClock(instant, at));
+    marker.style.top = `${row.top - overlayTop + row.height * ((at - start) / (end - start))}px`;
+    setTime(marker, eventClock(at));
     marker.hidden = false;
     return;
   }
@@ -49,7 +50,7 @@ const placeInList = (at: number): void => {
   const seam = document.querySelector<HTMLElement>("[data-schedule-now]");
   if (!seam) return;
 
-  let lastStarted: { instant: string; row: HTMLElement } | undefined;
+  let lastStarted: HTMLElement | undefined;
   let programmeIsRunning = false;
   for (const row of document.querySelectorAll<HTMLElement>(".session-grid .session-wrapper")) {
     if (!row.checkVisibility()) continue;
@@ -62,20 +63,20 @@ const placeInList = (at: number): void => {
         seam.hidden = true;
         return;
       }
-      setTime(seam, eventClock(instant, at));
-      row.before(seam);
+      setTime(seam, eventClock(at));
+      lastStarted.after(seam);
       seam.hidden = false;
       return;
     }
 
-    lastStarted = { instant, row };
+    lastStarted = row;
     const end = Date.parse(session?.dataset.end ?? "");
     programmeIsRunning ||= !Number.isNaN(end) && at < end;
   }
 
   if (lastStarted && programmeIsRunning) {
-    setTime(seam, eventClock(lastStarted.instant, at));
-    lastStarted.row.after(seam);
+    setTime(seam, eventClock(at));
+    lastStarted.after(seam);
     seam.hidden = false;
     return;
   }
@@ -121,4 +122,4 @@ const start = (): void => {
 
 start();
 document.body.addEventListener("htmx:afterSwap", start);
-document.addEventListener("schedule:filtered", place);
+document.addEventListener("schedule:filtered", () => queueMicrotask(place));

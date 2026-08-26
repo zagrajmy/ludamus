@@ -69,6 +69,9 @@ importers:
       '@tailwindcss/vite':
         specifier: 4.2.4
         version: 4.2.4(vite@8.0.16(@types/node@24.10.1)(jiti@2.7.0)(yaml@2.9.0))
+      '@types/node':
+        specifier: 24.10.1
+        version: 24.10.1
       lil-gui:
         specifier: 0.21.0
         version: 0.21.0

@@ -31,10 +31,18 @@ data-space-name="{{ data.loc.space_name }}"
 {# The instant, offset included: data-day/data-hour below are the event's #}
 {# local wall clock, which reads as a different moment in a reader's own #}
 {# timezone, and the "now" line compares against the reader's clock. #}
+{% if occurrence_start %}
+data-start="{{ occurrence_start|date:'c' }}"
+data-end="{{ occurrence_end|date:'c' }}"
+data-day="{{ occurrence_start|date:'Y-m-d' }}"
+data-day-label="{{ occurrence_start|date:'l, j F' }}"
+data-hour="{{ occurrence_start|date:'H:i' }}"
+{% else %}
 data-start="{{ data.agenda_item.start_time|date:'c' }}"
 data-end="{{ data.agenda_item.end_time|date:'c' }}"
 data-day="{{ data.agenda_item.start_time|date:'Y-m-d' }}"
 data-day-label="{{ data.agenda_item.start_time|date:'l, j F' }}"
 data-hour="{{ data.agenda_item.start_time|date:'H:i' }}"
+{% endif %}
 {% endif %}
 {# djlint:on #}

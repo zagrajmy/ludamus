@@ -588,6 +588,9 @@ const initSessionFilters = (): void => {
   spaceFilter.addEventListener("change", filterSessions);
   minAgeFilter.addEventListener("input", filterSessions);
   maxAgeFilter.addEventListener("input", filterSessions);
+  document.addEventListener("session:bookmark-changed", filterSessions, {
+    signal: documentListeners.signal,
+  });
 
   filterToggle.addEventListener("click", () => {
     const isOpen = filterPanel.classList.toggle("is-open");

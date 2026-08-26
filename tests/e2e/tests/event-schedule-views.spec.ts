@@ -1,4 +1,5 @@
 import { type Page } from "@playwright/test";
+import path from "node:path";
 
 import { expect, test } from "./helpers/fixtures";
 
@@ -121,7 +122,9 @@ test.describe("Event schedule views", () => {
     page,
   }) => {
     await page.goto(`${DENSE_EVENT_URL}?view=rooms`);
-    const currentDay = page.locator("[data-room-lanes-day-current]");
+    const currentDayDisplay = page.locator(".room-lanes-day-current");
+    const currentDay = currentDayDisplay.locator("[data-room-lanes-day-current]");
+    await expect(currentDayDisplay).toHaveAttribute("aria-hidden", "true");
     // Every day is a heading. The first opens the grid and has no seam to
     // scroll past — it is the one the header starts on — so the day to scroll
     // into is the second.
@@ -163,6 +166,102 @@ test.describe("Event schedule views", () => {
     expect(sourceBox).not.toBeNull();
     expect(mirrorBox).not.toBeNull();
     expect(Math.abs((sourceBox?.y ?? 0) - (mirrorBox?.y ?? 0))).toBeLessThan(1);
+  });
+
+  test("day headings delimit their sessions in reading order", async ({ page }) => {
+    await page.goto(`${DENSE_EVENT_URL}?view=rooms`);
+
+    const order = await page
+      .locator(".room-lanes-body")
+      .evaluate((body) =>
+        [...body.querySelectorAll("[data-day-heading], article")].map((element) =>
+          element.matches("article") ? "session" : "day",
+        ),
+      );
+    const secondDay = order.indexOf("day", 1);
+    expect(order[0]).toBe("day");
+    expect(secondDay).toBeGreaterThan(1);
+    expect(order.slice(1, secondDay)).toContain("session");
+    expect(order.slice(secondDay + 1)).toContain("session");
+  });
+
+  test("room tiles read left to right and expose their room", async ({ page }) => {
+    await page.goto(`${DENSE_EVENT_URL}?view=rooms`);
+
+    const cells = page.locator(".room-lanes-cell");
+    const colsByRow = await cells.evaluateAll((elements) => {
+      const rows: Record<string, number[]> = {};
+      for (const element of elements) {
+        const row = (element as HTMLElement).dataset.tileRow ?? "";
+        (rows[row] ??= []).push(Number((element as HTMLElement).dataset.tileCol));
+      }
+      return rows;
+    });
+    for (const cols of Object.values(colsByRow)) {
+      expect(cols).toEqual([...cols].sort((left, right) => left - right));
+    }
+
+    const links = cells.locator(".session-link");
+    const associations = await links.evaluateAll((elements) =>
+      elements.map((element) => {
+        const target = document.getElementById(element.getAttribute("aria-describedby") ?? "");
+        return (target?.textContent ?? "").replace(/\s+/g, " ").trim();
+      }),
+    );
+    expect(associations.length).toBeGreaterThan(0);
+    expect(associations.every(Boolean)).toBe(true);
+    await expect(links.first()).toHaveAccessibleDescription(associations[0]);
+  });
+
+  test("same-room conflicts remain visible and repack after filtering", async ({ page }) => {
+    await page.goto(`${DENSE_EVENT_URL}?view=rooms`);
+
+    const cells = page.locator(".room-lanes-cell");
+    const first = cells.first();
+    const second = cells.nth(1);
+    await expect(first).toBeVisible();
+    await expect(second).toBeVisible();
+    await second.evaluate(
+      (cell, placement) => {
+        const element = cell as HTMLElement;
+        element.dataset.tileCol = placement.col;
+        element.dataset.tileRow = placement.row;
+        element.dataset.tileSpan = placement.span;
+        document.dispatchEvent(new CustomEvent("schedule:filtered"));
+      },
+      {
+        col: (await first.getAttribute("data-tile-col")) ?? "",
+        row: (await first.getAttribute("data-tile-row")) ?? "",
+        span: (await first.getAttribute("data-tile-span")) ?? "",
+      },
+    );
+
+    const [firstBox, secondBox] = await Promise.all([first.boundingBox(), second.boundingBox()]);
+    expect(firstBox).not.toBeNull();
+    expect(secondBox).not.toBeNull();
+    expect((firstBox?.x ?? 0) + (firstBox?.width ?? 0)).toBeLessThanOrEqual(
+      (secondBox?.x ?? 0) + 1,
+    );
+    for (const cell of [first, second]) {
+      expect(
+        await cell.evaluate((element) => {
+          const box = element.getBoundingClientRect();
+          const hit = document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2);
+          return hit !== null && element.contains(hit);
+        }),
+      ).toBe(true);
+    }
+
+    const conflictWidth = firstBox?.width ?? 0;
+    await second.locator(".session-wrapper").evaluate((session) => {
+      (session as HTMLElement).hidden = true;
+      document.dispatchEvent(new CustomEvent("schedule:filtered"));
+    });
+    await expect(second).toBeHidden();
+    await expect
+      .poll(async () => (await first.boundingBox())?.width ?? 0)
+      .toBeGreaterThan(conflictWidth * 1.8);
+    await expect(first.locator(".session-link")).toBeVisible();
   });
 
   test("a line marks where the programme has got to", async ({ page }) => {
@@ -212,6 +311,81 @@ test.describe("Event schedule views", () => {
     await expect(marker).toBeHidden();
   });
 
+  test("a spanning session keeps the current-hour geometry after filtering", async ({ page }) => {
+    await page.goto(`${DENSE_EVENT_URL}?view=rooms`);
+
+    const lines = page.locator(".room-lanes-line");
+    const sourceLine = lines.first();
+    const targetLine = lines.nth(1);
+    const sourceRow = (await sourceLine.getAttribute("data-lane-row")) ?? "";
+    const targetRow = (await targetLine.getAttribute("data-lane-row")) ?? "";
+    await expect(targetLine.locator(".time-slot-section")).toHaveCount(1);
+    const targetStart = await targetLine.getAttribute("data-hour-start");
+    const targetEnd = await targetLine.getAttribute("data-hour-end");
+    if (!sourceRow || !targetRow || !targetStart || !targetEnd) {
+      throw new Error("The fixture needs two consecutive room rows");
+    }
+
+    const at = (Date.parse(targetStart) + Date.parse(targetEnd)) / 2;
+    await page.clock.install({ time: new Date(at) });
+    await page.goto(`${DENSE_EVENT_URL}?view=rooms`);
+
+    const cells = page.locator(".room-lanes-cell");
+    await cells.evaluateAll(
+      (elements, placement) => {
+        for (const element of elements) {
+          const session = element.querySelector<HTMLElement>(".session-wrapper");
+          if (session) session.hidden = true;
+        }
+        const spanning = elements[0] as HTMLElement | undefined;
+        const session = spanning?.querySelector<HTMLElement>(".session-wrapper");
+        if (!spanning || !session) throw new Error("The fixture needs a room tile");
+        spanning.dataset.tileRow = placement.sourceRow;
+        spanning.dataset.tileSpan = "2";
+        spanning.style.gridRowEnd = "span 2";
+        session.hidden = false;
+
+        const target = document.querySelector<HTMLElement>(
+          `.room-lanes-line[data-lane-row="${placement.targetRow}"]`,
+        );
+        const sentinel = target?.querySelector<HTMLElement>(".time-slot-section");
+        if (sentinel) sentinel.hidden = true;
+        const marker = document.querySelector<HTMLElement>("[data-room-lanes-now]");
+        if (marker) marker.hidden = true;
+      },
+      { sourceRow, targetRow },
+    );
+
+    await page.evaluate(() => document.dispatchEvent(new CustomEvent("schedule:filtered")));
+    await page.clock.runFor(1);
+    const matchingRows = await lines.evaluateAll(
+      (elements, now) =>
+        elements
+          .filter((element) => {
+            const row = element as HTMLElement;
+            return (
+              now >= Date.parse(row.dataset.hourStart ?? "") &&
+              now < Date.parse(row.dataset.hourEnd ?? "")
+            );
+          })
+          .map((element) => (element as HTMLElement).dataset.laneRow),
+      at,
+    );
+    expect(matchingRows).toEqual([targetRow]);
+
+    await expect(targetLine).toBeVisible();
+    await expect(targetLine.locator(".time-slot-section")).toBeHidden();
+    await expect(page.locator("[data-room-lanes-now] .schedule-now-pill")).toBeVisible();
+    const [lineBox, markerBox] = await Promise.all([
+      targetLine.boundingBox(),
+      page.locator(".room-lanes-now-strip").boundingBox(),
+    ]);
+    expect(lineBox).not.toBeNull();
+    expect(markerBox).not.toBeNull();
+    expect(markerBox?.y ?? 0).toBeGreaterThanOrEqual(lineBox?.y ?? 0);
+    expect(markerBox?.y ?? 0).toBeLessThan((lineBox?.y ?? 0) + (lineBox?.height ?? 0));
+  });
+
   test("the ledger stays unmarked before the programme opens", async ({ page }) => {
     await page.goto(DENSE_EVENT_URL);
     const opens = await firstStart(page);
@@ -239,6 +413,7 @@ test.describe("Event schedule views", () => {
     const line = await marker.boundingBox();
     const rows = await page.getByRole("article").evaluateAll((cards) =>
       cards.map((card) => ({
+        hourY: card.closest(".time-slot-section")?.getBoundingClientRect().y ?? 0,
         text: (card as HTMLElement).innerText,
         y: card.getBoundingClientRect().y,
       })),
@@ -250,6 +425,56 @@ test.describe("Event schedule views", () => {
     expect(below).toBeDefined();
     expect(startsAt(above?.text ?? "").localeCompare(atClock)).toBeLessThanOrEqual(0);
     expect(startsAt(below?.text ?? "").localeCompare(atClock)).toBeGreaterThan(0);
+    expect(line?.y).toBeLessThan(below?.hourY ?? 0);
+  });
+
+  test("the ledger marker stays before tomorrow for an overnight session", async ({ page }) => {
+    await page.goto(DENSE_EVENT_URL);
+    await page.clock.install({ time: new Date("2026-07-10T21:30:00Z") });
+    await page.goto(DENSE_EVENT_URL);
+
+    await page.locator("[data-schedule-day]").evaluateAll((days) => {
+      const current = days[0]?.querySelector<HTMLElement>(".session");
+      const tomorrow = days[1]?.querySelector<HTMLElement>(".session");
+      if (!current || !tomorrow) throw new Error("The fixture needs sessions on two days");
+      for (const row of document.querySelectorAll<HTMLElement>(".session-wrapper")) {
+        row.hidden = !row.contains(current) && !row.contains(tomorrow);
+      }
+      current.dataset.start = "2026-07-10T22:00:00+02:00";
+      current.dataset.end = "2026-07-11T00:00:00+02:00";
+      tomorrow.dataset.start = "2026-07-11T00:00:00+02:00";
+      tomorrow.dataset.end = "2026-07-11T02:00:00+02:00";
+      document.dispatchEvent(new CustomEvent("schedule:filtered"));
+    });
+
+    const marker = page.getByText("Now 23:30");
+    await expect(marker).toBeVisible();
+    const [line, tomorrow] = await Promise.all([
+      marker.boundingBox(),
+      page.locator("[data-schedule-day]").nth(1).getByRole("heading").first().boundingBox(),
+    ]);
+    expect(line).not.toBeNull();
+    expect(tomorrow).not.toBeNull();
+    expect(line?.y).toBeLessThan(tomorrow?.y ?? 0);
+  });
+
+  test("the ledger clock follows the event timezone across DST", async ({ page }) => {
+    await page.goto(DENSE_EVENT_URL);
+    await page.clock.install({ time: new Date("2026-03-29T01:30:00Z") });
+    await page.goto(DENSE_EVENT_URL);
+
+    await page.locator(".session-grid .session").evaluateAll((sessions) => {
+      const [current, ...rest] = sessions as HTMLElement[];
+      current.dataset.start = "2026-03-28T23:00:00+01:00";
+      current.dataset.end = "2026-03-29T04:00:00+02:00";
+      for (const session of rest) {
+        const row = session.closest<HTMLElement>(".session-wrapper");
+        if (row) row.hidden = true;
+      }
+      document.dispatchEvent(new CustomEvent("schedule:filtered"));
+    });
+
+    await expect(page.getByText("Now 03:30")).toBeVisible();
   });
 
   test("the ledger stays marked while the final sessions are running", async ({ page }) => {
@@ -275,16 +500,29 @@ test.describe("Event schedule views", () => {
     await expect(marker).toBeHidden();
   });
 
+  test("an empty Rooms filter hides the complete schedule chrome", async ({ page }) => {
+    await page.goto(`${DENSE_EVENT_URL}?view=rooms&q=no-such-session`);
+
+    await expect(page.getByText("No sessions match your filters")).toBeVisible();
+    const lanes = page.locator(".room-lanes");
+    await expect(lanes).toBeHidden();
+
+    await page.getByRole("button", { name: "Clear all filters" }).click();
+    await expect(page.getByText("No sessions match your filters")).toBeHidden();
+    await expect(lanes).toBeVisible();
+  });
+
   test("a filter that empties a day takes the whole day with it", async ({ page }) => {
     await page.goto(`${DENSE_EVENT_URL}?view=rooms`);
     const days = page.getByRole("heading", { level: 3 });
     const before = await days.count();
+    const firstDay = squash(await days.first().textContent());
     expect(before).toBeGreaterThan(1);
 
     // One session's title: whatever day it is on survives, the rest empty out.
     const title = await page
       .getByRole("link", { name: /^Open details for / })
-      .first()
+      .last()
       .textContent();
     await page
       .getByRole("textbox", { name: "Search sessions..." })
@@ -295,6 +533,7 @@ test.describe("Event schedule views", () => {
     await expect
       .poll(async () => (await days.filter({ visible: true }).count()) < before)
       .toBe(true);
+    await expect(page.getByRole("heading", { level: 3, name: firstDay })).toBeHidden();
   });
 
   test("the grid pans like a map: drag the background, or anything with Space", async ({
@@ -397,6 +636,56 @@ test.describe("Event schedule views", () => {
     await page.waitForTimeout(200);
     expect(await appTop()).toBe(topAtHead);
   });
+});
+
+test("overnight bookmark copies share one state and one request", async ({ browser }) => {
+  const context = await browser.newContext({
+    storageState: path.join(__dirname, "..", ".auth-state-superuser.json"),
+  });
+  const page = await context.newPage();
+  await page.goto(DENSE_EVENT_URL);
+
+  const buttons = page.locator(".bookmark-toggle");
+  expect(await buttons.count()).toBeGreaterThan(1);
+  const source = buttons.first();
+  const copy = buttons.nth(1);
+  const sessionId = await source.getAttribute("data-session-id");
+  const wasBookmarked = (await source.getAttribute("aria-pressed")) === "true";
+  if (!sessionId) throw new Error("The fixture needs a bookmarkable session");
+  await copy.evaluate((button, id) => {
+    button.dataset.sessionId = id;
+    const card = button.closest<HTMLElement>(".session");
+    if (card) card.dataset.sessionId = id;
+  }, sessionId);
+
+  const copies = page.locator(`.bookmark-toggle[data-session-id="${sessionId}"]`);
+  expect(await copies.count()).toBeGreaterThan(1);
+  let requests = 0;
+  await page.route(/\/bookmark\/$/, async (route) => {
+    requests += 1;
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    await route.continue();
+  });
+
+  await source.click();
+  await expect(copy).toBeDisabled();
+  await copy.click({ force: true });
+  await expect(copy).toBeEnabled();
+
+  const expectedState = String(!wasBookmarked);
+  for (const button of await copies.all()) {
+    await expect(button).toHaveAttribute("aria-pressed", expectedState);
+  }
+  expect(new Set(await copies.locator(".bookmark-count").allTextContents()).size).toBe(1);
+  expect(requests).toBe(1);
+
+  await page.locator("#status-filter").selectOption("my-bookmarked");
+  const hiddenStates = await copies.evaluateAll((elements) =>
+    elements.map((button) => button.closest<HTMLElement>(".session-wrapper")?.hidden),
+  );
+  expect(hiddenStates.every((hidden) => hidden === wasBookmarked)).toBe(true);
+
+  await context.close();
 });
 
 test.describe("Enrollment filter", () => {

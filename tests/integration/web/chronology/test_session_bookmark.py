@@ -142,6 +142,13 @@ class TestEventPageBookmarkCounts:
         card = session_card(
             agenda_item, presenter=agenda_item.session.presenter, bookmark_count=1
         )
+        room_tile = RoomLaneTile(
+            data=card,
+            start=localtime(agenda_item.start_time),
+            end=localtime(agenda_item.end_time),
+            col=1,
+            row_span=2,
+        )
         assert_response(
             response,
             HTTPStatus.OK,
@@ -166,25 +173,19 @@ class TestEventPageBookmarkCounts:
                             day=0,
                             day_start=hour_start,
                             hour=hour_start,
-                            has_sessions=True,
+                            hour_end=hour_start + timedelta(hours=1),
+                            starting_tiles=[room_tile],
                         ),
                         RoomLaneRow(
                             day=0,
                             day_start=hour_start,
                             hour=hour_start + timedelta(hours=1),
-                            has_sessions=False,
+                            hour_end=hour_start + timedelta(hours=2),
                         ),
                     ],
                     spans=[2],
-                    tiles=[
-                        RoomLaneTile(
-                            data=card,
-                            slot_hour=hour_start,
-                            col=1,
-                            row_start=1,
-                            row_span=2,
-                        )
-                    ],
+                    lane_indices=[0],
+                    lane_counts=[1],
                 ),
                 sessions=[card],
                 has_enrollable_sessions=True,

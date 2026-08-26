@@ -1,6 +1,7 @@
 {% load csp_tags %}
 {% load i18n %}
 {% load tessera %}
+{% load tz %}
 {# Compact schedule for big events: a dense chronological ledger (or the #}
 {# rooms grid) paired with a sticky hour scrubber. Reuses the .session / #}
 {# .time-slot-section / .session-grid contract so session-filters.ts and the #}
@@ -11,9 +12,11 @@
 {# screen (see the breakout utility). The list is a ledger and reads better #}
 {# inside the column, so it only sheds main's padding on phones, where its #}
 {# rows need every pixel. #}
+{% get_current_timezone as event_timezone %}
 {# ludamus-disable:no-negative-margin -- lets the list's rows and the hour rail reach the screen edges on phones #}
 <div class="compact-schedule {% if active_tab == 'rooms' %}breakout{% else %}-mx-4 sm:mx-0{% endif %}"
      data-csrf="{{ csrf_token }}"
+     data-event-time-zone="{{ event_timezone }}"
      data-bookmark-url-template="{% url 'web:chronology:session-bookmark' session_id=0 %}">
     <div class="flex items-start sm:gap-1">
         <div class="min-w-0 flex-1">
@@ -28,14 +31,17 @@
                         {% include "chronology/_schedule_day_header.html" %}
                         {% for hour in day.hours %}
                             <div class="time-slot-section scroll-mt-24"
-                                 id="slot-{{ hour.start|date:'Ymd-H' }}"
-                                 data-slot-hour="{{ hour.start|date:'Ymd-H' }}">
-                                <div class="px-2 pt-3 pb-1 text-[0.7rem] font-bold tabular-nums tracking-wide text-foreground-muted">{{ hour.start|time:"H:i" }}</div>
+                                 id="slot-{{ hour.slot_key }}"
+                                 data-slot-hour="{{ hour.slot_key }}">
+                                <div class="px-2 pt-3 pb-1 text-[0.7rem] font-bold tabular-nums tracking-wide text-foreground-muted">
+                                    {{ hour.start|time:"H:i" }}
+                                    {% if hour.is_repeated %}<span class="ml-1 text-[0.6rem]">{{ hour.start.tzname }}</span>{% endif %}
+                                </div>
                                 {# Not divide-y: it draws a stray divider under the last visible #}
                                 {# row when session-filters.ts hides the rows after it (index.css). #}
                                 <div class="session-grid divide-y-visible">
-                                    {% for data in hour.sessions %}
-                                        {% include "chronology/_compact_session_row.html" %}
+                                    {% for tile in hour.tiles %}
+                                        {% include "chronology/_compact_session_row.html" with data=tile.data occurrence_start=tile.start occurrence_end=tile.end %}
                                     {% endfor %}
                                 </div>
                             </div>
@@ -60,10 +66,10 @@
                 <span class="block px-1.5 pt-2 pb-0.5 text-center text-[0.625rem] font-bold uppercase text-foreground-secondary first:pt-0">{{ day.day_start|date:"D" }}</span>
                 {% for hour in day.hours %}
                     <a class="schedule-rail-hour block rounded px-1.5 py-px text-center text-xs tabular-nums leading-snug [-webkit-touch-callout:none] hover:text-foreground data-active:bg-white data-active:font-bold data-active:text-coral-600 data-active:ring-1 data-active:ring-inset data-active:ring-coral-300/60 dark:data-active:bg-black dark:data-active:text-coral-400 dark:data-active:ring-coral-700/60"
-                       href="#slot-{{ hour.start|date:'Ymd-H' }}"
+                       href="#slot-{{ hour.slot_key }}"
                        draggable="false"
-                       data-rail-hour="{{ hour.start|date:'Ymd-H' }}"
-                       aria-label="{% blocktranslate with time=hour.start|time:'H:i' day=day.day_start|date:'l' %}Jump to {{ day }} {{ time }}{% endblocktranslate %}">{{ hour.start|time:"H" }}</a>
+                       data-rail-hour="{{ hour.slot_key }}"
+                       aria-label="{% blocktranslate with time=hour.start|time:'H:i' day=day.day_start|date:'l' %}Jump to {{ day }} {{ time }}{% endblocktranslate %}{% if hour.is_repeated %} {{ hour.start.tzname }}{% endif %}">{{ hour.start|time:"H" }}{% if hour.is_repeated %}<span class="block text-[0.5rem]">{{ hour.start.tzname }}</span>{% endif %}</a>
                 {% endfor %}
             {% endfor %}
         </nav>
