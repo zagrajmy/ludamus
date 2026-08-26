@@ -13,7 +13,7 @@ test.describe("Event filter panel", () => {
     const page = await context.newPage();
 
     await page.goto("/event/autumn-open/");
-    await page.getByRole("button", { name: "Filters" }).click();
+    await page.getByRole("button", { exact: true, name: "Filters" }).click();
     await expect(page.locator("#filter-panel.is-open")).toBeVisible();
 
     const box = await page.locator("#filter-panel").boundingBox();
@@ -34,7 +34,7 @@ test.describe("Event filter panel", () => {
     const page = await context.newPage();
 
     await page.goto("/event/autumn-open/");
-    await page.getByRole("button", { name: "Filters" }).click();
+    await page.getByRole("button", { exact: true, name: "Filters" }).click();
 
     // Polled, not read once: the panel animates in, and its box is still
     // travelling for a third of a second after it becomes visible.
@@ -53,7 +53,7 @@ test.describe("Event filter panel", () => {
 
     // A sheet covers its own trigger and leaves no outside to tap, so the way
     // out has to be inside it.
-    await page.getByRole("button", { name: "Close" }).click();
+    await page.getByRole("button", { name: "Close filters" }).click();
     await expect(page.locator("#filter-panel.is-open")).toBeHidden();
 
     await context.close();
@@ -73,7 +73,7 @@ test.describe("Event filter panel", () => {
       return rect;
     };
     const search = await box(page.getByRole("textbox", { name: "Search by name or text..." }));
-    const filters = await box(page.getByRole("button", { name: "Filters" }));
+    const filters = await box(page.getByRole("button", { exact: true, name: "Filters" }));
     const tabs = await box(page.getByRole("tablist"));
 
     for (const control of [filters, tabs]) {
@@ -90,7 +90,7 @@ test.describe("Event filter panel", () => {
 
     const filterPanel = page.locator("#filter-panel");
     await expect(filterPanel).toHaveCSS("transform", "none");
-    await page.getByRole("button", { name: "Filters" }).click();
+    await page.getByRole("button", { exact: true, name: "Filters" }).click();
     await expect(filterPanel).toHaveCSS("transform", "none");
   });
 
@@ -100,7 +100,7 @@ test.describe("Event filter panel", () => {
     const card = (title: string) => page.locator(".session", { hasText: title });
     await expect(page.locator(".session")).toHaveCount(3);
 
-    await page.getByRole("button", { name: "Filters" }).click();
+    await page.getByRole("button", { exact: true, name: "Filters" }).click();
     await expect(page.locator("#filter-panel.is-open")).toBeVisible();
 
     await expect(page.locator("#day-filter-group")).toBeVisible();
@@ -125,7 +125,7 @@ test.describe("Event filter panel", () => {
 
     const card = (title: string) => page.locator(".session", { hasText: title });
 
-    await page.getByRole("button", { name: "Filters" }).click();
+    await page.getByRole("button", { exact: true, name: "Filters" }).click();
     await page.locator("label").filter({ hasText: "Only with enrollment" }).click();
     await expect(page.locator("#filter-panel.is-open")).toBeVisible();
     await expect(page.getByRole("checkbox", { name: "Only with enrollment" })).toBeChecked();
@@ -138,7 +138,7 @@ test.describe("Event filter panel", () => {
 
   test("hides a select field the schedule gives nothing to pick between", async ({ page }) => {
     await page.goto("/event/autumn-open/");
-    await page.getByRole("button", { name: "Filters" }).click();
+    await page.getByRole("button", { exact: true, name: "Filters" }).click();
 
     // A filter that survives has something to pick: the two answered moods.
     await expect(page.getByRole("combobox", { name: "Mood" })).toBeVisible();
@@ -221,7 +221,7 @@ test.describe("Event filter panel", () => {
 
   test("the host filter offers the schedule's hosts and narrows to one", async ({ page }) => {
     await page.goto("/event/autumn-open/");
-    await page.getByRole("button", { name: "Filters" }).click();
+    await page.getByRole("button", { exact: true, name: "Filters" }).click();
 
     const hostFilter = page.getByRole("combobox", { name: "Host" });
     await hostFilter.click();
@@ -242,7 +242,7 @@ test.describe("Event filter panel", () => {
 
   test("the host combobox narrows as you type and commits on Enter", async ({ page }) => {
     await page.goto("/event/autumn-open/");
-    await page.getByRole("button", { name: "Filters" }).click();
+    await page.getByRole("button", { exact: true, name: "Filters" }).click();
 
     const hostFilter = page.getByRole("combobox", { name: "Host" });
     const options = page.getByRole("listbox", { name: "Host" }).getByRole("option");
@@ -266,7 +266,7 @@ test.describe("Event filter panel", () => {
     page,
   }) => {
     await page.goto("/event/autumn-open/");
-    await page.getByRole("button", { name: "Filters" }).click();
+    await page.getByRole("button", { exact: true, name: "Filters" }).click();
 
     const hostFilter = page.getByRole("combobox", { name: "Host" });
     await hostFilter.fill("chen");
@@ -287,7 +287,7 @@ test.describe("Event filter panel", () => {
 
   test("the host combobox folds diacritics like the search box does", async ({ page }) => {
     await page.goto("/event/autumn-open/");
-    await page.getByRole("button", { name: "Filters" }).click();
+    await page.getByRole("button", { exact: true, name: "Filters" }).click();
 
     const hostFilter = page.getByRole("combobox", { name: "Host" });
     await hostFilter.fill("wlodarczyk");
@@ -298,7 +298,7 @@ test.describe("Event filter panel", () => {
 
   test("clearing the filters puts the host combobox back to its placeholder", async ({ page }) => {
     await page.goto("/event/autumn-open/");
-    await page.getByRole("button", { name: "Filters" }).click();
+    await page.getByRole("button", { exact: true, name: "Filters" }).click();
 
     const hostFilter = page.getByRole("combobox", { name: "Host" });
     await hostFilter.click();
@@ -311,7 +311,7 @@ test.describe("Event filter panel", () => {
 
   test("the age filter keeps the sessions that admit the typed age", async ({ page }) => {
     await page.goto("/event/autumn-open/");
-    await page.getByRole("button", { name: "Filters" }).click();
+    await page.getByRole("button", { exact: true, name: "Filters" }).click();
 
     // Cozy Storytellers Circle is open to everyone; the other two require 10+.
     const card = (title: string) => page.getByRole("link", { name: `Open details for ${title}` });
@@ -335,8 +335,8 @@ test.describe("Event filter panel", () => {
 
   test("hides the host filter when every session shares one host", async ({ page }) => {
     await page.goto("/event/closed-enrollment/");
-    await page.getByRole("button", { name: "Filters" }).click();
-    await expect(page.getByRole("button", { name: "Filters" })).toHaveAttribute(
+    await page.getByRole("button", { exact: true, name: "Filters" }).click();
+    await expect(page.getByRole("button", { exact: true, name: "Filters" })).toHaveAttribute(
       "aria-expanded",
       "true",
     );
@@ -415,7 +415,7 @@ test.describe("Filter state in the URL", () => {
     await page.goto("/event/autumn-open/");
 
     await page.locator("#session-filter").fill("alex");
-    await page.getByRole("button", { name: "Filters" }).click();
+    await page.getByRole("button", { exact: true, name: "Filters" }).click();
     await page.getByRole("checkbox", { name: "Only with enrollment" }).check();
 
     // Poll the later edit: the sync that carries it reads every control, so
@@ -443,7 +443,7 @@ test.describe("Filter state in the URL", () => {
 
   test("offers the age ratings the schedule uses, as ratings not numbers", async ({ page }) => {
     await page.goto(DENSE_EVENT_URL);
-    await page.getByRole("button", { name: "Filters" }).click();
+    await page.getByRole("button", { exact: true, name: "Filters" }).click();
 
     // "Show me the 18+ programme" is one pick, not a number to guess at, and
     // the list is the event's own ratings rather than every age that exists.
@@ -470,7 +470,7 @@ test.describe("Filter state in the URL", () => {
 
   test("reads the two age bounds as the opposite questions they are", async ({ page }) => {
     await page.goto("/event/autumn-open/");
-    await page.getByRole("button", { name: "Filters" }).click();
+    await page.getByRole("button", { exact: true, name: "Filters" }).click();
 
     await page.getByRole("combobox", { name: "Age from" }).selectOption("10");
     await expect(card(page, "Cozy Storytellers Circle")).toBeHidden();
@@ -586,7 +586,7 @@ test.describe("Room filter", () => {
 
   test("groups the rooms under their parent space, in panel order", async ({ page }) => {
     await page.goto(denseEventUrl);
-    await page.getByRole("button", { name: "Filters" }).click();
+    await page.getByRole("button", { exact: true, name: "Filters" }).click();
 
     const spaceFilter = page.locator("#space-filter");
     await expect(page.locator("#space-filter-group")).toBeVisible();
@@ -603,7 +603,7 @@ test.describe("Room filter", () => {
 
   test("narrows the list to every room of the chosen venue", async ({ page }) => {
     await page.goto(denseEventUrl);
-    await page.getByRole("button", { name: "Filters" }).click();
+    await page.getByRole("button", { exact: true, name: "Filters" }).click();
 
     const venue = await page
       .locator('#space-filter option[value^="venue:"]')
@@ -631,7 +631,7 @@ test.describe("Room filter", () => {
 
   test("narrows the list to the chosen room", async ({ page }) => {
     await page.goto(denseEventUrl);
-    await page.getByRole("button", { name: "Filters" }).click();
+    await page.getByRole("button", { exact: true, name: "Filters" }).click();
 
     const total = await page.locator(".session-wrapper").count();
     const room = await page

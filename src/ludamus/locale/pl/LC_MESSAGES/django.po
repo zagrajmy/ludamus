@@ -4337,6 +4337,10 @@ msgid "Filters"
 msgstr "Filtry"
 
 #: src/ludamus/templates/chronology/event.html
+msgid "Close filters"
+msgstr "Zamknij filtry"
+
+#: src/ludamus/templates/chronology/event.html
 #: src/ludamus/templates/panel/proposals.html
 msgid "All statuses"
 msgstr "Wszystkie statusy"
@@ -9425,9 +9429,6 @@ msgstr "Temat"
 #: src/ludamus/templates/staging_email_inbox.html
 msgid "No emails captured yet."
 msgstr "Brak przechwyconych e-maili."
-
-#~ msgid "Close filters"
-#~ msgstr "Zamknij filtry"
 
 #~ msgid "Required age"
 #~ msgstr "Wymagany wiek"
