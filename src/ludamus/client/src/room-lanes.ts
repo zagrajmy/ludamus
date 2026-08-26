@@ -112,7 +112,7 @@ const dayCell = (from: ParentNode, field: string): HTMLElement | null =>
 // it carries the current day instead and the scroll position decides which day
 // that is.
 const trackCurrentDay = (lanes: HTMLElement, head: HTMLElement): (() => void) | null => {
-  const label = head.querySelector<HTMLElement>("[data-room-lanes-day-current]");
+  const label = lanes.querySelector<HTMLElement>("[data-room-lanes-day-current]");
   // Day one's heading is first and carries no row of its own (it is sr-only, so
   // it is out of flow and has no position to compare); every heading after it is
   // a seam that scrolls. So day one is the standing answer, not a snapshot of

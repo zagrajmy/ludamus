@@ -146,17 +146,9 @@ body:has(.room-lanes-panning) * {
   grid-row: 1 / -1;
 }
 
-/* The header is two rows: the current day, then the room names under it. The
-   name cells carry an explicit column and would otherwise auto-flow into the
-   day's row. */
-.room-lanes-day-current {
-  grid-column: 1 / -1;
-  grid-row: 1;
-}
-
 .room-lanes-corner,
 .room-lanes-head-cell {
-  grid-row: 2;
+  grid-row: 1;
 }
 
 /* The day break inside the body: a full-width band that reads as the seam
@@ -165,9 +157,6 @@ body:has(.room-lanes-panning) * {
   grid-column: 1 / -1;
   display: flex;
   align-items: flex-end;
-  /* No border of its own: the first hour line of the day draws directly under
-     it, and the two together read as a doubled rule. */
-  background: linear-gradient(to bottom, transparent, var(--color-bg-secondary));
 }
 
 .dark .room-lanes-rule {

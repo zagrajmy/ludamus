@@ -108,24 +108,29 @@ test.describe("Event schedule views", () => {
     await expect.poll(() => head.evaluate((el) => el.scrollLeft)).toBe(near);
   });
 
-  test("the header keeps naming the day you are scrolled into", async ({ page }) => {
+  test("the current day stays outside the edge fade and follows vertical scroll", async ({
+    page,
+  }) => {
     await page.goto(`${DENSE_EVENT_URL}?view=rooms`);
-    const header = page.locator("[data-room-lanes-head]");
+    const currentDay = page.locator("[data-room-lanes-day-current]");
     // Every day is a heading. The first opens the grid and has no seam to
     // scroll past — it is the one the header starts on — so the day to scroll
     // into is the second.
     const days = page.getByRole("heading", { level: 3 });
     expect(await days.count()).toBeGreaterThan(1);
     const [first, second] = (await days.allTextContents()).map(squash);
-    expect(squash(await header.textContent())).toContain(first);
-    expect(squash(await header.textContent())).not.toContain(second);
+    expect(squash(await currentDay.textContent())).toContain(first);
+    expect(squash(await currentDay.textContent())).not.toContain(second);
+    expect(
+      await currentDay.evaluate((label) => label.closest("[data-room-lanes-head]") === null),
+    ).toBe(true);
 
     // To the top of the scroller, not merely into view: the header floats over
     // the grid, and a seam parked just below the fold is still under it.
     await days.nth(1).evaluate((el) => {
       el.scrollIntoView({ block: "start" });
     });
-    await expect.poll(async () => squash(await header.textContent())).toContain(second);
+    await expect.poll(async () => squash(await currentDay.textContent())).toContain(second);
   });
 
   test("a line marks where the programme has got to", async ({ page }) => {

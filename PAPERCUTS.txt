@@ -324,3 +324,6 @@ If you fix a papercut, remove it.
   was unset; the traceback only later explained pytest-django could not
   initialize. Use mise run test:int -- PATH so the task supplies the test
   environment.
+- 2026-08-26: Ran format:djlint on a template change; it reformatted the file
+  and reported zero lint errors but still exited nonzero, so the formatting task
+  appeared to fail until rerun.
