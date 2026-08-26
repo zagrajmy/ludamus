@@ -2,13 +2,8 @@
 // the one thing the server cannot render into this page: it is cacheable, and
 // a line rendered server-side would be stale the moment it was served.
 
-export const HOUR_MS = 3_600_000;
-
-// Shifted, never replaced, by the dev panel below: a demo event's programme
-// sits days away from the real clock, so the only way to see the line during
-// development is to move now to where the sessions are.
-let offsetMs = 0;
-const clock = (): number => Date.now() + offsetMs;
+const HOUR_MS = 3_600_000;
+const MINUTE_MS = 60_000;
 
 const pad = (part: number): string => String(part).padStart(2, "0");
 
@@ -54,15 +49,29 @@ const placeInList = (at: number): void => {
   const seam = document.querySelector<HTMLElement>("[data-schedule-now]");
   if (!seam) return;
 
+  let lastStarted: { instant: string; row: HTMLElement } | undefined;
+  let programmeIsRunning = false;
   for (const row of document.querySelectorAll<HTMLElement>(".session-grid .session-wrapper")) {
     if (!row.checkVisibility()) continue;
-    // The rendered start, offset and all: the row's day and hour are the
-    // event's local wall clock, a different moment in a reader's timezone.
-    const instant = row.querySelector<HTMLElement>(".session")?.dataset.start ?? "";
+    const session = row.querySelector<HTMLElement>(".session");
+    const instant = session?.dataset.start ?? "";
     const start = Date.parse(instant);
-    if (Number.isNaN(start) || start <= at) continue;
-    setTime(seam, eventClock(instant, at));
-    row.before(seam);
+    if (Number.isNaN(start)) continue;
+    if (start > at) {
+      setTime(seam, eventClock(instant, at));
+      row.before(seam);
+      seam.hidden = false;
+      return;
+    }
+
+    lastStarted = { instant, row };
+    const end = Date.parse(session?.dataset.end ?? "");
+    programmeIsRunning ||= !Number.isNaN(end) && at < end;
+  }
+
+  if (lastStarted && programmeIsRunning) {
+    setTime(seam, eventClock(lastStarted.instant, at));
+    lastStarted.row.after(seam);
     seam.hidden = false;
     return;
   }
@@ -82,30 +91,30 @@ const observeGridLayout = (): void => {
 
 const place = (): void => {
   observeGridLayout();
-  const at = clock();
+  const at = Math.floor(Date.now() / MINUTE_MS) * MINUTE_MS;
   placeInGrid(at);
   placeInList(at);
 };
 
 layoutObserver = new ResizeObserver(place);
 
-// Once a minute is as fine as the line reads: the pill shows whole minutes and
-// an hour row is never short enough for a second to move the line visibly.
-let ticking: ReturnType<typeof setInterval> | undefined;
+let ticking: ReturnType<typeof setTimeout> | undefined;
+const queueNextMinute = (): void => {
+  if (ticking) clearTimeout(ticking);
+  ticking = setTimeout(
+    () => {
+      place();
+      queueNextMinute();
+    },
+    MINUTE_MS - (Date.now() % MINUTE_MS),
+  );
+};
+
 const start = (): void => {
   place();
-  ticking ??= setInterval(place, 60_000);
+  queueNextMinute();
 };
 
 start();
 document.body.addEventListener("htmx:afterSwap", start);
 document.addEventListener("schedule:filtered", place);
-
-if (import.meta.env.DEV) {
-  // Dynamic, so lil-gui and this panel stay out of the production bundle.
-  const { mountNowDebug } = await import("./schedule-now-debug");
-  mountNowDebug((ms: number) => {
-    offsetMs = ms;
-    place();
-  }, HOUR_MS);
-}

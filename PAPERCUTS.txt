@@ -327,3 +327,6 @@ If you fix a papercut, remove it.
 - 2026-08-26: Ran format:djlint on a template change; it reformatted the file
   and reported zero lint errors but still exited nonzero, so the formatting task
   appeared to fail until rerun.
+- 2026-08-26: Playwriter session expired between UI verification passes, so the
+  saved session could not inspect the refreshed page; use a fresh browser
+  session or the E2E server instead.

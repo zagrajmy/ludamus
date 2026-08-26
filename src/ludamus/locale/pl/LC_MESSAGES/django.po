@@ -3832,6 +3832,16 @@ msgstr[3] "+%(counter)s więcej"
 msgid "Any time"
 msgstr "Dowolny termin"
 
+#: src/ludamus/templates/chronology/_room_lanes.html
+#: src/ludamus/templates/chronology/anonymous_enroll.html
+#: src/ludamus/templates/chronology/parts/session-modal.html
+#: src/ludamus/templates/chronology/print.html
+#: src/ludamus/templates/panel/parts/_change-log-table.html
+#: src/ludamus/templates/panel/parts/timetable-grid.html
+#: src/ludamus/templates/panel/timetable-log.html
+msgid "Time"
+msgstr "Czas"
+
 #: src/ludamus/templates/chronology/_schedule_view_tabs.html
 msgid "Schedule view"
 msgstr "Widok harmonogramu"
@@ -3983,15 +3993,6 @@ msgstr "Prowadzący"
 #: src/ludamus/templates/chronology/parts/session-modal.html
 msgid "Participants"
 msgstr "Uczestnicy"
-
-#: src/ludamus/templates/chronology/anonymous_enroll.html
-#: src/ludamus/templates/chronology/parts/session-modal.html
-#: src/ludamus/templates/chronology/print.html
-#: src/ludamus/templates/panel/parts/_change-log-table.html
-#: src/ludamus/templates/panel/parts/timetable-grid.html
-#: src/ludamus/templates/panel/timetable-log.html
-msgid "Time"
-msgstr "Czas"
 
 #: src/ludamus/templates/chronology/anonymous_enroll.html
 #: src/ludamus/templates/chronology/enroll_select.html

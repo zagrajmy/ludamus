@@ -43,7 +43,9 @@
                     </section>
                 {% endfor %}
                 {# The "now" seam, moved between two rows by schedule-now.ts. #}
-                <div class="schedule-now" data-schedule-now hidden>{% include "chronology/_schedule_now_marker.html" %}</div>
+                <div class="schedule-now" data-schedule-now hidden>
+                    {% include "chronology/_schedule_now_marker.html" with extra_class="absolute top-0 start-2 -translate-y-1/2" %}
+                </div>
             {% endif %}
         </div>
         {# Hour scrubber: tap or drag to jump through the schedule by the hour. #}
@@ -52,7 +54,7 @@
         {# container — fitRail (event-timeline.ts) thins the markers until they #}
         {# fit the screen, and a non-scrollable rail chains wheel input to the #}
         {# page natively. #}
-        <nav class="schedule-rail sticky top-20 max-h-[calc(100dvh-6rem)] shrink-0 touch-none select-none self-start overflow-hidden py-1 text-foreground-muted"
+        <nav class="schedule-rail sticky top-14.5 max-h-[calc(100dvh-6rem)] shrink-0 touch-none select-none self-start overflow-hidden py-1 text-foreground-muted"
              aria-label="{% translate "Jump to time" %}">
             {% for day in schedule_days %}
                 <span class="block px-1.5 pt-2 pb-0.5 text-center text-[0.625rem] font-bold uppercase text-foreground-secondary first:pt-0">{{ day.day_start|date:"D" }}</span>

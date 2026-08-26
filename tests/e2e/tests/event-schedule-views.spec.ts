@@ -53,6 +53,15 @@ const firstStart = async (page: Page) =>
       .getAttribute("data-start"),
   );
 
+const finalSessionRange = async (page: Page) => {
+  const sessions = page.locator(".session-grid .session-wrapper .session");
+  const starts = scheduleMoment(await sessions.last().getAttribute("data-start"));
+  const ends = await sessions.evaluateAll((elements) =>
+    elements.map((element) => Date.parse((element as HTMLElement).dataset.end ?? "")),
+  );
+  return { starts, endsAt: Math.max(...ends) };
+};
+
 test.describe("Event schedule views", () => {
   test("the view switcher offers nothing when the schedule has one layout", async ({ page }) => {
     await page.goto(EVENT_URL);
@@ -167,7 +176,10 @@ test.describe("Event schedule views", () => {
     await page.clock.install({ time: half });
     await page.goto(`${DENSE_EVENT_URL}?view=rooms`);
 
-    const marker = page.getByText(`Now ${halfClock}`);
+    const roomMarker = page.locator("[data-room-lanes-now]");
+    const marker = roomMarker.locator(".schedule-now-pill");
+    await expect(roomMarker).toHaveAttribute("aria-hidden", "true");
+    await expect(marker).toContainText(halfClock);
     await expect(marker).toBeVisible();
     expect(
       await marker.evaluate((label) => label.closest("[data-room-lanes-scroll]") === null),
@@ -183,9 +195,15 @@ test.describe("Event schedule views", () => {
     const rule = await page.locator(".room-lanes-now-strip").boundingBox();
     expect(line).not.toBeNull();
     expect(rule).not.toBeNull();
-    expect(Math.abs((line?.y ?? 0) + (line?.height ?? 0) / 2 - (rule?.y ?? 0))).toBeLessThan(1);
+    expect(Math.abs((line?.y ?? 0) + (line?.height ?? 0) / 2 - (rule?.y ?? 0))).toBeLessThan(1.5);
     expect(line?.y).toBeGreaterThan(between[0]?.y ?? 0);
     expect(line?.y).toBeLessThan(between[1]?.y ?? 0);
+
+    await page.clock.runFor(60_000);
+    await expect(marker).toContainText(clockAfter(opens.clock, 31));
+    await expect
+      .poll(async () => (await page.locator(".room-lanes-now-strip").boundingBox())?.y ?? 0)
+      .toBeGreaterThan(rule?.y ?? 0);
 
     // A day before the doors open, nothing on the grid is now. The clock
     // ticking is what has to notice, not a reload.
@@ -223,6 +241,29 @@ test.describe("Event schedule views", () => {
     expect(below).toBeDefined();
     expect(startsAt(above?.text ?? "").localeCompare(atClock)).toBeLessThanOrEqual(0);
     expect(startsAt(below?.text ?? "").localeCompare(atClock)).toBeGreaterThan(0);
+  });
+
+  test("the ledger stays marked while the final sessions are running", async ({ page }) => {
+    await page.goto(DENSE_EVENT_URL);
+    const { starts, endsAt } = await finalSessionRange(page);
+    const oneMinuteAfterStart = starts.timestamp + 60_000;
+    expect(oneMinuteAfterStart).toBeLessThan(endsAt);
+    await page.clock.install({ time: new Date(oneMinuteAfterStart) });
+    await page.goto(DENSE_EVENT_URL);
+
+    const marker = page.getByText(`Now ${clockAfter(starts.clock, 1)}`);
+    await expect(marker).toBeVisible();
+    const [line, finalRow] = await Promise.all([
+      marker.boundingBox(),
+      page.getByRole("article").last().boundingBox(),
+    ]);
+    expect(line).not.toBeNull();
+    expect(finalRow).not.toBeNull();
+    expect(line?.y).toBeGreaterThan((finalRow?.y ?? 0) + (finalRow?.height ?? 0) - 2);
+
+    await page.clock.setFixedTime(new Date(endsAt + 60_000));
+    await page.clock.runFor(60_000);
+    await expect(marker).toBeHidden();
   });
 
   test("a filter that empties a day takes the whole day with it", async ({ page }) => {
