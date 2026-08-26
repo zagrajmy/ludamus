@@ -87,7 +87,7 @@ class RoomLane:
     # filtering collapses the column that carried it.
     name: str
     group: str
-    group_key: int
+    group_key: str
     starts_group: bool
 
 
@@ -260,17 +260,18 @@ def _room_key(data: SessionData) -> _RoomKey:
 
 def _room_lanes(keys: list[_RoomKey]) -> list[RoomLane]:
     lanes: list[RoomLane] = []
-    previous_group: int | None = None
+    previous_group: str | None = None
     for key in keys:
+        group_key = str(key.parent_id) if key.parent_id else ""
         lanes.append(
             RoomLane(
                 name=key.name,
                 group=key.parent_name,
-                group_key=key.parent_id,
-                starts_group=key.parent_id != previous_group,
+                group_key=group_key,
+                starts_group=group_key != previous_group,
             )
         )
-        previous_group = key.parent_id
+        previous_group = group_key
     return lanes
 
 

@@ -1037,7 +1037,7 @@ class TestEventPageView:
         item_b = AgendaItemFactory(
             session=session_b,
             space=space,
-            start_time=timezone.now() + timedelta(days=7, hours=3),
+            start_time=item_a.start_time + timedelta(hours=3),
         )
         cards = [
             session_card(
