@@ -120,6 +120,11 @@ class ComboboxNode(template.Node):
         # Copy the combobox owns, and `class`/`has_errors` as on {% select %};
         # every other keyword is forwarded onto the <select> element.
         element_id = str(resolved.get("id", ""))
+        # Read, not popped: the hidden input and the <noscript> <select> post
+        # under the same name and only one of them ever exists, so both need
+        # it. A combobox driving nothing but client-side state has none, which
+        # is why this stays optional rather than required.
+        name = str(resolved.get("name", ""))
         placeholder = str(resolved.pop("placeholder", "") or _("Search…"))
         empty_text = str(
             resolved.pop("empty_text", "") or _("Nothing matches your search.")
@@ -137,6 +142,7 @@ class ComboboxNode(template.Node):
                 "extra_class": extra_class,
                 "has_errors": has_errors,
                 "id": element_id,
+                "name": name,
                 "options": _read_options(slot, disabled=bool(resolved.get("disabled"))),
                 "options_id": f"{element_id}-options",
                 "placeholder": placeholder,

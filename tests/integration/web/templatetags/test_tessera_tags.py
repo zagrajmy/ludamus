@@ -359,6 +359,32 @@ class TestComboboxOptionData:
 
 
 class TestCombobox:
+    def test_the_hidden_input_posts_under_the_given_name(self) -> None:
+        # The upgraded control is what a form submits, and it takes its name
+        # from this attribute. Empty here means the field silently never posts.
+        tpl = Template(
+            "{% load tessera %}"
+            '{% tessera_combobox id="host" name="host" %}'
+            '<option value="ada">Ada</option>'
+            "{% endtessera_combobox %}"
+        )
+        html = tpl.render(Context())
+        assert 'data-combobox-name="host"' in html
+        # The scriptless <select> posts the same field, so it needs it too;
+        # only ever one of the two exists.
+        assert 'name="host"' in html
+
+    def test_a_combobox_driving_no_form_needs_no_name(self) -> None:
+        # The event page's host filter is one: it moves client-side state and
+        # posts nothing, so a missing name is a valid shape, not a wiring bug.
+        tpl = Template(
+            "{% load tessera %}"
+            '{% tessera_combobox id="host-filter" %}'
+            '<option value="ada">Ada</option>'
+            "{% endtessera_combobox %}"
+        )
+        assert 'data-combobox-name=""' in tpl.render(Context())
+
     def test_renders_select_and_shell(self) -> None:
         tpl = Template(
             "{% load tessera %}"

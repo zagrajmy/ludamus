@@ -14,8 +14,10 @@
 {# combobox.ts parses that one text node for its options, so the list is #}
 {# written once and serves both; the hidden input below carries the value #}
 {# and posts under the same name, and only one of the two ever exists. #}
-{# Vars: attrs (safe string), id, name, value, placeholder, empty_text, #}
+{# Vars: attrs (safe string), id, name, placeholder, empty_text, #}
 {# toggle_label, extra_class, has_errors, slot (safe string of <option>s). #}
+{# No `value`: what starts selected is `selected` on an <option>, the way a #}
+{# <select> says it, and the tag reads that into the options payload below. #}
 <div class="tessera-combobox relative" data-combobox>
     <noscript data-combobox-source>
         {% include "components/select.html" with attrs=attrs extra_class=extra_class has_errors=has_errors slot=slot only %}
@@ -36,7 +38,6 @@
     <input type="hidden"
            id="{{ id }}"
            data-combobox-name="{{ name|default:"" }}"
-           value="{{ value|default:"" }}"
            data-combobox-value>
     {# Unhidden by the script, so the select never flashes beside its own #}
     {# replacement on a slow first paint. #}
