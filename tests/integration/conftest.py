@@ -191,7 +191,11 @@ class ProposalCategoryFactory(DjangoModelFactory):
     class Meta:
         model = ProposalCategory
 
-    name = Faker("word")
+    # A name of its own per category, not a faker word: the event page's
+    # category filter lists the distinct names in use, so two categories
+    # drawing the same word silently shrink a dropdown a test built with one
+    # entry per session.
+    name = Sequence(lambda n: f"category-{n}")
     slug = Sequence(lambda n: f"proposal-category-{n}")
     event = SubFactory(EventFactory)
     max_participants_limit = 20
