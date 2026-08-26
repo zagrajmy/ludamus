@@ -27,6 +27,27 @@ const stayedOnPage = (page: Page) =>
 
 const enrollmentOnly = (page: Page) => page.getByRole("checkbox", { name: "Only with enrollment" });
 
+const squash = (text: string | null) => (text ?? "").replaceAll(/\s+/g, " ").trim();
+
+// A clock face the way the schedule prints one, so a test can name the time it
+// put on the clock and find it on the page.
+const clockFace = (at: Date) =>
+  at.toLocaleTimeString([], { hour: "2-digit", hour12: false, minute: "2-digit" });
+
+// The instant the programme opens. Setup only — nothing asserts on these.
+const firstHour = async (page: Page) =>
+  Date.parse(
+    (await page.locator("[data-hour-start]").first().getAttribute("data-hour-start")) ?? "",
+  );
+
+const firstStart = async (page: Page) =>
+  Date.parse(
+    (await page
+      .locator(".session-grid .session-wrapper .session")
+      .first()
+      .getAttribute("data-start")) ?? "",
+  );
+
 test.describe("Event schedule views", () => {
   test("the view switcher offers nothing when the schedule has one layout", async ({ page }) => {
     await page.goto(EVENT_URL);
@@ -82,79 +103,79 @@ test.describe("Event schedule views", () => {
     await expect.poll(() => head.evaluate((el) => el.scrollLeft)).toBe(near);
   });
 
-  test("the header names the day the reader is looking at", async ({ page }) => {
+  test("the header keeps naming the day you are scrolled into", async ({ page }) => {
     await page.goto(`${DENSE_EVENT_URL}?view=rooms`);
-    const label = page.locator("[data-room-lanes-day-current]");
-    const days = page.locator(".room-lanes-day");
-    expect(await days.count()).toBeGreaterThan(1);
+    const header = page.locator("[data-room-lanes-head]");
+    // Each seam between two days is a heading; the first one opens day two.
+    const secondDay = page.getByRole("heading", { level: 3 }).first();
+    const name = squash(await secondDay.textContent());
+    expect(name).not.toBe("");
 
-    const first = await days.first().innerText();
-    expect(await label.innerText()).toBe(first);
+    // At the top of the grid the header names the day the event opens on,
+    // which is not the day the first seam introduces.
+    expect(squash(await header.textContent())).not.toContain(name);
 
-    // Scroll the second day's heading under the header — the day the reader is
-    // in, which is what the sticky copy has to say.
-    const second = days.nth(1);
-    await second.evaluate((el) => {
+    // To the top of the scroller, not merely into view: the header floats over
+    // the grid, and a seam parked just below the fold is still under it.
+    await secondDay.evaluate((el) => {
       el.scrollIntoView({ block: "start" });
     });
-    await expect.poll(() => label.innerText()).toBe(await second.innerText());
+    await expect.poll(async () => squash(await header.textContent())).toContain(name);
   });
 
-  test("a line marks the current moment on the grid", async ({ page }) => {
+  test("a line marks where the programme has got to", async ({ page }) => {
     await page.goto(`${DENSE_EVENT_URL}?view=rooms`);
-    const firstLine = page.locator("[data-hour-start]").first();
-    const firstHour = await firstLine.getAttribute("data-hour-start");
-    const firstRow = await firstLine.getAttribute("data-lane-row");
-    expect(firstHour).not.toBeNull();
-    if (!firstHour) return;
-
-    // Half past the programme's first hour: a row for the line to land in and
-    // a fraction that is neither end of it.
-    await page.clock.install({ time: new Date(Date.parse(firstHour) + 30 * 60_000) });
+    // Arrangement, not assertion: the seeded event sits months from the real
+    // date, so the clock has to be moved onto its programme before a reader
+    // could ever see the line.
+    const opens = await firstHour(page);
+    const half = new Date(opens + 30 * 60_000);
+    await page.clock.install({ time: half });
     await page.goto(`${DENSE_EVENT_URL}?view=rooms`);
 
-    const marker = page.locator("[data-room-lanes-now]");
+    const marker = page.getByText(`Now ${clockFace(half)}`);
     await expect(marker).toBeVisible();
-    await expect(page.locator("[data-room-lanes-now-time]")).not.toBeEmpty();
-    const placed = await marker.evaluate((el) => ({
-      frac: Number(el.style.getPropertyValue("--now-frac")),
-      row: el.style.gridRow,
-    }));
-    expect(placed.row).toBe(firstRow);
-    expect(placed.frac).toBeCloseTo(0.5, 2);
 
-    // A day before the programme opens, no hour row owns the moment. The tick
-    // is what has to notice, not a reload.
-    await page.clock.setFixedTime(new Date(Date.parse(firstHour) - 24 * 3600 * 1000));
+    // It sits between the hour it belongs to and the next one on the axis.
+    const between = await Promise.all(
+      [opens, opens + 3600_000].map((hour) =>
+        page
+          .getByText(clockFace(new Date(hour)), { exact: true })
+          .filter({ visible: true })
+          .first()
+          .boundingBox(),
+      ),
+    );
+    const line = await marker.boundingBox();
+    expect(line).not.toBeNull();
+    expect(line?.y).toBeGreaterThan(between[0]?.y ?? 0);
+    expect(line?.y).toBeLessThan(between[1]?.y ?? 0);
+
+    // A day before the doors open, nothing on the grid is now. The clock
+    // ticking is what has to notice, not a reload.
+    await page.clock.setFixedTime(new Date(opens - 24 * 3600 * 1000));
     await page.clock.runFor(60_000);
     await expect(marker).toBeHidden();
   });
 
-  test("a line marks the seam between started and upcoming in the ledger", async ({ page }) => {
+  test("the ledger marks the seam between finished and upcoming", async ({ page }) => {
     await page.goto(DENSE_EVENT_URL);
-    const firstStart = await page
-      .locator(".session-grid .session-wrapper .session[data-start]")
-      .first()
-      .getAttribute("data-start");
-    expect(firstStart).not.toBeNull();
-    if (!firstStart) return;
-
-    const now = Date.parse(firstStart) + 90 * 60_000;
-    await page.clock.install({ time: new Date(now) });
+    const opens = await firstStart(page);
+    const at = new Date(opens + 90 * 60_000);
+    await page.clock.install({ time: at });
     await page.goto(DENSE_EVENT_URL);
 
-    // Exactly one seam, and it sits before the first row still to come.
-    const marked = page.locator(".session-wrapper[data-now-at]");
-    await expect(marked).toHaveCount(1);
-    const starts = await page.locator(".session-grid .session-wrapper").evaluateAll((rows) =>
-      rows.map((row) => ({
-        marked: row.hasAttribute("data-now-at"),
-        start: row.querySelector<HTMLElement>(".session")?.dataset.start ?? "",
-      })),
-    );
-    const seam = starts.findIndex((row) => row.marked);
-    expect(Date.parse(starts[seam].start)).toBeGreaterThan(now);
-    expect(Date.parse(starts[seam - 1].start)).toBeLessThanOrEqual(now);
+    const marker = page.getByText(`Now ${clockFace(at)}`);
+    await expect(marker).toBeVisible();
+
+    // The row above it has started, the row below it has not — which is the
+    // only thing the seam claims.
+    const line = await marker.boundingBox();
+    const rows = page.getByRole("link", { name: /^Open details for / });
+    const above = await rows.first().boundingBox();
+    const below = await rows.last().boundingBox();
+    expect(above?.y).toBeLessThan(line?.y ?? 0);
+    expect(below?.y).toBeGreaterThan(line?.y ?? 0);
   });
 
   test("the grid pans like a map: drag the background, or anything with Space", async ({

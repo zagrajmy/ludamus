@@ -258,18 +258,18 @@ class TestNightSessions:
         lanes = build_room_lanes(build_schedule_days({1: self._night_session()}))
 
         assert lanes is not None
-        # Both days share one grid: the first day's heading takes row 1 and its
-        # two hours rows 2 and 3, so the second day's heading lands on row 4.
-        assert [mark.row for mark in lanes.day_marks] == [1, 4]
+        # Both days share one grid. The first day opens it, so its two hours are
+        # rows 1 and 2; the seam before the second day takes row 3.
+        assert [(brk.day_start.day, brk.row) for brk in lanes.day_breaks] == [(11, 3)]
         assert [(mark.start.hour, mark.row) for mark in lanes.hour_marks] == [
-            (22, 2),
-            (23, 3),
-            (0, 5),
-            (1, 6),
+            (22, 1),
+            (23, 2),
+            (0, 4),
+            (1, 5),
         ]
         assert [(tile.row_start, tile.row_span) for tile in lanes.tiles] == [
-            (2, 2),
-            (5, 2),
+            (1, 2),
+            (4, 2),
         ]
 
 

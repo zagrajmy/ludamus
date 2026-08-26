@@ -26,21 +26,14 @@
 /* In the ledger: the seam between what has started and what has not. The rows
    are a list rather than a time axis, so the line marks the boundary between
    two rows instead of a position inside an hour. */
-.session-wrapper[data-now-at] {
+.schedule-now {
   position: relative;
-  margin-top: 0.875rem;
-}
-
-.session-wrapper[data-now-at]::before {
-  content: "";
-  position: absolute;
-  inset-inline: 0;
-  top: -0.4375rem;
   border-top: 2px solid var(--color-primary);
+  margin-block: 0.875rem;
 }
 
 .room-lanes-now-time,
-.session-wrapper[data-now-at]::after {
+.schedule-now-time {
   translate: 0 -50%;
   border-radius: 9999px;
   background: var(--color-primary);
@@ -60,9 +53,8 @@
   display: inline-block;
 }
 
-.session-wrapper[data-now-at]::after {
-  content: attr(data-now-at);
+.schedule-now-time {
   position: absolute;
-  top: -0.4375rem;
+  top: 0;
   inset-inline-start: 0.5rem;
 }

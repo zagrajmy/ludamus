@@ -34,25 +34,27 @@ const placeInGrid = (at: number): void => {
   marker.hidden = true;
 };
 
-// The ledger: a list of rows rather than a time axis, so the line marks the
-// seam between what has started and what has not.
+// The ledger: a list of rows rather than a time axis, so the seam moves to sit
+// between what has started and what has not.
 const placeInList = (at: number): void => {
+  const seam = document.querySelector<HTMLElement>("[data-schedule-now]");
+  if (!seam) return;
+
   // Scoped to the ledger: the grid's tiles are .session-wrapper as well, and
   // the seam belongs between rows, never inside a tile.
-  const rows = document.querySelectorAll<HTMLElement>(".session-grid .session-wrapper");
-  if (rows.length === 0) return;
-  let marked = false;
-  for (const row of rows) {
-    // The rendered start, offset and all: data-day/data-hour are the event's
-    // local wall clock, which is a different moment in a reader's timezone.
+  for (const row of document.querySelectorAll<HTMLElement>(".session-grid .session-wrapper")) {
+    // The rendered start, offset and all: the row's day and hour are the
+    // event's local wall clock, a different moment in a reader's timezone.
     const start = Date.parse(row.querySelector<HTMLElement>(".session")?.dataset.start ?? "");
-    if (!marked && !Number.isNaN(start) && start > at) {
-      row.dataset.nowAt = asTime(at);
-      marked = true;
-    } else {
-      delete row.dataset.nowAt;
-    }
+    if (Number.isNaN(start) || start <= at) continue;
+    const time = seam.querySelector<HTMLElement>("[data-schedule-now-time]");
+    if (time) time.textContent = asTime(at);
+    row.before(seam);
+    seam.hidden = false;
+    return;
   }
+  // Every session on the schedule has started: there is no seam to draw.
+  seam.hidden = true;
 };
 
 const place = (): void => {

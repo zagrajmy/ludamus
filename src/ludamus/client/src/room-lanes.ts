@@ -96,31 +96,33 @@ const collapseEmptyTracks = (lanes: HTMLElement): void => {
 // rendered. The header is outside the scroller and does stick to the page, so
 // it carries the current day instead and the scroll position decides which day
 // that is.
+const dayCell = (from: ParentNode, field: string): HTMLElement | null =>
+  from.querySelector<HTMLElement>(`[data-day-${field}]`);
+
 const trackCurrentDay = (lanes: HTMLElement, head: HTMLElement): (() => void) | null => {
   const label = head.querySelector<HTMLElement>("[data-room-lanes-day-current]");
-  const days = [...lanes.querySelectorAll<HTMLElement>(".room-lanes-day")];
-  if (!label || days.length === 0) return null;
+  const breaks = [...lanes.querySelectorAll<HTMLElement>(".room-lanes-day")];
+  if (!label || breaks.length === 0) return null;
 
-  const copy = (from: HTMLElement, field: string): void => {
-    const source = from.querySelector<HTMLElement>(`[data-day-${field}]`);
-    const target = label.querySelector<HTMLElement>(`[data-day-${field}]`);
-    if (source && target && target.textContent !== source.textContent) {
-      target.textContent = source.textContent;
-    }
-  };
+  const fields = ["name", "date"];
+  // The first day has no seam of its own, so its name is only ever the one the
+  // server rendered here. Keep it to put back when no seam has passed yet.
+  const firstDay = fields.map((field) => dayCell(label, field)?.textContent ?? "");
 
   return () => {
-    // The last day break that has passed under the header — the one whose
-    // rows the reader is looking at. Before the first break has reached it,
-    // that is still the first day.
+    // The last seam that has passed under the header names the day whose rows
+    // the reader is looking at; above the first one, that is still day one.
     const edge = head.getBoundingClientRect().bottom;
-    let current = days[0];
-    for (const day of days) {
-      if (day.getBoundingClientRect().top > edge) break;
-      current = day;
+    let current: HTMLElement | null = null;
+    for (const seam of breaks) {
+      if (seam.getBoundingClientRect().top > edge) break;
+      current = seam;
     }
-    copy(current, "name");
-    copy(current, "date");
+    for (const [index, field] of fields.entries()) {
+      const target = dayCell(label, field);
+      const text = current ? (dayCell(current, field)?.textContent ?? "") : firstDay[index];
+      if (target && target.textContent !== text) target.textContent = text;
+    }
   };
 };
 

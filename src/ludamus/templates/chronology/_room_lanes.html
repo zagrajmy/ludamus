@@ -68,11 +68,10 @@
                 {# Sticky-left so it stays legible while the header pans sideways. #}
                 <div class="room-lanes-day-current">
                     <div class="sticky left-0 inline-flex items-baseline gap-2 bg-background px-2 py-1 text-sm font-bold uppercase tracking-wide text-foreground-secondary"
-                         data-room-lanes-day-current
-                         aria-hidden="true">
-                        <span data-day-name>{{ room_lanes.day_marks.0.day_start|date:"l" }}</span>
+                         data-room-lanes-day-current>
+                        <span data-day-name>{{ room_lanes.first_day|date:"l" }}</span>
                         <span class="text-xs font-medium normal-case tracking-normal text-foreground-muted"
-                              data-day-date>{{ room_lanes.day_marks.0.day_start|date:"j F" }}</span>
+                              data-day-date>{{ room_lanes.first_day|date:"j F" }}</span>
                     </div>
                 </div>
                 <div class="room-lanes-corner sticky left-0 z-10 bg-background"></div>
@@ -106,10 +105,10 @@
         <div class="room-lanes-scroll scrollview-fade scrollview-fade-x-16 overflow-x-auto overflow-y-clip overscroll-x-contain"
              data-room-lanes-scroll>
             <div class="room-lanes-grid room-lanes-body">
-                {% for mark in room_lanes.day_marks %}
-                    {# The in-flow day break. Its label repeats the sticky one in #}
-                    {# the header, which only ever shows the day currently under #}
-                    {# the reader — this is the boundary itself. #}
+                {% for mark in room_lanes.day_breaks %}
+                    {# The seam between two days. The first day has none: the #}
+                    {# header already names it, and a break above the first row #}
+                    {# is a heading printed twice, not a boundary. #}
                     <div class="room-lanes-day" data-lane-row="{{ mark.row }}">
                         <h3 class="sticky left-0 inline-flex items-baseline gap-2 px-2 py-2 text-sm font-bold uppercase tracking-wide text-foreground-secondary">
                             <span data-day-name>{{ mark.day_start|date:"l" }}</span>
@@ -141,12 +140,15 @@
                 {# The "now" rule, placed by room-lanes.ts: the row it belongs to #}
                 {# and how far down it sits are both clock-dependent, so the #}
                 {# server cannot render them into a cacheable page. #}
-                <div class="room-lanes-now" data-room-lanes-now hidden aria-hidden="true">
+                <div class="room-lanes-now" data-room-lanes-now hidden>
                     {# The strip carries the rule and gives the time something #}
                     {# full-width to stick inside, so the label stays pinned to #}
                     {# the left edge with the hour axis while the grid pans. #}
                     <div class="room-lanes-now-strip">
-                        <span class="room-lanes-now-time" data-room-lanes-now-time></span>
+                        <span class="room-lanes-now-time">
+                            <span class="sr-only">{% translate "Now" %}</span>
+                            <span data-room-lanes-now-time></span>
+                        </span>
                     </div>
                 </div>
             </div>

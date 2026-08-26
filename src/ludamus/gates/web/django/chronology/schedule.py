@@ -67,9 +67,10 @@ class RoomLane:
 
 
 @dataclass
-class RoomLaneDayMark:
-    # A day's heading row. Days are stacked inside one room-keyed grid, so a
-    # day is a band of rows rather than a grid of its own.
+class RoomLaneDayBreak:
+    # The seam between two days: a heading row where one day's rows end and the
+    # next day's begin. The first day has none — there is nothing before it to
+    # break from, and the header already names it.
     day_start: datetime
     row: int
 
@@ -82,7 +83,8 @@ class RoomLanes:
     # accident. `rows` is the row numbers themselves — the template needs to
     # emit one CSS rule per row, and Django templates cannot count.
     rooms: list[RoomLane]
-    day_marks: list[RoomLaneDayMark]
+    first_day: datetime
+    day_breaks: list[RoomLaneDayBreak]
     hour_marks: list[RoomLaneHourMark]
     tiles: list[RoomLaneTile]
     rows: list[int]
@@ -203,15 +205,18 @@ def build_room_lanes(schedule_days: list[ScheduleDay]) -> RoomLanes | None:
     rooms = _room_lanes(keys)
     col_index = {key: index + 1 for index, key in enumerate(keys)}
 
-    day_marks: list[RoomLaneDayMark] = []
+    day_breaks: list[RoomLaneDayBreak] = []
     hour_marks: list[RoomLaneHourMark] = []
     tiles: list[RoomLaneTile] = []
     row = 1
-    for day in schedule_days:
-        day_marks.append(RoomLaneDayMark(day_start=day.day_start, row=row))
-        # The heading takes a row of its own, so the day's first hour starts
-        # under it and every row number below is absolute in the shared grid.
-        first_hour_row = row + 1
+    for index, day in enumerate(schedule_days):
+        if index:
+            day_breaks.append(RoomLaneDayBreak(day_start=day.day_start, row=row))
+            # The seam takes a row of its own, so the day's first hour starts
+            # under it and every row number below is absolute in the shared
+            # grid.
+            row += 1
+        first_hour_row = row
 
         day_start = day.day_start
         day_end = max(tile.end for tile in day.tiles)
@@ -242,7 +247,8 @@ def build_room_lanes(schedule_days: list[ScheduleDay]) -> RoomLanes | None:
 
     return RoomLanes(
         rooms=rooms,
-        day_marks=day_marks,
+        first_day=schedule_days[0].day_start,
+        day_breaks=day_breaks,
         hour_marks=hour_marks,
         tiles=tiles,
         rows=list(range(1, row)),
