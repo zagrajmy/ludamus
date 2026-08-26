@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from html.parser import HTMLParser
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, TypedDict
 
 from django import template
 from django.template.loader import render_to_string
@@ -14,6 +15,22 @@ from ._utils import format_tag_attrs, parse_tag_attrs
 
 if TYPE_CHECKING:
     from django.template.base import FilterExpression, Parser, Token
+
+
+@dataclass
+class _Option:
+    disabled: bool
+    label: str
+    selected: bool
+    value: str
+
+
+class _ComboboxOptions(TypedDict):
+    """What the browser is handed in place of the option markup."""
+
+    disabled: bool
+    rows: list[list[str]]
+    value: str
 
 
 class _OptionReader(HTMLParser):
@@ -29,32 +46,32 @@ class _OptionReader(HTMLParser):
 
     def __init__(self) -> None:
         super().__init__(convert_charrefs=True)
-        self.options: list[dict[str, object]] = []
-        self._open: dict[str, object] | None = None
+        self.options: list[_Option] = []
+        self._open: _Option | None = None
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         if tag != "option":
             return
         attributes = dict(attrs)
-        self._open = {
-            "disabled": "disabled" in attributes,
-            "label": "",
-            "selected": "selected" in attributes,
-            "value": attributes.get("value") or "",
-        }
+        self._open = _Option(
+            disabled="disabled" in attributes,
+            label="",
+            selected="selected" in attributes,
+            value=attributes.get("value") or "",
+        )
 
     def handle_data(self, data: str) -> None:
         if self._open is not None:
-            self._open["label"] = str(self._open["label"]) + data
+            self._open.label += data
 
     def handle_endtag(self, tag: str) -> None:
         if tag == "option" and self._open is not None:
-            self._open["label"] = str(self._open["label"]).strip()
+            self._open.label = self._open.label.strip()
             self.options.append(self._open)
             self._open = None
 
 
-def _read_options(slot: str, *, disabled: bool) -> dict[str, object]:
+def _read_options(slot: str, *, disabled: bool) -> _ComboboxOptions:
     """Turn the slot's options into the data the browser gets, not markup."""
     reader = _OptionReader()
     reader.feed(slot)
@@ -64,7 +81,7 @@ def _read_options(slot: str, *, disabled: bool) -> dict[str, object]:
     # A single select's value is the option marked selected, or failing that
     # the first one — the browser picks index 0 on its own, and reading the
     # parsed <select> used to give us that for free.
-    chosen = next((o for o in options if o["selected"]), None)
+    chosen = next((o for o in options if o.selected), None)
     if chosen is None and options:
         chosen = options[0]
 
@@ -72,8 +89,8 @@ def _read_options(slot: str, *, disabled: bool) -> dict[str, object]:
         "disabled": disabled,
         # A disabled option is not a row anyone can land on, but it can still
         # be the one showing, so it counts for the value above.
-        "rows": [[o["value"], o["label"]] for o in options if not o["disabled"]],
-        "value": chosen["value"] if chosen else "",
+        "rows": [[o.value, o.label] for o in options if not o.disabled],
+        "value": chosen.value if chosen else "",
     }
 
 
