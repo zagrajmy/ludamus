@@ -380,6 +380,32 @@ test.describe("Event filter panel", () => {
     await expect(card("Mega Strategy Lab")).toBeHidden();
   });
 
+  test("the host chip names the committed host, not the query that found it", async ({ page }) => {
+    await page.goto("/event/autumn-open/");
+    await page.getByRole("button", { exact: true, name: "Filters" }).click();
+
+    const chip = page.locator("#active-filter-chips .filter-chip").first();
+    const hostFilter = page.getByRole("combobox", { name: "Host" });
+
+    // The chip reads the combobox's visible input, so a commit that fires its
+    // change event before writing that input labels the chip with whatever the
+    // box still held — here the query, "chen".
+    await hostFilter.fill("chen");
+    await hostFilter.press("Enter");
+    await expect(chip).toHaveText(/^Priya Chen/);
+
+    await hostFilter.fill("morgan");
+    await hostFilter.press("Enter");
+    await expect(chip).toHaveText(/^Alex Morgan/);
+
+    // Clicking a row takes the same path, and with nothing typed the box holds
+    // the previous pick — so the same ordering bug labels the chip with the
+    // host being replaced.
+    await hostFilter.click();
+    await page.getByRole("option", { name: "Radek Włodarczyk" }).click();
+    await expect(chip).toHaveText(/^Radek Włodarczyk/);
+  });
+
   test("the host combobox says when nothing matches, and Escape restores the pick", async ({
     page,
   }) => {
