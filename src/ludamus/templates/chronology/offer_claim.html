@@ -28,7 +28,7 @@
                         <button type="submit" class="btn btn-primary">{% translate "Claim my spot" %}</button>
                     </form>
                     <form method="post"
-                          class="ph-no-capture"
+                          data-ph-no-capture
                           action="{% url 'web:chronology:offer-decline' token=token %}"
                           data-confirm="{% translate "Decline this offer? The held seat will be released." %}"
                           data-confirm-action="{% translate "Decline offer" %}">

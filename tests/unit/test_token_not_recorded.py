@@ -2,8 +2,12 @@
 
 `before_send` rewrites event properties, but it cannot reach the DOM rrweb
 serialises: snapshots and mutations are gzipped before the hook runs. So an
-element whose attribute holds a token has to carry `ph-no-capture`, which is
-rrweb's block class, or not hold the token at all.
+element whose attribute holds a token has to be blocked from the recording, or
+not hold the token at all.
+
+The marker is an attribute matched by `blockSelector`, not posthog's
+`ph-no-capture` class: autocapture reads that class too and drops the click
+event outright, and these are buttons whose use is worth measuring.
 
 That leaves a hand-kept list of elements, which is the kind that rots. This
 guard works the other way round: it finds every template that mentions a token
@@ -22,11 +26,12 @@ TEMPLATES = Path(__file__).resolve().parents[2] / "src" / "ludamus" / "templates
 TOKEN_MENTION = re.compile(
     r"\btoken\s*=|\bclaim_token\b|\b(?:claim|join|invite)_path\b"
 )
-BLOCKED = "ph-no-capture"
+BLOCKED = "data-ph-no-capture"
 # The guard reads names, not rendered output, so it cannot see a token that
 # arrives through `request.build_absolute_uri` in an included template — that
-# is what `slimDOMOptions.headMetaSocial` and the block on the login button
-# cover instead. What it does catch is a template that names a token directly.
+# is what `slimDOMOptions.headMetaSocial` covers instead, together with the
+# project's session-recording URL blocklist for the pages whose own address
+# holds a token. What this catches is a template naming a token directly.
 # Naming without rendering: `{% url … as claim_path %}` binds a variable, and
 # `{% if …claim_token %}` only asks whether one exists.
 NAMES_WITHOUT_RENDERING = re.compile(r"\{%\s*(?:if|elif|else\s+if)\b[^%]*%\}")

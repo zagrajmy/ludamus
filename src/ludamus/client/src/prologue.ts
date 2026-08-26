@@ -204,6 +204,11 @@ const initPosthog = (config: PosthogServerConfig): void => {
     disable_surveys: true,
     persistence: "localStorage+cookie",
     session_recording: {
+      // A selector, not posthog's ph-no-capture class: the class is read by
+      // autocapture too, which drops the click event entirely, and these are
+      // buttons whose use is worth measuring. This blocks the element from the
+      // recording and nothing else.
+      blockSelector: "[data-ph-no-capture]",
       maskAllInputs: true,
       maskTextSelector: "[data-ph-mask]",
       // base.html puts the current URL in og:url, and rrweb serialises social
