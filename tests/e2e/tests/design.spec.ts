@@ -75,9 +75,10 @@ test.describe("Design system page", () => {
     const page = await context.newPage();
     await page.goto("/design/");
 
-    // The markup ships a working select; the shell only appears once the
-    // script has something to upgrade it to.
-    await expect(page.locator("#t-combobox")).toBeVisible();
+    // The <noscript> content becomes real elements again exactly here, which
+    // is the whole point of putting the select in one: scriptless it is the
+    // working control, and with scripts it costs the page no nodes at all.
+    await expect(page.locator("select#t-combobox")).toBeVisible();
     await expect(page.locator("#t-combobox-input")).toBeHidden();
 
     await context.close();
@@ -244,21 +245,92 @@ test.describe("Design system page", () => {
     await expect(page.getByRole("log")).toContainText("Nothing matches", { timeout: 5000 });
   });
 
-  test("shows a disabled placeholder's label and keeps it out of the list", async ({ page }) => {
+  test("keeps its options out of the page", async ({ page }) => {
     await page.goto("/design/");
     const combobox = await upgradedCombobox(page, "Fruit");
 
-    // <option disabled selected> is the placeholder idiom, and the option a
-    // listbox must not offer is exactly the one the box has to name.
+    // The options a person can pick from are data, not nodes: the <noscript>
+    // the server wrote them into holds text and no elements at all.
+    expect(
+      await page.evaluate(() => {
+        const source = document.querySelector("[data-combobox-source]");
+        return { elements: source?.children.length, text: (source?.textContent ?? "").length };
+      }),
+    ).toEqual({ elements: 0, text: expect.any(Number) });
+
+    await combobox.click();
+    await expect(page.getByRole("option", { name: "Apple", exact: true })).toBeVisible();
+  });
+
+  test("renders a window of rows, not the whole list", async ({ page }) => {
+    await page.goto("/design/");
+    const combobox = await upgradedCombobox(page, "Fruit");
+
+    // What a convention actually looks like: hundreds of hosts on a page that
+    // already carries a card per session.
     await page.evaluate(() => {
-      const select = document.querySelector<HTMLSelectElement>("#t-combobox");
-      select?.options[0]?.setAttribute("disabled", "");
-      select?.closest("[data-combobox]")?.dispatchEvent(new CustomEvent("combobox:sync"));
+      const options: [string, string][] = Array.from({ length: 400 }, (_, index) => [
+        `host-${index}`,
+        `Host ${String(index).padStart(3, "0")}`,
+      ]);
+      document
+        .querySelector("#t-combobox")
+        ?.closest("[data-combobox]")
+        ?.dispatchEvent(new CustomEvent("combobox:sync", { detail: { options } }));
+    });
+    await combobox.click();
+
+    const listbox = page.getByRole("listbox", { name: "Fruit" });
+    const rendered = await listbox.getByRole("option").count();
+    expect(rendered).toBeGreaterThan(0);
+    expect(rendered).toBeLessThan(40);
+
+    // The rows nobody can see still have to occupy their scroll height, or the
+    // scrollbar would lie about how much list there is.
+    const { clientHeight, scrollHeight } = await page.evaluate(() => {
+      const scroller = document.querySelector("[data-combobox-scroller]");
+      return {
+        clientHeight: scroller?.clientHeight ?? 0,
+        scrollHeight: scroller?.scrollHeight ?? 0,
+      };
+    });
+    expect(clientHeight).toBeGreaterThan(0);
+    expect(scrollHeight).toBeGreaterThan(clientHeight * 5);
+
+    // Every rendered row says where it sits in the list it stands for, since
+    // the count a screen reader can see is not the count that matters.
+    // 405: the five the page ships plus the four hundred handed over, since a
+    // runtime list is appended to the server's rather than replacing it.
+    const first = listbox.getByRole("option").first();
+    await expect(first).toHaveAttribute("aria-setsize", "405");
+    await expect(first).toHaveAttribute("aria-posinset", "1");
+  });
+
+  test("keeps the active option in the DOM when it arrows past the window", async ({ page }) => {
+    await page.goto("/design/");
+    const combobox = await upgradedCombobox(page, "Fruit");
+
+    await page.evaluate(() => {
+      const options: [string, string][] = Array.from({ length: 200 }, (_, index) => [
+        `host-${index}`,
+        `Host ${String(index).padStart(3, "0")}`,
+      ]);
+      document
+        .querySelector("#t-combobox")
+        ?.closest("[data-combobox]")
+        ?.dispatchEvent(new CustomEvent("combobox:sync", { detail: { options } }));
     });
 
-    await expect(combobox).toHaveValue("Any fruit");
-    await combobox.click();
-    await expect(page.getByRole("option", { name: "Any fruit" })).toHaveCount(0);
-    await expect(page.getByRole("option", { name: "Apple", exact: true })).toBeVisible();
+    // Up from a closed list goes to the last option, which is as far outside
+    // the first window as it gets — and aria-activedescendant can only name a
+    // node that is actually rendered.
+    await combobox.press("ArrowUp");
+    const active = await combobox.getAttribute("aria-activedescendant");
+    expect(active).toBeTruthy();
+    await expect(page.locator(`#${active}`)).toHaveText(/Host 199/);
+    await expect(page.locator(`#${active}`)).toHaveAttribute("aria-selected", "true");
+
+    await combobox.press("Enter");
+    await expect(page.locator("#t-combobox")).toHaveValue("host-199");
   });
 });

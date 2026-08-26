@@ -6,17 +6,32 @@
 {% vite_asset_once 'src/combobox.ts' %}
 {# Searchable single-select, per the ARIA combobox pattern with list #}
 {# autocomplete: https://www.w3.org/WAI/ARIA/apg/patterns/combobox/ #}
-{# The <select> is the control — it holds the value, posts with a form and #}
-{# is what `change` listeners bind to. Script-free, it is the whole widget. #}
-{# combobox.ts hides it and drives the shell below in its place, mirroring #}
-{# every pick back onto it. Base UI keeps a hidden field for the same reason; #}
-{# starting from the native element also means no-JS keeps working. #}
-{# Vars: attrs (safe string), id, placeholder, empty_text, toggle_label, #}
-{# extra_class, has_errors, slot (safe string of <option>s). #}
-{# `class` lands on both controls, so the one on screen looks the same #}
-{# whether or not the upgrade ran. #}
+{# The <select> lives in <noscript> on purpose. With scripting on, the parser #}
+{# keeps a noscript's content as TEXT: no elements, so no layout, no style #}
+{# and no accessibility tree for options that can run to the hundreds — on a #}
+{# schedule page that already carries a card per session, that is the whole #}
+{# point. Scriptless, the same markup is a real, working select. #}
+{# combobox.ts parses that one text node for its options, so the list is #}
+{# written once and serves both; the hidden input below carries the value #}
+{# and posts under the same name, and only one of the two ever exists. #}
+{# Vars: attrs (safe string), id, name, value, placeholder, empty_text, #}
+{# toggle_label, extra_class, has_errors, slot (safe string of <option>s). #}
 <div class="tessera-combobox relative" data-combobox>
-    {% include "components/select.html" with attrs=attrs extra_class=extra_class has_errors=has_errors slot=slot only %}
+    <noscript data-combobox-source>
+        {% include "components/select.html" with attrs=attrs extra_class=extra_class has_errors=has_errors slot=slot only %}
+    </noscript>
+    {# The value once the upgrade has run: what forms post, what `change` #}
+    {# listeners read, and what the filter registry mirrors to the URL. #}
+    {# The name is attached by the script, not here: scriptless, the select #}
+    {# above is a real element again and the two would post the same field #}
+    {# twice. The id stays so callers can find this control without waiting #}
+    {# on the upgrade; scriptless it collides with the select's, harmlessly — #}
+    {# a label resolves to the select, which comes first and is the control. #}
+    <input type="hidden"
+           id="{{ id }}"
+           data-combobox-name="{{ name|default:"" }}"
+           value="{{ value|default:"" }}"
+           data-combobox-value>
     {# Unhidden by the script, so the select never flashes beside its own #}
     {# replacement on a slow first paint. #}
     <div data-combobox-shell
@@ -53,11 +68,17 @@
              popover="manual"
              hidden
              class="absolute left-0 right-0 top-full z-40 mt-1 overflow-hidden rounded-xl border border-border bg-bg-secondary shadow-xl">
-            <ul id="{{ id }}-listbox"
-                role="listbox"
-                data-combobox-listbox
-                class="max-h-60 overflow-y-auto py-1">
-            </ul>
+            {# The scroller is this wrapper, not the list: the rows outside #}
+            {# the rendered window are padding on the <ul>, and a box grows to #}
+            {# fit its own padding whatever its max-height says. So the cap #}
+            {# lives out here and the padded list scrolls inside it. #}
+            <div data-combobox-scroller class="max-h-60 overflow-y-auto">
+                <ul id="{{ id }}-listbox"
+                    role="listbox"
+                    data-combobox-listbox
+                    class="py-1">
+                </ul>
+            </div>
             {# Visual only. A live region inside a closed popover is display:none #}
             {# and never announces, and unhiding fixed text is not a content #}
             {# change either; combobox.ts writes the spoken copy into a region #}

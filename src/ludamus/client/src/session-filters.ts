@@ -63,6 +63,13 @@ interface CardFilter {
   /** Chip text for the active value. */
   chip: () => string;
   el: HTMLInputElement | HTMLSelectElement;
+  /**
+   * What kind of value the control holds, which decides the event to listen
+   * for and the URL codec to mirror through. Stated, not sniffed off the
+   * element: an upgraded combobox is an <input> holding a choice, so the tag
+   * name answers neither question.
+   */
+  kind: "age" | "choice";
   /** Card passes the active filter; not consulted while the control is empty. */
   matches: (card: HTMLElement, value: string) => boolean;
   /** Query-string name; url-state.ts lists the reserved names to stay clear of. */
@@ -77,6 +84,25 @@ const selectFilter = (
   active: (value) => value !== "",
   chip: () => selectedLabel(el),
   el,
+  kind: "choice",
+  matches,
+  param,
+});
+
+// An upgraded combobox has no selected <option> to read a chip off, so the
+// label comes from the visible input it drives — which is what the person
+// picked.
+const comboboxFilter = (
+  el: HTMLInputElement,
+  param: string,
+  matches: CardFilter["matches"],
+): CardFilter => ({
+  active: (value) => value !== "",
+  chip: () =>
+    el.closest("[data-combobox]")?.querySelector<HTMLInputElement>("[data-combobox-input]")
+      ?.value ?? "",
+  el,
+  kind: "choice",
   matches,
   param,
 });
@@ -114,12 +140,14 @@ const matchesTag =
 // prefixed so one named e.g. "status" cannot shadow a built-in param.
 const TAG_PARAM_NAMES: Record<string, string> = { __category: "category", __track: "track" };
 
-// A control the combobox module upgraded reads its label off the <select>,
-// and a programmatic write fires no `change` for it to notice. Every write
-// this module makes outside a user gesture — deep links, clear-all, a
-// repopulated list — says so here.
-const syncControl = (el: HTMLElement): void => {
-  el.closest("[data-combobox]")?.dispatchEvent(new CustomEvent("combobox:sync"));
+// An upgraded combobox keeps its options in JS, not in the page, and a
+// programmatic write to its value fires no `change` for it to notice. Every
+// write this module makes outside a user gesture — deep links, clear-all —
+// says so here, and a rebuilt list rides along as `options`.
+const syncControl = (el: HTMLElement, options?: [string, string][]): void => {
+  el.closest("[data-combobox]")?.dispatchEvent(
+    new CustomEvent("combobox:sync", { detail: { options } }),
+  );
 };
 
 let documentListeners = new AbortController();
@@ -132,7 +160,7 @@ const initSessionFilters = (): void => {
   const dayFilter = byId<HTMLSelectElement>("day-filter");
   const hourFilter = byId<HTMLSelectElement>("hour-filter");
   const spaceFilter = byId<HTMLSelectElement>("space-filter");
-  const hostFilter = byId<HTMLSelectElement>("host-filter");
+  const hostFilter = byId<HTMLInputElement>("host-filter");
   const ageFilter = byId<HTMLInputElement>("age-filter");
   const enrollmentFilter = document.querySelector<HTMLInputElement>("#enrollment-filter");
   const filterToggle = byId("filter-toggle");
@@ -188,6 +216,16 @@ const initSessionFilters = (): void => {
     if (entries.length > 1) document.getElementById(groupId)?.classList.remove("hidden");
   };
 
+  // The host list is handed to the combobox as data rather than built as
+  // options: an event's hosts run to the hundreds, and this page already
+  // carries a card per session.
+  const populateHosts = (entries: [string, string][]): void => {
+    syncControl(hostFilter, entries);
+    if (entries.length > 1) {
+      document.getElementById("host-filter-group")?.classList.remove("hidden");
+    }
+  };
+
   const dayChoices = [...cardValues("day", "dayLabel")].sort((a, b) => a[0].localeCompare(b[0]));
   populateChoices(dayFilter, "day-filter-group", dayChoices);
   const hourChoices = [...cardValues("hour")].sort((a, b) => a[0].localeCompare(b[0]));
@@ -195,11 +233,7 @@ const initSessionFilters = (): void => {
   if (dayChoices.length > 1 || hourChoices.length > 1) {
     document.getElementById("day-hour-filter-group")?.classList.remove("hidden");
   }
-  populateChoices(
-    hostFilter,
-    "host-filter-group",
-    [...cardValues("host")].sort((a, b) => a[1].localeCompare(b[1])),
-  );
+  populateHosts([...cardValues("host")].sort((a, b) => a[1].localeCompare(b[1])));
 
   // Populate the location filter — one control for the whole space tree. The
   // option value is the space's sort key, so sorting the entries lays the rooms
@@ -299,6 +333,7 @@ const initSessionFilters = (): void => {
       active: (value) => ageParam.parse(value) !== null,
       chip: () => `${filterChipsBar.dataset.ageLabel ?? ""} ${ageFilter.value}`.trim(),
       el: ageFilter,
+      kind: "age" as const,
       // The participant's age against the session's requirement: an
       // unrestricted session (min age 0) admits everyone, so it always stays.
       matches: (card, value) => (Number(card.dataset.minAge) || 0) <= Number(value),
@@ -309,7 +344,7 @@ const initSessionFilters = (): void => {
     ...Object.entries(tagFilters).map(([slug, select]) =>
       selectFilter(select, TAG_PARAM_NAMES[slug] ?? `tag-${slug}`, matchesTag(slug)),
     ),
-    selectFilter(hostFilter, "host", dataMatch("host")),
+    comboboxFilter(hostFilter, "host", dataMatch("host")),
   ];
 
   // Controls whose value lives in the query string too, each bound through a
@@ -356,7 +391,7 @@ const initSessionFilters = (): void => {
   // deep link (a venue renamed, a tag gone) degrades to "all", not an error.
   // That makes the DOM the value schema here; the options are built from the
   // cards at init, so a static codec could only restate them, worse.
-  const mirrorSelect = (name: string, select: HTMLSelectElement): void => {
+  const mirrorChoice = (name: string, select: HTMLInputElement | HTMLSelectElement): void => {
     mirror(
       name,
       stringParam,
@@ -369,7 +404,7 @@ const initSessionFilters = (): void => {
   };
   // A number input's value is "" or a numeric string, never garbage; the
   // codec adds the range check the attribute alone doesn't enforce on load.
-  const mirrorAge = (name: string, input: HTMLInputElement): void => {
+  const mirrorAge = (name: string, input: HTMLInputElement | HTMLSelectElement): void => {
     mirror(
       name,
       ageParam,
@@ -391,9 +426,8 @@ const initSessionFilters = (): void => {
       },
     );
   }
-  // The age input is the registry's only non-select control.
   for (const f of cardFilters) {
-    if (f.el instanceof HTMLSelectElement) mirrorSelect(f.param, f.el);
+    if (f.kind === "choice") mirrorChoice(f.param, f.el);
     else mirrorAge(f.param, f.el);
   }
 
@@ -583,7 +617,9 @@ const initSessionFilters = (): void => {
   sessionFilter.addEventListener("input", filterSessions);
   enrollmentFilter?.addEventListener("change", filterSessions);
   for (const f of cardFilters) {
-    f.el.addEventListener(f.el instanceof HTMLSelectElement ? "change" : "input", filterSessions);
+    // A choice is committed, not typed: the combobox writes its hidden input
+    // and says `change`, exactly as the selects do.
+    f.el.addEventListener(f.kind === "choice" ? "change" : "input", filterSessions);
   }
 
   filterToggle.addEventListener("click", () => {

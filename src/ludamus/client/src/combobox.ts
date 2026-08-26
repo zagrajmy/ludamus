@@ -1,12 +1,15 @@
-// Upgrades a [data-combobox]'s native <select> into a searchable combobox,
-// following the ARIA pattern with list autocomplete:
+// Upgrades a [data-combobox] into a searchable combobox, following the ARIA
+// pattern with list autocomplete:
 // https://www.w3.org/WAI/ARIA/apg/patterns/combobox/
 //
-// The select stays the value. It holds the options, posts with a form, and
-// receives a `change` event on every pick, so code bound to it — the event
-// page's filter registry, say — needs to know nothing about this module.
-// Base UI keeps a hidden field for the same reason; starting from the real
-// element also leaves a working control when the script never runs.
+// Nothing here puts an option in the page. The server writes the <select> and
+// its options inside a <noscript>, which the parser keeps as text when
+// scripting is on, and this module reads that text for its data — so a list
+// that runs to the hundreds costs one text node instead of hundreds of
+// elements, and a scriptless browser still gets the real control. What ships
+// as DOM is a hidden input holding the value (so forms post and `change`
+// listeners keep working, as they did with the select) plus a pooled window
+// of a dozen option rows.
 //
 // DOM focus never enters the list: the input keeps it and aria-activedescendant
 // names the active option, as the pattern requires.
@@ -69,22 +72,60 @@ const requireEl = <T extends HTMLElement>(root: HTMLElement, selector: string): 
 };
 
 interface Row {
-  el: HTMLElement;
   label: string;
   /** Folded label; what a typed query is matched against. */
   search: string;
   value: string;
 }
 
+const toRow = (label: string, value: string): Row => ({
+  label,
+  search: normalizeText(label),
+  value,
+});
+
+/**
+ * The options, read back out of the <noscript> the server wrote them into.
+ *
+ * With scripting on, the parser keeps a noscript's content as text rather than
+ * elements, so this is the only way back to it — and the reason the page
+ * carries no option nodes at all. Parsing it yields a real <select>, so the
+ * `selected` and `disabled` the server wrote still mean what they say.
+ */
+const parseSource = (source: HTMLElement): { disabled: boolean; rows: Row[]; value: string } => {
+  const select = new DOMParser()
+    .parseFromString(source.textContent ?? "", "text/html")
+    .querySelector("select");
+  const rows: Row[] = [];
+  for (const option of select?.options ?? []) {
+    if (option.disabled) continue;
+    rows.push(toRow(option.textContent?.trim() ?? "", option.value));
+  }
+  return { disabled: select?.disabled ?? false, rows, value: select?.value ?? "" };
+};
+
+/** Options carried on a `combobox:sync`, for a list the page assembled itself. */
+const optionsFrom = (event: Event): Row[] | undefined => {
+  const supplied: unknown = event instanceof CustomEvent ? event.detail?.options : undefined;
+  if (!Array.isArray(supplied)) return undefined;
+  return supplied.map(([value, label]: [string, string]) => toRow(label, value));
+};
+
 const upgrade = (root: HTMLElement): void => {
-  const select = requireEl<HTMLSelectElement>(root, "select");
-  // Leave a disabled control alone rather than replacing it with a working
-  // one; the native select stays as the (inert) widget.
-  if (select.disabled) return;
+  const source = requireEl(root, "[data-combobox-source]");
+  const value = requireEl<HTMLInputElement>(root, "[data-combobox-value]");
+  const parsed = parseSource(source);
+  // Leave a disabled control disabled rather than replacing it with a working
+  // one.
+  if (parsed.disabled) return;
+  value.value ||= parsed.value;
+  // Only now the select is out of the picture, so the field posts once.
+  value.name = value.dataset.comboboxName ?? "";
   const shell = requireEl(root, "[data-combobox-shell]");
   const input = requireEl<HTMLInputElement>(root, "[data-combobox-input]");
   const toggle = requireEl(root, "[data-combobox-toggle]");
   const popup = requireEl(root, "[data-combobox-popup]");
+  const scroller = requireEl(root, "[data-combobox-scroller]");
   const listbox = requireEl(root, "[data-combobox-listbox]");
   const empty = requireEl(root, "[data-combobox-empty]");
   const optionTemplate = requireEl<HTMLTemplateElement>(root, OPTION_TEMPLATE);
@@ -92,6 +133,28 @@ const upgrade = (root: HTMLElement): void => {
   let rows: Row[] = [];
   let shown: Row[] = [];
   let activeIndex = -1;
+
+  // Only a window of the matching rows is in the DOM. An event's hosts run to
+  // the hundreds and the schedule page already carries a card per session, so
+  // the options are the difference between a heavy page and a heavier one.
+  //
+  // The window is a pool of elements reassigned as it moves, with the rows
+  // above and below it accounted for by padding on the scroller rather than
+  // spacer nodes — a listbox's children have to be options.
+  const OVERSCAN = 4;
+  // ponytail: a flat ceiling on the window rather than trusting a layout read.
+  // place() measures the popup with its cap off, and a virtual list's natural
+  // height is the whole list, so clientHeight can come back as thousands of
+  // pixels mid-placement and ask for every row. The listbox is capped at 15rem
+  // — around seven rows — so this is threefold headroom. Raise it if a caller
+  // ever gives the popup a taller cap.
+  const MAX_WINDOW_ROWS = 24;
+  // Only until the first real row can be measured; the rows are uniform, so
+  // one measurement serves the whole list.
+  const ASSUMED_ROW_HEIGHT = 36;
+  let pool: HTMLElement[] = [];
+  let windowStart = 0;
+  let rowHeight = 0;
 
   // The top layer ignores the ancestor overflow and transforms that would
   // otherwise clip the popup, but it also takes it out of the flow — so the
@@ -112,26 +175,25 @@ const upgrade = (root: HTMLElement): void => {
     popup.style.position = "fixed";
     popup.style.left = `${rect.left}px`;
     popup.style.width = `${rect.width}px`;
-    // Measure unconstrained first: the width decides how the rows wrap, and
-    // last call's cap would otherwise be read back as the natural height.
-    listbox.style.removeProperty("max-height");
     popup.style.top = `${rect.bottom + GAP}px`;
-    const { height } = popup.getBoundingClientRect();
+
+    // The height the list wants is computed, not measured: the rows outside
+    // the window are padding, so measuring it would only ever report the whole
+    // list. Chrome is what the popup adds around it, which is a constant.
+    const chrome = popup.getBoundingClientRect().height - scroller.getBoundingClientRect().height;
+    const wanted = chrome + shown.length * (rowHeight || ASSUMED_ROW_HEIGHT);
 
     const below = band.bottom - rect.bottom - GAP;
     const above = rect.top - band.top - GAP;
     // Flip above when the list would run off the visible bottom and the other
     // side has more to give.
-    const flipped = height > below && above > below;
+    const flipped = wanted > below && above > below;
     const room = Math.max(flipped ? above : below, MIN_ROOM);
 
-    // Give the list the room back as scroll rather than letting the popup
-    // spill past the edge; the chrome around it keeps its size either way.
-    if (height > room) {
-      const chrome = height - listbox.getBoundingClientRect().height;
-      listbox.style.maxHeight = `${Math.max(room - chrome, 0)}px`;
-    }
-    const settled = Math.min(height, room);
+    // Always set, never removed: the list grows whenever its options are
+    // rebuilt, and a cap left off would let it run the height of the page.
+    scroller.style.maxHeight = `${Math.max(room - chrome, 0)}px`;
+    const settled = Math.min(wanted, room);
     const top = flipped ? rect.top - settled - GAP : rect.bottom + GAP;
     // Clamped, not trusted: WebKit is known to leave offsetTop stale after the
     // keyboard closes, and a bad anchor should still land on screen.
@@ -154,48 +216,130 @@ const upgrade = (root: HTMLElement): void => {
   };
 
   const isOpen = (): boolean => input.getAttribute("aria-expanded") === "true";
-  // Read from the select, not from rows: a disabled option is kept out of the
-  // listbox but can still be the selected one — that is the placeholder idiom,
-  // <option disabled selected> — and the box still has to show its label.
-  const labelOf = (value: string): string =>
-    [...select.options].find((option) => option.value === value)?.textContent?.trim() ?? "";
+  const labelOf = (wanted: string): string => rows.find((row) => row.value === wanted)?.label ?? "";
 
-  /** Rebuild the rows from the select, which may be repopulated at any time. */
-  const syncOptions = (): void => {
+  /**
+   * Take a new option list. Whatever the page built is appended to whatever
+   * the server wrote, which is how the placeholder row ("All hosts") survives
+   * a list assembled at runtime.
+   */
+  const syncOptions = (supplied?: Row[]): void => {
     listbox.replaceChildren();
-    rows = [];
-    for (const [index, option] of [...select.options].entries()) {
-      const el = optionTemplate.content.firstElementChild?.cloneNode(true);
-      if (!(el instanceof HTMLElement)) continue;
-      if (option.disabled) continue;
-      el.id = `${select.id}-option-${index}`;
-      const label = option.textContent?.trim() ?? "";
+    pool = [];
+    windowStart = 0;
+    rows = supplied ? [...parsed.rows, ...supplied] : parsed.rows;
+  };
+
+  /** One more pooled option element, appended in window order. */
+  const growPool = (): HTMLElement | undefined => {
+    const el = optionTemplate.content.firstElementChild?.cloneNode(true);
+    if (!(el instanceof HTMLElement)) return undefined;
+    listbox.append(el);
+    pool.push(el);
+    return el;
+  };
+
+  const rowAt = (el: Element | null): Row | undefined => {
+    const index = Number(el instanceof HTMLElement ? el.dataset.index : Number.NaN);
+    return Number.isInteger(index) ? shown[index] : undefined;
+  };
+
+  /**
+   * Draw the slice of `shown` around the scroll position, and keep the active
+   * option inside it — aria-activedescendant can only name a rendered node.
+   */
+  const renderWindow = (): void => {
+    const height = rowHeight || ASSUMED_ROW_HEIGHT;
+    const viewport = scroller.clientHeight || height * (OVERSCAN * 2);
+    const count = Math.min(
+      shown.length,
+      Math.ceil(viewport / height) + OVERSCAN * 2,
+      MAX_WINDOW_ROWS,
+    );
+    let start = Math.max(0, Math.floor(scroller.scrollTop / height) - OVERSCAN);
+    start = Math.min(start, Math.max(0, shown.length - count));
+    if (activeIndex !== -1) {
+      start = Math.max(0, Math.min(start, activeIndex));
+      start = Math.max(start, Math.min(activeIndex - count + 1, shown.length - count));
+      start = Math.max(0, start);
+    }
+    windowStart = start;
+
+    for (let offset = 0; offset < count; offset++) {
+      const el = pool[offset] ?? growPool();
+      const row = shown[start + offset];
+      if (!el || !row) continue;
+      const index = start + offset;
+      el.hidden = false;
+      el.id = `${value.id}-option-${index}`;
+      el.dataset.index = String(index);
+      // The list a screen reader is told about is the whole filtered set, not
+      // the handful of nodes standing in for it.
+      el.setAttribute("aria-setsize", String(shown.length));
+      el.setAttribute("aria-posinset", String(index + 1));
+      el.setAttribute("aria-selected", String(index === activeIndex));
+      el.toggleAttribute("data-active", index === activeIndex);
+      el.toggleAttribute("data-chosen", row.value === value.value);
       const labelEl = el.querySelector("[data-combobox-option-label]");
-      if (labelEl) labelEl.textContent = label;
-      listbox.append(el);
-      rows.push({ el, label, search: normalizeText(label), value: option.value });
+      if (labelEl && labelEl.textContent !== row.label) labelEl.textContent = row.label;
+    }
+    for (let offset = count; offset < pool.length; offset++) {
+      const el = pool[offset];
+      if (!el) continue;
+      el.hidden = true;
+      // The id goes with the row, not the element: a parked one holding the id
+      // of a row now drawn elsewhere would make aria-activedescendant ambiguous.
+      el.removeAttribute("id");
+      delete el.dataset.index;
+    }
+
+    // The rows outside the window still have to occupy their scroll height,
+    // and a listbox may not hold spacer children.
+    listbox.style.paddingTop = `${start * height}px`;
+    listbox.style.paddingBottom = `${Math.max(0, shown.length - start - count) * height}px`;
+
+    if (!rowHeight && pool[0] && !pool[0].hidden) {
+      const measured = pool[0].getBoundingClientRect().height;
+      // Re-run once on the real height: the first pass sized the window and
+      // the padding from a guess.
+      if (measured > 0 && measured !== height) {
+        rowHeight = measured;
+        renderWindow();
+      }
+    }
+  };
+
+  const elementFor = (index: number): HTMLElement | undefined => pool[index - windowStart];
+
+  /** Bring the active row into the scroller by arithmetic — it may not be drawn yet. */
+  const scrollActiveIntoView = (): void => {
+    const height = rowHeight || ASSUMED_ROW_HEIGHT;
+    const top = activeIndex * height;
+    if (top < scroller.scrollTop) scroller.scrollTop = top;
+    else if (top + height > scroller.scrollTop + scroller.clientHeight) {
+      scroller.scrollTop = top + height - scroller.clientHeight;
     }
   };
 
   const setActive = (index: number): void => {
     activeIndex = index;
-    for (const row of rows) {
-      delete row.el.dataset.active;
-    }
-    for (const row of rows) row.el.setAttribute("aria-selected", "false");
-    const row = shown[index];
-    if (row) {
-      row.el.dataset.active = "";
-      // On the active option, not on the chosen value: Chrome + VoiceOver only
-      // speaks an aria-activedescendant move when the named option carries it.
-      row.el.setAttribute("aria-selected", "true");
-      input.setAttribute("aria-activedescendant", row.el.id);
-      row.el.scrollIntoView({ block: "nearest" });
-    } else {
+    if (!shown[index]) {
+      activeIndex = -1;
+      renderWindow();
       // Removed, not emptied: the attribute must name a real option or
       // nothing at all.
       input.removeAttribute("aria-activedescendant");
+      return;
     }
+    scrollActiveIntoView();
+    // Draw before naming: aria-activedescendant has to point at a node that
+    // is in the DOM, and the window may have to move to hold this row.
+    renderWindow();
+    const el = elementFor(index);
+    // On the active option, not on the chosen value: Chrome + VoiceOver only
+    // speaks an aria-activedescendant move when the named option carries
+    // aria-selected, which renderWindow has just set.
+    if (el) input.setAttribute("aria-activedescendant", el.id);
   };
 
   const resultsLabel = shell.dataset.resultsLabel ?? "";
@@ -216,14 +360,12 @@ const upgrade = (root: HTMLElement): void => {
   /** Narrow the list to `query`. */
   const applyFilter = (query: string): void => {
     const needle = normalizeText(query.trim());
-    shown = [];
-    for (const row of rows) {
-      const matched = !needle || row.search.includes(needle);
-      row.el.hidden = !matched;
-      row.el.toggleAttribute("data-chosen", row.value === select.value);
-      if (matched) shown.push(row);
-    }
+    shown = needle ? rows.filter((row) => row.search.includes(needle)) : [...rows];
     empty.hidden = shown.length > 0;
+    scroller.scrollTop = 0;
+    renderWindow();
+    // A narrower list is a shorter popup, and its height is what places it.
+    if (isOpen()) place();
   };
 
   const setOpen = (open: boolean): void => {
@@ -250,19 +392,19 @@ const upgrade = (root: HTMLElement): void => {
   };
 
   const open = (activate: "first" | "last" | "none" | "selected" = "none"): void => {
-    applyFilter(input.value === labelOf(select.value) ? "" : input.value);
+    applyFilter(input.value === labelOf(value.value) ? "" : input.value);
     setOpen(true);
     if (activate === "none") return;
     if (activate === "first") setActive(0);
     else if (activate === "last") setActive(shown.length - 1);
-    else setActive(shown.findIndex((row) => row.value === select.value));
+    else setActive(shown.findIndex((row) => row.value === value.value));
   };
 
-  /** Write a pick back to the select — the value everything else reads. */
+  /** Write a pick to the hidden input — the value everything else reads. */
   const commit = (row: Row | undefined): void => {
     if (row) {
-      select.value = row.value;
-      select.dispatchEvent(new Event("change", { bubbles: true }));
+      value.value = row.value;
+      value.dispatchEvent(new Event("change", { bubbles: true }));
     }
     // Either way the box shows what is selected: a query that committed
     // nothing is not a value, and leaving it visible would disagree with the
@@ -271,7 +413,7 @@ const upgrade = (root: HTMLElement): void => {
   };
 
   const close = (): void => {
-    input.value = labelOf(select.value);
+    input.value = labelOf(value.value);
     setOpen(false);
   };
 
@@ -374,15 +516,15 @@ const upgrade = (root: HTMLElement): void => {
   listbox.addEventListener("pointerdown", (event: PointerEvent) => {
     // Before the click, so the input never loses focus to the option.
     event.preventDefault();
-    const el = optionUnder(event.target);
-    if (el) commit(rows.find((row) => row.el === el));
+    const row = rowAt(optionUnder(event.target));
+    if (row) commit(row);
   });
 
   listbox.addEventListener("pointermove", (event: PointerEvent) => {
     // Hovering moves the active option, as both Base UI and cmdk do.
     const el = optionUnder(event.target);
-    const index = shown.findIndex((row) => row.el === el);
-    if (index !== -1 && index !== activeIndex) setActive(index);
+    const index = Number(el instanceof HTMLElement ? el.dataset.index : Number.NaN);
+    if (Number.isInteger(index) && index !== activeIndex) setActive(index);
   });
 
   // htmx can swap an upgraded combobox out from under us; the listeners it
@@ -406,19 +548,25 @@ const upgrade = (root: HTMLElement): void => {
 
   // The select's own label belongs to whichever element is the control now,
   // and the pattern names the listbox with that same visible label.
-  const label = document.querySelector<HTMLLabelElement>(`label[for="${CSS.escape(select.id)}"]`);
+  const label = document.querySelector<HTMLLabelElement>(`label[for="${CSS.escape(value.id)}"]`);
   if (label) {
     label.htmlFor = input.id;
-    label.id ||= `${select.id}-label`;
+    label.id ||= `${value.id}-label`;
     listbox.setAttribute("aria-labelledby", label.id);
   }
 
-  // Whoever repopulated the select decides when: options built from the page
-  // land after this module runs.
-  root.addEventListener("combobox:sync", () => {
-    syncOptions();
-    input.value = labelOf(select.value);
+  // Whoever built the options decides when: a list assembled from the page
+  // lands after this module runs, and rides along on the event.
+  root.addEventListener("combobox:sync", (event: Event) => {
+    syncOptions(optionsFrom(event));
+    // A value naming no option is no value. The <select> this stands in for
+    // dropped one the same way, so a stale deep link cannot filter to nothing.
+    if (value.value && !rows.some((row) => row.value === value.value)) value.value = "";
+    input.value = labelOf(value.value);
   });
+
+  // Scrolling the list slides the rendered window along it.
+  scroller.addEventListener("scroll", () => renderWindow(), { passive: true });
 
   // An anchored popup follows its input; the page moving under it does not.
   // Window and visual viewport both, because they report disjoint things: a
@@ -437,8 +585,7 @@ const upgrade = (root: HTMLElement): void => {
   }
 
   syncOptions();
-  input.value = labelOf(select.value);
-  select.hidden = true;
+  input.value = labelOf(value.value);
   shell.hidden = false;
   // From here the popover attribute hides it; the attribute would fight it.
   if (popoverCapable) popup.hidden = false;
