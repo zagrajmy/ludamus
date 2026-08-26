@@ -58,6 +58,10 @@ const placeInList = (at: number): void => {
     const start = Date.parse(instant);
     if (Number.isNaN(start)) continue;
     if (start > at) {
+      if (!lastStarted) {
+        seam.hidden = true;
+        return;
+      }
       setTime(seam, eventClock(instant, at));
       row.before(seam);
       seam.hidden = false;

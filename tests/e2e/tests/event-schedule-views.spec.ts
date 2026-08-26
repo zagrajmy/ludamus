@@ -212,6 +212,15 @@ test.describe("Event schedule views", () => {
     await expect(marker).toBeHidden();
   });
 
+  test("the ledger stays unmarked before the programme opens", async ({ page }) => {
+    await page.goto(DENSE_EVENT_URL);
+    const opens = await firstStart(page);
+    await page.clock.install({ time: new Date(opens.timestamp - 60_000) });
+    await page.goto(DENSE_EVENT_URL);
+
+    await expect(page.locator("[data-schedule-now]")).toBeHidden();
+  });
+
   test("the ledger marks the seam between finished and upcoming", async ({ page }) => {
     await page.goto(DENSE_EVENT_URL);
     const opens = await firstStart(page);
