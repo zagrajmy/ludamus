@@ -35,10 +35,9 @@ one copy change.
       to the legacy VPS workflow and would be a no-op.
 - [ ] **Add `environment = staging` to the project's test-account filters**, and
       turn the default on — `test_account_filters_default_checked` is unset, so
-      insights do not apply them until it is. Staging shares the project because
-      the plan allows one; a second project needs a card. Test-account filters
-      cover insights, not error tracking, session replay or web analytics, so
-      those keep needing the filter by hand.
+      insights do not apply them until it is. Test-account filters cover
+      insights, not error tracking, session replay or web analytics, so those
+      keep needing the filter by hand.
 - [ ] **Clean up the events ingested before namespacing.** Staging and
       production persons captured under bare pks are already merged, and no
       filter separates them — the `environment` property only exists on events
@@ -83,8 +82,11 @@ one of those loads it.
 
 ## Environments
 
-`phc_CpBrrTFf…` is the only project the plan allows, so staging reports into
-it too. What keeps the two apart is the distinct id, not the key.
+`phc_CpBrrTFf…` is the only project, and staging reports into it too. A second
+project is the cleaner split and the one PostHog recommends, but the free plan
+caps the org at one and the traffic does not yet justify the card. Splitting
+later is a key swap plus deleting `identity.py`; what stops staging and
+production being one dataset in the meantime is the distinct id, not the key.
 
 `links/analytics/identity.py` namespaces every id by deployment, and both
 halves use it — `context_processors.analytics` for the browser,
