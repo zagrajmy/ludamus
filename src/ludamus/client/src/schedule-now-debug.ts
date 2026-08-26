@@ -5,9 +5,7 @@
 // production bundle.
 import GUI from "lil-gui";
 
-import { HOUR_MS } from "./schedule-now";
-
-export const mountNowDebug = (setOffset: (ms: number) => void): void => {
+export const mountNowDebug = (setOffset: (ms: number) => void, hourMs: number): void => {
   // Two parts: the jump lands the clock on the programme, the slider nudges
   // around wherever it landed. One combined control would have to span the
   // months between a seeded event and the real date, which makes every useful
@@ -15,7 +13,7 @@ export const mountNowDebug = (setOffset: (ms: number) => void): void => {
   let baseMs = 0;
   const state = { shiftHours: 0 };
   const apply = (): void => {
-    setOffset(baseMs + state.shiftHours * HOUR_MS);
+    setOffset(baseMs + state.shiftHours * hourMs);
   };
 
   const gui = new GUI({ title: "now" });
@@ -41,7 +39,7 @@ export const mountNowDebug = (setOffset: (ms: number) => void): void => {
           if (Number.isNaN(first)) return;
           // Half an hour in, so the line lands inside the first hour's row
           // rather than exactly on its gridline.
-          rebase(first + HOUR_MS / 2 - Date.now());
+          rebase(first + hourMs / 2 - Date.now());
         },
       },
       "jump",

@@ -138,17 +138,13 @@
                             {% include "chronology/_room_lane_tile.html" with data=tile.data slot_hour=tile.slot_hour %}
                         </div>
                     {% endfor %}
-                    {# The "now" rule. The strip carries the line and gives the #}
-                    {# pill something full-width to stick inside, so the label stays #}
-                    {# pinned to the left edge with the hour axis while the grid pans. #}
-                    <div class="room-lanes-now" data-room-lanes-now hidden>
-                        <div class="room-lanes-now-strip">{% include "chronology/_schedule_now_marker.html" %}</div>
-                    </div>
                 </div>
             </div>
-            <div class="room-lanes-day-overlays"
-                 data-room-lanes-day-overlays
-                 aria-hidden="true"></div>
+            <div class="room-lanes-overlays" data-room-lanes-overlays>
+                <div class="room-lanes-now" data-room-lanes-now hidden>
+                    <div class="room-lanes-now-strip">{% include "chronology/_schedule_now_marker.html" %}</div>
+                </div>
+            </div>
         </div>
         {# The bottom handle. Its spacer is a 1px .room-lanes-grid, so the #}
         {# width formula and the collapse code in room-lanes.ts keep it in #}

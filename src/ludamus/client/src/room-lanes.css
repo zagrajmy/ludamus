@@ -122,7 +122,7 @@ body:has(.room-lanes-panning) * {
   scrollbar-width: none;
 }
 
-.room-lanes-day-overlays {
+.room-lanes-overlays {
   position: absolute;
   z-index: 20;
   inset: 0;

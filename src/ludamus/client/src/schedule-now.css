@@ -3,24 +3,28 @@
    thing the server cannot render, since the page is cacheable and a rendered
    line is stale the moment it is served. */
 
-/* In the rooms grid: the line lives in the hour row holding the current time
-   and sits --now-frac of the way down it. Rows are auto-height, so the offset
-   is a share of the row rather than a pixel distance, and an hour stretched
-   tall by a long session keeps the line proportionally where it belongs. */
 .room-lanes-now {
-  grid-column: 1 / -1;
-  position: relative;
-  /* Over the tiles, and over the sticky time axis (z-40) so the pill replaces
-     the hour label it lands on rather than hiding behind it. */
+  position: absolute;
   z-index: 45;
+  inset-inline: 0;
   pointer-events: none;
 }
 
 .room-lanes-now-strip {
   position: absolute;
   inset-inline: 0;
-  top: calc(var(--now-frac, 0) * 100%);
+  top: 0;
+  display: flex;
+  height: 0;
+  align-items: center;
+}
+
+.room-lanes-now-strip::before {
+  position: absolute;
+  inset-inline: 0;
+  top: -1px;
   border-top: 2px solid var(--color-primary);
+  content: "";
 }
 
 /* In the ledger: the seam between what has started and what has not. The rows
@@ -44,13 +48,9 @@
   color: white;
 }
 
-/* In the grid the pill is sticky, so it rides the scroller's left edge the way
-   the hour axis does instead of panning off with the tiles. In the ledger it
-   hangs off the rule, which has no axis to sit beside. */
 .room-lanes-now .schedule-now-pill {
-  position: sticky;
-  left: 0;
   display: inline-block;
+  translate: none;
 }
 
 .schedule-now .schedule-now-pill {

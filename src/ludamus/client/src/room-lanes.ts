@@ -100,9 +100,7 @@ const dayCell = (from: ParentNode, field: string): HTMLElement | null =>
   from.querySelector<HTMLElement>(`[data-day-${field}]`);
 
 const mountDayMirrors = (lanes: HTMLElement, scroller: HTMLElement, signal: AbortSignal): void => {
-  const overlay = scroller.parentElement?.querySelector<HTMLElement>(
-    "[data-room-lanes-day-overlays]",
-  );
+  const overlay = scroller.parentElement?.querySelector<HTMLElement>("[data-room-lanes-overlays]");
   if (!overlay) return;
 
   const pairs: { mirror: HTMLElement; seam: HTMLElement; source: HTMLElement }[] = [];

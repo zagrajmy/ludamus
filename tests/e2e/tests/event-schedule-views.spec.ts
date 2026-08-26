@@ -137,7 +137,7 @@ test.describe("Event schedule views", () => {
     await page.goto(`${DENSE_EVENT_URL}?view=rooms`);
     const body = page.locator("[data-room-lanes-scroll]").first();
     const days = page.getByRole("heading", { level: 3 });
-    const mirrors = page.locator("[data-room-lanes-day-overlays] h3");
+    const mirrors = page.locator("[data-room-lanes-overlays] h3");
 
     expect(await days.count()).toBeGreaterThan(1);
     await expect(mirrors).toHaveCount((await days.count()) - 1);
@@ -169,6 +169,9 @@ test.describe("Event schedule views", () => {
 
     const marker = page.getByText(`Now ${halfClock}`);
     await expect(marker).toBeVisible();
+    expect(
+      await marker.evaluate((label) => label.closest("[data-room-lanes-scroll]") === null),
+    ).toBe(true);
 
     // It sits between the hour it belongs to and the next one on the axis.
     const between = await Promise.all(
@@ -177,7 +180,10 @@ test.describe("Event schedule views", () => {
       ),
     );
     const line = await marker.boundingBox();
+    const rule = await page.locator(".room-lanes-now-strip").boundingBox();
     expect(line).not.toBeNull();
+    expect(rule).not.toBeNull();
+    expect(Math.abs((line?.y ?? 0) + (line?.height ?? 0) / 2 - (rule?.y ?? 0))).toBeLessThan(1);
     expect(line?.y).toBeGreaterThan(between[0]?.y ?? 0);
     expect(line?.y).toBeLessThan(between[1]?.y ?? 0);
 

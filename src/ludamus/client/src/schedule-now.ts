@@ -36,10 +36,12 @@ const placeInGrid = (at: number): void => {
     const instant = line.dataset.hourStart ?? "";
     const start = Date.parse(instant);
     if (Number.isNaN(start) || at < start || at >= start + HOUR_MS) continue;
-    marker.style.gridRow = line.dataset.laneRow ?? "";
-    marker.style.setProperty("--now-frac", String((at - start) / HOUR_MS));
+    const overlay = marker.parentElement;
+    if (!overlay) return;
+    const row = line.getBoundingClientRect();
+    const overlayTop = overlay.getBoundingClientRect().top;
+    marker.style.top = `${row.top - overlayTop + row.height * ((at - start) / HOUR_MS)}px`;
     setTime(marker, eventClock(instant, at));
-    line.after(marker);
     marker.hidden = false;
     return;
   }
@@ -67,11 +69,25 @@ const placeInList = (at: number): void => {
   seam.hidden = true;
 };
 
+let observedGrid: HTMLElement | null = null;
+let layoutObserver: ResizeObserver | null = null;
+
+const observeGridLayout = (): void => {
+  const grid = document.querySelector<HTMLElement>(".room-lanes-body");
+  if (grid === observedGrid) return;
+  layoutObserver?.disconnect();
+  observedGrid = grid;
+  if (grid) layoutObserver?.observe(grid);
+};
+
 const place = (): void => {
+  observeGridLayout();
   const at = clock();
   placeInGrid(at);
   placeInList(at);
 };
+
+layoutObserver = new ResizeObserver(place);
 
 // Once a minute is as fine as the line reads: the pill shows whole minutes and
 // an hour row is never short enough for a second to move the line visibly.
@@ -91,5 +107,5 @@ if (import.meta.env.DEV) {
   mountNowDebug((ms: number) => {
     offsetMs = ms;
     place();
-  });
+  }, HOUR_MS);
 }
