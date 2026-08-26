@@ -1083,8 +1083,16 @@ class TestEventPageView:
         private_track = Track.objects.create(
             event=event, name="Backstage", slug="backstage", is_public=False
         )
-        untracked = SessionFactory(event=event)
-        public_only = SessionFactory(event=event)
+        # Named categories, not faker-worded: these two are the whole of the
+        # category filter below, and both drawing the same word would leave
+        # the view one name and the expectation two.
+        untracked = SessionFactory(
+            event=event, category=ProposalCategoryFactory(event=event, name="RPG")
+        )
+        public_only = SessionFactory(
+            event=event,
+            category=ProposalCategoryFactory(event=event, name="Board games"),
+        )
         public_only.tracks.add(public_track)
         mixed = SessionFactory(event=event)
         mixed.tracks.add(public_track, private_track)
@@ -1253,6 +1261,13 @@ class TestEventPageView:
             presenter=presenter,
             display_name=presenter.name,
             event=event,
+            # Named, not faker-worded: `_tagged_page_context` expects one
+            # filter name per session, and the view offers the distinct names
+            # only. Two sessions drawing the same word out of the faker list
+            # shorten the view's list without shortening the expected one.
+            category=ProposalCategoryFactory(
+                event=event, name=f"category-{event.proposal_categories.count()}"
+            ),
             participants_limit=10,
             min_age=0,
         )

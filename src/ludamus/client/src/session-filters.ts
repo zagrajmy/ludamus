@@ -34,10 +34,38 @@ const requireChild = <T extends HTMLElement>(parent: HTMLElement, selector: stri
   return el;
 };
 
-// A location option holds either a space's sort key or, prefixed, a venue slug
-// standing for every room under it. Sort keys open with the parent's zero-padded
-// order, so no room's key can be mistaken for one.
 const VENUE_VALUE_PREFIX = "venue:";
+
+type SpaceOrderSegment = readonly [number, string, number];
+
+const parseSpaceOrder = (value: string): SpaceOrderSegment[] => {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(value);
+  } catch {
+    return [];
+  }
+  if (!Array.isArray(parsed)) return [];
+  return parsed.filter(
+    (segment): segment is SpaceOrderSegment =>
+      Array.isArray(segment) &&
+      segment.length === 3 &&
+      typeof segment[0] === "number" &&
+      typeof segment[1] === "string" &&
+      typeof segment[2] === "number",
+  );
+};
+
+const compareSpaceOrder = (left: SpaceOrderSegment[], right: SpaceOrderSegment[]): number => {
+  for (let index = 0; index < Math.min(left.length, right.length); index += 1) {
+    const [leftOrder, leftName, leftId] = left[index];
+    const [rightOrder, rightName, rightId] = right[index];
+    if (leftOrder !== rightOrder) return leftOrder - rightOrder;
+    if (leftName !== rightName) return leftName < rightName ? -1 : 1;
+    if (leftId !== rightId) return leftId - rightId;
+  }
+  return left.length - right.length;
+};
 
 const escapeRegExp = (value: string): string =>
   value.replaceAll(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
@@ -139,33 +167,27 @@ const initSessionFilters = (): void => {
     document.getElementById("day-hour-filter-group")?.classList.remove("hidden");
   }
 
-  // Populate the location filter — one control for the whole space tree. The
-  // option value is the space's sort key, so sorting the entries lays the rooms
-  // out in the panel's tree order and lands every room of a parent space in one
-  // run, which is what the <optgroup>s are cut from. Each group opens with an
-  // option selecting the venue whole; rooms with no parent go straight onto the
-  // select.
   const allRoomsLabel = spaceFilter.dataset.allRoomsLabel ?? "";
-  const spaceMap = new Map<string, { groupKey: string; groupName: string; name: string }>();
+  const spaceMap = new Map<
+    string,
+    { groupKey: string; groupName: string; name: string; order: SpaceOrderSegment[] }
+  >();
   for (const card of sessionCards) {
     const spaceKey = card.dataset.space;
     if (spaceKey && !spaceMap.has(spaceKey)) {
       spaceMap.set(spaceKey, {
-        // The run is cut on the parent's slug, never its name: a name is unique
-        // only among its siblings, so two branches can carry the same one and
-        // must not collapse into a single group.
         groupKey: card.dataset.venue ?? "",
         groupName: card.dataset.venueName ?? "",
         name: card.dataset.spaceName ?? spaceKey,
+        order: parseSpaceOrder(card.dataset.spaceOrder ?? ""),
       });
     }
   }
   let currentGroup: HTMLOptGroupElement | undefined;
   let currentGroupKey: string | undefined;
-  // Codepoint order, not localeCompare: the key's structure is carried by its
-  // "|" separators, and collation treats punctuation as ignorable.
-  for (const [key, { groupKey, groupName, name }] of [...spaceMap.entries()].sort(([a], [b]) =>
-    a < b ? -1 : Number(a > b),
+  for (const [key, { groupKey, groupName, name }] of [...spaceMap.entries()].sort(
+    ([leftKey, left], [rightKey, right]) =>
+      compareSpaceOrder(left.order, right.order) || Number(leftKey) - Number(rightKey),
   )) {
     if (!groupKey) {
       currentGroup = undefined;

@@ -24,7 +24,8 @@ description — run it rather than trusting a hardcoded list here. Most used:
     ragged rows is that same type error.
 - Include screenshots of affected pages in the PR description. With a server
   running, `mise run shots -- / /events` saves PNGs to `screenshots/` (paths
-  resolve against `localhost:8000`; wraps `aubx agent-browser`).
+  resolve against `localhost:8000`; wraps `aubx agent-browser`). In a sandbox,
+  publish with `/here-now` and link URLs.
 - Don't ignore lint rules globally.
 - Use the `src/ludamus/adapters/web/django/templatetags/tessera` design system
   for UI; don't hand-roll components.

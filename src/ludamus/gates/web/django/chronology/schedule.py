@@ -87,7 +87,7 @@ class RoomLane:
     # filtering collapses the column that carried it.
     name: str
     group: str
-    group_key: str
+    group_key: int
     starts_group: bool
 
 
@@ -241,25 +241,18 @@ def group_sessions_by_state(
 
 
 class _RoomKey(NamedTuple):
-    # sort_key first, and alone enough to order the columns: it carries the
-    # whole ancestor chain's panel ordering, so sorting on it lays the columns
-    # out in tree order and puts every room of a parent space side by side. The
-    # rest of the fields ride along as labels.
-    sort_key: str
-    parent_key: str
+    sort_path: tuple[tuple[int, str, int], ...]
+    space_id: int
+    parent_id: int
     name: str
     parent_name: str
 
 
 def _room_key(data: SessionData) -> _RoomKey:
-    sort_key = data.loc["sort_key"]
     return _RoomKey(
-        sort_key=sort_key,
-        # The parent's identity, not its name: Space enforces slug uniqueness
-        # only per parent, so two branches can carry the same parent name and
-        # must not merge into one header run. The chain minus the space's own
-        # three segments is exactly the parent's key, and "" at the root.
-        parent_key="|".join(sort_key.split("|")[:-3]),
+        sort_path=data.loc["sort_path"],
+        space_id=data.loc["space_id"],
+        parent_id=data.loc["parent_id"],
         name=data.loc["space_name"],
         parent_name=data.loc["parent_name"],
     )
@@ -267,19 +260,17 @@ def _room_key(data: SessionData) -> _RoomKey:
 
 def _room_lanes(keys: list[_RoomKey]) -> list[RoomLane]:
     lanes: list[RoomLane] = []
-    # None, not "": a root-level room's parent key is "", and that run still
-    # opens a group of its own rather than continuing the previous parent's.
-    previous_group: str | None = None
+    previous_group: int | None = None
     for key in keys:
         lanes.append(
             RoomLane(
                 name=key.name,
                 group=key.parent_name,
-                group_key=key.parent_key,
-                starts_group=key.parent_key != previous_group,
+                group_key=key.parent_id,
+                starts_group=key.parent_id != previous_group,
             )
         )
-        previous_group = key.parent_key
+        previous_group = key.parent_id
     return lanes
 
 

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
@@ -130,17 +131,16 @@ class PartySessionHistoryRepository(PartySessionHistoryRepositoryProtocol):
 
 
 def location_data(space: Space) -> LocationData:
-    # Root-down chain of (order, name, slug) triples: sorting on it reproduces
-    # the panel's drag-ordered tree (Space.Meta.ordering) across every level, so
-    # rooms group under their building/floor instead of going flat alphabetical.
-    # The slug makes it unique per space, so it doubles as a filter value.
     chain = (*reversed(tuple(space.iter_ancestors())), space)
+    sort_path = tuple((node.order, node.name, node.pk) for node in chain)
     return LocationData(
+        space_id=space.pk,
+        parent_id=space.parent_id or 0,
         space_name=space.name,
-        parent_slug=space.parent.slug if space.parent else "",
         parent_name=space.parent.name if space.parent else "",
         path=str(space),
-        sort_key="|".join(f"{s.order:06d}|{s.name}|{s.slug}" for s in chain),
+        sort_path=sort_path,
+        sort_path_json=json.dumps(sort_path, ensure_ascii=True, separators=(",", ":")),
     )
 
 

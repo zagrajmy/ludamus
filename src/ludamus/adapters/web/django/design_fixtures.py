@@ -43,11 +43,13 @@ def _mock_user(full_name: str, pk: int, slug: str, username: str) -> UserInfo:
 
 def _mock_venue_and_space() -> LocationData:
     return {
+        "space_id": 2,
+        "parent_id": 1,
         "space_name": "Table 1",
-        "parent_slug": "main-hall",
         "parent_name": "Main Hall",
         "path": "Main Hall > Table 1",
-        "sort_key": "000000|Main Hall|main-hall|000000|Table 1|table-1",
+        "sort_path": ((0, "Main Hall", 1), (0, "Table 1", 2)),
+        "sort_path_json": '[[0,"Main Hall",1],[0,"Table 1",2]]',
     }
 
 

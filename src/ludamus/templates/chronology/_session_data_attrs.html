@@ -20,13 +20,11 @@ data-user-enrolled="{% if data.user_enrolled %}true{% else %}false{% endif %}"
 data-user-waiting="{% if data.user_waiting %}true{% else %}false{% endif %}"
 data-bookmarked="{% if data.user_bookmarked %}true{% else %}false{% endif %}"
 data-min-age="{{ data.session.min_age }}"
-data-venue="{{ data.loc.parent_slug }}"
+data-venue="{% if data.loc.parent_id %}{{ data.loc.parent_id }}{% endif %}"
 data-venue-name="{{ data.loc.parent_name }}"
-{# sort_key is the space filter's option value: never displayed, unique per #}
-{# space, and sorting on it groups the options under their parent in panel #}
-{# order (see LocationData). data-venue-name is the optgroup label. #}
-data-space="{{ data.loc.sort_key }}"
+data-space="{% if data.loc.space_id %}{{ data.loc.space_id }}{% endif %}"
 data-space-name="{{ data.loc.space_name }}"
+data-space-order="{{ data.loc.sort_path_json }}"
 {% if data.agenda_item %}
 {# The instant, offset included: data-day/data-hour below are the event's #}
 {# local wall clock, which reads as a different moment in a reader's own #}

@@ -267,7 +267,13 @@ class TestNightSessions:
                 pk=1,
                 session_confirmed=True,
             ),
-            loc=_loc(space_name="Sala A", parent_slug="hall", parent_name="Hall"),
+            loc=_loc(
+                space_id=2,
+                parent_id=1,
+                space_name="Sala A",
+                parent_name="Hall",
+                sort_path=((0, "Hall", 1), (0, "Sala A", 2)),
+            ),
         )
 
     def test_session_crossing_midnight_lands_on_both_days(self):
@@ -304,7 +310,13 @@ class TestDaylightSavingRows:
             agenda_item=AgendaItemDTO(
                 start_time=start, end_time=end, pk=1, session_confirmed=True
             ),
-            loc=_loc(space_name="Sala A", parent_slug="hall", parent_name="Hall"),
+            loc=_loc(
+                space_id=2,
+                parent_id=1,
+                space_name="Sala A",
+                parent_name="Hall",
+                sort_path=((0, "Hall", 1), (0, "Sala A", 2)),
+            ),
         )
 
     @pytest.mark.parametrize(
@@ -414,7 +426,9 @@ class TestDaylightSavingRows:
 
 class TestRoomLaneColumns:
     @staticmethod
-    def _session(*, space_name: str, sort_key: str, day: int) -> SessionData:
+    def _session(
+        *, space_id: int, space_name: str, order: int, day: int
+    ) -> SessionData:
         tz = timezone.get_current_timezone()
         return _make_session_data(
             agenda_item=AgendaItemDTO(
@@ -423,7 +437,12 @@ class TestRoomLaneColumns:
                 pk=day,
                 session_confirmed=True,
             ),
-            loc=_loc(space_name=space_name, parent_name="", sort_key=sort_key),
+            loc=_loc(
+                space_id=space_id,
+                space_name=space_name,
+                parent_name="",
+                sort_path=((order, space_name, space_id),),
+            ),
         )
 
     def test_a_room_used_on_one_day_keeps_its_column_on_every_other(self):
@@ -431,8 +450,8 @@ class TestRoomLaneColumns:
         # and a room idle on a day shows the gap rather than shifting its
         # neighbours into it.
         sessions = {
-            1: self._session(space_name="Sala A", sort_key="000000|Sala A|a", day=10),
-            2: self._session(space_name="Sala B", sort_key="000001|Sala B|b", day=11),
+            1: self._session(space_id=1, space_name="Sala A", order=0, day=10),
+            2: self._session(space_id=2, space_name="Sala B", order=1, day=11),
         }
 
         lanes = build_room_lanes(build_schedule_days(sessions))
@@ -465,7 +484,10 @@ class TestRoomLaneConflicts:
             ),
             session=MagicMock(pk=pk, title=f"Session {pk}"),
             loc=_loc(
-                space_name="Sala A", parent_name="", sort_key="000000|Sala A|sala-a"
+                space_id=1,
+                space_name="Sala A",
+                parent_name="",
+                sort_path=((0, "Sala A", 1),),
             ),
         )
 
@@ -504,7 +526,14 @@ class TestRoomLaneConflicts:
 
 class TestRoomLaneOrdering:
     @staticmethod
-    def _in_room(*, parent_name: str, space_name: str, sort_key: str) -> SessionData:
+    def _in_room(
+        *,
+        parent_id: int,
+        parent_name: str,
+        space_id: int,
+        space_name: str,
+        sort_path: tuple[tuple[int, str, int], ...],
+    ) -> SessionData:
         tz = timezone.get_current_timezone()
         return _make_session_data(
             agenda_item=AgendaItemDTO(
@@ -513,7 +542,13 @@ class TestRoomLaneOrdering:
                 pk=1,
                 session_confirmed=True,
             ),
-            loc=_loc(space_name=space_name, parent_name=parent_name, sort_key=sort_key),
+            loc=_loc(
+                parent_id=parent_id,
+                parent_name=parent_name,
+                space_id=space_id,
+                space_name=space_name,
+                sort_path=sort_path,
+            ),
         )
 
     def test_columns_follow_the_space_tree_not_the_alphabet(self):
@@ -521,19 +556,25 @@ class TestRoomLaneOrdering:
         # the organizer ordered last.
         sessions = {
             1: self._in_room(
+                parent_id=20,
                 parent_name="Piętro 2",
+                space_id=21,
                 space_name="Aula",
-                sort_key="000001|Piętro 2|p2|000000|Aula|aula",
+                sort_path=((1, "Piętro 2", 20), (0, "Aula", 21)),
             ),
             2: self._in_room(
+                parent_id=10,
                 parent_name="Piętro 1",
+                space_id=12,
                 space_name="Sala B",
-                sort_key="000000|Piętro 1|p1|000001|Sala B|sala-b",
+                sort_path=((0, "Piętro 1", 10), (1, "Sala B", 12)),
             ),
             3: self._in_room(
+                parent_id=10,
                 parent_name="Piętro 1",
+                space_id=11,
                 space_name="Sala A",
-                sort_key="000000|Piętro 1|p1|000000|Sala A|sala-a",
+                sort_path=((0, "Piętro 1", 10), (0, "Sala A", 11)),
             ),
         }
 
@@ -549,21 +590,29 @@ class TestRoomLaneOrdering:
     def test_same_named_parents_in_different_branches_stay_apart(self):
         sessions = {
             1: self._in_room(
+                parent_id=11,
                 parent_name="Parter",
-                space_name="Sala A",
-                sort_key="000000|Budynek A|a|000000|Parter|parter|000000|Sala A|sala-a",
+                space_id=12,
+                space_name="Sala | A",
+                sort_path=(
+                    (0, "Budynek | A", 10),
+                    (0, "Parter", 11),
+                    (0, "Sala | A", 12),
+                ),
             ),
             2: self._in_room(
+                parent_id=21,
                 parent_name="Parter",
+                space_id=22,
                 space_name="Sala B",
-                sort_key="000001|Budynek B|b|000000|Parter|parter|000000|Sala B|sala-b",
+                sort_path=((1, "Budynek B", 20), (0, "Parter", 21), (0, "Sala B", 22)),
             ),
         }
 
         lanes = build_room_lanes(build_schedule_days(sessions))
 
         assert [(lane.group, lane.name, lane.starts_group) for lane in lanes.rooms] == [
-            ("Parter", "Sala A", True),
+            ("Parter", "Sala | A", True),
             ("Parter", "Sala B", True),
         ]
 
