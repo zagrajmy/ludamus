@@ -8,6 +8,8 @@ from typing import TYPE_CHECKING, Protocol
 from django.conf import settings
 from posthog import Posthog
 
+from ludamus.links.analytics import identity
+
 if TYPE_CHECKING:
     from django.http import HttpRequest
 
@@ -62,7 +64,7 @@ def _distinct_id(request: HttpRequest) -> str:
     # a database failure. Neither may cost us the report.
     try:
         user = request.user
-        return str(user.pk) if user.is_authenticated else ANONYMOUS
+        return identity.distinct_id(user.pk) if user.is_authenticated else ANONYMOUS
     except Exception:
         logger.exception("Could not resolve the user for a fault report")
         return ANONYMOUS
@@ -83,6 +85,10 @@ def report_exception(exception: BaseException, request: HttpRequest) -> None:
     posthog.capture_exception(
         exception,
         distinct_id=_distinct_id(request),
-        properties={"$process_person_profile": False, "path": request.path},
+        properties={
+            "$process_person_profile": False,
+            "path": request.path,
+            "environment": identity.environment(),
+        },
         disable_geoip=True,
     )
