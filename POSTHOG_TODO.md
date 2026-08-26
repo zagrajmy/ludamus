@@ -29,18 +29,16 @@ one copy change.
 - [ ] **Screenshot the banner** for the PR description. It only renders with
       `POSTHOG_API_KEY` set and no choice stored, so set a key in `.env.local`
       first, then `mise run shots -- /`.
-- [ ] **Set `POSTHOG_API_KEY` on the `production-coolify` and `staging` GitHub
-      Environments** — `production-coolify` is the one
-      `deploy-production-coolify.yml` names, not `production`, which belongs to
-      the legacy VPS workflow and would be a no-op. Nothing breaks if either is
-      missed: the sync is `PATCH …/envs/bulk`, which upserts, so an omitted key
-      keeps its stored value and the app runs on a key the repo no longer
-      declares.
-- [ ] **Decide whether staging keeps sharing the production project.** It works
-      now that ids are namespaced and events carry `environment`, and a second
-      project would be cleaner still. If it stays shared, add
-      `environment = staging` to the project's test-account filters so it
-      leaves production dashboards by default.
+- [x] **Set `POSTHOG_API_KEY` on the `production-coolify` and `staging` GitHub
+      Environments.** Both carry the project key. `production-coolify` is the
+      one `deploy-production-coolify.yml` names, not `production`, which belongs
+      to the legacy VPS workflow and would be a no-op.
+- [ ] **Add `environment = staging` to the project's test-account filters**, and
+      turn the default on — `test_account_filters_default_checked` is unset, so
+      insights do not apply them until it is. Staging shares the project because
+      the plan allows one; a second project needs a card. Test-account filters
+      cover insights, not error tracking, session replay or web analytics, so
+      those keep needing the filter by hand.
 - [ ] **Clean up the events ingested before namespacing.** Staging and
       production persons captured under bare pks are already merged, and no
       filter separates them — the `environment` property only exists on events
@@ -85,8 +83,8 @@ one of those loads it.
 
 ## Environments
 
-`phc_CpBrrTFf…` is the only project in the org, and staging reports into it
-deliberately. What keeps the two apart is the distinct id, not the key.
+`phc_CpBrrTFf…` is the only project the plan allows, so staging reports into
+it too. What keeps the two apart is the distinct id, not the key.
 
 `links/analytics/identity.py` namespaces every id by deployment, and both
 halves use it — `context_processors.analytics` for the browser,
@@ -96,9 +94,12 @@ deployment is prefixed. Without that, staging's user 42 and production's user
 42 are one PostHog person, because each database runs the same schema with its
 own sequence.
 
-Events also carry an `environment` property — registered as a super property in
-`prologue.ts`, set explicitly on server reports — so staging traffic can be
-filtered out of production dashboards instead of merely being traceable.
+Events also carry an `environment` property — added in `prologue.ts`'s
+`before_send`, set explicitly on server reports — so staging traffic can be
+filtered out of production dashboards instead of merely being traceable. It
+lives in the client config rather than a super property because `reset()`
+clears super properties, and `reset()` is what a logout or a withdrawn consent
+runs.
 
 Tests never send: `.env.test` and `.env.e2e` pin the key empty, and
 `tests/conftest.py` fails collection if one is set anyway. The integration
