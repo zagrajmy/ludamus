@@ -9,7 +9,7 @@ from secrets import token_urlsafe
 
 import pytest
 
-from ludamus.gates.web.django.analytics_routes import register_redaction_rules, rule_for
+from ludamus.gates.web.django.analytics_routes import build_redaction_rules, rule_for
 from ludamus.links.analytics import redaction
 
 NODE = shutil.which("node") or "node"
@@ -22,7 +22,7 @@ TOKEN = "Yd0Xq1mM7pQ2rS4tU6vW8xZ_aB-cD3eF5gH7iJ9kL1mN3oP5qR7sT9uV1wX3yZ5a"
 
 @pytest.fixture(autouse=True)
 def _rules() -> None:
-    register_redaction_rules()
+    redaction.register(build_redaction_rules())
 
 
 class TestSafePath:

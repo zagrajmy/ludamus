@@ -15,7 +15,10 @@ derivation, two consumers, so neither half can drift from the routes.
 from __future__ import annotations
 
 import re
-from typing import NamedTuple
+from typing import TYPE_CHECKING, NamedTuple
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 SECRET_URL_KWARGS = frozenset({"token"})
 
@@ -59,15 +62,45 @@ _FLOOR = Rule(
     "/:token",
 )
 
-# Mutated rather than rebound so nothing has to reach for `global`, and so a
-# module that imported the list still sees what gates registered.
-_rules: list[Rule] = []
+
+class _Rules:
+    """What gates registered, built on first use rather than at startup.
+
+    Deriving the rules means walking the URLconf, which imports every view. Held
+    behind a callable, that cost lands on the first event instead of on every
+    `manage.py` invocation, and the rules cannot go stale against a URLconf that
+    changed after AppConfig.ready() ran.
+    """
+
+    def __init__(self) -> None:
+        self._build: Callable[[], list[Rule]] | None = None
+        self._cache: list[Rule] | None = None
+
+    def set_builder(self, build: Callable[[], list[Rule]]) -> None:
+        self._build = build
+        self._cache = None
+
+    def set(self, rules: list[Rule]) -> None:
+        self._build = None
+        self._cache = list(rules)
+
+    def get(self) -> list[Rule]:
+        if self._cache is None:
+            self._cache = list(self._build()) if self._build else []
+        return self._cache
+
+
+_rules = _Rules()
+
+
+def register_builder(build: Callable[[], list[Rule]]) -> None:
+    """Hand over how to derive the rules. Called once, at startup."""
+    _rules.set_builder(build)
 
 
 def register(rules: list[Rule]) -> None:
-    """Install the rules derived from the URLconf. Called once, at startup."""
-    _rules.clear()
-    _rules.extend(rules)
+    """Install rules directly, bypassing the builder. For tests."""
+    _rules.set(rules)
 
 
 def safe_path(path: str) -> str:
@@ -77,11 +110,13 @@ def safe_path(path: str) -> str:
     chat client swallowed is still redacted. Resolving it would raise, and
     returning that path unchanged would ship the whole token.
     """
-    for rule in (*_rules, _FLOOR):
+    for rule in (*_rules.get(), _FLOOR):
         path = rule.pattern.sub(rule.python, path)
     return path
 
 
 def client_patterns() -> list[list[str]]:
     """Serialise the rules as `[source, replacement]` pairs the browser compiles."""
-    return [[rule.javascript_pattern, rule.javascript] for rule in (*_rules, _FLOOR)]
+    return [
+        [rule.javascript_pattern, rule.javascript] for rule in (*_rules.get(), _FLOOR)
+    ]

@@ -90,10 +90,14 @@ def _routes(patterns: list[URLPattern | URLResolver], prefix: str = "") -> list[
     return resolved
 
 
-def register_redaction_rules() -> None:
-    """Walk the URLconf once and hand the secret-bearing routes to links."""
+def build_redaction_rules() -> list[redaction.Rule]:
+    """Walk the URLconf once and return a rule per secret-bearing route.
+
+    Called on first use rather than at startup: `get_resolver()` imports every
+    view, and there is no reason for `migrate` to pay for that.
+    """
     rules: dict[str, redaction.Rule] = {}
     for route in _routes(get_resolver().url_patterns):
         if rule := rule_for(route):
             rules[rule.pattern.pattern] = rule
-    redaction.register(list(rules.values()))
+    return list(rules.values())

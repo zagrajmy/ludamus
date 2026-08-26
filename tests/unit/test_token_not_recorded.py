@@ -77,3 +77,26 @@ def test_every_template_mentioning_a_token_blocks_it_from_recording() -> None:
         f"captures it. Add {BLOCKED}, or drop the attribute when the view serves "
         "GET and POST on the same URL:\n" + "\n".join(unblocked)
     )
+
+
+PROLOGUE = (
+    Path(__file__).resolve().parents[2]
+    / "src"
+    / "ludamus"
+    / "client"
+    / "src"
+    / "prologue.ts"
+)
+
+
+def test_social_meta_is_kept_out_of_the_recording() -> None:
+    """base.html puts the page URL in og:url, which on a token route is the token.
+
+    Nothing server-side can fix that — the tag is correct, and the URL is the
+    page's own. rrweb serialises social meta into the snapshot unless told not
+    to, so this flag is the whole of the protection, and no other test sees it.
+    """
+    assert "headMetaSocial: true" in PROLOGUE.read_text(encoding="utf-8"), (
+        "slimDOMOptions.headMetaSocial is gone, so og:url is being recorded "
+        "again — and on a claim or offer page that tag is a credential."
+    )
