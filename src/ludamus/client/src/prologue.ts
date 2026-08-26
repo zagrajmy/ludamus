@@ -131,11 +131,6 @@ const scrubSnapshot = (rules: Rule[], properties: Record<string, unknown>): void
     if (payload !== null && typeof payload === "object") {
       scrubInPlace(rules, payload, new WeakSet());
     }
-    // Mutation events carry the attributes that changed, which is where a token
-    // link inserted after load appears. The full snapshot is gzipped before
-    // before_send runs, so it is out of reach here by design.
-    const { attributes } = record;
-    if (Array.isArray(attributes)) scrubInPlace(rules, attributes, new WeakSet());
   }
 };
 
@@ -150,8 +145,25 @@ const initPosthog = (config: PosthogServerConfig): void => {
     before_send: (event) => {
       if (!event) return event;
       event.properties.environment = config.environment;
-      if (event.event === "$snapshot") scrubSnapshot(rules, event.properties);
-      else scrubInPlace(rules, event, new WeakSet());
+      // Not an either/or: $set_once hangs off the event, not off properties,
+      // and posthog attaches it to every event name including $snapshot. Walk
+      // the event with the recording payload held out, then scrub that payload
+      // on its own terms.
+      const snapshot = event.properties["$snapshot_data"];
+      Reflect.deleteProperty(event.properties, "$snapshot_data");
+      try {
+        scrubInPlace(rules, event, new WeakSet());
+        if (snapshot !== undefined) {
+          event.properties["$snapshot_data"] = snapshot;
+          scrubSnapshot(rules, event.properties);
+        }
+      } catch {
+        // posthog calls before_send bare, so a throw here would take capture()
+        // down with it. The walk touches objects it does not own and invokes
+        // their getters; dropping the event is the safe way to be wrong, since
+        // it cannot then carry a token we failed to reach.
+        return null;
+      }
       return event;
     },
     capture_exceptions: true,

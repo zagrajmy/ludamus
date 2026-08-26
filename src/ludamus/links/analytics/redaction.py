@@ -38,15 +38,19 @@ class Rule(NamedTuple):
 # Always applied, before anything gates registers. It makes redaction
 # independent of startup order, of the kwarg still being spelled `token`, and
 # of the route being a path() rather than a re_path() the walk skips.
-# secrets.token_urlsafe(48) is 64 characters; the longest legitimate segment in
-# this app is a six-character share code, so the floor cannot swallow one.
-# Anchored to a whole segment: a token is always one, while a hashed asset name
-# carries an extension, and `prologue-DkS9x2Fb.js` must stay readable in both
-# analytics and replay.
+# secrets.token_urlsafe(48) is invariably 64 characters. The longest competing
+# segment is a slug: SlugField defaults to 50, and mills.slugs caps the base at
+# 45 before a `-XXXX` retry suffix. 56 leaves six characters above the longest
+# slug and eight below the shortest token. A convention name like
+# `ogolnopolski-konwent-fantastyki-i-gier-bachanalia` has to survive, because
+# /event/<slug>/ is the most visited page there is.
+# Anchored to a whole segment as well: a token is always one, while a hashed
+# asset name carries an extension and `prologue-DkS9x2Fb.js` must stay readable
+# in both analytics and replay.
 _FLOOR = Rule(
-    re.compile(r"/[A-Za-z0-9_-]{40,}(?=[/?#]|$)"),
+    re.compile(r"/[A-Za-z0-9_-]{56,}(?=[/?#]|$)"),
     "/:token",
-    r"/[A-Za-z0-9_-]{40,}(?=[/?#]|$)",
+    r"/[A-Za-z0-9_-]{56,}(?=[/?#]|$)",
     "/:token",
 )
 

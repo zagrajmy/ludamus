@@ -12,6 +12,8 @@ from ludamus.gates.web.django.analytics_routes import register_redaction_rules, 
 from ludamus.links.analytics import redaction
 
 NODE = shutil.which("node") or "node"
+# SlugField() defaults to this, and mills.slugs caps the base at 45 + "-XXXX".
+SLUG_MAX_LENGTH = 50
 TOKEN = "Yd0Xq1mM7pQ2rS4tU6vW8xZ_aB-cD3eF5gH7iJ9kL1mN3oP5qR7sT9uV1wX3yZ5a"
 
 
@@ -76,6 +78,16 @@ class TestFloorRule:
     def test_a_share_code_is_short_enough_to_survive_the_floor(self) -> None:
         redaction.register([])
         assert redaction.safe_path("/e/ab12Cd/") == "/e/ab12Cd/"
+
+    def test_a_long_slug_survives_the_floor(self) -> None:
+        # SlugField defaults to 50 characters and Polish convention names use
+        # them. /event/<slug>/ is the most visited page in the app, so a floor
+        # that eats slugs collapses the whole page's traffic into one bucket
+        # labelled as if a credential had been there.
+        redaction.register([])
+        slug = "ogolnopolski-konwent-fantastyki".ljust(SLUG_MAX_LENGTH, "x")
+        path = f"/event/{slug}/"
+        assert redaction.safe_path(path) == path
 
     def test_a_hashed_asset_name_survives_the_floor(self) -> None:
         # The floor matches a whole segment, so a build hash keeps its

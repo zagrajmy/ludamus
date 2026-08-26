@@ -1,10 +1,14 @@
 """No template may hand a bearer token to the session recorder.
 
-`before_send` can rewrite event properties, but it cannot reach the DOM rrweb
-serialises — the full snapshot is gzipped before the hook runs. So an element
-whose attribute holds a token has to carry `ph-no-capture`, which is rrweb's
-block class, or not hold the token at all. That is a hand-kept list, which is
-exactly the kind that rots; this is the guard over it.
+`before_send` rewrites event properties, but it cannot reach the DOM rrweb
+serialises: snapshots and mutations are gzipped before the hook runs. So an
+element whose attribute holds a token has to carry `ph-no-capture`, which is
+rrweb's block class, or not hold the token at all.
+
+That leaves a hand-kept list of elements, which is the kind that rots. This
+guard works the other way round: it finds every template that mentions a token
+at all, and requires each mention to be inside a blocked element. Adding a new
+one fails here until it is blocked or the token leaves the markup.
 """
 
 from __future__ import annotations
@@ -12,14 +16,16 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-TEMPLATES = Path("src/ludamus/templates")
-# `{% url '…' token=… %}` or a variable already holding such a path.
-TOKEN_IN_ATTRIBUTE = re.compile(
-    r"""(?:action|value|data-copy|href)\s*=\s*["'][^"']*"""
-    r"""(?:\{%\s*url[^%]*\btoken\s*=|\{\{\s*(?:claim_path|join_path)\b)""",
-    re.VERBOSE,
+TEMPLATES = Path(__file__).resolve().parents[2] / "src" / "ludamus" / "templates"
+# Any way a template can name a token: the url tag, a variable holding such a
+# path, or the model field itself.
+TOKEN_MENTION = re.compile(
+    r"\btoken\s*=|\bclaim_token\b|\b(?:claim|join|invite)_path\b"
 )
 BLOCKED = "ph-no-capture"
+# Naming a token without rendering it: `{% url … as claim_path %}` binds a
+# variable, and `{% if …claim_token %}` only asks whether one exists.
+NAMES_WITHOUT_RENDERING = re.compile(r"\{%\s*(?:if|elif|else\s+if)\b[^%]*%\}")
 
 
 def _element_around(text: str, position: int) -> str:
@@ -28,16 +34,39 @@ def _element_around(text: str, position: int) -> str:
     return text[start : end + 1 if end != -1 else None]
 
 
-def test_every_token_bearing_attribute_is_blocked_from_recording() -> None:
-    unblocked = [
-        f"{path.relative_to(TEMPLATES)}: {_element_around(text, match.start())[:80]}"
-        for path in TEMPLATES.rglob("*.html")
-        if (text := path.read_text(encoding="utf-8"))
-        for match in TOKEN_IN_ATTRIBUTE.finditer(text)
-        if BLOCKED not in _element_around(text, match.start())
-    ]
+def _line_at(text: str, position: int) -> str:
+    return text[text.rfind("\n", 0, position) + 1 : text.find("\n", position)]
+
+
+def test_every_template_mentioning_a_token_blocks_it_from_recording() -> None:
+    templates = sorted(TEMPLATES.rglob("*.html"))
+    assert templates, f"no templates found under {TEMPLATES}"
+
+    unblocked = []
+    mentions = 0
+    for path in templates:
+        text = path.read_text(encoding="utf-8")
+        for match in TOKEN_MENTION.finditer(text):
+            line = _line_at(text, match.start())
+            # The element rendering the path is what must be blocked, not the
+            # tag that binds it or the branch that checks for it.
+            if "%}" in line and " as " in line:
+                continue
+            if any(
+                tag.start()
+                <= match.start() - text.rfind("\n", 0, match.start()) - 1
+                < tag.end()
+                for tag in NAMES_WITHOUT_RENDERING.finditer(line)
+            ):
+                continue
+            mentions += 1
+            element = _element_around(text, match.start())
+            if BLOCKED not in element:
+                unblocked.append(f"{path.relative_to(TEMPLATES)}: {line.strip()[:90]}")
+
+    assert mentions, "the guard matched nothing — has the token spelling changed?"
     assert not unblocked, (
-        "These elements put a bearer token in an attribute the session recorder "
-        f"would capture. Add {BLOCKED}, or drop the attribute if the view serves "
-        f"GET and POST on the same URL:\n" + "\n".join(unblocked)
+        "These render a bearer token into the DOM, where the session recorder "
+        f"captures it. Add {BLOCKED}, or drop the attribute when the view serves "
+        "GET and POST on the same URL:\n" + "\n".join(unblocked)
     )
