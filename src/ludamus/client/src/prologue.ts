@@ -75,10 +75,12 @@ type Rule = { pattern: RegExp; replacement: string };
 // A token is base64url, so it has upper case or -_ in it; a digest is lower
 // hex. Without that distinction a gravatar URL — sha256, also 64 characters —
 // reads as a credential on every authenticated page.
-const FLOOR: Rule = {
-  pattern: /\/(?![0-9a-f]{56,}(?=[/?#]|$))[A-Za-z0-9_-]{56,}(?=[/?#]|$)/g,
-  replacement: "/:token",
-};
+const FLOOR_SOURCE = "/(?![0-9a-f]{56,}(?=[/?#]|$))[A-Za-z0-9_-]{56,}(?=[/?#]|$)";
+const FLOOR: Rule = { pattern: new RegExp(FLOOR_SOURCE, "g"), replacement: "/:token" };
+// Its own, without the g flag: test() on a global regex advances lastIndex, so
+// a shared one answers true, false, true across consecutive events and half the
+// tokens it should catch would sail through.
+const CARRIES_TOKEN = new RegExp(FLOOR_SOURCE);
 
 const compileRules = (patterns: [string, string][]): Rule[] => {
   try {
@@ -182,7 +184,7 @@ const initPosthog = (config: PosthogServerConfig): void => {
       // throw away the snapshot rather than the credential.
       let carriesToken = false;
       try {
-        carriesToken = FLOOR.pattern.test(JSON.stringify(event));
+        carriesToken = CARRIES_TOKEN.test(JSON.stringify(event));
       } catch {
         carriesToken = true;
       }
