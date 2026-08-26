@@ -4,8 +4,6 @@ from __future__ import annotations
 
 from django.conf import settings
 
-ANONYMOUS = "anonymous"
-
 
 def environment() -> str:
     """Which deployment an event came from.

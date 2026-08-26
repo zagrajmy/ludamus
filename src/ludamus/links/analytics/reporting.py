@@ -9,12 +9,13 @@ from django.conf import settings
 from posthog import Posthog
 
 from ludamus.links.analytics import identity
-from ludamus.links.analytics.identity import ANONYMOUS
 
 if TYPE_CHECKING:
     from django.http import HttpRequest
 
 logger = logging.getLogger(__name__)
+
+ANONYMOUS = "anonymous"
 
 
 class AnalyticsClient(Protocol):

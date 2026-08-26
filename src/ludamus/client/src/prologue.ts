@@ -57,6 +57,14 @@ const syncIdentity = (userId: string | null): void => {
 const initPosthog = (config: PosthogServerConfig): void => {
   posthog.init(config.api_key, {
     api_host: config.host,
+    // Every event carries the deployment it came from, so staging traffic can
+    // be filtered out of production dashboards. This is config rather than a
+    // super property because reset() clears super properties, and reset() is
+    // exactly what a logout, an account switch or a withdrawn consent does.
+    before_send: (event) => {
+      if (event) event.properties.environment = config.environment;
+      return event;
+    },
     capture_exceptions: true,
     defaults: "2025-05-24",
     disable_external_dependency_loading: true,
@@ -67,11 +75,6 @@ const initPosthog = (config: PosthogServerConfig): void => {
       maskTextSelector: "[data-ph-mask]",
     },
   });
-  // Every event carries the deployment it came from, so staging traffic can be
-  // filtered out of production dashboards. The distinct id is already
-  // namespaced server-side; this is what makes the events themselves
-  // separable, not just the people.
-  posthog.register({ environment: config.environment });
   syncIdentity(config.user_id);
 };
 
