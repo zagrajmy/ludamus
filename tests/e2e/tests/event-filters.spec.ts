@@ -492,6 +492,20 @@ test.describe("Filter state in the URL", () => {
 
     await expect(card(page, "Cozy Storytellers Circle")).toBeVisible();
     await expect(page.getByRole("spinbutton", { name: "Participant age" })).toHaveValue("");
+    // Dropped from the query string too, not just from the control: a URL
+    // still saying age=120 would be shared on claiming a filter this page
+    // decided not to apply.
+    await expect.poll(() => new URL(page.url()).searchParams.has("age")).toBe(false);
+  });
+
+  test("rewrites an age spelled another way into the canonical one", async ({ page }) => {
+    // A number input accepts exponent notation, so a hand-edited or
+    // machine-built link can carry one. It filters as 10 either way; the
+    // query string should not keep two spellings for the same filter.
+    await page.goto("/event/autumn-open/?age=1e1");
+
+    await expect(page.getByRole("spinbutton", { name: "Participant age" })).toHaveValue("10");
+    await expect.poll(() => new URL(page.url()).searchParams.get("age")).toBe("10");
   });
 
   test("keeps the mirror through a session modal opening and closing", async ({ page }) => {

@@ -515,7 +515,16 @@ const initSessionFilters = (): void => {
     let changed = false;
     for (const [name, entry] of mirrored) {
       const raw = params.get(name);
-      if (entry.matchesRaw(raw)) continue;
+      if (entry.matchesRaw(raw)) {
+        // The control already holds what this decodes to, but the text in the
+        // query string can still say something else: `age=120` decodes to no
+        // filter at all, and `age=1e1` to the same 10 the canonical form
+        // spells. Left alone it would sit there advertising a filter the page
+        // is not applying, and get shared on saying so. Counting it as moved
+        // sends it back through the mirror, which writes the canonical form.
+        changed ||= raw !== null && raw !== entry.readRaw();
+        continue;
+      }
       const before = entry.readRaw();
       entry.applyRaw(raw);
       changed ||= entry.readRaw() !== before;
