@@ -2,7 +2,9 @@
 //
 // The `module.full.no-external` bundle ships the recorder and exception
 // autocapture inline, so nothing is ever fetched from a third-party host
-// (keeps the strict CSP: only connect-src needs the PostHog ingestion host).
+// (keeps the strict CSP: script-src stays nonce-only). connect-src still
+// needs two origins — the ingestion host, and the assets host posthog-js
+// derives from it to fetch remote config.
 //
 // Consent states (stored under STORAGE_KEY in localStorage):
 // - unset:      PostHog is not initialized at all — no events leave the
