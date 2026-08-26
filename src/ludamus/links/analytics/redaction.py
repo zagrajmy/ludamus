@@ -38,15 +38,20 @@ class Rule(NamedTuple):
 # Always applied, before anything gates registers. It makes redaction
 # independent of startup order, of the kwarg still being spelled `token`, and
 # of the route being a path() rather than a re_path() the walk skips.
-# secrets.token_urlsafe(48) is invariably 64 characters. The longest competing
-# segment is a slug: SlugField defaults to 50, and mills.slugs caps the base at
-# 45 before a `-XXXX` retry suffix. 56 leaves six characters above the longest
-# slug and eight below the shortest token. A convention name like
-# `ogolnopolski-konwent-fantastyki-i-gier-bachanalia` has to survive, because
-# /event/<slug>/ is the most visited page there is.
-# Anchored to a whole segment as well: a token is always one, while a hashed
-# asset name carries an extension and `prologue-DkS9x2Fb.js` must stay readable
-# in both analytics and replay.
+# The claim and offer tokens are token_urlsafe(48), invariably 64 characters.
+# The longest competing segment is a slug: SlugField defaults to 50 and
+# mills.slugs caps a base at 45 before a retry suffix, so a convention name
+# like `ogolnopolski-konwent-fantastyki-i-gier-bachanalia` has to survive —
+# /event/<slug>/ is the most visited page there is. 56 sits between them.
+# The party invite token does not reach it: models.Party.invite_token defaults
+# to a bare `token_urlsafe`, which is 32 bytes and so 43 characters, below the
+# floor and below the longest slug, so no threshold covers both. That route is
+# covered by its derived rule alone. It is the one token of the three that is
+# not a bearer credential — PartyJoinPageView requires a login, so the token is
+# a second factor rather than the whole of one.
+# Anchored to a whole segment: a token is always one, while a hashed asset name
+# carries an extension and `prologue-DkS9x2Fb.js` must stay readable in both
+# analytics and replay.
 _FLOOR = Rule(
     re.compile(r"/[A-Za-z0-9_-]{56,}(?=[/?#]|$)"),
     "/:token",

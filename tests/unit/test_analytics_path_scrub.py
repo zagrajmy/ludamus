@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import shutil
 import subprocess
+from secrets import token_urlsafe
 
 import pytest
 
@@ -14,6 +15,8 @@ from ludamus.links.analytics import redaction
 NODE = shutil.which("node") or "node"
 # SlugField() defaults to this, and mills.slugs caps the base at 45 + "-XXXX".
 SLUG_MAX_LENGTH = 50
+# models.Party.invite_token: a bare token_urlsafe is 32 bytes.
+PARTY_TOKEN_LENGTH = 43
 TOKEN = "Yd0Xq1mM7pQ2rS4tU6vW8xZ_aB-cD3eF5gH7iJ9kL1mN3oP5qR7sT9uV1wX3yZ5a"
 
 
@@ -78,6 +81,18 @@ class TestFloorRule:
     def test_a_share_code_is_short_enough_to_survive_the_floor(self) -> None:
         redaction.register([])
         assert redaction.safe_path("/e/ab12Cd/") == "/e/ab12Cd/"
+
+    def test_the_party_invite_token_is_below_the_floor(self) -> None:
+        # Pinned rather than aspirational: Party.invite_token is a bare
+        # token_urlsafe, 43 characters, and no threshold clears both it and a
+        # 50-character slug. Its route rule covers it; the floor does not. If
+        # the token is ever lengthened, this test is the thing that says the
+        # comment in redaction.py can be simplified.
+        redaction.register([])
+        token = token_urlsafe(32)
+        assert len(token) == PARTY_TOKEN_LENGTH
+        path = f"/crowd/parties/join/{token}/"
+        assert redaction.safe_path(path) == path
 
     def test_a_long_slug_survives_the_floor(self) -> None:
         # SlugField defaults to 50 characters and Polish convention names use

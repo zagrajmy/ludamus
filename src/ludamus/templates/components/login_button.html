@@ -1,7 +1,8 @@
 {% load i18n %}
 {% load tessera %}
 <a href="{% url 'web:crowd:auth0:login' %}?next={{ next|default:request.build_absolute_uri|urlencode }}"
-   class="btn btn-primary{% if extra_class %} {{ extra_class }}{% endif %}">
+   {# next= carries whatever page the visitor is on, which on a claim or offer page is the token itself. ph-no-capture keeps the href out of the replay. #}
+   class="ph-no-capture btn btn-primary{% if extra_class %} {{ extra_class }}{% endif %}">
     {% if show_icon %}
         {% icon "arrow-right-on-rectangle" class="w-5 h-5" %}
     {% endif %}

@@ -69,11 +69,21 @@ const syncIdentity = (userId: string | null): void => {
 // CaptureResult.timestamp is a Date.
 type Rule = { pattern: RegExp; replacement: string };
 
-const compileRules = (patterns: [string, string][]): Rule[] =>
-  patterns.map(([source, replacement]) => ({
-    pattern: new RegExp(source, "g"),
-    replacement,
-  }));
+// The floor alone, if the server ever ships a pattern this engine rejects.
+// new RegExp throwing here would run before posthog.init and leave the page
+// with no analytics at all, silently.
+const FLOOR: Rule = { pattern: /\/[A-Za-z0-9_-]{56,}(?=[/?#]|$)/g, replacement: "/:token" };
+
+const compileRules = (patterns: [string, string][]): Rule[] => {
+  try {
+    return patterns.map(([source, replacement]) => ({
+      pattern: new RegExp(source, "g"),
+      replacement,
+    }));
+  } catch {
+    return [FLOOR];
+  }
+};
 
 const scrubText = (rules: Rule[], text: string): string => {
   let scrubbed = text;
@@ -159,9 +169,15 @@ const initPosthog = (config: PosthogServerConfig): void => {
         }
       } catch {
         // posthog calls before_send bare, so a throw here would take capture()
-        // down with it. The walk touches objects it does not own and invokes
-        // their getters; dropping the event is the safe way to be wrong, since
-        // it cannot then carry a token we failed to reach.
+        // down with it. Fall through to the check below rather than dropping
+        // the event outright: a throw is deterministic per event shape, so
+        // discarding on sight would silently delete a whole class of events
+        // forever. Drop on evidence instead.
+      }
+      // Non-global on purpose — a /g regex carries lastIndex between calls.
+      try {
+        if (/\/[A-Za-z0-9_-]{56,}(?=[/?#]|$)/.test(JSON.stringify(event))) return null;
+      } catch {
         return null;
       }
       return event;
@@ -174,6 +190,10 @@ const initPosthog = (config: PosthogServerConfig): void => {
     session_recording: {
       maskAllInputs: true,
       maskTextSelector: "[data-ph-mask]",
+      // base.html puts the current URL in og:url, and rrweb serialises social
+      // meta into the snapshot unless told not to. On a claim or offer page
+      // that tag is the credential, and before_send cannot reach the DOM.
+      slimDOMOptions: { headMetaSocial: true },
     },
   });
   syncIdentity(config.user_id);

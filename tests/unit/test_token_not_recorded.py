@@ -23,19 +23,26 @@ TOKEN_MENTION = re.compile(
     r"\btoken\s*=|\bclaim_token\b|\b(?:claim|join|invite)_path\b"
 )
 BLOCKED = "ph-no-capture"
-# Naming a token without rendering it: `{% url … as claim_path %}` binds a
-# variable, and `{% if …claim_token %}` only asks whether one exists.
+# The guard reads names, not rendered output, so it cannot see a token that
+# arrives through `request.build_absolute_uri` in an included template — that
+# is what `slimDOMOptions.headMetaSocial` and the block on the login button
+# cover instead. What it does catch is a template that names a token directly.
+# Naming without rendering: `{% url … as claim_path %}` binds a variable, and
+# `{% if …claim_token %}` only asks whether one exists.
 NAMES_WITHOUT_RENDERING = re.compile(r"\{%\s*(?:if|elif|else\s+if)\b[^%]*%\}")
 
 
 def _element_around(text: str, position: int) -> str:
-    start = text.rfind("<", 0, position)
+    if (start := text.rfind("<", 0, position)) == -1:
+        # No enclosing tag at all, so nothing can have blocked it.
+        return ""
     end = text.find(">", position)
     return text[start : end + 1 if end != -1 else None]
 
 
 def _line_at(text: str, position: int) -> str:
-    return text[text.rfind("\n", 0, position) + 1 : text.find("\n", position)]
+    end = text.find("\n", position)
+    return text[text.rfind("\n", 0, position) + 1 : end if end != -1 else None]
 
 
 def test_every_template_mentioning_a_token_blocks_it_from_recording() -> None:
