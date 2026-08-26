@@ -12,7 +12,7 @@
     {# The hover lift is conditional on there being somewhere to go: an #}
     {# author's proposal card has no link yet (#906), and a card that lifts #}
     {# under the cursor and then does nothing is a worse lie than a flat one. #}
-    <div class="session relative flex h-full w-full flex-col overflow-hidden rounded-2xl border duration-100 ring-offset-background ring-offset-[.5px] bg-(--card-surface) {% if data.is_unscheduled %}[--card-surface:var(--color-proposal-surface)] border-dashed border-warm-400 dark:border-warm-700{% else %}[--card-surface:var(--color-neutral-50)] dark:[--card-surface:var(--color-neutral-800)] border-border{% endif %} {% if not data.is_unscheduled or proposal_url %}hover:ring-1 hover:ring-neutral-200 dark:hover:ring-neutral-600 hover:[--pb-scale:1.01]{% endif %} {% if data.user_enrolled %}ring-2 ring-coral-400{% endif %}"
+    <div class="session relative flex h-full w-full flex-col rounded-2xl border duration-100 ring-offset-background ring-offset-[.5px] bg-(--card-surface) {% if data.is_unscheduled %}[--card-surface:var(--color-proposal-surface)] border-dashed border-warm-400 dark:border-warm-700{% else %}[--card-surface:var(--color-neutral-50)] dark:[--card-surface:var(--color-neutral-800)] border-border{% endif %} {% if not data.is_unscheduled or proposal_url %}hover:ring-1 hover:ring-neutral-200 dark:hover:ring-neutral-600 hover:[--pb-scale:1.01]{% endif %} {% if data.user_enrolled %}ring-2 ring-coral-400{% endif %}"
          {% include "chronology/_session_data_attrs.html" %}>
         {% if data.is_unscheduled %}
             {# proposal_url is the page that acts on the proposal: the review #}
@@ -52,8 +52,7 @@
                 {# This row must not clip: the avatar's warning badge and guild #}
                 {# notch hang 4px off its edges, and it used to be overflow-hidden, #}
                 {# which shaved them. Nothing here needs it — the name bounds itself #}
-                {# with max-w + truncate, and the card's own overflow-hidden is the #}
-                {# backstop, 20px of padding away from the avatar. #}
+                {# with max-w + truncate, and 20px of card padding is the backstop. #}
                 <div class="flex items-center gap-2.5 my-3.5 min-w-0 flex-nowrap">
                     <span class="shrink-0 relative" data-morph="avatar">
                         {% include "components/avatar.html" with user=data.presenter size="size-8" danger_ring=data.presenter_is_shadowbanned %}

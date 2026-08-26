@@ -747,6 +747,10 @@ select:not([multiple]):not([size]) {
   padding-right: 2rem;
 }
 
+.session:has(.session-tags-more:hover) {
+  z-index: 30;
+}
+
 .session-tags-more:hover .session-tags-popover {
   opacity: 1;
   pointer-events: auto;
