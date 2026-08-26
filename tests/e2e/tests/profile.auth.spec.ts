@@ -105,9 +105,9 @@ test.describe("Profile — Privacy (privacy.html)", () => {
     await expect(page.getByText("analytics declined")).toBeVisible();
 
     await page.getByRole("button", { name: "Change your choice" }).click();
-    const banner = page.getByRole("region", { name: "Analytics consent" });
+    const banner = page.getByRole("region", { name: "Cookie consent" });
     await expect(banner).toBeVisible();
-    await banner.getByRole("button", { name: "Allow analytics" }).click();
+    await banner.getByRole("button", { name: "Cool" }).click();
 
     await expect(banner).toBeHidden();
     await expect(page.getByText("analytics allowed")).toBeVisible();
