@@ -28,13 +28,47 @@ def resolve_targets(*, roots: list[Path], args: list[str]) -> list[Path]:
     return [] if named else roots
 
 
+# Options whose value is a separate token. The value is never a target, and one
+# that names a directory inside a root -- `--cov tests/unit` -- would otherwise
+# drop the roots the caller deliberately left in place. `--ignore` and
+# `--deselect` are here for the same reason though their values really are
+# paths: excluding a path is not naming a target.
+_VALUE_OPTIONS = frozenset(
+    {
+        "--cov",
+        "--deselect",
+        "--ignore",
+        "--ignore-glob",
+        "--junit-xml",
+        "--maxfail",
+        "--rootdir",
+        "-W",
+        "-k",
+        "-m",
+        "-n",
+        "-p",
+    }
+)
+
+
 def _candidate_paths(args: list[str]) -> list[Path]:
-    # Only positional arguments can be targets. A flag and the value that
-    # follows it (`-k SomeName`, `--cov`) are not paths, and resolving them
-    # would compare made-up working-directory children against the roots.
-    return [
-        Path(arg.split("::", 1)[0]).resolve() for arg in args if not arg.startswith("-")
-    ]
+    # Only positional arguments can be targets. Skipping tokens that start with
+    # `-` is not enough on its own: the token after a separated option belongs
+    # to that option, not to pytest's target list.
+    candidates: list[Path] = []
+    consumed_by_option = False
+    for arg in args:
+        if consumed_by_option:
+            consumed_by_option = False
+            continue
+        if arg.startswith("-"):
+            # `--opt=value` carries its own value; only the separated spelling
+            # reaches forward. A boolean flag never does, so the token after
+            # `-x` stays a target.
+            consumed_by_option = "=" not in arg and arg in _VALUE_OPTIONS
+            continue
+        candidates.append(Path(arg.split("::", 1)[0]).resolve())
+    return candidates
 
 
 def main() -> None:
