@@ -6,6 +6,7 @@ from django.conf import settings
 
 from ludamus.gates.web.django.access import has_panel_access
 from ludamus.gates.web.django.entities import UserInfo
+from ludamus.links.analytics import identity
 
 if TYPE_CHECKING:
     from django.http import HttpRequest
@@ -63,6 +64,7 @@ class PosthogConfig(TypedDict):
     api_key: str
     host: str
     user_id: str | None
+    environment: str
 
 
 class AnalyticsContextData(TypedDict):
@@ -75,15 +77,19 @@ def analytics(request: HttpRequest) -> AnalyticsContextData:
     # Identify by pk, not slug: a slug follows a rename and would split one
     # person across two distinct_ids. request.user rather than the profile
     # service — the auth middleware already resolved it, so this costs no
-    # extra query.
+    # extra query. distinct_id namespaces it per deployment so staging and
+    # production cannot land on the same person.
     user = getattr(request, "user", None)
     return AnalyticsContextData(
         posthog_config=PosthogConfig(
             api_key=settings.POSTHOG_API_KEY,
             host=settings.POSTHOG_HOST,
             user_id=(
-                str(user.pk) if user is not None and user.is_authenticated else None
+                identity.distinct_id(user.pk)
+                if user is not None and user.is_authenticated
+                else None
             ),
+            environment=identity.environment(),
         )
     )
 
