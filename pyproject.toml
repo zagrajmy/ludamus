@@ -488,6 +488,8 @@ exclude = [
     "*/context_processors.py",
 ]
 ignore_names = [
+    # Called from context_processors.py, which is excluded above
+    "client_patterns",
     # Used in templates
     "bookmark_count",
     "button_class",

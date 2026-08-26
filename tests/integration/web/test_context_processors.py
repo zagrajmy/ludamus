@@ -25,12 +25,14 @@ class TestAnalyticsContext:
         response = client.get(reverse("web:events"))
 
         posthog_config = response.context["posthog_config"]
-        assert posthog_config == {
-            "api_key": "phc_integration",
-            "host": "https://eu.i.posthog.com",
-            "user_id": None,
-            "environment": "test",
-        }
+        assert posthog_config["api_key"] == "phc_integration"
+        assert posthog_config["host"] == "https://eu.i.posthog.com"
+        assert posthog_config["user_id"] is None
+        assert posthog_config["environment"] == "test"
+        # The browser redacts the same segments the server does, from rules the
+        # page carries rather than a copy of the route list in the bundle.
+        sources = {source for source, _replacement in posthog_config["token_paths"]}
+        assert "/crowd/claim/([^/?#]+)" in sources
 
     def test_authenticated_render_identifies_by_namespaced_pk(
         self, authenticated_client, active_user, settings

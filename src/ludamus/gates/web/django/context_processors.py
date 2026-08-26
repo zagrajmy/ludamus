@@ -6,7 +6,7 @@ from django.conf import settings
 
 from ludamus.gates.web.django.access import has_panel_access
 from ludamus.gates.web.django.entities import UserInfo
-from ludamus.links.analytics import identity
+from ludamus.links.analytics import identity, redaction
 
 if TYPE_CHECKING:
     from django.http import HttpRequest
@@ -62,9 +62,12 @@ def support(_request: HttpRequest) -> dict[str, str]:
 
 class PosthogConfig(TypedDict):
     api_key: str
-    host: str
-    user_id: str | None
     environment: str
+    host: str
+    # Derived from the URLconf so the browser redacts the same segments the
+    # server does, rather than keeping its own copy of the route list.
+    token_paths: list[list[str]]
+    user_id: str | None
 
 
 class AnalyticsContextData(TypedDict):
@@ -90,6 +93,7 @@ def analytics(request: HttpRequest) -> AnalyticsContextData:
                 else None
             ),
             environment=identity.environment(),
+            token_paths=redaction.client_patterns(),
         )
     )
 

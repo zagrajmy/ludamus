@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Protocol
 from django.conf import settings
 from posthog import Posthog
 
-from ludamus.links.analytics import identity
+from ludamus.links.analytics import identity, redaction
 
 if TYPE_CHECKING:
     from django.http import HttpRequest
@@ -87,7 +87,7 @@ def report_exception(exception: BaseException, request: HttpRequest) -> None:
         distinct_id=_distinct_id(request),
         properties={
             "$process_person_profile": False,
-            "path": identity.safe_path(request.path),
+            "path": redaction.safe_path(request.path_info),
             "environment": identity.environment(),
         },
         disable_geoip=True,

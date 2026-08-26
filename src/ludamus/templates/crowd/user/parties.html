@@ -301,7 +301,7 @@
                                 {% if row.companion.claim_token %}
                                     {% url 'web:crowd:claim' token=row.companion.claim_token as claim_path %}
                                     <button type="button"
-                                            class="icon-btn relative"
+                                            class="icon-btn relative ph-no-capture"
                                             data-copy="{{ claim_path }}"
                                             data-copy-origin
                                             data-copied-label="{% translate "Copied!" %}"

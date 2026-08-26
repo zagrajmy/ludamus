@@ -23,6 +23,7 @@ type PosthogServerConfig = {
   api_key: string;
   environment: string;
   host: string;
+  token_paths: string[][];
   user_id: string | null;
 };
 
@@ -54,41 +55,56 @@ const syncIdentity = (userId: string | null): void => {
   if (userId !== null) posthog.identify(userId);
 };
 
-// Claim links, party invites and session offers authenticate by bearing a token
-// in the path — that is what lets those flows work without a login — so those
-// paths are credentials, not locations. The server derives the same rule from
-// the URLconf (links/analytics/identity.py); here it has to be spelled out.
+// Claim links and session offers authenticate by bearing a token in the path —
+// that is what lets those flows work without a login — so those paths are
+// credentials, not locations. The patterns come from the server, which derives
+// them from the URLconf, so this half cannot drift from the routes.
 //
-// The walk is recursive and covers keys as well as values because posthog puts
-// URLs in more places than a property allowlist can track: $set_once carries
+// The walk covers the whole event, keys included, because posthog puts URLs in
+// more places than a property list can track: $set_once carries
 // $initial_current_url into *person* properties, $session_entry_url rides every
-// event of the session, autocapture folds form actions into $elements_chain,
-// and $heatmap_data is keyed by URL.
-const TOKEN_PATHS: [RegExp, string][] = [
-  [/\/crowd\/(claim|parties\/join)\/[^/?#]+/gi, "/crowd/$1/:token"],
-  [/\/offer\/[^/?#]+\/(claim|decline)/gi, "/offer/:token/$1"],
-];
+// event of the session, autocapture folds a form's action into $elements_chain,
+// and $heatmap_data is keyed by URL. It assigns in place rather than rebuilding
+// — a rebuilt object flattens anything that is not a plain object, and
+// CaptureResult.timestamp is a Date.
+type Rule = { pattern: RegExp; replacement: string };
 
-const scrub = (text: string): string => {
+const compileRules = (patterns: string[][]): Rule[] =>
+  patterns.map(([source, replacement]) => ({
+    pattern: new RegExp(source, "g"),
+    replacement,
+  }));
+
+const scrubText = (rules: Rule[], text: string): string => {
   let scrubbed = text;
-  for (const [pattern, replacement] of TOKEN_PATHS) {
+  for (const { pattern, replacement } of rules) {
     scrubbed = scrubbed.replace(pattern, replacement);
   }
   return scrubbed;
 };
 
-const scrubDeep = (value: unknown): unknown => {
-  if (typeof value === "string") return scrub(value);
-  if (Array.isArray(value)) return value.map(scrubDeep);
-  if (value !== null && typeof value === "object") {
-    return Object.fromEntries(
-      Object.entries(value).map(([key, nested]) => [scrub(key), scrubDeep(nested)]),
-    );
+const scrubInPlace = (rules: Rule[], node: object, seen: WeakSet<object>): void => {
+  if (seen.has(node)) return;
+  seen.add(node);
+  const record = node as Record<string, unknown>;
+  for (const [key, value] of Object.entries(record)) {
+    if (typeof value === "string") {
+      record[key] = scrubText(rules, value);
+    } else if (value !== null && typeof value === "object") {
+      scrubInPlace(rules, value, seen);
+    }
+    const scrubbedKey = scrubText(rules, key);
+    // Renaming would silently merge two buckets that differ only by token, so
+    // drop the original instead of keeping a key that spells out a credential.
+    if (scrubbedKey !== key) {
+      if (!(scrubbedKey in record)) record[scrubbedKey] = record[key];
+      Reflect.deleteProperty(record, key);
+    }
   }
-  return value;
 };
 
 const initPosthog = (config: PosthogServerConfig): void => {
+  const rules = compileRules(config.token_paths);
   posthog.init(config.api_key, {
     api_host: config.host,
     // Every event carries the deployment it came from, so staging traffic can
@@ -98,11 +114,11 @@ const initPosthog = (config: PosthogServerConfig): void => {
     before_send: (event) => {
       if (!event) return event;
       event.properties.environment = config.environment;
-      // $snapshot carries the whole rrweb payload; walking it every time would
-      // cost more than it buys, and those routes are excluded from recording by
-      // the project's session_recording_url_blocklist_config instead.
-      if (event.event === "$snapshot") return event;
-      return scrubDeep(event) as typeof event;
+      // $snapshot is the rrweb payload: the token can only reach it through the
+      // recorded DOM, which a string walk would not find anyway. Templates keep
+      // it out with ph-no-capture instead.
+      if (event.event !== "$snapshot") scrubInPlace(rules, event, new WeakSet());
+      return event;
     },
     capture_exceptions: true,
     defaults: "2025-05-24",
