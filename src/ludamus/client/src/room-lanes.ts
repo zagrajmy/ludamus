@@ -73,6 +73,19 @@ const collapseEmptyTracks = (lanes: HTMLElement): void => {
   }
 };
 
+const PAN_READY = "room-lanes-pan-ready";
+const PANNING = "room-lanes-panning";
+
+// A drag starting on one of these stays a click (or a text caret), unless
+// Space says the whole grid is a map right now.
+const isInteractive = (target: EventTarget | null): boolean =>
+  target instanceof Element && target.closest("a, button, input, select, textarea, label") !== null;
+
+// Space must keep typing spaces wherever text is being written.
+const isEditable = (target: EventTarget | null): boolean =>
+  target instanceof HTMLElement &&
+  (target.isContentEditable || ["BUTTON", "INPUT", "SELECT", "TEXTAREA"].includes(target.tagName));
+
 // The rooms grid lives inside the schedule region the view tabs swap
 // (hx-boost), so every lookup below re-runs against the new markup and the
 // previous grid's resize listener goes with it. The flag rides each scroller,
@@ -98,6 +111,7 @@ const initRoomLanes = (): void => {
   const panes = scrollers.map((scroller) => ({
     foot: scroller.parentElement?.querySelector<HTMLElement>("[data-room-lanes-foot]") ?? null,
     head: scroller.parentElement?.querySelector<HTMLElement>("[data-room-lanes-head]") ?? null,
+    lanes: scroller.closest<HTMLElement>(".room-lanes"),
     scroller,
   }));
 
@@ -114,12 +128,65 @@ const initRoomLanes = (): void => {
   measureScrollbars();
   globalThis.addEventListener("resize", measureScrollbars, { signal });
 
-  for (const { foot, head, scroller } of panes) {
+  // Map-style panning: Space over the grid arms a pan from anywhere, even a
+  // session tile; without it a drag pans only from the background, so tile
+  // links keep their clicks. Bound to the body scroller, not the head/foot
+  // strips — Firefox delivers pointer events for native scrollbar drags, and
+  // a pan starting there would fight the very handles this view added.
+  // Mouse only: touch already pans natively.
+  let spaceHeld = false;
+  // The whole .room-lanes under the pointer, not just the body scroller: the
+  // sticky head overlays the grid's top edge, so a pan routinely parks the
+  // pointer there — and an un-guarded Space over it pages the app scroller.
+  let hovered: HTMLElement | null = null;
+  // Gestures currently between pointerdown and their stop: a drag can carry
+  // the pointer clear off the component, and Space must stay swallowed there
+  // too, or its auto-repeat pages the scroller ~30×/s while pointermove snaps
+  // it back — a runaway the user sees as glitching, fast scrolling.
+  let pansLive = 0;
+  const paintReady = (): void => {
+    for (const { lanes, scroller } of panes) {
+      scroller.classList.toggle(PAN_READY, spaceHeld && lanes !== null && lanes === hovered);
+    }
+  };
+  document.addEventListener(
+    "keydown",
+    (event) => {
+      if (event.code !== "Space" || isEditable(event.target)) return;
+      // Swallow the default on repeats too — each un-prevented one pages the
+      // app scroller down mid-gesture.
+      if (hovered || pansLive > 0) event.preventDefault();
+      if (event.repeat) return;
+      spaceHeld = true;
+      paintReady();
+    },
+    { signal },
+  );
+  document.addEventListener(
+    "keyup",
+    (event) => {
+      if (event.code !== "Space") return;
+      spaceHeld = false;
+      paintReady();
+    },
+    { signal },
+  );
+  // A window switch swallows the keyup; a stuck spaceHeld would turn the
+  // next tile click into a pan.
+  globalThis.addEventListener(
+    "blur",
+    () => {
+      spaceHeld = false;
+      paintReady();
+    },
+    { signal },
+  );
+
+  for (const { foot, head, lanes, scroller } of panes) {
     scroller.dataset.lanesBound = "";
     // schedule:filtered rides the swapped-in grid too: the listener closes over
     // this instance of .room-lanes, so it goes out with the shared controller
     // instead of collapsing tracks in a detached tree.
-    const lanes = scroller.closest<HTMLElement>(".room-lanes");
     if (lanes) {
       document.addEventListener(
         "schedule:filtered",
@@ -151,6 +218,111 @@ const initRoomLanes = (): void => {
         { passive: true, signal },
       );
     }
+
+    // Vertical pan moves the page scroller — the grid clips its own y-overflow.
+    const page = scroller.closest<HTMLElement>(".app-scroll");
+    lanes?.addEventListener(
+      "pointerenter",
+      () => {
+        hovered = lanes;
+        paintReady();
+      },
+      { signal },
+    );
+    lanes?.addEventListener(
+      "pointerleave",
+      () => {
+        if (hovered !== lanes) return;
+        hovered = null;
+        paintReady();
+      },
+      { signal },
+    );
+    // A pan's trailing click must not land on whatever the pointer stops
+    // over. Same pattern as the timeline rail's scrub: a real pan arms the
+    // swallow, the synthesized click (when any) fires before the timeout, and
+    // the timeout keeps a click-less gesture from eating the next real tap.
+    // Like the rail, the gesture avoids setPointerCapture and pointerdown
+    // preventDefault — the swallow plus the dragstart guard below cover what
+    // they would, without cancelling the compat mouse stream.
+    let swallowClick = false;
+    document.addEventListener(
+      "click",
+      (click) => {
+        if (!swallowClick) return;
+        swallowClick = false;
+        click.preventDefault();
+        click.stopPropagation();
+      },
+      { capture: true, signal },
+    );
+    scroller.addEventListener(
+      "pointerdown",
+      (event) => {
+        if (event.pointerType !== "mouse" || event.button !== 0) return;
+        if (!spaceHeld && isInteractive(event.target)) return;
+        const from = {
+          left: scroller.scrollLeft,
+          top: page?.scrollTop ?? 0,
+          x: event.clientX,
+          y: event.clientY,
+        };
+        let panning = false;
+        pansLive += 1;
+        const drag = new AbortController();
+        // Dragging a link or selected text must pan, not start a native drag
+        // — a dragstart also makes Firefox cancel the pointer stream.
+        document.addEventListener(
+          "dragstart",
+          (dragEvent) => {
+            dragEvent.preventDefault();
+          },
+          { signal: drag.signal },
+        );
+        const stop = (up: PointerEvent): void => {
+          if (up.pointerId !== event.pointerId) return;
+          pansLive -= 1;
+          drag.abort();
+          scroller.classList.remove(PANNING);
+          if (!panning) return;
+          swallowClick = true;
+          setTimeout(() => {
+            swallowClick = false;
+          }, 0);
+        };
+        // The drag listeners live on the document, so they hear the gesture
+        // wherever the pointer roams — no capture needed.
+        document.addEventListener(
+          "pointermove",
+          (move) => {
+            if (move.pointerId !== event.pointerId) return;
+            // A missed pointerup — window switch or context menu mid-drag —
+            // would otherwise leave the gesture panning on button-less hovers.
+            if (move.buttons === 0) {
+              stop(move);
+              return;
+            }
+            const dx = move.clientX - from.x;
+            const dy = move.clientY - from.y;
+            // The 4px threshold keeps a plain click from becoming a micro-pan.
+            if (!panning && Math.abs(dx) < 4 && Math.abs(dy) < 4) return;
+            if (!panning) {
+              panning = true;
+              scroller.classList.add(PANNING);
+              // The pre-threshold pixels may have started a text selection;
+              // PANNING's user-select only stops it growing further.
+              document.getSelection()?.removeAllRanges();
+            }
+            scroller.scrollLeft = from.left - dx;
+            if (page) page.scrollTop = from.top - dy;
+          },
+          { signal: drag.signal },
+        );
+        document.addEventListener("pointerup", stop, { signal: drag.signal });
+        document.addEventListener("pointercancel", stop, { signal: drag.signal });
+      },
+      { signal },
+    );
   }
 };
 
