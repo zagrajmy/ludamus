@@ -343,3 +343,9 @@ If you fix a papercut, remove it.
   suite times out on the heaviest page's 10s assertions when the machine is
   busy, so a red gate can mean 'another job was running', with nothing in the
   output saying so.
+- 2026-08-25: mise run test:py -- tests/unit/rituals ran the whole 4600-test
+  suite for ~5 minutes: mise does forward the args, it appends them after the
+  task's own fixed roots (tests/integration tests/unit), so a path meant to
+  narrow the run widens nothing. Had to fall back to
+  'mise run test:unit -- -k ...'. A narrow-path run is what CLAUDE.md asks for
+  while working.
