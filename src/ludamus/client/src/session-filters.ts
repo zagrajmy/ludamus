@@ -76,6 +76,22 @@ interface CardFilter {
   param: string;
 }
 
+// min/max on the input bound its spinner, not what can be typed, so an age
+// only counts once the codec has agreed it is one.
+const ageFilterEntry = (
+  el: HTMLInputElement,
+  param: string,
+  label: () => string,
+  matches: CardFilter["matches"],
+): CardFilter => ({
+  active: (value) => ageParam.parse(value) !== null,
+  chip: () => `${label()} ${el.value}`.trim(),
+  el,
+  kind: "age",
+  matches,
+  param,
+});
+
 const selectFilter = (
   el: HTMLSelectElement,
   param: string,
@@ -162,6 +178,7 @@ const initSessionFilters = (): void => {
   const spaceFilter = byId<HTMLSelectElement>("space-filter");
   const hostFilter = byId<HTMLInputElement>("host-filter");
   const ageFilter = byId<HTMLInputElement>("age-filter");
+  const minAgeFilter = byId<HTMLInputElement>("min-age-filter");
   const enrollmentFilter = document.querySelector<HTMLInputElement>("#enrollment-filter");
   const filterToggle = byId("filter-toggle");
   const filterPanel = byId("filter-panel");
@@ -327,18 +344,25 @@ const initSessionFilters = (): void => {
         ? card.dataset.venue === value.slice(VENUE_VALUE_PREFIX.length)
         : card.dataset.space === value,
     ),
-    {
-      // min/max on the input bound its spinner, not what can be typed, so an
-      // age only counts once the codec has agreed it is one.
-      active: (value) => ageParam.parse(value) !== null,
-      chip: () => `${filterChipsBar.dataset.ageLabel ?? ""} ${ageFilter.value}`.trim(),
-      el: ageFilter,
-      kind: "age" as const,
+    // Both age controls read the one number a session carries, from opposite
+    // ends, and both keep the query-string names they have always had —
+    // `?age-min=18` ("show me the 18+ programme") is a link people have
+    // already shared, and a param that quietly changed sides would answer it
+    // with its complement.
+    ageFilterEntry(
+      ageFilter,
+      "age-max",
+      () => filterChipsBar.dataset.ageLabel ?? "",
       // The participant's age against the session's requirement: an
       // unrestricted session (min age 0) admits everyone, so it always stays.
-      matches: (card, value) => (Number(card.dataset.minAge) || 0) <= Number(value),
-      param: "age",
-    },
+      (card, value) => (Number(card.dataset.minAge) || 0) <= Number(value),
+    ),
+    ageFilterEntry(
+      minAgeFilter,
+      "age-min",
+      () => filterChipsBar.dataset.minAgeLabel ?? "",
+      (card, value) => (Number(card.dataset.minAge) || 0) >= Number(value),
+    ),
     selectFilter(dayFilter, "day", dataMatch("day")),
     selectFilter(hourFilter, "hour", dataMatch("hour")),
     ...Object.entries(tagFilters).map(([slug, select]) =>
@@ -627,12 +651,34 @@ const initSessionFilters = (): void => {
     filterToggle.setAttribute("aria-expanded", String(isOpen));
   });
 
+  const closePanel = (): void => {
+    filterPanel.classList.remove("is-open");
+    filterToggle.setAttribute("aria-expanded", "false");
+  };
+
+  // The sheet the narrow breakpoint turns this into covers the trigger and
+  // leaves no outside to click, so it ships a close button. Escape is bound at
+  // every width: a dismissable popup owes its user that key regardless.
+  document.querySelector("#filter-close")?.addEventListener("click", () => {
+    closePanel();
+    filterToggle.focus();
+  });
+  document.addEventListener(
+    "keydown",
+    (e) => {
+      // defaultPrevented means a control inside the panel already claimed this
+      // key — a combobox closing its own list, say. Escape unwinds one layer
+      // per press, so the panel is not that layer yet.
+      if (e.defaultPrevented) return;
+      if (e.key !== "Escape" || !filterPanel.classList.contains("is-open")) return;
+      closePanel();
+      filterToggle.focus();
+    },
+    { signal: documentListeners.signal },
+  );
+
   const filtersWrapper = filterToggle.closest<HTMLElement>(".filters-popover-wrapper");
   if (filtersWrapper) {
-    const closePanel = (): void => {
-      filterPanel.classList.remove("is-open");
-      filterToggle.setAttribute("aria-expanded", "false");
-    };
     const closeWhenOutside = (target: EventTarget | null): void => {
       if (
         filterPanel.classList.contains("is-open") &&

@@ -335,6 +335,23 @@
                         {# The panel div stays the last child of the wrapper; the popover #}
                         {# anchor math in session-filters.ts relies on that. #}
                         <div id="filter-panel" class="filter-panel shadow-xl">
+                            {# Only ever seen on the narrow breakpoint, where the panel #}
+                            {# covers the screen: the trigger is behind it and there is no #}
+                            {# "outside" left to click, so the sheet has to carry its own #}
+                            {# way out. Escape closes it at every width. #}
+                            <div class="filter-sheet-header items-center justify-between gap-3 pt-3.5">
+                                <h2 class="text-xs font-bold uppercase tracking-widest text-foreground-muted">{% translate "Filters" %}</h2>
+                                {# Labelled just "Close": the heading beside it already says #}
+                                {# what is closing, and any longer name would carry the word #}
+                                {# "filters" into a second button for a screen reader — and #}
+                                {# for anything matching buttons by name. #}
+                                <button type="button"
+                                        id="filter-close"
+                                        aria-label="{% translate "Close" %}"
+                                        class="inline-flex items-center justify-center rounded-lg p-2 text-foreground-muted">
+                                    {% icon "x-mark" variant="mini" class="size-5" aria_hidden="true" %}
+                                </button>
+                            </div>
                             {% with select_class="filter-input transition-[border-color,box-shadow] duration-150" input_class="filter-input transition-[border-color,box-shadow] duration-150" label_class="text-xs font-bold uppercase tracking-widest text-foreground-muted" %}
                                 <div class="flex flex-wrap gap-3 grow pt-3.5">
                                     {% if has_enrollable_sessions %}
@@ -373,13 +390,21 @@
                                             <option value="">{% translate "All locations" %}</option>
                                         {% endselect %}
                                     </div>
-                                    {# The typed value is the participant's age; a session stays #}
-                                    {# visible when its minimum-age requirement admits them. #}
-                                    {# Sessions carry no upper bound, so this one input is the #}
-                                    {# whole filter. #}
-                                    <div class="flex flex-col gap-1.5">
-                                        <label class="{{ label_class }}" for="age-filter">{% translate "Participant age" %}</label>
-                                        {% include "components/text-field.html" with name="age" id="age-filter" input_type="number" min="0" max="99" class=input_class only %}
+                                    {# Two ends of the one number a session carries. "Participant #}
+                                    {# age" answers "what can this person join" — a session stays #}
+                                    {# visible when its minimum-age requirement admits them, and #}
+                                    {# an unrestricted session admits everyone. "Age from" answers #}
+                                    {# the opposite question, "show me the 18+ programme", which is #}
+                                    {# what people share links for. #}
+                                    <div class="flex gap-3">
+                                        <div class="flex flex-col gap-1.5 grow">
+                                            <label class="{{ label_class }}" for="age-filter">{% translate "Participant age" %}</label>
+                                            {% include "components/text-field.html" with name="age-max" id="age-filter" input_type="number" min="0" max="99" class=input_class only %}
+                                        </div>
+                                        <div class="flex flex-col gap-1.5 grow">
+                                            <label class="{{ label_class }}" for="min-age-filter">{% translate "Age from" %}</label>
+                                            {% include "components/text-field.html" with name="age-min" id="min-age-filter" input_type="number" min="0" max="99" class=input_class only %}
+                                        </div>
                                     </div>
                                     <div id="day-hour-filter-group" class="flex gap-3 grow hidden">
                                         <div id="day-filter-group" class="flex flex-col gap-1.5 grow hidden">
@@ -470,6 +495,7 @@
                      data-remove-filter-label="{% translate "Remove filter" %}"
                      data-clear-all-label="{% translate "Clear all" %}"
                      data-age-label="{% translate "Participant age" %}:"
+                     data-min-age-label="{% translate "Age from" %}"
                      data-enrollment-label="{{ t_enrollment_only }}">
                     <div class="overflow-hidden">
                         <div class="filter-chips-bar-inner" data-filter-chips-inner></div>
@@ -707,17 +733,46 @@
             }
         }
 
-        /* On narrow screens the right-anchored popover would overflow the left
-           edge (the app-shell reserves a scrollbar gutter that pulls the anchor
-           inward). Pin it to the viewport with even margins instead — a
-           full-width filter sheet that still drops from the trigger. */
+        /* The sheet's own close button; the panel is a dropdown at every other
+           width, where the trigger and the page around it are the way out. */
+        .filter-sheet-header {
+            display: none;
+        }
+
+        /* On narrow screens the right-anchored popover has nowhere good to go:
+           it overflows the left edge (the app-shell reserves a scrollbar gutter
+           that pulls the anchor inward), and anchoring its top to a trigger low
+           on the page drops it past the bottom of a short viewport, out of
+           reach. So it stops being a dropdown and becomes a sheet: the whole
+           screen, which is also the most room the filters can get. */
         @media (max-width: 30rem) {
             .filters-popover-wrapper .filter-panel {
                 position: fixed;
-                left: 1rem;
-                right: 1rem;
+                inset: 0;
+                /* Over the sticky navbar, which shares the panel's z-index and
+                   would otherwise sit on top of the sheet's own close button.
+                   A sheet that covers the screen has to cover the chrome too. */
+                z-index: 60;
+                position-anchor: unset;
                 width: auto;
                 max-width: none;
+                max-height: none;
+                margin-top: 0;
+                border: 0;
+                border-radius: 0;
+                padding: 0 1rem 1rem;
+                overflow-y: auto;
+                overscroll-behavior: contain;
+                transform-origin: center;
+                transform: translateY(1.5rem);
+            }
+
+            .filter-sheet-header {
+                display: flex;
+                position: sticky;
+                top: 0;
+                z-index: 1;
+                background: var(--color-bg-secondary);
             }
         }
     </style>

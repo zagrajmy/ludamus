@@ -24,6 +24,41 @@ test.describe("Event filter panel", () => {
     await context.close();
   });
 
+  test("gives the filters the whole screen on a phone", async ({ browser }) => {
+    // A short viewport is where the dropdown used to fail outright: anchored
+    // under a trigger that sits low on the page, it landed past the bottom
+    // edge and its controls could not be reached at all.
+    const context = await browser.newContext({
+      viewport: { width: MOBILE_WIDTH, height: 700 },
+    });
+    const page = await context.newPage();
+
+    await page.goto("/event/autumn-open/");
+    await page.getByRole("button", { name: "Filters" }).click();
+
+    // Polled, not read once: the panel animates in, and its box is still
+    // travelling for a third of a second after it becomes visible.
+    const panel = page.locator("#filter-panel.is-open");
+    await expect.poll(async () => (await panel.boundingBox())?.y).toBe(0);
+    await expect.poll(async () => (await panel.boundingBox())?.height).toBe(700);
+
+    // The control that was out of reach before, exercised the way a person
+    // would: if it is off-screen, this click times out.
+    await page.locator("[data-combobox-input]").first().click();
+    await expect(page.getByRole("listbox")).toBeVisible();
+    // Escape unwinds one layer at a time: the list goes, the sheet stays.
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("listbox")).toBeHidden();
+    await expect(page.locator("#filter-panel.is-open")).toBeVisible();
+
+    // A sheet covers its own trigger and leaves no outside to tap, so the way
+    // out has to be inside it.
+    await page.getByRole("button", { name: "Close" }).click();
+    await expect(page.locator("#filter-panel.is-open")).toBeHidden();
+
+    await context.close();
+  });
+
   test("the toolbar controls line up with the search field on mobile", async ({ browser }) => {
     const context = await browser.newContext({
       viewport: { width: MOBILE_WIDTH, height: 812 },
@@ -395,7 +430,7 @@ test.describe("Filter state in the URL", () => {
   });
 
   test("restores filters from a shared URL", async ({ page }) => {
-    await page.goto("/event/autumn-open/?hour=12%3A00&q=circle&age=9");
+    await page.goto("/event/autumn-open/?hour=12%3A00&q=circle&age-max=9");
 
     await expect(card(page, "Cozy Storytellers Circle")).toBeVisible();
     await expect(card(page, "Mega Strategy Lab")).toBeHidden();
@@ -406,8 +441,36 @@ test.describe("Filter state in the URL", () => {
     await expect(page.locator("#active-filter-chips")).toContainText("12:00");
   });
 
+  test("still answers the age-min links people have already shared", async ({ page }) => {
+    // "Show me the 18+ programme" is a link that predates this panel, and the
+    // param has to keep meaning a floor on the session's own requirement —
+    // answering it with its complement would be worse than not answering.
+    await page.goto("/event/autumn-open/?age-min=10");
+
+    await expect(card(page, "Mega Strategy Lab")).toBeVisible();
+    await expect(card(page, "Przygoda w Mieście Neonów")).toBeVisible();
+    await expect(card(page, "Cozy Storytellers Circle")).toBeHidden();
+    await expect(page.getByRole("spinbutton", { name: "Age from" })).toHaveValue("10");
+  });
+
+  test("reads the two age bounds as the opposite questions they are", async ({ page }) => {
+    await page.goto("/event/autumn-open/");
+    await page.getByRole("button", { name: "Filters" }).click();
+
+    await page.getByRole("spinbutton", { name: "Age from" }).fill("10");
+    await expect(card(page, "Cozy Storytellers Circle")).toBeHidden();
+    await expect(card(page, "Mega Strategy Lab")).toBeVisible();
+
+    // The same number in the other box asks who may attend, not what is
+    // restricted, so it keeps the unrestricted session and drops nothing.
+    await page.getByRole("spinbutton", { name: "Age from" }).fill("");
+    await page.getByRole("spinbutton", { name: "Participant age" }).fill("10");
+    await expect(card(page, "Cozy Storytellers Circle")).toBeVisible();
+    await expect(card(page, "Mega Strategy Lab")).toBeVisible();
+  });
+
   test("drops an unusable age from a shared URL instead of guessing", async ({ page }) => {
-    await page.goto("/event/autumn-open/?age=120");
+    await page.goto("/event/autumn-open/?age-max=120");
 
     await expect(card(page, "Cozy Storytellers Circle")).toBeVisible();
     await expect(page.getByRole("spinbutton", { name: "Participant age" })).toHaveValue("");

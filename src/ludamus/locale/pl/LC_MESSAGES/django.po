@@ -4378,6 +4378,10 @@ msgid "Participant age"
 msgstr "Wiek uczestnika"
 
 #: src/ludamus/templates/chronology/event.html
+msgid "Age from"
+msgstr "Wiek od"
+
+#: src/ludamus/templates/chronology/event.html
 msgid "Day"
 msgstr "Dzień"
 
@@ -9417,6 +9421,9 @@ msgstr "Temat"
 #: src/ludamus/templates/staging_email_inbox.html
 msgid "No emails captured yet."
 msgstr "Brak przechwyconych e-maili."
+
+#~ msgid "Close filters"
+#~ msgstr "Zamknij filtry"
 
 #~ msgid "Required age"
 #~ msgstr "Wymagany wiek"
