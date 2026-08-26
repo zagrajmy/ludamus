@@ -324,3 +324,9 @@ If you fix a papercut, remove it.
   was unset; the traceback only later explained pytest-django could not
   initialize. Use mise run test:int -- PATH so the task supplies the test
   environment.
+- 2026-08-25: mise run test:py -- tests/unit/rituals ran the whole 4600-test
+  suite for ~5 minutes: mise does forward the args, it appends them after the
+  task's own fixed roots (tests/integration tests/unit), so a path meant to
+  narrow the run widens nothing. Had to fall back to
+  'mise run test:unit -- -k ...'. A narrow-path run is what CLAUDE.md asks for
+  while working.
