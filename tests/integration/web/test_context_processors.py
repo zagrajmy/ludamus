@@ -25,11 +25,18 @@ class TestAnalyticsContext:
         response = client.get(reverse("web:events"))
 
         posthog_config = response.context["posthog_config"]
+        # The browser redacts the same segments the server does, from rules the
+        # page carries rather than a copy of the route list in the bundle.
+        rules = posthog_config["redaction_rules"]
+        assert any(source.startswith("/crowd/claim/(?<p1>") for source, _ in rules)
+        # Exact equality on the rest, so a field added to the config has to be
+        # added here too: what reaches the browser is the point of this contract.
         assert posthog_config == {
             "api_key": "phc_integration",
             "host": "https://eu.i.posthog.com",
             "user_id": None,
             "environment": "test",
+            "redaction_rules": rules,
         }
 
     def test_authenticated_render_identifies_by_namespaced_pk(
