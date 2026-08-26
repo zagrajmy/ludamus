@@ -4447,6 +4447,11 @@ msgid "All hosts"
 msgstr "Wszyscy prowadzący"
 
 #: src/ludamus/templates/chronology/event.html
+#: src/ludamus/templates/components/multiselect-filter.html
+msgid "Apply filters"
+msgstr "Zastosuj filtry"
+
+#: src/ludamus/templates/chronology/event.html
 msgid "Remove filter"
 msgstr "Usuń filtr"
 
@@ -4912,10 +4917,6 @@ msgstr "Więcej wyników, niż się mieści — pisz dalej, aby je zawęzić."
 #: src/ludamus/templates/panel/proposals.html
 msgid "Clear"
 msgstr "Wyczyść"
-
-#: src/ludamus/templates/components/multiselect-filter.html
-msgid "Apply filters"
-msgstr "Zastosuj filtry"
 
 #: src/ludamus/templates/components/navbar.html
 msgid "Account menu"

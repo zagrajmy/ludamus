@@ -24,7 +24,7 @@ test.describe("Event filter panel", () => {
     await context.close();
   });
 
-  test("gives the filters the whole screen on a phone", async ({ browser }) => {
+  test("turns the filters into a dialog on a phone", async ({ browser }) => {
     // A short viewport is where the dropdown used to fail outright: anchored
     // under a trigger that sits low on the page, it landed past the bottom
     // edge and its controls could not be reached at all.
@@ -42,8 +42,13 @@ test.describe("Event filter panel", () => {
     // Polled, not read once: the panel animates in, and its box is still
     // travelling for a third of a second after it becomes visible.
     const panel = page.locator("#filter-panel");
-    await expect.poll(async () => (await panel.boundingBox())?.y).toBe(0);
-    await expect.poll(async () => (await panel.boundingBox())?.height).toBe(700);
+    // A dialog, not a takeover: it stops short of every edge, so the schedule
+    // it is filtering stays visible around it.
+    await expect.poll(async () => (await panel.boundingBox())?.y).toBeGreaterThan(0);
+    await expect.poll(async () => (await panel.boundingBox())?.height).toBeLessThan(700);
+    const box = (await panel.boundingBox())!;
+    expect(box.x).toBeGreaterThan(0);
+    expect(box.x + box.width).toBeLessThan(MOBILE_WIDTH);
 
     // The control that was out of reach before, reached the way a person
     // reaches it: if it is off-screen, this click times out.
@@ -54,9 +59,32 @@ test.describe("Event filter panel", () => {
     await expect(page.getByRole("listbox")).toBeHidden();
     await expect(trigger).toHaveAttribute("aria-expanded", "true");
 
-    // A sheet covers its own trigger and leaves no outside to tap, so the way
-    // out has to be inside it.
+    // The dialog covers its own trigger, so the way out has to be inside it.
+    // Apply is the one that reads as finishing: the filters are already live,
+    // but dismissing by the X reads as backing out of the work.
+    await page.getByRole("button", { name: "Apply filters" }).click();
+    await expect(trigger).toHaveAttribute("aria-expanded", "false");
+
+    await context.close();
+  });
+
+  test("the phone dialog also closes by its X and by the backdrop", async ({ browser }) => {
+    const context = await browser.newContext({
+      viewport: { width: MOBILE_WIDTH, height: 700 },
+    });
+    const page = await context.newPage();
+    await page.goto("/event/autumn-open/");
+
+    const trigger = page.getByRole("button", { exact: true, name: "Filters" });
+    await trigger.click();
     await page.getByRole("button", { name: "Close filters" }).click();
+    await expect(trigger).toHaveAttribute("aria-expanded", "false");
+
+    // The dialog stops short of the edges, which puts an "outside" back on the
+    // screen — so tapping it has to mean what it looks like it means.
+    await trigger.click();
+    await expect(trigger).toHaveAttribute("aria-expanded", "true");
+    await page.locator("[data-filter-backdrop]").click({ position: { x: 5, y: 5 } });
     await expect(trigger).toHaveAttribute("aria-expanded", "false");
 
     await context.close();
@@ -310,6 +338,102 @@ test.describe("Event filter panel", () => {
 
     await page.getByRole("button", { name: "Clear all" }).click();
     await expect(hostFilter).toHaveValue("All hosts");
+
+    // "Clear all" sits in the chips bar, outside the panel, so pressing it
+    // counts as a click outside and shuts the panel behind you.
+    await page.getByRole("button", { exact: true, name: "Filters" }).click();
+
+    // The hosts are assembled from the cards at runtime — no server-rendered
+    // option holds them. A clear that rebuilt the list from what the server
+    // wrote would empty it, and then drop the value naming a host as stale.
+    await hostFilter.click();
+    await expect(page.getByRole("listbox", { name: "Host" }).getByRole("option")).toHaveText([
+      "All hosts",
+      "Alex Morgan",
+      "Priya Chen",
+      "Radek Włodarczyk",
+    ]);
+  });
+
+  test("dismissing the host chip leaves the hosts there to pick again", async ({ page }) => {
+    await page.goto("/event/autumn-open/");
+    await page.getByRole("button", { exact: true, name: "Filters" }).click();
+
+    const hostFilter = page.getByRole("combobox", { name: "Host" });
+    await hostFilter.click();
+    await page.getByRole("option", { name: "Priya Chen" }).click();
+
+    // The chip's own X takes the same path clear-all does, one filter at a
+    // time — and, like it, sits outside the panel and closes it.
+    await page.locator("#active-filter-chips").getByRole("button").first().click();
+    await expect(hostFilter).toHaveValue("All hosts");
+
+    await page.getByRole("button", { exact: true, name: "Filters" }).click();
+    await hostFilter.click();
+    await expect(page.getByRole("listbox", { name: "Host" }).getByRole("option")).toHaveText([
+      "All hosts",
+      "Alex Morgan",
+      "Priya Chen",
+      "Radek Włodarczyk",
+    ]);
+  });
+
+  test("a touch pick lets go of the input, so the keyboard goes with it", async ({ browser }) => {
+    // The on-screen keyboard is up for as long as the input holds focus, and
+    // on a phone it covers most of what the pick was meant to reveal. Nothing
+    // else here can observe a keyboard, so focus is the proxy for it.
+    const context = await browser.newContext({
+      hasTouch: true,
+      viewport: { width: MOBILE_WIDTH, height: 700 },
+    });
+    const page = await context.newPage();
+    await page.goto("/event/autumn-open/");
+    await page.getByRole("button", { exact: true, name: "Filters" }).click();
+
+    const hostFilter = page.getByRole("combobox", { name: "Host" });
+    await hostFilter.click();
+    await page.getByRole("option", { name: "Priya Chen" }).click();
+
+    await expect(hostFilter).toHaveValue("Priya Chen");
+    await expect(hostFilter).not.toBeFocused();
+
+    // Committing by the keyboard's own return key costs the same screen.
+    await hostFilter.click();
+    await hostFilter.fill("morgan");
+    await hostFilter.press("Enter");
+    await expect(hostFilter).toHaveValue("Alex Morgan");
+    await expect(hostFilter).not.toBeFocused();
+
+    await context.close();
+  });
+
+  test("a mouse pick keeps the input focused, as the pattern expects", async ({ page }) => {
+    // The mirror of the test above: a hardware pointer pays no screen for
+    // focus, and blurring would drop the user at the top of the document on
+    // the next Tab.
+    await page.goto("/event/autumn-open/");
+    await page.getByRole("button", { exact: true, name: "Filters" }).click();
+
+    const hostFilter = page.getByRole("combobox", { name: "Host" });
+    await hostFilter.click();
+    await page.getByRole("option", { name: "Priya Chen" }).click();
+
+    await expect(hostFilter).toHaveValue("Priya Chen");
+    await expect(hostFilter).toBeFocused();
+  });
+
+  test("the host combobox commits the only match on Enter, with no arrowing", async ({ page }) => {
+    await page.goto("/event/autumn-open/");
+    await page.getByRole("button", { exact: true, name: "Filters" }).click();
+
+    // Typing resets the active option, and a touch keyboard has no arrow keys
+    // to set it again — so on a phone this is the only way Enter can commit.
+    const hostFilter = page.getByRole("combobox", { name: "Host" });
+    await hostFilter.fill("chen");
+    await hostFilter.press("Enter");
+
+    await expect(hostFilter).toHaveValue("Priya Chen");
+    await expect(hostFilter).toHaveAttribute("aria-expanded", "false");
   });
 
   test("the age filter keeps the sessions that admit the typed age", async ({ page }) => {

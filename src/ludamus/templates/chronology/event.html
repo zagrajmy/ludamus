@@ -334,12 +334,11 @@
                         </button>
                         {# The panel div stays the last child of the wrapper; the popover #}
                         {# anchor math in session-filters.ts relies on that. #}
-                        <div id="filter-panel" class="filter-panel shadow-xl">
-                            {# Only ever seen on the narrow breakpoint, where the panel #}
-                            {# covers the screen: the trigger is behind it and there is no #}
-                            {# "outside" left to click, so the sheet has to carry its own #}
-                            {# way out. Escape closes it at every width. #}
-                            <div class="filter-sheet-header items-center justify-between gap-3 pt-3.5">
+                        <div id="filter-panel" class="filter-panel">
+                            {# Only ever seen on the narrow breakpoint, where the panel is a #}
+                            {# dialog over the schedule: the trigger is behind it, so the #}
+                            {# sheet carries its own way out. Escape closes it at every width. #}
+                            <div class="filter-sheet-header items-center justify-between gap-3 px-6 py-4 border-b border-border">
                                 <h2 class="text-xs font-bold uppercase tracking-widest text-foreground-muted">{% translate "Filters" %}</h2>
                                 {# Named for what it closes, and it has to be: the iOS modal #}
                                 {# regression checks the session modal is gone by looking for #}
@@ -349,7 +348,7 @@
                                 {% tessera_icon_button icon="x-mark" label=t_close_filters id="filter-close" %}
                             </div>
                             {% with select_class="filter-input transition-[border-color,box-shadow] duration-150" input_class="filter-input transition-[border-color,box-shadow] duration-150" label_class="text-xs font-bold uppercase tracking-widest text-foreground-muted" %}
-                                <div class="flex flex-wrap gap-3 grow pt-3.5">
+                                <div class="filter-panel-body flex flex-wrap gap-3 grow pt-3.5">
                                     {% if has_enrollable_sessions %}
                                         <div class="w-full">
                                             {% include "components/checkbox-field.html" with id="enrollment-filter" label=t_enrollment_only only %}
@@ -467,7 +466,21 @@
                                     </div>
                                 </div>
                             {% endwith %}
+                            {# Phone sheet only. Filters apply as they change, so this #}
+                            {# button has nothing to submit — but a dialog needs an exit #}
+                            {# that reads as finishing rather than abandoning, and the #}
+                            {# header's X is the second kind. #}
+                            <div class="filter-sheet-footer px-6 py-4 border-t border-border">
+                                {% translate "Apply filters" as t_apply_filters %}
+                                {% tessera_button t_apply_filters button_type="button" id="filter-apply" %}
+                            </div>
                         </div>
+                        {# The sheet stops short of the edges, so there is an outside #}
+                        {# again — this is what makes it look like one, and tapping it #}
+                        {# closes. Sibling, not ::backdrop: the panel is a div, not a #}
+                        {# <dialog>, and promoting it to one would take the filters out #}
+                        {# of the page's tab order at every other width. #}
+                        <div class="filter-sheet-backdrop" data-filter-backdrop></div>
                     </div>
                     {# The switcher exists for the rooms grid, which renders from #}
                     {# schedule_days — only the compact layout builds those, so a #}
@@ -730,9 +743,11 @@
             }
         }
 
-        /* The sheet's own close button; the panel is a dropdown at every other
-           width, where the trigger and the page around it are the way out. */
-        .filter-sheet-header {
+        /* The sheet's own chrome; the panel is a dropdown at every other width,
+           where the trigger and the page around it are the way out. */
+        .filter-sheet-header,
+        .filter-sheet-footer,
+        .filter-sheet-backdrop {
             display: none;
         }
 
@@ -740,36 +755,67 @@
            it overflows the left edge (the app-shell reserves a scrollbar gutter
            that pulls the anchor inward), and anchoring its top to a trigger low
            on the page drops it past the bottom of a short viewport, out of
-           reach. So it stops being a dropdown and becomes a sheet: the whole
-           screen, which is also the most room the filters can get. */
+           reach. So it stops being a dropdown and becomes a dialog, sized and
+           dressed like the session modal — centred, sized to its content, and
+           stopping short of the edges, because the schedule behind it is the
+           thing these filters are being chosen against. */
         @media (max-width: 30rem) {
             .filters-popover-wrapper .filter-panel {
                 position: fixed;
+                /* inset + auto margins is how .modal centres; height:fit-content
+                   keeps a short filter set from becoming a full-height slab. */
                 inset: 0;
+                margin: auto;
+                height: fit-content;
+                width: calc(100% - 1rem);
+                max-width: none;
+                max-height: 90dvh;
                 /* Over the sticky navbar, which shares the panel's z-index and
-                   would otherwise sit on top of the sheet's own close button.
-                   A sheet that covers the screen has to cover the chrome too. */
+                   would otherwise sit on top of the dialog. */
                 z-index: 60;
                 position-anchor: unset;
-                width: auto;
-                max-width: none;
-                max-height: none;
-                margin-top: 0;
-                border: 0;
-                border-radius: 0;
-                padding: 0 1rem 1rem;
-                overflow-y: auto;
-                overscroll-behavior: contain;
+                display: flex;
+                flex-direction: column;
+                padding: 0;
+                overflow: hidden;
+                box-shadow: var(--shadow-elevated);
                 transform-origin: center;
-                transform: translateY(1.5rem);
+                transform: scale(0.9) translateY(16px);
             }
 
-            .filter-sheet-header {
+            /* The body scrolls, not the dialog: the header and the Apply button
+               have to stay put while a long filter list moves under them. */
+            .filter-panel-body {
+                flex: 1 1 auto;
+                min-height: 0;
+                overflow-y: auto;
+                overscroll-behavior: contain;
+                padding: 1rem 1.5rem;
+            }
+
+            .filter-sheet-header,
+            .filter-sheet-footer {
                 display: flex;
-                position: sticky;
-                top: 0;
-                z-index: 1;
-                background: var(--color-bg-secondary);
+                flex-shrink: 0;
+            }
+
+            .filter-sheet-backdrop {
+                display: block;
+                position: fixed;
+                inset: 0;
+                z-index: 59;
+                background-color: transparent;
+                backdrop-filter: blur(0);
+                pointer-events: none;
+                transition:
+                    background-color 0.2s var(--ease-out),
+                    backdrop-filter 0.2s var(--ease-out);
+            }
+
+            .filter-panel.is-open~.filter-sheet-backdrop {
+                background-color: color-mix(in srgb, var(--color-background) 50%, transparent);
+                backdrop-filter: blur(var(--modal-backdrop-blur, 4px));
+                pointer-events: auto;
             }
         }
     </style>

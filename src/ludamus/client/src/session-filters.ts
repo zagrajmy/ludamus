@@ -691,6 +691,17 @@ const initSessionFilters = (): void => {
     closePanel();
     filterToggle.focus();
   });
+  // Nothing to apply — every filter has been live since it changed. The button
+  // is here because dismissing a dialog by its X reads as backing out, and the
+  // one thing a filter sheet must not suggest is that the work is discarded.
+  document.querySelector("#filter-apply")?.addEventListener("click", () => {
+    closePanel();
+    filterToggle.focus();
+  });
+  document.querySelector("[data-filter-backdrop]")?.addEventListener("click", () => {
+    closePanel();
+    filterToggle.focus();
+  });
   document.addEventListener(
     "keydown",
     (e) => {

@@ -39,6 +39,13 @@ const visibleBand = (): { bottom: number; top: number } => {
     : { bottom: globalThis.innerHeight, top: 0 };
 };
 
+// A coarse pointer is the signal that text focus costs screen: the on-screen
+// keyboard is up for as long as the input holds focus, and on a phone it hides
+// most of what the pick was supposed to reveal. Read per call rather than
+// cached — a tablet gains and loses a hardware keyboard.
+const focusCostsScreen = (): boolean =>
+  globalThis.matchMedia?.("(pointer: coarse)").matches === true;
+
 // One announcer for the page, on the body and visually hidden — a live region
 // that is `hidden`, or that lives inside a closed popover, is display:none and
 // announces nothing (Roselli's cross-screen-reader testing is unambiguous).
@@ -306,11 +313,11 @@ const upgrade = (root: HTMLElement): void => {
    * the server wrote, which is how the placeholder row ("All hosts") survives
    * a list assembled at runtime.
    */
-  const syncOptions = (supplied?: Row[]): void => {
+  const syncOptions = (supplied: Row[]): void => {
     listbox.replaceChildren();
     pool = [];
     windowStart = 0;
-    rows = supplied ? [...parsed.rows, ...supplied] : parsed.rows;
+    rows = [...parsed.rows, ...supplied];
   };
 
   /** One more pooled option element, appended in window order. */
@@ -486,7 +493,7 @@ const upgrade = (root: HTMLElement): void => {
   };
 
   /** Write a pick to the hidden input — the value everything else reads. */
-  const commit = (row: Row | undefined): void => {
+  const commit = (row?: Row): void => {
     if (row) {
       value.value = row.value;
       value.dispatchEvent(new Event("change", { bubbles: true }));
@@ -500,6 +507,15 @@ const upgrade = (root: HTMLElement): void => {
   const close = (): void => {
     input.value = labelOf(value.value);
     setOpen(false);
+  };
+
+  // Once a pick is made by tap or by the on-screen keyboard's own return key,
+  // holding focus keeps that keyboard over the result. Mouse and hardware
+  // keyboard pay no such cost, and blurring them would drop the user at the
+  // top of the document on the next Tab, so they keep focus as the pattern
+  // (and every combobox worth copying) expects.
+  const releaseIfKeyboardIsInTheWay = (): void => {
+    if (focusCostsScreen()) input.blur();
   };
 
   const move = (delta: number): void => {
@@ -556,7 +572,14 @@ const upgrade = (root: HTMLElement): void => {
         if (!isOpen()) return;
         // Only inside the popup: outside it, Enter must still submit a form.
         event.preventDefault();
-        commit(shown[activeIndex]);
+        // Same rule Tab follows, and for a stronger reason: typing resets the
+        // active option, and a touch keyboard has no arrow keys to set it
+        // again. Without the fallback the return key on a phone commits
+        // nothing at all, however far the query has narrowed the list.
+        if (activeIndex !== -1) commit(shown[activeIndex]);
+        else if (shown.length === 1) commit(shown[0]);
+        else commit();
+        releaseIfKeyboardIsInTheWay();
         break;
       }
       case "Escape": {
@@ -610,7 +633,9 @@ const upgrade = (root: HTMLElement): void => {
     // Before the click, so the input never loses focus to the option.
     event.preventDefault();
     const row = rowAt(optionUnder(event.target));
-    if (row) commit(row);
+    if (!row) return;
+    commit(row);
+    releaseIfKeyboardIsInTheWay();
   });
 
   listbox.addEventListener("pointermove", (event: PointerEvent) => {
@@ -651,7 +676,13 @@ const upgrade = (root: HTMLElement): void => {
   // Whoever built the options decides when: a list assembled from the page
   // lands after this module runs, and rides along on the event.
   root.addEventListener("combobox:sync", (event: Event) => {
-    syncOptions(optionsFrom(event));
+    // A sync carrying no list is only reporting that the value moved — that is
+    // what clear-all and the filter chips send. Rebuilding from the server's
+    // rows there would throw away a list the page assembled at runtime (the
+    // event's hosts, which no server-rendered option ever holds), and the
+    // check below would then find every value stale and blank it too.
+    const supplied = optionsFrom(event);
+    if (supplied) syncOptions(supplied);
     // A value naming no option is no value. The <select> this stands in for
     // dropped one the same way, so a stale deep link cannot filter to nothing.
     if (value.value && !rows.some((row) => row.value === value.value)) value.value = "";
@@ -679,7 +710,7 @@ const upgrade = (root: HTMLElement): void => {
     });
   }
 
-  syncOptions();
+  syncOptions([]);
   input.value = labelOf(value.value);
   shell.hidden = false;
   // From here the popover attribute hides it; the attribute would fight it.
