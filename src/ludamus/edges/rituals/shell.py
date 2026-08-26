@@ -125,6 +125,15 @@ _PATCH_CHECK = "codecov/patch"
 _WHOLE = 100.0
 
 
+# One page is all `checks` asks for, so a board longer than `per_page` comes
+# back short of the count the endpoint reports beside it. What fell off the end
+# could be the check either reader below turns on, and a page that does not say
+# is not a page saying yes: both take a short board the way they take one that
+# will not parse.
+def _truncated(board: Board) -> bool:
+    return len(board.check_runs) < board.total_count
+
+
 def _names_a_gap(check: Check) -> bool:
     if check.name != _PATCH_CHECK or not check.title:
         return False
@@ -142,7 +151,7 @@ def wants_cover(listing: str) -> bool:
         board = BOARD.validate_json(listing)
     except ValidationError:
         return True
-    if any(_names_a_gap(check) for check in board.check_runs):
+    if _truncated(board) or any(_names_a_gap(check) for check in board.check_runs):
         return True
     watched = [
         check for check in board.check_runs if check.name.startswith(_COVER_CHECKS)
@@ -166,6 +175,8 @@ def gates_green(listing: str) -> bool:
     try:
         board = BOARD.validate_json(listing)
     except ValidationError:
+        return False
+    if _truncated(board):
         return False
     watched = [
         check for check in board.check_runs if check.name.startswith(_GATE_CHECKS)

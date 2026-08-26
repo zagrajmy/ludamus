@@ -63,6 +63,9 @@ class Check(BaseModel):
 # the command string, and every other answer `gh` gives these rituals is made
 # sense of by a model.
 class Board(BaseModel):
+    # The endpoint's own count of the whole board, against which a page that
+    # stopped at `per_page` is short. See `_truncated`.
+    total_count: int = 0
     check_runs: list[Check] = []
 
 
