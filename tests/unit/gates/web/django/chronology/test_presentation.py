@@ -255,15 +255,22 @@ class TestNightSessions:
         assert [day.hours[0].sessions for day in days] == [[night], [night]]
 
     def test_room_lanes_clip_the_night_session_at_midnight(self):
-        days = build_room_lanes(build_schedule_days({1: self._night_session()}))
+        lanes = build_room_lanes(build_schedule_days({1: self._night_session()}))
 
-        assert [[mark.start.hour for mark in day.hour_marks] for day in days] == [
-            [22, 23],
-            [0, 1],
+        assert lanes is not None
+        # Both days share one grid: the first day's heading takes row 1 and its
+        # two hours rows 2 and 3, so the second day's heading lands on row 4.
+        assert [mark.row for mark in lanes.day_marks] == [1, 4]
+        assert [(mark.start.hour, mark.row) for mark in lanes.hour_marks] == [
+            (22, 2),
+            (23, 3),
+            (0, 5),
+            (1, 6),
         ]
-        assert [
-            [(tile.row_start, tile.row_span) for tile in day.tiles] for day in days
-        ] == [[(1, 2)], [(1, 2)]]
+        assert [(tile.row_start, tile.row_span) for tile in lanes.tiles] == [
+            (2, 2),
+            (5, 2),
+        ]
 
 
 class TestRoomLaneOrdering:
@@ -301,11 +308,10 @@ class TestRoomLaneOrdering:
             ),
         }
 
-        days = build_room_lanes(build_schedule_days(sessions))
+        lanes = build_room_lanes(build_schedule_days(sessions))
 
-        assert [
-            (lane.group, lane.name, lane.starts_group) for lane in days[0].rooms
-        ] == [
+        assert lanes is not None
+        assert [(lane.group, lane.name, lane.starts_group) for lane in lanes.rooms] == [
             ("Piętro 1", "Sala A", True),
             ("Piętro 1", "Sala B", False),
             ("Piętro 2", "Aula", True),
@@ -325,11 +331,13 @@ class TestRoomLaneOrdering:
             ),
         }
 
-        days = build_room_lanes(build_schedule_days(sessions))
+        lanes = build_room_lanes(build_schedule_days(sessions))
 
-        assert [
-            (lane.group, lane.name, lane.starts_group) for lane in days[0].rooms
-        ] == [("Parter", "Sala A", True), ("Parter", "Sala B", True)]
+        assert lanes is not None
+        assert [(lane.group, lane.name, lane.starts_group) for lane in lanes.rooms] == [
+            ("Parter", "Sala A", True),
+            ("Parter", "Sala B", True),
+        ]
 
 
 class TestGroupSessionsByState:

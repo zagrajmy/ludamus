@@ -21,8 +21,9 @@ from ludamus.gates.web.django.chronology.event_presentation import (
 )
 from ludamus.gates.web.django.chronology.schedule import (
     RoomLane,
-    RoomLaneDay,
+    RoomLaneDayMark,
     RoomLaneHourMark,
+    RoomLanes,
     RoomLaneTile,
     ScheduleDay,
     ScheduleHour,
@@ -742,67 +743,67 @@ class TestEventPageView:
                     )
                 ],
                 active_tab="rooms",
-                room_lane_days=[
-                    RoomLaneDay(
-                        day_start=local_start,
-                        rooms=[
-                            RoomLane(
-                                name="Arena", group="", group_key="", starts_group=True
-                            ),
-                            RoomLane(
-                                name="Stage", group="", group_key="", starts_group=False
-                            ),
-                        ],
-                        # Four hours of lane, 10:00 to 13:00: the two sessions
-                        # at 10:00, an empty 11:00, the two-hour one from
-                        # 12:00, and the hour it runs into.
-                        hour_marks=[
-                            RoomLaneHourMark(
-                                start=local_start, row=1, has_sessions=True
-                            ),
-                            RoomLaneHourMark(
-                                start=local_start + timedelta(hours=1),
-                                row=2,
-                                has_sessions=False,
-                            ),
-                            RoomLaneHourMark(
-                                start=local_start + timedelta(hours=2),
-                                row=3,
-                                has_sessions=True,
-                            ),
-                            RoomLaneHourMark(
-                                start=local_start + timedelta(hours=3),
-                                row=4,
-                                has_sessions=False,
-                            ),
-                        ],
-                        # Arena is column 1 and Stage column 2; the later
-                        # session starts in the third row and spans two.
-                        tiles=[
-                            RoomLaneTile(
-                                data=cards[in_arena.pk],
-                                slot_hour=local_start,
-                                col=1,
-                                row_start=1,
-                                row_span=1,
-                            ),
-                            RoomLaneTile(
-                                data=cards[on_stage.pk],
-                                slot_hour=local_start,
-                                col=2,
-                                row_start=1,
-                                row_span=1,
-                            ),
-                            RoomLaneTile(
-                                data=cards[later_in_arena.pk],
-                                slot_hour=local_start + timedelta(hours=2),
-                                col=1,
-                                row_start=3,
-                                row_span=2,
-                            ),
-                        ],
-                    )
-                ],
+                room_lanes=RoomLanes(
+                    rooms=[
+                        RoomLane(
+                            name="Arena", group="", group_key="", starts_group=True
+                        ),
+                        RoomLane(
+                            name="Stage", group="", group_key="", starts_group=False
+                        ),
+                    ],
+                    # The day's heading takes row 1, so the programme starts on
+                    # row 2 and every row number below is absolute in the one
+                    # grid the whole event shares.
+                    day_marks=[RoomLaneDayMark(day_start=local_start, row=1)],
+                    # Four hours of lane, 10:00 to 13:00: the two sessions
+                    # at 10:00, an empty 11:00, the two-hour one from
+                    # 12:00, and the hour it runs into.
+                    hour_marks=[
+                        RoomLaneHourMark(start=local_start, row=2, has_sessions=True),
+                        RoomLaneHourMark(
+                            start=local_start + timedelta(hours=1),
+                            row=3,
+                            has_sessions=False,
+                        ),
+                        RoomLaneHourMark(
+                            start=local_start + timedelta(hours=2),
+                            row=4,
+                            has_sessions=True,
+                        ),
+                        RoomLaneHourMark(
+                            start=local_start + timedelta(hours=3),
+                            row=5,
+                            has_sessions=False,
+                        ),
+                    ],
+                    # Arena is column 1 and Stage column 2; the later
+                    # session starts in the fourth row and spans two.
+                    tiles=[
+                        RoomLaneTile(
+                            data=cards[in_arena.pk],
+                            slot_hour=local_start,
+                            col=1,
+                            row_start=2,
+                            row_span=1,
+                        ),
+                        RoomLaneTile(
+                            data=cards[on_stage.pk],
+                            slot_hour=local_start,
+                            col=2,
+                            row_start=2,
+                            row_span=1,
+                        ),
+                        RoomLaneTile(
+                            data=cards[later_in_arena.pk],
+                            slot_hour=local_start + timedelta(hours=2),
+                            col=1,
+                            row_start=4,
+                            row_span=2,
+                        ),
+                    ],
+                    rows=[1, 2, 3, 4, 5],
+                ),
                 has_enrollable_sessions=True,
                 scheduled_count=3,
             ),

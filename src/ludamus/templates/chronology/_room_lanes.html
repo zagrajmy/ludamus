@@ -1,19 +1,28 @@
 {% load csp_tags %}
 {% load i18n %}
-{# Rooms view: a CSS grid — rooms across, whole clock hours down. A session #}
+{# Rooms view: a CSS grid — rooms across, whole clock hours down, every day of #}
+{# the event stacked into the one grid. Rooms are the outer axis, so the whole #}
+{# event shares one column set, one room header, and one horizontal scroller; #}
+{# a room idle on a given day keeps its column and shows the gap. A session #}
 {# sits in its start-hour row and spans the hours it covers, so longer #}
 {# sessions render taller; rows are auto-height, so a tile is never clipped. #}
 {# The room-name header is pulled out of the horizontal scroller and sticks #}
 {# to the page (room-lanes.ts syncs the scroll offsets both ways) — native #}
-{# vertical stickiness, no scroll-driven jitter. Shift+scroll is not common #}
+{# vertical stickiness, no scroll-driven jitter. The day a heading row belongs #}
+{# to cannot stick the same way: it lives inside the scroller, whose #}
+{# overflow-x makes it the nearest scrollport, and a scrollport that never #}
+{# scrolls vertically pins a sticky child where it stands. So the header #}
+{# carries the current day as its own first line and room-lanes.ts keeps it #}
+{# in step with the scroll position. #}
+{# Shift+scroll is not common #}
 {# knowledge and the grid runs screens tall, so mouse users get a sideways #}
 {# handle pinned to each edge of the viewport: the header scrolls for real #}
 {# (overflow-x-auto, not hidden), making its scrollbar the top handle, and #}
 {# a sticky strip after the body carries the bottom one — the body's own #}
 {# scrollbar, which would surface only at the grid's very end, is hidden in #}
-{# index.css in its favor. A strip could carry the top handle too and spare #}
-{# the head's fade-mask carve-out, but a really-scrolling header row also #}
-{# pans directly by trackpad and touch — a deliberate trade. #}
+{# room-lanes.css in its favor. A strip could carry the top handle too and #}
+{# spare the head's fade-mask carve-out, but a really-scrolling header row #}
+{# also pans directly by trackpad and touch — a deliberate trade. #}
 {# The time axis is the grid's first #}
 {# column, sticky-left; only the right edge fades, so the axis never dims. #}
 {# Hour gridlines with sessions carry the .time-slot-section / #slot-<hour> #}
@@ -21,109 +30,137 @@
 {# Grid placement is data-driven, not inline: a style attribute cannot carry a #}
 {# CSP nonce, so the per-index rules live in one nonced style element keyed on #}
 {# the data-* attributes the elements already need (see issue #743). The rules #}
-{# name only integers, so days repeat each other's rules harmlessly, and the #}
-{# rooms/hour_marks loops bound every tile's column, row, and span. #}
-<style{% nonce %}>
-    {% for day in room_lane_days %}
-    .room-lanes[data-rooms="{{ day.rooms|length }}"] {
-        --rooms: {{ day.rooms|length }};
-    }
+{# name only integers, and the rooms/rows loops bound every tile's column, #}
+{# row, and span. #}
+{% if room_lanes %}
+    <style{% nonce %}>
+        .room-lanes {
+            --rooms: {{ room_lanes.rooms|length }};
+            --rows: {{ room_lanes.rows|length }};
+        }
+        {% for room in room_lanes.rooms %}
+        [data-lane-col="{{ forloop.counter }}"],
+        [data-tile-col="{{ forloop.counter }}"] {
+            grid-column: {{ forloop.counter|add:1 }};
+        }
+        {% endfor %}
+        {% for row in room_lanes.rows %}
+        [data-lane-row="{{ row }}"] {
+            grid-row: {{ row }};
+        }
 
-    .room-lanes[data-rows="{{ day.hour_marks|length }}"] {
-        --rows: {{ day.hour_marks|length }};
-    }
-    {% for room in day.rooms %}
-    [data-lane-col="{{ forloop.counter }}"],
-    [data-tile-col="{{ forloop.counter }}"] {
-        grid-column: {{ forloop.counter|add:1 }};
-    }
-    {% endfor %}
-    {% for mark in day.hour_marks %}
-    [data-lane-row="{{ mark.row }}"] {
-        grid-row: {{ mark.row }};
-    }
+        [data-tile-row="{{ row }}"] {
+            grid-row-start: {{ row }};
+        }
 
-    [data-tile-row="{{ mark.row }}"] {
-        grid-row-start: {{ mark.row }};
-    }
-
-    [data-tile-span="{{ mark.row }}"] {
-        grid-row-end: span {{ mark.row }};
-    }
-    {% endfor %}
-    {% endfor %}
-</style>
-{% for day in room_lane_days %}
-    <section data-schedule-day class="mb-8 last:mb-0">
-        {% include "chronology/_schedule_day_header.html" %}
-        <div class="room-lanes"
-             data-rooms="{{ day.rooms|length }}"
-             data-rows="{{ day.hour_marks|length }}">
-            <div class="room-lanes-head sticky top-14 z-30 overflow-x-auto overscroll-x-contain border-b border-border/60 bg-background backdrop-blur-lg scrollview-fade scrollview-fade-x-8"
-                 data-room-lanes-head>
-                <div class="room-lanes-grid">
-                    <div class="room-lanes-corner sticky left-0 z-10 bg-background"></div>
-                    {# Explicitly placed, not auto-flowed: filtering hides the #}
-                    {# headers of emptied rooms (room-lanes.ts), and an #}
-                    {# auto-placed survivor would slide into the freed column. #}
-                    {# Two stacked lines per column: the parent space, shown #}
-                    {# only above the first column of its run, then the room. #}
-                    {# Every column carries the parent's name and all but that #}
-                    {# first one hide it — `invisible`, not absent, because #}
-                    {# room-lanes.ts moves the label to the first column left #}
-                    {# standing when a filter collapses the one holding it. #}
-                    {% for room in day.rooms %}
-                        <div class="px-2 py-1.5"
-                             data-lane-col="{{ forloop.counter }}"
-                             data-lane-group="{{ room.group_key }}">
-                            <div class="min-h-[1lh] break-all text-[0.625rem] font-semibold uppercase tracking-widest text-foreground-muted{% if not room.starts_group %} invisible{% endif %}"
-                                 data-lane-group-label>{{ room.group }}</div>
-                            <div class="break-all text-xs font-bold uppercase tracking-wide text-foreground-secondary">{{ room.name }}</div>
-                        </div>
-                    {% endfor %}
-                    {# Column dividers hang from the header cells and continue down #}
-                    {# through the body (matching .room-lanes-rule below), so the #}
-                    {# lines stay continuous where cells span rows or are absent. #}
-                    {% for room in day.rooms %}
-                        <div class="room-lanes-rule" data-lane-col="{{ forloop.counter }}"></div>
-                    {% endfor %}
+        [data-tile-span="{{ row }}"] {
+            grid-row-end: span {{ row }};
+        }
+        {% endfor %}
+    </style>
+    <div class="room-lanes"
+         data-rooms="{{ room_lanes.rooms|length }}"
+         data-rows="{{ room_lanes.rows|length }}">
+        <div class="room-lanes-head sticky top-14 z-30 overflow-x-auto overscroll-x-contain border-b border-border/60 bg-background backdrop-blur-lg scrollview-fade scrollview-fade-x-8"
+             data-room-lanes-head>
+            <div class="room-lanes-grid">
+                {# The day the reader is looking at, kept current by room-lanes.ts. #}
+                {# Sticky-left so it stays legible while the header pans sideways. #}
+                <div class="room-lanes-day-current">
+                    <div class="sticky left-0 inline-flex items-baseline gap-2 bg-background px-2 py-1 text-sm font-bold uppercase tracking-wide text-foreground-secondary"
+                         data-room-lanes-day-current
+                         aria-hidden="true">
+                        <span data-day-name>{{ room_lanes.day_marks.0.day_start|date:"l" }}</span>
+                        <span class="text-xs font-medium normal-case tracking-normal text-foreground-muted"
+                              data-day-date>{{ room_lanes.day_marks.0.day_start|date:"j F" }}</span>
+                    </div>
                 </div>
-            </div>
-            <div class="room-lanes-scroll scrollview-fade scrollview-fade-x-16 overflow-x-auto overflow-y-clip overscroll-x-contain"
-                 data-room-lanes-scroll>
-                <div class="room-lanes-grid room-lanes-body">
-                    {% for mark in day.hour_marks %}
-                        <div class="room-lanes-time sticky left-0 z-40 bg-background pr-1 text-right text-[0.7rem] font-bold tabular-nums text-foreground-muted"
-                             data-lane-row="{{ mark.row }}">{{ mark.start|time:"H:i" }}</div>
-                        <div class="room-lanes-line border-t border-border/60{% if mark.has_sessions %} time-slot-section scroll-mt-24{% endif %}"
-                             data-lane-row="{{ mark.row }}"
-                             {% if mark.has_sessions %}id="slot-{{ mark.start|date:'Ymd-H' }}" data-slot-hour="{{ mark.start|date:'Ymd-H' }}"{% endif %}>
-                        </div>
-                    {% endfor %}
-                    {% for room in day.rooms %}
-                        <div class="room-lanes-rule" data-lane-col="{{ forloop.counter }}"></div>
-                    {% endfor %}
-                    {% for tile in day.tiles %}
-                        <div class="room-lanes-cell p-0.5"
-                             data-tile-col="{{ tile.col }}"
-                             data-tile-row="{{ tile.row_start }}"
-                             data-tile-span="{{ tile.row_span }}">
-                            {% include "chronology/_room_lane_tile.html" with data=tile.data slot_hour=tile.slot_hour %}
-                        </div>
-                    {% endfor %}
-                </div>
-            </div>
-            {# The bottom handle. Its spacer is a 1px .room-lanes-grid, so the #}
-            {# width formula and the collapse code in room-lanes.ts keep it in #}
-            {# step with the body and scrollLeft copies over verbatim. #}
-            {# Decorative for AT and keyboard users — the body scroller stays #}
-            {# reachable — hence aria-hidden and tabindex=-1. #}
-            <div class="sticky bottom-0 z-30 overflow-x-auto overscroll-x-contain bg-background"
-                 data-room-lanes-foot
-                 aria-hidden="true"
-                 tabindex="-1">
-                <div class="room-lanes-grid h-px"></div>
+                <div class="room-lanes-corner sticky left-0 z-10 bg-background"></div>
+                {# Explicitly placed, not auto-flowed: filtering hides the #}
+                {# headers of emptied rooms (room-lanes.ts), and an #}
+                {# auto-placed survivor would slide into the freed column. #}
+                {# Two stacked lines per column: the parent space, shown #}
+                {# only above the first column of its run, then the room. #}
+                {# Every column carries the parent's name and all but that #}
+                {# first one hide it — `invisible`, not absent, because #}
+                {# room-lanes.ts moves the label to the first column left #}
+                {# standing when a filter collapses the one holding it. #}
+                {% for room in room_lanes.rooms %}
+                    <div class="room-lanes-head-cell px-2 py-1.5"
+                         data-lane-col="{{ forloop.counter }}"
+                         data-lane-group="{{ room.group_key }}">
+                        <div class="min-h-[1lh] break-all text-[0.625rem] font-semibold uppercase tracking-widest text-foreground-muted{% if not room.starts_group %} invisible{% endif %}"
+                             data-lane-group-label>{{ room.group }}</div>
+                        <div class="break-all text-xs font-bold uppercase tracking-wide text-foreground-secondary">{{ room.name }}</div>
+                    </div>
+                {% endfor %}
+                {# Column dividers hang from the header cells and continue down #}
+                {# through the body (matching .room-lanes-rule below), so the #}
+                {# lines stay continuous where cells span rows or are absent. #}
+                {% for room in room_lanes.rooms %}
+                    <div class="room-lanes-rule room-lanes-head-rule"
+                         data-lane-col="{{ forloop.counter }}"></div>
+                {% endfor %}
             </div>
         </div>
-    </section>
-{% endfor %}
+        <div class="room-lanes-scroll scrollview-fade scrollview-fade-x-16 overflow-x-auto overflow-y-clip overscroll-x-contain"
+             data-room-lanes-scroll>
+            <div class="room-lanes-grid room-lanes-body">
+                {% for mark in room_lanes.day_marks %}
+                    {# The in-flow day break. Its label repeats the sticky one in #}
+                    {# the header, which only ever shows the day currently under #}
+                    {# the reader — this is the boundary itself. #}
+                    <div class="room-lanes-day" data-lane-row="{{ mark.row }}">
+                        <h3 class="sticky left-0 inline-flex items-baseline gap-2 px-2 py-2 text-sm font-bold uppercase tracking-wide text-foreground-secondary">
+                            <span data-day-name>{{ mark.day_start|date:"l" }}</span>
+                            <span class="text-xs font-medium normal-case tracking-normal text-foreground-muted"
+                                  data-day-date>{{ mark.day_start|date:"j F" }}</span>
+                        </h3>
+                    </div>
+                {% endfor %}
+                {% for mark in room_lanes.hour_marks %}
+                    <div class="room-lanes-time sticky left-0 z-40 bg-background pr-1 text-right text-[0.7rem] font-bold tabular-nums text-foreground-muted"
+                         data-lane-row="{{ mark.row }}">{{ mark.start|time:"H:i" }}</div>
+                    <div class="room-lanes-line border-t border-border/60{% if mark.has_sessions %} time-slot-section scroll-mt-40{% endif %}"
+                         data-lane-row="{{ mark.row }}"
+                         data-hour-start="{{ mark.start|date:'c' }}"
+                         {% if mark.has_sessions %}id="slot-{{ mark.start|date:'Ymd-H' }}" data-slot-hour="{{ mark.start|date:'Ymd-H' }}"{% endif %}>
+                    </div>
+                {% endfor %}
+                {% for room in room_lanes.rooms %}
+                    <div class="room-lanes-rule" data-lane-col="{{ forloop.counter }}"></div>
+                {% endfor %}
+                {% for tile in room_lanes.tiles %}
+                    <div class="room-lanes-cell p-0.5"
+                         data-tile-col="{{ tile.col }}"
+                         data-tile-row="{{ tile.row_start }}"
+                         data-tile-span="{{ tile.row_span }}">
+                        {% include "chronology/_room_lane_tile.html" with data=tile.data slot_hour=tile.slot_hour %}
+                    </div>
+                {% endfor %}
+                {# The "now" rule, placed by room-lanes.ts: the row it belongs to #}
+                {# and how far down it sits are both clock-dependent, so the #}
+                {# server cannot render them into a cacheable page. #}
+                <div class="room-lanes-now" data-room-lanes-now hidden aria-hidden="true">
+                    {# The strip carries the rule and gives the time something #}
+                    {# full-width to stick inside, so the label stays pinned to #}
+                    {# the left edge with the hour axis while the grid pans. #}
+                    <div class="room-lanes-now-strip">
+                        <span class="room-lanes-now-time" data-room-lanes-now-time></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {# The bottom handle. Its spacer is a 1px .room-lanes-grid, so the #}
+        {# width formula and the collapse code in room-lanes.ts keep it in #}
+        {# step with the body and scrollLeft copies over verbatim. #}
+        {# Decorative for AT and keyboard users — the body scroller stays #}
+        {# reachable — hence aria-hidden and tabindex=-1. #}
+        <div class="sticky bottom-0 z-30 overflow-x-auto overscroll-x-contain bg-background"
+             data-room-lanes-foot
+             aria-hidden="true"
+             tabindex="-1">
+            <div class="room-lanes-grid h-px"></div>
+        </div>
+    </div>
+{% endif %}

@@ -28,6 +28,10 @@ data-venue-name="{{ data.loc.parent_name }}"
 data-space="{{ data.loc.sort_key }}"
 data-space-name="{{ data.loc.space_name }}"
 {% if data.agenda_item %}
+{# The instant, offset included: data-day/data-hour below are the event's #}
+{# local wall clock, which reads as a different moment in a reader's own #}
+{# timezone, and the "now" line compares against the reader's clock. #}
+data-start="{{ data.agenda_item.start_time|date:'c' }}"
 data-day="{{ data.agenda_item.start_time|date:'Y-m-d' }}"
 data-day-label="{{ data.agenda_item.start_time|date:'l, j F' }}"
 data-hour="{{ data.agenda_item.start_time|date:'H:i' }}"

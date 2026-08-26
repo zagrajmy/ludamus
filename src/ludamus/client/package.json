@@ -20,6 +20,7 @@
     "@simulacrum/auth0-simulator": "0.11.4",
     "@tailwindcss/typography": "0.5.19",
     "@tailwindcss/vite": "4.2.4",
+    "lil-gui": "0.21.0",
     "oxfmt": "0.56.0",
     "oxlint": "1.70.0",
     "postcss-nested": "7.0.2",

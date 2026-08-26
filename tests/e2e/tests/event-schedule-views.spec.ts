@@ -82,6 +82,81 @@ test.describe("Event schedule views", () => {
     await expect.poll(() => head.evaluate((el) => el.scrollLeft)).toBe(near);
   });
 
+  test("the header names the day the reader is looking at", async ({ page }) => {
+    await page.goto(`${DENSE_EVENT_URL}?view=rooms`);
+    const label = page.locator("[data-room-lanes-day-current]");
+    const days = page.locator(".room-lanes-day");
+    expect(await days.count()).toBeGreaterThan(1);
+
+    const first = await days.first().innerText();
+    expect(await label.innerText()).toBe(first);
+
+    // Scroll the second day's heading under the header — the day the reader is
+    // in, which is what the sticky copy has to say.
+    const second = days.nth(1);
+    await second.evaluate((el) => {
+      el.scrollIntoView({ block: "start" });
+    });
+    await expect.poll(() => label.innerText()).toBe(await second.innerText());
+  });
+
+  test("a line marks the current moment on the grid", async ({ page }) => {
+    await page.goto(`${DENSE_EVENT_URL}?view=rooms`);
+    const firstLine = page.locator("[data-hour-start]").first();
+    const firstHour = await firstLine.getAttribute("data-hour-start");
+    const firstRow = await firstLine.getAttribute("data-lane-row");
+    expect(firstHour).not.toBeNull();
+    if (!firstHour) return;
+
+    // Half past the programme's first hour: a row for the line to land in and
+    // a fraction that is neither end of it.
+    await page.clock.install({ time: new Date(Date.parse(firstHour) + 30 * 60_000) });
+    await page.goto(`${DENSE_EVENT_URL}?view=rooms`);
+
+    const marker = page.locator("[data-room-lanes-now]");
+    await expect(marker).toBeVisible();
+    await expect(page.locator("[data-room-lanes-now-time]")).not.toBeEmpty();
+    const placed = await marker.evaluate((el) => ({
+      frac: Number(el.style.getPropertyValue("--now-frac")),
+      row: el.style.gridRow,
+    }));
+    expect(placed.row).toBe(firstRow);
+    expect(placed.frac).toBeCloseTo(0.5, 2);
+
+    // A day before the programme opens, no hour row owns the moment. The tick
+    // is what has to notice, not a reload.
+    await page.clock.setFixedTime(new Date(Date.parse(firstHour) - 24 * 3600 * 1000));
+    await page.clock.runFor(60_000);
+    await expect(marker).toBeHidden();
+  });
+
+  test("a line marks the seam between started and upcoming in the ledger", async ({ page }) => {
+    await page.goto(DENSE_EVENT_URL);
+    const firstStart = await page
+      .locator(".session-grid .session-wrapper .session[data-start]")
+      .first()
+      .getAttribute("data-start");
+    expect(firstStart).not.toBeNull();
+    if (!firstStart) return;
+
+    const now = Date.parse(firstStart) + 90 * 60_000;
+    await page.clock.install({ time: new Date(now) });
+    await page.goto(DENSE_EVENT_URL);
+
+    // Exactly one seam, and it sits before the first row still to come.
+    const marked = page.locator(".session-wrapper[data-now-at]");
+    await expect(marked).toHaveCount(1);
+    const starts = await page.locator(".session-grid .session-wrapper").evaluateAll((rows) =>
+      rows.map((row) => ({
+        marked: row.hasAttribute("data-now-at"),
+        start: row.querySelector<HTMLElement>(".session")?.dataset.start ?? "",
+      })),
+    );
+    const seam = starts.findIndex((row) => row.marked);
+    expect(Date.parse(starts[seam].start)).toBeGreaterThan(now);
+    expect(Date.parse(starts[seam - 1].start)).toBeLessThanOrEqual(now);
+  });
+
   test("the grid pans like a map: drag the background, or anything with Space", async ({
     browserName,
     page,
@@ -133,6 +208,25 @@ test.describe("Event schedule views", () => {
     // trailing click must not open the session it started on.
     const tile = page.getByRole("link", { name: /^Open details for / }).first();
     await tile.scrollIntoViewIfNeeded();
+    // scrollIntoViewIfNeeded knows nothing about the sticky header, which
+    // overlays the top of the grid: a tile parked under it takes the
+    // pointerdown on the header instead of the scroller, and no pan starts.
+    const headBottom = await page
+      .locator("[data-room-lanes-head]")
+      .first()
+      .evaluate((el) => el.getBoundingClientRect().bottom);
+    const parked = await tile.boundingBox();
+    expect(parked).not.toBeNull();
+    if (!parked) return;
+    if (parked.y < headBottom + 8) {
+      await page.evaluate(
+        (dy) => {
+          const app = document.querySelector(".app-scroll");
+          if (app) app.scrollTop -= dy;
+        },
+        headBottom + 8 - parked.y,
+      );
+    }
     const box = await tile.boundingBox();
     expect(box).not.toBeNull();
     if (!box) return;

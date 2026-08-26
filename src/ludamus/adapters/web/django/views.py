@@ -362,7 +362,7 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
                 "schedule_days": schedule_days,
                 "active_tab": "rooms" if rooms_view else "list",
                 "has_enrollable_sessions": has_enrollable_sessions,
-                "room_lane_days": build_room_lanes(schedule_days) if rooms_view else [],
+                "room_lanes": build_room_lanes(schedule_days) if rooms_view else None,
                 "schedule_list_url": event_url,
                 "schedule_rooms_url": f"{event_url}?view=rooms",
                 "ended_hour_data": ended_hour_data,

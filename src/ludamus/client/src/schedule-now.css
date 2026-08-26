@@ -1,0 +1,68 @@
+/* The "this is now" rule, in both compact schedule layouts. Paired with
+   schedule-now.ts, which decides where the line goes — the clock is the one
+   thing the server cannot render, since the page is cacheable and a rendered
+   line is stale the moment it is served. */
+
+/* In the rooms grid: the line lives in the hour row holding the current time
+   and sits --now-frac of the way down it. Rows are auto-height, so the offset
+   is a share of the row rather than a pixel distance, and an hour stretched
+   tall by a long session keeps the line proportionally where it belongs. */
+.room-lanes-now {
+  grid-column: 1 / -1;
+  position: relative;
+  /* Over the tiles, and over the sticky time axis (z-40) so the pill replaces
+     the hour label it lands on rather than hiding behind it. */
+  z-index: 45;
+  pointer-events: none;
+}
+
+.room-lanes-now-strip {
+  position: absolute;
+  inset-inline: 0;
+  top: calc(var(--now-frac, 0) * 100%);
+  border-top: 2px solid var(--color-primary);
+}
+
+/* In the ledger: the seam between what has started and what has not. The rows
+   are a list rather than a time axis, so the line marks the boundary between
+   two rows instead of a position inside an hour. */
+.session-wrapper[data-now-at] {
+  position: relative;
+  margin-top: 0.875rem;
+}
+
+.session-wrapper[data-now-at]::before {
+  content: "";
+  position: absolute;
+  inset-inline: 0;
+  top: -0.4375rem;
+  border-top: 2px solid var(--color-primary);
+}
+
+.room-lanes-now-time,
+.session-wrapper[data-now-at]::after {
+  translate: 0 -50%;
+  border-radius: 9999px;
+  background: var(--color-primary);
+  padding-inline: 0.375rem;
+  font-size: 0.625rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1rem;
+  color: white;
+}
+
+/* Sticky, not absolute: the label rides the scroller's left edge the way the
+   hour axis does, instead of panning off with the grid. */
+.room-lanes-now-time {
+  position: sticky;
+  left: 0;
+  display: inline-block;
+}
+
+.session-wrapper[data-now-at]::after {
+  content: attr(data-now-at);
+  position: absolute;
+  top: -0.4375rem;
+  inset-inline-start: 0.5rem;
+}

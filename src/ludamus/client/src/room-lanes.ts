@@ -27,10 +27,27 @@ const collapseEmptyTracks = (lanes: HTMLElement): void => {
     if (visible) liveCols.add(Number(cell.dataset.tileCol));
   }
 
+  // Every day of the event shares this grid, so a filter can empty a whole day
+  // and leave its heading sitting directly on the next day's — two headings
+  // back to back with nothing between them, which reads as a bug. Take the
+  // emptied day's rows with it, blank hours included.
+  const dayRows = [...lanes.querySelectorAll<HTMLElement>(".room-lanes-day")].map((day) =>
+    Number(day.dataset.laneRow),
+  );
+  const emptied = new Set<number>();
+  for (const [index, first] of dayRows.entries()) {
+    const last = (dayRows[index + 1] ?? rowCount + 1) - 1;
+    const band = Array.from({ length: last - first + 1 }, (_, offset) => first + offset);
+    if (band.some((row) => tileRows.has(row)) && !band.some((row) => liveRows.has(row))) {
+      for (const row of band) emptied.add(row);
+    }
+  }
+
   // An hour no tile ever covered is a break in the programme, and the server
   // renders it at full height. Collapsing it would leave a cleared filter
   // showing a different schedule than the first load did.
-  const rowLives = (row: number): boolean => liveRows.has(row) || !tileRows.has(row);
+  const rowLives = (row: number): boolean =>
+    !emptied.has(row) && (liveRows.has(row) || !tileRows.has(row));
 
   for (const el of lanes.querySelectorAll<HTMLElement>("[data-lane-row]")) {
     el.classList.toggle(COLLAPSED, !rowLives(Number(el.dataset.laneRow)));
@@ -71,6 +88,40 @@ const collapseEmptyTracks = (lanes: HTMLElement): void => {
       rowLives(index + 1) ? "var(--row-track)" : "0",
     ).join(" ");
   }
+};
+
+// The day heading cannot simply be sticky. It sits inside the body scroller,
+// whose overflow-x makes that scroller the nearest scrollport, and a scrollport
+// that never scrolls vertically pins a sticky child exactly where it was
+// rendered. The header is outside the scroller and does stick to the page, so
+// it carries the current day instead and the scroll position decides which day
+// that is.
+const trackCurrentDay = (lanes: HTMLElement, head: HTMLElement): (() => void) | null => {
+  const label = head.querySelector<HTMLElement>("[data-room-lanes-day-current]");
+  const days = [...lanes.querySelectorAll<HTMLElement>(".room-lanes-day")];
+  if (!label || days.length === 0) return null;
+
+  const copy = (from: HTMLElement, field: string): void => {
+    const source = from.querySelector<HTMLElement>(`[data-day-${field}]`);
+    const target = label.querySelector<HTMLElement>(`[data-day-${field}]`);
+    if (source && target && target.textContent !== source.textContent) {
+      target.textContent = source.textContent;
+    }
+  };
+
+  return () => {
+    // The last day break that has passed under the header — the one whose
+    // rows the reader is looking at. Before the first break has reached it,
+    // that is still the first day.
+    const edge = head.getBoundingClientRect().bottom;
+    let current = days[0];
+    for (const day of days) {
+      if (day.getBoundingClientRect().top > edge) break;
+      current = day;
+    }
+    copy(current, "name");
+    copy(current, "date");
+  };
 };
 
 const PAN_READY = "room-lanes-pan-ready";
@@ -221,6 +272,21 @@ const initRoomLanes = (): void => {
 
     // Vertical pan moves the page scroller — the grid clips its own y-overflow.
     const page = scroller.closest<HTMLElement>(".app-scroll");
+
+    const syncDay = lanes && head ? trackCurrentDay(lanes, head) : null;
+    if (syncDay) {
+      syncDay();
+      let queued = 0;
+      const queueDay = (): void => {
+        if (queued) return;
+        queued = requestAnimationFrame(() => {
+          queued = 0;
+          syncDay();
+        });
+      };
+      page?.addEventListener("scroll", queueDay, { passive: true, signal });
+      globalThis.addEventListener("resize", queueDay, { signal });
+    }
     lanes?.addEventListener(
       "pointerenter",
       () => {

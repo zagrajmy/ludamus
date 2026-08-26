@@ -67,11 +67,25 @@ class RoomLane:
 
 
 @dataclass
-class RoomLaneDay:
+class RoomLaneDayMark:
+    # A day's heading row. Days are stacked inside one room-keyed grid, so a
+    # day is a band of rows rather than a grid of its own.
     day_start: datetime
+    row: int
+
+
+@dataclass
+class RoomLanes:
+    # Rooms are the outer axis: one column set, one header, one scroller for
+    # the whole event. A room idle on a given day keeps its column and shows
+    # the gap, which reads as programme information rather than as a layout
+    # accident. `rows` is the row numbers themselves — the template needs to
+    # emit one CSS rule per row, and Django templates cannot count.
     rooms: list[RoomLane]
+    day_marks: list[RoomLaneDayMark]
     hour_marks: list[RoomLaneHourMark]
     tiles: list[RoomLaneTile]
+    rows: list[int]
 
 
 def build_schedule_days(sessions_data: dict[int, SessionData]) -> list[ScheduleDay]:
@@ -178,27 +192,40 @@ def _room_lanes(keys: list[_RoomKey]) -> list[RoomLane]:
     return lanes
 
 
-def build_room_lanes(schedule_days: list[ScheduleDay]) -> list[RoomLaneDay]:
-    lane_days: list[RoomLaneDay] = []
+def build_room_lanes(schedule_days: list[ScheduleDay]) -> RoomLanes | None:
+    if not schedule_days:
+        return None
+
+    # One column set for the event, not one per day: per-day sets gave each day
+    # its own column count and its own horizontal scroller, so the days drifted
+    # out of step with each other as you panned.
+    keys = sorted({_room_key(tile.data) for day in schedule_days for tile in day.tiles})
+    rooms = _room_lanes(keys)
+    col_index = {key: index + 1 for index, key in enumerate(keys)}
+
+    day_marks: list[RoomLaneDayMark] = []
+    hour_marks: list[RoomLaneHourMark] = []
+    tiles: list[RoomLaneTile] = []
+    row = 1
     for day in schedule_days:
-        keys = sorted({_room_key(tile.data) for tile in day.tiles})
-        rooms = _room_lanes(keys)
-        col_index = {key: index + 1 for index, key in enumerate(keys)}
+        day_marks.append(RoomLaneDayMark(day_start=day.day_start, row=row))
+        # The heading takes a row of its own, so the day's first hour starts
+        # under it and every row number below is absolute in the shared grid.
+        first_hour_row = row + 1
 
         day_start = day.day_start
         day_end = max(tile.end for tile in day.tiles)
         hour_count = ceil((day_end - day_start).total_seconds() / 3600)
         session_hours = {hour.start for hour in day.hours}
-        hour_marks = [
+        hour_marks.extend(
             RoomLaneHourMark(
                 start=(mark := day_start + timedelta(hours=offset)),
-                row=offset + 1,
+                row=first_hour_row + offset,
                 has_sessions=mark in session_hours,
             )
             for offset in range(hour_count)
-        ]
+        )
 
-        tiles: list[RoomLaneTile] = []
         for tile in day.tiles:
             start_hour = int((tile.start - day_start).total_seconds() // 3600)
             end_offset = (tile.end - day_start).total_seconds() / 3600
@@ -207,13 +234,16 @@ def build_room_lanes(schedule_days: list[ScheduleDay]) -> list[RoomLaneDay]:
                     data=tile.data,
                     slot_hour=tile.start.replace(minute=0, second=0, microsecond=0),
                     col=col_index[_room_key(tile.data)],
-                    row_start=start_hour + 1,
+                    row_start=first_hour_row + start_hour,
                     row_span=max(1, ceil(end_offset) - start_hour),
                 )
             )
-        lane_days.append(
-            RoomLaneDay(
-                day_start=day_start, rooms=rooms, hour_marks=hour_marks, tiles=tiles
-            )
-        )
-    return lane_days
+        row = first_hour_row + hour_count
+
+    return RoomLanes(
+        rooms=rooms,
+        day_marks=day_marks,
+        hour_marks=hour_marks,
+        tiles=tiles,
+        rows=list(range(1, row)),
+    )

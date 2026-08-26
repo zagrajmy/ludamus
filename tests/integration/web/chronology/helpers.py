@@ -102,7 +102,7 @@ def schedule_context(url):
         "compact_schedule": False,
         "schedule_days": [],
         "active_tab": "list",
-        "room_lane_days": [],
+        "room_lanes": None,
         "schedule_list_url": url,
         "schedule_rooms_url": f"{url}?view=rooms",
     }

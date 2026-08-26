@@ -7,8 +7,9 @@ from django.utils.timezone import localtime
 
 from ludamus.gates.web.django.chronology.schedule import (
     RoomLane,
-    RoomLaneDay,
+    RoomLaneDayMark,
     RoomLaneHourMark,
+    RoomLanes,
     RoomLaneTile,
 )
 from ludamus.links.db.django.models import SessionBookmark
@@ -152,38 +153,35 @@ class TestEventPageBookmarkCounts:
                 hour_data={agenda_item.start_time: [card]},
                 schedule_days=[compact_day([card])],
                 active_tab="rooms",
-                room_lane_days=[
-                    RoomLaneDay(
-                        day_start=hour_start,
-                        rooms=[
-                            RoomLane(
-                                name=agenda_item.space.name,
-                                group="",
-                                group_key="",
-                                starts_group=True,
-                            )
-                        ],
-                        hour_marks=[
-                            RoomLaneHourMark(
-                                start=hour_start, row=1, has_sessions=True
-                            ),
-                            RoomLaneHourMark(
-                                start=hour_start + timedelta(hours=1),
-                                row=2,
-                                has_sessions=False,
-                            ),
-                        ],
-                        tiles=[
-                            RoomLaneTile(
-                                data=card,
-                                slot_hour=hour_start,
-                                col=1,
-                                row_start=1,
-                                row_span=2,
-                            )
-                        ],
-                    )
-                ],
+                room_lanes=RoomLanes(
+                    rooms=[
+                        RoomLane(
+                            name=agenda_item.space.name,
+                            group="",
+                            group_key="",
+                            starts_group=True,
+                        )
+                    ],
+                    day_marks=[RoomLaneDayMark(day_start=hour_start, row=1)],
+                    hour_marks=[
+                        RoomLaneHourMark(start=hour_start, row=2, has_sessions=True),
+                        RoomLaneHourMark(
+                            start=hour_start + timedelta(hours=1),
+                            row=3,
+                            has_sessions=False,
+                        ),
+                    ],
+                    tiles=[
+                        RoomLaneTile(
+                            data=card,
+                            slot_hour=hour_start,
+                            col=1,
+                            row_start=2,
+                            row_span=2,
+                        )
+                    ],
+                    rows=[1, 2, 3],
+                ),
                 sessions=[card],
                 has_enrollable_sessions=True,
                 scheduled_count=1,
