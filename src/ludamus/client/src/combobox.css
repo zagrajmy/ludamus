@@ -1,0 +1,64 @@
+/* Combobox popup placement.
+
+   The popup has to escape whatever clips its surroundings — the event page's
+   filter panel scrolls and is transformed, which traps even position:fixed —
+   so it goes in the top layer. That takes it out of the flow, and something
+   then has to keep it glued to its input.
+
+   CSS anchor positioning is that something, wherever it exists. The reason it
+   is worth the @supports fork is iOS: Safari scrolls on the compositor and
+   fires `scroll` asynchronously, so a JS placement reading
+   getBoundingClientRect() is always a frame or more behind and the popup
+   visibly detaches mid-scroll. Anchoring in CSS hands the sticking to the
+   compositor, which is the only thing that can keep up with it.
+
+   combobox.ts sets anchor-name/position-anchor per instance — the name has to
+   be unique, and only the script knows the id. It also sets the
+   data-combobox-anchored attribute these rules require, and only after
+   measuring that an anchored box really lands on its anchor: Firefox answers
+   CSS.supports() with true for every part of this syntax and then parks the
+   box at the top of the viewport, so @supports alone would hand it rules its
+   layout cannot honour. Without that attribute the script keeps its own
+   placement, and where the top layer is missing too the markup's absolutely
+   positioned box stands. */
+/* `utilities`, not `components`: the popup's fallback placement is Tailwind
+   utilities (`absolute left-0 right-0 top-full`), and Tailwind's layer order
+   puts utilities above components whatever the specificity — so anchored rules
+   in `components` lose to the very classes they exist to replace. Same layer,
+   and the attribute selector wins on specificity. */
+@layer utilities {
+  @supports (anchor-name: --a) {
+    [data-combobox-popup][data-combobox-anchored]:popover-open {
+      position: fixed;
+      /* The input's own box: below it, left-aligned, matching its width. */
+      top: anchor(bottom);
+      left: anchor(left);
+      width: anchor-size(width);
+      margin: 4px 0 0;
+      /* Flip above when there is no room below — the same decision the JS
+         placement made, made by the browser instead. */
+      position-try-fallbacks: flip-block;
+    }
+
+    /* Six rows, or whatever a keyboard has left of the screen.
+
+       Not `stretch`, though it is the obvious fit for "the room the
+       position-area leaves": it is a keyword, not a length, so `min()` rejects
+       it — and because the value also carries a var(), that rejection happens
+       at computed-value time, where an invalid declaration still wins the
+       cascade and then resolves to the property's initial value. The result is
+       `max-height: none`, beating the utility class it was meant to refine.
+
+       The keyboard is a WebKit-shaped exception. It shrinks
+       the *visual* viewport and leaves the layout viewport alone, so no CSS
+       length can see it. `interactive-widget=resizes-content` would fix that
+       by shrinking the layout viewport instead — but WebKit has not shipped it
+       (bug 259770), and iOS Safari is the browser this whole file is for. So
+       combobox.ts measures the visible band and writes it here, on visual
+       viewport resize only: a keyboard opening is one discrete event, not the
+       per-frame measurement anchoring exists to avoid. */
+    [data-combobox-popup][data-combobox-anchored]:popover-open [data-combobox-scroller] {
+      max-height: min(14rem, var(--combobox-room, 100vh));
+    }
+  }
+}

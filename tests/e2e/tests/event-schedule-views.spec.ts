@@ -168,7 +168,7 @@ test.describe("Event schedule views", () => {
 test.describe("Enrollment filter", () => {
   test.beforeEach(async ({ page }) => {
     await page.goto(EVENT_URL);
-    await page.getByRole("button", { name: "Filters" }).click();
+    await page.getByRole("button", { exact: true, name: "Filters" }).click();
   });
 
   test("narrows the schedule to the sessions that take sign-up", async ({ page }) => {
@@ -200,7 +200,7 @@ test.describe("Enrollment filter", () => {
   test("search still filters the sessions it left on screen", async ({ page }) => {
     await enrollmentOnly(page).check();
 
-    await page.getByRole("textbox", { name: "Search sessions..." }).fill("mega");
+    await page.getByRole("textbox", { name: "Search by name or text..." }).fill("mega");
 
     await expect(card(page, MEGA)).toBeVisible();
     await expect(card(page, NEON)).toBeHidden();
