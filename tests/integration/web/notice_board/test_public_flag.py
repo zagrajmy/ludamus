@@ -1,5 +1,6 @@
 from datetime import UTC, datetime, timedelta
 from http import HTTPStatus
+from unittest.mock import ANY
 
 import pytest
 from django.contrib import messages
@@ -40,6 +41,34 @@ def policy_fixture(request, sphere):
 
 class TestEncounterPublicFlagOnCreate:
     URL = reverse("web:notice-board:create")
+
+    @pytest.mark.parametrize("policy", ("everyone",), indirect=True)
+    def test_form_offers_the_public_toggle_to_allowed_user(
+        self, authenticated_client, policy
+    ):
+        response = authenticated_client.get(self.URL)
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={"form": ANY},
+            template_name="notice_board/create.html",
+        )
+        assert "is_public" in response.context["form"].fields
+
+    @pytest.mark.parametrize("policy", ("disabled",), indirect=True)
+    def test_form_hides_the_public_toggle_from_disallowed_user(
+        self, authenticated_client, policy
+    ):
+        response = authenticated_client.get(self.URL)
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={"form": ANY},
+            template_name="notice_board/create.html",
+        )
+        assert "is_public" not in response.context["form"].fields
 
     @pytest.mark.parametrize("policy", ("everyone",), indirect=True)
     def test_allowed_user_creates_public_encounter(self, authenticated_client, policy):

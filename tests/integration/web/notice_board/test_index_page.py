@@ -2,11 +2,13 @@ from datetime import UTC, datetime, timedelta
 from http import HTTPStatus
 from unittest.mock import ANY
 
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
 
 from ludamus.gates.web.django.notice_board.views import SAMPLE_COUNT
 from ludamus.pacts import EncounterDTO, EncounterIndexItem
 from tests.integration.conftest import (
+    PNG_BYTES,
     EncounterFactory,
     EncounterRSVPFactory,
     UserFactory,
@@ -99,6 +101,72 @@ class TestEncountersIndexPageView:
             creator=active_user,
             sphere=sphere,
             is_public=True,
+            start_time=datetime.now(UTC) + timedelta(days=3),
+        )
+
+        response = authenticated_client.get(self.URL)
+
+        encounter.refresh_from_db()
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={
+                "upcoming_encounters": [
+                    EncounterIndexItem(
+                        encounter=EncounterDTO.model_validate(encounter),
+                        rsvp_count=0,
+                        is_mine=True,
+                        organizer_name="",
+                    )
+                ],
+                "past_encounters": [],
+                "public_encounters": [],
+                "view": ANY,
+            },
+            template_name=["notice_board/index.html"],
+        )
+
+    def test_upcoming_encounter_with_header_image(
+        self, authenticated_client, active_user, sphere
+    ):
+        encounter = EncounterFactory(
+            creator=active_user,
+            sphere=sphere,
+            header_image=SimpleUploadedFile(
+                "header.png", PNG_BYTES, content_type="image/png"
+            ),
+            start_time=datetime.now(UTC) + timedelta(days=3),
+        )
+
+        response = authenticated_client.get(self.URL)
+
+        encounter.refresh_from_db()
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={
+                "upcoming_encounters": [
+                    EncounterIndexItem(
+                        encounter=EncounterDTO.model_validate(encounter),
+                        rsvp_count=0,
+                        is_mine=True,
+                        organizer_name="",
+                    )
+                ],
+                "past_encounters": [],
+                "public_encounters": [],
+                "view": ANY,
+            },
+            template_name=["notice_board/index.html"],
+        )
+
+    def test_upcoming_encounter_without_participant_limit(
+        self, authenticated_client, active_user, sphere
+    ):
+        encounter = EncounterFactory(
+            creator=active_user,
+            sphere=sphere,
+            max_participants=0,
             start_time=datetime.now(UTC) + timedelta(days=3),
         )
 
