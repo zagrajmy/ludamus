@@ -230,7 +230,7 @@
                             <code class="absolute top-3 left-3 text-xs text-foreground-muted">{% templatetag openblock %} tessera_combobox {% templatetag closeblock %}</code>
                             <div class="w-full max-w-xs">
                                 <label for="t-combobox" class="sr-only">Fruit</label>
-                                {% tessera_combobox id="t-combobox" name="t-combobox" placeholder="Search fruit…" %}
+                                {% tessera_combobox id="t-combobox" name="t-combobox" %}
                                     <option value="">Any fruit</option>
                                     <option value="apple">Apple</option>
                                     <option value="apricot">Apricot</option>
@@ -247,7 +247,7 @@
                             {# that route has broken twice without a page here to catch it. #}
                             <div class="w-full max-w-xs">
                                 <label for="t-combobox-placeholder" class="sr-only">Fruit, unset</label>
-                                {% tessera_combobox id="t-combobox-placeholder" name="t-combobox-placeholder" placeholder="Search fruit…" %}
+                                {% tessera_combobox id="t-combobox-placeholder" name="t-combobox-placeholder" %}
                                     <option value="" disabled selected>Choose a fruit…</option>
                                     <option value="apple">Apple</option>
                                     <option value="cherry">Cherry</option>
