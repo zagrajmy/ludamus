@@ -193,7 +193,7 @@ test.describe("Event detail page", () => {
       Object.fromEntries(
         [...document.querySelectorAll<HTMLElement>("dialog[open] [data-morph]")].map((element) => [
           element.dataset.morph,
-          getComputedStyle(element).viewTransitionGroup,
+          getComputedStyle(element).getPropertyValue("view-transition-group"),
         ]),
       ),
     );

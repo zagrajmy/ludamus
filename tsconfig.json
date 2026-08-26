@@ -1,0 +1,14 @@
+{
+  "files": [],
+  "references": [
+    {
+      "path": "./src/ludamus/client"
+    },
+    {
+      "path": "./tests/e2e"
+    },
+    {
+      "path": "./scripts/ios-regressions"
+    }
+  ]
+}

@@ -11,13 +11,14 @@ declare global {
 
 // Print buttons can't be clicked for real (a print dialog would block the run),
 // and a no-op stub also lets a test assert the handler actually fired.
-const stubPrint = (page: Page): Promise<void> =>
-  page.addInitScript(() => {
+const stubPrint = async (page: Page): Promise<void> => {
+  await page.addInitScript(() => {
     window.__printCalls = 0;
     window.print = () => {
       window.__printCalls += 1;
     };
   });
+};
 
 // Proves the enforcing CSP (script-src 'self' 'nonce-…', no unsafe-inline,
 // no unsafe-eval — see plan 019 and settings.CSP_POLICY) doesn't block any
