@@ -339,7 +339,8 @@
                             {# dialog over the schedule: the trigger is behind it, so the #}
                             {# sheet carries its own way out. Escape closes it at every width. #}
                             <div class="filter-sheet-header items-center justify-between gap-3 px-6 py-4 border-b border-border">
-                                <h2 class="text-xs font-bold uppercase tracking-widest text-foreground-muted">{% translate "Filters" %}</h2>
+                                <h2 id="filter-sheet-title"
+                                    class="text-xs font-bold uppercase tracking-widest text-foreground-muted">{% translate "Filters" %}</h2>
                                 {# Named for what it closes, and it has to be: the iOS modal #}
                                 {# regression checks the session modal is gone by looking for #}
                                 {# the label "Close" anywhere on the page, so a second button #}
@@ -741,6 +742,16 @@
                 transform: none;
                 transition: opacity 0.15s linear;
             }
+        }
+
+        /* The same lock index.css gives the session modal, and on the same
+           element: .app-shell is overflow:hidden, so .app-scroll is the only
+           thing that scrolls and the document never does. Keyed on aria-modal
+           because that attribute is already the answer to "is this a dialog
+           right now" — it is set at the phone breakpoint and removed at every
+           other, so the dropdown leaves the schedule scrollable under it. */
+        body:has(#filter-panel[aria-modal="true"]) .app-scroll {
+            overflow: hidden;
         }
 
         /* The sheet's own chrome; the panel is a dropdown at every other width,

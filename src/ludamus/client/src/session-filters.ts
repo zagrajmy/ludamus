@@ -674,15 +674,74 @@ const initSessionFilters = (): void => {
     f.el.addEventListener(f.kind === "choice" ? "change" : "input", filterSessions);
   }
 
-  filterToggle.addEventListener("click", () => {
-    const isOpen = filterPanel.classList.toggle("is-open");
-    filterToggle.setAttribute("aria-expanded", String(isOpen));
+  // The same element is a dropdown at most widths and a modal dialog on a
+  // phone, and only the second one may say so: announcing a dialog that the
+  // page is not covered by, or holding focus inside a popover the user can
+  // click past, both mislead. No media query reaches ARIA, so the semantics
+  // go on and come off with the breakpoint the stylesheet switches on.
+  const sheetWidth = globalThis.matchMedia("(max-width: 30rem)");
+  const FOCUSABLE =
+    "a[href], button:not([disabled]), input:not([disabled]), select:not([disabled])," +
+    ' textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+  const isPanelOpen = (): boolean => filterPanel.classList.contains("is-open");
+
+  // offsetParent is null for a display:none subtree, which is how the hidden
+  // filter groups and the wide-width chrome drop out of the tab order here.
+  const focusablePanelItems = (): HTMLElement[] =>
+    [...filterPanel.querySelectorAll<HTMLElement>(FOCUSABLE)].filter(
+      (el) => el.offsetParent !== null,
+    );
+
+  const syncDialogSemantics = (): void => {
+    // aria-modal is the only state this writes: the stylesheet keys the scroll
+    // lock off it too, so "is a dialog" and "holds the page still" cannot drift
+    // apart the way a second flag would let them.
+    if (sheetWidth.matches && isPanelOpen()) {
+      filterPanel.setAttribute("role", "dialog");
+      filterPanel.setAttribute("aria-modal", "true");
+      filterPanel.setAttribute("aria-labelledby", "filter-sheet-title");
+      return;
+    }
+    filterPanel.removeAttribute("role");
+    filterPanel.removeAttribute("aria-modal");
+    filterPanel.removeAttribute("aria-labelledby");
+  };
+
+  // A dialog that leaves focus behind it is a dialog only to the eye, so Tab
+  // wraps at the ends rather than walking out into the schedule underneath.
+  filterPanel.addEventListener("keydown", (event: KeyboardEvent) => {
+    if (event.key !== "Tab" || filterPanel.getAttribute("aria-modal") !== "true") return;
+    const items = focusablePanelItems();
+    const edge = event.shiftKey ? items.at(0) : items.at(-1);
+    if (!edge || document.activeElement !== edge) return;
+    event.preventDefault();
+    (event.shiftKey ? items.at(-1) : items.at(0))?.focus();
   });
+
+  sheetWidth.addEventListener("change", syncDialogSemantics, {
+    signal: documentListeners.signal,
+  });
+
+  const openPanel = (): void => {
+    filterPanel.classList.add("is-open");
+    filterToggle.setAttribute("aria-expanded", "true");
+    syncDialogSemantics();
+    // Only the dialog takes focus: the dropdown leaves it on the trigger, so
+    // Tab from there walks into the panel the way it already reads.
+    if (sheetWidth.matches) focusablePanelItems().at(0)?.focus();
+  };
 
   const closePanel = (): void => {
     filterPanel.classList.remove("is-open");
     filterToggle.setAttribute("aria-expanded", "false");
+    syncDialogSemantics();
   };
+
+  filterToggle.addEventListener("click", () => {
+    if (isPanelOpen()) closePanel();
+    else openPanel();
+  });
 
   // The sheet the narrow breakpoint turns this into covers the trigger and
   // leaves no outside to click, so it ships a close button. Escape is bound at

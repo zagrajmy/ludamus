@@ -5,8 +5,10 @@ import { expect, test } from "./helpers/fixtures";
 test.describe("Design system page", () => {
   /** The upgraded combobox input — waits out the enhancement, which a native
    * <select> would otherwise satisfy, since it carries the combobox role too. */
+  // exact, because role-name matching is substring by default and the gallery
+  // now shows two fruit comboboxes — "Fruit" alone would resolve to both.
   const upgradedCombobox = async (page: Page, name: string) => {
-    const combobox = page.getByRole("combobox", { name });
+    const combobox = page.getByRole("combobox", { exact: true, name });
     await expect(combobox).toHaveAttribute("aria-autocomplete", "list");
     return combobox;
   };
@@ -49,6 +51,23 @@ test.describe("Design system page", () => {
     await expect(toasts).toHaveCount(0);
   });
 
+  test("shows a disabled placeholder's label, which is no option to land on", async ({ page }) => {
+    await page.goto("/design/");
+
+    // A disabled option is never a row, so the label cannot come from the row
+    // list; it travels with the payload instead. This has regressed twice —
+    // once when the options moved to JSON, once to a truthiness guard that
+    // rejected the empty string the placeholder is keyed on.
+    const combobox = await upgradedCombobox(page, "Fruit, unset");
+    await expect(combobox).toHaveValue("Choose a fruit…");
+
+    // And it stays unpickable: the list offers only the two real fruits.
+    await combobox.click();
+    await expect(
+      page.getByRole("listbox", { exact: true, name: "Fruit, unset" }).getByRole("option"),
+    ).toHaveText(["Apple", "Cherry"]);
+  });
+
   test("upgrades the combobox and filters its options", async ({ page }) => {
     await page.goto("/design/");
 
@@ -57,10 +76,9 @@ test.describe("Design system page", () => {
     await expect(page.locator("#t-combobox")).toBeHidden();
 
     await combobox.fill("ap");
-    await expect(page.getByRole("listbox", { name: "Fruit" }).getByRole("option")).toHaveText([
-      "Apple",
-      "Apricot",
-    ]);
+    await expect(
+      page.getByRole("listbox", { exact: true, name: "Fruit" }).getByRole("option"),
+    ).toHaveText(["Apple", "Apricot"]);
 
     await combobox.press("ArrowDown");
     await combobox.press("ArrowDown");
@@ -136,7 +154,7 @@ test.describe("Design system page", () => {
     const combobox = await upgradedCombobox(page, "Fruit");
     await combobox.click();
 
-    const list = page.getByRole("listbox", { name: "Fruit" });
+    const list = page.getByRole("listbox", { exact: true, name: "Fruit" });
     const field = (await combobox.boundingBox())!;
     const popup = (await list.boundingBox())!;
 
@@ -161,7 +179,7 @@ test.describe("Design system page", () => {
     });
     await combobox.click();
 
-    const list = page.getByRole("listbox", { name: "Fruit" });
+    const list = page.getByRole("listbox", { exact: true, name: "Fruit" });
     const field = (await combobox.boundingBox())!;
     const popup = (await list.boundingBox())!;
 
@@ -232,7 +250,9 @@ test.describe("Design system page", () => {
     // already answered — making someone arrow down to confirm the one row
     // left is a keystroke it has earned without.
     await combobox.fill("bl");
-    await expect(page.getByRole("listbox", { name: "Fruit" }).getByRole("option")).toHaveCount(1);
+    await expect(
+      page.getByRole("listbox", { exact: true, name: "Fruit" }).getByRole("option"),
+    ).toHaveCount(1);
     await combobox.press("Tab");
 
     await expect(page.locator("#t-combobox")).toHaveValue("blackcurrant");
@@ -246,7 +266,9 @@ test.describe("Design system page", () => {
     // "ap" matches Apple and Apricot: two answers is no answer, so Tab must
     // not pick one for the person leaving the field.
     await combobox.fill("ap");
-    await expect(page.getByRole("listbox", { name: "Fruit" }).getByRole("option")).toHaveCount(2);
+    await expect(
+      page.getByRole("listbox", { exact: true, name: "Fruit" }).getByRole("option"),
+    ).toHaveCount(2);
     await combobox.press("Tab");
 
     await expect(page.locator("#t-combobox")).toHaveValue("");
@@ -264,7 +286,7 @@ test.describe("Design system page", () => {
     await combobox.pressSequentially("apr", { delay: 30 });
     // Scoped to this combobox's list: every native <select> on the page
     // contributes options of its own to the accessibility tree.
-    const options = page.getByRole("listbox", { name: "Fruit" }).getByRole("option");
+    const options = page.getByRole("listbox", { exact: true, name: "Fruit" }).getByRole("option");
     await expect(options).toHaveText(["Apricot"]);
   });
 
@@ -351,7 +373,7 @@ test.describe("Design system page", () => {
     });
     await combobox.click();
 
-    const listbox = page.getByRole("listbox", { name: "Fruit" });
+    const listbox = page.getByRole("listbox", { exact: true, name: "Fruit" });
     const rendered = await listbox.getByRole("option").count();
     expect(rendered).toBeGreaterThan(0);
     expect(rendered).toBeLessThan(40);

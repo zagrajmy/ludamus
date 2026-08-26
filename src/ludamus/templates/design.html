@@ -240,6 +240,21 @@
                             </div>
                         </div>
                         <div class="relative bg-background pt-12 px-8 pb-8 min-h-48 flex items-center justify-center">
+                            <code class="absolute top-3 left-3 text-xs text-foreground-muted">{% templatetag openblock %} tessera_combobox {% templatetag closeblock %} — disabled placeholder</code>
+                            {# The commonest select idiom there is: a first option that names #}
+                            {# the field and cannot be chosen. It is not a row anyone can land #}
+                            {# on, so the label has to reach the input by another route — and #}
+                            {# that route has broken twice without a page here to catch it. #}
+                            <div class="w-full max-w-xs">
+                                <label for="t-combobox-placeholder" class="sr-only">Fruit, unset</label>
+                                {% tessera_combobox id="t-combobox-placeholder" name="t-combobox-placeholder" placeholder="Search fruit…" %}
+                                    <option value="" disabled selected>Choose a fruit…</option>
+                                    <option value="apple">Apple</option>
+                                    <option value="cherry">Cherry</option>
+                                {% endtessera_combobox %}
+                            </div>
+                        </div>
+                        <div class="relative bg-background pt-12 px-8 pb-8 min-h-48 flex items-center justify-center">
                             <code class="absolute top-3 left-3 text-xs text-foreground-muted">checkbox-field.html</code>
                             {% include "components/checkbox-field.html" with id="t-checkbox" name="t-checkbox" label="Checkbox" checked=True only %}
                         </div>

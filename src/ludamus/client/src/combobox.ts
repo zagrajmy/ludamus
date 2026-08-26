@@ -304,9 +304,11 @@ const upgrade = (root: HTMLElement): void => {
   // disabled — a placeholder like "Choose a fruit…" is the common case — and a
   // disabled option is never a row, so looking only there would blank the
   // field the moment it renders.
+  // No truthiness guard on `wanted`: the empty string is the placeholder's own
+  // value, and guarding it out blanked the one case this fallback exists for.
   const labelOf = (wanted: string): string =>
     rows.find((row) => row.value === wanted)?.label ??
-    (wanted && wanted === parsed.value ? parsed.label : "");
+    (wanted === parsed.value ? parsed.label : "");
 
   /**
    * Take a new option list. Whatever the page built is appended to whatever
@@ -583,13 +585,19 @@ const upgrade = (root: HTMLElement): void => {
         break;
       }
       case "Escape": {
-        if (isOpen()) {
-          close();
-        } else {
-          // The pattern's second press clears the textbox; here that means
-          // going back to the option that stands for "nothing picked".
-          commit(rows.find((row) => row.value === ""));
-        }
+        // Escape unwinds one layer at a time, and the list is the innermost
+        // one. With it already closed the next layer out is whatever holds
+        // this combobox — the event page's filter panel, say — which listens
+        // on the document and stands down for a key something nearer has
+        // claimed. So a closed list must neither preventDefault nor spend the
+        // press on anything of its own.
+        //
+        // The list-autocomplete pattern gives that second press to clearing
+        // the textbox. Dropped on purpose: a panel you cannot dismiss from the
+        // control you are standing in is the worse failure, and clearing has
+        // two other ways out already — the "All hosts" option and the chip.
+        if (!isOpen()) return;
+        close();
         event.preventDefault();
         break;
       }

@@ -68,6 +68,80 @@ test.describe("Event filter panel", () => {
     await context.close();
   });
 
+  test("the phone dialog says it is one, and keeps Tab inside it", async ({ browser }) => {
+    const context = await browser.newContext({
+      viewport: { width: MOBILE_WIDTH, height: 700 },
+    });
+    const page = await context.newPage();
+    await page.goto("/event/autumn-open/");
+
+    const trigger = page.getByRole("button", { exact: true, name: "Filters" });
+    await trigger.click();
+
+    // Looking like a modal is not being one: without these a screen reader
+    // cannot tell the boundary, and Tab walks out into the schedule behind.
+    const dialog = page.getByRole("dialog", { name: "Filters" });
+    await expect(dialog).toBeVisible();
+    await expect(dialog).toHaveAttribute("aria-modal", "true");
+
+    // Focus goes in with the dialog, and Shift+Tab off the first control wraps
+    // to the last rather than landing on the page underneath.
+    await expect(page.locator("#filter-panel *:focus")).toBeAttached();
+    await page.keyboard.press("Shift+Tab");
+    await expect(page.locator("#filter-panel *:focus")).toBeAttached();
+
+    await context.close();
+  });
+
+  test("the phone dialog holds the schedule still underneath it", async ({ browser }) => {
+    // The dense event is long enough to scroll, which is the whole point: a
+    // dialog over a page that slides under the finger loses the context the
+    // filters are being chosen against.
+    const context = await browser.newContext({
+      viewport: { width: MOBILE_WIDTH, height: 700 },
+    });
+    const page = await context.newPage();
+    await page.goto(DENSE_EVENT_URL);
+
+    // .app-scroll is the scroller, not the window: the shell around it is
+    // overflow:hidden, so the document itself never moves.
+    const scroller = page.locator(".app-scroll");
+    const scrollTop = () => scroller.evaluate((el) => el.scrollTop);
+    await scroller.evaluate((el) => el.scrollTo(0, 400));
+    await expect.poll(scrollTop).toBeGreaterThan(0);
+    const before = await scrollTop();
+
+    const trigger = page.getByRole("button", { exact: true, name: "Filters" });
+    await trigger.click();
+
+    // The lock is `overflow: hidden` on the scroller, the same mechanism
+    // index.css gives the session modal. It stops the wheel and the finger; a
+    // programmatic scrollTo still moves the box, so that is no way to test it.
+    await expect(scroller).toHaveCSS("overflow-y", "hidden");
+    await page.mouse.move(MOBILE_WIDTH / 2, 350);
+    await page.mouse.wheel(0, 600);
+    await expect.poll(scrollTop).toBe(before);
+
+    // And the page is handed back when the dialog goes: a lock that never
+    // releases is the failure worth catching, not the one that never engages.
+    await page.getByRole("button", { name: "Apply filters" }).click();
+    await expect(scroller).not.toHaveCSS("overflow-y", "hidden");
+    await page.mouse.wheel(0, 600);
+    await expect.poll(scrollTop).toBeGreaterThan(before);
+
+    await context.close();
+  });
+
+  test("the wide-screen panel is a dropdown, and says nothing about dialogs", async ({ page }) => {
+    // The same element, and the semantics have to come off with the layout: a
+    // page you can still click past is not covered by a modal.
+    await page.goto("/event/autumn-open/");
+    await page.getByRole("button", { exact: true, name: "Filters" }).click();
+
+    await expect(page.locator("#filter-panel")).not.toHaveAttribute("role", "dialog");
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+  });
+
   test("the phone dialog also closes by its X and by the backdrop", async ({ browser }) => {
     const context = await browser.newContext({
       viewport: { width: MOBILE_WIDTH, height: 700 },
@@ -85,6 +159,19 @@ test.describe("Event filter panel", () => {
     await trigger.click();
     await expect(trigger).toHaveAttribute("aria-expanded", "true");
     await page.locator("[data-filter-backdrop]").click({ position: { x: 5, y: 5 } });
+    await expect(trigger).toHaveAttribute("aria-expanded", "false");
+
+    // And by Escape from inside the combobox, which is where a phone keyboard
+    // leaves you. With its own list already shut the combobox must let the key
+    // past rather than swallowing it on the dialog's behalf.
+    await trigger.click();
+    const hostFilter = page.getByRole("combobox", { name: "Host" });
+    await hostFilter.click();
+    await hostFilter.press("Escape");
+    await expect(page.getByRole("listbox", { name: "Host" })).toBeHidden();
+    await expect(trigger).toHaveAttribute("aria-expanded", "true");
+
+    await hostFilter.press("Escape");
     await expect(trigger).toHaveAttribute("aria-expanded", "false");
 
     await context.close();
@@ -311,9 +398,34 @@ test.describe("Event filter panel", () => {
     await expect(hostFilter).toHaveValue("Priya Chen");
     await expect(hostFilter).toHaveAttribute("aria-expanded", "false");
 
-    // Pressing it again on a closed list clears the pick, as the pattern says.
+    // Pressing it again reaches past the combobox: the list is already shut,
+    // so the next layer out is the panel. The pick it restored stands.
     await hostFilter.press("Escape");
-    await expect(hostFilter).toHaveValue("All hosts");
+    await expect(hostFilter).toHaveValue("Priya Chen");
+    await expect(page.getByRole("button", { exact: true, name: "Filters" })).toHaveAttribute(
+      "aria-expanded",
+      "false",
+    );
+  });
+
+  test("Escape closes the list first and the panel second", async ({ page }) => {
+    await page.goto("/event/autumn-open/");
+    const trigger = page.getByRole("button", { exact: true, name: "Filters" });
+    await trigger.click();
+
+    const hostFilter = page.getByRole("combobox", { name: "Host" });
+    await hostFilter.click();
+    await expect(page.getByRole("listbox", { name: "Host" })).toBeVisible();
+
+    // One layer per press: the list goes and the panel stays, because the
+    // combobox claims the key while its own popup is what Escape can dismiss.
+    await hostFilter.press("Escape");
+    await expect(page.getByRole("listbox", { name: "Host" })).toBeHidden();
+    await expect(trigger).toHaveAttribute("aria-expanded", "true");
+
+    // Nothing left inside to dismiss, so the press reaches the panel.
+    await hostFilter.press("Escape");
+    await expect(trigger).toHaveAttribute("aria-expanded", "false");
   });
 
   test("the host combobox folds diacritics like the search box does", async ({ page }) => {
