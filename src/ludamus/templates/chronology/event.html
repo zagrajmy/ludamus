@@ -312,7 +312,7 @@
                         <span class="absolute left-3.5 top-1/2 -translate-y-1/2 text-foreground-muted">
                             {% icon "magnifying-glass" class="w-5 h-5" variant="mini" %}
                         </span>
-                        {% translate "Search sessions..." as filter_placeholder %}
+                        {% translate "Search by name or text..." as filter_placeholder %}
                         <input type="text"
                                class="filter-input w-full pl-11 pr-4 py-2.5 sm:py-3 rounded-2xl border border-border text-sm font-medium bg-bg-secondary text-foreground placeholder:text-foreground-muted placeholder:font-normal transition-[border-color,box-shadow] duration-150"
                                id="session-filter"
@@ -334,126 +334,154 @@
                         </button>
                         {# The panel div stays the last child of the wrapper; the popover #}
                         {# anchor math in session-filters.ts relies on that. #}
-                        <div id="filter-panel" class="filter-panel shadow-xl">
-                            <div class="flex flex-wrap gap-3 grow pt-3.5">
-                                {% if has_enrollable_sessions %}
-                                    <div class="w-full">
-                                        {% include "components/checkbox-field.html" with id="enrollment-filter" label=t_enrollment_only only %}
-                                    </div>
-                                {% endif %}
-                                <div class="flex flex-col gap-1.5">
-                                    <label class="text-xs font-bold uppercase tracking-widest text-foreground-muted"
-                                           for="status-filter">{% translate "Status" %}</label>
-                                    <select id="status-filter"
-                                            class="filter-input w-full py-2 px-3 rounded-xl border border-border text-sm font-medium bg-bg-secondary text-foreground transition-[border-color,box-shadow] duration-150">
-                                        <option value="">{% translate "All statuses" %}</option>
-                                        <option value="available">{% translate "Available spots" %}</option>
-                                        <option value="full">{% translate "Full" %}</option>
-                                        <option value="in-progress">{% translate "In progress" %}</option>
-                                        <option value="unavailable">{% translate "Enrollment unavailable" %}</option>
-                                        <option value="ended">{% translate "Ended" %}</option>
-                                        <option value="my-enrolled">{% translate "I am enrolled" %}</option>
-                                        <option value="my-waiting">{% translate "I am waiting" %}</option>
-                                        {# Bookmark toggles exist only on the compact layouts, so the #}
-                                        {# filter option would always be empty on card-grid events. #}
-                                        {% if current_user and compact_schedule %}
-                                            <option value="my-bookmarked">{% translate "Bookmarked" %}</option>
-                                        {% endif %}
-                                    </select>
-                                </div>
-                                {# One control for the whole space tree: the #}
-                                {# venues are its groups and selectable as a #}
-                                {# whole, the rooms are the options under #}
-                                {# them. Two selects narrowing one axis let #}
-                                {# the reader pick a venue and a room outside #}
-                                {# it, and answered that with an empty list. #}
-                                <div id="space-filter-group" class="flex flex-col gap-1.5 hidden">
-                                    <label class="text-xs font-bold uppercase tracking-widest text-foreground-muted"
-                                           for="space-filter">{% translate "Location" %}</label>
-                                    <select id="space-filter"
-                                            class="filter-input grow w-full py-2 px-3 rounded-xl border border-border text-sm font-medium bg-bg-secondary text-foreground transition-[border-color,box-shadow] duration-150"
-                                            data-all-rooms-label="{% translate "all rooms" %}">
-                                        <option value="">{% translate "All locations" %}</option>
-                                    </select>
-                                </div>
-                                <div class="flex flex-col gap-1.5 grow">
-                                    <label class="text-xs font-bold uppercase tracking-widest text-foreground-muted">{% translate "Age range" %}</label>
-                                    <div class="flex items-center gap-2">
-                                        <input type="number"
-                                               class="filter-input w-full py-2 px-3 rounded-xl border border-border text-sm grow font-medium bg-bg-secondary text-foreground transition-[border-color,box-shadow] duration-150"
-                                               id="min-age-filter"
-                                               placeholder="{% translate "Min" %}"
-                                               min="0"
-                                               max="99">
-                                        <span class="text-xs font-bold text-foreground-muted">–</span>
-                                        <input type="number"
-                                               class="filter-input w-full py-2 px-3 rounded-xl grow border border-border text-sm font-medium bg-bg-secondary text-foreground transition-[border-color,box-shadow] duration-150"
-                                               id="max-age-filter"
-                                               placeholder="{% translate "Max" %}"
-                                               min="0"
-                                               max="99">
-                                    </div>
-                                </div>
-                                <div id="day-hour-filter-group" class="flex gap-3 grow hidden">
-                                    <div id="day-filter-group" class="flex flex-col gap-1.5 grow hidden">
-                                        <label class="text-xs font-bold uppercase tracking-widest text-foreground-muted"
-                                               for="day-filter">{% translate "Day" %}</label>
-                                        <select id="day-filter"
-                                                class="filter-input w-full py-2 px-3 rounded-xl border border-border text-sm font-medium bg-bg-secondary text-foreground transition-[border-color,box-shadow] duration-150">
-                                            <option value="">{% translate "All days" %}</option>
-                                        </select>
-                                    </div>
-                                    <div id="hour-filter-group" class="flex flex-col gap-1.5 grow hidden">
-                                        <label class="text-xs font-bold uppercase tracking-widest text-foreground-muted"
-                                               for="hour-filter">{% translate "Hour" %}</label>
-                                        <select id="hour-filter"
-                                                class="filter-input w-full py-2 px-3 rounded-xl border border-border text-sm font-medium bg-bg-secondary text-foreground transition-[border-color,box-shadow] duration-150">
-                                            <option value="">{% translate "All hours" %}</option>
-                                        </select>
-                                    </div>
-                                </div>
-                                {% if track_filter_names %}
-                                    <div class="flex flex-col gap-1.5 grow">
-                                        <label class="text-xs font-bold uppercase tracking-widest grow text-foreground-muted"
-                                               for="tag-filter-__track">{% translate "Track" %}</label>
-                                        <select class="filter-input w-full py-2 px-3 rounded-xl border border-border text-sm font-medium bg-bg-secondary text-foreground transition-[border-color,box-shadow] duration-150 tag-filter"
-                                                data-category="__track"
-                                                id="tag-filter-__track">
-                                            <option value="">{% translate "All tracks" %}</option>
-                                            {% for name in track_filter_names %}<option value="{{ name }}">{{ name }}</option>{% endfor %}
-                                        </select>
-                                    </div>
-                                {% endif %}
-                                {% if category_filter_names %}
-                                    <div class="flex flex-col gap-1.5 grow">
-                                        <label class="text-xs font-bold uppercase tracking-widest grow text-foreground-muted"
-                                               for="tag-filter-__category">{% translate "Category" context "participant filter" %}</label>
-                                        <select class="filter-input w-full py-2 px-3 rounded-xl border border-border text-sm font-medium bg-bg-secondary text-foreground transition-[border-color,box-shadow] duration-150 tag-filter"
-                                                data-category="__category"
-                                                id="tag-filter-__category">
-                                            <option value="">{% translate "All categories" context "participant filter" %}</option>
-                                            {% for name in category_filter_names %}<option value="{{ name }}">{{ name }}</option>{% endfor %}
-                                        </select>
-                                    </div>
-                                {% endif %}
-                                <div id="tag-filters" class="contents">
-                                    {% for field in filterable_tag_categories %}
-                                        <div class="flex flex-col gap-1.5 grow">
-                                            <label class="text-xs font-bold uppercase tracking-widest grow text-foreground-muted"
-                                                   for="tag-filter-{{ field.slug }}">{{ field.name }}</label>
-                                            <select class="filter-input w-full py-2 px-3 rounded-xl border border-border text-sm font-medium bg-bg-secondary text-foreground transition-[border-color,box-shadow] duration-150 tag-filter"
-                                                    data-category="{{ field.slug }}"
-                                                    id="tag-filter-{{ field.slug }}">
-                                                <option value="">{% translate "All" %} {{ field.name }}</option>
-                                                {# Only the field's defined choices: an allow_custom field's typed-in values are not filter options. #}
-                                                {# The value, not the label: cards, modal and search all carry the raw value. #}
-                                                {% for option in field.sorted_options %}<option value="{{ option.value }}">{{ option.value }}</option>{% endfor %}
-                                            </select>
+                        <div id="filter-panel" class="filter-panel">
+                            {# Only ever seen on the narrow breakpoint, where the panel is a #}
+                            {# dialog over the schedule: the trigger is behind it, so the #}
+                            {# sheet carries its own way out. Escape closes it at every width. #}
+                            <div class="filter-sheet-header items-center justify-between gap-3 px-6 py-4 border-b border-border">
+                                <h2 id="filter-sheet-title"
+                                    class="text-xs font-bold uppercase tracking-widest text-foreground-muted">{% translate "Filters" %}</h2>
+                                {# Named for what it closes, and it has to be: the iOS modal #}
+                                {# regression checks the session modal is gone by looking for #}
+                                {# the label "Close" anywhere on the page, so a second button #}
+                                {# carrying that exact name keeps the check red forever. #}
+                                {% translate "Close filters" as t_close_filters %}
+                                {% tessera_icon_button icon="x-mark" label=t_close_filters id="filter-close" %}
+                            </div>
+                            {% with select_class="filter-input transition-[border-color,box-shadow] duration-150" input_class="filter-input transition-[border-color,box-shadow] duration-150" label_class="text-xs font-bold uppercase tracking-widest text-foreground-muted" %}
+                                <div class="filter-panel-body flex flex-wrap gap-3 grow pt-3.5">
+                                    {% if has_enrollable_sessions %}
+                                        <div class="w-full">
+                                            {% include "components/checkbox-field.html" with id="enrollment-filter" label=t_enrollment_only only %}
                                         </div>
-                                    {% endfor %}
+                                    {% endif %}
+                                    <div class="flex flex-col gap-1.5">
+                                        <label class="{{ label_class }}" for="status-filter">{% translate "Status" %}</label>
+                                        {% select id="status-filter" class=select_class %}
+                                            <option value="">{% translate "All statuses" %}</option>
+                                            <option value="available">{% translate "Available spots" %}</option>
+                                            <option value="full">{% translate "Full" %}</option>
+                                            <option value="in-progress">{% translate "In progress" %}</option>
+                                            <option value="unavailable">{% translate "Enrollment unavailable" %}</option>
+                                            <option value="ended">{% translate "Ended" %}</option>
+                                            <option value="my-enrolled">{% translate "I am enrolled" %}</option>
+                                            <option value="my-waiting">{% translate "I am waiting" %}</option>
+                                            {# Bookmark toggles exist only on the compact layouts, so the #}
+                                            {# filter option would always be empty on card-grid events. #}
+                                            {% if current_user and compact_schedule %}
+                                                <option value="my-bookmarked">{% translate "Bookmarked" %}</option>
+                                            {% endif %}
+                                        {% endselect %}
+                                    </div>
+                                    {# One control for the whole space tree: the #}
+                                    {# venues are its groups and selectable as a #}
+                                    {# whole, the rooms are the options under #}
+                                    {# them. Two selects narrowing one axis let #}
+                                    {# the reader pick a venue and a room outside #}
+                                    {# it, and answered that with an empty list. #}
+                                    <div id="space-filter-group" class="flex flex-col gap-1.5 hidden">
+                                        <label class="{{ label_class }}" for="space-filter">{% translate "Location" %}</label>
+                                        {% translate "all rooms" as t_all_rooms %}
+                                        {% select id="space-filter" data_all_rooms_label=t_all_rooms class=select_class %}
+                                            <option value="">{% translate "All locations" %}</option>
+                                        {% endselect %}
+                                    </div>
+                                    {# Two ends of the one number a session carries. "Participant #}
+                                    {# age" answers "what can this person join" — a session stays #}
+                                    {# visible when its minimum-age requirement admits them, and #}
+                                    {# an unrestricted session admits everyone. "Age from" answers #}
+                                    {# the opposite question, "show me the 18+ programme", which is #}
+                                    {# what people share links for. #}
+                                    <div class="flex gap-3">
+                                        <div class="flex flex-col gap-1.5 grow">
+                                            <label class="{{ label_class }}" for="age-filter">{% translate "Participant age" %}</label>
+                                            {% include "components/text-field.html" with name="age" id="age-filter" input_type="number" min="0" max="99" class=input_class only %}
+                                        </div>
+                                        <div id="min-age-filter-group" class="flex flex-col gap-1.5 grow hidden">
+                                            <label class="{{ label_class }}" for="min-age-filter">{% translate "Age from" %}</label>
+                                            {% select id="min-age-filter" name="age-min" class=select_class %}
+                                                <option value="">{% translate "Any age" %}</option>
+                                            {% endselect %}
+                                        </div>
+                                    </div>
+                                    <div id="day-hour-filter-group" class="flex gap-3 grow hidden">
+                                        <div id="day-filter-group" class="flex flex-col gap-1.5 grow hidden">
+                                            <label class="{{ label_class }}" for="day-filter">{% translate "Day" %}</label>
+                                            {% select id="day-filter" class=select_class %}
+                                                <option value="">{% translate "All days" %}</option>
+                                            {% endselect %}
+                                        </div>
+                                        <div id="hour-filter-group" class="flex flex-col gap-1.5 grow hidden">
+                                            <label class="{{ label_class }}" for="hour-filter">{% translate "Hour" %}</label>
+                                            {% select id="hour-filter" class=select_class %}
+                                                <option value="">{% translate "All hours" %}</option>
+                                            {% endselect %}
+                                        </div>
+                                    </div>
+                                    {% if track_filter_names %}
+                                        <div class="flex flex-col gap-1.5 grow">
+                                            <label class="{{ label_class }}" for="tag-filter-__track">{% translate "Track" %}</label>
+                                            {% select id="tag-filter-__track" data_category="__track" class=select_class|add:" tag-filter" %}
+                                                <option value="">{% translate "All tracks" %}</option>
+                                                {% for name in track_filter_names %}<option value="{{ name }}">{{ name }}</option>{% endfor %}
+                                            {% endselect %}
+                                        </div>
+                                    {% endif %}
+                                    {% if category_filter_names %}
+                                        <div class="flex flex-col gap-1.5 grow">
+                                            <label class="{{ label_class }}" for="tag-filter-__category">{% translate "Category" context "participant filter" %}</label>
+                                            {% select id="tag-filter-__category" data_category="__category" class=select_class|add:" tag-filter" %}
+                                                <option value="">{% translate "All categories" context "participant filter" %}</option>
+                                                {% for name in category_filter_names %}<option value="{{ name }}">{{ name }}</option>{% endfor %}
+                                            {% endselect %}
+                                        </div>
+                                    {% endif %}
+                                    <div id="tag-filters" class="contents">
+                                        {% for field in filterable_tag_categories %}
+                                            <div class="flex flex-col gap-1.5 grow">
+                                                <label class="{{ label_class }}" for="tag-filter-{{ field.slug }}">{{ field.name }}</label>
+                                                {% select id="tag-filter-"|add:field.slug data_category=field.slug class=select_class|add:" tag-filter" %}
+                                                    <option value="">{% translate "All" %} {{ field.name }}</option>
+                                                    {# Only the field's defined choices: an allow_custom field's typed-in values are not filter options. #}
+                                                    {# The value, not the label: cards, modal and search all carry the raw value. #}
+                                                    {% for option in field.sorted_options %}<option value="{{ option.value }}">{{ option.value }}</option>{% endfor %}
+                                                {% endselect %}
+                                            </div>
+                                        {% endfor %}
+                                    </div>
+                                    {# Options come from the cards' data-host (see #}
+                                    {# session-filters.ts), so the list always matches the #}
+                                    {# schedule on screen; one host means nothing to pick #}
+                                    {# between, so the control stays hidden. A combobox #}
+                                    {# rather than a select: an event's hosts run to the #}
+                                    {# hundreds, which is past what scrolling a list can #}
+                                    {# answer. #}
+                                    <div id="host-filter-group" class="flex flex-col gap-1.5 grow hidden">
+                                        <label class="{{ label_class }}" for="host-filter">{% translate "Host" %}</label>
+                                        {% translate "Search hosts…" as t_host_search %}
+                                        {% translate "No host matches your search." as t_host_empty %}
+                                        {% translate "Show hosts" as t_host_toggle %}
+                                        {% tessera_combobox id="host-filter" class=select_class placeholder=t_host_search empty_text=t_host_empty toggle_label=t_host_toggle %}
+                                            <option value="">{% translate "All hosts" %}</option>
+                                        {% endtessera_combobox %}
+                                    </div>
                                 </div>
+                            {% endwith %}
+                            {# Phone sheet only. Filters apply as they change, so this #}
+                            {# button has nothing to submit — but a dialog needs an exit #}
+                            {# that reads as finishing rather than abandoning, and the #}
+                            {# header's X is the second kind. #}
+                            <div class="filter-sheet-footer px-6 py-4 border-t border-border">
+                                {% translate "Apply filters" as t_apply_filters %}
+                                {% tessera_button t_apply_filters button_type="button" id="filter-apply" %}
                             </div>
                         </div>
+                        {# The sheet stops short of the edges, so there is an outside #}
+                        {# again — this is what makes it look like one, and tapping it #}
+                        {# closes. Sibling, not ::backdrop: the panel is a div, not a #}
+                        {# <dialog>, and promoting it to one would take the filters out #}
+                        {# of the page's tab order at every other width. #}
+                        <div class="filter-sheet-backdrop" data-filter-backdrop></div>
                     </div>
                     {# The switcher exists for the rooms grid, which renders from #}
                     {# schedule_days — only the compact layout builds those, so a #}
@@ -478,8 +506,7 @@
                      class="filter-chips-bar"
                      data-remove-filter-label="{% translate "Remove filter" %}"
                      data-clear-all-label="{% translate "Clear all" %}"
-                     data-min-age-label="{% translate "Age ≥" %}"
-                     data-max-age-label="{% translate "Age ≤" %}"
+                     data-age-label="{% translate "Participant age" %}:"
                      data-enrollment-label="{{ t_enrollment_only }}">
                     <div class="overflow-hidden">
                         <div class="filter-chips-bar-inner" data-filter-chips-inner></div>
@@ -718,17 +745,89 @@
             }
         }
 
-        /* On narrow screens the right-anchored popover would overflow the left
-           edge (the app-shell reserves a scrollbar gutter that pulls the anchor
-           inward). Pin it to the viewport with even margins instead — a
-           full-width filter sheet that still drops from the trigger. */
+        /* The same lock index.css gives the session modal, and on the same
+           element: .app-shell is overflow:hidden, so .app-scroll is the only
+           thing that scrolls and the document never does. Keyed on aria-modal
+           because that attribute is already the answer to "is this a dialog
+           right now" — it is set at the phone breakpoint and removed at every
+           other, so the dropdown leaves the schedule scrollable under it. */
+        body:has(#filter-panel[aria-modal="true"]) .app-scroll {
+            overflow: hidden;
+        }
+
+        /* The sheet's own chrome; the panel is a dropdown at every other width,
+           where the trigger and the page around it are the way out. */
+        .filter-sheet-header,
+        .filter-sheet-footer,
+        .filter-sheet-backdrop {
+            display: none;
+        }
+
+        /* On narrow screens the right-anchored popover has nowhere good to go:
+           it overflows the left edge (the app-shell reserves a scrollbar gutter
+           that pulls the anchor inward), and anchoring its top to a trigger low
+           on the page drops it past the bottom of a short viewport, out of
+           reach. So it stops being a dropdown and becomes a dialog, sized and
+           dressed like the session modal — centred, sized to its content, and
+           stopping short of the edges, because the schedule behind it is the
+           thing these filters are being chosen against. */
         @media (max-width: 30rem) {
             .filters-popover-wrapper .filter-panel {
                 position: fixed;
-                left: 1rem;
-                right: 1rem;
-                width: auto;
+                /* inset + auto margins is how .modal centres; height:fit-content
+                   keeps a short filter set from becoming a full-height slab. */
+                inset: 0;
+                margin: auto;
+                height: fit-content;
+                width: calc(100% - 1rem);
                 max-width: none;
+                max-height: 90dvh;
+                /* Over the sticky navbar, which shares the panel's z-index and
+                   would otherwise sit on top of the dialog. */
+                z-index: 60;
+                position-anchor: unset;
+                display: flex;
+                flex-direction: column;
+                padding: 0;
+                overflow: hidden;
+                box-shadow: var(--shadow-elevated);
+                transform-origin: center;
+                transform: scale(0.9) translateY(16px);
+            }
+
+            /* The body scrolls, not the dialog: the header and the Apply button
+               have to stay put while a long filter list moves under them. */
+            .filter-panel-body {
+                flex: 1 1 auto;
+                min-height: 0;
+                overflow-y: auto;
+                overscroll-behavior: contain;
+                padding: 1rem 1.5rem;
+            }
+
+            .filter-sheet-header,
+            .filter-sheet-footer {
+                display: flex;
+                flex-shrink: 0;
+            }
+
+            .filter-sheet-backdrop {
+                display: block;
+                position: fixed;
+                inset: 0;
+                z-index: 59;
+                background-color: transparent;
+                backdrop-filter: blur(0);
+                pointer-events: none;
+                transition:
+                    background-color 0.2s var(--ease-out),
+                    backdrop-filter 0.2s var(--ease-out);
+            }
+
+            .filter-panel.is-open~.filter-sheet-backdrop {
+                background-color: color-mix(in srgb, var(--color-background) 50%, transparent);
+                backdrop-filter: blur(var(--modal-backdrop-blur, 4px));
+                pointer-events: auto;
             }
         }
     </style>

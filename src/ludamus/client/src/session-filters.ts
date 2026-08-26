@@ -5,6 +5,7 @@
 // view is shareable and survives reloads and view-tab swaps without becoming
 // history entries or server round trips.
 
+import { normalizeText } from "./text";
 import {
   flagParam,
   hrefWithSearchParams,
@@ -14,7 +15,7 @@ import {
   stringParam,
 } from "./url-state";
 
-// Matches the min/max attributes on the age inputs; a shared bound would be
+// Matches the min/max attributes on the age input; a shared bound would be
 // a template/TS coupling for two literals.
 const ageParam = intParam(0, 99);
 
@@ -84,6 +85,115 @@ const addOption = (
   select.append(option);
 };
 
+interface CardFilter {
+  /** Is the control's value one worth filtering on? */
+  active: (value: string) => boolean;
+  /** Chip text for the active value. */
+  chip: () => string;
+  el: HTMLInputElement | HTMLSelectElement;
+  /**
+   * What kind of value the control holds, which decides the event to listen
+   * for and the URL codec to mirror through. Stated, not sniffed off the
+   * element: an upgraded combobox is an <input> holding a choice, so the tag
+   * name answers neither question.
+   */
+  kind: "age" | "choice";
+  /** Card passes the active filter; not consulted while the control is empty. */
+  matches: (card: HTMLElement, value: string) => boolean;
+  /** Query-string name; url-state.ts lists the reserved names to stay clear of. */
+  param: string;
+}
+
+// min/max on the input bound its spinner, not what can be typed, so an age
+// only counts once the codec has agreed it is one.
+const ageFilterEntry = (
+  el: HTMLInputElement,
+  param: string,
+  label: () => string,
+  matches: CardFilter["matches"],
+): CardFilter => ({
+  active: (value) => ageParam.parse(value) !== null,
+  chip: () => `${label()} ${el.value}`.trim(),
+  el,
+  kind: "age",
+  matches,
+  param,
+});
+
+const selectFilter = (
+  el: HTMLSelectElement,
+  param: string,
+  matches: CardFilter["matches"],
+): CardFilter => ({
+  active: (value) => value !== "",
+  chip: () => selectedLabel(el),
+  el,
+  kind: "choice",
+  matches,
+  param,
+});
+
+// An upgraded combobox has no selected <option> to read a chip off, so the
+// label comes from the visible input it drives — which is what the person
+// picked.
+const comboboxFilter = (
+  el: HTMLInputElement,
+  param: string,
+  matches: CardFilter["matches"],
+): CardFilter => ({
+  active: (value) => value !== "",
+  chip: () =>
+    el.closest("[data-combobox]")?.querySelector<HTMLInputElement>("[data-combobox-input]")
+      ?.value ?? "",
+  el,
+  kind: "choice",
+  matches,
+  param,
+});
+
+const dataMatch =
+  (key: "day" | "host" | "hour"): CardFilter["matches"] =>
+  (card, value) =>
+    card.dataset[key] === value;
+
+// The "my-*" statuses are per-viewer flags the card carries separately from
+// its availability status.
+const STATUS_CARD_FLAGS: Record<string, "bookmarked" | "userEnrolled" | "userWaiting"> = {
+  "my-bookmarked": "bookmarked",
+  "my-enrolled": "userEnrolled",
+  "my-waiting": "userWaiting",
+};
+
+const matchesTag =
+  (categorySlug: string): CardFilter["matches"] =>
+  (card, value) => {
+    const requiredTag = escapeRegExp(value);
+    const categoryPattern = new RegExp(
+      `(?:^|;)${escapeRegExp(categorySlug)}:${requiredTag}(?:;|$)`,
+      "i",
+    );
+    const simpleTagPattern = new RegExp(String.raw`\b${requiredTag}\b`, "i");
+    return (
+      categoryPattern.test(card.dataset.tagCategories ?? "") ||
+      simpleTagPattern.test(card.dataset.tags ?? "")
+    );
+  };
+
+// `__track` and `__category` are the template's own pseudo-categories, so
+// they get clean names; organizer-defined categories are event-scoped slugs,
+// prefixed so one named e.g. "status" cannot shadow a built-in param.
+const TAG_PARAM_NAMES: Record<string, string> = { __category: "category", __track: "track" };
+
+// An upgraded combobox keeps its options in JS, not in the page, and a
+// programmatic write to its value fires no `change` for it to notice. Every
+// write this module makes outside a user gesture — deep links, clear-all —
+// says so here, and a rebuilt list rides along as `options`.
+const syncControl = (el: HTMLElement, options?: [string, string][]): void => {
+  el.closest("[data-combobox]")?.dispatchEvent(
+    new CustomEvent("combobox:sync", { detail: { options } }),
+  );
+};
+
 let documentListeners = new AbortController();
 
 const initSessionFilters = (): void => {
@@ -94,8 +204,9 @@ const initSessionFilters = (): void => {
   const dayFilter = byId<HTMLSelectElement>("day-filter");
   const hourFilter = byId<HTMLSelectElement>("hour-filter");
   const spaceFilter = byId<HTMLSelectElement>("space-filter");
-  const minAgeFilter = byId<HTMLInputElement>("min-age-filter");
-  const maxAgeFilter = byId<HTMLInputElement>("max-age-filter");
+  const hostFilter = byId<HTMLInputElement>("host-filter");
+  const ageFilter = byId<HTMLInputElement>("age-filter");
+  const minAgeFilter = byId<HTMLSelectElement>("min-age-filter");
   const enrollmentFilter = document.querySelector<HTMLInputElement>("#enrollment-filter");
   const filterToggle = byId("filter-toggle");
   const filterPanel = byId("filter-panel");
@@ -109,24 +220,6 @@ const initSessionFilters = (): void => {
   const sessionCards = document.querySelectorAll<HTMLElement>(".session");
 
   const tagFilters: Record<string, HTMLSelectElement> = {};
-
-  const COMBINING_MARKS = /[\u0300-\u036F]/g;
-  const NON_DECOMPOSING_MAP: Record<string, string> = {
-    æ: "ae",
-    đ: "d",
-    ħ: "h",
-    ı: "i",
-    ł: "l",
-    ø: "o",
-    œ: "oe",
-    ß: "ss",
-  };
-  const normalizeText = (value: string): string =>
-    value
-      .toLowerCase()
-      .replaceAll(/[łøđħıœæß]/g, (char) => NON_DECOMPOSING_MAP[char] ?? char)
-      .normalize("NFD")
-      .replaceAll(COMBINING_MARKS, "");
 
   // Field values ride in the haystack because a value typed into an
   // allow_custom field is not a choice and so never becomes a filter option —
@@ -144,27 +237,65 @@ const initSessionFilters = (): void => {
     );
   }
 
-  const dayMap = new Map<string, string>();
-  for (const card of sessionCards) {
-    const { day } = card.dataset;
-    if (day && !dayMap.has(day)) dayMap.set(day, card.dataset.dayLabel ?? day);
-  }
-  for (const [value, label] of [...dayMap.entries()].sort((a, b) => a[0].localeCompare(b[0])))
-    addOption(dayFilter, value, label);
-  if (dayMap.size > 1) {
-    document.getElementById("day-filter-group")?.classList.remove("hidden");
-  }
+  /** Distinct values of one card dataset key, keeping first-seen labels. */
+  const cardValues = (key: "day" | "host" | "hour", labelKey?: "dayLabel"): Map<string, string> => {
+    const entries = new Map<string, string>();
+    for (const card of sessionCards) {
+      const value = card.dataset[key];
+      if (value && !entries.has(value))
+        entries.set(value, (labelKey && card.dataset[labelKey]) || value);
+    }
+    return entries;
+  };
 
-  const hourSet = new Set<string>();
-  for (const card of sessionCards) {
-    if (card.dataset.hour) hourSet.add(card.dataset.hour);
-  }
-  for (const hour of [...hourSet].sort()) addOption(hourFilter, hour, hour);
-  if (hourSet.size > 1) {
-    document.getElementById("hour-filter-group")?.classList.remove("hidden");
-  }
-  if (dayMap.size > 1 || hourSet.size > 1) {
+  // Fill a select from sorted [value, label] entries and unhide its group when
+  // there is a real choice — one day (or hour, or host) is nothing to pick
+  // between, so the control stays hidden.
+  const populateChoices = (
+    select: HTMLSelectElement,
+    groupId: string,
+    entries: [string, string][],
+  ): void => {
+    for (const [value, label] of entries) addOption(select, value, label);
+    syncControl(select);
+    if (entries.length > 1) document.getElementById(groupId)?.classList.remove("hidden");
+  };
+
+  // The host list is handed to the combobox as data rather than built as
+  // options: an event's hosts run to the hundreds, and this page already
+  // carries a card per session.
+  const populateHosts = (entries: [string, string][]): void => {
+    syncControl(hostFilter, entries);
+    if (entries.length > 1) {
+      document.getElementById("host-filter-group")?.classList.remove("hidden");
+    }
+  };
+
+  const dayChoices = [...cardValues("day", "dayLabel")].sort((a, b) => a[0].localeCompare(b[0]));
+  populateChoices(dayFilter, "day-filter-group", dayChoices);
+  const hourChoices = [...cardValues("hour")].sort((a, b) => a[0].localeCompare(b[0]));
+  populateChoices(hourFilter, "hour-filter-group", hourChoices);
+  if (dayChoices.length > 1 || hourChoices.length > 1) {
     document.getElementById("day-hour-filter-group")?.classList.remove("hidden");
+  }
+  populateHosts([...cardValues("host")].sort((a, b) => a[1].localeCompare(b[1])));
+
+  // The age floors the schedule actually uses, rather than a number to guess
+  // at: an event rates its sessions 12+, 16+, 18+ and so on, and "show me the
+  // 18+ programme" is one pick from that list. 0 is every session, which the
+  // empty option already means. Numeric sort, since these are ages.
+  const minAges = new Set<number>();
+  for (const card of sessionCards) minAges.add(Number(card.dataset.minAge) || 0);
+  for (const age of [...minAges].filter((age) => age > 0).sort((a, b) => a - b)) {
+    addOption(minAgeFilter, String(age), `${age}+`);
+  }
+  syncControl(minAgeFilter);
+  // Unlike the other choice filters, one option here is still a choice: a lone
+  // "12+" splits the schedule against everything unrestricted. What makes the
+  // control pointless is a schedule that rates every session the same, which is
+  // what a single distinct age — 0 included — means.
+  if (minAges.size > 1) {
+    document.getElementById("min-age-filter-group")?.classList.remove("hidden");
   }
 
   const allRoomsLabel = spaceFilter.dataset.allRoomsLabel ?? "";
@@ -236,8 +367,50 @@ const initSessionFilters = (): void => {
     for (const option of select.querySelectorAll("option")) {
       if (option.value && !categoryTags.has(option.value)) option.remove();
     }
-    select.addEventListener("change", filterSessions);
   }
+
+  // One entry per value-holding filter control, in panel order. Mirroring,
+  // matching, clearing, chips, and listeners all loop over this list, so a
+  // new filter is one entry here plus its option population above. The search
+  // box and the enrollment checkbox stay outside: neither is a value filter
+  // over one card key (search is tokenized, enrollment is a flag).
+  const cardFilters: CardFilter[] = [
+    selectFilter(statusFilter, "status", (card, value) => {
+      const flag = STATUS_CARD_FLAGS[value];
+      return flag ? card.dataset[flag] === "true" : card.dataset.status === value;
+    }),
+    selectFilter(spaceFilter, "space", (card, value) =>
+      value.startsWith(VENUE_VALUE_PREFIX)
+        ? card.dataset.venue === value.slice(VENUE_VALUE_PREFIX.length)
+        : card.dataset.space === value,
+    ),
+    // Both age controls read the one number a session carries, from opposite
+    // ends. `age-min` keeps its name because `?age-min=18` ("show me the 18+
+    // programme") is a link people have already shared, and a param that
+    // quietly changed sides would answer it with its complement. The other
+    // bound is `age` rather than main's `age-max`: nobody linked that one, and
+    // "max age" reads like a ceiling on the person rather than the question it
+    // actually asks, which is what someone this age may attend.
+    ageFilterEntry(
+      ageFilter,
+      "age",
+      () => filterChipsBar.dataset.ageLabel ?? "",
+      // The participant's age against the session's requirement: an
+      // unrestricted session (min age 0) admits everyone, so it always stays.
+      (card, value) => (Number(card.dataset.minAge) || 0) <= Number(value),
+    ),
+    selectFilter(
+      minAgeFilter,
+      "age-min",
+      (card, value) => (Number(card.dataset.minAge) || 0) >= Number(value),
+    ),
+    selectFilter(dayFilter, "day", dataMatch("day")),
+    selectFilter(hourFilter, "hour", dataMatch("hour")),
+    ...Object.entries(tagFilters).map(([slug, select]) =>
+      selectFilter(select, TAG_PARAM_NAMES[slug] ?? `tag-${slug}`, matchesTag(slug)),
+    ),
+    comboboxFilter(hostFilter, "host", dataMatch("host")),
+  ];
 
   // Controls whose value lives in the query string too, each bound through a
   // typed codec from url-state.ts (which also lists the reserved param names
@@ -283,23 +456,24 @@ const initSessionFilters = (): void => {
   // deep link (a venue renamed, a tag gone) degrades to "all", not an error.
   // That makes the DOM the value schema here; the options are built from the
   // cards at init, so a static codec could only restate them, worse.
-  const mirrorSelect = (name: string, select: HTMLSelectElement): void => {
+  const mirrorChoice = (name: string, select: HTMLInputElement | HTMLSelectElement): void => {
     mirror(
       name,
       stringParam,
       () => select.value,
       (value) => {
         select.value = value;
+        syncControl(select);
       },
     );
   };
   // A number input's value is "" or a numeric string, never garbage; the
   // codec adds the range check the attribute alone doesn't enforce on load.
-  const mirrorAge = (name: string, input: HTMLInputElement): void => {
+  const mirrorAge = (name: string, input: HTMLInputElement | HTMLSelectElement): void => {
     mirror(
       name,
       ageParam,
-      () => (input.value === "" ? null : Number(input.value)),
+      () => ageParam.parse(input.value),
       (value) => {
         input.value = value === null ? "" : String(value);
       },
@@ -307,7 +481,6 @@ const initSessionFilters = (): void => {
   };
 
   mirrorInput("q", sessionFilter);
-  mirrorSelect("status", statusFilter);
   if (enrollmentFilter) {
     mirror(
       "enrollment",
@@ -318,17 +491,9 @@ const initSessionFilters = (): void => {
       },
     );
   }
-  mirrorSelect("day", dayFilter);
-  mirrorSelect("hour", hourFilter);
-  mirrorSelect("space", spaceFilter);
-  mirrorAge("age-min", minAgeFilter);
-  mirrorAge("age-max", maxAgeFilter);
-  // `__track` and `__category` are the template's own pseudo-categories, so
-  // they get clean names; organizer-defined categories are event-scoped slugs,
-  // prefixed so one named e.g. "status" cannot shadow a built-in param.
-  const TAG_PARAM_NAMES: Record<string, string> = { __category: "category", __track: "track" };
-  for (const [slug, select] of Object.entries(tagFilters)) {
-    mirrorSelect(TAG_PARAM_NAMES[slug] ?? `tag-${slug}`, select);
+  for (const f of cardFilters) {
+    if (f.kind === "choice") mirrorChoice(f.param, f.el);
+    else mirrorAge(f.param, f.el);
   }
 
   const mirrorState = (): Map<string, string | null> =>
@@ -372,7 +537,16 @@ const initSessionFilters = (): void => {
     let changed = false;
     for (const [name, entry] of mirrored) {
       const raw = params.get(name);
-      if (entry.matchesRaw(raw)) continue;
+      if (entry.matchesRaw(raw)) {
+        // The control already holds what this decodes to, but the text in the
+        // query string can still say something else: `age=120` decodes to no
+        // filter at all, and `age=1e1` to the same 10 the canonical form
+        // spells. Left alone it would sit there advertising a filter the page
+        // is not applying, and get shared on saying so. Counting it as moved
+        // sends it back through the mirror, which writes the canonical form.
+        changed ||= raw !== null && raw !== entry.readRaw();
+        continue;
+      }
       const before = entry.readRaw();
       entry.applyRaw(raw);
       changed ||= entry.readRaw() !== before;
@@ -382,19 +556,8 @@ const initSessionFilters = (): void => {
 
   function filterSessions(): void {
     const searchTokens = normalizeText(sessionFilter.value).split(/\s+/).filter(Boolean);
-    const statusValue = statusFilter.value;
     const enrollmentOnly = enrollmentFilter?.checked ?? false;
-    const dayValue = dayFilter.value;
-    const hourValue = hourFilter.value;
-    const spaceValue = spaceFilter.value;
-    const minAgeValue = minAgeFilter.value;
-    const maxAgeValue = maxAgeFilter.value;
-
-    const activeTagFilters: Record<string, string> = {};
-    for (const categorySlug of Object.keys(tagFilters)) {
-      const filterValue = tagFilters[categorySlug].value;
-      if (filterValue) activeTagFilters[categorySlug] = filterValue;
-    }
+    const activeFilters = cardFilters.filter((f) => f.active(f.el.value));
 
     for (const card of sessionCards) {
       let show = true;
@@ -403,63 +566,8 @@ const initSessionFilters = (): void => {
         const haystack = cardHaystacks.get(card) ?? "";
         show &&= searchTokens.every((token) => haystack.includes(token));
       }
-
-      if (statusValue) {
-        switch (statusValue) {
-          case "my-bookmarked": {
-            show &&= card.dataset.bookmarked === "true";
-
-            break;
-          }
-          case "my-enrolled": {
-            show &&= card.dataset.userEnrolled === "true";
-
-            break;
-          }
-          case "my-waiting": {
-            show &&= card.dataset.userWaiting === "true";
-
-            break;
-          }
-          default: {
-            show &&= card.dataset.status === statusValue;
-          }
-        }
-      }
-
       if (enrollmentOnly) show &&= card.dataset.takesEnrollment === "true";
-      if (dayValue) show &&= card.dataset.day === dayValue;
-      if (hourValue) show &&= card.dataset.hour === hourValue;
-      if (spaceValue) {
-        show &&= spaceValue.startsWith(VENUE_VALUE_PREFIX)
-          ? card.dataset.venue === spaceValue.slice(VENUE_VALUE_PREFIX.length)
-          : card.dataset.space === spaceValue;
-      }
-
-      if (minAgeValue || maxAgeValue) {
-        const sessionMinAge = Number.parseInt(card.dataset.minAge ?? "", 10) || 0;
-        if (minAgeValue) show &&= sessionMinAge >= Number.parseInt(minAgeValue, 10);
-        if (maxAgeValue) show &&= sessionMinAge <= Number.parseInt(maxAgeValue, 10);
-      }
-
-      if (Object.keys(activeTagFilters).length > 0) {
-        const cardTagCategories = card.dataset.tagCategories ?? "";
-        const cardTags = card.dataset.tags ?? "";
-        let matchesAllFilters = true;
-        for (const categorySlug of Object.keys(activeTagFilters)) {
-          const requiredTag = escapeRegExp(activeTagFilters[categorySlug]);
-          const escapedCategory = escapeRegExp(categorySlug);
-          const categoryPattern = new RegExp(
-            `(?:^|;)${escapedCategory}:${requiredTag}(?:;|$)`,
-            "i",
-          );
-          const simpleTagPattern = new RegExp(String.raw`\b${requiredTag}\b`, "i");
-          if (!categoryPattern.test(cardTagCategories) && !simpleTagPattern.test(cardTags)) {
-            matchesAllFilters = false;
-          }
-        }
-        show &&= matchesAllFilters;
-      }
+      for (const f of activeFilters) show &&= f.matches(card, f.el.value);
 
       const cardContainer = card.closest<HTMLElement>(".session-wrapper");
       if (cardContainer) cardContainer.hidden = !show;
@@ -489,15 +597,10 @@ const initSessionFilters = (): void => {
 
   function clearAllFilters(): void {
     sessionFilter.value = "";
-    statusFilter.value = "";
     if (enrollmentFilter) enrollmentFilter.checked = false;
-    dayFilter.value = "";
-    hourFilter.value = "";
-    spaceFilter.value = "";
-    minAgeFilter.value = "";
-    maxAgeFilter.value = "";
-    for (const categorySlug of Object.keys(tagFilters)) {
-      tagFilters[categorySlug].value = "";
+    for (const f of cardFilters) {
+      f.el.value = "";
+      syncControl(f.el);
     }
 
     for (const section of document.querySelectorAll<HTMLElement>(".time-slot-section")) {
@@ -520,27 +623,6 @@ const initSessionFilters = (): void => {
 
   function updateFilterUI(): void {
     const chips: FilterChip[] = [];
-    const pushSelectChip = (select: HTMLSelectElement): void => {
-      if (!select.value) return;
-      chips.push({
-        clear: () => {
-          select.value = "";
-          filterSessions();
-        },
-        label: selectedLabel(select),
-      });
-    };
-    const pushAgeChip = (input: HTMLInputElement, prefix: string): void => {
-      if (!input.value) return;
-      chips.push({
-        clear: () => {
-          input.value = "";
-          filterSessions();
-        },
-        label: `${prefix} ${input.value}`,
-      });
-    };
-
     if (enrollmentFilter?.checked) {
       chips.push({
         clear: () => {
@@ -550,13 +632,17 @@ const initSessionFilters = (): void => {
         label: filterChipsBar.dataset.enrollmentLabel ?? "",
       });
     }
-    pushSelectChip(statusFilter);
-    pushSelectChip(dayFilter);
-    pushSelectChip(hourFilter);
-    pushSelectChip(spaceFilter);
-    pushAgeChip(minAgeFilter, filterChipsBar.dataset.minAgeLabel ?? "Age ≥");
-    pushAgeChip(maxAgeFilter, filterChipsBar.dataset.maxAgeLabel ?? "Age ≤");
-    for (const cat of Object.keys(tagFilters)) pushSelectChip(tagFilters[cat]);
+    for (const f of cardFilters) {
+      if (!f.active(f.el.value)) continue;
+      chips.push({
+        clear: () => {
+          f.el.value = "";
+          syncControl(f.el);
+          filterSessions();
+        },
+        label: f.chip(),
+      });
+    }
 
     if (chips.length > 0) {
       filterCountBadge.textContent = String(chips.length);
@@ -603,28 +689,120 @@ const initSessionFilters = (): void => {
   }
 
   sessionFilter.addEventListener("input", filterSessions);
-  statusFilter.addEventListener("change", filterSessions);
   enrollmentFilter?.addEventListener("change", filterSessions);
-  dayFilter.addEventListener("change", filterSessions);
-  hourFilter.addEventListener("change", filterSessions);
-  spaceFilter.addEventListener("change", filterSessions);
-  minAgeFilter.addEventListener("input", filterSessions);
-  maxAgeFilter.addEventListener("input", filterSessions);
+  for (const f of cardFilters) {
+    // A choice is committed, not typed: the combobox writes its hidden input
+    // and says `change`, exactly as the selects do.
+    f.el.addEventListener(f.kind === "choice" ? "change" : "input", filterSessions);
+  }
+
+  // The same element is a dropdown at most widths and a modal dialog on a
+  // phone, and only the second one may say so: announcing a dialog that the
+  // page is not covered by, or holding focus inside a popover the user can
+  // click past, both mislead. No media query reaches ARIA, so the semantics
+  // go on and come off with the breakpoint the stylesheet switches on.
+  const sheetWidth = globalThis.matchMedia("(max-width: 30rem)");
+  const FOCUSABLE =
+    "a[href], button:not([disabled]), input:not([disabled]), select:not([disabled])," +
+    ' textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+  const isPanelOpen = (): boolean => filterPanel.classList.contains("is-open");
+
+  // offsetParent is null for a display:none subtree, which is how the hidden
+  // filter groups and the wide-width chrome drop out of the tab order here.
+  const focusablePanelItems = (): HTMLElement[] =>
+    [...filterPanel.querySelectorAll<HTMLElement>(FOCUSABLE)].filter(
+      (el) => el.offsetParent !== null,
+    );
+
+  const syncDialogSemantics = (): void => {
+    // aria-modal is the only state this writes: the stylesheet keys the scroll
+    // lock off it too, so "is a dialog" and "holds the page still" cannot drift
+    // apart the way a second flag would let them.
+    if (sheetWidth.matches && isPanelOpen()) {
+      filterPanel.setAttribute("role", "dialog");
+      filterPanel.setAttribute("aria-modal", "true");
+      filterPanel.setAttribute("aria-labelledby", "filter-sheet-title");
+      return;
+    }
+    filterPanel.removeAttribute("role");
+    filterPanel.removeAttribute("aria-modal");
+    filterPanel.removeAttribute("aria-labelledby");
+  };
+
+  // A dialog that leaves focus behind it is a dialog only to the eye, so Tab
+  // wraps at the ends rather than walking out into the schedule underneath.
+  filterPanel.addEventListener("keydown", (event: KeyboardEvent) => {
+    if (event.key !== "Tab" || filterPanel.getAttribute("aria-modal") !== "true") return;
+    const items = focusablePanelItems();
+    const edge = event.shiftKey ? items.at(0) : items.at(-1);
+    if (!edge || document.activeElement !== edge) return;
+    event.preventDefault();
+    (event.shiftKey ? items.at(-1) : items.at(0))?.focus();
+  });
+
+  sheetWidth.addEventListener("change", syncDialogSemantics, {
+    signal: documentListeners.signal,
+  });
+
+  const openPanel = (): void => {
+    filterPanel.classList.add("is-open");
+    filterToggle.setAttribute("aria-expanded", "true");
+    syncDialogSemantics();
+    // Only the dialog takes focus: the dropdown leaves it on the trigger, so
+    // Tab from there walks into the panel the way it already reads.
+    if (sheetWidth.matches) focusablePanelItems().at(0)?.focus();
+  };
+
+  const closePanel = (): void => {
+    filterPanel.classList.remove("is-open");
+    filterToggle.setAttribute("aria-expanded", "false");
+    syncDialogSemantics();
+  };
+
   document.addEventListener("session:bookmark-changed", filterSessions, {
     signal: documentListeners.signal,
   });
 
   filterToggle.addEventListener("click", () => {
-    const isOpen = filterPanel.classList.toggle("is-open");
-    filterToggle.setAttribute("aria-expanded", String(isOpen));
+    if (isPanelOpen()) closePanel();
+    else openPanel();
   });
+
+  // The sheet the narrow breakpoint turns this into covers the trigger and
+  // leaves no outside to click, so it ships a close button. Escape is bound at
+  // every width: a dismissable popup owes its user that key regardless.
+  document.querySelector("#filter-close")?.addEventListener("click", () => {
+    closePanel();
+    filterToggle.focus();
+  });
+  // Nothing to apply — every filter has been live since it changed. The button
+  // is here because dismissing a dialog by its X reads as backing out, and the
+  // one thing a filter sheet must not suggest is that the work is discarded.
+  document.querySelector("#filter-apply")?.addEventListener("click", () => {
+    closePanel();
+    filterToggle.focus();
+  });
+  document.querySelector("[data-filter-backdrop]")?.addEventListener("click", () => {
+    closePanel();
+    filterToggle.focus();
+  });
+  document.addEventListener(
+    "keydown",
+    (e) => {
+      // defaultPrevented means a control inside the panel already claimed this
+      // key — a combobox closing its own list, say. Escape unwinds one layer
+      // per press, so the panel is not that layer yet.
+      if (e.defaultPrevented) return;
+      if (e.key !== "Escape" || !filterPanel.classList.contains("is-open")) return;
+      closePanel();
+      filterToggle.focus();
+    },
+    { signal: documentListeners.signal },
+  );
 
   const filtersWrapper = filterToggle.closest<HTMLElement>(".filters-popover-wrapper");
   if (filtersWrapper) {
-    const closePanel = (): void => {
-      filterPanel.classList.remove("is-open");
-      filterToggle.setAttribute("aria-expanded", "false");
-    };
     const closeWhenOutside = (target: EventTarget | null): void => {
       if (
         filterPanel.classList.contains("is-open") &&
