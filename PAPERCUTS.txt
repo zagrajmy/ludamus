@@ -329,3 +329,7 @@ If you fix a papercut, remove it.
   interaction dies with an opaque SESSION_NOT_FOUND deep in a beforeAll — the
   real cause (Safari never launched) is 80 lines up the log. Cost a full re-run
   to diagnose.
+- 2026-08-26: mise run test:py <path> appends the path to the full suite instead
+  of replacing it: the task runs 'pytest -n auto tests/integration tests/unit
+  <path>', so asking for one file re-runs everything (~16 min). Wanted to verify
+  one test module before pushing; had to use -k to keep it fast.
