@@ -93,10 +93,13 @@ const toRow = (label: string, value: string): Row => ({
  * HTML, which is the shape of an XSS sink whatever the text; the tag resolves
  * `selected` and `disabled` server-side so this stays plain data.
  */
-const parseSource = (source: HTMLElement): { disabled: boolean; rows: Row[]; value: string } => {
+const parseSource = (
+  source: HTMLElement,
+): { disabled: boolean; label: string; rows: Row[]; value: string } => {
   const parsed: unknown = JSON.parse(source.textContent || "{}");
   const payload = (parsed ?? {}) as {
     disabled?: unknown;
+    label?: unknown;
     rows?: unknown;
     value?: unknown;
   };
@@ -105,6 +108,7 @@ const parseSource = (source: HTMLElement): { disabled: boolean; rows: Row[]; val
     : [];
   return {
     disabled: payload.disabled === true,
+    label: typeof payload.label === "string" ? payload.label : "",
     rows,
     value: typeof payload.value === "string" ? payload.value : "",
   };
@@ -289,7 +293,13 @@ const upgrade = (root: HTMLElement): void => {
   };
 
   const isOpen = (): boolean => input.getAttribute("aria-expanded") === "true";
-  const labelOf = (wanted: string): string => rows.find((row) => row.value === wanted)?.label ?? "";
+  // Rows first, then the option the server had chosen. That one may be
+  // disabled — a placeholder like "Choose a fruit…" is the common case — and a
+  // disabled option is never a row, so looking only there would blank the
+  // field the moment it renders.
+  const labelOf = (wanted: string): string =>
+    rows.find((row) => row.value === wanted)?.label ??
+    (wanted && wanted === parsed.value ? parsed.label : "");
 
   /**
    * Take a new option list. Whatever the page built is appended to whatever

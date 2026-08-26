@@ -29,6 +29,7 @@ class _ComboboxOptions(TypedDict):
     """What the browser is handed in place of the option markup."""
 
     disabled: bool
+    label: str
     rows: list[list[str]]
     value: str
 
@@ -87,8 +88,13 @@ def _read_options(slot: str, *, disabled: bool) -> _ComboboxOptions:
 
     return {
         "disabled": disabled,
+        # The chosen option's label travels on its own, because a disabled one
+        # never reaches `rows` and the client looks labels up there. A
+        # disabled placeholder ("Choose a fruit…") is the ordinary case: it is
+        # what the field shows before anyone picks, and it must not show blank.
+        "label": chosen.label if chosen else "",
         # A disabled option is not a row anyone can land on, but it can still
-        # be the one showing, so it counts for the value above.
+        # be the one showing, so it counts for the value and label above.
         "rows": [[o.value, o.label] for o in options if not o.disabled],
         "value": chosen.value if chosen else "",
     }
