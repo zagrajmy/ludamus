@@ -317,9 +317,18 @@ If you fix a papercut, remove it.
   was unset; the traceback only later explained pytest-django could not
   initialize. Use mise run test:int -- PATH so the task supplies the test
   environment.
+- 2026-08-24: ios-regressions: when 'xcrun simctl openurl' times out, harness.ts
+  warns and continues, so agent-device never opens a session and every later
+  interaction dies with an opaque SESSION_NOT_FOUND deep in a beforeAll — the
+  real cause (Safari never launched) is 80 lines up the log. Cost a full re-run
+  to diagnose.
 - 2026-08-25: mise run test:py -- tests/unit/rituals ran the whole 4600-test
   suite for ~5 minutes: mise does forward the args, it appends them after the
   task's own fixed roots (tests/integration tests/unit), so a path meant to
   narrow the run widens nothing. Had to fall back to
   'mise run test:unit -- -k ...'. A narrow-path run is what CLAUDE.md asks for
   while working.
+- 2026-08-26: mise run test:py <path> appends the path to the full suite instead
+  of replacing it: the task runs 'pytest -n auto tests/integration tests/unit
+  <path>', so asking for one file re-runs everything (~16 min). Wanted to verify
+  one test module before pushing; had to use -k to keep it fast.
