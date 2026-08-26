@@ -324,3 +324,6 @@ If you fix a papercut, remove it.
   was unset; the traceback only later explained pytest-django could not
   initialize. Use mise run test:int -- PATH so the task supplies the test
   environment.
+- 2026-08-26: Ran the e2e tsconfig directly to verify a test change; it is not
+  exposed by mise and currently fails on unrelated baseline TypeScript errors,
+  so it cannot serve as a targeted verification step.

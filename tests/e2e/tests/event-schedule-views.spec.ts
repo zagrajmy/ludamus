@@ -29,23 +29,28 @@ const enrollmentOnly = (page: Page) => page.getByRole("checkbox", { name: "Only 
 
 const squash = (text: string | null) => (text ?? "").replaceAll(/\s+/g, " ").trim();
 
-// A clock face the way the schedule prints one, so a test can name the time it
-// put on the clock and find it on the page.
-const clockFace = (at: Date) =>
-  at.toLocaleTimeString([], { hour: "2-digit", hour12: false, minute: "2-digit" });
+const clockAfter = (clock: string, minutes: number) => {
+  const [hour, minute] = clock.split(":").map(Number);
+  const total = (hour * 60 + minute + minutes) % (24 * 60);
+  return `${String(Math.floor(total / 60)).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
+};
+
+const scheduleMoment = (instant: string | null) => {
+  const clock = /T(?<clock>\d\d:\d\d)/.exec(instant ?? "")?.groups?.clock;
+  if (!instant || !clock) throw new Error(`Invalid schedule instant: ${instant}`);
+  return { timestamp: Date.parse(instant), clock };
+};
 
 // The instant the programme opens. Setup only — nothing asserts on these.
 const firstHour = async (page: Page) =>
-  Date.parse(
-    (await page.locator("[data-hour-start]").first().getAttribute("data-hour-start")) ?? "",
-  );
+  scheduleMoment(await page.locator("[data-hour-start]").first().getAttribute("data-hour-start"));
 
 const firstStart = async (page: Page) =>
-  Date.parse(
-    (await page
+  scheduleMoment(
+    await page
       .locator(".session-grid .session-wrapper .session")
       .first()
-      .getAttribute("data-start")) ?? "",
+      .getAttribute("data-start"),
   );
 
 test.describe("Event schedule views", () => {
@@ -129,21 +134,18 @@ test.describe("Event schedule views", () => {
     // date, so the clock has to be moved onto its programme before a reader
     // could ever see the line.
     const opens = await firstHour(page);
-    const half = new Date(opens + 30 * 60_000);
+    const half = new Date(opens.timestamp + 30 * 60_000);
+    const halfClock = clockAfter(opens.clock, 30);
     await page.clock.install({ time: half });
     await page.goto(`${DENSE_EVENT_URL}?view=rooms`);
 
-    const marker = page.getByText(`Now ${clockFace(half)}`);
+    const marker = page.getByText(`Now ${halfClock}`);
     await expect(marker).toBeVisible();
 
     // It sits between the hour it belongs to and the next one on the axis.
     const between = await Promise.all(
-      [opens, opens + 3600_000].map((hour) =>
-        page
-          .getByText(clockFace(new Date(hour)), { exact: true })
-          .filter({ visible: true })
-          .first()
-          .boundingBox(),
+      [opens.clock, clockAfter(opens.clock, 60)].map((hour) =>
+        page.getByText(hour, { exact: true }).filter({ visible: true }).first().boundingBox(),
       ),
     );
     const line = await marker.boundingBox();
@@ -153,7 +155,7 @@ test.describe("Event schedule views", () => {
 
     // A day before the doors open, nothing on the grid is now. The clock
     // ticking is what has to notice, not a reload.
-    await page.clock.setFixedTime(new Date(opens - 24 * 3600 * 1000));
+    await page.clock.setFixedTime(new Date(opens.timestamp - 24 * 3600 * 1000));
     await page.clock.runFor(60_000);
     await expect(marker).toBeHidden();
   });
@@ -161,11 +163,12 @@ test.describe("Event schedule views", () => {
   test("the ledger marks the seam between finished and upcoming", async ({ page }) => {
     await page.goto(DENSE_EVENT_URL);
     const opens = await firstStart(page);
-    const at = new Date(opens + 90 * 60_000);
+    const at = new Date(opens.timestamp + 90 * 60_000);
+    const atClock = clockAfter(opens.clock, 90);
     await page.clock.install({ time: at });
     await page.goto(DENSE_EVENT_URL);
 
-    const marker = page.getByText(`Now ${clockFace(at)}`);
+    const marker = page.getByText(`Now ${atClock}`);
     await expect(marker).toBeVisible();
 
     // The row directly above the seam has started and the one directly below
@@ -184,8 +187,8 @@ test.describe("Event schedule views", () => {
     const below = rows.find((row) => row.y > (line?.y ?? 0));
     expect(above).toBeDefined();
     expect(below).toBeDefined();
-    expect(startsAt(above?.text ?? "").localeCompare(clockFace(at))).toBeLessThanOrEqual(0);
-    expect(startsAt(below?.text ?? "").localeCompare(clockFace(at))).toBeGreaterThan(0);
+    expect(startsAt(above?.text ?? "").localeCompare(atClock)).toBeLessThanOrEqual(0);
+    expect(startsAt(below?.text ?? "").localeCompare(atClock)).toBeGreaterThan(0);
   });
 
   test("a filter that empties a day takes the whole day with it", async ({ page }) => {
