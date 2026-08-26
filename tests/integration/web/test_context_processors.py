@@ -29,12 +29,29 @@ class TestAnalyticsContext:
             "api_key": "phc_integration",
             "host": "https://eu.i.posthog.com",
             "user_id": None,
+            "environment": "test",
         }
 
-    def test_authenticated_render_identifies_by_pk(
+    def test_authenticated_render_identifies_by_namespaced_pk(
         self, authenticated_client, active_user, settings
     ):
         settings.POSTHOG_API_KEY = "phc_integration"
+        settings.ENV = "production"
+        settings.IS_STAGING = True
+
+        response = authenticated_client.get(reverse("web:events"))
+
+        posthog_config = response.context["posthog_config"]
+        assert posthog_config["user_id"] == f"staging:{active_user.pk}"
+
+    def test_production_identifies_by_the_bare_pk(
+        self, authenticated_client, active_user, settings
+    ):
+        # Unprefixed, so persons captured before namespacing keep their
+        # timelines instead of forking at the deploy.
+        settings.POSTHOG_API_KEY = "phc_integration"
+        settings.ENV = "production"
+        settings.IS_STAGING = False
 
         response = authenticated_client.get(reverse("web:events"))
 
