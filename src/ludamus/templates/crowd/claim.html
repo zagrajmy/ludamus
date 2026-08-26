@@ -16,8 +16,7 @@
                 <p class="text-sm text-foreground-muted mt-1">
                     {% blocktranslate with manager=claimable.manager_name %}{{ manager }} invited you to take over this profile{% endblocktranslate %}
                 </p>
-                {# No action: the view serves GET and POST on this URL, so the form
-                       self-posts and the token never enters the markup. #}
+                {# No action: the view serves GET and POST here, so the form self-posts and the token stays out of the markup. #}
                 <form method="post" class="mt-6">
                     {% csrf_token %}
                     <button type="submit" class="btn btn-primary w-full">{% translate "Sign in and claim" %}</button>
