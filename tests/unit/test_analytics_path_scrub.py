@@ -1,4 +1,4 @@
-"""The reported path must never carry a claim or invite token."""
+"""No URL segment that authenticates may reach the analytics project."""
 
 from __future__ import annotations
 
@@ -15,16 +15,19 @@ class TestSafePath:
         (
             (f"/crowd/claim/{TOKEN}/", "/crowd/claim/:token/"),
             (f"/crowd/parties/join/{TOKEN}/", "/crowd/parties/join/:token/"),
-            (f"/crowd/claim/{TOKEN}", "/crowd/claim/:token"),
+            (f"/offer/{TOKEN}/claim/", "/offer/:token/claim/"),
+            (f"/offer/{TOKEN}/decline/", "/offer/:token/decline/"),
         ),
     )
-    def test_token_is_replaced(self, path: str, expected: str) -> None:
+    def test_bearer_token_is_replaced(self, path: str, expected: str) -> None:
         assert safe_path(path) == expected
         assert TOKEN not in safe_path(path)
 
     @pytest.mark.parametrize(
-        "path",
-        ("/events/", "/crowd/profile/", "/event/con-2026/facilitators/jill-hill/"),
+        "path", ("/events/", "/crowd/profile/", "/event/con-2026/")
     )
-    def test_other_paths_are_untouched(self, path: str) -> None:
+    def test_paths_without_secrets_are_untouched(self, path: str) -> None:
         assert safe_path(path) == path
+
+    def test_unresolvable_path_is_returned_as_is(self) -> None:
+        assert safe_path("/no/such/route/") == "/no/such/route/"

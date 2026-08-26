@@ -54,17 +54,39 @@ const syncIdentity = (userId: string | null): void => {
   if (userId !== null) posthog.identify(userId);
 };
 
-// A claim link and a party invite are bearer credentials: presenting the token
-// is the whole authentication, by design, so the flow works without a login.
-// Both put that token in the path, which means it would otherwise ride along in
-// $current_url on every pageview of those pages and sit in the project for the
-// retention window. PostHog's own path cleaning runs at query time and its
-// personal-data masking only covers query parameters, so neither keeps a path
-// token out of what is stored.
-const TOKEN_PATHS = /\/crowd\/(claim|parties\/join)\/[^/]+/g;
+// Claim links, party invites and session offers authenticate by bearing a token
+// in the path — that is what lets those flows work without a login — so those
+// paths are credentials, not locations. The server derives the same rule from
+// the URLconf (links/analytics/identity.py); here it has to be spelled out.
+//
+// The walk is recursive and covers keys as well as values because posthog puts
+// URLs in more places than a property allowlist can track: $set_once carries
+// $initial_current_url into *person* properties, $session_entry_url rides every
+// event of the session, autocapture folds form actions into $elements_chain,
+// and $heatmap_data is keyed by URL.
+const TOKEN_PATHS: [RegExp, string][] = [
+  [/\/crowd\/(claim|parties\/join)\/[^/?#]+/gi, "/crowd/$1/:token"],
+  [/\/offer\/[^/?#]+\/(claim|decline)/gi, "/offer/:token/$1"],
+];
 
-const scrubTokens = (value: unknown): unknown =>
-  typeof value === "string" ? value.replace(TOKEN_PATHS, "/crowd/$1/:token") : value;
+const scrub = (text: string): string => {
+  let scrubbed = text;
+  for (const [pattern, replacement] of TOKEN_PATHS) {
+    scrubbed = scrubbed.replace(pattern, replacement);
+  }
+  return scrubbed;
+};
+
+const scrubDeep = (value: unknown): unknown => {
+  if (typeof value === "string") return scrub(value);
+  if (Array.isArray(value)) return value.map(scrubDeep);
+  if (value !== null && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, nested]) => [scrub(key), scrubDeep(nested)]),
+    );
+  }
+  return value;
+};
 
 const initPosthog = (config: PosthogServerConfig): void => {
   posthog.init(config.api_key, {
@@ -76,12 +98,11 @@ const initPosthog = (config: PosthogServerConfig): void => {
     before_send: (event) => {
       if (!event) return event;
       event.properties.environment = config.environment;
-      for (const key of ["$current_url", "$pathname", "$referrer", "$el_href"]) {
-        if (key in event.properties) {
-          event.properties[key] = scrubTokens(event.properties[key]);
-        }
-      }
-      return event;
+      // $snapshot carries the whole rrweb payload; walking it every time would
+      // cost more than it buys, and those routes are excluded from recording by
+      // the project's session_recording_url_blocklist_config instead.
+      if (event.event === "$snapshot") return event;
+      return scrubDeep(event) as typeof event;
     },
     capture_exceptions: true,
     defaults: "2025-05-24",

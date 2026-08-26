@@ -7,9 +7,8 @@ named, which deployment an event came from, and what a path may reveal.
 
 from __future__ import annotations
 
-import re
-
 from django.conf import settings
+from django.urls import Resolver404, resolve
 
 
 def environment() -> str:
@@ -38,12 +37,21 @@ def distinct_id(pk: int) -> str:
     return str(pk) if env == "production" else f"{env}:{pk}"
 
 
-# Claim links and party invites authenticate by bearing the token in the path —
-# that is what lets those flows work without a login — so a path holding one is
-# a credential, not a location, and must not reach the project.
-_TOKEN_PATHS = re.compile(r"/crowd/(claim|parties/join)/[^/]+")
+# A path segment can be a credential: the claim, party-invite and session-offer
+# links all authenticate by bearing a token, which is what lets those flows work
+# without a login. Rather than enumerate those routes here and have the list rot
+# — it already missed /offer/ once — ask the URLconf which segments are
+# parameters and blank the ones named after a secret.
+_SECRET_URL_KWARGS = frozenset({"token", "share_code"})
 
 
 def safe_path(path: str) -> str:
-    """Strip bearer tokens out of a path before it becomes an event property."""
-    return _TOKEN_PATHS.sub(r"/crowd/\1/:token", path)
+    """Replace any secret-bearing URL segment with its parameter name."""
+    try:
+        match = resolve(path)
+    except Resolver404:
+        return path
+    for name, value in match.kwargs.items():
+        if name in _SECRET_URL_KWARGS and isinstance(value, str) and value:
+            path = path.replace(value, f":{name}")
+    return path
