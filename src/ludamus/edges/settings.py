@@ -48,6 +48,15 @@ env = environ.Env(
     # EU ingestion endpoint without a code change.
     POSTHOG_API_KEY=(str, ""),
     POSTHOG_HOST=(str, "https://eu.i.posthog.com"),
+    # posthog-js fetches remote config — the response that switches on
+    # autocapture, session replay, heatmaps and web vitals — from a second
+    # origin, and blocking it fails silently: pageviews and exceptions keep
+    # arriving. Set both together; a first-party proxy sets them equal.
+    # Never sent to the browser: posthog-js derives this origin from api_host
+    # itself and takes no override for it, so this is a CSP-only mirror of a
+    # computation happening client-side. That is why they cannot be linked in
+    # code and have to move together by hand.
+    POSTHOG_ASSETS_HOST=(str, "https://eu-assets.i.posthog.com"),
     # Other
     CREDENTIALS_ENCRYPTION_KEY=str,
     DEBUG=(bool, False),
@@ -343,11 +352,12 @@ AUTH0_DOMAIN = env("AUTH0_DOMAIN")
 SUPPORT_EMAIL = env("SUPPORT_EMAIL")
 
 # Analytics (Prologue — PostHog). The client bundles posthog-js with its
-# no-external build, so the browser only ever *connects* to POSTHOG_HOST;
-# no third-party script is loaded. Consent gating lives in
+# no-external build, so the browser loads no third-party script; it only
+# *connects* to the two PostHog origins below. Consent gating lives in
 # src/ludamus/client/src/prologue.ts.
 POSTHOG_API_KEY = env("POSTHOG_API_KEY")
 POSTHOG_HOST = env("POSTHOG_HOST")
+POSTHOG_ASSETS_HOST = env("POSTHOG_ASSETS_HOST")
 
 INTERNAL_IPS = [
     # ...
@@ -389,10 +399,14 @@ CSP_POLICY: dict[str, list[str]] = {
     "frame-ancestors": [CSP.NONE],
 }
 
-# posthog-js is bundled (no-external build), so PostHog only needs the
-# ingestion host in connect-src — script-src stays nonce-only.
+# posthog-js is bundled (no-external build), so script-src stays nonce-only.
+# connect-src needs both origins: the browser talks to the ingestion host and,
+# for remote config, to the assets host.
 if POSTHOG_API_KEY:
-    CSP_POLICY["connect-src"].append(POSTHOG_HOST)
+    # sorted: dedupes when a proxy makes the two equal, and keeps the header
+    # byte-identical across workers, which a bare set would not — string
+    # hashing is randomized per process.
+    CSP_POLICY["connect-src"] += sorted({POSTHOG_HOST, POSTHOG_ASSETS_HOST})
     # Session replay compresses in a worker built from a blob: URL.
     CSP_POLICY["worker-src"] = [CSP.SELF, "blob:"]
 
