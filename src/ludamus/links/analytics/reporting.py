@@ -87,7 +87,7 @@ def report_exception(exception: BaseException, request: HttpRequest) -> None:
         distinct_id=_distinct_id(request),
         properties={
             "$process_person_profile": False,
-            "path": request.path,
+            "path": identity.safe_path(request.path),
             "environment": identity.environment(),
         },
         disable_geoip=True,

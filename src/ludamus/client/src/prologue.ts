@@ -54,6 +54,18 @@ const syncIdentity = (userId: string | null): void => {
   if (userId !== null) posthog.identify(userId);
 };
 
+// A claim link and a party invite are bearer credentials: presenting the token
+// is the whole authentication, by design, so the flow works without a login.
+// Both put that token in the path, which means it would otherwise ride along in
+// $current_url on every pageview of those pages and sit in the project for the
+// retention window. PostHog's own path cleaning runs at query time and its
+// personal-data masking only covers query parameters, so neither keeps a path
+// token out of what is stored.
+const TOKEN_PATHS = /\/crowd\/(claim|parties\/join)\/[^/]+/g;
+
+const scrubTokens = (value: unknown): unknown =>
+  typeof value === "string" ? value.replace(TOKEN_PATHS, "/crowd/$1/:token") : value;
+
 const initPosthog = (config: PosthogServerConfig): void => {
   posthog.init(config.api_key, {
     api_host: config.host,
@@ -62,7 +74,13 @@ const initPosthog = (config: PosthogServerConfig): void => {
     // super property because reset() clears super properties, and reset() is
     // exactly what a logout, an account switch or a withdrawn consent does.
     before_send: (event) => {
-      if (event) event.properties.environment = config.environment;
+      if (!event) return event;
+      event.properties.environment = config.environment;
+      for (const key of ["$current_url", "$pathname", "$referrer", "$el_href"]) {
+        if (key in event.properties) {
+          event.properties[key] = scrubTokens(event.properties[key]);
+        }
+      }
       return event;
     },
     capture_exceptions: true,
