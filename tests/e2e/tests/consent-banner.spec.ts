@@ -16,11 +16,11 @@ const storedConsent = (page: Page) =>
 const posthogStarted = (page: Page) =>
   page.evaluate(() => Object.keys(window.localStorage).some((key) => key.startsWith("ph_")));
 
-test.describe("Analytics consent banner", () => {
+test.describe("Cookie consent banner", () => {
   test("first visit shows the banner and stores nothing", async ({ page }) => {
     await page.goto("/");
 
-    const banner = page.getByRole("region", { name: "Analytics consent" });
+    const banner = page.getByRole("region", { name: "Cookie consent" });
     await expect(banner).toBeVisible();
     await expect(banner.getByRole("link", { name: "Privacy Policy" })).toBeVisible();
 
@@ -31,42 +31,42 @@ test.describe("Analytics consent banner", () => {
   test("allowing analytics starts PostHog and dismisses the banner for good", async ({ page }) => {
     await page.goto("/");
 
-    const banner = page.getByRole("region", { name: "Analytics consent" });
-    await banner.getByRole("button", { name: "Allow analytics" }).click();
+    const banner = page.getByRole("region", { name: "Cookie consent" });
+    await banner.getByRole("button", { name: "Cool" }).click();
 
     await expect(banner).toBeHidden();
     await expect.poll(() => storedConsent(page)).toBe("accepted");
     await expect.poll(() => posthogStarted(page)).toBe(true);
 
     await page.goto("/");
-    await expect(page.getByRole("region", { name: "Analytics consent" })).toBeHidden();
+    await expect(page.getByRole("region", { name: "Cookie consent" })).toBeHidden();
   });
 
   test("declining analytics keeps PostHog off and remembers the choice", async ({ page }) => {
     await page.goto("/");
 
-    const banner = page.getByRole("region", { name: "Analytics consent" });
-    await banner.getByRole("button", { name: "Decline analytics" }).click();
+    const banner = page.getByRole("region", { name: "Cookie consent" });
+    await banner.getByRole("button", { name: "No cookies!" }).click();
 
     await expect(banner).toBeHidden();
     await expect.poll(() => storedConsent(page)).toBe("declined");
 
     await page.goto("/");
-    await expect(page.getByRole("region", { name: "Analytics consent" })).toBeHidden();
+    await expect(page.getByRole("region", { name: "Cookie consent" })).toBeHidden();
     expect(await posthogStarted(page)).toBe(false);
   });
 
   test("the footer reopens the banner so the choice can be changed", async ({ page }) => {
     await page.goto("/");
 
-    const banner = page.getByRole("region", { name: "Analytics consent" });
-    await banner.getByRole("button", { name: "Decline analytics" }).click();
+    const banner = page.getByRole("region", { name: "Cookie consent" });
+    await banner.getByRole("button", { name: "No cookies!" }).click();
     await expect(banner).toBeHidden();
 
-    await page.getByRole("button", { name: "Analytics settings" }).click();
+    await page.getByRole("button", { name: "Cookie settings" }).click();
     await expect(banner).toBeVisible();
 
-    await banner.getByRole("button", { name: "Allow analytics" }).click();
+    await banner.getByRole("button", { name: "Cool" }).click();
     await expect(banner).toBeHidden();
     await expect.poll(() => storedConsent(page)).toBe("accepted");
     await expect.poll(() => posthogStarted(page)).toBe(true);
