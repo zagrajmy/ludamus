@@ -1,17 +1,13 @@
 // Dev-only panel for the schedule's "now" line. Seeded events sit days away
 // from the real clock, so the line is otherwise unreachable without waiting
-// for an event to happen. Imported dynamically and only under import.meta.env
-// .DEV, so neither this module nor lil-gui reaches the production bundle.
+// for an event to happen. Imported dynamically and only under
+// import.meta.env.DEV, so neither this module nor lil-gui reaches the
+// production bundle.
 import GUI from "lil-gui";
 
-const HOUR_MS = 3_600_000;
+import { HOUR_MS } from "./schedule-now";
 
-interface NowDebug {
-  firstHour: () => number;
-  setOffset: (ms: number) => void;
-}
-
-export const mountNowDebug = ({ firstHour, setOffset }: NowDebug): void => {
+export const mountNowDebug = (setOffset: (ms: number) => void): void => {
   // Two parts: the jump lands the clock on the programme, the slider nudges
   // around wherever it landed. One combined control would have to span the
   // months between a seeded event and the real date, which makes every useful
@@ -38,7 +34,10 @@ export const mountNowDebug = ({ firstHour, setOffset }: NowDebug): void => {
     .add(
       {
         jump: () => {
-          const first = firstHour();
+          // The programme's first hour, straight off the grid the panel sits on.
+          const first = Date.parse(
+            document.querySelector<HTMLElement>("[data-hour-start]")?.dataset.hourStart ?? "",
+          );
           if (Number.isNaN(first)) return;
           // Half an hour in, so the line lands inside the first hour's row
           // rather than exactly on its gridline.

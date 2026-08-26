@@ -7,7 +7,7 @@ from django.utils.timezone import localtime
 
 from ludamus.gates.web.django.chronology.schedule import (
     RoomLane,
-    RoomLaneHourMark,
+    RoomLaneRow,
     RoomLanes,
     RoomLaneTile,
 )
@@ -161,16 +161,21 @@ class TestEventPageBookmarkCounts:
                             starts_group=True,
                         )
                     ],
-                    first_day=hour_start,
-                    day_breaks=[],
-                    hour_marks=[
-                        RoomLaneHourMark(start=hour_start, row=1, has_sessions=True),
-                        RoomLaneHourMark(
-                            start=hour_start + timedelta(hours=1),
-                            row=2,
+                    rows=[
+                        RoomLaneRow(
+                            day=0,
+                            day_start=hour_start,
+                            hour=hour_start,
+                            has_sessions=True,
+                        ),
+                        RoomLaneRow(
+                            day=0,
+                            day_start=hour_start,
+                            hour=hour_start + timedelta(hours=1),
                             has_sessions=False,
                         ),
                     ],
+                    spans=[2],
                     tiles=[
                         RoomLaneTile(
                             data=card,
@@ -180,7 +185,6 @@ class TestEventPageBookmarkCounts:
                             row_span=2,
                         )
                     ],
-                    rows=[1, 2],
                 ),
                 sessions=[card],
                 has_enrollable_sessions=True,

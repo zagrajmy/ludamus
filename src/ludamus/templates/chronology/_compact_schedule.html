@@ -42,15 +42,8 @@
                         {% endfor %}
                     </section>
                 {% endfor %}
-                {# The "now" seam, moved between two rows by schedule-now.ts: #}
-                {# which rows it belongs between is clock-dependent, and this #}
-                {# page is cacheable. #}
-                <div class="schedule-now" data-schedule-now hidden>
-                    <span class="schedule-now-time">
-                        <span class="sr-only">{% translate "Now" %}</span>
-                        <span data-schedule-now-time></span>
-                    </span>
-                </div>
+                {# The "now" seam, moved between two rows by schedule-now.ts. #}
+                <div class="schedule-now" data-schedule-now hidden>{% include "chronology/_schedule_now_marker.html" %}</div>
             {% endif %}
         </div>
         {# Hour scrubber: tap or drag to jump through the schedule by the hour. #}

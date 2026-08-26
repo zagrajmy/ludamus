@@ -1,0 +1,8 @@
+{% load i18n %}
+{# The "now" pill, shared by both compact schedule layouts. schedule-now.ts #}
+{# fills the time and moves the marker into place: which row it belongs to is #}
+{# clock-dependent, and this page is cacheable. #}
+<span class="schedule-now-pill">
+    <span class="sr-only">{% translate "Now" %}</span>
+    <span data-now-time></span>
+</span>

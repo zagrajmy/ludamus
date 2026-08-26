@@ -21,7 +21,7 @@ from ludamus.gates.web.django.chronology.event_presentation import (
 )
 from ludamus.gates.web.django.chronology.schedule import (
     RoomLane,
-    RoomLaneHourMark,
+    RoomLaneRow,
     RoomLanes,
     RoomLaneTile,
     ScheduleDay,
@@ -751,31 +751,20 @@ class TestEventPageView:
                             name="Stage", group="", group_key="", starts_group=False
                         ),
                     ],
-                    # The single day opens the grid, so it has no seam above it
-                    # and its first hour is row 1.
-                    first_day=local_start,
-                    day_breaks=[],
-                    # Four hours of lane, 10:00 to 13:00: the two sessions
-                    # at 10:00, an empty 11:00, the two-hour one from
-                    # 12:00, and the hour it runs into.
-                    hour_marks=[
-                        RoomLaneHourMark(start=local_start, row=1, has_sessions=True),
-                        RoomLaneHourMark(
-                            start=local_start + timedelta(hours=1),
-                            row=2,
-                            has_sessions=False,
-                        ),
-                        RoomLaneHourMark(
-                            start=local_start + timedelta(hours=2),
-                            row=3,
-                            has_sessions=True,
-                        ),
-                        RoomLaneHourMark(
-                            start=local_start + timedelta(hours=3),
-                            row=4,
-                            has_sessions=False,
-                        ),
+                    # The single day opens the grid, so it has no seam above
+                    # it and its first hour is row 1. Four hours of lane, 10:00
+                    # to 13:00: the two sessions at 10:00, an empty 11:00, the
+                    # two-hour one from 12:00, and the hour it runs into.
+                    rows=[
+                        RoomLaneRow(
+                            day=0,
+                            day_start=local_start,
+                            hour=local_start + timedelta(hours=offset),
+                            has_sessions=offset in {0, 2},
+                        )
+                        for offset in range(4)
                     ],
+                    spans=[1, 2],
                     # Arena is column 1 and Stage column 2; the later
                     # session starts in the third row and spans two.
                     tiles=[
@@ -801,7 +790,6 @@ class TestEventPageView:
                             row_span=2,
                         ),
                     ],
-                    rows=[1, 2, 3, 4],
                 ),
                 has_enrollable_sessions=True,
                 scheduled_count=3,

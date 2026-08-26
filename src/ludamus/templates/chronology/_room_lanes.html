@@ -6,33 +6,13 @@
 {# a room idle on a given day keeps its column and shows the gap. A session #}
 {# sits in its start-hour row and spans the hours it covers, so longer #}
 {# sessions render taller; rows are auto-height, so a tile is never clipped. #}
-{# The room-name header is pulled out of the horizontal scroller and sticks #}
-{# to the page (room-lanes.ts syncs the scroll offsets both ways) — native #}
-{# vertical stickiness, no scroll-driven jitter. The day a heading row belongs #}
-{# to cannot stick the same way: it lives inside the scroller, whose #}
-{# overflow-x makes it the nearest scrollport, and a scrollport that never #}
-{# scrolls vertically pins a sticky child where it stands. So the header #}
-{# carries the current day as its own first line and room-lanes.ts keeps it #}
-{# in step with the scroll position. #}
-{# Shift+scroll is not common #}
-{# knowledge and the grid runs screens tall, so mouse users get a sideways #}
-{# handle pinned to each edge of the viewport: the header scrolls for real #}
-{# (overflow-x-auto, not hidden), making its scrollbar the top handle, and #}
-{# a sticky strip after the body carries the bottom one — the body's own #}
-{# scrollbar, which would surface only at the grid's very end, is hidden in #}
-{# room-lanes.css in its favor. A strip could carry the top handle too and #}
-{# spare the head's fade-mask carve-out, but a really-scrolling header row #}
-{# also pans directly by trackpad and touch — a deliberate trade. #}
-{# The time axis is the grid's first #}
-{# column, sticky-left; only the right edge fades, so the axis never dims. #}
-{# Hour gridlines with sessions carry the .time-slot-section / #slot-<hour> #}
+{# Hour rows with sessions carry the .time-slot-section / #slot-<hour> #}
 {# contract so the hour scrubber and filters keep working. #}
 {# Grid placement is data-driven, not inline: a style attribute cannot carry a #}
 {# CSP nonce, so the per-index rules live in one nonced style element keyed on #}
-{# the data-* attributes the elements already need (see issue #743). The rules #}
-{# name only integers, and the rooms/rows loops bound every tile's column, #}
-{# row, and span. #}
-{% if room_lanes %}
+{# the data-* attributes the elements already need (see issue #743). The rooms, #}
+{# rows and spans loops bound every tile's column, row, and height. #}
+{% if room_lanes.rows %}
     <style{% nonce %}>
         .room-lanes {
             --rooms: {{ room_lanes.rooms|length }};
@@ -45,16 +25,17 @@
         }
         {% endfor %}
         {% for row in room_lanes.rows %}
-        [data-lane-row="{{ row }}"] {
-            grid-row: {{ row }};
+        [data-lane-row="{{ forloop.counter }}"] {
+            grid-row: {{ forloop.counter }};
         }
 
-        [data-tile-row="{{ row }}"] {
-            grid-row-start: {{ row }};
+        [data-tile-row="{{ forloop.counter }}"] {
+            grid-row-start: {{ forloop.counter }};
         }
-
-        [data-tile-span="{{ row }}"] {
-            grid-row-end: span {{ row }};
+        {% endfor %}
+        {% for span in room_lanes.spans %}
+        [data-tile-span="{{ span }}"] {
+            grid-row-end: span {{ span }};
         }
         {% endfor %}
     </style>
@@ -69,9 +50,9 @@
                 <div class="room-lanes-day-current">
                     <div class="sticky left-0 inline-flex items-baseline gap-2 bg-background px-2 py-1 text-sm font-bold uppercase tracking-wide text-foreground-secondary"
                          data-room-lanes-day-current>
-                        <span data-day-name>{{ room_lanes.first_day|date:"l" }}</span>
+                        <span data-day-name>{{ room_lanes.rows.0.day_start|date:"l" }}</span>
                         <span class="text-xs font-medium normal-case tracking-normal text-foreground-muted"
-                              data-day-date>{{ room_lanes.first_day|date:"j F" }}</span>
+                              data-day-date>{{ room_lanes.rows.0.day_start|date:"j F" }}</span>
                     </div>
                 </div>
                 <div class="room-lanes-corner sticky left-0 z-10 bg-background"></div>
@@ -105,26 +86,42 @@
         <div class="room-lanes-scroll scrollview-fade scrollview-fade-x-16 overflow-x-auto overflow-y-clip overscroll-x-contain"
              data-room-lanes-scroll>
             <div class="room-lanes-grid room-lanes-body">
-                {% for mark in room_lanes.day_breaks %}
-                    {# The seam between two days. The first day has none: the #}
-                    {# header already names it, and a break above the first row #}
-                    {# is a heading printed twice, not a boundary. #}
-                    <div class="room-lanes-day" data-lane-row="{{ mark.row }}">
-                        <h3 class="sticky left-0 inline-flex items-baseline gap-2 px-2 py-2 text-sm font-bold uppercase tracking-wide text-foreground-secondary">
-                            <span data-day-name>{{ mark.day_start|date:"l" }}</span>
-                            <span class="text-xs font-medium normal-case tracking-normal text-foreground-muted"
-                                  data-day-date>{{ mark.day_start|date:"j F" }}</span>
-                        </h3>
-                    </div>
-                {% endfor %}
-                {% for mark in room_lanes.hour_marks %}
-                    <div class="room-lanes-time sticky left-0 z-40 bg-background pr-1 text-right text-[0.7rem] font-bold tabular-nums text-foreground-muted"
-                         data-lane-row="{{ mark.row }}">{{ mark.start|time:"H:i" }}</div>
-                    <div class="room-lanes-line border-t border-border/60{% if mark.has_sessions %} time-slot-section scroll-mt-40{% endif %}"
-                         data-lane-row="{{ mark.row }}"
-                         data-hour-start="{{ mark.start|date:'c' }}"
-                         {% if mark.has_sessions %}id="slot-{{ mark.start|date:'Ymd-H' }}" data-slot-hour="{{ mark.start|date:'Ymd-H' }}"{% endif %}>
-                    </div>
+                {# Day one opens the grid, so it has no seam of its own — a #}
+                {# heading above the first row is the header printed twice, not #}
+                {# a boundary. It still needs to exist for anyone navigating by #}
+                {# heading, and sr-only takes it out of flow, so it costs no row. #}
+                <h3 class="sr-only" data-day-heading>
+                    <span data-day-name>{{ room_lanes.rows.0.day_start|date:"l" }}</span>
+                    <span data-day-date>{{ room_lanes.rows.0.day_start|date:"j F" }}</span>
+                </h3>
+                {# One loop, one row each: the row's position in the list is its #}
+                {# grid row, and a row with no hour is the seam opening a day. #}
+                {% for row in room_lanes.rows %}
+                    {% if row.hour %}
+                        <div class="room-lanes-time sticky left-0 z-40 bg-background pr-1 text-right text-[0.7rem] font-bold tabular-nums text-foreground-muted"
+                             data-lane-row="{{ forloop.counter }}"
+                             data-lane-day="{{ row.day }}">{{ row.hour|time:"H:i" }}</div>
+                        {# No rule on the very first row: the header already #}
+                        {# draws its own bottom border directly above it, and #}
+                        {# the two stack into a doubled hairline. #}
+                        <div class="room-lanes-line{% if not forloop.first %} border-t border-border/60{% endif %}{% if row.has_sessions %} time-slot-section scroll-mt-40{% endif %}"
+                             data-lane-row="{{ forloop.counter }}"
+                             data-lane-day="{{ row.day }}"
+                             data-hour-start="{{ row.hour|date:'c' }}"
+                             {% if row.has_sessions %}id="slot-{{ row.hour|date:'Ymd-H' }}" data-slot-hour="{{ row.hour|date:'Ymd-H' }}"{% endif %}>
+                        </div>
+                    {% else %}
+                        <div class="room-lanes-day"
+                             data-day-heading
+                             data-lane-row="{{ forloop.counter }}"
+                             data-lane-day="{{ row.day }}">
+                            <h3 class="sticky left-0 inline-flex items-baseline gap-2 px-2 py-2 text-sm font-bold uppercase tracking-wide text-foreground-secondary">
+                                <span data-day-name>{{ row.day_start|date:"l" }}</span>
+                                <span class="text-xs font-medium normal-case tracking-normal text-foreground-muted"
+                                      data-day-date>{{ row.day_start|date:"j F" }}</span>
+                            </h3>
+                        </div>
+                    {% endif %}
                 {% endfor %}
                 {% for room in room_lanes.rooms %}
                     <div class="room-lanes-rule" data-lane-col="{{ forloop.counter }}"></div>
@@ -137,19 +134,11 @@
                         {% include "chronology/_room_lane_tile.html" with data=tile.data slot_hour=tile.slot_hour %}
                     </div>
                 {% endfor %}
-                {# The "now" rule, placed by room-lanes.ts: the row it belongs to #}
-                {# and how far down it sits are both clock-dependent, so the #}
-                {# server cannot render them into a cacheable page. #}
+                {# The "now" rule. The strip carries the line and gives the #}
+                {# pill something full-width to stick inside, so the label stays #}
+                {# pinned to the left edge with the hour axis while the grid pans. #}
                 <div class="room-lanes-now" data-room-lanes-now hidden>
-                    {# The strip carries the rule and gives the time something #}
-                    {# full-width to stick inside, so the label stays pinned to #}
-                    {# the left edge with the hour axis while the grid pans. #}
-                    <div class="room-lanes-now-strip">
-                        <span class="room-lanes-now-time">
-                            <span class="sr-only">{% translate "Now" %}</span>
-                            <span data-room-lanes-now-time></span>
-                        </span>
-                    </div>
+                    <div class="room-lanes-now-strip">{% include "chronology/_schedule_now_marker.html" %}</div>
                 </div>
             </div>
         </div>

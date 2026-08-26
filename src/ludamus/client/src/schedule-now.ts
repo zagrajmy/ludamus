@@ -2,7 +2,7 @@
 // the one thing the server cannot render into this page: it is cacheable, and
 // a line rendered server-side would be stale the moment it was served.
 
-const HOUR_MS = 3_600_000;
+export const HOUR_MS = 3_600_000;
 
 // Shifted, never replaced, by the dev panel below: a demo event's programme
 // sits days away from the real clock, so the only way to see the line during
@@ -10,8 +10,20 @@ const HOUR_MS = 3_600_000;
 let offsetMs = 0;
 const clock = (): number => Date.now() + offsetMs;
 
-const asTime = (at: number): string =>
-  new Date(at).toLocaleTimeString([], { hour: "2-digit", hour12: false, minute: "2-digit" });
+const pad = (part: number): string => String(part).padStart(2, "0");
+
+const eventClock = (instant: string, at: number): string => {
+  const zone = /(?:Z|(?<sign>[+-])(?<hours>\d\d):(?<minutes>\d\d))$/.exec(instant);
+  const { hours = "0", minutes = "0", sign = "+" } = zone?.groups ?? {};
+  const offset = (sign === "-" ? -1 : 1) * (Number(hours) * 60 + Number(minutes));
+  const shifted = new Date(at + offset * 60_000);
+  return `${pad(shifted.getUTCHours())}:${pad(shifted.getUTCMinutes())}`;
+};
+
+const setTime = (marker: HTMLElement, text: string): void => {
+  const time = marker.querySelector<HTMLElement>("[data-now-time]");
+  if (time) time.textContent = text;
+};
 
 // The rooms grid: the line belongs to the hour row that contains now, at the
 // share of that row the minutes have run through.
@@ -20,17 +32,17 @@ const placeInGrid = (at: number): void => {
   if (!marker) return;
 
   for (const line of document.querySelectorAll<HTMLElement>("[data-hour-start]")) {
-    const start = Date.parse(line.dataset.hourStart ?? "");
+    if (line.classList.contains("room-lanes-collapsed")) continue;
+    const instant = line.dataset.hourStart ?? "";
+    const start = Date.parse(instant);
     if (Number.isNaN(start) || at < start || at >= start + HOUR_MS) continue;
     marker.style.gridRow = line.dataset.laneRow ?? "";
     marker.style.setProperty("--now-frac", String((at - start) / HOUR_MS));
-    const time = marker.querySelector<HTMLElement>("[data-room-lanes-now-time]");
-    if (time) time.textContent = asTime(at);
+    setTime(marker, eventClock(instant, at));
+    line.after(marker);
     marker.hidden = false;
     return;
   }
-  // Outside the programme — between two days, or before or after the event.
-  // No hour row owns the moment, so there is nothing to mark.
   marker.hidden = true;
 };
 
@@ -40,20 +52,18 @@ const placeInList = (at: number): void => {
   const seam = document.querySelector<HTMLElement>("[data-schedule-now]");
   if (!seam) return;
 
-  // Scoped to the ledger: the grid's tiles are .session-wrapper as well, and
-  // the seam belongs between rows, never inside a tile.
   for (const row of document.querySelectorAll<HTMLElement>(".session-grid .session-wrapper")) {
+    if (!row.checkVisibility()) continue;
     // The rendered start, offset and all: the row's day and hour are the
     // event's local wall clock, a different moment in a reader's timezone.
-    const start = Date.parse(row.querySelector<HTMLElement>(".session")?.dataset.start ?? "");
+    const instant = row.querySelector<HTMLElement>(".session")?.dataset.start ?? "";
+    const start = Date.parse(instant);
     if (Number.isNaN(start) || start <= at) continue;
-    const time = seam.querySelector<HTMLElement>("[data-schedule-now-time]");
-    if (time) time.textContent = asTime(at);
+    setTime(seam, eventClock(instant, at));
     row.before(seam);
     seam.hidden = false;
     return;
   }
-  // Every session on the schedule has started: there is no seam to draw.
   seam.hidden = true;
 };
 
@@ -73,18 +83,13 @@ const start = (): void => {
 
 start();
 document.body.addEventListener("htmx:afterSwap", start);
+document.addEventListener("schedule:filtered", place);
 
 if (import.meta.env.DEV) {
   // Dynamic, so lil-gui and this panel stay out of the production bundle.
   const { mountNowDebug } = await import("./schedule-now-debug");
-  mountNowDebug({
-    // The first hour the schedule renders, so "jump into the programme" has
-    // somewhere to jump to on any seeded event.
-    firstHour: () =>
-      Date.parse(document.querySelector<HTMLElement>("[data-hour-start]")?.dataset.hourStart ?? ""),
-    setOffset: (ms: number) => {
-      offsetMs = ms;
-      place();
-    },
+  mountNowDebug((ms: number) => {
+    offsetMs = ms;
+    place();
   });
 }

@@ -106,21 +106,21 @@ test.describe("Event schedule views", () => {
   test("the header keeps naming the day you are scrolled into", async ({ page }) => {
     await page.goto(`${DENSE_EVENT_URL}?view=rooms`);
     const header = page.locator("[data-room-lanes-head]");
-    // Each seam between two days is a heading; the first one opens day two.
-    const secondDay = page.getByRole("heading", { level: 3 }).first();
-    const name = squash(await secondDay.textContent());
-    expect(name).not.toBe("");
-
-    // At the top of the grid the header names the day the event opens on,
-    // which is not the day the first seam introduces.
-    expect(squash(await header.textContent())).not.toContain(name);
+    // Every day is a heading. The first opens the grid and has no seam to
+    // scroll past — it is the one the header starts on — so the day to scroll
+    // into is the second.
+    const days = page.getByRole("heading", { level: 3 });
+    expect(await days.count()).toBeGreaterThan(1);
+    const [first, second] = (await days.allTextContents()).map(squash);
+    expect(squash(await header.textContent())).toContain(first);
+    expect(squash(await header.textContent())).not.toContain(second);
 
     // To the top of the scroller, not merely into view: the header floats over
     // the grid, and a seam parked just below the fold is still under it.
-    await secondDay.evaluate((el) => {
+    await days.nth(1).evaluate((el) => {
       el.scrollIntoView({ block: "start" });
     });
-    await expect.poll(async () => squash(await header.textContent())).toContain(name);
+    await expect.poll(async () => squash(await header.textContent())).toContain(second);
   });
 
   test("a line marks where the programme has got to", async ({ page }) => {
@@ -168,14 +168,46 @@ test.describe("Event schedule views", () => {
     const marker = page.getByText(`Now ${clockFace(at)}`);
     await expect(marker).toBeVisible();
 
-    // The row above it has started, the row below it has not — which is the
-    // only thing the seam claims.
+    // The row directly above the seam has started and the one directly below
+    // has not — the only thing the seam claims. Read off the times the rows
+    // print, which also checks the instant the clock was set from against what
+    // the page actually shows.
     const line = await marker.boundingBox();
-    const rows = page.getByRole("link", { name: /^Open details for / });
-    const above = await rows.first().boundingBox();
-    const below = await rows.last().boundingBox();
-    expect(above?.y).toBeLessThan(line?.y ?? 0);
-    expect(below?.y).toBeGreaterThan(line?.y ?? 0);
+    const rows = await page.getByRole("article").evaluateAll((cards) =>
+      cards.map((card) => ({
+        text: (card as HTMLElement).innerText,
+        y: card.getBoundingClientRect().y,
+      })),
+    );
+    const startsAt = (text: string) => /\b(\d\d:\d\d)\b/.exec(text)?.[1] ?? "";
+    const above = rows.filter((row) => row.y < (line?.y ?? 0)).at(-1);
+    const below = rows.find((row) => row.y > (line?.y ?? 0));
+    expect(above).toBeDefined();
+    expect(below).toBeDefined();
+    expect(startsAt(above?.text ?? "").localeCompare(clockFace(at))).toBeLessThanOrEqual(0);
+    expect(startsAt(below?.text ?? "").localeCompare(clockFace(at))).toBeGreaterThan(0);
+  });
+
+  test("a filter that empties a day takes the whole day with it", async ({ page }) => {
+    await page.goto(`${DENSE_EVENT_URL}?view=rooms`);
+    const days = page.getByRole("heading", { level: 3 });
+    const before = await days.count();
+    expect(before).toBeGreaterThan(1);
+
+    // One session's title: whatever day it is on survives, the rest empty out.
+    const title = await page
+      .getByRole("link", { name: /^Open details for / })
+      .first()
+      .textContent();
+    await page
+      .getByRole("textbox", { name: "Search sessions..." })
+      .fill((title ?? "").replace("Open details for ", "").trim());
+
+    // Whichever days lost every session are gone entirely — heading, blank
+    // hours and all — rather than leaving a stranded date over nothing.
+    await expect
+      .poll(async () => (await days.filter({ visible: true }).count()) < before)
+      .toBe(true);
   });
 
   test("the grid pans like a map: drag the background, or anything with Space", async ({

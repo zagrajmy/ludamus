@@ -9,6 +9,13 @@
 // from the served one, silently and with nothing to catch it.
 const COLLAPSED = "room-lanes-collapsed";
 
+// A track survives if anything visible is on it, or if nothing ever was: an
+// hour no tile covered is a break in the programme, and the server renders it
+// at full height. Collapsing it would leave a cleared filter showing a
+// different schedule than the first load did. The same rule decides whether a
+// whole day survives, one scale up.
+const survives = (had: boolean, live: boolean): boolean => live || !had;
+
 const collapseEmptyTracks = (lanes: HTMLElement): void => {
   const rowCount = Number(lanes.dataset.rows);
   const roomCount = Number(lanes.dataset.rooms);
@@ -27,27 +34,26 @@ const collapseEmptyTracks = (lanes: HTMLElement): void => {
     if (visible) liveCols.add(Number(cell.dataset.tileCol));
   }
 
-  // Every day of the event shares this grid, so a filter can empty a whole day
-  // and leave its heading sitting directly on the next day's — two headings
-  // back to back with nothing between them, which reads as a bug. Take the
-  // emptied day's rows with it, blank hours included.
-  const dayRows = [...lanes.querySelectorAll<HTMLElement>(".room-lanes-day")].map((day) =>
-    Number(day.dataset.laneRow),
-  );
-  const emptied = new Set<number>();
-  for (const [index, first] of dayRows.entries()) {
-    const last = (dayRows[index + 1] ?? rowCount + 1) - 1;
-    const band = Array.from({ length: last - first + 1 }, (_, offset) => first + offset);
-    if (band.some((row) => tileRows.has(row)) && !band.some((row) => liveRows.has(row))) {
-      for (const row of band) emptied.add(row);
-    }
+  // The same rule one scale up. Every row declares the day it belongs to, so a
+  // filter that empties a whole day takes the day's heading and its blank hours
+  // with it — two headings back to back with nothing between them read as a bug
+  // — and day one, which has no seam of its own, is a day like any other.
+  const dayOfRow = new Map<number, number>();
+  for (const el of lanes.querySelectorAll<HTMLElement>("[data-lane-day]")) {
+    dayOfRow.set(Number(el.dataset.laneRow), Number(el.dataset.laneDay));
   }
+  const tileDays = new Set<number>();
+  const liveDays = new Set<number>();
+  for (const row of tileRows) tileDays.add(dayOfRow.get(row) ?? -1);
+  for (const row of liveRows) liveDays.add(dayOfRow.get(row) ?? -1);
 
-  // An hour no tile ever covered is a break in the programme, and the server
-  // renders it at full height. Collapsing it would leave a cleared filter
-  // showing a different schedule than the first load did.
-  const rowLives = (row: number): boolean =>
-    !emptied.has(row) && (liveRows.has(row) || !tileRows.has(row));
+  const rowLives = (row: number): boolean => {
+    const day = dayOfRow.get(row) ?? -1;
+    return (
+      survives(tileDays.has(day), liveDays.has(day)) &&
+      survives(tileRows.has(row), liveRows.has(row))
+    );
+  };
 
   for (const el of lanes.querySelectorAll<HTMLElement>("[data-lane-row]")) {
     el.classList.toggle(COLLAPSED, !rowLives(Number(el.dataset.laneRow)));
@@ -99,28 +105,35 @@ const collapseEmptyTracks = (lanes: HTMLElement): void => {
 const dayCell = (from: ParentNode, field: string): HTMLElement | null =>
   from.querySelector<HTMLElement>(`[data-day-${field}]`);
 
+// The day heading cannot simply be sticky. It sits inside the body scroller,
+// whose overflow-x makes that scroller the nearest scrollport, and a scrollport
+// that never scrolls vertically pins a sticky child exactly where it was
+// rendered. The header is outside the scroller and does stick to the page, so
+// it carries the current day instead and the scroll position decides which day
+// that is.
 const trackCurrentDay = (lanes: HTMLElement, head: HTMLElement): (() => void) | null => {
   const label = head.querySelector<HTMLElement>("[data-room-lanes-day-current]");
-  const breaks = [...lanes.querySelectorAll<HTMLElement>(".room-lanes-day")];
-  if (!label || breaks.length === 0) return null;
-
-  const fields = ["name", "date"];
-  // The first day has no seam of its own, so its name is only ever the one the
-  // server rendered here. Keep it to put back when no seam has passed yet.
-  const firstDay = fields.map((field) => dayCell(label, field)?.textContent ?? "");
+  // Day one's heading is first and carries no row of its own (it is sr-only, so
+  // it is out of flow and has no position to compare); every heading after it is
+  // a seam that scrolls. So day one is the standing answer, not a snapshot of
+  // the label this closure also writes to.
+  const [dayOne, ...seams] = [...lanes.querySelectorAll<HTMLElement>("[data-day-heading]")];
+  if (!label || !dayOne) return null;
 
   return () => {
     // The last seam that has passed under the header names the day whose rows
-    // the reader is looking at; above the first one, that is still day one.
+    // the reader is looking at. A seam a filter collapsed has no position at
+    // all — its rect reads as zero, which would otherwise beat every real one.
     const edge = head.getBoundingClientRect().bottom;
-    let current: HTMLElement | null = null;
-    for (const seam of breaks) {
+    let current = dayOne;
+    for (const seam of seams) {
+      if (seam.classList.contains(COLLAPSED)) continue;
       if (seam.getBoundingClientRect().top > edge) break;
       current = seam;
     }
-    for (const [index, field] of fields.entries()) {
+    for (const field of ["name", "date"]) {
       const target = dayCell(label, field);
-      const text = current ? (dayCell(current, field)?.textContent ?? "") : firstDay[index];
+      const text = dayCell(current, field)?.textContent ?? "";
       if (target && target.textContent !== text) target.textContent = text;
     }
   };
@@ -288,6 +301,8 @@ const initRoomLanes = (): void => {
       };
       page?.addEventListener("scroll", queueDay, { passive: true, signal });
       globalThis.addEventListener("resize", queueDay, { signal });
+      // Collapsing tracks moves every seam without scrolling anything.
+      document.addEventListener("schedule:filtered", queueDay, { signal });
     }
     lanes?.addEventListener(
       "pointerenter",

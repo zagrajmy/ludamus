@@ -32,8 +32,7 @@
   margin-block: 0.875rem;
 }
 
-.room-lanes-now-time,
-.schedule-now-time {
+.schedule-now-pill {
   translate: 0 -50%;
   border-radius: 9999px;
   background: var(--color-primary);
@@ -45,15 +44,16 @@
   color: white;
 }
 
-/* Sticky, not absolute: the label rides the scroller's left edge the way the
-   hour axis does, instead of panning off with the grid. */
-.room-lanes-now-time {
+/* In the grid the pill is sticky, so it rides the scroller's left edge the way
+   the hour axis does instead of panning off with the tiles. In the ledger it
+   hangs off the rule, which has no axis to sit beside. */
+.room-lanes-now .schedule-now-pill {
   position: sticky;
   left: 0;
   display: inline-block;
 }
 
-.schedule-now-time {
+.schedule-now .schedule-now-pill {
   position: absolute;
   top: 0;
   inset-inline-start: 0.5rem;

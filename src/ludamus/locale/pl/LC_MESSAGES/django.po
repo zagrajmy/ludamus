@@ -3753,6 +3753,7 @@ msgid "Completed"
 msgstr "Ukończone"
 
 #: src/ludamus/templates/chronology/_card_schedule.html
+#: src/ludamus/templates/chronology/_schedule_now_marker.html
 msgid "Now"
 msgstr "Teraz"
 

@@ -257,20 +257,55 @@ class TestNightSessions:
     def test_room_lanes_clip_the_night_session_at_midnight(self):
         lanes = build_room_lanes(build_schedule_days({1: self._night_session()}))
 
-        assert lanes is not None
         # Both days share one grid. The first day opens it, so its two hours are
-        # rows 1 and 2; the seam before the second day takes row 3.
-        assert [(brk.day_start.day, brk.row) for brk in lanes.day_breaks] == [(11, 3)]
-        assert [(mark.start.hour, mark.row) for mark in lanes.hour_marks] == [
-            (22, 1),
-            (23, 2),
-            (0, 4),
-            (1, 5),
-        ]
+        # rows 1 and 2; the seam that opens the second day takes row 3, which is
+        # the one row-numbering invariant worth pinning.
+        assert [
+            (row.day, row.hour.hour if row.hour else None) for row in lanes.rows
+        ] == [(0, 22), (0, 23), (1, None), (1, 0), (1, 1)]
         assert [(tile.row_start, tile.row_span) for tile in lanes.tiles] == [
             (1, 2),
             (4, 2),
         ]
+        # Span rules are emitted per distinct height, not per row.
+        assert lanes.spans == [2]
+
+
+class TestRoomLaneColumns:
+    @staticmethod
+    def _session(*, space_name: str, sort_key: str, day: int) -> SessionData:
+        tz = timezone.get_current_timezone()
+        return _make_session_data(
+            agenda_item=AgendaItemDTO(
+                start_time=datetime(2026, 7, day, 10, tzinfo=tz),
+                end_time=datetime(2026, 7, day, 11, tzinfo=tz),
+                pk=day,
+                session_confirmed=True,
+            ),
+            loc=_loc(space_name=space_name, parent_name="", sort_key=sort_key),
+        )
+
+    def test_a_room_used_on_one_day_keeps_its_column_on_every_other(self):
+        # Rooms are the outer axis, so the column set is the union across days
+        # and a room idle on a day shows the gap rather than shifting its
+        # neighbours into it.
+        sessions = {
+            1: self._session(space_name="Sala A", sort_key="000000|Sala A|a", day=10),
+            2: self._session(space_name="Sala B", sort_key="000001|Sala B|b", day=11),
+        }
+
+        lanes = build_room_lanes(build_schedule_days(sessions))
+
+        assert [lane.name for lane in lanes.rooms] == ["Sala A", "Sala B"]
+        # Day one's session holds column 1, day two's holds column 2 — neither
+        # day renumbers the columns for itself.
+        assert [(tile.col, tile.row_start) for tile in lanes.tiles] == [(1, 1), (2, 3)]
+
+    def test_no_schedule_makes_no_rows(self):
+        lanes = build_room_lanes([])
+
+        assert not lanes.rows
+        assert not lanes.rooms
 
 
 class TestRoomLaneOrdering:
@@ -310,7 +345,6 @@ class TestRoomLaneOrdering:
 
         lanes = build_room_lanes(build_schedule_days(sessions))
 
-        assert lanes is not None
         assert [(lane.group, lane.name, lane.starts_group) for lane in lanes.rooms] == [
             ("Piętro 1", "Sala A", True),
             ("Piętro 1", "Sala B", False),
@@ -333,7 +367,6 @@ class TestRoomLaneOrdering:
 
         lanes = build_room_lanes(build_schedule_days(sessions))
 
-        assert lanes is not None
         assert [(lane.group, lane.name, lane.starts_group) for lane in lanes.rooms] == [
             ("Parter", "Sala A", True),
             ("Parter", "Sala B", True),

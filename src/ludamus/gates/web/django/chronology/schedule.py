@@ -47,9 +47,13 @@ class RoomLaneTile:
 
 
 @dataclass
-class RoomLaneHourMark:
-    start: datetime
-    row: int
+class RoomLaneRow:
+    # One row of the grid. A row with no `hour` is the seam that opens a day;
+    # every other row is a whole clock hour. Row numbers are positions in the
+    # row list, so nothing counts them by hand.
+    day: int
+    day_start: datetime
+    hour: datetime | None
     has_sessions: bool
 
 
@@ -67,27 +71,18 @@ class RoomLane:
 
 
 @dataclass
-class RoomLaneDayBreak:
-    # The seam between two days: a heading row where one day's rows end and the
-    # next day's begin. The first day has none — there is nothing before it to
-    # break from, and the header already names it.
-    day_start: datetime
-    row: int
-
-
-@dataclass
 class RoomLanes:
     # Rooms are the outer axis: one column set, one header, one scroller for
-    # the whole event. A room idle on a given day keeps its column and shows
-    # the gap, which reads as programme information rather than as a layout
-    # accident. `rows` is the row numbers themselves — the template needs to
-    # emit one CSS rule per row, and Django templates cannot count.
+    # the whole event, with the days stacked into it. A room idle on a given
+    # day keeps its column and shows the gap, which reads as programme
+    # information rather than as a layout accident.
+    # `spans` is the distinct tile heights: row positions and span lengths are
+    # different quantities that happen to share the integers, and the template
+    # needs a CSS rule per span length it actually uses.
     rooms: list[RoomLane]
-    first_day: datetime
-    day_breaks: list[RoomLaneDayBreak]
-    hour_marks: list[RoomLaneHourMark]
+    rows: list[RoomLaneRow]
+    spans: list[int]
     tiles: list[RoomLaneTile]
-    rows: list[int]
 
 
 def build_schedule_days(sessions_data: dict[int, SessionData]) -> list[ScheduleDay]:
@@ -194,38 +189,36 @@ def _room_lanes(keys: list[_RoomKey]) -> list[RoomLane]:
     return lanes
 
 
-def build_room_lanes(schedule_days: list[ScheduleDay]) -> RoomLanes | None:
-    if not schedule_days:
-        return None
-
+def build_room_lanes(schedule_days: list[ScheduleDay]) -> RoomLanes:
     # One column set for the event, not one per day: per-day sets gave each day
     # its own column count and its own horizontal scroller, so the days drifted
     # out of step with each other as you panned.
     keys = sorted({_room_key(tile.data) for day in schedule_days for tile in day.tiles})
-    rooms = _room_lanes(keys)
     col_index = {key: index + 1 for index, key in enumerate(keys)}
 
-    day_breaks: list[RoomLaneDayBreak] = []
-    hour_marks: list[RoomLaneHourMark] = []
+    rows: list[RoomLaneRow] = []
     tiles: list[RoomLaneTile] = []
-    row = 1
     for index, day in enumerate(schedule_days):
-        if index:
-            day_breaks.append(RoomLaneDayBreak(day_start=day.day_start, row=row))
-            # The seam takes a row of its own, so the day's first hour starts
-            # under it and every row number below is absolute in the shared
-            # grid.
-            row += 1
-        first_hour_row = row
-
         day_start = day.day_start
+        if index:
+            # The seam that opens a day. The first day has none: there is
+            # nothing before it to break from, and a heading above the first
+            # row is the header printed twice rather than a boundary.
+            rows.append(
+                RoomLaneRow(
+                    day=index, day_start=day_start, hour=None, has_sessions=False
+                )
+            )
+        first_hour_row = len(rows) + 1
+
         day_end = max(tile.end for tile in day.tiles)
         hour_count = ceil((day_end - day_start).total_seconds() / 3600)
         session_hours = {hour.start for hour in day.hours}
-        hour_marks.extend(
-            RoomLaneHourMark(
-                start=(mark := day_start + timedelta(hours=offset)),
-                row=first_hour_row + offset,
+        rows.extend(
+            RoomLaneRow(
+                day=index,
+                day_start=day_start,
+                hour=(mark := day_start + timedelta(hours=offset)),
                 has_sessions=mark in session_hours,
             )
             for offset in range(hour_count)
@@ -243,13 +236,10 @@ def build_room_lanes(schedule_days: list[ScheduleDay]) -> RoomLanes | None:
                     row_span=max(1, ceil(end_offset) - start_hour),
                 )
             )
-        row = first_hour_row + hour_count
 
     return RoomLanes(
-        rooms=rooms,
-        first_day=schedule_days[0].day_start,
-        day_breaks=day_breaks,
-        hour_marks=hour_marks,
+        rooms=_room_lanes(keys),
+        rows=rows,
+        spans=sorted({tile.row_span for tile in tiles}),
         tiles=tiles,
-        rows=list(range(1, row)),
     )
