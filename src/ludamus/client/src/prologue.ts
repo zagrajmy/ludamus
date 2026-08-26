@@ -2,7 +2,9 @@
 //
 // The `module.full.no-external` bundle ships the recorder and exception
 // autocapture inline, so nothing is ever fetched from a third-party host
-// (keeps the strict CSP: only connect-src needs the PostHog ingestion host).
+// (keeps the strict CSP: script-src stays nonce-only). connect-src still
+// needs two origins — the ingestion host, and the assets host posthog-js
+// derives from it to fetch remote config.
 //
 // Consent states (stored under STORAGE_KEY in localStorage):
 // - unset:      PostHog is not initialized at all — no events leave the
@@ -17,7 +19,12 @@ const STORAGE_KEY = "prologue.consent";
 
 type Consent = "accepted" | "declined" | null;
 
-type PosthogServerConfig = { api_key: string; host: string; user_id: string | null };
+type PosthogServerConfig = {
+  api_key: string;
+  environment: string;
+  host: string;
+  user_id: string | null;
+};
 
 const readServerConfig = (): PosthogServerConfig | null => {
   const el = document.getElementById("posthog-config");
@@ -50,6 +57,14 @@ const syncIdentity = (userId: string | null): void => {
 const initPosthog = (config: PosthogServerConfig): void => {
   posthog.init(config.api_key, {
     api_host: config.host,
+    // Every event carries the deployment it came from, so staging traffic can
+    // be filtered out of production dashboards. This is config rather than a
+    // super property because reset() clears super properties, and reset() is
+    // exactly what a logout, an account switch or a withdrawn consent does.
+    before_send: (event) => {
+      if (event) event.properties.environment = config.environment;
+      return event;
+    },
     capture_exceptions: true,
     defaults: "2025-05-24",
     disable_external_dependency_loading: true,
