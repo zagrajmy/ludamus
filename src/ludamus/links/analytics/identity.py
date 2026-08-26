@@ -1,4 +1,4 @@
-"""The distinct id and environment tag both halves of the integration send."""
+"""How both halves of the integration name a person and their deployment."""
 
 from __future__ import annotations
 
@@ -20,9 +20,12 @@ def distinct_id(pk: int) -> str:
 
     Every deployment runs the same schema with its own sequence, so a bare pk
     makes staging's user 42 and production's user 42 a single person: their
-    events interleave and their properties overwrite each other. Production
-    stays unprefixed because its persons already exist under bare pks, and
-    renaming them would fork every timeline at the deploy that did it.
+    events interleave and their properties overwrite each other. Separate
+    projects would sidestep this; one shared project is the choice we made,
+    and this is what that choice costs.
+
+    Production keeps the bare pk so the persons it already has stay one
+    person across the deploy that adds this.
     """
     env = environment()
     return str(pk) if env == "production" else f"{env}:{pk}"
