@@ -4,6 +4,7 @@ from unittest.mock import ANY
 
 import pytest
 from django.urls import reverse
+from django.utils.csp import CSP
 
 from ludamus.adapters.web.django.views import EventsPageView
 from ludamus.edges.settings import CSP_POLICY
@@ -135,3 +136,11 @@ class TestCSP500PageNonce:
             template_name="500_dynamic.html",
         )
         _assert_body_nonce_matches_header(response)
+
+
+class TestPostHogCSP:
+    def test_no_third_party_origins_when_analytics_is_off(self):
+        # Analytics is off in the suite, so the imported policy is the
+        # disabled one. If the PostHog append ever escapes its guard, visitors
+        # with analytics off get a tracker origin in their header.
+        assert CSP_POLICY["connect-src"] == [CSP.SELF]
