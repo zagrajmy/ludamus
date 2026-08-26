@@ -7,11 +7,15 @@ import json
 import shutil
 import subprocess
 from secrets import token_urlsafe
+from typing import TYPE_CHECKING
 
 import pytest
 
 from ludamus.gates.web.django.analytics_routes import build_redaction_rules, rule_for
 from ludamus.links.analytics import redaction
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
 
 NODE = shutil.which("node") or "node"
 # SlugField() defaults to this, and mills.slugs caps the base at 45 + "-XXXX".
@@ -22,8 +26,13 @@ TOKEN = "Yd0Xq1mM7pQ2rS4tU6vW8xZ_aB-cD3eF5gH7iJ9kL1mN3oP5qR7sT9uV1wX3yZ5a"
 
 
 @pytest.fixture(autouse=True)
-def _rules() -> None:
+def _rules() -> Iterator[None]:
+    # register() pins the rules and clears the builder, so without restoring it
+    # afterwards this module leaves global state behind and whether another
+    # file sees any rules depends on collection order — which -n auto varies.
     redaction.register(build_redaction_rules())
+    yield
+    redaction.register_builder(build_redaction_rules)
 
 
 class TestSafePath:
