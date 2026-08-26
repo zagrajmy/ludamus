@@ -46,8 +46,6 @@ class TestEncountersIndexPageView:
             response,
             HTTPStatus.OK,
             context_data={
-                "upcoming_encounters": [],
-                "past_encounters": [],
                 "public_encounters": [
                     EncounterIndexItem(
                         encounter=EncounterDTO.model_validate(encounter),
@@ -58,7 +56,7 @@ class TestEncountersIndexPageView:
                 ],
                 "view": ANY,
             },
-            template_name=["notice_board/index.html"],
+            template_name=["notice_board/public_index.html"],
         )
 
     def test_public_encounter_by_other_user_listed_for_authenticated(

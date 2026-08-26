@@ -2610,25 +2610,6 @@ msgstr ""
 "zamiast graczy."
 
 #: src/ludamus/gates/web/django/forms.py
-#: src/ludamus/templates/components/navbar_pages.html
-#: src/ludamus/templates/index.html
-msgid "Events"
-msgstr "Wydarzenia"
-
-#: src/ludamus/gates/web/django/forms.py
-#: src/ludamus/templates/components/navbar_pages.html
-#: src/ludamus/templates/multiverse/panel/sphere-settings.html
-#: src/ludamus/templates/notice_board/index.html
-msgid "Encounters"
-msgstr "Spotkania"
-
-#: src/ludamus/gates/web/django/forms.py
-#: src/ludamus/templates/components/navbar_pages.html
-#: src/ludamus/templates/timeline.html
-msgid "Timeline"
-msgstr "Oś czasu"
-
-#: src/ludamus/gates/web/django/forms.py
 msgid "Allow facilitators to edit their own sessions"
 msgstr "Pozwól twórcom programu edytować własne punkty programu"
 
@@ -3358,6 +3339,23 @@ msgstr "Prowadzący usunięty."
 #: src/ludamus/gates/web/django/sphere/guilds.py
 msgid "That presenter is not in this guild."
 msgstr "Ten prowadzący nie należy do tej gildii."
+
+#: src/ludamus/gates/web/django/sphere/pages.py
+#: src/ludamus/templates/index.html
+msgid "Events"
+msgstr "Wydarzenia"
+
+#: src/ludamus/gates/web/django/sphere/pages.py
+#: src/ludamus/templates/multiverse/panel/sphere-settings.html
+#: src/ludamus/templates/notice_board/index.html
+#: src/ludamus/templates/notice_board/public_index.html
+msgid "Encounters"
+msgstr "Spotkania"
+
+#: src/ludamus/gates/web/django/sphere/pages.py
+#: src/ludamus/templates/timeline.html
+msgid "Timeline"
+msgstr "Oś czasu"
 
 #: src/ludamus/gates/web/django/templatetags/cfp_tags.py
 msgid "Not set"
@@ -4963,8 +4961,8 @@ msgstr "Gildia: %(name)s"
 
 #: src/ludamus/templates/components/login_button.html
 #: src/ludamus/templates/event/propose/parts/_login_nudge.html
-#: src/ludamus/templates/notice_board/index.html
 #: src/ludamus/templates/notice_board/landing.html
+#: src/ludamus/templates/notice_board/public_index.html
 msgid "Log in"
 msgstr "Zaloguj się"
 
@@ -6237,6 +6235,10 @@ msgstr "Czy na pewno chcesz usunąć to spotkanie?"
 msgid "Delete encounter"
 msgstr "Usuń spotkanie"
 
+#: src/ludamus/templates/notice_board/_public_encounters.html
+msgid "Public encounters"
+msgstr "Publiczne spotkania"
+
 #: src/ludamus/templates/notice_board/_rsvp_copy_details.html
 #: src/ludamus/templates/panel/parts/confirmation-facilitator-card.html
 msgid "Copy details"
@@ -6361,15 +6363,6 @@ msgstr "Minione"
 msgid "No past encounters."
 msgstr "Brak minionych spotkań."
 
-#: src/ludamus/templates/notice_board/index.html
-msgid "Public encounters"
-msgstr "Publiczne spotkania"
-
-#: src/ludamus/templates/notice_board/index.html
-#: src/ludamus/templates/notice_board/landing.html
-msgid "Sign up"
-msgstr "Zarejestruj się"
-
 #: src/ludamus/templates/notice_board/landing.html
 msgid "Organize game nights"
 msgstr "Organizuj granie"
@@ -6381,6 +6374,11 @@ msgstr "ze znajomymi"
 #: src/ludamus/templates/notice_board/landing.html
 msgid "No more 'hey, when are we playing?' in the group chat."
 msgstr "Koniec z 'hej, kiedy gramy?' na grupowym czacie."
+
+#: src/ludamus/templates/notice_board/landing.html
+#: src/ludamus/templates/notice_board/public_index.html
+msgid "Sign up"
+msgstr "Zarejestruj się"
 
 #: src/ludamus/templates/notice_board/landing.html
 msgid "Example encounters"

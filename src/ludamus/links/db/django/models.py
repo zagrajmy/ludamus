@@ -18,7 +18,6 @@ from django.utils.translation import gettext_lazy as _
 from ludamus.links.db.django.uploads import unique_upload_to
 from ludamus.pacts import (
     OCCUPYING_PARTICIPATION_STATUSES,
-    EncounterPublicPolicy,
     NotificationKind,
     PromotionMode,
     SessionParticipationStatus,
@@ -28,6 +27,7 @@ from ludamus.pacts import (
 from ludamus.pacts.crowd import UserType
 from ludamus.pacts.discounts import DiscountKind
 from ludamus.pacts.images import ORIGINAL_FILENAME_MAX_LENGTH
+from ludamus.pacts.legacy import EncounterPublicPolicy
 from ludamus.pacts.multiverse import SphereRole
 from ludamus.pacts.party import PartyConsentMode, PartyMembershipStatus
 from ludamus.pacts.submissions import AccreditationType, ImportLogStatus
@@ -320,6 +320,17 @@ class Sphere(models.Model):
 
     def __str__(self) -> str:
         return self.name
+
+    def clean(self) -> None:
+        # The homepage redirect sends visitors to default_page, so a disabled
+        # one strands them on a 404. Enforced here so every ModelForm writer
+        # (the admin included) is covered by Django's own validation.
+        # list(): enabled_pages is a JSONField, so its declared type is "any
+        # JSON value" until it is read as the list of page slugs it holds.
+        if self.default_page not in list(self.enabled_pages or []):
+            raise ValidationError(
+                {"default_page": "Default page must be one of the enabled pages."}
+            )
 
     @property
     def logo_url(self) -> str:

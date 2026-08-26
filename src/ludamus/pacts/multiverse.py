@@ -56,6 +56,10 @@ class ConnectionInUseError(Exception):
     pass
 
 
+class DefaultPageDisabledError(Exception):
+    """A sphere's default page was not among the pages it keeps enabled."""
+
+
 class AnnouncementDTO(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

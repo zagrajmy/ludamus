@@ -6,14 +6,14 @@ from django.urls import reverse
 
 from ludamus.gates.web.django.chronology.event_presentation import EventInfo
 from ludamus.gates.web.django.helpers import placeholder_cover_url
-from ludamus.gates.web.django.timeline import TimelineItem
+from ludamus.gates.web.django.timeline import TimelineEncounter, TimelineEvent
 from ludamus.pacts import EncounterDTO, EncounterIndexItem, EventListItemDTO
 from tests.integration.conftest import EncounterFactory, EventFactory, UserFactory
 from tests.integration.utils import assert_response, assert_response_404
 
 
-def _event_item(event, *, cover_index=0):
-    info = EventInfo.from_list_item(
+def _event_info(event, *, cover_index=0):
+    return EventInfo.from_list_item(
         EventListItemDTO(
             description=event.description,
             end_time=event.end_time,
@@ -28,12 +28,16 @@ def _event_item(event, *, cover_index=0):
         ),
         cover_image_url=placeholder_cover_url(cover_index),
     )
-    return TimelineItem(kind="event", start_time=event.start_time, event=info)
+
+
+def _event_item(event, *, cover_index=0):
+    return TimelineEvent(
+        start_time=event.start_time, event=_event_info(event, cover_index=cover_index)
+    )
 
 
 def _encounter_item(encounter, *, organizer_name):
-    return TimelineItem(
-        kind="encounter",
+    return TimelineEncounter(
         start_time=encounter.start_time,
         encounter=EncounterIndexItem(
             encounter=EncounterDTO.model_validate(encounter),
@@ -121,7 +125,7 @@ class TestTimelinePageView:
             HTTPStatus.OK,
             context_data={
                 "timeline_upcoming": [],
-                "timeline_past": [_event_item(past_event)],
+                "timeline_past": [_event_info(past_event)],
                 "view": ANY,
             },
             template_name=["timeline.html"],

@@ -30,6 +30,7 @@ from ludamus.mills.qr import qr_svg
 from ludamus.pacts import (
     EncounterData,
     EncounterDTO,
+    EncounterIndexItem,
     EncounterIndexResult,
     NotFoundError,
     SpherePage,
@@ -158,29 +159,37 @@ class EncountersIndexPageView(_RequireEncountersEnabled, TemplateView):
     def _index(self) -> EncounterIndexResult:
         return self.request.services.encounters.build_index(
             sphere_id=self.request.context.current_sphere_id,
-            user_id=(
-                cast("int", self.request.context.current_user_id)
-                if self.request.user.is_authenticated
-                else None
-            ),
+            user_id=cast("int", self.request.context.current_user_id),
         )
 
-    def _show_landing(self) -> bool:
-        # The marketing landing survives only while the sphere has nothing
-        # public to show a logged-out visitor.
-        return not self.request.user.is_authenticated and not self._index.public
+    @cached_property
+    def _public(self) -> list[EncounterIndexItem]:
+        # Only a signed-in feed has personal lists to subtract from the public
+        # one, so an anonymous visitor reads the plain sphere feed.
+        if self.request.user.is_authenticated:
+            return self._index.public
+        return self.request.services.encounters.list_public_upcoming(
+            sphere_id=self.request.context.current_sphere_id
+        )
 
     def get_template_names(self) -> list[str]:
-        if self._show_landing():
-            return ["notice_board/landing.html"]
-        return [self.template_name]
+        if self.request.user.is_authenticated:
+            return [self.template_name]
+        # The marketing landing survives only while the sphere has nothing
+        # public to show a logged-out visitor.
+        if self._public:
+            return ["notice_board/public_index.html"]
+        return ["notice_board/landing.html"]
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         context = super().get_context_data(**kwargs)
-        if self._show_landing():
-            context["sample_encounters"] = random.sample(
-                _SAMPLE_ENCOUNTERS, SAMPLE_COUNT
-            )
+        if not self.request.user.is_authenticated:
+            if self._public:
+                context["public_encounters"] = self._public
+            else:
+                context["sample_encounters"] = random.sample(
+                    _SAMPLE_ENCOUNTERS, SAMPLE_COUNT
+                )
             return context
         context["upcoming_encounters"] = self._index.upcoming
         context["past_encounters"] = self._index.past
@@ -188,15 +197,21 @@ class EncountersIndexPageView(_RequireEncountersEnabled, TemplateView):
         return context
 
 
-class EncounterCreatePageView(_RequireEncountersEnabled, LoginRequiredMixin, View):
+class _EncounterFormPageView(_RequireEncountersEnabled, LoginRequiredMixin, View):
+    """Shared base for the two views that render the encounter form."""
+
     request: AuthenticatedRootRequest
 
     def _allow_public(self) -> bool:
+        # Decides whether the field is rendered at all. The service enforces
+        # the same policy on write, so a forged flag never gets through.
         return self.request.services.encounters.can_set_public(
             sphere_id=self.request.context.current_sphere_id,
             user_id=self.request.context.current_user_id,
         )
 
+
+class EncounterCreatePageView(_EncounterFormPageView):
     def get(self, request: AuthenticatedRootRequest) -> TemplateResponse:
         return TemplateResponse(
             request,
@@ -237,13 +252,13 @@ class EncounterCreatePageView(_RequireEncountersEnabled, LoginRequiredMixin, Vie
         )
 
 
-class EncounterEditPageView(_RequireEncountersEnabled, LoginRequiredMixin, View):
-    request: AuthenticatedRootRequest
-
+class EncounterEditPageView(_EncounterFormPageView):
     def _get_encounter(self, pk: int) -> EncounterDTO:
         try:
             return self.request.services.encounters.read_owned(
-                pk=pk, user_id=self.request.context.current_user_id
+                pk=pk,
+                sphere_id=self.request.context.current_sphere_id,
+                user_id=self.request.context.current_user_id,
             )
         except NotFoundError as exc:
             raise Http404 from exc
@@ -253,12 +268,6 @@ class EncounterEditPageView(_RequireEncountersEnabled, LoginRequiredMixin, View)
         if not dt:
             return ""
         return dt.strftime("%Y-%m-%dT%H:%M")
-
-    def _allow_public(self) -> bool:
-        return self.request.services.encounters.can_set_public(
-            sphere_id=self.request.context.current_sphere_id,
-            user_id=self.request.context.current_user_id,
-        )
 
     def get(self, request: AuthenticatedRootRequest, pk: int) -> TemplateResponse:
         encounter = self._get_encounter(pk)
@@ -310,7 +319,10 @@ class EncounterEditPageView(_RequireEncountersEnabled, LoginRequiredMixin, View)
 
         try:
             encounter = request.services.encounters.update_owned(
-                pk=pk, user_id=request.context.current_user_id, data=data
+                pk=pk,
+                sphere_id=request.context.current_sphere_id,
+                user_id=request.context.current_user_id,
+                data=data,
             )
         except NotFoundError as exc:
             raise Http404 from exc
@@ -329,7 +341,9 @@ class EncounterDeleteActionView(_RequireEncountersEnabled, LoginRequiredMixin, V
     def post(self, request: AuthenticatedRootRequest, pk: int) -> HttpResponse:
         try:
             self.request.services.encounters.delete_owned(
-                pk=pk, user_id=request.context.current_user_id
+                pk=pk,
+                sphere_id=request.context.current_sphere_id,
+                user_id=request.context.current_user_id,
             )
         except NotFoundError as exc:
             raise Http404 from exc
@@ -350,7 +364,9 @@ class EncounterDetailPageView(_RequireEncountersEnabled, View):
 
         try:
             result = request.services.encounters.build_detail(
-                share_code=share_code, current_user_id=current_user_id
+                share_code=share_code,
+                sphere_id=request.context.current_sphere_id,
+                current_user_id=current_user_id,
             )
         except NotFoundError as exc:
             raise Http404 from exc
@@ -396,6 +412,7 @@ class EncounterRSVPActionView(_RequireEncountersEnabled, LoginRequiredMixin, Vie
         try:
             outcome = self.request.services.encounters.rsvp(
                 share_code=share_code,
+                sphere_id=request.context.current_sphere_id,
                 user_id=request.context.current_user_id,
                 ip_address=_get_client_ip(request),
             )
@@ -428,7 +445,9 @@ class EncounterCancelRSVPActionView(
     def post(self, request: AuthenticatedRootRequest, share_code: str) -> HttpResponse:
         try:
             self.request.services.encounters.cancel_rsvp(
-                share_code=share_code, user_id=request.context.current_user_id
+                share_code=share_code,
+                sphere_id=request.context.current_sphere_id,
+                user_id=request.context.current_user_id,
             )
         except NotFoundError as exc:
             raise Http404 from exc
@@ -447,7 +466,9 @@ class EncounterQrView(_RequireEncountersEnabled, View):
 
     def get(self, request: RootRequest, share_code: str) -> HttpResponse:
         try:
-            self.request.services.encounters.read_by_share_code(share_code)
+            self.request.services.encounters.read_by_share_code(
+                share_code=share_code, sphere_id=request.context.current_sphere_id
+            )
         except NotFoundError as exc:
             raise Http404 from exc
 
@@ -465,7 +486,9 @@ class EncounterIcsView(_RequireEncountersEnabled, View):
 
     def get(self, request: RootRequest, share_code: str) -> HttpResponse:
         try:
-            encounter = self.request.services.encounters.read_by_share_code(share_code)
+            encounter = self.request.services.encounters.read_by_share_code(
+                share_code=share_code, sphere_id=request.context.current_sphere_id
+            )
         except NotFoundError as exc:
             raise Http404 from exc
 

@@ -42,7 +42,7 @@ from ludamus.gates.web.django.chronology.event_presentation import (
     filter_availability,
     filterable_tag_fields,
     mask_session_card,
-    with_covers,
+    split_events,
 )
 from ludamus.gates.web.django.chronology.schedule import (
     build_room_lanes,
@@ -56,7 +56,7 @@ from ludamus.gates.web.django.entities import (
 )
 from ludamus.gates.web.django.event.enroll_presentation import build_enroll_actions
 from ludamus.gates.web.django.sphere.marks import attach_guild_marks
-from ludamus.gates.web.django.sphere.pages import SpherePageRequiredMixin
+from ludamus.gates.web.django.sphere.pages import EventsPageRequiredMixin
 from ludamus.links.db.django.models import (
     AgendaItem,
     Event,
@@ -199,10 +199,9 @@ class IndexRedirectView(View):
 
 
 @method_decorator([cache_control(private=True, max_age=180), vary_cookie], name="get")
-class EventsPageView(SpherePageRequiredMixin, TemplateView):
+class EventsPageView(EventsPageRequiredMixin, TemplateView):
     request: RootRequest
     template_name = "index.html"
-    required_sphere_page = SpherePage.EVENTS
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         context = super().get_context_data(**kwargs)
@@ -210,22 +209,13 @@ class EventsPageView(SpherePageRequiredMixin, TemplateView):
         context["announcements"] = self.request.services.announcements.list_published(
             sphere_id
         )
-        items = self.request.services.events.list_for_sphere(
-            sphere_id, include_unpublished=has_panel_access(self.request)
-        )
-        context["upcoming_events"] = with_covers(
-            sorted(
-                (item for item in items if not item.is_ended),
-                key=lambda item: item.start_time,
+        events = split_events(
+            self.request.services.events.list_for_sphere(
+                sphere_id, include_unpublished=has_panel_access(self.request)
             )
         )
-        context["past_events"] = with_covers(
-            sorted(
-                (item for item in items if item.is_ended),
-                key=lambda item: item.start_time,
-                reverse=True,
-            )
-        )
+        context["upcoming_events"] = events.upcoming
+        context["past_events"] = events.past
         return context
 
 
@@ -252,7 +242,7 @@ COMPACT_SCHEDULE_MIN_SESSIONS = 20
 
 
 @method_decorator([cache_control(private=True, max_age=180), vary_cookie], name="get")
-class EventPageView(DetailView):  # type: ignore [type-arg]
+class EventPageView(EventsPageRequiredMixin, DetailView):  # type: ignore [type-arg]
     template_name = "chronology/event.html"
     model = Event
     context_object_name = "event"
@@ -873,7 +863,7 @@ _status_by_choice = {
 }
 
 
-class SessionEnrollPageView(LoginRequiredMixin, View):
+class SessionEnrollPageView(EventsPageRequiredMixin, LoginRequiredMixin, View):
     request: AuthenticatedRootRequest
     _policies: dict[int, EnrollmentPolicy] | None = None
 

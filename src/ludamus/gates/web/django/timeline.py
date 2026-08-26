@@ -3,13 +3,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Any, ClassVar, Literal
 
 from django.views.generic.base import TemplateView
 
 from ludamus.gates.web.django.chronology.event_presentation import (
     EventInfo,
-    with_covers,
+    split_events,
 )
 from ludamus.gates.web.django.sphere.pages import SpherePageRequiredMixin
 from ludamus.pacts import SpherePage
@@ -21,12 +21,25 @@ if TYPE_CHECKING:
     from ludamus.pacts import EncounterIndexItem
 
 
+# Two shapes rather than one with a discriminator and two Nones: a timeline
+# entry is either an event or an encounter, never both and never neither.
+# `kind` is a ClassVar so the templates keep one way to branch and no caller
+# can set it against the payload it ships with.
 @dataclass(frozen=True)
-class TimelineItem:
-    kind: Literal["event", "encounter"]
+class TimelineEvent:
     start_time: datetime
-    event: EventInfo | None = None
-    encounter: EncounterIndexItem | None = None
+    event: EventInfo
+    kind: ClassVar[Literal["event"]] = "event"
+
+
+@dataclass(frozen=True)
+class TimelineEncounter:
+    start_time: datetime
+    encounter: EncounterIndexItem
+    kind: ClassVar[Literal["encounter"]] = "encounter"
+
+
+type TimelineItem = TimelineEvent | TimelineEncounter
 
 
 class TimelinePageView(SpherePageRequiredMixin, TemplateView):
@@ -37,34 +50,27 @@ class TimelinePageView(SpherePageRequiredMixin, TemplateView):
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         context = super().get_context_data(**kwargs)
         sphere_id = self.request.context.current_sphere_id
-        events = self.request.services.events.list_for_sphere(
-            sphere_id, include_unpublished=False
-        )
-        # user_id=None on purpose: the timeline is the same public feed for
-        # everyone; the personal split lives on the encounters page.
-        encounters = self.request.services.encounters.build_index(
-            sphere_id=sphere_id, user_id=None
-        ).public
-
-        upcoming = [
-            TimelineItem(kind="event", start_time=event.start_time, event=event)
-            for event in with_covers([e for e in events if not e.is_ended])
-        ] + [
-            TimelineItem(
-                kind="encounter", start_time=item.encounter.start_time, encounter=item
+        events = split_events(
+            self.request.services.events.list_for_sphere(
+                sphere_id, include_unpublished=False
             )
+        )
+        # The public feed, not a personal one: the timeline reads the same for
+        # everyone; the personal split lives on the encounters page.
+        encounters = self.request.services.encounters.list_public_upcoming(
+            sphere_id=sphere_id
+        )
+
+        upcoming: list[TimelineItem] = [
+            TimelineEvent(start_time=event.start_time, event=event)
+            for event in events.upcoming
+        ] + [
+            TimelineEncounter(start_time=item.encounter.start_time, encounter=item)
             for item in encounters
         ]
         upcoming.sort(key=lambda item: item.start_time)
         context["timeline_upcoming"] = upcoming
-        context["timeline_past"] = [
-            TimelineItem(kind="event", start_time=event.start_time, event=event)
-            for event in with_covers(
-                sorted(
-                    (e for e in events if e.is_ended),
-                    key=lambda e: e.start_time,
-                    reverse=True,
-                )
-            )
-        ]
+        # Past entries are events only — an encounter drops off the feed once
+        # it starts — so they stay plain events rather than wrapped.
+        context["timeline_past"] = events.past
         return context

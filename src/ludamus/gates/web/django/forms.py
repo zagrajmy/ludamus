@@ -18,6 +18,7 @@ from ludamus.gates.web.django.dynamic_fields import (
     CustomAnswerFormMixin,
     build_dynamic_fields,
 )
+from ludamus.gates.web.django.sphere.pages import SPHERE_PAGE_LABELS
 from ludamus.pacts.discounts import DiscountKind
 from ludamus.pacts.durations import (
     MAX_DURATION_HOURS,
@@ -297,11 +298,7 @@ class EventSettingsForm(forms.Form):
         return image
 
 
-SPHERE_PAGE_LABELS = {
-    SpherePage.EVENTS: _("Events"),
-    SpherePage.ENCOUNTERS: _("Encounters"),
-    SpherePage.TIMELINE: _("Timeline"),
-}
+_PAGE_VALUES = {page.value for page in SpherePage}
 
 
 def _sphere_page_choices() -> list[tuple[str, object]]:
@@ -344,18 +341,27 @@ class SphereSettingsForm(forms.Form):
             "and the timeline."
         ),
     )
-    confirm_page_disable = forms.BooleanField(required=False, widget=forms.HiddenInput)
+    # The pages the manager was warned about and confirmed, comma-separated.
+    # A bare boolean would carry a confirmation for one page over to a page
+    # they picked afterwards and were never warned about.
+    confirmed_page_disable = forms.CharField(required=False, widget=forms.HiddenInput)
     logo = logo_field()
 
+    def confirmed_pages(self) -> set[SpherePage]:
+        raw: str = self.cleaned_data.get("confirmed_page_disable") or ""
+        return {SpherePage(value) for value in raw.split(",") if value in _PAGE_VALUES}
+
     def clean(self) -> dict[str, object]:
-        cleaned: dict[str, object] = super().clean() or {}
+        # Also enforced by SpherePanelService.update_settings; repeated here so
+        # the manager gets the message on the field rather than an exception.
+        super().clean()
         default_page = self.cleaned_data.get("default_page")
         enabled_pages: list[str] = self.cleaned_data.get("enabled_pages") or []
         if default_page and default_page not in enabled_pages:
             self.add_error(
                 "default_page", _("The default page must be one of the enabled pages.")
             )
-        return cleaned
+        return self.cleaned_data
 
 
 class ProposalSettingsForm(forms.Form):

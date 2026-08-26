@@ -1,24 +1,9 @@
-{% load i18n %}
 <div class="group hoverboard flex items-center gap-0.5">
-    {% if "timeline" in current_sphere.enabled_pages %}
-        <a href="{% url 'web:timeline' %}"
-           aria-current="{% if url_name == 'timeline' %}page{% endif %}"
+    {% for item in sphere_page_nav %}
+        <a href="{{ item.url }}"
+           aria-current="{% if item.is_active %}page{% endif %}"
            class="font-medium px-3 py-1.5 text-sm rounded-lg transition-colors text-foreground-secondary hover:text-foreground aria-[current=page]:text-foreground group-hover:not-hover:text-foreground-secondary! before:-inset-1 relative block before:absolute group-[:not(:hover)]:aria-[current=page]:[anchor-name:--a]">
-            {% translate "Timeline" %}
+            {{ item.label }}
         </a>
-    {% endif %}
-    {% if "events" in current_sphere.enabled_pages %}
-        <a href="{% url 'web:events' %}"
-           aria-current="{% if 'notice-board' not in ns and url_name != 'timeline' %}page{% endif %}"
-           class="font-medium px-3 py-1.5 text-sm rounded-lg transition-colors text-foreground-secondary hover:text-foreground aria-[current=page]:text-foreground group-hover:not-hover:text-foreground-secondary! before:-inset-1 relative block before:absolute group-[:not(:hover)]:aria-[current=page]:[anchor-name:--a]">
-            {% translate "Events" %}
-        </a>
-    {% endif %}
-    {% if "encounters" in current_sphere.enabled_pages %}
-        <a aria-current="{% if 'notice-board' in ns %}page{% endif %}"
-           href="{% url 'web:notice-board:index' %}"
-           class="font-medium px-3 py-1.5 text-sm rounded-lg transition-colors text-foreground-secondary hover:text-foreground aria-[current=page]:text-foreground group-hover:not-hover:text-foreground-secondary! before:-inset-1 relative block before:absolute group-[:not(:hover)]:aria-[current=page]:[anchor-name:--a]">
-            {% translate "Encounters" %}
-        </a>
-    {% endif %}
+    {% endfor %}
 </div>

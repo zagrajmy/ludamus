@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% load i18n %}
+{% load tessera %}
+{% block title %}
+    {% translate "Encounters" %}
+{% endblock title %}
+{% block header %}
+    <h1 class="text-2xl sm:text-3xl font-bold text-foreground mb-2">{% translate "Encounters" %}</h1>
+{% endblock header %}
+{% block body %}
+    {# Never empty: the view falls back to the marketing landing when the sphere has nothing public. #}
+    {% include "notice_board/_public_encounters.html" %}
+    <div class="mt-6 flex flex-wrap gap-3">
+        <a href="{% url 'web:crowd:auth0:login' %}?screen_hint=signup&next={% url 'web:notice-board:index' %}"
+           class="btn btn-primary">{% translate "Sign up" %}</a>
+        <a href="{% url 'web:crowd:auth0:login' %}?next={% url 'web:notice-board:index' %}"
+           class="btn btn-secondary">{% translate "Log in" %}</a>
+    </div>
+{% endblock body %}

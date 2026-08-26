@@ -8,6 +8,7 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
 from PIL import Image as PILImage
 
+from ludamus.pacts import EventDTO
 from tests.integration.conftest import PNG_BYTES, EncounterFactory
 from tests.integration.utils import assert_login_required, assert_response
 from tests.integration.web.multiverse.helpers import (
@@ -38,6 +39,7 @@ GENERAL_PANEL_CONTEXT = sphere_settings_context(active_tab="general") | {
     "form": ANY,
     "disable_warning_pages": [],
     "needs_disable_confirmation": False,
+    "confirmed_page_disable": "",
 }
 
 PAGE_DATA = {
@@ -45,6 +47,21 @@ PAGE_DATA = {
     "default_page": "events",
     "encounter_public_policy": "disabled",
 }
+
+SETTINGS_TEMPLATE = "multiverse/panel/sphere-settings.html"
+
+
+def assert_form_error(response, *field_errors):
+    # An invalid submit re-renders the bound form rather than redirecting, so
+    # the manager keeps every other edit. `contains` because the subject is the
+    # copy the manager reads, which lives inside the form, not in the context.
+    assert_response(
+        response,
+        HTTPStatus.OK,
+        template_name=SETTINGS_TEMPLATE,
+        context_data=GENERAL_PANEL_CONTEXT,
+        contains=field_errors,
+    )
 
 
 class TestSphereSettingsPageView:
@@ -165,12 +182,7 @@ class TestSphereSettingsPageView:
 
         response = authenticated_client.post(self.url, data=PAGE_DATA | {"logo": logo})
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Invalid or unsafe SVG file.")],
-            url=self.url,
-        )
+        assert_form_error(response, "Invalid or unsafe SVG file.")
         sphere.refresh_from_db()
         assert not sphere.logo
 
@@ -183,12 +195,7 @@ class TestSphereSettingsPageView:
 
         response = authenticated_client.post(self.url, data=PAGE_DATA | {"logo": logo})
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Invalid or unsafe SVG file.")],
-            url=self.url,
-        )
+        assert_form_error(response, "Invalid or unsafe SVG file.")
         sphere.refresh_from_db()
         assert not sphere.logo
 
@@ -212,12 +219,7 @@ class TestSphereSettingsPageView:
 
         response = authenticated_client.post(self.url, data=PAGE_DATA | {"logo": logo})
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Invalid or unsafe SVG file.")],
-            url=self.url,
-        )
+        assert_form_error(response, "Invalid or unsafe SVG file.")
         sphere.refresh_from_db()
         assert not sphere.logo
 
@@ -234,16 +236,8 @@ class TestSphereSettingsPageView:
 
         response = authenticated_client.post(self.url, data=PAGE_DATA | {"logo": logo})
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[
-                (
-                    messages.ERROR,
-                    "Unsupported image format. Use JPG, PNG, WebP, AVIF, or SVG.",
-                )
-            ],
-            url=self.url,
+        assert_form_error(
+            response, "Unsupported image format. Use JPG, PNG, WebP, AVIF, or SVG."
         )
         sphere.refresh_from_db()
         assert not sphere.logo
@@ -258,12 +252,7 @@ class TestSphereSettingsPageView:
 
         response = authenticated_client.post(self.url, data=PAGE_DATA | {"logo": logo})
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Image dimensions are too large.")],
-            url=self.url,
-        )
+        assert_form_error(response, "Image dimensions are too large.")
         sphere.refresh_from_db()
         assert not sphere.logo
 
@@ -276,12 +265,7 @@ class TestSphereSettingsPageView:
 
         response = authenticated_client.post(self.url, data=PAGE_DATA | {"logo": logo})
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[(messages.ERROR, "Image too large. Maximum size is 8 MB.")],
-            url=self.url,
-        )
+        assert_form_error(response, "Image too large. Maximum size is 8 MB.")
 
     def test_post_with_clear_checkbox_removes_logo(
         self, authenticated_client, active_user, sphere
@@ -397,13 +381,8 @@ class TestSphereSettingsPageView:
             self.url, data=PAGE_DATA | {"enabled_pages": ["encounters"]}
         )
 
-        assert_response(
-            response,
-            HTTPStatus.FOUND,
-            messages=[
-                (messages.ERROR, "The default page must be one of the enabled pages.")
-            ],
-            url=self.url,
+        assert_form_error(
+            response, "The default page must be one of the enabled pages."
         )
         sphere.refresh_from_db()
         assert sphere.enabled_pages == ["events", "encounters", "timeline"]
@@ -418,14 +397,10 @@ class TestSphereSettingsPageView:
             data={"default_page": "events", "encounter_public_policy": "disabled"},
         )
 
-        assert_response(
+        assert_form_error(
             response,
-            HTTPStatus.FOUND,
-            messages=[
-                (messages.ERROR, "At least one page must stay enabled."),
-                (messages.ERROR, "The default page must be one of the enabled pages."),
-            ],
-            url=self.url,
+            "At least one page must stay enabled.",
+            "The default page must be one of the enabled pages.",
         )
         sphere.refresh_from_db()
         assert sphere.enabled_pages == ["events", "encounters", "timeline"]
@@ -443,11 +418,12 @@ class TestSphereSettingsPageView:
         assert_response(
             response,
             HTTPStatus.OK,
-            template_name="multiverse/panel/sphere-settings.html",
+            template_name=SETTINGS_TEMPLATE,
             context_data=GENERAL_PANEL_CONTEXT
             | {
                 "disable_warning_pages": ["Encounters", "Timeline"],
                 "needs_disable_confirmation": True,
+                "confirmed_page_disable": "encounters,timeline",
             },
         )
         sphere.refresh_from_db()
@@ -462,7 +438,10 @@ class TestSphereSettingsPageView:
         response = authenticated_client.post(
             self.url,
             data=PAGE_DATA
-            | {"enabled_pages": ["events"], "confirm_page_disable": "on"},
+            | {
+                "enabled_pages": ["events"],
+                "confirmed_page_disable": "encounters,timeline",
+            },
         )
 
         assert_response(
@@ -473,6 +452,40 @@ class TestSphereSettingsPageView:
         )
         sphere.refresh_from_db()
         assert sphere.enabled_pages == ["events"]
+
+    def test_post_confirmation_does_not_carry_over_to_another_page(
+        self, authenticated_client, active_user, sphere, event
+    ):
+        sphere.managers.add(active_user)
+        EncounterFactory(sphere=sphere)
+
+        # Confirmed for Encounters, then Events is unticked instead: the
+        # warning has to come back for the page nobody was warned about.
+        response = authenticated_client.post(
+            self.url,
+            data=PAGE_DATA
+            | {
+                "enabled_pages": ["encounters"],
+                "default_page": "encounters",
+                "confirmed_page_disable": "encounters",
+            },
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name=SETTINGS_TEMPLATE,
+            context_data=GENERAL_PANEL_CONTEXT
+            | {
+                "events": [EventDTO.model_validate(event)],
+                "current_event": EventDTO.model_validate(event),
+                "disable_warning_pages": ["Events", "Timeline"],
+                "needs_disable_confirmation": True,
+                "confirmed_page_disable": "events,timeline",
+            },
+        )
+        sphere.refresh_from_db()
+        assert sphere.enabled_pages == ["events", "encounters", "timeline"]
 
     def test_post_disabling_empty_page_saves_without_confirmation(
         self, authenticated_client, active_user, sphere

@@ -8,7 +8,7 @@ Sphere-scoped concerns. First feature: import-connections CRUD. Split per
 from typing import TYPE_CHECKING
 
 from ludamus.pacts.legacy import SpherePage
-from ludamus.pacts.multiverse import SphereAccessDTO
+from ludamus.pacts.multiverse import DefaultPageDisabledError, SphereAccessDTO
 from ludamus.specs.permissions import ROLE_CAPABILITIES
 
 if TYPE_CHECKING:
@@ -170,6 +170,11 @@ class SpherePanelService:
         encounter_public_policy: EncounterPublicPolicy,
         logo: UploadedFileProtocol | str | None = None,
     ) -> None:
+        # The homepage redirect sends visitors to default_page, so a disabled
+        # one strands them on a 404. Enforced here rather than only in the
+        # panel form, so every caller of the service is covered.
+        if default_page not in enabled_pages:
+            raise DefaultPageDisabledError
         data: SphereUpdateData = {
             "allow_facilitator_session_edit": allow_facilitator_session_edit,
             "enabled_pages": [page.value for page in enabled_pages],
@@ -191,9 +196,15 @@ class SitesService:
     ) -> None:
         self._spheres = spheres
         self._directory = directory
+        self._read_cache: dict[int, SphereDTO] = {}
 
     def read(self, sphere_id: int) -> SphereDTO:
-        return self._spheres.read(sphere_id)
+        # Memoised because the service is built per request and the current
+        # sphere is read several times in one: the page-gate mixin, the sites
+        # context processor and the homepage redirect all want it.
+        if sphere_id not in self._read_cache:
+            self._read_cache[sphere_id] = self._spheres.read(sphere_id)
+        return self._read_cache[sphere_id]
 
     def list_spheres(self) -> list[SphereListItemDTO]:
         return self._directory.list_all()

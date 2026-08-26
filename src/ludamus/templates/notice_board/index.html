@@ -9,98 +9,76 @@
     <h1 class="text-2xl sm:text-3xl font-bold text-foreground mb-2">{% translate "Encounters" %}</h1>
 {% endblock header %}
 {% block body %}
-    {% if user.is_authenticated %}
-        <!-- Dismissible info banner -->
-        <div id="encounters-info-banner"
-             class="alert backdrop-blur-lg alert-info mb-6">
-            <div class="flex items-start justify-between">
-                <div class="flex items-start gap-3">
-                    {% icon "information-circle" class="w-5 h-5 mt-0.5 flex-shrink-0 text-info" %}
-                    <div class="text-sm">
-                        <p class="font-medium text-foreground">{% translate "What are encounters?" %}</p>
-                        <p class="mt-1">
-                            {% translate "Encounters are small private meetups you can organize and share via a short link. Create one, invite friends, and play!" %}
-                        </p>
-                    </div>
+    <!-- Dismissible info banner -->
+    <div id="encounters-info-banner"
+         class="alert backdrop-blur-lg alert-info mb-6">
+        <div class="flex items-start justify-between">
+            <div class="flex items-start gap-3">
+                {% icon "information-circle" class="w-5 h-5 mt-0.5 flex-shrink-0 text-info" %}
+                <div class="text-sm">
+                    <p class="font-medium text-foreground">{% translate "What are encounters?" %}</p>
+                    <p class="mt-1">
+                        {% translate "Encounters are small private meetups you can organize and share via a short link. Create one, invite friends, and play!" %}
+                    </p>
                 </div>
-                <button id="dismiss-encounters-info-btn"
-                        class="ml-4 flex-shrink-0 text-foreground-muted opacity-50 hover:opacity-100">
-                    {% icon "x-mark" class="w-5 h-5" %}
-                </button>
             </div>
+            <button id="dismiss-encounters-info-btn"
+                    class="ml-4 flex-shrink-0 text-foreground-muted opacity-50 hover:opacity-100">
+                {% icon "x-mark" class="w-5 h-5" %}
+            </button>
         </div>
-        <!-- Upcoming -->
-        <section class="mb-8">
-            <div class="flex items-center justify-between mb-4">
-                <h2 class="text-xl font-bold text-foreground">{% translate "Upcoming" %}</h2>
-                <a href="{% url 'web:notice-board:create' %}" class="btn btn-primary">
-                    {% icon "plus" class="w-5 h-5" %}
-                    {% translate "Create Encounter" %}
-                </a>
-            </div>
-            {% if upcoming_encounters %}
-                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {% for item in upcoming_encounters %}
-                        {% include "components/encounter_card.html" with encounter=item.encounter rsvp_count=item.rsvp_count is_mine=item.is_mine organizer_name=item.organizer_name %}
-                    {% endfor %}
-                </div>
-            {% else %}
-                <p class="text-sm text-foreground-muted py-4">{% translate "No upcoming encounters." %}</p>
-            {% endif %}
-        </section>
-        <!-- Past -->
-        <section class="mb-8">
-            <h2 class="text-xl font-bold mb-4 text-foreground">{% translate "Past" %}</h2>
-            {% if past_encounters %}
-                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {% for item in past_encounters %}
-                        {% include "components/encounter_card.html" with encounter=item.encounter rsvp_count=item.rsvp_count is_mine=item.is_mine organizer_name=item.organizer_name variant="past" %}
-                    {% endfor %}
-                </div>
-            {% else %}
-                <p class="text-sm text-foreground-muted py-4">{% translate "No past encounters." %}</p>
-            {% endif %}
-        </section>
-    {% endif %}
-    <!-- Public. Never empty when rendered: anonymous visitors with no public
-         encounters get the landing template instead, and authenticated users
-         skip the section entirely. -->
-    {% if public_encounters %}
-        <section>
-            <h2 class="text-xl font-bold mb-4 text-foreground">{% translate "Public encounters" %}</h2>
+    </div>
+    <!-- Upcoming -->
+    <section class="mb-8">
+        <div class="flex items-center justify-between mb-4">
+            <h2 class="text-xl font-bold text-foreground">{% translate "Upcoming" %}</h2>
+            <a href="{% url 'web:notice-board:create' %}" class="btn btn-primary">
+                {% icon "plus" class="w-5 h-5" %}
+                {% translate "Create Encounter" %}
+            </a>
+        </div>
+        {% if upcoming_encounters %}
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                {% for item in public_encounters %}
+                {% for item in upcoming_encounters %}
                     {% include "components/encounter_card.html" with encounter=item.encounter rsvp_count=item.rsvp_count is_mine=item.is_mine organizer_name=item.organizer_name %}
                 {% endfor %}
             </div>
-            {% if not user.is_authenticated %}
-                <div class="mt-6 flex flex-wrap gap-3">
-                    <a href="{% url 'web:crowd:auth0:login' %}?screen_hint=signup&next={% url 'web:notice-board:index' %}"
-                       class="btn btn-primary">{% translate "Sign up" %}</a>
-                    <a href="{% url 'web:crowd:auth0:login' %}?next={% url 'web:notice-board:index' %}"
-                       class="btn btn-secondary">{% translate "Log in" %}</a>
-                </div>
-            {% endif %}
-        </section>
+        {% else %}
+            <p class="text-sm text-foreground-muted py-4">{% translate "No upcoming encounters." %}</p>
+        {% endif %}
+    </section>
+    <!-- Past -->
+    <section class="mb-8">
+        <h2 class="text-xl font-bold mb-4 text-foreground">{% translate "Past" %}</h2>
+        {% if past_encounters %}
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                {% for item in past_encounters %}
+                    {% include "components/encounter_card.html" with encounter=item.encounter rsvp_count=item.rsvp_count is_mine=item.is_mine organizer_name=item.organizer_name variant="past" %}
+                {% endfor %}
+            </div>
+        {% else %}
+            <p class="text-sm text-foreground-muted py-4">{% translate "No past encounters." %}</p>
+        {% endif %}
+    </section>
+    {% if public_encounters %}
+        {% include "notice_board/_public_encounters.html" %}
     {% endif %}
 {% endblock body %}
 {% block extra_scripts %}
-    {% if user.is_authenticated %}
-        <script{% nonce %}>
-            (function() {
-                if (localStorage.getItem('encounters_info_dismissed')) {
-                    var banner = document.getElementById('encounters-info-banner');
-                    if (banner) banner.style.display = 'none';
-                }
-            })();
-
-            function dismissEncountersInfo() {
-                localStorage.setItem('encounters_info_dismissed', '1');
+    <script{% nonce %}>
+        (function() {
+            if (localStorage.getItem('encounters_info_dismissed')) {
                 var banner = document.getElementById('encounters-info-banner');
                 if (banner) banner.style.display = 'none';
             }
+        })();
 
-            document.getElementById('dismiss-encounters-info-btn').addEventListener('click', dismissEncountersInfo);
-        </script>
-    {% endif %}
+        function dismissEncountersInfo() {
+            localStorage.setItem('encounters_info_dismissed', '1');
+            var banner = document.getElementById('encounters-info-banner');
+            if (banner) banner.style.display = 'none';
+        }
+
+        document.getElementById('dismiss-encounters-info-btn').addEventListener('click', dismissEncountersInfo);
+    </script>
 {% endblock extra_scripts %}

@@ -7,14 +7,37 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, ClassVar, cast
 
 from django.http import Http404
+from django.utils.translation import gettext_lazy as _
 from django.views.generic.base import View
+
+from ludamus.pacts import SpherePage
 
 if TYPE_CHECKING:
     from django.http import HttpRequest
     from django.http.response import HttpResponseBase
 
     from ludamus.gates.web.django.entities import RootRequest
-    from ludamus.pacts import SpherePage
+
+
+SPHERE_PAGE_LABELS = {
+    SpherePage.EVENTS: _("Events"),
+    SpherePage.ENCOUNTERS: _("Encounters"),
+    SpherePage.TIMELINE: _("Timeline"),
+}
+
+SPHERE_PAGE_URL_NAMES = {
+    SpherePage.EVENTS: "web:events",
+    SpherePage.ENCOUNTERS: "web:notice-board:index",
+    SpherePage.TIMELINE: "web:timeline",
+}
+
+# The sub-pages of a page group, by URL namespace. An event detail page lives
+# under `chronology`, so the navbar still marks Events as current there.
+SPHERE_PAGE_NAMESPACES = {
+    "chronology": SpherePage.EVENTS,
+    "event": SpherePage.EVENTS,
+    "notice-board": SpherePage.ENCOUNTERS,
+}
 
 
 class SpherePageRequiredMixin(View):
@@ -30,3 +53,7 @@ class SpherePageRequiredMixin(View):
         if self.required_sphere_page not in sphere.enabled_pages:
             raise Http404
         return super().dispatch(request, *args, **kwargs)
+
+
+class EventsPageRequiredMixin(SpherePageRequiredMixin):
+    required_sphere_page = SpherePage.EVENTS

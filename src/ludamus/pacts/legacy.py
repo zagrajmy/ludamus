@@ -1,4 +1,4 @@
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
 from enum import StrEnum, auto
 from typing import (
@@ -603,7 +603,7 @@ class EncounterIndexItem:
 class EncounterIndexResult:
     upcoming: list[EncounterIndexItem]
     past: list[EncounterIndexItem]
-    public: list[EncounterIndexItem] = field(default_factory=list)
+    public: list[EncounterIndexItem]
 
 
 class EnrollmentConfigDTO(BaseModel):
@@ -1303,9 +1303,9 @@ class EncounterRepositoryProtocol(Protocol):
     @staticmethod
     def exists_for_sphere(sphere_id: int) -> bool: ...
     @staticmethod
-    def read(pk: int) -> EncounterDTO: ...
+    def read(pk: int, sphere_id: int) -> EncounterDTO: ...
     @staticmethod
-    def read_by_share_code(share_code: str) -> EncounterDTO: ...
+    def read_by_share_code(share_code: str, sphere_id: int) -> EncounterDTO: ...
     @staticmethod
     def list_upcoming_by_creator(
         sphere_id: int, creator_id: int
@@ -1331,6 +1331,8 @@ class EncounterRSVPRepositoryProtocol(Protocol):
     def list_by_encounter(encounter_id: int) -> list[EncounterRSVPDTO]: ...
     @staticmethod
     def count_by_encounter(encounter_id: int) -> int: ...
+    @staticmethod
+    def count_by_encounters(encounter_ids: list[int]) -> dict[int, int]: ...
     @staticmethod
     def recent_rsvp_exists(ip_address: str, seconds: int = 60) -> bool: ...
     @staticmethod

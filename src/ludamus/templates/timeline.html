@@ -23,8 +23,8 @@
     {% if timeline_past %}
         <h2 class="text-2xl font-bold mb-6 text-foreground">{% translate "Past events" %}</h2>
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {% for item in timeline_past %}
-                {% include "components/event_card.html" with event=item.event variant="past" %}
+            {% for event in timeline_past %}
+                {% include "components/event_card.html" with event=event variant="past" %}
             {% endfor %}
         </div>
     {% endif %}
