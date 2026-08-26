@@ -77,6 +77,15 @@ class TestFloorRule:
         redaction.register([])
         assert redaction.safe_path("/e/ab12Cd/") == "/e/ab12Cd/"
 
+    def test_a_hashed_asset_name_survives_the_floor(self) -> None:
+        # The floor matches a whole segment, so a build hash keeps its
+        # extension and stays readable. Vite names already run to 35 URL-safe
+        # characters, so an unanchored floor would be five characters from
+        # rewriting every asset URL in analytics and replay.
+        redaction.register([])
+        asset = "/static/vite/assets/proposal-category-settings-i_aOxcWLmNoPqRsT.js"
+        assert redaction.safe_path(asset) == asset
+
 
 class TestClientPatterns:
     def test_every_pattern_compiles_as_a_javascript_regexp(self) -> None:

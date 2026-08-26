@@ -40,8 +40,14 @@ class Rule(NamedTuple):
 # of the route being a path() rather than a re_path() the walk skips.
 # secrets.token_urlsafe(48) is 64 characters; the longest legitimate segment in
 # this app is a six-character share code, so the floor cannot swallow one.
+# Anchored to a whole segment: a token is always one, while a hashed asset name
+# carries an extension, and `prologue-DkS9x2Fb.js` must stay readable in both
+# analytics and replay.
 _FLOOR = Rule(
-    re.compile(r"/[A-Za-z0-9_-]{40,}"), "/:token", r"/[A-Za-z0-9_-]{40,}", "/:token"
+    re.compile(r"/[A-Za-z0-9_-]{40,}(?=[/?#]|$)"),
+    "/:token",
+    r"/[A-Za-z0-9_-]{40,}(?=[/?#]|$)",
+    "/:token",
 )
 
 # Mutated rather than rebound so nothing has to reach for `global`, and so a
