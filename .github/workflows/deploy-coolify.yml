@@ -55,6 +55,12 @@ jobs:
           ref: ${{ inputs.sha }}
           persist-credentials: false
 
+      # varlock comes from the lockfile rather than a version pinned a second
+      # time here. --no-install below then makes a missing one fail loudly
+      # rather than cold-start an unpinned fetch mid-deploy.
+      - uses: jdx/mise-action@v2
+      - run: aube install --no-optional
+
       - name: Build Coolify env payload and validate with varlock
         env:
           # Not configured in the GitHub Environment — hardcoded here.
@@ -109,7 +115,7 @@ jobs:
           # Dropping empty values keeps the bulk-env upsert from clearing a
           # value Coolify already stores. Piped, never printed: resolved
           # secrets stay out of the run log.
-          npx -y varlock@1.12.0 load --format json --filter='!#compose' \
+          aube exec --no-install varlock load --format json --filter='!#compose' \
             | jq '[to_entries[]
                    | select(.value != null and .value != "")
                    | {key: .key, value: (.value | tostring), is_preview: false}]' \
