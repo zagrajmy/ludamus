@@ -306,6 +306,40 @@ test.describe("Design system page", () => {
     await expect(first).toHaveAttribute("aria-posinset", "1");
   });
 
+  test("shows six rows at a time however tall the viewport is", async ({ page }) => {
+    // A tall screen is not an invitation to fill it. The popup used to take
+    // whatever room it found, which on a laptop meant a list running the height
+    // of the page and burying the schedule behind the control that filters it.
+    await page.setViewportSize({ height: 1400, width: 1280 });
+    await page.goto("/design/");
+    const combobox = await upgradedCombobox(page, "Fruit");
+
+    await page.evaluate(() => {
+      const options: [string, string][] = Array.from({ length: 400 }, (_, index) => [
+        `host-${index}`,
+        `Host ${String(index).padStart(3, "0")}`,
+      ]);
+      document
+        .querySelector("#t-combobox")
+        ?.closest("[data-combobox]")
+        ?.dispatchEvent(new CustomEvent("combobox:sync", { detail: { options } }));
+    });
+    await combobox.click();
+
+    const { clientHeight, rowHeight } = await page.evaluate(() => {
+      const scroller = document.querySelector("[data-combobox-scroller]");
+      const row = scroller?.querySelector("[role=option]");
+      return {
+        clientHeight: scroller?.clientHeight ?? 0,
+        rowHeight: row?.getBoundingClientRect().height ?? 0,
+      };
+    });
+    expect(rowHeight).toBeGreaterThan(0);
+    // Six rows and the list's own padding — never the seventh.
+    expect(clientHeight).toBeLessThan(rowHeight * 7);
+    expect(clientHeight).toBeGreaterThanOrEqual(rowHeight * 5);
+  });
+
   test("keeps the active option in the DOM when it arrows past the window", async ({ page }) => {
     await page.goto("/design/");
     const combobox = await upgradedCombobox(page, "Fruit");

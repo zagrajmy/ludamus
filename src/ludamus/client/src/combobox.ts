@@ -142,12 +142,16 @@ const upgrade = (root: HTMLElement): void => {
   // above and below it accounted for by padding on the scroller rather than
   // spacer nodes — a listbox's children have to be options.
   const OVERSCAN = 4;
-  // ponytail: a flat ceiling on the window rather than trusting a layout read.
-  // place() measures the popup with its cap off, and a virtual list's natural
-  // height is the whole list, so clientHeight can come back as thousands of
-  // pixels mid-placement and ask for every row. The listbox is capped at 15rem
-  // — around seven rows — so this is threefold headroom. Raise it if a caller
-  // ever gives the popup a taller cap.
+  // Six rows, however much room the viewport offers. A convention's host list
+  // runs to the hundreds; a popup that grows to fill the screen buries the page
+  // behind the control meant to filter it, and past a handful of rows scanning
+  // stops paying its way and typing takes over. Kept in step with the CSS cap
+  // on the scroller, which is what a browser without our placement uses.
+  const VISIBLE_ROWS = 6;
+  // A flat ceiling on the pool rather than a layout read: a virtual list's
+  // natural height is the whole list, so a clientHeight taken mid-placement can
+  // come back as thousands of pixels and ask for every row. Six rows plus
+  // overscan on both sides is fourteen, so this is comfortable headroom.
   const MAX_WINDOW_ROWS = 24;
   // Only until the first real row can be measured; the rows are uniform, so
   // one measurement serves the whole list.
@@ -181,7 +185,9 @@ const upgrade = (root: HTMLElement): void => {
     // the window are padding, so measuring it would only ever report the whole
     // list. Chrome is what the popup adds around it, which is a constant.
     const chrome = popup.getBoundingClientRect().height - scroller.getBoundingClientRect().height;
-    const wanted = chrome + shown.length * (rowHeight || ASSUMED_ROW_HEIGHT);
+    const listCap = VISIBLE_ROWS * (rowHeight || ASSUMED_ROW_HEIGHT);
+    const wanted =
+      chrome + Math.min(shown.length, VISIBLE_ROWS) * (rowHeight || ASSUMED_ROW_HEIGHT);
 
     const below = band.bottom - rect.bottom - GAP;
     const above = rect.top - band.top - GAP;
@@ -192,7 +198,9 @@ const upgrade = (root: HTMLElement): void => {
 
     // Always set, never removed: the list grows whenever its options are
     // rebuilt, and a cap left off would let it run the height of the page.
-    scroller.style.maxHeight = `${Math.max(room - chrome, 0)}px`;
+    // Room is the ceiling, VISIBLE_ROWS is the intent — a tall viewport must
+    // not turn a six-row list into a full-height one.
+    scroller.style.maxHeight = `${Math.max(Math.min(room - chrome, listCap), 0)}px`;
     const settled = Math.min(wanted, room);
     const top = flipped ? rect.top - settled - GAP : rect.bottom + GAP;
     // Clamped, not trusted: WebKit is known to leave offsetTop stale after the

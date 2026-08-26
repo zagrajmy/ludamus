@@ -72,7 +72,10 @@
             {# the rendered window are padding on the <ul>, and a box grows to #}
             {# fit its own padding whatever its max-height says. So the cap #}
             {# lives out here and the padded list scrolls inside it. #}
-            <div data-combobox-scroller class="max-h-60 overflow-y-auto">
+            {# 14rem is six 36px rows plus the list's own py-1. Keep it in step #}
+            {# with VISIBLE_ROWS in combobox.ts, which caps the same list once #}
+            {# our placement runs; this is what a browser gets before it does. #}
+            <div data-combobox-scroller class="max-h-56 overflow-y-auto">
                 <ul id="{{ id }}-listbox"
                     role="listbox"
                     data-combobox-listbox
