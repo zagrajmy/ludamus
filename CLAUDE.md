@@ -19,6 +19,9 @@ description — run it rather than trusting a hardcoded list here. Most used:
     layouts of the same set, a filter narrows the set, a sort reorders it —
     a filter sitting among the view tabs is a type error, and so is a
     control offering one option.
+  - UIs have types. a tag cloud wraps tokens that already carry their
+    kind; a definition list stacks named groups. restacking a cloud into
+    ragged rows is that same type error.
 - Include screenshots of affected pages in the PR description. With a server
   running, `mise run shots -- / /events` saves PNGs to `screenshots/` (paths
   resolve against `localhost:8000`; wraps `aubx agent-browser`).

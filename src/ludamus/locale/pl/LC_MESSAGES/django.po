@@ -2493,7 +2493,7 @@ msgstr "Opis"
 
 #: src/ludamus/gates/web/django/event/propose_forms.py
 #: src/ludamus/gates/web/django/templatetags/cfp_tags.py
-#: src/ludamus/templates/chronology/session_tags.html
+#: src/ludamus/templates/chronology/session_tags_cloud.html
 #: src/ludamus/templates/event/propose/parts/details.html
 #: src/ludamus/templates/event/propose/parts/review.html
 msgid "Minimum age"
@@ -3997,7 +3997,7 @@ msgstr "Uczestnicy"
 #: src/ludamus/templates/chronology/anonymous_enroll.html
 #: src/ludamus/templates/chronology/enroll_select.html
 #: src/ludamus/templates/chronology/parts/session-modal.html
-#: src/ludamus/templates/chronology/session_tags.html
+#: src/ludamus/templates/chronology/session_tags_cloud.html
 msgid "years"
 msgstr "lat"
 

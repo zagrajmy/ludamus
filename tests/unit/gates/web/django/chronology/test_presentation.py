@@ -4,7 +4,13 @@ from unittest.mock import MagicMock
 import pytest
 from django.utils import timezone
 
-from ludamus.gates.web.django.chronology.event_presentation import SessionData
+from ludamus.gates.web.django.chronology.event_presentation import (
+    CloudPill,
+    DisplayFieldRow,
+    SessionData,
+    build_display_field_row,
+    flatten_cloud_overflow,
+)
 from ludamus.gates.web.django.chronology.schedule import (
     build_room_lanes,
     build_schedule_days,
@@ -410,3 +416,52 @@ class TestGroupSessionsByState:
 
         assert list(current.values()) == [[no_enrollment]]
         assert not future_unavailable
+
+
+class TestFlattenCloudOverflow:
+    def test_empty(self):
+        assert flatten_cloud_overflow([]) == []
+
+    def test_merges_overflow_from_every_field(self):
+        system = build_display_field_row(
+            SessionFieldValueDTO(
+                field_icon="book-open",
+                field_name="System",
+                field_question="System",
+                field_slug="system",
+                field_type="select",
+                is_public=True,
+                value=["a", "b", "c", "d", "e"],
+            )
+        )
+        triggers = build_display_field_row(
+            SessionFieldValueDTO(
+                field_icon="exclamation-triangle",
+                field_name="Triggers",
+                field_question="Triggers",
+                field_slug="triggers",
+                field_type="select",
+                is_public=True,
+                value=["one", "two", "three", "four", "five", "six"],
+            )
+        )
+
+        assert flatten_cloud_overflow([system, triggers]) == [
+            CloudPill(icon="book-open", value="e"),
+            CloudPill(icon="exclamation-triangle", value="five"),
+            CloudPill(icon="exclamation-triangle", value="six"),
+        ]
+
+    def test_session_data_exposes_one_overflow_list(self):
+        row = DisplayFieldRow(
+            icon="book-open",
+            name="System",
+            visible_values=["a", "b", "c", "d"],
+            overflow_values=["e", "f"],
+        )
+        data = _make_session_data(displayed_field_rows=[row])
+
+        assert data.cloud_overflow == [
+            CloudPill(icon="book-open", value="e"),
+            CloudPill(icon="book-open", value="f"),
+        ]
