@@ -54,11 +54,13 @@ class Rule(NamedTuple):
 # a second factor rather than the whole of one.
 # Anchored to a whole segment: a token is always one, while a hashed asset name
 # carries an extension and `prologue-DkS9x2Fb.js` must stay readable in both
-# analytics and replay.
+# analytics and replay. Lower-case hex is excluded for the same reason — a
+# gravatar URL ends in a sha256 digest, also 64 characters, and a token is
+# base64url so it carries upper case or -_ that a digest never can.
 _FLOOR = Rule(
-    re.compile(r"/[A-Za-z0-9_-]{56,}(?=[/?#]|$)"),
+    re.compile(r"/(?![0-9a-f]{56,}(?=[/?#]|$))[A-Za-z0-9_-]{56,}(?=[/?#]|$)"),
     "/:token",
-    r"/[A-Za-z0-9_-]{56,}(?=[/?#]|$)",
+    r"/(?![0-9a-f]{56,}(?=[/?#]|$))[A-Za-z0-9_-]{56,}(?=[/?#]|$)",
     "/:token",
 )
 

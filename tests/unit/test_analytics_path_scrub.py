@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import shutil
 import subprocess
@@ -103,6 +104,17 @@ class TestFloorRule:
         slug = "ogolnopolski-konwent-fantastyki".ljust(SLUG_MAX_LENGTH, "x")
         path = f"/event/{slug}/"
         assert redaction.safe_path(path) == path
+
+    def test_a_gravatar_digest_survives_the_floor(self) -> None:
+        # sha256 is 64 characters, the same as token_urlsafe(48), and
+        # components/avatar.html renders one on every authenticated page. The
+        # floor tells them apart by alphabet: a digest is lower hex, a token is
+        # base64url. Without that, avatars read as credentials everywhere.
+        redaction.register([])
+        digest = hashlib.sha256(b"someone@example.com").hexdigest()
+        url = f"https://www.gravatar.com/avatar/{digest}?s=64&d=blank"
+        assert len(digest) == len(token_urlsafe(48))
+        assert redaction.safe_path(url) == url
 
     def test_a_hashed_asset_name_survives_the_floor(self) -> None:
         # The floor matches a whole segment, so a build hash keeps its

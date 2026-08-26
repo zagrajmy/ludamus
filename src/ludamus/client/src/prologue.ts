@@ -72,7 +72,13 @@ type Rule = { pattern: RegExp; replacement: string };
 // The floor alone, if the server ever ships a pattern this engine rejects.
 // new RegExp throwing here would run before posthog.init and leave the page
 // with no analytics at all, silently.
-const FLOOR: Rule = { pattern: /\/[A-Za-z0-9_-]{56,}(?=[/?#]|$)/g, replacement: "/:token" };
+// A token is base64url, so it has upper case or -_ in it; a digest is lower
+// hex. Without that distinction a gravatar URL — sha256, also 64 characters —
+// reads as a credential on every authenticated page.
+const FLOOR: Rule = {
+  pattern: /\/(?![0-9a-f]{56,}(?=[/?#]|$))[A-Za-z0-9_-]{56,}(?=[/?#]|$)/g,
+  replacement: "/:token",
+};
 
 const compileRules = (patterns: [string, string][]): Rule[] => {
   try {
@@ -163,10 +169,6 @@ const initPosthog = (config: PosthogServerConfig): void => {
       Reflect.deleteProperty(event.properties, "$snapshot_data");
       try {
         scrubInPlace(rules, event, new WeakSet());
-        if (snapshot !== undefined) {
-          event.properties["$snapshot_data"] = snapshot;
-          scrubSnapshot(rules, event.properties);
-        }
       } catch {
         // posthog calls before_send bare, so a throw here would take capture()
         // down with it. Fall through to the check below rather than dropping
@@ -174,13 +176,25 @@ const initPosthog = (config: PosthogServerConfig): void => {
         // discarding on sight would silently delete a whole class of events
         // forever. Drop on evidence instead.
       }
-      // Non-global on purpose — a /g regex carries lastIndex between calls.
+      // Checked before the recording payload goes back, never after. That DOM
+      // is left unscrubbed on purpose, and it carries URLs — a gravatar hash is
+      // 64 characters, the same length as a token — so testing it here would
+      // throw away the snapshot rather than the credential.
+      let carriesToken = false;
       try {
-        if (/\/[A-Za-z0-9_-]{56,}(?=[/?#]|$)/.test(JSON.stringify(event))) return null;
+        carriesToken = FLOOR.pattern.test(JSON.stringify(event));
       } catch {
-        return null;
+        carriesToken = true;
       }
-      return event;
+      if (snapshot !== undefined) {
+        event.properties["$snapshot_data"] = snapshot;
+        try {
+          scrubSnapshot(rules, event.properties);
+        } catch {
+          /* the payload is back either way; a partial scrub beats no event */
+        }
+      }
+      return carriesToken ? null : event;
     },
     capture_exceptions: true,
     defaults: "2025-05-24",
