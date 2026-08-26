@@ -36,17 +36,18 @@ test.describe("Event filter panel", () => {
     await page.goto("/event/autumn-open/");
     await page.getByRole("button", { exact: true, name: "Filters" }).click();
 
-    // Polled, not read once: the panel animates in, and its box is still
-    // travelling for a third of a second after it becomes visible.
     const trigger = page.getByRole("button", { exact: true, name: "Filters" });
     await expect(trigger).toHaveAttribute("aria-expanded", "true");
+
+    // Polled, not read once: the panel animates in, and its box is still
+    // travelling for a third of a second after it becomes visible.
     const panel = page.locator("#filter-panel");
     await expect.poll(async () => (await panel.boundingBox())?.y).toBe(0);
     await expect.poll(async () => (await panel.boundingBox())?.height).toBe(700);
 
-    // The control that was out of reach before, exercised the way a person
-    // would: if it is off-screen, this click times out.
-    await page.locator("[data-combobox-input]").first().click();
+    // The control that was out of reach before, reached the way a person
+    // reaches it: if it is off-screen, this click times out.
+    await page.getByRole("combobox", { name: "Host" }).click();
     await expect(page.getByRole("listbox")).toBeVisible();
     // Escape unwinds one layer at a time: the list goes, the sheet stays.
     await page.keyboard.press("Escape");
