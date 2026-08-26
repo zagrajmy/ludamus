@@ -432,7 +432,7 @@ test.describe("Filter state in the URL", () => {
   });
 
   test("restores filters from a shared URL", async ({ page }) => {
-    await page.goto("/event/autumn-open/?hour=12%3A00&q=circle&age-max=9");
+    await page.goto("/event/autumn-open/?hour=12%3A00&q=circle&age=9");
 
     await expect(card(page, "Cozy Storytellers Circle")).toBeVisible();
     await expect(card(page, "Mega Strategy Lab")).toBeHidden();
@@ -487,7 +487,7 @@ test.describe("Filter state in the URL", () => {
   });
 
   test("drops an unusable age from a shared URL instead of guessing", async ({ page }) => {
-    await page.goto("/event/autumn-open/?age-max=120");
+    await page.goto("/event/autumn-open/?age=120");
 
     await expect(card(page, "Cozy Storytellers Circle")).toBeVisible();
     await expect(page.getByRole("spinbutton", { name: "Participant age" })).toHaveValue("");

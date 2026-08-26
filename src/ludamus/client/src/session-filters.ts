@@ -363,13 +363,15 @@ const initSessionFilters = (): void => {
         : card.dataset.space === value,
     ),
     // Both age controls read the one number a session carries, from opposite
-    // ends, and both keep the query-string names they have always had —
-    // `?age-min=18` ("show me the 18+ programme") is a link people have
-    // already shared, and a param that quietly changed sides would answer it
-    // with its complement.
+    // ends. `age-min` keeps its name because `?age-min=18` ("show me the 18+
+    // programme") is a link people have already shared, and a param that
+    // quietly changed sides would answer it with its complement. The other
+    // bound is `age` rather than main's `age-max`: nobody linked that one, and
+    // "max age" reads like a ceiling on the person rather than the question it
+    // actually asks, which is what someone this age may attend.
     ageFilterEntry(
       ageFilter,
-      "age-max",
+      "age",
       () => filterChipsBar.dataset.ageLabel ?? "",
       // The participant's age against the session's requirement: an
       // unrestricted session (min age 0) admits everyone, so it always stays.

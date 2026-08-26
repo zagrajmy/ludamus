@@ -516,6 +516,56 @@ ICON_TOGGLE_ICONS = 2
 SWITCHER_SEGMENTS = 3
 
 
+class TestIconButton:
+    def _render(self, extra: str = "") -> str:
+        tpl = Template(
+            "{% load tessera %}"
+            '{% tessera_icon_button icon="x-mark" label="Close filters" '
+            + extra
+            + " %}"
+        )
+        return tpl.render(Context())
+
+    def test_renders_a_button_carrying_the_icon(self) -> None:
+        html = self._render()
+        assert html.startswith('<button type="button"')
+        assert "<svg" in html
+
+    def test_names_the_button_for_screen_readers(self) -> None:
+        # The icon is decorative precisely because the label carries the name.
+        html = self._render()
+        assert 'aria-label="Close filters"' in html
+        assert 'aria-hidden="true"' in html
+
+    def test_refuses_to_render_without_a_label(self) -> None:
+        # A button whose only content is an icon and which has no label is a
+        # button no screen reader can announce, so it must not render at all.
+        tpl = Template(
+            '{% load tessera %}{% tessera_icon_button icon="x-mark" label="" %}'
+        )
+        with pytest.raises(ValueError, match="its icon is not a name"):
+            tpl.render(Context())
+
+    def test_forwards_extra_attrs_as_hyphenated(self) -> None:
+        assert 'id="filter-close"' in self._render('id="filter-close"')
+        assert 'data-close="1"' in self._render('data_close="1"')
+
+    def test_is_not_styled_as_a_text_button(self) -> None:
+        # Its own primitive, not a btn variant: a filled pill would compete
+        # with the content it sits on top of.
+        html = self._render()
+        assert "btn" not in html
+        assert "bg-transparent" in html
+
+    def test_size_scales_padding_and_icon(self) -> None:
+        assert "p-1.5" in self._render('size="sm"')
+        assert "w-4 h-4" in self._render('size="sm"')
+        assert "p-2" in self._render()
+
+    def test_disabled_marks_the_button_disabled(self) -> None:
+        assert " disabled" in self._render("disabled=True")
+
+
 class TestIconToggle:
     def _render(self, extra: str = "") -> str:
         tpl = Template(

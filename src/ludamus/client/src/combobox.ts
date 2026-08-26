@@ -167,17 +167,48 @@ const upgrade = (root: HTMLElement): void => {
   let rowHeight = 0;
 
   // The top layer ignores the ancestor overflow and transforms that would
-  // otherwise clip the popup, but it also takes it out of the flow — so the
-  // anchoring is ours to do. Browsers without the API keep the absolutely
-  // positioned box the markup ships.
+  // otherwise clip the popup, but it also takes it out of the flow — so
+  // something has to keep it glued to the input. Browsers without the API keep
+  // the absolutely positioned box the markup ships.
   const popoverCapable = typeof popup.showPopover === "function";
+  // Where it exists, the browser does the sticking (see combobox.css). This is
+  // the iOS fix: Safari scrolls on the compositor and fires `scroll`
+  // asynchronously, so anything reading getBoundingClientRect() runs a frame
+  // behind and the popup detaches mid-scroll. The name has to be unique per
+  // instance, and the id is the one unique thing to hand.
+  const anchored = CSS.supports("anchor-name", "--a");
+  if (anchored) {
+    const anchorName = `--combobox-${input.id}`;
+    input.style.setProperty("anchor-name", anchorName);
+    popup.style.setProperty("position-anchor", anchorName);
+  }
 
   const GAP = 4;
   // Under this, anchoring has nothing left to offer: the keyboard owns the
   // screen and a few rows of list are worth more than staying glued.
   const MIN_ROOM = 120;
 
+  // What an on-screen keyboard has left of the screen, for the CSS that caps
+  // the list. A keyboard shrinks the *visual* viewport and leaves the layout
+  // viewport alone, so no CSS length can see it; the viewport meta's
+  // `interactive-widget=resizes-content` would change that, but WebKit has not
+  // shipped it and iOS is the case that matters here. So this stays measured,
+  // on resize alone — one discrete event, not a per-frame read.
+  const capToVisibleRoom = (): void => {
+    const viewport = globalThis.visualViewport;
+    if (!viewport || !isOpen()) return;
+    const rect = input.getBoundingClientRect();
+    const below = viewport.offsetTop + viewport.height - rect.bottom - GAP;
+    const above = rect.top - viewport.offsetTop - GAP;
+    popup.style.setProperty("--combobox-room", `${Math.max(below, above, MIN_ROOM)}px`);
+  };
+
+  // Only for browsers without anchor positioning; the CSS does this otherwise.
   const place = (): void => {
+    if (anchored) {
+      capToVisibleRoom();
+      return;
+    }
     const rect = input.getBoundingClientRect();
     const band = visibleBand();
 
@@ -500,7 +531,15 @@ const upgrade = (root: HTMLElement): void => {
         break;
       }
       case "Tab": {
-        if (isOpen() && activeIndex !== -1) commit(shown[activeIndex]);
+        // Tab commits what the list is already showing. An arrowed-to row is
+        // the obvious case; a query that has narrowed to exactly one row is
+        // the same answer arrived at by typing, and making someone press Down
+        // first to confirm the only thing left is a click the list has already
+        // earned. Two or more matches stay ambiguous, so Tab just leaves.
+        if (isOpen()) {
+          if (activeIndex !== -1) commit(shown[activeIndex]);
+          else if (shown.length === 1) commit(shown[0]);
+        }
         break;
       }
       default: {
@@ -582,16 +621,20 @@ const upgrade = (root: HTMLElement): void => {
   // Scrolling the list slides the rendered window along it.
   scroller.addEventListener("scroll", () => renderWindow(), { passive: true });
 
-  // An anchored popup follows its input; the page moving under it does not.
-  // Window and visual viewport both, because they report disjoint things: a
-  // document scroll reaches only the window, a keyboard or a pinch only the
-  // visual viewport.
-  for (const event of ["resize", "scroll"]) {
-    globalThis.addEventListener(event, whileAttached(schedulePlace), {
-      capture: true,
-      passive: true,
-      signal: detached.signal,
-    });
+  // Anchored, the browser sticks the popup to its input through every scroll,
+  // and only the keyboard is left to measure — resize, never scroll, which is
+  // the per-frame read anchoring exists to delete. Unanchored, placement is
+  // ours: window and visual viewport both, because they report disjoint things
+  // — a document scroll reaches only the window, a keyboard or a pinch only
+  // the visual viewport.
+  for (const event of anchored ? ["resize"] : ["resize", "scroll"]) {
+    if (!anchored) {
+      globalThis.addEventListener(event, whileAttached(schedulePlace), {
+        capture: true,
+        passive: true,
+        signal: detached.signal,
+      });
+    }
     globalThis.visualViewport?.addEventListener(event, whileAttached(schedulePlace), {
       passive: true,
       signal: detached.signal,

@@ -30,6 +30,7 @@ from .copy import copy_lines, tessera_copy, tessera_copy_chip, tessera_copy_popo
 from .dynamic_field import dynamic_field
 from .form import tessera_button, tessera_errors, tessera_field, tessera_form
 from .icon import icon
+from .icon_button import tessera_icon_button
 from .icon_toggle import tessera_icon_toggle
 from .radio import RadioNode, do_radio
 from .select import SelectNode, do_select
@@ -68,6 +69,7 @@ __all__ = [
     "tessera_errors",
     "tessera_field",
     "tessera_form",
+    "tessera_icon_button",
     "tessera_icon_toggle",
     "tessera_segment",
     "tessera_switcher",

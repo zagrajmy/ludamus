@@ -127,30 +127,71 @@ test.describe("Design system page", () => {
     await expect(value).toHaveValue("");
   });
 
-  test("keeps the list inside the part of the screen a keyboard leaves", async ({ browser }) => {
-    // What a keyboard leaves of a 700px-tall screen: it shrinks and offsets
-    // the visual viewport and leaves the layout viewport — and so
-    // window.innerHeight — untouched, which is the case placement must read.
+  test("keeps the list glued to its input", async ({ page }) => {
+    // The contract placement exists to keep, whoever is doing it: the list is
+    // the input's box, one gap lower. On iOS this is the whole point of doing
+    // it in CSS — Safari scrolls on the compositor and reports `scroll` late,
+    // so anything measuring per frame runs behind and visibly detaches.
+    await page.goto("/design/");
+    const combobox = await upgradedCombobox(page, "Fruit");
+    await combobox.click();
+
+    const list = page.getByRole("listbox", { name: "Fruit" });
+    const field = (await combobox.boundingBox())!;
+    const popup = (await list.boundingBox())!;
+
+    // Within the popup's 1px border: the listbox sits inside it, and it is
+    // the popup that anchor positioning aligns to the field.
+    expect(Math.abs(popup.x - field.x)).toBeLessThanOrEqual(2);
+    expect(Math.abs(popup.width - field.width)).toBeLessThanOrEqual(4);
+    // Below the input, within the 4px gap the design asks for.
+    expect(popup.y).toBeGreaterThanOrEqual(field.y + field.height);
+    expect(popup.y).toBeLessThanOrEqual(field.y + field.height + 8);
+  });
+
+  test("opens the list upwards when there is no room below", async ({ browser }) => {
+    const context = await browser.newContext({ viewport: { height: 400, width: 390 } });
+    const page = await context.newPage();
+    await page.goto("/design/");
+    const combobox = await upgradedCombobox(page, "Fruit");
+    // Against the bottom edge, so a list opening downward would run off it.
+    await page.evaluate(() => {
+      const field = document.querySelector("#t-combobox-input")!;
+      field.scrollIntoView({ block: "end" });
+    });
+    await combobox.click();
+
+    const list = page.getByRole("listbox", { name: "Fruit" });
+    const field = (await combobox.boundingBox())!;
+    const popup = (await list.boundingBox())!;
+
+    // Either it flipped above the input, or it fits below — never off-screen.
+    const fitsBelow = popup.y + popup.height <= 400;
+    const flipped = popup.y + popup.height <= field.y + 1;
+    expect(fitsBelow || flipped).toBe(true);
+    expect(popup.height).toBeGreaterThan(40);
+
+    await context.close();
+  });
+
+  test("caps the list to what an on-screen keyboard leaves", async ({ browser }) => {
+    // A keyboard shrinks the *visual* viewport and leaves the layout viewport
+    // — and so window.innerHeight, and every CSS length — reporting room that
+    // is now behind it. That gap is the one part of placement no stylesheet
+    // can see, so the script measures it and the CSS caps the list with it.
     const KEYBOARD_TOP = 180;
     const KEYBOARD_HEIGHT = 320;
-    const bandBottom = KEYBOARD_TOP + KEYBOARD_HEIGHT;
 
     const context = await browser.newContext({
-      viewport: { width: 390, height: 700 },
-      isMobile: true,
       hasTouch: true,
+      isMobile: true,
+      viewport: { height: 700, width: 390 },
     });
     const page = await context.newPage();
     await page.goto("/design/");
     const combobox = await upgradedCombobox(page, "Fruit");
     await combobox.scrollIntoViewIfNeeded();
     await combobox.click();
-
-    const list = page.getByRole("listbox", { name: "Fruit" });
-    const before = await list.boundingBox();
-    // Without this the test could pass on a list that never needed moving —
-    // and would quietly go vacuous the day the page's layout shifts.
-    expect(before!.y + before!.height).toBeGreaterThan(bandBottom);
 
     const innerHeight = await page.evaluate(
       ({ height, top }) => {
@@ -162,23 +203,53 @@ test.describe("Design system page", () => {
       },
       { height: KEYBOARD_HEIGHT, top: KEYBOARD_TOP },
     );
-    // The layout viewport still claims the room the keyboard took: that gap is
-    // the whole bug.
-    expect(innerHeight).toBeGreaterThan(bandBottom);
+    // The layout viewport still claims the room the keyboard took.
+    expect(innerHeight).toBeGreaterThan(KEYBOARD_TOP + KEYBOARD_HEIGHT);
 
     await expect
-      .poll(async () => {
-        const box = await list.boundingBox();
-        return box ? Math.round(box.y + box.height) : null;
-      })
-      .toBeLessThanOrEqual(bandBottom + 1);
+      .poll(async () =>
+        page.evaluate(() => {
+          const scroller = document.querySelector("[data-combobox-scroller]");
+          return scroller ? Math.round(scroller.getBoundingClientRect().height) : null;
+        }),
+      )
+      .toBeLessThanOrEqual(KEYBOARD_HEIGHT);
 
-    const after = await list.boundingBox();
-    expect(after!.y).toBeGreaterThanOrEqual(KEYBOARD_TOP - 1);
-    // A list squeezed to nothing would satisfy the bounds while being useless.
-    expect(after!.height).toBeGreaterThan(80);
+    // A list squeezed to nothing would satisfy the bound while being useless.
+    const capped = await page.evaluate(
+      () => document.querySelector("[data-combobox-scroller]")!.getBoundingClientRect().height,
+    );
+    expect(capped).toBeGreaterThan(80);
 
     await context.close();
+  });
+
+  test("commits the only match when Tab leaves the field", async ({ page }) => {
+    await page.goto("/design/");
+    const combobox = await upgradedCombobox(page, "Fruit");
+
+    // "blackcurrant" is the only fruit containing "bl", so the list has
+    // already answered — making someone arrow down to confirm the one row
+    // left is a keystroke it has earned without.
+    await combobox.fill("bl");
+    await expect(page.getByRole("listbox", { name: "Fruit" }).getByRole("option")).toHaveCount(1);
+    await combobox.press("Tab");
+
+    await expect(page.locator("#t-combobox")).toHaveValue("blackcurrant");
+    await expect(combobox).toHaveValue("Blackcurrant");
+  });
+
+  test("leaves an ambiguous query uncommitted on Tab", async ({ page }) => {
+    await page.goto("/design/");
+    const combobox = await upgradedCombobox(page, "Fruit");
+
+    // "ap" matches Apple and Apricot: two answers is no answer, so Tab must
+    // not pick one for the person leaving the field.
+    await combobox.fill("ap");
+    await expect(page.getByRole("listbox", { name: "Fruit" }).getByRole("option")).toHaveCount(2);
+    await combobox.press("Tab");
+
+    await expect(page.locator("#t-combobox")).toHaveValue("");
   });
 
   test("keeps filtering as more characters arrive", async ({ page }) => {

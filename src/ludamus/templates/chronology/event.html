@@ -346,7 +346,7 @@
                                 {# the label "Close" anywhere on the page, so a second button #}
                                 {# carrying that exact name keeps the check red forever. #}
                                 {% translate "Close filters" as t_close_filters %}
-                                {% include "components/icon-button.html" with icon="x-mark" label=t_close_filters id="filter-close" only %}
+                                {% tessera_icon_button icon="x-mark" label=t_close_filters id="filter-close" %}
                             </div>
                             {% with select_class="filter-input transition-[border-color,box-shadow] duration-150" input_class="filter-input transition-[border-color,box-shadow] duration-150" label_class="text-xs font-bold uppercase tracking-widest text-foreground-muted" %}
                                 <div class="flex flex-wrap gap-3 grow pt-3.5">
@@ -395,7 +395,7 @@
                                     <div class="flex gap-3">
                                         <div class="flex flex-col gap-1.5 grow">
                                             <label class="{{ label_class }}" for="age-filter">{% translate "Participant age" %}</label>
-                                            {% include "components/text-field.html" with name="age-max" id="age-filter" input_type="number" min="0" max="99" class=input_class only %}
+                                            {% include "components/text-field.html" with name="age" id="age-filter" input_type="number" min="0" max="99" class=input_class only %}
                                         </div>
                                         <div id="min-age-filter-group" class="flex flex-col gap-1.5 grow hidden">
                                             <label class="{{ label_class }}" for="min-age-filter">{% translate "Age from" %}</label>
