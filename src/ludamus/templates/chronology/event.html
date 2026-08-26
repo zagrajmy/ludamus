@@ -345,12 +345,8 @@
                                 {# regression checks the session modal is gone by looking for #}
                                 {# the label "Close" anywhere on the page, so a second button #}
                                 {# carrying that exact name keeps the check red forever. #}
-                                <button type="button"
-                                        id="filter-close"
-                                        aria-label="{% translate "Close filters" %}"
-                                        class="inline-flex items-center justify-center rounded-lg p-2 text-foreground-muted">
-                                    {% icon "x-mark" variant="mini" class="size-5" aria_hidden="true" %}
-                                </button>
+                                {% translate "Close filters" as t_close_filters %}
+                                {% include "components/icon-button.html" with icon="x-mark" label=t_close_filters id="filter-close" only %}
                             </div>
                             {% with select_class="filter-input transition-[border-color,box-shadow] duration-150" input_class="filter-input transition-[border-color,box-shadow] duration-150" label_class="text-xs font-bold uppercase tracking-widest text-foreground-muted" %}
                                 <div class="flex flex-wrap gap-3 grow pt-3.5">

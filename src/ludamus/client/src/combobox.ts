@@ -85,23 +85,29 @@ const toRow = (label: string, value: string): Row => ({
 });
 
 /**
- * The options, read back out of the <noscript> the server wrote them into.
+ * The options, as the JSON the tag wrote beside the <noscript> fallback.
  *
- * With scripting on, the parser keeps a noscript's content as text rather than
- * elements, so this is the only way back to it — and the reason the page
- * carries no option nodes at all. Parsing it yields a real <select>, so the
- * `selected` and `disabled` the server wrote still mean what they say.
+ * The options exist twice in the markup and neither copy is an element the
+ * page pays for: the <noscript> is text unless scripting is off, and this is
+ * a data block. Reading the noscript instead would mean parsing DOM text as
+ * HTML, which is the shape of an XSS sink whatever the text; the tag resolves
+ * `selected` and `disabled` server-side so this stays plain data.
  */
 const parseSource = (source: HTMLElement): { disabled: boolean; rows: Row[]; value: string } => {
-  const select = new DOMParser()
-    .parseFromString(source.textContent ?? "", "text/html")
-    .querySelector("select");
-  const rows: Row[] = [];
-  for (const option of select?.options ?? []) {
-    if (option.disabled) continue;
-    rows.push(toRow(option.textContent?.trim() ?? "", option.value));
-  }
-  return { disabled: select?.disabled ?? false, rows, value: select?.value ?? "" };
+  const parsed: unknown = JSON.parse(source.textContent || "{}");
+  const payload = (parsed ?? {}) as {
+    disabled?: unknown;
+    rows?: unknown;
+    value?: unknown;
+  };
+  const rows = Array.isArray(payload.rows)
+    ? (payload.rows as [string, string][]).map(([value, label]) => toRow(label, value))
+    : [];
+  return {
+    disabled: payload.disabled === true,
+    rows,
+    value: typeof payload.value === "string" ? payload.value : "",
+  };
 };
 
 /** Options carried on a `combobox:sync`, for a list the page assembled itself. */
@@ -112,7 +118,7 @@ const optionsFrom = (event: Event): Row[] | undefined => {
 };
 
 const upgrade = (root: HTMLElement): void => {
-  const source = requireEl(root, "[data-combobox-source]");
+  const source = requireEl(root, 'script[type="application/json"]');
   const value = requireEl<HTMLInputElement>(root, "[data-combobox-value]");
   const parsed = parseSource(source);
   // Leave a disabled control disabled rather than replacing it with a working

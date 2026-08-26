@@ -38,7 +38,9 @@ test.describe("Event filter panel", () => {
 
     // Polled, not read once: the panel animates in, and its box is still
     // travelling for a third of a second after it becomes visible.
-    const panel = page.locator("#filter-panel.is-open");
+    const trigger = page.getByRole("button", { exact: true, name: "Filters" });
+    await expect(trigger).toHaveAttribute("aria-expanded", "true");
+    const panel = page.locator("#filter-panel");
     await expect.poll(async () => (await panel.boundingBox())?.y).toBe(0);
     await expect.poll(async () => (await panel.boundingBox())?.height).toBe(700);
 
@@ -49,12 +51,12 @@ test.describe("Event filter panel", () => {
     // Escape unwinds one layer at a time: the list goes, the sheet stays.
     await page.keyboard.press("Escape");
     await expect(page.getByRole("listbox")).toBeHidden();
-    await expect(page.locator("#filter-panel.is-open")).toBeVisible();
+    await expect(trigger).toHaveAttribute("aria-expanded", "true");
 
     // A sheet covers its own trigger and leaves no outside to tap, so the way
     // out has to be inside it.
     await page.getByRole("button", { name: "Close filters" }).click();
-    await expect(page.locator("#filter-panel.is-open")).toBeHidden();
+    await expect(trigger).toHaveAttribute("aria-expanded", "false");
 
     await context.close();
   });

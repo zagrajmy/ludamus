@@ -510,6 +510,10 @@ ignore_names = [
     "unread_count",
     "user_bookmarked",
     "user_waiting",
+    # html.parser callbacks — HTMLParser.feed() dispatches to these
+    "handle_data",
+    "handle_endtag",
+    "handle_starttag",
     # Django
     "*Config",
     "add_arguments",

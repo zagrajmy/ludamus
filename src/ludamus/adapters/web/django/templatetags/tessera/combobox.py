@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from html.parser import HTMLParser
 from typing import TYPE_CHECKING
 
 from django import template
@@ -13,6 +14,67 @@ from ._utils import format_tag_attrs, parse_tag_attrs
 
 if TYPE_CHECKING:
     from django.template.base import FilterExpression, Parser, Token
+
+
+class _OptionReader(HTMLParser):
+    """Pulls (value, label, disabled, selected) out of the slot's <option>s.
+
+    The slot is authored as markup, which is what makes the tag pleasant to
+    call, but the browser must not have to parse it back: the options ship
+    inside a <noscript>, and reading them there would mean turning DOM text
+    into HTML again — the shape of an XSS sink, even where the text is our own
+    escaped output. Reading them here instead lets the component hand the
+    client plain JSON, and this parser only ever sees markup Django rendered.
+    """
+
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self.options: list[dict[str, object]] = []
+        self._open: dict[str, object] | None = None
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        if tag != "option":
+            return
+        attributes = dict(attrs)
+        self._open = {
+            "disabled": "disabled" in attributes,
+            "label": "",
+            "selected": "selected" in attributes,
+            "value": attributes.get("value") or "",
+        }
+
+    def handle_data(self, data: str) -> None:
+        if self._open is not None:
+            self._open["label"] = str(self._open["label"]) + data
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag == "option" and self._open is not None:
+            self._open["label"] = str(self._open["label"]).strip()
+            self.options.append(self._open)
+            self._open = None
+
+
+def _read_options(slot: str, *, disabled: bool) -> dict[str, object]:
+    """Turn the slot's options into the data the browser gets, not markup."""
+    reader = _OptionReader()
+    reader.feed(slot)
+    reader.close()
+    options = reader.options
+
+    # A single select's value is the option marked selected, or failing that
+    # the first one — the browser picks index 0 on its own, and reading the
+    # parsed <select> used to give us that for free.
+    chosen = next((o for o in options if o["selected"]), None)
+    if chosen is None and options:
+        chosen = options[0]
+
+    return {
+        "disabled": disabled,
+        # A disabled option is not a row anyone can land on, but it can still
+        # be the one showing, so it counts for the value above.
+        "rows": [[o["value"], o["label"]] for o in options if not o["disabled"]],
+        "value": chosen["value"] if chosen else "",
+    }
 
 
 class ComboboxNode(template.Node):
@@ -42,6 +104,7 @@ class ComboboxNode(template.Node):
         toggle_label = str(resolved.pop("toggle_label", "") or _("Show options"))
         extra_class = str(resolved.pop("class", ""))
         has_errors = bool(resolved.pop("has_errors", False))
+        slot = self.nodelist.render(context)
 
         return render_to_string(
             self._TEMPLATE,
@@ -51,8 +114,10 @@ class ComboboxNode(template.Node):
                 "extra_class": extra_class,
                 "has_errors": has_errors,
                 "id": element_id,
+                "options": _read_options(slot, disabled=bool(resolved.get("disabled"))),
+                "options_id": f"{element_id}-options",
                 "placeholder": placeholder,
-                "slot": self.nodelist.render(context),
+                "slot": slot,
                 "toggle_label": toggle_label,
             },
         )

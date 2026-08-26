@@ -20,6 +20,12 @@
     <noscript data-combobox-source>
         {% include "components/select.html" with attrs=attrs extra_class=extra_class has_errors=has_errors slot=slot only %}
     </noscript>
+    {# The same options as data, because the script must not read them back #}
+    {# out of the noscript above: that would mean turning DOM text into HTML #}
+    {# again, which is an XSS sink's shape even when the text is our own #}
+    {# escaped output. The tag reads the slot server-side instead, and this #}
+    {# is what the browser parses — json_script handles the escaping. #}
+    {{ options|json_script:options_id }}
     {# The value once the upgrade has run: what forms post, what `change` #}
     {# listeners read, and what the filter registry mirrors to the URL. #}
     {# The name is attached by the script, not here: scriptless, the select #}
