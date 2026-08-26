@@ -13,9 +13,14 @@
    compositor, which is the only thing that can keep up with it.
 
    combobox.ts sets anchor-name/position-anchor per instance — the name has to
-   be unique, and only the script knows the id. Where anchor positioning is
-   missing the script keeps its own placement, and where the top layer is
-   missing too the markup's absolutely positioned box stands. */
+   be unique, and only the script knows the id. It also sets the
+   data-combobox-anchored attribute these rules require, and only after
+   measuring that an anchored box really lands on its anchor: Firefox answers
+   CSS.supports() with true for every part of this syntax and then parks the
+   box at the top of the viewport, so @supports alone would hand it rules its
+   layout cannot honour. Without that attribute the script keeps its own
+   placement, and where the top layer is missing too the markup's absolutely
+   positioned box stands. */
 /* `utilities`, not `components`: the popup's fallback placement is Tailwind
    utilities (`absolute left-0 right-0 top-full`), and Tailwind's layer order
    puts utilities above components whatever the specificity — so anchored rules
@@ -23,7 +28,7 @@
    and the attribute selector wins on specificity. */
 @layer utilities {
   @supports (anchor-name: --a) {
-    [data-combobox-popup]:popover-open {
+    [data-combobox-popup][data-combobox-anchored]:popover-open {
       position: fixed;
       /* The input's own box: below it, left-aligned, matching its width. */
       top: anchor(bottom);
@@ -52,7 +57,7 @@
        combobox.ts measures the visible band and writes it here, on visual
        viewport resize only: a keyboard opening is one discrete event, not the
        per-frame measurement anchoring exists to avoid. */
-    [data-combobox-popup]:popover-open [data-combobox-scroller] {
+    [data-combobox-popup][data-combobox-anchored]:popover-open [data-combobox-scroller] {
       max-height: min(14rem, var(--combobox-room, 100vh));
     }
   }

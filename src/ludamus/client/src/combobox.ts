@@ -171,17 +171,42 @@ const upgrade = (root: HTMLElement): void => {
   // something has to keep it glued to the input. Browsers without the API keep
   // the absolutely positioned box the markup ships.
   const popoverCapable = typeof popup.showPopover === "function";
-  // Where it exists, the browser does the sticking (see combobox.css). This is
+  // Where it works, the browser does the sticking (see combobox.css). This is
   // the iOS fix: Safari scrolls on the compositor and fires `scroll`
   // asynchronously, so anything reading getBoundingClientRect() runs a frame
   // behind and the popup detaches mid-scroll. The name has to be unique per
-  // instance, and the id is the one unique thing to hand.
-  const anchored = CSS.supports("anchor-name", "--a");
+  // instance, and the id is the one unique thing to hand. The attribute is
+  // what the stylesheet keys on, so a browser that only parses the syntax
+  // never gets rules its layout cannot honour.
+  const anchorName = `--combobox-${input.id}`;
+  let anchored = CSS.supports("anchor-name", "--a") && CSS.supports("top", "anchor(bottom)");
   if (anchored) {
-    const anchorName = `--combobox-${input.id}`;
     input.style.setProperty("anchor-name", anchorName);
     popup.style.setProperty("position-anchor", anchorName);
+    popup.dataset.comboboxAnchored = "";
   }
+
+  // Anchoring is taken on trust and then checked, because nothing can be
+  // asked up front. CSS.supports() answers true in Firefox for every part of
+  // this syntax while its layout parks a top-layer box at the viewport edge,
+  // and even where anchoring works it cannot help when the input itself is
+  // off-screen — the filter panel is taller than a short window, so its own
+  // combobox can sit below the fold, and a list glued to something invisible
+  // is a list nobody can see. One measurement per opening settles both, and
+  // once it fails this stops trying.
+  const stillGlued = (): boolean => {
+    const field = input.getBoundingClientRect();
+    const list = popup.getBoundingClientRect();
+    const below = Math.abs(list.top - field.bottom);
+    const above = Math.abs(list.bottom - field.top);
+    return Math.min(below, above) <= GAP * 4;
+  };
+  const demote = (): void => {
+    anchored = false;
+    delete popup.dataset.comboboxAnchored;
+    input.style.removeProperty("anchor-name");
+    popup.style.removeProperty("position-anchor");
+  };
 
   const GAP = 4;
   // Under this, anchoring has nothing left to offer: the keyboard owns the
@@ -203,11 +228,14 @@ const upgrade = (root: HTMLElement): void => {
     popup.style.setProperty("--combobox-room", `${Math.max(below, above, MIN_ROOM)}px`);
   };
 
-  // Only for browsers without anchor positioning; the CSS does this otherwise.
+  // The fallback placement, and the check that decides whether it is needed.
   const place = (): void => {
     if (anchored) {
-      capToVisibleRoom();
-      return;
+      if (stillGlued()) {
+        capToVisibleRoom();
+        return;
+      }
+      demote();
     }
     const rect = input.getBoundingClientRect();
     const band = visibleBand();
@@ -425,7 +453,9 @@ const upgrade = (root: HTMLElement): void => {
       if (open) {
         // Only when shut: showPopover() on an open popover throws, and this
         // runs on every keystroke.
-        if (!popup.matches(":popover-open")) popup.showPopover();
+        if (!popup.matches(":popover-open")) {
+          popup.showPopover();
+        }
         place();
       } else if (popup.matches(":popover-open")) {
         popup.hidePopover();
@@ -627,14 +657,12 @@ const upgrade = (root: HTMLElement): void => {
   // ours: window and visual viewport both, because they report disjoint things
   // — a document scroll reaches only the window, a keyboard or a pinch only
   // the visual viewport.
-  for (const event of anchored ? ["resize"] : ["resize", "scroll"]) {
-    if (!anchored) {
-      globalThis.addEventListener(event, whileAttached(schedulePlace), {
-        capture: true,
-        passive: true,
-        signal: detached.signal,
-      });
-    }
+  for (const event of ["resize", "scroll"]) {
+    globalThis.addEventListener(event, whileAttached(schedulePlace), {
+      capture: true,
+      passive: true,
+      signal: detached.signal,
+    });
     globalThis.visualViewport?.addEventListener(event, whileAttached(schedulePlace), {
       passive: true,
       signal: detached.signal,
