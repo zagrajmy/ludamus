@@ -401,9 +401,11 @@
                                             <label class="{{ label_class }}" for="age-filter">{% translate "Participant age" %}</label>
                                             {% include "components/text-field.html" with name="age-max" id="age-filter" input_type="number" min="0" max="99" class=input_class only %}
                                         </div>
-                                        <div class="flex flex-col gap-1.5 grow">
+                                        <div id="min-age-filter-group" class="flex flex-col gap-1.5 grow hidden">
                                             <label class="{{ label_class }}" for="min-age-filter">{% translate "Age from" %}</label>
-                                            {% include "components/text-field.html" with name="age-min" id="min-age-filter" input_type="number" min="0" max="99" class=input_class only %}
+                                            {% select id="min-age-filter" name="age-min" class=select_class %}
+                                                <option value="">{% translate "Any age" %}</option>
+                                            {% endselect %}
                                         </div>
                                     </div>
                                     <div id="day-hour-filter-group" class="flex gap-3 grow hidden">
@@ -495,7 +497,6 @@
                      data-remove-filter-label="{% translate "Remove filter" %}"
                      data-clear-all-label="{% translate "Clear all" %}"
                      data-age-label="{% translate "Participant age" %}:"
-                     data-min-age-label="{% translate "Age from" %}"
                      data-enrollment-label="{{ t_enrollment_only }}">
                     <div class="overflow-hidden">
                         <div class="filter-chips-bar-inner" data-filter-chips-inner></div>

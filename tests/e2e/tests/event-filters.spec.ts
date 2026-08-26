@@ -441,6 +441,21 @@ test.describe("Filter state in the URL", () => {
     await expect(page.locator("#active-filter-chips")).toContainText("12:00");
   });
 
+  test("offers the age ratings the schedule uses, as ratings not numbers", async ({ page }) => {
+    await page.goto(DENSE_EVENT_URL);
+    await page.getByRole("button", { name: "Filters" }).click();
+
+    // "Show me the 18+ programme" is one pick, not a number to guess at, and
+    // the list is the event's own ratings rather than every age that exists.
+    const rating = page.getByRole("combobox", { name: "Age from" });
+    const offered = (await rating.locator("option").allInnerTexts()).slice(1);
+    expect(offered.length).toBeGreaterThan(0);
+    for (const label of offered) expect(label).toMatch(/^\d+\+$/);
+    // Ages, so ordered as numbers — a string sort would put 12+ before 9+.
+    const ages = offered.map((label) => Number.parseInt(label, 10));
+    expect(ages).toEqual([...ages].sort((a, b) => a - b));
+  });
+
   test("still answers the age-min links people have already shared", async ({ page }) => {
     // "Show me the 18+ programme" is a link that predates this panel, and the
     // param has to keep meaning a floor on the session's own requirement —
@@ -450,20 +465,20 @@ test.describe("Filter state in the URL", () => {
     await expect(card(page, "Mega Strategy Lab")).toBeVisible();
     await expect(card(page, "Przygoda w Mieście Neonów")).toBeVisible();
     await expect(card(page, "Cozy Storytellers Circle")).toBeHidden();
-    await expect(page.getByRole("spinbutton", { name: "Age from" })).toHaveValue("10");
+    await expect(page.getByRole("combobox", { name: "Age from" })).toHaveValue("10");
   });
 
   test("reads the two age bounds as the opposite questions they are", async ({ page }) => {
     await page.goto("/event/autumn-open/");
     await page.getByRole("button", { name: "Filters" }).click();
 
-    await page.getByRole("spinbutton", { name: "Age from" }).fill("10");
+    await page.getByRole("combobox", { name: "Age from" }).selectOption("10");
     await expect(card(page, "Cozy Storytellers Circle")).toBeHidden();
     await expect(card(page, "Mega Strategy Lab")).toBeVisible();
 
     // The same number in the other box asks who may attend, not what is
     // restricted, so it keeps the unrestricted session and drops nothing.
-    await page.getByRole("spinbutton", { name: "Age from" }).fill("");
+    await page.getByRole("combobox", { name: "Age from" }).selectOption("");
     await page.getByRole("spinbutton", { name: "Participant age" }).fill("10");
     await expect(card(page, "Cozy Storytellers Circle")).toBeVisible();
     await expect(card(page, "Mega Strategy Lab")).toBeVisible();

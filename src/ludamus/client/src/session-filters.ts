@@ -178,7 +178,7 @@ const initSessionFilters = (): void => {
   const spaceFilter = byId<HTMLSelectElement>("space-filter");
   const hostFilter = byId<HTMLInputElement>("host-filter");
   const ageFilter = byId<HTMLInputElement>("age-filter");
-  const minAgeFilter = byId<HTMLInputElement>("min-age-filter");
+  const minAgeFilter = byId<HTMLSelectElement>("min-age-filter");
   const enrollmentFilter = document.querySelector<HTMLInputElement>("#enrollment-filter");
   const filterToggle = byId("filter-toggle");
   const filterPanel = byId("filter-panel");
@@ -251,6 +251,24 @@ const initSessionFilters = (): void => {
     document.getElementById("day-hour-filter-group")?.classList.remove("hidden");
   }
   populateHosts([...cardValues("host")].sort((a, b) => a[1].localeCompare(b[1])));
+
+  // The age floors the schedule actually uses, rather than a number to guess
+  // at: an event rates its sessions 12+, 16+, 18+ and so on, and "show me the
+  // 18+ programme" is one pick from that list. 0 is every session, which the
+  // empty option already means. Numeric sort, since these are ages.
+  const minAges = new Set<number>();
+  for (const card of sessionCards) minAges.add(Number(card.dataset.minAge) || 0);
+  for (const age of [...minAges].filter((age) => age > 0).sort((a, b) => a - b)) {
+    addOption(minAgeFilter, String(age), `${age}+`);
+  }
+  syncControl(minAgeFilter);
+  // Unlike the other choice filters, one option here is still a choice: a lone
+  // "12+" splits the schedule against everything unrestricted. What makes the
+  // control pointless is a schedule that rates every session the same, which is
+  // what a single distinct age — 0 included — means.
+  if (minAges.size > 1) {
+    document.getElementById("min-age-filter-group")?.classList.remove("hidden");
+  }
 
   // Populate the location filter — one control for the whole space tree. The
   // option value is the space's sort key, so sorting the entries lays the rooms
@@ -357,10 +375,9 @@ const initSessionFilters = (): void => {
       // unrestricted session (min age 0) admits everyone, so it always stays.
       (card, value) => (Number(card.dataset.minAge) || 0) <= Number(value),
     ),
-    ageFilterEntry(
+    selectFilter(
       minAgeFilter,
       "age-min",
-      () => filterChipsBar.dataset.minAgeLabel ?? "",
       (card, value) => (Number(card.dataset.minAge) || 0) >= Number(value),
     ),
     selectFilter(dayFilter, "day", dataMatch("day")),

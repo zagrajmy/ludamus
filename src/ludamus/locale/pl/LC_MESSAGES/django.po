@@ -4382,6 +4382,10 @@ msgid "Age from"
 msgstr "Wiek od"
 
 #: src/ludamus/templates/chronology/event.html
+msgid "Any age"
+msgstr "Dowolny wiek"
+
+#: src/ludamus/templates/chronology/event.html
 msgid "Day"
 msgstr "Dzień"
 
