@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from ludamus.gates.web.django.analytics_routes import register_redaction_rules
+from ludamus.gates.web.django.analytics_routes import register_redaction_rules, rule_for
 from ludamus.links.analytics import redaction
 
 TOKEN = "Yd0Xq1mM7pQ2rS4tU6vW8xZ_aB-cD3eF5gH7iJ9kL1mN3oP5qR7sT9uV1wX3yZ5a"
@@ -28,9 +28,9 @@ class TestSafePath:
     def test_bearer_token_is_replaced(self, path: str, expected: str) -> None:
         assert redaction.safe_path(path) == expected
 
-    def test_fails_closed_when_the_path_does_not_resolve(self) -> None:
-        # A chat client that eats the trailing slash still produces a link that
-        # carries the whole credential; resolving would raise here.
+    def test_redacts_a_link_whose_trailing_slash_was_eaten(self) -> None:
+        # Matching by prefix rather than resolving is what makes this work:
+        # resolve() would raise on it and the token would ship intact.
         assert TOKEN not in redaction.safe_path(f"/crowd/claim/{TOKEN}")
 
     @pytest.mark.parametrize(
@@ -58,6 +58,8 @@ class TestSafePath:
 
 
 class TestClientPatterns:
-    def test_replacements_use_javascript_group_syntax(self) -> None:
-        for _source, replacement in redaction.client_patterns():
-            assert "\\" not in replacement
+    def test_a_kept_parameter_uses_javascript_group_syntax(self) -> None:
+        rule = rule_for("event/<slug:slug>/offer/<str:token>/claim/")
+        assert rule is not None
+        assert rule.python == "/event/\\g<1>/offer/:token"
+        assert rule.javascript == "/event/$1/offer/:token"

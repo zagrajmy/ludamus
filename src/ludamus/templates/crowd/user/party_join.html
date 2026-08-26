@@ -20,6 +20,7 @@
                     {% blocktranslate with leader=party.leader_name %}{{ leader }} invited you to their party{% endblocktranslate %}
                 </p>
                 <form method="post"
+                      class="ph-no-capture"
                       action="{% url 'web:crowd:parties-join' token=token %}"
                       class="mt-6">
                     {% csrf_token %}

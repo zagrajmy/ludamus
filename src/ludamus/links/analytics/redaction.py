@@ -14,19 +14,26 @@ derivation, two consumers, so neither half can drift from the routes.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
-if TYPE_CHECKING:
-    import re
+import re  # ruff: ignore[typing-only-standard-library-import]
+from typing import NamedTuple
 
 SECRET_URL_KWARGS = frozenset({"token"})
 
+
+class Rule(NamedTuple):
+    """One substitution, carrying each engine's own replacement syntax."""
+
+    pattern: re.Pattern[str]
+    python: str
+    javascript: str
+
+
 # Mutated rather than rebound so nothing has to reach for `global`, and so a
 # module that imported the list still sees what gates registered.
-_rules: list[tuple[re.Pattern[str], str]] = []
+_rules: list[Rule] = []
 
 
-def register(rules: list[tuple[re.Pattern[str], str]]) -> None:
+def register(rules: list[Rule]) -> None:
     """Install the rules derived from the URLconf. Called once, at startup."""
     _rules.clear()
     _rules.extend(rules)
@@ -35,18 +42,15 @@ def register(rules: list[tuple[re.Pattern[str], str]]) -> None:
 def safe_path(path: str) -> str:
     """Replace every secret-bearing segment with its parameter name.
 
-    Pattern-based rather than resolver-based so that it fails closed: a link
-    whose trailing slash a chat client swallowed resolves to nothing, and
-    returning such a path unchanged would ship the whole token.
+    Matched by prefix rather than resolved, so a link whose trailing slash a
+    chat client swallowed is still redacted. Resolving it would raise, and
+    returning that path unchanged would ship the whole token.
     """
-    for pattern, replacement in _rules:
-        path = pattern.sub(replacement, path)
+    for rule in _rules:
+        path = rule.pattern.sub(rule.python, path)
     return path
 
 
 def client_patterns() -> list[list[str]]:
     """Serialise the rules as `[source, replacement]` pairs the browser compiles."""
-    return [
-        [pattern.pattern, replacement.replace("\\", "$")]
-        for pattern, replacement in _rules
-    ]
+    return [[rule.pattern.pattern, rule.javascript] for rule in _rules]

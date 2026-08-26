@@ -17,6 +17,7 @@
                     {% blocktranslate with manager=claimable.manager_name %}{{ manager }} invited you to take over this profile{% endblocktranslate %}
                 </p>
                 <form method="post"
+                      class="ph-no-capture"
                       action="{% url 'web:crowd:claim' token=token %}"
                       class="mt-6">
                     {% csrf_token %}

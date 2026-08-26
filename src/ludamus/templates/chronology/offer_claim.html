@@ -23,11 +23,13 @@
                 </p>
                 <div class="flex flex-wrap gap-2">
                     <form method="post"
+                          class="ph-no-capture"
                           action="{% url 'web:chronology:offer-claim' token=token %}">
                         {% csrf_token %}
                         <button type="submit" class="btn btn-primary">{% translate "Claim my spot" %}</button>
                     </form>
                     <form method="post"
+                          class="ph-no-capture"
                           action="{% url 'web:chronology:offer-decline' token=token %}"
                           data-confirm="{% translate "Decline this offer? The held seat will be released." %}"
                           data-confirm-action="{% translate "Decline offer" %}">

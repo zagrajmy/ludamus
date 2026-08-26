@@ -97,8 +97,39 @@ const scrubInPlace = (rules: Rule[], node: object, seen: WeakSet<object>): void 
     // Renaming would silently merge two buckets that differ only by token, so
     // drop the original instead of keeping a key that spells out a credential.
     if (scrubbedKey !== key) {
-      if (!(scrubbedKey in record)) record[scrubbedKey] = record[key];
+      const existing = record[scrubbedKey];
+      const scrubbedValue = record[key];
+      // Two buckets differing only by token collapse to one key. Concatenating
+      // keeps both; anything else silently drops data. hasOwn, not `in`: an
+      // inherited name must not count as a collision.
+      record[scrubbedKey] =
+        Object.hasOwn(record, scrubbedKey) &&
+        Array.isArray(existing) &&
+        Array.isArray(scrubbedValue)
+          ? [...existing, ...scrubbedValue]
+          : scrubbedValue;
       Reflect.deleteProperty(record, key);
+    }
+  }
+};
+
+// rrweb puts the page URL in the Meta event as a plain string, and the network
+// plugin records one per request, so the token does reach a recording. Walking
+// the whole snapshot would mean walking a DOM; these two carry the URLs.
+const scrubSnapshot = (rules: Rule[], properties: Record<string, unknown>): void => {
+  const snapshot = properties["$snapshot_data"];
+  if (!Array.isArray(snapshot)) return;
+  for (const entry of snapshot) {
+    if (entry === null || typeof entry !== "object") continue;
+    const { data } = entry as { data?: unknown };
+    if (data === null || typeof data !== "object") continue;
+    const record = data as Record<string, unknown>;
+    const { href, payload } = record;
+    if (typeof href === "string") {
+      record["href"] = scrubText(rules, href);
+    }
+    if (payload !== null && typeof payload === "object") {
+      scrubInPlace(rules, payload, new WeakSet());
     }
   }
 };
@@ -114,10 +145,8 @@ const initPosthog = (config: PosthogServerConfig): void => {
     before_send: (event) => {
       if (!event) return event;
       event.properties.environment = config.environment;
-      // $snapshot is the rrweb payload: the token can only reach it through the
-      // recorded DOM, which a string walk would not find anyway. Templates keep
-      // it out with ph-no-capture instead.
-      if (event.event !== "$snapshot") scrubInPlace(rules, event, new WeakSet());
+      if (event.event === "$snapshot") scrubSnapshot(rules, event.properties);
+      else scrubInPlace(rules, event, new WeakSet());
       return event;
     },
     capture_exceptions: true,
