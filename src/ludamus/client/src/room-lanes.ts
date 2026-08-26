@@ -96,21 +96,44 @@ const collapseEmptyTracks = (lanes: HTMLElement): void => {
   }
 };
 
-// The day heading cannot simply be sticky. It sits inside the body scroller,
-// whose overflow-x makes that scroller the nearest scrollport, and a scrollport
-// that never scrolls vertically pins a sticky child exactly where it was
-// rendered. The header is outside the scroller and does stick to the page, so
-// it carries the current day instead and the scroll position decides which day
-// that is.
 const dayCell = (from: ParentNode, field: string): HTMLElement | null =>
   from.querySelector<HTMLElement>(`[data-day-${field}]`);
 
-// The day heading cannot simply be sticky. It sits inside the body scroller,
-// whose overflow-x makes that scroller the nearest scrollport, and a scrollport
-// that never scrolls vertically pins a sticky child exactly where it was
-// rendered. The header is outside the scroller and does stick to the page, so
-// it carries the current day instead and the scroll position decides which day
-// that is.
+const mountDayMirrors = (lanes: HTMLElement, scroller: HTMLElement, signal: AbortSignal): void => {
+  const overlay = scroller.parentElement?.querySelector<HTMLElement>(
+    "[data-room-lanes-day-overlays]",
+  );
+  if (!overlay) return;
+
+  const pairs: { mirror: HTMLElement; seam: HTMLElement; source: HTMLElement }[] = [];
+  for (const seam of scroller.querySelectorAll<HTMLElement>(".room-lanes-day")) {
+    const source = seam.querySelector<HTMLElement>("h3");
+    if (!source) continue;
+    const mirror = source.cloneNode(true) as HTMLElement;
+    mirror.classList.add("room-lanes-day-mirror");
+    mirror.setAttribute("aria-hidden", "true");
+    overlay.append(mirror);
+    seam.classList.add("room-lanes-day-mirrored");
+    pairs.push({ mirror, seam, source });
+  }
+
+  const sync = (): void => {
+    const overlayTop = overlay.getBoundingClientRect().top;
+    for (const { mirror, seam, source } of pairs) {
+      mirror.hidden = seam.classList.contains(COLLAPSED);
+      mirror.style.top = `${source.getBoundingClientRect().top - overlayTop}px`;
+    }
+  };
+  sync();
+
+  const body = lanes.querySelector<HTMLElement>(".room-lanes-body");
+  const observer = new ResizeObserver(sync);
+  if (body) observer.observe(body);
+  signal.addEventListener("abort", () => observer.disconnect(), { once: true });
+  globalThis.addEventListener("resize", sync, { signal });
+  document.addEventListener("schedule:filtered", sync, { signal });
+};
+
 const trackCurrentDay = (lanes: HTMLElement, head: HTMLElement): (() => void) | null => {
   const label = lanes.querySelector<HTMLElement>("[data-room-lanes-day-current]");
   // Day one's heading is first and carries no row of its own (it is sr-only, so
@@ -174,12 +197,15 @@ const initRoomLanes = (): void => {
   laneListeners = new AbortController();
   const { signal } = laneListeners;
 
-  const panes = scrollers.map((scroller) => ({
-    foot: scroller.parentElement?.querySelector<HTMLElement>("[data-room-lanes-foot]") ?? null,
-    head: scroller.parentElement?.querySelector<HTMLElement>("[data-room-lanes-head]") ?? null,
-    lanes: scroller.closest<HTMLElement>(".room-lanes"),
-    scroller,
-  }));
+  const panes = scrollers.map((scroller) => {
+    const lanes = scroller.closest<HTMLElement>(".room-lanes");
+    return {
+      foot: lanes?.querySelector<HTMLElement>("[data-room-lanes-foot]") ?? null,
+      head: lanes?.querySelector<HTMLElement>("[data-room-lanes-head]") ?? null,
+      lanes,
+      scroller,
+    };
+  });
 
   const measureScrollbars = (): void => {
     for (const { head } of panes) {
@@ -288,6 +314,7 @@ const initRoomLanes = (): void => {
     // Vertical pan moves the page scroller — the grid clips its own y-overflow.
     const page = scroller.closest<HTMLElement>(".app-scroll");
 
+    if (lanes) mountDayMirrors(lanes, scroller, signal);
     const syncDay = lanes && head ? trackCurrentDay(lanes, head) : null;
     if (syncDay) {
       syncDay();

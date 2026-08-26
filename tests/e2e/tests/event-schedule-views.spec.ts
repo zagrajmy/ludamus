@@ -133,6 +133,29 @@ test.describe("Event schedule views", () => {
     await expect.poll(async () => squash(await currentDay.textContent())).toContain(second);
   });
 
+  test("day seams bypass the fade while cards keep the body mask", async ({ page }) => {
+    await page.goto(`${DENSE_EVENT_URL}?view=rooms`);
+    const body = page.locator("[data-room-lanes-scroll]").first();
+    const days = page.getByRole("heading", { level: 3 });
+    const mirrors = page.locator("[data-room-lanes-day-overlays] h3");
+
+    expect(await days.count()).toBeGreaterThan(1);
+    await expect(mirrors).toHaveCount((await days.count()) - 1);
+    expect(await body.evaluate((el) => getComputedStyle(el).maskImage)).not.toBe("none");
+
+    const source = days.nth(1);
+    const mirror = mirrors.first();
+    await expect(mirror).toHaveText((await source.textContent()) ?? "");
+    expect(
+      await mirror.evaluate((label) => label.closest("[data-room-lanes-scroll]") === null),
+    ).toBe(true);
+
+    const [sourceBox, mirrorBox] = await Promise.all([source.boundingBox(), mirror.boundingBox()]);
+    expect(sourceBox).not.toBeNull();
+    expect(mirrorBox).not.toBeNull();
+    expect(Math.abs((sourceBox?.y ?? 0) - (mirrorBox?.y ?? 0))).toBeLessThan(1);
+  });
+
   test("a line marks where the programme has got to", async ({ page }) => {
     await page.goto(`${DENSE_EVENT_URL}?view=rooms`);
     // Arrangement, not assertion: the seeded event sits months from the real
