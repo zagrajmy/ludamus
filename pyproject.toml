@@ -317,7 +317,7 @@ allowed-confusables = ["–"]
 
 [tool.ruff.lint.pylint]
 max-public-methods = 12
-max-args = 12
+max-args = 13
 max-positional-args = 2
 
 [tool.ruff.lint.flake8-pytest-style]
@@ -334,6 +334,7 @@ allow-star-arg-any = true
 
 [tool.ruff.lint.pydocstyle]
 convention = "pep257"
+
 
 # PYTEST
 

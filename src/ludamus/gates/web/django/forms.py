@@ -301,7 +301,7 @@ class EventSettingsForm(forms.Form):
 _PAGE_VALUES = {page.value for page in SpherePage}
 
 
-def _sphere_page_choices() -> list[tuple[str, object]]:
+def _sphere_page_choices() -> list[tuple[str, _StrPromise]]:
     return [(page.value, SPHERE_PAGE_LABELS[page]) for page in SpherePage]
 
 
@@ -351,7 +351,7 @@ class SphereSettingsForm(forms.Form):
         raw: str = self.cleaned_data.get("confirmed_page_disable") or ""
         return {SpherePage(value) for value in raw.split(",") if value in _PAGE_VALUES}
 
-    def clean(self) -> dict[str, object]:
+    def clean(self) -> dict[str, Any] | None:
         # Also enforced by SpherePanelService.update_settings; repeated here so
         # the manager gets the message on the field rather than an exception.
         super().clean()
