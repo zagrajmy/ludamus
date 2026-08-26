@@ -22,9 +22,8 @@
                     <strong>{% translate "Claim by:" %}</strong> {{ offer.offer_expires_at|date:"DATETIME_FORMAT" }}
                 </p>
                 <div class="flex flex-wrap gap-2">
-                    <form method="post"
-                          class="ph-no-capture"
-                          action="{% url 'web:chronology:offer-claim' token=token %}">
+                    {# No action: claim is served and posted on this URL. #}
+                    <form method="post">
                         {% csrf_token %}
                         <button type="submit" class="btn btn-primary">{% translate "Claim my spot" %}</button>
                     </form>

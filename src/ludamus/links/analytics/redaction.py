@@ -14,19 +14,35 @@ derivation, two consumers, so neither half can drift from the routes.
 
 from __future__ import annotations
 
-import re  # ruff: ignore[typing-only-standard-library-import]
+import re
 from typing import NamedTuple
 
 SECRET_URL_KWARGS = frozenset({"token"})
 
 
 class Rule(NamedTuple):
-    """One substitution, carrying each engine's own replacement syntax."""
+    """One substitution, in each engine's own dialect.
+
+    Python and ECMAScript spell a named group differently — `(?P<p1>…)` versus
+    `(?<p1>…)` — and a JavaScript RegExp raises on Python's form, which would
+    take down `posthog.init` and with it every event on the page. Both sides are
+    built from the route rather than derived from one another.
+    """
 
     pattern: re.Pattern[str]
     python: str
+    javascript_pattern: str
     javascript: str
 
+
+# Always applied, before anything gates registers. It makes redaction
+# independent of startup order, of the kwarg still being spelled `token`, and
+# of the route being a path() rather than a re_path() the walk skips.
+# secrets.token_urlsafe(48) is 64 characters; the longest legitimate segment in
+# this app is a six-character share code, so the floor cannot swallow one.
+_FLOOR = Rule(
+    re.compile(r"/[A-Za-z0-9_-]{40,}"), "/:token", r"/[A-Za-z0-9_-]{40,}", "/:token"
+)
 
 # Mutated rather than rebound so nothing has to reach for `global`, and so a
 # module that imported the list still sees what gates registered.
@@ -46,11 +62,11 @@ def safe_path(path: str) -> str:
     chat client swallowed is still redacted. Resolving it would raise, and
     returning that path unchanged would ship the whole token.
     """
-    for rule in _rules:
+    for rule in (*_rules, _FLOOR):
         path = rule.pattern.sub(rule.python, path)
     return path
 
 
 def client_patterns() -> list[list[str]]:
     """Serialise the rules as `[source, replacement]` pairs the browser compiles."""
-    return [[rule.pattern.pattern, rule.javascript] for rule in _rules]
+    return [[rule.javascript_pattern, rule.javascript] for rule in (*_rules, _FLOOR)]

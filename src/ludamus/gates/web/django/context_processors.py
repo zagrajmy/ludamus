@@ -66,7 +66,7 @@ class PosthogConfig(TypedDict):
     host: str
     # Derived from the URLconf so the browser redacts the same segments the
     # server does, rather than keeping its own copy of the route list.
-    token_paths: list[list[str]]
+    redaction_rules: list[list[str]]
     user_id: str | None
 
 
@@ -93,7 +93,7 @@ def analytics(request: HttpRequest) -> AnalyticsContextData:
                 else None
             ),
             environment=identity.environment(),
-            token_paths=redaction.client_patterns(),
+            redaction_rules=redaction.client_patterns(),
         )
     )
 

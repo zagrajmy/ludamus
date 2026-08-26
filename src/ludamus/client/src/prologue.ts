@@ -23,7 +23,7 @@ type PosthogServerConfig = {
   api_key: string;
   environment: string;
   host: string;
-  token_paths: string[][];
+  redaction_rules: [string, string][];
   user_id: string | null;
 };
 
@@ -69,7 +69,7 @@ const syncIdentity = (userId: string | null): void => {
 // CaptureResult.timestamp is a Date.
 type Rule = { pattern: RegExp; replacement: string };
 
-const compileRules = (patterns: string[][]): Rule[] =>
+const compileRules = (patterns: [string, string][]): Rule[] =>
   patterns.map(([source, replacement]) => ({
     pattern: new RegExp(source, "g"),
     replacement,
@@ -87,6 +87,7 @@ const scrubInPlace = (rules: Rule[], node: object, seen: WeakSet<object>): void 
   if (seen.has(node)) return;
   seen.add(node);
   const record = node as Record<string, unknown>;
+  const renames: [string, string][] = [];
   for (const [key, value] of Object.entries(record)) {
     if (typeof value === "string") {
       record[key] = scrubText(rules, value);
@@ -94,22 +95,21 @@ const scrubInPlace = (rules: Rule[], node: object, seen: WeakSet<object>): void 
       scrubInPlace(rules, value, seen);
     }
     const scrubbedKey = scrubText(rules, key);
-    // Renaming would silently merge two buckets that differ only by token, so
-    // drop the original instead of keeping a key that spells out a credential.
-    if (scrubbedKey !== key) {
-      const existing = record[scrubbedKey];
-      const scrubbedValue = record[key];
-      // Two buckets differing only by token collapse to one key. Concatenating
-      // keeps both; anything else silently drops data. hasOwn, not `in`: an
-      // inherited name must not count as a collision.
-      record[scrubbedKey] =
-        Object.hasOwn(record, scrubbedKey) &&
-        Array.isArray(existing) &&
-        Array.isArray(scrubbedValue)
-          ? [...existing, ...scrubbedValue]
-          : scrubbedValue;
-      Reflect.deleteProperty(record, key);
-    }
+    if (scrubbedKey !== key) renames.push([key, scrubbedKey]);
+  }
+  // Applied after the walk rather than during it: merging early can capture a
+  // value the walk has not reached yet, leaving a token inside the merged copy.
+  for (const [key, scrubbedKey] of renames) {
+    const existing = record[scrubbedKey];
+    const value = record[key];
+    // Two buckets differing only by a token collapse onto one key. Concatenating
+    // keeps both; anything else drops one silently. hasOwn rather than `in`, so
+    // an inherited name cannot masquerade as a collision.
+    record[scrubbedKey] =
+      Object.hasOwn(record, scrubbedKey) && Array.isArray(existing) && Array.isArray(value)
+        ? [...existing, ...value]
+        : value;
+    Reflect.deleteProperty(record, key);
   }
 };
 
@@ -131,11 +131,16 @@ const scrubSnapshot = (rules: Rule[], properties: Record<string, unknown>): void
     if (payload !== null && typeof payload === "object") {
       scrubInPlace(rules, payload, new WeakSet());
     }
+    // Mutation events carry the attributes that changed, which is where a token
+    // link inserted after load appears. The full snapshot is gzipped before
+    // before_send runs, so it is out of reach here by design.
+    const { attributes } = record;
+    if (Array.isArray(attributes)) scrubInPlace(rules, attributes, new WeakSet());
   }
 };
 
 const initPosthog = (config: PosthogServerConfig): void => {
-  const rules = compileRules(config.token_paths);
+  const rules = compileRules(config.redaction_rules);
   posthog.init(config.api_key, {
     api_host: config.host,
     // Every event carries the deployment it came from, so staging traffic can

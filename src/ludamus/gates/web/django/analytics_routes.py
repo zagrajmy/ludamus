@@ -18,16 +18,11 @@ from ludamus.links.analytics import redaction
 # `<int:pk>`, `<slug:slug>`, `<token>` — the converter is optional.
 _PARAMETER = re.compile(r"<(?:[^:>]+:)?([^>]+)>")
 # A parameter never spans a slash, and stops at a query string or fragment.
-_SEGMENT = "([^/?#]+)"
-# Escaped by hand rather than with re.escape: that escapes `-`, `#`, `&` and
-# `~` too, which Python accepts and ECMAScript rejects under /u. These are the
-# characters both engines agree are metacharacters. `/` is not among them: the
-# patterns are built with new RegExp(), not literal notation.
-_METACHARACTERS = frozenset("^$\\.*+?()[]{}|")
-
-
-def _escape(literal: str) -> str:
-    return "".join(f"\\{char}" if char in _METACHARACTERS else char for char in literal)
+# Named so the replacement can reference it unambiguously: JS reads `$1` in
+# `$10` as group 1 followed by a zero, which a literal starting with a digit
+# would trigger.
+_SEGMENT = "(?P<p{group}>[^/?#]+)"
+_JS_SEGMENT = "(?<p{group}>[^/?#]+)"
 
 
 def rule_for(route: str) -> redaction.Rule | None:
@@ -37,28 +32,45 @@ def rule_for(route: str) -> redaction.Rule | None:
     ):
         return None
 
-    pattern, python, javascript = ["/"], ["/"], ["/"]
+    pattern, js_pattern = ["/"], ["/"]
+    python, javascript = ["/"], ["/"]
     position = 0
     for group, match in enumerate(_PARAMETER.finditer(route), start=1):
         literal = route[position : match.start()]
-        pattern.append(_escape(literal))
+        pattern.append(re.escape(literal))
+        js_pattern.append(re.escape(literal))
         # A replacement is not a pattern: each engine has its own escape.
         python.append(literal.replace("\\", "\\\\"))
         javascript.append(literal.replace("$", "$$"))
         name = match.group(1)
-        pattern.append(_SEGMENT)
+        pattern.append(_SEGMENT.format(group=group))
+        js_pattern.append(_JS_SEGMENT.format(group=group))
         secret = name in redaction.SECRET_URL_KWARGS
         # Ordinary parameters are kept, so redacting a token does not also cost
         # the event slug sitting beside it in the same route.
-        python.append(f":{name}" if secret else f"\\g<{group}>")
-        javascript.append(f":{name}" if secret else f"${group}")
+        python.append(f":{name}" if secret else f"\\g<p{group}>")
+        javascript.append(f":{name}" if secret else f"$<p{group}>")
         position = match.end()
-    # The trailing literal is dropped on purpose. It anchors nothing, and
-    # leaving it off means a link whose final slash a chat client ate still
-    # matches. The cost is over-matching a sibling like /offer/list/, which is
-    # the right way to be wrong.
+    # Keep the trailing literal, with its final slash optional: a link whose
+    # slash a chat client ate still matches, and /offer/list/ no longer looks
+    # like a token. Exact rather than a trade.
+    if trailing := route[position:].rstrip("/"):
+        pattern.append(re.escape(trailing))
+        js_pattern.append(re.escape(trailing))
+        python.append(trailing.replace("\\", "\\\\"))
+        javascript.append(trailing.replace("$", "$$"))
+    pattern.append("/?")
+    js_pattern.append("/?")
+    # Django routes end in a slash, so put it back: a link that lost its slash
+    # comes out normalised rather than subtly different from every other event.
+    if route.endswith("/"):
+        python.append("/")
+        javascript.append("/")
     return redaction.Rule(
-        re.compile("".join(pattern)), "".join(python), "".join(javascript)
+        re.compile("".join(pattern)),
+        "".join(python),
+        "".join(js_pattern),
+        "".join(javascript),
     )
 
 
@@ -80,8 +92,6 @@ def _routes(patterns: list[URLPattern | URLResolver], prefix: str = "") -> list[
 
 def register_redaction_rules() -> None:
     """Walk the URLconf once and hand the secret-bearing routes to links."""
-    # Routes sharing a prefix collapse to one rule once the trailing literal is
-    # dropped — /offer/<token>/claim and /decline are the same substitution.
     rules: dict[str, redaction.Rule] = {}
     for route in _routes(get_resolver().url_patterns):
         if rule := rule_for(route):

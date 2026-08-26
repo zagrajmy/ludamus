@@ -2,6 +2,8 @@ from importlib import import_module
 
 from django.apps import AppConfig
 
+from ludamus.gates.web.django.analytics_routes import register_redaction_rules
+
 
 class WebGatesConfig(AppConfig):
     """Django app config for web gates."""
@@ -10,12 +12,6 @@ class WebGatesConfig(AppConfig):
     label = "web_gates"
 
     def ready(self) -> None:
-        # The URLconf is fully loaded by now, so the analytics redaction rules
-        # can be derived from it once instead of per request.
-        from ludamus.gates.web.django.analytics_routes import (  # ruff: ignore[import-outside-top-level]
-            register_redaction_rules,
-        )
-
         register_redaction_rules()
         # `{% load vite_tags %}` imports the module lazily, mid-request, which is
         # too late for that request's `request_started` to have reset the

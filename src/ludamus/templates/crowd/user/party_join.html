@@ -19,10 +19,9 @@
                 <p class="text-sm text-foreground-muted mt-1">
                     {% blocktranslate with leader=party.leader_name %}{{ leader }} invited you to their party{% endblocktranslate %}
                 </p>
-                <form method="post"
-                      class="ph-no-capture"
-                      action="{% url 'web:crowd:parties-join' token=token %}"
-                      class="mt-6">
+                {# No action: the view serves GET and POST on this URL, so the form
+                       self-posts and the token never enters the markup. #}
+                <form method="post" class="mt-6">
                     {% csrf_token %}
                     <button type="submit" class="btn btn-primary w-full">{% translate "Join party" %}</button>
                 </form>
