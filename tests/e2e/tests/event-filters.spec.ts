@@ -777,7 +777,7 @@ test.describe("Filter state in the URL", () => {
 
     // The trigger href is a bare `?session=<pk>`; opening must not cost the
     // URL its filter params, and closing must drop only the session param.
-    await page.getByRole("link", { name: "Open details for Mega Strategy Lab" }).click();
+    await page.getByRole("link", { name: "Open details for Mega Strategy Lab" }).press("Enter");
     await expect(page.locator("dialog.modal[open]")).toBeVisible();
     await expect.poll(() => new URL(page.url()).searchParams.get("q")).toBe("mega");
     expect(new URL(page.url()).searchParams.has("session")).toBe(true);

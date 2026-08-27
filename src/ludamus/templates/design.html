@@ -322,6 +322,9 @@
                                                         {% if design_session_data_ended %}
                                                             {% include "chronology/_session_card.html" with data=design_session_data_ended session_link_base="" %}
                                                         {% endif %}
+                                                        {% if design_session_data_overflow %}
+                                                            {% include "chronology/_session_card.html" with data=design_session_data_overflow session_link_base="" %}
+                                                        {% endif %}
                                                         {% if design_session_proposal %}
                                                             {% blocktranslate with title=design_session_proposal.session.title asvar t_review %}Review proposal {{ title }}{% endblocktranslate %}
                                                             {% include "chronology/_session_card.html" with data=design_session_proposal session_link_base="" proposal_url="#" proposal_action_label=t_review %}

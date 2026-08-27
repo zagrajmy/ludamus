@@ -55,6 +55,9 @@ visibility badges, …). Prefer including those over re-creating their markup.
 - **Containers are a last resort.** Group with spacing and type hierarchy first.
   Add a `card` only when the content is genuinely a separable unit. Nested cards
   are almost always a hierarchy problem.
+- **Cloud vs definition list.** Tokens that already carry their kind (icon on
+  a chip) live in one wrap. Restacking them into labelled rows is a `dl` —
+  a different component. Overflow is another token (`+N`), not a row per field.
 - **Hoverable table rows have a default action.** If the row highlights on
   hover, clicking the background goes to Edit or Details. Put `data-row-action`
   on that link so Delete, checkboxes, and menus keep their own targets. Shown

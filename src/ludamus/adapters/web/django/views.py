@@ -109,6 +109,7 @@ from .design_fixtures import (
     mock_form,
     mock_session_data,
     mock_session_data_ended,
+    mock_session_data_overflow,
     mock_session_proposal,
     mock_user,
 )
@@ -135,6 +136,7 @@ class DesignPageView(TemplateView):
         context["design_event"] = mock_event_info()
         context["design_session_data"] = mock_session_data()
         context["design_session_data_ended"] = mock_session_data_ended()
+        context["design_session_data_overflow"] = mock_session_data_overflow()
         context["design_session_proposal"] = mock_session_proposal()
         context["design_user"] = mock_user()
         context["design_form"] = mock_form()
@@ -363,7 +365,7 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
                 "schedule_days": schedule_days,
                 "active_tab": "rooms" if rooms_view else "list",
                 "has_enrollable_sessions": has_enrollable_sessions,
-                "room_lane_days": build_room_lanes(schedule_days) if rooms_view else [],
+                "room_lanes": build_room_lanes(schedule_days) if rooms_view else None,
                 "schedule_list_url": event_url,
                 "schedule_rooms_url": f"{event_url}?view=rooms",
                 "ended_hour_data": ended_hour_data,

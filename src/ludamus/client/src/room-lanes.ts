@@ -9,12 +9,83 @@
 // from the served one, silently and with nothing to catch it.
 const COLLAPSED = "room-lanes-collapsed";
 
+// A track survives if anything visible is on it, or if nothing ever was: an
+// hour no tile covered is a break in the programme, and the server renders it
+// at full height. Collapsing it would leave a cleared filter showing a
+// different schedule than the first load did. The same rule decides whether a
+// whole day survives, one scale up.
+const survives = (had: boolean, live: boolean): boolean => live || !had;
+
+type PositionedCell = {
+  cell: HTMLElement;
+  instantEnd: number;
+  instantStart: number;
+  rowEnd: number;
+  rowStart: number;
+};
+
+const layoutConflict = (cells: PositionedCell[]): void => {
+  const laneEnds: number[] = [];
+  const assigned: { cell: HTMLElement; lane: number }[] = [];
+  for (const { cell, rowEnd, rowStart } of cells) {
+    const lane = laneEnds.findIndex((laneEnd) => laneEnd <= rowStart);
+    const resolvedLane = lane === -1 ? laneEnds.length : lane;
+    laneEnds[resolvedLane] = rowEnd;
+    assigned.push({ cell, lane: resolvedLane });
+  }
+  for (const { cell, lane } of assigned) {
+    cell.dataset.tileLane = String(lane);
+    cell.dataset.tileLanes = String(laneEnds.length);
+    cell.style.width = `calc(100% / ${laneEnds.length})`;
+    cell.style.transform = `translateX(${lane * 100}%)`;
+  }
+};
+
+const layoutVisibleConflicts = (cells: HTMLElement[]): void => {
+  const byColumn = new Map<number, PositionedCell[]>();
+  for (const cell of cells) {
+    const rowStart = Number(cell.dataset.tileRow);
+    const session = cell.querySelector<HTMLElement>(".session");
+    const positioned = {
+      cell,
+      instantEnd: Date.parse(session?.dataset.end ?? ""),
+      instantStart: Date.parse(session?.dataset.start ?? ""),
+      rowEnd: rowStart + Number(cell.dataset.tileSpan),
+      rowStart,
+    };
+    const column = Number(cell.dataset.tileCol);
+    byColumn.set(column, [...(byColumn.get(column) ?? []), positioned]);
+  }
+
+  for (const columnCells of byColumn.values()) {
+    columnCells.sort(
+      (left, right) =>
+        left.instantStart - right.instantStart ||
+        left.instantEnd - right.instantEnd ||
+        left.rowStart - right.rowStart ||
+        left.rowEnd - right.rowEnd,
+    );
+    let conflict: PositionedCell[] = [];
+    let conflictEnd = 0;
+    for (const positioned of columnCells) {
+      if (conflict.length > 0 && positioned.rowStart >= conflictEnd) {
+        layoutConflict(conflict);
+        conflict = [];
+      }
+      conflict.push(positioned);
+      conflictEnd = Math.max(conflictEnd, positioned.rowEnd);
+    }
+    if (conflict.length > 0) layoutConflict(conflict);
+  }
+};
+
 const collapseEmptyTracks = (lanes: HTMLElement): void => {
   const rowCount = Number(lanes.dataset.rows);
   const roomCount = Number(lanes.dataset.rooms);
   const tileRows = new Set<number>();
   const liveRows = new Set<number>();
   const liveCols = new Set<number>();
+  const visibleCells: HTMLElement[] = [];
 
   for (const cell of lanes.querySelectorAll<HTMLElement>(".room-lanes-cell")) {
     const visible = cell.querySelector(".session-wrapper:not([hidden])") !== null;
@@ -24,14 +95,35 @@ const collapseEmptyTracks = (lanes: HTMLElement): void => {
       tileRows.add(row + offset);
       if (visible) liveRows.add(row + offset);
     }
-    if (visible) liveCols.add(Number(cell.dataset.tileCol));
+    if (visible) {
+      liveCols.add(Number(cell.dataset.tileCol));
+      visibleCells.push(cell);
+    }
   }
+  layoutVisibleConflicts(visibleCells);
 
-  // An hour no tile ever covered is a break in the programme, and the server
-  // renders it at full height. Collapsing it would leave a cleared filter
-  // showing a different schedule than the first load did.
-  const rowLives = (row: number): boolean => liveRows.has(row) || !tileRows.has(row);
+  // The same rule one scale up. Every row declares the day it belongs to, so a
+  // filter that empties a whole day takes the day's heading and its blank hours
+  // with it — two headings back to back with nothing between them read as a bug
+  // — and day one, which has no seam of its own, is a day like any other.
+  const dayOfRow = new Map<number, number>();
+  for (const el of lanes.querySelectorAll<HTMLElement>("[data-lane-day]")) {
+    dayOfRow.set(Number(el.dataset.laneRow), Number(el.dataset.laneDay));
+  }
+  const tileDays = new Set<number>();
+  const liveDays = new Set<number>();
+  for (const row of tileRows) tileDays.add(dayOfRow.get(row) ?? -1);
+  for (const row of liveRows) liveDays.add(dayOfRow.get(row) ?? -1);
 
+  const dayLives = (day: number): boolean => survives(tileDays.has(day), liveDays.has(day));
+  const rowLives = (row: number): boolean => {
+    const day = dayOfRow.get(row) ?? -1;
+    return dayLives(day) && survives(tileRows.has(row), liveRows.has(row));
+  };
+
+  for (const heading of lanes.querySelectorAll<HTMLElement>("[data-lane-day-heading]")) {
+    heading.classList.toggle(COLLAPSED, !dayLives(Number(heading.dataset.laneDayHeading)));
+  }
   for (const el of lanes.querySelectorAll<HTMLElement>("[data-lane-row]")) {
     el.classList.toggle(COLLAPSED, !rowLives(Number(el.dataset.laneRow)));
   }
@@ -71,6 +163,71 @@ const collapseEmptyTracks = (lanes: HTMLElement): void => {
       rowLives(index + 1) ? "var(--row-track)" : "0",
     ).join(" ");
   }
+  lanes.hidden = liveCols.size === 0;
+};
+
+const dayCell = (from: ParentNode, field: string): HTMLElement | null =>
+  from.querySelector<HTMLElement>(`[data-day-${field}]`);
+
+const mountDayMirrors = (lanes: HTMLElement, scroller: HTMLElement, signal: AbortSignal): void => {
+  const overlay = scroller.parentElement?.querySelector<HTMLElement>("[data-room-lanes-overlays]");
+  if (!overlay) return;
+
+  const pairs: { mirror: HTMLElement; seam: HTMLElement; source: HTMLElement }[] = [];
+  for (const seam of scroller.querySelectorAll<HTMLElement>(".room-lanes-day")) {
+    const source = seam.querySelector<HTMLElement>("h3");
+    if (!source) continue;
+    const mirror = source.cloneNode(true) as HTMLElement;
+    mirror.classList.add("room-lanes-day-mirror");
+    mirror.setAttribute("aria-hidden", "true");
+    overlay.append(mirror);
+    seam.classList.add("room-lanes-day-mirrored");
+    pairs.push({ mirror, seam, source });
+  }
+
+  const sync = (): void => {
+    const overlayTop = overlay.getBoundingClientRect().top;
+    for (const { mirror, seam, source } of pairs) {
+      mirror.hidden = seam.classList.contains(COLLAPSED);
+      mirror.style.top = `${source.getBoundingClientRect().top - overlayTop}px`;
+    }
+  };
+  sync();
+
+  const body = lanes.querySelector<HTMLElement>(".room-lanes-body");
+  const observer = new ResizeObserver(sync);
+  if (body) observer.observe(body);
+  signal.addEventListener("abort", () => observer.disconnect(), { once: true });
+  globalThis.addEventListener("resize", sync, { signal });
+  document.addEventListener("schedule:filtered", sync, { signal });
+};
+
+const trackCurrentDay = (lanes: HTMLElement, head: HTMLElement): (() => void) | null => {
+  const label = lanes.querySelector<HTMLElement>("[data-room-lanes-day-current]");
+  // Day one's heading is first and carries no row of its own (it is sr-only, so
+  // it is out of flow and has no position to compare); every heading after it is
+  // a seam that scrolls. So day one is the standing answer, not a snapshot of
+  // the label this closure also writes to.
+  const [dayOne, ...seams] = [...lanes.querySelectorAll<HTMLElement>("[data-day-heading]")];
+  if (!label || !dayOne) return null;
+
+  return () => {
+    // The last seam that has passed under the header names the day whose rows
+    // the reader is looking at. A seam a filter collapsed has no position at
+    // all — its rect reads as zero, which would otherwise beat every real one.
+    const edge = head.getBoundingClientRect().bottom;
+    let current = dayOne;
+    for (const seam of seams) {
+      if (seam.classList.contains(COLLAPSED)) continue;
+      if (seam.getBoundingClientRect().top > edge) break;
+      current = seam;
+    }
+    for (const field of ["name", "date"]) {
+      const target = dayCell(label, field);
+      const text = dayCell(current, field)?.textContent ?? "";
+      if (target && target.textContent !== text) target.textContent = text;
+    }
+  };
 };
 
 const PAN_READY = "room-lanes-pan-ready";
@@ -108,12 +265,15 @@ const initRoomLanes = (): void => {
   laneListeners = new AbortController();
   const { signal } = laneListeners;
 
-  const panes = scrollers.map((scroller) => ({
-    foot: scroller.parentElement?.querySelector<HTMLElement>("[data-room-lanes-foot]") ?? null,
-    head: scroller.parentElement?.querySelector<HTMLElement>("[data-room-lanes-head]") ?? null,
-    lanes: scroller.closest<HTMLElement>(".room-lanes"),
-    scroller,
-  }));
+  const panes = scrollers.map((scroller) => {
+    const lanes = scroller.closest<HTMLElement>(".room-lanes");
+    return {
+      foot: lanes?.querySelector<HTMLElement>("[data-room-lanes-foot]") ?? null,
+      head: lanes?.querySelector<HTMLElement>("[data-room-lanes-head]") ?? null,
+      lanes,
+      scroller,
+    };
+  });
 
   const measureScrollbars = (): void => {
     for (const { head } of panes) {
@@ -188,6 +348,7 @@ const initRoomLanes = (): void => {
     // this instance of .room-lanes, so it goes out with the shared controller
     // instead of collapsing tracks in a detached tree.
     if (lanes) {
+      collapseEmptyTracks(lanes);
       document.addEventListener(
         "schedule:filtered",
         () => {
@@ -221,6 +382,24 @@ const initRoomLanes = (): void => {
 
     // Vertical pan moves the page scroller — the grid clips its own y-overflow.
     const page = scroller.closest<HTMLElement>(".app-scroll");
+
+    if (lanes) mountDayMirrors(lanes, scroller, signal);
+    const syncDay = lanes && head ? trackCurrentDay(lanes, head) : null;
+    if (syncDay) {
+      syncDay();
+      let queued = 0;
+      const queueDay = (): void => {
+        if (queued) return;
+        queued = requestAnimationFrame(() => {
+          queued = 0;
+          syncDay();
+        });
+      };
+      page?.addEventListener("scroll", queueDay, { passive: true, signal });
+      globalThis.addEventListener("resize", queueDay, { signal });
+      // Collapsing tracks moves every seam without scrolling anything.
+      document.addEventListener("schedule:filtered", queueDay, { signal });
+    }
     lanes?.addEventListener(
       "pointerenter",
       () => {
