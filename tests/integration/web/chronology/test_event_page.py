@@ -1067,7 +1067,12 @@ class TestEventPageView:
         item_b = AgendaItemFactory(
             session=session_b,
             space=space,
-            start_time=timezone.now() + timedelta(days=7, hours=3),
+            # Off item_a, not off a floating now: the factory anchors to 10:00
+            # local precisely so an item cannot drift across midnight, and
+            # `now + 3h` gives that back. Run between 00:00 and 07:00 local,
+            # `now + 3h` is still before 10:00, so b sorted ahead of a and the
+            # expected order flipped — red every night from 22:00 UTC.
+            start_time=item_a.start_time + timedelta(hours=3),
         )
         cards = [
             session_card(
