@@ -84,8 +84,11 @@ const flagParam: SearchParamCodec<boolean> = {
 /** Integer within [min, max]; anything else parses to null and drops. */
 const intParam = (min: number, max: number): SearchParamCodec<number | null> => ({
   parse: (raw) => {
-    const value = Number.parseInt(raw ?? "", 10);
-    return Number.isNaN(value) || value < min || value > max ? null : value;
+    // Number, not parseInt: parseInt reads "1e1" as 1 and "10.5" as 10, both
+    // silently wrong. The empty-string guard keeps Number("") from becoming 0.
+    if (!raw?.trim()) return null;
+    const value = Number(raw);
+    return !Number.isInteger(value) || value < min || value > max ? null : value;
   },
   serialize: (value) => (value === null ? null : String(value)),
 });

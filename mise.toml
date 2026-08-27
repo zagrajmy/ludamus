@@ -251,14 +251,14 @@ description = "Pull Request Formatting and Readiness Check"
 run = [
     "mise install",
     "poetry install",
-    "aube install --no-optional",
+    "aube install",
     { task = "format" },
     { task = "messages" },
     { task = "lint" },
     { task = "messages-check" },
     "aube exec varlock scan",
     { task = "lint-client" },
-    { task = "ts-check:ios" },
+    { task = "ts-check" },
     { task = "test:py:cov", args = [
         '-xvv',
         '--fail-under=97',
@@ -353,8 +353,8 @@ run = "lsof -ti :8000 | xargs kill -9 2>/dev/null; lsof -ti :5173 | xargs kill -
 
 
 [tasks.ts-check]
-description = "Type-check frontend TypeScript"
-run = "aubr -C src/ludamus/client typecheck"
+description = "Type-check every TypeScript project"
+run = "aube exec tsc --build --pretty false"
 
 [tasks."ts-check:ios"]
 description = "Type-check the iOS regression scripts"
