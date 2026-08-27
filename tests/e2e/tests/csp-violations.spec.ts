@@ -78,7 +78,7 @@ test.describe("CSP enforcement doesn't break legitimate scripts", () => {
 
     // Exercises client-side JS (modal open, htmx/panel-chrome-adjacent
     // interactivity) rather than just the initial paint.
-    await page.getByRole("link", { name: "Open details for Mega Strategy Lab" }).click();
+    await page.getByRole("link", { name: "Open details for Mega Strategy Lab" }).press("Enter");
     await expect(page.getByRole("dialog", { name: "Mega Strategy Lab" })).toBeVisible();
 
     await assertNoCspViolations(page);
