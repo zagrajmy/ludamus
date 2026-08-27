@@ -95,7 +95,7 @@ of blocking — and produces the evidence needed to enforce later.
     `templates/panel/parts/timetable-session-detail.html`); htmx
     evaluates these via `Function`, so `script-src` also needs
     `'unsafe-eval'` to be a realistic enforcement target.
-  - htmx and popper are vendored same-origin
+  - htmx is vendored same-origin
     (`templates/base.html:134` loads
     `{% static 'vendor/htmx.min.js' %}`; `VENDOR_DEPENDENCIES` in
     settings). Vite bundles are same-origin in production

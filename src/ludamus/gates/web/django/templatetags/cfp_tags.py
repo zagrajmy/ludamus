@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from typing import TYPE_CHECKING
 
 from django import template
@@ -81,6 +82,11 @@ def content_field_label(field_key: str) -> str:
         "merged_from": _("Merged from"),
     }
     return labels.get(field_key, field_key)
+
+
+@register.filter
+def space_sort_path_json(value: tuple[tuple[int, str, int], ...]) -> str:
+    return json.dumps(value, ensure_ascii=True, separators=(",", ":"))
 
 
 @register.filter

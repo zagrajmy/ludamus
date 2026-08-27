@@ -186,6 +186,7 @@ def _create_session(
     start_offset: timedelta,
     duration_hours: int,
     participants_limit: int = 24,
+    min_age: int = 10,
 ) -> Session:
     session = Session.objects.create(
         event=event,
@@ -194,7 +195,7 @@ def _create_session(
         slug=slug,
         description=description,
         participants_limit=participants_limit,
-        min_age=10,
+        min_age=min_age,
     )
     AgendaItem.objects.create(
         space=space,
@@ -876,6 +877,9 @@ def main() -> None:
         # Drop-in: no sign-up, so the specs have a session the enrollment
         # filter must exclude and whose modal shows no Participants tab.
         participants_limit=0,
+        # Open to everyone, so the age filter has an unrestricted session
+        # to keep visible below its siblings' 10+ requirement.
+        min_age=0,
     )
 
     neon_session = _create_session(

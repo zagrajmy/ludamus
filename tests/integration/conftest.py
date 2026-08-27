@@ -202,7 +202,12 @@ class ProposalCategoryFactory(DjangoModelFactory):
     class Meta:
         model = ProposalCategory
 
-    name = Faker("word")
+    # A sequence, not Faker("word"): the event page offers each distinct
+    # category name once as a filter, and nothing at all below two, so a test
+    # that builds the expected list one entry per session fails whenever two
+    # sessions land on one name. Faker's word corpus is 971 entries, which
+    # eight sessions collide inside about once in 36 runs.
+    name = Sequence(lambda n: f"category-{n}")
     slug = Sequence(lambda n: f"proposal-category-{n}")
     event = SubFactory(EventFactory)
     max_participants_limit = 20
