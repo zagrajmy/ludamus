@@ -3,17 +3,11 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, NotRequired, TypedDict
 
 from django.conf import settings
-from django.urls import reverse
 
 from ludamus.gates.web.django.access import has_panel_access
 from ludamus.gates.web.django.entities import UserInfo
-from ludamus.gates.web.django.sphere.pages import (
-    SPHERE_PAGE_LABELS,
-    SPHERE_PAGE_NAMESPACES,
-    SPHERE_PAGE_URL_NAMES,
-)
+from ludamus.gates.web.django.sphere.pages import SpherePageNavItem, sphere_page_nav
 from ludamus.links.analytics import identity, redaction
-from ludamus.pacts import SpherePage
 
 if TYPE_CHECKING:
     from django.http import HttpRequest
@@ -24,12 +18,6 @@ if TYPE_CHECKING:
     from ludamus.pacts.enrollment import NavbarNotificationsDTO
 
 
-class SpherePageNavItem(TypedDict):
-    label: str
-    url: str
-    is_active: bool
-
-
 class SitesContextData(TypedDict):
     root_site: SiteDTO | None
     current_site: SiteDTO | None
@@ -37,46 +25,6 @@ class SitesContextData(TypedDict):
     is_root_sphere: bool
     has_panel_access: bool
     sphere_page_nav: list[SpherePageNavItem]
-
-
-def _active_sphere_page(request: HttpRequest) -> SpherePage | None:
-    """Name the page group the current URL belongs to, if any."""
-    if (match := request.resolver_match) is None:
-        return None
-    for namespace in match.namespaces:
-        if page := SPHERE_PAGE_NAMESPACES.get(namespace):
-            return page
-    # The two group landing pages carry no namespace of their own.
-    return {"events": SpherePage.EVENTS, "timeline": SpherePage.TIMELINE}.get(
-        match.url_name or ""
-    )
-
-
-def _sphere_page_nav(
-    request: HttpRequest, sphere: SphereDTO | None
-) -> list[SpherePageNavItem]:
-    if sphere is None:
-        return []
-    active = _active_sphere_page(request)
-    # Content served through the timeline while its own group is disabled
-    # files under the Timeline tab — the only nav entry leading back to it.
-    if (
-        active is not None
-        and active not in sphere.enabled_pages
-        and SpherePage.TIMELINE in sphere.enabled_pages
-    ):
-        active = SpherePage.TIMELINE
-    return [
-        SpherePageNavItem(
-            label=str(SPHERE_PAGE_LABELS[page]),
-            url=reverse(SPHERE_PAGE_URL_NAMES[page]),
-            is_active=page is active,
-        )
-        # Ordered by the enum, not by the sphere's list, so the navbar reads
-        # the same everywhere however the setting was saved.
-        for page in SpherePage
-        if page in sphere.enabled_pages
-    ]
 
 
 def sites(request: RootRepositoryRequest) -> SitesContextData:
@@ -108,7 +56,7 @@ def sites(request: RootRepositoryRequest) -> SitesContextData:
         current_sphere=current_sphere,
         is_root_sphere=is_root_sphere,
         has_panel_access=has_panel_access(request),
-        sphere_page_nav=_sphere_page_nav(request, current_sphere),
+        sphere_page_nav=sphere_page_nav(request, current_sphere),
     )
 
 

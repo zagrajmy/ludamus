@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import random
 from dataclasses import dataclass
 from functools import cached_property
@@ -44,6 +46,9 @@ from .forms import EncounterForm
 if TYPE_CHECKING:
     from datetime import datetime
 
+    from django.core.files.uploadedfile import UploadedFile
+    from django.http import QueryDict
+    from django.utils.datastructures import MultiValueDict
     from django.utils.functional import _StrPromise
 
     from ludamus.gates.web.django.entities import AuthenticatedRootRequest, RootRequest
@@ -204,27 +209,33 @@ class _EncounterFormPageView(_RequireEncountersEnabled, LoginRequiredMixin, View
 
     request: AuthenticatedRootRequest
 
-    def _allow_public(self) -> bool:
-        # Decides whether the field is rendered at all. The service enforces
-        # the same policy on write, so a forged flag never gets through.
-        return self.request.services.encounters.can_set_public(
+    def _form(
+        self,
+        data: QueryDict | None = None,
+        files: MultiValueDict[str, UploadedFile[bytes]] | None = None,
+        *,
+        initial: dict[str, Any] | None = None,
+    ) -> EncounterForm:
+        form = EncounterForm(data, files, initial=initial)
+        # The policy decides whether the field is rendered and bound at all.
+        # The service enforces it again on write, so a forged flag never gets
+        # through.
+        if not self.request.services.encounters.can_set_public(
             sphere_id=self.request.context.current_sphere_id,
             user_id=self.request.context.current_user_id,
-        )
+        ):
+            del form.fields["is_public"]
+        return form
 
 
 class EncounterCreatePageView(_EncounterFormPageView):
     def get(self, request: AuthenticatedRootRequest) -> TemplateResponse:
         return TemplateResponse(
-            request,
-            "notice_board/create.html",
-            {"form": EncounterForm(allow_public=self._allow_public())},
+            request, "notice_board/create.html", {"form": self._form()}
         )
 
     def post(self, request: AuthenticatedRootRequest) -> HttpResponse:
-        form = EncounterForm(
-            request.POST, request.FILES, allow_public=self._allow_public()
-        )
+        form = self._form(request.POST, request.FILES)
         if not form.is_valid():
             return TemplateResponse(request, "notice_board/create.html", {"form": form})
 
@@ -273,8 +284,7 @@ class EncounterEditPageView(_EncounterFormPageView):
 
     def get(self, request: AuthenticatedRootRequest, pk: int) -> TemplateResponse:
         encounter = self._get_encounter(pk)
-        form = EncounterForm(
-            allow_public=self._allow_public(),
+        form = self._form(
             initial={
                 "title": encounter.title,
                 "description": encounter.description,
@@ -287,16 +297,14 @@ class EncounterEditPageView(_EncounterFormPageView):
                 "header_image": stored_file(
                     encounter.header_image_url, encounter.header_image_original_name
                 ),
-            },
+            }
         )
         return TemplateResponse(
             request, "notice_board/edit.html", {"form": form, "encounter": encounter}
         )
 
     def post(self, request: AuthenticatedRootRequest, pk: int) -> HttpResponse:
-        form = EncounterForm(
-            request.POST, request.FILES, allow_public=self._allow_public()
-        )
+        form = self._form(request.POST, request.FILES)
         if not form.is_valid():
             return TemplateResponse(
                 request,

@@ -1,18 +1,10 @@
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from django import forms
-from django.forms.utils import ErrorList
 from django.utils.translation import gettext as _gettext
 from django.utils.translation import gettext_lazy as _
 
 from ludamus.gates.web.django.forms import cover_image_field, validate_uploaded_image
-
-if TYPE_CHECKING:
-    from collections.abc import Iterable, MutableMapping
-
-    from django.forms.boundfield import BoundField
-    from django.forms.renderers import BaseRenderer
-    from django.forms.utils import _DataT, _FilesT
 
 
 class EncounterForm(forms.Form):
@@ -46,40 +38,6 @@ class EncounterForm(forms.Form):
         ),
     )
     header_image = cover_image_field()
-
-    def __init__(
-        self,
-        data: _DataT | None = None,
-        files: _FilesT | None = None,
-        *,
-        auto_id: bool | str = "id_%s",
-        prefix: str | None = None,
-        initial: MutableMapping[str, Any] | None = None,
-        error_class: type[ErrorList] = ErrorList,
-        label_suffix: str | None = None,
-        empty_permitted: bool = False,
-        field_order: Iterable[str] | None = None,
-        use_required_attribute: bool | None = None,
-        renderer: BaseRenderer | None = None,
-        bound_field_class: type[BoundField] | None = None,
-        allow_public: bool | None = None,
-    ) -> None:
-        super().__init__(
-            data=data,
-            files=files,
-            auto_id=auto_id,
-            prefix=prefix,
-            initial=initial,
-            error_class=error_class,
-            label_suffix=label_suffix,
-            empty_permitted=empty_permitted,
-            field_order=field_order,
-            use_required_attribute=use_required_attribute,
-            renderer=renderer,
-            bound_field_class=bound_field_class,
-        )
-        if not allow_public:
-            del self.fields["is_public"]
 
     def clean_header_image(self) -> object:
         image = self.cleaned_data.get("header_image")

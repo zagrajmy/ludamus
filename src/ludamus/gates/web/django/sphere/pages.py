@@ -4,9 +4,10 @@
 # redirect would leak that the page exists.
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, ClassVar, cast
+from typing import TYPE_CHECKING, ClassVar, TypedDict, cast
 
 from django.http import Http404
+from django.urls import reverse
 from django.utils.translation import gettext_lazy as _
 from django.views.generic.base import View
 
@@ -17,6 +18,7 @@ if TYPE_CHECKING:
     from django.http.response import HttpResponseBase
 
     from ludamus.gates.web.django.entities import RootRequest
+    from ludamus.pacts import SphereDTO
 
 
 SPHERE_PAGE_LABELS = {
@@ -38,6 +40,53 @@ SPHERE_PAGE_NAMESPACES = {
     "event": SpherePage.EVENTS,
     "notice-board": SpherePage.ENCOUNTERS,
 }
+
+# The group landing pages carry no namespace of their own, only a url_name.
+# Must stay consistent with SPHERE_PAGE_URL_NAMES above.
+_LANDING_URL_NAMES = {"events": SpherePage.EVENTS, "timeline": SpherePage.TIMELINE}
+
+
+class SpherePageNavItem(TypedDict):
+    label: str
+    url: str
+    is_active: bool
+
+
+def _active_sphere_page(request: HttpRequest) -> SpherePage | None:
+    """Name the page group the current URL belongs to, if any."""
+    if (match := request.resolver_match) is None:
+        return None
+    for namespace in match.namespaces:
+        if page := SPHERE_PAGE_NAMESPACES.get(namespace):
+            return page
+    return _LANDING_URL_NAMES.get(match.url_name or "")
+
+
+def sphere_page_nav(
+    request: HttpRequest, sphere: SphereDTO | None
+) -> list[SpherePageNavItem]:
+    if sphere is None:
+        return []
+    active = _active_sphere_page(request)
+    # Content served through the timeline while its own group is disabled
+    # files under the Timeline tab — the only nav entry leading back to it.
+    if (
+        active is not None
+        and active not in sphere.enabled_pages
+        and SpherePage.TIMELINE in sphere.enabled_pages
+    ):
+        active = SpherePage.TIMELINE
+    return [
+        SpherePageNavItem(
+            label=str(SPHERE_PAGE_LABELS[page]),
+            url=reverse(SPHERE_PAGE_URL_NAMES[page]),
+            is_active=page is active,
+        )
+        # Ordered by the enum, not by the sphere's list, so the navbar reads
+        # the same everywhere however the setting was saved.
+        for page in SpherePage
+        if page in sphere.enabled_pages
+    ]
 
 
 class SpherePageRequiredMixin(View):

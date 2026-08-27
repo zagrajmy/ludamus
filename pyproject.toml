@@ -317,7 +317,7 @@ allowed-confusables = ["–"]
 
 [tool.ruff.lint.pylint]
 max-public-methods = 12
-max-args = 13
+max-args = 12
 max-positional-args = 2
 
 [tool.ruff.lint.flake8-pytest-style]
@@ -334,7 +334,6 @@ allow-star-arg-any = true
 
 [tool.ruff.lint.pydocstyle]
 convention = "pep257"
-
 
 # PYTEST
 
@@ -491,6 +490,7 @@ exclude = [
 ignore_names = [
     # Called from context_processors.py, which is excluded above
     "client_patterns",
+    "sphere_page_nav",
     # Used in templates
     "bookmark_count",
     "button_class",
