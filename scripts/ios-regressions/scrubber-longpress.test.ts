@@ -10,6 +10,7 @@ import {
   createIosHarness,
   describeNode,
   hookTimeoutMs,
+  matchesScopeLabel,
   pollUntil,
   sessionName,
 } from "./harness";
@@ -141,7 +142,7 @@ const waitForRailMarkers = async (
         screen ??= viewportOf(await takeSnapshot());
         const scoped = await takeSnapshot(navName);
         const scopeMatched = scoped.nodes.some(
-          (node) => node.label && collapse(node.label) === navName,
+          (node) => node.label && matchesScopeLabel(collapse(node.label), navName),
         );
         if (!scopeMatched) return null;
         const found = railMarkersFrom(scoped, markerNames, screen);
@@ -170,7 +171,9 @@ const waitForRailMarkers = async (
   // truncated or screen-sized root means the scope query missed the nav and
   // the runner fell back to the full tree.
   const sample = scoped.nodes.slice(0, 15).map(describeNode).join(" | ");
-  const scopeMatched = scoped.nodes.some((node) => node.label && collapse(node.label) === navName);
+  const scopeMatched = scoped.nodes.some(
+    (node) => node.label && matchesScopeLabel(collapse(node.label), navName),
+  );
   throw new Error(
     `No on-screen rail markers in the ${JSON.stringify(navName)}-scoped snapshot: ` +
       `scopeMatched=${String(scopeMatched)}, ${scoped.nodes.length} nodes, ` +

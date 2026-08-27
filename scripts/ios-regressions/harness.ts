@@ -75,6 +75,12 @@ export const centreOnScreen = (rect: Rect, viewport: Rect): boolean => {
   );
 };
 
+// The runner reports a scoped container's accessible name with its role
+// appended -- a nav named "Jump to time" comes back as "Jump to time,
+// navigation" -- so an equality check reads a resolved scope as a miss.
+export const matchesScopeLabel = (label: string, scope: string): boolean =>
+  label === scope || label.startsWith(`${scope}, `);
+
 export const describeNode = (node: SnapshotNode): string => {
   const rect = node.rect
     ? ` x=${Math.round(node.rect.x)} y=${Math.round(node.rect.y)} w=${Math.round(node.rect.width)} h=${Math.round(node.rect.height)}`
@@ -216,7 +222,7 @@ export const createIosHarness = (session: string): IosHarness => {
           const snapshot = await takeSnapshot(scope);
           const app = snapshot.appBundleId ?? snapshot.appName ?? "an unknown app";
           const labels = snapshot.nodes.map((node) => node.label ?? node.value ?? "");
-          const scopeMatched = !scope || labels.includes(scope);
+          const scopeMatched = !scope || labels.some((label) => matchesScopeLabel(label, scope));
           const contentMatched =
             match === "all"
               ? expectedLabels.every((expected) => labels.includes(expected))
