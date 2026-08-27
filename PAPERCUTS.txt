@@ -339,11 +339,6 @@ If you fix a papercut, remove it.
   (tasks.toml:150) left an empty untracked .env.local.tmp in the worktree when
   it did not complete, and the name is not gitignored, so it shows up in git
   status as if it were mine.
-- 2026-08-26: tests/integration/web/chronology/test_event_page.py::test_track_an
-  d_category_filters_expose_data_and_controls fails on a clean main: the
-  expected SessionData carries a fixed agenda datetime (12:00) while the factory
-  builds a random one, so the context_data comparison diffs on time. Cost a
-  bisect against a stash to rule out my change.
 - 2026-08-26: Ran format:djlint on a template change; it reformatted the file
   and reported zero lint errors but still exited nonzero, so the formatting task
   appeared to fail until rerun.
