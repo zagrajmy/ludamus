@@ -46,8 +46,13 @@
             <header>
                 {# w-fit keeps the morph group's box on the title text rather than #}
                 {# the card column, so the modal title snapshot is not scaled up on #}
-                {# the transition's first frame. #}
-                <h3 class="w-fit text-3xl font-bold leading-tight tracking-tight text-foreground-primary"
+                {# the transition's first frame. break-all is what keeps w-fit from #}
+                {# resolving to a single unbroken token's max-content width and #}
+                {# spilling the title across the neighbouring card; overflow-hidden #}
+                {# is the backstop, and it sits on the title alone — the card itself #}
+                {# must keep overflowing, or the tag cloud's "+n more" popover is #}
+                {# clipped. #}
+                <h3 class="w-fit overflow-hidden break-all text-3xl font-bold leading-tight tracking-tight text-foreground-primary"
                     data-morph="title">{{ data.session.title }}</h3>
                 {# This row must not clip: the avatar's warning badge and guild #}
                 {# notch hang 4px off its edges, and it used to be overflow-hidden, #}
