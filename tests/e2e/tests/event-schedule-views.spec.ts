@@ -227,7 +227,6 @@ test.describe("Event schedule views", () => {
         element.dataset.tileCol = placement.col;
         element.dataset.tileRow = placement.row;
         element.dataset.tileSpan = placement.span;
-        document.dispatchEvent(new CustomEvent("schedule:filtered"));
       },
       {
         col: (await first.getAttribute("data-tile-col")) ?? "",
@@ -236,11 +235,23 @@ test.describe("Event schedule views", () => {
       },
     );
 
+    await first.locator(".session").evaluate((session) => {
+      const element = session as HTMLElement;
+      element.dataset.start = "2026-07-10T10:45:00+02:00";
+      element.dataset.end = "2026-07-10T10:55:00+02:00";
+    });
+    await second.locator(".session").evaluate((session) => {
+      const element = session as HTMLElement;
+      element.dataset.start = "2026-07-10T10:05:00+02:00";
+      element.dataset.end = "2026-07-10T10:15:00+02:00";
+      document.dispatchEvent(new CustomEvent("schedule:filtered"));
+    });
+
     const [firstBox, secondBox] = await Promise.all([first.boundingBox(), second.boundingBox()]);
     expect(firstBox).not.toBeNull();
     expect(secondBox).not.toBeNull();
-    expect((firstBox?.x ?? 0) + (firstBox?.width ?? 0)).toBeLessThanOrEqual(
-      (secondBox?.x ?? 0) + 1,
+    expect((secondBox?.x ?? 0) + (secondBox?.width ?? 0)).toBeLessThanOrEqual(
+      (firstBox?.x ?? 0) + 1,
     );
     for (const cell of [first, second]) {
       expect(
@@ -638,7 +649,12 @@ test.describe("Event schedule views", () => {
   });
 });
 
-test("overnight bookmark copies share one state and one request", async ({ browser }) => {
+test("overnight bookmark copies share one state and one request", async ({
+  browser,
+  browserName,
+}) => {
+  test.skip(browserName === "firefox", "Mutates bookmark state shared across browser projects");
+
   const context = await browser.newContext({
     storageState: path.join(__dirname, "..", ".auth-state-superuser.json"),
   });
@@ -646,20 +662,31 @@ test("overnight bookmark copies share one state and one request", async ({ brows
   await page.goto(DENSE_EVENT_URL);
 
   const buttons = page.locator(".bookmark-toggle");
-  expect(await buttons.count()).toBeGreaterThan(1);
-  const source = buttons.first();
-  const copy = buttons.nth(1);
-  const sessionId = await source.getAttribute("data-session-id");
-  const wasBookmarked = (await source.getAttribute("aria-pressed")) === "true";
-  if (!sessionId) throw new Error("The fixture needs a bookmarkable session");
-  await copy.evaluate((button, id) => {
-    button.dataset.sessionId = id;
-    const card = button.closest<HTMLElement>(".session");
-    if (card) card.dataset.sessionId = id;
-  }, sessionId);
+  const sessionId = await buttons.evaluateAll((elements) => {
+    const daysBySession = new Map<string, Set<string>>();
+    for (const button of elements as HTMLElement[]) {
+      const id = button.dataset.sessionId;
+      const day = button.closest<HTMLElement>(".session")?.dataset.day;
+      if (!id || !day) continue;
+      const days = daysBySession.get(id) ?? new Set<string>();
+      days.add(day);
+      daysBySession.set(id, days);
+    }
+    return [...daysBySession].find(([, days]) => days.size > 1)?.[0] ?? null;
+  });
+  if (!sessionId) throw new Error("The fixture needs an overnight session");
 
   const copies = page.locator(`.bookmark-toggle[data-session-id="${sessionId}"]`);
-  expect(await copies.count()).toBeGreaterThan(1);
+  await expect(copies).toHaveCount(2);
+  const initialStates = await copies.evaluateAll((elements) =>
+    elements.map((element) => element.getAttribute("aria-pressed")),
+  );
+  expect(new Set(initialStates).size).toBe(1);
+  expect(new Set(await copies.locator(".bookmark-count").allTextContents()).size).toBe(1);
+
+  const source = copies.first();
+  const copy = copies.nth(1);
+  const wasBookmarked = (await source.getAttribute("aria-pressed")) === "true";
   let requests = 0;
   await page.route(/\/bookmark\/$/, async (route) => {
     requests += 1;

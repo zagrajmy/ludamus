@@ -49,7 +49,6 @@ def _mock_venue_and_space() -> LocationData:
         "parent_name": "Main Hall",
         "path": "Main Hall > Table 1",
         "sort_path": ((0, "Main Hall", 1), (0, "Table 1", 2)),
-        "sort_path_json": '[[0,"Main Hall",1],[0,"Table 1",2]]',
     }
 
 

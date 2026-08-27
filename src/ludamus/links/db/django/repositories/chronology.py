@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
@@ -140,7 +139,6 @@ def location_data(space: Space) -> LocationData:
         parent_name=space.parent.name if space.parent else "",
         path=str(space),
         sort_path=sort_path,
-        sort_path_json=json.dumps(sort_path, ensure_ascii=True, separators=(",", ":")),
     )
 
 

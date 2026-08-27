@@ -103,8 +103,8 @@ def _place_conflicting_tiles(
         ordered = sorted(
             column_tiles,
             key=lambda item: (
-                item[0],
-                item[0] + item[1].row_span,
+                item[1].start.timestamp(),
+                item[1].end.timestamp(),
                 item[1].data.session.title.casefold(),
                 item[1].data.session.pk,
             ),
@@ -149,6 +149,8 @@ def _place_conflicting_tiles(
         key=lambda item: (
             item[0],
             item[1].col,
+            item[1].start.timestamp(),
+            item[1].end.timestamp(),
             item[1].lane_index,
             item[1].data.session.title.casefold(),
             item[1].data.session.pk,

@@ -1,3 +1,4 @@
+{% load cfp_tags %}
 {# Shared data-* contract consumed by session-filters.ts and the detail #}
 {# modals. Included inside the opening tag of both the card #}
 {# (_session_card.html) and the compact row (_compact_session_row.html), so #}
@@ -26,7 +27,7 @@ data-venue="{% if data.loc.parent_id %}{{ data.loc.parent_id }}{% endif %}"
 data-venue-name="{{ data.loc.parent_name }}"
 data-space="{% if data.loc.space_id %}{{ data.loc.space_id }}{% endif %}"
 data-space-name="{{ data.loc.space_name }}"
-data-space-order="{{ data.loc.sort_path_json }}"
+data-space-order="{{ data.loc.sort_path|json_compact }}"
 {% if data.agenda_item %}
 {# The instant, offset included: data-day/data-hour below are the event's #}
 {# local wall clock, which reads as a different moment in a reader's own #}

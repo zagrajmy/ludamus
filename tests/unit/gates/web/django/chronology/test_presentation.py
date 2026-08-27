@@ -473,12 +473,19 @@ class TestRoomLaneColumns:
 
 class TestRoomLaneConflicts:
     @staticmethod
-    def _session(*, pk: int, start_hour: int, end_hour: int) -> SessionData:
+    def _session(
+        *,
+        pk: int,
+        start_hour: int,
+        end_hour: int,
+        start_minute: int = 0,
+        end_minute: int = 0,
+    ) -> SessionData:
         tz = timezone.get_current_timezone()
         return _make_session_data(
             agenda_item=AgendaItemDTO(
-                start_time=datetime(2026, 7, 10, start_hour, tzinfo=tz),
-                end_time=datetime(2026, 7, 10, end_hour, tzinfo=tz),
+                start_time=datetime(2026, 7, 10, start_hour, start_minute, tzinfo=tz),
+                end_time=datetime(2026, 7, 10, end_hour, end_minute, tzinfo=tz),
                 pk=pk,
                 session_confirmed=True,
             ),
@@ -522,6 +529,19 @@ class TestRoomLaneConflicts:
             (row, tile.row_span, tile.lane_index, tile.lane_count)
             for row, tile in _positioned_room_tiles(lanes)
         ] == [(1, 2, 0, 2), (2, 2, 1, 2)]
+
+    def test_same_hour_conflicts_follow_exact_start_instants(self):
+        later = self._session(
+            pk=1, start_hour=10, start_minute=45, end_hour=10, end_minute=55
+        )
+        earlier = self._session(
+            pk=2, start_hour=10, start_minute=5, end_hour=10, end_minute=15
+        )
+
+        lanes = build_room_lanes(build_schedule_days({1: later, 2: earlier}))
+
+        assert [tile.data.session.pk for tile in _room_tiles(lanes)] == [2, 1]
+        assert [tile.lane_index for tile in _room_tiles(lanes)] == [0, 1]
 
 
 class TestRoomLaneOrdering:

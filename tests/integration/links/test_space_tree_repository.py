@@ -1,5 +1,3 @@
-import json
-
 import pytest
 from django.core.exceptions import ValidationError
 
@@ -46,10 +44,6 @@ class TestLocationData:
             (root.order, root.name, root.pk),
             (leaf.order, leaf.name, leaf.pk),
         )
-        assert json.loads(data["sort_path_json"]) == [
-            [root.order, root.name, root.pk],
-            [leaf.order, leaf.name, leaf.pk],
-        ]
 
 
 class TestSpaceTreeRepositoryCreate:

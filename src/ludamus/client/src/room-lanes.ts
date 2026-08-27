@@ -18,17 +18,19 @@ const survives = (had: boolean, live: boolean): boolean => live || !had;
 
 type PositionedCell = {
   cell: HTMLElement;
-  end: number;
-  start: number;
+  instantEnd: number;
+  instantStart: number;
+  rowEnd: number;
+  rowStart: number;
 };
 
 const layoutConflict = (cells: PositionedCell[]): void => {
   const laneEnds: number[] = [];
   const assigned: { cell: HTMLElement; lane: number }[] = [];
-  for (const { cell, end, start } of cells) {
-    const lane = laneEnds.findIndex((laneEnd) => laneEnd <= start);
+  for (const { cell, rowEnd, rowStart } of cells) {
+    const lane = laneEnds.findIndex((laneEnd) => laneEnd <= rowStart);
     const resolvedLane = lane === -1 ? laneEnds.length : lane;
-    laneEnds[resolvedLane] = end;
+    laneEnds[resolvedLane] = rowEnd;
     assigned.push({ cell, lane: resolvedLane });
   }
   for (const { cell, lane } of assigned) {
@@ -42,27 +44,36 @@ const layoutConflict = (cells: PositionedCell[]): void => {
 const layoutVisibleConflicts = (cells: HTMLElement[]): void => {
   const byColumn = new Map<number, PositionedCell[]>();
   for (const cell of cells) {
-    const start = Number(cell.dataset.tileRow);
+    const rowStart = Number(cell.dataset.tileRow);
+    const session = cell.querySelector<HTMLElement>(".session");
     const positioned = {
       cell,
-      end: start + Number(cell.dataset.tileSpan),
-      start,
+      instantEnd: Date.parse(session?.dataset.end ?? ""),
+      instantStart: Date.parse(session?.dataset.start ?? ""),
+      rowEnd: rowStart + Number(cell.dataset.tileSpan),
+      rowStart,
     };
     const column = Number(cell.dataset.tileCol);
     byColumn.set(column, [...(byColumn.get(column) ?? []), positioned]);
   }
 
   for (const columnCells of byColumn.values()) {
-    columnCells.sort((left, right) => left.start - right.start || left.end - right.end);
+    columnCells.sort(
+      (left, right) =>
+        left.instantStart - right.instantStart ||
+        left.instantEnd - right.instantEnd ||
+        left.rowStart - right.rowStart ||
+        left.rowEnd - right.rowEnd,
+    );
     let conflict: PositionedCell[] = [];
     let conflictEnd = 0;
     for (const positioned of columnCells) {
-      if (conflict.length > 0 && positioned.start >= conflictEnd) {
+      if (conflict.length > 0 && positioned.rowStart >= conflictEnd) {
         layoutConflict(conflict);
         conflict = [];
       }
       conflict.push(positioned);
-      conflictEnd = Math.max(conflictEnd, positioned.end);
+      conflictEnd = Math.max(conflictEnd, positioned.rowEnd);
     }
     if (conflict.length > 0) layoutConflict(conflict);
   }

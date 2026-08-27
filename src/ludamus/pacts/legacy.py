@@ -238,7 +238,6 @@ class LocationData(TypedDict):
     parent_name: str
     path: str
     sort_path: tuple[tuple[int, str, int], ...]
-    sort_path_json: str
 
 
 # A session that is not on the agenda has no space to describe. Shared, so
@@ -250,7 +249,6 @@ NO_LOCATION: LocationData = {
     "parent_name": "",
     "path": "",
     "sort_path": (),
-    "sort_path_json": "[]",
 }
 
 
