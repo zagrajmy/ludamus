@@ -493,6 +493,7 @@ ignore_names = [
     # Used in templates
     "bookmark_count",
     "button_class",
+    "cloud_overflow",
     "filter_categories",
     "has_guests",
     "has_secret",

@@ -21,7 +21,7 @@ test.describe("Modal surfaces using page scroll lock", () => {
 
     await page.goto("/event/autumn-open/");
 
-    await page.getByRole("link", { name: "Open details for Mega Strategy Lab" }).click();
+    await page.getByRole("link", { name: "Open details for Mega Strategy Lab" }).press("Enter");
 
     const dialog = page.getByRole("dialog", { name: "Mega Strategy Lab" });
     await expect(dialog).toBeVisible();

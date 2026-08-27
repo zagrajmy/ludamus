@@ -344,6 +344,28 @@ If you fix a papercut, remove it.
   expected SessionData carries a fixed agenda datetime (12:00) while the factory
   builds a random one, so the context_data comparison diffs on time. Cost a
   bisect against a stash to rule out my change.
+- 2026-08-26: Ran format:djlint on a template change; it reformatted the file
+  and reported zero lint errors but still exited nonzero, so the formatting task
+  appeared to fail until rerun.
+- 2026-08-26: Playwriter session expired between UI verification passes, so the
+  saved session could not inspect the refreshed page; use a fresh browser
+  session or the E2E server instead.
+- 2026-08-26: Passing paths after 'mise run test:py --' was ignored because the
+  task hardcodes both test trees, so a targeted check unexpectedly ran all 4,600
+  tests; direct pytest then lacked the task's .env.test environment.
+- 2026-08-26: The full Python suite flaked in
+  test_query_count_constant_in_session_count because Faker generated the same
+  category word twice while the expected context retained duplicates; the
+  isolated rerun passed.
+- 2026-08-26: Running messages-check in parallel with mise check raced
+  makemessages' temporary *.html.py extraction files against Black, causing 255
+  template parse errors; these tasks must run sequentially.
+- 2026-08-26: Fresh gpt-5.6-sol thermonuclear review failed immediately with a
+  bare 'fetch failed' and no report; retrying the identical read-only
+  invocation.
+- 2026-08-26: Running mypy directly (including with a file path) crashed while
+  constructing the Django plugin because it missed the task's .env.test
+  environment; mise run lint:mypy succeeded.
 - 2026-08-26: mise run test:py <path> appends the path to the full suite instead
   of replacing it: the task runs 'pytest -n auto tests/integration tests/unit
   <path>', so asking for one file re-runs everything (~16 min). Wanted to verify
