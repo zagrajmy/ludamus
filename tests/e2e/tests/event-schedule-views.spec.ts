@@ -81,41 +81,79 @@ test.describe("Event schedule views", () => {
     expect(await stayedOnPage(page)).toBe(true);
   });
 
-  test("the grid offers sideways scrollbars on both edges", async ({ page }) => {
+  test("the grid offers a sideways scrollbar at its bottom edge", async ({ page }) => {
     await page.goto(`${DENSE_EVENT_URL}?view=rooms`);
-    const head = page.locator("[data-room-lanes-head]").first();
     const foot = page.locator("[data-room-lanes-foot]").first();
     const body = page.locator("[data-room-lanes-scroll]").first();
 
-    // Real scrollers — that is what puts a scrollbar at the top and the
-    // bottom edge for mouse users. The body's own scrollbar yields to the
-    // foot, which pins to the viewport.
-    for (const handle of [head, foot]) {
-      await expect(handle).toHaveCSS("overflow-x", "auto");
-    }
+    // A real scroller — that is what puts a scrollbar under the grid for mouse
+    // users. The body's own yields to it, because the foot pins to the
+    // viewport while the body's would surface only at the grid's end.
+    await expect(foot).toHaveCSS("overflow-x", "auto");
     await expect(body).toHaveCSS("scrollbar-width", "none");
 
     // Targets derived from the actual overflow, so a shrunken fixture fails
     // on this precondition instead of an opaque clamped-scroll poll timeout.
-    const budget = (handle: typeof head) =>
-      handle.evaluate((el) => el.scrollWidth - el.clientWidth);
-    const max = Math.min(await budget(head), await budget(foot));
+    const max = await foot.evaluate((el) => el.scrollWidth - el.clientWidth);
     expect(max).toBeGreaterThanOrEqual(300);
     const far = Math.floor(max / 2);
-    const near = Math.floor(max / 4);
 
-    // Dragging either handle pans the grid, and the grid drags both along.
-    await head.evaluate((el, left) => {
+    // Dragging the handle pans the grid, and the grid drags the handle along.
+    await foot.evaluate((el, left) => {
       el.scrollLeft = left;
     }, far);
     await expect.poll(() => body.evaluate((el) => el.scrollLeft)).toBe(far);
-    await expect.poll(() => foot.evaluate((el) => el.scrollLeft)).toBe(far);
 
-    await foot.evaluate((el, left) => {
-      el.scrollLeft = left;
-    }, near);
-    await expect.poll(() => body.evaluate((el) => el.scrollLeft)).toBe(near);
-    await expect.poll(() => head.evaluate((el) => el.scrollLeft)).toBe(near);
+    await body.evaluate((el) => {
+      el.scrollLeft = 0;
+    });
+    await expect.poll(() => foot.evaluate((el) => el.scrollLeft)).toBe(0);
+  });
+
+  test("the room header keeps step with the columns it names", async ({ page }) => {
+    await page.goto(`${DENSE_EVENT_URL}?view=rooms`);
+    const body = page.locator("[data-room-lanes-scroll]").first();
+    const max = await body.evaluate((el) => el.scrollWidth - el.clientWidth);
+    expect(max).toBeGreaterThanOrEqual(300);
+
+    // Two ways to hold the body's offset and the browser picks one, so ask for
+    // the offset rather than for the box: where a scroll-driven animation
+    // moves the head, WebKit runs it off the main thread and
+    // getBoundingClientRect() reports the head where it would be without it.
+    const headOffset = () =>
+      page.evaluate(() => {
+        const lanes = document.querySelector(".room-lanes") as HTMLElement;
+        const body = lanes.querySelector("[data-room-lanes-scroll]") as HTMLElement;
+        const head = lanes.querySelector("[data-room-lanes-head]") as HTMLElement;
+        const grid = head.querySelector(".room-lanes-grid") as HTMLElement;
+        // The same question room-lanes.ts asks before it decides whether the
+        // head still needs a scroll listener.
+        const tracking = grid
+          .getAnimations()
+          .find(
+            (animation) => animation.timeline !== null && animation.timeline !== document.timeline,
+          );
+        if (!tracking) return Math.round(head.scrollLeft);
+        const progress = tracking.effect?.getComputedTiming().progress ?? 0;
+        return Math.round(Number(progress) * (body.scrollWidth - body.clientWidth));
+      });
+
+    for (const left of [0, Math.floor(max / 3), max]) {
+      await body.evaluate((el, target) => {
+        el.scrollLeft = target;
+      }, left);
+      await expect.poll(headOffset).toBe(left);
+      // The axis heading is the one thing the offset must not carry: it names
+      // the gutter, which stays put.
+      expect(
+        await page.locator(".room-lanes-corner").evaluate((corner) => {
+          const lanes = corner.closest(".room-lanes") as HTMLElement;
+          return Math.round(
+            corner.getBoundingClientRect().left - lanes.getBoundingClientRect().left,
+          );
+        }),
+      ).toBe(0);
+    }
   });
 
   test("the current day stays outside the edge fade and follows vertical scroll", async ({

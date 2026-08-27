@@ -1,7 +1,8 @@
 /* The rooms schedule grid: tracks, the map-style pan states, the edge fades
-   that keep its two scrollbar handles legible, and the collapse filtering
-   uses. Paired with room-lanes.ts, which names --row-track / --col-track and
-   toggles the pan classes. */
+   that keep its scrollbar handles legible, how the room header holds the
+   body's horizontal offset, and the collapse filtering uses. Paired with
+   room-lanes.ts, which names --row-track / --col-track, toggles the pan
+   classes, and reads back which way the header is being moved. */
 
 .room-lanes {
   --axis-w: 2.6rem;
@@ -78,13 +79,20 @@ body:has(.room-lanes-panning) * {
   position: relative;
 }
 
+/* The axis gutter: opaque in the body, where the sticky hour labels sit on it,
+   and cut away in the head, where the shell paints the gutter and the strip
+   underneath it holds nothing but columns on their way past. */
+.room-lanes-head {
+  --room-lanes-gutter-ink: transparent;
+}
+
 .room-lanes-head,
 .room-lanes-scroll {
   mask-image:
     linear-gradient(
       90deg,
-      black 0,
-      black var(--axis-w),
+      var(--room-lanes-gutter-ink, black) 0,
+      var(--room-lanes-gutter-ink, black) var(--axis-w),
       hsl(0 0% 0% / var(--fade-start-opacity)) var(--axis-w),
       black calc(var(--axis-w) + var(--fade-size-start, 0px)),
       black calc(100% - var(--fade-size-end, 0px)),
@@ -94,8 +102,8 @@ body:has(.room-lanes-panning) * {
   -webkit-mask-image:
     linear-gradient(
       90deg,
-      black 0,
-      black var(--axis-w),
+      var(--room-lanes-gutter-ink, black) 0,
+      var(--room-lanes-gutter-ink, black) var(--axis-w),
       hsl(0 0% 0% / var(--fade-start-opacity)) var(--axis-w),
       black calc(var(--axis-w) + var(--fade-size-start, 0px)),
       black calc(100% - var(--fade-size-end, 0px)),
@@ -120,6 +128,55 @@ body:has(.room-lanes-panning) * {
 
 .room-lanes-scroll {
   scrollbar-width: none;
+}
+
+/* The head shows the body's columns, so it has to carry the body's horizontal
+   offset — and mirroring that through a `scroll` listener is the one thing a
+   phone cannot do. iOS scrolls on the compositor and fires `scroll`
+   asynchronously, so the room names land a frame or more after the columns
+   they name and a fling leaves them visibly adrift; combobox.css hands popup
+   placement to anchor positioning for the same reason. A scroll-driven
+   animation moves the head on the compositor instead, where it is in lockstep
+   by construction.
+
+   The keyframe's end value is the scroller's own overflow: 100% is the head
+   grid, 100cqw the strip showing it, so the translate at progress 1 is
+   exactly -(scrollWidth - clientWidth). Neither figure is measured or written
+   down, so collapsing a column re-derives both.
+
+   room-lanes.ts asks the head grid's animation whether its timeline resolved
+   and keeps the JS sync wherever it did not. */
+@supports (animation-timeline: scroll()) {
+  .room-lanes {
+    timeline-scope: --room-lanes-x;
+  }
+
+  .room-lanes-scroll {
+    /* scroll-timeline is one list, so naming the head's timeline here means
+       restating the fade timeline .scrollview-fade declares on this element. */
+    scroll-timeline:
+      --scroll-timeline x,
+      --room-lanes-x x;
+  }
+
+  .room-lanes-head {
+    overflow: clip;
+    container-type: inline-size;
+    /* A clipped strip never scrolls, so its own edge fades — .scrollview-fade's
+       two animations, in its order — read the body's offset instead. */
+    animation-timeline: --room-lanes-x, --room-lanes-x;
+  }
+
+  .room-lanes-head > .room-lanes-grid {
+    animation: room-lanes-track linear both;
+    animation-timeline: --room-lanes-x;
+  }
+
+  @keyframes room-lanes-track {
+    to {
+      translate: calc(100cqw - 100%);
+    }
+  }
 }
 
 .room-lanes-overlays {
@@ -163,9 +220,20 @@ body:has(.room-lanes-panning) * {
   grid-row: 1 / -1;
 }
 
-.room-lanes-corner,
 .room-lanes-head-cell {
   grid-row: 1;
+}
+
+/* The axis heading sits on the shell, over the gutter the strip's mask cuts
+   away. Not a sticky cell inside the strip: the strip either scrolls or is
+   translated by the body's scroll timeline, and a cell goes with the columns
+   either way — under a translate it cannot even be pinned back, since the
+   translated grid becomes its containing block. */
+.room-lanes-corner {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: var(--axis-w);
 }
 
 /* The day break inside the body: a full-width band that reads as the seam

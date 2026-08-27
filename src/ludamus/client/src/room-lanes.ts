@@ -243,6 +243,22 @@ const isEditable = (target: EventTarget | null): boolean =>
   target instanceof HTMLElement &&
   (target.isContentEditable || ["BUTTON", "INPUT", "SELECT", "TEXTAREA"].includes(target.tagName));
 
+// room-lanes.css hands the head's horizontal offset to a scroll-driven
+// animation wherever one exists, which leaves nothing here to sync. Ask the
+// animation whether its timeline resolved rather than CSS.supports: a browser
+// that parses the syntax and then never resolves the named timeline leaves the
+// head frozen, which is worse than the lag the animation exists to remove.
+const tracksBodyOnCompositor = (head: HTMLElement | null): boolean => {
+  const grid = head?.querySelector<HTMLElement>(".room-lanes-grid");
+  return (
+    grid
+      ?.getAnimations()
+      .some(
+        (animation) => animation.timeline !== null && animation.timeline !== document.timeline,
+      ) ?? false
+  );
+};
+
 // The rooms grid lives inside the schedule region the view tabs swap
 // (hx-boost), so every lookup below re-runs against the new markup and the
 // previous grid's resize listener goes with it. The flag rides each scroller,
@@ -267,26 +283,34 @@ const initRoomLanes = (): void => {
 
   const panes = scrollers.map((scroller) => {
     const lanes = scroller.closest<HTMLElement>(".room-lanes");
+    const head = lanes?.querySelector<HTMLElement>("[data-room-lanes-head]") ?? null;
     return {
       foot: lanes?.querySelector<HTMLElement>("[data-room-lanes-foot]") ?? null,
-      head: lanes?.querySelector<HTMLElement>("[data-room-lanes-head]") ?? null,
+      // The head is still measured — trackCurrentDay reads its bottom edge —
+      // but it is one of the grid's scrollbar handles only where the
+      // compositor is not already moving it.
+      head,
+      headHandle: tracksBodyOnCompositor(head) ? null : head,
       lanes,
       scroller,
     };
   });
 
+  const scrollingHeads = panes.map(({ headHandle }) => headHandle).filter((head) => head !== null);
   const measureScrollbars = (): void => {
-    for (const { head } of panes) {
-      // Only the head needs its scrollbar strip carved out of the fade mask;
-      // the body's native scrollbar is hidden (the foot strip stands in) and
-      // the foot carries no mask. No floor under the measurement: with overlay
-      // scrollbars the head reserves nothing, and a floor would punch an
-      // unfaded strip through the room-name text.
-      head?.style.setProperty("--room-lanes-sb", `${head.offsetHeight - head.clientHeight}px`);
+    for (const head of scrollingHeads) {
+      // Only a scrolling head needs its scrollbar strip carved out of the fade
+      // mask; the body's native scrollbar is hidden (the foot strip stands in)
+      // and the foot carries no mask. No floor under the measurement: with
+      // overlay scrollbars the head reserves nothing, and a floor would punch
+      // an unfaded strip through the room-name text.
+      head.style.setProperty("--room-lanes-sb", `${head.offsetHeight - head.clientHeight}px`);
     }
   };
-  measureScrollbars();
-  globalThis.addEventListener("resize", measureScrollbars, { signal });
+  if (scrollingHeads.length > 0) {
+    measureScrollbars();
+    globalThis.addEventListener("resize", measureScrollbars, { signal });
+  }
 
   // Map-style panning: Space over the grid arms a pan from anywhere, even a
   // session tile; without it a drag pans only from the background, so tile
@@ -342,7 +366,7 @@ const initRoomLanes = (): void => {
     { signal },
   );
 
-  for (const { foot, head, lanes, scroller } of panes) {
+  for (const { foot, head, headHandle, lanes, scroller } of panes) {
     scroller.dataset.lanesBound = "";
     // schedule:filtered rides the swapped-in grid too: the listener closes over
     // this instance of .room-lanes, so it goes out with the shared controller
@@ -357,16 +381,25 @@ const initRoomLanes = (): void => {
         { signal },
       );
     }
-    // The head and foot scroll for real — their scrollbars are the grid's top
-    // and bottom handles — so each one writes back through the scroller, whose
-    // own handler fans the offset out to the other. No feedback loop:
-    // assigning a scrollLeft an element already has fires no scroll event, so
-    // the ping-pong stops in one step.
-    const handles = [head, foot].filter((handle) => handle !== null);
+    // The foot — and a head the compositor is not moving — scrolls for real:
+    // its scrollbar is one of the grid's handles, so it writes back through
+    // the scroller, whose own handler fans the offset out to the others.
+    //
+    // The write-back has to recognise the offsets it put there itself.
+    // Assigning a scrollLeft an element already holds fires no scroll event,
+    // so on a main-thread scroll the echo dies on its own — but a touch fling
+    // does not scroll on the main thread, and by the time the echo arrives the
+    // body has moved on, so an unguarded write-back drags the fling back to
+    // where the last frame started, over and over.
+    const handles = [headHandle, foot].filter((handle) => handle !== null);
+    const mirrored = new WeakMap<HTMLElement, number>();
     scroller.addEventListener(
       "scroll",
       () => {
-        for (const handle of handles) handle.scrollLeft = scroller.scrollLeft;
+        for (const handle of handles) {
+          mirrored.set(handle, scroller.scrollLeft);
+          handle.scrollLeft = scroller.scrollLeft;
+        }
       },
       { passive: true, signal },
     );
@@ -374,6 +407,7 @@ const initRoomLanes = (): void => {
       handle.addEventListener(
         "scroll",
         () => {
+          if (mirrored.get(handle) === handle.scrollLeft) return;
           scroller.scrollLeft = handle.scrollLeft;
         },
         { passive: true, signal },

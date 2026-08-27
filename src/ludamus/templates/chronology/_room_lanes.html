@@ -63,12 +63,16 @@
                           data-day-date>{{ room_lanes.rows.0.day_start|date:"j F" }}</span>
                 </div>
             </div>
+            {# On the shell, not in the strip below it: the strip scrolls (or is #}
+            {# translated by the body's scroll timeline), and a cell in it goes #}
+            {# with the columns. room-lanes.css cuts the gutter out of the #}
+            {# strip's mask so nothing passes behind this. #}
+            <div class="room-lanes-corner z-10 text-[0.625rem] font-semibold uppercase tracking-widest text-foreground-muted px-1 py-1.5 text-right flex items-end justify-end text-box-trim-both">
+                {% translate "Time" %}
+            </div>
             <div class="room-lanes-head overflow-x-auto overscroll-x-contain scrollview-fade scrollview-fade-x-8"
                  data-room-lanes-head>
                 <div class="room-lanes-grid">
-                    <div class="room-lanes-corner sticky left-0 z-10 text-[0.625rem] font-semibold uppercase tracking-widest text-foreground-muted px-1 py-1.5 bg-background text-right flex items-end justify-end text-box-trim-both">
-                        {% translate "Time" %}
-                    </div>
                     {# Explicitly placed, not auto-flowed: filtering hides the #}
                     {# headers of emptied rooms (room-lanes.ts), and an #}
                     {# auto-placed survivor would slide into the freed column. #}
