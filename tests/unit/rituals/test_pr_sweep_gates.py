@@ -33,6 +33,19 @@ if TYPE_CHECKING:
     from ludamus.edges.rituals.state import Work
 
 _MISSING = "src/ludamus/thing.py (80.0%): Missing lines 12-14"
+_NO_GAP = "Coverage not affected when comparing a1b2c3d...e4f5a6b"
+# Nothing to complain about anywhere, codecov's patch summary included: that
+# title is what the check writes where the diff touched no line it measures.
+_GREEN_BOARD = (
+    '{"check_runs": [{"name": "codecov/patch", "conclusion": "success",'
+    f' "output": {{"title": "{_NO_GAP}"}}}},'
+    ' {"name": "test", "conclusion": "success", "output": {"title": null}}]}'
+)
+# The same board, green in every field, with codecov's patch title naming the
+# gap its own threshold let through. Derived rather than written out, so the
+# title is provably the only difference: a test that takes the gate on this one
+# took it over a board that was saying yes.
+_GAP_BOARD = _GREEN_BOARD.replace(_NO_GAP, "96.84% of diff hit (target 96.00%)")
 _PUSH = f"git push {REMOTE} feature"
 # The same suite failing the same way on two branches, an hour and two commits
 # apart: only the timing and the tally moved.
@@ -90,11 +103,11 @@ class TestTakePass:
     ) -> None:
         untouched = work.model_copy(update={"unchanged": True})
         trial.shell.replies(
-            when=checks(7),
+            when=checks("feature"),
             stdout=(
-                '[{"name": "checks", "state": "SUCCESS"},'
-                ' {"name": "test", "state": "SUCCESS"},'
-                ' {"name": "tingle", "state": "FAILURE"}]'
+                '{"check_runs": [{"name": "checks", "conclusion": "success"},'
+                ' {"name": "test", "conclusion": "success"},'
+                ' {"name": "tingle", "conclusion": "failure"}]}'
             ),
         )
 
@@ -110,11 +123,11 @@ class TestTakePass:
     def test_a_failing_test_job_buys_the_gate(self, trial: Trial, work: Work) -> None:
         untouched = work.model_copy(update={"unchanged": True})
         trial.shell.replies(
-            when=checks(7),
+            when=checks("feature"),
             stdout=(
-                '[{"name": "checks", "state": "SUCCESS"},'
-                ' {"name": "test", "state": "FAILURE"},'
-                ' {"name": "tingle", "state": "SUCCESS"}]'
+                '{"check_runs": [{"name": "checks", "conclusion": "success"},'
+                ' {"name": "test", "conclusion": "failure"},'
+                ' {"name": "tingle", "conclusion": "success"}]}'
             ),
         )
 
@@ -125,10 +138,10 @@ class TestTakePass:
     def test_a_failing_lint_job_buys_the_gate(self, trial: Trial, work: Work) -> None:
         untouched = work.model_copy(update={"unchanged": True})
         trial.shell.replies(
-            when=checks(7),
+            when=checks("feature"),
             stdout=(
-                '[{"name": "checks", "state": "FAILURE"},'
-                ' {"name": "test", "state": "SUCCESS"}]'
+                '{"check_runs": [{"name": "checks", "conclusion": "failure"},'
+                ' {"name": "test", "conclusion": "success"}]}'
             ),
         )
 
@@ -142,7 +155,9 @@ class TestTakePass:
         self, trial: Trial, work: Work
     ) -> None:
         untouched = work.model_copy(update={"unchanged": True})
-        trial.shell.replies(when=checks(7), exit_code=1, stderr="no checks reported")
+        trial.shell.replies(
+            when=checks("feature"), exit_code=1, stderr="no checks reported"
+        )
 
         transition = trial.walk(take_pass, untouched)
 
@@ -152,7 +167,7 @@ class TestTakePass:
         self, trial: Trial, work: Work
     ) -> None:
         untouched = work.model_copy(update={"unchanged": True})
-        trial.shell.replies(when=checks(7), stdout="[]")
+        trial.shell.replies(when=checks("feature"), stdout='{"check_runs": []}')
 
         transition = trial.walk(take_pass, untouched)
 
@@ -173,21 +188,25 @@ class TestCheckCi:
     ) -> None:
         covering = _covering(work)
         trial.shell.replies(
-            when=checks(7), stdout='[{"name": "codecov/patch", "state": "FAILURE"}]'
+            when=checks("feature"),
+            stdout=(
+                '{"check_runs": [{"name": "codecov/patch",'
+                ' "conclusion": "failure"}]}'
+            ),
         )
 
         transition = trial.walk(check_ci, covering)
 
         assert transition == goto(cover, covering)
-        assert trial.shell.commands == [checks(7)]
+        assert trial.shell.commands == [checks("feature")]
 
     def test_a_failing_test_job_buys_it_too(self, trial: Trial, work: Work) -> None:
         covering = _covering(work)
         trial.shell.replies(
-            when=checks(7),
+            when=checks("feature"),
             stdout=(
-                '[{"name": "codecov/patch", "state": "SUCCESS"},'
-                ' {"name": "test", "state": "FAILURE"}]'
+                '{"check_runs": [{"name": "codecov/patch", "conclusion": "success"},'
+                ' {"name": "test", "conclusion": "failure"}]}'
             ),
         )
 
@@ -195,16 +214,49 @@ class TestCheckCi:
 
         assert transition == goto(cover, covering)
 
-    def test_a_branch_ci_is_happy_with_is_pushed_and_left(
+    # The whole reason this step reads the patch summary and not just the
+    # board: `codecov.yml` tolerates the drop, so the checks it would refuse a
+    # skip over are all green.
+    def test_a_patch_summary_naming_a_gap_buys_it_over_a_green_board(
+        self, trial: Trial, work: Work
+    ) -> None:
+        covering = _covering(work)
+        trial.shell.replies(when=checks("feature"), stdout=_GAP_BOARD)
+
+        transition = trial.walk(check_ci, covering)
+
+        assert transition == goto(cover, covering)
+
+    def test_the_same_board_without_the_gap_buys_the_skip(
+        self, trial: Trial, work: Work
+    ) -> None:
+        covering = _covering(work)
+        trial.shell.replies(when=checks("feature"), stdout=_GREEN_BOARD)
+
+        transition = trial.walk(check_ci, covering)
+
+        assert transition == goto(
+            push_work,
+            covering.model_copy(
+                update={"note": "codecov and the test job are green on CI"}
+            ),
+        )
+
+    # The frontend patch is a different measurement, and `mise run diff-cover`
+    # closes nothing it is missing — so its gap is not worth the hour.
+    def test_a_gap_in_the_client_patch_alone_does_not_buy_it(
         self, trial: Trial, work: Work
     ) -> None:
         covering = _covering(work)
         trial.shell.replies(
-            when=checks(7),
+            when=checks("feature"),
             stdout=(
-                '[{"name": "codecov/patch", "state": "SUCCESS"},'
-                ' {"name": "test", "state": "SUCCESS"},'
-                ' {"name": "tingle", "state": "FAILURE"}]'
+                '{"check_runs": [{"name": "codecov/patch/client",'
+                ' "conclusion": "success",'
+                ' "output": {"title": "58.18% of diff hit (target 50.00%)"}},'
+                ' {"name": "codecov/patch", "conclusion": "success",'
+                ' "output": {"title": "100.00% of diff hit (target 96.00%)"}},'
+                ' {"name": "test", "conclusion": "success"}]}'
             ),
         )
 
@@ -217,11 +269,54 @@ class TestCheckCi:
             ),
         )
 
-    def test_a_listing_gh_would_not_give_buys_the_gate_rather_than_the_skip(
+    def test_a_branch_ci_is_happy_with_is_pushed_and_left(
         self, trial: Trial, work: Work
     ) -> None:
         covering = _covering(work)
-        trial.shell.replies(when=checks(7), exit_code=1, stderr="no checks reported")
+        trial.shell.replies(
+            when=checks("feature"),
+            stdout=(
+                '{"check_runs": [{"name": "codecov/patch", "conclusion": "success",'
+                ' "output": {"title": "100.00% of diff hit (target 96.00%)"}},'
+                ' {"name": "test", "conclusion": "success"},'
+                ' {"name": "tingle", "conclusion": "failure"}]}'
+            ),
+        )
+
+        transition = trial.walk(check_ci, covering)
+
+        assert transition == goto(
+            push_work,
+            covering.model_copy(
+                update={"note": "codecov and the test job are green on CI"}
+            ),
+        )
+
+    # A run still going carries no conclusion at all, which is nobody saying
+    # the coverage is fine rather than somebody saying it is.
+    def test_a_codecov_still_running_buys_the_gate(
+        self, trial: Trial, work: Work
+    ) -> None:
+        covering = _covering(work)
+        trial.shell.replies(
+            when=checks("feature"),
+            stdout=(
+                '{"check_runs": [{"name": "codecov/patch", "conclusion": null},'
+                ' {"name": "test", "conclusion": "success"}]}'
+            ),
+        )
+
+        transition = trial.walk(check_ci, covering)
+
+        assert transition == goto(cover, covering)
+
+    def test_a_board_gh_would_not_give_buys_the_gate_rather_than_the_skip(
+        self, trial: Trial, work: Work
+    ) -> None:
+        covering = _covering(work)
+        trial.shell.replies(
+            when=checks("feature"), exit_code=1, stderr="no checks reported"
+        )
 
         transition = trial.walk(check_ci, covering)
 

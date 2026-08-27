@@ -1,0 +1,5 @@
+*
+!workflows/
+!workflows/*.yml
+!dependabot.yml
+!CODEOWNERS
