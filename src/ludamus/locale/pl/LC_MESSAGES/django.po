@@ -1836,13 +1836,18 @@ msgid "Space copied to %(event)s successfully."
 msgstr "Przestrzeń została skopiowana do %(event)s."
 
 #: src/ludamus/gates/web/django/chronology/views.py
-msgid "There is already a session scheduled at this space and time."
-msgstr "W tej przestrzeni i w tym czasie jest już zaplanowany punkt programu."
-
-#: src/ludamus/gates/web/django/chronology/views.py
 #, python-brace-format
 msgid "Proposal '{}' has been accepted and added to the agenda."
 msgstr "Zgłoszenie '{}' zostało zaakceptowane i dodane do programu."
+
+#: src/ludamus/gates/web/django/chronology/views.py
+#, python-brace-format
+msgid "Proposal '{}' has been accepted. Schedule it on the timetable."
+msgstr "Zgłoszenie '{}' zostało zaakceptowane. Wstaw je do harmonogramu."
+
+#: src/ludamus/gates/web/django/chronology/views.py
+msgid "There is already a session scheduled at this space and time."
+msgstr "W tej przestrzeni i w tym czasie jest już zaplanowany punkt programu."
 
 #: src/ludamus/gates/web/django/chronology/views.py
 msgid "This proposal has already been accepted."
@@ -1851,19 +1856,6 @@ msgstr "To zgłoszenie zostało już zaakceptowane."
 #: src/ludamus/gates/web/django/chronology/views.py
 msgid "You don't have permission to accept proposals for this event."
 msgstr "Nie masz uprawnień do akceptowania propozycji dla tego wydarzenia."
-
-#: src/ludamus/gates/web/django/chronology/views.py
-msgid "No spaces configured for this event. Please create spaces first."
-msgstr ""
-"Brak skonfigurowanych przestrzeni dla tego wydarzenia. Najpierw utwórz "
-"przestrzenie."
-
-#: src/ludamus/gates/web/django/chronology/views.py
-msgid ""
-"No time slots configured for this event. Please create time slots first."
-msgstr ""
-"Brak skonfigurowanych przedziałów czasowych dla tego wydarzenia. Najpierw "
-"utwórz przedziały czasowe."
 
 #: src/ludamus/gates/web/django/crowd/auth.py
 msgid "Please complete your profile."
@@ -3336,6 +3328,10 @@ msgstr ""
 "przestrzeni."
 
 #: src/ludamus/links/db/django/models.py
+msgid "Main room"
+msgstr "Sala główna"
+
+#: src/ludamus/links/db/django/models.py
 msgid "date joined"
 msgstr "data dołączenia"
 
@@ -3922,6 +3918,10 @@ msgid "Accept Proposal"
 msgstr "Zaakceptuj zgłoszenie"
 
 #: src/ludamus/templates/chronology/accept_proposal.html
+msgid "Accept it now — the timetable can wait."
+msgstr "Zaakceptuj teraz — harmonogram może poczekać."
+
+#: src/ludamus/templates/chronology/accept_proposal.html
 msgid "Pick a space and time, then add it to the agenda."
 msgstr "Wybierz przestrzeń i godzinę, a następnie dodaj do harmonogramu."
 
@@ -3945,8 +3945,28 @@ msgid "Preferred Time Slots"
 msgstr "Preferowane przedziały czasowe"
 
 #: src/ludamus/templates/chronology/accept_proposal.html
+msgid "Accept it"
+msgstr "Zaakceptuj"
+
+#: src/ludamus/templates/chronology/accept_proposal.html
 msgid "Schedule it"
 msgstr "Zaplanuj"
+
+#: src/ludamus/templates/chronology/accept_proposal.html
+msgid ""
+"This event has no time slots yet. Accept the proposal now and place it on "
+"the timetable once the slots exist."
+msgstr ""
+"To wydarzenie nie ma jeszcze przedziałów czasowych. Zaakceptuj zgłoszenie "
+"teraz, a wstaw je do harmonogramu, gdy przedziały już będą."
+
+#: src/ludamus/templates/chronology/accept_proposal.html
+msgid ""
+"This event has no spaces yet. Accept the proposal now and place it on the "
+"timetable once a space exists."
+msgstr ""
+"To wydarzenie nie ma jeszcze przestrzeni. Zaakceptuj zgłoszenie teraz, a "
+"wstaw je do harmonogramu, gdy przestrzeń już będzie."
 
 #: src/ludamus/templates/chronology/accept_proposal.html
 msgid "Select a space and time to add this session to the event agenda."
@@ -3955,12 +3975,24 @@ msgstr ""
 "wydarzenia."
 
 #: src/ludamus/templates/chronology/accept_proposal.html
+msgid "Accept without scheduling"
+msgstr "Zaakceptuj bez planowania"
+
+#: src/ludamus/templates/chronology/accept_proposal.html
 msgid "Pick the start time for this session."
 msgstr "Wybierz godzinę rozpoczęcia tego punktu programu."
 
 #: src/ludamus/templates/chronology/accept_proposal.html
 msgid "Accept and add to agenda"
 msgstr "Zaakceptuj i dodaj do harmonogramu"
+
+#: src/ludamus/templates/chronology/accept_proposal.html
+msgid "Add time slots"
+msgstr "Dodaj przedziały czasowe"
+
+#: src/ludamus/templates/chronology/accept_proposal.html
+msgid "Add a space"
+msgstr "Dodaj przestrzeń"
 
 #: src/ludamus/templates/chronology/accept_proposal.html
 #: src/ludamus/templates/notice_board/_rsvp_inline.html
@@ -9430,6 +9462,17 @@ msgstr "Temat"
 #: src/ludamus/templates/staging_email_inbox.html
 msgid "No emails captured yet."
 msgstr "Brak przechwyconych e-maili."
+
+#~ msgid "No spaces configured for this event. Please create spaces first."
+#~ msgstr ""
+#~ "Brak skonfigurowanych przestrzeni dla tego wydarzenia. Najpierw utwórz "
+#~ "przestrzenie."
+
+#~ msgid ""
+#~ "No time slots configured for this event. Please create time slots first."
+#~ msgstr ""
+#~ "Brak skonfigurowanych przedziałów czasowych dla tego wydarzenia. Najpierw "
+#~ "utwórz przedziały czasowe."
 
 #~ msgid "Required age"
 #~ msgstr "Wymagany wiek"

@@ -9,7 +9,11 @@
     <h1 class="text-2xl sm:text-3xl font-bold text-foreground mb-2">{% translate "Accept Proposal" %}</h1>
 {% endblock header %}
 {% block description %}
-    {% translate "Pick a space and time, then add it to the agenda." %}
+    {% if schedule_blocker %}
+        {% translate "Accept it now — the timetable can wait." %}
+    {% else %}
+        {% translate "Pick a space and time, then add it to the agenda." %}
+    {% endif %}
 {% endblock description %}
 {% block body %}
     {# Two cards: proposal details beside the scheduling decision on desktop; on #}
@@ -66,23 +70,55 @@
         <div class="card lg:sticky lg:top-6">
             <div class="card-body">
                 <div class="mb-5">
-                    <h3 class="text-base font-semibold text-foreground">{% translate "Schedule it" %}</h3>
-                    <p class="mt-0.5 text-sm text-foreground-muted">{% translate "Select a space and time to add this session to the event agenda." %}</p>
+                    <h3 class="text-base font-semibold text-foreground">
+                        {% if schedule_blocker %}
+                            {% translate "Accept it" %}
+                        {% else %}
+                            {% translate "Schedule it" %}
+                        {% endif %}
+                    </h3>
+                    <p class="mt-0.5 text-sm text-foreground-muted">
+                        {% if schedule_blocker == "time_slots" %}
+                            {% translate "This event has no time slots yet. Accept the proposal now and place it on the timetable once the slots exist." %}
+                        {% elif schedule_blocker == "spaces" %}
+                            {% translate "This event has no spaces yet. Accept the proposal now and place it on the timetable once a space exists." %}
+                        {% else %}
+                            {% translate "Select a space and time to add this session to the event agenda." %}
+                        {% endif %}
+                    </p>
                 </div>
                 <form method="post"
                       action="{% url 'web:chronology:session-accept' event_slug=event.slug session_id=session.pk %}"
                       class="space-y-5">
                     {% csrf_token %}
-                    {% tessera_field form.space %}
-                    <div class="flex flex-col">
-                        {% translate "Time slot" as time_slot_label %}
-                        {% include "components/label.html" with for_id="time_slot" text=time_slot_label required=True %}
-                        <div class="mt-1">{% include "chronology/_accept_timeslot_control.html" %}</div>
-                        <p class="mt-1 text-sm text-foreground-muted">{% translate "Pick the start time for this session." %}</p>
-                    </div>
+                    {% translate "Accept without scheduling" as accept_only_label %}
+                    {% if not schedule_blocker %}
+                        {% tessera_field form.space %}
+                        <div class="flex flex-col">
+                            {% translate "Time slot" as time_slot_label %}
+                            {% include "components/label.html" with for_id="time_slot" text=time_slot_label required=True %}
+                            <div class="mt-1">{% include "chronology/_accept_timeslot_control.html" %}</div>
+                            <p class="mt-1 text-sm text-foreground-muted">{% translate "Pick the start time for this session." %}</p>
+                        </div>
+                    {% endif %}
                     <div class="[&_.btn]:w-full space-y-3 pt-1">
-                        {% translate "Accept and add to agenda" as accept_label %}
-                        {% tessera_button accept_label icon="calendar-days" %}
+                        {% if not schedule_blocker %}
+                            {% translate "Accept and add to agenda" as accept_label %}
+                            {% tessera_button accept_label icon="calendar-days" name="schedule" value="1" %}
+                            {# formnovalidate: the time-slot select is required for the #}
+                            {# scheduling submit, and this submit deliberately skips it. #}
+                            {% tessera_button accept_only_label variant="secondary" icon="check" formnovalidate="formnovalidate" %}
+                        {% else %}
+                            {% tessera_button accept_only_label icon="check" %}
+                            {% if schedule_blocker == "time_slots" %}
+                                {% url 'panel:time-slot-create' slug=event.slug as fix_url %}
+                                {% translate "Add time slots" as fix_label %}
+                            {% else %}
+                                {% url 'panel:space-create' slug=event.slug as fix_url %}
+                                {% translate "Add a space" as fix_label %}
+                            {% endif %}
+                            {% tessera_button fix_label href=fix_url variant="secondary" icon="clock" full_width_mobile=True %}
+                        {% endif %}
                         <div class="flex items-center gap-3 text-xs text-foreground-muted">
                             <hr class="flex-1">
                             <span>{% translate "or" %}</span>

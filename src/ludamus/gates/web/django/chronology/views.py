@@ -225,6 +225,27 @@ class SessionBookmarkToggleView(View):
         return JsonResponse({"bookmarked": result.bookmarked, "count": result.count})
 
 
+def _schedule_blocker(context: ProposalAcceptContextDTO) -> str | None:
+    # What the event still lacks before a proposal can be placed, or None when
+    # nothing does. Accepting itself never depends on it — the page just drops
+    # the picker and offers the unscheduled accept instead.
+    if not context.space_options:
+        return "spaces"
+    if not context.time_slots:
+        return "time_slots"
+    return None
+
+
+def _accepted_message(title: str, *, scheduling: bool) -> str:
+    if scheduling:
+        return _("Proposal '{}' has been accepted and added to the agenda.").format(
+            title
+        )
+    return _("Proposal '{}' has been accepted. Schedule it on the timetable.").format(
+        title
+    )
+
+
 class ProposalAcceptPageView(LoginRequiredMixin, View):
     request: AuthenticatedRootRequest
 
@@ -232,7 +253,6 @@ class ProposalAcceptPageView(LoginRequiredMixin, View):
         self, request: AuthenticatedRootRequest, event_slug: str, session_id: int
     ) -> HttpResponse:
         context = self._load(request, event_slug, session_id)
-        self._require_configured(context)
         form = self._build_form(context)()
         return self._render(request, context, form)
 
@@ -241,14 +261,17 @@ class ProposalAcceptPageView(LoginRequiredMixin, View):
     ) -> HttpResponse:
         context = self._load(request, event_slug, session_id)
         form = self._build_form(context)(data=request.POST)
-        if not form.is_valid():
+        # The page offers two submits; only the scheduling one reads the picker,
+        # so accepting without a slot never has to satisfy its validation.
+        scheduling = "schedule" in request.POST
+        if scheduling and not form.is_valid():
             return self._render(request, context, form)
 
         try:
             request.services.proposal_acceptance.accept_session(
                 session_id=context.session.pk,
-                space_id=form.cleaned_data["space"],
-                time_slot_id=form.cleaned_data["time_slot"],
+                space_id=form.cleaned_data["space"] if scheduling else None,
+                time_slot_id=form.cleaned_data["time_slot"] if scheduling else None,
                 user_slug=request.context.current_user_slug,
                 sphere_id=request.context.current_sphere_id,
             )
@@ -259,10 +282,7 @@ class ProposalAcceptPageView(LoginRequiredMixin, View):
             return self._render(request, context, form)
 
         messages.success(
-            request,
-            _("Proposal '{}' has been accepted and added to the agenda.").format(
-                context.session.title
-            ),
+            request, _accepted_message(context.session.title, scheduling=scheduling)
         )
         return redirect("web:chronology:event", slug=context.event.slug)
 
@@ -299,25 +319,6 @@ class ProposalAcceptPageView(LoginRequiredMixin, View):
         return context
 
     @staticmethod
-    def _require_configured(context: ProposalAcceptContextDTO) -> None:
-        event_url = reverse("web:chronology:event", kwargs={"slug": context.event.slug})
-        if not context.space_options:
-            raise RedirectError(
-                event_url,
-                error=_(
-                    "No spaces configured for this event. Please create spaces first."
-                ),
-            )
-        if not context.time_slots:
-            raise RedirectError(
-                event_url,
-                error=_(
-                    "No time slots configured for this event. "
-                    "Please create time slots first."
-                ),
-            )
-
-    @staticmethod
     def _render(
         request: AuthenticatedRootRequest,
         context: ProposalAcceptContextDTO,
@@ -334,5 +335,6 @@ class ProposalAcceptPageView(LoginRequiredMixin, View):
                 "preferred_time_slot_ids": context.preferred_time_slot_ids,
                 "form": form,
                 "field_values": context.field_values,
+                "schedule_blocker": _schedule_blocker(context),
             },
         )

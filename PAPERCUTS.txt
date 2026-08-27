@@ -332,3 +332,9 @@ If you fix a papercut, remove it.
   of replacing it: the task runs 'pytest -n auto tests/integration tests/unit
   <path>', so asking for one file re-runs everything (~16 min). Wanted to verify
   one test module before pushing; had to use -k to keep it fast.
+- 2026-08-27: mise run shots can't reach logged-in pages: agent-browser has no
+  cookie/storage-state flag, so screenshotting any manager-only page (e.g. the
+  accept-proposal screen) meant hand-rolling a Playwright script that loads
+  tests/e2e/.auth-state-superuser.json. Also spent a while confused that 'mise
+  run dj shell' talks to the dev DB while test:e2e:serve serves dev.e2e.sqlite3
+  — the data I queried was not the data the page rendered.

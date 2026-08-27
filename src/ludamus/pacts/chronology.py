@@ -278,8 +278,8 @@ class ProposalAcceptanceServiceProtocol(Protocol):
         self,
         *,
         session_id: int,
-        space_id: int,
-        time_slot_id: int,
+        space_id: int | None,
+        time_slot_id: int | None,
         user_slug: str,
         sphere_id: int,
     ) -> None: ...

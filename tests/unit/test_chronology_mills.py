@@ -906,6 +906,27 @@ class TestProposalAcceptanceService:
         )
         transaction.atomic.assert_called_once_with()
 
+    def test_accept_session_without_a_slot_leaves_it_unplaced(
+        self, service, sessions, agenda_items, active_users, spheres
+    ):
+        sessions.read.return_value = _session_dto(pk=5, display_name="Alice")
+        active_users.read.return_value = _user_dto()
+        spheres.manager_role.return_value = SphereRole.MANAGER
+
+        service.accept_session(
+            session_id=5,
+            space_id=None,
+            time_slot_id=None,
+            user_slug="manager",
+            sphere_id=3,
+        )
+
+        sessions.read_time_slot.assert_not_called()
+        sessions.update.assert_called_once_with(
+            5, {"status": SessionStatus.ACCEPTED, "display_name": "Alice"}
+        )
+        agenda_items.create.assert_not_called()
+
     def test_accept_session_raises_on_space_time_conflict(
         self, service, sessions, agenda_items, active_users, spheres
     ):

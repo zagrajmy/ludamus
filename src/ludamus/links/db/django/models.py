@@ -46,6 +46,10 @@ DEFAULT_NAME = "Andrzej"
 SPACE_NO_CHILDREN_REASON = _(
     "A space holding a scheduled session cannot contain other spaces."
 )
+# Every event owns at least one bookable space from the moment it is created, so
+# no organizer flow has to stop and send the user off to the venue editor first.
+# Organizers rename it; the name is only the starting point.
+DEFAULT_SPACE_NAME = _("Main room")
 
 
 _SoftDeleteT = TypeVar("_SoftDeleteT", bound=models.Model)

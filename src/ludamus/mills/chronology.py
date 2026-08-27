@@ -260,23 +260,34 @@ class ProposalAcceptanceService:
         self,
         *,
         session_id: int,
-        space_id: int,
-        time_slot_id: int,
+        space_id: int | None,
+        time_slot_id: int | None,
         user_slug: str,
         sphere_id: int,
     ) -> None:
+        """Accept a proposal, placing it on the agenda when a slot was picked."""
+        # No space or no time slot means "accept now, schedule later": the
+        # session joins the accepted-but-unplaced pile the timetable and the
+        # confirmations dashboard already handle. Reviewing a proposal must not
+        # wait on the venue and the time slots being finished.
         if not self._can_accept(user_slug=user_slug, sphere_id=sphere_id):
             raise ProposalAcceptDeniedError
         session = self._sessions.read(session_id)
-        time_slot = self._sessions.read_time_slot(session_id, time_slot_id)
+        placement = (
+            None
+            if space_id is None or time_slot_id is None
+            else (space_id, self._sessions.read_time_slot(session_id, time_slot_id))
+        )
         with self._transaction.atomic():
-            if self._agenda_items.list_overlapping_in_space(
-                space_id,
-                time_slot.start_time,
-                time_slot.end_time,
-                exclude_session_pk=session_id,
-            ):
-                raise SpaceTimeConflictError
+            if placement is not None:
+                space_pk, time_slot = placement
+                if self._agenda_items.list_overlapping_in_space(
+                    space_pk,
+                    time_slot.start_time,
+                    time_slot.end_time,
+                    exclude_session_pk=session_id,
+                ):
+                    raise SpaceTimeConflictError
             # The session already has a unique slug from proposal creation;
             # regenerating it here dropped the uniqueness suffix and collided.
             self._sessions.update(
@@ -286,9 +297,12 @@ class ProposalAcceptanceService:
                     "display_name": session.display_name,
                 },
             )
+            if placement is None:
+                return
+            space_pk, time_slot = placement
             self._agenda_items.create(
                 {
-                    "space_id": space_id,
+                    "space_id": space_pk,
                     "session_id": session_id,
                     "session_confirmed": True,
                     "start_time": time_slot.start_time,
