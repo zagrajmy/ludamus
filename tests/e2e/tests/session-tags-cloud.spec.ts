@@ -12,6 +12,8 @@ const plusCount = (page: Page) => overflowCard(page).getByText(/^\+\d+$/);
 const opacityOf = (locator: Locator) =>
   locator.evaluate((element) => getComputedStyle(element).opacity);
 
+const SCREENSHOT_CLIP_MIN_WIDTH = 440;
+
 const clipAround = async (pieces: Locator[], pad: number) => {
   const boxes = [];
   for (const piece of pieces) {
@@ -28,7 +30,7 @@ const clipAround = async (pieces: Locator[], pad: number) => {
   return {
     x: Math.floor(Math.max(0, left - pad)),
     y: Math.floor(Math.max(0, top - pad)),
-    width: Math.ceil(right - left + pad * 2),
+    width: Math.max(SCREENSHOT_CLIP_MIN_WIDTH, Math.ceil(right - left + pad * 2)),
     height: Math.ceil(bottom - top + pad * 2),
   };
 };
