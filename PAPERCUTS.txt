@@ -17,10 +17,6 @@ If you fix a papercut, remove it.
   checkout with no nested worktrees until the task excludes them.
 - 2026-07-14: Tried to inspect gettext entries with polib, but the project
   environment does not install it; used the available gettext CLI instead.
-- 2026-07-14: `mise run test:py -- PATH` still appends the path after its
-  fixed integration and unit roots, so it runs the full suite. Use
-  `mise run test:int -- PATH` for a focused integration test; `test:unit` still
-  has no equivalent target replacement.
 - 2026-07-14: Used a `test_*party*` zsh glob while locating party history tests;
   no match caused zsh to abort before rg. Use rg paths without shell globs.
 - 2026-07-14: Catbox rejected PR screenshot uploads using the documented image-
@@ -210,9 +206,6 @@ If you fix a papercut, remove it.
   slow local page load can outlast — `expect(getByText("Guild created."))`
   timed out while the row it announced was right there. Assert the durable page
   state instead.
-- 2026-08-12: Ran 'mise run test:py tests/unit/test_chronology_mills.py'
-  expecting a targeted run; the task ignores trailing path args and ran all 3990
-  tests (4 min). 'mise run test:unit -- -k Name' works instead.
 - 2026-08-15: test_ok_compact_schedule_renders_all_row_variants builds fixtures
   from timezone.now() and fails near local midnight — CI went red on a tracks-
   only PR, and the same test fails on main at that hour. Pin the clock instead
@@ -324,9 +317,40 @@ If you fix a papercut, remove it.
   was unset; the traceback only later explained pytest-django could not
   initialize. Use mise run test:int -- PATH so the task supplies the test
   environment.
+- 2026-08-24: ios-regressions: when 'xcrun simctl openurl' times out, harness.ts
+  warns and continues, so agent-device never opens a session and every later
+  interaction dies with an opaque SESSION_NOT_FOUND deep in a beforeAll — the
+  real cause (Safari never launched) is 80 lines up the log. Cost a full re-run
+  to diagnose.
 - 2026-08-25: mise run test:py -- tests/unit/rituals ran the whole 4600-test
   suite for ~5 minutes: mise does forward the args, it appends them after the
   task's own fixed roots (tests/integration tests/unit), so a path meant to
   narrow the run widens nothing. Had to fall back to
   'mise run test:unit -- -k ...'. A narrow-path run is what CLAUDE.md asks for
   while working.
+- 2026-08-26: Ran format:djlint on a template change; it reformatted the file
+  and reported zero lint errors but still exited nonzero, so the formatting task
+  appeared to fail until rerun.
+- 2026-08-26: Playwriter session expired between UI verification passes, so the
+  saved session could not inspect the refreshed page; use a fresh browser
+  session or the E2E server instead.
+- 2026-08-26: Passing paths after 'mise run test:py --' was ignored because the
+  task hardcodes both test trees, so a targeted check unexpectedly ran all 4,600
+  tests; direct pytest then lacked the task's .env.test environment.
+- 2026-08-26: The full Python suite flaked in
+  test_query_count_constant_in_session_count because Faker generated the same
+  category word twice while the expected context retained duplicates; the
+  isolated rerun passed.
+- 2026-08-26: Running messages-check in parallel with mise check raced
+  makemessages' temporary *.html.py extraction files against Black, causing 255
+  template parse errors; these tasks must run sequentially.
+- 2026-08-26: Fresh gpt-5.6-sol thermonuclear review failed immediately with a
+  bare 'fetch failed' and no report; retrying the identical read-only
+  invocation.
+- 2026-08-26: Running mypy directly (including with a file path) crashed while
+  constructing the Django plugin because it missed the task's .env.test
+  environment; mise run lint:mypy succeeded.
+- 2026-08-26: mise run test:py <path> appends the path to the full suite instead
+  of replacing it: the task runs 'pytest -n auto tests/integration tests/unit
+  <path>', so asking for one file re-runs everything (~16 min). Wanted to verify
+  one test module before pushing; had to use -k to keep it fast.
