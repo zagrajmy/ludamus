@@ -58,6 +58,14 @@ def _sphere_page_nav(
     if sphere is None:
         return []
     active = _active_sphere_page(request)
+    # Content served through the timeline while its own group is disabled
+    # files under the Timeline tab — the only nav entry leading back to it.
+    if (
+        active is not None
+        and active not in sphere.enabled_pages
+        and SpherePage.TIMELINE in sphere.enabled_pages
+    ):
+        active = SpherePage.TIMELINE
     return [
         SpherePageNavItem(
             label=str(SPHERE_PAGE_LABELS[page]),

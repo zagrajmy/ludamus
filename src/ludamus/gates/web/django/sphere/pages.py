@@ -42,6 +42,10 @@ SPHERE_PAGE_NAMESPACES = {
 
 class SpherePageRequiredMixin(View):
     required_sphere_page: ClassVar[SpherePage]
+    # The timeline feed links into event and encounter content, so that content
+    # must stay reachable when the timeline is the only enabled page. Group
+    # landing pages opt out — each is the very page the setting disables.
+    reachable_via_timeline: ClassVar[bool] = False
 
     def dispatch(
         self, request: HttpRequest, *args: object, **kwargs: object
@@ -50,10 +54,14 @@ class SpherePageRequiredMixin(View):
         sphere = root_request.services.sites.read(
             root_request.context.current_sphere_id
         )
-        if self.required_sphere_page not in sphere.enabled_pages:
+        enabled = sphere.enabled_pages
+        if self.required_sphere_page not in enabled and not (
+            self.reachable_via_timeline and SpherePage.TIMELINE in enabled
+        ):
             raise Http404
         return super().dispatch(request, *args, **kwargs)
 
 
 class EventsPageRequiredMixin(SpherePageRequiredMixin):
     required_sphere_page = SpherePage.EVENTS
+    reachable_via_timeline = True

@@ -70,6 +70,16 @@ class TimelinePageView(SpherePageRequiredMixin, TemplateView):
         ]
         upcoming.sort(key=lambda item: item.start_time)
         context["timeline_upcoming"] = upcoming
+        # Creation stays offered here even when the encounters page is off:
+        # public encounters land on this feed, so whoever the sphere's policy
+        # lets publish them needs an entry point on it.
+        user_id = self.request.context.current_user_id
+        context["can_create_encounter"] = (
+            user_id is not None
+            and self.request.services.encounters.can_set_public(
+                sphere_id=sphere_id, user_id=user_id
+            )
+        )
         # Past entries are events only — an encounter drops off the feed once
         # it starts — so they stay plain events rather than wrapped.
         context["timeline_past"] = events.past

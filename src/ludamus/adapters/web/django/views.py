@@ -205,6 +205,7 @@ class IndexRedirectView(View):
 class EventsPageView(EventsPageRequiredMixin, TemplateView):
     request: RootRequest
     template_name = "index.html"
+    reachable_via_timeline = False
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         context = super().get_context_data(**kwargs)

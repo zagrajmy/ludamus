@@ -4584,6 +4584,10 @@ msgid "Back to Events"
 msgstr "Powrót do wydarzeń"
 
 #: src/ludamus/templates/chronology/event.html
+msgid "Back to Timeline"
+msgstr "Powrót do osi czasu"
+
+#: src/ludamus/templates/chronology/event.html
 msgid "Print-ready schedule"
 msgstr "Harmonogram gotowy do druku"
 
@@ -6301,6 +6305,7 @@ msgstr "Wypisz się"
 
 #: src/ludamus/templates/notice_board/create.html
 #: src/ludamus/templates/notice_board/index.html
+#: src/ludamus/templates/timeline.html
 msgid "Create Encounter"
 msgstr "Utwórz spotkanie"
 
@@ -9529,6 +9534,10 @@ msgstr "Temat"
 #: src/ludamus/templates/staging_email_inbox.html
 msgid "No emails captured yet."
 msgstr "Brak przechwyconych e-maili."
+
+#: src/ludamus/templates/timeline.html
+msgid "No upcoming events or encounters."
+msgstr "Brak nadchodzących wydarzeń i spotkań."
 
 #: src/ludamus/templates/timeline.html
 msgid "Nothing scheduled yet"

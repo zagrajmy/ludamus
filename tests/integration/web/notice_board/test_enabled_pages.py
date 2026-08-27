@@ -1,10 +1,12 @@
 from datetime import UTC, datetime, timedelta
+from http import HTTPStatus
+from unittest.mock import ANY
 
 import pytest
 from django.urls import reverse
 
 from tests.integration.conftest import EncounterFactory
-from tests.integration.utils import assert_response_404
+from tests.integration.utils import assert_response, assert_response_404
 
 
 @pytest.fixture(name="encounter")
@@ -75,3 +77,43 @@ class TestEncounterViewsWithPageDisabled:
 
         assert_response_404(response)
         assert encounter.rsvps.count() == 0
+
+
+@pytest.fixture
+def timeline_only(sphere):
+    sphere.enabled_pages = ["timeline"]
+    sphere.default_page = "timeline"
+    sphere.save()
+
+
+@pytest.mark.usefixtures("timeline_only")
+class TestEncounterContentWithTimelineOnly:
+    """The timeline feeds public encounters, so their content stays served.
+
+    Only the encounters index itself is the disabled page.
+    """
+
+    def test_index_404(self, authenticated_client):
+        response = authenticated_client.get(reverse("web:notice-board:index"))
+
+        assert_response_404(response)
+
+    def test_create_ok(self, authenticated_client):
+        response = authenticated_client.get(reverse("web:notice-board:create"))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={"form": ANY},
+            template_name="notice_board/create.html",
+        )
+
+    def test_share_code_page_ok(self, client, encounter):
+        response = client.get(
+            reverse(
+                "web:notice-board:encounter-qr",
+                kwargs={"share_code": encounter.share_code},
+            )
+        )
+
+        assert_response(response, HTTPStatus.OK)

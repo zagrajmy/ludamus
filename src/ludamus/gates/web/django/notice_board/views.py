@@ -149,11 +149,13 @@ SAMPLE_COUNT = 3
 
 class _RequireEncountersEnabled(SpherePageRequiredMixin):
     required_sphere_page = SpherePage.ENCOUNTERS
+    reachable_via_timeline = True
 
 
 class EncountersIndexPageView(_RequireEncountersEnabled, TemplateView):
     request: RootRequest
     template_name = "notice_board/index.html"
+    reachable_via_timeline = False
 
     @cached_property
     def _index(self) -> EncounterIndexResult:
@@ -348,7 +350,12 @@ class EncounterDeleteActionView(_RequireEncountersEnabled, LoginRequiredMixin, V
         except NotFoundError as exc:
             raise Http404 from exc
         messages.success(request, _("Encounter deleted."))
-        return redirect(reverse("web:notice-board:index"))
+        # The deleted encounter's detail page is gone, so land on a feed that
+        # exists: the encounters index, or the timeline when that page is off.
+        sphere = request.services.sites.read(request.context.current_sphere_id)
+        if SpherePage.ENCOUNTERS in sphere.enabled_pages:
+            return redirect(reverse("web:notice-board:index"))
+        return redirect(reverse("web:timeline"))
 
 
 class EncounterDetailPageView(_RequireEncountersEnabled, View):

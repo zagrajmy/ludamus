@@ -57,7 +57,12 @@ class TestTimelinePageView:
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data={"timeline_upcoming": [], "timeline_past": [], "view": ANY},
+            context_data={
+                "timeline_upcoming": [],
+                "timeline_past": [],
+                "can_create_encounter": False,
+                "view": ANY,
+            },
             template_name=["timeline.html"],
         )
 
@@ -88,6 +93,7 @@ class TestTimelinePageView:
                     _event_item(event),
                 ],
                 "timeline_past": [],
+                "can_create_encounter": False,
                 "view": ANY,
             },
             template_name=["timeline.html"],
@@ -105,7 +111,12 @@ class TestTimelinePageView:
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data={"timeline_upcoming": [], "timeline_past": [], "view": ANY},
+            context_data={
+                "timeline_upcoming": [],
+                "timeline_past": [],
+                "can_create_encounter": False,
+                "view": ANY,
+            },
             template_name=["timeline.html"],
         )
 
@@ -126,6 +137,42 @@ class TestTimelinePageView:
             context_data={
                 "timeline_upcoming": [],
                 "timeline_past": [_event_info(past_event)],
+                "can_create_encounter": False,
+                "view": ANY,
+            },
+            template_name=["timeline.html"],
+        )
+
+    def test_can_create_encounter_when_policy_allows_user(
+        self, authenticated_client, sphere
+    ):
+        sphere.encounter_public_policy = "everyone"
+        sphere.save()
+
+        response = authenticated_client.get(self.URL)
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={
+                "timeline_upcoming": [],
+                "timeline_past": [],
+                "can_create_encounter": True,
+                "view": ANY,
+            },
+            template_name=["timeline.html"],
+        )
+
+    def test_cannot_create_encounter_when_policy_disabled(self, authenticated_client):
+        response = authenticated_client.get(self.URL)
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={
+                "timeline_upcoming": [],
+                "timeline_past": [],
+                "can_create_encounter": False,
                 "view": ANY,
             },
             template_name=["timeline.html"],
