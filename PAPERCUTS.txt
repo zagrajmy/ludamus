@@ -362,3 +362,6 @@ If you fix a papercut, remove it.
   of replacing it: the task runs 'pytest -n auto tests/integration tests/unit
   <path>', so asking for one file re-runs everything (~16 min). Wanted to verify
   one test module before pushing; had to use -k to keep it fast.
+- 2026-08-27: git push over ssh origin fails: 'Bad owner or permissions on
+  /etc/ssh/ssh_config.d/20-systemd-ssh-proxy.conf' (symlink owned by
+  nobody:nogroup); pushed via the https-origin remote instead
