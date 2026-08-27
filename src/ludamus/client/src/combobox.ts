@@ -496,14 +496,18 @@ const upgrade = (root: HTMLElement): void => {
 
   /** Write a pick to the hidden input — the value everything else reads. */
   const commit = (row?: Row): void => {
-    if (row) {
-      value.value = row.value;
-      value.dispatchEvent(new Event("change", { bubbles: true }));
-    }
+    if (row) value.value = row.value;
     // Either way the box shows what is selected: a query that committed
     // nothing is not a value, and leaving it visible would disagree with the
     // select underneath.
+    //
+    // And it happens before the change event, not after: a listener is
+    // entitled to read the whole control, and the visible input is the only
+    // place the chosen row's *label* lives (the schedule's filter chips label
+    // themselves from it). Dispatching first handed them the query still
+    // sitting in the box — "chen" where "Priya Chen" had just been committed.
     close();
+    if (row) value.dispatchEvent(new Event("change", { bubbles: true }));
   };
 
   const close = (): void => {
