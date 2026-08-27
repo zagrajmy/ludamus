@@ -140,7 +140,7 @@ template_extensions = 'html'
 
 [tool.djlint]
 ignore = "H021,H031,H037,D018"
-custom_blocks = "select,radio,document_title,sidebar_cat,tab,tabs,tab_shell,tab_shell_body,tessera_copy,tessera_segment,tessera_switcher,tessera_table"
+custom_blocks = "select,tessera_combobox,radio,document_title,sidebar_cat,tab,tabs,tab_shell,tab_shell_body,tessera_copy,tessera_segment,tessera_switcher,tessera_table"
 
 # DEPTRY
 
@@ -489,9 +489,12 @@ exclude = [
     "*/context_processors.py",
 ]
 ignore_names = [
+    # Called from context_processors.py, which is excluded above
+    "client_patterns",
     # Used in templates
     "bookmark_count",
     "button_class",
+    "cloud_overflow",
     "filter_categories",
     "has_guests",
     "has_secret",
@@ -511,6 +514,10 @@ ignore_names = [
     "unread_count",
     "user_bookmarked",
     "user_waiting",
+    # html.parser callbacks — HTMLParser.feed() dispatches to these
+    "handle_data",
+    "handle_endtag",
+    "handle_starttag",
     # Django
     "*Config",
     "add_arguments",

@@ -4,7 +4,7 @@
    toggles the pan classes. */
 
 .room-lanes {
-  --axis-w: 3.25rem;
+  --axis-w: 2.6rem;
   --col-min: 10rem;
   /* room-lanes.ts rebuilds these track lists when a filter empties a track, so
      the sizes live here once and both consumers name them. */
@@ -74,15 +74,10 @@ body:has(.room-lanes-panning) * {
   grid-column: 2 / -1;
 }
 
-.room-lanes-line:first-of-type {
-  border-top: 0;
+.room-lanes-scroll-shell {
+  position: relative;
 }
 
-/* Both panes fade their x-overflow edges, but the head also shows the top
-   scrollbar, which the fade must not dim: the second, un-faded mask layer
-   covers the strip it occupies. room-lanes.ts measures the strip into
-   --room-lanes-sb; on the body the var stays 0 — its native scrollbar is
-   hidden below — so the fade covers everything. */
 .room-lanes-head,
 .room-lanes-scroll {
   mask-image:
@@ -123,13 +118,31 @@ body:has(.room-lanes-panning) * {
   -webkit-mask-repeat: no-repeat;
 }
 
+.room-lanes-scroll {
+  scrollbar-width: none;
+}
+
+.room-lanes-overlays {
+  position: absolute;
+  z-index: 20;
+  inset: 0;
+  overflow: clip;
+  pointer-events: none;
+}
+
+.room-lanes-day-mirror {
+  position: absolute;
+  left: 0;
+}
+
+.room-lanes-day-mirrored > h3 {
+  opacity: 0;
+}
+
 /* The body's own scrollbar would surface only at the very end of a
    screens-tall grid; the sticky strip after it (data-room-lanes-foot in the
    template) pins that handle to the viewport bottom instead, and hiding the
    native one keeps the two from stacking at the grid's end. */
-.room-lanes-scroll {
-  scrollbar-width: none;
-}
 
 .room-lanes-scroll::-webkit-scrollbar {
   display: none;
@@ -142,9 +155,25 @@ body:has(.room-lanes-panning) * {
   pointer-events: none;
 }
 
-/* Header rules hang from their one header row; body rules run the full height. */
+/* Both header rows and every body row: the dividers run the full height of
+   whichever grid they sit in, so they stay continuous where cells span rows or
+   are absent. */
+.room-lanes-head-rule,
 .room-lanes-body .room-lanes-rule {
   grid-row: 1 / -1;
+}
+
+.room-lanes-corner,
+.room-lanes-head-cell {
+  grid-row: 1;
+}
+
+/* The day break inside the body: a full-width band that reads as the seam
+   between two days rather than as an empty hour. */
+.room-lanes-day {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: flex-end;
 }
 
 .dark .room-lanes-rule {

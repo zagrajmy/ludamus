@@ -96,6 +96,7 @@ from ludamus.pacts import (
 )
 from ludamus.pacts.crowd import CompanionDTO, UserDTO, UserType
 from ludamus.pacts.enrollment import SeatHoldRequest
+from ludamus.pacts.ids import EventId, SessionId, UserId
 from ludamus.pacts.party import (
     PartyConsentMode,
     PartyEnrolledNotification,
@@ -107,6 +108,7 @@ from .design_fixtures import (
     mock_form,
     mock_session_data,
     mock_session_data_ended,
+    mock_session_data_overflow,
     mock_session_proposal,
     mock_user,
 )
@@ -133,6 +135,7 @@ class DesignPageView(TemplateView):
         context["design_event"] = mock_event_info()
         context["design_session_data"] = mock_session_data()
         context["design_session_data_ended"] = mock_session_data_ended()
+        context["design_session_data_overflow"] = mock_session_data_overflow()
         context["design_session_proposal"] = mock_session_proposal()
         context["design_user"] = mock_user()
         context["design_form"] = mock_form()
@@ -344,7 +347,7 @@ class EventPageView(EventsPageRequiredMixin, DetailView):  # type: ignore [type-
                 "schedule_days": schedule_days,
                 "active_tab": "rooms" if rooms_view else "list",
                 "has_enrollable_sessions": has_enrollable_sessions,
-                "room_lane_days": build_room_lanes(schedule_days) if rooms_view else [],
+                "room_lanes": build_room_lanes(schedule_days) if rooms_view else None,
                 "schedule_list_url": event_url,
                 "schedule_rooms_url": f"{event_url}?view=rooms",
                 "ended_hour_data": ended_hour_data,
@@ -586,10 +589,10 @@ class EventPageView(EventsPageRequiredMixin, DetailView):  # type: ignore [type-
 
     def _set_bookmark_counts(self, sessions_data: dict[int, SessionData]) -> None:
         counts = self.request.services.bookmarks.bookmark_counts(
-            event_id=self.object.pk
+            event_id=EventId(self.object.pk)
         )
         for sid, data in sessions_data.items():
-            data.bookmark_count = counts.get(sid, 0)
+            data.bookmark_count = counts.get(SessionId(sid), 0)
 
     def _set_user_bookmarks(
         self, sessions_data: dict[int, SessionData], current_user_id: int
@@ -597,7 +600,7 @@ class EventPageView(EventsPageRequiredMixin, DetailView):  # type: ignore [type-
         # Bookmarks are only surfaced on the compact schedule (the lightweight
         # "I want to attend" gesture for big events). One query for the whole set.
         bookmarked_ids = self.request.services.bookmarks.bookmarked_session_ids(
-            user_id=current_user_id, event_id=self.object.pk
+            user_id=UserId(current_user_id), event_id=EventId(self.object.pk)
         )
         for sid, data in sessions_data.items():
             data.user_bookmarked = sid in bookmarked_ids

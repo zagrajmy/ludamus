@@ -571,6 +571,22 @@ msgstr "Dostępny"
 msgid "Enrollment not available"
 msgstr "Zapisy niedostępne"
 
+#: src/ludamus/adapters/web/django/templatetags/tessera/combobox.py
+#: src/ludamus/templates/components/multiselect-filter.html
+#: src/ludamus/templates/panel/parts/timetable-browse-pane.html
+msgid "Search…"
+msgstr "Szukaj…"
+
+#: src/ludamus/adapters/web/django/templatetags/tessera/combobox.py
+#: src/ludamus/templates/components/multiselect-filter-options.html
+#: src/ludamus/templates/components/multiselect-filter.html
+msgid "Nothing matches your search."
+msgstr "Nic nie pasuje do wyszukiwania."
+
+#: src/ludamus/adapters/web/django/templatetags/tessera/combobox.py
+msgid "Show options"
+msgstr "Pokaż opcje"
+
 #: src/ludamus/adapters/web/django/templatetags/tessera/copy.py
 #: src/ludamus/templates/crowd/user/parties.html
 #: src/ludamus/templates/crowd/user/party_detail.html
@@ -2496,7 +2512,7 @@ msgstr "Opis"
 
 #: src/ludamus/gates/web/django/event/propose_forms.py
 #: src/ludamus/gates/web/django/templatetags/cfp_tags.py
-#: src/ludamus/templates/chronology/session_tags.html
+#: src/ludamus/templates/chronology/session_tags_cloud.html
 #: src/ludamus/templates/event/propose/parts/details.html
 #: src/ludamus/templates/event/propose/parts/review.html
 msgid "Minimum age"
@@ -3847,6 +3863,7 @@ msgid "Completed"
 msgstr "Ukończone"
 
 #: src/ludamus/templates/chronology/_card_schedule.html
+#: src/ludamus/templates/chronology/_schedule_now_marker.html
 msgid "Now"
 msgstr "Teraz"
 
@@ -3924,6 +3941,16 @@ msgstr[3] "+%(counter)s więcej"
 #: src/ludamus/templates/chronology/_proposal_slot.html
 msgid "Any time"
 msgstr "Dowolny termin"
+
+#: src/ludamus/templates/chronology/_room_lanes.html
+#: src/ludamus/templates/chronology/anonymous_enroll.html
+#: src/ludamus/templates/chronology/parts/session-modal.html
+#: src/ludamus/templates/chronology/print.html
+#: src/ludamus/templates/panel/parts/_change-log-table.html
+#: src/ludamus/templates/panel/parts/timetable-grid.html
+#: src/ludamus/templates/panel/timetable-log.html
+msgid "Time"
+msgstr "Czas"
 
 #: src/ludamus/templates/chronology/_schedule_view_tabs.html
 msgid "Schedule view"
@@ -4069,6 +4096,7 @@ msgid "Save this code to manage your enrollment later"
 msgstr "Zachowaj ten kod, aby później zarządzać swoim zapisem"
 
 #: src/ludamus/templates/chronology/anonymous_enroll.html
+#: src/ludamus/templates/chronology/event.html
 msgid "Host"
 msgstr "Prowadzący"
 
@@ -4078,18 +4106,9 @@ msgid "Participants"
 msgstr "Uczestnicy"
 
 #: src/ludamus/templates/chronology/anonymous_enroll.html
-#: src/ludamus/templates/chronology/parts/session-modal.html
-#: src/ludamus/templates/chronology/print.html
-#: src/ludamus/templates/panel/parts/_change-log-table.html
-#: src/ludamus/templates/panel/parts/timetable-grid.html
-#: src/ludamus/templates/panel/timetable-log.html
-msgid "Time"
-msgstr "Czas"
-
-#: src/ludamus/templates/chronology/anonymous_enroll.html
 #: src/ludamus/templates/chronology/enroll_select.html
 #: src/ludamus/templates/chronology/parts/session-modal.html
-#: src/ludamus/templates/chronology/session_tags.html
+#: src/ludamus/templates/chronology/session_tags_cloud.html
 msgid "years"
 msgstr "lat"
 
@@ -4406,12 +4425,16 @@ msgid "Only with enrollment"
 msgstr "Tylko z zapisami"
 
 #: src/ludamus/templates/chronology/event.html
-msgid "Search sessions..."
-msgstr "Szukaj punktów programu..."
+msgid "Search by name or text..."
+msgstr "Szukaj po nazwie lub treści..."
 
 #: src/ludamus/templates/chronology/event.html
 msgid "Filters"
 msgstr "Filtry"
+
+#: src/ludamus/templates/chronology/event.html
+msgid "Close filters"
+msgstr "Zamknij filtry"
 
 #: src/ludamus/templates/chronology/event.html
 #: src/ludamus/templates/panel/proposals.html
@@ -4451,16 +4474,16 @@ msgid "All locations"
 msgstr "Wszystkie lokalizacje"
 
 #: src/ludamus/templates/chronology/event.html
-msgid "Age range"
-msgstr "Przedział wiekowy"
+msgid "Participant age"
+msgstr "Wiek uczestnika"
 
 #: src/ludamus/templates/chronology/event.html
-msgid "Min"
-msgstr "Min"
+msgid "Age from"
+msgstr "Wiek od"
 
 #: src/ludamus/templates/chronology/event.html
-msgid "Max"
-msgstr "Max"
+msgid "Any age"
+msgstr "Dowolny wiek"
 
 #: src/ludamus/templates/chronology/event.html
 msgid "Day"
@@ -4504,20 +4527,33 @@ msgid "All"
 msgstr "Wszystkie"
 
 #: src/ludamus/templates/chronology/event.html
+msgid "Search hosts…"
+msgstr "Szukaj prowadzących…"
+
+#: src/ludamus/templates/chronology/event.html
+msgid "No host matches your search."
+msgstr "Żaden prowadzący nie pasuje do wyszukiwania."
+
+#: src/ludamus/templates/chronology/event.html
+msgid "Show hosts"
+msgstr "Pokaż prowadzących"
+
+#: src/ludamus/templates/chronology/event.html
+msgid "All hosts"
+msgstr "Wszyscy prowadzący"
+
+#: src/ludamus/templates/chronology/event.html
+#: src/ludamus/templates/components/multiselect-filter.html
+msgid "Apply filters"
+msgstr "Zastosuj filtry"
+
+#: src/ludamus/templates/chronology/event.html
 msgid "Remove filter"
 msgstr "Usuń filtr"
 
 #: src/ludamus/templates/chronology/event.html
 msgid "Clear all"
 msgstr "Wyczyść wszystko"
-
-#: src/ludamus/templates/chronology/event.html
-msgid "Age ≥"
-msgstr "Wiek ≥"
-
-#: src/ludamus/templates/chronology/event.html
-msgid "Age ≤"
-msgstr "Wiek ≤"
 
 #: src/ludamus/templates/chronology/event.html
 msgid "No sessions match your filters"
@@ -4846,6 +4882,10 @@ msgstr "Ten wydruk nie jest dostępny dla tego wydarzenia."
 msgid "%(name_value)s (flagged)"
 msgstr "%(name_value)s (oznaczony)"
 
+#: src/ludamus/templates/components/combobox.html
+msgid "Results"
+msgstr "Wyniki"
+
 #: src/ludamus/templates/components/confirm-dialog.html
 msgid "Please confirm"
 msgstr "Potwierdź"
@@ -4967,11 +5007,6 @@ msgid "Log in"
 msgstr "Zaloguj się"
 
 #: src/ludamus/templates/components/multiselect-filter-options.html
-#: src/ludamus/templates/components/multiselect-filter.html
-msgid "Nothing matches your search."
-msgstr "Nic nie pasuje do wyszukiwania."
-
-#: src/ludamus/templates/components/multiselect-filter-options.html
 msgid "Start typing to find someone."
 msgstr "Zacznij pisać, aby kogoś znaleźć."
 
@@ -4980,20 +5015,11 @@ msgid "More matches than fit — keep typing to narrow them."
 msgstr "Więcej wyników, niż się mieści — pisz dalej, aby je zawęzić."
 
 #: src/ludamus/templates/components/multiselect-filter.html
-#: src/ludamus/templates/panel/parts/timetable-browse-pane.html
-msgid "Search…"
-msgstr "Szukaj…"
-
-#: src/ludamus/templates/components/multiselect-filter.html
 #: src/ludamus/templates/panel/facilitators.html
 #: src/ludamus/templates/panel/import-log.html
 #: src/ludamus/templates/panel/proposals.html
 msgid "Clear"
 msgstr "Wyczyść"
-
-#: src/ludamus/templates/components/multiselect-filter.html
-msgid "Apply filters"
-msgstr "Zastosuj filtry"
 
 #: src/ludamus/templates/components/navbar.html
 msgid "Account menu"
@@ -9520,6 +9546,27 @@ msgstr ""
 
 #~ msgid "End time must be after start time."
 #~ msgstr "Czas zakończenia musi być po czasie rozpoczęcia."
+
+#~ msgid "Required age"
+#~ msgstr "Wymagany wiek"
+
+#~ msgid "Age ≥"
+#~ msgstr "Wiek ≥"
+
+#~ msgid "Search sessions..."
+#~ msgstr "Szukaj punktów programu..."
+
+#~ msgid "Age range"
+#~ msgstr "Przedział wiekowy"
+
+#~ msgid "Min"
+#~ msgstr "Min"
+
+#~ msgid "Max"
+#~ msgstr "Max"
+
+#~ msgid "Age ≤"
+#~ msgstr "Wiek ≤"
 
 #~ msgid "Venue"
 #~ msgstr "Lokalizacja"

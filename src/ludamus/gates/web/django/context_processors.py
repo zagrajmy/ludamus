@@ -12,7 +12,7 @@ from ludamus.gates.web.django.sphere.pages import (
     SPHERE_PAGE_NAMESPACES,
     SPHERE_PAGE_URL_NAMES,
 )
-from ludamus.links.analytics import identity
+from ludamus.links.analytics import identity, redaction
 from ludamus.pacts import SpherePage
 
 if TYPE_CHECKING:
@@ -110,9 +110,12 @@ def support(_request: HttpRequest) -> dict[str, str]:
 
 class PosthogConfig(TypedDict):
     api_key: str
-    host: str
-    user_id: str | None
     environment: str
+    host: str
+    # Derived from the URLconf so the browser redacts the same segments the
+    # server does, rather than keeping its own copy of the route list.
+    redaction_rules: list[list[str]]
+    user_id: str | None
 
 
 class AnalyticsContextData(TypedDict):
@@ -138,6 +141,7 @@ def analytics(request: HttpRequest) -> AnalyticsContextData:
                 else None
             ),
             environment=identity.environment(),
+            redaction_rules=redaction.client_patterns(),
         )
     )
 
