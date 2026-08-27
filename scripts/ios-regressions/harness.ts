@@ -55,6 +55,14 @@ const deviceName = env.IOS_DEVICE_NAME ?? "iPhone 17 Pro";
 const runtime = env.IOS_RUNTIME;
 const providedUdid = env.UDID;
 const safariReadyTimeoutMs = Number(env.IOS_SAFARI_READY_TIMEOUT_MS ?? "240000");
+// NaN or Infinity would make pollUntil's deadline comparison never true, so a
+// typo'd override spins silently until the job's own timeout kills it.
+if (!Number.isFinite(safariReadyTimeoutMs) || safariReadyTimeoutMs <= 0) {
+  throw new Error(
+    "IOS_SAFARI_READY_TIMEOUT_MS must be a positive number of milliseconds; got " +
+      JSON.stringify(env.IOS_SAFARI_READY_TIMEOUT_MS),
+  );
+}
 
 // One convention for "is this on screen": rect centre inside the viewport,
 // clear of a band for Safari's top and bottom chrome. The band's exact size is
