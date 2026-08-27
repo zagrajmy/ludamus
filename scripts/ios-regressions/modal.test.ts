@@ -153,11 +153,13 @@ let scrollIssue: string | null = null;
 
 beforeAll(async () => {
   await fetchReadyPage(eventUrl, targetTitle);
-  const udid = await prepareDevice();
+  await prepareDevice();
 
   const initialUrl = openViaScrolledPage ? eventUrl : modalUrl;
   console.log(`Opening Safari at ${initialUrl.toString()}...`);
-  await openUrl(initialUrl.toString(), udid);
+  await openUrl(initialUrl.toString(), {
+    expectedLabels: openViaScrolledPage ? [targetTriggerLabel] : [targetTitle, "Close"],
+  });
   await wait(3000);
 
   let preOpenTriggerLabel: string | null = null;

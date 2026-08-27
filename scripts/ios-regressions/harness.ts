@@ -7,7 +7,6 @@ import type {
 } from "agent-device";
 
 import { createAgentDeviceClient, isAgentDeviceError } from "agent-device";
-import { execFileSync } from "node:child_process";
 
 type IosDeviceOptions = AgentDeviceSelectionOptions & { platform: "ios" };
 
@@ -55,6 +54,7 @@ export const pollUntil = async <T>(
 const deviceName = env.IOS_DEVICE_NAME ?? "iPhone 17 Pro";
 const runtime = env.IOS_RUNTIME;
 const providedUdid = env.UDID;
+const safariReadyTimeoutMs = Number(env.IOS_SAFARI_READY_TIMEOUT_MS ?? "240000");
 
 // One convention for "is this on screen": rect centre inside the viewport,
 // clear of a band for Safari's top and bottom chrome. The band's exact size is
@@ -84,6 +84,12 @@ export const describeNode = (node: SnapshotNode): string => {
   )}`;
 };
 
+type SafariReadiness = {
+  expectedLabels: readonly string[];
+  match?: "all" | "any";
+  scope?: string;
+};
+
 export type IosHarness = {
   client: AgentDeviceClient;
   deviceOptions: IosDeviceOptions;
@@ -93,8 +99,8 @@ export type IosHarness = {
   snapshotLabels: (scope?: string) => Promise<string[]>;
   findNodeByLabel: (label: string) => Promise<SnapshotNode | null>;
   wait: (durationMs: number) => Promise<void>;
-  openUrl: (url: string, udid: string) => Promise<void>;
-  prepareDevice: () => Promise<string>;
+  openUrl: (url: string, readiness: SafariReadiness) => Promise<void>;
+  prepareDevice: () => Promise<void>;
   fetchReadyPage: (url: URL, contains: string) => Promise<string>;
 };
 
@@ -155,34 +161,6 @@ export const createIosHarness = (session: string): IosHarness => {
     return result.udid;
   };
 
-  const openUrlWithSafari = async (url: string): Promise<void> => {
-    try {
-      await client.apps.open({ ...deviceOptions, app: "Safari", url });
-    } catch (error) {
-      if (isAgentDeviceError(error) && error.code === "DEVICE_IN_USE") throw error;
-      console.warn(
-        "Safari reported a URL open failure; continuing because iOS Simulator can time out after Safari has already loaded the page.",
-        error,
-      );
-    }
-  };
-
-  const openUrl = async (url: string, udid: string): Promise<void> => {
-    if (!providedUdid) {
-      await openUrlWithSafari(url);
-      return;
-    }
-    try {
-      execFileSync("xcrun", ["simctl", "openurl", udid, url], { stdio: "inherit", timeout: 10000 });
-    } catch (error) {
-      console.warn(
-        "simctl reported a URL open failure; continuing because iOS Simulator can time out before Safari finishes loading.",
-        error,
-      );
-    }
-    await openUrlWithSafari(url);
-  };
-
   const closeSessionIfPresent = async (): Promise<void> => {
     try {
       const sessions = await client.sessions.list();
@@ -226,13 +204,68 @@ export const createIosHarness = (session: string): IosHarness => {
     }
   };
 
-  const prepareDevice = async (): Promise<string> => {
+  const verifySafariPage = async ({
+    expectedLabels,
+    match = "all",
+    scope,
+  }: SafariReadiness): Promise<void> => {
+    let observed = "no snapshot completed";
+    const ready = await pollUntil<boolean>(
+      async () => {
+        try {
+          const snapshot = await takeSnapshot(scope);
+          const app = snapshot.appBundleId ?? snapshot.appName ?? "an unknown app";
+          const labels = snapshot.nodes.map((node) => node.label ?? node.value ?? "");
+          const scopeMatched = !scope || labels.includes(scope);
+          const contentMatched =
+            match === "all"
+              ? expectedLabels.every((expected) => labels.includes(expected))
+              : expectedLabels.some((expected) => labels.includes(expected));
+          observed = `app=${app}; scopeMatched=${String(scopeMatched)}; labels=${JSON.stringify(labels.slice(0, 20))}`;
+          return (
+            (snapshot.appBundleId === "com.apple.mobilesafari" && scopeMatched && contentMatched) ||
+            null
+          );
+        } catch (error) {
+          if (isAgentDeviceError(error) && error.code === "DEVICE_IN_USE") throw error;
+          observed = error instanceof Error ? error.message : String(error);
+          return null;
+        }
+      },
+      { timeoutMs: safariReadyTimeoutMs, intervalMs: 1000 },
+    );
+    if (!ready) {
+      throw new Error(
+        `Safari did not load ${JSON.stringify(expectedLabels)} within ${safariReadyTimeoutMs}ms; last observation: ${observed}`,
+      );
+    }
+  };
+
+  const openUrl = async (url: string, readiness: SafariReadiness): Promise<void> => {
+    let openError: unknown = null;
+    try {
+      await client.apps.open({ ...deviceOptions, app: "Safari", url });
+    } catch (error) {
+      if (isAgentDeviceError(error) && error.code === "DEVICE_IN_USE") throw error;
+      openError = error;
+      console.warn("Safari open reported an error; checking whether it completed late.", error);
+    }
+
+    try {
+      await verifySafariPage(readiness);
+    } catch (error) {
+      throw new Error(`Safari did not become ready at ${url}`, {
+        cause: openError ? new AggregateError([openError, error]) : error,
+      });
+    }
+  };
+
+  const prepareDevice = async (): Promise<void> => {
     await closeSessionIfPresent();
     await closeDeviceSessionIfPresent();
     console.log(`Preparing iOS simulator ${providedUdid ?? deviceName}...`);
     const udid = await ensureSimulator();
     console.log(`Using simulator UDID: ${udid}`);
-    return udid;
   };
 
   // Waits for the page to serve `contains`, then hands back the body. A caller

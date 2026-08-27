@@ -115,11 +115,7 @@ jobs:
           tail -200 ios-server.log >&2
           exit 1
 
-      # The first runner-backed command builds, launches and attaches the
-      # XCUITest runner, which measures 194-240s. Left inside a test hook it
-      # burns that hook's budget and one of its attempts.
-      - name: Warm up the agent-device runner
-        continue-on-error: true
+      - name: Start Safari and warm up the agent-device runner
         timeout-minutes: 7
         run: bun run scripts/ios-regressions/warmup.ts
 
@@ -145,8 +141,8 @@ jobs:
               fi
               echo "::warning::$(basename "$1") attempt ${attempt}/2 failed"
               # Retrying into a Safari left mid-gesture wastes the second
-              # attempt.
-              xcrun simctl terminate "$UDID" com.apple.mobilesafari || true
+              # attempt. Nothing to terminate is already the desired state.
+              xcrun simctl terminate "$UDID" com.apple.mobilesafari > /dev/null 2>&1 || true
             done
             return 1
           }
