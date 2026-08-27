@@ -27,7 +27,7 @@ requires-poetry = ">=2.0,<3"
 [tool.poetry.dependencies]
 authlib = "~1.7.0"
 cryptography = "^50.0.0"
-django = "~6.0.6"
+django = "~6.1.0"
 django-environ = "^0.14.0"
 django-extensions = "^4.1"
 django-vite = "==3.1.0"
@@ -47,6 +47,7 @@ dbos = ">=2.28.0,<3"
 unidecode = "^1.4.0"
 lxml = "^6.1.1"
 urllib3 = "^2.7.0"
+posthog = "^7.39.1"
 
 [tool.poetry.group.dev.dependencies]
 black = "^26.1.0"
@@ -55,7 +56,7 @@ deptry = "^0.25.1"
 django-browser-reload = "^1.21.0"
 django-debug-toolbar = "^7.1.0"
 django-stubs = "^6.0.5"
-djlint = "^1.39.2"
+djlint = "^1.44.2"
 factory-boy = "^3.3.3"
 faker = "^40.36.0"
 freezegun = "^1.5.2"
@@ -66,7 +67,7 @@ pip-audit = "^2.10.1"
 pylint = "^4.0.3"
 pytest = "^9.0.3"
 pytest-cov = "^7.0.0"
-pytest-django = "^4.11.1"
+pytest-django = "^4.14.0"
 pytest-factoryboy = "^2.8.1"
 pytest-freezeblaster = "^2.0.4"
 responses = "^0.26.0"
@@ -82,11 +83,11 @@ pytest-gremlins = "^1.8.1"
 django-coverage-plugin = "^3.2.2"
 yamllint = "1.38.0"
 taplo = "^0.9.3"
-tingle = "^0.4.0"
+tingle = "^0.7.0"
 pytest-xdist = "^3.8.0"
 lxml-stubs = "^0.5.1"
 django-zeal = "^2.2.2"
-vekna = { git = "https://github.com/fancysnake/vekna.git", rev = "v0.4.0" }
+vekna = { git = "https://github.com/fancysnake/vekna.git", rev = "v0.6.0" }
 
 [tool.black]
 line-length = 88
@@ -97,10 +98,14 @@ target-version = ['py314']
 # CODESPELL
 
 [tool.codespell]
+# The two legal documents are published Polish text, skipped for the same reason
+# as the *.po catalogs above: an English dictionary flags ordinary Polish words.
+# Named individually rather than by directory, so anything else added under
+# content/ stays checked.
 # `./.claude` only matches when codespell is handed the repo root; hk and CI
 # pass explicit paths, so the vendored skills need a glob that matches the
 # path as given too.
-skip = 'node_modules,tests/e2e,*.po,*.lock,package-lock.json,vendor,src/ludamus/gates/web/django/theme/static_src/package-lock.json,CLAUDE.md,./.claude,./.agents,.claude/*,.agents/*,*/.claude/*,*/.agents/*,aube-lock.yaml,src/ludamus/client/package-lock.json,src/ludamus/static/vite'
+skip = 'node_modules,tests/e2e,*.po,*.lock,package-lock.json,vendor,src/ludamus/gates/web/django/theme/static_src/package-lock.json,CLAUDE.md,./.claude,./.agents,.claude/*,.agents/*,*/.claude/*,*/.agents/*,aube-lock.yaml,src/ludamus/client/package-lock.json,src/ludamus/static/vite,src/ludamus/content/privacy-policy.md,src/ludamus/content/terms-of-service.md'
 # 'fallow' is the frontend analysis tool, not a misspelling of 'follow'.
 # 'adres' is Polish for 'address' — real localized sheet headers ("Adres e-mail").
 # 'afterall' is bun:test's afterAll hook.
@@ -135,12 +140,12 @@ template_extensions = 'html'
 
 [tool.djlint]
 ignore = "H021,H031,H037,D018"
-custom_blocks = "select,radio,document_title,sidebar_cat,tab,tabs,tab_shell,tab_shell_body,tessera_copy,tessera_segment,tessera_switcher,tessera_table"
+custom_blocks = "select,tessera_combobox,radio,document_title,sidebar_cat,tab,tabs,tab_shell,tab_shell_body,tessera_copy,tessera_segment,tessera_switcher,tessera_table"
 
 # DEPTRY
 
 [tool.deptry]
-known_first_party = ["ludamus"]
+known_first_party = ["ludamus", "scripts"]
 
 [tool.deptry.per_rule_ignores]
 DEP002 = [
@@ -154,7 +159,7 @@ DEP002 = [
     "whitenoise",
     "django-storages",
 ]
-DEP004 = ["debug_toolbar", "vekna"]
+DEP004 = ["debug_toolbar", "vekna", "zeal"]
 
 # MYPY
 
@@ -212,6 +217,10 @@ module = ["markdown"]
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
+module = ["zeal.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
 module = [
     "ludamus.links.db.django.*",
     "ludamus.adapters.web.django.*",
@@ -221,6 +230,7 @@ module = [
     "ludamus.links.db.django.*",
     "ludamus.links.ticket_api",
     "ludamus.links.google_docs",
+    "ludamus.links.analytics.*",
 ]
 disallow_any_expr = false
 
@@ -255,6 +265,7 @@ ignore = [
     "COM",
     "CPY",
     "D1",
+    "DOC",   # No docstring param/return spec
     "FIX",
     "TD003",
     # Left to fix
@@ -477,9 +488,12 @@ exclude = [
     "*/context_processors.py",
 ]
 ignore_names = [
+    # Called from context_processors.py, which is excluded above
+    "client_patterns",
     # Used in templates
     "bookmark_count",
     "button_class",
+    "cloud_overflow",
     "filter_categories",
     "has_guests",
     "has_secret",
@@ -499,6 +513,10 @@ ignore_names = [
     "unread_count",
     "user_bookmarked",
     "user_waiting",
+    # html.parser callbacks — HTMLParser.feed() dispatches to these
+    "handle_data",
+    "handle_endtag",
+    "handle_starttag",
     # Django
     "*Config",
     "add_arguments",
@@ -536,7 +554,9 @@ ignore_names = [
     "modification_time",
     "test_func",
     # Vekna rituals
-    "pr_check",
+    "pr_refresh",
+    "pr_cover",
+    "pr_review",
 ]
 
 ignore_decorators = [

@@ -1,0 +1,42 @@
+{% load i18n %}
+{% load cfp_tags %}
+{% if wizard_steps|default:"" %}
+    <nav aria-label="{% translate "Proposal progress" %}" class="mb-6">
+        <ol class="grid w-full"
+            style="grid-template-columns: repeat({{ wizard_steps|length }}, 1fr)">
+            {% for step_key in wizard_steps %}
+                {% with is_done_step=step_key|is_done:current_step is_current_step=step_key|is_current:current_step %}
+                    <li class="flex flex-col items-center relative"
+                        {% if is_current_step %}aria-current="step"{% endif %}>
+                        {% if not forloop.first %}
+                            <span aria-hidden="true"
+                                  class="absolute top-4 h-0.5 -translate-y-1/2 {% if is_done_step or is_current_step %}bg-primary{% else %}bg-border{% endif %}"
+                                  style="left: calc(-50% + 1.25rem);
+                                         right: calc(50% + 1.25rem)"></span>
+                        {% endif %}
+                        <span class="relative z-10 flex items-center justify-center w-8 h-8 rounded-full border-2 text-xs font-semibold transition-colors {% if is_done_step %}bg-primary border-primary text-white {% elif is_current_step %}bg-primary border-primary text-white ring-4 ring-primary/20 {% else %}bg-[--color-bg-secondary] border-border text-foreground-muted{% endif %}">
+                            {% if is_done_step %}
+                                ✓
+                            {% else %}
+                                {{ forloop.counter }}
+                            {% endif %}
+                        </span>
+                        <span class="mt-2 text-center text-xs sm:text-sm leading-tight {% if is_current_step %}text-foreground font-medium {% elif is_done_step %}text-foreground {% else %}text-foreground-muted{% endif %}">
+                            {% if step_key == "category" %}
+                                {% translate "Category" %}
+                            {% elif step_key == "personal" %}
+                                {% translate "Your info" %}
+                            {% elif step_key == "timeslots" %}
+                                {% translate "Time slots" %}
+                            {% elif step_key == "details" %}
+                                {% translate "Session" context "wizard step" %}
+                            {% elif step_key == "review" %}
+                                {% translate "Review" %}
+                            {% endif %}
+                        </span>
+                    </li>
+                {% endwith %}
+            {% endfor %}
+        </ol>
+    </nav>
+{% endif %}

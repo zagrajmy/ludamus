@@ -3,14 +3,18 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Final, Literal, TypedDict, get_args
 
 from django.contrib import messages
-from django.contrib.auth.mixins import LoginRequiredMixin
+from django.core.paginator import Paginator
 from django.shortcuts import redirect
 from django.urls import reverse
+from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils.translation import gettext as _
 
 from ludamus.pacts.submissions import RequirementSelectionDTO
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
+
+    from django.core.paginator import Page
     from django.http import HttpRequest, HttpResponseRedirect, QueryDict
 
 # Every value `active_nav` can take — one per entry in the panel sidebar
@@ -27,6 +31,7 @@ PanelNav = Literal[
     "venues",
     "tracks",
     "timetable",
+    "errata",
     "settings",
     "bans",
     "guilds",
@@ -44,7 +49,7 @@ class PanelNavContext(TypedDict):
 # Every sidebar category. A category with no collapse rules in `panel/base.html`
 # renders a fully wired toggle that visibly does nothing, so `TestSidebarCoverage`
 # checks this set against the rules there.
-PanelCat = Literal["program", "schedule", "settings", "sphere"]
+PanelCat = Literal["program", "schedule", "live", "settings", "sphere"]
 PANEL_CAT_KEYS: Final = frozenset(get_args(PanelCat))
 
 
@@ -73,17 +78,68 @@ def settings_tab_urls(slug: str) -> dict[str, str]:
         "integrations": reverse(
             "panel:event-integration-settings", kwargs={"slug": slug}
         ),
+        "mcp": reverse("panel:event-mcp-token", kwargs={"slug": slug}),
     }
 
 
-class PanelPermissionResponseMixin(LoginRequiredMixin):
-    request: HttpRequest
-
-    def handle_no_permission(self) -> HttpResponseRedirect:
-        if not self.request.user.is_authenticated:
-            return super().handle_no_permission()
-
-        messages.error(
-            self.request, _("You don't have permission to access the backoffice panel.")
+def safe_url(request: HttpRequest, url: str | None) -> str:
+    # The one host check behind every "back where you came from" redirect,
+    # whether the URL arrived as a `next` param or as the referer.
+    return (
+        url
+        if url
+        and url_has_allowed_host_and_scheme(
+            url, allowed_hosts={request.get_host()}, require_https=request.is_secure()
         )
+        else ""
+    )
+
+
+def safe_next_url(request: HttpRequest, fallback: str) -> str:
+    # Actions post it, links carry it in the query — both spellings mean "the
+    # list the organizer came from", filters and all.
+    return (
+        safe_url(request, request.POST.get("next") or request.GET.get("next"))
+        or fallback
+    )
+
+
+PAGE_SIZES = (10, 20, 50, 100)
+DEFAULT_PAGE_SIZE = 20
+
+
+class PaginationContext[T](TypedDict):
+    page_obj: Page[T]
+    page_sizes: list[int]
+
+
+def paginate[T](request: HttpRequest, items: Sequence[T]) -> Page[T]:
+    raw = request.GET.get("page_size", "")
+    size = int(raw) if raw.isdigit() and int(raw) in PAGE_SIZES else DEFAULT_PAGE_SIZE
+    return Paginator(items, size).get_page(request.GET.get("page"))
+
+
+def pagination_context[T](
+    request: HttpRequest, items: Sequence[T]
+) -> PaginationContext[T]:
+    # The sizes travel with the page so the picker can't drift from the
+    # sizes `paginate` actually honours.
+    return {"page_obj": paginate(request, items), "page_sizes": list(PAGE_SIZES)}
+
+
+# The whole refusal policy for panel views, in one place. A role that reads the
+# panel but may not change it was denied the write, not the panel: saying
+# otherwise is untrue, and dropping the user on the site index loses the page
+# they were reading. Callers pass the access answer they already resolved and
+# the wording for the panel they guard.
+def refuse_panel_access(
+    *, request: HttpRequest, reads_panel: bool, message: str
+) -> HttpResponseRedirect:
+    if not reads_panel:
+        messages.error(request, message)
         return redirect("web:index")
+    messages.error(
+        request, _("Your role can read the panel, but not make changes here.")
+    )
+    back = safe_url(request, request.META.get("HTTP_REFERER"))
+    return redirect(back) if back else redirect("web:index")

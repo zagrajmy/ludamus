@@ -11,7 +11,12 @@ from ludamus.mills.panel_facilitators import (
     kept_field_values,
     name_reconcile,
 )
-from ludamus.pacts import FacilitatorDTO, NotFoundError, OrganizerFieldDTO
+from ludamus.pacts import (
+    FacilitatorChangeLogDTO,
+    FacilitatorDTO,
+    NotFoundError,
+    OrganizerFieldDTO,
+)
 from ludamus.pacts.panel import (
     EventPanelSettingsDTO,
     FacilitatorCreateData,
@@ -23,7 +28,11 @@ from ludamus.pacts.panel import (
     FacilitatorPanelRepos,
     MergeErrorReason,
 )
-from ludamus.pacts.submissions import FacilitatorActionError, OrganizerActionRefusal
+from ludamus.pacts.submissions import (
+    FacilitatorActionError,
+    FacilitatorSessionCountsDTO,
+    OrganizerActionRefusal,
+)
 
 
 def _field(pk, field_type="select"):
@@ -59,6 +68,7 @@ class FakeSettingsRepo:
 
 def _service(fields):
     repos = FacilitatorPanelRepos(
+        events=MagicMock(),
         facilitators=FakeFacilitatorsRepo(),
         personal_data_fields=FakeFieldsRepo(fields),
         personal_data_field_values=object(),
@@ -147,6 +157,7 @@ def _merge_service(facilitators, fields=(), values=None):
         lambda facilitator_pk, _event_id: (values or {}).get(facilitator_pk, {})
     )
     repos = FacilitatorPanelRepos(
+        events=MagicMock(),
         facilitators=facilitators_repo,
         personal_data_fields=FakeFieldsRepo(list(fields)),
         personal_data_field_values=values_repo,
@@ -528,6 +539,7 @@ class TestCreateFacilitator:
             pk=_CREATED_PK, **data
         )
         repos = FacilitatorPanelRepos(
+            events=MagicMock(),
             facilitators=facilitators_repo,
             personal_data_fields=FakeFieldsRepo(list(fields)),
             personal_data_field_values=MagicMock(),
@@ -537,7 +549,38 @@ class TestCreateFacilitator:
             users=object(),
             guilds=MagicMock(),
         )
+        repos.facilitators.find_by_event_and_display_name.return_value = None
         return FacilitatorPanelService(_FakeTransaction(), repos), repos
+
+    def test_find_or_create_returns_exact_existing_facilitator_under_event_lock(self):
+        service, repos = self._create_service()
+        existing = SimpleNamespace(pk=9, display_name="Alice")
+        repos.facilitators.find_by_event_and_display_name.return_value = existing
+
+        result = service.find_or_create_facilitator(
+            event_id=10,
+            data=FacilitatorCreateData(
+                display_name="Alice", base_slug="alice", accreditation_type="none"
+            ),
+        )
+
+        assert result is existing
+        repos.events.lock.assert_called_once_with(10)
+        repos.facilitators.create.assert_not_called()
+
+    def test_find_or_create_creates_missing_facilitator_under_event_lock(self):
+        service, repos = self._create_service()
+
+        result = service.find_or_create_facilitator(
+            event_id=10,
+            data=FacilitatorCreateData(
+                display_name="Alice", base_slug="alice", accreditation_type="none"
+            ),
+        )
+
+        assert result.pk == _CREATED_PK
+        repos.events.lock.assert_called_once_with(10)
+        repos.facilitators.create.assert_called_once()
 
     def test_uniquifies_a_colliding_slug(self):
         service, repos = self._create_service(taken_slugs=("alice",))
@@ -806,6 +849,7 @@ class FakeOrganizerRepo:
 
 def _organizer_service(facilitators):
     repos = FacilitatorPanelRepos(
+        events=MagicMock(),
         facilitators=facilitators,
         personal_data_fields=FakeFieldsRepo([]),
         personal_data_field_values=object(),
@@ -892,6 +936,172 @@ class TestOrganizerStepDown:
         )
 
         assert facilitators.released_with is None
+
+
+_FACILITATOR_PK = 7
+
+
+class FakeDeletionRepo:
+    def __init__(self, *, live_sessions=0, deleted_sessions=0):
+        self._counts = FacilitatorSessionCountsDTO(
+            live=live_sessions, deleted=deleted_sessions
+        )
+        self.soft_deleted = _NOT_CALLED
+        self.restored = _NOT_CALLED
+        self.calls = []
+
+    def lock(self, pks):
+        self.calls.append(("lock", list(pks)))
+
+    def read_by_event_and_slug(self, _event_id, _slug):
+        return FacilitatorDTO.model_construct(pk=_FACILITATOR_PK)
+
+    def read_including_deleted(self, _event_id, _slug):
+        return FacilitatorDTO.model_construct(pk=_FACILITATOR_PK)
+
+    def count_sessions(self, pk):
+        self.calls.append(("count_sessions", pk))
+        return self._counts
+
+    def soft_delete(self, pk):
+        self.soft_deleted = pk
+
+    def restore(self, pk):
+        self.restored = pk
+
+
+def _deletion_service(facilitators):
+    logs = MagicMock()
+    repos = FacilitatorPanelRepos(
+        events=MagicMock(),
+        facilitators=facilitators,
+        personal_data_fields=FakeFieldsRepo([]),
+        personal_data_field_values=object(),
+        facilitator_change_logs=logs,
+        panel_settings=FakeSettingsRepo(),
+        sessions=object(),
+        users=object(),
+        guilds=MagicMock(),
+    )
+    return FacilitatorPanelService(_FakeTransaction(), repos), logs
+
+
+def _logged_changes(logs):
+    return logs.create.call_args.args[0]["changes"]
+
+
+class TestFacilitatorDeletion:
+    def test_a_facilitator_running_sessions_is_not_deleted(self):
+        facilitators = FakeDeletionRepo(live_sessions=1)
+        service, logs = _deletion_service(facilitators)
+
+        refusal = _refusal(lambda: service.delete(event_id=1, facilitator_slug="alice"))
+
+        assert refusal == OrganizerActionRefusal.HAS_SESSIONS
+        assert facilitators.soft_deleted is _NOT_CALLED
+        logs.create.assert_not_called()
+
+    def test_a_facilitator_named_only_on_deleted_sessions_is_not_deleted(self):
+        # The refusal carries the numbers so the message can say which half of
+        # them the organizer cannot see from the facilitator page.
+        facilitators = FakeDeletionRepo(deleted_sessions=2)
+        service, _logs = _deletion_service(facilitators)
+
+        with pytest.raises(FacilitatorActionError) as exc_info:
+            service.delete(event_id=1, facilitator_slug="alice")
+
+        assert exc_info.value.session_counts == FacilitatorSessionCountsDTO(
+            live=0, deleted=2
+        )
+        assert facilitators.soft_deleted is _NOT_CALLED
+
+    def test_the_row_is_locked_before_its_sessions_are_counted(self):
+        # A session assignment landing between the two would leave a deleted
+        # facilitator named on the program.
+        facilitators = FakeDeletionRepo()
+        service, _logs = _deletion_service(facilitators)
+
+        service.delete(event_id=1, facilitator_slug="alice")
+
+        assert facilitators.calls == [
+            ("lock", [_FACILITATOR_PK]),
+            ("count_sessions", _FACILITATOR_PK),
+        ]
+
+    def test_a_facilitator_without_sessions_is_deleted(self):
+        facilitators = FakeDeletionRepo()
+        service, _logs = _deletion_service(facilitators)
+
+        service.delete(event_id=1, facilitator_slug="alice")
+
+        assert facilitators.soft_deleted == _FACILITATOR_PK
+
+    def test_a_deletion_is_logged_against_the_organizer(self):
+        facilitators = FakeDeletionRepo()
+        service, logs = _deletion_service(facilitators)
+
+        service.delete(event_id=1, facilitator_slug="alice", user_id=_USER_ID)
+
+        assert logs.create.call_args.args[0] == {
+            "event_id": 1,
+            "facilitator_id": _FACILITATOR_PK,
+            "user_id": _USER_ID,
+            "changes": [
+                {"field": "deleted", "field_id": None, "old": "", "new": "yes"}
+            ],
+        }
+
+    def test_a_restore_is_logged_the_other_way_round(self):
+        facilitators = FakeDeletionRepo()
+        service, logs = _deletion_service(facilitators)
+
+        service.restore(event_id=1, facilitator_slug="alice", user_id=_USER_ID)
+
+        assert facilitators.restored == _FACILITATOR_PK
+        assert _logged_changes(logs) == [
+            {"field": "deleted", "field_id": None, "old": "yes", "new": ""}
+        ]
+
+
+class FakeDeadFacilitatorRepo:
+    @staticmethod
+    def read_by_event_and_slug(_event_id, _slug):
+        raise NotFoundError
+
+    @staticmethod
+    def read_including_deleted(_event_id, _slug):
+        return FacilitatorDTO.model_construct(pk=_FACILITATOR_PK, display_name="Alice")
+
+
+class TestFacilitatorHistory:
+    def test_a_deleted_facilitator_still_has_a_history(self):
+        deletion_log = FacilitatorChangeLogDTO.model_construct(
+            facilitator_id=_FACILITATOR_PK,
+            changes=[{"field": "deleted", "field_id": None, "old": "", "new": "yes"}],
+        )
+        logs = MagicMock()
+        logs.list_by_event.return_value = [
+            deletion_log,
+            FacilitatorChangeLogDTO.model_construct(facilitator_id=_FACILITATOR_PK + 1),
+        ]
+        repos = FacilitatorPanelRepos(
+            events=MagicMock(),
+            facilitators=FakeDeadFacilitatorRepo(),
+            personal_data_fields=FakeFieldsRepo([]),
+            personal_data_field_values=object(),
+            facilitator_change_logs=logs,
+            panel_settings=FakeSettingsRepo(),
+            sessions=object(),
+            users=object(),
+            guilds=MagicMock(),
+        )
+        service = FacilitatorPanelService(_FakeTransaction(), repos)
+
+        name, entries = service.facilitator_history(
+            event_id=1, facilitator_slug="alice"
+        )
+
+        assert (name, entries) == ("Alice", [deletion_log])
 
 
 class TestAssignGuild:

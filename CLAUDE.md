@@ -15,9 +15,17 @@ description — run it rather than trusting a hardcoded list here. Most used:
   - is the info we're showing redundant?
   - are we asking for needless clicks? like showing a form with one selectable
     option?
+  - does each control hold one kind of thing? a switcher switches between
+    layouts of the same set, a filter narrows the set, a sort reorders it —
+    a filter sitting among the view tabs is a type error, and so is a
+    control offering one option.
+  - UIs have types. a tag cloud wraps tokens that already carry their
+    kind; a definition list stacks named groups. restacking a cloud into
+    ragged rows is that same type error.
 - Include screenshots of affected pages in the PR description. With a server
   running, `mise run shots -- / /events` saves PNGs to `screenshots/` (paths
-  resolve against `localhost:8000`; wraps `aubx agent-browser`).
+  resolve against `localhost:8000`; wraps `aubx agent-browser`). In a sandbox,
+  publish with `/here-now` and link URLs.
 - Don't ignore lint rules globally.
 - Use the `src/ludamus/adapters/web/django/templatetags/tessera` design system
   for UI; don't hand-roll components.
@@ -39,9 +47,9 @@ happy path + one edge case tested.
 
 ## Debt metrics (tingle)
 
-`tingle.toml` counts debt (suppression comments, `Any`, `request.di.uow`,
-legacy LOC, …). `tingle stat --diff` / `tingle report --diff` show what your
-branch adds vs `main`.
+`tingle.toml` counts debt (suppression comments, `Any`, files still touching
+`request.di.uow`, legacy and old-subdomain files, …). `tingle stat --diff` /
+`tingle report --diff` show what your branch adds vs `main`.
 
 `tingle check` (in `mise run lint` / `check`) fails when the branch's metrics
 grow on net — paying debt in one offsets taking it on in another. Read the
@@ -86,8 +94,10 @@ has the per-file recipe. New code must use `request.services`; never extend the
   def fun(*, a: int, b: str, precision: int) -> int: ...
   ```
 
-- Avoid docstrings. Code should be self-explanatory, and the
-  Arrange-Act-Assert structure in tests obvious from the code itself.
+- Comments are exception: only what code cannot express. Else rename or
+  split. Prefix: `NOTE:` outside constraint, `SAFETY:` hazard, `HACK:`
+  deliberate deviation, `TODO:` known gap, issue link. No narration, no
+  summaries, no work history microblogging.
 - Test type follows the layer under test: `mills` gets unit tests; `gates`,
   `links`, `adapters.web`, and templates get integration tests. This holds
   when raising coverage too. Details and the pure-helper exception:
@@ -112,6 +122,9 @@ has the per-file recipe. New code must use `request.services`; never extend the
   it. The allowed facade exceptions are listed in the `glimpse` skill.
 
 ## Translation conventions (Polish)
+
+- `django.po` conflict? `mise run messages-resolve`; hand-fix only what it
+  flags.
 
 - **session** → "punkt programu" (except in "RPG session" → "sesja RPG")
 - **track** → "blok" or "blok programowy"

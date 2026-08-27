@@ -17,6 +17,63 @@ class TestSitesContext:
         assert has_panel_access is False
 
 
+class TestAnalyticsContext:
+    def test_configured_key_exposes_posthog_config(self, client, settings):
+        settings.POSTHOG_API_KEY = "phc_integration"
+        settings.POSTHOG_HOST = "https://eu.i.posthog.com"
+
+        response = client.get(reverse("web:events"))
+
+        posthog_config = response.context["posthog_config"]
+        # The browser redacts the same segments the server does, from rules the
+        # page carries rather than a copy of the route list in the bundle.
+        rules = posthog_config["redaction_rules"]
+        assert any(source.startswith("/crowd/claim/(?<p1>") for source, _ in rules)
+        # Exact equality on the rest, so a field added to the config has to be
+        # added here too: what reaches the browser is the point of this contract.
+        assert posthog_config == {
+            "api_key": "phc_integration",
+            "host": "https://eu.i.posthog.com",
+            "user_id": None,
+            "environment": "test",
+            "redaction_rules": rules,
+        }
+
+    def test_authenticated_render_identifies_by_namespaced_pk(
+        self, authenticated_client, active_user, settings
+    ):
+        settings.POSTHOG_API_KEY = "phc_integration"
+        settings.ENV = "production"
+        settings.IS_STAGING = True
+
+        response = authenticated_client.get(reverse("web:events"))
+
+        posthog_config = response.context["posthog_config"]
+        assert posthog_config["user_id"] == f"staging:{active_user.pk}"
+
+    def test_production_identifies_by_the_bare_pk(
+        self, authenticated_client, active_user, settings
+    ):
+        # Unprefixed, so persons captured before namespacing keep their
+        # timelines instead of forking at the deploy.
+        settings.POSTHOG_API_KEY = "phc_integration"
+        settings.ENV = "production"
+        settings.IS_STAGING = False
+
+        response = authenticated_client.get(reverse("web:events"))
+
+        posthog_config = response.context["posthog_config"]
+        assert posthog_config["user_id"] == str(active_user.pk)
+
+    def test_unset_key_leaks_no_posthog_config(self, client, settings):
+        settings.POSTHOG_API_KEY = ""
+
+        response = client.get(reverse("web:events"))
+
+        posthog_config = response.context["posthog_config"]
+        assert posthog_config is None
+
+
 class TestCurrentUserContext:
     def test_authenticated_render_exposes_current_user(
         self, authenticated_client, active_user

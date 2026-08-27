@@ -27,6 +27,7 @@ from ludamus.pacts import (
 from ludamus.pacts.crowd import UserType
 from ludamus.pacts.discounts import DiscountKind
 from ludamus.pacts.images import ORIGINAL_FILENAME_MAX_LENGTH
+from ludamus.pacts.multiverse import SphereRole
 from ludamus.pacts.party import PartyConsentMode, PartyMembershipStatus
 from ludamus.pacts.submissions import AccreditationType, ImportLogStatus
 
@@ -40,6 +41,11 @@ MAX_SLUG_RETRIES = 10
 RANDOM_SLUG_BYTES = 7  # 10 characters
 SPACE_MAX_DEPTH = 7  # root = depth 1; the tree may nest at most this deep
 DEFAULT_NAME = "Andrzej"
+# The one sentence for the leaf-parent rule: raised by Space.clean, carried to
+# the tree UI on SpaceTreeNodeDTO.no_children_reason. One msgid, one source.
+SPACE_NO_CHILDREN_REASON = _(
+    "A space holding a scheduled session cannot contain other spaces."
+)
 
 
 _SoftDeleteT = TypeVar("_SoftDeleteT", bound=models.Model)
@@ -286,7 +292,7 @@ class Sphere(models.Model):
 
     name = models.CharField(max_length=255)
     site = models.OneToOneField(Site, on_delete=models.PROTECT, related_name="sphere")
-    managers = models.ManyToManyField(User)
+    managers = models.ManyToManyField(User, through="SphereMembership")
     # Branding fallback — used on printables when an event has no logo of its own
     logo = models.FileField(upload_to=unique_upload_to, blank=True)
     logo_original_name = models.CharField(
@@ -312,6 +318,28 @@ class Sphere(models.Model):
     @property
     def logo_url(self) -> str:
         return self.logo.url if self.logo else ""
+
+
+class SphereMembership(models.Model):
+    sphere = models.ForeignKey(Sphere, on_delete=models.CASCADE)
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    role = models.CharField(
+        max_length=20,
+        choices=[(r.value, r.name.title()) for r in SphereRole],
+        default=SphereRole.MANAGER,
+    )
+
+    class Meta:
+        # This is the table Django auto-created for `Sphere.managers` before
+        # roles existed, adopted as-is: same name, and `unique_together`
+        # rather than a UniqueConstraint because that is the index already
+        # sitting on it. The switch to an explicit through model is then a
+        # single ADD COLUMN.
+        db_table = "sphere_managers"
+        unique_together = (("sphere", "user"),)
+
+    def __str__(self) -> str:
+        return f"{self.user_id} is {self.role} of sphere {self.sphere_id}"
 
 
 class Guild(models.Model):
@@ -590,6 +618,11 @@ class EnrollmentConfig(models.Model):
         Returns:
             True if session can be enrolled in under this config.
         """
+        # A limit of 0 means the session takes no enrollment at all, so no
+        # config can make it eligible. The single gate for that rule.
+        if session.participants_limit == 0:
+            return False
+
         if self.limit_to_end_time:
             agenda_item = getattr(session, "agenda_item", None)
             return agenda_item is not None and agenda_item.start_time < self.end_time
@@ -754,9 +787,7 @@ class Space(models.Model):
         # Attaching under a parent turns that parent into a branch; a branch
         # cannot also hold a scheduled session.
         if self.parent is not None and self.parent.agenda_items.exists():
-            raise ValidationError(
-                _("A space holding a scheduled session cannot contain other spaces.")
-            )
+            raise ValidationError(SPACE_NO_CHILDREN_REASON)
 
     def _validate_root_slug_unique(self) -> None:
         # The (slug, parent) DB constraint can't police roots (SQL treats NULL
@@ -817,7 +848,7 @@ class TimeSlot(models.Model):
             raise ValidationError(_("Time slots can't overlap!"))
 
 
-class Facilitator(models.Model):
+class Facilitator(SoftDeleteModel):
     """Program creator / session facilitator, decoupled from User accounts."""
 
     event = models.ForeignKey(
@@ -859,9 +890,6 @@ class Facilitator(models.Model):
         blank=True,
         related_name="organized_facilitators",
     )
-    # Reversible triage marker: organizers flag likely duplicates/removals, then
-    # act on them (merge or delete) as a separate deliberate step.
-    flagged_for_deletion = models.BooleanField(default=False)
     # A guild, club or the organizer crew itself — not one person, so several
     # of its program points at the same hour are normal. The timetable skips
     # its facilitator-overlap check for these.
@@ -873,6 +901,10 @@ class Facilitator(models.Model):
         db_table = "facilitator"
         verbose_name = _("Twórca programu")
         verbose_name_plural = _("Twórcy programu")
+        # Both uniques count deleted rows too, so a dead facilitator keeps
+        # holding its slug and ident. Identity lookups therefore go through
+        # `all_objects` — matching a dead row and restoring it beats colliding
+        # with a reservation the alive-only manager cannot see.
         constraints = (
             models.UniqueConstraint(
                 fields=("event", "slug"), name="facilitator_unique_slug_per_event"
@@ -1051,8 +1083,17 @@ class Session(SoftDeleteModel):
         return self.participants_limit
 
     @property
+    def seats_left(self) -> int:
+        return max(0, self.effective_participants_limit - self.enrolled_count)
+
+    @property
     def is_full(self) -> bool:
         """Check if session is at capacity for enrollment."""
+        # "Full" means there was a seat and it is taken. A session that takes no
+        # enrollment never had one, and calling it full would offer its viewers
+        # a waiting list to join and warn a leaver that their seat passes to the
+        # next person waiting. The availability ladder closes those sessions one
+        # step earlier, on takes_enrollment.
         if self.participants_limit == 0:
             return False
         return self.enrolled_count >= self.effective_participants_limit
@@ -1062,25 +1103,6 @@ class Session(SoftDeleteModel):
         """Check if enrollment is available for this session under any active config."""
         active_configs = self.event.get_active_enrollment_configs()
         return any(config.is_session_eligible(self) for config in active_configs)
-
-    @property
-    def full_participant_info(self) -> str:  # pragma: no cover
-        # TODO(@fancysnake): This is used in templates. Rewrite to pass static values
-        # ZAG-16
-        if self.effective_participants_limit == 0:
-            base_info = str(self.enrolled_count)
-        else:
-            base_info = f"{self.enrolled_count}/{self.effective_participants_limit}"
-
-            # Add session limit if different from effective limit
-            if self.effective_participants_limit != self.participants_limit:
-                base_info += f" (session limit: {self.participants_limit})"
-
-        # Add waiting list info
-        if self.waiting_count > 0:
-            base_info += f", {self.waiting_count} waiting"
-
-        return base_info
 
 
 class AgendaItem(models.Model):
@@ -1650,6 +1672,9 @@ class Track(models.Model):
             models.UniqueConstraint(
                 fields=("event", "slug"), name="track_unique_slug_per_event"
             ),
+            models.UniqueConstraint(
+                Lower("name"), "event", name="track_unique_name_per_event"
+            ),
         )
 
     def __str__(self) -> str:
@@ -1692,6 +1717,31 @@ class ScheduleChangeLog(models.Model):
     new_start_time = models.DateTimeField(null=True, blank=True)
     new_end_time = models.DateTimeField(null=True, blank=True)
     creation_time = models.DateTimeField(auto_now_add=True)
+    # Moving a session logs the placement it left and the one it landed on;
+    # this is the assign row saying which unassign row it replaced. Readers
+    # that announce changes need the two as one move, and only the write knows
+    # it was one.
+    moved_from = models.OneToOneField(
+        "self",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="moved_to",
+    )
+    # Somebody announced this change. Only rows past the event's publication
+    # time are ever offered for it; the rest stay blank forever.
+    acknowledged_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="acknowledged_schedule_change_logs",
+    )
+    acknowledgement_time = models.DateTimeField(null=True, blank=True)
+    # This change is worth announcing before the rest; the errata page floats
+    # it to the top. Both rows of a move carry it, so either row read alone
+    # still says so.
+    important = models.BooleanField(default=False)
 
     class Meta:
         db_table = "schedule_change_log"

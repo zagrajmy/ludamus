@@ -3,7 +3,8 @@ import re
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
-from django.db.models import Count, Exists, F, OuterRef, Q, QuerySet, Subquery
+from django.db import transaction
+from django.db.models import Count, Exists, F, OuterRef, Prefetch, Q, QuerySet, Subquery
 
 from ludamus.links.db.django.models import (
     SPACE_MAX_DEPTH,
@@ -20,8 +21,10 @@ from ludamus.links.db.django.models import (
 from ludamus.links.db.django.repositories.chronology import (
     event_dto,
     location_data,
+    public_scheduled_sessions,
     session_card_stats,
 )
+from ludamus.links.db.django.repositories.facilitators import FacilitatorRepository
 from ludamus.links.db.django.repositories.storage import (
     save_replacing_files,
     with_original_names,
@@ -34,8 +37,6 @@ from ludamus.pacts import (
     EventDTO,
     FacilitatorDTO,
     NotFoundError,
-    PendingSessionDTO,
-    PendingSessionTimeSlotDTO,
     SessionData,
     SessionDTO,
     SessionFieldValueData,
@@ -114,20 +115,76 @@ def annotate_session_participation_counts(
 
 
 def with_session_card_relations(queryset: QuerySet[Session]) -> QuerySet[Session]:
-    # str(space) walks the whole ancestor chain, so eager-load every level up to
-    # the max nesting depth to avoid per-row parent queries.
+    # Everything a card needs whether or not it is on the timetable —
+    # agenda_item included, because the card projector asks every session
+    # whether it has one, and answering that per row is a query. Only its
+    # space chain is scheduled-only: a scheduled queryset composes
+    # with_scheduled_location on top, an unscheduled one must not, or it pays
+    # SPACE_MAX_DEPTH LEFT JOINs that are NULL on every row.
     return queryset.select_related(
-        "presenter",
-        "agenda_item__space" + "__parent" * (SPACE_MAX_DEPTH - 1),
-        "event",
-        "event__sphere",
-        "category",
+        "presenter", "agenda_item", "event", "event__sphere", "category"
     ).prefetch_related(
         "session_participations__user",
         "field_values__field",
         "event__enrollment_configs",
         "tracks",
     )
+
+
+def with_scheduled_location(queryset: QuerySet[Session]) -> QuerySet[Session]:
+    # str(space) walks the whole ancestor chain, so eager-load every level up to
+    # the max nesting depth to avoid per-row parent queries.
+    return queryset.select_related(
+        "agenda_item__space" + "__parent" * (SPACE_MAX_DEPTH - 1)
+    )
+
+
+def with_scheduled_card_relations(queryset: QuerySet[Session]) -> QuerySet[Session]:
+    """Load everything a scheduled session's card prints, including its room."""
+    # Named so a scheduled caller cannot half-remember the pairing: forgetting
+    # with_scheduled_location silently costs SPACE_MAX_DEPTH parent queries per
+    # row, which no test would catch. Unscheduled callers take the base alone.
+    return with_scheduled_location(with_session_card_relations(queryset))
+
+
+def review_inbox_proposals(event_id: int) -> QuerySet[Session]:
+    """Every unscheduled proposal of one event, for an organizer to review."""
+    # Scoped by event_id, not category__event_id: Session.category is nullable,
+    # so joining through it drops a proposal that has no category from both the
+    # review queue and its own author's list. public_scheduled_sessions filters
+    # the same way.
+    # agenda_item__isnull is what "still a proposal" means here, and it is not
+    # the same question as status: a scheduled session commonly keeps PENDING,
+    # so status alone would pull an author's whole programme into their
+    # proposals list. It also scopes the queue to what the review screen can
+    # act on — accepting creates an AgendaItem and a Session has only one, so a
+    # pending session already on the timetable cannot be accepted there. Those
+    # belong to the panel, whose status machine knows about them.
+    # The participation annotation matters as much here as on the scheduled
+    # path: without it every card re-counts its own participants, and the
+    # review queue is unbounded.
+    return (
+        annotate_session_participation_counts(
+            with_session_card_relations(
+                Session.objects.filter(
+                    event_id=event_id,
+                    status=SessionStatus.PENDING,
+                    agenda_item__isnull=True,
+                )
+            )
+        )
+        .prefetch_related(
+            Prefetch("time_slots", queryset=TimeSlot.objects.order_by("start_time"))
+        )
+        .order_by("-creation_time")
+    )
+
+
+def own_pending_proposals(*, event_id: int, presenter_id: int) -> QuerySet[Session]:
+    """Narrow the review queue to one author's own proposals."""
+    # Keyword-only: both arguments are ints and either order type-checks, but
+    # transposing them shows one user another user's proposals.
+    return review_inbox_proposals(event_id).filter(presenter_id=presenter_id)
 
 
 def field_value_dto(fv: SessionFieldValue) -> SessionFieldValueDTO:
@@ -210,13 +267,14 @@ class SessionRepository(SessionRepositoryProtocol, SessionModalRepositoryProtoco
         viewer_user_ids: list[int],
         editor_user_id: int | None,
     ) -> SessionModalDTO | None:
+        # The same queryset the schedule is built from: the modal is public and
+        # unauthenticated, so re-deciding visibility here would leave a session
+        # hidden from the event page readable by anyone walking session ids.
         base = annotate_session_participation_counts(
-            Session.objects.filter(agenda_item__isnull=False)
+            public_scheduled_sessions(event_id)
         )
         try:
-            session = with_session_card_relations(base).get(
-                pk=session_id, event_id=event_id
-            )
+            session = with_scheduled_card_relations(base).get(pk=session_id)
         except Session.DoesNotExist:
             return None
         return _session_modal_dto(
@@ -224,6 +282,7 @@ class SessionRepository(SessionRepositoryProtocol, SessionModalRepositoryProtoco
         )
 
     @staticmethod
+    @transaction.atomic
     def create(
         session_data: SessionData,
         *,
@@ -237,8 +296,9 @@ class SessionRepository(SessionRepositoryProtocol, SessionModalRepositoryProtoco
         # which turns bulk imports into a query per created session.
         if time_slot_ids:
             session.time_slots.add(*time_slot_ids)
-        if facilitator_ids:
-            session.facilitators.add(*facilitator_ids)
+        if facilitator_pks := list(facilitator_ids):
+            FacilitatorRepository.lock(facilitator_pks)
+            session.facilitators.add(*facilitator_pks)
         if track_ids:
             session.tracks.add(*track_ids)
         return session.pk
@@ -346,8 +406,10 @@ class SessionRepository(SessionRepositoryProtocol, SessionModalRepositoryProtoco
 
     @staticmethod
     def list_by_facilitator(facilitator_id: int) -> list[SessionListItemDTO]:
+        # Through `all_objects`: a deleted session holds up deleting the
+        # facilitator, so the page that refuses the deletion has to name it.
         qs = (
-            Session.objects.filter(facilitators__id=facilitator_id)
+            Session.all_objects.filter(facilitators__id=facilitator_id)
             .select_related("category")
             .annotate(
                 is_scheduled=Exists(
@@ -365,6 +427,7 @@ class SessionRepository(SessionRepositoryProtocol, SessionModalRepositoryProtoco
                 status=SessionStatus(s.status),
                 creation_time=s.creation_time,
                 is_scheduled=s.is_scheduled,
+                is_deleted=s.deleted_at is not None,
             )
             for s in qs
         ]
@@ -420,32 +483,6 @@ class SessionRepository(SessionRepositoryProtocol, SessionModalRepositoryProtoco
     @staticmethod
     def count_by_category(category_id: int) -> int:
         return Session.objects.filter(category_id=category_id).count()
-
-    @staticmethod
-    def read_pending_by_event(event_id: int) -> list[PendingSessionDTO]:
-        sessions = (
-            Session.objects.filter(
-                category__event_id=event_id, status=SessionStatus.PENDING
-            )
-            .prefetch_related("time_slots")
-            .order_by("-creation_time")
-        )
-        return [
-            PendingSessionDTO(
-                contact_email=s.contact_email,
-                creation_time=s.creation_time,
-                description=s.description,
-                participants_limit=s.participants_limit,
-                pk=s.pk,
-                display_name=s.display_name,
-                time_slots=[
-                    PendingSessionTimeSlotDTO.model_validate(ts)
-                    for ts in s.time_slots.all()
-                ],
-                title=s.title,
-            )
-            for s in sessions
-        ]
 
     @staticmethod
     def read_preferred_time_slot_ids(session_id: int) -> list[int]:
@@ -750,8 +787,12 @@ class SessionRepository(SessionRepositoryProtocol, SessionModalRepositoryProtoco
         session_ids: Iterable[int],
     ) -> dict[int, list[FacilitatorDTO]]:
         ids = list(session_ids)
+        # The through table has no manager of its own, so the deleted-facilitator
+        # filter the `facilitators` accessor applies has to be spelled out here.
         rows = (
-            Session.facilitators.through.objects.filter(session_id__in=ids)
+            Session.facilitators.through.objects.filter(
+                session_id__in=ids, facilitator__deleted_at__isnull=True
+            )
             .select_related("facilitator")
             .order_by("facilitator__display_name")
         )
@@ -816,16 +857,20 @@ class SessionRepository(SessionRepositoryProtocol, SessionModalRepositoryProtoco
         }
 
     @staticmethod
+    @transaction.atomic
     def set_facilitators(session_id: int, facilitator_ids: list[int]) -> None:
         try:
             session = Session.objects.get(pk=session_id)
         except Session.DoesNotExist as err:
             msg = f"Session with pk '{session_id}' not found"
             raise NotFoundError(msg) from err
+        FacilitatorRepository.lock(facilitator_ids)
         session.facilitators.set(facilitator_ids)
 
     @staticmethod
+    @transaction.atomic
     def replace_facilitators_in_sessions(source_ids: list[int], target_id: int) -> None:
+        FacilitatorRepository.lock([target_id])
         for session in Session.objects.filter(facilitators__in=source_ids).distinct():
             session.facilitators.add(target_id)
             session.facilitators.remove(*source_ids)

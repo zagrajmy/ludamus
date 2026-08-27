@@ -24,8 +24,10 @@ from ludamus.gates.web.django.chronology.panel.views import (
 from ludamus.gates.web.django.event.panel.views import (
     confirmations,
     enrollment_settings,
+    errata,
     facilitator_actions,
     facilitator_edit,
+    mcp_token,
     print_redirects,
     proposal_category_settings,
 )
@@ -155,6 +157,22 @@ urlpatterns = [
         "event/<slug:slug>/settings/integrations/",
         event_settings.EventIntegrationSettingsPageView.as_view(),
         name="event-integration-settings",
+    ),
+    path("event/<slug:slug>/errata/", errata.ErrataPageView.as_view(), name="errata"),
+    path(
+        "event/<slug:slug>/errata/do/acknowledge",
+        errata.ErratumAcknowledgeActionView.as_view(),
+        name="erratum-acknowledge",
+    ),
+    path(
+        "event/<slug:slug>/errata/do/important",
+        errata.ErratumImportantActionView.as_view(),
+        name="erratum-important",
+    ),
+    path(
+        "event/<slug:slug>/settings/mcp/",
+        mcp_token.EventMcpTokenPageView.as_view(),
+        name="event-mcp-token",
     ),
     path("event/<slug:slug>/bans/", bans.BansPageView.as_view(), name="bans"),
     path(
@@ -411,6 +429,11 @@ urlpatterns = [
         name="facilitator-merge",
     ),
     path(
+        "event/<slug:slug>/facilitators/bin/",
+        facilitators.FacilitatorBinPageView.as_view(),
+        name="facilitator-bin",
+    ),
+    path(
         "event/<slug:slug>/facilitators/<str:facilitator_slug>/",
         facilitators.FacilitatorDetailPageView.as_view(),
         name="facilitator-detail",
@@ -426,14 +449,14 @@ urlpatterns = [
         name="facilitator-edit",
     ),
     path(
-        "event/<slug:slug>/facilitators/<str:facilitator_slug>/do/flag",
-        facilitators.FacilitatorFlagActionView.as_view(),
-        name="facilitator-flag",
+        "event/<slug:slug>/facilitators/<str:facilitator_slug>/do/delete",
+        facilitators.FacilitatorDeleteActionView.as_view(),
+        name="facilitator-delete",
     ),
     path(
-        "event/<slug:slug>/facilitators/<str:facilitator_slug>/do/unflag",
-        facilitators.FacilitatorUnflagActionView.as_view(),
-        name="facilitator-unflag",
+        "event/<slug:slug>/facilitators/<str:facilitator_slug>/do/restore",
+        facilitators.FacilitatorRestoreActionView.as_view(),
+        name="facilitator-restore",
     ),
     path(
         "event/<slug:slug>/facilitators/<str:facilitator_slug>/do/mark-guest",

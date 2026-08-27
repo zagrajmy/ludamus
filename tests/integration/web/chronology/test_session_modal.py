@@ -19,15 +19,11 @@ from ludamus.links.db.django.models import (
     SessionFieldValue,
     SessionParticipation,
     SessionParticipationStatus,
+    Track,
 )
+from ludamus.links.db.django.repositories.chronology import location_data
 from ludamus.links.gravatar import gravatar_url
-from ludamus.pacts import (
-    AgendaItemDTO,
-    EventDTO,
-    LocationData,
-    SessionDTO,
-    SessionFieldValueDTO,
-)
+from ludamus.pacts import AgendaItemDTO, EventDTO, SessionDTO, SessionFieldValueDTO
 from ludamus.pacts.crowd import UserDTO
 from ludamus.pacts.guild import GuildMarkDTO
 from tests.integration.conftest import (
@@ -128,16 +124,10 @@ def _expected_session_data(
         presenter=presenter_info,
         session=SessionDTO.model_validate(session),
         is_full=False,
-        full_participant_info="0/10",
         effective_participants_limit=10,
         enrolled_count=0,
         session_participations=[],
-        loc=LocationData(
-            space_name=space.name,
-            parent_slug=space.parent.slug if space.parent else "",
-            parent_name=space.parent.name if space.parent else "",
-            path=str(space),
-        ),
+        loc=location_data(space),
         can_edit=False,
         user_enrolled=False,
         user_waiting=False,
@@ -177,6 +167,7 @@ class TestSessionModalComponentView:
                 ),
                 "event": EventDTO.model_validate(event),
                 "event_banned": False,
+                "show_roster": True,
                 "enroll_actions": None,
             },
             contains=[session.title, f'id="session-{session.pk}"'],
@@ -221,12 +212,32 @@ class TestSessionModalComponentView:
                 ),
                 "event": EventDTO.model_validate(event),
                 "event_banned": False,
+                "show_roster": True,
                 "enroll_actions": None,
             },
             contains=f'id="session-{agenda_item.session.pk}"',
         )
 
     def test_unscheduled_session_404(self, client, event, session):
+        response = client.get(_url(event, session.pk))
+
+        assert_response_404(response)
+
+    @pytest.mark.parametrize("public_too", (True, False))
+    def test_private_track_session_404(self, agenda_item, client, event, public_too):
+        session = agenda_item.session
+        if public_too:
+            session.tracks.add(
+                Track.objects.create(
+                    event=event, name="Main Hall", slug="main", is_public=True
+                )
+            )
+        session.tracks.add(
+            Track.objects.create(
+                event=event, name="Backstage", slug="backstage", is_public=False
+            )
+        )
+
         response = client.get(_url(event, session.pk))
 
         assert_response_404(response)
@@ -319,6 +330,7 @@ class TestSessionModalComponentView:
                 ),
                 "event": EventDTO.model_validate(event),
                 "event_banned": False,
+                "show_roster": True,
                 "enroll_actions": None,
             },
             contains=["Genre", "RPG", "Horror", "Notes", "Bring dice"],
@@ -355,7 +367,6 @@ class TestSessionModalComponentView:
                     presenter=presenter,
                     enrolled_count=1,
                     waiting_count=1,
-                    full_participant_info="1/10, 1 waiting",
                     session_participations=[
                         _participation(confirmed_participation),
                         _participation(waiter_participation),
@@ -363,6 +374,7 @@ class TestSessionModalComponentView:
                 ),
                 "event": EventDTO.model_validate(event),
                 "event_banned": False,
+                "show_roster": True,
                 "enroll_actions": None,
             },
             contains=[
@@ -375,7 +387,7 @@ class TestSessionModalComponentView:
             ],
         )
 
-    def test_renders_unlimited_capacity_and_min_age(
+    def test_renders_session_without_enrollment(
         self, active_user, client, event, space
     ):
         session = SessionFactory(
@@ -390,7 +402,7 @@ class TestSessionModalComponentView:
         participation = SessionParticipation.objects.create(
             session=session,
             user=UserFactory(
-                username="modal-unlimited", email="modal-unlimited@example.com"
+                username="modal-no-enrollment", email="modal-no-enrollment@example.com"
             ),
             status=SessionParticipationStatus.CONFIRMED,
         )
@@ -408,14 +420,45 @@ class TestSessionModalComponentView:
                     presenter=active_user,
                     effective_participants_limit=0,
                     enrolled_count=1,
-                    full_participant_info="1",
                     session_participations=[_participation(participation)],
                 ),
                 "event": EventDTO.model_validate(event),
                 "event_banned": False,
+                "show_roster": True,
                 "enroll_actions": None,
             },
-            contains=["Enrolled (1)", "Minimum Age", "18+"],
+        )
+
+    def test_hides_the_roster_of_a_session_nobody_signed_up_for(
+        self, active_user, client, event, space
+    ):
+        session = SessionFactory(
+            event=event,
+            category=None,
+            presenter=active_user,
+            display_name=active_user.full_name,
+            participants_limit=0,
+        )
+        agenda_item = AgendaItemFactory(session=session, space=space)
+
+        response = client.get(_url(event, session.pk))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name=_TEMPLATE,
+            context_data={
+                "data": _expected_session_data(
+                    agenda_item=agenda_item,
+                    session=session,
+                    presenter=active_user,
+                    effective_participants_limit=0,
+                ),
+                "event": EventDTO.model_validate(event),
+                "event_banned": False,
+                "show_roster": False,
+                "enroll_actions": None,
+            },
         )
 
     @pytest.mark.usefixtures("enrollment_config")
@@ -438,6 +481,7 @@ class TestSessionModalComponentView:
                 ),
                 "event": EventDTO.model_validate(event),
                 "event_banned": False,
+                "show_roster": True,
                 "enroll_actions": _ENROLL,
             },
             contains=["with others"],
@@ -477,6 +521,7 @@ class TestSessionModalComponentView:
                 ),
                 "event": EventDTO.model_validate(event),
                 "event_banned": False,
+                "show_roster": True,
                 "enroll_actions": None,
             },
             contains=["Mystery Host"],
@@ -505,11 +550,11 @@ class TestSessionModalComponentView:
                     can_edit=True,
                     user_enrolled=True,
                     enrolled_count=1,
-                    full_participant_info="1/10",
                     session_participations=[_participation(participation)],
                 ),
                 "event": EventDTO.model_validate(event),
                 "event_banned": False,
+                "show_roster": True,
                 "enroll_actions": _CLOSED_CANCEL,
             },
         )
@@ -537,11 +582,11 @@ class TestSessionModalComponentView:
                     can_edit=True,
                     user_waiting=True,
                     waiting_count=1,
-                    full_participant_info="0/10, 1 waiting",
                     session_participations=[_participation(participation)],
                 ),
                 "event": EventDTO.model_validate(event),
                 "event_banned": False,
+                "show_roster": True,
                 "enroll_actions": _CLOSED_LEAVE,
             },
         )
@@ -574,6 +619,7 @@ class TestSessionModalComponentView:
                 ),
                 "event": EventDTO.model_validate(event),
                 "event_banned": False,
+                "show_roster": True,
                 "enroll_actions": _ENROLL,
             },
             contains=["Enroll Anonymously"],
@@ -611,11 +657,11 @@ class TestSessionModalComponentView:
                     is_enrollment_available=True,
                     user_enrolled=True,
                     enrolled_count=1,
-                    full_participant_info="1/10",
                     session_participations=[_participation(participation)],
                 ),
                 "event": EventDTO.model_validate(event),
                 "event_banned": False,
+                "show_roster": True,
                 "enroll_actions": _CANCEL,
             },
             contains=["Manage Enrollment"],
@@ -642,6 +688,7 @@ class TestSessionModalComponentView:
                 ),
                 "event": EventDTO.model_validate(event),
                 "event_banned": False,
+                "show_roster": True,
                 "enroll_actions": None,
             },
             contains=f'id="session-{agenda_item.session.pk}"',
@@ -674,6 +721,7 @@ class TestSessionModalComponentView:
                 ),
                 "event": EventDTO.model_validate(event),
                 "event_banned": False,
+                "show_roster": True,
                 "enroll_actions": None,
             },
             contains=f'id="session-{agenda_item.session.pk}"',
@@ -703,6 +751,7 @@ class TestGuildMarkInTheModal:
                 ),
                 "event": EventDTO.model_validate(event),
                 "event_banned": False,
+                "show_roster": True,
                 "enroll_actions": None,
             },
         )
@@ -747,6 +796,7 @@ class TestGuildMarkInTheModal:
                 ),
                 "event": EventDTO.model_validate(event),
                 "event_banned": False,
+                "show_roster": True,
                 "enroll_actions": None,
             },
         )

@@ -17,6 +17,9 @@
  * Triggers must be same-path query links (`?x=y`), not buttons: the Navigation API
  * interception below only fires for anchor navigations to the current pathname.
  */
+
+import { restoreCarriedSearchParams } from "./url-state";
+
 interface NavigateEvent {
   canIntercept: boolean;
   destination: { url: string };
@@ -479,9 +482,13 @@ if (navigation) {
       )
         continue;
 
+      // Read before the navigation commits: the handler below runs after,
+      // when location already shows the bare trigger href.
+      const carriedParams = new URLSearchParams(globalThis.location.search);
       e.intercept({
         focusReset: "manual",
         async handler() {
+          restoreCarriedSearchParams(carriedParams);
           if (await ensureModalLoaded(modalId)) {
             await openModal(modalId, { updateUrl: false });
           } else {
@@ -549,6 +556,9 @@ setupModalCloseTriggers();
 const setupFallbackLinkHandlers = (): void => {
   for (const link of document.querySelectorAll<HTMLAnchorElement>("a[href][aria-controls]")) {
     if (Object.hasOwn(link.dataset, "modalReload")) continue;
+    // Re-run after an htmx swap brings new cards in; the links that survived
+    // it keep the one handler they already have.
+    if (Object.hasOwn(link.dataset, "modalFallbackBound")) continue;
     const modalId = link.getAttribute("aria-controls");
     const href = link.getAttribute("href");
     if (!modalId || !href) continue;
@@ -560,6 +570,7 @@ const setupFallbackLinkHandlers = (): void => {
     )
       continue;
 
+    link.dataset.modalFallbackBound = "";
     link.addEventListener("click", (e) => {
       e.preventDefault();
       void ensureModalLoaded(modalId).then((ok) => {
@@ -570,6 +581,9 @@ const setupFallbackLinkHandlers = (): void => {
   }
 };
 
-if (!navigation) setupFallbackLinkHandlers();
+if (!navigation) {
+  setupFallbackLinkHandlers();
+  document.body.addEventListener("htmx:afterSwap", setupFallbackLinkHandlers);
+}
 
 export { closeModal, openModal };

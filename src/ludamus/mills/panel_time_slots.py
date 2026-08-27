@@ -2,7 +2,11 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from ludamus.pacts.event import PanelTimeSlotsServiceProtocol, TimeSlotValidationError
+from ludamus.pacts.event import (
+    PanelTimeSlotsServiceProtocol,
+    TimeSlotRejectedError,
+    TimeSlotValidationError,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -65,7 +69,7 @@ class PanelTimeSlotsService(PanelTimeSlotsServiceProtocol):
 
     def create(
         self, *, event: EventDTO, start_time: datetime, end_time: datetime
-    ) -> list[TimeSlotValidationError]:
+    ) -> TimeSlotDTO:
         # atomic() keeps the write consistent but does not serialize the
         # check-then-insert: two concurrent requests can both read the same
         # slots, both pass validation, and insert overlapping slots. Full
@@ -75,13 +79,13 @@ class PanelTimeSlotsService(PanelTimeSlotsServiceProtocol):
             errors = _validate_time_slot(
                 start=start_time, end=end_time, event=event, existing_slots=existing
             )
-            if not errors:
-                self._time_slots.create(event.pk, start_time, end_time)
-            return errors
+            if errors:
+                raise TimeSlotRejectedError(errors)
+            return self._time_slots.create(event.pk, start_time, end_time)
 
     def update(
         self, *, event: EventDTO, pk: int, start_time: datetime, end_time: datetime
-    ) -> list[TimeSlotValidationError]:
+    ) -> None:
         # Same unserialized check-then-write race as in create().
         with self._transaction.atomic():
             # Scope the pk to the panel's event before writing; a foreign pk
@@ -95,9 +99,9 @@ class PanelTimeSlotsService(PanelTimeSlotsServiceProtocol):
             errors = _validate_time_slot(
                 start=start_time, end=end_time, event=event, existing_slots=existing
             )
-            if not errors:
-                self._time_slots.update(pk, start_time, end_time)
-            return errors
+            if errors:
+                raise TimeSlotRejectedError(errors)
+            self._time_slots.update(pk, start_time, end_time)
 
     def delete(self, *, event_id: int, pk: int) -> bool:
         with self._transaction.atomic():

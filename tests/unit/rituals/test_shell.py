@@ -7,9 +7,12 @@ from ludamus.edges.rituals.shell import (
     VERDICT_LINES,
     already_seen,
     coverage_report,
+    gates_green,
+    narrowed,
     said,
     same_verdict,
     verdict,
+    wants_cover,
 )
 
 # Ten characters once its newline is counted, so a whole number of these is
@@ -168,3 +171,56 @@ class TestCoverageReport:
 
     def test_a_run_that_printed_no_report_falls_back_to_the_trimmed_log(self) -> None:
         assert coverage_report(_ran(stderr="no coverage data")) == "no coverage data"
+
+
+class TestNarrowed:
+    def test_the_task_mise_named_is_the_one_to_run_again(self) -> None:
+        assert (
+            narrowed(_ran(stderr="[lint:mypy] ERROR task failed"))
+            == "mise run lint:mypy"
+        )
+
+    # A chain stops at the first failure, and what comes after it is a parent
+    # repeating the news.
+    def test_the_first_of_several_is_the_one_that_broke(self) -> None:
+        said_it = "[lint:black] ERROR task failed\n[pr-fix] ERROR task failed"
+
+        assert narrowed(_ran(stderr=said_it)) == "mise run lint:black"
+
+    def test_colour_around_the_name_does_not_hide_it(self) -> None:
+        assert (
+            narrowed(_ran(stderr="\x1b[31m[test:py:cov] ERROR task failed\x1b[0m"))
+            == "mise run test:py:cov"
+        )
+
+    # Then the caller runs the whole gate, which is the answer it would have
+    # had anyway.
+    def test_a_run_that_named_nothing_narrows_to_nothing(self) -> None:
+        assert not narrowed(_ran(stderr="Killed"))
+
+    def test_a_task_named_mid_line_is_not_a_verdict(self) -> None:
+        assert not narrowed(_ran(stdout="see what [lint:mypy] ERROR task failed means"))
+
+
+# The green board the readers would otherwise wave through, one page of a
+# board the endpoint says runs to three: whatever fell off the end is
+# unaccounted for, so neither reader may take it as an answer.
+_SHORT_BOARD = (
+    '{"total_count": 3, "check_runs": ['
+    '{"name": "codecov/patch", "conclusion": "success",'
+    ' "output": {"title": "Coverage not affected when comparing a...b"}},'
+    ' {"name": "test", "conclusion": "success"}]}'
+)
+_WHOLE_BOARD = _SHORT_BOARD.replace('"total_count": 3', '"total_count": 2')
+
+
+class TestTruncatedBoard:
+    def test_a_short_page_is_not_a_coverage_skip(self) -> None:
+        assert wants_cover(_SHORT_BOARD)
+
+    def test_a_short_page_is_not_a_green_gate(self) -> None:
+        assert not gates_green(_SHORT_BOARD)
+
+    def test_the_same_board_whole_is_read_as_the_answer(self) -> None:
+        assert not wants_cover(_WHOLE_BOARD)
+        assert gates_green(_WHOLE_BOARD)

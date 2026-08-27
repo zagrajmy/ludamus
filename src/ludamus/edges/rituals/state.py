@@ -7,17 +7,66 @@ payloads hold, and the report the morning reads.
 from collections import Counter
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
+from pydantic.aliases import AliasPath
 
-from .shell import QA_LABEL
+# This branch has had its review. Inline review comments are invisible to
+# `gh pr view --json comments`, so a label is what the step can actually see —
+# and a label is also something you can take off, which is the point: removing
+# it is how you ask for the review again.
+THERMO_LABEL = "pr::thermo"
+# Hands off this one. It is read at the listing and nowhere else, so a branch
+# wearing it is never taken, never touched, and never reported on — which is
+# the whole point: it is how you keep a pull request out of the night without
+# closing it.
+WAIT_LABEL = "pr::wait"
 
 # A bound counts attempts at one step, so zero would mean a step that may never
 # be tried at all; past five a repair loop has stopped being a repair loop.
 Bound = Annotated[int, Field(ge=1, le=5)]
 
 
-class PrCheck(BaseModel):
+class PrSweep(BaseModel):
     bound: Bound = 3
+
+
+# Which pass a cast is. The two share every step that takes a branch and writes
+# a row; they part at the gate — the fast pass merges and makes `pr-fix` green,
+# the slow one measures coverage and writes the tests.
+Mode = Literal["refresh", "cover"]
+
+
+# What CI says about one thing it ran, in the check-runs API's own words.
+# `conclusion` is null while a run is still going, which is why nothing reads
+# it as anything but "not success yet". `title` is the one-line summary a job
+# writes for itself: absent for most of the board, and for `codecov/patch` the
+# patch coverage this branch achieved — the number the slow pass would
+# otherwise have to read out of English prose. It is pulled up out of the
+# `output` it arrives under, whose other half is a markdown report nothing
+# here reads.
+# `populate_by_name` is not for any caller — nothing builds a `Check` by hand.
+# Without it mypy's pydantic plugin cannot name the aliased field in the
+# generated `__init__` and falls back to `**kwargs: Any`, which this project
+# refuses.
+class Check(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    name: str
+    conclusion: str | None = None
+    title: str | None = Field(
+        default=None, validation_alias=AliasPath("output", "title")
+    )
+
+
+# The check-runs endpoint wraps the board in one key, and it stays wrapped
+# until it is parsed: unwrapping it with `--jq` would move the reading into
+# the command string, and every other answer `gh` gives these rituals is made
+# sense of by a model.
+class Board(BaseModel):
+    # The endpoint's own count of the whole board, against which a page that
+    # stopped at `per_page` is short. See `_truncated`.
+    total_count: int = 0
+    check_runs: list[Check] = []
 
 
 # `gh --json labels` hands back an object per label; the name is the whole
@@ -47,29 +96,35 @@ class PullRequest(BaseModel):
     labels: list[Label] = []
 
 
-PULLS: TypeAdapter[list[PullRequest]] = TypeAdapter(list[PullRequest])
-
-
 def wears(pull: PullRequest, name: str) -> bool:
     return any(label.name == name for label in pull.labels)
+
+
+def unreadable(error: ValidationError) -> str:
+    return f"gh returned something unreadable: {error}"
 
 
 class Checked(BaseModel):
     number: int
     branch: str
     url: str
-    outcome: Literal["qa", "triage", "blocked"]
+    # What the night can say about the branch: whether the gates went green and
+    # the work went up. What the review threads say is `pr_review`'s to read.
+    # `skipped` is neither — the branch was never taken, so there is nothing to
+    # call green or broken.
+    outcome: Literal["green", "blocked", "skipped"]
     # None when git could not say. Nothing to push and "we could not tell" are
     # different answers, and the report prints them differently.
     unpushed: int | None
     note: str = ""
 
 
-# The whole run: what is left to do, what was done, and why it stopped if it
-# stopped. Every step carries it, because the report is owed however the cast
-# ends.
+# Every step carries this, because the report is owed however the cast ends.
 class Run(BaseModel):
     bound: int
+    # The fast pass by default: it is the one every shared step was written for,
+    # and the slow one says so at its entrypoint.
+    mode: Mode = "refresh"
     queue: list[PullRequest] = []
     checked: list[Checked] = []
     stopped: str = ""
@@ -84,14 +139,22 @@ class Run(BaseModel):
     seen: list[str] = []
 
 
-# One pull request in flight. `budgets` dies with this payload, which is what "a
-# branch change clears all budgets" means — a fresh Work is built per pull
-# request and inherits nothing.
+# `budgets` dies with this payload, which is what "a branch change clears all
+# budgets" means — a fresh Work is built per pull request and inherits nothing.
 class Work(BaseModel):
     run: Run
     pr: PullRequest
     budgets: dict[str, int] = {}
     merging: bool = False
+    # What the repair loop should run next, empty for the step's own gate. The
+    # narrow task mise named when the gate broke, so an agent's attempt is
+    # judged by the thing that was wrong rather than by the whole chain in front
+    # of it. One field for both loops rather than one apiece: a cast takes one
+    # pass or the other, so `gate_check` and `cover` never run in the same one.
+    gate: str = ""
+    # The merge brought nothing in, so the tree is the one CI has already
+    # graded. Only ever true before any agent has touched the branch.
+    unchanged: bool = False
     note: str = ""
     # What stopped this branch, in the words of whatever stopped it. Written
     # once, by the step that gave up, and never written over: a branch that
@@ -102,14 +165,28 @@ class Work(BaseModel):
     reason: str = ""
     # This branch will not be made green tonight, and is being read anyway. The
     # reading steps that follow need to know: a branch nobody can merge must not
-    # come out labelled ready to test.
+    # come out reported green.
     blocked: bool = False
 
 
 class TriageItem(BaseModel):
     where: str
+    # What the thread itself asked for, in one line. Without it the decision is
+    # taken on the reading's verdict alone, with no sight of the comment behind
+    # it.
+    raised: str
     what: str
-    priority: Literal["p1", "p2", "p3"]
+    # p4 is not a smaller p3: it is the thread that has no work in it at all —
+    # already done, no longer true, or simply wrong — and it is sorted out of
+    # the way so the reading you go through is only the items worth a decision.
+    priority: Literal["p1", "p2", "p3", "p4"]
+    # What the reading would do about it, which is what happens when you say
+    # nothing: an item you agree with costs you a return key.
+    action: Literal["fix", "reject", "file"]
+    # The thread this came off, so the round that answers it addresses the
+    # thread the item is about rather than the one it matched by eye. The
+    # graphql node id, which is what the resolve mutation takes.
+    thread: str
 
 
 # What the agent returns, and no more: which branch this triage belongs to is
@@ -118,21 +195,16 @@ class TriageNotes(BaseModel):
     items: list[TriageItem]
 
 
-class Triaged(BaseModel):
-    work: Work
-    notes: TriageNotes
-
-
 class Closed(BaseModel):
     work: Work
-    outcome: Literal["qa", "triage", "blocked"]
+    outcome: Literal["green", "blocked"]
 
 
+# What the night did, branch by branch, and nothing sorted into work lists on
+# top: this pass refreshes pull requests, it does not triage them, and a list
+# headed "ready to test" is a claim only `pr_review` and you can make.
 class Report(BaseModel):
     checked: list[Checked] = []
-    to_push: list[str] = []
-    to_fix: list[str] = []
-    ready: list[str] = []
     not_reached: list[str] = []
     failed: str = ""
 
@@ -152,6 +224,7 @@ def run_with(
 ) -> Run:
     return Run(
         bound=run.bound,
+        mode=run.mode,
         queue=run.queue if queue is None else queue,
         checked=run.checked if checked is None else checked,
         stopped=run.stopped if stopped is None else stopped,
@@ -165,6 +238,8 @@ def work_with(
     run: Run | None = None,
     budgets: dict[str, int] | None = None,
     merging: bool | None = None,
+    gate: str | None = None,
+    unchanged: bool | None = None,
     note: str | None = None,
     reason: str | None = None,
     blocked: bool | None = None,
@@ -174,30 +249,31 @@ def work_with(
         pr=work.pr,
         budgets=work.budgets if budgets is None else budgets,
         merging=work.merging if merging is None else merging,
+        gate=work.gate if gate is None else gate,
+        unchanged=work.unchanged if unchanged is None else unchanged,
         note=work.note if note is None else note,
         reason=work.reason if reason is None else reason,
         blocked=work.blocked if blocked is None else blocked,
     )
 
 
-# A sort key, and it has to be spelled out: `attrgetter` is `attrgetter[Any]`
-# and a lambda's parameter is untyped, so mypy rejects both here. This is the
-# only shape of the three that carries a type.
-def modified(pull: PullRequest) -> str:
-    return pull.updated_at
+# A note grows by joining rather than replacing, so no half of it writes over
+# another's. The separator is decided here and nowhere else.
+def joined(*parts: str) -> str:
+    return "; ".join(part for part in parts if part)
 
 
-# What a row has to say, in the order the morning wants it: why the branch
-# stopped first, then whatever the ending that built the row has to add. Every
-# ending goes through here, so no ending can write over another's half.
+# Why the branch stopped comes first, which is the order the morning wants it
+# in. Every ending goes through here, so no ending can write over another's
+# half.
 def telling(work: Work, *extra: str) -> str:
-    return "; ".join(part for part in (work.reason, work.note, *extra) if part)
+    return joined(work.reason, work.note, *extra)
 
 
-def counted(notes: TriageNotes) -> str:
-    tally = Counter(item.priority for item in notes.items)
+def counted(items: list[TriageItem]) -> str:
+    tally = Counter(item.priority for item in items)
     return ", ".join(
-        f"{priority}: {tally[priority]}" for priority in ("p1", "p2", "p3")
+        f"{priority}: {tally[priority]}" for priority in ("p1", "p2", "p3", "p4")
     )
 
 
@@ -250,14 +326,10 @@ def abandoned(work: Work, reason: str) -> Run:
 # --- the report ------------------------------------------------------------
 
 _OUTCOME = {
-    "qa": f"ready to test ({QA_LABEL})",
-    "triage": "triage.md written",
+    "green": "green and reviewed",
     "blocked": "blocked",
+    "skipped": "left alone",
 }
-
-
-def _names(items: list[str]) -> str:
-    return ", ".join(items) if items else "none"
 
 
 def _line(row: Checked) -> str:
@@ -274,18 +346,6 @@ def _line(row: Checked) -> str:
 def report_card(run: Run) -> Report:
     return Report(
         checked=run.checked,
-        # Unknown counts as needing a push: this is read by someone deciding
-        # what to do next, and "we could not tell" is not "nothing to do".
-        to_push=[
-            row.branch for row in run.checked if row.unpushed is None or row.unpushed
-        ],
-        # Blocked counts as needing fixing, whether or not a triage was written:
-        # a branch nobody could make green is the clearest thing on the list
-        # there is to do, and one that also carries a triage.md has two.
-        to_fix=[
-            row.branch for row in run.checked if row.outcome in {"triage", "blocked"}
-        ],
-        ready=[row.branch for row in run.checked if row.outcome == "qa"],
         not_reached=[pull.branch for pull in run.queue],
         failed=run.stopped,
     )
@@ -293,16 +353,13 @@ def report_card(run: Run) -> Report:
 
 def summary(run: Run) -> str:
     card = report_card(run)
-    lines = [f"pr_check — {len(run.checked)} checked", ""]
+    lines = [f"pr_{run.mode} — {len(run.checked)} checked", ""]
     lines += [_line(row) for row in run.checked] or ["  (none)"]
-    lines += [
-        "",
-        f"needs pushing:  {_names(card.to_push)}",
-        f"needs fixing:   {_names(card.to_fix)}",
-        f"ready to test:  {_names(card.ready)}",
-    ]
+    # Only when there are any, unlike the rows: a pass that reached every pull
+    # request is the normal night, and a line saying "none" on every one of them
+    # trains the eye past it.
     if card.not_reached:
-        lines.append(f"not reached:    {_names(card.not_reached)}")
+        lines += ["", f"not reached: {', '.join(card.not_reached)}"]
     if card.failed:
         lines += ["", f"the run failed: {card.failed}"]
     return "\n".join(lines) + "\n"

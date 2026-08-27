@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from django.db.models import Q
+from django.utils import timezone
 
 from ludamus.links.db.django.change_log_base import (
     base_log_fields,
@@ -16,7 +19,10 @@ from ludamus.pacts import (
     ScheduleChangeLogRepositoryProtocol,
 )
 
-_SELECT_RELATED = ("session", "user", "old_space", "new_space")
+if TYPE_CHECKING:
+    from datetime import datetime
+
+_SELECT_RELATED = ("session", "user", "old_space", "new_space", "acknowledged_by")
 
 
 def _to_dto(log: ScheduleChangeLog) -> ScheduleChangeLogDTO:
@@ -33,14 +39,20 @@ def _to_dto(log: ScheduleChangeLog) -> ScheduleChangeLogDTO:
             "new_start_time": log.new_start_time,
             "new_end_time": log.new_end_time,
             "creation_time": log.creation_time,
+            "moved_from_id": log.moved_from_id,
+            "acknowledgement_time": log.acknowledgement_time,
+            "acknowledged_by_name": (
+                log.acknowledged_by.name if log.acknowledged_by else ""
+            ),
+            "important": log.important,
         }
     )
 
 
 class ScheduleChangeLogRepository(ScheduleChangeLogRepositoryProtocol):
     @staticmethod
-    def create(data: ScheduleChangeLogData) -> None:
-        ScheduleChangeLog.objects.create(**data)
+    def create(data: ScheduleChangeLogData) -> int:
+        return ScheduleChangeLog.objects.create(**data).pk
 
     @staticmethod
     def read(pk: int) -> ScheduleChangeLogDTO:
@@ -63,6 +75,66 @@ class ScheduleChangeLogRepository(ScheduleChangeLogRepositoryProtocol):
         if space_pk is not None:
             qs = qs.filter(Q(old_space_id=space_pk) | Q(new_space_id=space_pk))
         return [_to_dto(log) for log in qs]
+
+    @staticmethod
+    def list_since(event_pk: int, since: datetime) -> list[ScheduleChangeLogDTO]:
+        qs = (
+            ScheduleChangeLog.objects.filter(
+                event_id=event_pk, creation_time__gte=since
+            )
+            .select_related(*_SELECT_RELATED)
+            .order_by("-creation_time", "-pk")
+        )
+        return [_to_dto(log) for log in qs]
+
+    @staticmethod
+    def list_erratum_rows(
+        *, event_pk: int, since: datetime, log_pks: list[int]
+    ) -> list[ScheduleChangeLogDTO]:
+        """Read the named rows plus the other half of every move among them.
+
+        Enough to decide whether a batch names whole errata, without reading
+        the event's whole log — which grows for the life of the event while a
+        batch stays the size of a page.
+        """
+        window = ScheduleChangeLog.objects.filter(
+            event_id=event_pk, creation_time__gte=since
+        )
+        named = Q(pk__in=log_pks) | Q(moved_from_id__in=log_pks)
+        # A named row may be the landing half of a move, whose other half this
+        # batch reaches only through moved_from_id — and a partner from before
+        # publication is no erratum, so ask the window for it rather than
+        # following the FK.
+        left_behind = {
+            pk
+            for pk in window.filter(named).values_list("moved_from_id", flat=True)
+            if pk
+        }
+        qs = (
+            window.filter(named | Q(pk__in=left_behind))
+            .select_related(*_SELECT_RELATED)
+            .order_by("-creation_time", "-pk")
+        )
+        return [_to_dto(log) for log in qs]
+
+    @staticmethod
+    def set_acknowledged(
+        *, event_pk: int, log_pks: list[int], user_id: int, acknowledged: bool
+    ) -> None:
+        # Scoped by event: panel access proves which event the caller manages,
+        # never which pks the request happens to name.
+        ScheduleChangeLog.objects.filter(event_id=event_pk, pk__in=log_pks).update(
+            acknowledged_by=user_id if acknowledged else None,
+            acknowledgement_time=timezone.now() if acknowledged else None,
+        )
+
+    @staticmethod
+    def set_important(*, event_pk: int, log_pks: list[int], important: bool) -> None:
+        # Scoped by event, like every other write here: the pks a request names
+        # prove nothing about which event the caller manages.
+        ScheduleChangeLog.objects.filter(event_id=event_pk, pk__in=log_pks).update(
+            important=important
+        )
 
     @staticmethod
     def list_by_session(session_id: int) -> list[ScheduleChangeLogDTO]:

@@ -36,6 +36,7 @@ from ludamus.pacts.chronology import (
     SourceQuestion,
     SpaceTimeConflictError,
 )
+from ludamus.pacts.multiverse import SphereRole
 from ludamus.pacts.submissions import ImportSettings
 from tests.unit.factories import user_dto
 
@@ -70,10 +71,11 @@ class TestContentEditRevert:
     @pytest.fixture
     def service(self, repos):
         service = SessionContentEditService(
-            repos.transaction,
-            repos.sessions,
-            repos.session_fields,
-            repos.content_change_logs,
+            transaction=repos.transaction,
+            sessions=repos.sessions,
+            session_fields=repos.session_fields,
+            content_change_logs=repos.content_change_logs,
+            agenda_items=MagicMock(),
         )
         service.apply = MagicMock()
         return service
@@ -277,6 +279,7 @@ class TestContentEditStoresAnswers:
             sessions=MagicMock(),
             session_fields=MagicMock(),
             content_change_logs=MagicMock(),
+            agenda_items=MagicMock(),
         )
         repos.transaction.atomic.side_effect = nullcontext
         repos.sessions.read_field_values.return_value = []
@@ -286,10 +289,11 @@ class TestContentEditStoresAnswers:
     @pytest.fixture
     def service(self, repos):
         return SessionContentEditService(
-            repos.transaction,
-            repos.sessions,
-            repos.session_fields,
-            repos.content_change_logs,
+            transaction=repos.transaction,
+            sessions=repos.sessions,
+            session_fields=repos.session_fields,
+            content_change_logs=repos.content_change_logs,
+            agenda_items=repos.agenda_items,
         )
 
     def test_blank_answer_for_an_unanswered_field_stores_nothing(self, service, repos):
@@ -346,6 +350,87 @@ class TestContentEditStoresAnswers:
         repos.sessions.save_field_values.assert_called_once_with(
             5, [SessionFieldValueData(session_id=5, field_id=7, value=False)]
         )
+
+
+class TestContentEditResizesAgendaItem:
+    @pytest.fixture
+    def repos(self):
+        repos = SimpleNamespace(
+            transaction=MagicMock(),
+            sessions=MagicMock(),
+            session_fields=MagicMock(),
+            content_change_logs=MagicMock(),
+            agenda_items=MagicMock(),
+        )
+        repos.transaction.atomic.side_effect = nullcontext
+        repos.sessions.read.return_value = _session_dto(duration="PT1H")
+        repos.sessions.read_field_values.return_value = []
+        repos.agenda_items.read_by_session.return_value = _make_item()
+        return repos
+
+    @pytest.fixture
+    def service(self, repos):
+        return SessionContentEditService(
+            transaction=repos.transaction,
+            sessions=repos.sessions,
+            session_fields=repos.session_fields,
+            content_change_logs=repos.content_change_logs,
+            agenda_items=repos.agenda_items,
+        )
+
+    @staticmethod
+    def _apply(service, duration):
+        service.apply(
+            session_id=1,
+            event_id=1,
+            user_id=9,
+            data=SessionContentEditData(update={"duration": duration}),
+        )
+
+    def test_a_longer_duration_moves_the_end_time(self, service, repos):
+        self._apply(service, "PT2H30M")
+
+        repos.agenda_items.update.assert_called_once_with(
+            1, {"end_time": datetime(2026, 1, 1, 12, 30, tzinfo=UTC)}
+        )
+
+    def test_an_unscheduled_session_is_left_alone(self, service, repos):
+        repos.agenda_items.read_by_session.return_value = None
+
+        self._apply(service, "PT2H")
+
+        repos.agenda_items.update.assert_not_called()
+
+    def test_an_unchanged_duration_writes_nothing(self, service, repos):
+        self._apply(service, "PT1H")
+
+        repos.agenda_items.read_by_session.assert_not_called()
+        repos.agenda_items.update.assert_not_called()
+
+    # "PT2Hjunk" and "P1DT2H" are the ones a lenient parser gets wrong: the
+    # first would resize a real block to two hours, the second to zero.
+    @pytest.mark.parametrize(
+        "duration", ("", "90 minutes", "PT2Hjunk", "P1DT2H", "PT0M")
+    )
+    def test_a_duration_that_is_not_a_length_writes_nothing(
+        self, service, repos, duration
+    ):
+        self._apply(service, duration)
+
+        repos.agenda_items.update.assert_not_called()
+
+    def test_an_edit_that_does_not_touch_the_duration_writes_nothing(
+        self, service, repos
+    ):
+        service.apply(
+            session_id=1,
+            event_id=1,
+            user_id=9,
+            data=SessionContentEditData(update={"title": "New"}),
+        )
+
+        repos.agenda_items.read_by_session.assert_not_called()
+        repos.agenda_items.update.assert_not_called()
 
 
 class TestSessionConfirmation:
@@ -732,7 +817,7 @@ class TestProposalAcceptanceService:
         self, service, sessions, active_users, spheres
     ):
         self._arrange_reads(sessions, active_users)
-        spheres.is_manager.return_value = True
+        spheres.manager_role.return_value = SphereRole.MANAGER
 
         context = service.get_accept_context(
             session_id=5, user_slug="manager", sphere_id=3
@@ -757,14 +842,14 @@ class TestProposalAcceptanceService:
 
         assert context is not None
         assert context.can_accept is True
-        spheres.is_manager.assert_not_called()
+        spheres.manager_role.assert_not_called()
 
     def test_can_accept_false_for_non_manager_staff(
         self, service, sessions, active_users, spheres
     ):
         self._arrange_reads(sessions, active_users)
         active_users.read.return_value = _user_dto(is_staff=True)
-        spheres.is_manager.return_value = False
+        spheres.manager_role.return_value = None
 
         context = service.get_accept_context(
             session_id=5, user_slug="staff", sphere_id=3
@@ -772,13 +857,13 @@ class TestProposalAcceptanceService:
 
         assert context is not None
         assert context.can_accept is False
-        spheres.is_manager.assert_called_once_with(3, "staff")
+        spheres.manager_role.assert_called_once_with(3, "staff")
 
     def test_can_accept_falls_back_to_sphere_manager(
         self, service, sessions, active_users, spheres
     ):
         self._arrange_reads(sessions, active_users)
-        spheres.is_manager.return_value = False
+        spheres.manager_role.return_value = None
 
         context = service.get_accept_context(
             session_id=5, user_slug="member", sphere_id=3
@@ -786,7 +871,7 @@ class TestProposalAcceptanceService:
 
         assert context is not None
         assert context.can_accept is False
-        spheres.is_manager.assert_called_once_with(3, "member")
+        spheres.manager_role.assert_called_once_with(3, "member")
 
     def test_accept_session_updates_status_and_creates_agenda_item(
         self, service, sessions, agenda_items, transaction, active_users, spheres
@@ -797,7 +882,7 @@ class TestProposalAcceptanceService:
         )
         agenda_items.list_overlapping_in_space.return_value = []
         active_users.read.return_value = _user_dto()
-        spheres.is_manager.return_value = True
+        spheres.manager_role.return_value = SphereRole.MANAGER
 
         service.accept_session(
             session_id=5, space_id=7, time_slot_id=2, user_slug="manager", sphere_id=3
@@ -832,7 +917,7 @@ class TestProposalAcceptanceService:
             _make_item(pk=9, space_id=7)
         ]
         active_users.read.return_value = _user_dto()
-        spheres.is_manager.return_value = True
+        spheres.manager_role.return_value = SphereRole.MANAGER
 
         with pytest.raises(SpaceTimeConflictError):
             service.accept_session(
@@ -863,13 +948,27 @@ class TestProposalAcceptanceService:
         sessions.update.assert_called_once_with(
             5, {"status": SessionStatus.ACCEPTED, "display_name": "Alice"}
         )
-        spheres.is_manager.assert_not_called()
+        spheres.manager_role.assert_not_called()
+
+    def test_accept_session_denied_for_comms_member(
+        self, service, sessions, agenda_items, active_users, spheres
+    ):
+        active_users.read.return_value = _user_dto()
+        spheres.manager_role.return_value = SphereRole.COMMS
+
+        with pytest.raises(ProposalAcceptDeniedError):
+            service.accept_session(
+                session_id=5, space_id=7, time_slot_id=2, user_slug="press", sphere_id=3
+            )
+
+        sessions.update.assert_not_called()
+        agenda_items.create.assert_not_called()
 
     def test_accept_session_denied_for_non_manager(
         self, service, sessions, agenda_items, active_users, spheres
     ):
         active_users.read.return_value = _user_dto()
-        spheres.is_manager.return_value = False
+        spheres.manager_role.return_value = None
 
         with pytest.raises(ProposalAcceptDeniedError):
             service.accept_session(

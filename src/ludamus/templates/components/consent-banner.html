@@ -1,0 +1,38 @@
+{% load i18n %}
+{% load tessera %}
+{% comment %}
+    Consent gate for PostHog analytics (Prologue). Rendered only when
+    POSTHOG_API_KEY is configured; src/prologue.ts un-hides it while no
+    choice is stored and wires the buttons.
+
+    The copy talks about cookies because that is what needs asking: the
+    ePrivacy rule (PL: Prawo komunikacji elektronicznej art. 398) gates
+    storing or reading anything on the visitor's device, which is exactly
+    what PostHog's cookie + localStorage persistence does. Server-side fault
+    reports touch no device storage, so they belong in the Privacy Policy
+    rather than in a consent prompt.
+{% endcomment %}
+<section id="consent-banner"
+         class="consent-banner fixed z-40 bottom-3 left-3 right-3 sm:bottom-4 sm:left-4 sm:right-auto sm:max-w-sm rounded-2xl border border-border bg-bg-secondary/95 backdrop-blur-lg shadow-lg"
+         aria-label="{% translate "Cookie consent" %}"
+         hidden>
+    <div class="p-4 flex flex-col gap-3">
+        <div class="flex items-start gap-2.5">
+            <span class="text-xl leading-none translate-y-[-.25px] shrink-0"
+                  aria-hidden="true">🍪</span>
+            <p class="text-sm text-foreground-secondary [&_a]:text-primary [&_a]:hover:underline text-balance">
+                {% translate "Cookies help us see what to fix." %}
+                {% url 'privacy-policy' as privacy_url %}
+                {% blocktranslate trimmed %}
+                    More in the <a href="{{ privacy_url }}">Privacy Policy</a>.
+                {% endblocktranslate %}
+            </p>
+        </div>
+        <div class="flex flex-row justify-end gap-2">
+            {% translate "No cookies!" as decline_label %}
+            {% translate "Cool" as allow_label %}
+            {% tessera_button decline_label button_type="button" variant="secondary" full_width_mobile=False data_consent_choice="declined" %}
+            {% tessera_button allow_label button_type="button" variant="primary" full_width_mobile=False data_consent_choice="accepted" %}
+        </div>
+    </div>
+</section>

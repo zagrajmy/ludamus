@@ -20,15 +20,15 @@ enter = "poetry install"
 # binary).
 [tools]
 python = "3.14"
-node = "25.6.1"
+node = "26.7.0"
 "pipx:poetry" = "2.4.1"
-"npm:@ast-grep/cli" = { version = "0.44.1", npm_args = "--ignore-scripts=false" }
-markdownlint-cli2 = "0.23.1"
+"npm:@ast-grep/cli" = { version = "0.45.1", npm_args = "--ignore-scripts=false" }
+markdownlint-cli2 = "0.23.2"
 # Pinned (not "latest"): fresh macOS runners resolve the dist-tag directly,
 # which skips .npmrc's min-release-age cooldown and picked up the broken
 # 1.32.0 the day it shipped.
-"npm:@endevco/aube" = { version = "1.31.0", npm_args = "--ignore-scripts=false" }
-hk = "1.51.0"
+"npm:@endevco/aube" = { version = "1.41.0", npm_args = "--ignore-scripts=false" }
+hk = "1.56.0"
 actionlint = "1.7.12"
 # `prefix:` (not a bare "0.11.0"): in sandboxes these two resolve to PyPI
 # wrappers that append a packaging revision to the upstream version
@@ -39,7 +39,7 @@ actionlint = "1.7.12"
 shellcheck = "prefix:0.11.0"
 hadolint = "prefix:2.14.0"
 "github:reteps/dockerfmt" = "0.5.4"
-pipx = "1.16.0"
+pipx = "1.16.7"
 
 [env]
 _.python.venv = { path = ".venv", create = true }
@@ -202,28 +202,13 @@ env = { _.file = '.env.e2e' }
 [tasks."test:postgres"]
 description = "Run PostgreSQL-only tests (row locking / concurrency) on real Postgres"
 run = "pytest -m postgres tests/integration"
-env.ALLOWED_HOSTS = ".testserver"
-env.AUTH0_CLIENT_ID = "test-auth0-client-id"
-env.AUTH0_CLIENT_SECRET = "test-auth0-client-secret"
-env.AUTH0_DOMAIN = "auth0.example.com"
-env.USE_POSTGRES = "True"
-env.DB_NAME = "ludamus_test"
-env.DB_USER = "postgres"
-env.DB_PASSWORD = "postgres"
-env.DB_HOST = "localhost"
-env.DB_PORT = "5432"
-env.ENV = "test"
-env.MEMBERSHIP_API_BASE_URL = ""
-env.MEMBERSHIP_API_TOKEN = "membership-test-token"
-env.PYTHONPATH = "src"
-env.ROOT_DOMAIN = "testserver"
-env.SECRET_KEY = "dev-secret-key"
-env.SESSION_COOKIE_DOMAIN = ".testserver"
-env.CREDENTIALS_ENCRYPTION_KEY = "gWc408f8j3ZQUm5Ly4EXQC2EwFRf50AhePkmZKL5N9E="
-env.IN_TESTS = 'True'
-env.ZEAL_RAISE = 'True'
-# Tests drive DBOS explicitly (test_dbos_scheduler.py); never launch implicitly.
-env.SCHEDULER_MODE = "cron"
+# Everything not overridden here comes from .env.test, so a value added there
+# reaches this task too. The overrides win because mise applies the entries in
+# document order and `_.file` comes first; otherwise .env.test's
+# DB_NAME=":memory:" would beat USE_POSTGRES=True. MEMBERSHIP_API_BASE_URL is
+# emptied because a base URL makes MembershipApiClient.fetch_membership_count
+# issue a live request instead of short-circuiting.
+env = { _.file = '.env.test', MEMBERSHIP_API_BASE_URL = "", USE_POSTGRES = "True", DB_NAME = "ludamus_test", DB_USER = "postgres", DB_PASSWORD = "postgres", DB_HOST = "localhost", DB_PORT = "5432" }
 
 [tasks."test:mutation"]
 description = "Run mutation tests"
@@ -266,14 +251,14 @@ description = "Pull Request Formatting and Readiness Check"
 run = [
     "mise install",
     "poetry install",
-    "aube install --no-optional",
+    "aube install",
     { task = "format" },
     { task = "messages" },
     { task = "lint" },
     { task = "messages-check" },
     "aube exec varlock scan",
     { task = "lint-client" },
-    { task = "ts-check:ios" },
+    { task = "ts-check" },
     { task = "test:py:cov", args = [
         '-xvv',
         '--fail-under=97',
@@ -336,8 +321,11 @@ set -eu
 base="${BASE_URL:-http://localhost:8000}"
 mkdir -p screenshots
 # $usage_targets is mise's non-deprecated multi-value argument contract; the
-# Tera template form is deprecated for removal in mise 2027.5.0.
-for target in ${usage_targets:-}; do
+# Tera template form is deprecated for removal in mise 2027.5.0. mise joins the
+# values shell-quoted, so eval must re-split them — an unquoted expansion would
+# keep the quotes as literal characters in targets like /event/x/?view=rooms.
+eval "set -- ${usage_targets:-}"
+for target in "$@"; do
   case "$target" in
     http*) url="$target" ;;
     *) url="$base$target" ;;
@@ -354,14 +342,19 @@ for target in ${usage_targets:-}; do
 done
 '''
 
+[tasks.og-image]
+description = "Re-render the link-preview card to src/ludamus/static/og-image.jpg from src/ludamus/static/og-card/"
+dir = "{{ config_root }}"
+run = "node scripts/og-image/build.mjs"
+
 [tasks.kill]
 description = "Kill dev servers (Django on :8000, Vite on :5173, auth0-simulator on :4400)"
 run = "lsof -ti :8000 | xargs kill -9 2>/dev/null; lsof -ti :5173 | xargs kill -9 2>/dev/null; lsof -ti :4400 | xargs kill -9 2>/dev/null; echo 'Dev servers killed'"
 
 
 [tasks.ts-check]
-description = "Type-check frontend TypeScript"
-run = "aubr -C src/ludamus/client typecheck"
+description = "Type-check every TypeScript project"
+run = "aube exec tsc --build --pretty false"
 
 [tasks."ts-check:ios"]
 description = "Type-check the iOS regression scripts"

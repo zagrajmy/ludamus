@@ -1,0 +1,91 @@
+{% extends "panel/base.html" %}
+{% load i18n %}
+{% load tessera %}
+{% load django_vite %}
+{% block title %}
+    {% translate "Bin" %} • {% translate "Facilitators" %}
+{% endblock title %}
+{% block page_title %}
+    {% translate "Facilitators" %}
+{% endblock page_title %}
+{% block page_subtitle %}
+    {% if current_event %}
+        {{ current_event.name }} · {% translate "Bin" %}
+    {% endif %}
+{% endblock page_subtitle %}
+{% block content %}
+    <div class="p-3 sm:p-4">
+        {% if current_event %}
+            {% tab_shell "panel/_facilitator_tabs.html" %}
+                {% tab_shell_body %}
+                    {% vite_asset 'src/bulk-status.ts' %}
+                    {% if facilitators %}
+                        <p class="text-sm text-foreground-muted mb-4">
+                            {% translate "Deleted facilitators are off the program. Restore one to bring their byline back." %}
+                        </p>
+                        {% url 'panel:facilitator-bulk-action' slug=current_event.slug as bulk_action_url %}
+                        {% include "panel/parts/_bulk_toolbar.html" with action=bulk_action_url actions="panel/parts/_bulk_actions_facilitator_bin.html" %}
+                        {% tessera_table %}
+                            <thead class="bg-bg-tertiary">
+                                <tr>
+                                    <th scope="col" class="px-6 py-3 w-12">
+                                        {% translate "Select all facilitators" as t_select_all %}
+                                        {% include "panel/parts/_bulk_select.html" with select_all=True aria_label=t_select_all only %}
+                                    </th>
+                                    <th scope="col"
+                                        class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
+                                        {% translate "Name" %}
+                                    </th>
+                                    <th scope="col"
+                                        class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
+                                        {% translate "Deleted" %}
+                                    </th>
+                                    <th scope="col"
+                                        class="px-6 py-3 text-right text-xs font-medium text-foreground-muted uppercase tracking-wider">
+                                        {% translate "Actions" %}
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-border">
+                                {% for facilitator in facilitators %}
+                                    <tr class="hover:bg-bg-tertiary">
+                                        <td class="px-6 py-4">
+                                            {% blocktranslate asvar t_select_row with name=facilitator.display_name %}Select {{ name }}{% endblocktranslate %}
+                                            {% include "panel/parts/_bulk_select.html" with name="facilitator_slugs" value=facilitator.slug aria_label=t_select_row only %}
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-foreground">
+                                            <a href="{% url 'panel:facilitator-detail' slug=current_event.slug facilitator_slug=facilitator.slug %}"
+                                               data-row-action
+                                               class="text-primary hover:text-primary/80">{{ facilitator.display_name }}</a>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-sm text-foreground-muted">{{ facilitator.deleted_at|date:"SHORT_DATETIME_FORMAT" }}</td>
+                                        <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                            <form method="post"
+                                                  action="{% url 'panel:facilitator-restore' slug=current_event.slug facilitator_slug=facilitator.slug %}">
+                                                {% csrf_token %}
+                                                <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                                                {% blocktranslate asvar t_restore_row with name=facilitator.display_name %}Restore {{ name }}{% endblocktranslate %}
+                                                <button type="submit"
+                                                        aria-label="{{ t_restore_row }}"
+                                                        class="btn btn-secondary text-sm">{% translate "Restore" %}</button>
+                                            </form>
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        {% endtessera_table %}
+                        {% include "panel/parts/_pagination.html" %}
+                    {% else %}
+                        <div class="card p-8 text-center">
+                            <p class="text-foreground-muted">{% translate "The bin is empty. Deleted facilitators land here." %}</p>
+                        </div>
+                    {% endif %}
+                {% endtab_shell_body %}
+            {% endtab_shell %}
+        {% else %}
+            <div class="card p-8 text-center">
+                <p class="text-foreground-muted">{% translate "No events available. Create an event to get started." %}</p>
+            </div>
+        {% endif %}
+    </div>
+{% endblock content %}

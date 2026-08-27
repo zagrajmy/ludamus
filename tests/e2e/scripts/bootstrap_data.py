@@ -23,7 +23,6 @@ django.setup()
 from urllib.parse import urlparse
 
 from django.conf import settings
-from django.contrib.flatpages.models import FlatPage
 from django.contrib.sessions.backends.db import SessionStore
 from django.contrib.sites.models import Site
 from django.core.management import call_command
@@ -42,6 +41,7 @@ from ludamus.links.db.django.models import (
     SessionField,
     SessionFieldOption,
     SessionFieldRequirement,
+    SessionFieldValue,
     SessionParticipation,
     Space,
     Sphere,
@@ -152,14 +152,6 @@ def _create_event(
     return event
 
 
-def _create_flatpage(site: Site, *, url: str, title: str, content: str) -> FlatPage:
-    page, _ = FlatPage.objects.get_or_create(
-        url=url, defaults={"title": title, "content": content}
-    )
-    page.sites.add(site)
-    return page
-
-
 def _create_venue(event: Event, *, name: str, slug: str, address: str = "") -> Space:
     return Space.objects.create(
         event=event, parent=None, name=name, slug=slug, description=address
@@ -190,6 +182,8 @@ def _create_session(
     description: str,
     start_offset: timedelta,
     duration_hours: int,
+    participants_limit: int = 24,
+    min_age: int = 10,
 ) -> Session:
     session = Session.objects.create(
         event=event,
@@ -197,8 +191,8 @@ def _create_session(
         title=title,
         slug=slug,
         description=description,
-        participants_limit=24,
-        min_age=10,
+        participants_limit=participants_limit,
+        min_age=min_age,
     )
     AgendaItem.objects.create(
         space=space,
@@ -502,6 +496,38 @@ def _create_enroll_states_scenario(sphere: Sphere) -> None:
     # keep offering the tester a way in however often the spec runs.
 
 
+# A public select field that allows custom answers, for the event-filter e2e:
+# two of its three choices are picked, one is picked by nobody, and one session
+# writes in a value of its own. The filter must offer the two picked choices
+# only, leaving the written-in value to the search box. Options carry
+# value == label, the way every code path that creates one does.
+def _create_tone_field_scenario(
+    event: Event, *, picked_session: Session, mixed_session: Session
+) -> None:
+    tone = SessionField.objects.create(
+        event=event,
+        name="Tone",
+        question="What tone should players expect?",
+        slug="tone",
+        field_type="select",
+        is_multiple=True,
+        allow_custom=True,
+        is_public=True,
+        icon="musical-note",
+        order=0,
+    )
+    for order, value in enumerate(("Lighthearted", "Grimdark", "Solemn")):
+        SessionFieldOption.objects.create(
+            field=tone, value=value, label=value, order=order
+        )
+    SessionFieldValue.objects.create(
+        session=picked_session, field=tone, value=["Lighthearted"]
+    )
+    SessionFieldValue.objects.create(
+        session=mixed_session, field=tone, value=["Grimdark", "kalamburowy"]
+    )
+
+
 # Dedicated event for the backoffice panel e2e tests. panel.spec mutates
 # venues, CFP config and facilitators, so it gets its own event — keeping
 # autumn-open read-only for the public-page specs makes the suite safe to run
@@ -540,7 +566,54 @@ def _create_panel_lab_event(sphere: Sphere) -> Event:
     )
     _create_space(north_wing, name="Frost Gallery", slug="frost-gallery", capacity=30)
     _create_space(hearth_lounge, name="Ember Corner", slug="ember-corner", capacity=12)
+    # Holds a scheduled session, so it can never take child spaces — the tree
+    # spec asserts its "add a space inside" control is disabled.
+    booked_hall = _create_venue(
+        event,
+        name="Glacier Amphitheatre",
+        slug="glacier-amphitheatre",
+        address="9 Glacier Parade, Northport",
+    )
+    _create_session(
+        event,
+        booked_hall,
+        title="Frostfire Opening Ceremony",
+        slug="frostfire-opening-ceremony",
+        presenter="Frostfire Crew",
+        description="The convention opens with a welcome from the organisers.",
+        start_offset=timedelta(hours=1),
+        duration_hours=1,
+    )
 
+    ProposalCategory.objects.create(
+        event=event,
+        name="RPG Proposals",
+        slug="rpg-proposals",
+        min_participants_limit=1,
+        max_participants_limit=6,
+        durations=["PT1H"],
+    )
+    return event
+
+
+# Dedicated event for panel-crud.spec. That spec runs serially and leaves its
+# facilitators, proposals and tracks behind on purpose, and those leftovers are
+# not inert: a public track makes the proposal wizard demand a track selection,
+# which would fail whichever spec walks that wizard next. Nine specs read
+# frostfire-con, so the leftovers need an event of their own.
+def _create_panel_crud_event(sphere: Sphere) -> Event:
+    event = _create_event(
+        sphere,
+        name="Cinderpeak Game Days",
+        slug="cinderpeak-con",
+        description=(
+            "A spring meet for roleplayers, used by the panel CRUD walkthrough."
+        ),
+        start_offset=timedelta(days=25),
+        duration_hours=10,
+        publication_offset=timedelta(days=2),
+        proposals_open=True,
+    )
     ProposalCategory.objects.create(
         event=event,
         name="RPG Proposals",
@@ -623,7 +696,7 @@ def main() -> None:
     sphere_domain = (
         os.environ.get("E2E_SPHERE_DOMAIN") or os.environ.get("E2E_HOST") or root_domain
     )
-    site, sphere = _create_site(sphere_domain, name="E2E Test")
+    _, sphere = _create_site(sphere_domain, name="E2E Test")
 
     _ensure_spheres_for_all_sites()
 
@@ -712,28 +785,6 @@ def main() -> None:
     empty_state_path = REPO_ROOT / "tests" / "e2e" / ".auth-state-empty.json"
     empty_state_path.write_text(json.dumps(empty_state, indent=2))
 
-    # Flatpages
-    _create_flatpage(
-        site,
-        url="/about/",
-        title="About Ludamus",
-        content=(
-            "<p>Ludamus is a community platform for tabletop gaming events.</p>"
-            "<h3>What we offer</h3>"
-            "<ul>"
-            "<li>Event scheduling and management</li>"
-            "<li>Session proposals from game masters</li>"
-            "<li>Player enrollment system</li>"
-            "<li>Anonymous participation options</li>"
-            "</ul>"
-            "<h3>Our Mission</h3>"
-            "<p>We believe that tabletop gaming brings people together. "
-            "Whether you're rolling dice in a dungeon crawl, negotiating trades "
-            "in a strategy game, or weaving stories in a narrative RPG, "
-            "we're here to help you find your table.</p>"
-        ),
-    )
-
     upcoming_event = _create_event(
         sphere,
         name="Autumn Open Playtest",
@@ -784,7 +835,7 @@ def main() -> None:
 
     tester = User.objects.get(username="e2e-tester")
 
-    _create_session(
+    mega_session = _create_session(
         upcoming_event,
         east_wing_space,
         title="Mega Strategy Lab",
@@ -804,9 +855,15 @@ def main() -> None:
         description="Collaborative narrative building with lightweight prompts.",
         start_offset=timedelta(hours=2),
         duration_hours=1,
+        # Drop-in: no sign-up, so the specs have a session the enrollment
+        # filter must exclude and whose modal shows no Participants tab.
+        participants_limit=0,
+        # Open to everyone, so the age filter has an unrestricted session
+        # to keep visible below its siblings' 10+ requirement.
+        min_age=0,
     )
 
-    _create_session(
+    neon_session = _create_session(
         upcoming_event,
         fireside_space,
         title="Przygoda w Mieście Neonów",
@@ -822,6 +879,10 @@ def main() -> None:
         # Scheduled on the event's second day so the day/hour filters appear.
         start_offset=timedelta(days=1, hours=1),
         duration_hours=1,
+    )
+
+    _create_tone_field_scenario(
+        upcoming_event, picked_session=mega_session, mixed_session=neon_session
     )
 
     proposal_category = ProposalCategory.objects.create(
@@ -853,9 +914,36 @@ def main() -> None:
     )
     pending_session.time_slots.add(proposal_slot)
 
+    # A second proposal covering the card's other two arms: no participants
+    # limit at all (which must render nothing, not "0 seats"), and more
+    # preferred slots than the meta row can name.
+    open_session = Session.objects.create(
+        event=upcoming_event,
+        presenter=tester,
+        display_name="E2E Tester",
+        contact_email="e2e@test.local",
+        category=proposal_category,
+        title="Open Table Proposal",
+        slug="open-table-proposal",
+        description="No sign-up, several possible times.",
+        duration="PT1H",
+        participants_limit=0,
+        min_age=0,
+        status=SessionStatus.PENDING,
+    )
+    open_session.time_slots.set(
+        TimeSlot.objects.create(
+            event=upcoming_event,
+            start_time=upcoming_event.start_time + timedelta(hours=offset),
+            end_time=upcoming_event.start_time + timedelta(hours=offset + 1),
+        )
+        for offset in (3, 5, 7)
+    )
+
     # Dedicated events for the mutating panel / cover-image specs, so they
     # never write to autumn-open (kept read-only for the public-page specs).
     _create_panel_lab_event(sphere)
+    _create_panel_crud_event(sphere)
     _create_cover_lab_event(sphere)
     _create_anon_proposals_event(sphere)
 
@@ -902,6 +990,17 @@ def main() -> None:
         place="Tester's place",
         max_participants=4,
         share_code="ENCQR1",
+    )
+
+    _, foreign_sphere = _create_site("foreign.localhost:8000", name="Foreign Programme")
+    _create_event(
+        foreign_sphere,
+        name="Foreign Programme",
+        slug="foreign-programme",
+        description="Event used to verify sphere-scoped organizer access.",
+        start_offset=timedelta(days=30),
+        duration_hours=8,
+        publication_offset=timedelta(days=1),
     )
 
 

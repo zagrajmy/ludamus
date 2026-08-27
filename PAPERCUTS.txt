@@ -17,10 +17,6 @@ If you fix a papercut, remove it.
   checkout with no nested worktrees until the task excludes them.
 - 2026-07-14: Tried to inspect gettext entries with polib, but the project
   environment does not install it; used the available gettext CLI instead.
-- 2026-07-14: `mise run test:py -- PATH` still appends the path after its
-  fixed integration and unit roots, so it runs the full suite. Use
-  `mise run test:int -- PATH` for a focused integration test; `test:unit` still
-  has no equivalent target replacement.
 - 2026-07-14: Used a `test_*party*` zsh glob while locating party history tests;
   no match caused zsh to abort before rg. Use rg paths without shell globs.
 - 2026-07-14: Catbox rejected PR screenshot uploads using the documented image-
@@ -172,6 +168,17 @@ If you fix a papercut, remove it.
   `uv python install 3.14` fetches python-build-standalone from GitHub releases
   (reachable) in ~4s; worth making that the documented fallback in the
   SessionStart hook.
+- 2026-08-07: mise run messages rewrites the whole PL catalog with this
+  machine's xgettext: it strips every '#, python-brace-format' flag and rewraps
+  two msgstrs, so CI's messages-check (which regenerates with a newer gettext
+  and diffs) fails on a catalog that is locally 'fresh'. Had to hand-revert 11
+  flag lines and 2 wrappings to get a diff containing only real changes.
+- 2026-08-08: git push over SSH fails in this worktree: 'Bad owner or
+  permissions on /etc/ssh/ssh_config.d/20-systemd-ssh-proxy.conf' (symlink owned
+  by nobody:nogroup). Worked around with: git -c credential.helper='!gh auth
+  git-credential' push https://github.com/zagrajmy/ludamus.git HEAD:the-branch.
+  Also, no local Postgres and no docker, so 'mise run test:postgres' errors on
+  connection refused for all 7 marked tests.
 - 2026-08-11: Burned a CI round because `djlint <path> --check` and the
   `lint:djlint` task disagree. The task is
   `djlint src --quiet --lint --check --format-css --format-js --profile=django`,
@@ -199,3 +206,151 @@ If you fix a papercut, remove it.
   slow local page load can outlast — `expect(getByText("Guild created."))`
   timed out while the row it announced was right there. Assert the durable page
   state instead.
+- 2026-08-15: test_ok_compact_schedule_renders_all_row_variants builds fixtures
+  from timezone.now() and fails near local midnight — CI went red on a tracks-
+  only PR, and the same test fails on main at that hour. Pin the clock instead
+  of chasing the branch.
+- 2026-08-14: agent-browser screenshot failed when screenshots/ did not already
+  exist; the direct CLI does not create parent directories, unlike mise run
+  shots.
+- 2026-08-14: A read-only review subagent ran `git restore --worktree .` in the
+  shared worktree and erased concurrent parent edits; read-only delegation needs
+  isolated worktrees or enforced write guards.
+- 2026-08-14: `mise run messages` failed twice because varlock required
+  deployment/test-only secrets (including SUPPORT_EMAIL) even though catalog
+  extraction does not use them; the task needs a safe local environment.
+- 2026-08-15: The global 'silence hook' PostToolUse hook on Write|Edit strips
+  every non-preserved comment from the whole file, not just newly added lines.
+  Any agent editing e.g. mills/timetable.py silently wipes its 76 explanatory
+  comments; 108 were lost across one branch before anyone noticed. Bash-driven
+  rewrites bypass it.
+- 2026-08-15: tests/integration/web/chronology/test_event_page.py::test_ok_compa
+  ct_schedule_renders_all_row_variants builds fixtures from timezone.now() and
+  its expected schedule_days stop matching once the local clock crosses a day
+  boundary. Fails on plain main from ~21:00 Europe/Warsaw; green on CI only
+  because runners are UTC.
+- 2026-08-15: git commit's hk pre-commit hook (djlint/codespell/yamllint) fails
+  with 'not found' in this worktree because the session PATH bakes in
+  /home/user/ludamus/.venv/bin from the main checkout, but that .venv doesn't
+  exist and I can't create it (write-permission denied outside my worktree).
+  Worked around by prepending the poetry-managed venv's bin dir to PATH for the
+  git commit invocation; poetry install must be run without mise exec (mise
+  exec's venv also resolves to the wrong checkout path) to get a usable venv at
+  all.
+- 2026-08-16: every mise task died with '<tool>: not found' (pytest, mypy,
+  pylint) mid-session. Cause: mise replaced python 3.14.6 with 3.14.7 and
+  deleted the old install, leaving .venv/bin/python dangling, so every console
+  script's shebang ENOENT'd. Only the shebang-less native binaries (ruff,
+  taplo) kept working, and pylint's one half-run reported E0401 on stdlib
+  imports — both misleading. mise recreates .venv only when it is absent, never
+  when its interpreter is stale; repointing .venv/bin/python and pyvenv.cfg at
+  the .../installs/python/3.14 alias instead of the patch dir survives the next
+  bump.
+- 2026-08-16: aube install fails in the agent sandbox: aube-workspace.yaml
+  paranoid:true makes advisoryCheck required, and api.osv.dev is not on the
+  sandbox network allowlist, so every install dies with
+  ERR_AUBE_ADVISORY_CHECK_FAILED after wiping node_modules. Had to hand the
+  install back to the user.
+- 2026-08-16: mise run shots breaks on URLs with a query string: mise quotes the
+  arg, so the task builds http://localhost:8000'/path/?view=rooms' and curl
+  reports it unreachable. Had to call aubx agent-browser directly (which then
+  failed on Chrome's sandbox).
+- 2026-08-16: mise run test:py failed with 'sh: 1: pytest: not found' after mise
+  pruned python 3.14.6: .venv/bin/python was a dangling symlink into the removed
+  install, so mise silently skipped venv activation for tasks (mise x still
+  resolved it). Repointed .venv/bin/python + pyvenv.cfg at 3.14 by hand. mise
+  run should say the venv is unusable instead of running the task without it.
+- 2026-08-16: mise run shots: agent-browser's Chrome dies with 'No usable
+  sandbox' on this host, and --args "--no-sandbox" passed to 'agent-browser
+  open' does not help; also a target containing '?' comes through quoted (URL
+  became http://localhost:8000'/event/x/?view=enrollment'). Fell back to
+  playwright screenshot.
+- 2026-08-16: e2e: prep's 'aube install' rewrites node_modules while 'npx
+  playwright test' (already launched by run_e2e.sh) has resolved its own runner
+  copy. When the install actually relinks the store, every spec dies with
+  'Playwright Test did not expect test.describe() to be called here' plus a
+  bogus global-teardown coverage error. Whole suite red, zero code cause, passes
+  on the next run.
+- 2026-08-18: Committing in a CLI worktree fails: hk pre-commit runs
+  oxlint/oxfmt via 'aube exec --no-install' but node_modules is absent in the
+  worktree, so both abort with 'binary not found' and every other hook is
+  skipped. Had to use --no-verify. Either run aube install per worktree or make
+  the hk steps skip when the binary is missing.
+- 2026-08-18: mise run lint:tingle failed with 'unknown type regex_spread'
+  because a stale tingle resolved ahead of the project venv on PATH; running
+  .venv/bin/tingle check directly worked.
+- 2026-08-18: lint:impeccable failed for ~20 minutes on every branch, locally
+  and on CI, with a bare 'impeccable failed (exit 1)'. npx installed the
+  SHA-pinned CLI (--help worked, and the cached copy ran clean when invoked by
+  path) but 'npm exec ... detect' exited 1 with no stdout or stderr, so the
+  wrapper had nothing to print. It cleared on its own. run_detect should surface
+  npm's own exit path rather than only the child's streams, otherwise a registry
+  hiccup is indistinguishable from a real finding.
+- 2026-08-20: Claude Code web sandbox: mise's _.python.venv never created .venv,
+  so every task calling django-admin/djlint/tingle failed with 'not found' until
+  I prepended the poetry virtualenv bin to PATH by hand. mise run test:e2e:prep
+  dies on the first such step.
+- 2026-08-20: Screenshotting a template change needs the e2e server restarted
+  after 'aubr -C src/ludamus/client build': django_vite reads the manifest once
+  per process, so the page silently loads no CSS/JS and every layout measurement
+  is garbage. test:e2e:serve handles this, a bare 'django runserver' does not.
+- 2026-08-20: Playwright's reuseExistingServer:!isCI silently reused a stale
+  `django-admin runserver --noreload` I had left on :8000 for screenshots, so
+  `mise run test:e2e` tested pre-edit Python and failed on an assertion that was
+  actually correct. Took a while to spot because the failure looked like a real
+  regression. A note in the e2e docs, or a staleness check on the reused server,
+  would have saved it.
+- 2026-08-21: Full local e2e in the web sandbox: 15 auth/panel specs + the
+  anonymous-code modal reopen test fail deterministically (86 more don't run),
+  while CI passes the same commits — sandbox env issue, not code; cost a bisect
+  via origin/main checkout of client files to prove it
+- 2026-08-21: Running the production-image validation initially failed because
+  the Docker daemon was unavailable; I had to start OrbStack manually before the
+  build could run.
+- 2026-08-21: Fresh worktree at .claude/worktrees/: .venv is absent (write-
+  permission denied outside the shared checkout), so hk's pre-commit codespell
+  step failed with 'command not found' even after prepending the poetry venv bin
+  for git. Root cause: PATH must be exported for the whole shell session before
+  invoking git commit, not just prefixed on the git commit line, since hk re-
+  execs sub-hooks.
+- 2026-08-21: Running focused pytest directly from a worktree failed because ENV
+  was unset; the traceback only later explained pytest-django could not
+  initialize. Use mise run test:int -- PATH so the task supplies the test
+  environment.
+- 2026-08-24: ios-regressions: when 'xcrun simctl openurl' times out, harness.ts
+  warns and continues, so agent-device never opens a session and every later
+  interaction dies with an opaque SESSION_NOT_FOUND deep in a beforeAll — the
+  real cause (Safari never launched) is 80 lines up the log. Cost a full re-run
+  to diagnose.
+- 2026-08-25: mise run test:py -- tests/unit/rituals ran the whole 4600-test
+  suite for ~5 minutes: mise does forward the args, it appends them after the
+  task's own fixed roots (tests/integration tests/unit), so a path meant to
+  narrow the run widens nothing. Had to fall back to
+  'mise run test:unit -- -k ...'. A narrow-path run is what CLAUDE.md asks for
+  while working.
+- 2026-08-26: Ran format:djlint on a template change; it reformatted the file
+  and reported zero lint errors but still exited nonzero, so the formatting task
+  appeared to fail until rerun.
+- 2026-08-26: Playwriter session expired between UI verification passes, so the
+  saved session could not inspect the refreshed page; use a fresh browser
+  session or the E2E server instead.
+- 2026-08-26: Passing paths after 'mise run test:py --' was ignored because the
+  task hardcodes both test trees, so a targeted check unexpectedly ran all 4,600
+  tests; direct pytest then lacked the task's .env.test environment.
+- 2026-08-26: The full Python suite flaked in
+  test_query_count_constant_in_session_count because Faker generated the same
+  category word twice while the expected context retained duplicates; the
+  isolated rerun passed.
+- 2026-08-26: Running messages-check in parallel with mise check raced
+  makemessages' temporary *.html.py extraction files against Black, causing 255
+  template parse errors; these tasks must run sequentially.
+- 2026-08-26: Fresh gpt-5.6-sol thermonuclear review failed immediately with a
+  bare 'fetch failed' and no report; retrying the identical read-only
+  invocation.
+- 2026-08-26: Running mypy directly (including with a file path) crashed while
+  constructing the Django plugin because it missed the task's .env.test
+  environment; mise run lint:mypy succeeded.
+- 2026-08-26: mise run test:py <path> appends the path to the full suite instead
+  of replacing it: the task runs 'pytest -n auto tests/integration tests/unit
+  <path>', so asking for one file re-runs everything (~16 min). Wanted to verify
+  one test module before pushing; had to use -k to keep it fast.

@@ -1,14 +1,10 @@
-from datetime import UTC, datetime
+from __future__ import annotations
 
-from django.db.models import (
-    Count,
-    Exists,
-    IntegerField,
-    OuterRef,
-    Q,
-    QuerySet,
-    Subquery,
-)
+from datetime import UTC, datetime
+from typing import TYPE_CHECKING
+
+from django.db import IntegrityError
+from django.db.models import Count, IntegerField, OuterRef, Q, QuerySet, Subquery
 from django.db.models.functions import Coalesce
 
 from ludamus.links.db.django.models import (
@@ -22,7 +18,6 @@ from ludamus.links.db.django.models import (
     Session,
     SessionParticipation,
     Space,
-    Track,
     UserEnrollmentConfig,
 )
 from ludamus.links.db.django.repositories.storage import save_replacing_files
@@ -63,6 +58,10 @@ from ludamus.pacts.panel import (
     EventPanelSettingsDTO,
     EventPanelSettingsRepositoryProtocol,
 )
+from ludamus.pacts.services import DatabaseConstraintError
+
+if TYPE_CHECKING:
+    from ludamus.pacts.event import EventCreateData
 
 
 def event_dto(event: Event) -> EventDTO:
@@ -131,11 +130,15 @@ class PartySessionHistoryRepository(PartySessionHistoryRepositoryProtocol):
 
 
 def location_data(space: Space) -> LocationData:
+    chain = (*reversed(tuple(space.iter_ancestors())), space)
+    sort_path = tuple((node.order, node.name, node.pk) for node in chain)
     return LocationData(
+        space_id=space.pk,
+        parent_id=space.parent_id or 0,
         space_name=space.name,
-        parent_slug=space.parent.slug if space.parent else "",
         parent_name=space.parent.name if space.parent else "",
         path=str(space),
+        sort_path=sort_path,
     )
 
 
@@ -146,24 +149,17 @@ def session_card_stats(session: Session) -> SessionCardStatsDTO:
         is_full=session.is_full,
         is_enrollment_available=session.is_enrollment_available,
         effective_participants_limit=session.effective_participants_limit,
-        full_participant_info=session.full_participant_info,
-    )
-
-
-def hide_private_track_sessions(queryset: QuerySet[Session]) -> QuerySet[Session]:
-    # A session without tracks is public (events that don't use tracks at all);
-    # one with tracks needs at least one public track. Exists() rather than
-    # Count("tracks"): a third aggregate over a m2m fans out the joins and
-    # inflates the participation counts annotated alongside.
-    return queryset.filter(
-        Exists(Track.objects.filter(sessions=OuterRef("pk"), is_public=True))
-        | ~Exists(Track.objects.filter(sessions=OuterRef("pk"), is_public=False))
     )
 
 
 def public_scheduled_sessions(event_id: int | OuterRef) -> QuerySet[Session]:
-    return hide_private_track_sessions(
-        Session.objects.filter(event_id=event_id, agenda_item__isnull=False)
+    # A session without tracks is public (events that don't use tracks at all);
+    # one with tracks needs every one of them public, so a session sitting in
+    # both a public and a private track stays hidden. exclude() over the m2m
+    # compiles to a correlated NOT EXISTS, so it neither fans the joins out nor
+    # inflates the participation counts annotated alongside.
+    return Session.objects.filter(event_id=event_id, agenda_item__isnull=False).exclude(
+        tracks__is_public=False
     )
 
 
@@ -252,6 +248,23 @@ class EventRepository(EventRepositoryProtocol):
         return event_dto(event)
 
     @staticmethod
+    def lock(event_id: int) -> None:
+        try:
+            Event.objects.select_for_update().get(pk=event_id)
+        except Event.DoesNotExist as error:
+            raise NotFoundError from error
+
+    @staticmethod
+    def read_in_sphere(pk: int, sphere_id: int) -> EventDTO:
+        try:
+            event = Event.objects.select_related("proposal_settings").get(
+                id=pk, sphere_id=sphere_id
+            )
+        except Event.DoesNotExist as exception:
+            raise NotFoundError from exception
+        return event_dto(event)
+
+    @staticmethod
     def read_by_slug(slug: str, sphere_id: int) -> EventDTO:
         """Read an event by slug within a sphere.
 
@@ -293,6 +306,18 @@ class EventRepository(EventRepositoryProtocol):
             hosts_count=session_stats["hosts"],
             rooms_count=Space.objects.filter(event_id=event_id).count(),
         )
+
+    @staticmethod
+    def create(sphere_id: int, data: EventCreateData) -> EventDTO:
+        try:
+            event = Event.objects.create(sphere_id=sphere_id, **data)
+        except IntegrityError as error:
+            raise DatabaseConstraintError from error
+        return event_dto(event)
+
+    @staticmethod
+    def slug_exists(sphere_id: int, slug: str) -> bool:
+        return Event.objects.filter(sphere_id=sphere_id, slug=slug).exists()
 
     @staticmethod
     def update(event_id: int, data: EventUpdateData) -> None:

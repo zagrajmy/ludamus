@@ -1,5 +1,6 @@
 """Integration tests for the proposal set-facilitators action."""
 
+from datetime import UTC, datetime
 from http import HTTPStatus
 
 from django.contrib import messages
@@ -15,6 +16,8 @@ from tests.integration.web.panel.helpers import (
     assert_proposal_not_found,
     make_proposal,
 )
+
+_DELETED_AT = datetime(2026, 1, 2, 3, 4, tzinfo=UTC)
 
 
 def _base_context(event):
@@ -98,6 +101,31 @@ class TestProposalSetFacilitatorsActionView:
         response = panel_client.post(
             self.get_url(event, session.pk),
             data={"facilitator_ids": [foreign_facilitator.pk]},
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Facilitators updated.")],
+            url=reverse(
+                "panel:proposal-detail",
+                kwargs={"slug": event.slug, "proposal_id": session.pk},
+            ),
+        )
+        assert not session.facilitators.exists()
+
+    def test_post_ignores_a_deleted_facilitator(self, panel_client, event):
+        session = _make_session(event)
+        deleted = Facilitator.objects.create(
+            event=event,
+            display_name="Gone",
+            slug="gone",
+            user=None,
+            deleted_at=_DELETED_AT,
+        )
+
+        response = panel_client.post(
+            self.get_url(event, session.pk), data={"facilitator_ids": [deleted.pk]}
         )
 
         assert_response(

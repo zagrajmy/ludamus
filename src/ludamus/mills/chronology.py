@@ -5,6 +5,7 @@ field management) bounded contexts. Split per `plans/hex_refactor.md` if
 the file grows past ~12 top-level members or 1000 lines.
 """
 
+from datetime import timedelta
 from typing import TYPE_CHECKING
 
 from pydantic import TypeAdapter, ValidationError
@@ -41,7 +42,9 @@ from ludamus.pacts.chronology import (
     SourceQuestion,
     SpaceTimeConflictError,
 )
+from ludamus.pacts.durations import MINUTES_PER_HOUR, parse_duration
 from ludamus.pacts.legacy import resolve_uploaded_file_field
+from ludamus.pacts.multiverse import SphereRole
 from ludamus.pacts.submissions import (
     ImportRow,
     ImportSettings,
@@ -251,7 +254,7 @@ class ProposalAcceptanceService:
         user = self._active_users.read(user_slug)
         if user.is_superuser:
             return True
-        return self._spheres.is_manager(sphere_id, user_slug)
+        return self._spheres.manager_role(sphere_id, user_slug) is SphereRole.MANAGER
 
     def accept_session(
         self,
@@ -515,15 +518,18 @@ class SessionContentEditService:
 
     def __init__(
         self,
+        *,
         transaction: TransactionProtocol,
         sessions: SessionRepositoryProtocol,
         session_fields: SessionFieldRepositoryProtocol,
         content_change_logs: ContentChangeLogRepositoryProtocol,
+        agenda_items: AgendaItemRepositoryProtocol,
     ) -> None:
         self._transaction = transaction
         self._sessions = sessions
         self._session_fields = session_fields
         self._content_change_logs = content_change_logs
+        self._agenda_items = agenda_items
 
     def apply(
         self,
@@ -540,6 +546,9 @@ class SessionContentEditService:
             old_session = self._sessions.read(session_id)
             old_values = self._sessions.read_field_values(session_id)
             self._sessions.update(session_id, data.update)
+            self._resize(
+                session_id=session_id, old_session=old_session, update=data.update
+            )
             field_values = (
                 None
                 if data.field_values is None
@@ -618,6 +627,27 @@ class SessionContentEditService:
                 }
                 self._content_change_logs.create(log_data)
 
+    def _resize(
+        self, *, session_id: int, old_session: SessionDTO, update: SessionUpdateData
+    ) -> None:
+        # A scheduled session keeps its start time and grows or shrinks at the
+        # end: the agenda item stores absolute times, so without this the grid
+        # would keep drawing the length the session had when it was assigned.
+        # An unparsable or empty duration leaves the block alone rather than
+        # collapsing it to zero. Overlaps this creates are left for the
+        # timetable's conflict detection to flag.
+        new_duration = update.get("duration")
+        if new_duration is None or new_duration == old_session.duration:
+            return
+        hours, rest = parse_duration(new_duration)
+        if not (minutes := hours * MINUTES_PER_HOUR + rest):
+            return
+        if (item := self._agenda_items.read_by_session(session_id)) is None:
+            return
+        self._agenda_items.update(
+            item.pk, {"end_time": item.start_time + timedelta(minutes=minutes)}
+        )
+
     def revert(self, *, event_pk: int, log_pk: int, user_pk: int | None) -> None:
         with self._transaction.atomic():
             log = self._content_change_logs.read(log_pk)
@@ -640,7 +670,8 @@ class SessionContentEditService:
             if data is None:
                 raise ContentChangeNotRevertibleError
             # Route through apply() so the revert is itself audited as a
-            # content edit — its log row becomes the newest change.
+            # content edit — its log row becomes the newest change, and undoing
+            # a duration change resizes the block back with it.
             self.apply(
                 session_id=log.session_id, event_id=event_pk, user_id=user_pk, data=data
             )

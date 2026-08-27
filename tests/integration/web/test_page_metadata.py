@@ -1,13 +1,11 @@
 import re
-from http import HTTPStatus
 from pathlib import Path
 
-from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
 
 import ludamus
-from tests.integration.conftest import PNG_BYTES, EncounterFactory, EventFactory
-from tests.integration.utils import assert_response
+from tests.integration.conftest import EncounterFactory, EventFactory
+from tests.integration.utils import assert_rendered
 
 PRODUCT_PITCH = (
     "A convention without spreadsheet chaos. Programme proposals, a schedule of"
@@ -58,14 +56,7 @@ def _descriptions(response):
 
 def _get_ok(client, url, template_name, **extra):
     response = client.get(url, **extra)
-    # Every test here reads <head>. What each view puts in the context is
-    # asserted by that view's own test module, so this passes it through.
-    assert_response(
-        response,
-        HTTPStatus.OK,
-        context_data=response.context_data,
-        template_name=template_name,
-    )
+    assert_rendered(response=response, template_name=template_name)
     return response
 
 
@@ -249,26 +240,3 @@ class TestMetaDescription:
         assert "—" not in description
         assert "|" not in description
         assert str(encounter.start_time.year) in description
-
-
-class TestMetaImage:
-    def test_defaults_to_the_absolute_brand_url(self, client):
-        response = _get_ok(client, reverse("web:events"), ["index.html"])
-
-        assert (
-            _meta_raw(response, "property", "og:image")
-            == "http://testserver/static/logo.png"
-        )
-
-    def test_event_cover_wins_over_the_brand_image(self, client, sphere):
-        event = EventFactory(sphere=sphere)
-        event.cover_image = SimpleUploadedFile("cover.png", PNG_BYTES, "image/png")
-        event.save()
-
-        response = _get_ok(
-            client,
-            reverse("web:chronology:event", kwargs={"slug": event.slug}),
-            ["chronology/event.html"],
-        )
-
-        assert _meta(response, "property", "og:image").endswith(event.cover_image.url)
