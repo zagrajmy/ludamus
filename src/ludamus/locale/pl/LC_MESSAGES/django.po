@@ -4835,6 +4835,10 @@ msgid "Remove"
 msgstr "Usuń"
 
 #: src/ludamus/templates/components/dynamic-field.html
+msgid "This value is too long to add here."
+msgstr "Ta wartość jest za długa, aby ją dodać."
+
+#: src/ludamus/templates/components/dynamic-field.html
 #, python-format
 msgid "Custom value for: %(question)s"
 msgstr "Własna wartość dla: %(question)s"

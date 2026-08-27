@@ -9,10 +9,16 @@
 // "semicolon separated" hint keeps working; no server path changes.
 //
 // Config rides on the input itself: data-chips-remove-label (a translated
-// "Remove") prefixes each chip button's accessible name.
+// "Remove") prefixes each chip button's accessible name, and
+// data-chips-limit-error (a translated message) shows when a value doesn't
+// fit the remaining length budget instead of being dropped silently.
 
 const SEPARATOR = ";";
 const JOIN = "; ";
+
+// A page can host more than one chips field, so the limit-error id needs to
+// be unique per instance to be a valid aria-describedby target.
+let limitErrorSeq = 0;
 
 const splitValues = (raw: string): string[] => {
   const values: string[] = [];
@@ -29,6 +35,7 @@ const initChipsInput = (source: HTMLInputElement): void => {
   source.dataset.chipsReady = "1";
 
   const removeLabel = source.dataset.chipsRemoveLabel ?? "Remove";
+  const limitErrorText = source.dataset.chipsLimitError ?? "";
   const values = splitValues(source.value);
   // The hidden mirror is what maxLength used to cap when this was one plain
   // input. Each chip commit must keep the semicolon-joined mirror under that
@@ -37,6 +44,14 @@ const initChipsInput = (source: HTMLInputElement): void => {
   const budget = source.maxLength > 0 ? source.maxLength : null;
   const fitsBudget = (candidate: string[]): boolean =>
     budget === null || candidate.join(JOIN).length <= budget;
+  // Capacity left for the draft alone, so sync() can bound the *live*, not
+  // yet committed, text too — committed chips plus one join separator come
+  // out of the same budget before the draft gets what remains.
+  const draftBudget = (): number | null => {
+    if (budget === null) return null;
+    const committedLength = values.length > 0 ? values.join(JOIN).length + JOIN.length : 0;
+    return Math.max(0, budget - committedLength);
+  };
 
   // The shell inherits the source's classes so it keeps each form's input
   // look (border, radius, background, spacing) without restating it here.
@@ -62,7 +77,40 @@ const initChipsInput = (source: HTMLInputElement): void => {
   draft.placeholder = source.placeholder;
   if (source.maxLength > 0) draft.maxLength = source.maxLength;
 
+  // Mirrors the server-error `<p class="text-sm text-danger">` pattern
+  // dynamic-field.html renders for custom_errors — created lazily so a field
+  // that never hits the limit never grows one.
+  let limitError: HTMLParagraphElement | null = null;
+  const limitErrorId = `write-in-chips-limit-error-${++limitErrorSeq}`;
+  const setLimitError = (show: boolean): void => {
+    if (show && limitErrorText) {
+      if (!limitError) {
+        limitError = document.createElement("p");
+        limitError.id = limitErrorId;
+        limitError.className = "text-sm text-danger mt-1";
+        limitError.setAttribute("role", "alert");
+        limitError.textContent = limitErrorText;
+        shell.after(limitError);
+        draft.setAttribute("aria-describedby", limitErrorId);
+      }
+    } else if (limitError) {
+      limitError.remove();
+      limitError = null;
+      draft.removeAttribute("aria-describedby");
+    }
+  };
+
   const sync = (): void => {
+    // Bound the *live* draft to what's left of the budget too — not just
+    // committed chips — so mid-typing (or a separator paste's leftover
+    // remainder, or text a rejected commit put back) can never write a
+    // mirror value past what the server accepts. The error tracks the same
+    // check, so it shows exactly while the draft is over and clears itself
+    // the moment the user shortens it back within budget.
+    const remaining = draftBudget();
+    const overflowing = remaining !== null && draft.value.length > remaining;
+    if (overflowing) draft.value = draft.value.slice(0, remaining ?? 0);
+    setLimitError(overflowing);
     source.value = [...values, draft.value.trim()].filter(Boolean).join(JOIN);
   };
 
@@ -97,19 +145,29 @@ const initChipsInput = (source: HTMLInputElement): void => {
     }
   };
 
-  // Commits one value if the resulting joined mirror still fits the budget;
-  // returns whether it was added, so callers can tell a full commit from a
-  // silently-dropped one.
-  const tryAddValue = (value: string): boolean => {
-    if (values.includes(value) || !fitsBudget([...values, value])) return false;
+  // Tries to commit one value; the outcome tells callers whether to re-render
+  // chips and, for "over-budget", to keep the text visible instead of
+  // discarding what the user typed with no explanation (a duplicate is
+  // dropped silently — it's already showing as a chip, nothing was lost).
+  const tryAddValue = (value: string): "added" | "duplicate" | "over-budget" => {
+    if (values.includes(value)) return "duplicate";
+    if (!fitsBudget([...values, value])) return "over-budget";
     values.push(value);
-    return true;
+    return "added";
   };
 
   const commitDraft = (): void => {
-    const added = splitValues(draft.value);
-    draft.value = "";
-    if (added.some((value) => tryAddValue(value))) renderChips();
+    const overBudget: string[] = [];
+    let added = false;
+    for (const value of splitValues(draft.value)) {
+      const outcome = tryAddValue(value);
+      if (outcome === "added") added = true;
+      else if (outcome === "over-budget") overBudget.push(value);
+    }
+    if (added) renderChips();
+    // Over-budget text stays in the draft instead of vanishing; sync() below
+    // detects it's still over budget and raises the limit error for it.
+    draft.value = overBudget.join(JOIN);
     sync();
   };
 
@@ -119,10 +177,18 @@ const initChipsInput = (source: HTMLInputElement): void => {
     if (draft.value.includes(SEPARATOR)) {
       const parts = draft.value.split(SEPARATOR);
       const rest = (parts.pop() ?? "").trimStart();
-      if (splitValues(parts.join(SEPARATOR)).some((value) => tryAddValue(value))) {
-        renderChips();
+      const overBudget: string[] = [];
+      let added = false;
+      for (const value of splitValues(parts.join(SEPARATOR))) {
+        const outcome = tryAddValue(value);
+        if (outcome === "added") added = true;
+        else if (outcome === "over-budget") overBudget.push(value);
       }
-      draft.value = rest;
+      if (added) renderChips();
+      // A completed part that didn't fit stays ahead of the in-progress
+      // remainder, so a separator paste can't quietly drop it either — sync()
+      // below flags it the same way commitDraft's leftovers get flagged.
+      draft.value = overBudget.length > 0 ? [...overBudget, rest].join(JOIN) : rest;
     }
     sync();
   });
