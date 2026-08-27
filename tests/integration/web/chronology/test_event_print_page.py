@@ -245,11 +245,15 @@ class TestPublicEventPrintView:
 
         response = client.get(self._url(event.slug))
 
-        assert response.status_code == HTTPStatus.OK
-        content = response.content.decode()
-        assert public_session.title in content
-        assert private_session.title not in content
-        assert mixed_session.title not in content
+        _assert_print_ok(response, tracks_available=True, print_scopes=[_scope(space)])
+        titles = {
+            cell_session.title
+            for page in response.context_data["timetable"].pages
+            for row in page.rows
+            for cell in row.cells
+            for cell_session in cell.sessions
+        }
+        assert titles == {public_session.title}
 
     def test_area_descriptions_render_full_description(
         self, client, event, session, space
