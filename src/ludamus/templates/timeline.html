@@ -12,10 +12,9 @@
         <div class="flex items-center justify-between mb-6">
             <h2 class="text-2xl font-bold text-foreground">{% translate "Upcoming" %}</h2>
             {% if can_create_encounter %}
-                <a href="{% url 'web:notice-board:create' %}" class="btn btn-primary">
-                    {% icon "plus" class="w-5 h-5" %}
-                    {% translate "Create Encounter" %}
-                </a>
+                {% translate "Create Encounter" as create_encounter_label %}
+                {% url 'web:notice-board:create' as create_encounter_url %}
+                {% tessera_button create_encounter_label href=create_encounter_url icon="plus" %}
             {% endif %}
         </div>
         {% if timeline_upcoming %}

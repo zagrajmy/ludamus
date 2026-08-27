@@ -64,9 +64,12 @@ class SphereSettingsPageView(SphereAccessMixin, View):
             set(service.read(sphere_id).enabled_pages) - set(enabled_pages)
         ) & service.pages_with_content(sphere_id)
         # Compared page by page: a confirmation given for one page must not
-        # authorise disabling another the manager picked afterwards.
-        if unconfirmed := to_disable - form.confirmed_pages():
-            return self._render(form, to_disable=unconfirmed)
+        # authorise disabling another the manager picked afterwards. The
+        # re-render carries the full set, not just the unconfirmed pages —
+        # a token naming only the delta drops the earlier confirmation and
+        # the two warnings alternate forever.
+        if to_disable - form.confirmed_pages():
+            return self._render(form, to_disable=to_disable)
 
         service.update_settings(
             sphere_id,

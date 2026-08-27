@@ -11,9 +11,11 @@
     {# Never empty: the view falls back to the marketing landing when the sphere has nothing public. #}
     {% include "notice_board/_public_encounters.html" %}
     <div class="mt-6 flex flex-wrap gap-3">
-        <a href="{% url 'web:crowd:auth0:login' %}?screen_hint=signup&next={% url 'web:notice-board:index' %}"
-           class="btn btn-primary">{% translate "Sign up" %}</a>
-        <a href="{% url 'web:crowd:auth0:login' %}?next={% url 'web:notice-board:index' %}"
-           class="btn btn-secondary">{% translate "Log in" %}</a>
+        {% url 'web:crowd:auth0:login' as auth_login_url %}
+        {% url 'web:notice-board:index' as encounters_url %}
+        {% translate "Sign up" as sign_up_label %}
+        {% translate "Log in" as log_in_label %}
+        {% tessera_button sign_up_label href=auth_login_url|add:"?screen_hint=signup&next="|add:encounters_url %}
+        {% tessera_button log_in_label href=auth_login_url|add:"?next="|add:encounters_url variant="secondary" %}
     </div>
 {% endblock body %}

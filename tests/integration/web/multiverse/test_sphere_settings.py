@@ -487,6 +487,51 @@ class TestSphereSettingsPageView:
         sphere.refresh_from_db()
         assert sphere.enabled_pages == ["events", "encounters", "timeline"]
 
+    def test_post_confirmation_token_keeps_earlier_confirmed_pages(
+        self, authenticated_client, active_user, sphere
+    ):
+        sphere.managers.add(active_user)
+        EncounterFactory(sphere=sphere)
+
+        # Confirmed for Encounters, then Timeline is unticked as well: the
+        # token has to keep naming Encounters, or the next submit drops that
+        # confirmation and the two warnings alternate forever.
+        response = authenticated_client.post(
+            self.url,
+            data=PAGE_DATA
+            | {"enabled_pages": ["events"], "confirmed_page_disable": "encounters"},
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name=SETTINGS_TEMPLATE,
+            context_data=GENERAL_PANEL_CONTEXT
+            | {
+                "disable_warning_pages": ["Encounters", "Timeline"],
+                "needs_disable_confirmation": True,
+                "confirmed_page_disable": "encounters,timeline",
+            },
+        )
+
+        response = authenticated_client.post(
+            self.url,
+            data=PAGE_DATA
+            | {
+                "enabled_pages": ["events"],
+                "confirmed_page_disable": "encounters,timeline",
+            },
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Sphere settings saved successfully.")],
+            url=self.url,
+        )
+        sphere.refresh_from_db()
+        assert sphere.enabled_pages == ["events"]
+
     def test_post_disabling_empty_page_saves_without_confirmation(
         self, authenticated_client, active_user, sphere
     ):
