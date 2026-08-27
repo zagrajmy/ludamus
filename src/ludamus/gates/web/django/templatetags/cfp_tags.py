@@ -85,7 +85,7 @@ def content_field_label(field_key: str) -> str:
 
 
 @register.filter
-def json_compact(value: object) -> str:
+def space_sort_path_json(value: tuple[tuple[int, str, int], ...]) -> str:
     return json.dumps(value, ensure_ascii=True, separators=(",", ":"))
 
 
