@@ -4,7 +4,7 @@ import pytest
 
 from ludamus.mills.multiverse import SpherePanelService
 from ludamus.pacts.legacy import EncounterPublicPolicy, SpherePage
-from ludamus.pacts.multiverse import Capability, SphereRole
+from ludamus.pacts.multiverse import Capability, DefaultPageDisabledError, SphereRole
 
 
 @pytest.fixture(name="spheres")
@@ -115,3 +115,15 @@ class TestSpherePanelServiceUpdateSettings:
         )
 
         assert not spheres.update.call_args.args[1]["logo"]
+
+    def test_default_page_outside_enabled_pages_is_refused(self, service, spheres):
+        with pytest.raises(DefaultPageDisabledError):
+            service.update_settings(
+                3,
+                allow_facilitator_session_edit=False,
+                enabled_pages=[SpherePage.EVENTS],
+                default_page=SpherePage.ENCOUNTERS,
+                encounter_public_policy=EncounterPublicPolicy.DISABLED,
+            )
+
+        spheres.update.assert_not_called()

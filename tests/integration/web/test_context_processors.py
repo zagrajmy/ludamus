@@ -1,6 +1,8 @@
 import pytest
 from django.urls import reverse
 
+from ludamus.gates.web.django.sphere.pages import sphere_page_nav
+
 
 class TestSitesContext:
     @pytest.mark.usefixtures("panel_access_user")
@@ -43,6 +45,9 @@ class TestSitesContext:
         assert [(item["label"], item["is_active"]) for item in nav] == [
             ("Timeline", True)
         ]
+
+    def test_nav_is_empty_without_a_sphere(self, rf):
+        assert sphere_page_nav(rf.get("/"), None) == []
 
 
 class TestAnalyticsContext:

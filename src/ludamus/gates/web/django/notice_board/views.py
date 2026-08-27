@@ -200,7 +200,7 @@ class EncountersIndexPageView(_RequireEncountersEnabled, TemplateView):
             return context
         context["upcoming_encounters"] = self._index.upcoming
         context["past_encounters"] = self._index.past
-        context["public_encounters"] = self._index.public
+        context["public_encounters"] = self._public
         return context
 
 

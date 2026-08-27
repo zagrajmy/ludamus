@@ -143,6 +143,33 @@ class TestTimelinePageView:
             template_name=["timeline.html"],
         )
 
+    def test_past_events_shown_below_an_empty_upcoming_section(
+        self, authenticated_client, sphere
+    ):
+        now = datetime.now(UTC)
+        sphere.encounter_public_policy = "everyone"
+        sphere.save()
+        past_event = EventFactory(
+            sphere=sphere,
+            start_time=now - timedelta(days=5),
+            end_time=now - timedelta(days=4),
+            publication_time=now - timedelta(days=6),
+        )
+
+        response = authenticated_client.get(self.URL)
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={
+                "timeline_upcoming": [],
+                "timeline_past": [_event_info(past_event)],
+                "can_create_encounter": True,
+                "view": ANY,
+            },
+            template_name=["timeline.html"],
+        )
+
     def test_can_create_encounter_when_policy_allows_user(
         self, authenticated_client, sphere
     ):
