@@ -17,10 +17,24 @@ export const baseUrl = env.BASE_URL ?? "http://localhost:8000";
 export const sessionName = (role: string): string =>
   env.SESSION ? `${env.SESSION}-${role}` : `zagrajmy-ios-${role}-local`;
 
+// NaN or Infinity would make pollUntil's deadline comparison never true and a
+// hook timeout undefined, so a typo'd override spins silently until the job's
+// own timeout kills it.
+const positiveMs = (name: string, fallback: number): number => {
+  const raw = env[name];
+  const value = raw === undefined ? fallback : Number(raw);
+  if (!Number.isFinite(value) || value <= 0) {
+    throw new Error(
+      `${name} must be a positive number of milliseconds; got ${JSON.stringify(raw)}`,
+    );
+  }
+  return value;
+};
+
 // The workflow sets this per attempt. The default only applies to local runs,
 // where nothing has paid the 194-240s cold runner attach yet -- run
 // `bun run scripts/ios-regressions/warmup.ts` first, or raise it.
-export const hookTimeoutMs = Number(env.IOS_HOOK_TIMEOUT_MS ?? "300000");
+export const hookTimeoutMs = positiveMs("IOS_HOOK_TIMEOUT_MS", 300000);
 
 export type Rect = { x: number; y: number; width: number; height: number };
 
@@ -54,15 +68,7 @@ export const pollUntil = async <T>(
 const deviceName = env.IOS_DEVICE_NAME ?? "iPhone 17 Pro";
 const runtime = env.IOS_RUNTIME;
 const providedUdid = env.UDID;
-const safariReadyTimeoutMs = Number(env.IOS_SAFARI_READY_TIMEOUT_MS ?? "240000");
-// NaN or Infinity would make pollUntil's deadline comparison never true, so a
-// typo'd override spins silently until the job's own timeout kills it.
-if (!Number.isFinite(safariReadyTimeoutMs) || safariReadyTimeoutMs <= 0) {
-  throw new Error(
-    "IOS_SAFARI_READY_TIMEOUT_MS must be a positive number of milliseconds; got " +
-      JSON.stringify(env.IOS_SAFARI_READY_TIMEOUT_MS),
-  );
-}
+const safariReadyTimeoutMs = positiveMs("IOS_SAFARI_READY_TIMEOUT_MS", 240000);
 
 // One convention for "is this on screen": rect centre inside the viewport,
 // clear of a band for Safari's top and bottom chrome. The band's exact size is
@@ -90,10 +96,8 @@ export const matchesScopeLabel = (label: string, scope: string): boolean =>
   label === scope || label.startsWith(`${scope}, `);
 
 // Accessibility engines collapse runs of whitespace in a name; markup keeps its
-// indentation. Every device label is read through `labelOf` and every name read
-// from markup through `collapse`, so both sides of a comparison are normalized
-// the same way -- a split that previously let one call site match a label
-// another rejected.
+// indentation. Device labels are read through `labelOf` and names read from
+// markup through `collapse`, so both sides of a comparison normalize alike.
 export const collapse = (value: string): string => value.replace(/\s+/g, " ").trim();
 
 export const labelOf = (node: SnapshotNode): string => collapse(node.label ?? node.value ?? "");
@@ -166,7 +170,8 @@ export const createIosHarness = (session: string): IosHarness => {
 
   const findNodeByLabel = async (label: string): Promise<SnapshotNode | null> => {
     const snapshot = await takeSnapshot();
-    return snapshot.nodes.find((node) => node.label === label) ?? null;
+    const wanted = collapse(label);
+    return snapshot.nodes.find((node) => labelOf(node) === wanted) ?? null;
   };
 
   const wait = (durationMs: number): Promise<void> =>
