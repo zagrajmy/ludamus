@@ -6,10 +6,9 @@ from typing import TYPE_CHECKING
 
 from django import template
 from django.template.loader import render_to_string
-from django.utils.html import format_html, format_html_join
 
 from ._registry import register
-from ._utils import parse_tag_attrs
+from ._utils import format_tag_attrs, parse_tag_attrs
 
 if TYPE_CHECKING:
     from django.template.base import FilterExpression, Parser, Token
@@ -38,24 +37,10 @@ class SelectNode(template.Node):
         extra_class = str(resolved.pop("class", ""))
         has_errors = bool(resolved.pop("has_errors", False))
 
-        attr_parts: list[str] = []
-        for key, value in resolved.items():
-            if key in self._BOOLEAN_ATTRS:
-                if value:
-                    attr_parts.append(format_html("{}", key))
-                continue
-            # `value=0` is a legitimate radio value — only drop absent attrs.
-            if value is None or (isinstance(value, str) and not value):
-                continue
-            # Template kwargs can't contain hyphens, so aria_*/data_* keywords
-            # map onto their hyphenated attributes (aria_label -> aria-label).
-            name = key.replace("_", "-") if key.startswith(("aria_", "data_")) else key
-            attr_parts.append(format_html('{}="{}"', name, value))
-
         return render_to_string(
             self._TEMPLATE,
             {
-                "attrs": format_html_join(" ", "{}", ((part,) for part in attr_parts)),
+                "attrs": format_tag_attrs(resolved, boolean_attrs=self._BOOLEAN_ATTRS),
                 "extra_class": extra_class,
                 "has_errors": has_errors,
                 "slot": self.nodelist.render(context),

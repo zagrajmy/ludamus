@@ -43,11 +43,12 @@ def _mock_user(full_name: str, pk: int, slug: str, username: str) -> UserInfo:
 
 def _mock_venue_and_space() -> LocationData:
     return {
+        "space_id": 2,
+        "parent_id": 1,
         "space_name": "Table 1",
-        "parent_slug": "main-hall",
         "parent_name": "Main Hall",
         "path": "Main Hall > Table 1",
-        "sort_key": "000000|Main Hall|main-hall|000000|Table 1|table-1",
+        "sort_path": ((0, "Main Hall", 1), (0, "Table 1", 2)),
     }
 
 
@@ -190,6 +191,68 @@ def mock_session_proposal() -> SessionData:
                 end_time=start + timedelta(hours=6),
             ),
         ],
+    )
+
+
+_OVERFLOW_SYSTEMS = [
+    "D&D 5e",
+    "Pathfinder",
+    "Fate",
+    "Blades in the Dark",
+    "Call of Cthulhu",
+    "Vampire",
+]
+_OVERFLOW_TRIGGERS = [
+    "horror",
+    "violence",
+    "gore",
+    "body horror",
+    "spiders",
+    "claustrophobia",
+    "mind control",
+    "character death",
+    "romance",
+    "alcohol",
+    "gambling",
+]
+
+
+def mock_session_data_overflow() -> SessionData:
+    data = mock_session_data()
+    system = SessionFieldValueDTO(
+        field_icon="book-open",
+        field_id=1,
+        field_name="System",
+        field_question="What RPG system?",
+        field_slug="system",
+        field_type="select",
+        is_public=True,
+        value=list(_OVERFLOW_SYSTEMS),
+    )
+    triggers = SessionFieldValueDTO(
+        field_icon="exclamation-triangle",
+        field_id=2,
+        field_name="Triggers",
+        field_question="Content warnings?",
+        field_slug="triggers",
+        field_type="select",
+        is_public=True,
+        value=list(_OVERFLOW_TRIGGERS),
+    )
+    field_values = [system, triggers]
+    return replace(
+        data,
+        session=data.session.model_copy(
+            update={
+                "description": "Two overflowing fields share one +N on the tags cloud.",
+                "min_age": 12,
+                "pk": 3,
+                "slug": "design-session-overflow",
+                "title": "Overflow Tags (Design Preview)",
+            }
+        ),
+        field_values=field_values,
+        displayed_field_rows=[build_display_field_row(fv) for fv in field_values],
     )
 
 

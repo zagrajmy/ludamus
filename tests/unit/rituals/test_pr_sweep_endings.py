@@ -355,7 +355,9 @@ class TestWholeCast:
         trial.shell.replies(when="git merge-base*", exit_code=1, always=True)
         trial.shell.replies(when="git merge --no-edit*")
         trial.shell.replies(
-            when=checks(7), stdout='[{"name": "codecov/patch", "state": "FAILURE"}]'
+            when=checks("feature"),
+            stdout='{"check_runs": [{"name": "codecov/patch",'
+            ' "conclusion": "failure"}]}',
         )
         trial.shell.replies(when=plain(COVERAGE), stdout=_MISSING)
         # The tests the agent wrote are measured without the browser, and the

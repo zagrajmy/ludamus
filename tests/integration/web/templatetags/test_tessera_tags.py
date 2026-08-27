@@ -1,5 +1,7 @@
 """Tests for tessera design-system component tags."""
 
+import html as html_module
+import json
 import re
 from unittest.mock import patch
 
@@ -297,6 +299,184 @@ class TestSelect:
         assert "&lt;script&gt;" in html or "&#x27;" in html
 
 
+class TestComboboxOptionData:
+    """The JSON the client reads instead of the option markup."""
+
+    def _payload(self, slot: str) -> dict[str, object]:
+        tpl = Template(
+            "{% load tessera %}"
+            '{% tessera_combobox id="fruit" name="fruit" %}'
+            + slot
+            + "{% end_tessera_combobox %}"
+        )
+        html = tpl.render(Context())
+        raw = re.search(
+            r'<script id="fruit-options" type="application/json">(.*?)</script>',
+            html,
+            re.DOTALL,
+        )
+        assert raw is not None
+        return json.loads(html_module.unescape(raw.group(1)))
+
+    def test_carries_every_enabled_option_as_a_row(self) -> None:
+        payload = self._payload(
+            '<option value="a">Apple</option><option value="c">Cherry</option>'
+        )
+        assert payload["rows"] == [["a", "Apple"], ["c", "Cherry"]]
+
+    def test_a_disabled_option_is_not_a_row(self) -> None:
+        payload = self._payload(
+            '<option value="" disabled selected>Any fruit</option>'
+            '<option value="a">Apple</option>'
+        )
+        assert payload["rows"] == [["a", "Apple"]]
+
+    def test_a_disabled_placeholder_keeps_its_label(self) -> None:
+        # Nobody may land on it, but it is what the field shows before anyone
+        # picks — and it is not a row, so the label has to travel separately
+        # or the control renders blank.
+        payload = self._payload(
+            '<option value="" disabled selected>Any fruit</option>'
+            '<option value="a">Apple</option>'
+        )
+        assert payload["label"] == "Any fruit"
+        assert not payload["value"]
+
+    def test_the_value_is_the_selected_option(self) -> None:
+        payload = self._payload(
+            '<option value="a">Apple</option><option value="c" selected>Cherry</option>'
+        )
+        assert payload["value"] == "c"
+        assert payload["label"] == "Cherry"
+
+    def test_without_a_selection_the_first_option_stands(self) -> None:
+        # What a single <select> does on its own: index 0 is current.
+        payload = self._payload(
+            '<option value="a">Apple</option><option value="c">Cherry</option>'
+        )
+        assert payload["value"] == "a"
+        assert payload["label"] == "Apple"
+
+
+class TestCombobox:
+    def test_the_hidden_input_posts_under_the_given_name(self) -> None:
+        # The upgraded control is what a form submits, and it takes its name
+        # from this attribute. Empty here means the field silently never posts.
+        tpl = Template(
+            "{% load tessera %}"
+            '{% tessera_combobox id="host" name="host" %}'
+            '<option value="ada">Ada</option>'
+            "{% end_tessera_combobox %}"
+        )
+        html = tpl.render(Context())
+        assert 'data-combobox-name="host"' in html
+        # The scriptless <select> posts the same field, so it needs it too;
+        # only ever one of the two exists.
+        assert 'name="host"' in html
+
+    def test_a_combobox_driving_no_form_needs_no_name(self) -> None:
+        # The event page's host filter is one: it moves client-side state and
+        # posts nothing, so a missing name is a valid shape, not a wiring bug.
+        tpl = Template(
+            "{% load tessera %}"
+            '{% tessera_combobox id="host-filter" %}'
+            '<option value="ada">Ada</option>'
+            "{% end_tessera_combobox %}"
+        )
+        assert 'data-combobox-name=""' in tpl.render(Context())
+
+    def test_renders_select_and_shell(self) -> None:
+        tpl = Template(
+            "{% load tessera %}"
+            '{% tessera_combobox id="host" name="host" %}'
+            '<option value="ada">Ada</option>'
+            "{% end_tessera_combobox %}"
+        )
+        html = tpl.render(Context())
+        assert "<select" in html
+        assert 'id="host"' in html
+        assert "Ada" in html
+        assert "data-combobox" in html
+        assert "data-combobox-shell" in html
+
+    def test_input_carries_the_combobox_aria_contract(self) -> None:
+        tpl = Template(
+            '{% load tessera %}{% tessera_combobox id="host" name="host" %}'
+            "{% end_tessera_combobox %}"
+        )
+        html = tpl.render(Context())
+        assert 'role="combobox"' in html
+        assert 'aria-autocomplete="list"' in html
+        assert 'aria-expanded="false"' in html
+        assert 'id="host-input"' in html
+        assert 'role="listbox"' in html
+        assert 'id="host-listbox"' in html
+        # The pattern asks for aria-controls only while the popup shows, so
+        # the script adds it on open and takes it away on close.
+        assert "aria-controls" not in html
+
+    def test_option_row_template_carries_the_option_role(self) -> None:
+        tpl = Template(
+            '{% load tessera %}{% tessera_combobox id="host" name="host" %}'
+            "{% end_tessera_combobox %}"
+        )
+        html = tpl.render(Context())
+        assert "<template" in html
+        assert 'role="option"' in html
+
+    def test_empty_state_is_visual_only(self) -> None:
+        # The spoken copy goes to a live region combobox.ts keeps on the body:
+        # one inside this popup would be display:none until it opened, and a
+        # hidden live region announces nothing.
+        tpl = Template(
+            '{% load tessera %}{% tessera_combobox id="host" name="host" %}'
+            "{% end_tessera_combobox %}"
+        )
+        html = tpl.render(Context())
+        assert "data-combobox-empty" in html
+        assert 'aria-hidden="true"' in html
+        assert "aria-live" not in html
+
+    def test_toggle_is_out_of_the_tab_sequence(self) -> None:
+        tpl = Template(
+            '{% load tessera %}{% tessera_combobox id="host" name="host" %}'
+            "{% end_tessera_combobox %}"
+        )
+        html = tpl.render(Context())
+        assert 'tabindex="-1"' in html
+
+    def test_copy_is_overridable(self) -> None:
+        tpl = Template(
+            "{% load tessera %}"
+            '{% tessera_combobox id="host" name="host" placeholder="Find a host" '
+            'empty_text="No hosts" toggle_label="Open hosts" %}'
+            "{% end_tessera_combobox %}"
+        )
+        html = tpl.render(Context())
+        assert 'placeholder="Find a host"' in html
+        assert "No hosts" in html
+        assert 'aria-label="Open hosts"' in html
+
+    def test_class_lands_on_both_controls(self) -> None:
+        tpl = Template(
+            '{% load tessera %}{% tessera_combobox id="host" name="host" '
+            'class="filter-input" %}{% end_tessera_combobox %}'
+        )
+        html = tpl.render(Context())
+        # The select and the input it is upgraded into.
+        controls = 2
+        assert html.count("filter-input") == controls
+
+    def test_forwards_arbitrary_attributes_to_the_select(self) -> None:
+        tpl = Template(
+            '{% load tessera %}{% tessera_combobox id="host" name="host" '
+            'required=True data_category="who" %}{% end_tessera_combobox %}'
+        )
+        html = tpl.render(Context())
+        assert "required" in html
+        assert 'data-category="who"' in html
+
+
 class TestTabs:
     def test_renders_tabs_nav(self) -> None:
         tpl = Template(
@@ -423,6 +603,56 @@ class TestTabShellBody:
 
 ICON_TOGGLE_ICONS = 2
 SWITCHER_SEGMENTS = 3
+
+
+class TestIconButton:
+    def _render(self, extra: str = "") -> str:
+        tpl = Template(
+            "{% load tessera %}"
+            '{% tessera_icon_button icon="x-mark" label="Close filters" '
+            + extra
+            + " %}"
+        )
+        return tpl.render(Context())
+
+    def test_renders_a_button_carrying_the_icon(self) -> None:
+        html = self._render()
+        assert html.startswith('<button type="button"')
+        assert "<svg" in html
+
+    def test_names_the_button_for_screen_readers(self) -> None:
+        # The icon is decorative precisely because the label carries the name.
+        html = self._render()
+        assert 'aria-label="Close filters"' in html
+        assert 'aria-hidden="true"' in html
+
+    def test_refuses_to_render_without_a_label(self) -> None:
+        # A button whose only content is an icon and which has no label is a
+        # button no screen reader can announce, so it must not render at all.
+        tpl = Template(
+            '{% load tessera %}{% tessera_icon_button icon="x-mark" label="" %}'
+        )
+        with pytest.raises(ValueError, match="its icon is not a name"):
+            tpl.render(Context())
+
+    def test_forwards_extra_attrs_as_hyphenated(self) -> None:
+        assert 'id="filter-close"' in self._render('id="filter-close"')
+        assert 'data-close="1"' in self._render('data_close="1"')
+
+    def test_is_not_styled_as_a_text_button(self) -> None:
+        # Its own primitive, not a btn variant: a filled pill would compete
+        # with the content it sits on top of.
+        html = self._render()
+        assert "btn" not in html
+        assert "bg-transparent" in html
+
+    def test_size_scales_padding_and_icon(self) -> None:
+        assert "p-1.5" in self._render('size="sm"')
+        assert "w-4 h-4" in self._render('size="sm"')
+        assert "p-2" in self._render()
+
+    def test_disabled_marks_the_button_disabled(self) -> None:
+        assert " disabled" in self._render("disabled=True")
 
 
 class TestIconToggle:

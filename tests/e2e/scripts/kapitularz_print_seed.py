@@ -28,6 +28,7 @@ EXPECTED_SESSION_COUNT = 110
 EXPECTED_PARTICIPANT_COUNT = 555
 EXTRA_ENROLLMENT_SESSION_COUNT = 5
 HOST_COUNT = 72
+OVERNIGHT_SESSION_SLOT = (1, 22)
 
 
 @dataclass(frozen=True)
@@ -307,7 +308,11 @@ def _create_sessions(
         track_spaces = list(track.spaces.order_by("order", "name"))
         space = track_spaces[(index - 1) % len(track_spaces)]
         facilitator = facilitators[(index * 7) % len(facilitators)]
-        duration_hours = (1, 1, 2, 2, 3)[index % 5]
+        duration_hours = (
+            3
+            if (spec.day, spec.hour) == OVERNIGHT_SESSION_SLOT
+            else (1, 1, 2, 2, 3)[index % 5]
+        )
         title = _title(index, spec.track_slug)
         session = Session.objects.create(
             event=event,

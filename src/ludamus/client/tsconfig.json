@@ -1,5 +1,8 @@
 {
   "compilerOptions": {
+    "composite": true,
+    "noEmit": true,
+    "tsBuildInfoFile": "../../../.cache/tsbuildinfo/client.tsbuildinfo",
     "strict": true,
     "target": "es2024",
     "module": "es2022",
@@ -13,7 +16,6 @@
     ],
     "outDir": "../../../../../static/js",
     "rootDir": "src",
-    "declaration": false,
     "sourceMap": false,
     "skipLibCheck": true
   },
