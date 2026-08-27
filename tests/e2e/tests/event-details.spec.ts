@@ -83,7 +83,10 @@ test.describe("Event detail page", () => {
     await page.getByRole("link", { name: "Open details for Mega Strategy Lab" }).press("Enter");
     const enrollable = page.getByRole("dialog", { name: "Mega Strategy Lab" });
     await expect(enrollable.getByRole("tab", { name: /Participants/ })).toBeVisible();
+    await settleViewTransitions(page);
     await enrollable.getByRole("button", { name: "Close" }).click();
+    await expect(enrollable).toBeHidden();
+    await settleViewTransitions(page);
 
     // Seeded with no participants limit, so there is no roster to show and the
     // information panel stands alone.

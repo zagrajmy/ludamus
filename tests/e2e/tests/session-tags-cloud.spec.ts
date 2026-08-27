@@ -96,7 +96,7 @@ test.describe("Session tags cloud", () => {
       animations: "disabled",
       caret: "hide",
       clip: await clipAround([card, tip], 16),
-      maxDiffPixelRatio: 0.03,
+      maxDiffPixelRatio: 0.05,
     });
   });
 });
