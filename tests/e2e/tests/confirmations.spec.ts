@@ -1,3 +1,5 @@
+import { type Locator, type Page } from "@playwright/test";
+
 import { expect, test } from "./helpers/fixtures";
 
 const DASHBOARD_URL = "/panel/event/harbour-days/timetable/confirmations/";
@@ -16,7 +18,7 @@ const SEEDED_CONFIRMATIONS: [string, boolean][] = [
   ["Club Night", false],
 ];
 
-async function login(page) {
+async function login(page: Page) {
   await page.goto("/admin/login/");
   await page.getByLabel("Username:").fill("e2e-manager");
   await page.getByLabel("Password:").fill("e2e-manager-123");
@@ -25,7 +27,7 @@ async function login(page) {
 
 // The dashboard's track row is the way in: clicking it is what an organizer
 // does after reading which block is behind.
-async function openMainProgramme(page) {
+async function openMainProgramme(page: Page) {
   await page.goto(DASHBOARD_URL);
   await page.getByRole("link", { name: "Main Programme" }).click();
   await expect(page.getByText("Ada McCall")).toBeVisible();
@@ -35,7 +37,7 @@ async function openMainProgramme(page) {
 // unfolding one has to be conditional: a blind summary click closes the rest.
 // The restore hook can reach a card an HTMX swap is still replacing, hence the
 // polling waits around the one-shot attribute read.
-async function unfold(facilitatorCard) {
+async function unfold(facilitatorCard: Locator) {
   await expect(facilitatorCard).toBeVisible();
   if ((await facilitatorCard.getAttribute("open")) === null) {
     await facilitatorCard.locator("summary").click();
@@ -43,7 +45,7 @@ async function unfold(facilitatorCard) {
   }
 }
 
-function card(page, name: string) {
+function card(page: Page, name: string) {
   return page.locator("details").filter({ has: page.getByText(name, { exact: true }) });
 }
 
@@ -52,7 +54,7 @@ function card(page, name: string) {
 // match lands on the row and not on the status group or the card above it.
 // Naming the row keeps a restore off checkbox position, which only ever lined
 // up by accident of the seed's start hours and email ordering.
-function row(facilitatorCard, title: string) {
+function row(facilitatorCard: Locator, title: string) {
   return facilitatorCard
     .locator("div")
     .filter({ hasText: new RegExp(`^\\s*${title}`) })

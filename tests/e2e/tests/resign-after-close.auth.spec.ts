@@ -13,7 +13,7 @@ import { expect, test } from "./helpers/fixtures";
 // whole footer, so a footer-scoped toHaveCount(0) would pass on nothing.
 const openModal = async (page: Page, slug: string, title: string) => {
   await page.goto(`/event/${slug}/`);
-  await page.getByRole("link", { name: `Open details for ${title}` }).click();
+  await page.getByRole("link", { name: `Open details for ${title}` }).press("Enter");
   const dialog = page.getByRole("dialog", { name: title });
   await expect(dialog).toBeVisible();
   return { dialog, footer: dialog.locator("[data-session-footer]") };

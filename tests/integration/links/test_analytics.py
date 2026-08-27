@@ -46,7 +46,11 @@ class TestReportException:
         _, kwargs = posthog.capture_exception.call_args
         assert kwargs["distinct_id"] == "anonymous"
 
-    def test_authenticated_request_reports_the_pk(self, monkeypatch, active_user):
+    def test_authenticated_request_reports_the_namespaced_pk(
+        self, monkeypatch, active_user, settings
+    ):
+        settings.ENV = "production"
+        settings.IS_STAGING = True
         posthog = MagicMock()
         monkeypatch.setattr(analytics, "client", lambda: posthog)
         request = HttpRequest()
@@ -56,7 +60,23 @@ class TestReportException:
         analytics.report_exception(ValueError("boom"), request)
 
         _, kwargs = posthog.capture_exception.call_args
-        assert kwargs["distinct_id"] == str(active_user.pk)
+        assert kwargs["distinct_id"] == f"staging:{active_user.pk}"
+
+    def test_report_carries_the_environment(self, monkeypatch, active_user, settings):
+        # Staging and production share one project, so a report is only
+        # attributable if the event says where it came from.
+        settings.ENV = "production"
+        settings.IS_STAGING = True
+        posthog = MagicMock()
+        monkeypatch.setattr(analytics, "client", lambda: posthog)
+        request = HttpRequest()
+        request.path = "/events"
+        request.user = active_user
+
+        analytics.report_exception(ValueError("boom"), request)
+
+        _, kwargs = posthog.capture_exception.call_args
+        assert kwargs["properties"]["environment"] == "staging"
 
     def test_report_never_builds_a_person_profile(self, monkeypatch, active_user):
         # Consent lives in localStorage, unreadable here, so a fault report has

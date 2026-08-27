@@ -1,0 +1,111 @@
+{% load i18n %}
+{% load tessera %}
+{% load vite_tags %}
+{# The behaviour ships with the component: pages using it need remember no #}
+{# asset, and pages that don't, don't pay for one. Deduped per request. #}
+{% vite_asset_once 'src/combobox.ts' %}
+{# Searchable single-select, per the ARIA combobox pattern with list #}
+{# autocomplete: https://www.w3.org/WAI/ARIA/apg/patterns/combobox/ #}
+{# The <select> lives in <noscript> on purpose. With scripting on, the parser #}
+{# keeps a noscript's content as TEXT: no elements, so no layout, no style #}
+{# and no accessibility tree for options that can run to the hundreds — on a #}
+{# schedule page that already carries a card per session, that is the whole #}
+{# point. Scriptless, the same markup is a real, working select. #}
+{# combobox.ts parses that one text node for its options, so the list is #}
+{# written once and serves both; the hidden input below carries the value #}
+{# and posts under the same name, and only one of the two ever exists. #}
+{# Vars: attrs (safe string), id, name, placeholder, empty_text, #}
+{# toggle_label, extra_class, has_errors, slot (safe string of <option>s). #}
+{# No `value`: what starts selected is `selected` on an <option>, the way a #}
+{# <select> says it, and the tag reads that into the options payload below. #}
+<div class="tessera-combobox relative" data-combobox>
+    <noscript data-combobox-source>
+        {% include "components/select.html" with attrs=attrs extra_class=extra_class has_errors=has_errors slot=slot only %}
+    </noscript>
+    {# The same options as data, because the script must not read them back #}
+    {# out of the noscript above: that would mean turning DOM text into HTML #}
+    {# again, which is an XSS sink's shape even when the text is our own #}
+    {# escaped output. The tag reads the slot server-side instead, and this #}
+    {# is what the browser parses — json_script handles the escaping. #}
+    {{ options|json_script:options_id }}
+    {# The value once the upgrade has run: what forms post, what `change` #}
+    {# listeners read, and what the filter registry mirrors to the URL. #}
+    {# The name is attached by the script, not here: scriptless, the select #}
+    {# above is a real element again and the two would post the same field #}
+    {# twice. The id stays so callers can find this control without waiting #}
+    {# on the upgrade; scriptless it collides with the select's, harmlessly — #}
+    {# a label resolves to the select, which comes first and is the control. #}
+    <input type="hidden"
+           id="{{ id }}"
+           data-combobox-name="{{ name|default:"" }}"
+           data-combobox-value>
+    {# Unhidden by the script, so the select never flashes beside its own #}
+    {# replacement on a slow first paint. #}
+    <div data-combobox-shell
+         hidden
+         data-results-label="{% translate "Results" %}">
+        <input type="text"
+               id="{{ id }}-input"
+               role="combobox"
+               aria-autocomplete="list"
+               aria-expanded="false"
+               placeholder="{{ placeholder }}"
+               autocomplete="off"
+               spellcheck="false"
+               autocorrect="off"
+               autocapitalize="none"
+               data-combobox-input
+               class="w-full px-3 py-2 pr-9 text-base sm:text-sm rounded-lg border {% if has_errors|default:False %}border-danger{% else %}border-border{% endif %} bg-bg-secondary text-foreground placeholder:text-foreground-muted disabled:opacity-50 disabled:cursor-not-allowed{% if extra_class|default:"" %} {{ extra_class }}{% endif %}">
+        {# tabindex=-1: its job is redundant with the combobox's own keys, so #}
+        {# it must not add a second tab stop (APG). #}
+        <button type="button"
+                tabindex="-1"
+                aria-label="{{ toggle_label }}"
+                aria-expanded="false"
+                data-combobox-toggle
+                class="absolute inset-y-0 right-0 flex items-center px-2.5 text-foreground-muted">
+            {% icon "chevron-up-down" variant="mini" class="size-4" aria_hidden="true" %}
+        </button>
+        {# The top layer, because the popup has to escape whatever clips its #}
+        {# surroundings — the event page's filter panel scrolls and is #}
+        {# transformed, which traps even position:fixed. Browsers without #}
+        {# popover ignore the attribute and keep the absolute box below, #}
+        {# which their user can still scroll to. #}
+        <div data-combobox-popup
+             popover="manual"
+             hidden
+             class="absolute left-0 right-0 top-full z-40 mt-1 overflow-hidden rounded-xl border border-border bg-bg-secondary shadow-xl">
+            {# The scroller is this wrapper, not the list: the rows outside #}
+            {# the rendered window are padding on the <ul>, and a box grows to #}
+            {# fit its own padding whatever its max-height says. So the cap #}
+            {# lives out here and the padded list scrolls inside it. #}
+            {# 14rem is six 36px rows plus the list's own py-1. Keep it in step #}
+            {# with VISIBLE_ROWS in combobox.ts, which caps the same list once #}
+            {# our placement runs; this is what a browser gets before it does. #}
+            <div data-combobox-scroller class="max-h-56 overflow-y-auto">
+                <ul id="{{ id }}-listbox"
+                    role="listbox"
+                    data-combobox-listbox
+                    class="py-1">
+                </ul>
+            </div>
+            {# Visual only. A live region inside a closed popover is display:none #}
+            {# and never announces, and unhiding fixed text is not a content #}
+            {# change either; combobox.ts writes the spoken copy into a region #}
+            {# that lives on the body and is there from page load. #}
+            <p aria-hidden="true"
+               hidden
+               data-combobox-empty
+               class="px-3 py-2 text-sm text-foreground-muted">{{ empty_text }}</p>
+        </div>
+    </div>
+    {# The row the script clones per option, so the option look stays here in #}
+    {# the template where Tailwind can see it. #}
+    <template data-combobox-option>
+        <li role="option"
+            class="group flex cursor-pointer items-center gap-2 px-3 py-2 text-sm text-foreground data-[active]:bg-bg-tertiary data-[chosen]:font-semibold">
+            <span data-combobox-option-label class="grow truncate"></span>
+            {% icon "check" variant="mini" class="size-4 text-primary opacity-0 group-data-[chosen]:opacity-100" aria_hidden="true" %}
+        </li>
+    </template>
+</div>

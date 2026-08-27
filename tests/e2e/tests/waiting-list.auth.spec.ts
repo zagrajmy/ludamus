@@ -89,6 +89,7 @@ test.describe("Navbar profile menu (a11y upgrade)", () => {
     await expect(surface).toHaveCSS("filter", "none");
 
     const transformOrigin = await surface.evaluate((element) => {
+      if (!(element instanceof HTMLElement)) throw new Error("Profile menu surface is not HTML");
       const [x, y] = getComputedStyle(element).transformOrigin.split(" ").map(Number.parseFloat);
       return { x, y, width: element.offsetWidth };
     });

@@ -102,7 +102,7 @@ def schedule_context(url):
         "compact_schedule": False,
         "schedule_days": [],
         "active_tab": "list",
-        "room_lane_days": [],
+        "room_lanes": None,
         "schedule_list_url": url,
         "schedule_rooms_url": f"{url}?view=rooms",
     }
@@ -147,17 +147,18 @@ def compact_day(cards):
     # plus a tile per card. Fixtures that schedule everything in one hour.
     starts = [localtime(card.agenda_item.start_time) for card in cards]
     hour_start = starts[0].replace(minute=0, second=0, microsecond=0)
+    tiles = [
+        ScheduleTile(
+            data=card,
+            start=localtime(card.agenda_item.start_time),
+            end=localtime(card.agenda_item.end_time),
+        )
+        for card in cards
+    ]
     return ScheduleDay(
         day_start=hour_start,
-        hours=[ScheduleHour(start=hour_start, sessions=cards)],
-        tiles=[
-            ScheduleTile(
-                data=card,
-                start=localtime(card.agenda_item.start_time),
-                end=localtime(card.agenda_item.end_time),
-            )
-            for card in cards
-        ],
+        hours=[ScheduleHour(start=hour_start, tiles=tiles)],
+        tiles=tiles,
     )
 
 

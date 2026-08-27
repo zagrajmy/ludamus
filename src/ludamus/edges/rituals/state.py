@@ -8,6 +8,7 @@ from collections import Counter
 from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
+from pydantic.aliases import AliasPath
 
 # This branch has had its review. Inline review comments are invisible to
 # `gh pr view --json comments`, so a label is what the step can actually see —
@@ -35,11 +36,37 @@ class PrSweep(BaseModel):
 Mode = Literal["refresh", "cover"]
 
 
-# What CI says about one thing it ran. Only these two fields, because the slow
-# pass asks one question of them: is this branch's coverage or test job unhappy.
+# What CI says about one thing it ran, in the check-runs API's own words.
+# `conclusion` is null while a run is still going, which is why nothing reads
+# it as anything but "not success yet". `title` is the one-line summary a job
+# writes for itself: absent for most of the board, and for `codecov/patch` the
+# patch coverage this branch achieved — the number the slow pass would
+# otherwise have to read out of English prose. It is pulled up out of the
+# `output` it arrives under, whose other half is a markdown report nothing
+# here reads.
+# `populate_by_name` is not for any caller — nothing builds a `Check` by hand.
+# Without it mypy's pydantic plugin cannot name the aliased field in the
+# generated `__init__` and falls back to `**kwargs: Any`, which this project
+# refuses.
 class Check(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
     name: str
-    state: str
+    conclusion: str | None = None
+    title: str | None = Field(
+        default=None, validation_alias=AliasPath("output", "title")
+    )
+
+
+# The check-runs endpoint wraps the board in one key, and it stays wrapped
+# until it is parsed: unwrapping it with `--jq` would move the reading into
+# the command string, and every other answer `gh` gives these rituals is made
+# sense of by a model.
+class Board(BaseModel):
+    # The endpoint's own count of the whole board, against which a page that
+    # stopped at `per_page` is short. See `_truncated`.
+    total_count: int = 0
+    check_runs: list[Check] = []
 
 
 # `gh --json labels` hands back an object per label; the name is the whole
