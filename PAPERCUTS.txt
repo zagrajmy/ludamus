@@ -358,3 +358,8 @@ If you fix a papercut, remove it.
   XCUITest runner build failed with xcodebuild code 70 on the local simulator,
   so Safari bootstrap behavior still needs the macOS CI runner for end-to-end
   verification.
+- 2026-08-27: grep in the agent shell is a shell function from the Claude Code
+  snapshot that behaves like ripgrep and silently skips hidden dirs, so 'grep
+  -rn FOO .github/' returns nothing while the string is really there. Concluded
+  an env var was unset and made a decision on it; had to re-check with
+  /usr/bin/grep.

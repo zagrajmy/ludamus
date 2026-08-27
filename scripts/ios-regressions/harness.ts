@@ -89,6 +89,15 @@ export const centreOnScreen = (rect: Rect, viewport: Rect): boolean => {
 export const matchesScopeLabel = (label: string, scope: string): boolean =>
   label === scope || label.startsWith(`${scope}, `);
 
+// Accessibility engines collapse runs of whitespace in a name; markup keeps its
+// indentation. Every device label is read through `labelOf` and every name read
+// from markup through `collapse`, so both sides of a comparison are normalized
+// the same way -- a split that previously let one call site match a label
+// another rejected.
+export const collapse = (value: string): string => value.replace(/\s+/g, " ").trim();
+
+export const labelOf = (node: SnapshotNode): string => collapse(node.label ?? node.value ?? "");
+
 export const describeNode = (node: SnapshotNode): string => {
   const rect = node.rect
     ? ` x=${Math.round(node.rect.x)} y=${Math.round(node.rect.y)} w=${Math.round(node.rect.width)} h=${Math.round(node.rect.height)}`
@@ -99,7 +108,7 @@ export const describeNode = (node: SnapshotNode): string => {
 };
 
 type SafariReadiness = {
-  expectedLabels: readonly string[];
+  expectedLabels?: readonly string[];
   match?: "all" | "any";
   scope?: string;
 };
@@ -113,7 +122,7 @@ export type IosHarness = {
   snapshotLabels: (scope?: string) => Promise<string[]>;
   findNodeByLabel: (label: string) => Promise<SnapshotNode | null>;
   wait: (durationMs: number) => Promise<void>;
-  openUrl: (url: string, readiness: SafariReadiness) => Promise<void>;
+  openUrl: (url: string, readiness?: SafariReadiness) => Promise<void>;
   prepareDevice: () => Promise<void>;
   fetchReadyPage: (url: URL, contains: string) => Promise<string>;
 };
@@ -141,7 +150,7 @@ export const createIosHarness = (session: string): IosHarness => {
 
   const snapshotLabels = async (scope?: string): Promise<string[]> => {
     const snapshot = await takeSnapshot(scope);
-    return snapshot.nodes.map((node) => node.label ?? node.value ?? "").filter(Boolean);
+    return snapshot.nodes.map(labelOf).filter(Boolean);
   };
 
   const viewportOf = (snapshot: CaptureSnapshotResult): Rect =>
@@ -218,28 +227,55 @@ export const createIosHarness = (session: string): IosHarness => {
     }
   };
 
-  const verifySafariPage = async ({
-    expectedLabels,
-    match = "all",
-    scope,
-  }: SafariReadiness): Promise<void> => {
+  // Hands back the failure rather than throwing it: an open that reports an
+  // error can still complete late, so the snapshot decides, not this call.
+  const openSafari = async (url: string): Promise<unknown> => {
+    try {
+      await client.apps.open({ ...deviceOptions, app: "Safari", url });
+      return null;
+    } catch (error) {
+      if (isAgentDeviceError(error) && error.code === "DEVICE_IN_USE") throw error;
+      console.warn("Safari open reported an error; checking whether it completed late.", error);
+      return error;
+    }
+  };
+
+  const openUrl = async (url: string, readiness: SafariReadiness = {}): Promise<void> => {
+    const { expectedLabels, match = "all", scope } = readiness;
+    const expected = expectedLabels?.map(collapse);
+    let openError = await openSafari(url);
+    let reopened = false;
     let observed = "no snapshot completed";
-    const ready = await pollUntil<boolean>(
+
+    const ready = await pollUntil<CaptureSnapshotResult>(
       async () => {
         try {
           const snapshot = await takeSnapshot(scope);
           const app = snapshot.appBundleId ?? snapshot.appName ?? "an unknown app";
-          const labels = snapshot.nodes.map((node) => node.label ?? node.value ?? "");
+          const labels = snapshot.nodes.map(labelOf);
           const scopeMatched = !scope || labels.some((label) => matchesScopeLabel(label, scope));
-          const contentMatched =
-            match === "all"
-              ? expectedLabels.every((expected) => labels.includes(expected))
-              : expectedLabels.some((expected) => labels.includes(expected));
           observed = `app=${app}; scopeMatched=${String(scopeMatched)}; labels=${JSON.stringify(labels.slice(0, 20))}`;
-          return (
-            (snapshot.appBundleId === "com.apple.mobilesafari" && scopeMatched && contentMatched) ||
-            null
-          );
+
+          if (snapshot.appBundleId !== "com.apple.mobilesafari") {
+            // Safari not being frontmost means the open never took, and
+            // re-issuing it is the only thing that fixes that. Once, though:
+            // re-navigating on every poll would reset the fragment scroll a
+            // caller is waiting on.
+            if (!reopened) {
+              reopened = true;
+              openError = await openSafari(url);
+            }
+            return null;
+          }
+
+          const contentMatched =
+            !expected ||
+            (match === "all"
+              ? expected.every((label) => labels.includes(label))
+              : expected.some((label) => labels.includes(label)));
+          // The snapshot, not a boolean: pollUntil reads `null` as "keep going",
+          // so a falsy success would end the poll as one.
+          return scopeMatched && contentMatched ? snapshot : null;
         } catch (error) {
           if (isAgentDeviceError(error) && error.code === "DEVICE_IN_USE") throw error;
           observed = error instanceof Error ? error.message : String(error);
@@ -248,29 +284,14 @@ export const createIosHarness = (session: string): IosHarness => {
       },
       { timeoutMs: safariReadyTimeoutMs, intervalMs: 1000 },
     );
+
     if (!ready) {
+      const wanted = expected ? `load ${JSON.stringify(expected)}` : "come to the front";
       throw new Error(
-        `Safari did not load ${JSON.stringify(expectedLabels)} within ${safariReadyTimeoutMs}ms; last observation: ${observed}`,
+        `Safari did not ${wanted} at ${url} within ${safariReadyTimeoutMs}ms; ` +
+          `last observation: ${observed}`,
+        { cause: openError },
       );
-    }
-  };
-
-  const openUrl = async (url: string, readiness: SafariReadiness): Promise<void> => {
-    let openError: unknown = null;
-    try {
-      await client.apps.open({ ...deviceOptions, app: "Safari", url });
-    } catch (error) {
-      if (isAgentDeviceError(error) && error.code === "DEVICE_IN_USE") throw error;
-      openError = error;
-      console.warn("Safari open reported an error; checking whether it completed late.", error);
-    }
-
-    try {
-      await verifySafariPage(readiness);
-    } catch (error) {
-      throw new Error(`Safari did not become ready at ${url}`, {
-        cause: openError ? new AggregateError([openError, error]) : error,
-      });
     }
   };
 
