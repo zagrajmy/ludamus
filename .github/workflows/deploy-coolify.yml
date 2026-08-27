@@ -1,6 +1,6 @@
 name: Deploy to Coolify
 
-# Shared body of deploy-staging.yml and deploy-production-coolify.yml. It used
+# Shared body of deploy-staging.yml and deploy-production.yml. It used
 # to be copy-pasted, and the copy drifted: two rounds of staging hardening
 # (env-validation source, deploy-trigger retry, curl timeouts) never reached
 # production. Living here once makes it structurally impossible for one
