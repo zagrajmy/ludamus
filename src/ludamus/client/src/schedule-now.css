@@ -1,0 +1,37 @@
+/* The "this is now" rule, in both compact schedule layouts. Paired with
+   schedule-now.ts, which decides where the line goes — the clock is the one
+   thing the server cannot render, since the page is cacheable and a rendered
+   line is stale the moment it is served. */
+
+.room-lanes-now {
+  position: absolute;
+  z-index: 45;
+  inset-inline: 0;
+  pointer-events: none;
+}
+
+.room-lanes-now-strip {
+  position: absolute;
+  inset-inline: 0;
+  top: 0;
+  display: flex;
+  height: 0;
+  align-items: center;
+}
+
+.room-lanes-now-strip::before {
+  position: absolute;
+  inset-inline: 0;
+  top: -1px;
+  border-top: 2px solid var(--color-primary);
+  content: "";
+}
+
+/* In the ledger: the seam between what has started and what has not. The rows
+   are a list rather than a time axis, so the line marks the boundary between
+   two rows instead of a position inside an hour. */
+.schedule-now {
+  position: relative;
+  border-top: 2px solid var(--color-primary);
+  margin-block: 0.875rem;
+}

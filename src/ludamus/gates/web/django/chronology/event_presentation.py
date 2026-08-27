@@ -28,6 +28,12 @@ if TYPE_CHECKING:
     from ludamus.pacts.guild import GuildMarkDTO
 
 
+@dataclass(frozen=True)
+class CloudPill:
+    icon: str
+    value: str
+
+
 @dataclass
 class DisplayFieldRow:
     icon: str
@@ -38,6 +44,14 @@ class DisplayFieldRow:
     @property
     def overflow_count(self) -> int:
         return len(self.overflow_values)
+
+
+def flatten_cloud_overflow(rows: list[DisplayFieldRow]) -> list[CloudPill]:
+    return [
+        CloudPill(icon=row.icon, value=value)
+        for row in rows
+        for value in row.overflow_values
+    ]
 
 
 _MAX_VISIBLE_PILLS = 4
@@ -105,6 +119,10 @@ class SessionData:  # pylint: disable=too-many-instance-attributes
     # pending proposal: a scheduled session states its real time via
     # agenda_item, and reading the m2m for one would cost a query per card.
     preferred_time_slots: list[TimeSlotDTO] = field(default_factory=list)
+
+    @property
+    def cloud_overflow(self) -> list[CloudPill]:
+        return flatten_cloud_overflow(self.displayed_field_rows)
 
     @property
     def is_unscheduled(self) -> bool:

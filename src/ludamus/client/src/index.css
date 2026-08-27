@@ -2,6 +2,7 @@
 
 @import "./progressive-blur.css";
 @import "./brand-mark.css";
+@import "./combobox.css";
 @import "./consent-banner.css";
 @import "./modal.css";
 @import "./filters.css";
@@ -9,6 +10,7 @@
 @import "./timetable.css";
 @import "./import-recipe.css";
 @import "./room-lanes.css";
+@import "./schedule-now.css";
 
 /* Outfit, self-hosted (fonts/OFL.txt): the two woff2 files and their
    unicode-range split are vendored verbatim from Google Fonts' variable-font
@@ -744,6 +746,10 @@ select:not([multiple]):not([size]) {
   background-position: right 0.5rem center;
   background-size: 1rem;
   padding-right: 2rem;
+}
+
+.session:has(.session-tags-more:hover) {
+  z-index: 30;
 }
 
 .session-tags-more:hover .session-tags-popover {
