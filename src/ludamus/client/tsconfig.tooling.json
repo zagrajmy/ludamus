@@ -1,0 +1,16 @@
+{
+  "compilerOptions": {
+    "composite": true,
+    "noEmit": true,
+    "tsBuildInfoFile": "../../../.cache/tsbuildinfo/client-tooling.tsbuildinfo",
+    "strict": true,
+    "target": "es2024",
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "moduleDetection": "force",
+    "types": ["node"],
+    "lib": ["es2024"],
+    "skipLibCheck": true
+  },
+  "include": ["vite.config.ts", "oxlint.config.ts"]
+}

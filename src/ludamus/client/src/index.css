@@ -2,12 +2,15 @@
 
 @import "./progressive-blur.css";
 @import "./brand-mark.css";
+@import "./combobox.css";
 @import "./consent-banner.css";
 @import "./modal.css";
 @import "./filters.css";
 @import "./tabs.css";
 @import "./timetable.css";
 @import "./import-recipe.css";
+@import "./room-lanes.css";
+@import "./schedule-now.css";
 
 /* Outfit, self-hosted (fonts/OFL.txt): the two woff2 files and their
    unicode-range split are vendored verbatim from Google Fonts' variable-font
@@ -222,6 +225,16 @@
   }
 }
 
+/* Escape main's centered max-w-7xl column (base.html): cancels its padding and
+   its auto margins at once, so the child spans the page scroller edge to edge.
+   --app-scroll-w, not 100vw: app-scroll.ts measures the scroller, because the
+   scrollbar gutter it reserves makes the viewport wider than the box the child
+   has to land in — a vw-wide child sits shifted, its leading edge clipped past
+   the scroll origin where nothing can bring it back. */
+@utility breakout {
+  margin-inline: calc(50% - var(--app-scroll-w, 100vw) / 2);
+}
+
 @utility text-box-trim-start {
   text-box: trim-start cap alphabetic;
 }
@@ -241,14 +254,15 @@
 html,
 body {
   height: 100%;
-  scrollbar-gutter: stable;
   -webkit-overflow-scrolling: touch;
 }
 
+/* Every page wears the shell (base.html and the self-contained 500), so the
+   document never scrolls and the root needs no scrollbar gutter — .app-scroll
+   below reserves the only one, for the only scroller there is. */
 .app-shell {
   height: 100dvh;
   overflow: hidden;
-  scrollbar-gutter: auto;
 }
 
 .app-scroll {
@@ -264,123 +278,6 @@ body {
 .schedule-rail.is-scrubbing,
 .schedule-rail.is-scrubbing * {
   cursor: grabbing;
-}
-
-.room-lanes {
-  --axis-w: 3.25rem;
-  --col-min: 10rem;
-  /* room-lanes.ts rebuilds these track lists when a filter empties a track, so
-     the sizes live here once and both consumers name them. */
-  --row-track: minmax(3.5rem, auto);
-  --col-track: minmax(var(--col-min), 1fr);
-}
-
-@media (min-width: 1024px) {
-  .room-lanes {
-    --col-min: 11.25rem;
-  }
-}
-
-.room-lanes-grid {
-  display: grid;
-  grid-template-columns: var(--axis-w) repeat(var(--rooms), var(--col-track));
-  /* --rooms is the server's room count and stays put; --live-rooms is what
-     survives filtering, and only the min width has to shrink with it. */
-  width: max(100%, calc(var(--axis-w) + var(--live-rooms, var(--rooms)) * var(--col-min)));
-}
-
-.room-lanes-body {
-  grid-template-rows: repeat(var(--rows), var(--row-track));
-}
-
-.room-lanes-line {
-  grid-column: 2 / -1;
-}
-
-.room-lanes-line:first-of-type {
-  border-top: 0;
-}
-
-.room-lanes-head {
-  mask-image: linear-gradient(
-    90deg,
-    black 0,
-    black var(--axis-w),
-    hsl(0 0% 0% / var(--fade-start-opacity)) var(--axis-w),
-    black calc(var(--axis-w) + var(--fade-size-start, 0px)),
-    black calc(100% - var(--fade-size-end, 0px)),
-    hsl(0 0% 0% / var(--fade-end-opacity))
-  );
-  -webkit-mask-image: linear-gradient(
-    90deg,
-    black 0,
-    black var(--axis-w),
-    hsl(0 0% 0% / var(--fade-start-opacity)) var(--axis-w),
-    black calc(var(--axis-w) + var(--fade-size-start, 0px)),
-    black calc(100% - var(--fade-size-end, 0px)),
-    hsl(0 0% 0% / var(--fade-end-opacity))
-  );
-}
-
-.room-lanes-scroll {
-  mask-image:
-    linear-gradient(
-      90deg,
-      black 0,
-      black var(--axis-w),
-      hsl(0 0% 0% / var(--fade-start-opacity)) var(--axis-w),
-      black calc(var(--axis-w) + var(--fade-size-start, 0px)),
-      black calc(100% - var(--fade-size-end, 0px)),
-      hsl(0 0% 0% / var(--fade-end-opacity))
-    ),
-    linear-gradient(black, black);
-  -webkit-mask-image:
-    linear-gradient(
-      90deg,
-      black 0,
-      black var(--axis-w),
-      hsl(0 0% 0% / var(--fade-start-opacity)) var(--axis-w),
-      black calc(var(--axis-w) + var(--fade-size-start, 0px)),
-      black calc(100% - var(--fade-size-end, 0px)),
-      hsl(0 0% 0% / var(--fade-end-opacity))
-    ),
-    linear-gradient(black, black);
-  mask-size:
-    100% calc(100% - var(--room-lanes-sb, 0px)),
-    100% var(--room-lanes-sb, 0px);
-  -webkit-mask-size:
-    100% calc(100% - var(--room-lanes-sb, 0px)),
-    100% var(--room-lanes-sb, 0px);
-  mask-position:
-    top left,
-    bottom left;
-  -webkit-mask-position:
-    top left,
-    bottom left;
-  mask-repeat: no-repeat;
-  -webkit-mask-repeat: no-repeat;
-}
-
-.room-lanes-rule {
-  justify-self: start;
-  width: 1px;
-  background: color-mix(in oklch, var(--color-border) 60%, transparent);
-  pointer-events: none;
-}
-
-/* Header rules hang from their one header row; body rules run the full height. */
-.room-lanes-body .room-lanes-rule {
-  grid-row: 1 / -1;
-}
-
-.dark .room-lanes-rule {
-  background: color-mix(in oklch, var(--color-border) 35%, transparent);
-}
-
-/* The collapse gets its own signal: the hour rows double as .time-slot-section,
-   whose [hidden] belongs to session-filters.ts and event-timeline.ts. */
-.room-lanes-collapsed {
-  display: none;
 }
 
 body:has(dialog.modal[open]) .app-scroll {
@@ -879,6 +776,10 @@ select:not([multiple]):not([size]) {
   background-position: right 0.5rem center;
   background-size: 1rem;
   padding-right: 2rem;
+}
+
+.session:has(.session-tags-more:hover) {
+  z-index: 30;
 }
 
 .session-tags-more:hover .session-tags-popover {

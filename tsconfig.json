@@ -1,0 +1,17 @@
+{
+  "files": [],
+  "references": [
+    {
+      "path": "./src/ludamus/client"
+    },
+    {
+      "path": "./src/ludamus/client/tsconfig.tooling.json"
+    },
+    {
+      "path": "./tests/e2e"
+    },
+    {
+      "path": "./scripts/ios-regressions"
+    }
+  ]
+}
