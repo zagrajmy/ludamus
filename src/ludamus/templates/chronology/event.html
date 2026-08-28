@@ -29,6 +29,7 @@
 {% block body %}
     {% include "chronology/decorative_background_blobs.html" %}
     <div class="relative rounded-3xl shadow-xl overflow-hidden mb-6 sm:mb-8 bg-bg-secondary"
+         data-event-hero
          style="box-shadow: var(--shadow-elevated)">
         {% if event.cover_image_url %}
             <div class="h-56 sm:h-72 bg-cover bg-center"
@@ -114,29 +115,53 @@
                                 </div>
                             {% endwith %}
                         </div>
+                        {% if compact_schedule %}
+                            <div class="flex items-center gap-2">
+                                <div class="w-8 h-8 bg-bg-tertiary rounded-lg flex items-center justify-center">
+                                    {% icon "queue-list" class="w-4 h-4 text-foreground-muted" variant="mini" %}
+                                </div>
+                                <div class="font-medium leading-none text-foreground tabular-nums whitespace-nowrap">
+                                    {{ scheduled_count }}
+                                    <span class="font-normal text-foreground-muted">
+                                        {% blocktranslate count counter=scheduled_count %}Session{% plural %}Sessions{% endblocktranslate %}
+                                    </span>
+                                </div>
+                            </div>
+                        {% endif %}
                     </div>
-                </div>
-                <!-- Quick stats -->
-                <div class="flex lg:flex-col gap-3">
-                    <div class="flex-1 lg:flex-none bg-gradient-to-br from-teal-50 to-teal-100 dark:from-teal-900/30 dark:to-teal-800/30 rounded-2xl p-4 text-center min-w-[120px]">
-                        {# The whole schedule, not the current view: this card #}
-                        {# sits outside the region the view tabs swap. #}
-                        <div class="text-3xl font-bold text-teal-700 dark:text-teal-400">{{ scheduled_count }}</div>
-                        <div class="text-sm text-teal-600 dark:text-teal-500">
-                            {% blocktranslate count counter=scheduled_count %}Session{% plural %}Sessions{% endblocktranslate %}
-                        </div>
-                    </div>
-                    <div class="flex-1 lg:flex-none bg-gradient-to-br from-coral-50 to-coral-100 dark:from-coral-900/30 dark:to-coral-800/30 rounded-2xl p-4 text-center min-w-[120px]">
-                        <div class="text-3xl font-bold text-coral-700 dark:text-coral-400">{{ total_enrolled }}</div>
-                        <div class="text-sm text-coral-600 dark:text-coral-500">
-                            {% if event.use_participants_label %}
-                                {% blocktranslate count counter=total_enrolled %}Participant{% plural %}Participants{% endblocktranslate %}
-                            {% else %}
-                                {% blocktranslate count counter=total_enrolled %}Player{% plural %}Players{% endblocktranslate %}
+                    {% if compact_schedule %}
+                        <div class="mt-6 flex flex-col gap-3 md:flex-row md:flex-wrap">
+                            {% translate "View the program" as t_view_program %}
+                            {% tessera_button t_view_program href="#schedule-region" size="lg" full_width_mobile=True %}
+                            {% if has_enrollable_sessions and not event.is_ended %}
+                                {% translate "Sign up for sessions" as t_sign_up_sessions %}
+                                {% tessera_button t_sign_up_sessions href="?enrollment=1#schedule-region" variant="secondary" size="lg" full_width_mobile=True %}
                             {% endif %}
                         </div>
-                    </div>
+                    {% endif %}
                 </div>
+                {% if not compact_schedule %}
+                    <div class="flex lg:flex-col gap-3">
+                        <div class="flex-1 lg:flex-none bg-gradient-to-br from-teal-50 to-teal-100 dark:from-teal-900/30 dark:to-teal-800/30 rounded-2xl p-4 text-center min-w-[120px]">
+                            {# The whole schedule, not the current view: this card #}
+                            {# sits outside the region the view tabs swap. #}
+                            <div class="text-3xl font-bold text-teal-700 dark:text-teal-400">{{ scheduled_count }}</div>
+                            <div class="text-sm text-teal-600 dark:text-teal-500">
+                                {% blocktranslate count counter=scheduled_count %}Session{% plural %}Sessions{% endblocktranslate %}
+                            </div>
+                        </div>
+                        <div class="flex-1 lg:flex-none bg-gradient-to-br from-coral-50 to-coral-100 dark:from-coral-900/30 dark:to-coral-800/30 rounded-2xl p-4 text-center min-w-[120px]">
+                            <div class="text-3xl font-bold text-coral-700 dark:text-coral-400">{{ total_enrolled }}</div>
+                            <div class="text-sm text-coral-600 dark:text-coral-500">
+                                {% if event.use_participants_label %}
+                                    {% blocktranslate count counter=total_enrolled %}Participant{% plural %}Participants{% endblocktranslate %}
+                                {% else %}
+                                    {% blocktranslate count counter=total_enrolled %}Player{% plural %}Players{% endblocktranslate %}
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                {% endif %}
             </div>
         </div>
     </div>
@@ -281,7 +306,7 @@
     {# hx-boost, so switching between List and Rooms replaces the count, the #}
     {# filter toolbar and the schedule in one go, leaving no control #}
     {# describing a session set that is no longer on screen. #}
-    <div id="schedule-region">
+    <div id="schedule-region" class="scroll-mt-24">
         <!-- Section Header -->
         <div class="flex items-center justify-between mb-3">
             <div class="flex items-center gap-3">
