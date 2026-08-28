@@ -1,7 +1,8 @@
 {% load tessera %}
 {# Field value pill. #}
 {# Variables: value (text), icon (heroicon name, optional), size ("sm"|"md", default "md"), #}
-{# max_width (Tailwind max-width class, default "max-w-[200px]") #}
+{# max_width (Tailwind max-width class, default "max-w-[200px]"; must be a #}
+{# literal written in a template, or the scanner never emits it) #}
 <span class="inline-flex items-center gap-1 rounded-2xl font-medium {{ max_width|default:"max-w-[200px]" }} bg-warm-200/80 dark:bg-neutral-700 text-warm-700 dark:text-neutral-300{% if size == 'sm' %} text-xs px-2 py-0.5{% else %} text-sm px-2.5 py-0.5{% endif %}"
       title="{{ title|default:value }}">
     {% if icon %}
