@@ -11,9 +11,10 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 
 import json
 from pathlib import Path
-from urllib.parse import quote
+from urllib.parse import quote, unquote, urlsplit
 
 import environ
+from django.core.exceptions import ImproperlyConfigured
 from django.utils.csp import CSP
 from google.oauth2 import service_account
 
@@ -38,6 +39,7 @@ env = environ.Env(
     # Static files
     GIT_COMMIT_SHA=(str, "unknown"),
     MEDIA_ROOT=(str, str(BASE_DIR / "media")),
+    MEDIA_URL=(str, "/media/"),
     STATIC_ROOT=(str, str(BASE_DIR / "staticfiles")),
     # Google Cloud Storage (media) — set all three to enable GCS
     GS_BUCKET_NAME=(str, ""),
@@ -313,6 +315,42 @@ LOCALE_PATHS = [BASE_DIR / "locale"]
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
 STATIC_URL = "/static/"
+MEDIA_URL = env("MEDIA_URL")
+_media_url_parts = urlsplit(MEDIA_URL)
+_media_path_segments = unquote(_media_url_parts.path).split("/")
+_media_url_has_supported_path = (
+    _media_url_parts.path.endswith("/")
+    and "//" not in _media_url_parts.path
+    and not _media_url_parts.query
+    and not _media_url_parts.fragment
+    and not any(segment in {".", ".."} for segment in _media_path_segments)
+)
+_media_url_is_local = (
+    not _media_url_parts.scheme
+    and not _media_url_parts.netloc
+    and MEDIA_URL.startswith("/")
+    and not MEDIA_URL.startswith("//")
+    and _media_url_parts.path != "/"
+    and "\\" not in _media_url_parts.path
+)
+try:
+    _media_url_hostname = _media_url_parts.hostname
+    _media_url_port = _media_url_parts.port
+except ValueError:
+    _media_url_hostname = None
+_media_url_is_remote = (
+    _media_url_parts.scheme in {"http", "https"}
+    and bool(_media_url_hostname)
+    and _media_url_parts.username is None
+    and _media_url_parts.password is None
+    and not any(character.isspace() for character in _media_url_hostname or "")
+)
+if not _media_url_has_supported_path or not (
+    _media_url_is_local or _media_url_is_remote
+):
+    raise ImproperlyConfigured(
+        "MEDIA_URL must be a root-relative path or an HTTP(S) URL ending in '/'."
+    )
 
 STATICFILES_DIRS = [BASE_DIR / "static"]
 
@@ -323,7 +361,7 @@ MIDDLEWARE_SKIP_PREFIXES = (
     "/__debug__/",
     "/__reload__/",
     "/healthz/",
-    "/media/",
+    *((MEDIA_URL,) if _media_url_is_local else ()),
 )
 
 
@@ -482,7 +520,6 @@ if ENABLE_CSP:
 
 
 MEDIA_ROOT = env("MEDIA_ROOT")
-MEDIA_URL = "/media/"
 
 # Default storage — GCS when all three GS_ vars are set, filesystem otherwise.
 # Independent of IS_PRODUCTION so GCS can be exercised locally.

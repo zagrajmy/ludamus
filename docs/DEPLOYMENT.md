@@ -159,11 +159,20 @@ Scopes: **L** = local, **D** = docker local, **P** = prod.
 - `AUTH0_CLIENT_SECRET` — application client secret — L D P
 - `AUTH0_DOMAIN` — tenant domain — L D P
 
-**Static/Media files** (prod only):
+**Static/Media files:**
 
 - `GIT_COMMIT_SHA` — cache busting, default `1` — P(auto)
 - `STATIC_ROOT` — collected static path — P(opt)
 - `MEDIA_ROOT` — uploaded media path (used when GCS is not configured) — P(opt)
+- `MEDIA_URL` — public base URL for filesystem-backed media; default `/media/`
+  — L(opt) D(opt) P(opt)
+
+Production Django never serves filesystem media. For a root-relative
+`MEDIA_URL`, the reverse proxy must map that prefix directly to the host's
+`MEDIA_DATA_PATH` mounted at `MEDIA_ROOT`; sending it to the web container
+returns 404. An absolute URL can point a development copy at a public media
+mirror without storage credentials. New local uploads are not synchronized to
+that mirror.
 
 **Media storage — Google Cloud Storage** (optional, any scope):
 

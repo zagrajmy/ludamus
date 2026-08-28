@@ -7,7 +7,7 @@ from django.conf import settings
 from django.contrib import admin
 from django.db import connection
 from django.http import JsonResponse
-from django.urls import include, path, re_path
+from django.urls import include, path
 from django.views.decorators.cache import never_cache
 from django.views.generic import RedirectView
 from django.views.static import serve
@@ -74,9 +74,13 @@ urlpatterns: list[URLResolver | URLPattern] = [
 ]
 
 
-if not settings.IS_PRODUCTION:
+if not settings.IS_PRODUCTION and settings.MEDIA_URL.startswith("/"):
     urlpatterns += [
-        re_path(r"^media/(?P<path>.*)$", serve, {"document_root": settings.MEDIA_ROOT})
+        path(
+            f"{settings.MEDIA_URL.removeprefix('/')}<path:path>",
+            serve,
+            {"document_root": settings.MEDIA_ROOT},
+        )
     ]
 
 if settings.DEBUG:
