@@ -440,6 +440,9 @@ class Services:
             transaction=self._transaction,
             discounts=self._repos.discounts,
             facilitators=self._repos.facilitators,
+            rules=self._repos.discount_rules,
+            schedule=self._repos.agenda_items,
+            facilitator_change_logs=self._repos.facilitator_change_logs,
         )
 
     @cached_property
