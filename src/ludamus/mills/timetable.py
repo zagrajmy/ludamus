@@ -29,6 +29,7 @@ from ludamus.pacts.chronology import (
     MultiselectOptionDTO,
     PreferredSlotRangeDTO,
     PreferredSlotViolationDTO,
+    ProposalAcceptDeniedError,
     SessionPlacement,
     SessionPositionDTO,
     SessionPositionState,
@@ -40,6 +41,7 @@ from ludamus.pacts.chronology import (
     TimetableGridFilter,
     TrackProgressDTO,
 )
+from ludamus.pacts.multiverse import SphereRole
 from ludamus.pacts.timetable import (
     ConflictDetectionServiceProtocol,
     FreeSpotSpaceDTO,
@@ -622,6 +624,51 @@ class TimetableService(TimetableServiceProtocol):
                 "moved_from_id": moved_from_pk,
             }
             self._repos.schedule_change_logs.create(log_data)
+
+    def _may_release(
+        self, *, presenter_id: int | None, user_pk: int, user_slug: str, sphere_id: int
+    ) -> bool:
+        if presenter_id == user_pk:
+            return True
+        if self._repos.claim_permissions.active_users.read(user_slug).is_superuser:
+            return True
+        return (
+            self._repos.claim_permissions.spheres.manager_role(sphere_id, user_slug)
+            is SphereRole.MANAGER
+        )
+
+    def release_claim(
+        self, *, session_pk: int, event_pk: int, user_pk: int, user_slug: str
+    ) -> None:
+        """Free the cell a walk-up claimed and reject the claim, in that order.
+
+        Unassigning first is what keeps `ProposalStatusService`'s shared guard
+        out of this: it refuses any non-ACCEPTED transition on a session that
+        still holds an `AgendaItem`, and rejecting a claim is precisely the
+        request to free the slot.
+        """
+        with self._transaction.atomic():
+            self._repos.sessions.lock(session_pk)
+            event = self._repos.sessions.read_event(session_pk)
+            if event.pk != event_pk:
+                raise NotFoundError
+            session = self._repos.sessions.read(session_pk)
+            if not session.is_impromptu or session.status != SessionStatus.PENDING:
+                raise NotFoundError
+            if (item := self._repos.agenda_items.read_by_session(session_pk)) is None:
+                raise NotFoundError
+            self._repos.spaces.lock(item.space_id)
+            if not self._may_release(
+                presenter_id=session.presenter_id,
+                user_pk=user_pk,
+                user_slug=user_slug,
+                sphere_id=event.sphere_id,
+            ):
+                raise ProposalAcceptDeniedError
+            self.unassign_session(
+                session_pk=session_pk, event_pk=event_pk, user_pk=user_pk
+            )
+            self._repos.sessions.update(session_pk, {"status": SessionStatus.REJECTED})
 
     def unassign_session(
         self, *, session_pk: int, event_pk: int, user_pk: int | None = None

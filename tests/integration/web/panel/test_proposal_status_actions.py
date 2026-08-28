@@ -3,6 +3,7 @@
 # runs once per action.
 
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from http import HTTPStatus
 from urllib.parse import quote
 
@@ -10,7 +11,8 @@ import pytest
 from django.contrib import messages
 from django.urls import reverse
 
-from tests.integration.conftest import EventFactory
+from ludamus.links.db.django.models import AgendaItem
+from tests.integration.conftest import AgendaItemFactory, EventFactory, SpaceFactory
 from tests.integration.utils import assert_login_required, assert_response
 from tests.integration.web.panel.helpers import (
     assert_event_not_found,
@@ -206,3 +208,46 @@ class TestScheduledProposal:
             response=response, event=event, session=session
         )
         assert_proposal_status_unchanged(session, "accepted")
+
+
+class TestImpromptuClaim:
+    """Rejecting a walk-up claim is what frees the cell it took."""
+
+    @staticmethod
+    def _claim(event):
+        session = make_proposal(event, is_impromptu=True, status="pending")
+        AgendaItemFactory(
+            session=session,
+            space=SpaceFactory(event=event),
+            start_time=datetime(2026, 7, 1, 18, 0, tzinfo=UTC),
+            end_time=datetime(2026, 7, 1, 20, 0, tzinfo=UTC),
+        )
+        return session
+
+    def test_reject_frees_the_cell_and_rejects_the_claim(self, panel_client, event):
+        session = self._claim(event)
+
+        response = panel_client.post(_url(event, proposal_id=session.pk, action=REJECT))
+
+        assert_proposal_status_applied(
+            response=response,
+            event=event,
+            session=session,
+            message=REJECT.message,
+            status="rejected",
+        )
+        assert not AgendaItem.objects.filter(session=session).exists()
+
+    def test_accept_still_leaves_the_claim_where_it_is(self, panel_client, event):
+        session = self._claim(event)
+
+        response = panel_client.post(_url(event, proposal_id=session.pk, action=ACCEPT))
+
+        assert_proposal_status_applied(
+            response=response,
+            event=event,
+            session=session,
+            message=ACCEPT.message,
+            status="accepted",
+        )
+        assert AgendaItem.objects.filter(session=session).exists()

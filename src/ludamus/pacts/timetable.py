@@ -32,6 +32,7 @@ if TYPE_CHECKING:
         TimetableGridFilter,
         TrackProgressDTO,
     )
+    from ludamus.pacts.crowd import UserRepositoryProtocol
     from ludamus.pacts.legacy import (
         AgendaItemDTO,
         AgendaItemRepositoryProtocol,
@@ -39,6 +40,7 @@ if TYPE_CHECKING:
         SessionRepositoryProtocol,
         SpaceDTO,
         SpaceRepositoryProtocol,
+        SphereRepositoryProtocol,
         TimeSlotRepositoryProtocol,
         TrackRepositoryProtocol,
     )
@@ -51,6 +53,19 @@ class PlacementRejectedError(Exception):
 
 
 @dataclass
+class ClaimPermissionRepos:
+    """What deciding who may release a walk-up claim needs, and nothing else.
+
+    Grouped rather than spread across `TimetableRepos`: a claim may be
+    withdrawn by its own author as well as by an organizer, so the permission
+    is a rule the service applies, not the panel access a caller proved.
+    """
+
+    active_users: UserRepositoryProtocol
+    spheres: SphereRepositoryProtocol
+
+
+@dataclass
 class TimetableRepos:
     sessions: SessionRepositoryProtocol
     agenda_items: AgendaItemRepositoryProtocol
@@ -58,6 +73,7 @@ class TimetableRepos:
     time_slots: TimeSlotRepositoryProtocol
     tracks: TrackRepositoryProtocol
     schedule_change_logs: ScheduleChangeLogRepositoryProtocol
+    claim_permissions: ClaimPermissionRepos
 
 
 class FreeSpotSpaceDTO(BaseModel):
@@ -80,6 +96,9 @@ class TimetableServiceProtocol(Protocol):
         placement: SessionPlacement,
         event_pk: int,
         user_pk: int,
+    ) -> None: ...
+    def release_claim(
+        self, *, session_pk: int, event_pk: int, user_pk: int, user_slug: str
     ) -> None: ...
     def build_grid(
         self,

@@ -23,10 +23,13 @@ from ludamus.pacts.chronology import (
     ConflictSeverity,
     ConflictType,
     HeatmapCellStatus,
+    ProposalAcceptDeniedError,
     SessionPlacement,
     TimetableGridFilter,
 )
+from ludamus.pacts.multiverse import SphereRole
 from ludamus.pacts.timetable import (
+    ClaimPermissionRepos,
     PlacementRejectedError,
     PlacementRejection,
     TimetableRepos,
@@ -41,6 +44,9 @@ def _timetable_repos(uow) -> TimetableRepos:
         time_slots=uow.time_slots,
         tracks=uow.tracks,
         schedule_change_logs=uow.schedule_change_logs,
+        claim_permissions=ClaimPermissionRepos(
+            active_users=uow.active_users, spheres=uow.spheres
+        ),
     )
 
 
@@ -741,7 +747,7 @@ class TestAssignUnassignScope:
         mock_uow.sessions.read_event.return_value = self._event(1)
         agenda_item = MagicMock()
         agenda_item.pk = 5
-        agenda_item.space_id = 2
+        agenda_item.space_id = CLAIMED_SPACE_PK
         agenda_item.start_time = datetime(2026, 1, 1, 10, 0, tzinfo=UTC)
         agenda_item.end_time = datetime(2026, 1, 1, 11, 0, tzinfo=UTC)
         mock_uow.agenda_items.read_by_session.return_value = agenda_item
@@ -1805,3 +1811,121 @@ class TestListFreeSpots:
         )
 
         assert service.list_free_spots(1) == []
+
+
+CLAIMED_SPACE_PK = 2
+
+
+class TestReleaseClaim:
+    """Rejecting or withdrawing a claim: unassign first, then set the status."""
+
+    @pytest.fixture
+    def mock_uow(self):
+        return MagicMock()
+
+    @pytest.fixture
+    def service(self, mock_uow):
+        return _timetable_service(mock_uow)
+
+    def _arrange(
+        self,
+        mock_uow,
+        *,
+        is_impromptu=True,
+        status=SessionStatus.PENDING,
+        presenter_id=CLAIMING_USER_PK,
+        is_superuser=False,
+        role=None,
+    ):
+        event = MagicMock()
+        event.pk = 1
+        event.sphere_id = 3
+        mock_uow.sessions.read_event.return_value = event
+        session = MagicMock()
+        session.is_impromptu = is_impromptu
+        session.status = status
+        session.presenter_id = presenter_id
+        mock_uow.sessions.read.return_value = session
+        agenda_item = MagicMock()
+        agenda_item.pk = 5
+        agenda_item.space_id = CLAIMED_SPACE_PK
+        agenda_item.start_time = datetime(2026, 1, 1, 10, 0, tzinfo=UTC)
+        agenda_item.end_time = datetime(2026, 1, 1, 11, 0, tzinfo=UTC)
+        mock_uow.agenda_items.read_by_session.return_value = agenda_item
+        mock_uow.active_users.read.return_value.is_superuser = is_superuser
+        mock_uow.spheres.manager_role.return_value = role
+
+    def _release(self, service, *, user_pk=CLAIMING_USER_PK, user_slug="walk-up"):
+        service.release_claim(
+            session_pk=1, event_pk=1, user_pk=user_pk, user_slug=user_slug
+        )
+
+    def test_the_author_frees_the_cell_and_the_claim_is_rejected(
+        self, service, mock_uow
+    ):
+        self._arrange(mock_uow)
+
+        self._release(service)
+
+        mock_uow.spaces.lock.assert_called_once_with(CLAIMED_SPACE_PK)
+        mock_uow.agenda_items.delete.assert_called_once_with(5)
+        mock_uow.sessions.update.assert_called_once_with(
+            1, {"status": SessionStatus.REJECTED}
+        )
+
+    def test_the_unassign_is_logged_before_the_status_changes(self, service, mock_uow):
+        self._arrange(mock_uow)
+
+        self._release(service)
+
+        logged = mock_uow.schedule_change_logs.create.call_args.args[0]
+        assert logged["action"] == ScheduleChangeAction.UNASSIGN
+        assert logged["old_space_id"] == CLAIMED_SPACE_PK
+
+    def test_a_sphere_manager_may_release_somebody_elses_claim(self, service, mock_uow):
+        self._arrange(mock_uow, presenter_id=999, role=SphereRole.MANAGER)
+
+        self._release(service, user_pk=CLAIMING_USER_PK, user_slug="organizer")
+
+        mock_uow.agenda_items.delete.assert_called_once_with(5)
+
+    def test_a_superuser_may_release_somebody_elses_claim(self, service, mock_uow):
+        self._arrange(mock_uow, presenter_id=999, is_superuser=True)
+
+        self._release(service, user_slug="admin")
+
+        mock_uow.agenda_items.delete.assert_called_once_with(5)
+
+    def test_a_third_account_is_refused(self, service, mock_uow):
+        self._arrange(mock_uow, presenter_id=999)
+
+        with pytest.raises(ProposalAcceptDeniedError):
+            self._release(service, user_slug="stranger")
+
+        mock_uow.agenda_items.delete.assert_not_called()
+        mock_uow.sessions.update.assert_not_called()
+
+    def test_an_ordinary_session_is_not_a_claim(self, service, mock_uow):
+        self._arrange(mock_uow, is_impromptu=False)
+
+        with pytest.raises(NotFoundError):
+            self._release(service)
+
+        mock_uow.agenda_items.delete.assert_not_called()
+
+    def test_an_already_answered_claim_is_left_alone(self, service, mock_uow):
+        self._arrange(mock_uow, status=SessionStatus.ACCEPTED)
+
+        with pytest.raises(NotFoundError):
+            self._release(service)
+
+        mock_uow.agenda_items.delete.assert_not_called()
+
+    def test_a_claim_of_another_event_is_not_found(self, service, mock_uow):
+        self._arrange(mock_uow)
+        mock_uow.sessions.read_event.return_value.pk = 2
+
+        with pytest.raises(NotFoundError):
+            self._release(service)
+
+        mock_uow.agenda_items.delete.assert_not_called()

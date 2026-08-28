@@ -222,6 +222,16 @@
                         {% icon "pencil-square" class="w-4 h-4" variant="mini" %} {% translate "Edit session" %}
                     </button>
                 {% endif %}
+                {% if data.is_pending_claim and data.can_edit %}
+                    <form method="post"
+                          action="{% url 'web:chronology:session-claim-withdraw' event_slug=event.slug session_id=data.session.pk %}"
+                          class="inline">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-danger text-sm">
+                            {% icon "arrow-uturn-left" class="w-4 h-4" variant="mini" %} {% translate "Withdraw claim" %}
+                        </button>
+                    </form>
+                {% endif %}
             </div>
             <div class="flex items-center gap-2">
                 {% if data.pretend_full and not event_banned %}

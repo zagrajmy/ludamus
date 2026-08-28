@@ -51,7 +51,6 @@ if TYPE_CHECKING:
     from django.utils.functional import _StrPromise
 
     from ludamus.pacts import FacilitatorDTO, OrganizerFieldDTO, SessionListItemDTO
-    from ludamus.pacts.chronology import ProposalStatusServiceProtocol
     from ludamus.pacts.panel import PanelColumnDTO, ProposalPanelServiceProtocol
 
     PersonalFieldItems = list[tuple[OrganizerFieldDTO, str | list[str] | bool | None]]
@@ -299,17 +298,44 @@ class _StatusTransition(Protocol):
     def __call__(self, *, event_pk: int, session_pk: int) -> None: ...
 
 
-def _status_transitions(
-    service: ProposalStatusServiceProtocol,
-) -> dict[str, _StatusTransition]:
+def _reject(request: PanelRequest) -> _StatusTransition:
+    """Build the reject transition, which frees the cell of a walk-up claim.
+
+    Returns:
+        A transition that calls `release_claim` for an impromptu PENDING claim
+        — rejecting one *is* the request to free its slot — and the ordinary
+        status change for everything else.
+    """
+
+    def reject(*, event_pk: int, session_pk: int) -> None:
+        proposal = request.services.proposal_panel.read_proposal(
+            event_id=event_pk, proposal_id=session_pk
+        )
+        if proposal.is_impromptu and proposal.status == SessionStatus.PENDING:
+            request.services.timetable.release_claim(
+                session_pk=session_pk,
+                event_pk=event_pk,
+                user_pk=request.context.current_user_id,
+                user_slug=request.context.current_user_slug,
+            )
+            return
+        request.services.proposal_status.mark_rejected(
+            event_pk=event_pk, session_pk=session_pk
+        )
+
+    return reject
+
+
+def _status_transitions(request: PanelRequest) -> dict[str, _StatusTransition]:
     # Spelled out rather than resolved by name: the type checker sees every
     # call, and grepping for a transition finds this table. One table serves
     # both the single-proposal views and the bulk one.
+    service = request.services.proposal_status
     return {
         "pending": service.mark_pending,
         "accept": service.mark_accepted,
         "hold": service.mark_on_hold,
-        "reject": service.mark_rejected,
+        "reject": _reject(request),
     }
 
 
@@ -333,9 +359,7 @@ class ProposalStatusActionView(PanelAccessMixin, EventContextMixin, View):
         if current_event is None:
             return redirect("panel:index")
 
-        apply_status = _status_transitions(self.request.services.proposal_status)[
-            self.action
-        ]
+        apply_status = _status_transitions(self.request)[self.action]
         detail_url = proposal_detail_url(
             request=self.request, slug=slug, proposal_id=proposal_id
         )
@@ -394,7 +418,7 @@ class ProposalBulkStatusActionView(PanelAccessMixin, EventContextMixin, View):
             return redirect("panel:index")
 
         back = back_to_proposals(self.request, slug)
-        transitions = _status_transitions(self.request.services.proposal_status)
+        transitions = _status_transitions(self.request)
         apply_status = transitions.get(self.request.POST.get("action", ""))
         if apply_status is None:
             messages.error(self.request, _("Unknown bulk action."))

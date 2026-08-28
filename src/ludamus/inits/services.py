@@ -90,7 +90,7 @@ from ludamus.pacts.event_settings import EventSettingsRepos
 from ludamus.pacts.panel import FacilitatorPanelRepos, ProposalPanelRepos
 from ludamus.pacts.propose import ProposeRepos
 from ludamus.pacts.submissions import ImportRepos, ProposalCategorySettingsRepos
-from ludamus.pacts.timetable import TimetableRepos
+from ludamus.pacts.timetable import ClaimPermissionRepos, TimetableRepos
 
 if TYPE_CHECKING:
     from ludamus.pacts.chronology import IntegrationImplementation
@@ -558,6 +558,9 @@ class Services:
             time_slots=self._repos.time_slots,
             tracks=self._repos.tracks,
             schedule_change_logs=self._repos.schedule_change_logs,
+            claim_permissions=ClaimPermissionRepos(
+                active_users=self._repos.active_users, spheres=self._repos.spheres
+            ),
         )
 
     @cached_property

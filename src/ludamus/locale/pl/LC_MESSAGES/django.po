@@ -1842,6 +1842,18 @@ msgid "Space copied to %(event)s successfully."
 msgstr "Przestrzeń została skopiowana do %(event)s."
 
 #: src/ludamus/gates/web/django/chronology/views.py
+msgid "There is no claim here to withdraw."
+msgstr "Nie ma tu zgłoszenia do wycofania."
+
+#: src/ludamus/gates/web/django/chronology/views.py
+msgid "This claim is not yours to withdraw."
+msgstr "To nie jest twoje zgłoszenie."
+
+#: src/ludamus/gates/web/django/chronology/views.py
+msgid "Claim withdrawn. The spot is free again."
+msgstr "Zgłoszenie wycofane. Okienko jest znowu wolne."
+
+#: src/ludamus/gates/web/django/chronology/views.py
 msgid "There is already a session scheduled at this space and time."
 msgstr "W tej przestrzeni i w tym czasie jest już zaplanowany punkt programu."
 
@@ -4810,6 +4822,10 @@ msgstr "Jesteś na liście oczekujących"
 #: src/ludamus/templates/chronology/parts/session-modal.html
 msgid "Edit session"
 msgstr "Edytuj punkt programu"
+
+#: src/ludamus/templates/chronology/parts/session-modal.html
+msgid "Withdraw claim"
+msgstr "Wycofaj zgłoszenie"
 
 #: src/ludamus/templates/chronology/parts/session-modal.html
 msgid "Session full"

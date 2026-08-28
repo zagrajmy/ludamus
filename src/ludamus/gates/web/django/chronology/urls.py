@@ -36,6 +36,11 @@ urlpatterns: list[URLPattern] = [
         name="anonymous-reset",
     ),
     path(
+        "event/<str:event_slug>/session/<int:session_id>/do/withdraw-claim",
+        views.SessionClaimWithdrawActionView.as_view(),
+        name="session-claim-withdraw",
+    ),
+    path(
         "session/<int:session_id>/bookmark/",
         views.SessionBookmarkToggleView.as_view(),
         name="session-bookmark",

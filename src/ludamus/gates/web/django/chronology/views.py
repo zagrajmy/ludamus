@@ -19,8 +19,13 @@ from ludamus.gates.web.django.dynamic_fields import (
 from ludamus.gates.web.django.forms import SessionEditForm
 from ludamus.gates.web.django.sphere.pages import EventsPageRequiredMixin
 from ludamus.mills.chronology import SessionEditNotAllowedError
-from ludamus.pacts import RedirectError, SessionFieldValueData, SessionStatus
-from ludamus.pacts.chronology import SpaceTimeConflictError
+from ludamus.pacts import (
+    NotFoundError,
+    RedirectError,
+    SessionFieldValueData,
+    SessionStatus,
+)
+from ludamus.pacts.chronology import ProposalAcceptDeniedError, SpaceTimeConflictError
 from ludamus.pacts.durations import parse_duration
 from ludamus.pacts.ids import SessionId
 from ludamus.pacts.images import stored_file
@@ -224,6 +229,40 @@ class SessionBookmarkToggleView(EventsPageRequiredMixin, View):
         if result is None:
             return JsonResponse({"error": "not-found"}, status=404)
         return JsonResponse({"bookmarked": result.bookmarked, "count": result.count})
+
+
+class SessionClaimWithdrawActionView(EventsPageRequiredMixin, LoginRequiredMixin, View):
+    """The author of a walk-up claim taking it back off the programme."""
+
+    request: SessionEditRequest
+    http_method_names = ("post",)
+
+    @staticmethod
+    def post(
+        request: SessionEditRequest, event_slug: str, session_id: int
+    ) -> HttpResponse:
+        event_url = reverse("web:chronology:event", kwargs={"slug": event_slug})
+        try:
+            event = request.services.events.read_by_slug(
+                request.context.current_sphere_id, event_slug
+            )
+            # The service re-reads the claim under the lock and decides who may
+            # release it; which button rendered is not the check.
+            request.services.timetable.release_claim(
+                session_pk=session_id,
+                event_pk=event.pk,
+                user_pk=request.context.current_user_id,
+                user_slug=request.context.current_user_slug,
+            )
+        except NotFoundError:
+            messages.error(request, _("There is no claim here to withdraw."))
+            return redirect(event_url)
+        except ProposalAcceptDeniedError:
+            messages.error(request, _("This claim is not yours to withdraw."))
+            return redirect(event_url)
+
+        messages.success(request, _("Claim withdrawn. The spot is free again."))
+        return redirect(event_url)
 
 
 class ProposalAcceptPageView(EventsPageRequiredMixin, LoginRequiredMixin, View):
