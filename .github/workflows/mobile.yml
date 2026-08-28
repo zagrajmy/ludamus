@@ -115,6 +115,10 @@ jobs:
           tail -200 ios-server.log >&2
           exit 1
 
+      # The first runner-backed command builds, launches and attaches the
+      # XCUITest runner, which measures 194-240s. Left inside a test hook it
+      # burns that hook's budget and one of its attempts, so it gets its own
+      # step and its own budget here.
       - name: Start Safari and warm up the agent-device runner
         timeout-minutes: 7
         run: bun run scripts/ios-regressions/warmup.ts

@@ -2,20 +2,14 @@ import type { CaptureSnapshotResult, SnapshotNode } from "agent-device";
 
 import { afterAll, beforeAll, expect, test } from "bun:test";
 
-import {
-  baseUrl,
-  centreOnScreen,
-  createIosHarness,
-  describeNode,
-  hookTimeoutMs,
-  pollUntil,
-  sessionName,
-} from "./harness";
+import { baseUrl, createIosHarness, hookTimeoutMs, sessionName } from "./harness";
+import { fetchReadyPage } from "./page";
+import { centreOnScreen, collapse, describeNode, labelOf, pollUntil, viewportOf } from "./snapshot";
 
 const env = process.env;
 const session = sessionName("modal");
-const targetTitle = env.TARGET_SESSION_TITLE ?? "Przygoda w Mieście Neonów";
-const targetTriggerLabel = env.TARGET_TRIGGER_LABEL ?? `Open details for ${targetTitle}`;
+const targetTitle = collapse(env.TARGET_SESSION_TITLE ?? "Przygoda w Mieście Neonów");
+const targetTriggerLabel = collapse(env.TARGET_TRIGGER_LABEL ?? `Open details for ${targetTitle}`);
 const eventPath = env.EVENT_PATH ?? "/event/autumn-open/";
 const targetQueryParam = env.TARGET_QUERY_PARAM ?? "session=3";
 const preOpenScrollSteps = 8;
@@ -26,12 +20,10 @@ const {
   takeSnapshot,
   snapshotLabels,
   findNodeByLabel,
-  viewportOf,
   close,
   wait,
   openUrl,
   prepareDevice,
-  fetchReadyPage,
 } = createIosHarness(session);
 
 // `snapshotLabels` reports every label in the tree, including nodes scrolled
@@ -43,9 +35,10 @@ const {
 // below the fold of a modal that no longer sizes itself.
 const showingLabels = async (): Promise<string[]> => {
   const snapshot = await takeSnapshot();
-  return snapshot.nodes.flatMap((node) =>
-    node.label && node.rect && isNodeInViewport(snapshot, node) ? [node.label] : [],
-  );
+  return snapshot.nodes.flatMap((node) => {
+    const label = labelOf(node);
+    return label && node.rect && isNodeInViewport(snapshot, node) ? [label] : [];
+  });
 };
 
 // Polling, not sleeping: the modal animates in, and a single snapshot taken
@@ -78,16 +71,15 @@ const clickNodeReference = async (node: SnapshotNode): Promise<void> => {
 const isNodeInViewport = (snapshot: CaptureSnapshotResult, node: SnapshotNode): boolean =>
   Boolean(node.rect && centreOnScreen(node.rect, viewportOf(snapshot)));
 
-const isHiddenDialogLabel = (node: SnapshotNode): boolean =>
-  (node.label ?? "").includes("web dialog");
+const isHiddenDialogLabel = (node: SnapshotNode): boolean => labelOf(node).includes("web dialog");
 
 const isTargetTitleNode = (node: SnapshotNode): boolean =>
-  Boolean(node.label?.includes(targetTitle)) && !isHiddenDialogLabel(node);
+  labelOf(node).includes(targetTitle) && !isHiddenDialogLabel(node);
 
 const findTriggerInViewport = (snapshot: CaptureSnapshotResult): SnapshotNode | null =>
   snapshot.nodes.find(
     (node) =>
-      node.label === targetTriggerLabel &&
+      labelOf(node) === targetTriggerLabel &&
       !isHiddenDialogLabel(node) &&
       isNodeInViewport(snapshot, node),
   ) ?? null;
@@ -114,7 +106,7 @@ const scrollUntilTriggerInViewport = async (): Promise<SnapshotNode> => {
 
     const node =
       snapshot.nodes.find(
-        (candidate) => candidate.label === targetTriggerLabel && !isHiddenDialogLabel(candidate),
+        (candidate) => labelOf(candidate) === targetTriggerLabel && !isHiddenDialogLabel(candidate),
       ) ?? snapshot.nodes.find(isTargetTitleNode);
     const viewportHeight = viewportOf(snapshot).height;
     const centerY = node?.rect ? node.rect.y + node.rect.height / 2 : viewportHeight;
@@ -160,7 +152,6 @@ beforeAll(async () => {
   await openUrl(initialUrl.toString(), {
     expectedLabels: openViaScrolledPage ? [targetTriggerLabel] : [targetTitle, "Close"],
   });
-  await wait(3000);
 
   let preOpenTriggerLabel: string | null = null;
   let preOpenTriggerY: number | null = null;
@@ -171,7 +162,7 @@ beforeAll(async () => {
     await forcePreOpenScroll();
     const trigger = await scrollUntilTriggerInViewport();
     console.log(`Activating modal trigger: ${describeNode(trigger)}`);
-    preOpenTriggerLabel = trigger.label ?? null;
+    preOpenTriggerLabel = labelOf(trigger) || null;
     preOpenTriggerY = trigger.rect?.y ?? null;
     await clickNodeReference(trigger);
     if (!(await waitForLabel("Close", 5000))) {
@@ -218,7 +209,7 @@ beforeAll(async () => {
     await wait(600);
     const settledSnapshot = await takeSnapshot();
     const settledTrigger = settledSnapshot.nodes.find(
-      (node) => node.label === preOpenTriggerLabel && !isHiddenDialogLabel(node),
+      (node) => labelOf(node) === preOpenTriggerLabel && !isHiddenDialogLabel(node),
     );
     const settledY = settledTrigger?.rect?.y ?? null;
     if (settledY === null) {

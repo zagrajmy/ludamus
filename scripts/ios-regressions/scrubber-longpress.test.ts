@@ -2,20 +2,19 @@ import type { CaptureSnapshotResult } from "agent-device";
 
 import { afterAll, beforeAll, expect, test } from "bun:test";
 
-import type { Rect } from "./harness";
+import type { Rect } from "./snapshot";
 
+import { baseUrl, createIosHarness, hookTimeoutMs, sessionName } from "./harness";
+import { fetchReadyPage } from "./page";
 import {
-  baseUrl,
   centreOnScreen,
   collapse,
-  createIosHarness,
   describeNode,
-  hookTimeoutMs,
   labelOf,
   matchesScopeLabel,
   pollUntil,
-  sessionName,
-} from "./harness";
+  viewportOf,
+} from "./snapshot";
 
 const env = process.env;
 const session = sessionName("scrubber");
@@ -30,17 +29,8 @@ const calloutSignals = [
   "Download Linked File",
 ];
 
-const {
-  client,
-  deviceOptions,
-  takeSnapshot,
-  snapshotLabels,
-  viewportOf,
-  close,
-  openUrl,
-  prepareDevice,
-  fetchReadyPage,
-} = createIosHarness(session);
+const { client, deviceOptions, takeSnapshot, snapshotLabels, close, openUrl, prepareDevice } =
+  createIosHarness(session);
 
 // The rail's own hour links are anchors (#slot-YYYYMMDD-HH), so Safari can land
 // mid-schedule on load. Reaching the same place with scroll gestures cost up to

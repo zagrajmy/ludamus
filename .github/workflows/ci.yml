@@ -92,6 +92,10 @@ jobs:
         run: mise run lint-client
       - name: Type-check TypeScript
         run: mise run ts-check
+      # The iOS specs themselves need a macOS runner and a simulator (see the
+      # Mobile workflow); their pure helpers do not.
+      - name: Unit-test the iOS regression helpers
+        run: mise run test:ios-helpers
       # Non-blocking: fallow surfaces dead code, duplication, and
       # complexity hotspots as a report without failing the build.
       - name: Analyze frontend TypeScript (fallow)
