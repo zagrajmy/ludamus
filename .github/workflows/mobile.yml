@@ -33,6 +33,10 @@ jobs:
       AGENT_DEVICE_RUNNER_STARTUP_TIMEOUT_MS: 180000
       # Client-to-daemon, not runner-facing: it only has to outlast the above.
       AGENT_DEVICE_DAEMON_TIMEOUT_MS: 300000
+      # How long openUrl keeps re-probing a Safari it has already told to open
+      # the URL. It does not bound a probe: the first one pays this session's
+      # runner launch (125-148s measured) and is awaited whatever this says.
+      IOS_SAFARI_READY_TIMEOUT_MS: 60000
       AGENT_DEVICE_DAEMON_STARTUP_TIMEOUT_MS: 30000
       BASE_URL: http://localhost:8000
       SESSION: ios-regressions
@@ -122,11 +126,6 @@ jobs:
       # it, so each spec still launches one -- only the build is shared.
       - name: Start Safari and warm up the agent-device runner
         timeout-minutes: 10
-        env:
-          # Wide enough for `build-for-testing` (~240s) plus the launch after
-          # it; a probe capped at RUNNER_COMMAND_TIMEOUT_MS errors once before
-          # the build lands, so the window has to hold two of them.
-          IOS_SAFARI_READY_TIMEOUT_MS: 300000
         run: bun run scripts/ios-regressions/warmup.ts
 
       - name: Run iOS Safari regressions
@@ -138,10 +137,6 @@ jobs:
           # Per-attempt cap, sized so four attempts fit the step budget above.
           # The slowest healthy hook measures 316s.
           IOS_HOOK_TIMEOUT_MS: 360000
-          # The longest single wait inside a hook. Holds this session's runner
-          # launch (125-148s measured) plus the page load, and leaves the rest
-          # of the hook for the spec's own waits.
-          IOS_SAFARI_READY_TIMEOUT_MS: 180000
         run: |
           shopt -s nullglob
           files=(scripts/ios-regressions/*.test.ts)

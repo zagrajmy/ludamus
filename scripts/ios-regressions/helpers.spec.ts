@@ -101,6 +101,19 @@ describe("pollUntil", () => {
     expect(Date.now() - started).toBeGreaterThanOrEqual(50);
   });
 
+  // The budgets in mobile.yml are all sized on this: a window bounds how many
+  // more probes start, never how long one may run.
+  test("accepts a result that arrives after the window closed", async () => {
+    const result = await pollUntil(
+      async () => {
+        await Bun.sleep(30);
+        return "late";
+      },
+      { timeoutMs: 5, intervalMs: 1 },
+    );
+    expect(result).toBe("late");
+  });
+
   test("lets a throwing probe abort the poll", () => {
     const boom = pollUntil(
       async () => {

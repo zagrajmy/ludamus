@@ -34,13 +34,13 @@ export const positiveMs = (name: string, fallback: number): number => {
 };
 
 // NOTE: the default only applies to local runs, where nothing has paid the
-// 194-240s cold runner attach yet -- run warmup.ts first, or raise it.
+// XCUITest runner's build yet -- run warmup.ts first, or raise it.
 export const hookTimeoutMs = positiveMs("IOS_HOOK_TIMEOUT_MS", 300000);
 
 const deviceName = env.IOS_DEVICE_NAME ?? "iPhone 17 Pro";
 const runtime = env.IOS_RUNTIME;
 const providedUdid = env.UDID;
-const safariReadyTimeoutMs = positiveMs("IOS_SAFARI_READY_TIMEOUT_MS", 240000);
+const safariReadyTimeoutMs = positiveMs("IOS_SAFARI_READY_TIMEOUT_MS", 60000);
 
 export type SafariReadiness = {
   expectedLabels: readonly string[];
@@ -176,19 +176,13 @@ export const createIosHarness = (session: string): IosHarness => {
   // the wrong page, not like Safari being absent -- the only condition worth
   // retrying on is the page still not being ready. Re-opening the same URL
   // re-applies the same fragment, which is what a caller waiting on one wants.
-  //
-  // NOTE: the passes are deliberately lopsided. The first one absorbs this
-  // session's XCUITest runner launch (125-148s in the daemon log, capped by
-  // AGENT_DEVICE_RUNNER_STARTUP_TIMEOUT_MS), so it gets the whole window; by
-  // the second the runner is up and only a page load is left. Halving them
-  // would size the first against a cost it does not carry.
   const openUrl = async (url: string, readiness: SafariReadiness): Promise<void> => {
     const { expectedLabels, match = "all", scope } = readiness;
     if (expectedLabels.length === 0) {
       throw new Error(`openUrl needs at least one expected label to wait for at ${url}.`);
     }
     const expected = expectedLabels.map(collapse);
-    const reopenMs = Math.floor(safariReadyTimeoutMs / 4);
+    const startedAt = Date.now();
     let observed = "no snapshot completed";
 
     const probe = async (): Promise<CaptureSnapshotResult | null> => {
@@ -212,17 +206,24 @@ export const createIosHarness = (session: string): IosHarness => {
       }
     };
 
+    // SAFETY: the window bounds how long polling continues, never how long one
+    // probe may take -- pollUntil hands back a result that lands after the
+    // deadline. The first probe is this session's first runner-backed command,
+    // so it pays the XCUITest launch (125-148s in the daemon log) whatever the
+    // window says; taking it outside the loop leaves the window sizing the
+    // thing it can actually size, a page load.
     let openError = await openSafari(url);
-    let ready = await pollUntil(probe, { timeoutMs: safariReadyTimeoutMs, intervalMs: 1000 });
+    let ready = await probe();
+    ready ??= await pollUntil(probe, { timeoutMs: safariReadyTimeoutMs, intervalMs: 1000 });
     if (!ready) {
       openError = (await openSafari(url)) ?? openError;
-      ready = await pollUntil(probe, { timeoutMs: reopenMs, intervalMs: 1000 });
+      ready = await pollUntil(probe, { timeoutMs: safariReadyTimeoutMs, intervalMs: 1000 });
     }
 
     if (!ready) {
       throw new Error(
-        `Safari did not load ${JSON.stringify(expected)} at ${url} within ` +
-          `${safariReadyTimeoutMs + reopenMs}ms over two opens; last observation: ${observed}`,
+        `Safari did not load ${JSON.stringify(expected)} at ${url} after ` +
+          `${Date.now() - startedAt}ms over two opens; last observation: ${observed}`,
         { cause: openError },
       );
     }
