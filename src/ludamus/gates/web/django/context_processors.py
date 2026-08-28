@@ -15,7 +15,7 @@ if TYPE_CHECKING:
     from ludamus.adapters.web.django.middlewares import RootRepositoryRequest
     from ludamus.pacts import SiteDTO, SphereDTO
     from ludamus.pacts.crowd import UserDTO
-    from ludamus.pacts.enrollment import NavbarNotificationsDTO
+    from ludamus.pacts.notifications import NavbarNotificationsDTO
 
 
 class SitesContextData(TypedDict):

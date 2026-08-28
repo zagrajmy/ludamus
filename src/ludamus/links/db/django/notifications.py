@@ -20,8 +20,8 @@ from django.utils.timezone import localtime
 from django.utils.translation import gettext as _
 
 from ludamus.links.db.django.models import Notification, Session
-from ludamus.pacts.enrollment import NotificationDTO
 from ludamus.pacts.legacy import NotificationKind
+from ludamus.pacts.notifications import NotificationDTO
 
 if TYPE_CHECKING:
     from ludamus.pacts.crowd import (
@@ -419,11 +419,35 @@ class NotificationReadRepository:
         ).count()
 
     @staticmethod
-    def list_recent(user_id: int, limit: int) -> list[NotificationDTO]:
-        recent = Notification.objects.filter(recipient_id=user_id).order_by(
-            "-creation_time"
-        )[:limit]
-        return [NotificationDTO.model_validate(notification) for notification in recent]
+    def total_count(user_id: int) -> int:
+        return Notification.objects.filter(recipient_id=user_id).count()
+
+    @staticmethod
+    def list_for_user(
+        user_id: int, *, limit: int, offset: int = 0
+    ) -> list[NotificationDTO]:
+        # The window is the query's, not Python's: the bell asks for the first
+        # ten and the history page for one page, so a long backlog is never
+        # loaded whole to show a screenful.
+        # `-pk` only breaks ties: two notifications raised in the same
+        # transaction share a timestamp, and a page window needs a total order
+        # or rows drift between pages.
+        rows = Notification.objects.filter(recipient_id=user_id).order_by(
+            "-creation_time", "-pk"
+        )[offset : offset + limit]
+        return [NotificationDTO.model_validate(notification) for notification in rows]
+
+    @staticmethod
+    def mark_read(user_id: int, pk: int) -> NotificationDTO | None:
+        # Scoped by recipient AND pk: a notification addressed to someone else
+        # returns None (the view 404s) and is never mutated.
+        notification = Notification.objects.filter(recipient_id=user_id, pk=pk).first()
+        if notification is None:
+            return None
+        if notification.read_at is None:
+            notification.read_at = datetime.now(UTC)
+            notification.save(update_fields=["read_at"])
+        return NotificationDTO.model_validate(notification)
 
     @staticmethod
     def mark_all_read(user_id: int) -> None:
