@@ -328,6 +328,17 @@ If you fix a papercut, remove it.
   narrow the run widens nothing. Had to fall back to
   'mise run test:unit -- -k ...'. A narrow-path run is what CLAUDE.md asks for
   while working.
+- 2026-08-26: poetry install failed once with a bare 'Cannot install idna' and
+  no reason; the identical rerun succeeded. Transient PyPI/proxy blip, but the
+  error text gives nothing to act on.
+- 2026-08-26: mypy's incremental cache invented a phantom protocol conflict
+  after a NewType change: inits/middleware.py reported Services not matching
+  ServicesProtocol while an explicit assignment of the same two classes type-
+  checked fine. rm -rf .mypy_cache made it vanish.
+- 2026-08-26: A task writing .env.local via '> .env.local.tmp && mv'
+  (tasks.toml:150) left an empty untracked .env.local.tmp in the worktree when
+  it did not complete, and the name is not gitignored, so it shows up in git
+  status as if it were mine.
 - 2026-08-26: Ran format:djlint on a template change; it reformatted the file
   and reported zero lint errors but still exited nonzero, so the formatting task
   appeared to fail until rerun.

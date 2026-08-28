@@ -26,6 +26,7 @@ if TYPE_CHECKING:
     )
     from ludamus.pacts.crowd import UserDTO
     from ludamus.pacts.guild import GuildMarkDTO
+    from ludamus.pacts.ids import EventId, UserId
 
 
 @dataclass(frozen=True)
@@ -327,7 +328,7 @@ def fake_full_card(session_data: SessionData) -> SessionData:
 
 
 def mask_session_card(
-    session_data: SessionData, *, event_banned: bool, banned_presenter_ids: set[int]
+    session_data: SessionData, *, event_banned: bool, banned_presenter_ids: set[UserId]
 ) -> SessionData:
     if event_banned or session_data.presenter.pk in banned_presenter_ids:
         return fake_full_card(session_data)
@@ -343,8 +344,8 @@ class PartyHistoryGroup(TypedDict):
 def present_party_history(
     groups: list[PartyEventHistoryDTO],
     *,
-    banned_event_ids: set[int],
-    banned_presenter_ids: set[int],
+    banned_event_ids: set[EventId],
+    banned_presenter_ids: set[UserId],
 ) -> list[PartyHistoryGroup]:
     now = datetime.now(tz=UTC)
     return [
@@ -406,8 +407,8 @@ def present_session_modal(
     dto: SessionModalDTO,
     *,
     event_banned: bool,
-    banned_presenter_ids: set[int],
-    shadowbanned_ids: frozenset[int],
+    banned_presenter_ids: set[UserId],
+    shadowbanned_ids: frozenset[UserId],
     guild: GuildMarkDTO | None = None,
 ) -> SessionData:
     if dto.presenter is not None:
