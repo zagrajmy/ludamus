@@ -15,7 +15,10 @@ Variables:
 {# active:scale-100! stands down the global button:active shrink: scaling a #}
 {# left-anchored heading about its centre reads as the text jumping right. #}
 <button type="button"
-        class="items-baseline gap-2 rounded-md text-left text-sm font-bold uppercase tracking-wide text-foreground-secondary transition-colors hover:bg-bg-tertiary hover:text-foreground active:scale-100!{% if extra_class %} {{ extra_class }}{% endif %}"
+        {# The hover fill is a foreground-color wash, not a surface token: the #}
+        {# toggle sits on different grounds (page, the ledger's sheet, the #}
+        {# rooms header) and a fixed surface color would vanish on some. #}
+        class="items-baseline gap-2 rounded-md text-left text-sm font-bold uppercase tracking-wide text-foreground-secondary transition-colors hover:bg-foreground/5 hover:text-foreground active:scale-100!{% if extra_class %} {{ extra_class }}{% endif %}"
         data-day-fold
         {% if is_bar %}data-room-lanes-day-current data-fold-day="0"{% endif %}
         aria-expanded="true">
