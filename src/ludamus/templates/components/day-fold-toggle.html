@@ -12,13 +12,18 @@ Variables:
                uses to relabel it (data-room-lanes-day-current) and to say
                which day it currently holds (data-fold-day)
 {% endcomment %}
+{# active:scale-100! stands down the global button:active shrink: scaling a #}
+{# left-anchored heading about its centre reads as the text jumping right. #}
 <button type="button"
-        class="items-baseline gap-2 text-left text-sm font-bold uppercase tracking-wide text-foreground-secondary hover:text-foreground{% if extra_class %} {{ extra_class }}{% endif %}"
+        class="group items-baseline gap-2 rounded-md text-left text-sm font-bold uppercase tracking-wide text-foreground-secondary transition-colors hover:bg-bg-tertiary hover:text-foreground active:scale-100!{% if extra_class %} {{ extra_class }}{% endif %}"
         data-day-fold
         {% if is_bar %}data-room-lanes-day-current data-fold-day="0"{% endif %}
         aria-expanded="true">
     <span data-day-name>{{ day_start|date:"l" }}</span>
     <span class="text-xs font-medium normal-case tracking-normal text-foreground-muted"
           data-day-date>{{ day_start|date:"j F" }}</span>
-    <span class="day-fold-chevron self-center text-foreground-muted">{% icon "chevron-down" class="w-4 h-4" variant="mini" %}</span>
+    {# ms-auto sends the chevron to the far edge wherever the toggle is #}
+    {# full-width; in the shrink-wrapped rooms copies it simply trails the #}
+    {# date. The negative margin keeps its hover pill from moving the row. #}
+    <span class="day-fold-chevron -m-0.5 ms-auto self-center rounded p-0.5 text-foreground-muted transition-colors group-hover:bg-border/50">{% icon "chevron-down" class="w-4 h-4" variant="mini" %}</span>
 </button>
