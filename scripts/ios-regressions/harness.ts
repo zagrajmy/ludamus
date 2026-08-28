@@ -177,7 +177,11 @@ export const createIosHarness = (session: string): IosHarness => {
   // retrying on is the page still not being ready. Re-opening the same URL
   // re-applies the same fragment, which is what a caller waiting on one wants.
   const openUrl = async (url: string, readiness: SafariReadiness): Promise<void> => {
-    const { expectedLabels, match = "all", scope } = readiness;
+    const { expectedLabels, match = "all" } = readiness;
+    // Collapsed here rather than at the callers: the scope is matched against
+    // labels that already went through labelOf, and the runner's element query
+    // sees the device's own collapsed name too.
+    const scope = readiness.scope === undefined ? undefined : collapse(readiness.scope);
     if (expectedLabels.length === 0) {
       throw new Error(`openUrl needs at least one expected label to wait for at ${url}.`);
     }
