@@ -2,6 +2,7 @@ import type { CaptureSnapshotResult, SnapshotNode } from "agent-device";
 
 import { describe, expect, test } from "bun:test";
 
+import { decodeEntities } from "./page";
 import {
   centreOnScreen,
   collapse,
@@ -114,14 +115,26 @@ describe("pollUntil", () => {
     expect(result).toBe("late");
   });
 
-  test("lets a throwing probe abort the poll", () => {
+  test("lets a throwing probe abort the poll", async () => {
     const boom = pollUntil(
       async () => {
         throw new Error("device in use");
       },
       { timeoutMs: 1000, intervalMs: 1 },
     );
-    expect(boom).rejects.toThrow("device in use");
+    await expect(boom).rejects.toThrow("device in use");
+  });
+});
+
+describe("decodeEntities", () => {
+  test("decodes an escaped ampersand the way an aria-label serves it", () => {
+    expect(decodeEntities("Open details for Research &amp; Development")).toBe(
+      "Open details for Research & Development",
+    );
+  });
+
+  test("does not double-unescape a served entity", () => {
+    expect(decodeEntities("&amp;lt;script&amp;gt;")).toBe("&lt;script&gt;");
   });
 });
 

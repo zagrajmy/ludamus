@@ -1,5 +1,5 @@
 import { baseUrl, createIosHarness, sessionName } from "./harness";
-import { fetchReadyPage } from "./page";
+import { decodeEntities, fetchReadyPage } from "./page";
 
 // NOTE: this step exists to pay the XCUITest runner's `build-for-testing` --
 // ~240s, once per job -- outside any spec's hook. It does NOT leave a runner
@@ -14,14 +14,14 @@ import { fetchReadyPage } from "./page";
 // pinned here.
 const env = process.env;
 const eventUrl = new URL(env.EVENT_PATH ?? "/event/autumn-open/", baseUrl);
-const TRIGGER_LABELS = /aria-label="(Open details for [^"&]+)"/g;
+const TRIGGER_LABELS = /aria-label="(Open details for [^"]+)"/g;
 
 const { close, openUrl, prepareDevice } = createIosHarness(sessionName("warmup"));
 
 const firstTriggerLabel = (html: string): string => {
   const label = [...html.matchAll(TRIGGER_LABELS)][0]?.[1];
   if (!label) throw new Error(`${eventUrl.toString()} rendered no session cards to warm up on.`);
-  return label;
+  return decodeEntities(label);
 };
 
 try {

@@ -1,5 +1,17 @@
 import { pollUntil } from "./snapshot";
 
+// Attribute values arrive escaped. `&amp;` goes last: unescaping it first would
+// turn a served `&amp;lt;` (the literal text "&lt;") into "<" -- CodeQL's
+// double-unescape, and a name that would never match its device label.
+export const decodeEntities = (value: string): string =>
+  value
+    .replaceAll("&lt;", "<")
+    .replaceAll("&gt;", ">")
+    .replaceAll("&quot;", '"')
+    .replaceAll("&#x27;", "'")
+    .replaceAll("&#39;", "'")
+    .replaceAll("&amp;", "&");
+
 // Waits for the page to serve `contains`, then hands back the body. A caller
 // that needs a landmark from the markup -- a scrubber slot anchor, the
 // accessible name of a control -- reads it here instead of hunting for it with

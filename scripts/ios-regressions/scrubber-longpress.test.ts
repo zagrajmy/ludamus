@@ -5,7 +5,7 @@ import { afterAll, beforeAll, expect, test } from "bun:test";
 import type { Rect } from "./snapshot";
 
 import { baseUrl, createIosHarness, hookTimeoutMs, sessionName } from "./harness";
-import { fetchReadyPage } from "./page";
+import { decodeEntities, fetchReadyPage } from "./page";
 import {
   centreOnScreen,
   collapse,
@@ -46,19 +46,6 @@ const railSlotAnchor = (html: string): string => {
 };
 
 type RailHour = { label: string; rect: Rect };
-
-// Attribute values arrive escaped; the rail's labels carry event and day names.
-// `&amp;` goes last: unescaping it first would turn a served `&amp;lt;` (the
-// literal text "&lt;") into "<" — CodeQL's double-unescape, and a name that
-// would never match its device label.
-const decodeEntities = (value: string): string =>
-  value
-    .replaceAll("&lt;", "<")
-    .replaceAll("&gt;", ">")
-    .replaceAll("&quot;", '"')
-    .replaceAll("&#x27;", "'")
-    .replaceAll("&#39;", "'")
-    .replaceAll("&amp;", "&");
 
 const namesFrom = (html: string, pattern: RegExp): Set<string> =>
   new Set(
