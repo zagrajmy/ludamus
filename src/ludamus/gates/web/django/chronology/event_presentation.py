@@ -6,6 +6,7 @@ from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Self, TypedDict
 
 from ludamus.gates.web.django.entities import UserInfo
+from ludamus.gates.web.django.helpers import placeholder_cover_url
 from ludamus.pacts import EventListItemDTO
 from ludamus.pacts.legacy import SessionParticipationStatus, TimeSlotDTO
 
@@ -277,6 +278,50 @@ class EventInfo(EventListItemDTO):
     @classmethod
     def from_list_item(cls, item: EventListItemDTO, *, cover_image_url: str) -> Self:
         return cls(**{**item.model_dump(), "cover_image_url": cover_image_url})
+
+
+def with_covers(items: list[EventListItemDTO]) -> list[EventInfo]:
+    # Uploaded cover when present, otherwise a placeholder cycled by position.
+    # Position-keyed, so callers sort before calling: see split_events.
+    return [
+        EventInfo.from_list_item(
+            item, cover_image_url=item.cover_image_url or placeholder_cover_url(i)
+        )
+        for i, item in enumerate(items)
+    ]
+
+
+@dataclass(frozen=True)
+class EventSplit:
+    upcoming: list[EventInfo]
+    past: list[EventInfo]
+
+
+def split_events(items: Iterable[EventListItemDTO]) -> EventSplit:
+    """Split a sphere's events into the two lists every event listing renders.
+
+    Returns:
+        Upcoming soonest-first and past most-recent-first, both with covers.
+    """
+    # Sorted before with_covers, not after: placeholder art is keyed by
+    # position, so an unsorted list would give the same coverless event a
+    # different placeholder on each page that lists it.
+    listed = list(items)
+    return EventSplit(
+        upcoming=with_covers(
+            sorted(
+                (item for item in listed if not item.is_ended),
+                key=lambda item: item.start_time,
+            )
+        ),
+        past=with_covers(
+            sorted(
+                (item for item in listed if item.is_ended),
+                key=lambda item: item.start_time,
+                reverse=True,
+            )
+        ),
+    )
 
 
 _SIMULACRA_FILL = 8

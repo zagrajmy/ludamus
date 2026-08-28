@@ -36,13 +36,13 @@ from ludamus.gates.web.django.chronology.enrollment_presentation import (
     SessionUserParticipationData,
 )
 from ludamus.gates.web.django.chronology.event_presentation import (
-    EventInfo,
     ParticipationInfo,
     SessionData,
     build_display_field_row,
     filter_availability,
     filterable_tag_fields,
     mask_session_card,
+    split_events,
 )
 from ludamus.gates.web.django.chronology.schedule import (
     build_room_lanes,
@@ -55,8 +55,8 @@ from ludamus.gates.web.django.entities import (
     UserInfo,
 )
 from ludamus.gates.web.django.event.enroll_presentation import build_enroll_actions
-from ludamus.gates.web.django.helpers import placeholder_cover_url
 from ludamus.gates.web.django.sphere.marks import attach_guild_marks
+from ludamus.gates.web.django.sphere.pages import EventsPageRequiredMixin
 from ludamus.links.db.django.models import (
     AgendaItem,
     Event,
@@ -83,7 +83,6 @@ from ludamus.pacts import (
     OCCUPYING_PARTICIPATION_STATUSES,
     AgendaItemDTO,
     EventDTO,
-    EventListItemDTO,
     NotFoundError,
     RedirectError,
     SessionDTO,
@@ -188,18 +187,21 @@ class IndexRedirectView(View):
     request: RootRequest
 
     def get(self, _request: RootRequest) -> HttpResponse:
-        sphere = self.request.di.uow.spheres.read(
+        sphere = self.request.services.sites.read(
             self.request.context.current_sphere_id
         )
         if sphere.default_page == SpherePage.ENCOUNTERS:
             return redirect("web:notice-board:index")
+        if sphere.default_page == SpherePage.TIMELINE:
+            return redirect("web:timeline")
         return redirect("web:events")
 
 
 @method_decorator([cache_control(private=True, max_age=180), vary_cookie], name="get")
-class EventsPageView(TemplateView):
+class EventsPageView(EventsPageRequiredMixin, TemplateView):
     request: RootRequest
     template_name = "index.html"
+    reachable_via_timeline = False
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         context = super().get_context_data(**kwargs)
@@ -207,33 +209,14 @@ class EventsPageView(TemplateView):
         context["announcements"] = self.request.services.announcements.list_published(
             sphere_id
         )
-        items = self.request.services.events.list_for_sphere(
-            sphere_id, include_unpublished=has_panel_access(self.request)
-        )
-        context["upcoming_events"] = self._with_covers(
-            sorted(
-                (item for item in items if not item.is_ended),
-                key=lambda item: item.start_time,
+        events = split_events(
+            self.request.services.events.list_for_sphere(
+                sphere_id, include_unpublished=has_panel_access(self.request)
             )
         )
-        context["past_events"] = self._with_covers(
-            sorted(
-                (item for item in items if item.is_ended),
-                key=lambda item: item.start_time,
-                reverse=True,
-            )
-        )
+        context["upcoming_events"] = events.upcoming
+        context["past_events"] = events.past
         return context
-
-    @staticmethod
-    def _with_covers(items: list[EventListItemDTO]) -> list[EventInfo]:
-        # Uploaded cover when present, otherwise a placeholder cycled by position.
-        return [
-            EventInfo.from_list_item(
-                item, cover_image_url=item.cover_image_url or placeholder_cover_url(i)
-            )
-            for i, item in enumerate(items)
-        ]
 
 
 def _get_displayed_field_ids(event: Event) -> set[int]:
@@ -259,7 +242,7 @@ COMPACT_SCHEDULE_MIN_SESSIONS = 20
 
 
 @method_decorator([cache_control(private=True, max_age=180), vary_cookie], name="get")
-class EventPageView(DetailView):  # type: ignore [type-arg]
+class EventPageView(EventsPageRequiredMixin, DetailView):  # type: ignore [type-arg]
     template_name = "chronology/event.html"
     model = Event
     context_object_name = "event"
@@ -878,7 +861,7 @@ _status_by_choice = {
 }
 
 
-class SessionEnrollPageView(LoginRequiredMixin, View):
+class SessionEnrollPageView(EventsPageRequiredMixin, LoginRequiredMixin, View):
     request: AuthenticatedRootRequest
     _policies: dict[int, EnrollmentPolicy] | None = None
 

@@ -489,6 +489,7 @@ exclude = [
 ignore_names = [
     # Called from context_processors.py, which is excluded above
     "client_patterns",
+    "sphere_page_nav",
     # Used in templates
     "bookmark_count",
     "button_class",

@@ -502,8 +502,15 @@ class TestTesseraFieldBranches:
     def test_renders_multi_checkbox_field(self) -> None:
         form = ChoiceForm()
         html = tessera_field(form["toppings"])
+        assert 'type="checkbox"' in html
         assert "Cheese" in html
         assert "Pepperoni" in html
+
+    def test_multi_checkbox_field_checks_initial_selection(self) -> None:
+        form = ChoiceForm(initial={"toppings": ["cheese"]})
+        html = tessera_field(form["toppings"])
+        assert 'value="cheese"' in html.replace("\n", " ")
+        assert "checked" in html
 
     def test_horizontal_textarea(self) -> None:
         form = SimpleForm()
