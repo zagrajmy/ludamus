@@ -24,6 +24,7 @@ Variables:
           data-day-date>{{ day_start|date:"j F" }}</span>
     {# ms-auto sends the chevron to the far edge wherever the toggle is #}
     {# full-width; in the shrink-wrapped rooms copies it simply trails the #}
-    {# date. The negative margin keeps its hover pill from moving the row. #}
-    <span class="day-fold-chevron -m-0.5 ms-auto self-center rounded p-0.5 text-foreground-muted transition-colors group-hover:bg-border/50">{% icon "chevron-down" class="w-4 h-4" variant="mini" %}</span>
+    {# date. The size-5 box matches the text-sm line height, so the hover #}
+    {# pill has breathing room without adding a pixel to the row. #}
+    <span class="day-fold-chevron ms-auto flex size-5 items-center justify-center self-center rounded text-foreground-muted transition-colors group-hover:bg-border/50">{% icon "chevron-down" class="w-4 h-4" variant="mini" %}</span>
 </button>
