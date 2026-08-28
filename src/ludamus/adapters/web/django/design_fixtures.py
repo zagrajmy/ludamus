@@ -194,13 +194,16 @@ def mock_session_proposal() -> SessionData:
     )
 
 
+# The fourth system is one of the four a card shows, and wider than the 200px
+# the pills used to cap at: the tags cloud spec needs a value that only fits
+# once a pill may grow to the card.
 _OVERFLOW_SYSTEMS = [
     "D&D 5e",
     "Pathfinder",
     "Fate",
-    "Blades in the Dark",
+    "Vampire: The Masquerade 5th Edition",
     "Call of Cthulhu",
-    "Vampire",
+    "Blades in the Dark",
 ]
 _OVERFLOW_TRIGGERS = [
     "horror",

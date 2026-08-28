@@ -15,7 +15,7 @@
         {% endif %}
         {% if data.cloud_overflow %}
             <div class="session-tags-more relative inline-flex items-center justify-center pointer-events-auto">
-                <div class="session-tags-popover absolute z-30 min-w-56 max-w-[20rem] rounded-xl border border-border bg-bg-secondary p-2 shadow-(--shadow-elevated) opacity-0 pointer-events-none transition-opacity duration-150 flex flex-wrap gap-1"
+                <div class="session-tags-popover absolute z-30 rounded-xl border border-border bg-bg-secondary p-2 shadow-(--shadow-elevated) opacity-0 pointer-events-none transition-opacity duration-150 flex flex-wrap gap-1"
                      role="tooltip">
                     {% for pill in data.cloud_overflow %}
                         {% include "components/_field_pill.html" with value=pill.value icon=pill.icon title=pill.value size="md" max_width="max-w-full" %}
