@@ -326,14 +326,15 @@ class Sphere(models.Model):
         # (the admin's raw-JSON widget included). A non-list — e.g. the
         # object {"events": true} — would coerce through membership checks
         # but poison every SphereDTO validation on read.
-        if not isinstance(self.enabled_pages, list):
+        enabled_pages = self.enabled_pages
+        if not isinstance(enabled_pages, list):
             raise ValidationError(
                 {"enabled_pages": "Enabled pages must be a list of page slugs."}
             )
         # The homepage redirect sends visitors to default_page, so a disabled
         # one strands them on a 404. Enforced here so every ModelForm writer
         # (the admin included) is covered by Django's own validation.
-        if self.default_page not in self.enabled_pages:
+        if self.default_page not in set(enabled_pages):
             raise ValidationError(
                 {"default_page": "Default page must be one of the enabled pages."}
             )
