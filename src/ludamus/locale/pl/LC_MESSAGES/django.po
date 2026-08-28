@@ -3289,7 +3289,7 @@ msgid "Closed"
 msgstr "Zamknięte"
 
 #: src/ludamus/gates/web/django/templatetags/cfp_tags.py
-#: src/ludamus/templates/chronology/event.html
+#: src/ludamus/templates/chronology/_event_status_pills.html
 #: src/ludamus/templates/notice_board/index.html
 #: src/ludamus/templates/panel/enrollment-settings.html
 msgid "Upcoming"
@@ -3764,7 +3764,7 @@ msgstr[2] "Dodane do zakładek przez %(counter)s osób"
 msgstr[3] "Dodane do zakładek przez %(counter)s osoby"
 
 #: src/ludamus/templates/chronology/_card_schedule.html
-#: src/ludamus/templates/chronology/event.html
+#: src/ludamus/templates/chronology/_event_status_pills.html
 msgid "Completed"
 msgstr "Ukończone"
 
@@ -3796,6 +3796,20 @@ msgstr "Przejdź do %(day)s %(time)s"
 #, python-format
 msgid "Open details for %(title)s"
 msgstr "Otwórz szczegóły %(title)s"
+
+#: src/ludamus/templates/chronology/_event_status_pills.html
+msgid "Happening now!"
+msgstr "Trwa teraz!"
+
+#: src/ludamus/templates/chronology/_event_status_pills.html
+msgid "Enrollment Open"
+msgstr "Zapisy otwarte"
+
+#: src/ludamus/templates/chronology/_event_status_pills.html
+#: src/ludamus/templates/panel/base.html
+#: src/ludamus/templates/panel/proposal-settings.html
+msgid "Proposals Open"
+msgstr "Zgłoszenia otwarte"
 
 #: src/ludamus/templates/chronology/_proposal_section.html
 msgid "Your pending proposals"
@@ -4130,23 +4144,23 @@ msgid "Manage companions in your profile settings"
 msgstr "Zarządzaj osobami towarzyszącymi w ustawieniach profilu"
 
 #: src/ludamus/templates/chronology/event.html
-msgid "Happening now!"
-msgstr "Trwa teraz!"
-
-#: src/ludamus/templates/chronology/event.html
-msgid "Enrollment Open"
-msgstr "Zapisy otwarte"
-
-#: src/ludamus/templates/chronology/event.html
-#: src/ludamus/templates/panel/base.html
-#: src/ludamus/templates/panel/proposal-settings.html
-msgid "Proposals Open"
-msgstr "Zgłoszenia otwarte"
+#: src/ludamus/templates/notice_board/_calendar_inline.html
+#: src/ludamus/templates/notice_board/_rsvp_inline.html
+msgid "Add to calendar"
+msgstr "Dodaj do kalendarza"
 
 #: src/ludamus/templates/chronology/event.html
 msgctxt "date range"
 msgid "to"
 msgstr "do"
+
+#: src/ludamus/templates/chronology/event.html
+msgid "Google Calendar"
+msgstr "Google Calendar"
+
+#: src/ludamus/templates/chronology/event.html
+msgid "Other calendars (.ics)"
+msgstr "Inne kalendarze (.ics)"
 
 #: src/ludamus/templates/chronology/event.html
 msgid "Session"
@@ -4155,6 +4169,10 @@ msgstr[0] "Punkt programu"
 msgstr[1] "Punkty programu"
 msgstr[2] "Punktów programu"
 msgstr[3] "Punktów programu"
+
+#: src/ludamus/templates/chronology/event.html
+msgid "View on map ↗"
+msgstr "Zobacz na mapie ↗"
 
 #: src/ludamus/templates/chronology/event.html
 msgid "View the program"
@@ -6128,11 +6146,6 @@ msgstr "Włączone strony"
 #: src/ludamus/templates/panel/settings.html
 msgid "Save Settings"
 msgstr "Zapisz ustawienia"
-
-#: src/ludamus/templates/notice_board/_calendar_inline.html
-#: src/ludamus/templates/notice_board/_rsvp_inline.html
-msgid "Add to calendar"
-msgstr "Dodaj do kalendarza"
 
 #: src/ludamus/templates/notice_board/_calendar_inline.html
 #: src/ludamus/templates/notice_board/_rsvp_inline.html
@@ -8977,6 +8990,16 @@ msgstr "Slug URL"
 #: src/ludamus/templates/panel/settings.html
 msgid "URL identifier for this event. Must be unique."
 msgstr "Identyfikator URL tego wydarzenia. Musi być unikalny."
+
+#: src/ludamus/templates/panel/settings.html
+msgid "Address"
+msgstr "Adres"
+
+#: src/ludamus/templates/panel/settings.html
+msgid "Physical venue address, shown on the event page with a map link."
+msgstr ""
+"Fizyczny adres miejsca wydarzenia, pokazywany na stronie wydarzenia z "
+"linkiem do mapy."
 
 #: src/ludamus/templates/panel/settings.html
 msgid "Event Dates"

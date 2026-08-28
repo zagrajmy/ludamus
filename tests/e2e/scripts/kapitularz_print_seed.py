@@ -173,6 +173,7 @@ def seed_kapitularz_print_event(sphere: Sphere) -> None:
             "The fixture preserves the public density of the source event without "
             "keeping host, participant, or session identities."
         ),
+        address="4 Assembly Concourse\nNorthport",
         start_time=event_start,
         # Deliberately stale: the final day's programme continues after 13:00.
         # Untouched print ranges must follow scheduled content, not this bound.

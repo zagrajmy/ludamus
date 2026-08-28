@@ -28,63 +28,31 @@
 {% endblock header_section %}
 {% block body %}
     {% include "chronology/decorative_background_blobs.html" %}
-    <div class="relative rounded-3xl shadow-xl overflow-hidden mb-6 sm:mb-8 bg-bg-secondary"
+    {# No overflow-hidden — it would clip the add-to-calendar popover on short heroes. #}
+    <div class="relative rounded-3xl shadow-xl mb-6 sm:mb-8 bg-bg-secondary"
          data-event-hero
          style="box-shadow: var(--shadow-elevated)">
         {% if event.cover_image_url %}
-            <div class="h-56 sm:h-72 bg-cover bg-center"
+            <div class="h-56 sm:h-72 bg-cover bg-center rounded-t-3xl"
                  style="background-image: url('{{ event.cover_image_url }}')"></div>
         {% endif %}
         <div class="p-6 sm:p-8">
             <div class="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-6">
-                <div class="flex-1">
-                    <!-- Status pills: capped at two, priority order
-                         live/completed > enrollment open > proposals open > upcoming -->
-                    {% with configs=event.get_active_enrollment_configs %}
-                        <div class="flex flex-wrap items-center gap-2 mb-4">
-                            {% if event.is_live %}
-                                <div class="inline-flex items-center gap-2 px-3 py-1.5 bg-teal-100 text-teal-700 rounded-full text-sm font-medium">
-                                    <span class="w-2 h-2 bg-teal-500 rounded-full live-dot"></span>
-                                    {% translate "Happening now!" %}
-                                </div>
-                            {% elif event.is_ended %}
-                                <div class="inline-flex items-center gap-2 px-3 py-1.5 bg-neutral-200 dark:bg-neutral-700/30 rounded-full text-sm font-medium text-foreground-secondary">
-                                    {% icon "check-circle" class="w-4 h-4" variant="mini" %}
-                                    {% translate "Completed" %}
-                                </div>
-                            {% endif %}
-                            {% if configs %}
-                                <div class="inline-flex items-center gap-2 px-3 py-1.5 bg-coral-100 dark:bg-coral-900/30 text-coral-700 dark:text-coral-400 rounded-full text-sm font-medium">
-                                    {% icon "user-plus" class="w-4 h-4" variant="mini" %}
-                                    {% translate "Enrollment Open" %}
-                                </div>
-                            {% endif %}
-                            {% if event.is_proposal_active %}
-                                {% if not event.is_live and not event.is_ended or not configs %}
-                                    <div class="inline-flex items-center gap-2 px-3 py-1.5 bg-amber-100 dark:bg-amber-900/10 text-amber-700 dark:text-amber-400 rounded-full text-sm font-medium">
-                                        {% icon "light-bulb" class="w-4 h-4" variant="mini" %}
-                                        {% translate "Proposals Open" %}
-                                    </div>
-                                {% endif %}
-                            {% endif %}
-                            {% if not event.is_live and not event.is_ended %}
-                                {% if not configs or not event.is_proposal_active %}
-                                    <div class="inline-flex items-center gap-2 px-3 py-1.5 bg-warm-200 dark:bg-warm-800/30 text-warm-700 dark:text-warm-400 rounded-full text-sm font-medium">
-                                        {% icon "clock" class="w-4 h-4" variant="mini" %}
-                                        {% translate "Upcoming" %}
-                                    </div>
-                                {% endif %}
-                            {% endif %}
-                        </div>
-                    {% endwith %}
-                    <h1 class="text-3xl sm:text-4xl font-bold mb-3 text-foreground">{{ event.name }}</h1>
+                <div class="flex-1 grid gap-y-4{% if compact_schedule %} md:grid-cols-[1fr_auto] md:gap-x-8{% endif %}">
+                    {# Status is an attribute of the name: the chip sits beside it #}
+                    {# and wraps under it when narrow. #}
+                    <div class="flex items-center flex-wrap gap-x-3 gap-y-2">
+                        <h1 class="text-3xl sm:text-4xl font-bold text-foreground">{{ event.name }}</h1>
+                        {% include "chronology/_event_status_pills.html" %}
+                    </div>
                     {% if event.description %}
-                        <p class="text-lg mb-6 max-w-2xl text-foreground-muted">{{ event.description }}</p>
+                        <p class="text-lg max-w-2xl text-foreground-muted">{{ event.description }}</p>
                     {% endif %}
                     <!-- Event meta -->
-                    <div class="flex flex-wrap gap-4 text-sm">
-                        <div class="flex items-center gap-2">
-                            <div class="w-8 h-8 bg-coral-100 dark:bg-coral-900/30 rounded-lg flex items-center justify-center">
+                    <div class="flex flex-wrap gap-4 text-sm{% if compact_schedule %} md:col-start-2 md:row-start-1 md:row-span-3 md:flex-col md:flex-nowrap md:items-start md:gap-3{% endif %}">
+                        {% translate "Add to calendar" as t_add_to_calendar %}
+                        {% tessera_action_dropdown id="event-calendar-menu" label=t_add_to_calendar align="center" trigger_class="flex items-center gap-2 text-left" %}
+                            <div class="w-8 h-8 bg-coral-100 dark:bg-coral-900/30 rounded-lg flex items-center justify-center shrink-0">
                                 {% icon "calendar-days" class="w-4 h-4 text-coral-600" variant="mini" %}
                             </div>
                             {% with start_day=event.start_time|date:"Y-m-d" end_day=event.end_time|date:"Y-m-d" %}
@@ -114,7 +82,13 @@
                                     {% endif %}
                                 </div>
                             {% endwith %}
-                        </div>
+                            {% action_dropdown_menu %}
+                            {% translate "Google Calendar" as t_google_calendar %}
+                            {% translate "Other calendars (.ics)" as t_other_calendars %}
+                            {% url 'web:chronology:event-ics' slug=event.slug as ics_url %}
+                            {% tessera_action_dropdown_item t_google_calendar href=google_calendar_url icon="calendar-days" external=True %}
+                            {% tessera_action_dropdown_item t_other_calendars href=ics_url icon="arrow-down-tray" %}
+                        {% endtessera_action_dropdown %}
                         {% if compact_schedule %}
                             <div class="flex items-center gap-2">
                                 <div class="w-8 h-8 bg-bg-tertiary rounded-lg flex items-center justify-center">
@@ -128,9 +102,25 @@
                                 </div>
                             </div>
                         {% endif %}
+                        {% if event.address %}
+                            {% translate "View on map ↗" as t_view_on_map %}
+                            <a href="https://www.google.com/maps/search/?api=1&query={{ event.address_inline|urlencode }}"
+                               target="_blank"
+                               rel="noopener"
+                               title="{{ t_view_on_map }}"
+                               class="group flex items-start gap-2">
+                                <div class="w-8 h-8 bg-teal-100 dark:bg-teal-900/30 rounded-lg flex items-center justify-center shrink-0">
+                                    {% icon "map-pin" class="w-4 h-4 text-teal-600" variant="mini" %}
+                                </div>
+                                <div class="font-medium leading-snug pt-1.5 text-foreground group-hover:underline decoration-dotted underline-offset-4">
+                                    {{ event.address|linebreaksbr }}
+                                    <span class="sr-only">{{ t_view_on_map }}</span>
+                                </div>
+                            </a>
+                        {% endif %}
                     </div>
                     {% if compact_schedule %}
-                        <div class="mt-6 flex flex-col gap-3 md:flex-row md:flex-wrap">
+                        <div class="flex flex-col gap-3 md:flex-row md:flex-wrap">
                             {% translate "View the program" as t_view_program %}
                             {% tessera_button t_view_program href="#schedule-region" size="lg" full_width_mobile=True %}
                             {% if has_enrollable_sessions and not event.is_ended %}
@@ -275,9 +265,7 @@
                 <button type="button"
                         data-modal-close="anonymousCodeModal"
                         class="p-1 rounded-lg hover:opacity-70 text-foreground-muted"
-                        aria-label="{% translate "Close" %}">
-                    {% icon "x-mark" class="w-5 h-5" variant="mini" %}
-                </button>
+                        aria-label="{% translate "Close" %}">{% icon "x-mark" class="w-5 h-5" variant="mini" %}</button>
             </div>
             <form method="post" action="{% url 'web:chronology:anonymous-load' %}">
                 <div class="px-6 py-4">

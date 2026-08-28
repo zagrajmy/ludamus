@@ -26,7 +26,34 @@ test.describe("Big event hero", () => {
     await expect(signUp).toHaveAttribute("href", "?enrollment=1#schedule-region");
     await expect(hero.getByText("Players", { exact: true })).toHaveCount(0);
     await expect(hero.getByText("Participants", { exact: true })).toHaveCount(0);
-    await expect(hero.getByText(/^\d+ Sessions$/)).toBeVisible();
+    await expect(hero.getByText(/\d+\s+Sessions/)).toBeVisible();
+  });
+
+  test("links the venue address to Google Maps", async ({ page }) => {
+    const hero = page.locator("[data-event-hero]");
+    const address = hero.getByRole("link", { name: /4 Assembly Concourse/ });
+
+    await expect(address).toBeVisible();
+    await expect(address).toHaveAttribute(
+      "href",
+      /google\.com\/maps\/search\/\?api=1&query=4%20Assembly/,
+    );
+  });
+
+  test("the date opens an add-to-calendar menu", async ({ page }) => {
+    const hero = page.locator("[data-event-hero]");
+    await hero.getByRole("button", { name: /10:00/ }).hover();
+
+    const googleCalendar = hero.getByRole("link", { name: "Google Calendar" });
+    await expect(googleCalendar).toBeVisible();
+    await expect(googleCalendar).toHaveAttribute(
+      "href",
+      /calendar\.google\.com\/calendar\/render\?action=TEMPLATE/,
+    );
+    await expect(hero.getByRole("link", { name: "Other calendars (.ics)" })).toHaveAttribute(
+      "href",
+      /\/calendar\.ics$/,
+    );
   });
 
   test("viewing the program jumps to the schedule", async ({ page }) => {

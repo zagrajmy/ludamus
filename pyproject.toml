@@ -140,7 +140,7 @@ template_extensions = 'html'
 
 [tool.djlint]
 ignore = "H021,H031,H037,D018"
-custom_blocks = "select,tessera_combobox,radio,document_title,sidebar_cat,tab,tabs,tab_shell,tab_shell_body,tessera_copy,tessera_segment,tessera_switcher,tessera_table"
+custom_blocks = "select,tessera_action_dropdown,tessera_combobox,radio,document_title,sidebar_cat,tab,tabs,tab_shell,tab_shell_body,tessera_copy,tessera_segment,tessera_switcher,tessera_table"
 
 # DEPTRY
 

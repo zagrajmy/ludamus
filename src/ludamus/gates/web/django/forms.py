@@ -241,6 +241,16 @@ class EventSettingsForm(forms.Form):
     description = forms.CharField(
         required=False, widget=forms.Textarea(attrs={"rows": 3})
     )
+    address = forms.CharField(
+        max_length=255,
+        required=False,
+        strip=True,
+        widget=forms.Textarea(attrs={"rows": 3}),
+    )
+
+    def clean_address(self) -> str:
+        return "\n".join(str(self.cleaned_data.get("address") or "").splitlines())
+
     cover_image = cover_image_field()
     logo = logo_field()
     start_time = forms.DateTimeField(

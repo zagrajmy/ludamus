@@ -25,6 +25,11 @@ Usage:
 """
 
 from ._registry import register
+from .action_dropdown import (
+    ActionDropdownNode,
+    do_action_dropdown,
+    tessera_action_dropdown_item,
+)
 from .combobox import ComboboxNode, do_combobox
 from .copy import copy_lines, tessera_copy, tessera_copy_chip, tessera_copy_popover
 from .dynamic_field import dynamic_field
@@ -40,6 +45,7 @@ from .table import TableNode, do_tessera_table
 from .tabs import TabNode, TabsNode, do_tab, do_tabs
 
 __all__ = [
+    "ActionDropdownNode",
     "ComboboxNode",
     "RadioNode",
     "SegmentNode",
@@ -51,6 +57,7 @@ __all__ = [
     "TableNode",
     "TabsNode",
     "copy_lines",
+    "do_action_dropdown",
     "do_combobox",
     "do_radio",
     "do_select",
@@ -62,6 +69,7 @@ __all__ = [
     "register",
     "tab_shell",
     "tab_shell_body",
+    "tessera_action_dropdown_item",
     "tessera_button",
     "tessera_copy",
     "tessera_copy_chip",

@@ -12,6 +12,7 @@ from tests.integration.conftest import UserFactory
 from tests.integration.utils import assert_response
 from tests.integration.web.chronology.helpers import (
     enroll_page_context,
+    google_calendar_url,
     schedule_context,
 )
 
@@ -77,6 +78,7 @@ def _event_page_context(event, buckets, **overrides):
         "total_enrolled": 0,
         "user_enrolled_sessions": [],
         "event_banned": False,
+        "google_calendar_url": google_calendar_url(event),
         **buckets,
         **schedule_context(url),
         "has_enrollable_sessions": False,

@@ -421,6 +421,7 @@ class Event(models.Model):
     name = models.CharField(max_length=255)
     slug = models.SlugField()
     description = models.TextField(default="", blank=True)
+    address = models.CharField(max_length=255, blank=True, default="")
     cover_image = models.ImageField(upload_to=unique_upload_to, blank=True)
     cover_image_original_name = models.CharField(
         max_length=ORIGINAL_FILENAME_MAX_LENGTH, blank=True, default=""
@@ -476,6 +477,13 @@ class Event(models.Model):
 
     def __str__(self) -> str:
         return self.name
+
+    @property
+    def address_inline(self) -> str:
+        """The address as one comma-joined line, for map and calendar links."""
+        return ", ".join(
+            line.strip() for line in self.address.splitlines() if line.strip()
+        )
 
     @property
     def cover_image_url(self) -> str:

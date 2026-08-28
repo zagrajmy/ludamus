@@ -465,6 +465,7 @@ class SessionSelfEditContext:
 class EventDTO(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
+    address: str = ""
     allow_facilitator_session_edit: bool | None = None
     auto_confirm_sessions: bool = False
     description: str
@@ -483,6 +484,13 @@ class EventDTO(BaseModel):
     cover_image_original_name: str = ""
     logo_url: str = ""
     logo_original_name: str = ""
+
+    @property
+    def address_inline(self) -> str:
+        """The address as one comma-joined line, for map and calendar links."""
+        return ", ".join(
+            line.strip() for line in self.address.splitlines() if line.strip()
+        )
 
     @property
     def is_published(self) -> bool:
@@ -646,6 +654,7 @@ class EventUpdateData(TypedDict, total=False):
     name: str
     slug: str
     description: str
+    address: str
     logo: UploadedFileProtocol | str
     cover_image: UploadedFileProtocol | str
     start_time: datetime
