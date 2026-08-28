@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import math
 from collections import defaultdict
-from datetime import date, datetime, timedelta, tzinfo
+from datetime import UTC, date, datetime, timedelta, tzinfo
 from operator import itemgetter
 from typing import TYPE_CHECKING, NamedTuple
 
@@ -42,6 +42,7 @@ from ludamus.pacts.chronology import (
 )
 from ludamus.pacts.timetable import (
     ConflictDetectionServiceProtocol,
+    FreeSpotSpaceDTO,
     PlacementRejectedError,
     PlacementRejection,
     TimetableOverviewServiceProtocol,
@@ -459,6 +460,112 @@ class TimetableService(TimetableServiceProtocol):
         if self._repos.sessions.read(session_pk).status != SessionStatus.ACCEPTED:
             msg = f"Session {session_pk} is not in ACCEPTED status"
             raise PlacementRejectedError(PlacementRejection.SESSION_NOT_ACCEPTED, msg)
+
+    def _require_pending(self, session_pk: int) -> None:
+        if self._repos.sessions.read(session_pk).status != SessionStatus.PENDING:
+            msg = f"Session {session_pk} is not in PENDING status"
+            raise PlacementRejectedError(PlacementRejection.SESSION_NOT_PENDING, msg)
+
+    def list_free_spots(self, event_pk: int) -> list[FreeSpotSpaceDTO]:
+        """List the rooms of an event with the slots nothing occupies them for.
+
+        Returns:
+            One entry per bookable room in tree order, carrying only the time
+            slots that have not started yet and hold no agenda item.
+        """
+        walked = self._tree(event_pk)
+        name_by_pk = {space.pk: space.name for space, _ in walked}
+        now = datetime.now(tz=UTC)
+        slots = sorted(
+            (
+                slot
+                for slot in self._repos.time_slots.list_by_event(event_pk)
+                if slot.start_time > now
+            ),
+            key=_slot_start,
+        )
+        taken: dict[int, list[AgendaItemDTO]] = defaultdict(list)
+        for item in self._repos.agenda_items.list_by_event(event_pk):
+            taken[item.space_id].append(item)
+
+        free_spaces = []
+        for space in _leaves(walked):
+            occupied = taken[space.pk]
+            free_slots = [
+                slot
+                for slot in slots
+                if not any(
+                    item.start_time < slot.end_time and slot.start_time < item.end_time
+                    for item in occupied
+                )
+            ]
+            if free_slots:
+                free_spaces.append(
+                    FreeSpotSpaceDTO(
+                        pk=space.pk,
+                        name=space.name,
+                        group=(
+                            name_by_pk.get(space.parent_id, "")
+                            if space.parent_id
+                            else ""
+                        ),
+                        slots=free_slots,
+                    )
+                )
+        return free_spaces
+
+    def claim_spot(
+        self,
+        *,
+        session_pk: int,
+        placement: SessionPlacement,
+        event_pk: int,
+        user_pk: int,
+    ) -> None:
+        """Place a walk-up claim, where `assign_session`'s policy does not fit.
+
+        The placeable status is PENDING rather than ACCEPTED, an overlap found
+        under the space lock is fatal rather than a warning an organizer may
+        leave standing, and the placement is always a create — a claim never
+        moves an item that is already on the grid.
+        """
+        self._require_placeable(placement)
+        with self._transaction.atomic():
+            require_session_in_event(
+                sessions=self._repos.sessions, session_pk=session_pk, event_pk=event_pk
+            )
+            self._repos.sessions.lock(session_pk)
+            self._require_space_in_event(placement.space_pk, event_pk)
+            self._require_placement_in_time_slots(placement, event_pk)
+            self._repos.spaces.lock(placement.space_pk)
+            self._require_pending(session_pk)
+            if self._repos.agenda_items.list_overlapping_in_space(
+                placement.space_pk, placement.start_time, placement.end_time
+            ):
+                raise PlacementRejectedError(
+                    PlacementRejection.SPACE_TAKEN,
+                    "the spot was claimed by somebody else",
+                )
+            event = self._repos.sessions.read_event(session_pk)
+            self._repos.agenda_items.create(
+                {
+                    "session_id": session_pk,
+                    "space_id": placement.space_pk,
+                    "start_time": placement.start_time,
+                    "end_time": placement.end_time,
+                    "session_confirmed": event.auto_confirm_sessions,
+                }
+            )
+            log_data: ScheduleChangeLogData = {
+                "event_id": event.pk,
+                "session_id": session_pk,
+                "user_id": user_pk,
+                "action": ScheduleChangeAction.ASSIGN,
+                "new_space_id": placement.space_pk,
+                "new_start_time": placement.start_time,
+                "new_end_time": placement.end_time,
+            }
+            self._repos.schedule_change_logs.create(log_data)
 
     def assign_session(
         self,

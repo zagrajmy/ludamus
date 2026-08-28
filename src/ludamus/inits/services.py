@@ -347,6 +347,7 @@ class Services:
             transaction=self._transaction,
             sessions=self._repos.sessions,
             agenda_items=self._repos.agenda_items,
+            spaces=self._repos.spaces,
             active_users=self._repos.active_users,
             spheres=self._repos.spheres,
         )
@@ -523,6 +524,7 @@ class Services:
     def propose_session(self) -> ProposeSessionService:
         return ProposeSessionService(
             transaction=self._transaction,
+            timetable=self.timetable,
             repos=ProposeRepos(
                 events=self._repos.events,
                 event_proposal_settings=self._repos.event_proposal_settings,

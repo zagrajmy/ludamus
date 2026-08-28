@@ -15,6 +15,7 @@ from ludamus.pacts import (
     SessionFieldValueData,
     SessionStatus,
 )
+from ludamus.pacts.chronology import SessionPlacement
 from ludamus.pacts.durations import normalize_duration
 from ludamus.pacts.propose import ProposeOpennessDTO, ProposeSessionServiceProtocol
 from ludamus.pacts.submissions import is_empty_answer
@@ -37,8 +38,9 @@ if TYPE_CHECKING:
         WizardData,
     )
     from ludamus.pacts.fields import FieldValue
-    from ludamus.pacts.propose import ProposeRepos
+    from ludamus.pacts.propose import ProposeRepos, SpotClaim
     from ludamus.pacts.services import TransactionProtocol
+    from ludamus.pacts.timetable import TimetableServiceProtocol
 
 
 def _category_is_open(
@@ -64,10 +66,12 @@ class ProposeSessionService(ProposeSessionServiceProtocol):
         transaction: TransactionProtocol,
         repos: ProposeRepos,
         cache: CacheProtocol,
+        timetable: TimetableServiceProtocol,
     ) -> None:
         self._transaction = transaction
         self._repos = repos
         self._cache = cache
+        self._timetable = timetable
 
     @staticmethod
     def _generate_unique_slug(title: str, exists: Callable[[str], bool]) -> str:
@@ -87,7 +91,7 @@ class ProposeSessionService(ProposeSessionServiceProtocol):
     def get_openness(self, event_id: int) -> ProposeOpennessDTO:
         event = self._repos.events.read(event_id)
         if not event.is_published:
-            return ProposeOpennessDTO(is_open=False, categories=[])
+            return ProposeOpennessDTO(is_open=False, categories=[], is_impromptu=False)
         now = datetime.now(tz=UTC)
         categories = [
             category
@@ -95,7 +99,9 @@ class ProposeSessionService(ProposeSessionServiceProtocol):
             if _category_is_open(category=category, event=event, now=now)
         ]
         return ProposeOpennessDTO(
-            is_open=event.is_proposal_active or bool(categories), categories=categories
+            is_open=event.is_proposal_active or bool(categories),
+            categories=categories,
+            is_impromptu=not event.is_proposal_active,
         )
 
     def get_personal_requirements(
@@ -166,6 +172,7 @@ class ProposeSessionService(ProposeSessionServiceProtocol):
         cover_image: UploadedFileProtocol | None = None,
         user_id: int | None = None,
         user_slug: str | None = None,
+        spot: SpotClaim | None = None,
     ) -> ProposeSessionResult:
         session_data = wizard_data.get("session_data", {})
         if "title" not in session_data:
@@ -209,6 +216,7 @@ class ProposeSessionService(ProposeSessionServiceProtocol):
                 min_age=int(str(session_data.get("min_age") or 0)),
                 contact_email=wizard_data.get("contact_email", ""),
                 status=SessionStatus.PENDING,
+                is_impromptu=spot is not None,
             )
             if cover_image:
                 create_data["cover_image"] = cover_image
@@ -241,7 +249,35 @@ class ProposeSessionService(ProposeSessionServiceProtocol):
                 if scoped := [pk for pk in track_pks if pk in allowed]:
                     self._repos.sessions.set_session_tracks(session_id, scoped)
 
+            if spot is not None:
+                if presenter_id is None:
+                    msg = "an impromptu claim needs a logged-in author"
+                    raise ValueError(msg)
+                self._claim(
+                    session_id=session_id,
+                    event_id=event.pk,
+                    spot=spot,
+                    presenter_id=presenter_id,
+                )
+
         return ProposeSessionResult(session_id=session_id, title=title)
+
+    def _claim(
+        self, *, session_id: int, event_id: int, spot: SpotClaim, presenter_id: int
+    ) -> None:
+        # read_time_slot scopes the slot to the session's own event, so a slot
+        # id smuggled past the picker is NotFound rather than a placement.
+        time_slot = self._repos.sessions.read_time_slot(session_id, spot.time_slot_pk)
+        self._timetable.claim_spot(
+            session_pk=session_id,
+            placement=SessionPlacement(
+                space_pk=spot.space_pk,
+                start_time=time_slot.start_time,
+                end_time=time_slot.end_time,
+            ),
+            event_pk=event_id,
+            user_pk=presenter_id,
+        )
 
     def _save_session_field_values(
         self,

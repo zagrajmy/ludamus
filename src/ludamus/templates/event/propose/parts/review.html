@@ -140,6 +140,17 @@
                     {% endfor %}
                 </dl>
             </div>
+            {% if review.spot %}
+                <div class="border border-border rounded-2xl p-5">
+                    <h3 class="text-sm font-medium text-foreground-muted mb-3">{% translate "Claimed spot" %}</h3>
+                    <p class="text-sm text-foreground">
+                        {% if review.spot.group %}{{ review.spot.group }} · {% endif %}{{ review.spot.space_name }}
+                    </p>
+                    <p class="text-sm text-foreground-muted">
+                        {{ review.spot.start_time|date:"l, d M" }}, {{ review.spot.start_time|date:"H:i" }}–{{ review.spot.end_time|date:"H:i" }}
+                    </p>
+                </div>
+            {% endif %}
             {% if review.time_slots %}
                 <div class="border border-border rounded-2xl p-5">
                     <h3 class="text-sm font-medium text-foreground-muted mb-3">{% translate "Preferred Time Slots" %}</h3>

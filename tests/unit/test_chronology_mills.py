@@ -789,6 +789,7 @@ class TestProposalAcceptanceService:
             transaction=transaction,
             sessions=sessions,
             agenda_items=agenda_items,
+            spaces=MagicMock(),
             active_users=active_users,
             spheres=spheres,
         )

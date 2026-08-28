@@ -107,7 +107,7 @@ def is_continuation(continuation_set: set[tuple[int, str]], slot_and_date: str) 
     return (int(slot_pk), date_iso) in continuation_set
 
 
-_WIZARD_ORDER = ("category", "personal", "timeslots", "details", "review")
+_WIZARD_ORDER = ("category", "personal", "timeslots", "spot", "details", "review")
 
 
 @register.filter

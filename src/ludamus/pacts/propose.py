@@ -45,11 +45,22 @@ class ProposeRepos(NamedTuple):
     users: UserRepositoryProtocol
 
 
+class SpotClaim(NamedTuple):
+    """The empty programme cell a walk-up asks for, as the picker offered it."""
+
+    space_pk: int
+    time_slot_pk: int
+
+
 class ProposeOpennessDTO(BaseModel):
     """Whether a visitor may propose right now, and into which categories."""
 
     is_open: bool
     categories: list[ProposalCategoryDTO]
+    # The event's own call for proposals has shut and only a category clock
+    # keeps the door open: whatever is proposed now is a walk-up claim on an
+    # empty programme slot, not an entry in the pre-event pipeline.
+    is_impromptu: bool
 
 
 class ProposeSessionServiceProtocol(Protocol):
@@ -81,4 +92,5 @@ class ProposeSessionServiceProtocol(Protocol):
         cover_image: UploadedFileProtocol | None = None,
         user_id: int | None = None,
         user_slug: str | None = None,
+        spot: SpotClaim | None = None,
     ) -> ProposeSessionResult: ...

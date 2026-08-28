@@ -24,6 +24,12 @@ from ludamus.gates.web.django.event.propose_forms import (
     build_personal_data_form,
     build_session_details_form,
 )
+from ludamus.gates.web.django.event.propose_spot import (
+    describe_spot,
+    pick_spot,
+    spot_descriptors,
+    stored_spot,
+)
 from ludamus.gates.web.django.helpers import get_client_ip
 from ludamus.gates.web.django.propose_cover import (
     delete_wizard_cover,
@@ -34,6 +40,7 @@ from ludamus.gates.web.django.propose_cover import (
 from ludamus.gates.web.django.sphere.pages import EventsPageRequiredMixin
 from ludamus.gates.web.django.templatetags.cfp_tags import has_field_value
 from ludamus.pacts import NotFoundError, RedirectError
+from ludamus.pacts.timetable import PlacementRejectedError
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Mapping, Sequence
@@ -54,6 +61,7 @@ if TYPE_CHECKING:
         TimeSlotRequirementDTO,
     )
     from ludamus.pacts.propose import ProposeOpennessDTO, ProposeSessionServiceProtocol
+    from ludamus.pacts.timetable import FreeSpotSpaceDTO
 
 # The half-finished proposal parked in the session between steps. Loosely typed
 # because it is whatever the session round-trips as JSON, not a domain object.
@@ -64,7 +72,14 @@ type StepContext = dict[str, object]
 # The wizard in submission order. Which of them an event actually shows is
 # decided per request by `_Wizard.steps`; nothing else may assume a fixed
 # neighbour, because a skipped step changes what "next" and "back" mean.
-_STEP_KEYS: tuple[str, ...] = ("category", "personal", "timeslots", "details", "review")
+_STEP_KEYS: tuple[str, ...] = (
+    "category",
+    "personal",
+    "timeslots",
+    "spot",
+    "details",
+    "review",
+)
 _STEP_TEMPLATES = {key: f"event/propose/parts/{key}.html" for key in _STEP_KEYS}
 
 
@@ -236,16 +251,24 @@ class _Wizard:
         return self.service.get_timeslot_requirements(self.category.pk)
 
     @cached_property
+    def free_spots(self) -> list[FreeSpotSpaceDTO]:
+        return self.request.services.timetable.list_free_spots(self.event.pk)
+
+    @cached_property
     def steps(self) -> tuple[str, ...]:
         # One time slot is no more a choice than one category. Before a category
         # is chosen the time-slot step is assumed present: the strip must not
         # grow a step the moment the first choice is made.
         shows_timeslots = self.category is None or len(self.timeslot_requirements) > 1
+        # A walk-up is picking one specific empty cell, so "which slots would
+        # suit you" is the wrong question: exactly one of the two shows.
+        claims = self.openness.is_impromptu
         return tuple(
             key
             for key in _STEP_KEYS
             if (key != "category" or len(self.categories) != 1)
-            and (key != "timeslots" or shows_timeslots)
+            and (key != "timeslots" or (shows_timeslots and not claims))
+            and (key != "spot" or claims)
         )
 
     @property
@@ -341,6 +364,17 @@ def _timeslots_context(
     }
 
 
+def _spot_context(
+    wizard: _Wizard, state: WizardState, *, error: str | None = None
+) -> StepContext:
+    return {
+        **wizard.base_context("spot"),
+        "category": wizard.chosen,
+        "spot_groups": spot_descriptors(wizard.free_spots, stored_spot(state)),
+        "error": error,
+    }
+
+
 def _details_context(
     wizard: _Wizard,
     state: WizardState,
@@ -420,6 +454,11 @@ def _review_context(wizard: _Wizard, state: WizardState) -> StepContext:
         "public_personal_fields": [f for f in personal_fields if f["is_public"]],
         "private_personal_fields": [f for f in personal_fields if not f["is_public"]],
         "time_slots": time_slots,
+        "spot": (
+            describe_spot(wizard.free_spots, stored_spot(state))
+            if "spot" in wizard.steps
+            else None
+        ),
     }
 
     return {**wizard.base_context("review"), "category": category, "review": review}
@@ -429,6 +468,7 @@ _STEP_CONTEXTS: dict[str, Callable[[_Wizard, WizardState], StepContext]] = {
     "category": _category_context,
     "personal": _personal_context,
     "timeslots": _timeslots_context,
+    "spot": _spot_context,
     "details": _details_context,
     "review": _review_context,
 }
@@ -457,11 +497,13 @@ class ProposeWizardMixin(EventsPageRequiredMixin, View):
     ) -> HttpResponseBase:
         if not request.user.is_authenticated:
             service = self.request.services.propose_session
-            event, _openness = self._get_open_event(
+            event, openness = self._get_open_event(
                 service, str(kwargs.get("event_slug", ""))
             )
             settings = service.get_or_create_proposal_settings(event.pk)
-            if not settings.allow_anonymous_proposals:
+            # A claim on a room has to have a name attached to it, whatever the
+            # event allows the pre-event pipeline.
+            if openness.is_impromptu or not settings.allow_anonymous_proposals:
                 return redirect(f"{django_settings.LOGIN_URL}?next={request.path}")
         return super().dispatch(request, *args, **kwargs)
 
@@ -639,6 +681,29 @@ class ProposeSessionTimeslotsComponentView(ProposeWizardMixin):
         return _render(wizard, wizard.after("timeslots"))
 
 
+class ProposeSessionSpotComponentView(ProposeWizardMixin):
+    def post(self, request: RootRequest, event_slug: str) -> HttpResponse:
+        wizard = self._wizard(request, event_slug, with_category=True)
+
+        if request.POST.get("back"):
+            return _render(wizard, wizard.at_or_before("spot"))
+
+        if "spot" not in wizard.steps:
+            return _render(wizard, wizard.after("spot"))
+
+        if (claim := pick_spot(wizard.free_spots, request.POST.get("spot"))) is None:
+            with _WizardState(request, event_slug) as state:
+                context = _spot_context(
+                    wizard, state, error=_("Please pick a spot that is still free.")
+                )
+            return TemplateResponse(request, _STEP_TEMPLATES["spot"], context)
+
+        with _WizardState(request, event_slug) as state:
+            state["spot"] = list(claim)
+
+        return _render(wizard, wizard.after("spot"))
+
+
 class ProposeSessionDetailsComponentView(ProposeWizardMixin):
     def post(self, request: RootRequest, event_slug: str) -> HttpResponse:
         wizard = self._wizard(request, event_slug, with_category=True)
@@ -720,13 +785,22 @@ class ProposeSessionSubmitActionView(ProposeWizardMixin):
                 )
 
         cover = pop_wizard_cover(state)
-        result = wizard.service.submit(
-            wizard.event,
-            state,
-            cover_image=cover,
-            user_id=request.context.current_user_id,
-            user_slug=request.context.current_user_slug,
-        )
+        try:
+            result = wizard.service.submit(
+                wizard.event,
+                state,
+                cover_image=cover,
+                user_id=request.context.current_user_id,
+                user_slug=request.context.current_user_slug,
+                spot=stored_spot(state) if "spot" in wizard.steps else None,
+            )
+        except PlacementRejectedError:
+            # The cell went to somebody else between the picker and here. The
+            # claim wrote nothing, so the proposer only has to pick again.
+            raise RedirectError(
+                _propose_url(event_slug),
+                error=_("That spot has just been taken. Please pick another one."),
+            ) from None
 
         del request.session[_session_key(event_slug)]
 

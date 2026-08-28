@@ -219,6 +219,7 @@ class SessionDTO(BaseModel):
     creation_time: datetime
     description: str
     duration: str = ""
+    is_impromptu: bool = False
     min_age: int
     modification_time: datetime
     participants_limit: int
@@ -398,6 +399,7 @@ class SessionData(TypedDict, total=False):
     duration: str
     event_id: int
     ident: str
+    is_impromptu: bool
     min_age: int
     participants_limit: int
     presenter_id: int | None

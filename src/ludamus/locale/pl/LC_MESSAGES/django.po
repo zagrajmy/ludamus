@@ -2462,6 +2462,10 @@ msgid "Please select at least one time slot."
 msgstr "Wybierz przynajmniej jeden przedział czasowy."
 
 #: src/ludamus/gates/web/django/event/propose.py
+msgid "Please pick a spot that is still free."
+msgstr "Wybierz okienko, które jest jeszcze wolne."
+
+#: src/ludamus/gates/web/django/event/propose.py
 msgid "Please select at least one track."
 msgstr "Wybierz przynajmniej jeden blok programowy."
 
@@ -2472,6 +2476,10 @@ msgstr "Brak szczegółów punktu programu. Zacznij od nowa."
 #: src/ludamus/gates/web/django/event/propose.py
 msgid "Please wait before submitting another proposal."
 msgstr "Poczekaj chwilę przed przesłaniem kolejnego zgłoszenia."
+
+#: src/ludamus/gates/web/django/event/propose.py
+msgid "That spot has just been taken. Please pick another one."
+msgstr "To okienko zostało właśnie zajęte. Wybierz inne."
 
 #: src/ludamus/gates/web/django/event/propose.py
 #, python-brace-format
@@ -5867,6 +5875,11 @@ msgstr "Twoje dane"
 
 #: src/ludamus/templates/event/propose/parts/_stepper.html
 msgctxt "wizard step"
+msgid "Spot"
+msgstr "Okienko"
+
+#: src/ludamus/templates/event/propose/parts/_stepper.html
+msgctxt "wizard step"
 msgid "Session"
 msgstr "Punkt programu"
 
@@ -5886,6 +5899,7 @@ msgstr "Wybierz typ punktu programu, który chcesz poprowadzić."
 #: src/ludamus/templates/event/propose/parts/category.html
 #: src/ludamus/templates/event/propose/parts/details.html
 #: src/ludamus/templates/event/propose/parts/personal.html
+#: src/ludamus/templates/event/propose/parts/spot.html
 #: src/ludamus/templates/event/propose/parts/timeslots.html
 msgid "Continue"
 msgstr "Dalej"
@@ -5907,6 +5921,7 @@ msgstr "Wybierz bloki programowe dla tego punktu programu."
 #: src/ludamus/templates/event/propose/parts/details.html
 #: src/ludamus/templates/event/propose/parts/personal.html
 #: src/ludamus/templates/event/propose/parts/review.html
+#: src/ludamus/templates/event/propose/parts/spot.html
 #: src/ludamus/templates/event/propose/parts/timeslots.html
 #: src/ludamus/templates/panel/facilitator-merge.html
 #: src/ludamus/templates/panel/parts/timetable-session-detail.html
@@ -5962,8 +5977,32 @@ msgid "All ages"
 msgstr "Bez ograniczeń"
 
 #: src/ludamus/templates/event/propose/parts/review.html
+msgid "Claimed spot"
+msgstr "Zajęte okienko"
+
+#: src/ludamus/templates/event/propose/parts/review.html
 msgid "Submit Proposal"
 msgstr "Prześlij zgłoszenie"
+
+#: src/ludamus/templates/event/propose/parts/spot.html
+msgid "Pick a free spot"
+msgstr "Wybierz wolne okienko"
+
+#: src/ludamus/templates/event/propose/parts/spot.html
+msgid ""
+"Rooms and hours nobody has taken yet. An organizer confirms your claim "
+"afterwards."
+msgstr ""
+"Sale i godziny, których nikt jeszcze nie zajął. Twoje zgłoszenie potwierdzi "
+"później organizator."
+
+#: src/ludamus/templates/event/propose/parts/spot.html
+msgid ""
+"Every room is busy for the rest of the programme. Ask an organizer whether "
+"anything can be freed up."
+msgstr ""
+"Wszystkie sale są zajęte do końca programu. Zapytaj organizatora, czy da się "
+"coś zwolnić."
 
 #: src/ludamus/templates/event/propose/parts/timeslots.html
 msgid "Pick every slot you could host."

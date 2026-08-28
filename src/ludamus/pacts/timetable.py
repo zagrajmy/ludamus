@@ -4,12 +4,18 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import TYPE_CHECKING, Protocol
 
+from pydantic import BaseModel
+
+from ludamus.pacts.legacy import TimeSlotDTO
+
 
 class PlacementRejection(StrEnum):
     NAIVE_DATETIME = "naive_datetime"
     END_NOT_AFTER_START = "end_not_after_start"
     OUTSIDE_TIME_SLOTS = "outside_time_slots"
     SESSION_NOT_ACCEPTED = "session_not_accepted"
+    SESSION_NOT_PENDING = "session_not_pending"
+    SPACE_TAKEN = "space_taken"
 
 
 if TYPE_CHECKING:
@@ -54,8 +60,27 @@ class TimetableRepos:
     schedule_change_logs: ScheduleChangeLogRepositoryProtocol
 
 
+class FreeSpotSpaceDTO(BaseModel):
+    """One bookable room and the time slots nothing occupies it for."""
+
+    pk: int
+    name: str
+    # The immediate-parent name this room groups under; empty at root level.
+    group: str
+    slots: list[TimeSlotDTO]
+
+
 class TimetableServiceProtocol(Protocol):
     def space_filter_options(self, event_pk: int) -> list[MultiselectOptionDTO]: ...
+    def list_free_spots(self, event_pk: int) -> list[FreeSpotSpaceDTO]: ...
+    def claim_spot(
+        self,
+        *,
+        session_pk: int,
+        placement: SessionPlacement,
+        event_pk: int,
+        user_pk: int,
+    ) -> None: ...
     def build_grid(
         self,
         *,

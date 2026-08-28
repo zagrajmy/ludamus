@@ -1040,6 +1040,10 @@ class Session(SoftDeleteModel):
         choices=[(item.value, item.name) for item in SessionStatus],
         default=SessionStatus.PENDING,
     )
+    # A walk-up claim on an empty programme slot: placed while still PENDING,
+    # so "PENDING and scheduled" cannot stand in for it — imported sessions
+    # commonly keep PENDING while scheduled.
+    is_impromptu = models.BooleanField(default=False)
     # Time
     creation_time = models.DateTimeField(auto_now_add=True)
     modification_time = models.DateTimeField(auto_now=True)

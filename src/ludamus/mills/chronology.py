@@ -68,6 +68,7 @@ if TYPE_CHECKING:
         SessionFieldValueDTO,
         SessionRepositoryProtocol,
         SessionUpdateData,
+        SpaceRepositoryProtocol,
         SphereRepositoryProtocol,
         TimeSlotDTO,
     )
@@ -221,12 +222,14 @@ class ProposalAcceptanceService:
         transaction: TransactionProtocol,
         sessions: SessionRepositoryProtocol,
         agenda_items: AgendaItemRepositoryProtocol,
+        spaces: SpaceRepositoryProtocol,
         active_users: UserRepositoryProtocol,
         spheres: SphereRepositoryProtocol,
     ) -> None:
         self._transaction = transaction
         self._sessions = sessions
         self._agenda_items = agenda_items
+        self._spaces = spaces
         self._active_users = active_users
         self._spheres = spheres
 
@@ -270,6 +273,9 @@ class ProposalAcceptanceService:
         session = self._sessions.read(session_id)
         time_slot = self._sessions.read_time_slot(session_id, time_slot_id)
         with self._transaction.atomic():
+            # Locked before the check, so accepting into a cell somebody is
+            # claiming through the propose wizard cannot interleave with it.
+            self._spaces.lock(space_id)
             if self._agenda_items.list_overlapping_in_space(
                 space_id,
                 time_slot.start_time,

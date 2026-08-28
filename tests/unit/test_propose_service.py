@@ -4,6 +4,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from ludamus.mills.propose import ProposeSessionService
+from ludamus.pacts.chronology import SessionPlacement
 from ludamus.pacts.legacy import (
     EventDTO,
     FacilitatorDTO,
@@ -11,9 +12,10 @@ from ludamus.pacts.legacy import (
     PersonalDataFieldValueData,
     ProposalCategoryDTO,
     SessionFieldValueData,
+    TimeSlotDTO,
     TrackDTO,
 )
-from ludamus.pacts.propose import ProposeRepos
+from ludamus.pacts.propose import ProposeRepos, SpotClaim
 
 EXPECTED_SESSION_ID = 99
 FACILITATOR_PK = 10
@@ -99,9 +101,16 @@ def cache_fixture():
     return FakeCache()
 
 
+@pytest.fixture(name="timetable")
+def timetable_fixture():
+    return MagicMock()
+
+
 @pytest.fixture(name="service")
-def service_fixture(repos, cache):
-    return ProposeSessionService(transaction=MagicMock(), repos=repos, cache=cache)
+def service_fixture(repos, cache, timetable):
+    return ProposeSessionService(
+        transaction=MagicMock(), repos=repos, cache=cache, timetable=timetable
+    )
 
 
 class TestSubmit:
@@ -327,3 +336,70 @@ class TestGetOpenness:
         assert openness.is_open is False
         assert openness.categories == []
         repos.categories.list_by_event.assert_not_called()
+
+
+class TestSubmitClaim:
+    def test_marks_the_session_impromptu_and_places_it(
+        self, service, submitting_repos, timetable
+    ):
+        submitting_repos.users.read.return_value = MagicMock(pk=42, name="Walk Up")
+        slot = TimeSlotDTO(
+            pk=5,
+            start_time=datetime(2026, 1, 1, 14, 0, tzinfo=UTC),
+            end_time=datetime(2026, 1, 1, 15, 0, tzinfo=UTC),
+        )
+        submitting_repos.sessions.read_time_slot.return_value = slot
+
+        service.submit(
+            _event(),
+            {
+                "category_id": 1,
+                "session_data": {"title": "Corridor Game", "display_name": "Walk Up"},
+            },
+            user_id=42,
+            user_slug="walk-up",
+            spot=SpotClaim(space_pk=3, time_slot_pk=5),
+        )
+
+        created = submitting_repos.sessions.create.call_args.args[0]
+        assert created["is_impromptu"] is True
+        timetable.claim_spot.assert_called_once_with(
+            session_pk=EXPECTED_SESSION_ID,
+            placement=SessionPlacement(
+                space_pk=3, start_time=slot.start_time, end_time=slot.end_time
+            ),
+            event_pk=1,
+            user_pk=42,
+        )
+
+    def test_a_plain_proposal_is_not_impromptu_and_places_nothing(
+        self, service, submitting_repos, timetable
+    ):
+        service.submit(
+            _event(),
+            {
+                "category_id": 1,
+                "session_data": {"title": "Test Session", "display_name": "Anon Host"},
+            },
+            user_id=None,
+            user_slug=None,
+        )
+
+        created = submitting_repos.sessions.create.call_args.args[0]
+        assert created["is_impromptu"] is False
+        timetable.claim_spot.assert_not_called()
+
+    def test_an_anonymous_claim_is_refused(self, service, submitting_repos, timetable):
+        with pytest.raises(ValueError, match="needs a logged-in author"):
+            service.submit(
+                _event(),
+                {
+                    "category_id": 1,
+                    "session_data": {"title": "Corridor Game", "display_name": "Anon"},
+                },
+                user_id=None,
+                user_slug=None,
+                spot=SpotClaim(space_pk=3, time_slot_pk=5),
+            )
+
+        timetable.claim_spot.assert_not_called()
