@@ -14,7 +14,7 @@ def _grandfather_existing_addresses(apps, schema_editor):
 
 class Migration(migrations.Migration):
 
-    dependencies = [("db_main", "0151_schedulechangelog_important")]
+    dependencies = [("db_main", "0153_alter_sphere_default_page")]
 
     operations = [
         migrations.AddField(

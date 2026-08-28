@@ -14,6 +14,7 @@ from ludamus.links.db.django.models import (
 from ludamus.links.db.django.users import display_avatar_url
 from ludamus.pacts import NotFoundError, SessionParticipationStatus
 from ludamus.pacts.crowd import UserDTO
+from ludamus.pacts.ids import EventBanId, EventId, SessionId, UserId
 from ludamus.pacts.safety import (
     EventBanDTO,
     EventBanRepositoryProtocol,
@@ -44,13 +45,13 @@ def _resolve_user(identifier: str) -> User | None:
 
 
 def _met_sessions_by_player(
-    owner_id: int, player_ids: list[int]
-) -> dict[int, list[ShadowbanMeetSessionDTO]]:
+    owner_id: UserId, player_ids: list[UserId]
+) -> dict[UserId, list[ShadowbanMeetSessionDTO]]:
     if not player_ids:
         return {}
 
     confirmed = SessionParticipationStatus.CONFIRMED
-    rows: dict[tuple[int, int], ShadowbanMeetSessionDTO] = {}
+    rows: dict[tuple[UserId, SessionId], ShadowbanMeetSessionDTO] = {}
 
     presented = SessionParticipation.objects.filter(
         user_id__in=player_ids, session__presenter_id=owner_id
@@ -71,10 +72,12 @@ def _met_sessions_by_player(
             "session__event__sphere__name",
             "session__event__sphere__site__domain",
         ).distinct():
+            player_id = UserId(row["user_id"])
+            met_session_id = SessionId(row["session_id"])
             rows.setdefault(
-                (row["user_id"], row["session_id"]),
+                (player_id, met_session_id),
                 ShadowbanMeetSessionDTO(
-                    session_id=row["session_id"],
+                    session_id=met_session_id,
                     title=row["session__title"],
                     event_slug=row["session__event__slug"],
                     event_name=row["session__event__name"],
@@ -83,7 +86,7 @@ def _met_sessions_by_player(
                 ),
             )
 
-    by_player: dict[int, list[ShadowbanMeetSessionDTO]] = {
+    by_player: dict[UserId, list[ShadowbanMeetSessionDTO]] = {
         player_id: [] for player_id in player_ids
     }
     for (user_id, _session_id), dto in rows.items():
@@ -95,9 +98,27 @@ def _met_sessions_by_player(
     return by_player
 
 
+def _candidate_dto(
+    *,
+    player: User,
+    banned_ids: set[int],
+    met_by_player: dict[UserId, list[ShadowbanMeetSessionDTO]],
+) -> ShadowbanCandidateDTO:
+    player_id = UserId(player.pk)
+    return ShadowbanCandidateDTO(
+        pk=player_id,
+        full_name=player.full_name,
+        username=player.username,
+        slug=player.slug,
+        avatar_url=display_avatar_url(player),
+        is_shadowbanned=player_id in banned_ids,
+        met_sessions=met_by_player[player_id],
+    )
+
+
 class ShadowbanRepository(ShadowbanRepositoryProtocol):
     @staticmethod
-    def list_candidates(owner_id: int) -> list[ShadowbanCandidateDTO]:
+    def list_candidates(owner_id: UserId) -> list[ShadowbanCandidateDTO]:
         banned_ids = set(
             Shadowban.objects.filter(owner_id=owner_id).values_list(
                 "target_id", flat=True
@@ -120,17 +141,11 @@ class ShadowbanRepository(ShadowbanRepositoryProtocol):
             .order_by("name")
         )
         met_by_player = _met_sessions_by_player(
-            owner_id, [player.pk for player in players]
+            owner_id, [UserId(player.pk) for player in players]
         )
         candidates = [
-            ShadowbanCandidateDTO(
-                pk=player.pk,
-                full_name=player.full_name,
-                username=player.username,
-                slug=player.slug,
-                avatar_url=display_avatar_url(player),
-                is_shadowbanned=player.pk in banned_ids,
-                met_sessions=met_by_player[player.pk],
+            _candidate_dto(
+                player=player, banned_ids=banned_ids, met_by_player=met_by_player
             )
             for player in players
         ]
@@ -138,23 +153,25 @@ class ShadowbanRepository(ShadowbanRepositoryProtocol):
         return candidates
 
     @staticmethod
-    def banned_user_ids(owner_id: int) -> set[int]:
-        return set(
-            Shadowban.objects.filter(owner_id=owner_id).values_list(
+    def banned_user_ids(owner_id: UserId) -> set[UserId]:
+        return {
+            UserId(pk)
+            for pk in Shadowban.objects.filter(owner_id=owner_id).values_list(
                 "target_id", flat=True
             )
-        )
+        }
 
     @staticmethod
-    def banning_owner_ids(target_id: int) -> set[int]:
-        return set(
-            Shadowban.objects.filter(target_id=target_id).values_list(
+    def banning_owner_ids(target_id: UserId) -> set[UserId]:
+        return {
+            UserId(pk)
+            for pk in Shadowban.objects.filter(target_id=target_id).values_list(
                 "owner_id", flat=True
             )
-        )
+        }
 
     @staticmethod
-    def set_shadowban(*, owner_id: int, target_slug: str, banned: bool) -> None:
+    def set_shadowban(*, owner_id: UserId, target_slug: str, banned: bool) -> None:
         try:
             target = User.objects.get(slug=target_slug)
         except User.DoesNotExist as exception:
@@ -167,7 +184,7 @@ class ShadowbanRepository(ShadowbanRepositoryProtocol):
             Shadowban.objects.filter(owner_id=owner_id, target=target).delete()
 
     @staticmethod
-    def shadowban_by_identifier(*, owner_id: int, identifier: str) -> bool:
+    def shadowban_by_identifier(*, owner_id: UserId, identifier: str) -> bool:
         target = _resolve_user(identifier)
         if target is None or target.pk == owner_id:
             return False
@@ -176,7 +193,7 @@ class ShadowbanRepository(ShadowbanRepositoryProtocol):
 
     @staticmethod
     def list_session_shadowbanned(
-        *, viewer_id: int, session_id: int
+        *, viewer_id: UserId, session_id: SessionId
     ) -> list[SessionShadowbanWarningDTO]:
         occupying = (
             SessionParticipationStatus.CONFIRMED,
@@ -202,7 +219,7 @@ class ShadowbanRepository(ShadowbanRepositoryProtocol):
 
     @staticmethod
     def read_event_signup(
-        *, session_id: int, signed_up_ids: list[int]
+        *, session_id: SessionId, signed_up_ids: list[UserId]
     ) -> ShadowbanEventSignupDTO | None:
         if not signed_up_ids:
             return None
@@ -239,14 +256,13 @@ class ShadowbanRepository(ShadowbanRepositoryProtocol):
             .distinct()
         )
         in_session_pairs = {
-            (recipient_id, banned_user_id)
-            for recipient_id, _email, _verified, banned_user_id in player_rows
+            (UserId(recipient_pk), UserId(banned_pk))
+            for recipient_pk, _email, _verified, banned_pk in player_rows
         }
-        hits: dict[tuple[int, int], ShadowbanHitDTO] = {}
-        for recipient_id, email, verified, banned_user_id in (
-            *presenter_rows,
-            *player_rows,
-        ):
+        hits: dict[tuple[UserId, UserId], ShadowbanHitDTO] = {}
+        for recipient_pk, email, verified, banned_pk in (*presenter_rows, *player_rows):
+            recipient_id = UserId(recipient_pk)
+            banned_user_id = UserId(banned_pk)
             hits[recipient_id, banned_user_id] = ShadowbanHitDTO(
                 recipient_id=recipient_id,
                 recipient_email=email if verified else "",
@@ -264,7 +280,7 @@ class ShadowbanRepository(ShadowbanRepositoryProtocol):
 
 class EventBanRepository(EventBanRepositoryProtocol):
     @staticmethod
-    def list_by_event(event_id: int) -> list[EventBanDTO]:
+    def list_by_event(event_id: EventId) -> list[EventBanDTO]:
         rows = (
             EventBan.objects.filter(event_id=event_id)
             .select_related("user")
@@ -272,7 +288,7 @@ class EventBanRepository(EventBanRepositoryProtocol):
         )
         return [
             EventBanDTO(
-                pk=ban.pk,
+                pk=EventBanId(ban.pk),
                 user_name=ban.user.full_name,
                 user_slug=ban.user.slug,
                 reason=ban.reason,
@@ -282,19 +298,20 @@ class EventBanRepository(EventBanRepositoryProtocol):
         ]
 
     @staticmethod
-    def is_banned(*, event_id: int, user_id: int) -> bool:
+    def is_banned(*, event_id: EventId, user_id: UserId) -> bool:
         return EventBan.objects.filter(event_id=event_id, user_id=user_id).exists()
 
     @staticmethod
-    def banned_event_ids(*, event_ids: set[int], user_id: int) -> set[int]:
-        return set(
-            EventBan.objects.filter(
+    def banned_event_ids(*, event_ids: set[EventId], user_id: UserId) -> set[EventId]:
+        return {
+            EventId(pk)
+            for pk in EventBan.objects.filter(
                 event_id__in=event_ids, user_id=user_id
             ).values_list("event_id", flat=True)
-        )
+        }
 
     @staticmethod
-    def ban(*, event_id: int, identifier: str, reason: str) -> bool:
+    def ban(*, event_id: EventId, identifier: str, reason: str) -> bool:
         if (user := _resolve_user(identifier)) is None:
             return False
         EventBan.objects.update_or_create(
@@ -305,5 +322,5 @@ class EventBanRepository(EventBanRepositoryProtocol):
         return True
 
     @staticmethod
-    def unban(*, event_id: int, ban_id: int) -> None:
+    def unban(*, event_id: EventId, ban_id: EventBanId) -> None:
         EventBan.objects.filter(event_id=event_id, pk=ban_id).delete()

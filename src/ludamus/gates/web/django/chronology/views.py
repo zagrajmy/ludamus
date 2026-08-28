@@ -17,11 +17,12 @@ from ludamus.gates.web.django.dynamic_fields import (
     field_descriptors,
 )
 from ludamus.gates.web.django.forms import SessionEditForm
+from ludamus.gates.web.django.sphere.pages import EventsPageRequiredMixin
 from ludamus.mills.chronology import SessionEditNotAllowedError
 from ludamus.pacts import RedirectError, SessionFieldValueData, SessionStatus
 from ludamus.pacts.chronology import SpaceTimeConflictError
 from ludamus.pacts.durations import parse_duration
-from ludamus.pacts.ids import SessionId, SphereId, UserId
+from ludamus.pacts.ids import SessionId
 from ludamus.pacts.images import stored_file
 
 from .forms import create_proposal_acceptance_form
@@ -72,7 +73,7 @@ def _collect_session_field_values(
     ]
 
 
-class SessionEditView(LoginRequiredMixin, View):
+class SessionEditView(EventsPageRequiredMixin, LoginRequiredMixin, View):
     """Facilitator self-service editing of their own session, inline in the modal.
 
     Both GET (edit form) and POST (save) return the form fragment swapped into
@@ -208,7 +209,7 @@ class SessionEditView(LoginRequiredMixin, View):
         )
 
 
-class SessionBookmarkToggleView(View):
+class SessionBookmarkToggleView(EventsPageRequiredMixin, View):
     @staticmethod
     def post(request: RootRequest, session_id: int) -> JsonResponse:
         if (user_id := request.context.current_user_id) is None:
@@ -216,16 +217,16 @@ class SessionBookmarkToggleView(View):
             # useless, so surface the auth failure as JSON for the client.
             return JsonResponse({"error": "auth"}, status=401)
         result = request.services.bookmarks.toggle(
-            user_id=UserId(user_id),
+            user_id=user_id,
             session_id=SessionId(session_id),
-            sphere_id=SphereId(request.context.current_sphere_id),
+            sphere_id=request.context.current_sphere_id,
         )
         if result is None:
             return JsonResponse({"error": "not-found"}, status=404)
         return JsonResponse({"bookmarked": result.bookmarked, "count": result.count})
 
 
-class ProposalAcceptPageView(LoginRequiredMixin, View):
+class ProposalAcceptPageView(EventsPageRequiredMixin, LoginRequiredMixin, View):
     request: AuthenticatedRootRequest
 
     def get(

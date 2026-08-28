@@ -43,6 +43,7 @@ from ludamus.pacts.enrollment import (
     WaitingParticipantDTO,
     distinct_recipients,
 )
+from ludamus.pacts.ids import UserId
 from ludamus.pacts.legacy import (
     NotFoundError,
     PromotionMode,
@@ -201,7 +202,7 @@ class ParticipationPromotionRepository:
             )
 
         shadowbanned_user_ids = frozenset(
-            ShadowbanRepository.banned_user_ids(session.presenter_id)
+            ShadowbanRepository.banned_user_ids(UserId(session.presenter_id))
             if session.presenter_id
             else ()
         )

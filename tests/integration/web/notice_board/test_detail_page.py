@@ -100,6 +100,43 @@ class TestEncounterDetailPageView:
         )
         assert encounter.header_image_url.encode() in response.content
 
+    def test_ok_public(self, client, encounter):
+        encounter.is_public = True
+        encounter.save()
+        url = reverse(
+            "web:notice-board:encounter-detail",
+            kwargs={"share_code": encounter.share_code},
+        )
+
+        response = client.get(url)
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=_detail_context(encounter),
+            template_name="notice_board/detail.html",
+        )
+
+    def test_ok_public_with_header_image(self, client, encounter):
+        encounter.is_public = True
+        encounter.header_image = SimpleUploadedFile(
+            "header.png", PNG_BYTES, content_type="image/png"
+        )
+        encounter.save()
+        url = reverse(
+            "web:notice-board:encounter-detail",
+            kwargs={"share_code": encounter.share_code},
+        )
+
+        response = client.get(url)
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=_detail_context(encounter),
+            template_name="notice_board/detail.html",
+        )
+
     def test_shows_creator_discord_handle(self, client, encounter):
         encounter.creator.discord_username = "coolgm"
         encounter.creator.save()

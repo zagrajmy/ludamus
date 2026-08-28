@@ -5,7 +5,7 @@ from django.db import migrations, models
 
 class Migration(migrations.Migration):
 
-    dependencies = [("db_main", "0152_user_email_verified")]
+    dependencies = [("db_main", "0154_user_email_verified")]
 
     operations = [
         migrations.AddField(
