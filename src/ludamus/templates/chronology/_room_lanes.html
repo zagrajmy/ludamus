@@ -58,7 +58,7 @@
             {# first day has no in-grid seam of its own, so this bar is the #}
             {# only handle it gets; data-fold-day tracks the day shown. #}
             <div class="room-lanes-day-current border-b border-border/60 bg-background">
-                {% include "components/day-fold-toggle.html" with day_start=room_lanes.rows.0.day_start is_bar=True extra_class="inline-flex px-2 py-1" only %}
+                {% include "components/day-fold-toggle.html" with day_start=room_lanes.rows.0.day_start is_bar=True extra_class="inline-flex" only %}
             </div>
             <div class="room-lanes-head overflow-x-auto overscroll-x-contain scrollview-fade scrollview-fade-x-8"
                  data-room-lanes-head>
@@ -155,7 +155,9 @@
                                  data-lane-row="{{ forloop.counter }}"
                                  data-lane-day="{{ row.day }}"
                                  data-day="{{ row.day_start|date:'Y-m-d' }}">
-                                <h3 class="sticky left-0 px-2 py-2 text-sm font-bold uppercase tracking-wide text-foreground-secondary">
+                                {# py-1 here + py-1 on the toggle keeps the text on the #}
+                                {# old px-2 py-2 insets while the hover fill gains them. #}
+                                <h3 class="sticky left-0 py-1 text-sm font-bold uppercase tracking-wide text-foreground-secondary">
                                     {% include "components/day-fold-toggle.html" with day_start=row.day_start extra_class="inline-flex" only %}
                                 </h3>
                             </div>

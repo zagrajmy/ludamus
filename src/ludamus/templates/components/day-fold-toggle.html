@@ -5,6 +5,9 @@ the chevron that flips with aria-expanded (schedule-fold.css, schedule-fold.ts).
 One component for the card/ledger day headings and both rooms-grid copies, so
 the cluster cannot drift between them.
 
+The padding is part of the component: it is what the hover fill breathes
+through, so a caller must not need to remember it.
+
 Variables:
   day_start    the day's first instant; prints as weekday name + date
   extra_class  layout classes from the caller (display, hit area, position)
@@ -18,7 +21,7 @@ Variables:
         {# The hover fill is a foreground-color wash, not a surface token: the #}
         {# toggle sits on different grounds (page, the ledger's sheet, the #}
         {# rooms header) and a fixed surface color would vanish on some. #}
-        class="items-baseline gap-2 rounded-md text-left text-sm font-bold uppercase tracking-wide text-foreground-secondary transition-colors hover:bg-foreground/5 hover:text-foreground active:scale-100!{% if extra_class %} {{ extra_class }}{% endif %}"
+        class="items-baseline gap-2 rounded-md px-2 py-1 text-left text-sm font-bold uppercase tracking-wide text-foreground-secondary transition-colors hover:bg-foreground/5 hover:text-foreground active:scale-100!{% if extra_class %} {{ extra_class }}{% endif %}"
         data-day-fold
         {% if is_bar %}data-room-lanes-day-current data-fold-day="0"{% endif %}
         aria-expanded="true">
