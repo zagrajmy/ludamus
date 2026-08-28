@@ -29,18 +29,14 @@
                                 <span class="text-xs font-normal">({% translate "Not Yet Available" %})</span>
                             {% endif %}
                         </div>
-                        {% if slot.kind == "current" %}
-                            <hr />
-                            {% if event.is_live and slot.is_first_current %}
-                                <span class="text-sm text-teal-600 dark:text-teal-400 font-medium flex items-center gap-1.5">
-                                    <span class="w-2 h-2 bg-teal-500 rounded-full live-dot"></span>
-                                    {% translate "Now" %}
-                                </span>
-                            {% endif %}
-                        {% else %}
-                            <div class="h-px grow bg-border"></div>
+                        <div class="h-px grow bg-border"></div>
+                        {% if event.is_live and slot.is_first_current %}
+                            <span class="text-sm text-teal-600 dark:text-teal-400 font-medium flex items-center gap-1.5">
+                                <span class="w-2 h-2 bg-teal-500 rounded-full live-dot"></span>
+                                {% translate "Now" %}
+                            </span>
                         {% endif %}
-                        <span class="text-xs text-foreground-muted">{{ slot.sessions|length }} session{{ slot.sessions|length|pluralize }}</span>
+                        <span class="text-xs text-foreground-muted">{% blocktranslate count counter=slot.sessions|length %}{{ counter }} session{% plural %}{{ counter }} sessions{% endblocktranslate %}</span>
                         {% if slot.kind == "current" and event.is_proposal_active %}
                             <a href="{% url 'web:event:session-propose' event_slug=event.slug %}"
                                class="text-teal-600 bg-teal-400/20 dark:bg-teal-800/20 dark:text-teal-400 gap-1.5 p-1.5 rounded-lg hover:bg-teal-400/30 dark:hover:bg-teal-800/30 transition-colors hover:duration-0 shrink-0">
