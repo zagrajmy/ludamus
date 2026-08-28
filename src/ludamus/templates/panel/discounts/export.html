@@ -21,7 +21,11 @@
                         {% translate "Writes every facilitator with their accreditation type and discount into the first tab of the selected spreadsheet, replacing its current content." %}
                     </p>
                     <p class="text-sm text-foreground-muted mb-4">
-                        {% translate "Share the spreadsheet with the connection's service account e-mail as an editor first." %}
+                        {% if sole_connection_name %}
+                            {% blocktranslate with name=sole_connection_name %}Share the spreadsheet with the service account e-mail of {{ name }} as an editor first.{% endblocktranslate %}
+                        {% else %}
+                            {% translate "Share the spreadsheet with the connection's service account e-mail as an editor first." %}
+                        {% endif %}
                     </p>
                     <form method="post"
                           class="space-y-4"

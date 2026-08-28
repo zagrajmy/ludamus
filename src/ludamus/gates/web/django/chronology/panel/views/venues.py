@@ -302,6 +302,9 @@ class SpaceCopyPageView(PanelAccessMixin, EventContextMixin, View):
         context["active_nav"] = "venues"
         context["node"] = node
         context["form"] = create_space_copy_form(choices)()
+        # A single target is not a choice, so the form stops asking for it and
+        # the page has to name the destination itself.
+        context["sole_target_name"] = choices[0][1] if len(choices) == 1 else ""
         return TemplateResponse(self.request, "panel/space-copy.html", context)
 
     def post(self, _request: PanelRequest, slug: str, pk: int) -> HttpResponse:
@@ -319,6 +322,7 @@ class SpaceCopyPageView(PanelAccessMixin, EventContextMixin, View):
             context["active_nav"] = "venues"
             context["node"] = node
             context["form"] = form
+            context["sole_target_name"] = choices[0][1] if len(choices) == 1 else ""
             return TemplateResponse(self.request, "panel/space-copy.html", context)
 
         target_event_id = int(form.cleaned_data["target_event"])

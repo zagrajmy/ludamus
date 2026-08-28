@@ -32,11 +32,14 @@ from ludamus.pacts.discounts import (
 from ludamus.pacts.submissions import AccreditationType
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
+
     from django.http import HttpResponse
     from django.utils.functional import Promise
 
     from ludamus.pacts import FacilitatorDTO, FacilitatorListItemDTO
     from ludamus.pacts.discounts import DiscountDTO
+    from ludamus.pacts.multiverse import ConnectionDTO
 
 
 class _DiscountAssignment(TypedDict):
@@ -287,7 +290,7 @@ class DiscountExportPageView(PanelAccessMixin, EventContextMixin, View):
         return self._render(
             context=context,
             form=DiscountExportForm(connections=connections),
-            has_connections=bool(connections),
+            connections=connections,
         )
 
     def post(self, _request: PanelRequest, slug: str) -> HttpResponse:
@@ -299,9 +302,7 @@ class DiscountExportPageView(PanelAccessMixin, EventContextMixin, View):
         connections = self.request.services.connections.list_for_sphere(sphere_id)
         form = DiscountExportForm(self.request.POST, connections=connections)
         if not form.is_valid():
-            return self._render(
-                context=context, form=form, has_connections=bool(connections)
-            )
+            return self._render(context=context, form=form, connections=connections)
 
         try:
             count = self.request.services.discounts_export.export_to_sheet(
@@ -313,14 +314,10 @@ class DiscountExportPageView(PanelAccessMixin, EventContextMixin, View):
             )
         except NotFoundError:
             messages.error(self.request, _("Connection not found."))
-            return self._render(
-                context=context, form=form, has_connections=bool(connections)
-            )
+            return self._render(context=context, form=form, connections=connections)
         except SheetExportError as error:
             messages.error(self.request, _("Export failed: %(hint)s") % {"hint": error})
-            return self._render(
-                context=context, form=form, has_connections=bool(connections)
-            )
+            return self._render(context=context, form=form, connections=connections)
 
         messages.success(
             self.request,
@@ -338,9 +335,14 @@ class DiscountExportPageView(PanelAccessMixin, EventContextMixin, View):
         *,
         context: dict[str, object],
         form: DiscountExportForm,
-        has_connections: bool,
+        connections: Sequence[ConnectionDTO],
     ) -> HttpResponse:
         context["active_nav"] = "discounts"
         context["form"] = form
-        context["has_connections"] = has_connections
+        context["has_connections"] = bool(connections)
+        # A single connection is not a choice, so the form stops asking which
+        # one and the instructions have to name it instead.
+        context["sole_connection_name"] = (
+            connections[0].display_name if len(connections) == 1 else ""
+        )
         return TemplateResponse(self.request, "panel/discounts/export.html", context)

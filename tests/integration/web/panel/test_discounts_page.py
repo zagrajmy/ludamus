@@ -629,10 +629,11 @@ class TestDiscountExportPageView:
                 **panel_context(event, active_nav="discounts"),
                 "form": ANY,
                 "has_connections": True,
+                "sole_connection_name": connection.display_name,
             },
-            # The sphere's only connection is not a choice: the export carries
-            # it instead of asking which one to write through.
-            contains=f'<input type="hidden" name="connection" value="{connection.pk}">',
+            # The sphere's only connection is not a choice, so the export stops
+            # asking which one and the instructions name it instead.
+            contains=connection.display_name,
         )
 
     def test_get_shows_empty_state_without_connections(self, panel_client, event):
@@ -646,6 +647,7 @@ class TestDiscountExportPageView:
                 **panel_context(event, active_nav="discounts"),
                 "form": ANY,
                 "has_connections": False,
+                "sole_connection_name": "",
             },
             contains="No connections yet.",
         )
@@ -716,6 +718,7 @@ class TestDiscountExportPageView:
                 **panel_context(event, active_nav="discounts"),
                 "form": ANY,
                 "has_connections": True,
+                "sole_connection_name": connection_with_secret.display_name,
             },
         )
         session.post.assert_not_called()
@@ -740,6 +743,7 @@ class TestDiscountExportPageView:
                 **panel_context(event, active_nav="discounts"),
                 "form": ANY,
                 "has_connections": True,
+                "sole_connection_name": connection_with_secret.display_name,
             },
         )
         session.put.assert_not_called()
@@ -761,6 +765,7 @@ class TestDiscountExportPageView:
                 **panel_context(event, active_nav="discounts"),
                 "form": ANY,
                 "has_connections": False,
+                "sole_connection_name": "",
             },
         )
         assert response.context["form"].errors
@@ -782,6 +787,7 @@ class TestDiscountExportPageView:
                 **panel_context(event, active_nav="discounts"),
                 "form": ANY,
                 "has_connections": True,
+                "sole_connection_name": connection.display_name,
             },
         )
         assert response.context["form"].errors == {

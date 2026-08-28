@@ -73,6 +73,7 @@
                       action="{% url 'web:chronology:session-accept' event_slug=event.slug session_id=session.pk %}"
                       class="space-y-5">
                     {% csrf_token %}
+                    {% tessera_errors form %}
                     {% tessera_field form.space %}
                     {% tessera_field form.time_slot %}
                     <div class="[&_.btn]:w-full space-y-3 pt-1">

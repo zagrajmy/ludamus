@@ -6954,6 +6954,15 @@ msgstr ""
 "pierwszej zakładki wybranego arkusza, zastępując jego obecną zawartość."
 
 #: src/ludamus/templates/panel/discounts/export.html
+#, python-format
+msgid ""
+"Share the spreadsheet with the service account e-mail of %(name)s as an "
+"editor first."
+msgstr ""
+"Najpierw udostępnij arkusz do edycji na adres e-mail konta usługi połączenia "
+"%(name)s."
+
+#: src/ludamus/templates/panel/discounts/export.html
 msgid ""
 "Share the spreadsheet with the connection's service account e-mail as an "
 "editor first."
@@ -8998,6 +9007,15 @@ msgstr "Etykieta uczestników"
 #: src/ludamus/templates/panel/space-copy.html
 msgid "Copy space"
 msgstr "Kopiuj przestrzeń"
+
+#: src/ludamus/templates/panel/space-copy.html
+#, python-format
+msgid ""
+"Copies \"%(name)s\" and everything inside it into %(target)s as a new top-"
+"level space."
+msgstr ""
+"Kopiuje „%(name)s\" i całą jej zawartość do wydarzenia %(target)s jako nową "
+"przestrzeń najwyższego poziomu."
 
 #: src/ludamus/templates/panel/space-copy.html
 #, python-format

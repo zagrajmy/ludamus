@@ -1,6 +1,7 @@
 """Integration tests for the recursive Space-tree panel CRUD."""
 
 import json
+from datetime import timedelta
 from http import HTTPStatus
 from unittest.mock import ANY
 
@@ -10,6 +11,7 @@ from django.urls import reverse
 from django.utils.text import slugify
 
 from ludamus.links.db.django.models import SPACE_NO_CHILDREN_REASON, Space, Track
+from ludamus.pacts import EventDTO
 from ludamus.pacts.venues import SpaceRecordDTO, SpaceTreeNodeDTO
 from tests.integration.conftest import AgendaItemFactory, EventFactory
 from tests.integration.utils import assert_login_required, assert_response
@@ -683,6 +685,34 @@ class TestSpaceCopy:
                 **panel_context(event, active_nav="venues", rooms_count=1),
                 "node": _record(node),
                 "form": ANY,
+                "sole_target_name": "",
+            },
+        )
+
+    def test_get_names_the_only_target_event(self, manager_client, event, sphere):
+        # One other event is not a choice, so the form stops asking for it —
+        # and the page has to say where the subtree is going instead. The
+        # target starts earlier so the sidebar's newest-first order, and with
+        # it `current_event`, is unchanged.
+        node = _root(event, "Hall")
+        target = EventFactory(
+            sphere=sphere,
+            name="Winter Convention",
+            start_time=event.start_time - timedelta(days=30),
+        )
+
+        response = manager_client.get(self._url(event, node.pk))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/space-copy.html",
+            context_data={
+                **panel_context(event, active_nav="venues", rooms_count=1),
+                "events": [EventDTO.model_validate(e) for e in (event, target)],
+                "node": _record(node),
+                "form": ANY,
+                "sole_target_name": target.name,
             },
         )
 

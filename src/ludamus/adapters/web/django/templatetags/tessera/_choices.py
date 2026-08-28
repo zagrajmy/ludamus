@@ -28,7 +28,9 @@ def grouped_choices(field: BoundField) -> list[ChoiceGroup]:
     groups = []
     for value, label in getattr(field.field, "choices", []):
         if isinstance(label, (list, tuple)):
-            groups.append(ChoiceGroup(label=value, options=list(label)))
+            # An optgroup nobody put an option in is a dead entry in the list.
+            if options := list(label):
+                groups.append(ChoiceGroup(label=value, options=options))
         else:
             groups.append(ChoiceGroup(label="", options=[(value, label)]))
     return groups

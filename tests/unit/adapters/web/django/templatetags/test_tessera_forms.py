@@ -591,9 +591,38 @@ class TestSingleOptionRendering:
         assert "Room A" in html
         assert "Room B" in html
 
+    def test_select_drops_an_optgroup_nobody_filled(self) -> None:
+        # A labelled group with no options is a dead entry to read out.
+        class EmptyGroupForm(forms.Form):
+            where = forms.ChoiceField(
+                choices=[
+                    ("", "Choose…"),
+                    ("Upstairs", [("1", "Room A"), ("2", "Room B")]),
+                    ("Downstairs", []),
+                ],
+                widget=Select,
+            )
+
+        html = tessera_field(EmptyGroupForm()["where"])
+
+        assert '<optgroup label="Upstairs">' in html
+        assert "Downstairs" not in html
+
     def test_radio_group_collapses_to_the_value_alone(self) -> None:
         html = tessera_field(SingleChoiceForm()["radio_one"])
         assert html == '<input type="hidden" name="radio_one" value="x">'
+
+    def test_a_rejected_field_renders_in_full_so_its_error_has_a_label(self) -> None:
+        # Only a tampered post reaches here, but a form that bounces with
+        # nothing on the page to explain it is a dead end.
+        form = SingleChoiceForm({"required_one": "tampered"})
+        form.full_clean()
+
+        html = tessera_field(form["required_one"])
+
+        assert "<select" in html
+        assert "Required one" in html
+        assert "Select a valid choice" in html
 
 
 class TestTesseraButtonBranches:

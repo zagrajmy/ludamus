@@ -12,10 +12,15 @@ from django.utils.translation import gettext_lazy as _
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
-    from ludamus.pacts import SpaceOptionDTO, TimeSlotDTO
+    from ludamus.pacts import TimeSlotDTO
+    from ludamus.pacts.chronology import ProposalAcceptContextDTO
+
+# What Django's ChoiceField takes: flat ``(value, label)`` pairs, and optgroups
+# whose label is a list of their own pairs.
+type ChoiceList = list[tuple[object, object] | tuple[object, list[tuple[object, str]]]]
 
 
-def _slot_label(slot: TimeSlotDTO) -> str:
+def slot_label(slot: TimeSlotDTO) -> str:
     # The `date` filter this replaced localises first, so a label built here
     # has to as well or the times shift by the event's offset.
     start = localtime(slot.start_time)
@@ -23,10 +28,10 @@ def _slot_label(slot: TimeSlotDTO) -> str:
     return f"{date_format(start, 'l, M j · G:i')}–{date_format(end, 'G:i')}"
 
 
-def _slot_choices(
+def slot_choices(
     time_slots: Sequence[TimeSlotDTO], preferred_ids: Sequence[int]
-) -> list[tuple[object, object]]:
-    labelled = [(slot.pk, _slot_label(slot)) for slot in time_slots]
+) -> ChoiceList:
+    labelled = [(slot.pk, slot_label(slot)) for slot in time_slots]
     if not (preferred := {*preferred_ids}):
         return [("", gettext("Choose a time…")), *labelled]
     # The facilitator asked for these — float them to the top so the obvious
@@ -55,24 +60,20 @@ def _validated_choice_id(raw: str, *, allowed: set[int], error: str) -> int:
 
 
 def create_proposal_acceptance_form(
-    *,
-    space_options: Sequence[SpaceOptionDTO],
-    time_slots: Sequence[TimeSlotDTO],
-    preferred_time_slot_ids: Sequence[int] = (),
+    context: ProposalAcceptContextDTO,
 ) -> type[forms.Form]:
     # Group bookable leaf spaces under their parent name (optgroups); the
     # service supplies the options so the form stays free of the ORM.
+    time_slots = context.time_slots
     grouped: dict[str, list[tuple[int, str]]] = {}
-    for option in space_options:
+    for option in context.space_options:
         grouped.setdefault(option.group or gettext("Ungrouped"), []).append(
             (option.pk, option.name)
         )
-    choices: list[tuple[str, str] | tuple[str, list[tuple[int, str]]]] = [
-        ("", gettext("Select a space..."))
-    ]
+    choices: ChoiceList = [("", gettext("Select a space..."))]
     choices.extend(grouped.items())
 
-    allowed_space_ids = {option.pk for option in space_options}
+    allowed_space_ids = {option.pk for option in context.space_options}
     allowed_time_slot_ids = {slot.pk for slot in time_slots}
 
     space_field = forms.ChoiceField(
@@ -83,7 +84,7 @@ def create_proposal_acceptance_form(
         required=True,
     )
     time_slot_field = forms.ChoiceField(
-        choices=_slot_choices(time_slots, preferred_time_slot_ids),
+        choices=slot_choices(time_slots, context.preferred_time_slot_ids),
         label=_("Time slot"),
         help_text=_("Pick the start time for this session."),
         required=True,
