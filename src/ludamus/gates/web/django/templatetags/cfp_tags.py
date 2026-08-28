@@ -47,14 +47,7 @@ def cfp_status(category: ProposalCategoryDTO) -> dict[str, str]:
     if start_time and now < start_time:
         return {"label": _("Upcoming"), "class": "bg-blue-100 text-blue-700"}
 
-    if start_time and end_time and start_time <= now <= end_time:
-        return {"label": _("Active"), "class": "bg-green-100 text-green-700"}
-
-    # Partial config (only start or only end)
-    if start_time and now >= start_time:
-        return {"label": _("Active"), "class": "bg-green-100 text-green-700"}
-
-    return {"label": _("Not set"), "class": "bg-gray-100 text-gray-600"}
+    return {"label": _("Active"), "class": "bg-green-100 text-green-700"}
 
 
 @register.filter

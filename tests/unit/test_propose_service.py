@@ -9,6 +9,7 @@ from ludamus.pacts.legacy import (
     FacilitatorDTO,
     OrganizerFieldDTO,
     PersonalDataFieldValueData,
+    ProposalCategoryDTO,
     SessionFieldValueData,
     TrackDTO,
 )
@@ -244,3 +245,85 @@ class TestCheckRateLimit:
         cache.store["proposal_rate:1:1.2.3.4"] = 1
 
         assert service.check_rate_limit(ip="1.2.3.4", event_id=2) is True
+
+
+def _category(pk, *, start_time=None, end_time=None):
+    return ProposalCategoryDTO(
+        description="",
+        durations=[],
+        end_time=end_time,
+        max_participants_limit=10,
+        min_participants_limit=1,
+        name=f"category-{pk}",
+        pk=pk,
+        slug=f"category-{pk}",
+        start_time=start_time,
+    )
+
+
+class TestGetOpenness:
+    @pytest.fixture(name="now")
+    def now_fixture(self):
+        return datetime.now(tz=UTC)
+
+    def test_windowless_category_follows_an_open_event(self, service, repos):
+        repos.events.read.return_value = _event()
+        repos.categories.list_by_event.return_value = [_category(1)]
+
+        openness = service.get_openness(1)
+
+        assert openness.is_open is True
+        assert [c.pk for c in openness.categories] == [1]
+
+    def test_windowless_category_follows_a_closed_event(self, service, repos, now):
+        repos.events.read.return_value = _event().model_copy(
+            update={"proposal_end_time": now - timedelta(days=1)}
+        )
+        repos.categories.list_by_event.return_value = [_category(1)]
+
+        openness = service.get_openness(1)
+
+        assert openness.is_open is False
+        assert openness.categories == []
+
+    def test_own_window_opens_proposing_on_a_closed_event(self, service, repos, now):
+        repos.events.read.return_value = _event().model_copy(
+            update={"proposal_end_time": now - timedelta(days=1)}
+        )
+        repos.categories.list_by_event.return_value = [
+            _category(1),
+            _category(2, start_time=now - timedelta(hours=1)),
+        ]
+
+        openness = service.get_openness(1)
+
+        assert openness.is_open is True
+        assert [c.pk for c in openness.categories] == [2]
+
+    def test_lapsed_window_leaves_the_wizard(self, service, repos, now):
+        repos.events.read.return_value = _event()
+        repos.categories.list_by_event.return_value = [
+            _category(1),
+            _category(2, end_time=now - timedelta(hours=1)),
+        ]
+
+        openness = service.get_openness(1)
+
+        assert openness.is_open is True
+        assert [c.pk for c in openness.categories] == [1]
+
+    def test_unpublished_event_is_shut_whatever_the_categories_say(
+        self, service, repos, now
+    ):
+        repos.events.read.return_value = _event().model_copy(
+            update={"publication_time": now + timedelta(days=1)}
+        )
+        repos.categories.list_by_event.return_value = [
+            _category(1, start_time=now - timedelta(hours=1))
+        ]
+
+        openness = service.get_openness(1)
+
+        assert openness.is_open is False
+        assert openness.categories == []
+        repos.categories.list_by_event.assert_not_called()

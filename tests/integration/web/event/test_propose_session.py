@@ -9,6 +9,7 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.template.loader import render_to_string
 from django.test import RequestFactory
 from django.urls import reverse
+from django.utils import timezone
 
 from ludamus.gates.web.django import propose_cover
 from ludamus.gates.web.django.event import propose
@@ -3027,10 +3028,12 @@ class TestProposeWizardWithoutCategory:
             category=category, time_slot=TimeSlotFactory(event=event)
         )
         service = Services().propose_session
+        event_dto = service.get_event(event.slug, event.sphere_id)
         return propose._Wizard(
             request=RequestFactory().get("/"),
             service=service,
-            event=service.get_event(event.slug, event.sphere_id),
+            event=event_dto,
+            openness=service.get_openness(event_dto.pk),
         )
 
     def test_timeslot_requirements_are_empty(self, wizard):
@@ -3062,3 +3065,102 @@ class TestProposeTimeslotsTemplate:
 
         assert 'hx-trigger="load"' in html
         assert '"skip": "1"' in html
+
+
+class TestCategoryWindowGate:
+    """A category's own CFP window decides, on a published event."""
+
+    def _url(self, event_slug):
+        return reverse("web:event:session-propose", kwargs={"event_slug": event_slug})
+
+    def test_open_category_lets_a_shut_event_take_proposals(
+        self, authenticated_client, event
+    ):
+        # The event fixture's own CFP window has already closed.
+        now = timezone.now()
+        category = ProposalCategoryFactory(
+            event=event,
+            start_time=now - timedelta(hours=1),
+            end_time=now + timedelta(hours=1),
+        )
+
+        response = authenticated_client.get(self._url(event.slug))
+        form = response.context["form"]
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={
+                "event": EventDTO.model_validate(event),
+                "proposal_settings": EventProposalSettingsDTO(
+                    allow_anonymous_proposals=False, description="", pk=0
+                ),
+                "category": ProposalCategoryDTO.model_validate(category),
+                "form": form,
+                "field_descriptors": [],
+                "current_step": "personal",
+                "wizard_steps": ["personal", "details", "review"],
+                "show_back_button": False,
+                "show_login_nudge": False,
+                "login_url": f"/crowd/login-required/?next={self._url(event.slug)}",
+                "wizard_part_template": "event/propose/parts/personal.html",
+            },
+            template_name="event/propose/base.html",
+        )
+
+    def test_lapsed_category_leaves_the_wizard(self, authenticated_client, event):
+        now = timezone.now()
+        event.proposal_end_time = now + timedelta(days=1)
+        event.save(update_fields=["proposal_end_time"])
+        open_category = ProposalCategoryFactory(event=event, name="Open")
+        ProposalCategoryFactory(
+            event=event, name="Lapsed", end_time=now - timedelta(hours=1)
+        )
+
+        response = authenticated_client.get(self._url(event.slug))
+        form = response.context["form"]
+
+        # One category left to offer, so the wizard picks it and skips the step.
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={
+                "event": EventDTO.model_validate(event),
+                "proposal_settings": EventProposalSettingsDTO(
+                    allow_anonymous_proposals=False, description="", pk=0
+                ),
+                "category": ProposalCategoryDTO.model_validate(open_category),
+                "form": form,
+                "field_descriptors": [],
+                "current_step": "personal",
+                "wizard_steps": ["personal", "details", "review"],
+                "show_back_button": False,
+                "show_login_nudge": False,
+                "login_url": f"/crowd/login-required/?next={self._url(event.slug)}",
+                "wizard_part_template": "event/propose/parts/personal.html",
+            },
+            template_name="event/propose/base.html",
+        )
+
+    def test_lapsed_category_cannot_be_picked(self, authenticated_client, event):
+        now = timezone.now()
+        event.proposal_end_time = now + timedelta(days=1)
+        event.save(update_fields=["proposal_end_time"])
+        ProposalCategoryFactory(event=event, name="Open")
+        lapsed = ProposalCategoryFactory(
+            event=event, name="Lapsed", end_time=now - timedelta(hours=1)
+        )
+
+        response = authenticated_client.post(
+            reverse(
+                "web:event:session-propose-category", kwargs={"event_slug": event.slug}
+            ),
+            {"category_id": lapsed.pk},
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.ERROR, "Invalid category.")],
+            url=self._url(event.slug),
+        )

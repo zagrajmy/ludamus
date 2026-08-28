@@ -399,6 +399,9 @@ class EventPageView(EventsPageRequiredMixin, DetailView):  # type: ignore [type-
         )
         context.update(filter_availability(sessions_data.values()))
         context.update(self._get_pending_sessions_context(shadowbanned_ids))
+        context["proposing_open"] = self.request.services.propose_session.get_openness(
+            self.object.pk
+        ).is_open
 
         return context
 

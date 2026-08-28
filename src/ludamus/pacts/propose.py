@@ -2,6 +2,10 @@
 
 from typing import TYPE_CHECKING, NamedTuple, Protocol
 
+from pydantic import BaseModel
+
+from ludamus.pacts.legacy import ProposalCategoryDTO
+
 if TYPE_CHECKING:
     from ludamus.pacts.crowd import UserRepositoryProtocol
     from ludamus.pacts.legacy import (
@@ -13,7 +17,6 @@ if TYPE_CHECKING:
         PersonalDataFieldRepositoryProtocol,
         PersonalDataFieldValueRepositoryProtocol,
         PersonalFieldRequirementDTO,
-        ProposalCategoryDTO,
         ProposalCategoryRepositoryProtocol,
         ProposeSessionResult,
         SessionFieldRepositoryProtocol,
@@ -42,14 +45,20 @@ class ProposeRepos(NamedTuple):
     users: UserRepositoryProtocol
 
 
+class ProposeOpennessDTO(BaseModel):
+    """Whether a visitor may propose right now, and into which categories."""
+
+    is_open: bool
+    categories: list[ProposalCategoryDTO]
+
+
 class ProposeSessionServiceProtocol(Protocol):
     def get_event(self, slug: str, sphere_id: int) -> EventDTO: ...
     def get_proposal_settings(self, event_id: int) -> EventProposalSettingsDTO: ...
     def get_or_create_proposal_settings(
         self, event_id: int
     ) -> EventProposalSettingsDTO: ...
-    def get_categories(self, event_id: int) -> list[ProposalCategoryDTO]: ...
-    def get_category(self, pk: int, event_id: int) -> ProposalCategoryDTO: ...
+    def get_openness(self, event_id: int) -> ProposeOpennessDTO: ...
     def get_personal_requirements(
         self, category_id: int
     ) -> list[PersonalFieldRequirementDTO]: ...

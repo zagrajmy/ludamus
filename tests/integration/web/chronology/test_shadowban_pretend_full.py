@@ -70,6 +70,7 @@ def _event_page_context(event, buckets, **overrides):
         "category_filter_names": [],
         "object": event,
         "pending_review_visible": False,
+        "proposing_open": event.is_proposal_active,
         "pending_sessions": [],
         "pending_wizard_view": False,
         "own_pending_proposals": [],

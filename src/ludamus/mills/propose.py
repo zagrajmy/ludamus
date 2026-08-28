@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 from ludamus.mills.submissions.mapping import generate_unique_slug
@@ -15,7 +16,7 @@ from ludamus.pacts import (
     SessionStatus,
 )
 from ludamus.pacts.durations import normalize_duration
-from ludamus.pacts.propose import ProposeSessionServiceProtocol
+from ludamus.pacts.propose import ProposeOpennessDTO, ProposeSessionServiceProtocol
 from ludamus.pacts.submissions import is_empty_answer
 from ludamus.specs.proposal import PROPOSAL_RATE_LIMIT_SECONDS
 
@@ -38,6 +39,22 @@ if TYPE_CHECKING:
     from ludamus.pacts.fields import FieldValue
     from ludamus.pacts.propose import ProposeRepos
     from ludamus.pacts.services import TransactionProtocol
+
+
+def _category_is_open(
+    *, category: ProposalCategoryDTO, event: EventDTO, now: datetime
+) -> bool:
+    """Report openness: a category window governs alone, its absence defers.
+
+    Returns:
+        True when the category's own window holds now, or, with no window of
+        its own, when the event's proposal window is open.
+    """
+    if category.start_time is None and category.end_time is None:
+        return event.is_proposal_active
+    return (category.start_time is None or category.start_time <= now) and (
+        category.end_time is None or now <= category.end_time
+    )
 
 
 class ProposeSessionService(ProposeSessionServiceProtocol):
@@ -67,11 +84,19 @@ class ProposeSessionService(ProposeSessionServiceProtocol):
     ) -> EventProposalSettingsDTO:
         return self._repos.event_proposal_settings.read_or_create_by_event(event_id)
 
-    def get_categories(self, event_id: int) -> list[ProposalCategoryDTO]:
-        return self._repos.categories.list_by_event(event_id)
-
-    def get_category(self, pk: int, event_id: int) -> ProposalCategoryDTO:
-        return self._repos.categories.read(pk, event_id)
+    def get_openness(self, event_id: int) -> ProposeOpennessDTO:
+        event = self._repos.events.read(event_id)
+        if not event.is_published:
+            return ProposeOpennessDTO(is_open=False, categories=[])
+        now = datetime.now(tz=UTC)
+        categories = [
+            category
+            for category in self._repos.categories.list_by_event(event_id)
+            if _category_is_open(category=category, event=event, now=now)
+        ]
+        return ProposeOpennessDTO(
+            is_open=event.is_proposal_active or bool(categories), categories=categories
+        )
 
     def get_personal_requirements(
         self, category_id: int

@@ -58,7 +58,7 @@
                                     {% translate "Enrollment Open" %}
                                 </div>
                             {% endif %}
-                            {% if event.is_proposal_active %}
+                            {% if proposing_open %}
                                 {% if not event.is_live and not event.is_ended or not configs %}
                                     <div class="inline-flex items-center gap-2 px-3 py-1.5 bg-amber-100 dark:bg-amber-900/10 text-amber-700 dark:text-amber-400 rounded-full text-sm font-medium">
                                         {% icon "light-bulb" class="w-4 h-4" variant="mini" %}
@@ -67,7 +67,7 @@
                                 {% endif %}
                             {% endif %}
                             {% if not event.is_live and not event.is_ended %}
-                                {% if not configs or not event.is_proposal_active %}
+                                {% if not configs or not proposing_open %}
                                     <div class="inline-flex items-center gap-2 px-3 py-1.5 bg-warm-200 dark:bg-warm-800/30 text-warm-700 dark:text-warm-400 rounded-full text-sm font-medium">
                                         {% icon "clock" class="w-4 h-4" variant="mini" %}
                                         {% translate "Upcoming" %}
@@ -290,7 +290,7 @@
                     {{ sessions|length }}
                 </span>
             </div>
-            {% if event.is_proposal_active %}
+            {% if proposing_open %}
                 <a href="{% url 'web:event:session-propose' event_slug=event.slug %}"
                    class="btn btn-primary text-sm">
                     {% icon "plus" class="w-4 h-4" variant="mini" %} {% translate "Propose Session" %}
@@ -534,7 +534,7 @@
         {% include "chronology/_proposal_section.html" with cards=own_pending_proposals is_own=True %}
     {% endif %}
     <!-- Propose Session CTA -->
-    {% if event.is_proposal_active %}
+    {% if proposing_open %}
         <div class="mt-12 text-center">
             <div class="inline-flex flex-col items-center p-8 rounded-3xl border border-border bg-linear-135 from-bg-tertiary to-bg-secondary xl:w-[512px] xl:px-16">
                 <div class="w-16 h-16 bg-coral-100 dark:bg-coral-900/30 rounded-2xl flex items-center justify-center mb-4 rotate-3">

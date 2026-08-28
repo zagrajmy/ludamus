@@ -520,7 +520,9 @@ class Event(models.Model):
             self.proposal_start_time is not None
             and self.proposal_end_time is not None
             and (
-                self.proposal_start_time < datetime.now(tz=UTC) < self.proposal_end_time
+                self.proposal_start_time
+                <= datetime.now(tz=UTC)
+                <= self.proposal_end_time
             )
         )
 

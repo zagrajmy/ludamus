@@ -53,7 +53,7 @@ if TYPE_CHECKING:
         SessionFieldRequirementDTO,
         TimeSlotRequirementDTO,
     )
-    from ludamus.pacts.propose import ProposeSessionServiceProtocol
+    from ludamus.pacts.propose import ProposeOpennessDTO, ProposeSessionServiceProtocol
 
 # The half-finished proposal parked in the session between steps. Loosely typed
 # because it is whatever the session round-trips as JSON, not a domain object.
@@ -173,6 +173,17 @@ def _review_fields(
     return fields
 
 
+def _pick_open_category(
+    openness: ProposeOpennessDTO, category_id: object
+) -> ProposalCategoryDTO | None:
+    """Resolve a proposer-supplied id against the categories open right now."""
+    try:
+        pk = int(str(category_id))
+    except ValueError:
+        return None
+    return next((c for c in openness.categories if c.pk == pk), None)
+
+
 def _login_nudge_context(request: HttpRequest) -> StepContext:
     return {
         "show_login_nudge": not request.user.is_authenticated,
@@ -193,16 +204,18 @@ class _Wizard:
         request: RootRequest,
         service: ProposeSessionServiceProtocol,
         event: EventDTO,
+        openness: ProposeOpennessDTO,
         picked: ProposalCategoryDTO | None = None,
     ) -> None:
         self.request = request
         self.service = service
         self.event = event
+        self.openness = openness
         self.picked = picked
 
-    @cached_property
+    @property
     def categories(self) -> list[ProposalCategoryDTO]:
-        return self.service.get_categories(self.event.pk)
+        return self.openness.categories
 
     @cached_property
     def category(self) -> ProposalCategoryDTO | None:
@@ -444,7 +457,9 @@ class ProposeWizardMixin(EventsPageRequiredMixin, View):
     ) -> HttpResponseBase:
         if not request.user.is_authenticated:
             service = self.request.services.propose_session
-            event = self._get_event(service, str(kwargs.get("event_slug", "")))
+            event, _openness = self._get_open_event(
+                service, str(kwargs.get("event_slug", ""))
+            )
             settings = service.get_or_create_proposal_settings(event.pk)
             if not settings.allow_anonymous_proposals:
                 return redirect(f"{django_settings.LOGIN_URL}?next={request.path}")
@@ -454,17 +469,23 @@ class ProposeWizardMixin(EventsPageRequiredMixin, View):
         self, request: RootRequest, event_slug: str, *, with_category: bool
     ) -> _Wizard:
         service = request.services.propose_session
-        event = self._get_event(service, event_slug)
+        event, openness = self._get_open_event(service, event_slug)
         category = (
-            self._get_wizard_category(request=request, service=service, event=event)
+            self._get_wizard_category(request=request, event=event, openness=openness)
             if with_category
             else None
         )
-        return _Wizard(request=request, service=service, event=event, picked=category)
+        return _Wizard(
+            request=request,
+            service=service,
+            event=event,
+            openness=openness,
+            picked=category,
+        )
 
-    def _get_event(
+    def _get_open_event(
         self, service: ProposeSessionServiceProtocol, event_slug: str
-    ) -> EventDTO:
+    ) -> tuple[EventDTO, ProposeOpennessDTO]:
         try:
             event = service.get_event(
                 event_slug, self.request.context.current_sphere_id
@@ -474,7 +495,8 @@ class ProposeWizardMixin(EventsPageRequiredMixin, View):
                 reverse("web:index"), error=_("Event not found.")
             ) from None
 
-        if not event.is_proposal_active:
+        openness = service.get_openness(event.pk)
+        if not openness.is_open:
             redirect_url = (
                 reverse("web:chronology:event", kwargs={"slug": event_slug})
                 if event.is_published
@@ -485,33 +507,32 @@ class ProposeWizardMixin(EventsPageRequiredMixin, View):
                 error=_("Proposal submission is not currently active for this event."),
             )
 
-        return event
+        return event, openness
 
     @staticmethod
     def _get_wizard_category(
-        *, request: RootRequest, service: ProposeSessionServiceProtocol, event: EventDTO
+        *, request: RootRequest, event: EventDTO, openness: ProposeOpennessDTO
     ) -> ProposalCategoryDTO:
         state = request.session.get(_session_key(event.slug), {})
         if not (category_id := state.get("category_id")):
             raise RedirectError(
                 _propose_url(event.slug), error=_("Please select a category first.")
             )
-        try:
-            return service.get_category(int(category_id), event.pk)
-        except NotFoundError, ValueError:
-            raise RedirectError(
-                _propose_url(event.slug), error=_("Invalid category.")
-            ) from None
+        if (category := _pick_open_category(openness, category_id)) is None:
+            raise RedirectError(_propose_url(event.slug), error=_("Invalid category."))
+        return category
 
 
 class ProposeSessionPageView(ProposeWizardMixin):
     def get(self, request: RootRequest, event_slug: str) -> HttpResponse:
         service = request.services.propose_session
-        event = self._get_event(service, event_slug)
+        event, openness = self._get_open_event(service, event_slug)
 
         delete_wizard_cover(request.session.pop(_session_key(event_slug), {}))
 
-        wizard = _Wizard(request=request, service=service, event=event)
+        wizard = _Wizard(
+            request=request, service=service, event=event, openness=openness
+        )
         if wizard.category is not None:
             request.session[_session_key(event_slug)] = {
                 "category_id": wizard.category.pk
@@ -542,12 +563,8 @@ class ProposeSessionCategoryComponentView(ProposeWizardMixin):
                 )
             return TemplateResponse(request, _STEP_TEMPLATES["category"], context)
 
-        try:
-            category = wizard.service.get_category(int(category_id), wizard.event.pk)
-        except NotFoundError, ValueError:
-            raise RedirectError(
-                _propose_url(event_slug), error=_("Invalid category.")
-            ) from None
+        if (category := _pick_open_category(wizard.openness, category_id)) is None:
+            raise RedirectError(_propose_url(event_slug), error=_("Invalid category."))
 
         with _WizardState(request, event_slug) as state:
             if state.get("category_id") != category.pk:
@@ -556,7 +573,11 @@ class ProposeSessionCategoryComponentView(ProposeWizardMixin):
                 state["category_id"] = category.pk
 
         picked = _Wizard(
-            request=request, service=wizard.service, event=wizard.event, picked=category
+            request=request,
+            service=wizard.service,
+            event=wizard.event,
+            openness=wizard.openness,
+            picked=category,
         )
         return _render(picked, picked.after("category"))
 

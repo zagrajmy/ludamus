@@ -139,6 +139,11 @@ def event_page_context(event, *, url, **overrides):
     context |= overrides
     context.setdefault("has_enrollable_sessions", False)
     context.setdefault("scheduled_count", 0)
+    # No fixture gives a category its own CFP window, so the event's window
+    # still decides. A test about category windows overrides this.
+    context.setdefault(
+        "proposing_open", event.is_published and event.is_proposal_active
+    )
     return context
 
 
