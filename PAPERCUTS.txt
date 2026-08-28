@@ -358,11 +358,14 @@ If you fix a papercut, remove it.
   XCUITest runner build failed with xcodebuild code 70 on the local simulator,
   so Safari bootstrap behavior still needs the macOS CI runner for end-to-end
   verification.
-- 2026-08-27: grep in the agent shell is a shell function from the Claude Code
-  snapshot that behaves like ripgrep and silently skips hidden dirs, so 'grep
-  -rn FOO .github/' returns nothing while the string is really there. Concluded
-  an env var was unset and made a decision on it; had to re-check with
-  /usr/bin/grep.
+- 2026-08-27: grep in the agent shell is a shell function that behaves like
+  ripgrep and silently skips hidden dirs, so 'grep -rn FOO .github/' returns
+  nothing while the string is really there. Concluded an env var was unset and
+  made a decision on it; had to re-check with /usr/bin/grep.
+- 2026-08-27: mise run lint:djlint says 'djlint: not found' in a web sandbox,
+  and the hk pre-commit djlint check step dies with ModuleNotFoundError: No
+  module named 'regex' (its reformat step right after works fine). Had to commit
+  to find out templates lint clean.
 - 2026-08-28: iOS warmup: wrapping the first agent-device snapshot in a
   readiness poll made the cold XCUITest attach (194-240s, longer than the 180s
   runner command timeout) look like a page-load failure -- 'Safari did not come
