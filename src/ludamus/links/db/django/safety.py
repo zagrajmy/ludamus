@@ -98,6 +98,24 @@ def _met_sessions_by_player(
     return by_player
 
 
+def _candidate_dto(
+    *,
+    player: User,
+    banned_ids: set[int],
+    met_by_player: dict[UserId, list[ShadowbanMeetSessionDTO]],
+) -> ShadowbanCandidateDTO:
+    player_id = UserId(player.pk)
+    return ShadowbanCandidateDTO(
+        pk=player_id,
+        full_name=player.full_name,
+        username=player.username,
+        slug=player.slug,
+        avatar_url=display_avatar_url(player),
+        is_shadowbanned=player_id in banned_ids,
+        met_sessions=met_by_player[player_id],
+    )
+
+
 class ShadowbanRepository(ShadowbanRepositoryProtocol):
     @staticmethod
     def list_candidates(owner_id: UserId) -> list[ShadowbanCandidateDTO]:
@@ -122,19 +140,14 @@ class ShadowbanRepository(ShadowbanRepositoryProtocol):
             .distinct()
             .order_by("name")
         )
-        player_ids = [UserId(player.pk) for player in players]
-        met_by_player = _met_sessions_by_player(owner_id, player_ids)
+        met_by_player = _met_sessions_by_player(
+            owner_id, [UserId(player.pk) for player in players]
+        )
         candidates = [
-            ShadowbanCandidateDTO(
-                pk=player_id,
-                full_name=player.full_name,
-                username=player.username,
-                slug=player.slug,
-                avatar_url=display_avatar_url(player),
-                is_shadowbanned=player_id in banned_ids,
-                met_sessions=met_by_player[player_id],
+            _candidate_dto(
+                player=player, banned_ids=banned_ids, met_by_player=met_by_player
             )
-            for player, player_id in zip(players, player_ids, strict=True)
+            for player in players
         ]
         candidates.sort(key=lambda candidate: not candidate.is_shadowbanned)
         return candidates
