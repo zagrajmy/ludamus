@@ -53,6 +53,7 @@ from ludamus.pacts.chronology import (
     PartySessionSeatDTO,
     SessionCardStatsDTO,
 )
+from ludamus.pacts.ids import EventId
 from ludamus.pacts.legacy import AgendaItemDTO, LocationData
 from ludamus.pacts.panel import (
     EventPanelSettingsDTO,
@@ -110,12 +111,13 @@ class PartySessionHistoryRepository(PartySessionHistoryRepositoryProtocol):
             )
             .order_by("agenda_item__start_time")
         )
-        groups: dict[int, PartyEventHistoryDTO] = {}
+        groups: dict[EventId, PartyEventHistoryDTO] = {}
         for session in sessions:
             item = _party_session_history(session, viewer_pk=viewer_pk)
-            if (group := groups.get(session.event_id)) is None:
-                groups[session.event_id] = PartyEventHistoryDTO(
-                    event_pk=session.event_id,
+            event_id = EventId(session.event_id)
+            if (group := groups.get(event_id)) is None:
+                groups[event_id] = PartyEventHistoryDTO(
+                    event_pk=event_id,
                     event_name=session.event.name,
                     event_slug=session.event.slug,
                     sessions=[item],
@@ -192,6 +194,10 @@ def _party_session_history(
 
 
 class EventRepository(EventRepositoryProtocol):
+    @staticmethod
+    def exists_for_sphere(sphere_id: int) -> bool:
+        return Event.objects.filter(sphere_id=sphere_id).exists()
+
     @staticmethod
     def list_by_sphere(sphere_id: int) -> list[EventDTO]:
         """List all events for a sphere, ordered by start time descending.

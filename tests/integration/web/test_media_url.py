@@ -96,6 +96,7 @@ class TestMediaUrl:
             "/uploads//nested/",
             "///example.com/",
             "https://@/",
+            "https://[/",
         ),
     )
     def test_rejects_ambiguous_or_incomplete_urls(self, media_url: str):

@@ -316,7 +316,12 @@ LOCALE_PATHS = [BASE_DIR / "locale"]
 
 STATIC_URL = "/static/"
 MEDIA_URL: str = env("MEDIA_URL")
-_media_url_parts = urlsplit(MEDIA_URL)
+try:
+    _media_url_parts = urlsplit(MEDIA_URL)
+except ValueError as _media_url_split_error:
+    raise ImproperlyConfigured(
+        "MEDIA_URL must be a root-relative path or an HTTP(S) URL ending in '/'."
+    ) from _media_url_split_error
 _media_path_segments = unquote(_media_url_parts.path).split("/")
 _media_url_has_supported_path = (
     _media_url_parts.path.endswith("/")

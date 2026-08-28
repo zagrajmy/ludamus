@@ -87,7 +87,9 @@ def tessera_field(
     container_class += " flex-col" if layout == "vertical" else " max-sm:flex-col"
 
     is_multi_checkbox = isinstance(widget, CheckboxSelectMultiple)
-    is_radio = isinstance(widget, RadioSelect)
+    # CheckboxSelectMultiple subclasses RadioSelect, so a bare isinstance check
+    # would render every checkbox group as a single-pick radio group.
+    is_radio = isinstance(widget, RadioSelect) and not is_multi_checkbox
     if is_multi_checkbox or is_radio:
         body = render_multi_choice_field(field, is_radio=is_radio)
     elif isinstance(widget, CheckboxInput):

@@ -1,0 +1,23 @@
+/* Day folding on the schedule (schedule-fold.ts): a folded [data-schedule-day]
+   keeps its heading — the way back in — and hides its hour slots. The rooms
+   grid folds by collapsing its tracks in room-lanes.ts instead, so no rule for
+   it here. The chevron rides every [data-day-fold] disclosure button. */
+
+[data-schedule-day][data-folded] .time-slot-section {
+  display: none;
+}
+
+/* The rule under the heading separates it from the day's slots; with the
+   slots folded away it would read as a stray line over nothing. */
+[data-schedule-day][data-folded] > h3 {
+  border-bottom: none;
+  margin-bottom: 0;
+}
+
+.day-fold-chevron svg {
+  transition: transform 0.15s ease;
+}
+
+[data-day-fold][aria-expanded="false"] .day-fold-chevron svg {
+  transform: rotate(-90deg);
+}

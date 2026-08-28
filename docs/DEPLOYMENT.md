@@ -161,7 +161,7 @@ Scopes: **L** = local, **D** = docker local, **P** = prod.
 
 **Static/Media files:**
 
-- `GIT_COMMIT_SHA` — cache busting, default `1` — P(auto)
+- `GIT_COMMIT_SHA` — cache busting, default `unknown` — P(auto)
 - `STATIC_ROOT` — collected static path — P(opt)
 - `MEDIA_ROOT` — uploaded media path (used when GCS is not configured) — P(opt)
 - `MEDIA_URL` — public base URL for filesystem-backed media; default `/media/`

@@ -1,10 +1,12 @@
 from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 
 import pytest
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
 
 from ludamus.links.db.django.models import (
+    DiscountRule,
     Guild,
     GuildMembership,
     Notification,
@@ -16,6 +18,7 @@ from ludamus.links.db.django.models import (
     TimeSlot,
     Track,
 )
+from ludamus.pacts.discounts import DiscountMethod
 from ludamus.pacts.legacy import NotificationKind
 from ludamus.pacts.multiverse import SphereRole
 from tests.integration.conftest import EventFactory
@@ -37,6 +40,29 @@ class TestEventIsPublished:
     def test_not_published_when_publication_time_is_none(self, sphere):
         event = EventFactory(sphere=sphere, publication_time=None)
         assert event.is_published is False
+
+
+class TestSphereClean:
+    def test_rejects_non_list_enabled_pages(self, sphere):
+        # A JSON object coerces through membership checks ({"events": true}
+        # has "events" as a key) but breaks SphereDTO validation on read.
+        sphere.enabled_pages = {"events": True}
+        with pytest.raises(ValidationError) as exc_info:
+            sphere.full_clean()
+        assert "enabled_pages" in exc_info.value.message_dict
+
+    def test_rejects_unknown_page_slug(self, sphere):
+        sphere.enabled_pages = ["events", "unknown"]
+        with pytest.raises(ValidationError) as exc_info:
+            sphere.full_clean()
+        assert "enabled_pages" in exc_info.value.message_dict
+
+    def test_rejects_default_page_not_enabled(self, sphere):
+        sphere.enabled_pages = ["encounters"]
+        sphere.default_page = "events"
+        with pytest.raises(ValidationError) as exc_info:
+            sphere.full_clean()
+        assert "default_page" in exc_info.value.message_dict
 
 
 class TestTimeSlot:
@@ -136,6 +162,16 @@ class TestModelStringRepresentations:
 
         assert str(guild) == "Topory"
         assert str(membership) == f"{active_user.pk} in guild {guild.pk}"
+
+    def test_discount_rule_str(self, event):
+        rule = DiscountRule.objects.create(
+            event=event,
+            method=DiscountMethod.STARTED_HOURS.value,
+            quantity=4,
+            percent=Decimal("50.00"),
+        )
+
+        assert str(rule) == "started_hours >= 4 -> 50.00%"
 
 
 class TestTrackNameConstraint:
