@@ -1,5 +1,8 @@
+from __future__ import annotations
+
 import random
 from dataclasses import dataclass
+from functools import cached_property
 from typing import TYPE_CHECKING, Any, cast
 
 from django.contrib import messages
@@ -17,6 +20,7 @@ from django.views.generic.base import TemplateView, View
 from ludamus.gates.web.django.entities import UserInfo
 from ludamus.gates.web.django.helpers import get_client_ip as _get_client_ip
 from ludamus.gates.web.django.meta import encounter_description
+from ludamus.gates.web.django.sphere.pages import SpherePageRequiredMixin
 from ludamus.mills import (
     generate_ics_content,
     generate_share_code,
@@ -25,7 +29,14 @@ from ludamus.mills import (
     render_markdown,
 )
 from ludamus.mills.qr import qr_svg
-from ludamus.pacts import EncounterData, EncounterDTO, NotFoundError
+from ludamus.pacts import (
+    EncounterData,
+    EncounterDTO,
+    EncounterIndexItem,
+    EncounterIndexResult,
+    NotFoundError,
+    SpherePage,
+)
 from ludamus.pacts.encounter import RSVPOutcome
 from ludamus.pacts.images import stored_file
 from ludamus.pacts.legacy import resolve_uploaded_file_field
@@ -35,6 +46,9 @@ from .forms import EncounterForm
 if TYPE_CHECKING:
     from datetime import datetime
 
+    from django.core.files.uploadedfile import UploadedFile
+    from django.http import QueryDict
+    from django.utils.datastructures import MultiValueDict
     from django.utils.functional import _StrPromise
 
     from ludamus.gates.web.django.entities import AuthenticatedRootRequest, RootRequest
@@ -138,42 +152,90 @@ _SAMPLE_ENCOUNTERS: tuple[_SampleEncounter, ...] = (
 SAMPLE_COUNT = 3
 
 
-class EncountersIndexPageView(TemplateView):
+class _RequireEncountersEnabled(SpherePageRequiredMixin):
+    required_sphere_page = SpherePage.ENCOUNTERS
+    reachable_via_timeline = True
+
+
+class EncountersIndexPageView(_RequireEncountersEnabled, TemplateView):
     request: RootRequest
     template_name = "notice_board/index.html"
+    reachable_via_timeline = False
+
+    @cached_property
+    def _index(self) -> EncounterIndexResult:
+        return self.request.services.encounters.build_index(
+            sphere_id=self.request.context.current_sphere_id,
+            user_id=cast("int", self.request.context.current_user_id),
+        )
+
+    @cached_property
+    def _public(self) -> list[EncounterIndexItem]:
+        # Only a signed-in feed has personal lists to subtract from the public
+        # one, so an anonymous visitor reads the plain sphere feed.
+        if self.request.user.is_authenticated:
+            return self._index.public
+        return self.request.services.encounters.list_public_upcoming(
+            sphere_id=self.request.context.current_sphere_id
+        )
 
     def get_template_names(self) -> list[str]:
-        if not self.request.user.is_authenticated:
-            return ["notice_board/landing.html"]
-        return [self.template_name]
+        if self.request.user.is_authenticated:
+            return [self.template_name]
+        # The marketing landing survives only while the sphere has nothing
+        # public to show a logged-out visitor.
+        if self._public:
+            return ["notice_board/public_index.html"]
+        return ["notice_board/landing.html"]
 
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         context = super().get_context_data(**kwargs)
         if not self.request.user.is_authenticated:
-            context["sample_encounters"] = random.sample(
-                _SAMPLE_ENCOUNTERS, SAMPLE_COUNT
-            )
+            if self._public:
+                context["public_encounters"] = self._public
+            else:
+                context["sample_encounters"] = random.sample(
+                    _SAMPLE_ENCOUNTERS, SAMPLE_COUNT
+                )
             return context
-        result = self.request.services.encounters.build_index(
-            sphere_id=self.request.context.current_sphere_id,
-            user_id=cast("int", self.request.context.current_user_id),
-        )
-        context["upcoming_encounters"] = result.upcoming
-        context["past_encounters"] = result.past
+        context["upcoming_encounters"] = self._index.upcoming
+        context["past_encounters"] = self._index.past
+        context["public_encounters"] = self._public
         return context
 
 
-class EncounterCreatePageView(LoginRequiredMixin, View):
+class _EncounterFormPageView(_RequireEncountersEnabled, LoginRequiredMixin, View):
+    """Shared base for the two views that render the encounter form."""
+
     request: AuthenticatedRootRequest
 
+    def _form(
+        self,
+        data: QueryDict | None = None,
+        files: MultiValueDict[str, UploadedFile[bytes]] | None = None,
+        *,
+        initial: dict[str, Any] | None = None,
+    ) -> EncounterForm:
+        form = EncounterForm(data, files, initial=initial)
+        # The policy decides whether the field is rendered and bound at all.
+        # The service enforces it again on write, so a forged flag never gets
+        # through.
+        if not self.request.services.encounters.can_set_public(
+            sphere_id=self.request.context.current_sphere_id,
+            user_id=self.request.context.current_user_id,
+        ):
+            del form.fields["is_public"]
+        return form
+
+
+class EncounterCreatePageView(_EncounterFormPageView):
     def get(self, request: AuthenticatedRootRequest) -> TemplateResponse:
-        _ = self.request  # Django View dispatch
         return TemplateResponse(
-            request, "notice_board/create.html", {"form": EncounterForm()}
+            request, "notice_board/create.html", {"form": self._form()}
         )
 
     def post(self, request: AuthenticatedRootRequest) -> HttpResponse:
-        form = EncounterForm(request.POST, request.FILES)
+        form = self._form(request.POST, request.FILES)
         if not form.is_valid():
             return TemplateResponse(request, "notice_board/create.html", {"form": form})
 
@@ -191,6 +253,8 @@ class EncounterCreatePageView(LoginRequiredMixin, View):
         )
         if form.cleaned_data.get("header_image"):
             data["header_image"] = form.cleaned_data["header_image"]
+        if "is_public" in form.cleaned_data:
+            data["is_public"] = form.cleaned_data["is_public"]
 
         encounter = self.request.services.encounters.create(data)
         return redirect(
@@ -201,13 +265,13 @@ class EncounterCreatePageView(LoginRequiredMixin, View):
         )
 
 
-class EncounterEditPageView(LoginRequiredMixin, View):
-    request: AuthenticatedRootRequest
-
+class EncounterEditPageView(_EncounterFormPageView):
     def _get_encounter(self, pk: int) -> EncounterDTO:
         try:
             return self.request.services.encounters.read_owned(
-                pk=pk, user_id=self.request.context.current_user_id
+                pk=pk,
+                sphere_id=self.request.context.current_sphere_id,
+                user_id=self.request.context.current_user_id,
             )
         except NotFoundError as exc:
             raise Http404 from exc
@@ -220,7 +284,7 @@ class EncounterEditPageView(LoginRequiredMixin, View):
 
     def get(self, request: AuthenticatedRootRequest, pk: int) -> TemplateResponse:
         encounter = self._get_encounter(pk)
-        form = EncounterForm(
+        form = self._form(
             initial={
                 "title": encounter.title,
                 "description": encounter.description,
@@ -229,6 +293,7 @@ class EncounterEditPageView(LoginRequiredMixin, View):
                 "end_time": self._format_dt(encounter.end_time),
                 "place": encounter.place,
                 "max_participants": encounter.max_participants,
+                "is_public": encounter.is_public,
                 "header_image": stored_file(
                     encounter.header_image_url, encounter.header_image_original_name
                 ),
@@ -239,7 +304,7 @@ class EncounterEditPageView(LoginRequiredMixin, View):
         )
 
     def post(self, request: AuthenticatedRootRequest, pk: int) -> HttpResponse:
-        form = EncounterForm(request.POST, request.FILES)
+        form = self._form(request.POST, request.FILES)
         if not form.is_valid():
             return TemplateResponse(
                 request,
@@ -259,10 +324,15 @@ class EncounterEditPageView(LoginRequiredMixin, View):
         header = resolve_uploaded_file_field(form.cleaned_data.get("header_image"))
         if header is not None:
             data["header_image"] = header
+        if "is_public" in form.cleaned_data:
+            data["is_public"] = form.cleaned_data["is_public"]
 
         try:
             encounter = request.services.encounters.update_owned(
-                pk=pk, user_id=request.context.current_user_id, data=data
+                pk=pk,
+                sphere_id=request.context.current_sphere_id,
+                user_id=request.context.current_user_id,
+                data=data,
             )
         except NotFoundError as exc:
             raise Http404 from exc
@@ -275,21 +345,28 @@ class EncounterEditPageView(LoginRequiredMixin, View):
         )
 
 
-class EncounterDeleteActionView(LoginRequiredMixin, View):
+class EncounterDeleteActionView(_RequireEncountersEnabled, LoginRequiredMixin, View):
     request: AuthenticatedRootRequest
 
     def post(self, request: AuthenticatedRootRequest, pk: int) -> HttpResponse:
         try:
             self.request.services.encounters.delete_owned(
-                pk=pk, user_id=request.context.current_user_id
+                pk=pk,
+                sphere_id=request.context.current_sphere_id,
+                user_id=request.context.current_user_id,
             )
         except NotFoundError as exc:
             raise Http404 from exc
         messages.success(request, _("Encounter deleted."))
-        return redirect(reverse("web:notice-board:index"))
+        # The deleted encounter's detail page is gone, so land on a feed that
+        # exists: the encounters index, or the timeline when that page is off.
+        sphere = request.services.sites.read(request.context.current_sphere_id)
+        if SpherePage.ENCOUNTERS in sphere.enabled_pages:
+            return redirect(reverse("web:notice-board:index"))
+        return redirect(reverse("web:timeline"))
 
 
-class EncounterDetailPageView(View):
+class EncounterDetailPageView(_RequireEncountersEnabled, View):
     request: RootRequest
 
     def get(self, request: RootRequest, share_code: str) -> TemplateResponse:
@@ -302,7 +379,9 @@ class EncounterDetailPageView(View):
 
         try:
             result = request.services.encounters.build_detail(
-                share_code=share_code, current_user_id=current_user_id
+                share_code=share_code,
+                sphere_id=request.context.current_sphere_id,
+                current_user_id=current_user_id,
             )
         except NotFoundError as exc:
             raise Http404 from exc
@@ -341,13 +420,14 @@ class EncounterDetailPageView(View):
         )
 
 
-class EncounterRSVPActionView(LoginRequiredMixin, View):
+class EncounterRSVPActionView(_RequireEncountersEnabled, LoginRequiredMixin, View):
     request: AuthenticatedRootRequest
 
     def post(self, request: AuthenticatedRootRequest, share_code: str) -> HttpResponse:
         try:
             outcome = self.request.services.encounters.rsvp(
                 share_code=share_code,
+                sphere_id=request.context.current_sphere_id,
                 user_id=request.context.current_user_id,
                 ip_address=_get_client_ip(request),
             )
@@ -372,13 +452,17 @@ class EncounterRSVPActionView(LoginRequiredMixin, View):
         )
 
 
-class EncounterCancelRSVPActionView(LoginRequiredMixin, View):
+class EncounterCancelRSVPActionView(
+    _RequireEncountersEnabled, LoginRequiredMixin, View
+):
     request: AuthenticatedRootRequest
 
     def post(self, request: AuthenticatedRootRequest, share_code: str) -> HttpResponse:
         try:
             self.request.services.encounters.cancel_rsvp(
-                share_code=share_code, user_id=request.context.current_user_id
+                share_code=share_code,
+                sphere_id=request.context.current_sphere_id,
+                user_id=request.context.current_user_id,
             )
         except NotFoundError as exc:
             raise Http404 from exc
@@ -392,12 +476,14 @@ class EncounterCancelRSVPActionView(LoginRequiredMixin, View):
 
 
 @method_decorator(cache_control(public=True, max_age=86400), name="get")
-class EncounterQrView(View):
+class EncounterQrView(_RequireEncountersEnabled, View):
     request: RootRequest
 
     def get(self, request: RootRequest, share_code: str) -> HttpResponse:
         try:
-            self.request.services.encounters.read_by_share_code(share_code)
+            self.request.services.encounters.read_by_share_code(
+                share_code=share_code, sphere_id=request.context.current_sphere_id
+            )
         except NotFoundError as exc:
             raise Http404 from exc
 
@@ -410,12 +496,14 @@ class EncounterQrView(View):
 
 
 @method_decorator(cache_control(public=True, max_age=300), name="get")
-class EncounterIcsView(View):
+class EncounterIcsView(_RequireEncountersEnabled, View):
     request: RootRequest
 
     def get(self, request: RootRequest, share_code: str) -> HttpResponse:
         try:
-            encounter = self.request.services.encounters.read_by_share_code(share_code)
+            encounter = self.request.services.encounters.read_by_share_code(
+                share_code=share_code, sphere_id=request.context.current_sphere_id
+            )
         except NotFoundError as exc:
             raise Http404 from exc
 

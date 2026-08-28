@@ -1,6 +1,8 @@
 import pytest
 from django.urls import reverse
 
+from ludamus.gates.web.django.sphere.pages import sphere_page_nav
+
 
 class TestSitesContext:
     @pytest.mark.usefixtures("panel_access_user")
@@ -15,6 +17,37 @@ class TestSitesContext:
 
         has_panel_access = response.context["has_panel_access"]
         assert has_panel_access is False
+
+    def test_nav_marks_events_active_on_event_detail(self, client, event):
+        response = client.get(
+            reverse("web:chronology:event", kwargs={"slug": event.slug})
+        )
+
+        nav = response.context["sphere_page_nav"]
+        assert [(item["label"], item["is_active"]) for item in nav] == [
+            ("Events", True),
+            ("Encounters", False),
+            ("Timeline", False),
+        ]
+
+    def test_nav_marks_timeline_active_for_content_of_a_disabled_group(
+        self, client, sphere, event
+    ):
+        sphere.enabled_pages = ["timeline"]
+        sphere.default_page = "timeline"
+        sphere.save()
+
+        response = client.get(
+            reverse("web:chronology:event", kwargs={"slug": event.slug})
+        )
+
+        nav = response.context["sphere_page_nav"]
+        assert [(item["label"], item["is_active"]) for item in nav] == [
+            ("Timeline", True)
+        ]
+
+    def test_nav_is_empty_without_a_sphere(self, rf):
+        assert sphere_page_nav(rf.get("/"), None) == []
 
 
 class TestAnalyticsContext:

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import string
 from datetime import UTC, datetime
 from secrets import choice as _secret_choice
@@ -7,16 +9,6 @@ from urllib.parse import urlencode
 import markdown as _md
 import nh3
 
-from ludamus.pacts import (
-    DateTimeRangeProtocol,
-    EncounterDetailResult,
-    EncounterDTO,
-    EncounterIndexItem,
-    EncounterIndexResult,
-    EventDTO,
-    NotFoundError,
-    UnitOfWorkProtocol,
-)
 from ludamus.specs.encounter import ENCOUNTER_DEFAULT_DURATION
 
 _BASE62_CHARS = string.ascii_letters + string.digits
@@ -125,93 +117,15 @@ def outlook_calendar_url(encounter: EncounterDTO, url: str) -> str:
     return f"https://outlook.live.com/calendar/0/action/compose?{urlencode(params)}"
 
 
-class EncounterService:
-    def __init__(self, uow: UnitOfWorkProtocol) -> None:
-        self._uow = uow
-
-    def build_detail(
-        self, share_code: str, current_user_id: int | None
-    ) -> EncounterDetailResult:
-        encounter = self._uow.encounters.read_by_share_code(share_code)
-        creator = self._uow.active_users.read_by_id(encounter.creator_id)
-        rsvps = self._uow.encounter_rsvps.list_by_encounter(encounter.pk)
-        rsvp_count = len(rsvps)
-        is_full = (
-            encounter.max_participants > 0 and rsvp_count >= encounter.max_participants
-        )
-        spots_remaining = (
-            max(0, encounter.max_participants - rsvp_count)
-            if encounter.max_participants > 0
-            else None
-        )
-        user_has_rsvpd = (
-            current_user_id is not None
-            and self._uow.encounter_rsvps.user_has_rsvpd(encounter.pk, current_user_id)
-        )
-        return EncounterDetailResult(
-            encounter=encounter,
-            creator=creator,
-            rsvps=rsvps,
-            rsvp_count=rsvp_count,
-            is_full=is_full,
-            spots_remaining=spots_remaining,
-            is_creator=current_user_id == encounter.creator_id,
-            user_has_rsvpd=user_has_rsvpd,
-        )
-
-    def _resolve_creator_name(self, creator_id: int) -> str:
-        try:
-            user = self._uow.active_users.read_by_id(creator_id)
-        except NotFoundError:
-            return ""
-        return user.full_name or user.name or user.username
-
-    def build_index(self, sphere_id: int, user_id: int) -> EncounterIndexResult:
-        my_upcoming = self._uow.encounters.list_upcoming_by_creator(sphere_id, user_id)
-        rsvpd = self._uow.encounters.list_upcoming_rsvpd(sphere_id, user_id)
-        my_ids = {e.pk for e in my_upcoming}
-
-        upcoming = [
-            EncounterIndexItem(
-                encounter=e,
-                rsvp_count=self._uow.encounter_rsvps.count_by_encounter(e.pk),
-                is_mine=True,
-                organizer_name="",
-            )
-            for e in my_upcoming
-        ]
-        upcoming.extend(
-            EncounterIndexItem(
-                encounter=e,
-                rsvp_count=self._uow.encounter_rsvps.count_by_encounter(e.pk),
-                is_mine=False,
-                organizer_name=self._resolve_creator_name(e.creator_id),
-            )
-            for e in rsvpd
-            if e.pk not in my_ids
-        )
-        upcoming.sort(key=lambda x: x.encounter.start_time)
-
-        past_dtos = self._uow.encounters.list_past(sphere_id, user_id)
-        past = [
-            EncounterIndexItem(
-                encounter=e,
-                rsvp_count=self._uow.encounter_rsvps.count_by_encounter(e.pk),
-                is_mine=e.creator_id == user_id,
-                organizer_name=(
-                    ""
-                    if e.creator_id == user_id
-                    else self._resolve_creator_name(e.creator_id)
-                ),
-            )
-            for e in past_dtos
-        ]
-
-        return EncounterIndexResult(upcoming=upcoming, past=past)
-
-
 if TYPE_CHECKING:
     from collections.abc import Sequence
+
+    from ludamus.pacts import (
+        DateTimeRangeProtocol,
+        EncounterDTO,
+        EventDTO,
+        UnitOfWorkProtocol,
+    )
 
 
 class PanelService:
