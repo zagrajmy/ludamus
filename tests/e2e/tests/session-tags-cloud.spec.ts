@@ -14,8 +14,6 @@ const opacityOf = (locator: Locator) =>
 
 const SCREENSHOT_CLIP_MIN_WIDTH = 440;
 
-// The one value in the design preview's tags that a pill cannot show at the
-// 200px these used to cap at (see _OVERFLOW_SYSTEMS).
 const LONG_TAG = "Vampire: The Masquerade 5th Edition";
 
 const measure = async (tag: Locator, cloud: Locator) => {

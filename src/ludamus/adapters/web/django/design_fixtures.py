@@ -194,9 +194,9 @@ def mock_session_proposal() -> SessionData:
     )
 
 
-# The fourth system is one of the four a card shows, and wider than the 200px
-# the pills used to cap at: the tags cloud spec needs a value that only fits
-# once a pill may grow to the card.
+# The fourth system is the last one a card shows, and wider than the pill's
+# 200px default cap: the tags cloud spec needs a value that only fits once a
+# pill may grow to the card.
 _OVERFLOW_SYSTEMS = [
     "D&D 5e",
     "Pathfinder",
