@@ -39,7 +39,8 @@ from ludamus.gates.web.django.event.panel.views.facilitator_fields import (
     personal_fields_form,
 )
 from ludamus.gates.web.django.forms import ACCREDITATION_TYPE_LABELS, FacilitatorForm
-from ludamus.gates.web.django.panel import pagination_context, safe_next_url
+from ludamus.gates.web.django.pagination import pagination_context
+from ludamus.gates.web.django.panel import safe_next_url
 from ludamus.gates.web.django.sphere.marks import attach_facilitator_guild_marks
 from ludamus.mills.panel_facilitators import (
     MIN_MERGE_FACILITATORS,
