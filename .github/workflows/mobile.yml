@@ -17,9 +17,9 @@ permissions:
 jobs:
   ios-regressions:
     runs-on: macos-latest
-    # 6.5 setup + 7 warm-up + 28 tests + 1.5 teardown and upload, leaving the
+    # 6.5 setup + 10 warm-up + 28 tests + 1.5 teardown and upload, leaving the
     # step timeouts to bind first.
-    timeout-minutes: 46
+    timeout-minutes: 49
     env:
       # Every runner command is an HTTP request capped by
       # RUNNER_CONNECT_REQUEST_TIMEOUT_MS. At its 20s default a gesture or
@@ -120,7 +120,7 @@ jobs:
       # burns that hook's budget and one of its attempts, so it gets its own
       # step and its own budget here.
       - name: Start Safari and warm up the agent-device runner
-        timeout-minutes: 7
+        timeout-minutes: 10
         run: bun run scripts/ios-regressions/warmup.ts
 
       - name: Run iOS Safari regressions
