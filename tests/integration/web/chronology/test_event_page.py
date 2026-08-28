@@ -1029,11 +1029,11 @@ class TestEventPageView:
         session_b = SessionFactory(event=event, category=category_b, min_age=0)
         session_b.tracks.add(track_b)
         item_a = AgendaItemFactory(session=session_a, space=space)
-        # Offset from item_a, not from a floating `now()`: the factory anchors
-        # its items to 10:00 local so an item cannot drift across midnight. Run
-        # between 00:00 and 07:00 local, `now + 3h` is still before 10:00, so
-        # item_b sorted ahead of item_a and `sessions` came back in the other
-        # order.
+        # Off item_a, not off a floating now: the factory anchors item_a to
+        # 10:00 local precisely so an item cannot drift across midnight, and
+        # `now + 3h` gives that back. Run between 00:00 and 07:00 local,
+        # `now + 3h` is still before 10:00, so b sorted ahead of a and the
+        # expected order flipped — red every night from 22:00 UTC.
         item_b = AgendaItemFactory(
             session=session_b,
             space=space,

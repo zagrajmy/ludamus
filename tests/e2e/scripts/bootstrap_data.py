@@ -264,6 +264,45 @@ def _create_test_user() -> User:
     return user
 
 
+def _create_notifications_scenario() -> None:
+    """Seed a dedicated user with a content and a destination notification.
+
+    Isolated from the shared e2e-tester so the notifications spec can open the
+    overlay and mark rows read without disturbing other specs' unread counts.
+    """
+    user = User.objects.create_user(
+        username="e2e-notified",
+        email="e2e-notified@test.local",
+        password="e2e-notified-123",
+        name="E2E Notified",
+        slug="e2e-notified",
+    )
+    base_url = os.environ.get("E2E_BASE_URL", "http://localhost:8000")
+    parsed = urlparse(base_url)
+    _write_storage_state(
+        user,
+        domain=parsed.hostname or "localhost",
+        path=REPO_ROOT / "tests" / "e2e" / ".auth-state-notified.json",
+    )
+    # Destination notification: clicking it navigates to /events/.
+    Notification.objects.create(
+        recipient=user,
+        kind=NotificationKind.WAITLIST_PROMOTED.value,
+        title="You're in: a spot opened in Dragons & Dungeons",
+        body="A confirmed spot opened up and you have been enrolled automatically.",
+        url="/events/",
+    )
+    # Content notification (no url): read in the overlay, never a navigation.
+    # F3 announcements produce these for real.
+    Notification.objects.create(
+        recipient=user,
+        kind=NotificationKind.WAITLIST_PROMOTED.value,
+        title="Autumn Open: doors to hall B open at 9:00",
+        body="Bring your badge. Coffee is by the entrance.",
+        url="",
+    )
+
+
 def _create_promotion_scenario(sphere: Sphere, *, superuser: User) -> None:
     """Seed a full session with a dedicated waiter behind the superuser.
 
@@ -738,6 +777,10 @@ def main() -> None:
 
     # Full session with a dedicated waiter, for the promotion e2e.
     _create_promotion_scenario(sphere, superuser=superuser)
+
+    # A dedicated user with content + destination notifications, for the
+    # notification overlay + list e2e.
+    _create_notifications_scenario()
 
     # Seats held after the enrollment window shut, for the late-resignation e2e.
     _create_closed_enrollment_scenario(sphere, tester=tester)
