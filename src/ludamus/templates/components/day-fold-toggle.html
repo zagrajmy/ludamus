@@ -1,0 +1,24 @@
+{% load tessera %}
+{% comment %}
+The disclosure toggle a schedule day folds behind: day name, muted date, and
+the chevron that flips with aria-expanded (schedule-fold.css, schedule-fold.ts).
+One component for the card/ledger day headings and both rooms-grid copies, so
+the cluster cannot drift between them.
+
+Variables:
+  day_start    the day's first instant; prints as weekday name + date
+  extra_class  layout classes from the caller (display, hit area, position)
+  is_bar       the rooms grid's sticky day bar: adds the hooks room-lanes.ts
+               uses to relabel it (data-room-lanes-day-current) and to say
+               which day it currently holds (data-fold-day)
+{% endcomment %}
+<button type="button"
+        class="items-baseline gap-2 text-left text-sm font-bold uppercase tracking-wide text-foreground-secondary hover:text-foreground{% if extra_class %} {{ extra_class }}{% endif %}"
+        data-day-fold
+        {% if is_bar %}data-room-lanes-day-current data-fold-day="0"{% endif %}
+        aria-expanded="true">
+    <span data-day-name>{{ day_start|date:"l" }}</span>
+    <span class="text-xs font-medium normal-case tracking-normal text-foreground-muted"
+          data-day-date>{{ day_start|date:"j F" }}</span>
+    <span class="day-fold-chevron self-center text-foreground-muted">{% icon "chevron-down" class="w-4 h-4" variant="mini" %}</span>
+</button>

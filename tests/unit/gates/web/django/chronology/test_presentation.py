@@ -281,6 +281,8 @@ class TestBuildCardDays:
             ("current", 10),
         ]
         assert days[1].slots[0].sessions == [tomorrow]
+        # The day headings state the dates, so no pill repeats them.
+        assert not any(slot.show_date for day in days for slot in day.slots)
 
     def test_only_the_first_current_slot_is_marked_now(self):
         days = build_card_days(
@@ -295,6 +297,8 @@ class TestBuildCardDays:
         assert [
             (slot.kind, slot.is_first_current) for day in days for slot in day.slots
         ] == [("current", True), ("current", False), ("future", False)]
+        # A single-day schedule has no day heading, so every pill keeps its date.
+        assert all(slot.show_date for slot in days[0].slots)
 
 
 class TestNightSessions:

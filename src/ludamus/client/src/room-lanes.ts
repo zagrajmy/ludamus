@@ -251,9 +251,14 @@ const trackCurrentDay = (lanes: HTMLElement, head: HTMLElement): (() => void) | 
       if (target && target.textContent !== text) target.textContent = text;
     }
     // The bar is also the shown day's fold toggle (schedule-fold.ts): tell it
-    // which day it is holding and how that day currently stands.
-    label.dataset.foldDay = current.dataset.laneDayHeading ?? "0";
-    label.setAttribute("aria-expanded", String(!("folded" in current.dataset)));
+    // which day it is holding and how that day currently stands. Guarded like
+    // the text writes above — this runs on every scroll tick.
+    const foldDay = current.dataset.laneDayHeading ?? "0";
+    const expanded = String(!("folded" in current.dataset));
+    if (label.dataset.foldDay !== foldDay) label.dataset.foldDay = foldDay;
+    if (label.getAttribute("aria-expanded") !== expanded) {
+      label.setAttribute("aria-expanded", expanded);
+    }
   };
 };
 

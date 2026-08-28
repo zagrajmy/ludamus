@@ -6,15 +6,18 @@
 // yesterday's programme is one click away, not in the way. Fold state is a
 // reading gesture: nothing of it reaches the URL or the filters.
 
+import { eventTimeZone } from "./event-time";
+
 const announce = (): void => {
   document.dispatchEvent(new CustomEvent("schedule:filtered"));
 };
 
 // The event's calendar date decides what counts as "already over": visiting on
-// Saturday folds Friday, whatever the visitor's own timezone says.
+// Saturday folds Friday, whatever the visitor's own timezone says. en-CA is
+// the locale whose date format is exactly YYYY-MM-DD, so the result compares
+// against the served data-day stamps as a plain string.
 const eventToday = (): string => {
-  const timeZone =
-    document.querySelector<HTMLElement>("[data-event-time-zone]")?.dataset.eventTimeZone;
+  const timeZone = eventTimeZone();
   return new Intl.DateTimeFormat("en-CA", timeZone ? { timeZone } : {}).format(new Date());
 };
 
@@ -54,70 +57,57 @@ document.addEventListener("click", (event) => {
   if (toggle) toggleFrom(toggle);
 });
 
-// Jumping to an hour from the rail must land on it, so the jump unfolds the
-// day it belongs to. Capture phase: the rail's own click handler scrolls to
-// the slot, and a folded slot has nowhere to scroll to.
-document.addEventListener(
-  "click",
-  (event) => {
-    const link =
-      event.target instanceof Element ? event.target.closest(".schedule-rail-hour") : null;
-    const id = link?.getAttribute("href")?.slice(1);
-    const slot = id ? document.getElementById(id) : null;
-    if (!slot) return;
-    const section = slot.closest<HTMLElement>("[data-schedule-day][data-folded]");
-    if (section) {
-      setFolded(section, false);
-      announce();
-    }
-    const line = slot.closest<HTMLElement>("[data-lane-day]");
-    const lanes = line?.closest<HTMLElement>(".room-lanes");
-    const heading =
-      line?.dataset.laneDay !== undefined && lanes
-        ? laneHeading(lanes, line.dataset.laneDay)
-        : null;
-    if (heading && isFolded(heading)) {
-      setFolded(heading, false);
-      announce();
-    }
-  },
-  { capture: true },
-);
+// A jump must land on its slot, and a folded slot has nowhere to scroll to.
+// The rail announces every jump — tap or scrub alike — as a schedule:jump
+// bubbling from the target slot (event-timeline.ts), synchronously before it
+// scrolls, so the day is open again by the time the scroll runs.
+document.addEventListener("schedule:jump", (event) => {
+  const slot = event.target instanceof Element ? event.target : null;
+  if (!slot) return;
+  const section = slot.closest<HTMLElement>("[data-schedule-day][data-folded]");
+  if (section) {
+    setFolded(section, false);
+    announce();
+  }
+  const line = slot.closest<HTMLElement>("[data-lane-day]");
+  const lanes = line?.closest<HTMLElement>(".room-lanes");
+  const heading =
+    line?.dataset.laneDay !== undefined && lanes ? laneHeading(lanes, line.dataset.laneDay) : null;
+  if (heading && isFolded(heading)) {
+    setFolded(heading, false);
+    announce();
+  }
+});
 
 // Auto-fold runs once per rendered day (data-foldBound), so an htmx swap of
 // the schedule region folds the fresh markup while a session-modal swap on the
-// same page leaves the reader's unfolds alone. Only days with somewhere to
-// unfold from fold themselves: a single-day schedule renders no toggle, and
-// the rooms grid always carries the sticky bar once it has more than one day.
-// A finished convention folds nothing: with every day over, the reader came
-// for the archive, and a page of folded headings would hide it all.
-const stillRunning = (days: HTMLElement[], today: string): boolean =>
-  days.some((day) => (day.dataset.day ?? "") >= today);
+// same page leaves the reader's unfolds alone. A whole fold scope — the page's
+// day sections, or one rooms grid's day headings — stays open when it has a
+// single day (nothing to fold behind) or when every day is over: a finished
+// convention is an archive, and a page of folded headings would hide it all.
+const foldPastDays = (holders: HTMLElement[], today: string): boolean => {
+  const fresh = holders.filter((holder) => !("foldBound" in holder.dataset));
+  for (const holder of fresh) holder.dataset.foldBound = "";
+  if (holders.length < 2 || !holders.some((holder) => (holder.dataset.day ?? "") >= today)) {
+    return false;
+  }
+  const past = fresh.filter((holder) => (holder.dataset.day ?? "") < today);
+  for (const holder of past) setFolded(holder, true);
+  return past.length > 0;
+};
 
 const autoFold = (): void => {
   const today = eventToday();
-  let folded = false;
-  const sections = [...document.querySelectorAll<HTMLElement>("[data-schedule-day][data-day]")];
-  for (const section of sections) {
-    if ("foldBound" in section.dataset) continue;
-    section.dataset.foldBound = "";
-    if (!stillRunning(sections, today) || !section.querySelector("[data-day-fold]")) continue;
-    if ((section.dataset.day ?? "") < today) {
-      setFolded(section, true);
-      folded = true;
-    }
-  }
-  for (const heading of document.querySelectorAll<HTMLElement>("[data-day-heading][data-day]")) {
-    if ("foldBound" in heading.dataset) continue;
-    heading.dataset.foldBound = "";
-    const lanes = heading.closest<HTMLElement>(".room-lanes");
-    if (!lanes) continue;
-    const siblings = [...lanes.querySelectorAll<HTMLElement>("[data-day-heading]")];
-    if (siblings.length < 2 || !stillRunning(siblings, today)) continue;
-    if ((heading.dataset.day ?? "") < today) {
-      setFolded(heading, true);
-      folded = true;
-    }
+  let folded = foldPastDays(
+    [...document.querySelectorAll<HTMLElement>("[data-schedule-day][data-day]")],
+    today,
+  );
+  for (const lanes of document.querySelectorAll<HTMLElement>(".room-lanes")) {
+    folded =
+      foldPastDays(
+        [...lanes.querySelectorAll<HTMLElement>("[data-day-heading][data-day]")],
+        today,
+      ) || folded;
   }
   if (folded) announce();
 };

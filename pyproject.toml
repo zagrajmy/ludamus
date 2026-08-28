@@ -508,6 +508,7 @@ ignore_names = [
     "public_tag_categories",
     "public_tags",
     "should_show_as_inactive",
+    "show_date",
     "span",
     "spots_scarce",
     "unassigned_count",

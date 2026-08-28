@@ -72,7 +72,7 @@ test.describe("Folding days on the card schedule", () => {
     await expect(days.first()).toHaveAttribute("aria-expanded", "false");
     // A fold is a reading gesture, not a filter: no chip shows up, nothing to
     // clear, and the address stays shareable as-is.
-    await expect(page.locator(".filter-chip")).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Remove filter" })).toHaveCount(0);
     expect(new URL(page.url()).search).toBe("");
 
     await days.first().click();

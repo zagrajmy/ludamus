@@ -229,6 +229,9 @@ class CardSlot:
     # The first not-yet-ended slot page-wide: the one the "Now" pill belongs to
     # while the event is live.
     is_first_current: bool = False
+    # The pill prints its own date only on a single-day schedule; under a day
+    # heading the date would repeat what the heading already states.
+    show_date: bool = False
 
 
 @dataclass
@@ -277,6 +280,9 @@ def build_card_days(
         if not days or days[-1].day_start.date() != local_hour.date():
             days.append(CardDay(day_start=local_hour, slots=[]))
         days[-1].slots.append(slot)
+    if len(days) == 1:
+        for slot in days[0].slots:
+            slot.show_date = True
     return days
 
 

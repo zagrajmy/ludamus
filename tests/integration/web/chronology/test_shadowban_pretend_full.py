@@ -1,11 +1,9 @@
 from http import HTTPStatus
-from unittest.mock import ANY
 
 import pytest
 from django.urls import reverse
 from zeal import zeal_ignore
 
-from ludamus.gates.web.django.chronology.schedule import build_card_days
 from ludamus.gates.web.django.event.enroll_presentation import EnrollActions
 from ludamus.links.db.django.models import SessionParticipation
 from ludamus.pacts import EventDTO
@@ -13,7 +11,7 @@ from tests.integration.conftest import UserFactory
 from tests.integration.utils import assert_response
 from tests.integration.web.chronology.helpers import (
     enroll_page_context,
-    schedule_context,
+    event_page_context,
 )
 
 
@@ -39,63 +37,39 @@ def _is_deniably_full(card):
     )
 
 
-_HOUR_KEYS = ("hour_data", "current_hour_data", "future_unavailable_hour_data")
+# Which card_days slot kind each availability-lane override feeds.
+_LANE_KINDS = {"current_hour_data": "current", "future_unavailable_hour_data": "future"}
 # One scheduled session reaches the template three times: as a card in
-# `sessions`, in `hour_data`, and in whichever availability lane it belongs to.
+# `sessions`, in `hour_data`, and via its availability lane in `card_days`.
 _CARDS_PER_SESSION = 3
 
 
 def _card_buckets(response, start_time, *, lane):
     # The keys the card layout puts a session card under. `hour_data` always
-    # carries it; masking moves it between the availability lanes, because a
-    # pretend-full card claims enrollment is open. A masked card's simulacra
-    # carry a `creation_time` minted at request time, so the buckets read the
-    # cards back and `_is_deniably_full` checks them.
-    buckets = {"sessions": response.context["sessions"]} | {
-        key: {} for key in _HOUR_KEYS
+    # carries it; masking moves it between the availability lanes (the slot
+    # kinds of `card_days`), because a pretend-full card claims enrollment is
+    # open. A masked card's simulacra carry a `creation_time` minted at request
+    # time, so the buckets read the cards back and `_is_deniably_full` checks
+    # them. Only the expected kind is read, which keeps the placement
+    # assertion: a card the view filed under another kind leaves this lane
+    # empty and the context comparison red.
+    lane_cards = [
+        card
+        for day in response.context["card_days"]
+        for slot in day.slots
+        if slot.kind == _LANE_KINDS[lane] and slot.hour == start_time
+        for card in slot.sessions
+    ]
+    return {
+        "sessions": response.context["sessions"],
+        "hour_data": {start_time: response.context["hour_data"][start_time]},
+        lane: {start_time: lane_cards},
     }
-    for key in ("hour_data", lane):
-        buckets[key] = {start_time: response.context[key][start_time]}
-    return buckets
 
 
 def _event_page_context(event, buckets, **overrides):
     # The card-layout event page for a signed-in viewer with no enrollments.
-    url = _event_url(event.slug)
-    context = {
-        "ended_hour_data": {},
-        "enrollment_requires_slots": False,
-        "event": event,
-        "filterable_tag_categories": [],
-        "track_filter_names": [],
-        "category_filter_names": [],
-        "object": event,
-        "pending_review_visible": False,
-        "pending_sessions": [],
-        "pending_wizard_view": False,
-        "own_pending_proposals": [],
-        "user_enrollment_config": None,
-        "total_enrolled": 0,
-        "user_enrolled_sessions": [],
-        "event_banned": False,
-        **buckets,
-        **schedule_context(url),
-        "has_enrollable_sessions": False,
-        "scheduled_count": 0,
-        "user_enrolled_session_titles": [],
-        "view": ANY,
-        **overrides,
-    }
-    # Derived exactly as the view derives it, from the same lane buckets.
-    context.setdefault(
-        "card_days",
-        build_card_days(
-            ended=context["ended_hour_data"],
-            current=context["current_hour_data"],
-            future_unavailable=context["future_unavailable_hour_data"],
-        ),
-    )
-    return context
+    return event_page_context(event, url=_event_url(event.slug), **buckets, **overrides)
 
 
 def _every_card(buckets):
@@ -103,8 +77,9 @@ def _every_card(buckets):
         *buckets["sessions"],
         *(
             card
-            for key in _HOUR_KEYS
-            for cards in buckets[key].values()
+            for key, by_hour in buckets.items()
+            if key != "sessions"
+            for cards in by_hour.values()
             for card in cards
         ),
     ]
