@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from django.template.loader import render_to_string
+from django.utils.html import format_html
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Iterator
@@ -22,44 +22,26 @@ def _flatten_choices(
             yield value, label
 
 
-def single_required_choice(field: BoundField) -> tuple[object, str] | None:
-    """Return the only selectable choice when picking is a foregone conclusion.
+def forced_choice_input(field: BoundField) -> str | None:
+    """Render a field whose answer is a foregone conclusion, as a hidden input.
 
     A required, editable field whose choices contain exactly one non-blank
-    option forces the user to "choose" the only thing available. The caller can
-    render the value as static text plus a hidden input instead of a dropdown or
-    radio group the user would have to operate.
+    option asks nothing: there is no decision to make, so the page spends no
+    pixels on it and the form submits the value on the proposer's behalf.
 
     Returns:
-        ``(value, label)`` for the sole option, or ``None`` when the field is
-        optional, disabled, or offers a real choice.
+        The hidden input's HTML, or ``None`` when the field is optional,
+        disabled, or offers a real choice.
     """
     if not field.field.required or field.field.disabled:
         return None
     real = [
-        (value, label)
-        for value, label in _flatten_choices(getattr(field.field, "choices", []))
+        value
+        for value, _label in _flatten_choices(getattr(field.field, "choices", []))
         if value not in {"", None}
     ]
     if len(real) != 1:
         return None
-    value, label = real[0]
-    return value, str(label)
-
-
-def render_forced_choice(field: BoundField, forced: tuple[object, str]) -> str:
-    """Render a forced single choice: a hidden input plus static display.
-
-    Returns:
-        HTML string with the submitted value and its read-only display.
-    """
-    value, label = forced
-    return render_to_string(
-        "components/forced-choice.html",
-        {
-            "name": field.html_name,
-            "id": field.id_for_label,
-            "value": value,
-            "label": label,
-        },
+    return format_html(
+        '<input type="hidden" name="{}" value="{}">', field.html_name, real[0]
     )

@@ -85,9 +85,9 @@
                     {% if form.min_age.errors %}<p class="text-sm text-danger mt-1">{{ form.min_age.errors.0 }}</p>{% endif %}
                 </div>
                 {% if has_duration %}
-                    {# Wrapped: as an only child the field drops tessera's own #}
-                    {# bottom margin and keeps the form's spacing rhythm. #}
-                    <div>{% tessera_field form.duration %}</div>
+                    {# A category offering one duration renders a bare hidden #}
+                    {# input here — no wrapper, or it would cost a row of gap. #}
+                    {% tessera_field form.duration %}
                 {% endif %}
                 <div>
                     <label for="id_display_name"

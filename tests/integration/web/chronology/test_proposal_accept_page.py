@@ -110,7 +110,7 @@ class TestProposalAcceptPageView:
         self, event, pending_session, manager_client, time_slot
     ):
         # A second slot means there's a real choice, so the tessera select
-        # renders instead of the single-slot read-only collapse.
+        # renders instead of the single-slot collapse.
         TimeSlot.objects.create(
             event=event,
             start_time=time_slot.end_time,
@@ -130,8 +130,8 @@ class TestProposalAcceptPageView:
     def test_get_collapses_single_time_slot_to_forced_choice(
         self, pending_session, manager_client, time_slot
     ):
-        # A lone slot is a foregone choice: rendered via the forced-choice
-        # component (hidden input + read-only field the label associates with).
+        # A lone slot is a foregone choice: the form carries it and the page
+        # asks nothing — no picker, and no label or hint left stranded.
         response = manager_client.get(
             self._get_url(pending_session.id, pending_session.event.slug)
         )
@@ -141,8 +141,8 @@ class TestProposalAcceptPageView:
         assert (
             f'<input type="hidden" name="time_slot" value="{time_slot.pk}"' in content
         )
-        assert 'id="time_slot"' in content
-        assert 'aria-readonly="true"' in content
+        assert 'id="time_slot"' not in content
+        assert "Pick the start time for this session." not in content
 
     @pytest.mark.usefixtures("space")
     def test_get_groups_preferred_time_slots_in_picker(
@@ -206,17 +206,17 @@ class TestProposalAcceptPageView:
     def test_get_collapses_single_space_to_static_value(
         self, pending_session, space, manager_client
     ):
-        """A lone space is a foregone choice: shown as static text + hidden input."""
+        """A lone space is a foregone choice: carried, never asked for."""
         response = manager_client.get(
             self._get_url(pending_session.id, pending_session.event.slug)
         )
 
         assert response.status_code == HTTPStatus.OK
         content = response.content.decode()
-        # No dropdown to operate — the value is carried in a hidden input and
-        # the lone space is shown as static text (so no space optgroup renders).
+        # Nothing to operate and nothing to read: the value rides in a hidden
+        # input, so no label, no dropdown and no space optgroup render.
         assert f'<input type="hidden" name="space" value="{space.id}"' in content
-        assert space.name in content
+        assert space.name not in content
         assert "<optgroup" not in content
 
     @pytest.mark.usefixtures("time_slot")

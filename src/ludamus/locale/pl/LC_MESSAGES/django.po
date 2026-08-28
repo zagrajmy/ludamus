@@ -815,7 +815,7 @@ msgid "Select the space where this session will take place"
 msgstr "Wybierz przestrzeń, gdzie odbędzie się ten punkt programu"
 
 #: src/ludamus/gates/web/django/chronology/forms.py
-#: src/ludamus/templates/chronology/accept_proposal.html
+#: src/ludamus/templates/chronology/_accept_timeslot_control.html
 msgid "Time slot"
 msgstr "Przedział czasowy"
 
@@ -3749,6 +3749,10 @@ msgstr "Preferowane przez twórcę programu"
 msgid "Other times"
 msgstr "Pozostałe godziny"
 
+#: src/ludamus/templates/chronology/_accept_timeslot_control.html
+msgid "Pick the start time for this session."
+msgstr "Wybierz godzinę rozpoczęcia tego punktu programu."
+
 #: src/ludamus/templates/chronology/_bookmark_toggle.html
 msgid "Bookmark session"
 msgstr "Dodaj zakładkę do punktu programu"
@@ -3963,10 +3967,6 @@ msgid "Select a space and time to add this session to the event agenda."
 msgstr ""
 "Wybierz przestrzeń i godzinę, aby dodać ten punkt programu do harmonogramu "
 "wydarzenia."
-
-#: src/ludamus/templates/chronology/accept_proposal.html
-msgid "Pick the start time for this session."
-msgstr "Wybierz godzinę rozpoczęcia tego punktu programu."
 
 #: src/ludamus/templates/chronology/accept_proposal.html
 msgid "Accept and add to agenda"

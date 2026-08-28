@@ -16,6 +16,7 @@ from django.forms.widgets import (
 )
 from django.utils.html import format_html, format_html_join
 
+from ._choices import forced_choice_input
 from ._registry import register
 from .button import render_button
 from .checkbox import render_checkbox_field, render_multi_choice_field
@@ -82,6 +83,11 @@ def tessera_field(
     widget = field.field.widget
     if isinstance(widget, HiddenInput):
         return str(field)  # BoundField.__str__ is already safe
+    # One selectable option is not a question. The value still reaches the view;
+    # the errors ride along because only a tampered post can produce them, and a
+    # rejection nobody can see is worse than a stray line of red.
+    if (forced := forced_choice_input(field)) is not None:
+        return format_html("{}{}", forced, render_errors(field))
 
     container_class = "flex gap-y-0.5 not-last:mb-4"
     container_class += " flex-col" if layout == "vertical" else " max-sm:flex-col"

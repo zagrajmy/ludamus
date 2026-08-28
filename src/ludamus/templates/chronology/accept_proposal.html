@@ -74,12 +74,7 @@
                       class="space-y-5">
                     {% csrf_token %}
                     {% tessera_field form.space %}
-                    <div class="flex flex-col">
-                        {% translate "Time slot" as time_slot_label %}
-                        {% include "components/label.html" with for_id="time_slot" text=time_slot_label required=True %}
-                        <div class="mt-1">{% include "chronology/_accept_timeslot_control.html" %}</div>
-                        <p class="mt-1 text-sm text-foreground-muted">{% translate "Pick the start time for this session." %}</p>
-                    </div>
+                    <div class="flex flex-col">{% include "chronology/_accept_timeslot_control.html" %}</div>
                     <div class="[&_.btn]:w-full space-y-3 pt-1">
                         {% translate "Accept and add to agenda" as accept_label %}
                         {% tessera_button accept_label icon="calendar-days" %}

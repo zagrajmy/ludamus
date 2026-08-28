@@ -20,12 +20,10 @@ test.describe("Anonymous proposals", () => {
     await page.getByLabel(/description/i).fill("A drop-in adventure pitched without an account.");
     await page.getByLabel(/max participants/i).fill("5");
     await page.getByLabel(/presenter name/i).fill("Mystery GM");
-    // The category offers a single duration, so the wizard fills it in: the
-    // proposer sees the value, not a dropdown whose only answer is "1h".
-    const duration = page.getByLabel(/duration/i);
-    await expect(duration).toBeDisabled();
-    await expect(duration).toHaveValue("1h");
-    await expect(page.locator("select[name='duration']")).toHaveCount(0);
+    // The category offers a single duration, so the wizard answers for the
+    // proposer: no label, no control, just the value the form carries.
+    await expect(page.locator("[name='duration']")).toHaveAttribute("type", "hidden");
+    await expect(page.getByText(/duration/i)).toHaveCount(0);
     // The open-mic category asks for two organizer-defined fields, both required.
     await page.getByRole("checkbox", { name: "Comedy" }).check();
     await page.locator("#id_session_system").fill("Dungeon World");
@@ -34,6 +32,8 @@ test.describe("Anonymous proposals", () => {
     await expect(wizard.getByRole("heading", { name: "Review & Submit" })).toBeVisible();
     await expect(page.getByText("anon@example.com")).toBeVisible();
     await expect(page.getByText("Anonymous One-Shot")).toBeVisible();
+    // The duration nobody was asked for still reaches the review.
+    await expect(page.getByText("1h", { exact: true })).toBeVisible();
     await page.getByRole("button", { name: "Submit Proposal" }).click();
 
     await expect(page.getByText("Anonymous One-Shot")).toBeVisible();
