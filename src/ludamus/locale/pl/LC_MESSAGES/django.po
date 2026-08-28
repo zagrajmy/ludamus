@@ -3774,12 +3774,12 @@ msgid "Now"
 msgstr "Teraz"
 
 #: src/ludamus/templates/chronology/_card_schedule.html
-msgid "Propose"
-msgstr "Zgłoś"
-
-#: src/ludamus/templates/chronology/_card_schedule.html
 msgid "Not Yet Available"
 msgstr "Jeszcze Niedostępne"
+
+#: src/ludamus/templates/chronology/_card_schedule.html
+msgid "Propose"
+msgstr "Zgłoś"
 
 #: src/ludamus/templates/chronology/_compact_schedule.html
 msgid "Jump to time"
