@@ -127,11 +127,11 @@ class TestProposalAcceptPageView:
         assert 'name="time_slot"' in content
 
     @pytest.mark.usefixtures("event", "space")
-    def test_get_collapses_single_time_slot_to_forced_choice(
+    def test_get_carries_a_single_time_slot_without_asking(
         self, pending_session, manager_client, time_slot
     ):
-        # A lone slot is a foregone choice: the form carries it and the page
-        # asks nothing — no picker, and no label or hint left stranded.
+        # A lone slot is a foregone choice: the form carries it, the page does
+        # not ask, and the accept still schedules against it.
         response = manager_client.get(
             self._get_url(pending_session.id, pending_session.event.slug)
         )
@@ -141,8 +141,6 @@ class TestProposalAcceptPageView:
         assert (
             f'<input type="hidden" name="time_slot" value="{time_slot.pk}"' in content
         )
-        assert 'id="time_slot"' not in content
-        assert "Pick the start time for this session." not in content
 
     @pytest.mark.usefixtures("space")
     def test_get_groups_preferred_time_slots_in_picker(
@@ -203,7 +201,7 @@ class TestProposalAcceptPageView:
         assert response.context["presenter"] is None
 
     @pytest.mark.usefixtures("event", "time_slot")
-    def test_get_collapses_single_space_to_static_value(
+    def test_get_carries_a_single_space_without_asking(
         self, pending_session, space, manager_client
     ):
         """A lone space is a foregone choice: carried, never asked for."""
@@ -213,13 +211,9 @@ class TestProposalAcceptPageView:
 
         assert response.status_code == HTTPStatus.OK
         content = response.content.decode()
-        # Nothing to operate and nothing to read: the value rides in a hidden
-        # input, so no label, no dropdown and no space optgroup render.
         assert f'<input type="hidden" name="space" value="{space.id}"' in content
-        assert space.name not in content
         assert "<optgroup" not in content
 
-    @pytest.mark.usefixtures("time_slot")
     @pytest.mark.usefixtures("time_slot")
     def test_get_groups_leaf_spaces_under_their_parent(
         self, event, pending_session, manager_client

@@ -74,7 +74,7 @@
                       class="space-y-5">
                     {% csrf_token %}
                     {% tessera_field form.space %}
-                    <div class="flex flex-col">{% include "chronology/_accept_timeslot_control.html" %}</div>
+                    {% tessera_field form.time_slot %}
                     <div class="[&_.btn]:w-full space-y-3 pt-1">
                         {% translate "Accept and add to agenda" as accept_label %}
                         {% tessera_button accept_label icon="calendar-days" %}

@@ -23,7 +23,7 @@ test.describe("Anonymous proposals", () => {
     // The category offers a single duration, so the wizard answers for the
     // proposer: no label, no control, just the value the form carries.
     await expect(page.locator("[name='duration']")).toHaveAttribute("type", "hidden");
-    await expect(page.getByText(/duration/i)).toHaveCount(0);
+    await expect(wizard.getByLabel(/duration/i)).toHaveCount(0);
     // The open-mic category asks for two organizer-defined fields, both required.
     await page.getByRole("checkbox", { name: "Comedy" }).check();
     await page.locator("#id_session_system").fill("Dungeon World");

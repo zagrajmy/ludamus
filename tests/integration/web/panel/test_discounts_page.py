@@ -4,7 +4,6 @@ from decimal import Decimal
 from http import HTTPStatus
 from unittest.mock import ANY, MagicMock, patch
 
-import pytest
 from django.contrib import messages
 from django.urls import reverse
 
@@ -617,8 +616,9 @@ class TestDiscountExportPageView:
 
         assert_event_not_found(response)
 
-    @pytest.mark.usefixtures("connection")
-    def test_get_shows_form_when_a_connection_exists(self, panel_client, event):
+    def test_get_shows_form_when_a_connection_exists(
+        self, panel_client, event, connection
+    ):
         response = panel_client.get(self.get_url(event))
 
         assert_response(
@@ -630,6 +630,9 @@ class TestDiscountExportPageView:
                 "form": ANY,
                 "has_connections": True,
             },
+            # The sphere's only connection is not a choice: the export carries
+            # it instead of asking which one to write through.
+            contains=f'<input type="hidden" name="connection" value="{connection.pk}">',
         )
 
     def test_get_shows_empty_state_without_connections(self, panel_client, event):

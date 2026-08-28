@@ -798,6 +798,18 @@ msgid "Code loaded successfully. You can now manage your enrollments."
 msgstr "Kod załadowany pomyślnie. Możesz teraz zarządzać swoimi zapisami."
 
 #: src/ludamus/gates/web/django/chronology/forms.py
+msgid "Choose a time…"
+msgstr "Wybierz godzinę…"
+
+#: src/ludamus/gates/web/django/chronology/forms.py
+msgid "Preferred by the facilitator"
+msgstr "Preferowane przez twórcę programu"
+
+#: src/ludamus/gates/web/django/chronology/forms.py
+msgid "Other times"
+msgstr "Pozostałe godziny"
+
+#: src/ludamus/gates/web/django/chronology/forms.py
 msgid "Ungrouped"
 msgstr "Bez grupy"
 
@@ -815,9 +827,12 @@ msgid "Select the space where this session will take place"
 msgstr "Wybierz przestrzeń, gdzie odbędzie się ten punkt programu"
 
 #: src/ludamus/gates/web/django/chronology/forms.py
-#: src/ludamus/templates/chronology/_accept_timeslot_control.html
 msgid "Time slot"
 msgstr "Przedział czasowy"
+
+#: src/ludamus/gates/web/django/chronology/forms.py
+msgid "Pick the start time for this session."
+msgstr "Wybierz godzinę rozpoczęcia tego punktu programu."
 
 #: src/ludamus/gates/web/django/chronology/forms.py
 msgid "Invalid space selection."
@@ -1004,7 +1019,6 @@ msgstr "Przypisany do"
 #: src/ludamus/gates/web/django/multiverse/panel/forms.py
 #: src/ludamus/gates/web/django/templatetags/cfp_tags.py
 #: src/ludamus/templates/chronology/parts/session-edit-form.html
-#: src/ludamus/templates/event/propose/parts/details.html
 #: src/ludamus/templates/event/propose/parts/review.html
 #: src/ludamus/templates/multiverse/panel/announcements/list.html
 #: src/ludamus/templates/panel/proposals.html
@@ -2483,7 +2497,6 @@ msgid "Contact email"
 msgstr "Email kontaktowy"
 
 #: src/ludamus/gates/web/django/event/propose_forms.py
-#: src/ludamus/templates/event/propose/parts/details.html
 #: src/ludamus/templates/event/propose/parts/review.html
 msgid "Max participants"
 msgstr "Maks. uczestników"
@@ -2499,7 +2512,6 @@ msgstr "Puste pole lub 0 = bez zapisów"
 #: src/ludamus/templates/chronology/accept_proposal.html
 #: src/ludamus/templates/chronology/anonymous_enroll.html
 #: src/ludamus/templates/chronology/parts/session-edit-form.html
-#: src/ludamus/templates/event/propose/parts/details.html
 #: src/ludamus/templates/event/propose/parts/review.html
 #: src/ludamus/templates/panel/cfp-edit.html
 #: src/ludamus/templates/panel/proposal-detail.html
@@ -2510,7 +2522,6 @@ msgstr "Opis"
 #: src/ludamus/gates/web/django/event/propose_forms.py
 #: src/ludamus/gates/web/django/templatetags/cfp_tags.py
 #: src/ludamus/templates/chronology/session_tags_cloud.html
-#: src/ludamus/templates/event/propose/parts/details.html
 #: src/ludamus/templates/event/propose/parts/review.html
 msgid "Minimum age"
 msgstr "Minimalny wiek"
@@ -2520,7 +2531,6 @@ msgid "0 = no age restriction"
 msgstr "0 = brak ograniczenia wiekowego"
 
 #: src/ludamus/gates/web/django/event/propose_forms.py
-#: src/ludamus/templates/event/propose/parts/details.html
 #: src/ludamus/templates/event/propose/parts/review.html
 msgid "Presenter name"
 msgstr "Nazwa prowadzącego"
@@ -3736,22 +3746,6 @@ msgstr ""
 msgid "A case these rules do not cover? Ask before improvising."
 msgstr ""
 "Przypadek, którego te zasady nie opisują? Zapytaj, zanim zaimprowizujesz."
-
-#: src/ludamus/templates/chronology/_accept_timeslot_control.html
-msgid "Choose a time…"
-msgstr "Wybierz godzinę…"
-
-#: src/ludamus/templates/chronology/_accept_timeslot_control.html
-msgid "Preferred by the facilitator"
-msgstr "Preferowane przez twórcę programu"
-
-#: src/ludamus/templates/chronology/_accept_timeslot_control.html
-msgid "Other times"
-msgstr "Pozostałe godziny"
-
-#: src/ludamus/templates/chronology/_accept_timeslot_control.html
-msgid "Pick the start time for this session."
-msgstr "Wybierz godzinę rozpoczęcia tego punktu programu."
 
 #: src/ludamus/templates/chronology/_bookmark_toggle.html
 msgid "Bookmark session"

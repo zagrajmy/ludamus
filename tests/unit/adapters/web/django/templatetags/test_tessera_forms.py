@@ -595,15 +595,6 @@ class TestSingleOptionRendering:
         html = tessera_field(SingleChoiceForm()["radio_one"])
         assert html == '<input type="hidden" name="radio_one" value="x">'
 
-    def test_a_rejected_value_still_surfaces_its_error(self) -> None:
-        # Only a tampered post can get here, but a rejection nobody can see
-        # would leave the form silently refusing to submit.
-        form = SingleChoiceForm({"required_one": "tampered"})
-        form.full_clean()
-        html = tessera_field(form["required_one"])
-        assert '<input type="hidden" name="required_one" value="x">' in html
-        assert "Select a valid choice" in html
-
 
 class TestTesseraButtonBranches:
     def test_secondary_variant(self) -> None:

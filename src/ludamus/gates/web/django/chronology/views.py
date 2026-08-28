@@ -269,7 +269,9 @@ class ProposalAcceptPageView(LoginRequiredMixin, View):
     @staticmethod
     def _build_form(context: ProposalAcceptContextDTO) -> type[forms.Form]:
         return create_proposal_acceptance_form(
-            space_options=context.space_options, time_slots=context.time_slots
+            space_options=context.space_options,
+            time_slots=context.time_slots,
+            preferred_time_slot_ids=context.preferred_time_slot_ids,
         )
 
     @staticmethod
