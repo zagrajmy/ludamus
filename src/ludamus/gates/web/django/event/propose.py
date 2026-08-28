@@ -357,7 +357,7 @@ def _details_context(
         "category": category,
         "form": form,
         "image_form": image_form or _wizard_image_form(state),
-        "durations": category.durations,
+        "has_duration": "duration" in form.fields,
         "field_descriptors": field_descriptors(
             prefix="session", fields=requirement_fields(requirements), form=form
         ),

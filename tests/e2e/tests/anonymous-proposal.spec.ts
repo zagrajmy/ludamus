@@ -20,7 +20,12 @@ test.describe("Anonymous proposals", () => {
     await page.getByLabel(/description/i).fill("A drop-in adventure pitched without an account.");
     await page.getByLabel(/max participants/i).fill("5");
     await page.getByLabel(/presenter name/i).fill("Mystery GM");
-    await page.getByLabel(/duration/i).selectOption("PT1H");
+    // The category offers a single duration, so the wizard fills it in: the
+    // proposer sees the value, not a dropdown whose only answer is "1h".
+    const duration = page.getByLabel(/duration/i);
+    await expect(duration).toBeDisabled();
+    await expect(duration).toHaveValue("1h");
+    await expect(page.locator("select[name='duration']")).toHaveCount(0);
     // The open-mic category asks for two organizer-defined fields, both required.
     await page.getByRole("checkbox", { name: "Comedy" }).check();
     await page.locator("#id_session_system").fill("Dungeon World");

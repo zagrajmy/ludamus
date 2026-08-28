@@ -849,7 +849,7 @@ class TestProposeSessionPageView:
                 "category": ProposalCategoryDTO.model_validate(proposal_category),
                 "form": response.context["form"],
                 "image_form": response.context["image_form"],
-                "durations": [],
+                "has_duration": False,
                 "field_descriptors": [],
                 "public_tracks": [TrackDTO.model_validate(track)],
                 "selected_track_pks": [],
@@ -1771,10 +1771,10 @@ class TestProposeSessionPageView:
             context_data={
                 "category": ProposalCategoryDTO.model_validate(proposal_category),
                 "current_step": "details",
-                "durations": [],
                 "event": EventDTO.model_validate(event),
                 "field_descriptors": [],
                 "form": response.context["form"],
+                "has_duration": False,
                 "image_form": response.context["image_form"],
                 "proposal_settings": EventProposalSettingsDTO(
                     allow_anonymous_proposals=False, description="", pk=0
@@ -1814,10 +1814,10 @@ class TestProposeSessionPageView:
             context_data={
                 "category": ProposalCategoryDTO.model_validate(proposal_category),
                 "current_step": "details",
-                "durations": [],
                 "event": EventDTO.model_validate(event),
                 "field_descriptors": [],
                 "form": response.context["form"],
+                "has_duration": False,
                 "image_form": response.context["image_form"],
                 "proposal_settings": EventProposalSettingsDTO(
                     allow_anonymous_proposals=False, description="", pk=0
@@ -2435,7 +2435,7 @@ class TestProposeSessionPageView:
                 "category": ProposalCategoryDTO.model_validate(proposal_category),
                 "form": response.context["form"],
                 "image_form": response.context["image_form"],
-                "durations": [],
+                "has_duration": False,
                 "field_descriptors": [],
                 "public_tracks": [],
                 "selected_track_pks": [],
@@ -2445,6 +2445,41 @@ class TestProposeSessionPageView:
             },
             template_name="event/propose/parts/details.html",
         )
+
+    def test_details_step_flags_a_configured_duration(
+        self, authenticated_client, event, faker, time_zone, proposal_category
+    ):
+        self._activate_proposals(event, faker, time_zone)
+        proposal_category.durations = ["PT1H"]
+        proposal_category.save()
+        self._set_wizard_category(authenticated_client, event, proposal_category)
+
+        response = authenticated_client.post(
+            self._get_details_url(event.slug), {"back": "1"}
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={
+                "event": EventDTO.model_validate(event),
+                "proposal_settings": EventProposalSettingsDTO(
+                    allow_anonymous_proposals=False, description="", pk=0
+                ),
+                "category": ProposalCategoryDTO.model_validate(proposal_category),
+                "form": response.context["form"],
+                "image_form": response.context["image_form"],
+                "has_duration": True,
+                "field_descriptors": [],
+                "public_tracks": [],
+                "selected_track_pks": [],
+                "track_error": None,
+                "current_step": "details",
+                "wizard_steps": ["personal", "details", "review"],
+            },
+            template_name="event/propose/parts/details.html",
+        )
+        assert "duration" in response.context["form"].fields
 
     def test_review_step_stepper_context(
         self, authenticated_client, event, faker, time_zone, proposal_category

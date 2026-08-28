@@ -2528,7 +2528,6 @@ msgstr "Nazwa prowadzącego"
 #: src/ludamus/gates/web/django/event/propose_forms.py
 #: src/ludamus/gates/web/django/forms.py
 #: src/ludamus/gates/web/django/templatetags/cfp_tags.py
-#: src/ludamus/templates/event/propose/parts/details.html
 #: src/ludamus/templates/event/propose/parts/review.html
 #: src/ludamus/templates/panel/parts/proposal-duration.html
 #: src/ludamus/templates/panel/proposal-detail.html
