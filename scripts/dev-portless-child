@@ -22,7 +22,8 @@ printf '[dev] auth0=%s root=%s app_port=%s\n' \
   "${AUTH0_DOMAIN:-?}" "$ROOT_DOMAIN" "${PORT:-?}" >&2
 
 python - <<'PY'
-import os, sys
+import os
+import sys
 
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "ludamus.edges.settings")
 import django
@@ -30,18 +31,63 @@ import django
 django.setup()
 from django.conf import settings
 from django.contrib.sites.models import Site
+from django.db import transaction
+
+from ludamus.links.db.django.models import Sphere
+
+
+def swap_domains(first: Site, second: Site) -> None:
+    first_domain = first.domain
+    second_domain = second.domain
+    temporary_domain = f"sphere-swap-{first.pk}-{second.pk}.invalid"
+    Site.objects.filter(pk=first.pk).update(domain=temporary_domain)
+    Site.objects.filter(pk=second.pk).update(domain=first_domain)
+    Site.objects.filter(pk=first.pk).update(domain=second_domain)
+
 
 root_domain = os.environ["ROOT_DOMAIN"]
-site_id = settings.SITE_ID
-existing = Site.objects.filter(id=site_id).values_list("domain", flat=True).first()
-if existing != root_domain:
-    print(
-        f"[dev] Site(id={site_id}).domain: {existing!r} -> {root_domain!r}",
-        file=sys.stderr,
+requested_sphere = os.environ.get("DEV_SPHERE", "").strip()
+
+with transaction.atomic():
+    canonical_site, _ = Site.objects.get_or_create(
+        id=settings.SITE_ID, defaults={"domain": root_domain, "name": root_domain}
     )
-Site.objects.update_or_create(
-    id=site_id, defaults={"domain": root_domain, "name": root_domain}
-)
+    root_holder = Site.objects.filter(domain=root_domain).first()
+
+    if root_holder is None:
+        print(
+            f"[dev] Site(id={canonical_site.pk}).domain: "
+            f"{canonical_site.domain!r} -> {root_domain!r}",
+            file=sys.stderr,
+        )
+        canonical_site.domain = root_domain
+        canonical_site.name = root_domain
+        canonical_site.save(update_fields=("domain", "name"))
+    elif root_holder.pk != canonical_site.pk:
+        swap_domains(root_holder, canonical_site)
+        canonical_site.refresh_from_db()
+
+    current_sphere = Sphere.objects.select_related("site").get(site=canonical_site)
+    if requested_sphere:
+        if requested_sphere.isdecimal():
+            target_sphere = (
+                Sphere.objects.select_related("site")
+                .filter(pk=int(requested_sphere))
+                .first()
+            )
+        else:
+            target_sphere = (
+                Sphere.objects.select_related("site")
+                .filter(name__iexact=requested_sphere)
+                .first()
+            )
+        if target_sphere is None:
+            raise SystemExit(f"No sphere matches {requested_sphere!r} by id or name.")
+        if target_sphere.site_id != canonical_site.pk:
+            swap_domains(canonical_site, target_sphere.site)
+        current_sphere = target_sphere
+
+print(f"[dev] sphere={current_sphere.name!r} root={root_domain}", file=sys.stderr)
 PY
 
 exec honcho start -e /dev/null -f Procfile.dev
