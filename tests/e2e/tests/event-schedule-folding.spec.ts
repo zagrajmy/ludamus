@@ -150,6 +150,25 @@ test.describe("Folding days on the ledger", () => {
     await expect(sessionLinks(dayTwo).first()).toBeVisible();
   });
 
+  test("a finished convention arrives fully unfolded", async ({ page }) => {
+    await page.goto(DENSE_EVENT_URL);
+    const lastEnd = await page
+      .locator("[data-schedule-day]")
+      .last()
+      .locator(".session")
+      .last()
+      .getAttribute("data-end");
+    if (!lastEnd) throw new Error("The fixture needs a session on the last day");
+    await page.clock.install({ time: new Date(Date.parse(lastEnd) + 48 * 3600 * 1000) });
+    await page.goto(DENSE_EVENT_URL);
+
+    // Every day is over, so the reader came for the archive — nothing hides.
+    for (const toggle of await dayToggles(page).all()) {
+      await expect(toggle).toHaveAttribute("aria-expanded", "true");
+    }
+    await expect(sessionLinks(page.locator("[data-schedule-day]").first()).first()).toBeVisible();
+  });
+
   test("finished days arrive folded", async ({ page }) => {
     await page.goto(DENSE_EVENT_URL);
     const dayTwoStart = await page
@@ -211,6 +230,23 @@ test.describe("Folding days on the rooms grid", () => {
 
     await barToggle.click();
     await expect(card(page, dayOneTitle).first()).toBeVisible();
+  });
+
+  test("a finished convention keeps every day open on the rooms grid", async ({ page }) => {
+    await page.goto(`${DENSE_EVENT_URL}?view=rooms`);
+    const titles = await roomTitlesByDay(page);
+    const dayOneTitle = onlyOn(titles[0], titles[1]);
+    const lastHourEnd = await page
+      .locator(".room-lanes-line[data-hour-end]")
+      .last()
+      .getAttribute("data-hour-end");
+    if (!lastHourEnd) throw new Error("The fixture needs hour rows");
+    await page.clock.install({ time: new Date(Date.parse(lastHourEnd) + 48 * 3600 * 1000) });
+    await page.goto(`${DENSE_EVENT_URL}?view=rooms`);
+
+    await expect(card(page, dayOneTitle).first()).toBeVisible();
+    const barToggle = page.locator(".room-lanes-day-current").getByRole("button");
+    await expect(barToggle).toHaveAttribute("aria-expanded", "true");
   });
 
   test("finished days arrive folded and the bar brings them back", async ({ page }) => {

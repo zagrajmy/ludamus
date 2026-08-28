@@ -89,13 +89,19 @@ document.addEventListener(
 // same page leaves the reader's unfolds alone. Only days with somewhere to
 // unfold from fold themselves: a single-day schedule renders no toggle, and
 // the rooms grid always carries the sticky bar once it has more than one day.
+// A finished convention folds nothing: with every day over, the reader came
+// for the archive, and a page of folded headings would hide it all.
+const stillRunning = (days: HTMLElement[], today: string): boolean =>
+  days.some((day) => (day.dataset.day ?? "") >= today);
+
 const autoFold = (): void => {
   const today = eventToday();
   let folded = false;
-  for (const section of document.querySelectorAll<HTMLElement>("[data-schedule-day][data-day]")) {
+  const sections = [...document.querySelectorAll<HTMLElement>("[data-schedule-day][data-day]")];
+  for (const section of sections) {
     if ("foldBound" in section.dataset) continue;
     section.dataset.foldBound = "";
-    if (!section.querySelector("[data-day-fold]")) continue;
+    if (!stillRunning(sections, today) || !section.querySelector("[data-day-fold]")) continue;
     if ((section.dataset.day ?? "") < today) {
       setFolded(section, true);
       folded = true;
@@ -105,7 +111,9 @@ const autoFold = (): void => {
     if ("foldBound" in heading.dataset) continue;
     heading.dataset.foldBound = "";
     const lanes = heading.closest<HTMLElement>(".room-lanes");
-    if (!lanes || lanes.querySelectorAll("[data-day-heading]").length < 2) continue;
+    if (!lanes) continue;
+    const siblings = [...lanes.querySelectorAll<HTMLElement>("[data-day-heading]")];
+    if (siblings.length < 2 || !stillRunning(siblings, today)) continue;
     if ((heading.dataset.day ?? "") < today) {
       setFolded(heading, true);
       folded = true;

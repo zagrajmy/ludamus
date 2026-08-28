@@ -7,6 +7,13 @@
   display: none;
 }
 
+/* The rule under the heading separates it from the day's slots; with the
+   slots folded away it would read as a stray line over nothing. */
+[data-schedule-day][data-folded] > h3 {
+  border-bottom: none;
+  margin-bottom: 0;
+}
+
 .day-fold-chevron svg {
   transition: transform 0.15s ease;
 }
