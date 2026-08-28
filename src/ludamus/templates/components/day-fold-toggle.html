@@ -21,16 +21,21 @@ Variables:
         {# The hover fill is a foreground-color wash, not a surface token: the #}
         {# toggle sits on different grounds (page, the ledger's sheet, the #}
         {# rooms header) and a fixed surface color would vanish on some. #}
-        class="items-baseline gap-2 rounded-md px-2 py-1 text-left text-sm font-bold uppercase tracking-wide text-foreground-secondary transition-colors hover:bg-foreground/5 hover:text-foreground active:scale-100!{% if extra_class %} {{ extra_class }}{% endif %}"
+        class="items-center gap-2 rounded-md px-2 py-1 text-left text-sm font-bold uppercase tracking-wide text-foreground-secondary transition-colors hover:bg-foreground/5 hover:text-foreground active:scale-100!{% if extra_class %} {{ extra_class }}{% endif %}"
         data-day-fold
         {% if is_bar %}data-room-lanes-day-current data-fold-day="0"{% endif %}
         aria-expanded="true">
-    <span data-day-name>{{ day_start|date:"l" }}</span>
-    <span class="text-xs font-medium normal-case tracking-normal text-foreground-muted"
-          data-day-date>{{ day_start|date:"j F" }}</span>
+    {# The name and date share a baseline in their own group, so the chevron #}
+    {# can centre against the whole text block instead of riding that #}
+    {# baseline, where an icon has none and sat visibly high. #}
+    <span class="flex items-baseline gap-2">
+        <span data-day-name>{{ day_start|date:"l" }}</span>
+        <span class="text-xs font-medium normal-case tracking-normal text-foreground-muted"
+              data-day-date>{{ day_start|date:"j F" }}</span>
+    </span>
     {# ms-auto sends the chevron to the far edge wherever the toggle is #}
     {# full-width; in the shrink-wrapped rooms copies it simply trails the #}
     {# date. The row's own hover fill is the affordance — no second #}
     {# highlight on the chevron. #}
-    <span class="day-fold-chevron ms-auto self-center text-foreground-muted">{% icon "chevron-down" class="w-4 h-4" variant="mini" %}</span>
+    <span class="day-fold-chevron ms-auto text-foreground-muted">{% icon "chevron-down" class="w-4 h-4" variant="mini" %}</span>
 </button>
