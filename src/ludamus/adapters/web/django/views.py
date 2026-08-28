@@ -290,8 +290,8 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
             with_scheduled_card_relations(scheduled)
         ).order_by("agenda_item__start_time")
 
-        shadowbanned_ids: frozenset[int] = frozenset()
-        banned_by: set[int] = set()
+        shadowbanned_ids: frozenset[UserId] = frozenset()
+        banned_by: set[UserId] = set()
         if current_user_id := self.request.context.current_user_id:
             banned_by = self.request.services.shadowban.banning_owner_ids(
                 current_user_id
@@ -459,7 +459,7 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
         self.request.session.pop("anonymous_site_id", None)
 
     def _get_pending_sessions_context(
-        self, shadowbanned_ids: frozenset[int]
+        self, shadowbanned_ids: frozenset[UserId]
     ) -> dict[str, Any]:
         context: dict[str, Any] = {
             "pending_sessions": [],
@@ -501,7 +501,7 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
         }
 
     def _proposal_cards(
-        self, proposals: QuerySet[Session], shadowbanned_ids: frozenset[int]
+        self, proposals: QuerySet[Session], shadowbanned_ids: frozenset[UserId]
     ) -> list[SessionData]:
         # The shadowban ids, but deliberately not mask_session_card: the mask
         # rewrites participants_limit to a fabricated fill, and an organizer
@@ -605,12 +605,12 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
             data.bookmark_count = counts.get(SessionId(sid), 0)
 
     def _set_user_bookmarks(
-        self, sessions_data: dict[int, SessionData], current_user_id: int
+        self, sessions_data: dict[int, SessionData], current_user_id: UserId
     ) -> None:
         # Bookmarks are only surfaced on the compact schedule (the lightweight
         # "I want to attend" gesture for big events). One query for the whole set.
         bookmarked_ids = self.request.services.bookmarks.bookmarked_session_ids(
-            user_id=UserId(current_user_id), event_id=EventId(self.object.pk)
+            user_id=current_user_id, event_id=EventId(self.object.pk)
         )
         for sid, data in sessions_data.items():
             data.user_bookmarked = sid in bookmarked_ids
@@ -632,7 +632,7 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
     def _get_session_data(
         self,
         event_sessions: QuerySet[Session],
-        shadowbanned_ids: frozenset[int] = frozenset(),
+        shadowbanned_ids: frozenset[UserId] = frozenset(),
     ) -> dict[int, SessionData]:
         event_override = self.object.allow_facilitator_session_edit
         sphere_default = self.object.sphere.allow_facilitator_session_edit
@@ -797,7 +797,7 @@ class Enrollments:
         self.freed_seat = False
         # (user_id, name) of fresh enrol/waitlist sign-ups, so the caller can
         # warn the presenter about shadowbanned players after commit.
-        self.signed_up_users: list[tuple[int, str]] = []
+        self.signed_up_users: list[tuple[UserId, str]] = []
         # Seats taken for real party members, announced to them after commit.
         self.party_notices = PartyNotices()
         # Final +N guest headcount after this submit; None when untouched.
@@ -863,7 +863,9 @@ def _get_session_or_redirect(
     # Hard event ban: a banned user cannot enrol; bounce them back to the
     # (fake-full) event page without revealing the ban.
     event = session.event
-    if request.services.event_bans.is_banned(event_id=event.pk, user_id=viewer_id):
+    if request.services.event_bans.is_banned(
+        event_id=EventId(event.pk), user_id=viewer_id
+    ):
         raise RedirectError(
             reverse("web:chronology:event", kwargs={"slug": event.slug})
         ) from None
@@ -943,7 +945,8 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
             # Frontload the decision: warn the viewer up top if players they
             # shadowbanned are already signed up to this session.
             "shadowban_warnings": self.request.services.shadowban.list_session_warnings(
-                viewer_id=self.request.context.current_user_id, session_id=session.pk
+                viewer_id=self.request.context.current_user_id,
+                session_id=SessionId(session.pk),
             ),
             "form": form,
         }
@@ -1369,7 +1372,7 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
         form: forms.Form,
         session: Session,
         wants_in: list[RosterMember],
-        member_pks: set[int],
+        member_pks: set[UserId],
         freed: int,
     ) -> list[EnrollmentRequest]:
         # Fill confirmed seats first (viewer, then companions, then members — the
@@ -1461,7 +1464,9 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
         # Players the presenter shadowbanned must not be seated — even when an
         # unbanned manager tries to enroll a banned companion.
         shadowbanned_ids = (
-            self.request.services.shadowban.banned_user_ids(session.presenter_id)
+            self.request.services.shadowban.banned_user_ids(
+                UserId(session.presenter_id)
+            )
             if session.presenter_id
             else set()
         )
@@ -1526,7 +1531,7 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
         req: EnrollmentRequest,
         session: Session,
         enrollments: Enrollments,
-        shadowbanned_ids: set[int],
+        shadowbanned_ids: set[UserId],
         party_pk: int | None,
     ) -> None:
         # Check if user is the session presenter
@@ -1566,7 +1571,7 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
                 )
                 return
             enrollments.party_notices.held_seats.append(req.user)
-            enrollments.signed_up_users.append((req.user.pk, req.name))
+            enrollments.signed_up_users.append((UserId(req.user.pk), req.name))
             return
 
         if not participation:
@@ -1585,7 +1590,7 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
         # Only a brand-new participation is a "signup" worth warning a banner
         # about — re-confirming or status changes must not re-alert.
         if is_fresh_signup:
-            enrollments.signed_up_users.append((req.user.pk, req.name))
+            enrollments.signed_up_users.append((UserId(req.user.pk), req.name))
 
     def _hold_member_seats(
         self, session: Session, enrollments: Enrollments, party_pk: int | None
@@ -1757,7 +1762,7 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
 
             # Warn the presenter (by email) if a shadowbanned player signed up.
             self.request.services.shadowban.notify_signups(
-                session_id=session.id, signed_up=enrollments.signed_up_users
+                session_id=SessionId(session.id), signed_up=enrollments.signed_up_users
             )
 
             self._notify_party_members(session, enrollments)
