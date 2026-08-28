@@ -200,6 +200,21 @@
              class="flex-auto min-h-0 flex flex-col overflow-hidden text-foreground"
              hidden></div>
     {% endif %}
+    {# The author's own row, not part of the footer: `data.can_edit` follows #}
+    {# the event's "facilitators may edit their sessions" setting, and taking #}
+    {# back a claim nobody has answered yet is not editing the programme. Its #}
+    {# own block so the footer never renders empty for everybody else. #}
+    {% if data.is_pending_claim and current_user and current_user.pk == data.session.presenter_id %}
+        <div class="px-6 py-4 flex items-center justify-end border-t border-border shrink-0 bg-bg-secondary">
+            <form method="post"
+                  action="{% url 'web:chronology:session-claim-withdraw' event_slug=event.slug session_id=data.session.pk %}">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-danger text-sm">
+                    {% icon "arrow-uturn-left" class="w-4 h-4" variant="mini" %} {% translate "Withdraw claim" %}
+                </button>
+            </form>
+        </div>
+    {% endif %}
     {% if enroll_actions or data.can_edit %}
         <!-- Footer -->
         {# A new-only view-transition group: with no old geometry to interpolate #}
@@ -221,16 +236,6 @@
                             hx-swap="innerHTML">
                         {% icon "pencil-square" class="w-4 h-4" variant="mini" %} {% translate "Edit session" %}
                     </button>
-                {% endif %}
-                {% if data.is_pending_claim and data.can_edit %}
-                    <form method="post"
-                          action="{% url 'web:chronology:session-claim-withdraw' event_slug=event.slug session_id=data.session.pk %}"
-                          class="inline">
-                        {% csrf_token %}
-                        <button type="submit" class="btn btn-danger text-sm">
-                            {% icon "arrow-uturn-left" class="w-4 h-4" variant="mini" %} {% translate "Withdraw claim" %}
-                        </button>
-                    </form>
                 {% endif %}
             </div>
             <div class="flex items-center gap-2">
