@@ -381,22 +381,28 @@ def _pad_to_extent(
 
 
 class GoogleSheetsWriter(SheetWriterProtocol):
-    """Replaces the first tab of a spreadsheet with the given rows."""
+    """Replaces the named tab of a spreadsheet with the given rows."""
 
     def __init__(self, scopes: Sequence[str] = SHEETS_WRITE_SCOPES) -> None:
         self._scopes = tuple(scopes)
 
     def write_rows(
-        self, *, secret: bytes, spreadsheet_id: str, rows: list[list[str]]
+        self,
+        *,
+        secret: bytes,
+        spreadsheet_id: str,
+        tab_title: str,
+        rows: list[list[str]],
     ) -> None:
         try:
             session = _build_session(secret, self._scopes)
         except _CredentialsError as exc:
             raise SheetExportError(str(exc)) from exc
+        self._require_tab(session, spreadsheet_id, tab_title)
         # A1-quote the tab title: a bare title that parses as a cell reference
         # (a tab named "A1") or contains an apostrophe would otherwise be read
         # as a range, writing a single cell instead of the tab.
-        title = _a1_quote(self._first_tab_title(session, spreadsheet_id))
+        title = _a1_quote(tab_title)
         height, width = self._old_extent(
             session=session, spreadsheet_id=spreadsheet_id, title=title
         )
@@ -432,7 +438,11 @@ class GoogleSheetsWriter(SheetWriterProtocol):
         values = response.json().get("values") or []
         return len(values), max((len(row) for row in values), default=0)
 
-    def _first_tab_title(self, session: AuthorizedSession, spreadsheet_id: str) -> str:
+    def _require_tab(
+        self, session: AuthorizedSession, spreadsheet_id: str, tab_title: str
+    ) -> None:
+        # Checked up front: writing to a missing tab fails deep inside the
+        # values API with an "unable to parse range" blob nobody can act on.
         response = self._call(
             what="Spreadsheet metadata",
             send=lambda: session.get(
@@ -440,10 +450,11 @@ class GoogleSheetsWriter(SheetWriterProtocol):
             ),
         )
         meta = _SpreadsheetMeta.model_validate(response.json())
-        if not meta.sheets or not (title := meta.sheets[0].properties.title):
-            msg = "Spreadsheet has no sheet tab to write into."
+        titles = [sheet.properties.title for sheet in meta.sheets]
+        if tab_title not in titles:
+            known = ", ".join(titles) or "none"
+            msg = f"Spreadsheet has no tab named {tab_title!r} (tabs: {known})."
             raise SheetExportError(msg)
-        return title
 
     @staticmethod
     def _call(*, what: str, send: Callable[[], requests.Response]) -> requests.Response:

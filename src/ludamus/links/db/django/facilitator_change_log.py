@@ -31,6 +31,12 @@ class FacilitatorChangeLogRepository(FacilitatorChangeLogRepositoryProtocol):
         FacilitatorChangeLog.objects.create(**data)
 
     @staticmethod
+    def create_many(data: list[FacilitatorChangeLogData]) -> None:
+        FacilitatorChangeLog.objects.bulk_create(
+            FacilitatorChangeLog(**item) for item in data
+        )
+
+    @staticmethod
     def list_by_event(event_pk: int) -> list[FacilitatorChangeLogDTO]:
         qs = FacilitatorChangeLog.objects.filter(event_id=event_pk).select_related(
             *_SELECT_RELATED

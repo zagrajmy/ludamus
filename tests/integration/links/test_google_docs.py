@@ -7,6 +7,7 @@ outcome mapping is exercised end to end.
 
 from __future__ import annotations
 
+import re
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 from urllib.parse import quote
@@ -750,17 +751,21 @@ class TestGoogleDocsProposalImporterFetchResponses:
 
 
 EXPORT_ROWS = [["Creator", "Accreditation type"], ["Alice", "Guest"]]
+EXPORT_TAB = "Form Responses 1"
 
 
 class TestGoogleSheetsWriter:
-    def test_writes_the_first_tab_in_a_single_request(self, google):
+    def test_writes_the_named_tab_in_a_single_request(self, google):
         google.session.get.side_effect = _route_get(
             values=[["x", "y"]] * len(EXPORT_ROWS)
         )
         google.session.put.return_value = _resp(ok=True)
 
         GoogleSheetsWriter().write_rows(
-            secret=SECRET, spreadsheet_id="sheet-1", rows=EXPORT_ROWS
+            secret=SECRET,
+            spreadsheet_id="sheet-1",
+            tab_title=EXPORT_TAB,
+            rows=EXPORT_ROWS,
         )
 
         google.creds.assert_called_once_with(
@@ -786,7 +791,10 @@ class TestGoogleSheetsWriter:
         google.session.put.return_value = _resp(ok=True)
 
         GoogleSheetsWriter().write_rows(
-            secret=SECRET, spreadsheet_id="sheet-1", rows=EXPORT_ROWS
+            secret=SECRET,
+            spreadsheet_id="sheet-1",
+            tab_title=EXPORT_TAB,
+            rows=EXPORT_ROWS,
         )
 
         google.session.post.assert_not_called()
@@ -810,7 +818,7 @@ class TestGoogleSheetsWriter:
         google.session.put.return_value = _resp(ok=True)
 
         GoogleSheetsWriter().write_rows(
-            secret=SECRET, spreadsheet_id="sheet-1", rows=EXPORT_ROWS
+            secret=SECRET, spreadsheet_id="sheet-1", tab_title="A1", rows=EXPORT_ROWS
         )
 
         google.session.put.assert_called_once_with(
@@ -824,7 +832,7 @@ class TestGoogleSheetsWriter:
         google.session.put.return_value = _resp(ok=True)
 
         GoogleSheetsWriter().write_rows(
-            secret=SECRET, spreadsheet_id="sheet-1", rows=EXPORT_ROWS
+            secret=SECRET, spreadsheet_id="sheet-1", tab_title="It's", rows=EXPORT_ROWS
         )
 
         google.session.put.assert_called_once_with(
@@ -838,7 +846,10 @@ class TestGoogleSheetsWriter:
             SheetExportError, match="Connection has no service-account credentials"
         ):
             GoogleSheetsWriter().write_rows(
-                secret=b"", spreadsheet_id="sheet-1", rows=EXPORT_ROWS
+                secret=b"",
+                spreadsheet_id="sheet-1",
+                tab_title=EXPORT_TAB,
+                rows=EXPORT_ROWS,
             )
 
         google.session.get.assert_not_called()
@@ -850,7 +861,10 @@ class TestGoogleSheetsWriter:
             SheetExportError, match="Invalid service-account credentials: bad key"
         ):
             GoogleSheetsWriter().write_rows(
-                secret=SECRET, spreadsheet_id="sheet-1", rows=EXPORT_ROWS
+                secret=SECRET,
+                spreadsheet_id="sheet-1",
+                tab_title=EXPORT_TAB,
+                rows=EXPORT_ROWS,
             )
 
     def test_metadata_failure_raises_before_writing(self, google):
@@ -860,7 +874,10 @@ class TestGoogleSheetsWriter:
             SheetExportError, match="Spreadsheet metadata request failed with 403: deny"
         ):
             GoogleSheetsWriter().write_rows(
-                secret=SECRET, spreadsheet_id="sheet-1", rows=EXPORT_ROWS
+                secret=SECRET,
+                spreadsheet_id="sheet-1",
+                tab_title=EXPORT_TAB,
+                rows=EXPORT_ROWS,
             )
 
         google.session.post.assert_not_called()
@@ -872,21 +889,35 @@ class TestGoogleSheetsWriter:
         )
 
         with pytest.raises(
-            SheetExportError, match="Spreadsheet has no sheet tab to write into"
+            SheetExportError,
+            match=re.escape("Spreadsheet has no tab named 'Form Responses 1'"),
         ):
             GoogleSheetsWriter().write_rows(
-                secret=SECRET, spreadsheet_id="sheet-1", rows=EXPORT_ROWS
+                secret=SECRET,
+                spreadsheet_id="sheet-1",
+                tab_title=EXPORT_TAB,
+                rows=EXPORT_ROWS,
             )
 
-    def test_untitled_tab_raises(self, google):
-        google.session.get.return_value = _meta_with_title("")
+        google.session.put.assert_not_called()
+
+    def test_unknown_tab_name_raises_and_names_the_tabs_there_are(self, google):
+        google.session.get.return_value = _meta_with_title("Sheet1")
 
         with pytest.raises(
-            SheetExportError, match="Spreadsheet has no sheet tab to write into"
+            SheetExportError,
+            match=re.escape(
+                "Spreadsheet has no tab named 'Akredytacje' (tabs: Sheet1)"
+            ),
         ):
             GoogleSheetsWriter().write_rows(
-                secret=SECRET, spreadsheet_id="sheet-1", rows=EXPORT_ROWS
+                secret=SECRET,
+                spreadsheet_id="sheet-1",
+                tab_title="Akredytacje",
+                rows=EXPORT_ROWS,
             )
+
+        google.session.put.assert_not_called()
 
     def test_extent_read_failure_raises_before_writing(self, google):
         def get(url: str, **_kwargs: object) -> MagicMock:
@@ -900,7 +931,10 @@ class TestGoogleSheetsWriter:
             SheetExportError, match="Spreadsheet read request failed with 403: deny"
         ):
             GoogleSheetsWriter().write_rows(
-                secret=SECRET, spreadsheet_id="sheet-1", rows=EXPORT_ROWS
+                secret=SECRET,
+                spreadsheet_id="sheet-1",
+                tab_title=EXPORT_TAB,
+                rows=EXPORT_ROWS,
             )
 
         google.session.put.assert_not_called()
@@ -913,7 +947,10 @@ class TestGoogleSheetsWriter:
             SheetExportError, match="Spreadsheet write request failed with 500: boom"
         ):
             GoogleSheetsWriter().write_rows(
-                secret=SECRET, spreadsheet_id="sheet-1", rows=EXPORT_ROWS
+                secret=SECRET,
+                spreadsheet_id="sheet-1",
+                tab_title=EXPORT_TAB,
+                rows=EXPORT_ROWS,
             )
 
     def test_request_exception_raises(self, google):
@@ -924,5 +961,8 @@ class TestGoogleSheetsWriter:
             SheetExportError, match="Spreadsheet write request failed: timeout"
         ):
             GoogleSheetsWriter().write_rows(
-                secret=SECRET, spreadsheet_id="sheet-1", rows=EXPORT_ROWS
+                secret=SECRET,
+                spreadsheet_id="sheet-1",
+                tab_title=EXPORT_TAB,
+                rows=EXPORT_ROWS,
             )
