@@ -1365,6 +1365,10 @@ class FacilitatorRepositoryProtocol(Protocol):
     @staticmethod
     def update(pk: int, data: FacilitatorUpdateData) -> FacilitatorDTO: ...
     @staticmethod
+    def set_accreditation(
+        *, event_id: int, pks: list[int], accreditation_type: str
+    ) -> None: ...
+    @staticmethod
     def list_by_event(
         event_id: int, filters: FacilitatorListFilters | None = None
     ) -> list[FacilitatorListItemDTO]: ...
@@ -1608,6 +1612,9 @@ class FacilitatorChangeLogDTO(BaseModel):
 class FacilitatorChangeLogRepositoryProtocol(Protocol):
     @staticmethod
     def create(data: FacilitatorChangeLogData) -> None: ...
+
+    @staticmethod
+    def create_many(data: list[FacilitatorChangeLogData]) -> None: ...
 
     @staticmethod
     def list_by_event(event_pk: int) -> list[FacilitatorChangeLogDTO]: ...

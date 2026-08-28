@@ -1,5 +1,6 @@
 """Integration tests for the panel creator-discount pages."""
 
+from datetime import timedelta
 from decimal import Decimal
 from http import HTTPStatus
 from unittest.mock import ANY, MagicMock, patch
@@ -7,12 +8,29 @@ from unittest.mock import ANY, MagicMock, patch
 from django.contrib import messages
 from django.urls import reverse
 
-from ludamus.links.db.django.models import Connection, Discount, Facilitator
+from ludamus.links.db.django.models import (
+    AgendaItem,
+    Connection,
+    Discount,
+    DiscountRule,
+    Facilitator,
+    PersonalDataField,
+    PersonalDataFieldValue,
+)
 from ludamus.links.db.django.repositories import ConnectionsRepository
 from ludamus.pacts import FacilitatorDTO, FacilitatorListItemDTO, NotFoundError
 from ludamus.pacts.discounts import DiscountDTO
-from tests.integration.conftest import EventFactory, SphereFactory
-from tests.integration.utils import assert_login_required, assert_response
+from tests.integration.conftest import (
+    EventFactory,
+    SessionFactory,
+    SpaceFactory,
+    SphereFactory,
+)
+from tests.integration.utils import (
+    FormErrorsMatcher,
+    assert_login_required,
+    assert_response,
+)
 from tests.integration.web.panel.helpers import (
     assert_event_not_found,
     assert_not_a_manager,
@@ -175,6 +193,29 @@ class TestDiscountsPageView:
                 ],
             },
             contains="20.00",
+        )
+
+    def test_list_marks_a_discount_the_rules_assigned(self, panel_client, event):
+        facilitator = _make_facilitator(event, accreditation_type="creator")
+        discount = _make_discount(event, facilitator, from_rules=True)
+
+        response = panel_client.get(self.get_url(event))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/discounts/list.html",
+            context_data={
+                **panel_context(event, active_nav="discounts"),
+                "assignments": [],
+                "rows": [
+                    {
+                        "facilitator": _facilitator_list_dto(facilitator),
+                        "accreditation_type_display": "Program creator",
+                        "discount": DiscountDTO.model_validate(discount),
+                    }
+                ],
+            },
         )
 
 
@@ -559,6 +600,109 @@ class TestDiscountDeleteActionView:
         assert_event_not_found(response)
 
 
+class TestDiscountSyncActionView:
+    @staticmethod
+    def get_url(event):
+        return reverse("panel:discount-sync", kwargs={"slug": event.slug})
+
+    @staticmethod
+    def _schedule(event, facilitator, *, minutes=120):
+        session = SessionFactory(event=event, category=None, status="accepted")
+        session.facilitators.add(facilitator)
+        AgendaItem.objects.create(
+            session=session,
+            space=SpaceFactory(event=event, capacity=10),
+            start_time=event.start_time,
+            end_time=event.start_time + timedelta(minutes=minutes),
+        )
+
+    def test_post_redirects_anonymous_user_to_login(self, client, event):
+        url = self.get_url(event)
+
+        response = client.post(url)
+
+        assert_login_required(response, url)
+
+    def test_post_redirects_non_manager_user(self, authenticated_client, event):
+        response = authenticated_client.post(self.get_url(event))
+
+        assert_not_a_manager(response)
+
+    def test_post_redirects_when_event_not_found(self, panel_client):
+        response = panel_client.post(
+            reverse("panel:discount-sync", kwargs={"slug": "nonexistent"})
+        )
+
+        assert_event_not_found(response)
+
+    def test_post_marks_scheduled_facilitator_and_assigns_the_rule_discount(
+        self, panel_client, event
+    ):
+        facilitator = _make_facilitator(event)
+        self._schedule(event, facilitator, minutes=110)
+        DiscountRule.objects.create(
+            event=event, method="started_hours", quantity=2, percent=Decimal("50.00")
+        )
+
+        response = panel_client.post(self.get_url(event))
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[
+                (
+                    messages.SUCCESS,
+                    (
+                        "Agenda applied — marked as creators: 1, unmarked: 0,"
+                        " discounts assigned: 1, discounts withdrawn: 0."
+                    ),
+                )
+            ],
+            url=reverse("panel:discounts", kwargs={"slug": event.slug}),
+        )
+        facilitator.refresh_from_db()
+        assert facilitator.accreditation_type == "creator"
+        discount = Discount.objects.get(facilitator=facilitator)
+        assert (discount.value, discount.from_rules) == (Decimal("50.00"), True)
+
+    def test_post_unmarks_creator_without_scheduled_program(self, panel_client, event):
+        facilitator = _make_facilitator(event, accreditation_type="creator")
+        _make_discount(event, facilitator, from_rules=True)
+
+        response = panel_client.post(self.get_url(event))
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[
+                (
+                    messages.SUCCESS,
+                    (
+                        "Agenda applied — marked as creators: 0, unmarked: 1,"
+                        " discounts assigned: 0, discounts withdrawn: 1."
+                    ),
+                )
+            ],
+            url=reverse("panel:discounts", kwargs={"slug": event.slug}),
+        )
+        facilitator.refresh_from_db()
+        assert facilitator.accreditation_type == "none"
+        assert not Discount.objects.filter(facilitator=facilitator).exists()
+
+    def test_post_leaves_a_facilitator_of_another_event_alone(
+        self, panel_client, sphere, event
+    ):
+        other_event = EventFactory(sphere=sphere, slug="other-event")
+        foreign = _make_facilitator(
+            other_event, display_name="Bob", slug="bob", accreditation_type="creator"
+        )
+
+        panel_client.post(self.get_url(event))
+
+        foreign.refresh_from_db()
+        assert foreign.accreditation_type == "creator"
+
+
 SPREADSHEET_URL = "https://docs.google.com/spreadsheets/d/target-sheet/edit#gid=0"
 
 
@@ -586,7 +730,7 @@ class TestDiscountExportPageView:
     def get_url(event):
         return reverse("panel:discount-export", kwargs={"slug": event.slug})
 
-    def _post(self, client, event, connection, session):
+    def _post(self, client, event, connection, session, columns=("name",)):
         with (
             patch("ludamus.links.google_auth.Credentials.from_service_account_info"),
             patch("ludamus.links.google_auth.AuthorizedSession") as session_cls,
@@ -594,7 +738,12 @@ class TestDiscountExportPageView:
             session_cls.return_value = session
             return client.post(
                 self.get_url(event),
-                data={"connection": str(connection.pk), "spreadsheet": SPREADSHEET_URL},
+                data={
+                    "connection": str(connection.pk),
+                    "spreadsheet": SPREADSHEET_URL,
+                    "tab": "Sheet1",
+                    "columns": list(columns),
+                },
             )
 
     def test_get_redirects_anonymous_user_to_login(self, client, event):
@@ -674,18 +823,69 @@ class TestDiscountExportPageView:
             "/values/%27Sheet1%27%21A1?valueInputOption=RAW",
             json={
                 "values": [
-                    [
-                        "Creator",
-                        "Accreditation type",
-                        "Discount kind",
-                        "Discount value",
-                        "Note",
-                    ],
-                    ["Alice", "Guest", "Percent", "15.00", "VIP"],
+                    ["Display Name", "Discount kind", "Discount value", "Note"],
+                    ["Alice", "Percent", "15.00", "VIP"],
                 ]
             },
             timeout=30,
         )
+
+    def test_post_writes_the_chosen_facilitator_and_personal_columns(
+        self, panel_client, event, connection_with_secret, active_user
+    ):
+        facilitator = _make_facilitator(
+            event, accreditation_type="guest", organizer=active_user
+        )
+        _make_discount(event, facilitator, value=Decimal("15.00"), note="VIP")
+        field = PersonalDataField.objects.create(
+            event=event,
+            name="Surname",
+            question="Your surname?",
+            slug="surname",
+            field_type="text",
+            order=0,
+        )
+        PersonalDataFieldValue.objects.create(
+            facilitator=facilitator, event=event, field=field, value="Kowalska"
+        )
+        session = _google_write_session()
+
+        self._post(
+            panel_client,
+            event,
+            connection_with_secret,
+            session,
+            columns=("organizer", f"field_{field.pk}"),
+        )
+
+        assert session.put.call_args.kwargs["json"] == {
+            "values": [
+                ["Organizer", "Surname", "Discount kind", "Discount value", "Note"],
+                [active_user.name, "Kowalska", "Percent", "15.00", "VIP"],
+            ]
+        }
+
+    def test_post_without_columns_rejects_the_export(
+        self, panel_client, event, connection_with_secret
+    ):
+        _make_facilitator(event)
+        session = _google_write_session()
+
+        response = self._post(
+            panel_client, event, connection_with_secret, session, columns=()
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/discounts/export.html",
+            context_data={
+                **panel_context(event, active_nav="discounts"),
+                "form": FormErrorsMatcher(columns=["This field is required."]),
+                "has_connections": True,
+            },
+        )
+        session.put.assert_not_called()
 
     def test_post_shows_error_when_google_rejects_the_write(
         self, panel_client, event, connection_with_secret
@@ -769,7 +969,12 @@ class TestDiscountExportPageView:
     ):
         response = panel_client.post(
             self.get_url(event),
-            data={"connection": str(connection.pk), "spreadsheet": "not a sheet"},
+            data={
+                "connection": str(connection.pk),
+                "spreadsheet": "not a sheet",
+                "tab": "Sheet1",
+                "columns": ["name"],
+            },
         )
 
         assert_response(

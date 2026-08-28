@@ -25,6 +25,7 @@ class DiscountDTO(BaseModel):
     kind: DiscountKind
     value: Decimal
     note: str
+    from_rules: bool
     creation_time: datetime
     modification_time: datetime
 
@@ -34,6 +35,46 @@ class DiscountData(BaseModel):
     kind: DiscountKind
     value: Decimal = Field(gt=0)
     note: str = Field(default="", max_length=255)
+    # Who owns the discount: the rule sync withdraws and rewrites its own, and
+    # never touches a hand-assigned one. Every writer states which it is.
+    from_rules: bool
+
+
+class DiscountMethod(StrEnum):
+    # What the rule measures on a facilitator's scheduled program.
+    STARTED_HOURS = "started_hours"
+    SESSION_COUNT = "session_count"
+
+
+class DiscountRuleData(BaseModel):
+    method: DiscountMethod
+    quantity: int = Field(gt=0)
+    percent: Decimal = Field(ge=0, le=100)
+    order: int = Field(ge=0)
+
+
+class DiscountRuleDTO(DiscountRuleData):
+    model_config = ConfigDict(from_attributes=True)
+
+    pk: int
+    event_id: int
+
+
+class DiscountRuleRepositoryProtocol(Protocol):
+    # Ordered by `order`, then `pk`. The sync applies the first rule a
+    # facilitator matches, so the store owns which rule that is.
+    @staticmethod
+    def list_for_event(event_id: int) -> list[DiscountRuleDTO]: ...
+    @staticmethod
+    def read(event_id: int, pk: int) -> DiscountRuleDTO | None: ...
+    @staticmethod
+    def create(event_id: int, data: DiscountRuleData) -> DiscountRuleDTO: ...
+    @staticmethod
+    def update(
+        *, event_id: int, pk: int, data: DiscountRuleData
+    ) -> DiscountRuleDTO | None: ...
+    @staticmethod
+    def delete(event_id: int, pk: int) -> bool: ...
 
 
 class DiscountRepositoryProtocol(Protocol):
@@ -49,6 +90,24 @@ class DiscountRepositoryProtocol(Protocol):
     def soft_delete(pk: int) -> None: ...
 
 
+class FacilitatorScheduleRow(BaseModel):
+    facilitator_id: int
+    session_count: int
+    minutes: int
+
+
+class ScheduledProgramRepositoryProtocol(Protocol):
+    @staticmethod
+    def list_facilitator_schedule(event_pk: int) -> list[FacilitatorScheduleRow]: ...
+
+
+class DiscountSyncResultDTO(BaseModel):
+    marked: int
+    unmarked: int
+    discounts_set: int
+    discounts_cleared: int
+
+
 class DiscountRosterEntryDTO(BaseModel):
     facilitator: FacilitatorListItemDTO
     discount: DiscountDTO | None
@@ -56,6 +115,16 @@ class DiscountRosterEntryDTO(BaseModel):
 
 class DiscountsServiceProtocol(Protocol):
     def list_roster(self, event_pk: int) -> list[DiscountRosterEntryDTO]: ...
+    def list_rules(self, event_pk: int) -> list[DiscountRuleDTO]: ...
+    def read_rule(self, event_pk: int, pk: int) -> DiscountRuleDTO | None: ...
+    def create_rule(self, event_pk: int, data: DiscountRuleData) -> DiscountRuleDTO: ...
+    def update_rule(
+        self, *, event_pk: int, pk: int, data: DiscountRuleData
+    ) -> DiscountRuleDTO | None: ...
+    def delete_rule(self, event_pk: int, pk: int) -> bool: ...
+    def apply_from_agenda(
+        self, *, event_pk: int, user_id: int
+    ) -> DiscountSyncResultDTO: ...
     def read_scoped(self, *, event_pk: int, pk: int) -> DiscountDTO: ...
     def read_scoped_facilitator(
         self, *, event_pk: int, facilitator_id: int
@@ -66,12 +135,21 @@ class DiscountsServiceProtocol(Protocol):
 
 
 class DiscountExportLabels(BaseModel):
-    # Localized strings the export sheet is rendered with. Built at the gate
-    # (where gettext lives) so the mill stays framework-free; maps are keyed
-    # by the raw enum values stored on the DTOs.
+    # Localized strings for the discount columns the sheet always writes.
+    # Built at the gate (where gettext lives) so the mill stays framework-free;
+    # `kinds` is keyed by the raw enum values stored on the DTOs.
     headers: list[str]
-    accreditation_types: dict[str, str]
     kinds: dict[str, str]
+
+
+class DiscountExportColumns(BaseModel):
+    # The facilitator and personal-data columns the organizer picked for this
+    # export, written before the discount ones. Headers and cells are rendered
+    # at the gate (that is where a facilitator column knows what it is called
+    # and how it reads); `cells` is keyed by facilitator pk and each list is
+    # aligned with `headers`.
+    headers: list[str] = []
+    cells: dict[int, list[str]] = {}
 
 
 class DiscountsExportServiceProtocol(Protocol):
@@ -82,5 +160,7 @@ class DiscountsExportServiceProtocol(Protocol):
         event_pk: int,
         connection_id: int,
         spreadsheet_id: str,
+        tab_title: str,
         labels: DiscountExportLabels,
+        columns: DiscountExportColumns,
     ) -> int: ...

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from collections import Counter, defaultdict
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from django.db.models import Count, Q
@@ -13,6 +15,7 @@ from ludamus.pacts import (
     NotFoundError,
     SessionStatus,
 )
+from ludamus.pacts.discounts import FacilitatorScheduleRow
 from ludamus.pacts.legacy import ConfirmationCountsRow, ConfirmationTotalsRow
 
 if TYPE_CHECKING:
@@ -21,6 +24,12 @@ if TYPE_CHECKING:
     from django.db.models import QuerySet
 
 _SELECT_RELATED = ("session", "session__category", "space")
+
+
+@dataclass
+class _ScheduleTotals:
+    session_count: int = 0
+    minutes: float = 0.0
 
 
 # Confirmation counts for any model holding a `sessions` relation (Track,
@@ -129,6 +138,40 @@ class AgendaItemRepository(AgendaItemRepositoryProtocol):
     @staticmethod
     def update(pk: int, data: AgendaItemUpdateData) -> None:
         AgendaItem.objects.filter(pk=pk).update(**data)
+
+    @staticmethod
+    def list_facilitator_schedule(event_pk: int) -> list[FacilitatorScheduleRow]:
+        # One row per facilitator with placed program, whether the item is
+        # confirmed or not. Dead sessions are excluded explicitly: the join
+        # bypasses the alive-only default manager.
+        placed = list(
+            AgendaItem.objects.filter(
+                session__event_id=event_pk,
+                session__deleted_at__isnull=True,
+                session__facilitators__isnull=False,
+            ).values_list(
+                "session_id", "session__facilitators", "start_time", "end_time"
+            )
+        )
+        # A co-run session is one slot of program, not one per person: its
+        # length splits between everyone named on it, so two facilitators
+        # sharing a two-hour session get an hour each toward their tier.
+        shares = Counter(session_id for session_id, *_ in placed)
+        totals: defaultdict[int, _ScheduleTotals] = defaultdict(_ScheduleTotals)
+        for session_id, facilitator_id, start_time, end_time in placed:
+            total = totals[facilitator_id]
+            total.session_count += 1
+            total.minutes += (
+                (end_time - start_time).total_seconds() / 60 / shares[session_id]
+            )
+        return [
+            FacilitatorScheduleRow(
+                facilitator_id=facilitator_id,
+                session_count=total.session_count,
+                minutes=round(total.minutes),
+            )
+            for facilitator_id, total in totals.items()
+        ]
 
     @staticmethod
     def count_confirmations_by_track(event_pk: int) -> list[ConfirmationCountsRow]:
