@@ -398,3 +398,7 @@ If you fix a papercut, remove it.
   build-for-testing is shared across a job. Read it out of the uploaded
   daemon.log (four distinct AgentDeviceRunner.env.session-*.xctestrun launches),
   not the docs.
+- 2026-08-28: Ran mise run messages in the web sandbox to refresh i18n; varlock
+  rejects the default env (no SECRET_KEY etc.) and even with .env.e2e exported
+  django-admin makemessages dies on missing gettext (msguniq). No sandbox path
+  to run extraction.
