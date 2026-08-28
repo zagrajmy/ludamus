@@ -35,7 +35,14 @@ from ludamus.pacts.chronology import (
     ContentChangeNotRevertibleError,
     ProposalScheduledError,
 )
-from ludamus.pacts.panel import SCHEDULED_FILTER, STATUS_ALL, ProposalListQuery
+from ludamus.pacts.panel import (
+    ORIGIN_IMPROMPTU,
+    PLACEMENT_SCHEDULED,
+    PLACEMENT_UNSCHEDULED,
+    STATUS_ALL,
+    ProposalFacets,
+    ProposalListQuery,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -82,7 +89,11 @@ class ProposalsPageView(PanelAccessMixin, EventContextMixin, View):
             # Default (no status param) is the pending backlog — the queue an
             # organizer opens this page to work through. STATUS_ALL (or any
             # other unknown value) still shows everything.
-            status=self.request.GET.get("status", SessionStatus.PENDING.value),
+            facets=ProposalFacets(
+                status=self.request.GET.get("status", SessionStatus.PENDING.value),
+                placement=self.request.GET.get("placement", "").strip(),
+                origin=self.request.GET.get("origin", "").strip(),
+            ),
             track_pk=track_pk,
             multi_tracks=multi_tracks,
             sort=self.request.GET.get("sort", "").strip(),
@@ -150,15 +161,19 @@ class ProposalsPageView(PanelAccessMixin, EventContextMixin, View):
             SessionStatus.ON_HOLD: _("On hold"),
             SessionStatus.REJECTED: _("Rejected"),
         }
-        context["statuses"] = [
-            *((str(s), status_labels[s]) for s in SessionStatus),
-            (SCHEDULED_FILTER, _("Scheduled")),
+        context["statuses"] = [(str(s), status_labels[s]) for s in SessionStatus]
+        context["placements"] = [
+            (PLACEMENT_SCHEDULED, _("On the timetable")),
+            (PLACEMENT_UNSCHEDULED, _("Not on the timetable")),
         ]
-        context["filter_status"] = list_context.status
+        context["origins"] = [(ORIGIN_IMPROMPTU, _("Claimed live"))]
+        context["filter_status"] = list_context.facets.status or None
+        context["filter_placement"] = list_context.facets.placement or None
+        context["filter_origin"] = list_context.facets.origin or None
         # Value the track form and the Clear link echo back so the status
         # selection round-trips. "All statuses" must stay present in the query,
         # or the absent-param default re-selects the pending backlog.
-        context["filter_status_value"] = list_context.status or STATUS_ALL
+        context["filter_status_value"] = list_context.facets.status or STATUS_ALL
         context["filter_sort"] = list_context.sort
         return TemplateResponse(self.request, "panel/proposals.html", context)
 

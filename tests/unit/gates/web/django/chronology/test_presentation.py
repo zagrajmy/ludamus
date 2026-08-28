@@ -19,7 +19,7 @@ from ludamus.gates.web.django.chronology.schedule import (
     group_sessions_by_state,
 )
 from ludamus.pacts import NO_LOCATION, AgendaItemDTO
-from ludamus.pacts.legacy import SessionFieldValueDTO
+from ludamus.pacts.legacy import SessionFieldValueDTO, SessionStatus
 
 _HOUR_SECONDS = 3600
 _REPEATED_HOUR = 2
@@ -723,3 +723,33 @@ class TestFlattenCloudOverflow:
             CloudPill(icon="book-open", value="e"),
             CloudPill(icon="book-open", value="f"),
         ]
+
+
+class TestSessionDataIsPendingClaim:
+    @staticmethod
+    def _session(*, is_impromptu, status):
+        session = MagicMock()
+        session.is_impromptu = is_impromptu
+        session.status = status
+        return session
+
+    def test_an_impromptu_session_still_pending_is_a_claim(self):
+        data = _make_session_data(
+            session=self._session(is_impromptu=True, status=SessionStatus.PENDING)
+        )
+
+        assert data.is_pending_claim is True
+
+    def test_an_accepted_claim_no_longer_awaits_anything(self):
+        data = _make_session_data(
+            session=self._session(is_impromptu=True, status=SessionStatus.ACCEPTED)
+        )
+
+        assert data.is_pending_claim is False
+
+    def test_an_imported_session_that_kept_pending_is_not_a_claim(self):
+        data = _make_session_data(
+            session=self._session(is_impromptu=False, status=SessionStatus.PENDING)
+        )
+
+        assert data.is_pending_claim is False

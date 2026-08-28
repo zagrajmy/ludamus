@@ -1,0 +1,9 @@
+{% load i18n %}
+{# A walk-up claim sits on the programme the moment it is made, so it has to #}
+{# say that nobody has vetted it yet. Amber, like the event page's #}
+{# proposals-open pill: a state of the call for proposals, not an alarm. #}
+{% if data.is_pending_claim %}
+    <span class="inline-flex shrink-0 items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700 dark:bg-amber-900/20 dark:text-amber-400">
+        {% translate "Awaiting confirmation" %}
+    </span>
+{% endif %}

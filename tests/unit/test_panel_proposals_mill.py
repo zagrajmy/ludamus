@@ -8,6 +8,7 @@ from ludamus.mills.panel_proposals import ProposalPanelService
 from ludamus.pacts import NotFoundError, SessionStatus
 from ludamus.pacts.panel import (
     ProposalDraft,
+    ProposalFacets,
     ProposalListQuery,
     ProposalPanelRepos,
     SourceRowIdMissingError,
@@ -109,35 +110,54 @@ class TestProposalPanelService:
         filters = sessions.list_sessions_by_event.call_args[0][1]
         assert filters["category_pk"] == category.pk
 
-    def test_scheduled_pseudo_status_filters_on_placement(self, service, sessions):
+    def test_placement_narrows_on_its_own_axis(self, service, sessions):
         result = service.list_context(
-            event_id=1, query=ProposalListQuery(status="scheduled")
+            event_id=1,
+            query=ProposalListQuery(facets=ProposalFacets(placement="scheduled")),
         )
 
         filters = sessions.list_sessions_by_event.call_args[0][1]
-        assert result.status == "scheduled"
+        assert result.facets.placement == "scheduled"
         assert filters["status"] is None
         assert filters["scheduled"] is True
 
-    def test_real_status_excludes_scheduled(self, service, sessions):
+    def test_a_status_no_longer_excludes_scheduled_proposals(self, service, sessions):
         result = service.list_context(
-            event_id=1, query=ProposalListQuery(status="accepted")
+            event_id=1,
+            query=ProposalListQuery(facets=ProposalFacets(status="accepted")),
         )
 
         filters = sessions.list_sessions_by_event.call_args[0][1]
-        assert result.status == "accepted"
+        assert result.facets.status == "accepted"
         assert filters["status"] is SessionStatus.ACCEPTED
-        assert filters["scheduled"] is False
+        assert filters["scheduled"] is None
 
-    def test_unknown_status_shows_everything(self, service, sessions):
+    def test_status_and_origin_narrow_together(self, service, sessions):
         result = service.list_context(
-            event_id=1, query=ProposalListQuery(status="bogus")
+            event_id=1,
+            query=ProposalListQuery(
+                facets=ProposalFacets(status="pending", origin="impromptu")
+            ),
         )
 
         filters = sessions.list_sessions_by_event.call_args[0][1]
-        assert result.status is None
+        assert result.facets.origin == "impromptu"
+        assert filters["status"] is SessionStatus.PENDING
+        assert filters["is_impromptu"] is True
+
+    def test_unknown_values_show_everything(self, service, sessions):
+        result = service.list_context(
+            event_id=1,
+            query=ProposalListQuery(
+                facets=ProposalFacets(status="bogus", placement="nope", origin="nope")
+            ),
+        )
+
+        filters = sessions.list_sessions_by_event.call_args[0][1]
+        assert result.facets == ProposalFacets()
         assert filters["status"] is None
         assert filters["scheduled"] is None
+        assert filters["is_impromptu"] is None
 
     def test_field_filters_guard_foreign_and_blank_values(
         self, service, sessions, session_fields

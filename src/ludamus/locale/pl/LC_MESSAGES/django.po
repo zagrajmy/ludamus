@@ -1598,11 +1598,16 @@ msgid "Rejected"
 msgstr "Odrzucone"
 
 #: src/ludamus/gates/web/django/chronology/panel/views/proposals.py
-#: src/ludamus/templates/panel/_proposal_status_badge.html
-#: src/ludamus/templates/panel/parts/confirmation-status-badge.html
-#: src/ludamus/templates/panel/timetable-overview.html
-msgid "Scheduled"
-msgstr "Zaplanowane"
+msgid "On the timetable"
+msgstr "W harmonogramie"
+
+#: src/ludamus/gates/web/django/chronology/panel/views/proposals.py
+msgid "Not on the timetable"
+msgstr "Poza harmonogramem"
+
+#: src/ludamus/gates/web/django/chronology/panel/views/proposals.py
+msgid "Claimed live"
+msgstr "Zajęte na żywo"
 
 #: src/ludamus/gates/web/django/chronology/panel/views/proposals.py
 #: src/ludamus/templates/panel/_event_settings_tabs.html
@@ -3899,6 +3904,10 @@ msgstr "Przejdź do %(day)s %(time)s"
 #, python-format
 msgid "Open details for %(title)s"
 msgstr "Otwórz szczegóły %(title)s"
+
+#: src/ludamus/templates/chronology/_pending_claim_pill.html
+msgid "Awaiting confirmation"
+msgstr "Czeka na potwierdzenie"
 
 #: src/ludamus/templates/chronology/_proposal_section.html
 msgid "Your pending proposals"
@@ -6606,6 +6615,12 @@ msgstr "Uruchomienie importu"
 msgid "Log"
 msgstr "Dziennik"
 
+#: src/ludamus/templates/panel/_proposal_status_badge.html
+#: src/ludamus/templates/panel/parts/confirmation-status-badge.html
+#: src/ludamus/templates/panel/timetable-overview.html
+msgid "Scheduled"
+msgstr "Zaplanowane"
+
 #: src/ludamus/templates/panel/_space_tree_node.html
 #, python-format
 msgid "Reorder %(name)s — use the arrow keys"
@@ -9032,12 +9047,20 @@ msgid "All categories"
 msgstr "Wszystkie kategorie"
 
 #: src/ludamus/templates/panel/proposals.html
-msgid "Not on the timetable"
-msgstr "Poza harmonogramem"
+msgid "Placement"
+msgstr "Umiejscowienie"
 
 #: src/ludamus/templates/panel/proposals.html
-msgid "On the timetable"
-msgstr "W harmonogramie"
+msgid "Anywhere"
+msgstr "Wszędzie"
+
+#: src/ludamus/templates/panel/proposals.html
+msgid "Origin"
+msgstr "Pochodzenie"
+
+#: src/ludamus/templates/panel/proposals.html
+msgid "Any origin"
+msgstr "Dowolne pochodzenie"
 
 #: src/ludamus/templates/panel/proposals.html
 msgid "Select all proposals"

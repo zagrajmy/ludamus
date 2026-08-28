@@ -184,6 +184,7 @@ class SessionListItemDTO(BaseModel):
     category_name: str
     creation_time: datetime
     display_name: str
+    is_impromptu: bool = False
     is_scheduled: bool
     pk: int
     status: "SessionStatus"
@@ -269,6 +270,7 @@ class SessionListFilters(TypedDict, total=False):
     category_pk: int | None
     status: SessionStatus | None
     scheduled: bool | None
+    is_impromptu: bool | None
     sort: str | None
 
 

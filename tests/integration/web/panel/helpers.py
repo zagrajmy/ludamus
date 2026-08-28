@@ -73,8 +73,12 @@ PROPOSAL_STATUSES = [
     ("accepted", "Accepted"),
     ("on_hold", "On hold"),
     ("rejected", "Rejected"),
-    ("scheduled", "Scheduled"),
 ]
+PROPOSAL_PLACEMENTS = [
+    ("scheduled", "On the timetable"),
+    ("unscheduled", "Not on the timetable"),
+]
+PROPOSAL_ORIGINS = [("impromptu", "Claimed live")]
 
 # Filter/pagination keys the proposal list renders with no query string: the
 # status filter defaults to pending.
@@ -89,8 +93,12 @@ PROPOSAL_FILTER_CONTEXT = {
     "filter_category_pk": None,
     "filter_status": SessionStatus.PENDING,
     "filter_status_value": SessionStatus.PENDING,
+    "filter_placement": None,
+    "filter_origin": None,
     "filter_sort": "",
     "statuses": PROPOSAL_STATUSES,
+    "placements": PROPOSAL_PLACEMENTS,
+    "origins": PROPOSAL_ORIGINS,
 }
 
 

@@ -101,7 +101,15 @@ class EventPanelSettingsRepositoryProtocol(Protocol):
     def update_proposal_columns(event_id: int, columns: list[str]) -> None: ...
 
 
-SCHEDULED_FILTER = "scheduled"
+# Placement is its own axis: whether a proposal holds an agenda item says
+# nothing about its status, and folding the two into one dropdown made picking
+# a status silently exclude everything scheduled.
+PLACEMENT_SCHEDULED = "scheduled"
+PLACEMENT_UNSCHEDULED = "unscheduled"
+
+# Origin: where the proposal came from. A walk-up claim is the only origin
+# worth naming so far; everything else is the pre-event pipeline.
+ORIGIN_IMPROMPTU = "impromptu"
 
 # Explicit "no status filter" value. An absent param means the pending backlog,
 # so "show everything" has to travel in the query — forms, the Clear link and
@@ -110,17 +118,33 @@ STATUS_ALL = "all"
 
 
 @dataclass
+class ProposalFacets:
+    """Status, placement and origin: the three axes the list narrows on.
+
+    Orthogonal on purpose. Folding placement into status is what made picking
+    a real status silently drop every scheduled proposal. On a query these are
+    raw request values; on a context they are the ones that survived
+    validation, with "" where the request named nothing valid.
+    """
+
+    status: str = ""
+    placement: str = ""
+    origin: str = ""
+
+
+@dataclass
 class ProposalListQuery:
     """The proposals list's requested view: filters as the request spelled them.
 
     `raw_field_filters` is keyed by session-field pk with the value untouched
     from the query string; the service resolves it against the event's own
-    fields. `category`, `status`, and `sort` are raw request values too.
+    fields. `category`, `sort` and every `facets` value are raw request values
+    too.
     """
 
     search: str = ""
     category: str = ""
-    status: str = ""
+    facets: ProposalFacets = field(default_factory=ProposalFacets)
     track_pk: int | None = None
     multi_tracks: bool = False
     sort: str = ""
@@ -148,7 +172,7 @@ class ProposalDraft:
 class ProposalListContextDTO:
     """Read aggregate for the panel's proposals list.
 
-    `category_pk`, `status`, and `sort` echo back the query values that
+    `category_pk`, `facets` and `sort` echo back the query values that
     survived validation, so the view renders exactly what was filtered on.
     """
 
@@ -156,7 +180,7 @@ class ProposalListContextDTO:
     filterable_fields: list[OrganizerFieldDTO]
     categories: list[ProposalCategoryDTO]
     category_pk: int | None
-    status: str | None
+    facets: ProposalFacets
     sort: str
     columns: list[PanelColumnDTO]
 

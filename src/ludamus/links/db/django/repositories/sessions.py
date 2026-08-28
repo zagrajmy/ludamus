@@ -85,6 +85,24 @@ def _field_sort_pk(key: str) -> int | None:
     return int(rest) if key.startswith(_FIELD_SORT_PREFIX) and rest.isdigit() else None
 
 
+def _column_lookups(filters: SessionListFilters) -> dict[str, object]:
+    """Collect the filters that are a plain equality on one column.
+
+    Returns:
+        Lookup keyword arguments for every such filter the caller set.
+    """
+    return {
+        name: value
+        for name, value in (
+            ("category_id", filters.get("category_pk")),
+            ("status", filters.get("status")),
+            ("is_scheduled", filters.get("scheduled")),
+            ("is_impromptu", filters.get("is_impromptu")),
+        )
+        if value is not None
+    }
+
+
 def _session_order(key: str, *, descending: bool) -> tuple[str, ...]:
     if not (order_field := _SESSION_SORT_FIELDS.get(key, "")):
         return ("-creation_time",)
@@ -607,9 +625,6 @@ class SessionRepository(SessionRepositoryProtocol, SessionModalRepositoryProtoco
         search = filters.get("search")
         track_pk = filters.get("track_pk")
         multi_tracks = filters.get("multi_tracks")
-        category_pk = filters.get("category_pk")
-        status = filters.get("status")
-        scheduled = filters.get("scheduled")
         qs = (
             Session.objects.filter(category__event_id=event_id)
             .select_related("presenter", "category")
@@ -618,16 +633,8 @@ class SessionRepository(SessionRepositoryProtocol, SessionModalRepositoryProtoco
                     AgendaItem.objects.filter(session_id=OuterRef("pk"))
                 )
             )
+            .filter(**_column_lookups(filters))
         )
-
-        if category_pk is not None:
-            qs = qs.filter(category_id=category_pk)
-
-        if status is not None:
-            qs = qs.filter(status=status)
-
-        if scheduled is not None:
-            qs = qs.filter(is_scheduled=scheduled)
 
         if field_filters:
             for field_id, value in field_filters.items():
@@ -682,6 +689,7 @@ class SessionRepository(SessionRepositoryProtocol, SessionModalRepositoryProtoco
                 status=SessionStatus(s.status),
                 creation_time=s.creation_time,
                 is_scheduled=s.is_scheduled,
+                is_impromptu=s.is_impromptu,
             )
             for s in qs.order_by(*order)
         ]

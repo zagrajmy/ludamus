@@ -13,9 +13,12 @@ from ludamus.mills.panel_columns import (
 from ludamus.mills.slugs import unique_slug
 from ludamus.pacts import NotFoundError, SessionFieldValueData, SessionStatus
 from ludamus.pacts.panel import (
-    SCHEDULED_FILTER,
+    ORIGIN_IMPROMPTU,
+    PLACEMENT_SCHEDULED,
+    PLACEMENT_UNSCHEDULED,
     EmptyColumnSelectionError,
     ProposalDraft,
+    ProposalFacets,
     ProposalListContextDTO,
     ProposalPanelRepos,
     ProposalPanelServiceProtocol,
@@ -87,23 +90,24 @@ class ProposalPanelService(ProposalPanelServiceProtocol):
         if category_pk not in {c.pk for c in categories}:
             category_pk = None
 
-        # Only a real status or the "scheduled" pseudo-filter narrows the list;
-        # anything else (STATUS_ALL, junk) shows every proposal. Which status an
-        # absent param means is the page's call, not this service's.
-        status = (
-            query.status
-            if query.status == SCHEDULED_FILTER or query.status in set(SessionStatus)
-            else None
+        # Status, placement and origin are three orthogonal questions, each
+        # narrowing the list on its own. Anything else (STATUS_ALL, junk) is
+        # dropped. Which status an absent param means is the page's call, not
+        # this service's.
+        facets = ProposalFacets(
+            status=(
+                query.facets.status if query.facets.status in set(SessionStatus) else ""
+            ),
+            placement=(
+                query.facets.placement
+                if query.facets.placement
+                in {PLACEMENT_SCHEDULED, PLACEMENT_UNSCHEDULED}
+                else ""
+            ),
+            origin=(
+                query.facets.origin if query.facets.origin == ORIGIN_IMPROMPTU else ""
+            ),
         )
-        # Scheduled is a placement fact, not a status: the "scheduled" option
-        # filters on agenda-item existence, and picking a real status excludes
-        # scheduled sessions so the backlog views stay clean.
-        if status == SCHEDULED_FILTER:
-            status_filter, scheduled_filter = None, True
-        elif status is not None:
-            status_filter, scheduled_filter = SessionStatus(status), False
-        else:
-            status_filter, scheduled_filter = None, None
 
         sort = _resolve_sort(query.sort, session_fields)
         proposals = self._repos.sessions.list_sessions_by_event(
@@ -114,8 +118,13 @@ class ProposalPanelService(ProposalPanelServiceProtocol):
                 "track_pk": query.track_pk,
                 "multi_tracks": query.multi_tracks or None,
                 "category_pk": category_pk,
-                "status": status_filter,
-                "scheduled": scheduled_filter,
+                "status": SessionStatus(facets.status) if facets.status else None,
+                "scheduled": (
+                    facets.placement == PLACEMENT_SCHEDULED
+                    if facets.placement
+                    else None
+                ),
+                "is_impromptu": True if facets.origin else None,
                 "sort": sort or None,
             },
         )
@@ -126,7 +135,7 @@ class ProposalPanelService(ProposalPanelServiceProtocol):
             filterable_fields=filterable_fields,
             categories=categories,
             category_pk=category_pk,
-            status=status,
+            facets=facets,
             sort=sort,
             columns=resolve_columns(
                 keys=settings.proposal_columns,

@@ -31,7 +31,9 @@ from tests.integration.conftest import (
 from tests.integration.utils import PageMatcher, assert_login_required, assert_response
 from tests.integration.web.panel.helpers import (
     PROPOSAL_FILTER_CONTEXT,
+    PROPOSAL_ORIGINS,
     PROPOSAL_PAGE_SIZES,
+    PROPOSAL_PLACEMENTS,
     PROPOSAL_STATUSES,
     assert_event_not_found,
     assert_not_a_manager,
@@ -42,6 +44,8 @@ from tests.integration.web.panel.helpers import (
 _PAGE_SIZES = PROPOSAL_PAGE_SIZES
 
 _STATUSES = PROPOSAL_STATUSES
+_PLACEMENTS = PROPOSAL_PLACEMENTS
+_ORIGINS = PROPOSAL_ORIGINS
 
 _TRACK_FILTER_CONTEXT = PROPOSAL_FILTER_CONTEXT
 
@@ -1004,8 +1008,12 @@ class TestProposalsPageView:
                 "filter_category_pk": None,
                 "filter_status": SessionStatus.PENDING,
                 "filter_status_value": SessionStatus.PENDING,
+                "filter_placement": None,
+                "filter_origin": None,
                 "filter_sort": "",
                 "statuses": _STATUSES,
+                "placements": _PLACEMENTS,
+                "origins": _ORIGINS,
             },
         )
 
@@ -1044,8 +1052,12 @@ class TestProposalsPageView:
                 "filter_category_pk": None,
                 "filter_status": "accepted",
                 "filter_status_value": "accepted",
+                "filter_placement": None,
+                "filter_origin": None,
                 "filter_sort": "",
                 "statuses": _STATUSES,
+                "placements": _PLACEMENTS,
+                "origins": _ORIGINS,
             },
         )
 
@@ -1080,8 +1092,12 @@ class TestProposalsPageView:
                 "filter_category_pk": category.pk,
                 "filter_status": SessionStatus.PENDING,
                 "filter_status_value": SessionStatus.PENDING,
+                "filter_placement": None,
+                "filter_origin": None,
                 "filter_sort": "",
                 "statuses": _STATUSES,
+                "placements": _PLACEMENTS,
+                "origins": _ORIGINS,
             },
         )
 
@@ -1168,8 +1184,12 @@ class TestProposalsPageView:
                 "filter_category_pk": None,
                 "filter_status": SessionStatus.PENDING,
                 "filter_status_value": SessionStatus.PENDING,
+                "filter_placement": None,
+                "filter_origin": None,
                 "filter_sort": "",
                 "statuses": _STATUSES,
+                "placements": _PLACEMENTS,
+                "origins": _ORIGINS,
             },
         )
 
@@ -1209,8 +1229,12 @@ class TestProposalsPageView:
                 "filter_category_pk": None,
                 "filter_status": SessionStatus.PENDING,
                 "filter_status_value": SessionStatus.PENDING,
+                "filter_placement": None,
+                "filter_origin": None,
                 "filter_sort": "",
                 "statuses": _STATUSES,
+                "placements": _PLACEMENTS,
+                "origins": _ORIGINS,
             },
         )
 
@@ -1307,7 +1331,9 @@ class TestProposalsPageView:
             },
         )
 
-    def test_default_status_filter_shows_only_pending(self, panel_client, event):
+    def test_default_status_filter_shows_every_pending_proposal(
+        self, panel_client, event
+    ):
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
         pending = Session.objects.create(
             event=event,
@@ -1369,6 +1395,18 @@ class TestProposalsPageView:
                 **_list_chrome(
                     event,
                     [
+                        # Placement is its own axis now, so a pending session
+                        # that already holds an agenda item stays in the
+                        # pending queue instead of dropping out of it.
+                        SessionListItemDTO(
+                            pk=scheduled.pk,
+                            title="Scheduled Pending Session",
+                            display_name="Scheduled Host",
+                            category_name="RPG",
+                            status=SessionStatus.PENDING,
+                            creation_time=scheduled.creation_time,
+                            is_scheduled=True,
+                        ),
                         SessionListItemDTO(
                             pk=pending.pk,
                             title="Pending Session",
@@ -1377,7 +1415,7 @@ class TestProposalsPageView:
                             status=SessionStatus.PENDING,
                             creation_time=pending.creation_time,
                             is_scheduled=False,
-                        )
+                        ),
                     ],
                 ),
                 "session_fields": [],
@@ -1544,13 +1582,46 @@ class TestProposalsPageView:
             end_time=datetime(2026, 7, 1, 20, 0, tzinfo=UTC),
         )
 
-        response = panel_client.get(self.get_url(event), {"status": "scheduled"})
+        response = panel_client.get(
+            self.get_url(event), {"status": "all", "placement": "scheduled"}
+        )
 
         assert response.status_code == HTTPStatus.OK
         assert [p.title for p in response.context["proposals"]] == ["Scheduled Session"]
-        assert response.context["filter_status"] == "scheduled"
+        assert response.context["filter_placement"] == "scheduled"
 
-    def test_status_filter_excludes_scheduled_sessions(self, panel_client, event):
+    def test_origin_narrows_the_pending_queue_to_waiting_claims(
+        self, panel_client, event
+    ):
+        category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
+        Session.objects.create(
+            event=event,
+            category=category,
+            display_name="Pipeline Host",
+            title="Ordinary Proposal",
+            slug="ordinary-proposal",
+            participants_limit=5,
+            status="pending",
+        )
+        claim = Session.objects.create(
+            event=event,
+            category=category,
+            display_name="Walk Up",
+            title="Corridor Game",
+            slug="corridor-game",
+            participants_limit=5,
+            status="pending",
+            is_impromptu=True,
+        )
+        AgendaItemFactory(session=claim, space=SpaceFactory(event=event))
+
+        response = panel_client.get(self.get_url(event), {"origin": "impromptu"})
+
+        assert response.status_code == HTTPStatus.OK
+        assert [p.title for p in response.context["proposals"]] == ["Corridor Game"]
+        assert response.context["filter_origin"] == "impromptu"
+
+    def test_status_and_placement_narrow_independently(self, panel_client, event):
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
         Session.objects.create(
             event=event,
@@ -1580,10 +1651,19 @@ class TestProposalsPageView:
         response = panel_client.get(self.get_url(event), {"status": "accepted"})
 
         assert response.status_code == HTTPStatus.OK
-        assert [p.title for p in response.context["proposals"]] == [
-            "Unscheduled Session"
+        assert sorted(p.title for p in response.context["proposals"]) == [
+            "Scheduled Session",
+            "Unscheduled Session",
         ]
         assert response.context["filter_status"] == SessionStatus.ACCEPTED
+
+        narrowed = panel_client.get(
+            self.get_url(event), {"status": "accepted", "placement": "unscheduled"}
+        )
+
+        assert [p.title for p in narrowed.context["proposals"]] == [
+            "Unscheduled Session"
+        ]
 
 
 class TestProposalDetailPageView:
