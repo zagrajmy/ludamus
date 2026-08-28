@@ -360,6 +360,10 @@ run = "aube exec tsc --build --pretty false"
 description = "Type-check the iOS regression scripts"
 run = "aube exec tsc -p scripts/ios-regressions/tsconfig.json"
 
+[tasks."test:ios-helpers"]
+description = "Unit-test the pure iOS regression helpers (no simulator)"
+run = "bun test scripts/ios-regressions/helpers.spec.ts"
+
 [tasks.fallow]
 description = "Analyze frontend TypeScript: dead code, duplication, complexity"
 run = "aube exec -C src/ludamus/client fallow"
