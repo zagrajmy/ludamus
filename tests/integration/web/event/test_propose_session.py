@@ -6,6 +6,7 @@ import pytest
 from django.contrib import messages
 from django.core.files.storage import default_storage
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.db import IntegrityError
 from django.template.loader import render_to_string
 from django.test import RequestFactory
 from django.urls import reverse
@@ -3174,6 +3175,12 @@ class TestCategoryWindowGate:
         )
 
 
+_CLAIM_STILL_WAITING = (
+    "Your last claim is still waiting for an answer. "
+    "Withdraw it before claiming another spot."
+)
+
+
 class TestClaimSpotFlow:
     """The walk-up path: pick an empty cell, and the claim lands on the grid."""
 
@@ -3282,6 +3289,52 @@ class TestClaimSpotFlow:
         assert agenda_item.space == space
         assert agenda_item.start_time == time_slot.start_time
         assert agenda_item.end_time == time_slot.end_time
+
+    @pytest.mark.usefixtures("corridor")
+    def test_a_second_claim_is_refused_while_the_first_waits(
+        self, authenticated_client, event, space, time_slot
+    ):
+        self._walk_to_submit(authenticated_client, event, space, time_slot)
+        authenticated_client.post(
+            self._url("web:event:session-propose-submit", event.slug)
+        )
+        other_room = SpaceFactory(event=event, name="Foyer")
+
+        self._walk_to_submit(authenticated_client, event, other_room, time_slot)
+        response = authenticated_client.post(
+            self._url("web:event:session-propose-submit", event.slug)
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.ERROR, _CLAIM_STILL_WAITING)],
+            url=self._url("web:event:session-propose", event.slug),
+        )
+        assert Session.objects.filter(event=event, is_impromptu=True).count() == 1
+
+    @pytest.mark.usefixtures("corridor")
+    def test_the_constraint_refuses_a_second_claim_row(
+        self, authenticated_client, event, space, time_slot, active_user
+    ):
+        self._walk_to_submit(authenticated_client, event, space, time_slot)
+        authenticated_client.post(
+            self._url("web:event:session-propose-submit", event.slug)
+        )
+
+        with pytest.raises(IntegrityError):
+            Session.objects.create(
+                event=event,
+                category=ProposalCategory.objects.get(event=event),
+                presenter=active_user,
+                display_name="Walk Up",
+                title="Second Corridor Game",
+                slug="second-corridor-game",
+                participants_limit=4,
+                min_age=0,
+                status="pending",
+                is_impromptu=True,
+            )
 
     @pytest.mark.usefixtures("corridor")
     def test_a_spot_taken_meanwhile_sends_the_proposer_back_to_pick_again(

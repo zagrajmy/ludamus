@@ -15,7 +15,13 @@ from ludamus.pacts.legacy import (
     TimeSlotDTO,
     TrackDTO,
 )
-from ludamus.pacts.propose import ProposeRepos, SpotClaim
+from ludamus.pacts.propose import (
+    ONE_PENDING_CLAIM_CONSTRAINT,
+    ClaimAlreadyPendingError,
+    ProposeRepos,
+    SpotClaim,
+)
+from ludamus.pacts.services import DatabaseConstraintError
 
 EXPECTED_SESSION_ID = 99
 FACILITATOR_PK = 10
@@ -87,6 +93,7 @@ def repos_fixture():
 @pytest.fixture(name="submitting_repos")
 def submitting_repos_fixture(repos):
     repos.sessions.slug_exists.return_value = False
+    repos.sessions.count_pending_impromptu_claims.return_value = 0
     repos.facilitators.slug_exists.return_value = False
     repos.facilitators.create.return_value = _facilitator()
     repos.sessions.create.return_value = EXPECTED_SESSION_ID
@@ -339,6 +346,20 @@ class TestGetOpenness:
 
 
 class TestSubmitClaim:
+    @staticmethod
+    def _claim(service, submitting_repos):
+        submitting_repos.users.read.return_value = MagicMock(pk=42, name="Walk Up")
+        return service.submit(
+            _event(),
+            {
+                "category_id": 1,
+                "session_data": {"title": "Corridor Game", "display_name": "Walk Up"},
+            },
+            user_id=42,
+            user_slug="walk-up",
+            spot=SpotClaim(space_pk=3, time_slot_pk=5),
+        )
+
     def test_marks_the_session_impromptu_and_places_it(
         self, service, submitting_repos, timetable
     ):
@@ -403,3 +424,52 @@ class TestSubmitClaim:
             )
 
         timetable.claim_spot.assert_not_called()
+
+
+class TestOnePendingClaimCap:
+    def test_a_second_claim_is_refused_before_anything_is_written(
+        self, service, submitting_repos
+    ):
+        submitting_repos.sessions.count_pending_impromptu_claims.return_value = 1
+
+        with pytest.raises(ClaimAlreadyPendingError):
+            TestSubmitClaim._claim(service, submitting_repos)
+
+        submitting_repos.sessions.create.assert_not_called()
+
+    def test_a_lost_race_on_the_constraint_reads_the_same(
+        self, service, submitting_repos
+    ):
+        submitting_repos.sessions.create.side_effect = DatabaseConstraintError(
+            f"duplicate key value violates unique constraint "
+            f'"{ONE_PENDING_CLAIM_CONSTRAINT}"'
+        )
+
+        with pytest.raises(ClaimAlreadyPendingError):
+            TestSubmitClaim._claim(service, submitting_repos)
+
+    def test_any_other_constraint_is_not_reported_as_a_second_claim(
+        self, service, submitting_repos
+    ):
+        submitting_repos.sessions.create.side_effect = DatabaseConstraintError(
+            "duplicate key value violates unique constraint "
+            '"session_unique_slug_in_event"'
+        )
+
+        with pytest.raises(DatabaseConstraintError):
+            TestSubmitClaim._claim(service, submitting_repos)
+
+    def test_an_ordinary_proposal_is_not_counted_or_wrapped(
+        self, service, submitting_repos
+    ):
+        service.submit(
+            _event(),
+            {
+                "category_id": 1,
+                "session_data": {"title": "Test Session", "display_name": "Anon Host"},
+            },
+            user_id=None,
+            user_slug=None,
+        )
+
+        submitting_repos.sessions.count_pending_impromptu_claims.assert_not_called()

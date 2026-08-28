@@ -491,6 +491,15 @@ class SessionRepository(SessionRepositoryProtocol, SessionModalRepositoryProtoco
         return [TimeSlotDTO.model_validate(ts) for ts in time_slots]
 
     @staticmethod
+    def count_pending_impromptu_claims(event_id: int, presenter_id: int) -> int:
+        return Session.objects.filter(
+            event_id=event_id,
+            presenter_id=presenter_id,
+            is_impromptu=True,
+            status=SessionStatus.PENDING,
+        ).count()
+
+    @staticmethod
     def read_time_slot(session_id: int, time_slot_id: int) -> TimeSlotDTO:
         try:
             time_slot = TimeSlot.objects.get(

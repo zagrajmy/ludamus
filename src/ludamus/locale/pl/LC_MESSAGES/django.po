@@ -2495,6 +2495,14 @@ msgid "Please wait before submitting another proposal."
 msgstr "Poczekaj chwilę przed przesłaniem kolejnego zgłoszenia."
 
 #: src/ludamus/gates/web/django/event/propose.py
+msgid ""
+"Your last claim is still waiting for an answer. Withdraw it before claiming "
+"another spot."
+msgstr ""
+"Twoje poprzednie zgłoszenie wciąż czeka na odpowiedź. Wycofaj je, zanim "
+"zajmiesz kolejne okienko."
+
+#: src/ludamus/gates/web/django/event/propose.py
 msgid "That spot has just been taken. Please pick another one."
 msgstr "To okienko zostało właśnie zajęte. Wybierz inne."
 

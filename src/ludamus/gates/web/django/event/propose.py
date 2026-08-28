@@ -40,6 +40,7 @@ from ludamus.gates.web.django.propose_cover import (
 from ludamus.gates.web.django.sphere.pages import EventsPageRequiredMixin
 from ludamus.gates.web.django.templatetags.cfp_tags import has_field_value
 from ludamus.pacts import NotFoundError, RedirectError
+from ludamus.pacts.propose import ClaimAlreadyPendingError
 from ludamus.pacts.timetable import PlacementRejectedError
 
 if TYPE_CHECKING:
@@ -794,6 +795,14 @@ class ProposeSessionSubmitActionView(ProposeWizardMixin):
                 user_slug=request.context.current_user_slug,
                 spot=stored_spot(state) if "spot" in wizard.steps else None,
             )
+        except ClaimAlreadyPendingError:
+            raise RedirectError(
+                _propose_url(event_slug),
+                error=_(
+                    "Your last claim is still waiting for an answer. "
+                    "Withdraw it before claiming another spot."
+                ),
+            ) from None
         except PlacementRejectedError:
             # The cell went to somebody else between the picker and here. The
             # claim wrote nothing, so the proposer only has to pick again.

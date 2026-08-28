@@ -1077,6 +1077,19 @@ class Session(SoftDeleteModel):
                 condition=Q(min_age__gte=0, min_age__lte=80),
                 name="session_min_age_range",
             ),
+            # One outstanding walk-up claim per person per event. Stated here
+            # rather than counted in a service alone: the space lock a claim
+            # takes is keyed on the space, so one person claiming two different
+            # rooms at once takes two different locks and both counts see zero.
+            models.UniqueConstraint(
+                fields=["event", "presenter"],
+                condition=Q(
+                    is_impromptu=True,
+                    status=SessionStatus.PENDING,
+                    deleted_at__isnull=True,
+                ),
+                name="session_one_pending_impromptu_claim_per_presenter",
+            ),
         )
 
     def __str__(self) -> str:
