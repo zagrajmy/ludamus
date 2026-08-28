@@ -11,7 +11,7 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 
 import json
 from pathlib import Path
-from urllib.parse import quote, unquote, urlsplit
+from urllib.parse import SplitResult, quote, unquote, urlsplit
 
 import environ
 from django.core.exceptions import ImproperlyConfigured
@@ -315,7 +315,7 @@ LOCALE_PATHS = [BASE_DIR / "locale"]
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
 STATIC_URL = "/static/"
-MEDIA_URL = env("MEDIA_URL")
+MEDIA_URL: str = env("MEDIA_URL")
 _media_url_parts = urlsplit(MEDIA_URL)
 _media_path_segments = unquote(_media_url_parts.path).split("/")
 _media_url_has_supported_path = (
@@ -333,11 +333,17 @@ _media_url_is_local = (
     and _media_url_parts.path != "/"
     and "\\" not in _media_url_parts.path
 )
-try:
-    _media_url_hostname = _media_url_parts.hostname
-    _media_url_port = _media_url_parts.port
-except ValueError:
-    _media_url_hostname = None
+
+
+def _hostname_with_valid_port(parts: SplitResult) -> str | None:
+    try:
+        _ = parts.port
+    except ValueError:
+        return None
+    return parts.hostname
+
+
+_media_url_hostname = _hostname_with_valid_port(_media_url_parts)
 _media_url_is_remote = (
     _media_url_parts.scheme in {"http", "https"}
     and bool(_media_url_hostname)
@@ -355,7 +361,7 @@ if not _media_url_has_supported_path or not (
 STATICFILES_DIRS = [BASE_DIR / "static"]
 
 # URL prefixes that skip middleware processing (UoW injection, context setup)
-MIDDLEWARE_SKIP_PREFIXES = (
+MIDDLEWARE_SKIP_PREFIXES: tuple[str, ...] = (
     STATIC_URL,
     "/admin/",
     "/__debug__/",
