@@ -612,9 +612,9 @@ button:active {
     color: var(--color-foreground-secondary);
     cursor: pointer;
     transition:
-      background-color 0.15s,
-      border-color 0.15s,
-      color 0.15s;
+      background-color 0.1s,
+      border-color 0.1s,
+      color 0.1s;
 
     &:focus-visible {
       outline: 2px solid var(--color-primary);
