@@ -13,6 +13,7 @@ from typing import (
 from pydantic import BaseModel, ConfigDict
 
 from ludamus.pacts.fields import FieldValue, OrganizerFieldDTO
+from ludamus.pacts.ids import EventId, SiteId, SphereId, UserId
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -440,7 +441,7 @@ class SiteDTO(BaseModel):
 
     domain: str
     name: str
-    pk: int
+    pk: SiteId
 
 
 class SphereDTO(BaseModel):
@@ -451,7 +452,7 @@ class SphereDTO(BaseModel):
     enabled_pages: list[SpherePage]
     encounter_public_policy: EncounterPublicPolicy = EncounterPublicPolicy.DISABLED
     name: str
-    pk: int
+    pk: SphereId
     site: SiteDTO
     logo_url: str = ""
     logo_original_name: str = ""
@@ -481,12 +482,12 @@ class EventDTO(BaseModel):
     description: str
     end_time: datetime
     name: str
-    pk: int
+    pk: EventId
     proposal_end_time: datetime | None
     proposal_start_time: datetime | None
     publication_time: datetime | None
     slug: str
-    sphere_id: int
+    sphere_id: SphereId
     start_time: datetime
     use_session_cover_placeholders: bool = False
     use_participants_label: bool = False
@@ -731,18 +732,18 @@ class ProposeSessionResult:
 
 @dataclass
 class RequestContext:
-    current_site_id: int
-    current_sphere_id: int
-    root_site_id: int
-    root_sphere_id: int
+    current_site_id: SiteId
+    current_sphere_id: SphereId
+    root_site_id: SiteId
+    root_sphere_id: SphereId
     current_user_slug: str | None = None
-    current_user_id: int | None = None
+    current_user_id: UserId | None = None
 
 
 @dataclass
 class AuthenticatedRequestContext(RequestContext):
     current_user_slug: str
-    current_user_id: int
+    current_user_id: UserId
 
 
 class PanelStatsDTO(BaseModel):
