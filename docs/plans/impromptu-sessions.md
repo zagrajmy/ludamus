@@ -112,11 +112,15 @@ of categories it is open for. `_get_event`, the event page CTA and the wizard
 read those and nothing else. The model property stays for the legacy callers
 that still use it, but nothing new reads it.
 
-**The category window becomes the switch, and it is authoritative.** A category
-carrying its own `start_time`/`end_time` is governed by them alone — open or
-shut — whether or not the event's window is open; a category with neither falls
-back to the event window; only a start means open from then on, only an end
-means open until then. Both ends are inclusive, matching `cfp_status` and the
+**The category window becomes the switch, and it is authoritative — on a
+published event.** `is_published` stays a hard gate above the windows: an
+unpublished event has no public page to send a facilitator to, so nothing is
+open on it whatever any category says. Category windows only decide *what* is
+open on an already-published event. Within that, a category carrying its own
+`start_time`/`end_time` is governed by them alone — open or shut — whether or
+not the event's window is open; a category with neither falls back to the event
+window; only a start means open from then on, only an end means open until
+then. Both ends are inclusive, matching `cfp_status` and the
 DTO, and the model property's strict comparison becomes inclusive so there is
 one convention. This makes the badge honest, and it is what an organizer flips
 at 13:50 to open the corridor. One-time cost: on an event that set a category
@@ -177,10 +181,19 @@ placement is always a create and never a move — and shares the guards and the
 log write with `assign_session` from inside the service.
 
 **A claim is bounded and revocable.** One outstanding PENDING impromptu claim
-per user per event, counted under the lock `claim_spot` already takes; a second
-is refused, saying the first is still waiting. Without it one logged-in account
-can walk the picker and claim every free cell, each public on creation and each
-needing its own organizer rejection, with nobody notified that it is happening.
+per user per event; a second is refused, saying the first is still waiting. The
+locks `claim_spot` inherits from `assign_session` are the wrong key for that
+cap: one user claiming two different spaces at once takes two different space
+locks, both count zero pending claims, and both commit. The counting therefore
+needs a serialization on the pair, not on the space — a conditional
+`UniqueConstraint` on `(event, presenter)` for rows that are PENDING, impromptu
+and alive, matching the conditional-constraint style the models already use. It
+states the invariant where a forgetful writer cannot miss it, and the count in
+`claim_spot` becomes the friendly message rather than the enforcement, with the
+`IntegrityError` mapped to the same one. The space lock stays exactly what it
+is: overlap, and nothing else. Without the cap one logged-in account can walk
+the picker and claim every free cell, each public on creation and each needing
+its own organizer rejection, with nobody notified that it is happening.
 And the claim's own author can withdraw it while it is PENDING — the same
 operation as the organizer's rejection, with a different actor.
 
@@ -216,12 +229,15 @@ Each step is demoable end-to-end through the UI.
 
 1. **Open a category on its own clock.** The propose service computes whether
    proposing is open and which categories it is open for; `_get_event`, the
-   event page CTA and the wizard read that. The category window becomes
-   authoritative and inclusive, the model property's comparison follows, and
-   `cfp_status` stops answering "Not set" for a category that has only an end
-   time. Nothing else changes — the proposal still lands unplaced in the review
-   inbox. Demo: set a category's window to now and watch Propose light up on a
-   closed event; set another's to yesterday and watch it leave the wizard.
+   event page CTA and the wizard read that. The computed field keeps
+   `is_published` as a precondition, exactly as `EventDTO.is_proposal_active`
+   does today, so an open category window cannot make proposing possible on an
+   unpublished event. Under it the category window becomes authoritative and
+   inclusive, the model property's comparison follows, and `cfp_status` stops
+   answering "Not set" for a category that has only an end time. Nothing else
+   changes — the proposal still lands unplaced in the review inbox. Demo: set
+   a category's window to now and watch Propose light up on a closed event; set
+   another's to yesterday and watch it leave the wizard.
 
 2. **Claim a spot.** `Session.is_impromptu` with one reversible migration, the
    `spot` step in its own module, and `claim_spot` on `TimetableService` with
@@ -232,10 +248,12 @@ Each step is demoable end-to-end through the UI.
    the spot went and re-picks.
 
 3. **Say what a pending claim is.** The awaiting-confirmation badge on the
-   public programme, driven by the `session_status` already on `AgendaItemDTO`,
-   and the panel proposal list split into status, placement and origin filters.
-   Demo: the claim from step 2 reads as awaiting confirmation to a visitor and
-   is one filter click away in the panel.
+   public programme, and the panel proposal list split into status, placement
+   and origin filters. `is_impromptu` joins the `session_status` already on
+   `AgendaItemDTO`, and the badge keys on both: PENDING alone would badge every
+   imported session, which keeps PENDING while scheduled. Demo: the claim from
+   step 2 reads as awaiting confirmation to a visitor and is one filter click
+   away in the panel.
 
 4. **Close the loop.** `release_claim` behind the panel's reject button for an
    impromptu session, and behind a withdraw button for the claim's own author
@@ -243,8 +261,11 @@ Each step is demoable end-to-end through the UI.
    cell go free again in the picker; claim another and withdraw it yourself.
 
 5. **Bound it.** One outstanding PENDING impromptu claim per user per event,
-   counted under the lock `claim_spot` already takes. Demo: claim a spot, try to
-   claim a second, get told the first is still waiting.
+   enforced by the conditional `UniqueConstraint` on `(event, presenter)` above
+   with one reversible migration; `claim_spot` counts first for the message and
+   maps the `IntegrityError` to it, and the space lock keeps guarding overlap
+   only. Demo: claim a spot, try to claim a second, get told the first is still
+   waiting; two browsers racing a second claim both lose it.
 
 ## Not in scope
 
