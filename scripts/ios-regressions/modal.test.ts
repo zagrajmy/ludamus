@@ -151,6 +151,12 @@ beforeAll(async () => {
   console.log(`Opening Safari at ${initialUrl.toString()}...`);
   await openUrl(initialUrl.toString(), {
     expectedLabels: openViaScrolledPage ? [targetTriggerLabel] : [targetTitle, "Close"],
+    // NOTE: the card sits well past the 300-node snapshot cap on a full event
+    // page. A scope resolves by live element query, which has no such cap, so
+    // scoping to the very label being waited for is what makes this readable
+    // at all. The modal branch has no container landmark to scope by; its
+    // dialog is top-layer, so its labels surface without one.
+    ...(openViaScrolledPage ? { scope: targetTriggerLabel } : {}),
   });
 
   let preOpenTriggerLabel: string | null = null;

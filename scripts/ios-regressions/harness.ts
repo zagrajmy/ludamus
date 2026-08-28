@@ -171,15 +171,24 @@ export const createIosHarness = (session: string): IosHarness => {
     }
   };
 
-  // Two passes over half the window each. Warmup and a previous spec both leave
+  // Two passes, re-opening between them. Warmup and a previous spec both leave
   // Safari frontmost, so "the open did not take" looks like Safari sitting on
   // the wrong page, not like Safari being absent -- the only condition worth
   // retrying on is the page still not being ready. Re-opening the same URL
   // re-applies the same fragment, which is what a caller waiting on one wants.
+  //
+  // NOTE: the passes are deliberately lopsided. The first one absorbs this
+  // session's XCUITest runner launch (125-148s in the daemon log, capped by
+  // AGENT_DEVICE_RUNNER_STARTUP_TIMEOUT_MS), so it gets the whole window; by
+  // the second the runner is up and only a page load is left. Halving them
+  // would size the first against a cost it does not carry.
   const openUrl = async (url: string, readiness: SafariReadiness): Promise<void> => {
     const { expectedLabels, match = "all", scope } = readiness;
+    if (expectedLabels.length === 0) {
+      throw new Error(`openUrl needs at least one expected label to wait for at ${url}.`);
+    }
     const expected = expectedLabels.map(collapse);
-    const attemptMs = Math.floor(safariReadyTimeoutMs / 2);
+    const reopenMs = Math.floor(safariReadyTimeoutMs / 4);
     let observed = "no snapshot completed";
 
     const probe = async (): Promise<CaptureSnapshotResult | null> => {
@@ -204,16 +213,16 @@ export const createIosHarness = (session: string): IosHarness => {
     };
 
     let openError = await openSafari(url);
-    let ready = await pollUntil(probe, { timeoutMs: attemptMs, intervalMs: 1000 });
+    let ready = await pollUntil(probe, { timeoutMs: safariReadyTimeoutMs, intervalMs: 1000 });
     if (!ready) {
       openError = (await openSafari(url)) ?? openError;
-      ready = await pollUntil(probe, { timeoutMs: attemptMs, intervalMs: 1000 });
+      ready = await pollUntil(probe, { timeoutMs: reopenMs, intervalMs: 1000 });
     }
 
     if (!ready) {
       throw new Error(
         `Safari did not load ${JSON.stringify(expected)} at ${url} within ` +
-          `${safariReadyTimeoutMs}ms over two opens; last observation: ${observed}`,
+          `${safariReadyTimeoutMs + reopenMs}ms over two opens; last observation: ${observed}`,
         { cause: openError },
       );
     }

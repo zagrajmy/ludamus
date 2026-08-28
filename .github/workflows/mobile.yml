@@ -115,12 +115,18 @@ jobs:
           tail -200 ios-server.log >&2
           exit 1
 
-      # The first runner-backed command builds, launches and attaches the
-      # XCUITest runner, which measures 194-240s. Left inside a test hook it
-      # burns that hook's budget and one of its attempts, so it gets its own
-      # step and its own budget here.
+      # The XCUITest runner's build measures ~240s and is paid by the first
+      # runner-backed command anywhere. Left inside a test hook it burns that
+      # hook's budget and one of its attempts, so it gets its own step and its
+      # own budget here. The runner itself is keyed to a session and stops with
+      # it, so each spec still launches one -- only the build is shared.
       - name: Start Safari and warm up the agent-device runner
         timeout-minutes: 10
+        env:
+          # Wide enough for `build-for-testing` (~240s) plus the launch after
+          # it; a probe capped at RUNNER_COMMAND_TIMEOUT_MS errors once before
+          # the build lands, so the window has to hold two of them.
+          IOS_SAFARI_READY_TIMEOUT_MS: 300000
         run: bun run scripts/ios-regressions/warmup.ts
 
       - name: Run iOS Safari regressions
@@ -132,6 +138,10 @@ jobs:
           # Per-attempt cap, sized so four attempts fit the step budget above.
           # The slowest healthy hook measures 316s.
           IOS_HOOK_TIMEOUT_MS: 360000
+          # The longest single wait inside a hook. Holds this session's runner
+          # launch (125-148s measured) plus the page load, and leaves the rest
+          # of the hook for the spec's own waits.
+          IOS_SAFARI_READY_TIMEOUT_MS: 180000
         run: |
           shopt -s nullglob
           files=(scripts/ios-regressions/*.test.ts)
