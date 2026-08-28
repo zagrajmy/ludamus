@@ -14,6 +14,7 @@ from ludamus.inits.repositories import Repositories
 from ludamus.links.db.django.notifications import DjangoUserNotifier
 from ludamus.links.db.django.transaction import DjangoTransaction
 from ludamus.mills.enrollment import WaitlistPromotionService
+from ludamus.mills.notifications import AnnouncementFanoutService
 from ludamus.mills.printing import PrintablesReminderService
 
 if TYPE_CHECKING:
@@ -36,4 +37,10 @@ def build_printables_reminder() -> PrintablesReminderService:
         transaction=DjangoTransaction(),
         reminders=Repositories().printables_reminders,
         notifier=DjangoUserNotifier(),
+    )
+
+
+def build_announcement_fanout() -> AnnouncementFanoutService:
+    return AnnouncementFanoutService(
+        DjangoTransaction(), Repositories().announcement_fanout
     )

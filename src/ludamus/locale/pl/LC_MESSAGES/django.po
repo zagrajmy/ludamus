@@ -2002,6 +2002,14 @@ msgstr ""
 "Jesteś już zalogowany(-a). Wyloguj się, aby przejąć ten profil na nowe konto."
 
 #: src/ludamus/gates/web/django/crowd/profile.py
+msgid "Subscription muted."
+msgstr "Subskrypcja wyciszona."
+
+#: src/ludamus/gates/web/django/crowd/profile.py
+msgid "Subscription unmuted."
+msgstr "Subskrypcja ponownie aktywna."
+
+#: src/ludamus/gates/web/django/crowd/profile.py
 msgid "If a matching player exists, they have been shadowbanned."
 msgstr "Jeśli pasujący gracz istnieje, został cicho zbanowany."
 
@@ -3784,6 +3792,8 @@ msgstr ""
 
 #: src/ludamus/templates/base.html
 #: src/ludamus/templates/components/notifications.html
+#: src/ludamus/templates/crowd/user/_profile_tabs.html
+#: src/ludamus/templates/crowd/user/notifications.html
 #: src/ludamus/templates/notifications/index.html
 #: src/ludamus/templates/panel/base.html
 msgid "Notifications"
@@ -5417,6 +5427,38 @@ msgstr[3] ""
 "                                Masz %(counter)s potwierdzonych uczestnictw "
 "w punktach programu.\n"
 "                            "
+
+#: src/ludamus/templates/crowd/user/notifications.html
+msgid "Mute"
+msgstr "Wycisz"
+
+#: src/ludamus/templates/crowd/user/notifications.html
+msgid "Unmute"
+msgstr "Wyłącz wyciszenie"
+
+#: src/ludamus/templates/crowd/user/notifications.html
+msgid ""
+"Announcements from the spheres and events you follow ring the bell. Mute a "
+"subscription to stop its announcements; unmute it to get them again."
+msgstr ""
+"Ogłoszenia ze sfer i wydarzeń, które obserwujesz, trafiają do dzwonka. "
+"Wycisz subskrypcję, aby zatrzymać jej ogłoszenia; wyłącz wyciszenie, aby "
+"znów je otrzymywać."
+
+#: src/ludamus/templates/crowd/user/notifications.html
+msgid "Muted"
+msgstr "Wyciszona"
+
+#: src/ludamus/templates/crowd/user/notifications.html
+msgid "No subscriptions yet"
+msgstr "Nie masz jeszcze subskrypcji"
+
+#: src/ludamus/templates/crowd/user/notifications.html
+msgid ""
+"Subscriptions appear here when you visit a sphere or enroll in an event."
+msgstr ""
+"Subskrypcje pojawią się tutaj, gdy odwiedzisz sferę lub zapiszesz się na "
+"wydarzenie."
 
 #: src/ludamus/templates/crowd/user/parties.html
 msgid "Your parties"

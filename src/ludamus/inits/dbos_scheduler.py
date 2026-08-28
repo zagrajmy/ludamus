@@ -34,8 +34,13 @@ from datetime import UTC, datetime
 
 from dbos import DBOS
 from django.conf import settings
+from django.db import transaction
 
-from ludamus.inits.builders import build_printables_reminder, build_waitlist_promotion
+from ludamus.inits.builders import (
+    build_announcement_fanout,
+    build_printables_reminder,
+    build_waitlist_promotion,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -47,6 +52,9 @@ _launch_lock = threading.Lock()
 # go out each morning, Polish time being UTC+1/+2.
 EXPIRE_OFFERS_SCHEDULE = "*/5 * * * *"
 PRINTABLES_REMINDERS_SCHEDULE = "0 7 * * *"
+# Recovery floor for announcement fanouts whose workflow was lost between
+# commit and start; the claim on notified_at keeps a double run harmless.
+ANNOUNCEMENT_FANOUT_SCHEDULE = "*/5 * * * *"
 
 
 @DBOS.step()
@@ -74,6 +82,33 @@ def _expire_lapsed_offers_step(now: datetime) -> None:
 @DBOS.workflow()
 def expire_offers_sweep(scheduled: datetime, _actual: datetime) -> None:
     _expire_lapsed_offers_step(scheduled)
+
+
+@DBOS.step()
+def _fanout_announcement_step(announcement_id: int) -> None:
+    notified = build_announcement_fanout().fanout(announcement_id)
+    logger.info(
+        "announcement fanout: announcement=%s notified %s subscriber(s)",
+        announcement_id,
+        notified,
+    )
+
+
+@DBOS.workflow()
+def _fanout_announcement_workflow(announcement_id: int) -> None:
+    _fanout_announcement_step(announcement_id)
+
+
+@DBOS.step()
+def _fanout_due_announcements_step() -> None:
+    if notified := build_announcement_fanout().fanout_due():
+        logger.info("announcement fanout sweep: notified %s subscriber(s)", notified)
+
+
+@DBOS.scheduled(ANNOUNCEMENT_FANOUT_SCHEDULE)
+@DBOS.workflow()
+def announcement_fanout_sweep(_scheduled: datetime, _actual: datetime) -> None:
+    _fanout_due_announcements_step()
 
 
 @DBOS.step()
@@ -105,7 +140,14 @@ def _ensure_launched() -> None:
         _launched.set()
         logger.info(
             "DBOS launched; schedules active: %s",
-            [w.__name__ for w in (expire_offers_sweep, printables_reminders_tick)],
+            [
+                w.__name__
+                for w in (
+                    expire_offers_sweep,
+                    printables_reminders_tick,
+                    announcement_fanout_sweep,
+                )
+            ],
         )
 
 
@@ -127,3 +169,16 @@ class DBOSOfferExpiryScheduler:
         _ensure_launched()
         delay = max(0.0, (run_at - datetime.now(UTC)).total_seconds())
         DBOS.start_workflow(_expire_offer_workflow, participation_id, delay)
+
+
+class DBOSAnnouncementFanoutScheduler:
+    @staticmethod
+    def schedule_fanout(*, announcement_id: int) -> None:
+        _ensure_launched()
+        # ATOMIC_REQUESTS holds the announcement row uncommitted until the
+        # request ends; a zero-delay workflow started now would race the commit
+        # and find nothing to claim. After commit the row is visible; a crash
+        # in between loses only the trigger, and the sweep recovers it.
+        transaction.on_commit(
+            lambda: DBOS.start_workflow(_fanout_announcement_workflow, announcement_id)
+        )

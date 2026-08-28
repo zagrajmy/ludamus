@@ -29,6 +29,7 @@ from ludamus.pacts.discounts import DiscountKind, DiscountMethod
 from ludamus.pacts.images import ORIGINAL_FILENAME_MAX_LENGTH
 from ludamus.pacts.legacy import EncounterPublicPolicy
 from ludamus.pacts.multiverse import SphereRole
+from ludamus.pacts.notifications import SubscriptionSource
 from ludamus.pacts.party import PartyConsentMode, PartyMembershipStatus
 from ludamus.pacts.submissions import AccreditationType, ImportLogStatus
 
@@ -1322,6 +1323,68 @@ class Notification(models.Model):
         return self.read_at is not None
 
 
+class NotificationSubscription(models.Model):
+    """A user following one sphere or one event for announcement delivery.
+
+    Rows are created automatically (sphere visit, event enrollment, backfill)
+    and only ever muted, never deleted — the muted flag is the user's choice
+    and auto-subscribe must never overwrite it.
+    """
+
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="notification_subscriptions"
+    )
+    sphere = models.ForeignKey(
+        Sphere,
+        on_delete=models.CASCADE,
+        related_name="notification_subscriptions",
+        null=True,
+        blank=True,
+    )
+    event = models.ForeignKey(
+        Event,
+        on_delete=models.CASCADE,
+        related_name="notification_subscriptions",
+        null=True,
+        blank=True,
+    )
+    muted = models.BooleanField(default=False)
+    source = models.CharField(
+        max_length=16, choices=[(item.value, item.name) for item in SubscriptionSource]
+    )
+    creation_time = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "notification_subscription"
+        constraints = (
+            models.CheckConstraint(
+                condition=(
+                    Q(sphere__isnull=False, event__isnull=True)
+                    | Q(sphere__isnull=True, event__isnull=False)
+                ),
+                name="notifsub_exactly_one_target",
+            ),
+            models.UniqueConstraint(
+                fields=("user", "sphere"),
+                condition=Q(event__isnull=True),
+                name="notifsub_unique_user_sphere",
+            ),
+            models.UniqueConstraint(
+                fields=("user", "event"),
+                condition=Q(sphere__isnull=True),
+                name="notifsub_unique_user_event",
+            ),
+        )
+        indexes: ClassVar = [
+            # Fanout audience query: unmuted subscribers of one sphere.
+            models.Index(fields=["sphere", "muted"], name="notifsub_sphere_muted_idx")
+        ]
+
+    def __str__(self) -> str:
+        target = self.sphere or self.event
+        return f"{self.user_id} follows {target}"
+
+
 class PersonalDataFieldType(models.TextChoices):
     TEXT = "text", "Text"
     SELECT = "select", "Select"
@@ -1914,6 +1977,9 @@ class Announcement(models.Model):
     title = models.CharField(max_length=255)
     content = models.TextField()
     is_published = models.BooleanField(default=True)
+    # Set exactly once, when the bell fanout claims this announcement; a set
+    # value blocks any further fanout, so republishing never re-notifies.
+    notified_at = models.DateTimeField(null=True, blank=True)
     creation_time = models.DateTimeField(auto_now_add=True)
     modification_time = models.DateTimeField(auto_now=True)
 

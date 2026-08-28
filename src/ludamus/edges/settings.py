@@ -153,6 +153,7 @@ MIDDLEWARE = [
     "ludamus.inits.RepositoryInjectionMiddleware",
     "ludamus.inits.middleware.ServiceInjectionMiddleware",
     "ludamus.adapters.web.django.middlewares.RequestContextMiddleware",
+    "ludamus.inits.middleware.SphereVisitSubscriptionMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "ludamus.adapters.web.django.middlewares.RedirectErrorMiddleware",
 ]

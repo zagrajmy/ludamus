@@ -19,6 +19,10 @@ _TRACK_VIEW_QUERY_LIMIT = 21
 
 
 def _query_count(client, url):
+    # Warm the session first: once-per-session middleware writes (the sphere
+    # visit auto-subscription and its session flag) belong to no view and
+    # would otherwise pollute the first measurement.
+    client.get(url)
     with CaptureQueriesContext(connection) as ctx:
         response = client.get(url)
     # Status only -- these tests make no claim about the rendered context, so

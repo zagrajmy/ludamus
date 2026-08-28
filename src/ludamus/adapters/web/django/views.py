@@ -1756,6 +1756,11 @@ class SessionEnrollPageView(EventsPageRequiredMixin, LoginRequiredMixin, View):
                 session_id=SessionId(session.id), signed_up=enrollments.signed_up_users
             )
 
+            self.request.services.notification_subscriptions.subscribe_enrollments(
+                user_ids=[user_id for user_id, _ in enrollments.signed_up_users],
+                event_id=session.event_id,
+            )
+
             self._notify_party_members(session, enrollments)
 
             # Send message outside transaction

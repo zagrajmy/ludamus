@@ -54,7 +54,10 @@ if TYPE_CHECKING:
         SitesServiceProtocol,
         SpherePanelServiceProtocol,
     )
-    from ludamus.pacts.notifications import NotificationsServiceProtocol
+    from ludamus.pacts.notifications import (
+        NotificationsServiceProtocol,
+        NotificationSubscriptionsServiceProtocol,
+    )
     from ludamus.pacts.panel import (
         FacilitatorPanelServiceProtocol,
         ProposalPanelServiceProtocol,
@@ -170,6 +173,10 @@ class ServicesProtocol(Protocol):
     def anonymous_enrollment(self) -> AnonymousEnrollmentServiceProtocol: ...
     @property
     def notifications(self) -> NotificationsServiceProtocol: ...
+    @property
+    def notification_subscriptions(
+        self,
+    ) -> NotificationSubscriptionsServiceProtocol: ...
     @property
     def enrollment(self) -> EnrollmentServiceProtocol: ...
     @property

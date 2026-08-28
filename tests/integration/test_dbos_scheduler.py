@@ -68,6 +68,9 @@ def test_cron_workflows_execute_their_sweeps(settings, tmp_path, monkeypatch):
         DBOS.start_workflow(
             scheduler_module.printables_reminders_tick, now, now
         ).get_result()
+        DBOS.start_workflow(
+            scheduler_module.announcement_fanout_sweep, now, now
+        ).get_result()
     finally:
         DBOS.destroy()
 
