@@ -36,6 +36,14 @@ def _url(party):
     return reverse("web:crowd:party-detail", kwargs={"pk": party.pk})
 
 
+def _history_group(response, event, index=0):
+    return {
+        "event_name": event.name,
+        "event_slug": event.slug,
+        "cards": response.context["history"][index]["cards"],
+    }
+
+
 def _context(party_dto, **overrides):
     context = {
         "party": party_dto,
@@ -279,7 +287,6 @@ class TestPartyDetailSessionHistory:
         self._enroll_party(party, session, active_user, companion)
 
         response = authenticated_client.get(_url(party))
-        history = response.context["history"]
 
         assert_response(
             response,
@@ -291,13 +298,7 @@ class TestPartyDetailSessionHistory:
                     [_member_dto(active_user, party), _member_dto(companion, party)],
                 ),
                 invite_token=party.invite_token,
-                history=[
-                    {
-                        "event_name": session.event.name,
-                        "event_slug": session.event.slug,
-                        "cards": history[0]["cards"],
-                    }
-                ],
+                history=[_history_group(response, session.event)],
             ),
             template_name=TEMPLATE,
             contains=["Wspólna Wyprawa", session.event.name],
@@ -315,8 +316,6 @@ class TestPartyDetailSessionHistory:
     def test_history_keeps_one_group_when_an_event_has_several_sessions(
         self, authenticated_client, active_user, session, agenda_item
     ):
-        # The grouping only does anything past the first session of an event,
-        # so a one-session party never exercises it.
         _ = agenda_item
         party = sponsor_user(leader=active_user, member=active_user)
         self._enroll_party(party, session, active_user)
@@ -333,18 +332,12 @@ class TestPartyDetailSessionHistory:
             context_data=_context(
                 _party_dto(party, active_user, [_member_dto(active_user, party)]),
                 invite_token=party.invite_token,
-                history=[
-                    {
-                        "event_name": session.event.name,
-                        "event_slug": session.event.slug,
-                        "cards": history[0]["cards"],
-                    }
-                ],
+                history=[_history_group(response, session.event)],
             ),
             template_name=TEMPLATE,
         )
         [group] = history
-        assert {card.session.pk for card in group["cards"]} == {session.pk, second.pk}
+        assert [card.session.pk for card in group["cards"]] == [session.pk, second.pk]
 
     def test_history_query_count_is_constant_across_space_depth(
         self, authenticated_client, active_user, session, agenda_item, space
@@ -371,13 +364,7 @@ class TestPartyDetailSessionHistory:
                 context_data=_context(
                     _party_dto(party, active_user, [_member_dto(active_user, party)]),
                     invite_token=party.invite_token,
-                    history=[
-                        {
-                            "event_name": session.event.name,
-                            "event_slug": session.event.slug,
-                            "cards": response.context["history"][0]["cards"],
-                        }
-                    ],
+                    history=[_history_group(response, session.event)],
                 ),
                 template_name=TEMPLATE,
             )
@@ -456,7 +443,6 @@ class TestPartyDetailSessionHistory:
         banner.shadowbanned.add(active_user)
 
         response = authenticated_client.get(_url(party))
-        history = response.context["history"]
 
         assert_response(
             response,
@@ -468,13 +454,7 @@ class TestPartyDetailSessionHistory:
                     [_member_dto(active_user, party), _member_dto(companion, party)],
                 ),
                 invite_token=party.invite_token,
-                history=[
-                    {
-                        "event_name": session.event.name,
-                        "event_slug": session.event.slug,
-                        "cards": history[0]["cards"],
-                    }
-                ],
+                history=[_history_group(response, session.event)],
             ),
             template_name=TEMPLATE,
         )
