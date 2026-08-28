@@ -64,6 +64,8 @@ from ludamus.pacts.legacy import ConfirmationSessionRow
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
+    from ludamus.pacts.ids import EventId, SessionId, UserId
+
 _ISO8601_DURATION_RE = re.compile(r"PT(?:(\d+)H)?(?:(\d+)M)?")
 
 # Whitelist of sortable proposal columns -> ORM field, mirroring the
@@ -203,7 +205,7 @@ def field_value_dto(fv: SessionFieldValue) -> SessionFieldValueDTO:
 
 
 def _session_modal_dto(
-    session: Session, *, viewer_user_ids: list[int], editor_user_id: int | None
+    session: Session, *, viewer_user_ids: list[UserId], editor_user_id: UserId | None
 ) -> SessionModalDTO:
     now = datetime.now(tz=UTC)
     agenda_item = session.agenda_item
@@ -262,10 +264,10 @@ class SessionRepository(SessionRepositoryProtocol, SessionModalRepositoryProtoco
     @staticmethod
     def read_modal(
         *,
-        event_id: int,
-        session_id: int,
-        viewer_user_ids: list[int],
-        editor_user_id: int | None,
+        event_id: EventId,
+        session_id: SessionId,
+        viewer_user_ids: list[UserId],
+        editor_user_id: UserId | None,
     ) -> SessionModalDTO | None:
         # The same queryset the schedule is built from: the modal is public and
         # unauthenticated, so re-deciding visibility here would leave a session

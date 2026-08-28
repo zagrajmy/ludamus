@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING, Literal, Protocol, TypedDict
 from pydantic import BaseModel, ConfigDict
 
 from ludamus.pacts.crowd import UserDTO
+from ludamus.pacts.ids import EventId
 from ludamus.pacts.legacy import (
     AgendaItemDTO,
     ContentChangeLogDTO,
@@ -31,6 +32,7 @@ from ludamus.pacts.legacy import (
 from ludamus.pacts.party import PartyDTO
 
 if TYPE_CHECKING:
+    from ludamus.pacts.ids import SessionId, UserId
     from ludamus.pacts.submissions import ImportRow
 
 
@@ -327,7 +329,7 @@ class PartySessionHistoryDTO(SessionCardStatsDTO):
 
 
 class PartyEventHistoryDTO(BaseModel):
-    event_pk: int
+    event_pk: EventId
     event_name: str
     event_slug: str
     sessions: list[PartySessionHistoryDTO]
@@ -375,10 +377,10 @@ class SessionModalRepositoryProtocol(Protocol):
     @staticmethod
     def read_modal(
         *,
-        event_id: int,
-        session_id: int,
-        viewer_user_ids: list[int],
-        editor_user_id: int | None,
+        event_id: EventId,
+        session_id: SessionId,
+        viewer_user_ids: list[UserId],
+        editor_user_id: UserId | None,
     ) -> SessionModalDTO | None: ...
 
 
@@ -386,10 +388,10 @@ class SessionModalServiceProtocol(Protocol):
     def read(
         self,
         *,
-        event_id: int,
-        session_id: int,
-        viewer_user_ids: list[int],
-        editor_user_id: int | None,
+        event_id: EventId,
+        session_id: SessionId,
+        viewer_user_ids: list[UserId],
+        editor_user_id: UserId | None,
     ) -> SessionModalDTO | None: ...
 
 
