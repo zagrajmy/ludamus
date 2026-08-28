@@ -12,6 +12,7 @@ from ludamus.gates.web.django.chronology.event_presentation import present_sessi
 from ludamus.gates.web.django.event.enroll_presentation import build_enroll_actions
 from ludamus.gates.web.django.helpers import is_event_published
 from ludamus.pacts import NotFoundError
+from ludamus.pacts.ids import SessionId, UserId
 
 if TYPE_CHECKING:
     from django.http import HttpResponse
@@ -30,7 +31,7 @@ class SessionModalComponentView(View):
         shadowbanned_ids, banned_by, event_banned = self._safety(event)
         dto = request.services.session_modal.read(
             event_id=event.pk,
-            session_id=session_id,
+            session_id=SessionId(session_id),
             viewer_user_ids=self._viewer_user_ids(),
             editor_user_id=self.request.context.current_user_id,
         )
@@ -83,9 +84,9 @@ class SessionModalComponentView(View):
             raise Http404
         return event
 
-    def _safety(self, event: EventDTO) -> tuple[frozenset[int], set[int], bool]:
-        shadowbanned_ids: frozenset[int] = frozenset()
-        banned_by: set[int] = set()
+    def _safety(self, event: EventDTO) -> tuple[frozenset[UserId], set[UserId], bool]:
+        shadowbanned_ids: frozenset[UserId] = frozenset()
+        banned_by: set[UserId] = set()
         event_banned = False
         if (current_user_id := self.request.context.current_user_id) is not None:
             banned_by = self.request.services.shadowban.banning_owner_ids(
@@ -99,7 +100,7 @@ class SessionModalComponentView(View):
             )
         return shadowbanned_ids, banned_by, event_banned
 
-    def _viewer_user_ids(self) -> list[int]:
+    def _viewer_user_ids(self) -> list[UserId]:
         if (slug := self.request.context.current_user_slug) is not None:
             user_id = self.request.context.current_user_id
             ids = [user_id] if user_id is not None else []
@@ -110,7 +111,7 @@ class SessionModalComponentView(View):
             return ids
         return self._anonymous_viewer_user_ids()
 
-    def _anonymous_viewer_user_ids(self) -> list[int]:
+    def _anonymous_viewer_user_ids(self) -> list[UserId]:
         session = self.request.session
         if not session.get("anonymous_enrollment_active"):
             return []
