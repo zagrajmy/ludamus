@@ -283,7 +283,10 @@ class Services:
     @cached_property
     def sphere_panel(self) -> SpherePanelService:
         return SpherePanelService(
-            self._transaction, self._repos.spheres, self._repos.events
+            self._transaction,
+            self._repos.spheres,
+            self._repos.events,
+            self._repos.encounters,
         )
 
     @cached_property
@@ -463,6 +466,7 @@ class Services:
             encounters=self._repos.encounters,
             rsvps=self._repos.encounter_rsvps,
             users=self._repos.active_users,
+            spheres=self._repos.spheres,
         )
 
     @cached_property

@@ -14,6 +14,7 @@ from ludamus.gates.web.django.notice_board.urls import (
 from ludamus.gates.web.django.notice_board.urls import (
     public_urlpatterns as encounter_public,
 )
+from ludamus.gates.web.django.timeline import TimelinePageView
 
 from . import views
 
@@ -51,6 +52,7 @@ chronology_urls = [
 urlpatterns = [
     path("", views.IndexRedirectView.as_view(), name="index"),
     path("events/", views.EventsPageView.as_view(), name="events"),
+    path("timeline/", TimelinePageView.as_view(), name="timeline"),
     path(
         "notifications/do/mark-read",
         offers.NotificationsMarkReadView.as_view(),
