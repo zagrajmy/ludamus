@@ -15,7 +15,7 @@ Variables:
 {# active:scale-100! stands down the global button:active shrink: scaling a #}
 {# left-anchored heading about its centre reads as the text jumping right. #}
 <button type="button"
-        class="group items-baseline gap-2 rounded-md text-left text-sm font-bold uppercase tracking-wide text-foreground-secondary transition-colors hover:bg-bg-tertiary hover:text-foreground active:scale-100!{% if extra_class %} {{ extra_class }}{% endif %}"
+        class="items-baseline gap-2 rounded-md text-left text-sm font-bold uppercase tracking-wide text-foreground-secondary transition-colors hover:bg-bg-tertiary hover:text-foreground active:scale-100!{% if extra_class %} {{ extra_class }}{% endif %}"
         data-day-fold
         {% if is_bar %}data-room-lanes-day-current data-fold-day="0"{% endif %}
         aria-expanded="true">
@@ -24,7 +24,7 @@ Variables:
           data-day-date>{{ day_start|date:"j F" }}</span>
     {# ms-auto sends the chevron to the far edge wherever the toggle is #}
     {# full-width; in the shrink-wrapped rooms copies it simply trails the #}
-    {# date. The size-5 box matches the text-sm line height, so the hover #}
-    {# pill has breathing room without adding a pixel to the row. #}
-    <span class="day-fold-chevron ms-auto flex size-5 items-center justify-center self-center rounded text-foreground-muted transition-colors group-hover:bg-border/50">{% icon "chevron-down" class="w-4 h-4" variant="mini" %}</span>
+    {# date. The row's own hover fill is the affordance — no second #}
+    {# highlight on the chevron. #}
+    <span class="day-fold-chevron ms-auto self-center text-foreground-muted">{% icon "chevron-down" class="w-4 h-4" variant="mini" %}</span>
 </button>
