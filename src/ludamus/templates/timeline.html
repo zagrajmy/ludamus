@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% load i18n %}
+{% load tessera %}
+{% block title %}
+    {% translate "Timeline" %}
+{% endblock title %}
+{% block header %}
+    <h1 class="text-2xl sm:text-3xl font-bold text-foreground mb-2">{% translate "Timeline" %}</h1>
+{% endblock header %}
+{% block body %}
+    {% if timeline_upcoming or can_create_encounter %}
+        <div class="flex items-center justify-between mb-6">
+            <h2 class="text-2xl font-bold text-foreground">{% translate "Upcoming" %}</h2>
+            {% if can_create_encounter %}
+                {% translate "Create Encounter" as create_encounter_label %}
+                {% url 'web:notice-board:create' as create_encounter_url %}
+                {% tessera_button create_encounter_label href=create_encounter_url icon="plus" %}
+            {% endif %}
+        </div>
+        {% if timeline_upcoming %}
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
+                {% for item in timeline_upcoming %}
+                    {% if item.kind == "event" %}
+                        {% include "components/event_card.html" with event=item.event %}
+                    {% else %}
+                        {% include "components/encounter_card.html" with encounter=item.encounter.encounter rsvp_count=item.encounter.rsvp_count is_mine=item.encounter.is_mine organizer_name=item.encounter.organizer_name %}
+                    {% endif %}
+                {% endfor %}
+            </div>
+        {% elif timeline_past %}
+            <p class="text-sm text-foreground-muted py-4 mb-8">{% translate "No upcoming events or encounters." %}</p>
+        {% endif %}
+    {% endif %}
+    {% if timeline_past %}
+        <h2 class="text-2xl font-bold mb-6 text-foreground">{% translate "Past events" %}</h2>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {% for event in timeline_past %}
+                {% include "components/event_card.html" with event=event variant="past" %}
+            {% endfor %}
+        </div>
+    {% endif %}
+    {% if not timeline_upcoming and not timeline_past %}
+        <div class="text-center py-16">
+            <div class="text-foreground-muted">
+                <div class="mb-4">{% icon "calendar-days" class="w-16 h-16 mx-auto opacity-50" %}</div>
+                <p class="text-xl font-medium mb-2">{% translate "Nothing scheduled yet" %}</p>
+                <p class="text-sm">{% translate "There are no upcoming events or public encounters. Please check back later!" %}</p>
+            </div>
+        </div>
+    {% endif %}
+{% endblock body %}

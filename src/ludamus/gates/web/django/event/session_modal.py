@@ -11,6 +11,7 @@ from ludamus.gates.web.django.access import has_panel_access
 from ludamus.gates.web.django.chronology.event_presentation import present_session_modal
 from ludamus.gates.web.django.event.enroll_presentation import build_enroll_actions
 from ludamus.gates.web.django.helpers import is_event_published
+from ludamus.gates.web.django.sphere.pages import EventsPageRequiredMixin
 from ludamus.pacts import NotFoundError
 from ludamus.pacts.ids import SessionId, UserId
 
@@ -21,7 +22,7 @@ if TYPE_CHECKING:
     from ludamus.pacts import EventDTO
 
 
-class SessionModalComponentView(View):
+class SessionModalComponentView(EventsPageRequiredMixin, View):
     request: RootRequest
 
     def get(
