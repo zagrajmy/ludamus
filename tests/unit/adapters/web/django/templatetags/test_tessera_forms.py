@@ -558,33 +558,32 @@ class GroupedChoiceForm(forms.Form):
 
 
 class TestSingleOptionRendering:
-    def test_select_collapses_to_hidden_input(self) -> None:
-        html = render_select(SingleChoiceForm()["required_one"])
-        assert '<input type="hidden" name="required_one" value="x"' in html
-        assert "Only option" in html
-        assert "<select" not in html
+    """One selectable option is not a question, so nothing is drawn for it."""
+
+    def test_select_collapses_to_the_value_alone(self) -> None:
+        html = tessera_field(SingleChoiceForm()["required_one"])
+        assert html == '<input type="hidden" name="required_one" value="x">'
 
     def test_optional_single_option_keeps_select(self) -> None:
         # Optional: the user may legitimately pick nothing, so keep the dropdown.
-        html = render_select(SingleChoiceForm()["optional_one"])
+        html = tessera_field(SingleChoiceForm()["optional_one"])
         assert "<select" in html
 
     def test_select_kept_for_multiple_options(self) -> None:
-        html = render_select(SingleChoiceForm()["required_two"])
+        html = tessera_field(SingleChoiceForm()["required_two"])
         assert "<select" in html
-        assert "<input" not in html
+        assert 'type="hidden"' not in html
 
     def test_disabled_single_option_keeps_select(self) -> None:
+        # Disabled takes its value from initial, so there is nothing to carry.
         form = SingleChoiceForm()
         form.fields["required_one"].disabled = True
-        html = render_select(form["required_one"])
+        html = tessera_field(form["required_one"])
         assert "<select" in html
 
     def test_collapses_single_option_inside_optgroup(self) -> None:
-        html = render_select(GroupedChoiceForm()["one_in_group"])
-        assert '<input type="hidden" name="one_in_group" value="1"' in html
-        assert "Room A" in html
-        assert "<select" not in html
+        html = tessera_field(GroupedChoiceForm()["one_in_group"])
+        assert html == '<input type="hidden" name="one_in_group" value="1">'
 
     def test_select_renders_optgroups_for_multiple(self) -> None:
         html = render_select(GroupedChoiceForm()["two_in_group"])
@@ -592,16 +591,18 @@ class TestSingleOptionRendering:
         assert "Room A" in html
         assert "Room B" in html
 
-    def test_radio_group_collapses_to_hidden_input(self) -> None:
-        html = render_multi_choice_field(SingleChoiceForm()["radio_one"], is_radio=True)
-        assert '<input type="hidden" name="radio_one" value="x"' in html
-        assert 'type="radio"' not in html
+    def test_radio_group_collapses_to_the_value_alone(self) -> None:
+        html = tessera_field(SingleChoiceForm()["radio_one"])
+        assert html == '<input type="hidden" name="radio_one" value="x">'
 
-    def test_tessera_field_collapses_single_option_select(self) -> None:
-        html = tessera_field(SingleChoiceForm()["required_one"])
-        assert '<input type="hidden" name="required_one" value="x"' in html
-        assert "<select" not in html
-        assert "Required one" in html  # the label still renders
+    def test_a_rejected_value_still_surfaces_its_error(self) -> None:
+        # Only a tampered post can get here, but a rejection nobody can see
+        # would leave the form silently refusing to submit.
+        form = SingleChoiceForm({"required_one": "tampered"})
+        form.full_clean()
+        html = tessera_field(form["required_one"])
+        assert '<input type="hidden" name="required_one" value="x">' in html
+        assert "Select a valid choice" in html
 
 
 class TestTesseraButtonBranches:
