@@ -94,6 +94,7 @@ jobs:
         run: mise run ts-check
       # The iOS specs themselves need a macOS runner and a simulator (see the
       # Mobile workflow); their pure helpers do not.
+      - uses: oven-sh/setup-bun@v2
       - name: Unit-test the iOS regression helpers
         run: mise run test:ios-helpers
       # Non-blocking: fallow surfaces dead code, duplication, and
