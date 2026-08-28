@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, ClassVar, cast
+from typing import TYPE_CHECKING, ClassVar
 
 from django import forms
 from django.contrib import admin
@@ -72,20 +72,12 @@ class SessionAdmin(admin.ModelAdmin):  # type: ignore [type-arg]
 
 
 class SphereAdminForm(forms.ModelForm):  # type: ignore [type-arg]
+    # The default-page-must-be-enabled invariant lives on Sphere.clean(), which
+    # this ModelForm already runs.
     enabled_pages = forms.MultipleChoiceField(
         choices=[(p.value, p.value.title()) for p in SpherePage],
         widget=forms.SelectMultiple,
     )
-
-    def clean(self) -> dict[str, object]:
-        cleaned: dict[str, object] = super().clean() or {}
-        default_page = cleaned.get("default_page")
-        enabled_pages = cast("list[str]", cleaned.get("enabled_pages") or [])
-        if default_page and default_page not in enabled_pages:
-            self.add_error(
-                "default_page", "Default page must be one of the enabled pages."
-            )
-        return cleaned
 
 
 class SphereMembershipInline(admin.TabularInline):  # type: ignore [type-arg]
@@ -223,8 +215,15 @@ class DomainEnrollmentConfigAdmin(admin.ModelAdmin):  # type: ignore [type-arg]
 
 @admin.register(Encounter)
 class EncounterAdmin(admin.ModelAdmin):  # type: ignore [type-arg]
-    list_display = ("title", "sphere", "creator", "start_time", "share_code")
-    list_filter = ("sphere",)
+    list_display = (
+        "title",
+        "sphere",
+        "creator",
+        "start_time",
+        "share_code",
+        "is_public",
+    )
+    list_filter = ("sphere", "is_public")
     search_fields = ("title",)
 
 
