@@ -1,6 +1,8 @@
 from typing import TYPE_CHECKING
 
 from django.contrib.auth.hashers import make_password
+from django.db.models import Q
+from django.utils import timezone
 
 from ludamus.links.db.django.companions import active_companions, sponsor_of
 from ludamus.links.db.django.models import (
@@ -10,10 +12,12 @@ from ludamus.links.db.django.models import (
 )
 from ludamus.pacts import NotFoundError
 from ludamus.pacts.crowd import (
+    EMAIL_LINK_MAX_AGE,
     ClaimableProfileDTO,
     ClaimRepositoryProtocol,
     CompanionDTO,
     CompanionRepositoryProtocol,
+    EmailVerificationReminderRepositoryProtocol,
     ProfileParticipationRepositoryProtocol,
     UserData,
     UserDTO,
@@ -23,6 +27,7 @@ from ludamus.pacts.crowd import (
 from ludamus.pacts.party import PartyConsentMode
 
 if TYPE_CHECKING:
+    from datetime import datetime, timedelta
 
     from ludamus.links.db.django.models import User
 else:
@@ -78,11 +83,40 @@ class UserRepository(UserRepositoryProtocol):
         if not email:
             return False
 
-        query = User.objects.filter(email__iexact=email)
+        # A pending address reserves the email only while its confirm link is
+        # still provable; the reservation expires with the link, so a typo'd
+        # change never blocks the address's real owner for good.
+        still_provable = timezone.now() - EMAIL_LINK_MAX_AGE
+        query = User.objects.filter(
+            Q(email__iexact=email)
+            | Q(
+                pending_email__iexact=email,
+                email_verification_sent_at__gte=still_provable,
+            )
+        )
         if exclude_slug:
             query = query.exclude(slug=exclude_slug)
 
         return query.exists()
+
+
+class EmailVerificationReminderRepository(EmailVerificationReminderRepositoryProtocol):
+    @staticmethod
+    def list_due(*, now: datetime, interval: timedelta) -> list[str]:
+        # Blank addresses are excluded here, not left to the notifier's empty
+        # check: a sweep that stamped them would never nag again once the
+        # user adds an address.
+        cutoff = now - interval
+        return list(
+            User.objects.filter(user_type=UserType.ACTIVE, email_verified=False)
+            .exclude(email="")
+            .filter(
+                Q(email_verification_sent_at__isnull=True)
+                | Q(email_verification_sent_at__lt=cutoff)
+            )
+            .order_by("pk")
+            .values_list("slug", flat=True)
+        )
 
 
 class CompanionRepository(CompanionRepositoryProtocol):

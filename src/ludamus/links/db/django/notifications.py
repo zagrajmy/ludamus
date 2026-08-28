@@ -24,6 +24,11 @@ from ludamus.pacts.enrollment import NotificationDTO
 from ludamus.pacts.legacy import NotificationKind
 
 if TYPE_CHECKING:
+    from ludamus.pacts.crowd import (
+        EmailChangeCompletedNotification,
+        EmailChangeRequestedNotification,
+        EmailVerificationNotification,
+    )
     from ludamus.pacts.enrollment import OfferNotification, PromotionNotification
     from ludamus.pacts.party import (
         HeldSeatNotification,
@@ -226,6 +231,79 @@ class DjangoUserNotifier:
             notification.recipient_email,
         )
 
+    def notify_email_verification(
+        self, notification: EmailVerificationNotification
+    ) -> None:
+        url = _absolute(
+            reverse("web:crowd:email-confirm", kwargs={"token": notification.token}),
+            domain=settings.ROOT_DOMAIN,
+        )
+        title = _("Confirm your email address")
+        body = _(
+            "Use the link below to confirm this address for your account. "
+            "The link is valid for 24 hours."
+        )
+        self._deliver(
+            Notification(
+                recipient_id=notification.recipient_user_id,
+                kind=NotificationKind.EMAIL_VERIFICATION.value,
+                title=title,
+                body=body,
+                url=url,
+                payload={},
+            ),
+            notification.recipient_email,
+        )
+
+    def notify_email_change_requested(
+        self, notification: EmailChangeRequestedNotification
+    ) -> None:
+        url = _absolute(
+            reverse(
+                "web:crowd:email-cancel", kwargs={"token": notification.cancel_token}
+            ),
+            domain=settings.ROOT_DOMAIN,
+        )
+        title = _("Your email address is being changed")
+        body = _(
+            "Someone asked to change your account's email address to "
+            "%(new_address)s. If that was not you, cancel the change with the "
+            "link below within 24 hours."
+        ) % {"new_address": notification.new_address}
+        self._deliver(
+            Notification(
+                recipient_id=notification.recipient_user_id,
+                kind=NotificationKind.EMAIL_CHANGE_REQUESTED.value,
+                title=title,
+                body=body,
+                url=url,
+                payload={"new_address": notification.new_address},
+            ),
+            notification.recipient_email,
+        )
+
+    def notify_email_change_completed(
+        self, notification: EmailChangeCompletedNotification
+    ) -> None:
+        title = _("Your email address was changed")
+        body = _(
+            "Your account's email address is now %(new_address)s. Sign-in and "
+            "notifications use the new address from now on."
+        ) % {"new_address": notification.new_address}
+        self._deliver(
+            Notification(
+                recipient_id=notification.recipient_user_id,
+                kind=NotificationKind.EMAIL_CHANGE_COMPLETED.value,
+                title=title,
+                body=body,
+                url=_absolute(
+                    reverse("web:crowd:profile"), domain=settings.ROOT_DOMAIN
+                ),
+                payload={"new_address": notification.new_address},
+            ),
+            notification.recipient_email,
+        )
+
     def notify_printables_ready(
         self, notification: PrintablesReadyNotification
     ) -> None:
@@ -312,6 +390,13 @@ class DjangoUserNotifier:
         # and must not roll back a confirmed seat if it fails.
         notification.save()
         if not email:
+            # Blank means no address or an unverified one (the caller resolves
+            # the deliverable address) — the bell row above still lands.
+            logger.info(
+                "No deliverable address for notification kind=%s recipient=%s",
+                notification.kind,
+                notification.recipient_id,
+            )
             return
 
         def _send_email() -> None:

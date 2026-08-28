@@ -12,6 +12,11 @@ from django.utils.text import slugify
 from ludamus.links.db.django.models import User
 from tests.integration.utils import assert_response
 
+EMAIL_CONFLICT_WARNING = (
+    "That email address already belongs to another account, so it was not "
+    "set. Set a different one in your profile."
+)
+
 
 class TestAuth0LoginCallbackActionView:
     URL = reverse("web:crowd:auth0:login-callback")
@@ -281,6 +286,7 @@ class TestAuth0LoginCallbackActionView:
             slug=slugify(username),
             name="",
             email="old@example.com",
+            email_verified=False,
             avatar_url="https://example.com/old.png",
         )
         authorize_access_token_mock.return_value = {
@@ -314,6 +320,7 @@ class TestAuth0LoginCallbackActionView:
             slug=slugify(username),
             name="Existing Name",
             email="old@example.com",
+            email_verified=False,
         )
         authorize_access_token_mock.return_value = {
             "userinfo": {"sub": sub, "email": "new@example.com"}
@@ -385,7 +392,10 @@ class TestAuth0LoginCallbackActionView:
             response,
             HTTPStatus.FOUND,
             url="http://testserver/crowd/profile/?next=%2Fevents%2F",
-            messages=[(messages.SUCCESS, "Please complete your profile.")],
+            messages=[
+                (messages.WARNING, EMAIL_CONFLICT_WARNING),
+                (messages.SUCCESS, "Please complete your profile."),
+            ],
         )
         new_user = User.objects.get(username=f"auth0|{sub}")
         assert not new_user.email
@@ -399,7 +409,10 @@ class TestAuth0LoginCallbackActionView:
         sub = faker.uuid4()
         username = f"auth0|{sub}"
         complete_user_factory(
-            username=username, slug=slugify(username), email="old@example.com"
+            username=username,
+            slug=slugify(username),
+            email="old@example.com",
+            email_verified=False,
         )
         authorize_access_token_mock.return_value = {
             "userinfo": {"sub": sub, "email": existing_email}
@@ -413,3 +426,58 @@ class TestAuth0LoginCallbackActionView:
         )
         user = User.objects.get(username=username)
         assert user.email == "old@example.com"
+
+    @patch("ludamus.gates.web.django.crowd.auth.oauth.auth0.authorize_access_token")
+    def test_ok_verified_claim_sets_flag(
+        self, authorize_access_token_mock, client, complete_user_factory, faker
+    ):
+        sub = faker.uuid4()
+        username = f"auth0|{sub}"
+        complete_user_factory(
+            username=username,
+            slug=slugify(username),
+            email="mine@example.com",
+            email_verified=False,
+        )
+        authorize_access_token_mock.return_value = {
+            "userinfo": {
+                "sub": sub,
+                "email": "mine@example.com",
+                "email_verified": True,
+            }
+        }
+        state_token = self._setup_valid_state()
+
+        response = client.get(self.URL, {"state": state_token})
+
+        assert_response(
+            response, HTTPStatus.FOUND, url="http://testserver/", messages=[]
+        )
+        user = User.objects.get(username=username)
+        assert user.email_verified is True
+
+    @patch("ludamus.gates.web.django.crowd.auth.oauth.auth0.authorize_access_token")
+    def test_ok_verified_address_is_not_reverted(
+        self, authorize_access_token_mock, client, complete_user_factory, faker
+    ):
+        sub = faker.uuid4()
+        username = f"auth0|{sub}"
+        complete_user_factory(
+            username=username,
+            slug=slugify(username),
+            email="chosen@example.com",
+            email_verified=True,
+        )
+        authorize_access_token_mock.return_value = {
+            "userinfo": {"sub": sub, "email": "idp@example.com", "email_verified": True}
+        }
+        state_token = self._setup_valid_state()
+
+        response = client.get(self.URL, {"state": state_token})
+
+        assert_response(
+            response, HTTPStatus.FOUND, url="http://testserver/", messages=[]
+        )
+        user = User.objects.get(username=username)
+        assert user.email == "chosen@example.com"
+        assert user.email_verified is True

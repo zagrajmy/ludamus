@@ -196,7 +196,7 @@ class ParticipationPromotionRepository:
                     has_conflict=participation.user_id in conflicted,
                     owner_slots_remaining=slots_by_owner[recipient.pk],
                     recipient_user_id=recipient.pk,
-                    recipient_email=recipient.email or "",
+                    recipient_email=recipient.deliverable_email,
                 )
             )
 
@@ -371,7 +371,7 @@ class ParticipationPromotionRepository:
         event_slug = session.event.slug
         sponsors = sponsors_by_member(p.user for p in party)
         recipients = distinct_recipients(
-            (recipient.pk, recipient.email or "")
+            (recipient.pk, recipient.deliverable_email)
             for recipient in (sponsors.get(p.user.pk, p.user) for p in party)
         )
         return OfferDTO(

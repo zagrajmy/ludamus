@@ -35,7 +35,11 @@ from datetime import UTC, datetime
 from dbos import DBOS
 from django.conf import settings
 
-from ludamus.inits.builders import build_printables_reminder, build_waitlist_promotion
+from ludamus.inits.builders import (
+    build_printables_reminder,
+    build_verification_reminder,
+    build_waitlist_promotion,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -47,6 +51,7 @@ _launch_lock = threading.Lock()
 # go out each morning, Polish time being UTC+1/+2.
 EXPIRE_OFFERS_SCHEDULE = "*/5 * * * *"
 PRINTABLES_REMINDERS_SCHEDULE = "0 7 * * *"
+VERIFICATION_REMINDERS_SCHEDULE = "30 7 * * *"
 
 
 @DBOS.step()
@@ -88,6 +93,18 @@ def printables_reminders_tick(scheduled: datetime, _actual: datetime) -> None:
     _send_printables_reminders_step(scheduled)
 
 
+@DBOS.step()
+def _send_verification_reminders_step(now: datetime) -> None:
+    sent = build_verification_reminder().send_due_reminders(now=now)
+    logger.info("verification reminders: reminded %s user(s)", sent)
+
+
+@DBOS.scheduled(VERIFICATION_REMINDERS_SCHEDULE)
+@DBOS.workflow()
+def verification_reminders_tick(scheduled: datetime, _actual: datetime) -> None:
+    _send_verification_reminders_step(scheduled)
+
+
 def _ensure_launched() -> None:
     if _launched.is_set():
         return
@@ -105,7 +122,14 @@ def _ensure_launched() -> None:
         _launched.set()
         logger.info(
             "DBOS launched; schedules active: %s",
-            [w.__name__ for w in (expire_offers_sweep, printables_reminders_tick)],
+            [
+                w.__name__
+                for w in (
+                    expire_offers_sweep,
+                    printables_reminders_tick,
+                    verification_reminders_tick,
+                )
+            ],
         )
 
 

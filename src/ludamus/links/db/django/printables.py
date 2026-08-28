@@ -52,7 +52,7 @@ class PrintablesReminderRepository(PrintablesReminderRepositoryProtocol):
         for event in events:
             recipients = [
                 PrintablesReminderRecipientDTO(
-                    user_id=membership.user.pk, email=membership.user.email
+                    user_id=membership.user.pk, email=membership.user.deliverable_email
                 )
                 for membership in event.sphere.spheremembership_set.all()
                 if membership.user.email

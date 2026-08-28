@@ -26,6 +26,8 @@ if TYPE_CHECKING:
         ClaimServiceProtocol,
         CompanionsServiceProtocol,
         CrowdAuthServiceProtocol,
+        EmailVerificationReminderServiceProtocol,
+        EmailVerificationServiceProtocol,
         ProfileServiceProtocol,
     )
     from ludamus.pacts.discounts import (
@@ -118,6 +120,12 @@ class ServicesProtocol(Protocol):
     def claims(self) -> ClaimServiceProtocol: ...
     @property
     def crowd_auth(self) -> CrowdAuthServiceProtocol: ...
+    @property
+    def email_verification(self) -> EmailVerificationServiceProtocol: ...
+    @property
+    def email_verification_reminder(
+        self,
+    ) -> EmailVerificationReminderServiceProtocol: ...
     @property
     def profile(self) -> ProfileServiceProtocol: ...
     @property

@@ -6,13 +6,18 @@ login-less companion row into the intended person's own self-login account,
 on the same row, so enrollment history is preserved.
 """
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from enum import StrEnum
 from typing import Protocol, TypedDict
 
 from pydantic import BaseModel, ConfigDict
 
 MAX_CONNECTED_USERS = 6  # Maximum number of connected users per manager
+
+# Signed verification links live this long. Shared contract: the token codec
+# enforces it on read, and the repository's pending-address reservation
+# (`email_exists`) expires with it, so nothing needs a cleanup job.
+EMAIL_LINK_MAX_AGE = timedelta(hours=24)
 
 
 class UserType(StrEnum):
@@ -28,6 +33,9 @@ class UserDTO(BaseModel):
     date_joined: datetime
     discord_username: str
     email: str
+    email_verified: bool = False
+    email_verification_sent_at: datetime | None = None
+    pending_email: str = ""
     full_name: str
     is_active: bool
     is_authenticated: bool
@@ -39,6 +47,12 @@ class UserDTO(BaseModel):
     use_gravatar: bool
     user_type: UserType
     username: str
+
+    @property
+    def deliverable_email(self) -> str:
+        # Mail goes only to proven addresses; the in-app notification row is
+        # written either way, so an unproven address costs a mail, not a bell.
+        return self.email if self.email_verified else ""
 
 
 class CompanionDTO(UserDTO):
@@ -52,6 +66,9 @@ class UserData(TypedDict, total=False):
     avatar_url: str
     discord_username: str
     email: str
+    email_verified: bool
+    email_verification_sent_at: datetime | None
+    pending_email: str
     is_active: bool
     name: str
     password: str
@@ -131,6 +148,9 @@ class SphereDomainRepositoryProtocol(Protocol):
 class AuthProvisionDTO(BaseModel):
     user: UserDTO
     claim_outcome: ClaimOutcome | None = None
+    # The provider's address collided with another account's, so the new
+    # account was created without one; the login callback tells the user.
+    email_conflict: bool = False
 
 
 class CrowdAuthServiceProtocol(Protocol):
@@ -159,10 +179,106 @@ class AvatarPageDTO(BaseModel):
 class ProfileServiceProtocol(Protocol):
     def read(self, user_slug: str) -> UserDTO: ...
     def confirmed_participations_count(self, user_id: int) -> int: ...
-    def email_in_use(self, email: str, *, exclude_slug: str) -> bool: ...
     def update(self, user_slug: str, data: UserData) -> None: ...
     def read_avatar(self, user_slug: str) -> AvatarPageDTO: ...
     def set_avatar_preference(self, user_slug: str, *, use_gravatar: bool) -> None: ...
+
+
+class EmailVerificationAction(StrEnum):
+    CONFIRM = "confirm"
+    CANCEL = "cancel"
+
+
+class EmailTokenPayload(BaseModel):
+    # `act` and `addr` are signed in, so a link only performs the action it
+    # was minted for and only against the address it was mailed to.
+    act: EmailVerificationAction
+    uid: int
+    addr: str
+
+
+class EmailTokenCodecProtocol(Protocol):
+    @staticmethod
+    def dumps(payload: EmailTokenPayload) -> str: ...
+    @staticmethod
+    def loads(token: str) -> EmailTokenPayload | None: ...
+
+
+class RedeemOutcome(StrEnum):
+    VERIFIED = "verified"
+    CHANGE_APPLIED = "change_applied"
+    CANCELLED = "cancelled"
+    EXPIRED = "expired"
+    ALREADY_USED = "already_used"
+    ADDRESS_TAKEN = "address_taken"
+
+
+class VerificationRequestOutcome(StrEnum):
+    SENT = "sent"
+    THROTTLED = "throttled"
+    NOT_NEEDED = "not_needed"
+
+
+class ChangeRequestOutcome(StrEnum):
+    REQUESTED = "requested"
+    UNCHANGED = "unchanged"
+    CLEARED = "cleared"
+    TAKEN = "taken"
+
+
+class EmailLinkDTO(BaseModel):
+    action: EmailVerificationAction
+    address: str
+
+
+class EmailVerificationNotification(BaseModel):
+    recipient_user_id: int
+    recipient_email: str
+    token: str
+
+
+class EmailChangeRequestedNotification(BaseModel):
+    recipient_user_id: int
+    recipient_email: str  # the pre-change address
+    new_address: str
+    cancel_token: str
+
+
+class EmailChangeCompletedNotification(BaseModel):
+    recipient_user_id: int
+    recipient_email: str  # the pre-change address
+    new_address: str
+
+
+class EmailVerificationNotifierProtocol(Protocol):
+    def notify_email_verification(
+        self, notification: EmailVerificationNotification
+    ) -> None: ...
+    def notify_email_change_requested(
+        self, notification: EmailChangeRequestedNotification
+    ) -> None: ...
+    def notify_email_change_completed(
+        self, notification: EmailChangeCompletedNotification
+    ) -> None: ...
+
+
+class EmailVerificationServiceProtocol(Protocol):
+    def request_verification(self, user_slug: str) -> VerificationRequestOutcome: ...
+    def request_change(
+        self, *, user_slug: str, new_address: str
+    ) -> ChangeRequestOutcome: ...
+    def describe(self, token: str) -> EmailLinkDTO | None: ...
+    def redeem(self, token: str) -> RedeemOutcome: ...
+
+
+class EmailVerificationReminderRepositoryProtocol(Protocol):
+    @staticmethod
+    def list_due(*, now: datetime, interval: timedelta) -> list[str]: ...
+
+
+class EmailVerificationReminderServiceProtocol(Protocol):
+    def count_due(self, *, now: datetime) -> int: ...
+    def send_due_reminders(self, *, now: datetime) -> int: ...
 
 
 class CompanionsServiceProtocol(Protocol):

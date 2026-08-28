@@ -13,6 +13,11 @@ from typing import TYPE_CHECKING
 from ludamus.inits.repositories import Repositories
 from ludamus.links.db.django.notifications import DjangoUserNotifier
 from ludamus.links.db.django.transaction import DjangoTransaction
+from ludamus.links.email_tokens import DjangoEmailTokenCodec
+from ludamus.mills.crowd import (
+    EmailVerificationReminderService,
+    EmailVerificationService,
+)
 from ludamus.mills.enrollment import WaitlistPromotionService
 from ludamus.mills.printing import PrintablesReminderService
 
@@ -36,4 +41,17 @@ def build_printables_reminder() -> PrintablesReminderService:
         transaction=DjangoTransaction(),
         reminders=Repositories().printables_reminders,
         notifier=DjangoUserNotifier(),
+    )
+
+
+def build_verification_reminder() -> EmailVerificationReminderService:
+    repos = Repositories()
+    return EmailVerificationReminderService(
+        reminders=repos.verification_reminders,
+        verification=EmailVerificationService(
+            transaction=DjangoTransaction(),
+            users=repos.active_users,
+            tokens=DjangoEmailTokenCodec(),
+            notifier=DjangoUserNotifier(),
+        ),
     )

@@ -170,6 +170,11 @@ class InvitedUserDTO(BaseModel):
 
     pk: int
     email: str
+    email_verified: bool = False
+
+    @property
+    def deliverable_email(self) -> str:
+        return self.email if self.email_verified else ""
 
 
 class InvitablePartyDTO(BaseModel):

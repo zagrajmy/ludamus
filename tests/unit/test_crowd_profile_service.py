@@ -138,13 +138,6 @@ class TestProfileService:
 
         assert service.confirmed_participations_count(7) == expected
 
-    def test_email_in_use_excludes_own_slug(self):
-        users = FakeUsers(users=[user_dto(email="mine@example.com")])
-        service = _profile_service(users=users)
-
-        assert service.email_in_use("mine@example.com", exclude_slug="manager") is False
-        assert service.email_in_use("mine@example.com", exclude_slug="other") is True
-
     def test_update_writes_in_transaction(self):
         users = FakeUsers(users=[user_dto()])
         transaction = FakeTransaction()

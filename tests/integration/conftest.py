@@ -82,6 +82,9 @@ class UserFactory(DjangoModelFactory):
 
     username = Faker("user_name")
     email = Sequence(lambda n: f"user{n}@example.com")
+    # Verified by default, mirroring production after the grandfathering
+    # migration; suppression tests flip it off explicitly.
+    email_verified = True
     name = Faker("name")
     slug = LazyAttribute(lambda o: o.username)
     user_type = "active"  # Use the actual choice value

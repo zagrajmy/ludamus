@@ -1610,7 +1610,7 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
                     session_id=session.pk,
                     session_title=session.title,
                     user_id=member.pk,
-                    user_email=member.email,
+                    user_email=member.deliverable_email,
                     party_id=party_pk,
                     actor_name=actor_name,
                 )
@@ -1629,7 +1629,7 @@ class SessionEnrollPageView(LoginRequiredMixin, View):
             self.request.services.parties.announce_member_enrolled(
                 PartyEnrolledNotification(
                     recipient_user_id=member.pk,
-                    recipient_email=member.email,
+                    recipient_email=member.deliverable_email,
                     actor_name=actor_name,
                     session_id=session.pk,
                     session_title=session.title,

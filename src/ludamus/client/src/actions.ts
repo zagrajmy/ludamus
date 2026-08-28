@@ -17,6 +17,25 @@ const swapVisibility = (el: HTMLElement): void => {
   setDisplay(el.dataset.show, "block");
 };
 
+// Hide a banner and remember the choice in a cookie for a week; losing the
+// cookie just brings the banner back, so nothing else stores the dismissal.
+const DISMISS_COOKIE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+
+const dismissBanner = (el: HTMLElement): void => {
+  const id = el.dataset.dismissTarget;
+  const node = id ? document.getElementById(id) : null;
+  if (node) node.hidden = true;
+  const cookie = el.dataset.dismissCookie;
+  if (cookie)
+    void cookieStore.set({
+      expires: Date.now() + DISMISS_COOKIE_MAX_AGE_MS,
+      name: cookie,
+      path: "/",
+      sameSite: "lax",
+      value: "1",
+    });
+};
+
 const syncExpandedRequired = (box: HTMLInputElement): void => {
   box.setAttribute("aria-expanded", box.checked ? "true" : "false");
   const id = box.dataset.requiredTarget;
@@ -30,6 +49,9 @@ document.addEventListener("click", (e) => {
   const el = (e.target as Element | null)?.closest<HTMLElement>("[data-action]");
   if (!el) return;
   switch (el.dataset.action) {
+    case "dismiss-banner":
+      dismissBanner(el);
+      break;
     case "history-back":
       globalThis.history.back();
       break;
