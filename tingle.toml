@@ -131,6 +131,7 @@ base = "tingle.builtins.mypy.overrides"
 base = "tingle.builtins.python.any_used"
 name = "type-any"
 ranges = ["python-src"]
+ignore_lines = ['^from ', '^\s+Any,$']
 
 [[metrics]]
 name = "type-object"

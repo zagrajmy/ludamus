@@ -1002,6 +1002,7 @@ msgstr "Przypisany do"
 #: src/ludamus/gates/web/django/event/propose_forms.py
 #: src/ludamus/gates/web/django/forms.py
 #: src/ludamus/gates/web/django/multiverse/panel/forms.py
+#: src/ludamus/gates/web/django/notice_board/forms.py
 #: src/ludamus/gates/web/django/templatetags/cfp_tags.py
 #: src/ludamus/templates/chronology/parts/session-edit-form.html
 #: src/ludamus/templates/event/propose/parts/details.html
@@ -2543,6 +2544,7 @@ msgid "Contact email"
 msgstr "Email kontaktowy"
 
 #: src/ludamus/gates/web/django/event/propose_forms.py
+#: src/ludamus/gates/web/django/notice_board/forms.py
 #: src/ludamus/templates/event/propose/parts/details.html
 #: src/ludamus/templates/event/propose/parts/review.html
 msgid "Max participants"
@@ -2555,6 +2557,7 @@ msgstr "Puste pole lub 0 = bez zapisów"
 
 #: src/ludamus/gates/web/django/event/propose_forms.py
 #: src/ludamus/gates/web/django/forms.py
+#: src/ludamus/gates/web/django/notice_board/forms.py
 #: src/ludamus/gates/web/django/templatetags/cfp_tags.py
 #: src/ludamus/templates/chronology/accept_proposal.html
 #: src/ludamus/templates/chronology/anonymous_enroll.html
@@ -2689,6 +2692,50 @@ msgstr "Pozwól twórcom programu edytować własne punkty programu"
 #: src/ludamus/gates/web/django/forms.py
 msgid "Default for the whole sphere. Events can override this setting."
 msgstr "Domyślne dla całej sfery. Wydarzenia mogą nadpisać to ustawienie."
+
+#: src/ludamus/gates/web/django/forms.py
+msgid "Enabled pages"
+msgstr "Włączone strony"
+
+#: src/ludamus/gates/web/django/forms.py
+msgid "At least one page must stay enabled."
+msgstr "Przynajmniej jedna strona musi pozostać włączona."
+
+#: src/ludamus/gates/web/django/forms.py
+msgid "Default page"
+msgstr "Strona domyślna"
+
+#: src/ludamus/gates/web/django/forms.py
+msgid "Shown when visitors open the sphere's homepage."
+msgstr "Wyświetlana, gdy odwiedzający otwierają stronę główną sfery."
+
+#: src/ludamus/gates/web/django/forms.py
+msgid "Nobody (public encounters disabled)"
+msgstr "Nikt (publiczne spotkania wyłączone)"
+
+#: src/ludamus/gates/web/django/forms.py
+msgid "Sphere managers only"
+msgstr "Tylko menedżerowie sfery"
+
+#: src/ludamus/gates/web/django/forms.py
+msgid "Everyone"
+msgstr "Wszyscy"
+
+#: src/ludamus/gates/web/django/forms.py
+msgid "Who may make an encounter public"
+msgstr "Kto może upublicznić spotkanie"
+
+#: src/ludamus/gates/web/django/forms.py
+msgid ""
+"Public encounters are listed for everyone on the encounters page and the "
+"timeline."
+msgstr ""
+"Publiczne spotkania są widoczne dla wszystkich na stronie spotkań i na osi "
+"czasu."
+
+#: src/ludamus/gates/web/django/forms.py
+msgid "The default page must be one of the enabled pages."
+msgstr "Strona domyślna musi być jedną z włączonych stron."
 
 #: src/ludamus/gates/web/django/forms.py
 msgid "Category name is too long (max 255 characters)."
@@ -3141,8 +3188,37 @@ msgid "Sphere settings saved successfully."
 msgstr "Ustawienia sfery zostały zapisane."
 
 #: src/ludamus/gates/web/django/notice_board/forms.py
-msgid "End time must be after start time."
-msgstr "Czas zakończenia musi być po czasie rozpoczęcia."
+msgid "Supports Markdown formatting."
+msgstr "Obsługuje formatowanie Markdown."
+
+#: src/ludamus/gates/web/django/notice_board/forms.py
+#: src/ludamus/templates/notice_board/detail.html
+msgid "Game"
+msgstr "Gra"
+
+#: src/ludamus/gates/web/django/notice_board/forms.py
+msgid "Start time"
+msgstr "Czas rozpoczęcia"
+
+#: src/ludamus/gates/web/django/notice_board/forms.py
+msgid "End time"
+msgstr "Czas zakończenia"
+
+#: src/ludamus/gates/web/django/notice_board/forms.py
+msgid "Place"
+msgstr "Miejsce"
+
+#: src/ludamus/gates/web/django/notice_board/forms.py
+msgid "Public encounter"
+msgstr "Publiczne spotkanie"
+
+#: src/ludamus/gates/web/django/notice_board/forms.py
+msgid ""
+"Listed for everyone on the encounters page and the timeline. Anyone with the "
+"link can always view it."
+msgstr ""
+"Widoczne dla wszystkich na stronie spotkań i na osi czasu. Każdy z linkiem "
+"zawsze może je zobaczyć."
 
 #: src/ludamus/gates/web/django/notice_board/views.py
 msgid "Friday Gloomhaven"
@@ -3377,6 +3453,23 @@ msgstr "Prowadzący usunięty."
 msgid "That presenter is not in this guild."
 msgstr "Ten prowadzący nie należy do tej gildii."
 
+#: src/ludamus/gates/web/django/sphere/pages.py
+#: src/ludamus/templates/index.html
+msgid "Events"
+msgstr "Wydarzenia"
+
+#: src/ludamus/gates/web/django/sphere/pages.py
+#: src/ludamus/templates/multiverse/panel/sphere-settings.html
+#: src/ludamus/templates/notice_board/index.html
+#: src/ludamus/templates/notice_board/public_index.html
+msgid "Encounters"
+msgstr "Spotkania"
+
+#: src/ludamus/gates/web/django/sphere/pages.py
+#: src/ludamus/templates/timeline.html
+msgid "Timeline"
+msgstr "Oś czasu"
+
 #: src/ludamus/gates/web/django/templatetags/cfp_tags.py
 msgid "Not set"
 msgstr "Nie ustawiono"
@@ -3389,6 +3482,7 @@ msgstr "Zamknięte"
 #: src/ludamus/templates/chronology/event.html
 #: src/ludamus/templates/notice_board/index.html
 #: src/ludamus/templates/panel/enrollment-settings.html
+#: src/ludamus/templates/timeline.html
 msgid "Upcoming"
 msgstr "Nadchodzące"
 
@@ -3690,6 +3784,7 @@ msgstr ""
 
 #: src/ludamus/templates/base.html
 #: src/ludamus/templates/components/notifications.html
+#: src/ludamus/templates/notifications/index.html
 #: src/ludamus/templates/panel/base.html
 msgid "Notifications"
 msgstr "Powiadomienia"
@@ -4399,6 +4494,7 @@ msgstr "Zakończ"
 #: src/ludamus/templates/chronology/event.html
 #: src/ludamus/templates/chronology/parts/session-modal.html
 #: src/ludamus/templates/crowd/user/party_detail.html
+#: src/ludamus/templates/notifications/parts/modal.html
 msgid "Close"
 msgstr "Zamknij"
 
@@ -4585,6 +4681,10 @@ msgstr "Zgłoś punkt programu"
 #: src/ludamus/templates/chronology/event.html
 msgid "Back to Events"
 msgstr "Powrót do wydarzeń"
+
+#: src/ludamus/templates/chronology/event.html
+msgid "Back to Timeline"
+msgstr "Powrót do osi czasu"
 
 #: src/ludamus/templates/chronology/event.html
 msgid "Print-ready schedule"
@@ -4880,6 +4980,35 @@ msgstr "pojemność"
 msgid "This printable is not available for this event."
 msgstr "Ten wydruk nie jest dostępny dla tego wydarzenia."
 
+#: src/ludamus/templates/components/_pagination.html
+#, python-format
+msgid ""
+"\n"
+"                Page %(page)s of %(total)s\n"
+"            "
+msgstr ""
+"\n"
+"                Strona %(page)s z %(total)s\n"
+"            "
+
+#: src/ludamus/templates/components/_pagination.html
+msgid "Per page:"
+msgstr "Na stronę:"
+
+#: src/ludamus/templates/components/_pagination.html
+#: src/ludamus/templates/panel/parts/import-review-region.html
+#: src/ludamus/templates/panel/parts/timetable-grid.html
+#: src/ludamus/templates/panel/time-slots.html
+msgid "Previous"
+msgstr "Poprzednia"
+
+#: src/ludamus/templates/components/_pagination.html
+#: src/ludamus/templates/panel/parts/import-review-region.html
+#: src/ludamus/templates/panel/parts/timetable-grid.html
+#: src/ludamus/templates/panel/time-slots.html
+msgid "Next"
+msgstr "Następna"
+
 #: src/ludamus/templates/components/avatar.html
 #, python-format
 msgid "%(name_value)s (flagged)"
@@ -4930,6 +5059,12 @@ msgstr "Własna wartość dla: %(question)s"
 #: src/ludamus/templates/components/encounter_card.html
 msgid "You organize"
 msgstr "Organizujesz"
+
+#: src/ludamus/templates/components/encounter_card.html
+#: src/ludamus/templates/notice_board/detail.html
+#: src/ludamus/templates/panel/tracks.html
+msgid "Public"
+msgstr "Publiczny"
 
 #: src/ludamus/templates/components/encounter_card.html
 #: src/ludamus/templates/notice_board/detail.html
@@ -4999,6 +5134,7 @@ msgstr "Gildia: %(name)s"
 #: src/ludamus/templates/components/login_button.html
 #: src/ludamus/templates/event/propose/parts/_login_nudge.html
 #: src/ludamus/templates/notice_board/landing.html
+#: src/ludamus/templates/notice_board/public_index.html
 msgid "Log in"
 msgstr "Zaloguj się"
 
@@ -5034,27 +5170,22 @@ msgstr "Edycja profilu"
 msgid "Log out"
 msgstr "Wyloguj się"
 
-#: src/ludamus/templates/components/navbar_pages.html
-#: src/ludamus/templates/index.html
-msgid "Events"
-msgstr "Wydarzenia"
-
-#: src/ludamus/templates/components/navbar_pages.html
-#: src/ludamus/templates/notice_board/index.html
-msgid "Encounters"
-msgstr "Spotkania"
-
 #: src/ludamus/templates/components/notifications.html
 msgid "unread"
 msgstr "nieprzeczytane"
 
 #: src/ludamus/templates/components/notifications.html
+#: src/ludamus/templates/notifications/index.html
 msgid "Mark all read"
 msgstr "Oznacz wszystkie jako przeczytane"
 
 #: src/ludamus/templates/components/notifications.html
 msgid "No notifications yet."
 msgstr "Brak powiadomień."
+
+#: src/ludamus/templates/components/notifications.html
+msgid "View all"
+msgstr "Zobacz wszystkie"
 
 #: src/ludamus/templates/components/sound_switcher.html
 msgid "Toggle interface sound"
@@ -5955,7 +6086,7 @@ msgstr "Ogłoszenia organizacji"
 msgid "Upcoming events"
 msgstr "Nadchodzące wydarzenia"
 
-#: src/ludamus/templates/index.html
+#: src/ludamus/templates/index.html src/ludamus/templates/timeline.html
 msgid "Past events"
 msgstr "Minione wydarzenia"
 
@@ -6206,12 +6337,21 @@ msgid "Sphere settings"
 msgstr "Ustawienia sfery"
 
 #: src/ludamus/templates/multiverse/panel/sphere-settings.html
-msgid "Default page"
-msgstr "Strona domyślna"
+msgid "Pages"
+msgstr "Strony"
 
 #: src/ludamus/templates/multiverse/panel/sphere-settings.html
-msgid "Enabled pages"
-msgstr "Włączone strony"
+msgid "You are disabling a page that has content:"
+msgstr "Wyłączasz stronę, na której są treści:"
+
+#: src/ludamus/templates/multiverse/panel/sphere-settings.html
+msgid "Visitors will no longer be able to open it. Save again to confirm."
+msgstr ""
+"Odwiedzający nie będą mogli jej otworzyć. Zapisz ponownie, aby potwierdzić."
+
+#: src/ludamus/templates/multiverse/panel/sphere-settings.html
+msgid "Save anyway"
+msgstr "Zapisz mimo to"
 
 #: src/ludamus/templates/multiverse/panel/sphere-settings.html
 #: src/ludamus/templates/panel/proposal-settings.html
@@ -6259,6 +6399,10 @@ msgstr "Czy na pewno chcesz usunąć to spotkanie?"
 msgid "Delete encounter"
 msgstr "Usuń spotkanie"
 
+#: src/ludamus/templates/notice_board/_public_encounters.html
+msgid "Public encounters"
+msgstr "Publiczne spotkania"
+
 #: src/ludamus/templates/notice_board/_rsvp_copy_details.html
 #: src/ludamus/templates/panel/parts/confirmation-facilitator-card.html
 msgid "Copy details"
@@ -6295,6 +6439,7 @@ msgstr "Wypisz się"
 
 #: src/ludamus/templates/notice_board/create.html
 #: src/ludamus/templates/notice_board/index.html
+#: src/ludamus/templates/timeline.html
 msgid "Create Encounter"
 msgstr "Utwórz spotkanie"
 
@@ -6309,10 +6454,6 @@ msgstr "Bierzesz udział w tym spotkaniu"
 #: src/ludamus/templates/notice_board/detail.html
 msgid "invites you to an encounter"
 msgstr "zaprasza Cię na spotkanie"
-
-#: src/ludamus/templates/notice_board/detail.html
-msgid "Game"
-msgstr "Gra"
 
 #: src/ludamus/templates/notice_board/detail.html
 msgid "When"
@@ -6400,12 +6541,25 @@ msgid "No more 'hey, when are we playing?' in the group chat."
 msgstr "Koniec z 'hej, kiedy gramy?' na grupowym czacie."
 
 #: src/ludamus/templates/notice_board/landing.html
+#: src/ludamus/templates/notice_board/public_index.html
 msgid "Sign up"
 msgstr "Zarejestruj się"
 
 #: src/ludamus/templates/notice_board/landing.html
 msgid "Example encounters"
 msgstr "Przykładowe spotkania"
+
+#: src/ludamus/templates/notifications/index.html
+msgid "Unread"
+msgstr "Nieprzeczytane"
+
+#: src/ludamus/templates/notifications/index.html
+msgid "No notifications yet"
+msgstr "Brak powiadomień"
+
+#: src/ludamus/templates/notifications/index.html
+msgid "Anything that needs your attention will show up here."
+msgstr "Wszystko, co wymaga Twojej uwagi, pojawi się tutaj."
 
 #: src/ludamus/templates/panel/_cfp_tabs.html
 #: src/ludamus/templates/panel/cfp.html
@@ -8220,35 +8374,6 @@ msgstr "Przypisz %(name)s do gildii"
 msgid "This sphere has no guilds yet."
 msgstr "Ta sfera nie ma jeszcze żadnych gildii."
 
-#: src/ludamus/templates/panel/parts/_pagination.html
-#, python-format
-msgid ""
-"\n"
-"                Page %(page)s of %(total)s\n"
-"            "
-msgstr ""
-"\n"
-"                Strona %(page)s z %(total)s\n"
-"            "
-
-#: src/ludamus/templates/panel/parts/_pagination.html
-msgid "Per page:"
-msgstr "Na stronę:"
-
-#: src/ludamus/templates/panel/parts/_pagination.html
-#: src/ludamus/templates/panel/parts/import-review-region.html
-#: src/ludamus/templates/panel/parts/timetable-grid.html
-#: src/ludamus/templates/panel/time-slots.html
-msgid "Previous"
-msgstr "Poprzednia"
-
-#: src/ludamus/templates/panel/parts/_pagination.html
-#: src/ludamus/templates/panel/parts/import-review-region.html
-#: src/ludamus/templates/panel/parts/timetable-grid.html
-#: src/ludamus/templates/panel/time-slots.html
-msgid "Next"
-msgstr "Następna"
-
 #: src/ludamus/templates/panel/parts/confirmation-facilitator-card.html
 #, python-format
 msgid "Handled by %(name)s"
@@ -9575,10 +9700,6 @@ msgid "Organizers"
 msgstr "Organizatorzy"
 
 #: src/ludamus/templates/panel/tracks.html
-msgid "Public"
-msgstr "Publiczny"
-
-#: src/ludamus/templates/panel/tracks.html
 msgid "Private"
 msgstr "Prywatny"
 
@@ -9615,8 +9736,33 @@ msgstr "Temat"
 msgid "No emails captured yet."
 msgstr "Brak przechwyconych e-maili."
 
+#: src/ludamus/templates/timeline.html
+msgid "No upcoming events or encounters."
+msgstr "Brak nadchodzących wydarzeń i spotkań."
+
+#: src/ludamus/templates/timeline.html
+msgid "Nothing scheduled yet"
+msgstr "Nic jeszcze nie zaplanowano"
+
+#: src/ludamus/templates/timeline.html
+msgid ""
+"There are no upcoming events or public encounters. Please check back later!"
+msgstr ""
+"Nie ma nadchodzących wydarzeń ani publicznych spotkań. Sprawdź ponownie "
+"później!"
+
+#~ msgid "End time must be after start time."
+#~ msgstr "Czas zakończenia musi być po czasie rozpoczęcia."
+
 #~ msgid "Creator"
 #~ msgstr "Twórca programu"
+
+#~ msgid ""
+#~ "Writes every facilitator with their accreditation type and discount into "
+#~ "the first tab of the selected spreadsheet, replacing its current content."
+#~ msgstr ""
+#~ "Zapisuje wszystkich twórców programu wraz z rodzajem akredytacji i zniżką "
+#~ "do pierwszej zakładki wybranego arkusza, zastępując jego obecną zawartość."
 
 #~ msgid "Required age"
 #~ msgstr "Wymagany wiek"
@@ -9644,13 +9790,6 @@ msgstr "Brak przechwyconych e-maili."
 
 #~ msgid "All venues"
 #~ msgstr "Wszystkie lokalizacje"
-
-#~ msgid ""
-#~ "Writes every facilitator with their accreditation type and discount into "
-#~ "the first tab of the selected spreadsheet, replacing its current content."
-#~ msgstr ""
-#~ "Zapisuje wszystkich twórców programu wraz z rodzajem akredytacji i zniżką "
-#~ "do pierwszej zakładki wybranego arkusza, zastępując jego obecną zawartość."
 
 #, python-format
 #~ msgid "Changed by %(who)s on %(when)s"
@@ -10074,3 +10213,6 @@ msgstr "Brak przechwyconych e-maili."
 #, python-format
 #~ msgid "Edit proposal %(title)s"
 #~ msgstr "Edytuj zgłoszenie %(title)s"
+
+#~ msgid "No public encounters."
+#~ msgstr "Brak publicznych spotkań."

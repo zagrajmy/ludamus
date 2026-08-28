@@ -5,7 +5,10 @@ from django.db import migrations, models
 
 class Migration(migrations.Migration):
 
-    dependencies = [("db_main", "0153_discountrule")]
+    dependencies = [
+        ("db_main", "0153_alter_sphere_default_page"),
+        ("db_main", "0153_discountrule"),
+    ]
 
     operations = [
         migrations.AddField(

@@ -18,6 +18,7 @@ from ludamus.gates.web.django.dynamic_fields import (
     CustomAnswerFormMixin,
     build_dynamic_fields,
 )
+from ludamus.gates.web.django.sphere.pages import SPHERE_PAGE_LABELS
 from ludamus.pacts.discounts import DiscountKind
 from ludamus.pacts.durations import (
     MAX_DURATION_HOURS,
@@ -26,7 +27,7 @@ from ludamus.pacts.durations import (
     duration_choices,
 )
 from ludamus.pacts.images import ALLOWED_IMAGE_FORMATS, IMAGE_ACCEPT, LOGO_ACCEPT
-from ludamus.pacts.legacy import PromotionMode
+from ludamus.pacts.legacy import EncounterPublicPolicy, PromotionMode, SpherePage
 from ludamus.pacts.submissions import AccreditationType
 
 if TYPE_CHECKING:
@@ -297,6 +298,13 @@ class EventSettingsForm(forms.Form):
         return image
 
 
+_PAGE_VALUES = {page.value for page in SpherePage}
+
+
+def _sphere_page_choices() -> list[tuple[str, _StrPromise]]:
+    return [(page.value, SPHERE_PAGE_LABELS[page]) for page in SpherePage]
+
+
 class SphereSettingsForm(forms.Form):
     """Form for sphere-wide settings."""
 
@@ -305,7 +313,55 @@ class SphereSettingsForm(forms.Form):
         label=_("Allow facilitators to edit their own sessions"),
         help_text=_("Default for the whole sphere. Events can override this setting."),
     )
+    enabled_pages = forms.MultipleChoiceField(
+        choices=_sphere_page_choices,
+        widget=forms.CheckboxSelectMultiple,
+        label=_("Enabled pages"),
+        error_messages={"required": _("At least one page must stay enabled.")},
+    )
+    default_page = forms.ChoiceField(
+        choices=_sphere_page_choices,
+        widget=forms.RadioSelect,
+        label=_("Default page"),
+        help_text=_("Shown when visitors open the sphere's homepage."),
+    )
+    encounter_public_policy = forms.ChoiceField(
+        choices=[
+            (
+                EncounterPublicPolicy.DISABLED.value,
+                _("Nobody (public encounters disabled)"),
+            ),
+            (EncounterPublicPolicy.MANAGERS.value, _("Sphere managers only")),
+            (EncounterPublicPolicy.EVERYONE.value, _("Everyone")),
+        ],
+        widget=forms.RadioSelect,
+        label=_("Who may make an encounter public"),
+        help_text=_(
+            "Public encounters are listed for everyone on the encounters page "
+            "and the timeline."
+        ),
+    )
+    # The pages the manager was warned about and confirmed, comma-separated.
+    # A bare boolean would carry a confirmation for one page over to a page
+    # they picked afterwards and were never warned about.
+    confirmed_page_disable = forms.CharField(required=False, widget=forms.HiddenInput)
     logo = logo_field()
+
+    def confirmed_pages(self) -> set[SpherePage]:
+        raw: str = self.cleaned_data.get("confirmed_page_disable") or ""
+        return {SpherePage(value) for value in raw.split(",") if value in _PAGE_VALUES}
+
+    def clean(self) -> dict[str, Any] | None:
+        # Also enforced by SpherePanelService.update_settings; repeated here so
+        # the manager gets the message on the field rather than an exception.
+        super().clean()
+        default_page = self.cleaned_data.get("default_page")
+        enabled_pages: list[str] = self.cleaned_data.get("enabled_pages") or []
+        if default_page and default_page not in enabled_pages:
+            self.add_error(
+                "default_page", _("The default page must be one of the enabled pages.")
+            )
+        return self.cleaned_data
 
 
 class ProposalSettingsForm(forms.Form):
