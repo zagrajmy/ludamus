@@ -331,6 +331,11 @@ class Sphere(models.Model):
             raise ValidationError(
                 {"enabled_pages": "Enabled pages must be a list of page slugs."}
             )
+        known = SpherePage.all_values()
+        if set(enabled_pages) - set(known):
+            raise ValidationError(
+                {"enabled_pages": f"Enabled pages must be page slugs from {known}."}
+            )
         # The homepage redirect sends visitors to default_page, so a disabled
         # one strands them on a 404. Enforced here so every ModelForm writer
         # (the admin included) is covered by Django's own validation.

@@ -48,6 +48,12 @@ class TestSphereClean:
             sphere.full_clean()
         assert "enabled_pages" in exc_info.value.message_dict
 
+    def test_rejects_unknown_page_slug(self, sphere):
+        sphere.enabled_pages = ["events", "unknown"]
+        with pytest.raises(ValidationError) as exc_info:
+            sphere.full_clean()
+        assert "enabled_pages" in exc_info.value.message_dict
+
     def test_rejects_default_page_not_enabled(self, sphere):
         sphere.enabled_pages = ["encounters"]
         sphere.default_page = "events"
