@@ -343,10 +343,6 @@ If you fix a papercut, remove it.
   after a NewType change: inits/middleware.py reported Services not matching
   ServicesProtocol while an explicit assignment of the same two classes type-
   checked fine. rm -rf .mypy_cache made it vanish.
-- 2026-08-26: A task writing .env.local via '> .env.local.tmp && mv'
-  (tasks.toml:150) left an empty untracked .env.local.tmp in the worktree when
-  it did not complete, and the name is not gitignored, so it shows up in git
-  status as if it were mine.
 - 2026-08-26: Ran format:djlint on a template change; it reformatted the file
   and reported zero lint errors but still exited nonzero, so the formatting task
   appeared to fail until rerun.
