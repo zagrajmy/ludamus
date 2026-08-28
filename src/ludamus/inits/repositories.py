@@ -212,6 +212,10 @@ class Repositories:
         return repositories.DiscountRepository()
 
     @cached_property
+    def discount_rules(self) -> repositories.DiscountRuleRepository:
+        return repositories.DiscountRuleRepository()
+
+    @cached_property
     def encounters(self) -> repositories.EncounterRepository:
         return repositories.EncounterRepository()
 
