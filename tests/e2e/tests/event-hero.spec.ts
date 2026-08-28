@@ -56,6 +56,29 @@ test.describe("Big event hero", () => {
     );
   });
 
+  test("the calendar menu stays open across the hover gap and closes on Escape", async ({
+    page,
+  }) => {
+    const hero = page.locator("[data-event-hero]");
+    const trigger = hero.getByRole("button", { name: /10:00/ });
+    const googleCalendar = hero.getByRole("link", { name: "Google Calendar" });
+
+    await trigger.hover();
+    await expect(trigger).toHaveAttribute("aria-expanded", "true");
+    await expect(googleCalendar).toBeVisible();
+
+    const target = await googleCalendar.boundingBox();
+    if (!target) throw new Error("calendar menu item has no box");
+    await page.mouse.move(target.x + target.width / 2, target.y + target.height / 2, {
+      steps: 10,
+    });
+    await expect(trigger).toHaveAttribute("aria-expanded", "true");
+
+    await page.keyboard.press("Escape");
+    await expect(trigger).toHaveAttribute("aria-expanded", "false");
+    await expect(googleCalendar).toBeHidden();
+  });
+
   test("viewing the program jumps to the schedule", async ({ page }) => {
     await page.getByRole("link", { name: "View the program" }).click();
     await expect(page.locator("#schedule-region")).toBeInViewport();

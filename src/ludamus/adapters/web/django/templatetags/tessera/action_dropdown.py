@@ -97,7 +97,12 @@ def do_action_dropdown(parser: Parser, token: Token) -> ActionDropdownNode:
 
 @register.simple_tag
 def tessera_action_dropdown_item(
-    text: str, *, href: str, icon: str = "", external: bool = False, **attrs: object
+    text: str,
+    *,
+    href: str,
+    icon: str = "",
+    external: bool = False,
+    **attrs: str | int | bool | None,
 ) -> str:
     """Render one action row of a {% tessera_action_dropdown %} menu.
 

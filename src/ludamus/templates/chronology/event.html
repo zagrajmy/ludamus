@@ -29,9 +29,8 @@
 {% block body %}
     {% include "chronology/decorative_background_blobs.html" %}
     {# No overflow-hidden — it would clip the add-to-calendar popover on short heroes. #}
-    <div class="relative rounded-3xl shadow-xl mb-6 sm:mb-8 bg-bg-secondary"
-         data-event-hero
-         style="box-shadow: var(--shadow-elevated)">
+    <div class="relative rounded-3xl shadow-(--shadow-elevated) mb-6 sm:mb-8 bg-bg-secondary"
+         data-event-hero>
         {% if event.cover_image_url %}
             <div class="h-56 sm:h-72 bg-cover bg-center rounded-t-3xl"
                  style="background-image: url('{{ event.cover_image_url }}')"></div>
