@@ -1029,7 +1029,10 @@ test.describe("Backoffice Panel", () => {
       await page.locator("#id_description").fill("An introductory RPG session for new players.");
       await page.locator("#id_participants_limit").fill("6");
       await page.locator("#id_display_name").fill("Game Master Alex");
-      await page.locator("#id_duration").selectOption("PT2H");
+      // The category configures one duration, so the wizard answers for the
+      // proposer instead of offering a dropdown with a single option.
+      await expect(page.locator("#id_duration")).toHaveCount(0);
+      await expect(page.locator("[name='duration']")).toHaveAttribute("type", "hidden");
       await page.locator(`input[name="session_${slugify(gameSystemName)}"]`).fill("D&D 5e");
       await page.locator(`select[name="session_${slugify(genreName)}"]`).selectOption("Fantasy");
       await page
@@ -1058,6 +1061,8 @@ test.describe("Backoffice Panel", () => {
       await expect(page.getByText("host@example.com")).toBeVisible();
       await expect(page.getByText("D&D 5e")).toBeVisible();
       await expect(page.getByText("Fantasy")).toBeVisible();
+      // The duration nobody was asked for still reaches the review.
+      await expect(page.getByText("2h", { exact: true })).toBeVisible();
 
       // Submit
       await page.getByRole("button", { name: "Submit Proposal" }).click();
@@ -1108,7 +1113,6 @@ test.describe("Backoffice Panel", () => {
       await page.locator("#id_participants_limit").fill("4");
       await page.locator("#id_min_age").fill("30");
       await page.locator("#id_display_name").fill("Regression GM");
-      await page.locator("#id_duration").selectOption("PT2H");
       await page.locator(`input[name="session_${slugify(gameSystemName)}"]`).fill("Pathfinder");
       await page.locator(`select[name="session_${slugify(genreName)}"]`).selectOption("Fantasy");
       await page
