@@ -257,15 +257,26 @@ Each step is demoable end-to-end through the UI.
 
 4. **Close the loop.** `release_claim` behind the panel's reject button for an
    impromptu session, and behind a withdraw button for the claim's own author
-   while it is PENDING. Demo: claim a spot, reject it in the panel, watch the
-   cell go free again in the picker; claim another and withdraw it yourself.
+   while it is PENDING. It takes the acting user, and under the space lock
+   re-reads the session and refuses anything that is not an impromptu PENDING
+   claim, then admits only an organizer of the event or the claim's own
+   presenter, raising the way `accept_session` raises
+   `ProposalAcceptDeniedError`. Which button renders is not the check. Demo:
+   claim a spot, reject it in the panel, watch the cell go free again in the
+   picker; claim another and withdraw it yourself;
+   a third account's withdraw of someone else's claim is refused.
 
 5. **Bound it.** One outstanding PENDING impromptu claim per user per event,
    enforced by the conditional `UniqueConstraint` on `(event, presenter)` above
-   with one reversible migration; `claim_spot` counts first for the message and
-   maps the `IntegrityError` to it, and the space lock keeps guarding overlap
-   only. Demo: claim a spot, try to claim a second, get told the first is still
-   waiting; two browsers racing a second claim both lose it.
+   with one reversible migration, named
+   `session_one_pending_impromptu_claim_per_presenter`; `claim_spot` counts
+   first for the message and wraps only the insert in a savepoint, mapping to
+   that message just the violation of that constraint by name and re-raising
+   every other `DatabaseConstraintError` — the transaction layer flattens
+   foreign-key and `AgendaItem` failures into the same exception, and a blanket
+   catch would report them as a second claim. The space lock keeps guarding
+   overlap only. Demo: claim a spot, try to claim a second, get told the first
+   is still waiting; two browsers racing a second claim both lose it.
 
 ## Not in scope
 
