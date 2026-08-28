@@ -14,6 +14,7 @@ from ludamus.gates.web.django.chronology.schedule import (
     ScheduleDay,
     ScheduleHour,
     ScheduleTile,
+    build_card_days,
 )
 from ludamus.gates.web.django.entities import UserInfo
 from ludamus.links.db.django.models import SessionParticipation
@@ -139,6 +140,16 @@ def event_page_context(event, *, url, **overrides):
     context |= overrides
     context.setdefault("has_enrollable_sessions", False)
     context.setdefault("scheduled_count", 0)
+    # Derived exactly as the view derives it, so callers keep stating their
+    # scenario through the three hour-data lanes alone.
+    context.setdefault(
+        "card_days",
+        build_card_days(
+            ended=context["ended_hour_data"],
+            current=context["current_hour_data"],
+            future_unavailable=context["future_unavailable_hour_data"],
+        ),
+    )
     return context
 
 

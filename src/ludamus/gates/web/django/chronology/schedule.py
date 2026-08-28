@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections import defaultdict
 from dataclasses import dataclass, field, replace
 from datetime import UTC, date, datetime, timedelta
-from typing import TYPE_CHECKING, NamedTuple
+from typing import TYPE_CHECKING, Literal, NamedTuple
 
 from django.utils import timezone
 
@@ -215,6 +215,68 @@ def build_schedule_days(sessions_data: dict[int, SessionData]) -> list[ScheduleD
             for hour in hours
         ]
         days.append(ScheduleDay(day_start=hours[0].start, hours=hours, tiles=tiles))
+    return days
+
+
+CardSlotKind = Literal["ended", "current", "future"]
+
+
+@dataclass
+class CardSlot:
+    kind: CardSlotKind
+    hour: datetime
+    sessions: list[SessionData]
+    # The first not-yet-ended slot page-wide: the one the "Now" pill belongs to
+    # while the event is live.
+    is_first_current: bool = False
+
+
+@dataclass
+class CardDay:
+    day_start: datetime
+    slots: list[CardSlot]
+
+
+def _card_slots(
+    kind: CardSlotKind, data: dict[datetime, list[SessionData]]
+) -> list[CardSlot]:
+    return [
+        CardSlot(kind=kind, hour=hour, sessions=sessions)
+        for hour, sessions in data.items()
+    ]
+
+
+def build_card_days(
+    *,
+    ended: dict[datetime, list[SessionData]],
+    current: dict[datetime, list[SessionData]],
+    future_unavailable: dict[datetime, list[SessionData]],
+) -> list[CardDay]:
+    # Day-major for the card layout: each local day folds as one unit, and
+    # within a day the ended / current / future groups keep their old order,
+    # so a single-day event renders exactly as it always has.
+    tz = timezone.get_current_timezone()
+    kind_order = {"ended": 0, "current": 1, "future": 2}
+    slots = (
+        _card_slots("ended", ended)
+        + _card_slots("current", current)
+        + _card_slots("future", future_unavailable)
+    )
+    slots.sort(
+        key=lambda slot: (
+            slot.hour.astimezone(tz).date().toordinal(),
+            kind_order[slot.kind],
+            slot.hour.timestamp(),
+        )
+    )
+    if first_current := next((slot for slot in slots if slot.kind == "current"), None):
+        first_current.is_first_current = True
+    days: list[CardDay] = []
+    for slot in slots:
+        local_hour = slot.hour.astimezone(tz)
+        if not days or days[-1].day_start.date() != local_hour.date():
+            days.append(CardDay(day_start=local_hour, slots=[]))
+        days[-1].slots.append(slot)
     return days
 
 

@@ -45,6 +45,8 @@ from ludamus.gates.web.django.chronology.event_presentation import (
     mask_session_card,
 )
 from ludamus.gates.web.django.chronology.schedule import (
+    CardDay,
+    build_card_days,
     build_room_lanes,
     build_schedule_days,
     group_sessions_by_state,
@@ -341,13 +343,20 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
 
         # The ended/current/future grouping only feeds the card-grid layout;
         # the compact schedule renders from schedule_days instead, so skip the
-        # pass there but keep the context keys (tests enumerate them exactly).
+        # pass there but keep the context keys (tests enumerate them exactly,
+        # and event_page_context derives its expected card_days from them).
         ended_hour_data: dict[datetime, list[SessionData]] = {}
         current_hour_data: dict[datetime, list[SessionData]] = {}
         future_unavailable_hour_data: dict[datetime, list[SessionData]] = {}
+        card_days: list[CardDay] = []
         if not compact_schedule:
             ended_hour_data, current_hour_data, future_unavailable_hour_data = (
                 group_sessions_by_state(sessions_data)
+            )
+            card_days = build_card_days(
+                ended=ended_hour_data,
+                current=current_hour_data,
+                future_unavailable=future_unavailable_hour_data,
             )
 
         schedule_days = build_schedule_days(sessions_data) if compact_schedule else []
@@ -371,6 +380,7 @@ class EventPageView(DetailView):  # type: ignore [type-arg]
                 "ended_hour_data": ended_hour_data,
                 "current_hour_data": current_hour_data,
                 "future_unavailable_hour_data": future_unavailable_hour_data,
+                "card_days": card_days,
                 "total_enrolled": total_enrolled,
                 "user_enrolled_sessions": user_enrolled_sessions,
                 "user_enrolled_session_titles": [

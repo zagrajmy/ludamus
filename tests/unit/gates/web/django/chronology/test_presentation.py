@@ -14,6 +14,7 @@ from ludamus.gates.web.django.chronology.event_presentation import (
 from ludamus.gates.web.django.chronology.schedule import (
     RoomLanes,
     RoomLaneTile,
+    build_card_days,
     build_room_lanes,
     build_schedule_days,
     group_sessions_by_state,
@@ -254,6 +255,46 @@ class TestBuildScheduleDays:
         pending = _make_session_data(agenda_item=None)
 
         assert not build_schedule_days({1: pending})
+
+
+class TestBuildCardDays:
+    @staticmethod
+    def _hour(day: int, hour: int) -> datetime:
+        return datetime(2026, 7, day, hour, tzinfo=timezone.get_current_timezone())
+
+    def test_days_split_on_the_local_date_with_kinds_in_state_order(self):
+        early = _make_session_data()
+        late = _make_session_data()
+        tomorrow = _make_session_data()
+
+        days = build_card_days(
+            ended={self._hour(10, 12): [early]},
+            current={self._hour(10, 10): [late], self._hour(11, 9): [tomorrow]},
+            future_unavailable={},
+        )
+
+        assert [day.day_start.date().day for day in days] == [10, 11]
+        # Within a day the ended group keeps its place ahead of the current
+        # one, exactly as the single-day page has always read.
+        assert [(slot.kind, slot.hour.hour) for slot in days[0].slots] == [
+            ("ended", 12),
+            ("current", 10),
+        ]
+        assert days[1].slots[0].sessions == [tomorrow]
+
+    def test_only_the_first_current_slot_is_marked_now(self):
+        days = build_card_days(
+            ended={},
+            current={
+                self._hour(10, 10): [_make_session_data()],
+                self._hour(10, 12): [_make_session_data()],
+            },
+            future_unavailable={self._hour(10, 8): [_make_session_data()]},
+        )
+
+        assert [
+            (slot.kind, slot.is_first_current) for day in days for slot in day.slots
+        ] == [("current", True), ("current", False), ("future", False)]
 
 
 class TestNightSessions:

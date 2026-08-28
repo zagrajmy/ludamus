@@ -1,6 +1,22 @@
-{# Day heading shared by the ledger and rooms layouts of the compact #}
-{# schedule. Expects `day` with a `day_start` datetime. #}
-<h3 class="mb-2 flex items-baseline gap-2 border-b border-border px-2 pb-2 text-sm font-bold uppercase tracking-wide text-foreground-secondary">
-    {{ day.day_start|date:"l" }}
-    <span class="text-xs font-medium normal-case tracking-normal text-foreground-muted">{{ day.day_start|date:"j F" }}</span>
+{% load tessera %}
+{# Day heading shared by the ledger and card layouts of the schedule. Expects #}
+{# `day` with a `day_start` datetime and `day_count`; on a multi-day schedule #}
+{# the heading doubles as the disclosure toggle that folds the enclosing #}
+{# [data-schedule-day] section (schedule-fold.ts). #}
+<h3 class="mb-2 border-b border-border px-2 pb-2 text-sm font-bold uppercase tracking-wide text-foreground-secondary">
+    {% if day_count > 1 %}
+        <button type="button"
+                class="flex w-full items-baseline gap-2 text-left uppercase hover:text-foreground"
+                data-day-fold
+                aria-expanded="true">
+            {{ day.day_start|date:"l" }}
+            <span class="text-xs font-medium normal-case tracking-normal text-foreground-muted">{{ day.day_start|date:"j F" }}</span>
+            <span class="day-fold-chevron self-center text-foreground-muted">{% icon "chevron-down" class="w-4 h-4" variant="mini" %}</span>
+        </button>
+    {% else %}
+        <span class="flex items-baseline gap-2">
+            {{ day.day_start|date:"l" }}
+            <span class="text-xs font-medium normal-case tracking-normal text-foreground-muted">{{ day.day_start|date:"j F" }}</span>
+        </span>
+    {% endif %}
 </h3>

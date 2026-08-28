@@ -5,6 +5,7 @@ import pytest
 from django.urls import reverse
 from zeal import zeal_ignore
 
+from ludamus.gates.web.django.chronology.schedule import build_card_days
 from ludamus.gates.web.django.event.enroll_presentation import EnrollActions
 from ludamus.links.db.django.models import SessionParticipation
 from ludamus.pacts import EventDTO
@@ -61,7 +62,7 @@ def _card_buckets(response, start_time, *, lane):
 def _event_page_context(event, buckets, **overrides):
     # The card-layout event page for a signed-in viewer with no enrollments.
     url = _event_url(event.slug)
-    return {
+    context = {
         "ended_hour_data": {},
         "enrollment_requires_slots": False,
         "event": event,
@@ -85,6 +86,16 @@ def _event_page_context(event, buckets, **overrides):
         "view": ANY,
         **overrides,
     }
+    # Derived exactly as the view derives it, from the same lane buckets.
+    context.setdefault(
+        "card_days",
+        build_card_days(
+            ended=context["ended_hour_data"],
+            current=context["current_hour_data"],
+            future_unavailable=context["future_unavailable_hour_data"],
+        ),
+    )
+    return context
 
 
 def _every_card(buckets):

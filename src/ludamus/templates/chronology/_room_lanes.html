@@ -1,5 +1,6 @@
 {% load csp_tags %}
 {% load i18n %}
+{% load tessera %}
 {# Rooms view: a CSS grid — rooms across, whole clock hours down, every day of #}
 {# the event stacked into the one grid. Rooms are the outer axis, so the whole #}
 {# event shares one column set, one room header, and one horizontal scroller; #}
@@ -54,14 +55,21 @@
          data-rows="{{ room_lanes.rows|length }}">
         <div class="room-lanes-head-shell sticky top-14 z-30 border-b border-border/60 bg-background">
             {# The day the reader is looking at, kept current by room-lanes.ts. #}
-            <div class="room-lanes-day-current border-b border-border/60 bg-background"
-                 aria-hidden="true">
-                <div class="inline-flex items-baseline gap-2 px-2 py-1 text-sm font-bold uppercase tracking-wide text-foreground-secondary"
-                     data-room-lanes-day-current>
+            {# It doubles as that day's fold toggle (schedule-fold.ts): the #}
+            {# first day has no in-grid seam of its own, so this bar is the #}
+            {# only handle it gets; data-fold-day tracks the day shown. #}
+            <div class="room-lanes-day-current border-b border-border/60 bg-background">
+                <button type="button"
+                        class="inline-flex items-baseline gap-2 px-2 py-1 text-sm font-bold uppercase tracking-wide text-foreground-secondary hover:text-foreground"
+                        data-room-lanes-day-current
+                        data-day-fold
+                        data-fold-day="0"
+                        aria-expanded="true">
                     <span data-day-name>{{ room_lanes.rows.0.day_start|date:"l" }}</span>
                     <span class="text-xs font-medium normal-case tracking-normal text-foreground-muted"
                           data-day-date>{{ room_lanes.rows.0.day_start|date:"j F" }}</span>
-                </div>
+                    <span class="day-fold-chevron self-center text-foreground-muted">{% icon "chevron-down" class="w-4 h-4" variant="mini" %}</span>
+                </button>
             </div>
             <div class="room-lanes-head overflow-x-auto overscroll-x-contain scrollview-fade scrollview-fade-x-8"
                  data-room-lanes-head>
@@ -109,7 +117,10 @@
                     {# heading above the first row is the header printed twice, not #}
                     {# a boundary. It still needs to exist for anyone navigating by #}
                     {# heading, and sr-only takes it out of flow, so it costs no row. #}
-                    <h3 class="sr-only" data-day-heading data-lane-day-heading="0">
+                    <h3 class="sr-only"
+                        data-day-heading
+                        data-lane-day-heading="0"
+                        data-day="{{ room_lanes.rows.0.day_start|date:'Y-m-d' }}">
                         <span data-day-name>{{ room_lanes.rows.0.day_start|date:"l" }}</span>
                         <span data-day-date>{{ room_lanes.rows.0.day_start|date:"j F" }}</span>
                     </h3>
@@ -153,11 +164,18 @@
                                  data-day-heading
                                  data-lane-day-heading="{{ row.day }}"
                                  data-lane-row="{{ forloop.counter }}"
-                                 data-lane-day="{{ row.day }}">
-                                <h3 class="sticky left-0 inline-flex items-baseline gap-2 px-2 py-2 text-sm font-bold uppercase tracking-wide text-foreground-secondary">
-                                    <span data-day-name>{{ row.day_start|date:"l" }}</span>
-                                    <span class="text-xs font-medium normal-case tracking-normal text-foreground-muted"
-                                          data-day-date>{{ row.day_start|date:"j F" }}</span>
+                                 data-lane-day="{{ row.day }}"
+                                 data-day="{{ row.day_start|date:'Y-m-d' }}">
+                                <h3 class="sticky left-0 px-2 py-2 text-sm font-bold uppercase tracking-wide text-foreground-secondary">
+                                    <button type="button"
+                                            class="inline-flex items-baseline gap-2 text-left uppercase hover:text-foreground"
+                                            data-day-fold
+                                            aria-expanded="true">
+                                        <span data-day-name>{{ row.day_start|date:"l" }}</span>
+                                        <span class="text-xs font-medium normal-case tracking-normal text-foreground-muted"
+                                              data-day-date>{{ row.day_start|date:"j F" }}</span>
+                                        <span class="day-fold-chevron self-center text-foreground-muted">{% icon "chevron-down" class="w-4 h-4" variant="mini" %}</span>
+                                    </button>
                                 </h3>
                             </div>
                         {% endif %}

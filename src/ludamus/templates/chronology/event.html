@@ -602,6 +602,9 @@
     {# load, and a module the response never carries cannot wire it. #}
     {% vite_asset 'src/room-lanes.ts' %}
     {% vite_asset 'src/schedule-now.ts' %}
+    {# After room-lanes.ts: auto-folding dispatches schedule:filtered, which #}
+    {# the rooms grid must already be listening for. #}
+    {% vite_asset 'src/schedule-fold.ts' %}
     {% vite_asset 'src/event-print.ts' %}
 {% endblock extra_scripts %}
 {% block extra_head %}
