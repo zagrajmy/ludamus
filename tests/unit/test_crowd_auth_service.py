@@ -67,7 +67,8 @@ class FakeUsers:
             if user.slug == user_slug:
                 self._users[index] = user.model_copy(update=dict(user_data))
 
-    def email_exists(self, email, exclude_slug=None):
+    def email_unavailable(self, *, email, now, exclude_slug=None):
+        _ = now
         if not email:
             return False
         return (
@@ -94,8 +95,8 @@ class _RacingUsers:
         return _user_dto(username=username)
 
     @staticmethod
-    def email_exists(email, exclude_slug=None):
-        _ = (email, exclude_slug)
+    def email_unavailable(*, email, now, exclude_slug=None):
+        _ = (email, now, exclude_slug)
         return False
 
     def create(self, user_data):
@@ -347,7 +348,14 @@ class TestSyncIdentity:
         )
 
         assert users.updated == [
-            ("auth0user", {"email": "new@example.com", "email_verified": True})
+            (
+                "auth0user",
+                {
+                    "email": "new@example.com",
+                    "email_verified": True,
+                    "pending_email": "",
+                },
+            )
         ]
 
     def test_unverified_stored_address_is_replaced(self):
@@ -362,7 +370,14 @@ class TestSyncIdentity:
         )
 
         assert users.updated == [
-            ("auth0user", {"email": "idp@example.com", "email_verified": False})
+            (
+                "auth0user",
+                {
+                    "email": "idp@example.com",
+                    "email_verified": False,
+                    "pending_email": "",
+                },
+            )
         ]
 
     def test_existing_name_is_not_overwritten(self):

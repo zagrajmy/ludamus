@@ -177,11 +177,6 @@ class User(AbstractBaseUser, PermissionsMixin):
     def full_name(self) -> str:
         return self.get_full_name()
 
-    @property
-    def deliverable_email(self) -> str:
-        # Mirrors UserDTO.deliverable_email for call sites that hold the row.
-        return self.email if self.email_verified else ""
-
     class Meta:
         db_table = "user"
         verbose_name = _("user")

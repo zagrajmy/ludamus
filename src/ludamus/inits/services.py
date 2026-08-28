@@ -6,8 +6,8 @@ from typing import TYPE_CHECKING
 from django.conf import settings
 
 from ludamus.inits.builders import (
+    build_email_verification,
     build_printables_reminder,
-    build_verification_reminder,
     build_waitlist_promotion,
 )
 from ludamus.inits.dbos_scheduler import DBOSOfferExpiryScheduler
@@ -16,7 +16,6 @@ from ludamus.links.cache import DjangoCache
 from ludamus.links.db.django.notifications import DjangoUserNotifier
 from ludamus.links.db.django.schedule_change_log import ScheduleChangeLogRepository
 from ludamus.links.db.django.transaction import DjangoTransaction
-from ludamus.links.email_tokens import DjangoEmailTokenCodec
 from ludamus.links.encryption import FernetDecryptor, FernetEncryptor
 from ludamus.links.google_docs import GoogleDocsProposalImporter, GoogleSheetsWriter
 from ludamus.links.gravatar import gravatar_url
@@ -36,7 +35,6 @@ from ludamus.mills.crowd import (
     ClaimService,
     CompanionsService,
     CrowdAuthService,
-    EmailVerificationReminderService,
     EmailVerificationService,
     ProfileService,
 )
@@ -183,12 +181,7 @@ class Services:
 
     @cached_property
     def email_verification(self) -> EmailVerificationService:
-        return EmailVerificationService(
-            transaction=self._transaction,
-            users=self._repos.active_users,
-            tokens=DjangoEmailTokenCodec(),
-            notifier=DjangoUserNotifier(),
-        )
+        return build_email_verification()
 
     @cached_property
     def crowd_auth(self) -> CrowdAuthService:
@@ -287,10 +280,6 @@ class Services:
     @cached_property
     def printables_reminder(self) -> PrintablesReminderService:
         return build_printables_reminder()
-
-    @cached_property
-    def email_verification_reminder(self) -> EmailVerificationReminderService:
-        return build_verification_reminder()
 
     @cached_property
     def venues(self) -> VenuesService:

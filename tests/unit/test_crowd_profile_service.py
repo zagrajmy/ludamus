@@ -46,9 +46,8 @@ def _companion_dto(**overrides) -> CompanionDTO:
 
 
 class FakeUsers:
-    def __init__(self, *, users=(), existing_emails=()):
+    def __init__(self, *, users=()):
         self._users = list(users)
-        self._existing_emails = set(existing_emails)
         self.updated = []
 
     def read(self, slug):
@@ -62,17 +61,6 @@ class FakeUsers:
         for index, user in enumerate(self._users):
             if user.slug == user_slug:
                 self._users[index] = user.model_copy(update=dict(user_data))
-
-    def email_exists(self, email, exclude_slug=None):
-        if not email:
-            return False
-        return (
-            any(
-                user.email == email and user.slug != exclude_slug
-                for user in self._users
-            )
-            or email in self._existing_emails
-        )
 
 
 class FakeParticipations:

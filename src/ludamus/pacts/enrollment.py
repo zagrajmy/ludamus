@@ -53,7 +53,6 @@ class WaitingParticipantDTO(BaseModel):
     # Who is told about the seat — the sponsoring leader for a login-less
     # companion, otherwise the participant themselves. Shared across a party.
     recipient_user_id: int
-    recipient_email: str
 
     @property
     def effective_slot_owner(self) -> int:
@@ -85,25 +84,16 @@ class PromotionStateDTO(BaseModel):
     shadowbanned_user_ids: frozenset[int] = frozenset()
 
 
-class OfferRecipientDTO(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    user_id: int
-    email: str
-
-
-def distinct_recipients(
-    candidates: Iterable[tuple[int, str]],
-) -> list[OfferRecipientDTO]:
+def distinct_recipients(candidates: Iterable[int]) -> list[int]:
     # One message per person, first mention wins: a party of real co-members
     # hears about its seats individually, while a leader sponsoring several
     # login-less companions still gets a single message.
-    recipients: list[OfferRecipientDTO] = []
     seen: set[int] = set()
-    for user_id, email in candidates:
+    recipients: list[int] = []
+    for user_id in candidates:
         if user_id not in seen:
             seen.add(user_id)
-            recipients.append(OfferRecipientDTO(user_id=user_id, email=email))
+            recipients.append(user_id)
     return recipients
 
 
@@ -117,7 +107,7 @@ class OfferDTO(BaseModel):
     participant_ids: list[int]
     # Everyone who should hear about this offer: each real member for
     # themselves, the sponsoring leader for login-less companions. Distinct.
-    recipients: list[OfferRecipientDTO]
+    recipients: list[int]
     offer_expires_at: datetime
 
 
@@ -141,7 +131,6 @@ class SeatHoldRequest(BaseModel):
     session_id: int
     session_title: str
     user_id: int
-    user_email: str
     party_id: int | None
     actor_name: str
 
@@ -158,7 +147,6 @@ class HeldSeatData(BaseModel):
 
 class PromotionNotification(BaseModel):
     recipient_user_id: int
-    recipient_email: str
     session_id: int
     session_title: str
     event_slug: str
@@ -166,7 +154,6 @@ class PromotionNotification(BaseModel):
 
 class OfferNotification(BaseModel):
     recipient_user_id: int
-    recipient_email: str
     session_id: int
     session_title: str
     event_slug: str

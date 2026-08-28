@@ -19,7 +19,7 @@ from django.utils.formats import date_format
 from django.utils.timezone import localtime
 from django.utils.translation import gettext as _
 
-from ludamus.links.db.django.models import Notification, Session
+from ludamus.links.db.django.models import Notification, Session, User
 from ludamus.pacts.legacy import NotificationKind
 from ludamus.pacts.notifications import NotificationDTO
 
@@ -40,6 +40,17 @@ if TYPE_CHECKING:
 
 
 logger = logging.getLogger(__name__)
+
+
+def _deliverable_email(recipient_id: int) -> str:
+    # Mail goes only to proven addresses. Resolved here rather than at each
+    # producer so a new notification cannot opt out of the rule by accident.
+    return (
+        User.objects.filter(pk=recipient_id, email_verified=True)
+        .values_list("email", flat=True)
+        .first()
+        or ""
+    )
 
 
 def _absolute(path: str, *, domain: str) -> str:
@@ -88,8 +99,7 @@ class DjangoUserNotifier:
                 body=body,
                 url=url,
                 payload={"session_id": notification.session_id},
-            ),
-            notification.recipient_email,
+            )
         )
 
     def notify_offered(self, notification: OfferNotification) -> None:
@@ -122,8 +132,7 @@ class DjangoUserNotifier:
                     "claim_token": notification.claim_token,
                     "offer_expires_at": notification.offer_expires_at.isoformat(),
                 },
-            ),
-            notification.recipient_email,
+            )
         )
 
     def notify_offer_expired(self, notification: PromotionNotification) -> None:
@@ -146,8 +155,7 @@ class DjangoUserNotifier:
                     notification.event_slug, notification.session_id
                 ),
                 payload={"session_id": notification.session_id},
-            ),
-            notification.recipient_email,
+            )
         )
 
     def notify_party_invited(self, notification: PartyInviteNotification) -> None:
@@ -171,8 +179,7 @@ class DjangoUserNotifier:
                     reverse("web:crowd:profile-parties"), domain=settings.ROOT_DOMAIN
                 ),
                 payload={},
-            ),
-            notification.recipient_email,
+            )
         )
 
     def notify_party_enrolled(self, notification: PartyEnrolledNotification) -> None:
@@ -193,8 +200,7 @@ class DjangoUserNotifier:
                 body=body,
                 url=url,
                 payload={"session_id": notification.session_id},
-            ),
-            notification.recipient_email,
+            )
         )
 
     def notify_seat_held(self, notification: HeldSeatNotification) -> None:
@@ -227,15 +233,14 @@ class DjangoUserNotifier:
                     "claim_token": notification.claim_token,
                     "offer_expires_at": notification.offer_expires_at.isoformat(),
                 },
-            ),
-            notification.recipient_email,
+            )
         )
 
     def notify_email_verification(
         self, notification: EmailVerificationNotification
     ) -> None:
         url = _absolute(
-            reverse("web:crowd:email-confirm", kwargs={"token": notification.token}),
+            reverse("web:crowd:email-link", kwargs={"token": notification.token}),
             domain=settings.ROOT_DOMAIN,
         )
         title = _("Confirm your email address")
@@ -243,7 +248,8 @@ class DjangoUserNotifier:
             "Use the link below to confirm this address for your account. "
             "The link is valid for 24 hours."
         )
-        self._deliver(
+        # The address being proven: nobody has proven it yet, by definition.
+        self._deliver_to(
             Notification(
                 recipient_id=notification.recipient_user_id,
                 kind=NotificationKind.EMAIL_VERIFICATION.value,
@@ -260,7 +266,7 @@ class DjangoUserNotifier:
     ) -> None:
         url = _absolute(
             reverse(
-                "web:crowd:email-cancel", kwargs={"token": notification.cancel_token}
+                "web:crowd:email-link", kwargs={"token": notification.cancel_token}
             ),
             domain=settings.ROOT_DOMAIN,
         )
@@ -270,7 +276,9 @@ class DjangoUserNotifier:
             "%(new_address)s. If that was not you, cancel the change with the "
             "link below within 24 hours."
         ) % {"new_address": notification.new_address}
-        self._deliver(
+        # The pre-change address, so the cancel link reaches the account's
+        # current owner rather than whoever asked for the change.
+        self._deliver_to(
             Notification(
                 recipient_id=notification.recipient_user_id,
                 kind=NotificationKind.EMAIL_CHANGE_REQUESTED.value,
@@ -290,7 +298,8 @@ class DjangoUserNotifier:
             "Your account's email address is now %(new_address)s. Sign-in and "
             "notifications use the new address from now on."
         ) % {"new_address": notification.new_address}
-        self._deliver(
+        # The pre-change address; the row already holds the new one.
+        self._deliver_to(
             Notification(
                 recipient_id=notification.recipient_user_id,
                 kind=NotificationKind.EMAIL_CHANGE_COMPLETED.value,
@@ -328,8 +337,7 @@ class DjangoUserNotifier:
                 body=body,
                 url=url,
                 payload={"event_slug": notification.event_slug},
-            ),
-            notification.recipient_email,
+            )
         )
 
     def notify_shadowbanned_signup(
@@ -377,12 +385,22 @@ class DjangoUserNotifier:
                     domain=notification.sphere_domain,
                 ),
                 payload={"event_slug": notification.event_slug},
-            ),
-            notification.recipient_email,
+            )
         )
 
     @staticmethod
-    def _deliver(notification: Notification, email: str) -> None:
+    def _deliver(notification: Notification) -> None:
+        DjangoUserNotifier._deliver_to(
+            notification, _deliverable_email(notification.recipient_id)
+        )
+
+    @staticmethod
+    def _deliver_to(notification: Notification, email: str) -> None:
+        """Deliver to an address the recipient row does not hold as proven.
+
+        The email lifecycle mails are the only callers: they target the
+        address being proven, or the pre-change one the row no longer has.
+        """
         # Persist the row inside the surrounding transaction so a rolled-back
         # promotion drops its notification too (the row is consistent with the
         # seat change it announces). Only the email is deferred to after-commit,
@@ -390,8 +408,8 @@ class DjangoUserNotifier:
         # and must not roll back a confirmed seat if it fails.
         notification.save()
         if not email:
-            # Blank means no address or an unverified one (the caller resolves
-            # the deliverable address) — the bell row above still lands.
+            # No address, or none anyone proved — the bell row above still
+            # lands, so an unproven address costs a mail, not a notification.
             logger.info(
                 "No deliverable address for notification kind=%s recipient=%s",
                 notification.kind,

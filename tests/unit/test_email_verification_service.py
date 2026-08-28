@@ -11,7 +11,10 @@ from ludamus.pacts.crowd import (
     VerificationRequestOutcome,
 )
 from ludamus.pacts.services import DatabaseConstraintError
+from ludamus.specs.crowd import EMAIL_VERIFICATION_REMINDER_INTERVAL
 from tests.unit.factories import user_dto
+
+NOW = datetime(2026, 8, 28, 12, 0, tzinfo=UTC)
 
 
 @contextmanager
@@ -56,8 +59,8 @@ class FakeUsers:
             if user.slug == user_slug:
                 self._users[index] = user.model_copy(update=dict(user_data))
 
-    def email_exists(self, email, exclude_slug=None):
-        _ = exclude_slug
+    def email_unavailable(self, *, email, now, exclude_slug=None):
+        _ = (now, exclude_slug)
         return email in self._existing_emails
 
 
@@ -80,6 +83,20 @@ class FakeCodec:
             return None
 
 
+class FakeReminders:
+    def __init__(self, due=()):
+        self._due = list(due)
+        self.calls = []
+
+    def count_due(self, *, now, interval):
+        self.calls.append((now, interval))
+        return len(self._due)
+
+    def list_due(self, *, now, interval):
+        self.calls.append((now, interval))
+        return self._due
+
+
 class FakeNotifier:
     def __init__(self):
         self.verifications = []
@@ -96,10 +113,11 @@ class FakeNotifier:
         self.change_completions.append(notification)
 
 
-def _service(users, *, codec=None, notifier=None):
+def _service(users, *, codec=None, notifier=None, reminders=None):
     return EmailVerificationService(
         transaction=FakeTransaction(),
         users=users,
+        reminders=reminders or FakeReminders(),
         tokens=codec or FakeCodec(),
         notifier=notifier or FakeNotifier(),
     )
@@ -190,9 +208,49 @@ class TestRequestVerification:
         )
 
 
+class TestSendDueReminders:
+    def test_mails_every_due_row_without_re_reading_it(self):
+        due = [
+            _user(slug="a", pk=1, email="a@example.com"),
+            _user(slug="b", pk=2, email="", pending_email="b@example.com"),
+        ]
+        reminders = FakeReminders(due)
+        notifier = FakeNotifier()
+        service = _service(FakeUsers(), notifier=notifier, reminders=reminders)
+
+        sent = service.send_due_reminders(now=NOW)
+
+        assert sent == len(due)
+        assert [n.recipient_email for n in notifier.verifications] == [
+            "a@example.com",
+            "b@example.com",
+        ]
+        assert reminders.calls == [(NOW, EMAIL_VERIFICATION_REMINDER_INTERVAL)]
+
+    def test_counts_only_rows_that_were_mailed(self):
+        due = [
+            _user(slug="a", pk=1, email="a@example.com"),
+            _user(
+                slug="b", pk=2, email="b@example.com", email_verification_sent_at=NOW
+            ),
+            _user(slug="c", pk=3, email="", pending_email=""),
+        ]
+        service = _service(FakeUsers(), reminders=FakeReminders(due))
+
+        assert service.send_due_reminders(now=NOW) == 1
+
+    def test_count_due_asks_the_repository_and_mails_nothing(self):
+        notifier = FakeNotifier()
+        reminders = FakeReminders([_user(slug="a", pk=1, email="a@example.com")])
+        service = _service(FakeUsers(), notifier=notifier, reminders=reminders)
+
+        assert service.count_due(now=NOW) == 1
+        assert not notifier.verifications
+
+
 class TestRequestChange:
     def test_new_address_goes_pending_with_both_mails(self):
-        users = FakeUsers(users=[_user(email="old@example.com")])
+        users = FakeUsers(users=[_user(email="old@example.com", email_verified=True)])
         notifier = FakeNotifier()
         service = _service(users, notifier=notifier)
 
@@ -207,7 +265,7 @@ class TestRequestChange:
         assert notifier.change_requests[0].new_address == "new@example.com"
 
     def test_cancel_token_binds_the_pending_address(self):
-        users = FakeUsers(users=[_user(email="old@example.com")])
+        users = FakeUsers(users=[_user(email="old@example.com", email_verified=True)])
         codec = FakeCodec()
         service = _service(users, codec=codec)
 
@@ -223,6 +281,18 @@ class TestRequestChange:
 
     def test_first_address_sends_no_cancel_notice(self):
         users = FakeUsers(users=[_user(email="")])
+        notifier = FakeNotifier()
+        service = _service(users, notifier=notifier)
+
+        outcome = service.request_change(
+            user_slug="auth0user", new_address="new@example.com"
+        )
+
+        assert outcome == ChangeRequestOutcome.REQUESTED
+        assert not notifier.change_requests
+
+    def test_unproven_old_address_gets_no_cancel_notice(self):
+        users = FakeUsers(users=[_user(email="old@example.com", email_verified=False)])
         notifier = FakeNotifier()
         service = _service(users, notifier=notifier)
 
@@ -348,25 +418,31 @@ class TestRedeem:
         users = FakeUsers(users=[_user(email="mine@example.com")])
         service = _service(users)
 
-        outcome = service.redeem(
+        result = service.redeem(
             _token(EmailVerificationAction.CONFIRM, "mine@example.com")
         )
 
-        assert outcome == RedeemOutcome.VERIFIED
+        assert result.outcome == RedeemOutcome.VERIFIED
         assert users.updated == [("auth0user", {"email_verified": True})]
 
     def test_confirm_promotes_pending_change(self):
         users = FakeUsers(
-            users=[_user(email="old@example.com", pending_email="new@example.com")]
+            users=[
+                _user(
+                    email="old@example.com",
+                    email_verified=True,
+                    pending_email="new@example.com",
+                )
+            ]
         )
         notifier = FakeNotifier()
         service = _service(users, notifier=notifier)
 
-        outcome = service.redeem(
+        result = service.redeem(
             _token(EmailVerificationAction.CONFIRM, "new@example.com")
         )
 
-        assert outcome == RedeemOutcome.CHANGE_APPLIED
+        assert result.outcome == RedeemOutcome.CHANGE_APPLIED
         assert users.updated == [
             (
                 "auth0user",
@@ -380,16 +456,36 @@ class TestRedeem:
         assert notifier.change_completions[0].recipient_email == "old@example.com"
         assert notifier.change_completions[0].new_address == "new@example.com"
 
+    def test_confirm_of_unproven_old_address_sends_no_completion_notice(self):
+        users = FakeUsers(
+            users=[
+                _user(
+                    email="old@example.com",
+                    email_verified=False,
+                    pending_email="new@example.com",
+                )
+            ]
+        )
+        notifier = FakeNotifier()
+        service = _service(users, notifier=notifier)
+
+        result = service.redeem(
+            _token(EmailVerificationAction.CONFIRM, "new@example.com")
+        )
+
+        assert result.outcome == RedeemOutcome.CHANGE_APPLIED
+        assert not notifier.change_completions
+
     def test_confirm_first_address_reports_verified(self):
         users = FakeUsers(users=[_user(email="", pending_email="new@example.com")])
         notifier = FakeNotifier()
         service = _service(users, notifier=notifier)
 
-        outcome = service.redeem(
+        result = service.redeem(
             _token(EmailVerificationAction.CONFIRM, "new@example.com")
         )
 
-        assert outcome == RedeemOutcome.VERIFIED
+        assert result.outcome == RedeemOutcome.VERIFIED
         assert not notifier.change_completions
 
     def test_cancel_drops_pending_change(self):
@@ -398,46 +494,46 @@ class TestRedeem:
         )
         service = _service(users)
 
-        outcome = service.redeem(
+        result = service.redeem(
             _token(EmailVerificationAction.CANCEL, "new@example.com")
         )
 
-        assert outcome == RedeemOutcome.CANCELLED
+        assert result.outcome == RedeemOutcome.CANCELLED
         assert users.updated == [("auth0user", {"pending_email": ""})]
 
     def test_expired_token(self):
         service = _service(FakeUsers(users=[_user()]))
 
-        assert service.redeem("garbage") == RedeemOutcome.EXPIRED
+        assert service.redeem("garbage").outcome == RedeemOutcome.EXPIRED
 
     def test_unknown_user(self):
         service = _service(FakeUsers())
 
-        outcome = service.redeem(
+        result = service.redeem(
             _token(EmailVerificationAction.CONFIRM, "mine@example.com")
         )
 
-        assert outcome == RedeemOutcome.EXPIRED
+        assert result.outcome == RedeemOutcome.EXPIRED
 
     def test_replayed_link_is_spent(self):
         users = FakeUsers(users=[_user(email="mine@example.com", email_verified=True)])
         service = _service(users)
 
-        outcome = service.redeem(
+        result = service.redeem(
             _token(EmailVerificationAction.CONFIRM, "mine@example.com")
         )
 
-        assert outcome == RedeemOutcome.ALREADY_USED
+        assert result.outcome == RedeemOutcome.ALREADY_USED
 
     def test_cancel_after_cancel_is_spent(self):
         users = FakeUsers(users=[_user(email="old@example.com", pending_email="")])
         service = _service(users)
 
-        outcome = service.redeem(
+        result = service.redeem(
             _token(EmailVerificationAction.CANCEL, "new@example.com")
         )
 
-        assert outcome == RedeemOutcome.ALREADY_USED
+        assert result.outcome == RedeemOutcome.ALREADY_USED
 
     def test_lost_promote_race_reports_taken_and_drops_pending(self):
         users = FakeUsers(
@@ -446,9 +542,9 @@ class TestRedeem:
         )
         service = _service(users)
 
-        outcome = service.redeem(
+        result = service.redeem(
             _token(EmailVerificationAction.CONFIRM, "new@example.com")
         )
 
-        assert outcome == RedeemOutcome.ADDRESS_TAKEN
+        assert result.outcome == RedeemOutcome.ADDRESS_TAKEN
         assert users.updated == [("auth0user", {"pending_email": ""})]

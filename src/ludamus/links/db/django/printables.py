@@ -17,7 +17,6 @@ from ludamus.links.db.django.models import Event, SphereMembership
 from ludamus.pacts.multiverse import SphereRole
 from ludamus.pacts.printing import (
     PrintablesReminderDTO,
-    PrintablesReminderRecipientDTO,
     PrintablesReminderRepositoryProtocol,
 )
 
@@ -51,9 +50,7 @@ class PrintablesReminderRepository(PrintablesReminderRepositoryProtocol):
         reminders: list[PrintablesReminderDTO] = []
         for event in events:
             recipients = [
-                PrintablesReminderRecipientDTO(
-                    user_id=membership.user.pk, email=membership.user.deliverable_email
-                )
+                membership.user.pk
                 for membership in event.sphere.spheremembership_set.all()
                 if membership.user.email
             ]

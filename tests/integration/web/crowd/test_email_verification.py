@@ -13,12 +13,8 @@ THROTTLE_INFO = (
 )
 
 
-def _confirm_url(token):
-    return reverse("web:crowd:email-confirm", kwargs={"token": token})
-
-
-def _cancel_url(token):
-    return reverse("web:crowd:email-cancel", kwargs={"token": token})
+def _link_url(token):
+    return reverse("web:crowd:email-link", kwargs={"token": token})
 
 
 def _token(*, act, uid, addr):
@@ -37,12 +33,12 @@ def _unverify(user):
     return user
 
 
-class TestEmailConfirmPageView:
+class TestConfirmLink:
     def test_get_ok(self, client, active_user):
         _unverify(active_user)
         token = _confirm_token(active_user)
 
-        response = client.get(_confirm_url(token))
+        response = client.get(_link_url(token))
 
         assert_response(
             response,
@@ -53,25 +49,7 @@ class TestEmailConfirmPageView:
 
     def test_get_garbled_token_renders_invalid_page(self, client, active_user):
         _ = active_user
-        response = client.get(_confirm_url("garbage"))
-
-        assert_response(
-            response,
-            HTTPStatus.OK,
-            context_data={"address_taken": False},
-            template_name="crowd/email/link_invalid.html",
-        )
-
-    def test_get_cancel_token_on_confirm_path_is_invalid(self, client, active_user):
-        active_user.pending_email = "new@example.com"
-        active_user.save()
-        token = _token(
-            act=EmailVerificationAction.CANCEL,
-            uid=active_user.pk,
-            addr="new@example.com",
-        )
-
-        response = client.get(_confirm_url(token))
+        response = client.get(_link_url("garbage"))
 
         assert_response(
             response,
@@ -84,7 +62,7 @@ class TestEmailConfirmPageView:
         _unverify(active_user)
         token = _confirm_token(active_user)
 
-        response = client.post(_confirm_url(token))
+        response = client.post(_link_url(token))
 
         assert_response(
             response,
@@ -100,7 +78,7 @@ class TestEmailConfirmPageView:
         active_user.save()
         token = _confirm_token(active_user, addr="new@example.com")
 
-        response = client.post(_confirm_url(token))
+        response = client.post(_link_url(token))
 
         assert_response(
             response,
@@ -121,7 +99,7 @@ class TestEmailConfirmPageView:
         active_user.save()
         token = _confirm_token(active_user)
 
-        response = client.post(_confirm_url(token))
+        response = client.post(_link_url(token))
 
         assert_response(
             response,
@@ -138,7 +116,7 @@ class TestEmailConfirmPageView:
         token = _confirm_token(active_user, addr="new@example.com")
         complete_user_factory(email="new@example.com")
 
-        response = client.post(_confirm_url(token))
+        response = client.post(_link_url(token))
 
         assert_response(
             response,
@@ -151,7 +129,7 @@ class TestEmailConfirmPageView:
         assert not user.pending_email
 
 
-class TestEmailCancelPageView:
+class TestCancelLink:
     def test_get_ok(self, client, active_user):
         active_user.pending_email = "new@example.com"
         active_user.save()
@@ -161,7 +139,7 @@ class TestEmailCancelPageView:
             addr="new@example.com",
         )
 
-        response = client.get(_cancel_url(token))
+        response = client.get(_link_url(token))
 
         assert_response(
             response,
@@ -179,7 +157,7 @@ class TestEmailCancelPageView:
             addr="new@example.com",
         )
 
-        response = client.post(_cancel_url(token))
+        response = client.post(_link_url(token))
 
         assert_response(
             response,
@@ -197,7 +175,7 @@ class TestEmailCancelPageView:
             addr="new@example.com",
         )
 
-        response = client.post(_cancel_url(token))
+        response = client.post(_link_url(token))
 
         assert_response(
             response,

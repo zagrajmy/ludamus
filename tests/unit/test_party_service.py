@@ -141,7 +141,7 @@ class TestInvite:
     def test_invites_and_notifies(self):
         parties = FakeParties(
             lead=PartyActionContextDTO(name="Ekipa", actor_name="Ivy Inviter"),
-            user=InvitedUserDTO(pk=FRIEND_PK, email="f@e.com", email_verified=True),
+            user=InvitedUserDTO(pk=FRIEND_PK, email="f@e.com"),
         )
         notifier = FakeNotifier()
 
@@ -160,24 +160,8 @@ class TestInvite:
         assert len(notifier.sent) == 1
         notification = notifier.sent[0]
         assert notification.recipient_user_id == FRIEND_PK
-        assert notification.recipient_email == "f@e.com"
         assert notification.party_name == "Ekipa"
         assert notification.actor_name == "Ivy Inviter"
-
-    def test_unverified_invitee_gets_bell_without_mail(self):
-        parties = FakeParties(
-            lead=PartyActionContextDTO(name="Ekipa", actor_name="Ivy Inviter"),
-            user=InvitedUserDTO(pk=FRIEND_PK, email="f@e.com"),
-        )
-        notifier = FakeNotifier()
-
-        outcome = _service(parties, notifier).invite(
-            member_pk=1, party_pk=2, identifier="f@e.com"
-        )
-
-        assert outcome == InviteOutcome.INVITED
-        assert len(notifier.sent) == 1
-        assert not notifier.sent[0].recipient_email
 
     def test_foreign_party_reads_as_no_user(self):
         parties = FakeParties(

@@ -24,7 +24,7 @@ class TestSendVerificationReminders:
         assert len(mailoutbox) == 1
         email = mailoutbox[0]
         assert email.to == [user.email]
-        assert "/crowd/email/confirm/" in email.body
+        assert "/crowd/email/link/" in email.body
         notification = Notification.objects.get(recipient=user)
         assert notification.kind == NotificationKind.EMAIL_VERIFICATION.value
         user.refresh_from_db()
@@ -51,6 +51,18 @@ class TestSendVerificationReminders:
             call_command("send_verification_reminders")
 
         assert len(mailoutbox) == 1
+
+    def test_nags_a_user_whose_only_address_is_pending(
+        self, mailoutbox, django_capture_on_commit_callbacks
+    ):
+        user = _unverified_user(email="", pending_email="new@example.com")
+
+        with django_capture_on_commit_callbacks(execute=True):
+            call_command("send_verification_reminders")
+
+        assert len(mailoutbox) == 1
+        assert mailoutbox[0].to == ["new@example.com"]
+        assert Notification.objects.filter(recipient=user).exists()
 
     def test_skips_verified_and_blank_addresses(
         self, mailoutbox, django_capture_on_commit_callbacks

@@ -1,14 +1,15 @@
 """Email-verification pages: confirm, cancel, resend, invalid-link.
 
 GET renders and changes nothing — mail scanners prefetch links, so only a
-CSRF-protected POST consumes one. The action is signed into the token; the
-URL path merely picks the page, and a mismatch lands on the invalid page.
+CSRF-protected POST consumes one. One route serves both actions: the action is
+signed into the token, so the token alone picks the page and decides what
+redeeming it does.
 """
 
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, ClassVar
+from typing import TYPE_CHECKING, assert_never
 
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
@@ -39,49 +40,45 @@ def _invalid_link_page(
     )
 
 
-class _EmailLinkPageView(View):
-    expected_action: ClassVar[EmailVerificationAction]
-    template_name: ClassVar[str]
-
-    def get(self, request: RootRequest, token: str) -> HttpResponse:
-        link = request.services.email_verification.describe(token)
-        if link is None or link.action != self.expected_action:
+class EmailLinkPageView(View):
+    @staticmethod
+    def get(request: RootRequest, token: str) -> HttpResponse:
+        if (link := request.services.email_verification.describe(token)) is None:
             return _invalid_link_page(request)
+        match link.action:
+            case EmailVerificationAction.CONFIRM:
+                template_name = "crowd/email/confirm.html"
+            case EmailVerificationAction.CANCEL:
+                template_name = "crowd/email/cancel.html"
+            case _:
+                assert_never(link.action)
         return TemplateResponse(
-            request, self.template_name, {"address": link.address, "token": token}
+            request, template_name, {"address": link.address, "token": token}
         )
 
-    def post(self, request: RootRequest, token: str) -> HttpResponse:
-        link = request.services.email_verification.describe(token)
-        if link is None or link.action != self.expected_action:
-            return _invalid_link_page(request)
-        outcome = request.services.email_verification.redeem(token)
-        logger.info("Email link redeemed: action=%s outcome=%s", link.action, outcome)
-        if outcome == RedeemOutcome.ADDRESS_TAKEN:
-            return _invalid_link_page(request, address_taken=True)
-        if outcome in {RedeemOutcome.EXPIRED, RedeemOutcome.ALREADY_USED}:
-            return _invalid_link_page(request)
-        messages.success(
-            request,
-            {
-                RedeemOutcome.VERIFIED: _("Your email address is verified."),
-                RedeemOutcome.CHANGE_APPLIED: _(
-                    "Your new email address is now active."
-                ),
-                RedeemOutcome.CANCELLED: _("The email change has been cancelled."),
-            }[outcome],
+    @staticmethod
+    def post(request: RootRequest, token: str) -> HttpResponse:
+        # `redeem` reports the signed action, so POST resolves the token once.
+        result = request.services.email_verification.redeem(token)
+        logger.info(
+            "Email link redeemed: action=%s outcome=%s", result.action, result.outcome
         )
+        # match + assert_never (not an enum-keyed dict) so a new RedeemOutcome
+        # fails type-checking instead of a user's request.
+        match result.outcome:
+            case RedeemOutcome.ADDRESS_TAKEN:
+                return _invalid_link_page(request, address_taken=True)
+            case RedeemOutcome.EXPIRED | RedeemOutcome.ALREADY_USED:
+                return _invalid_link_page(request)
+            case RedeemOutcome.VERIFIED:
+                messages.success(request, _("Your email address is verified."))
+            case RedeemOutcome.CHANGE_APPLIED:
+                messages.success(request, _("Your new email address is now active."))
+            case RedeemOutcome.CANCELLED:
+                messages.success(request, _("The email change has been cancelled."))
+            case _:
+                assert_never(result.outcome)
         return redirect("web:index")
-
-
-class EmailConfirmPageView(_EmailLinkPageView):
-    expected_action = EmailVerificationAction.CONFIRM
-    template_name = "crowd/email/confirm.html"
-
-
-class EmailCancelPageView(_EmailLinkPageView):
-    expected_action = EmailVerificationAction.CANCEL
-    template_name = "crowd/email/cancel.html"
 
 
 class EmailResendActionView(LoginRequiredMixin, View):

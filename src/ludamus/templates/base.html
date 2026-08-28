@@ -172,7 +172,9 @@
         <span hidden aria-hidden="true" data-commit-sha="{{ COMMIT_SHA }}"></span>
         {% include "components/confirm-dialog.html" %}
         {% if current_user and not current_user.email_verified and not request.COOKIES.hide_email_verification_banner %}
-            {% include "components/email-verification-banner.html" %}
+            {% if current_user.pending_email or current_user.email %}
+                {% include "components/email-verification-banner.html" %}
+            {% endif %}
         {% endif %}
         {% if posthog_config %}
             {% include "components/consent-banner.html" %}

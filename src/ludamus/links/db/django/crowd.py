@@ -2,7 +2,6 @@ from typing import TYPE_CHECKING
 
 from django.contrib.auth.hashers import make_password
 from django.db.models import Q
-from django.utils import timezone
 
 from ludamus.links.db.django.companions import active_companions, sponsor_of
 from ludamus.links.db.django.models import (
@@ -28,6 +27,8 @@ from ludamus.pacts.party import PartyConsentMode
 
 if TYPE_CHECKING:
     from datetime import datetime, timedelta
+
+    from django.db.models import QuerySet
 
     from ludamus.links.db.django.models import User
 else:
@@ -79,14 +80,17 @@ class UserRepository(UserRepositoryProtocol):
         User.objects.filter(slug=user_slug).update(**user_data)
 
     @staticmethod
-    def email_exists(email: str, exclude_slug: str | None = None) -> bool:
+    def email_unavailable(
+        *, email: str, now: datetime, exclude_slug: str | None = None
+    ) -> bool:
+        """Report an address as taken by, or reserved for, another account."""
         if not email:
             return False
 
         # A pending address reserves the email only while its confirm link is
         # still provable; the reservation expires with the link, so a typo'd
         # change never blocks the address's real owner for good.
-        still_provable = timezone.now() - EMAIL_LINK_MAX_AGE
+        still_provable = now - EMAIL_LINK_MAX_AGE
         query = User.objects.filter(
             Q(email__iexact=email)
             | Q(
@@ -102,21 +106,38 @@ class UserRepository(UserRepositoryProtocol):
 
 class EmailVerificationReminderRepository(EmailVerificationReminderRepositoryProtocol):
     @staticmethod
-    def list_due(*, now: datetime, interval: timedelta) -> list[str]:
-        # Blank addresses are excluded here, not left to the notifier's empty
-        # check: a sweep that stamped them would never nag again once the
-        # user adds an address.
+    def _due(*, now: datetime, interval: timedelta) -> QuerySet[User]:
+        # An unproven address is an unverified `email` or a `pending_email`;
+        # a row with neither is skipped rather than left to the notifier's
+        # empty check, because stamping it would lose the nag for good once
+        # the user finally adds an address.
         cutoff = now - interval
-        return list(
-            User.objects.filter(user_type=UserType.ACTIVE, email_verified=False)
-            .exclude(email="")
+        unproven = (Q(email_verified=False) & ~Q(email="")) | ~Q(pending_email="")
+        return (
+            User.objects.filter(user_type=UserType.ACTIVE)
+            .filter(unproven)
             .filter(
                 Q(email_verification_sent_at__isnull=True)
                 | Q(email_verification_sent_at__lt=cutoff)
             )
-            .order_by("pk")
-            .values_list("slug", flat=True)
         )
+
+    @staticmethod
+    def count_due(*, now: datetime, interval: timedelta) -> int:
+        return EmailVerificationReminderRepository._due(
+            now=now, interval=interval
+        ).count()
+
+    @staticmethod
+    def list_due(*, now: datetime, interval: timedelta) -> list[UserDTO]:
+        # Whole rows, not slugs: the sweep needs the address and the last-sent
+        # stamp anyway, and a slug list would make it re-read every user.
+        return [
+            UserDTO.model_validate(user)
+            for user in EmailVerificationReminderRepository._due(
+                now=now, interval=interval
+            ).order_by("pk")
+        ]
 
 
 class CompanionRepository(CompanionRepositoryProtocol):

@@ -36,8 +36,8 @@ from dbos import DBOS
 from django.conf import settings
 
 from ludamus.inits.builders import (
+    build_email_verification,
     build_printables_reminder,
-    build_verification_reminder,
     build_waitlist_promotion,
 )
 
@@ -95,7 +95,7 @@ def printables_reminders_tick(scheduled: datetime, _actual: datetime) -> None:
 
 @DBOS.step()
 def _send_verification_reminders_step(now: datetime) -> None:
-    sent = build_verification_reminder().send_due_reminders(now=now)
+    sent = build_email_verification().send_due_reminders(now=now)
     logger.info("verification reminders: reminded %s user(s)", sent)
 
 

@@ -409,11 +409,10 @@ class PrintablesReminderService(PrintablesReminderServiceProtocol):
             # emails themselves are deferred to after-commit by the notifier.
             with self._transaction.atomic():
                 self._reminders.mark_reminder_sent(reminder.event_pk, at=now)
-                for recipient in reminder.recipients:
+                for recipient_id in reminder.recipients:
                     self._notifier.notify_printables_ready(
                         PrintablesReadyNotification(
-                            recipient_user_id=recipient.user_id,
-                            recipient_email=recipient.email,
+                            recipient_user_id=recipient_id,
                             event_name=reminder.event_name,
                             event_slug=reminder.event_slug,
                             sphere_domain=reminder.sphere_domain,

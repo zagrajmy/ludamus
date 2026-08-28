@@ -1,12 +1,12 @@
 """Email unverified users a fresh verification link.
 
-Manual entry point for ``EmailVerificationReminderService.send_due_reminders``.
+Manual entry point for ``EmailVerificationService.send_due_reminders``.
 The primary path is the in-system DBOS schedule (``inits.dbos_scheduler``);
 with ``SCHEDULER_MODE=cron`` run this daily via external cron instead.
-Selects active users with a non-blank, unverified address whose last
-verification mail is older than the re-nag interval (or was never sent) and
-routes each through ``request_verification``, so the sweep shares the resend
-throttle and mints live links. Safe to run repeatedly.
+Selects active users holding an address nobody has proven — an unverified
+``email`` or a ``pending_email`` — whose last verification mail is older than
+the re-nag interval (or was never sent), and mints each a live link through
+the same path the resend button uses. Safe to run repeatedly.
 """
 
 from __future__ import annotations
@@ -33,7 +33,7 @@ class Command(BaseCommand):
         parser.add_argument("--dry-run", action="store_true", help=self.dry_run_help)
 
     def handle(self, *_args: object, **options: object) -> None:
-        service = Services().email_verification_reminder
+        service = Services().email_verification
         now = datetime.now(UTC)
         if options["dry_run"]:
             due = service.count_due(now=now)

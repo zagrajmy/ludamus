@@ -143,11 +143,6 @@ class PrintSessionListDocumentDTO(BaseModel):
     sessions: list[PrintSessionListItemDTO]
 
 
-class PrintablesReminderRecipientDTO(BaseModel):
-    user_id: int
-    email: str
-
-
 class PrintablesReminderDTO(BaseModel):
     event_pk: int
     event_name: str
@@ -155,12 +150,11 @@ class PrintablesReminderDTO(BaseModel):
     # Site domain of the owning sphere — the notifier composes the absolute
     # print-page link from it (sphere sites live on different domains).
     sphere_domain: str
-    recipients: list[PrintablesReminderRecipientDTO]
+    recipients: list[int]
 
 
 class PrintablesReadyNotification(BaseModel):
     recipient_user_id: int
-    recipient_email: str
     event_name: str
     event_slug: str
     sphere_domain: str

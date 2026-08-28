@@ -125,14 +125,9 @@ urlpatterns: list[URLPattern | URLResolver] = [
     ),
     path("claim/<str:token>/", profile.ClaimPageView.as_view(), name="claim"),
     path(
-        "email/confirm/<str:token>/",
-        verification.EmailConfirmPageView.as_view(),
-        name="email-confirm",
-    ),
-    path(
-        "email/cancel/<str:token>/",
-        verification.EmailCancelPageView.as_view(),
-        name="email-cancel",
+        "email/link/<str:token>/",
+        verification.EmailLinkPageView.as_view(),
+        name="email-link",
     ),
     path(
         "profile/email/do/resend",

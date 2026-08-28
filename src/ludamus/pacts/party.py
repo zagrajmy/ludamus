@@ -142,14 +142,12 @@ class DeletePartyOutcome(StrEnum):
 
 class PartyInviteNotification(BaseModel):
     recipient_user_id: int
-    recipient_email: str
     party_name: str
     actor_name: str
 
 
 class PartyEnrolledNotification(BaseModel):
     recipient_user_id: int
-    recipient_email: str
     actor_name: str
     session_id: int
     session_title: str
@@ -158,7 +156,6 @@ class PartyEnrolledNotification(BaseModel):
 
 class HeldSeatNotification(BaseModel):
     recipient_user_id: int
-    recipient_email: str
     actor_name: str
     session_id: int
     session_title: str
@@ -171,11 +168,6 @@ class InvitedUserDTO(BaseModel):
 
     pk: int
     email: str
-    email_verified: bool = False
-
-    @property
-    def deliverable_email(self) -> str:
-        return self.email if self.email_verified else ""
 
 
 class InvitablePartyDTO(BaseModel):

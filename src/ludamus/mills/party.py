@@ -90,7 +90,6 @@ class PartyService(PartyServiceProtocol):
             self._notifier.notify_party_invited(
                 PartyInviteNotification(
                     recipient_user_id=user.pk,
-                    recipient_email=user.deliverable_email,
                     party_name=lead.name,
                     actor_name=lead.actor_name,
                 )

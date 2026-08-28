@@ -26,10 +26,10 @@ from ludamus.pacts.crowd import (
     EmailTokenPayload,
     EmailVerificationAction,
     EmailVerificationNotification,
-    EmailVerificationReminderServiceProtocol,
     EmailVerificationServiceProtocol,
     ProfileServiceProtocol,
     RedeemOutcome,
+    RedeemResultDTO,
     UserData,
     VerificationRequestOutcome,
 )
@@ -138,7 +138,9 @@ class CrowdAuthService(CrowdAuthServiceProtocol):
     ) -> tuple[UserDTO, bool]:
         data = create_data.copy()
         email_conflict = False
-        if self._users.email_exists(data.get("email", "")):
+        if self._users.email_unavailable(
+            email=data.get("email", ""), now=datetime.now(UTC)
+        ):
             data["email"] = ""
             data["email_verified"] = False
             email_conflict = True
@@ -167,17 +169,35 @@ class CrowdAuthService(CrowdAuthServiceProtocol):
             updates.pop("avatar_url", None)
         if "name" in updates and (user.name or "").strip():
             del updates["name"]
-        if claim_email and claim_email != user.email:
-            # A verified stored address is the user's deliberate choice; the
-            # provider's claim must not revert it on the next login.
-            keep_stored = bool(user.email and user.email_verified)
-            taken = self._users.email_exists(claim_email, exclude_slug=user.slug)
-            if not keep_stored and not taken:
-                updates["email"] = claim_email
-                updates["email_verified"] = claim_verified
-        elif claim_email and claim_verified and not user.email_verified:
-            updates["email_verified"] = True
+        updates.update(
+            self._email_updates(
+                user=user, claim_email=claim_email, claim_verified=claim_verified
+            )
+        )
         return updates
+
+    def _email_updates(
+        self, *, user: UserDTO, claim_email: str, claim_verified: bool
+    ) -> UserData:
+        if not claim_email:
+            return UserData()
+        if claim_email == user.email:
+            proves_stored = claim_verified and not user.email_verified
+            return UserData(email_verified=True) if proves_stored else UserData()
+        # A verified stored address is the user's deliberate choice; the
+        # provider's claim must not revert it on the next login.
+        keep_stored = bool(user.email and user.email_verified)
+        taken = self._users.email_unavailable(
+            email=claim_email, now=datetime.now(UTC), exclude_slug=user.slug
+        )
+        if keep_stored or taken:
+            return UserData()
+        # The claim replaces the address, so a confirm link still out for a
+        # pending one is stale — drop the reservation before redeeming it
+        # could overwrite what the provider just proved.
+        return UserData(
+            email=claim_email, email_verified=claim_verified, pending_email=""
+        )
 
     def is_known_sphere_domain(self, domain: str) -> bool:
         return self._spheres.domain_exists(domain)
@@ -197,20 +217,40 @@ class EmailVerificationService(EmailVerificationServiceProtocol):
         *,
         transaction: TransactionProtocol,
         users: UserRepositoryProtocol,
+        reminders: EmailVerificationReminderRepositoryProtocol,
         tokens: EmailTokenCodecProtocol,
         notifier: EmailVerificationNotifierProtocol,
     ) -> None:
         self._transaction = transaction
         self._users = users
+        self._reminders = reminders
         self._tokens = tokens
         self._notifier = notifier
 
     def request_verification(self, user_slug: str) -> VerificationRequestOutcome:
-        user = self._users.read(user_slug)
+        return self._request(self._users.read(user_slug), now=datetime.now(UTC))
+
+    def count_due(self, *, now: datetime) -> int:
+        return self._reminders.count_due(
+            now=now, interval=EMAIL_VERIFICATION_REMINDER_INTERVAL
+        )
+
+    def send_due_reminders(self, *, now: datetime) -> int:
+        # The sweep re-runs the request rather than re-mailing the link already
+        # on the row: links live 24 hours and the re-nag interval is longer, so
+        # the stored one is dead, and stamping the column here would race the
+        # resend throttle.
+        return sum(
+            self._request(user, now=now) is VerificationRequestOutcome.SENT
+            for user in self._reminders.list_due(
+                now=now, interval=EMAIL_VERIFICATION_REMINDER_INTERVAL
+            )
+        )
+
+    def _request(self, user: UserDTO, *, now: datetime) -> VerificationRequestOutcome:
         target = user.pending_email or ("" if user.email_verified else user.email)
         if not target:
             return VerificationRequestOutcome.NOT_NEEDED
-        now = datetime.now(UTC)
         sent_at = user.email_verification_sent_at
         if sent_at and now - sent_at < EMAIL_VERIFICATION_RESEND_THROTTLE:
             return VerificationRequestOutcome.THROTTLED
@@ -239,7 +279,9 @@ class EmailVerificationService(EmailVerificationServiceProtocol):
                     ),
                 )
             return ChangeRequestOutcome.CLEARED
-        if self._users.email_exists(address, exclude_slug=user_slug):
+        if self._users.email_unavailable(
+            email=address, now=datetime.now(UTC), exclude_slug=user_slug
+        ):
             return ChangeRequestOutcome.TAKEN
         # A fresh change is deliberate intent, so it skips the resend
         # throttle — otherwise correcting a typo'd address would be blocked
@@ -247,7 +289,9 @@ class EmailVerificationService(EmailVerificationServiceProtocol):
         with self._transaction.atomic():
             self._users.update(user_slug, UserData(pending_email=address))
             self._send_confirm_link(user=user, address=address, now=datetime.now(UTC))
-            if user.email:
+            # The cancel link is the whole point of this notice, so it goes
+            # only to an address someone proved they control.
+            if user.deliverable_email:
                 cancel_token = self._tokens.dumps(
                     EmailTokenPayload(
                         act=EmailVerificationAction.CANCEL, uid=user.pk, addr=address
@@ -256,7 +300,7 @@ class EmailVerificationService(EmailVerificationServiceProtocol):
                 self._notifier.notify_email_change_requested(
                     EmailChangeRequestedNotification(
                         recipient_user_id=user.pk,
-                        recipient_email=user.email,
+                        recipient_email=user.deliverable_email,
                         new_address=address,
                         cancel_token=cancel_token,
                     )
@@ -271,10 +315,13 @@ class EmailVerificationService(EmailVerificationServiceProtocol):
             return None
         return EmailLinkDTO(action=payload.act, address=payload.addr)
 
-    def redeem(self, token: str) -> RedeemOutcome:
+    def redeem(self, token: str) -> RedeemResultDTO:
         if (resolved := self._resolve(token)) is None:
-            return RedeemOutcome.EXPIRED
+            return RedeemResultDTO(outcome=RedeemOutcome.EXPIRED)
         user, payload = resolved
+        return RedeemResultDTO(outcome=self._redeem(user, payload), action=payload.act)
+
+    def _redeem(self, user: UserDTO, payload: EmailTokenPayload) -> RedeemOutcome:
         if not self._redeemable(user, payload):
             return RedeemOutcome.ALREADY_USED
         if payload.act is EmailVerificationAction.CANCEL:
@@ -313,11 +360,11 @@ class EmailVerificationService(EmailVerificationServiceProtocol):
                     user.slug,
                     UserData(email=address, email_verified=True, pending_email=""),
                 )
-                if user.email:
+                if user.deliverable_email:
                     self._notifier.notify_email_change_completed(
                         EmailChangeCompletedNotification(
                             recipient_user_id=user.pk,
-                            recipient_email=user.email,
+                            recipient_email=user.deliverable_email,
                             new_address=address,
                         )
                     )
@@ -340,40 +387,6 @@ class EmailVerificationService(EmailVerificationServiceProtocol):
             EmailVerificationNotification(
                 recipient_user_id=user.pk, recipient_email=address, token=token
             )
-        )
-
-
-class EmailVerificationReminderService(EmailVerificationReminderServiceProtocol):
-    """Bulk re-nag sweep, kept apart from the request-scoped service.
-
-    Every reminder goes through `request_verification`, never a copy of it:
-    links live 24 hours and the re-nag interval is longer, so mailing "the
-    link already on the row" would mail a dead one, and a sweep stamping the
-    column itself would race the resend throttle.
-    """
-
-    def __init__(
-        self,
-        *,
-        reminders: EmailVerificationReminderRepositoryProtocol,
-        verification: EmailVerificationServiceProtocol,
-    ) -> None:
-        self._reminders = reminders
-        self._verification = verification
-
-    def count_due(self, *, now: datetime) -> int:
-        return len(self._due(now))
-
-    def send_due_reminders(self, *, now: datetime) -> int:
-        sent = 0
-        for slug in self._due(now):
-            outcome = self._verification.request_verification(slug)
-            sent += outcome == VerificationRequestOutcome.SENT
-        return sent
-
-    def _due(self, now: datetime) -> list[str]:
-        return self._reminders.list_due(
-            now=now, interval=EMAIL_VERIFICATION_REMINDER_INTERVAL
         )
 
 

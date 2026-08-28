@@ -18,7 +18,7 @@ MAX_CONNECTED_USERS = 6  # Maximum number of connected users per manager
 
 # Signed verification links live this long. Shared contract: the token codec
 # enforces it on read, and the repository's pending-address reservation
-# (`email_exists`) expires with it, so nothing needs a cleanup job.
+# (`email_unavailable`) expires with it, so nothing needs a cleanup job.
 EMAIL_LINK_MAX_AGE = timedelta(hours=24)
 
 
@@ -52,8 +52,9 @@ class UserDTO(BaseModel):
 
     @property
     def deliverable_email(self) -> str:
-        # Mail goes only to proven addresses; the in-app notification row is
-        # written either way, so an unproven address costs a mail, not a bell.
+        # The notifier resolves the proven address for every other mail; the
+        # email-lifecycle notices need it up front, because they decide
+        # whether to raise a notification at all from it.
         return self.email if self.email_verified else ""
 
 
@@ -90,7 +91,9 @@ class UserRepositoryProtocol(Protocol):
     @staticmethod
     def update(user_slug: str, user_data: UserData) -> None: ...
     @staticmethod
-    def email_exists(email: str, exclude_slug: str | None = None) -> bool: ...
+    def email_unavailable(
+        *, email: str, now: datetime, exclude_slug: str | None = None
+    ) -> bool: ...
 
 
 class CompanionRepositoryProtocol(Protocol):
@@ -233,6 +236,13 @@ class EmailLinkDTO(BaseModel):
     address: str
 
 
+class RedeemResultDTO(BaseModel):
+    outcome: RedeemOutcome
+    # None only when the token did not resolve at all, so there is no signed
+    # action to name.
+    action: EmailVerificationAction | None = None
+
+
 class EmailVerificationNotification(BaseModel):
     recipient_user_id: int
     recipient_email: str
@@ -266,21 +276,20 @@ class EmailVerificationNotifierProtocol(Protocol):
 
 class EmailVerificationServiceProtocol(Protocol):
     def request_verification(self, user_slug: str) -> VerificationRequestOutcome: ...
+    def count_due(self, *, now: datetime) -> int: ...
+    def send_due_reminders(self, *, now: datetime) -> int: ...
     def request_change(
         self, *, user_slug: str, new_address: str
     ) -> ChangeRequestOutcome: ...
     def describe(self, token: str) -> EmailLinkDTO | None: ...
-    def redeem(self, token: str) -> RedeemOutcome: ...
+    def redeem(self, token: str) -> RedeemResultDTO: ...
 
 
 class EmailVerificationReminderRepositoryProtocol(Protocol):
     @staticmethod
-    def list_due(*, now: datetime, interval: timedelta) -> list[str]: ...
-
-
-class EmailVerificationReminderServiceProtocol(Protocol):
-    def count_due(self, *, now: datetime) -> int: ...
-    def send_due_reminders(self, *, now: datetime) -> int: ...
+    def count_due(*, now: datetime, interval: timedelta) -> int: ...
+    @staticmethod
+    def list_due(*, now: datetime, interval: timedelta) -> list[UserDTO]: ...
 
 
 class CompanionsServiceProtocol(Protocol):

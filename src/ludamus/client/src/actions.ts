@@ -19,21 +19,19 @@ const swapVisibility = (el: HTMLElement): void => {
 
 // Hide a banner and remember the choice in a cookie for a week; losing the
 // cookie just brings the banner back, so nothing else stores the dismissal.
-const DISMISS_COOKIE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+const DISMISS_COOKIE_MAX_AGE_S = 7 * 24 * 60 * 60;
 
 const dismissBanner = (el: HTMLElement): void => {
   const id = el.dataset.dismissTarget;
   const node = id ? document.getElementById(id) : null;
   if (node) node.hidden = true;
   const cookie = el.dataset.dismissCookie;
-  if (cookie)
-    void cookieStore.set({
-      expires: Date.now() + DISMISS_COOKIE_MAX_AGE_MS,
-      name: cookie,
-      path: "/",
-      sameSite: "lax",
-      value: "1",
-    });
+  if (!cookie) return;
+  // HACK: the Cookie Store API the rule points at is undefined on iOS Safari
+  // before 18.4 and outside secure contexts, where referencing it throws and
+  // the dismissal silently fails to persist.
+  // oxlint-disable-next-line unicorn/no-document-cookie
+  document.cookie = `${cookie}=1; path=/; max-age=${DISMISS_COOKIE_MAX_AGE_S}; samesite=lax`;
 };
 
 const syncExpandedRequired = (box: HTMLInputElement): void => {
