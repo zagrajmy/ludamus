@@ -84,11 +84,9 @@ def tessera_field(
     if isinstance(widget, HiddenInput):
         return str(field)  # BoundField.__str__ is already safe
     # One selectable option is not a question, so the form carries the answer
-    # and the page spends nothing on asking it. A field carrying an error is
-    # the exception: it renders in full, or the message has nothing to name.
+    # and the page spends nothing on asking it.
     if (
         isinstance(widget, ChoiceWidget)
-        and not field.errors
         and (sole := sole_required_choice(field)) is not None
     ):
         return format_html(
@@ -125,7 +123,8 @@ def tessera_sole_choice(field: BoundField) -> str:
 
     A page whose action turns on the value — it writes there, it copies
     there — reads it from the field rather than from a context key computed
-    beside it, so the prose and the collapse can never disagree.
+    beside it. Both halves ask `sole_required_choice`, so a field that renders
+    in full is never also described as settled.
     """
     sole = sole_required_choice(field)
     return "" if sole is None else str(sole.label)

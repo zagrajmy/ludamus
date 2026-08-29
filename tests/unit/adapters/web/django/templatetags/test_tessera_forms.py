@@ -616,6 +616,21 @@ class TestSingleOptionRendering:
         assert '<optgroup label="Upstairs">' in html
         assert "Downstairs" not in html
 
+    def test_radio_group_flattens_an_optgrouped_field(self) -> None:
+        # A radio group has no optgroups. Reading the choices raw would unpack
+        # the group and emit one input whose value is the whole option list.
+        class GroupedRadioForm(forms.Form):
+            where = forms.ChoiceField(
+                choices=[("Upstairs", [("1", "Room A"), ("2", "Room B")])],
+                widget=RadioSelect,
+            )
+
+        html = render_multi_choice_field(GroupedRadioForm()["where"], is_radio=True)
+
+        assert 'value="1"' in html
+        assert 'value="2"' in html
+        assert "Upstairs" not in html
+
     def test_radio_group_collapses_to_the_value_alone(self) -> None:
         html = tessera_field(SingleChoiceForm()["radio_one"])
         assert html == '<input type="hidden" name="radio_one" value="x">'
@@ -648,6 +663,15 @@ class TestSoleChoiceNaming:
     def test_says_nothing_for_an_optional_field(self) -> None:
         # Optional keeps its select, so the page must not claim it is decided.
         assert not tessera_sole_choice(SingleChoiceForm()["optional_one"])
+
+    def test_says_nothing_about_a_rejected_field(self) -> None:
+        # The field renders in full with its error; prose calling it settled
+        # would contradict the control asking for it four lines below.
+        form = SingleChoiceForm({"required_one": "tampered"})
+        form.full_clean()
+
+        assert not tessera_sole_choice(form["required_one"])
+        assert "<select" in tessera_field(form["required_one"])
 
 
 class TestTesseraButtonBranches:

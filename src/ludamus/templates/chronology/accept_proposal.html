@@ -77,13 +77,13 @@
                     {# hidden value — the row below is where the organizer reads #}
                     {# what they are about to commit to. #}
                     {% if sole_space or sole_slot %}
-                        <dl>
+                        <dl class="[&>div:first-child]:border-t-0 [&>div:first-child]:mt-0 [&>div:first-child]:pt-0">
                             {% if sole_space %}
                                 {% translate "Space" as space_label %}
                                 {% include "chronology/_accept_fact_row.html" with icon="map-pin" label=space_label value=sole_space %}
                             {% endif %}
                             {% if sole_slot %}
-                                {% translate "Time" as time_label %}
+                                {% translate "Time slot" as time_label %}
                                 {% include "chronology/_accept_fact_row.html" with icon="clock" label=time_label value=sole_slot %}
                             {% endif %}
                         </dl>

@@ -6,21 +6,21 @@ from typing import TYPE_CHECKING, NamedTuple
 
 if TYPE_CHECKING:
     from django.forms import BoundField
-    from django.utils.functional import _StrPromise
+    from django.utils.functional import Promise
 
 
 class ChoiceGroup(NamedTuple):
     """One optgroup, or a single ungrouped option under an empty label."""
 
-    label: str | _StrPromise
-    options: list[tuple[object, str | _StrPromise]]
+    label: str | Promise
+    options: list[tuple[object, str | Promise]]
 
 
 class SoleChoice(NamedTuple):
     """The one option a field offers: what it submits, and what it is called."""
 
     value: object
-    label: str | _StrPromise
+    label: str | Promise
 
 
 def grouped_choices(field: BoundField) -> list[ChoiceGroup]:
@@ -36,7 +36,8 @@ def grouped_choices(field: BoundField) -> list[ChoiceGroup]:
     groups = []
     for value, label in getattr(field.field, "choices", []):
         if isinstance(label, (list, tuple)):
-            # An empty optgroup renders as a dead entry in the open list.
+            # Every ChoiceField in the app renders through here, so an
+            # empty optgroup is caught once rather than in each builder.
             if options := list(label):
                 groups.append(ChoiceGroup(label=value, options=options))
         else:
@@ -45,13 +46,18 @@ def grouped_choices(field: BoundField) -> list[ChoiceGroup]:
 
 
 def sole_required_choice(field: BoundField) -> SoleChoice | None:
-    """Return the only option a required field offers, when it offers one.
+    """Return the option a field carries instead of asking for it.
+
+    The single answer to "has this field stopped asking?", so the renderer
+    that drops the control and the page that names the value in its place
+    cannot disagree — a rejected field renders in full, and prose calling it
+    settled would contradict the error beside it.
 
     Returns:
         The value and its label, or ``None`` when the field is optional,
-        disabled, or leaves the user a choice to make.
+        disabled, rejected, or leaves the user a choice to make.
     """
-    if not field.field.required or field.field.disabled:
+    if not field.field.required or field.field.disabled or field.errors:
         return None
     real = [
         (value, label)

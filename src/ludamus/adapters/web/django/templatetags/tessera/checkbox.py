@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 from django.template.loader import render_to_string
 from django.utils.html import format_html
 
+from ._choices import grouped_choices
 from .errors import render_errors, render_help_text
 from .label import render_label
 
@@ -38,8 +39,11 @@ def render_multi_choice_field(field: BoundField, *, is_radio: bool = False) -> s
     Returns:
         HTML string of the multi-choice field.
     """
+    # A checkbox or radio group has no optgroups, so a grouped field flattens
+    # into one list — reading it raw would emit an input whose value is a list.
+    flat = [pair for group in grouped_choices(field) for pair in group.options]
     options = []
-    for i, (value, choice_label) in enumerate(field.field.choices):  # type: ignore[attr-defined]
+    for i, (value, choice_label) in enumerate(flat):
         input_id = f"{field.id_for_label}_{i}"
         is_checked = False
 
