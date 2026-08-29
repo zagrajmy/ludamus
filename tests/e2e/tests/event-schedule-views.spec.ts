@@ -76,7 +76,9 @@ test.describe("Event schedule views", () => {
 
     await page.getByRole("tab", { name: "Rooms" }).click();
 
-    await expect(page.locator(".room-lanes").first()).toBeVisible();
+    // The dense event's rooms layout is the suite's slowest render; under a
+    // parallel run the boosted GET outlasts the default expect timeout.
+    await expect(page.locator(".room-lanes").first()).toBeVisible({ timeout: 30_000 });
     await expect(page).toHaveURL(/\?view=rooms$/);
     expect(await stayedOnPage(page)).toBe(true);
   });

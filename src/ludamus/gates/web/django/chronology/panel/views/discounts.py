@@ -33,8 +33,8 @@ from ludamus.pacts.discounts import (
     DiscountExportColumns,
     DiscountExportLabels,
     DiscountKind,
-    SheetExportError,
 )
+from ludamus.pacts.sheets import SheetExportError
 from ludamus.pacts.submissions import AccreditationType
 
 if TYPE_CHECKING:
