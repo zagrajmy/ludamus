@@ -33,13 +33,15 @@ def slot_choices(
     time_slots: Sequence[TimeSlotDTO], preferred_ids: Sequence[int]
 ) -> ChoiceList:
     labelled = [(slot.pk, slot_label(slot)) for slot in time_slots]
-    choices: ChoiceList = [("", gettext("Choose a time…"))]
-    if not (preferred := {*preferred_ids}):
-        return [*choices, *labelled]
+    blank: ChoiceList = [("", gettext("Choose a time…"))]
+    preferred = {*preferred_ids}
     # The facilitator asked for these — float them to the top so the obvious
-    # choice is the first one, no footnote needed.
-    if wanted := [pair for pair in labelled if pair[0] in preferred]:
-        choices.append((gettext("Preferred by the facilitator"), wanted))
+    # choice is the first one, no footnote needed. Nothing to float means no
+    # headings at all: "Other times" alone would name a contrast with a group
+    # that is not there.
+    if not (wanted := [pair for pair in labelled if pair[0] in preferred]):
+        return [*blank, *labelled]
+    choices: ChoiceList = [*blank, (gettext("Preferred by the facilitator"), wanted)]
     if rest := [pair for pair in labelled if pair[0] not in preferred]:
         choices.append((gettext("Other times"), rest))
     return choices

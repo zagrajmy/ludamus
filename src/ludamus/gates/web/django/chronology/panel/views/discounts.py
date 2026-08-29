@@ -38,7 +38,6 @@ from ludamus.pacts.sheets import SheetExportError
 from ludamus.pacts.submissions import AccreditationType
 
 if TYPE_CHECKING:
-
     from django.http import HttpResponse
     from django.utils.functional import Promise
 

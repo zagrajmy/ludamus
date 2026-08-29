@@ -36,8 +36,8 @@ def grouped_choices(field: BoundField) -> list[ChoiceGroup]:
     groups = []
     for value, label in getattr(field.field, "choices", []):
         if isinstance(label, (list, tuple)):
-            # Every ChoiceField in the app renders through here, so an
-            # empty optgroup is caught once rather than in each builder.
+            # Caught once for every field this renderer draws, rather than
+            # in each builder that might leave a group unfilled.
             if options := list(label):
                 groups.append(ChoiceGroup(label=value, options=options))
         else:

@@ -41,15 +41,12 @@ class TestSlotChoices:
             ("Other times", [(1, "Sunday, Mar 1 · 11:00–13:00")]),
         ]
 
-    def test_omits_the_preferred_group_when_none_of_its_slots_survive(self) -> None:
-        # A facilitator's preference outlives the slot it named when the
-        # organizer deletes it; the group it would head has no members.
+    def test_drops_both_headings_when_no_preference_matches(self) -> None:
+        # "Other times" alone would name a contrast with a group that is not
+        # on the page. Preferences matching nothing read as no preference.
         choices = slot_choices([_slot(1, 10)], [99])
 
-        assert choices == [
-            ("", "Choose a time…"),
-            ("Other times", [(1, "Sunday, Mar 1 · 11:00–13:00")]),
-        ]
+        assert choices == [("", "Choose a time…"), (1, "Sunday, Mar 1 · 11:00–13:00")]
 
     def test_omits_the_other_group_when_every_slot_is_preferred(self) -> None:
         choices = slot_choices([_slot(1, 10)], [1])

@@ -41,24 +41,28 @@
                         {% endfor %}
                     </div>
                 {% endif %}
-                {% if session.description %}
-                    {% translate "Description" as description_label %}
-                    {% include "chronology/_accept_fact_row.html" with icon="document-text" label=description_label value=session.description %}
-                {% endif %}
-                {% if preferred_time_slot_ids %}
-                    <div class="flex gap-3 border-t border-border pt-3 mt-3">
-                        <span class="shrink-0 inline-flex items-center justify-center w-8 h-8 rounded-lg bg-bg-tertiary text-foreground-secondary">{% icon "clock" class="w-4 h-4" %}</span>
-                        <div class="min-w-0">
-                            <dt class="text-xs font-medium uppercase tracking-wide text-foreground-muted">{% translate "Preferred Time Slots" %}</dt>
-                            <dd class="mt-1.5 flex flex-wrap gap-1.5">
-                                {% for slot in time_slots %}
-                                    {% if slot.pk in preferred_time_slot_ids %}
-                                        <span class="inline-flex items-center rounded-full bg-secondary-light text-secondary-hover px-2.5 py-0.5 text-xs font-medium">{{ slot.start_time|date:"M j, G:i" }}–{{ slot.end_time|date:"G:i" }}</span>
-                                    {% endif %}
-                                {% endfor %}
-                            </dd>
-                        </div>
-                    </div>
+                {% if session.description or preferred_time_slot_ids %}
+                    <dl>
+                        {% if session.description %}
+                            {% translate "Description" as description_label %}
+                            {% include "chronology/_accept_fact_row.html" with icon="document-text" label=description_label value=session.description %}
+                        {% endif %}
+                        {% if preferred_time_slot_ids %}
+                            <div class="flex gap-3 border-t border-border pt-3 mt-3 first:border-t-0 first:mt-0 first:pt-0">
+                                <span class="shrink-0 inline-flex items-center justify-center w-8 h-8 rounded-lg bg-bg-tertiary text-foreground-secondary">{% icon "clock" class="w-4 h-4" %}</span>
+                                <div class="min-w-0">
+                                    <dt class="text-xs font-medium uppercase tracking-wide text-foreground-muted">{% translate "Preferred Time Slots" %}</dt>
+                                    <dd class="mt-1.5 flex flex-wrap gap-1.5">
+                                        {% for slot in time_slots %}
+                                            {% if slot.pk in preferred_time_slot_ids %}
+                                                <span class="inline-flex items-center rounded-full bg-secondary-light text-secondary-hover px-2.5 py-0.5 text-xs font-medium">{{ slot.start_time|date:"M j, G:i" }}–{{ slot.end_time|date:"G:i" }}</span>
+                                            {% endif %}
+                                        {% endfor %}
+                                    </dd>
+                                </div>
+                            </div>
+                        {% endif %}
+                    </dl>
                 {% endif %}
             </div>
         </div>
@@ -77,7 +81,7 @@
                     {# hidden value — the row below is where the organizer reads #}
                     {# what they are about to commit to. #}
                     {% if sole_space or sole_slot %}
-                        <dl class="[&>div:first-child]:border-t-0 [&>div:first-child]:mt-0 [&>div:first-child]:pt-0">
+                        <dl>
                             {% if sole_space %}
                                 {% translate "Space" as space_label %}
                                 {% include "chronology/_accept_fact_row.html" with icon="map-pin" label=space_label value=sole_space %}

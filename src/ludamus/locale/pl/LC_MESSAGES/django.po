@@ -9514,7 +9514,7 @@ msgid ""
 "Copies \"%(name)s\" and everything inside it into %(target)s as a new top-"
 "level space."
 msgstr ""
-"Kopiuje „%(name)s\" i całą jej zawartość do wydarzenia %(target)s jako nową "
+"Kopiuje „%(name)s” i całą jej zawartość do wydarzenia %(target)s jako nową "
 "przestrzeń najwyższego poziomu."
 
 #: src/ludamus/templates/panel/space-copy.html
@@ -9523,7 +9523,7 @@ msgid ""
 "Copies \"%(name)s\" and everything inside it into the chosen event as a new "
 "top-level space."
 msgstr ""
-"Kopiuje „%(name)s\" i całą jej zawartość do wybranego wydarzenia jako nową "
+"Kopiuje „%(name)s” i całą jej zawartość do wybranego wydarzenia jako nową "
 "przestrzeń najwyższego poziomu."
 
 #: src/ludamus/templates/panel/space-copy.html
