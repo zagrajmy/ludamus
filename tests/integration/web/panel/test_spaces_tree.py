@@ -712,7 +712,12 @@ class TestSpaceCopy:
                 "node": _record(node),
                 "form": ANY,
             },
-            contains=target.name,
+            # The sidebar lists every event by name, so the destination has
+            # to be checked in the sentence that promises to copy into it.
+            contains=(
+                f'Copies "{node.name}" and everything inside it into '
+                f"{target.name} as a new top-level space."
+            ),
         )
 
 
