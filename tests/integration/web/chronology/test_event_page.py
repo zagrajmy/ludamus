@@ -21,8 +21,8 @@ from ludamus.gates.web.django.chronology.event_presentation import (
 )
 from ludamus.gates.web.django.chronology.schedule import (
     RoomLane,
-    RoomLaneDay,
-    RoomLaneHourMark,
+    RoomLaneRow,
+    RoomLanes,
     RoomLaneTile,
     ScheduleDay,
     ScheduleHour,
@@ -72,6 +72,26 @@ from tests.integration.web.chronology.helpers import (
     proposal_card,
     session_card,
 )
+
+
+def _schedule_tile(data: SessionData) -> ScheduleTile:
+    if data.agenda_item is None:
+        raise ValueError("scheduled test data needs an agenda item")
+    return ScheduleTile(
+        data=data,
+        start=timezone.localtime(data.agenda_item.start_time),
+        end=timezone.localtime(data.agenda_item.end_time),
+    )
+
+
+def _single_schedule_day(data: SessionData) -> ScheduleDay:
+    tile = _schedule_tile(data)
+    hour_start = tile.start.replace(minute=0, second=0, microsecond=0)
+    return ScheduleDay(
+        day_start=hour_start,
+        hours=[ScheduleHour(start=hour_start, tiles=[tile])],
+        tiles=[tile],
+    )
 
 
 def _field_dto(field):
@@ -221,21 +241,7 @@ class TestEventPageView:
             user_enrolled=False,
             user_waiting=False,
         )
-        # Sections bucket whole local-clock hours, not exact start times.
-        hour_start = timezone.localtime(agenda_item.start_time).replace(
-            minute=0, second=0, microsecond=0
-        )
-        schedule_day = ScheduleDay(
-            day_start=hour_start,
-            hours=[ScheduleHour(start=hour_start, sessions=[session_data])],
-            tiles=[
-                ScheduleTile(
-                    data=session_data,
-                    start=timezone.localtime(agenda_item.start_time),
-                    end=timezone.localtime(agenda_item.end_time),
-                )
-            ],
-        )
+        schedule_day = _single_schedule_day(session_data)
         url = self._get_url(event.slug)
         assert_response(
             response,
@@ -337,20 +343,7 @@ class TestEventPageView:
             user_enrolled=False,
             user_waiting=False,
         )
-        hour_start = timezone.localtime(agenda_item.start_time).replace(
-            minute=0, second=0, microsecond=0
-        )
-        schedule_day = ScheduleDay(
-            day_start=hour_start,
-            hours=[ScheduleHour(start=hour_start, sessions=[session_data])],
-            tiles=[
-                ScheduleTile(
-                    data=session_data,
-                    start=timezone.localtime(agenda_item.start_time),
-                    end=timezone.localtime(agenda_item.end_time),
-                )
-            ],
-        )
+        schedule_day = _single_schedule_day(session_data)
         url = self._get_url(event.slug)
         assert_response(
             response,
@@ -575,9 +568,7 @@ class TestEventPageView:
             ScheduleDay(
                 day_start=hour_start,
                 hours=[
-                    ScheduleHour(
-                        start=hour_start, sessions=[cards[ended.pk], cards[ongoing.pk]]
-                    )
+                    ScheduleHour(start=hour_start, tiles=[tile(ended), tile(ongoing)])
                 ],
                 tiles=[tile(ended), tile(ongoing)],
             ),
@@ -585,18 +576,17 @@ class TestEventPageView:
                 day_start=hour_of(plenty),
                 hours=[
                     ScheduleHour(
-                        start=hour_of(plenty),
-                        sessions=[cards[plenty.pk], cards[scarce.pk]],
+                        start=hour_of(plenty), tiles=[tile(plenty), tile(scarce)]
                     ),
                     ScheduleHour(
-                        start=hour_of(no_enrollment), sessions=[cards[no_enrollment.pk]]
+                        start=hour_of(no_enrollment), tiles=[tile(no_enrollment)]
                     ),
                 ],
                 tiles=[tile(plenty), tile(scarce), tile(no_enrollment)],
             ),
             ScheduleDay(
                 day_start=hour_of(full),
-                hours=[ScheduleHour(start=hour_of(full), sessions=[cards[full.pk]])],
+                hours=[ScheduleHour(start=hour_of(full), tiles=[tile(full)])],
                 tiles=[tile(full)],
             ),
         ]
@@ -703,6 +693,30 @@ class TestEventPageView:
                 (later_in_arena, {}),
             )
         }
+        room_tiles = [
+            RoomLaneTile(
+                data=cards[in_arena.pk],
+                start=timezone.localtime(in_arena.agenda_item.start_time),
+                end=timezone.localtime(in_arena.agenda_item.end_time),
+                col=1,
+                row_span=1,
+            ),
+            RoomLaneTile(
+                data=cards[on_stage.pk],
+                start=timezone.localtime(on_stage.agenda_item.start_time),
+                end=timezone.localtime(on_stage.agenda_item.end_time),
+                col=2,
+                row_span=1,
+            ),
+            RoomLaneTile(
+                data=cards[later_in_arena.pk],
+                start=timezone.localtime(later_in_arena.agenda_item.start_time),
+                end=timezone.localtime(later_in_arena.agenda_item.end_time),
+                col=1,
+                row_span=2,
+            ),
+        ]
+        tiles_by_row = {0: room_tiles[:2], 2: room_tiles[2:]}
         url = self._get_url(event.slug)
         assert_response(
             response,
@@ -722,11 +736,14 @@ class TestEventPageView:
                         hours=[
                             ScheduleHour(
                                 start=local_start,
-                                sessions=[cards[in_arena.pk], cards[on_stage.pk]],
+                                tiles=[
+                                    _schedule_tile(cards[in_arena.pk]),
+                                    _schedule_tile(cards[on_stage.pk]),
+                                ],
                             ),
                             ScheduleHour(
                                 start=local_start + timedelta(hours=2),
-                                sessions=[cards[later_in_arena.pk]],
+                                tiles=[_schedule_tile(cards[later_in_arena.pk])],
                             ),
                         ],
                         tiles=[
@@ -742,67 +759,33 @@ class TestEventPageView:
                     )
                 ],
                 active_tab="rooms",
-                room_lane_days=[
-                    RoomLaneDay(
-                        day_start=local_start,
-                        rooms=[
-                            RoomLane(
-                                name="Arena", group="", group_key="", starts_group=True
-                            ),
-                            RoomLane(
-                                name="Stage", group="", group_key="", starts_group=False
-                            ),
-                        ],
-                        # Four hours of lane, 10:00 to 13:00: the two sessions
-                        # at 10:00, an empty 11:00, the two-hour one from
-                        # 12:00, and the hour it runs into.
-                        hour_marks=[
-                            RoomLaneHourMark(
-                                start=local_start, row=1, has_sessions=True
-                            ),
-                            RoomLaneHourMark(
-                                start=local_start + timedelta(hours=1),
-                                row=2,
-                                has_sessions=False,
-                            ),
-                            RoomLaneHourMark(
-                                start=local_start + timedelta(hours=2),
-                                row=3,
-                                has_sessions=True,
-                            ),
-                            RoomLaneHourMark(
-                                start=local_start + timedelta(hours=3),
-                                row=4,
-                                has_sessions=False,
-                            ),
-                        ],
-                        # Arena is column 1 and Stage column 2; the later
-                        # session starts in the third row and spans two.
-                        tiles=[
-                            RoomLaneTile(
-                                data=cards[in_arena.pk],
-                                slot_hour=local_start,
-                                col=1,
-                                row_start=1,
-                                row_span=1,
-                            ),
-                            RoomLaneTile(
-                                data=cards[on_stage.pk],
-                                slot_hour=local_start,
-                                col=2,
-                                row_start=1,
-                                row_span=1,
-                            ),
-                            RoomLaneTile(
-                                data=cards[later_in_arena.pk],
-                                slot_hour=local_start + timedelta(hours=2),
-                                col=1,
-                                row_start=3,
-                                row_span=2,
-                            ),
-                        ],
-                    )
-                ],
+                room_lanes=RoomLanes(
+                    rooms=[
+                        RoomLane(
+                            name="Arena", group="", group_key="", starts_group=True
+                        ),
+                        RoomLane(
+                            name="Stage", group="", group_key="", starts_group=False
+                        ),
+                    ],
+                    # The single day opens the grid, so it has no seam above
+                    # it and its first hour is row 1. Four hours of lane, 10:00
+                    # to 13:00: the two sessions at 10:00, an empty 11:00, the
+                    # two-hour one from 12:00, and the hour it runs into.
+                    rows=[
+                        RoomLaneRow(
+                            day=0,
+                            day_start=local_start,
+                            hour=local_start + timedelta(hours=offset),
+                            hour_end=local_start + timedelta(hours=offset + 1),
+                            starting_tiles=tiles_by_row.get(offset, []),
+                        )
+                        for offset in range(4)
+                    ],
+                    spans=[1, 2],
+                    lane_indices=[0],
+                    lane_counts=[1],
+                ),
                 has_enrollable_sessions=True,
                 scheduled_count=3,
             ),
@@ -846,20 +829,7 @@ class TestEventPageView:
             user_enrolled=False,
             user_waiting=False,
         )
-        hour_start = timezone.localtime(agenda_item.start_time).replace(
-            minute=0, second=0, microsecond=0
-        )
-        schedule_day = ScheduleDay(
-            day_start=hour_start,
-            hours=[ScheduleHour(start=hour_start, sessions=[session_data])],
-            tiles=[
-                ScheduleTile(
-                    data=session_data,
-                    start=timezone.localtime(agenda_item.start_time),
-                    end=timezone.localtime(agenda_item.end_time),
-                )
-            ],
-        )
+        schedule_day = _single_schedule_day(session_data)
         url = self._get_url(event.slug)
         assert_response(
             response,
@@ -1064,10 +1034,15 @@ class TestEventPageView:
         session_b = SessionFactory(event=event, category=category_b, min_age=0)
         session_b.tracks.add(track_b)
         item_a = AgendaItemFactory(session=session_a, space=space)
+        # Off item_a, not off a floating now: the factory anchors item_a to
+        # 10:00 local precisely so an item cannot drift across midnight, and
+        # `now + 3h` gives that back. Run between 00:00 and 07:00 local,
+        # `now + 3h` is still before 10:00, so b sorted ahead of a and the
+        # expected order flipped — red every night from 22:00 UTC.
         item_b = AgendaItemFactory(
             session=session_b,
             space=space,
-            start_time=timezone.now() + timedelta(days=7, hours=3),
+            start_time=item_a.start_time + timedelta(hours=3),
         )
         cards = [
             session_card(
@@ -1113,8 +1088,16 @@ class TestEventPageView:
         private_track = Track.objects.create(
             event=event, name="Backstage", slug="backstage", is_public=False
         )
-        untracked = SessionFactory(event=event)
-        public_only = SessionFactory(event=event)
+        # Named categories, not faker-worded: these two are the whole of the
+        # category filter below, and both drawing the same word would leave
+        # the view one name and the expectation two.
+        untracked = SessionFactory(
+            event=event, category=ProposalCategoryFactory(event=event, name="RPG")
+        )
+        public_only = SessionFactory(
+            event=event,
+            category=ProposalCategoryFactory(event=event, name="Board games"),
+        )
         public_only.tracks.add(public_track)
         mixed = SessionFactory(event=event)
         mixed.tracks.add(public_track, private_track)
@@ -1283,6 +1266,13 @@ class TestEventPageView:
             presenter=presenter,
             display_name=presenter.name,
             event=event,
+            # Named, not faker-worded: `_tagged_page_context` expects one
+            # filter name per session, and the view offers the distinct names
+            # only. Two sessions drawing the same word out of the faker list
+            # shorten the view's list without shortening the expected one.
+            category=ProposalCategoryFactory(
+                event=event, name=f"category-{event.proposal_categories.count()}"
+            ),
             participants_limit=10,
             min_age=0,
         )

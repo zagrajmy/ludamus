@@ -12,6 +12,7 @@ from ludamus.pacts import (
     RedirectError,
     RequestContext,
 )
+from ludamus.pacts.ids import UserId
 
 if TYPE_CHECKING:
     from ludamus.pacts import DependencyInjectorProtocol
@@ -64,7 +65,7 @@ class RequestContextMiddleware:
                 root_site_id=root_sphere.site.pk,
                 current_site_id=current_sphere.site.pk,
                 current_user_slug=request.user.slug,
-                current_user_id=request.user.pk,
+                current_user_id=UserId(request.user.pk),
             )
         else:
             request.context = RequestContext(

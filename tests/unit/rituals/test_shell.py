@@ -7,10 +7,12 @@ from ludamus.edges.rituals.shell import (
     VERDICT_LINES,
     already_seen,
     coverage_report,
+    gates_green,
     narrowed,
     said,
     same_verdict,
     verdict,
+    wants_cover,
 )
 
 # Ten characters once its newline is counted, so a whole number of these is
@@ -198,3 +200,27 @@ class TestNarrowed:
 
     def test_a_task_named_mid_line_is_not_a_verdict(self) -> None:
         assert not narrowed(_ran(stdout="see what [lint:mypy] ERROR task failed means"))
+
+
+# The green board the readers would otherwise wave through, one page of a
+# board the endpoint says runs to three: whatever fell off the end is
+# unaccounted for, so neither reader may take it as an answer.
+_SHORT_BOARD = (
+    '{"total_count": 3, "check_runs": ['
+    '{"name": "codecov/patch", "conclusion": "success",'
+    ' "output": {"title": "Coverage not affected when comparing a...b"}},'
+    ' {"name": "test", "conclusion": "success"}]}'
+)
+_WHOLE_BOARD = _SHORT_BOARD.replace('"total_count": 3', '"total_count": 2')
+
+
+class TestTruncatedBoard:
+    def test_a_short_page_is_not_a_coverage_skip(self) -> None:
+        assert wants_cover(_SHORT_BOARD)
+
+    def test_a_short_page_is_not_a_green_gate(self) -> None:
+        assert not gates_green(_SHORT_BOARD)
+
+    def test_the_same_board_whole_is_read_as_the_answer(self) -> None:
+        assert not wants_cover(_WHOLE_BOARD)
+        assert gates_green(_WHOLE_BOARD)

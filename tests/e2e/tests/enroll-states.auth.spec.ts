@@ -11,7 +11,7 @@ import { expect, test } from "./helpers/fixtures";
 // assertions scope to the dialog, since the footer itself can disappear.
 const openModal = async (page: Page, title: string) => {
   await page.goto("/event/enroll-states/");
-  await page.getByRole("link", { name: `Open details for ${title}` }).click();
+  await page.getByRole("link", { name: `Open details for ${title}` }).press("Enter");
   const dialog = page.getByRole("dialog", { name: title });
   await expect(dialog).toBeVisible();
   return { dialog, footer: dialog.locator("[data-session-footer]") };
