@@ -387,3 +387,10 @@ If you fix a papercut, remove it.
   build-for-testing is shared across a job. Read it out of the uploaded
   daemon.log (four distinct AgentDeviceRunner.env.session-*.xctestrun launches),
   not the docs.
+- 2026-08-29: mise run start leaves a portless proxy on :1355 behind when the
+  dev server dies (e.g. after test:e2e kills :8000). The next start binds a new
+  app port but the stale proxy keeps forwarding to the dead one, so every URL
+  404s with a page that still contains an h2 — readiness greps pass and
+  Playwright then fails deep in a script. Had to pkill -f portless between runs,
+  and pkill -f portless matches the invoking shell's own command line, killing
+  it (exit 144).
