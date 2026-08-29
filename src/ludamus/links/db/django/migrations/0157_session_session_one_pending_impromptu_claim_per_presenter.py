@@ -7,7 +7,7 @@ import ludamus.pacts.legacy
 
 class Migration(migrations.Migration):
 
-    dependencies = [("db_main", "0155_session_is_impromptu")]
+    dependencies = [("db_main", "0156_session_is_impromptu")]
 
     operations = [
         migrations.AddConstraint(
