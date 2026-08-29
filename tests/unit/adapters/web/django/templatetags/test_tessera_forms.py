@@ -16,6 +16,7 @@ from ludamus.adapters.web.django.templatetags.tessera.form import (
     tessera_errors,
     tessera_field,
     tessera_form,
+    tessera_sole_choice,
 )
 from ludamus.adapters.web.django.templatetags.tessera.form_select import render_select
 from ludamus.adapters.web.django.templatetags.tessera.input import render_input
@@ -630,6 +631,23 @@ class TestSingleOptionRendering:
         assert "<select" in html
         assert "Required one" in html
         assert "Select a valid choice" in html
+
+
+class TestSoleChoiceNaming:
+    """A page that acts on the carried value can read its name back."""
+
+    def test_names_the_option_the_field_stopped_asking_for(self) -> None:
+        assert tessera_sole_choice(SingleChoiceForm()["required_one"]) == "Only option"
+
+    def test_reads_through_an_optgroup(self) -> None:
+        assert tessera_sole_choice(GroupedChoiceForm()["one_in_group"]) == "Room A"
+
+    def test_says_nothing_while_the_field_still_asks(self) -> None:
+        assert not tessera_sole_choice(SingleChoiceForm()["required_two"])
+
+    def test_says_nothing_for_an_optional_field(self) -> None:
+        # Optional keeps its select, so the page must not claim it is decided.
+        assert not tessera_sole_choice(SingleChoiceForm()["optional_one"])
 
 
 class TestTesseraButtonBranches:

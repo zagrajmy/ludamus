@@ -28,6 +28,7 @@ from ludamus.pacts import NotFoundError
 from ludamus.pacts.venues import SpaceInputDTO, SpaceValidationError
 
 if TYPE_CHECKING:
+    from django import forms
     from django.http import HttpResponse
 
     from ludamus.pacts.venues import SpaceRecordDTO
@@ -286,6 +287,14 @@ class SpaceCopyPageView(PanelAccessMixin, EventContextMixin, View):
         ]
         return node, choices
 
+    def _render(
+        self, *, context: dict[str, Any], node: SpaceRecordDTO, form: forms.Form
+    ) -> HttpResponse:
+        context["active_nav"] = "venues"
+        context["node"] = node
+        context["form"] = form
+        return TemplateResponse(self.request, "panel/space-copy.html", context)
+
     def get(self, _request: PanelRequest, slug: str, pk: int) -> HttpResponse:
         context, current_event = self.get_event_context(slug)
         if current_event is None:
@@ -299,13 +308,8 @@ class SpaceCopyPageView(PanelAccessMixin, EventContextMixin, View):
             messages.warning(self.request, _("No other events available to copy to."))
             return redirect("panel:venues", slug=slug)
 
-        context["active_nav"] = "venues"
-        context["node"] = node
-        context["form"] = create_space_copy_form(choices)()
-        # A single target is not a choice, so the form stops asking for it and
-        # the page has to name the destination itself.
-        context["sole_target_name"] = choices[0][1] if len(choices) == 1 else ""
-        return TemplateResponse(self.request, "panel/space-copy.html", context)
+        form = create_space_copy_form(choices)()
+        return self._render(context=context, node=node, form=form)
 
     def post(self, _request: PanelRequest, slug: str, pk: int) -> HttpResponse:
         context, current_event = self.get_event_context(slug)
@@ -319,11 +323,7 @@ class SpaceCopyPageView(PanelAccessMixin, EventContextMixin, View):
 
         form = create_space_copy_form(choices)(self.request.POST)
         if not form.is_valid():
-            context["active_nav"] = "venues"
-            context["node"] = node
-            context["form"] = form
-            context["sole_target_name"] = choices[0][1] if len(choices) == 1 else ""
-            return TemplateResponse(self.request, "panel/space-copy.html", context)
+            return self._render(context=context, node=node, form=form)
 
         target_event_id = int(form.cleaned_data["target_event"])
         target_name = next(

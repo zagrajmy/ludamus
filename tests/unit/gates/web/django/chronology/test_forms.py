@@ -41,8 +41,10 @@ class TestSlotChoices:
             ("Other times", [(1, "Sunday, Mar 1 · 11:00–13:00")]),
         ]
 
-    def test_leaves_the_other_group_empty_when_every_slot_is_preferred(self) -> None:
-        # `grouped_choices` drops it before it can render as a dead entry.
+    def test_omits_the_other_group_when_every_slot_is_preferred(self) -> None:
         choices = slot_choices([_slot(1, 10)], [1])
 
-        assert choices[2] == ("Other times", [])
+        assert choices == [
+            ("", "Choose a time…"),
+            ("Preferred by the facilitator", [(1, "Sunday, Mar 1 · 11:00–13:00")]),
+        ]

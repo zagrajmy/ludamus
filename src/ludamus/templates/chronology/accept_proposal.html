@@ -9,7 +9,7 @@
     <h1 class="text-2xl sm:text-3xl font-bold text-foreground mb-2">{% translate "Accept Proposal" %}</h1>
 {% endblock header %}
 {% block description %}
-    {% translate "Pick a space and time, then add it to the agenda." %}
+    {% translate "Review the proposal, then add it to the agenda." %}
 {% endblock description %}
 {% block body %}
     {# Two cards: proposal details beside the scheduling decision on desktop; on #}
@@ -65,15 +65,29 @@
         {# Decision card — sticky on desktop so the action stays in view #}
         <div class="card lg:sticky lg:top-6">
             <div class="card-body">
-                <div class="mb-5">
-                    <h3 class="text-base font-semibold text-foreground">{% translate "Schedule it" %}</h3>
-                    <p class="mt-0.5 text-sm text-foreground-muted">{% translate "Select a space and time to add this session to the event agenda." %}</p>
-                </div>
+                {% tessera_sole_choice form.space as sole_space %}
+                {% tessera_sole_choice form.time_slot as sole_slot %}
+                <h3 class="text-base font-semibold text-foreground mb-5">{% translate "Schedule it" %}</h3>
                 <form method="post"
                       action="{% url 'web:chronology:session-accept' event_slug=event.slug session_id=session.pk %}"
                       class="space-y-5">
                     {% csrf_token %}
                     {% tessera_errors form %}
+                    {# A field with one option asks nothing, so it renders as a #}
+                    {# hidden value — the row below is where the organizer reads #}
+                    {# what they are about to commit to. #}
+                    {% if sole_space or sole_slot %}
+                        <dl>
+                            {% if sole_space %}
+                                {% translate "Space" as space_label %}
+                                {% include "chronology/_accept_fact_row.html" with icon="map-pin" label=space_label value=sole_space %}
+                            {% endif %}
+                            {% if sole_slot %}
+                                {% translate "Time" as time_label %}
+                                {% include "chronology/_accept_fact_row.html" with icon="clock" label=time_label value=sole_slot %}
+                            {% endif %}
+                        </dl>
+                    {% endif %}
                     {% tessera_field form.space %}
                     {% tessera_field form.time_slot %}
                     <div class="[&_.btn]:w-full space-y-3 pt-1">

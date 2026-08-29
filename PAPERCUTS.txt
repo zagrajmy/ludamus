@@ -424,3 +424,9 @@ If you fix a papercut, remove it.
   Playwright then fails deep in a script. Had to pkill -f portless between runs,
   and pkill -f portless matches the invoking shell's own command line, killing
   it (exit 144).
+- 2026-08-29: Reached for 'mise run dj makemessages' to regenerate the Polish
+  catalog; CLAUDE.md names 'mise run messages-resolve' for conflicts but not
+  'mise run messages' for extraction, so the raw command looked right. It
+  rewrites every location line and stamps POT-Creation-Date, producing a
+  6000-line diff and a failing test_translation_catalog. 'mise run messages'
+  gives a 10-line diff.

@@ -818,6 +818,7 @@ msgid "Select a space..."
 msgstr "Wybierz przestrzeń..."
 
 #: src/ludamus/gates/web/django/chronology/forms.py
+#: src/ludamus/templates/chronology/accept_proposal.html
 #: src/ludamus/templates/chronology/anonymous_enroll.html
 msgid "Space"
 msgstr "Przestrzeń"
@@ -4135,6 +4136,7 @@ msgid "Any time"
 msgstr "Dowolny termin"
 
 #: src/ludamus/templates/chronology/_room_lanes.html
+#: src/ludamus/templates/chronology/accept_proposal.html
 #: src/ludamus/templates/chronology/anonymous_enroll.html
 #: src/ludamus/templates/chronology/parts/session-modal.html
 #: src/ludamus/templates/chronology/print.html
@@ -4219,8 +4221,8 @@ msgid "Accept Proposal"
 msgstr "Zaakceptuj zgłoszenie"
 
 #: src/ludamus/templates/chronology/accept_proposal.html
-msgid "Pick a space and time, then add it to the agenda."
-msgstr "Wybierz przestrzeń i godzinę, a następnie dodaj do harmonogramu."
+msgid "Review the proposal, then add it to the agenda."
+msgstr "Przejrzyj zgłoszenie, a następnie dodaj je do harmonogramu."
 
 #: src/ludamus/templates/chronology/accept_proposal.html
 #, python-format
@@ -4244,12 +4246,6 @@ msgstr "Preferowane przedziały czasowe"
 #: src/ludamus/templates/chronology/accept_proposal.html
 msgid "Schedule it"
 msgstr "Zaplanuj"
-
-#: src/ludamus/templates/chronology/accept_proposal.html
-msgid "Select a space and time to add this session to the event agenda."
-msgstr ""
-"Wybierz przestrzeń i godzinę, aby dodać ten punkt programu do harmonogramu "
-"wydarzenia."
 
 #: src/ludamus/templates/chronology/accept_proposal.html
 msgid "Accept and add to agenda"
@@ -9958,6 +9954,11 @@ msgid ""
 msgstr ""
 "Nie ma nadchodzących wydarzeń ani publicznych spotkań. Sprawdź ponownie "
 "później!"
+
+#~ msgid "Select a space and time to add this session to the event agenda."
+#~ msgstr ""
+#~ "Wybierz przestrzeń i godzinę, aby dodać ten punkt programu do "
+#~ "harmonogramu wydarzenia."
 
 #~ msgid "Creator"
 #~ msgstr "Twórca programu"

@@ -1,4 +1,4 @@
-"""Reading a choice field's options, the one place that knows their shape."""
+"""Reading a bound field's options: where the renderer knows their shape."""
 
 from __future__ import annotations
 
@@ -15,6 +15,13 @@ class ChoiceGroup(NamedTuple):
     options: list[tuple[object, object]]
 
 
+class SoleChoice(NamedTuple):
+    """The one option a field offers: what it submits, and what it is called."""
+
+    value: object
+    label: object
+
+
 def grouped_choices(field: BoundField) -> list[ChoiceGroup]:
     """Read a field's choices as groups.
 
@@ -28,7 +35,7 @@ def grouped_choices(field: BoundField) -> list[ChoiceGroup]:
     groups = []
     for value, label in getattr(field.field, "choices", []):
         if isinstance(label, (list, tuple)):
-            # An optgroup nobody put an option in is a dead entry in the list.
+            # An empty optgroup renders as a dead entry in the open list.
             if options := list(label):
                 groups.append(ChoiceGroup(label=value, options=options))
         else:
@@ -36,19 +43,19 @@ def grouped_choices(field: BoundField) -> list[ChoiceGroup]:
     return groups
 
 
-def sole_required_choice(field: BoundField) -> object | None:
+def sole_required_choice(field: BoundField) -> SoleChoice | None:
     """Return the only option a required field offers, when it offers one.
 
     Returns:
-        The value, or ``None`` when the field is optional, disabled, or leaves
-        the user a choice to make.
+        The value and its label, or ``None`` when the field is optional,
+        disabled, or leaves the user a choice to make.
     """
     if not field.field.required or field.field.disabled:
         return None
     real = [
-        value
+        (value, label)
         for group in grouped_choices(field)
-        for value, _label in group.options
+        for value, label in group.options
         if value not in {"", None}
     ]
-    return real[0] if len(real) == 1 else None
+    return SoleChoice(*real[0]) if len(real) == 1 else None

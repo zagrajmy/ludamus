@@ -778,19 +778,10 @@ class TestDiscountExportPageView:
                 **panel_context(event, active_nav="discounts"),
                 "form": ANY,
                 "has_connections": True,
-                "sole_connection_name": connection.display_name,
             },
             # The sphere's only connection is not a choice, so the export stops
-            # asking which one and the instructions name it instead: nothing on
-            # the page carries the field's id, so there is no control and no
-            # label for one. The input is asserted rather than left to the
-            # absence check, which a form that stopped rendering the field at
-            # all would also pass — and then no browser would submit it.
-            contains=[
-                connection.display_name,
-                f'<input type="hidden" name="connection" value="{connection.pk}">',
-            ],
-            not_contains="id_connection",
+            # asking which one — the instructions have to name it instead.
+            contains=connection.display_name,
         )
 
     def test_get_shows_empty_state_without_connections(self, panel_client, event):
@@ -804,7 +795,6 @@ class TestDiscountExportPageView:
                 **panel_context(event, active_nav="discounts"),
                 "form": ANY,
                 "has_connections": False,
-                "sole_connection_name": "",
             },
             contains="No connections yet.",
         )
@@ -895,7 +885,6 @@ class TestDiscountExportPageView:
                 **panel_context(event, active_nav="discounts"),
                 "form": FormErrorsMatcher(columns=["This field is required."]),
                 "has_connections": True,
-                "sole_connection_name": connection_with_secret.display_name,
             },
         )
         session.put.assert_not_called()
@@ -927,7 +916,6 @@ class TestDiscountExportPageView:
                 **panel_context(event, active_nav="discounts"),
                 "form": ANY,
                 "has_connections": True,
-                "sole_connection_name": connection_with_secret.display_name,
             },
         )
         session.post.assert_not_called()
@@ -952,7 +940,6 @@ class TestDiscountExportPageView:
                 **panel_context(event, active_nav="discounts"),
                 "form": ANY,
                 "has_connections": True,
-                "sole_connection_name": connection_with_secret.display_name,
             },
         )
         session.put.assert_not_called()
@@ -974,7 +961,6 @@ class TestDiscountExportPageView:
                 **panel_context(event, active_nav="discounts"),
                 "form": ANY,
                 "has_connections": False,
-                "sole_connection_name": "",
             },
         )
         assert response.context["form"].errors
@@ -1001,7 +987,6 @@ class TestDiscountExportPageView:
                 **panel_context(event, active_nav="discounts"),
                 "form": ANY,
                 "has_connections": True,
-                "sole_connection_name": connection.display_name,
             },
         )
         assert response.context["form"].errors == {

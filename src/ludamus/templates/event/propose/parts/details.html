@@ -24,7 +24,7 @@
                 {% tessera_field form.description %}
                 {% tessera_field form.participants_limit %}
                 {% tessera_field form.min_age %}
-                {% if form.duration %}
+                {% if "duration" in form.fields %}
                     {% tessera_field form.duration %}
                 {% endif %}
                 {% tessera_field form.display_name %}

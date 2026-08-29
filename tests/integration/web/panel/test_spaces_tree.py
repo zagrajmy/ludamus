@@ -685,7 +685,6 @@ class TestSpaceCopy:
                 **panel_context(event, active_nav="venues", rooms_count=1),
                 "node": _record(node),
                 "form": ANY,
-                "sole_target_name": "",
             },
         )
 
@@ -712,8 +711,8 @@ class TestSpaceCopy:
                 "events": [EventDTO.model_validate(e) for e in (event, target)],
                 "node": _record(node),
                 "form": ANY,
-                "sole_target_name": target.name,
             },
+            contains=target.name,
         )
 
 

@@ -32,21 +32,16 @@ def slot_choices(
     time_slots: Sequence[TimeSlotDTO], preferred_ids: Sequence[int]
 ) -> ChoiceList:
     labelled = [(slot.pk, slot_label(slot)) for slot in time_slots]
+    choices: ChoiceList = [("", gettext("Choose a time…"))]
     if not (preferred := {*preferred_ids}):
-        return [("", gettext("Choose a time…")), *labelled]
+        return [*choices, *labelled]
     # The facilitator asked for these — float them to the top so the obvious
     # choice is the first one, no footnote needed.
-    return [
-        ("", gettext("Choose a time…")),
-        (
-            gettext("Preferred by the facilitator"),
-            [pair for pair in labelled if pair[0] in preferred],
-        ),
-        (
-            gettext("Other times"),
-            [pair for pair in labelled if pair[0] not in preferred],
-        ),
-    ]
+    if wanted := [pair for pair in labelled if pair[0] in preferred]:
+        choices.append((gettext("Preferred by the facilitator"), wanted))
+    if rest := [pair for pair in labelled if pair[0] not in preferred]:
+        choices.append((gettext("Other times"), rest))
+    return choices
 
 
 def _validated_choice_id(raw: str, *, allowed: set[int], error: str) -> int:

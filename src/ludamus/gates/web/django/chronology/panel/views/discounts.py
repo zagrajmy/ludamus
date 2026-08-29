@@ -432,9 +432,4 @@ class DiscountExportPageView(PanelAccessMixin, EventContextMixin, View):
         context["active_nav"] = "discounts"
         context["form"] = form
         context["has_connections"] = bool(connections)
-        # A single connection is not a choice, so the form stops asking which
-        # one and the instructions have to name it instead.
-        context["sole_connection_name"] = (
-            connections[0].display_name if len(connections) == 1 else ""
-        )
         return TemplateResponse(self.request, "panel/discounts/export.html", context)

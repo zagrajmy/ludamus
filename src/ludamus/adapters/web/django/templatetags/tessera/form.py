@@ -92,7 +92,7 @@ def tessera_field(
         and (sole := sole_required_choice(field)) is not None
     ):
         return format_html(
-            '<input type="hidden" name="{}" value="{}">', field.html_name, sole
+            '<input type="hidden" name="{}" value="{}">', field.html_name, sole.value
         )
 
     container_class = "flex gap-y-0.5 not-last:mb-4"
@@ -110,6 +110,25 @@ def tessera_field(
         body = _render_labelled_field(field, layout=layout, required=required)
 
     return format_html('<div class="{}">\n{}\n</div>', container_class, body)
+
+
+@register.simple_tag
+def tessera_sole_choice(field: BoundField) -> str:
+    """Name the answer `tessera_field` stopped asking for.
+
+    Returns:
+        The label of the field's only option, or an empty string while the
+        field still asks the user to choose.
+
+    Usage:
+        {% tessera_sole_choice form.space as space %}
+
+    A page whose action turns on the value — it writes there, it copies
+    there — reads it from the field rather than from a context key computed
+    beside it, so the prose and the collapse can never disagree.
+    """
+    sole = sole_required_choice(field)
+    return "" if sole is None else str(sole.label)
 
 
 def _render_labelled_field(
