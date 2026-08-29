@@ -1488,6 +1488,7 @@ msgid "No events available for this sphere."
 msgstr "Brak wydarzeń dostępnych dla tej sfery."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/integrations.py
+#: src/ludamus/gates/web/django/event/panel/views/konwencik_export.py
 msgid "Integration not found."
 msgstr "Integracja nie została znaleziona."
 
@@ -2524,6 +2525,92 @@ msgstr "Nie znaleziono gildii."
 msgid "Facilitator updated successfully."
 msgstr "Twórca programu został zaktualizowany."
 
+#: src/ludamus/gates/web/django/event/panel/views/konwencik_export.py
+#, python-format
+msgid "%(count)d session skipped: longer than a day."
+msgid_plural "%(count)d sessions skipped: longer than a day."
+msgstr[0] "Pominięto %(count)d punkt programu: dłuższy niż doba."
+msgstr[1] "Pominięto %(count)d punkty programu: dłuższe niż doba."
+msgstr[2] "Pominięto %(count)d punktów programu: dłuższe niż doba."
+msgstr[3] "Pominięto %(count)d punkty programu: dłuższe niż doba."
+
+#: src/ludamus/gates/web/django/event/panel/views/konwencik_export.py
+#, python-format
+msgid "%(count)d session skipped: every block it is in is internal."
+msgid_plural "%(count)d sessions skipped: every block they are in is internal."
+msgstr[0] ""
+"Pominięto %(count)d punkt programu: wszystkie jego bloki są wewnętrzne."
+msgstr[1] ""
+"Pominięto %(count)d punkty programu: wszystkie ich bloki są wewnętrzne."
+msgstr[2] ""
+"Pominięto %(count)d punktów programu: wszystkie ich bloki są wewnętrzne."
+msgstr[3] ""
+"Pominięto %(count)d punkty programu: wszystkie ich bloki są wewnętrzne."
+
+#: src/ludamus/gates/web/django/event/panel/views/konwencik_export.py
+#: src/ludamus/templates/panel/session-field-create.html
+#: src/ludamus/templates/panel/session-field-edit.html
+msgid "Icon"
+msgstr "Ikona"
+
+#: src/ludamus/gates/web/django/event/panel/views/konwencik_export.py
+msgid "Konwencik's own notation, for example fa.gamepad."
+msgstr "Notacja Konwencika, na przykład fa.gamepad."
+
+#: src/ludamus/gates/web/django/event/panel/views/konwencik_export.py
+msgid "Background"
+msgstr "Tło"
+
+#: src/ludamus/gates/web/django/event/panel/views/konwencik_export.py
+msgid "Use a hex colour, e.g. #1e88e5."
+msgstr "Podaj kolor w zapisie szesnastkowym, np. #1e88e5."
+
+#: src/ludamus/gates/web/django/event/panel/views/konwencik_export.py
+msgid "Leave empty for no background."
+msgstr "Zostaw puste, aby nie ustawiać tła."
+
+#: src/ludamus/gates/web/django/event/panel/views/konwencik_export.py
+msgid "Photo link field"
+msgstr "Pole z linkiem do zdjęcia"
+
+#: src/ludamus/gates/web/django/event/panel/views/konwencik_export.py
+msgid "Icon field"
+msgstr "Pole z ikoną"
+
+#: src/ludamus/gates/web/django/event/panel/views/konwencik_export.py
+msgid "Keep the Konwencik tab in sync"
+msgstr "Utrzymuj zakładkę Konwencika w synchronizacji"
+
+#: src/ludamus/gates/web/django/event/panel/views/konwencik_export.py
+msgid "Re-exports the schedule periodically until the event is over."
+msgstr "Cyklicznie eksportuje harmonogram do zakończenia wydarzenia."
+
+#: src/ludamus/gates/web/django/event/panel/views/konwencik_export.py
+msgid "No override"
+msgstr "Bez nadpisania"
+
+#: src/ludamus/gates/web/django/event/panel/views/konwencik_export.py
+msgid "Export settings saved."
+msgstr "Zapisano ustawienia eksportu."
+
+#: src/ludamus/gates/web/django/event/panel/views/konwencik_export.py
+msgid "An export is already running, try again shortly."
+msgstr "Eksport już trwa, spróbuj za chwilę."
+
+#: src/ludamus/gates/web/django/event/panel/views/konwencik_export.py
+#, python-format
+msgid "Export failed: %(error)s"
+msgstr "Eksport nie powiódł się: %(error)s"
+
+#: src/ludamus/gates/web/django/event/panel/views/konwencik_export.py
+#, python-format
+msgid "Exported %(count)d session."
+msgid_plural "Exported %(count)d sessions."
+msgstr[0] "Wyeksportowano %(count)d punkt programu."
+msgstr[1] "Wyeksportowano %(count)d punkty programu."
+msgstr[2] "Wyeksportowano %(count)d punktów programu."
+msgstr[3] "Wyeksportowano %(count)d punkty programu."
+
 #: src/ludamus/gates/web/django/event/panel/views/proposal_category_settings.py
 msgid "Category updated successfully."
 msgstr "Kategoria została zaktualizowana."
@@ -3543,6 +3630,7 @@ msgstr "Limit uczestników"
 #: src/ludamus/gates/web/django/templatetags/cfp_tags.py
 #: src/ludamus/templates/event/propose/parts/details.html
 #: src/ludamus/templates/panel/base.html
+#: src/ludamus/templates/panel/konwencik-export-settings.html
 #: src/ludamus/templates/panel/proposal-detail.html
 #: src/ludamus/templates/panel/proposal-form.html
 #: src/ludamus/templates/panel/track-create.html
@@ -4920,6 +5008,7 @@ msgstr "Edytuj integrację"
 #: src/ludamus/templates/panel/display-settings.html
 #: src/ludamus/templates/panel/facilitator-columns.html
 #: src/ludamus/templates/panel/facilitator-edit.html
+#: src/ludamus/templates/panel/konwencik-export-settings.html
 #: src/ludamus/templates/panel/parts/import-review-region.html
 #: src/ludamus/templates/panel/personal-data-field-edit.html
 #: src/ludamus/templates/panel/proposal-columns.html
@@ -7086,6 +7175,11 @@ msgid "Venues"
 msgstr "Lokalizacje"
 
 #: src/ludamus/templates/panel/base.html
+#: src/ludamus/templates/panel/konwencik-export-settings.html
+msgid "Konwencik export"
+msgstr "Eksport do Konwencika"
+
+#: src/ludamus/templates/panel/base.html
 msgid "Print Materials"
 msgstr "Materiały do druku"
 
@@ -8466,6 +8560,105 @@ msgstr ""
 msgid "No changes recorded yet."
 msgstr "Nie zapisano jeszcze żadnych zmian."
 
+#: src/ludamus/templates/panel/konwencik-export-settings.html
+msgid "Export now"
+msgstr "Eksportuj teraz"
+
+#: src/ludamus/templates/panel/konwencik-export-settings.html
+msgid ""
+"No Konwencik export yet. Add one in Settings → Integrations to publish this "
+"event's schedule to a Konwencik spreadsheet."
+msgstr ""
+"Nie ma jeszcze eksportu do Konwencika. Dodaj go w sekcji Ustawienia → "
+"Integracje, aby opublikować harmonogram tego wydarzenia w arkuszu Konwencika."
+
+#: src/ludamus/templates/panel/konwencik-export-settings.html
+msgid ""
+"The Konwencik tab is rewritten as plain text on every run. Do not put "
+"formulas, notes or hand-typed rows in it — they are lost on the next export. "
+"Other tabs in the spreadsheet are never touched."
+msgstr ""
+"Zakładka Konwencika jest nadpisywana zwykłym tekstem przy każdym "
+"uruchomieniu. Nie umieszczaj w niej formuł, notatek ani ręcznie wpisanych "
+"wierszy — zostaną utracone przy następnym eksporcie. Pozostałe zakładki "
+"arkusza nie są nigdy zmieniane."
+
+#: src/ludamus/templates/panel/konwencik-export-settings.html
+msgid "Last export"
+msgstr "Ostatni eksport"
+
+#: src/ludamus/templates/panel/konwencik-export-settings.html
+#, python-format
+msgid "%(when)s — %(counter)s session written."
+msgid_plural "%(when)s — %(counter)s sessions written."
+msgstr[0] "%(when)s — zapisano %(counter)s punkt programu."
+msgstr[1] "%(when)s — zapisano %(counter)s punkty programu."
+msgstr[2] "%(when)s — zapisano %(counter)s punktów programu."
+msgstr[3] "%(when)s — zapisano %(counter)s punkty programu."
+
+#: src/ludamus/templates/panel/konwencik-export-settings.html
+#, python-format
+msgid "%(when)s — failed: %(hint)s"
+msgstr "%(when)s — niepowodzenie: %(hint)s"
+
+#: src/ludamus/templates/panel/konwencik-export-settings.html
+#, python-format
+msgid "%(counter)s session skipped: longer than a day."
+msgid_plural "%(counter)s sessions skipped: longer than a day."
+msgstr[0] "Pominięto %(counter)s punkt programu: dłuższy niż doba."
+msgstr[1] "Pominięto %(counter)s punkty programu: dłuższe niż doba."
+msgstr[2] "Pominięto %(counter)s punktów programu: dłuższe niż doba."
+msgstr[3] "Pominięto %(counter)s punkty programu: dłuższe niż doba."
+
+#: src/ludamus/templates/panel/konwencik-export-settings.html
+#, python-format
+msgid "%(counter)s session skipped: every block it is in is internal."
+msgid_plural ""
+"%(counter)s sessions skipped: every block they are in is internal."
+msgstr[0] ""
+"Pominięto %(counter)s punkt programu: wszystkie jego bloki są wewnętrzne."
+msgstr[1] ""
+"Pominięto %(counter)s punkty programu: wszystkie ich bloki są wewnętrzne."
+msgstr[2] ""
+"Pominięto %(counter)s punktów programu: wszystkie ich bloki są wewnętrzne."
+msgstr[3] ""
+"Pominięto %(counter)s punkty programu: wszystkie ich bloki są wewnętrzne."
+
+#: src/ludamus/templates/panel/konwencik-export-settings.html
+msgid "Attraction kinds"
+msgstr "Rodzaje atrakcji"
+
+#: src/ludamus/templates/panel/konwencik-export-settings.html
+msgid ""
+"No attraction kinds yet. Add one in the event settings to give it an icon."
+msgstr ""
+"Nie ma jeszcze rodzajów atrakcji. Dodaj jeden w ustawieniach wydarzenia, aby "
+"nadać mu ikonę."
+
+#: src/ludamus/templates/panel/konwencik-export-settings.html
+msgid ""
+"No public tracks yet. A session with no public track is exported without a "
+"track."
+msgstr ""
+"Nie ma jeszcze publicznych bloków. Punkt programu bez publicznego bloku jest "
+"eksportowany bez bloku."
+
+#: src/ludamus/templates/panel/konwencik-export-settings.html
+msgid "Overrides"
+msgstr "Nadpisania"
+
+#: src/ludamus/templates/panel/konwencik-export-settings.html
+msgid ""
+"A session field whose answer replaces the value the export would otherwise "
+"write."
+msgstr ""
+"Pole punktu programu, którego odpowiedź zastępuje wartość zapisywaną przez "
+"eksport."
+
+#: src/ludamus/templates/panel/konwencik-export-settings.html
+msgid "Synchronisation"
+msgstr "Synchronizacja"
+
 #: src/ludamus/templates/panel/mcp-token.html
 #, python-format
 msgid ""
@@ -9428,11 +9621,6 @@ msgstr "np. Jakiego systemu RPG użyjesz?"
 
 #: src/ludamus/templates/panel/session-field-create.html
 #: src/ludamus/templates/panel/session-field-edit.html
-msgid "Icon"
-msgstr "Ikona"
-
-#: src/ludamus/templates/panel/session-field-create.html
-#: src/ludamus/templates/panel/session-field-edit.html
 msgid "e.g., puzzle-piece, star"
 msgstr "np. puzzle-piece, star"
 
@@ -9956,9 +10144,6 @@ msgstr ""
 "Nie ma nadchodzących wydarzeń ani publicznych spotkań. Sprawdź ponownie "
 "później!"
 
-#~ msgid "End time must be after start time."
-#~ msgstr "Czas zakończenia musi być po czasie rozpoczęcia."
-
 #~ msgid "Creator"
 #~ msgstr "Twórca programu"
 
@@ -9968,6 +10153,12 @@ msgstr ""
 #~ msgstr ""
 #~ "Zapisuje wszystkich twórców programu wraz z rodzajem akredytacji i zniżką "
 #~ "do pierwszej zakładki wybranego arkusza, zastępując jego obecną zawartość."
+
+#~ msgid "End time must be after start time."
+#~ msgstr "Czas zakończenia musi być po czasie rozpoczęcia."
+
+#~ msgid "Back to integrations"
+#~ msgstr "Wróć do integracji"
 
 #~ msgid "Required age"
 #~ msgstr "Wymagany wiek"
@@ -10007,6 +10198,18 @@ msgstr ""
 #~ msgid "Enrollment required"
 #~ msgstr "Wymagane zapisy"
 
+#~ msgid "Sessions with enrollment"
+#~ msgstr "Punkty programu z zapisami"
+
+#~ msgid "Takes enrollment"
+#~ msgstr "Z zapisami"
+
+#~ msgid "No session at this event takes enrollment"
+#~ msgstr "Żaden punkt programu na tym wydarzeniu nie wymaga zapisów"
+
+#~ msgid "Show the full schedule"
+#~ msgstr "Pokaż pełny harmonogram"
+
 #~ msgid "Pending Proposals"
 #~ msgstr "Oczekujące zgłoszenia"
 
@@ -10025,17 +10228,9 @@ msgstr ""
 #~ msgid "Awaiting review"
 #~ msgstr "Czeka na akceptację"
 
-#~ msgid "Sessions with enrollment"
-#~ msgstr "Punkty programu z zapisami"
-
-#~ msgid "Takes enrollment"
-#~ msgstr "Z zapisami"
-
-#~ msgid "No session at this event takes enrollment"
-#~ msgstr "Żaden punkt programu na tym wydarzeniu nie wymaga zapisów"
-
-#~ msgid "Show the full schedule"
-#~ msgstr "Pokaż pełny harmonogram"
+#, python-format
+#~ msgid "Edit proposal %(title)s"
+#~ msgstr "Edytuj zgłoszenie %(title)s"
 
 #~ msgid "Analytics settings"
 #~ msgstr "Ustawienia analityki"
@@ -10043,29 +10238,14 @@ msgstr ""
 #~ msgid "Analytics consent"
 #~ msgstr "Zgoda na analitykę"
 
-#, python-format
-#~ msgid ""
-#~ "We use analytics to see how people use the site, including session "
-#~ "replays with every input masked. It runs only if you agree. Errors work "
-#~ "differently: when something breaks we always record what went wrong, plus "
-#~ "your account id if you are signed in, so we can fix it. More in the <a "
-#~ "href=\"%(privacy_url)s\">Privacy Policy</a>."
-#~ msgstr ""
-#~ "Używamy analityki, aby zobaczyć, jak ludzie korzystają z serwisu. "
-#~ "Obejmuje to nagrania sesji z zamaskowanymi wszystkimi polami. Działa "
-#~ "tylko wtedy, gdy się zgodzisz. Z błędami jest inaczej: kiedy coś się "
-#~ "zepsuje, zawsze zapisujemy, co poszło nie tak, a jeśli masz zalogowane "
-#~ "konto, także jego identyfikator, żebyśmy mogli to naprawić. Więcej w <a "
-#~ "href=\"%(privacy_url)s\">Polityce prywatności</a>."
-
 #~ msgid "Decline analytics"
 #~ msgstr "Odrzuć analitykę"
 
 #~ msgid "Allow analytics"
 #~ msgstr "Włącz analitykę"
 
-#~ msgid "Empty or 0 = no limit"
-#~ msgstr "Puste pole lub 0 = bez limitu"
+#~ msgid "This does not belong to the event."
+#~ msgstr "To nie należy do tego wydarzenia."
 
 #, python-format
 #~ msgid ""
@@ -10084,6 +10264,9 @@ msgstr ""
 
 #~ msgid "Not Available"
 #~ msgstr "Niedostępne"
+
+#~ msgid "Empty or 0 = no limit"
+#~ msgstr "Puste pole lub 0 = bez limitu"
 
 #~ msgid "Deleted only"
 #~ msgstr "Tylko usunięci"
@@ -10416,8 +10599,19 @@ msgstr ""
 #~ msgstr "Twórca programu zwolniony."
 
 #, python-format
-#~ msgid "Edit proposal %(title)s"
-#~ msgstr "Edytuj zgłoszenie %(title)s"
+#~ msgid ""
+#~ "We use analytics to see how people use the site, including session "
+#~ "replays with every input masked. It runs only if you agree. Errors work "
+#~ "differently: when something breaks we always record what went wrong, plus "
+#~ "your account id if you are signed in, so we can fix it. More in the <a "
+#~ "href=\"%(privacy_url)s\">Privacy Policy</a>."
+#~ msgstr ""
+#~ "Używamy analityki, aby zobaczyć, jak ludzie korzystają z serwisu. "
+#~ "Obejmuje to nagrania sesji z zamaskowanymi wszystkimi polami. Działa "
+#~ "tylko wtedy, gdy się zgodzisz. Z błędami jest inaczej: kiedy coś się "
+#~ "zepsuje, zawsze zapisujemy, co poszło nie tak, a jeśli masz zalogowane "
+#~ "konto, także jego identyfikator, żebyśmy mogli to naprawić. Więcej w <a "
+#~ "href=\"%(privacy_url)s\">Polityce prywatności</a>."
 
 #~ msgid "No public encounters."
 #~ msgstr "Brak publicznych spotkań."
