@@ -37,7 +37,6 @@ if TYPE_CHECKING:
         AnonymousEnrollmentServiceProtocol,
         EnrollmentServiceProtocol,
         EnrollmentSettingsServiceProtocol,
-        NotificationsServiceProtocol,
         WaitlistPromotionServiceProtocol,
     )
     from ludamus.pacts.errata import ErrataServiceProtocol
@@ -56,6 +55,7 @@ if TYPE_CHECKING:
         SitesServiceProtocol,
         SpherePanelServiceProtocol,
     )
+    from ludamus.pacts.notifications import NotificationsServiceProtocol
     from ludamus.pacts.panel import (
         FacilitatorPanelServiceProtocol,
         ProposalPanelServiceProtocol,

@@ -7,7 +7,7 @@ from django.conf import settings
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
 
-from ludamus.adapters.web.django.views import EventInfo
+from ludamus.gates.web.django.chronology.event_presentation import EventInfo
 from ludamus.gates.web.django.helpers import placeholder_cover_url
 from ludamus.links.db.django.models import Announcement, Track
 from ludamus.pacts import EventListItemDTO
@@ -21,7 +21,7 @@ from tests.integration.conftest import (
     SessionFactory,
     SpaceFactory,
 )
-from tests.integration.utils import assert_response
+from tests.integration.utils import assert_response, assert_response_404
 
 
 def _expected_event_info(event, *, session_count=0, cover_index=0):
@@ -90,6 +90,14 @@ class TestIndexRedirectView:
             response, HTTPStatus.FOUND, url=reverse("web:notice-board:index")
         )
 
+    def test_redirects_to_timeline_when_default_page_is_timeline(self, client, sphere):
+        sphere.default_page = "timeline"
+        sphere.save()
+
+        response = client.get(self.URL)
+
+        assert_response(response, HTTPStatus.FOUND, url=reverse("web:timeline"))
+
 
 class TestEventsPageView:
     URL = reverse("web:events")
@@ -111,6 +119,14 @@ class TestEventsPageView:
         )
         assert "Cookie" in response.headers.get("Vary", "")
         assert f'data-commit-sha="{settings.COMMIT_SHA}"'.encode() in response.content
+
+    def test_404_when_events_page_disabled(self, client, sphere):
+        sphere.enabled_pages = ["encounters"]
+        sphere.save()
+
+        response = client.get(self.URL)
+
+        assert_response_404(response)
 
     def test_ok_with_event(self, client, event):
         response = client.get(self.URL)
