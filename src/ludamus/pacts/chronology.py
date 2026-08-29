@@ -45,6 +45,7 @@ class IntegrationKind(StrEnum):
 class IntegrationImplementationId(StrEnum):
     GOOGLE_PROPOSAL_PULLER = "google-proposal-puller"
     KONWENCIK_SHEET_PUSHER = "konwencik-sheet-pusher"
+    SKLEP_KAPITULARZ = "sklep-kapitularz"
 
 
 class CheckOutcome(StrEnum):
@@ -73,14 +74,17 @@ class SourceQuestion(BaseModel):
 
 
 class IntegrationImplementation(Protocol):
-    # What every integration has, whichever way the data flows.
+    # What every integration shares, whichever way the data flows: which kind
+    # it serves, the shape of its per-event config, and a credential probe the
+    # panel can run. Everything provider-specific (auth header format, response
+    # payload shape) stays behind the kind-specific subprotocols below.
     kind: IntegrationKind
     config_model: type[BaseModel]
 
     def check(self, secret: bytes, config: BaseModel) -> CheckResult: ...
 
 
-class ProposalSourceImplementation(IntegrationImplementation, Protocol):
+class ImportIntegrationImplementation(IntegrationImplementation, Protocol):
     # An integration proposals can be pulled from. Kept apart from the base so
     # an exporter does not carry three dead stubs, and so mypy rejects one
     # being registered as a source.
@@ -93,6 +97,12 @@ class ProposalSourceImplementation(IntegrationImplementation, Protocol):
     def fetch_responses(
         self, *, secret: bytes, config: BaseModel, header_row: int = 1
     ) -> list[ImportRow]: ...
+
+
+class TicketingIntegrationImplementation(IntegrationImplementation, Protocol):
+    def fetch_membership_count(
+        self, *, secret: bytes, config: BaseModel, user_email: str
+    ) -> int: ...
 
 
 class EventIntegrationDTO(BaseModel):

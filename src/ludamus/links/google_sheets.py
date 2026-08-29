@@ -9,12 +9,8 @@ import requests
 from google.auth.exceptions import GoogleAuthError
 from pydantic import BaseModel, Field
 
-from ludamus.links.google_auth import (
-    ERROR_HINT_LIMIT,
-    CredentialsError,
-    build_session,
-    probe,
-)
+from ludamus.links.google_auth import CredentialsError, build_session, probe
+from ludamus.links.http_check import ERROR_HINT_LIMIT
 from ludamus.pacts.chronology import (
     CheckOutcome,
     CheckResult,

@@ -7,6 +7,7 @@ from http import HTTPStatus
 from unittest.mock import ANY, MagicMock, patch
 
 import pytest
+import responses
 from django.contrib import messages
 from django.urls import reverse
 
@@ -740,4 +741,111 @@ class TestIntegrationCheckActionView:
                 "hint": "Configuration must be a JSON object.",
                 "signature": "",
             },
+        )
+
+
+TICKETING_IMPL = IntegrationImplementationId.SKLEP_KAPITULARZ
+TICKETING_URL = "https://shop.example.com/api/memberships"
+TICKETING_CONFIG_JSON = json.dumps({"base_url": TICKETING_URL})
+
+
+@pytest.mark.django_db
+class TestTicketingIntegration:
+    def test_post_creates_a_ticketing_integration(
+        self, panel_client, event, connection
+    ):
+        response = panel_client.post(
+            _create_url(event),
+            data={
+                "display_name": "Kapitularz",
+                "implementation": TICKETING_IMPL.value,
+                "connection": str(connection.pk),
+                "config_json": TICKETING_CONFIG_JSON,
+                "last_ok_signature": integration_signature(
+                    connection.pk, TICKETING_CONFIG_JSON
+                ),
+            },
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Integration created.")],
+            url=_settings_url(event),
+        )
+        integration = EventIntegration.objects.get(
+            event=event, display_name="Kapitularz"
+        )
+        assert integration.kind == "ticketing"
+
+    def test_post_rejects_a_base_url_without_a_scheme(
+        self, panel_client, event, connection
+    ):
+        config_json = json.dumps({"base_url": "shop.example.com"})
+
+        response = panel_client.post(
+            _create_url(event),
+            data={
+                "display_name": "Kapitularz",
+                "implementation": TICKETING_IMPL.value,
+                "connection": str(connection.pk),
+                "config_json": config_json,
+                "last_ok_signature": integration_signature(connection.pk, config_json),
+            },
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="chronology/panel/integrations/create.html",
+            context_data=panel_context(event) | {"active_nav": "settings", "form": ANY},
+        )
+        assert not EventIntegration.objects.filter(event=event).exists()
+
+    def test_check_reports_a_reachable_shop(
+        self, panel_client, event, connection_with_secret
+    ):
+        with responses.RequestsMock() as rsps:
+            rsps.get(TICKETING_URL, json={"membership_count": 0})
+            response = panel_client.post(
+                _check_url(event),
+                data={
+                    "implementation": TICKETING_IMPL.value,
+                    "connection": str(connection_with_secret.pk),
+                    "config_json": TICKETING_CONFIG_JSON,
+                },
+            )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="chronology/panel/integrations/_check_result.html",
+            context_data={
+                "passed": True,
+                "hint": "",
+                "signature": integration_signature(
+                    connection_with_secret.pk, TICKETING_CONFIG_JSON
+                ),
+            },
+        )
+
+    def test_check_reports_a_rejected_token(
+        self, panel_client, event, connection_with_secret
+    ):
+        with responses.RequestsMock() as rsps:
+            rsps.get(TICKETING_URL, status=HTTPStatus.UNAUTHORIZED, body="nope")
+            response = panel_client.post(
+                _check_url(event),
+                data={
+                    "implementation": TICKETING_IMPL.value,
+                    "connection": str(connection_with_secret.pk),
+                    "config_json": TICKETING_CONFIG_JSON,
+                },
+            )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="chronology/panel/integrations/_check_result.html",
+            context_data={"passed": False, "hint": "nope", "signature": ""},
         )

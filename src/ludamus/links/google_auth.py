@@ -10,23 +10,19 @@ from google.auth.exceptions import GoogleAuthError
 from google.auth.transport.requests import AuthorizedSession
 from google.oauth2.service_account import Credentials
 
+from ludamus.links.http_check import probe_failed, probe_result
 from ludamus.links.retry import mount_retries
-from ludamus.pacts.chronology import CheckOutcome, CheckResult
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Mapping, Sequence
+
+    from ludamus.pacts.chronology import CheckResult
 
 
 class _CredentialsFactory(Protocol):
     def __call__(
         self, info: Mapping[str, object], *, scopes: list[str]
     ) -> Credentials: ...
-
-
-ERROR_HINT_LIMIT = 200
-HTTP_UNAUTHORIZED = 401
-HTTP_FORBIDDEN = 403
-HTTP_NOT_FOUND = 404
 
 
 class CredentialsError(Exception):
@@ -63,26 +59,5 @@ def probe(*, send: Callable[[], requests.Response], what: str) -> CheckResult:
     try:
         response = send()
     except (requests.RequestException, GoogleAuthError) as exc:
-        return CheckResult(
-            outcome=CheckOutcome.AUTH_FAILED,
-            hint=f"{what.capitalize()} request failed: {exc}",
-        )
-    if response.ok:
-        return CheckResult(outcome=CheckOutcome.OK, hint="")
-    body = (response.text or "")[:ERROR_HINT_LIMIT]
-    if response.status_code == HTTP_UNAUTHORIZED:
-        return CheckResult(outcome=CheckOutcome.AUTH_FAILED, hint=body)
-    if response.status_code == HTTP_FORBIDDEN:
-        return CheckResult(
-            outcome=CheckOutcome.FORBIDDEN,
-            hint=f"Service account cannot access this {what}: {body}",
-        )
-    if response.status_code == HTTP_NOT_FOUND:
-        return CheckResult(
-            outcome=CheckOutcome.NOT_FOUND,
-            hint=f"{what.capitalize()} not found: {body}",
-        )
-    return CheckResult(
-        outcome=CheckOutcome.AUTH_FAILED,
-        hint=f"Unexpected {response.status_code} from Google: {body}",
-    )
+        return probe_failed(exc, what=what)
+    return probe_result(response, what=what)

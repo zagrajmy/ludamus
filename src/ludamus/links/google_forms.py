@@ -20,8 +20,8 @@ from ludamus.links.google_sheets import (
 from ludamus.pacts.chronology import (
     CheckOutcome,
     CheckResult,
+    ImportIntegrationImplementation,
     IntegrationKind,
-    ProposalSourceImplementation,
     SourceQuestion,
 )
 from ludamus.pacts.submissions import ImportRow
@@ -117,7 +117,7 @@ class GoogleDocsProposalConfig(BaseModel):
     form_id: str
 
 
-class GoogleDocsProposalImporter(ProposalSourceImplementation):
+class GoogleDocsProposalImporter(ImportIntegrationImplementation):
     """Pulls proposals from a Google Sheets responses tab linked to a Form."""
 
     kind: IntegrationKind = IntegrationKind.IMPORT
