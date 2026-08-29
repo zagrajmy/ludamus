@@ -90,11 +90,13 @@ class TestIndexRedirectView:
             response, HTTPStatus.FOUND, url=reverse("web:notice-board:index")
         )
 
-    def test_redirects_to_timeline_when_default_page_is_timeline(self, client, sphere):
-        sphere.default_page = "timeline"
-        sphere.save()
+    def test_redirects_to_timeline_when_default_page_is_timeline(
+        self, client, non_root_sphere
+    ):
+        non_root_sphere.default_page = "timeline"
+        non_root_sphere.save()
 
-        response = client.get(self.URL)
+        response = client.get(self.URL, HTTP_HOST=non_root_sphere.site.domain)
 
         assert_response(response, HTTPStatus.FOUND, url=reverse("web:timeline"))
 

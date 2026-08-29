@@ -21,4 +21,6 @@ def index_page(request: RootRequest) -> HttpResponse:
     sphere = request.services.sites.read(context.current_sphere_id)
     if sphere.default_page == SpherePage.ENCOUNTERS:
         return redirect("web:notice-board:index")
+    if sphere.default_page == SpherePage.TIMELINE:
+        return redirect("web:timeline")
     return redirect("web:events")
