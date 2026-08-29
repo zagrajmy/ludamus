@@ -1,0 +1,138 @@
+{% extends "panel/base.html" %}
+{% load i18n %}
+{% load tessera %}
+{% block title %}
+    {{ session.title }} • {% translate "Co-facilitators" %}
+{% endblock title %}
+{% block page_title %}
+    {% translate "Co-facilitators" %}
+{% endblock page_title %}
+{% block page_subtitle %}
+    {% if current_event %}
+        {{ current_event.name }} · {{ session.title }}
+    {% endif %}
+{% endblock page_subtitle %}
+{% block header_actions %}
+    {% if current_event %}
+        {% url 'panel:cofacilitators' slug=current_event.slug as back_url %}
+        {% translate "Back to the list" as t_back %}
+        {% tessera_button t_back href=back_url variant="secondary" %}
+    {% endif %}
+{% endblock header_actions %}
+{% block content %}
+    <div class="p-3 sm:p-4">
+        {% if current_event %}
+            <div class="card mb-6">
+                <div class="card-body">
+                    <h2 class="text-sm font-semibold text-foreground-muted uppercase tracking-wider mb-2">{{ chosen_field.name }}</h2>
+                    <p class="text-foreground">{{ session.value }}</p>
+                    <h2 class="text-sm font-semibold text-foreground-muted uppercase tracking-wider mt-6 mb-2">
+                        {% translate "Facilitators of this session" %}
+                    </h2>
+                    <p class="text-foreground">
+                        {% for facilitator in session.facilitators %}
+                            {{ facilitator.display_name }}{% if not forloop.last %},{% endif %}
+                        {% empty %}
+                            {% translate "None yet." %}
+                        {% endfor %}
+                    </p>
+                </div>
+            </div>
+            {% if rows %}
+                <form method="post" class="space-y-6">
+                    {% csrf_token %}
+                    <input type="hidden" name="field" value="{{ chosen_field.pk }}">
+                    {% for row in rows %}
+                        <div class="card">
+                            <div class="card-body space-y-4">
+                                <h3 class="text-lg font-semibold text-foreground">
+                                    {{ row.candidate.name }}
+                                    {% if row.candidate.already_linked %}
+                                        <span class="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-bg-tertiary text-foreground-muted">
+                                            {% translate "Already on this session" %}
+                                        </span>
+                                    {% endif %}
+                                </h3>
+                                {% if row.error %}<p class="text-sm text-danger">{{ row.error }}</p>{% endif %}
+                                <fieldset class="space-y-2">
+                                    <legend class="block text-sm font-medium text-foreground-secondary mb-1">{% translate "What is this person?" %}</legend>
+                                    <label class="flex items-center gap-2 text-sm text-foreground">
+                                        <input type="radio"
+                                               name="{{ row.prefix }}_target"
+                                               value="new"
+                                               {% if row.target == "new" %}checked{% endif %}>
+                                        {% translate "A facilitator we do not have yet" %}
+                                    </label>
+                                    <label class="flex items-center gap-2 text-sm text-foreground">
+                                        <input type="radio"
+                                               name="{{ row.prefix }}_target"
+                                               value="existing"
+                                               {% if row.target == "existing" %}checked{% endif %}>
+                                        {% translate "Somebody we already have" %}
+                                        {% if row.candidate.match %}
+                                            <span class="text-foreground-muted">{% blocktranslate with name=row.candidate.match.display_name %}(same name as {{ name }}){% endblocktranslate %}</span>
+                                        {% endif %}
+                                    </label>
+                                    <label class="flex items-center gap-2 text-sm text-foreground">
+                                        <input type="radio"
+                                               name="{{ row.prefix }}_target"
+                                               value="skip"
+                                               {% if row.target == "skip" %}checked{% endif %}>
+                                        {% translate "Not a person — leave it out" %}
+                                    </label>
+                                </fieldset>
+                                <div>
+                                    <label class="block text-sm font-medium text-foreground-secondary mb-1"
+                                           for="{{ row.prefix }}_existing">{% translate "Link to" %}</label>
+                                    {% select name=row.prefix|add:"_existing" id=row.prefix|add:"_existing" class="w-full truncate" %}
+                                        <option value="">{% translate "Choose a facilitator" %}</option>
+                                        {% for facilitator in existing_facilitators %}
+                                            <option value="{{ facilitator.pk }}"
+                                                    {% if row.existing_id == facilitator.pk|stringformat:"s" %}selected{% endif %}>
+                                                {{ facilitator.display_name }}
+                                            </option>
+                                        {% endfor %}
+                                    {% endselect %}
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium text-foreground-secondary mb-1"
+                                           for="{{ row.prefix }}_name">{% translate "Display name of the new facilitator" %}</label>
+                                    <input type="text"
+                                           name="{{ row.prefix }}_name"
+                                           id="{{ row.prefix }}_name"
+                                           value="{{ row.name }}"
+                                           class="w-full border border-border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary">
+                                </div>
+                                {% if row.descriptors %}
+                                    {% include "panel/_personal_data_fields.html" with descriptors=row.descriptors %}
+                                {% endif %}
+                            </div>
+                        </div>
+                    {% endfor %}
+                    <div class="flex flex-wrap gap-2">
+                        {% translate "Add to the session" as t_add %}
+                        {% tessera_button t_add icon="plus" %}
+                    </div>
+                </form>
+            {% else %}
+                <div class="card p-8 text-center">
+                    <p class="text-foreground-muted">{% translate "This answer names nobody." %}</p>
+                </div>
+            {% endif %}
+            <form method="post"
+                  action="{% url 'panel:cofacilitator-clear' slug=current_event.slug session_id=session.session_id %}"
+                  class="mt-6"
+                  data-confirm="{% translate 'Clear the answer? The text goes away for good; the facilitators you already added stay on the session.' %}"
+                  data-confirm-action="{% translate 'Clear the answer' %}">
+                {% csrf_token %}
+                <input type="hidden" name="field" value="{{ chosen_field.pk }}">
+                {% translate "Clear the answer" as t_clear %}
+                {% tessera_button t_clear variant="secondary" icon="trash" %}
+            </form>
+        {% else %}
+            <div class="card p-8 text-center">
+                <p class="text-foreground-muted">{% translate "No events available. Create an event to get started." %}</p>
+            </div>
+        {% endif %}
+    </div>
+{% endblock content %}

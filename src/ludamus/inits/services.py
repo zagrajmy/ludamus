@@ -64,6 +64,7 @@ from ludamus.mills.multiverse import (
     SpherePanelService,
 )
 from ludamus.mills.notifications import NotificationsService
+from ludamus.mills.panel_cofacilitators import CofacilitatorPanelService
 from ludamus.mills.panel_facilitators import FacilitatorPanelService
 from ludamus.mills.panel_proposals import ProposalPanelService
 from ludamus.mills.panel_time_slots import PanelTimeSlotsService
@@ -95,7 +96,11 @@ from ludamus.mills.venues import SpaceTreeService, VenuesService
 from ludamus.pacts.chronology import IntegrationImplementationId
 from ludamus.pacts.enrollment import EnrollmentRepos
 from ludamus.pacts.event_settings import EventSettingsRepos
-from ludamus.pacts.panel import FacilitatorPanelRepos, ProposalPanelRepos
+from ludamus.pacts.panel import (
+    CofacilitatorPanelRepos,
+    FacilitatorPanelRepos,
+    ProposalPanelRepos,
+)
 from ludamus.pacts.propose import ProposeRepos
 from ludamus.pacts.submissions import ImportRepos, ProposalCategorySettingsRepos
 from ludamus.pacts.timetable import TimetableRepos
@@ -144,6 +149,19 @@ class Services:
             personal_data_field_values=self._repos.personal_data_field_values,
             personal_data_fields=self._repos.personal_data_fields,
             facilitator_change_logs=self._repos.facilitator_change_logs,
+        )
+
+    @cached_property
+    def cofacilitator_panel(self) -> CofacilitatorPanelService:
+        return CofacilitatorPanelService(
+            transaction=self._transaction,
+            repos=CofacilitatorPanelRepos(
+                sessions=self._repos.sessions,
+                session_fields=self._repos.session_fields,
+                facilitators=self._repos.facilitators,
+                personal_data_fields=self._repos.personal_data_fields,
+            ),
+            facilitator_panel=self.facilitator_panel,
         )
 
     @cached_property

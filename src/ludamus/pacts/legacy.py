@@ -154,6 +154,16 @@ class SessionFieldValueDTO(BaseModel):
     value: str | list[str] | bool
 
 
+class SessionWithFieldValueDTO(BaseModel):
+    """One session and its answer to a single field, as plain text."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    session_id: int
+    title: str
+    value: str
+
+
 UNSCHEDULED_LIST_LIMIT = 20
 
 
@@ -889,6 +899,14 @@ class SessionRepositoryProtocol(Protocol):
     def delete_field_values_for_fields(
         session_id: int, field_ids: list[int]
     ) -> int: ...
+    @staticmethod
+    def list_sessions_with_field_value(
+        *, event_id: int, field_id: int
+    ) -> list[SessionWithFieldValueDTO]: ...
+    @staticmethod
+    def add_facilitators(session_id: int, facilitator_ids: list[int]) -> None: ...
+    @staticmethod
+    def exists_in_event(*, session_id: int, event_id: int) -> bool: ...
     @staticmethod
     def list_sessions_by_event(
         event_id: int, filters: SessionListFilters | None = None

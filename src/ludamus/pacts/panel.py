@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass, field
 from enum import StrEnum
-from typing import TYPE_CHECKING, Protocol
+from typing import TYPE_CHECKING, Protocol, TypedDict
 
 from pydantic import BaseModel, ConfigDict
 
@@ -194,6 +194,89 @@ class ProposalPanelRepos:
     facilitators: FacilitatorRepositoryProtocol
     tracks: TrackRepositoryProtocol
     time_slots: TimeSlotRepositoryProtocol
+
+
+class CofacilitatorSessionDTO(BaseModel):
+    """A session whose co-facilitator answer still names people by hand."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    session_id: int
+    title: str
+    value: str
+    facilitator_names: list[str]
+    # People the answer names who are not on the session yet. Zero means
+    # somebody already resolved it and only the answer is left to clear.
+    unresolved_count: int = 0
+
+
+@dataclass
+class CofacilitatorCandidateDTO:
+    """One person a session's answer seems to name, before anyone decides."""
+
+    index: int
+    name: str
+    # Keyed by personal-data field slug, the way every form on this codebase
+    # reads its dynamic answers back.
+    values: dict[str, str]
+    match: FacilitatorDTO | None
+    # The match is already on this session, so somebody resolved this name
+    # before and the row has nothing left to ask.
+    already_linked: bool = False
+
+
+@dataclass
+class CofacilitatorSessionDetailDTO:
+    """Read aggregate for resolving one session's answer."""
+
+    session_id: int
+    title: str
+    value: str
+    facilitators: list[FacilitatorDTO]
+    candidates: list[CofacilitatorCandidateDTO]
+    personal_fields: list[OrganizerFieldDTO]
+
+
+class CofacilitatorEntry(TypedDict):
+    """One resolved person: an existing facilitator, or a new one to create."""
+
+    display_name: str
+    base_slug: str
+    facilitator_id: int | None
+    values: dict[int, str | list[str] | bool]
+
+
+@dataclass
+class CofacilitatorPanelRepos:
+    """The repos the co-facilitator extraction reads and writes through."""
+
+    sessions: SessionRepositoryProtocol
+    session_fields: SessionFieldRepositoryProtocol
+    facilitators: FacilitatorRepositoryProtocol
+    personal_data_fields: PersonalDataFieldRepositoryProtocol
+
+
+class CofacilitatorPanelServiceProtocol(Protocol):
+    def list_fields(self, event_id: int) -> list[OrganizerFieldDTO]: ...
+    def read_field(self, *, event_id: int, field_id: int) -> OrganizerFieldDTO: ...
+    def list_sessions(
+        self, *, event_id: int, field_id: int
+    ) -> list[CofacilitatorSessionDTO]: ...
+    def read_session(
+        self, *, event_id: int, session_id: int, field_id: int
+    ) -> CofacilitatorSessionDetailDTO: ...
+    def list_candidates_for_linking(
+        self, event_id: int
+    ) -> list[FacilitatorListItemDTO]: ...
+    def add_facilitators(
+        self,
+        *,
+        event_id: int,
+        session_id: int,
+        entries: list[CofacilitatorEntry],
+        user_id: int | None = None,
+    ) -> int: ...
+    def clear_field(self, *, event_id: int, session_id: int, field_id: int) -> None: ...
 
 
 class FacilitatorPanelEventRepositoryProtocol(EventRepositoryProtocol, Protocol):

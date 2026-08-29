@@ -50,6 +50,9 @@ def _event_context(event):
                 "panel:facilitator-columns", kwargs={"slug": event.slug}
             ),
             "bin": reverse("panel:facilitator-bin", kwargs={"slug": event.slug}),
+            "cofacilitators": reverse(
+                "panel:cofacilitators", kwargs={"slug": event.slug}
+            ),
         },
     }
 
