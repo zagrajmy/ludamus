@@ -15,9 +15,10 @@ if TYPE_CHECKING:
     from ludamus.pacts import TimeSlotDTO
     from ludamus.pacts.chronology import ProposalAcceptContextDTO
 
-# What Django's ChoiceField takes: flat ``(value, label)`` pairs, and optgroups
-# whose label is a list of their own pairs.
-type ChoiceList = list[tuple[object, object] | tuple[object, list[tuple[object, str]]]]
+# What this module hands ChoiceField: a pk (or "" for the placeholder) under a
+# label already translated, flat or inside an optgroup.
+type Choice = tuple[int | str, str]
+type ChoiceList = list[Choice | tuple[str, Sequence[Choice]]]
 
 
 def slot_label(slot: TimeSlotDTO) -> str:

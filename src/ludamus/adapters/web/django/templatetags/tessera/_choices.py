@@ -6,20 +6,21 @@ from typing import TYPE_CHECKING, NamedTuple
 
 if TYPE_CHECKING:
     from django.forms import BoundField
+    from django.utils.functional import _StrPromise
 
 
 class ChoiceGroup(NamedTuple):
     """One optgroup, or a single ungrouped option under an empty label."""
 
-    label: object
-    options: list[tuple[object, object]]
+    label: str | _StrPromise
+    options: list[tuple[object, str | _StrPromise]]
 
 
 class SoleChoice(NamedTuple):
     """The one option a field offers: what it submits, and what it is called."""
 
     value: object
-    label: object
+    label: str | _StrPromise
 
 
 def grouped_choices(field: BoundField) -> list[ChoiceGroup]:
