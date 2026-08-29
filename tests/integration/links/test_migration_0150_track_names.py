@@ -18,7 +18,7 @@ def apps_before_0150_fixture():
     # The state this migration actually runs against.
     return (
         MigrationLoader(connection)
-        .project_state(("db_main", "0148_facilitator_flag_to_soft_delete"))
+        .project_state(("db_main", "0147_facilitator_flag_to_soft_delete"))
         .apps
     )
 
