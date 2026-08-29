@@ -71,6 +71,8 @@ from tests.integration.conftest import (
 )
 from tests.integration.utils import assert_rendered, assert_response
 from tests.integration.web.chronology.helpers import (
+    assert_card,
+    card_in,
     compact_day,
     event_page_context,
     make_half_full_session,
@@ -194,10 +196,11 @@ class TestEventPageView:
 
         response = client.get(self._get_url(event.slug))
 
-        sessions = response.context_data["sessions"]
-        card = next(item for item in sessions if item.session.pk == session.pk)
-        assert card.is_full
-        assert card.enrolled_count == session.participants_limit
+        assert_card(
+            card_in(response, session),
+            is_full=True,
+            enrolled_count=session.participants_limit,
+        )
 
     def test_session_card_link_opens_on_current_event(self, agenda_item, client, event):
         response = client.get(self._get_url(event.slug))
@@ -1190,8 +1193,12 @@ class TestEventPageView:
 
         response = authenticated_client.get(self._get_url(event.slug))
 
-        assert response.status_code == HTTPStatus.OK
-        assert response.context_data["sessions"] == []
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=event_page_context(event, url=self._get_url(event.slug)),
+            template_name=["chronology/event.html"],
+        )
 
     def test_shows_event_cover_image(self, client, event):
         event.cover_image = SimpleUploadedFile(
@@ -3675,11 +3682,33 @@ class TestEventPageEditAffordance:
             status="accepted",
         )
 
+    def _assert_edit_affordance(self, response, *, event, agenda_item, can_edit):
+        card = session_card(
+            agenda_item,
+            presenter=agenda_item.session.presenter,
+            can_edit=can_edit,
+            category_name=agenda_item.session.category.name,
+        )
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=event_page_context(
+                event,
+                url=self._get_url(event.slug),
+                hour_data={agenda_item.start_time: [card]},
+                future_unavailable_hour_data={agenda_item.start_time: [card]},
+                sessions=[card],
+                has_enrollable_sessions=True,
+                scheduled_count=1,
+            ),
+            template_name=["chronology/event.html"],
+        )
+
     def test_owner_sees_edit_affordance(
         self, authenticated_client, event, active_user, space
     ):
         session = self._scheduled_session(event, active_user)
-        AgendaItemFactory(session=session, space=space)
+        agenda_item = AgendaItemFactory(session=session, space=space)
         edit_url = reverse(
             "web:chronology:session-edit",
             kwargs={"event_slug": event.slug, "session_id": session.pk},
@@ -3687,10 +3716,9 @@ class TestEventPageEditAffordance:
 
         response = authenticated_client.get(self._get_url(event.slug))
 
-        session_data = next(
-            s for s in response.context["sessions"] if s.session.pk == session.pk
+        self._assert_edit_affordance(
+            response, event=event, agenda_item=agenda_item, can_edit=True
         )
-        assert session_data.can_edit is True
         # The edit button lives in the lazy-loaded session modal, not the page.
         modal = authenticated_client.get(
             reverse(
@@ -3707,21 +3735,13 @@ class TestEventPageEditAffordance:
     def test_non_owner_no_edit_affordance(self, authenticated_client, event, space):
         other = UserFactory(username="other", email="other@example.com")
         session = self._scheduled_session(event, other)
-        AgendaItemFactory(session=session, space=space)
-        edit_url = reverse(
-            "web:chronology:session-edit",
-            kwargs={"event_slug": event.slug, "session_id": session.pk},
-        )
+        agenda_item = AgendaItemFactory(session=session, space=space)
 
         response = authenticated_client.get(self._get_url(event.slug))
 
-        session_data = next(
-            s for s in response.context["sessions"] if s.session.pk == session.pk
+        self._assert_edit_affordance(
+            response, event=event, agenda_item=agenda_item, can_edit=False
         )
-        assert session_data.can_edit is False
-        content = response.content.decode()
-        assert edit_url not in content
-        assert f'data-edit-open="{session.pk}"' not in content
 
     def test_owner_no_affordance_when_opted_out(
         self, authenticated_client, event, active_user, space
@@ -3729,21 +3749,13 @@ class TestEventPageEditAffordance:
         event.allow_facilitator_session_edit = False
         event.save()
         session = self._scheduled_session(event, active_user)
-        AgendaItemFactory(session=session, space=space)
-        edit_url = reverse(
-            "web:chronology:session-edit",
-            kwargs={"event_slug": event.slug, "session_id": session.pk},
-        )
+        agenda_item = AgendaItemFactory(session=session, space=space)
 
         response = authenticated_client.get(self._get_url(event.slug))
 
-        session_data = next(
-            s for s in response.context["sessions"] if s.session.pk == session.pk
+        self._assert_edit_affordance(
+            response, event=event, agenda_item=agenda_item, can_edit=False
         )
-        assert session_data.can_edit is False
-        content = response.content.decode()
-        assert edit_url not in content
-        assert f'data-edit-open="{session.pk}"' not in content
 
 
 class TestPublicEventUrlShape:

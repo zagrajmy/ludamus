@@ -285,3 +285,72 @@ def make_half_full_session(event, *, participants_limit=2):
             session=session, user=UserFactory(), status=status
         )
     return session
+
+
+def assert_card(card, **expected):
+    # One card's flags, for a test whose subject is the flags rather than the
+    # shape of the page around them. Compared in one dict so a failure names
+    # every flag that moved, not just the first.
+    assert {name: getattr(card, name) for name in expected} == expected
+
+
+def card_in(response, session):
+    return next(
+        card
+        for card in response.context_data["sessions"]
+        if card.session.pk == session.pk
+    )
+
+
+# Which card_days slot kind each availability-lane override feeds.
+_LANE_KINDS = {"current_hour_data": "current", "future_unavailable_hour_data": "future"}
+# One scheduled session reaches the template three times: as a card in
+# `sessions`, in `hour_data`, and via its availability lane in `card_days`.
+CARDS_PER_SESSION = 3
+
+
+def card_buckets(response, start_time, *, lane):
+    # The keys the card layout puts a session card under. `hour_data` always
+    # carries it; masking moves it between the availability lanes (the slot
+    # kinds of `card_days`), because a pretend-full card claims enrollment is
+    # open. A masked card's simulacra carry a `creation_time` minted at request
+    # time, so the buckets read the cards back and `is_deniably_full` checks
+    # them. Only the expected kind is read, which keeps the placement
+    # assertion: a card the view filed under another kind leaves this lane
+    # empty and the context comparison red.
+    lane_cards = [
+        card
+        for day in response.context["card_days"]
+        for slot in day.slots
+        if slot.kind == _LANE_KINDS[lane] and slot.hour == start_time
+        for card in slot.sessions
+    ]
+    return {
+        "sessions": response.context["sessions"],
+        "hour_data": {start_time: response.context["hour_data"][start_time]},
+        lane: {start_time: lane_cards},
+    }
+
+
+def every_card(buckets):
+    return [
+        *buckets["sessions"],
+        *(
+            card
+            for key, by_hour in buckets.items()
+            if key != "sessions"
+            for cards in by_hour.values()
+            for card in cards
+        ),
+    ]
+
+
+def is_deniably_full(card):
+    # A pretend-full card has to be indistinguishable from a real full one: no
+    # spot left, and every seat taken by a simulacrum (negative pk).
+    return (
+        card.is_full
+        and card.spots_left == 0
+        and card.enrolled_count == card.effective_participants_limit
+        and all(seat.user.pk < 0 for seat in card.session_participations)
+    )

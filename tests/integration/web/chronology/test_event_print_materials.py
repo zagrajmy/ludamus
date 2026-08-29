@@ -131,6 +131,7 @@ class TestPublicEventPrintMaterials:
             material="session-list",
             session_list_available=True,
             tracks_available=True,
+            selected_track="focused-track",
             print_scopes=[_scope(space)],
             timetable=None,
             session_list=PrintSessionListDocumentDTO(
@@ -167,6 +168,7 @@ class TestPublicEventPrintMaterials:
             session_list_available=True,
             tracks_available=True,
             panel_access=True,
+            selected_track="focused-track",
             print_scopes=[_scope(space)],
             timetable=None,
             session_list=PrintSessionListDocumentDTO(

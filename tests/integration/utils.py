@@ -86,6 +86,44 @@ class FormInitialMatcher:
         return f"FormInitialMatcher({self.initial})"
 
 
+class FormFieldsMatcher:
+    # Compares the named fields' named attributes only, for a test whose
+    # subject is one field rather than the whole form.
+    def __init__(self, **fields: dict[str, Any]) -> None:
+        self.fields = fields
+
+    def __eq__(self, other: object) -> bool:
+        actual = getattr(other, "fields", {})
+        return {
+            name: {
+                attribute: _field_attribute(actual.get(name), attribute)
+                for attribute in attributes
+            }
+            for name, attributes in self.fields.items()
+        } == self.fields
+
+    __hash__ = None
+
+    def __repr__(self) -> str:
+        return f"FormFieldsMatcher({self.fields})"
+
+
+def _field_attribute(field: object, attribute: str) -> Any:
+    value = getattr(field, attribute, None)
+    # `choices` is a lazy iterator on a bound field; the expectation is a list.
+    return list(value) if attribute == "choices" and value is not None else value
+
+
+def assert_navbar_notifications(
+    response: HttpResponse, *, unread_count: int, titles: list[str]
+) -> None:
+    # The bell comes from a context processor, so it never reaches
+    # `response.context_data` — the rendering context is the only place it is.
+    navbar = response.context["navbar_notifications"]
+    assert navbar.unread_count == unread_count, navbar.unread_count
+    assert [item.title for item in navbar.items] == titles
+
+
 def _assert_messages(response, expected_messages: list[tuple[int, str]]):
     msgs = list(get_messages(response.wsgi_request))
     assert len(msgs) == len(expected_messages), len(msgs)

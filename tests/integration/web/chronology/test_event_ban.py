@@ -10,6 +10,14 @@ from ludamus.links.db.django.models import (
 )
 from tests.integration.conftest import UserFactory
 from tests.integration.utils import assert_response
+from tests.integration.web.chronology.helpers import (
+    CARDS_PER_SESSION,
+    card_buckets,
+    event_page_context,
+    every_card,
+    is_deniably_full,
+    session_card,
+)
 
 
 def _event_url(slug: str) -> str:
@@ -25,30 +33,59 @@ def _enroll_url(session_id: int, event_slug: str) -> str:
 
 @pytest.mark.usefixtures("enrollment_config")
 class TestEventBanFakeFull:
-    @pytest.mark.usefixtures("agenda_item")
     def test_banned_viewer_sees_sessions_as_full_with_simulacra(
-        self, authenticated_client, active_user, event
+        self, authenticated_client, active_user, agenda_item, event
     ):
         EventBan.objects.create(event=event, user=active_user)
 
         response = authenticated_client.get(_event_url(event.slug))
-        content = response.content.decode()
 
-        assert response.context["event_banned"] is True
-        session_data = response.context["sessions"][0]
-        assert session_data.is_full is True
-        assert session_data.enrolled_count == session_data.effective_participants_limit
-        # Simulacra participants are shown instead of real ones.
-        assert "Aleksandra Nowak" in content
-        # No enroll action for the banned viewer.
-        assert "Enroll Now" not in content
+        # The masked card claims an open, fully booked session, so it lands in
+        # the current lane and its invented seats count toward the page total.
+        buckets = card_buckets(
+            response, agenda_item.start_time, lane="current_hour_data"
+        )
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=event_page_context(
+                event,
+                url=_event_url(event.slug),
+                event_banned=True,
+                total_enrolled=10,
+                has_enrollable_sessions=True,
+                scheduled_count=1,
+                **buckets,
+            ),
+            template_name=["chronology/event.html"],
+        )
+        cards = every_card(buckets)
+        assert len(cards) == CARDS_PER_SESSION
+        assert all(is_deniably_full(card) for card in cards)
 
-    @pytest.mark.usefixtures("agenda_item")
-    def test_unbanned_viewer_can_enroll(self, authenticated_client, event):
+    def test_unbanned_viewer_can_enroll(self, authenticated_client, agenda_item, event):
         response = authenticated_client.get(_event_url(event.slug))
 
-        assert response.context["event_banned"] is False
-        assert "Aleksandra Nowak" not in response.content.decode()
+        card = session_card(
+            agenda_item,
+            presenter=agenda_item.session.presenter,
+            is_enrollment_available=True,
+            can_edit=True,
+        )
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=event_page_context(
+                event,
+                url=_event_url(event.slug),
+                hour_data={agenda_item.start_time: [card]},
+                current_hour_data={agenda_item.start_time: [card]},
+                sessions=[card],
+                has_enrollable_sessions=True,
+                scheduled_count=1,
+            ),
+            template_name=["chronology/event.html"],
+        )
 
     def test_banned_viewer_enroll_post_is_blocked(
         self, authenticated_client, agenda_item, active_user, event

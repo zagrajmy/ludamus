@@ -33,7 +33,7 @@ from tests.integration.conftest import (
     UserFactory,
 )
 from tests.integration.utils import assert_response, assert_response_404
-from tests.integration.web.chronology.helpers import make_half_full_session
+from tests.integration.web.chronology.helpers import assert_card, make_half_full_session
 
 _TEMPLATE = "chronology/parts/session-modal.html"
 
@@ -146,9 +146,11 @@ class TestSessionModalComponentView:
 
         response = client.get(_url(event, session.pk))
 
-        data = response.context_data["data"]
-        assert data.is_full
-        assert data.enrolled_count == session.participants_limit
+        assert_card(
+            response.context_data["data"],
+            is_full=True,
+            enrolled_count=session.participants_limit,
+        )
 
     def test_renders_modal_for_scheduled_session(
         self, active_user, agenda_item, client, event
