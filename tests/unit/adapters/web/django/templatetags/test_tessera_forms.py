@@ -16,6 +16,7 @@ from ludamus.adapters.web.django.templatetags.tessera.form import (
     tessera_errors,
     tessera_field,
     tessera_form,
+    tessera_sole_choice,
 )
 from ludamus.adapters.web.django.templatetags.tessera.form_select import render_select
 from ludamus.adapters.web.django.templatetags.tessera.input import render_input
@@ -565,33 +566,32 @@ class GroupedChoiceForm(forms.Form):
 
 
 class TestSingleOptionRendering:
-    def test_select_collapses_to_hidden_input(self) -> None:
-        html = render_select(SingleChoiceForm()["required_one"])
-        assert '<input type="hidden" name="required_one" value="x"' in html
-        assert "Only option" in html
-        assert "<select" not in html
+    """One selectable option is not a question, so nothing is drawn for it."""
+
+    def test_select_collapses_to_the_value_alone(self) -> None:
+        html = tessera_field(SingleChoiceForm()["required_one"])
+        assert html == '<input type="hidden" name="required_one" value="x">'
 
     def test_optional_single_option_keeps_select(self) -> None:
         # Optional: the user may legitimately pick nothing, so keep the dropdown.
-        html = render_select(SingleChoiceForm()["optional_one"])
+        html = tessera_field(SingleChoiceForm()["optional_one"])
         assert "<select" in html
 
     def test_select_kept_for_multiple_options(self) -> None:
-        html = render_select(SingleChoiceForm()["required_two"])
+        html = tessera_field(SingleChoiceForm()["required_two"])
         assert "<select" in html
-        assert "<input" not in html
+        assert 'type="hidden"' not in html
 
     def test_disabled_single_option_keeps_select(self) -> None:
+        # Disabled takes its value from initial, so there is nothing to carry.
         form = SingleChoiceForm()
         form.fields["required_one"].disabled = True
-        html = render_select(form["required_one"])
+        html = tessera_field(form["required_one"])
         assert "<select" in html
 
     def test_collapses_single_option_inside_optgroup(self) -> None:
-        html = render_select(GroupedChoiceForm()["one_in_group"])
-        assert '<input type="hidden" name="one_in_group" value="1"' in html
-        assert "Room A" in html
-        assert "<select" not in html
+        html = tessera_field(GroupedChoiceForm()["one_in_group"])
+        assert html == '<input type="hidden" name="one_in_group" value="1">'
 
     def test_select_renders_optgroups_for_multiple(self) -> None:
         html = render_select(GroupedChoiceForm()["two_in_group"])
@@ -599,16 +599,79 @@ class TestSingleOptionRendering:
         assert "Room A" in html
         assert "Room B" in html
 
-    def test_radio_group_collapses_to_hidden_input(self) -> None:
-        html = render_multi_choice_field(SingleChoiceForm()["radio_one"], is_radio=True)
-        assert '<input type="hidden" name="radio_one" value="x"' in html
-        assert 'type="radio"' not in html
+    def test_select_drops_an_optgroup_nobody_filled(self) -> None:
+        # A labelled group with no options is a dead entry to read out.
+        class EmptyGroupForm(forms.Form):
+            where = forms.ChoiceField(
+                choices=[
+                    ("", "Choose…"),
+                    ("Upstairs", [("1", "Room A"), ("2", "Room B")]),
+                    ("Downstairs", []),
+                ],
+                widget=Select,
+            )
 
-    def test_tessera_field_collapses_single_option_select(self) -> None:
-        html = tessera_field(SingleChoiceForm()["required_one"])
-        assert '<input type="hidden" name="required_one" value="x"' in html
-        assert "<select" not in html
-        assert "Required one" in html  # the label still renders
+        html = tessera_field(EmptyGroupForm()["where"])
+
+        assert '<optgroup label="Upstairs">' in html
+        assert "Downstairs" not in html
+
+    def test_radio_group_flattens_an_optgrouped_field(self) -> None:
+        # A radio group has no optgroups. Reading the choices raw would unpack
+        # the group and emit one input whose value is the whole option list.
+        class GroupedRadioForm(forms.Form):
+            where = forms.ChoiceField(
+                choices=[("Upstairs", [("1", "Room A"), ("2", "Room B")])],
+                widget=RadioSelect,
+            )
+
+        html = render_multi_choice_field(GroupedRadioForm()["where"], is_radio=True)
+
+        assert 'value="1"' in html
+        assert 'value="2"' in html
+        assert "Upstairs" not in html
+
+    def test_radio_group_collapses_to_the_value_alone(self) -> None:
+        html = tessera_field(SingleChoiceForm()["radio_one"])
+        assert html == '<input type="hidden" name="radio_one" value="x">'
+
+    def test_a_rejected_field_renders_in_full_so_its_error_has_a_label(self) -> None:
+        # Only a tampered post reaches here, but a form that bounces with
+        # nothing on the page to explain it is a dead end.
+        form = SingleChoiceForm({"required_one": "tampered"})
+        form.full_clean()
+
+        html = tessera_field(form["required_one"])
+
+        assert "<select" in html
+        assert "Required one" in html
+        assert "Select a valid choice" in html
+
+
+class TestSoleChoiceNaming:
+    """A page that acts on the carried value can read its name back."""
+
+    def test_names_the_option_the_field_stopped_asking_for(self) -> None:
+        assert tessera_sole_choice(SingleChoiceForm()["required_one"]) == "Only option"
+
+    def test_reads_through_an_optgroup(self) -> None:
+        assert tessera_sole_choice(GroupedChoiceForm()["one_in_group"]) == "Room A"
+
+    def test_says_nothing_while_the_field_still_asks(self) -> None:
+        assert not tessera_sole_choice(SingleChoiceForm()["required_two"])
+
+    def test_says_nothing_for_an_optional_field(self) -> None:
+        # Optional keeps its select, so the page must not claim it is decided.
+        assert not tessera_sole_choice(SingleChoiceForm()["optional_one"])
+
+    def test_says_nothing_about_a_rejected_field(self) -> None:
+        # The field renders in full with its error; prose calling it settled
+        # would contradict the control asking for it four lines below.
+        form = SingleChoiceForm({"required_one": "tampered"})
+        form.full_clean()
+
+        assert not tessera_sole_choice(form["required_one"])
+        assert "<select" in tessera_field(form["required_one"])
 
 
 class TestTesseraButtonBranches:

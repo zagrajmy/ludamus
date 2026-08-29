@@ -798,6 +798,18 @@ msgid "Code loaded successfully. You can now manage your enrollments."
 msgstr "Kod załadowany pomyślnie. Możesz teraz zarządzać swoimi zapisami."
 
 #: src/ludamus/gates/web/django/chronology/forms.py
+msgid "Choose a time…"
+msgstr "Wybierz godzinę…"
+
+#: src/ludamus/gates/web/django/chronology/forms.py
+msgid "Preferred by the facilitator"
+msgstr "Preferowane przez twórcę programu"
+
+#: src/ludamus/gates/web/django/chronology/forms.py
+msgid "Other times"
+msgstr "Pozostałe godziny"
+
+#: src/ludamus/gates/web/django/chronology/forms.py
 msgid "Ungrouped"
 msgstr "Bez grupy"
 
@@ -806,6 +818,7 @@ msgid "Select a space..."
 msgstr "Wybierz przestrzeń..."
 
 #: src/ludamus/gates/web/django/chronology/forms.py
+#: src/ludamus/templates/chronology/accept_proposal.html
 #: src/ludamus/templates/chronology/anonymous_enroll.html
 msgid "Space"
 msgstr "Przestrzeń"
@@ -818,6 +831,10 @@ msgstr "Wybierz przestrzeń, gdzie odbędzie się ten punkt programu"
 #: src/ludamus/templates/chronology/accept_proposal.html
 msgid "Time slot"
 msgstr "Przedział czasowy"
+
+#: src/ludamus/gates/web/django/chronology/forms.py
+msgid "Pick the start time for this session."
+msgstr "Wybierz godzinę rozpoczęcia tego punktu programu."
 
 #: src/ludamus/gates/web/django/chronology/forms.py
 msgid "Invalid space selection."
@@ -1005,7 +1022,6 @@ msgstr "Przypisany do"
 #: src/ludamus/gates/web/django/notice_board/forms.py
 #: src/ludamus/gates/web/django/templatetags/cfp_tags.py
 #: src/ludamus/templates/chronology/parts/session-edit-form.html
-#: src/ludamus/templates/event/propose/parts/details.html
 #: src/ludamus/templates/event/propose/parts/review.html
 #: src/ludamus/templates/multiverse/panel/announcements/list.html
 #: src/ludamus/templates/panel/proposals.html
@@ -2632,7 +2648,6 @@ msgstr "Email kontaktowy"
 
 #: src/ludamus/gates/web/django/event/propose_forms.py
 #: src/ludamus/gates/web/django/notice_board/forms.py
-#: src/ludamus/templates/event/propose/parts/details.html
 #: src/ludamus/templates/event/propose/parts/review.html
 msgid "Max participants"
 msgstr "Maks. uczestników"
@@ -2649,7 +2664,6 @@ msgstr "Puste pole lub 0 = bez zapisów"
 #: src/ludamus/templates/chronology/accept_proposal.html
 #: src/ludamus/templates/chronology/anonymous_enroll.html
 #: src/ludamus/templates/chronology/parts/session-edit-form.html
-#: src/ludamus/templates/event/propose/parts/details.html
 #: src/ludamus/templates/event/propose/parts/review.html
 #: src/ludamus/templates/panel/cfp-edit.html
 #: src/ludamus/templates/panel/proposal-detail.html
@@ -2660,7 +2674,6 @@ msgstr "Opis"
 #: src/ludamus/gates/web/django/event/propose_forms.py
 #: src/ludamus/gates/web/django/templatetags/cfp_tags.py
 #: src/ludamus/templates/chronology/session_tags_cloud.html
-#: src/ludamus/templates/event/propose/parts/details.html
 #: src/ludamus/templates/event/propose/parts/review.html
 msgid "Minimum age"
 msgstr "Minimalny wiek"
@@ -2670,7 +2683,6 @@ msgid "0 = no age restriction"
 msgstr "0 = brak ograniczenia wiekowego"
 
 #: src/ludamus/gates/web/django/event/propose_forms.py
-#: src/ludamus/templates/event/propose/parts/details.html
 #: src/ludamus/templates/event/propose/parts/review.html
 msgid "Presenter name"
 msgstr "Nazwa prowadzącego"
@@ -2678,7 +2690,6 @@ msgstr "Nazwa prowadzącego"
 #: src/ludamus/gates/web/django/event/propose_forms.py
 #: src/ludamus/gates/web/django/forms.py
 #: src/ludamus/gates/web/django/templatetags/cfp_tags.py
-#: src/ludamus/templates/event/propose/parts/details.html
 #: src/ludamus/templates/event/propose/parts/review.html
 #: src/ludamus/templates/panel/parts/proposal-duration.html
 #: src/ludamus/templates/panel/proposal-detail.html
@@ -4018,18 +4029,6 @@ msgid "A case these rules do not cover? Ask before improvising."
 msgstr ""
 "Przypadek, którego te zasady nie opisują? Zapytaj, zanim zaimprowizujesz."
 
-#: src/ludamus/templates/chronology/_accept_timeslot_control.html
-msgid "Choose a time…"
-msgstr "Wybierz godzinę…"
-
-#: src/ludamus/templates/chronology/_accept_timeslot_control.html
-msgid "Preferred by the facilitator"
-msgstr "Preferowane przez twórcę programu"
-
-#: src/ludamus/templates/chronology/_accept_timeslot_control.html
-msgid "Other times"
-msgstr "Pozostałe godziny"
-
 #: src/ludamus/templates/chronology/_bookmark_toggle.html
 msgid "Bookmark session"
 msgstr "Dodaj zakładkę do punktu programu"
@@ -4222,8 +4221,8 @@ msgid "Accept Proposal"
 msgstr "Zaakceptuj zgłoszenie"
 
 #: src/ludamus/templates/chronology/accept_proposal.html
-msgid "Pick a space and time, then add it to the agenda."
-msgstr "Wybierz przestrzeń i godzinę, a następnie dodaj do harmonogramu."
+msgid "Review the proposal, then add it to the agenda."
+msgstr "Przejrzyj zgłoszenie, a następnie dodaj je do harmonogramu."
 
 #: src/ludamus/templates/chronology/accept_proposal.html
 #, python-format
@@ -4247,16 +4246,6 @@ msgstr "Preferowane przedziały czasowe"
 #: src/ludamus/templates/chronology/accept_proposal.html
 msgid "Schedule it"
 msgstr "Zaplanuj"
-
-#: src/ludamus/templates/chronology/accept_proposal.html
-msgid "Select a space and time to add this session to the event agenda."
-msgstr ""
-"Wybierz przestrzeń i godzinę, aby dodać ten punkt programu do harmonogramu "
-"wydarzenia."
-
-#: src/ludamus/templates/chronology/accept_proposal.html
-msgid "Pick the start time for this session."
-msgstr "Wybierz godzinę rozpoczęcia tego punktu programu."
 
 #: src/ludamus/templates/chronology/accept_proposal.html
 msgid "Accept and add to agenda"
@@ -7385,6 +7374,15 @@ msgstr ""
 "zastępując jej obecną zawartość."
 
 #: src/ludamus/templates/panel/discounts/export.html
+#, python-format
+msgid ""
+"Share the spreadsheet with the service account e-mail of %(name)s as an "
+"editor first."
+msgstr ""
+"Najpierw udostępnij arkusz do edycji na adres e-mail konta usługi połączenia "
+"%(name)s."
+
+#: src/ludamus/templates/panel/discounts/export.html
 msgid ""
 "Share the spreadsheet with the connection's service account e-mail as an "
 "editor first."
@@ -9513,10 +9511,19 @@ msgstr "Kopiuj przestrzeń"
 #: src/ludamus/templates/panel/space-copy.html
 #, python-format
 msgid ""
+"Copies \"%(name)s\" and everything inside it into %(target)s as a new top-"
+"level space."
+msgstr ""
+"Kopiuje „%(name)s” i całą jej zawartość do wydarzenia %(target)s jako nową "
+"przestrzeń najwyższego poziomu."
+
+#: src/ludamus/templates/panel/space-copy.html
+#, python-format
+msgid ""
 "Copies \"%(name)s\" and everything inside it into the chosen event as a new "
 "top-level space."
 msgstr ""
-"Kopiuje „%(name)s\" i całą jej zawartość do wybranego wydarzenia jako nową "
+"Kopiuje „%(name)s” i całą jej zawartość do wybranego wydarzenia jako nową "
 "przestrzeń najwyższego poziomu."
 
 #: src/ludamus/templates/panel/space-copy.html
@@ -9948,8 +9955,16 @@ msgstr ""
 "Nie ma nadchodzących wydarzeń ani publicznych spotkań. Sprawdź ponownie "
 "później!"
 
+#~ msgid "Select a space and time to add this session to the event agenda."
+#~ msgstr ""
+#~ "Wybierz przestrzeń i godzinę, aby dodać ten punkt programu do "
+#~ "harmonogramu wydarzenia."
+
 #~ msgid "Creator"
 #~ msgstr "Twórca programu"
+
+#~ msgid "End time must be after start time."
+#~ msgstr "Czas zakończenia musi być po czasie rozpoczęcia."
 
 #~ msgid ""
 #~ "Writes every facilitator with their accreditation type and discount into "
@@ -9957,12 +9972,6 @@ msgstr ""
 #~ msgstr ""
 #~ "Zapisuje wszystkich twórców programu wraz z rodzajem akredytacji i zniżką "
 #~ "do pierwszej zakładki wybranego arkusza, zastępując jego obecną zawartość."
-
-#~ msgid "End time must be after start time."
-#~ msgstr "Czas zakończenia musi być po czasie rozpoczęcia."
-
-#~ msgid "Back to integrations"
-#~ msgstr "Wróć do integracji"
 
 #~ msgid "Required age"
 #~ msgstr "Wymagany wiek"
@@ -9991,28 +10000,8 @@ msgstr ""
 #~ msgid "All venues"
 #~ msgstr "Wszystkie lokalizacje"
 
-#, python-format
-#~ msgid "Changed by %(who)s on %(when)s"
-#~ msgstr "Zmiana: %(who)s, %(when)s"
-
-#, python-format
-#~ msgid "announced by %(who)s"
-#~ msgstr "ogłoszone przez: %(who)s"
-
 #~ msgid "Enrollment required"
 #~ msgstr "Wymagane zapisy"
-
-#~ msgid "Sessions with enrollment"
-#~ msgstr "Punkty programu z zapisami"
-
-#~ msgid "Takes enrollment"
-#~ msgstr "Z zapisami"
-
-#~ msgid "No session at this event takes enrollment"
-#~ msgstr "Żaden punkt programu na tym wydarzeniu nie wymaga zapisów"
-
-#~ msgid "Show the full schedule"
-#~ msgstr "Pokaż pełny harmonogram"
 
 #~ msgid "Pending Proposals"
 #~ msgstr "Oczekujące zgłoszenia"
@@ -10032,9 +10021,25 @@ msgstr ""
 #~ msgid "Awaiting review"
 #~ msgstr "Czeka na akceptację"
 
+#~ msgid "Sessions with enrollment"
+#~ msgstr "Punkty programu z zapisami"
+
+#~ msgid "Takes enrollment"
+#~ msgstr "Z zapisami"
+
+#~ msgid "No session at this event takes enrollment"
+#~ msgstr "Żaden punkt programu na tym wydarzeniu nie wymaga zapisów"
+
+#~ msgid "Show the full schedule"
+#~ msgstr "Pokaż pełny harmonogram"
+
 #, python-format
-#~ msgid "Edit proposal %(title)s"
-#~ msgstr "Edytuj zgłoszenie %(title)s"
+#~ msgid "Changed by %(who)s on %(when)s"
+#~ msgstr "Zmiana: %(who)s, %(when)s"
+
+#, python-format
+#~ msgid "announced by %(who)s"
+#~ msgstr "ogłoszone przez: %(who)s"
 
 #~ msgid "Analytics settings"
 #~ msgstr "Ustawienia analityki"
@@ -10042,14 +10047,26 @@ msgstr ""
 #~ msgid "Analytics consent"
 #~ msgstr "Zgoda na analitykę"
 
+#, python-format
+#~ msgid ""
+#~ "We use analytics to see how people use the site, including session "
+#~ "replays with every input masked. It runs only if you agree. Errors work "
+#~ "differently: when something breaks we always record what went wrong, plus "
+#~ "your account id if you are signed in, so we can fix it. More in the <a "
+#~ "href=\"%(privacy_url)s\">Privacy Policy</a>."
+#~ msgstr ""
+#~ "Używamy analityki, aby zobaczyć, jak ludzie korzystają z serwisu. "
+#~ "Obejmuje to nagrania sesji z zamaskowanymi wszystkimi polami. Działa "
+#~ "tylko wtedy, gdy się zgodzisz. Z błędami jest inaczej: kiedy coś się "
+#~ "zepsuje, zawsze zapisujemy, co poszło nie tak, a jeśli masz zalogowane "
+#~ "konto, także jego identyfikator, żebyśmy mogli to naprawić. Więcej w <a "
+#~ "href=\"%(privacy_url)s\">Polityce prywatności</a>."
+
 #~ msgid "Decline analytics"
 #~ msgstr "Odrzuć analitykę"
 
 #~ msgid "Allow analytics"
 #~ msgstr "Włącz analitykę"
-
-#~ msgid "This does not belong to the event."
-#~ msgstr "To nie należy do tego wydarzenia."
 
 #, python-format
 #~ msgid ""
@@ -10063,14 +10080,14 @@ msgstr ""
 #~ "i szybciej naprawiać błędy. Nic nie zapisujemy, zanim się nie zgodzisz. "
 #~ "Szczegóły w <a href=\"%(privacy_url)s\">Polityce prywatności</a>."
 
+#~ msgid "Empty or 0 = no limit"
+#~ msgstr "Puste pole lub 0 = bez limitu"
+
 #~ msgid "Open"
 #~ msgstr "Otwarte"
 
 #~ msgid "Not Available"
 #~ msgstr "Niedostępne"
-
-#~ msgid "Empty or 0 = no limit"
-#~ msgstr "Puste pole lub 0 = bez limitu"
 
 #~ msgid "Deleted only"
 #~ msgstr "Tylko usunięci"
@@ -10249,9 +10266,6 @@ msgstr ""
 #~ msgid "Search by facilitator or field values"
 #~ msgstr "Szukaj po prowadzącym lub wartościach pól"
 
-#~ msgid "Select all"
-#~ msgstr "Zaznacz wszystkie"
-
 #~ msgid "Keep"
 #~ msgstr "Zachowaj"
 
@@ -10403,19 +10417,17 @@ msgstr ""
 #~ msgstr "Twórca programu zwolniony."
 
 #, python-format
-#~ msgid ""
-#~ "We use analytics to see how people use the site, including session "
-#~ "replays with every input masked. It runs only if you agree. Errors work "
-#~ "differently: when something breaks we always record what went wrong, plus "
-#~ "your account id if you are signed in, so we can fix it. More in the <a "
-#~ "href=\"%(privacy_url)s\">Privacy Policy</a>."
-#~ msgstr ""
-#~ "Używamy analityki, aby zobaczyć, jak ludzie korzystają z serwisu. "
-#~ "Obejmuje to nagrania sesji z zamaskowanymi wszystkimi polami. Działa "
-#~ "tylko wtedy, gdy się zgodzisz. Z błędami jest inaczej: kiedy coś się "
-#~ "zepsuje, zawsze zapisujemy, co poszło nie tak, a jeśli masz zalogowane "
-#~ "konto, także jego identyfikator, żebyśmy mogli to naprawić. Więcej w <a "
-#~ "href=\"%(privacy_url)s\">Polityce prywatności</a>."
+#~ msgid "Edit proposal %(title)s"
+#~ msgstr "Edytuj zgłoszenie %(title)s"
+
+#~ msgid "Select all"
+#~ msgstr "Zaznacz wszystkie"
 
 #~ msgid "No public encounters."
 #~ msgstr "Brak publicznych spotkań."
+
+#~ msgid "Back to integrations"
+#~ msgstr "Wróć do integracji"
+
+#~ msgid "This does not belong to the event."
+#~ msgstr "To nie należy do tego wydarzenia."
