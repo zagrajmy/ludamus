@@ -45,6 +45,8 @@ from ludamus.gates.web.django.chronology.event_presentation import (
     split_events,
 )
 from ludamus.gates.web.django.chronology.schedule import (
+    CardDay,
+    build_card_days,
     build_room_lanes,
     build_schedule_days,
     group_sessions_by_state,
@@ -318,15 +320,13 @@ class EventPageView(EventsPageRequiredMixin, DetailView):  # type: ignore [type-
             data.takes_enrollment for data in sessions_data.values()
         )
 
-        # The ended/current/future grouping only feeds the card-grid layout;
-        # the compact schedule renders from schedule_days instead, so skip the
-        # pass there but keep the context keys (tests enumerate them exactly).
-        ended_hour_data: dict[datetime, list[SessionData]] = {}
-        current_hour_data: dict[datetime, list[SessionData]] = {}
-        future_unavailable_hour_data: dict[datetime, list[SessionData]] = {}
+        # The day-major grouping only feeds the card-grid layout; the compact
+        # schedule renders from schedule_days instead, so skip the pass there.
+        card_days: list[CardDay] = []
         if not compact_schedule:
-            ended_hour_data, current_hour_data, future_unavailable_hour_data = (
-                group_sessions_by_state(sessions_data)
+            ended, current, future_unavailable = group_sessions_by_state(sessions_data)
+            card_days = build_card_days(
+                ended=ended, current=current, future_unavailable=future_unavailable
             )
 
         schedule_days = build_schedule_days(sessions_data) if compact_schedule else []
@@ -347,9 +347,7 @@ class EventPageView(EventsPageRequiredMixin, DetailView):  # type: ignore [type-
                 "room_lanes": build_room_lanes(schedule_days) if rooms_view else None,
                 "schedule_list_url": event_url,
                 "schedule_rooms_url": f"{event_url}?view=rooms",
-                "ended_hour_data": ended_hour_data,
-                "current_hour_data": current_hour_data,
-                "future_unavailable_hour_data": future_unavailable_hour_data,
+                "card_days": card_days,
                 "total_enrolled": total_enrolled,
                 "user_enrolled_sessions": user_enrolled_sessions,
                 "user_enrolled_session_titles": [

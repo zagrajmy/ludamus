@@ -3961,17 +3961,26 @@ msgid "Completed"
 msgstr "Ukończone"
 
 #: src/ludamus/templates/chronology/_card_schedule.html
+msgid "Not Yet Available"
+msgstr "Jeszcze Niedostępne"
+
+#: src/ludamus/templates/chronology/_card_schedule.html
 #: src/ludamus/templates/chronology/_schedule_now_marker.html
 msgid "Now"
 msgstr "Teraz"
 
 #: src/ludamus/templates/chronology/_card_schedule.html
-msgid "Propose"
-msgstr "Zgłoś"
+#, python-format
+msgid "%(counter)s session"
+msgid_plural "%(counter)s sessions"
+msgstr[0] "%(counter)s punkt programu"
+msgstr[1] "%(counter)s punkty programu"
+msgstr[2] "%(counter)s punktów programu"
+msgstr[3] "%(counter)s punktów programu"
 
 #: src/ludamus/templates/chronology/_card_schedule.html
-msgid "Not Yet Available"
-msgstr "Jeszcze Niedostępne"
+msgid "Propose"
+msgstr "Zgłoś"
 
 #: src/ludamus/templates/chronology/_compact_schedule.html
 msgid "Jump to time"

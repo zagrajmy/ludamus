@@ -126,7 +126,8 @@ test.describe("Event schedule views", () => {
     await page.goto(`${DENSE_EVENT_URL}?view=rooms`);
     const currentDayDisplay = page.locator(".room-lanes-day-current");
     const currentDay = currentDayDisplay.locator("[data-room-lanes-day-current]");
-    await expect(currentDayDisplay).toHaveAttribute("aria-hidden", "true");
+    // The bar doubles as the shown day's fold toggle (see the folding spec).
+    await expect(currentDay).toHaveRole("button");
     // Every day is a heading. The first opens the grid and has no seam to
     // scroll past — it is the one the header starts on — so the day to scroll
     // into is the second.
