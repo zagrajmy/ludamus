@@ -1,0 +1,4 @@
+*.html @hasparus
+*.css @hasparus
+src/ludamus/adapters/web/django/templatetags/tessera/ @hasparus
+src/ludamus/adapters/web/django/design_fixtures.py @hasparus

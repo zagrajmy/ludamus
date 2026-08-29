@@ -30,9 +30,9 @@ def interval_windows(*, start: datetime, end: datetime, tz: tzinfo) -> list[Slot
         cursor_date = local_start.date() + timedelta(days=offset)
         day_start = datetime.combine(cursor_date, datetime.min.time(), tzinfo=tz)
         day_end = day_start + timedelta(days=1)
-        window_start = max(local_start, day_start)
-        window_end = min(local_end, day_end)
-        if window_start < window_end:
+        window_start = max(local_start, day_start, key=datetime.timestamp)
+        window_end = min(local_end, day_end, key=datetime.timestamp)
+        if window_start.timestamp() < window_end.timestamp():
             windows.append((window_start, window_end))
     return windows
 

@@ -31,6 +31,7 @@ from ludamus.gates.web.django.propose_cover import (
     stash_wizard_cover,
     wizard_cover_initial,
 )
+from ludamus.gates.web.django.sphere.pages import EventsPageRequiredMixin
 from ludamus.gates.web.django.templatetags.cfp_tags import has_field_value
 from ludamus.pacts import NotFoundError, RedirectError
 
@@ -435,7 +436,7 @@ def _render(wizard: _Wizard, step: str) -> HttpResponse:
     )
 
 
-class ProposeWizardMixin(View):
+class ProposeWizardMixin(EventsPageRequiredMixin, View):
     request: RootRequest
 
     def dispatch(

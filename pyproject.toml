@@ -31,7 +31,7 @@ django = "~6.1.0"
 django-environ = "^0.14.0"
 django-extensions = "^4.1"
 django-vite = "==3.1.0"
-google-auth = "^2.56.2"
+google-auth = "^2.57.0"
 gunicorn = "^26.0.0"
 heroicons = { version = "^2.9", extras = ["django"] }
 markdown = "^3.10.2"
@@ -140,7 +140,7 @@ template_extensions = 'html'
 
 [tool.djlint]
 ignore = "H021,H031,H037,D018"
-custom_blocks = "select,radio,document_title,sidebar_cat,tab,tabs,tab_shell,tab_shell_body,tessera_copy,tessera_segment,tessera_switcher,tessera_table"
+custom_blocks = "select,tessera_combobox,radio,document_title,sidebar_cat,tab,tabs,tab_shell,tab_shell_body,tessera_copy,tessera_segment,tessera_switcher,tessera_table"
 
 # DEPTRY
 
@@ -488,12 +488,17 @@ exclude = [
     "*/context_processors.py",
 ]
 ignore_names = [
+    # Called from context_processors.py, which is excluded above
+    "client_patterns",
+    "sphere_page_nav",
     # Used in templates
     "bookmark_count",
     "button_class",
+    "cloud_overflow",
     "filter_categories",
     "has_guests",
     "has_secret",
+    "is_first_current",
     "is_live",
     "is_pending_proposal",
     "is_read",
@@ -504,12 +509,17 @@ ignore_names = [
     "public_tag_categories",
     "public_tags",
     "should_show_as_inactive",
+    "show_date",
     "span",
     "spots_scarce",
     "unassigned_count",
     "unread_count",
     "user_bookmarked",
     "user_waiting",
+    # html.parser callbacks — HTMLParser.feed() dispatches to these
+    "handle_data",
+    "handle_endtag",
+    "handle_starttag",
     # Django
     "*Config",
     "add_arguments",

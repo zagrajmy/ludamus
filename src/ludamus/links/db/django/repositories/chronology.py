@@ -53,6 +53,7 @@ from ludamus.pacts.chronology import (
     PartySessionSeatDTO,
     SessionCardStatsDTO,
 )
+from ludamus.pacts.ids import EventId
 from ludamus.pacts.legacy import AgendaItemDTO, LocationData
 from ludamus.pacts.panel import (
     EventPanelSettingsDTO,
@@ -110,12 +111,13 @@ class PartySessionHistoryRepository(PartySessionHistoryRepositoryProtocol):
             )
             .order_by("agenda_item__start_time")
         )
-        groups: dict[int, PartyEventHistoryDTO] = {}
+        groups: dict[EventId, PartyEventHistoryDTO] = {}
         for session in sessions:
             item = _party_session_history(session, viewer_pk=viewer_pk)
-            if (group := groups.get(session.event_id)) is None:
-                groups[session.event_id] = PartyEventHistoryDTO(
-                    event_pk=session.event_id,
+            event_id = EventId(session.event_id)
+            if (group := groups.get(event_id)) is None:
+                groups[event_id] = PartyEventHistoryDTO(
+                    event_pk=event_id,
                     event_name=session.event.name,
                     event_slug=session.event.slug,
                     sessions=[item],
@@ -130,17 +132,15 @@ class PartySessionHistoryRepository(PartySessionHistoryRepositoryProtocol):
 
 
 def location_data(space: Space) -> LocationData:
-    # Root-down chain of (order, name, slug) triples: sorting on it reproduces
-    # the panel's drag-ordered tree (Space.Meta.ordering) across every level, so
-    # rooms group under their building/floor instead of going flat alphabetical.
-    # The slug makes it unique per space, so it doubles as a filter value.
     chain = (*reversed(tuple(space.iter_ancestors())), space)
+    sort_path = tuple((node.order, node.name, node.pk) for node in chain)
     return LocationData(
+        space_id=space.pk,
+        parent_id=space.parent_id or 0,
         space_name=space.name,
-        parent_slug=space.parent.slug if space.parent else "",
         parent_name=space.parent.name if space.parent else "",
         path=str(space),
-        sort_key="|".join(f"{s.order:06d}|{s.name}|{s.slug}" for s in chain),
+        sort_path=sort_path,
     )
 
 
@@ -194,6 +194,10 @@ def _party_session_history(
 
 
 class EventRepository(EventRepositoryProtocol):
+    @staticmethod
+    def exists_for_sphere(sphere_id: int) -> bool:
+        return Event.objects.filter(sphere_id=sphere_id).exists()
+
     @staticmethod
     def list_by_sphere(sphere_id: int) -> list[EventDTO]:
         """List all events for a sphere, ordered by start time descending.

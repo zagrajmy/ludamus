@@ -14,6 +14,7 @@ from ludamus.gates.web.django.chronology.schedule import (
     ScheduleDay,
     ScheduleHour,
     ScheduleTile,
+    build_card_days,
 )
 from ludamus.gates.web.django.entities import UserInfo
 from ludamus.links.db.django.models import SessionParticipation
@@ -102,7 +103,7 @@ def schedule_context(url):
         "compact_schedule": False,
         "schedule_days": [],
         "active_tab": "list",
-        "room_lane_days": [],
+        "room_lanes": None,
         "schedule_list_url": url,
         "schedule_rooms_url": f"{url}?view=rooms",
     }
@@ -112,15 +113,17 @@ def event_page_context(event, *, url, **overrides):
     # Every key the event page renders with, defaulted to an event with no
     # schedule. `url` is the page's own path, which the view echoes back as the
     # list/rooms view links.
+    # Callers keep stating their scenario through the three availability lanes;
+    # the page itself renders from the day-major grouping built from them.
+    ended = overrides.pop("ended_hour_data", {})
+    current = overrides.pop("current_hour_data", {})
+    future_unavailable = overrides.pop("future_unavailable_hour_data", {})
     context = {
-        "current_hour_data": {},
-        "ended_hour_data": {},
         "enrollment_requires_slots": False,
         "event": event,
         "filterable_tag_categories": [],
         "track_filter_names": [],
         "category_filter_names": [],
-        "future_unavailable_hour_data": {},
         "hour_data": {},
         "object": event,
         "pending_review_visible": False,
@@ -139,6 +142,12 @@ def event_page_context(event, *, url, **overrides):
     context |= overrides
     context.setdefault("has_enrollable_sessions", False)
     context.setdefault("scheduled_count", 0)
+    context.setdefault(
+        "card_days",
+        build_card_days(
+            ended=ended, current=current, future_unavailable=future_unavailable
+        ),
+    )
     return context
 
 
@@ -147,17 +156,18 @@ def compact_day(cards):
     # plus a tile per card. Fixtures that schedule everything in one hour.
     starts = [localtime(card.agenda_item.start_time) for card in cards]
     hour_start = starts[0].replace(minute=0, second=0, microsecond=0)
+    tiles = [
+        ScheduleTile(
+            data=card,
+            start=localtime(card.agenda_item.start_time),
+            end=localtime(card.agenda_item.end_time),
+        )
+        for card in cards
+    ]
     return ScheduleDay(
         day_start=hour_start,
-        hours=[ScheduleHour(start=hour_start, sessions=cards)],
-        tiles=[
-            ScheduleTile(
-                data=card,
-                start=localtime(card.agenda_item.start_time),
-                end=localtime(card.agenda_item.end_time),
-            )
-            for card in cards
-        ],
+        hours=[ScheduleHour(start=hour_start, tiles=tiles)],
+        tiles=tiles,
     )
 
 

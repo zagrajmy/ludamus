@@ -1,0 +1,187 @@
+/* The rooms schedule grid: tracks, the map-style pan states, the edge fades
+   that keep its two scrollbar handles legible, and the collapse filtering
+   uses. Paired with room-lanes.ts, which names --row-track / --col-track and
+   toggles the pan classes. */
+
+.room-lanes {
+  --axis-w: 2.6rem;
+  --col-min: 10rem;
+  /* room-lanes.ts rebuilds these track lists when a filter empties a track, so
+     the sizes live here once and both consumers name them. */
+  --row-track: minmax(3.5rem, auto);
+  --col-track: minmax(var(--col-min), 1fr);
+}
+
+/* md and up: a third wider than the compact tiers (10rem and 11.25rem × 4/3)
+   — phone-width columns read cramped once the screen can afford more. */
+@media (min-width: 768px) {
+  .room-lanes {
+    --col-min: 13.35rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .room-lanes {
+    --col-min: 15rem;
+  }
+}
+
+/* Map-style panning, toggled on the body scroller by room-lanes.ts: Space
+   over the grid arms it (grab), an active drag shows grabbing. No selection
+   while a gesture is armed — a pan across the grid must not paint text
+   selection in its wake. */
+/* The resting state, before Space is involved: a drag on the grid background
+   pans it, so the cursor says so. Session tiles are links and keep the pointer
+   their own UA rule gives them — an inherited value loses to a declaration
+   matching the element. First in the block, so the two states below win. */
+.room-lanes-scroll {
+  cursor: grab;
+}
+
+.room-lanes-pan-ready,
+.room-lanes-pan-ready * {
+  cursor: grab;
+}
+
+/* The pan runs without pointer capture (same gesture pattern as the timeline
+   rail's scrub), so the grabbing cursor is pinned page-wide for the drag's
+   duration instead of riding whatever the pointer happens to hover. */
+.room-lanes-panning,
+.room-lanes-panning *,
+body:has(.room-lanes-panning),
+body:has(.room-lanes-panning) * {
+  cursor: grabbing;
+}
+
+.room-lanes-pan-ready,
+.room-lanes-panning {
+  user-select: none;
+}
+
+.room-lanes-grid {
+  display: grid;
+  grid-template-columns: var(--axis-w) repeat(var(--rooms), var(--col-track));
+  /* --rooms is the server's room count and stays put; --live-rooms is what
+     survives filtering, and only the min width has to shrink with it. */
+  width: max(100%, calc(var(--axis-w) + var(--live-rooms, var(--rooms)) * var(--col-min)));
+}
+
+.room-lanes-body {
+  grid-template-rows: repeat(var(--rows), var(--row-track));
+}
+
+.room-lanes-line {
+  grid-column: 2 / -1;
+}
+
+.room-lanes-scroll-shell {
+  position: relative;
+}
+
+.room-lanes-head,
+.room-lanes-scroll {
+  mask-image:
+    linear-gradient(
+      90deg,
+      black 0,
+      black var(--axis-w),
+      hsl(0 0% 0% / var(--fade-start-opacity)) var(--axis-w),
+      black calc(var(--axis-w) + var(--fade-size-start, 0px)),
+      black calc(100% - var(--fade-size-end, 0px)),
+      hsl(0 0% 0% / var(--fade-end-opacity))
+    ),
+    linear-gradient(black, black);
+  -webkit-mask-image:
+    linear-gradient(
+      90deg,
+      black 0,
+      black var(--axis-w),
+      hsl(0 0% 0% / var(--fade-start-opacity)) var(--axis-w),
+      black calc(var(--axis-w) + var(--fade-size-start, 0px)),
+      black calc(100% - var(--fade-size-end, 0px)),
+      hsl(0 0% 0% / var(--fade-end-opacity))
+    ),
+    linear-gradient(black, black);
+  mask-size:
+    100% calc(100% - var(--room-lanes-sb, 0px)),
+    100% var(--room-lanes-sb, 0px);
+  -webkit-mask-size:
+    100% calc(100% - var(--room-lanes-sb, 0px)),
+    100% var(--room-lanes-sb, 0px);
+  mask-position:
+    top left,
+    bottom left;
+  -webkit-mask-position:
+    top left,
+    bottom left;
+  mask-repeat: no-repeat;
+  -webkit-mask-repeat: no-repeat;
+}
+
+.room-lanes-scroll {
+  scrollbar-width: none;
+}
+
+.room-lanes-overlays {
+  position: absolute;
+  z-index: 20;
+  inset: 0;
+  overflow: clip;
+  pointer-events: none;
+}
+
+.room-lanes-day-mirror {
+  position: absolute;
+  left: 0;
+}
+
+.room-lanes-day-mirrored > h3 {
+  opacity: 0;
+}
+
+/* The body's own scrollbar would surface only at the very end of a
+   screens-tall grid; the sticky strip after it (data-room-lanes-foot in the
+   template) pins that handle to the viewport bottom instead, and hiding the
+   native one keeps the two from stacking at the grid's end. */
+
+.room-lanes-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.room-lanes-rule {
+  justify-self: start;
+  width: 1px;
+  background: color-mix(in oklch, var(--color-border) 60%, transparent);
+  pointer-events: none;
+}
+
+/* Both header rows and every body row: the dividers run the full height of
+   whichever grid they sit in, so they stay continuous where cells span rows or
+   are absent. */
+.room-lanes-head-rule,
+.room-lanes-body .room-lanes-rule {
+  grid-row: 1 / -1;
+}
+
+.room-lanes-corner,
+.room-lanes-head-cell {
+  grid-row: 1;
+}
+
+/* The day break inside the body: a full-width band that reads as the seam
+   between two days rather than as an empty hour. */
+.room-lanes-day {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: flex-end;
+}
+
+.dark .room-lanes-rule {
+  background: color-mix(in oklch, var(--color-border) 35%, transparent);
+}
+
+/* The collapse gets its own signal: the hour rows double as .time-slot-section,
+   whose [hidden] belongs to session-filters.ts and event-timeline.ts. */
+.room-lanes-collapsed {
+  display: none;
+}
