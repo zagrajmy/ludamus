@@ -783,8 +783,13 @@ class TestDiscountExportPageView:
             # The sphere's only connection is not a choice, so the export stops
             # asking which one and the instructions name it instead: nothing on
             # the page carries the field's id, so there is no control and no
-            # label for one.
-            contains=connection.display_name,
+            # label for one. The input is asserted rather than left to the
+            # absence check, which a form that stopped rendering the field at
+            # all would also pass — and then no browser would submit it.
+            contains=[
+                connection.display_name,
+                f'<input type="hidden" name="connection" value="{connection.pk}">',
+            ],
             not_contains="id_connection",
         )
 
