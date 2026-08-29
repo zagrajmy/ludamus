@@ -726,20 +726,27 @@ def _create_accept_lab_event(sphere: Sphere) -> Event:
         max_participants_limit=8,
         durations=["PT2H"],
     )
-    Session.objects.create(
-        event=event,
-        presenter=User.objects.get(username="e2e-tester"),
-        display_name="E2E Tester",
-        contact_email="e2e@test.local",
-        category=category,
-        title="Solo Showcase",
-        slug="solo-showcase",
-        description="A proposal with nowhere else to go.",
-        duration="PT2H",
-        participants_limit=4,
-        min_age=0,
-        status=SessionStatus.PENDING,
-    )
+    # Two proposals, so the spec that reads the page and the spec that accepts
+    # one never contend for the same pending row — including on a retry, which
+    # re-runs a serial block from the top.
+    for title, slug in (
+        ("Solo Showcase", "solo-showcase"),
+        ("Solo Encore", "solo-encore"),
+    ):
+        Session.objects.create(
+            event=event,
+            presenter=User.objects.get(username="e2e-tester"),
+            display_name="E2E Tester",
+            contact_email="e2e@test.local",
+            category=category,
+            title=title,
+            slug=slug,
+            description="A proposal with nowhere else to go.",
+            duration="PT2H",
+            participants_limit=4,
+            min_age=0,
+            status=SessionStatus.PENDING,
+        )
     return event
 
 
