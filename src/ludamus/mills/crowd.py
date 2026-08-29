@@ -251,11 +251,17 @@ class EmailVerificationService(EmailVerificationServiceProtocol):
         target = user.pending_email or ("" if user.email_verified else user.email)
         if not target:
             return VerificationRequestOutcome.NOT_NEEDED
-        sent_at = user.email_verification_sent_at
-        if sent_at and now - sent_at < EMAIL_VERIFICATION_RESEND_THROTTLE:
-            return VerificationRequestOutcome.THROTTLED
         with self._transaction.atomic():
-            self._send_confirm_link(user=user, address=target, now=now)
+            # The throttle is claimed, not read: `user` is a snapshot the sweep
+            # may have taken before a resend stamped the row, so checking it
+            # here would let both send.
+            if not self._users.claim_verification_send(
+                user_slug=user.slug,
+                now=now,
+                throttle=EMAIL_VERIFICATION_RESEND_THROTTLE,
+            ):
+                return VerificationRequestOutcome.THROTTLED
+            self._send_confirm_link(user=user, address=target)
         return VerificationRequestOutcome.SENT
 
     def request_change(
@@ -287,8 +293,13 @@ class EmailVerificationService(EmailVerificationServiceProtocol):
         # throttle — otherwise correcting a typo'd address would be blocked
         # by the mail just sent to the typo.
         with self._transaction.atomic():
-            self._users.update(user_slug, UserData(pending_email=address))
-            self._send_confirm_link(user=user, address=address, now=datetime.now(UTC))
+            self._users.update(
+                user_slug,
+                UserData(
+                    pending_email=address, email_verification_sent_at=datetime.now(UTC)
+                ),
+            )
+            self._send_confirm_link(user=user, address=address)
             # The cancel link is the whole point of this notice, so it goes
             # only to an address someone proved they control.
             if user.deliverable_email:
@@ -376,13 +387,14 @@ class EmailVerificationService(EmailVerificationServiceProtocol):
             return RedeemOutcome.ADDRESS_TAKEN
         return RedeemOutcome.CHANGE_APPLIED if user.email else RedeemOutcome.VERIFIED
 
-    def _send_confirm_link(self, *, user: UserDTO, address: str, now: datetime) -> None:
+    def _send_confirm_link(self, *, user: UserDTO, address: str) -> None:
+        # The caller owns the send stamp: `_request` claims it as its throttle,
+        # a change writes it alongside the pending address.
         token = self._tokens.dumps(
             EmailTokenPayload(
                 act=EmailVerificationAction.CONFIRM, uid=user.pk, addr=address
             )
         )
-        self._users.update(user.slug, UserData(email_verification_sent_at=now))
         self._notifier.notify_email_verification(
             EmailVerificationNotification(
                 recipient_user_id=user.pk, recipient_email=address, token=token

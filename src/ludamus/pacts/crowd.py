@@ -94,6 +94,10 @@ class UserRepositoryProtocol(Protocol):
     def email_unavailable(
         *, email: str, now: datetime, exclude_slug: str | None = None
     ) -> bool: ...
+    @staticmethod
+    def claim_verification_send(
+        *, user_slug: str, now: datetime, throttle: timedelta
+    ) -> bool: ...
 
 
 class CompanionRepositoryProtocol(Protocol):

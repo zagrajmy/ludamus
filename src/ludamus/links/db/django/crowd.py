@@ -80,6 +80,26 @@ class UserRepository(UserRepositoryProtocol):
         User.objects.filter(slug=user_slug).update(**user_data)
 
     @staticmethod
+    def claim_verification_send(
+        *, user_slug: str, now: datetime, throttle: timedelta
+    ) -> bool:
+        """Stamp the send column, reporting whether this caller won the slot.
+
+        The check and the stamp are one conditional UPDATE, so a double-clicked
+        resend racing the reminder sweep mails the link once.
+        """
+        cutoff = now - throttle
+        return (
+            User.objects.filter(slug=user_slug)
+            .filter(
+                Q(email_verification_sent_at__isnull=True)
+                | Q(email_verification_sent_at__lte=cutoff)
+            )
+            .update(email_verification_sent_at=now)
+            == 1
+        )
+
+    @staticmethod
     def email_unavailable(
         *, email: str, now: datetime, exclude_slug: str | None = None
     ) -> bool:
