@@ -7,7 +7,7 @@ import requests
 import responses
 from responses import registries
 
-from ludamus.links.google_docs import GoogleDocsProposalConfig
+from ludamus.links.google_forms import GoogleDocsProposalConfig
 from ludamus.links.sklep_kapitularz import (
     SklepKapitularzConfig,
     SklepKapitularzIntegration,

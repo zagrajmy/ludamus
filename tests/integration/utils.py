@@ -70,6 +70,24 @@ class FormErrorsMatcher:
         return f"FormErrorsMatcher({self.errors})"
 
 
+class FormSetErrorsMatcher:
+    # A formset's `errors` is one dict of field errors per row, in row order,
+    # so an empty dict is a row that validated.
+    def __init__(self, *rows: dict[str, list[str]]) -> None:
+        self.rows = list(rows)
+
+    def __eq__(self, other: object) -> bool:
+        return [
+            {field: list(messages) for field, messages in row.items()}
+            for row in getattr(other, "errors", [])
+        ] == self.rows
+
+    __hash__ = None
+
+    def __repr__(self) -> str:
+        return f"FormSetErrorsMatcher({self.rows})"
+
+
 class FormInitialMatcher:
     # Compares the named keys only — the rest of `initial` is the form's
     # business, not the assertion's.

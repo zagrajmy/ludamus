@@ -156,20 +156,6 @@ def ticketing_integration_fixture(event, settings, sphere):
     )
 
 
-@pytest.fixture(name="local_midday")
-def local_midday_fixture():
-    # The schedule groups by local date, so a session placed around `now()`
-    # straddles two days when the suite happens to run near midnight. Pin the
-    # clock to half past noon; the date stays today's, which the fixtures build
-    # against. Half past, not on the hour, so a window can end at `now()` and a
-    # session can both end before `now()` and start inside the current hour
-    # bucket.
-    with freeze_time(
-        timezone.localtime().replace(hour=12, minute=30, second=0, microsecond=0)
-    ):
-        yield
-
-
 class TestEventPageView:
     URL_NAME = "web:chronology:event"
 
@@ -393,13 +379,22 @@ class TestEventPageView:
             not_contains="Not Available",
         )
 
+    # Pinned: the ongoing session spans now±1h, so a run near local midnight
+    # would split it across two dates and yield an extra schedule day. Half
+    # past the local hour (12:30 Europe/Warsaw), so the ended session has a
+    # non-empty window between the hour bucket's start and `now()`.
+    @freeze_time("2026-06-15 10:30:00")
     def test_ok_compact_schedule_renders_all_row_variants(
-        self, client, event, space, monkeypatch, local_midday
+        self, client, event, space, monkeypatch
     ):
         monkeypatch.setattr(
             "ludamus.adapters.web.django.views.COMPACT_SCHEDULE_MIN_SESSIONS", 1
         )
         now = timezone.now()
+        event.publication_time = now - timedelta(days=14)
+        event.start_time = now + timedelta(days=7)
+        event.end_time = event.start_time + timedelta(hours=8)
+        event.save()
         EnrollmentConfig.objects.create(
             event=event,
             start_time=now - timedelta(days=1),

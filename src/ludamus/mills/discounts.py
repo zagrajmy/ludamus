@@ -27,7 +27,6 @@ if TYPE_CHECKING:
         DiscountRuleRepositoryProtocol,
         FacilitatorScheduleRow,
         ScheduledProgramRepositoryProtocol,
-        SheetWriterProtocol,
     )
     from ludamus.pacts.legacy import (
         FacilitatorChangeLogData,
@@ -40,6 +39,7 @@ if TYPE_CHECKING:
         DecryptorProtocol,
     )
     from ludamus.pacts.services import TransactionProtocol
+    from ludamus.pacts.sheets import SheetWriterProtocol
 
 
 def _roster(
@@ -359,6 +359,6 @@ class DiscountsExportService(DiscountsExportServiceProtocol):
                 ]
             )
         self._sheet_writer.write_rows(
-            secret=secret, spreadsheet_id=spreadsheet_id, tab_title=tab_title, rows=rows
+            secret=secret, spreadsheet_id=spreadsheet_id, rows=rows, tab=tab_title
         )
         return len(entries)

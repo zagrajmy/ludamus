@@ -75,6 +75,8 @@ def _to_dto(item: AgendaItem) -> AgendaItemDTO:
         category_name=(
             item.session.category.name if item.session.category is not None else None
         ),
+        category_id=item.session.category_id,
+        session_min_age=item.session.min_age,
     )
 
 

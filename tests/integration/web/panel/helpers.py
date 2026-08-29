@@ -509,6 +509,7 @@ def integration_dto(integration: EventIntegration) -> EventIntegrationDTO:
         config_json=integration.config_json,
         settings_json=integration.settings_json,
         questions_snapshot_json=integration.questions_snapshot_json or "[]",
+        last_run_json=integration.last_run_json or "{}",
     )
 
 
