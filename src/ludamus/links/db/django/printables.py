@@ -52,7 +52,6 @@ class PrintablesReminderRepository(PrintablesReminderRepositoryProtocol):
             recipients = [
                 membership.user.pk
                 for membership in event.sphere.spheremembership_set.all()
-                if membership.user.email
             ]
             if not recipients:
                 continue
