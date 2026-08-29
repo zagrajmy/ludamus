@@ -1889,6 +1889,16 @@ class TestReleaseClaim:
 
         mock_uow.agenda_items.delete.assert_called_once_with(5)
 
+    def test_a_role_without_panel_write_may_not_release_another_claim(
+        self, service, mock_uow
+    ):
+        self._arrange(mock_uow, presenter_id=999, role=SphereRole.COMMS)
+
+        with pytest.raises(ProposalAcceptDeniedError):
+            self._release(service, user_slug="comms")
+
+        mock_uow.agenda_items.delete.assert_not_called()
+
     def test_a_superuser_may_release_somebody_elses_claim(self, service, mock_uow):
         self._arrange(mock_uow, presenter_id=999, is_superuser=True)
 

@@ -3369,6 +3369,88 @@ class TestClaimSpotFlow:
         )
         assert not Session.objects.filter(event=event, title="Corridor Game").exists()
 
+    @pytest.mark.usefixtures("corridor")
+    def test_back_from_details_returns_to_the_spot_picker(
+        self, authenticated_client, event, space, time_slot
+    ):
+        self._walk_to_submit(authenticated_client, event, space, time_slot)
+
+        response = authenticated_client.post(
+            self._url("web:event:session-propose-timeslots", event.slug), {"back": "1"}
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={
+                "event": EventDTO.model_validate(event),
+                "proposal_settings": EventProposalSettingsDTO(
+                    allow_anonymous_proposals=False, description="", pk=0
+                ),
+                "category": ProposalCategoryDTO.model_validate(
+                    ProposalCategory.objects.get(event=event)
+                ),
+                "current_step": "spot",
+                "wizard_steps": ["personal", "spot", "details", "review"],
+                "spot_groups": [
+                    {
+                        "name": "",
+                        "spaces": [
+                            {
+                                "pk": space.pk,
+                                "name": space.name,
+                                "slots": [
+                                    {
+                                        "value": self._spot_value(space, time_slot),
+                                        "start_time": time_slot.start_time,
+                                        "end_time": time_slot.end_time,
+                                        # The picked cell comes back selected:
+                                        # Back is for changing the room, not
+                                        # for starting the pick over.
+                                        "is_selected": True,
+                                    }
+                                ],
+                            }
+                        ],
+                    }
+                ],
+                "error": None,
+            },
+            template_name="event/propose/parts/spot.html",
+        )
+
+    @pytest.mark.usefixtures("corridor", "space", "time_slot")
+    def test_a_submission_that_skipped_the_picker_claims_nothing(
+        self, authenticated_client, event
+    ):
+        authenticated_client.get(self._url("web:event:session-propose", event.slug))
+        authenticated_client.post(
+            self._url("web:event:session-propose-personal", event.slug),
+            {"contact_email": "walkup@example.com"},
+        )
+        authenticated_client.post(
+            self._url("web:event:session-propose-details", event.slug),
+            {
+                "title": "Corridor Game",
+                "display_name": "Walk Up",
+                "description": "Whoever turns up",
+                "participants_limit": 4,
+                "min_age": 0,
+            },
+        )
+
+        response = authenticated_client.post(
+            self._url("web:event:session-propose-submit", event.slug)
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.ERROR, "Please pick a spot that is still free.")],
+            url=self._url("web:event:session-propose", event.slug),
+        )
+        assert not Session.objects.filter(event=event, title="Corridor Game").exists()
+
     def test_a_spot_that_is_not_free_is_refused_by_the_picker(
         self, authenticated_client, event, space, time_slot, corridor
     ):

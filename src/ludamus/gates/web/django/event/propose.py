@@ -40,7 +40,7 @@ from ludamus.gates.web.django.propose_cover import (
 from ludamus.gates.web.django.sphere.pages import EventsPageRequiredMixin
 from ludamus.gates.web.django.templatetags.cfp_tags import has_field_value
 from ludamus.pacts import NotFoundError, RedirectError
-from ludamus.pacts.propose import ClaimAlreadyPendingError
+from ludamus.pacts.propose import ClaimAlreadyPendingError, SpotRequiredError
 from ludamus.pacts.timetable import PlacementRejectedError
 
 if TYPE_CHECKING:
@@ -76,8 +76,8 @@ type StepContext = dict[str, object]
 _STEP_KEYS: tuple[str, ...] = (
     "category",
     "personal",
-    "timeslots",
     "spot",
+    "timeslots",
     "details",
     "review",
 )
@@ -793,8 +793,13 @@ class ProposeSessionSubmitActionView(ProposeWizardMixin):
                 cover_image=cover,
                 user_id=request.context.current_user_id,
                 user_slug=request.context.current_user_slug,
-                spot=stored_spot(state) if "spot" in wizard.steps else None,
+                spot=stored_spot(state),
             )
+        except SpotRequiredError:
+            raise RedirectError(
+                _propose_url(event_slug),
+                error=_("Please pick a spot that is still free."),
+            ) from None
         except ClaimAlreadyPendingError:
             raise RedirectError(
                 _propose_url(event_slug),

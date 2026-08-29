@@ -41,7 +41,7 @@ from ludamus.pacts.chronology import (
     TimetableGridFilter,
     TrackProgressDTO,
 )
-from ludamus.pacts.multiverse import SphereRole
+from ludamus.pacts.multiverse import Capability
 from ludamus.pacts.timetable import (
     ConflictDetectionServiceProtocol,
     FreeSpotSpaceDTO,
@@ -50,6 +50,7 @@ from ludamus.pacts.timetable import (
     TimetableOverviewServiceProtocol,
     TimetableServiceProtocol,
 )
+from ludamus.specs.permissions import ROLE_CAPABILITIES
 from ludamus.specs.timetable import (
     TIMETABLE_ROOM_PAGE_SIZE,
     TIMETABLE_SLOT_MINUTES,
@@ -516,6 +517,40 @@ class TimetableService(TimetableServiceProtocol):
                 )
         return free_spaces
 
+    def _write_placement(
+        self,
+        *,
+        session_pk: int,
+        placement: SessionPlacement,
+        user_pk: int | None,
+        moved_from_pk: int | None,
+        confirmable: bool = True,
+    ) -> None:
+        """Put the session in the cell and log it, under the caller's locks."""
+        event = self._repos.sessions.read_event(session_pk)
+        self._repos.agenda_items.create(
+            {
+                "session_id": session_pk,
+                "space_id": placement.space_pk,
+                "start_time": placement.start_time,
+                "end_time": placement.end_time,
+                "session_confirmed": event.auto_confirm_sessions and confirmable,
+            }
+        )
+        log_data: ScheduleChangeLogData = {
+            "event_id": event.pk,
+            "session_id": session_pk,
+            "user_id": user_pk,
+            "action": ScheduleChangeAction.ASSIGN,
+            "new_space_id": placement.space_pk,
+            "new_start_time": placement.start_time,
+            "new_end_time": placement.end_time,
+            # A move is recorded as one here and never guessed at later: the
+            # two rows are written together, so only this knows.
+            "moved_from_id": moved_from_pk,
+        }
+        self._repos.schedule_change_logs.create(log_data)
+
     def claim_spot(
         self,
         *,
@@ -548,26 +583,12 @@ class TimetableService(TimetableServiceProtocol):
                     PlacementRejection.SPACE_TAKEN,
                     "the spot was claimed by somebody else",
                 )
-            event = self._repos.sessions.read_event(session_pk)
-            self._repos.agenda_items.create(
-                {
-                    "session_id": session_pk,
-                    "space_id": placement.space_pk,
-                    "start_time": placement.start_time,
-                    "end_time": placement.end_time,
-                    "session_confirmed": event.auto_confirm_sessions,
-                }
+            self._write_placement(
+                session_pk=session_pk,
+                placement=placement,
+                user_pk=user_pk,
+                moved_from_pk=None,
             )
-            log_data: ScheduleChangeLogData = {
-                "event_id": event.pk,
-                "session_id": session_pk,
-                "user_id": user_pk,
-                "action": ScheduleChangeAction.ASSIGN,
-                "new_space_id": placement.space_pk,
-                "new_start_time": placement.start_time,
-                "new_end_time": placement.end_time,
-            }
-            self._repos.schedule_change_logs.create(log_data)
 
     def assign_session(
         self,
@@ -601,41 +622,26 @@ class TimetableService(TimetableServiceProtocol):
                 else None
             )
             self._require_accepted(session_pk)
-            event = self._repos.sessions.read_event(session_pk)
-            self._repos.agenda_items.create(
-                {
-                    "session_id": session_pk,
-                    "space_id": placement.space_pk,
-                    "start_time": placement.start_time,
-                    "end_time": placement.end_time,
-                    "session_confirmed": event.auto_confirm_sessions and not is_move,
-                }
+            self._write_placement(
+                session_pk=session_pk,
+                placement=placement,
+                user_pk=user_pk,
+                moved_from_pk=moved_from_pk,
+                confirmable=not is_move,
             )
-            log_data: ScheduleChangeLogData = {
-                "event_id": event.pk,
-                "session_id": session_pk,
-                "user_id": user_pk,
-                "action": ScheduleChangeAction.ASSIGN,
-                "new_space_id": placement.space_pk,
-                "new_start_time": placement.start_time,
-                "new_end_time": placement.end_time,
-                # A move is recorded as one here and never guessed at later:
-                # the two rows are written together, so only this knows.
-                "moved_from_id": moved_from_pk,
-            }
-            self._repos.schedule_change_logs.create(log_data)
 
     def _may_release(
         self, *, presenter_id: int | None, user_pk: int, user_slug: str, sphere_id: int
     ) -> bool:
         if presenter_id == user_pk:
             return True
+        # Superusers before roles, the rule `PanelAccess.allows` states for the
+        # panel: a superuser who also holds a narrow sphere role is not demoted
+        # by it.
         if self._repos.claim_permissions.active_users.read(user_slug).is_superuser:
             return True
-        return (
-            self._repos.claim_permissions.spheres.manager_role(sphere_id, user_slug)
-            is SphereRole.MANAGER
-        )
+        role = self._repos.claim_permissions.spheres.manager_role(sphere_id, user_slug)
+        return role is not None and Capability.PANEL_WRITE in ROLE_CAPABILITIES[role]
 
     def release_claim(
         self, *, session_pk: int, event_pk: int, user_pk: int, user_slug: str

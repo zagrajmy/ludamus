@@ -339,6 +339,7 @@ class Services:
             transaction=self._transaction,
             sessions=self._repos.sessions,
             agenda_items=self._repos.agenda_items,
+            timetable=self.timetable,
         )
 
     @cached_property

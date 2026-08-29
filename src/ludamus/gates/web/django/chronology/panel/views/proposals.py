@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+from functools import partial
 from typing import TYPE_CHECKING, Protocol
 
 from django.contrib import messages
@@ -33,6 +34,7 @@ from ludamus.pacts import NotFoundError, SessionStatus
 from ludamus.pacts.chronology import (
     ContentChangeNotLatestError,
     ContentChangeNotRevertibleError,
+    ProposalAcceptDeniedError,
     ProposalScheduledError,
 )
 from ludamus.pacts.panel import (
@@ -298,34 +300,6 @@ class _StatusTransition(Protocol):
     def __call__(self, *, event_pk: int, session_pk: int) -> None: ...
 
 
-def _reject(request: PanelRequest) -> _StatusTransition:
-    """Build the reject transition, which frees the cell of a walk-up claim.
-
-    Returns:
-        A transition that calls `release_claim` for an impromptu PENDING claim
-        — rejecting one *is* the request to free its slot — and the ordinary
-        status change for everything else.
-    """
-
-    def reject(*, event_pk: int, session_pk: int) -> None:
-        proposal = request.services.proposal_panel.read_proposal(
-            event_id=event_pk, proposal_id=session_pk
-        )
-        if proposal.is_impromptu and proposal.status == SessionStatus.PENDING:
-            request.services.timetable.release_claim(
-                session_pk=session_pk,
-                event_pk=event_pk,
-                user_pk=request.context.current_user_id,
-                user_slug=request.context.current_user_slug,
-            )
-            return
-        request.services.proposal_status.mark_rejected(
-            event_pk=event_pk, session_pk=session_pk
-        )
-
-    return reject
-
-
 def _status_transitions(request: PanelRequest) -> dict[str, _StatusTransition]:
     # Spelled out rather than resolved by name: the type checker sees every
     # call, and grepping for a transition finds this table. One table serves
@@ -335,7 +309,13 @@ def _status_transitions(request: PanelRequest) -> dict[str, _StatusTransition]:
         "pending": service.mark_pending,
         "accept": service.mark_accepted,
         "hold": service.mark_on_hold,
-        "reject": _reject(request),
+        # Rejecting a walk-up's claim frees its cell, so this one needs to know
+        # who is asking; the rule itself lives in the service.
+        "reject": partial(
+            service.mark_rejected,
+            user_pk=request.context.current_user_id,
+            user_slug=request.context.current_user_slug,
+        ),
     }
 
 
@@ -376,6 +356,9 @@ class ProposalStatusActionView(PanelAccessMixin, EventContextMixin, View):
                     "Remove it from the timetable to change its status."
                 ),
             )
+            return redirect(detail_url)
+        except ProposalAcceptDeniedError:
+            messages.error(self.request, _("You are not allowed to reject this claim."))
             return redirect(detail_url)
 
         messages.success(self.request, _STATUS_MESSAGES[self.action])
@@ -428,7 +411,7 @@ class ProposalBulkStatusActionView(PanelAccessMixin, EventContextMixin, View):
             messages.warning(self.request, _("No proposals selected."))
             return redirect(back)
 
-        applied = scheduled = missing = 0
+        applied = scheduled = missing = denied = 0
         for session_pk in session_pks:
             try:
                 apply_status(event_pk=current_event.pk, session_pk=session_pk)
@@ -436,10 +419,15 @@ class ProposalBulkStatusActionView(PanelAccessMixin, EventContextMixin, View):
                 scheduled += 1
             except NotFoundError:
                 missing += 1
+            except ProposalAcceptDeniedError:
+                # One refusal must not abandon the rest of the selection.
+                denied += 1
             else:
                 applied += 1
 
-        self._report(applied=applied, scheduled=scheduled, missing=missing)
+        self._report(
+            applied=applied, scheduled=scheduled, missing=missing, denied=denied
+        )
         return redirect(back)
 
     def _selected_pks(self) -> list[int]:
@@ -451,7 +439,9 @@ class ProposalBulkStatusActionView(PanelAccessMixin, EventContextMixin, View):
                 continue
         return pks
 
-    def _report(self, *, applied: int, scheduled: int, missing: int) -> None:
+    def _report(
+        self, *, applied: int, scheduled: int, missing: int, denied: int
+    ) -> None:
         if applied:
             messages.success(
                 self.request,
@@ -483,6 +473,16 @@ class ProposalBulkStatusActionView(PanelAccessMixin, EventContextMixin, View):
                     missing,
                 )
                 % {"count": missing},
+            )
+        if denied:
+            messages.error(
+                self.request,
+                ngettext(
+                    "%(count)d claim was skipped; rejecting it is not allowed.",
+                    "%(count)d claims were skipped; rejecting them is not allowed.",
+                    denied,
+                )
+                % {"count": denied},
             )
 
 

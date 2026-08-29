@@ -78,6 +78,7 @@ if TYPE_CHECKING:
         DecryptorProtocol,
     )
     from ludamus.pacts.services import TransactionProtocol
+    from ludamus.pacts.timetable import TimetableServiceProtocol
 
 
 class SessionConfirmationService:
@@ -171,10 +172,12 @@ class ProposalStatusService:
         transaction: TransactionProtocol,
         sessions: SessionRepositoryProtocol,
         agenda_items: AgendaItemRepositoryProtocol,
+        timetable: TimetableServiceProtocol,
     ) -> None:
         self._transaction = transaction
         self._sessions = sessions
         self._agenda_items = agenda_items
+        self._timetable = timetable
 
     def mark_pending(self, *, event_pk: int, session_pk: int) -> None:
         self._set_status(
@@ -191,10 +194,32 @@ class ProposalStatusService:
             event_pk=event_pk, session_pk=session_pk, status=SessionStatus.ON_HOLD
         )
 
-    def mark_rejected(self, *, event_pk: int, session_pk: int) -> None:
-        self._set_status(
-            event_pk=event_pk, session_pk=session_pk, status=SessionStatus.REJECTED
-        )
+    def mark_rejected(
+        self, *, event_pk: int, session_pk: int, user_pk: int, user_slug: str
+    ) -> None:
+        """Reject, freeing the cell first when the proposal is a walk-up claim.
+
+        Rejecting a claim *is* the request to free its slot, so an impromptu
+        PENDING proposal goes through `release_claim`, which unassigns before it
+        rejects. The branch is read under the same lock that both writes take.
+        """
+        with self._transaction.atomic():
+            self._sessions.lock(session_pk)
+            require_session_in_event(
+                sessions=self._sessions, session_pk=session_pk, event_pk=event_pk
+            )
+            session = self._sessions.read(session_pk)
+            if session.is_impromptu and session.status == SessionStatus.PENDING:
+                self._timetable.release_claim(
+                    session_pk=session_pk,
+                    event_pk=event_pk,
+                    user_pk=user_pk,
+                    user_slug=user_slug,
+                )
+                return
+            self._set_status(
+                event_pk=event_pk, session_pk=session_pk, status=SessionStatus.REJECTED
+            )
 
     def _set_status(
         self, *, event_pk: int, session_pk: int, status: SessionStatus

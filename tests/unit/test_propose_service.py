@@ -16,10 +16,10 @@ from ludamus.pacts.legacy import (
     TrackDTO,
 )
 from ludamus.pacts.propose import (
-    ONE_PENDING_CLAIM_CONSTRAINT,
     ClaimAlreadyPendingError,
     ProposeRepos,
     SpotClaim,
+    SpotRequiredError,
 )
 from ludamus.pacts.services import DatabaseConstraintError
 
@@ -54,6 +54,17 @@ def _event(pk=1):
         slug="test-event",
         sphere_id=1,
         start_time=now + timedelta(days=5),
+    )
+
+
+def _claim_event():
+    """Build the event with its own call for proposals shut: claim mode.
+
+    Returns:
+        The event fixture, past its proposal window.
+    """
+    return _event().model_copy(
+        update={"proposal_end_time": datetime.now(tz=UTC) - timedelta(hours=1)}
     )
 
 
@@ -350,7 +361,7 @@ class TestSubmitClaim:
     def _claim(service, submitting_repos):
         submitting_repos.users.read.return_value = MagicMock(pk=42, name="Walk Up")
         return service.submit(
-            _event(),
+            _claim_event(),
             {
                 "category_id": 1,
                 "session_data": {"title": "Corridor Game", "display_name": "Walk Up"},
@@ -372,7 +383,7 @@ class TestSubmitClaim:
         submitting_repos.sessions.read_time_slot.return_value = slot
 
         service.submit(
-            _event(),
+            _claim_event(),
             {
                 "category_id": 1,
                 "session_data": {"title": "Corridor Game", "display_name": "Walk Up"},
@@ -411,9 +422,11 @@ class TestSubmitClaim:
         timetable.claim_spot.assert_not_called()
 
     def test_an_anonymous_claim_is_refused(self, service, submitting_repos, timetable):
+        del submitting_repos
+
         with pytest.raises(ValueError, match="needs a logged-in author"):
             service.submit(
-                _event(),
+                _claim_event(),
                 {
                     "category_id": 1,
                     "session_data": {"title": "Corridor Game", "display_name": "Anon"},
@@ -423,6 +436,28 @@ class TestSubmitClaim:
                 spot=SpotClaim(space_pk=3, time_slot_pk=5),
             )
 
+        timetable.claim_spot.assert_not_called()
+
+    def test_a_submission_with_no_spot_is_refused_in_claim_mode(
+        self, service, submitting_repos, timetable
+    ):
+        submitting_repos.users.read.return_value = MagicMock(pk=42, name="Walk Up")
+
+        with pytest.raises(SpotRequiredError):
+            service.submit(
+                _claim_event(),
+                {
+                    "category_id": 1,
+                    "session_data": {
+                        "title": "Corridor Game",
+                        "display_name": "Walk Up",
+                    },
+                },
+                user_id=42,
+                user_slug="walk-up",
+            )
+
+        submitting_repos.sessions.create.assert_not_called()
         timetable.claim_spot.assert_not_called()
 
 
@@ -441,9 +476,11 @@ class TestOnePendingClaimCap:
         self, service, submitting_repos
     ):
         submitting_repos.sessions.create.side_effect = DatabaseConstraintError(
-            f"duplicate key value violates unique constraint "
-            f'"{ONE_PENDING_CLAIM_CONSTRAINT}"'
+            "UNIQUE constraint failed"
         )
+        # Nothing to see before the insert; the row that won the race is there
+        # when the failure is re-read.
+        submitting_repos.sessions.count_pending_impromptu_claims.side_effect = [0, 1]
 
         with pytest.raises(ClaimAlreadyPendingError):
             TestSubmitClaim._claim(service, submitting_repos)

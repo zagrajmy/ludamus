@@ -1586,9 +1586,45 @@ class TestProposalsPageView:
             self.get_url(event), {"status": "all", "placement": "scheduled"}
         )
 
-        assert response.status_code == HTTPStatus.OK
-        assert [p.title for p in response.context["proposals"]] == ["Scheduled Session"]
-        assert response.context["filter_placement"] == "scheduled"
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/proposals.html",
+            context_data={
+                **panel_context(event, active_nav="proposals"),
+                "deleted_proposals": [],
+                **_TRACK_FILTER_CONTEXT,
+                "categories": [ProposalCategoryDTO.model_validate(category)],
+                "stats": {
+                    "hosts_count": 0,
+                    "pending_proposals": 0,
+                    "rooms_count": 1,
+                    "scheduled_sessions": 1,
+                    "total_proposals": 2,
+                    "total_sessions": 1,
+                },
+                **_list_chrome(
+                    event,
+                    [
+                        SessionListItemDTO(
+                            pk=scheduled.pk,
+                            title="Scheduled Session",
+                            display_name="Scheduled Host",
+                            category_name="RPG",
+                            status=SessionStatus.ACCEPTED,
+                            creation_time=scheduled.creation_time,
+                            is_scheduled=True,
+                        )
+                    ],
+                ),
+                "filter_status": None,
+                "filter_status_value": "all",
+                "filter_placement": "scheduled",
+                "session_fields": [],
+                "filter_fields": {},
+                "filter_search": "",
+            },
+        )
 
     def test_origin_narrows_the_pending_queue_to_waiting_claims(
         self, panel_client, event
@@ -1617,13 +1653,48 @@ class TestProposalsPageView:
 
         response = panel_client.get(self.get_url(event), {"origin": "impromptu"})
 
-        assert response.status_code == HTTPStatus.OK
-        assert [p.title for p in response.context["proposals"]] == ["Corridor Game"]
-        assert response.context["filter_origin"] == "impromptu"
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/proposals.html",
+            context_data={
+                **panel_context(event, active_nav="proposals"),
+                "deleted_proposals": [],
+                **_TRACK_FILTER_CONTEXT,
+                "categories": [ProposalCategoryDTO.model_validate(category)],
+                "stats": {
+                    "hosts_count": 0,
+                    "pending_proposals": 2,
+                    "rooms_count": 1,
+                    "scheduled_sessions": 1,
+                    "total_proposals": 2,
+                    "total_sessions": 3,
+                },
+                **_list_chrome(
+                    event,
+                    [
+                        SessionListItemDTO(
+                            pk=claim.pk,
+                            title="Corridor Game",
+                            display_name="Walk Up",
+                            category_name="RPG",
+                            status=SessionStatus.PENDING,
+                            creation_time=claim.creation_time,
+                            is_impromptu=True,
+                            is_scheduled=True,
+                        )
+                    ],
+                ),
+                "filter_origin": "impromptu",
+                "session_fields": [],
+                "filter_fields": {},
+                "filter_search": "",
+            },
+        )
 
     def test_status_and_placement_narrow_independently(self, panel_client, event):
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
-        Session.objects.create(
+        unscheduled = Session.objects.create(
             event=event,
             category=category,
             display_name="Accepted Host",
@@ -1648,22 +1719,71 @@ class TestProposalsPageView:
             end_time=datetime(2026, 7, 1, 20, 0, tzinfo=UTC),
         )
 
+        unscheduled_item = SessionListItemDTO(
+            pk=unscheduled.pk,
+            title="Unscheduled Session",
+            display_name="Accepted Host",
+            category_name="RPG",
+            status=SessionStatus.ACCEPTED,
+            creation_time=unscheduled.creation_time,
+            is_scheduled=False,
+        )
+        scheduled_item = SessionListItemDTO(
+            pk=scheduled.pk,
+            title="Scheduled Session",
+            display_name="Scheduled Host",
+            category_name="RPG",
+            status=SessionStatus.ACCEPTED,
+            creation_time=scheduled.creation_time,
+            is_scheduled=True,
+        )
+        stats = {
+            "hosts_count": 0,
+            "pending_proposals": 0,
+            "rooms_count": 1,
+            "scheduled_sessions": 1,
+            "total_proposals": 2,
+            "total_sessions": 1,
+        }
+        page = {
+            **panel_context(event, active_nav="proposals"),
+            "deleted_proposals": [],
+            **_TRACK_FILTER_CONTEXT,
+            "categories": [ProposalCategoryDTO.model_validate(category)],
+            "stats": stats,
+            "filter_status": SessionStatus.ACCEPTED,
+            "filter_status_value": SessionStatus.ACCEPTED,
+            "session_fields": [],
+            "filter_fields": {},
+            "filter_search": "",
+        }
+
         response = panel_client.get(self.get_url(event), {"status": "accepted"})
 
-        assert response.status_code == HTTPStatus.OK
-        assert sorted(p.title for p in response.context["proposals"]) == [
-            "Scheduled Session",
-            "Unscheduled Session",
-        ]
-        assert response.context["filter_status"] == SessionStatus.ACCEPTED
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/proposals.html",
+            context_data={
+                **page,
+                **_list_chrome(event, [scheduled_item, unscheduled_item]),
+            },
+        )
 
         narrowed = panel_client.get(
             self.get_url(event), {"status": "accepted", "placement": "unscheduled"}
         )
 
-        assert [p.title for p in narrowed.context["proposals"]] == [
-            "Unscheduled Session"
-        ]
+        assert_response(
+            narrowed,
+            HTTPStatus.OK,
+            template_name="panel/proposals.html",
+            context_data={
+                **page,
+                **_list_chrome(event, [unscheduled_item]),
+                "filter_placement": "unscheduled",
+            },
+        )
 
 
 class TestProposalDetailPageView:

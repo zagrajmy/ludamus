@@ -45,13 +45,12 @@ class ProposeRepos(NamedTuple):
     users: UserRepositoryProtocol
 
 
-# The conditional constraint that bounds a walk-up to one outstanding claim,
-# named so a violation can be told apart from every other integrity failure.
-ONE_PENDING_CLAIM_CONSTRAINT = "session_one_pending_impromptu_claim_per_presenter"
-
-
 class ClaimAlreadyPendingError(Exception):
     """This person already has a claim on this event waiting for an answer."""
+
+
+class SpotRequiredError(Exception):
+    """The event is in claim mode, so a submission must name a cell to claim."""
 
 
 class SpotClaim(NamedTuple):

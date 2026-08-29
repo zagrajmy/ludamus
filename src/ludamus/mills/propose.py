@@ -18,10 +18,10 @@ from ludamus.pacts import (
 from ludamus.pacts.chronology import SessionPlacement
 from ludamus.pacts.durations import normalize_duration
 from ludamus.pacts.propose import (
-    ONE_PENDING_CLAIM_CONSTRAINT,
     ClaimAlreadyPendingError,
     ProposeOpennessDTO,
     ProposeSessionServiceProtocol,
+    SpotRequiredError,
 )
 from ludamus.pacts.services import DatabaseConstraintError
 from ludamus.pacts.submissions import is_empty_answer
@@ -170,7 +170,16 @@ class ProposeSessionService(ProposeSessionServiceProtocol):
             )
         )
 
-    def _require_claimable(self, *, event_id: int, presenter_id: int | None) -> None:
+    def _require_claim(
+        self, *, event_id: int, presenter_id: int | None, spot: SpotClaim | None
+    ) -> tuple[SpotClaim, int]:
+        """Check the walk-up may claim now, resolving the cell and its claimant.
+
+        Returns:
+            The cell to place and the id of the person claiming it.
+        """
+        if spot is None:
+            raise SpotRequiredError
         if presenter_id is None:
             msg = "an impromptu claim needs a logged-in author"
             raise ValueError(msg)
@@ -178,6 +187,7 @@ class ProposeSessionService(ProposeSessionServiceProtocol):
         # message before anything is written.
         if self._repos.sessions.count_pending_impromptu_claims(event_id, presenter_id):
             raise ClaimAlreadyPendingError
+        return spot, presenter_id
 
     def submit(
         self,
@@ -208,8 +218,15 @@ class ProposeSessionService(ProposeSessionServiceProtocol):
             default_display_name = ""
             presenter_id = None
 
-        if spot is not None:
-            self._require_claimable(event_id=event.pk, presenter_id=presenter_id)
+        # Claim-mode is the event's own answer, not the wizard's: every step is
+        # its own postable endpoint, so a walk-up that never reached the picker
+        # must be refused rather than written as an ordinary proposal. Same
+        # reading as `get_openness`, off the event already in hand.
+        claim = (
+            self._require_claim(event_id=event.pk, presenter_id=presenter_id, spot=spot)
+            if event.is_published and not event.is_proposal_active
+            else None
+        )
 
         display_name = str(session_data.get("display_name", default_display_name))
         slug = self._generate_unique_slug(
@@ -234,7 +251,7 @@ class ProposeSessionService(ProposeSessionServiceProtocol):
                 min_age=int(str(session_data.get("min_age") or 0)),
                 contact_email=wizard_data.get("contact_email", ""),
                 status=SessionStatus.PENDING,
-                is_impromptu=spot is not None,
+                is_impromptu=claim is not None,
             )
             if cover_image:
                 create_data["cover_image"] = cover_image
@@ -243,7 +260,7 @@ class ProposeSessionService(ProposeSessionServiceProtocol):
                 create_data,
                 time_slot_ids=time_slot_ids,
                 facilitator_id=facilitator.pk,
-                claiming=spot is not None,
+                claimant=claim[1] if claim else None,
             )
 
             self._save_session_field_values(
@@ -268,12 +285,13 @@ class ProposeSessionService(ProposeSessionServiceProtocol):
                 if scoped := [pk for pk in track_pks if pk in allowed]:
                     self._repos.sessions.set_session_tracks(session_id, scoped)
 
-            if spot is not None and presenter_id is not None:
+            if claim is not None:
+                claimed_spot, claimant = claim
                 self._claim(
                     session_id=session_id,
                     event_id=event.pk,
-                    spot=spot,
-                    presenter_id=presenter_id,
+                    spot=claimed_spot,
+                    presenter_id=claimant,
                 )
 
         return ProposeSessionResult(session_id=session_id, title=title)
@@ -284,23 +302,23 @@ class ProposeSessionService(ProposeSessionServiceProtocol):
         *,
         time_slot_ids: list[int],
         facilitator_id: int,
-        claiming: bool,
+        claimant: int | None,
     ) -> int:
         """Insert the session, mapping a lost race for the one-claim cap.
 
         Returns:
             The new session's id.
         """
-        if not claiming:
+        if claimant is None:
             return self._repos.sessions.create(
                 create_data,
                 time_slot_ids=time_slot_ids,
                 facilitator_ids=[facilitator_id],
             )
-        # Only the insert is wrapped, and only this constraint is translated:
+        # Only the insert is wrapped, and the re-query decides what failed:
         # the transaction layer flattens every integrity failure into one
-        # exception, so a blanket catch would report a foreign key or a slug
-        # collision as a second claim.
+        # exception whose text is the driver's, so a blanket catch would report
+        # a foreign key or a slug collision as a second claim.
         try:
             with self._transaction.savepoint():
                 return self._repos.sessions.create(
@@ -309,7 +327,9 @@ class ProposeSessionService(ProposeSessionServiceProtocol):
                     facilitator_ids=[facilitator_id],
                 )
         except DatabaseConstraintError as exc:
-            if ONE_PENDING_CLAIM_CONSTRAINT in str(exc):
+            if self._repos.sessions.count_pending_impromptu_claims(
+                create_data["event_id"], claimant
+            ):
                 raise ClaimAlreadyPendingError from exc
             raise
 
