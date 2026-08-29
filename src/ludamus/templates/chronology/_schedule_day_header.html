@@ -1,6 +1,16 @@
-{# Day heading shared by the ledger and rooms layouts of the compact #}
-{# schedule. Expects `day` with a `day_start` datetime. #}
-<h3 class="mb-2 flex items-baseline gap-2 border-b border-border px-2 pb-2 text-sm font-bold uppercase tracking-wide text-foreground-secondary">
-    {{ day.day_start|date:"l" }}
-    <span class="text-xs font-medium normal-case tracking-normal text-foreground-muted">{{ day.day_start|date:"j F" }}</span>
+{# Day heading shared by the ledger and card layouts of the schedule. Expects #}
+{# `day` with a `day_start` datetime and `day_count`; on a multi-day schedule #}
+{# the heading doubles as the disclosure toggle that folds the enclosing #}
+{# [data-schedule-day] section (schedule-fold.ts). #}
+{# The horizontal padding rides the toggle, not the heading, so its hover #}
+{# fill reaches the row's edges instead of stopping at the text. #}
+<h3 class="mb-2 border-b border-border pb-1 text-sm font-bold uppercase tracking-wide text-foreground-secondary">
+    {% if day_count > 1 %}
+        {% include "components/day-fold-toggle.html" with day_start=day.day_start extra_class="flex w-full" only %}
+    {% else %}
+        <span class="flex items-baseline gap-2 px-2 pb-1">
+            {{ day.day_start|date:"l" }}
+            <span class="text-xs font-medium normal-case tracking-normal text-foreground-muted">{{ day.day_start|date:"j F" }}</span>
+        </span>
+    {% endif %}
 </h3>
