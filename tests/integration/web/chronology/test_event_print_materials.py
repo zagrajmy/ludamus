@@ -26,6 +26,7 @@ from tests.integration.web.chronology.test_event_print_page import (
     _one_hour_page,
     _scope,
     _timetable_document,
+    _track_option,
 )
 
 
@@ -115,7 +116,7 @@ class TestPublicEventPrintMaterials:
         )
 
     def test_empty_session_list_renders_empty_state(self, client, event, space):
-        Track.objects.create(
+        track = Track.objects.create(
             event=event, name="Focused Track", slug="focused-track", is_public=True
         )
         TimeSlotFactory(
@@ -130,7 +131,7 @@ class TestPublicEventPrintMaterials:
             response,
             material="session-list",
             session_list_available=True,
-            tracks_available=True,
+            tracks=[_track_option(track)],
             selected_track="focused-track",
             print_scopes=[_scope(space)],
             timetable=None,
@@ -148,7 +149,7 @@ class TestPublicEventPrintMaterials:
         self, authenticated_client, active_user, sphere, event, space
     ):
         sphere.managers.add(active_user)
-        Track.objects.create(
+        track = Track.objects.create(
             event=event, name="Focused Track", slug="focused-track", is_public=True
         )
         TimeSlotFactory(
@@ -166,7 +167,7 @@ class TestPublicEventPrintMaterials:
             material="session-list",
             unconfirmed=True,
             session_list_available=True,
-            tracks_available=True,
+            tracks=[_track_option(track)],
             panel_access=True,
             selected_track="focused-track",
             print_scopes=[_scope(space)],

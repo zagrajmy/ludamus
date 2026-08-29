@@ -29,26 +29,11 @@ from tests.integration.conftest import (
     TimeSlotFactory,
 )
 from tests.integration.utils import (
+    NonEmptyStringMatcher,
     assert_cache_control,
     assert_response,
     assert_response_404,
 )
-
-
-class _NonEmptyStr:
-    # A value minted while handling the request — a rendered QR code, a range
-    # start stamped from the event clock — whose exact text is the view's
-    # business rather than the assertion's.
-    def __init__(self, *, contains: str = "") -> None:
-        self.contains = contains
-
-    def __eq__(self, other: object) -> bool:
-        return isinstance(other, str) and bool(other) and self.contains in other
-
-    __hash__ = None
-
-    def __repr__(self) -> str:
-        return f"_NonEmptyStr(contains={self.contains!r})"
 
 
 def _specs(*values):
@@ -57,6 +42,10 @@ def _specs(*values):
 
 def _scope(space, name=None):
     return PrintScopeOptionDTO(pk=space.pk, name=name or space.name)
+
+
+def _track_option(track):
+    return PrintOptionDTO(pk=track.pk, name=track.name, slug=track.slug)
 
 
 def _confirmed_item(event, session, space):
@@ -142,9 +131,9 @@ def _assert_print_ok(
     descriptions=False,
     unconfirmed=False,
     session_list_available=False,
-    tracks_available=False,
     panel_access=False,
     print_scopes=None,
+    tracks=None,
     timetable=ANY,
     area_schedule=ANY,
     session_list=ANY,
@@ -152,9 +141,11 @@ def _assert_print_ok(
 ):
     if print_scopes is None:
         print_scopes = []
+    if tracks is None:
+        tracks = []
     expected_options = ["timetable"]
     # The track scope is only offered when the event actually has tracks.
-    if tracks_available:
+    if tracks:
         expected_options.append("track-timetable")
     if session_list_available:
         expected_options.append("session-list")
@@ -178,9 +169,9 @@ def _assert_print_ok(
             "area_schedule": area_schedule,
             "session_list": session_list,
             "door_cards": door_cards,
-            "qr_svg": _NonEmptyStr(contains="<svg"),
+            "qr_svg": NonEmptyStringMatcher(contains="<svg"),
             "print_scopes": print_scopes,
-            "tracks": ANY,
+            "tracks": tracks,
             "material_options": _specs(*expected_options),
             "material": material,
             "show_scope_control": show_scope_control,
@@ -192,7 +183,7 @@ def _assert_print_ok(
             "unconfirmed": unconfirmed,
             "selected_scope": selected_scope,
             "selected_track": selected_track,
-            "range_start_value": _NonEmptyStr(),
+            "range_start_value": NonEmptyStringMatcher(),
             "range_hours": range_hours,
         },
     )
@@ -272,7 +263,7 @@ class TestPublicEventPrintView:
             response,
             material="track-timetable",
             descriptions=True,
-            tracks_available=True,
+            tracks=[_track_option(track)],
             selected_track=track.slug,
             # The scope picker still lists every room; only the schedule is
             # narrowed to the track.
@@ -528,7 +519,7 @@ class TestPublicEventPrintView:
             response,
             material="session-list",
             session_list_available=True,
-            tracks_available=True,
+            tracks=[_track_option(track)],
             # The event's only track is preselected even though the session
             # list ignores it.
             selected_track=track.slug,
@@ -576,9 +567,9 @@ class TestPublicEventPrintView:
                     "timetable", "track-timetable", "door-cards"
                 ),
                 "print_scopes": [_scope(space)],
-                "qr_svg": _NonEmptyStr(contains="<svg"),
+                "qr_svg": NonEmptyStringMatcher(contains="<svg"),
                 "range_hours": None,
-                "range_start_value": _NonEmptyStr(),
+                "range_start_value": NonEmptyStringMatcher(),
                 "selected_scope": "",
                 "selected_track": "focused-track",
                 "session_list": None,
@@ -617,9 +608,9 @@ class TestPublicEventPrintView:
                 "material": "timetable",
                 "material_options": _specs("timetable", "door-cards"),
                 "print_scopes": [_scope(space)],
-                "qr_svg": _NonEmptyStr(contains="<svg"),
+                "qr_svg": NonEmptyStringMatcher(contains="<svg"),
                 "range_hours": None,
-                "range_start_value": _NonEmptyStr(),
+                "range_start_value": NonEmptyStringMatcher(),
                 "selected_scope": str(space.pk),
                 "selected_track": "",
                 "session_list": None,
@@ -667,9 +658,9 @@ class TestPublicEventPrintView:
                     "timetable", "track-timetable", "door-cards"
                 ),
                 "print_scopes": [_scope(space)],
-                "qr_svg": _NonEmptyStr(contains="<svg"),
+                "qr_svg": NonEmptyStringMatcher(contains="<svg"),
                 "range_hours": None,
-                "range_start_value": _NonEmptyStr(),
+                "range_start_value": NonEmptyStringMatcher(),
                 "selected_scope": "",
                 "selected_track": "main-track",
                 "session_list": None,

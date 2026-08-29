@@ -4,8 +4,9 @@ from django.urls import reverse
 
 from ludamus.links.db.django.models import Notification
 from ludamus.pacts.legacy import NotificationKind
+from ludamus.pacts.notifications import NavbarNotificationsDTO, NotificationDTO
 from tests.integration.conftest import UserFactory
-from tests.integration.utils import assert_navbar_notifications, assert_response
+from tests.integration.utils import assert_response
 
 
 def _make_notification(recipient):
@@ -22,11 +23,16 @@ class TestNavbarNotifications:
     def test_navbar_exposes_unread_count_for_recipient(
         self, authenticated_client, active_user
     ):
-        _make_notification(active_user)
+        notification = _make_notification(active_user)
 
         response = authenticated_client.get(reverse("web:events"))
 
-        assert_navbar_notifications(response, unread_count=1, titles=["A spot opened"])
+        # The bell comes from a context processor, so it never reaches
+        # `response.context_data` — the rendering context is the only place
+        # it is.
+        assert response.context["navbar_notifications"] == NavbarNotificationsDTO(
+            unread_count=1, items=[NotificationDTO.model_validate(notification)]
+        )
 
     def test_navbar_excludes_other_users_notifications(self, authenticated_client):
         other = UserFactory(username="someone-else", email="else@example.com")
@@ -34,7 +40,9 @@ class TestNavbarNotifications:
 
         response = authenticated_client.get(reverse("web:events"))
 
-        assert_navbar_notifications(response, unread_count=0, titles=[])
+        assert response.context["navbar_notifications"] == NavbarNotificationsDTO(
+            unread_count=0, items=[]
+        )
 
     def test_mark_read_clears_unread(self, authenticated_client, active_user):
         notification = _make_notification(active_user)

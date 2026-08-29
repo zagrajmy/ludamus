@@ -71,8 +71,6 @@ from tests.integration.conftest import (
 )
 from tests.integration.utils import assert_rendered, assert_response
 from tests.integration.web.chronology.helpers import (
-    assert_card,
-    card_in,
     compact_day,
     event_page_context,
     make_half_full_session,
@@ -178,14 +176,42 @@ class TestEventPageView:
 
     def test_offered_seats_count_toward_capacity(self, client, sphere):
         event = EventFactory(sphere=sphere)
-        session = make_half_full_session(event)
+        session, seats = make_half_full_session(event)
+        agenda_item = session.agenda_item
 
         response = client.get(self._get_url(event.slug))
 
-        assert_card(
-            card_in(response, session),
-            is_full=True,
+        # The offered seat holds a place in the roster, so both seats are gone.
+        card = session_card(
+            agenda_item,
+            presenter=session.presenter,
             enrolled_count=session.participants_limit,
+            is_full=True,
+            session_participations=[
+                ParticipationInfo(
+                    user=UserInfo.from_user_dto(
+                        UserDTO.model_validate(seat.user), gravatar_url=gravatar_url
+                    ),
+                    status=seat.status,
+                    creation_time=seat.creation_time,
+                )
+                for seat in seats
+            ],
+        )
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=event_page_context(
+                event,
+                url=self._get_url(event.slug),
+                hour_data={agenda_item.start_time: [card]},
+                future_unavailable_hour_data={agenda_item.start_time: [card]},
+                sessions=[card],
+                has_enrollable_sessions=True,
+                scheduled_count=1,
+                total_enrolled=2,
+            ),
+            template_name=["chronology/event.html"],
         )
 
     def test_session_card_link_opens_on_current_event(self, agenda_item, client, event):

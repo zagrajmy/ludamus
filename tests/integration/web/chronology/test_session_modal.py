@@ -33,7 +33,7 @@ from tests.integration.conftest import (
     UserFactory,
 )
 from tests.integration.utils import assert_response, assert_response_404
-from tests.integration.web.chronology.helpers import assert_card, make_half_full_session
+from tests.integration.web.chronology.helpers import make_half_full_session
 
 _TEMPLATE = "chronology/parts/session-modal.html"
 
@@ -142,14 +142,31 @@ def _expected_session_data(
 class TestSessionModalComponentView:
     def test_offered_seats_count_toward_capacity(self, client, sphere):
         event = EventFactory(sphere=sphere)
-        session = make_half_full_session(event)
+        session, seats = make_half_full_session(event)
 
         response = client.get(_url(event, session.pk))
 
-        assert_card(
-            response.context_data["data"],
-            is_full=True,
-            enrolled_count=session.participants_limit,
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name=_TEMPLATE,
+            context_data={
+                # The offered seat sits in the roster and occupies capacity,
+                # so both seats are gone.
+                "data": _expected_session_data(
+                    agenda_item=session.agenda_item,
+                    session=session,
+                    presenter=session.presenter,
+                    effective_participants_limit=session.participants_limit,
+                    enrolled_count=session.participants_limit,
+                    is_full=True,
+                    session_participations=[_participation(seat) for seat in seats],
+                ),
+                "event": EventDTO.model_validate(event),
+                "event_banned": False,
+                "show_roster": True,
+                "enroll_actions": None,
+            },
         )
 
     def test_renders_modal_for_scheduled_session(
