@@ -5,7 +5,11 @@ from typing import TYPE_CHECKING
 
 from django.conf import settings
 
-from ludamus.inits.builders import build_printables_reminder, build_waitlist_promotion
+from ludamus.inits.builders import (
+    build_konwencik_export,
+    build_printables_reminder,
+    build_waitlist_promotion,
+)
 from ludamus.inits.dbos_scheduler import (
     DBOSAnnouncementFanoutScheduler,
     DBOSOfferExpiryScheduler,
@@ -16,13 +20,13 @@ from ludamus.links.db.django.notifications import DjangoUserNotifier
 from ludamus.links.db.django.schedule_change_log import ScheduleChangeLogRepository
 from ludamus.links.db.django.transaction import DjangoTransaction
 from ludamus.links.encryption import FernetDecryptor, FernetEncryptor
-from ludamus.links.google_docs import GoogleDocsProposalImporter, GoogleSheetsWriter
+from ludamus.links.google_forms import GoogleDocsProposalImporter
+from ludamus.links.google_sheets import GoogleSheetsWriter, KonwencikSheetExporter
 from ludamus.links.gravatar import gravatar_url
 from ludamus.links.scheduler import CronSweepAnnouncementFanout, CronSweepOfferScheduler
 from ludamus.links.sklep_kapitularz import SklepKapitularzIntegration
 from ludamus.mills.bookmarks import BookmarkService
 from ludamus.mills.chronology import (
-    EventIntegrationsService,
     ProposalAcceptanceService,
     ProposalStatusService,
     SessionConfirmationService,
@@ -52,6 +56,10 @@ from ludamus.mills.event import (
 )
 from ludamus.mills.event_settings import EventSettingsService
 from ludamus.mills.guild import GuildService
+from ludamus.mills.integrations import (
+    EventIntegrationsService,
+    IntegrationImplementations,
+)
 from ludamus.mills.multiverse import (
     AnnouncementsService,
     ConnectionsService,
@@ -99,8 +107,10 @@ from ludamus.pacts.submissions import ImportRepos, ProposalCategorySettingsRepos
 from ludamus.pacts.timetable import TimetableRepos
 
 if TYPE_CHECKING:
+    from ludamus.mills.konwencik import KonwencikExportService
     from ludamus.pacts.chronology import (
         ImportIntegrationImplementation,
+        IntegrationImplementation,
         TicketingIntegrationImplementation,
     )
     from ludamus.pacts.enrollment import OfferExpirySchedulerProtocol
@@ -494,6 +504,10 @@ class Services:
         )
 
     @cached_property
+    def konwencik_export(self) -> KonwencikExportService:
+        return build_konwencik_export()
+
+    @cached_property
     def encounters(self) -> EncounterService:
         return EncounterService(
             transaction=self._transaction,
@@ -522,14 +536,25 @@ class Services:
         }
 
     @cached_property
+    def _export_implementations(
+        self,
+    ) -> dict[IntegrationImplementationId, IntegrationImplementation]:
+        return {
+            IntegrationImplementationId.KONWENCIK_SHEET_PUSHER: KonwencikSheetExporter()
+        }
+
+    @cached_property
     def event_integrations(self) -> EventIntegrationsService:
         return EventIntegrationsService(
             transaction=self._transaction,
             integrations=self._repos.event_integrations,
             connections=self._repos.connections,
             decryptor=self._decryptor,
-            imports=self._import_implementations,
-            ticketing=self._ticketing_implementations,
+            implementations=IntegrationImplementations(
+                imports=self._import_implementations,
+                ticketing=self._ticketing_implementations,
+                exports=self._export_implementations,
+            ),
         )
 
     @cached_property

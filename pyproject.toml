@@ -228,13 +228,19 @@ module = [
     "ludamus.gates.cli.django.management.commands.expire_offers",
     "ludamus.gates.web.django.*",
     "ludamus.links.db.django.*",
-    "ludamus.links.google_docs",
+    "ludamus.links.google_auth",
+    "ludamus.links.google_forms",
+    "ludamus.links.google_sheets",
     "ludamus.links.analytics.*",
 ]
 disallow_any_expr = false
 
 [[tool.mypy.overrides]]
-module = ["ludamus.adapters.web.django.*", "ludamus.gates.web.django.*"]
+module = [
+    "ludamus.adapters.web.django.*",
+    "ludamus.gates.web.django.*",
+    "ludamus.gates.cli.django.management.commands.export_konwencik",
+]
 disallow_any_explicit = false
 
 # DBOS's class-method calls surface as Any (like Django's ORM elsewhere);

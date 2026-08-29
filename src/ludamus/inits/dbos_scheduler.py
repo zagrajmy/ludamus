@@ -38,6 +38,7 @@ from django.db import transaction
 
 from ludamus.inits.builders import (
     build_announcement_fanout,
+    build_konwencik_export,
     build_printables_reminder,
     build_waitlist_promotion,
 )
@@ -55,6 +56,10 @@ PRINTABLES_REMINDERS_SCHEDULE = "0 7 * * *"
 # Recovery floor for announcement fanouts whose workflow was lost between
 # commit and start; the claim on notified_at keeps a double run harmless.
 ANNOUNCEMENT_FANOUT_SCHEDULE = "*/5 * * * *"
+# One cadence for every event, not a per-event knob: the export is a full
+# rewrite, so re-running is free and nothing accumulates between ticks. The
+# sweep is already bounded by sync-on and event-not-long-finished.
+KONWENCIK_EXPORT_SCHEDULE = "*/15 * * * *"
 
 
 @DBOS.step()
@@ -123,6 +128,18 @@ def printables_reminders_tick(scheduled: datetime, _actual: datetime) -> None:
     _send_printables_reminders_step(scheduled)
 
 
+@DBOS.step()
+def _export_konwencik_step(now: datetime) -> None:
+    exported = build_konwencik_export().run_sweep(now=now)
+    logger.info("konwencik export sweep: exported %s integration(s)", exported)
+
+
+@DBOS.scheduled(KONWENCIK_EXPORT_SCHEDULE)
+@DBOS.workflow()
+def konwencik_export_tick(scheduled: datetime, _actual: datetime) -> None:
+    _export_konwencik_step(scheduled)
+
+
 def _ensure_launched() -> None:
     if _launched.is_set():
         return
@@ -146,6 +163,7 @@ def _ensure_launched() -> None:
                     expire_offers_sweep,
                     printables_reminders_tick,
                     announcement_fanout_sweep,
+                    konwencik_export_tick,
                 )
             ],
         )
