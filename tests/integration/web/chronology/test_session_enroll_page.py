@@ -23,7 +23,6 @@ from ludamus.links.db.django.models import (
     AgendaItem,
     EnrollmentConfig,
     Notification,
-    NotificationSubscription,
     PartyMembership,
     SessionParticipation,
     SessionParticipationStatus,
@@ -3101,67 +3100,3 @@ class TestOutcomeStatedCta:
             ),
             contains=">Confirm</button>",
         )
-
-
-class TestEnrollmentSubscribes:
-    def _url(self, session):
-        return reverse(
-            "web:chronology:session-enrollment",
-            kwargs={"event_slug": session.event.slug, "session_id": session.pk},
-        )
-
-    @pytest.mark.usefixtures("enrollment_config")
-    def test_enrolling_subscribes_to_the_event(
-        self, staff_user, agenda_item, staff_client, event
-    ):
-        staff_client.post(
-            self._url(agenda_item.session),
-            data={"enroll_mode": "desired", f"user_{staff_user.id}": "include"},
-        )
-
-        subscription = NotificationSubscription.objects.get(
-            user=staff_user, event=event
-        )
-        assert subscription.source == "enrollment"
-        assert subscription.muted is False
-
-    @pytest.mark.usefixtures("enrollment_config")
-    def test_enrolling_keeps_existing_subscription_muted(
-        self, staff_user, agenda_item, staff_client, event
-    ):
-        NotificationSubscription.objects.create(
-            user=staff_user, event=event, muted=True, source="enrollment"
-        )
-
-        staff_client.post(
-            self._url(agenda_item.session),
-            data={"enroll_mode": "desired", f"user_{staff_user.id}": "include"},
-        )
-
-        subscription = NotificationSubscription.objects.get(
-            user=staff_user, event=event
-        )
-        assert subscription.muted is True
-
-    @pytest.mark.usefixtures("enrollment_config")
-    def test_cancelling_keeps_the_subscription(
-        self, active_user, agenda_item, authenticated_client, event
-    ):
-        agenda_item.session.presenter = None
-        agenda_item.session.save(update_fields=["presenter_id"])
-        SessionParticipation.objects.create(
-            user=active_user,
-            session=agenda_item.session,
-            status=SessionParticipationStatus.CONFIRMED,
-        )
-        NotificationSubscription.objects.create(
-            user=active_user, event=event, source="enrollment"
-        )
-
-        authenticated_client.post(
-            self._url(agenda_item.session), data={"enroll_mode": "desired"}
-        )
-
-        assert NotificationSubscription.objects.filter(
-            user=active_user, event=event
-        ).exists()

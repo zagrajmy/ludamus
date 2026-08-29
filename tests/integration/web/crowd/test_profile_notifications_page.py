@@ -4,25 +4,18 @@ from django.contrib import messages
 from django.urls import reverse
 
 from ludamus.links.db.django.models import NotificationSubscription
-from ludamus.pacts.notifications import SubscriptionDTO, SubscriptionGroupDTO
-from tests.integration.conftest import EventFactory, UserFactory
+from ludamus.pacts.notifications import SubscriptionDTO
+from tests.integration.conftest import SphereFactory, UserFactory
 from tests.integration.utils import assert_response, assert_response_404
 
 URL = reverse("web:crowd:profile-notifications")
 
 
 def _dto(subscription: NotificationSubscription) -> SubscriptionDTO:
-    sphere = subscription.sphere or subscription.event.sphere
     return SubscriptionDTO(
         pk=subscription.pk,
         muted=subscription.muted,
-        sphere_id=subscription.sphere_id,
-        event_id=subscription.event_id,
-        label=(
-            subscription.sphere.name if subscription.sphere else subscription.event.name
-        ),
-        parent_sphere_id=sphere.pk,
-        parent_sphere_name=sphere.name,
+        sphere_name=subscription.sphere.name,
     )
 
 
@@ -48,40 +41,29 @@ class TestProfileNotificationsPageView:
             response,
             HTTPStatus.OK,
             context_data={
-                "subscription_groups": [
-                    SubscriptionGroupDTO(
-                        sphere_name=sphere.name,
-                        sphere_subscription=_dto(subscription),
-                        events=[],
-                    )
-                ],
+                "subscriptions": [_dto(subscription)],
                 "profile_active_tab": "notifications",
             },
             template_name="crowd/user/notifications.html",
         )
 
-    def test_get_groups_events_under_sphere(
+    def test_get_lists_every_subscribed_sphere(
         self, authenticated_client, active_user, sphere
     ):
-        event = EventFactory(sphere=sphere)
-        event_sub = NotificationSubscription.objects.create(
-            user=active_user, event=event, source="enrollment"
+        sphere.name = "beta"
+        sphere.save(update_fields=["name"])
+        other_sub = NotificationSubscription.objects.create(
+            user=active_user, sphere=SphereFactory(name="Alpha"), source="visit"
         )
 
         response = authenticated_client.get(URL)
 
-        sphere_sub = _visit_subscription(active_user, sphere)
+        visit_sub = _visit_subscription(active_user, sphere)
         assert_response(
             response,
             HTTPStatus.OK,
             context_data={
-                "subscription_groups": [
-                    SubscriptionGroupDTO(
-                        sphere_name=sphere.name,
-                        sphere_subscription=_dto(sphere_sub),
-                        events=[_dto(event_sub)],
-                    )
-                ],
+                "subscriptions": [_dto(other_sub), _dto(visit_sub)],
                 "profile_active_tab": "notifications",
             },
             template_name="crowd/user/notifications.html",
@@ -100,10 +82,7 @@ class TestProfileNotificationsPageView:
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data={
-                "subscription_groups": [],
-                "profile_active_tab": "notifications",
-            },
+            context_data={"subscriptions": [], "profile_active_tab": "notifications"},
             template_name="crowd/user/notifications.html",
         )
 

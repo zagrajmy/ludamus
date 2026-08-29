@@ -305,13 +305,13 @@ class ProfileNotificationsPageView(LoginRequiredMixin, View):
 
     @staticmethod
     def get(request: AuthenticatedRootRequest) -> TemplateResponse:
-        groups = request.services.notification_subscriptions.list_grouped(
+        subscriptions = request.services.notification_subscriptions.list_for_user(
             request.context.current_user_id
         )
         return TemplateResponse(
             request,
             "crowd/user/notifications.html",
-            {"subscription_groups": groups, "profile_active_tab": "notifications"},
+            {"subscriptions": subscriptions, "profile_active_tab": "notifications"},
         )
 
 

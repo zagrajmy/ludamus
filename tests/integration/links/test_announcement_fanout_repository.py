@@ -7,7 +7,7 @@ from ludamus.links.db.django.models import (
 )
 from ludamus.links.db.django.notifications import AnnouncementFanoutRepository
 from ludamus.pacts.notifications import ClaimedAnnouncementDTO
-from tests.integration.conftest import EventFactory, SphereFactory, UserFactory
+from tests.integration.conftest import SphereFactory, UserFactory
 
 pytestmark = pytest.mark.django_db
 
@@ -58,11 +58,10 @@ class TestDueIds:
 
 
 class TestActiveSphereSubscriberIds:
-    def test_excludes_muted_foreign_and_event_subscriptions(self, repo, sphere):
+    def test_excludes_muted_and_foreign_sphere_subscriptions(self, repo, sphere):
         subscriber = UserFactory(username="sub")
         muted = UserFactory(username="muted")
         elsewhere = UserFactory(username="elsewhere")
-        enrolled = UserFactory(username="enrolled")
         NotificationSubscription.objects.create(
             user=subscriber, sphere=sphere, source="visit"
         )
@@ -71,9 +70,6 @@ class TestActiveSphereSubscriberIds:
         )
         NotificationSubscription.objects.create(
             user=elsewhere, sphere=SphereFactory(), source="visit"
-        )
-        NotificationSubscription.objects.create(
-            user=enrolled, event=EventFactory(sphere=sphere), source="enrollment"
         )
 
         assert repo.active_sphere_subscriber_ids(sphere.pk) == [subscriber.pk]

@@ -2,8 +2,8 @@ import path from "node:path";
 
 import { expect, test } from "./helpers/fixtures";
 
-// The profile Notifications tab lists notification subscriptions grouped by
-// sphere. No bootstrap seeding needed: visiting any page signed in is exactly
+// The profile Notifications tab lists the spheres the user follows. No
+// bootstrap seeding needed: visiting any page signed in is exactly
 // what creates the sphere subscription (the visit middleware), so the first
 // navigation here doubles as the auto-subscribe end-to-end check. Uses the
 // isolated e2e-notified user so mute toggles never disturb other specs.

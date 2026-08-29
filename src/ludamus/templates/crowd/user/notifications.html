@@ -7,72 +7,39 @@
     {% translate "Mute" as t_mute %}
     {% translate "Unmute" as t_unmute %}
     <p class="text-sm text-foreground-muted mb-4">
-        {% translate "Announcements from the spheres and events you follow ring the bell. Mute a subscription to stop its announcements; unmute it to get them again." %}
+        {% translate "Announcements from the spheres you follow ring the bell. Mute a subscription to stop its announcements; unmute it to get them again." %}
     </p>
     <div class="flex flex-col">
-        {% for group in subscription_groups %}
-            <div class="py-2.5{% if not forloop.last %} border-b border-border{% endif %}">
-                <div class="flex items-center justify-between gap-2">
-                    <p class="text-sm font-medium flex flex-wrap items-center gap-2 min-w-0">
-                        <span class="break-words">{{ group.sphere_name }}</span>
-                        {% if group.sphere_subscription and group.sphere_subscription.muted %}
-                            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-bg-tertiary text-foreground-muted">
-                                {% icon "bell-slash" class="w-3.5 h-3.5" %}
-                                {% translate "Muted" %}
-                            </span>
-                        {% endif %}
-                    </p>
-                    {% if group.sphere_subscription %}
-                        <form action="{% url 'web:crowd:profile-notifications-mute' pk=group.sphere_subscription.pk %}"
-                              method="post"
-                              class="shrink-0">
-                            {% csrf_token %}
-                            {% if group.sphere_subscription.muted %}
-                                <input type="hidden" name="muted" value="false">
-                                {% tessera_button t_unmute variant="secondary" size="sm" full_width_mobile=False %}
-                            {% else %}
-                                <input type="hidden" name="muted" value="true">
-                                {% tessera_button t_mute variant="secondary" size="sm" full_width_mobile=False %}
-                            {% endif %}
-                        </form>
+        {% for subscription in subscriptions %}
+            <div class="flex items-center justify-between gap-2 py-2.5{% if not forloop.last %} border-b border-border{% endif %}">
+                <p class="text-sm font-medium flex flex-wrap items-center gap-2 min-w-0">
+                    <span class="break-words">{{ subscription.sphere_name }}</span>
+                    {% if subscription.muted %}
+                        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-bg-tertiary text-foreground-muted">
+                            {% icon "bell-slash" class="w-3.5 h-3.5" %}
+                            {% translate "Muted" %}
+                        </span>
                     {% endif %}
-                </div>
-                {% if group.events %}
-                    <ul class="mt-1 flex flex-col">
-                        {% for subscription in group.events %}
-                            <li class="flex items-center justify-between gap-2 py-1.5 pl-6">
-                                <p class="text-sm text-foreground-muted flex flex-wrap items-center gap-2 min-w-0">
-                                    <span class="break-words">{{ subscription.label }}</span>
-                                    {% if subscription.muted %}
-                                        <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-bg-tertiary text-foreground-muted">
-                                            {% icon "bell-slash" class="w-3.5 h-3.5" %}
-                                            {% translate "Muted" %}
-                                        </span>
-                                    {% endif %}
-                                </p>
-                                <form action="{% url 'web:crowd:profile-notifications-mute' pk=subscription.pk %}"
-                                      method="post"
-                                      class="shrink-0">
-                                    {% csrf_token %}
-                                    {% if subscription.muted %}
-                                        <input type="hidden" name="muted" value="false">
-                                        {% tessera_button t_unmute variant="secondary" size="sm" full_width_mobile=False %}
-                                    {% else %}
-                                        <input type="hidden" name="muted" value="true">
-                                        {% tessera_button t_mute variant="secondary" size="sm" full_width_mobile=False %}
-                                    {% endif %}
-                                </form>
-                            </li>
-                        {% endfor %}
-                    </ul>
-                {% endif %}
+                </p>
+                <form action="{% url 'web:crowd:profile-notifications-mute' pk=subscription.pk %}"
+                      method="post"
+                      class="shrink-0">
+                    {% csrf_token %}
+                    {% if subscription.muted %}
+                        <input type="hidden" name="muted" value="false">
+                        {% tessera_button t_unmute variant="secondary" size="sm" full_width_mobile=False %}
+                    {% else %}
+                        <input type="hidden" name="muted" value="true">
+                        {% tessera_button t_mute variant="secondary" size="sm" full_width_mobile=False %}
+                    {% endif %}
+                </form>
             </div>
         {% empty %}
             <div class="text-center py-8">
                 {% icon "bell" class="w-10 h-10 mx-auto text-foreground-muted" %}
                 <p class="font-medium text-foreground-muted my-2">{% translate "No subscriptions yet" %}</p>
                 <p class="text-sm text-foreground-muted max-w-100 mx-auto">
-                    {% translate "Subscriptions appear here when you visit a sphere or enroll in an event." %}
+                    {% translate "Subscriptions appear here when you visit a sphere." %}
                 </p>
             </div>
         {% endfor %}

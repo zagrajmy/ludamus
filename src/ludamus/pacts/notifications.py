@@ -3,7 +3,7 @@
 The write side of per-user notifications belongs to the noun that raises it
 — `pacts.enrollment` owns the promotion and offer notifications, `pacts.party`
 the held-seat one. This module owns reading them back, the subscription model
-(who follows which sphere or event, and mutes), and the announcement fanout
+(who follows which sphere, and mutes), and the announcement fanout
 that turns one published announcement into many notification rows.
 """
 
@@ -16,8 +16,6 @@ from pydantic import BaseModel, ConfigDict
 
 class SubscriptionSource(StrEnum):
     VISIT = auto()
-    ENROLLMENT = auto()
-    BACKFILL = auto()
 
 
 class NotificationDTO(BaseModel):
@@ -60,28 +58,14 @@ class NotificationsServiceProtocol(Protocol):
 class SubscriptionDTO(BaseModel):
     pk: int
     muted: bool
-    sphere_id: int | None
-    event_id: int | None
-    label: str
-    # Grouping key for the profile tab: the subscription's own sphere, or the
-    # subscribed event's sphere. Always set, unlike sphere_id.
-    parent_sphere_id: int
-    parent_sphere_name: str
-
-
-class SubscriptionGroupDTO(BaseModel):
     sphere_name: str
-    sphere_subscription: SubscriptionDTO | None
-    events: list[SubscriptionDTO]
 
 
 class NotificationSubscriptionRepositoryProtocol(Protocol):
-    # ensure_* create missing rows only — an existing row keeps its muted flag.
+    # ensure_sphere creates a missing row only — an existing row keeps its
+    # muted flag.
     def ensure_sphere(
         self, *, user_id: int, sphere_id: int, source: SubscriptionSource
-    ) -> None: ...
-    def ensure_events(
-        self, *, user_ids: list[int], event_id: int, source: SubscriptionSource
     ) -> None: ...
     def list_for_user(self, user_id: int) -> list[SubscriptionDTO]: ...
     def set_muted(self, *, user_id: int, pk: int, muted: bool) -> bool: ...
@@ -89,8 +73,7 @@ class NotificationSubscriptionRepositoryProtocol(Protocol):
 
 class NotificationSubscriptionsServiceProtocol(Protocol):
     def subscribe_sphere_visit(self, *, user_id: int, sphere_id: int) -> None: ...
-    def subscribe_enrollments(self, *, user_ids: list[int], event_id: int) -> None: ...
-    def list_grouped(self, user_id: int) -> list[SubscriptionGroupDTO]: ...
+    def list_for_user(self, user_id: int) -> list[SubscriptionDTO]: ...
 
     # Raises NotFoundError when the subscription is not the user's.
     def set_muted(self, *, user_id: int, pk: int, muted: bool) -> None: ...

@@ -48,31 +48,12 @@ class Migration(migrations.Migration):
                 ("muted", models.BooleanField(default=False)),
                 (
                     "source",
-                    models.CharField(
-                        choices=[
-                            ("visit", "VISIT"),
-                            ("enrollment", "ENROLLMENT"),
-                            ("backfill", "BACKFILL"),
-                        ],
-                        max_length=16,
-                    ),
+                    models.CharField(choices=[("visit", "VISIT")], max_length=16),
                 ),
                 ("creation_time", models.DateTimeField(auto_now_add=True)),
                 (
-                    "event",
-                    models.ForeignKey(
-                        blank=True,
-                        null=True,
-                        on_delete=django.db.models.deletion.CASCADE,
-                        related_name="notification_subscriptions",
-                        to="db_main.event",
-                    ),
-                ),
-                (
                     "sphere",
                     models.ForeignKey(
-                        blank=True,
-                        null=True,
                         on_delete=django.db.models.deletion.CASCADE,
                         related_name="notification_subscriptions",
                         to="db_main.sphere",
@@ -95,28 +76,9 @@ class Migration(migrations.Migration):
                     )
                 ],
                 "constraints": [
-                    models.CheckConstraint(
-                        condition=models.Q(
-                            models.Q(
-                                ("event__isnull", True), ("sphere__isnull", False)
-                            ),
-                            models.Q(
-                                ("event__isnull", False), ("sphere__isnull", True)
-                            ),
-                            _connector="OR",
-                        ),
-                        name="notifsub_exactly_one_target",
-                    ),
                     models.UniqueConstraint(
-                        condition=models.Q(("event__isnull", True)),
-                        fields=("user", "sphere"),
-                        name="notifsub_unique_user_sphere",
-                    ),
-                    models.UniqueConstraint(
-                        condition=models.Q(("sphere__isnull", True)),
-                        fields=("user", "event"),
-                        name="notifsub_unique_user_event",
-                    ),
+                        fields=("user", "sphere"), name="notifsub_unique_user_sphere"
+                    )
                 ],
             },
         ),

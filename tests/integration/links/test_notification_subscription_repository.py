@@ -3,7 +3,7 @@ import pytest
 from ludamus.links.db.django.models import NotificationSubscription
 from ludamus.links.db.django.notifications import NotificationSubscriptionRepository
 from ludamus.pacts.notifications import SubscriptionDTO, SubscriptionSource
-from tests.integration.conftest import EventFactory, UserFactory
+from tests.integration.conftest import SphereFactory, UserFactory
 
 pytestmark = pytest.mark.django_db
 
@@ -22,7 +22,6 @@ class TestEnsureSphere:
         subscription = NotificationSubscription.objects.get()
         assert subscription.user_id == active_user.pk
         assert subscription.sphere_id == sphere.pk
-        assert subscription.event_id is None
         assert subscription.muted is False
         assert subscription.source == "visit"
 
@@ -49,45 +48,16 @@ class TestEnsureSphere:
         assert subscription.muted is True
 
 
-class TestEnsureEvents:
-    def test_creates_subscription_per_user(self, repo, event):
-        users = [UserFactory(username="one"), UserFactory(username="two")]
-
-        repo.ensure_events(
-            user_ids=[user.pk for user in users],
-            event_id=event.pk,
-            source=SubscriptionSource.ENROLLMENT,
-        )
-
-        rows = NotificationSubscription.objects.order_by("pk")
-        assert [(row.user_id, row.event_id, row.source) for row in rows] == [
-            (users[0].pk, event.pk, "enrollment"),
-            (users[1].pk, event.pk, "enrollment"),
-        ]
-
-    def test_never_unmutes_existing_subscription(self, repo, active_user, event):
-        NotificationSubscription.objects.create(
-            user=active_user, event=event, muted=True, source="enrollment"
-        )
-
-        repo.ensure_events(
-            user_ids=[active_user.pk],
-            event_id=event.pk,
-            source=SubscriptionSource.ENROLLMENT,
-        )
-
-        subscription = NotificationSubscription.objects.get()
-        assert subscription.muted is True
-
-
 class TestListForUser:
-    def test_maps_both_kinds_with_parent_sphere(self, repo, active_user, sphere):
-        event = EventFactory(sphere=sphere)
-        sphere_sub = NotificationSubscription.objects.create(
-            user=active_user, sphere=sphere, source="visit"
+    def test_maps_own_rows_sorted_by_sphere_name(self, repo, active_user, sphere):
+        sphere.name = "beta"
+        sphere.save(update_fields=["name"])
+        other_sphere = SphereFactory(name="Alpha")
+        beta_sub = NotificationSubscription.objects.create(
+            user=active_user, sphere=sphere, muted=True, source="visit"
         )
-        event_sub = NotificationSubscription.objects.create(
-            user=active_user, event=event, muted=True, source="enrollment"
+        alpha_sub = NotificationSubscription.objects.create(
+            user=active_user, sphere=other_sphere, source="visit"
         )
         NotificationSubscription.objects.create(
             user=UserFactory(username="other"), sphere=sphere, source="visit"
@@ -95,25 +65,9 @@ class TestListForUser:
 
         result = repo.list_for_user(active_user.pk)
 
-        assert sorted(result, key=lambda s: s.pk) == [
-            SubscriptionDTO(
-                pk=sphere_sub.pk,
-                muted=False,
-                sphere_id=sphere.pk,
-                event_id=None,
-                label=sphere.name,
-                parent_sphere_id=sphere.pk,
-                parent_sphere_name=sphere.name,
-            ),
-            SubscriptionDTO(
-                pk=event_sub.pk,
-                muted=True,
-                sphere_id=None,
-                event_id=event.pk,
-                label=event.name,
-                parent_sphere_id=sphere.pk,
-                parent_sphere_name=sphere.name,
-            ),
+        assert result == [
+            SubscriptionDTO(pk=alpha_sub.pk, muted=False, sphere_name="Alpha"),
+            SubscriptionDTO(pk=beta_sub.pk, muted=True, sphere_name="beta"),
         ]
 
 

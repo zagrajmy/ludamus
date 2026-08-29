@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING
 from django.conf import settings
 from django.core.mail import send_mail
 from django.db import transaction
+from django.db.models.functions import Lower
 from django.urls import reverse
 from django.utils.formats import date_format
 from django.utils.timezone import localtime
@@ -21,11 +22,9 @@ from django.utils.translation import gettext as _
 
 from ludamus.links.db.django.models import (
     Announcement,
-    Event,
     Notification,
     NotificationSubscription,
     Session,
-    Sphere,
 )
 from ludamus.pacts.legacy import NotificationKind
 from ludamus.pacts.notifications import (
@@ -384,7 +383,7 @@ class NotificationReadRepository:
 
 
 class NotificationSubscriptionRepository:
-    # Both ensure_* insert with ignore_conflicts: an existing row (including a
+    # ensure_sphere inserts with ignore_conflicts: an existing row (including a
     # concurrent first visit) is left exactly as it is, so a muted subscription
     # is never unmuted by auto-subscribe.
     @staticmethod
@@ -401,32 +400,15 @@ class NotificationSubscriptionRepository:
         )
 
     @staticmethod
-    def ensure_events(
-        *, user_ids: list[int], event_id: int, source: SubscriptionSource
-    ) -> None:
-        NotificationSubscription.objects.bulk_create(
-            [
-                NotificationSubscription(
-                    user_id=user_id, event_id=event_id, source=source.value
-                )
-                for user_id in user_ids
-            ],
-            ignore_conflicts=True,
-        )
-
-    @staticmethod
     def list_for_user(user_id: int) -> list[SubscriptionDTO]:
-        rows = NotificationSubscription.objects.filter(user_id=user_id).select_related(
-            "sphere", "event__sphere"
-        )
-        # The exactly-one-target check constraint guarantees one branch matches.
-        dtos = []
-        for row in rows:
-            if row.sphere is not None:
-                dtos.append(_sphere_subscription_dto(row, row.sphere))
-            elif row.event is not None:
-                dtos.append(_event_subscription_dto(row, row.event))
-        return dtos
+        return [
+            SubscriptionDTO(pk=row.pk, muted=row.muted, sphere_name=row.sphere.name)
+            for row in (
+                NotificationSubscription.objects.filter(user_id=user_id)
+                .select_related("sphere")
+                .order_by(Lower("sphere__name"))
+            )
+        ]
 
     @staticmethod
     def set_muted(*, user_id: int, pk: int, muted: bool) -> bool:
@@ -436,34 +418,6 @@ class NotificationSubscriptionRepository:
             user_id=user_id, pk=pk
         ).update(muted=muted)
         return bool(updated)
-
-
-def _sphere_subscription_dto(
-    row: NotificationSubscription, sphere: Sphere
-) -> SubscriptionDTO:
-    return SubscriptionDTO(
-        pk=row.pk,
-        muted=row.muted,
-        sphere_id=sphere.pk,
-        event_id=None,
-        label=sphere.name,
-        parent_sphere_id=sphere.pk,
-        parent_sphere_name=sphere.name,
-    )
-
-
-def _event_subscription_dto(
-    row: NotificationSubscription, event: Event
-) -> SubscriptionDTO:
-    return SubscriptionDTO(
-        pk=row.pk,
-        muted=row.muted,
-        sphere_id=None,
-        event_id=event.pk,
-        label=event.name,
-        parent_sphere_id=event.sphere.pk,
-        parent_sphere_name=event.sphere.name,
-    )
 
 
 class AnnouncementFanoutRepository:

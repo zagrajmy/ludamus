@@ -5447,12 +5447,12 @@ msgstr "Wyłącz wyciszenie"
 
 #: src/ludamus/templates/crowd/user/notifications.html
 msgid ""
-"Announcements from the spheres and events you follow ring the bell. Mute a "
-"subscription to stop its announcements; unmute it to get them again."
+"Announcements from the spheres you follow ring the bell. Mute a subscription "
+"to stop its announcements; unmute it to get them again."
 msgstr ""
-"Ogłoszenia ze sfer i wydarzeń, które obserwujesz, trafiają do dzwonka. "
-"Wycisz subskrypcję, aby zatrzymać jej ogłoszenia; wyłącz wyciszenie, aby "
-"znów je otrzymywać."
+"Ogłoszenia ze sfer, które obserwujesz, trafiają do dzwonka. Wycisz "
+"subskrypcję, aby zatrzymać jej ogłoszenia; wyłącz wyciszenie, aby znów je "
+"otrzymywać."
 
 #: src/ludamus/templates/crowd/user/notifications.html
 msgid "Muted"
@@ -5463,11 +5463,8 @@ msgid "No subscriptions yet"
 msgstr "Nie masz jeszcze subskrypcji"
 
 #: src/ludamus/templates/crowd/user/notifications.html
-msgid ""
-"Subscriptions appear here when you visit a sphere or enroll in an event."
-msgstr ""
-"Subskrypcje pojawią się tutaj, gdy odwiedzisz sferę lub zapiszesz się na "
-"wydarzenie."
+msgid "Subscriptions appear here when you visit a sphere."
+msgstr "Subskrypcje pojawią się tutaj, gdy odwiedzisz sferę."
 
 #: src/ludamus/templates/crowd/user/parties.html
 msgid "Your parties"

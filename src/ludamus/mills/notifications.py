@@ -10,7 +10,6 @@ from ludamus.pacts.notifications import (
     NavbarNotificationsDTO,
     NotificationsServiceProtocol,
     NotificationSubscriptionsServiceProtocol,
-    SubscriptionGroupDTO,
     SubscriptionSource,
 )
 
@@ -74,52 +73,13 @@ class NotificationSubscriptionsService(NotificationSubscriptionsServiceProtocol)
                 user_id=user_id, sphere_id=sphere_id, source=SubscriptionSource.VISIT
             )
 
-    def subscribe_enrollments(self, *, user_ids: list[int], event_id: int) -> None:
-        if not user_ids:
-            return
-        with self._transaction.atomic():
-            self._subscriptions.ensure_events(
-                user_ids=user_ids,
-                event_id=event_id,
-                source=SubscriptionSource.ENROLLMENT,
-            )
-
-    def list_grouped(self, user_id: int) -> list[SubscriptionGroupDTO]:
-        sphere_names: dict[int, str] = {}
-        sphere_subs: dict[int, SubscriptionDTO] = {}
-        event_subs: dict[int, list[SubscriptionDTO]] = {}
-        for subscription in self._subscriptions.list_for_user(user_id):
-            sphere_names[subscription.parent_sphere_id] = (
-                subscription.parent_sphere_name
-            )
-            if subscription.sphere_id is not None:
-                sphere_subs[subscription.parent_sphere_id] = subscription
-            else:
-                event_subs.setdefault(subscription.parent_sphere_id, []).append(
-                    subscription
-                )
-        groups = [
-            SubscriptionGroupDTO(
-                sphere_name=name,
-                sphere_subscription=sphere_subs.get(sphere_id),
-                events=sorted(event_subs.get(sphere_id, []), key=_subscription_label),
-            )
-            for sphere_id, name in sphere_names.items()
-        ]
-        return sorted(groups, key=_group_name)
+    def list_for_user(self, user_id: int) -> list[SubscriptionDTO]:
+        return self._subscriptions.list_for_user(user_id)
 
     def set_muted(self, *, user_id: int, pk: int, muted: bool) -> None:
         with self._transaction.atomic():
             if not self._subscriptions.set_muted(user_id=user_id, pk=pk, muted=muted):
                 raise NotFoundError
-
-
-def _subscription_label(subscription: SubscriptionDTO) -> str:
-    return subscription.label.casefold()
-
-
-def _group_name(group: SubscriptionGroupDTO) -> str:
-    return group.sphere_name.casefold()
 
 
 class AnnouncementFanoutService(AnnouncementFanoutServiceProtocol):
