@@ -1671,7 +1671,7 @@ class UnitOfWorkProtocol(Protocol):
 
 
 class TicketAPIProtocol(Protocol):
-    def fetch_membership_count(self, user_email: str) -> int: ...
+    def fetch_membership_count(self, user_email: str, /) -> int: ...
 
 
 DEFAULT_FIELD_MAX_LENGTH = 50
@@ -1687,8 +1687,6 @@ class CacheProtocol(Protocol):
 class DependencyInjectorProtocol(Protocol):
     @property
     def uow(self) -> UnitOfWorkProtocol: ...
-    @property
-    def ticket_api(self) -> TicketAPIProtocol: ...
     @property
     def cache(self) -> CacheProtocol: ...
     @staticmethod

@@ -43,6 +43,7 @@ class IntegrationKind(StrEnum):
 
 class IntegrationImplementationId(StrEnum):
     GOOGLE_PROPOSAL_PULLER = "google-proposal-puller"
+    SKLEP_KAPITULARZ = "sklep-kapitularz"
 
 
 class CheckOutcome(StrEnum):
@@ -71,10 +72,17 @@ class SourceQuestion(BaseModel):
 
 
 class IntegrationImplementation(Protocol):
+    # What every integration shares: which kind it serves, the shape of its
+    # per-event config, and a credential probe the panel can run. Everything
+    # provider-specific (auth header format, response payload shape) stays
+    # behind the kind-specific subprotocols below.
     kind: IntegrationKind
     config_model: type[BaseModel]
 
     def check(self, secret: bytes, config: BaseModel) -> CheckResult: ...
+
+
+class ImportIntegrationImplementation(IntegrationImplementation, Protocol):
     def fetch_questions(
         self, *, secret: bytes, config: BaseModel, header_row: int = 1
     ) -> list[SourceQuestion]: ...
@@ -84,6 +92,12 @@ class IntegrationImplementation(Protocol):
     def fetch_responses(
         self, *, secret: bytes, config: BaseModel, header_row: int = 1
     ) -> list[ImportRow]: ...
+
+
+class TicketingIntegrationImplementation(IntegrationImplementation, Protocol):
+    def fetch_membership_count(
+        self, *, secret: bytes, config: BaseModel, user_email: str
+    ) -> int: ...
 
 
 class EventIntegrationDTO(BaseModel):

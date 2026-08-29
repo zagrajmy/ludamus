@@ -20,7 +20,7 @@ from ludamus.links.encryption import FernetDecryptor, FernetEncryptor
 from ludamus.links.google_docs import GoogleDocsProposalImporter, GoogleSheetsWriter
 from ludamus.links.gravatar import gravatar_url
 from ludamus.links.scheduler import CronSweepOfferScheduler
-from ludamus.links.ticket_api import MembershipApiClient
+from ludamus.links.sklep_kapitularz import SklepKapitularzIntegration
 from ludamus.mills.bookmarks import BookmarkService
 from ludamus.mills.chronology import (
     EventIntegrationsService,
@@ -98,7 +98,10 @@ from ludamus.pacts.submissions import ImportRepos, ProposalCategorySettingsRepos
 from ludamus.pacts.timetable import TimetableRepos
 
 if TYPE_CHECKING:
-    from ludamus.pacts.chronology import IntegrationImplementation
+    from ludamus.pacts.chronology import (
+        ImportIntegrationImplementation,
+        TicketingIntegrationImplementation,
+    )
     from ludamus.pacts.enrollment import OfferExpirySchedulerProtocol
 
 
@@ -416,7 +419,6 @@ class Services:
 
     @cached_property
     def enrollment(self) -> EnrollmentService:
-        membership_check_interval: int = settings.MEMBERSHIP_API_CHECK_INTERVAL
         return EnrollmentService(
             transaction=self._transaction,
             repos=EnrollmentRepos(
@@ -424,9 +426,8 @@ class Services:
                 anonymous_users=self._repos.anonymous_users,
                 enrollment_configs=self._repos.enrollment_configs,
                 participations=self._repos.enrollment_participations,
-                ticket_api=MembershipApiClient(),
+                ticket_api_resolver=self.event_integrations,
             ),
-            membership_check_interval=membership_check_interval,
         )
 
     @cached_property
@@ -461,13 +462,17 @@ class Services:
         )
 
     @cached_property
-    def discounts_export(self) -> DiscountsExportService:
+    def _decryptor(self) -> FernetDecryptor:
         key: str = settings.CREDENTIALS_ENCRYPTION_KEY
+        return FernetDecryptor(key)
+
+    @cached_property
+    def discounts_export(self) -> DiscountsExportService:
         return DiscountsExportService(
             discounts=self._repos.discounts,
             facilitators=self._repos.facilitators,
             connections=self._repos.connections,
-            decryptor=FernetDecryptor(key),
+            decryptor=self._decryptor,
             sheet_writer=GoogleSheetsWriter(),
         )
 
@@ -482,19 +487,32 @@ class Services:
         )
 
     @cached_property
-    def event_integrations(self) -> EventIntegrationsService:
-        key: str = settings.CREDENTIALS_ENCRYPTION_KEY
-        registry: dict[IntegrationImplementationId, IntegrationImplementation] = {
+    def _import_implementations(
+        self,
+    ) -> dict[IntegrationImplementationId, ImportIntegrationImplementation]:
+        return {
             IntegrationImplementationId.GOOGLE_PROPOSAL_PULLER: (
                 GoogleDocsProposalImporter()
             )
         }
+
+    @cached_property
+    def _ticketing_implementations(
+        self,
+    ) -> dict[IntegrationImplementationId, TicketingIntegrationImplementation]:
+        return {
+            IntegrationImplementationId.SKLEP_KAPITULARZ: SklepKapitularzIntegration()
+        }
+
+    @cached_property
+    def event_integrations(self) -> EventIntegrationsService:
         return EventIntegrationsService(
-            self._transaction,
-            self._repos.event_integrations,
-            self._repos.connections,
-            FernetDecryptor(key),
-            registry,
+            transaction=self._transaction,
+            integrations=self._repos.event_integrations,
+            connections=self._repos.connections,
+            decryptor=self._decryptor,
+            imports=self._import_implementations,
+            ticketing=self._ticketing_implementations,
         )
 
     @cached_property

@@ -170,7 +170,7 @@ class TestGoogleDocsProposalImporterProbe:
         result = GoogleDocsProposalImporter().check(SECRET, CONFIG)
 
         assert result.outcome == CheckOutcome.FORBIDDEN
-        assert "Service account cannot access this spreadsheet" in result.hint
+        assert "Credentials cannot access this spreadsheet" in result.hint
 
     def test_not_found(self, google):
         google.session.get.return_value = _resp(ok=False, status_code=404, text="404")
@@ -186,7 +186,7 @@ class TestGoogleDocsProposalImporterProbe:
         result = GoogleDocsProposalImporter().check(SECRET, CONFIG)
 
         assert result.outcome == CheckOutcome.AUTH_FAILED
-        assert "Unexpected 500 from Google" in result.hint
+        assert "Unexpected 500 reading the spreadsheet" in result.hint
 
     def test_request_exception(self, google):
         google.session.get.side_effect = requests.RequestException("timeout")

@@ -51,7 +51,11 @@ from ludamus.pacts.legacy import (
     PromotionMode,
 )
 from ludamus.pacts.party import HeldSeatNotification
-from ludamus.specs.enrollment import is_valid_window_period, select_promotable_parties
+from ludamus.specs.enrollment import (
+    MEMBERSHIP_CHECK_INTERVAL_MINUTES,
+    is_valid_window_period,
+    select_promotable_parties,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -77,6 +81,7 @@ if TYPE_CHECKING:
         ParticipationPromotionRepositoryProtocol,
         PromotionStateDTO,
         SeatHoldRequest,
+        TicketApiResolverProtocol,
         UserNotifierProtocol,
         WaitingParticipantDTO,
         WaitlistPromotionServiceProtocol,
@@ -715,7 +720,6 @@ def _create_user_config_from_api(
     ticket_api: TicketAPIProtocol,
     enrollment_config_repo: EnrollmentConfigRepositoryProtocol,
 ) -> UserEnrollmentConfigDTO | None:
-
     try:
         membership_count = ticket_api.fetch_membership_count(user_email)
     except MembershipAPIError:
@@ -738,7 +742,6 @@ def get_or_create_user_enrollment_config(
     enrollment_config: EnrollmentConfigDTO,
     user_email: str,
     ticket_api: TicketAPIProtocol,
-    check_interval_minutes: int,
     existing_user_config: UserEnrollmentConfigDTO | None,
     enrollment_config_repo: EnrollmentConfigRepositoryProtocol,
 ) -> UserEnrollmentConfigDTO | None:
@@ -747,7 +750,7 @@ def get_or_create_user_enrollment_config(
             return existing_user_config
 
         time_threshold = datetime.now(tz=UTC) - timedelta(
-            minutes=check_interval_minutes
+            minutes=MEMBERSHIP_CHECK_INTERVAL_MINUTES
         )
 
         if (
@@ -775,15 +778,22 @@ def get_user_enrollment_config(
     event: EventDTO,
     user_email: str,
     enrollment_config_repo: EnrollmentConfigRepositoryProtocol,
-    ticket_api: TicketAPIProtocol,
-    check_interval_minutes: int,
+    ticket_api_resolver: TicketApiResolverProtocol,
 ) -> VirtualEnrollmentConfig | None:
     virtual_config = VirtualEnrollmentConfig()
 
     now = datetime.now(tz=UTC)
-    for config in enrollment_config_repo.read_list(
+    configs = enrollment_config_repo.read_list(
         event.pk, max_start_time=now, min_end_time=now
-    ):
+    )
+    # An event with no window open right now never touches the integrations
+    # table, and with nothing to sum it has no virtual config either.
+    if not configs:
+        return None
+    ticket_api = ticket_api_resolver.resolve(
+        event_id=event.pk, sphere_id=event.sphere_id
+    )
+    for config in configs:
         existing_user_config = enrollment_config_repo.read_user_config(
             config, user_email
         )
@@ -791,7 +801,6 @@ def get_user_enrollment_config(
             enrollment_config=config,
             user_email=user_email,
             ticket_api=ticket_api,
-            check_interval_minutes=check_interval_minutes,
             existing_user_config=existing_user_config,
             enrollment_config_repo=enrollment_config_repo,
         ):
@@ -869,19 +878,14 @@ def get_vc_available_slots(
 
 class EnrollmentService(EnrollmentServiceProtocol):
     def __init__(
-        self,
-        *,
-        transaction: TransactionProtocol,
-        repos: EnrollmentRepos,
-        membership_check_interval: int,
+        self, *, transaction: TransactionProtocol, repos: EnrollmentRepos
     ) -> None:
         self._transaction = transaction
         self._users = repos.users
         self._anonymous_users = repos.anonymous_users
         self._enrollment_configs = repos.enrollment_configs
         self._participations = repos.participations
-        self._ticket_api = repos.ticket_api
-        self._membership_check_interval = membership_check_interval
+        self._ticket_api_resolver = repos.ticket_api_resolver
 
     def read_viewer(self, slug: str) -> UserDTO:
         return self._users.read(slug)
@@ -896,8 +900,7 @@ class EnrollmentService(EnrollmentServiceProtocol):
             event=event,
             user_email=user_email,
             enrollment_config_repo=self._enrollment_configs,
-            ticket_api=self._ticket_api,
-            check_interval_minutes=self._membership_check_interval,
+            ticket_api_resolver=self._ticket_api_resolver,
         )
 
     def has_slot_access(self, *, event: EventDTO, user_email: str) -> bool:
