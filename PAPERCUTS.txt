@@ -362,10 +362,6 @@ If you fix a papercut, remove it.
   after a NewType change: inits/middleware.py reported Services not matching
   ServicesProtocol while an explicit assignment of the same two classes type-
   checked fine. rm -rf .mypy_cache made it vanish.
-- 2026-08-26: A task writing .env.local via '> .env.local.tmp && mv'
-  (tasks.toml:150) left an empty untracked .env.local.tmp in the worktree when
-  it did not complete, and the name is not gitignored, so it shows up in git
-  status as if it were mine.
 - 2026-08-26: Ran format:djlint on a template change; it reformatted the file
   and reported zero lint errors but still exited nonzero, so the formatting task
   appeared to fail until rerun.
@@ -417,3 +413,7 @@ If you fix a papercut, remove it.
   build-for-testing is shared across a job. Read it out of the uploaded
   daemon.log (four distinct AgentDeviceRunner.env.session-*.xctestrun launches),
   not the docs.
+- 2026-08-28: Ran mise run messages in the web sandbox to refresh i18n; varlock
+  rejects the default env (no SECRET_KEY etc.) and even with .env.e2e exported
+  django-admin makemessages dies on missing gettext (msguniq). No sandbox path
+  to run extraction.
