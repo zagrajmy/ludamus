@@ -27,9 +27,7 @@ test.describe("Accepting a proposal", () => {
     await expect(decision.getByText("The Only Room")).toBeVisible();
     await expect(decision.getByText("Space", { exact: true })).toBeVisible();
     await expect(decision.getByText("Time slot", { exact: true })).toBeVisible();
-    await expect(
-      page.getByRole("button", { name: "Accept and add to agenda" }),
-    ).toBeVisible();
+    await expect(page.getByRole("button", { name: "Accept and add to agenda" })).toBeVisible();
   });
 
   test("the room and time it names are the ones it submits", async ({ page }) => {
