@@ -17,6 +17,7 @@ from ludamus.gates.web.django.dynamic_fields import (
     field_descriptors,
 )
 from ludamus.gates.web.django.forms import SessionEditForm
+from ludamus.gates.web.django.sphere.pages import EventsPageRequiredMixin
 from ludamus.mills.chronology import SessionEditNotAllowedError
 from ludamus.pacts import RedirectError, SessionFieldValueData, SessionStatus
 from ludamus.pacts.chronology import SpaceTimeConflictError
@@ -72,7 +73,7 @@ def _collect_session_field_values(
     ]
 
 
-class SessionEditView(LoginRequiredMixin, View):
+class SessionEditView(EventsPageRequiredMixin, LoginRequiredMixin, View):
     """Facilitator self-service editing of their own session, inline in the modal.
 
     Both GET (edit form) and POST (save) return the form fragment swapped into
@@ -208,7 +209,7 @@ class SessionEditView(LoginRequiredMixin, View):
         )
 
 
-class SessionBookmarkToggleView(View):
+class SessionBookmarkToggleView(EventsPageRequiredMixin, View):
     @staticmethod
     def post(request: RootRequest, session_id: int) -> JsonResponse:
         if (user_id := request.context.current_user_id) is None:
@@ -225,7 +226,7 @@ class SessionBookmarkToggleView(View):
         return JsonResponse({"bookmarked": result.bookmarked, "count": result.count})
 
 
-class ProposalAcceptPageView(LoginRequiredMixin, View):
+class ProposalAcceptPageView(EventsPageRequiredMixin, LoginRequiredMixin, View):
     request: AuthenticatedRootRequest
 
     def get(

@@ -195,6 +195,10 @@ def _party_session_history(
 
 class EventRepository(EventRepositoryProtocol):
     @staticmethod
+    def exists_for_sphere(sphere_id: int) -> bool:
+        return Event.objects.filter(sphere_id=sphere_id).exists()
+
+    @staticmethod
     def list_by_sphere(sphere_id: int) -> list[EventDTO]:
         """List all events for a sphere, ordered by start time descending.
 

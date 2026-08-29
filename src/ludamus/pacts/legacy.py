@@ -299,10 +299,17 @@ class NotificationKind(StrEnum):
 class SpherePage(StrEnum):
     EVENTS = "events"
     ENCOUNTERS = "encounters"
+    TIMELINE = "timeline"
 
     @classmethod
     def all_values(cls) -> list[str]:
         return [p.value for p in cls]
+
+
+class EncounterPublicPolicy(StrEnum):
+    DISABLED = "disabled"
+    MANAGERS = "managers"
+    EVERYONE = "everyone"
 
 
 class SpaceDTO(BaseModel):
@@ -443,6 +450,7 @@ class SphereDTO(BaseModel):
     allow_facilitator_session_edit: bool = True
     default_page: SpherePage
     enabled_pages: list[SpherePage]
+    encounter_public_policy: EncounterPublicPolicy = EncounterPublicPolicy.DISABLED
     name: str
     pk: SphereId
     site: SiteDTO
@@ -452,6 +460,9 @@ class SphereDTO(BaseModel):
 
 class SphereUpdateData(TypedDict, total=False):
     allow_facilitator_session_edit: bool
+    default_page: str
+    enabled_pages: list[str]
+    encounter_public_policy: str
     logo: UploadedFileProtocol | str
 
 
@@ -529,6 +540,7 @@ class EncounterDTO(BaseModel):
     description: str
     end_time: datetime | None
     game: str
+    is_public: bool = False
     max_participants: int
     pk: int
     place: str
@@ -556,6 +568,7 @@ class EncounterData(TypedDict, total=False):
     end_time: datetime | None
     game: str
     header_image: UploadedFileProtocol | str
+    is_public: bool
     max_participants: int
     place: str
     share_code: str
@@ -588,6 +601,7 @@ class EncounterIndexItem:
 class EncounterIndexResult:
     upcoming: list[EncounterIndexItem]
     past: list[EncounterIndexItem]
+    public: list[EncounterIndexItem]
 
 
 class EnrollmentConfigDTO(BaseModel):
@@ -1035,6 +1049,8 @@ class AgendaItemRepositoryProtocol(Protocol):
 
 class EventRepositoryProtocol(Protocol):
     @staticmethod
+    def exists_for_sphere(sphere_id: int) -> bool: ...
+    @staticmethod
     def list_by_sphere(sphere_id: int) -> list[EventDTO]: ...
     @staticmethod
     def list_for_events_page(
@@ -1283,15 +1299,19 @@ class EncounterRepositoryProtocol(Protocol):
     @staticmethod
     def create(data: EncounterData) -> EncounterDTO: ...
     @staticmethod
-    def read(pk: int) -> EncounterDTO: ...
+    def exists_for_sphere(sphere_id: int) -> bool: ...
     @staticmethod
-    def read_by_share_code(share_code: str) -> EncounterDTO: ...
+    def read(pk: int, sphere_id: int) -> EncounterDTO: ...
+    @staticmethod
+    def read_by_share_code(share_code: str, sphere_id: int) -> EncounterDTO: ...
     @staticmethod
     def list_upcoming_by_creator(
         sphere_id: int, creator_id: int
     ) -> list[EncounterDTO]: ...
     @staticmethod
     def list_upcoming_rsvpd(sphere_id: int, user_id: int) -> list[EncounterDTO]: ...
+    @staticmethod
+    def list_public_upcoming(sphere_id: int) -> list[EncounterDTO]: ...
     @staticmethod
     def list_past(sphere_id: int, user_id: int) -> list[EncounterDTO]: ...
     @staticmethod
@@ -1309,6 +1329,8 @@ class EncounterRSVPRepositoryProtocol(Protocol):
     def list_by_encounter(encounter_id: int) -> list[EncounterRSVPDTO]: ...
     @staticmethod
     def count_by_encounter(encounter_id: int) -> int: ...
+    @staticmethod
+    def count_by_encounters(encounter_ids: list[int]) -> dict[int, int]: ...
     @staticmethod
     def recent_rsvp_exists(ip_address: str, seconds: int = 60) -> bool: ...
     @staticmethod
@@ -1338,6 +1360,10 @@ class FacilitatorRepositoryProtocol(Protocol):
     def set_ident(pk: int, ident: str) -> None: ...
     @staticmethod
     def update(pk: int, data: FacilitatorUpdateData) -> FacilitatorDTO: ...
+    @staticmethod
+    def set_accreditation(
+        *, event_id: int, pks: list[int], accreditation_type: str
+    ) -> None: ...
     @staticmethod
     def list_by_event(
         event_id: int, filters: FacilitatorListFilters | None = None
@@ -1582,6 +1608,9 @@ class FacilitatorChangeLogDTO(BaseModel):
 class FacilitatorChangeLogRepositoryProtocol(Protocol):
     @staticmethod
     def create(data: FacilitatorChangeLogData) -> None: ...
+
+    @staticmethod
+    def create_many(data: list[FacilitatorChangeLogData]) -> None: ...
 
     @staticmethod
     def list_by_event(event_pk: int) -> list[FacilitatorChangeLogDTO]: ...

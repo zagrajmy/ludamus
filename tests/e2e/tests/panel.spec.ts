@@ -1031,8 +1031,7 @@ test.describe("Backoffice Panel", () => {
       await page.locator("#id_display_name").fill("Game Master Alex");
       // The category configures one duration, so the wizard answers for the
       // proposer instead of offering a dropdown with a single option.
-      await expect(page.locator("#id_duration")).toHaveCount(0);
-      await expect(page.locator("[name='duration']")).toHaveAttribute("type", "hidden");
+      await expect(page.getByRole("combobox", { name: /duration/i })).toHaveCount(0);
       await page.locator(`input[name="session_${slugify(gameSystemName)}"]`).fill("D&D 5e");
       await page.locator(`select[name="session_${slugify(genreName)}"]`).selectOption("Fantasy");
       await page

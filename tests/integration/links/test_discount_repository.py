@@ -28,6 +28,7 @@ class TestDiscountRepositoryList:
             facilitator=facilitator,
             kind=DiscountKind.PERCENT,
             value=Decimal("10.00"),
+            from_rules=False,
         )
 
         result = DiscountRepository.list_by_event(event.pk)
@@ -88,6 +89,7 @@ class TestDiscountRepositoryWrite:
             kind=DiscountKind.PERCENT,
             value=Decimal("25.00"),
             note="creator perk",
+            from_rules=False,
         )
 
         result = DiscountRepository.create(event.pk, data)
@@ -112,6 +114,7 @@ class TestDiscountRepositoryWrite:
             kind=DiscountKind.AMOUNT,
             value=Decimal("30.00"),
             note="new",
+            from_rules=False,
         )
 
         DiscountRepository.update(discount.pk, data)
@@ -128,6 +131,7 @@ class TestDiscountRepositoryWrite:
             facilitator_id=facilitator.pk,
             kind=DiscountKind.AMOUNT,
             value=Decimal("1.00"),
+            from_rules=False,
         )
 
         with pytest.raises(NotFoundError):
@@ -141,6 +145,7 @@ class TestDiscountRepositorySoftDelete:
             facilitator=facilitator,
             kind=DiscountKind.PERCENT,
             value=Decimal("10.00"),
+            from_rules=False,
         )
 
         DiscountRepository.soft_delete(discount.pk)
@@ -154,6 +159,7 @@ class TestDiscountRepositorySoftDelete:
             facilitator=facilitator,
             kind=DiscountKind.PERCENT,
             value=Decimal("10.00"),
+            from_rules=False,
         )
         DiscountRepository.soft_delete(discount.pk)
 
@@ -173,6 +179,7 @@ class TestDiscountRepositorySoftDelete:
             facilitator=facilitator,
             kind=DiscountKind.PERCENT,
             value=Decimal("10.00"),
+            from_rules=False,
         )
         discount.soft_delete()
 
@@ -186,6 +193,7 @@ class TestDiscountRepositoryUniqueConstraint:
             facilitator_id=facilitator.pk,
             kind=DiscountKind.PERCENT,
             value=Decimal("10.00"),
+            from_rules=False,
         )
         DiscountRepository.create(event.pk, data)
 
@@ -197,6 +205,7 @@ class TestDiscountRepositoryUniqueConstraint:
             facilitator_id=facilitator.pk,
             kind=DiscountKind.PERCENT,
             value=Decimal("10.00"),
+            from_rules=False,
         )
         first = DiscountRepository.create(event.pk, data)
         DiscountRepository.soft_delete(first.pk)

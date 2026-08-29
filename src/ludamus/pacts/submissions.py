@@ -219,6 +219,9 @@ class AccreditationType(StrEnum):
     STANDARD = "standard"
     GUEST = "guest"
     HONORARY = "honorary"
+    # Earned by running a scheduled program point, so the agenda sync owns it:
+    # it is the only type that sync assigns and takes away.
+    CREATOR = "creator"
 
 
 class ImportLogStatus(StrEnum):

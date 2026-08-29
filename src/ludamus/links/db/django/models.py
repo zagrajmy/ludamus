@@ -25,8 +25,9 @@ from ludamus.pacts import (
     SpherePage,
 )
 from ludamus.pacts.crowd import UserType
-from ludamus.pacts.discounts import DiscountKind
+from ludamus.pacts.discounts import DiscountKind, DiscountMethod
 from ludamus.pacts.images import ORIGINAL_FILENAME_MAX_LENGTH
+from ludamus.pacts.legacy import EncounterPublicPolicy
 from ludamus.pacts.multiverse import SphereRole
 from ludamus.pacts.party import PartyConsentMode, PartyMembershipStatus
 from ludamus.pacts.submissions import AccreditationType, ImportLogStatus
@@ -308,12 +309,40 @@ class Sphere(models.Model):
         default=SpherePage.EVENTS,
     )
     allow_facilitator_session_edit = models.BooleanField(default=True)
+    encounter_public_policy = models.CharField(
+        max_length=20,
+        choices=[(p.value, p.name.title()) for p in EncounterPublicPolicy],
+        default=EncounterPublicPolicy.DISABLED,
+    )
 
     class Meta:
         db_table = "sphere"
 
     def __str__(self) -> str:
         return self.name
+
+    def clean(self) -> None:
+        # enabled_pages is a JSONField, so any JSON value can arrive here
+        # (the admin's raw-JSON widget included). A non-list — e.g. the
+        # object {"events": true} — would coerce through membership checks
+        # but poison every SphereDTO validation on read.
+        enabled_pages = self.enabled_pages
+        if not isinstance(enabled_pages, list):
+            raise ValidationError(
+                {"enabled_pages": "Enabled pages must be a list of page slugs."}
+            )
+        known = SpherePage.all_values()
+        if set(enabled_pages) - set(known):
+            raise ValidationError(
+                {"enabled_pages": f"Enabled pages must be page slugs from {known}."}
+            )
+        # The homepage redirect sends visitors to default_page, so a disabled
+        # one strands them on a 404. Enforced here so every ModelForm writer
+        # (the admin included) is covered by Django's own validation.
+        if self.default_page not in set(enabled_pages):
+            raise ValidationError(
+                {"default_page": "Default page must be one of the enabled pages."}
+            )
 
     @property
     def logo_url(self) -> str:
@@ -1568,6 +1597,7 @@ class Encounter(models.Model):
     end_time = models.DateTimeField(blank=True, null=True)
     place = models.CharField(max_length=255, default="", blank=True)
     max_participants = models.PositiveIntegerField(default=0)
+    is_public = models.BooleanField(default=False)
     share_code = models.CharField(max_length=6, unique=True)
     header_image = models.ImageField(upload_to=unique_upload_to, blank=True)
     header_image_original_name = models.CharField(
@@ -1830,6 +1860,9 @@ class Discount(SoftDeleteModel):
     )
     value = models.DecimalField(max_digits=10, decimal_places=2)
     note = models.CharField(max_length=255, blank=True, default="")
+    # Set by the agenda sync. Anything an organizer assigns or edits by hand
+    # stays False, and the sync leaves those rows alone for good.
+    from_rules = models.BooleanField(default=False)
     creation_time = models.DateTimeField(auto_now_add=True)
     modification_time = models.DateTimeField(auto_now=True)
 
@@ -1849,6 +1882,29 @@ class Discount(SoftDeleteModel):
 
     def __str__(self) -> str:
         return f"{self.facilitator} - {self.kind} {self.value}"
+
+
+class DiscountRule(models.Model):
+    """Discount tier the agenda sync applies — first match by `order` wins."""
+
+    event = models.ForeignKey(
+        Event, on_delete=models.CASCADE, related_name="discount_rules"
+    )
+    method = models.CharField(
+        max_length=20, choices=[(m.value, m.name.title()) for m in DiscountMethod]
+    )
+    # Lower bound: the rule matches a facilitator whose measured program
+    # reaches this many started hours (or program points).
+    quantity = models.PositiveIntegerField()
+    percent = models.DecimalField(max_digits=5, decimal_places=2)
+    order = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        db_table = "discount_rule"
+        ordering = ("order", "pk")
+
+    def __str__(self) -> str:
+        return f"{self.method} >= {self.quantity} -> {self.percent}%"
 
 
 class Announcement(models.Model):
