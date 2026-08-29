@@ -13,6 +13,7 @@ from google.auth.transport.requests import AuthorizedSession
 from google.oauth2.service_account import Credentials
 from pydantic import BaseModel, ConfigDict, Field
 
+from ludamus.links.http_check import ERROR_HINT_LIMIT, probe_failed, probe_result
 from ludamus.links.retry import mount_retries
 from ludamus.pacts.chronology import (
     CheckOutcome,
@@ -55,10 +56,6 @@ SHEETS_UPDATE_URL = (
     "?valueInputOption=RAW"
 )
 FORMS_API_URL = "https://forms.googleapis.com/v1/forms/{form_id}"
-ERROR_HINT_LIMIT = 200
-HTTP_UNAUTHORIZED = 401
-HTTP_FORBIDDEN = 403
-HTTP_NOT_FOUND = 404
 
 
 class _CredentialsError(Exception):
@@ -367,29 +364,8 @@ class GoogleDocsProposalImporter(IntegrationImplementation):
         try:
             response = session.get(url, timeout=10)
         except (requests.RequestException, GoogleAuthError) as exc:
-            return CheckResult(
-                outcome=CheckOutcome.AUTH_FAILED,
-                hint=f"{what.capitalize()} request failed: {exc}",
-            )
-        if response.ok:
-            return CheckResult(outcome=CheckOutcome.OK, hint="")
-        body = (response.text or "")[:ERROR_HINT_LIMIT]
-        if response.status_code == HTTP_UNAUTHORIZED:
-            return CheckResult(outcome=CheckOutcome.AUTH_FAILED, hint=body)
-        if response.status_code == HTTP_FORBIDDEN:
-            return CheckResult(
-                outcome=CheckOutcome.FORBIDDEN,
-                hint=f"Service account cannot access this {what}: {body}",
-            )
-        if response.status_code == HTTP_NOT_FOUND:
-            return CheckResult(
-                outcome=CheckOutcome.NOT_FOUND,
-                hint=f"{what.capitalize()} not found: {body}",
-            )
-        return CheckResult(
-            outcome=CheckOutcome.AUTH_FAILED,
-            hint=f"Unexpected {response.status_code} from Google: {body}",
-        )
+            return probe_failed(exc, what=what)
+        return probe_result(response, what=what)
 
 
 def _a1_quote(title: str) -> str:
