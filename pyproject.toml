@@ -228,7 +228,6 @@ module = [
     "ludamus.gates.cli.django.management.commands.expire_offers",
     "ludamus.gates.web.django.*",
     "ludamus.links.db.django.*",
-    "ludamus.links.ticket_api",
     "ludamus.links.google_docs",
     "ludamus.links.analytics.*",
 ]

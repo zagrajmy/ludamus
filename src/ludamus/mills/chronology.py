@@ -5,6 +5,8 @@ field management) bounded contexts. Split per `plans/hex_refactor.md` if
 the file grows past ~12 top-level members or 1000 lines.
 """
 
+import logging
+from dataclasses import dataclass
 from datetime import timedelta
 from typing import TYPE_CHECKING
 
@@ -32,6 +34,7 @@ from ludamus.pacts.chronology import (
     EventIntegrationsRepositoryProtocol,
     EventIntegrationsServiceProtocol,
     EventIntegrationUpdateData,
+    ImportIntegrationImplementation,
     IntegrationCheckRequest,
     IntegrationImplementation,
     IntegrationImplementationId,
@@ -41,10 +44,11 @@ from ludamus.pacts.chronology import (
     ProposalScheduledError,
     SourceQuestion,
     SpaceTimeConflictError,
+    TicketingIntegrationImplementation,
 )
 from ludamus.pacts.durations import MINUTES_PER_HOUR, parse_duration
-from ludamus.pacts.legacy import resolve_uploaded_file_field
-from ludamus.pacts.multiverse import SphereRole
+from ludamus.pacts.legacy import MembershipAPIError, resolve_uploaded_file_field
+from ludamus.pacts.multiverse import DecryptionError, SphereRole
 from ludamus.pacts.submissions import (
     ImportRow,
     ImportSettings,
@@ -55,7 +59,13 @@ from ludamus.specs.chronology import resolve_facilitator_session_edit
 
 _SOURCE_QUESTIONS_ADAPTER = TypeAdapter(list[SourceQuestion])
 
+logger = logging.getLogger(__name__)
+
 if TYPE_CHECKING:
+    from collections.abc import Mapping
+
+    from pydantic import BaseModel
+
     from ludamus.pacts import (
         AgendaItemRepositoryProtocol,
         ContentChangeLogData,
@@ -72,6 +82,7 @@ if TYPE_CHECKING:
         TimeSlotDTO,
     )
     from ludamus.pacts.crowd import UserRepositoryProtocol
+    from ludamus.pacts.legacy import TicketAPIProtocol
     from ludamus.pacts.multiverse import (
         ConnectionsRepositoryProtocol,
         DecryptorProtocol,
@@ -812,26 +823,80 @@ class IntegrationImplementationNotFoundError(Exception):
     """Raised when the registry has no implementation for an identifier."""
 
 
-class EventIntegrationsService(EventIntegrationsServiceProtocol):
-    """CRUD + check dispatch for per-event integrations.
+@dataclass(frozen=True)
+class _BoundImport:
+    """One import integration's implementation with its credentials attached."""
 
-    The registry of `IntegrationImplementation`s is composition-time data
-    passed in from `inits/`; the mill never imports a concrete impl.
+    impl: ImportIntegrationImplementation
+    config: BaseModel
+    secret: bytes
+    settings: ImportSettings
+
+
+class _BoundTicketApi:
+    """One event's ticketing implementation with its credentials attached."""
+
+    def __init__(
+        self,
+        *,
+        implementation: TicketingIntegrationImplementation,
+        secret: bytes,
+        config: BaseModel,
+    ) -> None:
+        self._implementation = implementation
+        self._secret = secret
+        self._config = config
+
+    def fetch_membership_count(self, user_email: str) -> int:
+        return self._implementation.fetch_membership_count(
+            secret=self._secret, config=self._config, user_email=user_email
+        )
+
+
+class _NoTicketApi:
+    # No ticketing integration reads the same as an unreachable one: the
+    # caller falls back to the stored config either way.
+    @staticmethod
+    def fetch_membership_count(_user_email: str) -> int:
+        raise MembershipAPIError
+
+
+class EventIntegrationsService(EventIntegrationsServiceProtocol):
+    """CRUD, check dispatch and credential binding for per-event integrations.
+
+    The registries of `IntegrationImplementation`s are composition-time data
+    passed in from `inits/`, one mapping per kind so the type system answers
+    "can this row do fetch_questions" instead of an attribute-presence check;
+    the mill never imports a concrete impl.
     """
 
     def __init__(
         self,
+        *,
         transaction: TransactionProtocol,
         integrations: EventIntegrationsRepositoryProtocol,
         connections: ConnectionsRepositoryProtocol,
         decryptor: DecryptorProtocol,
-        registry: dict[IntegrationImplementationId, IntegrationImplementation],
+        imports: Mapping[IntegrationImplementationId, ImportIntegrationImplementation],
+        ticketing: Mapping[
+            IntegrationImplementationId, TicketingIntegrationImplementation
+        ],
     ) -> None:
         self._transaction = transaction
         self._integrations = integrations
         self._connections = connections
         self._decryptor = decryptor
-        self._registry = registry
+        self._imports = imports
+        self._ticketing = ticketing
+        # One enrollment read asks per active window, and an enroll POST asks
+        # again per party member; the answer cannot change within a request.
+        self._ticket_api_cache: dict[int, TicketAPIProtocol] = {}
+
+    @property
+    def _registry(self) -> dict[IntegrationImplementationId, IntegrationImplementation]:
+        # The kind-agnostic view, for the CRUD and check paths that need only
+        # `kind` and `config_model`. Routing reads the typed mapping instead.
+        return {**self._imports, **self._ticketing}
 
     def list_implementations(
         self, kind: IntegrationKind
@@ -878,15 +943,13 @@ class EventIntegrationsService(EventIntegrationsServiceProtocol):
     def fetch_questions(
         self, *, sphere_id: int, event_id: int, pk: int
     ) -> list[SourceQuestion]:
-        integration = self._integrations.get(event_id, pk)
-        if (impl := self._registry.get(integration.implementation)) is None:
+        bound = self._bind_import(sphere_id=sphere_id, event_id=event_id, pk=pk)
+        if bound is None:
             return []
-        config = impl.config_model.model_validate_json(integration.config_json)
-        settings = ImportSettings.model_validate_json(integration.settings_json or "{}")
-        blob = self._connections.read_secret(sphere_id, integration.connection_id)
-        plaintext = self._decryptor.decrypt(blob) if blob else b""
-        return impl.fetch_questions(
-            secret=plaintext, config=config, header_row=settings.header_row
+        return bound.impl.fetch_questions(
+            secret=bound.secret,
+            config=bound.config,
+            header_row=bound.settings.header_row,
         )
 
     def get_cached_questions(self, event_id: int, pk: int) -> list[SourceQuestion]:
@@ -923,15 +986,13 @@ class EventIntegrationsService(EventIntegrationsServiceProtocol):
         return questions
 
     def fetch_headers(self, *, sphere_id: int, event_id: int, pk: int) -> list[str]:
-        integration = self._integrations.get(event_id, pk)
-        if (impl := self._registry.get(integration.implementation)) is None:
+        bound = self._bind_import(sphere_id=sphere_id, event_id=event_id, pk=pk)
+        if bound is None:
             return []
-        config = impl.config_model.model_validate_json(integration.config_json)
-        settings = ImportSettings.model_validate_json(integration.settings_json or "{}")
-        blob = self._connections.read_secret(sphere_id, integration.connection_id)
-        plaintext = self._decryptor.decrypt(blob) if blob else b""
-        return impl.fetch_headers(
-            secret=plaintext, config=config, header_row=settings.header_row
+        return bound.impl.fetch_headers(
+            secret=bound.secret,
+            config=bound.config,
+            header_row=bound.settings.header_row,
         )
 
     def refetch_questions(
@@ -979,15 +1040,13 @@ class EventIntegrationsService(EventIntegrationsServiceProtocol):
     def fetch_responses(
         self, *, sphere_id: int, event_id: int, pk: int
     ) -> list[ImportRow]:
-        integration = self._integrations.get(event_id, pk)
-        if (impl := self._registry.get(integration.implementation)) is None:
+        bound = self._bind_import(sphere_id=sphere_id, event_id=event_id, pk=pk)
+        if bound is None:
             return []
-        config = impl.config_model.model_validate_json(integration.config_json)
-        settings = ImportSettings.model_validate_json(integration.settings_json or "{}")
-        blob = self._connections.read_secret(sphere_id, integration.connection_id)
-        plaintext = self._decryptor.decrypt(blob) if blob else b""
-        return impl.fetch_responses(
-            secret=plaintext, config=config, header_row=settings.header_row
+        return bound.impl.fetch_responses(
+            secret=bound.secret,
+            config=bound.config,
+            header_row=bound.settings.header_row,
         )
 
     def save_settings(self, *, event_id: int, pk: int, settings_json: str) -> None:
@@ -1018,6 +1077,85 @@ class EventIntegrationsService(EventIntegrationsServiceProtocol):
             )
         plaintext = self._decryptor.decrypt(blob) if blob else b""
         return impl.check(plaintext, config)
+
+    def resolve(self, *, event_id: int, sphere_id: int) -> TicketAPIProtocol:
+        if event_id not in self._ticket_api_cache:
+            self._ticket_api_cache[event_id] = self._resolve_ticket_api(
+                event_id=event_id, sphere_id=sphere_id
+            )
+        return self._ticket_api_cache[event_id]
+
+    def _resolve_ticket_api(
+        self, *, event_id: int, sphere_id: int
+    ) -> TicketAPIProtocol:
+        # First usable integration wins: a row that cannot be bound is skipped
+        # and the next one is tried, so one broken integration does not take
+        # membership lookups down for the whole event.
+        for integration in self._integrations.list_for_event(
+            event_id, IntegrationKind.TICKETING
+        ):
+            if (impl := self._ticketing.get(integration.implementation)) is None:
+                continue
+            try:
+                config = impl.config_model.model_validate_json(integration.config_json)
+            except ValidationError:
+                logger.warning(
+                    "Ticketing integration %d has an invalid config", integration.pk
+                )
+                continue
+            secret = self._ticketing_secret(
+                sphere_id=sphere_id, integration=integration
+            )
+            if not secret:
+                continue
+            return _BoundTicketApi(implementation=impl, secret=secret, config=config)
+        return _NoTicketApi()
+
+    def _bind_import(
+        self, *, sphere_id: int, event_id: int, pk: int
+    ) -> _BoundImport | None:
+        # Only import implementations answer the fetch_* calls; a ticketing row
+        # reaching one would be a routing mistake, not a fetch with no results.
+        integration = self._integrations.get(event_id, pk)
+        if (impl := self._imports.get(integration.implementation)) is None:
+            return None
+        blob = self._connections.read_secret(sphere_id, integration.connection_id)
+        return _BoundImport(
+            impl=impl,
+            config=impl.config_model.model_validate_json(integration.config_json),
+            secret=self._decryptor.decrypt(blob) if blob else b"",
+            settings=ImportSettings.model_validate_json(
+                integration.settings_json or "{}"
+            ),
+        )
+
+    def _ticketing_secret(
+        self, *, sphere_id: int, integration: EventIntegrationDTO
+    ) -> bytes:
+        # Every unusable secret is a warning and a skipped row, never a raise:
+        # a broken ticketing row must not take participant enrollment down.
+        try:
+            blob = self._connections.read_secret(sphere_id, integration.connection_id)
+        except NotFoundError:
+            logger.warning(
+                "Ticketing integration %d points at a missing connection",
+                integration.pk,
+            )
+            return b""
+        if not blob:
+            logger.warning(
+                "Ticketing integration %d uses a connection with no secret",
+                integration.pk,
+            )
+            return b""
+        try:
+            return self._decryptor.decrypt(blob)
+        except DecryptionError:
+            logger.warning(
+                "Ticketing integration %d has a secret that does not decrypt",
+                integration.pk,
+            )
+            return b""
 
     def _require_implementation(
         self, identifier: IntegrationImplementationId, kind: IntegrationKind

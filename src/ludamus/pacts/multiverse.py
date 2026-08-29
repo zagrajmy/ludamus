@@ -135,6 +135,10 @@ class EncryptorProtocol(Protocol):
     def encrypt(self, plaintext: bytes) -> bytes: ...
 
 
+class DecryptionError(Exception):
+    """The stored blob does not decrypt: corrupt, or written under another key."""
+
+
 class DecryptorProtocol(Protocol):
     def decrypt(self, blob: bytes) -> bytes: ...
 
