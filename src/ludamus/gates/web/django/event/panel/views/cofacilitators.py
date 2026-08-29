@@ -170,10 +170,8 @@ class CofacilitatorResolvePageView(EventPanelAccessMixin, EventContextMixin, Vie
             # people can share a name, so nothing is linked until they say so.
             # One already on the session is somebody else's finished work, so
             # the row defaults to leaving it alone rather than adding it twice.
-            if candidate.already_linked:
-                default_target = "skip"
-            else:
-                default_target = "existing" if candidate.match else "new"
+            matched_target = "existing" if candidate.match else "new"
+            default_target = "skip" if candidate.already_linked else matched_target
             rows.append(
                 {
                     "candidate": candidate,
