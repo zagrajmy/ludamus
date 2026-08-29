@@ -14,6 +14,7 @@ from ludamus.gates.web.django.chronology.schedule import (
     ScheduleDay,
     ScheduleHour,
     ScheduleTile,
+    build_card_days,
 )
 from ludamus.gates.web.django.entities import UserInfo
 from ludamus.links.db.django.models import SessionParticipation
@@ -112,15 +113,17 @@ def event_page_context(event, *, url, **overrides):
     # Every key the event page renders with, defaulted to an event with no
     # schedule. `url` is the page's own path, which the view echoes back as the
     # list/rooms view links.
+    # Callers keep stating their scenario through the three availability lanes;
+    # the page itself renders from the day-major grouping built from them.
+    ended = overrides.pop("ended_hour_data", {})
+    current = overrides.pop("current_hour_data", {})
+    future_unavailable = overrides.pop("future_unavailable_hour_data", {})
     context = {
-        "current_hour_data": {},
-        "ended_hour_data": {},
         "enrollment_requires_slots": False,
         "event": event,
         "filterable_tag_categories": [],
         "track_filter_names": [],
         "category_filter_names": [],
-        "future_unavailable_hour_data": {},
         "hour_data": {},
         "object": event,
         "pending_review_visible": False,
@@ -143,6 +146,12 @@ def event_page_context(event, *, url, **overrides):
     # still decides. A test about category windows overrides this.
     context.setdefault(
         "proposing_open", event.is_published and event.is_proposal_active
+    )
+    context.setdefault(
+        "card_days",
+        build_card_days(
+            ended=ended, current=current, future_unavailable=future_unavailable
+        ),
     )
     return context
 

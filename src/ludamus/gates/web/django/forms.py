@@ -799,6 +799,7 @@ ACCREDITATION_TYPE_LABELS = {
     AccreditationType.STANDARD: _("Standard"),
     AccreditationType.GUEST: _("Guest"),
     AccreditationType.HONORARY: _("Honorary"),
+    AccreditationType.CREATOR: _("Program creator"),
 }
 ACCREDITATION_TYPE_CHOICES = [
     (t.value, ACCREDITATION_TYPE_LABELS[t]) for t in AccreditationType
@@ -875,7 +876,10 @@ class DiscountForm(forms.Form):
         decimal_places=2,
         min_value=Decimal("0.01"),
         label=_("Value"),
-        widget=forms.NumberInput(attrs={"inputmode": "decimal"}),
+        # Django derives step="0.01" from decimal_places; combined with
+        # min="0.01" the browser's float step check rejects plain 50 and
+        # suggests 50.01. step="any" drops it; the server still enforces 2dp.
+        widget=forms.NumberInput(attrs={"inputmode": "decimal", "step": "any"}),
         error_messages={
             "required": _("Value is required."),
             "min_value": _("Value must be greater than zero."),
@@ -902,15 +906,35 @@ class DiscountExportForm(forms.Form):
         strip=True,
         help_text=_("Paste the spreadsheet link (or its ID) from the address bar."),
     )
+    tab = forms.CharField(
+        label=_("Tab name"),
+        max_length=100,
+        strip=True,
+        help_text=_("The tab has to exist already; the export replaces its content."),
+    )
+    columns = forms.MultipleChoiceField(
+        label=_("Columns"),
+        widget=forms.CheckboxSelectMultiple,
+        help_text=_(
+            "Facilitator and personal data written before the discount columns."
+            " Pick what this sheet needs; nothing is exported by default."
+        ),
+    )
 
     def __init__(
-        self, *args: Any, connections: Iterable[ConnectionDTO], **kwargs: Any
+        self,
+        *args: Any,
+        connections: Iterable[ConnectionDTO],
+        columns: Iterable[tuple[str, str]] = (),
+        **kwargs: Any,
     ) -> None:
         super().__init__(*args, **kwargs)
         connection_field = cast("forms.ChoiceField", self.fields["connection"])
         connection_field.choices = [
             (str(connection.pk), connection.display_name) for connection in connections
         ]
+        columns_field = cast("forms.MultipleChoiceField", self.fields["columns"])
+        columns_field.choices = list(columns)
 
     def clean_spreadsheet(self) -> str:
         raw = str(self.cleaned_data["spreadsheet"])

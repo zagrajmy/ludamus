@@ -406,6 +406,9 @@ def settings_tab_urls(event):
         "enrollment": reverse(
             "panel:event-enrollment-settings", kwargs={"slug": event.slug}
         ),
+        "discounts": reverse(
+            "panel:event-discount-settings", kwargs={"slug": event.slug}
+        ),
         "display": reverse("panel:event-display-settings", kwargs={"slug": event.slug}),
         "integrations": reverse(
             "panel:event-integration-settings", kwargs={"slug": event.slug}
