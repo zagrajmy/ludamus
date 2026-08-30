@@ -13,6 +13,7 @@ import { collecting, coverageOptions } from "../../coverage";
 export const test = base.extend<{
   clientCoverage: void;
   consentSeed: "accepted" | "declined" | null;
+  seedNewContexts: void;
 }>({
   consentSeed: ["declined", { option: true }],
   context: async ({ context, consentSeed }, use) => {
@@ -23,6 +24,27 @@ export const test = base.extend<{
     }
     await use(context);
   },
+  // Tests that call browser.newContext() themselves (custom viewports) skip
+  // the `context` fixture above, so the same seed is patched in here. The
+  // browser is worker-scoped and shared, so the patch is undone after each
+  // test — the next one may run with a different consentSeed.
+  seedNewContexts: [
+    async ({ browser, consentSeed }, use) => {
+      const original = browser.newContext.bind(browser);
+      browser.newContext = async (options) => {
+        const context = await original(options);
+        if (consentSeed !== null) {
+          await context.addInitScript((choice) => {
+            window.localStorage.setItem("prologue.consent", choice);
+          }, consentSeed);
+        }
+        return context;
+      };
+      await use();
+      browser.newContext = original;
+    },
+    { auto: true },
+  ],
   clientCoverage: [
     async ({ page, browserName }, use) => {
       if (!collecting || browserName !== "chromium") {
