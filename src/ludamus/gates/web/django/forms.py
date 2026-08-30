@@ -18,6 +18,7 @@ from ludamus.gates.web.django.dynamic_fields import (
     CustomAnswerFormMixin,
     build_dynamic_fields,
 )
+from ludamus.gates.web.django.sphere.pages import SPHERE_PAGE_LABELS
 from ludamus.pacts.discounts import DiscountKind
 from ludamus.pacts.durations import (
     MAX_DURATION_HOURS,
@@ -26,7 +27,7 @@ from ludamus.pacts.durations import (
     duration_choices,
 )
 from ludamus.pacts.images import ALLOWED_IMAGE_FORMATS, IMAGE_ACCEPT, LOGO_ACCEPT
-from ludamus.pacts.legacy import PromotionMode
+from ludamus.pacts.legacy import EncounterPublicPolicy, PromotionMode, SpherePage
 from ludamus.pacts.submissions import AccreditationType
 
 if TYPE_CHECKING:
@@ -297,6 +298,13 @@ class EventSettingsForm(forms.Form):
         return image
 
 
+_PAGE_VALUES = {page.value for page in SpherePage}
+
+
+def _sphere_page_choices() -> list[tuple[str, _StrPromise]]:
+    return [(page.value, SPHERE_PAGE_LABELS[page]) for page in SpherePage]
+
+
 class SphereSettingsForm(forms.Form):
     """Form for sphere-wide settings."""
 
@@ -312,7 +320,55 @@ class SphereSettingsForm(forms.Form):
             "Show the sphere room and eligible program-item rooms to active users."
         ),
     )
+    enabled_pages = forms.MultipleChoiceField(
+        choices=_sphere_page_choices,
+        widget=forms.CheckboxSelectMultiple,
+        label=_("Enabled pages"),
+        error_messages={"required": _("At least one page must stay enabled.")},
+    )
+    default_page = forms.ChoiceField(
+        choices=_sphere_page_choices,
+        widget=forms.RadioSelect,
+        label=_("Default page"),
+        help_text=_("Shown when visitors open the sphere's homepage."),
+    )
+    encounter_public_policy = forms.ChoiceField(
+        choices=[
+            (
+                EncounterPublicPolicy.DISABLED.value,
+                _("Nobody (public encounters disabled)"),
+            ),
+            (EncounterPublicPolicy.MANAGERS.value, _("Sphere managers only")),
+            (EncounterPublicPolicy.EVERYONE.value, _("Everyone")),
+        ],
+        widget=forms.RadioSelect,
+        label=_("Who may make an encounter public"),
+        help_text=_(
+            "Public encounters are listed for everyone on the encounters page "
+            "and the timeline."
+        ),
+    )
+    # The pages the manager was warned about and confirmed, comma-separated.
+    # A bare boolean would carry a confirmation for one page over to a page
+    # they picked afterwards and were never warned about.
+    confirmed_page_disable = forms.CharField(required=False, widget=forms.HiddenInput)
     logo = logo_field()
+
+    def confirmed_pages(self) -> set[SpherePage]:
+        raw: str = self.cleaned_data.get("confirmed_page_disable") or ""
+        return {SpherePage(value) for value in raw.split(",") if value in _PAGE_VALUES}
+
+    def clean(self) -> dict[str, Any] | None:
+        # Also enforced by SpherePanelService.update_settings; repeated here so
+        # the manager gets the message on the field rather than an exception.
+        super().clean()
+        default_page = self.cleaned_data.get("default_page")
+        enabled_pages: list[str] = self.cleaned_data.get("enabled_pages") or []
+        if default_page and default_page not in enabled_pages:
+            self.add_error(
+                "default_page", _("The default page must be one of the enabled pages.")
+            )
+        return self.cleaned_data
 
 
 class ProposalSettingsForm(forms.Form):
@@ -750,6 +806,7 @@ ACCREDITATION_TYPE_LABELS = {
     AccreditationType.STANDARD: _("Standard"),
     AccreditationType.GUEST: _("Guest"),
     AccreditationType.HONORARY: _("Honorary"),
+    AccreditationType.CREATOR: _("Program creator"),
 }
 ACCREDITATION_TYPE_CHOICES = [
     (t.value, ACCREDITATION_TYPE_LABELS[t]) for t in AccreditationType
@@ -826,7 +883,10 @@ class DiscountForm(forms.Form):
         decimal_places=2,
         min_value=Decimal("0.01"),
         label=_("Value"),
-        widget=forms.NumberInput(attrs={"inputmode": "decimal"}),
+        # Django derives step="0.01" from decimal_places; combined with
+        # min="0.01" the browser's float step check rejects plain 50 and
+        # suggests 50.01. step="any" drops it; the server still enforces 2dp.
+        widget=forms.NumberInput(attrs={"inputmode": "decimal", "step": "any"}),
         error_messages={
             "required": _("Value is required."),
             "min_value": _("Value must be greater than zero."),
@@ -853,15 +913,35 @@ class DiscountExportForm(forms.Form):
         strip=True,
         help_text=_("Paste the spreadsheet link (or its ID) from the address bar."),
     )
+    tab = forms.CharField(
+        label=_("Tab name"),
+        max_length=100,
+        strip=True,
+        help_text=_("The tab has to exist already; the export replaces its content."),
+    )
+    columns = forms.MultipleChoiceField(
+        label=_("Columns"),
+        widget=forms.CheckboxSelectMultiple,
+        help_text=_(
+            "Facilitator and personal data written before the discount columns."
+            " Pick what this sheet needs; nothing is exported by default."
+        ),
+    )
 
     def __init__(
-        self, *args: Any, connections: Iterable[ConnectionDTO], **kwargs: Any
+        self,
+        *args: Any,
+        connections: Iterable[ConnectionDTO],
+        columns: Iterable[tuple[str, str]] = (),
+        **kwargs: Any,
     ) -> None:
         super().__init__(*args, **kwargs)
         connection_field = cast("forms.ChoiceField", self.fields["connection"])
         connection_field.choices = [
             (str(connection.pk), connection.display_name) for connection in connections
         ]
+        columns_field = cast("forms.MultipleChoiceField", self.fields["columns"])
+        columns_field.choices = list(columns)
 
     def clean_spreadsheet(self) -> str:
         raw = str(self.cleaned_data["spreadsheet"])

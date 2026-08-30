@@ -23,20 +23,6 @@
                             {{ current_sphere.name }}
                         </dd>
                     </div>
-                    <div class="px-6 py-4 grid grid-cols-3 gap-4">
-                        <dt class="text-sm font-medium text-foreground-muted">{% translate "Default page" %}</dt>
-                        <dd class="text-sm text-foreground col-span-2">
-                            {{ current_sphere.default_page.value }}
-                        </dd>
-                    </div>
-                    <div class="px-6 py-4 grid grid-cols-3 gap-4">
-                        <dt class="text-sm font-medium text-foreground-muted">{% translate "Enabled pages" %}</dt>
-                        <dd class="text-sm text-foreground col-span-2">
-                            {% for page in current_sphere.enabled_pages %}
-                                <span class="inline-block px-2 py-0.5 mr-1 mb-1 bg-bg-tertiary text-foreground-secondary rounded text-xs">{{ page.value }}</span>
-                            {% endfor %}
-                        </dd>
-                    </div>
                 </dl>
             </div>
             <form method="post"
@@ -57,11 +43,39 @@
                         </span>
                     </label>
                     <div class="mt-6">{% tessera_field form.parley_enabled %}</div>
+                    <h2 class="text-sm font-semibold text-foreground mt-8">{% translate "Pages" %}</h2>
+                    <div class="mt-4">{% tessera_field form.enabled_pages %}</div>
+                    <div class="mt-6">{% tessera_field form.default_page %}</div>
+                    <h2 class="text-sm font-semibold text-foreground mt-8">{% translate "Encounters" %}</h2>
+                    <div class="mt-4">{% tessera_field form.encounter_public_policy %}</div>
                     <div class="mt-6">{% tessera_field form.logo %}</div>
+                    {% if needs_disable_confirmation %}
+                        <div class="alert backdrop-blur-lg alert-warning mt-6" role="alert">
+                            <div class="flex items-start gap-3">
+                                <span class="flex-shrink-0 mt-0.5">{% icon "exclamation-triangle" class="w-5 h-5" %}</span>
+                                <div>
+                                    <p class="text-sm font-medium">
+                                        {% translate "You are disabling a page that has content:" %}
+                                        {{ disable_warning_pages|join:", " }}
+                                    </p>
+                                    <p class="text-sm opacity-80 mt-1">
+                                        {% translate "Visitors will no longer be able to open it. Save again to confirm." %}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                        <input type="hidden"
+                               name="confirmed_page_disable"
+                               value="{{ confirmed_page_disable }}">
+                    {% endif %}
                     <div class="mt-6">
                         <button type="submit" class="btn btn-primary">
                             {% icon "check" class="w-4 h-4 mr-2" %}
-                            {% translate "Save Settings" %}
+                            {% if needs_disable_confirmation %}
+                                {% translate "Save anyway" %}
+                            {% else %}
+                                {% translate "Save Settings" %}
+                            {% endif %}
                         </button>
                     </div>
                 </div>

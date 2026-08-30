@@ -28,7 +28,7 @@ from ludamus.gates.web.django.chronology.panel.views.columns import (
     column_values,
     column_views,
 )
-from ludamus.gates.web.django.panel import pagination_context
+from ludamus.gates.web.django.pagination import pagination_context
 from ludamus.pacts import NotFoundError, SessionStatus
 from ludamus.pacts.chronology import (
     ContentChangeNotLatestError,
