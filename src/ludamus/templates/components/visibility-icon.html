@@ -1,12 +1,12 @@
 {% load i18n %}
 {% if is_public %}
-    <span class="ml-1 inline-flex text-success"
+    <span class="ml-1 inline-flex align-middle text-success"
           title="{% translate "Shown publicly" %}">
         {% include "components/icon-eye.html" %}
         <span class="sr-only">{% translate "public" %}</span>
     </span>
 {% else %}
-    <span class="ml-1 inline-flex text-foreground-muted"
+    <span class="ml-1 inline-flex align-middle text-foreground-muted"
           title="{% translate "Visible to organizers only" %}">
         {% include "components/icon-lock-closed.html" %}
         <span class="sr-only">{% translate "organizers only" %}</span>

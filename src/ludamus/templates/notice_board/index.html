@@ -48,7 +48,7 @@
         {% endif %}
     </section>
     <!-- Past -->
-    <section>
+    <section class="mb-8">
         <h2 class="text-xl font-bold mb-4 text-foreground">{% translate "Past" %}</h2>
         {% if past_encounters %}
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -60,6 +60,9 @@
             <p class="text-sm text-foreground-muted py-4">{% translate "No past encounters." %}</p>
         {% endif %}
     </section>
+    {% if public_encounters %}
+        {% include "notice_board/_public_encounters.html" %}
+    {% endif %}
 {% endblock body %}
 {% block extra_scripts %}
     <script{% nonce %}>

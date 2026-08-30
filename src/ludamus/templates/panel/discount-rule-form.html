@@ -1,0 +1,64 @@
+{% extends "panel/base.html" %}
+{% load i18n tessera %}
+{% block title %}
+    {% if rule %}
+        {% translate "Edit discount rule" %}
+    {% else %}
+        {% translate "Add discount rule" %}
+    {% endif %}
+{% endblock title %}
+{% block page_title %}
+    {% if rule %}
+        {% translate "Edit discount rule" %}
+    {% else %}
+        {% translate "Add discount rule" %}
+    {% endif %}
+{% endblock page_title %}
+{% block page_subtitle %}
+    {% if current_event %}{{ current_event.name }} · {% translate "Discounts" %}{% endif %}
+{% endblock page_subtitle %}
+{% block header_actions %}
+    {% if current_event %}
+        {% translate "Cancel" as cancel_label %}
+        {% url 'panel:event-discount-settings' slug=current_event.slug as cancel_url %}
+        {% tessera_button cancel_label href=cancel_url variant="secondary" %}
+        {% translate "Save rule" as save_label %}
+        {% tessera_button save_label form="discount-rule-form" icon="check" %}
+    {% endif %}
+{% endblock header_actions %}
+{% block content %}
+    {% if current_event %}
+        {% tab_shell "panel/_event_settings_tabs.html" %}
+            {% tab_shell_body %}
+                <form id="discount-rule-form"
+                      method="post"
+                      {% if rule %}action="{% url 'panel:discount-rule-edit' slug=current_event.slug pk=rule.pk %}"{% else %}action="{% url 'panel:discount-rule-create' slug=current_event.slug %}"{% endif %}
+                      class="max-w-2xl space-y-6">
+                    {% csrf_token %}
+                    {% tessera_errors form %}
+                    <div class="card">
+                        <div class="card-body">
+                            <h2 class="text-lg font-semibold text-foreground mb-2">{% translate "When the rule applies" %}</h2>
+                            <p class="text-sm text-foreground-muted mb-6">
+                                {% translate "Only program scheduled in the agenda counts towards the rule." %}
+                            </p>
+                            <div class="space-y-6">
+                                {% tessera_field form.method %}
+                                {% tessera_field form.quantity %}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <div class="card-body">
+                            <h2 class="text-lg font-semibold text-foreground mb-2">{% translate "What the creator gets" %}</h2>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                                {% tessera_field form.percent %}
+                                {% tessera_field form.order %}
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            {% end_tab_shell_body %}
+        {% end_tab_shell %}
+    {% endif %}
+{% endblock content %}

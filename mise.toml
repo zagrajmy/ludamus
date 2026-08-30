@@ -209,10 +209,8 @@ run = "pytest -m postgres tests/integration"
 # Everything not overridden here comes from .env.test, so a value added there
 # reaches this task too. The overrides win because mise applies the entries in
 # document order and `_.file` comes first; otherwise .env.test's
-# DB_NAME=":memory:" would beat USE_POSTGRES=True. MEMBERSHIP_API_BASE_URL is
-# emptied because a base URL makes MembershipApiClient.fetch_membership_count
-# issue a live request instead of short-circuiting.
-env = { _.file = '.env.test', MEMBERSHIP_API_BASE_URL = "", USE_POSTGRES = "True", DB_NAME = "ludamus_test", DB_USER = "postgres", DB_PASSWORD = "postgres", DB_HOST = "localhost", DB_PORT = "5432" }
+# DB_NAME=":memory:" would beat USE_POSTGRES=True.
+env = { _.file = '.env.test', USE_POSTGRES = "True", DB_NAME = "ludamus_test", DB_USER = "postgres", DB_PASSWORD = "postgres", DB_HOST = "localhost", DB_PORT = "5432" }
 
 [tasks."test:mutation"]
 description = "Run mutation tests"
@@ -363,6 +361,10 @@ run = "aube exec tsc --build --pretty false"
 [tasks."ts-check:ios"]
 description = "Type-check the iOS regression scripts"
 run = "aube exec tsc -p scripts/ios-regressions/tsconfig.json"
+
+[tasks."test:ios-helpers"]
+description = "Unit-test the pure iOS regression helpers (no simulator)"
+run = "bun test scripts/ios-regressions/helpers.spec.ts"
 
 [tasks.fallow]
 description = "Analyze frontend TypeScript: dead code, duplication, complexity"
