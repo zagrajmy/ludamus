@@ -1,9 +1,9 @@
 """Protocols and DTOs for enrollment: waitlist promotion and anonymous flows.
 
 Bottom-layer contracts consumed by the enrollment mills
-(`WaitlistPromotionService`, `AnonymousEnrollmentService`,
-`NotificationsService`). The services depend on these ports (repositories,
-notifier, scheduler) so their decisions stay unit-testable with fakes.
+(`WaitlistPromotionService`, `AnonymousEnrollmentService`). The services depend
+on these ports (repositories, notifier, scheduler) so their decisions stay
+unit-testable with fakes.
 """
 
 from dataclasses import dataclass
@@ -220,34 +220,6 @@ class EnrollmentSettingsServiceProtocol(Protocol):
     def delete_window(self, event_id: int, pk: int) -> bool: ...
 
 
-class NotificationDTO(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    pk: int
-    kind: str
-    title: str
-    body: str
-    url: str
-    creation_time: datetime
-    is_read: bool
-
-
-class NavbarNotificationsDTO(BaseModel):
-    unread_count: int
-    items: list[NotificationDTO]
-
-
-class NotificationReadRepositoryProtocol(Protocol):
-    def unread_count(self, user_id: int) -> int: ...
-    def list_recent(self, user_id: int, limit: int) -> list[NotificationDTO]: ...
-    def mark_all_read(self, user_id: int) -> None: ...
-
-
-class NotificationsServiceProtocol(Protocol):
-    def get_navbar(self, user_id: int) -> NavbarNotificationsDTO: ...
-    def mark_all_read(self, user_id: int) -> None: ...
-
-
 class ParticipationPromotionRepositoryProtocol(Protocol):
     def lock_and_read_state(self, session_id: int) -> PromotionStateDTO | None:
         """Lock the session row and read everything needed to promote.
@@ -315,18 +287,30 @@ class EnrollmentParticipationRepositoryProtocol(Protocol):
     def create_confirmed(seat: GuestSeatData) -> None: ...
 
 
+class TicketApiResolverProtocol(Protocol):
+    """Finds the ticketing API an event is configured to use.
+
+    An event with no ticketing integration (or an unusable one: bad config,
+    missing connection, empty or undecryptable secret) gets a client that
+    raises `MembershipAPIError`, so callers have one way to read "no answer
+    available" instead of two.
+    """
+
+    def resolve(self, *, event_id: int, sphere_id: int) -> TicketAPIProtocol: ...
+
+
 @dataclass(frozen=True)
 class EnrollmentRepos:
     # The repos the enrollment service reads rosters and writes guest seats
-    # through; `ticket_api` rides along because membership lookups always
-    # accompany the config reads. Mirrors the `ImportRepos` bundle the
+    # through; `ticket_api_resolver` rides along because membership lookups
+    # always accompany the config reads. Mirrors the `ImportRepos` bundle the
     # submissions services use to keep a many-repo constructor within the
     # argument-count limit.
     users: UserRepositoryProtocol
     anonymous_users: UserRepositoryProtocol
     enrollment_configs: EnrollmentConfigRepositoryProtocol
     participations: EnrollmentParticipationRepositoryProtocol
-    ticket_api: TicketAPIProtocol
+    ticket_api_resolver: TicketApiResolverProtocol
 
 
 class EnrollmentServiceProtocol(Protocol):

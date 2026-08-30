@@ -175,6 +175,8 @@ class GuildDeletePageView(SphereAccessMixin, View):
 
 class _Notice(NamedTuple):
     level: int
+    # Lazy, not eager: this table is built at import time, when no request has
+    # picked a language yet.
     text: _StrPromise
 
 

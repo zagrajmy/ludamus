@@ -6,6 +6,8 @@ from django.conf import settings
 
 from ludamus.gates.web.django.access import has_panel_access
 from ludamus.gates.web.django.entities import UserInfo
+from ludamus.gates.web.django.sphere.pages import SpherePageNavItem, sphere_page_nav
+from ludamus.links.analytics import identity, redaction
 
 if TYPE_CHECKING:
     from django.http import HttpRequest
@@ -13,7 +15,7 @@ if TYPE_CHECKING:
     from ludamus.adapters.web.django.middlewares import RootRepositoryRequest
     from ludamus.pacts import SiteDTO, SphereDTO
     from ludamus.pacts.crowd import UserDTO
-    from ludamus.pacts.enrollment import NavbarNotificationsDTO
+    from ludamus.pacts.notifications import NavbarNotificationsDTO
 
 
 class SitesContextData(TypedDict):
@@ -22,6 +24,7 @@ class SitesContextData(TypedDict):
     current_sphere: SphereDTO | None
     is_root_sphere: bool
     has_panel_access: bool
+    sphere_page_nav: list[SpherePageNavItem]
 
 
 def sites(request: RootRepositoryRequest) -> SitesContextData:
@@ -35,6 +38,7 @@ def sites(request: RootRepositoryRequest) -> SitesContextData:
             current_sphere=None,
             is_root_sphere=True,
             has_panel_access=False,
+            sphere_page_nav=[],
         )
 
     sites_service = request.services.sites
@@ -52,6 +56,7 @@ def sites(request: RootRepositoryRequest) -> SitesContextData:
         current_sphere=current_sphere,
         is_root_sphere=is_root_sphere,
         has_panel_access=has_panel_access(request),
+        sphere_page_nav=sphere_page_nav(request, current_sphere),
     )
 
 
@@ -61,7 +66,11 @@ def support(_request: HttpRequest) -> dict[str, str]:
 
 class PosthogConfig(TypedDict):
     api_key: str
+    environment: str
     host: str
+    # Derived from the URLconf so the browser redacts the same segments the
+    # server does, rather than keeping its own copy of the route list.
+    redaction_rules: list[list[str]]
     user_id: str | None
 
 
@@ -75,15 +84,20 @@ def analytics(request: HttpRequest) -> AnalyticsContextData:
     # Identify by pk, not slug: a slug follows a rename and would split one
     # person across two distinct_ids. request.user rather than the profile
     # service — the auth middleware already resolved it, so this costs no
-    # extra query.
+    # extra query. distinct_id namespaces it per deployment so staging and
+    # production cannot land on the same person.
     user = getattr(request, "user", None)
     return AnalyticsContextData(
         posthog_config=PosthogConfig(
             api_key=settings.POSTHOG_API_KEY,
             host=settings.POSTHOG_HOST,
             user_id=(
-                str(user.pk) if user is not None and user.is_authenticated else None
+                identity.distinct_id(user.pk)
+                if user is not None and user.is_authenticated
+                else None
             ),
+            environment=identity.environment(),
+            redaction_rules=redaction.client_patterns(),
         )
     )
 

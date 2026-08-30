@@ -14,7 +14,8 @@ from ludamus.gates.web.django.event.panel.views.base import (
     EventPanelAccessMixin,
     EventPanelRequest,
 )
-from ludamus.gates.web.django.panel import pagination_context, safe_next_url
+from ludamus.gates.web.django.pagination import pagination_context
+from ludamus.gates.web.django.panel import safe_next_url
 from ludamus.pacts import NotFoundError
 from ludamus.pacts.multiverse import Capability
 
