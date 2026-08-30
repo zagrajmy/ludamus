@@ -208,15 +208,15 @@ const initPosthog = (config: PosthogServerConfig): void => {
       // autocapture too, which drops the click event entirely, and these are
       // buttons whose use is worth measuring. This blocks the element from the
       // recording and nothing else.
-      blockSelector: "[data-ph-no-capture]",
-      maskAllInputs: true,
+      //
       // maskTextSelector masks TEXT NODES only — rrweb records attribute
       // values verbatim. Any element carrying PII in an attribute (a name in
       // aria-label or data-confirm copy, an email in a data-copy chip or a
       // mailto: href) must therefore be excluded from the recording entirely
       // with data-ph-block; it shows as a same-size placeholder in replay.
       // The pii-attribute-needs-block ast-grep rule enforces the pairing.
-      blockSelector: "[data-ph-block]",
+      blockSelector: "[data-ph-no-capture], [data-ph-block]",
+      maskAllInputs: true,
       maskTextSelector: "[data-ph-mask]",
       // base.html puts the current URL in og:url, and rrweb serialises social
       // meta into the snapshot unless told not to. On a claim or offer page
