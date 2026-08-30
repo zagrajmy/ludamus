@@ -1,0 +1,9 @@
+{% load i18n %}
+<section>
+    <h2 class="text-xl font-bold mb-4 text-foreground">{% translate "Public encounters" %}</h2>
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        {% for item in public_encounters %}
+            {% include "components/encounter_card.html" with encounter=item.encounter rsvp_count=item.rsvp_count is_mine=item.is_mine organizer_name=item.organizer_name %}
+        {% endfor %}
+    </div>
+</section>
