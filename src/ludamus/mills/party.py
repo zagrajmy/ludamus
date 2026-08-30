@@ -207,15 +207,16 @@ class PartyService(PartyServiceProtocol):
             )
             for party in parties
         ]
+        companions = self._parties.owned_companions(leader_pk=viewer_pk)
         if requested_party == ENROLL_WITHOUT_PARTY:
-            return EnrollmentPartiesDTO(choices=choices)
+            return EnrollmentPartiesDTO(choices=choices, companions=companions)
         if requested_party is None:
             selected = next(
                 (party for party in parties if party.is_leader),
                 parties[0] if parties else None,
             )
             if selected is None:
-                return EnrollmentPartiesDTO(choices=choices)
+                return EnrollmentPartiesDTO(choices=choices, companions=companions)
         else:
             selected = next(
                 (party for party in parties if str(party.pk) == requested_party), None
@@ -225,13 +226,7 @@ class PartyService(PartyServiceProtocol):
         return EnrollmentPartiesDTO(
             choices=choices,
             selected=_selected_party(selected),
-            companions=(
-                self._parties.led_party_companions(
-                    leader_pk=viewer_pk, party_pk=selected.pk
-                )
-                if selected.is_leader
-                else []
-            ),
+            companions=companions if selected.is_leader else [],
         )
 
 

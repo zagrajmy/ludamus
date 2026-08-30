@@ -126,6 +126,38 @@ class TestEnrollRecordsParty:
         assert participation.party_id is None
 
     @pytest.mark.usefixtures("enrollment_config")
+    def test_post_enrolls_companion_belonging_to_no_party(
+        self, authenticated_client, active_user, companion, agenda_item
+    ):
+        # The profile's "add companion" flow joins no party, so a roster gated
+        # on party membership left such a companion unenrollable.
+        party = sponsor_user(leader=active_user, member=active_user)
+        PartyMembership.objects.filter(member=companion).delete()
+        _reassign_presenter(agenda_item)
+
+        response = authenticated_client.post(
+            _url(agenda_item), data={f"user_{companion.pk}": "enroll"}
+        )
+
+        assert response.status_code == HTTPStatus.FOUND
+        participation = SessionParticipation.objects.get(user=companion)
+        assert participation.party_id == party.pk
+
+    @pytest.mark.usefixtures("enrollment_config")
+    def test_post_enrolls_companion_of_a_viewer_without_parties(
+        self, authenticated_client, companion, agenda_item
+    ):
+        _reassign_presenter(agenda_item)
+
+        response = authenticated_client.post(
+            _url(agenda_item), data={f"user_{companion.pk}": "enroll"}
+        )
+
+        assert response.status_code == HTTPStatus.FOUND
+        participation = SessionParticipation.objects.get(user=companion)
+        assert participation.party_id is None
+
+    @pytest.mark.usefixtures("enrollment_config")
     def test_post_alien_party_is_rejected(
         self, authenticated_client, active_user, agenda_item
     ):
@@ -171,17 +203,16 @@ class TestPartySelector:
         assert response.status_code == HTTPStatus.OK
         assert "Enrolling as" not in response.content.decode()
 
-    def test_just_myself_hides_companions_and_hint(
+    def test_just_myself_keeps_own_companions(
         self, authenticated_client, active_user, companion, agenda_item
     ):
         sponsor_user(leader=active_user, member=active_user)
-        # Companions enroll through the party; enrolling as just myself shows
-        # only the viewer's own row, without the add-companions hint or the
-        # party grouping hint.
+        # "Just myself" drops the party's members, not the viewer's own
+        # companions — nobody else can seat those.
         response = authenticated_client.get(_url(agenda_item), {"party": "none"})
 
         content = response.content.decode()
-        assert companion.name not in content
+        assert companion.name in content
         assert 'name="party" value="none"' in content
 
     def test_get_alien_party_is_rejected(self, authenticated_client, agenda_item):

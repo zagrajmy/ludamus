@@ -332,28 +332,16 @@ class PartyRepository(PartyRepositoryProtocol):
         return status
 
     @staticmethod
-    def led_party_companions(
-        *, leader_pk: int, party_pk: int | None
-    ) -> list[CompanionDTO]:
-        if party_pk is None:
-            leader = User.objects.filter(
-                pk=leader_pk, user_type=UserType.ACTIVE
-            ).first()
-            if leader is None:
-                return []
-            companions = active_companions(leader.slug).order_by("pk")
-        else:
-            party = (
-                Party.objects.filter(pk=party_pk, leader_id=leader_pk)
-                .select_related("leader")
-                .first()
-            )
-            if party is None:
-                return []
-            companions = User.objects.filter(
-                user_type=UserType.CONNECTED, party_memberships__party_id=party_pk
-            ).order_by("pk")
-        return [CompanionDTO.model_validate(companion) for companion in companions]
+    def owned_companions(*, leader_pk: int) -> list[CompanionDTO]:
+        # A companion belongs to their manager, not to a party: party
+        # membership is optional and must never gate who the manager can seat.
+        leader = User.objects.filter(pk=leader_pk, user_type=UserType.ACTIVE).first()
+        if leader is None:
+            return []
+        return [
+            CompanionDTO.model_validate(companion)
+            for companion in active_companions(leader.slug).order_by("pk")
+        ]
 
     @staticmethod
     def set_consent(*, user_pk: int, party_pk: int, mode: PartyConsentMode) -> bool:
