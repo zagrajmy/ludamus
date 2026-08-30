@@ -1,3 +1,4 @@
+from datetime import timedelta
 from http import HTTPStatus
 from unittest.mock import ANY
 
@@ -338,6 +339,42 @@ class TestPartyDetailSessionHistory:
         )
         [group] = history
         assert [card.session.pk for card in group["cards"]] == [session.pk, second.pk]
+
+    def test_history_orders_groups_by_each_events_latest_session(
+        self, authenticated_client, active_user, session, agenda_item
+    ):
+        party = sponsor_user(leader=active_user, member=active_user)
+        other_event = EventFactory()
+        other_session = SessionFactory(event=other_event)
+        AgendaItemFactory(
+            session=other_session,
+            space=SpaceFactory(event=other_event),
+            start_time=agenda_item.start_time + timedelta(hours=1),
+        )
+        latest = SessionFactory(event=session.event)
+        AgendaItemFactory(
+            session=latest,
+            space=SpaceFactory(event=session.event),
+            start_time=agenda_item.start_time + timedelta(hours=2),
+        )
+        for enrolled in (session, other_session, latest):
+            self._enroll_party(party, enrolled, active_user)
+
+        response = authenticated_client.get(_url(party))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=_context(
+                _party_dto(party, active_user, [_member_dto(active_user, party)]),
+                invite_token=party.invite_token,
+                history=[
+                    _history_group(response, session.event),
+                    _history_group(response, other_event, index=1),
+                ],
+            ),
+            template_name=TEMPLATE,
+        )
 
     def test_history_query_count_is_constant_across_space_depth(
         self, authenticated_client, active_user, session, agenda_item, space
