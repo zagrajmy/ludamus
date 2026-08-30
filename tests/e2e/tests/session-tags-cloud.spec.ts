@@ -14,6 +14,25 @@ const opacityOf = (locator: Locator) =>
 
 const SCREENSHOT_CLIP_MIN_WIDTH = 440;
 
+const LONG_TAG = "Vampire: The Masquerade 5th Edition";
+
+const measure = async (tag: Locator, cloud: Locator) => {
+  const tagBox = await tag.evaluate((element) => {
+    const pill = element.closest("span[title]") ?? element;
+    const { width, right } = pill.getBoundingClientRect();
+    return { width, right, isTruncated: element.scrollWidth > element.clientWidth + 1 };
+  });
+  const cloudBox = await cloud.evaluate((element) => {
+    const { width, right } = element.getBoundingClientRect();
+    return { width, right };
+  });
+  return {
+    tag: { width: tagBox.width, right: tagBox.right },
+    cloud: cloudBox,
+    isTruncated: tagBox.isTruncated,
+  };
+};
+
 const clipAround = async (pieces: Locator[], pad: number) => {
   const boxes = [];
   for (const piece of pieces) {
@@ -62,7 +81,7 @@ test.describe("Session tags cloud", () => {
 
     await plusCount(page).hover();
     await expect.poll(() => opacityOf(tip)).toBe("1");
-    await expect(tip.getByText("Vampire", { exact: true })).toBeVisible();
+    await expect(tip.getByText("Blades in the Dark", { exact: true })).toBeVisible();
     await expect(tip.getByText("gambling", { exact: true })).toBeVisible();
 
     const clipped = await tip.evaluate((el) => {
@@ -100,5 +119,28 @@ test.describe("Session tags cloud", () => {
       clip: await clipAround([card, tip], 16),
       maxDiffPixelRatio: 0.05,
     });
+  });
+
+  test("a tag wider than 200px spends the card's width, then stops at its edge", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.goto("/design/");
+
+    const card = overflowCard(page);
+    const cloud = card.locator(".session-tags-cloud");
+    const tag = cloud.getByText(LONG_TAG, { exact: true });
+    await expect(tag).toBeVisible();
+
+    const wide = await measure(tag, cloud);
+    expect(wide.tag.width).toBeGreaterThan(200);
+    expect(wide.tag.right).toBeLessThanOrEqual(wide.cloud.right + 0.5);
+    expect(wide.isTruncated).toBe(false);
+
+    await page.setViewportSize({ width: 380, height: 900 });
+    const narrow = await measure(tag, cloud);
+    expect(narrow.cloud.width).toBeLessThan(wide.tag.width);
+    expect(narrow.tag.width).toBeCloseTo(narrow.cloud.width, 0);
+    expect(narrow.isTruncated).toBe(true);
   });
 });

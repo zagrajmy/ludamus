@@ -16,6 +16,7 @@ from django.views.generic.base import View
 
 from ludamus.gates.web.django.access import panel_access
 from ludamus.gates.web.django.helpers import is_event_published
+from ludamus.gates.web.django.sphere.pages import EventsPageRequiredMixin
 from ludamus.mills.qr import qr_svg
 from ludamus.pacts import NotFoundError
 from ludamus.pacts.multiverse import Capability
@@ -172,7 +173,7 @@ def _build_print_documents(
     assert_never(document_kind)
 
 
-class PublicEventPrintView(View):
+class PublicEventPrintView(EventsPageRequiredMixin, View):
     request: RootRequest
     template_name = "chronology/print.html"
     DEFAULT_RANGE_HOURS = 6

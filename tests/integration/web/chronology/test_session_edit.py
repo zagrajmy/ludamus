@@ -28,6 +28,7 @@ from tests.integration.conftest import (
     UserFactory,
 )
 from tests.integration.utils import (
+    FormFieldsMatcher,
     FormInitialMatcher,
     assert_response,
     assert_response_404,
@@ -407,14 +408,15 @@ class TestSessionEditViewPost:
             template_name=FRAGMENT,
             context_data={
                 "session": _expected_session(owned_session),
-                "form": ANY,
+                # The re-rendered form keeps the stored cover: a failed save
+                # must not look like the image was dropped.
+                "form": FormFieldsMatcher(
+                    cover_image={"initial": StoredFile(cover_url, "cover.png")}
+                ),
                 "field_descriptors": [],
                 "post_url": url,
                 "saved": False,
             },
-        )
-        assert response.context["form"].fields["cover_image"].initial == StoredFile(
-            cover_url, "cover.png"
         )
 
     def test_non_owner_404_no_write(self, authenticated_client, event):

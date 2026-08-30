@@ -31,9 +31,11 @@ from django.utils.timezone import get_current_timezone
 
 from ludamus.links.db.django.models import (
     AgendaItem,
+    Connection,
     Encounter,
     EnrollmentConfig,
     Event,
+    EventIntegration,
     EventProposalSettings,
     Notification,
     ProposalCategory,
@@ -49,6 +51,7 @@ from ludamus.links.db.django.models import (
     User,
 )
 from ludamus.pacts import SessionStatus
+from ludamus.pacts.chronology import IntegrationImplementationId, IntegrationKind
 from ludamus.pacts.legacy import NotificationKind, SessionParticipationStatus
 
 
@@ -259,6 +262,45 @@ def _create_test_user() -> User:
     )
 
     return user
+
+
+def _create_notifications_scenario() -> None:
+    """Seed a dedicated user with a content and a destination notification.
+
+    Isolated from the shared e2e-tester so the notifications spec can open the
+    overlay and mark rows read without disturbing other specs' unread counts.
+    """
+    user = User.objects.create_user(
+        username="e2e-notified",
+        email="e2e-notified@test.local",
+        password="e2e-notified-123",
+        name="E2E Notified",
+        slug="e2e-notified",
+    )
+    base_url = os.environ.get("E2E_BASE_URL", "http://localhost:8000")
+    parsed = urlparse(base_url)
+    _write_storage_state(
+        user,
+        domain=parsed.hostname or "localhost",
+        path=REPO_ROOT / "tests" / "e2e" / ".auth-state-notified.json",
+    )
+    # Destination notification: clicking it navigates to /events/.
+    Notification.objects.create(
+        recipient=user,
+        kind=NotificationKind.WAITLIST_PROMOTED.value,
+        title="You're in: a spot opened in Dragons & Dungeons",
+        body="A confirmed spot opened up and you have been enrolled automatically.",
+        url="/events/",
+    )
+    # Content notification (no url): read in the overlay, never a navigation.
+    # F3 announcements produce these for real.
+    Notification.objects.create(
+        recipient=user,
+        kind=NotificationKind.WAITLIST_PROMOTED.value,
+        title="Autumn Open: doors to hall B open at 9:00",
+        body="Bring your badge. Coffee is by the entrance.",
+        url="",
+    )
 
 
 def _create_promotion_scenario(sphere: Sphere, *, superuser: User) -> None:
@@ -593,6 +635,22 @@ def _create_panel_lab_event(sphere: Sphere) -> Event:
         max_participants_limit=6,
         durations=["PT1H"],
     )
+    # An export integration so the integrations list renders the two actions
+    # only this implementation carries. The secret stays empty: the spec reads
+    # the row and opens the settings page, and never runs an export, which
+    # would need real Google credentials.
+    EventIntegration.objects.create(
+        event=event,
+        kind=IntegrationKind.EXPORT.value,
+        implementation=IntegrationImplementationId.KONWENCIK_SHEET_PUSHER.value,
+        connection=Connection.objects.create(
+            sphere=event.sphere, display_name="Frostfire Sheets"
+        ),
+        display_name="Konwencik agenda",
+        config_json=json.dumps(
+            {"spreadsheet_id": "frostfire-sheet", "tab": "harmonogram"}
+        ),
+    )
     return event
 
 
@@ -638,6 +696,58 @@ def _create_cover_lab_event(sphere: Sphere) -> Event:
         duration_hours=4,
         publication_offset=timedelta(days=2),
     )
+
+
+def _create_accept_lab_event(sphere: Sphere) -> Event:
+    # One bookable room, one slot: the accept page has nothing to ask, so it
+    # carries both answers and has to name them instead of asking.
+    event = _create_event(
+        sphere,
+        name="Solo Room Convention",
+        slug="accept-lab",
+        description="One room, one slot — the scheduling decision makes itself.",
+        start_offset=timedelta(days=20),
+        duration_hours=8,
+        publication_offset=timedelta(days=2),
+        proposals_open=True,
+    )
+    venue = _create_venue(event, name="Garden Pavilion", slug="garden-pavilion")
+    _create_space(venue, name="The Only Room", slug="the-only-room", capacity=8)
+    TimeSlot.objects.create(
+        event=event,
+        start_time=event.start_time + timedelta(hours=1),
+        end_time=event.start_time + timedelta(hours=3),
+    )
+    category = ProposalCategory.objects.create(
+        event=event,
+        name="Showcase",
+        slug="showcase",
+        min_participants_limit=1,
+        max_participants_limit=8,
+        durations=["PT2H"],
+    )
+    # Two proposals, so the spec that reads the page and the spec that accepts
+    # one never contend for the same pending row — including on a retry, which
+    # re-runs a serial block from the top.
+    for title, slug in (
+        ("Solo Showcase", "solo-showcase"),
+        ("Solo Encore", "solo-encore"),
+    ):
+        Session.objects.create(
+            event=event,
+            presenter=User.objects.get(username="e2e-tester"),
+            display_name="E2E Tester",
+            contact_email="e2e@test.local",
+            category=category,
+            title=title,
+            slug=slug,
+            description="A proposal with nowhere else to go.",
+            duration="PT2H",
+            participants_limit=4,
+            min_age=0,
+            status=SessionStatus.PENDING,
+        )
+    return event
 
 
 def _create_anon_proposals_event(sphere: Sphere) -> Event:
@@ -719,6 +829,10 @@ def main() -> None:
 
     # Full session with a dedicated waiter, for the promotion e2e.
     _create_promotion_scenario(sphere, superuser=superuser)
+
+    # A dedicated user with content + destination notifications, for the
+    # notification overlay + list e2e.
+    _create_notifications_scenario()
 
     # Seats held after the enrollment window shut, for the late-resignation e2e.
     _create_closed_enrollment_scenario(sphere, tester=tester)
@@ -946,6 +1060,7 @@ def main() -> None:
     _create_panel_crud_event(sphere)
     _create_cover_lab_event(sphere)
     _create_anon_proposals_event(sphere)
+    _create_accept_lab_event(sphere)
 
     seed_module = import_module("kapitularz_print_seed")
     seed_module.seed_kapitularz_print_event(sphere)

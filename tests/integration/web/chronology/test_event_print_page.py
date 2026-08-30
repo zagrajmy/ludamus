@@ -29,6 +29,7 @@ from tests.integration.conftest import (
     TimeSlotFactory,
 )
 from tests.integration.utils import (
+    NonEmptyStringMatcher,
     assert_cache_control,
     assert_response,
     assert_response_404,
@@ -41,6 +42,10 @@ def _specs(*values):
 
 def _scope(space, name=None):
     return PrintScopeOptionDTO(pk=space.pk, name=name or space.name)
+
+
+def _track_option(track):
+    return PrintOptionDTO(pk=track.pk, name=track.name, slug=track.slug)
 
 
 def _confirmed_item(event, session, space):
@@ -88,7 +93,7 @@ def _one_hour_page(*, event, session, space):
     )
 
 
-def _area_schedule_document(*, event, session, space):
+def _area_schedule_document(*, event, session, space, scope_name=None):
     return AreaScheduleDocumentDTO(
         event_name=event.name,
         event_description=event.description,
@@ -96,7 +101,7 @@ def _area_schedule_document(*, event, session, space):
         event_end=event.end_time,
         range_start=event.start_time,
         range_end=event.end_time,
-        scope_name=None,
+        scope_name=scope_name,
         spaces=[
             AreaScheduleSpaceDTO(
                 space_name=space.name,
@@ -120,15 +125,15 @@ def _assert_print_ok(
     *,
     logo="",
     selected_scope="",
-    selected_track=None,
+    selected_track="",
     range_hours=None,
     material="timetable",
     descriptions=False,
     unconfirmed=False,
     session_list_available=False,
-    tracks_available=False,
     panel_access=False,
     print_scopes=None,
+    tracks=None,
     timetable=ANY,
     area_schedule=ANY,
     session_list=ANY,
@@ -136,21 +141,15 @@ def _assert_print_ok(
 ):
     if print_scopes is None:
         print_scopes = []
-    ctx = response.context_data
-    assert isinstance(ctx["qr_svg"], str)
-    assert "<svg" in ctx["qr_svg"]
-    assert isinstance(ctx["range_start_value"], str)
-    assert ctx["range_start_value"]
-    if selected_track is None:
-        selected_track = ctx["selected_track"]
+    if tracks is None:
+        tracks = []
     expected_options = ["timetable"]
     # The track scope is only offered when the event actually has tracks.
-    if tracks_available:
+    if tracks:
         expected_options.append("track-timetable")
     if session_list_available:
         expected_options.append("session-list")
     expected_options.append("door-cards")
-    assert [option.value for option in ctx["material_options"]] == expected_options
     show_scope_control = material in {"timetable", "door-cards"}
     show_track_control = material == "track-timetable"
     show_descriptions_control = material in {
@@ -170,10 +169,10 @@ def _assert_print_ok(
             "area_schedule": area_schedule,
             "session_list": session_list,
             "door_cards": door_cards,
-            "qr_svg": ctx["qr_svg"],
+            "qr_svg": NonEmptyStringMatcher(contains="<svg"),
             "print_scopes": print_scopes,
-            "tracks": ANY,
-            "material_options": ctx["material_options"],
+            "tracks": tracks,
+            "material_options": _specs(*expected_options),
             "material": material,
             "show_scope_control": show_scope_control,
             "show_track_control": show_track_control,
@@ -184,7 +183,7 @@ def _assert_print_ok(
             "unconfirmed": unconfirmed,
             "selected_scope": selected_scope,
             "selected_track": selected_track,
-            "range_start_value": ctx["range_start_value"],
+            "range_start_value": NonEmptyStringMatcher(),
             "range_hours": range_hours,
         },
     )
@@ -300,13 +299,16 @@ class TestPublicEventPrintView:
             response,
             material="track-timetable",
             descriptions=True,
-            tracks_available=True,
-            print_scopes=list(response.context_data["print_scopes"]),
+            tracks=[_track_option(track)],
+            selected_track=track.slug,
+            # The scope picker still lists every room; only the schedule is
+            # narrowed to the track.
+            print_scopes=[_scope(untracked_space), _scope(space)],
+            area_schedule=_area_schedule_document(
+                event=event, session=session, space=space, scope_name=track.name
+            ),
+            timetable=None,
         )
-        schedule = response.context_data["area_schedule"]
-        assert schedule.scope_name == track.name
-        assert [s.space_name for s in schedule.spaces] == [space.name]
-        assert [x.title for s in schedule.spaces for x in s.sessions] == [session.title]
 
     def test_legacy_descriptions_material_maps_to_the_checkbox(
         self, client, event, session, space
@@ -317,9 +319,15 @@ class TestPublicEventPrintView:
             self._url(event.slug), {"material": "timetable-descriptions"}
         )
 
-        _assert_print_ok(response, descriptions=True, print_scopes=[_scope(space)])
-        assert response.context_data["area_schedule"] is not None
-        assert response.context_data["timetable"] is None
+        _assert_print_ok(
+            response,
+            descriptions=True,
+            print_scopes=[_scope(space)],
+            area_schedule=_area_schedule_document(
+                event=event, session=session, space=space
+            ),
+            timetable=None,
+        )
 
     def test_unconfirmed_session_is_hidden(self, client, event, session, space):
         AgendaItemFactory(
@@ -479,15 +487,16 @@ class TestPublicEventPrintView:
 
         response = client.get(f"{self._url(event.slug)}?start={start}&hours=3")
 
-        _assert_print_ok(response, range_hours=3, print_scopes=[_scope(space)])
-        titles = [
-            s.title
-            for page in response.context_data["timetable"].pages
-            for row in page.rows
-            for cell in row.cells
-            for s in cell.sessions
-        ]
-        assert titles == [session.title]
+        # Only the session inside the window makes the document; `late` is out.
+        _assert_print_ok(
+            response,
+            range_hours=3,
+            print_scopes=[_scope(space)],
+            timetable=_timetable_document(
+                event=event,
+                pages=[_one_hour_page(event=event, session=session, space=space)],
+            ),
+        )
 
     def test_unknown_scope_is_not_found(self, client, event):
         response = client.get(f"{self._url(event.slug)}?scope=987654")
@@ -546,7 +555,10 @@ class TestPublicEventPrintView:
             response,
             material="session-list",
             session_list_available=True,
-            tracks_available=True,
+            tracks=[_track_option(track)],
+            # The event's only track is preselected even though the session
+            # list ignores it.
+            selected_track=track.slug,
             print_scopes=[_scope(space)],
         )
         content = response.content.decode()
@@ -591,9 +603,9 @@ class TestPublicEventPrintView:
                     "timetable", "track-timetable", "door-cards"
                 ),
                 "print_scopes": [_scope(space)],
-                "qr_svg": response.context_data["qr_svg"],
+                "qr_svg": NonEmptyStringMatcher(contains="<svg"),
                 "range_hours": None,
-                "range_start_value": response.context_data["range_start_value"],
+                "range_start_value": NonEmptyStringMatcher(),
                 "selected_scope": "",
                 "selected_track": "focused-track",
                 "session_list": None,
@@ -610,7 +622,6 @@ class TestPublicEventPrintView:
                 ],
             },
         )
-        assert response.context_data["selected_track"] == "focused-track"
 
     def test_timetable_scoped_to_a_single_room(self, client, event, session, space):
         # A single room is now a scope like any other node (no separate "space"
@@ -633,9 +644,9 @@ class TestPublicEventPrintView:
                 "material": "timetable",
                 "material_options": _specs("timetable", "door-cards"),
                 "print_scopes": [_scope(space)],
-                "qr_svg": response.context_data["qr_svg"],
+                "qr_svg": NonEmptyStringMatcher(contains="<svg"),
                 "range_hours": None,
-                "range_start_value": response.context_data["range_start_value"],
+                "range_start_value": NonEmptyStringMatcher(),
                 "selected_scope": str(space.pk),
                 "selected_track": "",
                 "session_list": None,
@@ -652,8 +663,6 @@ class TestPublicEventPrintView:
                 "tracks": [],
             },
         )
-        assert response.context_data["material"] == "timetable"
-        assert response.context_data["selected_scope"] == str(space.pk)
 
     def test_track_timetable_scoped_to_selected_track(
         self, client, event, session, space
@@ -685,9 +694,9 @@ class TestPublicEventPrintView:
                     "timetable", "track-timetable", "door-cards"
                 ),
                 "print_scopes": [_scope(space)],
-                "qr_svg": response.context_data["qr_svg"],
+                "qr_svg": NonEmptyStringMatcher(contains="<svg"),
                 "range_hours": None,
-                "range_start_value": response.context_data["range_start_value"],
+                "range_start_value": NonEmptyStringMatcher(),
                 "selected_scope": "",
                 "selected_track": "main-track",
                 "session_list": None,
@@ -706,8 +715,6 @@ class TestPublicEventPrintView:
                 ],
             },
         )
-        assert response.context_data["material"] == "track-timetable"
-        assert response.context_data["selected_track"] == "main-track"
 
 
 class TestEventPagePrintHijack:
