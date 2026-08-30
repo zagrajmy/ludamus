@@ -698,6 +698,58 @@ def _create_cover_lab_event(sphere: Sphere) -> Event:
     )
 
 
+def _create_accept_lab_event(sphere: Sphere) -> Event:
+    # One bookable room, one slot: the accept page has nothing to ask, so it
+    # carries both answers and has to name them instead of asking.
+    event = _create_event(
+        sphere,
+        name="Solo Room Convention",
+        slug="accept-lab",
+        description="One room, one slot — the scheduling decision makes itself.",
+        start_offset=timedelta(days=20),
+        duration_hours=8,
+        publication_offset=timedelta(days=2),
+        proposals_open=True,
+    )
+    venue = _create_venue(event, name="Garden Pavilion", slug="garden-pavilion")
+    _create_space(venue, name="The Only Room", slug="the-only-room", capacity=8)
+    TimeSlot.objects.create(
+        event=event,
+        start_time=event.start_time + timedelta(hours=1),
+        end_time=event.start_time + timedelta(hours=3),
+    )
+    category = ProposalCategory.objects.create(
+        event=event,
+        name="Showcase",
+        slug="showcase",
+        min_participants_limit=1,
+        max_participants_limit=8,
+        durations=["PT2H"],
+    )
+    # Two proposals, so the spec that reads the page and the spec that accepts
+    # one never contend for the same pending row — including on a retry, which
+    # re-runs a serial block from the top.
+    for title, slug in (
+        ("Solo Showcase", "solo-showcase"),
+        ("Solo Encore", "solo-encore"),
+    ):
+        Session.objects.create(
+            event=event,
+            presenter=User.objects.get(username="e2e-tester"),
+            display_name="E2E Tester",
+            contact_email="e2e@test.local",
+            category=category,
+            title=title,
+            slug=slug,
+            description="A proposal with nowhere else to go.",
+            duration="PT2H",
+            participants_limit=4,
+            min_age=0,
+            status=SessionStatus.PENDING,
+        )
+    return event
+
+
 def _create_anon_proposals_event(sphere: Sphere) -> Event:
     event = _create_event(
         sphere,
@@ -1008,6 +1060,7 @@ def main() -> None:
     _create_panel_crud_event(sphere)
     _create_cover_lab_event(sphere)
     _create_anon_proposals_event(sphere)
+    _create_accept_lab_event(sphere)
 
     seed_module = import_module("kapitularz_print_seed")
     seed_module.seed_kapitularz_print_event(sphere)

@@ -779,7 +779,13 @@ class TestDiscountExportPageView:
                 "form": ANY,
                 "has_connections": True,
             },
-            contains=[connection.display_name, "Export"],
+            # The sphere's only connection is not a choice, so the export stops
+            # asking which one — the instructions have to name it instead. The
+            # whole sentence, not the bare name: a name can turn up anywhere.
+            contains=(
+                f"Share the spreadsheet with the service account e-mail of "
+                f"{connection.display_name} as an editor first."
+            ),
         )
 
     def test_get_shows_empty_state_without_connections(self, panel_client, event):
