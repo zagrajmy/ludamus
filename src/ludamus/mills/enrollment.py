@@ -793,6 +793,9 @@ def get_user_enrollment_config(
     ticket_api = ticket_api_resolver.resolve(
         event_id=event.pk, sphere_id=event.sphere_id
     )
+    email_domain = (
+        user_email.split("@")[1] if (user_email and "@" in user_email) else ""
+    )
     for config in configs:
         existing_user_config = enrollment_config_repo.read_user_config(
             config, user_email
@@ -804,26 +807,24 @@ def get_user_enrollment_config(
             existing_user_config=existing_user_config,
             enrollment_config_repo=enrollment_config_repo,
         ):
-            virtual_config.allowed_slots += api_user_config.allowed_slots
-            virtual_config.has_user_config = True
+            virtual_config.user_slots += api_user_config.allowed_slots
         elif existing_user_config:
-            virtual_config.allowed_slots += existing_user_config.allowed_slots
-            virtual_config.has_user_config = True
+            virtual_config.user_slots += existing_user_config.allowed_slots
 
-        email_domain = (
-            user_email.split("@")[1] if (user_email and "@" in user_email) else ""
-        )
         if email_domain and (
             domain_config := enrollment_config_repo.read_domain_config(
                 config, email_domain
             )
         ):
-            virtual_config.allowed_slots += domain_config.allowed_slots_per_user
-            virtual_config.has_domain_config = True
+            virtual_config.domain_slots += domain_config.allowed_slots_per_user
+            if domain_config.allowed_slots_per_user:
+                virtual_config.domain = email_domain
 
+    # A row granting nothing is not access: the page would otherwise offer
+    # "you can enroll up to 0 people" instead of naming the missing passes.
     return (
         virtual_config
-        if (virtual_config.has_user_config or virtual_config.has_domain_config)
+        if (virtual_config.allowed_slots or virtual_config.domain)
         else None
     )
 
