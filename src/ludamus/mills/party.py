@@ -207,16 +207,13 @@ class PartyService(PartyServiceProtocol):
             )
             for party in parties
         ]
-        companions = self._parties.owned_companions(leader_pk=viewer_pk)
         if requested_party == ENROLL_WITHOUT_PARTY:
-            return EnrollmentPartiesDTO(choices=choices, companions=companions)
-        if requested_party is None:
+            selected = None
+        elif requested_party is None:
             selected = next(
                 (party for party in parties if party.is_leader),
                 parties[0] if parties else None,
             )
-            if selected is None:
-                return EnrollmentPartiesDTO(choices=choices, companions=companions)
         else:
             selected = next(
                 (party for party in parties if str(party.pk) == requested_party), None
@@ -225,8 +222,14 @@ class PartyService(PartyServiceProtocol):
                 return EnrollmentPartiesDTO(choices=choices, requested_invalid=True)
         return EnrollmentPartiesDTO(
             choices=choices,
-            selected=_selected_party(selected),
-            companions=companions if selected.is_leader else [],
+            selected=_selected_party(selected) if selected else None,
+            # Nobody else can seat the viewer's own companions, so only a party
+            # someone else leads takes them off the roster.
+            companions=(
+                self._parties.owned_companions(manager_pk=viewer_pk)
+                if selected is None or selected.is_leader
+                else []
+            ),
         )
 
 

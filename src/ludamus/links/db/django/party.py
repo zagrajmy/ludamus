@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING
 
 from django.db.models import Prefetch, Q
 
-from ludamus.links.db.django.companions import active_companions
+from ludamus.links.db.django.companions import companions_of
 from ludamus.links.db.django.models import Party, PartyMembership
 from ludamus.links.db.django.users import display_avatar_url
 from ludamus.pacts.crowd import CompanionDTO, UserType
@@ -190,9 +190,7 @@ class PartyRepository(PartyRepositoryProtocol):
 
     @staticmethod
     def lock_owned_companions(*, manager_pk: int) -> list[CompanionDTO]:
-        companions = User.objects.select_for_update().filter(
-            manager_id=manager_pk, user_type=UserType.CONNECTED
-        )
+        companions = companions_of(manager_pk).select_for_update()
         return [CompanionDTO.model_validate(companion) for companion in companions]
 
     @staticmethod
@@ -332,15 +330,10 @@ class PartyRepository(PartyRepositoryProtocol):
         return status
 
     @staticmethod
-    def owned_companions(*, leader_pk: int) -> list[CompanionDTO]:
-        # A companion belongs to their manager, not to a party: party
-        # membership is optional and must never gate who the manager can seat.
-        leader = User.objects.filter(pk=leader_pk, user_type=UserType.ACTIVE).first()
-        if leader is None:
-            return []
+    def owned_companions(*, manager_pk: int) -> list[CompanionDTO]:
         return [
             CompanionDTO.model_validate(companion)
-            for companion in active_companions(leader.slug).order_by("pk")
+            for companion in companions_of(manager_pk).order_by("pk")
         ]
 
     @staticmethod

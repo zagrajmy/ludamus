@@ -139,7 +139,12 @@ class TestEnrollRecordsParty:
             _url(agenda_item), data={f"user_{companion.pk}": "enroll"}
         )
 
-        assert response.status_code == HTTPStatus.FOUND
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=f"/event/{agenda_item.session.event.slug}/",
+            messages=[(messages.SUCCESS, f"Enrolled: {companion.name}")],
+        )
         participation = SessionParticipation.objects.get(user=companion)
         assert participation.party_id == party.pk
 
@@ -153,7 +158,12 @@ class TestEnrollRecordsParty:
             _url(agenda_item), data={f"user_{companion.pk}": "enroll"}
         )
 
-        assert response.status_code == HTTPStatus.FOUND
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=f"/event/{agenda_item.session.event.slug}/",
+            messages=[(messages.SUCCESS, f"Enrolled: {companion.name}")],
+        )
         participation = SessionParticipation.objects.get(user=companion)
         assert participation.party_id is None
 

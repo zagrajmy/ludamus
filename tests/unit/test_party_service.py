@@ -44,8 +44,8 @@ class FakeParties:
         self.calls.append(("overview", viewer_pk))
         return PartiesOverviewDTO(parties=self.parties, invites=[])
 
-    def owned_companions(self, *, leader_pk):
-        self.calls.append(("owned_companions", leader_pk))
+    def owned_companions(self, *, manager_pk):
+        self.calls.append(("owned_companions", manager_pk))
         return self.companion_dtos
 
     def lock_owned_companions(self, *, manager_pk):
@@ -410,6 +410,7 @@ class TestEnrollmentSelection:
         assert selection.requested_invalid
         assert selection.selected is None
         assert not selection.companions
+        assert ("owned_companions", VIEWER_PK) not in parties.calls
 
     def test_garbage_request_is_flagged_invalid(self):
         parties = FakeParties()
@@ -459,6 +460,7 @@ class TestEnrollmentSelection:
         assert selection.selected is not None
         assert selection.selected.pk == FOREIGN_PARTY_PK
         assert not selection.companions
+        assert ("owned_companions", VIEWER_PK) not in parties.calls
 
     def test_selected_members_carry_no_claim_token(self):
         parties = FakeParties()

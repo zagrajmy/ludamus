@@ -29,7 +29,6 @@ from ludamus.links.db.django.models import (
     Sphere,
     TimeSlot,
 )
-from ludamus.pacts.crowd import UserType
 from ludamus.pacts.party import PartyConsentMode, PartyMembershipStatus
 from tests.integration.factories import AnonymousUserFactory, CompleteUserFactory
 
@@ -84,11 +83,6 @@ def sponsor_user(*, leader, member):
             "status": PartyMembershipStatus.ACTIVE,
         },
     )
-    # In that backfill the party's companions are the leader's own connected
-    # users, so sponsoring one carries the ownership it stands for.
-    if member.user_type == UserType.CONNECTED and member.manager_id != leader.pk:
-        member.manager = leader
-        member.save(update_fields=["manager"])
     return party
 
 

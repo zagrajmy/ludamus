@@ -114,10 +114,11 @@ class EnrollmentPartiesDTO(BaseModel):
     choices: list[EnrollmentPartyChoiceDTO]
     selected: SelectedEnrollmentPartyDTO | None = None
     # The viewer's own login-less companions, whether or not they belong to a
-    # party; empty only while a party someone else leads is selected.
+    # party; empty while a party someone else leads is selected.
     companions: list[CompanionDTO] = []
     # The requested party is not one of the viewer's — the caller must surface
-    # an error instead of silently substituting a default.
+    # an error instead of silently substituting a default, and every other
+    # field is unset filler on this path.
     requested_invalid: bool = False
 
 
@@ -238,7 +239,7 @@ class PartyRepositoryProtocol(Protocol):
     @staticmethod
     def leave(*, user_pk: int, party_pk: int) -> bool: ...
     @staticmethod
-    def owned_companions(*, leader_pk: int) -> list[CompanionDTO]: ...
+    def owned_companions(*, manager_pk: int) -> list[CompanionDTO]: ...
     @staticmethod
     def set_consent(*, user_pk: int, party_pk: int, mode: PartyConsentMode) -> bool: ...
 
