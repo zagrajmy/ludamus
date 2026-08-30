@@ -475,7 +475,7 @@ msgstr "Brak opcji zapisu (wymagany dostęp)"
 
 #: src/ludamus/adapters/web/django/forms.py
 msgid "Enrollment access permission required"
-msgstr "Wymagane są uprawnienia dostępu do zapisu"
+msgstr "Wymagane są uprawnienia dostępu do zapisów"
 
 #: src/ludamus/adapters/web/django/forms.py
 msgid "No enrollment options available"
@@ -500,7 +500,7 @@ msgstr "%(user)s nie może się zapisać: wymagany adres email"
 #: src/ludamus/adapters/web/django/forms.py
 #, python-format
 msgid "%(user)s cannot enroll: enrollment access permission required"
-msgstr "%(user)s nie może się zapisać: wymagane uprawnienie dostępu do zapisu"
+msgstr "%(user)s nie może się zapisać: wymagane uprawnienie dostępu do zapisów"
 
 #: src/ludamus/adapters/web/django/forms.py
 #, python-format
@@ -629,8 +629,8 @@ msgid ""
 "Enrollment access permission is required for this session. Please contact "
 "the organizers to obtain access."
 msgstr ""
-"Do zapisu na tę sesję wymagane jest uprawnienie dostępu. Skontaktuj się z "
-"organizatorami, aby uzyskać dostęp."
+"Do zapisu na ten punkt programu wymagane jest uprawnienie dostępu. "
+"Skontaktuj się z organizatorami, aby uzyskać dostęp."
 
 #: src/ludamus/adapters/web/django/views.py
 #, python-format
@@ -759,7 +759,7 @@ msgstr "Anonimowa sesja zapisu nie jest ważna dla tej strony."
 #: src/ludamus/gates/web/django/chronology/anonymous.py
 #, python-format
 msgid "Successfully cancelled enrollment in session: %(title)s"
-msgstr "Pomyślnie anulowano zapis na sesję: %(title)s"
+msgstr "Pomyślnie anulowano zapis na punkt programu: %(title)s"
 
 #: src/ludamus/gates/web/django/chronology/anonymous.py
 msgid "No enrollment found to cancel."
@@ -770,8 +770,8 @@ msgid ""
 "Cannot enroll: You are already enrolled in another session that conflicts "
 "with this time slot."
 msgstr ""
-"Nie można się zapisać: Jesteś już zapisany na inną sesję, która koliduje z "
-"tym terminem."
+"Nie można się zapisać: Jesteś już zapisany na inny punkt programu, który "
+"koliduje z tym terminem."
 
 #: src/ludamus/gates/web/django/chronology/anonymous.py
 #, python-format
@@ -783,7 +783,7 @@ msgstr ""
 #: src/ludamus/gates/web/django/chronology/anonymous.py
 #, python-format
 msgid "Successfully enrolled in session: %(title)s"
-msgstr "Pomyślnie zapisano na sesję: %(title)s"
+msgstr "Pomyślnie zapisano na punkt programu: %(title)s"
 
 #: src/ludamus/gates/web/django/chronology/anonymous.py
 msgid "Please enter a code."
@@ -1974,7 +1974,7 @@ msgstr "Nazwa użytkownika Discord"
 #: src/ludamus/gates/web/django/crowd/forms.py
 #: src/ludamus/links/db/django/models.py
 msgid "Your Discord username for session coordination"
-msgstr "Twoja nazwa użytkownika Discord do koordynacji sesji"
+msgstr "Twoja nazwa użytkownika Discord do koordynacji punktów programu"
 
 #: src/ludamus/gates/web/django/crowd/forms.py
 #: src/ludamus/templates/crowd/user/parties.html
@@ -4360,7 +4360,7 @@ msgstr "Zapisz się na punkt programu"
 
 #: src/ludamus/templates/chronology/anonymous_enroll.html
 msgid "is already enrolled in this session."
-msgstr "jest już zapisany na tę sesję."
+msgstr "jest już zapisany na ten punkt programu."
 
 #: src/ludamus/templates/chronology/anonymous_enroll.html
 msgid "Status: On waiting list"
@@ -4505,7 +4505,7 @@ msgstr[3] "Graczy"
 
 #: src/ludamus/templates/chronology/event.html
 msgid "Your Enrollment Access"
-msgstr "Twój Dostęp do Zapisu"
+msgstr "Twój dostęp do zapisów"
 
 #: src/ludamus/templates/chronology/event.html
 #, python-format
@@ -4523,45 +4523,19 @@ msgstr ""
 #: src/ludamus/templates/chronology/event.html
 #, python-format
 msgid ""
-"\n"
-"                                                Combined access: Individual "
-"enrollment passes + domain access (@%(domain)s).\n"
-"                                            "
+"Combined access: Individual enrollment passes + domain access (@%(domain)s)."
 msgstr ""
-"\n"
-"                                                Dostęp łączony: Indywidualne "
-"przepustki zapisu + dostęp domenowy (@%(domain)s).\n"
-"                                            "
+"Dostęp łączony: Indywidualne przepustki zapisu + dostęp domenowy "
+"(@%(domain)s)."
 
 #: src/ludamus/templates/chronology/event.html
 #, python-format
-msgid ""
-"\n"
-"                                                Domain-based access: Users "
-"from @%(domain)s have enrollment access.\n"
-"                                            "
-msgstr ""
-"\n"
-"                                                Dostęp domenowy: Użytkownicy "
-"z @%(domain)s mają dostęp do zapisu.\n"
-"                                            "
+msgid "Domain-based access: Users from @%(domain)s have enrollment access."
+msgstr "Dostęp domenowy: Użytkownicy z @%(domain)s mają dostęp do zapisów."
 
 #: src/ludamus/templates/chronology/event.html
 msgid "Each person can be enrolled in multiple sessions."
 msgstr "Każda osoba może być zapisana na wiele punktów programu."
-
-#: src/ludamus/templates/chronology/event.html
-#, python-format
-msgid ""
-"\n"
-"                                            Domain-based access: Users from "
-"@%(domain)s have enrollment access.\n"
-"                                        "
-msgstr ""
-"\n"
-"                                            Dostęp domenowy: Użytkownicy z "
-"@%(domain)s mają dostęp do zapisu.\n"
-"                                        "
 
 #: src/ludamus/templates/chronology/event.html
 msgid "You may be able to enroll using your manager's enrollment passes."
@@ -10056,6 +10030,18 @@ msgid ""
 msgstr ""
 "Nie ma nadchodzących wydarzeń ani publicznych spotkań. Sprawdź ponownie "
 "później!"
+
+#, python-format
+#~ msgid ""
+#~ "\n"
+#~ "                                                Domain-based access: "
+#~ "Users from @%(domain)s have enrollment access.\n"
+#~ "                                            "
+#~ msgstr ""
+#~ "\n"
+#~ "                                                Dostęp domenowy: "
+#~ "Użytkownicy z @%(domain)s mają dostęp do zapisu.\n"
+#~ "                                            "
 
 #~ msgid "Select a space and time to add this session to the event agenda."
 #~ msgstr ""
