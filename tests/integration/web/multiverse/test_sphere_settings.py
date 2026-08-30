@@ -127,7 +127,9 @@ class TestSphereSettingsPageView:
     def test_post_enables_parley(self, authenticated_client, active_user, sphere):
         sphere.managers.add(active_user)
 
-        response = authenticated_client.post(self.url, data={"parley_enabled": "on"})
+        response = authenticated_client.post(
+            self.url, data=PAGE_DATA | {"parley_enabled": "on"}
+        )
 
         assert_response(
             response,
