@@ -2059,7 +2059,13 @@ class TestSessionEnrollPageView:
                     messages.ERROR,
                     "Test User cannot enroll: enrollment access permission required",
                 ),
-                (messages.WARNING, "Please review the enrollment options below."),
+                (
+                    messages.ERROR,
+                    (
+                        "Enrollment access permission is required for this "
+                        "session. Please contact the organizers to obtain access."
+                    ),
+                ),
             ],
             context_data={
                 **party_context(),
@@ -2173,7 +2179,13 @@ class TestSessionEnrollPageView:
                         "permission required"
                     ),
                 ),
-                (messages.WARNING, "Please review the enrollment options below."),
+                (
+                    messages.ERROR,
+                    (
+                        "Enrollment access permission is required for this "
+                        "session. Please contact the organizers to obtain access."
+                    ),
+                ),
             ],
             context_data={
                 **_companion_pills(own_party, leader=active_user, companion=companion),
