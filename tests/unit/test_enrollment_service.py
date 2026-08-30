@@ -355,6 +355,20 @@ class TestEnrollmentService:
 
         assert config == VirtualEnrollmentConfig(domain_slots=2, domain="example.com")
 
+    def test_virtual_config_is_none_for_a_domain_row_granting_no_slots(self):
+        # A domain row that grants nothing is not access either: naming the
+        # domain would promise access the slot check then refuses.
+        service = _service(
+            enrollment_configs=FakeEnrollmentConfigs(
+                configs=[_enrollment_config()], domain_config=_domain_config(0)
+            ),
+            ticket_api_resolver=FakeTicketApiResolver(),
+        )
+
+        config = service.virtual_config(event=_event(), user_email="viewer@example.com")
+
+        assert config is None
+
     def test_virtual_config_ignores_a_domain_row_for_another_domain(self):
         service = _service(
             enrollment_configs=FakeEnrollmentConfigs(

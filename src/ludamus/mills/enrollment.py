@@ -822,7 +822,8 @@ def get_user_enrollment_config(
             )
         ):
             virtual_config.domain_slots += domain_config.allowed_slots_per_user
-            virtual_config.domain = email_domain
+            if domain_config.allowed_slots_per_user:
+                virtual_config.domain = email_domain
 
     # A row granting nothing is not access: the page would otherwise offer
     # "you can enroll up to 0 people" instead of naming the missing passes.
