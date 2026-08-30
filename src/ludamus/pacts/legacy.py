@@ -1703,10 +1703,13 @@ class RootRequestProtocol(Protocol):
 
 @dataclass
 class VirtualEnrollmentConfig:
-    allowed_slots: int = 0
     user_slots: int = 0
+    domain_slots: int = 0
     domain: str = ""
-    has_user_config: bool = False
+
+    @property
+    def allowed_slots(self) -> int:
+        return self.user_slots + self.domain_slots
 
 
 class MembershipAPIError(Exception):

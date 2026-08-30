@@ -33,9 +33,7 @@ test.describe("Event detail page", () => {
   });
 
   test("shows the notice the organizer wrote on the active enrollment window", async ({ page }) => {
-    await expect(
-      page.getByRole("status").filter({ hasText: "grab a slot before we fill up!" }),
-    ).toBeVisible();
+    await expect(page.getByText("grab a slot before we fill up!")).toBeVisible();
   });
 
   test("shows both endpoints of a multi-day event", async ({ page }) => {

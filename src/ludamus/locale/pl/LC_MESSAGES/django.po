@@ -4470,28 +4470,15 @@ msgstr ""
 #: src/ludamus/templates/chronology/event.html
 #, python-format
 msgid ""
-"\n"
-"                                            Combined access: Individual "
-"enrollment passes + domain access (@%(domain)s).\n"
-"                                        "
+"Combined access: Individual enrollment passes + domain access (@%(domain)s)."
 msgstr ""
-"\n"
-"                                            Dostęp łączony: Indywidualne "
-"przepustki zapisu + dostęp domenowy (@%(domain)s).\n"
-"                                        "
+"Dostęp łączony: Indywidualne przepustki zapisu + dostęp domenowy "
+"(@%(domain)s)."
 
 #: src/ludamus/templates/chronology/event.html
 #, python-format
-msgid ""
-"\n"
-"                                            Domain-based access: Users from "
-"@%(domain)s have enrollment access.\n"
-"                                        "
-msgstr ""
-"\n"
-"                                            Dostęp domenowy: Użytkownicy z "
-"@%(domain)s mają dostęp do zapisów.\n"
-"                                        "
+msgid "Domain-based access: Users from @%(domain)s have enrollment access."
+msgstr "Dostęp domenowy: Użytkownicy z @%(domain)s mają dostęp do zapisów."
 
 #: src/ludamus/templates/chronology/event.html
 msgid "Each person can be enrolled in multiple sessions."

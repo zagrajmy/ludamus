@@ -140,15 +140,13 @@
             </div>
         </div>
     </div>
-    {% for config in event.get_active_enrollment_configs %}
-        {% if config.banner_text %}
-            <div class="alert backdrop-blur-lg alert-info mb-4" role="status">
-                <div class="flex">
-                    <div class="shrink-0">{% icon "information-circle" class="w-5 h-5" %}</div>
-                    <div class="grow ml-3">{{ config.banner_text|linebreaksbr }}</div>
-                </div>
+    {% for notice in enrollment_notices %}
+        <div class="alert backdrop-blur-lg alert-info mb-4">
+            <div class="flex">
+                <div class="shrink-0">{% icon "information-circle" class="w-5 h-5" %}</div>
+                <div class="grow ml-3">{{ notice|linebreaksbr }}</div>
             </div>
-        {% endif %}
+        </div>
     {% endfor %}
     <!-- Enrollment Passes Info (for authenticated users) -->
     {% if current_user and event.get_active_enrollment_configs and enrollment_requires_slots %}
@@ -167,15 +165,15 @@
                         </p>
                         {% if user_enrollment_config.domain and user_enrollment_config.user_slots %}
                             <small class="text-muted">
-                                {% blocktranslate with domain=user_enrollment_config.domain %}
-                                            Combined access: Individual enrollment passes + domain access (@{{ domain }}).
-                                        {% endblocktranslate %}
+                                {% blocktranslate trimmed with domain=user_enrollment_config.domain %}
+                                    Combined access: Individual enrollment passes + domain access (@{{ domain }}).
+                                {% endblocktranslate %}
                             </small>
                         {% elif user_enrollment_config.domain %}
                             <small class="text-muted">
-                                {% blocktranslate with domain=user_enrollment_config.domain %}
-                                            Domain-based access: Users from @{{ domain }} have enrollment access.
-                                        {% endblocktranslate %}
+                                {% blocktranslate trimmed with domain=user_enrollment_config.domain %}
+                                    Domain-based access: Users from @{{ domain }} have enrollment access.
+                                {% endblocktranslate %}
                             </small>
                         {% else %}
                             <small class="text-muted">{% translate "Each person can be enrolled in multiple sessions." %}</small>

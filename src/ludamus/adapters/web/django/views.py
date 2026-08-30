@@ -373,6 +373,9 @@ class EventPageView(EventsPageRequiredMixin, DetailView):  # type: ignore [type-
             config.restrict_to_configured_users for config in active_configs
         )
         context["enrollment_requires_slots"] = requires_slots
+        context["enrollment_notices"] = [
+            config.banner_text for config in active_configs if config.banner_text
+        ]
         context.update(self._get_anonymous_context())
 
         # The repository hands back DTOs with their options prefetched, so the
