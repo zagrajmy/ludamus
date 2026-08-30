@@ -453,3 +453,6 @@ If you fix a papercut, remove it.
   state the first run had already toggled — it looks like a code regression, and
   cost a round of ruling out an unrelated diff. Re-prep before a second full
   run, or the suite is only trustworthy once per seed.
+- 2026-08-30: Debugged e2e wheel-scroll failure with a standalone node script in
+  /tmp — node resolves @playwright/test from the script's own path, not cwd, so
+  scripts must live under tests/e2e (or set NODE_PATH).
