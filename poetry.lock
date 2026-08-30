@@ -956,14 +956,14 @@ xml-validation = ["lxml (>=4,<7)"]
 
 [[package]]
 name = "dbos"
-version = "2.30.0"
+version = "2.31.0"
 description = "Ultra-lightweight durable execution in Python"
 optional = false
 python-versions = ">=3.10"
 groups = ["main"]
 files = [
-    {file = "dbos-2.30.0-py3-none-any.whl", hash = "sha256:363f8209f808fd42c59ad0f19f7e2c25abdd17d73b581dd8ada6336c4ef47e8e"},
-    {file = "dbos-2.30.0.tar.gz", hash = "sha256:777c30908360707de6a95678649016d277f49eafceddff88e732d2df4145a06f"},
+    {file = "dbos-2.31.0-py3-none-any.whl", hash = "sha256:2a84930349ced724cfe2fa00b98b3ac80287ed28f65ee316139b37dae702fb37"},
+    {file = "dbos-2.31.0.tar.gz", hash = "sha256:7f5117385526a08aaaffa8c97016f920b9b9c6c8a25b4a08b51dfb15c5bb4fcb"},
 ]
 
 [package.dependencies]
@@ -976,7 +976,7 @@ websockets = ">=14.0"
 
 [package.extras]
 aiosqlite = ["aiosqlite (>=0.20.0)"]
-otel = ["opentelemetry-api (>=1.37.0)", "opentelemetry-exporter-otlp-proto-http (>=1.37.0)", "opentelemetry-sdk (>=1.37.0)"]
+otel = ["opentelemetry-api (>=1.42.0)", "opentelemetry-exporter-otlp-proto-http (>=1.42.0)", "opentelemetry-instrumentation-logging (>=0.63b0)", "opentelemetry-sdk (>=1.42.0)"]
 validation = ["pydantic (>=2.0)"]
 
 [[package]]
@@ -5381,4 +5381,4 @@ dev = ["doc8", "flake8", "flake8-import-order", "rstcheck[sphinx]", "ruff", "sph
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.14.0,<3.15"
-content-hash = "f27d21bb3ce76878037c741e6b98e5f96bf642747467d34fd784989b5dde72f5"
+content-hash = "63b5def89b2eb15306c3d9b5a86a8b3dbbd70fc046b2e381bd1b6120174f4f35"
