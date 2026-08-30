@@ -104,6 +104,72 @@ class FormInitialMatcher:
         return f"FormInitialMatcher({self.initial})"
 
 
+class FormFieldsMatcher:
+    # Compares the named fields' named attributes only, for a test whose
+    # subject is one field rather than the whole form.
+    def __init__(self, **fields: dict[str, Any]) -> None:
+        self.fields = fields
+
+    def __eq__(self, other: object) -> bool:
+        actual = getattr(other, "fields", {})
+        return {
+            name: {
+                attribute: _comparable(
+                    getattr(actual.get(name), attribute, None), expected
+                )
+                for attribute, expected in attributes.items()
+            }
+            for name, attributes in self.fields.items()
+        } == self.fields
+
+    __hash__ = None
+
+    def __repr__(self) -> str:
+        return f"FormFieldsMatcher({self.fields})"
+
+
+def _comparable(value: Any, expected: Any) -> Any:
+    # An expectation written as a list is compared against a drained iterable,
+    # so a bound field's lazy `choices` lines up without the matcher knowing
+    # which attribute names happen to be lazy.
+    return list(value) if isinstance(expected, list) and value is not None else value
+
+
+class AttributesMatcher:
+    # For a context value whose own `__eq__` ignores what the test is about: a
+    # Django model compares by pk, so stating the instance asserts nothing
+    # about the state the page renders from it.
+    def __init__(self, **attributes: Any) -> None:
+        self.attributes = attributes
+
+    def __eq__(self, other: object) -> bool:
+        return {
+            name: getattr(other, name, None) for name in self.attributes
+        } == self.attributes
+
+    __hash__ = None
+
+    def __repr__(self) -> str:
+        return f"AttributesMatcher({self.attributes})"
+
+
+class NonEmptyStringMatcher:
+    # A string minted while handling the request — a rendered QR code, a range
+    # start stamped from the event clock — whose exact text is the view's
+    # business rather than the assertion's. Empty never passes: a view that
+    # stopped producing the value must not read as a match.
+    def __init__(self, *, contains: str = "") -> None:
+        self.contains = contains
+
+    def __eq__(self, other: object) -> bool:
+        return isinstance(other, str) and bool(other) and self.contains in other
+
+    __hash__ = None
+
+    def __repr__(self) -> str:
+        return f"NonEmptyStringMatcher(contains={self.contains!r})"
+
+
 def _assert_messages(response, expected_messages: list[tuple[int, str]]):
     msgs = list(get_messages(response.wsgi_request))
     assert len(msgs) == len(expected_messages), len(msgs)
