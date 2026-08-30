@@ -32,6 +32,12 @@ test.describe("Event detail page", () => {
     await expect(page.getByText("Upcoming")).toHaveCount(0);
   });
 
+  test("shows the notice the organizer wrote on the active enrollment window", async ({ page }) => {
+    await expect(
+      page.getByRole("status").filter({ hasText: "grab a slot before we fill up!" }),
+    ).toBeVisible();
+  });
+
   test("shows both endpoints of a multi-day event", async ({ page }) => {
     // The seeded event runs 28h, so the header must name the closing day too —
     // start date with start time, end date with end time, each abbreviated to

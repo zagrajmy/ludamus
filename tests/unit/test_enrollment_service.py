@@ -10,6 +10,7 @@ from ludamus.mills.enrollment import (
 from ludamus.pacts.crowd import UserDTO, UserType
 from ludamus.pacts.enrollment import EnrollmentRepos
 from ludamus.pacts.legacy import (
+    DomainEnrollmentConfigDTO,
     EnrollmentConfigDTO,
     EventDTO,
     MembershipAPIError,
@@ -86,6 +87,15 @@ def _user_config(allowed_slots):
     )
 
 
+def _domain_config(allowed_slots_per_user):
+    return DomainEnrollmentConfigDTO(
+        pk=23,
+        enrollment_config_id=5,
+        domain="example.com",
+        allowed_slots_per_user=allowed_slots_per_user,
+    )
+
+
 @contextmanager
 def _atomic():
     yield
@@ -139,9 +149,10 @@ class FakeUsers:
 
 
 class FakeEnrollmentConfigs:
-    def __init__(self, configs=(), user_config=None):
+    def __init__(self, configs=(), user_config=None, domain_config=None):
         self._configs = list(configs)
         self._user_config = user_config
+        self._domain_config = domain_config
 
     def read_list(self, _event_id, **_time_window):
         return list(self._configs)
@@ -150,7 +161,7 @@ class FakeEnrollmentConfigs:
         return self._user_config
 
     def read_domain_config(self, _config, _domain):
-        return None
+        return self._domain_config
 
 
 class FakeTicketAPI:
@@ -305,7 +316,7 @@ class TestEnrollmentService:
         config = service.virtual_config(event=_event(), user_email="viewer@example.com")
 
         assert config == VirtualEnrollmentConfig(
-            allowed_slots=4, has_domain_config=False, has_user_config=True
+            allowed_slots=4, user_slots=4, domain="", has_user_config=True
         )
 
     def test_virtual_config_keeps_stored_slots_without_a_ticketing_integration(self):
@@ -321,7 +332,26 @@ class TestEnrollmentService:
         config = service.virtual_config(event=_event(), user_email="viewer@example.com")
 
         assert config == VirtualEnrollmentConfig(
-            allowed_slots=0, has_domain_config=False, has_user_config=True
+            allowed_slots=0, user_slots=0, domain="", has_user_config=True
+        )
+
+    def test_virtual_config_reports_domain_only_access_for_a_zero_slot_user_row(self):
+        # A user row exists but grants nothing, so every slot comes from the
+        # domain. The page names the domain rather than the flag that used to
+        # stand in for it.
+        service = _service(
+            enrollment_configs=FakeEnrollmentConfigs(
+                configs=[_enrollment_config()],
+                user_config=_user_config(0),
+                domain_config=_domain_config(2),
+            ),
+            ticket_api_resolver=FakeTicketApiResolver(),
+        )
+
+        config = service.virtual_config(event=_event(), user_email="viewer@example.com")
+
+        assert config == VirtualEnrollmentConfig(
+            allowed_slots=2, user_slots=0, domain="example.com", has_user_config=True
         )
 
     def test_virtual_config_is_none_without_integration_and_without_stored_config(self):

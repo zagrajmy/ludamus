@@ -809,10 +809,10 @@ def get_user_enrollment_config(
             existing_user_config=existing_user_config,
             enrollment_config_repo=enrollment_config_repo,
         ):
-            virtual_config.allowed_slots += api_user_config.allowed_slots
+            virtual_config.user_slots += api_user_config.allowed_slots
             virtual_config.has_user_config = True
         elif existing_user_config:
-            virtual_config.allowed_slots += existing_user_config.allowed_slots
+            virtual_config.user_slots += existing_user_config.allowed_slots
             virtual_config.has_user_config = True
 
         email_domain = (
@@ -824,11 +824,13 @@ def get_user_enrollment_config(
             )
         ):
             virtual_config.allowed_slots += domain_config.allowed_slots_per_user
-            virtual_config.has_domain_config = True
+            virtual_config.domain = email_domain
+
+    virtual_config.allowed_slots += virtual_config.user_slots
 
     return (
         virtual_config
-        if (virtual_config.has_user_config or virtual_config.has_domain_config)
+        if (virtual_config.has_user_config or virtual_config.domain)
         else None
     )
 

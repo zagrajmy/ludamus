@@ -1704,7 +1704,8 @@ class RootRequestProtocol(Protocol):
 @dataclass
 class VirtualEnrollmentConfig:
     allowed_slots: int = 0
-    has_domain_config: bool = False
+    user_slots: int = 0
+    domain: str = ""
     has_user_config: bool = False
 
 

@@ -2613,7 +2613,7 @@ class TestEventPageView:
                 hour_data={agenda_item.start_time: [session_data]},
                 sessions=[session_data],
                 user_enrollment_config=VirtualEnrollmentConfig(
-                    allowed_slots=7 + 8, has_domain_config=False, has_user_config=True
+                    allowed_slots=7 + 8, user_slots=7 + 8, has_user_config=True
                 ),
                 has_enrollable_sessions=True,
                 scheduled_count=1,
@@ -2678,7 +2678,7 @@ class TestEventPageView:
                 hour_data={agenda_item.start_time: [session_data]},
                 sessions=[session_data],
                 user_enrollment_config=VirtualEnrollmentConfig(
-                    allowed_slots=slots, has_domain_config=False, has_user_config=True
+                    allowed_slots=slots, user_slots=slots, has_user_config=True
                 ),
                 has_enrollable_sessions=True,
                 scheduled_count=1,
@@ -2746,7 +2746,10 @@ class TestEventPageView:
                 hour_data={agenda_item.start_time: [session_data]},
                 sessions=[session_data],
                 user_enrollment_config=VirtualEnrollmentConfig(
-                    allowed_slots=slots, has_domain_config=True, has_user_config=False
+                    allowed_slots=slots,
+                    user_slots=0,
+                    domain=active_user.email.split("@")[1],
+                    has_user_config=False,
                 ),
                 has_enrollable_sessions=True,
                 scheduled_count=1,
@@ -2812,7 +2815,8 @@ class TestEventPageView:
                 sessions=[session_data],
                 user_enrollment_config=VirtualEnrollmentConfig(
                     allowed_slots=primary_slots + domain_slots,
-                    has_domain_config=True,
+                    user_slots=primary_slots,
+                    domain=active_user.email.split("@")[1],
                     has_user_config=True,
                 ),
                 has_enrollable_sessions=True,
@@ -3008,7 +3012,7 @@ class TestEventPageView:
                 hour_data={agenda_item.start_time: [session_data]},
                 sessions=[session_data],
                 user_enrollment_config=VirtualEnrollmentConfig(
-                    allowed_slots=slots, has_domain_config=False, has_user_config=True
+                    allowed_slots=slots, user_slots=slots, has_user_config=True
                 ),
                 has_enrollable_sessions=True,
                 scheduled_count=1,
@@ -3074,7 +3078,7 @@ class TestEventPageView:
                 hour_data={agenda_item.start_time: [session_data]},
                 sessions=[session_data],
                 user_enrollment_config=VirtualEnrollmentConfig(
-                    allowed_slots=slots, has_domain_config=False, has_user_config=True
+                    allowed_slots=slots, user_slots=slots, has_user_config=True
                 ),
                 has_enrollable_sessions=True,
                 scheduled_count=1,
@@ -3139,7 +3143,7 @@ class TestEventPageView:
                 hour_data={agenda_item.start_time: [session_data]},
                 sessions=[session_data],
                 user_enrollment_config=VirtualEnrollmentConfig(
-                    allowed_slots=0, has_domain_config=False, has_user_config=True
+                    allowed_slots=0, user_slots=0, has_user_config=True
                 ),
                 has_enrollable_sessions=True,
                 scheduled_count=1,
@@ -3213,7 +3217,7 @@ class TestEventPageView:
                 hour_data={agenda_item.start_time: [session_data]},
                 sessions=[session_data],
                 user_enrollment_config=VirtualEnrollmentConfig(
-                    allowed_slots=0, has_domain_config=False, has_user_config=True
+                    allowed_slots=0, user_slots=0, has_user_config=True
                 ),
                 has_enrollable_sessions=True,
                 scheduled_count=1,
@@ -3281,7 +3285,7 @@ class TestEventPageView:
                 hour_data={agenda_item.start_time: [session_data]},
                 sessions=[session_data],
                 user_enrollment_config=VirtualEnrollmentConfig(
-                    allowed_slots=0, has_domain_config=False, has_user_config=True
+                    allowed_slots=0, user_slots=0, has_user_config=True
                 ),
                 has_enrollable_sessions=True,
                 scheduled_count=1,
