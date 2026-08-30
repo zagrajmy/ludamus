@@ -234,14 +234,14 @@ class ProposalAcceptPageView(EventsPageRequiredMixin, LoginRequiredMixin, View):
     ) -> HttpResponse:
         context = self._load(request, event_slug, session_id)
         self._require_configured(context)
-        form = self._build_form(context)()
+        form = create_proposal_acceptance_form(context)()
         return self._render(request, context, form)
 
     def post(
         self, request: AuthenticatedRootRequest, event_slug: str, session_id: int
     ) -> HttpResponse:
         context = self._load(request, event_slug, session_id)
-        form = self._build_form(context)(data=request.POST)
+        form = create_proposal_acceptance_form(context)(data=request.POST)
         if not form.is_valid():
             return self._render(request, context, form)
 
@@ -266,12 +266,6 @@ class ProposalAcceptPageView(EventsPageRequiredMixin, LoginRequiredMixin, View):
             ),
         )
         return redirect("web:chronology:event", slug=context.event.slug)
-
-    @staticmethod
-    def _build_form(context: ProposalAcceptContextDTO) -> type[forms.Form]:
-        return create_proposal_acceptance_form(
-            space_options=context.space_options, time_slots=context.time_slots
-        )
 
     @staticmethod
     def _load(
