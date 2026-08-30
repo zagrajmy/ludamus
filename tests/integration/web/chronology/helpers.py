@@ -123,6 +123,7 @@ def event_page_context(event, *, url, **overrides):
     current = overrides.pop("current_hour_data", {})
     future_unavailable = overrides.pop("future_unavailable_hour_data", {})
     context = {
+        "enrollment_notices": [],
         "enrollment_requires_slots": False,
         "event": event,
         "filterable_tag_categories": [],

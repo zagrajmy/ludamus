@@ -44,8 +44,8 @@ class FakeParties:
         self.calls.append(("overview", viewer_pk))
         return PartiesOverviewDTO(parties=self.parties, invites=[])
 
-    def led_party_companions(self, *, leader_pk, party_pk=None):
-        self.calls.append(("led_party_companions", leader_pk, party_pk))
+    def owned_companions(self, *, manager_pk):
+        self.calls.append(("owned_companions", manager_pk))
         return self.companion_dtos
 
     def lock_owned_companions(self, *, manager_pk):
@@ -391,7 +391,7 @@ class TestEnrollmentSelection:
         )
 
         assert selection.selected is None
-        assert not selection.companions
+        assert selection.companions == [_companion_dto()]
         assert not selection.requested_invalid
         assert selection.choices == [
             EnrollmentPartyChoiceDTO(
@@ -410,6 +410,7 @@ class TestEnrollmentSelection:
         assert selection.requested_invalid
         assert selection.selected is None
         assert not selection.companions
+        assert ("owned_companions", VIEWER_PK) not in parties.calls
 
     def test_garbage_request_is_flagged_invalid(self):
         parties = FakeParties()
@@ -431,7 +432,18 @@ class TestEnrollmentSelection:
         )
 
         assert selection.companions == [_companion_dto()]
-        assert ("led_party_companions", VIEWER_PK, OWN_PARTY_PK) in parties.calls
+        assert ("owned_companions", VIEWER_PK) in parties.calls
+
+    def test_companions_are_returned_without_any_party(self):
+        parties = FakeParties()
+        parties.companion_dtos = [_companion_dto()]
+
+        selection = _service(parties).enrollment_selection(
+            viewer_pk=VIEWER_PK, requested_party=None
+        )
+
+        assert selection.selected is None
+        assert selection.companions == [_companion_dto()]
 
     def test_foreign_party_has_no_companions(self):
         parties = FakeParties()
@@ -448,11 +460,7 @@ class TestEnrollmentSelection:
         assert selection.selected is not None
         assert selection.selected.pk == FOREIGN_PARTY_PK
         assert not selection.companions
-        assert (
-            "led_party_companions",
-            VIEWER_PK,
-            FOREIGN_PARTY_PK,
-        ) not in parties.calls
+        assert ("owned_companions", VIEWER_PK) not in parties.calls
 
     def test_selected_members_carry_no_claim_token(self):
         parties = FakeParties()

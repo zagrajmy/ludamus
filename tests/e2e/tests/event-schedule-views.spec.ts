@@ -691,16 +691,16 @@ test("overnight bookmark copies share one state and one request", async ({
   const copy = copies.nth(1);
   const wasBookmarked = (await source.getAttribute("aria-pressed")) === "true";
   let requests = 0;
-  // Hold the toggle open until the second click has landed: a fixed delay races
-  // Playwright's own polling, and once the first request answers, the guard is
-  // gone and the copy's click is a legitimate second toggle.
+  // The second click has to land while the first request is still in flight,
+  // so hold the response until the test releases it rather than racing a sleep
+  // against Playwright's actionability checks.
   let release = (): void => {};
-  const held = new Promise<void>((resolve) => {
+  const inFlight = new Promise<void>((resolve) => {
     release = resolve;
   });
   await page.route(/\/bookmark\/$/, async (route) => {
     requests += 1;
-    await held;
+    await inFlight;
     await route.continue();
   });
 
