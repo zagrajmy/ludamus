@@ -3,6 +3,7 @@ from django.core.exceptions import ValidationError
 
 from ludamus.links.db.django.models import Space, Track
 from ludamus.links.db.django.repositories import SpaceTreeRepository
+from ludamus.links.db.django.repositories.chronology import location_data
 from ludamus.links.db.django.transaction import DjangoTransaction
 from ludamus.mills.venues import SpaceTreeService
 from ludamus.pacts import NotFoundError
@@ -24,6 +25,25 @@ def space_input(name, capacity=None, description="", location=""):
     return SpaceInputDTO(
         name=name, capacity=capacity, description=description, location=location
     )
+
+
+class TestLocationData:
+    def test_uses_ids_for_identity_and_structured_segments_for_order(self, event):
+        root = Space.objects.create(
+            event=event, name="Hall | East", slug="hall-east", order=2
+        )
+        leaf = Space.objects.create(
+            event=event, parent=root, name="Table | 1", slug="table-1", order=3
+        )
+
+        data = location_data(leaf)
+
+        assert data["space_id"] == leaf.pk
+        assert data["parent_id"] == root.pk
+        assert data["sort_path"] == (
+            (root.order, root.name, root.pk),
+            (leaf.order, leaf.name, leaf.pk),
+        )
 
 
 class TestSpaceTreeRepositoryCreate:

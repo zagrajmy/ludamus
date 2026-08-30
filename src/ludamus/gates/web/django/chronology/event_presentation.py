@@ -6,6 +6,7 @@ from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Self, TypedDict
 
 from ludamus.gates.web.django.entities import UserInfo
+from ludamus.gates.web.django.helpers import placeholder_cover_url
 from ludamus.pacts import EventListItemDTO
 from ludamus.pacts.legacy import SessionParticipationStatus, TimeSlotDTO
 
@@ -26,6 +27,13 @@ if TYPE_CHECKING:
     )
     from ludamus.pacts.crowd import UserDTO
     from ludamus.pacts.guild import GuildMarkDTO
+    from ludamus.pacts.ids import EventId, UserId
+
+
+@dataclass(frozen=True)
+class CloudPill:
+    icon: str
+    value: str
 
 
 @dataclass
@@ -38,6 +46,14 @@ class DisplayFieldRow:
     @property
     def overflow_count(self) -> int:
         return len(self.overflow_values)
+
+
+def flatten_cloud_overflow(rows: list[DisplayFieldRow]) -> list[CloudPill]:
+    return [
+        CloudPill(icon=row.icon, value=value)
+        for row in rows
+        for value in row.overflow_values
+    ]
 
 
 _MAX_VISIBLE_PILLS = 4
@@ -105,6 +121,10 @@ class SessionData:  # pylint: disable=too-many-instance-attributes
     # pending proposal: a scheduled session states its real time via
     # agenda_item, and reading the m2m for one would cost a query per card.
     preferred_time_slots: list[TimeSlotDTO] = field(default_factory=list)
+
+    @property
+    def cloud_overflow(self) -> list[CloudPill]:
+        return flatten_cloud_overflow(self.displayed_field_rows)
 
     @property
     def is_unscheduled(self) -> bool:
@@ -260,6 +280,50 @@ class EventInfo(EventListItemDTO):
         return cls(**{**item.model_dump(), "cover_image_url": cover_image_url})
 
 
+def with_covers(items: list[EventListItemDTO]) -> list[EventInfo]:
+    # Uploaded cover when present, otherwise a placeholder cycled by position.
+    # Position-keyed, so callers sort before calling: see split_events.
+    return [
+        EventInfo.from_list_item(
+            item, cover_image_url=item.cover_image_url or placeholder_cover_url(i)
+        )
+        for i, item in enumerate(items)
+    ]
+
+
+@dataclass(frozen=True)
+class EventSplit:
+    upcoming: list[EventInfo]
+    past: list[EventInfo]
+
+
+def split_events(items: Iterable[EventListItemDTO]) -> EventSplit:
+    """Split a sphere's events into the two lists every event listing renders.
+
+    Returns:
+        Upcoming soonest-first and past most-recent-first, both with covers.
+    """
+    # Sorted before with_covers, not after: placeholder art is keyed by
+    # position, so an unsorted list would give the same coverless event a
+    # different placeholder on each page that lists it.
+    listed = list(items)
+    return EventSplit(
+        upcoming=with_covers(
+            sorted(
+                (item for item in listed if not item.is_ended),
+                key=lambda item: item.start_time,
+            )
+        ),
+        past=with_covers(
+            sorted(
+                (item for item in listed if item.is_ended),
+                key=lambda item: item.start_time,
+                reverse=True,
+            )
+        ),
+    )
+
+
 _SIMULACRA_FILL = 8
 _SIMULACRA_NAMES = ("Aleksandra Nowak", "Piotr Kowalski", "Maria Wiśniewska")
 
@@ -309,7 +373,7 @@ def fake_full_card(session_data: SessionData) -> SessionData:
 
 
 def mask_session_card(
-    session_data: SessionData, *, event_banned: bool, banned_presenter_ids: set[int]
+    session_data: SessionData, *, event_banned: bool, banned_presenter_ids: set[UserId]
 ) -> SessionData:
     if event_banned or session_data.presenter.pk in banned_presenter_ids:
         return fake_full_card(session_data)
@@ -325,8 +389,8 @@ class PartyHistoryGroup(TypedDict):
 def present_party_history(
     groups: list[PartyEventHistoryDTO],
     *,
-    banned_event_ids: set[int],
-    banned_presenter_ids: set[int],
+    banned_event_ids: set[EventId],
+    banned_presenter_ids: set[UserId],
 ) -> list[PartyHistoryGroup]:
     now = datetime.now(tz=UTC)
     return [
@@ -388,8 +452,8 @@ def present_session_modal(
     dto: SessionModalDTO,
     *,
     event_banned: bool,
-    banned_presenter_ids: set[int],
-    shadowbanned_ids: frozenset[int],
+    banned_presenter_ids: set[UserId],
+    shadowbanned_ids: frozenset[UserId],
     guild: GuildMarkDTO | None = None,
 ) -> SessionData:
     if dto.presenter is not None:

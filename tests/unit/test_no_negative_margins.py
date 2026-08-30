@@ -4,7 +4,15 @@ from pathlib import Path
 TEMPLATE_ROOT = Path("src/ludamus/templates")
 RULE_NAME = "no-negative-margin"
 
-NEG_MARGIN_RE = re.compile(r"""(?:^|[\s"'{:])(-m[xytrblse]?-[\w./\[\]-]+)""")
+NEG_MARGIN_RE = re.compile(r"""(?:^|[\s"'{}:])(-m[xytrblse]?-[\w./\[\]-]+)""")
+
+# An arbitrary value whose calc() subtracts is a negative margin the `-m` prefix
+# cannot show: `mx-[calc(50%_-_50vw)]` pulls an element out of its container
+# exactly like `-mx-4`, so it owes the same justification. Tailwind spells the
+# spaces around the operator as underscores.
+NEG_CALC_MARGIN_RE = re.compile(
+    r"""(?:^|[\s"'{}:])(m[xytrblse]?-\[calc\([^\]]*[\s_]-[\s_][^\]]*\])"""
+)
 
 DISABLE_RE = re.compile(r"ludamus-disable:([a-z-]+(?:,[a-z-]+)*)\s*--\s*\S")
 
@@ -32,7 +40,7 @@ def test_templates_have_no_unjustified_negative_margins() -> None:
         for i, line in enumerate(lines):
             if "ludamus-disable:" in line:
                 continue
-            matches = NEG_MARGIN_RE.findall(line)
+            matches = NEG_MARGIN_RE.findall(line) + NEG_CALC_MARGIN_RE.findall(line)
             if not matches or _is_disabled(lines, i):
                 continue
             violations.extend(f"{path}:{i + 1}: {cls}" for cls in matches)

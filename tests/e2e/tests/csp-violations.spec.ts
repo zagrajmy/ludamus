@@ -11,13 +11,14 @@ declare global {
 
 // Print buttons can't be clicked for real (a print dialog would block the run),
 // and a no-op stub also lets a test assert the handler actually fired.
-const stubPrint = (page: Page): Promise<void> =>
-  page.addInitScript(() => {
+const stubPrint = async (page: Page): Promise<void> => {
+  await page.addInitScript(() => {
     window.__printCalls = 0;
     window.print = () => {
       window.__printCalls += 1;
     };
   });
+};
 
 // Proves the enforcing CSP (script-src 'self' 'nonce-…', no unsafe-inline,
 // no unsafe-eval — see plan 019 and settings.CSP_POLICY) doesn't block any
@@ -77,7 +78,7 @@ test.describe("CSP enforcement doesn't break legitimate scripts", () => {
 
     // Exercises client-side JS (modal open, htmx/panel-chrome-adjacent
     // interactivity) rather than just the initial paint.
-    await page.getByRole("link", { name: "Open details for Mega Strategy Lab" }).click();
+    await page.getByRole("link", { name: "Open details for Mega Strategy Lab" }).press("Enter");
     await expect(page.getByRole("dialog", { name: "Mega Strategy Lab" })).toBeVisible();
 
     await assertNoCspViolations(page);

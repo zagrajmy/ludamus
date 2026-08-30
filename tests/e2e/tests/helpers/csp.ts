@@ -20,8 +20,8 @@ declare global {
 
 // Installed via addInitScript, so it can't miss an event fired during the very
 // first paint.
-export const installCspViolationCollector = (page: Page): Promise<void> =>
-  page.addInitScript(() => {
+export const installCspViolationCollector = async (page: Page): Promise<void> => {
+  await page.addInitScript(() => {
     window.__cspViolations = [];
     document.addEventListener("securitypolicyviolation", (e) => {
       window.__cspViolations.push({
@@ -32,6 +32,7 @@ export const installCspViolationCollector = (page: Page): Promise<void> =>
       });
     });
   });
+};
 
 export const assertNoCspViolations = async (page: Page): Promise<void> => {
   const violations = await page.evaluate(() => window.__cspViolations);

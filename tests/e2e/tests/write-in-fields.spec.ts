@@ -27,7 +27,6 @@ test.describe("Write-in answers", () => {
     await page.getByLabel(/description/i).fill("A one-shot with content to flag.");
     await page.getByLabel(/max participants/i).fill("5");
     await page.getByLabel(/presenter name/i).fill("Mystery GM");
-    await page.getByLabel(/duration/i).selectOption("PT1H");
     await page
       .getByRole("group", { name: /What tone should players expect\?/ })
       .getByRole("checkbox", { name: "Comedy" })
@@ -53,7 +52,6 @@ test.describe("Write-in answers", () => {
     await page.getByLabel(/description/i).fill("Stepping back to the details.");
     await page.getByLabel(/max participants/i).fill("4");
     await page.getByLabel(/presenter name/i).fill("Mystery GM");
-    await page.getByLabel(/duration/i).selectOption("PT1H");
     await page
       .getByRole("group", { name: /What tone should players expect\?/ })
       .getByRole("checkbox", { name: "Comedy" })

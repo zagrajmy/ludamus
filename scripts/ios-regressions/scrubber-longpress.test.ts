@@ -2,17 +2,19 @@ import type { CaptureSnapshotResult } from "agent-device";
 
 import { afterAll, beforeAll, expect, test } from "bun:test";
 
-import type { Rect } from "./harness";
+import type { Rect } from "./snapshot";
 
+import { baseUrl, createIosHarness, hookTimeoutMs, sessionName } from "./harness";
+import { decodeEntities, fetchReadyPage } from "./page";
 import {
-  baseUrl,
   centreOnScreen,
-  createIosHarness,
+  collapse,
   describeNode,
-  hookTimeoutMs,
+  labelOf,
+  matchesScopeLabel,
   pollUntil,
-  sessionName,
-} from "./harness";
+  viewportOf,
+} from "./snapshot";
 
 const env = process.env;
 const session = sessionName("scrubber");
@@ -27,17 +29,8 @@ const calloutSignals = [
   "Download Linked File",
 ];
 
-const {
-  client,
-  deviceOptions,
-  takeSnapshot,
-  snapshotLabels,
-  viewportOf,
-  close,
-  openUrl,
-  prepareDevice,
-  fetchReadyPage,
-} = createIosHarness(session);
+const { client, deviceOptions, takeSnapshot, snapshotLabels, close, openUrl, prepareDevice } =
+  createIosHarness(session);
 
 // The rail's own hour links are anchors (#slot-YYYYMMDD-HH), so Safari can land
 // mid-schedule on load. Reaching the same place with scroll gestures cost up to
@@ -53,23 +46,6 @@ const railSlotAnchor = (html: string): string => {
 };
 
 type RailHour = { label: string; rect: Rect };
-
-// Attribute values arrive escaped; the rail's labels carry event and day names.
-// `&amp;` goes last: unescaping it first would turn a served `&amp;lt;` (the
-// literal text "&lt;") into "<" — CodeQL's double-unescape, and a name that
-// would never match its device label.
-const decodeEntities = (value: string): string =>
-  value
-    .replaceAll("&lt;", "<")
-    .replaceAll("&gt;", ">")
-    .replaceAll("&quot;", '"')
-    .replaceAll("&#x27;", "'")
-    .replaceAll("&#39;", "'")
-    .replaceAll("&amp;", "&");
-
-// Accessibility engines collapse runs of whitespace in a name; markup keeps its
-// indentation. Collapse both sides the same way before comparing.
-const collapse = (value: string): string => value.replace(/\s+/g, " ").trim();
 
 const namesFrom = (html: string, pattern: RegExp): Set<string> =>
   new Set(
@@ -108,7 +84,7 @@ const railMarkersFrom = (
 ): RailHour[] => {
   const seen = new Set<number>();
   return snapshot.nodes.flatMap((node) => {
-    const label = node.label ? collapse(node.label) : "";
+    const label = labelOf(node);
     if (!label || !node.rect || !names.has(label)) return [];
     if (node.rect.width <= 0 || node.rect.height <= 0) return [];
     if (!centreOnScreen(node.rect, screen)) return [];
@@ -140,6 +116,8 @@ const waitForRailMarkers = async (
       try {
         screen ??= viewportOf(await takeSnapshot());
         const scoped = await takeSnapshot(navName);
+        const scopeMatched = scoped.nodes.some((node) => matchesScopeLabel(labelOf(node), navName));
+        if (!scopeMatched) return null;
         const found = railMarkersFrom(scoped, markerNames, screen);
         return found.length > 0 ? found : null;
       } catch (error) {
@@ -166,9 +144,11 @@ const waitForRailMarkers = async (
   // truncated or screen-sized root means the scope query missed the nav and
   // the runner fell back to the full tree.
   const sample = scoped.nodes.slice(0, 15).map(describeNode).join(" | ");
+  const scopeMatched = scoped.nodes.some((node) => matchesScopeLabel(labelOf(node), navName));
   throw new Error(
     `No on-screen rail markers in the ${JSON.stringify(navName)}-scoped snapshot: ` +
-      `${scoped.nodes.length} nodes, truncated=${String(scoped.truncated)}, ` +
+      `scopeMatched=${String(scopeMatched)}, ${scoped.nodes.length} nodes, ` +
+      `truncated=${String(scoped.truncated)}, ` +
       `screen=${JSON.stringify(screen)}. ` +
       `Expected labels like ${JSON.stringify([...markerNames][0])}. Nodes: ${sample || "none"}.`,
   );
@@ -205,8 +185,6 @@ let surfacedCalloutSignals: string[] = [];
 
 beforeAll(async () => {
   const html = await fetchReadyPage(eventUrl, "schedule-rail");
-  const udid = await prepareDevice();
-
   const navName = railNavName(html);
   const markerNames = new Set([
     ...namesFrom(html, RAIL_HOUR_NAMES),
@@ -218,10 +196,15 @@ beforeAll(async () => {
     );
   }
 
+  await prepareDevice();
   const scheduleUrl = new URL(eventUrl);
   scheduleUrl.hash = `slot-${railSlotAnchor(html)}`;
   console.log(`Opening Safari at ${scheduleUrl.toString()}...`);
-  await openUrl(scheduleUrl.toString(), udid);
+  await openUrl(scheduleUrl.toString(), {
+    expectedLabels: [...markerNames],
+    match: "any",
+    scope: navName,
+  });
 
   const markers = await waitForRailMarkers(90_000, navName, markerNames);
 

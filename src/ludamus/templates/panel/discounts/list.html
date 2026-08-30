@@ -15,7 +15,19 @@
 {% block content %}
     <div class="panel-bleed">
         {% if rows %}
-            <div class="mb-4 flex justify-end max-sm:px-3">
+            <div class="mb-4 flex flex-wrap justify-end gap-2 max-sm:px-3">
+                <form method="post"
+                      action="{% url 'panel:discount-sync' slug=current_event.slug %}"
+                      class="contents"
+                      data-confirm="{% translate 'Apply the agenda? Creators with scheduled program get their rule discount, creators left without it lose the creator mark and the discount the rules gave them, and discounts assigned by hand stay untouched.' %}"
+                      data-confirm-action="{% translate 'Apply agenda' %}">
+                    {% csrf_token %}
+                    {% translate "Apply agenda" as t_sync %}
+                    {% tessera_button t_sync size="sm" icon="arrow-path" full_width_mobile=True %}
+                </form>
+                {% url 'panel:event-discount-settings' slug=current_event.slug as rules_url %}
+                {% translate "Discount rules" as t_rules %}
+                {% tessera_button t_rules href=rules_url variant="secondary" size="sm" icon="adjustments-horizontal" full_width_mobile=True %}
                 {% url 'panel:discount-export' slug=current_event.slug as export_url %}
                 {% translate "Export accreditation sheet" as t_export %}
                 {% comment %}The label is longer than a phone viewport, so the
@@ -60,6 +72,9 @@
                                         {{ row.discount.value }}%
                                     {% else %}
                                         {{ row.discount.value }}
+                                    {% endif %}
+                                    {% if row.discount.from_rules %}
+                                        <span class="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-bg-tertiary text-foreground-muted">{% translate "From rules" %}</span>
                                     {% endif %}
                                 {% else %}
                                     <span class="text-foreground-muted">{% translate "None" %}</span>

@@ -2,6 +2,7 @@ import logging
 import zoneinfo
 
 import pytest
+from django.conf import settings as django_settings
 from django.db import connection
 from zeal import zeal_context
 
@@ -9,6 +10,17 @@ from tests.template_checks import MissingTemplateVariableFilter
 
 
 def pytest_configure(config):
+    # django_settings, not the `settings` fixture three fixtures below take:
+    # ruff forbids a function-level import, so the name has to be aliased.
+    # Catches a stray export in any pytest run. The e2e server is not covered:
+    # Playwright never loads this file, so `.env.e2e`'s pin is the only thing
+    # standing between that runserver process and the live project.
+    if django_settings.POSTHOG_API_KEY:
+        raise pytest.UsageError(
+            "POSTHOG_API_KEY is set; tests would report to a real PostHog "
+            "project. Unset it, or check the pin in .env.test / .env.e2e."
+        )
+
     config.addinivalue_line(
         "markers",
         "postgres: test requires the PostgreSQL backend (e.g. select_for_update "

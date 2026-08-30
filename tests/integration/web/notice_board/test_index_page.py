@@ -2,11 +2,13 @@ from datetime import UTC, datetime, timedelta
 from http import HTTPStatus
 from unittest.mock import ANY
 
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
 
 from ludamus.gates.web.django.notice_board.views import SAMPLE_COUNT
 from ludamus.pacts import EncounterDTO, EncounterIndexItem
 from tests.integration.conftest import (
+    PNG_BYTES,
     EncounterFactory,
     EncounterRSVPFactory,
     UserFactory,
@@ -28,6 +30,166 @@ class TestEncountersIndexPageView:
         )
         assert len(response.context_data["sample_encounters"]) == SAMPLE_COUNT
 
+    def test_anonymous_with_public_encounters_sees_index(self, client, sphere):
+        creator = UserFactory(username="pub_organizer", name="Pub Organizer")
+        encounter = EncounterFactory(
+            creator=creator,
+            sphere=sphere,
+            is_public=True,
+            start_time=datetime.now(UTC) + timedelta(days=3),
+        )
+
+        response = client.get(self.URL)
+
+        encounter.refresh_from_db()
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={
+                "public_encounters": [
+                    EncounterIndexItem(
+                        encounter=EncounterDTO.model_validate(encounter),
+                        rsvp_count=0,
+                        is_mine=False,
+                        organizer_name="Pub Organizer",
+                    )
+                ],
+                "view": ANY,
+            },
+            template_name=["notice_board/public_index.html"],
+        )
+
+    def test_public_encounter_by_other_user_listed_for_authenticated(
+        self, authenticated_client, sphere
+    ):
+        creator = UserFactory(username="pub_organizer", name="Pub Organizer")
+        encounter = EncounterFactory(
+            creator=creator,
+            sphere=sphere,
+            is_public=True,
+            start_time=datetime.now(UTC) + timedelta(days=3),
+        )
+
+        response = authenticated_client.get(self.URL)
+
+        encounter.refresh_from_db()
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={
+                "upcoming_encounters": [],
+                "past_encounters": [],
+                "public_encounters": [
+                    EncounterIndexItem(
+                        encounter=EncounterDTO.model_validate(encounter),
+                        rsvp_count=0,
+                        is_mine=False,
+                        organizer_name="Pub Organizer",
+                    )
+                ],
+                "view": ANY,
+            },
+            template_name=["notice_board/index.html"],
+        )
+
+    def test_own_public_encounter_not_duplicated_in_public_section(
+        self, authenticated_client, active_user, sphere
+    ):
+        encounter = EncounterFactory(
+            creator=active_user,
+            sphere=sphere,
+            is_public=True,
+            start_time=datetime.now(UTC) + timedelta(days=3),
+        )
+
+        response = authenticated_client.get(self.URL)
+
+        encounter.refresh_from_db()
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={
+                "upcoming_encounters": [
+                    EncounterIndexItem(
+                        encounter=EncounterDTO.model_validate(encounter),
+                        rsvp_count=0,
+                        is_mine=True,
+                        organizer_name="",
+                    )
+                ],
+                "past_encounters": [],
+                "public_encounters": [],
+                "view": ANY,
+            },
+            template_name=["notice_board/index.html"],
+        )
+
+    def test_upcoming_encounter_with_header_image(
+        self, authenticated_client, active_user, sphere
+    ):
+        encounter = EncounterFactory(
+            creator=active_user,
+            sphere=sphere,
+            header_image=SimpleUploadedFile(
+                "header.png", PNG_BYTES, content_type="image/png"
+            ),
+            start_time=datetime.now(UTC) + timedelta(days=3),
+        )
+
+        response = authenticated_client.get(self.URL)
+
+        encounter.refresh_from_db()
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={
+                "upcoming_encounters": [
+                    EncounterIndexItem(
+                        encounter=EncounterDTO.model_validate(encounter),
+                        rsvp_count=0,
+                        is_mine=True,
+                        organizer_name="",
+                    )
+                ],
+                "past_encounters": [],
+                "public_encounters": [],
+                "view": ANY,
+            },
+            template_name=["notice_board/index.html"],
+        )
+
+    def test_upcoming_encounter_without_participant_limit(
+        self, authenticated_client, active_user, sphere
+    ):
+        encounter = EncounterFactory(
+            creator=active_user,
+            sphere=sphere,
+            max_participants=0,
+            start_time=datetime.now(UTC) + timedelta(days=3),
+        )
+
+        response = authenticated_client.get(self.URL)
+
+        encounter.refresh_from_db()
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={
+                "upcoming_encounters": [
+                    EncounterIndexItem(
+                        encounter=EncounterDTO.model_validate(encounter),
+                        rsvp_count=0,
+                        is_mine=True,
+                        organizer_name="",
+                    )
+                ],
+                "past_encounters": [],
+                "public_encounters": [],
+                "view": ANY,
+            },
+            template_name=["notice_board/index.html"],
+        )
+
     def test_ok_empty(self, authenticated_client):
         response = authenticated_client.get(self.URL)
 
@@ -37,6 +199,7 @@ class TestEncountersIndexPageView:
             context_data={
                 "upcoming_encounters": [],
                 "past_encounters": [],
+                "public_encounters": [],
                 "view": ANY,
             },
             template_name=["notice_board/index.html"],
@@ -69,6 +232,7 @@ class TestEncountersIndexPageView:
                     )
                 ],
                 "past_encounters": [],
+                "public_encounters": [],
                 "view": ANY,
             },
             template_name=["notice_board/index.html"],
@@ -101,6 +265,7 @@ class TestEncountersIndexPageView:
                     )
                 ],
                 "past_encounters": [],
+                "public_encounters": [],
                 "view": ANY,
             },
             template_name=["notice_board/index.html"],
@@ -124,6 +289,7 @@ class TestEncountersIndexPageView:
             context_data={
                 "upcoming_encounters": [],
                 "past_encounters": [],
+                "public_encounters": [],
                 "view": ANY,
             },
             template_name=["notice_board/index.html"],
@@ -156,6 +322,7 @@ class TestEncountersIndexPageView:
                         organizer_name="Past Organizer",
                     )
                 ],
+                "public_encounters": [],
                 "view": ANY,
             },
             template_name=["notice_board/index.html"],
@@ -186,6 +353,7 @@ class TestEncountersIndexPageView:
                         organizer_name="",
                     )
                 ],
+                "public_encounters": [],
                 "view": ANY,
             },
             template_name=["notice_board/index.html"],

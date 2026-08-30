@@ -1,0 +1,97 @@
+{% extends "panel/base.html" %}
+{% load i18n tessera %}
+{% block title %}
+    {% translate "Discount rules" %}
+{% endblock title %}
+{% block page_title %}
+    {% translate "Event Settings" %}
+{% endblock page_title %}
+{% block page_subtitle %}
+    {% if current_event %}{{ current_event.name }}{% endif %}
+{% endblock page_subtitle %}
+{% block header_actions %}
+    {% if current_event and rows %}
+        {% translate "Add rule" as add_rule_label %}
+        {% url 'panel:discount-rule-create' slug=current_event.slug as add_rule_url %}
+        {% tessera_button add_rule_label href=add_rule_url icon="plus" %}
+    {% endif %}
+{% endblock header_actions %}
+{% block content %}
+    {% if current_event %}
+        {% tab_shell "panel/_event_settings_tabs.html" %}
+            {% tab_shell_body %}
+                <div class="max-w-5xl space-y-6">
+                    <div class="max-w-2xl">
+                        <h2 class="text-lg font-semibold text-foreground">{% translate "Discount rules" %}</h2>
+                        <p class="mt-1 text-sm text-foreground-muted">
+                            {% translate "Syncing the discounts page with the agenda gives every program creator the discount from the first rule they match." %}
+                        </p>
+                    </div>
+                    {% if rows %}
+                        {% tessera_table %}
+                            <thead class="bg-bg-secondary">
+                                <tr>
+                                    <th scope="col"
+                                        class="px-4 py-3 text-left text-sm font-medium text-foreground-secondary">
+                                        {% translate "Order" %}
+                                    </th>
+                                    <th scope="col"
+                                        class="px-4 py-3 text-left text-sm font-medium text-foreground-secondary">
+                                        {% translate "Condition" %}
+                                    </th>
+                                    <th scope="col"
+                                        class="px-4 py-3 text-left text-sm font-medium text-foreground-secondary">
+                                        {% translate "Discount" %}
+                                    </th>
+                                    <th scope="col" class="px-4 py-3 text-right">
+                                        <span class="sr-only">{% translate "Actions" %}</span>
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-border bg-bg-primary">
+                                {% for row in rows %}
+                                    <tr class="hover:bg-bg-tertiary">
+                                        <td class="px-4 py-4 text-sm text-foreground-muted tabular-nums whitespace-nowrap">{{ row.rule.order }}</td>
+                                        <td class="px-4 py-4 text-sm text-foreground">
+                                            {% blocktranslate with measure=row.method_label quantity=row.rule.quantity %}{{ measure }}: at least {{ quantity }}{% endblocktranslate %}
+                                        </td>
+                                        <td class="px-4 py-4 text-sm text-foreground tabular-nums whitespace-nowrap">{{ row.rule.percent|floatformat }}%</td>
+                                        <td class="px-4 py-4">
+                                            <div class="flex items-center justify-end gap-2 whitespace-nowrap">
+                                                {% translate "Edit rule" as edit_label %}
+                                                {% url 'panel:discount-rule-edit' slug=current_event.slug pk=row.rule.pk as edit_url %}
+                                                {% tessera_button edit_label href=edit_url variant="secondary" size="sm" data_row_action=True %}
+                                                <form method="post"
+                                                      action="{% url 'panel:discount-rule-delete' slug=current_event.slug pk=row.rule.pk %}"
+                                                      data-confirm="{% translate 'Delete this discount rule? Creators keep the discount they already have until the next sync.' %}"
+                                                      data-confirm-action="{% translate 'Delete rule' %}">
+                                                    {% csrf_token %}
+                                                    {% translate "Delete rule" as delete_label %}
+                                                    {% tessera_button delete_label variant="danger" size="sm" %}
+                                                </form>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        {% endtessera_table %}
+                    {% else %}
+                        <div class="card">
+                            <div class="card-body max-w-2xl">
+                                <h2 class="text-lg font-semibold text-foreground">{% translate "No discount rules yet" %}</h2>
+                                <p class="mt-2 text-sm text-foreground-muted">
+                                    {% translate "Add a rule to have the agenda sync assign discounts on its own." %}
+                                </p>
+                                <div class="mt-5">
+                                    {% translate "Add rule" as empty_add_label %}
+                                    {% url 'panel:discount-rule-create' slug=current_event.slug as empty_add_url %}
+                                    {% tessera_button empty_add_label href=empty_add_url icon="plus" %}
+                                </div>
+                            </div>
+                        </div>
+                    {% endif %}
+                </div>
+            {% endtab_shell_body %}
+        {% endtab_shell %}
+    {% endif %}
+{% endblock content %}

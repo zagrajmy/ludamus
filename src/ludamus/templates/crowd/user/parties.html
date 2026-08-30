@@ -302,6 +302,7 @@
                                     {% url 'web:crowd:claim' token=row.companion.claim_token as claim_path %}
                                     <button type="button"
                                             class="icon-btn relative"
+                                            data-ph-no-capture
                                             data-copy="{{ claim_path }}"
                                             data-copy-origin
                                             data-copied-label="{% translate "Copied!" %}"

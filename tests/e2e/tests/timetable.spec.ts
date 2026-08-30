@@ -46,6 +46,7 @@ test.describe("Timetable", () => {
         timetableWidth: calendar.scrollWidth,
       }));
 
+    if (dimensions.headerWidth === undefined) throw new Error("Timetable header is missing");
     expect(Math.abs(dimensions.headerWidth - dimensions.timetableWidth)).toBeLessThanOrEqual(1);
   });
 

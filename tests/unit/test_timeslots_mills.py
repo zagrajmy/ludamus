@@ -23,6 +23,14 @@ class TestIntervalWindows:
             (midnight, end),
         ]
 
+    def test_repeated_hour_is_compared_as_real_instants(self):
+        start = datetime(2026, 10, 25, 0, 30, tzinfo=UTC)
+        end = datetime(2026, 10, 25, 1, 15, tzinfo=UTC)
+
+        assert interval_windows(start=start, end=end, tz=_TZ) == [
+            (start.astimezone(_TZ), end.astimezone(_TZ))
+        ]
+
     def test_converts_from_utc_into_tz(self):
         start = datetime(2026, 7, 10, 20, tzinfo=UTC)
         end = datetime(2026, 7, 10, 23, tzinfo=UTC)

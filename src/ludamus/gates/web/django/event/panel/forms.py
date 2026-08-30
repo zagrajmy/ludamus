@@ -3,6 +3,8 @@ from __future__ import annotations
 from django import forms
 from django.utils.translation import gettext_lazy as _
 
+from ludamus.pacts.discounts import DiscountMethod
+
 _DATETIME_LOCAL_FORMAT = "%Y-%m-%dT%H:%M"
 
 
@@ -62,3 +64,43 @@ class EnrollmentWindowForm(forms.Form):
         if start_time and end_time and start_time >= end_time:
             raise forms.ValidationError(_("Enrollment must close after it opens."))
         return cleaned
+
+
+DISCOUNT_METHOD_LABELS = {
+    DiscountMethod.STARTED_HOURS: _("Started hours"),
+    DiscountMethod.SESSION_COUNT: _("Program points"),
+}
+
+
+class DiscountRuleForm(forms.Form):
+    method = forms.ChoiceField(
+        choices=[(m.value, DISCOUNT_METHOD_LABELS[m]) for m in DiscountMethod],
+        initial=DiscountMethod.STARTED_HOURS,
+        widget=forms.RadioSelect,
+        label=_("What counts"),
+        help_text=_(
+            "Started hours round the creator's total scheduled time up:"
+            " 1 h 50 min counts as 2."
+        ),
+    )
+    quantity = forms.IntegerField(
+        label=_("At least"),
+        min_value=1,
+        initial=1,
+        help_text=_("How many hours or program points the creator has to reach."),
+    )
+    percent = forms.IntegerField(
+        label=_("Discount"),
+        min_value=0,
+        max_value=100,
+        help_text=_("Percentage taken off the ticket price."),
+        # Whole tens only: the browser's step check uses min as its base, so
+        # min and step must line up or 50 reads as invalid.
+        widget=forms.NumberInput(attrs={"inputmode": "numeric", "step": "10"}),
+    )
+    order = forms.IntegerField(
+        label=_("Order"),
+        min_value=0,
+        initial=0,
+        help_text=_("Rules are checked from the lowest number; the first match wins."),
+    )

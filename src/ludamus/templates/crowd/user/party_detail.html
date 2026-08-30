@@ -119,6 +119,7 @@
                                 {% url 'web:crowd:claim' token=member.claim_token as claim_path %}
                                 <button type="button"
                                         class="icon-btn relative"
+                                        data-ph-no-capture
                                         data-copy="{{ claim_path }}"
                                         data-copy-origin
                                         data-copied-label="{% translate "Copied!" %}"
@@ -251,11 +252,13 @@
                     {% url 'web:crowd:parties-join' token=invite_token as join_path %}
                     <div class="flex items-center gap-2">
                         <input type="text"
+                               data-ph-no-capture
                                readonly
                                value="{{ request.scheme }}://{{ request.get_host }}{{ join_path }}"
                                class="w-full min-w-0 rounded-lg border border-border bg-bg-tertiary px-3 py-2 text-sm text-foreground-muted">
                         <button type="button"
                                 class="icon-btn relative shrink-0"
+                                data-ph-no-capture
                                 data-copy="{{ join_path }}"
                                 data-copy-origin
                                 data-copied-label="{% translate "Copied!" %}"

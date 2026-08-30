@@ -1,10 +1,9 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from dataclasses import dataclass
+from dataclasses import dataclass, field, replace
 from datetime import UTC, date, datetime, timedelta
-from math import ceil
-from typing import TYPE_CHECKING, NamedTuple
+from typing import TYPE_CHECKING, Literal, NamedTuple
 
 from django.utils import timezone
 
@@ -14,10 +13,27 @@ if TYPE_CHECKING:
     from ludamus.gates.web.django.chronology.event_presentation import SessionData
 
 
+def _instant_key(instant: datetime) -> str:
+    return str(int(instant.timestamp()))
+
+
+def _is_ambiguous_local_hour(hour: datetime) -> bool:
+    if (tz := hour.tzinfo) is None:
+        return False
+    wall_hour = hour.replace(minute=0, second=0, microsecond=0, tzinfo=None)
+    candidates = [wall_hour.replace(tzinfo=tz, fold=fold) for fold in (0, 1)]
+    return candidates[0].utcoffset() != candidates[1].utcoffset() and all(
+        candidate.astimezone(UTC).astimezone(tz).replace(tzinfo=None) == wall_hour
+        for candidate in candidates
+    )
+
+
 @dataclass
 class ScheduleHour:
     start: datetime
-    sessions: list[SessionData]
+    tiles: list[ScheduleTile]
+    is_repeated: bool = False
+    slot_key: str = field(default="", compare=False)
 
 
 @dataclass
@@ -40,17 +56,26 @@ class ScheduleDay:
 @dataclass
 class RoomLaneTile:
     data: SessionData
-    slot_hour: datetime
+    start: datetime
+    end: datetime
     col: int
-    row_start: int
     row_span: int
+    lane_index: int = 0
+    lane_count: int = 1
 
 
 @dataclass
-class RoomLaneHourMark:
-    start: datetime
-    row: int
-    has_sessions: bool
+class RoomLaneRow:
+    # One row of the grid. A row with no `hour` is the seam that opens a day;
+    # every other row is a whole clock hour. Row numbers are positions in the
+    # row list, so nothing counts them by hand.
+    day: int
+    day_start: datetime
+    hour: datetime | None
+    hour_end: datetime | None
+    is_repeated: bool = False
+    starting_tiles: list[RoomLaneTile] = field(default_factory=list, repr=False)
+    slot_key: str | None = field(default=None, compare=False)
 
 
 @dataclass
@@ -66,12 +91,87 @@ class RoomLane:
     starts_group: bool
 
 
+def _place_conflicting_tiles(
+    positioned: list[tuple[int, RoomLaneTile]],
+) -> list[tuple[int, RoomLaneTile]]:
+    by_column: dict[int, list[tuple[int, RoomLaneTile]]] = defaultdict(list)
+    for row_start, tile in positioned:
+        by_column[tile.col].append((row_start, tile))
+
+    placed: list[tuple[int, RoomLaneTile]] = []
+    for column_tiles in by_column.values():
+        ordered = sorted(
+            column_tiles,
+            key=lambda item: (
+                item[1].start.timestamp(),
+                item[1].end.timestamp(),
+                item[1].data.session.title.casefold(),
+                item[1].data.session.pk,
+            ),
+        )
+        components: list[list[tuple[int, RoomLaneTile]]] = []
+        component: list[tuple[int, RoomLaneTile]] = []
+        component_end = 0
+        for item in ordered:
+            row_start, tile = item
+            if component and row_start >= component_end:
+                components.append(component)
+                component = []
+            component.append(item)
+            component_end = max(component_end, row_start + tile.row_span)
+        if component:
+            components.append(component)
+
+        for conflict in components:
+            lane_ends: list[int] = []
+            assigned: list[tuple[int, RoomLaneTile, int]] = []
+            for row_start, tile in conflict:
+                lane_index = next(
+                    (
+                        index
+                        for index, lane_end in enumerate(lane_ends)
+                        if lane_end <= row_start
+                    ),
+                    len(lane_ends),
+                )
+                if lane_index == len(lane_ends):
+                    lane_ends.append(0)
+                lane_ends[lane_index] = row_start + tile.row_span
+                assigned.append((row_start, tile, lane_index))
+            lane_count = len(lane_ends)
+            placed.extend(
+                (row_start, replace(tile, lane_index=lane_index, lane_count=lane_count))
+                for row_start, tile, lane_index in assigned
+            )
+
+    return sorted(
+        placed,
+        key=lambda item: (
+            item[0],
+            item[1].col,
+            item[1].start.timestamp(),
+            item[1].end.timestamp(),
+            item[1].lane_index,
+            item[1].data.session.title.casefold(),
+            item[1].data.session.pk,
+        ),
+    )
+
+
 @dataclass
-class RoomLaneDay:
-    day_start: datetime
+class RoomLanes:
+    # Rooms are the outer axis: one column set, one header, one scroller for
+    # the whole event, with the days stacked into it. A room idle on a given
+    # day keeps its column and shows the gap, which reads as programme
+    # information rather than as a layout accident.
+    # `spans` is the distinct tile heights: row positions and span lengths are
+    # different quantities that happen to share the integers, and the template
+    # needs a CSS rule per span length it actually uses.
     rooms: list[RoomLane]
-    hour_marks: list[RoomLaneHourMark]
-    tiles: list[RoomLaneTile]
+    rows: list[RoomLaneRow]
+    spans: list[int]
+    lane_indices: list[int]
+    lane_counts: list[int]
 
 
 def build_schedule_days(sessions_data: dict[int, SessionData]) -> list[ScheduleDay]:
@@ -98,16 +198,91 @@ def build_schedule_days(sessions_data: dict[int, SessionData]) -> list[ScheduleD
     days: list[ScheduleDay] = []
     for day in sorted(tiles_by_date):
         tiles = tiles_by_date[day]
-        by_hour: dict[datetime, list[SessionData]] = defaultdict(list)
+        by_hour: dict[float, ScheduleHour] = {}
         for tile in tiles:
-            by_hour[tile.start.replace(minute=0, second=0, microsecond=0)].append(
-                tile.data
+            start = tile.start.replace(minute=0, second=0, microsecond=0)
+            hour = by_hour.setdefault(
+                start.timestamp(), ScheduleHour(start=start, tiles=[])
             )
+            hour.tiles.append(tile)
+        hours = [by_hour[instant] for instant in sorted(by_hour)]
         hours = [
-            ScheduleHour(start=start, sessions=by_hour[start])
-            for start in sorted(by_hour)
+            replace(
+                hour,
+                is_repeated=_is_ambiguous_local_hour(hour.start),
+                slot_key=_instant_key(hour.start),
+            )
+            for hour in hours
         ]
         days.append(ScheduleDay(day_start=hours[0].start, hours=hours, tiles=tiles))
+    return days
+
+
+CardSlotKind = Literal["ended", "current", "future"]
+
+
+@dataclass
+class CardSlot:
+    kind: CardSlotKind
+    hour: datetime
+    sessions: list[SessionData]
+    # The first not-yet-ended slot page-wide: the one the "Now" pill belongs to
+    # while the event is live.
+    is_first_current: bool = False
+    # The pill prints its own date only on a single-day schedule; under a day
+    # heading the date would repeat what the heading already states.
+    show_date: bool = False
+
+
+@dataclass
+class CardDay:
+    day_start: datetime
+    slots: list[CardSlot]
+
+
+def _card_slots(
+    kind: CardSlotKind, data: dict[datetime, list[SessionData]]
+) -> list[CardSlot]:
+    return [
+        CardSlot(kind=kind, hour=hour, sessions=sessions)
+        for hour, sessions in data.items()
+    ]
+
+
+def build_card_days(
+    *,
+    ended: dict[datetime, list[SessionData]],
+    current: dict[datetime, list[SessionData]],
+    future_unavailable: dict[datetime, list[SessionData]],
+) -> list[CardDay]:
+    # Day-major for the card layout: each local day folds as one unit, and
+    # within a day the ended / current / future groups keep their old order,
+    # so a single-day event renders exactly as it always has.
+    tz = timezone.get_current_timezone()
+    kind_order = {"ended": 0, "current": 1, "future": 2}
+    slots = (
+        _card_slots("ended", ended)
+        + _card_slots("current", current)
+        + _card_slots("future", future_unavailable)
+    )
+    slots.sort(
+        key=lambda slot: (
+            slot.hour.astimezone(tz).date().toordinal(),
+            kind_order[slot.kind],
+            slot.hour.timestamp(),
+        )
+    )
+    if first_current := next((slot for slot in slots if slot.kind == "current"), None):
+        first_current.is_first_current = True
+    days: list[CardDay] = []
+    for slot in slots:
+        local_hour = slot.hour.astimezone(tz)
+        if not days or days[-1].day_start.date() != local_hour.date():
+            days.append(CardDay(day_start=local_hour, slots=[]))
+        days[-1].slots.append(slot)
+    if len(days) == 1:
+        for slot in days[0].slots:
+            slot.show_date = True
     return days
 
 
@@ -136,25 +311,18 @@ def group_sessions_by_state(
 
 
 class _RoomKey(NamedTuple):
-    # sort_key first, and alone enough to order the columns: it carries the
-    # whole ancestor chain's panel ordering, so sorting on it lays the columns
-    # out in tree order and puts every room of a parent space side by side. The
-    # rest of the fields ride along as labels.
-    sort_key: str
-    parent_key: str
+    sort_path: tuple[tuple[int, str, int], ...]
+    space_id: int
+    parent_id: int
     name: str
     parent_name: str
 
 
 def _room_key(data: SessionData) -> _RoomKey:
-    sort_key = data.loc["sort_key"]
     return _RoomKey(
-        sort_key=sort_key,
-        # The parent's identity, not its name: Space enforces slug uniqueness
-        # only per parent, so two branches can carry the same parent name and
-        # must not merge into one header run. The chain minus the space's own
-        # three segments is exactly the parent's key, and "" at the root.
-        parent_key="|".join(sort_key.split("|")[:-3]),
+        sort_path=data.loc["sort_path"],
+        space_id=data.loc["space_id"],
+        parent_id=data.loc["parent_id"],
         name=data.loc["space_name"],
         parent_name=data.loc["parent_name"],
     )
@@ -162,58 +330,98 @@ def _room_key(data: SessionData) -> _RoomKey:
 
 def _room_lanes(keys: list[_RoomKey]) -> list[RoomLane]:
     lanes: list[RoomLane] = []
-    # None, not "": a root-level room's parent key is "", and that run still
-    # opens a group of its own rather than continuing the previous parent's.
     previous_group: str | None = None
     for key in keys:
+        group_key = str(key.parent_id) if key.parent_id else ""
         lanes.append(
             RoomLane(
                 name=key.name,
                 group=key.parent_name,
-                group_key=key.parent_key,
-                starts_group=key.parent_key != previous_group,
+                group_key=group_key,
+                starts_group=group_key != previous_group,
             )
         )
-        previous_group = key.parent_key
+        previous_group = group_key
     return lanes
 
 
-def build_room_lanes(schedule_days: list[ScheduleDay]) -> list[RoomLaneDay]:
-    lane_days: list[RoomLaneDay] = []
-    for day in schedule_days:
-        keys = sorted({_room_key(tile.data) for tile in day.tiles})
-        rooms = _room_lanes(keys)
-        col_index = {key: index + 1 for index, key in enumerate(keys)}
+def build_room_lanes(schedule_days: list[ScheduleDay]) -> RoomLanes:
+    # One column set for the event, not one per day: per-day sets gave each day
+    # its own column count and its own horizontal scroller, so the days drifted
+    # out of step with each other as you panned.
+    keys = sorted({_room_key(tile.data) for day in schedule_days for tile in day.tiles})
+    col_index = {key: index + 1 for index, key in enumerate(keys)}
 
+    rows: list[RoomLaneRow] = []
+    positioned: list[tuple[int, RoomLaneTile]] = []
+    spans: set[int] = set()
+    for index, day in enumerate(schedule_days):
         day_start = day.day_start
-        day_end = max(tile.end for tile in day.tiles)
-        hour_count = ceil((day_end - day_start).total_seconds() / 3600)
-        session_hours = {hour.start for hour in day.hours}
-        hour_marks = [
-            RoomLaneHourMark(
-                start=(mark := day_start + timedelta(hours=offset)),
-                row=offset + 1,
-                has_sessions=mark in session_hours,
-            )
-            for offset in range(hour_count)
-        ]
-
-        tiles: list[RoomLaneTile] = []
-        for tile in day.tiles:
-            start_hour = int((tile.start - day_start).total_seconds() // 3600)
-            end_offset = (tile.end - day_start).total_seconds() / 3600
-            tiles.append(
-                RoomLaneTile(
-                    data=tile.data,
-                    slot_hour=tile.start.replace(minute=0, second=0, microsecond=0),
-                    col=col_index[_room_key(tile.data)],
-                    row_start=start_hour + 1,
-                    row_span=max(1, ceil(end_offset) - start_hour),
+        if index:
+            # The seam that opens a day. The first day has none: there is
+            # nothing before it to break from, and a heading above the first
+            # row is the header printed twice rather than a boundary.
+            rows.append(
+                RoomLaneRow(
+                    day=index,
+                    day_start=day_start,
+                    hour=None,
+                    hour_end=None,
+                    slot_key=None,
                 )
             )
-        lane_days.append(
-            RoomLaneDay(
-                day_start=day_start, rooms=rooms, hour_marks=hour_marks, tiles=tiles
+        first_hour_row = len(rows) + 1
+
+        day_end = max(day.tiles, key=lambda tile: tile.end.timestamp()).end
+        hour_windows: list[tuple[datetime, datetime]] = []
+        mark = day_start
+        while mark.timestamp() < day_end.timestamp():
+            next_mark = (mark.astimezone(UTC) + timedelta(hours=1)).astimezone(
+                day_start.tzinfo
             )
+            hour_windows.append((mark, next_mark))
+            mark = next_mark
+
+        rows.extend(
+            RoomLaneRow(
+                day=index,
+                day_start=day_start,
+                hour=start,
+                hour_end=end,
+                is_repeated=_is_ambiguous_local_hour(start),
+                slot_key=_instant_key(start),
+            )
+            for start, end in hour_windows
         )
-    return lane_days
+
+        for tile in day.tiles:
+            covered_rows = [
+                offset
+                for offset, (start, end) in enumerate(hour_windows)
+                if start.timestamp() < tile.end.timestamp()
+                and end.timestamp() > tile.start.timestamp()
+            ]
+            if not covered_rows:
+                raise ValueError("scheduled tile does not overlap its local-day rows")
+            start_hour = covered_rows[0]
+            room_tile = RoomLaneTile(
+                data=tile.data,
+                start=tile.start,
+                end=tile.end,
+                col=col_index[_room_key(tile.data)],
+                row_span=len(covered_rows),
+            )
+            spans.add(room_tile.row_span)
+            positioned.append((first_hour_row + start_hour, room_tile))
+
+    placed = _place_conflicting_tiles(positioned)
+    for row_start, room_tile in placed:
+        rows[row_start - 1].starting_tiles.append(room_tile)
+
+    return RoomLanes(
+        rooms=_room_lanes(keys),
+        rows=rows,
+        spans=sorted(spans),
+        lane_indices=sorted({tile.lane_index for _, tile in placed}),
+        lane_counts=sorted({tile.lane_count for _, tile in placed}),
+    )

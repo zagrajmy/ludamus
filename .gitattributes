@@ -1,0 +1,4 @@
+# An append-only log: everyone adds entries at the end, so git's default
+# merge reports a conflict on every concurrent branch. Union keeps both
+# sides' lines instead, in order.
+PAPERCUTS.txt merge=union

@@ -113,6 +113,10 @@ const initScheduleRail = (rail: HTMLElement): void => {
   const scrollToLink = (link: HTMLAnchorElement): void => {
     const id = link.getAttribute("href")?.slice(1);
     const target = id ? document.getElementById(id) : null;
+    // Every jump — tap or scrub — announces its target first, synchronously:
+    // schedule-fold.ts unfolds the day the slot sits in, so a folded slot has
+    // geometry again by the time the scroll below runs.
+    target?.dispatchEvent(new Event("schedule:jump", { bubbles: true }));
     target?.scrollIntoView({ behavior: "auto", block: "start" });
     setActive(link);
   };

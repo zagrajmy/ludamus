@@ -15,6 +15,7 @@ from ludamus.links.db.django.companions import active_companions
 from ludamus.links.db.django.models import Party, PartyMembership
 from ludamus.links.db.django.users import display_avatar_url
 from ludamus.pacts.crowd import CompanionDTO, UserType
+from ludamus.pacts.ids import UserId
 from ludamus.pacts.party import (
     InvitablePartyDTO,
     InvitedUserDTO,
@@ -41,7 +42,7 @@ def _party_dto(party: Party, *, viewer_pk: int) -> PartyDTO:
     members = [
         PartyMemberDTO(
             membership_pk=membership.pk,
-            user_pk=membership.member_id,
+            user_pk=UserId(membership.member_id),
             name=membership.member.name,
             full_name=membership.member.get_full_name(),
             username=membership.member.username,

@@ -17,10 +17,12 @@ from ludamus.gates.web.django.dynamic_fields import (
     field_descriptors,
 )
 from ludamus.gates.web.django.forms import SessionEditForm
+from ludamus.gates.web.django.sphere.pages import EventsPageRequiredMixin
 from ludamus.mills.chronology import SessionEditNotAllowedError
 from ludamus.pacts import RedirectError, SessionFieldValueData, SessionStatus
 from ludamus.pacts.chronology import SpaceTimeConflictError
 from ludamus.pacts.durations import parse_duration
+from ludamus.pacts.ids import SessionId
 from ludamus.pacts.images import stored_file
 
 from .forms import create_proposal_acceptance_form
@@ -71,7 +73,7 @@ def _collect_session_field_values(
     ]
 
 
-class SessionEditView(LoginRequiredMixin, View):
+class SessionEditView(EventsPageRequiredMixin, LoginRequiredMixin, View):
     """Facilitator self-service editing of their own session, inline in the modal.
 
     Both GET (edit form) and POST (save) return the form fragment swapped into
@@ -207,7 +209,7 @@ class SessionEditView(LoginRequiredMixin, View):
         )
 
 
-class SessionBookmarkToggleView(View):
+class SessionBookmarkToggleView(EventsPageRequiredMixin, View):
     @staticmethod
     def post(request: RootRequest, session_id: int) -> JsonResponse:
         if (user_id := request.context.current_user_id) is None:
@@ -216,7 +218,7 @@ class SessionBookmarkToggleView(View):
             return JsonResponse({"error": "auth"}, status=401)
         result = request.services.bookmarks.toggle(
             user_id=user_id,
-            session_id=session_id,
+            session_id=SessionId(session_id),
             sphere_id=request.context.current_sphere_id,
         )
         if result is None:
@@ -224,7 +226,7 @@ class SessionBookmarkToggleView(View):
         return JsonResponse({"bookmarked": result.bookmarked, "count": result.count})
 
 
-class ProposalAcceptPageView(LoginRequiredMixin, View):
+class ProposalAcceptPageView(EventsPageRequiredMixin, LoginRequiredMixin, View):
     request: AuthenticatedRootRequest
 
     def get(
@@ -232,14 +234,14 @@ class ProposalAcceptPageView(LoginRequiredMixin, View):
     ) -> HttpResponse:
         context = self._load(request, event_slug, session_id)
         self._require_configured(context)
-        form = self._build_form(context)()
+        form = create_proposal_acceptance_form(context)()
         return self._render(request, context, form)
 
     def post(
         self, request: AuthenticatedRootRequest, event_slug: str, session_id: int
     ) -> HttpResponse:
         context = self._load(request, event_slug, session_id)
-        form = self._build_form(context)(data=request.POST)
+        form = create_proposal_acceptance_form(context)(data=request.POST)
         if not form.is_valid():
             return self._render(request, context, form)
 
@@ -264,12 +266,6 @@ class ProposalAcceptPageView(LoginRequiredMixin, View):
             ),
         )
         return redirect("web:chronology:event", slug=context.event.slug)
-
-    @staticmethod
-    def _build_form(context: ProposalAcceptContextDTO) -> type[forms.Form]:
-        return create_proposal_acceptance_form(
-            space_options=context.space_options, time_slots=context.time_slots
-        )
 
     @staticmethod
     def _load(

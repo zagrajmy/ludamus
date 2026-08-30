@@ -1,7 +1,9 @@
-from typing import TYPE_CHECKING, ClassVar, cast
+from typing import TYPE_CHECKING, ClassVar
 
 from django import forms
 from django.contrib import admin
+from django.contrib.admin import helpers
+from django.shortcuts import render
 
 from ludamus.links.db.django.models import (
     AgendaItem,
@@ -12,6 +14,7 @@ from ludamus.links.db.django.models import (
     Event,
     EventProposalSettings,
     Facilitator,
+    Notification,
     ProposalCategory,
     Session,
     SessionFieldValue,
@@ -23,9 +26,13 @@ from ludamus.links.db.django.models import (
     UserEnrollmentConfig,
 )
 from ludamus.pacts import SpherePage
+from ludamus.pacts.legacy import NotificationKind
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
+
+    from django.db.models import QuerySet
+    from django.http import HttpRequest, HttpResponse
 
 
 @admin.register(AgendaItem)
@@ -65,20 +72,12 @@ class SessionAdmin(admin.ModelAdmin):  # type: ignore [type-arg]
 
 
 class SphereAdminForm(forms.ModelForm):  # type: ignore [type-arg]
+    # The default-page-must-be-enabled invariant lives on Sphere.clean(), which
+    # this ModelForm already runs.
     enabled_pages = forms.MultipleChoiceField(
         choices=[(p.value, p.value.title()) for p in SpherePage],
         widget=forms.SelectMultiple,
     )
-
-    def clean(self) -> dict[str, object]:
-        cleaned: dict[str, object] = super().clean() or {}
-        default_page = cleaned.get("default_page")
-        enabled_pages = cast("list[str]", cleaned.get("enabled_pages") or [])
-        if default_page and default_page not in enabled_pages:
-            self.add_error(
-                "default_page", "Default page must be one of the enabled pages."
-            )
-        return cleaned
 
 
 class SphereMembershipInline(admin.TabularInline):  # type: ignore [type-arg]
@@ -99,11 +98,57 @@ class TimeSlotAdmin(admin.ModelAdmin):  # type: ignore [type-arg]
     ...
 
 
+class SendNotificationForm(forms.Form):
+    kind = forms.ChoiceField(
+        choices=[(item.value, item.name) for item in NotificationKind],
+        initial=NotificationKind.WAITLIST_PROMOTED.value,
+    )
+    title = forms.CharField(max_length=255)
+    body = forms.CharField(widget=forms.Textarea(attrs={"rows": 3}), required=False)
+    url = forms.CharField(
+        max_length=512,
+        required=False,
+        help_text=(
+            "Leave empty for a content notification (opens in the overlay). "
+            "A path like /events/ makes it a destination notification."
+        ),
+    )
+
+
 @admin.register(User)
 class UserAdmin(admin.ModelAdmin):  # type: ignore [type-arg]
     list_display = ("name", "user_type", "email", "discord_username")
     search_fields = ("name", "email")
     prepopulated_fields: ClassVar[dict[str, Sequence[str]]] = {"slug": ("name",)}
+
+    @admin.action(description="Send notification to selected users")
+    def send_notification(
+        self, request: HttpRequest, queryset: QuerySet[User]
+    ) -> HttpResponse | None:
+        form = SendNotificationForm(request.POST if "apply" in request.POST else None)
+        if form.is_valid():
+            Notification.objects.bulk_create(
+                Notification(recipient=user, **form.cleaned_data) for user in queryset
+            )
+            self.message_user(
+                request, f"Notification sent to {queryset.count()} user(s)."
+            )
+            return None
+        return render(
+            request,
+            "admin/send_notification.html",
+            {
+                **self.admin_site.each_context(request),
+                "title": "Send notification",
+                "form": form,
+                "users": queryset,
+                "action_checkbox_name": helpers.ACTION_CHECKBOX_NAME,
+            },
+        )
+
+    # Referenced by object, not by name: vulture cannot see a string-named action
+    # being used and reports the method as dead code.
+    actions = (send_notification,)
 
 
 @admin.register(Facilitator)
@@ -170,8 +215,15 @@ class DomainEnrollmentConfigAdmin(admin.ModelAdmin):  # type: ignore [type-arg]
 
 @admin.register(Encounter)
 class EncounterAdmin(admin.ModelAdmin):  # type: ignore [type-arg]
-    list_display = ("title", "sphere", "creator", "start_time", "share_code")
-    list_filter = ("sphere",)
+    list_display = (
+        "title",
+        "sphere",
+        "creator",
+        "start_time",
+        "share_code",
+        "is_public",
+    )
+    list_filter = ("sphere", "is_public")
     search_fields = ("title",)
 
 

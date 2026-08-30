@@ -35,6 +35,16 @@ if (root) {
     }
   }
 
+  // A full-bleed child cannot reach this scroller's content box in pure CSS:
+  // 100vw ignores classic scrollbars, and both the viewport and this element
+  // reserve a stable gutter, so a vw-sized breakout lands two scrollbars too
+  // wide — shifted left, with its first column clipped past the scroll origin.
+  // Publish the measured width; index.css names it, 100vw covers the first
+  // frame. Overlay scrollbars reserve nothing, so there the two agree.
+  new ResizeObserver(() => {
+    root.style.setProperty("--app-scroll-w", `${root.clientWidth}px`);
+  }).observe(root);
+
   let scheduled = 0;
   root.addEventListener(
     "scroll",

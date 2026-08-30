@@ -1,0 +1,17 @@
+{% extends "admin/base_site.html" %}
+{% block content %}
+    <form method="post">
+        {% csrf_token %}
+        {% for user in users %}
+            <input type="hidden" name="{{ action_checkbox_name }}" value="{{ user.pk }}">
+        {% endfor %}
+        <input type="hidden" name="action" value="send_notification">
+        <p>
+            Sending to:
+            {% for user in users %}{{ user }}{% if not forloop.last %}, {% endif %}{% endfor %}
+        </p>
+        {{ form.as_p }}
+        <input type="submit" name="apply" value="Send">
+        <a href="." class="button cancel-link">Cancel</a>
+    </form>
+{% endblock content %}

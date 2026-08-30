@@ -1,0 +1,18 @@
+{% load i18n tessera %}
+<dialog id="notification-modal-{{ notification.pk }}"
+        class="modal max-w-lg w-[calc(100%-1rem)] max-h-[90dvh] overflow-hidden"
+        aria-labelledby="notification-modal-{{ notification.pk }}-title">
+    <div class="px-6 py-4 border-b border-border flex items-start justify-between gap-3 shrink-0">
+        <h3 id="notification-modal-{{ notification.pk }}-title"
+            class="text-lg font-semibold text-foreground">{{ notification.title }}</h3>
+        <button type="button"
+                data-modal-close="notification-modal-{{ notification.pk }}"
+                aria-label="{% translate "Close" %}"
+                class="size-11 shrink-0 flex items-center justify-center rounded-lg hover:bg-warm-200 dark:hover:bg-neutral-700 text-foreground-muted">
+            {% icon "x-mark" class="w-5 h-5" variant="mini" %}
+        </button>
+    </div>
+    {% if notification.body %}
+        <div class="px-6 py-5 overflow-y-auto text-foreground-secondary whitespace-pre-line">{{ notification.body }}</div>
+    {% endif %}
+</dialog>
