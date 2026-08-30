@@ -7,7 +7,7 @@ from django.db import migrations, models
 
 class Migration(migrations.Migration):
 
-    dependencies = [("db_main", "0154_discount_from_rules")]
+    dependencies = [("db_main", "0155_eventintegration_last_run_json")]
 
     operations = [
         migrations.AddField(
