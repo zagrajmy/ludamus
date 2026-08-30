@@ -9,7 +9,10 @@ from ludamus.gates.web.django.chronology.enrollment_presentation import (
     PartyMemberFlags,
     SessionUserParticipationData,
 )
-from ludamus.gates.web.django.chronology.event_presentation import SessionData
+from ludamus.gates.web.django.chronology.event_presentation import (
+    ParticipationInfo,
+    SessionData,
+)
 from ludamus.gates.web.django.chronology.schedule import (
     ScheduleDay,
     ScheduleHour,
@@ -41,6 +44,7 @@ from tests.integration.conftest import (
     SpaceFactory,
     UserFactory,
 )
+from tests.integration.utils import RequestTimeMatcher
 
 
 def session_card(agenda_item, *, presenter, **overrides):
@@ -271,17 +275,60 @@ def enroll_page_context(*, viewer, agenda_item, **overrides):
 
 def make_half_full_session(event, *, participants_limit=2):
     # A scheduled session with one confirmed and one offered seat, so the
-    # offered seat is what pushes it to full.
+    # offered seat is what pushes it to full. The seats come back with it: a
+    # caller stating the roster needs the people, not another query.
     space = SpaceFactory(event=event)
     session = SessionFactory(
         event=event, category=None, participants_limit=participants_limit
     )
     AgendaItemFactory(session=session, space=space)
-    for status in (
-        SessionParticipationStatus.CONFIRMED,
-        SessionParticipationStatus.OFFERED,
-    ):
+    seats = [
         SessionParticipation.objects.create(
             session=session, user=UserFactory(), status=status
         )
-    return session
+        for status in (
+            SessionParticipationStatus.CONFIRMED,
+            SessionParticipationStatus.OFFERED,
+        )
+    ]
+    return session, seats
+
+
+SIMULACRA_NAMES = ("Aleksandra Nowak", "Piotr Kowalski", "Maria Wiśniewska")
+# There is no one behind a simulacrum: no avatar, no handle, nothing to click
+# through to.
+NO_PROFILE = {"avatar_url": None, "discord_username": "", "slug": "", "username": ""}
+
+
+def simulacra():
+    # The invented seat-holders a pretend-full card shows instead of the real
+    # roster: negative pks, and a `creation_time` minted while the request runs.
+    return [
+        ParticipationInfo(
+            user=UserInfo(name=name, full_name=name, pk=-index - 1, **NO_PROFILE),
+            status=SessionParticipationStatus.CONFIRMED.value,
+            creation_time=RequestTimeMatcher(),
+        )
+        for index, name in enumerate(SIMULACRA_NAMES)
+    ]
+
+
+def masked_card(agenda_item, *, presenter, seats, **overrides):
+    # The card a banned viewer gets in place of the real one. It has to be
+    # indistinguishable from a genuinely full session — every seat taken, and
+    # enrollment open, because a session that takes none would never have been
+    # full — so the caller states the whole disguise rather than the flag.
+    return session_card(
+        agenda_item,
+        presenter=presenter,
+        session=SessionDTO.model_validate(agenda_item.session).model_copy(
+            update={"participants_limit": seats}
+        ),
+        effective_participants_limit=seats,
+        enrolled_count=seats,
+        is_full=True,
+        is_enrollment_available=True,
+        pretend_full=True,
+        session_participations=simulacra(),
+        **overrides,
+    )

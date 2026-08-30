@@ -200,8 +200,10 @@ class TestProposalAcceptPageView:
         content = response.content.decode()
         assert "A haunted manor one-shot." in content
 
-    @pytest.mark.usefixtures("space", "time_slot")
-    def test_get_without_presenter_still_renders(self, pending_session, manager_client):
+    @pytest.mark.usefixtures("space")
+    def test_get_without_presenter_still_renders(
+        self, event, pending_session, manager_client, time_slot
+    ):
         pending_session.presenter = None
         pending_session.save()
 
@@ -209,8 +211,20 @@ class TestProposalAcceptPageView:
             self._get_url(pending_session.id, pending_session.event.slug)
         )
 
-        assert response.status_code == HTTPStatus.OK
-        assert response.context["presenter"] is None
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={
+                "event": EventDTO.model_validate(event),
+                "presenter": None,
+                "form": ANY,
+                "session": SessionDTO.model_validate(pending_session),
+                "time_slots": [TimeSlotDTO.model_validate(time_slot)],
+                "field_values": [],
+                "preferred_time_slot_ids": [],
+            },
+            template_name="chronology/accept_proposal.html",
+        )
 
     @pytest.mark.usefixtures("event", "time_slot")
     def test_get_carries_a_single_space_and_names_it(
