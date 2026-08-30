@@ -417,3 +417,22 @@ If you fix a papercut, remove it.
   rejects the default env (no SECRET_KEY etc.) and even with .env.e2e exported
   django-admin makemessages dies on missing gettext (msguniq). No sandbox path
   to run extraction.
+- 2026-08-29: mise run start leaves a portless proxy on :1355 behind when the
+  dev server dies (e.g. after test:e2e kills :8000). The next start binds a new
+  app port but the stale proxy keeps forwarding to the dead one, so every URL
+  404s with a page that still contains an h2 — readiness greps pass and
+  Playwright then fails deep in a script. Had to pkill -f portless between runs,
+  and pkill -f portless matches the invoking shell's own command line, killing
+  it (exit 144).
+- 2026-08-29: Reached for 'mise run dj makemessages' to regenerate the Polish
+  catalog; CLAUDE.md names 'mise run messages-resolve' for conflicts but not
+  'mise run messages' for extraction, so the raw command looked right. It
+  rewrites every location line and stamps POT-Creation-Date, producing a
+  6000-line diff and a failing test_translation_catalog. 'mise run messages'
+  gives a 10-line diff.
+- 2026-08-29: Ran 'mise run test:e2e' twice in a session without re-running
+  'test:e2e:prep' between. The second run failed event-schedule-
+  views.spec.ts:655 (overnight bookmark) because that test mutates bookmark
+  state the first run had already toggled — it looks like a code regression, and
+  cost a round of ruling out an unrelated diff. Re-prep before a second full
+  run, or the suite is only trustworthy once per seed.
