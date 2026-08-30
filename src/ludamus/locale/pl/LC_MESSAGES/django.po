@@ -5139,6 +5139,19 @@ msgid "required"
 msgstr "wymagane"
 
 #: src/ludamus/templates/components/dynamic-field.html
+#: src/ludamus/templates/crowd/user/parties.html
+#: src/ludamus/templates/panel/bans.html
+#: src/ludamus/templates/panel/discounts/list.html
+#: src/ludamus/templates/panel/facilitator-merge.html
+#: src/ludamus/templates/panel/parts/proposal-session-fields.html
+msgid "Remove"
+msgstr "Usuń"
+
+#: src/ludamus/templates/components/dynamic-field.html
+msgid "This value is too long to add here."
+msgstr "Ta wartość jest za długa, aby ją dodać."
+
+#: src/ludamus/templates/components/dynamic-field.html
 #, python-format
 msgid "Custom value for: %(question)s"
 msgstr "Własna wartość dla: %(question)s"
@@ -5599,14 +5612,6 @@ msgstr "Usunąć tę drużynę? Członkowie zachowają swoje konta."
 #: src/ludamus/templates/crowd/user/party_detail.html
 msgid "Delete party"
 msgstr "Usuń drużynę"
-
-#: src/ludamus/templates/crowd/user/parties.html
-#: src/ludamus/templates/panel/bans.html
-#: src/ludamus/templates/panel/discounts/list.html
-#: src/ludamus/templates/panel/facilitator-merge.html
-#: src/ludamus/templates/panel/parts/proposal-session-fields.html
-msgid "Remove"
-msgstr "Usuń"
 
 #: src/ludamus/templates/crowd/user/parties.html
 #: src/ludamus/templates/crowd/user/party_detail.html
@@ -9955,16 +9960,19 @@ msgstr ""
 "Nie ma nadchodzących wydarzeń ani publicznych spotkań. Sprawdź ponownie "
 "później!"
 
-#~ msgid "Select a space and time to add this session to the event agenda."
-#~ msgstr ""
-#~ "Wybierz przestrzeń i godzinę, aby dodać ten punkt programu do "
-#~ "harmonogramu wydarzenia."
-
 #~ msgid "Creator"
 #~ msgstr "Twórca programu"
 
 #~ msgid "End time must be after start time."
 #~ msgstr "Czas zakończenia musi być po czasie rozpoczęcia."
+
+#~ msgid "Pick a space and time, then add it to the agenda."
+#~ msgstr "Wybierz przestrzeń i godzinę, a następnie dodaj do harmonogramu."
+
+#~ msgid "Select a space and time to add this session to the event agenda."
+#~ msgstr ""
+#~ "Wybierz przestrzeń i godzinę, aby dodać ten punkt programu do "
+#~ "harmonogramu wydarzenia."
 
 #~ msgid ""
 #~ "Writes every facilitator with their accreditation type and discount into "
@@ -9973,35 +9981,14 @@ msgstr ""
 #~ "Zapisuje wszystkich twórców programu wraz z rodzajem akredytacji i zniżką "
 #~ "do pierwszej zakładki wybranego arkusza, zastępując jego obecną zawartość."
 
-#~ msgid "Required age"
-#~ msgstr "Wymagany wiek"
+#~ msgid "Empty or 0 = no limit"
+#~ msgstr "Puste pole lub 0 = bez limitu"
 
-#~ msgid "Age ≥"
-#~ msgstr "Wiek ≥"
+#~ msgid "Facilitator flagged for deletion."
+#~ msgstr "Twórca programu oznaczony do usunięcia."
 
-#~ msgid "Search sessions..."
-#~ msgstr "Szukaj punktów programu..."
-
-#~ msgid "Age range"
-#~ msgstr "Przedział wiekowy"
-
-#~ msgid "Min"
-#~ msgstr "Min"
-
-#~ msgid "Max"
-#~ msgstr "Max"
-
-#~ msgid "Age ≤"
-#~ msgstr "Wiek ≤"
-
-#~ msgid "Venue"
-#~ msgstr "Lokalizacja"
-
-#~ msgid "All venues"
-#~ msgstr "Wszystkie lokalizacje"
-
-#~ msgid "Enrollment required"
-#~ msgstr "Wymagane zapisy"
+#~ msgid "Facilitator unflagged."
+#~ msgstr "Usunięto oznaczenie do usunięcia."
 
 #~ msgid "Pending Proposals"
 #~ msgstr "Oczekujące zgłoszenia"
@@ -10018,79 +10005,81 @@ msgstr ""
 #~ msgid "Flexible"
 #~ msgstr "Elastyczny"
 
-#~ msgid "Awaiting review"
-#~ msgstr "Czeka na akceptację"
-
-#~ msgid "Sessions with enrollment"
-#~ msgstr "Punkty programu z zapisami"
-
-#~ msgid "Takes enrollment"
-#~ msgstr "Z zapisami"
-
-#~ msgid "No session at this event takes enrollment"
-#~ msgstr "Żaden punkt programu na tym wydarzeniu nie wymaga zapisów"
-
-#~ msgid "Show the full schedule"
-#~ msgstr "Pokaż pełny harmonogram"
-
-#, python-format
-#~ msgid "Changed by %(who)s on %(when)s"
-#~ msgstr "Zmiana: %(who)s, %(when)s"
-
-#, python-format
-#~ msgid "announced by %(who)s"
-#~ msgstr "ogłoszone przez: %(who)s"
-
-#~ msgid "Analytics settings"
-#~ msgstr "Ustawienia analityki"
-
-#~ msgid "Analytics consent"
-#~ msgstr "Zgoda na analitykę"
-
-#, python-format
-#~ msgid ""
-#~ "We use analytics to see how people use the site, including session "
-#~ "replays with every input masked. It runs only if you agree. Errors work "
-#~ "differently: when something breaks we always record what went wrong, plus "
-#~ "your account id if you are signed in, so we can fix it. More in the <a "
-#~ "href=\"%(privacy_url)s\">Privacy Policy</a>."
-#~ msgstr ""
-#~ "Używamy analityki, aby zobaczyć, jak ludzie korzystają z serwisu. "
-#~ "Obejmuje to nagrania sesji z zamaskowanymi wszystkimi polami. Działa "
-#~ "tylko wtedy, gdy się zgodzisz. Z błędami jest inaczej: kiedy coś się "
-#~ "zepsuje, zawsze zapisujemy, co poszło nie tak, a jeśli masz zalogowane "
-#~ "konto, także jego identyfikator, żebyśmy mogli to naprawić. Więcej w <a "
-#~ "href=\"%(privacy_url)s\">Polityce prywatności</a>."
-
-#~ msgid "Decline analytics"
-#~ msgstr "Odrzuć analitykę"
-
-#~ msgid "Allow analytics"
-#~ msgstr "Włącz analitykę"
-
-#, python-format
-#~ msgid ""
-#~ "With your consent we use PostHog analytics — including session replays "
-#~ "with all inputs masked — to see how the site is used and to fix errors "
-#~ "faster. Nothing is stored before you agree. Details in the <a "
-#~ "href=\"%(privacy_url)s\">Privacy Policy</a>."
-#~ msgstr ""
-#~ "Za Twoją zgodą używamy analityki PostHog — w tym nagrań sesji z "
-#~ "zamaskowanymi wszystkimi polami — aby zobaczyć, jak serwis jest używany, "
-#~ "i szybciej naprawiać błędy. Nic nie zapisujemy, zanim się nie zgodzisz. "
-#~ "Szczegóły w <a href=\"%(privacy_url)s\">Polityce prywatności</a>."
-
-#~ msgid "Empty or 0 = no limit"
-#~ msgstr "Puste pole lub 0 = bez limitu"
-
 #~ msgid "Open"
 #~ msgstr "Otwarte"
+
+#~ msgid "Awaiting review"
+#~ msgstr "Czeka na akceptację"
 
 #~ msgid "Not Available"
 #~ msgstr "Niedostępne"
 
-#~ msgid "Deleted only"
-#~ msgstr "Tylko usunięci"
+#~ msgid "Search sessions..."
+#~ msgstr "Szukaj punktów programu..."
+
+#~ msgid "Venue"
+#~ msgstr "Lokalizacja"
+
+#~ msgid "All venues"
+#~ msgstr "Wszystkie lokalizacje"
+
+#~ msgid "Age range"
+#~ msgstr "Przedział wiekowy"
+
+#~ msgid "Min"
+#~ msgstr "Min"
+
+#~ msgid "Max"
+#~ msgstr "Max"
+
+#~ msgid "Age ≥"
+#~ msgstr "Wiek ≥"
+
+#~ msgid "Age ≤"
+#~ msgstr "Wiek ≤"
+
+#, python-format
+#~ msgid ""
+#~ "The token expires after %(token_max_age_days)s days and works only while "
+#~ "you stay a manager of this sphere. Anyone holding it can act with your "
+#~ "permissions — keep it secret."
+#~ msgstr ""
+#~ "Token wygasa po %(token_max_age_days)s dniach i działa tylko dopóki "
+#~ "zarządzasz tą sferą. Każdy, kto go posiada, może działać z Twoimi "
+#~ "uprawnieniami — trzymaj go w tajemnicy."
+
+#, python-format
+#~ msgid ""
+#~ "Generate a personal token to connect an MCP client (such as Claude Code "
+#~ "or Executor) to this sphere's organizer API. The token is valid for "
+#~ "%(token_max_age_days)s days."
+#~ msgstr ""
+#~ "Wygeneruj osobisty token, aby połączyć klienta MCP (np. Claude Code lub "
+#~ "Executor) z API organizatora tej sfery. Token jest ważny przez "
+#~ "%(token_max_age_days)s dni."
+
+#~ msgid "Flagged for deletion only"
+#~ msgstr "Tylko oznaczeni do usunięcia"
+
+#~ msgid "Flag for deletion"
+#~ msgstr "Oznacz do usunięcia"
+
+#~ msgid "Remove flag"
+#~ msgstr "Usuń oznaczenie"
+
+#~ msgid "Flagged"
+#~ msgstr "Oznaczony"
+
+#~ msgid "Remove deletion flag"
+#~ msgstr "Usuń oznaczenie do usunięcia"
+
+#, python-format
+#~ msgid "Remove deletion flag from %(name)s"
+#~ msgstr "Usuń oznaczenie do usunięcia: %(name)s"
+
+#, python-format
+#~ msgid "Flag %(name)s for deletion"
+#~ msgstr "Oznacz do usunięcia: %(name)s"
 
 #~ msgid ""
 #~ "Map each source answer to an ISO 8601 duration (e.g. PT1H30M for 1 h 30 "
@@ -10127,47 +10116,6 @@ msgstr ""
 
 #~ msgid "Nothing to filter by yet."
 #~ msgstr "Nie ma jeszcze czego filtrować."
-
-#, python-format
-#~ msgid "%(count)d facilitator runs sessions and was kept."
-#~ msgid_plural "%(count)d facilitators run sessions and were kept."
-#~ msgstr[0] ""
-#~ "%(count)d twórca programu prowadzi punkty programu i został zachowany."
-#~ msgstr[1] ""
-#~ "%(count)d twórców programu prowadzi punkty programu i zostało zachowanych."
-#~ msgstr[2] ""
-#~ "%(count)d twórców programu prowadzi punkty programu i zostało zachowanych."
-#~ msgstr[3] ""
-#~ "%(count)d twórców programu prowadzi punkty programu i zostało zachowanych."
-
-#~ msgid "Facilitator flagged for deletion."
-#~ msgstr "Twórca programu oznaczony do usunięcia."
-
-#~ msgid "Facilitator unflagged."
-#~ msgstr "Usunięto oznaczenie do usunięcia."
-
-#~ msgid "Flagged for deletion only"
-#~ msgstr "Tylko oznaczeni do usunięcia"
-
-#~ msgid "Flag for deletion"
-#~ msgstr "Oznacz do usunięcia"
-
-#~ msgid "Remove flag"
-#~ msgstr "Usuń oznaczenie"
-
-#~ msgid "Flagged"
-#~ msgstr "Oznaczony"
-
-#~ msgid "Remove deletion flag"
-#~ msgstr "Usuń oznaczenie do usunięcia"
-
-#, python-format
-#~ msgid "Remove deletion flag from %(name)s"
-#~ msgstr "Usuń oznaczenie do usunięcia: %(name)s"
-
-#, python-format
-#~ msgid "Flag %(name)s for deletion"
-#~ msgstr "Oznacz do usunięcia: %(name)s"
 
 #, python-format
 #~ msgid "%(scheduled)s scheduled, %(pending)s pending"
@@ -10266,6 +10214,13 @@ msgstr ""
 #~ msgid "Search by facilitator or field values"
 #~ msgstr "Szukaj po prowadzącym lub wartościach pól"
 
+#~ msgid "Select all"
+#~ msgstr "Zaznacz wszystkie"
+
+#~ msgid "The kept facilitator receives all sessions from the others."
+#~ msgstr ""
+#~ "Zachowany twórca programu przejmuje wszystkie punkty programu pozostałych."
+
 #~ msgid "Keep"
 #~ msgstr "Zachowaj"
 
@@ -10293,6 +10248,9 @@ msgstr ""
 
 #~ msgid "Shown on public session card"
 #~ msgstr "Widoczne na publicznej karcie punktu programu"
+
+#~ msgid "Facilitator released."
+#~ msgstr "Twórca programu zwolniony."
 
 #~ msgid "Only this facilitator's organizer can release it."
 #~ msgstr "Tylko opiekun tego twórcy programu może go zwolnić."
@@ -10409,19 +10367,89 @@ msgstr ""
 #~ msgid "Session deleted."
 #~ msgstr "Punkt programu został usunięty."
 
-#~ msgid "The kept facilitator receives all sessions from the others."
-#~ msgstr ""
-#~ "Zachowany twórca programu przejmuje wszystkie punkty programu pozostałych."
+#~ msgid "Required age"
+#~ msgstr "Wymagany wiek"
 
-#~ msgid "Facilitator released."
-#~ msgstr "Twórca programu zwolniony."
+#~ msgid "Enrollment required"
+#~ msgstr "Wymagane zapisy"
+
+#~ msgid "Sessions with enrollment"
+#~ msgstr "Punkty programu z zapisami"
+
+#~ msgid "Takes enrollment"
+#~ msgstr "Z zapisami"
+
+#~ msgid "No session at this event takes enrollment"
+#~ msgstr "Żaden punkt programu na tym wydarzeniu nie wymaga zapisów"
+
+#~ msgid "Show the full schedule"
+#~ msgstr "Pokaż pełny harmonogram"
+
+#, python-format
+#~ msgid "Changed by %(who)s on %(when)s"
+#~ msgstr "Zmiana: %(who)s, %(when)s"
+
+#, python-format
+#~ msgid "announced by %(who)s"
+#~ msgstr "ogłoszone przez: %(who)s"
+
+#~ msgid "Analytics settings"
+#~ msgstr "Ustawienia analityki"
+
+#~ msgid "Analytics consent"
+#~ msgstr "Zgoda na analitykę"
+
+#, python-format
+#~ msgid ""
+#~ "We use analytics to see how people use the site, including session "
+#~ "replays with every input masked. It runs only if you agree. Errors work "
+#~ "differently: when something breaks we always record what went wrong, plus "
+#~ "your account id if you are signed in, so we can fix it. More in the <a "
+#~ "href=\"%(privacy_url)s\">Privacy Policy</a>."
+#~ msgstr ""
+#~ "Używamy analityki, aby zobaczyć, jak ludzie korzystają z serwisu. "
+#~ "Obejmuje to nagrania sesji z zamaskowanymi wszystkimi polami. Działa "
+#~ "tylko wtedy, gdy się zgodzisz. Z błędami jest inaczej: kiedy coś się "
+#~ "zepsuje, zawsze zapisujemy, co poszło nie tak, a jeśli masz zalogowane "
+#~ "konto, także jego identyfikator, żebyśmy mogli to naprawić. Więcej w <a "
+#~ "href=\"%(privacy_url)s\">Polityce prywatności</a>."
+
+#~ msgid "Decline analytics"
+#~ msgstr "Odrzuć analitykę"
+
+#~ msgid "Allow analytics"
+#~ msgstr "Włącz analitykę"
+
+#, python-format
+#~ msgid ""
+#~ "With your consent we use PostHog analytics — including session replays "
+#~ "with all inputs masked — to see how the site is used and to fix errors "
+#~ "faster. Nothing is stored before you agree. Details in the <a "
+#~ "href=\"%(privacy_url)s\">Privacy Policy</a>."
+#~ msgstr ""
+#~ "Za Twoją zgodą używamy analityki PostHog — w tym nagrań sesji z "
+#~ "zamaskowanymi wszystkimi polami — aby zobaczyć, jak serwis jest używany, "
+#~ "i szybciej naprawiać błędy. Nic nie zapisujemy, zanim się nie zgodzisz. "
+#~ "Szczegóły w <a href=\"%(privacy_url)s\">Polityce prywatności</a>."
+
+#~ msgid "Deleted only"
+#~ msgstr "Tylko usunięci"
+
+#, python-format
+#~ msgid "%(count)d facilitator runs sessions and was kept."
+#~ msgid_plural "%(count)d facilitators run sessions and were kept."
+#~ msgstr[0] ""
+#~ "%(count)d twórca programu prowadzi punkty programu i został zachowany."
+#~ msgstr[1] ""
+#~ "%(count)d twórców programu prowadzi punkty programu i zostało zachowanych."
+#~ msgstr[2] ""
+#~ "%(count)d twórców programu prowadzi punkty programu i zostało zachowanych."
+#~ msgstr[3] ""
+#~ "%(count)d twórców programu prowadzi punkty programu i zostało zachowanych."
 
 #, python-format
 #~ msgid "Edit proposal %(title)s"
 #~ msgstr "Edytuj zgłoszenie %(title)s"
-
-#~ msgid "Select all"
-#~ msgstr "Zaznacz wszystkie"
 
 #~ msgid "No public encounters."
 #~ msgstr "Brak publicznych spotkań."
