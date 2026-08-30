@@ -5,39 +5,50 @@
 {# Optional: 'variant' ("past"), 'organizer_name' #}
 <div class="card flex flex-col {% if variant == 'past' %}opacity-60{% endif %} {% if is_mine %}border-primary{% endif %}">
     <a href="{% url 'web:notice-board:encounter-detail' share_code=encounter.share_code %}"
-       class="block p-4 hover:bg-bg-tertiary transition-colors flex-1 {% if is_mine %}rounded-t-2xl{% else %}rounded-2xl{% endif %}">
-        <div class="flex items-start justify-between gap-2 mb-1">
-            <h3 class="font-semibold text-foreground">{{ encounter.title }}</h3>
-            {% if is_mine %}
-                <span class="text-xs uppercase tracking-wider font-semibold text-primary px-1.5 py-0.5 rounded-full bg-primary/10 shrink-0 mt-0.5">{% translate "You organize" %}</span>
-            {% endif %}
-        </div>
-        {% if not is_mine and organizer_name %}
-            <div class="text-xs text-foreground-muted italic mb-1">{{ organizer_name }}</div>
-        {% endif %}
-        {% if encounter.game %}
-            <div class="flex items-center gap-1.5 text-sm text-foreground-muted mb-1">
-                {% icon "puzzle-piece" class="h-4 w-4 flex-shrink-0" %}
-                <span>{{ encounter.game }}</span>
+       class="block hover:bg-bg-tertiary transition-colors flex-1 {% if is_mine %}rounded-t-2xl{% else %}rounded-2xl{% endif %}">
+        {% if encounter.header_image_url %}
+            {# Same dark-mode tint the event card puts over its cover, so mixed grids read evenly. #}
+            <div class="min-h-32 bg-cover bg-center rounded-xl mt-1 mx-1 [--bg-tint:transparent] dark:[--bg-tint:hsl(0_0_15%/.15)]"
+                 style="background-image: linear-gradient(to bottom, var(--bg-tint), var(--bg-tint)), url('{{ encounter.header_image_url }}')">
             </div>
         {% endif %}
-        <div class="flex items-center gap-1.5 text-sm text-foreground-muted mb-1">
-            {% icon "calendar" class="h-4 w-4 flex-shrink-0" %}
-            <span>{{ encounter.start_time }}</span>
-        </div>
-        {% if encounter.place %}
-            <div class="flex items-center gap-1.5 text-sm text-foreground-muted mb-1">
-                {% icon "map-pin" class="h-4 w-4 flex-shrink-0" %}
-                <span>{{ encounter.place }}</span>
+        <div class="p-4">
+            <div class="flex items-start justify-between gap-2 mb-1">
+                <h3 class="font-semibold text-foreground">{{ encounter.title }}</h3>
+                {% if is_mine %}
+                    <span class="text-xs uppercase tracking-wider font-semibold text-primary px-1.5 py-0.5 rounded-full bg-primary/10 shrink-0 mt-0.5">{% translate "You organize" %}</span>
+                {% endif %}
+                {% if encounter.is_public %}
+                    <span class="text-xs uppercase tracking-wider font-semibold text-foreground-muted px-1.5 py-0.5 rounded-full bg-bg-tertiary shrink-0 mt-0.5">{% translate "Public" %}</span>
+                {% endif %}
             </div>
-        {% endif %}
-        <div class="flex items-center gap-1.5 text-sm text-foreground-muted">
-            {% icon "users" class="h-4 w-4 flex-shrink-0" %}
-            {% if encounter.max_participants %}
-                <span>{{ rsvp_count }} / {{ encounter.max_participants }}</span>
-            {% else %}
-                <span>{{ rsvp_count }} {% translate "attending" %}</span>
+            {% if not is_mine and organizer_name %}
+                <div class="text-xs text-foreground-muted italic mb-1">{{ organizer_name }}</div>
             {% endif %}
+            {% if encounter.game %}
+                <div class="flex items-center gap-1.5 text-sm text-foreground-muted mb-1">
+                    {% icon "puzzle-piece" class="h-4 w-4 flex-shrink-0" %}
+                    <span>{{ encounter.game }}</span>
+                </div>
+            {% endif %}
+            <div class="flex items-center gap-1.5 text-sm text-foreground-muted mb-1">
+                {% icon "calendar" class="h-4 w-4 flex-shrink-0" %}
+                <span>{{ encounter.start_time }}</span>
+            </div>
+            {% if encounter.place %}
+                <div class="flex items-center gap-1.5 text-sm text-foreground-muted mb-1">
+                    {% icon "map-pin" class="h-4 w-4 flex-shrink-0" %}
+                    <span>{{ encounter.place }}</span>
+                </div>
+            {% endif %}
+            <div class="flex items-center gap-1.5 text-sm text-foreground-muted">
+                {% icon "users" class="h-4 w-4 flex-shrink-0" %}
+                {% if encounter.max_participants %}
+                    <span>{{ rsvp_count }} / {{ encounter.max_participants }}</span>
+                {% else %}
+                    <span>{{ rsvp_count }} {% translate "attending" %}</span>
+                {% endif %}
+            </div>
         </div>
     </a>
     {% if is_mine %}

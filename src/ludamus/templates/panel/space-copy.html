@@ -15,8 +15,13 @@
 {% block content %}
     {% if current_event %}
         <div class="card card-body max-w-xl">
+            {% tessera_sole_choice form.target_event as sole_target %}
             <p class="mb-4 text-sm text-foreground-muted">
-                {% blocktranslate with name=node.name %}Copies "{{ name }}" and everything inside it into the chosen event as a new top-level space.{% endblocktranslate %}
+                {% if sole_target %}
+                    {% blocktranslate with name=node.name target=sole_target %}Copies "{{ name }}" and everything inside it into {{ target }} as a new top-level space.{% endblocktranslate %}
+                {% else %}
+                    {% blocktranslate with name=node.name %}Copies "{{ name }}" and everything inside it into the chosen event as a new top-level space.{% endblocktranslate %}
+                {% endif %}
             </p>
             <form method="post" action="" class="space-y-4" data-submit-once>
                 {% csrf_token %}

@@ -87,29 +87,44 @@ const collapseEmptyTracks = (lanes: HTMLElement): void => {
   const liveCols = new Set<number>();
   const visibleCells: HTMLElement[] = [];
 
+  // Every row declares the day it belongs to; the map also serves the folding
+  // below, so it is built before the cells are walked.
+  const dayOfRow = new Map<number, number>();
+  for (const el of lanes.querySelectorAll<HTMLElement>("[data-lane-day]")) {
+    dayOfRow.set(Number(el.dataset.laneRow), Number(el.dataset.laneDay));
+  }
+  // A folded day (schedule-fold.ts) keeps its seam row as the way back in and
+  // gives up everything else. Its tiles still count as live for the columns —
+  // folding a day must not reshuffle the room set the other days read against.
+  const foldedDays = new Set<number>();
+  const seamRows = new Set<number>();
+  for (const heading of lanes.querySelectorAll<HTMLElement>("[data-lane-day-heading]")) {
+    if ("folded" in heading.dataset) {
+      foldedDays.add(Number(heading.dataset.laneDayHeading));
+    }
+    if (heading.dataset.laneRow) seamRows.add(Number(heading.dataset.laneRow));
+  }
+
   for (const cell of lanes.querySelectorAll<HTMLElement>(".room-lanes-cell")) {
     const visible = cell.querySelector(".session-wrapper:not([hidden])") !== null;
-    cell.hidden = !visible;
     const row = Number(cell.dataset.tileRow);
+    const folded = foldedDays.has(dayOfRow.get(row) ?? -1);
+    cell.hidden = !visible || folded;
     for (let offset = 0; offset < Number(cell.dataset.tileSpan); offset += 1) {
       tileRows.add(row + offset);
       if (visible) liveRows.add(row + offset);
     }
     if (visible) {
       liveCols.add(Number(cell.dataset.tileCol));
-      visibleCells.push(cell);
+      if (!folded) visibleCells.push(cell);
     }
   }
   layoutVisibleConflicts(visibleCells);
 
-  // The same rule one scale up. Every row declares the day it belongs to, so a
-  // filter that empties a whole day takes the day's heading and its blank hours
-  // with it — two headings back to back with nothing between them read as a bug
-  // — and day one, which has no seam of its own, is a day like any other.
-  const dayOfRow = new Map<number, number>();
-  for (const el of lanes.querySelectorAll<HTMLElement>("[data-lane-day]")) {
-    dayOfRow.set(Number(el.dataset.laneRow), Number(el.dataset.laneDay));
-  }
+  // The same rule one scale up: a filter that empties a whole day takes the
+  // day's heading and its blank hours with it — two headings back to back with
+  // nothing between them read as a bug — and day one, which has no seam of its
+  // own, is a day like any other.
   const tileDays = new Set<number>();
   const liveDays = new Set<number>();
   for (const row of tileRows) tileDays.add(dayOfRow.get(row) ?? -1);
@@ -118,6 +133,7 @@ const collapseEmptyTracks = (lanes: HTMLElement): void => {
   const dayLives = (day: number): boolean => survives(tileDays.has(day), liveDays.has(day));
   const rowLives = (row: number): boolean => {
     const day = dayOfRow.get(row) ?? -1;
+    if (foldedDays.has(day) && !seamRows.has(row)) return false;
     return dayLives(day) && survives(tileRows.has(row), liveRows.has(row));
   };
 
@@ -180,6 +196,9 @@ const mountDayMirrors = (lanes: HTMLElement, scroller: HTMLElement, signal: Abor
     const mirror = source.cloneNode(true) as HTMLElement;
     mirror.classList.add("room-lanes-day-mirror");
     mirror.setAttribute("aria-hidden", "true");
+    // The clone is presentation only: the overlay swallows no pointers and the
+    // real button below takes the click, so its copy must not take a tab stop.
+    mirror.querySelector("[data-day-fold]")?.setAttribute("tabindex", "-1");
     overlay.append(mirror);
     seam.classList.add("room-lanes-day-mirrored");
     pairs.push({ mirror, seam, source });
@@ -190,6 +209,10 @@ const mountDayMirrors = (lanes: HTMLElement, scroller: HTMLElement, signal: Abor
     for (const { mirror, seam, source } of pairs) {
       mirror.hidden = seam.classList.contains(COLLAPSED);
       mirror.style.top = `${source.getBoundingClientRect().top - overlayTop}px`;
+      // The chevron the reader sees is the mirror's; keep it pointing the way
+      // the fold state says.
+      const state = source.querySelector("[data-day-fold]")?.getAttribute("aria-expanded");
+      if (state) mirror.querySelector("[data-day-fold]")?.setAttribute("aria-expanded", state);
     }
   };
   sync();
@@ -226,6 +249,15 @@ const trackCurrentDay = (lanes: HTMLElement, head: HTMLElement): (() => void) | 
       const target = dayCell(label, field);
       const text = dayCell(current, field)?.textContent ?? "";
       if (target && target.textContent !== text) target.textContent = text;
+    }
+    // The bar is also the shown day's fold toggle (schedule-fold.ts): tell it
+    // which day it is holding and how that day currently stands. Guarded like
+    // the text writes above — this runs on every scroll tick.
+    const foldDay = current.dataset.laneDayHeading ?? "0";
+    const expanded = String(!("folded" in current.dataset));
+    if (label.dataset.foldDay !== foldDay) label.dataset.foldDay = foldDay;
+    if (label.getAttribute("aria-expanded") !== expanded) {
+      label.setAttribute("aria-expanded", expanded);
     }
   };
 };

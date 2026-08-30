@@ -20,7 +20,11 @@ test.describe("Anonymous proposals", () => {
     await page.getByLabel(/description/i).fill("A drop-in adventure pitched without an account.");
     await page.getByLabel(/max participants/i).fill("5");
     await page.getByLabel(/presenter name/i).fill("Mystery GM");
-    await page.getByLabel(/duration/i).selectOption("PT1H");
+    // The category offers a single duration, so the wizard answers for the
+    // proposer: nothing to read and nothing to operate. That the value still
+    // travels is proved by the review step below.
+    await expect(wizard.getByRole("combobox", { name: /duration/i })).toHaveCount(0);
+    await expect(wizard.getByLabel(/duration/i)).toHaveCount(0);
     // The open-mic category asks for two organizer-defined fields, both required.
     await page.getByRole("checkbox", { name: "Comedy" }).check();
     await page.locator("#id_session_system").fill("Dungeon World");
@@ -29,6 +33,8 @@ test.describe("Anonymous proposals", () => {
     await expect(wizard.getByRole("heading", { name: "Review & Submit" })).toBeVisible();
     await expect(page.getByText("anon@example.com")).toBeVisible();
     await expect(page.getByText("Anonymous One-Shot")).toBeVisible();
+    // The duration nobody was asked for still reaches the review.
+    await expect(page.getByText("1h", { exact: true })).toBeVisible();
     await page.getByRole("button", { name: "Submit Proposal" }).click();
 
     await expect(page.getByText("Anonymous One-Shot")).toBeVisible();

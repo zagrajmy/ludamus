@@ -11,6 +11,7 @@ from typing import Protocol
 from pydantic import BaseModel, ConfigDict
 
 from ludamus.pacts.crowd import CompanionDTO
+from ludamus.pacts.ids import UserId
 
 # Form/query value for enrolling without a party ("Just myself").
 ENROLL_WITHOUT_PARTY = "none"
@@ -34,7 +35,7 @@ class PartyMemberDTO(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     membership_pk: int
-    user_pk: int
+    user_pk: UserId
     name: str
     full_name: str
     username: str
@@ -90,7 +91,7 @@ class EnrollmentPartyChoiceDTO(BaseModel):
 class EnrollmentPartyMemberDTO(BaseModel):
     # Enroll-page slice of a membership — deliberately without the companion
     # claim token (a bearer credential that must not reach this context).
-    user_pk: int
+    user_pk: UserId
     name: str
     slug: str
     is_login_less: bool

@@ -12,9 +12,11 @@ import base64
 import json
 from typing import TYPE_CHECKING
 
-from cryptography.fernet import Fernet
+from cryptography.fernet import Fernet, InvalidToken
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import padding, rsa
+
+from ludamus.pacts.multiverse import DecryptionError
 
 if TYPE_CHECKING:
     from ludamus.pacts.parley import ParleyCapabilityClaims
@@ -33,7 +35,12 @@ class FernetDecryptor:
         self._fernet = Fernet(key.encode() if isinstance(key, str) else key)
 
     def decrypt(self, blob: bytes) -> bytes:
-        return self._fernet.decrypt(blob)
+        try:
+            return self._fernet.decrypt(blob)
+        except InvalidToken as exception:
+            # Key rotation and a truncated column both land here; callers
+            # decide per port whether that is fatal or just one skipped row.
+            raise DecryptionError from exception
 
 
 class JwtCapabilitySigner:

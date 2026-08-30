@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING, Literal, Protocol, TypedDict
 from pydantic import BaseModel, ConfigDict
 
 from ludamus.pacts.crowd import UserDTO
+from ludamus.pacts.ids import EventId
 from ludamus.pacts.legacy import (
     AgendaItemDTO,
     ContentChangeLogDTO,
@@ -31,16 +32,20 @@ from ludamus.pacts.legacy import (
 from ludamus.pacts.party import PartyDTO
 
 if TYPE_CHECKING:
+    from ludamus.pacts.ids import SessionId, UserId
     from ludamus.pacts.submissions import ImportRow
 
 
 class IntegrationKind(StrEnum):
     IMPORT = "import"
     TICKETING = "ticketing"
+    EXPORT = "export"
 
 
 class IntegrationImplementationId(StrEnum):
     GOOGLE_PROPOSAL_PULLER = "google-proposal-puller"
+    KONWENCIK_SHEET_PUSHER = "konwencik-sheet-pusher"
+    SKLEP_KAPITULARZ = "sklep-kapitularz"
 
 
 class CheckOutcome(StrEnum):
@@ -69,10 +74,20 @@ class SourceQuestion(BaseModel):
 
 
 class IntegrationImplementation(Protocol):
+    # What every integration shares, whichever way the data flows: which kind
+    # it serves, the shape of its per-event config, and a credential probe the
+    # panel can run. Everything provider-specific (auth header format, response
+    # payload shape) stays behind the kind-specific subprotocols below.
     kind: IntegrationKind
     config_model: type[BaseModel]
 
     def check(self, secret: bytes, config: BaseModel) -> CheckResult: ...
+
+
+class ImportIntegrationImplementation(IntegrationImplementation, Protocol):
+    # An integration proposals can be pulled from. Kept apart from the base so
+    # an exporter does not carry three dead stubs, and so mypy rejects one
+    # being registered as a source.
     def fetch_questions(
         self, *, secret: bytes, config: BaseModel, header_row: int = 1
     ) -> list[SourceQuestion]: ...
@@ -82,6 +97,12 @@ class IntegrationImplementation(Protocol):
     def fetch_responses(
         self, *, secret: bytes, config: BaseModel, header_row: int = 1
     ) -> list[ImportRow]: ...
+
+
+class TicketingIntegrationImplementation(IntegrationImplementation, Protocol):
+    def fetch_membership_count(
+        self, *, secret: bytes, config: BaseModel, user_email: str
+    ) -> int: ...
 
 
 class EventIntegrationDTO(BaseModel):
@@ -97,6 +118,7 @@ class EventIntegrationDTO(BaseModel):
     config_json: str
     settings_json: str
     questions_snapshot_json: str = "[]"
+    last_run_json: str = "{}"
 
 
 class EventIntegrationCreateData(TypedDict):
@@ -144,6 +166,14 @@ class EventIntegrationsRepositoryProtocol(Protocol):
     def update_questions_snapshot(
         *, event_id: int, pk: int, questions_snapshot_json: str
     ) -> EventIntegrationDTO: ...
+    @staticmethod
+    def update_last_run(*, event_id: int, pk: int, last_run_json: str) -> None: ...
+    @staticmethod
+    def get_for_update(event_id: int, pk: int) -> EventIntegrationDTO: ...
+    @staticmethod
+    def list_by_kind(
+        kind: IntegrationKind, *, event_ended_after: datetime
+    ) -> list[EventIntegrationDTO]: ...
     @staticmethod
     def delete(event_id: int, pk: int) -> None: ...
 
@@ -309,7 +339,7 @@ class PartySessionHistoryDTO(SessionCardStatsDTO):
 
 
 class PartyEventHistoryDTO(BaseModel):
-    event_pk: int
+    event_pk: EventId
     event_name: str
     event_slug: str
     sessions: list[PartySessionHistoryDTO]
@@ -357,10 +387,10 @@ class SessionModalRepositoryProtocol(Protocol):
     @staticmethod
     def read_modal(
         *,
-        event_id: int,
-        session_id: int,
-        viewer_user_ids: list[int],
-        editor_user_id: int | None,
+        event_id: EventId,
+        session_id: SessionId,
+        viewer_user_ids: list[UserId],
+        editor_user_id: UserId | None,
     ) -> SessionModalDTO | None: ...
 
 
@@ -368,10 +398,10 @@ class SessionModalServiceProtocol(Protocol):
     def read(
         self,
         *,
-        event_id: int,
-        session_id: int,
-        viewer_user_ids: list[int],
-        editor_user_id: int | None,
+        event_id: EventId,
+        session_id: SessionId,
+        viewer_user_ids: list[UserId],
+        editor_user_id: UserId | None,
     ) -> SessionModalDTO | None: ...
 
 

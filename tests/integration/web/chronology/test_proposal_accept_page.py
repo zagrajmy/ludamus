@@ -8,6 +8,7 @@ from django.contrib import messages
 from django.urls import reverse
 from django.utils.text import slugify
 
+from ludamus.gates.web.django.chronology.forms import slot_label
 from ludamus.links.db.django.models import (
     AgendaItem,
     Session,
@@ -110,7 +111,7 @@ class TestProposalAcceptPageView:
         self, event, pending_session, manager_client, time_slot
     ):
         # A second slot means there's a real choice, so the tessera select
-        # renders instead of the single-slot read-only collapse.
+        # renders instead of the single-slot collapse.
         TimeSlot.objects.create(
             event=event,
             start_time=time_slot.end_time,
@@ -127,11 +128,12 @@ class TestProposalAcceptPageView:
         assert 'name="time_slot"' in content
 
     @pytest.mark.usefixtures("event", "space")
-    def test_get_collapses_single_time_slot_to_forced_choice(
+    def test_get_carries_a_single_time_slot_and_names_it(
         self, pending_session, manager_client, time_slot
     ):
-        # A lone slot is a foregone choice: rendered via the forced-choice
-        # component (hidden input + read-only field the label associates with).
+        # A lone slot is a foregone choice: the form carries it and the page
+        # stops asking. It still has to say *when*, or the organizer confirms
+        # a booking against a time nothing on the page names.
         response = manager_client.get(
             self._get_url(pending_session.id, pending_session.event.slug)
         )
@@ -141,8 +143,16 @@ class TestProposalAcceptPageView:
         assert (
             f'<input type="hidden" name="time_slot" value="{time_slot.pk}"' in content
         )
-        assert 'id="time_slot"' in content
-        assert 'aria-readonly="true"' in content
+        assert (
+            slot_label(
+                TimeSlotDTO(
+                    pk=time_slot.pk,
+                    start_time=time_slot.start_time,
+                    end_time=time_slot.end_time,
+                )
+            )
+            in content
+        )
 
     @pytest.mark.usefixtures("space")
     def test_get_groups_preferred_time_slots_in_picker(
@@ -190,8 +200,10 @@ class TestProposalAcceptPageView:
         content = response.content.decode()
         assert "A haunted manor one-shot." in content
 
-    @pytest.mark.usefixtures("space", "time_slot")
-    def test_get_without_presenter_still_renders(self, pending_session, manager_client):
+    @pytest.mark.usefixtures("space")
+    def test_get_without_presenter_still_renders(
+        self, event, pending_session, manager_client, time_slot
+    ):
         pending_session.presenter = None
         pending_session.save()
 
@@ -199,27 +211,40 @@ class TestProposalAcceptPageView:
             self._get_url(pending_session.id, pending_session.event.slug)
         )
 
-        assert response.status_code == HTTPStatus.OK
-        assert response.context["presenter"] is None
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={
+                "event": EventDTO.model_validate(event),
+                "presenter": None,
+                "form": ANY,
+                "session": SessionDTO.model_validate(pending_session),
+                "time_slots": [TimeSlotDTO.model_validate(time_slot)],
+                "field_values": [],
+                "preferred_time_slot_ids": [],
+            },
+            template_name="chronology/accept_proposal.html",
+        )
 
     @pytest.mark.usefixtures("event", "time_slot")
-    def test_get_collapses_single_space_to_static_value(
+    def test_get_carries_a_single_space_and_names_it(
         self, pending_session, space, manager_client
     ):
-        """A lone space is a foregone choice: shown as static text + hidden input."""
+        """A lone space is carried, never asked for — and still named.
+
+        Without the name the decision card would offer "Accept and add to
+        agenda" for a room the page never mentions.
+        """
         response = manager_client.get(
             self._get_url(pending_session.id, pending_session.event.slug)
         )
 
         assert response.status_code == HTTPStatus.OK
         content = response.content.decode()
-        # No dropdown to operate — the value is carried in a hidden input and
-        # the lone space is shown as static text (so no space optgroup renders).
         assert f'<input type="hidden" name="space" value="{space.id}"' in content
-        assert space.name in content
         assert "<optgroup" not in content
+        assert space.name in content
 
-    @pytest.mark.usefixtures("time_slot")
     @pytest.mark.usefixtures("time_slot")
     def test_get_groups_leaf_spaces_under_their_parent(
         self, event, pending_session, manager_client

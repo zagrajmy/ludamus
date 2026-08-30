@@ -17,9 +17,9 @@ permissions:
 jobs:
   ios-regressions:
     runs-on: macos-latest
-    # 6.5 setup + 7 warm-up + 28 tests + 1.5 teardown and upload, leaving the
+    # 6.5 setup + 10 warm-up + 28 tests + 1.5 teardown and upload, leaving the
     # step timeouts to bind first.
-    timeout-minutes: 46
+    timeout-minutes: 49
     env:
       # Every runner command is an HTTP request capped by
       # RUNNER_CONNECT_REQUEST_TIMEOUT_MS. At its 20s default a gesture or
@@ -33,6 +33,10 @@ jobs:
       AGENT_DEVICE_RUNNER_STARTUP_TIMEOUT_MS: 180000
       # Client-to-daemon, not runner-facing: it only has to outlast the above.
       AGENT_DEVICE_DAEMON_TIMEOUT_MS: 300000
+      # How long openUrl keeps re-probing a Safari it has already told to open
+      # the URL. It does not bound a probe: the first one pays this session's
+      # runner launch (125-148s measured) and is awaited whatever this says.
+      IOS_SAFARI_READY_TIMEOUT_MS: 60000
       AGENT_DEVICE_DAEMON_STARTUP_TIMEOUT_MS: 30000
       BASE_URL: http://localhost:8000
       SESSION: ios-regressions
@@ -115,12 +119,13 @@ jobs:
           tail -200 ios-server.log >&2
           exit 1
 
-      # The first runner-backed command builds, launches and attaches the
-      # XCUITest runner, which measures 194-240s. Left inside a test hook it
-      # burns that hook's budget and one of its attempts.
-      - name: Warm up the agent-device runner
-        continue-on-error: true
-        timeout-minutes: 7
+      # The XCUITest runner's build measures ~240s and is paid by the first
+      # runner-backed command anywhere. Left inside a test hook it burns that
+      # hook's budget and one of its attempts, so it gets its own step and its
+      # own budget here. The runner itself is keyed to a session and stops with
+      # it, so each spec still launches one -- only the build is shared.
+      - name: Start Safari and warm up the agent-device runner
+        timeout-minutes: 10
         run: bun run scripts/ios-regressions/warmup.ts
 
       - name: Run iOS Safari regressions
@@ -145,8 +150,8 @@ jobs:
               fi
               echo "::warning::$(basename "$1") attempt ${attempt}/2 failed"
               # Retrying into a Safari left mid-gesture wastes the second
-              # attempt.
-              xcrun simctl terminate "$UDID" com.apple.mobilesafari || true
+              # attempt. Nothing to terminate is already the desired state.
+              xcrun simctl terminate "$UDID" com.apple.mobilesafari > /dev/null 2>&1 || true
             done
             return 1
           }

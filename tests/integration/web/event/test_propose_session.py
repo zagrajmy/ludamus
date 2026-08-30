@@ -849,7 +849,6 @@ class TestProposeSessionPageView:
                 "category": ProposalCategoryDTO.model_validate(proposal_category),
                 "form": response.context["form"],
                 "image_form": response.context["image_form"],
-                "durations": [],
                 "field_descriptors": [],
                 "public_tracks": [TrackDTO.model_validate(track)],
                 "selected_track_pks": [],
@@ -1771,7 +1770,6 @@ class TestProposeSessionPageView:
             context_data={
                 "category": ProposalCategoryDTO.model_validate(proposal_category),
                 "current_step": "details",
-                "durations": [],
                 "event": EventDTO.model_validate(event),
                 "field_descriptors": [],
                 "form": response.context["form"],
@@ -1814,7 +1812,6 @@ class TestProposeSessionPageView:
             context_data={
                 "category": ProposalCategoryDTO.model_validate(proposal_category),
                 "current_step": "details",
-                "durations": [],
                 "event": EventDTO.model_validate(event),
                 "field_descriptors": [],
                 "form": response.context["form"],
@@ -2435,7 +2432,6 @@ class TestProposeSessionPageView:
                 "category": ProposalCategoryDTO.model_validate(proposal_category),
                 "form": response.context["form"],
                 "image_form": response.context["image_form"],
-                "durations": [],
                 "field_descriptors": [],
                 "public_tracks": [],
                 "selected_track_pks": [],

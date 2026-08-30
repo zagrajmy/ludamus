@@ -312,6 +312,40 @@ class TestPartyDetailSessionHistory:
         assert card.agenda_item.start_time == agenda_item.start_time
         assert not card.pretend_full
 
+    def test_history_keeps_one_group_when_an_event_has_several_sessions(
+        self, authenticated_client, active_user, session, agenda_item
+    ):
+        # The grouping only does anything past the first session of an event,
+        # so a one-session party never exercises it.
+        _ = agenda_item
+        party = sponsor_user(leader=active_user, member=active_user)
+        self._enroll_party(party, session, active_user)
+        second = SessionFactory(event=session.event)
+        AgendaItemFactory(session=second, space=SpaceFactory(event=session.event))
+        self._enroll_party(party, second, active_user)
+
+        response = authenticated_client.get(_url(party))
+        history = response.context["history"]
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=_context(
+                _party_dto(party, active_user, [_member_dto(active_user, party)]),
+                invite_token=party.invite_token,
+                history=[
+                    {
+                        "event_name": session.event.name,
+                        "event_slug": session.event.slug,
+                        "cards": history[0]["cards"],
+                    }
+                ],
+            ),
+            template_name=TEMPLATE,
+        )
+        [group] = history
+        assert {card.session.pk for card in group["cards"]} == {session.pk, second.pk}
+
     def test_history_query_count_is_constant_across_space_depth(
         self, authenticated_client, active_user, session, agenda_item, space
     ):

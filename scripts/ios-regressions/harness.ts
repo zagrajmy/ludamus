@@ -7,7 +7,8 @@ import type {
 } from "agent-device";
 
 import { createAgentDeviceClient, isAgentDeviceError } from "agent-device";
-import { execFileSync } from "node:child_process";
+
+import { collapse, labelOf, matchesScopeLabel, pollUntil } from "./snapshot";
 
 type IosDeviceOptions = AgentDeviceSelectionOptions & { platform: "ios" };
 
@@ -18,84 +19,45 @@ export const baseUrl = env.BASE_URL ?? "http://localhost:8000";
 export const sessionName = (role: string): string =>
   env.SESSION ? `${env.SESSION}-${role}` : `zagrajmy-ios-${role}-local`;
 
-// The workflow sets this per attempt. The default only applies to local runs,
-// where nothing has paid the 194-240s cold runner attach yet -- run
-// `bun run scripts/ios-regressions/warmup.ts` first, or raise it.
-export const hookTimeoutMs = Number(env.IOS_HOOK_TIMEOUT_MS ?? "300000");
-
-export type Rect = { x: number; y: number; width: number; height: number };
-
-// Only reached when a snapshot comes back with no nodes to read a rect from.
-// Sized for the iPhone 17 Pro the workflow asks for first; when the image
-// lacks that device the workflow picks another, so treat this as a shape that
-// keeps arithmetic finite, not as this run's screen.
-const FALLBACK_VIEWPORT: Rect = { x: 0, y: 0, width: 402, height: 874 };
-
-// The one poll-to-deadline loop: probe until it yields a value or the window
-// closes, and only conclude "nothing" (null) once the window has actually
-// elapsed — which is what specs asserting absence rely on. The window ends on
-// a probe, not a sleep, so its final interval is observed rather than slept
-// away. Paced by a local sleep rather than the runner's wait command, because
-// the same loop must serve before a device session exists (fetchReadyPage) as
-// during one; the probes themselves are the only traffic the runner needs to
-// see. A throwing probe aborts the poll.
-export const pollUntil = async <T>(
-  probe: () => Promise<T | null>,
-  { timeoutMs, intervalMs = 500 }: { timeoutMs: number; intervalMs?: number },
-): Promise<T | null> => {
-  const deadline = Date.now() + timeoutMs;
-  for (;;) {
-    const result = await probe();
-    if (result !== null) return result;
-    if (Date.now() >= deadline) return null;
-    await new Promise((resolve) => setTimeout(resolve, intervalMs));
+// SAFETY: NaN or Infinity would make pollUntil's deadline comparison never true
+// and a hook timeout undefined, so a typo'd override spins silently until the
+// job's own timeout kills it.
+export const positiveMs = (name: string, fallback: number): number => {
+  const raw = env[name];
+  const value = raw === undefined ? fallback : Number(raw);
+  if (!Number.isFinite(value) || value <= 0) {
+    throw new Error(
+      `${name} must be a positive number of milliseconds; got ${JSON.stringify(raw)}`,
+    );
   }
+  return value;
 };
+
+// NOTE: the default only applies to local runs, where nothing has paid the
+// XCUITest runner's build yet -- run warmup.ts first, or raise it.
+export const hookTimeoutMs = positiveMs("IOS_HOOK_TIMEOUT_MS", 300000);
 
 const deviceName = env.IOS_DEVICE_NAME ?? "iPhone 17 Pro";
 const runtime = env.IOS_RUNTIME;
 const providedUdid = env.UDID;
+const safariReadyTimeoutMs = positiveMs("IOS_SAFARI_READY_TIMEOUT_MS", 60000);
 
-// One convention for "is this on screen": rect centre inside the viewport,
-// clear of a band for Safari's top and bottom chrome. The band's exact size is
-// unknowable from this sandbox; being conservative only narrows what counts as
-// visible, which specs must treat as "press/check something else", never as a
-// pass. The runner's `hittable` is NOT this check — it reads false inside
-// Safari's web content (device-falsified on this branch).
-const CHROME_INSET = 120;
-
-export const centreOnScreen = (rect: Rect, viewport: Rect): boolean => {
-  const centreX = rect.x + rect.width / 2;
-  const centreY = rect.y + rect.height / 2;
-  return (
-    centreX >= viewport.x &&
-    centreX <= viewport.x + viewport.width &&
-    centreY >= viewport.y + CHROME_INSET &&
-    centreY <= viewport.y + viewport.height - CHROME_INSET
-  );
-};
-
-export const describeNode = (node: SnapshotNode): string => {
-  const rect = node.rect
-    ? ` x=${Math.round(node.rect.x)} y=${Math.round(node.rect.y)} w=${Math.round(node.rect.width)} h=${Math.round(node.rect.height)}`
-    : "";
-  return `${node.type ?? "node"} ref=@${node.ref}${rect} hittable=${String(node.hittable)} label=${JSON.stringify(
-    node.label ?? node.value ?? "",
-  )}`;
+export type SafariReadiness = {
+  expectedLabels: readonly string[];
+  match?: "all" | "any";
+  scope?: string;
 };
 
 export type IosHarness = {
   client: AgentDeviceClient;
   deviceOptions: IosDeviceOptions;
   takeSnapshot: (scope?: string) => Promise<CaptureSnapshotResult>;
-  viewportOf: (snapshot: CaptureSnapshotResult) => Rect;
   close: () => Promise<void>;
   snapshotLabels: (scope?: string) => Promise<string[]>;
   findNodeByLabel: (label: string) => Promise<SnapshotNode | null>;
   wait: (durationMs: number) => Promise<void>;
-  openUrl: (url: string, udid: string) => Promise<void>;
-  prepareDevice: () => Promise<string>;
-  fetchReadyPage: (url: URL, contains: string) => Promise<string>;
+  openUrl: (url: string, readiness: SafariReadiness) => Promise<void>;
+  prepareDevice: () => Promise<void>;
 };
 
 export const createIosHarness = (session: string): IosHarness => {
@@ -105,11 +67,11 @@ export const createIosHarness = (session: string): IosHarness => {
     ? { platform: "ios", udid: providedUdid }
     : { platform: "ios", device: deviceName };
 
-  // The runner walks at most 300 nodes per snapshot and silently drops the
-  // rest (`fastSnapshotLimit`, surfaced as `truncated`), so on a large page
+  // NOTE: the runner walks at most 300 nodes per snapshot and silently drops
+  // the rest (`fastSnapshotLimit`, surfaced as `truncated`), so on a large page
   // anything late in document order never appears. `scope` narrows the walk to
   // the subtree of the first element whose accessible label or identifier
-  // contains the given text — resolved by a live element query, which has no
+  // contains the given text -- resolved by a live element query, which has no
   // such cap. A scope that matches nothing falls back to the full, possibly
   // truncated, tree.
   const takeSnapshot = (scope?: string): Promise<CaptureSnapshotResult> =>
@@ -121,11 +83,8 @@ export const createIosHarness = (session: string): IosHarness => {
 
   const snapshotLabels = async (scope?: string): Promise<string[]> => {
     const snapshot = await takeSnapshot(scope);
-    return snapshot.nodes.map((node) => node.label ?? node.value ?? "").filter(Boolean);
+    return snapshot.nodes.map(labelOf).filter(Boolean);
   };
-
-  const viewportOf = (snapshot: CaptureSnapshotResult): Rect =>
-    snapshot.nodes[0]?.rect ?? FALLBACK_VIEWPORT;
 
   const close = async (): Promise<void> => {
     try {
@@ -137,7 +96,8 @@ export const createIosHarness = (session: string): IosHarness => {
 
   const findNodeByLabel = async (label: string): Promise<SnapshotNode | null> => {
     const snapshot = await takeSnapshot();
-    return snapshot.nodes.find((node) => node.label === label) ?? null;
+    const wanted = collapse(label);
+    return snapshot.nodes.find((node) => labelOf(node) === wanted) ?? null;
   };
 
   const wait = (durationMs: number): Promise<void> =>
@@ -153,34 +113,6 @@ export const createIosHarness = (session: string): IosHarness => {
       reuseExisting: true,
     });
     return result.udid;
-  };
-
-  const openUrlWithSafari = async (url: string): Promise<void> => {
-    try {
-      await client.apps.open({ ...deviceOptions, app: "Safari", url });
-    } catch (error) {
-      if (isAgentDeviceError(error) && error.code === "DEVICE_IN_USE") throw error;
-      console.warn(
-        "Safari reported a URL open failure; continuing because iOS Simulator can time out after Safari has already loaded the page.",
-        error,
-      );
-    }
-  };
-
-  const openUrl = async (url: string, udid: string): Promise<void> => {
-    if (!providedUdid) {
-      await openUrlWithSafari(url);
-      return;
-    }
-    try {
-      execFileSync("xcrun", ["simctl", "openurl", udid, url], { stdio: "inherit", timeout: 10000 });
-    } catch (error) {
-      console.warn(
-        "simctl reported a URL open failure; continuing because iOS Simulator can time out before Safari finishes loading.",
-        error,
-      );
-    }
-    await openUrlWithSafari(url);
   };
 
   const closeSessionIfPresent = async (): Promise<void> => {
@@ -226,75 +158,98 @@ export const createIosHarness = (session: string): IosHarness => {
     }
   };
 
-  const prepareDevice = async (): Promise<string> => {
+  // Hands back the failure rather than throwing it: an open that reports an
+  // error can still complete late, so the snapshot decides, not this call.
+  const openSafari = async (url: string): Promise<unknown> => {
+    try {
+      await client.apps.open({ ...deviceOptions, app: "Safari", url });
+      return null;
+    } catch (error) {
+      if (isAgentDeviceError(error) && error.code === "DEVICE_IN_USE") throw error;
+      console.warn("Safari open reported an error; checking whether it completed late.", error);
+      return error;
+    }
+  };
+
+  // Two passes, re-opening between them. Warmup and a previous spec both leave
+  // Safari frontmost, so "the open did not take" looks like Safari sitting on
+  // the wrong page, not like Safari being absent -- the only condition worth
+  // retrying on is the page still not being ready. Re-opening the same URL
+  // re-applies the same fragment, which is what a caller waiting on one wants.
+  const openUrl = async (url: string, readiness: SafariReadiness): Promise<void> => {
+    const { expectedLabels, match = "all" } = readiness;
+    // Collapsed here rather than at the callers: the scope is matched against
+    // labels that already went through labelOf, and the runner's element query
+    // sees the device's own collapsed name too.
+    const scope = readiness.scope === undefined ? undefined : collapse(readiness.scope);
+    if (expectedLabels.length === 0) {
+      throw new Error(`openUrl needs at least one expected label to wait for at ${url}.`);
+    }
+    const expected = expectedLabels.map(collapse);
+    const startedAt = Date.now();
+    let observed = "no snapshot completed";
+
+    const probe = async (): Promise<CaptureSnapshotResult | null> => {
+      try {
+        const snapshot = await takeSnapshot(scope);
+        const app = snapshot.appBundleId ?? snapshot.appName ?? "an unknown app";
+        const labels = snapshot.nodes.map(labelOf);
+        const scopeMatched = !scope || labels.some((label) => matchesScopeLabel(label, scope));
+        const contentMatched =
+          match === "all"
+            ? expected.every((label) => labels.includes(label))
+            : expected.some((label) => labels.includes(label));
+        observed = `app=${app}; scopeMatched=${String(scopeMatched)}; labels=${JSON.stringify(labels.slice(0, 20))}`;
+        return snapshot.appBundleId === "com.apple.mobilesafari" && scopeMatched && contentMatched
+          ? snapshot
+          : null;
+      } catch (error) {
+        if (isAgentDeviceError(error) && error.code === "DEVICE_IN_USE") throw error;
+        observed = error instanceof Error ? error.message : String(error);
+        return null;
+      }
+    };
+
+    // SAFETY: the window bounds how long polling continues, never how long one
+    // probe may take -- pollUntil hands back a result that lands after the
+    // deadline. The first probe is this session's first runner-backed command,
+    // so it pays the XCUITest launch (125-148s in the daemon log) whatever the
+    // window says; taking it outside the loop leaves the window sizing the
+    // thing it can actually size, a page load.
+    let openError = await openSafari(url);
+    let ready = await probe();
+    ready ??= await pollUntil(probe, { timeoutMs: safariReadyTimeoutMs, intervalMs: 1000 });
+    if (!ready) {
+      openError = (await openSafari(url)) ?? openError;
+      ready = await pollUntil(probe, { timeoutMs: safariReadyTimeoutMs, intervalMs: 1000 });
+    }
+
+    if (!ready) {
+      throw new Error(
+        `Safari did not load ${JSON.stringify(expected)} at ${url} after ` +
+          `${Date.now() - startedAt}ms over two opens; last observation: ${observed}`,
+        { cause: openError },
+      );
+    }
+  };
+
+  const prepareDevice = async (): Promise<void> => {
     await closeSessionIfPresent();
     await closeDeviceSessionIfPresent();
     console.log(`Preparing iOS simulator ${providedUdid ?? deviceName}...`);
     const udid = await ensureSimulator();
     console.log(`Using simulator UDID: ${udid}`);
-    return udid;
-  };
-
-  // Waits for the page to serve `contains`, then hands back the body. A caller
-  // that needs a landmark from the markup -- a scrubber slot anchor, the
-  // accessible name of a control -- reads it here instead of hunting for it
-  // with gestures, which are the slowest thing either spec can do.
-  const fetchReadyPage = async (url: URL, contains: string): Promise<string> => {
-    console.log(`Checking local event page at ${url.toString()}...`);
-    let lastError = "no response";
-
-    // Pin the language both halves of a spec see. Bun's fetch sends no
-    // Accept-Language, so Django falls back to LANGUAGE_CODE ("pl") and dates
-    // render from Django's own compiled catalogue — "Sobota" — while the
-    // en-US simulator's Safari asks for and gets "Saturday". Names read from
-    // this HTML then never match device labels. Pinning "en" aligns the two;
-    // if the simulator is ever not English, set-membership finds nothing and
-    // the spec fails loudly rather than passing vacuously.
-    const headers = { "Accept-Language": "en" };
-
-    const unusable = (): Error =>
-      new Error(
-        `Local event page is not usable at ${url.toString()} (${lastError}). ` +
-          "Make sure the e2e server is running and serving the seeded event.",
-      );
-
-    const page = await pollUntil<string>(
-      async () => {
-        let status: number | null = null;
-        try {
-          // Bounded per request: pollUntil cannot interrupt a pending fetch,
-          // so a stalled server would otherwise hold the hook past the window.
-          const response = await fetch(url, { headers, signal: AbortSignal.timeout(5000) });
-          const text = await response.text();
-          if (response.ok && text.includes(contains)) return text;
-
-          status = response.status;
-          lastError = `HTTP ${status}; body starts with ${JSON.stringify(text.slice(0, 160))}`;
-        } catch (error) {
-          lastError = error instanceof Error ? error.message : String(error);
-        }
-        // A 4xx is a wrong URL or a missing seed, not a server still starting;
-        // no amount of polling fixes it.
-        if (status !== null && status >= 400 && status < 500) throw unusable();
-        return null;
-      },
-      { timeoutMs: 60000, intervalMs: 1000 },
-    );
-    if (page === null) throw unusable();
-    return page;
   };
 
   return {
     client,
     deviceOptions,
     takeSnapshot,
-    viewportOf,
     close,
     snapshotLabels,
     findNodeByLabel,
     wait,
     openUrl,
     prepareDevice,
-    fetchReadyPage,
   };
 };

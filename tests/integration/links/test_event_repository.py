@@ -7,6 +7,12 @@ from ludamus.pacts.event import EventCreateData
 from ludamus.pacts.services import DatabaseConstraintError
 
 
+@pytest.mark.usefixtures("event")
+def test_exists_for_sphere_ignores_other_spheres(sphere, non_root_sphere):
+    assert EventRepository.exists_for_sphere(sphere.pk) is True
+    assert EventRepository.exists_for_sphere(non_root_sphere.pk) is False
+
+
 def test_create_does_not_report_a_date_constraint_as_a_slug_conflict(sphere):
     start_time = datetime(2027, 9, 17, 16, tzinfo=UTC)
     data = EventCreateData(

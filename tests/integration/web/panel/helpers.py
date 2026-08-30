@@ -398,6 +398,9 @@ def settings_tab_urls(event):
         "enrollment": reverse(
             "panel:event-enrollment-settings", kwargs={"slug": event.slug}
         ),
+        "discounts": reverse(
+            "panel:event-discount-settings", kwargs={"slug": event.slug}
+        ),
         "display": reverse("panel:event-display-settings", kwargs={"slug": event.slug}),
         "integrations": reverse(
             "panel:event-integration-settings", kwargs={"slug": event.slug}
@@ -506,6 +509,7 @@ def integration_dto(integration: EventIntegration) -> EventIntegrationDTO:
         config_json=integration.config_json,
         settings_json=integration.settings_json,
         questions_snapshot_json=integration.questions_snapshot_json or "[]",
+        last_run_json=integration.last_run_json or "{}",
     )
 
 

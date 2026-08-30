@@ -27,8 +27,9 @@
                     {# Each day is a sheet: the ledger rows sit on a raised card, not #}
                     {# directly on the page background. #}
                     <section data-schedule-day
+                             data-day="{{ day.day_start|date:'Y-m-d' }}"
                              class="mb-6 border-y border-border bg-bg-secondary px-2 pt-3 pb-2 last:mb-0 sm:rounded-2xl sm:border sm:px-3">
-                        {% include "chronology/_schedule_day_header.html" %}
+                        {% include "chronology/_schedule_day_header.html" with day_count=schedule_days|length %}
                         {% for hour in day.hours %}
                             <div class="time-slot-section scroll-mt-24"
                                  id="slot-{{ hour.slot_key }}"

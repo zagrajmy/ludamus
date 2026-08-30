@@ -140,8 +140,10 @@ celerybeat.pid
 # Environments
 # .env.{ENV} files (e.g. .env.development) are committed as shared
 # per-environment baselines; .env.local and .env.{ENV}.local hold
-# per-developer overrides.
+# per-developer overrides. The .tmp form is bootstrap's staging file for
+# .env.local; a failed generation leaves one behind.
 .env*.local
+.env*.local.tmp
 .venv
 env/
 venv/

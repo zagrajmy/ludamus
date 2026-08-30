@@ -2,11 +2,12 @@
 // the one thing the server cannot render into this page: it is cacheable, and
 // a line rendered server-side would be stale the moment it was served.
 
+import { eventTimeZone } from "./event-time";
+
 const MINUTE_MS = 60_000;
 
 const eventClock = (at: number): string => {
-  const timeZone =
-    document.querySelector<HTMLElement>("[data-event-time-zone]")?.dataset.eventTimeZone;
+  const timeZone = eventTimeZone();
   if (!timeZone) return "";
   return new Intl.DateTimeFormat("en-GB", {
     hour: "2-digit",

@@ -57,11 +57,6 @@ env = environ.Env(
     # computation happening client-side. That is why they cannot be linked in
     # code and have to move together by hand.
     POSTHOG_ASSETS_HOST=(str, "https://eu-assets.i.posthog.com"),
-    # Membership API
-    MEMBERSHIP_API_BASE_URL=(str, ""),
-    MEMBERSHIP_API_CHECK_INTERVAL=(int, 15),
-    MEMBERSHIP_API_TIMEOUT=(int, 30),
-    MEMBERSHIP_API_TOKEN=(str, ""),
     # Parley
     PARLEY_AGENT_HOST=(str, ""),
     PARLEY_SIGNING_PRIVATE_KEY=(str, ""),
@@ -610,12 +605,6 @@ LOGGING = {
         },
     },
 }
-
-# Membership API Configuration
-MEMBERSHIP_API_BASE_URL = env("MEMBERSHIP_API_BASE_URL")
-MEMBERSHIP_API_TOKEN = env("MEMBERSHIP_API_TOKEN")
-MEMBERSHIP_API_TIMEOUT = env("MEMBERSHIP_API_TIMEOUT")
-MEMBERSHIP_API_CHECK_INTERVAL = env("MEMBERSHIP_API_CHECK_INTERVAL")
 
 # Parley
 PARLEY_AGENT_HOST = env("PARLEY_AGENT_HOST")

@@ -6,8 +6,7 @@ from django.conf import settings
 from ludamus.links.cache import DjangoCache
 from ludamus.links.db.django.uow import UnitOfWork
 from ludamus.links.gravatar import gravatar_url
-from ludamus.links.ticket_api import MembershipApiClient
-from ludamus.pacts import CacheProtocol, DependencyInjectorProtocol, TicketAPIProtocol
+from ludamus.pacts import CacheProtocol, DependencyInjectorProtocol
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -23,16 +22,12 @@ class DependencyInjector(DependencyInjectorProtocol):
 
     Usage:
         request.di.uow.enrollments
-        request.di.ticket_api
+        request.di.cache
     """
 
     @cached_property
     def uow(self) -> UnitOfWork:
         return UnitOfWork()
-
-    @cached_property
-    def ticket_api(self) -> TicketAPIProtocol:
-        return MembershipApiClient()
 
     @cached_property
     def cache(self) -> CacheProtocol:

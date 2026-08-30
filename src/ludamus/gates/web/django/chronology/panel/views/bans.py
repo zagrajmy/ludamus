@@ -13,6 +13,7 @@ from ludamus.gates.web.django.chronology.panel.views.base import (
     PanelAccessMixin,
     PanelRequest,
 )
+from ludamus.pacts.ids import EventBanId, EventId
 
 if TYPE_CHECKING:
     from django.http import HttpResponse
@@ -53,6 +54,8 @@ class BanDeleteActionView(PanelAccessMixin, EventContextMixin, View):
         _context, current_event = self.get_event_context(slug)
         if current_event is None:
             return redirect("panel:index")
-        request.services.event_bans.unban(event_id=current_event.pk, ban_id=pk)
+        request.services.event_bans.unban(
+            event_id=EventId(current_event.pk), ban_id=EventBanId(pk)
+        )
         messages.success(request, _("Ban removed."))
         return redirect("panel:bans", slug=slug)
