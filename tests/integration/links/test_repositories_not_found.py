@@ -44,6 +44,10 @@ class TestSessionRepositoryNotFound:
         with pytest.raises(NotFoundError):
             SessionRepository.read_presenter(MISSING_ID)
 
+    def test_add_facilitators_raises_when_session_missing(self):
+        with pytest.raises(NotFoundError):
+            SessionRepository.add_facilitators(MISSING_ID, [])
+
     def test_read_presenter_returns_none_when_no_presenter(self, event):
         session = Session.objects.create(
             event=event,

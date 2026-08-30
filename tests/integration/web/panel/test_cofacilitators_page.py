@@ -14,7 +14,8 @@ from ludamus.links.db.django.models import (
     SessionField,
     SessionFieldValue,
 )
-from ludamus.pacts import OrganizerFieldDTO
+from ludamus.mills.panel_cofacilitators import CofacilitatorPanelService
+from ludamus.pacts import NotFoundError, OrganizerFieldDTO
 from ludamus.pacts.panel import (
     CofacilitatorCandidateDTO,
     CofacilitatorSessionDetailDTO,
@@ -52,7 +53,7 @@ def _field_dto(field):
     )
 
 
-def _detail(session, *, facilitators=(), linked=()):
+def _detail(session, *, facilitators=(), linked=(), personal_fields=()):
     """Build the read aggregate the resolve page renders for the fixture."""
     return CofacilitatorSessionDetailDTO(
         session_id=session.pk,
@@ -69,7 +70,7 @@ def _detail(session, *, facilitators=(), linked=()):
             )
             for index, name in enumerate(["Jan Kowalski", "Piotr Nowak"])
         ],
-        personal_fields=[],
+        personal_fields=list(personal_fields),
     )
 
 
@@ -198,6 +199,60 @@ class TestCofacilitatorsPageView:
             },
         )
 
+    def test_get_marks_a_session_whose_people_all_have_records(
+        self, panel_client, event, cohost_field, session_with_answer
+    ):
+        for name, slug in (("Jan Kowalski", "jan"), ("Piotr Nowak", "piotr")):
+            session_with_answer.facilitators.add(
+                Facilitator.objects.create(event=event, display_name=name, slug=slug)
+            )
+
+        response = panel_client.get(self.get_url(event))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/cofacilitators.html",
+            context_data={
+                **_event_context(event),
+                "fields": [_field_dto(cohost_field)],
+                "chosen_field": _field_dto(cohost_field),
+                "sessions": [
+                    CofacilitatorSessionDTO(
+                        session_id=session_with_answer.pk,
+                        title="Dungeon",
+                        value="Jan Kowalski i Piotr Nowak",
+                        facilitator_names=["Jan Kowalski", "Piotr Nowak"],
+                        unresolved_count=0,
+                    )
+                ],
+            },
+        )
+
+    def test_get_lists_nothing_when_the_field_is_deleted_mid_request(
+        self, panel_client, event, cohost_field, session_with_answer, monkeypatch
+    ):
+        # Another organizer can delete the field between the field list and the
+        # read of its sessions; the page then has nothing to list, not a 500.
+        def _vanished(*_args, **_kwargs):
+            raise NotFoundError("field vanished")
+
+        monkeypatch.setattr(CofacilitatorPanelService, "list_sessions", _vanished)
+
+        response = panel_client.get(self.get_url(event))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/cofacilitators.html",
+            context_data={
+                **_event_context(event),
+                "fields": [_field_dto(cohost_field)],
+                "chosen_field": _field_dto(cohost_field),
+                "sessions": [],
+            },
+        )
+
     def test_get_skips_a_session_whose_answer_is_empty(
         self, panel_client, event, cohost_field
     ):
@@ -247,6 +302,31 @@ class TestCofacilitatorResolvePageView:
         )
 
         assert_not_a_manager(response)
+
+    def test_get_redirects_when_event_not_found(self, panel_client, event):
+        session = SessionFactory(event=event, category=None)
+        url = reverse(
+            "panel:cofacilitator-resolve",
+            kwargs={"slug": "nonexistent", "session_id": session.pk},
+        )
+
+        response = panel_client.get(url)
+
+        assert_event_not_found(response)
+
+    def test_get_redirects_when_the_event_has_no_field_to_resolve(
+        self, panel_client, event
+    ):
+        session = SessionFactory(event=event, category=None)
+
+        response = panel_client.get(self.get_url(event, session))
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.ERROR, "Session not found.")],
+            url=reverse("panel:cofacilitators", kwargs={"slug": event.slug}),
+        )
 
     def test_get_offers_one_row_per_person_the_answer_names(
         self, panel_client, event, session_with_answer, cohost_field
@@ -300,6 +380,35 @@ class TestCofacilitatorResolvePageView:
             messages=[(messages.ERROR, "Session not found.")],
             url=reverse("panel:cofacilitators", kwargs={"slug": event.slug}),
         )
+
+    def test_post_redirects_when_event_not_found(self, panel_client, event):
+        session = SessionFactory(event=event, category=None)
+        url = reverse(
+            "panel:cofacilitator-resolve",
+            kwargs={"slug": "nonexistent", "session_id": session.pk},
+        )
+
+        response = panel_client.post(url, data={})
+
+        assert_event_not_found(response)
+
+    def test_post_redirects_a_session_from_another_event(
+        self, panel_client, event, cohost_field
+    ):
+        other_session = SessionFactory(category=None)
+
+        response = panel_client.post(
+            self.get_url(event, other_session, cohost_field),
+            data={"field": cohost_field.pk},
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.ERROR, "Session not found.")],
+            url=reverse("panel:cofacilitators", kwargs={"slug": event.slug}),
+        )
+        assert not other_session.facilitators.exists()
 
     def test_post_creates_the_people_the_organizer_confirmed(
         self, panel_client, event, session_with_answer, cohost_field
@@ -426,6 +535,67 @@ class TestCofacilitatorResolvePageView:
         )
         assert not session_with_answer.facilitators.exists()
 
+    def test_post_reports_a_row_with_nobody_picked_to_link(
+        self, panel_client, event, session_with_answer, cohost_field
+    ):
+        response = panel_client.post(
+            self.get_url(event, session_with_answer, cohost_field),
+            data={
+                "field": cohost_field.pk,
+                "cofacilitator0_target": "existing",
+                "cofacilitator0_existing": "",
+                "cofacilitator1_target": "skip",
+            },
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/cofacilitator-resolve.html",
+            context_data={
+                **_event_context(event),
+                "session": _detail(session_with_answer),
+                "chosen_field": _field_dto(cohost_field),
+                "rows": ANY,
+                "existing_facilitators": [],
+            },
+        )
+        assert not session_with_answer.facilitators.exists()
+
+    def test_post_reports_a_row_whose_answers_do_not_fit_the_field(
+        self, panel_client, event, session_with_answer, cohost_field
+    ):
+        nickname = PersonalDataField.objects.create(
+            event=event, name="Pseudonim", question="Pseudonim?", slug="pseudonim"
+        )
+
+        response = panel_client.post(
+            self.get_url(event, session_with_answer, cohost_field),
+            data={
+                "field": cohost_field.pk,
+                "cofacilitator0_target": "new",
+                "cofacilitator0_name": "Jan Kowalski",
+                "cofacilitator0_pseudonim": "x" * (nickname.max_length + 1),
+                "cofacilitator1_target": "skip",
+            },
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/cofacilitator-resolve.html",
+            context_data={
+                **_event_context(event),
+                "session": _detail(
+                    session_with_answer, personal_fields=[_field_dto(nickname)]
+                ),
+                "chosen_field": _field_dto(cohost_field),
+                "rows": ANY,
+                "existing_facilitators": [],
+            },
+        )
+        assert not Facilitator.objects.filter(display_name="Jan Kowalski").exists()
+
 
 class TestCofacilitatorClearActionView:
     """Tests for the button that empties a resolved answer."""
@@ -445,6 +615,17 @@ class TestCofacilitatorClearActionView:
         )
 
         assert_not_a_manager(response)
+
+    def test_post_redirects_when_event_not_found(self, panel_client, event):
+        session = SessionFactory(event=event, category=None)
+        url = reverse(
+            "panel:cofacilitator-clear",
+            kwargs={"slug": "nonexistent", "session_id": session.pk},
+        )
+
+        response = panel_client.post(url, data={})
+
+        assert_event_not_found(response)
 
     def test_post_empties_the_answer(
         self, panel_client, event, session_with_answer, cohost_field
