@@ -436,3 +436,6 @@ If you fix a papercut, remove it.
   state the first run had already toggled — it looks like a code regression, and
   cost a round of ruling out an unrelated diff. Re-prep before a second full
   run, or the suite is only trustworthy once per seed.
+- 2026-08-31: e2e reused an already-running :8000 server, so test:e2e ran
+  against stale Python/templates and a new assertion failed with 'element not
+  found'; only test:e2e:kill + rerun made it pass
