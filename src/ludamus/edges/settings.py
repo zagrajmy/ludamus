@@ -358,26 +358,6 @@ if not _media_url_has_supported_path or not (
         "MEDIA_URL must be a root-relative path or an HTTP(S) URL ending in '/'."
     )
 
-# Top-level route prefixes registered ahead of the local-media `serve` route in
-# gates/web/django/urls.py; a colliding MEDIA_URL would never reach `serve`.
-_RESERVED_MEDIA_URL_PREFIXES = (
-    "healthz/",
-    "panel/",
-    "multiverse/",
-    "mcp/",
-    "admin/",
-    "chronology/",
-)
-if _media_url_is_local and any(
-    _media_url_parts.path.removeprefix("/").startswith(prefix)
-    for prefix in _RESERVED_MEDIA_URL_PREFIXES
-):
-    _RESERVED_MEDIA_URL_MESSAGE = (
-        "MEDIA_URL must not collide with a reserved application route "
-        f"({', '.join(_RESERVED_MEDIA_URL_PREFIXES)})."
-    )
-    raise ImproperlyConfigured(_RESERVED_MEDIA_URL_MESSAGE)
-
 STATICFILES_DIRS = [BASE_DIR / "static"]
 
 # URL prefixes that skip middleware processing (UoW injection, context setup)
