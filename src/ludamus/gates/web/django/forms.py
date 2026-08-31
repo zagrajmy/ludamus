@@ -250,7 +250,8 @@ class EventSettingsForm(forms.Form):
     )
 
     def clean_address(self) -> str:
-        return "\n".join(str(self.cleaned_data.get("address") or "").splitlines())
+        lines = str(self.cleaned_data.get("address") or "").splitlines()
+        return "\n".join(stripped for line in lines if (stripped := line.strip()))
 
     cover_image = cover_image_field()
     logo = logo_field()

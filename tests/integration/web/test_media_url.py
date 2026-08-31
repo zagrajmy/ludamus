@@ -114,7 +114,8 @@ class TestMediaUrl:
         assert "MEDIA_URL must be a root-relative path" in completed.stderr
 
     @pytest.mark.parametrize(
-        "media_url", ("/admin/", "/panel/", "/panel/uploads/", "/mcp/", "/healthz/")
+        "media_url",
+        ("/admin/", "/panel/", "/panel/uploads/", "/mcp/", "/healthz/", "/chronology/"),
     )
     def test_rejects_media_url_colliding_with_reserved_routes(self, media_url: str):
         environment = os.environ | {"MEDIA_URL": media_url}

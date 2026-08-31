@@ -258,6 +258,23 @@ class TestEventSettingsPageViewPost:
         event.refresh_from_db()
         assert event.name == new_name
 
+    def test_normalizes_address_lines(self, panel_client, event):
+        response = panel_client.post(
+            self.get_url(event),
+            data=self._post_data(
+                event, address="  Hala Stulecia \r\n\r\n  Wystawowa 1  \r\n   \r\n"
+            ),
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Event settings saved successfully.")],
+            url=f"/panel/event/{event.slug}/settings/",
+        )
+        event.refresh_from_db()
+        assert event.address == "Hala Stulecia\nWystawowa 1"
+
     def test_updates_cover_image(self, panel_client, event):
         image = SimpleUploadedFile("cover.png", PNG_BYTES, content_type="image/png")
 

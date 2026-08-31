@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING
 
 from django.http import Http404, HttpResponse
 from django.urls import reverse
+from django.utils.cache import patch_cache_control, patch_vary_headers
 from django.views.generic.base import View
 
 from ludamus.gates.web.django.access import panel_access
@@ -64,4 +65,6 @@ class EventICSView(View):
             "\r\n".join(lines) + "\r\n", content_type="text/calendar; charset=utf-8"
         )
         response["Content-Disposition"] = f'attachment; filename="{event.slug}.ics"'
+        patch_cache_control(response, private=True, max_age=180)
+        patch_vary_headers(response, ["Cookie"])
         return response
