@@ -4830,12 +4830,7 @@ msgid "Delete integration"
 msgstr "Usuń integrację"
 
 #: src/ludamus/templates/chronology/panel/integrations/delete.html
-#, fuzzy, python-format
-#| msgid ""
-#| "\n"
-#| "                    Are you sure you want to delete integration "
-#| "\"%(name)s\"?\n"
-#| "                "
+#, python-format
 msgid ""
 "\n"
 "                        Are you sure you want to delete integration "
@@ -4843,8 +4838,8 @@ msgid ""
 "                    "
 msgstr ""
 "\n"
-"                    Czy na pewno chcesz usunąć integrację \"%(name)s\"?\n"
-"                "
+"                        Czy na pewno chcesz usunąć integrację \"%(name)s\"?\n"
+"                    "
 
 #: src/ludamus/templates/chronology/panel/integrations/delete.html
 msgid "Implementation:"

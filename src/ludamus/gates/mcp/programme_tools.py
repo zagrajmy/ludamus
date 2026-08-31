@@ -4,7 +4,7 @@ import base64
 import binascii
 import json
 from datetime import datetime
-from typing import TYPE_CHECKING, Literal, cast
+from typing import TYPE_CHECKING, Literal
 
 from django.core.files.base import ContentFile
 from django.utils.text import slugify
@@ -822,8 +822,9 @@ class OrganizerSetEventImageTool(Tool[_SetEventImageInput]):
     def handle(call: ToolCall[_SetEventImageInput]) -> str:
         event = token_event(services=call.services, actor=call.actor)
         upload = ContentFile(call.data.decoded_content(), name=call.data.filename)
-        field = "cover_image" if call.data.kind == "cover" else "logo"
-        data = cast("EventUpdateData", {field: upload})
+        data: EventUpdateData = (
+            {"cover_image": upload} if call.data.kind == "cover" else {"logo": upload}
+        )
         call.services.event_settings.update_general(
             sphere_id=actor_sphere(call.actor), slug=event.slug, data=data
         )
