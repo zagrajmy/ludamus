@@ -1,65 +1,68 @@
-"""Detecting forced single-choice fields for the tessera form renderer."""
+"""Reading a bound field's options: where the renderer knows their shape."""
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
-from django.template.loader import render_to_string
+from typing import TYPE_CHECKING, NamedTuple
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable, Iterator
-
     from django.forms import BoundField
+    from django.utils.functional import Promise
 
 
-def _flatten_choices(
-    choices: Iterable[tuple[object, object]],
-) -> Iterator[tuple[object, object]]:
-    for value, label in choices:
-        if isinstance(label, (list, tuple)):
-            yield from label  # optgroup: label is itself a list of (value, label)
-        else:
-            yield value, label
+class ChoiceGroup(NamedTuple):
+    """One optgroup, or a single ungrouped option under an empty label."""
+
+    label: str | Promise
+    options: list[tuple[object, str | Promise]]
 
 
-def single_required_choice(field: BoundField) -> tuple[object, str] | None:
-    """Return the only selectable choice when picking is a foregone conclusion.
+class SoleChoice(NamedTuple):
+    """The one option a field offers: what it submits, and what it is called."""
 
-    A required, editable field whose choices contain exactly one non-blank
-    option forces the user to "choose" the only thing available. The caller can
-    render the value as static text plus a hidden input instead of a dropdown or
-    radio group the user would have to operate.
+    value: object
+    label: str | Promise
+
+
+def grouped_choices(field: BoundField) -> list[ChoiceGroup]:
+    """Read a field's choices as groups.
+
+    Django nests an optgroup by making the label a list of its own
+    ``(value, label)`` pairs; an ungrouped option becomes a group of one under
+    an empty label, so a caller never has to tell the two apart.
 
     Returns:
-        ``(value, label)`` for the sole option, or ``None`` when the field is
-        optional, disabled, or offers a real choice.
+        The field's choices, every one of them inside a group.
     """
-    if not field.field.required or field.field.disabled:
+    groups = []
+    for value, label in getattr(field.field, "choices", []):
+        if isinstance(label, (list, tuple)):
+            # Caught once for every field this renderer draws, rather than
+            # in each builder that might leave a group unfilled.
+            if options := list(label):
+                groups.append(ChoiceGroup(label=value, options=options))
+        else:
+            groups.append(ChoiceGroup(label="", options=[(value, label)]))
+    return groups
+
+
+def sole_required_choice(field: BoundField) -> SoleChoice | None:
+    """Return the option a field carries instead of asking for it.
+
+    The single answer to "has this field stopped asking?", so the renderer
+    that drops the control and the page that names the value in its place
+    cannot disagree — a rejected field renders in full, and prose calling it
+    settled would contradict the error beside it.
+
+    Returns:
+        The value and its label, or ``None`` when the field is optional,
+        disabled, rejected, or leaves the user a choice to make.
+    """
+    if not field.field.required or field.field.disabled or field.errors:
         return None
     real = [
         (value, label)
-        for value, label in _flatten_choices(getattr(field.field, "choices", []))
+        for group in grouped_choices(field)
+        for value, label in group.options
         if value not in {"", None}
     ]
-    if len(real) != 1:
-        return None
-    value, label = real[0]
-    return value, str(label)
-
-
-def render_forced_choice(field: BoundField, forced: tuple[object, str]) -> str:
-    """Render a forced single choice: a hidden input plus static display.
-
-    Returns:
-        HTML string with the submitted value and its read-only display.
-    """
-    value, label = forced
-    return render_to_string(
-        "components/forced-choice.html",
-        {
-            "name": field.html_name,
-            "id": field.id_for_label,
-            "value": value,
-            "label": label,
-        },
-    )
+    return SoleChoice(*real[0]) if len(real) == 1 else None

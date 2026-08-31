@@ -16,6 +16,11 @@ if TYPE_CHECKING:
 
     from ludamus.pacts.enrollment import PromotionStateDTO, WaitingParticipantDTO
 
+# How long a "no membership" answer stands before the ticketing API is asked
+# again. Someone who buys a membership mid-event waits at most this long for
+# their slots to appear.
+MEMBERSHIP_CHECK_INTERVAL_MINUTES = 15
+
 
 def _is_eligible(
     participant: WaitingParticipantDTO,

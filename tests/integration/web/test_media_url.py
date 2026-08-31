@@ -112,3 +112,20 @@ class TestMediaUrl:
 
         assert completed.returncode != 0
         assert "MEDIA_URL must be a root-relative path" in completed.stderr
+
+    @pytest.mark.parametrize(
+        "media_url", ("/admin/", "/panel/", "/panel/uploads/", "/mcp/", "/healthz/")
+    )
+    def test_rejects_media_url_colliding_with_reserved_routes(self, media_url: str):
+        environment = os.environ | {"MEDIA_URL": media_url}
+
+        completed = subprocess.run(
+            [sys.executable, "-c", INSPECT_MEDIA_SETTINGS],
+            check=False,
+            capture_output=True,
+            env=environment,
+            text=True,
+        )
+
+        assert completed.returncode != 0
+        assert "reserved application route" in completed.stderr

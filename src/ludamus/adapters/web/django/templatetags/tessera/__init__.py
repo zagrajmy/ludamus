@@ -22,6 +22,7 @@ Usage:
     {% tessera_field form.name %}
     {% tessera_button "Submit" %}
     {% tessera_errors form %}
+    {% tessera_sole_choice form.space as space %}
 """
 
 from ._registry import register
@@ -33,7 +34,13 @@ from .action_dropdown import (
 from .combobox import ComboboxNode, do_combobox
 from .copy import copy_lines, tessera_copy, tessera_copy_chip, tessera_copy_popover
 from .dynamic_field import dynamic_field
-from .form import tessera_button, tessera_errors, tessera_field, tessera_form
+from .form import (
+    tessera_button,
+    tessera_errors,
+    tessera_field,
+    tessera_form,
+    tessera_sole_choice,
+)
 from .icon import icon
 from .icon_button import tessera_icon_button
 from .icon_toggle import tessera_icon_toggle
@@ -80,5 +87,6 @@ __all__ = [
     "tessera_icon_button",
     "tessera_icon_toggle",
     "tessera_segment",
+    "tessera_sole_choice",
     "tessera_switcher",
 ]

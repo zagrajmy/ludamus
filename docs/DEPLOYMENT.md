@@ -193,12 +193,9 @@ One-time migration of existing media to GCS:
 gsutil -m rsync -r /var/lib/ludamus/media gs://<bucket>/<location>
 ```
 
-**Membership API:**
-
-- `MEMBERSHIP_API_BASE_URL` — external API URL — L(opt) D(opt) P
-- `MEMBERSHIP_API_TOKEN` — API auth token — L(opt) D(opt) P
-- `MEMBERSHIP_API_TIMEOUT` — timeout in seconds, default `30` — P(opt)
-- `MEMBERSHIP_API_CHECK_INTERVAL` — minutes, default `15` — P(opt)
+Ticketing (membership lookups) is configured per event in the organizer panel —
+a sphere Connection holds the API token, the event's Integration holds the base
+URL — not through environment variables.
 
 **PostHog analytics — Prologue** (optional, any scope):
 

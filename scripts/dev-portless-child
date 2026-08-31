@@ -67,7 +67,6 @@ with transaction.atomic():
         swap_domains(root_holder, canonical_site)
         canonical_site.refresh_from_db()
 
-    current_sphere = Sphere.objects.select_related("site").get(site=canonical_site)
     if requested_sphere:
         if requested_sphere.isdecimal():
             target_sphere = (
@@ -76,16 +75,26 @@ with transaction.atomic():
                 .first()
             )
         else:
-            target_sphere = (
-                Sphere.objects.select_related("site")
-                .filter(name__iexact=requested_sphere)
-                .first()
+            name_matches = list(
+                Sphere.objects.select_related("site").filter(
+                    name__iexact=requested_sphere
+                )[:2]
             )
+            if len(name_matches) > 1:
+                raise SystemExit(
+                    f"Multiple spheres match {requested_sphere!r} by name; "
+                    "pass the sphere id (DEV_SPHERE=<pk>) instead."
+                )
+            target_sphere = name_matches[0] if name_matches else None
         if target_sphere is None:
             raise SystemExit(f"No sphere matches {requested_sphere!r} by id or name.")
         if target_sphere.site_id != canonical_site.pk:
             swap_domains(canonical_site, target_sphere.site)
         current_sphere = target_sphere
+    else:
+        current_sphere = Sphere.objects.select_related("site").get(
+            site=canonical_site
+        )
 
 print(f"[dev] sphere={current_sphere.name!r} root={root_domain}", file=sys.stderr)
 PY

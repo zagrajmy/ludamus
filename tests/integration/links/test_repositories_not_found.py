@@ -14,6 +14,7 @@ from ludamus.links.db.django.models import (
     SessionField,
 )
 from ludamus.links.db.django.repositories import (
+    EventIntegrationsRepository,
     EventRepository,
     ProposalCategoryRepository,
     SessionRepository,
@@ -107,6 +108,18 @@ class TestEventRepositoryNotFound:
     def test_update_raises_when_event_missing(self):
         with pytest.raises(NotFoundError):
             EventRepository.update(MISSING_ID, EventUpdateData())
+
+
+class TestEventIntegrationsRepositoryNotFound:
+    def test_update_last_run_raises_when_integration_missing(self, event):
+        with pytest.raises(NotFoundError):
+            EventIntegrationsRepository.update_last_run(
+                event_id=event.pk, pk=MISSING_ID, last_run_json="{}"
+            )
+
+    def test_get_for_update_raises_when_integration_missing(self, event):
+        with pytest.raises(NotFoundError):
+            EventIntegrationsRepository.get_for_update(event.pk, MISSING_ID)
 
 
 class TestProposalCategoryRepositoryWriteSideEffects:

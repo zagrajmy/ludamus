@@ -209,6 +209,8 @@ class AgendaItemDTO(BaseModel):
     session_duration_minutes: int = 0
     session_status: "SessionStatus | None" = None
     category_name: str | None = None
+    category_id: int | None = None
+    session_min_age: int = 0
 
 
 class SessionDTO(BaseModel):
@@ -850,6 +852,8 @@ class SessionRepositoryProtocol(Protocol):
     def restore(pk: int, event_pk: int) -> None: ...
     @staticmethod
     def list_deleted_by_event(event_pk: int) -> list[SessionListItemDTO]: ...
+    @staticmethod
+    def list_alive_pks_by_event(event_pk: int) -> list[int]: ...
     @staticmethod
     def list_by_facilitator(facilitator_id: int) -> list[SessionListItemDTO]: ...
     @staticmethod
@@ -1677,7 +1681,7 @@ class UnitOfWorkProtocol(Protocol):
 
 
 class TicketAPIProtocol(Protocol):
-    def fetch_membership_count(self, user_email: str) -> int: ...
+    def fetch_membership_count(self, user_email: str, /) -> int: ...
 
 
 DEFAULT_FIELD_MAX_LENGTH = 50
@@ -1694,8 +1698,6 @@ class DependencyInjectorProtocol(Protocol):
     @property
     def uow(self) -> UnitOfWorkProtocol: ...
     @property
-    def ticket_api(self) -> TicketAPIProtocol: ...
-    @property
     def cache(self) -> CacheProtocol: ...
     @staticmethod
     def gravatar_url(email: str) -> str | None: ...
@@ -1710,9 +1712,13 @@ class RootRequestProtocol(Protocol):
 
 @dataclass
 class VirtualEnrollmentConfig:
-    allowed_slots: int = 0
-    has_domain_config: bool = False
-    has_user_config: bool = False
+    user_slots: int = 0
+    domain_slots: int = 0
+    domain: str = ""
+
+    @property
+    def allowed_slots(self) -> int:
+        return self.user_slots + self.domain_slots
 
 
 class MembershipAPIError(Exception):
