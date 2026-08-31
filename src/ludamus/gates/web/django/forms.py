@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, Any, ClassVar, Literal, cast
 from django import forms
 from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator
-from django.utils.translation import gettext as _gettext
+from django.utils.translation import gettext
 from django.utils.translation import gettext_lazy as _
 from lxml import etree
 from PIL import Image, UnidentifiedImageError
@@ -41,6 +41,9 @@ if TYPE_CHECKING:
     from ludamus.pacts.multiverse import ConnectionDTO
 
 _DATETIME_LOCAL_FORMATS = ["%Y-%m-%dT%H:%M", "%Y-%m-%dT%H:%M:%S"]
+# The hero prints the address under the venue name, where a third line
+# pushes the CTAs off a phone screen.
+MAX_ADDRESS_LINES = 2
 # Image-upload invariants (business rules, not gate trivia): every cover/header
 # upload across the app is held to these same limits via validate_uploaded_image.
 MAX_IMAGE_SIZE = 8 * 1024 * 1024
@@ -68,7 +71,7 @@ STORAGE_LIMIT_VALIDATOR = MaxValueValidator(
 def validate_uploaded_image_size(image: object) -> None:
     size = getattr(image, "size", 0)
     if isinstance(size, int) and size > MAX_IMAGE_SIZE:
-        raise ValidationError(_gettext("Image too large. Maximum size is 8 MB."))
+        raise ValidationError(gettext("Image too large. Maximum size is 8 MB."))
 
 
 def _validate_raster(
@@ -77,7 +80,7 @@ def _validate_raster(
     if image_format not in ALLOWED_IMAGE_FORMATS:
         raise ValidationError(format_error)
     if pixels > MAX_IMAGE_PIXELS:
-        raise ValidationError(_gettext("Image dimensions are too large."))
+        raise ValidationError(gettext("Image dimensions are too large."))
 
 
 def validate_uploaded_image_format(image: object) -> None:
@@ -88,7 +91,7 @@ def validate_uploaded_image_format(image: object) -> None:
     _validate_raster(
         image_format=getattr(pil_image, "format", None),
         pixels=getattr(pil_image, "width", 0) * getattr(pil_image, "height", 0),
-        format_error=_gettext("Unsupported image format. Use JPG, PNG, WebP, or AVIF."),
+        format_error=gettext("Unsupported image format. Use JPG, PNG, WebP, or AVIF."),
     )
 
 
@@ -134,7 +137,7 @@ def _validate_uploaded_svg(uploaded: UploadedFile[bytes]) -> None:
         # already capped by validate_uploaded_image_size.
         root = etree.fromstring(uploaded.read(), _SVG_PARSER)
     except etree.XMLSyntaxError as error:
-        raise ValidationError(_gettext("Invalid or unsafe SVG file.")) from error
+        raise ValidationError(gettext("Invalid or unsafe SVG file.")) from error
     finally:
         uploaded.seek(0)
     if (
@@ -144,7 +147,7 @@ def _validate_uploaded_svg(uploaded: UploadedFile[bytes]) -> None:
             _svg_element_is_safe(element) for element in root.iter(etree.Element)
         )
     ):
-        raise ValidationError(_gettext("Invalid or unsafe SVG file."))
+        raise ValidationError(gettext("Invalid or unsafe SVG file."))
 
 
 def _validate_uploaded_raster_logo(uploaded: UploadedFile[bytes]) -> None:
@@ -160,7 +163,7 @@ def _validate_uploaded_raster_logo(uploaded: UploadedFile[bytes]) -> None:
     _validate_raster(
         image_format=image_format,
         pixels=pixels,
-        format_error=_gettext(
+        format_error=gettext(
             "Unsupported image format. Use JPG, PNG, WebP, AVIF, or SVG."
         ),
     )
@@ -260,6 +263,22 @@ class EventSettingsForm(forms.Form):
     description = forms.CharField(
         required=False, widget=forms.Textarea(attrs={"rows": 3})
     )
+    address = forms.CharField(
+        max_length=255,
+        required=False,
+        strip=True,
+        label=_("Address"),
+        help_text=_("Venue address, two lines at most. Shown with a map link."),
+        widget=forms.Textarea(attrs={"rows": MAX_ADDRESS_LINES}),
+    )
+
+    def clean_address(self) -> str:
+        lines = str(self.cleaned_data.get("address") or "").splitlines()
+        kept = [stripped for line in lines if (stripped := line.strip())]
+        if len(kept) > MAX_ADDRESS_LINES:
+            raise ValidationError(gettext("An address can have at most two lines."))
+        return "\n".join(kept)
+
     cover_image = cover_image_field()
     logo = logo_field()
     start_time = forms.DateTimeField(
