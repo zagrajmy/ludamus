@@ -155,11 +155,12 @@
         </div>
     </div>
     {% for notice in enrollment_notices %}
-        {# One muted line, not a panel. This is standing context for the whole #}
-        {# event — an organizer writes it once and it sits there for weeks — #}
-        {# and a coloured box per notice pushed the schedule off the first #}
-        {# screen of the page people came to read the schedule on. #}
-        <p class="mb-3 flex gap-1.5 text-sm text-foreground-muted">
+        {# A line in the info colour, not a panel in the info colour. This is #}
+        {# standing context for the whole event — an organizer writes it once #}
+        {# and it sits there for weeks — and a box per notice pushed the #}
+        {# schedule off the first screen of the page people came to read the #}
+        {# schedule on. #}
+        <p class="mb-3 flex gap-1.5 text-sm text-info-text">
             {% icon "information-circle" class="size-4 shrink-0 mt-0.5" variant="mini" %}
             <span>{{ notice|linebreaksbr }}</span>
         </p>
