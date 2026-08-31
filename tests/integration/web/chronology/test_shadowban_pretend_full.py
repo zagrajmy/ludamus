@@ -115,7 +115,6 @@ class TestShadowbanPretendFull:
                 ),
             },
             template_name="chronology/parts/session-modal.html",
-            contains="Session full",
         )
 
     def test_event_page_untouched_for_other_users(

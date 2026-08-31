@@ -71,6 +71,7 @@ from ludamus.links.db.django.models import (
     SessionParticipationStatus,
 )
 from ludamus.links.db.django.repositories.chronology import (
+    eligible_window_ids,
     location_data,
     public_scheduled_sessions,
 )
@@ -96,7 +97,11 @@ from ludamus.pacts import (
     TimeSlotDTO,
 )
 from ludamus.pacts.crowd import CompanionDTO, UserDTO, UserType
-from ludamus.pacts.enrollment import SeatHoldRequest
+from ludamus.pacts.enrollment import (
+    NO_ENROLLMENT_ACCESS,
+    EnrollmentAccessDTO,
+    SeatHoldRequest,
+)
 from ludamus.pacts.ids import EventId, SessionId, UserId
 from ludamus.pacts.party import (
     PartyConsentMode,
@@ -299,7 +304,7 @@ class EventPageView(EventsPageRequiredMixin, DetailView):  # type: ignore [type-
         # Get session data objects that include enrollment status; the
         # hour grouping reuses them instead of rebuilding every DTO.
         sessions_data = self._get_session_data(
-            event_sessions, shadowbanned_ids, open_window_ids=access.open_window_ids
+            event_sessions, shadowbanned_ids, access=access
         )
 
         # Hard event ban: a banned viewer sees every session as full (with
@@ -501,10 +506,10 @@ class EventPageView(EventsPageRequiredMixin, DetailView):  # type: ignore [type-
         # the viewer shadowbanned would be ringed on their scheduled card and
         # clean on their proposal, on the same page.
         # A proposal holds no agenda item, so no window can seat it yet and
-        # the viewer's own set never reaches the card.
+        # no viewer's windows reach the card.
         return list(
             self._get_session_data(
-                proposals, shadowbanned_ids, open_window_ids=frozenset()
+                proposals, shadowbanned_ids, access=NO_ENROLLMENT_ACCESS
             ).values()
         )
 
@@ -631,7 +636,7 @@ class EventPageView(EventsPageRequiredMixin, DetailView):  # type: ignore [type-
         event_sessions: QuerySet[Session],
         shadowbanned_ids: frozenset[UserId] = frozenset(),
         *,
-        open_window_ids: frozenset[int],
+        access: EnrollmentAccessDTO,
     ) -> dict[int, SessionData]:
         event_override = self.object.allow_facilitator_session_edit
         sphere_default = self.object.sphere.allow_facilitator_session_edit
@@ -688,18 +693,12 @@ class EventPageView(EventsPageRequiredMixin, DetailView):  # type: ignore [type-
                 track_names=[t.name for t in session.tracks.all()],
                 category_name=session.category.name if session.category else "",
                 # is_session_eligible dereferences agenda_item, and an
-                # unscheduled proposal can't be enrolled in anyway. The windows
-                # that can seat it are intersected with the viewer's own: a
-                # session inside a restricted window is not available to
-                # someone that window turns away.
+                # unscheduled proposal can't be enrolled in anyway. A session
+                # inside a window that turns this viewer away is not available
+                # to them, whatever its seat count says.
                 is_enrollment_available=(
                     agenda_item is not None
-                    and any(
-                        config.pk in open_window_ids
-                        for config in self.object.get_eligible_enrollment_configs(
-                            session
-                        )
-                    )
+                    and access.seats(eligible_window_ids(session))
                 ),
                 is_full=session.is_full,
                 loc=loc,
@@ -1124,11 +1123,9 @@ class SessionEnrollPageView(EventsPageRequiredMixin, LoginRequiredMixin, View):
         )
         footer = build_enroll_footer(
             opens_at=access.opens_at,
-            takes_enrollment=session.participants_limit > 0,
-            is_enrollment_available=any(
-                config.pk in access.open_window_ids
-                for config in session.event.get_eligible_enrollment_configs(session)
-            ),
+            is_scheduled=True,
+            participants_limit=session.participants_limit,
+            is_enrollment_available=access.seats(eligible_window_ids(session)),
             is_ended=session.agenda_item.end_time <= datetime.now(tz=UTC),
             is_full=session.is_full,
             user_enrolled=SessionParticipationStatus.CONFIRMED in statuses,

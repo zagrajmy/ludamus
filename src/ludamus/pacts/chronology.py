@@ -325,10 +325,10 @@ class SessionCardStatsDTO(BaseModel):
     enrolled_count: int
     waiting_count: int
     is_full: bool
-    is_enrollment_available: bool
-    # The windows that can seat this session, by id. A viewer's own open
-    # windows intersected with these answer "can *I* enroll in *this*", which
-    # neither set answers alone.
+    # The windows that can seat this session, by id — not whether enrollment
+    # is available, which is a question about a viewer. Intersecting these
+    # with the viewer's own open windows is the only way to that answer, so
+    # every reader has to state whose windows it means.
     enrollment_window_ids: frozenset[int]
     effective_participants_limit: int
 

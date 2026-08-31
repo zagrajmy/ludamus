@@ -46,14 +46,15 @@ class SessionModalComponentView(EventsPageRequiredMixin, View):
             event_banned=event_banned,
             banned_presenter_ids=banned_by,
             shadowbanned_ids=shadowbanned_ids,
-            open_window_ids=access.open_window_ids,
+            access=access,
             guild=request.services.guilds.mark_for_session(
                 sphere_id=request.context.current_sphere_id, session_pk=session_id
             ),
         )
         footer = build_enroll_footer(
             opens_at=access.opens_at,
-            takes_enrollment=data.takes_enrollment,
+            is_scheduled=not data.is_unscheduled,
+            participants_limit=data.session.participants_limit,
             is_enrollment_available=data.is_enrollment_available,
             is_ended=data.is_ended,
             is_full=data.is_full,

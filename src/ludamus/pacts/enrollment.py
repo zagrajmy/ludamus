@@ -331,6 +331,19 @@ class EnrollmentAccessDTO(BaseModel):
     def can_enroll_now(self) -> bool:
         return bool(self.open_window_ids)
 
+    def seats(self, window_ids: frozenset[int]) -> bool:
+        """Answer whether one of those windows can seat this viewer now.
+
+        Returns:
+            True when a window that can seat the session is also open to them.
+        """
+        return bool(self.open_window_ids & window_ids)
+
+
+# What a page with no enrollment window to offer reports: a proposal nobody
+# can sign up for yet, a party's history read outside any event's windows.
+NO_ENROLLMENT_ACCESS = EnrollmentAccessDTO(open_window_ids=frozenset(), opens_at=None)
+
 
 class EnrollmentServiceProtocol(Protocol):
     def read_viewer(self, slug: str) -> UserDTO: ...

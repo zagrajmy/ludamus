@@ -26,6 +26,7 @@ if TYPE_CHECKING:
         SessionModalDTO,
     )
     from ludamus.pacts.crowd import UserDTO
+    from ludamus.pacts.enrollment import EnrollmentAccessDTO
     from ludamus.pacts.guild import GuildMarkDTO
     from ludamus.pacts.ids import EventId, UserId
 
@@ -392,6 +393,11 @@ def present_party_history(
     banned_event_ids: set[EventId],
     banned_presenter_ids: set[UserId],
 ) -> list[PartyHistoryGroup]:
+    # Nobody enrolls from a party's history: it is the seats the party holds,
+    # across events whose windows this page never asked about. So its cards
+    # state capacity and never "N spots left", which is a claim about a window
+    # being open to the reader.
+
     now = datetime.now(tz=UTC)
     return [
         PartyHistoryGroup(
@@ -426,7 +432,7 @@ def _party_history_card(item: PartySessionHistoryDTO, *, now: datetime) -> Sessi
         )
     return SessionData(
         agenda_item=item.agenda_item,
-        is_enrollment_available=item.is_enrollment_available,
+        is_enrollment_available=False,
         presenter=presenter,
         session=item.session,
         is_full=item.is_full,
@@ -454,10 +460,10 @@ def present_session_modal(
     event_banned: bool,
     banned_presenter_ids: set[UserId],
     shadowbanned_ids: frozenset[UserId],
-    # The viewer's own open windows. A window restricted to pass holders can
-    # seat this session without being open to the person reading the page, so
+    # The viewer's own windows. A window restricted to pass holders can seat
+    # this session without being open to the person reading the page, so
     # availability is theirs, not the session's.
-    open_window_ids: frozenset[int],
+    access: EnrollmentAccessDTO,
     guild: GuildMarkDTO | None = None,
 ) -> SessionData:
     if dto.presenter is not None:
@@ -475,7 +481,7 @@ def present_session_modal(
         )
     card = SessionData(
         agenda_item=dto.agenda_item,
-        is_enrollment_available=bool(dto.enrollment_window_ids & open_window_ids),
+        is_enrollment_available=access.seats(dto.enrollment_window_ids),
         presenter=presenter,
         session=dto.session,
         is_full=dto.is_full,

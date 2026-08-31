@@ -144,18 +144,23 @@ def location_data(space: Space) -> LocationData:
     )
 
 
-def session_card_stats(session: Session) -> SessionCardStatsDTO:
-    window_ids = frozenset(
+def eligible_window_ids(session: Session) -> frozenset[int]:
+    """Name the enrollment windows that can seat this session.
+
+    Returns:
+        The window ids, to be intersected with a viewer's own open windows.
+    """
+    return frozenset(
         config.pk for config in session.event.get_eligible_enrollment_configs(session)
     )
+
+
+def session_card_stats(session: Session) -> SessionCardStatsDTO:
     return SessionCardStatsDTO(
         enrolled_count=session.enrolled_count,
         waiting_count=session.waiting_count,
         is_full=session.is_full,
-        # The same answer session.is_enrollment_available gives, read off the
-        # windows that produced it so the two cannot drift apart.
-        is_enrollment_available=bool(window_ids),
-        enrollment_window_ids=window_ids,
+        enrollment_window_ids=eligible_window_ids(session),
         effective_participants_limit=session.effective_participants_limit,
     )
 

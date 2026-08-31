@@ -157,14 +157,19 @@ class EnrollFooter:
 def build_enroll_footer(
     *,
     opens_at: datetime | None,
-    takes_enrollment: bool,
+    is_scheduled: bool,
+    participants_limit: int,
     is_enrollment_available: bool,
     is_ended: bool,
     is_full: bool,
     user_enrolled: bool,
     user_waiting: bool,
 ) -> EnrollFooter:
-    """Decide the footer once, for every path that renders it."""
+    """Decide the footer once, for every path that renders it.
+
+    Returns:
+        The one thing the footer offers: an action, a date, or neither.
+    """
     actions = build_enroll_actions(
         is_enrollment_available=is_enrollment_available,
         is_ended=is_ended,
@@ -172,6 +177,10 @@ def build_enroll_footer(
         user_enrolled=user_enrolled,
         user_waiting=user_waiting,
     )
+    # A session with no seat to take never waits for a window, and one that
+    # has ended is done waiting. Derived here rather than taken as a fact, so
+    # two callers cannot spell it two ways.
+    takes_enrollment = is_scheduled and participants_limit > 0
     return EnrollFooter(
         actions=actions,
         opens_at=(
