@@ -31,6 +31,9 @@
     <div class="relative rounded-3xl shadow-xl overflow-hidden mb-6 sm:mb-8 bg-bg-secondary"
          style="box-shadow: var(--shadow-elevated)">
         {% if event.cover_image_url %}
+            {# NOTE: the widest and narrowest crops a cover meets are this banner's, #}
+            {# and components/file-dropzone.html draws its safe zone from them. #}
+            {# Changing these heights moves the guide people upload against. #}
             <div class="h-56 sm:h-72 bg-cover bg-center"
                  style="background-image: url('{{ event.cover_image_url }}')"></div>
         {% endif %}

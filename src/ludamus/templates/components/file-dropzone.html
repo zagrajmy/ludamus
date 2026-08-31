@@ -3,7 +3,7 @@
 <label for="{{ id }}"
        data-dropzone
        data-state="{{ dropzone_state }}"
-       class="group relative flex flex-col items-center justify-center w-full min-h-44 sm:min-h-48 {% if safe_zone %}data-[state=image]:aspect-video{% endif %} px-4 py-6 bg-bg-tertiary border border-border rounded-lg cursor-pointer transition-colors hover:bg-bg-secondary hover:border-primary/40 has-[input[aria-invalid=true]]:border-danger overflow-hidden">
+       class="group relative flex flex-col items-center justify-center w-full min-h-44 sm:min-h-48 {% if safe_zone %}data-[state=image]:min-h-0 data-[state=image]:aspect-video{% endif %} px-4 py-6 bg-bg-tertiary border border-border rounded-lg cursor-pointer transition-colors hover:bg-bg-secondary hover:border-primary/40 has-[input[aria-invalid=true]]:border-danger overflow-hidden">
     <input type="file"
            id="{{ id }}"
            name="{{ name }}"
@@ -46,13 +46,13 @@
                 <p data-dropzone-size class="text-xs text-white/75"></p>
             </div>
             {% if safe_zone %}
-                {# Center 70%x40% of a 16:9 upload: the part every centered crop keeps. #}
+                {# NOTE: center 70%x40% of a 16:9 upload, the part every centered crop keeps. #}
                 {# Narrowest crop is the phone event banner (288/224 = 1.29 -> 72% of #}
                 {# the width), widest is the desktop one (1216/288 = 4.2 -> 42% of the #}
                 {# height); both rounded down for slack. #}
                 <div data-dropzone-safe-zone
                      aria-hidden="true"
-                     class="pointer-events-none absolute inset-x-[15%] inset-y-[30%] rounded-sm border border-dashed border-white/50 mix-blend-difference">
+                     class="pointer-events-none absolute inset-x-[15%] inset-y-[30%] rounded-sm border border-dashed border-white/70 drop-shadow-[0_0_1px_rgba(0,0,0,0.7)]">
                 </div>
             {% endif %}
             <button type="button"
