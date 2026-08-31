@@ -313,6 +313,22 @@ class EnrollmentRepos:
     ticket_api_resolver: TicketApiResolverProtocol
 
 
+class EnrollmentAccessDTO(BaseModel):
+    """When the viewer may enroll, across the windows that apply to them.
+
+    A restricted window is open for its configured users only, so the same
+    event answers this differently per viewer.
+    """
+
+    can_enroll_now: bool
+    # Start of the next window the viewer may use; None when none is coming.
+    opens_at: datetime | None
+
+    @property
+    def has_window(self) -> bool:
+        return self.can_enroll_now or self.opens_at is not None
+
+
 class EnrollmentServiceProtocol(Protocol):
     def read_viewer(self, slug: str) -> UserDTO: ...
 
@@ -323,6 +339,8 @@ class EnrollmentServiceProtocol(Protocol):
     ) -> VirtualEnrollmentConfig | None: ...
 
     def has_slot_access(self, *, event: EventDTO, user_email: str) -> bool: ...
+
+    def access(self, *, event: EventDTO, user_email: str) -> EnrollmentAccessDTO: ...
 
     def can_enroll_users(
         self,

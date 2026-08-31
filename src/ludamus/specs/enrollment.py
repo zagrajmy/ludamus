@@ -1,17 +1,20 @@
-"""Business invariants for waiting-list promotion.
+"""Business invariants for enrollment: waiting-list promotion and windows.
 
-Pure, IO-free selection logic consumed only by the `WaitlistPromotionService`
-mill. Decides which waiting parties get a freed seat, honouring strict FIFO and
-the whole-party rule (a party is promoted only when all its still-eligible
-members fit at once).
+Pure, IO-free logic consumed only by the enrollment mills. Decides which
+waiting parties get a freed seat — honouring strict FIFO and the whole-party
+rule (a party is promoted only when all its still-eligible members fit at
+once) — and which enrollment windows a given viewer may use.
 """
 
 from __future__ import annotations
 
 from collections import Counter
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Literal, Protocol
+
+from ludamus.pacts.enrollment import EnrollmentAccessDTO
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable
     from datetime import datetime
 
     from ludamus.pacts.enrollment import PromotionStateDTO, WaitingParticipantDTO
@@ -124,3 +127,29 @@ def select_promotable_parties(
 
 def is_valid_window_period(*, start_time: datetime, end_time: datetime) -> bool:
     return start_time < end_time
+
+
+class TimedEnrollmentWindow(Protocol):
+    end_time: datetime
+    restrict_to_configured_users: bool
+    start_time: datetime
+
+
+def enrollment_access(
+    *, windows: Iterable[TimedEnrollmentWindow], is_configured_user: bool, now: datetime
+) -> EnrollmentAccessDTO:
+    """Answer when this viewer may enroll, over the windows they may use."""
+    usable = [
+        window
+        for window in windows
+        if is_configured_user or not window.restrict_to_configured_users
+    ]
+    return EnrollmentAccessDTO(
+        can_enroll_now=any(
+            window.start_time <= now < window.end_time for window in usable
+        ),
+        opens_at=min(
+            (window.start_time for window in usable if window.start_time > now),
+            default=None,
+        ),
+    )

@@ -469,6 +469,9 @@ button:active {
     padding: 1rem;
     border-width: 1px;
     border-style: solid;
+    /* Trim the first and last line's half-leading so the padding above the
+       cap height matches the padding below the baseline. */
+    text-box: auto;
   }
 
   .alert-success {

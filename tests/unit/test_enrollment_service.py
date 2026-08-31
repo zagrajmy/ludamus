@@ -8,7 +8,7 @@ from ludamus.mills.enrollment import (
     get_vc_available_slots,
 )
 from ludamus.pacts.crowd import UserDTO, UserType
-from ludamus.pacts.enrollment import EnrollmentRepos
+from ludamus.pacts.enrollment import EnrollmentAccessDTO, EnrollmentRepos
 from ludamus.pacts.legacy import (
     DomainEnrollmentConfigDTO,
     EnrollmentConfigDTO,
@@ -17,6 +17,7 @@ from ludamus.pacts.legacy import (
     UserEnrollmentConfigDTO,
     VirtualEnrollmentConfig,
 )
+from ludamus.specs.enrollment import enrollment_access
 
 _NOW = datetime(2026, 6, 4, 12, 0, tzinfo=UTC)
 _EVENT_ID = 11
@@ -61,27 +62,33 @@ def _event(pk=_EVENT_ID):
     )
 
 
-def _enrollment_config(pk=5):
+def _enrollment_config(
+    pk=5,
+    *,
+    start_time=_NOW - timedelta(days=1),
+    end_time=_NOW + timedelta(days=1),
+    restrict_to_configured_users=True,
+):
     return EnrollmentConfigDTO(
         allow_anonymous_enrollment=False,
         banner_text="",
-        end_time=_NOW + timedelta(days=1),
+        end_time=end_time,
         event_id=_EVENT_ID,
         limit_to_end_time=False,
         max_waitlist_sessions=3,
         percentage_slots=100,
         pk=pk,
-        restrict_to_configured_users=True,
-        start_time=_NOW - timedelta(days=1),
+        restrict_to_configured_users=restrict_to_configured_users,
+        start_time=start_time,
     )
 
 
-def _user_config(allowed_slots):
+def _user_config(allowed_slots, *, last_check=_NOW):
     return UserEnrollmentConfigDTO(
         allowed_slots=allowed_slots,
         enrollment_config_id=5,
         fetched_from_api=False,
-        last_check=_NOW,
+        last_check=last_check,
         pk=17,
         user_email="viewer@example.com",
     )
@@ -153,9 +160,21 @@ class FakeEnrollmentConfigs:
         self._configs = list(configs)
         self._user_config = user_config
         self._domain_config = domain_config
+        self.created: list[dict] = []
+        self.updated: list[UserEnrollmentConfigDTO] = []
 
     def read_list(self, _event_id, **_time_window):
         return list(self._configs)
+
+    def create_user_config(self, user_enrollment_config):
+        self.created.append(dict(user_enrollment_config))
+        self._user_config = UserEnrollmentConfigDTO(
+            pk=17 + len(self.created), **user_enrollment_config
+        )
+        return self._user_config
+
+    def update_user_config(self, user_enrollment_config):
+        self.updated.append(user_enrollment_config)
 
     def read_user_config(self, _config, _user_email):
         return self._user_config
@@ -299,6 +318,59 @@ class TestSlotMath:
         assert available == 0
 
 
+class TestEnrollmentAccess:
+    def test_a_restricted_window_is_shut_for_a_viewer_without_passes(self):
+        access = enrollment_access(
+            windows=[_enrollment_config()], is_configured_user=False, now=_NOW
+        )
+
+        assert access == EnrollmentAccessDTO(can_enroll_now=False, opens_at=None)
+
+    def test_a_restricted_window_is_open_for_a_pass_holder(self):
+        access = enrollment_access(
+            windows=[_enrollment_config()], is_configured_user=True, now=_NOW
+        )
+
+        assert access == EnrollmentAccessDTO(can_enroll_now=True, opens_at=None)
+
+    def test_the_earliest_window_the_viewer_may_use_is_the_one_named(self):
+        general = _NOW + timedelta(days=2)
+        access = enrollment_access(
+            windows=[
+                _enrollment_config(
+                    pk=6,
+                    start_time=_NOW + timedelta(days=1),
+                    end_time=_NOW + timedelta(days=4),
+                ),
+                _enrollment_config(
+                    pk=7,
+                    start_time=general,
+                    end_time=_NOW + timedelta(days=5),
+                    restrict_to_configured_users=False,
+                ),
+            ],
+            is_configured_user=False,
+            now=_NOW,
+        )
+
+        assert access == EnrollmentAccessDTO(can_enroll_now=False, opens_at=general)
+
+    def test_a_window_that_has_ended_is_not_something_to_wait_for(self):
+        access = enrollment_access(
+            windows=[
+                _enrollment_config(
+                    start_time=_NOW - timedelta(days=3),
+                    end_time=_NOW - timedelta(days=2),
+                    restrict_to_configured_users=False,
+                )
+            ],
+            is_configured_user=False,
+            now=_NOW,
+        )
+
+        assert access == EnrollmentAccessDTO(can_enroll_now=False, opens_at=None)
+
+
 class TestEnrollmentService:
     def test_read_viewer_returns_user_by_slug(self):
         viewer = _user(1)
@@ -414,6 +486,155 @@ class TestEnrollmentService:
         service.virtual_config(event=_event(), user_email="viewer@example.com")
 
         assert resolver.seen == [(_EVENT_ID, 1)]
+
+    def test_virtual_config_sums_slots_across_open_windows(self):
+        slots = 4
+        service = _service(
+            enrollment_configs=FakeEnrollmentConfigs(
+                configs=[_enrollment_config(), _enrollment_config(pk=6)],
+                user_config=_user_config(slots),
+            )
+        )
+
+        config = service.virtual_config(event=_event(), user_email="viewer@example.com")
+
+        assert config == VirtualEnrollmentConfig(user_slots=slots + slots)
+
+    def test_virtual_config_combines_user_slots_with_domain_slots(self):
+        service = _service(
+            enrollment_configs=FakeEnrollmentConfigs(
+                configs=[_enrollment_config()],
+                user_config=_user_config(4),
+                domain_config=_domain_config(2),
+            )
+        )
+
+        config = service.virtual_config(event=_event(), user_email="viewer@example.com")
+
+        assert config == VirtualEnrollmentConfig(
+            user_slots=4, domain_slots=2, domain="example.com"
+        )
+
+    def test_virtual_config_stores_the_membership_the_api_reports(self):
+        configs = FakeEnrollmentConfigs(configs=[_enrollment_config()])
+        slots = 7
+        service = _service(
+            enrollment_configs=configs,
+            ticket_api_resolver=FakeTicketApiResolver(FakeTicketAPI(slots)),
+        )
+
+        config = service.virtual_config(event=_event(), user_email="viewer@example.com")
+
+        assert config == VirtualEnrollmentConfig(user_slots=slots)
+        assert [row["allowed_slots"] for row in configs.created] == [slots]
+        assert [row["fetched_from_api"] for row in configs.created] == [True]
+
+    def test_virtual_config_is_none_when_the_api_reports_no_membership(self):
+        configs = FakeEnrollmentConfigs(configs=[_enrollment_config()])
+        service = _service(
+            enrollment_configs=configs,
+            ticket_api_resolver=FakeTicketApiResolver(FakeTicketAPI(0)),
+        )
+
+        config = service.virtual_config(event=_event(), user_email="viewer@example.com")
+
+        assert config is None
+        # The row is stored all the same, so the next read is throttled
+        # instead of asking the API again.
+        assert [row["allowed_slots"] for row in configs.created] == [0]
+
+    def test_virtual_config_refetches_a_stale_row_granting_no_slots(self):
+        configs = FakeEnrollmentConfigs(
+            configs=[_enrollment_config()],
+            user_config=_user_config(0, last_check=_NOW - timedelta(days=10)),
+        )
+        slots = 7
+        ticket_api = FakeTicketAPI(slots)
+        service = _service(
+            enrollment_configs=configs,
+            ticket_api_resolver=FakeTicketApiResolver(ticket_api),
+        )
+
+        config = service.virtual_config(event=_event(), user_email="viewer@example.com")
+
+        assert config == VirtualEnrollmentConfig(user_slots=slots)
+        assert ticket_api.calls == ["viewer@example.com"]
+        assert [row.allowed_slots for row in configs.updated] == [slots]
+
+    def test_virtual_config_keeps_a_refetched_row_that_still_grants_nothing(self):
+        configs = FakeEnrollmentConfigs(
+            configs=[_enrollment_config()],
+            user_config=_user_config(0, last_check=_NOW - timedelta(days=10)),
+        )
+        service = _service(
+            enrollment_configs=configs,
+            ticket_api_resolver=FakeTicketApiResolver(FakeTicketAPI(0)),
+        )
+
+        config = service.virtual_config(event=_event(), user_email="viewer@example.com")
+
+        assert config is None
+        assert [row.allowed_slots for row in configs.updated] == [0]
+
+    def test_virtual_config_does_not_refetch_a_row_checked_recently(self):
+        ticket_api = FakeTicketAPI(7)
+        service = _service(
+            enrollment_configs=FakeEnrollmentConfigs(
+                configs=[_enrollment_config()],
+                user_config=_user_config(0, last_check=datetime.now(tz=UTC)),
+            ),
+            ticket_api_resolver=FakeTicketApiResolver(ticket_api),
+        )
+
+        config = service.virtual_config(event=_event(), user_email="viewer@example.com")
+
+        assert config is None
+        assert not ticket_api.calls
+
+    def test_access_names_the_open_window_a_pass_holder_may_use(self):
+        now = datetime.now(tz=UTC)
+        service = _service(
+            enrollment_configs=FakeEnrollmentConfigs(
+                configs=[
+                    _enrollment_config(
+                        start_time=now - timedelta(hours=1),
+                        end_time=now + timedelta(days=1),
+                    )
+                ],
+                user_config=_user_config(4),
+            )
+        )
+
+        access = service.access(event=_event(), user_email="viewer@example.com")
+
+        assert access == EnrollmentAccessDTO(can_enroll_now=True, opens_at=None)
+
+    def test_access_names_the_general_window_for_a_viewer_without_passes(self):
+        now = datetime.now(tz=UTC)
+        general_start = now + timedelta(days=2)
+        service = _service(
+            enrollment_configs=FakeEnrollmentConfigs(
+                configs=[
+                    _enrollment_config(
+                        start_time=now - timedelta(hours=1),
+                        end_time=now + timedelta(days=1),
+                    ),
+                    _enrollment_config(
+                        pk=6,
+                        start_time=general_start,
+                        end_time=now + timedelta(days=3),
+                        restrict_to_configured_users=False,
+                    ),
+                ]
+            ),
+            ticket_api_resolver=FakeTicketApiResolver(),
+        )
+
+        access = service.access(event=_event(), user_email="viewer@example.com")
+
+        assert access == EnrollmentAccessDTO(
+            can_enroll_now=False, opens_at=general_start
+        )
 
     def test_has_slot_access_false_without_email(self):
         ticket_api = FakeTicketAPI()

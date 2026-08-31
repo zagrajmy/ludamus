@@ -31,6 +31,7 @@ from ludamus.pacts import (
     TimeSlotDTO,
 )
 from ludamus.pacts.crowd import UserDTO
+from ludamus.pacts.enrollment import EnrollmentAccessDTO
 from ludamus.pacts.party import (
     EnrollmentPartyChoiceDTO,
     EnrollmentPartyMemberDTO,
@@ -45,6 +46,10 @@ from tests.integration.conftest import (
     UserFactory,
 )
 from tests.integration.utils import RequestTimeMatcher
+
+# What the event page reports about the viewer's own enrollment window.
+ENROLLMENT_SHUT = EnrollmentAccessDTO(can_enroll_now=False, opens_at=None)
+ENROLLMENT_OPEN = EnrollmentAccessDTO(can_enroll_now=True, opens_at=None)
 
 
 def session_card(agenda_item, *, presenter, **overrides):
@@ -123,8 +128,8 @@ def event_page_context(event, *, url, **overrides):
     current = overrides.pop("current_hour_data", {})
     future_unavailable = overrides.pop("future_unavailable_hour_data", {})
     context = {
+        "enrollment_access": ENROLLMENT_SHUT,
         "enrollment_notices": [],
-        "enrollment_requires_slots": False,
         "event": event,
         "filterable_tag_categories": [],
         "track_filter_names": [],
@@ -136,7 +141,6 @@ def event_page_context(event, *, url, **overrides):
         "pending_wizard_view": False,
         "own_pending_proposals": [],
         "sessions": [],
-        "user_enrollment_config": None,
         "total_enrolled": 0,
         "user_enrolled_sessions": [],
         "event_banned": False,

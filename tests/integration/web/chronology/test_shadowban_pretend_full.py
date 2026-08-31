@@ -10,6 +10,7 @@ from ludamus.pacts import EventDTO
 from tests.integration.conftest import UserFactory
 from tests.integration.utils import AttributesMatcher, assert_response
 from tests.integration.web.chronology.helpers import (
+    ENROLLMENT_OPEN,
     enroll_page_context,
     event_page_context,
     masked_card,
@@ -59,6 +60,7 @@ class TestShadowbanPretendFull:
     # with a friend's view), a full one is deniable.
     # See docs/features/crowd/profile/shadowban.md.
 
+    @pytest.mark.usefixtures("enrollment_config")
     def test_event_page_shows_banner_session_as_full(
         self, authenticated_client, agenda_item, active_user, event
     ):
@@ -79,6 +81,7 @@ class TestShadowbanPretendFull:
                 event,
                 card,
                 lane="current_hour_data",
+                enrollment_access=ENROLLMENT_OPEN,
                 total_enrolled=10,
                 has_enrollable_sessions=True,
                 scheduled_count=1,
@@ -102,6 +105,7 @@ class TestShadowbanPretendFull:
                 "event": EventDTO.model_validate(event),
                 "event_banned": False,
                 "show_roster": True,
+                "enroll_opens_at": None,
                 # The deniable card offers what a genuinely full session would.
                 "enroll_actions": EnrollActions(
                     submit_value="waitlist",

@@ -12,6 +12,7 @@ from ludamus.gates.web.django.chronology.event_presentation import (
 from ludamus.gates.web.django.entities import UserInfo
 from ludamus.gates.web.django.event.enroll_presentation import EnrollActions, SeatBadge
 from ludamus.links.db.django.models import (
+    EnrollmentConfig,
     Facilitator,
     Guild,
     GuildMembership,
@@ -20,6 +21,7 @@ from ludamus.links.db.django.models import (
     SessionParticipation,
     SessionParticipationStatus,
     Track,
+    UserEnrollmentConfig,
 )
 from ludamus.links.db.django.repositories.chronology import location_data
 from ludamus.links.gravatar import gravatar_url
@@ -166,6 +168,7 @@ class TestSessionModalComponentView:
                 "event_banned": False,
                 "show_roster": True,
                 "enroll_actions": None,
+                "enroll_opens_at": None,
             },
         )
 
@@ -188,6 +191,7 @@ class TestSessionModalComponentView:
                 "event_banned": False,
                 "show_roster": True,
                 "enroll_actions": None,
+                "enroll_opens_at": None,
             },
             contains=[session.title, f'id="session-{session.pk}"'],
         )
@@ -233,6 +237,7 @@ class TestSessionModalComponentView:
                 "event_banned": False,
                 "show_roster": True,
                 "enroll_actions": None,
+                "enroll_opens_at": None,
             },
             contains=f'id="session-{agenda_item.session.pk}"',
         )
@@ -351,6 +356,7 @@ class TestSessionModalComponentView:
                 "event_banned": False,
                 "show_roster": True,
                 "enroll_actions": None,
+                "enroll_opens_at": None,
             },
             contains=["Genre", "RPG", "Horror", "Notes", "Bring dice"],
         )
@@ -395,6 +401,7 @@ class TestSessionModalComponentView:
                 "event_banned": False,
                 "show_roster": True,
                 "enroll_actions": None,
+                "enroll_opens_at": None,
             },
             contains=[
                 "gm-handle",
@@ -445,6 +452,7 @@ class TestSessionModalComponentView:
                 "event_banned": False,
                 "show_roster": True,
                 "enroll_actions": None,
+                "enroll_opens_at": None,
             },
         )
 
@@ -477,6 +485,7 @@ class TestSessionModalComponentView:
                 "event_banned": False,
                 "show_roster": False,
                 "enroll_actions": None,
+                "enroll_opens_at": None,
             },
         )
 
@@ -502,9 +511,121 @@ class TestSessionModalComponentView:
                 "event_banned": False,
                 "show_roster": True,
                 "enroll_actions": _ENROLL,
+                "enroll_opens_at": None,
             },
             contains=["with others"],
             not_contains=["Login to Enroll", "Enroll Anonymously"],
+        )
+
+    def test_restricted_window_leaves_the_viewer_waiting_for_the_open_one(
+        self, authenticated_client, active_user, agenda_item, enrollment_config, event
+    ):
+        enrollment_config.restrict_to_configured_users = True
+        enrollment_config.save()
+        general_start = datetime.now(tz=UTC) + timedelta(days=2)
+        EnrollmentConfig.objects.create(
+            event=event,
+            start_time=general_start,
+            end_time=general_start + timedelta(days=1),
+            percentage_slots=100,
+        )
+
+        response = authenticated_client.get(_url(event, agenda_item.session.pk))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name=_TEMPLATE,
+            context_data={
+                "data": _expected_session_data(
+                    agenda_item=agenda_item,
+                    session=agenda_item.session,
+                    presenter=active_user,
+                    is_enrollment_available=True,
+                    can_edit=True,
+                ),
+                "event": EventDTO.model_validate(event),
+                "event_banned": False,
+                "show_roster": True,
+                # No passes, so the open window is not theirs to use and the
+                # footer says when the general one starts instead.
+                "enroll_actions": None,
+                "enroll_opens_at": general_start,
+            },
+        )
+
+    def test_restricted_window_lets_a_pass_holder_in(
+        self, authenticated_client, active_user, agenda_item, enrollment_config, event
+    ):
+        enrollment_config.restrict_to_configured_users = True
+        enrollment_config.save()
+        UserEnrollmentConfig.objects.create(
+            enrollment_config=enrollment_config,
+            user_email=active_user.email,
+            allowed_slots=2,
+        )
+
+        response = authenticated_client.get(_url(event, agenda_item.session.pk))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name=_TEMPLATE,
+            context_data={
+                "data": _expected_session_data(
+                    agenda_item=agenda_item,
+                    session=agenda_item.session,
+                    presenter=active_user,
+                    is_enrollment_available=True,
+                    can_edit=True,
+                ),
+                "event": EventDTO.model_validate(event),
+                "event_banned": False,
+                "show_roster": True,
+                "enroll_actions": _ENROLL,
+                "enroll_opens_at": None,
+            },
+        )
+
+    def test_a_session_nobody_can_sign_up_for_names_no_opening(
+        self, authenticated_client, active_user, event, space
+    ):
+        session = SessionFactory(
+            event=event,
+            category=None,
+            presenter=active_user,
+            display_name=active_user.full_name,
+            participants_limit=0,
+        )
+        agenda_item = AgendaItemFactory(session=session, space=space)
+        opens_at = datetime.now(tz=UTC) + timedelta(days=2)
+        EnrollmentConfig.objects.create(
+            event=event,
+            start_time=opens_at,
+            end_time=opens_at + timedelta(days=1),
+            percentage_slots=100,
+        )
+
+        response = authenticated_client.get(_url(event, session.pk))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name=_TEMPLATE,
+            context_data={
+                "data": _expected_session_data(
+                    agenda_item=agenda_item,
+                    session=session,
+                    presenter=active_user,
+                    effective_participants_limit=0,
+                    can_edit=True,
+                ),
+                "event": EventDTO.model_validate(event),
+                "event_banned": False,
+                "show_roster": False,
+                "enroll_actions": None,
+                "enroll_opens_at": None,
+            },
         )
 
     def test_renders_session_without_presenter(self, client, event, space):
@@ -542,6 +663,7 @@ class TestSessionModalComponentView:
                 "event_banned": False,
                 "show_roster": True,
                 "enroll_actions": None,
+                "enroll_opens_at": None,
             },
             contains=["Mystery Host"],
         )
@@ -575,6 +697,7 @@ class TestSessionModalComponentView:
                 "event_banned": False,
                 "show_roster": True,
                 "enroll_actions": _CLOSED_CANCEL,
+                "enroll_opens_at": None,
             },
         )
 
@@ -607,6 +730,7 @@ class TestSessionModalComponentView:
                 "event_banned": False,
                 "show_roster": True,
                 "enroll_actions": _CLOSED_LEAVE,
+                "enroll_opens_at": None,
             },
         )
 
@@ -640,6 +764,7 @@ class TestSessionModalComponentView:
                 "event_banned": False,
                 "show_roster": True,
                 "enroll_actions": _ENROLL,
+                "enroll_opens_at": None,
             },
             contains=["Enroll Anonymously"],
         )
@@ -682,6 +807,7 @@ class TestSessionModalComponentView:
                 "event_banned": False,
                 "show_roster": True,
                 "enroll_actions": _CANCEL,
+                "enroll_opens_at": None,
             },
             contains=["Manage Enrollment"],
         )
@@ -709,6 +835,7 @@ class TestSessionModalComponentView:
                 "event_banned": False,
                 "show_roster": True,
                 "enroll_actions": None,
+                "enroll_opens_at": None,
             },
             contains=f'id="session-{agenda_item.session.pk}"',
         )
@@ -742,6 +869,7 @@ class TestSessionModalComponentView:
                 "event_banned": False,
                 "show_roster": True,
                 "enroll_actions": None,
+                "enroll_opens_at": None,
             },
             contains=f'id="session-{agenda_item.session.pk}"',
         )
@@ -772,6 +900,7 @@ class TestGuildMarkInTheModal:
                 "event_banned": False,
                 "show_roster": True,
                 "enroll_actions": None,
+                "enroll_opens_at": None,
             },
         )
 
@@ -817,5 +946,6 @@ class TestGuildMarkInTheModal:
                 "event_banned": False,
                 "show_roster": True,
                 "enroll_actions": None,
+                "enroll_opens_at": None,
             },
         )

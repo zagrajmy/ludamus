@@ -503,6 +503,7 @@ ignore_names = [
     "filter_categories",
     "has_guests",
     "has_secret",
+    "has_window",
     "is_first_current",
     "is_live",
     "is_pending_proposal",

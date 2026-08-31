@@ -47,6 +47,19 @@ class SessionModalComponentView(EventsPageRequiredMixin, View):
                 sphere_id=request.context.current_sphere_id, session_pk=session_id
             ),
         )
+        access = request.services.enrollment.access(
+            event=event, user_email=self._viewer_email()
+        )
+        # A restricted window is open for its configured users only, so the
+        # ways in are the viewer's to have — not the event's.
+        enroll_actions = build_enroll_actions(
+            is_enrollment_available=data.is_enrollment_available
+            and access.can_enroll_now,
+            is_ended=data.is_ended,
+            is_full=data.is_full,
+            user_enrolled=data.user_enrolled,
+            user_waiting=data.user_waiting,
+        )
         return TemplateResponse(
             request,
             "chronology/parts/session-modal.html",
@@ -64,12 +77,15 @@ class SessionModalComponentView(EventsPageRequiredMixin, View):
                 ),
                 # Modal-only: the event page patches is_ended onto its cards
                 # after construction, so this is wrong on a card.
-                "enroll_actions": build_enroll_actions(
-                    is_enrollment_available=data.is_enrollment_available,
-                    is_ended=data.is_ended,
-                    is_full=data.is_full,
-                    user_enrolled=data.user_enrolled,
-                    user_waiting=data.user_waiting,
+                "enroll_actions": enroll_actions,
+                # The one line that says why there is no way in yet, next to a
+                # disabled Enroll — set only when nothing else offers an action.
+                "enroll_opens_at": (
+                    access.opens_at
+                    if enroll_actions is None
+                    and data.takes_enrollment
+                    and not data.is_ended
+                    else None
                 ),
             },
         )
@@ -100,6 +116,11 @@ class SessionModalComponentView(EventsPageRequiredMixin, View):
                 event_id=event.pk, user_id=current_user_id
             )
         return shadowbanned_ids, banned_by, event_banned
+
+    def _viewer_email(self) -> str:
+        if (slug := self.request.context.current_user_slug) is None:
+            return ""
+        return self.request.services.enrollment.read_viewer(slug).email
 
     def _viewer_user_ids(self) -> list[UserId]:
         if (slug := self.request.context.current_user_slug) is not None:

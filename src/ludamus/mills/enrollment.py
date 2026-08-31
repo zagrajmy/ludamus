@@ -53,6 +53,7 @@ from ludamus.pacts.legacy import (
 from ludamus.pacts.party import HeldSeatNotification
 from ludamus.specs.enrollment import (
     MEMBERSHIP_CHECK_INTERVAL_MINUTES,
+    enrollment_access,
     is_valid_window_period,
     select_promotable_parties,
 )
@@ -71,6 +72,7 @@ if TYPE_CHECKING:
     from ludamus.pacts.enrollment import (
         AnonymousEnrollmentRepositoryProtocol,
         AnonymousEnrollmentRequestDTO,
+        EnrollmentAccessDTO,
         EnrollmentParticipationRepositoryProtocol,
         EnrollmentRepos,
         EnrollmentWindowData,
@@ -95,6 +97,11 @@ class EnrollmentWindowLike(Protocol):
     max_waitlist_sessions: int
     percentage_slots: int
     restrict_to_configured_users: bool
+
+
+# read_list bounds a window at both ends, and windows that have not started yet
+# need a start bound none of them can exceed.
+_ANY_START_TIME = datetime.max.replace(tzinfo=UTC)
 
 
 def _seating_rank(window: EnrollmentWindowLike) -> tuple[int, bool]:
@@ -916,6 +923,19 @@ class EnrollmentService(EnrollmentServiceProtocol):
             return False
         config = self.virtual_config(event=event, user_email=user_email)
         return bool(config and config.allowed_slots)
+
+    def access(self, *, event: EventDTO, user_email: str) -> EnrollmentAccessDTO:
+        # NOTE: pass ownership is read from the windows open now — the only
+        # ones virtual_config sums — so a pass holder waiting for a window that
+        # has not started is told when the unrestricted one opens.
+        now = _now()
+        return enrollment_access(
+            windows=self._enrollment_configs.read_list(
+                event.pk, max_start_time=_ANY_START_TIME, min_end_time=now
+            ),
+            is_configured_user=self.has_slot_access(event=event, user_email=user_email),
+            now=now,
+        )
 
     def can_enroll_users(
         self,

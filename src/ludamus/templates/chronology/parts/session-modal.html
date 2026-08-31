@@ -1,4 +1,4 @@
-{% load i18n tessera cfp_tags markdown_tags %}
+{% load i18n tessera cfp_tags date_tags markdown_tags %}
 <dialog id="session-{{ data.session.pk }}"
         class="modal max-w-200 w-[calc(100%-0.5rem)] max-h-[90dvh] overflow-hidden"
         aria-labelledby="session-{{ data.session.pk }}-title"
@@ -197,7 +197,7 @@
              class="flex-auto min-h-0 flex flex-col overflow-hidden text-foreground"
              hidden></div>
     {% endif %}
-    {% if enroll_actions or data.can_edit %}
+    {% if enroll_actions or data.can_edit or enroll_opens_at %}
         <!-- Footer -->
         {# A new-only view-transition group: with no old geometry to interpolate #}
         {# it renders at final layout for the whole morph instead of stretching #}
@@ -224,6 +224,21 @@
                 {% if data.pretend_full and not event_banned %}
                     <button type="button" class="btn btn-secondary text-sm" disabled>
                         {% icon "user-plus" class="w-4 h-4" variant="mini" %} {% translate "Session full" %}
+                    </button>
+                {% elif enroll_opens_at and not event_banned %}
+                    {# The window that will let this viewer in has not opened, so #}
+                    {# the way in is drawn where it will appear, shut, with the #}
+                    {# date beside it. A missing control asks the reader to guess #}
+                    {# whether there is one. #}
+                    <span id="enroll-opens-{{ data.session.pk }}"
+                          class="text-xs text-right text-foreground-muted">
+                        {% blocktranslate with day=enroll_opens_at|short_date time=enroll_opens_at|time:"G:i" %}Enrollment opens {{ day }} at {{ time }}{% endblocktranslate %}
+                    </span>
+                    <button type="button"
+                            class="btn btn-primary text-sm"
+                            disabled
+                            aria-describedby="enroll-opens-{{ data.session.pk }}">
+                        {% icon "user-plus" class="w-4 h-4" variant="mini" %} {% translate "Enroll" %}
                     </button>
                 {% elif enroll_actions and not event_banned %}
                     {% if current_user %}

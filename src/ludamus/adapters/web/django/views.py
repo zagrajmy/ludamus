@@ -357,24 +357,17 @@ class EventPageView(EventsPageRequiredMixin, DetailView):  # type: ignore [type-
             }
         )
 
-        # Add user enrollment config for authenticated users
-        user_enrollment_config = None
         slug = self.request.context.current_user_slug
-        user_email = self.request.di.uow.active_users.read(slug).email if slug else None
-        if user_email:
-            user_enrollment_config = self.request.services.enrollment.virtual_config(
-                event=EventDTO.model_validate(self.object), user_email=user_email
-            )
-        context["user_enrollment_config"] = user_enrollment_config
-
-        # Check if any active enrollment config requires slots
-        active_configs = self.object.get_active_enrollment_configs()
-        requires_slots = any(
-            config.restrict_to_configured_users for config in active_configs
+        context["enrollment_access"] = self.request.services.enrollment.access(
+            event=EventDTO.model_validate(self.object),
+            user_email=(
+                self.request.services.enrollment.read_viewer(slug).email if slug else ""
+            ),
         )
-        context["enrollment_requires_slots"] = requires_slots
         context["enrollment_notices"] = [
-            config.banner_text for config in active_configs if config.banner_text
+            config.banner_text
+            for config in self.object.get_active_enrollment_configs()
+            if config.banner_text
         ]
         context.update(self._get_anonymous_context())
 
@@ -1091,8 +1084,18 @@ class SessionEnrollPageView(EventsPageRequiredMixin, LoginRequiredMixin, View):
                 session=session, user_id=viewer_pk
             ).values_list("status", flat=True)
         )
+        # Viewer-aware, like the modal's GET: a window restricted to pass
+        # holders is shut for everyone else, and the swapped-in control has to
+        # agree with the form that would reject them.
+        access = self.request.services.enrollment.access(
+            event=EventDTO.model_validate(session.event),
+            user_email=self.request.services.enrollment.read_viewer(
+                self.request.context.current_user_slug
+            ).email,
+        )
         actions = build_enroll_actions(
-            is_enrollment_available=session.is_enrollment_available,
+            is_enrollment_available=session.is_enrollment_available
+            and access.can_enroll_now,
             is_ended=session.agenda_item.end_time <= datetime.now(tz=UTC),
             is_full=session.is_full,
             user_enrolled=SessionParticipationStatus.CONFIRMED in statuses,
