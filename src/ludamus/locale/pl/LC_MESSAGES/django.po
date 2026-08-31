@@ -714,6 +714,26 @@ msgstr "Brak zmian."
 msgid "Please select at least one user to enroll."
 msgstr "Wybierz przynajmniej jednego użytkownika do zapisu."
 
+#: src/ludamus/gates/uploads.py
+msgid "Image too large. Maximum size is 8 MB."
+msgstr "Obraz jest za duży. Maksymalny rozmiar to 8 MB."
+
+#: src/ludamus/gates/uploads.py
+msgid "Image dimensions are too large."
+msgstr "Wymiary obrazu są za duże."
+
+#: src/ludamus/gates/uploads.py
+msgid "Unsupported image format. Use JPG, PNG, WebP, or AVIF."
+msgstr "Nieobsługiwany format obrazu. Użyj JPG, PNG, WebP lub AVIF."
+
+#: src/ludamus/gates/uploads.py
+msgid "Invalid or unsafe SVG file."
+msgstr "Nieprawidłowy lub niebezpieczny plik SVG."
+
+#: src/ludamus/gates/uploads.py
+msgid "Unsupported image format. Use JPG, PNG, WebP, AVIF, or SVG."
+msgstr "Nieobsługiwany format obrazu. Użyj JPG, PNG, WebP, AVIF lub SVG."
+
 #: src/ludamus/gates/web/django/chronology/anonymous.py
 #: src/ludamus/gates/web/django/chronology/panel/views/event_settings.py
 #: src/ludamus/gates/web/django/event/panel/views/base.py
@@ -2744,26 +2764,6 @@ msgid "Enter a smaller number."
 msgstr "Podaj mniejszą liczbę."
 
 #: src/ludamus/gates/web/django/forms.py
-msgid "Image too large. Maximum size is 8 MB."
-msgstr "Obraz jest za duży. Maksymalny rozmiar to 8 MB."
-
-#: src/ludamus/gates/web/django/forms.py
-msgid "Image dimensions are too large."
-msgstr "Wymiary obrazu są za duże."
-
-#: src/ludamus/gates/web/django/forms.py
-msgid "Unsupported image format. Use JPG, PNG, WebP, or AVIF."
-msgstr "Nieobsługiwany format obrazu. Użyj JPG, PNG, WebP lub AVIF."
-
-#: src/ludamus/gates/web/django/forms.py
-msgid "Invalid or unsafe SVG file."
-msgstr "Nieprawidłowy lub niebezpieczny plik SVG."
-
-#: src/ludamus/gates/web/django/forms.py
-msgid "Unsupported image format. Use JPG, PNG, WebP, AVIF, or SVG."
-msgstr "Nieobsługiwany format obrazu. Użyj JPG, PNG, WebP, AVIF lub SVG."
-
-#: src/ludamus/gates/web/django/forms.py
 #: src/ludamus/gates/web/django/templatetags/cfp_tags.py
 msgid "Cover image"
 msgstr "Obraz okładki"
@@ -2790,6 +2790,10 @@ msgstr "Nazwa wydarzenia jest wymagana."
 #: src/ludamus/gates/web/django/forms.py
 msgid "Event slug is required."
 msgstr "Slug wydarzenia jest wymagany."
+
+#: src/ludamus/gates/web/django/forms.py
+msgid "Aim for about 230 characters."
+msgstr "Celuj w około 230 znaków."
 
 #: src/ludamus/gates/web/django/forms.py
 msgid "Address"
@@ -4841,13 +4845,13 @@ msgstr "Usuń integrację"
 #, python-format
 msgid ""
 "\n"
-"                    Are you sure you want to delete integration "
+"                        Are you sure you want to delete integration "
 "\"%(name)s\"?\n"
-"                "
+"                    "
 msgstr ""
 "\n"
-"                    Czy na pewno chcesz usunąć integrację \"%(name)s\"?\n"
-"                "
+"                        Czy na pewno chcesz usunąć integrację \"%(name)s\"?\n"
+"                    "
 
 #: src/ludamus/templates/chronology/panel/integrations/delete.html
 msgid "Implementation:"
@@ -9940,6 +9944,17 @@ msgid ""
 msgstr ""
 "Nie ma nadchodzących wydarzeń ani publicznych spotkań. Sprawdź ponownie "
 "później!"
+
+#, python-format
+#~ msgid ""
+#~ "\n"
+#~ "                    Are you sure you want to delete integration "
+#~ "\"%(name)s\"?\n"
+#~ "                "
+#~ msgstr ""
+#~ "\n"
+#~ "                    Czy na pewno chcesz usunąć integrację \"%(name)s\"?\n"
+#~ "                "
 
 #~ msgid "Your Enrollment Access"
 #~ msgstr "Twój dostęp do zapisów"

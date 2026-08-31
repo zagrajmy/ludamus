@@ -71,6 +71,8 @@ def test_category_for(room: str, title: str, expected: str) -> None:
         ("Tytuł", None),
         ("???? tytuł", None),
         ("Zaproponowałem na razie coś", None),
+        ("Przerwa Techniczna", None),
+        ("Warsztaty: ", "Warsztaty"),
         ("", None),
         (None, None),
         (42, None),
@@ -101,6 +103,13 @@ def test_clean_description(value: object, expected: str) -> None:
         ("Anna Kowalska, Jan Nowak", ["Anna Kowalska", "Jan Nowak"]),
         ("Anna Kowalska i Jan Nowak", ["Anna Kowalska", "Jan Nowak"]),
         ("Prowadzenie: Anna; Jan", ["Anna", "Jan"]),
+        (
+            "Rozmawiają Anna, Jan\nProwadzi: Dominika Węcławek",
+            ["Anna", "Jan", "Dominika Węcławek"],
+        ),
+        ("Fundacja Dawne Komputery i Gry", ["Fundacja Dawne Komputery i Gry"]),
+        ("Sekcja Trzymaj Pion w składzie: Ola, Arek", ["Sekcja Trzymaj Pion"]),
+        ("Każdy, kto został na miejscu", []),
         ("????", []),
         ("nikt", []),
         ("W zależności od ilości chętnych", []),
@@ -292,6 +301,48 @@ def test_validate_items_rejects_duplicate_source_row_ids() -> None:
 
     with pytest.raises(ValueError, match="Duplicate source_row_id"):
         sync.validate_items([items[0], items[0]])
+
+
+def test_continuation_marker_borrows_the_sibling_day_content() -> None:
+    friday = _sheet_with_one_room()
+    saturday_cells = dict(friday.cells)
+    saturday_cells["C4"] = "> > > >"
+    del saturday_cells["C5"], saturday_cells["C6"]
+    saturday = wb.SheetData(cells=saturday_cells, merges=friday.merges)
+
+    items = sync.extract_programme(
+        {
+            "Piątek": friday,
+            "Sobota": saturday,
+            "Niedziela": wb.SheetData(cells={"C3": "0.5"}, merges=()),
+        }
+    )
+
+    borrowed = next(
+        item for item in items if item.sheet == "Sobota" and item.cell == "C4"
+    )
+    assert borrowed.title == "Wprowadzenie"
+    assert borrowed.description == "Opis warsztatu"
+    assert borrowed.presenters == ["Anna Kowalska", "Jan Nowak"]
+
+
+def test_arrow_padded_title_keeps_its_core_text() -> None:
+    friday = _sheet_with_one_room()
+    cells = dict(friday.cells)
+    cells["C4"] = "> > Wystawa prac < <"
+    saturday = wb.SheetData(cells=cells, merges=friday.merges)
+
+    items = sync.extract_programme(
+        {
+            "Piątek": wb.SheetData(cells={"C3": "0.5"}, merges=()),
+            "Sobota": saturday,
+            "Niedziela": wb.SheetData(cells={"C3": "0.5"}, merges=()),
+        }
+    )
+
+    unpadded = next(item for item in items if item.cell == "C4")
+    assert unpadded.title == "Wystawa prac"
+    assert unpadded.category == "Strefa stała"
 
 
 _MAIN_NS = "http://schemas.openxmlformats.org/spreadsheetml/2006/main"
