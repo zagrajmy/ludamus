@@ -454,7 +454,13 @@ class _CreateSessionInput(BaseModel):
             raise ValueError("duration must be a positive ISO-8601 duration")
         return normalized
 
-    display_name: str = Field(default="", description="Defaults to title when empty")
+    display_name: str | None = Field(
+        default=None,
+        description=(
+            "Host line shown under the title (e.g. presenter names); "
+            "empty string means no host line; omit to default to the title"
+        ),
+    )
     facilitator_ids: list[int] = Field(default_factory=list)
     track_ids: list[int] = Field(default_factory=list)
     participants_limit: int = 0
@@ -475,7 +481,9 @@ def _create_session(
                     "event_id": event.pk,
                     "contact_email": "",
                     "description": data.description,
-                    "display_name": data.display_name or title,
+                    "display_name": (
+                        title if data.display_name is None else data.display_name
+                    ),
                     "duration": data.duration,
                     "min_age": data.min_age,
                     "participants_limit": data.participants_limit,
@@ -713,6 +721,37 @@ class _SetEventImageInput(_ImageUploadInput):
     )
 
 
+class _UpdateSessionInput(BaseModel):
+    pk: int = Field(description="Session primary key (see list_sessions)")
+    display_name: str = Field(
+        description="Host line shown under the title; empty string clears it"
+    )
+
+
+class OrganizerUpdateSessionTool(Tool[_UpdateSessionInput]):
+    name = "update_session"
+    description = (
+        "Set the host line of a session in this token's event. Facilitator "
+        "assignments, title, and schedule stay put."
+    )
+    scope = ToolScope.ORGANIZER
+    input_model = _UpdateSessionInput
+    audit_redacted_keys = frozenset({"display_name"})
+
+    @staticmethod
+    def handle(call: ToolCall[_UpdateSessionInput]) -> str:
+        event = token_event(services=call.services, actor=call.actor)
+        call.services.proposal_panel.set_session_display_name(
+            event_id=event.pk,
+            session_id=call.data.pk,
+            display_name=call.data.display_name,
+        )
+        session = call.services.proposal_panel.read_proposal(
+            event_id=event.pk, proposal_id=call.data.pk
+        )
+        return session.model_dump_json(indent=2)
+
+
 class _UpdateSpaceInput(BaseModel):
     pk: int = Field(description="Space primary key (see list_spaces)")
     name: NonBlankName | None = Field(
@@ -880,6 +919,7 @@ def programme_tools() -> tuple[ToolProtocol, ...]:
         OrganizerCreateSessionsTool(),
         OrganizerAssignSessionTool(),
         OrganizerAssignSessionsTool(),
+        OrganizerUpdateSessionTool(),
         OrganizerUpdateSpaceTool(),
         OrganizerUpdateEventTool(),
         OrganizerSetEventImageTool(),
