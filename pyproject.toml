@@ -86,7 +86,7 @@ taplo = "^0.9.3"
 tingle = "^0.7.0"
 pytest-xdist = "^3.8.0"
 lxml-stubs = "^0.5.1"
-django-zeal = "^2.2.2"
+django-zeal = "^2.2.3"
 vekna = { git = "https://github.com/fancysnake/vekna.git", rev = "v0.6.0" }
 
 [tool.black]

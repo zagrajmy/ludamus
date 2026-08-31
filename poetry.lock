@@ -1258,14 +1258,14 @@ dev = ["black"]
 
 [[package]]
 name = "django-zeal"
-version = "2.2.2"
+version = "2.2.3"
 description = "Detect N+1s in your Django app"
 optional = false
 python-versions = ">=3.9"
 groups = ["dev"]
 files = [
-    {file = "django_zeal-2.2.2-py3-none-any.whl", hash = "sha256:b59ca027d3198517fc38c6bcbe0649d90ec2656697d109a30d07b228932848ad"},
-    {file = "django_zeal-2.2.2.tar.gz", hash = "sha256:d87b0dd55641dbcd502d343e42eaf3c5ba7e400d0575beff3743431c93b7a68d"},
+    {file = "django_zeal-2.2.3-py3-none-any.whl", hash = "sha256:23d81e0cce9fea71f6e307e10b0b96a861301d41d92a8a1c4ebd790363f01361"},
+    {file = "django_zeal-2.2.3.tar.gz", hash = "sha256:cee84b080a56ba95fa42d092986a0d85ccdd8df9812631f3cf3e9aac84cb2225"},
 ]
 
 [[package]]
@@ -5381,4 +5381,4 @@ dev = ["doc8", "flake8", "flake8-import-order", "rstcheck[sphinx]", "ruff", "sph
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.14.0,<3.15"
-content-hash = "f215c830293ade33db497e07f65822ae5c21eec015831290d236e424eb03e84c"
+content-hash = "714bc328ca0ecbdc5c35081edb7cbb7d51af76a64f7658304c75c1f91a8fddc1"
