@@ -1,3 +1,4 @@
+import base64
 import json
 from datetime import timedelta
 from http import HTTPStatus
@@ -43,7 +44,18 @@ WRITE_TOOLS = {
     "create_sessions",
     "assign_session",
     "assign_sessions",
+    "update_event",
+    "set_event_image",
+    "set_sphere_logo",
 }
+
+PNG_1X1_BASE64 = (
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk"
+    "YPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=="
+)
+SVG_BASE64 = base64.b64encode(
+    b'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1 1"/>'
+).decode()
 
 
 @pytest.fixture(name="manager")
@@ -822,3 +834,165 @@ class TestOrganizerProgrammeTools:
         result = response.json()["result"]
         assert result["isError"] is True
         assert result["content"][0]["text"] == "start_not_before_end"
+
+
+class TestOrganizerEventSettingsTools:
+    def test_update_event_changes_only_provided_fields(self, client, org_token, event):
+        new_end = event.end_time + timedelta(hours=2)
+
+        updated = call_org_json(
+            client,
+            org_token,
+            "update_event",
+            {"description": "Nowy opis", "end_time": new_end.isoformat()},
+        )
+
+        event.refresh_from_db()
+        assert event.description == "Nowy opis"
+        assert event.end_time == new_end
+        assert updated["description"] == "Nowy opis"
+        assert updated["name"] == event.name
+
+    def test_update_event_clears_publication_time(self, client, org_token, event):
+        assert event.publication_time is not None
+
+        updated = call_org_json(
+            client, org_token, "update_event", {"clear_publication_time": True}
+        )
+
+        event.refresh_from_db()
+        assert event.publication_time is None
+        assert updated["publication_time"] is None
+
+    def test_update_event_rejects_empty_update(self, client, org_token):
+        response = call_org_tool(client, org_token, "update_event", {})
+
+        result = response.json()["result"]
+        assert result["isError"] is True
+        assert result["content"][0]["text"] == "Provide at least one field to update"
+
+    def test_update_event_rejects_naive_datetime(self, client, org_token):
+        response = call_org_tool(
+            client, org_token, "update_event", {"end_time": "2026-09-27T15:00:00"}
+        )
+
+        result = response.json()["result"]
+        assert result["isError"] is True
+        assert "timezone-aware" in result["content"][0]["text"]
+
+    def test_set_event_cover_image(self, client, org_token, event):
+        updated = call_org_json(
+            client,
+            org_token,
+            "set_event_image",
+            {
+                "kind": "cover",
+                "filename": "cover.png",
+                "content_base64": PNG_1X1_BASE64,
+            },
+        )
+
+        event.refresh_from_db()
+        assert event.cover_image_original_name == "cover.png"
+        assert event.cover_image.name
+        assert updated["cover_image_original_name"] == "cover.png"
+
+    def test_set_event_logo(self, client, org_token, event):
+        updated = call_org_json(
+            client,
+            org_token,
+            "set_event_image",
+            {"kind": "logo", "filename": "logo.svg", "content_base64": SVG_BASE64},
+        )
+
+        event.refresh_from_db()
+        assert event.logo_original_name == "logo.svg"
+        assert event.logo.name
+        assert updated["logo_original_name"] == "logo.svg"
+
+    def test_set_event_image_rejects_bad_base64(self, client, org_token):
+        response = call_org_tool(
+            client,
+            org_token,
+            "set_event_image",
+            {"kind": "cover", "filename": "x.png", "content_base64": "@@not-base64@@"},
+        )
+
+        result = response.json()["result"]
+        assert result["isError"] is True
+        assert "not valid base64" in result["content"][0]["text"]
+
+    def test_set_sphere_logo(self, client, org_token, sphere):
+        updated = call_org_json(
+            client,
+            org_token,
+            "set_sphere_logo",
+            {"filename": "sphere.svg", "content_base64": SVG_BASE64},
+        )
+
+        sphere.refresh_from_db()
+        assert sphere.logo_original_name == "sphere.svg"
+        assert sphere.logo.name
+        assert updated["logo_original_name"] == "sphere.svg"
+
+
+class TestOrganizerUpdateSpaceTool:
+    def test_renames_and_moves_under_new_parent(self, client, org_token, event):
+        building = SpaceFactory(event=event, name="A-20")
+        room = SpaceFactory(event=event, name="Konkursowa 2 (sala 118 w A-20)")
+
+        updated = call_org_json(
+            client,
+            org_token,
+            "update_space",
+            {"pk": room.pk, "name": "Konkursowa 2 (s. 118)", "parent_id": building.pk},
+        )
+
+        room.refresh_from_db()
+        assert room.name == "Konkursowa 2 (s. 118)"
+        assert room.parent_id == building.pk
+        assert updated["name"] == "Konkursowa 2 (s. 118)"
+        assert updated["parent_id"] == building.pk
+
+    def test_moves_to_root_and_keeps_name(self, client, org_token, event):
+        parent = SpaceFactory(event=event, name="Venue")
+        room = SpaceFactory(event=event, name="Palmiarnia", parent=parent)
+
+        updated = call_org_json(
+            client, org_token, "update_space", {"pk": room.pk, "parent_id": "root"}
+        )
+
+        room.refresh_from_db()
+        assert room.parent_id is None
+        assert room.name == "Palmiarnia"
+        assert updated["parent_id"] is None
+
+    def test_rejects_foreign_space(self, client, org_token, sphere):
+        foreign = SpaceFactory(event=EventFactory(sphere=sphere), name="Elsewhere")
+
+        response = call_org_tool(
+            client, org_token, "update_space", {"pk": foreign.pk, "name": "Hacked"}
+        )
+
+        result = response.json()["result"]
+        assert result["isError"] is True
+        assert result["content"][0]["text"] == "Resource not found"
+        foreign.refresh_from_db()
+        assert foreign.name == "Elsewhere"
+
+    def test_rejects_foreign_parent(self, client, org_token, sphere, event):
+        room = SpaceFactory(event=event, name="Room")
+        foreign_parent = SpaceFactory(event=EventFactory(sphere=sphere), name="Far")
+
+        response = call_org_tool(
+            client,
+            org_token,
+            "update_space",
+            {"pk": room.pk, "parent_id": foreign_parent.pk},
+        )
+
+        result = response.json()["result"]
+        assert result["isError"] is True
+        assert result["content"][0]["text"] == "Resource not found"
+        room.refresh_from_db()
+        assert room.parent_id is None

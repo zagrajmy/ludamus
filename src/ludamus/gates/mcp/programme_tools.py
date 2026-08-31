@@ -1,12 +1,21 @@
 from __future__ import annotations
 
+import base64
+import binascii
 import json
-from typing import TYPE_CHECKING
+from datetime import datetime
+from typing import TYPE_CHECKING, Literal, cast
 
+from django.core.files.base import ContentFile
 from django.utils.text import slugify
 from pydantic import BaseModel, Field, TypeAdapter, field_validator
 
-from ludamus.gates.mcp.inputs import AwareDatetimeRange, EmptyInput, NonBlankName
+from ludamus.gates.mcp.inputs import (
+    AwareDatetimeRange,
+    EmptyInput,
+    NonBlankName,
+    require_aware_datetime,
+)
 from ludamus.gates.mcp.organizer_context import actor_sphere, token_event
 from ludamus.gates.mcp.protocol import JsonDict
 from ludamus.gates.mcp.registry import Tool, ToolCall, ToolError
@@ -39,6 +48,7 @@ if TYPE_CHECKING:
     from collections.abc import Callable, Sequence
 
     from ludamus.gates.mcp.registry import ToolProtocol
+    from ludamus.pacts.legacy import EventUpdateData
     from ludamus.pacts.mcp import ActorContext
     from ludamus.pacts.services import ServicesProtocol
 
@@ -639,6 +649,212 @@ class OrganizerAssignSessionsTool(Tool[_AssignSessionsInput]):
         )
 
 
+MAX_IMAGE_UPLOAD_BYTES = 5 * 1024 * 1024
+
+
+class _UpdateEventInput(BaseModel):
+    description: str | None = Field(
+        default=None, description="New event description; omit to keep the current one"
+    )
+    start_time: datetime | None = Field(
+        default=None, description="New aware start time; omit to keep"
+    )
+    end_time: datetime | None = Field(
+        default=None, description="New aware end time; omit to keep"
+    )
+    publication_time: datetime | None = Field(
+        default=None, description="New aware publication time; omit to keep"
+    )
+    clear_publication_time: bool = Field(
+        default=False, description="Unset the publication time (hides the event)"
+    )
+
+    @field_validator("start_time", "end_time", "publication_time")
+    @classmethod
+    def _aware(cls, value: datetime | None) -> datetime | None:
+        return None if value is None else require_aware_datetime(value)
+
+
+class _ImageUploadInput(BaseModel):
+    filename: NonBlankName = Field(description="Original file name, with extension")
+    content_base64: str = Field(
+        description=(
+            "File content, standard base64. Decoded size is capped at 5 MB, and "
+            "the HTTP body cap applies to the whole request."
+        )
+    )
+
+    def decoded_content(self) -> bytes:
+        try:
+            content = base64.b64decode(self.content_base64, validate=True)
+        except binascii.Error as error:
+            message = f"content_base64 is not valid base64: {error}"
+            raise ToolError(message) from error
+        if len(content) > MAX_IMAGE_UPLOAD_BYTES:
+            message = "Decoded content exceeds the 5 MB upload cap"
+            raise ToolError(message)
+        if not content:
+            raise ToolError("content_base64 decoded to an empty file")
+        return content
+
+
+class _SetEventImageInput(_ImageUploadInput):
+    kind: Literal["cover", "logo"] = Field(
+        description=(
+            "cover: the event cover image (raster only, 1920×1080 16:9 works "
+            "best). logo: the printable-schedule logo (SVG allowed)."
+        )
+    )
+
+
+class _UpdateSpaceInput(BaseModel):
+    pk: int = Field(description="Space primary key (see list_spaces)")
+    name: NonBlankName | None = Field(
+        default=None, description="New name; omit to keep"
+    )
+    parent_id: int | Literal["root"] | None = Field(
+        default=None,
+        description=(
+            'New parent space id, or "root" to move to the top level; '
+            "omit to keep the current parent"
+        ),
+    )
+    capacity: int | None = Field(default=None, description="New capacity; omit to keep")
+    description: str | None = Field(
+        default=None, description="New description; omit to keep"
+    )
+    location: str | None = Field(default=None, description="New location; omit to keep")
+
+
+class OrganizerUpdateSpaceTool(Tool[_UpdateSpaceInput]):
+    name = "update_space"
+    description = (
+        "Rename, move, or edit a space in this token's event venue tree. "
+        "Only provided fields change; sessions assigned to the space stay put."
+    )
+    scope = ToolScope.ORGANIZER
+    input_model = _UpdateSpaceInput
+
+    @staticmethod
+    def handle(call: ToolCall[_UpdateSpaceInput]) -> str:
+        event = token_event(services=call.services, actor=call.actor)
+        current = call.services.space_tree.read(call.data.pk)
+        if current.event_id != event.pk:
+            raise NotFoundError
+        if call.data.parent_id == "root":
+            parent_id = None
+        elif call.data.parent_id is None:
+            parent_id = current.parent_id
+        else:
+            parent = call.services.space_tree.read(call.data.parent_id)
+            if parent.event_id != event.pk:
+                raise NotFoundError
+            parent_id = parent.pk
+        try:
+            space = call.services.space_tree.update(
+                pk=current.pk,
+                parent_id=parent_id,
+                data=SpaceInputDTO(
+                    name=call.data.name or current.name,
+                    capacity=(
+                        current.capacity
+                        if call.data.capacity is None
+                        else call.data.capacity
+                    ),
+                    description=(
+                        current.description
+                        if call.data.description is None
+                        else call.data.description
+                    ),
+                    location=(
+                        current.location
+                        if call.data.location is None
+                        else call.data.location
+                    ),
+                ),
+            )
+        except SpaceValidationError as error:
+            raise ToolError(str(error)) from error
+        return space.model_dump_json(indent=2)
+
+
+class OrganizerUpdateEventTool(Tool[_UpdateEventInput]):
+    name = "update_event"
+    description = (
+        "Update the token event's description, start/end times, or publication "
+        "time. Only provided fields change."
+    )
+    scope = ToolScope.ORGANIZER
+    input_model = _UpdateEventInput
+
+    @staticmethod
+    def handle(call: ToolCall[_UpdateEventInput]) -> str:
+        event = token_event(services=call.services, actor=call.actor)
+        data: EventUpdateData = {}
+        if call.data.description is not None:
+            data["description"] = call.data.description
+        if call.data.start_time is not None:
+            data["start_time"] = call.data.start_time
+        if call.data.end_time is not None:
+            data["end_time"] = call.data.end_time
+        if call.data.clear_publication_time:
+            data["publication_time"] = None
+        elif call.data.publication_time is not None:
+            data["publication_time"] = call.data.publication_time
+        if not data:
+            raise ToolError("Provide at least one field to update")
+        call.services.event_settings.update_general(
+            sphere_id=actor_sphere(call.actor), slug=event.slug, data=data
+        )
+        return token_event(services=call.services, actor=call.actor).model_dump_json(
+            indent=2
+        )
+
+
+class OrganizerSetEventImageTool(Tool[_SetEventImageInput]):
+    name = "set_event_image"
+    description = "Replace the token event's cover image or printable logo."
+    scope = ToolScope.ORGANIZER
+    input_model = _SetEventImageInput
+    audit_redacted_keys = frozenset({"content_base64"})
+
+    @staticmethod
+    def handle(call: ToolCall[_SetEventImageInput]) -> str:
+        event = token_event(services=call.services, actor=call.actor)
+        upload = ContentFile(call.data.decoded_content(), name=call.data.filename)
+        field = "cover_image" if call.data.kind == "cover" else "logo"
+        data = cast("EventUpdateData", {field: upload})
+        call.services.event_settings.update_general(
+            sphere_id=actor_sphere(call.actor), slug=event.slug, data=data
+        )
+        return token_event(services=call.services, actor=call.actor).model_dump_json(
+            indent=2
+        )
+
+
+class OrganizerSetSphereLogoTool(Tool[_ImageUploadInput]):
+    name = "set_sphere_logo"
+    description = "Replace the sphere's logo (SVG allowed)."
+    scope = ToolScope.ORGANIZER
+    input_model = _ImageUploadInput
+    audit_redacted_keys = frozenset({"content_base64"})
+
+    @staticmethod
+    def handle(call: ToolCall[_ImageUploadInput]) -> str:
+        sphere_id = actor_sphere(call.actor)
+        sphere = call.services.sphere_panel.read(sphere_id)
+        upload = ContentFile(call.data.decoded_content(), name=call.data.filename)
+        call.services.sphere_panel.update_settings(
+            sphere_id,
+            allow_facilitator_session_edit=sphere.allow_facilitator_session_edit,
+            enabled_pages=sphere.enabled_pages,
+            default_page=sphere.default_page,
+            encounter_public_policy=sphere.encounter_public_policy,
+            logo=upload,
+        )
+        return call.services.sphere_panel.read(sphere_id).model_dump_json(indent=2)
+
+
 def programme_tools() -> tuple[ToolProtocol, ...]:
     return (
         OrganizerCurrentEventTool(),
@@ -657,4 +873,8 @@ def programme_tools() -> tuple[ToolProtocol, ...]:
         OrganizerCreateSessionsTool(),
         OrganizerAssignSessionTool(),
         OrganizerAssignSessionsTool(),
+        OrganizerUpdateSpaceTool(),
+        OrganizerUpdateEventTool(),
+        OrganizerSetEventImageTool(),
+        OrganizerSetSphereLogoTool(),
     )

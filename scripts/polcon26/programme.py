@@ -5,6 +5,7 @@ from collections import defaultdict
 from dataclasses import dataclass, replace
 from datetime import date, datetime, time, timedelta
 from itertools import pairwise
+from string import digits
 from typing import cast
 from zoneinfo import ZoneInfo
 
@@ -32,10 +33,108 @@ COLUMN_MINUTES = 15
 ROOM_NAME_REPAIRS = (
     ("prelecyjny", "prelekcyjny"),
     ("prelekcyjny (aula 8 w A16)y", "prelekcyjny (aula 8 w A16)"),
-    ("komiksowy (aula I w A-20)", "komiksowa (aula I w A-20)"),
+    ("warsztatowaa", "warsztatowa"),
+    ("Naukowy (aula w Bibliotece UZ)", "Naukowy (Biblioteka UZ)"),
+    ("naukowy (aula w Bibliotece UZ)", "Naukowy (Biblioteka UZ)"),
+    ("Turniejowa Games Room (sala 9 w A–20)", "Turniejowa Games Room"),
+    ("Turniejowa Games Room (sala 9 w A–20", "Turniejowa Games Room"),
+    ("RPG – Sesje (sala 122 w A–20)", "RPG – Sesje 4h (sala 122 w A–20)"),
 )
-UNLABELLED_ROOM_GROUPS = {"Sobota": ((31, 33, "Manga i anime sala 106"),)}
-TRANSPOSED_TITLE_CELLS = {("Sobota", "G10")}
+UNLABELLED_ROOM_GROUPS: dict[str, tuple[tuple[int, int, str], ...]] = {}
+TRANSPOSED_TITLE_CELLS: frozenset[tuple[str, str]] = frozenset()
+
+EXCLUDED_TITLE_CELLS = {"Sobota": frozenset({"BA7", "BI7", "BA55", "BE55", "AY82"})}
+
+FLOATING_BLOCKS = {
+    "Sobota": (
+        {
+            "room": "Namiot Konwentowy",
+            "header_row": 1,
+            "title_row": 2,
+            "presenter_row": 3,
+            "description_row": 7,
+        },
+    )
+}
+
+SHIFTED_NIGHT_LANES = {
+    "Sobota": (
+        {"room_row": 4, "title_row": 6},
+        {"room_row": 7, "title_row": 8, "presenter_row": 9},
+    )
+}
+
+REPAIR_ITEMS = (
+    {
+        "sheet": "Sobota",
+        "cell": "BA55",
+        "room_row": 55,
+        "title": "Konkurs: rozpoznawanie anime po mundurkach",
+        "presenters": (),
+        "description_cell": "BA55",
+        "start_minutes": 22 * 60 + 30,
+        "duration_minutes": 60,
+    },
+    {
+        "sheet": "Sobota",
+        "cell": "BE56",
+        "room_row": 55,
+        "title": "Czucie walki",
+        "presenters": ("Michał Gmur",),
+        "description_cell": None,
+        "start_minutes": 23 * 60 + 30,
+        "duration_minutes": 60,
+    },
+    {
+        "sheet": "Sobota",
+        "cell": "BE55",
+        "room_row": 55,
+        "title": "Pośpiewajmy – lub powyjmy – nasze ulubione utwory",
+        "presenters": (),
+        "description_cell": "BE55",
+        "start_minutes": 24 * 60 + 30,
+        "duration_minutes": 60,
+    },
+    {
+        "sheet": "Sobota",
+        "cell": "AY82",
+        "room_row": 82,
+        "title": "Sesja RPG",
+        "presenters": ("Sławek Szymański",),
+        "description_cell": None,
+        "start_minutes": 22 * 60,
+        "duration_minutes": 210,
+    },
+)
+
+FIXTURE_LANE_NAMES = {
+    "Palmiarnia w A-16": (
+        "Warsztaty malowania figurek",
+        "Wystawa makiety",
+        "Stoisko Oblivion Forge",
+        "Pokazy gier bitewnych",
+    )
+}
+
+VENUE_NAME_ALIASES = {"Gry Bitewne (Palmiarnia w A–16)": "Palmiarnia w A-16"}
+BUILDING_PATTERN = re.compile(r"\(([^)]*?)\s+w\s+(A[–-]\d+)\)")
+
+
+def split_building(canonical: str) -> tuple[str | None, str]:
+    if alias := VENUE_NAME_ALIASES.get(canonical):
+        return None, alias
+    if (match := BUILDING_PATTERN.search(canonical)) is None:
+        return None, canonical
+    building = match.group(2).replace("–", "-")
+    inner = re.sub(r"\bsala\b", "s.", match.group(1)).strip()
+    name = (
+        canonical[: match.start()] + f"({inner})" + canonical[match.end() :]
+    ).strip()
+    return building, name
+
+
+CONTINUATION_TITLE = re.compile(r"^[<>\s]+$")
+ARROW_PADDING = re.compile(r"^[<>\s]+|[<>\s]+$")
 
 
 @dataclass(frozen=True)
@@ -52,6 +151,7 @@ class ProgrammeVenue:
     room: str
     leaf_name: str
     track: str
+    building: str | None = None
 
 
 @dataclass(frozen=True)
@@ -108,6 +208,10 @@ class ProgrammeItem:
         return self.venue.track
 
     @property
+    def building(self) -> str | None:
+        return self.venue.building
+
+    @property
     def category(self) -> str:
         return self.content.category
 
@@ -137,6 +241,7 @@ class ProgrammeItem:
             "sheet": self.sheet,
             "cell": self.cell,
             "physical_room": self.physical_room,
+            "building": self.building,
             "lane_index": self.lane_index,
             "room": self.room,
             "leaf_name": self.leaf_name,
@@ -222,15 +327,18 @@ def track_for(room: str) -> str:
         ("warsztat", "Warsztaty"),
         ("games room", "Games Room"),
         ("turniej", "Games Room"),
+        ("namiot", "Namiot Konwentowy"),
+        ("abyssos", "Prelekcje"),
     )
     return next((track for marker, track in mappings if marker in lowered), "Prelekcje")
 
 
 def category_for(room: str, title: str) -> str:
     combined = f"{room} {title}".casefold()
-    if room.casefold().startswith("rpg — sala"):
+    lowered_title = title.casefold()
+    if room.casefold().startswith(("rpg – sesje", "rpg — sala")):
         return "Sesja RPG"
-    if "warsztat" in combined or "stwórz" in title.casefold():
+    if "warsztat" in combined or "stwórz" in lowered_title:
         return "Warsztaty"
     if any(marker in combined for marker in ("konkurs", "quiz", "kalambur")):
         return "Konkurs"
@@ -239,7 +347,12 @@ def category_for(room: str, title: str) -> str:
         for marker in ("chill room", "games room", "retro gralnia", "gry bitewne")
     ):
         return "Strefa stała"
-    if any(marker in title.casefold() for marker in ("panel", "debata", "forum")):
+    if not lowered_title.startswith("uroczyste otwarcie") and any(
+        marker in lowered_title
+        for marker in ("wystawa", "ekspozycja", "muzeum", "stoisko", "retrogranie")
+    ):
+        return "Strefa stała"
+    if any(marker in lowered_title for marker in ("panel", "debata", "forum")):
         return "Panel dyskusyjny"
     return "Prelekcja"
 
@@ -254,7 +367,9 @@ def clean_title(value: object) -> str | None:
         return None
     if lowered.startswith("zaproponowałem na razie"):
         return None
-    return title
+    if lowered == "przerwa techniczna":
+        return None
+    return title.rstrip(" :") or None
 
 
 def clean_description(value: object) -> str:
@@ -288,19 +403,40 @@ def presenter_names(value: object) -> list[str]:
         not presenters
         or "????" in presenters
         or lowered in {"prowadzący", "kto", "nikt"}
-        or lowered.startswith("w zależności od ilości")
+        or lowered.startswith(("w zależności od ilości", "każdy, kto został"))
     ):
         return []
+    if lowered.startswith("sekcja trzymaj pion"):
+        return ["Sekcja Trzymaj Pion"]
     presenters = re.sub(
-        r"(?i)\b(prowadzenie|uczestnicy|gościmy)\s*:\s*", "", presenters
+        r"(?i)\b(prowadzenie|prowadzi|uczestnicy|gościmy|udział biorą|rozmawiają)"
+        r"\b\s*:?\s*",
+        ", ",
+        presenters,
     )
     presenters = re.sub(r"(?i)\s+-\s+prowadzący\s*:\s*", ", ", presenters)
     presenters = re.sub(r"(?i)^prowadzący\s*:\s*", "", presenters)
-    return [
+    names = [
         name.strip(" -")
         for name in re.split(r"\s*(?:,|;|\n|\s+i\s+)\s*", presenters)
         if len(name.strip(" -")) >= MIN_PRESENTER_NAME_LENGTH
     ]
+    return _rejoin_split_names(names)
+
+
+SPLIT_NAME_REPAIRS = {
+    ("Fundacja Dawne Komputery", "Gry"): "Fundacja Dawne Komputery i Gry"
+}
+
+
+def _rejoin_split_names(names: list[str]) -> list[str]:
+    result: list[str] = []
+    for name in names:
+        if result and (repaired := SPLIT_NAME_REPAIRS.get((result[-1], name))):
+            result[-1] = repaired
+            continue
+        result.append(name)
+    return result
 
 
 def extract_programme(workbook: dict[str, SheetData]) -> list[ProgrammeItem]:
@@ -311,9 +447,58 @@ def extract_programme(workbook: dict[str, SheetData]) -> list[ProgrammeItem]:
             sheet_name=sheet_name, sheet=workbook[sheet_name]
         )
     ]
+    items = _with_continuations_resolved(items)
     items = _with_lane_names(items)
     validate_items(items)
     return items
+
+
+def _with_continuations_resolved(items: list[ProgrammeItem]) -> list[ProgrammeItem]:
+    result = []
+    for item in items:
+        if not CONTINUATION_TITLE.fullmatch(item.title):
+            unpadded = ARROW_PADDING.sub("", item.title)
+            resolved = (
+                item
+                if unpadded == item.title
+                else replace(
+                    item,
+                    content=replace(
+                        item.content,
+                        title=unpadded,
+                        category=category_for(item.room, unpadded),
+                    ),
+                )
+            )
+            result.append(resolved)
+            continue
+        donors = [
+            other
+            for other in items
+            if other.physical_room == item.physical_room
+            and other.sheet != item.sheet
+            and not CONTINUATION_TITLE.fullmatch(other.title)
+        ]
+        if not donors:
+            message = (
+                f"{item.source_row_id}: continuation marker with no titled "
+                f"sibling in {item.physical_room}"
+            )
+            raise ValueError(message)
+        donor = max(donors, key=lambda other: other.end - other.start)
+        result.append(
+            replace(
+                item,
+                content=replace(
+                    item.content,
+                    title=donor.title,
+                    description=donor.description,
+                    presenters=donor.presenters,
+                    category=donor.category,
+                ),
+            )
+        )
+    return result
 
 
 def _extract_sheet_programme(
@@ -322,11 +507,13 @@ def _extract_sheet_programme(
     groups = room_groups(sheet)
     groups.extend(UNLABELLED_ROOM_GROUPS.get(sheet_name, ()))
     header_times = _header_times(sheet_name=sheet_name, sheet=sheet)
+    labelled_last_column = max(header_times)
+    header_times = _extrapolated(header_times, sheet=sheet)
     first_column, last_column = min(header_times), max(header_times)
     merge_at = _schedule_merges(
         sheet=sheet, first_column=first_column, last_column=last_column
     )
-    return [
+    items = [
         item
         for first_row, last_row, raw_room in sorted(groups)
         for item in _extract_room_programme(
@@ -341,19 +528,194 @@ def _extract_sheet_programme(
             raw_room=raw_room,
         )
     ]
+    if _night_region_present(sheet):
+        items.extend(
+            _extract_floating_blocks(
+                sheet_name=sheet_name, sheet=sheet, merge_at=merge_at
+            )
+        )
+        items.extend(
+            _extract_shifted_night_lanes(
+                sheet_name=sheet_name,
+                sheet=sheet,
+                header_times=header_times,
+                merge_at=merge_at,
+                first_column=labelled_last_column + 1,
+                last_column=last_column,
+            )
+        )
+        items.extend(_extract_repair_items(sheet_name=sheet_name, sheet=sheet))
+    return items
 
 
-def _header_times(*, sheet_name: str, sheet: SheetData) -> dict[int, float]:
+def _night_region_present(sheet: SheetData) -> bool:
+    return any(
+        row_number(reference) == 1
+        and isinstance(value, str)
+        and re.fullmatch(r"\d*\.\d+", value)
+        for reference, value in sheet.cells.items()
+    )
+
+
+def _extrapolated(
+    header_times: dict[int, float], *, sheet: SheetData
+) -> dict[int, float]:
+    last_column = max(header_times)
+    step = COLUMN_MINUTES / (24 * 60)
+    content_columns = [
+        parse_range(reference)[2]
+        for reference in sheet.merges
+        if parse_range(reference)[1] > HEADER_ROW
+    ]
+    result = dict(header_times)
+    for column in range(last_column + 1, max([*content_columns, last_column]) + 1):
+        result[column] = header_times[last_column] + (column - last_column) * step
+    return result
+
+
+def _extract_floating_blocks(
+    *,
+    sheet_name: str,
+    sheet: SheetData,
+    merge_at: dict[tuple[int, int], tuple[int, int, str]],
+) -> list[ProgrammeItem]:
+    result = []
+    for block in FLOATING_BLOCKS.get(sheet_name, ()):
+        header_times = _header_times(
+            sheet_name=sheet_name, sheet=sheet, header_row=block["header_row"]
+        )
+        metadata_rows = {
+            "presenter": block["presenter_row"],
+            "description": block["description_row"],
+        }
+        for column in sorted(header_times):
+            item = _extract_programme_item(
+                sheet_name=sheet_name,
+                sheet=sheet,
+                header_times=header_times,
+                merge_at=merge_at,
+                physical_room=block["room"],
+                title_row=block["title_row"],
+                lane_index=1,
+                metadata_rows=metadata_rows,
+                column=column,
+            )
+            if item is not None:
+                result.append(item)
+    return result
+
+
+def _extract_shifted_night_lanes(
+    *,
+    sheet_name: str,
+    sheet: SheetData,
+    header_times: dict[int, float],
+    merge_at: dict[tuple[int, int], tuple[int, int, str]],
+    first_column: int,
+    last_column: int,
+) -> list[ProgrammeItem]:
+    result = []
+    for lane in SHIFTED_NIGHT_LANES.get(sheet_name, ()):
+        room = sheet.cells.get(f"A{lane['room_row']}")
+        if not isinstance(room, str) or not room.strip():
+            message = f"{sheet_name}: shifted lane room row {lane['room_row']} empty"
+            raise ValueError(message)
+        metadata_rows = {
+            key: lane[f"{key}_row"]
+            for key in ("presenter", "description")
+            if f"{key}_row" in lane
+        }
+        for column in range(first_column, last_column + 1):
+            item = _extract_programme_item(
+                sheet_name=sheet_name,
+                sheet=sheet,
+                header_times=header_times,
+                merge_at=merge_at,
+                physical_room=canonical_room(room),
+                title_row=lane["title_row"],
+                lane_index=1,
+                metadata_rows=metadata_rows,
+                column=column,
+            )
+            if item is not None:
+                result.append(item)
+    return result
+
+
+def _extract_repair_items(*, sheet_name: str, sheet: SheetData) -> list[ProgrammeItem]:
+    result = []
+    for repair in REPAIR_ITEMS:
+        if repair["sheet"] != sheet_name:
+            continue
+        room = next(
+            (
+                value
+                for row in range(int(repair["room_row"]), 0, -1)
+                if isinstance(value := sheet.cells.get(f"A{row}"), str)
+                and value.strip()
+            ),
+            None,
+        )
+        if room is None:
+            message = f"{sheet_name}: no room label above row {repair['room_row']}"
+            raise ValueError(message)
+        physical_room = canonical_room(room)
+        building, display_room = split_building(physical_room)
+        description = ""
+        if repair["description_cell"] is not None:
+            value = sheet.cells.get(str(repair["description_cell"]))
+            description = clean_description(value)
+        start = datetime.combine(
+            SHEET_DATES[sheet_name], time.min, tzinfo=WARSAW
+        ) + timedelta(minutes=int(repair["start_minutes"]))
+        cell = str(repair["cell"])
+        result.append(
+            ProgrammeItem(
+                source=ProgrammeSource(
+                    source_row_id=(
+                        f"polcon26-{sheet_name[:3].lower()}-"
+                        f"{row_number(cell)}-"
+                        f"{cell.rstrip(digits).lower()}"
+                    ),
+                    sheet=sheet_name,
+                    cell=cell,
+                ),
+                venue=ProgrammeVenue(
+                    physical_room=display_room,
+                    lane_index=1,
+                    room=display_room,
+                    leaf_name=display_room,
+                    track=track_for(physical_room),
+                    building=building,
+                ),
+                content=ProgrammeContent(
+                    category=category_for(physical_room, str(repair["title"])),
+                    title=str(repair["title"]),
+                    presenters=list(cast("tuple[str, ...]", repair["presenters"])),
+                    description=description,
+                ),
+                timing=ProgrammeTiming(
+                    start=start,
+                    end=start + timedelta(minutes=int(repair["duration_minutes"])),
+                ),
+            )
+        )
+    return result
+
+
+def _header_times(
+    *, sheet_name: str, sheet: SheetData, header_row: int = HEADER_ROW
+) -> dict[int, float]:
     result = {
         column_index(reference): float(value)
         for reference, value in sheet.cells.items()
-        if row_number(reference) == HEADER_ROW
+        if row_number(reference) == header_row
         and column_index(reference) >= FIRST_PROGRAMME_COLUMN
         and isinstance(value, str)
         and re.fullmatch(r"\d*\.\d+", value)
     }
     if not result:
-        message = f"{sheet_name}: no fractional time headers in row {HEADER_ROW}"
+        message = f"{sheet_name}: no fractional time headers in row {header_row}"
         raise ValueError(message)
     return result
 
@@ -458,6 +820,8 @@ def _extract_programme_item(
     column: int,
 ) -> ProgrammeItem | None:
     cell = f"{column_name(column)}{title_row}"
+    if cell in EXCLUDED_TITLE_CELLS.get(sheet_name, frozenset()):
+        return None
     if (title := clean_title(sheet.cells.get(cell))) is None:
         return None
     if (merge := merge_at.get((title_row, column))) is None:
@@ -487,6 +851,7 @@ def _extract_programme_item(
         SHEET_DATES[sheet_name], time.min, tzinfo=WARSAW
     ) + timedelta(minutes=minutes)
     duration = timedelta(minutes=COLUMN_MINUTES * (last_merged_column - column + 1))
+    building, display_room = split_building(physical_room)
     return ProgrammeItem(
         source=ProgrammeSource(
             source_row_id=(
@@ -497,11 +862,12 @@ def _extract_programme_item(
             cell=cell,
         ),
         venue=ProgrammeVenue(
-            physical_room=physical_room,
+            physical_room=display_room,
             lane_index=lane_index,
-            room=physical_room,
-            leaf_name=physical_room,
+            room=display_room,
+            leaf_name=display_room,
             track=track_for(physical_room),
+            building=building,
         ),
         content=ProgrammeContent(
             category=category_for(physical_room, title),
@@ -543,7 +909,10 @@ def lane_counts(items: list[ProgrammeItem]) -> dict[str, int]:
 
 
 def lane_names(physical_room: str, lane_index: int) -> tuple[str, str]:
-    label = "stół" if physical_room.startswith("RPG —") else "stanowisko"
+    if fixtures := FIXTURE_LANE_NAMES.get(physical_room):
+        leaf = fixtures[lane_index - 1]
+        return (f"{physical_room} — {leaf}", leaf)
+    label = "stół" if physical_room.startswith(("RPG —", "RPG –")) else "stanowisko"
     return (
         f"{physical_room} — {label} {lane_index}",
         f"{label.capitalize()} {lane_index}",

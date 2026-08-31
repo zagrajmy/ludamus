@@ -258,7 +258,9 @@ class EventSettingsForm(forms.Form):
         max_length=50, error_messages={"required": _("Event slug is required.")}
     )
     description = forms.CharField(
-        required=False, widget=forms.Textarea(attrs={"rows": 3})
+        required=False,
+        widget=forms.Textarea(attrs={"rows": 3}),
+        help_text=_("Aim for about 230 characters."),
     )
     cover_image = cover_image_field()
     logo = logo_field()

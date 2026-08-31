@@ -2738,6 +2738,10 @@ msgid "Event slug is required."
 msgstr "Slug wydarzenia jest wymagany."
 
 #: src/ludamus/gates/web/django/forms.py
+msgid "Aim for about 230 characters."
+msgstr "Celuj w około 230 znaków."
+
+#: src/ludamus/gates/web/django/forms.py
 msgid "Start time is required."
 msgstr "Czas rozpoczęcia jest wymagany."
 
@@ -4826,12 +4830,17 @@ msgid "Delete integration"
 msgstr "Usuń integrację"
 
 #: src/ludamus/templates/chronology/panel/integrations/delete.html
-#, python-format
+#, fuzzy, python-format
+#| msgid ""
+#| "\n"
+#| "                    Are you sure you want to delete integration "
+#| "\"%(name)s\"?\n"
+#| "                "
 msgid ""
 "\n"
-"                    Are you sure you want to delete integration "
+"                        Are you sure you want to delete integration "
 "\"%(name)s\"?\n"
-"                "
+"                    "
 msgstr ""
 "\n"
 "                    Czy na pewno chcesz usunąć integrację \"%(name)s\"?\n"
