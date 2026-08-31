@@ -10,6 +10,7 @@ from django.views.generic.base import View
 
 from ludamus.gates.web.django.access import panel_access
 from ludamus.gates.web.django.helpers import is_event_published
+from ludamus.gates.web.django.sphere.pages import EventsPageRequiredMixin
 from ludamus.pacts import NotFoundError
 
 if TYPE_CHECKING:
@@ -29,7 +30,7 @@ def ics_utc(value: datetime) -> str:
     return value.astimezone(UTC).strftime("%Y%m%dT%H%M%SZ")
 
 
-class EventICSView(View):
+class EventICSView(EventsPageRequiredMixin, View):
     """Single-VEVENT calendar file for one event ("Other calendars" download)."""
 
     @staticmethod

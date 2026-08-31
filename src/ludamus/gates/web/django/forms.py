@@ -41,6 +41,9 @@ if TYPE_CHECKING:
     from ludamus.pacts.multiverse import ConnectionDTO
 
 _DATETIME_LOCAL_FORMATS = ["%Y-%m-%dT%H:%M", "%Y-%m-%dT%H:%M:%S"]
+# The hero prints the address under the venue name, where a third line
+# pushes the CTAs off a phone screen.
+MAX_ADDRESS_LINES = 2
 # Image-upload invariants (business rules, not gate trivia): every cover/header
 # upload across the app is held to these same limits via validate_uploaded_image.
 MAX_IMAGE_SIZE = 8 * 1024 * 1024
@@ -264,12 +267,22 @@ class EventSettingsForm(forms.Form):
         max_length=255,
         required=False,
         strip=True,
-        widget=forms.Textarea(attrs={"rows": 3}),
+        label=_("Address"),
+        help_text=_(
+            "Physical venue address, shown on the event page with a map link. "
+            "Two lines at most."
+        ),
+        widget=forms.Textarea(attrs={"rows": MAX_ADDRESS_LINES}),
     )
 
     def clean_address(self) -> str:
         lines = str(self.cleaned_data.get("address") or "").splitlines()
-        return "\n".join(stripped for line in lines if (stripped := line.strip()))
+        kept = [stripped for line in lines if (stripped := line.strip())]
+        if len(kept) > MAX_ADDRESS_LINES:
+            raise ValidationError(
+                _gettext("An address is at most two lines. Shorten it.")
+            )
+        return "\n".join(kept)
 
     cover_image = cover_image_field()
     logo = logo_field()

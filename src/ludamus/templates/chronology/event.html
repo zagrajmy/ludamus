@@ -106,7 +106,7 @@
                         {% endif %}
                         {% if event.address %}
                             {% translate "View on map ↗" as t_view_on_map %}
-                            <a href="https://www.google.com/maps/search/?api=1&query={{ event.address_inline|urlencode }}"
+                            <a href="https://www.google.com/maps/search/?api=1&amp;query={{ event.address_inline|urlencode }}"
                                target="_blank"
                                rel="noopener"
                                title="{{ t_view_on_map }}"
@@ -122,7 +122,7 @@
                         {% endif %}
                     </div>
                     {% if compact_schedule %}
-                        <div class="flex flex-col gap-3 md:flex-row md:flex-wrap">
+                        <div class="flex flex-col gap-3 md:row-start-3 md:flex-row md:flex-wrap">
                             {% translate "View the program" as t_view_program %}
                             {% tessera_button t_view_program href="#schedule-region" size="lg" full_width_mobile=True %}
                             {% if has_enrollable_sessions and not event.is_ended %}

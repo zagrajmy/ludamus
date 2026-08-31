@@ -784,6 +784,10 @@ class TestSwitcher:
             ).render(Context())
 
 
+# The external row carries its own icon plus the exit arrow.
+EXTERNAL_ROW_ICONS = 2
+
+
 class TestActionDropdown:
     BASE = (
         "{% load tessera %}"
@@ -818,7 +822,9 @@ class TestActionDropdown:
 
         assert 'href="https://g.example"' in html
         assert 'target="_blank" rel="noopener"' in html
-        assert "arrow-top-right-on-square" not in html.split('href="/f.ics"')[1]
+        assert html.count('target="_blank"') == 1
+        assert html.count("<svg") == EXTERNAL_ROW_ICONS
+        assert "<svg" not in html.split('href="/f.ics"')[1]
 
     def test_item_extra_attrs_and_iconless_rows_render(self) -> None:
         html = Template(

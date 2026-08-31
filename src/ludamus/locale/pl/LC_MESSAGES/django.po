@@ -2738,6 +2738,18 @@ msgid "Event slug is required."
 msgstr "Slug wydarzenia jest wymagany."
 
 #: src/ludamus/gates/web/django/forms.py
+msgid "Address"
+msgstr "Adres"
+
+#: src/ludamus/gates/web/django/forms.py
+msgid ""
+"Physical venue address, shown on the event page with a map link. Two lines "
+"at most."
+msgstr ""
+"Fizyczny adres miejsca wydarzenia, pokazywany na stronie wydarzenia z "
+"linkiem do mapy. Maksymalnie dwie linie."
+
+#: src/ludamus/gates/web/django/forms.py
 msgid "Start time is required."
 msgstr "Czas rozpoczęcia jest wymagany."
 
@@ -9471,16 +9483,6 @@ msgstr "Slug URL"
 #: src/ludamus/templates/panel/settings.html
 msgid "URL identifier for this event. Must be unique."
 msgstr "Identyfikator URL tego wydarzenia. Musi być unikalny."
-
-#: src/ludamus/templates/panel/settings.html
-msgid "Address"
-msgstr "Adres"
-
-#: src/ludamus/templates/panel/settings.html
-msgid "Physical venue address, shown on the event page with a map link."
-msgstr ""
-"Fizyczny adres miejsca wydarzenia, pokazywany na stronie wydarzenia z "
-"linkiem do mapy."
 
 #: src/ludamus/templates/panel/settings.html
 msgid "Event Dates"

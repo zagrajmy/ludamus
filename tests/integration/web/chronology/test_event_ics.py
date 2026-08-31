@@ -55,6 +55,30 @@ class TestEventICSView:
 
         assert_response_404(response)
 
+    def test_escapes_the_characters_ics_reserves(self, client, event):
+        event.name = "Gra: pułapki, sztuczki; i \\ ukośniki"
+        event.address = "Hala Stulecia\nWystawowa 1"
+        event.save()
+
+        response = client.get(self._url(event.slug))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            contains=[
+                "SUMMARY:Gra: pułapki\\, sztuczki\\; i \\\\ ukośniki",
+                "LOCATION:Hala Stulecia\\, Wystawowa 1",
+            ],
+        )
+
+    def test_unpublished_event_is_served_to_a_manager(self, manager_client, event):
+        event.publication_time = timezone.now() + timedelta(days=1)
+        event.save()
+
+        response = manager_client.get(self._url(event.slug))
+
+        assert_response(response, HTTPStatus.OK, contains="BEGIN:VCALENDAR")
+
     def test_missing_event_is_not_found(self, client):
         response = client.get(self._url("does-not-exist"))
 

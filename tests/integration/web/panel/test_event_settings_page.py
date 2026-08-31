@@ -275,6 +275,26 @@ class TestEventSettingsPageViewPost:
         event.refresh_from_db()
         assert event.address == "Hala Stulecia\nWystawowa 1"
 
+    def test_rejects_an_address_of_three_lines(self, panel_client, event):
+        response = panel_client.post(
+            self.get_url(event),
+            data=self._post_data(
+                event, address="Hala Stulecia\nWystawowa 1\nWroc\u0142aw"
+            ),
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=self._render_context(response, event),
+            template_name="panel/settings.html",
+        )
+        assert response.context["form"].errors["address"] == [
+            "An address is at most two lines. Shorten it."
+        ]
+        event.refresh_from_db()
+        assert not event.address
+
     def test_updates_cover_image(self, panel_client, event):
         image = SimpleUploadedFile("cover.png", PNG_BYTES, content_type="image/png")
 
