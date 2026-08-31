@@ -4,7 +4,8 @@ from django import forms
 from django.utils.translation import gettext
 from django.utils.translation import gettext_lazy as _
 
-from ludamus.gates.web.django.forms import cover_image_field, validate_uploaded_image
+from ludamus.gates.uploads import validate_uploaded_image
+from ludamus.gates.web.django.forms import cover_image_field
 
 
 class EncounterForm(forms.Form):
