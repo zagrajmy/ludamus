@@ -454,6 +454,10 @@ def present_session_modal(
     event_banned: bool,
     banned_presenter_ids: set[UserId],
     shadowbanned_ids: frozenset[UserId],
+    # The viewer's own open windows. A window restricted to pass holders can
+    # seat this session without being open to the person reading the page, so
+    # availability is theirs, not the session's.
+    open_window_ids: frozenset[int],
     guild: GuildMarkDTO | None = None,
 ) -> SessionData:
     if dto.presenter is not None:
@@ -471,7 +475,7 @@ def present_session_modal(
         )
     card = SessionData(
         agenda_item=dto.agenda_item,
-        is_enrollment_available=dto.is_enrollment_available,
+        is_enrollment_available=bool(dto.enrollment_window_ids & open_window_ids),
         presenter=presenter,
         session=dto.session,
         is_full=dto.is_full,

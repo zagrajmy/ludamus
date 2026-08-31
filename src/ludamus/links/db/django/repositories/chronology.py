@@ -145,11 +145,17 @@ def location_data(space: Space) -> LocationData:
 
 
 def session_card_stats(session: Session) -> SessionCardStatsDTO:
+    window_ids = frozenset(
+        config.pk for config in session.event.get_eligible_enrollment_configs(session)
+    )
     return SessionCardStatsDTO(
         enrolled_count=session.enrolled_count,
         waiting_count=session.waiting_count,
         is_full=session.is_full,
-        is_enrollment_available=session.is_enrollment_available,
+        # The same answer session.is_enrollment_available gives, read off the
+        # windows that produced it so the two cannot drift apart.
+        is_enrollment_available=bool(window_ids),
+        enrollment_window_ids=window_ids,
         effective_participants_limit=session.effective_participants_limit,
     )
 

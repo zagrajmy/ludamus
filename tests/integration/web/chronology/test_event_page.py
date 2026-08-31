@@ -64,6 +64,7 @@ from tests.integration.utils import assert_rendered, assert_response
 from tests.integration.web.chronology.helpers import (
     ENROLLMENT_OPEN,
     compact_day,
+    enrollment_opens_at,
     event_page_context,
     make_half_full_session,
     proposal_card,
@@ -617,7 +618,7 @@ class TestEventPageView:
             context_data=event_page_context(
                 event,
                 url=self._get_url(event.slug),
-                enrollment_access=ENROLLMENT_OPEN,
+                access=ENROLLMENT_OPEN,
                 compact_schedule=True,
                 sessions=list(cards.values()),
                 schedule_days=expected_days,
@@ -924,7 +925,7 @@ class TestEventPageView:
             context_data=event_page_context(
                 event,
                 url=self._get_url(event.slug),
-                enrollment_access=ENROLLMENT_OPEN,
+                access=ENROLLMENT_OPEN,
                 hour_data={agenda_item.start_time: [card]},
                 current_hour_data={agenda_item.start_time: [card]},
                 sessions=[card],
@@ -950,11 +951,42 @@ class TestEventPageView:
             response,
             HTTPStatus.OK,
             context_data=event_page_context(
-                event, url=self._get_url(event.slug), enrollment_access=ENROLLMENT_OPEN
+                event, url=self._get_url(event.slug), access=ENROLLMENT_OPEN
             ),
             template_name=["chronology/event.html"],
             contains=["Enrollment Open", "Proposals Open"],
             not_contains="Upcoming",
+        )
+
+    def test_status_pill_names_the_date_a_restricted_window_opens_to_everyone(
+        self, authenticated_client, enrollment_config, event
+    ):
+        # Early enrollment for pass holders, general enrollment on Friday: the
+        # viewer holds no passes, so the hero states the date they can act on
+        # rather than an "Enrollment Open" they would be turned away from.
+        enrollment_config.restrict_to_configured_users = True
+        enrollment_config.save()
+        general_start = timezone.now() + timedelta(days=2)
+        EnrollmentConfig.objects.create(
+            event=event,
+            start_time=general_start,
+            end_time=general_start + timedelta(days=1),
+            percentage_slots=100,
+        )
+
+        response = authenticated_client.get(self._get_url(event.slug))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=event_page_context(
+                event,
+                url=self._get_url(event.slug),
+                access=enrollment_opens_at(general_start),
+            ),
+            template_name=["chronology/event.html"],
+            contains="Enrollment opens",
+            not_contains=["Enrollment Open", "Upcoming"],
         )
 
     def test_status_pill_live_event_shows_happening_now(self, client, event):
@@ -2509,7 +2541,7 @@ class TestEventPageView:
             context_data=event_page_context(
                 event,
                 url=self._get_url(event.slug),
-                enrollment_access=ENROLLMENT_OPEN,
+                access=ENROLLMENT_OPEN,
                 current_hour_data={agenda_item.start_time: [session_data]},
                 hour_data={agenda_item.start_time: [session_data]},
                 sessions=[session_data],

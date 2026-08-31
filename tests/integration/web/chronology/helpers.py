@@ -20,6 +20,7 @@ from ludamus.gates.web.django.chronology.schedule import (
     build_card_days,
 )
 from ludamus.gates.web.django.entities import UserInfo
+from ludamus.gates.web.django.event.status_pills import event_status_pills
 from ludamus.links.db.django.models import SessionParticipation
 from ludamus.links.db.django.repositories.chronology import location_data
 from ludamus.links.gravatar import gravatar_url
@@ -47,9 +48,14 @@ from tests.integration.conftest import (
 )
 from tests.integration.utils import RequestTimeMatcher
 
-# What the event page reports about the viewer's own enrollment window.
-ENROLLMENT_SHUT = EnrollmentAccessDTO(can_enroll_now=False, opens_at=None)
-ENROLLMENT_OPEN = EnrollmentAccessDTO(can_enroll_now=True, opens_at=None)
+# What the event page reports about the viewer's own enrollment window. The
+# window ids are the page's, so any id stands for "one is open to this viewer".
+ENROLLMENT_SHUT = EnrollmentAccessDTO(open_window_ids=frozenset(), opens_at=None)
+ENROLLMENT_OPEN = EnrollmentAccessDTO(open_window_ids=frozenset({1}), opens_at=None)
+
+
+def enrollment_opens_at(when):
+    return EnrollmentAccessDTO(open_window_ids=frozenset(), opens_at=when)
 
 
 def session_card(agenda_item, *, presenter, **overrides):
@@ -118,7 +124,7 @@ def schedule_context(url):
     }
 
 
-def event_page_context(event, *, url, **overrides):
+def event_page_context(event, *, url, access=ENROLLMENT_SHUT, **overrides):
     # Every key the event page renders with, defaulted to an event with no
     # schedule. `url` is the page's own path, which the view echoes back as the
     # list/rooms view links.
@@ -128,7 +134,14 @@ def event_page_context(event, *, url, **overrides):
     current = overrides.pop("current_hour_data", {})
     future_unavailable = overrides.pop("future_unavailable_hour_data", {})
     context = {
-        "enrollment_access": ENROLLMENT_SHUT,
+        # The pills follow from the event's own state and this viewer's
+        # windows; which pills those are is unit-tested beside the function.
+        "status_pills": event_status_pills(
+            is_live=event.is_live,
+            is_ended=event.is_ended,
+            is_proposal_active=event.is_proposal_active,
+            access=access,
+        ),
         "enrollment_notices": [],
         "event": event,
         "filterable_tag_categories": [],

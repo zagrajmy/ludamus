@@ -9,7 +9,7 @@ from django.views.generic.base import View
 
 from ludamus.gates.web.django.access import has_panel_access
 from ludamus.gates.web.django.chronology.event_presentation import present_session_modal
-from ludamus.gates.web.django.event.enroll_presentation import build_enroll_actions
+from ludamus.gates.web.django.event.enroll_presentation import build_enroll_footer
 from ludamus.gates.web.django.helpers import is_event_published
 from ludamus.gates.web.django.sphere.pages import EventsPageRequiredMixin
 from ludamus.pacts import NotFoundError
@@ -38,23 +38,23 @@ class SessionModalComponentView(EventsPageRequiredMixin, View):
         )
         if dto is None:
             raise Http404
+        access = request.services.enrollment.access(
+            event=event, viewer_slug=request.context.current_user_slug
+        )
         data = present_session_modal(
             dto,
             event_banned=event_banned,
             banned_presenter_ids=banned_by,
             shadowbanned_ids=shadowbanned_ids,
+            open_window_ids=access.open_window_ids,
             guild=request.services.guilds.mark_for_session(
                 sphere_id=request.context.current_sphere_id, session_pk=session_id
             ),
         )
-        access = request.services.enrollment.access(
-            event=event, user_email=self._viewer_email()
-        )
-        # A restricted window is open for its configured users only, so the
-        # ways in are the viewer's to have — not the event's.
-        enroll_actions = build_enroll_actions(
-            is_enrollment_available=data.is_enrollment_available
-            and access.can_enroll_now,
+        footer = build_enroll_footer(
+            opens_at=access.opens_at,
+            takes_enrollment=data.takes_enrollment,
+            is_enrollment_available=data.is_enrollment_available,
             is_ended=data.is_ended,
             is_full=data.is_full,
             user_enrolled=data.user_enrolled,
@@ -77,16 +77,8 @@ class SessionModalComponentView(EventsPageRequiredMixin, View):
                 ),
                 # Modal-only: the event page patches is_ended onto its cards
                 # after construction, so this is wrong on a card.
-                "enroll_actions": enroll_actions,
-                # The one line that says why there is no way in yet, next to a
-                # disabled Enroll — set only when nothing else offers an action.
-                "enroll_opens_at": (
-                    access.opens_at
-                    if enroll_actions is None
-                    and data.takes_enrollment
-                    and not data.is_ended
-                    else None
-                ),
+                "enroll_actions": footer.actions,
+                "enroll_opens_at": footer.opens_at,
             },
         )
 
@@ -116,11 +108,6 @@ class SessionModalComponentView(EventsPageRequiredMixin, View):
                 event_id=event.pk, user_id=current_user_id
             )
         return shadowbanned_ids, banned_by, event_banned
-
-    def _viewer_email(self) -> str:
-        if (slug := self.request.context.current_user_slug) is None:
-            return ""
-        return self.request.services.enrollment.read_viewer(slug).email
 
     def _viewer_user_ids(self) -> list[UserId]:
         if (slug := self.request.context.current_user_slug) is not None:

@@ -1,5 +1,6 @@
 {% load i18n %}
 {% load tessera %}
+{% load date_tags %}
 {# One-click self-enroll for the session modal footer. Both the modal and the #}
 {# HX-Request response from SessionEnrollPageView.post render this fragment, so #}
 {# the control swaps in place after acting. Without JS the forms POST normally #}
@@ -26,6 +27,23 @@
             {% icon "check-circle" class="w-3.5 h-3.5 shrink-0" variant="mini" %}
             <span>{{ notice }}</span>
         </p>
+    {% endif %}
+    {% if enroll_opens_at %}
+        {# The window that will let this viewer in has not opened. Same shape #}
+        {# the modal's own GET renders, so a swap never turns the way in into #}
+        {# an empty corner. #}
+        <div class="flex items-center gap-2.5">
+            <span id="enroll-opens-{{ session_pk }}"
+                  class="text-xs text-right text-foreground-muted">
+                {% blocktranslate with day=enroll_opens_at|short_date time=enroll_opens_at|time:"G:i" %}Enrollment opens {{ day }} at {{ time }}{% endblocktranslate %}
+            </span>
+            <button type="button"
+                    class="btn btn-primary text-sm"
+                    disabled
+                    aria-describedby="enroll-opens-{{ session_pk }}">
+                {% icon "user-plus" class="w-4 h-4" variant="mini" %} {% translate "Enroll" %}
+            </button>
+        </div>
     {% endif %}
     {% if actions %}
         {% url 'web:chronology:session-enrollment' event_slug=event_slug session_id=session_pk as enroll_url %}

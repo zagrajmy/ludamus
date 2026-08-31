@@ -1,8 +1,12 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from django.utils.translation import gettext as _
+
+if TYPE_CHECKING:
+    from datetime import datetime
 
 
 @dataclass(frozen=True)
@@ -136,4 +140,41 @@ def build_enroll_actions(
         submit_label=_("Enroll"),
         submit_icon="user-plus",
         group_label=_("Enroll with others…"),
+    )
+
+
+@dataclass(frozen=True)
+class EnrollFooter:
+    """Everything the modal footer offers a viewer: at most one of the two."""
+
+    actions: EnrollActions | None
+    # When the window that will let this viewer in starts. Set only when there
+    # is no action to offer, so the footer never shows a live control and a
+    # "comes back later" date at once.
+    opens_at: datetime | None
+
+
+def build_enroll_footer(
+    *,
+    opens_at: datetime | None,
+    takes_enrollment: bool,
+    is_enrollment_available: bool,
+    is_ended: bool,
+    is_full: bool,
+    user_enrolled: bool,
+    user_waiting: bool,
+) -> EnrollFooter:
+    """Decide the footer once, for every path that renders it."""
+    actions = build_enroll_actions(
+        is_enrollment_available=is_enrollment_available,
+        is_ended=is_ended,
+        is_full=is_full,
+        user_enrolled=user_enrolled,
+        user_waiting=user_waiting,
+    )
+    return EnrollFooter(
+        actions=actions,
+        opens_at=(
+            opens_at if actions is None and takes_enrollment and not is_ended else None
+        ),
     )

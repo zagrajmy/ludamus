@@ -35,6 +35,7 @@ from ludamus.pacts.enrollment import (
     AnonymousLoadDTO,
     AnonymousSessionContextDTO,
     ClaimResult,
+    EnrollmentAccessDTO,
     EnrollmentServiceProtocol,
     EnrollmentSettingsServiceProtocol,
     GuestSeatData,
@@ -53,7 +54,6 @@ from ludamus.pacts.legacy import (
 from ludamus.pacts.party import HeldSeatNotification
 from ludamus.specs.enrollment import (
     MEMBERSHIP_CHECK_INTERVAL_MINUTES,
-    enrollment_access,
     is_valid_window_period,
     select_promotable_parties,
 )
@@ -72,7 +72,6 @@ if TYPE_CHECKING:
     from ludamus.pacts.enrollment import (
         AnonymousEnrollmentRepositoryProtocol,
         AnonymousEnrollmentRequestDTO,
-        EnrollmentAccessDTO,
         EnrollmentParticipationRepositoryProtocol,
         EnrollmentRepos,
         EnrollmentWindowData,
@@ -99,9 +98,12 @@ class EnrollmentWindowLike(Protocol):
     restrict_to_configured_users: bool
 
 
-# read_list bounds a window at both ends, and windows that have not started yet
-# need a start bound none of them can exceed.
-_ANY_START_TIME = datetime.max.replace(tzinfo=UTC)
+class DatedEnrollmentWindow(EnrollmentWindowLike, Protocol):
+    """A stored window: it knows its period and can be named by id."""
+
+    end_time: datetime
+    pk: int
+    start_time: datetime
 
 
 def _seating_rank(window: EnrollmentWindowLike) -> tuple[int, bool]:
@@ -187,6 +189,26 @@ class EnrollmentPolicy:
     def available_slots(self, *, participants_limit: int, enrolled_count: int) -> int:
         limit = self.effective_participants_limit(participants_limit=participants_limit)
         return max(0, limit - enrolled_count)
+
+
+def viewer_access(
+    *, windows: Iterable[DatedEnrollmentWindow], is_configured_user: bool, now: datetime
+) -> EnrollmentAccessDTO:
+    """Name the windows this viewer may use now, and when the next one starts."""
+    # for_actor owns "which windows is this actor allowed into"; this adds the
+    # only thing it has no opinion on, which of them the clock has reached.
+    usable = EnrollmentPolicy.for_actor(
+        windows, is_configured_user=is_configured_user
+    ).windows
+    return EnrollmentAccessDTO(
+        open_window_ids=frozenset(
+            window.pk for window in usable if window.start_time <= now < window.end_time
+        ),
+        opens_at=min(
+            (window.start_time for window in usable if window.start_time > now),
+            default=None,
+        ),
+    )
 
 
 def _now() -> datetime:
@@ -898,6 +920,7 @@ class EnrollmentService(EnrollmentServiceProtocol):
         self._anonymous_users = repos.anonymous_users
         self._enrollment_configs = repos.enrollment_configs
         self._participations = repos.participations
+        self._windows = repos.windows
         self._ticket_api_resolver = repos.ticket_api_resolver
 
     def read_viewer(self, slug: str) -> UserDTO:
@@ -924,17 +947,36 @@ class EnrollmentService(EnrollmentServiceProtocol):
         config = self.virtual_config(event=event, user_email=user_email)
         return bool(config and config.allowed_slots)
 
-    def access(self, *, event: EventDTO, user_email: str) -> EnrollmentAccessDTO:
-        # NOTE: pass ownership is read from the windows open now — the only
-        # ones virtual_config sums — so a pass holder waiting for a window that
-        # has not started is told when the unrestricted one opens.
-        now = _now()
-        return enrollment_access(
-            windows=self._enrollment_configs.read_list(
-                event.pk, max_start_time=_ANY_START_TIME, min_end_time=now
+    def access(
+        self, *, event: EventDTO, viewer_slug: str | None
+    ) -> EnrollmentAccessDTO:
+        windows = self._windows.list_for_event(event.pk)
+        return viewer_access(
+            windows=windows,
+            is_configured_user=self._holds_passes(
+                event=event, windows=windows, viewer_slug=viewer_slug
             ),
-            is_configured_user=self.has_slot_access(event=event, user_email=user_email),
-            now=now,
+            now=_now(),
+        )
+
+    def _holds_passes(
+        self,
+        *,
+        event: EventDTO,
+        windows: list[EnrollmentWindowDTO],
+        viewer_slug: str | None,
+    ) -> bool:
+        # Only a restricted window makes the answer matter, and reading it
+        # costs a membership-API round trip on a miss.
+        # NOTE: pass ownership is summed over the windows open now, the only
+        # ones virtual_config reads, so a pass holder waiting for a restricted
+        # window that has not started is told when the unrestricted one opens.
+        if viewer_slug is None or not any(
+            window.restrict_to_configured_users for window in windows
+        ):
+            return False
+        return self.has_slot_access(
+            event=event, user_email=self.read_viewer(viewer_slug).email
         )
 
     def can_enroll_users(

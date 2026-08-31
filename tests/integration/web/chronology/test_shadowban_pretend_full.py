@@ -81,7 +81,7 @@ class TestShadowbanPretendFull:
                 event,
                 card,
                 lane="current_hour_data",
-                enrollment_access=ENROLLMENT_OPEN,
+                access=ENROLLMENT_OPEN,
                 total_enrolled=10,
                 has_enrollable_sessions=True,
                 scheduled_count=1,
@@ -145,6 +145,45 @@ class TestShadowbanPretendFull:
             ),
             template_name=["chronology/event.html"],
             contains="Visible Game",
+        )
+
+    def test_masked_modal_keeps_its_footer_when_no_window_is_open(
+        self, authenticated_client, agenda_item, active_user, event
+    ):
+        # The mask is a claim that the session is full, and a footer that
+        # vanishes is a tell: a banned viewer could spot the difference by
+        # comparing their view with a friend's. See
+        # docs/features/crowd/profile/shadowban.md.
+        session = _ban_viewer(agenda_item, active_user, username="quiet-gm")
+
+        response = authenticated_client.get(
+            reverse(
+                "web:chronology:session-modal",
+                kwargs={"event_slug": event.slug, "session_id": session.pk},
+            )
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={
+                "data": masked_card(agenda_item, presenter=session.presenter, seats=10),
+                "event": EventDTO.model_validate(event),
+                "event_banned": False,
+                "show_roster": True,
+                # The mask claims an open, full session, so it keeps the
+                # waiting list a genuinely full one would offer — the viewer's
+                # own (empty) set of windows must not shrink the footer.
+                "enroll_actions": EnrollActions(
+                    submit_value="waitlist",
+                    submit_label="Join waiting list",
+                    submit_icon="clock",
+                    group_label="Enroll with others…",
+                ),
+                "enroll_opens_at": None,
+            },
+            template_name="chronology/parts/session-modal.html",
+            contains="Session full",
         )
 
     @pytest.mark.usefixtures("enrollment_config")

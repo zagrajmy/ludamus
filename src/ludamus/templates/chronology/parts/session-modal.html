@@ -229,23 +229,15 @@
                     {# The window that will let this viewer in has not opened, so #}
                     {# the way in is drawn where it will appear, shut, with the #}
                     {# date beside it. A missing control asks the reader to guess #}
-                    {# whether there is one. #}
-                    <span id="enroll-opens-{{ data.session.pk }}"
-                          class="text-xs text-right text-foreground-muted">
-                        {% blocktranslate with day=enroll_opens_at|short_date time=enroll_opens_at|time:"G:i" %}Enrollment opens {{ day }} at {{ time }}{% endblocktranslate %}
-                    </span>
-                    <button type="button"
-                            class="btn btn-primary text-sm"
-                            disabled
-                            aria-describedby="enroll-opens-{{ data.session.pk }}">
-                        {% icon "user-plus" class="w-4 h-4" variant="mini" %} {% translate "Enroll" %}
-                    </button>
+                    {# whether there is one. The fragment renders it, so the HTMX #}
+                    {# swap after a cancel lands on the same markup. #}
+                    {% include "chronology/parts/session-enroll-actions.html" with actions=None event_slug=event.slug session_pk=data.session.pk viewer_pk=current_user.pk enroll_error="" notice="" %}
                 {% elif enroll_actions and not event_banned %}
                     {% if current_user %}
                         {# current_user is always an ACTIVE user (the profile context #}
                         {# processor only resolves active accounts), so enrollment #}
                         {# actions always apply here. #}
-                        {% include "chronology/parts/session-enroll-actions.html" with actions=enroll_actions event_slug=event.slug session_pk=data.session.pk viewer_pk=current_user.pk enroll_error="" notice="" %}
+                        {% include "chronology/parts/session-enroll-actions.html" with actions=enroll_actions event_slug=event.slug session_pk=data.session.pk viewer_pk=current_user.pk enroll_error="" notice="" enroll_opens_at=None %}
                     {% elif request.session.anonymous_enrollment_active %}
                         {% if data.user_enrolled or data.user_waiting %}
                             <a href="{% url 'web:chronology:session-enrollment-anonymous' event_slug=event.slug session_id=data.session.pk %}"

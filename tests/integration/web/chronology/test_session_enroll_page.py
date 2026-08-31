@@ -2502,6 +2502,9 @@ class TestSessionEnrollInline:
                 user_enrolled=user_enrolled,
                 user_waiting=user_waiting,
             ),
+            # These fixtures never leave a window still to come, so the
+            # swapped-in fragment has no opening date to name.
+            "enroll_opens_at": None,
             "enroll_error": enroll_error,
             "notice": notice,
         }
@@ -2539,6 +2542,7 @@ class TestSessionEnrollInline:
                     ),
                     group_label="Enroll with others…",
                 ),
+                "enroll_opens_at": None,
                 "enroll_error": "",
                 "notice": "",
             },
@@ -2971,6 +2975,7 @@ class TestDesiredStateEdgeCases:
                     badge=None,
                     group_label="Enroll with others…",
                 ),
+                "enroll_opens_at": None,
                 "enroll_error": (
                     f"Invalid choice for {staff_user.name}: bogus "
                     "Please review the enrollment options below."

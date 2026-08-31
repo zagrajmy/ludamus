@@ -541,14 +541,15 @@ class TestSessionModalComponentView:
                     agenda_item=agenda_item,
                     session=agenda_item.session,
                     presenter=active_user,
-                    is_enrollment_available=True,
+                    # No passes, so the open window is not theirs to use: the
+                    # session reads as unavailable on the card and in the
+                    # modal, and the footer says when the general one starts.
+                    is_enrollment_available=False,
                     can_edit=True,
                 ),
                 "event": EventDTO.model_validate(event),
                 "event_banned": False,
                 "show_roster": True,
-                # No passes, so the open window is not theirs to use and the
-                # footer says when the general one starts instead.
                 "enroll_actions": None,
                 "enroll_opens_at": general_start,
             },

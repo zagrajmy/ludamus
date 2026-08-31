@@ -311,22 +311,25 @@ class EnrollmentRepos:
     enrollment_configs: EnrollmentConfigRepositoryProtocol
     participations: EnrollmentParticipationRepositoryProtocol
     ticket_api_resolver: TicketApiResolverProtocol
+    windows: EnrollmentWindowRepositoryProtocol
 
 
 class EnrollmentAccessDTO(BaseModel):
     """When the viewer may enroll, across the windows that apply to them.
 
     A restricted window is open for its configured users only, so the same
-    event answers this differently per viewer.
+    event answers this differently per viewer. The open windows are named by
+    id rather than counted, so a caller holding the windows that can seat one
+    session asks about that session by intersecting the two sets.
     """
 
-    can_enroll_now: bool
+    open_window_ids: frozenset[int]
     # Start of the next window the viewer may use; None when none is coming.
     opens_at: datetime | None
 
     @property
-    def has_window(self) -> bool:
-        return self.can_enroll_now or self.opens_at is not None
+    def can_enroll_now(self) -> bool:
+        return bool(self.open_window_ids)
 
 
 class EnrollmentServiceProtocol(Protocol):
@@ -340,7 +343,9 @@ class EnrollmentServiceProtocol(Protocol):
 
     def has_slot_access(self, *, event: EventDTO, user_email: str) -> bool: ...
 
-    def access(self, *, event: EventDTO, user_email: str) -> EnrollmentAccessDTO: ...
+    def access(
+        self, *, event: EventDTO, viewer_slug: str | None
+    ) -> EnrollmentAccessDTO: ...
 
     def can_enroll_users(
         self,

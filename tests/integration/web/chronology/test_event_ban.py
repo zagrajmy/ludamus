@@ -53,7 +53,7 @@ class TestEventBanFakeFull:
                 event,
                 url=_event_url(event.slug),
                 event_banned=True,
-                enrollment_access=ENROLLMENT_OPEN,
+                access=ENROLLMENT_OPEN,
                 hour_data={agenda_item.start_time: [card]},
                 current_hour_data={agenda_item.start_time: [card]},
                 sessions=[card],
@@ -79,7 +79,7 @@ class TestEventBanFakeFull:
             context_data=event_page_context(
                 event,
                 url=_event_url(event.slug),
-                enrollment_access=ENROLLMENT_OPEN,
+                access=ENROLLMENT_OPEN,
                 hour_data={agenda_item.start_time: [card]},
                 current_hour_data={agenda_item.start_time: [card]},
                 sessions=[card],
