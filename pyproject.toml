@@ -511,6 +511,7 @@ ignore_names = [
     "item_name",
     "location_label",
     "overflow_count",
+    "panel_id",
     "public_tag_categories",
     "public_tags",
     "should_show_as_inactive",
