@@ -11,23 +11,11 @@ from django.views.generic.base import View
 from ludamus.gates.web.django.access import panel_access
 from ludamus.gates.web.django.helpers import is_event_published
 from ludamus.gates.web.django.sphere.pages import EventsPageRequiredMixin
+from ludamus.mills.calendar import CalendarEntry, ics_document
 from ludamus.pacts import NotFoundError
 
 if TYPE_CHECKING:
     from ludamus.gates.web.django.entities import RootRequest
-
-
-def ics_escape(text: str) -> str:
-    return (
-        text.replace("\\", "\\\\")
-        .replace(";", "\\;")
-        .replace(",", "\\,")
-        .replace("\n", "\\n")
-    )
-
-
-def ics_utc(value: datetime) -> str:
-    return value.astimezone(UTC).strftime("%Y%m%dT%H%M%SZ")
 
 
 class EventICSView(EventsPageRequiredMixin, View):
@@ -44,28 +32,23 @@ class EventICSView(EventsPageRequiredMixin, View):
         if not is_event_published(event) and not panel_access(request).granted:
             raise Http404
 
-        event_url = request.build_absolute_uri(
-            reverse("web:chronology:event", kwargs={"slug": slug})
+        entry = CalendarEntry(
+            uid=f"event-{event.pk}@{request.get_host()}",
+            title=event.name,
+            start=event.start_time,
+            end=event.end_time,
+            url=request.build_absolute_uri(
+                reverse("web:chronology:event", kwargs={"slug": slug})
+            ),
+            location=event.address_inline,
         )
-        lines = [
-            "BEGIN:VCALENDAR",
-            "VERSION:2.0",
-            "PRODID:-//Zagrajmy//Event//PL",
-            "BEGIN:VEVENT",
-            f"UID:event-{event.pk}@{request.get_host()}",
-            f"DTSTAMP:{ics_utc(datetime.now(tz=UTC))}",
-            f"DTSTART:{ics_utc(event.start_time)}",
-            f"DTEND:{ics_utc(event.end_time)}",
-            f"SUMMARY:{ics_escape(event.name)}",
-            f"URL:{event_url}",
-        ]
-        if event.address:
-            lines.append(f"LOCATION:{ics_escape(event.address_inline)}")
-        lines += ["END:VEVENT", "END:VCALENDAR"]
         response = HttpResponse(
-            "\r\n".join(lines) + "\r\n", content_type="text/calendar; charset=utf-8"
+            ics_document(entry, stamped_at=datetime.now(tz=UTC)),
+            content_type="text/calendar; charset=utf-8",
         )
         response["Content-Disposition"] = f'attachment; filename="{event.slug}.ics"'
+        # An unpublished event answers only to panel access, so the file is
+        # per-reader, never shared-cacheable.
         patch_cache_control(response, private=True, max_age=180)
         patch_vary_headers(response, ["Cookie"])
         return response

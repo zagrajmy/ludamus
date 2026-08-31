@@ -1,7 +1,7 @@
 from typing import Any
 
 from django import forms
-from django.utils.translation import gettext as _gettext
+from django.utils.translation import gettext
 from django.utils.translation import gettext_lazy as _
 
 from ludamus.gates.web.django.forms import cover_image_field, validate_uploaded_image
@@ -50,6 +50,6 @@ class EncounterForm(forms.Form):
             end = cleaned.get("end_time")
             if start and end and end <= start:
                 self.add_error(
-                    "end_time", _gettext("End time must be after start time.")
+                    "end_time", gettext("End time must be after start time.")
                 )
         return cleaned

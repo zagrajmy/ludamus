@@ -2710,6 +2710,26 @@ msgid "Enter a smaller number."
 msgstr "Podaj mniejszą liczbę."
 
 #: src/ludamus/gates/web/django/forms.py
+msgid "Image too large. Maximum size is 8 MB."
+msgstr "Obraz jest za duży. Maksymalny rozmiar to 8 MB."
+
+#: src/ludamus/gates/web/django/forms.py
+msgid "Image dimensions are too large."
+msgstr "Wymiary obrazu są za duże."
+
+#: src/ludamus/gates/web/django/forms.py
+msgid "Unsupported image format. Use JPG, PNG, WebP, or AVIF."
+msgstr "Nieobsługiwany format obrazu. Użyj JPG, PNG, WebP lub AVIF."
+
+#: src/ludamus/gates/web/django/forms.py
+msgid "Invalid or unsafe SVG file."
+msgstr "Nieprawidłowy lub niebezpieczny plik SVG."
+
+#: src/ludamus/gates/web/django/forms.py
+msgid "Unsupported image format. Use JPG, PNG, WebP, AVIF, or SVG."
+msgstr "Nieobsługiwany format obrazu. Użyj JPG, PNG, WebP, AVIF lub SVG."
+
+#: src/ludamus/gates/web/django/forms.py
 #: src/ludamus/gates/web/django/templatetags/cfp_tags.py
 msgid "Cover image"
 msgstr "Obraz okładki"
@@ -2748,6 +2768,10 @@ msgid ""
 msgstr ""
 "Fizyczny adres miejsca wydarzenia, pokazywany na stronie wydarzenia z "
 "linkiem do mapy. Maksymalnie dwie linie."
+
+#: src/ludamus/gates/web/django/forms.py
+msgid "An address is at most two lines. Shorten it."
+msgstr "Adres może mieć najwyżej dwie linie. Skróć go."
 
 #: src/ludamus/gates/web/django/forms.py
 msgid "Start time is required."
@@ -3334,6 +3358,10 @@ msgid ""
 msgstr ""
 "Widoczne dla wszystkich na stronie spotkań i na osi czasu. Każdy z linkiem "
 "zawsze może je zobaczyć."
+
+#: src/ludamus/gates/web/django/notice_board/forms.py
+msgid "End time must be after start time."
+msgstr "Czas zakończenia musi być po czasie rozpoczęcia."
 
 #: src/ludamus/gates/web/django/notice_board/views.py
 msgid "Friday Gloomhaven"
@@ -9986,9 +10014,6 @@ msgstr ""
 
 #~ msgid "Creator"
 #~ msgstr "Twórca programu"
-
-#~ msgid "End time must be after start time."
-#~ msgstr "Czas zakończenia musi być po czasie rozpoczęcia."
 
 #~ msgid ""
 #~ "Writes every facilitator with their accreditation type and discount into "

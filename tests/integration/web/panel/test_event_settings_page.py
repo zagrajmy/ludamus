@@ -290,7 +290,7 @@ class TestEventSettingsPageViewPost:
             template_name="panel/settings.html",
         )
         assert response.context["form"].errors["address"] == [
-            "An address is at most two lines. Shorten it."
+            "An address can have at most two lines."
         ]
         event.refresh_from_db()
         assert not event.address

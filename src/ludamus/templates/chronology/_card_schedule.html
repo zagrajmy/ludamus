@@ -10,57 +10,53 @@
 {% get_current_timezone as event_timezone %}
 <div data-event-time-zone="{{ event_timezone }}">
     {% for day in card_days %}
-        {% with day_key=day.day_start|date:'Y-m-d' %}
-            {% with panel_id="schedule-day-"|add:day_key %}
-                <section data-schedule-day data-day="{{ day_key }}">
-                    {% if card_days|length > 1 %}
-                        {% include "chronology/_schedule_day_header.html" with day_count=card_days|length controls=panel_id %}
-                    {% endif %}
-                    <div id="{{ panel_id }}" data-day-panel>
-                        {% for slot in day.slots %}
-                            <div class="mb-8 time-slot-section"
-                                 data-time-slot="{{ slot.kind }}-{{ forloop.parentloop.counter }}-{{ forloop.counter }}">
-                                <!-- Time Slot Header -->
-                                <div class="flex items-center gap-4 mb-4">
-                                    <div class="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold {% if slot.kind == 'ended' %}bg-bg-tertiary text-foreground-muted{% elif slot.kind == 'current' %}bg-warm-800 text-warm-100 dark:bg-neutral-200 dark:text-neutral-800{% else %}bg-warning-bg text-warning-text{% endif %}">
-                                        {% icon "clock" class="w-4 h-4" variant="mini" %}
-                                        {% if slot.show_date %}{{ slot.hour|date:"l, j F" }} –{% endif %}
-                                        {{ slot.hour|time:"H:i" }}
-                                        {% if slot.kind == "ended" %}
-                                            <span class="text-xs font-normal">({% translate "Completed" %})</span>
-                                        {% elif slot.kind == "future" %}
-                                            <span class="text-xs font-normal">({% translate "Not Yet Available" %})</span>
-                                        {% endif %}
-                                    </div>
-                                    <div class="h-px grow bg-border"></div>
-                                    {% if event.is_live and slot.is_first_current %}
-                                        <span class="text-sm text-teal-600 dark:text-teal-400 font-medium flex items-center gap-1.5">
-                                            <span class="w-2 h-2 bg-teal-500 rounded-full live-dot"></span>
-                                            {% translate "Now" %}
-                                        </span>
-                                    {% endif %}
-                                    <span class="text-xs text-foreground-muted">{% blocktranslate count counter=slot.sessions|length %}{{ counter }} session{% plural %}{{ counter }} sessions{% endblocktranslate %}</span>
-                                    {% if slot.kind == "current" and event.is_proposal_active %}
-                                        <a href="{% url 'web:event:session-propose' event_slug=event.slug %}"
-                                           class="text-teal-600 bg-teal-400/20 dark:bg-teal-800/20 dark:text-teal-400 gap-1.5 p-1.5 rounded-lg hover:bg-teal-400/30 dark:hover:bg-teal-800/30 transition-colors hover:duration-0 shrink-0">
-                                            {% icon "plus" class="w-4 h-4" variant="mini" %}
-                                            <span class="sr-only">{% translate "Propose" %}</span>
-                                        </a>
-                                    {% endif %}
-                                </div>
-                                <!-- Sessions in this time slot -->
-                                {# The grouping pass never emits an empty slot, so no empty state here. #}
-                                <div class="session-grid grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
-                                    {% for data in slot.sessions %}
-                                        {% include "chronology/_session_card.html" %}
-                                    {% endfor %}
-                                </div>
+        <section data-schedule-day data-day="{{ day.day_start|date:'Y-m-d' }}">
+            {% if card_days|length > 1 %}
+                {% include "chronology/_schedule_day_header.html" with day_count=card_days|length controls=day.panel_id %}
+            {% endif %}
+            <div id="{{ day.panel_id }}" data-day-panel>
+                {% for slot in day.slots %}
+                    <div class="mb-8 time-slot-section"
+                         data-time-slot="{{ slot.kind }}-{{ forloop.parentloop.counter }}-{{ forloop.counter }}">
+                        <!-- Time Slot Header -->
+                        <div class="flex items-center gap-4 mb-4">
+                            <div class="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold {% if slot.kind == 'ended' %}bg-bg-tertiary text-foreground-muted{% elif slot.kind == 'current' %}bg-warm-800 text-warm-100 dark:bg-neutral-200 dark:text-neutral-800{% else %}bg-warning-bg text-warning-text{% endif %}">
+                                {% icon "clock" class="w-4 h-4" variant="mini" %}
+                                {% if slot.show_date %}{{ slot.hour|date:"l, j F" }} –{% endif %}
+                                {{ slot.hour|time:"H:i" }}
+                                {% if slot.kind == "ended" %}
+                                    <span class="text-xs font-normal">({% translate "Completed" %})</span>
+                                {% elif slot.kind == "future" %}
+                                    <span class="text-xs font-normal">({% translate "Not Yet Available" %})</span>
+                                {% endif %}
                             </div>
-                        {% endfor %}
+                            <div class="h-px grow bg-border"></div>
+                            {% if event.is_live and slot.is_first_current %}
+                                <span class="text-sm text-teal-600 dark:text-teal-400 font-medium flex items-center gap-1.5">
+                                    <span class="w-2 h-2 bg-teal-500 rounded-full live-dot"></span>
+                                    {% translate "Now" %}
+                                </span>
+                            {% endif %}
+                            <span class="text-xs text-foreground-muted">{% blocktranslate count counter=slot.sessions|length %}{{ counter }} session{% plural %}{{ counter }} sessions{% endblocktranslate %}</span>
+                            {% if slot.kind == "current" and event.is_proposal_active %}
+                                <a href="{% url 'web:event:session-propose' event_slug=event.slug %}"
+                                   class="text-teal-600 bg-teal-400/20 dark:bg-teal-800/20 dark:text-teal-400 gap-1.5 p-1.5 rounded-lg hover:bg-teal-400/30 dark:hover:bg-teal-800/30 transition-colors hover:duration-0 shrink-0">
+                                    {% icon "plus" class="w-4 h-4" variant="mini" %}
+                                    <span class="sr-only">{% translate "Propose" %}</span>
+                                </a>
+                            {% endif %}
+                        </div>
+                        <!-- Sessions in this time slot -->
+                        {# The grouping pass never emits an empty slot, so no empty state here. #}
+                        <div class="session-grid grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
+                            {% for data in slot.sessions %}
+                                {% include "chronology/_session_card.html" %}
+                            {% endfor %}
+                        </div>
                     </div>
-                </section>
-            {% endwith %}
-        {% endwith %}
+                {% endfor %}
+            </div>
+        </section>
     {% endfor %}
 </div>
 {# No empty state: event.html only includes this partial when hour_data is #}

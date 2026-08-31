@@ -310,53 +310,66 @@ LOCALE_PATHS = [BASE_DIR / "locale"]
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
 STATIC_URL = "/static/"
-MEDIA_URL: str = env("MEDIA_URL")
-try:
-    _media_url_parts = urlsplit(MEDIA_URL)
-except ValueError as _media_url_split_error:
-    raise ImproperlyConfigured(
-        "MEDIA_URL must be a root-relative path or an HTTP(S) URL ending in '/'."
-    ) from _media_url_split_error
-_media_path_segments = unquote(_media_url_parts.path).split("/")
-_media_url_has_supported_path = (
-    _media_url_parts.path.endswith("/")
-    and "//" not in _media_url_parts.path
-    and not _media_url_parts.query
-    and not _media_url_parts.fragment
-    and not any(segment in {".", ".."} for segment in _media_path_segments)
-)
-_media_url_is_local = (
-    not _media_url_parts.scheme
-    and not _media_url_parts.netloc
-    and MEDIA_URL.startswith("/")
-    and not MEDIA_URL.startswith("//")
-    and _media_url_parts.path != "/"
-    and "\\" not in _media_url_parts.path
+MEDIA_URL_RULE = (
+    "MEDIA_URL must be a root-relative path or an HTTP(S) URL ending in '/'."
 )
 
 
-def _hostname_with_valid_port(parts: SplitResult) -> str | None:
+def media_url_is_local(media_url: str) -> bool:
+    """Say whether this process serves the media itself, off its own domain."""
+    parts = urlsplit(media_url)
+    return (
+        not parts.scheme
+        and not parts.netloc
+        and media_url.startswith("/")
+        and not media_url.startswith("//")
+        and parts.path != "/"
+        and "\\" not in parts.path
+    )
+
+
+def _is_remote(parts: SplitResult) -> bool:
     try:
         _ = parts.port
     except ValueError:
-        return None
-    return parts.hostname
-
-
-_media_url_hostname = _hostname_with_valid_port(_media_url_parts)
-_media_url_is_remote = (
-    _media_url_parts.scheme in {"http", "https"}
-    and bool(_media_url_hostname)
-    and _media_url_parts.username is None
-    and _media_url_parts.password is None
-    and not any(character.isspace() for character in _media_url_hostname or "")
-)
-if not _media_url_has_supported_path or not (
-    _media_url_is_local or _media_url_is_remote
-):
-    raise ImproperlyConfigured(
-        "MEDIA_URL must be a root-relative path or an HTTP(S) URL ending in '/'."
+        return False
+    hostname = parts.hostname
+    return (
+        parts.scheme in {"http", "https"}
+        and bool(hostname)
+        and parts.username is None
+        and parts.password is None
+        and not any(character.isspace() for character in hostname or "")
     )
+
+
+def _has_serveable_path(parts: SplitResult) -> bool:
+    segments = unquote(parts.path).split("/")
+    return (
+        parts.path.endswith("/")
+        and "//" not in parts.path
+        and not parts.query
+        and not parts.fragment
+        and not any(segment in {".", ".."} for segment in segments)
+    )
+
+
+def validate_media_url(media_url: str) -> None:
+    """Raise ImproperlyConfigured unless the app can serve or link to the URL."""
+    try:
+        parts = urlsplit(media_url)
+        _ = parts.port
+    except ValueError as error:
+        raise ImproperlyConfigured(MEDIA_URL_RULE) from error
+    if not _has_serveable_path(parts) or not (
+        media_url_is_local(media_url) or _is_remote(parts)
+    ):
+        raise ImproperlyConfigured(MEDIA_URL_RULE)
+
+
+MEDIA_URL: str = env("MEDIA_URL")
+validate_media_url(MEDIA_URL)
+_media_url_is_local = media_url_is_local(MEDIA_URL)
 
 STATICFILES_DIRS = [BASE_DIR / "static"]
 

@@ -7,7 +7,6 @@ from email import message_from_bytes, policy
 from enum import StrEnum, auto
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, NamedTuple
-from urllib.parse import urlencode
 
 from django import forms
 from django.conf import settings
@@ -58,7 +57,6 @@ from ludamus.gates.web.django.entities import (
     UserInfo,
 )
 from ludamus.gates.web.django.event.enroll_presentation import build_enroll_actions
-from ludamus.gates.web.django.event.ics import ics_utc
 from ludamus.gates.web.django.sphere.marks import attach_guild_marks
 from ludamus.gates.web.django.sphere.pages import EventsPageRequiredMixin
 from ludamus.links.db.django.models import (
@@ -81,6 +79,7 @@ from ludamus.links.db.django.repositories.sessions import (
     review_inbox_proposals,
     with_scheduled_card_relations,
 )
+from ludamus.mills.calendar import CalendarEntry, google_calendar_url
 from ludamus.mills.enrollment import EnrollmentPolicy, restricts_everyone
 from ludamus.pacts import (
     NO_LOCATION,
@@ -336,15 +335,13 @@ class EventPageView(EventsPageRequiredMixin, DetailView):  # type: ignore [type-
         # (default) and a rooms grid (?view=rooms) with a column per room.
         rooms_view = compact_schedule and self.request.GET.get("view") == "rooms"
         event_url = reverse("web:chronology:event", kwargs={"slug": self.object.slug})
-        gcal_query = urlencode(
-            {
-                "action": "TEMPLATE",
-                "text": self.object.name,
-                "dates": (
-                    f"{ics_utc(self.object.start_time)}/{ics_utc(self.object.end_time)}"
-                ),
-                "location": self.object.address_inline,
-            }
+        calendar_entry = CalendarEntry(
+            uid=f"event-{self.object.pk}@{self.request.get_host()}",
+            title=self.object.name,
+            start=self.object.start_time,
+            end=self.object.end_time,
+            url=self.request.build_absolute_uri(event_url),
+            location=self.object.address_inline,
         )
 
         context.update(
@@ -359,9 +356,7 @@ class EventPageView(EventsPageRequiredMixin, DetailView):  # type: ignore [type-
                 "room_lanes": build_room_lanes(schedule_days) if rooms_view else None,
                 "schedule_list_url": event_url,
                 "schedule_rooms_url": f"{event_url}?view=rooms",
-                "google_calendar_url": (
-                    f"https://calendar.google.com/calendar/render?{gcal_query}"
-                ),
+                "google_calendar_url": google_calendar_url(calendar_entry),
                 "card_days": card_days,
                 "total_enrolled": total_enrolled,
                 "user_enrolled_sessions": user_enrolled_sessions,

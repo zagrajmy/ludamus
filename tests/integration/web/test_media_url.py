@@ -105,25 +105,10 @@ class TestMediaUrl:
             "serves_locally": False,
         }
 
-    @pytest.mark.parametrize(
-        "media_url",
-        (
-            "uploads/",
-            "//media.example.com/",
-            "https:///media/",
-            "/uploads",
-            "/uploads/?cache=/",
-            "/",
-            "/media/../uploads/",
-            "/media/%2e%2e/uploads/",
-            "/uploads//nested/",
-            "///example.com/",
-            "https://@/",
-            "https://[/",
-        ),
-    )
-    def test_rejects_ambiguous_or_incomplete_urls(self, media_url: str):
-        environment = os.environ | {"MEDIA_URL": media_url}
+    def test_settings_refuse_to_boot_on_a_url_the_app_cannot_serve(self):
+        # The rule itself is covered in tests/unit/test_media_url.py; this is
+        # about settings enforcing it at import time.
+        environment = os.environ | {"MEDIA_URL": "/uploads"}
 
         completed = subprocess.run(
             [sys.executable, "-c", INSPECT_MEDIA_SETTINGS],
