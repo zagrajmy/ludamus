@@ -3391,14 +3391,14 @@ testing = ["coverage", "pytest", "pytest-benchmark"]
 
 [[package]]
 name = "posthog"
-version = "7.42.0"
+version = "7.44.2"
 description = "Integrate PostHog into any python application."
 optional = false
 python-versions = ">=3.10"
 groups = ["main"]
 files = [
-    {file = "posthog-7.42.0-py3-none-any.whl", hash = "sha256:6429c9a4145572a8f54ab00330bbfe987340025d3a464212505be814b2b0950d"},
-    {file = "posthog-7.42.0.tar.gz", hash = "sha256:c7e9297446208d413c3071348f101f4c05e32fba4228ac0a85e9d0014c2a274e"},
+    {file = "posthog-7.44.2-py3-none-any.whl", hash = "sha256:4a3d4b7c994d0b2d43a05b03293ce9a652900a5143d79fbeedb2f2fa78048ad3"},
+    {file = "posthog-7.44.2.tar.gz", hash = "sha256:e375172bfaad5c7cfa25c027bc3b9db2794cd94f3845d13b0b51108bdfe80a3b"},
 ]
 
 [package.dependencies]
@@ -5381,4 +5381,4 @@ dev = ["doc8", "flake8", "flake8-import-order", "rstcheck[sphinx]", "ruff", "sph
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.14.0,<3.15"
-content-hash = "714bc328ca0ecbdc5c35081edb7cbb7d51af76a64f7658304c75c1f91a8fddc1"
+content-hash = "d0c181d2ff3904591d2920b3316203673e13f85a5efe7323f4ec0ffa29b0072b"
