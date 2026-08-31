@@ -310,7 +310,7 @@ LOCALE_PATHS = [BASE_DIR / "locale"]
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
 STATIC_URL = "/static/"
-MEDIA_URL_RULE = (
+_MEDIA_URL_RULE = (
     "MEDIA_URL must be a root-relative path or an HTTP(S) URL ending in '/'."
 )
 
@@ -329,10 +329,6 @@ def media_url_is_local(media_url: str) -> bool:
 
 
 def _is_remote(parts: SplitResult) -> bool:
-    try:
-        _ = parts.port
-    except ValueError:
-        return False
     hostname = parts.hostname
     return (
         parts.scheme in {"http", "https"}
@@ -360,16 +356,16 @@ def validate_media_url(media_url: str) -> None:
         parts = urlsplit(media_url)
         _ = parts.port
     except ValueError as error:
-        raise ImproperlyConfigured(MEDIA_URL_RULE) from error
+        raise ImproperlyConfigured(_MEDIA_URL_RULE) from error
     if not _has_serveable_path(parts) or not (
         media_url_is_local(media_url) or _is_remote(parts)
     ):
-        raise ImproperlyConfigured(MEDIA_URL_RULE)
+        raise ImproperlyConfigured(_MEDIA_URL_RULE)
 
 
 MEDIA_URL: str = env("MEDIA_URL")
 validate_media_url(MEDIA_URL)
-_media_url_is_local = media_url_is_local(MEDIA_URL)
+MEDIA_URL_IS_LOCAL = media_url_is_local(MEDIA_URL)
 
 STATICFILES_DIRS = [BASE_DIR / "static"]
 
@@ -380,7 +376,7 @@ MIDDLEWARE_SKIP_PREFIXES: tuple[str, ...] = (
     "/__debug__/",
     "/__reload__/",
     "/healthz/",
-    *((MEDIA_URL,) if _media_url_is_local else ()),
+    *((MEDIA_URL,) if MEDIA_URL_IS_LOCAL else ()),
 )
 
 

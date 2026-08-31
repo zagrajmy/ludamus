@@ -289,9 +289,8 @@ class TestEventSettingsPageViewPost:
             context_data=self._render_context(response, event),
             template_name="panel/settings.html",
         )
-        assert response.context["form"].errors["address"] == [
-            "An address can have at most two lines."
-        ]
+        form_errors = response.context["form"].errors
+        assert form_errors["address"] == ["An address can have at most two lines."]
         event.refresh_from_db()
         assert not event.address
 

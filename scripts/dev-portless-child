@@ -92,11 +92,14 @@ with transaction.atomic():
             swap_domains(canonical_site, target_sphere.site)
         current_sphere = target_sphere
     else:
-        current_sphere = Sphere.objects.select_related("site").get(
-            site=canonical_site
+        current_sphere = (
+            Sphere.objects.select_related("site").filter(site=canonical_site).first()
         )
 
-print(f"[dev] sphere={current_sphere.name!r} root={root_domain}", file=sys.stderr)
+# A fresh database has no sphere on the canonical site yet, and the server
+# still has to start so someone can create one.
+sphere_name = current_sphere.name if current_sphere else "(none)"
+print(f"[dev] sphere={sphere_name!r} root={root_domain}", file=sys.stderr)
 PY
 
 exec honcho start -e /dev/null -f Procfile.dev

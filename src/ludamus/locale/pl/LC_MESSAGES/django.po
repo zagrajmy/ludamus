@@ -2762,16 +2762,13 @@ msgid "Address"
 msgstr "Adres"
 
 #: src/ludamus/gates/web/django/forms.py
-msgid ""
-"Physical venue address, shown on the event page with a map link. Two lines "
-"at most."
+msgid "Venue address, two lines at most. Shown with a map link."
 msgstr ""
-"Fizyczny adres miejsca wydarzenia, pokazywany na stronie wydarzenia z "
-"linkiem do mapy. Maksymalnie dwie linie."
+"Adres miejsca wydarzenia, najwyżej dwie linie. Pokazywany z linkiem do mapy."
 
 #: src/ludamus/gates/web/django/forms.py
-msgid "An address is at most two lines. Shorten it."
-msgstr "Adres może mieć najwyżej dwie linie. Skróć go."
+msgid "An address can have at most two lines."
+msgstr "Adres może mieć najwyżej dwie linie."
 
 #: src/ludamus/gates/web/django/forms.py
 msgid "Start time is required."
@@ -9994,6 +9991,13 @@ msgid ""
 msgstr ""
 "Nie ma nadchodzących wydarzeń ani publicznych spotkań. Sprawdź ponownie "
 "później!"
+
+#~ msgid ""
+#~ "Physical venue address, shown on the event page with a map link. Two "
+#~ "lines at most."
+#~ msgstr ""
+#~ "Fizyczny adres miejsca wydarzenia, pokazywany na stronie wydarzenia z "
+#~ "linkiem do mapy. Maksymalnie dwie linie."
 
 #, python-format
 #~ msgid ""

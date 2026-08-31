@@ -16,6 +16,21 @@ from ludamus.pacts import NotFoundError
 
 if TYPE_CHECKING:
     from ludamus.gates.web.django.entities import RootRequest
+    from ludamus.pacts import EventDTO
+
+
+def event_calendar_entry(event: EventDTO, *, request: RootRequest) -> CalendarEntry:
+    """One description of an event, so its .ics and its links cannot drift."""
+    return CalendarEntry(
+        uid=f"event-{event.pk}@{request.get_host()}",
+        title=event.name,
+        start=event.start_time,
+        end=event.end_time,
+        url=request.build_absolute_uri(
+            reverse("web:chronology:event", kwargs={"slug": event.slug})
+        ),
+        location=event.address_inline,
+    )
 
 
 class EventICSView(EventsPageRequiredMixin, View):
@@ -32,16 +47,7 @@ class EventICSView(EventsPageRequiredMixin, View):
         if not is_event_published(event) and not panel_access(request).granted:
             raise Http404
 
-        entry = CalendarEntry(
-            uid=f"event-{event.pk}@{request.get_host()}",
-            title=event.name,
-            start=event.start_time,
-            end=event.end_time,
-            url=request.build_absolute_uri(
-                reverse("web:chronology:event", kwargs={"slug": slug})
-            ),
-            location=event.address_inline,
-        )
+        entry = event_calendar_entry(event, request=request)
         response = HttpResponse(
             ics_document(entry, stamped_at=datetime.now(tz=UTC)),
             content_type="text/calendar; charset=utf-8",

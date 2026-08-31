@@ -7,6 +7,7 @@
      {{ attrs }}>
     <button type="button"
             data-menu-button
+            aria-haspopup="true"
             aria-controls="{{ id }}"
             aria-expanded="false"
             class="cursor-pointer rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary{% if trigger_class %} {{ trigger_class }}{% endif %}">
@@ -17,7 +18,6 @@
          data-menu-panel
          hidden
          class="absolute top-full z-50 pt-2 {{ align_class }}">
-        <div data-menu-surface
-             class="min-w-52 p-1 rounded-xl border border-border bg-bg-secondary shadow-(--shadow-elevated) origin-top opacity-0 scale-[0.98] translate-y-1 blur-[1px] transition-[opacity,scale,translate,filter] duration-160 ease-out data-[menu-visible]:opacity-100 data-[menu-visible]:scale-100 data-[menu-visible]:translate-y-0 data-[menu-visible]:blur-none data-[menu-visible]:duration-210 data-[menu-visible]:ease-spring-a-bit motion-reduce:scale-100 motion-reduce:translate-y-0">{{ items }}</div>
+        <div {% include "components/menu_surface.html" with extra_class="min-w-52 p-1 rounded-xl border border-border bg-bg-secondary shadow-(--shadow-elevated)" origin="origin-top" only %}>{{ items }}</div>
     </div>
 </div>

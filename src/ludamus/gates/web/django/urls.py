@@ -74,7 +74,7 @@ urlpatterns: list[URLResolver | URLPattern] = [
 ]
 
 
-if not settings.IS_PRODUCTION and settings.MEDIA_URL.startswith("/"):
+if not settings.IS_PRODUCTION and settings.MEDIA_URL_IS_LOCAL:
     urlpatterns += [
         path(
             f"{settings.MEDIA_URL.removeprefix('/')}<path:path>",

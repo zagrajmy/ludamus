@@ -23,7 +23,7 @@ def check_media_url_reaches_serve(
     **_kwargs: Sequence[AppConfig] | Sequence[str] | None,
 ) -> list[CheckMessage]:
     """Report a local MEDIA_URL that an application route answers first."""
-    if not settings.MEDIA_URL.startswith("/"):
+    if not settings.MEDIA_URL_IS_LOCAL:
         return []
 
     try:
