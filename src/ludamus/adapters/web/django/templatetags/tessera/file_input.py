@@ -46,5 +46,6 @@ def render_file_input(field: BoundField) -> str:
             "initial_name": initial_name,
             "dropzone_state": dropzone_state,
             "contain": attrs.get("data-fit") == "contain",
+            "safe_zone": attrs.get("data-safe-zone") == "cover",
         },
     )

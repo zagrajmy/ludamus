@@ -2697,8 +2697,12 @@ msgid "Duration"
 msgstr "Czas trwania"
 
 #: src/ludamus/gates/web/django/forms.py
-msgid "Max 8 MB. JPG, PNG, WebP, or AVIF."
-msgstr "Maks. 8 MB. JPG, PNG, WebP lub AVIF."
+msgid ""
+"1920x1080 (16:9) works best. We crop the edges, so keep the subject in the "
+"middle and leave text out. Max 8 MB. JPG, PNG, WebP, or AVIF."
+msgstr ""
+"Najlepiej 1920x1080 (16:9). Przycinamy brzegi, więc trzymaj temat na środku "
+"i nie wstawiaj tekstu. Maks. 8 MB. JPG, PNG, WebP lub AVIF."
 
 #: src/ludamus/gates/web/django/forms.py
 msgid "Enter a smaller number."

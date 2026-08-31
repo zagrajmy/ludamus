@@ -41,6 +41,16 @@
                  width="800"
                  height="400"
                  class="absolute inset-0 w-full h-full {% if contain %}object-contain p-6 pb-12{% else %}object-cover{% endif %}">
+            {% if safe_zone %}
+                {# Center 70%x40% of a 16:9 upload: the part every centered crop keeps. #}
+                {# Narrowest crop is the phone event banner (288/224 = 1.29 -> 72% of #}
+                {# the width), widest is the desktop one (1216/288 = 4.2 -> 42% of the #}
+                {# height); both rounded down for slack. #}
+                <div data-dropzone-safe-zone
+                     aria-hidden="true"
+                     class="pointer-events-none absolute inset-x-[15%] inset-y-[30%] rounded-sm border border-dashed border-white/50 mix-blend-difference">
+                </div>
+            {% endif %}
             <div class="absolute inset-x-0 bottom-0 pt-12 pb-2 px-3 bg-linear-to-t from-black via-black/55 to-transparent">
                 <p data-dropzone-name class="text-sm font-medium text-white truncate">{{ initial_name }}</p>
                 <p data-dropzone-size class="text-xs text-white/75"></p>

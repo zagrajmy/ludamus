@@ -49,6 +49,7 @@ test.describe("Event cover image upload", () => {
     await expect(dropzone.getByRole("button", { name: "Remove image" })).toBeVisible();
     await expect(shownFileName(dropzone, "cover.png")).toBeVisible();
     await assertDropzoneBlobPreview(page, dropzone);
+    await expect(dropzone.locator("[data-dropzone-safe-zone]")).toBeVisible();
 
     await page.getByRole("button", { name: "Save Settings" }).click();
     await expect(page.getByText("Event settings saved successfully.")).toBeVisible();
@@ -90,6 +91,7 @@ test.describe("Event cover image upload", () => {
 
     await expect(shownFileName(dropzone, "mark.png")).toBeVisible();
     await assertDropzoneBlobPreview(page, dropzone);
+    await expect(dropzone.locator("[data-dropzone-safe-zone]")).toHaveCount(0);
 
     await page.getByRole("button", { name: "Save Settings" }).click();
     await expect(page.getByText("Event settings saved successfully.")).toBeVisible();
