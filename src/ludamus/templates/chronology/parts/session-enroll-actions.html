@@ -35,7 +35,7 @@
         <div class="flex items-center gap-2.5">
             <span id="enroll-opens-{{ session_pk }}"
                   class="text-xs text-right text-foreground-muted">
-                {% blocktranslate with day=enroll_opens_at|short_date time=enroll_opens_at|time:"G:i" %}Enrollment opens {{ day }} at {{ time }}{% endblocktranslate %}
+                {% blocktranslate with day=enroll_opens_at|short_date time=enroll_opens_at|time:"G:i" %}Your enrollment opens {{ day }} at {{ time }}{% endblocktranslate %}
             </span>
             <button type="button"
                     class="btn btn-primary text-sm"

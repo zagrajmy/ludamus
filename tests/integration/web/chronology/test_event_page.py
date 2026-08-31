@@ -985,7 +985,7 @@ class TestEventPageView:
                 access=enrollment_opens_at(general_start),
             ),
             template_name=["chronology/event.html"],
-            contains="Enrollment opens",
+            contains="Your enrollment opens",
             not_contains=["Enrollment Open", "Upcoming"],
         )
 

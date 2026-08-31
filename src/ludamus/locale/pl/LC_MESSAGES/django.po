@@ -2747,8 +2747,8 @@ msgstr "Zapisy otwarte"
 #: src/ludamus/gates/web/django/event/status_pills.py
 #: src/ludamus/templates/chronology/parts/session-enroll-actions.html
 #, python-format
-msgid "Enrollment opens %(day)s at %(time)s"
-msgstr "Zapisy ruszają %(day)s o %(time)s"
+msgid "Your enrollment opens %(day)s at %(time)s"
+msgstr "Twoje zapisy ruszają %(day)s o %(time)s"
 
 #: src/ludamus/gates/web/django/forms.py
 msgid ""

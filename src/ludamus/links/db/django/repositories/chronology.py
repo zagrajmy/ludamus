@@ -53,7 +53,7 @@ from ludamus.pacts.chronology import (
     PartySessionSeatDTO,
     SessionCardStatsDTO,
 )
-from ludamus.pacts.ids import EventId
+from ludamus.pacts.ids import EventId, HasPk
 from ludamus.pacts.legacy import AgendaItemDTO, LocationData
 from ludamus.pacts.panel import (
     EventPanelSettingsDTO,
@@ -406,7 +406,7 @@ class EnrollmentConfigRepository(EnrollmentConfigRepositoryProtocol):
 
     @staticmethod
     def read_user_config(
-        config: EnrollmentConfigDTO, user_email: str
+        config: HasPk, user_email: str
     ) -> UserEnrollmentConfigDTO | None:
         user_config = UserEnrollmentConfig.objects.filter(
             enrollment_config_id=config.pk, user_email=user_email
@@ -425,7 +425,7 @@ class EnrollmentConfigRepository(EnrollmentConfigRepositoryProtocol):
 
     @staticmethod
     def read_domain_config(
-        enrollment_config: EnrollmentConfigDTO, domain: str
+        enrollment_config: HasPk, domain: str
     ) -> DomainEnrollmentConfigDTO | None:
         config = DomainEnrollmentConfig.objects.filter(
             enrollment_config_id=enrollment_config.pk, domain=domain

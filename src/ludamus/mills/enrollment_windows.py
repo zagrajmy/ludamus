@@ -128,15 +128,24 @@ class EnrollmentPolicy:
 
 
 def viewer_access(
-    *, windows: Iterable[DatedEnrollmentWindow], is_configured_user: bool, now: datetime
+    *,
+    windows: Iterable[DatedEnrollmentWindow],
+    configured_window_ids: frozenset[int],
+    now: datetime,
 ) -> EnrollmentAccessDTO:
-    """Name the windows this viewer may use now, and when the next one starts."""
+    """Name the windows this viewer may use now, and when the next one starts.
+
+    Returns:
+        The viewer's own open windows, and the start of their next one.
+    """
     # `admits` is the one place that decides who a window is for; this adds
-    # the only thing it has no opinion on, which of them the clock has reached.
+    # the only thing it has no opinion on, which of them the clock has
+    # reached. A pass is held per window: early access to one says nothing
+    # about another, so the answer is asked window by window.
     usable = [
         window
         for window in windows
-        if admits(window, is_configured_user=is_configured_user)
+        if admits(window, is_configured_user=window.pk in configured_window_ids)
     ]
     return EnrollmentAccessDTO(
         open_window_ids=frozenset(

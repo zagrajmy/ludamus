@@ -29,7 +29,9 @@ class TestEnrollmentPill:
         # The event's own window is open, but not to this reader: saying
         # "Enrollment Open" to someone the form would turn away is the taunt
         # this pill exists to avoid.
-        assert _labels(access=_OPENS_LATER) == ["Enrollment opens Sat Sep 5 at 12:00"]
+        assert _labels(access=_OPENS_LATER) == [
+            "Your enrollment opens Sat Sep 5 at 12:00"
+        ]
 
     def test_a_named_opening_date_replaces_upcoming(self):
         # Both say the event is ahead of us; the date says it precisely.

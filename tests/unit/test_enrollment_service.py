@@ -347,14 +347,16 @@ def _window_open_at_now(pk=5, *, restrict_to_configured_users=True):
 class TestEnrollmentAccess:
     def test_a_restricted_window_is_shut_for_a_viewer_without_passes(self):
         access = viewer_access(
-            windows=[_window_open_at_now()], is_configured_user=False, now=_NOW
+            windows=[_window_open_at_now()], configured_window_ids=frozenset(), now=_NOW
         )
 
         assert access == EnrollmentAccessDTO(open_window_ids=frozenset(), opens_at=None)
 
     def test_a_restricted_window_is_open_for_a_pass_holder(self):
         access = viewer_access(
-            windows=[_window_open_at_now()], is_configured_user=True, now=_NOW
+            windows=[_window_open_at_now()],
+            configured_window_ids=frozenset({5}),
+            now=_NOW,
         )
 
         assert access == EnrollmentAccessDTO(
@@ -377,7 +379,7 @@ class TestEnrollmentAccess:
                     restrict_to_configured_users=False,
                 ),
             ],
-            is_configured_user=False,
+            configured_window_ids=frozenset(),
             now=_NOW,
         )
 
@@ -394,7 +396,7 @@ class TestEnrollmentAccess:
                     restrict_to_configured_users=False,
                 )
             ],
-            is_configured_user=False,
+            configured_window_ids=frozenset(),
             now=_NOW,
         )
 
@@ -406,7 +408,7 @@ class TestEnrollmentAccess:
                 _window_open_at_now(),
                 _window_open_at_now(pk=6, restrict_to_configured_users=False),
             ],
-            is_configured_user=False,
+            configured_window_ids=frozenset(),
             now=_NOW,
         )
 
@@ -685,6 +687,36 @@ class TestEnrollmentService:
 
         assert access == EnrollmentAccessDTO(
             open_window_ids=frozenset({5}), opens_at=None
+        )
+
+    def test_access_names_the_early_window_a_pass_holder_is_waiting_for(self):
+        # The reader holds passes and no window is open yet. Their own window
+        # is the answer, not the one everybody else waits for.
+        now = datetime.now(tz=UTC)
+        early_start = now + timedelta(days=1)
+        windows = [
+            _enrollment_config(
+                start_time=early_start, end_time=now + timedelta(days=5)
+            ),
+            _enrollment_config(
+                pk=6,
+                start_time=now + timedelta(days=3),
+                end_time=now + timedelta(days=5),
+                restrict_to_configured_users=False,
+            ),
+        ]
+        service = _service(
+            users=FakeUsers([_user(1)]),
+            enrollment_configs=FakeEnrollmentConfigs(
+                configs=windows, user_config=_user_config(4)
+            ),
+            windows=FakeWindows(windows),
+        )
+
+        access = service.access(event=_event(), viewer_slug="viewer")
+
+        assert access == EnrollmentAccessDTO(
+            open_window_ids=frozenset(), opens_at=early_start
         )
 
     def test_access_names_the_general_window_for_a_viewer_without_passes(self):
