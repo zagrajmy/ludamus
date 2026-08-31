@@ -57,6 +57,7 @@ from ludamus.gates.web.django.entities import (
     UserInfo,
 )
 from ludamus.gates.web.django.event.enroll_presentation import build_enroll_actions
+from ludamus.gates.web.django.event.ics import event_calendar_entry
 from ludamus.gates.web.django.sphere.marks import attach_guild_marks
 from ludamus.gates.web.django.sphere.pages import EventsPageRequiredMixin
 from ludamus.links.db.django.models import (
@@ -79,6 +80,7 @@ from ludamus.links.db.django.repositories.sessions import (
     review_inbox_proposals,
     with_scheduled_card_relations,
 )
+from ludamus.mills.calendar import google_calendar_url
 from ludamus.mills.enrollment import EnrollmentPolicy, restricts_everyone
 from ludamus.pacts import (
     NO_LOCATION,
@@ -334,6 +336,7 @@ class EventPageView(EventsPageRequiredMixin, DetailView):  # type: ignore [type-
         # (default) and a rooms grid (?view=rooms) with a column per room.
         rooms_view = compact_schedule and self.request.GET.get("view") == "rooms"
         event_url = reverse("web:chronology:event", kwargs={"slug": self.object.slug})
+        calendar_entry = event_calendar_entry(self.object, request=self.request)
 
         context.update(
             {
@@ -347,6 +350,7 @@ class EventPageView(EventsPageRequiredMixin, DetailView):  # type: ignore [type-
                 "room_lanes": build_room_lanes(schedule_days) if rooms_view else None,
                 "schedule_list_url": event_url,
                 "schedule_rooms_url": f"{event_url}?view=rooms",
+                "google_calendar_url": google_calendar_url(calendar_entry),
                 "card_days": card_days,
                 "total_enrolled": total_enrolled,
                 "user_enrolled_sessions": user_enrolled_sessions,

@@ -7,7 +7,9 @@ from decimal import Decimal
 from typing import TYPE_CHECKING, Any, ClassVar, Literal, cast
 
 from django import forms
+from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator
+from django.utils.translation import gettext
 from django.utils.translation import gettext_lazy as _
 
 from ludamus.gates.uploads import validate_uploaded_image, validate_uploaded_logo
@@ -36,6 +38,9 @@ if TYPE_CHECKING:
     from ludamus.pacts.multiverse import ConnectionDTO
 
 _DATETIME_LOCAL_FORMATS = ["%Y-%m-%dT%H:%M", "%Y-%m-%dT%H:%M:%S"]
+# The hero prints the address under the venue name, where a third line
+# pushes the CTAs off a phone screen.
+MAX_ADDRESS_LINES = 2
 # Hand-written rather than joined from IMAGE_FORMATS: it is translated user copy,
 # and a comma-joined list of MIME types reads nothing like a sentence.
 COVER_IMAGE_HELP_TEXT = _(
@@ -133,6 +138,22 @@ class EventSettingsForm(forms.Form):
         widget=forms.Textarea(attrs={"rows": 3}),
         help_text=_("Aim for about 230 characters."),
     )
+    address = forms.CharField(
+        max_length=255,
+        required=False,
+        strip=True,
+        label=_("Address"),
+        help_text=_("Venue address, two lines at most. Shown with a map link."),
+        widget=forms.Textarea(attrs={"rows": MAX_ADDRESS_LINES}),
+    )
+
+    def clean_address(self) -> str:
+        lines = str(self.cleaned_data.get("address") or "").splitlines()
+        kept = [stripped for line in lines if (stripped := line.strip())]
+        if len(kept) > MAX_ADDRESS_LINES:
+            raise ValidationError(gettext("An address can have at most two lines."))
+        return "\n".join(kept)
+
     cover_image = cover_image_field()
     logo = logo_field()
     start_time = forms.DateTimeField(

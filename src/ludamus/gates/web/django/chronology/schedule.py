@@ -46,11 +46,21 @@ class ScheduleTile:
     end: datetime
 
 
+def _day_panel_id(day_start: datetime) -> str:
+    # The fold toggle names this in aria-controls; the day section renders it
+    # as the panel's id.
+    return f"schedule-day-{day_start:%Y-%m-%d}"
+
+
 @dataclass
 class ScheduleDay:
     day_start: datetime
     hours: list[ScheduleHour]
     tiles: list[ScheduleTile]
+
+    @property
+    def panel_id(self) -> str:
+        return _day_panel_id(self.day_start)
 
 
 @dataclass
@@ -238,6 +248,10 @@ class CardSlot:
 class CardDay:
     day_start: datetime
     slots: list[CardSlot]
+
+    @property
+    def panel_id(self) -> str:
+        return _day_panel_id(self.day_start)
 
 
 def _card_slots(
