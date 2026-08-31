@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 from decimal import Decimal
-from typing import TYPE_CHECKING, Any, ClassVar, cast
+from typing import TYPE_CHECKING, Any, ClassVar, Literal, cast
 
 from django import forms
 from django.core.exceptions import ValidationError
@@ -49,7 +49,10 @@ MAX_IMAGE_SIZE = 8 * 1024 * 1024
 MAX_IMAGE_PIXELS = 24_000_000
 # Hand-written rather than joined from IMAGE_FORMATS: it is translated user copy,
 # and a comma-joined list of MIME types reads nothing like a sentence.
-COVER_IMAGE_HELP_TEXT = _("Max 8 MB. JPG, PNG, WebP, or AVIF.")
+COVER_IMAGE_HELP_TEXT = _(
+    "1920×1080 (16:9) works best. We crop the edges, so keep the subject in "
+    "the middle and leave text out. Max 8 MB. JPG, PNG, WebP, or AVIF."
+)
 # Width of the PositiveIntegerField column on Postgres (`integer`). Dev sqlite
 # is wider, so an overflow only ever surfaces in production. A validator rather
 # than `max_value` on every field writing the column: validators reject
@@ -180,6 +183,23 @@ def validate_uploaded_logo(uploaded: UploadedFile[bytes] | None) -> None:
         _validate_uploaded_raster_logo(uploaded)
 
 
+class DropzoneFileInput(forms.ClearableFileInput):
+    # `fit` and `safe_zone` are read by the tessera dropzone renderer, never
+    # written to the input: they say how the preview frames the file, which is
+    # the renderer's business and not the browser's.
+    def __init__(
+        self,
+        *,
+        attrs: dict[str, str] | None = None,
+        fit: Literal["cover", "contain"] = "cover",
+        safe_zone: bool = False,
+    ) -> None:
+        super().__init__(attrs)
+        self.fit = fit
+        # A crop guide over a preview that crops nothing would point at nothing.
+        self.safe_zone = safe_zone and fit == "cover"
+
+
 def cover_image_field() -> forms.ImageField:
     # Shared definition so every cover/header upload field stays identical
     # (label, limits, accepted types) without copy-pasting the declaration.
@@ -187,7 +207,7 @@ def cover_image_field() -> forms.ImageField:
         label=_("Cover image"),
         required=False,
         help_text=COVER_IMAGE_HELP_TEXT,
-        widget=forms.ClearableFileInput(attrs={"accept": IMAGE_ACCEPT}),
+        widget=DropzoneFileInput(attrs={"accept": IMAGE_ACCEPT}, safe_zone=True),
     )
 
 
@@ -206,9 +226,7 @@ def logo_field(*, help_text: str | _StrPromise | None = None) -> forms.FileField
         or _(
             "Shown on the printable schedule. Max 8 MB. JPG, PNG, WebP, AVIF, or SVG."
         ),
-        widget=forms.ClearableFileInput(
-            attrs={"accept": LOGO_ACCEPT, "data-fit": "contain"}
-        ),
+        widget=DropzoneFileInput(attrs={"accept": LOGO_ACCEPT}, fit="contain"),
     )
 
 

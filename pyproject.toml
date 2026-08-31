@@ -284,7 +284,7 @@ ignore = [
     "too-many-public-methods",
     "too-many-positional-arguments",
 ]
-allowed-confusables = ["–"]
+allowed-confusables = ["–", "×"]
 
 [tool.ruff.lint.per-file-ignores]
 "*/migrations/**.py" = [
