@@ -19,6 +19,11 @@ from ludamus.gates.mcp.inputs import (
 from ludamus.gates.mcp.organizer_context import actor_sphere, token_event
 from ludamus.gates.mcp.protocol import JsonDict
 from ludamus.gates.mcp.registry import Tool, ToolCall, ToolError
+from ludamus.gates.uploads import (
+    upload_error,
+    validate_uploaded_cover,
+    validate_uploaded_logo,
+)
 from ludamus.pacts import NotFoundError
 from ludamus.pacts.chronology import SessionPlacement
 from ludamus.pacts.durations import normalize_duration
@@ -46,6 +51,8 @@ from ludamus.pacts.venues import SpaceInputDTO, SpaceTreeNodeDTO, SpaceValidatio
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Sequence
+
+    from django.core.files.base import File
 
     from ludamus.gates.mcp.registry import ToolProtocol
     from ludamus.pacts.legacy import EventUpdateData
@@ -649,9 +656,6 @@ class OrganizerAssignSessionsTool(Tool[_AssignSessionsInput]):
         )
 
 
-MAX_IMAGE_UPLOAD_BYTES = 5 * 1024 * 1024
-
-
 class _UpdateEventInput(BaseModel):
     description: str | None = Field(
         default=None, description="New event description; omit to keep the current one"
@@ -679,23 +683,25 @@ class _ImageUploadInput(BaseModel):
     filename: NonBlankName = Field(description="Original file name, with extension")
     content_base64: str = Field(
         description=(
-            "File content, standard base64. Decoded size is capped at 5 MB, and "
+            "File content, standard base64. Decoded size is capped at 8 MB, and "
             "the HTTP body cap applies to the whole request."
         )
     )
 
-    def decoded_content(self) -> bytes:
+    def validated_upload(
+        self, validate: Callable[[File[bytes]], None]
+    ) -> ContentFile[bytes]:
         try:
             content = base64.b64decode(self.content_base64, validate=True)
         except binascii.Error as error:
             message = f"content_base64 is not valid base64: {error}"
             raise ToolError(message) from error
-        if len(content) > MAX_IMAGE_UPLOAD_BYTES:
-            message = "Decoded content exceeds the 5 MB upload cap"
-            raise ToolError(message)
         if not content:
             raise ToolError("content_base64 decoded to an empty file")
-        return content
+        upload = ContentFile(content, name=self.filename)
+        if (problem := upload_error(validate, upload)) is not None:
+            raise ToolError(problem)
+        return upload
 
 
 class _SetEventImageInput(_ImageUploadInput):
@@ -824,10 +830,12 @@ class OrganizerSetEventImageTool(Tool[_SetEventImageInput]):
 
     @staticmethod
     def handle(call: ToolCall[_SetEventImageInput]) -> str:
-        upload = ContentFile(call.data.decoded_content(), name=call.data.filename)
-        data: EventUpdateData = (
-            {"cover_image": upload} if call.data.kind == "cover" else {"logo": upload}
-        )
+        if call.data.kind == "cover":
+            upload = call.data.validated_upload(validate_uploaded_cover)
+            data: EventUpdateData = {"cover_image": upload}
+        else:
+            upload = call.data.validated_upload(validate_uploaded_logo)
+            data = {"logo": upload}
         return _apply_event_update(services=call.services, actor=call.actor, data=data)
 
 
@@ -842,7 +850,7 @@ class OrganizerSetSphereLogoTool(Tool[_ImageUploadInput]):
     def handle(call: ToolCall[_ImageUploadInput]) -> str:
         sphere_id = actor_sphere(call.actor)
         sphere = call.services.sphere_panel.read(sphere_id)
-        upload = ContentFile(call.data.decoded_content(), name=call.data.filename)
+        upload = call.data.validated_upload(validate_uploaded_logo)
         call.services.sphere_panel.update_settings(
             sphere_id,
             allow_facilitator_session_edit=sphere.allow_facilitator_session_edit,

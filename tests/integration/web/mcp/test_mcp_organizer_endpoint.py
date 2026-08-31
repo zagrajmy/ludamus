@@ -32,21 +32,11 @@ from tests.integration.conftest import (
 )
 from tests.integration.utils import assert_response
 from tests.integration.web.mcp.test_mcp_endpoint import tool_text
+from tests.unit.test_mcp_registry import ORGANIZER_TOOL_NAMES
 
 URL = "/mcp/organizer/"
 WRITE_TOOLS = {
-    "create_space",
-    "create_time_slot",
-    "create_track",
-    "create_proposal_category",
-    "find_or_create_facilitator",
-    "create_session",
-    "create_sessions",
-    "assign_session",
-    "assign_sessions",
-    "update_event",
-    "set_event_image",
-    "set_sphere_logo",
+    name for name in ORGANIZER_TOOL_NAMES if not name.startswith(("list_", "get_"))
 }
 
 PNG_1X1_BASE64 = (
@@ -909,6 +899,50 @@ class TestOrganizerEventSettingsTools:
         assert event.logo_original_name == "logo.svg"
         assert event.logo.name
         assert updated["logo_original_name"] == "logo.svg"
+
+    def test_set_event_cover_rejects_non_raster_content(self, client, org_token):
+        garbage = base64.b64encode(b"definitely not an image").decode()
+
+        response = call_org_tool(
+            client,
+            org_token,
+            "set_event_image",
+            {"kind": "cover", "filename": "x.png", "content_base64": garbage},
+        )
+
+        result = response.json()["result"]
+        assert result["isError"] is True
+        assert "Unsupported image format" in result["content"][0]["text"]
+
+    def test_set_event_cover_rejects_svg(self, client, org_token):
+        response = call_org_tool(
+            client,
+            org_token,
+            "set_event_image",
+            {"kind": "cover", "filename": "x.svg", "content_base64": SVG_BASE64},
+        )
+
+        result = response.json()["result"]
+        assert result["isError"] is True
+        assert "Unsupported image format" in result["content"][0]["text"]
+
+    def test_set_sphere_logo_rejects_scripted_svg(self, client, org_token, sphere):
+        scripted = base64.b64encode(
+            b'<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>'
+        ).decode()
+
+        response = call_org_tool(
+            client,
+            org_token,
+            "set_sphere_logo",
+            {"filename": "evil.svg", "content_base64": scripted},
+        )
+
+        result = response.json()["result"]
+        assert result["isError"] is True
+        assert "Invalid or unsafe SVG" in result["content"][0]["text"]
+        sphere.refresh_from_db()
+        assert not sphere.logo.name
 
     def test_set_event_image_rejects_bad_base64(self, client, org_token):
         response = call_org_tool(
