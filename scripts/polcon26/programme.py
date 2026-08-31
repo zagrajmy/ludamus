@@ -464,7 +464,7 @@ def _extract_sheet_programme(
                 last_column=last_column,
             )
         )
-        items.extend(_extract_repair_items(sheet_name=sheet_name, sheet=sheet))
+    items.extend(_extract_repair_items(sheet_name=sheet_name, sheet=sheet))
     return items
 
 
@@ -568,7 +568,7 @@ def _extract_shifted_night_lanes(
 def _extract_repair_items(*, sheet_name: str, sheet: SheetData) -> list[ProgrammeItem]:
     result = []
     for repair in REPAIR_ITEMS:
-        if repair.sheet != sheet_name:
+        if repair.sheet != sheet_name or repair.cell not in sheet.cells:
             continue
         room = next(
             (

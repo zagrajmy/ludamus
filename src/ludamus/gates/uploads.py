@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING, Protocol, runtime_checkable
 
 from django.core.exceptions import ValidationError
 from django.core.files.base import File
-from django.utils.translation import gettext as _gettext
+from django.utils.translation import gettext
 from lxml import etree
 from PIL import Image, UnidentifiedImageError
 
@@ -39,7 +39,7 @@ class _CheckedImageUpload(Protocol):
 
 def validate_uploaded_image_size(image: object) -> None:
     if isinstance(image, File) and image.size > MAX_IMAGE_SIZE:
-        raise UploadValidationError(_gettext("Image too large. Maximum size is 8 MB."))
+        raise UploadValidationError(gettext("Image too large. Maximum size is 8 MB."))
 
 
 def _validate_raster(
@@ -48,11 +48,11 @@ def _validate_raster(
     if image_format not in ALLOWED_IMAGE_FORMATS:
         raise UploadValidationError(format_error)
     if pixels > MAX_IMAGE_PIXELS:
-        raise UploadValidationError(_gettext("Image dimensions are too large."))
+        raise UploadValidationError(gettext("Image dimensions are too large."))
 
 
 def _raster_format_error() -> str:
-    return _gettext("Unsupported image format. Use JPG, PNG, WebP, or AVIF.")
+    return gettext("Unsupported image format. Use JPG, PNG, WebP, or AVIF.")
 
 
 def validate_uploaded_image_format(image: object) -> None:
@@ -102,11 +102,11 @@ def _validate_uploaded_svg(uploaded: File[bytes]) -> None:
         # SAFETY: fromstring, not parse: parse() takes a filename too, so
         root: Element = etree.fromstring(content, _SVG_PARSER)
     except SyntaxError as error:
-        raise UploadValidationError(_gettext("Invalid or unsafe SVG file.")) from error
+        raise UploadValidationError(gettext("Invalid or unsafe SVG file.")) from error
     if _xml_local_name(str(root.tag)) != "svg" or not all(
         _svg_element_is_safe(element) for element in root.iter(etree.Element)
     ):
-        raise UploadValidationError(_gettext("Invalid or unsafe SVG file."))
+        raise UploadValidationError(gettext("Invalid or unsafe SVG file."))
 
 
 def _validate_raster_upload(uploaded: File[bytes], *, format_error: str) -> None:
@@ -117,6 +117,10 @@ def _validate_raster_upload(uploaded: File[bytes], *, format_error: str) -> None
             pixels = pil_image.width * pil_image.height
     except UnidentifiedImageError:
         image_format, pixels = None, 0
+    except Image.DecompressionBombError as error:
+        raise UploadValidationError(
+            gettext("Image dimensions are too large.")
+        ) from error
     finally:
         uploaded.seek(0)
     _validate_raster(
@@ -140,7 +144,7 @@ def validate_uploaded_logo(uploaded: File[bytes] | None) -> None:
     else:
         _validate_raster_upload(
             uploaded,
-            format_error=_gettext(
+            format_error=gettext(
                 "Unsupported image format. Use JPG, PNG, WebP, AVIF, or SVG."
             ),
         )

@@ -42,11 +42,16 @@ class Plan:
     moves: list[Move] = field(default_factory=list)
 
     @property
+    def missing_buildings(self) -> list[str]:
+        return [name for name, pk in self.buildings.items() if pk is None]
+
+    @property
     def count(self) -> int:
-        return int(self.rename_venue) + len(self.moves)
+        return int(self.rename_venue) + len(self.missing_buildings) + len(self.moves)
 
     def describe(self) -> list[str]:
         lines = [f"rename venue -> {VENUE_NAME!r}"] if self.rename_venue else []
+        lines.extend(f"create building {name!r}" for name in self.missing_buildings)
         lines.extend(
             f"move {move.old_name!r} -> "
             f"[{move.building or 'top level'}] {move.name!r}"
