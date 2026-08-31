@@ -50,7 +50,7 @@ MAX_IMAGE_PIXELS = 24_000_000
 # Hand-written rather than joined from IMAGE_FORMATS: it is translated user copy,
 # and a comma-joined list of MIME types reads nothing like a sentence.
 COVER_IMAGE_HELP_TEXT = _(
-    "1920x1080 (16:9) works best. We crop the edges, so keep the subject in "
+    "1920×1080 (16:9) works best. We crop the edges, so keep the subject in "
     "the middle and leave text out. Max 8 MB. JPG, PNG, WebP, or AVIF."
 )
 # Width of the PositiveIntegerField column on Postgres (`integer`). Dev sqlite
