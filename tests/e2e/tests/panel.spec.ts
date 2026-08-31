@@ -310,14 +310,18 @@ test.describe("Backoffice Panel", () => {
 
   test("creates a nested space inside a parent", async ({ page }) => {
     await page.goto("/panel/event/frostfire-con/venues/");
-    await page.getByRole("link", { name: "Add a space inside Aurora Convention Hall" }).click();
+    // exact: the venue-duplication spec leaves an "Aurora Convention Hall
+    // (Copy)", whose add-inside label contains this one as a substring.
+    await page
+      .getByRole("link", { name: "Add a space inside Aurora Convention Hall", exact: true })
+      .click();
 
     await page.locator("#id_name").fill("Workshop Room");
     await page.locator("#id_capacity").fill("15");
     await page.getByRole("button", { name: "Create space" }).click();
 
     await expect(page.getByText("Space created successfully.")).toBeVisible();
-    await expect(page.getByText("Workshop Room", { exact: true })).toBeVisible();
+    await expect(page.getByText("Workshop Room", { exact: true }).first()).toBeVisible();
   });
 
   test("offers no add-inside action on a space holding a session", async ({ page }) => {
@@ -1463,11 +1467,13 @@ test.describe("Backoffice Panel", () => {
     await expect(page.getByText("Announcement created successfully.")).toBeVisible();
     await expect(page.getByRole("cell", { name: title })).toBeVisible();
 
-    // Published announcement shows on the public landing page
+    // Published announcement shows on the public landing page. Scoped to the
+    // section: publishing also fans the announcement out to the bell, so the
+    // navbar dropdown carries the same title and body.
     await page.goto("/events/");
-    await expect(page.getByRole("heading", { name: "Organization announcements" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: title })).toBeVisible();
-    await expect(page.getByText(content)).toBeVisible();
+    const announcements = page.getByRole("region", { name: "Organization announcements" });
+    await expect(announcements.getByRole("heading", { name: title })).toBeVisible();
+    await expect(announcements.getByText(content)).toBeVisible();
 
     // Edit
     await page.goto("/multiverse/panel/announcements/");

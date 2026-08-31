@@ -69,6 +69,27 @@ class TestProfileNotificationsPageView:
             template_name="crowd/user/notifications.html",
         )
 
+    def test_get_lists_a_muted_subscription(
+        self, authenticated_client, active_user, sphere
+    ):
+        # Pre-created muted: the visit middleware finds the row and leaves its
+        # mute alone, so the request renders the muted branch of the tab.
+        subscription = NotificationSubscription.objects.create(
+            user=active_user, sphere=sphere, muted=True, source="visit"
+        )
+
+        response = authenticated_client.get(URL)
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={
+                "subscriptions": [_dto(subscription)],
+                "profile_active_tab": "notifications",
+            },
+            template_name="crowd/user/notifications.html",
+        )
+
     def test_get_empty_after_subscriptions_removed(
         self, authenticated_client, active_user
     ):
