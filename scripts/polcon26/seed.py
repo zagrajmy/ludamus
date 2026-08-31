@@ -241,6 +241,7 @@ def create_and_assign_sessions(
 ) -> tuple[int, int]:
     created_or_existing: dict[str, int] = {}
     drift: list[str] = []
+    healed = 0
     for batch in _batches(items):
         inputs = [
             {
@@ -249,6 +250,7 @@ def create_and_assign_sessions(
                 "category_id": refs.categories[item.category],
                 "description": item.description,
                 "duration": iso_duration(item.end - item.start),
+                "display_name": ", ".join(item.presenters),
                 "facilitator_ids": [
                     refs.facilitators[name] for name in item.presenters
                 ],
@@ -275,7 +277,15 @@ def create_and_assign_sessions(
             if differences:
                 drift.append(f"{item.source_row_id}: {', '.join(differences)}")
                 continue
+            wanted = ", ".join(item.presenters)
+            if session.get("display_name") != wanted:
+                client.call_object(
+                    "update_session", {"pk": int(session["pk"]), "display_name": wanted}
+                )
+                healed += 1
             created_or_existing[item.source_row_id] = int(session["pk"])
+    if healed:
+        print(f"healed {healed} host lines")
     if drift:
         details = "\n".join(f"  - {line}" for line in drift)
         message = (
