@@ -22,10 +22,15 @@
                 {% csrf_token %}
                 <div class="card card-body">
                     <p class="text-sm text-foreground-muted mb-1">
-                        {% translate "Writes every facilitator with their accreditation type and discount into the first tab of the selected spreadsheet, replacing its current content." %}
+                        {% translate "Writes every accredited facilitator with their discount into the chosen tab, replacing its current content." %}
                     </p>
+                    {% tessera_sole_choice form.connection as sole_connection %}
                     <p class="text-sm text-foreground-muted mb-4">
-                        {% translate "Share the spreadsheet with the connection's service account e-mail as an editor first." %}
+                        {% if sole_connection %}
+                            {% blocktranslate with name=sole_connection %}Share the spreadsheet with the service account e-mail of {{ name }} as an editor first.{% endblocktranslate %}
+                        {% else %}
+                            {% translate "Share the spreadsheet with the connection's service account e-mail as an editor first." %}
+                        {% endif %}
                     </p>
                     {% tessera_form form %}
                     <div class="flex justify-end gap-2 pt-4 border-t border-border">

@@ -38,7 +38,7 @@ from tests.integration.conftest import (
     UserFactory,
     sponsor_user,
 )
-from tests.integration.utils import assert_response, input_tag
+from tests.integration.utils import FormFieldsMatcher, assert_response, input_tag
 from tests.integration.web.chronology.helpers import (
     enroll_context,
     participation_row,
@@ -199,7 +199,15 @@ class TestSessionEnrollPageView:
                 **party_context(),
                 "companions": [],
                 "event": agenda_item.space.event,
-                "form": ANY,
+                # The seat is held for them, so the only move the form offers
+                # is declining it.
+                "form": FormFieldsMatcher(
+                    **{
+                        f"user_{active_user.pk}": {
+                            "choices": [("", "No change"), ("cancel", "Decline offer")]
+                        }
+                    }
+                ),
                 "session": agenda_item.session,
                 "shadowban_warnings": [],
                 "user_data": [
@@ -215,8 +223,6 @@ class TestSessionEnrollPageView:
             template_name="chronology/enroll_select.html",
             contains=["Spot offered"],
         )
-        field = response.context_data["form"].fields[f"user_{active_user.pk}"]
-        assert ("cancel", "Decline offer") in list(field.choices)
         content = " ".join(response.content.decode().split())
         # The generic pending-offer chip (not the leader-held-seat one). The
         # Include box starts checked (they hold a spot) and stays toggleable, so
@@ -1170,6 +1176,8 @@ class TestSessionEnrollPageView:
     ):
         PartyMembership.objects.filter(member=companion).delete()
         party = sponsor_user(leader=staff_user, member=companion)
+        companion.manager = staff_user
+        companion.save(update_fields=["manager"])
         UserEnrollmentConfig.objects.create(
             enrollment_config=enrollment_config,
             user_email=staff_user.email,
@@ -1374,6 +1382,8 @@ class TestSessionEnrollPageView:
     ):
         PartyMembership.objects.filter(member=companion).delete()
         sponsor_user(leader=staff_user, member=companion)
+        companion.manager = staff_user
+        companion.save(update_fields=["manager"])
         UserEnrollmentConfig.objects.create(
             enrollment_config=enrollment_config,
             user_email=staff_user.email,
@@ -1402,6 +1412,8 @@ class TestSessionEnrollPageView:
     ):
         PartyMembership.objects.filter(member=companion).delete()
         party = sponsor_user(leader=staff_user, member=companion)
+        companion.manager = staff_user
+        companion.save(update_fields=["manager"])
         UserEnrollmentConfig.objects.create(
             enrollment_config=enrollment_config,
             user_email=staff_user.email,
@@ -2053,7 +2065,13 @@ class TestSessionEnrollPageView:
                     messages.ERROR,
                     "Test User cannot enroll: enrollment access permission required",
                 ),
-                (messages.WARNING, "Please review the enrollment options below."),
+                (
+                    messages.ERROR,
+                    (
+                        "Enrollment access permission is required for this "
+                        "session. Please contact the organizers to obtain access."
+                    ),
+                ),
             ],
             context_data={
                 **party_context(),
@@ -2167,7 +2185,13 @@ class TestSessionEnrollPageView:
                         "permission required"
                     ),
                 ),
-                (messages.WARNING, "Please review the enrollment options below."),
+                (
+                    messages.ERROR,
+                    (
+                        "Enrollment access permission is required for this "
+                        "session. Please contact the organizers to obtain access."
+                    ),
+                ),
             ],
             context_data={
                 **_companion_pills(own_party, leader=active_user, companion=companion),

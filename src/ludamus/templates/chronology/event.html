@@ -31,6 +31,9 @@
     <div class="relative rounded-3xl shadow-xl overflow-hidden mb-6 sm:mb-8 bg-bg-secondary"
          style="box-shadow: var(--shadow-elevated)">
         {% if event.cover_image_url %}
+            {# NOTE: the widest and narrowest crops a cover meets are this banner's, #}
+            {# and components/file-dropzone.html draws its safe zone from them. #}
+            {# Changing these heights moves the guide people upload against. #}
             <div class="h-56 sm:h-72 bg-cover bg-center"
                  style="background-image: url('{{ event.cover_image_url }}')"></div>
         {% endif %}
@@ -140,6 +143,14 @@
             </div>
         </div>
     </div>
+    {% for notice in enrollment_notices %}
+        <div class="alert backdrop-blur-lg alert-info mb-4">
+            <div class="flex">
+                <div class="shrink-0">{% icon "information-circle" class="w-5 h-5" %}</div>
+                <div class="grow ml-3">{{ notice|linebreaksbr }}</div>
+            </div>
+        </div>
+    {% endfor %}
     <!-- Enrollment Passes Info (for authenticated users) -->
     {% if current_user and event.get_active_enrollment_configs and enrollment_requires_slots %}
         <div class="alert backdrop-blur-lg alert-success mb-4" role="alert">
@@ -155,25 +166,17 @@
                                         {% endblocktranslate %}
                             {% endwith %}
                         </p>
-                        {% if user_enrollment_config.has_user_config and user_enrollment_config.has_domain_config %}
+                        {% if user_enrollment_config.domain and user_enrollment_config.user_slots %}
                             <small class="text-muted">
-                                {% if user_enrollment_config.has_user_config and user_enrollment_config.has_domain_config %}
-                                    {% blocktranslate with domain=user_enrollment_config.has_domain_config %}
-                                                Combined access: Individual enrollment passes + domain access (@{{ domain }}).
-                                            {% endblocktranslate %}
-                                {% elif user_enrollment_config.has_domain_config %}
-                                    {% blocktranslate with domain=user_enrollment_config.has_domain_config %}
-                                                Domain-based access: Users from @{{ domain }} have enrollment access.
-                                            {% endblocktranslate %}
-                                {% else %}
-                                    {% translate "Each person can be enrolled in multiple sessions." %}
-                                {% endif %}
+                                {% blocktranslate trimmed with domain=user_enrollment_config.domain %}
+                                    Combined access: Individual enrollment passes + domain access (@{{ domain }}).
+                                {% endblocktranslate %}
                             </small>
-                        {% elif user_enrollment_config.has_domain_config %}
+                        {% elif user_enrollment_config.domain %}
                             <small class="text-muted">
-                                {% blocktranslate with domain=user_enrollment_config.has_domain_config %}
-                                            Domain-based access: Users from @{{ domain }} have enrollment access.
-                                        {% endblocktranslate %}
+                                {% blocktranslate trimmed with domain=user_enrollment_config.domain %}
+                                    Domain-based access: Users from @{{ domain }} have enrollment access.
+                                {% endblocktranslate %}
                             </small>
                         {% else %}
                             <small class="text-muted">{% translate "Each person can be enrolled in multiple sessions." %}</small>
@@ -563,9 +566,15 @@
          data-session-modal-url="{% url 'web:chronology:session-modal' event_slug=event.slug session_id=0 %}"></div>
     <!-- Back to Events List -->
     <div class="mt-8">
-        <a href="{% url 'web:events' %}" class="btn btn-secondary">
-            {% icon "arrow-left" class="w-4 h-4" variant="mini" %} {% translate "Back to Events" %}
-        </a>
+        {% if "events" in current_sphere.enabled_pages %}
+            <a href="{% url 'web:events' %}" class="btn btn-secondary">
+                {% icon "arrow-left" class="w-4 h-4" variant="mini" %} {% translate "Back to Events" %}
+            </a>
+        {% else %}
+            <a href="{% url 'web:timeline' %}" class="btn btn-secondary">
+                {% icon "arrow-left" class="w-4 h-4" variant="mini" %} {% translate "Back to Timeline" %}
+            </a>
+        {% endif %}
     </div>
     {# Print path. Ctrl/Cmd+P is hijacked to the print-ready page (see #}
     {# event-print.ts); this block is the fallback for File→Print / the toolbar, #}
@@ -602,6 +611,9 @@
     {# load, and a module the response never carries cannot wire it. #}
     {% vite_asset 'src/room-lanes.ts' %}
     {% vite_asset 'src/schedule-now.ts' %}
+    {# After room-lanes.ts: auto-folding dispatches schedule:filtered, which #}
+    {# the rooms grid must already be listening for. #}
+    {% vite_asset 'src/schedule-fold.ts' %}
     {% vite_asset 'src/event-print.ts' %}
 {% endblock extra_scripts %}
 {% block extra_head %}

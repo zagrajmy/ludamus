@@ -41,6 +41,24 @@ class TestEncounterDeleteActionView:
         )
         assert not Encounter.objects.filter(pk=encounter.pk).exists()
 
+    def test_redirects_to_timeline_when_encounters_page_disabled(
+        self, authenticated_client, user, sphere
+    ):
+        sphere.enabled_pages = ["timeline"]
+        sphere.default_page = "timeline"
+        sphere.save()
+        encounter = EncounterFactory(creator=user, sphere=sphere)
+
+        response = authenticated_client.post(self._url(encounter.pk))
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=((constants.SUCCESS, "Encounter deleted."),),
+            url=reverse("web:timeline"),
+        )
+        assert not Encounter.objects.filter(pk=encounter.pk).exists()
+
     def test_not_creator(self, authenticated_client, encounter):
         response = authenticated_client.post(self._url(encounter.pk))
 

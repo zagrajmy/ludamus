@@ -1,3 +1,4 @@
+import json
 import re
 from dataclasses import replace
 from datetime import UTC, timedelta
@@ -31,8 +32,10 @@ from ludamus.gates.web.django.chronology.schedule import (
 from ludamus.gates.web.django.entities import UserInfo
 from ludamus.gates.web.django.helpers import placeholder_cover_url
 from ludamus.links.db.django.models import (
+    Connection,
     DomainEnrollmentConfig,
     EnrollmentConfig,
+    EventIntegration,
     EventSettings,
     SessionBookmark,
     SessionField,
@@ -44,6 +47,7 @@ from ludamus.links.db.django.models import (
     UserEnrollmentConfig,
 )
 from ludamus.links.db.django.repositories.chronology import location_data
+from ludamus.links.encryption import FernetEncryptor
 from ludamus.links.gravatar import gravatar_url
 from ludamus.pacts import (
     AgendaItemDTO,
@@ -53,6 +57,7 @@ from ludamus.pacts import (
     SessionFieldValueDTO,
     VirtualEnrollmentConfig,
 )
+from ludamus.pacts.chronology import IntegrationImplementationId, IntegrationKind
 from ludamus.pacts.crowd import UserDTO
 from tests.integration.conftest import (
     PNG_BYTES,
@@ -125,19 +130,28 @@ _PREFERRED_SLOT_OFFSETS = (0, 2, 4)
 # The review queue the query-count guard grows to, from one proposal.
 _PROPOSALS_IN_QUEUE = 5
 
+MEMBERSHIP_API_URL = "https://membership-test.example.com/api/v1/endpoint"
 
-@pytest.fixture(name="local_midday")
-def local_midday_fixture():
-    # The schedule groups by local date, so a session placed around `now()`
-    # straddles two days when the suite happens to run near midnight. Pin the
-    # clock to half past noon; the date stays today's, which the fixtures build
-    # against. Half past, not on the hour, so a window can end at `now()` and a
-    # session can both end before `now()` and start inside the current hour
-    # bucket.
-    with freeze_time(
-        timezone.localtime().replace(hour=12, minute=30, second=0, microsecond=0)
-    ):
-        yield
+
+@pytest.fixture(name="ticketing_integration")
+def ticketing_integration_fixture(event, settings, sphere):
+    # Membership lookups only happen for an event wired to a ticketing
+    # integration, so every test that expects an outbound call needs this.
+    shop_connection = Connection.objects.create(
+        sphere=sphere,
+        display_name="Kapitularz",
+        secret=FernetEncryptor(settings.CREDENTIALS_ENCRYPTION_KEY).encrypt(
+            b"membership-test-token"
+        ),
+    )
+    return EventIntegration.objects.create(
+        event=event,
+        kind=IntegrationKind.TICKETING.value,
+        implementation=IntegrationImplementationId.SKLEP_KAPITULARZ.value,
+        connection=shop_connection,
+        display_name="Kapitularz",
+        config_json=json.dumps({"base_url": MEMBERSHIP_API_URL}),
+    )
 
 
 class TestEventPageView:
@@ -162,14 +176,43 @@ class TestEventPageView:
 
     def test_offered_seats_count_toward_capacity(self, client, sphere):
         event = EventFactory(sphere=sphere)
-        session = make_half_full_session(event)
+        session, seats = make_half_full_session(event)
+        agenda_item = session.agenda_item
 
         response = client.get(self._get_url(event.slug))
 
-        sessions = response.context_data["sessions"]
-        card = next(item for item in sessions if item.session.pk == session.pk)
-        assert card.is_full
-        assert card.enrolled_count == session.participants_limit
+        # The offered seat holds a place in the roster, so both seats are gone.
+        card = session_card(
+            agenda_item,
+            presenter=session.presenter,
+            enrolled_count=session.participants_limit,
+            is_full=True,
+            session_participations=[
+                ParticipationInfo(
+                    user=UserInfo.from_user_dto(
+                        UserDTO.model_validate(seat.user), gravatar_url=gravatar_url
+                    ),
+                    status=seat.status,
+                    creation_time=seat.creation_time,
+                )
+                for seat in seats
+            ],
+        )
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=event_page_context(
+                event,
+                url=self._get_url(event.slug),
+                hour_data={agenda_item.start_time: [card]},
+                future_unavailable_hour_data={agenda_item.start_time: [card]},
+                sessions=[card],
+                has_enrollable_sessions=True,
+                scheduled_count=1,
+                total_enrolled=2,
+            ),
+            template_name=["chronology/event.html"],
+        )
 
     def test_session_card_link_opens_on_current_event(self, agenda_item, client, event):
         response = client.get(self._get_url(event.slug))
@@ -362,13 +405,22 @@ class TestEventPageView:
             not_contains="Not Available",
         )
 
+    # Pinned: the ongoing session spans now±1h, so a run near local midnight
+    # would split it across two dates and yield an extra schedule day. Half
+    # past the local hour (12:30 Europe/Warsaw), so the ended session has a
+    # non-empty window between the hour bucket's start and `now()`.
+    @freeze_time("2026-06-15 10:30:00")
     def test_ok_compact_schedule_renders_all_row_variants(
-        self, client, event, space, monkeypatch, local_midday
+        self, client, event, space, monkeypatch
     ):
         monkeypatch.setattr(
             "ludamus.adapters.web.django.views.COMPACT_SCHEDULE_MIN_SESSIONS", 1
         )
         now = timezone.now()
+        event.publication_time = now - timedelta(days=14)
+        event.start_time = now + timedelta(days=7)
+        event.end_time = event.start_time + timedelta(hours=8)
+        event.save()
         EnrollmentConfig.objects.create(
             event=event,
             start_time=now - timedelta(days=1),
@@ -1034,14 +1086,14 @@ class TestEventPageView:
         session_b = SessionFactory(event=event, category=category_b, min_age=0)
         session_b.tracks.add(track_b)
         item_a = AgendaItemFactory(session=session_a, space=space)
+        # Off item_a, not off a floating now: the factory anchors item_a to
+        # 10:00 local precisely so an item cannot drift across midnight, and
+        # `now + 3h` gives that back. Run between 00:00 and 07:00 local,
+        # `now + 3h` is still before 10:00, so b sorted ahead of a and the
+        # expected order flipped — red every night from 22:00 UTC.
         item_b = AgendaItemFactory(
             session=session_b,
             space=space,
-            # Off item_a, not off a floating now: the factory anchors to 10:00
-            # local precisely so an item cannot drift across midnight, and
-            # `now + 3h` gives that back. Run between 00:00 and 07:00 local,
-            # `now + 3h` is still before 10:00, so b sorted ahead of a and the
-            # expected order flipped — red every night from 22:00 UTC.
             start_time=item_a.start_time + timedelta(hours=3),
         )
         cards = [
@@ -1162,8 +1214,12 @@ class TestEventPageView:
 
         response = authenticated_client.get(self._get_url(event.slug))
 
-        assert response.status_code == HTTPStatus.OK
-        assert response.context_data["sessions"] == []
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=event_page_context(event, url=self._get_url(event.slug)),
+            template_name=["chronology/event.html"],
+        )
 
     def test_shows_event_cover_image(self, client, event):
         event.cover_image = SimpleUploadedFile(
@@ -2556,9 +2612,7 @@ class TestEventPageView:
                 enrollment_requires_slots=True,
                 hour_data={agenda_item.start_time: [session_data]},
                 sessions=[session_data],
-                user_enrollment_config=VirtualEnrollmentConfig(
-                    allowed_slots=7 + 8, has_domain_config=False, has_user_config=True
-                ),
+                user_enrollment_config=VirtualEnrollmentConfig(user_slots=7 + 8),
                 has_enrollable_sessions=True,
                 scheduled_count=1,
             ),
@@ -2575,11 +2629,11 @@ class TestEventPageView:
         enrollment_config,
         event,
         faker,
-        settings,
+        ticketing_integration,
     ):
         slots = 7
         responses.get(
-            url=settings.MEMBERSHIP_API_BASE_URL,
+            url=MEMBERSHIP_API_URL,
             status=HTTPStatus.OK,
             match=[
                 responses.matchers.query_param_matcher({"email": active_user.email})
@@ -2621,9 +2675,7 @@ class TestEventPageView:
                 enrollment_requires_slots=True,
                 hour_data={agenda_item.start_time: [session_data]},
                 sessions=[session_data],
-                user_enrollment_config=VirtualEnrollmentConfig(
-                    allowed_slots=slots, has_domain_config=False, has_user_config=True
-                ),
+                user_enrollment_config=VirtualEnrollmentConfig(user_slots=slots),
                 has_enrollable_sessions=True,
                 scheduled_count=1,
             ),
@@ -2639,10 +2691,10 @@ class TestEventPageView:
         enrollment_config,
         event,
         faker,
-        settings,
+        ticketing_integration,
     ):
         responses.get(
-            url=settings.MEMBERSHIP_API_BASE_URL,
+            url=MEMBERSHIP_API_URL,
             status=HTTPStatus.INTERNAL_SERVER_ERROR,
             match=[
                 responses.matchers.query_param_matcher({"email": active_user.email})
@@ -2690,7 +2742,7 @@ class TestEventPageView:
                 hour_data={agenda_item.start_time: [session_data]},
                 sessions=[session_data],
                 user_enrollment_config=VirtualEnrollmentConfig(
-                    allowed_slots=slots, has_domain_config=True, has_user_config=False
+                    domain_slots=slots, domain=active_user.email.split("@")[1]
                 ),
                 has_enrollable_sessions=True,
                 scheduled_count=1,
@@ -2755,9 +2807,9 @@ class TestEventPageView:
                 hour_data={agenda_item.start_time: [session_data]},
                 sessions=[session_data],
                 user_enrollment_config=VirtualEnrollmentConfig(
-                    allowed_slots=primary_slots + domain_slots,
-                    has_domain_config=True,
-                    has_user_config=True,
+                    user_slots=primary_slots,
+                    domain_slots=domain_slots,
+                    domain=active_user.email.split("@")[1],
                 ),
                 has_enrollable_sessions=True,
                 scheduled_count=1,
@@ -2774,12 +2826,10 @@ class TestEventPageView:
         enrollment_config,
         event,
         faker,
-        settings,
+        ticketing_integration,
     ):
-        settings.MEMBERSHIP_API_BASE_URL = "https://api.example.com/check/member"
-        settings.MEMBERSHIP_API_TOKEN = faker.uuid4()
         responses.get(
-            url=settings.MEMBERSHIP_API_BASE_URL,
+            url=MEMBERSHIP_API_URL,
             status=HTTPStatus.INTERNAL_SERVER_ERROR,
             match=[
                 responses.matchers.query_param_matcher({"email": active_user.email})
@@ -2836,12 +2886,10 @@ class TestEventPageView:
         enrollment_config,
         event,
         faker,
-        settings,
+        ticketing_integration,
     ):
-        settings.MEMBERSHIP_API_BASE_URL = "https://api.example.com/check/member"
-        settings.MEMBERSHIP_API_TOKEN = faker.uuid4()
         responses.get(
-            url=settings.MEMBERSHIP_API_BASE_URL,
+            url=MEMBERSHIP_API_URL,
             status=HTTPStatus.OK,
             match=[
                 responses.matchers.query_param_matcher({"email": active_user.email})
@@ -2898,10 +2946,8 @@ class TestEventPageView:
         enrollment_config,
         event,
         faker,
-        settings,
+        ticketing_integration,
     ):
-        settings.MEMBERSHIP_API_BASE_URL = "https://api.example.com/check/member"
-        settings.MEMBERSHIP_API_TOKEN = faker.uuid4()
         UserEnrollmentConfig.objects.create(
             enrollment_config=enrollment_config,
             user_email=active_user.email,
@@ -2910,7 +2956,7 @@ class TestEventPageView:
         )
         slots = 7
         responses.get(
-            url=settings.MEMBERSHIP_API_BASE_URL,
+            url=MEMBERSHIP_API_URL,
             status=HTTPStatus.OK,
             match=[
                 responses.matchers.query_param_matcher({"email": active_user.email})
@@ -2957,9 +3003,71 @@ class TestEventPageView:
                 enrollment_requires_slots=True,
                 hour_data={agenda_item.start_time: [session_data]},
                 sessions=[session_data],
-                user_enrollment_config=VirtualEnrollmentConfig(
-                    allowed_slots=slots, has_domain_config=False, has_user_config=True
-                ),
+                user_enrollment_config=VirtualEnrollmentConfig(user_slots=slots),
+                has_enrollable_sessions=True,
+                scheduled_count=1,
+            ),
+            template_name=["chronology/event.html"],
+        )
+
+    @responses.activate
+    def test_ok_current_session_without_ticketing_integration_skips_the_api(
+        self,
+        active_user,
+        agenda_item,
+        authenticated_client,
+        enrollment_config,
+        event,
+        faker,
+    ):
+        # No integration configured and a stale check: the slots the organizer
+        # entered by hand still count, and nothing is fetched. `responses` has
+        # no registered endpoint, so any outbound call fails the test.
+        slots = 7
+        UserEnrollmentConfig.objects.create(
+            enrollment_config=enrollment_config,
+            user_email=active_user.email,
+            allowed_slots=slots,
+            last_check=faker.date_time_between("-10d", "-5d"),
+        )
+        enrollment_config.restrict_to_configured_users = True
+        enrollment_config.save()
+        agenda_item.start_time = faker.date_time_between("-10d", "-1d", tzinfo=UTC)
+        agenda_item.end_time = faker.date_time_between("+1d", "+10d", tzinfo=UTC)
+        agenda_item.save()
+
+        response = authenticated_client.get(self._get_url(event.slug))
+
+        assert not responses.calls
+        session_data = SessionData(
+            can_edit=True,
+            agenda_item=AgendaItemDTO.model_validate(agenda_item),
+            effective_participants_limit=10,
+            enrolled_count=0,
+            is_enrollment_available=True,
+            is_full=False,
+            is_ongoing=True,
+            presenter=UserInfo.from_user_dto(
+                UserDTO.model_validate(active_user), gravatar_url=gravatar_url
+            ),
+            session_participations=[],
+            session=SessionDTO.model_validate(agenda_item.session),
+            should_show_as_inactive=False,
+            loc=location_data(agenda_item.space),
+            user_enrolled=False,
+            user_waiting=False,
+        )
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=event_page_context(
+                event,
+                url=self._get_url(event.slug),
+                current_hour_data={agenda_item.start_time: [session_data]},
+                enrollment_requires_slots=True,
+                hour_data={agenda_item.start_time: [session_data]},
+                sessions=[session_data],
+                user_enrollment_config=VirtualEnrollmentConfig(user_slots=slots),
                 has_enrollable_sessions=True,
                 scheduled_count=1,
             ),
@@ -2974,10 +3082,8 @@ class TestEventPageView:
         enrollment_config,
         event,
         faker,
-        settings,
+        ticketing_integration,
     ):
-        settings.MEMBERSHIP_API_BASE_URL = "https://api.example.com/check/member"
-        settings.MEMBERSHIP_API_TOKEN = faker.uuid4()
         UserEnrollmentConfig.objects.create(
             enrollment_config=enrollment_config,
             user_email=active_user.email,
@@ -3024,9 +3130,7 @@ class TestEventPageView:
                 enrollment_requires_slots=True,
                 hour_data={agenda_item.start_time: [session_data]},
                 sessions=[session_data],
-                user_enrollment_config=VirtualEnrollmentConfig(
-                    allowed_slots=0, has_domain_config=False, has_user_config=True
-                ),
+                user_enrollment_config=None,
                 has_enrollable_sessions=True,
                 scheduled_count=1,
             ),
@@ -3042,10 +3146,8 @@ class TestEventPageView:
         enrollment_config,
         event,
         faker,
-        settings,
+        ticketing_integration,
     ):
-        settings.MEMBERSHIP_API_BASE_URL = "https://api.example.com/check/member"
-        settings.MEMBERSHIP_API_TOKEN = faker.uuid4()
         UserEnrollmentConfig.objects.create(
             enrollment_config=enrollment_config,
             user_email=active_user.email,
@@ -3053,7 +3155,7 @@ class TestEventPageView:
             last_check=faker.date_time_between("-10d", "-5d"),
         )
         responses.get(
-            url=settings.MEMBERSHIP_API_BASE_URL,
+            url=MEMBERSHIP_API_URL,
             status=HTTPStatus.OK,
             match=[
                 responses.matchers.query_param_matcher({"email": active_user.email})
@@ -3100,9 +3202,7 @@ class TestEventPageView:
                 enrollment_requires_slots=True,
                 hour_data={agenda_item.start_time: [session_data]},
                 sessions=[session_data],
-                user_enrollment_config=VirtualEnrollmentConfig(
-                    allowed_slots=0, has_domain_config=False, has_user_config=True
-                ),
+                user_enrollment_config=None,
                 has_enrollable_sessions=True,
                 scheduled_count=1,
             ),
@@ -3118,12 +3218,10 @@ class TestEventPageView:
         enrollment_config,
         event,
         faker,
-        settings,
+        ticketing_integration,
     ):
-        settings.MEMBERSHIP_API_BASE_URL = "https://api.example.com/check/member"
-        settings.MEMBERSHIP_API_TOKEN = faker.uuid4()
         responses.get(
-            url=settings.MEMBERSHIP_API_BASE_URL,
+            url=MEMBERSHIP_API_URL,
             status=HTTPStatus.OK,
             match=[
                 responses.matchers.query_param_matcher({"email": active_user.email})
@@ -3170,9 +3268,7 @@ class TestEventPageView:
                 enrollment_requires_slots=True,
                 hour_data={agenda_item.start_time: [session_data]},
                 sessions=[session_data],
-                user_enrollment_config=VirtualEnrollmentConfig(
-                    allowed_slots=0, has_domain_config=False, has_user_config=True
-                ),
+                user_enrollment_config=None,
                 has_enrollable_sessions=True,
                 scheduled_count=1,
             ),
@@ -3593,11 +3689,33 @@ class TestEventPageEditAffordance:
             status="accepted",
         )
 
+    def _assert_edit_affordance(self, response, *, event, agenda_item, can_edit):
+        card = session_card(
+            agenda_item,
+            presenter=agenda_item.session.presenter,
+            can_edit=can_edit,
+            category_name=agenda_item.session.category.name,
+        )
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=event_page_context(
+                event,
+                url=self._get_url(event.slug),
+                hour_data={agenda_item.start_time: [card]},
+                future_unavailable_hour_data={agenda_item.start_time: [card]},
+                sessions=[card],
+                has_enrollable_sessions=True,
+                scheduled_count=1,
+            ),
+            template_name=["chronology/event.html"],
+        )
+
     def test_owner_sees_edit_affordance(
         self, authenticated_client, event, active_user, space
     ):
         session = self._scheduled_session(event, active_user)
-        AgendaItemFactory(session=session, space=space)
+        agenda_item = AgendaItemFactory(session=session, space=space)
         edit_url = reverse(
             "web:chronology:session-edit",
             kwargs={"event_slug": event.slug, "session_id": session.pk},
@@ -3605,10 +3723,9 @@ class TestEventPageEditAffordance:
 
         response = authenticated_client.get(self._get_url(event.slug))
 
-        session_data = next(
-            s for s in response.context["sessions"] if s.session.pk == session.pk
+        self._assert_edit_affordance(
+            response, event=event, agenda_item=agenda_item, can_edit=True
         )
-        assert session_data.can_edit is True
         # The edit button lives in the lazy-loaded session modal, not the page.
         modal = authenticated_client.get(
             reverse(
@@ -3625,21 +3742,13 @@ class TestEventPageEditAffordance:
     def test_non_owner_no_edit_affordance(self, authenticated_client, event, space):
         other = UserFactory(username="other", email="other@example.com")
         session = self._scheduled_session(event, other)
-        AgendaItemFactory(session=session, space=space)
-        edit_url = reverse(
-            "web:chronology:session-edit",
-            kwargs={"event_slug": event.slug, "session_id": session.pk},
-        )
+        agenda_item = AgendaItemFactory(session=session, space=space)
 
         response = authenticated_client.get(self._get_url(event.slug))
 
-        session_data = next(
-            s for s in response.context["sessions"] if s.session.pk == session.pk
+        self._assert_edit_affordance(
+            response, event=event, agenda_item=agenda_item, can_edit=False
         )
-        assert session_data.can_edit is False
-        content = response.content.decode()
-        assert edit_url not in content
-        assert f'data-edit-open="{session.pk}"' not in content
 
     def test_owner_no_affordance_when_opted_out(
         self, authenticated_client, event, active_user, space
@@ -3647,21 +3756,13 @@ class TestEventPageEditAffordance:
         event.allow_facilitator_session_edit = False
         event.save()
         session = self._scheduled_session(event, active_user)
-        AgendaItemFactory(session=session, space=space)
-        edit_url = reverse(
-            "web:chronology:session-edit",
-            kwargs={"event_slug": event.slug, "session_id": session.pk},
-        )
+        agenda_item = AgendaItemFactory(session=session, space=space)
 
         response = authenticated_client.get(self._get_url(event.slug))
 
-        session_data = next(
-            s for s in response.context["sessions"] if s.session.pk == session.pk
+        self._assert_edit_affordance(
+            response, event=event, agenda_item=agenda_item, can_edit=False
         )
-        assert session_data.can_edit is False
-        content = response.content.decode()
-        assert edit_url not in content
-        assert f'data-edit-open="{session.pk}"' not in content
 
 
 class TestPublicEventUrlShape:

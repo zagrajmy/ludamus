@@ -76,7 +76,9 @@ test.describe("Event schedule views", () => {
 
     await page.getByRole("tab", { name: "Rooms" }).click();
 
-    await expect(page.locator(".room-lanes").first()).toBeVisible();
+    // The dense event's rooms layout is the suite's slowest render; under a
+    // parallel run the boosted GET outlasts the default expect timeout.
+    await expect(page.locator(".room-lanes").first()).toBeVisible({ timeout: 30_000 });
     await expect(page).toHaveURL(/\?view=rooms$/);
     expect(await stayedOnPage(page)).toBe(true);
   });
@@ -124,7 +126,8 @@ test.describe("Event schedule views", () => {
     await page.goto(`${DENSE_EVENT_URL}?view=rooms`);
     const currentDayDisplay = page.locator(".room-lanes-day-current");
     const currentDay = currentDayDisplay.locator("[data-room-lanes-day-current]");
-    await expect(currentDayDisplay).toHaveAttribute("aria-hidden", "true");
+    // The bar doubles as the shown day's fold toggle (see the folding spec).
+    await expect(currentDay).toHaveRole("button");
     // Every day is a heading. The first opens the grid and has no seam to
     // scroll past — it is the one the header starts on — so the day to scroll
     // into is the second.
@@ -688,15 +691,23 @@ test("overnight bookmark copies share one state and one request", async ({
   const copy = copies.nth(1);
   const wasBookmarked = (await source.getAttribute("aria-pressed")) === "true";
   let requests = 0;
+  // The second click has to land while the first request is still in flight,
+  // so hold the response until the test releases it rather than racing a sleep
+  // against Playwright's actionability checks.
+  let release = (): void => {};
+  const inFlight = new Promise<void>((resolve) => {
+    release = resolve;
+  });
   await page.route(/\/bookmark\/$/, async (route) => {
     requests += 1;
-    await new Promise((resolve) => setTimeout(resolve, 200));
+    await inFlight;
     await route.continue();
   });
 
   await source.click();
   await expect(copy).toBeDisabled();
   await copy.click({ force: true });
+  release();
   await expect(copy).toBeEnabled();
 
   const expectedState = String(!wasBookmarked);
