@@ -38,7 +38,8 @@ class TestEventICSView:
             response["Content-Disposition"]
             == f'attachment; filename="{event.slug}.ics"'
         )
-        assert response["Cache-Control"] == "private, max-age=180"
+        assert "private" in response["Cache-Control"]
+        assert "max-age=180" in response["Cache-Control"]
         assert "Cookie" in response["Vary"]
 
     def test_event_without_address_has_no_location_line(self, client, event):

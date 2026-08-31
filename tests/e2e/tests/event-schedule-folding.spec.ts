@@ -63,12 +63,12 @@ test.describe("Folding days on the card schedule", () => {
     await expect(days).toHaveCount(2);
     await expect(days.first()).toHaveAttribute("aria-expanded", "true");
 
-    const controlled = await days.first().getAttribute("aria-controls");
-    if (!controlled) throw new Error("The toggle has to name the panel it folds");
+    await expect(days.first()).toHaveAttribute("aria-controls", /^schedule-day-/);
+    const controlled = (await days.first().getAttribute("aria-controls")) ?? "";
 
     await days.first().click();
 
-    await expect(page.locator(`#${controlled}`)).toBeHidden();
+    await expect(page.locator(`[id="${controlled}"]`)).toBeHidden();
     await expect(card(page, MEGA)).toBeHidden();
     await expect(card(page, COZY)).toBeHidden();
     await expect(card(page, NEON)).toBeVisible();
