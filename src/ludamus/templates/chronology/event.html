@@ -28,40 +28,33 @@
 {% endblock header_section %}
 {% block body %}
     {% include "chronology/decorative_background_blobs.html" %}
-    <div class="relative rounded-3xl shadow-xl overflow-hidden mb-6 sm:mb-8 bg-bg-secondary"
-         style="box-shadow: var(--shadow-elevated)">
+    {# No overflow-hidden — it would clip the add-to-calendar popover on short heroes. #}
+    <div class="relative rounded-3xl shadow-(--shadow-elevated) mb-6 sm:mb-8 bg-bg-secondary"
+         data-event-hero>
         {% if event.cover_image_url %}
             {# NOTE: the widest and narrowest crops a cover meets are this banner's, #}
             {# and components/file-dropzone.html draws its safe zone from them. #}
             {# Changing these heights moves the guide people upload against. #}
-            <div class="h-56 sm:h-72 bg-cover bg-center"
+            <div class="h-56 sm:h-72 bg-cover bg-center rounded-t-3xl"
                  style="background-image: url('{{ event.cover_image_url }}')"></div>
         {% endif %}
         <div class="p-6 sm:p-8">
             <div class="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-6">
-                <div class="flex-1">
-                    {# Which pills, in what order, and the cap: #}
-                    {# gates/web/django/event/status_pills.py. #}
-                    <div class="flex flex-wrap items-center gap-2 mb-4">
-                        {% for pill in status_pills %}
-                            <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium {{ pill.classes }}">
-                                {% if pill.live_dot %}
-                                    <span class="w-2 h-2 bg-teal-500 rounded-full live-dot"></span>
-                                {% else %}
-                                    {% icon pill.icon class="w-4 h-4" variant="mini" %}
-                                {% endif %}
-                                {{ pill.label }}
-                            </div>
-                        {% endfor %}
+                <div class="flex-1 grid gap-y-4{% if compact_schedule %} md:grid-cols-[1fr_auto] md:gap-x-8{% endif %}">
+                    {# Status is an attribute of the name: the chip sits beside it #}
+                    {# and wraps under it when narrow. #}
+                    <div class="flex items-center flex-wrap gap-x-3 gap-y-2">
+                        <h1 class="text-3xl sm:text-4xl font-bold text-foreground">{{ event.name }}</h1>
+                        {% include "chronology/_event_status_pills.html" %}
                     </div>
-                    <h1 class="text-3xl sm:text-4xl font-bold mb-3 text-foreground">{{ event.name }}</h1>
                     {% if event.description %}
-                        <p class="text-lg mb-6 max-w-2xl text-foreground-muted">{{ event.description }}</p>
+                        <p class="text-lg max-w-2xl text-foreground-muted">{{ event.description }}</p>
                     {% endif %}
                     <!-- Event meta -->
-                    <div class="flex flex-wrap gap-4 text-sm">
-                        <div class="flex items-center gap-2">
-                            <div class="w-8 h-8 bg-coral-100 dark:bg-coral-900/30 rounded-lg flex items-center justify-center">
+                    <div class="flex flex-wrap gap-4 text-sm{% if compact_schedule %} md:col-start-2 md:row-start-1 md:row-span-3 md:flex-col md:flex-nowrap md:items-start md:gap-3{% endif %}">
+                        {% translate "Add to calendar" as t_add_to_calendar %}
+                        {% tessera_action_dropdown id="event-calendar-menu" label=t_add_to_calendar align="center" trigger_class="flex items-center gap-2 text-left" %}
+                            <div class="w-8 h-8 bg-coral-100 dark:bg-coral-900/30 rounded-lg flex items-center justify-center shrink-0">
                                 {% icon "calendar-days" class="w-4 h-4 text-coral-600" variant="mini" %}
                             </div>
                             {% with start_day=event.start_time|date:"Y-m-d" end_day=event.end_time|date:"Y-m-d" %}
@@ -91,30 +84,76 @@
                                     {% endif %}
                                 </div>
                             {% endwith %}
-                        </div>
+                            {% action_dropdown_menu %}
+                            {% translate "Google Calendar" as t_google_calendar %}
+                            {% translate "Other calendars (.ics)" as t_other_calendars %}
+                            {% url 'web:chronology:event-ics' slug=event.slug as ics_url %}
+                            {% tessera_action_dropdown_item t_google_calendar href=google_calendar_url icon="calendar-days" external=True %}
+                            {% tessera_action_dropdown_item t_other_calendars href=ics_url icon="arrow-down-tray" %}
+                        {% endtessera_action_dropdown %}
+                        {% if compact_schedule %}
+                            <div class="flex items-center gap-2">
+                                <div class="w-8 h-8 bg-bg-tertiary rounded-lg flex items-center justify-center">
+                                    {% icon "queue-list" class="w-4 h-4 text-foreground-muted" variant="mini" %}
+                                </div>
+                                <div class="font-medium leading-none text-foreground tabular-nums whitespace-nowrap">
+                                    {{ scheduled_count }}
+                                    <span class="font-normal text-foreground-muted">
+                                        {% blocktranslate count counter=scheduled_count %}Session{% plural %}Sessions{% endblocktranslate %}
+                                    </span>
+                                </div>
+                            </div>
+                        {% endif %}
+                        {% if event.address %}
+                            {% translate "View on map ↗" as t_view_on_map %}
+                            <a href="https://www.google.com/maps/search/?api=1&amp;query={{ event.address_inline|urlencode }}"
+                               target="_blank"
+                               rel="noopener"
+                               title="{{ t_view_on_map }}"
+                               class="group flex items-start gap-2">
+                                <div class="w-8 h-8 bg-teal-100 dark:bg-teal-900/30 rounded-lg flex items-center justify-center shrink-0">
+                                    {% icon "map-pin" class="w-4 h-4 text-teal-600" variant="mini" %}
+                                </div>
+                                <div class="font-medium leading-snug pt-1.5 text-foreground group-hover:underline decoration-dotted underline-offset-4">
+                                    {{ event.address|linebreaksbr }}
+                                    <span class="sr-only">{{ t_view_on_map }}</span>
+                                </div>
+                            </a>
+                        {% endif %}
                     </div>
-                </div>
-                <!-- Quick stats -->
-                <div class="flex lg:flex-col gap-3">
-                    <div class="flex-1 lg:flex-none bg-gradient-to-br from-teal-50 to-teal-100 dark:from-teal-900/30 dark:to-teal-800/30 rounded-2xl p-4 text-center min-w-[120px]">
-                        {# The whole schedule, not the current view: this card #}
-                        {# sits outside the region the view tabs swap. #}
-                        <div class="text-3xl font-bold text-teal-700 dark:text-teal-400">{{ scheduled_count }}</div>
-                        <div class="text-sm text-teal-600 dark:text-teal-500">
-                            {% blocktranslate count counter=scheduled_count %}Session{% plural %}Sessions{% endblocktranslate %}
-                        </div>
-                    </div>
-                    <div class="flex-1 lg:flex-none bg-gradient-to-br from-coral-50 to-coral-100 dark:from-coral-900/30 dark:to-coral-800/30 rounded-2xl p-4 text-center min-w-[120px]">
-                        <div class="text-3xl font-bold text-coral-700 dark:text-coral-400">{{ total_enrolled }}</div>
-                        <div class="text-sm text-coral-600 dark:text-coral-500">
-                            {% if event.use_participants_label %}
-                                {% blocktranslate count counter=total_enrolled %}Participant{% plural %}Participants{% endblocktranslate %}
-                            {% else %}
-                                {% blocktranslate count counter=total_enrolled %}Player{% plural %}Players{% endblocktranslate %}
+                    {% if compact_schedule %}
+                        <div class="flex flex-col gap-3 md:row-start-3 md:flex-row md:flex-wrap">
+                            {% translate "View the program" as t_view_program %}
+                            {% tessera_button t_view_program href="#schedule-region" size="lg" full_width_mobile=True %}
+                            {% if has_enrollable_sessions and not event.is_ended %}
+                                {% translate "Sign up for sessions" as t_sign_up_sessions %}
+                                {% tessera_button t_sign_up_sessions href="?enrollment=1#schedule-region" variant="secondary" size="lg" full_width_mobile=True %}
                             {% endif %}
                         </div>
-                    </div>
+                    {% endif %}
                 </div>
+                {% if not compact_schedule %}
+                    <div class="flex lg:flex-col gap-3">
+                        <div class="flex-1 lg:flex-none bg-gradient-to-br from-teal-50 to-teal-100 dark:from-teal-900/30 dark:to-teal-800/30 rounded-2xl p-4 text-center min-w-[120px]">
+                            {# The whole schedule, not the current view: this card #}
+                            {# sits outside the region the view tabs swap. #}
+                            <div class="text-3xl font-bold text-teal-700 dark:text-teal-400">{{ scheduled_count }}</div>
+                            <div class="text-sm text-teal-600 dark:text-teal-500">
+                                {% blocktranslate count counter=scheduled_count %}Session{% plural %}Sessions{% endblocktranslate %}
+                            </div>
+                        </div>
+                        <div class="flex-1 lg:flex-none bg-gradient-to-br from-coral-50 to-coral-100 dark:from-coral-900/30 dark:to-coral-800/30 rounded-2xl p-4 text-center min-w-[120px]">
+                            <div class="text-3xl font-bold text-coral-700 dark:text-coral-400">{{ total_enrolled }}</div>
+                            <div class="text-sm text-coral-600 dark:text-coral-500">
+                                {% if event.use_participants_label %}
+                                    {% blocktranslate count counter=total_enrolled %}Participant{% plural %}Participants{% endblocktranslate %}
+                                {% else %}
+                                    {% blocktranslate count counter=total_enrolled %}Player{% plural %}Players{% endblocktranslate %}
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                {% endif %}
             </div>
         </div>
     </div>
@@ -187,9 +226,7 @@
                 <button type="button"
                         data-modal-close="anonymousCodeModal"
                         class="p-1 rounded-lg hover:opacity-70 text-foreground-muted"
-                        aria-label="{% translate "Close" %}">
-                    {% icon "x-mark" class="w-5 h-5" variant="mini" %}
-                </button>
+                        aria-label="{% translate "Close" %}">{% icon "x-mark" class="w-5 h-5" variant="mini" %}</button>
             </div>
             <form method="post" action="{% url 'web:chronology:anonymous-load' %}">
                 <div class="px-6 py-4">
@@ -218,7 +255,7 @@
     {# hx-boost, so switching between List and Rooms replaces the count, the #}
     {# filter toolbar and the schedule in one go, leaving no control #}
     {# describing a session set that is no longer on screen. #}
-    <div id="schedule-region">
+    <div id="schedule-region" class="scroll-mt-24">
         <!-- Section Header -->
         <div class="flex items-center justify-between mb-3">
             <div class="flex items-center gap-3">

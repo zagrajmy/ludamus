@@ -106,6 +106,15 @@ class DatedEnrollmentWindow(EnrollmentWindowLike, Protocol):
     start_time: datetime
 
 
+def admits(window: EnrollmentWindowLike, *, is_configured_user: bool) -> bool:
+    """Answer whether this actor is allowed into this window at all.
+
+    Returns:
+        True when the window is open to everyone, or the actor holds passes.
+    """
+    return is_configured_user or not window.restrict_to_configured_users
+
+
 def _seating_rank(window: EnrollmentWindowLike) -> tuple[int, bool]:
     return (window.percentage_slots, not window.restrict_to_configured_users)
 
@@ -137,7 +146,7 @@ class EnrollmentPolicy:
             tuple(
                 window
                 for window in windows
-                if is_configured_user or not window.restrict_to_configured_users
+                if admits(window, is_configured_user=is_configured_user)
             )
         )
 
@@ -195,11 +204,13 @@ def viewer_access(
     *, windows: Iterable[DatedEnrollmentWindow], is_configured_user: bool, now: datetime
 ) -> EnrollmentAccessDTO:
     """Name the windows this viewer may use now, and when the next one starts."""
-    # for_actor owns "which windows is this actor allowed into"; this adds the
-    # only thing it has no opinion on, which of them the clock has reached.
-    usable = EnrollmentPolicy.for_actor(
-        windows, is_configured_user=is_configured_user
-    ).windows
+    # `admits` is the one place that decides who a window is for; this adds
+    # the only thing it has no opinion on, which of them the clock has reached.
+    usable = [
+        window
+        for window in windows
+        if admits(window, is_configured_user=is_configured_user)
+    ]
     return EnrollmentAccessDTO(
         open_window_ids=frozenset(
             window.pk for window in usable if window.start_time <= now < window.end_time

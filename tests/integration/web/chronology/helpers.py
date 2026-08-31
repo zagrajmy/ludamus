@@ -1,7 +1,9 @@
 """Shared arrange helpers for chronology integration tests."""
 
 from dataclasses import replace
+from datetime import UTC
 from unittest.mock import ANY
+from urllib.parse import urlencode
 
 from django.utils.timezone import localtime
 
@@ -124,6 +126,26 @@ def schedule_context(url):
     }
 
 
+def google_calendar_url(event, *, page_url):
+    # Spelled out rather than built with the production helper, so a change to
+    # the link's shape has to be stated here too.
+    params = {
+        "action": "TEMPLATE",
+        "text": event.name,
+        "dates": (
+            f"{event.start_time.astimezone(UTC):%Y%m%dT%H%M%SZ}"
+            f"/{event.end_time.astimezone(UTC):%Y%m%dT%H%M%SZ}"
+        ),
+        "details": page_url,
+    }
+    location = ", ".join(
+        line.strip() for line in event.address.splitlines() if line.strip()
+    )
+    if location:
+        params["location"] = location
+    return f"https://calendar.google.com/calendar/render?{urlencode(params)}"
+
+
 def event_page_context(event, *, url, access=ENROLLMENT_SHUT, **overrides):
     # Every key the event page renders with, defaulted to an event with no
     # schedule. `url` is the page's own path, which the view echoes back as the
@@ -157,6 +179,9 @@ def event_page_context(event, *, url, access=ENROLLMENT_SHUT, **overrides):
         "total_enrolled": 0,
         "user_enrolled_sessions": [],
         "event_banned": False,
+        "google_calendar_url": google_calendar_url(
+            event, page_url=f"http://testserver{url}"
+        ),
         **schedule_context(url),
         "user_enrolled_session_titles": [],
         "view": ANY,

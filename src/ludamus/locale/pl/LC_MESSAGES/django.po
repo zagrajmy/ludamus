@@ -458,7 +458,7 @@ msgstr "Konflikt czasowy"
 
 #: src/ludamus/adapters/web/django/forms.py
 #: src/ludamus/gates/web/django/event/enroll_presentation.py
-#: src/ludamus/templates/chronology/parts/session-modal.html
+#: src/ludamus/templates/chronology/parts/session-enroll-actions.html
 msgid "Enroll"
 msgstr "Zapisz się"
 
@@ -2697,6 +2697,39 @@ msgstr "Nazwa prowadzącego"
 msgid "Duration"
 msgstr "Czas trwania"
 
+#: src/ludamus/gates/web/django/event/status_pills.py
+#: src/ludamus/templates/panel/base.html
+#: src/ludamus/templates/panel/proposal-settings.html
+msgid "Proposals Open"
+msgstr "Zgłoszenia otwarte"
+
+#: src/ludamus/gates/web/django/event/status_pills.py
+#: src/ludamus/gates/web/django/templatetags/cfp_tags.py
+#: src/ludamus/templates/notice_board/index.html
+#: src/ludamus/templates/panel/enrollment-settings.html
+#: src/ludamus/templates/timeline.html
+msgid "Upcoming"
+msgstr "Nadchodzące"
+
+#: src/ludamus/gates/web/django/event/status_pills.py
+msgid "Happening now!"
+msgstr "Trwa teraz!"
+
+#: src/ludamus/gates/web/django/event/status_pills.py
+#: src/ludamus/templates/chronology/_card_schedule.html
+msgid "Completed"
+msgstr "Ukończone"
+
+#: src/ludamus/gates/web/django/event/status_pills.py
+msgid "Enrollment Open"
+msgstr "Zapisy otwarte"
+
+#: src/ludamus/gates/web/django/event/status_pills.py
+#: src/ludamus/templates/chronology/parts/session-enroll-actions.html
+#, python-format
+msgid "Enrollment opens %(day)s at %(time)s"
+msgstr "Zapisy ruszają %(day)s o %(time)s"
+
 #: src/ludamus/gates/web/django/forms.py
 msgid ""
 "1920×1080 (16:9) works best. We crop the edges, so keep the subject in the "
@@ -2709,6 +2742,26 @@ msgstr ""
 #: src/ludamus/gates/web/django/forms.py
 msgid "Enter a smaller number."
 msgstr "Podaj mniejszą liczbę."
+
+#: src/ludamus/gates/web/django/forms.py
+msgid "Image too large. Maximum size is 8 MB."
+msgstr "Obraz jest za duży. Maksymalny rozmiar to 8 MB."
+
+#: src/ludamus/gates/web/django/forms.py
+msgid "Image dimensions are too large."
+msgstr "Wymiary obrazu są za duże."
+
+#: src/ludamus/gates/web/django/forms.py
+msgid "Unsupported image format. Use JPG, PNG, WebP, or AVIF."
+msgstr "Nieobsługiwany format obrazu. Użyj JPG, PNG, WebP lub AVIF."
+
+#: src/ludamus/gates/web/django/forms.py
+msgid "Invalid or unsafe SVG file."
+msgstr "Nieprawidłowy lub niebezpieczny plik SVG."
+
+#: src/ludamus/gates/web/django/forms.py
+msgid "Unsupported image format. Use JPG, PNG, WebP, AVIF, or SVG."
+msgstr "Nieobsługiwany format obrazu. Użyj JPG, PNG, WebP, AVIF lub SVG."
 
 #: src/ludamus/gates/web/django/forms.py
 #: src/ludamus/gates/web/django/templatetags/cfp_tags.py
@@ -2737,6 +2790,19 @@ msgstr "Nazwa wydarzenia jest wymagana."
 #: src/ludamus/gates/web/django/forms.py
 msgid "Event slug is required."
 msgstr "Slug wydarzenia jest wymagany."
+
+#: src/ludamus/gates/web/django/forms.py
+msgid "Address"
+msgstr "Adres"
+
+#: src/ludamus/gates/web/django/forms.py
+msgid "Venue address, two lines at most. Shown with a map link."
+msgstr ""
+"Adres miejsca wydarzenia, najwyżej dwie linie. Pokazywany z linkiem do mapy."
+
+#: src/ludamus/gates/web/django/forms.py
+msgid "An address can have at most two lines."
+msgstr "Adres może mieć najwyżej dwie linie."
 
 #: src/ludamus/gates/web/django/forms.py
 msgid "Start time is required."
@@ -3324,6 +3390,10 @@ msgstr ""
 "Widoczne dla wszystkich na stronie spotkań i na osi czasu. Każdy z linkiem "
 "zawsze może je zobaczyć."
 
+#: src/ludamus/gates/web/django/notice_board/forms.py
+msgid "End time must be after start time."
+msgstr "Czas zakończenia musi być po czasie rozpoczęcia."
+
 #: src/ludamus/gates/web/django/notice_board/views.py
 msgid "Friday Gloomhaven"
 msgstr "Piątkowy Gloomhaven"
@@ -3581,14 +3651,6 @@ msgstr "Nie ustawiono"
 #: src/ludamus/gates/web/django/templatetags/cfp_tags.py
 msgid "Closed"
 msgstr "Zamknięte"
-
-#: src/ludamus/gates/web/django/templatetags/cfp_tags.py
-#: src/ludamus/templates/chronology/event.html
-#: src/ludamus/templates/notice_board/index.html
-#: src/ludamus/templates/panel/enrollment-settings.html
-#: src/ludamus/templates/timeline.html
-msgid "Upcoming"
-msgstr "Nadchodzące"
 
 #: src/ludamus/gates/web/django/templatetags/cfp_tags.py
 #: src/ludamus/templates/panel/enrollment-settings.html
@@ -4049,11 +4111,6 @@ msgstr[2] "Dodane do zakładek przez %(counter)s osób"
 msgstr[3] "Dodane do zakładek przez %(counter)s osoby"
 
 #: src/ludamus/templates/chronology/_card_schedule.html
-#: src/ludamus/templates/chronology/event.html
-msgid "Completed"
-msgstr "Ukończone"
-
-#: src/ludamus/templates/chronology/_card_schedule.html
 msgid "Not Yet Available"
 msgstr "Jeszcze Niedostępne"
 
@@ -4414,29 +4471,23 @@ msgid "Manage companions in your profile settings"
 msgstr "Zarządzaj osobami towarzyszącymi w ustawieniach profilu"
 
 #: src/ludamus/templates/chronology/event.html
-msgid "Happening now!"
-msgstr "Trwa teraz!"
-
-#: src/ludamus/templates/chronology/event.html
-msgid "Enrollment Open"
-msgstr "Zapisy otwarte"
-
-#: src/ludamus/templates/chronology/event.html
-#: src/ludamus/templates/chronology/parts/session-modal.html
-#, python-format
-msgid "Enrollment opens %(day)s at %(time)s"
-msgstr "Zapisy ruszają %(day)s o %(time)s"
-
-#: src/ludamus/templates/chronology/event.html
-#: src/ludamus/templates/panel/base.html
-#: src/ludamus/templates/panel/proposal-settings.html
-msgid "Proposals Open"
-msgstr "Zgłoszenia otwarte"
+#: src/ludamus/templates/notice_board/_calendar_inline.html
+#: src/ludamus/templates/notice_board/_rsvp_inline.html
+msgid "Add to calendar"
+msgstr "Dodaj do kalendarza"
 
 #: src/ludamus/templates/chronology/event.html
 msgctxt "date range"
 msgid "to"
 msgstr "do"
+
+#: src/ludamus/templates/chronology/event.html
+msgid "Google Calendar"
+msgstr "Google Calendar"
+
+#: src/ludamus/templates/chronology/event.html
+msgid "Other calendars (.ics)"
+msgstr "Inne kalendarze (.ics)"
 
 #: src/ludamus/templates/chronology/event.html
 msgid "Session"
@@ -4445,6 +4496,18 @@ msgstr[0] "Punkt programu"
 msgstr[1] "Punkty programu"
 msgstr[2] "Punktów programu"
 msgstr[3] "Punktów programu"
+
+#: src/ludamus/templates/chronology/event.html
+msgid "View on map ↗"
+msgstr "Zobacz na mapie ↗"
+
+#: src/ludamus/templates/chronology/event.html
+msgid "View the program"
+msgstr "Zobacz program"
+
+#: src/ludamus/templates/chronology/event.html
+msgid "Sign up for sessions"
+msgstr "Zapisz się na sesje"
 
 #: src/ludamus/templates/chronology/event.html
 msgid "Participant"
@@ -6373,11 +6436,6 @@ msgstr "Zapisz mimo to"
 #: src/ludamus/templates/panel/settings.html
 msgid "Save Settings"
 msgstr "Zapisz ustawienia"
-
-#: src/ludamus/templates/notice_board/_calendar_inline.html
-#: src/ludamus/templates/notice_board/_rsvp_inline.html
-msgid "Add to calendar"
-msgstr "Dodaj do kalendarza"
 
 #: src/ludamus/templates/notice_board/_calendar_inline.html
 #: src/ludamus/templates/notice_board/_rsvp_inline.html
@@ -9952,9 +10010,6 @@ msgstr ""
 #~ msgid "Creator"
 #~ msgstr "Twórca programu"
 
-#~ msgid "End time must be after start time."
-#~ msgstr "Czas zakończenia musi być po czasie rozpoczęcia."
-
 #~ msgid ""
 #~ "Writes every facilitator with their accreditation type and discount into "
 #~ "the first tab of the selected spreadsheet, replacing its current content."
@@ -10420,3 +10475,10 @@ msgstr ""
 
 #~ msgid "This does not belong to the event."
 #~ msgstr "To nie należy do tego wydarzenia."
+
+#~ msgid ""
+#~ "Physical venue address, shown on the event page with a map link. Two "
+#~ "lines at most."
+#~ msgstr ""
+#~ "Fizyczny adres miejsca wydarzenia, pokazywany na stronie wydarzenia z "
+#~ "linkiem do mapy. Maksymalnie dwie linie."

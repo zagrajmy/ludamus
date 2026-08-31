@@ -632,7 +632,7 @@ class TestEnrollmentService:
         config = service.virtual_config(event=_event(), user_email="viewer@example.com")
 
         assert config is None
-        assert configs.created == []
+        assert not configs.created
 
     def test_virtual_config_writes_nothing_when_a_refetch_fails(self):
         # A failing API is not an answer: the stored row stands, unwritten, and
@@ -649,7 +649,7 @@ class TestEnrollmentService:
         config = service.virtual_config(event=_event(), user_email="viewer@example.com")
 
         assert config is None
-        assert configs.updated == []
+        assert not configs.updated
 
     def test_virtual_config_does_not_refetch_a_row_checked_recently(self):
         ticket_api = FakeTicketAPI(7)
