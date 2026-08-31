@@ -26,12 +26,20 @@ from scripts.polcon26.seed import VENUE_NAME
 OLD_VENUE_NAME = "Kampus Uniwersytetu Zielonogórskiego"
 
 
+@dataclass(frozen=True)
+class Move:
+    pk: int
+    old_name: str
+    name: str
+    building: str | None
+
+
 @dataclass
 class Plan:
     venue_id: int
     rename_venue: bool
     buildings: dict[str, int | None] = field(default_factory=dict)
-    moves: list[dict[str, object]] = field(default_factory=list)
+    moves: list[Move] = field(default_factory=list)
 
     @property
     def count(self) -> int:
@@ -40,8 +48,8 @@ class Plan:
     def describe(self) -> list[str]:
         lines = [f"rename venue -> {VENUE_NAME!r}"] if self.rename_venue else []
         lines.extend(
-            f"move {move['old_name']!r} -> "
-            f"[{move['building'] or 'top level'}] {move['name']!r}"
+            f"move {move.old_name!r} -> "
+            f"[{move.building or 'top level'}] {move.name!r}"
             for move in self.moves
         )
         return lines
@@ -76,9 +84,7 @@ def build_plan(spaces: list[dict[str, object]]) -> Plan:
         if building is not None and building not in plan.buildings:
             existing = by_name.get(building)
             plan.buildings[building] = int(str(existing["pk"])) if existing else None
-        plan.moves.append(
-            {"pk": pk, "old_name": name, "name": short, "building": building}
-        )
+        plan.moves.append(Move(pk=pk, old_name=name, name=short, building=building))
     return plan
 
 
@@ -97,11 +103,11 @@ def apply_plan(client: McpClient, plan: Plan) -> None:
         else:
             building_ids[building] = existing_pk
     for move in plan.moves:
-        arguments: dict[str, object] = {"pk": move["pk"], "name": move["name"]}
-        if building := move["building"]:
-            arguments["parent_id"] = building_ids[str(building)]
+        arguments: dict[str, object] = {"pk": move.pk, "name": move.name}
+        if move.building is not None:
+            arguments["parent_id"] = building_ids[move.building]
         client.call_object("update_space", arguments)
-        print(f"moved {move['old_name']!r} -> {move['name']!r}")
+        print(f"moved {move.old_name!r} -> {move.name!r}")
 
 
 def main() -> int:

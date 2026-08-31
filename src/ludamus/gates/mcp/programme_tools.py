@@ -778,6 +778,16 @@ class OrganizerUpdateSpaceTool(Tool[_UpdateSpaceInput]):
         return space.model_dump_json(indent=2)
 
 
+def _apply_event_update(
+    *, services: ServicesProtocol, actor: ActorContext, data: EventUpdateData
+) -> str:
+    event = token_event(services=services, actor=actor)
+    services.event_settings.update_general(
+        sphere_id=actor_sphere(actor), slug=event.slug, data=data
+    )
+    return token_event(services=services, actor=actor).model_dump_json(indent=2)
+
+
 class OrganizerUpdateEventTool(Tool[_UpdateEventInput]):
     name = "update_event"
     description = (
@@ -789,7 +799,6 @@ class OrganizerUpdateEventTool(Tool[_UpdateEventInput]):
 
     @staticmethod
     def handle(call: ToolCall[_UpdateEventInput]) -> str:
-        event = token_event(services=call.services, actor=call.actor)
         data: EventUpdateData = {}
         if call.data.description is not None:
             data["description"] = call.data.description
@@ -803,12 +812,7 @@ class OrganizerUpdateEventTool(Tool[_UpdateEventInput]):
             data["publication_time"] = call.data.publication_time
         if not data:
             raise ToolError("Provide at least one field to update")
-        call.services.event_settings.update_general(
-            sphere_id=actor_sphere(call.actor), slug=event.slug, data=data
-        )
-        return token_event(services=call.services, actor=call.actor).model_dump_json(
-            indent=2
-        )
+        return _apply_event_update(services=call.services, actor=call.actor, data=data)
 
 
 class OrganizerSetEventImageTool(Tool[_SetEventImageInput]):
@@ -820,17 +824,11 @@ class OrganizerSetEventImageTool(Tool[_SetEventImageInput]):
 
     @staticmethod
     def handle(call: ToolCall[_SetEventImageInput]) -> str:
-        event = token_event(services=call.services, actor=call.actor)
         upload = ContentFile(call.data.decoded_content(), name=call.data.filename)
         data: EventUpdateData = (
             {"cover_image": upload} if call.data.kind == "cover" else {"logo": upload}
         )
-        call.services.event_settings.update_general(
-            sphere_id=actor_sphere(call.actor), slug=event.slug, data=data
-        )
-        return token_event(services=call.services, actor=call.actor).model_dump_json(
-            indent=2
-        )
+        return _apply_event_update(services=call.services, actor=call.actor, data=data)
 
 
 class OrganizerSetSphereLogoTool(Tool[_ImageUploadInput]):

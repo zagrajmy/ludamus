@@ -45,66 +45,97 @@ TRANSPOSED_TITLE_CELLS: frozenset[tuple[str, str]] = frozenset()
 
 EXCLUDED_TITLE_CELLS = {"Sobota": frozenset({"BA7", "BI7", "BA55", "BE55", "AY82"})}
 
+
+@dataclass(frozen=True)
+class FloatingBlock:
+    room: str
+    header_row: int
+    title_row: int
+    presenter_row: int
+    description_row: int
+
+
+@dataclass(frozen=True)
+class NightLane:
+    room_row: int
+    title_row: int
+    presenter_row: int | None = None
+    description_row: int | None = None
+
+
+@dataclass(frozen=True)
+class RepairItemSpec:
+    at: str
+    room_row: int
+    title: str
+    presenters: tuple[str, ...]
+    start_minutes: int
+    duration_minutes: int
+    description_cell: str | None = None
+
+    @property
+    def sheet(self) -> str:
+        return self.at.partition("!")[0]
+
+    @property
+    def cell(self) -> str:
+        return self.at.partition("!")[2]
+
+
 FLOATING_BLOCKS = {
     "Sobota": (
-        {
-            "room": "Namiot Konwentowy",
-            "header_row": 1,
-            "title_row": 2,
-            "presenter_row": 3,
-            "description_row": 7,
-        },
+        FloatingBlock(
+            room="Namiot Konwentowy",
+            header_row=1,
+            title_row=2,
+            presenter_row=3,
+            description_row=7,
+        ),
     )
 }
 
 SHIFTED_NIGHT_LANES = {
     "Sobota": (
-        {"room_row": 4, "title_row": 6},
-        {"room_row": 7, "title_row": 8, "presenter_row": 9},
+        NightLane(room_row=4, title_row=6),
+        NightLane(room_row=7, title_row=8, presenter_row=9),
     )
 }
 
 REPAIR_ITEMS = (
-    {
-        "sheet": "Sobota",
-        "cell": "BA55",
-        "room_row": 55,
-        "title": "Konkurs: rozpoznawanie anime po mundurkach",
-        "presenters": (),
-        "description_cell": "BA55",
-        "start_minutes": 22 * 60 + 30,
-        "duration_minutes": 60,
-    },
-    {
-        "sheet": "Sobota",
-        "cell": "BE56",
-        "room_row": 55,
-        "title": "Czucie walki",
-        "presenters": ("Michał Gmur",),
-        "description_cell": None,
-        "start_minutes": 23 * 60 + 30,
-        "duration_minutes": 60,
-    },
-    {
-        "sheet": "Sobota",
-        "cell": "BE55",
-        "room_row": 55,
-        "title": "Pośpiewajmy – lub powyjmy – nasze ulubione utwory",
-        "presenters": (),
-        "description_cell": "BE55",
-        "start_minutes": 24 * 60 + 30,
-        "duration_minutes": 60,
-    },
-    {
-        "sheet": "Sobota",
-        "cell": "AY82",
-        "room_row": 82,
-        "title": "Sesja RPG",
-        "presenters": ("Sławek Szymański",),
-        "description_cell": None,
-        "start_minutes": 22 * 60,
-        "duration_minutes": 210,
-    },
+    RepairItemSpec(
+        at="Sobota!BA55",
+        room_row=55,
+        title="Konkurs: rozpoznawanie anime po mundurkach",
+        presenters=(),
+        description_cell="BA55",
+        start_minutes=22 * 60 + 30,
+        duration_minutes=60,
+    ),
+    RepairItemSpec(
+        at="Sobota!BE56",
+        room_row=55,
+        title="Czucie walki",
+        presenters=("Michał Gmur",),
+        start_minutes=23 * 60 + 30,
+        duration_minutes=60,
+    ),
+    RepairItemSpec(
+        at="Sobota!BE55",
+        room_row=55,
+        title="Pośpiewajmy – lub powyjmy – nasze ulubione utwory",
+        presenters=(),
+        description_cell="BE55",
+        start_minutes=24 * 60 + 30,
+        duration_minutes=60,
+    ),
+    RepairItemSpec(
+        at="Sobota!AY82",
+        room_row=82,
+        title="Sesja RPG",
+        presenters=("Sławek Szymański",),
+        start_minutes=22 * 60,
+        duration_minutes=210,
+    ),
 )
 
 FIXTURE_LANE_NAMES = {
@@ -582,11 +613,11 @@ def _extract_floating_blocks(
     result = []
     for block in FLOATING_BLOCKS.get(sheet_name, ()):
         header_times = _header_times(
-            sheet_name=sheet_name, sheet=sheet, header_row=block["header_row"]
+            sheet_name=sheet_name, sheet=sheet, header_row=block.header_row
         )
         metadata_rows = {
-            "presenter": block["presenter_row"],
-            "description": block["description_row"],
+            "presenter": block.presenter_row,
+            "description": block.description_row,
         }
         for column in sorted(header_times):
             item = _extract_programme_item(
@@ -594,8 +625,8 @@ def _extract_floating_blocks(
                 sheet=sheet,
                 header_times=header_times,
                 merge_at=merge_at,
-                physical_room=block["room"],
-                title_row=block["title_row"],
+                physical_room=block.room,
+                title_row=block.title_row,
                 lane_index=1,
                 metadata_rows=metadata_rows,
                 column=column,
@@ -616,14 +647,17 @@ def _extract_shifted_night_lanes(
 ) -> list[ProgrammeItem]:
     result = []
     for lane in SHIFTED_NIGHT_LANES.get(sheet_name, ()):
-        room = sheet.cells.get(f"A{lane['room_row']}")
+        room = sheet.cells.get(f"A{lane.room_row}")
         if not isinstance(room, str) or not room.strip():
-            message = f"{sheet_name}: shifted lane room row {lane['room_row']} empty"
+            message = f"{sheet_name}: shifted lane room row {lane.room_row} empty"
             raise ValueError(message)
         metadata_rows = {
-            key: lane[f"{key}_row"]
-            for key in ("presenter", "description")
-            if f"{key}_row" in lane
+            key: row
+            for key, row in (
+                ("presenter", lane.presenter_row),
+                ("description", lane.description_row),
+            )
+            if row is not None
         }
         for column in range(first_column, last_column + 1):
             item = _extract_programme_item(
@@ -632,7 +666,7 @@ def _extract_shifted_night_lanes(
                 header_times=header_times,
                 merge_at=merge_at,
                 physical_room=canonical_room(room),
-                title_row=lane["title_row"],
+                title_row=lane.title_row,
                 lane_index=1,
                 metadata_rows=metadata_rows,
                 column=column,
@@ -645,40 +679,38 @@ def _extract_shifted_night_lanes(
 def _extract_repair_items(*, sheet_name: str, sheet: SheetData) -> list[ProgrammeItem]:
     result = []
     for repair in REPAIR_ITEMS:
-        if repair["sheet"] != sheet_name:
+        if repair.sheet != sheet_name:
             continue
         room = next(
             (
                 value
-                for row in range(int(repair["room_row"]), 0, -1)
+                for row in range(repair.room_row, 0, -1)
                 if isinstance(value := sheet.cells.get(f"A{row}"), str)
                 and value.strip()
             ),
             None,
         )
         if room is None:
-            message = f"{sheet_name}: no room label above row {repair['room_row']}"
+            message = f"{sheet_name}: no room label above row {repair.room_row}"
             raise ValueError(message)
         physical_room = canonical_room(room)
         building, display_room = split_building(physical_room)
         description = ""
-        if repair["description_cell"] is not None:
-            value = sheet.cells.get(str(repair["description_cell"]))
-            description = clean_description(value)
+        if repair.description_cell is not None:
+            description = clean_description(sheet.cells.get(repair.description_cell))
         start = datetime.combine(
             SHEET_DATES[sheet_name], time.min, tzinfo=WARSAW
-        ) + timedelta(minutes=int(repair["start_minutes"]))
-        cell = str(repair["cell"])
+        ) + timedelta(minutes=repair.start_minutes)
         result.append(
             ProgrammeItem(
                 source=ProgrammeSource(
                     source_row_id=(
                         f"polcon26-{sheet_name[:3].lower()}-"
-                        f"{row_number(cell)}-"
-                        f"{cell.rstrip(digits).lower()}"
+                        f"{row_number(repair.cell)}-"
+                        f"{repair.cell.rstrip(digits).lower()}"
                     ),
                     sheet=sheet_name,
-                    cell=cell,
+                    cell=repair.cell,
                 ),
                 venue=ProgrammeVenue(
                     physical_room=display_room,
@@ -689,14 +721,13 @@ def _extract_repair_items(*, sheet_name: str, sheet: SheetData) -> list[Programm
                     building=building,
                 ),
                 content=ProgrammeContent(
-                    category=category_for(physical_room, str(repair["title"])),
-                    title=str(repair["title"]),
-                    presenters=list(cast("tuple[str, ...]", repair["presenters"])),
+                    category=category_for(physical_room, repair.title),
+                    title=repair.title,
+                    presenters=list(repair.presenters),
                     description=description,
                 ),
                 timing=ProgrammeTiming(
-                    start=start,
-                    end=start + timedelta(minutes=int(repair["duration_minutes"])),
+                    start=start, end=start + timedelta(minutes=repair.duration_minutes)
                 ),
             )
         )
