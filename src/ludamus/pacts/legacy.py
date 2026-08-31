@@ -162,7 +162,7 @@ class UnscheduledSessionDTO(BaseModel):
 
     pk: int
     title: str
-    display_name: str
+    facilitator_name: str
     category_name: str
     category_pk: int | None
     duration_minutes: int
@@ -183,7 +183,7 @@ class SessionListItemDTO(BaseModel):
 
     category_name: str
     creation_time: datetime
-    display_name: str
+    facilitator_name: str
     is_scheduled: bool
     pk: int
     status: "SessionStatus"
@@ -226,7 +226,7 @@ class SessionDTO(BaseModel):
     participants_limit: int
     pk: int
     presenter_id: int | None
-    display_name: str
+    facilitator_name: str
     slug: str
     status: SessionStatus
     title: str
@@ -403,7 +403,7 @@ class SessionData(TypedDict, total=False):
     min_age: int
     participants_limit: int
     presenter_id: int | None
-    display_name: str
+    facilitator_name: str
     slug: str
     status: SessionStatus
     title: str
@@ -414,7 +414,7 @@ class SessionUpdateData(TypedDict, total=False):
     contact_email: str
     cover_image: UploadedFileProtocol | str
     description: str
-    display_name: str
+    facilitator_name: str
     duration: str
     min_age: int
     participants_limit: int

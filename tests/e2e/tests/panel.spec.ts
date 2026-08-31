@@ -1028,7 +1028,7 @@ test.describe("Backoffice Panel", () => {
       await page.locator("#id_title").fill(proposalTitle);
       await page.locator("#id_description").fill("An introductory RPG session for new players.");
       await page.locator("#id_participants_limit").fill("6");
-      await page.locator("#id_display_name").fill("Game Master Alex");
+      await page.locator("#id_facilitator_name").fill("Game Master Alex");
       // The category configures one duration, so the wizard answers for the
       // proposer instead of offering a dropdown with a single option.
       await expect(page.getByRole("combobox", { name: /duration/i })).toHaveCount(0);
@@ -1111,7 +1111,7 @@ test.describe("Backoffice Panel", () => {
         .fill("Regression coverage: min_age cap + unchecked required checkbox.");
       await page.locator("#id_participants_limit").fill("4");
       await page.locator("#id_min_age").fill("30");
-      await page.locator("#id_display_name").fill("Regression GM");
+      await page.locator("#id_facilitator_name").fill("Regression GM");
       await page.locator(`input[name="session_${slugify(gameSystemName)}"]`).fill("Pathfinder");
       await page.locator(`select[name="session_${slugify(genreName)}"]`).selectOption("Fantasy");
       await page

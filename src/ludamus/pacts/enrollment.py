@@ -415,7 +415,7 @@ class AnonymousSessionDTO(BaseModel):
     participants_limit: int
     eligible_windows: list[AnonymousEnrollmentWindowSnapshot]
     title: str
-    display_name: str
+    facilitator_name: str
     description: str
     min_age: int
     enrolled_count: int
@@ -443,7 +443,7 @@ class AnonymousSessionContextDTO(AnonymousSessionDTO):
             event_id=session.event_id,
             event_slug=session.event_slug,
             title=session.title,
-            display_name=session.display_name,
+            facilitator_name=session.facilitator_name,
             description=session.description,
             min_age=session.min_age,
             participants_limit=session.participants_limit,

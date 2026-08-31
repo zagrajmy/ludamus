@@ -414,7 +414,7 @@ def _party_history_card(item: PartySessionHistoryDTO, *, now: datetime) -> Sessi
     if item.presenter is not None:
         presenter = _user_info(item.presenter)
     else:
-        name = item.session.display_name
+        name = item.session.facilitator_name
         presenter = UserInfo(
             avatar_url=None,
             discord_username="",
@@ -459,7 +459,7 @@ def present_session_modal(
     if dto.presenter is not None:
         presenter = _user_info(dto.presenter)
     else:
-        name = dto.session.display_name
+        name = dto.session.facilitator_name
         presenter = UserInfo(
             avatar_url=None,
             discord_username="",

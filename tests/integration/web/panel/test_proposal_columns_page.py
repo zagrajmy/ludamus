@@ -90,7 +90,7 @@ def _list_page_context(event, *, category, session, columns, column_values):
             SessionListItemDTO(
                 pk=session.pk,
                 title=session.title,
-                display_name=session.display_name,
+                facilitator_name=session.facilitator_name,
                 category_name=category.name,
                 status=SessionStatus.PENDING,
                 creation_time=session.creation_time,
@@ -254,7 +254,7 @@ class TestProposalColumnsPageView:
         session = Session.objects.create(
             event=event,
             category=proposal_category,
-            display_name="Host",
+            facilitator_name="Host",
             title="Dragon Heist",
             slug="dragon-heist",
             participants_limit=5,
@@ -297,7 +297,7 @@ class TestProposalColumnsPageView:
         session = Session.objects.create(
             event=event,
             category=proposal_category,
-            display_name="Host",
+            facilitator_name="Host",
             title="Dragon Heist",
             slug="dragon-heist",
             participants_limit=5,
@@ -343,7 +343,7 @@ class TestProposalColumnsPageView:
         session = Session.objects.create(
             event=event,
             category=proposal_category,
-            display_name="Host",
+            facilitator_name="Host",
             title="Dragon Heist",
             slug="dragon-heist",
             participants_limit=5,
@@ -382,7 +382,7 @@ class TestProposalColumnsPageView:
             session = Session.objects.create(
                 event=event,
                 category=proposal_category,
-                display_name="Host",
+                facilitator_name="Host",
                 title=title,
                 slug=title.lower(),
                 participants_limit=5,

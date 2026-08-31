@@ -82,7 +82,7 @@
                             <span class="shrink-0">{% include "components/avatar.html" with user=session.presenter size="size-10" %}</span>
                         {% endif %}
                         <div class="flex items-center gap-x-3 gap-y-0.5 flex-wrap min-w-0">
-                            <div class="font-medium text-foreground">{{ session.display_name }}</div>
+                            <div class="font-medium text-foreground">{{ session.facilitator_name }}</div>
                             {% if session.agenda_item.space %}
                                 <span class="flex items-center gap-1.5 text-sm min-w-0 text-foreground-muted">
                                     {% icon "map-pin" class="size-4 shrink-0 opacity-80" variant="mini" %}

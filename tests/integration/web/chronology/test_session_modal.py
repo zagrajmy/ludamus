@@ -413,7 +413,7 @@ class TestSessionModalComponentView:
             event=event,
             category=None,
             presenter=active_user,
-            display_name=active_user.full_name,
+            facilitator_name=active_user.full_name,
             participants_limit=0,
             min_age=18,
         )
@@ -455,7 +455,7 @@ class TestSessionModalComponentView:
             event=event,
             category=None,
             presenter=active_user,
-            display_name=active_user.full_name,
+            facilitator_name=active_user.full_name,
             participants_limit=0,
         )
         agenda_item = AgendaItemFactory(session=session, space=space)
@@ -512,7 +512,7 @@ class TestSessionModalComponentView:
             event=event,
             category=None,
             presenter=None,
-            display_name="Mystery Host",
+            facilitator_name="Mystery Host",
             participants_limit=10,
             min_age=0,
         )
@@ -780,7 +780,7 @@ class TestGuildMarkInTheModal:
     ):
         session = agenda_item.session
         session.presenter = None
-        session.display_name = "Imported"
+        session.facilitator_name = "Imported"
         session.save()
         guild = Guild.objects.create(sphere=sphere, name="Topory", slug="topory")
         facilitator = Facilitator.objects.create(

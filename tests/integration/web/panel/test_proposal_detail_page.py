@@ -82,7 +82,7 @@ class TestProposalDetailPageView:
             event=other_event,
             category=category,
             presenter=active_user,
-            display_name=active_user.name,
+            facilitator_name=active_user.name,
             title="Other Event Session",
             slug="other-session",
             participants_limit=5,
@@ -100,7 +100,7 @@ class TestProposalDetailPageView:
             event=event,
             category=category,
             presenter=None,
-            display_name="Anonymous Host",
+            facilitator_name="Anonymous Host",
             title="Session Without Presenter",
             slug="no-presenter",
             participants_limit=5,
@@ -146,7 +146,7 @@ class TestProposalDetailPageView:
             event=event,
             category=category,
             presenter=active_user,
-            display_name=active_user.name,
+            facilitator_name=active_user.name,
             title="Session With Cover",
             slug="with-cover",
             participants_limit=5,
@@ -178,7 +178,7 @@ class TestProposalDetailPageView:
         session = Session.objects.create(
             event=event,
             category=category,
-            display_name="Host",
+            facilitator_name="Host",
             title="Session With Email",
             slug="session-with-email",
             participants_limit=4,
@@ -229,7 +229,7 @@ class TestProposalDetailPageView:
         session = Session.objects.create(
             event=event,
             category=category,
-            display_name="Host",
+            facilitator_name="Host",
             title="Session With Slots",
             slug="session-with-slots",
             participants_limit=4,
@@ -277,7 +277,7 @@ class TestProposalDetailPageView:
         session = Session.objects.create(
             event=event,
             category=category,
-            display_name="Host",
+            facilitator_name="Host",
             title="Unscheduled",
             slug="unscheduled",
             participants_limit=4,
@@ -325,7 +325,7 @@ class TestProposalDetailPageView:
         session = Session.objects.create(
             event=event,
             category=category,
-            display_name="Host",
+            facilitator_name="Host",
             title="Scheduled",
             slug="scheduled-proposal",
             participants_limit=4,
@@ -398,7 +398,7 @@ class TestProposalDetailPageView:
         session = Session.objects.create(
             event=event,
             category=category,
-            display_name="Host",
+            facilitator_name="Host",
             title="With Log",
             slug="with-log",
             participants_limit=4,
@@ -478,7 +478,7 @@ class TestProposalDetailPageView:
         session = Session.objects.create(
             event=event,
             category=category,
-            display_name="Host",
+            facilitator_name="Host",
             title="With Log",
             slug="with-log",
             participants_limit=4,
@@ -517,7 +517,7 @@ class TestProposalDetailPageView:
         session = Session.objects.create(
             event=event,
             category=category,
-            display_name="Host",
+            facilitator_name="Host",
             title="Pending Proposal",
             slug="pending-proposal",
             participants_limit=4,
@@ -572,7 +572,7 @@ class TestProposalDetailPageView:
         session = Session.objects.create(
             event=event,
             category=category,
-            display_name="Host",
+            facilitator_name="Host",
             title="Accepted Proposal",
             slug="accepted-proposal",
             participants_limit=4,
@@ -618,7 +618,7 @@ class TestProposalDetailPageView:
         session = Session.objects.create(
             event=event,
             category=category,
-            display_name="Host",
+            facilitator_name="Host",
             title="Scheduled Proposal",
             slug="scheduled-proposal",
             participants_limit=4,
@@ -700,7 +700,7 @@ class TestProposalDetailPageView:
         session = Session.objects.create(
             event=event,
             category=category,
-            display_name="Host",
+            facilitator_name="Host",
             title="Session With Facilitator",
             slug="session-with-facilitator",
             participants_limit=4,
@@ -756,7 +756,7 @@ class TestProposalDetailPageView:
         session = Session.objects.create(
             event=event,
             category=category,
-            display_name="Host",
+            facilitator_name="Host",
             title="Session With Track",
             slug="session-with-track",
             participants_limit=4,
@@ -807,7 +807,7 @@ class TestProposalDetailPageView:
         session = Session.objects.create(
             event=event,
             category=category,
-            display_name="Anonymous",
+            facilitator_name="Anonymous",
             title="Imported session",
             slug="imported",
             participants_limit=5,

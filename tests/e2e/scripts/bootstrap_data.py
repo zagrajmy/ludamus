@@ -190,7 +190,7 @@ def _create_session(
 ) -> Session:
     session = Session.objects.create(
         event=event,
-        display_name=presenter,
+        facilitator_name=presenter,
         title=title,
         slug=slug,
         description=description,
@@ -326,7 +326,7 @@ def _create_promotion_scenario(sphere: Sphere, *, superuser: User) -> None:
     space = _create_space(area, name="Demo Room", slug="demo-room", capacity=1)
     session = Session.objects.create(
         event=event,
-        display_name="Demo GM",
+        facilitator_name="Demo GM",
         title="Waitlist Promotion Demo",
         slug="waitlist-promotion-demo",
         description="A full session used by the promotion e2e.",
@@ -421,7 +421,7 @@ def _create_closed_enrollment_scenario(sphere: Sphere, *, tester: User) -> None:
     for attempt in range(1, _E2E_ATTEMPTS + 1):
         held = Session.objects.create(
             event=event,
-            display_name="Closed GM",
+            facilitator_name="Closed GM",
             title=f"Late Resignation Demo {attempt}",
             slug=f"late-resignation-demo-{attempt}",
             description="A session whose enrollment window has already closed.",
@@ -433,7 +433,7 @@ def _create_closed_enrollment_scenario(sphere: Sphere, *, tester: User) -> None:
 
         waiting = Session.objects.create(
             event=event,
-            display_name="Closed GM",
+            facilitator_name="Closed GM",
             title=f"Late Waiting List Demo {attempt}",
             slug=f"late-waiting-list-demo-{attempt}",
             description="A waiting place left over after the window shut.",
@@ -462,7 +462,7 @@ def _create_past_enrollment_scenario(sphere: Sphere, *, tester: User) -> None:
     space = _create_space(area, name="Past Room", slug="past-room", capacity=5)
     session = Session.objects.create(
         event=event,
-        display_name="Past GM",
+        facilitator_name="Past GM",
         title="Finished Session Demo",
         slug="finished-session-demo",
         description="A session the tester attended.",
@@ -475,7 +475,7 @@ def _create_past_enrollment_scenario(sphere: Sphere, *, tester: User) -> None:
     # The waiting variant of the same banner, which is otherwise unreachable.
     never_promoted = Session.objects.create(
         event=event,
-        display_name="Past GM",
+        facilitator_name="Past GM",
         title="Finished Waiting Demo",
         slug="finished-waiting-demo",
         description="A session the tester never got into.",
@@ -504,7 +504,7 @@ def _create_enroll_states_scenario(sphere: Sphere) -> None:
     space = _create_space(area, name="States Room", slug="states-room", capacity=5)
     free = Session.objects.create(
         event=event,
-        display_name="States GM",
+        facilitator_name="States GM",
         title="Seat Available Demo",
         slug="seat-available-demo",
         description="A session with room left.",
@@ -515,7 +515,7 @@ def _create_enroll_states_scenario(sphere: Sphere) -> None:
 
     full = Session.objects.create(
         event=event,
-        display_name="States GM",
+        facilitator_name="States GM",
         title="Waiting List Only Demo",
         slug="waiting-list-only-demo",
         description="A session with every seat taken.",
@@ -736,7 +736,7 @@ def _create_accept_lab_event(sphere: Sphere) -> Event:
         Session.objects.create(
             event=event,
             presenter=User.objects.get(username="e2e-tester"),
-            display_name="E2E Tester",
+            facilitator_name="E2E Tester",
             contact_email="e2e@test.local",
             category=category,
             title=title,
@@ -1015,7 +1015,7 @@ def main() -> None:
     pending_session = Session.objects.create(
         event=upcoming_event,
         presenter=tester,
-        display_name="E2E Tester",
+        facilitator_name="E2E Tester",
         contact_email="e2e@test.local",
         category=proposal_category,
         title="Pending Neon Proposal",
@@ -1034,7 +1034,7 @@ def main() -> None:
     open_session = Session.objects.create(
         event=upcoming_event,
         presenter=tester,
-        display_name="E2E Tester",
+        facilitator_name="E2E Tester",
         contact_email="e2e@test.local",
         category=proposal_category,
         title="Open Table Proposal",

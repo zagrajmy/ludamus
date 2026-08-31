@@ -645,7 +645,7 @@ class EventPageView(EventsPageRequiredMixin, DetailView):  # type: ignore [type-
                     presenter_dto, gravatar_url=self.request.di.gravatar_url
                 )
             else:
-                presenter_name = session.display_name or ""
+                presenter_name = session.facilitator_name or ""
                 presenter = UserInfo(
                     avatar_url=None,
                     discord_username="",

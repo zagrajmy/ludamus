@@ -49,7 +49,7 @@ class TestSessionRepositoryNotFound:
             event=event,
             category=None,
             presenter=None,
-            display_name="Host",
+            facilitator_name="Host",
             title="Presenterless Session",
             slug="presenterless",
             status="pending",

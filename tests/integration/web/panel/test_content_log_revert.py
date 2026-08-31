@@ -30,7 +30,7 @@ def _make_session(proposal_category):
         category=proposal_category,
         status="pending",
         title="Original title",
-        display_name="Original host",
+        facilitator_name="Original host",
         description="",
         contact_email="",
         duration="",
@@ -61,7 +61,7 @@ def _edit(client, event, session, *, title, extra=None):
         data={
             "category_id": session.category_id,
             "title": title,
-            "display_name": "Original host",
+            "facilitator_name": "Original host",
             "participants_limit": 5,
             "min_age": 0,
             **(extra or {}),

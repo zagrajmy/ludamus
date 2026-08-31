@@ -289,7 +289,7 @@
                                     <tr>
                                         <td class="px-6 py-4 text-sm font-medium text-foreground max-w-xs truncate">{{ proposal.title }}</td>
                                         <td class="px-6 py-4 max-w-xs truncate text-sm text-foreground-muted"
-                                            title="{{ proposal.display_name }}">{{ proposal.display_name }}</td>
+                                            title="{{ proposal.facilitator_name }}">{{ proposal.facilitator_name }}</td>
                                         <td class="px-6 py-4 whitespace-nowrap text-sm">
                                             {% include "panel/_proposal_status_badge.html" with status=proposal.status is_scheduled=False %}
                                         </td>

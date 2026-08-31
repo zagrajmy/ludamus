@@ -454,7 +454,11 @@ class _CreateSessionInput(BaseModel):
             raise ValueError("duration must be a positive ISO-8601 duration")
         return normalized
 
-    display_name: str = Field(default="", description="Defaults to title when empty")
+    facilitator_name: str = Field(
+        default="",
+        description="Who runs the session, shown on its card. Defaults to title"
+        " when empty",
+    )
     facilitator_ids: list[int] = Field(default_factory=list)
     track_ids: list[int] = Field(default_factory=list)
     participants_limit: int = 0
@@ -475,7 +479,7 @@ def _create_session(
                     "event_id": event.pk,
                     "contact_email": "",
                     "description": data.description,
-                    "display_name": data.display_name or title,
+                    "facilitator_name": data.facilitator_name or title,
                     "duration": data.duration,
                     "min_age": data.min_age,
                     "participants_limit": data.participants_limit,
@@ -505,7 +509,7 @@ class OrganizerCreateSessionTool(Tool[_CreateSessionInput]):
     )
     scope = ToolScope.ORGANIZER
     input_model = _CreateSessionInput
-    audit_redacted_keys = frozenset({"display_name", "description"})
+    audit_redacted_keys = frozenset({"facilitator_name", "description"})
 
     @staticmethod
     def handle(call: ToolCall[_CreateSessionInput]) -> str:

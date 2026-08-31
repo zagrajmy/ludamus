@@ -69,7 +69,7 @@ def _to_dto(item: AgendaItem) -> AgendaItemDTO:
         session_id=item.session_id,
         session_title=item.session.title,
         session_description=item.session.description,
-        presenter_name=item.session.display_name,
+        presenter_name=item.session.facilitator_name,
         session_duration_minutes=duration_minutes,
         session_status=SessionStatus(item.session.status),
         category_name=(

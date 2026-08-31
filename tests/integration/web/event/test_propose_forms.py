@@ -22,7 +22,7 @@ class TestBuildSessionDetailsFormParticipantLimits:
             {
                 "title": "Test",
                 "description": "A test session",
-                "display_name": "Presenter",
+                "facilitator_name": "Presenter",
                 "participants_limit": "0",
             }
         )
@@ -38,7 +38,7 @@ class TestBuildSessionDetailsFormParticipantLimits:
             {
                 "title": "Test",
                 "description": "A test session",
-                "display_name": "Presenter",
+                "facilitator_name": "Presenter",
                 "participants_limit": "",
             }
         )
@@ -54,7 +54,7 @@ class TestBuildSessionDetailsFormParticipantLimits:
             {
                 "title": "Test",
                 "description": "A test session",
-                "display_name": "Presenter",
+                "facilitator_name": "Presenter",
                 "participants_limit": "3",
             }
         )
@@ -70,7 +70,7 @@ class TestBuildSessionDetailsFormParticipantLimits:
             {
                 "title": "Test",
                 "description": "A test session",
-                "display_name": "Presenter",
+                "facilitator_name": "Presenter",
                 "participants_limit": "10",
             }
         )
@@ -85,7 +85,7 @@ class TestBuildSessionDetailsFormParticipantLimits:
             {
                 "title": "Test",
                 "description": "A test session",
-                "display_name": "Presenter",
+                "facilitator_name": "Presenter",
                 "participants_limit": "15",
             }
         )
@@ -101,7 +101,7 @@ class TestBuildSessionDetailsFormParticipantLimits:
             {
                 "title": "Test",
                 "description": "A test session",
-                "display_name": "Presenter",
+                "facilitator_name": "Presenter",
                 "participants_limit": "0",
             }
         )
@@ -117,7 +117,7 @@ class TestBuildSessionDetailsFormParticipantLimits:
             {
                 "title": "Test",
                 "description": "A test session",
-                "display_name": "Presenter",
+                "facilitator_name": "Presenter",
                 "participants_limit": "2",
             }
         )
@@ -127,7 +127,7 @@ class TestBuildSessionDetailsFormParticipantLimits:
             {
                 "title": "Test",
                 "description": "A test session",
-                "display_name": "Presenter",
+                "facilitator_name": "Presenter",
                 "participants_limit": "11",
             }
         )
@@ -137,7 +137,7 @@ class TestBuildSessionDetailsFormParticipantLimits:
             {
                 "title": "Test",
                 "description": "A test session",
-                "display_name": "Presenter",
+                "facilitator_name": "Presenter",
                 "participants_limit": "5",
             }
         )
@@ -153,7 +153,7 @@ class TestBuildSessionDetailsFormParticipantLimits:
             {
                 "title": "Test",
                 "description": "A test session",
-                "display_name": "Presenter",
+                "facilitator_name": "Presenter",
                 "participants_limit": str(2**31),
             }
         )
@@ -170,7 +170,7 @@ class TestBuildSessionDetailsFormParticipantLimits:
             {
                 "title": "Test",
                 "description": "A test session",
-                "display_name": "Presenter",
+                "facilitator_name": "Presenter",
                 "participants_limit": str(2**31 - 1),
             }
         )

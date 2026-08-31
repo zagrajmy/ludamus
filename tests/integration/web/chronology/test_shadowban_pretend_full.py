@@ -64,7 +64,7 @@ class TestShadowbanPretendFull:
     ):
         session = _ban_viewer(agenda_item, active_user, username="gm")
         session.title = "Deniable Game"
-        session.display_name = "Deniable Game"
+        session.facilitator_name = "Deniable Game"
         session.save()
 
         response = authenticated_client.get(_event_url(event.slug))
@@ -122,7 +122,7 @@ class TestShadowbanPretendFull:
         )
         session = _ban_viewer(agenda_item, banned_viewer, username="other-gm")
         session.title = "Visible Game"
-        session.display_name = "Visible Game"
+        session.facilitator_name = "Visible Game"
         session.save()
 
         response = authenticated_client.get(_event_url(event.slug))

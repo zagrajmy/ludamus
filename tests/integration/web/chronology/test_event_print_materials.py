@@ -73,7 +73,7 @@ class TestPublicEventPrintMaterials:
                                 end_time=event.start_time + timedelta(hours=1),
                                 session=PrintSessionDTO(
                                     title=session.title,
-                                    presenter_name=session.display_name,
+                                    presenter_name=session.facilitator_name,
                                 ),
                             )
                         ],
@@ -243,7 +243,7 @@ class TestPublicEventPrintMaterials:
                                 end_time=event.start_time + timedelta(hours=1),
                                 session=PrintSessionDTO(
                                     title=session.title,
-                                    presenter_name=session.display_name,
+                                    presenter_name=session.facilitator_name,
                                 ),
                             )
                         ],

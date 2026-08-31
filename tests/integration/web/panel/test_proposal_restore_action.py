@@ -96,7 +96,7 @@ class TestProposalRestoreActionView:
         rejected = Session.objects.create(
             category=pending.category,
             presenter=None,
-            display_name="Test Host",
+            facilitator_name="Test Host",
             title="Cancelled Quest",
             slug="cancelled-quest",
             event=event,

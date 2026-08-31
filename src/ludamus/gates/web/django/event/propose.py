@@ -346,9 +346,9 @@ def _details_context(
             fields=[req.field for req in requirements],
             prefix="session",
         )
-        if "display_name" not in initial:
+        if "facilitator_name" not in initial:
             # AnonymousUser carries no `name`.
-            initial["display_name"] = getattr(wizard.request.user, "name", "")
+            initial["facilitator_name"] = getattr(wizard.request.user, "name", "")
         form = build_session_details_form(requirements, category=category)(
             initial=initial
         )
@@ -394,7 +394,7 @@ def _review_context(wizard: _Wizard, state: WizardState) -> StepContext:
     session_data = state.get("session_data", {})
     review: dict[str, object] = {
         "category_name": category.name,
-        "display_name": session_data.get("display_name", ""),
+        "facilitator_name": session_data.get("facilitator_name", ""),
         "title": session_data.get("title", ""),
         "description": session_data.get("description", ""),
         "participants_limit": session_data.get("participants_limit", ""),
