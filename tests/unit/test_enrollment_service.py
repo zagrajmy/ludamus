@@ -6,8 +6,8 @@ from ludamus.mills.enrollment import (
     can_enroll_users,
     get_used_slots,
     get_vc_available_slots,
-    viewer_access,
 )
+from ludamus.mills.enrollment_windows import viewer_access
 from ludamus.pacts.crowd import UserDTO, UserType
 from ludamus.pacts.enrollment import EnrollmentAccessDTO, EnrollmentRepos
 from ludamus.pacts.legacy import (

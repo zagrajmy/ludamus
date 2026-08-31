@@ -82,7 +82,7 @@ from ludamus.links.db.django.repositories.sessions import (
     with_scheduled_card_relations,
 )
 from ludamus.mills.calendar import google_calendar_url
-from ludamus.mills.enrollment import EnrollmentPolicy, restricts_everyone
+from ludamus.mills.enrollment_windows import EnrollmentPolicy, restricts_everyone
 from ludamus.pacts import (
     NO_LOCATION,
     OCCUPYING_PARTICIPATION_STATUSES,
