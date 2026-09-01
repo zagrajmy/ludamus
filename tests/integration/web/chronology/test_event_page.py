@@ -801,7 +801,6 @@ class TestEventPageView:
                             day_start=local_start,
                             start=local_start + timedelta(hours=offset),
                             end=local_start + timedelta(hours=offset + 1),
-                            minutes=60,
                             starting_tiles=tiles_by_row.get(offset, []),
                         )
                         for offset in range(4)
@@ -809,7 +808,7 @@ class TestEventPageView:
                     spans=[1, 2],
                     lane_indices=[0],
                     lane_counts=[1],
-                    row_minutes=[60],
+                    row_lengths=[60],
                 ),
                 has_enrollable_sessions=True,
                 scheduled_count=3,

@@ -388,7 +388,7 @@ class TestDaylightSavingRows:
                 build_schedule_days({1: self._session(start=start, end=end)})
             )
 
-        hour_rows = [row for row in lanes.rows if row.on_the_hour]
+        hour_rows = [row for row in lanes.rows if row.start and not row.is_cut]
         assert [
             (
                 row.start.hour,
@@ -618,7 +618,7 @@ class TestRoomLaneConflicts:
             (row, tile.row_span, tile.lane_index, tile.lane_count)
             for row, tile in _positioned_room_tiles(lanes)
         ] == [(2, 2, 0, 1), (4, 2, 0, 1)]
-        assert lanes.row_minutes == [30]
+        assert lanes.row_lengths == [30]
 
 
 class TestRoomLaneOrdering:

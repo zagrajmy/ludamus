@@ -78,26 +78,28 @@ class RoomLaneTile:
 @dataclass
 class RoomLaneRow:
     # One row of the grid. A row with no `start` is the seam that opens a day;
-    # every other row is a band of clock time. Row numbers are positions in the
-    # row list, so nothing counts them by hand.
-    # `minutes` is how long the band runs, which is the share of an hour's grid
-    # height it takes (see _row_windows: bands are hours cut at the instants the
-    # programme changes, so most are whole hours and the rest are fractions).
-    # A seam has none; every band has at least one, so zero reads as "seam".
+    # every other row spans a stretch of clock time — a whole hour, or a piece
+    # of one where `_row_windows` cut it. Row numbers are positions in the row
+    # list, so nothing counts them by hand.
     day: int
     day_start: datetime
     start: datetime | None
     end: datetime | None
-    minutes: int = 0
     is_repeated: bool = False
     starting_tiles: list[RoomLaneTile] = field(default_factory=list, repr=False)
     slot_key: str | None = field(default=None, compare=False)
 
     @property
-    def on_the_hour(self) -> bool:
-        # The hour marks are the ruler; the cuts between them are annotations on
-        # it, and the axis prints them in a lighter hand.
-        return self.start is not None and self.start.minute == 0
+    def minutes(self) -> int:
+        # The row's length, and so its share of an hour of grid height. A seam
+        # measures no time, and zero is what its grid track is keyed on.
+        if self.start is None or self.end is None:
+            return 0
+        return max(1, round((self.end.timestamp() - self.start.timestamp()) / 60))
+
+    @property
+    def is_cut(self) -> bool:
+        return self.start is not None and self.start.minute != 0
 
 
 @dataclass
@@ -118,12 +120,20 @@ def _row_windows(
 ) -> list[tuple[datetime, datetime]]:
     # The grid's rows: whole clock hours, cut again wherever a tile starts or
     # ends inside one. Rows are what the grid stacks, so two tiles sharing a row
-    # have to be laid side by side even when they merely touch — a session
-    # ending at 16:30 and the next starting at 16:30 both live in the 16:00
-    # hour, and an hour-only ruler would show them clashing. Cutting at the
-    # instants the programme changes makes "shares a row" mean "overlaps in
-    # time" again, and _place_conflicting_tiles keeps reading rows.
+    # must be laid side by side even when they merely touch — a session ending
+    # at 16:30 and the next starting at 16:30 both live in the 16:00 hour, and
+    # an hour-only ruler showed them clashing. Cutting at the instants the
+    # programme changes makes "shares a row" mean "overlaps in time" again, and
+    # _place_conflicting_tiles goes on reading rows.
+    # Every edge is compared, sorted and deduplicated as a timestamp, never as a
+    # datetime: PEP 495 has two same-zone datetimes that differ only in `fold`
+    # compare equal and hash equal, so on the night the clocks go back a plain
+    # set or sort silently folds 02:00 CEST and 02:00 CET — an hour apart — into
+    # one edge, and the grid loses an hour of programme.
     day_end = max(tile.end.timestamp() for tile in tiles)
+    # Stepped through UTC so an hour of grid is an hour of programme: a clock
+    # change inside the day moves the marks with it instead of repeating or
+    # skipping one.
     edges: dict[float, datetime] = {}
     mark = day_start
     while True:
@@ -136,8 +146,7 @@ def _row_windows(
         for instant in (tile.start, tile.end):
             if first < instant.timestamp() < last:
                 edges[instant.timestamp()] = instant
-    ordered = [edges[key] for key in sorted(edges)]
-    return list(pairwise(ordered))
+    return list(pairwise([edges[key] for key in sorted(edges)]))
 
 
 def _place_conflicting_tiles(
@@ -221,10 +230,10 @@ class RoomLanes:
     spans: list[int]
     lane_indices: list[int]
     lane_counts: list[int]
-    # The distinct row lengths, so the template can serve one grid track per
-    # length; row heights are a share of the hour unit that lives in the
-    # stylesheet, the same way `spans` serves the tile heights.
-    row_minutes: list[int]
+    # The distinct row lengths in minutes, so the template can serve one grid
+    # track per length off the hour unit in the stylesheet — the same service
+    # `spans` does for the tile heights.
+    row_lengths: list[int]
 
 
 def build_schedule_days(sessions_data: dict[int, SessionData]) -> list[ScheduleDay]:
@@ -423,7 +432,7 @@ def build_room_lanes(schedule_days: list[ScheduleDay]) -> RoomLanes:
                     day=index, day_start=day_start, start=None, end=None, slot_key=None
                 )
             )
-        first_band_row = len(rows) + 1
+        first_row = len(rows) + 1
 
         row_windows = _row_windows(day_start, day.tiles)
         rows.extend(
@@ -432,7 +441,6 @@ def build_room_lanes(schedule_days: list[ScheduleDay]) -> RoomLanes:
                 day_start=day_start,
                 start=start,
                 end=end,
-                minutes=max(1, round((end.timestamp() - start.timestamp()) / 60)),
                 is_repeated=_is_ambiguous_local_hour(start),
                 slot_key=_instant_key(start),
             )
@@ -456,7 +464,7 @@ def build_room_lanes(schedule_days: list[ScheduleDay]) -> RoomLanes:
                 row_span=len(covered_rows),
             )
             spans.add(room_tile.row_span)
-            positioned.append((first_band_row + covered_rows[0], room_tile))
+            positioned.append((first_row + covered_rows[0], room_tile))
 
     placed = _place_conflicting_tiles(positioned)
     for row_start, room_tile in placed:
@@ -468,5 +476,5 @@ def build_room_lanes(schedule_days: list[ScheduleDay]) -> RoomLanes:
         spans=sorted(spans),
         lane_indices=sorted({tile.lane_index for _, tile in placed}),
         lane_counts=sorted({tile.lane_count for _, tile in placed}),
-        row_minutes=sorted({row.minutes for row in rows if row.minutes}),
+        row_lengths=sorted({row.minutes for row in rows if row.minutes}),
     )

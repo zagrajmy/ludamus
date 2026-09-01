@@ -14,8 +14,12 @@ on transparency, which would vanish against the dark card surface.
 The image fills the plate so full-bleed uploads visibly inherit its squircle.
 `object-contain` keeps non-square marks uncropped.
 
-`title` names the guild on hover: at this size the mark alone is a puzzle
-for anyone who does not already know the crest.
+`title` names the guild on hover: at this size the mark alone is a puzzle for
+anyone who does not already know the crest. It matches `alt` word for word, so
+a screen reader that reads both does not read two different things. On a
+surface where a full-bleed link covers the card, the caller has to lift the
+mark above it (`z-20 pointer-events-auto`) or nothing ever hovers the image —
+see guild_notch.html.
 
 Renders nothing when the guild has no mark yet — the feature is the mark, and
 two-letter initials at this size are illegible.

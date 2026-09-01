@@ -83,6 +83,41 @@ test.describe("Event schedule views", () => {
     expect(await stayedOnPage(page)).toBe(true);
   });
 
+  test("sessions that touch off the hour get a row each, not a lane each", async ({ page }) => {
+    await page.goto(`${DENSE_EVENT_URL}?view=rooms`);
+
+    // Seeded back to back at :30 (kapitularz_print_seed.py). They share the hour but
+    // not a minute, so each takes the full column; splitting them into
+    // half-width lanes is how the grid draws a clash.
+    const handovers = page.locator('.room-lanes-cell:has(.session[data-title*="handover"])');
+    await expect(handovers).toHaveCount(2);
+    for (const cell of await handovers.all()) {
+      await expect(cell).toHaveAttribute("data-tile-lanes", "1");
+    }
+    const rows = await handovers.evaluateAll((cells) =>
+      cells.map((cell) => (cell as HTMLElement).dataset.tileRow),
+    );
+    expect(new Set(rows).size).toBe(2);
+
+    // Their boundaries cut the hour rows, and a cut row is ruled but unnamed —
+    // the whole hours stay the ruler.
+    const cut = page.locator(".room-lanes-line-cut").first();
+    await expect(cut).toHaveAttribute("data-row-minutes", "30");
+    const cutRow = await cut.getAttribute("data-lane-row");
+    await expect(page.locator(`.room-lanes-time[data-lane-row="${cutRow}"]`)).toHaveText("");
+
+    // Every row still resolves to a track. The served --row-track-<minutes> and
+    // the list room-lanes.ts rebuilds from them both name variables; one that
+    // nothing defined would compute to nothing and take the whole explicit
+    // grid with it, leaving auto rows that no longer match the tile spans.
+    const lanes = page.locator(".room-lanes").first();
+    const tracks = await page
+      .locator(".room-lanes-body")
+      .first()
+      .evaluate((el) => getComputedStyle(el).gridTemplateRows.split(" ").length);
+    expect(tracks).toBe(Number(await lanes.getAttribute("data-rows")));
+  });
+
   test("the grid offers sideways scrollbars on both edges", async ({ page }) => {
     await page.goto(`${DENSE_EVENT_URL}?view=rooms`);
     const head = page.locator("[data-room-lanes-head]").first();

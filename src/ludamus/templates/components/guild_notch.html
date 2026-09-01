@@ -29,13 +29,18 @@ Surfaces that render the mark beside the name rather than on the avatar
 (_compact_session_row.html, _room_lane_tile.html) include guild_mark.html
 directly — there is no corner to contend for there.
 
+The notch also has to out-rank the card's full-bleed session link (z-10) and
+opt back into pointer events, or the mark's `title` — the only thing naming the
+guild here — never gets a hover to fire on. It costs the crest's own few pixels
+as a click target; the rest of the card still opens the session.
+
 Variables:
   guild    needs .name and .logo_url; renders nothing without a logo
   flagged  the avatar is showing its warning badge
   ring     knockout ring matching the surface behind the notch
 {% endcomment %}
 {% if flagged %}
-    {% include "components/guild_mark.html" with guild=guild size="size-3.5" extra_class="absolute -bottom-0.75 -left-0.75" ring=ring %}
+    {% include "components/guild_mark.html" with guild=guild size="size-3.5" extra_class="absolute -bottom-0.75 -left-0.75 z-20 pointer-events-auto" ring=ring %}
 {% else %}
-    {% include "components/guild_mark.html" with guild=guild size="size-3.5" extra_class="absolute -bottom-0.75 -right-0.75" ring=ring %}
+    {% include "components/guild_mark.html" with guild=guild size="size-3.5" extra_class="absolute -bottom-0.75 -right-0.75 z-20 pointer-events-auto" ring=ring %}
 {% endif %}

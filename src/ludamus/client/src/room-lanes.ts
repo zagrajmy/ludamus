@@ -4,8 +4,8 @@
 // across a full-size table the reader has to scroll. Collapse the tracks that
 // no longer carry a visible tile, and hide the axis labels, gridlines, and
 // column rules that belong to them.
-// The track sizes themselves stay in room-lanes.css as --row-track /
-// --row-track-<minutes> / --col-track and are named, never copied, here: a
+// The track sizes themselves stay in room-lanes.css and the served
+// --row-track-<minutes> built from them, and are named, never copied, here: a
 // track list built from literals would drift from the served one, silently and
 // with nothing to catch it.
 const COLLAPSED = "room-lanes-collapsed";
@@ -94,7 +94,7 @@ const collapseEmptyTracks = (lanes: HTMLElement): void => {
   for (const el of lanes.querySelectorAll<HTMLElement>("[data-lane-day]")) {
     dayOfRow.set(Number(el.dataset.laneRow), Number(el.dataset.laneDay));
   }
-  // How long each row's band runs, which is the grid track it asks for.
+  // Each row's length in minutes, which names the grid track it asks for.
   const minutesOfRow = new Map<number, number>();
   for (const el of lanes.querySelectorAll<HTMLElement>("[data-row-minutes]")) {
     minutesOfRow.set(Number(el.dataset.laneRow), Number(el.dataset.rowMinutes));
@@ -181,16 +181,17 @@ const collapseEmptyTracks = (lanes: HTMLElement): void => {
 
   const body = lanes.querySelector<HTMLElement>(".room-lanes-body");
   if (body) {
-    // Rows are hours cut at the instants the programme changes, so each takes
-    // its own share of an hour's height. The template serves one
-    // --row-track-<minutes> per length it used, and a day seam — which measures
-    // no time — keeps the whole-hour --row-track. Named, never recomputed: the
-    // sizes stay in room-lanes.css.
-    body.style.gridTemplateRows = Array.from({ length: rowCount }, (_, index) => {
-      if (!rowLives(index + 1)) return "0";
-      const minutes = minutesOfRow.get(index + 1);
-      return minutes ? `var(--row-track-${minutes})` : "var(--row-track)";
-    }).join(" ");
+    // Each row takes its own share of an hour's height, named — never
+    // recomputed — from the --row-track-<minutes> the template served for the
+    // lengths this schedule uses. A day seam carries no length and is keyed on
+    // zero. The var() falls back for a page whose nonced style never applied:
+    // an inline declaration naming a variable nothing defined computes to
+    // nothing, and would take every explicit row with it.
+    body.style.gridTemplateRows = Array.from({ length: rowCount }, (_, index) =>
+      rowLives(index + 1)
+        ? `var(--row-track-${minutesOfRow.get(index + 1) ?? 0}, var(--row-track))`
+        : "0",
+    ).join(" ");
   }
   lanes.hidden = liveCols.size === 0;
 };

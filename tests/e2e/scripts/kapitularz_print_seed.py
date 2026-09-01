@@ -29,6 +29,9 @@ EXPECTED_PARTICIPANT_COUNT = 555
 EXTRA_ENROLLMENT_SESSION_COUNT = 5
 HOST_COUNT = 72
 OVERNIGHT_SESSION_SLOT = (1, 22)
+# The room and hour the touching pair below takes: free from 19:00 on day one.
+TOUCHING_PAIR_ROOM = "RPG Table 7"
+TOUCHING_PAIR_START_HOUR = 19
 
 
 @dataclass(frozen=True)
@@ -213,9 +216,44 @@ def seed_kapitularz_print_event(sphere: Sphere) -> None:
     _create_time_slots(event, session_specs)
     sessions = _create_sessions(event, tracks, facilitators, session_specs)
     _create_participations(sessions, participants)
+    _create_touching_pair(event, spaces)
 
     assert len(sessions) == EXPECTED_SESSION_COUNT
     assert len(participants) == EXPECTED_PARTICIPANT_COUNT
+
+
+def _create_touching_pair(event: Event, spaces: list[Space]) -> None:
+    # Two sessions that touch but never overlap, off the hour. The rooms grid
+    # rules itself in hours cut at the instants the programme changes, and
+    # everything else here starts on the hour — without a pair like this nothing
+    # renders a cut row, and the grid could go back to laying two touching
+    # sessions side by side, the way it draws a clash, with the suite still
+    # green. Placed in a room that is free from 19:00 on the first evening, so
+    # the earlier rows the other grid specs measure stay whole hours, and inside
+    # the day's existing span, so the printed pages are unchanged.
+    space = next(space for space in spaces if space.name == TOUCHING_PAIR_ROOM)
+    for index in range(2):
+        start = event.start_time + timedelta(
+            hours=TOUCHING_PAIR_START_HOUR - EVENT_START_HOUR + index, minutes=30
+        )
+        session = Session.objects.create(
+            event=event,
+            title=f"Half-hour handover {index + 1}",
+            slug=f"kapitularz-handover-{index + 1}",
+            display_name="Host 001",
+            contact_email="host-001@example.test",
+            description="Back-to-back slots that share an hour, not a minute.",
+            duration="PT1H",
+            participants_limit=6,
+            status=SessionStatus.ACCEPTED,
+        )
+        AgendaItem.objects.create(
+            space=space,
+            session=session,
+            session_confirmed=True,
+            start_time=start,
+            end_time=start + timedelta(hours=1),
+        )
 
 
 def _create_spaces(area: Space) -> list[Space]:
