@@ -3,7 +3,7 @@
 <label for="{{ id }}"
        data-dropzone
        data-state="{{ dropzone_state }}"
-       class="group relative flex flex-col items-center justify-center w-full min-h-44 sm:min-h-48 px-4 py-6 bg-bg-tertiary border border-border rounded-lg cursor-pointer transition-colors hover:bg-bg-secondary hover:border-primary/40 has-[input[aria-invalid=true]]:border-danger overflow-hidden">
+       class="group relative flex flex-col items-center justify-center w-full min-h-44 sm:min-h-48 {% if safe_zone %}data-[state=image]:min-h-0 data-[state=image]:aspect-video{% endif %} px-4 py-6 bg-bg-tertiary border border-border rounded-lg cursor-pointer transition-colors hover:bg-bg-secondary hover:border-primary/40 has-[input[aria-invalid=true]]:border-danger overflow-hidden">
     <input type="file"
            id="{{ id }}"
            name="{{ name }}"
@@ -45,6 +45,20 @@
                 <p data-dropzone-name class="text-sm font-medium text-white truncate">{{ initial_name }}</p>
                 <p data-dropzone-size class="text-xs text-white/75"></p>
             </div>
+            {% if safe_zone %}
+                {# NOTE: the part of a 16:9 upload every centered crop keeps, rounded #}
+                {# down for slack. "edges": center 70%x40%, from the event banner — #}
+                {# narrowest is the phone one (288/224 = 1.29 -> 72% of the width), #}
+                {# widest the desktop one (1216/288 = 4.2 -> 42% of the height). #}
+                {# "top-and-bottom": full width, center 28%, from the session card — #}
+                {# its cover is a fixed h-40 at a fluid width, widest one column below #}
+                {# lg (967/160 = 6.0 -> 29% of the height), and never narrower than #}
+                {# 16:9, so only the height is ever cut. #}
+                <div data-dropzone-safe-zone
+                     aria-hidden="true"
+                     class="pointer-events-none absolute rounded-sm border border-dashed border-white/70 drop-shadow-[0_0_1px_rgba(0,0,0,0.7)] {% if safe_zone == 'top-and-bottom' %}inset-x-[2%] inset-y-[36%]{% else %}inset-x-[15%] inset-y-[30%]{% endif %}">
+                </div>
+            {% endif %}
             <button type="button"
                     data-dropzone-clear
                     class="pointer-events-auto absolute top-2 right-2 p-1.5 rounded-md text-white hover:bg-white/15 transition-colors shrink-0 [&_svg]:pointer-events-none"

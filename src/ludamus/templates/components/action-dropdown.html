@@ -1,0 +1,22 @@
+{# Action dropdown shell. Rendered by {% tessera_action_dropdown %}; behavior #}
+{# comes from menu.ts (data-menu). The panel's pt-2 is the visual gap AND the #}
+{# hover corridor — padding stays hoverable, a margin would drop the pointer. #}
+<div class="relative"
+     data-menu
+     {% if hover %}data-menu-hover{% endif %}
+     {{ attrs }}>
+    <button type="button"
+            data-menu-button
+            aria-controls="{{ id }}"
+            aria-expanded="false"
+            class="cursor-pointer rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary{% if trigger_class %} {{ trigger_class }}{% endif %}">
+        {{ trigger }}
+        {% if label %}<span class="sr-only">{{ label }}</span>{% endif %}
+    </button>
+    <div id="{{ id }}"
+         data-menu-panel
+         hidden
+         class="absolute top-full z-50 pt-2 {{ align_class }}">
+        <div {% include "components/menu_surface.html" with extra_class="min-w-52 p-1 rounded-xl border border-border bg-bg-secondary shadow-(--shadow-elevated)" origin="origin-top" only %}>{{ items }}</div>
+    </div>
+</div>

@@ -782,3 +782,115 @@ class TestSwitcher:
             Template(
                 '{% load tessera %}{% tessera_segment "a" %}A{% endtessera_segment %}'
             ).render(Context())
+
+
+# The external row carries its own icon plus the exit arrow.
+EXTERNAL_ROW_ICONS = 2
+
+
+class TestActionDropdown:
+    BASE = (
+        "{% load tessera %}"
+        '{% tessera_action_dropdown id="cal-menu" label="Add to calendar" %}'
+        "<span>trigger</span>"
+        "{% action_dropdown_menu %}"
+        '{% tessera_action_dropdown_item "Google" href="https://g.example"'
+        ' icon="calendar-days" external=True %}'
+        '{% tessera_action_dropdown_item "Download" href="/f.ics" %}'
+        "{% endtessera_action_dropdown %}"
+    )
+
+    def test_wires_trigger_and_panel_to_the_menu_behavior(self) -> None:
+        html = Template(self.BASE).render(Context())
+
+        assert "data-menu-hover" in html
+        assert 'aria-controls="cal-menu"' in html
+        assert 'aria-expanded="false"' in html
+        assert "aria-haspopup" not in html
+        assert '<span class="sr-only">Add to calendar</span>' in html
+        assert "<span>trigger</span>" in html
+
+    def test_hover_false_leaves_a_click_only_menu(self) -> None:
+        html = Template(
+            self.BASE.replace('label="Add to calendar"', "hover=False")
+        ).render(Context())
+
+        assert "data-menu-hover" not in html
+        assert "sr-only" not in html
+
+    def test_external_item_opens_a_new_tab_and_marks_the_exit(self) -> None:
+        html = Template(self.BASE).render(Context())
+
+        assert 'href="https://g.example"' in html
+        assert 'target="_blank" rel="noopener"' in html
+        assert html.count('target="_blank"') == 1
+        assert html.count("<svg") == EXTERNAL_ROW_ICONS
+        assert "<svg" not in html.split('href="/f.ics"')[1]
+
+    def test_item_extra_attrs_and_iconless_rows_render(self) -> None:
+        html = Template(
+            "{% load tessera %}"
+            '{% tessera_action_dropdown id="m" align="end" %}t'
+            "{% action_dropdown_menu %}"
+            '{% tessera_action_dropdown_item "Plain" href="/x" data_kind="plain" %}'
+            "{% endtessera_action_dropdown %}"
+        ).render(Context())
+
+        assert 'data-kind="plain"' in html
+        assert "<svg" not in html.split("</button>")[1]
+        assert "right-0" in html
+
+    def test_form_item_submits_an_associated_form(self) -> None:
+        html = Template(
+            "{% load tessera %}"
+            '{% tessera_action_dropdown id="m" %}t'
+            "{% action_dropdown_menu %}"
+            '{% tessera_action_dropdown_item "Hold" form="hold-form" %}'
+            "{% endtessera_action_dropdown %}"
+        ).render(Context())
+
+        assert '<button type="submit" form="hold-form"' in html
+        assert "Hold" in html
+
+    def test_form_item_cannot_be_external(self) -> None:
+        with pytest.raises(
+            TemplateSyntaxError, match="external is only valid with href"
+        ):
+            Template(
+                "{% load tessera %}"
+                '{% tessera_action_dropdown id="m" %}t'
+                "{% action_dropdown_menu %}"
+                '{% tessera_action_dropdown_item "Hold" form="hold-form"'
+                " external=True %}"
+                "{% endtessera_action_dropdown %}"
+            ).render(Context())
+
+    @pytest.mark.parametrize(
+        "item",
+        (
+            '{% tessera_action_dropdown_item "Missing" %}',
+            '{% tessera_action_dropdown_item "Ambiguous" href="/x" form="x-form" %}',
+        ),
+    )
+    def test_item_requires_exactly_one_destination(self, item: str) -> None:
+        with pytest.raises(TemplateSyntaxError, match="exactly one of href or form"):
+            Template(
+                "{% load tessera %}"
+                '{% tessera_action_dropdown id="m" %}t'
+                f"{{% action_dropdown_menu %}}{item}"
+                "{% endtessera_action_dropdown %}"
+            ).render(Context())
+
+    def test_missing_id_raises(self) -> None:
+        with pytest.raises(TemplateSyntaxError, match="needs an id"):
+            Template(
+                "{% load tessera %}{% tessera_action_dropdown %}t"
+                "{% action_dropdown_menu %}{% endtessera_action_dropdown %}"
+            ).render(Context())
+
+    def test_unknown_align_raises(self) -> None:
+        with pytest.raises(TemplateSyntaxError, match="align must be one of"):
+            Template(
+                '{% load tessera %}{% tessera_action_dropdown id="m" align="up" %}t'
+                "{% action_dropdown_menu %}{% endtessera_action_dropdown %}"
+            ).render(Context())

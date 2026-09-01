@@ -2,11 +2,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from operator import itemgetter
 from typing import cast
 
 from scripts.polcon26.mcp_client import McpClient, McpError
 from scripts.polcon26.programme import (
-    WARSAW,
     ProgrammeItem,
     iso_duration,
     lane_counts,
@@ -22,7 +22,7 @@ class ProgrammeRefs:
     tracks: dict[str, int]
 
 
-VENUE_NAME = "Kampus Uniwersytetu Zielonogórskiego"
+VENUE_NAME = "Kampus UZ"
 BATCH_LIMIT = 250
 
 
@@ -47,7 +47,7 @@ def ensure_supporting_data(
         event_id=event_id,
         names={item.category for item in items},
     )
-    ensure_time_slots(client=client, event_id=event_id)
+    ensure_time_slots(client=client, event_id=event_id, items=items)
     facilitator_ids = {}
     for name in sorted(
         {name for item in items for name in item.presenters}, key=str.casefold
@@ -84,32 +84,41 @@ def ensure_spaces(
             "parent_id": None,
         }
     maximum_lanes = lane_counts(items)
+    building_of = {item.physical_room: item.building for item in items}
+    building_ids: dict[str, int] = {}
     result = {}
     for physical_room in sorted(maximum_lanes):
+        parent_id = venue_id
+        parent_path = VENUE_NAME
+        if building := building_of.get(physical_room):
+            if building not in building_ids:
+                building_ids[building] = _ensure_leaf_space(
+                    client=client,
+                    by_path=by_path,
+                    path=f"{VENUE_NAME} > {building}",
+                    name=building,
+                    parent_id=venue_id,
+                )
+            parent_id = building_ids[building]
+            parent_path = f"{VENUE_NAME} > {building}"
         if (lane_count := maximum_lanes[physical_room]) == 1:
-            path = f"{VENUE_NAME} > {physical_room}"
+            path = f"{parent_path} > {physical_room}"
             result[physical_room] = _ensure_leaf_space(
                 client=client,
                 by_path=by_path,
                 path=path,
                 name=physical_room,
-                parent_id=venue_id,
+                parent_id=parent_id,
             )
             continue
-        physical_path = f"{VENUE_NAME} > {physical_room}"
-        if existing_physical := by_path.get(physical_path):
-            physical_id = int(existing_physical["pk"])
-        else:
-            physical = client.call_object(
-                "create_space", {"name": physical_room, "parent_id": venue_id}
-            )
-            physical_id = int(physical["pk"])
-            by_path[physical_path] = {
-                "pk": physical_id,
-                "name": physical_room,
-                "path": physical_path,
-                "parent_id": venue_id,
-            }
+        physical_path = f"{parent_path} > {physical_room}"
+        physical_id = _ensure_leaf_space(
+            client=client,
+            by_path=by_path,
+            path=physical_path,
+            name=physical_room,
+            parent_id=parent_id,
+        )
         for lane_index in range(1, lane_count + 1):
             full_name, leaf_name = lane_names(physical_room, lane_index)
             path = f"{physical_path} > {leaf_name}"
@@ -161,20 +170,16 @@ def ensure_named_rows(
     return {name: by_name[name] for name in names}
 
 
-def ensure_time_slots(*, client: McpClient, event_id: int) -> None:
-    expected = (
-        (
-            datetime(2026, 9, 25, 16, tzinfo=WARSAW),
-            datetime(2026, 9, 25, 20, tzinfo=WARSAW),
-        ),
-        (
-            datetime(2026, 9, 26, 10, tzinfo=WARSAW),
-            datetime(2026, 9, 26, 21, tzinfo=WARSAW),
-        ),
-        (
-            datetime(2026, 9, 27, 10, tzinfo=WARSAW),
-            datetime(2026, 9, 27, 16, tzinfo=WARSAW),
-        ),
+def ensure_time_slots(
+    *, client: McpClient, event_id: int, items: list[ProgrammeItem]
+) -> None:
+    windows: dict[str, list[datetime]] = {}
+    for item in items:
+        bounds = windows.setdefault(item.sheet, [item.start, item.end])
+        bounds[0] = min(bounds[0], item.start)
+        bounds[1] = max(bounds[1], item.end)
+    expected = tuple(
+        (start, end) for start, end in sorted(windows.values(), key=itemgetter(0))
     )
     rows = client.call_list("list_time_slots", {"event_id": event_id})
     existing = {
@@ -236,6 +241,7 @@ def create_and_assign_sessions(
 ) -> tuple[int, int]:
     created_or_existing: dict[str, int] = {}
     drift: list[str] = []
+    healed = 0
     for batch in _batches(items):
         inputs = [
             {
@@ -244,6 +250,7 @@ def create_and_assign_sessions(
                 "category_id": refs.categories[item.category],
                 "description": item.description,
                 "duration": iso_duration(item.end - item.start),
+                "display_name": ", ".join(item.presenters),
                 "facilitator_ids": [
                     refs.facilitators[name] for name in item.presenters
                 ],
@@ -270,7 +277,15 @@ def create_and_assign_sessions(
             if differences:
                 drift.append(f"{item.source_row_id}: {', '.join(differences)}")
                 continue
+            wanted = ", ".join(item.presenters)
+            if session.get("display_name") != wanted:
+                client.call_object(
+                    "update_session", {"pk": int(session["pk"]), "display_name": wanted}
+                )
+                healed += 1
             created_or_existing[item.source_row_id] = int(session["pk"])
+    if healed:
+        print(f"healed {healed} host lines")
     if drift:
         details = "\n".join(f"  - {line}" for line in drift)
         message = (

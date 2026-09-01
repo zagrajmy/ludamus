@@ -19,6 +19,7 @@ if TYPE_CHECKING:
     from collections.abc import Iterable
 
     from ludamus.pacts import PersonalDataFieldValueData
+    from ludamus.pacts.ids import HasPk
     from ludamus.pacts.legacy import (
         FacilitatorChangeLogDTO,
         FacilitatorChangeLogRepositoryProtocol,
@@ -219,6 +220,9 @@ class AccreditationType(StrEnum):
     STANDARD = "standard"
     GUEST = "guest"
     HONORARY = "honorary"
+    # Earned by running a scheduled program point, so the agenda sync owns it:
+    # it is the only type that sync assigns and takes away.
+    CREATOR = "creator"
 
 
 class ImportLogStatus(StrEnum):
@@ -397,10 +401,6 @@ class FacilitatorListFilters(TypedDict, total=False):
     organizer_unassigned: bool | None
     sort: str | None
     limit: int | None
-
-
-class HasPk(Protocol):
-    pk: int
 
 
 class RequirementSelectionDTO(BaseModel):

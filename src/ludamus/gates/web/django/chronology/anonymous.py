@@ -8,6 +8,7 @@ from django.template.response import TemplateResponse
 from django.utils.translation import gettext as _
 from django.views.generic.base import View
 
+from ludamus.gates.web.django.sphere.pages import EventsPageRequiredMixin
 from ludamus.pacts.enrollment import (
     AnonymousEnrollmentError,
     AnonymousEnrollmentErrorCode,
@@ -139,7 +140,7 @@ def _error_response(
     return redirect("web:index")
 
 
-class EventAnonymousActivateActionView(View):
+class EventAnonymousActivateActionView(EventsPageRequiredMixin, View):
     @staticmethod
     def get(request: RootRequest, event_slug: str) -> HttpResponse:
         if request.context.current_user_slug:
@@ -164,7 +165,7 @@ class EventAnonymousActivateActionView(View):
         return redirect("web:chronology:event", slug=activation.event_slug)
 
 
-class SessionEnrollmentAnonymousPageView(View):
+class SessionEnrollmentAnonymousPageView(EventsPageRequiredMixin, View):
     @staticmethod
     def get(request: RootRequest, event_slug: str, session_id: int) -> HttpResponse:
         if request.context.current_user_slug:
