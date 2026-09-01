@@ -806,6 +806,7 @@ class TestActionDropdown:
         assert "data-menu-hover" in html
         assert 'aria-controls="cal-menu"' in html
         assert 'aria-expanded="false"' in html
+        assert "aria-haspopup" not in html
         assert '<span class="sr-only">Add to calendar</span>' in html
         assert "<span>trigger</span>" in html
 
@@ -850,6 +851,19 @@ class TestActionDropdown:
 
         assert '<button type="submit" form="hold-form"' in html
         assert "Hold" in html
+
+    def test_form_item_cannot_be_external(self) -> None:
+        with pytest.raises(
+            TemplateSyntaxError, match="external is only valid with href"
+        ):
+            Template(
+                "{% load tessera %}"
+                '{% tessera_action_dropdown id="m" %}t'
+                "{% action_dropdown_menu %}"
+                '{% tessera_action_dropdown_item "Hold" form="hold-form"'
+                " external=True %}"
+                "{% endtessera_action_dropdown %}"
+            ).render(Context())
 
     @pytest.mark.parametrize(
         "item",

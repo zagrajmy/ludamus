@@ -4873,7 +4873,6 @@ msgstr "Połączenie:"
 #: src/ludamus/templates/panel/integration-settings.html
 #: src/ludamus/templates/panel/parts/_bulk_actions_facilitators.html
 #: src/ludamus/templates/panel/personal-data-fields.html
-#: src/ludamus/templates/panel/proposal-detail.html
 #: src/ludamus/templates/panel/session-fields.html
 #: src/ludamus/templates/panel/time-slots.html
 #: src/ludamus/templates/panel/tracks.html
@@ -9266,10 +9265,10 @@ msgstr ""
 
 #: src/ludamus/templates/panel/proposal-detail.html
 msgid ""
-"Are you sure you want to delete this session? It will be removed from the "
-"schedule."
+"Are you sure you want to delete this proposal? It will disappear from the "
+"event and timetable."
 msgstr ""
-"Czy na pewno chcesz usunąć ten punkt programu? Zostanie on usunięty z "
+"Czy na pewno chcesz usunąć to zgłoszenie? Zniknie z wydarzenia i "
 "harmonogramu."
 
 #: src/ludamus/templates/panel/proposal-form.html

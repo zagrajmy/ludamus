@@ -108,30 +108,58 @@ test.describe("Panel facilitator + proposal CRUD", () => {
     await page.goto(PROPOSALS_URL);
     await page.getByRole("link", { name: PROPOSAL_TITLE_EDITED, exact: true }).click();
 
-    await expect(page.getByRole("button", { name: "Accept", exact: true })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Move to pending" })).toHaveCount(0);
-    await page.getByRole("button", { name: "Accept", exact: true }).click();
+    const acceptButton = page.getByRole("button", { name: "Accept", exact: true });
+    const moreButton = page.getByRole("button", { name: "More" });
+    const moveToPendingItem = page.getByRole("button", { name: "Move to pending" });
+    const holdMenuItem = page.getByRole("button", { name: "Hold" });
+    const rejectMenuItem = page.getByRole("button", { name: "Reject" });
+
+    await expect(acceptButton).toBeVisible();
+    await moreButton.press("Enter");
+    await expect(holdMenuItem).toBeFocused();
+    await expect(moveToPendingItem).toHaveCount(0);
+    await holdMenuItem.press("Escape");
+
+    await acceptButton.click();
     await expect(page.getByText("Accepted", { exact: true })).toBeVisible();
 
-    const moreButton = page.getByRole("button", { name: "More" });
-    const firstMenuItem = page.getByRole("button", { name: "Move to pending" });
-    const holdMenuItem = page.getByRole("button", { name: "Hold" });
     await moreButton.press("Enter");
-    await expect(firstMenuItem).toBeFocused();
-    await firstMenuItem.press("Escape");
+    await expect(moveToPendingItem).toBeFocused();
+    await moveToPendingItem.press("Escape");
     await expect(moreButton).toBeFocused();
-    await expect(firstMenuItem).toBeHidden();
+    await expect(moveToPendingItem).toBeHidden();
 
     await moreButton.press("Enter");
     await holdMenuItem.press("Enter");
     await expect(page.getByText("On hold", { exact: true })).toBeVisible();
 
-    await expect(page.getByRole("button", { name: "Accept", exact: true })).toBeVisible();
-    await page.getByRole("button", { name: "More" }).click();
-    await page.getByRole("button", { name: "Reject" }).click();
+    await expect(acceptButton).toBeVisible();
+    await moreButton.click();
+    await expect(moveToPendingItem).toBeVisible();
+    await expect(rejectMenuItem).toBeVisible();
+    await expect(holdMenuItem).toHaveCount(0);
+    await rejectMenuItem.click();
     await expect(page.getByText("Rejected", { exact: true })).toBeVisible();
 
-    await expect(page.getByRole("button", { name: "Move to pending" })).toBeVisible();
+    await expect(moveToPendingItem).toBeVisible();
+    await moreButton.click();
+    await expect(acceptButton).toBeVisible();
+    await expect(holdMenuItem).toBeVisible();
+    await expect(rejectMenuItem).toHaveCount(0);
+  });
+
+  test("scheduled proposal only offers edit and delete", async ({ page }) => {
+    await page.goto("/panel/event/sunhaven-festival/timetable/");
+    await page.getByRole("button", { name: /Board Game Night/ }).click();
+    await page.getByRole("link", { name: "View proposal" }).click();
+
+    await expect(page.getByText("Scheduled", { exact: true })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Edit", exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Delete proposal" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "More" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Accept", exact: true })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Move to pending" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Hold" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Reject" })).toHaveCount(0);
   });
 
