@@ -347,6 +347,11 @@ class TestNightSessions:
         ] == [(1, 2), (4, 2)]
         # Span rules are emitted per distinct height, not per row.
         assert lanes.spans == [2]
+        # The seam measures no time, so it is no hour's cut and anchors no slot.
+        seam = next(row for row in lanes.rows if row.start is None)
+        assert not seam.is_cut
+        assert seam.slot_key is None
+        assert not seam.opens_slot
 
 
 class TestDaylightSavingRows:
