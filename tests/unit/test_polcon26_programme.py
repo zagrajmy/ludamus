@@ -2,12 +2,14 @@ import zipfile
 from dataclasses import replace
 from datetime import timedelta
 from typing import TYPE_CHECKING
+from unittest.mock import Mock
 
 import pytest
 
 from scripts.polcon26 import programme as sync
 from scripts.polcon26 import workbook as wb
 from scripts.polcon26.mcp_client import McpClient, McpError, failure_detail
+from scripts.polcon26.seed import ensure_time_slots
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -330,6 +332,23 @@ def test_extract_programme_gives_each_row_a_unique_source_row_id() -> None:
     assert all(
         len(source_id) <= sync.MAX_SOURCE_ROW_ID_LENGTH for source_id in source_ids
     )
+
+
+def test_ensure_time_slots_reuses_a_covering_slot() -> None:
+    items = _extract_saturday()
+    start = min(item.start for item in items)
+    end = max(item.end for item in items)
+    client = Mock(spec=McpClient)
+    client.call_list.return_value = [
+        {
+            "start_time": (start - timedelta(hours=1)).isoformat(),
+            "end_time": (end + timedelta(hours=1)).isoformat(),
+        }
+    ]
+
+    ensure_time_slots(client=client, event_id=24, items=items)
+
+    client.call.assert_not_called()
 
 
 def test_single_lane_room_keeps_its_plain_name() -> None:
