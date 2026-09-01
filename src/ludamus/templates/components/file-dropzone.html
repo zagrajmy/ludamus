@@ -57,10 +57,12 @@
                 {# They differ in width: "edges" also meets the full-bleed event banner #}
                 {# (chronology/event.html), 288/224 = 1.29 on a phone, keeping 72%; #}
                 {# "top-and-bottom" meets no banner and loses only what a 320px phone #}
-                {# card costs it, 280/160 = 1.75, keeping 98%. Every other surface (event #}
-                {# and encounter cards, notice_board/detail.html, #}
-                {# panel/proposal-detail.html) is shallower than these and does not #}
-                {# bind. #}
+                {# card costs it, 280/160 = 1.75, keeping 98%. Every other surface sits #}
+                {# between those two shapes — the banner on desktop (1216/288 = 4.2, #}
+                {# keeping 42% of the height), event and encounter cards (599/128 = 4.7 #}
+                {# one column below sm), notice_board/detail.html (2:1) and #}
+                {# panel/proposal-detail.html (16:9) — deeper than the strip and #}
+                {# shallower than the phone banner, so none of them binds. #}
                 <div data-dropzone-safe-zone
                      aria-hidden="true"
                      class="pointer-events-none absolute inset-y-[36%] rounded-sm border border-dashed border-white/70 drop-shadow-[0_0_1px_rgba(0,0,0,0.7)] {% if crop == 'edges' %}inset-x-[15%]{% else %}inset-x-[2%]{% endif %}">
