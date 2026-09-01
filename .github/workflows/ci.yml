@@ -148,8 +148,10 @@ jobs:
     timeout-minutes: 30
     strategy:
       fail-fast: false
+      # Three, not four: concurrency is shared account-wide, and a fourth
+      # shard buys under a minute against the odds of one queueing for five.
       matrix:
-        shard: [1, 2, 3, 4]
+        shard: [1, 2, 3]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/cache@v4
@@ -175,7 +177,7 @@ jobs:
       - name: Install Playwright Browsers
         run: mise run test:e2e:install
       - name: Run end-to-end tests
-        run: mise run test:e2e -- --shard=${{ matrix.shard }}/4
+        run: mise run test:e2e -- --shard=${{ matrix.shard }}/3
 
       # NOTE: the client-coverage collector keys off COVERAGE_FILE ending in
       # `.coverage.e2e`, so the shard suffix goes on afterwards.
