@@ -36,10 +36,9 @@ const paintSession = (sessionId: string, bookmarked: boolean, count: number): vo
   document.dispatchEvent(new CustomEvent("session:bookmark-changed"));
 };
 
-const setPending = (sessionId: string, pending: boolean): void => {
-  for (const button of bookmarkButtons(sessionId)) button.toggleAttribute("disabled", pending);
-};
-
+// NOTE: the in-flight guard is state, not an affordance. Disabling the button
+// would fade it to the :disabled opacity right after the optimistic paint —
+// a blink that reads as lag — and would drop keyboard focus mid-toggle.
 const inFlight = new Set<string>();
 
 const toggleBookmark = async (button: HTMLElement): Promise<void> => {
@@ -51,7 +50,6 @@ const toggleBookmark = async (button: HTMLElement): Promise<void> => {
   const previous = button.getAttribute("aria-pressed") === "true";
   const previousCount = Number(button.querySelector(".bookmark-count")?.textContent ?? 0);
   inFlight.add(sessionId);
-  setPending(sessionId, true);
   paintSession(sessionId, !previous, previousCount + (previous ? -1 : 1));
   try {
     const response = await fetch(bookmarkUrl(template, sessionId), {
@@ -77,7 +75,6 @@ const toggleBookmark = async (button: HTMLElement): Promise<void> => {
     console.error(error);
   } finally {
     inFlight.delete(sessionId);
-    setPending(sessionId, false);
   }
 };
 
