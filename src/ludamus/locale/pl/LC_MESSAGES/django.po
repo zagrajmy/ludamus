@@ -2759,6 +2759,15 @@ msgstr ""
 "AVIF."
 
 #: src/ludamus/gates/web/django/forms.py
+msgid ""
+"1920×1080 (16:9) works best. We crop the top and bottom, so keep the subject "
+"in the middle and leave text out. Max 8 MB. JPG, PNG, WebP, or AVIF."
+msgstr ""
+"Najlepiej 1920×1080 (16:9). Przycinamy górę i dół, więc trzymaj "
+"najważniejsze elementy na środku i nie wstawiaj tekstu. Maks. 8 MB. JPG, "
+"PNG, WebP lub AVIF."
+
+#: src/ludamus/gates/web/django/forms.py
 msgid "Enter a smaller number."
 msgstr "Podaj mniejszą liczbę."
 

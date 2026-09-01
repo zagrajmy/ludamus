@@ -36,6 +36,9 @@
         {% endif %}
         {% session_cover_image data.session as cover_image_url %}
         {% if cover_image_url %}
+            {# NOTE: a fixed height at a fluid width, so this is the widest crop a #}
+            {# session cover meets, and components/file-dropzone.html draws its #}
+            {# safe zone from it. Changing h-40 moves the guide people upload against. #}
             <img src="{{ cover_image_url }}"
                  alt=""
                  width="640"
