@@ -446,3 +446,9 @@ If you fix a papercut, remove it.
   ValueError):' into Python 2 'except KeyError, ValueError:' in
   gates/web/django/crowd/auth.py, producing a file that cannot be imported.
   Binding the tuple with 'as exc' is the only form that survives the formatter.
+- 2026-09-01: The format:djlint task reformatted the changed template
+  successfully but still exited 1, so the normal formatting workflow looked like
+  a failure and required a second run.
+- 2026-09-01: Running mise run check inspected the untracked .pi agent-state
+  directory and failed on a generated JSON file missing a final newline, so
+  project checks require moving unrelated harness state aside.

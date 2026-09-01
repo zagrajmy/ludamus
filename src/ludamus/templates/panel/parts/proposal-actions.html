@@ -1,0 +1,72 @@
+{% load i18n tessera %}
+<div class="flex flex-wrap items-center gap-2">
+    {% include "panel/_proposal_status_badge.html" with status=proposal.status is_scheduled=agenda_item %}
+    {% url 'panel:proposal-edit' slug=current_event.slug proposal_id=proposal.pk as edit_url %}
+    {% translate "Edit" as edit_label %}
+    {% with next_query=back_url|urlencode %}
+        {% tessera_button edit_label href=edit_url|add:"?next="|add:next_query variant="secondary" %}
+    {% endwith %}
+    {% if not agenda_item %}
+        {% if proposal.status != "pending" %}
+            <form id="proposal-pending-form"
+                  method="post"
+                  action="{% url 'panel:proposal-pending' slug=current_event.slug proposal_id=proposal.pk %}">
+                {% csrf_token %}
+                <input type="hidden" name="next" value="{{ back_url }}">
+            </form>
+        {% endif %}
+        {% if proposal.status != "accepted" %}
+            <form id="proposal-accept-form"
+                  method="post"
+                  action="{% url 'panel:proposal-accept' slug=current_event.slug proposal_id=proposal.pk %}">
+                {% csrf_token %}
+                <input type="hidden" name="next" value="{{ back_url }}">
+            </form>
+        {% endif %}
+        {% if proposal.status != "on_hold" %}
+            <form id="proposal-hold-form"
+                  method="post"
+                  action="{% url 'panel:proposal-hold' slug=current_event.slug proposal_id=proposal.pk %}">
+                {% csrf_token %}
+                <input type="hidden" name="next" value="{{ back_url }}">
+            </form>
+        {% endif %}
+        {% if proposal.status != "rejected" %}
+            <form id="proposal-reject-form"
+                  method="post"
+                  action="{% url 'panel:proposal-reject' slug=current_event.slug proposal_id=proposal.pk %}">
+                {% csrf_token %}
+                <input type="hidden" name="next" value="{{ back_url }}">
+            </form>
+        {% endif %}
+        {% translate "Accept" as accept_label %}
+        {% translate "Move to pending" as pending_label %}
+        {% if proposal.status == "pending" or proposal.status == "on_hold" %}
+            {% tessera_button accept_label form="proposal-accept-form" %}
+        {% elif proposal.status == "rejected" %}
+            {% tessera_button pending_label form="proposal-pending-form" %}
+        {% endif %}
+        {% translate "More" as more_label %}
+        {% tessera_action_dropdown id="proposal-actions-menu" align="end" hover=False trigger_class="btn btn-secondary px-4 py-2 text-sm gap-2" %}
+            <span class="btn-label">{{ more_label }}</span>
+            {% icon "ellipsis-vertical" class="w-4 h-4" %}
+            {% action_dropdown_menu %}
+            {% translate "Hold" as hold_label %}
+            {% translate "Reject" as reject_label %}
+            {% if proposal.status == "pending" %}
+                {% tessera_action_dropdown_item hold_label form="proposal-hold-form" %}
+                {% tessera_action_dropdown_item reject_label form="proposal-reject-form" %}
+            {% elif proposal.status == "on_hold" %}
+                {% tessera_action_dropdown_item pending_label form="proposal-pending-form" %}
+                {% tessera_action_dropdown_item reject_label form="proposal-reject-form" %}
+            {% elif proposal.status == "rejected" %}
+                {% tessera_action_dropdown_item accept_label form="proposal-accept-form" %}
+                {% tessera_action_dropdown_item hold_label form="proposal-hold-form" %}
+            {% else %}
+                {% tessera_action_dropdown_item pending_label form="proposal-pending-form" %}
+                {% tessera_action_dropdown_item hold_label form="proposal-hold-form" %}
+                {% tessera_action_dropdown_item reject_label form="proposal-reject-form" %}
+            {% endif %}
+        {% endtessera_action_dropdown %}
+    {% endif %}
+</div>

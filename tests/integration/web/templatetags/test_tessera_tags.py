@@ -806,6 +806,7 @@ class TestActionDropdown:
         assert "data-menu-hover" in html
         assert 'aria-controls="cal-menu"' in html
         assert 'aria-expanded="false"' in html
+        assert "aria-haspopup" not in html
         assert '<span class="sr-only">Add to calendar</span>' in html
         assert "<span>trigger</span>" in html
 
@@ -838,6 +839,47 @@ class TestActionDropdown:
         assert 'data-kind="plain"' in html
         assert "<svg" not in html.split("</button>")[1]
         assert "right-0" in html
+
+    def test_form_item_submits_an_associated_form(self) -> None:
+        html = Template(
+            "{% load tessera %}"
+            '{% tessera_action_dropdown id="m" %}t'
+            "{% action_dropdown_menu %}"
+            '{% tessera_action_dropdown_item "Hold" form="hold-form" %}'
+            "{% endtessera_action_dropdown %}"
+        ).render(Context())
+
+        assert '<button type="submit" form="hold-form"' in html
+        assert "Hold" in html
+
+    def test_form_item_cannot_be_external(self) -> None:
+        with pytest.raises(
+            TemplateSyntaxError, match="external is only valid with href"
+        ):
+            Template(
+                "{% load tessera %}"
+                '{% tessera_action_dropdown id="m" %}t'
+                "{% action_dropdown_menu %}"
+                '{% tessera_action_dropdown_item "Hold" form="hold-form"'
+                " external=True %}"
+                "{% endtessera_action_dropdown %}"
+            ).render(Context())
+
+    @pytest.mark.parametrize(
+        "item",
+        (
+            '{% tessera_action_dropdown_item "Missing" %}',
+            '{% tessera_action_dropdown_item "Ambiguous" href="/x" form="x-form" %}',
+        ),
+    )
+    def test_item_requires_exactly_one_destination(self, item: str) -> None:
+        with pytest.raises(TemplateSyntaxError, match="exactly one of href or form"):
+            Template(
+                "{% load tessera %}"
+                '{% tessera_action_dropdown id="m" %}t'
+                f"{{% action_dropdown_menu %}}{item}"
+                "{% endtessera_action_dropdown %}"
+            ).render(Context())
 
     def test_missing_id_raises(self) -> None:
         with pytest.raises(TemplateSyntaxError, match="needs an id"):
