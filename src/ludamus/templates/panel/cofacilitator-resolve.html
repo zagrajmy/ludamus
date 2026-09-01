@@ -47,39 +47,27 @@
                             <div class="card-body space-y-4">
                                 <h3 class="text-lg font-semibold text-foreground">
                                     {{ row.candidate.name }}
-                                    {% if row.candidate.already_linked %}
+                                    {% if row.candidate.resolved %}
                                         <span class="ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-bg-tertiary text-foreground-muted">
-                                            {% translate "Already on this session" %}
+                                            {% translate "Already decided" %}
                                         </span>
                                     {% endif %}
                                 </h3>
                                 {% if row.error %}<p class="text-sm text-danger">{{ row.error }}</p>{% endif %}
                                 <fieldset class="space-y-2">
                                     <legend class="block text-sm font-medium text-foreground-secondary mb-1">{% translate "What is this person?" %}</legend>
-                                    <label class="flex items-center gap-2 text-sm text-foreground">
-                                        <input type="radio"
-                                               name="{{ row.prefix }}_target"
-                                               value="new"
-                                               {% if row.target == "new" %}checked{% endif %}>
+                                    {% radio name=row.prefix|add:"_target" value="new" checked=row.checked.new %}
                                         {% translate "A facilitator we do not have yet" %}
-                                    </label>
-                                    <label class="flex items-center gap-2 text-sm text-foreground">
-                                        <input type="radio"
-                                               name="{{ row.prefix }}_target"
-                                               value="existing"
-                                               {% if row.target == "existing" %}checked{% endif %}>
+                                    {% endradio %}
+                                    {% radio name=row.prefix|add:"_target" value="existing" checked=row.checked.existing %}
                                         {% translate "Somebody we already have" %}
                                         {% if row.candidate.match %}
                                             <span class="text-foreground-muted">{% blocktranslate with name=row.candidate.match.display_name %}(same name as {{ name }}){% endblocktranslate %}</span>
                                         {% endif %}
-                                    </label>
-                                    <label class="flex items-center gap-2 text-sm text-foreground">
-                                        <input type="radio"
-                                               name="{{ row.prefix }}_target"
-                                               value="skip"
-                                               {% if row.target == "skip" %}checked{% endif %}>
+                                    {% endradio %}
+                                    {% radio name=row.prefix|add:"_target" value="skip" checked=row.checked.skip %}
                                         {% translate "Not a person — leave it out" %}
-                                    </label>
+                                    {% endradio %}
                                 </fieldset>
                                 <div>
                                     <label class="block text-sm font-medium text-foreground-secondary mb-1"
@@ -97,11 +85,7 @@
                                 <div>
                                     <label class="block text-sm font-medium text-foreground-secondary mb-1"
                                            for="{{ row.prefix }}_name">{% translate "Display name of the new facilitator" %}</label>
-                                    <input type="text"
-                                           name="{{ row.prefix }}_name"
-                                           id="{{ row.prefix }}_name"
-                                           value="{{ row.name }}"
-                                           class="w-full border border-border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary">
+                                    {% include "components/text-field.html" with name=row.prefix|add:"_name" id=row.prefix|add:"_name" value=row.name only %}
                                 </div>
                                 {% if row.descriptors %}
                                     {% include "panel/_personal_data_fields.html" with descriptors=row.descriptors %}

@@ -4,6 +4,8 @@ import pytest
 
 from ludamus.mills.panel_cofacilitators import (
     guess_names,
+    is_resolved,
+    resolved_keys,
     split_people,
     suggested_values,
 )
@@ -52,6 +54,31 @@ class TestGuessNames:
     )
     def test_reads_the_first_and_last_name_around_a_nickname(self, fragment, expected):
         assert guess_names(fragment) == expected
+
+
+class TestIsResolved:
+    @pytest.mark.parametrize(
+        ("fragment", "expected"),
+        (
+            ("Jan Kowalski", True),
+            ("jan  kowalski", True),
+            ("Piotr Nowak", True),
+            ("Ewa Lis", False),
+        ),
+    )
+    def test_counts_a_name_decided_by_hand_or_already_on_the_session(
+        self, fragment, expected
+    ):
+        keys = resolved_keys(
+            decided=["piotr nowak"], facilitator_names=["Jan Kowalski"]
+        )
+
+        assert is_resolved(fragment=fragment, resolved=keys) is expected
+
+    def test_leaves_every_name_open_when_nothing_was_decided(self):
+        keys = resolved_keys(decided=[], facilitator_names=[])
+
+        assert not is_resolved(fragment="Jan Kowalski", resolved=keys)
 
 
 class TestSuggestedValues:

@@ -25,9 +25,10 @@ def personal_fields_form(
     fields: Sequence[OrganizerFieldDTO],
     data: QueryDict | None = None,
     values: Mapping[str, FieldValue] | None = None,
+    prefix: str = PERSONAL_PREFIX,
 ) -> forms.Form:
     return dynamic_fields_form(
-        prefix=PERSONAL_PREFIX,
+        prefix=prefix,
         fields=[(field, False) for field in fields],
         data=data,
         initial=values or {},
@@ -35,10 +36,13 @@ def personal_fields_form(
 
 
 def personal_descriptors(
-    fields: Sequence[OrganizerFieldDTO], form: forms.Form
+    fields: Sequence[OrganizerFieldDTO],
+    form: forms.Form,
+    *,
+    prefix: str = PERSONAL_PREFIX,
 ) -> list[FieldDescriptor]:
     return field_descriptors(
-        prefix=PERSONAL_PREFIX, fields=[(field, False) for field in fields], form=form
+        prefix=prefix, fields=[(field, False) for field in fields], form=form
     )
 
 

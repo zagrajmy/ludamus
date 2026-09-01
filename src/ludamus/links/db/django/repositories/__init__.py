@@ -6,6 +6,9 @@ from ludamus.links.db.django.repositories.chronology import (
     EventSettingsRepository,
     PartySessionHistoryRepository,
 )
+from ludamus.links.db.django.repositories.cofacilitators import (
+    CofacilitatorResolutionRepository,
+)
 from ludamus.links.db.django.repositories.discounts import (
     DiscountRepository,
     DiscountRuleRepository,
@@ -40,6 +43,7 @@ from ludamus.links.db.django.repositories.venues import (
 
 __all__ = [
     "AnnouncementsRepository",
+    "CofacilitatorResolutionRepository",
     "ConnectionsRepository",
     "DiscountRepository",
     "DiscountRuleRepository",

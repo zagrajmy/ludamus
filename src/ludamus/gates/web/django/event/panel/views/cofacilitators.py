@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, TypedDict
+from contextlib import suppress
+from typing import TYPE_CHECKING, NamedTuple, TypedDict
 
 from django.contrib import messages
+from django.http import HttpResponse
 from django.shortcuts import redirect
 from django.template.response import TemplateResponse
 from django.urls import reverse
@@ -14,41 +16,36 @@ from django.utils.translation import ngettext
 from django.views.generic.base import View
 
 from ludamus.gates.web.django.chronology.panel.views.base import facilitator_tab_urls
-from ludamus.gates.web.django.dynamic_fields import (
-    answered_value,
-    dynamic_fields_form,
-    field_descriptors,
-)
+from ludamus.gates.web.django.dynamic_fields import answered_value
 from ludamus.gates.web.django.event.panel.views.base import (
     EventContextMixin,
     EventPanelAccessMixin,
     EventPanelRequest,
     PanelContext,
 )
+from ludamus.gates.web.django.event.panel.views.facilitator_fields import (
+    personal_descriptors,
+    personal_fields_form,
+)
 from ludamus.pacts import NotFoundError
-from ludamus.pacts.panel import CofacilitatorEntry
+from ludamus.pacts.panel import CreateFacilitator, LinkFacilitator, SkipFragment
 
 if TYPE_CHECKING:
     from django import forms
-    from django.http import HttpResponse, QueryDict
+    from django.http import QueryDict
 
     from ludamus.pacts import FieldDescriptor
     from ludamus.pacts.fields import OrganizerFieldDTO
     from ludamus.pacts.panel import (
         CofacilitatorCandidateDTO,
+        CofacilitatorEntry,
         CofacilitatorSessionDetailDTO,
+        CofacilitatorSessionDTO,
     )
 
-
-def _chosen_field(
-    *, raw: str, fields: list[OrganizerFieldDTO]
-) -> OrganizerFieldDTO | None:
-    """Return the field the operator asked for, or the event's first one."""
-    if raw.isdigit() and (
-        chosen := next((f for f in fields if f.pk == int(raw)), None)
-    ):
-        return chosen
-    return fields[0] if fields else None
+_RESOLVE_TEMPLATE = "panel/cofacilitator-resolve.html"
+# What one row can say a name is. The radios read their state off this.
+_TARGETS = ("new", "existing", "skip")
 
 
 class CofacilitatorsPageView(EventPanelAccessMixin, EventContextMixin, View):
@@ -62,21 +59,22 @@ class CofacilitatorsPageView(EventPanelAccessMixin, EventContextMixin, View):
             return redirect("panel:index")
 
         service = self.request.services.cofacilitator_panel
-        fields = service.list_fields(current_event.pk)
-        chosen = _chosen_field(raw=self.request.GET.get("field", ""), fields=fields)
-        try:
-            sessions = (
-                service.list_sessions(event_id=current_event.pk, field_id=chosen.pk)
-                if chosen
-                else []
+        chosen: OrganizerFieldDTO | None = None
+        sessions: list[CofacilitatorSessionDTO] = []
+        # Another organizer can delete the field between the two reads; the
+        # page then lists nothing, rather than failing.
+        with suppress(NotFoundError):
+            chosen = service.resolve_field(
+                event_id=current_event.pk, raw=self.request.GET.get("field", "")
             )
-        except NotFoundError:
-            sessions = []
+            sessions = service.list_sessions(
+                event_id=current_event.pk, field_id=chosen.pk
+            )
 
         context["active_nav"] = "facilitators"
         context["active_tab"] = "cofacilitators"
         context["tab_urls"] = facilitator_tab_urls(slug)
-        context["fields"] = fields
+        context["fields"] = service.list_fields(current_event.pk)
         context["chosen_field"] = chosen
         context["sessions"] = sessions
         return TemplateResponse(self.request, "panel/cofacilitators.html", context)
@@ -90,6 +88,7 @@ class _CandidateRow(TypedDict):
     candidate: CofacilitatorCandidateDTO
     prefix: str
     target: str
+    checked: dict[str, bool]
     name: str
     existing_id: str
     descriptors: list[FieldDescriptor]
@@ -103,16 +102,16 @@ def _entries(
     """Read back what the organizer decided about each person, row by row."""
     entries: list[CofacilitatorEntry] = []
     for row in rows:
-        if row["target"] == "existing":
+        fragment = row["candidate"].name
+        if row["target"] == "skip":
+            entries.append(SkipFragment(fragment=fragment))
+        elif row["target"] == "existing":
             if not row["existing_id"].isdigit():
                 row["error"] = _("Pick the facilitator to link.")
                 continue
             entries.append(
-                CofacilitatorEntry(
-                    display_name="",
-                    base_slug="",
-                    facilitator_id=int(row["existing_id"]),
-                    values={},
+                LinkFacilitator(
+                    fragment=fragment, facilitator_id=int(row["existing_id"])
                 )
             )
         elif row["target"] == "new":
@@ -123,10 +122,10 @@ def _entries(
                 row["error"] = _("Check the answers below.")
                 continue
             entries.append(
-                CofacilitatorEntry(
+                CreateFacilitator(
+                    fragment=fragment,
                     display_name=name,
                     base_slug=slugify(name),
-                    facilitator_id=None,
                     values={
                         field.pk: answered_value(
                             prefix=row["prefix"], field_def=field, form=row["form"]
@@ -138,63 +137,86 @@ def _entries(
     return entries
 
 
+class _Loaded(NamedTuple):
+    """Everything both verbs of the resolve page start from."""
+
+    context: PanelContext
+    event_id: int
+    field: OrganizerFieldDTO
+    detail: CofacilitatorSessionDetailDTO
+
+
 class CofacilitatorResolvePageView(EventPanelAccessMixin, EventContextMixin, View):
     """Decide, person by person, who a session's answer actually names."""
 
     request: EventPanelRequest
 
-    def _field(self, event_id: int) -> OrganizerFieldDTO:
+    def _load(self, *, slug: str, session_id: int) -> _Loaded | HttpResponse:
+        """Read the event, the field and the answer, or say where to go instead.
+
+        Returns:
+            The loaded page, or the redirect that replaces it.
+        """
+        context, current_event = self.get_event_context(slug)
+        if current_event is None:
+            return redirect("panel:index")
+
+        service = self.request.services.cofacilitator_panel
         # Reached from the list, which names the field; opened bare, it means
         # the same field the list would have shown.
         raw = self.request.GET.get("field", "") or self.request.POST.get("field", "")
-        service = self.request.services.cofacilitator_panel
-        field = _chosen_field(raw=raw, fields=service.list_fields(event_id))
-        if field is None:
-            raise NotFoundError
-        return field
+        try:
+            field = service.resolve_field(event_id=current_event.pk, raw=raw)
+        except NotFoundError:
+            messages.error(self.request, _("Field not found."))
+            return redirect("panel:cofacilitators", slug=slug)
+
+        try:
+            detail = service.read_session(
+                event_id=current_event.pk, session_id=session_id, field_id=field.pk
+            )
+        except NotFoundError:
+            messages.error(self.request, _("Session not found."))
+            return redirect("panel:cofacilitators", slug=slug)
+
+        return _Loaded(
+            context=context, event_id=current_event.pk, field=field, detail=detail
+        )
 
     @staticmethod
     def _rows(
         *, detail: CofacilitatorSessionDetailDTO, data: QueryDict | None
     ) -> list[_CandidateRow]:
+        submitted: QueryDict | dict[str, str] = data or {}
         rows: list[_CandidateRow] = []
         for candidate in detail.candidates:
             prefix = _candidate_prefix(candidate.index)
-            form = dynamic_fields_form(
+            form = personal_fields_form(
                 prefix=prefix,
-                fields=[(field, False) for field in detail.personal_fields],
+                fields=detail.personal_fields,
                 data=data,
-                initial=candidate.values,
+                values=candidate.values,
             )
             # An exact name match is a suggestion the organizer confirms; two
             # people can share a name, so nothing is linked until they say so.
-            # One already on the session is somebody else's finished work, so
-            # the row defaults to leaving it alone rather than adding it twice.
+            # One already decided is somebody else's finished work, so the row
+            # defaults to leaving it alone rather than deciding it twice.
             matched_target = "existing" if candidate.match else "new"
-            default_target = "skip" if candidate.already_linked else matched_target
+            default_target = "skip" if candidate.resolved else matched_target
+            target = submitted.get(f"{prefix}_target", default_target)
             rows.append(
                 {
                     "candidate": candidate,
                     "prefix": prefix,
-                    "target": (
-                        data.get(f"{prefix}_target", default_target)
-                        if data
-                        else default_target
+                    "target": target,
+                    "checked": {name: name == target for name in _TARGETS},
+                    "name": submitted.get(f"{prefix}_name", candidate.name),
+                    "existing_id": submitted.get(
+                        f"{prefix}_existing",
+                        str(candidate.match.pk) if candidate.match else "",
                     ),
-                    "name": (
-                        data.get(f"{prefix}_name", candidate.name)
-                        if data
-                        else candidate.name
-                    ),
-                    "existing_id": (
-                        data.get(f"{prefix}_existing", "")
-                        if data
-                        else str(candidate.match.pk if candidate.match else "")
-                    ),
-                    "descriptors": field_descriptors(
-                        prefix=prefix,
-                        fields=[(field, False) for field in detail.personal_fields],
-                        form=form,
+                    "descriptors": personal_descriptors(
+                        detail.personal_fields, form, prefix=prefix
                     ),
                     "form": form,
                     "error": "",
@@ -202,98 +224,60 @@ class CofacilitatorResolvePageView(EventPanelAccessMixin, EventContextMixin, Vie
             )
         return rows
 
+    @staticmethod
     def _context(
-        self,
-        *,
-        context: PanelContext,
-        slug: str,
-        detail: CofacilitatorSessionDetailDTO,
-        field: OrganizerFieldDTO,
-        rows: list[_CandidateRow],
-        event_id: int,
+        *, loaded: _Loaded, slug: str, rows: list[_CandidateRow]
     ) -> PanelContext:
+        context = loaded.context
         context["active_nav"] = "facilitators"
         context["active_tab"] = "cofacilitators"
         context["tab_urls"] = facilitator_tab_urls(slug)
-        context["session"] = detail
-        context["chosen_field"] = field
+        context["session"] = loaded.detail
+        context["chosen_field"] = loaded.field
         context["rows"] = rows
         # ponytail: the whole roster in one select; swap for the searching
         # picker the merge screen uses if an event outgrows a plain dropdown.
-        context["existing_facilitators"] = (
-            self.request.services.cofacilitator_panel.list_candidates_for_linking(
-                event_id
-            )
-        )
+        context["existing_facilitators"] = loaded.detail.roster
         return context
 
     def get(
         self, _request: EventPanelRequest, slug: str, session_id: int
     ) -> HttpResponse:
-        context, current_event = self.get_event_context(slug)
-        if current_event is None:
-            return redirect("panel:index")
-
-        service = self.request.services.cofacilitator_panel
-        try:
-            field = self._field(current_event.pk)
-            detail = service.read_session(
-                event_id=current_event.pk, session_id=session_id, field_id=field.pk
-            )
-        except NotFoundError:
-            messages.error(self.request, _("Session not found."))
-            return redirect("panel:cofacilitators", slug=slug)
+        loaded = self._load(slug=slug, session_id=session_id)
+        if isinstance(loaded, HttpResponse):
+            return loaded
 
         return TemplateResponse(
             self.request,
-            "panel/cofacilitator-resolve.html",
+            _RESOLVE_TEMPLATE,
             self._context(
-                context=context,
+                loaded=loaded,
                 slug=slug,
-                detail=detail,
-                field=field,
-                rows=self._rows(detail=detail, data=None),
-                event_id=current_event.pk,
+                rows=self._rows(detail=loaded.detail, data=None),
             ),
         )
 
     def post(
         self, _request: EventPanelRequest, slug: str, session_id: int
     ) -> HttpResponse:
-        context, current_event = self.get_event_context(slug)
-        if current_event is None:
-            return redirect("panel:index")
+        loaded = self._load(slug=slug, session_id=session_id)
+        if isinstance(loaded, HttpResponse):
+            return loaded
 
-        service = self.request.services.cofacilitator_panel
-        try:
-            field = self._field(current_event.pk)
-            detail = service.read_session(
-                event_id=current_event.pk, session_id=session_id, field_id=field.pk
-            )
-        except NotFoundError:
-            messages.error(self.request, _("Session not found."))
-            return redirect("panel:cofacilitators", slug=slug)
-
-        rows = self._rows(detail=detail, data=self.request.POST)
-        entries = _entries(rows=rows, fields=detail.personal_fields)
+        rows = self._rows(detail=loaded.detail, data=self.request.POST)
+        entries = _entries(rows=rows, fields=loaded.detail.personal_fields)
         if any(row["error"] for row in rows):
             return TemplateResponse(
                 self.request,
-                "panel/cofacilitator-resolve.html",
-                self._context(
-                    context=context,
-                    slug=slug,
-                    detail=detail,
-                    field=field,
-                    rows=rows,
-                    event_id=current_event.pk,
-                ),
+                _RESOLVE_TEMPLATE,
+                self._context(loaded=loaded, slug=slug, rows=rows),
             )
 
         try:
-            added = service.add_facilitators(
-                event_id=current_event.pk,
+            added = self.request.services.cofacilitator_panel.add_facilitators(
+                event_id=loaded.event_id,
                 session_id=session_id,
+                field_id=loaded.field.pk,
                 entries=entries,
                 user_id=self.request.context.current_user_id,
             )
@@ -315,7 +299,7 @@ class CofacilitatorResolvePageView(EventPanelAccessMixin, EventContextMixin, Vie
                 "panel:cofacilitator-resolve",
                 kwargs={"slug": slug, "session_id": session_id},
             )
-            + f"?field={field.pk}"
+            + f"?field={loaded.field.pk}"
         )
 
 
@@ -332,12 +316,20 @@ class CofacilitatorClearActionView(EventPanelAccessMixin, EventContextMixin, Vie
         if current_event is None:
             return redirect("panel:index")
 
-        raw = self.request.POST.get("field", "")
+        service = self.request.services.cofacilitator_panel
+        # Clearing destroys an answer, so the field it names is never guessed:
+        # a missing pick is a mistake, not "the first field".
+        field = None
+        if raw := self.request.POST.get("field", ""):
+            with suppress(NotFoundError):
+                field = service.resolve_field(event_id=current_event.pk, raw=raw)
+        if field is None:
+            messages.error(self.request, _("Field not found."))
+            return redirect("panel:cofacilitators", slug=slug)
+
         try:
-            self.request.services.cofacilitator_panel.clear_field(
-                event_id=current_event.pk,
-                session_id=session_id,
-                field_id=int(raw) if raw.isdigit() else 0,
+            service.clear_field(
+                event_id=current_event.pk, session_id=session_id, field_id=field.pk
             )
         except NotFoundError:
             messages.error(self.request, _("Session not found."))
@@ -345,5 +337,6 @@ class CofacilitatorClearActionView(EventPanelAccessMixin, EventContextMixin, Vie
 
         messages.success(self.request, _("Answer cleared."))
         return redirect(
-            f"{reverse('panel:cofacilitators', kwargs={'slug': slug})}?field={raw}"
+            f"{reverse('panel:cofacilitators', kwargs={'slug': slug})}"
+            f"?field={field.pk}"
         )

@@ -160,6 +160,7 @@ class Services:
                 session_fields=self._repos.session_fields,
                 facilitators=self._repos.facilitators,
                 personal_data_fields=self._repos.personal_data_fields,
+                resolutions=self._repos.cofacilitator_resolutions,
             ),
             facilitator_panel=self.facilitator_panel,
         )

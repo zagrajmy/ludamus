@@ -2388,6 +2388,10 @@ msgid "Check the answers below."
 msgstr "Sprawdź odpowiedzi poniżej."
 
 #: src/ludamus/gates/web/django/event/panel/views/cofacilitators.py
+msgid "Field not found."
+msgstr "Nie znaleziono pola."
+
+#: src/ludamus/gates/web/django/event/panel/views/cofacilitators.py
 #, python-format
 msgid "%(count)d facilitator added to the session."
 msgid_plural "%(count)d facilitators added to the session."
@@ -7285,8 +7289,8 @@ msgid "None yet."
 msgstr "Jeszcze nikogo."
 
 #: src/ludamus/templates/panel/cofacilitator-resolve.html
-msgid "Already on this session"
-msgstr "Już przy tym punkcie programu"
+msgid "Already decided"
+msgstr "Już rozstrzygnięte"
 
 #: src/ludamus/templates/panel/cofacilitator-resolve.html
 msgid "What is this person?"
@@ -10092,6 +10096,9 @@ msgid ""
 msgstr ""
 "Nie ma nadchodzących wydarzeń ani publicznych spotkań. Sprawdź ponownie "
 "później!"
+
+#~ msgid "Already on this session"
+#~ msgstr "Już przy tym punkcie programu"
 
 #, python-format
 #~ msgid ""

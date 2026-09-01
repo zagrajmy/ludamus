@@ -204,6 +204,14 @@ def field_value_dto(fv: SessionFieldValue) -> SessionFieldValueDTO:
     )
 
 
+def field_value_text(*, value: str | list[str] | bool) -> str:
+    # A multiple-choice field stores a list; a reader after one piece of text
+    # gets the entries joined back into one answer.
+    if isinstance(value, list):
+        return "; ".join(str(v) for v in value)
+    return str(value)
+
+
 def _session_modal_dto(
     session: Session, *, viewer_user_ids: list[UserId], editor_user_id: UserId | None
 ) -> SessionModalDTO:
@@ -610,20 +618,19 @@ class SessionRepository(SessionRepositoryProtocol, SessionModalRepositoryProtoco
             .order_by("session__title")
             .values_list("session_id", "session__title", "value")
         )
-        # A multiple-choice field stores a list; the co-facilitator reader wants one
-        # piece of text either way, so the entries join back into one answer.
         return [
             SessionWithFieldValueDTO(
-                session_id=session_id,
-                title=title,
-                value=(
-                    "; ".join(str(v) for v in value)
-                    if isinstance(value, list)
-                    else str(value)
-                ),
+                session_id=session_id, title=title, value=field_value_text(value=value)
             )
             for session_id, title, value in rows
         ]
+
+    @staticmethod
+    def read_field_value(*, session_id: int, field_id: int) -> str:
+        value = SessionFieldValue.objects.filter(
+            session_id=session_id, field_id=field_id
+        ).values_list("value", flat=True)
+        return field_value_text(value=value[0]) if value else ""
 
     @staticmethod
     def exists_in_event(*, session_id: int, event_id: int) -> bool:

@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass, field
 from enum import StrEnum
-from typing import TYPE_CHECKING, Protocol, TypedDict
+from typing import TYPE_CHECKING, Protocol
 
 from pydantic import BaseModel, ConfigDict
 
@@ -219,10 +219,10 @@ class CofacilitatorCandidateDTO:
     # Keyed by personal-data field slug, the way every form on this codebase
     # reads its dynamic answers back.
     values: dict[str, str]
-    match: FacilitatorDTO | None
-    # The match is already on this session, so somebody resolved this name
-    # before and the row has nothing left to ask.
-    already_linked: bool = False
+    match: FacilitatorListItemDTO | None
+    # Somebody already said what this name is — linked it, created it, or ruled
+    # it out — so the row has nothing left to ask.
+    resolved: bool = False
 
 
 @dataclass
@@ -235,15 +235,48 @@ class CofacilitatorSessionDetailDTO:
     facilitators: list[FacilitatorDTO]
     candidates: list[CofacilitatorCandidateDTO]
     personal_fields: list[OrganizerFieldDTO]
+    # Everyone this event already has, for the link dropdown — and the roster
+    # the candidates were matched against, so nothing looks them up twice.
+    roster: list[FacilitatorListItemDTO] = field(default_factory=list)
 
 
-class CofacilitatorEntry(TypedDict):
-    """One resolved person: an existing facilitator, or a new one to create."""
+@dataclass(frozen=True)
+class LinkFacilitator:
+    """The organizer says this name is a facilitator the event already has."""
 
+    fragment: str
+    facilitator_id: int
+
+
+@dataclass(frozen=True)
+class CreateFacilitator:
+    """The organizer says this name is somebody the event does not have yet."""
+
+    fragment: str
     display_name: str
     base_slug: str
-    facilitator_id: int | None
-    values: dict[int, str | list[str] | bool]
+    values: dict[int, str | list[str] | bool] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class SkipFragment:
+    """The organizer says this name is not a person to add at all."""
+
+    fragment: str
+
+
+type CofacilitatorEntry = LinkFacilitator | CreateFacilitator | SkipFragment
+
+
+class CofacilitatorResolutionRepositoryProtocol(Protocol):
+    """Which names of an answer somebody has already decided about."""
+
+    @staticmethod
+    def list_fragments(*, session_id: int, field_id: int) -> list[str]: ...
+    @staticmethod
+    def map_by_field(*, event_id: int, field_id: int) -> dict[int, list[str]]: ...
+    @staticmethod
+    def record(*, session_id: int, field_id: int, fragments: list[str]) -> None: ...
 
 
 @dataclass
@@ -254,25 +287,24 @@ class CofacilitatorPanelRepos:
     session_fields: SessionFieldRepositoryProtocol
     facilitators: FacilitatorRepositoryProtocol
     personal_data_fields: PersonalDataFieldRepositoryProtocol
+    resolutions: CofacilitatorResolutionRepositoryProtocol
 
 
 class CofacilitatorPanelServiceProtocol(Protocol):
     def list_fields(self, event_id: int) -> list[OrganizerFieldDTO]: ...
-    def read_field(self, *, event_id: int, field_id: int) -> OrganizerFieldDTO: ...
+    def resolve_field(self, *, event_id: int, raw: str) -> OrganizerFieldDTO: ...
     def list_sessions(
         self, *, event_id: int, field_id: int
     ) -> list[CofacilitatorSessionDTO]: ...
     def read_session(
         self, *, event_id: int, session_id: int, field_id: int
     ) -> CofacilitatorSessionDetailDTO: ...
-    def list_candidates_for_linking(
-        self, event_id: int
-    ) -> list[FacilitatorListItemDTO]: ...
     def add_facilitators(
         self,
         *,
         event_id: int,
         session_id: int,
+        field_id: int,
         entries: list[CofacilitatorEntry],
         user_id: int | None = None,
     ) -> int: ...
