@@ -455,3 +455,6 @@ If you fix a papercut, remove it.
 - 2026-09-01: Running mise run check inspected the untracked .pi agent-state
   directory and failed on a generated JSON file missing a final newline, so
   project checks require moving unrelated harness state aside.
+- 2026-09-01: mise run check reformatted 90 vendored
+  .claude/skills/impeccable/scripts/*.mjs files unrelated to the diff; had to
+  git checkout -- .claude/ before committing.

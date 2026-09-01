@@ -53,7 +53,7 @@
                     <!-- Event meta -->
                     <div class="flex flex-wrap gap-4 text-sm{% if compact_schedule %} md:col-start-2 md:row-start-1 md:row-span-3 md:flex-col md:flex-nowrap md:items-start md:gap-3{% endif %}">
                         {% translate "Add to calendar" as t_add_to_calendar %}
-                        {% tessera_action_dropdown id="event-calendar-menu" label=t_add_to_calendar align="center" trigger_class="flex items-center gap-2 text-left" %}
+                        {% tessera_action_dropdown id="event-calendar-menu" label=t_add_to_calendar align="center" trigger_class="flex items-center gap-2 rounded-lg text-left" %}
                             <div class="w-8 h-8 bg-coral-100 dark:bg-coral-900/30 rounded-lg flex items-center justify-center shrink-0">
                                 {% icon "calendar-days" class="w-4 h-4 text-coral-600" variant="mini" %}
                             </div>
