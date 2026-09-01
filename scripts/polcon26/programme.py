@@ -334,7 +334,7 @@ def presenter_names(value: object) -> list[str]:
     if lowered.startswith("sekcja trzymaj pion"):
         return ["Sekcja Trzymaj Pion"]
     presenters = re.sub(
-        r"(?i)\b(prowadzenie|prowadzi|uczestnicy|gościmy|udział biorą|rozmawiają)"
+        r"(?i)\b(prowadzenie|prowadzi|uczestnicy|gościmy|udział b\w+|rozmawiają)"
         r"\b\s*:?\s*",
         ", ",
         presenters,
@@ -342,9 +342,9 @@ def presenter_names(value: object) -> list[str]:
     presenters = re.sub(r"(?i)\s+-\s+prowadzący\s*:\s*", ", ", presenters)
     presenters = re.sub(r"(?i)^prowadzący\s*:\s*", "", presenters)
     names = [
-        name.strip(" -")
+        name.strip(" -:")
         for name in re.split(r"\s*(?:,|;|\n|\s+i\s+)\s*", presenters)
-        if len(name.strip(" -")) >= MIN_PRESENTER_NAME_LENGTH
+        if len(name.strip(" -:")) >= MIN_PRESENTER_NAME_LENGTH
     ]
     return _rejoin_split_names(names)
 
