@@ -1,6 +1,6 @@
 // Folding days across the schedule layouts. A day heading doubles as a
 // disclosure button ([data-day-fold]): the ledger and the card grid fold their
-// [data-schedule-day] section (CSS hides its slots), the rooms grid marks its
+// [data-schedule-day] section (CSS hides its [data-day-panel]), the rooms grid marks its
 // [data-day-heading] folded and room-lanes.ts collapses the day's tracks. Days
 // whose local date is already behind the event's today arrive folded —
 // yesterday's programme is one click away, not in the way. Fold state is a

@@ -1,10 +1,15 @@
+import math
 from contextlib import contextmanager
+
+import pytest
 
 from ludamus.mills.crowd import CrowdAuthService
 from ludamus.pacts import NotFoundError
 from ludamus.pacts.crowd import ClaimOutcome, ClaimResultDTO, UserDTO
 from ludamus.pacts.services import DatabaseConstraintError
 from tests.unit.factories import user_dto
+
+SLUG_MAX_LENGTH = 50
 
 
 @contextmanager
@@ -79,24 +84,34 @@ class FakeUsers:
             or email in self._existing_emails
         )
 
+    def slug_exists(self, slug):
+        return any(user.slug == slug for user in self._users)
+
 
 class _RacingUsers:
-    # read_by_username misses on the first call (before the concurrent insert
-    # is visible) and hits on the second; create raises the constraint error a
-    # concurrent inserter would trigger.
-    def __init__(self):
+    # create raises the constraint error a concurrent inserter would trigger,
+    # and read_by_username misses for the first `misses` calls. misses=1 is the
+    # race: the concurrent row becomes visible on the retry. misses=inf is the
+    # unadoptable insert: there is no row, so the error was not a race.
+    def __init__(self, misses=1):
         self.create_attempts = 0
+        self._misses = misses
         self._reads = 0
 
     def read_by_username(self, username):
         self._reads += 1
-        if self._reads == 1:
+        if self._reads <= self._misses:
             raise NotFoundError
         return _user_dto(username=username)
 
     @staticmethod
     def email_unavailable(*, email, now, exclude_slug=None):
         _ = (email, now, exclude_slug)
+        return False
+
+    @staticmethod
+    def slug_exists(slug):
+        _ = slug
         return False
 
     def create(self, user_data):
@@ -266,6 +281,40 @@ class TestProvisionUser:
 
         assert result.user.username == "auth0|sub"
         assert users.create_attempts == 1
+
+    def test_truncates_slug_to_field_width(self):
+        users = FakeUsers()
+        service = _service(users=users)
+
+        service.provision_user(
+            username="auth0|sub",
+            create_data={"slug": "a" * 80, "username": "auth0|sub"},
+        )
+
+        assert len(users.created[0]["slug"]) <= SLUG_MAX_LENGTH
+
+    def test_de_collides_slug_owned_by_another_row(self):
+        # A CONNECTED companion already owns the slug; the new ACTIVE account
+        # must get a different, non-colliding slug rather than fail the insert.
+        users = FakeUsers(users=[_user_dto(slug="taken", username="connected|x")])
+        service = _service(users=users)
+
+        service.provision_user(
+            username="auth0|sub", create_data={"slug": "taken", "username": "auth0|sub"}
+        )
+
+        assert users.created[0]["slug"] != "taken"
+
+    def test_unadoptable_constraint_error_surfaces(self):
+        # The insert fails and no row can be read back, so the real database
+        # error must propagate instead of a bare NotFoundError.
+        service = _service(users=_RacingUsers(misses=math.inf))
+
+        with pytest.raises(DatabaseConstraintError):
+            service.provision_user(
+                username="auth0|sub",
+                create_data={"slug": "auth0user", "username": "auth0|sub"},
+            )
 
 
 class TestSyncIdentity:

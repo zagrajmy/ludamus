@@ -1,11 +1,9 @@
-import json
 import re
 from dataclasses import replace
 from datetime import UTC, timedelta
 from http import HTTPStatus
 
 import pytest
-import responses
 from django.contrib import messages
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import connection
@@ -32,10 +30,7 @@ from ludamus.gates.web.django.chronology.schedule import (
 from ludamus.gates.web.django.entities import UserInfo
 from ludamus.gates.web.django.helpers import placeholder_cover_url
 from ludamus.links.db.django.models import (
-    Connection,
-    DomainEnrollmentConfig,
     EnrollmentConfig,
-    EventIntegration,
     EventSettings,
     SessionBookmark,
     SessionField,
@@ -44,10 +39,8 @@ from ludamus.links.db.django.models import (
     SessionParticipation,
     SessionParticipationStatus,
     Track,
-    UserEnrollmentConfig,
 )
 from ludamus.links.db.django.repositories.chronology import location_data
-from ludamus.links.encryption import FernetEncryptor
 from ludamus.links.gravatar import gravatar_url
 from ludamus.pacts import (
     AgendaItemDTO,
@@ -55,9 +48,7 @@ from ludamus.pacts import (
     OrganizerFieldOptionDTO,
     SessionDTO,
     SessionFieldValueDTO,
-    VirtualEnrollmentConfig,
 )
-from ludamus.pacts.chronology import IntegrationImplementationId, IntegrationKind
 from ludamus.pacts.crowd import UserDTO
 from tests.integration.conftest import (
     PNG_BYTES,
@@ -71,7 +62,9 @@ from tests.integration.conftest import (
 )
 from tests.integration.utils import assert_rendered, assert_response
 from tests.integration.web.chronology.helpers import (
+    ENROLLMENT_OPEN,
     compact_day,
+    enrollment_opens_at,
     event_page_context,
     make_half_full_session,
     proposal_card,
@@ -129,29 +122,6 @@ _PREFERRED_SLOT_OFFSETS = (0, 2, 4)
 
 # The review queue the query-count guard grows to, from one proposal.
 _PROPOSALS_IN_QUEUE = 5
-
-MEMBERSHIP_API_URL = "https://membership-test.example.com/api/v1/endpoint"
-
-
-@pytest.fixture(name="ticketing_integration")
-def ticketing_integration_fixture(event, settings, sphere):
-    # Membership lookups only happen for an event wired to a ticketing
-    # integration, so every test that expects an outbound call needs this.
-    shop_connection = Connection.objects.create(
-        sphere=sphere,
-        display_name="Kapitularz",
-        secret=FernetEncryptor(settings.CREDENTIALS_ENCRYPTION_KEY).encrypt(
-            b"membership-test-token"
-        ),
-    )
-    return EventIntegration.objects.create(
-        event=event,
-        kind=IntegrationKind.TICKETING.value,
-        implementation=IntegrationImplementationId.SKLEP_KAPITULARZ.value,
-        connection=shop_connection,
-        display_name="Kapitularz",
-        config_json=json.dumps({"base_url": MEMBERSHIP_API_URL}),
-    )
 
 
 class TestEventPageView:
@@ -648,6 +618,7 @@ class TestEventPageView:
             context_data=event_page_context(
                 event,
                 url=self._get_url(event.slug),
+                access=ENROLLMENT_OPEN,
                 compact_schedule=True,
                 sessions=list(cards.values()),
                 schedule_days=expected_days,
@@ -954,6 +925,7 @@ class TestEventPageView:
             context_data=event_page_context(
                 event,
                 url=self._get_url(event.slug),
+                access=ENROLLMENT_OPEN,
                 hour_data={agenda_item.start_time: [card]},
                 current_hour_data={agenda_item.start_time: [card]},
                 sessions=[card],
@@ -978,10 +950,43 @@ class TestEventPageView:
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data=event_page_context(event, url=self._get_url(event.slug)),
+            context_data=event_page_context(
+                event, url=self._get_url(event.slug), access=ENROLLMENT_OPEN
+            ),
             template_name=["chronology/event.html"],
             contains=["Enrollment Open", "Proposals Open"],
             not_contains="Upcoming",
+        )
+
+    def test_status_pill_names_the_date_a_restricted_window_opens_to_everyone(
+        self, authenticated_client, enrollment_config, event
+    ):
+        # Early enrollment for pass holders, general enrollment on Friday: the
+        # viewer holds no passes, so the hero states the date they can act on
+        # rather than an "Enrollment Open" they would be turned away from.
+        enrollment_config.restrict_to_configured_users = True
+        enrollment_config.save()
+        general_start = timezone.now() + timedelta(days=2)
+        EnrollmentConfig.objects.create(
+            event=event,
+            start_time=general_start,
+            end_time=general_start + timedelta(days=1),
+            percentage_slots=100,
+        )
+
+        response = authenticated_client.get(self._get_url(event.slug))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=event_page_context(
+                event,
+                url=self._get_url(event.slug),
+                access=enrollment_opens_at(general_start),
+            ),
+            template_name=["chronology/event.html"],
+            contains="Your enrollment opens",
+            not_contains=["Enrollment Open", "Upcoming"],
         )
 
     def test_status_pill_live_event_shows_happening_now(self, client, event):
@@ -2536,739 +2541,10 @@ class TestEventPageView:
             context_data=event_page_context(
                 event,
                 url=self._get_url(event.slug),
+                access=ENROLLMENT_OPEN,
                 current_hour_data={agenda_item.start_time: [session_data]},
                 hour_data={agenda_item.start_time: [session_data]},
                 sessions=[session_data],
-                has_enrollable_sessions=True,
-                scheduled_count=1,
-            ),
-            template_name=["chronology/event.html"],
-        )
-
-    @pytest.mark.parametrize("fetched_from_api", (True, False))
-    def test_ok_current_session_sum_time_slots(
-        self,
-        active_user,
-        agenda_item,
-        authenticated_client,
-        enrollment_config,
-        event,
-        faker,
-        fetched_from_api,
-    ):
-        enrollment_config.restrict_to_configured_users = True
-        enrollment_config.save()
-        other_config = EnrollmentConfig.objects.create(
-            event=event,
-            start_time=faker.date_time_between("-3d", "-1d"),
-            end_time=faker.date_time_between("+1d", "+3d"),
-            percentage_slots=100,
-            restrict_to_configured_users=True,
-        )
-        primary_slots = 7
-        UserEnrollmentConfig.objects.create(
-            enrollment_config=enrollment_config,
-            user_email=active_user.email,
-            allowed_slots=primary_slots,
-            fetched_from_api=fetched_from_api,
-        )
-        other_slots = 8
-        UserEnrollmentConfig.objects.create(
-            enrollment_config=other_config,
-            user_email=active_user.email,
-            allowed_slots=other_slots,
-            fetched_from_api=fetched_from_api,
-        )
-        agenda_item.start_time = faker.date_time_between("-10d", "-1d", tzinfo=UTC)
-        agenda_item.end_time = faker.date_time_between("+1d", "+10d", tzinfo=UTC)
-        agenda_item.save()
-        response = authenticated_client.get(self._get_url(event.slug))
-
-        session_data = SessionData(
-            can_edit=True,
-            agenda_item=AgendaItemDTO.model_validate(agenda_item),
-            effective_participants_limit=10,
-            enrolled_count=0,
-            is_enrollment_available=True,
-            is_full=False,
-            is_ongoing=True,
-            presenter=UserInfo.from_user_dto(
-                UserDTO.model_validate(active_user), gravatar_url=gravatar_url
-            ),
-            session_participations=[],
-            session=SessionDTO.model_validate(agenda_item.session),
-            should_show_as_inactive=False,
-            loc=location_data(agenda_item.space),
-            user_enrolled=False,
-            user_waiting=False,
-        )
-        assert_response(
-            response,
-            HTTPStatus.OK,
-            context_data=event_page_context(
-                event,
-                url=self._get_url(event.slug),
-                current_hour_data={agenda_item.start_time: [session_data]},
-                enrollment_requires_slots=True,
-                hour_data={agenda_item.start_time: [session_data]},
-                sessions=[session_data],
-                user_enrollment_config=VirtualEnrollmentConfig(user_slots=7 + 8),
-                has_enrollable_sessions=True,
-                scheduled_count=1,
-            ),
-            template_name=["chronology/event.html"],
-            contains="Enrollment Open",
-        )
-
-    @responses.activate
-    def test_ok_current_session_get_user_config_from_api(
-        self,
-        active_user,
-        agenda_item,
-        authenticated_client,
-        enrollment_config,
-        event,
-        faker,
-        ticketing_integration,
-    ):
-        slots = 7
-        responses.get(
-            url=MEMBERSHIP_API_URL,
-            status=HTTPStatus.OK,
-            match=[
-                responses.matchers.query_param_matcher({"email": active_user.email})
-            ],
-            json={"membership_count": slots},
-        )
-        enrollment_config.restrict_to_configured_users = True
-        enrollment_config.save()
-        agenda_item.start_time = faker.date_time_between("-10d", "-1d", tzinfo=UTC)
-        agenda_item.end_time = faker.date_time_between("+1d", "+10d", tzinfo=UTC)
-        agenda_item.save()
-        response = authenticated_client.get(self._get_url(event.slug))
-
-        session_data = SessionData(
-            can_edit=True,
-            agenda_item=AgendaItemDTO.model_validate(agenda_item),
-            effective_participants_limit=10,
-            enrolled_count=0,
-            is_enrollment_available=True,
-            is_full=False,
-            is_ongoing=True,
-            presenter=UserInfo.from_user_dto(
-                UserDTO.model_validate(active_user), gravatar_url=gravatar_url
-            ),
-            session_participations=[],
-            session=SessionDTO.model_validate(agenda_item.session),
-            should_show_as_inactive=False,
-            loc=location_data(agenda_item.space),
-            user_enrolled=False,
-            user_waiting=False,
-        )
-        assert_response(
-            response,
-            HTTPStatus.OK,
-            context_data=event_page_context(
-                event,
-                url=self._get_url(event.slug),
-                current_hour_data={agenda_item.start_time: [session_data]},
-                enrollment_requires_slots=True,
-                hour_data={agenda_item.start_time: [session_data]},
-                sessions=[session_data],
-                user_enrollment_config=VirtualEnrollmentConfig(user_slots=slots),
-                has_enrollable_sessions=True,
-                scheduled_count=1,
-            ),
-            template_name=["chronology/event.html"],
-        )
-
-    @responses.activate
-    def test_ok_current_session_domain_config(
-        self,
-        active_user,
-        agenda_item,
-        authenticated_client,
-        enrollment_config,
-        event,
-        faker,
-        ticketing_integration,
-    ):
-        responses.get(
-            url=MEMBERSHIP_API_URL,
-            status=HTTPStatus.INTERNAL_SERVER_ERROR,
-            match=[
-                responses.matchers.query_param_matcher({"email": active_user.email})
-            ],
-        )
-        slots = 7
-        DomainEnrollmentConfig.objects.create(
-            enrollment_config=enrollment_config,
-            domain=active_user.email.split("@")[1],
-            allowed_slots_per_user=slots,
-        )
-        enrollment_config.restrict_to_configured_users = True
-        enrollment_config.save()
-        agenda_item.start_time = faker.date_time_between("-10d", "-1d", tzinfo=UTC)
-        agenda_item.end_time = faker.date_time_between("+1d", "+10d", tzinfo=UTC)
-        agenda_item.save()
-        response = authenticated_client.get(self._get_url(event.slug))
-
-        session_data = SessionData(
-            can_edit=True,
-            agenda_item=AgendaItemDTO.model_validate(agenda_item),
-            effective_participants_limit=10,
-            enrolled_count=0,
-            is_enrollment_available=True,
-            is_full=False,
-            is_ongoing=True,
-            presenter=UserInfo.from_user_dto(
-                UserDTO.model_validate(active_user), gravatar_url=gravatar_url
-            ),
-            session_participations=[],
-            session=SessionDTO.model_validate(agenda_item.session),
-            should_show_as_inactive=False,
-            loc=location_data(agenda_item.space),
-            user_enrolled=False,
-            user_waiting=False,
-        )
-        assert_response(
-            response,
-            HTTPStatus.OK,
-            context_data=event_page_context(
-                event,
-                url=self._get_url(event.slug),
-                current_hour_data={agenda_item.start_time: [session_data]},
-                enrollment_requires_slots=True,
-                hour_data={agenda_item.start_time: [session_data]},
-                sessions=[session_data],
-                user_enrollment_config=VirtualEnrollmentConfig(
-                    domain_slots=slots, domain=active_user.email.split("@")[1]
-                ),
-                has_enrollable_sessions=True,
-                scheduled_count=1,
-            ),
-            template_name=["chronology/event.html"],
-        )
-
-    def test_ok_current_session_domain_config_combined_with_user(
-        self,
-        active_user,
-        agenda_item,
-        authenticated_client,
-        enrollment_config,
-        event,
-        faker,
-    ):
-        primary_slots = 8
-        UserEnrollmentConfig.objects.create(
-            enrollment_config=enrollment_config,
-            user_email=active_user.email,
-            allowed_slots=primary_slots,
-        )
-        domain_slots = 7
-        DomainEnrollmentConfig.objects.create(
-            enrollment_config=enrollment_config,
-            domain=active_user.email.split("@")[1],
-            allowed_slots_per_user=domain_slots,
-        )
-        enrollment_config.restrict_to_configured_users = True
-        enrollment_config.save()
-        agenda_item.start_time = faker.date_time_between("-10d", "-1d", tzinfo=UTC)
-        agenda_item.end_time = faker.date_time_between("+1d", "+10d", tzinfo=UTC)
-        agenda_item.save()
-        response = authenticated_client.get(self._get_url(event.slug))
-
-        session_data = SessionData(
-            can_edit=True,
-            agenda_item=AgendaItemDTO.model_validate(agenda_item),
-            effective_participants_limit=10,
-            enrolled_count=0,
-            is_enrollment_available=True,
-            is_full=False,
-            is_ongoing=True,
-            presenter=UserInfo.from_user_dto(
-                UserDTO.model_validate(active_user), gravatar_url=gravatar_url
-            ),
-            session_participations=[],
-            session=SessionDTO.model_validate(agenda_item.session),
-            should_show_as_inactive=False,
-            loc=location_data(agenda_item.space),
-            user_enrolled=False,
-            user_waiting=False,
-        )
-        assert_response(
-            response,
-            HTTPStatus.OK,
-            context_data=event_page_context(
-                event,
-                url=self._get_url(event.slug),
-                current_hour_data={agenda_item.start_time: [session_data]},
-                enrollment_requires_slots=True,
-                hour_data={agenda_item.start_time: [session_data]},
-                sessions=[session_data],
-                user_enrollment_config=VirtualEnrollmentConfig(
-                    user_slots=primary_slots,
-                    domain_slots=domain_slots,
-                    domain=active_user.email.split("@")[1],
-                ),
-                has_enrollable_sessions=True,
-                scheduled_count=1,
-            ),
-            template_name=["chronology/event.html"],
-        )
-
-    @responses.activate
-    def test_ok_current_session_get_user_config_from_api_http_error(
-        self,
-        active_user,
-        agenda_item,
-        authenticated_client,
-        enrollment_config,
-        event,
-        faker,
-        ticketing_integration,
-    ):
-        responses.get(
-            url=MEMBERSHIP_API_URL,
-            status=HTTPStatus.INTERNAL_SERVER_ERROR,
-            match=[
-                responses.matchers.query_param_matcher({"email": active_user.email})
-            ],
-            json={"membership_count": 7},
-        )
-        enrollment_config.restrict_to_configured_users = True
-        enrollment_config.save()
-        agenda_item.start_time = faker.date_time_between("-10d", "-1d", tzinfo=UTC)
-        agenda_item.end_time = faker.date_time_between("+1d", "+10d", tzinfo=UTC)
-        agenda_item.save()
-        response = authenticated_client.get(self._get_url(event.slug))
-
-        session_data = SessionData(
-            can_edit=True,
-            agenda_item=AgendaItemDTO.model_validate(agenda_item),
-            effective_participants_limit=10,
-            enrolled_count=0,
-            is_enrollment_available=True,
-            is_full=False,
-            is_ongoing=True,
-            presenter=UserInfo.from_user_dto(
-                UserDTO.model_validate(active_user), gravatar_url=gravatar_url
-            ),
-            session_participations=[],
-            session=SessionDTO.model_validate(agenda_item.session),
-            should_show_as_inactive=False,
-            loc=location_data(agenda_item.space),
-            user_enrolled=False,
-            user_waiting=False,
-        )
-        assert_response(
-            response,
-            HTTPStatus.OK,
-            context_data=event_page_context(
-                event,
-                url=self._get_url(event.slug),
-                current_hour_data={agenda_item.start_time: [session_data]},
-                enrollment_requires_slots=True,
-                hour_data={agenda_item.start_time: [session_data]},
-                sessions=[session_data],
-                has_enrollable_sessions=True,
-                scheduled_count=1,
-            ),
-            template_name=["chronology/event.html"],
-        )
-
-    @responses.activate
-    def test_ok_current_session_get_user_config_from_api_json_error(
-        self,
-        active_user,
-        agenda_item,
-        authenticated_client,
-        enrollment_config,
-        event,
-        faker,
-        ticketing_integration,
-    ):
-        responses.get(
-            url=MEMBERSHIP_API_URL,
-            status=HTTPStatus.OK,
-            match=[
-                responses.matchers.query_param_matcher({"email": active_user.email})
-            ],
-            json=["a"],
-        )
-        enrollment_config.restrict_to_configured_users = True
-        enrollment_config.save()
-        agenda_item.start_time = faker.date_time_between("-10d", "-1d", tzinfo=UTC)
-        agenda_item.end_time = faker.date_time_between("+1d", "+10d", tzinfo=UTC)
-        agenda_item.save()
-        response = authenticated_client.get(self._get_url(event.slug))
-
-        session_data = SessionData(
-            can_edit=True,
-            agenda_item=AgendaItemDTO.model_validate(agenda_item),
-            effective_participants_limit=10,
-            enrolled_count=0,
-            is_enrollment_available=True,
-            is_full=False,
-            is_ongoing=True,
-            presenter=UserInfo.from_user_dto(
-                UserDTO.model_validate(active_user), gravatar_url=gravatar_url
-            ),
-            session_participations=[],
-            session=SessionDTO.model_validate(agenda_item.session),
-            should_show_as_inactive=False,
-            loc=location_data(agenda_item.space),
-            user_enrolled=False,
-            user_waiting=False,
-        )
-        assert_response(
-            response,
-            HTTPStatus.OK,
-            context_data=event_page_context(
-                event,
-                url=self._get_url(event.slug),
-                current_hour_data={agenda_item.start_time: [session_data]},
-                enrollment_requires_slots=True,
-                hour_data={agenda_item.start_time: [session_data]},
-                sessions=[session_data],
-                has_enrollable_sessions=True,
-                scheduled_count=1,
-            ),
-            template_name=["chronology/event.html"],
-        )
-
-    @responses.activate
-    def test_ok_current_session_get_user_config_from_api_refetch(
-        self,
-        active_user,
-        agenda_item,
-        authenticated_client,
-        enrollment_config,
-        event,
-        faker,
-        ticketing_integration,
-    ):
-        UserEnrollmentConfig.objects.create(
-            enrollment_config=enrollment_config,
-            user_email=active_user.email,
-            allowed_slots=0,
-            last_check=faker.date_time_between("-10d", "-5d"),
-        )
-        slots = 7
-        responses.get(
-            url=MEMBERSHIP_API_URL,
-            status=HTTPStatus.OK,
-            match=[
-                responses.matchers.query_param_matcher({"email": active_user.email})
-            ],
-            json={"membership_count": slots},
-        )
-        enrollment_config.restrict_to_configured_users = True
-        enrollment_config.save()
-        agenda_item.start_time = faker.date_time_between("-10d", "-1d", tzinfo=UTC)
-        agenda_item.end_time = faker.date_time_between("+1d", "+10d", tzinfo=UTC)
-        agenda_item.save()
-        response = authenticated_client.get(self._get_url(event.slug))
-
-        assert UserEnrollmentConfig.objects.get(
-            enrollment_config=enrollment_config,
-            user_email=active_user.email,
-            allowed_slots=slots,
-        )
-        session_data = SessionData(
-            can_edit=True,
-            agenda_item=AgendaItemDTO.model_validate(agenda_item),
-            effective_participants_limit=10,
-            enrolled_count=0,
-            is_enrollment_available=True,
-            is_full=False,
-            is_ongoing=True,
-            presenter=UserInfo.from_user_dto(
-                UserDTO.model_validate(active_user), gravatar_url=gravatar_url
-            ),
-            session_participations=[],
-            session=SessionDTO.model_validate(agenda_item.session),
-            should_show_as_inactive=False,
-            loc=location_data(agenda_item.space),
-            user_enrolled=False,
-            user_waiting=False,
-        )
-        assert_response(
-            response,
-            HTTPStatus.OK,
-            context_data=event_page_context(
-                event,
-                url=self._get_url(event.slug),
-                current_hour_data={agenda_item.start_time: [session_data]},
-                enrollment_requires_slots=True,
-                hour_data={agenda_item.start_time: [session_data]},
-                sessions=[session_data],
-                user_enrollment_config=VirtualEnrollmentConfig(user_slots=slots),
-                has_enrollable_sessions=True,
-                scheduled_count=1,
-            ),
-            template_name=["chronology/event.html"],
-        )
-
-    @responses.activate
-    def test_ok_current_session_without_ticketing_integration_skips_the_api(
-        self,
-        active_user,
-        agenda_item,
-        authenticated_client,
-        enrollment_config,
-        event,
-        faker,
-    ):
-        # No integration configured and a stale check: the slots the organizer
-        # entered by hand still count, and nothing is fetched. `responses` has
-        # no registered endpoint, so any outbound call fails the test.
-        slots = 7
-        UserEnrollmentConfig.objects.create(
-            enrollment_config=enrollment_config,
-            user_email=active_user.email,
-            allowed_slots=slots,
-            last_check=faker.date_time_between("-10d", "-5d"),
-        )
-        enrollment_config.restrict_to_configured_users = True
-        enrollment_config.save()
-        agenda_item.start_time = faker.date_time_between("-10d", "-1d", tzinfo=UTC)
-        agenda_item.end_time = faker.date_time_between("+1d", "+10d", tzinfo=UTC)
-        agenda_item.save()
-
-        response = authenticated_client.get(self._get_url(event.slug))
-
-        assert not responses.calls
-        session_data = SessionData(
-            can_edit=True,
-            agenda_item=AgendaItemDTO.model_validate(agenda_item),
-            effective_participants_limit=10,
-            enrolled_count=0,
-            is_enrollment_available=True,
-            is_full=False,
-            is_ongoing=True,
-            presenter=UserInfo.from_user_dto(
-                UserDTO.model_validate(active_user), gravatar_url=gravatar_url
-            ),
-            session_participations=[],
-            session=SessionDTO.model_validate(agenda_item.session),
-            should_show_as_inactive=False,
-            loc=location_data(agenda_item.space),
-            user_enrolled=False,
-            user_waiting=False,
-        )
-        assert_response(
-            response,
-            HTTPStatus.OK,
-            context_data=event_page_context(
-                event,
-                url=self._get_url(event.slug),
-                current_hour_data={agenda_item.start_time: [session_data]},
-                enrollment_requires_slots=True,
-                hour_data={agenda_item.start_time: [session_data]},
-                sessions=[session_data],
-                user_enrollment_config=VirtualEnrollmentConfig(user_slots=slots),
-                has_enrollable_sessions=True,
-                scheduled_count=1,
-            ),
-            template_name=["chronology/event.html"],
-        )
-
-    def test_ok_current_session_get_user_config_from_api_no_refetch(
-        self,
-        active_user,
-        agenda_item,
-        authenticated_client,
-        enrollment_config,
-        event,
-        faker,
-        ticketing_integration,
-    ):
-        UserEnrollmentConfig.objects.create(
-            enrollment_config=enrollment_config,
-            user_email=active_user.email,
-            allowed_slots=0,
-            last_check=faker.date_time_between("-1m", "now"),
-        )
-        enrollment_config.restrict_to_configured_users = True
-        enrollment_config.save()
-        agenda_item.start_time = faker.date_time_between("-10d", "-1d", tzinfo=UTC)
-        agenda_item.end_time = faker.date_time_between("+1d", "+10d", tzinfo=UTC)
-        agenda_item.save()
-        response = authenticated_client.get(self._get_url(event.slug))
-
-        assert UserEnrollmentConfig.objects.get(
-            enrollment_config=enrollment_config,
-            user_email=active_user.email,
-            allowed_slots=0,
-        )
-        session_data = SessionData(
-            can_edit=True,
-            agenda_item=AgendaItemDTO.model_validate(agenda_item),
-            effective_participants_limit=10,
-            enrolled_count=0,
-            is_enrollment_available=True,
-            is_full=False,
-            is_ongoing=True,
-            presenter=UserInfo.from_user_dto(
-                UserDTO.model_validate(active_user), gravatar_url=gravatar_url
-            ),
-            session_participations=[],
-            session=SessionDTO.model_validate(agenda_item.session),
-            should_show_as_inactive=False,
-            loc=location_data(agenda_item.space),
-            user_enrolled=False,
-            user_waiting=False,
-        )
-        assert_response(
-            response,
-            HTTPStatus.OK,
-            context_data=event_page_context(
-                event,
-                url=self._get_url(event.slug),
-                current_hour_data={agenda_item.start_time: [session_data]},
-                enrollment_requires_slots=True,
-                hour_data={agenda_item.start_time: [session_data]},
-                sessions=[session_data],
-                user_enrollment_config=None,
-                has_enrollable_sessions=True,
-                scheduled_count=1,
-            ),
-            template_name=["chronology/event.html"],
-        )
-
-    @responses.activate
-    def test_ok_current_session_get_user_config_from_api_refetch_zero(
-        self,
-        active_user,
-        agenda_item,
-        authenticated_client,
-        enrollment_config,
-        event,
-        faker,
-        ticketing_integration,
-    ):
-        UserEnrollmentConfig.objects.create(
-            enrollment_config=enrollment_config,
-            user_email=active_user.email,
-            allowed_slots=0,
-            last_check=faker.date_time_between("-10d", "-5d"),
-        )
-        responses.get(
-            url=MEMBERSHIP_API_URL,
-            status=HTTPStatus.OK,
-            match=[
-                responses.matchers.query_param_matcher({"email": active_user.email})
-            ],
-            json={"membership_count": 0},
-        )
-        enrollment_config.restrict_to_configured_users = True
-        enrollment_config.save()
-        agenda_item.start_time = faker.date_time_between("-10d", "-1d", tzinfo=UTC)
-        agenda_item.end_time = faker.date_time_between("+1d", "+10d", tzinfo=UTC)
-        agenda_item.save()
-        response = authenticated_client.get(self._get_url(event.slug))
-
-        assert UserEnrollmentConfig.objects.get(
-            enrollment_config=enrollment_config,
-            user_email=active_user.email,
-            allowed_slots=0,
-        )
-        session_data = SessionData(
-            can_edit=True,
-            agenda_item=AgendaItemDTO.model_validate(agenda_item),
-            effective_participants_limit=10,
-            enrolled_count=0,
-            is_enrollment_available=True,
-            is_full=False,
-            is_ongoing=True,
-            presenter=UserInfo.from_user_dto(
-                UserDTO.model_validate(active_user), gravatar_url=gravatar_url
-            ),
-            session_participations=[],
-            session=SessionDTO.model_validate(agenda_item.session),
-            should_show_as_inactive=False,
-            loc=location_data(agenda_item.space),
-            user_enrolled=False,
-            user_waiting=False,
-        )
-        assert_response(
-            response,
-            HTTPStatus.OK,
-            context_data=event_page_context(
-                event,
-                url=self._get_url(event.slug),
-                current_hour_data={agenda_item.start_time: [session_data]},
-                enrollment_requires_slots=True,
-                hour_data={agenda_item.start_time: [session_data]},
-                sessions=[session_data],
-                user_enrollment_config=None,
-                has_enrollable_sessions=True,
-                scheduled_count=1,
-            ),
-            template_name=["chronology/event.html"],
-        )
-
-    @responses.activate
-    def test_ok_current_session_get_user_config_from_api_zero(
-        self,
-        active_user,
-        agenda_item,
-        authenticated_client,
-        enrollment_config,
-        event,
-        faker,
-        ticketing_integration,
-    ):
-        responses.get(
-            url=MEMBERSHIP_API_URL,
-            status=HTTPStatus.OK,
-            match=[
-                responses.matchers.query_param_matcher({"email": active_user.email})
-            ],
-            json={"membership_count": 0},
-        )
-        enrollment_config.restrict_to_configured_users = True
-        enrollment_config.save()
-        agenda_item.start_time = faker.date_time_between("-10d", "-1d", tzinfo=UTC)
-        agenda_item.end_time = faker.date_time_between("+1d", "+10d", tzinfo=UTC)
-        agenda_item.save()
-        response = authenticated_client.get(self._get_url(event.slug))
-
-        assert UserEnrollmentConfig.objects.get(
-            enrollment_config=enrollment_config,
-            user_email=active_user.email,
-            allowed_slots=0,
-        )
-        session_data = SessionData(
-            can_edit=True,
-            agenda_item=AgendaItemDTO.model_validate(agenda_item),
-            effective_participants_limit=10,
-            enrolled_count=0,
-            is_enrollment_available=True,
-            is_full=False,
-            is_ongoing=True,
-            presenter=UserInfo.from_user_dto(
-                UserDTO.model_validate(active_user), gravatar_url=gravatar_url
-            ),
-            session_participations=[],
-            session=SessionDTO.model_validate(agenda_item.session),
-            should_show_as_inactive=False,
-            loc=location_data(agenda_item.space),
-            user_enrolled=False,
-            user_waiting=False,
-        )
-        assert_response(
-            response,
-            HTTPStatus.OK,
-            context_data=event_page_context(
-                event,
-                url=self._get_url(event.slug),
-                current_hour_data={agenda_item.start_time: [session_data]},
-                enrollment_requires_slots=True,
-                hour_data={agenda_item.start_time: [session_data]},
-                sessions=[session_data],
-                user_enrollment_config=None,
                 has_enrollable_sessions=True,
                 scheduled_count=1,
             ),

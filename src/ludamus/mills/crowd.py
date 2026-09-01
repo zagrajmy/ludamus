@@ -7,9 +7,11 @@ plus a transaction. First feature: claiming a managed profile.
 from __future__ import annotations
 
 import secrets
+from contextlib import suppress
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
+from ludamus.mills.slugs import unique_slug
 from ludamus.pacts import NotFoundError
 from ludamus.pacts.crowd import (
     AuthProvisionDTO,
@@ -144,13 +146,23 @@ class CrowdAuthService(CrowdAuthServiceProtocol):
             data["email"] = ""
             data["email_verified"] = False
             email_conflict = True
+        # NOTE: the slug is unique table-wide, so a CONNECTED or ANONYMOUS
+        # row can own the one the provider sub slugifies to; uniquifying also
+        # caps it to the SlugField width, which an over-long sub would blow.
+        data["slug"] = unique_slug(
+            base=data.get("slug", ""), default="user", exists=self._users.slug_exists
+        )
         try:
             with self._transaction.savepoint():
                 self._users.create(data)
         except DatabaseConstraintError:
-            # A concurrent callback for the same identity inserted the row
-            # between our read_by_username miss and this insert; adopt it.
-            pass
+            # NOTE: a concurrent callback for the same identity may have
+            # inserted the row between our read_by_username miss and this
+            # insert; adopt it. With no such row the insert failed for a real
+            # reason, so let the database error surface, not a NotFoundError.
+            with suppress(NotFoundError):
+                return self._users.read_by_username(username), email_conflict
+            raise
         return self._users.read_by_username(username), email_conflict
 
     def sync_identity(self, *, user_slug: str, data: UserData) -> UserDTO:

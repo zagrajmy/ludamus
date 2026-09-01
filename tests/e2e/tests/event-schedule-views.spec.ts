@@ -704,13 +704,18 @@ test("overnight bookmark copies share one state and one request", async ({
     await route.continue();
   });
 
+  const expectedState = String(!wasBookmarked);
+  const responded = page.waitForResponse(/\/bookmark\/$/);
   await source.click();
-  await expect(copy).toBeDisabled();
+  // The optimistic paint lands with the click and the copy stays interactive,
+  // so the two states meet without a :disabled fade blinking between them; the
+  // second click is dropped by the in-flight guard, not by the DOM.
+  await expect(copy).toHaveAttribute("aria-pressed", expectedState);
+  await expect(copy).toBeEnabled();
   await copy.click({ force: true });
   release();
-  await expect(copy).toBeEnabled();
+  await responded;
 
-  const expectedState = String(!wasBookmarked);
   for (const button of await copies.all()) {
     await expect(button).toHaveAttribute("aria-pressed", expectedState);
   }

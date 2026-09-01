@@ -6,7 +6,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("db_main", "0156_user_email_verification_sent_at_user_pending_email")
+        ("db_main", "0158_user_email_verification_sent_at_user_pending_email")
     ]
 
     operations = [

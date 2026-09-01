@@ -98,6 +98,8 @@ class UserRepositoryProtocol(Protocol):
     def claim_verification_send(
         *, user_slug: str, now: datetime, throttle: timedelta
     ) -> bool: ...
+    @staticmethod
+    def slug_exists(slug: str) -> bool: ...
 
 
 class CompanionRepositoryProtocol(Protocol):

@@ -14,7 +14,7 @@ def _grandfather_existing_addresses(apps, schema_editor):
 
 class Migration(migrations.Migration):
 
-    dependencies = [("db_main", "0155_eventintegration_last_run_json")]
+    dependencies = [("db_main", "0156_merge_event_address_and_eventintegration")]
 
     operations = [
         migrations.AddField(
