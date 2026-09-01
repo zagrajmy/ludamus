@@ -799,6 +799,7 @@ class TestEventPageView:
                         RoomLaneRow(
                             day=0,
                             day_start=local_start,
+                            hour_mark=local_start + timedelta(hours=offset),
                             start=local_start + timedelta(hours=offset),
                             end=local_start + timedelta(hours=offset + 1),
                             starting_tiles=tiles_by_row.get(offset, []),

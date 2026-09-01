@@ -9,8 +9,9 @@
   /* room-lanes.ts rebuilds these track lists when a filter empties a track, so
      the sizes live here once and both consumers name them. */
   /* An hour of grid. A row is an hour or a piece of one (schedule.py,
-     _row_windows) and takes that share of the unit, so equal stretches of
-     programme get equal height whatever the rows under them. The template's
+     _row_windows) and its minimum is that share of the unit, so the gaps
+     between sessions are drawn to scale rather than each costing a whole hour.
+     A row carrying a tile is content-sized past that minimum. The template's
      nonced style builds one --row-track-<minutes> from this unit per length a
      schedule actually uses: the set is data, and a track list cannot name a
      variable the served rows never defined. A day seam measures no time, so

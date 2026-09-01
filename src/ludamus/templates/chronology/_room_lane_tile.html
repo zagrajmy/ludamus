@@ -27,7 +27,7 @@
                 {# avatar, so the warning badge has bottom-right to itself. #}
                 {% include "components/avatar.html" with user=data.presenter size="size-5" danger_ring=data.presenter_is_shadowbanned %}
             </span>
-            {% include "components/guild_mark.html" with guild=data.guild size="size-4" extra_class="relative z-20 pointer-events-auto" %}
+            {% include "components/guild_mark.html" with guild=data.guild size="size-4" extra_class="relative" %}
             <span class="truncate" data-morph="host">{{ data.session.display_name }}</span>
         </div>
         <span class="truncate text-xs tabular-nums text-foreground-muted"

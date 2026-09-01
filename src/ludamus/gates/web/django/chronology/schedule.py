@@ -79,15 +79,18 @@ class RoomLaneTile:
 class RoomLaneRow:
     # One row of the grid. A row with no `start` is the seam that opens a day;
     # every other row spans a stretch of clock time — a whole hour, or a piece
-    # of one where `_row_windows` cut it. Row numbers are positions in the row
-    # list, so nothing counts them by hand.
+    # of one where `_row_windows` cut it, in which case `hour_mark` is still the
+    # hour it belongs to. Row numbers are positions in the row list, so nothing
+    # counts them by hand.
+    # `opens_slot` marks the one row per hour that anchors #slot-<hour> for the
+    # scrubber and the filters; see build_room_lanes.
     day: int
     day_start: datetime
+    hour_mark: datetime | None
     start: datetime | None
     end: datetime | None
-    is_repeated: bool = False
     starting_tiles: list[RoomLaneTile] = field(default_factory=list, repr=False)
-    slot_key: str | None = field(default=None, compare=False)
+    opens_slot: bool = field(default=False, compare=False)
 
     @property
     def minutes(self) -> int:
@@ -99,7 +102,22 @@ class RoomLaneRow:
 
     @property
     def is_cut(self) -> bool:
-        return self.start is not None and self.start.minute != 0
+        # Asked of the producer, not guessed from the wall clock: a zone whose
+        # offset moves by a half hour puts every later hour mark on :30.
+        if self.start is None or self.hour_mark is None:
+            return False
+        return self.start.timestamp() != self.hour_mark.timestamp()
+
+    @property
+    def is_repeated(self) -> bool:
+        return self.start is not None and _is_ambiguous_local_hour(self.start)
+
+    @property
+    def slot_key(self) -> str | None:
+        # The hour, never the cut: the scrubber's markers are whole hours
+        # (_compact_schedule.html), and every row inside one answers to the same
+        # key so a session that starts at 16:30 is still reachable under 16:00.
+        return None if self.hour_mark is None else _instant_key(self.hour_mark)
 
 
 @dataclass
@@ -117,36 +135,47 @@ class RoomLane:
 
 def _row_windows(
     day_start: datetime, tiles: list[ScheduleTile]
-) -> list[tuple[datetime, datetime]]:
-    # The grid's rows: whole clock hours, cut again wherever a tile starts or
-    # ends inside one. Rows are what the grid stacks, so two tiles sharing a row
-    # must be laid side by side even when they merely touch — a session ending
-    # at 16:30 and the next starting at 16:30 both live in the 16:00 hour, and
-    # an hour-only ruler showed them clashing. Cutting at the instants the
-    # programme changes makes "shares a row" mean "overlaps in time" again, and
-    # _place_conflicting_tiles goes on reading rows.
-    # Every edge is compared, sorted and deduplicated as a timestamp, never as a
-    # datetime: PEP 495 has two same-zone datetimes that differ only in `fold`
-    # compare equal and hash equal, so on the night the clocks go back a plain
-    # set or sort silently folds 02:00 CEST and 02:00 CET — an hour apart — into
-    # one edge, and the grid loses an hour of programme.
+) -> list[tuple[datetime, datetime, datetime]]:
+    # The grid's rows, each as (the hour it belongs to, start, end): whole clock
+    # hours, cut again wherever a tile starts or ends inside one. Rows are what
+    # the grid stacks, so two tiles sharing a row must be laid side by side even
+    # when they merely touch — a session ending at 16:30 and the next starting
+    # at 16:30 both live in the 16:00 hour, and an hour-only ruler showed them
+    # clashing. Cutting at the instants the programme changes makes "shares a
+    # row" mean "overlaps in time" again, and _place_conflicting_tiles goes on
+    # reading rows. The hour rides along because a cut row still answers to it
+    # for the scrubber, and because "is this a cut?" is then a fact rather than
+    # a reading of the wall clock.
+    #
+    # Every instant is compared and keyed as a timestamp, never as a datetime:
+    # PEP 495 has two same-zone datetimes that differ only in `fold` compare
+    # equal and hash equal, so on the night the clocks go back a plain set or
+    # sort silently folds 02:00 CEST and 02:00 CET — an hour apart — into one
+    # edge, and the grid loses an hour of programme.
     day_end = max(tile.end.timestamp() for tile in tiles)
     # Stepped through UTC so an hour of grid is an hour of programme: a clock
     # change inside the day moves the marks with it instead of repeating or
     # skipping one.
-    edges: dict[float, datetime] = {}
-    mark = day_start
-    while True:
-        edges[mark.timestamp()] = mark
-        if mark.timestamp() >= day_end:
-            break
-        mark = (mark.astimezone(UTC) + timedelta(hours=1)).astimezone(day_start.tzinfo)
-    first, last = day_start.timestamp(), mark.timestamp()
-    for tile in tiles:
-        for instant in (tile.start, tile.end):
-            if first < instant.timestamp() < last:
-                edges[instant.timestamp()] = instant
-    return list(pairwise([edges[key] for key in sorted(edges)]))
+    marks = [day_start]
+    while marks[-1].timestamp() < day_end:
+        marks.append(
+            (marks[-1].astimezone(UTC) + timedelta(hours=1)).astimezone(
+                day_start.tzinfo
+            )
+        )
+    cuts = {
+        instant.timestamp(): instant
+        for tile in tiles
+        for instant in (tile.start, tile.end)
+    }
+    windows: list[tuple[datetime, datetime, datetime]] = []
+    for mark, next_mark in pairwise(marks):
+        inside = sorted(
+            key for key in cuts if mark.timestamp() < key < next_mark.timestamp()
+        )
+        edges = [mark, *(cuts[key] for key in inside), next_mark]
+        windows.extend((mark, start, end) for start, end in pairwise(edges))
+    return windows
 
 
 def _place_conflicting_tiles(
@@ -429,7 +458,7 @@ def build_room_lanes(schedule_days: list[ScheduleDay]) -> RoomLanes:
             # row is the header printed twice rather than a boundary.
             rows.append(
                 RoomLaneRow(
-                    day=index, day_start=day_start, start=None, end=None, slot_key=None
+                    day=index, day_start=day_start, hour_mark=None, start=None, end=None
                 )
             )
         first_row = len(rows) + 1
@@ -437,20 +466,15 @@ def build_room_lanes(schedule_days: list[ScheduleDay]) -> RoomLanes:
         row_windows = _row_windows(day_start, day.tiles)
         rows.extend(
             RoomLaneRow(
-                day=index,
-                day_start=day_start,
-                start=start,
-                end=end,
-                is_repeated=_is_ambiguous_local_hour(start),
-                slot_key=_instant_key(start),
+                day=index, day_start=day_start, hour_mark=mark, start=start, end=end
             )
-            for start, end in row_windows
+            for mark, start, end in row_windows
         )
 
         for tile in day.tiles:
             covered_rows = [
                 offset
-                for offset, (start, end) in enumerate(row_windows)
+                for offset, (_mark, start, end) in enumerate(row_windows)
                 if start.timestamp() < tile.end.timestamp()
                 and end.timestamp() > tile.start.timestamp()
             ]
@@ -469,6 +493,15 @@ def build_room_lanes(schedule_days: list[ScheduleDay]) -> RoomLanes:
     placed = _place_conflicting_tiles(positioned)
     for row_start, room_tile in placed:
         rows[row_start - 1].starting_tiles.append(room_tile)
+
+    # One #slot-<hour> anchor per hour that starts anything, on the first of its
+    # rows that does: the id has to stay unique, and the scrubber jumps to the
+    # hour rather than to whichever cut inside it happens to hold a session.
+    opened: set[str] = set()
+    for row in rows:
+        if row.starting_tiles and row.slot_key is not None:
+            row.opens_slot = row.slot_key not in opened
+            opened.add(row.slot_key)
 
     return RoomLanes(
         rooms=_room_lanes(keys),

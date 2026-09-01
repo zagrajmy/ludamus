@@ -9,8 +9,10 @@
 {# no more: two sessions share a row only when they really do run at once. #}
 {# Each row takes its share of an hour's height (--row-track-<minutes>, served #}
 {# below), and the track maxima are auto, so a tile is never clipped. #}
-{# Rows with sessions carry the .time-slot-section / #slot-<instant> #}
-{# contract so the hour scrubber and filters keep working. #}
+{# The first row of each hour that starts a session carries the #}
+{# .time-slot-section / #slot-<hour> contract, and every row inside that hour #}
+{# answers to the same key, so the hour scrubber and the filters keep working #}
+{# even where a session starts at :30. #}
 {# Grid placement is data-driven, not inline: a style attribute cannot carry a #}
 {# CSP nonce, so the per-index rules live in one nonced style element keyed on #}
 {# the data-* attributes the elements already need (see issue #743). The rooms, #}
@@ -25,7 +27,7 @@
         }
 
         .room-lanes-body {
-            grid-template-rows: {% for row in room_lanes.rows %} var(--row-track-{{ row.minutes }}){% endfor %};
+            grid-template-rows: {% for row in room_lanes.rows %}var(--row-track-{{ row.minutes }}, var(--row-track)) {% endfor %};
         }
         {% for room in room_lanes.rooms %}
         [data-lane-col="{{ forloop.counter }}"],
@@ -150,7 +152,7 @@
                                  data-row-minutes="{{ row.minutes }}"
                                  data-row-start="{{ row.start|date:'c' }}"
                                  data-row-end="{{ row.end|date:'c' }}">
-                                {% if row.starting_tiles %}
+                                {% if row.opens_slot %}
                                     <span class="time-slot-section block h-full scroll-mt-40"
                                           id="slot-{{ row.slot_key }}"
                                           data-slot-hour="{{ row.slot_key }}"

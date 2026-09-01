@@ -16,10 +16,17 @@ The image fills the plate so full-bleed uploads visibly inherit its squircle.
 
 `title` names the guild on hover: at this size the mark alone is a puzzle for
 anyone who does not already know the crest. It matches `alt` word for word, so
-a screen reader that reads both does not read two different things. On a
-surface where a full-bleed link covers the card, the caller has to lift the
-mark above it (`z-20 pointer-events-auto`) or nothing ever hovers the image —
-see guild_notch.html.
+a screen reader that reads both does not read two different things. Hover only,
+so it is a bonus on top of the name `alt` already gives, not the only way to
+learn whose crest this is.
+
+The plate carries `z-20 pointer-events-auto` itself. Every schedule surface
+lays a full-bleed session link (z-10) over the card, and a native tooltip on an
+element under that link can never fire — the rule _proposal_slot.html states
+for its own meta row. The mark is the deliberate exception: it is an object in
+its own right, the way the bookmark toggle is, and it pays the crest's own few
+pixels as a click target for it. `z-index` needs a positioned box, so a caller
+whose mark is not already absolute passes `relative`.
 
 Renders nothing when the guild has no mark yet — the feature is the mark, and
 two-letter initials at this size are illegible.
@@ -38,5 +45,5 @@ Variables:
          width="22"
          height="22"
          loading="lazy"
-         class="{{ size|default:'size-[1.35rem]' }} {{ extra_class }} shrink-0 rounded-full bg-white object-contain {{ ring }}">
+         class="{{ size|default:'size-[1.35rem]' }} {{ extra_class }} pointer-events-auto z-20 shrink-0 rounded-full bg-white object-contain {{ ring }}">
 {% endif %}

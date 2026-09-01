@@ -404,7 +404,10 @@ class TestDaylightSavingRows:
         )
         bands = [row for row in lanes.rows if row.start and row.end]
         assert all(earlier.end == later.start for earlier, later in pairwise(bands))
-        assert len({row.slot_key for row in bands}) == len(bands)
+        # Rows inside an hour share that hour's key: it is what the scrubber's
+        # markers are keyed on, and the marks stay distinct across the fold.
+        assert {row.slot_key for row in bands} == {row.slot_key for row in hour_rows}
+        assert len({row.slot_key for row in hour_rows}) == len(hour_rows)
         assert [tile.row_span for tile in _room_tiles(lanes)] == [3]
 
     @pytest.mark.parametrize(

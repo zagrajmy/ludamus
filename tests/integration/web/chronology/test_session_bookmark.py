@@ -172,6 +172,7 @@ class TestEventPageBookmarkCounts:
                         RoomLaneRow(
                             day=0,
                             day_start=hour_start,
+                            hour_mark=hour_start,
                             start=hour_start,
                             end=hour_start + timedelta(hours=1),
                             starting_tiles=[room_tile],
@@ -179,6 +180,7 @@ class TestEventPageBookmarkCounts:
                         RoomLaneRow(
                             day=0,
                             day_start=hour_start,
+                            hour_mark=hour_start + timedelta(hours=1),
                             start=hour_start + timedelta(hours=1),
                             end=hour_start + timedelta(hours=2),
                         ),

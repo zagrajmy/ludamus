@@ -83,39 +83,62 @@ test.describe("Event schedule views", () => {
     expect(await stayedOnPage(page)).toBe(true);
   });
 
-  test("sessions that touch off the hour get a row each, not a lane each", async ({ page }) => {
+  test("sessions that touch off the hour stack instead of splitting the column", async ({
+    page,
+  }) => {
     await page.goto(`${DENSE_EVENT_URL}?view=rooms`);
 
-    // Seeded back to back at :30 (kapitularz_print_seed.py). They share the hour but
-    // not a minute, so each takes the full column; splitting them into
-    // half-width lanes is how the grid draws a clash.
-    const handovers = page.locator('.room-lanes-cell:has(.session[data-title*="handover"])');
+    // Seeded back to back at :30 (kapitularz_print_seed.py). Everything else in
+    // the programme starts on the hour, so this pair is the only thing that
+    // cuts a row.
+    const handovers = page.getByRole("link", { name: /Open details for Half-hour handover/ });
     await expect(handovers).toHaveCount(2);
-    for (const cell of await handovers.all()) {
-      await expect(cell).toHaveAttribute("data-tile-lanes", "1");
-    }
-    const rows = await handovers.evaluateAll((cells) =>
-      cells.map((cell) => (cell as HTMLElement).dataset.tileRow),
+    const boxes = await Promise.all([
+      handovers.nth(0).boundingBox(),
+      handovers.nth(1).boundingBox(),
+    ]);
+    const [first, second] = boxes;
+    if (!first || !second) throw new Error("The fixture needs both handover tiles laid out");
+
+    // Each keeps the whole room column and they stack. Side by side at half
+    // width is how the grid draws two sessions running at once — which is what
+    // a reader saw here while the rows were whole hours and these two shared
+    // one.
+    expect(Math.abs(first.x - second.x)).toBeLessThan(1);
+    expect(Math.abs(first.width - second.width)).toBeLessThan(1);
+    const [above, below] = first.y <= second.y ? [first, second] : [second, first];
+    expect(above.y + above.height).toBeLessThanOrEqual(below.y + 1);
+
+    // The axis stays an hour ruler: the boundary those two share is ruled, but
+    // only whole hours are named. A bare time on screen is the ruler — a tile
+    // prints its own as a range, and the hour filter's matching options are
+    // inside a closed select.
+    const onAxis = (time: string) =>
+      page.getByText(time, { exact: true }).filter({ visible: true });
+    await expect(onAxis("16:00").first()).toBeVisible();
+    await expect(onAxis("16:30")).toHaveCount(0);
+  });
+
+  test("the hour scrubber can still reach an hour whose session starts at :30", async ({
+    page,
+  }) => {
+    await page.goto(`${DENSE_EVENT_URL}?view=rooms`);
+
+    // Nothing else in the programme starts in the handovers' first hour
+    // (kapitularz_print_seed.py), so that hour is reachable only through a
+    // session starting at :30. A grid keying its anchors on the cut rather than
+    // the hour strands that marker: it has nothing to scroll to, and the rail
+    // hides it on first paint.
+    const markers = page.getByRole("link", { name: /^Jump to / });
+    await expect(markers.first()).toBeAttached();
+    const hrefs = await markers.evaluateAll((links) =>
+      links.map((link) => link.getAttribute("href") ?? ""),
     );
-    expect(new Set(rows).size).toBe(2);
-
-    // Their boundaries cut the hour rows, and a cut row is ruled but unnamed —
-    // the whole hours stay the ruler.
-    const cut = page.locator(".room-lanes-line-cut").first();
-    await expect(cut).toHaveAttribute("data-row-minutes", "30");
-    const cutRow = await cut.getAttribute("data-lane-row");
-    await expect(page.locator(`.room-lanes-time[data-lane-row="${cutRow}"]`)).toHaveText("");
-
-    // Every row still resolves to a track. The served --row-track-<minutes> and
-    // the list room-lanes.ts rebuilds from them both name variables; one that
-    // nothing defined would compute to nothing and take the whole explicit
-    // grid with it, leaving auto rows that no longer match the tile spans.
-    const lanes = page.locator(".room-lanes").first();
-    const tracks = await page
-      .locator(".room-lanes-body")
-      .first()
-      .evaluate((el) => getComputedStyle(el).gridTemplateRows.split(" ").length);
-    expect(tracks).toBe(Number(await lanes.getAttribute("data-rows")));
+    const unreachable = await page.evaluate(
+      (targets) => targets.filter((target) => document.querySelector(target) === null),
+      hrefs,
+    );
+    expect(unreachable).toEqual([]);
   });
 
   test("the grid offers sideways scrollbars on both edges", async ({ page }) => {
