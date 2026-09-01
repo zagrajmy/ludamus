@@ -460,3 +460,6 @@ If you fix a papercut, remove it.
   sum.golang.org stream errors and shellcheck-py/hadolint-py timed out
   fetching wheel metadata from PyPI. Had to build the venv and run poetry,
   npm and vite by hand to get a server up.
+- 2026-09-01: mise run check reformatted 90 vendored
+  .claude/skills/impeccable/scripts/*.mjs files unrelated to the diff; had to
+  git checkout -- .claude/ before committing.

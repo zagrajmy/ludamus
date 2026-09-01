@@ -14,6 +14,7 @@ from django.utils.html import format_html
 
 from ._registry import register
 from ._utils import format_tag_attrs, parse_tag_attrs
+from .button import SIZE_CLASSES, VARIANT_CLASSES
 from .icon import icon as render_icon
 
 if TYPE_CHECKING:
@@ -24,6 +25,11 @@ _ALIGN_CLASSES = {
     "start": "left-0",
     "center": "left-1/2 -translate-x-1/2",
     "end": "right-0",
+}
+
+_TRIGGER_VARIANTS = {
+    "plain": "rounded-lg",
+    "secondary": f"{VARIANT_CLASSES['secondary']} {SIZE_CLASSES['md']}",
 }
 
 _ITEM_CLASS = (
@@ -55,7 +61,15 @@ class ActionDropdownNode(template.Node):
             raise template.TemplateSyntaxError(msg)
         hover = bool(resolved.pop("hover", True))
         label = str(resolved.pop("label", "") or "")
-        trigger_class = str(resolved.pop("trigger_class", "") or "")
+        variant = str(resolved.pop("trigger_variant", "plain"))
+        if variant not in _TRIGGER_VARIANTS:
+            options = sorted(_TRIGGER_VARIANTS)
+            msg = f"tessera_action_dropdown trigger_variant must be one of {options}"
+            raise template.TemplateSyntaxError(msg)
+        extra_class = str(resolved.pop("trigger_class", "") or "")
+        trigger_class = " ".join(
+            part for part in (_TRIGGER_VARIANTS[variant], extra_class) if part
+        )
 
         return render_to_string(
             self._TEMPLATE,
@@ -75,6 +89,10 @@ class ActionDropdownNode(template.Node):
 @register.tag("tessera_action_dropdown")
 def do_action_dropdown(parser: Parser, token: Token) -> ActionDropdownNode:
     """Parse the dropdown's two slots: trigger content, then menu items.
+
+    ``trigger_variant`` picks the trigger's look from the button system:
+    ``plain`` is a bare trigger, ``secondary`` wears the secondary button.
+    ``trigger_class`` adds layout on top of it, never a look of its own.
 
     Returns:
         An ActionDropdownNode rendering the trigger button plus its menu.
