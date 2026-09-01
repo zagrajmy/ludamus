@@ -8,7 +8,18 @@
   --col-min: 10rem;
   /* room-lanes.ts rebuilds these track lists when a filter empties a track, so
      the sizes live here once and both consumers name them. */
-  --row-track: minmax(3.5rem, auto);
+  /* An hour's worth of grid height. Rows are hours cut at the instants the
+     programme changes (schedule.py, _row_windows), so a row is a share of an
+     hour and takes that share of the unit. The per-length --row-track-<minutes>
+     variables are built from this unit in the template's nonced style: which
+     lengths a schedule uses is data, and a track list cannot name a variable
+     the served rows did not define. --row-track is the whole hour, and the
+     day-seam rows — which measure no time — keep it. */
+  --row-track-unit: 3.5rem;
+  /* A cut row still carries its time on the axis, so none collapses below a
+     line of it. */
+  --row-track-floor: 1.15rem;
+  --row-track: minmax(var(--row-track-unit), auto);
   --col-track: minmax(var(--col-min), 1fr);
 }
 
@@ -66,12 +77,23 @@ body:has(.room-lanes-panning) * {
   width: max(100%, calc(var(--axis-w) + var(--live-rooms, var(--rooms)) * var(--col-min)));
 }
 
+/* The served row list (the template's nonced style) and room-lanes.ts both
+   overwrite this; it is the uniform fallback for a page whose nonced style
+   never applied. */
 .room-lanes-body {
   grid-template-rows: repeat(var(--rows), var(--row-track));
 }
 
 .room-lanes-line {
   grid-column: 2 / -1;
+}
+
+/* A row cut inside an hour (a session starting at :30, say) rules itself
+   fainter and dashed: the whole hours stay the ruler, and the cuts read as
+   marks on it rather than as a second, competing grid. */
+.room-lanes-line-cut {
+  border-top-style: dashed;
+  border-top-color: color-mix(in oklch, var(--color-border) 30%, transparent);
 }
 
 .room-lanes-scroll-shell {

@@ -44,7 +44,7 @@ const scheduleMoment = (instant: string | null) => {
 
 // The instant the programme opens. Setup only — nothing asserts on these.
 const firstHour = async (page: Page) =>
-  scheduleMoment(await page.locator("[data-hour-start]").first().getAttribute("data-hour-start"));
+  scheduleMoment(await page.locator("[data-row-start]").first().getAttribute("data-row-start"));
 
 const firstStart = async (page: Page) =>
   scheduleMoment(
@@ -334,8 +334,8 @@ test.describe("Event schedule views", () => {
     const sourceRow = (await sourceLine.getAttribute("data-lane-row")) ?? "";
     const targetRow = (await targetLine.getAttribute("data-lane-row")) ?? "";
     await expect(targetLine.locator(".time-slot-section")).toHaveCount(1);
-    const targetStart = await targetLine.getAttribute("data-hour-start");
-    const targetEnd = await targetLine.getAttribute("data-hour-end");
+    const targetStart = await targetLine.getAttribute("data-row-start");
+    const targetEnd = await targetLine.getAttribute("data-row-end");
     if (!sourceRow || !targetRow || !targetStart || !targetEnd) {
       throw new Error("The fixture needs two consecutive room rows");
     }
@@ -378,8 +378,8 @@ test.describe("Event schedule views", () => {
           .filter((element) => {
             const row = element as HTMLElement;
             return (
-              now >= Date.parse(row.dataset.hourStart ?? "") &&
-              now < Date.parse(row.dataset.hourEnd ?? "")
+              now >= Date.parse(row.dataset.rowStart ?? "") &&
+              now < Date.parse(row.dataset.rowEnd ?? "")
             );
           })
           .map((element) => (element as HTMLElement).dataset.laneRow),

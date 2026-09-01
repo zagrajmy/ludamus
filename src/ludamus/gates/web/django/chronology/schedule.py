@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections import defaultdict
 from dataclasses import dataclass, field, replace
 from datetime import UTC, date, datetime, timedelta
+from itertools import pairwise
 from typing import TYPE_CHECKING, Literal, NamedTuple
 
 from django.utils import timezone
@@ -76,16 +77,27 @@ class RoomLaneTile:
 
 @dataclass
 class RoomLaneRow:
-    # One row of the grid. A row with no `hour` is the seam that opens a day;
-    # every other row is a whole clock hour. Row numbers are positions in the
+    # One row of the grid. A row with no `start` is the seam that opens a day;
+    # every other row is a band of clock time. Row numbers are positions in the
     # row list, so nothing counts them by hand.
+    # `minutes` is how long the band runs, which is the share of an hour's grid
+    # height it takes (see _row_windows: bands are hours cut at the instants the
+    # programme changes, so most are whole hours and the rest are fractions).
+    # A seam has none; every band has at least one, so zero reads as "seam".
     day: int
     day_start: datetime
-    hour: datetime | None
-    hour_end: datetime | None
+    start: datetime | None
+    end: datetime | None
+    minutes: int = 0
     is_repeated: bool = False
     starting_tiles: list[RoomLaneTile] = field(default_factory=list, repr=False)
     slot_key: str | None = field(default=None, compare=False)
+
+    @property
+    def on_the_hour(self) -> bool:
+        # The hour marks are the ruler; the cuts between them are annotations on
+        # it, and the axis prints them in a lighter hand.
+        return self.start is not None and self.start.minute == 0
 
 
 @dataclass
@@ -99,6 +111,33 @@ class RoomLane:
     group: str
     group_key: str
     starts_group: bool
+
+
+def _row_windows(
+    day_start: datetime, tiles: list[ScheduleTile]
+) -> list[tuple[datetime, datetime]]:
+    # The grid's rows: whole clock hours, cut again wherever a tile starts or
+    # ends inside one. Rows are what the grid stacks, so two tiles sharing a row
+    # have to be laid side by side even when they merely touch — a session
+    # ending at 16:30 and the next starting at 16:30 both live in the 16:00
+    # hour, and an hour-only ruler would show them clashing. Cutting at the
+    # instants the programme changes makes "shares a row" mean "overlaps in
+    # time" again, and _place_conflicting_tiles keeps reading rows.
+    day_end = max(tile.end.timestamp() for tile in tiles)
+    edges: dict[float, datetime] = {}
+    mark = day_start
+    while True:
+        edges[mark.timestamp()] = mark
+        if mark.timestamp() >= day_end:
+            break
+        mark = (mark.astimezone(UTC) + timedelta(hours=1)).astimezone(day_start.tzinfo)
+    first, last = day_start.timestamp(), mark.timestamp()
+    for tile in tiles:
+        for instant in (tile.start, tile.end):
+            if first < instant.timestamp() < last:
+                edges[instant.timestamp()] = instant
+    ordered = [edges[key] for key in sorted(edges)]
+    return list(pairwise(ordered))
 
 
 def _place_conflicting_tiles(
@@ -182,6 +221,10 @@ class RoomLanes:
     spans: list[int]
     lane_indices: list[int]
     lane_counts: list[int]
+    # The distinct row lengths, so the template can serve one grid track per
+    # length; row heights are a share of the hour unit that lives in the
+    # stylesheet, the same way `spans` serves the tile heights.
+    row_minutes: list[int]
 
 
 def build_schedule_days(sessions_data: dict[int, SessionData]) -> list[ScheduleDay]:
@@ -377,47 +420,34 @@ def build_room_lanes(schedule_days: list[ScheduleDay]) -> RoomLanes:
             # row is the header printed twice rather than a boundary.
             rows.append(
                 RoomLaneRow(
-                    day=index,
-                    day_start=day_start,
-                    hour=None,
-                    hour_end=None,
-                    slot_key=None,
+                    day=index, day_start=day_start, start=None, end=None, slot_key=None
                 )
             )
-        first_hour_row = len(rows) + 1
+        first_band_row = len(rows) + 1
 
-        day_end = max(day.tiles, key=lambda tile: tile.end.timestamp()).end
-        hour_windows: list[tuple[datetime, datetime]] = []
-        mark = day_start
-        while mark.timestamp() < day_end.timestamp():
-            next_mark = (mark.astimezone(UTC) + timedelta(hours=1)).astimezone(
-                day_start.tzinfo
-            )
-            hour_windows.append((mark, next_mark))
-            mark = next_mark
-
+        row_windows = _row_windows(day_start, day.tiles)
         rows.extend(
             RoomLaneRow(
                 day=index,
                 day_start=day_start,
-                hour=start,
-                hour_end=end,
+                start=start,
+                end=end,
+                minutes=max(1, round((end.timestamp() - start.timestamp()) / 60)),
                 is_repeated=_is_ambiguous_local_hour(start),
                 slot_key=_instant_key(start),
             )
-            for start, end in hour_windows
+            for start, end in row_windows
         )
 
         for tile in day.tiles:
             covered_rows = [
                 offset
-                for offset, (start, end) in enumerate(hour_windows)
+                for offset, (start, end) in enumerate(row_windows)
                 if start.timestamp() < tile.end.timestamp()
                 and end.timestamp() > tile.start.timestamp()
             ]
             if not covered_rows:
                 raise ValueError("scheduled tile does not overlap its local-day rows")
-            start_hour = covered_rows[0]
             room_tile = RoomLaneTile(
                 data=tile.data,
                 start=tile.start,
@@ -426,7 +456,7 @@ def build_room_lanes(schedule_days: list[ScheduleDay]) -> RoomLanes:
                 row_span=len(covered_rows),
             )
             spans.add(room_tile.row_span)
-            positioned.append((first_hour_row + start_hour, room_tile))
+            positioned.append((first_band_row + covered_rows[0], room_tile))
 
     placed = _place_conflicting_tiles(positioned)
     for row_start, room_tile in placed:
@@ -438,4 +468,5 @@ def build_room_lanes(schedule_days: list[ScheduleDay]) -> RoomLanes:
         spans=sorted(spans),
         lane_indices=sorted({tile.lane_index for _, tile in placed}),
         lane_counts=sorted({tile.lane_count for _, tile in placed}),
+        row_minutes=sorted({row.minutes for row in rows if row.minutes}),
     )

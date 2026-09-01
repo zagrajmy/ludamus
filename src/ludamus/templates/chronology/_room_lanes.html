@@ -1,12 +1,15 @@
 {% load csp_tags %}
 {% load i18n %}
-{# Rooms view: a CSS grid — rooms across, whole clock hours down, every day of #}
-{# the event stacked into the one grid. Rooms are the outer axis, so the whole #}
+{# Rooms view: a CSS grid — rooms across, clock time down, every day of the #}
+{# event stacked into the one grid. Rooms are the outer axis, so the whole #}
 {# event shares one column set, one room header, and one horizontal scroller; #}
-{# a room idle on a given day keeps its column and shows the gap. A session #}
-{# sits in its start-hour row and spans the hours it covers, so longer #}
-{# sessions render taller; rows are auto-height, so a tile is never clipped. #}
-{# Hour rows with sessions carry the .time-slot-section / #slot-<hour> #}
+{# a room idle on a given day keeps its column and shows the gap. Rows are #}
+{# whole hours, cut again wherever a session starts or ends inside one, so a #}
+{# session sits in the row it starts and spans exactly the rows it covers and #}
+{# no more: two sessions share a row only when they really do run at once. #}
+{# Each row takes its share of an hour's height (--row-track-<minutes>, served #}
+{# below) and rows are auto-height, so a tile is never clipped. #}
+{# Rows with sessions carry the .time-slot-section / #slot-<instant> #}
 {# contract so the hour scrubber and filters keep working. #}
 {# Grid placement is data-driven, not inline: a style attribute cannot carry a #}
 {# CSP nonce, so the per-index rules live in one nonced style element keyed on #}
@@ -24,6 +27,15 @@
             grid-column: {{ forloop.counter|add:1 }};
         }
         {% endfor %}
+        {% for minutes in room_lanes.row_minutes %}
+        .room-lanes {
+            --row-track-{{ minutes }}: minmax(max(var(--row-track-floor), calc(var(--row-track-unit) * {{ minutes }} / 60)), auto);
+        }
+        {% endfor %}
+
+        .room-lanes-body {
+            grid-template-rows: {% for row in room_lanes.rows %} {% if row.minutes %}var(--row-track-{{ row.minutes }}){% else %}var(--row-track){% endif %}{% endfor %};
+        }
         {% for row in room_lanes.rows %}
         [data-lane-row="{{ forloop.counter }}"] {
             grid-row: {{ forloop.counter }};
@@ -114,23 +126,27 @@
                         <span data-day-date>{{ room_lanes.rows.0.day_start|date:"j F" }}</span>
                     </h3>
                     {# One loop, one row each: the row's position in the list is its #}
-                    {# grid row, and a row with no hour is the seam opening a day. #}
+                    {# grid row, and a row with no start is the seam opening a day. #}
                     {% for row in room_lanes.rows %}
-                        {% if row.hour %}
-                            <div class="room-lanes-time sticky left-0 z-40 bg-background pr-1 text-right text-[0.7rem] font-bold tabular-nums text-foreground-muted"
+                        {% if row.start %}
+                            {# The whole hours are the ruler and stay bold; a row #}
+                            {# cut inside one marks where the programme changes and #}
+                            {# is annotation on that ruler, so it reads lighter. #}
+                            <div class="room-lanes-time sticky left-0 z-40 bg-background pr-1 text-right text-[0.7rem] tabular-nums {% if row.on_the_hour %}font-bold text-foreground-muted{% else %}font-medium text-foreground-muted/65{% endif %}"
                                  data-lane-row="{{ forloop.counter }}"
                                  data-lane-day="{{ row.day }}">
-                                {{ row.hour|time:"H:i" }}
-                                {% if row.is_repeated %}<span class="block text-[0.55rem]">{{ row.hour.tzname }}</span>{% endif %}
+                                {{ row.start|time:"H:i" }}
+                                {% if row.is_repeated %}<span class="block text-[0.55rem]">{{ row.start.tzname }}</span>{% endif %}
                             </div>
                             {# No rule on the very first row: the header already #}
                             {# draws its own bottom border directly above it, and #}
                             {# the two stack into a doubled hairline. #}
-                            <div class="room-lanes-line{% if not forloop.first %} border-t border-border/60{% endif %}"
+                            <div class="room-lanes-line{% if not forloop.first %} border-t border-border/60{% endif %}{% if not row.on_the_hour %} room-lanes-line-cut{% endif %}"
                                  data-lane-row="{{ forloop.counter }}"
                                  data-lane-day="{{ row.day }}"
-                                 data-hour-start="{{ row.hour|date:'c' }}"
-                                 data-hour-end="{{ row.hour_end|date:'c' }}">
+                                 data-row-minutes="{{ row.minutes }}"
+                                 data-row-start="{{ row.start|date:'c' }}"
+                                 data-row-end="{{ row.end|date:'c' }}">
                                 {% if row.starting_tiles %}
                                     <span class="time-slot-section block h-full scroll-mt-40"
                                           id="slot-{{ row.slot_key }}"

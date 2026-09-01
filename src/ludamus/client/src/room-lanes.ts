@@ -1,17 +1,18 @@
 // Grid tracks are server-rendered, so filtering — which only hides the tiles
-// (session-filters.ts) — leaves every emptied hour row holding its 3.5rem and
+// (session-filters.ts) — leaves every emptied row holding its height and
 // every emptied room column its --col-min: three surviving sessions scattered
 // across a full-size table the reader has to scroll. Collapse the tracks that
 // no longer carry a visible tile, and hide the axis labels, gridlines, and
 // column rules that belong to them.
-// The track sizes themselves stay in index.css as --row-track / --col-track and
-// are named, never copied, here: a track list built from literals would drift
-// from the served one, silently and with nothing to catch it.
+// The track sizes themselves stay in room-lanes.css as --row-track /
+// --row-track-<minutes> / --col-track and are named, never copied, here: a
+// track list built from literals would drift from the served one, silently and
+// with nothing to catch it.
 const COLLAPSED = "room-lanes-collapsed";
 
-// A track survives if anything visible is on it, or if nothing ever was: an
-// hour no tile covered is a break in the programme, and the server renders it
-// at full height. Collapsing it would leave a cleared filter showing a
+// A track survives if anything visible is on it, or if nothing ever was: a row
+// no tile covered is a break in the programme, and the server renders it at
+// full height. Collapsing it would leave a cleared filter showing a
 // different schedule than the first load did. The same rule decides whether a
 // whole day survives, one scale up.
 const survives = (had: boolean, live: boolean): boolean => live || !had;
@@ -92,6 +93,11 @@ const collapseEmptyTracks = (lanes: HTMLElement): void => {
   const dayOfRow = new Map<number, number>();
   for (const el of lanes.querySelectorAll<HTMLElement>("[data-lane-day]")) {
     dayOfRow.set(Number(el.dataset.laneRow), Number(el.dataset.laneDay));
+  }
+  // How long each row's band runs, which is the grid track it asks for.
+  const minutesOfRow = new Map<number, number>();
+  for (const el of lanes.querySelectorAll<HTMLElement>("[data-row-minutes]")) {
+    minutesOfRow.set(Number(el.dataset.laneRow), Number(el.dataset.rowMinutes));
   }
   // A folded day (schedule-fold.ts) keeps its seam row as the way back in and
   // gives up everything else. Its tiles still count as live for the columns —
@@ -175,9 +181,16 @@ const collapseEmptyTracks = (lanes: HTMLElement): void => {
 
   const body = lanes.querySelector<HTMLElement>(".room-lanes-body");
   if (body) {
-    body.style.gridTemplateRows = Array.from({ length: rowCount }, (_, index) =>
-      rowLives(index + 1) ? "var(--row-track)" : "0",
-    ).join(" ");
+    // Rows are hours cut at the instants the programme changes, so each takes
+    // its own share of an hour's height. The template serves one
+    // --row-track-<minutes> per length it used, and a day seam — which measures
+    // no time — keeps the whole-hour --row-track. Named, never recomputed: the
+    // sizes stay in room-lanes.css.
+    body.style.gridTemplateRows = Array.from({ length: rowCount }, (_, index) => {
+      if (!rowLives(index + 1)) return "0";
+      const minutes = minutesOfRow.get(index + 1);
+      return minutes ? `var(--row-track-${minutes})` : "var(--row-track)";
+    }).join(" ");
   }
   lanes.hidden = liveCols.size === 0;
 };
