@@ -134,7 +134,21 @@ jobs:
             'tests/e2e/package.json') }}
       - uses: ./.github/actions/toolchain
 
+      # `playwright install --with-deps` shells out to apt, which has no
+      # download timeout of its own: a hung mirror connection sat for 452s on
+      # one 43 kB package and ate a whole shard's 30min budget. Sharding rolls
+      # that dice once per shard, so bound the wait and let apt retry.
+      - name: Bound apt downloads
+        run: |
+          sudo tee /etc/apt/apt.conf.d/99-timeouts >/dev/null <<'CONF'
+          Acquire::Retries "3";
+          Acquire::http::Timeout "20";
+          Acquire::https::Timeout "20";
+          CONF
       - name: Install Playwright Browsers
+        # Fails in 10min rather than starving the specs of the job budget and
+        # reporting as a 30min job timeout that names no step.
+        timeout-minutes: 10
         run: mise run test:e2e:install
       - name: Run end-to-end tests
         run: mise run test:e2e -- --shard=${{ matrix.shard }}/${{ strategy.job-total }}
