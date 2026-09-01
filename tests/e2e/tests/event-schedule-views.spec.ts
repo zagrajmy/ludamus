@@ -118,34 +118,25 @@ test.describe("Event schedule views", () => {
     const max = await body.evaluate((el) => el.scrollWidth - el.clientWidth);
     expect(max).toBeGreaterThanOrEqual(300);
 
-    // Two ways to hold the body's offset and the browser picks one, so ask for
-    // the offset rather than for the box: where a scroll-driven animation
-    // moves the head, WebKit runs it off the main thread and
-    // getBoundingClientRect() reports the head where it would be without it.
-    const headOffset = () =>
+    // Where the two grids actually are, not what moved them: the header rides
+    // either a scroll-driven animation or an inline translate holding the same
+    // offset, and only the rendered result is the contract.
+    const columnDrift = () =>
       page.evaluate(() => {
         const lanes = document.querySelector(".room-lanes") as HTMLElement;
-        const body = lanes.querySelector("[data-room-lanes-scroll]") as HTMLElement;
-        const head = lanes.querySelector("[data-room-lanes-head]") as HTMLElement;
-        const grid = head.querySelector(".room-lanes-grid") as HTMLElement;
-        // The same question room-lanes.ts asks before it decides whether the
-        // head still needs a scroll listener.
-        const tracking = grid
-          .getAnimations()
-          .find(
-            (animation) => animation.timeline !== null && animation.timeline !== document.timeline,
-          );
-        if (!tracking) return Math.round(head.scrollLeft);
-        const progress = tracking.effect?.getComputedTiming().progress ?? 0;
-        return Math.round(Number(progress) * (body.scrollWidth - body.clientWidth));
+        const head = lanes.querySelector("[data-room-lanes-head] .room-lanes-grid");
+        const rooms = lanes.querySelector(".room-lanes-body");
+        return Math.round(
+          Math.abs(head!.getBoundingClientRect().left - rooms!.getBoundingClientRect().left),
+        );
       });
 
     for (const left of [0, Math.floor(max / 3), max]) {
       await body.evaluate((el, target) => {
         el.scrollLeft = target;
       }, left);
-      await expect.poll(headOffset).toBe(left);
-      // The axis heading is the one thing the offset must not carry: it names
+      await expect.poll(columnDrift).toBe(0);
+      // The axis heading is the one thing that offset must not carry: it names
       // the gutter, which stays put.
       expect(
         await page.locator(".room-lanes-corner").evaluate((corner) => {
