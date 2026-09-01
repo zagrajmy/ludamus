@@ -68,7 +68,9 @@ jobs:
       - run: mise install
       - run: mise exec -- poetry install
 
-      - name: Prepare iOS simulator
+      # Split from the wait below: booting takes ~2min of pure waiting that
+      # the fixture bootstrap has no reason to sit behind.
+      - name: Select and boot iOS simulator
         run: |
           UDID=$(python - <<'PY'
           import json
@@ -96,7 +98,6 @@ jobs:
           PY
           )
           xcrun simctl boot "$UDID" || true
-          xcrun simctl bootstatus "$UDID" -b
           echo "UDID=$UDID" >> "$GITHUB_ENV"
 
       - name: Bootstrap e2e fixtures
@@ -118,6 +119,11 @@ jobs:
           echo "Local e2e server did not become ready" >&2
           tail -200 ios-server.log >&2
           exit 1
+
+      # Boot started before the fixture bootstrap, so by here it is usually
+      # done; the simulator has to be up before the runner build below.
+      - name: Wait for iOS simulator
+        run: xcrun simctl bootstatus "$UDID" -b
 
       # The XCUITest runner's build measures ~240s and is paid by the first
       # runner-backed command anywhere. Left inside a test hook it burns that
