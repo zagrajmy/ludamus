@@ -292,6 +292,23 @@ def test_extract_programme_rejects_merge_past_the_visible_time_header() -> None:
         )
 
 
+def test_extract_programme_rejects_merge_across_a_hidden_column() -> None:
+    regular = _sheet_with_one_room()
+    cells = dict(regular.cells)
+    cells |= {"D4": "Ukryty środek", "F3": "0.53125"}
+    del cells["C4"]
+    crossing = wb.SheetData(
+        cells=cells,
+        merges=("A4:A6", "D4:F4"),
+        hidden_columns=frozenset({wb.column_index("E1")}),
+    )
+
+    with pytest.raises(ValueError, match="scheduled title is not merged"):
+        sync.extract_programme(
+            {"Piątek": regular, "Sobota": crossing, "Niedziela": regular}
+        )
+
+
 def test_extract_programme_dates_each_sheet_from_its_own_day() -> None:
     items = sync.extract_programme(
         {name: _sheet_with_one_room() for name in ("Piątek", "Sobota", "Niedziela")}

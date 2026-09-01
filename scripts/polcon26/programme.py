@@ -465,7 +465,11 @@ def _schedule_merges(
     result = {}
     for reference in sheet.merges:
         first, row, last, last_row = parse_range(reference)
-        if first_column <= first <= last_column and last <= last_column:
+        if (
+            first_column <= first <= last_column
+            and last <= last_column
+            and sheet.hidden_columns.isdisjoint(range(first, last + 1))
+        ):
             result[row, first] = (last, last_row, reference)
     return result
 
