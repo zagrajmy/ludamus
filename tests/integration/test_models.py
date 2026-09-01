@@ -6,6 +6,7 @@ from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
 
 from ludamus.links.db.django.models import (
+    CofacilitatorResolution,
     DiscountRule,
     Guild,
     GuildMembership,
@@ -14,6 +15,7 @@ from ludamus.links.db.django.models import (
     PartyMembership,
     ScheduleChangeAction,
     ScheduleChangeLog,
+    SessionField,
     SphereMembership,
     TimeSlot,
     Track,
@@ -162,6 +164,19 @@ class TestModelStringRepresentations:
 
         assert str(guild) == "Topory"
         assert str(membership) == f"{active_user.pk} in guild {guild.pk}"
+
+    def test_cofacilitator_resolution_str(self, event, session):
+        field = SessionField.objects.create(
+            event=event,
+            name="Co-facilitators",
+            question="Who runs it with you?",
+            slug="co-facilitators",
+        )
+        resolution = CofacilitatorResolution.objects.create(
+            session=session, field=field, fragment="jan kowalski"
+        )
+
+        assert str(resolution) == "jan kowalski"
 
     def test_discount_rule_str(self, event):
         rule = DiscountRule.objects.create(

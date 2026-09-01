@@ -1,8 +1,11 @@
 """Unit tests for the co-facilitator extraction mill."""
 
+from unittest.mock import Mock
+
 import pytest
 
 from ludamus.mills.panel_cofacilitators import (
+    CofacilitatorPanelService,
     guess_names,
     is_resolved,
     resolved_keys,
@@ -10,6 +13,7 @@ from ludamus.mills.panel_cofacilitators import (
     suggested_values,
 )
 from ludamus.pacts.fields import OrganizerFieldDTO
+from ludamus.pacts.legacy import NotFoundError
 
 
 def _field(pk: int, name: str, slug: str) -> OrganizerFieldDTO:
@@ -97,3 +101,16 @@ class TestSuggestedValues:
         assert not suggested_values(
             fragment="Jan Kowalski", fields=[_field(1, "X", "x")]
         )
+
+
+class TestResolveField:
+    def test_refuses_a_pick_that_is_not_one_of_this_events_field_ids(self):
+        repos = Mock()
+        service = CofacilitatorPanelService(
+            transaction=Mock(), repos=repos, facilitator_panel=Mock()
+        )
+
+        with pytest.raises(NotFoundError):
+            service.resolve_field(event_id=1, raw="co-facilitators")
+
+        assert repos.mock_calls == []

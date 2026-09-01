@@ -179,6 +179,36 @@ class TestCofacilitatorsPageView:
             },
         )
 
+    def test_get_reads_a_multiple_choice_answer_as_one_line(
+        self, panel_client, event, cohost_field
+    ):
+        session = SessionFactory(event=event, category=None, title="Dungeon")
+        SessionFieldValue.objects.create(
+            session=session, field=cohost_field, value=["Jan Kowalski", "Piotr Nowak"]
+        )
+
+        response = panel_client.get(self.get_url(event))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/cofacilitators.html",
+            context_data={
+                **_event_context(event),
+                "fields": [_field_dto(cohost_field)],
+                "chosen_field": _field_dto(cohost_field),
+                "sessions": [
+                    CofacilitatorSessionDTO(
+                        session_id=session.pk,
+                        title="Dungeon",
+                        value="Jan Kowalski; Piotr Nowak",
+                        facilitator_names=[],
+                        unresolved_count=2,
+                    )
+                ],
+            },
+        )
+
     def test_get_shows_no_sessions_when_the_event_has_no_fields(
         self, panel_client, event
     ):
@@ -761,6 +791,25 @@ class TestCofacilitatorClearActionView:
             response,
             HTTPStatus.FOUND,
             messages=[(messages.ERROR, "Field not found.")],
+            url=reverse("panel:cofacilitators", kwargs={"slug": event.slug}),
+        )
+        assert SessionFieldValue.objects.filter(
+            session=session_with_answer, field=cohost_field
+        ).exists()
+
+    def test_post_refuses_a_session_from_another_event(
+        self, panel_client, event, session_with_answer, cohost_field
+    ):
+        other_session = SessionFactory(category=None)
+
+        response = panel_client.post(
+            self.get_url(event, other_session), data={"field": cohost_field.pk}
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.ERROR, "Session not found.")],
             url=reverse("panel:cofacilitators", kwargs={"slug": event.slug}),
         )
         assert SessionFieldValue.objects.filter(
