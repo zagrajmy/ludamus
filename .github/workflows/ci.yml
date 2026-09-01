@@ -134,16 +134,37 @@ jobs:
             'tests/e2e/package.json') }}
       - uses: ./.github/actions/toolchain
 
-      # `playwright install --with-deps` shells out to apt, which has no
-      # download timeout of its own: a hung mirror connection sat for 452s on
-      # one 43 kB package and ate a whole shard's 30min budget. Sharding rolls
-      # that dice once per shard, so bound the wait and let apt retry.
-      - name: Bound apt downloads
+      # `playwright install --with-deps` shells out to apt for 181 packages
+      # and 114MB, on every shard, every run. archive.ubuntu.com has measured
+      # anywhere from 12s to 1m47s for that, and once hung for 452s on a
+      # single 43kB package. Keep the .debs so a repeat run needs no mirror,
+      # bound the wait when it does, and let apt retry.
+      - name: Apt cache key
+        id: apt
+        run: echo "key=$ImageOS-$ImageVersion" >> "$GITHUB_OUTPUT"
+      - name: Let the cache write the apt archive
         run: |
-          sudo tee /etc/apt/apt.conf.d/99-timeouts >/dev/null <<'CONF'
+          sudo mkdir -p /var/cache/apt/archives
+          sudo chown "$USER" /var/cache/apt/archives
+      # Only the .debs: apt's own partial/ is mode 0700, and the post-job save
+      # runs as the runner user, which could not read it.
+      - uses: actions/cache@v4
+        with:
+          path: /var/cache/apt/archives/*.deb
+          key: apt-${{ steps.apt.outputs.key }}-${{ hashFiles(
+            'tests/e2e/package.json') }}
+          # A partial hit still helps: apt fetches only what is missing.
+          restore-keys: |
+            apt-${{ steps.apt.outputs.key }}-
+      - name: Hand the apt archive back to root
+        run: |
+          sudo chown root:root /var/cache/apt/archives
+          sudo tee /etc/apt/apt.conf.d/99-ci >/dev/null <<'CONF'
           Acquire::Retries "3";
           Acquire::http::Timeout "20";
           Acquire::https::Timeout "20";
+          APT::Keep-Downloaded-Packages "true";
+          Binary::apt::APT::Keep-Downloaded-Packages "true";
           CONF
       - name: Install Playwright Browsers
         # Fails in 10min rather than starving the specs of the job budget and
