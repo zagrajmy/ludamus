@@ -24,6 +24,10 @@ const PROPOSAL_TITLE_EDITED = "Midnight Heist One-Shot (revised)";
 // the name unique per attempt instead.
 let facilitator: string = "Wanda Frost";
 
+// The proposals list drops the proposal once the status test rejects it, so
+// the spacing test returns to the detail page by the URL that test landed on.
+let proposalUrl = "";
+
 test.describe("Panel facilitator + proposal CRUD", () => {
   test.beforeEach(async ({ page }) => {
     // Authenticate as the sphere manager via Django admin, mirroring the
@@ -146,6 +150,33 @@ test.describe("Panel facilitator + proposal CRUD", () => {
     await expect(acceptButton).toBeVisible();
     await expect(holdMenuItem).toBeVisible();
     await expect(rejectMenuItem).toHaveCount(0);
+
+    proposalUrl = page.url();
+  });
+
+  test("spaces the actions evenly and shapes More like the buttons", async ({ page }) => {
+    // The status POST form is a sibling of this row, not a member of it: as a
+    // flex child it used to claim a gap slot of its own and push the buttons
+    // apart. The trigger's radius comes from .btn, so it must match Edit's.
+    await page.goto(proposalUrl);
+
+    const edit = page.getByRole("link", { name: "Edit", exact: true });
+    const primary = page.getByRole("button", { name: "Move to pending" });
+    const more = page.getByRole("button", { name: "More" });
+
+    const boxes = await Promise.all([edit, primary, more].map((it) => it.boundingBox()));
+    const [editBox, primaryBox, moreBox] = boxes;
+    if (!editBox || !primaryBox || !moreBox) {
+      throw new Error("the actions row is not laid out");
+    }
+
+    // gap-2 on the row, the same gap the badge and the buttons already sit on.
+    expect(Math.round(primaryBox.x - (editBox.x + editBox.width))).toBe(8);
+    expect(Math.round(moreBox.x - (primaryBox.x + primaryBox.width))).toBe(8);
+
+    const radiusOf = (locator: typeof edit) =>
+      locator.evaluate((element) => getComputedStyle(element).borderRadius);
+    expect(await radiusOf(more)).toBe(await radiusOf(edit));
   });
 
   test("scheduled proposal only offers edit and delete", async ({ page }) => {

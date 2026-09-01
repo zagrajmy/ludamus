@@ -9,6 +9,11 @@ import pytest
 from django.template import Context, Template, TemplateSyntaxError
 from heroicons import IconDoesNotExist
 
+from ludamus.adapters.web.django.templatetags.tessera.button import (
+    SIZE_CLASSES,
+    VARIANT_CLASSES,
+)
+
 
 class TestIcon:
     def test_renders_outline_by_default(self) -> None:
@@ -810,20 +815,29 @@ class TestActionDropdown:
         assert '<span class="sr-only">Add to calendar</span>' in html
         assert "<span>trigger</span>" in html
 
-    def test_trigger_radius_defaults_but_yields_to_a_styled_trigger(self) -> None:
-        default_html = Template(self.BASE).render(Context())
-        button_html = Template(
+    def test_secondary_trigger_wears_the_button_look(self) -> None:
+        html = Template(
             "{% load tessera %}"
-            '{% tessera_action_dropdown id="m" trigger_class="btn btn-secondary" %}t'
+            '{% tessera_action_dropdown id="m" trigger_variant="secondary" %}t'
             "{% action_dropdown_menu %}"
             '{% tessera_action_dropdown_item "Plain" href="/x" %}'
             "{% endtessera_action_dropdown %}"
         ).render(Context())
-        trigger = button_html.split("</button>")[0]
+        trigger = html.split("</button>")[0]
 
-        assert "rounded-lg" in default_html.split("</button>")[0]
-        assert "btn btn-secondary" in trigger
+        assert VARIANT_CLASSES["secondary"] in trigger
+        assert SIZE_CLASSES["md"] in trigger
         assert "rounded-lg" not in trigger
+
+    def test_unknown_trigger_variant_raises(self) -> None:
+        with pytest.raises(TemplateSyntaxError, match="trigger_variant must be one of"):
+            Template(
+                "{% load tessera %}"
+                '{% tessera_action_dropdown id="m" trigger_variant="ghost" %}t'
+                "{% action_dropdown_menu %}"
+                '{% tessera_action_dropdown_item "Plain" href="/x" %}'
+                "{% endtessera_action_dropdown %}"
+            ).render(Context())
 
     def test_hover_false_leaves_a_click_only_menu(self) -> None:
         html = Template(

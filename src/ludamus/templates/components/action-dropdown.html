@@ -9,9 +9,7 @@
             data-menu-button
             aria-controls="{{ id }}"
             aria-expanded="false"
-            {# The trigger's own radius, not one imposed here: a utility from #}
-            {# this layer would outrank the radius a .btn trigger brings. #}
-            class="cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary {% if trigger_class %}{{ trigger_class }}{% else %}rounded-lg{% endif %}">
+            class="cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary {{ trigger_class }}">
         {{ trigger }}
         {% if label %}<span class="sr-only">{{ label }}</span>{% endif %}
     </button>
