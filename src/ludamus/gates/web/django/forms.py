@@ -9,11 +9,10 @@ from typing import TYPE_CHECKING, Any, ClassVar, Literal, cast
 from django import forms
 from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator
-from django.utils.translation import gettext as _gettext
+from django.utils.translation import gettext
 from django.utils.translation import gettext_lazy as _
-from lxml import etree
-from PIL import Image, UnidentifiedImageError
 
+from ludamus.gates.uploads import validate_uploaded_image, validate_uploaded_logo
 from ludamus.gates.web.django.dynamic_fields import (
     CustomAnswerFormMixin,
     build_dynamic_fields,
@@ -26,27 +25,22 @@ from ludamus.pacts.durations import (
     build_duration,
     duration_choices,
 )
-from ludamus.pacts.images import ALLOWED_IMAGE_FORMATS, IMAGE_ACCEPT, LOGO_ACCEPT
+from ludamus.pacts.images import IMAGE_ACCEPT, LOGO_ACCEPT
 from ludamus.pacts.legacy import EncounterPublicPolicy, PromotionMode, SpherePage
 from ludamus.pacts.submissions import AccreditationType
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Sequence
 
-    from django.core.files.uploadedfile import UploadedFile
     from django.utils.functional import _StrPromise
-    from lxml.etree import _Element as Element
 
     from ludamus.pacts import SessionFieldRequirementDTO
     from ludamus.pacts.multiverse import ConnectionDTO
 
 _DATETIME_LOCAL_FORMATS = ["%Y-%m-%dT%H:%M", "%Y-%m-%dT%H:%M:%S"]
-# Image-upload invariants (business rules, not gate trivia): every cover/header
-# upload across the app is held to these same limits via validate_uploaded_image.
-MAX_IMAGE_SIZE = 8 * 1024 * 1024
-# A small (≤8 MB) file can still decode to a huge bitmap; cap pixel count to
-# bound memory (decompression-bomb guard). 24 MP comfortably fits any cover.
-MAX_IMAGE_PIXELS = 24_000_000
+# The hero prints the address under the venue name, where a third line
+# pushes the CTAs off a phone screen.
+MAX_ADDRESS_LINES = 2
 # Hand-written rather than joined from IMAGE_FORMATS: it is translated user copy,
 # and a comma-joined list of MIME types reads nothing like a sentence.
 COVER_IMAGE_HELP_TEXT = _(
@@ -63,124 +57,6 @@ MAX_STORED_PARTICIPANTS_LIMIT = 2_147_483_647
 STORAGE_LIMIT_VALIDATOR = MaxValueValidator(
     MAX_STORED_PARTICIPANTS_LIMIT, message=_("Enter a smaller number.")
 )
-
-
-def validate_uploaded_image_size(image: object) -> None:
-    size = getattr(image, "size", 0)
-    if isinstance(size, int) and size > MAX_IMAGE_SIZE:
-        raise ValidationError(_gettext("Image too large. Maximum size is 8 MB."))
-
-
-def _validate_raster(
-    *, image_format: str | None, pixels: int, format_error: str
-) -> None:
-    if image_format not in ALLOWED_IMAGE_FORMATS:
-        raise ValidationError(format_error)
-    if pixels > MAX_IMAGE_PIXELS:
-        raise ValidationError(_gettext("Image dimensions are too large."))
-
-
-def validate_uploaded_image_format(image: object) -> None:
-    # Django's ImageField populates `image.image` (a PIL Image with `.format`)
-    # during clean. We trust the detected format over user-supplied
-    # content_type or filename extension.
-    pil_image = getattr(image, "image", None)
-    _validate_raster(
-        image_format=getattr(pil_image, "format", None),
-        pixels=getattr(pil_image, "width", 0) * getattr(pil_image, "height", 0),
-        format_error=_gettext("Unsupported image format. Use JPG, PNG, WebP, or AVIF."),
-    )
-
-
-def validate_uploaded_image(image: object) -> None:
-    # Single entry point shared by every cover/header upload form so the size +
-    # format guarantees can't drift apart across forms.
-    if image:
-        validate_uploaded_image_size(image)
-        validate_uploaded_image_format(image)
-
-
-_SVG_FORBIDDEN_TAGS = frozenset({"script", "foreignobject"})
-# libxml2 caps entity amplification (no billion laughs); unresolved entities
-# also close off XXE. See https://lxml.de/FAQ.html#is-lxml-vulnerable-to-xml-bombs
-_SVG_PARSER = etree.XMLParser(resolve_entities=False, no_network=True)
-
-
-def _xml_local_name(name: str) -> str:
-    return name.rsplit("}", 1)[-1].lower()
-
-
-# lxml types attribute names/values as str | bytes; parsed documents yield str.
-def _xml_text(value: str | bytes) -> str:
-    return value if isinstance(value, str) else value.decode(errors="replace")
-
-
-def _svg_element_is_safe(element: Element) -> bool:
-    if _xml_local_name(str(element.tag)) in _SVG_FORBIDDEN_TAGS:
-        return False
-    for name, value in element.attrib.items():
-        if _xml_local_name(_xml_text(name)).startswith("on"):
-            return False
-        if "javascript:" in "".join(_xml_text(value).split()).lower():
-            return False
-    return True
-
-
-def _validate_uploaded_svg(uploaded: UploadedFile[bytes]) -> None:
-    uploaded.seek(0)
-    try:
-        # fromstring, not parse: parse() takes a filename too, so passing an
-        # upload there reads as a path expression to taint analysis. Size is
-        # already capped by validate_uploaded_image_size.
-        root = etree.fromstring(uploaded.read(), _SVG_PARSER)
-    except etree.XMLSyntaxError as error:
-        raise ValidationError(_gettext("Invalid or unsafe SVG file.")) from error
-    finally:
-        uploaded.seek(0)
-    if (
-        _xml_local_name(str(root.tag)) != "svg"
-        # iter(Element) skips entity/comment/PI nodes, whose tag is not a string
-        or not all(
-            _svg_element_is_safe(element) for element in root.iter(etree.Element)
-        )
-    ):
-        raise ValidationError(_gettext("Invalid or unsafe SVG file."))
-
-
-def _validate_uploaded_raster_logo(uploaded: UploadedFile[bytes]) -> None:
-    uploaded.seek(0)
-    try:
-        with Image.open(uploaded) as pil_image:
-            image_format = pil_image.format
-            pixels = pil_image.width * pil_image.height
-    except UnidentifiedImageError:
-        image_format, pixels = None, 0
-    finally:
-        uploaded.seek(0)
-    _validate_raster(
-        image_format=image_format,
-        pixels=pixels,
-        format_error=_gettext(
-            "Unsupported image format. Use JPG, PNG, WebP, AVIF, or SVG."
-        ),
-    )
-
-
-def _looks_like_svg(uploaded: UploadedFile[bytes]) -> bool:
-    uploaded.seek(0)
-    head: bytes = uploaded.read(64)
-    uploaded.seek(0)
-    return head.lstrip(b"\xef\xbb\xbf \t\r\n").startswith(b"<")
-
-
-def validate_uploaded_logo(uploaded: UploadedFile[bytes] | None) -> None:
-    if not uploaded:
-        return
-    validate_uploaded_image_size(uploaded)
-    if _looks_like_svg(uploaded):
-        _validate_uploaded_svg(uploaded)
-    else:
-        _validate_uploaded_raster_logo(uploaded)
 
 
 class DropzoneFileInput(forms.ClearableFileInput):
@@ -258,8 +134,26 @@ class EventSettingsForm(forms.Form):
         max_length=50, error_messages={"required": _("Event slug is required.")}
     )
     description = forms.CharField(
-        required=False, widget=forms.Textarea(attrs={"rows": 3})
+        required=False,
+        widget=forms.Textarea(attrs={"rows": 3}),
+        help_text=_("Aim for about 230 characters."),
     )
+    address = forms.CharField(
+        max_length=255,
+        required=False,
+        strip=True,
+        label=_("Address"),
+        help_text=_("Venue address, two lines at most. Shown with a map link."),
+        widget=forms.Textarea(attrs={"rows": MAX_ADDRESS_LINES}),
+    )
+
+    def clean_address(self) -> str:
+        lines = str(self.cleaned_data.get("address") or "").splitlines()
+        kept = [stripped for line in lines if (stripped := line.strip())]
+        if len(kept) > MAX_ADDRESS_LINES:
+            raise ValidationError(gettext("An address can have at most two lines."))
+        return "\n".join(kept)
+
     cover_image = cover_image_field()
     logo = logo_field()
     start_time = forms.DateTimeField(

@@ -169,10 +169,10 @@ def seed_kapitularz_print_event(sphere: Sphere) -> None:
         name="Kapitularz 2025 Anonymized",
         slug=EVENT_SLUG,
         description=(
-            "Synthetic, anonymized convention-scale programme for print previews. "
-            "The fixture preserves the public density of the source event without "
-            "keeping host, participant, or session identities."
+            "An anonymized copy of a real convention's programme: same density, "
+            "no real names."
         ),
+        address="4 Assembly Concourse\nNorthport",
         start_time=event_start,
         # Deliberately stale: the final day's programme continues after 13:00.
         # Untouched print ranges must follow scheduled content, not this bound.
