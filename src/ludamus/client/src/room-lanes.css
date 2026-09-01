@@ -10,9 +10,6 @@
      the sizes live here once and both consumers name them. */
   --row-track: minmax(3.5rem, auto);
   --col-track: minmax(var(--col-min), 1fr);
-  /* The axis gutter's ink in the edge mask: opaque under the body's sticky
-     hour labels, cut away in the head (below), where the shell paints it. */
-  --room-lanes-gutter-ink: black;
 }
 
 /* md and up: a third wider than the compact tiers (10rem and 11.25rem × 4/3)
@@ -94,24 +91,22 @@ body:has(.room-lanes-panning) * {
 
 .room-lanes-head,
 .room-lanes-scroll {
-  mask-image: linear-gradient(
+  /* Named once and used twice: the two properties must not drift, and a
+     half-applied edit would fail only in whichever engine reads the other.
+     The gutter stop is opaque under the body's sticky hour labels and cut
+     away in the strip, where the shell paints it instead. */
+  --room-lanes-mask: linear-gradient(
     90deg,
-    var(--room-lanes-gutter-ink) 0,
-    var(--room-lanes-gutter-ink) var(--axis-w),
+    var(--room-lanes-gutter-ink, black) 0,
+    var(--room-lanes-gutter-ink, black) var(--axis-w),
     hsl(0 0% 0% / var(--fade-start-opacity)) var(--axis-w),
     black calc(var(--axis-w) + var(--fade-size-start, 0px)),
     black calc(100% - var(--fade-size-end, 0px)),
     hsl(0 0% 0% / var(--fade-end-opacity))
   );
-  -webkit-mask-image: linear-gradient(
-    90deg,
-    var(--room-lanes-gutter-ink) 0,
-    var(--room-lanes-gutter-ink) var(--axis-w),
-    hsl(0 0% 0% / var(--fade-start-opacity)) var(--axis-w),
-    black calc(var(--axis-w) + var(--fade-size-start, 0px)),
-    black calc(100% - var(--fade-size-end, 0px)),
-    hsl(0 0% 0% / var(--fade-end-opacity))
-  );
+
+  mask-image: var(--room-lanes-mask);
+  -webkit-mask-image: var(--room-lanes-mask);
   mask-repeat: no-repeat;
   -webkit-mask-repeat: no-repeat;
 }
@@ -128,13 +123,18 @@ body:has(.room-lanes-panning) * {
    running animation outranks inline style, so that write is inert wherever
    this block applies and is the whole mechanism where it does not — nothing
    detects which, because a detector that guessed wrong would freeze the strip.
+   It also covers a timeline that stops resolving: an unresolved name leaves
+   the animation with a null timeline, which stops applying its `both` fill,
+   and the inline value takes over.
 
    `from` is stated, not implied: an implicit one takes the underlying value,
    which is exactly the inline translate this has to override.
 
    The end value is the scroller's own overflow — 100% the grid, 100cqw the
-   strip showing it — so it is -(scrollWidth - clientWidth), re-derived through
-   every relayout that collapsing a column causes.
+   strip showing it — re-derived through every relayout that collapsing a
+   column causes. It lands under a pixel from -(scrollWidth - clientWidth)
+   rather than on it — 0.62px at full scroll on a phone, growing linearly from
+   zero — because scrollWidth is integer-rounded and the grid width is not.
 
    Gated on timeline-scope, not `animation-timeline: scroll()`: the name has to
    cross from the body scroller to a strip that is not its descendant, and an
@@ -145,25 +145,37 @@ body:has(.room-lanes-panning) * {
     timeline-scope: --room-lanes-x;
   }
 
-  /* HACK: both rules below reach into @hasparus/tailwind's scrollview-fade
-     (verified against 1.1.8) and both fail silently if it changes.
-     scroll-timeline is one list, so naming a second timeline means restating
-     the plugin's — its axis included, by the variable it uses rather than the
-     value that variable currently holds. And the strip's own fades are the
-     plugin's two animations, so re-timing them depends on there being exactly
-     two, in that order; a third upstream would quietly take the document
-     timeline and, with the plugin's `both` fill, snap an opacity to its end
-     value. The seam belongs upstream: a timeline the plugin reads from a
-     custom property would let a consumer name one without restating a list. */
+  /* HACK: restates @hasparus/tailwind's own timeline (verified against 1.1.8)
+     because scroll-timeline is one list and a second name cannot be appended
+     to it — the axis by the variable the plugin uses, not the value it holds
+     today. Publishing a private name rather than scoping the plugin's own is
+     deliberate: timeline-scope resolves to nothing when two descendants
+     declare a name, so scoping --scroll-timeline would let any future
+     .scrollview-fade inside .room-lanes silently kill both the fades and the
+     header. The seam belongs upstream — a timeline the plugin read from a
+     custom property would need neither. */
   .room-lanes-scroll {
     scroll-timeline:
       --scroll-timeline var(--fade-axis),
       --room-lanes-x x;
   }
 
-  /* A clipped strip never scrolls, so its edge fades read the body instead. */
+  /* The strip is clipped, so its own scroll timeline could never progress and
+     it does not wear .scrollview-fade at all (the template). Its fades are
+     stated here against the body's offset instead — by keyframe name, which
+     fails visibly as a missing fade, rather than by re-pointing whatever
+     animations that class happened to install, which fails as an opacity
+     snapped to its end value. Being inside this block is also what stops
+     Firefox running them on the document timeline, where they crawl to zero
+     and fade the strip's left edge out for good. */
   .room-lanes-head {
+    animation:
+      scrollview-fade-start 10s ease-out both,
+      scrollview-fade-end 10s ease-out both;
     animation-timeline: --room-lanes-x, --room-lanes-x;
+    animation-range:
+      0 2em,
+      calc(100% - 2em) 100%;
   }
 
   .room-lanes-head > .room-lanes-grid {
@@ -231,10 +243,10 @@ body:has(.room-lanes-panning) * {
    away, rather than in the strip: the grid it would sit in is the thing that
    moves, and a translated grid is the containing block for everything inside
    it, so a cell there cannot be pinned back.
-   SAFETY: it positions against the shell's `sticky`, which is a positioned
-   ancestor already. Do not restate that as `position: relative` here — this
-   file is unlayered, so it beats the template's utility and the whole header
-   stops sticking. */
+   SAFETY: it positions against .room-lanes-head-shell's `sticky`, which is a
+   positioned ancestor already. Do not give that element `position: relative`
+   in this file to say so — this file is unlayered, so it would beat the
+   template's utility and the whole header would stop sticking. */
 .room-lanes-corner {
   position: absolute;
   bottom: 0;

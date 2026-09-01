@@ -378,11 +378,17 @@ const initRoomLanes = (): void => {
         { signal },
       );
     }
-    // The strip's offset. Where room-lanes.css resolves its scroll timeline
-    // the animation owns this property and the write below is inert; where it
-    // does not, the write is the whole mechanism. Unconditional either way —
-    // the alternative is detecting which happened, and a detector that guessed
-    // wrong would leave the header frozen rather than merely a frame late.
+    // The strip's offset; room-lanes.css has the mechanism. Where its scroll
+    // timeline resolves, the animation owns this property and the write is
+    // inert; where it does not — an engine without scroll timelines, or a name
+    // that stopped resolving — the write is the whole mechanism. Unconditional
+    // either way: detecting which happened is what a wrong guess would freeze
+    // the header over.
+    //
+    // NOTE: inert is not free. It costs one style recalc per scroll frame on
+    // the engines the animation serves — ~0.6ms on a dense event, ~1.8ms on a
+    // 600-session one, no layout. Bounded by the strip's own containment, and
+    // the price of having no branch to get wrong.
     const trackBody = (): void => {
       if (headGrid) headGrid.style.translate = `${-scroller.scrollLeft}px`;
     };
