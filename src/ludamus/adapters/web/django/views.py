@@ -57,6 +57,7 @@ from ludamus.gates.web.django.entities import (
     UserInfo,
 )
 from ludamus.gates.web.django.event.enroll_presentation import build_enroll_actions
+from ludamus.gates.web.django.event.ics import event_calendar_entry
 from ludamus.gates.web.django.sphere.marks import attach_guild_marks
 from ludamus.gates.web.django.sphere.pages import EventsPageRequiredMixin
 from ludamus.links.db.django.models import (
@@ -79,11 +80,8 @@ from ludamus.links.db.django.repositories.sessions import (
     review_inbox_proposals,
     with_scheduled_card_relations,
 )
-from ludamus.mills.enrollment import (
-    EnrollmentPolicy,
-    get_user_enrollment_config,
-    restricts_everyone,
-)
+from ludamus.mills.calendar import google_calendar_url
+from ludamus.mills.enrollment import EnrollmentPolicy, restricts_everyone
 from ludamus.pacts import (
     NO_LOCATION,
     OCCUPYING_PARTICIPATION_STATUSES,
@@ -323,6 +321,7 @@ class EventPageView(EventsPageRequiredMixin, DetailView):  # type: ignore [type-
         # (default) and a rooms grid (?view=rooms) with a column per room.
         rooms_view = compact_schedule and self.request.GET.get("view") == "rooms"
         event_url = reverse("web:chronology:event", kwargs={"slug": self.object.slug})
+        calendar_entry = event_calendar_entry(self.object, request=self.request)
 
         context.update(
             {
@@ -336,6 +335,7 @@ class EventPageView(EventsPageRequiredMixin, DetailView):  # type: ignore [type-
                 "room_lanes": build_room_lanes(schedule_days) if rooms_view else None,
                 "schedule_list_url": event_url,
                 "schedule_rooms_url": f"{event_url}?view=rooms",
+                "google_calendar_url": google_calendar_url(calendar_entry),
                 "card_days": card_days,
                 "total_enrolled": total_enrolled,
                 "user_enrolled_sessions": user_enrolled_sessions,
@@ -351,12 +351,8 @@ class EventPageView(EventsPageRequiredMixin, DetailView):  # type: ignore [type-
         slug = self.request.context.current_user_slug
         user_email = self.request.di.uow.active_users.read(slug).email if slug else None
         if user_email:
-            user_enrollment_config = get_user_enrollment_config(
-                event=EventDTO.model_validate(self.object),
-                user_email=user_email,
-                enrollment_config_repo=self.request.di.uow.enrollment_configs,
-                ticket_api=self.request.di.ticket_api,
-                check_interval_minutes=settings.MEMBERSHIP_API_CHECK_INTERVAL,
+            user_enrollment_config = self.request.services.enrollment.virtual_config(
+                event=EventDTO.model_validate(self.object), user_email=user_email
             )
         context["user_enrollment_config"] = user_enrollment_config
 
@@ -366,6 +362,9 @@ class EventPageView(EventsPageRequiredMixin, DetailView):  # type: ignore [type-
             config.restrict_to_configured_users for config in active_configs
         )
         context["enrollment_requires_slots"] = requires_slots
+        context["enrollment_notices"] = [
+            config.banner_text for config in active_configs if config.banner_text
+        ]
         context.update(self._get_anonymous_context())
 
         # The repository hands back DTOs with their options prefetched, so the

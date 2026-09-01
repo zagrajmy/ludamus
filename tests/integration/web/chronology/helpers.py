@@ -1,7 +1,9 @@
 """Shared arrange helpers for chronology integration tests."""
 
 from dataclasses import replace
+from datetime import UTC
 from unittest.mock import ANY
+from urllib.parse import urlencode
 
 from django.utils.timezone import localtime
 
@@ -9,7 +11,10 @@ from ludamus.gates.web.django.chronology.enrollment_presentation import (
     PartyMemberFlags,
     SessionUserParticipationData,
 )
-from ludamus.gates.web.django.chronology.event_presentation import SessionData
+from ludamus.gates.web.django.chronology.event_presentation import (
+    ParticipationInfo,
+    SessionData,
+)
 from ludamus.gates.web.django.chronology.schedule import (
     ScheduleDay,
     ScheduleHour,
@@ -41,6 +46,7 @@ from tests.integration.conftest import (
     SpaceFactory,
     UserFactory,
 )
+from tests.integration.utils import RequestTimeMatcher
 
 
 def session_card(agenda_item, *, presenter, **overrides):
@@ -109,6 +115,26 @@ def schedule_context(url):
     }
 
 
+def google_calendar_url(event, *, page_url):
+    # Spelled out rather than built with the production helper, so a change to
+    # the link's shape has to be stated here too.
+    params = {
+        "action": "TEMPLATE",
+        "text": event.name,
+        "dates": (
+            f"{event.start_time.astimezone(UTC):%Y%m%dT%H%M%SZ}"
+            f"/{event.end_time.astimezone(UTC):%Y%m%dT%H%M%SZ}"
+        ),
+        "details": page_url,
+    }
+    location = ", ".join(
+        line.strip() for line in event.address.splitlines() if line.strip()
+    )
+    if location:
+        params["location"] = location
+    return f"https://calendar.google.com/calendar/render?{urlencode(params)}"
+
+
 def event_page_context(event, *, url, **overrides):
     # Every key the event page renders with, defaulted to an event with no
     # schedule. `url` is the page's own path, which the view echoes back as the
@@ -119,6 +145,7 @@ def event_page_context(event, *, url, **overrides):
     current = overrides.pop("current_hour_data", {})
     future_unavailable = overrides.pop("future_unavailable_hour_data", {})
     context = {
+        "enrollment_notices": [],
         "enrollment_requires_slots": False,
         "event": event,
         "filterable_tag_categories": [],
@@ -135,6 +162,9 @@ def event_page_context(event, *, url, **overrides):
         "total_enrolled": 0,
         "user_enrolled_sessions": [],
         "event_banned": False,
+        "google_calendar_url": google_calendar_url(
+            event, page_url=f"http://testserver{url}"
+        ),
         **schedule_context(url),
         "user_enrolled_session_titles": [],
         "view": ANY,
@@ -271,17 +301,60 @@ def enroll_page_context(*, viewer, agenda_item, **overrides):
 
 def make_half_full_session(event, *, participants_limit=2):
     # A scheduled session with one confirmed and one offered seat, so the
-    # offered seat is what pushes it to full.
+    # offered seat is what pushes it to full. The seats come back with it: a
+    # caller stating the roster needs the people, not another query.
     space = SpaceFactory(event=event)
     session = SessionFactory(
         event=event, category=None, participants_limit=participants_limit
     )
     AgendaItemFactory(session=session, space=space)
-    for status in (
-        SessionParticipationStatus.CONFIRMED,
-        SessionParticipationStatus.OFFERED,
-    ):
+    seats = [
         SessionParticipation.objects.create(
             session=session, user=UserFactory(), status=status
         )
-    return session
+        for status in (
+            SessionParticipationStatus.CONFIRMED,
+            SessionParticipationStatus.OFFERED,
+        )
+    ]
+    return session, seats
+
+
+SIMULACRA_NAMES = ("Aleksandra Nowak", "Piotr Kowalski", "Maria Wiśniewska")
+# There is no one behind a simulacrum: no avatar, no handle, nothing to click
+# through to.
+NO_PROFILE = {"avatar_url": None, "discord_username": "", "slug": "", "username": ""}
+
+
+def simulacra():
+    # The invented seat-holders a pretend-full card shows instead of the real
+    # roster: negative pks, and a `creation_time` minted while the request runs.
+    return [
+        ParticipationInfo(
+            user=UserInfo(name=name, full_name=name, pk=-index - 1, **NO_PROFILE),
+            status=SessionParticipationStatus.CONFIRMED.value,
+            creation_time=RequestTimeMatcher(),
+        )
+        for index, name in enumerate(SIMULACRA_NAMES)
+    ]
+
+
+def masked_card(agenda_item, *, presenter, seats, **overrides):
+    # The card a banned viewer gets in place of the real one. It has to be
+    # indistinguishable from a genuinely full session — every seat taken, and
+    # enrollment open, because a session that takes none would never have been
+    # full — so the caller states the whole disguise rather than the flag.
+    return session_card(
+        agenda_item,
+        presenter=presenter,
+        session=SessionDTO.model_validate(agenda_item.session).model_copy(
+            update={"participants_limit": seats}
+        ),
+        effective_participants_limit=seats,
+        enrolled_count=seats,
+        is_full=True,
+        is_enrollment_available=True,
+        pretend_full=True,
+        session_participations=simulacra(),
+        **overrides,
+    )

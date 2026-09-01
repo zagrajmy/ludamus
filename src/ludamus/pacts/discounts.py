@@ -134,10 +134,6 @@ class DiscountsServiceProtocol(Protocol):
     def soft_delete(self, pk: int) -> None: ...
 
 
-class SheetExportError(Exception):
-    pass
-
-
 class DiscountExportLabels(BaseModel):
     # Localized strings for the discount columns the sheet always writes.
     # Built at the gate (where gettext lives) so the mill stays framework-free;
@@ -154,17 +150,6 @@ class DiscountExportColumns(BaseModel):
     # aligned with `headers`.
     headers: list[str] = []
     cells: dict[int, list[str]] = {}
-
-
-class SheetWriterProtocol(Protocol):
-    def write_rows(
-        self,
-        *,
-        secret: bytes,
-        spreadsheet_id: str,
-        tab_title: str,
-        rows: list[list[str]],
-    ) -> None: ...
 
 
 class DiscountsExportServiceProtocol(Protocol):

@@ -10,15 +10,16 @@ from ludamus.mills.enrollment import (
 from ludamus.pacts.crowd import UserDTO, UserType
 from ludamus.pacts.enrollment import EnrollmentRepos
 from ludamus.pacts.legacy import (
+    DomainEnrollmentConfigDTO,
     EnrollmentConfigDTO,
     EventDTO,
+    MembershipAPIError,
     UserEnrollmentConfigDTO,
     VirtualEnrollmentConfig,
 )
 
 _NOW = datetime(2026, 6, 4, 12, 0, tzinfo=UTC)
 _EVENT_ID = 11
-_CHECK_INTERVAL = 60
 _ALLOWED_SLOTS = 3
 _SESSION_ID = 42
 _PARTY_ID = 9
@@ -86,6 +87,15 @@ def _user_config(allowed_slots):
     )
 
 
+def _domain_config(allowed_slots_per_user):
+    return DomainEnrollmentConfigDTO(
+        pk=23,
+        enrollment_config_id=5,
+        domain="example.com",
+        allowed_slots_per_user=allowed_slots_per_user,
+    )
+
+
 @contextmanager
 def _atomic():
     yield
@@ -139,9 +149,10 @@ class FakeUsers:
 
 
 class FakeEnrollmentConfigs:
-    def __init__(self, configs=(), user_config=None):
+    def __init__(self, configs=(), user_config=None, domain_config=None):
         self._configs = list(configs)
         self._user_config = user_config
+        self._domain_config = domain_config
 
     def read_list(self, _event_id, **_time_window):
         return list(self._configs)
@@ -149,21 +160,50 @@ class FakeEnrollmentConfigs:
     def read_user_config(self, _config, _user_email):
         return self._user_config
 
-    def read_domain_config(self, _config, _domain):
-        return None
+    def read_domain_config(self, config, domain):
+        if self._domain_config is None:
+            return None
+        matches = (
+            self._domain_config.enrollment_config_id == config.pk
+            and self._domain_config.domain == domain
+        )
+        return self._domain_config if matches else None
 
 
 class FakeTicketAPI:
-    def __init__(self):
+    def __init__(self, membership_count=0):
         self.calls: list[str] = []
+        self._membership_count = membership_count
 
     def fetch_membership_count(self, user_email):
         self.calls.append(user_email)
-        return 0
+        return self._membership_count
+
+
+class NoTicketAPI:
+    # What the resolver hands back for an event with no usable ticketing
+    # integration: one way to say "no answer available".
+    def fetch_membership_count(self, user_email):
+        raise MembershipAPIError
+
+
+class FakeTicketApiResolver:
+    def __init__(self, ticket_api=None):
+        self.ticket_api = ticket_api or NoTicketAPI()
+        self.seen: list[tuple[int, int]] = []
+
+    def resolve(self, *, event_id, sphere_id):
+        self.seen.append((event_id, sphere_id))
+        return self.ticket_api
 
 
 def _service(
-    *, users=None, anonymous_users=None, enrollment_configs=None, participations=None
+    *,
+    users=None,
+    anonymous_users=None,
+    enrollment_configs=None,
+    participations=None,
+    ticket_api_resolver=None,
 ):
     return EnrollmentService(
         transaction=FakeTransaction(),
@@ -180,9 +220,12 @@ def _service(
             participations=(
                 participations if participations is not None else FakeParticipations()
             ),
-            ticket_api=FakeTicketAPI(),
+            ticket_api_resolver=(
+                ticket_api_resolver
+                if ticket_api_resolver is not None
+                else FakeTicketApiResolver(FakeTicketAPI())
+            ),
         ),
-        membership_check_interval=_CHECK_INTERVAL,
     )
 
 
@@ -206,7 +249,7 @@ class TestSlotMath:
         allowed = can_enroll_users(
             users=[_user(1), _user(2)],
             event=_event(),
-            virtual_config=VirtualEnrollmentConfig(allowed_slots=2),
+            virtual_config=VirtualEnrollmentConfig(user_slots=2),
             users_to_enroll=[_user(2)],
             participations=FakeParticipations(occupying={1}),
         )
@@ -217,7 +260,7 @@ class TestSlotMath:
         allowed = can_enroll_users(
             users=[_user(1), _user(2)],
             event=_event(),
-            virtual_config=VirtualEnrollmentConfig(allowed_slots=1),
+            virtual_config=VirtualEnrollmentConfig(user_slots=1),
             users_to_enroll=[_user(2)],
             participations=FakeParticipations(occupying={1}),
         )
@@ -228,7 +271,7 @@ class TestSlotMath:
         allowed = can_enroll_users(
             users=[_user(1)],
             event=_event(),
-            virtual_config=VirtualEnrollmentConfig(allowed_slots=1),
+            virtual_config=VirtualEnrollmentConfig(user_slots=1),
             users_to_enroll=[_user(1)],
             participations=FakeParticipations(occupying={1}),
         )
@@ -239,7 +282,7 @@ class TestSlotMath:
         available = get_vc_available_slots(
             users=[_user(1), _user(2)],
             event=_event(),
-            virtual_config=VirtualEnrollmentConfig(allowed_slots=_ALLOWED_SLOTS),
+            virtual_config=VirtualEnrollmentConfig(user_slots=_ALLOWED_SLOTS),
             participations=FakeParticipations(occupying={1}),
         )
 
@@ -249,7 +292,7 @@ class TestSlotMath:
         available = get_vc_available_slots(
             users=[_user(1), _user(2)],
             event=_event(),
-            virtual_config=VirtualEnrollmentConfig(allowed_slots=1),
+            virtual_config=VirtualEnrollmentConfig(user_slots=1),
             participations=FakeParticipations(occupying={1, 2}),
         )
 
@@ -278,24 +321,107 @@ class TestEnrollmentService:
 
         config = service.virtual_config(event=_event(), user_email="viewer@example.com")
 
-        assert config == VirtualEnrollmentConfig(
-            allowed_slots=4, has_domain_config=False, has_user_config=True
+        assert config == VirtualEnrollmentConfig(user_slots=4)
+
+    def test_virtual_config_is_none_for_a_stored_row_granting_no_slots(self):
+        # A stale zero-slot row would normally trigger a refresh; with no
+        # integration the stored row stands, and granting nothing is not
+        # access, so the page says "no enrollment passes" instead of "up to 0".
+        service = _service(
+            enrollment_configs=FakeEnrollmentConfigs(
+                configs=[_enrollment_config()], user_config=_user_config(0)
+            ),
+            ticket_api_resolver=FakeTicketApiResolver(),
         )
+
+        config = service.virtual_config(event=_event(), user_email="viewer@example.com")
+
+        assert config is None
+
+    def test_virtual_config_reports_domain_only_access_for_a_zero_slot_user_row(self):
+        # A user row exists but grants nothing, so every slot comes from the
+        # domain. The page names the domain rather than the flag that used to
+        # stand in for it.
+        service = _service(
+            enrollment_configs=FakeEnrollmentConfigs(
+                configs=[_enrollment_config()],
+                user_config=_user_config(0),
+                domain_config=_domain_config(2),
+            ),
+            ticket_api_resolver=FakeTicketApiResolver(),
+        )
+
+        config = service.virtual_config(event=_event(), user_email="viewer@example.com")
+
+        assert config == VirtualEnrollmentConfig(domain_slots=2, domain="example.com")
+
+    def test_virtual_config_is_none_for_a_domain_row_granting_no_slots(self):
+        # A domain row that grants nothing is not access either: naming the
+        # domain would promise access the slot check then refuses.
+        service = _service(
+            enrollment_configs=FakeEnrollmentConfigs(
+                configs=[_enrollment_config()], domain_config=_domain_config(0)
+            ),
+            ticket_api_resolver=FakeTicketApiResolver(),
+        )
+
+        config = service.virtual_config(event=_event(), user_email="viewer@example.com")
+
+        assert config is None
+
+    def test_virtual_config_ignores_a_domain_row_for_another_domain(self):
+        service = _service(
+            enrollment_configs=FakeEnrollmentConfigs(
+                configs=[_enrollment_config()], domain_config=_domain_config(2)
+            ),
+            ticket_api_resolver=FakeTicketApiResolver(),
+        )
+
+        config = service.virtual_config(event=_event(), user_email="viewer@other.org")
+
+        assert config is None
+
+    def test_virtual_config_is_none_without_integration_and_without_stored_config(self):
+        service = _service(
+            enrollment_configs=FakeEnrollmentConfigs(configs=[_enrollment_config()]),
+            ticket_api_resolver=FakeTicketApiResolver(),
+        )
+
+        config = service.virtual_config(event=_event(), user_email="viewer@example.com")
+
+        assert config is None
+
+    def test_virtual_config_does_not_resolve_ticketing_without_an_open_window(self):
+        resolver = FakeTicketApiResolver(FakeTicketAPI())
+        service = _service(
+            enrollment_configs=FakeEnrollmentConfigs(), ticket_api_resolver=resolver
+        )
+
+        service.virtual_config(event=_event(), user_email="viewer@example.com")
+
+        assert not resolver.seen
+
+    def test_virtual_config_resolves_ticketing_once_across_windows(self):
+        resolver = FakeTicketApiResolver(FakeTicketAPI())
+        service = _service(
+            enrollment_configs=FakeEnrollmentConfigs(
+                configs=[_enrollment_config(), _enrollment_config(pk=6)],
+                user_config=_user_config(4),
+            ),
+            ticket_api_resolver=resolver,
+        )
+
+        service.virtual_config(event=_event(), user_email="viewer@example.com")
+
+        assert resolver.seen == [(_EVENT_ID, 1)]
 
     def test_has_slot_access_false_without_email(self):
         ticket_api = FakeTicketAPI()
-        service = EnrollmentService(
-            transaction=FakeTransaction(),
-            repos=EnrollmentRepos(
-                users=FakeUsers(),
-                anonymous_users=FakeUsers(),
-                enrollment_configs=FakeEnrollmentConfigs(
-                    configs=[_enrollment_config()], user_config=_user_config(4)
-                ),
-                participations=FakeParticipations(),
-                ticket_api=ticket_api,
+        service = _service(
+            enrollment_configs=FakeEnrollmentConfigs(
+                configs=[_enrollment_config()], user_config=_user_config(4)
             ),
-            membership_check_interval=_CHECK_INTERVAL,
+            ticket_api_resolver=FakeTicketApiResolver(ticket_api),
         )
 
         assert service.has_slot_access(event=_event(), user_email="") is False
@@ -336,7 +462,7 @@ class TestEnrollmentService:
         allowed = service.can_enroll_users(
             users=[_user(1), _user(2)],
             event=_event(),
-            virtual_config=VirtualEnrollmentConfig(allowed_slots=1),
+            virtual_config=VirtualEnrollmentConfig(user_slots=1),
             users_to_enroll=[_user(2)],
         )
 
@@ -348,7 +474,7 @@ class TestEnrollmentService:
         available = service.get_vc_available_slots(
             users=[_user(1)],
             event=_event(),
-            virtual_config=VirtualEnrollmentConfig(allowed_slots=_ALLOWED_SLOTS),
+            virtual_config=VirtualEnrollmentConfig(user_slots=_ALLOWED_SLOTS),
         )
 
         assert available == _ALLOWED_SLOTS - 1
@@ -364,9 +490,8 @@ class TestEnrollmentService:
                 anonymous_users=anonymous_users,
                 enrollment_configs=FakeEnrollmentConfigs(),
                 participations=participations,
-                ticket_api=FakeTicketAPI(),
+                ticket_api_resolver=FakeTicketApiResolver(FakeTicketAPI()),
             ),
-            membership_check_interval=_CHECK_INTERVAL,
         )
 
         service.create_guests(

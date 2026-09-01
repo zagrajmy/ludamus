@@ -732,8 +732,8 @@ class TestDiscountExportPageView:
 
     def _post(self, client, event, connection, session, columns=("name",)):
         with (
-            patch("ludamus.links.google_docs.Credentials.from_service_account_info"),
-            patch("ludamus.links.google_docs.AuthorizedSession") as session_cls,
+            patch("ludamus.links.google_auth.Credentials.from_service_account_info"),
+            patch("ludamus.links.google_auth.AuthorizedSession") as session_cls,
         ):
             session_cls.return_value = session
             return client.post(
@@ -779,7 +779,13 @@ class TestDiscountExportPageView:
                 "form": ANY,
                 "has_connections": True,
             },
-            contains=[connection.display_name, "Export"],
+            # The sphere's only connection is not a choice, so the export stops
+            # asking which one — the instructions have to name it instead. The
+            # whole sentence, not the bare name: a name can turn up anywhere.
+            contains=(
+                f"Share the spreadsheet with the service account e-mail of "
+                f"{connection.display_name} as an editor first."
+            ),
         )
 
     def test_get_shows_empty_state_without_connections(self, panel_client, event):
