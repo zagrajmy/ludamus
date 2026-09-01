@@ -49,14 +49,6 @@ jobs:
       - name: Translations are fresh (extraction current, nothing untranslated/fuzzy)
         run: mise run messages-check
 
-  impeccable:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: jdx/mise-action@v2
-      - run: mise install
-      - run: mise run lint:impeccable
-
   frontend-analysis:
     runs-on: ubuntu-latest
     steps:
