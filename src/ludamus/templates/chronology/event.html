@@ -158,57 +158,16 @@
         </div>
     </div>
     {% for notice in enrollment_notices %}
-        <div class="alert backdrop-blur-lg alert-info mb-4">
-            <div class="flex">
-                <div class="shrink-0">{% icon "information-circle" class="w-5 h-5" %}</div>
-                <div class="grow ml-3">{{ notice|linebreaksbr }}</div>
-            </div>
-        </div>
+        {# A line in the info colour, not a panel in the info colour. This is #}
+        {# standing context for the whole event — an organizer writes it once #}
+        {# and it sits there for weeks — and a box per notice pushed the #}
+        {# schedule off the first screen of the page people came to read the #}
+        {# schedule on. #}
+        <p class="mb-3 flex gap-1.5 text-sm text-info-text">
+            {% icon "information-circle" class="size-4 shrink-0 mt-0.5" variant="mini" %}
+            <span>{{ notice|linebreaksbr }}</span>
+        </p>
     {% endfor %}
-    <!-- Enrollment Passes Info (for authenticated users) -->
-    {% if current_user and event.get_active_enrollment_configs and enrollment_requires_slots %}
-        <div class="alert backdrop-blur-lg alert-success mb-4" role="alert">
-            <div class="flex">
-                <div class="shrink-0">{% icon "key" class="w-5 h-5" %}</div>
-                <div class="grow ml-3">
-                    <h6 class="alert-heading mb-2">{% translate "Your Enrollment Access" %}</h6>
-                    {% if user_enrollment_config %}
-                        <p class="mb-1">
-                            {% with total=user_enrollment_config.allowed_slots %}
-                                {% blocktranslate %}
-                                            You can enroll up to {{ total }} people (multiple enrollments allowed per person).
-                                        {% endblocktranslate %}
-                            {% endwith %}
-                        </p>
-                        {% if user_enrollment_config.domain and user_enrollment_config.user_slots %}
-                            <small class="text-muted">
-                                {% blocktranslate trimmed with domain=user_enrollment_config.domain %}
-                                    Combined access: Individual enrollment passes + domain access (@{{ domain }}).
-                                {% endblocktranslate %}
-                            </small>
-                        {% elif user_enrollment_config.domain %}
-                            <small class="text-muted">
-                                {% blocktranslate trimmed with domain=user_enrollment_config.domain %}
-                                    Domain-based access: Users from @{{ domain }} have enrollment access.
-                                {% endblocktranslate %}
-                            </small>
-                        {% else %}
-                            <small class="text-muted">{% translate "Each person can be enrolled in multiple sessions." %}</small>
-                        {% endif %}
-                    {% elif current_user.user_type == 'connected' %}
-                        <p class="mb-1">{% translate "You may be able to enroll using your manager's enrollment passes." %}</p>
-                        <small class="text-muted">{% translate "Contact your manager for enrollment assistance." %}</small>
-                    {% elif current_user %}
-                        <p class="mb-1">{% translate "You don't have any enrollment passes." %}</p>
-                        <small class="text-muted">{% translate "You can enroll when general enrollment opens." %}</small>
-                    {% else %}
-                        <p class="mb-1">{% translate "Login to check your enrollment options." %}</p>
-                        <small class="text-muted">{% translate "You may have enrollment passes available after logging in." %}</small>
-                    {% endif %}
-                </div>
-            </div>
-        </div>
-    {% endif %}
     <!-- Enrollment Summary Banner -->
     {% if current_user and user_enrolled_sessions %}
         <div class="mb-6 bg-gradient-to-r from-coral-400 to-coral-500 rounded-2xl p-[2px]">

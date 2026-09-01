@@ -22,6 +22,7 @@ from ludamus.gates.web.django.chronology.schedule import (
     build_card_days,
 )
 from ludamus.gates.web.django.entities import UserInfo
+from ludamus.gates.web.django.event.status_pills import event_status_pills
 from ludamus.links.db.django.models import SessionParticipation
 from ludamus.links.db.django.repositories.chronology import location_data
 from ludamus.links.gravatar import gravatar_url
@@ -33,6 +34,7 @@ from ludamus.pacts import (
     TimeSlotDTO,
 )
 from ludamus.pacts.crowd import UserDTO
+from ludamus.pacts.enrollment import EnrollmentAccessDTO
 from ludamus.pacts.party import (
     EnrollmentPartyChoiceDTO,
     EnrollmentPartyMemberDTO,
@@ -47,6 +49,15 @@ from tests.integration.conftest import (
     UserFactory,
 )
 from tests.integration.utils import RequestTimeMatcher
+
+# What the event page reports about the viewer's own enrollment window. The
+# window ids are the page's, so any id stands for "one is open to this viewer".
+ENROLLMENT_SHUT = EnrollmentAccessDTO(open_window_ids=frozenset(), opens_at=None)
+ENROLLMENT_OPEN = EnrollmentAccessDTO(open_window_ids=frozenset({1}), opens_at=None)
+
+
+def enrollment_opens_at(when):
+    return EnrollmentAccessDTO(open_window_ids=frozenset(), opens_at=when)
 
 
 def session_card(agenda_item, *, presenter, **overrides):
@@ -135,7 +146,7 @@ def google_calendar_url(event, *, page_url):
     return f"https://calendar.google.com/calendar/render?{urlencode(params)}"
 
 
-def event_page_context(event, *, url, **overrides):
+def event_page_context(event, *, url, access=ENROLLMENT_SHUT, **overrides):
     # Every key the event page renders with, defaulted to an event with no
     # schedule. `url` is the page's own path, which the view echoes back as the
     # list/rooms view links.
@@ -145,8 +156,15 @@ def event_page_context(event, *, url, **overrides):
     current = overrides.pop("current_hour_data", {})
     future_unavailable = overrides.pop("future_unavailable_hour_data", {})
     context = {
+        # The pills follow from the event's own state and this viewer's
+        # windows; which pills those are is unit-tested beside the function.
+        "status_pills": event_status_pills(
+            is_live=event.is_live,
+            is_ended=event.is_ended,
+            is_proposal_active=event.is_proposal_active,
+            access=access,
+        ),
         "enrollment_notices": [],
-        "enrollment_requires_slots": False,
         "event": event,
         "filterable_tag_categories": [],
         "track_filter_names": [],
@@ -158,7 +176,6 @@ def event_page_context(event, *, url, **overrides):
         "pending_wizard_view": False,
         "own_pending_proposals": [],
         "sessions": [],
-        "user_enrollment_config": None,
         "total_enrolled": 0,
         "user_enrolled_sessions": [],
         "event_banned": False,
