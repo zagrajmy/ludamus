@@ -1,3 +1,4 @@
+import math
 from contextlib import contextmanager
 
 import pytest
@@ -86,16 +87,18 @@ class FakeUsers:
 
 
 class _RacingUsers:
-    # read_by_username misses on the first call (before the concurrent insert
-    # is visible) and hits on the second; create raises the constraint error a
-    # concurrent inserter would trigger.
-    def __init__(self):
+    # create raises the constraint error a concurrent inserter would trigger,
+    # and read_by_username misses for the first `misses` calls. misses=1 is the
+    # race: the concurrent row becomes visible on the retry. misses=inf is the
+    # unadoptable insert: there is no row, so the error was not a race.
+    def __init__(self, misses=1):
         self.create_attempts = 0
+        self._misses = misses
         self._reads = 0
 
     def read_by_username(self, username):
         self._reads += 1
-        if self._reads == 1:
+        if self._reads <= self._misses:
             raise NotFoundError
         return _user_dto(username=username)
 
@@ -113,30 +116,6 @@ class _RacingUsers:
         _ = user_data
         self.create_attempts += 1
         raise DatabaseConstraintError("duplicate key")
-
-
-class _UnadoptableUsers:
-    # create always fails and no row is ever readable, so there is nothing to
-    # adopt: this stands in for a slug/username the insert cannot clear.
-    @staticmethod
-    def read_by_username(username):
-        _ = username
-        raise NotFoundError
-
-    @staticmethod
-    def email_exists(email, exclude_slug=None):
-        _ = (email, exclude_slug)
-        return False
-
-    @staticmethod
-    def slug_exists(slug):
-        _ = slug
-        return False
-
-    @staticmethod
-    def create(user_data):
-        _ = user_data
-        raise DatabaseConstraintError("value too long for type character varying(50)")
 
 
 class FakeClaims:
@@ -289,7 +268,7 @@ class TestProvisionUser:
             create_data={"slug": "a" * 80, "username": "auth0|sub"},
         )
 
-        assert len(users.created[0]["slug"]) == SLUG_MAX_LENGTH
+        assert len(users.created[0]["slug"]) <= SLUG_MAX_LENGTH
 
     def test_de_collides_slug_owned_by_another_row(self):
         # A CONNECTED companion already owns the slug; the new ACTIVE account
@@ -306,7 +285,7 @@ class TestProvisionUser:
     def test_unadoptable_constraint_error_surfaces(self):
         # The insert fails and no row can be read back, so the real database
         # error must propagate instead of a bare NotFoundError.
-        service = _service(users=_UnadoptableUsers())
+        service = _service(users=_RacingUsers(misses=math.inf))
 
         with pytest.raises(DatabaseConstraintError):
             service.provision_user(

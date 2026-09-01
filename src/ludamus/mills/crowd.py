@@ -7,8 +7,10 @@ plus a transaction. First feature: claiming a managed profile.
 from __future__ import annotations
 
 import secrets
+from contextlib import suppress
 from typing import TYPE_CHECKING
 
+from ludamus.mills.slugs import unique_slug
 from ludamus.pacts import NotFoundError
 from ludamus.pacts.crowd import (
     AuthProvisionDTO,
@@ -36,11 +38,6 @@ if TYPE_CHECKING:
         UserRepositoryProtocol,
     )
     from ludamus.pacts.services import TransactionProtocol
-
-
-# Matches the 50-char SlugField on the User model. A slug wider than this makes
-# the insert fail, so the provider-derived slug is truncated to fit.
-_SLUG_MAX_LENGTH = 50
 
 
 def _token() -> str:
@@ -118,34 +115,24 @@ class CrowdAuthService(CrowdAuthServiceProtocol):
         data = create_data.copy()
         if self._users.email_exists(data.get("email", "")):
             data["email"] = ""
-        data["slug"] = self._free_slug(data.get("slug", ""))
+        # The slug is unique table-wide, so a CONNECTED or ANONYMOUS row can
+        # own the one the provider sub slugifies to; uniquifying also caps it
+        # to the SlugField width, which an over-long sub would otherwise blow.
+        data["slug"] = unique_slug(
+            base=data.get("slug", ""), default="user", exists=self._users.slug_exists
+        )
         try:
             with self._transaction.savepoint():
                 self._users.create(data)
-        except DatabaseConstraintError as error:
+        except DatabaseConstraintError:
             # A concurrent callback for the same identity may have inserted the
             # row between our read_by_username miss and this insert; adopt it.
-            # If no such row exists the insert failed for a real reason (e.g.
-            # the username is held by a non-ACTIVE row), so surface the database
-            # error instead of masking it as a bare NotFoundError.
-            try:
+            # With no such row the insert failed for a real reason, so let the
+            # database error surface instead of a bare NotFoundError.
+            with suppress(NotFoundError):
                 return self._users.read_by_username(username)
-            except NotFoundError:
-                raise error from error.__cause__
+            raise
         return self._users.read_by_username(username)
-
-    def _free_slug(self, base: str) -> str:
-        """Return a slug that fits the SlugField and no account already owns."""
-        slug = base[:_SLUG_MAX_LENGTH].strip("-")
-        if slug and not self._users.slug_exists(slug):
-            return slug
-        # The base is empty or taken; append a random suffix that still fits.
-        while True:
-            suffix = secrets.token_hex(4)
-            head = slug[: _SLUG_MAX_LENGTH - len(suffix) - 1].strip("-")
-            candidate = f"{head}-{suffix}".strip("-")
-            if not self._users.slug_exists(candidate):
-                return candidate
 
     def sync_identity(self, *, user_slug: str, data: UserData) -> UserDTO:
         updates = data.copy()

@@ -12,8 +12,6 @@ from django.utils.text import slugify
 from ludamus.links.db.django.models import User
 from tests.integration.utils import assert_response
 
-SLUG_MAX_LENGTH = 50
-
 
 class TestAuth0LoginCallbackActionView:
     URL = reverse("web:crowd:auth0:login-callback")
@@ -170,7 +168,7 @@ class TestAuth0LoginCallbackActionView:
             messages=[(messages.SUCCESS, "Please complete your profile.")],
         )
         user = User.objects.get(username=f"auth0|{sub}")
-        assert len(user.slug) <= SLUG_MAX_LENGTH
+        assert len(user.slug) <= User._meta.get_field("slug").max_length
 
     @patch("ludamus.gates.web.django.crowd.auth.oauth.auth0.authorize_access_token")
     def test_ok_slug_collision_creates_distinct_account(
