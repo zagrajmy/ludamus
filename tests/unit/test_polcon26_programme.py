@@ -245,6 +245,32 @@ def test_extract_programme_reads_titles_presenters_and_durations() -> None:
     assert not saturday[1].description
 
 
+def test_extract_programme_ignores_hidden_columns() -> None:
+    visible = _sheet_with_one_room()
+    hidden = replace(visible, hidden_columns=frozenset({wb.column_index("E1")}))
+
+    items = sync.extract_programme(
+        {"Piątek": visible, "Sobota": hidden, "Niedziela": visible}
+    )
+
+    saturday = [item for item in items if item.sheet == "Sobota"]
+    assert [item.title for item in saturday] == ["Wprowadzenie"]
+
+
+def test_extract_programme_does_not_extrapolate_past_the_time_header() -> None:
+    regular = _sheet_with_one_room()
+    cells = dict(regular.cells)
+    del cells["E3"]
+    misaligned = replace(regular, cells=cells)
+
+    items = sync.extract_programme(
+        {"Piątek": regular, "Sobota": misaligned, "Niedziela": regular}
+    )
+
+    saturday = [item for item in items if item.sheet == "Sobota"]
+    assert [item.title for item in saturday] == ["Wprowadzenie"]
+
+
 def test_extract_programme_dates_each_sheet_from_its_own_day() -> None:
     items = sync.extract_programme(
         {name: _sheet_with_one_room() for name in ("Piątek", "Sobota", "Niedziela")}
@@ -352,7 +378,8 @@ _MAIN_NS = "http://schemas.openxmlformats.org/spreadsheetml/2006/main"
 _DOC_NS = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
 _PKG_NS = "http://schemas.openxmlformats.org/package/2006/relationships"
 _SHEET_XML = (
-    f'<worksheet xmlns="{_MAIN_NS}"><sheetData>'
+    f'<worksheet xmlns="{_MAIN_NS}">'
+    '<cols><col min="5" max="6" hidden="1"/></cols><sheetData>'
     '<row r="3"><c r="C3"><v>0.5</v></c></row>'
     '<row r="4"><c r="C4" t="s"><v>0</v></c></row>'
     "</sheetData>"
@@ -396,6 +423,7 @@ def test_load_workbook_reads_cells_merges_and_shared_strings(tmp_path: Path) -> 
     assert sorted(sheets) == sorted(wb.SHEETS)
     assert sheets["Sobota"].cells == {"C3": "0.5", "C4": "Wprowadzenie"}
     assert sheets["Sobota"].merges == ("C4:D4",)
+    assert sheets["Sobota"].hidden_columns == frozenset({4, 5})
 
 
 def test_load_workbook_rejects_a_workbook_missing_a_day(tmp_path: Path) -> None:
