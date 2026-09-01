@@ -61,7 +61,7 @@ Always parse and review before writing:
   --report /tmp/polcon26-programme.json
 ```
 
-The current rehearsal produces 174 sessions, 24 assignable spaces, and 104
+The 2026-09-01 Google Sheet snapshot produces 300 sessions, 40 rooms, and 182
 exact-name facilitators. Counts can legitimately change with the workbook.
 Review warnings and the normalized JSON, especially missing descriptions,
 missing facilitators, placeholders, room names, and simultaneous items.
