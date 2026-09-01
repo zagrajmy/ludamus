@@ -1,5 +1,7 @@
+from datetime import datetime
 from http import HTTPStatus
 from unittest.mock import ANY
+from zoneinfo import ZoneInfo
 
 from django.contrib.messages import constants
 from django.core.files.uploadedfile import SimpleUploadedFile
@@ -155,6 +157,28 @@ class TestEncounterEditPageView:
             },
             template_name="notice_board/edit.html",
         )
+
+    def test_ok_get_prefills_local_wall_clock(self, authenticated_client, user, sphere):
+        encounter = EncounterFactory(
+            creator=user,
+            sphere=sphere,
+            start_time=datetime(2026, 6, 1, 18, 0, tzinfo=ZoneInfo("Europe/Warsaw")),
+            end_time=datetime(2026, 6, 1, 21, 0, tzinfo=ZoneInfo("Europe/Warsaw")),
+        )
+
+        response = authenticated_client.get(self._url(encounter.pk))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={
+                "form": ANY,
+                "encounter": EncounterDTO.model_validate(encounter),
+            },
+            template_name="notice_board/edit.html",
+        )
+        assert response.context["form"].initial["start_time"] == "2026-06-01T18:00"
+        assert response.context["form"].initial["end_time"] == "2026-06-01T21:00"
 
     def test_ok_get_without_end_time(self, authenticated_client, user, sphere):
         encounter = EncounterFactory(creator=user, sphere=sphere, end_time=None)
