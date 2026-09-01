@@ -131,7 +131,14 @@ core = "ctrace"
 show_missing = true
 skip_covered = true
 precision = 2
-exclude_also = ["raise NotImplementedError"]
+exclude_also = [
+    "raise NotImplementedError",
+    # An exhaustiveness guard is unreachable by construction: mypy rejects the
+    # code that would enter it. Matched across both lines so the `case _:` goes
+    # with it — a bare `case _:` pattern would also silence the several real
+    # fallbacks that carry logic.
+    """case _:\\n\\s*assert_never\\([^)]*\\)""",
+]
 
 [tool.coverage.django_coverage_plugin]
 template_extensions = 'html'
