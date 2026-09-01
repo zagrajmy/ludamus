@@ -9,7 +9,7 @@
             data-menu-button
             aria-controls="{{ id }}"
             aria-expanded="false"
-            class="cursor-pointer rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary{% if trigger_class %} {{ trigger_class }}{% endif %}">
+            class="cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary {{ trigger_class }}">
         {{ trigger }}
         {% if label %}<span class="sr-only">{{ label }}</span>{% endif %}
     </button>
