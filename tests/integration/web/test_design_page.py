@@ -9,6 +9,8 @@ from ludamus.adapters.web.django.design_fixtures import (
     mock_event_info,
     mock_session_data,
     mock_session_data_ended,
+    mock_session_data_overflow,
+    mock_session_proposal,
     mock_user,
 )
 from tests.integration.utils import assert_response
@@ -32,6 +34,8 @@ class TestDesignPageView:
                 "design_event": mock_event_info(),
                 "design_session_data": mock_session_data(),
                 "design_session_data_ended": mock_session_data_ended(),
+                "design_session_data_overflow": mock_session_data_overflow(),
+                "design_session_proposal": mock_session_proposal(),
                 "design_user": mock_user(),
                 "design_form": ANY,
                 "design_radio_options": [

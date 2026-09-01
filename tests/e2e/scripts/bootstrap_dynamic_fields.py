@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Attach organizer-defined session fields to the open-mic proposal category.
+"""Attach organizer-defined session fields to the e2e events.
 
-Gives the proposal wizard one field of each shape the `dynamic_field` tag
-renders, so the e2e suite can check the markup it produces. Run after
-bootstrap_data.py.
+Gives the open-mic proposal wizard one field of each shape the `dynamic_field`
+tag renders, and the autumn-open schedule a pair of public select fields the
+event page's filter panel has to judge. Run after bootstrap_data.py.
 
 Usage: DJANGO_SETTINGS_MODULE=ludamus.edges.settings python \
     tests/e2e/scripts/bootstrap_dynamic_fields.py
@@ -24,17 +24,25 @@ import django
 django.setup()
 
 from ludamus.links.db.django.models import (
+    Event,
     Facilitator,
     PersonalDataField,
     PersonalDataFieldOption,
     ProposalCategory,
+    Session,
     SessionField,
     SessionFieldOption,
     SessionFieldRequirement,
+    SessionFieldValue,
 )
 
 TONE_OPTIONS = (("Comedy", "comedy"), ("Horror", "horror"))
 DIET_OPTIONS = (("Vegan", "vegan"), ("Gluten-free", "gluten-free"))
+# Keyed by session slug, not by position: the filter under test needs two
+# distinct answers, and a schedule that gains a session must not quietly
+# leave Mood with one.
+MOOD_BY_SESSION = {"mega-strategy": "Cosy", "story-circle": "Tense"}
+FORMAT_OPTIONS = (("Freeform", "freeform"),)
 
 
 def _seed_personal_data(event: object) -> None:
@@ -69,7 +77,55 @@ def _seed_personal_data(event: object) -> None:
     )
 
 
+def _seed_schedule_filter_fields() -> None:
+    # Two public select fields on the same schedule: the sessions answer Mood
+    # two ways, and nobody answers Format. The event page's filter panel keeps
+    # the first and drops the second, which is what the e2e suite checks.
+    event = Event.objects.filter(slug="autumn-open").first()
+    if event is None:
+        print("No autumn-open event found.")
+        return
+
+    mood = SessionField.objects.create(
+        event=event,
+        slug="mood",
+        name="Mood",
+        question="What mood should players expect?",
+        field_type="select",
+        is_multiple=True,
+        is_public=True,
+        order=0,
+    )
+    # value == label, the way every code path that creates an option does it:
+    # the answers below store the value, and the filter matches on it.
+    for order, label in enumerate(sorted(set(MOOD_BY_SESSION.values()))):
+        SessionFieldOption.objects.create(
+            field=mood, label=label, value=label, order=order
+        )
+
+    unanswered = SessionField.objects.create(
+        event=event,
+        slug="format",
+        name="Format",
+        question="How is it run?",
+        field_type="select",
+        is_multiple=True,
+        is_public=True,
+        order=1,
+    )
+    for order, (label, value) in enumerate(FORMAT_OPTIONS):
+        SessionFieldOption.objects.create(
+            field=unanswered, label=label, value=value, order=order
+        )
+
+    for slug, label in MOOD_BY_SESSION.items():
+        session = Session.objects.get(event=event, slug=slug)
+        SessionFieldValue.objects.create(field=mood, session=session, value=[label])
+
+
 def main() -> None:
+    _seed_schedule_filter_fields()
+
     category = ProposalCategory.objects.filter(
         slug="open-mic", event__slug="open-mic"
     ).first()

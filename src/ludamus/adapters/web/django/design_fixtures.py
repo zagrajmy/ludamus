@@ -1,5 +1,6 @@
 """Mock data for the design system page."""
 
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 
 from django import forms
@@ -13,11 +14,13 @@ from ludamus.gates.web.django.chronology.event_presentation import (
 )
 from ludamus.gates.web.django.entities import UserInfo
 from ludamus.pacts import (
+    NO_LOCATION,
     AgendaItemDTO,
     LocationData,
     SessionDTO,
     SessionFieldValueDTO,
     SessionStatus,
+    TimeSlotDTO,
 )
 
 _DESIGN_PLACEHOLDER_IMAGE = "placeholder-images/01.webp"
@@ -40,10 +43,12 @@ def _mock_user(full_name: str, pk: int, slug: str, username: str) -> UserInfo:
 
 def _mock_venue_and_space() -> LocationData:
     return {
+        "space_id": 2,
+        "parent_id": 1,
         "space_name": "Table 1",
-        "parent_slug": "main-hall",
         "parent_name": "Main Hall",
         "path": "Main Hall > Table 1",
+        "sort_path": ((0, "Main Hall", 1), (0, "Table 1", 2)),
     }
 
 
@@ -158,6 +163,97 @@ def mock_session_data() -> SessionData:
         enrolled_count=2,
         session_participations=session_participations,
         loc=_mock_venue_and_space(),
+        field_values=field_values,
+        displayed_field_rows=[build_display_field_row(fv) for fv in field_values],
+    )
+
+
+def mock_session_proposal() -> SessionData:
+    """Build the card's unscheduled variant: no agenda item, preferred slots."""
+    data = mock_session_data()
+    # Same week as the mock event, which sits seven days out — a proposal
+    # asking for a slot that already happened reads as a bug in the gallery.
+    start = (datetime.now(UTC) + timedelta(days=7)).replace(
+        hour=10, minute=0, second=0, microsecond=0
+    )
+    return replace(
+        data,
+        agenda_item=None,
+        is_enrollment_available=False,
+        loc=NO_LOCATION,
+        session_participations=[],
+        enrolled_count=0,
+        preferred_time_slots=[
+            TimeSlotDTO(pk=1, start_time=start, end_time=start + timedelta(hours=2)),
+            TimeSlotDTO(
+                pk=2,
+                start_time=start + timedelta(hours=4),
+                end_time=start + timedelta(hours=6),
+            ),
+        ],
+    )
+
+
+# The fourth system is the last one a card shows, and wider than the pill's
+# 200px default cap: the tags cloud spec needs a value that only fits once a
+# pill may grow to the card.
+_OVERFLOW_SYSTEMS = [
+    "D&D 5e",
+    "Pathfinder",
+    "Fate",
+    "Vampire: The Masquerade 5th Edition",
+    "Call of Cthulhu",
+    "Blades in the Dark",
+]
+_OVERFLOW_TRIGGERS = [
+    "horror",
+    "violence",
+    "gore",
+    "body horror",
+    "spiders",
+    "claustrophobia",
+    "mind control",
+    "character death",
+    "romance",
+    "alcohol",
+    "gambling",
+]
+
+
+def mock_session_data_overflow() -> SessionData:
+    data = mock_session_data()
+    system = SessionFieldValueDTO(
+        field_icon="book-open",
+        field_id=1,
+        field_name="System",
+        field_question="What RPG system?",
+        field_slug="system",
+        field_type="select",
+        is_public=True,
+        value=list(_OVERFLOW_SYSTEMS),
+    )
+    triggers = SessionFieldValueDTO(
+        field_icon="exclamation-triangle",
+        field_id=2,
+        field_name="Triggers",
+        field_question="Content warnings?",
+        field_slug="triggers",
+        field_type="select",
+        is_public=True,
+        value=list(_OVERFLOW_TRIGGERS),
+    )
+    field_values = [system, triggers]
+    return replace(
+        data,
+        session=data.session.model_copy(
+            update={
+                "description": "Two overflowing fields share one +N on the tags cloud.",
+                "min_age": 12,
+                "pk": 3,
+                "slug": "design-session-overflow",
+                "title": "Overflow Tags (Design Preview)",
+            }
+        ),
         field_values=field_values,
         displayed_field_rows=[build_display_field_row(fv) for fv in field_values],
     )

@@ -1,43 +1,18 @@
+from __future__ import annotations
+
 import string
+from dataclasses import replace
 from datetime import UTC, datetime
 from secrets import choice as _secret_choice
 from typing import TYPE_CHECKING
-from urllib.parse import urlencode
 
 import markdown as _md
 import nh3
 
-from ludamus.mills.submissions.mapping import generate_unique_slug
-from ludamus.pacts import (
-    CacheProtocol,
-    DateTimeRangeProtocol,
-    EncounterDetailResult,
-    EncounterDTO,
-    EncounterIndexItem,
-    EncounterIndexResult,
-    EventDTO,
-    FacilitatorData,
-    FacilitatorDTO,
-    NotFoundError,
-    PersonalDataFieldValueData,
-    PersonalFieldRequirementDTO,
-    ProposalCategoryDTO,
-    ProposeSessionResult,
-    RequestContext,
-    SessionData,
-    SessionFieldRequirementDTO,
-    SessionFieldValueData,
-    SessionStatus,
-    TimeSlotRequirementDTO,
-    TrackDTO,
-    UnitOfWorkProtocol,
-    UploadedFileProtocol,
-    WizardData,
-)
-from ludamus.pacts.durations import normalize_duration
-from ludamus.pacts.submissions import is_empty_answer
+from ludamus.mills.calendar import CalendarEntry, ics_document
+from ludamus.mills.calendar import google_calendar_url as google_calendar_link
+from ludamus.mills.calendar import outlook_calendar_url as outlook_calendar_link
 from ludamus.specs.encounter import ENCOUNTER_DEFAULT_DURATION
-from ludamus.specs.proposal import PROPOSAL_RATE_LIMIT_SECONDS
 
 _BASE62_CHARS = string.ascii_letters + string.digits
 
@@ -81,368 +56,46 @@ def render_markdown(text: str) -> str:
     )
 
 
-def generate_ics_content(encounter: EncounterDTO, url: str) -> str:
-    def _ics_dt(dt: datetime) -> str:
-        utc = dt.astimezone(UTC)
-        return utc.strftime("%Y%m%dT%H%M%SZ")
-
-    lines = [
-        "BEGIN:VCALENDAR",
-        "VERSION:2.0",
-        "PRODID:-//Ludamus//Encounters//EN",
-        "BEGIN:VEVENT",
-        f"DTSTART:{_ics_dt(encounter.start_time)}",
-    ]
-    if encounter.end_time:
-        lines.append(f"DTEND:{_ics_dt(encounter.end_time)}")
-    lines.append(f"SUMMARY:{encounter.title}")
-    if encounter.place:
-        lines.append(f"LOCATION:{encounter.place}")
-    if encounter.description:
-        escaped = encounter.description.replace("\\", "\\\\").replace("\n", "\\n")
-        lines.append(f"DESCRIPTION:{escaped}")
-    lines.extend(
-        [
-            f"URL:{url}",
-            f"UID:{encounter.share_code}@ludamus",
-            "END:VEVENT",
-            "END:VCALENDAR",
-        ]
+def _entry(encounter: EncounterDTO, url: str) -> CalendarEntry:
+    return CalendarEntry(
+        uid=f"{encounter.share_code}@ludamus",
+        title=encounter.title,
+        start=encounter.start_time,
+        end=encounter.end_time,
+        url=url,
+        location=encounter.place or "",
+        description=encounter.description or "",
     )
-    return "\r\n".join(lines)
 
 
-def _gcal_dt(dt: datetime) -> str:
-    return dt.astimezone(UTC).strftime("%Y%m%dT%H%M%SZ")
+def generate_ics_content(encounter: EncounterDTO, url: str) -> str:
+    return ics_document(_entry(encounter, url), stamped_at=datetime.now(tz=UTC))
+
+
+def _dated_entry(encounter: EncounterDTO, url: str) -> CalendarEntry:
+    entry = _entry(encounter, url)
+    if entry.end:
+        return entry
+    return replace(entry, end=entry.start + ENCOUNTER_DEFAULT_DURATION)
 
 
 def google_calendar_url(encounter: EncounterDTO, url: str) -> str:
-    end = encounter.end_time or (encounter.start_time + ENCOUNTER_DEFAULT_DURATION)
-    params = {
-        "action": "TEMPLATE",
-        "text": encounter.title,
-        "dates": f"{_gcal_dt(encounter.start_time)}/{_gcal_dt(end)}",
-        "details": (
-            f"{encounter.description}\n\n{url}" if encounter.description else url
-        ),
-    }
-    if encounter.place:
-        params["location"] = encounter.place
-    return f"https://calendar.google.com/calendar/render?{urlencode(params)}"
+    return google_calendar_link(_dated_entry(encounter, url))
 
 
 def outlook_calendar_url(encounter: EncounterDTO, url: str) -> str:
-    end = encounter.end_time or (encounter.start_time + ENCOUNTER_DEFAULT_DURATION)
-    params = {
-        "rru": "addevent",
-        "subject": encounter.title,
-        "startdt": encounter.start_time.astimezone(UTC).isoformat(),
-        "enddt": end.astimezone(UTC).isoformat(),
-        "body": f"{encounter.description}\n\n{url}" if encounter.description else url,
-    }
-    if encounter.place:
-        params["location"] = encounter.place
-    return f"https://outlook.live.com/calendar/0/action/compose?{urlencode(params)}"
-
-
-class EncounterService:
-    def __init__(self, uow: UnitOfWorkProtocol) -> None:
-        self._uow = uow
-
-    def build_detail(
-        self, share_code: str, current_user_id: int | None
-    ) -> EncounterDetailResult:
-        encounter = self._uow.encounters.read_by_share_code(share_code)
-        creator = self._uow.active_users.read_by_id(encounter.creator_id)
-        rsvps = self._uow.encounter_rsvps.list_by_encounter(encounter.pk)
-        rsvp_count = len(rsvps)
-        is_full = (
-            encounter.max_participants > 0 and rsvp_count >= encounter.max_participants
-        )
-        spots_remaining = (
-            max(0, encounter.max_participants - rsvp_count)
-            if encounter.max_participants > 0
-            else None
-        )
-        user_has_rsvpd = (
-            current_user_id is not None
-            and self._uow.encounter_rsvps.user_has_rsvpd(encounter.pk, current_user_id)
-        )
-        return EncounterDetailResult(
-            encounter=encounter,
-            creator=creator,
-            rsvps=rsvps,
-            rsvp_count=rsvp_count,
-            is_full=is_full,
-            spots_remaining=spots_remaining,
-            is_creator=current_user_id == encounter.creator_id,
-            user_has_rsvpd=user_has_rsvpd,
-        )
-
-    def _resolve_creator_name(self, creator_id: int) -> str:
-        try:
-            user = self._uow.active_users.read_by_id(creator_id)
-        except NotFoundError:
-            return ""
-        return user.full_name or user.name or user.username
-
-    def build_index(self, sphere_id: int, user_id: int) -> EncounterIndexResult:
-        my_upcoming = self._uow.encounters.list_upcoming_by_creator(sphere_id, user_id)
-        rsvpd = self._uow.encounters.list_upcoming_rsvpd(sphere_id, user_id)
-        my_ids = {e.pk for e in my_upcoming}
-
-        upcoming = [
-            EncounterIndexItem(
-                encounter=e,
-                rsvp_count=self._uow.encounter_rsvps.count_by_encounter(e.pk),
-                is_mine=True,
-                organizer_name="",
-            )
-            for e in my_upcoming
-        ]
-        upcoming.extend(
-            EncounterIndexItem(
-                encounter=e,
-                rsvp_count=self._uow.encounter_rsvps.count_by_encounter(e.pk),
-                is_mine=False,
-                organizer_name=self._resolve_creator_name(e.creator_id),
-            )
-            for e in rsvpd
-            if e.pk not in my_ids
-        )
-        upcoming.sort(key=lambda x: x.encounter.start_time)
-
-        past_dtos = self._uow.encounters.list_past(sphere_id, user_id)
-        past = [
-            EncounterIndexItem(
-                encounter=e,
-                rsvp_count=self._uow.encounter_rsvps.count_by_encounter(e.pk),
-                is_mine=e.creator_id == user_id,
-                organizer_name=(
-                    ""
-                    if e.creator_id == user_id
-                    else self._resolve_creator_name(e.creator_id)
-                ),
-            )
-            for e in past_dtos
-        ]
-
-        return EncounterIndexResult(upcoming=upcoming, past=past)
+    return outlook_calendar_link(_dated_entry(encounter, url))
 
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Sequence
+    from collections.abc import Sequence
 
-
-class ProposeSessionService:
-    def __init__(self, uow: UnitOfWorkProtocol, context: RequestContext) -> None:
-        self._uow = uow
-        self._context = context
-
-    @staticmethod
-    def _generate_unique_slug(title: str, exists: Callable[[str], bool]) -> str:
-        return generate_unique_slug(title, exists)
-
-    def get_event(self, slug: str) -> EventDTO:
-        return self._uow.events.read_by_slug(slug, self._context.current_sphere_id)
-
-    def get_categories(self, event_id: int) -> list[ProposalCategoryDTO]:
-        return self._uow.proposal_categories.list_by_event(event_id)
-
-    def get_category(self, pk: int, event_id: int) -> ProposalCategoryDTO:
-        return self._uow.proposal_categories.read(pk, event_id)
-
-    def get_personal_requirements(
-        self, category_id: int
-    ) -> list[PersonalFieldRequirementDTO]:
-        return self._uow.proposal_categories.list_personal_field_requirements(
-            category_id
-        )
-
-    def get_session_requirements(
-        self, category_id: int
-    ) -> list[SessionFieldRequirementDTO]:
-        return self._uow.proposal_categories.list_session_field_requirements(
-            category_id
-        )
-
-    def get_timeslot_requirements(
-        self, category_id: int
-    ) -> list[TimeSlotRequirementDTO]:
-        return self._uow.proposal_categories.list_time_slot_requirements(category_id)
-
-    def get_public_tracks(self, event_id: int) -> list[TrackDTO]:
-        return self._uow.tracks.list_public_by_event(event_id)
-
-    def get_saved_personal_data(
-        self, event_id: int
-    ) -> dict[str, str | list[str] | bool]:
-        if (user_id := self._context.current_user_id) is None:
-            return {}
-        try:
-            facilitator = self._uow.facilitators.read_by_user_and_event(
-                user_id, event_id
-            )
-        except NotFoundError:
-            return {}
-        return self._uow.personal_data_field_values.read_for_facilitator_event(
-            facilitator.pk, event_id
-        )
-
-    def _find_or_create_facilitator(
-        self, event: EventDTO, display_name: str
-    ) -> FacilitatorDTO:
-        if (user_id := self._context.current_user_id) is not None:
-            try:
-                return self._uow.facilitators.read_by_user_and_event(user_id, event.pk)
-            except NotFoundError:
-                pass
-        slug = self._generate_unique_slug(
-            display_name, lambda s: self._uow.facilitators.slug_exists(event.pk, s)
-        )
-        return self._uow.facilitators.create(
-            FacilitatorData(
-                event_id=event.pk, user_id=user_id, display_name=display_name, slug=slug
-            )
-        )
-
-    def submit(
-        self,
-        event: EventDTO,
-        wizard_data: WizardData,
-        *,
-        cover_image: UploadedFileProtocol | None = None,
-    ) -> ProposeSessionResult:
-        session_data = wizard_data.get("session_data", {})
-        if "title" not in session_data:
-            msg = "session_data must contain 'title'"
-            raise ValueError(msg)
-        title = str(session_data["title"])
-        description = str(session_data.get("description", ""))
-        raw_limit = session_data.get("participants_limit") or 0
-        participants_limit = int(str(raw_limit))
-        category_id = wizard_data["category_id"]
-        time_slot_ids = wizard_data.get("time_slot_ids", [])
-
-        if (
-            self._context.current_user_id is not None
-            and self._context.current_user_slug is not None
-        ):
-            current_user = self._uow.active_users.read(self._context.current_user_slug)
-            default_display_name = current_user.name
-            presenter_id = current_user.pk
-        else:
-            default_display_name = ""
-            presenter_id = None
-
-        display_name = str(session_data.get("display_name", default_display_name))
-        slug = self._generate_unique_slug(
-            title, lambda s: self._uow.sessions.slug_exists(event.pk, s)
-        )
-
-        with self._uow.atomic():
-            facilitator = self._find_or_create_facilitator(event, display_name)
-
-            create_data = SessionData(
-                event_id=event.pk,
-                presenter_id=presenter_id,
-                display_name=display_name,
-                category_id=category_id,
-                title=title,
-                slug=slug,
-                description=description,
-                duration=normalize_duration(str(session_data.get("duration") or "")),
-                participants_limit=participants_limit,
-                min_age=int(str(session_data.get("min_age") or 0)),
-                contact_email=wizard_data.get("contact_email", ""),
-                status=SessionStatus.PENDING,
-            )
-            if cover_image:
-                create_data["cover_image"] = cover_image
-
-            session_id = self._uow.sessions.create(
-                create_data,
-                time_slot_ids=time_slot_ids,
-                facilitator_ids=[facilitator.pk],
-            )
-
-            self._save_session_field_values(session_id, event.pk, session_data)
-
-            if personal_data := wizard_data.get("personal_data", {}):
-                self._save_personal_data(event.pk, personal_data, facilitator)
-
-            if track_pks := wizard_data.get("track_pks", []):
-                self._uow.sessions.set_session_tracks(session_id, track_pks)
-
-        return ProposeSessionResult(session_id=session_id, title=title)
-
-    def _save_session_field_values(
-        self, session_id: int, event_id: int, session_data: object
-    ) -> None:
-        data = session_data if isinstance(session_data, dict) else {}  # type: ignore [misc]
-        values: list[SessionFieldValueData] = []
-        for key, value in data.items():
-            if not isinstance(key, str) or not key.startswith("session_"):
-                continue
-            slug = key.removeprefix("session_")
-            if slug.endswith("_custom"):
-                continue
-            # A question the submitter left blank stores no row: the proposal
-            # is new, so absence can only mean "never answered". Checked before
-            # the field lookup — a blank never needs the query.
-            if is_empty_answer(value=value):
-                continue
-            try:
-                field_dto = self._uow.session_fields.read_by_slug(event_id, slug)
-            except NotFoundError:
-                continue
-            values.append(
-                SessionFieldValueData(
-                    session_id=session_id, field_id=field_dto.pk, value=value
-                )
-            )
-        if values:
-            self._uow.sessions.save_field_values(session_id, values)
-
-    def _save_personal_data(
-        self, event_id: int, personal_data: dict[str, str], facilitator: FacilitatorDTO
-    ) -> None:
-        entries: list[PersonalDataFieldValueData] = []
-        for key, value in personal_data.items():
-            if not key.startswith("personal_"):
-                continue
-            slug = key.removeprefix("personal_")
-            if slug.endswith("_custom"):
-                continue
-            if is_empty_answer(value=value):
-                continue
-            try:
-                field_dto = self._uow.personal_data_fields.read_by_slug(event_id, slug)
-            except NotFoundError:
-                continue
-            entries.append(
-                PersonalDataFieldValueData(
-                    facilitator_id=facilitator.pk,
-                    event_id=event_id,
-                    field_id=field_dto.pk,
-                    value=value,
-                )
-            )
-        if entries:
-            self._uow.personal_data_field_values.save(entries)
-
-
-def check_proposal_rate_limit(cache: CacheProtocol, ip: str, event_id: int) -> bool:
-    """Check if an IP is rate-limited for proposal submission on an event.
-
-    Returns:
-        True if the submission is allowed, False if rate-limited.
-    """
-    key = f"proposal_rate:{event_id}:{ip}"
-    if cache.get(key) is not None:
-        return False
-    cache.set(key, 1, timeout=PROPOSAL_RATE_LIMIT_SECONDS)
-    return True
+    from ludamus.pacts import (
+        DateTimeRangeProtocol,
+        EncounterDTO,
+        EventDTO,
+        UnitOfWorkProtocol,
+    )
 
 
 class PanelService:

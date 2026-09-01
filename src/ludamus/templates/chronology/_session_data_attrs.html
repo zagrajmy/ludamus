@@ -1,3 +1,4 @@
+{% load cfp_tags %}
 {# Shared data-* contract consumed by session-filters.ts and the detail #}
 {# modals. Included inside the opening tag of both the card #}
 {# (_session_card.html) and the compact row (_compact_session_row.html), so #}
@@ -8,7 +9,9 @@
 {# djlint:off #}
 data-title="{{ data.session.title|lower }}"
 data-session-id="{{ data.session.pk }}"
-data-host="{{ data.session.display_name|lower }}"
+{# As-is casing: the host filter's option value and label both; the search #}
+{# haystack lowercases on its own (normalizeText). #}
+data-host="{{ data.session.display_name }}"
 data-tags="{{ data.public_tags }}"
 data-tag-categories="{{ data.filter_categories }}"
 {# data.availability, with one broader term: the filter counts any started #}
@@ -20,11 +23,27 @@ data-user-enrolled="{% if data.user_enrolled %}true{% else %}false{% endif %}"
 data-user-waiting="{% if data.user_waiting %}true{% else %}false{% endif %}"
 data-bookmarked="{% if data.user_bookmarked %}true{% else %}false{% endif %}"
 data-min-age="{{ data.session.min_age }}"
-data-venue="{{ data.loc.parent_slug }}"
+data-venue="{% if data.loc.parent_id %}{{ data.loc.parent_id }}{% endif %}"
 data-venue-name="{{ data.loc.parent_name }}"
+data-space="{% if data.loc.space_id %}{{ data.loc.space_id }}{% endif %}"
+data-space-name="{{ data.loc.space_name }}"
+data-space-order="{{ data.loc.sort_path|space_sort_path_json }}"
 {% if data.agenda_item %}
+{# The instant, offset included: data-day/data-hour below are the event's #}
+{# local wall clock, which reads as a different moment in a reader's own #}
+{# timezone, and the "now" line compares against the reader's clock. #}
+{% if occurrence_start %}
+data-start="{{ occurrence_start|date:'c' }}"
+data-end="{{ occurrence_end|date:'c' }}"
+data-day="{{ occurrence_start|date:'Y-m-d' }}"
+data-day-label="{{ occurrence_start|date:'l, j F' }}"
+data-hour="{{ occurrence_start|date:'H:i' }}"
+{% else %}
+data-start="{{ data.agenda_item.start_time|date:'c' }}"
+data-end="{{ data.agenda_item.end_time|date:'c' }}"
 data-day="{{ data.agenda_item.start_time|date:'Y-m-d' }}"
 data-day-label="{{ data.agenda_item.start_time|date:'l, j F' }}"
 data-hour="{{ data.agenda_item.start_time|date:'H:i' }}"
+{% endif %}
 {% endif %}
 {# djlint:on #}

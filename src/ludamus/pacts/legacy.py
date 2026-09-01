@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from datetime import date, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from enum import StrEnum, auto
 from typing import (
     TYPE_CHECKING,
@@ -12,7 +12,8 @@ from typing import (
 
 from pydantic import BaseModel, ConfigDict
 
-from ludamus.pacts.fields import OrganizerFieldDTO
+from ludamus.pacts.fields import FieldValue, OrganizerFieldDTO
+from ludamus.pacts.ids import EventId, HasPk, SiteId, SphereId, UserId
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -208,6 +209,8 @@ class AgendaItemDTO(BaseModel):
     session_duration_minutes: int = 0
     session_status: "SessionStatus | None" = None
     category_name: str | None = None
+    category_id: int | None = None
+    session_min_age: int = 0
 
 
 class SessionDTO(BaseModel):
@@ -231,35 +234,25 @@ class SessionDTO(BaseModel):
     cover_image_original_name: str = ""
 
 
-class PendingSessionTimeSlotDTO(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    end_time: datetime
-    pk: int
-    start_time: datetime
-
-
-class PendingSessionDTO(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    contact_email: str
-    creation_time: datetime
-    description: str
-    participants_limit: int
-    pk: int
-    display_name: str
-    time_slots: list[PendingSessionTimeSlotDTO]
-    title: str
-
-
 class LocationData(TypedDict):
-    # Tree location of a scheduled leaf: its name, its immediate parent (the
-    # grouping unit, empty for a root leaf), and the full "Root > ... > Leaf"
-    # path used as a display label.
+    space_id: int
+    parent_id: int
     space_name: str
-    parent_slug: str
     parent_name: str
     path: str
+    sort_path: tuple[tuple[int, str, int], ...]
+
+
+# A session that is not on the agenda has no space to describe. Shared, so
+# treat it as read-only: nothing writes through a LocationData today.
+NO_LOCATION: LocationData = {
+    "space_id": 0,
+    "parent_id": 0,
+    "space_name": "",
+    "parent_name": "",
+    "path": "",
+    "sort_path": (),
+}
 
 
 class SessionStatus(StrEnum):
@@ -308,10 +301,17 @@ class NotificationKind(StrEnum):
 class SpherePage(StrEnum):
     EVENTS = "events"
     ENCOUNTERS = "encounters"
+    TIMELINE = "timeline"
 
     @classmethod
     def all_values(cls) -> list[str]:
         return [p.value for p in cls]
+
+
+class EncounterPublicPolicy(StrEnum):
+    DISABLED = "disabled"
+    MANAGERS = "managers"
+    EVERYONE = "everyone"
 
 
 class SpaceDTO(BaseModel):
@@ -443,7 +443,7 @@ class SiteDTO(BaseModel):
 
     domain: str
     name: str
-    pk: int
+    pk: SiteId
 
 
 class SphereDTO(BaseModel):
@@ -452,8 +452,9 @@ class SphereDTO(BaseModel):
     allow_facilitator_session_edit: bool = True
     default_page: SpherePage
     enabled_pages: list[SpherePage]
+    encounter_public_policy: EncounterPublicPolicy = EncounterPublicPolicy.DISABLED
     name: str
-    pk: int
+    pk: SphereId
     site: SiteDTO
     logo_url: str = ""
     logo_original_name: str = ""
@@ -461,6 +462,9 @@ class SphereDTO(BaseModel):
 
 class SphereUpdateData(TypedDict, total=False):
     allow_facilitator_session_edit: bool
+    default_page: str
+    enabled_pages: list[str]
+    encounter_public_policy: str
     logo: UploadedFileProtocol | str
 
 
@@ -475,17 +479,18 @@ class SessionSelfEditContext:
 class EventDTO(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
+    address: str = ""
     allow_facilitator_session_edit: bool | None = None
     auto_confirm_sessions: bool = False
     description: str
     end_time: datetime
     name: str
-    pk: int
+    pk: EventId
     proposal_end_time: datetime | None
     proposal_start_time: datetime | None
     publication_time: datetime | None
     slug: str
-    sphere_id: int
+    sphere_id: SphereId
     start_time: datetime
     use_session_cover_placeholders: bool = False
     use_participants_label: bool = False
@@ -493,6 +498,32 @@ class EventDTO(BaseModel):
     cover_image_original_name: str = ""
     logo_url: str = ""
     logo_original_name: str = ""
+
+    @property
+    def address_inline(self) -> str:
+        """The address as one comma-joined line, for map and calendar links."""
+        return ", ".join(
+            line.strip() for line in self.address.splitlines() if line.strip()
+        )
+
+    @property
+    def is_published(self) -> bool:
+        return (
+            self.publication_time is not None
+            and self.publication_time <= datetime.now(tz=UTC)
+        )
+
+    # Proposals only open on a published event — an unpublished one has no
+    # public page to send a facilitator to.
+    @property
+    def is_proposal_active(self) -> bool:
+        current_time = datetime.now(tz=UTC)
+        return bool(
+            self.is_published
+            and self.proposal_start_time is not None
+            and self.proposal_end_time is not None
+            and self.proposal_start_time <= current_time <= self.proposal_end_time
+        )
 
 
 class EventListItemDTO(BaseModel):
@@ -519,6 +550,7 @@ class EncounterDTO(BaseModel):
     description: str
     end_time: datetime | None
     game: str
+    is_public: bool = False
     max_participants: int
     pk: int
     place: str
@@ -546,6 +578,7 @@ class EncounterData(TypedDict, total=False):
     end_time: datetime | None
     game: str
     header_image: UploadedFileProtocol | str
+    is_public: bool
     max_participants: int
     place: str
     share_code: str
@@ -578,6 +611,7 @@ class EncounterIndexItem:
 class EncounterIndexResult:
     upcoming: list[EncounterIndexItem]
     past: list[EncounterIndexItem]
+    public: list[EncounterIndexItem]
 
 
 class EnrollmentConfigDTO(BaseModel):
@@ -637,6 +671,7 @@ class EventUpdateData(TypedDict, total=False):
     name: str
     slug: str
     description: str
+    address: str
     logo: UploadedFileProtocol | str
     cover_image: UploadedFileProtocol | str
     start_time: datetime
@@ -695,7 +730,7 @@ class WizardData(TypedDict, total=False):
     category_id: int
     contact_email: str
     personal_data: dict[str, str]
-    session_data: dict[str, object]
+    session_data: dict[str, FieldValue | int]
     time_slot_ids: list[int]
     track_pks: list[int]
 
@@ -708,18 +743,18 @@ class ProposeSessionResult:
 
 @dataclass
 class RequestContext:
-    current_site_id: int
-    current_sphere_id: int
-    root_site_id: int
-    root_sphere_id: int
+    current_site_id: SiteId
+    current_sphere_id: SphereId
+    root_site_id: SiteId
+    root_sphere_id: SphereId
     current_user_slug: str | None = None
-    current_user_id: int | None = None
+    current_user_id: UserId | None = None
 
 
 @dataclass
 class AuthenticatedRequestContext(RequestContext):
     current_user_slug: str
-    current_user_id: int
+    current_user_id: UserId
 
 
 class PanelStatsDTO(BaseModel):
@@ -818,6 +853,8 @@ class SessionRepositoryProtocol(Protocol):
     @staticmethod
     def list_deleted_by_event(event_pk: int) -> list[SessionListItemDTO]: ...
     @staticmethod
+    def list_alive_pks_by_event(event_pk: int) -> list[int]: ...
+    @staticmethod
     def list_by_facilitator(facilitator_id: int) -> list[SessionListItemDTO]: ...
     @staticmethod
     def read_event(session_id: int) -> EventDTO: ...
@@ -829,8 +866,6 @@ class SessionRepositoryProtocol(Protocol):
     def read_time_slots(session_id: int) -> list[TimeSlotDTO]: ...
     @staticmethod
     def count_by_category(category_id: int) -> int: ...
-    @staticmethod
-    def read_pending_by_event(event_id: int) -> list[PendingSessionDTO]: ...
     @staticmethod
     def read_preferred_time_slot_ids(session_id: int) -> list[int]: ...
     @staticmethod
@@ -1026,6 +1061,8 @@ class AgendaItemRepositoryProtocol(Protocol):
 
 
 class EventRepositoryProtocol(Protocol):
+    @staticmethod
+    def exists_for_sphere(sphere_id: int) -> bool: ...
     @staticmethod
     def list_by_sphere(sphere_id: int) -> list[EventDTO]: ...
     @staticmethod
@@ -1261,13 +1298,13 @@ class EnrollmentConfigRepositoryProtocol(Protocol):
     ) -> UserEnrollmentConfigDTO: ...
     @staticmethod
     def read_user_config(
-        config: EnrollmentConfigDTO, user_email: str
+        config: HasPk, user_email: str
     ) -> UserEnrollmentConfigDTO | None: ...
     @staticmethod
     def update_user_config(user_enrollment_config: UserEnrollmentConfigDTO) -> None: ...
     @staticmethod
     def read_domain_config(
-        enrollment_config: EnrollmentConfigDTO, domain: str
+        enrollment_config: HasPk, domain: str
     ) -> DomainEnrollmentConfigDTO | None: ...
 
 
@@ -1275,15 +1312,19 @@ class EncounterRepositoryProtocol(Protocol):
     @staticmethod
     def create(data: EncounterData) -> EncounterDTO: ...
     @staticmethod
-    def read(pk: int) -> EncounterDTO: ...
+    def exists_for_sphere(sphere_id: int) -> bool: ...
     @staticmethod
-    def read_by_share_code(share_code: str) -> EncounterDTO: ...
+    def read(pk: int, sphere_id: int) -> EncounterDTO: ...
+    @staticmethod
+    def read_by_share_code(share_code: str, sphere_id: int) -> EncounterDTO: ...
     @staticmethod
     def list_upcoming_by_creator(
         sphere_id: int, creator_id: int
     ) -> list[EncounterDTO]: ...
     @staticmethod
     def list_upcoming_rsvpd(sphere_id: int, user_id: int) -> list[EncounterDTO]: ...
+    @staticmethod
+    def list_public_upcoming(sphere_id: int) -> list[EncounterDTO]: ...
     @staticmethod
     def list_past(sphere_id: int, user_id: int) -> list[EncounterDTO]: ...
     @staticmethod
@@ -1301,6 +1342,8 @@ class EncounterRSVPRepositoryProtocol(Protocol):
     def list_by_encounter(encounter_id: int) -> list[EncounterRSVPDTO]: ...
     @staticmethod
     def count_by_encounter(encounter_id: int) -> int: ...
+    @staticmethod
+    def count_by_encounters(encounter_ids: list[int]) -> dict[int, int]: ...
     @staticmethod
     def recent_rsvp_exists(ip_address: str, seconds: int = 60) -> bool: ...
     @staticmethod
@@ -1330,6 +1373,10 @@ class FacilitatorRepositoryProtocol(Protocol):
     def set_ident(pk: int, ident: str) -> None: ...
     @staticmethod
     def update(pk: int, data: FacilitatorUpdateData) -> FacilitatorDTO: ...
+    @staticmethod
+    def set_accreditation(
+        *, event_id: int, pks: list[int], accreditation_type: str
+    ) -> None: ...
     @staticmethod
     def list_by_event(
         event_id: int, filters: FacilitatorListFilters | None = None
@@ -1432,6 +1479,7 @@ class ScheduleChangeLogDTO(BaseModel):
     moved_from_id: int | None
     acknowledgement_time: datetime | None
     acknowledged_by_name: str
+    important: bool
 
 
 class ScheduleChangeLogRepositoryProtocol(Protocol):
@@ -1450,8 +1498,18 @@ class ScheduleChangeLogRepositoryProtocol(Protocol):
     def list_since(event_pk: int, since: datetime) -> list[ScheduleChangeLogDTO]: ...
 
     @staticmethod
+    def list_erratum_rows(
+        *, event_pk: int, since: datetime, log_pks: list[int]
+    ) -> list[ScheduleChangeLogDTO]: ...
+
+    @staticmethod
     def set_acknowledged(
         *, event_pk: int, log_pks: list[int], user_id: int, acknowledged: bool
+    ) -> None: ...
+
+    @staticmethod
+    def set_important(
+        *, event_pk: int, log_pks: list[int], important: bool
     ) -> None: ...
 
     @staticmethod
@@ -1565,6 +1623,9 @@ class FacilitatorChangeLogRepositoryProtocol(Protocol):
     def create(data: FacilitatorChangeLogData) -> None: ...
 
     @staticmethod
+    def create_many(data: list[FacilitatorChangeLogData]) -> None: ...
+
+    @staticmethod
     def list_by_event(event_pk: int) -> list[FacilitatorChangeLogDTO]: ...
 
 
@@ -1620,7 +1681,7 @@ class UnitOfWorkProtocol(Protocol):
 
 
 class TicketAPIProtocol(Protocol):
-    def fetch_membership_count(self, user_email: str) -> int: ...
+    def fetch_membership_count(self, user_email: str, /) -> int: ...
 
 
 DEFAULT_FIELD_MAX_LENGTH = 50
@@ -1637,8 +1698,6 @@ class DependencyInjectorProtocol(Protocol):
     @property
     def uow(self) -> UnitOfWorkProtocol: ...
     @property
-    def ticket_api(self) -> TicketAPIProtocol: ...
-    @property
     def cache(self) -> CacheProtocol: ...
     @staticmethod
     def gravatar_url(email: str) -> str | None: ...
@@ -1653,9 +1712,13 @@ class RootRequestProtocol(Protocol):
 
 @dataclass
 class VirtualEnrollmentConfig:
-    allowed_slots: int = 0
-    has_domain_config: bool = False
-    has_user_config: bool = False
+    user_slots: int = 0
+    domain_slots: int = 0
+    domain: str = ""
+
+    @property
+    def allowed_slots(self) -> int:
+        return self.user_slots + self.domain_slots
 
 
 class MembershipAPIError(Exception):

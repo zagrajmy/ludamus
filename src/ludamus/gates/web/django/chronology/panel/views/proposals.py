@@ -19,7 +19,6 @@ from ludamus.gates.web.django.chronology.panel.views.base import (
     PanelAccessMixin,
     PanelRequest,
     back_to_proposals,
-    pagination_context,
     proposal_detail_tab_urls,
     proposal_detail_url,
     proposal_tab_urls,
@@ -29,6 +28,7 @@ from ludamus.gates.web.django.chronology.panel.views.columns import (
     column_values,
     column_views,
 )
+from ludamus.gates.web.django.pagination import pagination_context
 from ludamus.pacts import NotFoundError, SessionStatus
 from ludamus.pacts.chronology import (
     ContentChangeNotLatestError,

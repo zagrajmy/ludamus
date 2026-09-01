@@ -227,9 +227,9 @@ class Auth0LoginCallbackActionView(RedirectView):
                 )
                 return None
 
-        # The parens are load-bearing: black's preview mode strips them from a
-        # bare `except (A, B):` at this indentation and emits Python 2 syntax
-        # that breaks the import, so the tuple must be bound with `as`.
+        # HACK: the parens are load-bearing. black's preview mode strips them
+        # from a bare `except (A, B):` here and emits Python 2 syntax that
+        # breaks the import, so the tuple must be bound with `as`.
         except (KeyError, ValueError) as exc:
             logger.warning("Invalid Auth0 state payload: %s", exc)
             messages.error(self.request, _("Invalid authentication state"))

@@ -1,12 +1,24 @@
+import { type Locator, type Page } from "@playwright/test";
+
 import { expect, test } from "./helpers/fixtures";
 
 const DASHBOARD_URL = "/panel/event/harbour-days/timetable/confirmations/";
 
 // The specs tick real checkboxes on the seeded `harbour-days` event, so they
-// run in order and share one worker.
+// share one worker and run in order. Nothing re-seeds between attempts —
+// bootstrap_confirmations.py is get_or_create throughout — so an afterEach puts
+// the seeded state back whether the test passed or failed, and a serial retry
+// re-runs the block against the state it expects.
 test.describe.configure({ mode: "serial" });
 
-async function login(page) {
+// The one placed session the seed leaves confirmed; the other two start clear.
+const SEEDED_CONFIRMATIONS: [string, boolean][] = [
+  ["Dragons of the Harbour", true],
+  ["Wizards of the Pier", false],
+  ["Club Night", false],
+];
+
+async function login(page: Page) {
   await page.goto("/admin/login/");
   await page.getByLabel("Username:").fill("e2e-manager");
   await page.getByLabel("Password:").fill("e2e-manager-123");
@@ -15,19 +27,71 @@ async function login(page) {
 
 // The dashboard's track row is the way in: clicking it is what an organizer
 // does after reading which block is behind.
-async function openMainProgramme(page) {
+async function openMainProgramme(page: Page) {
   await page.goto(DASHBOARD_URL);
   await page.getByRole("link", { name: "Main Programme" }).click();
   await expect(page.getByText("Ada McCall")).toBeVisible();
 }
 
-function card(page, name: string) {
+// A card renders folded only while its facilitator is fully confirmed, so
+// unfolding one has to be conditional: a blind summary click closes the rest.
+// The restore hook can reach a card an HTMX swap is still replacing, hence the
+// polling waits around the one-shot attribute read.
+async function unfold(facilitatorCard: Locator) {
+  await expect(facilitatorCard).toBeVisible();
+  if ((await facilitatorCard.getAttribute("open")) === null) {
+    await facilitatorCard.locator("summary").click();
+    await expect(facilitatorCard).toHaveAttribute("open", "");
+  }
+}
+
+function card(page: Page, name: string) {
   return page.locator("details").filter({ has: page.getByText(name, { exact: true }) });
+}
+
+// A row's text opens with its session title — after the template's own
+// indentation, which `hasText` hands to a regex unnormalized — so an anchored
+// match lands on the row and not on the status group or the card above it.
+// Naming the row keeps a restore off checkbox position, which only ever lined
+// up by accident of the seed's start hours and email ordering.
+function row(facilitatorCard: Locator, title: string) {
+  return facilitatorCard
+    .locator("div")
+    .filter({ hasText: new RegExp(`^\\s*${title}`) })
+    .first();
 }
 
 test.describe("Confirmations", () => {
   test.beforeEach(async ({ page }) => {
     await login(page);
+  });
+
+  // Every mutation these specs make is Ada's, and each undo is a no-op when the
+  // test did not get that far — so one hook restores from any state, including
+  // the state a failed assertion left behind.
+  test.afterEach(async ({ page }) => {
+    await openMainProgramme(page);
+    const ada = card(page, "Ada McCall");
+
+    const stepDown = ada.getByRole("button", { name: "Step down" });
+    if (await stepDown.count()) {
+      await stepDown.click();
+      await expect(ada.getByText("Nobody handles this facilitator")).toBeVisible();
+    }
+
+    await unfold(ada);
+    let confirmed = await ada.locator("input[type=checkbox]:checked").count();
+    for (const [title, seeded] of SEEDED_CONFIRMATIONS) {
+      const box = row(ada, title).locator("input[type=checkbox]");
+      if ((await box.isChecked()) === seeded) {
+        continue;
+      }
+      await box.setChecked(seeded);
+      confirmed += seeded ? 1 : -1;
+      // The counter is the swap landing: waiting on it keeps the next undo off
+      // a card that is about to be replaced.
+      await expect(ada.getByText(`${confirmed}/3`, { exact: true })).toBeVisible();
+    }
   });
 
   test("dashboard reports progress and the sessions nobody facilitates", async ({ page }) => {
@@ -71,11 +135,7 @@ test.describe("Confirmations", () => {
     await expect(scheduled).toHaveCount(3);
 
     // On hold and rejected are listed, but there is nothing to tick on them.
-    const onHoldRow = ada
-      .locator("div")
-      .filter({ hasText: /^Maybe: Harbour Larp/ })
-      .first();
-    await expect(onHoldRow.locator("input[type=checkbox]")).toHaveCount(0);
+    await expect(row(ada, "Maybe: Harbour Larp").locator("input[type=checkbox]")).toHaveCount(0);
   });
 
   test("counted states never appear as rows", async ({ page }) => {
@@ -96,30 +156,19 @@ test.describe("Confirmations", () => {
     ).toBeVisible();
   });
 
-  test("ticking a checkbox swaps the card and moves the counter", async ({ page }) => {
+  test("ticking a checkbox moves the counter, unticking gives the confirmation back", async ({
+    page,
+  }) => {
     await openMainProgramme(page);
     const ada = card(page, "Ada McCall");
     await expect(ada.getByText("1/3", { exact: true })).toBeVisible();
 
-    const wizards = ada
-      .locator("form")
-      .filter({ has: page.locator("input[name=agenda_item_pk]") })
-      .nth(1);
-    await wizards.locator("input[type=checkbox]").check();
+    const wizards = row(ada, "Wizards of the Pier").locator("input[type=checkbox]");
+    await wizards.check();
 
     await expect(ada.getByText("2/3", { exact: true })).toBeVisible();
-  });
 
-  test("unticking gives the confirmation back", async ({ page }) => {
-    await openMainProgramme(page);
-    const ada = card(page, "Ada McCall");
-    await expect(ada.getByText("2/3", { exact: true })).toBeVisible();
-
-    const wizards = ada
-      .locator("form")
-      .filter({ has: page.locator("input[name=agenda_item_pk]") })
-      .nth(1);
-    await wizards.locator("input[type=checkbox]").uncheck();
+    await wizards.uncheck();
 
     await expect(ada.getByText("1/3", { exact: true })).toBeVisible();
   });
@@ -141,7 +190,6 @@ test.describe("Confirmations", () => {
     await context.grantPermissions(["clipboard-read", "clipboard-write"]);
     await openMainProgramme(page);
     const ada = card(page, "Ada McCall");
-    await ada.locator("summary").click();
 
     await ada.getByRole("button", { name: "Copy details" }).first().click();
 
@@ -176,7 +224,6 @@ test.describe("Confirmations", () => {
   test("an unclaimed facilitator can be taken on from the list", async ({ page }) => {
     await openMainProgramme(page);
     const ada = card(page, "Ada McCall");
-    await ada.locator("summary").click();
 
     await ada.getByRole("button", { name: "Take this on" }).click();
 

@@ -5,9 +5,9 @@ from typing import TYPE_CHECKING, Final, Literal, TypedDict, get_args
 from django.contrib import messages
 from django.shortcuts import redirect
 from django.urls import reverse
-from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils.translation import gettext as _
 
+from ludamus.gates.web.django.redirects import safe_url
 from ludamus.pacts.submissions import RequirementSelectionDTO
 
 if TYPE_CHECKING:
@@ -27,6 +27,7 @@ PanelNav = Literal[
     "venues",
     "tracks",
     "timetable",
+    "konwencik-export",
     "errata",
     "settings",
     "bans",
@@ -70,25 +71,13 @@ def settings_tab_urls(slug: str) -> dict[str, str]:
         "general": reverse("panel:event-settings", kwargs={"slug": slug}),
         "proposals": reverse("panel:event-proposal-settings", kwargs={"slug": slug}),
         "enrollment": reverse("panel:event-enrollment-settings", kwargs={"slug": slug}),
+        "discounts": reverse("panel:event-discount-settings", kwargs={"slug": slug}),
         "display": reverse("panel:event-display-settings", kwargs={"slug": slug}),
         "integrations": reverse(
             "panel:event-integration-settings", kwargs={"slug": slug}
         ),
         "mcp": reverse("panel:event-mcp-token", kwargs={"slug": slug}),
     }
-
-
-def safe_url(request: HttpRequest, url: str | None) -> str:
-    # The one host check behind every "back where you came from" redirect,
-    # whether the URL arrived as a `next` param or as the referer.
-    return (
-        url
-        if url
-        and url_has_allowed_host_and_scheme(
-            url, allowed_hosts={request.get_host()}, require_https=request.is_secure()
-        )
-        else ""
-    )
 
 
 def safe_next_url(request: HttpRequest, fallback: str) -> str:

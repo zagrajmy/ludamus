@@ -1,18 +1,22 @@
 from django.urls import URLPattern, URLResolver, include, path
 from django.views.generic.base import RedirectView, TemplateView
 
+from ludamus.gates.web.django import notifications as notifications_gate
 from ludamus.gates.web.django.auth_pages import auth_error_page
 from ludamus.gates.web.django.chronology import offers
 from ludamus.gates.web.django.chronology import views as chronology_views
 from ludamus.gates.web.django.chronology.urls import urlpatterns as chronology_gate_urls
 from ludamus.gates.web.django.crowd.urls import urlpatterns as crowd_gate_urls
+from ludamus.gates.web.django.event.ics import EventICSView
 from ludamus.gates.web.django.event.print import PublicEventPrintView
+from ludamus.gates.web.django.event.urls import urlpatterns as event_gate_urls
 from ludamus.gates.web.django.notice_board.urls import (
     authenticated_urlpatterns as encounter_authenticated,
 )
 from ludamus.gates.web.django.notice_board.urls import (
     public_urlpatterns as encounter_public,
 )
+from ludamus.gates.web.django.timeline import TimelinePageView
 
 from . import views
 
@@ -25,6 +29,7 @@ chronology_urls = [
     *chronology_gate_urls,
     path("event/<str:slug>/", views.EventPageView.as_view(), name="event"),
     path("event/<str:slug>/print/", PublicEventPrintView.as_view(), name="event-print"),
+    path("event/<str:slug>/calendar.ics", EventICSView.as_view(), name="event-ics"),
     path(
         "event/<str:event_slug>/session/<int:session_id>/enrollment/",
         views.SessionEnrollPageView.as_view(),
@@ -50,6 +55,22 @@ chronology_urls = [
 urlpatterns = [
     path("", views.IndexRedirectView.as_view(), name="index"),
     path("events/", views.EventsPageView.as_view(), name="events"),
+    path("timeline/", TimelinePageView.as_view(), name="timeline"),
+    path(
+        "notifications/",
+        notifications_gate.NotificationsPageView.as_view(),
+        name="notifications",
+    ),
+    path(
+        "notifications/<int:pk>/do/open",
+        notifications_gate.NotificationOpenActionView.as_view(),
+        name="notification-open",
+    ),
+    path(
+        "notifications/<int:pk>/parts/modal",
+        notifications_gate.NotificationModalComponentView.as_view(),
+        name="notification-modal",
+    ),
     path(
         "notifications/do/mark-read",
         offers.NotificationsMarkReadView.as_view(),
@@ -59,6 +80,7 @@ urlpatterns = [
     path("brand/", TemplateView.as_view(template_name="brand.html"), name="brand"),
     path("dev/emails/", views.StagingEmailInboxView.as_view(), name="staging-emails"),
     path("", include((chronology_urls, "chronology"), namespace="chronology")),
+    path("", include((event_gate_urls, "event"), namespace="event")),
     # Permanent redirects for links shared before the `chronology/` path segment
     # was dropped from public event URLs (issue #543, A4). View names are
     # unchanged, so only externally shared literal URLs need this shim.

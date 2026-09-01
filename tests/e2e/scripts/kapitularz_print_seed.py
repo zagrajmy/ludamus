@@ -28,6 +28,7 @@ EXPECTED_SESSION_COUNT = 110
 EXPECTED_PARTICIPANT_COUNT = 555
 EXTRA_ENROLLMENT_SESSION_COUNT = 5
 HOST_COUNT = 72
+OVERNIGHT_SESSION_SLOT = (1, 22)
 
 
 @dataclass(frozen=True)
@@ -168,10 +169,10 @@ def seed_kapitularz_print_event(sphere: Sphere) -> None:
         name="Kapitularz 2025 Anonymized",
         slug=EVENT_SLUG,
         description=(
-            "Synthetic, anonymized convention-scale programme for print previews. "
-            "The fixture preserves the public density of the source event without "
-            "keeping host, participant, or session identities."
+            "An anonymized copy of a real convention's programme: same density, "
+            "no real names."
         ),
+        address="4 Assembly Concourse\nNorthport",
         start_time=event_start,
         # Deliberately stale: the final day's programme continues after 13:00.
         # Untouched print ranges must follow scheduled content, not this bound.
@@ -307,7 +308,11 @@ def _create_sessions(
         track_spaces = list(track.spaces.order_by("order", "name"))
         space = track_spaces[(index - 1) % len(track_spaces)]
         facilitator = facilitators[(index * 7) % len(facilitators)]
-        duration_hours = (1, 1, 2, 2, 3)[index % 5]
+        duration_hours = (
+            3
+            if (spec.day, spec.hour) == OVERNIGHT_SESSION_SLOT
+            else (1, 1, 2, 2, 3)[index % 5]
+        )
         title = _title(index, spec.track_slug)
         session = Session.objects.create(
             event=event,

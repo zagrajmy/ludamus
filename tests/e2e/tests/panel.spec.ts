@@ -300,19 +300,33 @@ test.describe("Backoffice Panel", () => {
     await page.getByRole("button", { name: "Create space" }).click();
 
     await expect(page.getByText("Space created successfully.")).toBeVisible();
-    await expect(page.getByText("Community Library", { exact: true })).toBeVisible();
+    // Unscoped exact-text lookup, same trap as "lists the space tree for the
+    // event" above: a serial retry replays this test from the top without
+    // undoing the earlier attempt's insert, so a later attempt sees two
+    // "Community Library" nodes and an exact match becomes a strict-mode
+    // violation (CI run 32138614309). .first() only needs one to exist.
+    await expect(page.getByText("Community Library", { exact: true }).first()).toBeVisible();
   });
 
   test("creates a nested space inside a parent", async ({ page }) => {
     await page.goto("/panel/event/frostfire-con/venues/");
-    await page.getByRole("link", { name: "Add a space inside Aurora Convention Hall" }).click();
+    // Same trap as "creates a top-level space" above: "duplicates a space"
+    // (below) can leave "Aurora Convention Hall (Copy)" behind from an
+    // earlier attempt a serial retry replays from the top, and an unscoped
+    // link name matches both "...Hall" and "...Hall (Copy)" (CI runs
+    // 33269492969, 33261954001, 33254097258 and others). exact:true keeps it
+    // to the original; .first() on the created node covers the same replay
+    // leaving a second "Workshop Room" behind.
+    await page
+      .getByRole("link", { name: "Add a space inside Aurora Convention Hall", exact: true })
+      .click();
 
     await page.locator("#id_name").fill("Workshop Room");
     await page.locator("#id_capacity").fill("15");
     await page.getByRole("button", { name: "Create space" }).click();
 
     await expect(page.getByText("Space created successfully.")).toBeVisible();
-    await expect(page.getByText("Workshop Room", { exact: true })).toBeVisible();
+    await expect(page.getByText("Workshop Room", { exact: true }).first()).toBeVisible();
   });
 
   test("offers no add-inside action on a space holding a session", async ({ page }) => {
@@ -873,7 +887,7 @@ test.describe("Backoffice Panel", () => {
       await expect(page.getByText("Session field created successfully.")).toBeVisible();
 
       /* NOTE: the panel UI hides "Required" for checkbox fields because
-           the proposer-side form builder (chronology/forms.py — BooleanField
+           the proposer-side form builder (event/propose_forms.py — BooleanField
            for checkbox) ignores `is_required` anyway. The regression test
            below needs a checkbox stored as required to exercise that
            defensive coercion, so we re-inject the option to craft a
@@ -1024,7 +1038,9 @@ test.describe("Backoffice Panel", () => {
       await page.locator("#id_description").fill("An introductory RPG session for new players.");
       await page.locator("#id_participants_limit").fill("6");
       await page.locator("#id_display_name").fill("Game Master Alex");
-      await page.locator("#id_duration").selectOption("PT2H");
+      // The category configures one duration, so the wizard answers for the
+      // proposer instead of offering a dropdown with a single option.
+      await expect(page.getByRole("combobox", { name: /duration/i })).toHaveCount(0);
       await page.locator(`input[name="session_${slugify(gameSystemName)}"]`).fill("D&D 5e");
       await page.locator(`select[name="session_${slugify(genreName)}"]`).selectOption("Fantasy");
       await page
@@ -1053,6 +1069,8 @@ test.describe("Backoffice Panel", () => {
       await expect(page.getByText("host@example.com")).toBeVisible();
       await expect(page.getByText("D&D 5e")).toBeVisible();
       await expect(page.getByText("Fantasy")).toBeVisible();
+      // The duration nobody was asked for still reaches the review.
+      await expect(page.getByText("2h", { exact: true })).toBeVisible();
 
       // Submit
       await page.getByRole("button", { name: "Submit Proposal" }).click();
@@ -1103,7 +1121,6 @@ test.describe("Backoffice Panel", () => {
       await page.locator("#id_participants_limit").fill("4");
       await page.locator("#id_min_age").fill("30");
       await page.locator("#id_display_name").fill("Regression GM");
-      await page.locator("#id_duration").selectOption("PT2H");
       await page.locator(`input[name="session_${slugify(gameSystemName)}"]`).fill("Pathfinder");
       await page.locator(`select[name="session_${slugify(genreName)}"]`).selectOption("Fantasy");
       await page

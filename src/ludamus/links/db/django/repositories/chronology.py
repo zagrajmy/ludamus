@@ -4,15 +4,7 @@ from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
 from django.db import IntegrityError
-from django.db.models import (
-    Count,
-    Exists,
-    IntegerField,
-    OuterRef,
-    Q,
-    QuerySet,
-    Subquery,
-)
+from django.db.models import Count, IntegerField, OuterRef, Q, QuerySet, Subquery
 from django.db.models.functions import Coalesce
 
 from ludamus.links.db.django.models import (
@@ -26,7 +18,6 @@ from ludamus.links.db.django.models import (
     Session,
     SessionParticipation,
     Space,
-    Track,
     UserEnrollmentConfig,
 )
 from ludamus.links.db.django.repositories.storage import save_replacing_files
@@ -62,6 +53,7 @@ from ludamus.pacts.chronology import (
     PartySessionSeatDTO,
     SessionCardStatsDTO,
 )
+from ludamus.pacts.ids import EventId, HasPk
 from ludamus.pacts.legacy import AgendaItemDTO, LocationData
 from ludamus.pacts.panel import (
     EventPanelSettingsDTO,
@@ -119,12 +111,13 @@ class PartySessionHistoryRepository(PartySessionHistoryRepositoryProtocol):
             )
             .order_by("agenda_item__start_time")
         )
-        groups: dict[int, PartyEventHistoryDTO] = {}
+        groups: dict[EventId, PartyEventHistoryDTO] = {}
         for session in sessions:
             item = _party_session_history(session, viewer_pk=viewer_pk)
-            if (group := groups.get(session.event_id)) is None:
-                groups[session.event_id] = PartyEventHistoryDTO(
-                    event_pk=session.event_id,
+            event_id = EventId(session.event_id)
+            if (group := groups.get(event_id)) is None:
+                groups[event_id] = PartyEventHistoryDTO(
+                    event_pk=event_id,
                     event_name=session.event.name,
                     event_slug=session.event.slug,
                     sessions=[item],
@@ -139,11 +132,26 @@ class PartySessionHistoryRepository(PartySessionHistoryRepositoryProtocol):
 
 
 def location_data(space: Space) -> LocationData:
+    chain = (*reversed(tuple(space.iter_ancestors())), space)
+    sort_path = tuple((node.order, node.name, node.pk) for node in chain)
     return LocationData(
+        space_id=space.pk,
+        parent_id=space.parent_id or 0,
         space_name=space.name,
-        parent_slug=space.parent.slug if space.parent else "",
         parent_name=space.parent.name if space.parent else "",
         path=str(space),
+        sort_path=sort_path,
+    )
+
+
+def eligible_window_ids(session: Session) -> frozenset[int]:
+    """Name the enrollment windows that can seat this session.
+
+    Returns:
+        The window ids, to be intersected with a viewer's own open windows.
+    """
+    return frozenset(
+        config.pk for config in session.event.get_eligible_enrollment_configs(session)
     )
 
 
@@ -152,25 +160,19 @@ def session_card_stats(session: Session) -> SessionCardStatsDTO:
         enrolled_count=session.enrolled_count,
         waiting_count=session.waiting_count,
         is_full=session.is_full,
-        is_enrollment_available=session.is_enrollment_available,
+        enrollment_window_ids=eligible_window_ids(session),
         effective_participants_limit=session.effective_participants_limit,
     )
 
 
-def hide_private_track_sessions(queryset: QuerySet[Session]) -> QuerySet[Session]:
-    # A session without tracks is public (events that don't use tracks at all);
-    # one with tracks needs at least one public track. Exists() rather than
-    # Count("tracks"): a third aggregate over a m2m fans out the joins and
-    # inflates the participation counts annotated alongside.
-    return queryset.filter(
-        Exists(Track.objects.filter(sessions=OuterRef("pk"), is_public=True))
-        | ~Exists(Track.objects.filter(sessions=OuterRef("pk"), is_public=False))
-    )
-
-
 def public_scheduled_sessions(event_id: int | OuterRef) -> QuerySet[Session]:
-    return hide_private_track_sessions(
-        Session.objects.filter(event_id=event_id, agenda_item__isnull=False)
+    # A session without tracks is public (events that don't use tracks at all);
+    # one with tracks needs every one of them public, so a session sitting in
+    # both a public and a private track stays hidden. exclude() over the m2m
+    # compiles to a correlated NOT EXISTS, so it neither fans the joins out nor
+    # inflates the participation counts annotated alongside.
+    return Session.objects.filter(event_id=event_id, agenda_item__isnull=False).exclude(
+        tracks__is_public=False
     )
 
 
@@ -203,6 +205,10 @@ def _party_session_history(
 
 
 class EventRepository(EventRepositoryProtocol):
+    @staticmethod
+    def exists_for_sphere(sphere_id: int) -> bool:
+        return Event.objects.filter(sphere_id=sphere_id).exists()
+
     @staticmethod
     def list_by_sphere(sphere_id: int) -> list[EventDTO]:
         """List all events for a sphere, ordered by start time descending.
@@ -400,7 +406,7 @@ class EnrollmentConfigRepository(EnrollmentConfigRepositoryProtocol):
 
     @staticmethod
     def read_user_config(
-        config: EnrollmentConfigDTO, user_email: str
+        config: HasPk, user_email: str
     ) -> UserEnrollmentConfigDTO | None:
         user_config = UserEnrollmentConfig.objects.filter(
             enrollment_config_id=config.pk, user_email=user_email
@@ -419,7 +425,7 @@ class EnrollmentConfigRepository(EnrollmentConfigRepositoryProtocol):
 
     @staticmethod
     def read_domain_config(
-        enrollment_config: EnrollmentConfigDTO, domain: str
+        enrollment_config: HasPk, domain: str
     ) -> DomainEnrollmentConfigDTO | None:
         config = DomainEnrollmentConfig.objects.filter(
             enrollment_config_id=enrollment_config.pk, domain=domain
@@ -440,6 +446,7 @@ def _event_integration_dto(integration: EventIntegration) -> EventIntegrationDTO
         config_json=integration.config_json or "{}",
         settings_json=integration.settings_json or "{}",
         questions_snapshot_json=integration.questions_snapshot_json or "[]",
+        last_run_json=integration.last_run_json or "{}",
     )
 
 
@@ -526,6 +533,41 @@ class EventIntegrationsRepository(EventIntegrationsRepositoryProtocol):
             pk=integration.pk
         )
         return _event_integration_dto(integration)
+
+    @staticmethod
+    def update_last_run(*, event_id: int, pk: int, last_run_json: str) -> None:
+        updated = EventIntegration.objects.filter(pk=pk, event_id=event_id).update(
+            last_run_json=last_run_json
+        )
+        if not updated:
+            raise NotFoundError
+
+    @staticmethod
+    def get_for_update(event_id: int, pk: int) -> EventIntegrationDTO:
+        # Row-locked read: the caller holds the transaction, so a second writer
+        # waits here instead of racing on the settings blob.
+        try:
+            integration = (
+                EventIntegration.objects.select_for_update()
+                .select_related("connection")
+                .get(pk=pk, event_id=event_id)
+            )
+        except EventIntegration.DoesNotExist as exc:
+            raise NotFoundError from exc
+        return _event_integration_dto(integration)
+
+    @staticmethod
+    def list_by_kind(
+        kind: IntegrationKind, *, event_ended_after: datetime
+    ) -> list[EventIntegrationDTO]:
+        # Across every event, so the sweep needs no event list of its own; the
+        # cutoff keeps a finished event from pushing forever.
+        integrations = (
+            EventIntegration.objects.select_related("connection")
+            .filter(kind=kind.value, event__end_time__gte=event_ended_after)
+            .order_by("event_id", "display_name")
+        )
+        return [_event_integration_dto(i) for i in integrations]
 
     @staticmethod
     def delete(event_id: int, pk: int) -> None:

@@ -194,76 +194,50 @@
                     {% vite_asset 'src/bulk-status.ts' %}
                     <div id="proposals-results">
                         {% if proposals %}
-                            <form method="post"
-                                  action="{% url 'panel:proposal-bulk-status' slug=current_event.slug %}"
-                                  id="bulk-status-form">
-                                {% csrf_token %}
-                                <input type="hidden" name="next" value="{{ request.get_full_path }}">
-                                <div class="flex flex-wrap items-center gap-2 mb-3">
-                                    <span class="text-sm text-foreground-muted mr-1">
-                                        {% translate "Selected:" %} <span id="bulk-selected-count">0</span>
-                                    </span>
-                                    <span class="text-sm text-foreground-muted">{% translate "Set status:" %}</span>
-                                    <button type="submit"
-                                            name="action"
-                                            value="accept"
-                                            class="btn btn-primary text-sm bulk-action-btn">{% translate "Accept" %}</button>
-                                    <button type="submit"
-                                            name="action"
-                                            value="hold"
-                                            class="btn btn-secondary text-sm bulk-action-btn">{% translate "Hold" %}</button>
-                                    <button type="submit"
-                                            name="action"
-                                            value="pending"
-                                            class="btn btn-secondary text-sm bulk-action-btn">{% translate "Move to pending" %}</button>
-                                    <button type="submit"
-                                            name="action"
-                                            value="reject"
-                                            class="btn btn-danger text-sm bulk-action-btn">{% translate "Reject" %}</button>
-                                </div>
-                                {% tessera_table %}
-                                    <thead class="bg-bg-tertiary">
-                                        <tr>
-                                            <th scope="col" class="px-6 py-3 w-12">
-                                                {% translate "Select all proposals" as t_select_all %}
-                                                {% include "components/checkbox-field.html" with id="bulk-select-all" aria_label=t_select_all only %}
-                                            </th>
+                            {% url 'panel:proposal-bulk-status' slug=current_event.slug as bulk_action_url %}
+                            {% include "panel/parts/_bulk_toolbar.html" with action=bulk_action_url actions="panel/parts/_bulk_actions_proposals.html" %}
+                            {% tessera_table %}
+                                <thead class="bg-bg-tertiary">
+                                    <tr>
+                                        <th scope="col" class="px-6 py-3 w-12">
+                                            {% translate "Select all proposals" as t_select_all %}
+                                            {% include "panel/parts/_bulk_select.html" with select_all=True aria_label=t_select_all only %}
+                                        </th>
+                                        {% for column in columns %}
+                                            {% include "panel/parts/_sort_th.html" with column=column.key label=column.label %}
+                                        {% endfor %}
+                                    </tr>
+                                </thead>
+                                <tbody class="bg-bg-secondary divide-y divide-border">
+                                    {% for proposal in proposals %}
+                                        <tr class="hover:bg-bg-tertiary">
+                                            <td class="px-6 py-4">
+                                                {% blocktranslate asvar t_select_row with title=proposal.title %}Select {{ title }}{% endblocktranslate %}
+                                                {% include "panel/parts/_bulk_select.html" with name="proposal_ids" value=proposal.pk aria_label=t_select_row only %}
+                                            </td>
                                             {% for column in columns %}
-                                                {% include "panel/parts/_sort_th.html" with column=column.key label=column.label %}
+                                                {% with value=column_values|get_item:proposal.pk|get_item:column.key %}
+                                                    {# The first column carries the link to the proposal, whichever column the organizer put there. #}
+                                                    <td class="px-6 py-4 max-w-xs truncate text-sm {% if forloop.first %}font-medium text-foreground{% else %}text-foreground-muted{% endif %}"
+                                                        title="{{ value }}">
+                                                        {% if forloop.first %}
+                                                            <a href="{% url 'panel:proposal-detail' slug=current_event.slug proposal_id=proposal.pk %}?next={{ request.get_full_path|urlencode }}"
+                                                               data-row-action
+                                                               aria-label="{{ proposal.title }}"
+                                                               class="text-primary hover:text-primary/80">
+                                                                {% include "panel/parts/_proposal_cell.html" with column=column proposal=proposal value=value only %}
+                                                            </a>
+                                                        {% else %}
+                                                            {% include "panel/parts/_proposal_cell.html" with column=column proposal=proposal value=value only %}
+                                                        {% endif %}
+                                                    </td>
+                                                {% endwith %}
                                             {% endfor %}
                                         </tr>
-                                    </thead>
-                                    <tbody class="bg-bg-secondary divide-y divide-border">
-                                        {% for proposal in proposals %}
-                                            <tr class="hover:bg-bg-tertiary">
-                                                <td class="px-6 py-4">
-                                                    {% blocktranslate asvar t_select_row with title=proposal.title %}Select {{ title }}{% endblocktranslate %}
-                                                    {% include "components/checkbox-field.html" with name="proposal_ids" value=proposal.pk aria_label=t_select_row hook_class="bulk-row-checkbox" only %}
-                                                </td>
-                                                {% for column in columns %}
-                                                    {% with value=column_values|get_item:proposal.pk|get_item:column.key %}
-                                                        {# The first column carries the link to the proposal, whichever column the organizer put there. #}
-                                                        <td class="px-6 py-4 max-w-xs truncate text-sm {% if forloop.first %}font-medium text-foreground{% else %}text-foreground-muted{% endif %}"
-                                                            title="{{ value }}">
-                                                            {% if forloop.first %}
-                                                                <a href="{% url 'panel:proposal-detail' slug=current_event.slug proposal_id=proposal.pk %}?next={{ request.get_full_path|urlencode }}"
-                                                                   data-row-action
-                                                                   aria-label="{{ proposal.title }}"
-                                                                   class="text-primary hover:text-primary/80">
-                                                                    {% include "panel/parts/_proposal_cell.html" with column=column proposal=proposal value=value only %}
-                                                                </a>
-                                                            {% else %}
-                                                                {% include "panel/parts/_proposal_cell.html" with column=column proposal=proposal value=value only %}
-                                                            {% endif %}
-                                                        </td>
-                                                    {% endwith %}
-                                                {% endfor %}
-                                            </tr>
-                                        {% endfor %}
-                                    </tbody>
-                                {% endtessera_table %}
-                            </form>
-                            {% include "panel/parts/_pagination.html" %}
+                                    {% endfor %}
+                                </tbody>
+                            {% endtessera_table %}
+                            {% include "components/_pagination.html" %}
                         {% else %}
                             <div class="card p-8 text-center">
                                 {# The pending default means an empty page no longer proves an #}

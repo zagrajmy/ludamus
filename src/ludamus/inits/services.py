@@ -5,20 +5,25 @@ from typing import TYPE_CHECKING
 
 from django.conf import settings
 
-from ludamus.inits.builders import build_printables_reminder, build_waitlist_promotion
+from ludamus.inits.builders import (
+    build_konwencik_export,
+    build_printables_reminder,
+    build_waitlist_promotion,
+)
 from ludamus.inits.dbos_scheduler import DBOSOfferExpiryScheduler
 from ludamus.inits.repositories import Repositories
+from ludamus.links.cache import DjangoCache
 from ludamus.links.db.django.notifications import DjangoUserNotifier
 from ludamus.links.db.django.schedule_change_log import ScheduleChangeLogRepository
 from ludamus.links.db.django.transaction import DjangoTransaction
 from ludamus.links.encryption import FernetDecryptor, FernetEncryptor
-from ludamus.links.google_docs import GoogleDocsProposalImporter, GoogleSheetsWriter
+from ludamus.links.google_forms import GoogleDocsProposalImporter
+from ludamus.links.google_sheets import GoogleSheetsWriter, KonwencikSheetExporter
 from ludamus.links.gravatar import gravatar_url
 from ludamus.links.scheduler import CronSweepOfferScheduler
-from ludamus.links.ticket_api import MembershipApiClient
+from ludamus.links.sklep_kapitularz import SklepKapitularzIntegration
 from ludamus.mills.bookmarks import BookmarkService
 from ludamus.mills.chronology import (
-    EventIntegrationsService,
     ProposalAcceptanceService,
     ProposalStatusService,
     SessionConfirmationService,
@@ -38,7 +43,6 @@ from ludamus.mills.enrollment import (
     AnonymousEnrollmentService,
     EnrollmentService,
     EnrollmentSettingsService,
-    NotificationsService,
     WaitlistPromotionService,
 )
 from ludamus.mills.errata import ErrataService
@@ -49,12 +53,17 @@ from ludamus.mills.event import (
 )
 from ludamus.mills.event_settings import EventSettingsService
 from ludamus.mills.guild import GuildService
+from ludamus.mills.integrations import (
+    EventIntegrationsService,
+    IntegrationImplementations,
+)
 from ludamus.mills.multiverse import (
     AnnouncementsService,
     ConnectionsService,
     SitesService,
     SpherePanelService,
 )
+from ludamus.mills.notifications import NotificationsService
 from ludamus.mills.panel_facilitators import FacilitatorPanelService
 from ludamus.mills.panel_proposals import ProposalPanelService
 from ludamus.mills.panel_time_slots import PanelTimeSlotsService
@@ -62,6 +71,7 @@ from ludamus.mills.party import PartyService
 from ludamus.mills.party_history import PartySessionHistoryService
 from ludamus.mills.printing import PrintablesReminderService, PrintMaterialsService
 from ludamus.mills.proposal_categories import ProposalCategoriesService
+from ludamus.mills.propose import ProposeSessionService
 from ludamus.mills.safety import EventBanService, ShadowbanService
 from ludamus.mills.session_modal import SessionModalService
 from ludamus.mills.submissions.field_layout import ImportFieldLayoutService
@@ -86,11 +96,17 @@ from ludamus.pacts.chronology import IntegrationImplementationId
 from ludamus.pacts.enrollment import EnrollmentRepos
 from ludamus.pacts.event_settings import EventSettingsRepos
 from ludamus.pacts.panel import FacilitatorPanelRepos, ProposalPanelRepos
+from ludamus.pacts.propose import ProposeRepos
 from ludamus.pacts.submissions import ImportRepos, ProposalCategorySettingsRepos
 from ludamus.pacts.timetable import TimetableRepos
 
 if TYPE_CHECKING:
-    from ludamus.pacts.chronology import IntegrationImplementation
+    from ludamus.mills.konwencik import KonwencikExportService
+    from ludamus.pacts.chronology import (
+        ImportIntegrationImplementation,
+        IntegrationImplementation,
+        TicketingIntegrationImplementation,
+    )
     from ludamus.pacts.enrollment import OfferExpirySchedulerProtocol
 
 
@@ -280,7 +296,10 @@ class Services:
     @cached_property
     def sphere_panel(self) -> SpherePanelService:
         return SpherePanelService(
-            self._transaction, self._repos.spheres, self._repos.events
+            self._transaction,
+            self._repos.spheres,
+            self._repos.events,
+            self._repos.encounters,
         )
 
     @cached_property
@@ -401,7 +420,6 @@ class Services:
 
     @cached_property
     def enrollment(self) -> EnrollmentService:
-        membership_check_interval: int = settings.MEMBERSHIP_API_CHECK_INTERVAL
         return EnrollmentService(
             transaction=self._transaction,
             repos=EnrollmentRepos(
@@ -409,9 +427,9 @@ class Services:
                 anonymous_users=self._repos.anonymous_users,
                 enrollment_configs=self._repos.enrollment_configs,
                 participations=self._repos.enrollment_participations,
-                ticket_api=MembershipApiClient(),
+                ticket_api_resolver=self.event_integrations,
+                windows=self._repos.enrollment_windows,
             ),
-            membership_check_interval=membership_check_interval,
         )
 
     @cached_property
@@ -434,6 +452,9 @@ class Services:
             transaction=self._transaction,
             discounts=self._repos.discounts,
             facilitators=self._repos.facilitators,
+            rules=self._repos.discount_rules,
+            schedule=self._repos.agenda_items,
+            facilitator_change_logs=self._repos.facilitator_change_logs,
         )
 
     @cached_property
@@ -443,15 +464,23 @@ class Services:
         )
 
     @cached_property
-    def discounts_export(self) -> DiscountsExportService:
+    def _decryptor(self) -> FernetDecryptor:
         key: str = settings.CREDENTIALS_ENCRYPTION_KEY
+        return FernetDecryptor(key)
+
+    @cached_property
+    def discounts_export(self) -> DiscountsExportService:
         return DiscountsExportService(
             discounts=self._repos.discounts,
             facilitators=self._repos.facilitators,
             connections=self._repos.connections,
-            decryptor=FernetDecryptor(key),
+            decryptor=self._decryptor,
             sheet_writer=GoogleSheetsWriter(),
         )
+
+    @cached_property
+    def konwencik_export(self) -> KonwencikExportService:
+        return build_konwencik_export()
 
     @cached_property
     def encounters(self) -> EncounterService:
@@ -460,22 +489,47 @@ class Services:
             encounters=self._repos.encounters,
             rsvps=self._repos.encounter_rsvps,
             users=self._repos.active_users,
+            spheres=self._repos.spheres,
         )
 
     @cached_property
-    def event_integrations(self) -> EventIntegrationsService:
-        key: str = settings.CREDENTIALS_ENCRYPTION_KEY
-        registry: dict[IntegrationImplementationId, IntegrationImplementation] = {
+    def _import_implementations(
+        self,
+    ) -> dict[IntegrationImplementationId, ImportIntegrationImplementation]:
+        return {
             IntegrationImplementationId.GOOGLE_PROPOSAL_PULLER: (
                 GoogleDocsProposalImporter()
             )
         }
+
+    @cached_property
+    def _ticketing_implementations(
+        self,
+    ) -> dict[IntegrationImplementationId, TicketingIntegrationImplementation]:
+        return {
+            IntegrationImplementationId.SKLEP_KAPITULARZ: SklepKapitularzIntegration()
+        }
+
+    @cached_property
+    def _export_implementations(
+        self,
+    ) -> dict[IntegrationImplementationId, IntegrationImplementation]:
+        return {
+            IntegrationImplementationId.KONWENCIK_SHEET_PUSHER: KonwencikSheetExporter()
+        }
+
+    @cached_property
+    def event_integrations(self) -> EventIntegrationsService:
         return EventIntegrationsService(
-            self._transaction,
-            self._repos.event_integrations,
-            self._repos.connections,
-            FernetDecryptor(key),
-            registry,
+            transaction=self._transaction,
+            integrations=self._repos.event_integrations,
+            connections=self._repos.connections,
+            decryptor=self._decryptor,
+            implementations=IntegrationImplementations(
+                imports=self._import_implementations,
+                ticketing=self._ticketing_implementations,
+                exports=self._export_implementations,
+            ),
         )
 
     @cached_property
@@ -510,6 +564,25 @@ class Services:
             transaction=self._transaction,
             event_integrations=self.event_integrations,
             repos=self._import_repos,
+        )
+
+    @cached_property
+    def propose_session(self) -> ProposeSessionService:
+        return ProposeSessionService(
+            transaction=self._transaction,
+            repos=ProposeRepos(
+                events=self._repos.events,
+                event_proposal_settings=self._repos.event_proposal_settings,
+                categories=self._repos.proposal_categories,
+                tracks=self._repos.tracks,
+                sessions=self._repos.sessions,
+                session_fields=self._repos.session_fields,
+                personal_fields=self._repos.personal_data_fields,
+                personal_data_field_values=self._repos.personal_data_field_values,
+                facilitators=self._repos.facilitators,
+                users=self._repos.active_users,
+            ),
+            cache=DjangoCache(),
         )
 
     @cached_property

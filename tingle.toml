@@ -44,28 +44,16 @@ policy = "sum"
 # Formatting
 
 [[metrics]]
-name = "fmt-comment"
-type = "regex_count"
-group = "formatting"
-pattern = '#\s*fmt'
+base = "tingle.builtins.black.fmt_comment"
 
 [[metrics]]
-name = "taplo-comment"
-type = "regex_count"
-group = "formatting"
-pattern = '#\s*taplo:'
+base = "tingle.builtins.taplo.ignore_comment"
 
 [[metrics]]
-name = "codespell-comment"
-type = "regex_count"
-group = "formatting"
-pattern = '#\s*codespell:ignore'
+base = "tingle.builtins.codespell.ignore_comment"
 
 [[metrics]]
-name = "noqa-comment"
-type = "regex_count"
-group = "linting"
-pattern = '#\s*noqa:'
+base = "tingle.builtins.ruff.noqa_comment"
 
 [[metrics]]
 name = "ruff-comment"
@@ -74,32 +62,17 @@ group = "linting"
 pattern = '#\s*ruff:'
 
 [[metrics]]
-name = "ruff-ignores"
-type = "toml_list_length"
-group = "linting"
-key = "tool.ruff.lint.ignore"
-
+base = "tingle.builtins.ruff.lint_ignores"
 
 [[metrics]]
-name = "ruff-per-file-ignores"
-type = "toml_list_length"
-group = "linting"
-key = "tool.ruff.lint.per-file-ignores"
-
+base = "tingle.builtins.ruff.per_file_ignores"
 
 [[metrics]]
-name = "pylint-comment"
-type = "regex_count"
-group = "linting"
-pattern = '#\s*pylint:'
+base = "tingle.builtins.pylint.disable_comment"
 
 [[metrics]]
+base = "tingle.builtins.pylint.rcfile_disables"
 name = "pylint-disables"
-type = "ini_list_length"
-group = "linting"
-file = ".pylintrc"
-section = "MESSAGES CONTROL"
-option = "disable"
 
 # testing
 
@@ -110,15 +83,11 @@ group = "testing"
 pattern = '#\s*pragma'
 ranges = ["python-tests"]
 
-
 [[metrics]]
+base = "tingle.builtins.unittest_mock.any_used"
 name = "mock-ANY"
-type = "regex_count"
-group = "testing"
-pattern = '^(?!.*(?:\b|_)(view|form|import)\b).*\bANY\b'
-flags = ["MULTILINE"]
 ranges = ["python-tests"]
-
+ignore_lines = ['(?:\b|_)(view|form|formset|import)\b']
 
 [[metrics]]
 name = "pointless-assert"
@@ -134,14 +103,12 @@ group = "testing"
 pattern = 'mark\.skip'
 ranges = ["python-tests"]
 
-
 [[metrics]]
 name = "pytest-xfail"
 type = "regex_count"
 group = "testing"
 pattern = 'mark\.xfail'
 ranges = ["python-tests"]
-
 
 [[metrics]]
 name = "wrong-assert"
@@ -153,26 +120,18 @@ ranges = ["python-tests-int"]
 # typing
 
 [[metrics]]
-name = "type-ignores"
-type = "regex_count"
-group = "typing"
-pattern = '#\s*type:\s*ignore'
+base = "tingle.builtins.mypy.type_ignore_comment"
 ignore_lines = ['class.*admin\.TabularInline', 'class.*admin\.ModelAdmin']
 ranges = ["python-src"]
 
 [[metrics]]
-name = "mypy-overrides"
-type = "toml_table_array"
-group = "typing"
-key = "tool.mypy.overrides"
-label = "module"
+base = "tingle.builtins.mypy.overrides"
 
 [[metrics]]
+base = "tingle.builtins.python.any_used"
 name = "type-any"
-type = "symbol_uses"
-group = "typing"
-symbol = 'Any'
 ranges = ["python-src"]
+ignore_lines = ['^from ', '^\s+Any,$']
 
 [[metrics]]
 name = "type-object"
@@ -209,14 +168,14 @@ type = "file_count"
 group = "refactoring"
 ranges = ["legacy-code"]
 
-# A file past this many lines has stopped being one thing. Counts crossings
-# both ways, so splitting one back under the gate pays for pushing another over.
+# A file past the template's line gate has stopped being one thing. Counts
+# crossings both ways, so splitting one back under the gate pays for pushing
+# another over.
 [[metrics]]
+base = "tingle.builtins.python.long_files"
 name = "giant-files"
-type = "file_count"
 group = "refactoring"
 ranges = ["python-src"]
-over_lines = 1000
 
 # Old subdomain names (noun/verb migration): chronology+submissions -> event,
 # crowd -> user, multiverse -> sphere, notice_board -> encounter

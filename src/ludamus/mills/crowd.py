@@ -115,9 +115,9 @@ class CrowdAuthService(CrowdAuthServiceProtocol):
         data = create_data.copy()
         if self._users.email_exists(data.get("email", "")):
             data["email"] = ""
-        # The slug is unique table-wide, so a CONNECTED or ANONYMOUS row can
-        # own the one the provider sub slugifies to; uniquifying also caps it
-        # to the SlugField width, which an over-long sub would otherwise blow.
+        # NOTE: the slug is unique table-wide, so a CONNECTED or ANONYMOUS
+        # row can own the one the provider sub slugifies to; uniquifying also
+        # caps it to the SlugField width, which an over-long sub would blow.
         data["slug"] = unique_slug(
             base=data.get("slug", ""), default="user", exists=self._users.slug_exists
         )
@@ -125,10 +125,10 @@ class CrowdAuthService(CrowdAuthServiceProtocol):
             with self._transaction.savepoint():
                 self._users.create(data)
         except DatabaseConstraintError:
-            # A concurrent callback for the same identity may have inserted the
-            # row between our read_by_username miss and this insert; adopt it.
-            # With no such row the insert failed for a real reason, so let the
-            # database error surface instead of a bare NotFoundError.
+            # NOTE: a concurrent callback for the same identity may have
+            # inserted the row between our read_by_username miss and this
+            # insert; adopt it. With no such row the insert failed for a real
+            # reason, so let the database error surface, not a NotFoundError.
             with suppress(NotFoundError):
                 return self._users.read_by_username(username)
             raise

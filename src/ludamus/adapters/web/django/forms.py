@@ -14,8 +14,9 @@ from ludamus.links.db.django.models import (
     SessionParticipation,
     SessionParticipationStatus,
 )
-from ludamus.mills.enrollment import EnrollmentPolicy
+from ludamus.mills.enrollment_windows import EnrollmentPolicy
 from ludamus.pacts import EventDTO, VirtualEnrollmentConfig
+from ludamus.pacts.ids import UserId
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -240,7 +241,7 @@ def _make_enrollment_clean(
                 for field_name, value in cleaned_data.items()
                 if _is_new_seat(field_name, value)
             )
-            user_name = name_by_pk.get(int(user_field.split("_")[1]), "User")
+            user_name = name_by_pk.get(UserId(int(user_field.split("_")[1])), "User")
             self.add_error(
                 user_field,
                 (

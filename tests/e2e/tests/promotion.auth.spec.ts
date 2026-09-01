@@ -13,6 +13,7 @@ const e2eDir = path.resolve(__dirname, "..");
 const scenario = JSON.parse(
   fs.readFileSync(path.join(e2eDir, ".promotion-scenario.json"), "utf8"),
 ) as {
+  event_slug: string;
   session_id: number;
   superuser_id: number;
   waiter_email: string;

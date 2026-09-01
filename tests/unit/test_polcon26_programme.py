@@ -1,11 +1,16 @@
+import zipfile
 from dataclasses import replace
 from datetime import timedelta
+from typing import TYPE_CHECKING
 
 import pytest
 
 from scripts.polcon26 import programme as sync
 from scripts.polcon26 import workbook as wb
 from scripts.polcon26.mcp_client import McpClient, McpError, failure_detail
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 @pytest.mark.parametrize(
@@ -66,6 +71,8 @@ def test_category_for(room: str, title: str, expected: str) -> None:
         ("Tytuł", None),
         ("???? tytuł", None),
         ("Zaproponowałem na razie coś", None),
+        ("Przerwa Techniczna", None),
+        ("Warsztaty: ", "Warsztaty"),
         ("", None),
         (None, None),
         (42, None),
@@ -96,6 +103,16 @@ def test_clean_description(value: object, expected: str) -> None:
         ("Anna Kowalska, Jan Nowak", ["Anna Kowalska", "Jan Nowak"]),
         ("Anna Kowalska i Jan Nowak", ["Anna Kowalska", "Jan Nowak"]),
         ("Prowadzenie: Anna; Jan", ["Anna", "Jan"]),
+        (
+            "Rozmawiają Anna, Jan\nProwadzi: Dominika Węcławek",
+            ["Anna", "Jan", "Dominika Węcławek"],
+        ),
+        ("Udział bierze: Xavier Dollo", ["Xavier Dollo"]),
+        ("Udział bierą: Stanisław Mąderek", ["Stanisław Mąderek"]),
+        ("Michał J. Sobociński:", ["Michał J. Sobociński"]),
+        ("Fundacja Dawne Komputery i Gry", ["Fundacja Dawne Komputery i Gry"]),
+        ("Sekcja Trzymaj Pion w składzie: Ola, Arek", ["Sekcja Trzymaj Pion"]),
+        ("Każdy, kto został na miejscu", []),
         ("????", []),
         ("nikt", []),
         ("W zależności od ilości chętnych", []),
@@ -228,6 +245,70 @@ def test_extract_programme_reads_titles_presenters_and_durations() -> None:
     assert not saturday[1].description
 
 
+def test_extract_programme_ignores_hidden_columns_between_visible_columns() -> None:
+    visible = _sheet_with_one_room()
+    cells = dict(visible.cells)
+    cells |= {"F3": "0.53125", "F4": "Po przerwie"}
+    hidden = wb.SheetData(
+        cells=cells,
+        merges=(*visible.merges, "F4:F4"),
+        hidden_columns=frozenset({wb.column_index("E1")}),
+    )
+
+    items = sync.extract_programme(
+        {"Piątek": visible, "Sobota": hidden, "Niedziela": visible}
+    )
+
+    saturday = [item for item in items if item.sheet == "Sobota"]
+    assert [item.title for item in saturday] == ["Wprowadzenie", "Po przerwie"]
+
+
+def test_extract_programme_does_not_extrapolate_past_the_time_header() -> None:
+    regular = _sheet_with_one_room()
+    cells = dict(regular.cells)
+    del cells["E3"]
+    misaligned = replace(regular, cells=cells)
+
+    items = sync.extract_programme(
+        {"Piątek": regular, "Sobota": misaligned, "Niedziela": regular}
+    )
+
+    saturday = [item for item in items if item.sheet == "Sobota"]
+    assert [item.title for item in saturday] == ["Wprowadzenie"]
+
+
+def test_extract_programme_rejects_merge_past_the_visible_time_header() -> None:
+    regular = _sheet_with_one_room()
+    crossing = replace(
+        regular,
+        merges=tuple(
+            "E4:F4" if merge == "E4:E4" else merge for merge in regular.merges
+        ),
+    )
+
+    with pytest.raises(ValueError, match="scheduled title is not merged"):
+        sync.extract_programme(
+            {"Piątek": regular, "Sobota": crossing, "Niedziela": regular}
+        )
+
+
+def test_extract_programme_rejects_merge_across_a_hidden_column() -> None:
+    regular = _sheet_with_one_room()
+    cells = dict(regular.cells)
+    cells |= {"D4": "Ukryty środek", "F3": "0.53125"}
+    del cells["C4"]
+    crossing = wb.SheetData(
+        cells=cells,
+        merges=("A4:A6", "D4:F4"),
+        hidden_columns=frozenset({wb.column_index("E1")}),
+    )
+
+    with pytest.raises(ValueError, match="scheduled title is not merged"):
+        sync.extract_programme(
+            {"Piątek": regular, "Sobota": crossing, "Niedziela": regular}
+        )
+
+
 def test_extract_programme_dates_each_sheet_from_its_own_day() -> None:
     items = sync.extract_programme(
         {name: _sheet_with_one_room() for name in ("Piątek", "Sobota", "Niedziela")}
@@ -287,3 +368,105 @@ def test_validate_items_rejects_duplicate_source_row_ids() -> None:
 
     with pytest.raises(ValueError, match="Duplicate source_row_id"):
         sync.validate_items([items[0], items[0]])
+
+
+def test_continuation_marker_borrows_the_sibling_day_content() -> None:
+    friday = _sheet_with_one_room()
+    saturday_cells = dict(friday.cells)
+    saturday_cells["C4"] = "> > > >"
+    del saturday_cells["C5"], saturday_cells["C6"]
+    saturday = wb.SheetData(cells=saturday_cells, merges=friday.merges)
+
+    items = sync.extract_programme(
+        {
+            "Piątek": friday,
+            "Sobota": saturday,
+            "Niedziela": wb.SheetData(cells={"C3": "0.5"}, merges=()),
+        }
+    )
+
+    borrowed = next(
+        item for item in items if item.sheet == "Sobota" and item.cell == "C4"
+    )
+    assert borrowed.title == "Wprowadzenie"
+    assert borrowed.description == "Opis warsztatu"
+    assert borrowed.presenters == ["Anna Kowalska", "Jan Nowak"]
+
+
+def test_arrow_padded_title_keeps_its_core_text() -> None:
+    friday = _sheet_with_one_room()
+    cells = dict(friday.cells)
+    cells["C4"] = "> > Wystawa prac < <"
+    saturday = wb.SheetData(cells=cells, merges=friday.merges)
+
+    items = sync.extract_programme(
+        {
+            "Piątek": wb.SheetData(cells={"C3": "0.5"}, merges=()),
+            "Sobota": saturday,
+            "Niedziela": wb.SheetData(cells={"C3": "0.5"}, merges=()),
+        }
+    )
+
+    unpadded = next(item for item in items if item.cell == "C4")
+    assert unpadded.title == "Wystawa prac"
+    assert unpadded.category == "Strefa stała"
+
+
+_MAIN_NS = "http://schemas.openxmlformats.org/spreadsheetml/2006/main"
+_DOC_NS = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
+_PKG_NS = "http://schemas.openxmlformats.org/package/2006/relationships"
+_SHEET_XML = (
+    f'<worksheet xmlns="{_MAIN_NS}">'
+    '<cols><col min="5" max="6" hidden="1"/></cols><sheetData>'
+    '<row r="3"><c r="C3"><v>0.5</v></c></row>'
+    '<row r="4"><c r="C4" t="s"><v>0</v></c></row>'
+    "</sheetData>"
+    '<mergeCells><mergeCell ref="C4:D4"/></mergeCells></worksheet>'
+).encode()
+
+
+def _write_workbook(path: Path, names: tuple[str, ...]) -> None:
+    sheets = "".join(
+        f'<sheet name="{name}" sheetId="{index}" r:id="rId{index}"/>'
+        for index, name in enumerate(names, start=1)
+    )
+    relationships = "".join(
+        f'<Relationship Id="rId{index}" Target="worksheets/sheet{index}.xml"/>'
+        for index in range(1, len(names) + 1)
+    )
+    with zipfile.ZipFile(path, "w") as archive:
+        archive.writestr(
+            "xl/workbook.xml",
+            f'<workbook xmlns="{_MAIN_NS}" xmlns:r="{_DOC_NS}">'
+            f"<sheets>{sheets}</sheets></workbook>",
+        )
+        archive.writestr(
+            "xl/_rels/workbook.xml.rels",
+            f'<Relationships xmlns="{_PKG_NS}">{relationships}</Relationships>',
+        )
+        archive.writestr(
+            "xl/sharedStrings.xml",
+            f'<sst xmlns="{_MAIN_NS}"><si><t>Wprowadzenie</t></si></sst>',
+        )
+        for index in range(1, len(names) + 1):
+            archive.writestr(f"xl/worksheets/sheet{index}.xml", _SHEET_XML)
+
+
+def test_load_workbook_reads_cells_merges_and_shared_strings(tmp_path: Path) -> None:
+    path = tmp_path / "programme.xlsx"
+    _write_workbook(path, wb.SHEETS)
+
+    sheets = wb.load_workbook(path)
+
+    assert sorted(sheets) == sorted(wb.SHEETS)
+    assert sheets["Sobota"].cells == {"C3": "0.5", "C4": "Wprowadzenie"}
+    assert sheets["Sobota"].merges == ("C4:D4",)
+    assert sheets["Sobota"].hidden_columns == frozenset({4, 5})
+
+
+def test_load_workbook_rejects_a_workbook_missing_a_day(tmp_path: Path) -> None:
+    path = tmp_path / "programme.xlsx"
+    _write_workbook(path, ("Piątek",))
+
+    with pytest.raises(ValueError, match="missing sheets: Niedziela, Sobota"):
+        wb.load_workbook(path)

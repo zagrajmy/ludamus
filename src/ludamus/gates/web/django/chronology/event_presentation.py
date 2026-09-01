@@ -1,19 +1,22 @@
 from __future__ import annotations
 
+from collections import defaultdict
 from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Self, TypedDict
 
 from ludamus.gates.web.django.entities import UserInfo
+from ludamus.gates.web.django.helpers import placeholder_cover_url
 from ludamus.pacts import EventListItemDTO
-from ludamus.pacts.legacy import SessionParticipationStatus
+from ludamus.pacts.legacy import SessionParticipationStatus, TimeSlotDTO
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable
+    from collections.abc import Iterable, Iterator, Sequence
 
     from ludamus.pacts import (
         AgendaItemDTO,
         LocationData,
+        OrganizerFieldDTO,
         SessionDTO,
         SessionFieldValueDTO,
     )
@@ -23,7 +26,15 @@ if TYPE_CHECKING:
         SessionModalDTO,
     )
     from ludamus.pacts.crowd import UserDTO
+    from ludamus.pacts.enrollment import EnrollmentAccessDTO
     from ludamus.pacts.guild import GuildMarkDTO
+    from ludamus.pacts.ids import EventId, UserId
+
+
+@dataclass(frozen=True)
+class CloudPill:
+    icon: str
+    value: str
 
 
 @dataclass
@@ -36,6 +47,14 @@ class DisplayFieldRow:
     @property
     def overflow_count(self) -> int:
         return len(self.overflow_values)
+
+
+def flatten_cloud_overflow(rows: list[DisplayFieldRow]) -> list[CloudPill]:
+    return [
+        CloudPill(icon=row.icon, value=value)
+        for row in rows
+        for value in row.overflow_values
+    ]
 
 
 _MAX_VISIBLE_PILLS = 4
@@ -99,23 +118,41 @@ class SessionData:  # pylint: disable=too-many-instance-attributes
     # the avatar's warning badge, which decides the guild mark's corner. Set
     # from a pk, and a presenter-less session's stand-in pk 0 never matches.
     presenter_is_shadowbanned: bool = False
+    # Slots the author would accept, earliest first. Only ever populated for a
+    # pending proposal: a scheduled session states its real time via
+    # agenda_item, and reading the m2m for one would cost a query per card.
+    preferred_time_slots: list[TimeSlotDTO] = field(default_factory=list)
 
     @property
-    def is_pending_proposal(self) -> bool:
+    def cloud_overflow(self) -> list[CloudPill]:
+        return flatten_cloud_overflow(self.displayed_field_rows)
+
+    @property
+    def is_unscheduled(self) -> bool:
+        # Not "is a proposal": status and scheduling are separate axes, and a
+        # PENDING session that already holds an agenda item is scheduled.
         return self.agenda_item is None
 
     @property
     def takes_enrollment(self) -> bool:
         # The session's own limit, not the effective one: a 0% seating window
         # zeroes the effective limit without making the session sign-up-free.
-        return self.session.participants_limit > 0
+        # An unscheduled proposal has no seat to take yet whatever its limit
+        # says, and this answer reaches the enrollment filters as
+        # data-takes-enrollment.
+        return not self.is_unscheduled and self.session.participants_limit > 0
 
     @property
     def availability(self) -> str:
         """Name the one availability state every layout and label dispatches on."""
         # Order matters: a session that takes no sign-up is not "unavailable"
         # (its window never opens) and not "full" (it never had a seat), so it
-        # leaves the ladder before either term is asked.
+        # leaves the ladder before either term is asked. A proposal leaves
+        # first of all: every term below is about a seat it does not have yet,
+        # and this string reaches the DOM as data-status, where answering
+        # "unavailable" would put proposals behind the enrollment filters.
+        if self.is_unscheduled:
+            return "proposal"
         if self.is_ended:
             return "ended"
         if self.should_show_as_inactive:
@@ -142,26 +179,29 @@ class SessionData:  # pylint: disable=too-many-instance-attributes
             self.spots_left / self.effective_participants_limit < self._SCARCE_THRESHOLD
         )
 
+    def public_select_answers(self) -> Iterator[tuple[str, str]]:
+        """Yield every (field slug, value) a public select field carries.
+
+        Yields:
+            One pair per selected value, in field order.
+        """
+        for field_value in self.field_values:
+            if (
+                field_value.field_type == "select"
+                and field_value.is_public
+                and isinstance(field_value.value, list)
+            ):
+                for value in field_value.value:
+                    yield field_value.field_slug, str(value)
+
     @property
     def public_tags(self) -> str:
-        return ",".join(
-            str(value)
-            for field_value in self.field_values
-            if field_value.field_type == "select"
-            and field_value.is_public
-            and isinstance(field_value.value, list)
-            for value in field_value.value
-        )
+        return ",".join(value for _slug, value in self.public_select_answers())
 
     @property
     def public_tag_categories(self) -> str:
         return ";".join(
-            f"{field_value.field_slug}:{value}"
-            for field_value in self.field_values
-            if field_value.field_type == "select"
-            and field_value.is_public
-            and isinstance(field_value.value, list)
-            for value in field_value.value
+            f"{slug}:{value}" for slug, value in self.public_select_answers()
         )
 
     @property
@@ -184,16 +224,53 @@ class SessionData:  # pylint: disable=too-many-instance-attributes
         return self.loc.get("path", "")
 
 
-def filter_availability(cards: Iterable[SessionData]) -> dict[str, bool]:
-    # A track/category dropdown is only worth showing when there's more than one
-    # value to pick between, matching how Venue/Day/Hour reveal themselves.
+class FilterAvailability(TypedDict):
+    track_filter_names: list[str]
+    category_filter_names: list[str]
+
+
+# A dropdown is only worth showing when there's more than one value to pick
+# between, matching how Venue/Day/Hour reveal themselves. Every filter on the
+# event page clears this same bar; the two helpers below only differ in where
+# they read the values from.
+def filter_availability(cards: Iterable[SessionData]) -> FilterAvailability:
+    # The names, not a flag: the template renders these two dropdowns' options
+    # itself, so the client follows one rule for every filter — drop the
+    # options no card uses — instead of filling these two from the cards and
+    # the rest from the server. Empty below the bar, so the same list says both
+    # whether to draw the filter and what goes in it.
     card_list = list(cards)
-    tracks = {name for c in card_list for name in c.track_names}
-    categories = {c.category_name for c in card_list if c.category_name}
+    tracks = sorted({name for c in card_list for name in c.track_names})
+    categories = sorted({c.category_name for c in card_list if c.category_name})
     return {
-        "has_track_filter": len(tracks) > 1,
-        "has_category_filter": len(categories) > 1,
+        "track_filter_names": tracks if len(tracks) > 1 else [],
+        "category_filter_names": categories if len(categories) > 1 else [],
     }
+
+
+def filterable_tag_fields(
+    fields: Sequence[OrganizerFieldDTO], cards: Iterable[SessionData]
+) -> list[OrganizerFieldDTO]:
+    """Keep the organizer-defined select fields worth offering as a filter.
+
+    Returns:
+        The fields whose answers split the schedule more than one way, in the
+        order given. A field nobody answered, or one every session answers the
+        same way, is left out rather than drawn as a label above an "All ..."
+        box.
+    """
+    # Only answers that are a defined choice count: the dropdown offers the
+    # field's choices, so a value written into an allow_custom field would
+    # otherwise clear the bar for a field that ends up with nothing to pick.
+    answers: dict[str, set[str]] = defaultdict(set)
+    for card in cards:
+        for slug, value in card.public_select_answers():
+            answers[slug].add(value)
+    return [
+        field
+        for field in fields
+        if len(answers[field.slug] & {option.value for option in field.options}) > 1
+    ]
 
 
 class EventInfo(EventListItemDTO):
@@ -202,6 +279,50 @@ class EventInfo(EventListItemDTO):
     @classmethod
     def from_list_item(cls, item: EventListItemDTO, *, cover_image_url: str) -> Self:
         return cls(**{**item.model_dump(), "cover_image_url": cover_image_url})
+
+
+def with_covers(items: list[EventListItemDTO]) -> list[EventInfo]:
+    # Uploaded cover when present, otherwise a placeholder cycled by position.
+    # Position-keyed, so callers sort before calling: see split_events.
+    return [
+        EventInfo.from_list_item(
+            item, cover_image_url=item.cover_image_url or placeholder_cover_url(i)
+        )
+        for i, item in enumerate(items)
+    ]
+
+
+@dataclass(frozen=True)
+class EventSplit:
+    upcoming: list[EventInfo]
+    past: list[EventInfo]
+
+
+def split_events(items: Iterable[EventListItemDTO]) -> EventSplit:
+    """Split a sphere's events into the two lists every event listing renders.
+
+    Returns:
+        Upcoming soonest-first and past most-recent-first, both with covers.
+    """
+    # Sorted before with_covers, not after: placeholder art is keyed by
+    # position, so an unsorted list would give the same coverless event a
+    # different placeholder on each page that lists it.
+    listed = list(items)
+    return EventSplit(
+        upcoming=with_covers(
+            sorted(
+                (item for item in listed if not item.is_ended),
+                key=lambda item: item.start_time,
+            )
+        ),
+        past=with_covers(
+            sorted(
+                (item for item in listed if item.is_ended),
+                key=lambda item: item.start_time,
+                reverse=True,
+            )
+        ),
+    )
 
 
 _SIMULACRA_FILL = 8
@@ -229,6 +350,10 @@ def _simulacra_participations(count: int) -> list[ParticipationInfo]:
 
 
 def fake_full_card(session_data: SessionData) -> SessionData:
+    # Assumes a scheduled card. An unscheduled proposal leaves both availability
+    # and takes_enrollment before any faked field is read, so the mask would be
+    # a silent no-op on one — nothing routes a proposal here today, and nothing
+    # should start without revisiting that.
     fill = session_data.effective_participants_limit or _SIMULACRA_FILL
     return replace(
         session_data,
@@ -249,7 +374,7 @@ def fake_full_card(session_data: SessionData) -> SessionData:
 
 
 def mask_session_card(
-    session_data: SessionData, *, event_banned: bool, banned_presenter_ids: set[int]
+    session_data: SessionData, *, event_banned: bool, banned_presenter_ids: set[UserId]
 ) -> SessionData:
     if event_banned or session_data.presenter.pk in banned_presenter_ids:
         return fake_full_card(session_data)
@@ -265,9 +390,14 @@ class PartyHistoryGroup(TypedDict):
 def present_party_history(
     groups: list[PartyEventHistoryDTO],
     *,
-    banned_event_ids: set[int],
-    banned_presenter_ids: set[int],
+    banned_event_ids: set[EventId],
+    banned_presenter_ids: set[UserId],
 ) -> list[PartyHistoryGroup]:
+    # Nobody enrolls from a party's history: it is the seats the party holds,
+    # across events whose windows this page never asked about. So its cards
+    # state capacity and never "N spots left", which is a claim about a window
+    # being open to the reader.
+
     now = datetime.now(tz=UTC)
     return [
         PartyHistoryGroup(
@@ -302,7 +432,7 @@ def _party_history_card(item: PartySessionHistoryDTO, *, now: datetime) -> Sessi
         )
     return SessionData(
         agenda_item=item.agenda_item,
-        is_enrollment_available=item.is_enrollment_available,
+        is_enrollment_available=False,
         presenter=presenter,
         session=item.session,
         is_full=item.is_full,
@@ -328,8 +458,12 @@ def present_session_modal(
     dto: SessionModalDTO,
     *,
     event_banned: bool,
-    banned_presenter_ids: set[int],
-    shadowbanned_ids: frozenset[int],
+    banned_presenter_ids: set[UserId],
+    shadowbanned_ids: frozenset[UserId],
+    # The viewer's own windows. A window restricted to pass holders can seat
+    # this session without being open to the person reading the page, so
+    # availability is theirs, not the session's.
+    access: EnrollmentAccessDTO,
     guild: GuildMarkDTO | None = None,
 ) -> SessionData:
     if dto.presenter is not None:
@@ -347,7 +481,7 @@ def present_session_modal(
         )
     card = SessionData(
         agenda_item=dto.agenda_item,
-        is_enrollment_available=dto.is_enrollment_available,
+        is_enrollment_available=access.seats(dto.enrollment_window_ids),
         presenter=presenter,
         session=dto.session,
         is_full=dto.is_full,

@@ -22,6 +22,9 @@ mise dev                # Django :8000 + Vite :5173
 
 After bootstrap, log in at <http://localhost:8000/admin/> as `admin` / `admin`.
 
+No Postgres or Docker needed: the app develops and serves on SQLite by default.
+Set `USE_POSTGRES=true` to opt into Postgres.
+
 `mise run bootstrap` resets and reseeds the local database with the same
 deterministic data used by end-to-end tests.
 
@@ -59,9 +62,9 @@ See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
 
 ## License
 
-[AGPL-3.0](LICENSE), version 3 only — no "or later" clause. If you run a
+[AGPL-3.0](LICENSE). If you run a
 modified version of this software as a network service, you must offer its
 source to the users of that service.
 
-Copyright © 2025–2026 Radosław Ganczarek (fancysnake) and Piotr
-Monwid-Olechnowicz (hasparus).
+Copyright © 2025–2026 Radosław Ganczarek (@fancysnake) and Piotr
+Monwid-Olechnowicz (@hasparus).

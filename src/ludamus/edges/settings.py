@@ -11,9 +11,10 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 
 import json
 from pathlib import Path
-from urllib.parse import quote
+from urllib.parse import SplitResult, quote, unquote, urlsplit
 
 import environ
+from django.core.exceptions import ImproperlyConfigured
 from django.utils.csp import CSP
 from google.oauth2 import service_account
 
@@ -38,6 +39,7 @@ env = environ.Env(
     # Static files
     GIT_COMMIT_SHA=(str, "unknown"),
     MEDIA_ROOT=(str, str(BASE_DIR / "media")),
+    MEDIA_URL=(str, "/media/"),
     STATIC_ROOT=(str, str(BASE_DIR / "staticfiles")),
     # Google Cloud Storage (media) — set all three to enable GCS
     GS_BUCKET_NAME=(str, ""),
@@ -48,11 +50,15 @@ env = environ.Env(
     # EU ingestion endpoint without a code change.
     POSTHOG_API_KEY=(str, ""),
     POSTHOG_HOST=(str, "https://eu.i.posthog.com"),
-    # Membership API
-    MEMBERSHIP_API_BASE_URL=(str, ""),
-    MEMBERSHIP_API_CHECK_INTERVAL=(int, 15),
-    MEMBERSHIP_API_TIMEOUT=(int, 30),
-    MEMBERSHIP_API_TOKEN=(str, ""),
+    # posthog-js fetches remote config — the response that switches on
+    # autocapture, session replay, heatmaps and web vitals — from a second
+    # origin, and blocking it fails silently: pageviews and exceptions keep
+    # arriving. Set both together; a first-party proxy sets them equal.
+    # Never sent to the browser: posthog-js derives this origin from api_host
+    # itself and takes no override for it, so this is a CSP-only mirror of a
+    # computation happening client-side. That is why they cannot be linked in
+    # code and have to move together by hand.
+    POSTHOG_ASSETS_HOST=(str, "https://eu-assets.i.posthog.com"),
     # Other
     CREDENTIALS_ENCRYPTION_KEY=str,
     DEBUG=(bool, False),
@@ -119,7 +125,6 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "django.contrib.sites",
-    "django.contrib.flatpages",
     # Third Party
     "django_extensions",
     "django_vite",
@@ -147,12 +152,12 @@ MIDDLEWARE = [
     "ludamus.adapters.web.django.middlewares.RequestContextMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "ludamus.adapters.web.django.middlewares.RedirectErrorMiddleware",
-    "django.contrib.flatpages.middleware.FlatpageFallbackMiddleware",
 ]
 
 if DEBUG:
     INSTALLED_APPS.append("django_browser_reload")
     MIDDLEWARE.append("django_browser_reload.middleware.BrowserReloadMiddleware")
+
 
 # django-zeal flags every N+1 as it happens (a related-field lazy load
 # repeated across a loop). Active everywhere except production: the dev
@@ -160,6 +165,19 @@ if DEBUG:
 # server (ENV=test, DEBUG off) logs instead, so a hotspot exercised through
 # the UI shows up in server output without failing unrelated UI tests.
 if DEBUG or IN_TESTS:
+    import zeal.patch
+
+    def _skip_zeal_generic_fk_patch() -> None:
+        # Django 6.1 moved GenericForeignKey.__get__ onto GenericForeignKeyDescriptor,
+        # so django-zeal 2.2.2 patching the field class raises AttributeError and
+        # takes app startup down with it. No model here declares a generic relation
+        # (tests/integration/test_no_generic_foreign_keys.py holds that line), so
+        # dropping this one patch costs no detection.
+        # ponytail: delete once django-zeal patches the descriptor; a model with a
+        # GenericForeignKey would need it back.
+        pass
+
+    zeal.patch.patch_generic_foreign_key = _skip_zeal_generic_fk_patch
     INSTALLED_APPS.append("zeal")  # patches ORM descriptors in AppConfig.ready
     MIDDLEWARE.insert(0, "zeal.middleware.zeal_middleware")
     ZEAL_RAISE = DEBUG or env("ZEAL_RAISE")
@@ -292,17 +310,73 @@ LOCALE_PATHS = [BASE_DIR / "locale"]
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
 STATIC_URL = "/static/"
+_MEDIA_URL_RULE = (
+    "MEDIA_URL must be a root-relative path or an HTTP(S) URL ending in '/'."
+)
+
+
+def media_url_is_local(media_url: str) -> bool:
+    """Say whether this process serves the media itself, off its own domain."""
+    parts = urlsplit(media_url)
+    return (
+        not parts.scheme
+        and not parts.netloc
+        and media_url.startswith("/")
+        and not media_url.startswith("//")
+        and parts.path != "/"
+        and "\\" not in parts.path
+    )
+
+
+def _is_remote(parts: SplitResult) -> bool:
+    hostname = parts.hostname
+    return (
+        parts.scheme in {"http", "https"}
+        and bool(hostname)
+        and parts.username is None
+        and parts.password is None
+        and not any(character.isspace() for character in hostname or "")
+    )
+
+
+def _has_serveable_path(parts: SplitResult) -> bool:
+    segments = unquote(parts.path).split("/")
+    return (
+        parts.path.endswith("/")
+        and "//" not in parts.path
+        and not parts.query
+        and not parts.fragment
+        and not any(segment in {".", ".."} for segment in segments)
+    )
+
+
+def validate_media_url(media_url: str) -> None:
+    """Raise ImproperlyConfigured unless the app can serve or link to the URL."""
+    try:
+        parts = urlsplit(media_url)
+        _ = parts.port
+    except ValueError as error:
+        raise ImproperlyConfigured(_MEDIA_URL_RULE) from error
+    if not _has_serveable_path(parts) or not (
+        media_url_is_local(media_url) or _is_remote(parts)
+    ):
+        raise ImproperlyConfigured(_MEDIA_URL_RULE)
+
+
+MEDIA_URL: str = env("MEDIA_URL")
+validate_media_url(MEDIA_URL)
+MEDIA_URL_IS_LOCAL = media_url_is_local(MEDIA_URL)
 
 STATICFILES_DIRS = [BASE_DIR / "static"]
 
 # URL prefixes that skip middleware processing (UoW injection, context setup)
-MIDDLEWARE_SKIP_PREFIXES = (
+MIDDLEWARE_SKIP_PREFIXES: tuple[str, ...] = (
     STATIC_URL,
     "/admin/",
     "/__debug__/",
     "/__reload__/",
     "/healthz/",
-    "/media/",
+    *((MEDIA_URL,) if MEDIA_URL_IS_LOCAL else ()),
 )
 
 
@@ -336,11 +410,12 @@ AUTH0_DOMAIN = env("AUTH0_DOMAIN")
 SUPPORT_EMAIL = env("SUPPORT_EMAIL")
 
 # Analytics (Prologue — PostHog). The client bundles posthog-js with its
-# no-external build, so the browser only ever *connects* to POSTHOG_HOST;
-# no third-party script is loaded. Consent gating lives in
+# no-external build, so the browser loads no third-party script; it only
+# *connects* to the two PostHog origins below. Consent gating lives in
 # src/ludamus/client/src/prologue.ts.
 POSTHOG_API_KEY = env("POSTHOG_API_KEY")
 POSTHOG_HOST = env("POSTHOG_HOST")
+POSTHOG_ASSETS_HOST = env("POSTHOG_ASSETS_HOST")
 
 INTERNAL_IPS = [
     # ...
@@ -359,13 +434,10 @@ INTERNAL_IPS = [
 # style-src keeps 'unsafe-inline': inline style="..." attributes are
 # pervasive across the templates and nonce-ing attributes (as opposed to
 # <style> blocks) isn't supported by the CSP spec the same way — narrowing
-# that is a separate, larger effort, not covered here. It also allows
-# fonts.googleapis.com: src/ludamus/client/src/index.css @imports the
-# Outfit font's stylesheet from there — discovered by the e2e CSP-violation
-# spec (csp-violations.spec.ts) actually enforcing the policy; report-only
-# never surfaced it since nothing blocks under report-only. font-src
-# allows fonts.gstatic.com for the same reason: that stylesheet's
-# @font-face rules point at the actual font files there. img-src stays
+# that is a separate, larger effort, not covered here. The Outfit font is
+# self-hosted (src/ludamus/client/src/fonts), so style-src and font-src no
+# longer carry the fonts.googleapis.com / fonts.gstatic.com allowances the
+# old @import needed. img-src stays
 # broad because avatars come from arbitrary Auth0/gravatar HTTPS hosts
 # and media from GCS, plus blob: for the dropzone's object-URL preview.
 # No report-uri/report-to is configured: there is no violation-ingestion
@@ -375,9 +447,9 @@ INTERNAL_IPS = [
 CSP_POLICY: dict[str, list[str]] = {
     "default-src": [CSP.SELF],
     "script-src": [CSP.SELF, CSP.NONCE],
-    "style-src": [CSP.SELF, CSP.UNSAFE_INLINE, "https://fonts.googleapis.com"],
+    "style-src": [CSP.SELF, CSP.UNSAFE_INLINE],
     "img-src": [CSP.SELF, "data:", "blob:", "https:"],
-    "font-src": [CSP.SELF, "https://fonts.gstatic.com"],
+    "font-src": [CSP.SELF],
     "connect-src": [CSP.SELF],
     "object-src": [CSP.NONE],
     "base-uri": [CSP.SELF],
@@ -385,10 +457,14 @@ CSP_POLICY: dict[str, list[str]] = {
     "frame-ancestors": [CSP.NONE],
 }
 
-# posthog-js is bundled (no-external build), so PostHog only needs the
-# ingestion host in connect-src — script-src stays nonce-only.
+# posthog-js is bundled (no-external build), so script-src stays nonce-only.
+# connect-src needs both origins: the browser talks to the ingestion host and,
+# for remote config, to the assets host.
 if POSTHOG_API_KEY:
-    CSP_POLICY["connect-src"].append(POSTHOG_HOST)
+    # sorted: dedupes when a proxy makes the two equal, and keeps the header
+    # byte-identical across workers, which a bare set would not — string
+    # hashing is randomized per process.
+    CSP_POLICY["connect-src"] += sorted({POSTHOG_HOST, POSTHOG_ASSETS_HOST})
     # Session replay compresses in a worker built from a blob: URL.
     CSP_POLICY["worker-src"] = [CSP.SELF, "blob:"]
 
@@ -459,7 +535,6 @@ if ENABLE_CSP:
 
 
 MEDIA_ROOT = env("MEDIA_ROOT")
-MEDIA_URL = "/media/"
 
 # Default storage — GCS when all three GS_ vars are set, filesystem otherwise.
 # Independent of IS_PRODUCTION so GCS can be exercised locally.
@@ -585,38 +660,16 @@ LOGGING = {
     },
 }
 
-# Membership API Configuration
-MEMBERSHIP_API_BASE_URL = env("MEMBERSHIP_API_BASE_URL")
-MEMBERSHIP_API_TOKEN = env("MEMBERSHIP_API_TOKEN")
-MEMBERSHIP_API_TIMEOUT = env("MEMBERSHIP_API_TIMEOUT")
-MEMBERSHIP_API_CHECK_INTERVAL = env("MEMBERSHIP_API_CHECK_INTERVAL")
-
 # Vendor Dependencies Configuration
 # Download with: mise run dj downloadvendor
 # SHA-384 hashes use base64 encoding (SRI format)
 VENDOR_DEPENDENCIES: list[dict[str, str]] = [
     {
-        "name": "popperjs",
-        "url": (
-            "https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.6/dist/umd/popper.min.js"
-        ),
-        "filename": "popper.min.js",
-        "sha384": "oBqDVmMz9ATKxIep9tiCxS/Z9fNfEXiDAYTujMAeBAsjFuCZSmKbSSUnQlmh/jp3",
-    },
-    {
-        "name": "popperjs-map",
-        "url": (
-            "https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.6/dist/umd/popper.min.js.map"
-        ),
-        "filename": "popper.min.js.map",
-        "sha384": "cGZ11hmqUooIlGMY+Y+gi+8AhjA4H/Qa29LQBPWKKzhmbsxvNpyWrPuBJCprTsil",
-    },
-    {
         "name": "htmx",
         "url": "https://cdn.jsdelivr.net/npm/htmx.org@2.0.8/dist/htmx.min.js",
         "filename": "htmx.min.js",
         "sha384": "/TgkGk7p307TH7EXJDuUlgG3Ce1UVolAOFopFekQkkXihi5u/6OCvVKyz1W+idaz",
-    },
+    }
 ]
 
 VENDOR_STATIC_DIR = BASE_DIR / "static" / "vendor"

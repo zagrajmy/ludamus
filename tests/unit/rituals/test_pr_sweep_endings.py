@@ -15,7 +15,14 @@ from ludamus.edges.rituals.pr_sweep import (
     set_aside,
     skip_pr,
 )
-from ludamus.edges.rituals.shell import COVERAGE, FAST_COVERAGE, PR_FIX, checks, plain
+from ludamus.edges.rituals.shell import (
+    COVERAGE,
+    FAST_COVERAGE,
+    PR_FIX,
+    checkpoint,
+    checks,
+    plain,
+)
 from ludamus.edges.rituals.state import (
     Checked,
     Closed,
@@ -31,6 +38,10 @@ if TYPE_CHECKING:
 
 _AHEAD = "test feature = *"
 _PUSH = "git push https-origin feature"
+_STARTED = checkpoint("refresh", state="started", number=7)
+_DONE = checkpoint("refresh", state="done", number=7)
+_COVER_STARTED = checkpoint("cover", state="started", number=7)
+_COVER_DONE = checkpoint("cover", state="done", number=7)
 _MISSING = "src/ludamus/thing.py (80.0%): Missing lines 12-14"
 _RELEASE = "if git rev-parse*MERGE_HEAD*git stash push*"
 # Red, red, green: enough to prove the second repair meets the same agent.
@@ -48,15 +59,19 @@ class TestFinishPr:
     def test_the_row_carries_what_origin_has_not_got(
         self, trial: Trial, work: Work
     ) -> None:
+        trial.shell.replies(when="gh pr edit*")
         trial.shell.replies(when=_AHEAD, stdout="2\n")
 
         transition = trial.walk(finish_pr, Closed(work=work, outcome="green"))
 
         assert transition == goto(next_pr, Run(bound=3, checked=[_GREEN_ROW]))
+        # A green branch is marked done.
+        assert _DONE in trial.shell.commands
 
     def test_a_head_that_is_not_this_branch_counts_as_unknown(
         self, trial: Trial, work: Work
     ) -> None:
+        trial.shell.replies(when="gh pr edit*")
         trial.shell.replies(when=_AHEAD, exit_code=1)
 
         transition = trial.walk(finish_pr, Closed(work=work, outcome="green"))
@@ -65,6 +80,19 @@ class TestFinishPr:
             next_pr,
             Run(bound=3, checked=[_GREEN_ROW.model_copy(update={"unpushed": None})]),
         )
+
+    # A blocked branch is left wearing `started`: that is what says the night
+    # began the branch and could not finish it.
+    def test_a_blocked_branch_is_not_marked_done(
+        self, trial: Trial, work: Work
+    ) -> None:
+        trial.shell.replies(when=_AHEAD, stdout="2\n")
+
+        transition = trial.walk(finish_pr, Closed(work=work, outcome="blocked"))
+
+        blocked = _GREEN_ROW.model_copy(update={"outcome": "blocked"})
+        assert transition == goto(next_pr, Run(bound=3, checked=[blocked]))
+        assert not any(one.startswith("gh pr edit") for one in trial.shell.commands)
 
 
 class TestSetAside:
@@ -327,13 +355,17 @@ class TestWholeCast:
         trial.shell.replies(when="git merge-base*", exit_code=1, always=True)
         trial.shell.replies(when="git merge --no-edit*")
         trial.shell.replies(
-            when=checks(7), stdout='[{"name": "codecov/patch", "state": "FAILURE"}]'
+            when=checks("feature"),
+            stdout='{"check_runs": [{"name": "codecov/patch",'
+            ' "conclusion": "failure"}]}',
         )
         trial.shell.replies(when=plain(COVERAGE), stdout=_MISSING)
         # The tests the agent wrote are measured without the browser, and the
         # full measurement is what says the branch is covered.
         trial.shell.replies(when=plain(FAST_COVERAGE))
         trial.shell.replies(when=plain(COVERAGE))
+        # `cover:started` at the merge, `cover:done` at the finish.
+        trial.shell.replies(when="gh pr edit*", always=True)
         trial.shell.replies(when="git add -A*", always=True)
         trial.shell.replies(when=_PUSH)
         trial.shell.replies(when=_AHEAD, stdout="0\n")
@@ -342,6 +374,8 @@ class TestWholeCast:
         result = trial.cast(pr_cover, PrSweep(bound=3))
 
         assert result == Report(checked=[_GREEN_ROW.model_copy(update={"unpushed": 0})])
+        assert _COVER_STARTED in trial.shell.commands
+        assert _COVER_DONE in trial.shell.commands
         assert trial.steps == [
             "list_prs",
             "next_pr",
