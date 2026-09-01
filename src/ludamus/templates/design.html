@@ -273,12 +273,12 @@
                             {% static "placeholder-images/01.webp" as design_cover_url %}
                             <div class="grid gap-6 sm:grid-cols-2">
                                 <div>
-                                    <p class="mb-2 text-xs text-foreground-muted">safe_zone="edges" — cropped on both axes (event cover)</p>
-                                    {% include "components/file-dropzone.html" with id="t-file-edges" name="t-file-edges" label="Cover image" required=False accept="image/*" has_errors=False initial_url=design_cover_url initial_name="cover.webp" dropzone_state="image" contain=False safe_zone="edges" only %}
+                                    <p class="mb-2 text-xs text-foreground-muted">crop="edges" — cropped on both axes (event cover)</p>
+                                    {% include "components/file-dropzone.html" with id="t-file-edges" name="t-file-edges" label="Cover image" required=False accept="image/*" has_errors=False initial_url=design_cover_url initial_name="cover.webp" dropzone_state="image" contain=False crop="edges" only %}
                                 </div>
                                 <div>
-                                    <p class="mb-2 text-xs text-foreground-muted">safe_zone="top-and-bottom" — full width kept (session cover)</p>
-                                    {% include "components/file-dropzone.html" with id="t-file-strip" name="t-file-strip" label="Cover image" required=False accept="image/*" has_errors=False initial_url=design_cover_url initial_name="cover.webp" dropzone_state="image" contain=False safe_zone="top-and-bottom" only %}
+                                    <p class="mb-2 text-xs text-foreground-muted">crop="top-and-bottom" — full width kept (session cover)</p>
+                                    {% include "components/file-dropzone.html" with id="t-file-strip" name="t-file-strip" label="Cover image" required=False accept="image/*" has_errors=False initial_url=design_cover_url initial_name="cover.webp" dropzone_state="image" contain=False crop="top-and-bottom" only %}
                                 </div>
                             </div>
                         </div>

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 from decimal import Decimal
-from typing import TYPE_CHECKING, Any, ClassVar, Literal, cast
+from typing import TYPE_CHECKING, Any, ClassVar, Literal, assert_never, cast
 
 from django import forms
 from django.core.exceptions import ValidationError
@@ -45,11 +45,11 @@ MAX_ADDRESS_LINES = 2
 # and a comma-joined list of MIME types reads nothing like a sentence. Two of
 # them because the two cover families are cropped along different axes; the
 # dropzone guide (components/file-dropzone.html) draws the matching shape.
-COVER_IMAGE_HELP_TEXT = _(
+EDGES_COVER_IMAGE_HELP_TEXT = _(
     "1920×1080 (16:9) works best. We crop the edges, so keep the subject in "
     "the middle and leave text out. Max 8 MB. JPG, PNG, WebP, or AVIF."
 )
-STRIP_COVER_IMAGE_HELP_TEXT = _(
+TOP_AND_BOTTOM_COVER_IMAGE_HELP_TEXT = _(
     "1920×1080 (16:9) works best. We crop the top and bottom, so keep the "
     "subject in the middle and leave text out. Max 8 MB. JPG, PNG, WebP, or AVIF."
 )
@@ -66,34 +66,41 @@ STORAGE_LIMIT_VALIDATOR = MaxValueValidator(
 
 
 class DropzoneFileInput(forms.ClearableFileInput):
-    # `fit` and `safe_zone` are read by the tessera dropzone renderer, never
-    # written to the input: they say how the preview frames the file, which is
-    # the renderer's business and not the browser's.
+    # `fit` and `crop` are read by the tessera dropzone renderer, never written
+    # to the input: they say how the preview frames the file, which is the
+    # renderer's business and not the browser's.
     def __init__(
         self,
         *,
         attrs: dict[str, str] | None = None,
         fit: Literal["cover", "contain"] = "cover",
-        safe_zone: CoverCrop | None = None,
+        crop: CoverCrop | None = None,
     ) -> None:
         super().__init__(attrs)
         self.fit = fit
         # A crop guide over a preview that crops nothing would point at nothing.
-        self.safe_zone = safe_zone if fit == "cover" else None
+        self.crop = crop if fit == "cover" else None
 
 
 def cover_image_field(*, crop: CoverCrop) -> forms.ImageField:
     # Shared definition so every cover/header upload field stays identical
     # (label, limits, accepted types) without copy-pasting the declaration.
     # `crop` picks which surfaces this upload lands on, and with it both the
-    # help text and the guide the dropzone draws over the preview.
+    # help text and the guide the dropzone draws over the preview. match +
+    # assert_never (not a dict) so a third crop is a type error here rather
+    # than copy for one crop shown against the guide for the other.
+    match crop:
+        case "edges":
+            help_text = EDGES_COVER_IMAGE_HELP_TEXT
+        case "top-and-bottom":
+            help_text = TOP_AND_BOTTOM_COVER_IMAGE_HELP_TEXT
+        case _:
+            assert_never(crop)
     return forms.ImageField(
         label=_("Cover image"),
         required=False,
-        help_text=(
-            COVER_IMAGE_HELP_TEXT if crop == "edges" else STRIP_COVER_IMAGE_HELP_TEXT
-        ),
-        widget=DropzoneFileInput(attrs={"accept": IMAGE_ACCEPT}, safe_zone=crop),
+        help_text=help_text,
+        widget=DropzoneFileInput(attrs={"accept": IMAGE_ACCEPT}, crop=crop),
     )
 
 

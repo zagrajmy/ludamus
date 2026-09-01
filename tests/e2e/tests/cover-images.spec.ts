@@ -76,14 +76,7 @@ test.describe("Event cover image upload", () => {
     expect(ogImage).not.toContain("og-image.jpg");
   });
 
-  test("safe zone keeps its share of the preview at every width", async ({ page }) => {
-    await page.goto("/panel/event/lakeside-weekend/settings/");
-    await coverImageInput(page).setInputFiles({
-      name: "cover.png",
-      mimeType: "image/png",
-      buffer: PNG_BYTES,
-    });
-
+  const assertGuideShare = async (page: Page, share: { width: number; height: number }) => {
     const dropzone = coverDropzone(page);
     const guide = dropzone.locator("[data-dropzone-safe-zone]");
     const preview = dropzone.locator("[data-dropzone-preview]");
@@ -97,9 +90,35 @@ test.describe("Event cover image upload", () => {
       // The guide is only honest while the preview shows the upload at the
       // shape the help text asks for.
       expect(previewBox.width / previewBox.height).toBeCloseTo(16 / 9, 1);
-      expect(guideBox.width / previewBox.width).toBeCloseTo(0.7, 2);
-      expect(guideBox.height / previewBox.height).toBeCloseTo(0.4, 2);
+      expect(guideBox.width / previewBox.width).toBeCloseTo(share.width, 2);
+      expect(guideBox.height / previewBox.height).toBeCloseTo(share.height, 2);
     }
+  };
+
+  test("safe zone keeps its share of the preview at every width", async ({ page }) => {
+    await page.goto("/panel/event/lakeside-weekend/settings/");
+    await coverImageInput(page).setInputFiles({
+      name: "cover.png",
+      mimeType: "image/png",
+      buffer: PNG_BYTES,
+    });
+
+    // An event cover meets the full-bleed hero banner, which crops it on both
+    // axes, so the guide is a centred box.
+    await assertGuideShare(page, { width: 0.7, height: 0.4 });
+  });
+
+  test("a session cover is guided towards a full-width band", async ({ page }) => {
+    await page.goto("/panel/event/lakeside-weekend/proposals/create/");
+    await coverImageInput(page).setInputFiles({
+      name: "cover.png",
+      mimeType: "image/png",
+      buffer: PNG_BYTES,
+    });
+
+    // A session cover only ever sits in a wide strip inside a card, so its
+    // width survives and the guide gives back the height the card takes.
+    await assertGuideShare(page, { width: 0.96, height: 0.28 });
   });
 
   test("manager uploads event logo via the dropzone", async ({ page }) => {

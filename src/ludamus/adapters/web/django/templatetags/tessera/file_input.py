@@ -46,6 +46,6 @@ def render_file_input(field: BoundField) -> str:
             "initial_name": initial_name,
             "dropzone_state": dropzone_state,
             "contain": getattr(field.field.widget, "fit", "cover") == "contain",
-            "safe_zone": getattr(field.field.widget, "safe_zone", None),
+            "crop": getattr(field.field.widget, "crop", None),
         },
     )
