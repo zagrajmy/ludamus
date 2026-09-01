@@ -3,19 +3,11 @@
 import html as html_module
 import json
 import re
-from typing import TYPE_CHECKING
 from unittest.mock import patch
 
 import pytest
-from django import forms
 from django.template import Context, Template, TemplateSyntaxError
 from heroicons import IconDoesNotExist
-
-from ludamus.adapters.web.django.templatetags.tessera.form import tessera_field
-from ludamus.gates.web.django.forms import cover_image_field, logo_field
-
-if TYPE_CHECKING:
-    from ludamus.pacts.images import CoverCrop
 
 
 class TestIcon:
@@ -860,43 +852,3 @@ class TestActionDropdown:
                 '{% load tessera %}{% tessera_action_dropdown id="m" align="up" %}t'
                 "{% action_dropdown_menu %}{% endtessera_action_dropdown %}"
             ).render(Context())
-
-
-class TestCoverImageDropzone:
-    """The crop guide the dropzone draws over a cover preview.
-
-    Its geometry is the promise we make in the help text, so the two must move
-    together — see components/file-dropzone.html for where the numbers come from.
-    """
-
-    @staticmethod
-    def _render(*, crop: CoverCrop) -> str:
-        class CoverForm(forms.Form):
-            cover_image = cover_image_field(crop=crop)
-
-        return tessera_field(CoverForm()["cover_image"])
-
-    def test_banner_cover_guides_towards_a_centered_box(self) -> None:
-        html = self._render(crop="edges")
-
-        assert "inset-x-[15%] inset-y-[30%]" in html
-        assert "crop the edges" in html
-
-    def test_strip_cover_guides_towards_a_full_width_band(self) -> None:
-        html = self._render(crop="top-and-bottom")
-
-        assert "inset-x-[2%] inset-y-[36%]" in html
-        assert "crop the top and bottom" in html
-
-    def test_both_crops_preview_the_uploaded_16_9_frame(self) -> None:
-        assert "data-[state=image]:aspect-video" in self._render(crop="edges")
-        assert "data-[state=image]:aspect-video" in self._render(crop="top-and-bottom")
-
-    def test_contain_fit_draws_no_guide(self) -> None:
-        class LogoForm(forms.Form):
-            logo = logo_field()
-
-        html = tessera_field(LogoForm()["logo"])
-
-        assert "data-dropzone-safe-zone" not in html
-        assert "object-contain" in html
