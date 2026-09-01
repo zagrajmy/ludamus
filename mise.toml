@@ -231,10 +231,11 @@ run = [
 description = "Combine integration + e2e coverage and export XML"
 run = """
 set -eu
-# One local run writes .coverage.e2e; a sharded CI run brings back one
-# .coverage.e2e.<shard> per job. Naming .coverage.unit explicitly keeps a
-# missing unit run a hard failure instead of a quietly partial 93%.
-coverage combine .coverage.unit $(ls .coverage.e2e .coverage.e2e.* 2>/dev/null)
+# A missing unit run would otherwise combine to a quietly partial 93%.
+test -f .coverage.unit || { echo "no .coverage.unit; the unit run did not happen" >&2; exit 1; }
+# Picks up .coverage.e2e from a local run and every .coverage.e2e.<shard> a
+# sharded CI run brought back, without naming the shard count here.
+coverage combine .
 coverage xml -o coverage.xml
 coverage report --fail-under=93
 """

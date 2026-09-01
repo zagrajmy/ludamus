@@ -68,9 +68,10 @@ jobs:
       - run: mise install
       - run: mise exec -- poetry install
 
-      # Split from the wait below: booting takes ~2min of pure waiting that
-      # the fixture bootstrap has no reason to sit behind.
-      - name: Select and boot iOS simulator
+      # Split from the join below: booting takes ~2min of pure waiting that
+      # the fixture bootstrap has no reason to sit behind. NOTE: a boot that
+      # fails surfaces at the join, several steps and minutes from here.
+      - name: Boot the iOS simulator (in the background)
         run: |
           UDID=$(python - <<'PY'
           import json
@@ -122,7 +123,7 @@ jobs:
 
       # Boot started before the fixture bootstrap, so by here it is usually
       # done; the simulator has to be up before the runner build below.
-      - name: Wait for iOS simulator
+      - name: Join the iOS simulator boot
         run: xcrun simctl bootstatus "$UDID" -b
 
       # The XCUITest runner's build measures ~240s and is paid by the first
