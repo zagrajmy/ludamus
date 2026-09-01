@@ -59,10 +59,11 @@
                 {# "top-and-bottom" meets no banner and loses only what a 320px phone #}
                 {# card costs it, 280/160 = 1.75, keeping 98%. Every other surface (event #}
                 {# and encounter cards, notice_board/detail.html, #}
-                {# panel/proposal-detail.html) is wider than these and does not bind. #}
+                {# panel/proposal-detail.html) is shallower than these and does not #}
+                {# bind. #}
                 <div data-dropzone-safe-zone
                      aria-hidden="true"
-                     class="pointer-events-none absolute inset-y-[36%] rounded-sm border border-dashed border-white/70 drop-shadow-[0_0_1px_rgba(0,0,0,0.7)] {% if crop == 'edges' %}inset-x-[15%]{% elif crop == 'top-and-bottom' %}inset-x-[2%]{% endif %}">
+                     class="pointer-events-none absolute inset-y-[36%] rounded-sm border border-dashed border-white/70 drop-shadow-[0_0_1px_rgba(0,0,0,0.7)] {% if crop == 'edges' %}inset-x-[15%]{% else %}inset-x-[2%]{% endif %}">
                 </div>
             {% endif %}
             <button type="button"
