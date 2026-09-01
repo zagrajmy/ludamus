@@ -771,6 +771,28 @@ class TestEnrollmentService:
         # Nothing turns on pass ownership here, and asking costs an API call.
         assert not ticket_api.calls
 
+    def test_access_asks_no_membership_question_without_an_email(self):
+        # A membership is looked up by email; an account without one cannot
+        # hold passes, and asking the API about "" is a wasted round trip.
+        now = datetime.now(tz=UTC)
+        windows = [
+            _enrollment_config(
+                start_time=now - timedelta(hours=1), end_time=now + timedelta(days=1)
+            )
+        ]
+        ticket_api = FakeTicketAPI(7)
+        service = _service(
+            users=FakeUsers([_user(1, email="")]),
+            enrollment_configs=FakeEnrollmentConfigs(configs=windows),
+            windows=FakeWindows(windows),
+            ticket_api_resolver=FakeTicketApiResolver(ticket_api),
+        )
+
+        access = service.access(event=_event(), viewer_slug="viewer")
+
+        assert access == EnrollmentAccessDTO(open_window_ids=frozenset(), opens_at=None)
+        assert not ticket_api.calls
+
     def test_access_asks_no_membership_question_for_a_visitor(self):
         now = datetime.now(tz=UTC)
         windows = [
