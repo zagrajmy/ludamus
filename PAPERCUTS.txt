@@ -442,3 +442,7 @@ If you fix a papercut, remove it.
 - 2026-09-01: Running mypy directly on the touched POLCON scripts crashed while
   constructing NewSemanalDjangoPlugin; `mise run lint:mypy` is the supported
   invocation because it loads `.env.test` and supplies `SRC_PATHS`.
+- 2026-09-01: black 26.5.1 with preview=true rewrites 'except (KeyError,
+  ValueError):' into Python 2 'except KeyError, ValueError:' in
+  gates/web/django/crowd/auth.py, producing a file that cannot be imported.
+  Binding the tuple with 'as exc' is the only form that survives the formatter.
