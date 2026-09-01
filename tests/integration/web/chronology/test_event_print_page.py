@@ -244,7 +244,12 @@ class TestPublicEventPrintView:
 
         response = client.get(self._url(event.slug))
 
-        _assert_print_ok(response, tracks_available=True, print_scopes=[_scope(space)])
+        _assert_print_ok(
+            response,
+            tracks=[_track_option(public_track)],
+            selected_track="main",
+            print_scopes=[_scope(space)],
+        )
         titles = {
             cell_session.title
             for page in response.context_data["timetable"].pages

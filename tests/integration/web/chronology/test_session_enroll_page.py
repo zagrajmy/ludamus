@@ -1203,6 +1203,8 @@ class TestSessionEnrollPageView:
     ):
         PartyMembership.objects.filter(member=companion).delete()
         party = sponsor_user(leader=staff_user, member=companion)
+        companion.manager = staff_user
+        companion.save(update_fields=["manager"])
         UserEnrollmentConfig.objects.create(
             enrollment_config=enrollment_config,
             user_email=staff_user.email,
@@ -1407,6 +1409,8 @@ class TestSessionEnrollPageView:
     ):
         PartyMembership.objects.filter(member=companion).delete()
         sponsor_user(leader=staff_user, member=companion)
+        companion.manager = staff_user
+        companion.save(update_fields=["manager"])
         UserEnrollmentConfig.objects.create(
             enrollment_config=enrollment_config,
             user_email=staff_user.email,
@@ -1435,6 +1439,8 @@ class TestSessionEnrollPageView:
     ):
         PartyMembership.objects.filter(member=companion).delete()
         party = sponsor_user(leader=staff_user, member=companion)
+        companion.manager = staff_user
+        companion.save(update_fields=["manager"])
         UserEnrollmentConfig.objects.create(
             enrollment_config=enrollment_config,
             user_email=staff_user.email,
@@ -2086,7 +2092,13 @@ class TestSessionEnrollPageView:
                     messages.ERROR,
                     "Test User cannot enroll: enrollment access permission required",
                 ),
-                (messages.WARNING, "Please review the enrollment options below."),
+                (
+                    messages.ERROR,
+                    (
+                        "Enrollment access permission is required for this "
+                        "session. Please contact the organizers to obtain access."
+                    ),
+                ),
             ],
             context_data={
                 **party_context(),
@@ -2200,7 +2212,13 @@ class TestSessionEnrollPageView:
                         "permission required"
                     ),
                 ),
-                (messages.WARNING, "Please review the enrollment options below."),
+                (
+                    messages.ERROR,
+                    (
+                        "Enrollment access permission is required for this "
+                        "session. Please contact the organizers to obtain access."
+                    ),
+                ),
             ],
             context_data={
                 **_companion_pills(own_party, leader=active_user, companion=companion),
@@ -2511,6 +2529,9 @@ class TestSessionEnrollInline:
                 user_enrolled=user_enrolled,
                 user_waiting=user_waiting,
             ),
+            # These fixtures never leave a window still to come, so the
+            # swapped-in fragment has no opening date to name.
+            "enroll_opens_at": None,
             "enroll_error": enroll_error,
             "notice": notice,
         }
@@ -2548,6 +2569,7 @@ class TestSessionEnrollInline:
                     ),
                     group_label="Enroll with others…",
                 ),
+                "enroll_opens_at": None,
                 "enroll_error": "",
                 "notice": "",
             },
@@ -2590,6 +2612,54 @@ class TestSessionEnrollInline:
         assert not SessionParticipation.objects.filter(
             user=staff_user, session=session
         ).exists()
+
+    @pytest.mark.usefixtures("enrollment_config")
+    def test_htmx_cancel_on_a_shut_window_names_the_date_it_opens(
+        self, staff_user, agenda_item, staff_client, enrollment_config
+    ):
+        # Giving up the seat leaves the viewer outside a window they hold no
+        # passes for. The swapped-in fragment has to say the same thing the
+        # modal's own GET does — the disabled way in, with its date — instead
+        # of blanking the footer.
+        enrollment_config.restrict_to_configured_users = True
+        enrollment_config.save()
+        general_start = datetime.now(tz=UTC) + timedelta(days=2)
+        EnrollmentConfig.objects.create(
+            event=agenda_item.session.event,
+            start_time=general_start,
+            end_time=general_start + timedelta(days=1),
+            percentage_slots=100,
+        )
+        session = agenda_item.session
+        SessionParticipation.objects.create(
+            user=staff_user,
+            session=session,
+            status=SessionParticipationStatus.CONFIRMED,
+        )
+
+        response = staff_client.post(
+            self._url(session.pk, session.event.slug),
+            data={f"user_{staff_user.id}": "cancel"},
+            HTTP_HX_REQUEST="true",
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name=self.FRAGMENT,
+            context_data={
+                "event_slug": session.event.slug,
+                "session_pk": session.pk,
+                "viewer_pk": staff_user.id,
+                "actions": None,
+                "enroll_opens_at": general_start,
+                "enroll_error": "",
+                # No control to carry the confirmation, so the flash rides
+                # along in the fragment.
+                "notice": f"Cancelled: {staff_user.name}",
+            },
+            messages=[(messages.SUCCESS, f"Cancelled: {staff_user.name}")],
+        )
 
     def test_htmx_cancel_without_enrollment_config_leaves_nothing_to_do(
         self, staff_user, agenda_item, staff_client
@@ -2980,6 +3050,7 @@ class TestDesiredStateEdgeCases:
                     badge=None,
                     group_label="Enroll with others…",
                 ),
+                "enroll_opens_at": None,
                 "enroll_error": (
                     f"Invalid choice for {staff_user.name}: bogus "
                     "Please review the enrollment options below."

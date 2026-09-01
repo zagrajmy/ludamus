@@ -691,18 +691,31 @@ test("overnight bookmark copies share one state and one request", async ({
   const copy = copies.nth(1);
   const wasBookmarked = (await source.getAttribute("aria-pressed")) === "true";
   let requests = 0;
+  // The second click has to land while the first request is still in flight,
+  // so hold the response until the test releases it rather than racing a sleep
+  // against Playwright's actionability checks.
+  let release = (): void => {};
+  const inFlight = new Promise<void>((resolve) => {
+    release = resolve;
+  });
   await page.route(/\/bookmark\/$/, async (route) => {
     requests += 1;
-    await new Promise((resolve) => setTimeout(resolve, 200));
+    await inFlight;
     await route.continue();
   });
 
-  await source.click();
-  await expect(copy).toBeDisabled();
-  await copy.click({ force: true });
-  await expect(copy).toBeEnabled();
-
   const expectedState = String(!wasBookmarked);
+  const responded = page.waitForResponse(/\/bookmark\/$/);
+  await source.click();
+  // The optimistic paint lands with the click and the copy stays interactive,
+  // so the two states meet without a :disabled fade blinking between them; the
+  // second click is dropped by the in-flight guard, not by the DOM.
+  await expect(copy).toHaveAttribute("aria-pressed", expectedState);
+  await expect(copy).toBeEnabled();
+  await copy.click({ force: true });
+  release();
+  await responded;
+
   for (const button of await copies.all()) {
     await expect(button).toHaveAttribute("aria-pressed", expectedState);
   }

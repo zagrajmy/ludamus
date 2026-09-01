@@ -1,4 +1,4 @@
-from typing import NewType
+from typing import NewType, Protocol
 
 # Branded id types for request-supplied and cross-noun primary keys. A
 # `NewType` is free at runtime but makes mypy reject a session id passed
@@ -12,3 +12,9 @@ EventId = NewType("EventId", int)
 SphereId = NewType("SphereId", int)
 SiteId = NewType("SiteId", int)
 EventBanId = NewType("EventBanId", int)
+
+
+class HasPk(Protocol):
+    """Anything a repository can look up by its primary key."""
+
+    pk: int
