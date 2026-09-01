@@ -6,11 +6,7 @@ uploading to that page the wrong thing while every page still renders.
 """
 
 from ludamus.gates.web.django.event.propose_forms import SessionCoverImageForm
-from ludamus.gates.web.django.forms import (
-    EventSettingsForm,
-    SessionEditForm,
-    logo_field,
-)
+from ludamus.gates.web.django.forms import EventSettingsForm, SessionEditForm
 from ludamus.gates.web.django.notice_board.forms import EncounterForm
 
 
@@ -28,5 +24,6 @@ class TestCoverImageCrops:
     def test_encounter_header_keeps_its_width(self) -> None:
         assert EncounterForm().fields["header_image"].widget.crop == "top-and-bottom"
 
-    def test_a_contained_logo_crops_nothing(self) -> None:
-        assert logo_field().widget.crop is None
+    def test_the_logo_beside_a_cover_crops_nothing(self) -> None:
+        # The settings page renders both dropzones; only one of them guides.
+        assert EventSettingsForm().fields["logo"].widget.crop is None

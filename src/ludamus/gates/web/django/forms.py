@@ -78,8 +78,7 @@ class DropzoneFileInput(forms.ClearableFileInput):
     ) -> None:
         super().__init__(attrs)
         self.fit = fit
-        # A crop guide over a preview that crops nothing would point at nothing.
-        self.crop = crop if fit == "cover" else None
+        self.crop = crop
 
 
 def cover_image_field(*, crop: CoverCrop) -> forms.ImageField:

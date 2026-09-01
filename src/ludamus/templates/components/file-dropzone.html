@@ -47,19 +47,22 @@
             </div>
             {% if crop %}
                 {# NOTE: the part of a 16:9 upload every centered crop keeps, rounded #}
-                {# down for slack. "edges" is the event banner (chronology/event.html), #}
-                {# the one surface that narrows: 288/224 = 1.29 on a phone keeps 72% of #}
-                {# the width, 1216/288 = 4.2 on a desktop keeps 42% of the height. #}
-                {# "top-and-bottom" covers session cards (chronology/_session_card.html, #}
-                {# chronology/enroll_select.html) and encounters (components/ #}
-                {# encounter_card.html, notice_board/detail.html); the binding one is the #}
-                {# session card's h-40 at a fluid width, 967/160 = 6.0 one column below #}
-                {# lg, keeping 29% of the height. Its width is cut too, just barely — #}
-                {# 280/160 = 1.75 on a 320px phone keeps 98% — which is what the 2% #}
-                {# inset is for, so this is not inset-x-0. #}
+                {# down for slack. `crop` says which way the image is cut; the box below #}
+                {# is the safe zone that leaves, hence data-dropzone-safe-zone. #}
+                {# Both crops lose the same height to the same box: a cover in a card #}
+                {# strip is h-40 at a fluid width, 967/160 = 6.0 one column below lg, #}
+                {# keeping 29% (chronology/_session_card.html, and #}
+                {# chronology/enroll_select.html, which falls back to the event's cover #}
+                {# when a session has none — so an "edges" upload lands here too). #}
+                {# They differ in width: "edges" also meets the full-bleed event banner #}
+                {# (chronology/event.html), 288/224 = 1.29 on a phone, keeping 72%; #}
+                {# "top-and-bottom" meets no banner and loses only what a 320px phone #}
+                {# card costs it, 280/160 = 1.75, keeping 98%. Every other surface (event #}
+                {# and encounter cards, notice_board/detail.html, #}
+                {# panel/proposal-detail.html) is wider than these and does not bind. #}
                 <div data-dropzone-safe-zone
                      aria-hidden="true"
-                     class="pointer-events-none absolute rounded-sm border border-dashed border-white/70 drop-shadow-[0_0_1px_rgba(0,0,0,0.7)] {% if crop == 'edges' %}inset-x-[15%] inset-y-[30%]{% elif crop == 'top-and-bottom' %}inset-x-[2%] inset-y-[36%]{% else %}hidden{% endif %}">
+                     class="pointer-events-none absolute inset-y-[36%] rounded-sm border border-dashed border-white/70 drop-shadow-[0_0_1px_rgba(0,0,0,0.7)] {% if crop == 'edges' %}inset-x-[15%]{% elif crop == 'top-and-bottom' %}inset-x-[2%]{% endif %}">
                 </div>
             {% endif %}
             <button type="button"
