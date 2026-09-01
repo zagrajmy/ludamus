@@ -245,16 +245,22 @@ def test_extract_programme_reads_titles_presenters_and_durations() -> None:
     assert not saturday[1].description
 
 
-def test_extract_programme_ignores_hidden_columns() -> None:
+def test_extract_programme_ignores_hidden_columns_between_visible_columns() -> None:
     visible = _sheet_with_one_room()
-    hidden = replace(visible, hidden_columns=frozenset({wb.column_index("E1")}))
+    cells = dict(visible.cells)
+    cells |= {"F3": "0.53125", "F4": "Po przerwie"}
+    hidden = wb.SheetData(
+        cells=cells,
+        merges=(*visible.merges, "F4:F4"),
+        hidden_columns=frozenset({wb.column_index("E1")}),
+    )
 
     items = sync.extract_programme(
         {"Piątek": visible, "Sobota": hidden, "Niedziela": visible}
     )
 
     saturday = [item for item in items if item.sheet == "Sobota"]
-    assert [item.title for item in saturday] == ["Wprowadzenie"]
+    assert [item.title for item in saturday] == ["Wprowadzenie", "Po przerwie"]
 
 
 def test_extract_programme_does_not_extrapolate_past_the_time_header() -> None:
@@ -269,6 +275,21 @@ def test_extract_programme_does_not_extrapolate_past_the_time_header() -> None:
 
     saturday = [item for item in items if item.sheet == "Sobota"]
     assert [item.title for item in saturday] == ["Wprowadzenie"]
+
+
+def test_extract_programme_rejects_merge_past_the_visible_time_header() -> None:
+    regular = _sheet_with_one_room()
+    crossing = replace(
+        regular,
+        merges=tuple(
+            "E4:F4" if merge == "E4:E4" else merge for merge in regular.merges
+        ),
+    )
+
+    with pytest.raises(ValueError, match="scheduled title is not merged"):
+        sync.extract_programme(
+            {"Piątek": regular, "Sobota": crossing, "Niedziela": regular}
+        )
 
 
 def test_extract_programme_dates_each_sheet_from_its_own_day() -> None:

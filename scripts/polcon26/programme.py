@@ -434,8 +434,6 @@ def _extract_sheet_programme(
             sheet=sheet,
             header_times=header_times,
             merge_at=merge_at,
-            first_column=first_column,
-            last_column=last_column,
             first_row=first_row,
             last_row=last_row,
             raw_room=raw_room,
@@ -467,7 +465,7 @@ def _schedule_merges(
     result = {}
     for reference in sheet.merges:
         first, row, last, last_row = parse_range(reference)
-        if first_column <= first <= last_column and last <= last_column + 1:
+        if first_column <= first <= last_column and last <= last_column:
             result[row, first] = (last, last_row, reference)
     return result
 
@@ -478,8 +476,6 @@ def _extract_room_programme(
     sheet: SheetData,
     header_times: dict[int, float],
     merge_at: dict[tuple[int, int], tuple[int, int, str]],
-    first_column: int,
-    last_column: int,
     first_row: int,
     last_row: int,
     raw_room: str,
@@ -503,8 +499,6 @@ def _extract_room_programme(
                 sheet=sheet,
                 header_times=header_times,
                 merge_at=merge_at,
-                first_column=first_column,
-                last_column=last_column,
                 physical_room=physical_room,
                 title_row=title_row,
                 region_end=region_end - 1,
@@ -520,8 +514,6 @@ def _extract_lane_programme(
     sheet: SheetData,
     header_times: dict[int, float],
     merge_at: dict[tuple[int, int], tuple[int, int, str]],
-    first_column: int,
-    last_column: int,
     physical_room: str,
     title_row: int,
     region_end: int,
@@ -531,7 +523,7 @@ def _extract_lane_programme(
         sheet=sheet, first_row=title_row, last_row=region_end
     )
     result = []
-    for column in range(first_column, last_column + 1):
+    for column in sorted(header_times):
         item = _extract_programme_item(
             sheet_name=sheet_name,
             sheet=sheet,

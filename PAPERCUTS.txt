@@ -440,5 +440,5 @@ If you fix a papercut, remove it.
   against stale Python/templates and a new assertion failed with 'element not
   found'; only test:e2e:kill + rerun made it pass
 - 2026-09-01: Running mypy directly on the touched POLCON scripts crashed while
-  constructing NewSemanalDjangoPlugin; the project task may need its expected
-  invocation context or a clearer error.
+  constructing NewSemanalDjangoPlugin; `mise run lint:mypy` is the supported
+  invocation because it loads `.env.test` and supplies `SRC_PATHS`.
