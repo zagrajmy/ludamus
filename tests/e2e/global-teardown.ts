@@ -1,5 +1,3 @@
-import type { FullConfig } from "@playwright/test";
-
 import { CoverageReport } from "monocart-coverage-reports";
 
 import { collecting, coverageOptions } from "./coverage";
@@ -8,7 +6,7 @@ import { collecting, coverageOptions } from "./coverage";
 // merges it into the lcov Codecov reads alongside the Python coverage. A
 // bundle that kept its own path never found its sourcemap, and uploading it
 // would report coverage against a file that does not exist in the repo.
-export default async function globalTeardown(config: FullConfig) {
+export default async function globalTeardown() {
   if (!collecting) return;
   const files = (await new CoverageReport(coverageOptions).generate())?.files ?? [];
   const unmapped = files.filter((file) => !file.sourcePath.startsWith("src/ludamus/client/src/"));
@@ -19,13 +17,14 @@ export default async function globalTeardown(config: FullConfig) {
         " inline sourcemaps — stop it and let the e2e run start its own.",
     );
   }
-  // A filtered local run can legitimately touch no chromium test, and so can a
-  // single shard: V8 coverage comes from chromium only, and --shard splits by
-  // test count with no regard for project. Only a whole-suite CI run, whose
-  // output is what gets uploaded, must produce something.
-  if (!files.length && process.env.CI && !config.shard) {
+  // V8 coverage comes from chromium only, so a run that draws no chromium test
+  // records nothing. A filtered local run may legitimately do that; in CI every
+  // shard has to draw one, or its slice of the client report goes missing and
+  // nothing fails — the shard is the wrong place to grant that exemption.
+  if (!files.length && process.env.CI) {
     throw new Error(
-      "Client coverage came back empty for a full CI run; no chromium test recorded any.",
+      "No chromium test recorded client coverage. Each shard must draw at least one;" +
+        " rebalance the split rather than letting a slice of the report vanish.",
     );
   }
 }
