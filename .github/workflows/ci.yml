@@ -134,14 +134,11 @@ jobs:
         run: .venv/bin/python --version || rm -rf .venv
       - run: mise exec -- poetry install
       # PostgreSQL-only tests: row-level locking (select_for_update) is a
-      # no-op on the SQLite backend used by the main `test` job below.
+      # no-op on the SQLite backend used by the `test-e2e` job below.
       - run: mise run test:postgres
 
-  test:
+  test-unit:
     runs-on: ubuntu-latest
-    # A stuck `playwright install` has no timeout of its own and rode the 6h
-    # job default; cap it so a hang fails in minutes instead of hours.
-    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: actions/cache@v4
@@ -157,33 +154,64 @@ jobs:
         run: .venv/bin/python --version || rm -rf .venv
       - run: mise exec -- poetry install
 
-      # Integration/unit tests → .coverage.unit
       - run: mise run test:py:cov
+      - uses: actions/upload-artifact@v4
+        with:
+          name: coverage-unit
+          path: .coverage.unit
+          include-hidden-files: true
+          retention-days: 1
 
-      # E2E tests → .coverage.e2e
+  test-e2e:
+    runs-on: ubuntu-latest
+    # A stuck `playwright install` has no timeout of its own and rode the 6h
+    # job default; cap it so a hang fails in minutes instead of hours.
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/cache@v4
+        with:
+          path: .venv
+          key: venv-${{ runner.os }}-${{ hashFiles('poetry.lock',
+            'mise.toml') }}
+          restore-keys: |
+            venv-${{ runner.os }}-
+      # NOTE: playwright install below still runs, for the apt deps; it is a
+      # no-op for browsers this cache restored.
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles(
+            'tests/e2e/package.json') }}
+      - uses: jdx/mise-action@v2
+      - run: mise install
+      - name: Drop stale virtualenv
+        run: .venv/bin/python --version || rm -rf .venv
+      - run: mise exec -- poetry install
+
       - name: Install Playwright Browsers
         run: mise run test:e2e:install
       - name: Run end-to-end tests
-        id: e2e
-        run: mise run test:e2e
+        run: mise run test:e2e -- --shard=${{ matrix.shard }}/4
 
-      # Combine and upload only when unit + e2e tests passed
-      - name: Combine coverage reports
-        run: mise run coverage:combine
-        if: success()
-      # Two uploads, not one file list: separate flags let the Python gate stay
-      # a Python gate while the client number finds its level.
-      - name: Upload Python coverage to Codecov
-        uses: codecov/codecov-action@v5
-        if: success()
+      # NOTE: the client-coverage collector keys off COVERAGE_FILE ending in
+      # `.coverage.e2e`, so the shard suffix goes on afterwards.
+      - name: Name this shard's coverage
+        run: mv .coverage.e2e .coverage.e2e.${{ matrix.shard }}
+      - uses: actions/upload-artifact@v4
         with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          files: coverage.xml
-          flags: python
-          disable_search: true
+          name: coverage-e2e-${{ matrix.shard }}
+          path: .coverage.e2e.${{ matrix.shard }}
+          include-hidden-files: true
+          retention-days: 1
+      # Codecov merges same-flag uploads for a commit, so each shard sends its
+      # own slice; separate flags keep the Python gate a Python gate.
       - name: Upload client coverage to Codecov
         uses: codecov/codecov-action@v5
-        if: success()
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: coverage-client/lcov.info
@@ -193,13 +221,42 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always() && !cancelled()
         with:
-          name: playwright-report
+          name: playwright-report-${{ matrix.shard }}
           path: ./tests/e2e/playwright-report/
           retention-days: 30
 
-      - name: Assert e2e passed
-        if: always()
-        run: test "${{ steps.e2e.outcome }}" = "success"
+  # Named `test` because the branch ruleset requires that check; it now
+  # gates on the unit job and every e2e shard, and holds the 93% floor.
+  test:
+    runs-on: ubuntu-latest
+    needs: [test-unit, test-e2e]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/cache@v4
+        with:
+          path: .venv
+          key: venv-${{ runner.os }}-${{ hashFiles('poetry.lock',
+            'mise.toml') }}
+          restore-keys: |
+            venv-${{ runner.os }}-
+      - uses: jdx/mise-action@v2
+      - run: mise install
+      - name: Drop stale virtualenv
+        run: .venv/bin/python --version || rm -rf .venv
+      - run: mise exec -- poetry install
+
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: coverage-*
+          merge-multiple: true
+      - run: mise run coverage:combine
+      - name: Upload Python coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: coverage.xml
+          flags: python
+          disable_search: true
 
   # advisory: reports the branch's debt without blocking the merge
   tingle:
