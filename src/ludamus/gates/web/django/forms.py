@@ -25,7 +25,7 @@ from ludamus.pacts.durations import (
     build_duration,
     duration_choices,
 )
-from ludamus.pacts.images import IMAGE_ACCEPT, LOGO_ACCEPT
+from ludamus.pacts.images import IMAGE_ACCEPT, LOGO_ACCEPT, CoverCrop
 from ludamus.pacts.legacy import EncounterPublicPolicy, PromotionMode, SpherePage
 from ludamus.pacts.submissions import AccreditationType
 
@@ -42,10 +42,16 @@ _DATETIME_LOCAL_FORMATS = ["%Y-%m-%dT%H:%M", "%Y-%m-%dT%H:%M:%S"]
 # pushes the CTAs off a phone screen.
 MAX_ADDRESS_LINES = 2
 # Hand-written rather than joined from IMAGE_FORMATS: it is translated user copy,
-# and a comma-joined list of MIME types reads nothing like a sentence.
+# and a comma-joined list of MIME types reads nothing like a sentence. Two of
+# them because the two cover families are cropped along different axes; the
+# dropzone guide (components/file-dropzone.html) draws the matching shape.
 COVER_IMAGE_HELP_TEXT = _(
     "1920×1080 (16:9) works best. We crop the edges, so keep the subject in "
     "the middle and leave text out. Max 8 MB. JPG, PNG, WebP, or AVIF."
+)
+STRIP_COVER_IMAGE_HELP_TEXT = _(
+    "1920×1080 (16:9) works best. We crop the top and bottom, so keep the "
+    "subject in the middle and leave text out. Max 8 MB. JPG, PNG, WebP, or AVIF."
 )
 # Width of the PositiveIntegerField column on Postgres (`integer`). Dev sqlite
 # is wider, so an overflow only ever surfaces in production. A validator rather
@@ -68,22 +74,26 @@ class DropzoneFileInput(forms.ClearableFileInput):
         *,
         attrs: dict[str, str] | None = None,
         fit: Literal["cover", "contain"] = "cover",
-        safe_zone: bool = False,
+        safe_zone: CoverCrop | None = None,
     ) -> None:
         super().__init__(attrs)
         self.fit = fit
         # A crop guide over a preview that crops nothing would point at nothing.
-        self.safe_zone = safe_zone and fit == "cover"
+        self.safe_zone = safe_zone if fit == "cover" else None
 
 
-def cover_image_field() -> forms.ImageField:
+def cover_image_field(*, crop: CoverCrop) -> forms.ImageField:
     # Shared definition so every cover/header upload field stays identical
     # (label, limits, accepted types) without copy-pasting the declaration.
+    # `crop` picks which surfaces this upload lands on, and with it both the
+    # help text and the guide the dropzone draws over the preview.
     return forms.ImageField(
         label=_("Cover image"),
         required=False,
-        help_text=COVER_IMAGE_HELP_TEXT,
-        widget=DropzoneFileInput(attrs={"accept": IMAGE_ACCEPT}, safe_zone=True),
+        help_text=(
+            COVER_IMAGE_HELP_TEXT if crop == "edges" else STRIP_COVER_IMAGE_HELP_TEXT
+        ),
+        widget=DropzoneFileInput(attrs={"accept": IMAGE_ACCEPT}, safe_zone=crop),
     )
 
 
@@ -154,7 +164,7 @@ class EventSettingsForm(forms.Form):
             raise ValidationError(gettext("An address can have at most two lines."))
         return "\n".join(kept)
 
-    cover_image = cover_image_field()
+    cover_image = cover_image_field(crop="edges")
     logo = logo_field()
     start_time = forms.DateTimeField(
         widget=_datetime_local_widget(),
@@ -632,7 +642,7 @@ class SessionEditForm(forms.Form):
     duration_minutes = forms.IntegerField(
         required=False, min_value=0, max_value=MAX_DURATION_MINUTES, label=_("Minutes")
     )
-    cover_image = cover_image_field()
+    cover_image = cover_image_field(crop="top-and-bottom")
 
     def clean_cover_image(self) -> object:
         image = self.cleaned_data.get("cover_image")

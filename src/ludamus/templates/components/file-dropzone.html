@@ -46,13 +46,17 @@
                 <p data-dropzone-size class="text-xs text-white/75"></p>
             </div>
             {% if safe_zone %}
-                {# NOTE: center 70%x40% of a 16:9 upload, the part every centered crop keeps. #}
-                {# Narrowest crop is the phone event banner (288/224 = 1.29 -> 72% of #}
-                {# the width), widest is the desktop one (1216/288 = 4.2 -> 42% of the #}
-                {# height); both rounded down for slack. #}
+                {# NOTE: the part of a 16:9 upload every centered crop keeps, rounded #}
+                {# down for slack. "edges": center 70%x40%, from the event banner — #}
+                {# narrowest is the phone one (288/224 = 1.29 -> 72% of the width), #}
+                {# widest the desktop one (1216/288 = 4.2 -> 42% of the height). #}
+                {# "top-and-bottom": full width, center 28%, from the session card — #}
+                {# its cover is a fixed h-40 at a fluid width, widest one column below #}
+                {# lg (967/160 = 6.0 -> 29% of the height), and never narrower than #}
+                {# 16:9, so only the height is ever cut. #}
                 <div data-dropzone-safe-zone
                      aria-hidden="true"
-                     class="pointer-events-none absolute inset-x-[15%] inset-y-[30%] rounded-sm border border-dashed border-white/70 drop-shadow-[0_0_1px_rgba(0,0,0,0.7)]">
+                     class="pointer-events-none absolute rounded-sm border border-dashed border-white/70 drop-shadow-[0_0_1px_rgba(0,0,0,0.7)] {% if safe_zone == 'top-and-bottom' %}inset-x-[2%] inset-y-[36%]{% else %}inset-x-[15%] inset-y-[30%]{% endif %}">
                 </div>
             {% endif %}
             <button type="button"
