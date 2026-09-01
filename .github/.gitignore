@@ -2,7 +2,6 @@
 !workflows/
 !workflows/*.yml
 !actions/
-!actions/*/
-!actions/*/action.yml
+!actions/**
 !dependabot.yml
 !CODEOWNERS

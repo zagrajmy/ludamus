@@ -27,7 +27,7 @@ jobs:
           key: aube-${{ runner.os }}-${{ hashFiles('aube-lock.yaml') }}
           restore-keys: |
             aube-${{ runner.os }}-
-      - uses: ./.github/actions/python-env
+      - uses: ./.github/actions/toolchain
       - run: mise bootstrap packages apply --yes
       # hk's oxlint/oxfmt use `aube exec --no-install`, so a partial
       # (--no-optional) graph is fine — they will not cold-start mid-lint.
@@ -89,9 +89,9 @@ jobs:
           --health-retries 5
     steps:
       - uses: actions/checkout@v4
-      - uses: ./.github/actions/python-env
+      - uses: ./.github/actions/toolchain
       # PostgreSQL-only tests: row-level locking (select_for_update) is a
-      # no-op on the SQLite backend used by the `test-e2e` job below.
+      # no-op on the SQLite backend used by the `test-unit` job below.
       - run: mise run test:postgres
 
   test-unit:
@@ -99,7 +99,7 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
-      - uses: ./.github/actions/python-env
+      - uses: ./.github/actions/toolchain
 
       - run: mise run test:py:cov
       - uses: actions/upload-artifact@v4
@@ -107,7 +107,7 @@ jobs:
           name: coverage-unit
           path: .coverage.unit
           include-hidden-files: true
-          retention-days: 1
+          retention-days: 7
 
   test-e2e:
     runs-on: ubuntu-latest
@@ -118,6 +118,9 @@ jobs:
       fail-fast: false
       # Three, not four: concurrency is shared account-wide, and a fourth
       # shard buys under a minute against the odds of one queueing for five.
+      # NOTE: the run below reads the count from strategy.job-total, which is
+      # the whole matrix size. A second axis here would silently halve the
+      # suite; split the denominator back out if one is ever added.
       matrix:
         shard: [1, 2, 3]
     steps:
@@ -129,7 +132,7 @@ jobs:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ hashFiles(
             'tests/e2e/package.json') }}
-      - uses: ./.github/actions/python-env
+      - uses: ./.github/actions/toolchain
 
       - name: Install Playwright Browsers
         run: mise run test:e2e:install
@@ -147,7 +150,7 @@ jobs:
           name: coverage-e2e-${{ matrix.shard }}
           path: .coverage.e2e.${{ matrix.shard }}
           include-hidden-files: true
-          retention-days: 1
+          retention-days: 7
       # Codecov merges same-flag uploads for a commit, so each shard sends its
       # own slice; separate flags keep the Python gate a Python gate.
       - name: Upload client coverage to Codecov
@@ -172,9 +175,9 @@ jobs:
     runs-on: ubuntu-latest
     needs: [test-unit, test-e2e]
     # SAFETY: GitHub reports a skipped job as success to a required check, so
-    # letting a failed shard skip this one would turn the merge gate green.
-    # It runs regardless and asserts what its dependencies actually did.
-    if: ${{ !cancelled() }}
+    # anything that skips this one turns the merge gate green. always(), not
+    # !cancelled(): a cancelled run skips under the latter and would pass.
+    if: ${{ always() }}
     timeout-minutes: 15
     steps:
       - name: Every test job passed
@@ -183,7 +186,7 @@ jobs:
           || contains(needs.*.result, 'cancelled') }}
         run: exit 1
       - uses: actions/checkout@v4
-      - uses: ./.github/actions/python-env
+      - uses: ./.github/actions/toolchain
 
       - uses: actions/download-artifact@v4
         with:

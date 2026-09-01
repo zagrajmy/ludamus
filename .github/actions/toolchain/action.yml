@@ -1,6 +1,9 @@
 ---
-name: Python environment
-description: Restore the cached Poetry virtualenv and install the mise toolchain.
+name: Toolchain
+description: >-
+  Install the mise toolchain (python, node, hk, actionlint, ast-grep, ...) and
+  restore the cached Poetry virtualenv. Includes the .venv cache; do not add a
+  second one alongside it.
 
 runs:
   using: composite
