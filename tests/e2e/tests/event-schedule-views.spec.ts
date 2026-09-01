@@ -122,14 +122,17 @@ test.describe("Event schedule views", () => {
     // either a scroll-driven animation or an inline translate holding the same
     // offset, and only the rendered result is the contract.
     const columnDrift = () =>
-      page.evaluate(() => {
-        const lanes = document.querySelector(".room-lanes") as HTMLElement;
-        const head = lanes.querySelector("[data-room-lanes-head] .room-lanes-grid");
-        const rooms = lanes.querySelector(".room-lanes-body");
-        return Math.round(
-          Math.abs(head!.getBoundingClientRect().left - rooms!.getBoundingClientRect().left),
-        );
-      });
+      page
+        .locator(".room-lanes")
+        .first()
+        .evaluate((lanes) => {
+          const head = lanes.querySelector<HTMLElement>("[data-room-lanes-head] .room-lanes-grid");
+          const rooms = lanes.querySelector<HTMLElement>(".room-lanes-body");
+          if (!head || !rooms) throw new Error("rooms grid is missing a half to compare");
+          return Math.round(
+            Math.abs(head.getBoundingClientRect().left - rooms.getBoundingClientRect().left),
+          );
+        });
 
     for (const left of [0, Math.floor(max / 3), max]) {
       await body.evaluate((el, target) => {
@@ -139,12 +142,16 @@ test.describe("Event schedule views", () => {
       // The axis heading is the one thing that offset must not carry: it names
       // the gutter, which stays put.
       expect(
-        await page.locator(".room-lanes-corner").evaluate((corner) => {
-          const lanes = corner.closest(".room-lanes") as HTMLElement;
-          return Math.round(
-            corner.getBoundingClientRect().left - lanes.getBoundingClientRect().left,
-          );
-        }),
+        await page
+          .locator(".room-lanes-corner")
+          .first()
+          .evaluate((corner) => {
+            const lanes = corner.closest<HTMLElement>(".room-lanes");
+            if (!lanes) throw new Error("axis heading is outside the rooms grid");
+            return Math.round(
+              corner.getBoundingClientRect().left - lanes.getBoundingClientRect().left,
+            );
+          }),
       ).toBe(0);
     }
   });

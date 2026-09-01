@@ -10,6 +10,9 @@
      the sizes live here once and both consumers name them. */
   --row-track: minmax(3.5rem, auto);
   --col-track: minmax(var(--col-min), 1fr);
+  /* The axis gutter's ink in the edge mask: opaque under the body's sticky
+     hour labels, cut away in the head (below), where the shell paints it. */
+  --room-lanes-gutter-ink: black;
 }
 
 /* md and up: a third wider than the compact tiers (10rem and 11.25rem × 4/3)
@@ -80,13 +83,12 @@ body:has(.room-lanes-panning) * {
 
 /* The strip shows the body's columns by holding the body's horizontal offset,
    and it is moved, never scrolled — so it clips in every browser and is a
-   query container everywhere the keyframe below needs one. */
+   query container everywhere the keyframe below needs one. Nothing of its own
+   belongs in the gutter: the shell paints there, and the columns underneath
+   are only passing through. */
 .room-lanes-head {
   overflow: clip;
   container-type: inline-size;
-  /* The axis gutter: opaque in the body, where the sticky hour labels sit on
-     it, and cut away here, where the shell paints it and the strip underneath
-     holds nothing but columns on their way past. */
   --room-lanes-gutter-ink: transparent;
 }
 
@@ -94,8 +96,8 @@ body:has(.room-lanes-panning) * {
 .room-lanes-scroll {
   mask-image: linear-gradient(
     90deg,
-    var(--room-lanes-gutter-ink, black) 0,
-    var(--room-lanes-gutter-ink, black) var(--axis-w),
+    var(--room-lanes-gutter-ink) 0,
+    var(--room-lanes-gutter-ink) var(--axis-w),
     hsl(0 0% 0% / var(--fade-start-opacity)) var(--axis-w),
     black calc(var(--axis-w) + var(--fade-size-start, 0px)),
     black calc(100% - var(--fade-size-end, 0px)),
@@ -103,8 +105,8 @@ body:has(.room-lanes-panning) * {
   );
   -webkit-mask-image: linear-gradient(
     90deg,
-    var(--room-lanes-gutter-ink, black) 0,
-    var(--room-lanes-gutter-ink, black) var(--axis-w),
+    var(--room-lanes-gutter-ink) 0,
+    var(--room-lanes-gutter-ink) var(--axis-w),
     hsl(0 0% 0% / var(--fade-start-opacity)) var(--axis-w),
     black calc(var(--axis-w) + var(--fade-size-start, 0px)),
     black calc(100% - var(--fade-size-end, 0px)),
@@ -118,46 +120,48 @@ body:has(.room-lanes-panning) * {
   scrollbar-width: none;
 }
 
-/* The strip has to carry the body's horizontal offset, and mirroring that
-   through a `scroll` listener is the one thing a phone cannot do: iOS scrolls
-   on the compositor and fires `scroll` asynchronously, so the room names land
-   a frame or more after the columns they name and a fling leaves them visibly
-   adrift. combobox.css hands popup placement to anchor positioning for the
-   same reason.
+/* iOS scrolls on the compositor and fires `scroll` asynchronously, so a strip
+   mirrored through a listener is always a frame or more behind the columns it
+   names. Here the browser moves it instead, off the body's own scroll.
 
-   So the offset is a translate, and the browser moves it on the compositor
-   wherever it can drive one from the body's scroll. room-lanes.ts writes the
-   same translate inline on every scroll event; a running animation outranks
-   inline style, so that write is inert here and is the whole mechanism where
-   this block does not apply. Nothing detects which happened — a detector that
-   guessed wrong would freeze the header, and there is no branch to guess at.
+   room-lanes.ts writes the same translate inline on every scroll event. A
+   running animation outranks inline style, so that write is inert wherever
+   this block applies and is the whole mechanism where it does not — nothing
+   detects which, because a detector that guessed wrong would freeze the strip.
 
    `from` is stated, not implied: an implicit one takes the underlying value,
-   which is precisely the inline translate this must override.
+   which is exactly the inline translate this has to override.
 
    The end value is the scroller's own overflow — 100% the grid, 100cqw the
-   strip showing it — so it is exactly -(scrollWidth - clientWidth), re-derived
-   through every relayout that collapsing a column causes.
+   strip showing it — so it is -(scrollWidth - clientWidth), re-derived through
+   every relayout that collapsing a column causes.
 
-   Gated on timeline-scope rather than on `animation-timeline: scroll()`: the
-   name has to cross from the body scroller to a strip that is not its
-   descendant, and an engine with anonymous scroll() but no scope would leave
-   the animation timeline-less and, with `both`, parked on its end frame. */
+   Gated on timeline-scope, not `animation-timeline: scroll()`: the name has to
+   cross from the body scroller to a strip that is not its descendant, and an
+   engine with anonymous scroll() but no scope would leave the animation
+   timeline-less and, with `both`, parked on its end frame. */
 @supports (timeline-scope: --room-lanes-x) {
   .room-lanes {
     timeline-scope: --room-lanes-x;
   }
 
+  /* HACK: both rules below reach into @hasparus/tailwind's scrollview-fade
+     (verified against 1.1.8) and both fail silently if it changes.
+     scroll-timeline is one list, so naming a second timeline means restating
+     the plugin's — its axis included, by the variable it uses rather than the
+     value that variable currently holds. And the strip's own fades are the
+     plugin's two animations, so re-timing them depends on there being exactly
+     two, in that order; a third upstream would quietly take the document
+     timeline and, with the plugin's `both` fill, snap an opacity to its end
+     value. The seam belongs upstream: a timeline the plugin reads from a
+     custom property would let a consumer name one without restating a list. */
   .room-lanes-scroll {
-    /* scroll-timeline is one list, so naming the strip's timeline here means
-       restating the fade timeline .scrollview-fade declares on this element. */
     scroll-timeline:
-      --scroll-timeline x,
+      --scroll-timeline var(--fade-axis),
       --room-lanes-x x;
   }
 
-  /* A clipped strip never scrolls, so its own edge fades — .scrollview-fade's
-     two animations, in its order — read the body's offset instead. */
+  /* A clipped strip never scrolls, so its edge fades read the body instead. */
   .room-lanes-head {
     animation-timeline: --room-lanes-x, --room-lanes-x;
   }
