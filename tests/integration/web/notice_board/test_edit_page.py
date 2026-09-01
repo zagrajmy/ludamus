@@ -9,7 +9,11 @@ from django.urls import reverse
 
 from ludamus.pacts import EncounterDTO
 from tests.integration.conftest import PNG_BYTES, EncounterFactory
-from tests.integration.utils import assert_response, assert_response_404
+from tests.integration.utils import (
+    FormInitialMatcher,
+    assert_response,
+    assert_response_404,
+)
 
 
 class TestEncounterEditPageView:
@@ -172,13 +176,13 @@ class TestEncounterEditPageView:
             response,
             HTTPStatus.OK,
             context_data={
-                "form": ANY,
+                "form": FormInitialMatcher(
+                    start_time="2026-06-01T18:00", end_time="2026-06-01T21:00"
+                ),
                 "encounter": EncounterDTO.model_validate(encounter),
             },
             template_name="notice_board/edit.html",
         )
-        assert response.context["form"].initial["start_time"] == "2026-06-01T18:00"
-        assert response.context["form"].initial["end_time"] == "2026-06-01T21:00"
 
     def test_ok_get_without_end_time(self, authenticated_client, user, sphere):
         encounter = EncounterFactory(creator=user, sphere=sphere, end_time=None)
