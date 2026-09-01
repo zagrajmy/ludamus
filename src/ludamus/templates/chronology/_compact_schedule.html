@@ -29,24 +29,26 @@
                     <section data-schedule-day
                              data-day="{{ day.day_start|date:'Y-m-d' }}"
                              class="mb-6 border-y border-border bg-bg-secondary px-2 pt-3 pb-2 last:mb-0 sm:rounded-2xl sm:border sm:px-3">
-                        {% include "chronology/_schedule_day_header.html" with day_count=schedule_days|length %}
-                        {% for hour in day.hours %}
-                            <div class="time-slot-section scroll-mt-24"
-                                 id="slot-{{ hour.slot_key }}"
-                                 data-slot-hour="{{ hour.slot_key }}">
-                                <div class="px-2 pt-3 pb-1 text-[0.7rem] font-bold tabular-nums tracking-wide text-foreground-muted">
-                                    {{ hour.start|time:"H:i" }}
-                                    {% if hour.is_repeated %}<span class="ml-1 text-[0.6rem]">{{ hour.start.tzname }}</span>{% endif %}
+                        {% include "chronology/_schedule_day_header.html" with day_count=schedule_days|length controls=day.panel_id %}
+                        <div id="{{ day.panel_id }}" data-day-panel>
+                            {% for hour in day.hours %}
+                                <div class="time-slot-section scroll-mt-24"
+                                     id="slot-{{ hour.slot_key }}"
+                                     data-slot-hour="{{ hour.slot_key }}">
+                                    <div class="px-2 pt-3 pb-1 text-[0.7rem] font-bold tabular-nums tracking-wide text-foreground-muted">
+                                        {{ hour.start|time:"H:i" }}
+                                        {% if hour.is_repeated %}<span class="ml-1 text-[0.6rem]">{{ hour.start.tzname }}</span>{% endif %}
+                                    </div>
+                                    {# Not divide-y: it draws a stray divider under the last visible #}
+                                    {# row when session-filters.ts hides the rows after it (index.css). #}
+                                    <div class="session-grid divide-y-visible">
+                                        {% for tile in hour.tiles %}
+                                            {% include "chronology/_compact_session_row.html" with data=tile.data occurrence_start=tile.start occurrence_end=tile.end %}
+                                        {% endfor %}
+                                    </div>
                                 </div>
-                                {# Not divide-y: it draws a stray divider under the last visible #}
-                                {# row when session-filters.ts hides the rows after it (index.css). #}
-                                <div class="session-grid divide-y-visible">
-                                    {% for tile in hour.tiles %}
-                                        {% include "chronology/_compact_session_row.html" with data=tile.data occurrence_start=tile.start occurrence_end=tile.end %}
-                                    {% endfor %}
-                                </div>
-                            </div>
-                        {% endfor %}
+                            {% endfor %}
+                        </div>
                     </section>
                 {% endfor %}
                 {# The "now" seam, moved between two rows by schedule-now.ts. #}

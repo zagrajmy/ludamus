@@ -210,6 +210,13 @@ class ProposalPanelService(ProposalPanelServiceProtocol):
                     return existing
                 raise
 
+    def set_session_display_name(
+        self, *, event_id: int, session_id: int, display_name: str
+    ) -> None:
+        with self._transaction.atomic():
+            self._repos.sessions.read_by_event(session_id, event_id)
+            self._repos.sessions.update(session_id, {"display_name": display_name})
+
     def _event_ids(self, event_id: int) -> _EventIds:
         # One read per event, not per draft: `create_sessions` validates up to
         # 250 drafts against the same five sets in a single request.

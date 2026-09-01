@@ -14,9 +14,8 @@ const DENSE_EVENT_URL = "/event/kapitularz-2025-anonymized/";
 
 const WEEKDAY = /^(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)\b/;
 
-// A day folds behind its own heading: the heading doubles as the disclosure
-// button, named by the day it opens and closes.
-const dayToggles = (page: Page) => page.getByRole("button", { name: WEEKDAY });
+const dayToggles = (page: Page) =>
+  page.locator("[data-schedule-day]").getByRole("button", { name: WEEKDAY });
 
 const card = (page: Page, title: string) =>
   page.getByRole("link", { name: `Open details for ${title}` });
@@ -64,8 +63,12 @@ test.describe("Folding days on the card schedule", () => {
     await expect(days).toHaveCount(2);
     await expect(days.first()).toHaveAttribute("aria-expanded", "true");
 
+    await expect(days.first()).toHaveAttribute("aria-controls", /^schedule-day-/);
+    const controlled = (await days.first().getAttribute("aria-controls")) ?? "";
+
     await days.first().click();
 
+    await expect(page.locator(`[id="${controlled}"]`)).toBeHidden();
     await expect(card(page, MEGA)).toBeHidden();
     await expect(card(page, COZY)).toBeHidden();
     await expect(card(page, NEON)).toBeVisible();

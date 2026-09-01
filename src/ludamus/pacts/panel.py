@@ -205,6 +205,9 @@ class ProposalPanelServiceProtocol(PanelColumnServiceProtocol, Protocol):
     def create_accepted_session(
         self, *, event_id: int, source_row_id: str, draft: ProposalDraft
     ) -> int: ...
+    def set_session_display_name(
+        self, *, event_id: int, session_id: int, display_name: str
+    ) -> None: ...
 
 
 @dataclass

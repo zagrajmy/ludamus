@@ -1,0 +1,15 @@
+{% load tessera %}
+{# Which pills, in what order, and the cap of two: #}
+{# gates/web/django/event/status_pills.py. #}
+<div class="flex flex-wrap items-center gap-2 {{ extra_class|default:'' }}">
+    {% for pill in status_pills %}
+        <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium {{ pill.classes }}">
+            {% if pill.live_dot %}
+                <span class="w-2 h-2 bg-teal-500 rounded-full live-dot"></span>
+            {% else %}
+                {% icon pill.icon class="w-4 h-4" variant="mini" %}
+            {% endif %}
+            {{ pill.label }}
+        </div>
+    {% endfor %}
+</div>

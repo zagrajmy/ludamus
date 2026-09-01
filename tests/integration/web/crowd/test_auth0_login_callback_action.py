@@ -152,6 +152,47 @@ class TestAuth0LoginCallbackActionView:
         )
 
     @patch("ludamus.gates.web.django.crowd.auth.oauth.auth0.authorize_access_token")
+    def test_ok_long_sub_truncates_slug(self, authorize_access_token_mock, client):
+        # A long provider sub makes the raw slug overflow the 50-char field; the
+        # login must still succeed with a truncated slug.
+        sub = "x" * 60
+        authorize_access_token_mock.return_value = {"userinfo": {"sub": sub}}
+        state_token = self._setup_valid_state()
+
+        response = client.get(self.URL, {"state": state_token})
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url="http://testserver/crowd/profile/?next=%2Fevents%2F",
+            messages=[(messages.SUCCESS, "Please complete your profile.")],
+        )
+        user = User.objects.get(username=f"auth0|{sub}")
+        assert len(user.slug) <= User._meta.get_field("slug").max_length
+
+    @patch("ludamus.gates.web.django.crowd.auth.oauth.auth0.authorize_access_token")
+    def test_ok_slug_collision_creates_distinct_account(
+        self, authorize_access_token_mock, client, complete_user_factory, faker
+    ):
+        # Another account already owns the slug this login would derive; the new
+        # account must get a distinct slug instead of a failed insert.
+        sub = faker.uuid4()
+        username = f"auth0|{sub}"
+        complete_user_factory(username="someone-else", slug=slugify(username))
+        authorize_access_token_mock.return_value = {"userinfo": {"sub": sub}}
+        state_token = self._setup_valid_state()
+
+        response = client.get(self.URL, {"state": state_token})
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url="http://testserver/crowd/profile/?next=%2Fevents%2F",
+            messages=[(messages.SUCCESS, "Please complete your profile.")],
+        )
+        assert User.objects.get(username=username).slug != slugify(username)
+
+    @patch("ludamus.gates.web.django.crowd.auth.oauth.auth0.authorize_access_token")
     def test_error_bad_token(self, authorize_access_token_mock, client):
         authorize_access_token_mock.return_value = {}
         state_token = self._setup_valid_state()

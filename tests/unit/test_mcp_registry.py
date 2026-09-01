@@ -67,6 +67,11 @@ ORGANIZER_TOOL_NAMES = [
     "create_sessions",
     "assign_session",
     "assign_sessions",
+    "update_session",
+    "update_space",
+    "update_event",
+    "set_event_image",
+    "set_sphere_logo",
     "list_announcements",
 ]
 
