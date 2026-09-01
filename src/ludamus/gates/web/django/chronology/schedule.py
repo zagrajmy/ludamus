@@ -146,7 +146,6 @@ def _row_windows(
     # reading rows. The hour rides along because a cut row still answers to it
     # for the scrubber, and because "is this a cut?" is then a fact rather than
     # a reading of the wall clock.
-    #
     # Every instant is compared and keyed as a timestamp, never as a datetime:
     # PEP 495 has two same-zone datetimes that differ only in `fold` compare
     # equal and hash equal, so on the night the clocks go back a plain set or
