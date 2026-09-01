@@ -118,8 +118,11 @@
                                         Scheduled in {{ space }}, {{ start }} – {{ end }}
                                     {% endblocktranslate %}
                                 </p>
-                                <a class="btn btn-tertiary text-sm"
-                                   href="{% url 'panel:timetable' slug=current_event.slug %}?date={{ agenda_item.start_time|date:'Y-m-d' }}">{% translate "View on timetable" %}</a>
+                                {% translate "View on timetable" as view_timetable_label %}
+                                {% url 'panel:timetable' slug=current_event.slug as timetable_url %}
+                                {% with timetable_date=agenda_item.start_time|date:"Y-m-d" %}
+                                    {% tessera_button view_timetable_label href=timetable_url|add:"?date="|add:timetable_date variant="secondary" size="sm" %}
+                                {% endwith %}
                             </div>
                         </div>
                     {% endif %}

@@ -1,3 +1,4 @@
+from datetime import timedelta
 from http import HTTPStatus
 from unittest.mock import ANY
 
@@ -34,6 +35,14 @@ TEMPLATE = "crowd/user/party_detail.html"
 
 def _url(party):
     return reverse("web:crowd:party-detail", kwargs={"pk": party.pk})
+
+
+def _history_group(response, event, index=0):
+    return {
+        "event_name": event.name,
+        "event_slug": event.slug,
+        "cards": response.context["history"][index]["cards"],
+    }
 
 
 def _context(party_dto, **overrides):
@@ -279,7 +288,6 @@ class TestPartyDetailSessionHistory:
         self._enroll_party(party, session, active_user, companion)
 
         response = authenticated_client.get(_url(party))
-        history = response.context["history"]
 
         assert_response(
             response,
@@ -291,13 +299,7 @@ class TestPartyDetailSessionHistory:
                     [_member_dto(active_user, party), _member_dto(companion, party)],
                 ),
                 invite_token=party.invite_token,
-                history=[
-                    {
-                        "event_name": session.event.name,
-                        "event_slug": session.event.slug,
-                        "cards": history[0]["cards"],
-                    }
-                ],
+                history=[_history_group(response, session.event)],
             ),
             template_name=TEMPLATE,
             contains=["Wspólna Wyprawa", session.event.name],
@@ -311,6 +313,68 @@ class TestPartyDetailSessionHistory:
         )
         assert card.agenda_item.start_time == agenda_item.start_time
         assert not card.pretend_full
+
+    def test_history_keeps_one_group_when_an_event_has_several_sessions(
+        self, authenticated_client, active_user, session, agenda_item
+    ):
+        _ = agenda_item
+        party = sponsor_user(leader=active_user, member=active_user)
+        self._enroll_party(party, session, active_user)
+        second = SessionFactory(event=session.event)
+        AgendaItemFactory(session=second, space=SpaceFactory(event=session.event))
+        self._enroll_party(party, second, active_user)
+
+        response = authenticated_client.get(_url(party))
+        history = response.context["history"]
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=_context(
+                _party_dto(party, active_user, [_member_dto(active_user, party)]),
+                invite_token=party.invite_token,
+                history=[_history_group(response, session.event)],
+            ),
+            template_name=TEMPLATE,
+        )
+        [group] = history
+        assert [card.session.pk for card in group["cards"]] == [session.pk, second.pk]
+
+    def test_history_orders_groups_by_each_events_latest_session(
+        self, authenticated_client, active_user, session, agenda_item
+    ):
+        party = sponsor_user(leader=active_user, member=active_user)
+        other_event = EventFactory()
+        other_session = SessionFactory(event=other_event)
+        AgendaItemFactory(
+            session=other_session,
+            space=SpaceFactory(event=other_event),
+            start_time=agenda_item.start_time + timedelta(hours=1),
+        )
+        latest = SessionFactory(event=session.event)
+        AgendaItemFactory(
+            session=latest,
+            space=SpaceFactory(event=session.event),
+            start_time=agenda_item.start_time + timedelta(hours=2),
+        )
+        for enrolled in (session, other_session, latest):
+            self._enroll_party(party, enrolled, active_user)
+
+        response = authenticated_client.get(_url(party))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=_context(
+                _party_dto(party, active_user, [_member_dto(active_user, party)]),
+                invite_token=party.invite_token,
+                history=[
+                    _history_group(response, session.event),
+                    _history_group(response, other_event, index=1),
+                ],
+            ),
+            template_name=TEMPLATE,
+        )
 
     def test_history_query_count_is_constant_across_space_depth(
         self, authenticated_client, active_user, session, agenda_item, space
@@ -337,13 +401,7 @@ class TestPartyDetailSessionHistory:
                 context_data=_context(
                     _party_dto(party, active_user, [_member_dto(active_user, party)]),
                     invite_token=party.invite_token,
-                    history=[
-                        {
-                            "event_name": session.event.name,
-                            "event_slug": session.event.slug,
-                            "cards": response.context["history"][0]["cards"],
-                        }
-                    ],
+                    history=[_history_group(response, session.event)],
                 ),
                 template_name=TEMPLATE,
             )
@@ -422,7 +480,6 @@ class TestPartyDetailSessionHistory:
         banner.shadowbanned.add(active_user)
 
         response = authenticated_client.get(_url(party))
-        history = response.context["history"]
 
         assert_response(
             response,
@@ -434,13 +491,7 @@ class TestPartyDetailSessionHistory:
                     [_member_dto(active_user, party), _member_dto(companion, party)],
                 ),
                 invite_token=party.invite_token,
-                history=[
-                    {
-                        "event_name": session.event.name,
-                        "event_slug": session.event.slug,
-                        "cards": history[0]["cards"],
-                    }
-                ],
+                history=[_history_group(response, session.event)],
             ),
             template_name=TEMPLATE,
         )

@@ -7,11 +7,12 @@ decision rather than as quoting.
 
 import re
 import shlex
+from typing import Literal
 
 from pydantic import TypeAdapter, ValidationError
 from vekna.folio.shell import ShellResult, shell
 
-from .state import WAIT_LABEL, Check, PullRequest, wears
+from .state import WAIT_LABEL, Board, Check, PullRequest, wears
 
 # This project's two gates, by the names this project gives them.
 PR_FIX = "mise run pr-fix"
@@ -80,32 +81,82 @@ def wanted(listing: str) -> list[PullRequest]:
 # What CI made of the branch as it stands. Asked rather than assumed, and only
 # by the slow pass: the whole point of it is not to spend an hour of suites on a
 # pull request whose coverage and tests are already green on the server.
-# The exit code is deliberately ignored by the caller — `gh pr checks` answers
-# non-zero for a failing or pending run, which is the answer being asked for.
-def checks(number: int) -> str:
-    return f"gh pr checks {number} --json name,state"
+# The check-runs API rather than `gh pr checks`, because codecov's own reading
+# of the patch rides along on it as a field — see `_DIFF_HIT`. `gh pr checks`
+# and the commit-statuses endpoint both drop it: codecov posts check runs, and
+# their `description` comes back empty there.
+# The branch as the ref rather than a sha, so this asks about the head the
+# branch has now and not the one the listing saw. `filter=latest` is the
+# endpoint's own default, so a re-run's earlier attempt is never the answer.
+# An exit code is not read: a call that fails writes nothing to parse, and an
+# unreadable board already buys the gate below.
+def checks(branch: str) -> str:
+    return f"gh api {quoted(_BOARD_PATH.format(branch=branch))}"
 
 
-CHECKS: TypeAdapter[list[Check]] = TypeAdapter(list[Check])
+# The endpoint pages at thirty by default and this board already runs to
+# twenty-odd, so the default is two workflows away from silently dropping the
+# check the answer turns on.
+_BOARD_PATH = "repos/{{owner}}/{{repo}}/commits/{branch}/check-runs?per_page=100"
+
+BOARD: TypeAdapter[Board] = TypeAdapter(Board)
 
 # The checks whose unhappiness the slow pass exists to answer: codecov posts
 # `codecov/patch` and `codecov/project` (plus `/client` variants), and the suite
 # runs as `test` and `test-postgres`.
 _COVER_CHECKS = ("codecov/", "test")
-_PASSED = "SUCCESS"
+_PASSED = "success"
+
+# codecov's own summary of the patch, which its check run carries whether the
+# check went green or not: "96.84% of diff hit (target 96.00%)". That green is
+# the reason to read the number at all — `codecov.yml` sets a patch target
+# below 100 on purpose, so the board passes a branch carrying lines no test
+# touched, and this field is the only place that gap is named.
+# A patch with nothing to measure says "Coverage not affected when comparing
+# a...b" instead and matches nothing here, which is the right reading: there is
+# no gap to send an hour of suites after.
+_DIFF_HIT = re.compile(r"([\d.]+)% of diff hit")
+
+# The Python patch alone, not `codecov/patch/client`: what a match here buys is
+# `mise run diff-cover`, which measures Python and can close nothing a frontend
+# report is missing. The `/client` check still counts toward the board's state
+# below, where being red is a reason to look either way.
+_PATCH_CHECK = "codecov/patch"
+_WHOLE = 100.0
 
 
-# True unless the pull request positively says otherwise: a listing that will
-# not parse, a `gh` that would not answer, a branch CI has not reported on yet —
+# One page is all `checks` asks for, so a board longer than `per_page` comes
+# back short of the count the endpoint reports beside it. What fell off the end
+# could be the check either reader below turns on, and a page that does not say
+# is not a page saying yes: both take a short board the way they take one that
+# will not parse.
+def _truncated(board: Board) -> bool:
+    return len(board.check_runs) < board.total_count
+
+
+def _names_a_gap(check: Check) -> bool:
+    if check.name != _PATCH_CHECK or not check.title:
+        return False
+    found = _DIFF_HIT.search(check.title)
+    return found is not None and float(found.group(1)) < _WHOLE
+
+
+# True unless the pull request positively says otherwise: a board that will not
+# parse, a `gh` that would not answer, a branch CI has not reported on yet —
 # all of them mean nobody has told us the coverage is fine, and the slow pass is
-# the thing that finds out. Only a green codecov and a green suite buy a skip.
+# the thing that finds out. Only a green codecov, a green suite and a patch
+# summary naming no gap buy a skip.
 def wants_cover(listing: str) -> bool:
     try:
-        checked = CHECKS.validate_json(listing)
+        board = BOARD.validate_json(listing)
     except ValidationError:
         return True
-    watched = [check for check in checked if check.name.startswith(_COVER_CHECKS)]
-    return not watched or any(check.state != _PASSED for check in watched)
+    if _truncated(board) or any(_names_a_gap(check) for check in board.check_runs):
+        return True
+    watched = [
+        check for check in board.check_runs if check.name.startswith(_COVER_CHECKS)
+    ]
+    return not watched or any(check.conclusion != _PASSED for check in watched)
 
 
 # The CI jobs the gate would only be running again: `checks` is the linters and
@@ -122,11 +173,15 @@ _GATE_CHECKS = ("checks", "test")
 # on silence is a red branch pushed and reviewed as green.
 def gates_green(listing: str) -> bool:
     try:
-        checked = CHECKS.validate_json(listing)
+        board = BOARD.validate_json(listing)
     except ValidationError:
         return False
-    watched = [check for check in checked if check.name.startswith(_GATE_CHECKS)]
-    return bool(watched) and all(check.state == _PASSED for check in watched)
+    if _truncated(board):
+        return False
+    watched = [
+        check for check in board.check_runs if check.name.startswith(_GATE_CHECKS)
+    ]
+    return bool(watched) and all(check.conclusion == _PASSED for check in watched)
 
 
 STASHED = "stashed"
@@ -350,6 +405,38 @@ def commit(message: str) -> str:
 def label(*labels: str, number: int) -> str:
     added = " ".join(f"--add-label {quoted(one)}" for one in labels)
     return f"gh pr edit {number} {added}"
+
+
+# `v:` for vekna, the way `pr::` marks the labels a ritual reads: a bare `wait`
+# and a `pr::wait` already sit side by side on this repository, and a checkpoint
+# named after its ritual alone is one hand-made label away from the same
+# collision.
+def _marker(ritual: str, state: str) -> str:
+    return f"v:{ritual}:{state}"
+
+
+# A ritual's checkpoint is one claim at a time: `started` means the ritual may
+# have changed this branch and has not finished, `done` that it ended clean.
+# Adding one takes the other off in the same call, so a pull request never
+# wears both halves of a pair — and a branch the night could not finish is the
+# one still wearing `started`.
+def checkpoint(ritual: str, *, state: Literal["started", "done"], number: int) -> str:
+    other = "started" if state == "done" else "done"
+    return (
+        f"gh pr edit {number}"
+        f" --add-label {quoted(_marker(ritual, state))}"
+        f" --remove-label {quoted(_marker(ritual, other))}"
+    )
+
+
+# Best-effort and never fatal: a checkpoint is a board marker, and losing one is
+# not worth abandoning a merge that is about to happen or a branch that just
+# went green. What gh made of it comes back as the caller's note instead.
+async def mark(ritual: str, *, state: Literal["started", "done"], number: int) -> str:
+    marked = await shell(checkpoint(ritual, state=state, number=number))
+    if marked.exit_code:
+        return f"could not mark {_marker(ritual, state)}: {said(marked)}"
+    return ""
 
 
 # The agent was told not to commit the merge, but a step checks rather than

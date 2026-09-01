@@ -19,9 +19,13 @@ description — run it rather than trusting a hardcoded list here. Most used:
     layouts of the same set, a filter narrows the set, a sort reorders it —
     a filter sitting among the view tabs is a type error, and so is a
     control offering one option.
+  - UIs have types. a tag cloud wraps tokens that already carry their
+    kind; a definition list stacks named groups. restacking a cloud into
+    ragged rows is that same type error.
 - Include screenshots of affected pages in the PR description. With a server
   running, `mise run shots -- / /events` saves PNGs to `screenshots/` (paths
-  resolve against `localhost:8000`; wraps `aubx agent-browser`).
+  resolve against `localhost:8000`; wraps `aubx agent-browser`). In a sandbox,
+  publish with `/here-now` and link URLs.
 - Don't ignore lint rules globally.
 - Use the `src/ludamus/adapters/web/django/templatetags/tessera` design system
   for UI; don't hand-roll components.
@@ -90,15 +94,10 @@ has the per-file recipe. New code must use `request.services`; never extend the
   def fun(*, a: int, b: str, precision: int) -> int: ...
   ```
 
-- A comment carries what the code cannot: why this exists, the domain rule
-  behind it, an assumption or invariant, a warning about a non-obvious side
-  effect, a workaround and the constraint forcing it, a deliberate deviation
-  from the cleaner approach, an issue link for what's left to solve. A
-  function or method over 10 lines may open with a one-line docstring saying
-  what it does; no docstrings otherwise. Never narrate what the code does —
-  no `# int variable`, no `# Arrange`, no docstring moved above the `def` as
-  a `#`, no commented-out code, no history, nothing that goes stale (tests
-  especially). None of the above applies? Refactor until the code says it.
+- Comments are exception: only what code cannot express. Else rename or
+  split. Prefix: `NOTE:` outside constraint, `SAFETY:` hazard, `HACK:`
+  deliberate deviation, `TODO:` known gap, issue link. No narration, no
+  summaries, no work history microblogging.
 - Test type follows the layer under test: `mills` gets unit tests; `gates`,
   `links`, `adapters.web`, and templates get integration tests. This holds
   when raising coverage too. Details and the pure-helper exception:
@@ -127,7 +126,8 @@ has the per-file recipe. New code must use `request.services`; never extend the
 - `django.po` conflict? `mise run messages-resolve`; hand-fix only what it
   flags.
 
-- **session** → "punkt programu" (except in "RPG session" → "sesja RPG")
+- **session** → "punkt programu" (except in "RPG session" → "sesja RPG";
+  event-hero CTA "Sign up for sessions" → "Zapisz się na sesje")
 - **track** → "blok" or "blok programowy"
 - **facilitator** → "twórca programu"
 - **time slot** → "przedział czasowy" (do **not** use "blok czasowy" — collides

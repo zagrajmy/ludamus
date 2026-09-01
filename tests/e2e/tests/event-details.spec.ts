@@ -32,6 +32,10 @@ test.describe("Event detail page", () => {
     await expect(page.getByText("Upcoming")).toHaveCount(0);
   });
 
+  test("shows the notice the organizer wrote on the active enrollment window", async ({ page }) => {
+    await expect(page.getByText("grab a slot before we fill up!")).toBeVisible();
+  });
+
   test("shows both endpoints of a multi-day event", async ({ page }) => {
     // The seeded event runs 28h, so the header must name the closing day too —
     // start date with start time, end date with end time, each abbreviated to
@@ -67,7 +71,7 @@ test.describe("Event detail page", () => {
 
     await megaStrategyCard
       .getByRole("link", { name: "Open details for Mega Strategy Lab" })
-      .click();
+      .press("Enter");
 
     const detailDialog = page.getByRole("dialog", {
       name: "Mega Strategy Lab",
@@ -80,14 +84,19 @@ test.describe("Event detail page", () => {
   });
 
   test("session modal drops the Participants tab when nobody signs up", async ({ page }) => {
-    await page.getByRole("link", { name: "Open details for Mega Strategy Lab" }).click();
+    await page.getByRole("link", { name: "Open details for Mega Strategy Lab" }).press("Enter");
     const enrollable = page.getByRole("dialog", { name: "Mega Strategy Lab" });
     await expect(enrollable.getByRole("tab", { name: /Participants/ })).toBeVisible();
+    await settleViewTransitions(page);
     await enrollable.getByRole("button", { name: "Close" }).click();
+    await expect(enrollable).toBeHidden();
+    await settleViewTransitions(page);
 
     // Seeded with no participants limit, so there is no roster to show and the
     // information panel stands alone.
-    await page.getByRole("link", { name: "Open details for Cozy Storytellers Circle" }).click();
+    await page
+      .getByRole("link", { name: "Open details for Cozy Storytellers Circle" })
+      .press("Enter");
     const dropIn = page.getByRole("dialog", { name: "Cozy Storytellers Circle" });
     await expect(dropIn).toBeVisible();
     await expect(dropIn.getByRole("tab")).toHaveCount(0);
@@ -102,7 +111,7 @@ test.describe("Event detail page", () => {
       pageErrors.push(error.message);
     });
 
-    await page.getByRole("link", { name: "Open details for Mega Strategy Lab" }).click();
+    await page.getByRole("link", { name: "Open details for Mega Strategy Lab" }).press("Enter");
 
     await expect(page.getByRole("dialog", { name: "Mega Strategy Lab" })).toBeVisible();
     await settleViewTransitions(page);
@@ -115,7 +124,7 @@ test.describe("Event detail page", () => {
     const sessionSurface = card.locator(":scope > div").first();
     const title = card.getByRole("heading", { name: "Mega Strategy Lab" });
 
-    await page.getByRole("link", { name: "Open details for Mega Strategy Lab" }).click();
+    await page.getByRole("link", { name: "Open details for Mega Strategy Lab" }).press("Enter");
 
     await expect(page.getByRole("dialog", { name: "Mega Strategy Lab" })).toBeVisible();
     await settleViewTransitions(page);
@@ -141,7 +150,7 @@ test.describe("Event detail page", () => {
     await page.addStyleTag({
       content: ":root { --vt-morph-duration: 5s; --vt-morph-exit-duration: 5s; }",
     });
-    await page.getByRole("link", { name: "Open details for Mega Strategy Lab" }).click();
+    await page.getByRole("link", { name: "Open details for Mega Strategy Lab" }).press("Enter");
 
     const pseudoOf = (name: string) => `::view-transition-new(morph-${name})`;
     await page.waitForFunction(
@@ -185,7 +194,7 @@ test.describe("Event detail page", () => {
     );
     test.skip(!supportsNesting, "Browser does not implement view-transition-group");
 
-    await page.getByRole("link", { name: "Open details for Mega Strategy Lab" }).click();
+    await page.getByRole("link", { name: "Open details for Mega Strategy Lab" }).press("Enter");
     await expect(page.getByRole("dialog", { name: "Mega Strategy Lab" })).toBeVisible();
     await settleViewTransitions(page);
 
@@ -193,7 +202,7 @@ test.describe("Event detail page", () => {
       Object.fromEntries(
         [...document.querySelectorAll<HTMLElement>("dialog[open] [data-morph]")].map((element) => [
           element.dataset.morph,
-          getComputedStyle(element).viewTransitionGroup,
+          getComputedStyle(element).getPropertyValue("view-transition-group"),
         ]),
       ),
     );
@@ -223,7 +232,7 @@ test.describe("Event detail page", () => {
     test.skip(!supportsViewTransitions, "Browser does not implement the View Transition API");
 
     await page.addStyleTag({ content: ":root { --vt-morph-duration: 5s; }" });
-    await card.getByRole("link", { name: "Open details for Mega Strategy Lab" }).click();
+    await card.getByRole("link", { name: "Open details for Mega Strategy Lab" }).press("Enter");
     await page.waitForFunction(() =>
       document
         .getAnimations()
@@ -250,7 +259,7 @@ test.describe("Event detail page", () => {
   // so the card appears to expand into an already-scrolled panel.
   test("reopening a session modal starts at the top of the panel", async ({ page }) => {
     const open = async () => {
-      await page.getByRole("link", { name: "Open details for Mega Strategy Lab" }).click();
+      await page.getByRole("link", { name: "Open details for Mega Strategy Lab" }).press("Enter");
       await expect(page.getByRole("dialog", { name: "Mega Strategy Lab" })).toBeVisible();
       await settleViewTransitions(page);
     };
@@ -291,7 +300,9 @@ test.describe("Event detail page", () => {
     const page = await context.newPage();
 
     await page.goto("/event/autumn-open/");
-    await page.getByRole("link", { name: "Open details for Cozy Storytellers Circle" }).click();
+    await page
+      .getByRole("link", { name: "Open details for Cozy Storytellers Circle" })
+      .press("Enter");
 
     const detailDialog = page.getByRole("dialog", {
       name: "Cozy Storytellers Circle",
@@ -427,7 +438,9 @@ test.describe("Event detail page", () => {
     const sessionId = controls?.replace("session-", "");
     expect(sessionId).toBeTruthy();
 
-    await page.getByRole("link", { name: "Open details for Cozy Storytellers Circle" }).click();
+    await page
+      .getByRole("link", { name: "Open details for Cozy Storytellers Circle" })
+      .press("Enter");
     const detailDialog = page.getByRole("dialog", {
       name: "Cozy Storytellers Circle",
     });

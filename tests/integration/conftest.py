@@ -6,6 +6,7 @@ import pytest
 from django.contrib.auth import get_user_model
 from django.contrib.auth.hashers import make_password
 from django.contrib.sites.models import Site
+from django.urls import get_resolver
 from django.utils.timezone import localtime
 from factory import Faker, LazyAttribute, Sequence, SubFactory
 from factory.django import DjangoModelFactory
@@ -46,6 +47,16 @@ PNG_BYTES = (
 
 register(CompleteUserFactory)
 register(AnonymousUserFactory)
+
+
+@pytest.fixture(scope="session", autouse=True)
+def _urlconf_loaded():
+    # Load the whole URLconf while the clock is real. It imports the MCP tools
+    # module, which builds pydantic TypeAdapters at import time, and pydantic
+    # cannot generate a schema for the datetime class freezegun swaps in. A
+    # test that freezes time before the first reverse() would otherwise fail on
+    # whichever xdist worker happens to run it first.
+    assert get_resolver().reverse_dict is not None
 
 
 @pytest.fixture(autouse=True)
@@ -120,9 +131,10 @@ class EventFactory(DjangoModelFactory):
     sphere = SubFactory(SphereFactory)
     start_time = LazyAttribute(lambda __: datetime.now(UTC) + timedelta(days=7))
     end_time = LazyAttribute(lambda o: o.start_time + timedelta(hours=8))
-    # Two invariants at once: never after start_time (the model rejects that,
-    # which fixed past start_times used to trip) and always in the past, so an
-    # event with a far-future start_time still counts as published.
+    # Two invariants at once: never after start_time (the event_date_times
+    # constraint rejects that, which fixed past start_times used to trip) and
+    # always in the past, so an event with a far-future start_time still counts
+    # as published.
     publication_time = LazyAttribute(
         lambda o: min(
             o.start_time - timedelta(days=14), datetime.now(UTC) - timedelta(days=1)
@@ -190,7 +202,12 @@ class ProposalCategoryFactory(DjangoModelFactory):
     class Meta:
         model = ProposalCategory
 
-    name = Faker("word")
+    # A sequence, not Faker("word"): the event page offers each distinct
+    # category name once as a filter, and nothing at all below two, so a test
+    # that builds the expected list one entry per session fails whenever two
+    # sessions land on one name. Faker's word corpus is 971 entries, which
+    # eight sessions collide inside about once in 36 runs.
+    name = Sequence(lambda n: f"category-{n}")
     slug = Sequence(lambda n: f"proposal-category-{n}")
     event = SubFactory(EventFactory)
     max_participants_limit = 20

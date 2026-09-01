@@ -49,6 +49,7 @@ test.describe("Event cover image upload", () => {
     await expect(dropzone.getByRole("button", { name: "Remove image" })).toBeVisible();
     await expect(shownFileName(dropzone, "cover.png")).toBeVisible();
     await assertDropzoneBlobPreview(page, dropzone);
+    await expect(dropzone.locator("[data-dropzone-safe-zone]")).toBeVisible();
 
     await page.getByRole("button", { name: "Save Settings" }).click();
     await expect(page.getByText("Event settings saved successfully.")).toBeVisible();
@@ -75,6 +76,32 @@ test.describe("Event cover image upload", () => {
     expect(ogImage).not.toContain("og-image.jpg");
   });
 
+  test("safe zone keeps its share of the preview at every width", async ({ page }) => {
+    await page.goto("/panel/event/lakeside-weekend/settings/");
+    await coverImageInput(page).setInputFiles({
+      name: "cover.png",
+      mimeType: "image/png",
+      buffer: PNG_BYTES,
+    });
+
+    const dropzone = coverDropzone(page);
+    const guide = dropzone.locator("[data-dropzone-safe-zone]");
+    const preview = dropzone.locator("[data-dropzone-preview]");
+    await expect(guide).toBeVisible();
+
+    for (const width of [1280, 390]) {
+      await page.setViewportSize({ width, height: 900 });
+      const guideBox = (await guide.boundingBox())!;
+      const previewBox = (await preview.boundingBox())!;
+
+      // The guide is only honest while the preview shows the upload at the
+      // shape the help text asks for.
+      expect(previewBox.width / previewBox.height).toBeCloseTo(16 / 9, 1);
+      expect(guideBox.width / previewBox.width).toBeCloseTo(0.7, 2);
+      expect(guideBox.height / previewBox.height).toBeCloseTo(0.4, 2);
+    }
+  });
+
   test("manager uploads event logo via the dropzone", async ({ page }) => {
     await installCspViolationCollector(page);
     await page.goto("/panel/event/lakeside-weekend/settings/");
@@ -90,6 +117,7 @@ test.describe("Event cover image upload", () => {
 
     await expect(shownFileName(dropzone, "mark.png")).toBeVisible();
     await assertDropzoneBlobPreview(page, dropzone);
+    await expect(dropzone.locator("[data-dropzone-safe-zone]")).toHaveCount(0);
 
     await page.getByRole("button", { name: "Save Settings" }).click();
     await expect(page.getByText("Event settings saved successfully.")).toBeVisible();
