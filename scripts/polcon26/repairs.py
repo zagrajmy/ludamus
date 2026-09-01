@@ -26,7 +26,14 @@ FIXTURE_LANE_NAMES = {
         "Wystawa makiety",
         "Stoisko Oblivion Forge",
         "Pokazy gier bitewnych",
-    )
+    ),
+    "Warsztatowa Eger, Aula G": ("Nitka 1", "Nitka 2", "Nitka 3"),
+}
+
+NESTED_ROOM_LANES = {
+    "Warsztatowa Eger (aula G) Nitka 1": ("Warsztatowa Eger, Aula G", 1),
+    "Warsztatowa Eger (aula G) Nitka 2": ("Warsztatowa Eger, Aula G", 2),
+    "Warsztatowa Eger (aula G) Nitka 3": ("Warsztatowa Eger, Aula G", 3),
 }
 
 VENUE_NAME_ALIASES = {"Gry Bitewne (Palmiarnia w A–16)": "Palmiarnia w A-16"}

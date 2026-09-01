@@ -10,6 +10,7 @@ from zoneinfo import ZoneInfo
 
 from scripts.polcon26.repairs import (
     FIXTURE_LANE_NAMES,
+    NESTED_ROOM_LANES,
     ROOM_NAME_REPAIRS,
     SPLIT_NAME_REPAIRS,
     TRANSPOSED_TITLE_CELLS,
@@ -363,6 +364,7 @@ def extract_programme(workbook: dict[str, SheetData]) -> list[ProgrammeItem]:
         )
     ]
     items = _with_continuations_resolved(items)
+    items = _with_nested_room_lanes(items)
     items = _with_lane_names(items)
     validate_items(items)
     return items
@@ -657,6 +659,31 @@ def lane_names(physical_room: str, lane_index: int) -> tuple[str, str]:
 def _named_lane(item: ProgrammeItem) -> ProgrammeItem:
     room, leaf_name = lane_names(item.physical_room, item.lane_index)
     return replace(item, venue=replace(item.venue, room=room, leaf_name=leaf_name))
+
+
+def _with_nested_room_lanes(items: list[ProgrammeItem]) -> list[ProgrammeItem]:
+    result = []
+    for item in items:
+        if (nested := NESTED_ROOM_LANES.get(item.physical_room)) is None:
+            result.append(item)
+            continue
+        if item.lane_index != 1:
+            message = f"{item.source_row_id}: nested room already has multiple lanes"
+            raise ValueError(message)
+        physical_room, lane_index = nested
+        result.append(
+            replace(
+                item,
+                venue=replace(
+                    item.venue,
+                    physical_room=physical_room,
+                    lane_index=lane_index,
+                    room=physical_room,
+                    leaf_name=physical_room,
+                ),
+            )
+        )
+    return result
 
 
 def _with_lane_names(items: list[ProgrammeItem]) -> list[ProgrammeItem]:

@@ -372,6 +372,38 @@ def test_shared_room_splits_into_numbered_lanes() -> None:
     assert {item.leaf_name for item in items} == {"Stanowisko 1", "Stanowisko 2"}
 
 
+def test_eger_threads_become_named_lanes_under_one_room() -> None:
+    cells: dict[str, object] = {"C3": "0.5", "D3": "0.510416666666667"}
+    merges = []
+    for lane_index, row in enumerate((4, 7, 10), start=1):
+        cells |= {
+            f"A{row}": f"Warsztatowa Eger (aula G w A–20) Nitka {lane_index}",
+            f"B{row}": "Tytuł",
+            f"B{row + 1}": "Prowadzący",
+            f"B{row + 2}": "Opis",
+            f"C{row}": f"Warsztat {lane_index}",
+        }
+        merges.extend((f"A{row}:A{row + 2}", f"C{row}:D{row}"))
+    sheet = wb.SheetData(cells=cells, merges=tuple(merges))
+
+    items = sync.extract_programme(
+        {
+            "Piątek": wb.SheetData(cells={"C3": "0.5"}, merges=()),
+            "Sobota": sheet,
+            "Niedziela": wb.SheetData(cells={"C3": "0.5"}, merges=()),
+        }
+    )
+
+    assert {item.physical_room for item in items} == {"Warsztatowa Eger, Aula G"}
+    assert {item.room for item in items} == {
+        "Warsztatowa Eger, Aula G — Nitka 1",
+        "Warsztatowa Eger, Aula G — Nitka 2",
+        "Warsztatowa Eger, Aula G — Nitka 3",
+    }
+    assert {item.leaf_name for item in items} == {"Nitka 1", "Nitka 2", "Nitka 3"}
+    assert {item.building for item in items} == {"A-20"}
+
+
 def test_validate_items_rejects_overlapping_programme_in_one_room() -> None:
     items = _extract_saturday()
     overlapping = replace(
