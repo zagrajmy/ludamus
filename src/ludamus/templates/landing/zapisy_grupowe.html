@@ -9,6 +9,7 @@
        Basia renumbers 3 -> 1, counter 8/8; long rest; soft reset @13s. */
         .p1-anim {
             --p1-row: 2.5rem;
+            --p1-group: calc(2 * var(--p1-row) + 3.125rem);
         }
 
         .p1-fold {
@@ -19,7 +20,7 @@
 
         .p1-groupfold {
             overflow: hidden;
-            max-height: 130px;
+            max-height: var(--p1-group);
             margin-bottom: .375rem;
         }
 
@@ -183,7 +184,7 @@
             0%,
             51.3% {
                 opacity: 1;
-                max-height: 130px;
+                max-height: var(--p1-group);
                 margin-bottom: .375rem;
             }
 
@@ -196,7 +197,7 @@
 
             100% {
                 opacity: 1;
-                max-height: 130px;
+                max-height: var(--p1-group);
                 margin-bottom: .375rem;
             }
         }

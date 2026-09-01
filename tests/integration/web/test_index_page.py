@@ -62,7 +62,9 @@ class TestIndexRedirectView:
         category = ProposalCategoryFactory(event=event)
         SessionFactory(category=category)
         SessionFactory(category=category)
-        EventFactory(sphere=sphere, publication_time=None)
+        unpublished_event = EventFactory(sphere=sphere, publication_time=None)
+        unpublished_category = ProposalCategoryFactory(event=unpublished_event)
+        SessionFactory(category=unpublished_category)
 
         response = client.get(self.URL)
 
