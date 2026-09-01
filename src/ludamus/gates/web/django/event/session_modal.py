@@ -9,7 +9,7 @@ from django.views.generic.base import View
 
 from ludamus.gates.web.django.access import has_panel_access
 from ludamus.gates.web.django.chronology.event_presentation import present_session_modal
-from ludamus.gates.web.django.event.enroll_presentation import build_enroll_actions
+from ludamus.gates.web.django.event.enroll_presentation import build_enroll_footer
 from ludamus.gates.web.django.helpers import is_event_published
 from ludamus.gates.web.django.sphere.pages import EventsPageRequiredMixin
 from ludamus.pacts import NotFoundError
@@ -38,14 +38,28 @@ class SessionModalComponentView(EventsPageRequiredMixin, View):
         )
         if dto is None:
             raise Http404
+        access = request.services.enrollment.access(
+            event=event, viewer_slug=request.context.current_user_slug
+        )
         data = present_session_modal(
             dto,
             event_banned=event_banned,
             banned_presenter_ids=banned_by,
             shadowbanned_ids=shadowbanned_ids,
+            access=access,
             guild=request.services.guilds.mark_for_session(
                 sphere_id=request.context.current_sphere_id, session_pk=session_id
             ),
+        )
+        footer = build_enroll_footer(
+            opens_at=access.opens_at,
+            is_scheduled=not data.is_unscheduled,
+            participants_limit=data.session.participants_limit,
+            is_enrollment_available=data.is_enrollment_available,
+            is_ended=data.is_ended,
+            is_full=data.is_full,
+            user_enrolled=data.user_enrolled,
+            user_waiting=data.user_waiting,
         )
         return TemplateResponse(
             request,
@@ -64,13 +78,8 @@ class SessionModalComponentView(EventsPageRequiredMixin, View):
                 ),
                 # Modal-only: the event page patches is_ended onto its cards
                 # after construction, so this is wrong on a card.
-                "enroll_actions": build_enroll_actions(
-                    is_enrollment_available=data.is_enrollment_available,
-                    is_ended=data.is_ended,
-                    is_full=data.is_full,
-                    user_enrolled=data.user_enrolled,
-                    user_waiting=data.user_waiting,
-                ),
+                "enroll_actions": footer.actions,
+                "enroll_opens_at": footer.opens_at,
             },
         )
 

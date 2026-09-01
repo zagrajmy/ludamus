@@ -3,9 +3,13 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import sys
+import tempfile
 import zipfile
 from pathlib import Path
+
+import requests
 
 from scripts.polcon26.mcp_client import McpClient, McpError
 from scripts.polcon26.programme import extract_programme, quality_warnings
@@ -17,7 +21,9 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Parse and safely seed the POLCON 2026 programme workbook."
     )
-    parser.add_argument("workbook", type=Path)
+    parser.add_argument(
+        "workbook", help="Path to the XLSX file, or a Google Sheets URL to download"
+    )
     parser.add_argument("--report", type=Path, help="Write normalized rows as JSON")
     parser.add_argument(
         "--apply", action="store_true", help="Write through organizer MCP"
@@ -31,9 +37,27 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
+def resolve_workbook(source: str) -> Path:
+    if not source.startswith("https://"):
+        return Path(source)
+    if (
+        match := re.match(r"https://docs\.google\.com/spreadsheets/d/([\w-]+)", source)
+    ) is None:
+        message = f"Not a Google Sheets URL: {source}"
+        raise ValueError(message)
+    export_url = (
+        f"https://docs.google.com/spreadsheets/d/{match.group(1)}/export?format=xlsx"
+    )
+    response = requests.get(export_url, timeout=60)
+    response.raise_for_status()
+    with tempfile.NamedTemporaryFile(suffix=".xlsx", delete=False) as handle:
+        handle.write(response.content)
+        return Path(handle.name)
+
+
 def main() -> int:
     args = parse_args()
-    items = extract_programme(load_workbook(args.workbook))
+    items = extract_programme(load_workbook(resolve_workbook(args.workbook)))
     warnings = quality_warnings(items)
     report = {
         "workbook": str(args.workbook),

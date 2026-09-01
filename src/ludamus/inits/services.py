@@ -454,6 +454,7 @@ class Services:
                 enrollment_configs=self._repos.enrollment_configs,
                 participations=self._repos.enrollment_participations,
                 ticket_api_resolver=self.event_integrations,
+                windows=self._repos.enrollment_windows,
             ),
         )
 

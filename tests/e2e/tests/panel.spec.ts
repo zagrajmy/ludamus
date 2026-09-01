@@ -310,8 +310,13 @@ test.describe("Backoffice Panel", () => {
 
   test("creates a nested space inside a parent", async ({ page }) => {
     await page.goto("/panel/event/frostfire-con/venues/");
-    // exact: the venue-duplication spec leaves an "Aurora Convention Hall
-    // (Copy)", whose add-inside label contains this one as a substring.
+    // Same trap as "creates a top-level space" above: "duplicates a space"
+    // (below) can leave "Aurora Convention Hall (Copy)" behind from an
+    // earlier attempt a serial retry replays from the top, and an unscoped
+    // link name matches both "...Hall" and "...Hall (Copy)" (CI runs
+    // 33269492969, 33261954001, 33254097258 and others). exact:true keeps it
+    // to the original; .first() on the created node covers the same replay
+    // leaving a second "Workshop Room" behind.
     await page
       .getByRole("link", { name: "Add a space inside Aurora Convention Hall", exact: true })
       .click();
