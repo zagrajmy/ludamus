@@ -43,24 +43,11 @@ jobs:
       # hk's oxlint/oxfmt use `aube exec --no-install`, so a partial
       # (--no-optional) graph is fine — they will not cold-start mid-lint.
       - run: aube install --no-optional
+      # Ahead of the lint, so a lint failure cannot hide a leaked secret.
+      - run: aube exec varlock scan
       - run: mise run lint --jobs "$(nproc)"
       - name: Translations are fresh (extraction current, nothing untranslated/fuzzy)
         run: mise run messages-check
-
-  varlock-scan:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/cache@v4
-        with:
-          path: ~/.local/share/aube/store
-          key: aube-${{ runner.os }}-${{ hashFiles('aube-lock.yaml') }}
-          restore-keys: |
-            aube-${{ runner.os }}-
-      - uses: jdx/mise-action@v2
-      - run: mise install
-      - run: aube install --no-optional
-      - run: aube exec varlock scan
 
   impeccable:
     runs-on: ubuntu-latest
