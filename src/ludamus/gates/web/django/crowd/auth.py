@@ -227,7 +227,7 @@ class Auth0LoginCallbackActionView(RedirectView):
                 )
                 return None
 
-        # HACK: the parens are load-bearing. black's preview mode strips them
+        # NOTE: the parens are load-bearing. black's preview mode strips them
         # from a bare `except (A, B):` here and emits Python 2 syntax that
         # breaks the import, so the tuple must be bound with `as`.
         except (KeyError, ValueError) as exc:
