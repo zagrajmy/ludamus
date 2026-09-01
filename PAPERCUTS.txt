@@ -442,3 +442,6 @@ If you fix a papercut, remove it.
 - 2026-09-01: Running mypy directly on the touched POLCON scripts crashed while
   constructing NewSemanalDjangoPlugin; `mise run lint:mypy` is the supported
   invocation because it loads `.env.test` and supplies `SRC_PATHS`.
+- 2026-09-01: Committing from a fresh git worktree triggered hooks before mise
+  trusted that worktree’s identical mise.toml; the commit failed until the
+  duplicate config was trusted.
