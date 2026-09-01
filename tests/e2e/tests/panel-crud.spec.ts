@@ -104,22 +104,35 @@ test.describe("Panel facilitator + proposal CRUD", () => {
     await expect(page.getByRole("heading", { name: PROPOSAL_TITLE_EDITED })).toBeVisible();
   });
 
-  test("accepts, holds, then rejects the proposal", async ({ page }) => {
+  test("shows the likely status action and keeps alternatives under More", async ({ page }) => {
     await page.goto(PROPOSALS_URL);
     await page.getByRole("link", { name: PROPOSAL_TITLE_EDITED, exact: true }).click();
 
-    // Accept: no confirmation, badge flips to "Accepted".
-    await page.getByRole("button", { name: "Accept" }).click();
+    await expect(page.getByRole("button", { name: "Accept", exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Move to pending" })).toHaveCount(0);
+    await page.getByRole("button", { name: "Accept", exact: true }).click();
     await expect(page.getByText("Accepted", { exact: true })).toBeVisible();
 
-    // Hold: no confirmation, badge flips to "On hold".
-    await page.getByRole("button", { name: "Hold" }).click();
+    const moreButton = page.getByRole("button", { name: "More" });
+    const firstMenuItem = page.getByRole("button", { name: "Move to pending" });
+    const holdMenuItem = page.getByRole("button", { name: "Hold" });
+    await moreButton.press("Enter");
+    await expect(firstMenuItem).toBeFocused();
+    await firstMenuItem.press("Escape");
+    await expect(moreButton).toBeFocused();
+    await expect(firstMenuItem).toBeHidden();
+
+    await moreButton.press("Enter");
+    await holdMenuItem.press("Enter");
     await expect(page.getByText("On hold", { exact: true })).toBeVisible();
 
-    // Reject: guarded by a confirm dialog, then badge flips to "Rejected".
+    await expect(page.getByRole("button", { name: "Accept", exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "More" }).click();
     await page.getByRole("button", { name: "Reject" }).click();
-    await page.getByRole("alertdialog").getByRole("button", { name: "Reject" }).click();
     await expect(page.getByText("Rejected", { exact: true })).toBeVisible();
+
+    await expect(page.getByRole("button", { name: "Move to pending" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Reject" })).toHaveCount(0);
   });
 
   test("refuses a track name the event already holds", async ({ page }, testInfo) => {

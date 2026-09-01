@@ -99,19 +99,27 @@ def do_action_dropdown(parser: Parser, token: Token) -> ActionDropdownNode:
 def tessera_action_dropdown_item(
     text: str,
     *,
-    href: str,
+    href: str = "",
+    form: str = "",
     icon: str = "",
     external: bool = False,
     **attrs: str | int | bool | None,
 ) -> str:
-    """Render one action row of a {% tessera_action_dropdown %} menu.
+    """Render one navigation or submit row in an action dropdown.
 
-    ``external`` opens the link in a new tab and marks it with a trailing
-    arrow, so the row itself says it leaves the page.
+    Give the item exactly one destination: ``href`` renders a link, while
+    ``form`` renders a submit button associated with that form's id.
+    ``external`` marks links that open in a new tab.
 
     Returns:
         HTML string of the rendered menu item.
     """
+    if bool(href) == bool(form):
+        msg = "tessera_action_dropdown_item needs exactly one of href or form."
+        raise template.TemplateSyntaxError(msg)
+    if external and form:
+        msg = "tessera_action_dropdown_item external is only valid with href."
+        raise template.TemplateSyntaxError(msg)
     leading = (
         format_html(
             '<span aria-hidden="true" class="shrink-0 opacity-60">{}</span>',
@@ -133,10 +141,21 @@ def tessera_action_dropdown_item(
         if external
         else ""
     )
+    extra_attrs = format_html(" {}", format_tag_attrs(attrs)) if attrs else ""
+    if form:
+        return format_html(
+            '<button type="submit" form="{}" class="{} w-full text-left"{}>'
+            "{}<span>{}</span></button>",
+            form,
+            _ITEM_CLASS,
+            extra_attrs,
+            leading,
+            text,
+        )
+
     external_attrs = (
         format_html(' target="_blank" rel="{}"', "noopener") if external else ""
     )
-    extra_attrs = format_html(" {}", format_tag_attrs(attrs)) if attrs else ""
     return format_html(
         '<a href="{}" class="{}"{}{}>{}<span>{}</span>{}</a>',
         href,
