@@ -142,6 +142,11 @@ celerybeat.pid
 # per-environment baselines; .env.local and .env.{ENV}.local hold
 # per-developer overrides.
 .env*.local
+# SAFETY: bootstrap generates the per-dev secrets into .env.local.tmp and
+# only then moves them onto .env.local (tasks.toml), so a run that dies
+# between the two strands a file holding a real SECRET_KEY and
+# CREDENTIALS_ENCRYPTION_KEY — under a name the pattern above does not match.
+.env*.local.tmp
 .venv
 env/
 venv/

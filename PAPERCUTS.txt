@@ -354,3 +354,7 @@ If you fix a papercut, remove it.
   of replacing it: the task runs 'pytest -n auto tests/integration tests/unit
   <path>', so asking for one file re-runs everything (~16 min). Wanted to verify
   one test module before pushing; had to use -k to keep it fast.
+- 2026-09-01: mise run bootstrap died on the sandbox proxy 403ing the GitHub-
+  backed linter installs (actionlint/shellcheck/hadolint), which left a 0-byte
+  .env.local.tmp behind; .gitignore's .env*.local did not match that name, so
+  git offered a secrets-shaped file for commit.
