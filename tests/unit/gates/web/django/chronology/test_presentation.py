@@ -1,4 +1,5 @@
 from datetime import UTC, datetime, timedelta
+from itertools import pairwise
 from unittest.mock import MagicMock
 
 import pytest
@@ -339,13 +340,18 @@ class TestNightSessions:
         # rows 1 and 2; the seam that opens the second day takes row 3, which is
         # the one row-numbering invariant worth pinning.
         assert [
-            (row.day, row.hour.hour if row.hour else None) for row in lanes.rows
+            (row.day, row.start.hour if row.start else None) for row in lanes.rows
         ] == [(0, 22), (0, 23), (1, None), (1, 0), (1, 1)]
         assert [
             (row, tile.row_span) for row, tile in _positioned_room_tiles(lanes)
         ] == [(1, 2), (4, 2)]
         # Span rules are emitted per distinct height, not per row.
         assert lanes.spans == [2]
+        # The seam measures no time, so it is no hour's cut and anchors no slot.
+        seam = next(row for row in lanes.rows if row.start is None)
+        assert not seam.is_cut
+        assert seam.slot_key is None
+        assert not seam.opens_slot
 
 
 class TestDaylightSavingRows:
@@ -387,18 +393,25 @@ class TestDaylightSavingRows:
                 build_schedule_days({1: self._session(start=start, end=end)})
             )
 
-        hour_rows = [row for row in lanes.rows if row.hour and row.hour_end]
+        hour_rows = [row for row in lanes.rows if row.start and not row.is_cut]
         assert [
             (
-                row.hour.hour,
-                int((row.hour.utcoffset() or timedelta()).total_seconds() / 60),
+                row.start.hour,
+                int((row.start.utcoffset() or timedelta()).total_seconds() / 60),
             )
             for row in hour_rows
         ] == expected_hours
+        # However the wall clock moved, consecutive hour marks stay one real
+        # hour apart, and the bands cut between them tile that hour with no gap.
         assert all(
-            row.hour_end.timestamp() - row.hour.timestamp() == _HOUR_SECONDS
-            for row in hour_rows
+            later.start.timestamp() - earlier.start.timestamp() == _HOUR_SECONDS
+            for earlier, later in pairwise(hour_rows)
         )
+        bands = [row for row in lanes.rows if row.start and row.end]
+        assert all(earlier.end == later.start for earlier, later in pairwise(bands))
+        # Rows inside an hour share that hour's key: it is what the scrubber's
+        # markers are keyed on, and the marks stay distinct across the fold.
+        assert {row.slot_key for row in bands} == {row.slot_key for row in hour_rows}
         assert len({row.slot_key for row in hour_rows}) == len(hour_rows)
         assert [tile.row_span for tile in _room_tiles(lanes)] == [3]
 
@@ -423,8 +436,8 @@ class TestDaylightSavingRows:
         assert days[0].hours[0].start.tzname() == expected_zone
         session_row = next(row for row in lanes.rows if row.starting_tiles)
         assert session_row.is_repeated
-        assert session_row.hour
-        assert session_row.hour.tzname() == expected_zone
+        assert session_row.start
+        assert session_row.start.tzname() == expected_zone
 
     def test_session_crossing_repeated_hours_keeps_both_offsets(self):
         with timezone.override("Europe/Warsaw"):
@@ -464,7 +477,7 @@ class TestDaylightSavingRows:
         assert all(hour.is_repeated for hour in days[0].hours)
         assert len({hour.slot_key for hour in days[0].hours}) == _REPEATED_HOUR_COUNT
         rows = [row for row in lanes.rows if row.starting_tiles]
-        assert [row.hour.hour for row in rows if row.hour] == expected_hours
+        assert [row.start.hour for row in rows if row.start] == expected_hours
         assert all(row.is_repeated for row in rows)
         assert len({row.slot_key for row in rows}) == _REPEATED_HOUR_COUNT
 
@@ -575,7 +588,7 @@ class TestRoomLaneConflicts:
             for row, tile in _positioned_room_tiles(lanes)
         ] == [(1, 2, 0, 2), (2, 2, 1, 2)]
 
-    def test_same_hour_conflicts_follow_exact_start_instants(self):
+    def test_sessions_sharing_only_an_hour_keep_the_full_column(self):
         later = self._session(
             pk=1, start_hour=10, start_minute=45, end_hour=10, end_minute=55
         )
@@ -586,7 +599,54 @@ class TestRoomLaneConflicts:
         lanes = build_room_lanes(build_schedule_days({1: later, 2: earlier}))
 
         assert [tile.data.session.pk for tile in _room_tiles(lanes)] == [2, 1]
-        assert [tile.lane_index for tile in _room_tiles(lanes)] == [0, 1]
+        assert [(tile.lane_index, tile.lane_count) for tile in _room_tiles(lanes)] == [
+            (0, 1),
+            (0, 1),
+        ]
+
+    def test_back_to_back_sessions_do_not_read_as_a_clash(self):
+        # The reported case: nothing between them, so both live in the 16:00
+        # hour. An hour-only row ruler had them sharing a row and split them
+        # into half-width lanes, which reads as two sessions running at once.
+        lanes = build_room_lanes(
+            build_schedule_days(
+                {
+                    1: self._session(
+                        pk=1, start_hour=15, start_minute=30, end_hour=16, end_minute=30
+                    ),
+                    2: self._session(
+                        pk=2, start_hour=16, start_minute=30, end_hour=17, end_minute=30
+                    ),
+                }
+            )
+        )
+
+        assert [row.minutes for row in lanes.rows] == [30, 30, 30, 30, 30, 30]
+        assert [
+            (row, tile.row_span, tile.lane_index, tile.lane_count)
+            for row, tile in _positioned_room_tiles(lanes)
+        ] == [(2, 2, 0, 1), (4, 2, 0, 1)]
+        assert lanes.row_lengths == [30]
+
+    def test_every_hour_that_starts_a_session_anchors_exactly_one_slot(self):
+        # The scrubber's markers are whole hours, so each hour that starts
+        # anything has to anchor one #slot- of its own — including an hour whose
+        # only session starts at :30, which is the case cutting rows introduced.
+        sessions = {
+            1: self._session(
+                pk=1, start_hour=15, start_minute=30, end_hour=16, end_minute=30
+            ),
+            2: self._session(
+                pk=2, start_hour=16, start_minute=30, end_hour=17, end_minute=30
+            ),
+        }
+        days = build_schedule_days(sessions)
+
+        lanes = build_room_lanes(days)
+
+        assert [row.slot_key for row in lanes.rows if row.opens_slot] == [
+            hour.slot_key for day in days for hour in day.hours
+        ]
 
 
 class TestRoomLaneOrdering:

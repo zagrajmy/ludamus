@@ -44,7 +44,7 @@ const scheduleMoment = (instant: string | null) => {
 
 // The instant the programme opens. Setup only — nothing asserts on these.
 const firstHour = async (page: Page) =>
-  scheduleMoment(await page.locator("[data-hour-start]").first().getAttribute("data-hour-start"));
+  scheduleMoment(await page.locator("[data-row-start]").first().getAttribute("data-row-start"));
 
 const firstStart = async (page: Page) =>
   scheduleMoment(
@@ -81,6 +81,64 @@ test.describe("Event schedule views", () => {
     await expect(page.locator(".room-lanes").first()).toBeVisible({ timeout: 30_000 });
     await expect(page).toHaveURL(/\?view=rooms$/);
     expect(await stayedOnPage(page)).toBe(true);
+  });
+
+  test("sessions that touch off the hour stack instead of splitting the column", async ({
+    page,
+  }) => {
+    await page.goto(`${DENSE_EVENT_URL}?view=rooms`);
+
+    // Seeded back to back at :30 (kapitularz_print_seed.py). Everything else in
+    // the programme starts on the hour, so this pair is the only thing that
+    // cuts a row.
+    const handovers = page.getByRole("link", { name: /Open details for Half-hour handover/ });
+    await expect(handovers).toHaveCount(2);
+    const boxes = await Promise.all([
+      handovers.nth(0).boundingBox(),
+      handovers.nth(1).boundingBox(),
+    ]);
+    const [first, second] = boxes;
+    if (!first || !second) throw new Error("The fixture needs both handover tiles laid out");
+
+    // Each keeps the whole room column and they stack. Side by side at half
+    // width is how the grid draws two sessions running at once — which is what
+    // a reader saw here while the rows were whole hours and these two shared
+    // one.
+    expect(Math.abs(first.x - second.x)).toBeLessThan(1);
+    expect(Math.abs(first.width - second.width)).toBeLessThan(1);
+    const [above, below] = first.y <= second.y ? [first, second] : [second, first];
+    expect(above.y + above.height).toBeLessThanOrEqual(below.y + 1);
+
+    // The axis stays an hour ruler: the boundary those two share is ruled, but
+    // only whole hours are named. A bare time on screen is the ruler — a tile
+    // prints its own as a range, and the hour filter's matching options are
+    // inside a closed select.
+    const onAxis = (time: string) =>
+      page.getByText(time, { exact: true }).filter({ visible: true });
+    await expect(onAxis("16:00").first()).toBeVisible();
+    await expect(onAxis("16:30")).toHaveCount(0);
+  });
+
+  test("the hour scrubber can still reach an hour whose session starts at :30", async ({
+    page,
+  }) => {
+    await page.goto(`${DENSE_EVENT_URL}?view=rooms`);
+
+    // Nothing else in the programme starts in the handovers' first hour
+    // (kapitularz_print_seed.py), so that hour is reachable only through a
+    // session starting at :30. A grid keying its anchors on the cut rather than
+    // the hour strands that marker: it has nothing to scroll to, and the rail
+    // hides it on first paint.
+    const markers = page.getByRole("link", { name: /^Jump to / });
+    await expect(markers.first()).toBeAttached();
+    const hrefs = await markers.evaluateAll((links) =>
+      links.map((link) => link.getAttribute("href") ?? ""),
+    );
+    const unreachable = await page.evaluate(
+      (targets) => targets.filter((target) => document.querySelector(target) === null),
+      hrefs,
+    );
+    expect(unreachable).toEqual([]);
   });
 
   test("the grid offers sideways scrollbars on both edges", async ({ page }) => {
@@ -334,8 +392,8 @@ test.describe("Event schedule views", () => {
     const sourceRow = (await sourceLine.getAttribute("data-lane-row")) ?? "";
     const targetRow = (await targetLine.getAttribute("data-lane-row")) ?? "";
     await expect(targetLine.locator(".time-slot-section")).toHaveCount(1);
-    const targetStart = await targetLine.getAttribute("data-hour-start");
-    const targetEnd = await targetLine.getAttribute("data-hour-end");
+    const targetStart = await targetLine.getAttribute("data-row-start");
+    const targetEnd = await targetLine.getAttribute("data-row-end");
     if (!sourceRow || !targetRow || !targetStart || !targetEnd) {
       throw new Error("The fixture needs two consecutive room rows");
     }
@@ -378,8 +436,8 @@ test.describe("Event schedule views", () => {
           .filter((element) => {
             const row = element as HTMLElement;
             return (
-              now >= Date.parse(row.dataset.hourStart ?? "") &&
-              now < Date.parse(row.dataset.hourEnd ?? "")
+              now >= Date.parse(row.dataset.rowStart ?? "") &&
+              now < Date.parse(row.dataset.rowEnd ?? "")
             );
           })
           .map((element) => (element as HTMLElement).dataset.laneRow),
