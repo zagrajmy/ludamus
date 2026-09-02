@@ -151,7 +151,11 @@ class OrganizerListSpacesTool(Tool[_ListSpacesInput]):
 
 class OrganizerListTimeSlotsTool(Tool[_EventIdInput]):
     name = "list_time_slots"
-    description = "List time slots (day windows) for an event."
+    description = (
+        "List an event's time slots: the day windows sessions can be placed in. "
+        "Returns each slot's pk and aware start/end times. Read-only; works for "
+        "any event in this token's sphere."
+    )
     scope = ToolScope.ORGANIZER
     input_model = _EventIdInput
 
@@ -168,7 +172,11 @@ class _TrackListItem(TrackListItemDTO):
 
 class OrganizerListTracksTool(Tool[_EventIdInput]):
     name = "list_tracks"
-    description = "List programme tracks (bloki) for an event."
+    description = (
+        "List an event's programme tracks (bloki) with pk, name, slug, "
+        "visibility, space_ids, and space/manager names. Track pks feed "
+        "create_session's track_ids."
+    )
     scope = ToolScope.ORGANIZER
     input_model = _EventIdInput
 
@@ -193,7 +201,11 @@ class OrganizerListTracksTool(Tool[_EventIdInput]):
 
 class OrganizerListProposalCategoriesTool(Tool[_EventIdInput]):
     name = "list_proposal_categories"
-    description = "List proposal categories for an event in this token's sphere."
+    description = (
+        "List an event's proposal categories (rodzaje atrakcji, e.g. talk, RPG "
+        "session, workshop) with their pks. Every session needs one as "
+        "category_id."
+    )
     scope = ToolScope.ORGANIZER
     input_model = _EventIdInput
 
@@ -206,7 +218,12 @@ class OrganizerListProposalCategoriesTool(Tool[_EventIdInput]):
 
 class OrganizerListSessionsTool(Tool[_EventIdInput]):
     name = "list_sessions"
-    description = "List proposals/sessions for an event (for idempotent retries)."
+    description = (
+        "List an event's proposals and sessions with pk, title, status, "
+        "category, and whether each is scheduled. Use it to find session pks "
+        "for assign_session and to see what already exists before retrying an "
+        "import."
+    )
     scope = ToolScope.ORGANIZER
     input_model = _EventIdInput
 
@@ -221,7 +238,11 @@ class OrganizerListSessionsTool(Tool[_EventIdInput]):
 
 class OrganizerListFacilitatorsTool(Tool[_EventIdInput]):
     name = "list_facilitators"
-    description = "List facilitators (twórcy programu) for an event."
+    description = (
+        "List an event's facilitators (twórcy programu) with pk and display "
+        "name. Facilitator pks feed create_session's facilitator_ids; use "
+        "find_or_create_facilitator for a name that is missing."
+    )
     scope = ToolScope.ORGANIZER
     input_model = _EventIdInput
 
@@ -235,13 +256,17 @@ class OrganizerListFacilitatorsTool(Tool[_EventIdInput]):
 
 
 class _CreateSpaceInput(BaseModel):
-    name: NonBlankName
+    name: NonBlankName = Field(description="Space name as shown in the timetable")
     parent_id: int | None = Field(
         default=None, description="Null creates a venue root; otherwise nest under it"
     )
-    capacity: int | None = Field(default=None, ge=0)
-    description: str = ""
-    location: str = ""
+    capacity: int | None = Field(
+        default=None, ge=0, description="Seat count; null leaves it unstated"
+    )
+    description: str = Field(default="", description="Free text shown to attendees")
+    location: str = Field(
+        default="", description="Where to find it (floor, building, address)"
+    )
 
 
 class OrganizerCreateSpaceTool(Tool[_CreateSpaceInput]):
@@ -274,7 +299,11 @@ class OrganizerCreateSpaceTool(Tool[_CreateSpaceInput]):
 
 class OrganizerCreateTimeSlotTool(Tool[AwareDatetimeRange]):
     name = "create_time_slot"
-    description = "Create a day time-slot window for this token's event."
+    description = (
+        "Create a time slot (a day window) in this token's event. The window "
+        "must start before it ends, lie inside the event dates, and not overlap "
+        "an existing slot; a rejection names which rule failed."
+    )
     scope = ToolScope.ORGANIZER
     input_model = AwareDatetimeRange
 
@@ -293,10 +322,25 @@ class OrganizerCreateTimeSlotTool(Tool[AwareDatetimeRange]):
 
 
 class _CreateTrackInput(BaseModel):
-    name: NonBlankName
-    is_public: bool = True
-    space_ids: list[int] = Field(default_factory=list)
-    manager_ids: list[int] = Field(default_factory=list)
+    name: NonBlankName = Field(
+        description=(
+            "Track name; names identify tracks, so a repeat returns the existing one"
+        )
+    )
+    is_public: bool = Field(
+        default=True, description="False hides the track from attendees"
+    )
+    space_ids: list[int] = Field(
+        default_factory=list,
+        description=(
+            "Spaces the track runs in; each must belong to this event "
+            "(see list_spaces)"
+        ),
+    )
+    manager_ids: list[int] = Field(
+        default_factory=list,
+        description="User ids who manage the track; each must belong to this sphere",
+    )
 
 
 class OrganizerCreateTrackTool(Tool[_CreateTrackInput]):
@@ -337,7 +381,11 @@ class _CreateProposalCategoryInput(BaseModel):
 
 class OrganizerCreateProposalCategoryTool(Tool[_CreateProposalCategoryInput]):
     name = "create_proposal_category"
-    description = "Create a proposal category (rodzaj atrakcji) for this token's event."
+    description = (
+        "Create a proposal category (rodzaj atrakcji) in this token's event and "
+        "return it with its pk. Check list_proposal_categories first so an "
+        "import does not add a category twice."
+    )
     scope = ToolScope.ORGANIZER
     input_model = _CreateProposalCategoryInput
 
@@ -355,7 +403,9 @@ class _FindOrCreateFacilitatorInput(BaseModel):
 class OrganizerFindOrCreateFacilitatorTool(Tool[_FindOrCreateFacilitatorInput]):
     name = "find_or_create_facilitator"
     description = (
-        "Find a facilitator by exact display name in this token's event, or create one."
+        "Return the facilitator with this exact display name in this token's "
+        "event, creating one when none exists. Safe to repeat; the returned pk "
+        "feeds create_session's facilitator_ids."
     )
     scope = ToolScope.ORGANIZER
     input_model = _FindOrCreateFacilitatorInput
@@ -438,9 +488,11 @@ class _CreateSessionInput(BaseModel):
             raise ValueError("source_row_id must be non-empty")
         return stripped
 
-    title: NonBlankName
-    category_id: int
-    description: str = ""
+    title: NonBlankName = Field(description="Session title as shown to attendees")
+    category_id: int = Field(
+        description="Proposal category pk (see list_proposal_categories)"
+    )
+    description: str = Field(default="", description="Programme text (Markdown)")
     duration: str = Field(
         default="", description="ISO-8601 duration, e.g. PT1H or PT45M"
     )
@@ -461,10 +513,21 @@ class _CreateSessionInput(BaseModel):
             "empty string means no host line; omit to default to the title"
         ),
     )
-    facilitator_ids: list[int] = Field(default_factory=list)
-    track_ids: list[int] = Field(default_factory=list)
-    participants_limit: int = 0
-    min_age: int = 0
+    facilitator_ids: list[int] = Field(
+        default_factory=list,
+        description=(
+            "Facilitator pks from list_facilitators / find_or_create_facilitator"
+        ),
+    )
+    track_ids: list[int] = Field(
+        default_factory=list, description="Track pks from list_tracks / create_track"
+    )
+    participants_limit: int = Field(
+        default=0, description="Seat cap for enrollment; 0 means no limit"
+    )
+    min_age: int = Field(
+        default=0, description="Minimum attendee age; 0 means no restriction"
+    )
 
 
 def _create_session(
@@ -572,8 +635,10 @@ class OrganizerCreateSessionsTool(Tool[_CreateSessionsInput]):
 
 
 class _AssignSessionInput(AwareDatetimeRange):
-    session_id: int
-    space_id: int
+    session_id: int = Field(description="Session pk (see list_sessions)")
+    space_id: int = Field(
+        description="Leaf space pk (see list_spaces); must belong to this event"
+    )
 
 
 def _assign_session(

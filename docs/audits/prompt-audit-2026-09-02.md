@@ -4,8 +4,10 @@
 
 Audit of everything in this repository that reaches a Claude model as text,
 scanned for prompting patterns written for older model generations ("cruft").
-This is a **documentation-only** report: it records findings and carries a
-proposed diff. It changes no prompt file. Take hunks selectively.
+This report records findings and carries a proposed diff. Take hunks
+selectively. **Applied on 2026-09-02:** F1–F4 (rotted factual claims) and F18
+(MCP tool descriptions, without the `ge=0` bounds on `participants_limit` and
+`min_age`). Everything else remains a proposal.
 
 ## Assumptions
 
