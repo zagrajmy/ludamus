@@ -628,6 +628,26 @@ class TestRoomLaneConflicts:
         ] == [(2, 2, 0, 1), (4, 2, 0, 1)]
         assert lanes.row_lengths == [30]
 
+    def test_every_hour_that_starts_a_session_anchors_exactly_one_slot(self):
+        # The scrubber's markers are whole hours, so each hour that starts
+        # anything has to anchor one #slot- of its own — including an hour whose
+        # only session starts at :30, which is the case cutting rows introduced.
+        sessions = {
+            1: self._session(
+                pk=1, start_hour=15, start_minute=30, end_hour=16, end_minute=30
+            ),
+            2: self._session(
+                pk=2, start_hour=16, start_minute=30, end_hour=17, end_minute=30
+            ),
+        }
+        days = build_schedule_days(sessions)
+
+        lanes = build_room_lanes(days)
+
+        assert [row.slot_key for row in lanes.rows if row.opens_slot] == [
+            hour.slot_key for day in days for hour in day.hours
+        ]
+
 
 class TestRoomLaneOrdering:
     @staticmethod

@@ -24,9 +24,11 @@ The plate carries `z-20 pointer-events-auto` itself. Every schedule surface
 lays a full-bleed session link (z-10) over the card, and a native tooltip on an
 element under that link can never fire — the rule _proposal_slot.html states
 for its own meta row. The mark is the deliberate exception: it is an object in
-its own right, the way the bookmark toggle is, and it pays the crest's own few
-pixels as a click target for it. `z-index` needs a positioned box, so a caller
-whose mark is not already absolute passes `relative`.
+its own right, the way the bookmark toggle is. Unlike that toggle the mark does
+nothing when clicked, so the cost is real: its own few pixels stop opening the
+session, and on touch, where there is no hover, they buy nothing. `z-index`
+needs a positioned box, so a caller whose mark is not already absolute passes
+`relative`.
 
 Renders nothing when the guild has no mark yet — the feature is the mark, and
 two-letter initials at this size are illegible.

@@ -24,7 +24,9 @@ from ludamus.pacts.legacy import SessionParticipationStatus, SessionStatus
 
 EVENT_SLUG = "kapitularz-2025-anonymized"
 EVENT_START_HOUR = 10
-EXPECTED_SESSION_COUNT = 110
+# The sessions the density specs generate. The touching pair below is seeded
+# separately and on purpose, so the event holds two more than this.
+EXPECTED_SPEC_SESSION_COUNT = 110
 EXPECTED_PARTICIPANT_COUNT = 555
 EXTRA_ENROLLMENT_SESSION_COUNT = 5
 HOST_COUNT = 72
@@ -221,7 +223,7 @@ def seed_kapitularz_print_event(sphere: Sphere) -> None:
     _create_participations(sessions, participants)
     _create_touching_pair(event, spaces)
 
-    assert len(sessions) == EXPECTED_SESSION_COUNT
+    assert len(sessions) == EXPECTED_SPEC_SESSION_COUNT
     assert len(participants) == EXPECTED_PARTICIPANT_COUNT
 
 
