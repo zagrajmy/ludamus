@@ -5,8 +5,9 @@
 {# Compact schedule for big events: a dense chronological ledger (or the #}
 {# rooms grid) paired with a sticky hour scrubber. Reuses the .session / #}
 {# .time-slot-section / .session-grid contract so session-filters.ts and the #}
-{# detail modals apply. Sections are whole local-clock hours, so the rail #}
-{# markers, section ids, and hour headings are always one-to-one. #}
+{# detail modals apply. A section is keyed on its whole local-clock hour — in #}
+{# the rooms grid it is a band inside that hour — so the rail markers, section #}
+{# ids, and hour headings stay one-to-one. #}
 {# The view tabs live in the search/filter toolbar row (event.html). #}
 {# The rooms grid is a map, so it breaks out of main's column and spans the #}
 {# screen (see the breakout utility). The list is a ledger and reads better #}
