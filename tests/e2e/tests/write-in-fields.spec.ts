@@ -105,7 +105,6 @@ test.describe("Write-in answers", () => {
     await page.getByLabel(/description/i).fill("Chips keep the stored value canonical.");
     await page.getByLabel(/max participants/i).fill("5");
     await page.getByLabel(/presenter name/i).fill("Mystery GM");
-    await page.getByLabel(/duration/i).selectOption("PT1H");
     await page
       .getByRole("group", { name: /What tone should players expect\?/ })
       .getByRole("checkbox", { name: "Comedy" })
