@@ -379,18 +379,25 @@ const initRoomLanes = (): void => {
       );
     }
     // The strip's offset; room-lanes.css has the mechanism. Where its scroll
-    // timeline resolves, the animation owns this property and the write is
-    // inert; where it does not — an engine without scroll timelines, or a name
-    // that stopped resolving — the write is the whole mechanism. Unconditional
-    // either way: detecting which happened is what a wrong guess would freeze
-    // the header over.
+    // timeline resolves, the animation owns this property and this write would
+    // be inert — one style recalc per scroll frame for nothing, 1.6ms of it on
+    // a 600-session grid, on the very engines the animation serves. So skip it
+    // there.
     //
-    // NOTE: inert is not free. It costs one style recalc per scroll frame on
-    // the engines the animation serves — ~0.6ms on a dense event, ~1.8ms on a
-    // 600-session one, no layout. Bounded by the strip's own containment, and
-    // the price of having no branch to get wrong.
+    // Asking the grid what is driving it is not the same as asking the engine
+    // what it supports: an unresolved timeline name leaves a live animation
+    // with a null timeline, which stops filling, and reads here as not driving
+    // — the case a capability check would get wrong. Being wrong the other way
+    // costs only the write, which is what the alternative pays always. The
+    // lookup is per grid, not per frame; the view tabs re-run this on swap.
+    const animated = (headGrid?.getAnimations() ?? []).some(
+      (animation) => animation.timeline !== null,
+    );
+    // SAFETY: the keyframes state `from` for this — if the check is ever wrong
+    // the inline value becomes the animation's underlying value, and an
+    // implicit `from` would composite the two instead of overriding.
     const trackBody = (): void => {
-      if (headGrid) headGrid.style.translate = `${-scroller.scrollLeft}px`;
+      if (headGrid && !animated) headGrid.style.translate = `${-scroller.scrollLeft}px`;
     };
     trackBody();
 

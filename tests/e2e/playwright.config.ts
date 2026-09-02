@@ -143,11 +143,9 @@ export default defineConfig({
       : [
           {
             name: "webkit",
-            testMatch: /event-(details|schedule-views)\.spec\.ts/,
-            // The rooms header rides a scroll-driven animation only where one
-            // exists, and WebKit is the engine that fix was written for, so
-            // its own assertion runs here rather than on Chromium alone.
-            grep: /iOS touch scrolling|mobile session modal closes on iOS tap|opened over a scrolled page|room header keeps step/,
+            // Selected by tag, so a spec asks for iOS where it is written and a
+            // renamed title cannot silently drop its own coverage.
+            grep: /@ios/,
             use: { ...devices["iPhone 14 Pro"] },
           },
         ]),

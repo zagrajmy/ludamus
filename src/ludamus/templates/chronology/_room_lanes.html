@@ -65,9 +65,8 @@
             <div class="room-lanes-corner z-10 text-[0.625rem] font-semibold uppercase tracking-widest text-foreground-muted px-1 py-1.5 text-right flex items-end justify-end text-box-trim-both">
                 {% translate "Time" %}
             </div>
-            {# Only the fade's sizing custom properties: the strip is clipped, #}
-            {# so .scrollview-fade's own timeline could never progress and #}
-            {# room-lanes.css states its two fades against the body instead. #}
+            {# Only the fade's sizing custom properties — room-lanes.css states #}
+            {# both halves' fades against the body's offset. #}
             <div class="room-lanes-head scrollview-fade-x-8" data-room-lanes-head>
                 <div class="room-lanes-grid">
                     {# Explicitly placed, not auto-flowed: filtering hides the #}
@@ -109,7 +108,7 @@
             {# engines — Chromium gives the grid none, Firefox gives it this #}
             {# one. Stated, so every engine offers it and no tile-focus detour #}
             {# is the only way across. #}
-            <div class="room-lanes-scroll scrollview-fade scrollview-fade-x-16 overflow-x-auto overflow-y-clip overscroll-x-contain"
+            <div class="room-lanes-scroll scrollview-fade-x-16 overflow-x-auto overflow-y-clip overscroll-x-contain"
                  data-room-lanes-scroll
                  tabindex="0">
                 <div class="room-lanes-grid room-lanes-body">

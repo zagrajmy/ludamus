@@ -123,54 +123,60 @@ test.describe("Event schedule views", () => {
     expect(await body.evaluate((el) => document.activeElement === el)).toBe(true);
   });
 
-  test("the room header keeps step with the columns it names", async ({ page }) => {
-    await page.goto(`${DENSE_EVENT_URL}?view=rooms`);
-    const body = page.locator("[data-room-lanes-scroll]").first();
-    const max = await body.evaluate((el) => el.scrollWidth - el.clientWidth);
-    expect(max).toBeGreaterThanOrEqual(300);
+  test(
+    "the room header keeps step with the columns it names",
+    { tag: "@ios" },
+    async ({ page }) => {
+      await page.goto(`${DENSE_EVENT_URL}?view=rooms`);
+      const body = page.locator("[data-room-lanes-scroll]").first();
+      const max = await body.evaluate((el) => el.scrollWidth - el.clientWidth);
+      expect(max).toBeGreaterThanOrEqual(300);
 
-    // Where the two grids actually are, not what moved them: the header rides
-    // either a scroll-driven animation or an inline translate holding the same
-    // offset, and only the rendered result is the contract.
-    //
-    // Sub-pixel, not exact, and it cannot be: the keyframe ends on the grid's
-    // real width while scrollLeft tops out at an integer scrollWidth, so the
-    // two disagree by that rounding — measured 0.62px (WebKit) and 0.41px
-    // (Chromium) at full scroll on a phone, growing linearly from 0. Under a
-    // pixel is the honest bound. Every failure this guards against is orders
-    // bigger: a sign flip is twice the overflow, a dead fallback is all of it.
-    const columnDrift = () =>
-      page
-        .locator(".room-lanes")
-        .first()
-        .evaluate((lanes) => {
-          const head = lanes.querySelector<HTMLElement>("[data-room-lanes-head] .room-lanes-grid");
-          const rooms = lanes.querySelector<HTMLElement>(".room-lanes-body");
-          if (!head || !rooms) throw new Error("rooms grid is missing a half to compare");
-          return Math.abs(head.getBoundingClientRect().left - rooms.getBoundingClientRect().left);
-        });
-
-    for (const left of [0, Math.floor(max / 3), max]) {
-      await body.evaluate((el, target) => {
-        el.scrollLeft = target;
-      }, left);
-      await expect.poll(columnDrift).toBeLessThan(1);
-      // The axis heading is the one thing that offset must not carry: it names
-      // the gutter, which stays put.
-      expect(
-        await page
-          .locator(".room-lanes-corner")
+      // Where the two grids actually are, not what moved them: the header rides
+      // either a scroll-driven animation or an inline translate holding the same
+      // offset, and only the rendered result is the contract.
+      //
+      // Sub-pixel, not exact, and it cannot be: the keyframe ends on the grid's
+      // real width while scrollLeft tops out at an integer scrollWidth, so the
+      // two disagree by that rounding — measured 0.62px (WebKit) and 0.41px
+      // (Chromium) at full scroll on a phone, growing linearly from 0. Under a
+      // pixel is the honest bound. Every failure this guards against is orders
+      // bigger: a sign flip is twice the overflow, a dead fallback is all of it.
+      const columnDrift = () =>
+        page
+          .locator(".room-lanes")
           .first()
-          .evaluate((corner) => {
-            const lanes = corner.closest<HTMLElement>(".room-lanes");
-            if (!lanes) throw new Error("axis heading is outside the rooms grid");
-            return Math.round(
-              corner.getBoundingClientRect().left - lanes.getBoundingClientRect().left,
+          .evaluate((lanes) => {
+            const head = lanes.querySelector<HTMLElement>(
+              "[data-room-lanes-head] .room-lanes-grid",
             );
-          }),
-      ).toBe(0);
-    }
-  });
+            const rooms = lanes.querySelector<HTMLElement>(".room-lanes-body");
+            if (!head || !rooms) throw new Error("rooms grid is missing a half to compare");
+            return Math.abs(head.getBoundingClientRect().left - rooms.getBoundingClientRect().left);
+          });
+
+      for (const left of [0, Math.floor(max / 3), max]) {
+        await body.evaluate((el, target) => {
+          el.scrollLeft = target;
+        }, left);
+        await expect.poll(columnDrift).toBeLessThan(1);
+        // The axis heading is the one thing that offset must not carry: it names
+        // the gutter, which stays put.
+        expect(
+          await page
+            .locator(".room-lanes-corner")
+            .first()
+            .evaluate((corner) => {
+              const lanes = corner.closest<HTMLElement>(".room-lanes");
+              if (!lanes) throw new Error("axis heading is outside the rooms grid");
+              return Math.round(
+                corner.getBoundingClientRect().left - lanes.getBoundingClientRect().left,
+              );
+            }),
+        ).toBe(0);
+      }
+    },
+  );
 
   test("the current day stays outside the edge fade and follows vertical scroll", async ({
     page,
