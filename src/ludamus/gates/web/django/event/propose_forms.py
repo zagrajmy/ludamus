@@ -101,7 +101,7 @@ def build_session_details_form(
 
 
 class SessionCoverImageForm(forms.Form):
-    cover_image = cover_image_field()
+    cover_image = cover_image_field(crop="top-and-bottom")
 
     def clean_cover_image(self) -> object:
         image = self.cleaned_data.get("cover_image")
