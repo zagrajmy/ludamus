@@ -29,6 +29,7 @@ const HARNESS_DIRS = [
   ".agent",
   ".github",
   ".grok",
+  ".hermes",
   ".trae",
   ".trae-cn",
   ".pi",
@@ -125,16 +126,18 @@ function commandPrefixForSkillsDir(skillsDir) {
   return CODEX_HARNESSES.has(basename(dirname(skillsDir))) ? "$" : "/";
 }
 
-function generatePinnedSkill(command, metadata, commandPrefix) {
+function generatePinnedSkill(command, metadata, commandPrefix, isCodex) {
   const desc =
     metadata[command]?.description || `Shortcut for ${commandPrefix}impeccable ${command}.`;
   const hint = metadata[command]?.argumentHint || "[target]";
+  const providerFrontmatter = isCodex
+    ? `metadata:\n  argument-hint: "${hint}"`
+    : `argument-hint: "${hint}"\nuser-invocable: true`;
 
   return `---
 name: ${command}
 description: "${desc}"
-argument-hint: "${hint}"
-user-invocable: true
+${providerFrontmatter}
 ---
 
 ${PIN_MARKER}
@@ -161,7 +164,7 @@ function pin(command, projectRoot) {
 
   for (const skillsDir of harnessDirs) {
     const commandPrefix = commandPrefixForSkillsDir(skillsDir);
-    const content = generatePinnedSkill(command, metadata, commandPrefix);
+    const content = generatePinnedSkill(command, metadata, commandPrefix, commandPrefix === "$");
     // Check if skill already exists (and isn't a pin)
     const skillDir = join(skillsDir, command);
     if (existsSync(skillDir)) {

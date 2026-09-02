@@ -113,4 +113,4 @@ class TestResolveField:
         with pytest.raises(NotFoundError):
             service.resolve_field(event_id=1, raw="co-facilitators")
 
-        assert repos.mock_calls == []
+        assert not repos.mock_calls

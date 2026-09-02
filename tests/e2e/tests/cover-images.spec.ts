@@ -98,7 +98,7 @@ test.describe("Event cover image upload", () => {
       // shape the help text asks for.
       expect(previewBox.width / previewBox.height).toBeCloseTo(16 / 9, 1);
       expect(guideBox.width / previewBox.width).toBeCloseTo(0.7, 2);
-      expect(guideBox.height / previewBox.height).toBeCloseTo(0.4, 2);
+      expect(guideBox.height / previewBox.height).toBeCloseTo(0.28, 2);
     }
   });
 
@@ -180,5 +180,19 @@ test.describe("Event cover image upload", () => {
     await page.getByRole("button", { name: "Save Settings" }).click();
 
     await expect(page.getByText(/Unsupported image format/i)).toBeVisible();
+  });
+
+  // Last in a serial describe: read-only, and a failure here should not skip
+  // the upload tests above it.
+  test("a session cover is asked for a different crop than an event cover", async ({ page }) => {
+    // The guide over the preview is decorative (aria-hidden), so the sentence
+    // under the field is what actually tells an uploader which way their image
+    // will be cut. Only the cover fields carry that sentence, so a page-wide
+    // match cannot pick up the logo dropzone sharing the settings page.
+    await page.goto("/panel/event/lakeside-weekend/settings/");
+    await expect(page.getByText(/We crop the edges/)).toBeVisible();
+
+    await page.goto("/panel/event/lakeside-weekend/proposals/create/");
+    await expect(page.getByText(/We crop the top and bottom/)).toBeVisible();
   });
 });

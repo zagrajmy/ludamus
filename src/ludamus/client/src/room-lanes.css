@@ -8,7 +8,17 @@
   --col-min: 10rem;
   /* room-lanes.ts rebuilds these track lists when a filter empties a track, so
      the sizes live here once and both consumers name them. */
-  --row-track: minmax(3.5rem, auto);
+  /* An hour of grid. A row is an hour or a piece of one (schedule.py,
+     _row_windows) and its minimum is that share of the unit, so the gaps
+     between sessions are drawn to scale rather than each costing a whole hour.
+     A row carrying a tile is content-sized past that minimum. The template's
+     nonced style builds one --row-track-<minutes> from this unit per length a
+     schedule actually uses: the set is data, and a track list cannot name a
+     variable the served rows never defined. A day seam measures no time, so
+     it is keyed on zero and takes a whole hour. */
+  --row-track-unit: 3.5rem;
+  --row-track: minmax(var(--row-track-unit), auto);
+  --row-track-0: var(--row-track);
   --col-track: minmax(var(--col-min), 1fr);
 }
 
@@ -66,12 +76,26 @@ body:has(.room-lanes-panning) * {
   width: max(100%, calc(var(--axis-w) + var(--live-rooms, var(--rooms)) * var(--col-min)));
 }
 
+/* The served row list (the template's nonced style) and room-lanes.ts both
+   overwrite this; it is the uniform fallback for a page whose nonced style
+   never applied — which is also why room-lanes.ts gives its var() this
+   fallback rather than an --row-track-<minutes> that would then be undefined. */
 .room-lanes-body {
   grid-template-rows: repeat(var(--rows), var(--row-track));
 }
 
 .room-lanes-line {
   grid-column: 2 / -1;
+}
+
+/* A row cut inside an hour (a session starting at :30, say) rules itself
+   fainter and dashed, and prints no time: the whole hours stay the ruler, and
+   the cuts read as marks on it rather than as a second, competing grid. Its
+   axis cell still renders, empty — the gutter is sticky, and a gap in it would
+   let a tile scroll through. */
+.room-lanes-line-cut {
+  border-top-style: dashed;
+  border-top-color: color-mix(in oklch, var(--color-border) 30%, transparent);
 }
 
 .room-lanes-scroll-shell {
