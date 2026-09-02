@@ -36,14 +36,7 @@
         {% endif %}
         {% session_cover_image data.session as cover_image_url %}
         {% if cover_image_url %}
-            {# NOTE: a fixed height at a fluid width, so this is the widest crop a #}
-            {# session cover meets, and components/file-dropzone.html draws its #}
-            {# safe zone from it. Changing h-40 moves the guide people upload against. #}
-            <img src="{{ cover_image_url }}"
-                 alt=""
-                 width="640"
-                 height="360"
-                 class="mx-1 mt-1 h-40 w-[calc(100%-0.5rem)] shrink-0 rounded-xl object-cover">
+            {% include "components/cover-strip.html" with url=cover_image_url extra_class="shrink-0" only %}
         {% endif %}
         <div class="relative z-10 flex min-h-0 flex-1 flex-col px-5 pb-5 pointer-events-none pt-4">
             <header>
