@@ -34,6 +34,7 @@ deferred finding later.
 | 017 | Enrollment behavior audit and gap-fill tests | P2 | M | — | DONE |
 | 018 | Skip notices warn; cancel works with no config | P2 | S | 017 | DONE |
 | 019 | CSP tightening + enforcement (nonces, drop unsafe-inline/eval) | P2 | M | 007 | DONE |
+| 020 | One export page for proposals, facilitators and discounts | P2 | M | — | TODO |
 
 ## Execution log (2026-07-09)
 
