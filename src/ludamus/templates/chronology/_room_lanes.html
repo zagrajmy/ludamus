@@ -121,7 +121,9 @@
             {# is the only way across. #}
             <div class="room-lanes-scroll scrollview-fade-x-16 overflow-x-auto overflow-y-clip overscroll-x-contain"
                  data-room-lanes-scroll
-                 tabindex="0">
+                 tabindex="0"
+                 role="region"
+                 aria-label="{% translate 'Rooms schedule' %}">
                 <div class="room-lanes-grid room-lanes-body">
                     {# Day one opens the grid, so it has no seam of its own — a #}
                     {# heading above the first row is the header printed twice, not #}

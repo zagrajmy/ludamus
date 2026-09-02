@@ -172,69 +172,68 @@ test.describe("Event schedule views", () => {
 
   test("the grid is reachable by keyboard to pan it", async ({ page }) => {
     await page.goto(`${DENSE_EVENT_URL}?view=rooms`);
-    const body = page.locator("[data-room-lanes-scroll]").first();
     // A scroll container earns a tab stop by itself only while nothing inside
-    // it is focusable — tiles are — and only in some engines, so the grid says
-    // so itself rather than leaving keyboard users to tab through every tile.
-    await expect(body).toHaveAttribute("tabindex", "0");
-    await body.focus();
-    expect(await body.evaluate((el) => document.activeElement === el)).toBe(true);
+    // it is focusable — tiles are — and only in some engines, so the grid names
+    // itself and takes one, rather than leaving a keyboard user to tab through
+    // every tile to travel sideways.
+    const grid = page.getByRole("region", { name: "Rooms schedule" });
+    await grid.focus();
+    await expect(grid).toBeFocused();
+
+    const panned = async () => grid.evaluate((el) => Math.round(el.scrollLeft));
+    expect(await panned()).toBe(0);
+    await page.keyboard.press("ArrowRight");
+    await expect.poll(panned).toBeGreaterThan(0);
   });
 
-  test(
-    "the room header keeps step with the columns it names",
-    { tag: "@ios" },
-    async ({ page }) => {
-      await page.goto(`${DENSE_EVENT_URL}?view=rooms`);
-      const body = page.locator("[data-room-lanes-scroll]").first();
-      const max = await body.evaluate((el) => el.scrollWidth - el.clientWidth);
-      expect(max).toBeGreaterThanOrEqual(300);
+  test("a room's name stands over that room's sessions", { tag: "@ios" }, async ({ page }) => {
+    await page.goto(`${DENSE_EVENT_URL}?view=rooms`);
+    const grid = page.getByRole("region", { name: "Rooms schedule" });
+    const max = await grid.evaluate((el) => el.scrollWidth - el.clientWidth);
+    expect(max).toBeGreaterThanOrEqual(300);
 
-      // Where the two grids actually are, not what moved them: the header rides
-      // either a scroll-driven animation or an inline translate holding the same
-      // offset, and only the rendered result is the contract.
-      //
-      // Sub-pixel, not exact, and it cannot be: the keyframe ends on the grid's
-      // real width while scrollLeft tops out at an integer scrollWidth, so the
-      // two disagree by that rounding — measured 0.62px (WebKit) and 0.41px
-      // (Chromium) at full scroll on a phone, growing linearly from 0. Under a
-      // pixel is the honest bound. Every failure this guards against is orders
-      // bigger: a sign flip is twice the overflow, a dead fallback is all of it.
-      const columnDrift = () =>
-        page
-          .locator(".room-lanes")
-          .first()
-          .evaluate((lanes) => {
-            const head = lanes.querySelector<HTMLElement>(
-              "[data-room-lanes-head] .room-lanes-grid",
-            );
-            const rooms = lanes.querySelector<HTMLElement>(".room-lanes-body");
-            if (!head || !rooms) throw new Error("rooms grid is missing a half to compare");
-            return Math.abs(head.getBoundingClientRect().left - rooms.getBoundingClientRect().left);
-          });
+    // A session announces the room it is in (aria-describedby), so the pair
+    // to check is that room's heading and that session's tile — what the
+    // reader actually reads together, rather than the two grids underneath.
+    const tile = page.getByRole("link", { name: /^Open details for / }).first();
+    const room = await tile.evaluate((link) => {
+      const described = link.getAttribute("aria-describedby");
+      const name = described ? document.getElementById(described)?.textContent : "";
+      // "<space>, <room>" where a room sits in a named space.
+      return (name ?? "").trim().split(",").pop()?.trim() ?? "";
+    });
+    expect(room).not.toBe("");
+    // Visible only: the room filter carries the same name in a closed select.
+    const heading = page.getByText(room, { exact: true }).filter({ visible: true }).first();
 
-      for (const left of [0, Math.floor(max / 3), max]) {
-        await body.evaluate((el, target) => {
-          el.scrollLeft = target;
-        }, left);
-        await expect.poll(columnDrift).toBeLessThan(1);
-        // The axis heading is the one thing that offset must not carry: it names
-        // the gutter, which stays put.
-        expect(
-          await page
-            .locator(".room-lanes-corner")
-            .first()
-            .evaluate((corner) => {
-              const lanes = corner.closest<HTMLElement>(".room-lanes");
-              if (!lanes) throw new Error("axis heading is outside the rooms grid");
-              return Math.round(
-                corner.getBoundingClientRect().left - lanes.getBoundingClientRect().left,
-              );
-            }),
-        ).toBe(0);
-      }
-    },
-  );
+    // Sub-pixel, not exact, and it cannot be: the header's travel ends on the
+    // grid's real width while scrollLeft tops out at an integer scrollWidth,
+    // so the two disagree by that rounding — measured 0.62px (WebKit) and
+    // 0.41px (Chromium) at full scroll on a phone, growing from 0. Under a
+    // pixel is the honest bound, and every failure worth catching is orders
+    // bigger: a sign flip is twice the overflow, a dead fallback all of it.
+    // The two sit a fixed distance apart — different padding, same column — so
+    // what is asserted is that the distance does not change as the grid pans. A
+    // heading that lags its column moves relative to it; one that keeps step
+    // does not, whatever padding sits between them. Read through the elements
+    // rather than Playwright's box, which is null for a column clipped out of
+    // the strip at full scroll.
+    const offset = async () => {
+      const [over, under] = await Promise.all([
+        heading.evaluate((el) => el.getBoundingClientRect().x),
+        tile.evaluate((el) => el.getBoundingClientRect().x),
+      ]);
+      return over - under;
+    };
+    const atRest = await offset();
+
+    for (const left of [0, Math.floor(max / 3), max]) {
+      await grid.evaluate((el, target) => {
+        el.scrollLeft = target;
+      }, left);
+      await expect.poll(async () => Math.abs((await offset()) - atRest)).toBeLessThan(1);
+    }
+  });
 
   test("the current day stays outside the edge fade and follows vertical scroll", async ({
     page,

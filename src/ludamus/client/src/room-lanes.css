@@ -110,7 +110,6 @@ body:has(.room-lanes-panning) * {
 .room-lanes-head {
   overflow: clip;
   container-type: inline-size;
-  --room-lanes-gutter-ink: transparent;
 }
 
 .room-lanes-head,
@@ -133,6 +132,13 @@ body:has(.room-lanes-panning) * {
   -webkit-mask-image: var(--room-lanes-mask);
   mask-repeat: no-repeat;
   -webkit-mask-repeat: no-repeat;
+}
+
+/* After the rule above, not before it: the two match at equal specificity, so
+   giving that one an explicit `black` default — the obvious tidy-up — would
+   otherwise un-cut the strip's gutter and let columns show through it. */
+.room-lanes-head {
+  --room-lanes-gutter-ink: transparent;
 }
 
 .room-lanes-scroll {

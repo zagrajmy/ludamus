@@ -4221,6 +4221,10 @@ msgstr "Dowolny termin"
 msgid "Time"
 msgstr "Czas"
 
+#: src/ludamus/templates/chronology/_room_lanes.html
+msgid "Rooms schedule"
+msgstr "Harmonogram sal"
+
 #: src/ludamus/templates/chronology/_schedule_view_tabs.html
 msgid "Schedule view"
 msgstr "Widok harmonogramu"
