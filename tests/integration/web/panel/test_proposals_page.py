@@ -1692,6 +1692,72 @@ class TestProposalsPageView:
             },
         )
 
+    def test_placement_and_origin_ride_along_with_the_track_form(
+        self, panel_client, event
+    ):
+        # Both narrowings have to survive a track switch, so the track form
+        # carries them as hidden inputs of its own.
+        track = Track.objects.create(
+            event=event, name="My Track", slug="my-track", is_public=True
+        )
+        category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
+        claim = Session.objects.create(
+            event=event,
+            category=category,
+            display_name="Walk Up",
+            title="Corridor Game",
+            slug="corridor-game",
+            participants_limit=5,
+            status="pending",
+            is_impromptu=True,
+        )
+        AgendaItemFactory(session=claim, space=SpaceFactory(event=event))
+
+        response = panel_client.get(
+            self.get_url(event), {"placement": "scheduled", "origin": "impromptu"}
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/proposals.html",
+            context_data={
+                **panel_context(event, active_nav="proposals"),
+                "deleted_proposals": [],
+                **_TRACK_FILTER_CONTEXT,
+                "all_tracks": [TrackDTO.model_validate(track)],
+                "categories": [ProposalCategoryDTO.model_validate(category)],
+                "stats": {
+                    "hosts_count": 0,
+                    "pending_proposals": 1,
+                    "rooms_count": 1,
+                    "scheduled_sessions": 1,
+                    "total_proposals": 1,
+                    "total_sessions": 2,
+                },
+                **_list_chrome(
+                    event,
+                    [
+                        SessionListItemDTO(
+                            pk=claim.pk,
+                            title="Corridor Game",
+                            display_name="Walk Up",
+                            category_name="RPG",
+                            status=SessionStatus.PENDING,
+                            creation_time=claim.creation_time,
+                            is_impromptu=True,
+                            is_scheduled=True,
+                        )
+                    ],
+                ),
+                "filter_placement": "scheduled",
+                "filter_origin": "impromptu",
+                "session_fields": [],
+                "filter_fields": {},
+                "filter_search": "",
+            },
+        )
+
     def test_status_and_placement_narrow_independently(self, panel_client, event):
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
         unscheduled = Session.objects.create(

@@ -125,6 +125,25 @@ class TestProposalBulkStatusActionView:
         assert mine.status == "accepted"
         assert other.status == "pending"
 
+    def test_post_ignores_a_selection_value_that_is_not_a_pk(self, panel_client, event):
+        # A hand-edited or stale checkbox value is not a proposal that went
+        # missing: it never named one, so it drops out before the loop.
+        session = _make_session(event, "one")
+
+        response = panel_client.post(
+            self.get_url(event),
+            {"action": "accept", "proposal_ids": ["not-a-pk", session.pk]},
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "1 proposal updated.")],
+            url=reverse("panel:proposals", kwargs={"slug": event.slug}),
+        )
+        session.refresh_from_db()
+        assert session.status == "accepted"
+
     def test_post_without_selection_warns(self, panel_client, event):
         response = panel_client.post(self.get_url(event), {"action": "accept"})
 

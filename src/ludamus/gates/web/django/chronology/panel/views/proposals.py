@@ -34,7 +34,6 @@ from ludamus.pacts import NotFoundError, SessionStatus
 from ludamus.pacts.chronology import (
     ContentChangeNotLatestError,
     ContentChangeNotRevertibleError,
-    ProposalAcceptDeniedError,
     ProposalScheduledError,
 )
 from ludamus.pacts.panel import (
@@ -357,9 +356,6 @@ class ProposalStatusActionView(PanelAccessMixin, EventContextMixin, View):
                 ),
             )
             return redirect(detail_url)
-        except ProposalAcceptDeniedError:
-            messages.error(self.request, _("You are not allowed to reject this claim."))
-            return redirect(detail_url)
 
         messages.success(self.request, _STATUS_MESSAGES[self.action])
         return redirect(detail_url)
@@ -411,7 +407,7 @@ class ProposalBulkStatusActionView(PanelAccessMixin, EventContextMixin, View):
             messages.warning(self.request, _("No proposals selected."))
             return redirect(back)
 
-        applied = scheduled = missing = denied = 0
+        applied = scheduled = missing = 0
         for session_pk in session_pks:
             try:
                 apply_status(event_pk=current_event.pk, session_pk=session_pk)
@@ -419,15 +415,10 @@ class ProposalBulkStatusActionView(PanelAccessMixin, EventContextMixin, View):
                 scheduled += 1
             except NotFoundError:
                 missing += 1
-            except ProposalAcceptDeniedError:
-                # One refusal must not abandon the rest of the selection.
-                denied += 1
             else:
                 applied += 1
 
-        self._report(
-            applied=applied, scheduled=scheduled, missing=missing, denied=denied
-        )
+        self._report(applied=applied, scheduled=scheduled, missing=missing)
         return redirect(back)
 
     def _selected_pks(self) -> list[int]:
@@ -439,9 +430,7 @@ class ProposalBulkStatusActionView(PanelAccessMixin, EventContextMixin, View):
                 continue
         return pks
 
-    def _report(
-        self, *, applied: int, scheduled: int, missing: int, denied: int
-    ) -> None:
+    def _report(self, *, applied: int, scheduled: int, missing: int) -> None:
         if applied:
             messages.success(
                 self.request,
@@ -473,16 +462,6 @@ class ProposalBulkStatusActionView(PanelAccessMixin, EventContextMixin, View):
                     missing,
                 )
                 % {"count": missing},
-            )
-        if denied:
-            messages.error(
-                self.request,
-                ngettext(
-                    "%(count)d claim was skipped; rejecting it is not allowed.",
-                    "%(count)d claims were skipped; rejecting them is not allowed.",
-                    denied,
-                )
-                % {"count": denied},
             )
 
 

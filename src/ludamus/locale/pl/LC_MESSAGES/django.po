@@ -1678,10 +1678,6 @@ msgstr ""
 "z harmonogramu, aby zmienić status."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/proposals.py
-msgid "You are not allowed to reject this claim."
-msgstr "Nie masz uprawnień, aby odrzucić to zgłoszenie."
-
-#: src/ludamus/gates/web/django/chronology/panel/views/proposals.py
 msgid "No proposals selected."
 msgstr "Nie wybrano żadnych zgłoszeń."
 
@@ -1723,18 +1719,6 @@ msgstr[0] "Nie znaleziono %(count)d zgłoszenia."
 msgstr[1] "Nie znaleziono %(count)d zgłoszeń."
 msgstr[2] "Nie znaleziono %(count)d zgłoszeń."
 msgstr[3] "Nie znaleziono %(count)d zgłoszeń."
-
-#: src/ludamus/gates/web/django/chronology/panel/views/proposals.py
-#, python-format
-msgid "%(count)d claim was skipped; rejecting it is not allowed."
-msgid_plural "%(count)d claims were skipped; rejecting them is not allowed."
-msgstr[0] ""
-"Pominięto %(count)d zgłoszenie; nie masz uprawnień, aby je odrzucić."
-msgstr[1] ""
-"Pominięto %(count)d zgłoszenia; nie masz uprawnień, aby je odrzucić."
-msgstr[2] "Pominięto %(count)d zgłoszeń; nie masz uprawnień, aby je odrzucić."
-msgstr[3] ""
-"Pominięto %(count)d zgłoszenia; nie masz uprawnień, aby je odrzucić."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/proposals.py
 msgid "Proposal deleted."

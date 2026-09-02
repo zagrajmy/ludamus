@@ -1939,3 +1939,13 @@ class TestReleaseClaim:
             self._release(service)
 
         mock_uow.agenda_items.delete.assert_not_called()
+
+    def test_a_claim_that_holds_no_cell_is_not_found(self, service, mock_uow):
+        self._arrange(mock_uow)
+        mock_uow.agenda_items.read_by_session.return_value = None
+
+        with pytest.raises(NotFoundError):
+            self._release(service)
+
+        mock_uow.spaces.lock.assert_not_called()
+        mock_uow.sessions.update.assert_not_called()

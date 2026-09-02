@@ -517,6 +517,36 @@ class TestSessionModalComponentView:
             not_contains=["Login to Enroll", "Enroll Anonymously"],
         )
 
+    @pytest.mark.usefixtures("enrollment_config")
+    def test_a_walk_up_claim_nobody_answered_reaches_its_author_as_one(
+        self, authenticated_client, active_user, agenda_item, event
+    ):
+        session = agenda_item.session
+        session.is_impromptu = True
+        session.save(update_fields=["is_impromptu"])
+
+        response = authenticated_client.get(_url(event, session.pk))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name=_TEMPLATE,
+            context_data={
+                "data": _expected_session_data(
+                    agenda_item=agenda_item,
+                    session=session,
+                    presenter=active_user,
+                    is_enrollment_available=True,
+                    can_edit=True,
+                ),
+                "event": EventDTO.model_validate(event),
+                "event_banned": False,
+                "show_roster": True,
+                "enroll_actions": _ENROLL,
+                "enroll_opens_at": None,
+            },
+        )
+
     def test_restricted_window_leaves_the_viewer_waiting_for_the_open_one(
         self, authenticated_client, active_user, agenda_item, enrollment_config, event
     ):

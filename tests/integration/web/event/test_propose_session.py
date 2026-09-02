@@ -79,6 +79,11 @@ class TestProposeSessionPageView:
             "web:event:session-propose-timeslots", kwargs={"event_slug": event_slug}
         )
 
+    def _get_spot_url(self, event_slug: str) -> str:
+        return reverse(
+            "web:event:session-propose-spot", kwargs={"event_slug": event_slug}
+        )
+
     def _get_details_url(self, event_slug: str) -> str:
         return reverse(
             "web:event:session-propose-details", kwargs={"event_slug": event_slug}
@@ -740,6 +745,17 @@ class TestProposeSessionPageView:
 
         assert response.status_code == HTTPStatus.OK
         assert response.context["form"] is not None
+        assert response.template_name == "event/propose/parts/details.html"
+
+    def test_post_spot_skips_when_the_event_takes_no_claims(
+        self, authenticated_client, event, faker, time_zone, proposal_category
+    ):
+        self._activate_proposals(event, faker, time_zone)
+        self._set_wizard_category(authenticated_client, event, proposal_category)
+
+        response = authenticated_client.post(self._get_spot_url(event.slug), {})
+
+        assert response.status_code == HTTPStatus.OK
         assert response.template_name == "event/propose/parts/details.html"
 
     def test_post_timeslots_preserves_selection(
@@ -3206,6 +3222,42 @@ class TestClaimSpotFlow:
     def _spot_value(self, space, time_slot):
         return f"{space.pk}:{time_slot.pk}"
 
+    def _spot_step_context(self, event, *, spot_groups):
+        return {
+            "event": EventDTO.model_validate(event),
+            "proposal_settings": EventProposalSettingsDTO(
+                allow_anonymous_proposals=False, description="", pk=0
+            ),
+            "category": ProposalCategoryDTO.model_validate(
+                ProposalCategory.objects.get(event=event)
+            ),
+            "current_step": "spot",
+            "wizard_steps": ["personal", "spot", "details", "review"],
+            "spot_groups": spot_groups,
+            "error": None,
+        }
+
+    def _one_free_room(self, space, time_slot, *, is_selected=False, group=""):
+        return [
+            {
+                "name": group,
+                "spaces": [
+                    {
+                        "pk": space.pk,
+                        "name": space.name,
+                        "slots": [
+                            {
+                                "value": self._spot_value(space, time_slot),
+                                "start_time": time_slot.start_time,
+                                "end_time": time_slot.end_time,
+                                "is_selected": is_selected,
+                            }
+                        ],
+                    }
+                ],
+            }
+        ]
+
     @pytest.mark.usefixtures("corridor")
     def test_anonymous_is_sent_to_login_even_when_the_event_allows_it(
         self, client, event
@@ -3232,37 +3284,72 @@ class TestClaimSpotFlow:
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data={
-                "event": EventDTO.model_validate(event),
-                "proposal_settings": EventProposalSettingsDTO(
-                    allow_anonymous_proposals=False, description="", pk=0
-                ),
-                "category": ProposalCategoryDTO.model_validate(
-                    ProposalCategory.objects.get(event=event)
-                ),
-                "current_step": "spot",
-                "wizard_steps": ["personal", "spot", "details", "review"],
-                "spot_groups": [
-                    {
-                        "name": "",
-                        "spaces": [
-                            {
-                                "pk": space.pk,
-                                "name": space.name,
-                                "slots": [
-                                    {
-                                        "value": self._spot_value(space, time_slot),
-                                        "start_time": time_slot.start_time,
-                                        "end_time": time_slot.end_time,
-                                        "is_selected": False,
-                                    }
-                                ],
-                            }
-                        ],
-                    }
-                ],
-                "error": None,
-            },
+            context_data=self._spot_step_context(
+                event, spot_groups=self._one_free_room(space, time_slot)
+            ),
+            template_name="event/propose/parts/spot.html",
+        )
+
+    @pytest.mark.usefixtures("corridor")
+    def test_a_room_under_a_parent_is_offered_under_its_name(
+        self, authenticated_client, event, time_slot
+    ):
+        wing = SpaceFactory(event=event, name="East Wing")
+        room = SpaceFactory(event=event, name="Corridor", parent=wing)
+
+        authenticated_client.get(self._url("web:event:session-propose", event.slug))
+        response = authenticated_client.post(
+            self._url("web:event:session-propose-personal", event.slug),
+            {"contact_email": "walkup@example.com"},
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=self._spot_step_context(
+                event,
+                spot_groups=self._one_free_room(room, time_slot, group="East Wing"),
+            ),
+            template_name="event/propose/parts/spot.html",
+        )
+
+    @pytest.mark.usefixtures("corridor")
+    def test_the_picker_says_so_when_every_room_is_busy(
+        self, authenticated_client, event
+    ):
+        authenticated_client.get(self._url("web:event:session-propose", event.slug))
+        response = authenticated_client.post(
+            self._url("web:event:session-propose-personal", event.slug),
+            {"contact_email": "walkup@example.com"},
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=self._spot_step_context(event, spot_groups=[]),
+            template_name="event/propose/parts/spot.html",
+        )
+
+    @pytest.mark.usefixtures("corridor")
+    def test_back_on_the_picker_reopens_the_picker(
+        self, authenticated_client, event, space, time_slot
+    ):
+        authenticated_client.get(self._url("web:event:session-propose", event.slug))
+        authenticated_client.post(
+            self._url("web:event:session-propose-personal", event.slug),
+            {"contact_email": "walkup@example.com"},
+        )
+
+        response = authenticated_client.post(
+            self._url("web:event:session-propose-spot", event.slug), {"back": "1"}
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=self._spot_step_context(
+                event, spot_groups=self._one_free_room(space, time_slot)
+            ),
             template_name="event/propose/parts/spot.html",
         )
 
@@ -3378,40 +3465,12 @@ class TestClaimSpotFlow:
         assert_response(
             response,
             HTTPStatus.OK,
-            context_data={
-                "event": EventDTO.model_validate(event),
-                "proposal_settings": EventProposalSettingsDTO(
-                    allow_anonymous_proposals=False, description="", pk=0
-                ),
-                "category": ProposalCategoryDTO.model_validate(
-                    ProposalCategory.objects.get(event=event)
-                ),
-                "current_step": "spot",
-                "wizard_steps": ["personal", "spot", "details", "review"],
-                "spot_groups": [
-                    {
-                        "name": "",
-                        "spaces": [
-                            {
-                                "pk": space.pk,
-                                "name": space.name,
-                                "slots": [
-                                    {
-                                        "value": self._spot_value(space, time_slot),
-                                        "start_time": time_slot.start_time,
-                                        "end_time": time_slot.end_time,
-                                        # The picked cell comes back selected:
-                                        # Back is for changing the room, not
-                                        # for starting the pick over.
-                                        "is_selected": True,
-                                    }
-                                ],
-                            }
-                        ],
-                    }
-                ],
-                "error": None,
-            },
+            context_data=self._spot_step_context(
+                event,
+                # The picked cell comes back selected: Back is for changing the
+                # room, not for starting the pick over.
+                spot_groups=self._one_free_room(space, time_slot, is_selected=True),
+            ),
             template_name="event/propose/parts/spot.html",
         )
 
