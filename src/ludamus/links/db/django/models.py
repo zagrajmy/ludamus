@@ -24,7 +24,7 @@ from ludamus.pacts import (
     SessionStatus,
     SpherePage,
 )
-from ludamus.pacts.crowd import UserType
+from ludamus.pacts.crowd import MAX_AVATAR_URL_LENGTH, UserType
 from ludamus.pacts.discounts import DiscountKind, DiscountMethod
 from ludamus.pacts.images import ORIGINAL_FILENAME_MAX_LENGTH
 from ludamus.pacts.legacy import EncounterPublicPolicy
@@ -124,6 +124,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     )
     avatar_url = models.URLField(
         _("Avatar URL"),
+        max_length=MAX_AVATAR_URL_LENGTH,
         blank=True,
         default="",
         help_text=_("Profile avatar URL (e.g. from Auth0)"),
