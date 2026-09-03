@@ -104,7 +104,8 @@ body:has(.room-lanes-panning) * {
 /* A fold cuts across the tiles that run through it: a hatched band above
    them, so the break in the axis reads as one break, that stays out of the
    way of clicks. Its label sticks to the axis edge so a horizontal pan never
-   carries it off-screen. */
+   carries it off-screen. Neutral grey, not the warm border tone: the band is
+   a mark on the ruler, not a surface. */
 .room-lanes-line[data-lane-fold] {
   z-index: 15;
   display: flex;
@@ -112,7 +113,15 @@ body:has(.room-lanes-panning) * {
   pointer-events: none;
   background: repeating-linear-gradient(
     -45deg,
-    color-mix(in oklch, var(--color-border) 45%, transparent) 0 4px,
+    color-mix(in oklch, var(--color-neutral-400) 35%, transparent) 0 4px,
+    transparent 4px 10px
+  );
+}
+
+.dark .room-lanes-line[data-lane-fold] {
+  background: repeating-linear-gradient(
+    -45deg,
+    color-mix(in oklch, var(--color-neutral-500) 35%, transparent) 0 4px,
     transparent 4px 10px
   );
 }
@@ -228,7 +237,11 @@ body:has(.room-lanes-panning) * {
      leaves the tile showing through; the toggle alone takes pointers. */
   z-index: 15;
   pointer-events: none;
-  background: color-mix(in oklch, var(--color-background) 88%, transparent);
+  background: color-mix(in oklch, var(--color-neutral-100) 88%, transparent);
+}
+
+.dark .room-lanes-day {
+  background: color-mix(in oklch, var(--color-neutral-900) 88%, transparent);
 }
 
 .room-lanes-day > h3 {
