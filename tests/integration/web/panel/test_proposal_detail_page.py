@@ -374,6 +374,8 @@ class TestProposalDetailPageView:
                     session_duration_minutes=120,
                     session_status=SessionStatus.PENDING,
                     category_name="RPG",
+                    category_id=session.category_id,
+                    session_min_age=session.min_age,
                 ),
                 "schedule_logs": [],
                 "field_values": [],
@@ -510,7 +512,7 @@ class TestProposalDetailPageView:
         assert "Reverted" in content
         assert "Removed" in content
 
-    def test_unscheduled_proposal_renders_status_buttons(self, panel_client, event):
+    def test_pending_proposal_renders_details(self, panel_client, event):
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
         session = Session.objects.create(
             event=event,
@@ -521,8 +523,6 @@ class TestProposalDetailPageView:
             participants_limit=4,
             status="pending",
         )
-        url_kwargs = {"slug": event.slug, "proposal_id": session.pk}
-
         response = panel_client.get(self.get_url(event, session.pk))
 
         assert_response(
@@ -553,16 +553,9 @@ class TestProposalDetailPageView:
                 "import_log_integration": None,
                 "back_url": reverse("panel:proposals", kwargs={"slug": event.slug}),
             },
-            contains=[
-                reverse("panel:proposal-accept", kwargs=url_kwargs),
-                reverse("panel:proposal-hold", kwargs=url_kwargs),
-                reverse("panel:proposal-reject", kwargs=url_kwargs),
-                'disabled title="This is the current status."',
-            ],
-            not_contains=[reverse("panel:proposal-pending", kwargs=url_kwargs)],
         )
 
-    def test_unscheduled_accepted_proposal_offers_move_to_pending(
+    def test_unscheduled_accepted_proposal_renders_details(
         self, authenticated_client, active_user, sphere, event
     ):
         sphere.managers.add(active_user)
@@ -609,9 +602,7 @@ class TestProposalDetailPageView:
             },
         )
 
-    def test_scheduled_proposal_disables_non_accept_status_buttons(
-        self, panel_client, event
-    ):
+    def test_scheduled_proposal_includes_placement(self, panel_client, event):
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
         session = Session.objects.create(
             event=event,
@@ -629,12 +620,6 @@ class TestProposalDetailPageView:
             start_time=datetime(2026, 7, 1, 18, 0, tzinfo=UTC),
             end_time=datetime(2026, 7, 1, 20, 0, tzinfo=UTC),
         )
-        url_kwargs = {"slug": event.slug, "proposal_id": session.pk}
-        scheduled_tooltip = (
-            "This session is scheduled and can only be accepted. "
-            "Remove it from the timetable to change its status."
-        )
-
         response = panel_client.get(self.get_url(event, session.pk))
 
         assert_response(
@@ -669,6 +654,8 @@ class TestProposalDetailPageView:
                     session_duration_minutes=120,
                     session_status=SessionStatus.ACCEPTED,
                     category_name="RPG",
+                    category_id=session.category_id,
+                    session_min_age=session.min_age,
                 ),
                 "schedule_logs": [],
                 "field_values": [],
@@ -679,16 +666,6 @@ class TestProposalDetailPageView:
                 "import_log_integration": None,
                 "back_url": reverse("panel:proposals", kwargs={"slug": event.slug}),
             },
-            contains=[
-                f'disabled title="{scheduled_tooltip}"',
-                'disabled title="This is the current status."',
-            ],
-            not_contains=[
-                reverse("panel:proposal-pending", kwargs=url_kwargs),
-                reverse("panel:proposal-hold", kwargs=url_kwargs),
-                reverse("panel:proposal-reject", kwargs=url_kwargs),
-                reverse("panel:proposal-accept", kwargs=url_kwargs),
-            ],
         )
 
     def test_facilitators_card_links_to_facilitator_detail(self, panel_client, event):

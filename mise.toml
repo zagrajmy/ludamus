@@ -205,10 +205,8 @@ run = "pytest -m postgres tests/integration"
 # Everything not overridden here comes from .env.test, so a value added there
 # reaches this task too. The overrides win because mise applies the entries in
 # document order and `_.file` comes first; otherwise .env.test's
-# DB_NAME=":memory:" would beat USE_POSTGRES=True. MEMBERSHIP_API_BASE_URL is
-# emptied because a base URL makes MembershipApiClient.fetch_membership_count
-# issue a live request instead of short-circuiting.
-env = { _.file = '.env.test', MEMBERSHIP_API_BASE_URL = "", USE_POSTGRES = "True", DB_NAME = "ludamus_test", DB_USER = "postgres", DB_PASSWORD = "postgres", DB_HOST = "localhost", DB_PORT = "5432" }
+# DB_NAME=":memory:" would beat USE_POSTGRES=True.
+env = { _.file = '.env.test', USE_POSTGRES = "True", DB_NAME = "ludamus_test", DB_USER = "postgres", DB_PASSWORD = "postgres", DB_HOST = "localhost", DB_PORT = "5432" }
 
 [tasks."test:mutation"]
 description = "Run mutation tests"
@@ -233,11 +231,11 @@ run = [
 description = "Combine integration + e2e coverage and export XML"
 run = """
 set -eu
-if [ -f .coverage.e2e ]; then
-  coverage combine .coverage.unit .coverage.e2e
-else
-  coverage combine .coverage.unit
-fi
+# A missing unit run would otherwise combine to a quietly partial 93%.
+test -f .coverage.unit || { echo "no .coverage.unit; the unit run did not happen" >&2; exit 1; }
+# Picks up .coverage.e2e from a local run and every .coverage.e2e.<shard> a
+# sharded CI run brought back, without naming the shard count here.
+coverage combine .
 coverage xml -o coverage.xml
 coverage report --fail-under=93
 """
@@ -251,14 +249,14 @@ description = "Pull Request Formatting and Readiness Check"
 run = [
     "mise install",
     "poetry install",
-    "aube install --no-optional",
+    "aube install",
     { task = "format" },
     { task = "messages" },
     { task = "lint" },
     { task = "messages-check" },
     "aube exec varlock scan",
     { task = "lint-client" },
-    { task = "ts-check:ios" },
+    { task = "ts-check" },
     { task = "test:py:cov", args = [
         '-xvv',
         '--fail-under=97',
@@ -353,12 +351,16 @@ run = "lsof -ti :8000 | xargs kill -9 2>/dev/null; lsof -ti :5173 | xargs kill -
 
 
 [tasks.ts-check]
-description = "Type-check frontend TypeScript"
-run = "aubr -C src/ludamus/client typecheck"
+description = "Type-check every TypeScript project"
+run = "aube exec tsc --build --pretty false"
 
 [tasks."ts-check:ios"]
 description = "Type-check the iOS regression scripts"
 run = "aube exec tsc -p scripts/ios-regressions/tsconfig.json"
+
+[tasks."test:ios-helpers"]
+description = "Unit-test the pure iOS regression helpers (no simulator)"
+run = "bun test scripts/ios-regressions/helpers.spec.ts"
 
 [tasks.fallow]
 description = "Analyze frontend TypeScript: dead code, duplication, complexity"

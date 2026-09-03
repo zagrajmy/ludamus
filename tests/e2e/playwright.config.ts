@@ -115,6 +115,7 @@ export default defineConfig({
         /sphere-logo\.spec\.ts/,
         /anonymous-proposal\.spec\.ts/,
         /proposal-delete-restore\.spec\.ts/,
+        /proposal-accept\.spec\.ts/,
         /write-in-fields\.spec\.ts/,
         // Read-only but chains several full navigations of the heavy print
         // preview; Firefox's slow loads make it time out where Chromium fits

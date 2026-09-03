@@ -64,6 +64,8 @@ export default defineConfig({
         prologue: resolve(rootDir, "src/prologue.ts"),
         "proposal-category-settings": resolve(rootDir, "src/proposal-category-settings.ts"),
         "room-lanes": resolve(rootDir, "src/room-lanes.ts"),
+        "schedule-fold": resolve(rootDir, "src/schedule-fold.ts"),
+        "schedule-now": resolve(rootDir, "src/schedule-now.ts"),
         "session-bookmarks": resolve(rootDir, "src/session-bookmarks.ts"),
         "session-card": resolve(rootDir, "src/session-card.ts"),
         "session-edit": resolve(rootDir, "src/session-edit.ts"),

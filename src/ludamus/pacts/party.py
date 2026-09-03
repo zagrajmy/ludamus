@@ -11,6 +11,7 @@ from typing import Protocol
 from pydantic import BaseModel, ConfigDict
 
 from ludamus.pacts.crowd import CompanionDTO
+from ludamus.pacts.ids import UserId
 
 # Form/query value for enrolling without a party ("Just myself").
 ENROLL_WITHOUT_PARTY = "none"
@@ -34,7 +35,7 @@ class PartyMemberDTO(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     membership_pk: int
-    user_pk: int
+    user_pk: UserId
     name: str
     full_name: str
     username: str
@@ -90,7 +91,7 @@ class EnrollmentPartyChoiceDTO(BaseModel):
 class EnrollmentPartyMemberDTO(BaseModel):
     # Enroll-page slice of a membership — deliberately without the companion
     # claim token (a bearer credential that must not reach this context).
-    user_pk: int
+    user_pk: UserId
     name: str
     slug: str
     is_login_less: bool
@@ -112,11 +113,12 @@ class EnrollmentPartiesDTO(BaseModel):
     # non-empty; it maps to `selected is None`.
     choices: list[EnrollmentPartyChoiceDTO]
     selected: SelectedEnrollmentPartyDTO | None = None
-    # The viewer's login-less companions in the selected party; only their own
-    # led party can seat companions, so this is empty otherwise.
+    # The viewer's own login-less companions, whether or not they belong to a
+    # party; empty while a party someone else leads is selected.
     companions: list[CompanionDTO] = []
     # The requested party is not one of the viewer's — the caller must surface
-    # an error instead of silently substituting a default.
+    # an error instead of silently substituting a default, and every other
+    # field is unset filler on this path.
     requested_invalid: bool = False
 
 
@@ -237,9 +239,7 @@ class PartyRepositoryProtocol(Protocol):
     @staticmethod
     def leave(*, user_pk: int, party_pk: int) -> bool: ...
     @staticmethod
-    def led_party_companions(
-        *, leader_pk: int, party_pk: int | None
-    ) -> list[CompanionDTO]: ...
+    def owned_companions(*, manager_pk: int) -> list[CompanionDTO]: ...
     @staticmethod
     def set_consent(*, user_pk: int, party_pk: int, mode: PartyConsentMode) -> bool: ...
 

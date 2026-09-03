@@ -17,11 +17,12 @@ from ludamus.gates.web.django.dynamic_fields import (
     field_descriptors,
 )
 from ludamus.gates.web.django.forms import SessionEditForm
+from ludamus.gates.web.django.sphere.pages import EventsPageRequiredMixin
 from ludamus.mills.chronology import SessionEditNotAllowedError
 from ludamus.pacts import RedirectError, SessionFieldValueData, SessionStatus
 from ludamus.pacts.chronology import SpaceTimeConflictError
 from ludamus.pacts.durations import parse_duration
-from ludamus.pacts.ids import SessionId, SphereId, UserId
+from ludamus.pacts.ids import SessionId
 from ludamus.pacts.images import stored_file
 
 from .forms import create_proposal_acceptance_form
@@ -72,7 +73,7 @@ def _collect_session_field_values(
     ]
 
 
-class SessionEditView(LoginRequiredMixin, View):
+class SessionEditView(EventsPageRequiredMixin, LoginRequiredMixin, View):
     """Facilitator self-service editing of their own session, inline in the modal.
 
     Both GET (edit form) and POST (save) return the form fragment swapped into
@@ -208,7 +209,7 @@ class SessionEditView(LoginRequiredMixin, View):
         )
 
 
-class SessionBookmarkToggleView(View):
+class SessionBookmarkToggleView(EventsPageRequiredMixin, View):
     @staticmethod
     def post(request: RootRequest, session_id: int) -> JsonResponse:
         if (user_id := request.context.current_user_id) is None:
@@ -216,9 +217,9 @@ class SessionBookmarkToggleView(View):
             # useless, so surface the auth failure as JSON for the client.
             return JsonResponse({"error": "auth"}, status=401)
         result = request.services.bookmarks.toggle(
-            user_id=UserId(user_id),
+            user_id=user_id,
             session_id=SessionId(session_id),
-            sphere_id=SphereId(request.context.current_sphere_id),
+            sphere_id=request.context.current_sphere_id,
         )
         if result is None:
             return JsonResponse({"error": "not-found"}, status=404)
@@ -226,9 +227,9 @@ class SessionBookmarkToggleView(View):
 
 
 def _schedule_blocker(context: ProposalAcceptContextDTO) -> str | None:
-    # What the event still lacks before a proposal can be placed, or None when
-    # nothing does. Accepting itself never depends on it — the page just drops
-    # the picker and offers the unscheduled accept instead.
+    # What the event still lacks before any proposal can be placed, or None when
+    # nothing does. The page renders either way: a reviewer who lands here with
+    # the venue unfinished gets the reason and the panel link, not a bounce.
     if not context.space_options:
         return "spaces"
     if not context.time_slots:
@@ -236,42 +237,29 @@ def _schedule_blocker(context: ProposalAcceptContextDTO) -> str | None:
     return None
 
 
-def _accepted_message(title: str, *, scheduling: bool) -> str:
-    if scheduling:
-        return _("Proposal '{}' has been accepted and added to the agenda.").format(
-            title
-        )
-    return _("Proposal '{}' has been accepted. Schedule it on the timetable.").format(
-        title
-    )
-
-
-class ProposalAcceptPageView(LoginRequiredMixin, View):
+class ProposalAcceptPageView(EventsPageRequiredMixin, LoginRequiredMixin, View):
     request: AuthenticatedRootRequest
 
     def get(
         self, request: AuthenticatedRootRequest, event_slug: str, session_id: int
     ) -> HttpResponse:
         context = self._load(request, event_slug, session_id)
-        form = self._build_form(context)()
+        form = create_proposal_acceptance_form(context)()
         return self._render(request, context, form)
 
     def post(
         self, request: AuthenticatedRootRequest, event_slug: str, session_id: int
     ) -> HttpResponse:
         context = self._load(request, event_slug, session_id)
-        form = self._build_form(context)(data=request.POST)
-        # The page offers two submits; only the scheduling one reads the picker,
-        # so accepting without a slot never has to satisfy its validation.
-        scheduling = "schedule" in request.POST
-        if scheduling and not form.is_valid():
+        form = create_proposal_acceptance_form(context)(data=request.POST)
+        if not form.is_valid():
             return self._render(request, context, form)
 
         try:
             request.services.proposal_acceptance.accept_session(
                 session_id=context.session.pk,
-                space_id=form.cleaned_data["space"] if scheduling else None,
-                time_slot_id=form.cleaned_data["time_slot"] if scheduling else None,
+                space_id=form.cleaned_data["space"],
+                time_slot_id=form.cleaned_data["time_slot"],
                 user_slug=request.context.current_user_slug,
                 sphere_id=request.context.current_sphere_id,
             )
@@ -282,15 +270,12 @@ class ProposalAcceptPageView(LoginRequiredMixin, View):
             return self._render(request, context, form)
 
         messages.success(
-            request, _accepted_message(context.session.title, scheduling=scheduling)
+            request,
+            _("Proposal '{}' has been accepted and added to the agenda.").format(
+                context.session.title
+            ),
         )
         return redirect("web:chronology:event", slug=context.event.slug)
-
-    @staticmethod
-    def _build_form(context: ProposalAcceptContextDTO) -> type[forms.Form]:
-        return create_proposal_acceptance_form(
-            space_options=context.space_options, time_slots=context.time_slots
-        )
 
     @staticmethod
     def _load(

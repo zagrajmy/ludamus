@@ -9,7 +9,8 @@ navigation and got nothing. Three cures, in order of preference:
 1. **Remove the precondition.** Give the object a sane default so the
    condition can't be false (an event now always owns a space).
 2. **Let the action succeed with less.** Drop the optional part rather than the
-   whole action (a proposal can be accepted without being placed).
+   whole action — but only where the smaller action is really the same one, not
+   a second job smuggled onto the screen.
 3. **Don't offer it.** Hide or disable the control, with the reason where the
    control was, when neither of the above applies.
 
@@ -22,18 +23,26 @@ acting on the same object at once — not for state we could see while rendering
 
 `ProposalAcceptPageView` redirected back to the event page with
 "No spaces configured for this event. Please create spaces first." (and the
-same for time slots) before the page ever rendered. Reviewing a backlog of
-proposals had nothing to do with the venue being finished.
+same for time slots) before the page ever rendered. A reviewer reading through
+proposals got bounced off the screen over setup they can reach from it.
 
 - `EventsService.create` now creates one default space with the event
   (`SpaceTreeRepository.create_default`), and migration
-  `0152_default_space_per_event` backfills events that have none. Cure 1.
-- `ProposalAcceptanceService.accept_session` takes `space_id`/`time_slot_id`
-  as optional and accepts the proposal unplaced when either is missing — the
-  accepted-but-unplaced state the timetable and the confirmations dashboard
-  already handle. The page offers "Accept without scheduling" beside the
-  scheduling submit, and drops the picker entirely when the event can't yet
-  place anything. Cure 2.
+  `0157_default_space_per_event` backfills events that have none. Cure 1: for
+  spaces the condition can no longer be false through the normal data path.
+- Time slots can still legitimately be empty — slots can't overlap, so a
+  default one spanning the event would collide with every real slot added
+  later. So the page renders anyway and says what is missing, with the panel
+  link that fixes it. Cure 3, applied to the explanation rather than to a
+  control: nothing is offered that would refuse.
+
+The page keeps one job. `accept_session` still means "accept and place", with
+both ids required; a reviewer who wants to settle a yes/no before the timetable
+exists uses the panel proposal list, where `ProposalStatusService.mark_accepted`
+already does exactly that. Splitting that second meaning into this page's form
+was considered and dropped: two submits on one card is a fork the reviewer
+didn't come to resolve, and it would have given `accept_session` two meanings
+selected by whether its arguments were null.
 
 ### Copy space to another event — nothing to copy to
 

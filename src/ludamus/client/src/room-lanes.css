@@ -4,11 +4,21 @@
    toggles the pan classes. */
 
 .room-lanes {
-  --axis-w: 3.25rem;
+  --axis-w: 2.6rem;
   --col-min: 10rem;
   /* room-lanes.ts rebuilds these track lists when a filter empties a track, so
      the sizes live here once and both consumers name them. */
-  --row-track: minmax(3.5rem, auto);
+  /* An hour of grid. A row is an hour or a piece of one (schedule.py,
+     _row_windows) and its minimum is that share of the unit, so the gaps
+     between sessions are drawn to scale rather than each costing a whole hour.
+     A row carrying a tile is content-sized past that minimum. The template's
+     nonced style builds one --row-track-<minutes> from this unit per length a
+     schedule actually uses: the set is data, and a track list cannot name a
+     variable the served rows never defined. A day seam measures no time, so
+     it is keyed on zero and takes a whole hour. */
+  --row-track-unit: 3.5rem;
+  --row-track: minmax(var(--row-track-unit), auto);
+  --row-track-0: var(--row-track);
   --col-track: minmax(var(--col-min), 1fr);
 }
 
@@ -66,6 +76,10 @@ body:has(.room-lanes-panning) * {
   width: max(100%, calc(var(--axis-w) + var(--live-rooms, var(--rooms)) * var(--col-min)));
 }
 
+/* The served row list (the template's nonced style) and room-lanes.ts both
+   overwrite this; it is the uniform fallback for a page whose nonced style
+   never applied — which is also why room-lanes.ts gives its var() this
+   fallback rather than an --row-track-<minutes> that would then be undefined. */
 .room-lanes-body {
   grid-template-rows: repeat(var(--rows), var(--row-track));
 }
@@ -74,15 +88,20 @@ body:has(.room-lanes-panning) * {
   grid-column: 2 / -1;
 }
 
-.room-lanes-line:first-of-type {
-  border-top: 0;
+/* A row cut inside an hour (a session starting at :30, say) rules itself
+   fainter and dashed, and prints no time: the whole hours stay the ruler, and
+   the cuts read as marks on it rather than as a second, competing grid. Its
+   axis cell still renders, empty — the gutter is sticky, and a gap in it would
+   let a tile scroll through. */
+.room-lanes-line-cut {
+  border-top-style: dashed;
+  border-top-color: color-mix(in oklch, var(--color-border) 30%, transparent);
 }
 
-/* Both panes fade their x-overflow edges, but the head also shows the top
-   scrollbar, which the fade must not dim: the second, un-faded mask layer
-   covers the strip it occupies. room-lanes.ts measures the strip into
-   --room-lanes-sb; on the body the var stays 0 — its native scrollbar is
-   hidden below — so the fade covers everything. */
+.room-lanes-scroll-shell {
+  position: relative;
+}
+
 .room-lanes-head,
 .room-lanes-scroll {
   mask-image:
@@ -123,13 +142,31 @@ body:has(.room-lanes-panning) * {
   -webkit-mask-repeat: no-repeat;
 }
 
+.room-lanes-scroll {
+  scrollbar-width: none;
+}
+
+.room-lanes-overlays {
+  position: absolute;
+  z-index: 20;
+  inset: 0;
+  overflow: clip;
+  pointer-events: none;
+}
+
+.room-lanes-day-mirror {
+  position: absolute;
+  left: 0;
+}
+
+.room-lanes-day-mirrored > h3 {
+  opacity: 0;
+}
+
 /* The body's own scrollbar would surface only at the very end of a
    screens-tall grid; the sticky strip after it (data-room-lanes-foot in the
    template) pins that handle to the viewport bottom instead, and hiding the
    native one keeps the two from stacking at the grid's end. */
-.room-lanes-scroll {
-  scrollbar-width: none;
-}
 
 .room-lanes-scroll::-webkit-scrollbar {
   display: none;
@@ -142,9 +179,25 @@ body:has(.room-lanes-panning) * {
   pointer-events: none;
 }
 
-/* Header rules hang from their one header row; body rules run the full height. */
+/* Both header rows and every body row: the dividers run the full height of
+   whichever grid they sit in, so they stay continuous where cells span rows or
+   are absent. */
+.room-lanes-head-rule,
 .room-lanes-body .room-lanes-rule {
   grid-row: 1 / -1;
+}
+
+.room-lanes-corner,
+.room-lanes-head-cell {
+  grid-row: 1;
+}
+
+/* The day break inside the body: a full-width band that reads as the seam
+   between two days rather than as an empty hour. */
+.room-lanes-day {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: flex-end;
 }
 
 .dark .room-lanes-rule {
