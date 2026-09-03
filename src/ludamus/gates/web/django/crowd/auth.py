@@ -119,7 +119,14 @@ class Auth0UserInfo(BaseModel):
     @classmethod
     def _drop_overlong_picture(cls, value: str) -> str:
         # A URL truncated to the column width would be broken; better no avatar.
-        return value if len(value) <= MAX_AVATAR_URL_LENGTH else ""
+        if len(value) > MAX_AVATAR_URL_LENGTH:
+            logger.warning(
+                "Auth0 picture dropped: %s chars exceeds %s",
+                len(value),
+                MAX_AVATAR_URL_LENGTH,
+            )
+            return ""
+        return value
 
     @property
     def display_name(self) -> str | None:

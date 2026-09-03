@@ -393,6 +393,31 @@ class TestAuth0LoginCallbackActionView:
         assert user.avatar_url == "https://example.com/old.png"
 
     @patch("ludamus.gates.web.django.crowd.auth.oauth.auth0.authorize_access_token")
+    def test_ok_max_length_picture_stored_on_create(
+        self, authorize_access_token_mock, client, faker
+    ):
+        sub = faker.uuid4()
+        prefix, suffix = "https://example.com/", ".png"
+        filler = "a" * (MAX_AVATAR_URL_LENGTH - len(prefix) - len(suffix))
+        picture = f"{prefix}{filler}{suffix}"
+        assert len(picture) == MAX_AVATAR_URL_LENGTH
+        authorize_access_token_mock.return_value = {
+            "userinfo": {"sub": sub, "picture": picture}
+        }
+        state_token = self._setup_valid_state()
+
+        response = client.get(self.URL, {"state": state_token})
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url="http://testserver/crowd/profile/?next=%2Fevents%2F",
+            messages=[(messages.SUCCESS, "Please complete your profile.")],
+        )
+        user = User.objects.get(username=f"auth0|{sub}")
+        assert user.avatar_url == picture
+
+    @patch("ludamus.gates.web.django.crowd.auth.oauth.auth0.authorize_access_token")
     def test_ok_updates_email_without_name(
         self, authorize_access_token_mock, client, complete_user_factory, faker
     ):
