@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from collections import defaultdict
 from dataclasses import dataclass, field, replace
-from datetime import UTC, date, datetime, timedelta
-from itertools import pairwise
+from datetime import UTC, date, datetime, timedelta, tzinfo
+from itertools import groupby, pairwise
 from typing import TYPE_CHECKING, Literal, NamedTuple
 
 from django.utils import timezone
@@ -22,7 +22,8 @@ if TYPE_CHECKING:
 # hour or two inside the programme is the shape of the day, not dead space to
 # pan across.
 FOLD_MIN_MINUTES = 180
-_HOUR_MINUTES = 60
+
+type Window = tuple[datetime, datetime]
 
 
 def _instant_key(instant: datetime) -> str:
@@ -94,7 +95,7 @@ class RoomLaneTile:
 
 @dataclass
 class RoomLaneRow:
-    # One row of the grid. A row with no `start` is the seam that opens a day;
+    # One row of the grid. A row with no `window` is the seam that opens a day;
     # every other row spans a stretch of clock time — a whole hour, a piece of
     # one where `_row_windows` cut it, in which case `hour_mark` is still the
     # hour it belongs to, or a fold: hours of lull drawn as one thin band
@@ -105,35 +106,45 @@ class RoomLaneRow:
     day: int
     day_start: datetime
     hour_mark: datetime | None
-    start: datetime | None
-    end: datetime | None
+    window: Window | None
+    is_fold: bool = False
     starting_tiles: list[RoomLaneTile] = field(default_factory=list, repr=False)
     opens_slot: bool = field(default=False, compare=False)
+
+    @property
+    def start(self) -> datetime | None:
+        return None if self.window is None else self.window[0]
+
+    @property
+    def end(self) -> datetime | None:
+        return None if self.window is None else self.window[1]
 
     @property
     def minutes(self) -> int:
         # The row's length, and so its share of an hour of grid height. A seam
         # measures no time, and zero is what its grid track is keyed on.
-        if self.start is None or self.end is None:
+        if self.window is None:
             return 0
-        return max(1, round((self.end.timestamp() - self.start.timestamp()) / 60))
+        start, end = self.window
+        return max(1, round((end.timestamp() - start.timestamp()) / 60))
 
     @property
-    def is_fold(self) -> bool:
-        # Rows are hours or pieces of hours; only a fold is longer than one.
-        return self.minutes > _HOUR_MINUTES
+    def track(self) -> str:
+        # The grid track the row asks for, named once for the template and the
+        # client alike: its length off the hour unit, or the one fold track.
+        return "fold" if self.is_fold else str(self.minutes)
 
     @property
     def is_cut(self) -> bool:
         # Asked of the producer, not guessed from the wall clock: a zone whose
         # offset moves by a half hour puts every later hour mark on :30.
-        if self.start is None or self.hour_mark is None:
+        if self.window is None or self.hour_mark is None:
             return False
-        return self.start.timestamp() != self.hour_mark.timestamp()
+        return self.window[0].timestamp() != self.hour_mark.timestamp()
 
     @property
     def is_repeated(self) -> bool:
-        return self.start is not None and _is_ambiguous_local_hour(self.start)
+        return self.window is not None and _is_ambiguous_local_hour(self.window[0])
 
     @property
     def slot_key(self) -> str | None:
@@ -397,10 +408,11 @@ def build_card_days(
     if first_current := next((slot for slot in slots if slot.kind == "current"), None):
         first_current.is_first_current = True
     days: list[CardDay] = []
+    open_day: date | None = None
     for slot in slots:
-        day = programme_date(slot.hour, tz)
-        if not days or programme_date(days[-1].day_start, tz) != day:
+        if (day := programme_date(slot.hour, tz)) != open_day:
             days.append(CardDay(day_start=programme_day_start(day, tz), slots=[]))
+            open_day = day
         days[-1].slots.append(slot)
     if len(days) == 1:
         for slot in days[0].slots:
@@ -468,70 +480,56 @@ def _room_lanes(keys: list[_RoomKey]) -> list[RoomLane]:
 
 
 class _Booking(NamedTuple):
-    # A session as one span of the grid's continuous axis: its tiles joined
-    # back together across the day breaks the ledger clips them at.
+    # A session as one span of the grid's continuous axis: the whole agenda
+    # item, not the per-day pieces the ledger clips it into.
     data: SessionData
     start: datetime
     end: datetime
 
 
-def _bookings(schedule_days: list[ScheduleDay]) -> list[_Booking]:
-    joined: dict[int, _Booking] = {}
+def _bookings(schedule_days: list[ScheduleDay], tz: tzinfo) -> list[_Booking]:
+    bookings: dict[int, _Booking] = {}
     for day in schedule_days:
         for tile in day.tiles:
-            key = id(tile.data)
-            if (known := joined.get(key)) is None:
-                joined[key] = _Booking(data=tile.data, start=tile.start, end=tile.end)
-            else:
-                joined[key] = known._replace(
-                    end=max(known.end, tile.end, key=datetime.timestamp)
-                )
-    return list(joined.values())
+            if tile.data.agenda_item is None or tile.data.session.pk in bookings:
+                continue
+            bookings[tile.data.session.pk] = _Booking(
+                data=tile.data,
+                start=tile.data.agenda_item.start_time.astimezone(tz),
+                end=tile.data.agenda_item.end_time.astimezone(tz),
+            )
+    return list(bookings.values())
 
 
 def _fold_lulls(rows: list[RoomLaneRow], bookings: list[_Booking]) -> list[RoomLaneRow]:
     # A row is busy when a booking starts or ends in it. A run of quiet rows
-    # long enough to fold becomes one row spanning the run: the night between
-    # the last session and breakfast costs one thin band, and a session running
-    # through it still spans it like any row.
+    # long enough to fold becomes one row spanning the run: the night under an
+    # all-night session costs one thin band, and the session still spans it
+    # like any row.
     starts = {booking.start.timestamp() for booking in bookings}
     ends = {booking.end.timestamp() for booking in bookings}
 
     def is_busy(row: RoomLaneRow) -> bool:
-        if row.start is None or row.end is None:
+        if row.window is None:
             return True
+        first, last = (instant.timestamp() for instant in row.window)
         # A start on the row's first instant is in it; an end there is the row
         # before's. Ends work the other way round.
-        return any(
-            row.start.timestamp() <= start < row.end.timestamp() for start in starts
-        ) or any(row.start.timestamp() < end <= row.end.timestamp() for end in ends)
+        return any(first <= start < last for start in starts) or any(
+            first < end <= last for end in ends
+        )
 
     folded: list[RoomLaneRow] = []
-    run: list[RoomLaneRow] = []
-
-    def close_run() -> None:
-        if run and sum(row.minutes for row in run) >= FOLD_MIN_MINUTES:
-            first, last = run[0], run[-1]
+    for busy, group in groupby(rows, key=is_busy):
+        run = list(group)
+        if busy or sum(row.minutes for row in run) < FOLD_MIN_MINUTES:
+            folded.extend(run)
+        elif run[0].window and run[-1].window:
             folded.append(
-                RoomLaneRow(
-                    day=first.day,
-                    day_start=first.day_start,
-                    hour_mark=first.hour_mark,
-                    start=first.start,
-                    end=last.end,
+                replace(
+                    run[0], window=(run[0].window[0], run[-1].window[1]), is_fold=True
                 )
             )
-        else:
-            folded.extend(run)
-        run.clear()
-
-    for row in rows:
-        if is_busy(row):
-            close_run()
-            folded.append(row)
-        else:
-            run.append(row)
-    close_run()
     return folded
 
 
@@ -541,7 +539,7 @@ def build_room_lanes(schedule_days: list[ScheduleDay]) -> RoomLanes:
     # out of step with each other as you panned.
     keys = sorted({_room_key(tile.data) for day in schedule_days for tile in day.tiles})
     col_index = {key: index + 1 for index, key in enumerate(keys)}
-    bookings = _bookings(schedule_days)
+    bookings = _bookings(schedule_days, timezone.get_current_timezone())
 
     rows: list[RoomLaneRow] = []
     for index, day in enumerate(schedule_days):
@@ -551,13 +549,11 @@ def build_room_lanes(schedule_days: list[ScheduleDay]) -> RoomLanes:
             # nothing before it to break from, and a heading above the first
             # row is the header printed twice rather than a boundary.
             rows.append(
-                RoomLaneRow(
-                    day=index, day_start=day_start, hour_mark=None, start=None, end=None
-                )
+                RoomLaneRow(day=index, day_start=day_start, hour_mark=None, window=None)
             )
         day_rows = [
             RoomLaneRow(
-                day=index, day_start=day_start, hour_mark=mark, start=start, end=end
+                day=index, day_start=day_start, hour_mark=mark, window=(start, end)
             )
             for mark, start, end in _row_windows(day.hours[0].start, day.tiles)
         ]
@@ -572,10 +568,9 @@ def build_room_lanes(schedule_days: list[ScheduleDay]) -> RoomLanes:
         covered_rows = [
             offset
             for offset, row in enumerate(rows)
-            if row.start is not None
-            and row.end is not None
-            and row.start.timestamp() < booking.end.timestamp()
-            and row.end.timestamp() > booking.start.timestamp()
+            if row.window is not None
+            and row.window[0].timestamp() < booking.end.timestamp()
+            and row.window[1].timestamp() > booking.start.timestamp()
         ]
         if not covered_rows:
             raise ValueError("scheduled booking does not overlap its rows")

@@ -821,8 +821,10 @@ class TestEventPageView:
                                 timezone.get_current_timezone(),
                             ),
                             hour_mark=local_start + timedelta(hours=offset),
-                            start=local_start + timedelta(hours=offset),
-                            end=local_start + timedelta(hours=offset + 1),
+                            window=(
+                                local_start + timedelta(hours=offset),
+                                local_start + timedelta(hours=offset + 1),
+                            ),
                             starting_tiles=tiles_by_row.get(offset, []),
                         )
                         for offset in range(4)

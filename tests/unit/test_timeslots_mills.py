@@ -1,4 +1,4 @@
-from datetime import UTC, date, datetime, time
+from datetime import UTC, date, datetime
 from zoneinfo import ZoneInfo
 
 from ludamus.mills.timeslots import (
@@ -76,10 +76,8 @@ class TestProgrammeDays:
             2026, 7, 11, 6, tzinfo=_TZ
         )
 
-    def test_a_day_turning_at_a_half_hour_is_honoured(self):
+    def test_a_day_holds_the_small_hours_before_it_turns(self):
         instant = datetime(2026, 7, 11, 5, 45, tzinfo=_TZ)
 
-        assert local_date(instant, tz=_TZ, day_starts_at=time(5, 30)) == date(
-            2026, 7, 11
-        )
-        assert local_date(instant, tz=_TZ, day_starts_at=time(6)) == date(2026, 7, 10)
+        assert local_date(instant, tz=_TZ) == date(2026, 7, 11)
+        assert local_date(instant, tz=_TZ, day_start_hour=6) == date(2026, 7, 10)

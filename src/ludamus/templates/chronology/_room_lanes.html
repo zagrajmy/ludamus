@@ -31,7 +31,7 @@
         }
 
         .room-lanes-body {
-            grid-template-rows: {% for row in room_lanes.rows %}{% if row.is_fold %}var(--row-track-fold) {% else %}var(--row-track-{{ row.minutes }}, var(--row-track)) {% endif %}{% endfor %};
+            grid-template-rows: {% for row in room_lanes.rows %}var(--row-track-{{ row.track }}, var(--row-track)) {% endfor %};
         }
         {% for room in room_lanes.rooms %}
         [data-lane-col="{{ forloop.counter }}"],
@@ -153,10 +153,9 @@
                             <div class="room-lanes-line{% if not forloop.first %} border-t border-border/60{% endif %}{% if row.is_cut %} room-lanes-line-cut{% endif %}"
                                  data-lane-row="{{ forloop.counter }}"
                                  data-lane-day="{{ row.day }}"
-                                 data-row-minutes="{{ row.minutes }}"
+                                 data-row-track="{{ row.track }}"
                                  data-row-start="{{ row.start|date:'c' }}"
-                                 data-row-end="{{ row.end|date:'c' }}"
-                                 {% if row.is_fold %}data-lane-fold aria-hidden="true"{% endif %}>
+                                 data-row-end="{{ row.end|date:'c' }}">
                                 {% if row.is_fold %}
                                     {# The band names where the programme picks up again; the #}
                                     {# row above already names where it left off. #}

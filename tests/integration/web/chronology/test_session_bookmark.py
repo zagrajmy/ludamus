@@ -177,8 +177,7 @@ class TestEventPageBookmarkCounts:
                                 get_current_timezone(),
                             ),
                             hour_mark=hour_start,
-                            start=hour_start,
-                            end=hour_start + timedelta(hours=1),
+                            window=(hour_start, hour_start + timedelta(hours=1)),
                             starting_tiles=[room_tile],
                         ),
                         RoomLaneRow(
@@ -188,8 +187,10 @@ class TestEventPageBookmarkCounts:
                                 get_current_timezone(),
                             ),
                             hour_mark=hour_start + timedelta(hours=1),
-                            start=hour_start + timedelta(hours=1),
-                            end=hour_start + timedelta(hours=2),
+                            window=(
+                                hour_start + timedelta(hours=1),
+                                hour_start + timedelta(hours=2),
+                            ),
                         ),
                     ],
                     spans=[2],

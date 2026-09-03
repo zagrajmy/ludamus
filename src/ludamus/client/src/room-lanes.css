@@ -106,7 +106,7 @@ body:has(.room-lanes-panning) * {
    way of clicks. Its label sticks to the axis edge so a horizontal pan never
    carries it off-screen. Neutral grey, not the warm border tone: the band is
    a mark on the ruler, not a surface. */
-.room-lanes-line[data-lane-fold] {
+.room-lanes-line[data-row-track="fold"] {
   z-index: 15;
   display: flex;
   align-items: center;
@@ -118,7 +118,7 @@ body:has(.room-lanes-panning) * {
   );
 }
 
-.dark .room-lanes-line[data-lane-fold] {
+.dark .room-lanes-line[data-row-track="fold"] {
   background: repeating-linear-gradient(
     -45deg,
     color-mix(in oklch, var(--color-neutral-500) 35%, transparent) 0 4px,

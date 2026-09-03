@@ -94,16 +94,11 @@ const collapseEmptyTracks = (lanes: HTMLElement): void => {
   for (const el of lanes.querySelectorAll<HTMLElement>("[data-lane-day]")) {
     dayOfRow.set(Number(el.dataset.laneRow), Number(el.dataset.laneDay));
   }
-  // Each row's length in minutes, which names the grid track it asks for — or
-  // the fold track, for a row that stands in for hours of lull.
+  // The track each row asks for, as the server named it: its length in
+  // minutes, or "fold" for a row that stands in for hours of lull.
   const trackOfRow = new Map<number, string>();
-  for (const el of lanes.querySelectorAll<HTMLElement>("[data-row-minutes]")) {
-    trackOfRow.set(
-      Number(el.dataset.laneRow),
-      "laneFold" in el.dataset
-        ? "var(--row-track-fold)"
-        : `var(--row-track-${el.dataset.rowMinutes ?? "0"}, var(--row-track))`,
-    );
+  for (const el of lanes.querySelectorAll<HTMLElement>("[data-row-track]")) {
+    trackOfRow.set(Number(el.dataset.laneRow), el.dataset.rowTrack ?? "0");
   }
   // A folded day (schedule-fold.ts) keeps its seam row as the way back in and
   // gives up everything else. Its tiles still count as live for the columns —
@@ -194,7 +189,9 @@ const collapseEmptyTracks = (lanes: HTMLElement): void => {
     // an inline declaration naming a variable nothing defined computes to
     // nothing, and would take every explicit row with it.
     body.style.gridTemplateRows = Array.from({ length: rowCount }, (_, index) =>
-      rowLives(index + 1) ? (trackOfRow.get(index + 1) ?? "var(--row-track)") : "0",
+      rowLives(index + 1)
+        ? `var(--row-track-${trackOfRow.get(index + 1) ?? "0"}, var(--row-track))`
+        : "0",
     ).join(" ");
   }
   lanes.hidden = liveCols.size === 0;
