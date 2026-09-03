@@ -235,6 +235,48 @@ class TestEventMapEditActionView:
             "web:chronology:event-map-edit", kwargs={"slug": event.slug, "pk": pk}
         )
 
+    def test_viewer_is_refused_without_writing(self, authenticated_client, event):
+        event_map = make_map(event, "Site plan")
+
+        response = authenticated_client.post(
+            self._url(event, event_map.pk), data={"name": "Hijacked"}
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url="/",
+            messages=[(messages.ERROR, PERMISSION_ERROR)],
+        )
+        event_map.refresh_from_db()
+        assert event_map.name == "Site plan"
+
+    def test_blank_name_reopens_the_dialog_with_the_error(
+        self, organizer_client, event
+    ):
+        event_map = make_map(event, "Site plan")
+
+        response = organizer_client.post(
+            self._url(event, event_map.pk), data={"name": "   "}
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="chronology/maps.html",
+            context_data={
+                "event": EventDTO.model_validate(event),
+                "schedule_url": f"/event/{event.slug}/",
+                "cards": CardsMatcher([_card(event_map, spaces=[], tree=[])]),
+                "can_edit": True,
+                "add_form": ANY,
+            },
+        )
+        edit_form = response.context_data["cards"][0].edit_form
+        assert edit_form.errors == {"name": ["Map name is required."]}
+        event_map.refresh_from_db()
+        assert event_map.name == "Site plan"
+
     def test_rename_keeps_the_stored_image(self, organizer_client, event):
         event_map = make_map(event, "Site plan")
         stored = event_map.image.name
@@ -337,6 +379,22 @@ class TestEventMapAttachActionView:
         )
         assert not event_map.spaces.exists()
 
+    def test_map_of_another_event_is_not_found(self, organizer_client, event):
+        room = SpaceFactory(event=event, name="Room 1")
+        foreign = make_map(EventFactory(), "Elsewhere")
+
+        response = organizer_client.post(
+            self._url(event, foreign.pk), data={"spaces": [str(room.pk)]}
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=_maps_url(event),
+            messages=[(messages.ERROR, "Map not found.")],
+        )
+        assert not foreign.spaces.exists()
+
     def test_viewer_is_refused(self, authenticated_client, event):
         room = SpaceFactory(event=event, name="Room 1")
         event_map = make_map(event, "Site plan")
@@ -361,6 +419,19 @@ class TestEventMapDeleteActionView:
         return reverse(
             "web:chronology:event-map-delete", kwargs={"slug": event.slug, "pk": pk}
         )
+
+    def test_viewer_is_refused_without_deleting(self, authenticated_client, event):
+        event_map = make_map(event, "Site plan")
+
+        response = authenticated_client.post(self._url(event, event_map.pk))
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url="/",
+            messages=[(messages.ERROR, PERMISSION_ERROR)],
+        )
+        assert EventMap.objects.filter(pk=event_map.pk).exists()
 
     def test_organizer_deletes_the_map(self, organizer_client, event):
         event_map = make_map(event, "Site plan")
