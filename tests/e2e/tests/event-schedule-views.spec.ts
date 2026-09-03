@@ -141,6 +141,56 @@ test.describe("Event schedule views", () => {
     expect(unreachable).toEqual([]);
   });
 
+  test("a session through the day turnover is one tile across the seam", async ({ page }) => {
+    await page.goto(`${DENSE_EVENT_URL}?view=rooms`);
+
+    // Seeded to run 22:00 to 07:00 (kapitularz_print_seed.py): days turn over
+    // at 06:00, so the ledger lists it under both days, but the grid's axis
+    // runs straight through the seam and draws it once, with its real times.
+    const overnight = page.locator(".room-lanes-cell .session").filter({
+      has: page.locator("[data-morph='time']", { hasText: "22:00–07:00" }),
+    });
+    await expect(overnight).toHaveCount(1);
+    const id = await overnight.getAttribute("data-session-id");
+    await expect(page.locator(`.room-lanes-cell .session[data-session-id="${id}"]`)).toHaveCount(1);
+    const cell = page.locator(".room-lanes-cell", {
+      has: page.locator(`.session[data-session-id="${id}"]`),
+    });
+    const firstRow = Number(await cell.getAttribute("data-tile-row"));
+    const span = Number(await cell.getAttribute("data-tile-span"));
+    const seamRows = await page
+      .locator(".room-lanes-day[data-lane-row]")
+      .evaluateAll((seams) => seams.map((seam) => Number((seam as HTMLElement).dataset.laneRow)));
+    expect(seamRows.some((row) => row > firstRow && row < firstRow + span)).toBe(true);
+
+    // The seam band is drawn over the tile, not hidden behind it.
+    const seam = page.locator(".room-lanes-day[data-lane-row]").first();
+    expect(Number(await seam.evaluate((el) => getComputedStyle(el).zIndex))).toBeGreaterThan(10);
+  });
+
+  test("hours of lull fold into one thin labelled row", async ({ page }) => {
+    await page.goto(`${DENSE_EVENT_URL}?view=rooms`);
+
+    // The overnight session runs 22:00 to 07:00 and the next programme opens
+    // at 10:00, so there are two lulls long enough to fold: the night under
+    // the running session, and the morning after it ends.
+    const folds = page.locator(".room-lanes-line[data-lane-fold]");
+    await expect(folds).toHaveText(["Nothing new until 06:00", "Nothing new until 10:00"]);
+    const fold = folds.nth(1);
+    const start = Date.parse((await fold.getAttribute("data-row-start")) ?? "");
+    const end = Date.parse((await fold.getAttribute("data-row-end")) ?? "");
+    expect(end - start).toBe(3 * 60 * 60 * 1000);
+
+    // Thinner than an hour: the fold stands in for hours nobody programmed.
+    const hour = page.locator('.room-lanes-line[data-row-minutes="60"]').first();
+    const [foldBox, hourBox] = await Promise.all([fold.boundingBox(), hour.boundingBox()]);
+    expect(foldBox).not.toBeNull();
+    expect(hourBox).not.toBeNull();
+    expect(foldBox?.height ?? 0).toBeLessThan(hourBox?.height ?? 0);
+    // Nothing starts in a fold, so the scrubber has no target there.
+    await expect(fold.locator(".time-slot-section")).toHaveCount(0);
+  });
+
   test("the grid offers sideways scrollbars on both edges", async ({ page }) => {
     await page.goto(`${DENSE_EVENT_URL}?view=rooms`);
     const head = page.locator("[data-room-lanes-head]").first();

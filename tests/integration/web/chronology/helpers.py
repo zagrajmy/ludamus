@@ -5,7 +5,7 @@ from datetime import UTC
 from unittest.mock import ANY
 from urllib.parse import urlencode
 
-from django.utils.timezone import localtime
+from django.utils.timezone import get_current_timezone, localtime
 
 from ludamus.gates.web.django.chronology.enrollment_presentation import (
     PartyMemberFlags,
@@ -26,6 +26,7 @@ from ludamus.gates.web.django.event.status_pills import event_status_pills
 from ludamus.links.db.django.models import SessionParticipation
 from ludamus.links.db.django.repositories.chronology import location_data
 from ludamus.links.gravatar import gravatar_url
+from ludamus.mills.timeslots import programme_date, programme_day_start
 from ludamus.pacts import (
     NO_LOCATION,
     AgendaItemDTO,
@@ -121,6 +122,7 @@ def schedule_context(url):
         "schedule_days": [],
         "active_tab": "list",
         "room_lanes": None,
+        "programme_day_start_hour": 6,
         "schedule_list_url": url,
         "schedule_rooms_url": f"{url}?view=rooms",
     }
@@ -212,7 +214,9 @@ def compact_day(cards):
         for card in cards
     ]
     return ScheduleDay(
-        day_start=hour_start,
+        day_start=programme_day_start(
+            programme_date(hour_start, get_current_timezone()), get_current_timezone()
+        ),
         hours=[ScheduleHour(start=hour_start, tiles=tiles)],
         tiles=tiles,
     )

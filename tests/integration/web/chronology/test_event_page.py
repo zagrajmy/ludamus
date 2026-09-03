@@ -42,6 +42,7 @@ from ludamus.links.db.django.models import (
 )
 from ludamus.links.db.django.repositories.chronology import location_data
 from ludamus.links.gravatar import gravatar_url
+from ludamus.mills.timeslots import programme_date, programme_day_start
 from ludamus.pacts import (
     AgendaItemDTO,
     OrganizerFieldDTO,
@@ -85,8 +86,9 @@ def _schedule_tile(data: SessionData) -> ScheduleTile:
 def _single_schedule_day(data: SessionData) -> ScheduleDay:
     tile = _schedule_tile(data)
     hour_start = tile.start.replace(minute=0, second=0, microsecond=0)
+    tz = timezone.get_current_timezone()
     return ScheduleDay(
-        day_start=hour_start,
+        day_start=programme_day_start(programme_date(hour_start, tz), tz),
         hours=[ScheduleHour(start=hour_start, tiles=[tile])],
         tiles=[tile],
     )
@@ -588,14 +590,20 @@ class TestEventPageView:
         # One day per local date, one hour bucket per distinct start hour.
         expected_days = [
             ScheduleDay(
-                day_start=hour_start,
+                day_start=programme_day_start(
+                    programme_date(hour_start, timezone.get_current_timezone()),
+                    timezone.get_current_timezone(),
+                ),
                 hours=[
                     ScheduleHour(start=hour_start, tiles=[tile(ended), tile(ongoing)])
                 ],
                 tiles=[tile(ended), tile(ongoing)],
             ),
             ScheduleDay(
-                day_start=hour_of(plenty),
+                day_start=programme_day_start(
+                    programme_date(hour_of(plenty), timezone.get_current_timezone()),
+                    timezone.get_current_timezone(),
+                ),
                 hours=[
                     ScheduleHour(
                         start=hour_of(plenty), tiles=[tile(plenty), tile(scarce)]
@@ -607,7 +615,10 @@ class TestEventPageView:
                 tiles=[tile(plenty), tile(scarce), tile(no_enrollment)],
             ),
             ScheduleDay(
-                day_start=hour_of(full),
+                day_start=programme_day_start(
+                    programme_date(hour_of(full), timezone.get_current_timezone()),
+                    timezone.get_current_timezone(),
+                ),
                 hours=[ScheduleHour(start=hour_of(full), tiles=[tile(full)])],
                 tiles=[tile(full)],
             ),
@@ -755,7 +766,12 @@ class TestEventPageView:
                 },
                 schedule_days=[
                     ScheduleDay(
-                        day_start=local_start,
+                        day_start=programme_day_start(
+                            programme_date(
+                                local_start, timezone.get_current_timezone()
+                            ),
+                            timezone.get_current_timezone(),
+                        ),
                         hours=[
                             ScheduleHour(
                                 start=local_start,
@@ -798,7 +814,12 @@ class TestEventPageView:
                     rows=[
                         RoomLaneRow(
                             day=0,
-                            day_start=local_start,
+                            day_start=programme_day_start(
+                                programme_date(
+                                    local_start, timezone.get_current_timezone()
+                                ),
+                                timezone.get_current_timezone(),
+                            ),
                             hour_mark=local_start + timedelta(hours=offset),
                             start=local_start + timedelta(hours=offset),
                             end=local_start + timedelta(hours=offset + 1),

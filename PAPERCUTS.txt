@@ -458,3 +458,7 @@ If you fix a papercut, remove it.
 - 2026-09-01: mise run check reformatted 90 vendored
   .claude/skills/impeccable/scripts/*.mjs files unrelated to the diff; had to
   git checkout -- .claude/ before committing.
+- 2026-09-03: ran mise run format:oxfmt to format one e2e spec; it rewrote 90
+  vendored .claude/skills/impeccable/scripts/*.mjs files too, so every format
+  run needs a git checkout of that directory afterwards (the hk oxfmt check
+  ignores them, the task's glob does not)

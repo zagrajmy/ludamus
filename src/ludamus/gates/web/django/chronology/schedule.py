@@ -8,10 +8,21 @@ from typing import TYPE_CHECKING, Literal, NamedTuple
 
 from django.utils import timezone
 
-from ludamus.mills.timeslots import interval_windows
+from ludamus.mills.timeslots import (
+    programme_date,
+    programme_day_start,
+    programme_windows,
+)
 
 if TYPE_CHECKING:
     from ludamus.gates.web.django.chronology.event_presentation import SessionData
+
+# A stretch of a day in which nothing starts or ends, this long or longer,
+# folds into one thin row of the rooms grid. Shorter lulls stay whole: an idle
+# hour or two inside the programme is the shape of the day, not dead space to
+# pan across.
+FOLD_MIN_MINUTES = 180
+_HOUR_MINUTES = 60
 
 
 def _instant_key(instant: datetime) -> str:
@@ -39,9 +50,12 @@ class ScheduleHour:
 
 @dataclass
 class ScheduleTile:
-    # One session as it appears on one local date, already clipped to it. Night
-    # program belongs to both sides of midnight, so a session crossing it makes
-    # two tiles; every consumer reads the clipped window instead of redoing it.
+    # One session as it appears on one programme day, already clipped to it.
+    # Days turn over in the small hours (PROGRAMME_DAY_STARTS_AT), so a night
+    # session is one tile under the evening it belongs to; a session running
+    # through the turnover makes two. The ledger reads the clipped windows; the
+    # rooms grid, whose axis runs straight through a day break, joins them back
+    # into one booking (_bookings).
     data: SessionData
     start: datetime
     end: datetime
@@ -55,6 +69,9 @@ def _day_panel_id(day_start: datetime) -> str:
 
 @dataclass
 class ScheduleDay:
+    # `day_start` is the instant the programme day opens — its date and weekday
+    # are the day's name — not the first hour with anything in it, which is
+    # `hours[0].start`.
     day_start: datetime
     hours: list[ScheduleHour]
     tiles: list[ScheduleTile]
@@ -78,10 +95,11 @@ class RoomLaneTile:
 @dataclass
 class RoomLaneRow:
     # One row of the grid. A row with no `start` is the seam that opens a day;
-    # every other row spans a stretch of clock time — a whole hour, or a piece
-    # of one where `_row_windows` cut it, in which case `hour_mark` is still the
-    # hour it belongs to. Row numbers are positions in the row list, so nothing
-    # counts them by hand.
+    # every other row spans a stretch of clock time — a whole hour, a piece of
+    # one where `_row_windows` cut it, in which case `hour_mark` is still the
+    # hour it belongs to, or a fold: hours of lull drawn as one thin band
+    # (`is_fold`). Row numbers are positions in the row list, so nothing counts
+    # them by hand.
     # `opens_slot` marks the one row per hour that anchors #slot-<hour> for the
     # scrubber and the filters; see build_room_lanes.
     day: int
@@ -99,6 +117,11 @@ class RoomLaneRow:
         if self.start is None or self.end is None:
             return 0
         return max(1, round((self.end.timestamp() - self.start.timestamp()) / 60))
+
+    @property
+    def is_fold(self) -> bool:
+        # Rows are hours or pieces of hours; only a fold is longer than one.
+        return self.minutes > _HOUR_MINUTES
 
     @property
     def is_cut(self) -> bool:
@@ -260,7 +283,8 @@ class RoomLanes:
     lane_counts: list[int]
     # The distinct row lengths in minutes, so the template can serve one grid
     # track per length off the hour unit in the stylesheet — the same service
-    # `spans` does for the tile heights.
+    # `spans` does for the tile heights. Folds are not lengths: they take the
+    # one fixed fold track whatever they stand in for.
     row_lengths: list[int]
 
 
@@ -278,10 +302,10 @@ def build_schedule_days(sessions_data: dict[int, SessionData]) -> list[ScheduleD
     )
     tiles_by_date: dict[date, list[ScheduleTile]] = defaultdict(list)
     for item, data in scheduled:
-        for window_start, window_end in interval_windows(
+        for window_start, window_end in programme_windows(
             start=item.start_time, end=item.end_time, tz=tz
         ):
-            tiles_by_date[window_start.date()].append(
+            tiles_by_date[programme_date(window_start, tz)].append(
                 ScheduleTile(data=data, start=window_start, end=window_end)
             )
 
@@ -304,7 +328,11 @@ def build_schedule_days(sessions_data: dict[int, SessionData]) -> list[ScheduleD
             )
             for hour in hours
         ]
-        days.append(ScheduleDay(day_start=hours[0].start, hours=hours, tiles=tiles))
+        days.append(
+            ScheduleDay(
+                day_start=programme_day_start(day, tz), hours=hours, tiles=tiles
+            )
+        )
     return days
 
 
@@ -361,7 +389,7 @@ def build_card_days(
     )
     slots.sort(
         key=lambda slot: (
-            slot.hour.astimezone(tz).date().toordinal(),
+            programme_date(slot.hour, tz).toordinal(),
             kind_order[slot.kind],
             slot.hour.timestamp(),
         )
@@ -370,9 +398,9 @@ def build_card_days(
         first_current.is_first_current = True
     days: list[CardDay] = []
     for slot in slots:
-        local_hour = slot.hour.astimezone(tz)
-        if not days or days[-1].day_start.date() != local_hour.date():
-            days.append(CardDay(day_start=local_hour, slots=[]))
+        day = programme_date(slot.hour, tz)
+        if not days or programme_date(days[-1].day_start, tz) != day:
+            days.append(CardDay(day_start=programme_day_start(day, tz), slots=[]))
         days[-1].slots.append(slot)
     if len(days) == 1:
         for slot in days[0].slots:
@@ -439,16 +467,83 @@ def _room_lanes(keys: list[_RoomKey]) -> list[RoomLane]:
     return lanes
 
 
+class _Booking(NamedTuple):
+    # A session as one span of the grid's continuous axis: its tiles joined
+    # back together across the day breaks the ledger clips them at.
+    data: SessionData
+    start: datetime
+    end: datetime
+
+
+def _bookings(schedule_days: list[ScheduleDay]) -> list[_Booking]:
+    joined: dict[int, _Booking] = {}
+    for day in schedule_days:
+        for tile in day.tiles:
+            key = id(tile.data)
+            if (known := joined.get(key)) is None:
+                joined[key] = _Booking(data=tile.data, start=tile.start, end=tile.end)
+            else:
+                joined[key] = known._replace(
+                    end=max(known.end, tile.end, key=datetime.timestamp)
+                )
+    return list(joined.values())
+
+
+def _fold_lulls(rows: list[RoomLaneRow], bookings: list[_Booking]) -> list[RoomLaneRow]:
+    # A row is busy when a booking starts or ends in it. A run of quiet rows
+    # long enough to fold becomes one row spanning the run: the night between
+    # the last session and breakfast costs one thin band, and a session running
+    # through it still spans it like any row.
+    starts = {booking.start.timestamp() for booking in bookings}
+    ends = {booking.end.timestamp() for booking in bookings}
+
+    def is_busy(row: RoomLaneRow) -> bool:
+        if row.start is None or row.end is None:
+            return True
+        # A start on the row's first instant is in it; an end there is the row
+        # before's. Ends work the other way round.
+        return any(
+            row.start.timestamp() <= start < row.end.timestamp() for start in starts
+        ) or any(row.start.timestamp() < end <= row.end.timestamp() for end in ends)
+
+    folded: list[RoomLaneRow] = []
+    run: list[RoomLaneRow] = []
+
+    def close_run() -> None:
+        if run and sum(row.minutes for row in run) >= FOLD_MIN_MINUTES:
+            first, last = run[0], run[-1]
+            folded.append(
+                RoomLaneRow(
+                    day=first.day,
+                    day_start=first.day_start,
+                    hour_mark=first.hour_mark,
+                    start=first.start,
+                    end=last.end,
+                )
+            )
+        else:
+            folded.extend(run)
+        run.clear()
+
+    for row in rows:
+        if is_busy(row):
+            close_run()
+            folded.append(row)
+        else:
+            run.append(row)
+    close_run()
+    return folded
+
+
 def build_room_lanes(schedule_days: list[ScheduleDay]) -> RoomLanes:
     # One column set for the event, not one per day: per-day sets gave each day
     # its own column count and its own horizontal scroller, so the days drifted
     # out of step with each other as you panned.
     keys = sorted({_room_key(tile.data) for day in schedule_days for tile in day.tiles})
     col_index = {key: index + 1 for index, key in enumerate(keys)}
+    bookings = _bookings(schedule_days)
 
     rows: list[RoomLaneRow] = []
-    positioned: list[tuple[int, RoomLaneTile]] = []
-    spans: set[int] = set()
     for index, day in enumerate(schedule_days):
         day_start = day.day_start
         if index:
@@ -460,34 +555,39 @@ def build_room_lanes(schedule_days: list[ScheduleDay]) -> RoomLanes:
                     day=index, day_start=day_start, hour_mark=None, start=None, end=None
                 )
             )
-        first_row = len(rows) + 1
-
-        row_windows = _row_windows(day_start, day.tiles)
-        rows.extend(
+        day_rows = [
             RoomLaneRow(
                 day=index, day_start=day_start, hour_mark=mark, start=start, end=end
             )
-            for mark, start, end in row_windows
-        )
+            for mark, start, end in _row_windows(day.hours[0].start, day.tiles)
+        ]
+        rows.extend(_fold_lulls(day_rows, bookings))
 
-        for tile in day.tiles:
-            covered_rows = [
-                offset
-                for offset, (_mark, start, end) in enumerate(row_windows)
-                if start.timestamp() < tile.end.timestamp()
-                and end.timestamp() > tile.start.timestamp()
-            ]
-            if not covered_rows:
-                raise ValueError("scheduled tile does not overlap its local-day rows")
-            room_tile = RoomLaneTile(
-                data=tile.data,
-                start=tile.start,
-                end=tile.end,
-                col=col_index[_room_key(tile.data)],
-                row_span=len(covered_rows),
-            )
-            spans.add(room_tile.row_span)
-            positioned.append((first_row + covered_rows[0], room_tile))
+    # One axis for the whole event: a booking spans every row from the one
+    # holding its start to the one holding its end, a day seam between them
+    # included, so a night session is one tile rather than two halves.
+    positioned: list[tuple[int, RoomLaneTile]] = []
+    spans: set[int] = set()
+    for booking in bookings:
+        covered_rows = [
+            offset
+            for offset, row in enumerate(rows)
+            if row.start is not None
+            and row.end is not None
+            and row.start.timestamp() < booking.end.timestamp()
+            and row.end.timestamp() > booking.start.timestamp()
+        ]
+        if not covered_rows:
+            raise ValueError("scheduled booking does not overlap its rows")
+        room_tile = RoomLaneTile(
+            data=booking.data,
+            start=booking.start,
+            end=booking.end,
+            col=col_index[_room_key(booking.data)],
+            row_span=covered_rows[-1] - covered_rows[0] + 1,
+        )
+        spans.add(room_tile.row_span)
+        positioned.append((covered_rows[0] + 1, room_tile))
 
     placed = _place_conflicting_tiles(positioned)
     for row_start, room_tile in placed:
@@ -508,5 +608,7 @@ def build_room_lanes(schedule_days: list[ScheduleDay]) -> RoomLanes:
         spans=sorted(spans),
         lane_indices=sorted({tile.lane_index for _, tile in placed}),
         lane_counts=sorted({tile.lane_count for _, tile in placed}),
-        row_lengths=sorted({row.minutes for row in rows if row.minutes}),
+        row_lengths=sorted(
+            {row.minutes for row in rows if row.minutes and not row.is_fold}
+        ),
     )

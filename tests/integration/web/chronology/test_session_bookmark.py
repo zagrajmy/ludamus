@@ -3,7 +3,7 @@ from http import HTTPStatus
 
 import pytest
 from django.urls import reverse
-from django.utils.timezone import localtime
+from django.utils.timezone import get_current_timezone, localtime
 
 from ludamus.gates.web.django.chronology.schedule import (
     RoomLane,
@@ -12,6 +12,7 @@ from ludamus.gates.web.django.chronology.schedule import (
     RoomLaneTile,
 )
 from ludamus.links.db.django.models import SessionBookmark
+from ludamus.mills.timeslots import programme_date, programme_day_start
 from tests.integration.conftest import (
     AgendaItemFactory,
     EventFactory,
@@ -171,7 +172,10 @@ class TestEventPageBookmarkCounts:
                     rows=[
                         RoomLaneRow(
                             day=0,
-                            day_start=hour_start,
+                            day_start=programme_day_start(
+                                programme_date(hour_start, get_current_timezone()),
+                                get_current_timezone(),
+                            ),
                             hour_mark=hour_start,
                             start=hour_start,
                             end=hour_start + timedelta(hours=1),
@@ -179,7 +183,10 @@ class TestEventPageBookmarkCounts:
                         ),
                         RoomLaneRow(
                             day=0,
-                            day_start=hour_start,
+                            day_start=programme_day_start(
+                                programme_date(hour_start, get_current_timezone()),
+                                get_current_timezone(),
+                            ),
                             hour_mark=hour_start + timedelta(hours=1),
                             start=hour_start + timedelta(hours=1),
                             end=hour_start + timedelta(hours=2),

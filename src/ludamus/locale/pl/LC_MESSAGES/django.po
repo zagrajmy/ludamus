@@ -4221,6 +4221,11 @@ msgstr "Dowolny termin"
 msgid "Time"
 msgstr "Czas"
 
+#: src/ludamus/templates/chronology/_room_lanes.html
+#, python-format
+msgid "Nothing new until %(until)s"
+msgstr "Nic nowego do %(until)s"
+
 #: src/ludamus/templates/chronology/_schedule_view_tabs.html
 msgid "Schedule view"
 msgstr "Widok harmonogramu"
