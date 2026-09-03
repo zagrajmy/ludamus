@@ -145,14 +145,14 @@
                                 {% include "components/theme_switcher.html" %}
                             </div>
                             <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 text-sm text-foreground-secondary [&_a]:underline [&_a]:decoration-foreground-muted/50 [&_a:hover]:text-primary [&_a:hover]:decoration-primary/50">
-                                <p>
+                                <p class="text-pretty">
                                     © 2025–{% now "Y" %} <a href="https://fancysnake.dev/">fancysnake</a> &amp; <a href="https://haspar.us/">hasparus</a>.
                                     {# Translators: keep both links inside the sentence — reorder freely around them (PL: "dostępny na licencji …"). #}
                                     {% blocktranslate trimmed with source_url="https://github.com/zagrajmy/ludamus" license_url="https://github.com/zagrajmy/ludamus/blob/main/LICENSE" %}
                                         <a href="{{ source_url }}">Source code</a> available under <a href="{{ license_url }}">AGPL-3.0</a>.
                                     {% endblocktranslate %}
                                 </p>
-                                <div class="flex flex-wrap sm:justify-end gap-4">
+                                <div class="flex flex-wrap sm:justify-end gap-x-4 gap-y-2">
                                     {% if posthog_config %}
                                         <button type="button"
                                                 data-consent-reopen
