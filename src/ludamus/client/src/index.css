@@ -227,16 +227,24 @@ body {
 
 /* Every page wears the shell (base.html and the self-contained 500), so the
    document never scrolls and the root needs no scrollbar gutter — .app-scroll
-   below reserves the only one, for the only scroller there is. */
+   below reserves the only one, for the only scroller there is.
+
+   --app-vh is visualViewport.height, published by app-scroll.ts. A viewport
+   unit can't be trusted here: iOS Safari collapses its toolbars only when the
+   *document* scrolls, which this shell removed, so dvh freezes and the app ends
+   up shorter than the screen with its last card cut at the clip edge. 100dvh
+   covers first paint and the 500 page, which ships no JS. */
 .app-shell {
-  height: 100dvh;
+  height: var(--app-vh, 100dvh);
   overflow: hidden;
 }
 
+/* 100%, not --app-vh again: the shell above is the one definite height, and a
+   second reader of the variable could disagree with it for a frame. */
 .app-scroll {
   display: flex;
   flex-direction: column;
-  height: 100dvh;
+  height: 100%;
   overflow-y: auto;
   overscroll-behavior: contain;
   scrollbar-gutter: stable;
@@ -399,7 +407,7 @@ button:active {
     z-index: 60;
     height: 0;
     width: min(28rem, calc(100vw - 2rem));
-    max-height: calc(100dvh - 2rem);
+    max-height: calc(var(--app-vh, 100dvh) - 2rem);
     pointer-events: auto;
     overflow: visible;
     transform: translateX(-50%);
@@ -449,7 +457,7 @@ button:active {
   @media (min-width: 640px) {
     .flash-region {
       top: max(1.5rem, env(safe-area-inset-top));
-      max-height: calc(100dvh - 3rem);
+      max-height: calc(var(--app-vh, 100dvh) - 3rem);
     }
   }
 
