@@ -79,5 +79,24 @@ class TestProgrammeDays:
     def test_a_day_holds_the_small_hours_before_it_turns(self):
         instant = datetime(2026, 7, 11, 5, 45, tzinfo=_TZ)
 
-        assert local_date(instant, tz=_TZ) == date(2026, 7, 11)
-        assert local_date(instant, tz=_TZ, day_start_hour=6) == date(2026, 7, 10)
+        assert local_date(instant=instant, tz=_TZ) == date(2026, 7, 11)
+        assert local_date(instant=instant, tz=_TZ, day_start_hour=6) == date(
+            2026, 7, 10
+        )
+
+    def test_the_spring_forward_morning_turns_over_on_the_wall_clock(self):
+        # The clocks jump from 02:00 to 03:00 that night, so only five hours
+        # have elapsed since midnight at 06:30 CEST — but the day is open.
+        assert programme_date(datetime(2026, 3, 29, 4, 30, tzinfo=UTC), _TZ) == date(
+            2026, 3, 29
+        )
+        assert programme_date(datetime(2026, 3, 29, 3, 30, tzinfo=UTC), _TZ) == date(
+            2026, 3, 28
+        )
+
+    def test_the_autumn_night_gives_the_evening_an_extra_hour(self):
+        # 04:30Z is 05:30 CET after the clocks went back: seven hours since
+        # midnight, yet still before the turnover.
+        assert programme_date(datetime(2026, 10, 25, 4, 30, tzinfo=UTC), _TZ) == date(
+            2026, 10, 24
+        )
