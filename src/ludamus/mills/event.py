@@ -460,8 +460,9 @@ class EventsService(EventsServiceProtocol):
                 if self._events.slug_exists(sphere_id, data["slug"]):
                     raise EventSlugConflictError from error
                 raise
-            # An event is never spaceless: accepting a proposal, drawing the
-            # timetable and printing all need somewhere to put a session, and a
-            # brand-new event would otherwise dead-end those flows in an error.
+            # Every event created through this service owns a space: accepting
+            # a proposal, drawing the timetable and printing all need somewhere
+            # to put a session, and a brand-new event would otherwise dead-end
+            # those flows. Direct ORM writes (admin, fixtures) bypass this.
             self._spaces.create_default(event.pk)
             return event

@@ -77,33 +77,17 @@
                     <p class="text-sm text-foreground-muted">
                         {% if schedule_blocker == "time_slots" %}
                             {% translate "This event has no time slots yet, so nothing can go on the agenda. Add the time slots, then come back to accept this proposal." %}
-                        {% else %}
+                        {% elif schedule_blocker == "spaces" %}
                             {% translate "This event has no spaces yet, so nothing can go on the agenda. Add a space, then come back to accept this proposal." %}
                         {% endif %}
                     </p>
-                    <div class="[&_.btn]:w-full space-y-3 pt-5">
-                        {% if schedule_blocker == "time_slots" %}
-                            {% url 'panel:time-slot-create' slug=event.slug as fix_url %}
-                            {% translate "Add time slots" as fix_label %}
-                            {% tessera_button fix_label href=fix_url icon="clock" full_width_mobile=True %}
-                        {% else %}
-                            {% url 'panel:space-create' slug=event.slug as fix_url %}
-                            {% translate "Add a space" as fix_label %}
-                            {% tessera_button fix_label href=fix_url icon="map-pin" full_width_mobile=True %}
-                        {% endif %}
-                        <div class="flex items-center gap-3 text-xs text-foreground-muted">
-                            <hr class="flex-1">
-                            <span>{% translate "or" %}</span>
-                            <hr class="flex-1">
-                        </div>
-                        {% url 'web:chronology:event' slug=event.slug as event_url %}
-                        {% translate "Back to event" as back_label %}
-                        {% tessera_button back_label href=event_url variant="secondary" icon="arrow-left" %}
-                    </div>
                 {% else %}
                     {% tessera_sole_choice form.space as sole_space %}
                     {% tessera_sole_choice form.time_slot as sole_slot %}
-                    <form method="post"
+                    {# The submit lives in the shared actions block below, tied back #}
+                    {# by form=, so the "or / Back to event" tail is written once. #}
+                    <form id="accept-proposal-form"
+                          method="post"
                           action="{% url 'web:chronology:session-accept' event_slug=event.slug session_id=session.pk %}"
                           class="space-y-5">
                         {% csrf_token %}
@@ -125,20 +109,32 @@
                         {% endif %}
                         {% tessera_field form.space %}
                         {% tessera_field form.time_slot %}
-                        <div class="[&_.btn]:w-full space-y-3 pt-1">
-                            {% translate "Accept and add to agenda" as accept_label %}
-                            {% tessera_button accept_label icon="calendar-days" %}
-                            <div class="flex items-center gap-3 text-xs text-foreground-muted">
-                                <hr class="flex-1">
-                                <span>{% translate "or" %}</span>
-                                <hr class="flex-1">
-                            </div>
-                            {% url 'web:chronology:event' slug=event.slug as event_url %}
-                            {% translate "Back to event" as back_label %}
-                            {% tessera_button back_label href=event_url variant="secondary" icon="arrow-left" %}
-                        </div>
                     </form>
                 {% endif %}
+                {# One actions block for every state: the primary action is whatever #}
+                {# this state can do, the way out is the same either way. #}
+                <div class="[&_.btn]:w-full space-y-3 pt-5">
+                    {% if schedule_blocker == "time_slots" %}
+                        {% url 'panel:time-slot-create' slug=event.slug as fix_url %}
+                        {% translate "Add time slots" as fix_label %}
+                        {% tessera_button fix_label href=fix_url icon="clock" full_width_mobile=True %}
+                    {% elif schedule_blocker == "spaces" %}
+                        {% url 'panel:space-create' slug=event.slug as fix_url %}
+                        {% translate "Add a space" as fix_label %}
+                        {% tessera_button fix_label href=fix_url icon="map-pin" full_width_mobile=True %}
+                    {% else %}
+                        {% translate "Accept and add to agenda" as accept_label %}
+                        {% tessera_button accept_label icon="calendar-days" form="accept-proposal-form" %}
+                    {% endif %}
+                    <div class="flex items-center gap-3 text-xs text-foreground-muted">
+                        <hr class="flex-1">
+                        <span>{% translate "or" %}</span>
+                        <hr class="flex-1">
+                    </div>
+                    {% url 'web:chronology:event' slug=event.slug as event_url %}
+                    {% translate "Back to event" as back_label %}
+                    {% tessera_button back_label href=event_url variant="secondary" icon="arrow-left" %}
+                </div>
             </div>
         </div>
     </div>

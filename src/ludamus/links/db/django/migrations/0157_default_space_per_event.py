@@ -1,13 +1,17 @@
 from django.db import migrations
 from django.utils.text import slugify
+from django.utils.translation import gettext
 
-from ludamus.links.db.django.models import DEFAULT_SPACE_NAME
+# Inlined rather than imported from models: a historical migration must keep
+# doing what it did the day it was written, and a constant in live code can be
+# renamed or retranslated under it.
+DEFAULT_SPACE_NAME = "Main room"
 
 
 def add_default_space(apps, schema_editor):
     Event = apps.get_model("db_main", "Event")
     Space = apps.get_model("db_main", "Space")
-    name = str(DEFAULT_SPACE_NAME)
+    name = gettext(DEFAULT_SPACE_NAME)
     spaceless = Event.objects.exclude(
         pk__in=Space.objects.values("event_id")
     ).values_list("pk", flat=True)
