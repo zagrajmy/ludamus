@@ -85,10 +85,27 @@ test.describe("Big event hero", () => {
   });
 
   test("signing up for sessions filters to enrollable ones", async ({ page }) => {
+    const enrollmentNavs: string[] = [];
+    page.on("request", (request) => {
+      if (request.isNavigationRequest() && request.url().includes("enrollment=")) {
+        enrollmentNavs.push(request.url());
+      }
+    });
+
     await page.getByRole("link", { name: "Sign up for sessions" }).click();
 
     await expect(page).toHaveURL(/enrollment=1/);
     await expect(page.getByRole("checkbox", { name: "Only with enrollment" })).toBeChecked();
     await expect(page.locator("#schedule-region")).toBeInViewport();
+    expect(enrollmentNavs).toEqual([]);
+  });
+
+  test("hero CTAs stay in a row when they fit below the md breakpoint", async ({ page }) => {
+    await page.setViewportSize({ width: 640, height: 800 });
+    const hero = page.locator("[data-event-hero]");
+    const viewBox = await hero.getByRole("link", { name: "View the program" }).boundingBox();
+    const signBox = await hero.getByRole("link", { name: "Sign up for sessions" }).boundingBox();
+    if (!viewBox || !signBox) throw new Error("hero CTA has no box");
+    expect(Math.abs(viewBox.y - signBox.y)).toBeLessThan(8);
   });
 });

@@ -690,6 +690,23 @@ const initSessionFilters = (): void => {
 
   sessionFilter.addEventListener("input", filterSessions);
   enrollmentFilter?.addEventListener("change", filterSessions);
+  document.addEventListener(
+    "click",
+    (event) => {
+      if (event.defaultPrevented || event.button !== 0) return;
+      if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+      if (!(event.target instanceof Element)) return;
+      if (!event.target.closest("[data-apply-enrollment]")) return;
+      if (!enrollmentFilter) return;
+      event.preventDefault();
+      if (!enrollmentFilter.checked) {
+        enrollmentFilter.checked = true;
+        filterSessions();
+      }
+      byId("schedule-region").scrollIntoView();
+    },
+    { signal: documentListeners.signal },
+  );
   for (const f of cardFilters) {
     // A choice is committed, not typed: the combobox writes its hidden input
     // and says `change`, exactly as the selects do.
