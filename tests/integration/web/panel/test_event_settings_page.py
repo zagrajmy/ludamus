@@ -364,6 +364,7 @@ class TestEventSettingsPageViewPost:
             "old.png", PNG_BYTES, content_type="image/png"
         )
         event.save()
+        old_name = event.cover_image.name
         new_image = SimpleUploadedFile("new.png", PNG_BYTES, content_type="image/png")
 
         with (
@@ -385,7 +386,7 @@ class TestEventSettingsPageViewPost:
             url=f"/panel/event/{event.slug}/settings/",
         )
         event.refresh_from_db()
-        assert event.cover_image
+        assert event.cover_image.name != old_name
         assert "Best-effort cleanup" in caplog.text
 
     def test_rejects_oversize_cover_dimensions(self, panel_client, event):

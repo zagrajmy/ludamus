@@ -78,8 +78,11 @@ class EventMapRepository(EventMapRepositoryProtocol):
         _event_map(pk).spaces.set(Space.objects.filter(pk__in=space_pks))
 
     @staticmethod
+    @transaction.atomic
     def delete(pk: int) -> None:
-        event_map = _event_map(pk)
+        # Locked like update: an edit committing at the same moment would
+        # otherwise leave its new blob behind while the old name gets deleted.
+        event_map = _event_map(pk, lock=True)
         stored_name = event_map.image.name
         event_map.delete()
         if stored_name:
