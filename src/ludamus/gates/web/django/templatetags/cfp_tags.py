@@ -162,4 +162,20 @@ def format_field_value(value: object) -> str:
     return str(value)
 
 
+@register.filter
+def field_value_list(value: object) -> list[str]:
+    """Return a field value as the list of entries a pill row renders.
+
+    A select field's value is normally a list, but the same field can carry a
+    bool or a plain string; iterating those directly yields characters or a
+    TypeError, so everything that is not a list becomes a single entry.
+
+    Returns:
+        The list's entries as strings, or the formatted value as one entry.
+    """
+    if isinstance(value, list):
+        return [str(entry) for entry in value]
+    return [format_field_value(value)]
+
+
 register.filter("format_duration", format_duration)

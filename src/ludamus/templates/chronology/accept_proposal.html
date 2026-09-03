@@ -2,6 +2,7 @@
 {% load i18n %}
 {% load cfp_tags %}
 {% load tessera %}
+{% load markdown_tags %}
 {% block title %}
     {% translate "Accept Proposal" %} • {{ session.title }}
 {% endblock title %}
@@ -15,54 +16,69 @@
     {# Two cards: proposal details beside the scheduling decision on desktop; on #}
     {# mobile they stack in reading order — details, then decision. #}
     <div class="max-w-5xl mx-auto grid gap-6 lg:grid-cols-[1fr_22rem] lg:items-start">
-        {# Details card #}
+        {# Details card. Reads like the session modal on purpose: the same #}
+        {# proposal should not look like two different things depending on #}
+        {# whether it is being reviewed or already scheduled. #}
         <div class="card">
             <div class="card-body">
-                <h2 class="text-xl font-semibold text-foreground">{{ session.title }}</h2>
-                <p class="mt-1 text-sm text-foreground-muted flex flex-wrap items-center gap-x-2 gap-y-1">
-                    <span class="inline-flex items-center gap-1.5">
-                        {% include "components/avatar.html" with user=presenter size="size-5" %}
-                    {{ session.display_name }}</span>
-                    <span class="opacity-40">·</span>
-                    <span class="inline-flex items-center gap-1">{% icon "users" class="w-4 h-4" %}{% blocktranslate count limit=session.participants_limit %}{{ limit }} seat{% plural %}{{ limit }} seats{% endblocktranslate %}</span>
-                    <span class="opacity-40">·</span>
-                    <span class="inline-flex items-center gap-1">{% icon "calendar" class="w-4 h-4" %}{% translate "submitted" %} {{ session.creation_time|date:"M j, Y" }}</span>
-                </p>
-                {% if session.contact_email %}
-                    <p class="mt-1 text-sm">
-                        <a href="mailto:{{ session.contact_email }}"
-                           class="text-primary hover:underline">{{ session.contact_email }}</a>
-                    </p>
-                {% endif %}
-                {% if field_values %}
-                    <div class="mt-4 flex flex-wrap gap-1.5">
-                        {% for fv in field_values %}
-                            {% include "components/_field_pill.html" with value=fv.value|format_field_value icon=fv.field_icon title=fv.field_name size="sm" %}
-                        {% endfor %}
+                <h2 class="text-xl font-semibold text-foreground mb-4">{{ session.title }}</h2>
+                {# Who proposed it, and how to reach them — one row, one kind of #}
+                {# thing. The counts and dates are facts about the proposal, not #}
+                {# about the host, so they live in the tiles below. #}
+                <div class="flex items-center gap-3 mb-6 flex-wrap">
+                    <span class="shrink-0">{% include "components/avatar.html" with user=presenter size="size-9" %}</span>
+                    <div class="flex flex-1 items-center gap-x-3 gap-y-0.5 flex-wrap min-w-0">
+                        <div class="font-medium text-foreground">{{ session.display_name }}</div>
+                        {% if session.contact_email %}
+                            <a href="mailto:{{ session.contact_email }}"
+                               class="text-sm text-primary hover:underline truncate">{{ session.contact_email }}</a>
+                        {% endif %}
+                    </div>
+                </div>
+                {% if session.description %}
+                    <div class="mb-6">
+                        <h3 class="font-semibold mb-2 text-foreground-secondary">{% translate "About this session" %}</h3>
+                        <div class="prose prose-sm dark:prose-invert max-w-none text-foreground prose-p:text-foreground prose-p:leading-5 prose-li:leading-5">
+                            {{ session.description|render_markdown }}
+                        </div>
                     </div>
                 {% endif %}
-                {% if session.description or preferred_time_slot_ids %}
-                    <dl>
-                        {% if session.description %}
-                            {% translate "Description" as description_label %}
-                            {% include "chronology/_accept_fact_row.html" with icon="document-text" label=description_label value=session.description %}
-                        {% endif %}
-                        {% if preferred_time_slot_ids %}
-                            <div class="flex gap-3 border-t border-border pt-3 mt-3 first:border-t-0 first:mt-0 first:pt-0">
-                                <span class="shrink-0 inline-flex items-center justify-center w-8 h-8 rounded-lg bg-bg-tertiary text-foreground-secondary">{% icon "clock" class="w-4 h-4" %}</span>
-                                <div class="min-w-0">
-                                    <dt class="text-xs font-medium uppercase tracking-wide text-foreground-muted">{% translate "Preferred Time Slots" %}</dt>
-                                    <dd class="mt-1.5 flex flex-wrap gap-1.5">
-                                        {% for slot in time_slots %}
-                                            {% if slot.pk in preferred_time_slot_ids %}
-                                                <span class="inline-flex items-center rounded-full bg-secondary-light text-secondary-hover px-2.5 py-0.5 text-xs font-medium">{{ slot.start_time|date:"M j, G:i" }}–{{ slot.end_time|date:"G:i" }}</span>
-                                            {% endif %}
-                                        {% endfor %}
-                                    </dd>
-                                </div>
-                            </div>
-                        {% endif %}
-                    </dl>
+                {% if field_values %}
+                    <div class="mb-6">{% include "components/_session_field_values.html" with field_values=field_values %}</div>
+                {% endif %}
+                <div class="grid grid-cols-2 gap-3">
+                    {# A proposal that takes no sign-up has no seat count to show, #}
+                    {# the same rule the session modal applies to capacity. #}
+                    {% if session.participants_limit > 0 %}
+                        {% translate "Seats" as seats_label %}
+                        {% include "components/_detail_tile.html" with label=seats_label value=session.participants_limit %}
+                    {% endif %}
+                    {% if session.duration %}
+                        {% translate "Length" as length_label %}
+                        {% include "components/_detail_tile.html" with label=length_label value=session.duration|format_duration %}
+                    {% endif %}
+                    {% if session.min_age > 0 %}
+                        {% translate "Minimum Age" as min_age_label %}
+                        {% blocktranslate asvar min_age_value with age=session.min_age %}{{ age }}+ years{% endblocktranslate %}
+                        {% include "components/_detail_tile.html" with label=min_age_label value=min_age_value %}
+                    {% endif %}
+                    {% translate "Submitted" as submitted_label %}
+                    {% include "components/_detail_tile.html" with label=submitted_label value=session.creation_time|date:"M j, Y" %}
+                </div>
+                {% if preferred_time_slot_ids %}
+                    <div class="mt-6">
+                        <h4 class="text-sm font-semibold mb-1 text-foreground-secondary">
+                            {% icon "clock" class="w-4 h-4 inline mr-1" variant="mini" %}
+                            {% translate "Preferred Time Slots" %}
+                        </h4>
+                        <div class="flex flex-wrap gap-1.5">
+                            {% for slot in time_slots %}
+                                {% if slot.pk in preferred_time_slot_ids %}
+                                    <span class="inline-flex items-center gap-1 rounded-2xl font-medium px-2.5 py-1 text-sm bg-warm-200/80 dark:bg-neutral-700 text-warm-700 dark:text-neutral-300">{{ slot.start_time|date:"M j, G:i" }}–{{ slot.end_time|date:"G:i" }}</span>
+                                {% endif %}
+                            {% endfor %}
+                        </div>
+                    </div>
                 {% endif %}
             </div>
         </div>
