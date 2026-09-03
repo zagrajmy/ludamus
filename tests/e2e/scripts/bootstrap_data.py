@@ -538,6 +538,46 @@ def _create_enroll_states_scenario(sphere: Sphere) -> None:
     # keep offering the tester a way in however often the spec runs.
 
 
+# An early window nobody reading the page is in: it seats half the room and it
+# is restricted to configured users, so a visitor is turned away by a window
+# that is nonetheless the one deciding how many seats exist. Driven by
+# event-filters.spec.ts.
+def _create_early_access_scenario(sphere: Sphere) -> None:
+    event = _create_event(
+        sphere,
+        name="Early Access Convention",
+        slug="early-access",
+        description="Half the seats, for pass holders only.",
+        start_offset=timedelta(days=30),
+        duration_hours=8,
+        publication_offset=timedelta(days=1),
+    )
+    now = timezone.now()
+    EnrollmentConfig.objects.create(
+        event=event,
+        start_time=now - timedelta(days=1),
+        end_time=now + timedelta(days=7),
+        percentage_slots=50,
+        banner_text="Pass holders enroll first, for half the seats.",
+        restrict_to_configured_users=True,
+    )
+    venue = _create_venue(event, name="Early Venue", slug="early-venue")
+    area = _create_area(venue, name="Early Area", slug="early-area")
+    space = _create_space(area, name="Early Room", slug="early-room", capacity=5)
+    # An odd limit, so half of it is a number neither the room nor the window
+    # could produce on its own: 5 seats at 50% leaves 3.
+    session = Session.objects.create(
+        event=event,
+        display_name="Early GM",
+        title="Early Access Demo",
+        slug="early-access-demo",
+        description="A session only pass holders can enroll in yet.",
+        participants_limit=5,
+        min_age=0,
+    )
+    _schedule(event, space, session, hour=0)
+
+
 # A public select field that allows custom answers, for the event-filter e2e:
 # two of its three choices are picked, one is picked by nobody, and one session
 # writes in a value of its own. The filter must offer the two picked choices
@@ -842,6 +882,9 @@ def main() -> None:
 
     # Both ways in on an open window, for the enroll-states e2e.
     _create_enroll_states_scenario(sphere)
+
+    # A half-seating window the reader is not in, for the seat-count e2e.
+    _create_early_access_scenario(sphere)
 
     # Staff manager user for panel e2e tests (logs in via /admin/)
     manager = User.objects.create_user(

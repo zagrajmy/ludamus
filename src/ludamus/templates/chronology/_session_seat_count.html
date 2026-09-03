@@ -1,9 +1,12 @@
 {% load i18n %}
 {# The seat count, shared by the card and the compact row. Rendered where #}
 {# sign-up is not open — a shut window, or a proposal that has no seats to #}
-{# offer yet: "3 spots left" would read as an invitation, so state the #}
-{# session's own cap instead of what is left of it. #}
-{# Variables: data, extra_class (the caller's type scale). #}
+{# offer yet: "3 spots left" would read as an invitation, so state a cap #}
+{# instead of what is left of it. #}
+{# Variables: seats (the cap to state), extra_class (the caller's type #}
+{# scale). Which cap that is belongs to the caller, because the two arms #}
+{# mean different things by it: a scheduled session's is what the window in #}
+{# force leaves it, a proposal's is the room its author asked for. #}
 <span class="{% if extra_class %}{{ extra_class }} {% endif %}font-semibold tabular-nums text-foreground-muted">
-    {% blocktranslate count counter=data.session.participants_limit %}{{ counter }} seat{% plural %}{{ counter }} seats{% endblocktranslate %}
+    {% blocktranslate count counter=seats %}{{ counter }} seat{% plural %}{{ counter }} seats{% endblocktranslate %}
 </span>

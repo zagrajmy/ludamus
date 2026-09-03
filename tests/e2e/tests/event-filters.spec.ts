@@ -302,6 +302,19 @@ test.describe("Event filter panel", () => {
     await expect(card("Late Waiting List Demo 1")).toContainText("1 seat");
   });
 
+  // The window that seats early-access holders is not this reader's, so the row
+  // states a cap rather than what is left of it — but the cap a live window has
+  // halved, since three is all the seats there are to be had. Five would be the
+  // room, and the same number the row would print if the session were full.
+  test("states the seats a half-seating window leaves, not the room", async ({ page }) => {
+    await page.goto("/event/early-access/");
+
+    const card = page.locator(".session", { hasText: "Early Access Demo" });
+    await expect(card).toContainText("3 seats");
+    await expect(card).not.toContainText("5 seats");
+    await expect(card).not.toContainText("spots left");
+  });
+
   test("offers a field's used choices only, never a written-in value", async ({ page }) => {
     await page.goto("/event/autumn-open/");
 

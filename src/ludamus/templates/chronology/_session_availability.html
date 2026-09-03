@@ -7,7 +7,9 @@
 {% elif data.availability == "in-progress" %}
     <span class="font-medium text-foreground-muted">{% translate "In Progress" %}</span>
 {% elif data.availability == "unavailable" %}
-    {% include "chronology/_session_seat_count.html" %}
+    {# The seats the window in force leaves this session, not the room's own #}
+    {# size: the same limit "Full" and "N spots left" are measured against. #}
+    {% include "chronology/_session_seat_count.html" with seats=data.effective_participants_limit %}
 {% elif data.availability == "full" %}
     <span class="font-semibold text-foreground-muted">{% translate "Full" %}</span>
     {% if data.waiting_count > 0 %}

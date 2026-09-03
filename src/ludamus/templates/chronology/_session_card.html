@@ -113,7 +113,7 @@
                         {# no arm, while a proposal leaves the ladder first, so #}
                         {# only this arm can say it. "0 seats" would read as full. #}
                         {% if data.session.participants_limit %}
-                            {% include "chronology/_session_seat_count.html" with extra_class="text-sm" %}
+                            {% include "chronology/_session_seat_count.html" with seats=data.session.participants_limit extra_class="text-sm" %}
                         {% endif %}
                     {% elif data.availability == "full" %}
                         {% if data.waiting_count > 0 %}
@@ -128,7 +128,9 @@
                     {% elif data.availability == "in-progress" %}
                         <span class="text-xs font-medium text-foreground-muted">{% translate "In Progress" %}</span>
                     {% elif data.availability == "unavailable" %}
-                        {% include "chronology/_session_seat_count.html" with extra_class="text-sm" %}
+                        {# The window in force decides the cap, so this states #}
+                        {# the effective one — the seats there actually are. #}
+                        {% include "chronology/_session_seat_count.html" with seats=data.effective_participants_limit extra_class="text-sm" %}
                     {% endif %}
                 </div>
             </div>
