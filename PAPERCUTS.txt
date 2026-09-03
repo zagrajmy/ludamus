@@ -458,3 +458,7 @@ If you fix a papercut, remove it.
 - 2026-09-01: mise run check reformatted 90 vendored
   .claude/skills/impeccable/scripts/*.mjs files unrelated to the diff; had to
   git checkout -- .claude/ before committing.
+- 2026-09-03: Posting a PR body through the GitHub MCP tool strips screenshot
+  embeds: '![alt](url)' comes back as '[alt](url)' and a raw <img> tag gets
+  escaped into inline code. CLAUDE.md asks for screenshots in the PR
+  description, so they end up as plain links only.
