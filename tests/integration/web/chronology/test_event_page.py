@@ -799,8 +799,9 @@ class TestEventPageView:
                         RoomLaneRow(
                             day=0,
                             day_start=local_start,
-                            hour=local_start + timedelta(hours=offset),
-                            hour_end=local_start + timedelta(hours=offset + 1),
+                            hour_mark=local_start + timedelta(hours=offset),
+                            start=local_start + timedelta(hours=offset),
+                            end=local_start + timedelta(hours=offset + 1),
                             starting_tiles=tiles_by_row.get(offset, []),
                         )
                         for offset in range(4)
@@ -808,6 +809,7 @@ class TestEventPageView:
                     spans=[1, 2],
                     lane_indices=[0],
                     lane_counts=[1],
+                    row_lengths=[60],
                 ),
                 has_enrollable_sessions=True,
                 scheduled_count=3,
