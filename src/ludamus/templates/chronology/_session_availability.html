@@ -9,7 +9,7 @@
 {% elif data.availability == "unavailable" %}
     {# The seats the window in force leaves this session, not the room's own #}
     {# size: the same limit "Full" and "N spots left" are measured against. #}
-    {% include "chronology/_session_seat_count.html" with seats=data.effective_participants_limit %}
+    {% include "chronology/_session_seat_count.html" with seats=data.effective_participants_limit taken=data.enrolled_count free=data.spots_left %}
 {% elif data.availability == "full" %}
     <span class="font-semibold text-foreground-muted">{% translate "Full" %}</span>
     {% if data.waiting_count > 0 %}

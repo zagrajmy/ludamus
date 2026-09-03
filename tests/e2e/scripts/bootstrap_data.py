@@ -538,10 +538,27 @@ def _create_enroll_states_scenario(sphere: Sphere) -> None:
     # keep offering the tester a way in however often the spec runs.
 
 
+def _early_access_session(
+    event: Event, space: Space, *, title: str, slug: str, seats: int, hour: int
+) -> Session:
+    session = Session.objects.create(
+        event=event,
+        display_name="Early GM",
+        title=title,
+        slug=slug,
+        description="A session only pass holders can enroll in yet.",
+        participants_limit=seats,
+        min_age=0,
+    )
+    _schedule(event, space, session, hour=hour)
+    return session
+
+
 # An early window nobody reading the page is in: it seats half the room and it
 # is restricted to configured users, so a visitor is turned away by a window
-# that is nonetheless the one deciding how many seats exist. Driven by
-# event-filters.spec.ts.
+# that is nonetheless the one deciding how many seats exist. Its three sessions
+# are the three things that label can say — the cap, what is left of it, and
+# nothing left. Driven by event-filters.spec.ts.
 def _create_early_access_scenario(sphere: Sphere) -> None:
     event = _create_event(
         sphere,
@@ -564,18 +581,49 @@ def _create_early_access_scenario(sphere: Sphere) -> None:
     venue = _create_venue(event, name="Early Venue", slug="early-venue")
     area = _create_area(venue, name="Early Area", slug="early-area")
     space = _create_space(area, name="Early Room", slug="early-room", capacity=5)
-    # An odd limit, so half of it is a number neither the room nor the window
-    # could produce on its own: 5 seats at 50% leaves 3.
-    session = Session.objects.create(
-        event=event,
-        display_name="Early GM",
+    # Odd limits, so half of one is a number neither the room nor the window
+    # could have produced alone: 5 seats at 50% leaves 3.
+    _early_access_session(
+        event,
+        space,
         title="Early Access Demo",
         slug="early-access-demo",
-        description="A session only pass holders can enroll in yet.",
-        participants_limit=5,
-        min_age=0,
+        seats=5,
+        hour=0,
     )
-    _schedule(event, space, session, hour=0)
+    holder = User.objects.create_user(
+        username="e2e-early-seat-taker",
+        email="e2e-early-seat-taker@test.local",
+        password="e2e-early-seat-taker-123",
+        name="E2E Early Seat Taker",
+        slug="e2e-early-seat-taker",
+    )
+    # One seat gone out of three, and the last seat of one — the reader is
+    # still outside the window either way, so both stay in the muted type.
+    _seat(
+        _early_access_session(
+            event,
+            space,
+            title="Early Access Partly Taken Demo",
+            slug="early-access-partly-taken-demo",
+            seats=5,
+            hour=3,
+        ),
+        holder,
+        SessionParticipationStatus.CONFIRMED,
+    )
+    _seat(
+        _early_access_session(
+            event,
+            space,
+            title="Early Access Nothing Left Demo",
+            slug="early-access-nothing-left-demo",
+            seats=2,
+            hour=6,
+        ),
+        holder,
+        SessionParticipationStatus.CONFIRMED,
+    )
 
 
 # A public select field that allows custom answers, for the event-filter e2e:

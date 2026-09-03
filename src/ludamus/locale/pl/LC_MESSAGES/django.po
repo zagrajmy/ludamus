@@ -4282,6 +4282,15 @@ msgstr[2] "%(counter)s zapisanych uczestników"
 msgstr[3] "%(counter)s zapisanych uczestników"
 
 #: src/ludamus/templates/chronology/_session_seat_count.html
+#, python-format
+msgid "%(counter)s free"
+msgid_plural "%(counter)s free"
+msgstr[0] "%(counter)s wolne miejsce"
+msgstr[1] "%(counter)s wolne miejsca"
+msgstr[2] "%(counter)s wolnych miejsc"
+msgstr[3] "%(counter)s wolne miejsca"
+
+#: src/ludamus/templates/chronology/_session_seat_count.html
 #: src/ludamus/templates/panel/_space_tree_node.html
 #, python-format
 msgid "%(counter)s seat"

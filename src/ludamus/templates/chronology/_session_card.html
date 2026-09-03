@@ -129,8 +129,9 @@
                         <span class="text-xs font-medium text-foreground-muted">{% translate "In Progress" %}</span>
                     {% elif data.availability == "unavailable" %}
                         {# The window in force decides the cap, so this states #}
-                        {# the effective one — the seats there actually are. #}
-                        {% include "chronology/_session_seat_count.html" with seats=data.effective_participants_limit extra_class="text-sm" %}
+                        {# the effective one — the seats there actually are, #}
+                        {# and what is free of it once any are taken. #}
+                        {% include "chronology/_session_seat_count.html" with seats=data.effective_participants_limit taken=data.enrolled_count free=data.spots_left extra_class="text-sm" %}
                     {% endif %}
                 </div>
             </div>

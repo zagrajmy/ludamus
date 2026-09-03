@@ -1,12 +1,20 @@
 {% load i18n %}
-{# The seat count, shared by the card and the compact row. Rendered where #}
-{# sign-up is not open — a shut window, or a proposal that has no seats to #}
-{# offer yet: "3 spots left" would read as an invitation, so state a cap #}
-{# instead of what is left of it. #}
+{# The muted seat statement, shared by the card and the compact row, for the #}
+{# two places sign-up is not on offer: a shut window, and a proposal that #}
+{# has no seats to offer yet. Never "N spots left" — in teal that is an #}
+{# invitation, and neither state has one to make. #}
+{# Untouched, the number worth stating is the cap. Once someone holds a #}
+{# seat the cap stops answering "how much room is there", so state what is #}
+{# free of it instead — in the same muted type, because who may take one #}
+{# has not changed. #}
 {# Variables: seats (the cap to state), extra_class (the caller's type #}
-{# scale). Which cap that is belongs to the caller, because the two arms #}
-{# mean different things by it: a scheduled session's is what the window in #}
-{# force leaves it, a proposal's is the room its author asked for. #}
+{# scale), and, where seats can be taken, taken + free. Which cap it is #}
+{# belongs to the caller: a scheduled session's is what the window in force #}
+{# leaves it, a proposal's is the room its author asked for. #}
 <span class="{% if extra_class %}{{ extra_class }} {% endif %}font-semibold tabular-nums text-foreground-muted">
-    {% blocktranslate count counter=seats %}{{ counter }} seat{% plural %}{{ counter }} seats{% endblocktranslate %}
+    {% if taken %}
+        {% blocktranslate count counter=free %}{{ counter }} free{% plural %}{{ counter }} free{% endblocktranslate %}
+    {% else %}
+        {% blocktranslate count counter=seats %}{{ counter }} seat{% plural %}{{ counter }} seats{% endblocktranslate %}
+    {% endif %}
 </span>
