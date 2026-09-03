@@ -12,8 +12,8 @@ def forwards(apps, schema_editor):
 
 class Migration(migrations.Migration):
     dependencies = [
-        ("db_main", "0157_announcement_notified_at_alter_notification_kind_and_more")
+        ("db_main", "0158_announcement_notified_at_alter_notification_kind_and_more")
     ]
 
-    # The stamp is dropped with the column in 0156's reverse, so nothing to undo.
+    # The stamp is dropped with the column in 0158's reverse, so nothing to undo.
     operations = [migrations.RunPython(forwards, migrations.RunPython.noop)]

@@ -7,7 +7,7 @@ from django.db import migrations, models
 
 class Migration(migrations.Migration):
 
-    dependencies = [("db_main", "0156_merge_event_address_and_eventintegration")]
+    dependencies = [("db_main", "0157_alter_user_avatar_url")]
 
     operations = [
         migrations.AddField(
