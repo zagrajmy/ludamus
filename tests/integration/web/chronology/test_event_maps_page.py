@@ -53,6 +53,22 @@ def _card(event_map, *, spaces, tree):
     )
 
 
+class CardsMatcher:
+    # The page wraps each map DTO with two bound forms; the DTOs are the
+    # comparable part, so equality reads them off whatever cards rendered.
+    def __init__(self, maps):
+        self.maps = maps
+
+    def __eq__(self, other):
+        return [card.map for card in other] == self.maps
+
+    def __hash__(self):
+        return hash(tuple(event_map.pk for event_map in self.maps))
+
+    def __repr__(self):
+        return f"CardsMatcher({self.maps!r})"
+
+
 @pytest.fixture(name="organizer_client")
 def organizer_client_fixture(authenticated_client, active_user, sphere):
     sphere.managers.add(active_user)
@@ -71,8 +87,7 @@ class TestEventMapsPageView:
 
         response = client.get(_maps_url(event))
 
-        cards = response.context_data["cards"]
-        assert [card.map for card in cards] == [
+        expected_maps = [
             _card(
                 site_plan,
                 spaces=[MapSpaceDTO(pk=hall.pk, name="Hall")],
@@ -115,7 +130,7 @@ class TestEventMapsPageView:
             context_data={
                 "event": EventDTO.model_validate(event),
                 "schedule_url": f"/event/{event.slug}/",
-                "cards": ANY,
+                "cards": CardsMatcher(expected_maps),
                 "can_edit": False,
                 "add_form": ANY,
             },
@@ -315,7 +330,7 @@ class TestEventMapAttachActionView:
             context_data={
                 "event": EventDTO.model_validate(event),
                 "schedule_url": f"/event/{event.slug}/",
-                "cards": ANY,
+                "cards": CardsMatcher([_card(event_map, spaces=[], tree=[])]),
                 "can_edit": True,
                 "add_form": ANY,
             },

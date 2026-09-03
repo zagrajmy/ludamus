@@ -67,8 +67,7 @@ class EventMapsService(EventMapsServiceProtocol):
         # A map drawn for a venue covers every room inside it, so a room with
         # no map of its own inherits the nearest ancestor's. The first map in
         # display order wins when several show the same space.
-        maps = self._maps.list_for_event(event_pk)
-        if not maps:
+        if not (maps := self._maps.list_for_event(event_pk)):
             return MapIndexDTO(has_maps=False, map_pk_by_space={})
         direct: dict[int, int] = {}
         for event_map in maps:
