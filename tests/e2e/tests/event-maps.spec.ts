@@ -43,9 +43,7 @@ test.describe("Event maps", () => {
 
     // No maps, so the hero offers nothing to open.
     await page.goto(EVENT_URL);
-    await expect(
-      page.locator("[data-event-hero]").getByRole("link", { name: "Venue maps" }),
-    ).toHaveCount(0);
+    await expect(page.getByRole("link", { name: "Venue maps" })).toHaveCount(0);
   });
 
   test("an organizer adds a map, attaches a venue, and the hero links to it", async ({ page }) => {
@@ -81,9 +79,7 @@ test.describe("Event maps", () => {
     await reopened.getByRole("button", { name: "Add map" }).click();
 
     await expect(page.getByText("Map added.")).toBeVisible();
-    const card = page.locator("section", {
-      has: page.getByRole("heading", { name: "Ground floor", level: 2 }),
-    });
+    const card = page.getByRole("region", { name: "Ground floor" });
     await expect(card).toBeVisible();
     await expect(card.getByRole("img", { name: "Ground floor" })).toBeVisible();
     await expect(card.getByRole("link", { name: "Edit Ground floor" })).toBeVisible();
@@ -109,7 +105,7 @@ test.describe("Event maps", () => {
 
     // The hero now offers the maps page.
     await page.goto(EVENT_URL);
-    const heroLink = page.locator("[data-event-hero]").getByRole("link", { name: "Venue maps" });
+    const heroLink = page.getByRole("link", { name: "Venue maps" });
     await expect(heroLink).toBeVisible();
     await heroLink.click();
     await expect(page).toHaveURL(MAPS_URL);
