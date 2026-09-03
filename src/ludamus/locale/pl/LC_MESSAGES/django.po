@@ -2291,12 +2291,12 @@ msgid "Only the event's organizers can change its maps."
 msgstr "Tylko organizatorzy wydarzenia mogą zmieniać jego mapy."
 
 #: src/ludamus/gates/web/django/event/maps.py
-msgid "Map added."
-msgstr "Mapa dodana."
-
-#: src/ludamus/gates/web/django/event/maps.py
 msgid "Map not found."
 msgstr "Mapa nie została znaleziona."
+
+#: src/ludamus/gates/web/django/event/maps.py
+msgid "Map added."
+msgstr "Mapa dodana."
 
 #: src/ludamus/gates/web/django/event/maps.py
 msgid "Map saved."
