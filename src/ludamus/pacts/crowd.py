@@ -15,6 +15,10 @@ from pydantic import BaseModel, ConfigDict
 from ludamus.pacts.ids import UserId
 
 MAX_CONNECTED_USERS = 6  # Maximum number of connected users per manager
+# Column width for a provider-supplied avatar URL. Wide enough for the
+# signed, query-heavy picture URLs identity providers hand out; anything
+# past it is dropped rather than stored, so the write can never fail.
+AVATAR_URL_MAX_LENGTH = 500
 
 
 class UserType(StrEnum):

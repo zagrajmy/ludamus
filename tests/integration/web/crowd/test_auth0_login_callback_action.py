@@ -10,6 +10,7 @@ from django.urls import reverse
 from django.utils.text import slugify
 
 from ludamus.links.db.django.models import User
+from ludamus.pacts.crowd import AVATAR_URL_MAX_LENGTH
 from tests.integration.utils import assert_response
 
 
@@ -343,6 +344,60 @@ class TestAuth0LoginCallbackActionView:
         assert user.email == "new@example.com"
         assert user.avatar_url == "https://example.com/new.png"
         assert user.name == "New Name"
+
+    @patch("ludamus.gates.web.django.crowd.auth.oauth.auth0.authorize_access_token")
+    def test_ok_oversized_picture_dropped_on_create(
+        self, authorize_access_token_mock, client, faker
+    ):
+        # A provider picture past the column width would fail the insert and
+        # take the whole sign-up with it; the account is created without one.
+        sub = faker.uuid4()
+        authorize_access_token_mock.return_value = {
+            "userinfo": {
+                "sub": sub,
+                "picture": "https://cdn.example.com/" + "a" * AVATAR_URL_MAX_LENGTH,
+            }
+        }
+        state_token = self._setup_valid_state()
+
+        response = client.get(self.URL, {"state": state_token})
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url="http://testserver/crowd/profile/?next=%2Fevents%2F",
+            messages=[(messages.SUCCESS, "Please complete your profile.")],
+        )
+        assert not User.objects.get(username=f"auth0|{sub}").avatar_url
+
+    @patch("ludamus.gates.web.django.crowd.auth.oauth.auth0.authorize_access_token")
+    def test_ok_oversized_picture_dropped_on_update(
+        self, authorize_access_token_mock, client, complete_user_factory, faker
+    ):
+        # The same picture on a returning account keeps the login working and
+        # leaves the avatar it already had in place.
+        sub = faker.uuid4()
+        username = f"auth0|{sub}"
+        complete_user_factory(
+            username=username,
+            slug=slugify(username),
+            avatar_url="https://example.com/old.png",
+        )
+        authorize_access_token_mock.return_value = {
+            "userinfo": {
+                "sub": sub,
+                "picture": "https://cdn.example.com/" + "a" * AVATAR_URL_MAX_LENGTH,
+            }
+        }
+        state_token = self._setup_valid_state()
+
+        response = client.get(self.URL, {"state": state_token})
+
+        assert_response(
+            response, HTTPStatus.FOUND, url="http://testserver/", messages=[]
+        )
+        user = User.objects.get(username=username)
+        assert user.avatar_url == "https://example.com/old.png"
 
     @patch("ludamus.gates.web.django.crowd.auth.oauth.auth0.authorize_access_token")
     def test_ok_updates_email_without_name(

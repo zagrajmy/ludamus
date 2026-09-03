@@ -5,7 +5,12 @@ import pytest
 
 from ludamus.mills.crowd import CrowdAuthService
 from ludamus.pacts import NotFoundError
-from ludamus.pacts.crowd import ClaimOutcome, ClaimResultDTO, UserDTO
+from ludamus.pacts.crowd import (
+    AVATAR_URL_MAX_LENGTH,
+    ClaimOutcome,
+    ClaimResultDTO,
+    UserDTO,
+)
 from ludamus.pacts.services import DatabaseConstraintError
 from tests.unit.factories import user_dto
 
@@ -270,6 +275,38 @@ class TestProvisionUser:
 
         assert len(users.created[0]["slug"]) <= SLUG_MAX_LENGTH
 
+    def test_create_drops_oversized_avatar_url(self):
+        users = FakeUsers()
+        service = _service(users=users)
+
+        service.provision_user(
+            username="auth0|sub",
+            create_data={
+                "slug": "auth0user",
+                "username": "auth0|sub",
+                "avatar_url": "https://cdn.example.com/" + "a" * AVATAR_URL_MAX_LENGTH,
+            },
+        )
+
+        assert users.created == [{"slug": "auth0user", "username": "auth0|sub"}]
+
+    def test_create_keeps_avatar_url_at_the_field_width(self):
+        users = FakeUsers()
+        service = _service(users=users)
+        prefix = "https://cdn.example.com/"
+        avatar_url = prefix + "a" * (AVATAR_URL_MAX_LENGTH - len(prefix))
+
+        service.provision_user(
+            username="auth0|sub",
+            create_data={
+                "slug": "auth0user",
+                "username": "auth0|sub",
+                "avatar_url": avatar_url,
+            },
+        )
+
+        assert users.created[0]["avatar_url"] == avatar_url
+
     def test_de_collides_slug_owned_by_another_row(self):
         # A CONNECTED companion already owns the slug; the new ACTIVE account
         # must get a different, non-colliding slug rather than fail the insert.
@@ -324,6 +361,36 @@ class TestSyncIdentity:
 
         user = service.sync_identity(
             user_slug="auth0user", data={"email": "taken@example.com"}
+        )
+
+        assert transaction.entered == 0
+        assert not users.updated
+        assert user.slug == "auth0user"
+
+    def test_drops_oversized_avatar_but_applies_rest(self):
+        users = FakeUsers(users=[_user_dto()])
+        service = _service(users=users)
+
+        service.sync_identity(
+            user_slug="auth0user",
+            data={
+                "avatar_url": "https://cdn.example.com/" + "a" * AVATAR_URL_MAX_LENGTH,
+                "name": "New Name",
+            },
+        )
+
+        assert users.updated == [("auth0user", {"name": "New Name"})]
+
+    def test_only_oversized_avatar_skips_update(self):
+        users = FakeUsers(users=[_user_dto()])
+        transaction = FakeTransaction()
+        service = _service(users=users, transaction=transaction)
+
+        user = service.sync_identity(
+            user_slug="auth0user",
+            data={
+                "avatar_url": "https://cdn.example.com/" + "a" * AVATAR_URL_MAX_LENGTH
+            },
         )
 
         assert transaction.entered == 0

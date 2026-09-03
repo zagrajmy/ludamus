@@ -6,6 +6,7 @@ plus a transaction. First feature: claiming a managed profile.
 
 from __future__ import annotations
 
+import logging
 import secrets
 from contextlib import suppress
 from typing import TYPE_CHECKING
@@ -13,6 +14,7 @@ from typing import TYPE_CHECKING
 from ludamus.mills.slugs import unique_slug
 from ludamus.pacts import NotFoundError
 from ludamus.pacts.crowd import (
+    AVATAR_URL_MAX_LENGTH,
     AuthProvisionDTO,
     AvatarPageDTO,
     ClaimOutcome,
@@ -40,8 +42,23 @@ if TYPE_CHECKING:
     from ludamus.pacts.services import TransactionProtocol
 
 
+logger = logging.getLogger(__name__)
+
+
 def _token() -> str:
     return secrets.token_urlsafe(48)
+
+
+def _drop_oversized_avatar(data: UserData) -> None:
+    # SAFETY: an avatar URL past the column width fails the write and takes the
+    # whole sign-in with it. Truncating would leave a broken image, while
+    # dropping it lets the profile fall back to Gravatar.
+    if len(data.get("avatar_url", "")) > AVATAR_URL_MAX_LENGTH:
+        del data["avatar_url"]
+        logger.warning(
+            "Dropped provider avatar URL longer than %d characters",
+            AVATAR_URL_MAX_LENGTH,
+        )
 
 
 class ClaimService(ClaimServiceProtocol):
@@ -113,6 +130,7 @@ class CrowdAuthService(CrowdAuthServiceProtocol):
 
     def _create_user(self, *, username: str, create_data: UserData) -> UserDTO:
         data = create_data.copy()
+        _drop_oversized_avatar(data)
         if self._users.email_exists(data.get("email", "")):
             data["email"] = ""
         # NOTE: the slug is unique table-wide, so a CONNECTED or ANONYMOUS
@@ -136,6 +154,7 @@ class CrowdAuthService(CrowdAuthServiceProtocol):
 
     def sync_identity(self, *, user_slug: str, data: UserData) -> UserDTO:
         updates = data.copy()
+        _drop_oversized_avatar(updates)
         if "email" in updates and self._users.email_exists(
             updates["email"], exclude_slug=user_slug
         ):
