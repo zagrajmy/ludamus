@@ -7,6 +7,7 @@ class Migration(migrations.Migration):
 
     dependencies = [
         ("db_main", "0156_merge_event_address_and_eventintegration"),
+        ("db_main", "0157_alter_user_avatar_url"),
         ("db_main", "0157_session_session_one_pending_impromptu_claim_per_presenter"),
     ]
 
