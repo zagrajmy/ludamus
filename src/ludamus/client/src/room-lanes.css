@@ -104,10 +104,11 @@ body:has(.room-lanes-panning) * {
 
 /* The strip shows the body's columns by holding the body's horizontal offset,
    and it is moved, never scrolled — so it clips in every browser and is a
-   query container everywhere the keyframe below needs one. Nothing of its own
-   belongs in the gutter: the shell paints there, and the columns underneath
-   are only passing through. */
+   query container everywhere the keyframe below needs one. `relative` is what
+   the axis heading pins against: layout containment does not supply a
+   containing block for it in any engine, measured. */
 .room-lanes-head {
+  position: relative;
   overflow: clip;
   container-type: inline-size;
 }
@@ -116,12 +117,13 @@ body:has(.room-lanes-panning) * {
 .room-lanes-scroll {
   /* Named once and used twice: the two properties must not drift, and a
      half-applied edit would fail only in whichever engine reads the other.
-     The gutter stop is opaque under the body's sticky hour labels and cut
-     away in the strip, where the shell paints it instead. */
+     The gutter stays opaque in both halves — each paints its own axis over
+     the columns passing beneath it, rather than being cut back to something
+     further out. */
   --room-lanes-mask: linear-gradient(
     90deg,
-    var(--room-lanes-gutter-ink, black) 0,
-    var(--room-lanes-gutter-ink, black) var(--axis-w),
+    black 0,
+    black var(--axis-w),
     hsl(0 0% 0% / var(--fade-start-opacity)) var(--axis-w),
     black calc(var(--axis-w) + var(--fade-size-start, 0px)),
     black calc(100% - var(--fade-size-end, 0px)),
@@ -132,13 +134,6 @@ body:has(.room-lanes-panning) * {
   -webkit-mask-image: var(--room-lanes-mask);
   mask-repeat: no-repeat;
   -webkit-mask-repeat: no-repeat;
-}
-
-/* After the rule above, not before it: the two match at equal specificity, so
-   giving that one an explicit `black` default — the obvious tidy-up — would
-   otherwise un-cut the strip's gutter and let columns show through it. */
-.room-lanes-head {
-  --room-lanes-gutter-ink: transparent;
 }
 
 .room-lanes-scroll {
@@ -198,6 +193,10 @@ body:has(.room-lanes-panning) * {
       calc(100% - 2em) 100%;
   }
 
+  /* No duration, unlike the fades above: `auto` spans the whole timeline,
+     which is the travel this has to cover. The fades state 10s because they
+     are ranged to the first and last 2em and a duration is what those ranges
+     are cut from. */
   .room-lanes-head > .room-lanes-grid {
     animation: room-lanes-track linear both;
     animation-timeline: --room-lanes-x;
@@ -259,17 +258,17 @@ body:has(.room-lanes-panning) * {
   grid-row: 1;
 }
 
-/* The axis heading sits on the shell, over the gutter the strip's mask cuts
-   away, rather than in the strip: the grid it would sit in is the thing that
-   moves, and a translated grid is the containing block for everything inside
-   it, so a cell there cannot be pinned back.
-   SAFETY: it positions against .room-lanes-head-shell's `sticky`, which is a
-   positioned ancestor already. Do not give that element `position: relative`
-   in this file to say so — this file is unlayered, so it would beat the
-   template's utility and the whole header would stop sticking. */
+/* The axis heading sits in the strip beside the grid, not inside it: the grid
+   is the thing that moves, and a translated grid is the containing block for
+   everything within it, so a cell there could not be pinned back. Beside it,
+   the strip's own `relative` holds it while the columns travel underneath —
+   the body names its hours the same way, .room-lanes-time in the template.
+   It spans the strip's full height rather than sitting on its floor: the
+   label is one line of a two-line strip, and the ground it paints has to
+   cover the whole gutter or a room's group label shows through above it. */
 .room-lanes-corner {
   position: absolute;
-  bottom: 0;
+  inset-block: 0;
   left: 0;
   width: var(--axis-w);
 }

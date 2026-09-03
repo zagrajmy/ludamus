@@ -146,6 +146,11 @@ export default defineConfig({
             // Selected by tag, so a spec asks for iOS where it is written and a
             // renamed title cannot silently drop its own coverage.
             grep: /@ios/,
+            // Kept from the projects above, because a tag moves the choice to
+            // spec authors who will not read this file: only chromium-auth
+            // carries storageState, so an @ios here would otherwise land on the
+            // login page rather than announce itself as misconfigured.
+            testIgnore: [/.*\.auth\.spec\.ts/],
             use: { ...devices["iPhone 14 Pro"] },
           },
         ]),

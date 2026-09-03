@@ -177,7 +177,25 @@ test.describe("Event schedule views", () => {
     // itself and takes one, rather than leaving a keyboard user to tab through
     // every tile to travel sideways.
     const grid = page.getByRole("region", { name: "Rooms schedule" });
-    await grid.focus();
+
+    // Reached by Tab, not by focus(): focus() succeeds on tabindex="-1" too,
+    // and a focused scroller pans on arrow keys whatever its tabindex says, so
+    // asserting focusability would pass on exactly the grid this test exists to
+    // rule out — one no keyboard user can get to. Arriving from the control
+    // before it also fails if anything is inserted into the tab order between.
+    const inTabOrder = await grid.evaluate((el) => {
+      const stops = [
+        ...document.querySelectorAll<HTMLElement>(
+          'a[href], button, input, select, textarea, [tabindex]:not([tabindex="-1"])',
+        ),
+      ].filter((stop) => stop === el || stop.offsetParent !== null);
+      const here = stops.findIndex((stop) => stop === el);
+      if (here <= 0) return false;
+      stops[here - 1]?.focus();
+      return true;
+    });
+    expect(inTabOrder).toBe(true);
+    await page.keyboard.press("Tab");
     await expect(grid).toBeFocused();
 
     const panned = async () => grid.evaluate((el) => Math.round(el.scrollLeft));
@@ -227,11 +245,23 @@ test.describe("Event schedule views", () => {
     };
     const atRest = await offset();
 
-    for (const left of [0, Math.floor(max / 3), max]) {
+    // The axis heading names the hour column and belongs to no room, so it
+    // holds still while the columns travel under it. That is the behaviour
+    // pinning it beside the grid rather than inside it, and making it paint its
+    // own ground, exist for — nothing else here covers either.
+    const axis = page.getByText("Time", { exact: true }).filter({ visible: true }).first();
+    const axisAtRest = await axis.evaluate((el) => el.getBoundingClientRect().x);
+
+    for (const left of [Math.floor(max / 3), max]) {
       await grid.evaluate((el, target) => {
         el.scrollLeft = target;
       }, left);
       await expect.poll(async () => Math.abs((await offset()) - atRest)).toBeLessThan(1);
+      await expect
+        .poll(async () =>
+          Math.abs((await axis.evaluate((el) => el.getBoundingClientRect().x)) - axisAtRest),
+        )
+        .toBeLessThan(1);
     }
   });
 
@@ -272,6 +302,24 @@ test.describe("Event schedule views", () => {
     expect(await days.count()).toBeGreaterThan(1);
     await expect(mirrors).toHaveCount((await days.count()) - 1);
     expect(await body.evaluate((el) => getComputedStyle(el).maskImage)).not.toBe("none");
+
+    // The mask above is only half the claim: it says a gradient is installed,
+    // not that it tracks the grid. These fades run off this grid's own scroll
+    // timeline, so the edge has to darken as the columns reach it. Engines
+    // without scroll timelines never fade — there the @property initial value
+    // is the whole behaviour — so the check is skipped rather than inverted.
+    const faded = async () =>
+      body.evaluate((el) => Number(getComputedStyle(el).getPropertyValue("--fade-end-opacity")));
+    if (await page.evaluate(() => CSS.supports("timeline-scope: --room-lanes-x"))) {
+      expect(await faded()).toBeLessThan(1);
+      await body.evaluate((el) => {
+        el.scrollLeft = el.scrollWidth - el.clientWidth;
+      });
+      await expect.poll(faded).toBe(1);
+      await body.evaluate((el) => {
+        el.scrollLeft = 0;
+      });
+    }
 
     const source = days.nth(1);
     const mirror = mirrors.first();
