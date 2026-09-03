@@ -112,6 +112,7 @@ export default defineConfig({
         /confirmations\.spec\.ts/,
         /timetable\.spec\.ts/,
         /cover-images\.spec\.ts/,
+        /event-maps\.spec\.ts/,
         /sphere-logo\.spec\.ts/,
         /anonymous-proposal\.spec\.ts/,
         /proposal-delete-restore\.spec\.ts/,

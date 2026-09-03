@@ -1,5 +1,6 @@
 {% load i18n %}
 {% load tessera %}
+{% url 'web:chronology:event-maps' slug=event.slug as maps_url %}
 {% with event_map=card.map %}
     <section id="map-{{ event_map.pk }}"
              class="scroll-mt-24"
@@ -12,7 +13,7 @@
                 {# for the one person in a hundred who came to change it. #}
                 <div class="flex shrink-0 items-center gap-1">
                     {% blocktranslate asvar t_edit_map with name=event_map.name %}Edit {{ name }}{% endblocktranslate %}
-                    <a href="?edit-map={{ event_map.pk }}"
+                    <a href="{{ maps_url }}?edit-map={{ event_map.pk }}"
                        class="icon-btn"
                        aria-controls="edit-map-modal-{{ event_map.pk }}"
                        aria-haspopup="dialog">
@@ -54,7 +55,7 @@
                         </ul>
                     {% endif %}
                     {% if can_edit %}
-                        <a href="?attach={{ event_map.pk }}"
+                        <a href="{{ maps_url }}?attach={{ event_map.pk }}"
                            class="mt-2 inline-flex items-center gap-1.5 rounded-md px-1.5 py-1 font-medium text-foreground-muted hover:bg-bg-tertiary hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
                            aria-controls="attach-modal-{{ event_map.pk }}"
                            aria-haspopup="dialog">

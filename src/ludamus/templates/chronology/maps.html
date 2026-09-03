@@ -7,6 +7,7 @@
 {% block header_section %}
 {% endblock header_section %}
 {% block body %}
+    {% url 'web:chronology:event-maps' slug=event.slug as maps_url %}
     {% include "chronology/decorative_background_blobs.html" %}
     <div class="relative mb-6 flex items-end justify-between gap-4 sm:mb-8">
         <div>
@@ -19,10 +20,13 @@
         </div>
         {% if can_edit %}
             {# The one organizer control that is not about a particular map. #}
-            {# A same-path query link, so the dialog is addressable and a #}
-            {# failed upload reopens it with its errors. #}
+            {# A query link on this page's own path, so the dialog is #}
+            {# addressable and a failed upload reopens it with its errors. The #}
+            {# path is spelled out: a failed post renders this page at the #}
+            {# action's URL, and a bare "?add-map=1" would then resolve to that #}
+            {# path and make the modal script intercept the retry as a reopen. #}
             {% translate "Add map" as t_add_map %}
-            {% tessera_button t_add_map href="?add-map=1" icon="plus" aria_controls="add-map-modal" aria_haspopup="dialog" %}
+            {% tessera_button t_add_map href=maps_url|add:"?add-map=1" icon="plus" aria_controls="add-map-modal" aria_haspopup="dialog" %}
         {% endif %}
     </div>
     {% if cards %}
@@ -44,7 +48,7 @@
                     {% translate "No maps yet. Upload a site plan or a floor plan so participants can find their rooms." %}
                 </p>
                 {% translate "Add map" as t_add_map %}
-                {% tessera_button t_add_map href="?add-map=1" icon="plus" aria_controls="add-map-modal" aria_haspopup="dialog" %}
+                {% tessera_button t_add_map href=maps_url|add:"?add-map=1" icon="plus" aria_controls="add-map-modal" aria_haspopup="dialog" %}
             {% else %}
                 <p class="text-foreground-muted mb-4">{% translate "The organizers haven't added any maps yet." %}</p>
                 {% translate "Back to the program" as t_back %}
