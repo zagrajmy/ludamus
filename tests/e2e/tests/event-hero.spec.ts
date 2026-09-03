@@ -102,9 +102,10 @@ test.describe("Big event hero", () => {
 
   test("hero CTAs stay in a row when they fit below the md breakpoint", async ({ page }) => {
     await page.setViewportSize({ width: 640, height: 800 });
-    const hero = page.locator("[data-event-hero]");
-    const viewBox = await hero.getByRole("link", { name: "View the program" }).boundingBox();
-    const signBox = await hero.getByRole("link", { name: "Sign up for sessions" }).boundingBox();
+    const viewProgram = page.getByRole("link", { name: "View the program" });
+    const signUp = page.getByRole("link", { name: "Sign up for sessions" });
+    const viewBox = await viewProgram.boundingBox();
+    const signBox = await signUp.boundingBox();
     if (!viewBox || !signBox) throw new Error("hero CTA has no box");
     expect(Math.abs(viewBox.y - signBox.y)).toBeLessThan(8);
   });
