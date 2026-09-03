@@ -1,0 +1,118 @@
+{% load i18n %}
+{% load tessera %}
+{% with event_map=card.map %}
+    <section id="map-{{ event_map.pk }}"
+             class="scroll-mt-24"
+             aria-labelledby="map-{{ event_map.pk }}-title">
+        <div class="mb-3 flex items-center justify-between gap-3">
+            <h2 id="map-{{ event_map.pk }}-title"
+                class="text-xl font-bold text-foreground">{{ event_map.name }}</h2>
+            {% if can_edit %}
+                {# Quiet by design: the picture is the page, the controls are #}
+                {# for the one person in a hundred who came to change it. #}
+                <div class="flex shrink-0 items-center gap-1">
+                    {% blocktranslate asvar t_edit_map with name=event_map.name %}Edit {{ name }}{% endblocktranslate %}
+                    <a href="?edit-map={{ event_map.pk }}"
+                       class="icon-btn"
+                       aria-controls="edit-map-modal-{{ event_map.pk }}"
+                       aria-haspopup="dialog">
+                        {% icon "pencil-square" class="size-4" variant="mini" %}
+                        <span class="sr-only">{{ t_edit_map }}</span>
+                    </a>
+                    <form method="post"
+                          action="{% url 'web:chronology:event-map-delete' slug=event.slug pk=event_map.pk %}"
+                          class="inline"
+                          data-confirm="{% translate "Delete this map? Sessions will stop linking to it." %}">
+                        {% csrf_token %}
+                        {% blocktranslate asvar t_delete_map with name=event_map.name %}Delete {{ name }}{% endblocktranslate %}
+                        <button type="submit" class="icon-btn icon-btn-danger">
+                            {% icon "trash" class="size-4" variant="mini" %}
+                            <span class="sr-only">{{ t_delete_map }}</span>
+                        </button>
+                    </form>
+                </div>
+            {% endif %}
+        </div>
+        <div class="grid gap-4 lg:grid-cols-[minmax(0,1fr)_18rem] lg:gap-6">
+            <a href="{{ event_map.image_url }}"
+               target="_blank"
+               rel="noopener"
+               class="block min-w-0 self-start rounded-3xl bg-bg-secondary shadow-(--shadow-elevated) overflow-hidden">
+                <img src="{{ event_map.image_url }}"
+                     alt="{{ event_map.name }}"
+                     loading="{% if forloop.first %}eager{% else %}lazy{% endif %}"
+                     class="w-full h-auto">
+            </a>
+            {% if event_map.tree or can_edit %}
+                <nav class="min-w-0 text-sm"
+                     aria-label="{% blocktranslate with name=event_map.name %}Venues on {{ name }}{% endblocktranslate %}">
+                    {% if event_map.tree %}
+                        <ul class="flex flex-col gap-0.5">
+                            {% for node in event_map.tree %}
+                                {% include "chronology/_map_tree_node.html" with node=node %}
+                            {% endfor %}
+                        </ul>
+                    {% endif %}
+                    {% if can_edit %}
+                        <a href="?attach={{ event_map.pk }}"
+                           class="mt-2 inline-flex items-center gap-1.5 rounded-md px-1.5 py-1 font-medium text-foreground-muted hover:bg-bg-tertiary hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                           aria-controls="attach-modal-{{ event_map.pk }}"
+                           aria-haspopup="dialog">
+                            {% translate "Attach venue" %}
+                            {% icon "plus" class="size-4" variant="mini" %}
+                        </a>
+                    {% endif %}
+                </nav>
+            {% endif %}
+        </div>
+    </section>
+    {% if can_edit %}
+        <dialog id="edit-map-modal-{{ event_map.pk }}"
+                class="modal w-[calc(100%-2rem)] max-w-md p-0"
+                aria-labelledby="edit-map-modal-{{ event_map.pk }}-title">
+            <form method="post"
+                  action="{% url 'web:chronology:event-map-edit' slug=event.slug pk=event_map.pk %}?edit-map={{ event_map.pk }}"
+                  enctype="multipart/form-data"
+                  data-submit-once>
+                {% csrf_token %}
+                <div class="px-6 pt-5 pb-4">
+                    <h3 id="edit-map-modal-{{ event_map.pk }}-title"
+                        class="font-semibold text-foreground">{% translate "Edit map" %}</h3>
+                    <div class="mt-4">{% tessera_form card.edit_form %}</div>
+                </div>
+                <div class="flex justify-end gap-2 border-t border-border px-6 py-3">
+                    {% translate "Cancel" as t_cancel %}
+                    {% tessera_button t_cancel button_type="button" variant="secondary" full_width_mobile=False data_modal_close="edit-map-modal-"|add:event_map.pk|stringformat:"s" %}
+                    {% translate "Save map" as t_save_map %}
+                    {% tessera_button t_save_map %}
+                </div>
+            </form>
+        </dialog>
+        <dialog id="attach-modal-{{ event_map.pk }}"
+                class="modal w-[calc(100%-2rem)] max-w-md p-0"
+                aria-labelledby="attach-modal-{{ event_map.pk }}-title">
+            <form method="post"
+                  action="{% url 'web:chronology:event-map-attach' slug=event.slug pk=event_map.pk %}?attach={{ event_map.pk }}"
+                  data-submit-once>
+                {% csrf_token %}
+                <div class="px-6 pt-5 pb-4">
+                    <h3 id="attach-modal-{{ event_map.pk }}-title"
+                        class="font-semibold text-foreground">{% translate "Attach venue" %}</h3>
+                    {% if card.attach_form.fields.spaces.choices %}
+                        <div class="mt-4">{% tessera_form card.attach_form %}</div>
+                    {% else %}
+                        <p class="mt-2 text-sm text-foreground-muted">
+                            {% translate "No venues to attach yet. Add them in the panel under Venues, and the map will link to their sessions." %}
+                        </p>
+                    {% endif %}
+                </div>
+                <div class="flex justify-end gap-2 border-t border-border px-6 py-3">
+                    {% translate "Cancel" as t_cancel %}
+                    {% tessera_button t_cancel button_type="button" variant="secondary" full_width_mobile=False data_modal_close="attach-modal-"|add:event_map.pk|stringformat:"s" %}
+                    {% translate "Save venues" as t_save_venues %}
+                    {% tessera_button t_save_venues %}
+                </div>
+            </form>
+        </dialog>
+    {% endif %}
+{% endwith %}

@@ -11,12 +11,22 @@ if TYPE_CHECKING:
 
 
 class MapSpaceDTO(BaseModel):
-    # A space as the maps page lists it: the pk the schedule filter keys on,
-    # the tree path a reader recognises it by, and whether it groups rooms —
-    # a group is filtered as a venue, a room as itself.
+    # A space attached to a map, flat: the pk the schedule keys on and the
+    # tree path a reader recognises it by.
     pk: int
     name: str
+
+
+class MapTreeNodeDTO(BaseModel):
+    # The attached spaces as the page draws them — a file tree. An ancestor
+    # that is not attached itself is still a node, so the reader sees where a
+    # room sits, but only an attached node links to the schedule. A group is
+    # filtered as a venue, a room as itself.
+    pk: int
+    name: str
+    attached: bool
     has_children: bool
+    children: list[MapTreeNodeDTO]
 
 
 class EventMapDTO(BaseModel):
@@ -28,15 +38,11 @@ class EventMapDTO(BaseModel):
     image_url: str
     image_original_name: str = ""
     spaces: list[MapSpaceDTO] = []
+    tree: list[MapTreeNodeDTO] = []
 
     @property
-    def space_names(self) -> list[str]:
-        return [space.name for space in self.spaces]
-
-
-class EventMapInputDTO(BaseModel):
-    name: str
-    space_pks: list[int]
+    def space_pks(self) -> list[int]:
+        return [space.pk for space in self.spaces]
 
 
 class MapIndexDTO(BaseModel):
@@ -52,11 +58,13 @@ class EventMapRepositoryProtocol(Protocol):
     @staticmethod
     def read(pk: int) -> EventMapDTO: ...
     def create(
-        self, *, event_pk: int, data: EventMapInputDTO, image: UploadedFileProtocol
+        self, *, event_pk: int, name: str, image: UploadedFileProtocol
     ) -> EventMapDTO: ...
     def update(
-        self, *, pk: int, data: EventMapInputDTO, image: UploadedFileProtocol | None
+        self, *, pk: int, name: str, image: UploadedFileProtocol | None
     ) -> EventMapDTO: ...
+    @staticmethod
+    def set_spaces(pk: int, space_pks: list[int]) -> None: ...
     @staticmethod
     def delete(pk: int) -> None: ...
 
@@ -65,15 +73,13 @@ class EventMapsServiceProtocol(Protocol):
     def list_for_event(self, event_pk: int) -> list[EventMapDTO]: ...
     def read(self, *, event_pk: int, pk: int) -> EventMapDTO: ...
     def create(
-        self, *, event_pk: int, data: EventMapInputDTO, image: UploadedFileProtocol
+        self, *, event_pk: int, name: str, image: UploadedFileProtocol
     ) -> EventMapDTO: ...
     def update(
-        self,
-        *,
-        event_pk: int,
-        pk: int,
-        data: EventMapInputDTO,
-        image: UploadedFileProtocol | None,
+        self, *, event_pk: int, pk: int, name: str, image: UploadedFileProtocol | None
     ) -> EventMapDTO: ...
+    def attach_spaces(
+        self, *, event_pk: int, pk: int, space_pks: list[int]
+    ) -> None: ...
     def delete(self, *, event_pk: int, pk: int) -> None: ...
     def index(self, event_pk: int) -> MapIndexDTO: ...

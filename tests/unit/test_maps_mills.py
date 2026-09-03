@@ -5,7 +5,7 @@ import pytest
 
 from ludamus.mills.maps import EventMapsService
 from ludamus.pacts import NotFoundError, SpaceDTO
-from ludamus.pacts.maps import EventMapDTO, EventMapInputDTO, MapIndexDTO, MapSpaceDTO
+from ludamus.pacts.maps import EventMapDTO, MapIndexDTO, MapSpaceDTO
 
 EVENT_PK = 7
 OTHER_EVENT_PK = 8
@@ -32,8 +32,7 @@ def _map(pk, space_pks, event_id=EVENT_PK):
         name=f"map-{pk}",
         image_url=f"/media/eventmaps/{pk}.png",
         spaces=[
-            MapSpaceDTO(pk=space_pk, name=f"space-{space_pk}", has_children=False)
-            for space_pk in space_pks
+            MapSpaceDTO(pk=space_pk, name=f"space-{space_pk}") for space_pk in space_pks
         ],
     )
 
@@ -88,36 +87,31 @@ class TestScoping:
         with pytest.raises(NotFoundError):
             service.read(event_pk=EVENT_PK, pk=10)
 
-    def test_create_refuses_a_space_of_another_event_without_writing(self):
+    def test_attach_refuses_a_space_of_another_event_without_writing(self):
         service, maps = _service(spaces=[_space(1)])
-        image = MagicMock()
+        maps.read.return_value = _map(10, [])
 
         with pytest.raises(NotFoundError):
-            service.create(
-                event_pk=EVENT_PK,
-                data=EventMapInputDTO(name="Plan", space_pks=[1, 99]),
-                image=image,
-            )
+            service.attach_spaces(event_pk=EVENT_PK, pk=10, space_pks=[1, 99])
 
-        maps.create.assert_not_called()
+        maps.set_spaces.assert_not_called()
 
-    def test_create_writes_a_map_of_the_events_own_spaces(self):
+    def test_attach_writes_the_events_own_spaces(self):
         service, maps = _service(spaces=[_space(1), _space(2)])
-        data = EventMapInputDTO(name="Plan", space_pks=[2])
-        image = MagicMock()
+        maps.read.return_value = _map(10, [])
 
-        service.create(event_pk=EVENT_PK, data=data, image=image)
+        service.attach_spaces(event_pk=EVENT_PK, pk=10, space_pks=[2])
 
-        maps.create.assert_called_once_with(event_pk=EVENT_PK, data=data, image=image)
+        maps.set_spaces.assert_called_once_with(10, [2])
 
-    def test_update_checks_both_the_map_and_the_posted_spaces(self):
-        service, maps = _service(spaces=[_space(1)])
-        maps.read.return_value = _map(10, [1])
-        data = EventMapInputDTO(name="Plan", space_pks=[1])
+    def test_update_refuses_a_map_of_another_event_without_writing(self):
+        service, maps = _service()
+        maps.read.return_value = _map(10, [], event_id=OTHER_EVENT_PK)
 
-        service.update(event_pk=EVENT_PK, pk=10, data=data, image=None)
+        with pytest.raises(NotFoundError):
+            service.update(event_pk=EVENT_PK, pk=10, name="Plan", image=None)
 
-        maps.update.assert_called_once_with(pk=10, data=data, image=None)
+        maps.update.assert_not_called()
 
     def test_delete_refuses_a_map_of_another_event_without_deleting(self):
         service, maps = _service()

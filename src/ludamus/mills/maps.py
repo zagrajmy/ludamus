@@ -8,11 +8,7 @@ from ludamus.pacts.maps import EventMapsServiceProtocol, MapIndexDTO
 if TYPE_CHECKING:
     from ludamus.pacts import SpaceRepositoryProtocol
     from ludamus.pacts.legacy import UploadedFileProtocol
-    from ludamus.pacts.maps import (
-        EventMapDTO,
-        EventMapInputDTO,
-        EventMapRepositoryProtocol,
-    )
+    from ludamus.pacts.maps import EventMapDTO, EventMapRepositoryProtocol
     from ludamus.pacts.services import TransactionProtocol
 
 
@@ -39,24 +35,28 @@ class EventMapsService(EventMapsServiceProtocol):
         return event_map
 
     def create(
-        self, *, event_pk: int, data: EventMapInputDTO, image: UploadedFileProtocol
+        self, *, event_pk: int, name: str, image: UploadedFileProtocol
     ) -> EventMapDTO:
-        with self._transaction.atomic():
-            self._require_event_spaces(event_pk, data.space_pks)
-            return self._maps.create(event_pk=event_pk, data=data, image=image)
+        return self._maps.create(event_pk=event_pk, name=name, image=image)
 
     def update(
-        self,
-        *,
-        event_pk: int,
-        pk: int,
-        data: EventMapInputDTO,
-        image: UploadedFileProtocol | None,
+        self, *, event_pk: int, pk: int, name: str, image: UploadedFileProtocol | None
     ) -> EventMapDTO:
         with self._transaction.atomic():
             self.read(event_pk=event_pk, pk=pk)
-            self._require_event_spaces(event_pk, data.space_pks)
-            return self._maps.update(pk=pk, data=data, image=image)
+            return self._maps.update(pk=pk, name=name, image=image)
+
+    def attach_spaces(self, *, event_pk: int, pk: int, space_pks: list[int]) -> None:
+        # Body ids are as unproven as URL ids: a space of another event in the
+        # posted list refuses the whole write rather than pinning it quietly.
+        with self._transaction.atomic():
+            self.read(event_pk=event_pk, pk=pk)
+            event_space_pks = {
+                space.pk for space in self._spaces.list_by_event(event_pk)
+            }
+            if not set(space_pks) <= event_space_pks:
+                raise NotFoundError
+            self._maps.set_spaces(pk, space_pks)
 
     def delete(self, *, event_pk: int, pk: int) -> None:
         with self._transaction.atomic():
@@ -72,8 +72,8 @@ class EventMapsService(EventMapsServiceProtocol):
             return MapIndexDTO(has_maps=False, map_pk_by_space={})
         direct: dict[int, int] = {}
         for event_map in maps:
-            for drawn in event_map.spaces:
-                direct.setdefault(drawn.pk, event_map.pk)
+            for space_pk in event_map.space_pks:
+                direct.setdefault(space_pk, event_map.pk)
 
         spaces = self._spaces.list_by_event(event_pk)
         parent_of = {space.pk: space.parent_id for space in spaces}
@@ -85,10 +85,3 @@ class EventMapsService(EventMapsServiceProtocol):
             if current is not None:
                 resolved[space.pk] = direct[current]
         return MapIndexDTO(has_maps=True, map_pk_by_space=resolved)
-
-    def _require_event_spaces(self, event_pk: int, space_pks: list[int]) -> None:
-        # Body ids are as unproven as URL ids: a space of another event in the
-        # posted list refuses the whole write rather than pinning it quietly.
-        event_space_pks = {space.pk for space in self._spaces.list_by_event(event_pk)}
-        if not set(space_pks) <= event_space_pks:
-            raise NotFoundError

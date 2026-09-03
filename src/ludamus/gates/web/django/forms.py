@@ -591,12 +591,10 @@ def create_space_copy_form(events: list[tuple[int, str]]) -> type[forms.Form]:
     return type("SpaceCopyForm", (forms.Form,), {"target_event": target_event_field})
 
 
-def create_event_map_form(
-    *, space_choices: list[tuple[str, str]], has_image: bool
-) -> type[forms.Form]:
-    # Built per request like create_space_copy_form: which venues a plan can
-    # show is the event's own tree, and whether a picture is required depends
-    # on whether one is stored already — editing keeps it unless replaced.
+def create_event_map_form(*, has_image: bool) -> type[forms.Form]:
+    # Built per use like create_space_copy_form: whether a picture is required
+    # depends on whether one is stored already — editing keeps it unless
+    # replaced.
     name = forms.CharField(
         max_length=255,
         strip=True,
@@ -615,18 +613,22 @@ def create_event_map_form(
         widget=DropzoneFileInput(attrs={"accept": IMAGE_ACCEPT}, fit="contain"),
         error_messages={"required": _("Upload the map image.")},
     )
+    return type("EventMapForm", (forms.Form,), {"name": name, "image": image})
+
+
+def create_map_spaces_form(*, space_choices: list[tuple[str, str]]) -> type[forms.Form]:
+    # Which venues a plan shows is a checklist of the event's own tree, every
+    # node with its path, so a floor plan can name the floor or its rooms.
     spaces = forms.MultipleChoiceField(
         required=False,
         label=_("Venues on this map"),
         help_text=_(
-            "Each venue listed under the map links to its sessions on the schedule."
+            "Each venue listed beside the map links to its sessions on the schedule."
         ),
         widget=forms.CheckboxSelectMultiple,
         choices=space_choices,
     )
-    return type(
-        "EventMapForm", (forms.Form,), {"name": name, "image": image, "spaces": spaces}
-    )
+    return type("MapSpacesForm", (forms.Form,), {"spaces": spaces})
 
 
 class TrackForm(forms.Form):

@@ -205,7 +205,8 @@ the sphere.{% endcomment %}
                             {% translate "Venues" as t_venues %}
                             {% sidebar_link url="panel:venues" slug=current_event.slug icon="building-office-2" label=t_venues key="venues" %}
                             {% translate "Maps" as t_maps %}
-                            {% sidebar_link url="panel:maps" slug=current_event.slug icon="map" label=t_maps key="maps" %}
+                            {# One maps page for everyone: organizers edit in place, so the panel only points there. #}
+                            {% sidebar_link url="web:chronology:event-maps" slug=current_event.slug icon="map" label=t_maps new_tab=True %}
                             {% translate "Tracks" as t_tracks %}
                             {% sidebar_link url="panel:tracks" slug=current_event.slug icon="tag" label=t_tracks key="tracks" %}
                             {% translate "Schedule" as t_timetable %}

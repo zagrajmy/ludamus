@@ -2228,7 +2228,9 @@ msgid "Manage the seats you booked for others…"
 msgstr "Zarządzaj miejscami zapisanymi dla innych…"
 
 #: src/ludamus/gates/web/django/event/enroll_presentation.py
+#: src/ludamus/templates/chronology/_map_card.html
 #: src/ludamus/templates/chronology/event.html
+#: src/ludamus/templates/chronology/maps.html
 #: src/ludamus/templates/chronology/panel/integrations/create.html
 #: src/ludamus/templates/chronology/panel/integrations/delete.html
 #: src/ludamus/templates/chronology/panel/integrations/edit.html
@@ -2254,7 +2256,6 @@ msgstr "Zarządzaj miejscami zapisanymi dla innych…"
 #: src/ludamus/templates/panel/enrollment-window-form.html
 #: src/ludamus/templates/panel/facilitator-create.html
 #: src/ludamus/templates/panel/facilitator-edit.html
-#: src/ludamus/templates/panel/map-form.html
 #: src/ludamus/templates/panel/personal-data-field-create.html
 #: src/ludamus/templates/panel/personal-data-field-edit.html
 #: src/ludamus/templates/panel/proposal-form.html
@@ -2284,6 +2285,30 @@ msgid ""
 msgstr ""
 "Zapisy są zamknięte — gdy opuścisz listę oczekujących, nie wrócisz na nią. "
 "Opuścić mimo to?"
+
+#: src/ludamus/gates/web/django/event/maps.py
+msgid "Only the event's organizers can change its maps."
+msgstr "Tylko organizatorzy wydarzenia mogą zmieniać jego mapy."
+
+#: src/ludamus/gates/web/django/event/maps.py
+msgid "Map added."
+msgstr "Mapa dodana."
+
+#: src/ludamus/gates/web/django/event/maps.py
+msgid "Map not found."
+msgstr "Mapa nie została znaleziona."
+
+#: src/ludamus/gates/web/django/event/maps.py
+msgid "Map saved."
+msgstr "Mapa zapisana."
+
+#: src/ludamus/gates/web/django/event/maps.py
+msgid "Venues on the map updated."
+msgstr "Lokalizacje na mapie zaktualizowane."
+
+#: src/ludamus/gates/web/django/event/maps.py
+msgid "Map deleted."
+msgstr "Mapa usunięta."
 
 #: src/ludamus/gates/web/django/event/panel/forms.py
 msgid "Enrollment opens"
@@ -2602,26 +2627,6 @@ msgstr[0] "Wyeksportowano %(count)d punkt programu."
 msgstr[1] "Wyeksportowano %(count)d punkty programu."
 msgstr[2] "Wyeksportowano %(count)d punktów programu."
 msgstr[3] "Wyeksportowano %(count)d punkty programu."
-
-#: src/ludamus/gates/web/django/event/panel/views/maps.py
-msgid "Pick venues of this event."
-msgstr "Wybierz lokalizacje tego wydarzenia."
-
-#: src/ludamus/gates/web/django/event/panel/views/maps.py
-msgid "Map added."
-msgstr "Mapa dodana."
-
-#: src/ludamus/gates/web/django/event/panel/views/maps.py
-msgid "Map not found."
-msgstr "Mapa nie została znaleziona."
-
-#: src/ludamus/gates/web/django/event/panel/views/maps.py
-msgid "Map saved."
-msgstr "Mapa zapisana."
-
-#: src/ludamus/gates/web/django/event/panel/views/maps.py
-msgid "Map deleted."
-msgstr "Mapa usunięta."
 
 #: src/ludamus/gates/web/django/event/panel/views/proposal_category_settings.py
 msgid "Category updated successfully."
@@ -3156,14 +3161,13 @@ msgid "Upload the map image."
 msgstr "Prześlij obraz mapy."
 
 #: src/ludamus/gates/web/django/forms.py
-#: src/ludamus/templates/chronology/maps.html
 msgid "Venues on this map"
 msgstr "Lokalizacje na tej mapie"
 
 #: src/ludamus/gates/web/django/forms.py
-msgid "Each venue listed under the map links to its sessions on the schedule."
+msgid "Each venue listed beside the map links to its sessions on the schedule."
 msgstr ""
-"Każda lokalizacja wymieniona pod mapą prowadzi do jej punktów programu w "
+"Każda lokalizacja wymieniona obok mapy prowadzi do jej punktów programu w "
 "harmonogramie."
 
 #: src/ludamus/gates/web/django/forms.py
@@ -4233,6 +4237,51 @@ msgstr "Przejdź do %(day)s %(time)s"
 msgid "Open details for %(title)s"
 msgstr "Otwórz szczegóły %(title)s"
 
+#: src/ludamus/templates/chronology/_map_card.html
+#: src/ludamus/templates/panel/_space_tree_node.html
+#, python-format
+msgid "Edit %(name)s"
+msgstr "Edytuj %(name)s"
+
+#: src/ludamus/templates/chronology/_map_card.html
+msgid "Delete this map? Sessions will stop linking to it."
+msgstr "Usunąć tę mapę? Punkty programu przestaną do niej prowadzić."
+
+#: src/ludamus/templates/chronology/_map_card.html
+#: src/ludamus/templates/panel/facilitators.html
+#, python-format
+msgid "Delete %(name)s"
+msgstr "Usuń %(name)s"
+
+#: src/ludamus/templates/chronology/_map_card.html
+#, python-format
+msgid "Venues on %(name)s"
+msgstr "Lokalizacje na mapie %(name)s"
+
+#: src/ludamus/templates/chronology/_map_card.html
+msgid "Attach venue"
+msgstr "Dołącz lokalizację"
+
+#: src/ludamus/templates/chronology/_map_card.html
+msgid "Edit map"
+msgstr "Edytuj mapę"
+
+#: src/ludamus/templates/chronology/_map_card.html
+msgid "Save map"
+msgstr "Zapisz mapę"
+
+#: src/ludamus/templates/chronology/_map_card.html
+msgid ""
+"No venues to attach yet. Add them in the panel under Venues, and the map "
+"will link to their sessions."
+msgstr ""
+"Nie ma jeszcze lokalizacji do dołączenia. Dodaj je w panelu w sekcji "
+"Lokalizacje, a mapa będzie prowadzić do ich punktów programu."
+
+#: src/ludamus/templates/chronology/_map_card.html
+msgid "Save venues"
+msgstr "Zapisz lokalizacje"
+
 #: src/ludamus/templates/chronology/_proposal_section.html
 msgid "Your pending proposals"
 msgstr "Twoje oczekujące zgłoszenia"
@@ -4865,9 +4914,21 @@ msgid "A print-ready schedule is available at:"
 msgstr "Harmonogram gotowy do druku jest dostępny pod adresem:"
 
 #: src/ludamus/templates/chronology/maps.html
-#: src/ludamus/templates/panel/base.html src/ludamus/templates/panel/maps.html
+#: src/ludamus/templates/panel/base.html
 msgid "Maps"
 msgstr "Mapy"
+
+#: src/ludamus/templates/chronology/maps.html
+msgid "Add map"
+msgstr "Dodaj mapę"
+
+#: src/ludamus/templates/chronology/maps.html
+msgid ""
+"No maps yet. Upload a site plan or a floor plan so participants can find "
+"their rooms."
+msgstr ""
+"Nie ma jeszcze map. Prześlij plan terenu lub plan piętra, aby uczestnicy "
+"mogli znaleźć swoje sale."
 
 #: src/ludamus/templates/chronology/maps.html
 msgid "The organizers haven't added any maps yet."
@@ -4974,7 +5035,6 @@ msgstr "Połączenie:"
 #: src/ludamus/templates/panel/cfp.html
 #: src/ludamus/templates/panel/facilitators.html
 #: src/ludamus/templates/panel/integration-settings.html
-#: src/ludamus/templates/panel/maps.html
 #: src/ludamus/templates/panel/parts/_bulk_actions_facilitators.html
 #: src/ludamus/templates/panel/personal-data-fields.html
 #: src/ludamus/templates/panel/session-fields.html
@@ -5783,7 +5843,6 @@ msgstr ""
 #: src/ludamus/templates/panel/facilitators.html
 #: src/ludamus/templates/panel/import.html
 #: src/ludamus/templates/panel/integration-settings.html
-#: src/ludamus/templates/panel/maps.html
 #: src/ludamus/templates/panel/parts/proposal-actions.html
 #: src/ludamus/templates/panel/personal-data-fields.html
 #: src/ludamus/templates/panel/session-fields.html
@@ -6066,7 +6125,6 @@ msgstr "Przykładowe gildie"
 #: src/ludamus/templates/panel/facilitators.html
 #: src/ludamus/templates/panel/import.html
 #: src/ludamus/templates/panel/integration-settings.html
-#: src/ludamus/templates/panel/maps.html
 #: src/ludamus/templates/panel/parts/_change-log-table.html
 #: src/ludamus/templates/panel/personal-data-fields.html
 #: src/ludamus/templates/panel/proposals.html
@@ -6867,11 +6925,6 @@ msgstr "Dodaj przestrzeń wewnątrz %(name)s"
 
 #: src/ludamus/templates/panel/_space_tree_node.html
 #, python-format
-msgid "Edit %(name)s"
-msgstr "Edytuj %(name)s"
-
-#: src/ludamus/templates/panel/_space_tree_node.html
-#, python-format
 msgid "More actions for %(name)s"
 msgstr "Więcej akcji dla %(name)s"
 
@@ -7056,7 +7109,7 @@ msgctxt "Sidebar category"
 msgid "Schedule"
 msgstr "Plan"
 
-#: src/ludamus/templates/panel/base.html src/ludamus/templates/panel/maps.html
+#: src/ludamus/templates/panel/base.html
 #: src/ludamus/templates/panel/spaces.html
 msgid "Venues"
 msgstr "Lokalizacje"
@@ -7322,7 +7375,7 @@ msgstr ""
 #: src/ludamus/templates/panel/facilitators.html
 #: src/ludamus/templates/panel/import-log.html
 #: src/ludamus/templates/panel/import-run.html
-#: src/ludamus/templates/panel/index.html src/ludamus/templates/panel/maps.html
+#: src/ludamus/templates/panel/index.html
 #: src/ludamus/templates/panel/personal-data-fields.html
 #: src/ludamus/templates/panel/proposal-settings.html
 #: src/ludamus/templates/panel/proposals.html
@@ -8067,11 +8120,6 @@ msgid ""
 msgstr "Usunąć: %(name)s? Zniknie z programu; możesz go później przywrócić."
 
 #: src/ludamus/templates/panel/facilitators.html
-#, python-format
-msgid "Delete %(name)s"
-msgstr "Usuń %(name)s"
-
-#: src/ludamus/templates/panel/facilitators.html
 msgid "No facilitators match your filters."
 msgstr "Żaden twórca programu nie pasuje do filtrów."
 
@@ -8538,66 +8586,6 @@ msgstr ""
 #: src/ludamus/templates/panel/konwencik-export-settings.html
 msgid "Synchronisation"
 msgstr "Synchronizacja"
-
-#: src/ludamus/templates/panel/map-form.html
-msgid "Edit map"
-msgstr "Edytuj mapę"
-
-#: src/ludamus/templates/panel/map-form.html
-msgid "New map"
-msgstr "Nowa mapa"
-
-#: src/ludamus/templates/panel/map-form.html
-#, python-format
-msgid ""
-"No venues to tick yet — add them under <a href=\"%(venues_url)s\" "
-"class=\"text-primary hover:underline\">Venues</a> and the map will link to "
-"their sessions."
-msgstr ""
-"Nie ma jeszcze lokalizacji do zaznaczenia — dodaj je w sekcji <a "
-"href=\"%(venues_url)s\" class=\"text-primary hover:underline\">Lokalizacje</"
-"a>, a mapa będzie prowadzić do ich punktów programu."
-
-#: src/ludamus/templates/panel/map-form.html
-msgid "Save map"
-msgstr "Zapisz mapę"
-
-#: src/ludamus/templates/panel/map-form.html
-#: src/ludamus/templates/panel/maps.html
-msgid "Add map"
-msgstr "Dodaj mapę"
-
-#: src/ludamus/templates/panel/maps.html
-msgid "What are maps?"
-msgstr "Czym są mapy?"
-
-#: src/ludamus/templates/panel/maps.html
-msgid ""
-"Pictures of the venue — a site plan, a floor, a building — shown to "
-"participants on the event's maps page. Tick the venues each picture shows: "
-"sessions in those venues link to it, and the page links each venue back to "
-"its sessions."
-msgstr ""
-"Plany miejsca — plan terenu, piętra, budynku — pokazywane uczestnikom na "
-"stronie map wydarzenia. Zaznacz lokalizacje widoczne na każdym obrazie: "
-"punkty programu w tych lokalizacjach będą do niego prowadzić, a strona "
-"poprowadzi z każdej lokalizacji z powrotem do jej punktów programu."
-
-#: src/ludamus/templates/panel/maps.html
-msgid "Map"
-msgstr "Mapa"
-
-#: src/ludamus/templates/panel/maps.html
-msgid "Delete this map? Sessions will stop linking to it."
-msgstr "Usunąć tę mapę? Punkty programu przestaną do niej prowadzić."
-
-#: src/ludamus/templates/panel/maps.html
-msgid ""
-"No maps yet. Upload a site plan or a floor plan so participants can find "
-"their rooms."
-msgstr ""
-"Nie ma jeszcze map. Prześlij plan terenu lub plan piętra, aby uczestnicy "
-"mogli znaleźć swoje sale."
 
 #: src/ludamus/templates/panel/mcp-token.html
 #, python-format
@@ -10100,6 +10088,29 @@ msgstr ""
 "Nie ma nadchodzących wydarzeń ani publicznych spotkań. Sprawdź ponownie "
 "później!"
 
+#~ msgid "Pick venues of this event."
+#~ msgstr "Wybierz lokalizacje tego wydarzenia."
+
+#~ msgid "New map"
+#~ msgstr "Nowa mapa"
+
+#~ msgid "What are maps?"
+#~ msgstr "Czym są mapy?"
+
+#~ msgid ""
+#~ "Pictures of the venue — a site plan, a floor, a building — shown to "
+#~ "participants on the event's maps page. Tick the venues each picture "
+#~ "shows: sessions in those venues link to it, and the page links each venue "
+#~ "back to its sessions."
+#~ msgstr ""
+#~ "Plany miejsca — plan terenu, piętra, budynku — pokazywane uczestnikom na "
+#~ "stronie map wydarzenia. Zaznacz lokalizacje widoczne na każdym obrazie: "
+#~ "punkty programu w tych lokalizacjach będą do niego prowadzić, a strona "
+#~ "poprowadzi z każdej lokalizacji z powrotem do jej punktów programu."
+
+#~ msgid "Map"
+#~ msgstr "Mapa"
+
 #~ msgid "This is the current status."
 #~ msgstr "To jest obecny status."
 
@@ -10213,9 +10224,6 @@ msgstr ""
 
 #~ msgid "Venue"
 #~ msgstr "Lokalizacja"
-
-#~ msgid "All venues"
-#~ msgstr "Wszystkie lokalizacje"
 
 #~ msgid "Enrollment required"
 #~ msgstr "Wymagane zapisy"
@@ -10510,9 +10518,6 @@ msgstr ""
 
 #~ msgid "Shown on public session card"
 #~ msgstr "Widoczne na publicznej karcie punktu programu"
-
-#~ msgid "Only this facilitator's organizer can release it."
-#~ msgstr "Tylko opiekun tego twórcy programu może go zwolnić."
 
 #~ msgid "Default contact person. Assign yourself from the facilitator list."
 #~ msgstr ""

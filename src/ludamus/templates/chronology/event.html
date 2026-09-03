@@ -106,13 +106,13 @@
                             </div>
                         {% endif %}
                         {% if maps_url %}
-                            {# Icon only, like the calendar tile's glyph: the plans #}
-                            {# are one tap away and the page is not about them. #}
+                            {# A plain icon button, not a boxed tile: the tiles #}
+                            {# state facts about the event, this only opens a page. #}
                             {% translate "Venue maps" as t_venue_maps %}
                             <a href="{{ maps_url }}"
-                               title="{{ t_venue_maps }}"
-                               class="w-8 h-8 bg-teal-100 dark:bg-teal-900/30 rounded-lg flex items-center justify-center shrink-0 transition-colors duration-150 hover:bg-teal-200 dark:hover:bg-teal-800/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">
-                                {% icon "map" class="w-4 h-4 text-teal-600" variant="mini" %}
+                               class="icon-btn self-center"
+                               title="{{ t_venue_maps }}">
+                                {% icon "map" class="size-4" variant="mini" %}
                                 <span class="sr-only">{{ t_venue_maps }}</span>
                             </a>
                         {% endif %}

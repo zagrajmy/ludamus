@@ -1,0 +1,26 @@
+{% load i18n %}
+{% load tessera %}
+{# One row of the venue tree. Recursion via include: a Space tree is at most #}
+{# a few levels deep (SPACE_MAX_DEPTH), so the nested includes stay shallow. #}
+<li>
+    <span class="flex items-center gap-1.5 py-0.5">
+        {% if node.has_children %}
+            {% icon "folder" class="size-4 shrink-0 text-foreground-muted/70" variant="mini" %}
+        {% else %}
+            {% icon "map-pin" class="size-4 shrink-0 text-foreground-muted/70" variant="mini" %}
+        {% endif %}
+        {% if node.attached %}
+            <a href="{{ schedule_url }}?space={% if node.has_children %}venue:{% endif %}{{ node.pk }}#schedule-region"
+               class="truncate font-medium text-foreground underline decoration-dotted underline-offset-4 hover:text-primary">{{ node.name }}</a>
+        {% else %}
+            <span class="truncate text-foreground-muted">{{ node.name }}</span>
+        {% endif %}
+    </span>
+    {% if node.children %}
+        <ul class="ml-2 flex flex-col gap-0.5 border-l border-border pl-3">
+            {% for child in node.children %}
+                {% include "chronology/_map_tree_node.html" with node=child %}
+            {% endfor %}
+        </ul>
+    {% endif %}
+</li>

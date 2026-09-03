@@ -270,19 +270,23 @@ What visitors see: event details, session list, session cards.
 #### Pages: Event maps
 
 Venue plans an organizer uploads (a site plan, a floor), each tied to the
-spaces it shows. The public page lists them; the hero, the session cards
-and the session modal link into it; each space under a map links back to
-the schedule filtered to that venue.
+spaces it shows. One page for everyone: viewers see the plans with a file
+tree of their venues linking into the schedule filtered to that venue;
+organizers see the same page plus "Add map", per-map edit and delete, and
+"Attach venue", each an addressable modal. The panel sidebar only links
+here. The hero, the session cards and the session modal link into it.
 
-- **URLs:** `/chronology/event/<slug>/maps/` (public), `/panel/event/<slug>/maps/…`
-- **Views:** `gates/web/django/event/maps.py` — `EventMapsPageView`;
-  `gates/web/django/event/panel/views/maps.py` — list, create, edit, delete
-- **Templates:** `templates/chronology/maps.html`,
-  `_session_map_link.html`, `templates/panel/maps.html`, `map-form.html`
+- **URLs:** `/chronology/event/<slug>/maps/` (page),
+  `…/maps/do/add`, `…/maps/<pk>/do/edit`, `…/maps/<pk>/do/attach`,
+  `…/maps/<pk>/do/delete` (organizer actions)
+- **Views:** `gates/web/django/event/maps.py` — `EventMapsPageView` and the
+  four action views; writes check `passes_panel_access` on arrival
+- **Templates:** `templates/chronology/maps.html`, `_map_card.html`,
+  `_map_tree_node.html`, `_session_map_link.html`
 - **Service:** `EventMapsService` (`mills/maps.py`) — scopes every pk to the
   event; `index()` resolves each space to the map of its nearest mapped
   ancestor, so a room inherits its venue's plan
-- **DTOs:** `EventMapDTO`, `MapSpaceDTO`, `EventMapInputDTO`, `MapIndexDTO`
+- **DTOs:** `EventMapDTO`, `MapSpaceDTO`, `MapTreeNodeDTO`, `MapIndexDTO`
   (`pacts/maps.py`)
 - **Model:** `EventMap` (`event_map`, m2m to `Space`)
 
