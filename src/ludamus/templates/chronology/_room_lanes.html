@@ -74,10 +74,8 @@
             {# Only the fade's sizing custom properties — room-lanes.css states #}
             {# both halves' fades against the body's offset. #}
             <div class="room-lanes-head scrollview-fade-x-8" data-room-lanes-head>
-                {# Beside the grid, not in it: the grid moves — see #}
-                {# .room-lanes-corner in room-lanes.css. It paints its own #}
-                {# ground over the columns travelling under it, as the body's #}
-                {# hour labels do. #}
+                {# Beside the grid, not in it — see .room-lanes-corner in #}
+                {# room-lanes.css. #}
                 <div class="room-lanes-corner z-10 bg-background text-[0.625rem] font-semibold uppercase tracking-widest text-foreground-muted px-1 py-1.5 text-right flex items-end justify-end text-box-trim-both">
                     {% translate "Time" %}
                 </div>

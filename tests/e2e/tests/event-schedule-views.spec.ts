@@ -181,22 +181,19 @@ test.describe("Event schedule views", () => {
     // Reached by Tab, not by focus(): focus() succeeds on tabindex="-1" too,
     // and a focused scroller pans on arrow keys whatever its tabindex says, so
     // asserting focusability would pass on exactly the grid this test exists to
-    // rule out — one no keyboard user can get to. Arriving from the control
-    // before it also fails if anything is inserted into the tab order between.
-    const inTabOrder = await grid.evaluate((el) => {
-      const stops = [
-        ...document.querySelectorAll<HTMLElement>(
-          'a[href], button, input, select, textarea, [tabindex]:not([tabindex="-1"])',
-        ),
-      ].filter((stop) => stop === el || stop.offsetParent !== null);
-      const here = stops.findIndex((stop) => stop === el);
-      if (here <= 0) return false;
-      stops[here - 1]?.focus();
-      return true;
+    // rule out — one no keyboard user can get to. Tabbing from the top of the
+    // page is the user's own route, and it is the browser's model of the tab
+    // order rather than a guess at it: predicting the previous stop from the
+    // DOM misses that a fixed or hidden control is skipped.
+    await page.evaluate(() => {
+      document.body.focus();
     });
-    expect(inTabOrder).toBe(true);
-    await page.keyboard.press("Tab");
-    await expect(grid).toBeFocused();
+    let reached = false;
+    for (let press = 0; press < 60 && !reached; press++) {
+      await page.keyboard.press("Tab");
+      reached = await grid.evaluate((el) => el === document.activeElement);
+    }
+    expect(reached).toBe(true);
 
     const panned = async () => grid.evaluate((el) => Math.round(el.scrollLeft));
     expect(await panned()).toBe(0);
@@ -304,18 +301,23 @@ test.describe("Event schedule views", () => {
     expect(await body.evaluate((el) => getComputedStyle(el).maskImage)).not.toBe("none");
 
     // The mask above is only half the claim: it says a gradient is installed,
-    // not that it tracks the grid. These fades run off this grid's own scroll
-    // timeline, so the edge has to darken as the columns reach it. Engines
-    // without scroll timelines never fade — there the @property initial value
-    // is the whole behaviour — so the check is skipped rather than inverted.
-    const faded = async () =>
-      body.evaluate((el) => Number(getComputedStyle(el).getPropertyValue("--fade-end-opacity")));
+    // not that it tracks the grid. Both halves run their fades off the body's
+    // scroll timeline, so both edges have to darken as the columns reach them —
+    // the strip especially, since a strip fading on a timeline of its own is
+    // what left one crisp edge above a permanently faded one. Engines without
+    // scroll timelines never fade — there the @property initial value is the
+    // whole behaviour — so the check is skipped rather than inverted.
+    const head = page.locator("[data-room-lanes-head]").first();
+    const faded = async (half: typeof body) =>
+      half.evaluate((el) => Number(getComputedStyle(el).getPropertyValue("--fade-end-opacity")));
     if (await page.evaluate(() => CSS.supports("timeline-scope: --room-lanes-x"))) {
-      expect(await faded()).toBeLessThan(1);
+      expect(await faded(body)).toBeLessThan(1);
+      expect(await faded(head)).toBeLessThan(1);
       await body.evaluate((el) => {
         el.scrollLeft = el.scrollWidth - el.clientWidth;
       });
-      await expect.poll(faded).toBe(1);
+      await expect.poll(() => faded(body)).toBe(1);
+      await expect.poll(() => faded(head)).toBe(1);
       await body.evaluate((el) => {
         el.scrollLeft = 0;
       });

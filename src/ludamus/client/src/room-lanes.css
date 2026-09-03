@@ -113,14 +113,12 @@ body:has(.room-lanes-panning) * {
   container-type: inline-size;
 }
 
+/* The gutter stays opaque in both halves — each paints its own axis over the
+   columns passing beneath it, rather than being cut back to something further
+   out. */
 .room-lanes-head,
 .room-lanes-scroll {
-  /* Named once and used twice: the two properties must not drift, and a
-     half-applied edit would fail only in whichever engine reads the other.
-     The gutter stays opaque in both halves — each paints its own axis over
-     the columns passing beneath it, rather than being cut back to something
-     further out. */
-  --room-lanes-mask: linear-gradient(
+  mask-image: linear-gradient(
     90deg,
     black 0,
     black var(--axis-w),
@@ -130,10 +128,7 @@ body:has(.room-lanes-panning) * {
     hsl(0 0% 0% / var(--fade-end-opacity))
   );
 
-  mask-image: var(--room-lanes-mask);
-  -webkit-mask-image: var(--room-lanes-mask);
   mask-repeat: no-repeat;
-  -webkit-mask-repeat: no-repeat;
 }
 
 .room-lanes-scroll {
