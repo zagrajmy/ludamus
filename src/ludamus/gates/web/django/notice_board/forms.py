@@ -38,7 +38,7 @@ class EncounterForm(forms.Form):
             "Anyone with the link can always view it."
         ),
     )
-    header_image = cover_image_field()
+    header_image = cover_image_field(crop="top-and-bottom")
 
     def clean_header_image(self) -> object:
         image = self.cleaned_data.get("header_image")
