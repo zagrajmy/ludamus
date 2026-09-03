@@ -323,3 +323,8 @@ If you fix a papercut, remove it.
   narrow the run widens nothing. Had to fall back to
   'mise run test:unit -- -k ...'. A narrow-path run is what CLAUDE.md asks for
   while working.
+- 2026-09-03: A mise task (ran lint:djlint / lint:tingle / mise tasks) leaves an
+  empty .env.local.tmp in the repo root. .gitignore's .env*.local doesn't match
+  the .tmp suffix, so it shows up as untracked and trips the stop hook that asks
+  for everything to be committed — but it's an env-shaped temp file nobody
+  should commit. Either clean it up in the task or extend the ignore pattern.
