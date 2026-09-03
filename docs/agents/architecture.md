@@ -274,7 +274,7 @@ spaces it shows. One page for everyone: viewers see the plans with a file
 tree of their venues linking into the schedule filtered to that venue;
 organizers see the same page plus "Add map", per-map edit and delete, and
 "Attach venue", each an addressable modal. The panel sidebar only links
-here. The hero, the session cards and the session modal link into it.
+here. The hero and session modal link into it.
 
 - **URLs:** `/chronology/event/<slug>/maps/` (page),
   `…/maps/do/add`, `…/maps/<pk>/do/edit`, `…/maps/<pk>/do/attach`,

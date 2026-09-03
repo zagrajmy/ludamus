@@ -466,21 +466,16 @@ class TestEventPageMapLinks:
     def _url(slug):
         return reverse("web:chronology:event", kwargs={"slug": slug})
 
-    def test_hero_links_to_the_maps_page_and_cards_to_their_map(
-        self, client, event, agenda_item
-    ):
-        # The room is not on the map, its venue is: the card still finds it.
+    def test_hero_links_to_the_maps_page(self, client, event, agenda_item):
         building = SpaceFactory(event=event, name="Hall")
         agenda_item.space.parent = building
         agenda_item.space.save()
-        site_plan = make_map(event, "Site plan", building)
+        make_map(event, "Site plan", building)
         url = self._url(event.slug)
 
         response = client.get(url)
 
-        card = session_card(
-            agenda_item, presenter=agenda_item.session.presenter, map_pk=site_plan.pk
-        )
+        card = session_card(agenda_item, presenter=agenda_item.session.presenter)
         assert_response(
             response,
             HTTPStatus.OK,

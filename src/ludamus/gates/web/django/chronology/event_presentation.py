@@ -11,7 +11,7 @@ from ludamus.pacts import EventListItemDTO
 from ludamus.pacts.legacy import SessionParticipationStatus, TimeSlotDTO
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable, Iterator, Mapping, Sequence
+    from collections.abc import Iterable, Iterator, Sequence
 
     from ludamus.pacts import (
         AgendaItemDTO,
@@ -122,9 +122,6 @@ class SessionData:  # pylint: disable=too-many-instance-attributes
     # pending proposal: a scheduled session states its real time via
     # agenda_item, and reading the m2m for one would cost a query per card.
     preferred_time_slots: list[TimeSlotDTO] = field(default_factory=list)
-    # The event map this session's room is drawn on, or None when no map
-    # shows the room or any venue above it. Patched on after construction
-    # from one index read per page, never per card.
     map_pk: int | None = None
 
     @property
@@ -526,10 +523,3 @@ def _user_info(user: UserDTO) -> UserInfo:
         slug=user.slug,
         username=user.username,
     )
-
-
-def attach_map_pks(
-    cards: Iterable[SessionData], map_pk_by_space: Mapping[int, int]
-) -> None:
-    for card in cards:
-        card.map_pk = map_pk_by_space.get(card.loc["space_id"])

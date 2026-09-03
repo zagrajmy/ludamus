@@ -34,7 +34,6 @@
         <span class="shrink-0 text-xs text-foreground-muted max-sm:basis-full sm:whitespace-nowrap sm:text-right"
               title="{{ data.location_label }}">
             {{ data.loc.space_name }}
-            {% include "chronology/_session_map_link.html" %}
             {% with duration_label=data.session.duration|format_duration %}
                 {% if duration_label %}· {{ duration_label }}{% endif %}
             {% endwith %}

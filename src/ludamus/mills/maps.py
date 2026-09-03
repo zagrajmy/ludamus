@@ -1,15 +1,79 @@
 from __future__ import annotations
 
+from collections import defaultdict
 from typing import TYPE_CHECKING
 
 from ludamus.pacts import NotFoundError
-from ludamus.pacts.maps import EventMapsServiceProtocol, MapIndexDTO
+from ludamus.pacts.maps import (
+    EventMapDTO,
+    EventMapsServiceProtocol,
+    MapSpaceDTO,
+    MapTreeNodeDTO,
+)
 
 if TYPE_CHECKING:
-    from ludamus.pacts import SpaceRepositoryProtocol
+    from ludamus.pacts import SpaceDTO, SpaceRepositoryProtocol
     from ludamus.pacts.legacy import UploadedFileProtocol
-    from ludamus.pacts.maps import EventMapDTO, EventMapRepositoryProtocol
+    from ludamus.pacts.maps import EventMapRecordDTO, EventMapRepositoryProtocol
     from ludamus.pacts.services import TransactionProtocol
+
+
+class _SpaceTree:
+    def __init__(self, spaces: list[SpaceDTO]) -> None:
+        self.by_pk = {space.pk: space for space in spaces}
+        self.children: dict[int | None, list[int]] = defaultdict(list)
+        for space in spaces:
+            self.children[space.parent_id].append(space.pk)
+
+    def path(self, pk: int) -> str:
+        space = self.by_pk[pk]
+        if space.parent_id is None or space.parent_id not in self.by_pk:
+            return space.name
+        return f"{self.path(space.parent_id)} > {space.name}"
+
+    def for_map(self, attached: set[int]) -> list[MapTreeNodeDTO]:
+        visible: set[int] = set()
+        for pk in attached:
+            current: int | None = pk
+            while current is not None and current in self.by_pk:
+                visible.add(current)
+                current = self.by_pk[current].parent_id
+
+        def build(pk: int) -> MapTreeNodeDTO:
+            return MapTreeNodeDTO(
+                pk=pk,
+                name=self.by_pk[pk].name,
+                attached=pk in attached,
+                has_children=bool(self.children.get(pk)),
+                children=[
+                    build(child) for child in self.children[pk] if child in visible
+                ],
+            )
+
+        return [build(pk) for pk in self.children[None] if pk in visible]
+
+    def nearest(self, pk: int, direct: dict[int, int]) -> int | None:
+        current: int | None = pk
+        while current is not None and current not in direct:
+            space = self.by_pk.get(current)
+            current = space.parent_id if space else None
+        return direct.get(current) if current is not None else None
+
+
+def _present_map(event_map: EventMapRecordDTO, tree: _SpaceTree) -> EventMapDTO:
+    attached = {pk for pk in event_map.space_pks if pk in tree.by_pk}
+    return EventMapDTO(
+        pk=event_map.pk,
+        event_id=event_map.event_id,
+        name=event_map.name,
+        image_url=event_map.image_url,
+        image_original_name=event_map.image_original_name,
+        spaces=[
+            MapSpaceDTO(pk=pk, name=tree.path(pk))
+            for pk in sorted(attached, key=tree.path)
+        ],
+        tree=tree.for_map(attached),
+    )
 
 
 class EventMapsService(EventMapsServiceProtocol):
@@ -24,11 +88,13 @@ class EventMapsService(EventMapsServiceProtocol):
         self._spaces = spaces
 
     def list_for_event(self, event_pk: int) -> list[EventMapDTO]:
-        return self._maps.list_for_event(event_pk)
+        maps = self._maps.list_for_event(event_pk)
+        if not maps:
+            return []
+        tree = _SpaceTree(self._spaces.list_by_event(event_pk))
+        return [_present_map(event_map, tree) for event_map in maps]
 
-    def read(self, *, event_pk: int, pk: int) -> EventMapDTO:
-        # Panel access proves the organizer manages this event, not that the
-        # pk in the URL belongs to it: a map of another event reads as absent.
+    def read(self, *, event_pk: int, pk: int) -> EventMapRecordDTO:
         event_map = self._maps.read(pk)
         if event_map.event_id != event_pk:
             raise NotFoundError
@@ -36,19 +102,17 @@ class EventMapsService(EventMapsServiceProtocol):
 
     def create(
         self, *, event_pk: int, name: str, image: UploadedFileProtocol
-    ) -> EventMapDTO:
+    ) -> EventMapRecordDTO:
         return self._maps.create(event_pk=event_pk, name=name, image=image)
 
     def update(
         self, *, event_pk: int, pk: int, name: str, image: UploadedFileProtocol | None
-    ) -> EventMapDTO:
+    ) -> EventMapRecordDTO:
         with self._transaction.atomic():
             self.read(event_pk=event_pk, pk=pk)
             return self._maps.update(pk=pk, name=name, image=image)
 
     def attach_spaces(self, *, event_pk: int, pk: int, space_pks: list[int]) -> None:
-        # Body ids are as unproven as URL ids: a space of another event in the
-        # posted list refuses the whole write rather than pinning it quietly.
         with self._transaction.atomic():
             self.read(event_pk=event_pk, pk=pk)
             event_space_pks = {
@@ -63,24 +127,16 @@ class EventMapsService(EventMapsServiceProtocol):
             self.read(event_pk=event_pk, pk=pk)
             self._maps.delete(pk)
 
-    def index(self, event_pk: int) -> MapIndexDTO:
-        # A map drawn for a venue covers every room inside it, so a room with
-        # no map of its own inherits the nearest ancestor's. The first map in
-        # display order wins when several show the same space.
-        if not (maps := self._maps.list_for_event(event_pk)):
-            return MapIndexDTO(has_maps=False, map_pk_by_space={})
+    def has_maps(self, event_pk: int) -> bool:
+        return self._maps.exists_for_event(event_pk)
+
+    def map_pk_for_space(self, *, event_pk: int, space_pk: int) -> int | None:
+        maps = self._maps.list_for_event(event_pk)
         direct: dict[int, int] = {}
         for event_map in maps:
-            for space_pk in event_map.space_pks:
-                direct.setdefault(space_pk, event_map.pk)
-
-        spaces = self._spaces.list_by_event(event_pk)
-        parent_of = {space.pk: space.parent_id for space in spaces}
-        resolved: dict[int, int] = {}
-        for space in spaces:
-            current: int | None = space.pk
-            while current is not None and current not in direct:
-                current = parent_of.get(current)
-            if current is not None:
-                resolved[space.pk] = direct[current]
-        return MapIndexDTO(has_maps=True, map_pk_by_space=resolved)
+            for attached_pk in event_map.space_pks:
+                direct.setdefault(attached_pk, event_map.pk)
+        if not direct:
+            return None
+        tree = _SpaceTree(self._spaces.list_by_event(event_pk))
+        return tree.nearest(space_pk, direct)

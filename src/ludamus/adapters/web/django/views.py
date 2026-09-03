@@ -38,7 +38,6 @@ from ludamus.gates.web.django.chronology.enrollment_presentation import (
 from ludamus.gates.web.django.chronology.event_presentation import (
     ParticipationInfo,
     SessionData,
-    attach_map_pks,
     build_display_field_row,
     filter_availability,
     filterable_tag_fields,
@@ -322,8 +321,7 @@ class EventPageView(EventsPageRequiredMixin, DetailView):  # type: ignore [type-
             )
             for sid, data in sessions_data.items()
         }
-        map_index = self.request.services.event_maps.index(self.object.pk)
-        attach_map_pks(sessions_data.values(), map_index.map_pk_by_space)
+        has_maps = self.request.services.event_maps.has_maps(self.object.pk)
 
         hour_data = dict(self._get_hour_data(event_sessions, sessions_data))
 
@@ -373,7 +371,7 @@ class EventPageView(EventsPageRequiredMixin, DetailView):  # type: ignore [type-
                     reverse(
                         "web:chronology:event-maps", kwargs={"slug": self.object.slug}
                     )
-                    if map_index.has_maps
+                    if has_maps
                     else None
                 ),
                 "google_calendar_url": google_calendar_url(calendar_entry),

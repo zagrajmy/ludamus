@@ -20,7 +20,7 @@ from django.urls import reverse
 from django.utils.translation import gettext as _
 from django.views.generic.base import View
 
-from ludamus.gates.web.django.access import panel_access, passes_panel_access
+from ludamus.gates.web.django.access import panel_access
 from ludamus.gates.web.django.forms import create_event_map_form, create_map_spaces_form
 from ludamus.gates.web.django.helpers import is_event_published
 from ludamus.gates.web.django.panel import refuse_panel_access
@@ -41,12 +41,9 @@ if TYPE_CHECKING:
 
 @dataclass
 class MapCard:
-    # One plan as the page renders it, with the organizer's two dialogs bound
-    # to it. Both forms exist for viewers too — they render nothing without
-    # can_edit — so the template never branches on their presence.
     map: EventMapDTO
-    edit_form: forms.Form
-    attach_form: forms.Form
+    edit_form: forms.Form | None
+    attach_form: forms.Form | None
 
 
 def _read_event(request: RootRequest, slug: str) -> EventDTO:
@@ -82,29 +79,33 @@ def render_maps_page(
 ) -> HttpResponse:
     # The action views pass the form that failed so its dialog reopens with
     # the errors; every other dialog gets a fresh one.
-    can_edit = panel_access(request).granted
+    access = panel_access(request)
+    can_edit = access.allows(Capability.PANEL_WRITE)
     space_choices = _space_choices(request, event.pk) if can_edit else []
     edit_forms = edit_forms or {}
     attach_forms = attach_forms or {}
     cards = []
     for event_map in request.services.event_maps.list_for_event(event.pk):
-        edit_form = edit_forms.get(event_map.pk) or create_event_map_form(
-            has_image=True
-        )(
-            auto_id=f"edit_map_{event_map.pk}_%s",
-            initial={
-                "name": event_map.name,
-                "image": stored_file(
-                    event_map.image_url, event_map.image_original_name
-                ),
-            },
-        )
-        attach_form = attach_forms.get(event_map.pk) or create_map_spaces_form(
-            space_choices=space_choices
-        )(
-            auto_id=f"attach_{event_map.pk}_%s",
-            initial={"spaces": [str(pk) for pk in event_map.space_pks]},
-        )
+        edit_form = None
+        attach_form = None
+        if can_edit:
+            edit_form = edit_forms.get(event_map.pk) or create_event_map_form(
+                has_image=True
+            )(
+                auto_id=f"edit_map_{event_map.pk}_%s",
+                initial={
+                    "name": event_map.name,
+                    "image": stored_file(
+                        event_map.image_url, event_map.image_original_name
+                    ),
+                },
+            )
+            attach_form = attach_forms.get(event_map.pk) or create_map_spaces_form(
+                space_choices=space_choices
+            )(
+                auto_id=f"attach_{event_map.pk}_%s",
+                initial={"spaces": [str(pk) for pk in event_map.space_pks]},
+            )
         cards.append(
             MapCard(map=event_map, edit_form=edit_form, attach_form=attach_form)
         )
@@ -115,7 +116,11 @@ def render_maps_page(
             "event": event,
             "cards": cards,
             "can_edit": can_edit,
-            "add_form": add_form or create_event_map_form(has_image=False)(),
+            "add_form": (
+                add_form or create_event_map_form(has_image=False)()
+                if can_edit
+                else None
+            ),
             "schedule_url": reverse(
                 "web:chronology:event", kwargs={"slug": event.slug}
             ),
@@ -135,11 +140,12 @@ def _refused(request: RootRequest) -> HttpResponse | None:
     # Organizer-only writes on a public page: the page itself is open to
     # everyone, so each action checks the write capability on arrival rather
     # than inheriting a panel mixin's login redirect.
-    if passes_panel_access(request, write_capability=Capability.PANEL_WRITE):
+    access = panel_access(request)
+    if access.allows(Capability.PANEL_WRITE):
         return None
     return refuse_panel_access(
         request=request,
-        reads_panel=panel_access(request).granted,
+        reads_panel=access.granted,
         message=_("Only the event's organizers can change its maps."),
     )
 

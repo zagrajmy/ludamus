@@ -90,7 +90,6 @@
                     {% elif data.location_label %}
                         {% icon "map-pin" class="size-4 shrink-0 text-foreground-muted/80" variant="mini" %}
                         <span class="truncate" title="{{ data.location_label }}">{{ data.location_label }}</span>
-                        {% include "chronology/_session_map_link.html" %}
                     {% endif %}
                     {% with duration_label=data.session.duration|format_duration %}
                         {% if duration_label %}
