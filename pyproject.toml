@@ -519,6 +519,7 @@ ignore_names = [
     "is_repeated",
     "item_name",
     "location_label",
+    "map_pk",
     "opens_slot",
     "overflow_count",
     "panel_id",
