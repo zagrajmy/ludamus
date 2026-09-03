@@ -4640,10 +4640,6 @@ msgstr[2] "Punktów programu"
 msgstr[3] "Punktów programu"
 
 #: src/ludamus/templates/chronology/event.html
-msgid "Venue maps"
-msgstr "Mapy lokalizacji"
-
-#: src/ludamus/templates/chronology/event.html
 msgid "View on map ↗"
 msgstr "Zobacz na mapie ↗"
 
@@ -4654,6 +4650,10 @@ msgstr "Zobacz program"
 #: src/ludamus/templates/chronology/event.html
 msgid "Sign up for sessions"
 msgstr "Zapisz się na sesje"
+
+#: src/ludamus/templates/chronology/event.html
+msgid "Venue maps"
+msgstr "Mapy lokalizacji"
 
 #: src/ludamus/templates/chronology/event.html
 msgid "Participant"
