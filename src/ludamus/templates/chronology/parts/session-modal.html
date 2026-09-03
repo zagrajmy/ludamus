@@ -80,6 +80,7 @@
                                 {# room name itself needs. #}
                                 {% icon "map-pin" class="size-4 shrink-0 opacity-80 max-[400px]:hidden" variant="mini" %}
                                 <span class="truncate" title="{{ data.location_label }}">{{ data.location_label }}</span>
+                                {% include "chronology/_session_map_link.html" %}
                             </span>
                         {% endif %}
                         {% if data.presenter.pk %}

@@ -321,6 +321,7 @@ class EventPageView(EventsPageRequiredMixin, DetailView):  # type: ignore [type-
             )
             for sid, data in sessions_data.items()
         }
+        has_maps = self.request.services.event_maps.has_maps(self.object.pk)
 
         hour_data = dict(self._get_hour_data(event_sessions, sessions_data))
 
@@ -366,6 +367,13 @@ class EventPageView(EventsPageRequiredMixin, DetailView):  # type: ignore [type-
                 "room_lanes": build_room_lanes(schedule_days) if rooms_view else None,
                 "schedule_list_url": event_url,
                 "schedule_rooms_url": f"{event_url}?view=rooms",
+                "maps_url": (
+                    reverse(
+                        "web:chronology:event-maps", kwargs={"slug": self.object.slug}
+                    )
+                    if has_maps
+                    else None
+                ),
                 "google_calendar_url": google_calendar_url(calendar_entry),
                 "card_days": card_days,
                 "total_enrolled": total_enrolled,

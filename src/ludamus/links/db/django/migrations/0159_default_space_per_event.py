@@ -23,6 +23,6 @@ def add_default_space(apps, schema_editor):
 
 class Migration(migrations.Migration):
 
-    dependencies = [("db_main", "0156_merge_event_address_and_eventintegration")]
+    dependencies = [("db_main", "0158_merge_0157_alter_user_avatar_url_0157_eventmap")]
 
     operations = [migrations.RunPython(add_default_space, migrations.RunPython.noop)]

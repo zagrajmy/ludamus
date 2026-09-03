@@ -461,6 +461,11 @@ If you fix a papercut, remove it.
 - 2026-09-01: Running mise run check inspected the untracked .pi agent-state
   directory and failed on a generated JSON file missing a final newline, so
   project checks require moving unrelated harness state aside.
+- 2026-09-01: mise run bootstrap in the web sandbox failed on the aliased
+  linter backends even with MISE_ENV=sandbox: actionlint's go modules died on
+  sum.golang.org stream errors and shellcheck-py/hadolint-py timed out
+  fetching wheel metadata from PyPI. Had to build the venv and run poetry,
+  npm and vite by hand to get a server up.
 - 2026-09-01: mise run check reformatted 90 vendored
   .claude/skills/impeccable/scripts/*.mjs files unrelated to the diff; had to
   git checkout -- .claude/ before committing.
