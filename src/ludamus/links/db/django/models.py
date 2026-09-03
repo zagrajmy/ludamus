@@ -1005,13 +1005,12 @@ class EventMap(models.Model):
     # Which spaces the picture shows; a space may appear on several maps (an
     # overview and a floor plan), so this is a relation rather than a column.
     spaces = models.ManyToManyField(Space, related_name="maps", blank=True)
-    order = models.PositiveIntegerField(default=0)
     creation_time = models.DateTimeField(auto_now_add=True)
     modification_time = models.DateTimeField(auto_now=True)
 
     class Meta:
         db_table = "event_map"
-        ordering: ClassVar = ["order", "pk"]
+        ordering: ClassVar = ["pk"]
 
     def __str__(self) -> str:
         return self.name

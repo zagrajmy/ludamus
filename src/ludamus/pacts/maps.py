@@ -4,28 +4,27 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Protocol
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, Field
 
 if TYPE_CHECKING:
     from ludamus.pacts.legacy import UploadedFileProtocol
 
 
-class MapSpaceDTO(BaseModel):
-    pk: int
-    name: str
-
-
 class MapTreeNodeDTO(BaseModel):
+    # One row of the venue tree beside a map. An ancestor that is not attached
+    # itself is still drawn, so the reader sees where a room sits, but only an
+    # attached node with a filter the schedule understands becomes a link.
     pk: int
     name: str
     attached: bool
     has_children: bool
+    # The `?space=` value that narrows the schedule to this node, or None when
+    # the schedule cannot express it (a venue whose rooms sit further down).
+    schedule_filter: str | None
     children: list[MapTreeNodeDTO]
 
 
 class EventMapRecordDTO(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
     pk: int
     event_id: int
     name: str
@@ -34,18 +33,8 @@ class EventMapRecordDTO(BaseModel):
     space_pks: list[int] = Field(default_factory=list)
 
 
-class EventMapDTO(BaseModel):
-    pk: int
-    event_id: int
-    name: str
-    image_url: str
-    image_original_name: str = ""
-    spaces: list[MapSpaceDTO] = Field(default_factory=list)
+class EventMapDTO(EventMapRecordDTO):
     tree: list[MapTreeNodeDTO] = Field(default_factory=list)
-
-    @property
-    def space_pks(self) -> list[int]:
-        return [space.pk for space in self.spaces]
 
 
 class EventMapRepositoryProtocol(Protocol):

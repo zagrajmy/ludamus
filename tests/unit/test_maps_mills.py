@@ -5,12 +5,7 @@ import pytest
 
 from ludamus.mills.maps import EventMapsService
 from ludamus.pacts import NotFoundError, SpaceDTO
-from ludamus.pacts.maps import (
-    EventMapDTO,
-    EventMapRecordDTO,
-    MapSpaceDTO,
-    MapTreeNodeDTO,
-)
+from ludamus.pacts.maps import EventMapDTO, EventMapRecordDTO, MapTreeNodeDTO
 
 EVENT_PK = 7
 OTHER_EVENT_PK = 8
@@ -75,19 +70,21 @@ class TestListForEvent:
                 event_id=EVENT_PK,
                 name="map-10",
                 image_url="/media/eventmaps/10.png",
-                spaces=[MapSpaceDTO(pk=2, name="Hall > Room 1")],
+                space_pks=[2, 99],
                 tree=[
                     MapTreeNodeDTO(
                         pk=1,
                         name="Hall",
                         attached=False,
                         has_children=True,
+                        schedule_filter="venue:1",
                         children=[
                             MapTreeNodeDTO(
                                 pk=2,
                                 name="Room 1",
                                 attached=True,
                                 has_children=False,
+                                schedule_filter="2",
                                 children=[],
                             )
                         ],
@@ -95,6 +92,19 @@ class TestListForEvent:
                 ],
             )
         ]
+
+    def test_a_venue_above_the_rooms_parent_gets_no_schedule_filter(self):
+        # Building 1 > Floor 2 > Room 3. The schedule filters by room or by
+        # the room's direct parent, so the building node cannot link.
+        service, _maps = _service(
+            maps=[_record(10, [1])],
+            spaces=[_space(1), _space(2, parent_id=1), _space(3, parent_id=2)],
+        )
+
+        [event_map] = service.list_for_event(EVENT_PK)
+
+        assert [node.schedule_filter for node in event_map.tree] == [None]
+        assert event_map.tree[0].children == []
 
 
 class TestMapForSpace:

@@ -34,7 +34,6 @@ class Migration(migrations.Migration):
                     "image_original_name",
                     models.CharField(blank=True, default="", max_length=255),
                 ),
-                ("order", models.PositiveIntegerField(default=0)),
                 ("creation_time", models.DateTimeField(auto_now_add=True)),
                 ("modification_time", models.DateTimeField(auto_now=True)),
                 (
@@ -52,6 +51,6 @@ class Migration(migrations.Migration):
                     ),
                 ),
             ],
-            options={"db_table": "event_map", "ordering": ["order", "pk"]},
+            options={"db_table": "event_map", "ordering": ["pk"]},
         )
     ]

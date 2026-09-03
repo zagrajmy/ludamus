@@ -122,7 +122,6 @@ class SessionData:  # pylint: disable=too-many-instance-attributes
     # pending proposal: a scheduled session states its real time via
     # agenda_item, and reading the m2m for one would cost a query per card.
     preferred_time_slots: list[TimeSlotDTO] = field(default_factory=list)
-    map_pk: int | None = None
 
     @property
     def cloud_overflow(self) -> list[CloudPill]:

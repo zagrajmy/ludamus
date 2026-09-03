@@ -104,7 +104,7 @@ def render_maps_page(
             "cards": cards,
             "can_edit": can_edit,
             "add_form": (
-                add_form or create_event_map_form(has_image=False)()
+                (add_form or create_event_map_form(has_image=False)())
                 if can_edit
                 else None
             ),

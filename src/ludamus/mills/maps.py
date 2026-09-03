@@ -4,12 +4,7 @@ from collections import defaultdict
 from typing import TYPE_CHECKING
 
 from ludamus.pacts import NotFoundError
-from ludamus.pacts.maps import (
-    EventMapDTO,
-    EventMapsServiceProtocol,
-    MapSpaceDTO,
-    MapTreeNodeDTO,
-)
+from ludamus.pacts.maps import EventMapDTO, EventMapsServiceProtocol, MapTreeNodeDTO
 
 if TYPE_CHECKING:
     from ludamus.pacts import SpaceDTO, SpaceRepositoryProtocol
@@ -25,13 +20,19 @@ class _SpaceTree:
         for space in spaces:
             self.children[space.parent_id].append(space.pk)
 
-    def path(self, pk: int) -> str:
-        space = self.by_pk[pk]
-        if space.parent_id is None or space.parent_id not in self.by_pk:
-            return space.name
-        return f"{self.path(space.parent_id)} > {space.name}"
+    def schedule_filter(self, pk: int) -> str | None:
+        # The schedule filters a session by its room or by the room's direct
+        # parent (`venue:<pk>`), the same two facts its cards carry. A venue
+        # whose rooms sit deeper has no filter, so its node stays plain text.
+        if not (children := self.children.get(pk, [])):
+            return str(pk)
+        if all(not self.children.get(child) for child in children):
+            return f"venue:{pk}"
+        return None
 
     def for_map(self, attached: set[int]) -> list[MapTreeNodeDTO]:
+        # Attached nodes and every ancestor of one, in the tree's own order;
+        # nothing else, so a map of one room does not draw the whole building.
         visible: set[int] = set()
         for pk in attached:
             current: int | None = pk
@@ -45,6 +46,7 @@ class _SpaceTree:
                 name=self.by_pk[pk].name,
                 attached=pk in attached,
                 has_children=bool(self.children.get(pk)),
+                schedule_filter=self.schedule_filter(pk),
                 children=[
                     build(child) for child in self.children[pk] if child in visible
                 ],
@@ -68,10 +70,7 @@ def _present_map(event_map: EventMapRecordDTO, tree: _SpaceTree) -> EventMapDTO:
         name=event_map.name,
         image_url=event_map.image_url,
         image_original_name=event_map.image_original_name,
-        spaces=[
-            MapSpaceDTO(pk=pk, name=tree.path(pk))
-            for pk in sorted(attached, key=tree.path)
-        ],
+        space_pks=event_map.space_pks,
         tree=tree.for_map(attached),
     )
 

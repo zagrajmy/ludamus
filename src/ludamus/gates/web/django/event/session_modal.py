@@ -50,9 +50,6 @@ class SessionModalComponentView(EventsPageRequiredMixin, View):
                 sphere_id=request.context.current_sphere_id, session_pk=session_id
             ),
         )
-        data.map_pk = request.services.event_maps.map_pk_for_space(
-            event_pk=event.pk, space_pk=data.loc["space_id"]
-        )
         footer = build_enroll_footer(
             opens_at=access.opens_at,
             is_scheduled=not data.is_unscheduled,
@@ -70,6 +67,14 @@ class SessionModalComponentView(EventsPageRequiredMixin, View):
                 "data": data,
                 "event": event,
                 "event_banned": event_banned,
+                # The plan the room is drawn on; a proposal has no room yet.
+                "map_pk": (
+                    None
+                    if data.is_unscheduled
+                    else request.services.event_maps.map_pk_for_space(
+                        event_pk=event.pk, space_pk=data.loc["space_id"]
+                    )
+                ),
                 # Drives both the tab bar and the roster panel it selects, so a
                 # panel can never render without a tab owning it. An organizer
                 # can drop a limit to 0 after people have signed up: those

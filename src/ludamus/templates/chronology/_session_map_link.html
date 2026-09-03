@@ -3,9 +3,9 @@
 {# The plan this session's room is drawn on. This action belongs in the #}
 {# session modal, where it cannot compete with the card's detail action. #}
 {# Muted at rest: the room name is the fact, the plan is where to look it up. #}
-{% if data.map_pk %}
+{% if map_pk %}
     {% translate "Show on map" as t_show_on_map %}
-    <a href="{% url 'web:chronology:event-maps' slug=event.slug %}#map-{{ data.map_pk }}"
+    <a href="{% url 'web:chronology:event-maps' slug=event.slug %}#map-{{ map_pk }}"
        title="{{ t_show_on_map }}"
        class="inline-flex shrink-0 rounded text-foreground-muted/70 hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">
         {% icon "map" class="size-4" variant="mini" %}

@@ -3,7 +3,6 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from django.db import transaction
-from django.db.models import Max
 
 from ludamus.links.db.django.models import EventMap, Space
 from ludamus.links.db.django.repositories.storage import (
@@ -56,10 +55,8 @@ class EventMapRepository(EventMapRepositoryProtocol):
     def create(
         self, *, event_pk: int, name: str, image: UploadedFileProtocol
     ) -> EventMapRecordDTO:
-        top = EventMap.objects.filter(event_id=event_pk).aggregate(top=Max("order"))
         event_map = EventMap(
             event_id=event_pk,
-            order=(top["top"] if top["top"] is not None else -1) + 1,
             **with_original_names(EventMap, {"name": name, "image": image}),
         )
         event_map.save()

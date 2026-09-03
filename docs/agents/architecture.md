@@ -280,14 +280,16 @@ here. The hero and session modal link into it.
   `…/maps/do/add`, `…/maps/<pk>/do/edit`, `…/maps/<pk>/do/attach`,
   `…/maps/<pk>/do/delete` (organizer actions)
 - **Views:** `gates/web/django/event/maps.py` — `EventMapsPageView` and the
-  four action views; writes check `passes_panel_access` on arrival
+  four action views; writes check `panel_access(request).allows(PANEL_WRITE)`
+  on arrival
 - **Templates:** `templates/chronology/maps.html`, `_map_card.html`,
   `_map_tree_node.html`, `_session_map_link.html`
 - **Service:** `EventMapsService` (`mills/maps.py`) — scopes every pk to the
-  event; `index()` resolves each space to the map of its nearest mapped
+  event; builds each map's venue tree with the `?space=` filter per node;
+  `map_pk_for_space` resolves a room to the map of its nearest mapped
   ancestor, so a room inherits its venue's plan
-- **DTOs:** `EventMapDTO`, `MapSpaceDTO`, `MapTreeNodeDTO`, `MapIndexDTO`
-  (`pacts/maps.py`)
+- **DTOs:** `EventMapRecordDTO` (repository row), `EventMapDTO` (with the
+  tree), `MapTreeNodeDTO` (`pacts/maps.py`)
 - **Model:** `EventMap` (`event_map`, m2m to `Space`)
 
 #### Pages: Proposal wizard

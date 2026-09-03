@@ -9,8 +9,8 @@
         {% else %}
             {% icon "map-pin" class="size-4 shrink-0 text-foreground-muted/70" variant="mini" %}
         {% endif %}
-        {% if node.attached %}
-            <a href="{{ schedule_url }}?space={% if node.has_children %}venue:{% endif %}{{ node.pk }}#schedule-region"
+        {% if node.attached and node.schedule_filter %}
+            <a href="{{ schedule_url }}?space={{ node.schedule_filter }}#schedule-region"
                class="truncate font-medium text-foreground underline decoration-dotted underline-offset-4 hover:text-primary">{{ node.name }}</a>
         {% else %}
             <span class="truncate text-foreground-muted">{{ node.name }}</span>

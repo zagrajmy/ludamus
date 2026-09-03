@@ -11,7 +11,7 @@ from zeal import zeal_ignore
 
 from ludamus.links.db.django.models import EventMap
 from ludamus.pacts import EventDTO
-from ludamus.pacts.maps import EventMapDTO, MapSpaceDTO, MapTreeNodeDTO
+from ludamus.pacts.maps import EventMapDTO, MapTreeNodeDTO
 from tests.integration.conftest import PNG_BYTES, EventFactory, SpaceFactory
 from tests.integration.utils import assert_response, assert_response_404
 from tests.integration.web.chronology.helpers import event_page_context, session_card
@@ -41,14 +41,14 @@ def _maps_url(event):
     return reverse("web:chronology:event-maps", kwargs={"slug": event.slug})
 
 
-def _card(event_map, *, spaces, tree):
+def _card(event_map, *, space_pks, tree):
     return EventMapDTO(
         pk=event_map.pk,
         event_id=event_map.event_id,
         name=event_map.name,
         image_url=event_map.image.url,
         image_original_name="plan.png",
-        spaces=spaces,
+        space_pks=space_pks,
         tree=tree,
     )
 
@@ -90,32 +90,35 @@ class TestEventMapsPageView:
         expected_maps = [
             _card(
                 site_plan,
-                spaces=[MapSpaceDTO(pk=hall.pk, name="Hall")],
+                space_pks=[hall.pk],
                 tree=[
                     MapTreeNodeDTO(
                         pk=hall.pk,
                         name="Hall",
                         attached=True,
                         has_children=True,
+                        schedule_filter=f"venue:{hall.pk}",
                         children=[],
                     )
                 ],
             ),
             _card(
                 floor_plan,
-                spaces=[MapSpaceDTO(pk=room.pk, name="Hall > Room 1")],
+                space_pks=[room.pk],
                 tree=[
                     MapTreeNodeDTO(
                         pk=hall.pk,
                         name="Hall",
                         attached=False,
                         has_children=True,
+                        schedule_filter=f"venue:{hall.pk}",
                         children=[
                             MapTreeNodeDTO(
                                 pk=room.pk,
                                 name="Room 1",
                                 attached=True,
                                 has_children=False,
+                                schedule_filter=str(room.pk),
                                 children=[],
                             )
                         ],
@@ -267,7 +270,7 @@ class TestEventMapEditActionView:
             context_data={
                 "event": EventDTO.model_validate(event),
                 "schedule_url": f"/event/{event.slug}/",
-                "cards": CardsMatcher([_card(event_map, spaces=[], tree=[])]),
+                "cards": CardsMatcher([_card(event_map, space_pks=[], tree=[])]),
                 "can_edit": True,
                 "add_form": ANY,
             },
@@ -372,7 +375,7 @@ class TestEventMapAttachActionView:
             context_data={
                 "event": EventDTO.model_validate(event),
                 "schedule_url": f"/event/{event.slug}/",
-                "cards": CardsMatcher([_card(event_map, spaces=[], tree=[])]),
+                "cards": CardsMatcher([_card(event_map, space_pks=[], tree=[])]),
                 "can_edit": True,
                 "add_form": ANY,
             },
