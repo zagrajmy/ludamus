@@ -331,7 +331,9 @@ class TestEventSettingsPageViewPost:
         event.refresh_from_db()
         assert event.use_session_cover_placeholders
 
-    def test_removes_cover_image(self, panel_client, event):
+    def test_removes_cover_image(
+        self, panel_client, event, django_capture_on_commit_callbacks
+    ):
         event.cover_image = SimpleUploadedFile(
             "cover.png", PNG_BYTES, content_type="image/png"
         )
@@ -339,10 +341,11 @@ class TestEventSettingsPageViewPost:
         storage = event.cover_image.storage
         old_name = event.cover_image.name
 
-        response = panel_client.post(
-            self.get_url(event),
-            data={**self._post_data(event), "cover_image-clear": "on"},
-        )
+        with django_capture_on_commit_callbacks(execute=True):
+            response = panel_client.post(
+                self.get_url(event),
+                data={**self._post_data(event), "cover_image-clear": "on"},
+            )
 
         assert_response(
             response,
@@ -355,7 +358,7 @@ class TestEventSettingsPageViewPost:
         assert not storage.exists(old_name)
 
     def test_cover_replacement_survives_storage_cleanup_failure(
-        self, panel_client, event, caplog
+        self, panel_client, event, caplog, django_capture_on_commit_callbacks
     ):
         event.cover_image = SimpleUploadedFile(
             "old.png", PNG_BYTES, content_type="image/png"
@@ -368,6 +371,7 @@ class TestEventSettingsPageViewPost:
                 event.cover_image.storage, "delete", side_effect=OSError("boom")
             ),
             caplog.at_level("WARNING", logger="ludamus.links.db.django.repositories"),
+            django_capture_on_commit_callbacks(execute=True),
         ):
             response = panel_client.post(
                 self.get_url(event),

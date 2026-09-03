@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from functools import partial
 from typing import TYPE_CHECKING
 
 from django.db import transaction
@@ -8,8 +7,8 @@ from django.db.models import Max
 
 from ludamus.links.db.django.models import EventMap, Space
 from ludamus.links.db.django.repositories.storage import (
-    delete_stored_file,
-    save_replacing_files_on_commit,
+    delete_stored_file_on_commit,
+    save_replacing_files,
     with_original_names,
 )
 from ludamus.pacts import NotFoundError
@@ -30,6 +29,16 @@ def _to_dto(event_map: EventMap) -> EventMapRecordDTO:
     )
 
 
+def _event_map(pk: int, *, lock: bool = False) -> EventMap:
+    queryset = EventMap.objects.prefetch_related("spaces")
+    if lock:
+        queryset = queryset.select_for_update()
+    try:
+        return queryset.get(pk=pk)
+    except EventMap.DoesNotExist as exception:
+        raise NotFoundError from exception
+
+
 class EventMapRepository(EventMapRepositoryProtocol):
     @staticmethod
     def list_for_event(event_pk: int) -> list[EventMapRecordDTO]:
@@ -42,11 +51,7 @@ class EventMapRepository(EventMapRepositoryProtocol):
 
     @staticmethod
     def read(pk: int) -> EventMapRecordDTO:
-        try:
-            event_map = EventMap.objects.prefetch_related("spaces").get(pk=pk)
-        except EventMap.DoesNotExist as exception:
-            raise NotFoundError from exception
-        return _to_dto(event_map)
+        return _to_dto(_event_map(pk))
 
     def create(
         self, *, event_pk: int, name: str, image: UploadedFileProtocol
@@ -64,33 +69,21 @@ class EventMapRepository(EventMapRepositoryProtocol):
     def update(
         self, *, pk: int, name: str, image: UploadedFileProtocol | None
     ) -> EventMapRecordDTO:
-        try:
-            event_map = EventMap.objects.select_for_update().get(pk=pk)
-        except EventMap.DoesNotExist as exception:
-            raise NotFoundError from exception
+        event_map = _event_map(pk, lock=True)
         fields: dict[str, UploadedFileProtocol | str] = {"name": name}
         if image is not None:
             fields["image"] = image
-        save_replacing_files_on_commit(event_map, fields)
+        save_replacing_files(event_map, fields)
         return self.read(pk)
 
     @staticmethod
     def set_spaces(pk: int, space_pks: list[int]) -> None:
-        try:
-            event_map = EventMap.objects.get(pk=pk)
-        except EventMap.DoesNotExist as exception:
-            raise NotFoundError from exception
-        event_map.spaces.set(Space.objects.filter(pk__in=space_pks))
+        _event_map(pk).spaces.set(Space.objects.filter(pk__in=space_pks))
 
     @staticmethod
     def delete(pk: int) -> None:
-        try:
-            event_map = EventMap.objects.get(pk=pk)
-        except EventMap.DoesNotExist as exception:
-            raise NotFoundError from exception
+        event_map = _event_map(pk)
         stored_name = event_map.image.name
         event_map.delete()
         if stored_name:
-            transaction.on_commit(
-                partial(delete_stored_file, event_map.image, stored_name)
-            )
+            delete_stored_file_on_commit(event_map.image, stored_name)

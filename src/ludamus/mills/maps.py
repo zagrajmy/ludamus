@@ -88,8 +88,7 @@ class EventMapsService(EventMapsServiceProtocol):
         self._spaces = spaces
 
     def list_for_event(self, event_pk: int) -> list[EventMapDTO]:
-        maps = self._maps.list_for_event(event_pk)
-        if not maps:
+        if not (maps := self._maps.list_for_event(event_pk)):
             return []
         tree = _SpaceTree(self._spaces.list_by_event(event_pk))
         return [_present_map(event_map, tree) for event_map in maps]

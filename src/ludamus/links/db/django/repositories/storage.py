@@ -39,9 +39,16 @@ def delete_stored_file(field_file: FieldFile, old_name: str) -> None:
         )
 
 
-def _save_replacing_files(
-    instance: Model, data: Mapping[str, object]
-) -> list[tuple[FieldFile, str]]:
+def delete_stored_file_on_commit(field_file: FieldFile, old_name: str) -> None:
+    # The row change may still roll back; the blob goes only once it cannot.
+    # Outside a transaction this runs at once.
+    transaction.on_commit(partial(delete_stored_file, field_file, old_name))
+
+
+def save_replacing_files(instance: Model, data: Mapping[str, object]) -> None:
+    # A replaced file field strands its previous blob, because unique_upload_to
+    # never reuses a name. Which keys are files is read off the instance, so no
+    # repository has to maintain its own list.
     old_names = {
         key: current.name
         for key in data
@@ -53,18 +60,7 @@ def _save_replacing_files(
         setattr(instance, key, value)
     instance.save(update_fields=list(written))
 
-    return [
-        (field_file, old_name)
-        for field, old_name in old_names.items()
-        if old_name and old_name != (field_file := getattr(instance, field)).name
-    ]
-
-
-def save_replacing_files(instance: Model, data: Mapping[str, object]) -> None:
-    for field_file, old_name in _save_replacing_files(instance, data):
-        delete_stored_file(field_file, old_name)
-
-
-def save_replacing_files_on_commit(instance: Model, data: Mapping[str, object]) -> None:
-    for field_file, old_name in _save_replacing_files(instance, data):
-        transaction.on_commit(partial(delete_stored_file, field_file, old_name))
+    for field, old_name in old_names.items():
+        field_file = getattr(instance, field)
+        if old_name and old_name != field_file.name:
+            delete_stored_file_on_commit(field_file, old_name)

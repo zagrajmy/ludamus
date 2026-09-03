@@ -10,10 +10,9 @@ errors.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 from django.contrib import messages
-from django.http import Http404
 from django.shortcuts import redirect
 from django.template.response import TemplateResponse
 from django.urls import reverse
@@ -22,7 +21,7 @@ from django.views.generic.base import View
 
 from ludamus.gates.web.django.access import panel_access
 from ludamus.gates.web.django.forms import create_event_map_form, create_map_spaces_form
-from ludamus.gates.web.django.helpers import is_event_published
+from ludamus.gates.web.django.helpers import read_public_event
 from ludamus.gates.web.django.panel import refuse_panel_access
 from ludamus.gates.web.django.sphere.pages import EventsPageRequiredMixin
 from ludamus.pacts import NotFoundError
@@ -32,7 +31,7 @@ from ludamus.pacts.multiverse import Capability
 
 if TYPE_CHECKING:
     from django import forms
-    from django.http import HttpResponse
+    from django.http import HttpRequest, HttpResponse, HttpResponseBase
 
     from ludamus.gates.web.django.entities import RootRequest
     from ludamus.pacts import EventDTO
@@ -44,18 +43,6 @@ class MapCard:
     map: EventMapDTO
     edit_form: forms.Form | None
     attach_form: forms.Form | None
-
-
-def _read_event(request: RootRequest, slug: str) -> EventDTO:
-    try:
-        event = request.services.events.read_by_slug(
-            request.context.current_sphere_id, slug
-        )
-    except NotFoundError as exc:
-        raise Http404 from exc
-    if not is_event_published(event) and not panel_access(request).granted:
-        raise Http404
-    return event
 
 
 def _space_choices(request: RootRequest, event_pk: int) -> list[tuple[str, str]]:
@@ -133,105 +120,95 @@ class EventMapsPageView(EventsPageRequiredMixin, View):
 
     @staticmethod
     def get(request: RootRequest, slug: str) -> HttpResponse:
-        return render_maps_page(request, _read_event(request, slug))
-
-
-def _refused(request: RootRequest) -> HttpResponse | None:
-    # Organizer-only writes on a public page: the page itself is open to
-    # everyone, so each action checks the write capability on arrival rather
-    # than inheriting a panel mixin's login redirect.
-    access = panel_access(request)
-    if access.allows(Capability.PANEL_WRITE):
-        return None
-    return refuse_panel_access(
-        request=request,
-        reads_panel=access.granted,
-        message=_("Only the event's organizers can change its maps."),
-    )
+        return render_maps_page(request, read_public_event(request, slug))
 
 
 class _MapWriteView(EventsPageRequiredMixin, View):
+    # Organizer-only writes on a public page: the page itself is open to
+    # everyone, so each action checks the write capability on arrival rather
+    # than inheriting a panel mixin's login redirect. The event is read once
+    # here from the slug, which the handlers then never see: they only act.
     request: RootRequest
+    event: EventDTO
     http_method_names = ("post",)
+
+    def dispatch(
+        self, request: HttpRequest, *args: object, **kwargs: object
+    ) -> HttpResponseBase:
+        root_request = cast("RootRequest", request)
+        access = panel_access(root_request)
+        if not access.allows(Capability.PANEL_WRITE):
+            return refuse_panel_access(
+                request=root_request,
+                reads_panel=access.granted,
+                message=_("Only the event's organizers can change its maps."),
+            )
+        self.event = read_public_event(root_request, str(kwargs.pop("slug")))
+        return super().dispatch(request, *args, **kwargs)
+
+    def _done(self, outcome: str) -> HttpResponse:
+        messages.success(self.request, outcome)
+        return redirect(_maps_url(self.event.slug))
+
+    def _not_found(self) -> HttpResponse:
+        messages.error(self.request, _("Map not found."))
+        return redirect(_maps_url(self.event.slug))
 
 
 class EventMapAddActionView(_MapWriteView):
-    @staticmethod
-    def post(request: RootRequest, slug: str) -> HttpResponse:
-        if refused := _refused(request):
-            return refused
-        event = _read_event(request, slug)
+    def post(self, request: RootRequest) -> HttpResponse:
         form = create_event_map_form(has_image=False)(request.POST, request.FILES)
         if form.is_valid() and (
             image := parse_uploaded_file(form.cleaned_data.get("image"))
         ):
             request.services.event_maps.create(
-                event_pk=event.pk, name=form.cleaned_data["name"], image=image
+                event_pk=self.event.pk, name=form.cleaned_data["name"], image=image
             )
-            messages.success(request, _("Map added."))
-            return redirect(_maps_url(slug))
-        return render_maps_page(request, event, add_form=form)
+            return self._done(_("Map added."))
+        return render_maps_page(request, self.event, add_form=form)
 
 
 class EventMapEditActionView(_MapWriteView):
-    @staticmethod
-    def post(request: RootRequest, slug: str, pk: int) -> HttpResponse:
-        if refused := _refused(request):
-            return refused
-        event = _read_event(request, slug)
+    def post(self, request: RootRequest, pk: int) -> HttpResponse:
         form = create_event_map_form(has_image=True)(
             request.POST, request.FILES, auto_id=f"edit_map_{pk}_%s"
         )
         if not form.is_valid():
-            return render_maps_page(request, event, edit_forms={pk: form})
+            return render_maps_page(request, self.event, edit_forms={pk: form})
         try:
             request.services.event_maps.update(
-                event_pk=event.pk,
+                event_pk=self.event.pk,
                 pk=pk,
                 name=form.cleaned_data["name"],
                 image=parse_uploaded_file(form.cleaned_data.get("image")),
             )
         except NotFoundError:
-            messages.error(request, _("Map not found."))
-        else:
-            messages.success(request, _("Map saved."))
-        return redirect(_maps_url(slug))
+            return self._not_found()
+        return self._done(_("Map saved."))
 
 
 class EventMapAttachActionView(_MapWriteView):
-    @staticmethod
-    def post(request: RootRequest, slug: str, pk: int) -> HttpResponse:
-        if refused := _refused(request):
-            return refused
-        event = _read_event(request, slug)
-        form = create_map_spaces_form(space_choices=_space_choices(request, event.pk))(
-            request.POST, auto_id=f"attach_{pk}_%s"
-        )
+    def post(self, request: RootRequest, pk: int) -> HttpResponse:
+        form = create_map_spaces_form(
+            space_choices=_space_choices(request, self.event.pk)
+        )(request.POST, auto_id=f"attach_{pk}_%s")
         if not form.is_valid():
-            return render_maps_page(request, event, attach_forms={pk: form})
+            return render_maps_page(request, self.event, attach_forms={pk: form})
         try:
             request.services.event_maps.attach_spaces(
-                event_pk=event.pk,
+                event_pk=self.event.pk,
                 pk=pk,
                 space_pks=[int(space_pk) for space_pk in form.cleaned_data["spaces"]],
             )
         except NotFoundError:
-            messages.error(request, _("Map not found."))
-        else:
-            messages.success(request, _("Venues on the map updated."))
-        return redirect(_maps_url(slug))
+            return self._not_found()
+        return self._done(_("Venues on the map updated."))
 
 
 class EventMapDeleteActionView(_MapWriteView):
-    @staticmethod
-    def post(request: RootRequest, slug: str, pk: int) -> HttpResponse:
-        if refused := _refused(request):
-            return refused
-        event = _read_event(request, slug)
+    def post(self, request: RootRequest, pk: int) -> HttpResponse:
         try:
-            request.services.event_maps.delete(event_pk=event.pk, pk=pk)
+            request.services.event_maps.delete(event_pk=self.event.pk, pk=pk)
         except NotFoundError:
-            messages.error(request, _("Map not found."))
-        else:
-            messages.success(request, _("Map deleted."))
-        return redirect(_maps_url(slug))
+            return self._not_found()
+        return self._done(_("Map deleted."))

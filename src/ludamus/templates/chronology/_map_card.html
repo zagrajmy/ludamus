@@ -1,6 +1,5 @@
 {% load i18n %}
 {% load tessera %}
-{% url 'web:chronology:event-maps' slug=event.slug as maps_url %}
 {% with event_map=card.map %}
     <section id="map-{{ event_map.pk }}"
              class="scroll-mt-24"
