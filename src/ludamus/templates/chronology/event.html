@@ -105,6 +105,17 @@
                                 </div>
                             </div>
                         {% endif %}
+                        {% if maps_url %}
+                            {# Icon only, like the calendar tile's glyph: the plans #}
+                            {# are one tap away and the page is not about them. #}
+                            {% translate "Venue maps" as t_venue_maps %}
+                            <a href="{{ maps_url }}"
+                               title="{{ t_venue_maps }}"
+                               class="w-8 h-8 bg-teal-100 dark:bg-teal-900/30 rounded-lg flex items-center justify-center shrink-0 transition-colors duration-150 hover:bg-teal-200 dark:hover:bg-teal-800/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">
+                                {% icon "map" class="w-4 h-4 text-teal-600" variant="mini" %}
+                                <span class="sr-only">{{ t_venue_maps }}</span>
+                            </a>
+                        {% endif %}
                         {% if event.address %}
                             {% translate "View on map ↗" as t_view_on_map %}
                             <a href="https://www.google.com/maps/search/?api=1&amp;query={{ event.address_inline|urlencode }}"

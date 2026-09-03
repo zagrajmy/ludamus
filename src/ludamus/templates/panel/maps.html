@@ -1,0 +1,96 @@
+{% extends "panel/base.html" %}
+{% load i18n %}
+{% load tessera %}
+{% block title %}
+    {% translate "Maps" %}
+{% endblock title %}
+{% block page_title %}
+    {% translate "Maps" %}
+{% endblock page_title %}
+{% block page_title_adornment %}
+    {% translate "What are maps?" as t_info_title %}
+    {% translate "Pictures of the venue — a site plan, a floor, a building — shown to participants on the event's maps page. Tick the venues each picture shows: sessions in those venues link to it, and the page links each venue back to its sessions." as t_info_body %}
+    {% include "components/info_popover.html" with title=t_info_title body=t_info_body %}
+{% endblock page_title_adornment %}
+{% block page_subtitle %}
+    {% if current_event %}
+        {{ current_event.name }} · {% translate "Maps" %}
+    {% endif %}
+{% endblock page_subtitle %}
+{% block header_actions %}
+    {% if current_event %}
+        {% url 'panel:map-create' slug=current_event.slug as create_url %}
+        {% translate "Add map" as t_add_map %}
+        {% tessera_button t_add_map href=create_url icon="plus" %}
+    {% endif %}
+{% endblock header_actions %}
+{% block content %}
+    <div class="panel-bleed">
+        {% if current_event %}
+            {% if maps %}
+                {% tessera_table %}
+                    <thead class="bg-bg-tertiary">
+                        <tr>
+                            <th scope="col"
+                                class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
+                                {% translate "Map" %}
+                            </th>
+                            <th scope="col"
+                                class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
+                                {% translate "Venues" %}
+                            </th>
+                            <th scope="col"
+                                class="px-6 py-3 text-right text-xs font-medium text-foreground-muted uppercase tracking-wider">
+                                {% translate "Actions" %}
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-bg-secondary divide-y divide-border">
+                        {% for event_map in maps %}
+                            <tr class="hover:bg-bg-tertiary">
+                                <td class="px-6 py-4 text-sm font-medium text-foreground">
+                                    <div class="flex items-center gap-3">
+                                        <img src="{{ event_map.image_url }}"
+                                             alt=""
+                                             loading="lazy"
+                                             class="size-14 shrink-0 rounded-lg border border-border object-cover bg-bg-tertiary">
+                                        <span>{{ event_map.name }}</span>
+                                    </div>
+                                </td>
+                                <td class="px-6 py-4 text-sm">
+                                    {% include "components/pill_list.html" with items=event_map.space_names icon="map-pin" %}
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                    <a href="{% url 'panel:map-edit' slug=current_event.slug pk=event_map.pk %}"
+                                       data-row-action
+                                       class="text-primary hover:text-primary/80 mr-4">{% translate "Edit" %}</a>
+                                    <form method="post"
+                                          action="{% url 'panel:map-delete' slug=current_event.slug pk=event_map.pk %}"
+                                          class="inline"
+                                          data-confirm="{% translate "Delete this map? Sessions will stop linking to it." %}">
+                                        {% csrf_token %}
+                                        <button type="submit" class="text-danger hover:text-danger/80">{% translate "Delete" %}</button>
+                                    </form>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                {% endtessera_table %}
+            {% else %}
+                <div class="card p-8 text-center">
+                    <div class="mb-4">{% icon "map" class="w-12 h-12 text-foreground-muted mx-auto" %}</div>
+                    <p class="text-foreground-muted mb-4">
+                        {% translate "No maps yet. Upload a site plan or a floor plan so participants can find their rooms." %}
+                    </p>
+                    {% url 'panel:map-create' slug=current_event.slug as create_url %}
+                    {% translate "Add map" as t_add_map %}
+                    {% tessera_button t_add_map href=create_url icon="plus" %}
+                </div>
+            {% endif %}
+        {% else %}
+            <div class="card p-8 text-center">
+                <p class="text-foreground-muted">{% translate "No events available. Create an event to get started." %}</p>
+            </div>
+        {% endif %}
+    </div>
+{% endblock content %}

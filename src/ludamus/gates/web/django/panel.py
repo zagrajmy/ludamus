@@ -25,6 +25,7 @@ PanelNav = Literal[
     "discounts",
     "import",
     "venues",
+    "maps",
     "tracks",
     "timetable",
     "konwencik-export",

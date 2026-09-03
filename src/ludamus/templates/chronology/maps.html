@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% load i18n %}
+{% load tessera %}
+{% block title %}
+    {{ event.name }} • {% translate "Maps" %}
+{% endblock title %}
+{% block header_section %}
+{% endblock header_section %}
+{% block body %}
+    {% include "chronology/decorative_background_blobs.html" %}
+    <div class="relative mb-6 sm:mb-8">
+        <a href="{{ schedule_url }}"
+           class="inline-flex items-center gap-1.5 text-sm font-medium text-foreground-muted hover:text-foreground">
+            {% icon "arrow-left" class="size-4" variant="mini" %}
+            {{ event.name }}
+        </a>
+        <h1 class="mt-2 text-3xl sm:text-4xl font-bold text-foreground">{% translate "Maps" %}</h1>
+    </div>
+    {% if maps %}
+        {# One plan after another, each anchored by its pk so a session's map #}
+        {# icon can land on the right picture, and each followed by the venues #}
+        {# it shows as links into the schedule filtered to that venue. #}
+        <div class="relative flex flex-col gap-10 sm:gap-14">
+            {% for event_map in maps %}
+                <section id="map-{{ event_map.pk }}"
+                         class="scroll-mt-24"
+                         aria-labelledby="map-{{ event_map.pk }}-title">
+                    <h2 id="map-{{ event_map.pk }}-title"
+                        class="mb-3 text-xl font-bold text-foreground">{{ event_map.name }}</h2>
+                    <a href="{{ event_map.image_url }}"
+                       target="_blank"
+                       rel="noopener"
+                       class="block rounded-3xl bg-bg-secondary shadow-(--shadow-elevated) overflow-hidden">
+                        <img src="{{ event_map.image_url }}"
+                             alt="{{ event_map.name }}"
+                             loading="{% if forloop.first %}eager{% else %}lazy{% endif %}"
+                             class="w-full h-auto">
+                    </a>
+                    {% if event_map.spaces %}
+                        <ul class="mt-4 flex flex-wrap gap-2"
+                            aria-label="{% translate "Venues on this map" %}">
+                            {% for space in event_map.spaces %}
+                                <li>
+                                    <a href="{{ schedule_url }}?space={% if space.has_children %}venue:{% endif %}{{ space.pk }}#schedule-region"
+                                       class="btn btn-secondary text-sm">
+                                        {% icon "map-pin" class="size-4 text-foreground-muted" variant="mini" %}
+                                        {{ space.name }}
+                                    </a>
+                                </li>
+                            {% endfor %}
+                        </ul>
+                    {% endif %}
+                </section>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="relative rounded-3xl bg-bg-secondary shadow-(--shadow-elevated) p-8 text-center">
+            <div class="mb-4">{% icon "map" class="w-12 h-12 text-foreground-muted mx-auto" %}</div>
+            <p class="text-foreground-muted mb-4">{% translate "The organizers haven't added any maps yet." %}</p>
+            {% translate "Back to the program" as t_back %}
+            {% tessera_button t_back href=schedule_url variant="secondary" %}
+        </div>
+    {% endif %}
+{% endblock body %}

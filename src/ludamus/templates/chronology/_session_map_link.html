@@ -1,0 +1,16 @@
+{% load i18n %}
+{% load tessera %}
+{# The plan this session's room is drawn on. Sits inside the location #}
+{# label of the card, the ledger row and the modal, all of which lie under #}
+{# a full-surface link, so it claims pointer events and a higher layer for #}
+{# itself. Muted at rest: the room name is the fact, the plan is where to #}
+{# look it up. #}
+{% if data.map_pk %}
+    {% translate "Show on map" as t_show_on_map %}
+    <a href="{% url 'web:chronology:event-maps' slug=event.slug %}#map-{{ data.map_pk }}"
+       title="{{ t_show_on_map }}"
+       class="pointer-events-auto relative z-20 inline-flex shrink-0 rounded text-foreground-muted/70 hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">
+        {% icon "map" class="size-4" variant="mini" %}
+        <span class="sr-only">{{ t_show_on_map }}</span>
+    </a>
+{% endif %}

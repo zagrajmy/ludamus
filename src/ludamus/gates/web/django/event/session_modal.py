@@ -51,6 +51,9 @@ class SessionModalComponentView(EventsPageRequiredMixin, View):
                 sphere_id=request.context.current_sphere_id, session_pk=session_id
             ),
         )
+        data.map_pk = request.services.event_maps.index(event.pk).map_pk_by_space.get(
+            data.loc["space_id"]
+        )
         footer = build_enroll_footer(
             opens_at=access.opens_at,
             is_scheduled=not data.is_unscheduled,

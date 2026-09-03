@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, Any, ClassVar, Literal, assert_never, cast
 from django import forms
 from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator
-from django.utils.translation import gettext
+from django.utils.translation import gettext, pgettext_lazy
 from django.utils.translation import gettext_lazy as _
 
 from ludamus.gates.uploads import validate_uploaded_image, validate_uploaded_logo
@@ -589,6 +589,44 @@ def create_space_copy_form(events: list[tuple[int, str]]) -> type[forms.Form]:
         },
     )
     return type("SpaceCopyForm", (forms.Form,), {"target_event": target_event_field})
+
+
+def create_event_map_form(
+    *, space_choices: list[tuple[str, str]], has_image: bool
+) -> type[forms.Form]:
+    # Built per request like create_space_copy_form: which venues a plan can
+    # show is the event's own tree, and whether a picture is required depends
+    # on whether one is stored already — editing keeps it unless replaced.
+    name = forms.CharField(
+        max_length=255,
+        strip=True,
+        label=pgettext_lazy("place", "Name"),
+        help_text=_("What the picture shows: a building, a floor, the whole site."),
+        error_messages={
+            "max_length": _("Map name is too long (max 255 characters)."),
+            "required": _("Map name is required."),
+        },
+    )
+    image = forms.ImageField(
+        required=not has_image,
+        label=_("Map image"),
+        help_text=_("Max 8 MB. JPG, PNG, WebP, or AVIF."),
+        validators=[validate_uploaded_image],
+        widget=DropzoneFileInput(attrs={"accept": IMAGE_ACCEPT}, fit="contain"),
+        error_messages={"required": _("Upload the map image.")},
+    )
+    spaces = forms.MultipleChoiceField(
+        required=False,
+        label=_("Venues on this map"),
+        help_text=_(
+            "Each venue listed under the map links to its sessions on the schedule."
+        ),
+        widget=forms.CheckboxSelectMultiple,
+        choices=space_choices,
+    )
+    return type(
+        "EventMapForm", (forms.Form,), {"name": name, "image": image, "spaces": spaces}
+    )
 
 
 class TrackForm(forms.Form):

@@ -30,6 +30,7 @@ from ludamus.gates.web.django.event.panel.views import (
     facilitator_actions,
     facilitator_edit,
     konwencik_export,
+    maps,
     mcp_token,
     print_redirects,
     proposal_category_settings,
@@ -238,6 +239,22 @@ urlpatterns = [
         "event/<slug:slug>/venues/do/reorder",
         venues.SpaceReorderActionView.as_view(),
         name="space-reorder",
+    ),
+    path("event/<slug:slug>/maps/", maps.MapsPageView.as_view(), name="maps"),
+    path(
+        "event/<slug:slug>/maps/create/",
+        maps.MapCreatePageView.as_view(),
+        name="map-create",
+    ),
+    path(
+        "event/<slug:slug>/maps/<int:pk>/edit/",
+        maps.MapEditPageView.as_view(),
+        name="map-edit",
+    ),
+    path(
+        "event/<slug:slug>/maps/<int:pk>/do/delete",
+        maps.MapDeleteActionView.as_view(),
+        name="map-delete",
     ),
     path(
         "event/<slug:slug>/cfp/time-slots/",

@@ -267,6 +267,25 @@ What visitors see: event details, session list, session cards.
   `_session_card.html`, `session_tags_cloud.html`
 - **DTOs:** `EventDTO`, `SessionDTO`, `SessionListItemDTO`, `TrackDTO`
 
+#### Pages: Event maps
+
+Venue plans an organizer uploads (a site plan, a floor), each tied to the
+spaces it shows. The public page lists them; the hero, the session cards
+and the session modal link into it; each space under a map links back to
+the schedule filtered to that venue.
+
+- **URLs:** `/chronology/event/<slug>/maps/` (public), `/panel/event/<slug>/maps/…`
+- **Views:** `gates/web/django/event/maps.py` — `EventMapsPageView`;
+  `gates/web/django/event/panel/views/maps.py` — list, create, edit, delete
+- **Templates:** `templates/chronology/maps.html`,
+  `_session_map_link.html`, `templates/panel/maps.html`, `map-form.html`
+- **Service:** `EventMapsService` (`mills/maps.py`) — scopes every pk to the
+  event; `index()` resolves each space to the map of its nearest mapped
+  ancestor, so a room inherits its venue's plan
+- **DTOs:** `EventMapDTO`, `MapSpaceDTO`, `EventMapInputDTO`, `MapIndexDTO`
+  (`pacts/maps.py`)
+- **Model:** `EventMap` (`event_map`, m2m to `Space`)
+
 #### Pages: Proposal wizard
 
 The multi-step wizard through which facilitators submit session proposals.
@@ -473,7 +492,7 @@ owns them.
 | sphere | `Sphere`, `Connection` |
 | encounter | `Encounter`, `EncounterRSVP` |
 | party | `Party`, `PartyMembership` |
-| event | `Event`, `EventSettings`, `EventProposalSettings`, `Session`, `ProposalCategory`, `Facilitator`, `PersonalDataField`, `PersonalDataFieldOption`, `PersonalDataFieldRequirement`, `PersonalDataFieldValue`, `SessionField`, `SessionFieldOption`, `SessionFieldRequirement`, `SessionFieldValue`, `TimeSlotRequirement`, `Venue`, `Area`, `Space`, `TimeSlot`, `Track`, `AgendaItem`, `ScheduleChangeLog`, `EnrollmentConfig`, `UserEnrollmentConfig`, `DomainEnrollmentConfig`, `SessionParticipation` |
+| event | `Event`, `EventSettings`, `EventProposalSettings`, `Session`, `ProposalCategory`, `Facilitator`, `PersonalDataField`, `PersonalDataFieldOption`, `PersonalDataFieldRequirement`, `PersonalDataFieldValue`, `SessionField`, `SessionFieldOption`, `SessionFieldRequirement`, `SessionFieldValue`, `TimeSlotRequirement`, `Venue`, `Area`, `Space`, `EventMap`, `TimeSlot`, `Track`, `AgendaItem`, `ScheduleChangeLog`, `EnrollmentConfig`, `UserEnrollmentConfig`, `DomainEnrollmentConfig`, `SessionParticipation` |
 
 <!-- markdownlint-enable MD013 -->
 
