@@ -21,6 +21,7 @@
     "coverage.ts",
     "tests/**/*.ts",
     "global-setup.ts",
-    "global-teardown.ts"
+    "global-teardown.ts",
+    "../../src/ludamus/client/src/event-time.ts"
   ]
 }
