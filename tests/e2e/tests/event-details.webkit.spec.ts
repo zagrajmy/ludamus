@@ -104,12 +104,15 @@ test.describe("Event detail page on a phone", () => {
 
     const closeButton = detailDialog.getByRole("button", { name: "Close" });
     await expect(closeButton).toBeInViewport();
+    // Against the located button, not against [data-modal-close]: the bug is
+    // iOS hit-testing this point at the document behind the dialog, and any
+    // other close control answering for it would hide exactly that.
     await expect
       .poll(() =>
         closeButton.evaluate((close) => {
           const r = close.getBoundingClientRect();
           const hit = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2);
-          return !!(hit && hit.closest("[data-modal-close]"));
+          return !!hit && (hit === close || close.contains(hit));
         }),
       )
       .toBe(true);
