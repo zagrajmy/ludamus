@@ -90,6 +90,9 @@ def _seat_count(seats: int) -> str:
 
 
 def _seats_free(free: int) -> str:
+    # NOTE: "free" does not inflect in English, so both forms read the same.
+    # The plural is still declared, for the languages where it does — Polish
+    # picks a different one of its four for 1, 2 and 5.
     return ngettext("%(counter)s free", "%(counter)s free", free) % {"counter": free}
 
 

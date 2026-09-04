@@ -380,23 +380,13 @@ def _create_promotion_scenario(sphere: Sphere, *, superuser: User) -> None:
     )
 
 
-def _schedule(event: Event, space: Space, session: Session, *, hour: int) -> AgendaItem:
-    return AgendaItem.objects.create(
-        space=space,
-        session=session,
-        session_confirmed=True,
-        start_time=event.start_time + timedelta(hours=hour),
-        end_time=event.start_time + timedelta(hours=hour + 2),
-    )
-
-
 def _seat(session: Session, user: User, status: SessionParticipationStatus) -> None:
     SessionParticipation.objects.create(session=session, user=user, status=status.value)
 
 
-# One session, placed on the agenda. The enrollment scenarios below differ in
-# their windows and their rosters, not in how a session reaches the schedule,
-# and none of them gates on age.
+# The enrollment scenarios below say "an hour into the event" and mean a
+# two-hour slot; they differ in their windows and their rosters, never in how a
+# session reaches the schedule, and none of them gates on age.
 def _scheduled_session(
     event: Event,
     space: Space,
@@ -413,17 +403,18 @@ def _scheduled_session(
     Returns:
         The scheduled session.
     """
-    session = Session.objects.create(
-        event=event,
-        display_name=presenter,
+    return _create_session(
+        event,
+        space,
         title=title,
         slug=slug,
+        presenter=presenter,
         description=description,
+        start_offset=timedelta(hours=hour),
+        duration_hours=2,
         participants_limit=seats,
         min_age=0,
     )
-    _schedule(event, space, session, hour=hour)
-    return session
 
 
 # playwright.config.ts allows two retries on CI, so three attempts in all.
