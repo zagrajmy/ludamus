@@ -8,9 +8,11 @@ import { expect, test } from "./helpers/fixtures";
 // no build error, no lint error. Nothing else in the suite notices a modal that
 // has stopped capping itself, which is how #1030's bug looked on iOS.
 const expectCappedToViewport = async (page: Page, modal: Locator) => {
-  // Rounded the way app-viewport.ts rounds before publishing --app-vh, so the
-  // comparison is exact rather than spending most of toBeCloseTo's tolerance
-  // on a discrepancy we already know the shape of.
+  // The cap is 90dvh. In these engines, with no browser chrome, the dynamic
+  // viewport unit and the visual viewport are the same number, so this reads
+  // the latter and takes 90% of it. The rounding this once carried belonged to
+  // app-viewport.ts, which rounded before publishing --app-vh; that publisher
+  // was reverted in #1047 and the rounding went with it.
   const visible = await page.evaluate(() => visualViewport!.height * visualViewport!.scale);
   await expect
     .poll(() =>
@@ -19,7 +21,7 @@ const expectCappedToViewport = async (page: Page, modal: Locator) => {
         return maxHeight === "none" ? maxHeight : Number.parseFloat(maxHeight);
       }),
     )
-    .toBeCloseTo(Math.round(visible) * 0.9, 0);
+    .toBeCloseTo(visible * 0.9, 0);
 };
 
 const expectPageScrollLocked = async (page: Page) => {

@@ -1,30 +1,22 @@
 import { expect, test } from "./helpers/fixtures";
 
-type Page = import("@playwright/test").Page;
-
-const shellHeight = (page: Page): Promise<number> =>
-  page.evaluate(() => Math.round(document.body.getBoundingClientRect().height));
-
-const appVh = (page: Page): Promise<string> =>
-  page.evaluate(() => document.documentElement.style.getPropertyValue("--app-vh"));
-
 // NOTE: the suffix asks for WebKit at an iPhone's width; the desktop projects
-// match every spec, so this runs there too. In none of them is there browser
-// chrome, so visualViewport.height is just the window height and the shell is
-// sized from it — the equality below is close to self-evident. It is worth
-// keeping only as a wiring check: it fails if the publisher stops running.
-// Whether the page actually fills an iPhone's screen is a question no headless
-// engine can be asked.
-test.describe("App shell viewport height on a phone", () => {
-  test.beforeEach(async ({ page }) => {
+// match every spec, so this runs there too. None of them has browser chrome,
+// so nothing here can speak to how much room mobile Safari gives the page —
+// that question belongs to scripts/ios-regressions, on a real device.
+//
+// What this can check is the shell's scroll ownership, which survived the
+// revert of #1030 and is the mechanism the device measurement turned on: the
+// document must not scroll, because #app-scroll owns the whole range, and the
+// end of the page has to stay reachable through it. An earlier revision also
+// asserted the shell's height against visualViewport.height, which was
+// self-evident here (no chrome, so they are the same number) and is now moot
+// besides — app-viewport.ts and --app-vh went with the revert.
+test.describe("App shell scrolling on a phone", () => {
+  test("the document does not scroll, and #app-scroll reaches the end of the page", async ({
+    page,
+  }) => {
     await page.goto("/");
-  });
-
-  test("the shell is the height the viewport is showing", async ({ page }) => {
-    await expect.poll(() => appVh(page)).toMatch(/^\d+px$/);
-
-    const visible = await page.evaluate(() => Math.round(visualViewport!.height));
-    expect(await shellHeight(page)).toBe(visible);
 
     // The shell clips what overflows it, so the page end is only reachable if
     // the document itself never scrolls and #app-scroll owns the whole range.

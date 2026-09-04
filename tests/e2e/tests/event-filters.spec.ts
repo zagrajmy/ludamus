@@ -30,9 +30,9 @@ test.describe("Event filter panel", () => {
     // --modal-max-h, and an unresolvable var() computes to max-height:none
     // without a word from anything. This is the sheet's own inline <style>, the
     // one consumer of that token that carries no .modal class.
-    // Rounded the way app-viewport.ts rounds before publishing --app-vh, so the
-    // comparison is exact rather than spending most of toBeCloseTo's tolerance
-    // on a discrepancy we already know the shape of.
+    // The cap is 90dvh, and with no browser chrome here the dynamic viewport
+    // unit and the visual viewport are the same number. The rounding this once
+    // carried belonged to app-viewport.ts, reverted in #1047.
     const visible = await page.evaluate(() => visualViewport!.height * visualViewport!.scale);
     await expect
       .poll(() =>
@@ -41,7 +41,7 @@ test.describe("Event filter panel", () => {
           return maxHeight === "none" ? maxHeight : Number.parseFloat(maxHeight);
         }),
       )
-      .toBeCloseTo(Math.round(visible) * 0.9, 0);
+      .toBeCloseTo(visible * 0.9, 0);
 
     await context.close();
   });
