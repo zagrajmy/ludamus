@@ -108,6 +108,11 @@ const initScheduleRail = (rail: HTMLElement): void => {
   };
   fitRail();
   globalThis.addEventListener("resize", fitRail, { signal });
+  // The rail's cap is --app-vh, republished on visualViewport resize — which on
+  // iOS a toolbar collapse or the keyboard moves without ever firing a window
+  // resize. Miss it and the cap shrinks under a rail still thinned for the old
+  // one, and overflow-hidden silently eats the last hours off the scrubber.
+  globalThis.visualViewport?.addEventListener("resize", fitRail, { signal });
   document.addEventListener("schedule:filtered", fitRail, { signal });
 
   const scrollToLink = (link: HTMLAnchorElement): void => {
