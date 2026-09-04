@@ -229,5 +229,5 @@ class EncounterAdmin(admin.ModelAdmin):  # type: ignore [type-arg]
 
 @admin.register(EncounterRSVP)
 class EncounterRSVPAdmin(admin.ModelAdmin):  # type: ignore [type-arg]
-    list_display = ("encounter", "user", "ip_address", "creation_time")
+    list_display = ("encounter", "user", "creation_time")
     list_filter = ("encounter",)
