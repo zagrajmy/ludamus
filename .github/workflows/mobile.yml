@@ -17,9 +17,9 @@ permissions:
 jobs:
   ios-regressions:
     runs-on: macos-latest
-    # 6.5 setup + 10 warm-up + 28 tests + 1.5 teardown and upload, leaving the
+    # 6.5 setup + 10 warm-up + 42 tests + 1.5 teardown and upload, leaving the
     # step timeouts to bind first.
-    timeout-minutes: 49
+    timeout-minutes: 63
     env:
       # Every runner command is an HTTP request capped by
       # RUNNER_CONNECT_REQUEST_TIMEOUT_MS. At its 20s default a gesture or
@@ -51,8 +51,8 @@ jobs:
             echo "::error::no iOS regression test files found"
             exit 1
           fi
-          if [ ${#files[@]} -gt 2 ]; then
-            echo "::error::${#files[@]} iOS specs found; the budget is sized for 2. Raise timeout-minutes on the test step and the job, and the 2 in this guard."
+          if [ ${#files[@]} -gt 3 ]; then
+            echo "::error::${#files[@]} iOS specs found; the budget is sized for 3. Raise timeout-minutes on the test step and the job, and the 3 in this guard."
             exit 1
           fi
 
@@ -138,8 +138,8 @@ jobs:
       - name: Run iOS Safari regressions
         # A worst-case attempt is the 360s hook plus the 30s afterAll and bun's
         # own start and teardown, so ~13.2min per discovered spec at two
-        # attempts each. Raise this and the job cap when adding a third.
-        timeout-minutes: 28
+        # attempts each. Raise this and the job cap when adding a fourth.
+        timeout-minutes: 42
         env:
           # Per-attempt cap, sized so four attempts fit the step budget above.
           # The slowest healthy hook measures 316s.
