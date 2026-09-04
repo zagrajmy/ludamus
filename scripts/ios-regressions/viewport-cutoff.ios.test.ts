@@ -135,12 +135,13 @@ beforeAll(async () => {
   console.log(`Scrolling down until the page stops moving (cap ${MAX_SCROLL_GESTURES})...`);
   let previous = before.nodes;
   let gestures = 0;
-  for (; gestures < MAX_SCROLL_GESTURES; gestures += 1) {
+  while (gestures < MAX_SCROLL_GESTURES) {
     await client.interactions.scroll({
       ...deviceOptions,
       direction: "down",
       pixels: SCROLL_GESTURE_PX,
     });
+    gestures += 1;
     await wait(250);
     const now = (await takeSnapshot()).nodes;
     const step = medianShift(previous, now);
