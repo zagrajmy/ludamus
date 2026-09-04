@@ -403,6 +403,12 @@ If you fix a papercut, remove it.
   and the hk pre-commit djlint check step dies with ModuleNotFoundError: No
   module named 'regex' (its reformat step right after works fine). Had to commit
   to find out templates lint clean.
+- 2026-08-27: mise run shots can't reach logged-in pages: agent-browser has no
+  cookie/storage-state flag, so screenshotting any manager-only page (e.g. the
+  accept-proposal screen) meant hand-rolling a Playwright script that loads
+  tests/e2e/.auth-state-superuser.json. Also spent a while confused that 'mise
+  run dj shell' talks to the dev DB while test:e2e:serve serves dev.e2e.sqlite3
+  — the data I queried was not the data the page rendered.
 - 2026-08-28: iOS warmup: wrapping the first agent-device snapshot in a
   readiness poll made the cold XCUITest attach (194-240s, longer than the 180s
   runner command timeout) look like a page-load failure -- 'Safari did not come
@@ -463,3 +469,35 @@ If you fix a papercut, remove it.
 - 2026-09-01: mise run check reformatted 90 vendored
   .claude/skills/impeccable/scripts/*.mjs files unrelated to the diff; had to
   git checkout -- .claude/ before committing.
+- 2026-09-04: mise run format (oxfmt) rewrites the vendored
+  .claude/skills/impeccable/scripts/*.mjs|js files, which are tracked. A one-
+  file change turned into 90 files of formatter churn I had to stash out before
+  committing. Those paths should be in the oxfmt ignore list.
+- 2026-09-04: A stray 'mise run start' holding :8000 gets silently reused by
+  mise run test:e2e, which then tests stale code. The failure looks like a
+  broken selector, not a stale server. test:e2e should fail loudly (or kill)
+  when :8000 is already taken by something it did not start.
+- 2026-09-04: Rebuilt the Vite client while test:e2e:serve was running. The
+  serve loop watches the manifest with stat -c, which is GNU-only, so on macOS
+  it never restarts and keeps serving hashed asset URLs the rebuild just
+  deleted.
+- 2026-09-03: Posting a PR body through the GitHub MCP tool strips screenshot
+  embeds: '![alt](url)' comes back as '[alt](url)' and a raw <img> tag gets
+  escaped into inline code. CLAUDE.md asks for screenshots in the PR
+  description, so they end up as plain links only.
+- 2026-09-04: mise run lint:djlint blew up with ModuleNotFoundError:
+  cssbeautifier in a fresh web sandbox; djlint's --format-css needs it. Ran
+  djlint directly on the one changed template instead.
+- 2026-09-04: The impeccable skill's scripts/context.mjs crashes on import:
+  .claude/skills/impeccable/scripts/lib/provider.mjs is missing from the
+  checkout, so the skill's setup step cannot run.
+- 2026-09-04: panel.spec.ts is not re-runnable against the dev e2e DB:
+  'duplicates a space', 'copies a space to another event' and the session-field
+  test create records and never remove them, so a second run hits strict-mode
+  violations on duplicate names. Re-run test:e2e:prep between local runs, or
+  have those tests clean up like cover-images now does.
+- 2026-09-04: mise run format:oxfmt globs **/*.mjs with no exclusions, so it
+  restyles the ~90 vendored .claude/skills/impeccable scripts that hk.pkl
+  deliberately excludes. Ran format, then git add -A, and 31k lines of vendored
+  churn landed in my PR — enough to push it past CodeRabbit's 100-file review
+  limit. The mise task should mirror hk.pkl's exclude list.

@@ -5,6 +5,9 @@
 
 .room-lanes {
   --axis-w: 2.6rem;
+  /* The seam and fold bands: over the tiles they cross, under the sticky
+     gutter and header. */
+  --band-layer: 15;
   --col-min: 10rem;
   /* room-lanes.ts rebuilds these track lists when a filter empties a track, so
      the sizes live here once and both consumers name them. */
@@ -16,9 +19,12 @@
      schedule actually uses: the set is data, and a track list cannot name a
      variable the served rows never defined. A day seam measures no time, so
      it is keyed on zero and takes a whole hour. */
-  --row-track-unit: 3.5rem;
+  --row-track-unit: 2rem;
   --row-track: minmax(var(--row-track-unit), auto);
   --row-track-0: var(--row-track);
+  /* A fold: hours of lull drawn as one thin band. Fixed, not minmax — nothing
+     starts in a fold, so no tile can ask it to grow. */
+  --row-track-fold: 1.75rem;
   --col-track: minmax(var(--col-min), 1fr);
 }
 
@@ -96,6 +102,29 @@ body:has(.room-lanes-panning) * {
 .room-lanes-line-cut {
   border-top-style: dashed;
   border-top-color: color-mix(in oklch, var(--color-border) 30%, transparent);
+}
+
+/* A fold cuts across the tiles that run through it: a hatched band above
+   them, so the break in the axis reads as one break, that stays out of the
+   way of clicks. Its label sticks to the axis edge so a horizontal pan never
+   carries it off-screen. Neutral grey, not the warm border tone: the band is
+   a mark on the ruler, not a surface. */
+.room-lanes-line[data-row-track="fold"] {
+  --fold-stripe: color-mix(in oklch, var(--color-neutral-400) 35%, transparent);
+  z-index: var(--band-layer);
+  display: flex;
+  align-items: center;
+  pointer-events: none;
+  background: repeating-linear-gradient(-45deg, var(--fold-stripe) 0 4px, transparent 4px 10px);
+}
+
+.dark .room-lanes-line[data-row-track="fold"] {
+  --fold-stripe: color-mix(in oklch, var(--color-neutral-500) 35%, transparent);
+}
+
+.room-lanes-fold-label {
+  position: sticky;
+  left: var(--axis-w);
 }
 
 .room-lanes-scroll-shell {
@@ -274,6 +303,21 @@ body:has(.room-lanes-panning) * {
   grid-column: 1 / -1;
   display: flex;
   align-items: flex-end;
+  /* Over the tiles, not under: the axis runs straight through the seam, so a
+     session running through the night spans it, and the band has to read as
+     a break drawn across that tile rather than vanish behind it. The wash
+     leaves the tile showing through; the toggle alone takes pointers. */
+  z-index: var(--band-layer);
+  pointer-events: none;
+  background: color-mix(in oklch, var(--color-neutral-100) 88%, transparent);
+}
+
+.dark .room-lanes-day {
+  background: color-mix(in oklch, var(--color-neutral-900) 88%, transparent);
+}
+
+.room-lanes-day > h3 {
+  pointer-events: auto;
 }
 
 .dark .room-lanes-rule {

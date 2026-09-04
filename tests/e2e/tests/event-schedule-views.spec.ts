@@ -141,6 +141,79 @@ test.describe("Event schedule views", () => {
     expect(unreachable).toEqual([]);
   });
 
+  test("a session through the day turnover is one tile across the seam", async ({ page }) => {
+    await page.goto(`${DENSE_EVENT_URL}?view=rooms`);
+
+    // Seeded to run 22:00 to 07:00 (kapitularz_print_seed.py): days turn over
+    // at 06:00, so the ledger lists it under both days, but the grid's axis
+    // runs straight through the seam and draws it once, with its real times.
+    const time = page.getByText("22:00–07:00", { exact: true });
+    await expect(time).toHaveCount(1);
+    const tile = await time.evaluate((el) => {
+      const cell = el.closest<HTMLElement>(".room-lanes-cell");
+      const session = el.closest<HTMLElement>(".session");
+      return {
+        id: session?.dataset.sessionId ?? "",
+        row: Number(cell?.dataset.tileRow),
+        span: Number(cell?.dataset.tileSpan),
+      };
+    });
+    await expect(
+      page.getByRole("link", { name: /Open details for/ }).filter({
+        has: page.locator(`xpath=ancestor::*[@data-session-id="${tile.id}"]`),
+      }),
+    ).toHaveCount(1);
+
+    // A day heading sits inside the tile's rows, and its band is drawn over
+    // the tile rather than hidden behind it.
+    const seams = await page.getByRole("heading", { level: 3 }).evaluateAll((headings) =>
+      headings.flatMap((heading) => {
+        const seam = heading.closest<HTMLElement>(".room-lanes-day");
+        return seam
+          ? [{ row: Number(seam.dataset.laneRow), zIndex: Number(getComputedStyle(seam).zIndex) }]
+          : [];
+      }),
+    );
+    const crossed = seams.filter((seam) => seam.row > tile.row && seam.row < tile.row + tile.span);
+    expect(crossed).toHaveLength(1);
+    expect(crossed[0]?.zIndex ?? 0).toBeGreaterThan(10);
+  });
+
+  test("hours of lull fold into one thin labelled row", async ({ page }) => {
+    await page.goto(`${DENSE_EVENT_URL}?view=rooms`);
+
+    // The overnight session runs 22:00 to 07:00 and the next programme opens
+    // at 10:00, so there are two lulls long enough to fold: the night under
+    // the running session, and the morning after it ends.
+    await expect(page.getByText(/Nothing new until/)).toHaveText([
+      "Nothing new until 06:00",
+      "Nothing new until 10:00",
+    ]);
+    const label = page.getByText("Nothing new until 10:00");
+    const fold = await label.evaluate((el) => {
+      const line = el.closest<HTMLElement>(".room-lanes-line");
+      // The row after the fold is the 10:00 hour the label names.
+      const next = document.querySelector<HTMLElement>(
+        `.room-lanes-line[data-lane-row="${Number(line?.dataset.laneRow) + 1}"]`,
+      );
+      return {
+        start: Date.parse(line?.dataset.rowStart ?? ""),
+        end: Date.parse(line?.dataset.rowEnd ?? ""),
+        height: line?.getBoundingClientRect().height ?? 0,
+        anchorsSlot: line?.querySelector(".time-slot-section") !== null,
+        nextStart: Date.parse(next?.dataset.rowStart ?? ""),
+        nextHeight: next?.getBoundingClientRect().height ?? 0,
+      };
+    });
+    expect(fold.end - fold.start).toBe(3 * 60 * 60 * 1000);
+    expect(fold.nextStart).toBe(fold.end);
+    // Nothing starts in a fold, so the scrubber has no target there.
+    expect(fold.anchorsSlot).toBe(false);
+    // Thinner than an hour: the fold stands in for hours nobody programmed.
+    expect(fold.nextHeight).toBeGreaterThan(0);
+    expect(fold.height).toBeLessThan(fold.nextHeight);
+  });
+
   test("the grid offers a sideways scrollbar at its bottom edge", async ({ page }) => {
     await page.goto(`${DENSE_EVENT_URL}?view=rooms`);
     const foot = page.locator("[data-room-lanes-foot]").first();
@@ -894,6 +967,36 @@ test("overnight bookmark copies share one state and one request", async ({
   expect(hiddenStates.every((hidden) => hidden === wasBookmarked)).toBe(true);
 
   await context.close();
+});
+
+// On a phone the ledger's time leaves the flex line and centres itself against
+// the whole two-line row, so any padding that belongs to that shared line lands
+// the pair half of itself below where it should sit.
+test("the ledger's stacked time lines up with the title and the meta line", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 900 });
+  await page.goto(DENSE_EVENT_URL);
+  await expect(page.locator(".session-grid .session").first()).toBeVisible();
+
+  const offsets = await page.evaluate(() => {
+    const row = document.querySelector(".session-grid .session")!;
+    const inkMiddle = (node: Node) => {
+      const range = document.createRange();
+      range.selectNodeContents(node);
+      const box = range.getBoundingClientRect();
+      return (box.top + box.bottom) / 2;
+    };
+    const time = row.querySelector("span.tabular-nums")!;
+    const startLine = [...time.childNodes].find(
+      (node) => node.nodeType === Node.TEXT_NODE && node.textContent!.trim(),
+    )!;
+    return {
+      start: inkMiddle(startLine) - inkMiddle(row.querySelector(".font-semibold")!),
+      end: inkMiddle(time.querySelector("span.block")!) - inkMiddle(row.querySelector("[title]")!),
+    };
+  });
+
+  expect(Math.abs(offsets.start)).toBeLessThan(2);
+  expect(Math.abs(offsets.end)).toBeLessThan(2);
 });
 
 test.describe("Enrollment filter", () => {

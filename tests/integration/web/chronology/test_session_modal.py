@@ -15,6 +15,7 @@ from ludamus.gates.web.django.event.enroll_presentation import EnrollActions, Se
 from ludamus.links.db.django.models import (
     EnrollmentConfig,
     EventMap,
+    EventMapPage,
     Facilitator,
     Guild,
     GuildMembership,
@@ -205,9 +206,9 @@ class TestSessionModalComponentView:
         self, active_user, agenda_item, client, event
     ):
         session = agenda_item.session
-        event_map = EventMap.objects.create(
-            event=event,
-            name="Ground floor",
+        event_map = EventMap.objects.create(event=event, name="Ground floor")
+        EventMapPage.objects.create(
+            event_map=event_map,
             image=SimpleUploadedFile("plan.png", PNG_BYTES, content_type="image/png"),
         )
         event_map.spaces.set([agenda_item.space])

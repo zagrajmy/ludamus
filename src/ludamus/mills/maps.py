@@ -7,6 +7,8 @@ from ludamus.pacts import NotFoundError
 from ludamus.pacts.maps import EventMapDTO, EventMapsServiceProtocol, MapTreeNodeDTO
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
+
     from ludamus.pacts import SpaceDTO, SpaceRepositoryProtocol
     from ludamus.pacts.legacy import UploadedFileProtocol
     from ludamus.pacts.maps import EventMapRecordDTO, EventMapRepositoryProtocol
@@ -68,8 +70,7 @@ def _present_map(event_map: EventMapRecordDTO, tree: _SpaceTree) -> EventMapDTO:
         pk=event_map.pk,
         event_id=event_map.event_id,
         name=event_map.name,
-        image_url=event_map.image_url,
-        image_original_name=event_map.image_original_name,
+        pages=event_map.pages,
         space_pks=event_map.space_pks,
         tree=tree.for_map(attached),
     )
@@ -99,16 +100,21 @@ class EventMapsService(EventMapsServiceProtocol):
         return event_map
 
     def create(
-        self, *, event_pk: int, name: str, image: UploadedFileProtocol
+        self, *, event_pk: int, name: str, images: Sequence[UploadedFileProtocol]
     ) -> EventMapRecordDTO:
-        return self._maps.create(event_pk=event_pk, name=name, image=image)
+        return self._maps.create(event_pk=event_pk, name=name, images=images)
 
     def update(
-        self, *, event_pk: int, pk: int, name: str, image: UploadedFileProtocol | None
+        self,
+        *,
+        event_pk: int,
+        pk: int,
+        name: str,
+        images: Sequence[UploadedFileProtocol] | None,
     ) -> EventMapRecordDTO:
         with self._transaction.atomic():
             self.read(event_pk=event_pk, pk=pk)
-            return self._maps.update(pk=pk, name=name, image=image)
+            return self._maps.update(pk=pk, name=name, images=images)
 
     def attach_spaces(self, *, event_pk: int, pk: int, space_pks: list[int]) -> None:
         with self._transaction.atomic():

@@ -7,8 +7,12 @@
 {# whole hours, cut again wherever a session starts or ends inside one, so a #}
 {# session sits in the row it starts and spans exactly the rows it covers and #}
 {# no more: two sessions share a row only when they really do run at once. #}
+{# The axis is one continuous run: a session that crosses a day seam spans #}
+{# it as one tile, and the seam band is drawn over it. Hours of lull fold #}
+{# into one thin band (a fold row) that a running session spans like any row. #}
 {# Each row takes its share of an hour's height (--row-track-<minutes>, served #}
-{# below), and the track maxima are auto, so a tile is never clipped. #}
+{# below; a fold takes --row-track-fold), and the track maxima are auto, so a #}
+{# tile is never clipped. #}
 {# The first row of each hour that starts a session carries the #}
 {# .time-slot-section / #slot-<hour> contract, and every row inside that hour #}
 {# answers to the same key, so the hour scrubber and the filters keep working #}
@@ -27,7 +31,7 @@
         }
 
         .room-lanes-body {
-            grid-template-rows: {% for row in room_lanes.rows %}var(--row-track-{{ row.minutes }}, var(--row-track)) {% endfor %};
+            grid-template-rows: {% for row in room_lanes.rows %}var(--row-track-{{ row.track }}, var(--row-track)) {% endfor %};
         }
         {% for room in room_lanes.rooms %}
         [data-lane-col="{{ forloop.counter }}"],
@@ -161,10 +165,16 @@
                             <div class="room-lanes-line{% if not forloop.first %} border-t border-border/60{% endif %}{% if row.is_cut %} room-lanes-line-cut{% endif %}"
                                  data-lane-row="{{ forloop.counter }}"
                                  data-lane-day="{{ row.day }}"
-                                 data-row-minutes="{{ row.minutes }}"
+                                 data-row-track="{{ row.track }}"
                                  data-row-start="{{ row.start|date:'c' }}"
                                  data-row-end="{{ row.end|date:'c' }}">
-                                {% if row.opens_slot %}
+                                {% if row.is_fold %}
+                                    {# The band names where the programme picks up again; the #}
+                                    {# row above already names where it left off. #}
+                                    <span class="room-lanes-fold-label px-2 text-[0.6rem] font-semibold uppercase tracking-widest text-foreground-muted">
+                                        {% blocktranslate with until=row.end|time:"H:i" %}Nothing new until {{ until }}{% endblocktranslate %}
+                                    </span>
+                                {% elif row.opens_slot %}
                                     <span class="time-slot-section block h-full scroll-mt-40"
                                           id="slot-{{ row.slot_key }}"
                                           data-slot-hour="{{ row.slot_key }}"
