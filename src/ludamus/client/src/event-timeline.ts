@@ -121,10 +121,14 @@ const initScheduleRail = (rail: HTMLElement): void => {
   // shell's full height, so it changes with the window and with --app-vh alike,
   // and a resize observation is delivered after layout, so the cap is current
   // by construction. fitRail only hides markers inside the rail, so it cannot
-  // resize the scroller and loop. The initial observation does the first fit;
-  // #app-scroll comes from base.html, which every page carrying a rail extends.
+  // resize the scroller and loop. The initial observation does the first fit.
+  //
+  // #app-scroll comes from base.html, which every page carrying a rail extends,
+  // so the fallback should never be reached — but the root element degrades the
+  // way the scroll-spy observer's null root does, to a rail fitted against the
+  // window, rather than to a rail never fitted at all.
   railSizeObserver = new ResizeObserver(fitRail);
-  if (scrollRoot) railSizeObserver.observe(scrollRoot);
+  railSizeObserver.observe(scrollRoot ?? document.documentElement);
   document.addEventListener("schedule:filtered", fitRail, { signal });
 
   const scrollToLink = (link: HTMLAnchorElement): void => {

@@ -137,8 +137,10 @@ hk install --mise
 # cryptography) used to strand a 0-byte file that `-f` treated as done — every
 # later bootstrap then skipped regeneration and varlock failed on the empty
 # secrets. The temp file keeps a failed run from touching .env.local at all,
-# and is removed on that path so the failure leaves nothing behind.
+# and the trap removes it however the run ends, so neither a failure nor a
+# Ctrl-C leaves a file of real secrets lying around untracked.
 if [ ! -s .env.local ]; then
+  trap 'rm -f .env.local.tmp' EXIT
   python -c "
 import secrets
 from cryptography.fernet import Fernet
@@ -146,8 +148,8 @@ print(f'SECRET_KEY={secrets.token_urlsafe(50)}')
 print(f'DB_PASSWORD=dev-{secrets.token_hex(8)}')
 print(f'AUTH0_CLIENT_SECRET={secrets.token_hex(16)}')
 print(f'CREDENTIALS_ENCRYPTION_KEY={Fernet.generate_key().decode()}')
-" > .env.local.tmp || { rm -f .env.local.tmp; exit 1; }
-  mv .env.local.tmp .env.local || { rm -f .env.local.tmp; exit 1; }
+" > .env.local.tmp || exit 1
+  mv .env.local.tmp .env.local || exit 1
   echo "Generated .env.local with per-dev secrets."
 fi
 aubr varlock django-admin migrate --noinput
