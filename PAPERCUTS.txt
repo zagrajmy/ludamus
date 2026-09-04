@@ -501,3 +501,7 @@ If you fix a papercut, remove it.
   deliberately excludes. Ran format, then git add -A, and 31k lines of vendored
   churn landed in my PR — enough to push it past CodeRabbit's 100-file review
   limit. The mise task should mirror hk.pkl's exclude list.
+- 2026-09-04: Sandbox: 'mise run messages' fails config validation (empty
+  required env var), so a django.po edit had to be hand-written. djlint in
+  .venv was also missing its 'regex' and 'pyyaml' deps, which blocked the
+  pre-commit hook until I pip-installed them by hand.
