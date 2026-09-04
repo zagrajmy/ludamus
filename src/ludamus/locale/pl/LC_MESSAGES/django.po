@@ -818,6 +818,25 @@ msgstr "Nieprawidłowy kod. Sprawdź i spróbuj ponownie."
 msgid "Code loaded successfully. You can now manage your enrollments."
 msgstr "Kod załadowany pomyślnie. Możesz teraz zarządzać swoimi zapisami."
 
+#: src/ludamus/gates/web/django/chronology/event_presentation.py
+#: src/ludamus/templates/panel/_space_tree_node.html
+#, python-format
+msgid "%(counter)s seat"
+msgid_plural "%(counter)s seats"
+msgstr[0] "%(counter)s miejsce"
+msgstr[1] "%(counter)s miejsca"
+msgstr[2] "%(counter)s miejsc"
+msgstr[3] "%(counter)s miejsc"
+
+#: src/ludamus/gates/web/django/chronology/event_presentation.py
+#, python-format
+msgid "%(counter)s free"
+msgid_plural "%(counter)s free"
+msgstr[0] "%(counter)s wolne miejsce"
+msgstr[1] "%(counter)s wolne miejsca"
+msgstr[2] "%(counter)s wolnych miejsc"
+msgstr[3] "%(counter)s wolne miejsca"
+
 #: src/ludamus/gates/web/django/chronology/forms.py
 msgid "Choose a time…"
 msgstr "Wybierz godzinę…"
@@ -4280,25 +4299,6 @@ msgstr[0] "%(counter)s zapisany uczestnik"
 msgstr[1] "%(counter)s zapisani uczestnicy"
 msgstr[2] "%(counter)s zapisanych uczestników"
 msgstr[3] "%(counter)s zapisanych uczestników"
-
-#: src/ludamus/templates/chronology/_session_seat_count.html
-#, python-format
-msgid "%(counter)s free"
-msgid_plural "%(counter)s free"
-msgstr[0] "%(counter)s wolne miejsce"
-msgstr[1] "%(counter)s wolne miejsca"
-msgstr[2] "%(counter)s wolnych miejsc"
-msgstr[3] "%(counter)s wolne miejsca"
-
-#: src/ludamus/templates/chronology/_session_seat_count.html
-#: src/ludamus/templates/panel/_space_tree_node.html
-#, python-format
-msgid "%(counter)s seat"
-msgid_plural "%(counter)s seats"
-msgstr[0] "%(counter)s miejsce"
-msgstr[1] "%(counter)s miejsca"
-msgstr[2] "%(counter)s miejsc"
-msgstr[3] "%(counter)s miejsc"
 
 #: src/ludamus/templates/chronology/accept_proposal.html
 msgid "Accept Proposal"

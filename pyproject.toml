@@ -524,6 +524,7 @@ ignore_names = [
     "panel_id",
     "public_tag_categories",
     "public_tags",
+    "seats_label",
     "should_show_as_inactive",
     "show_date",
     "slot_key",
