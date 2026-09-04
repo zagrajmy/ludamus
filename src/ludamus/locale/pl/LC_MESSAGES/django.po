@@ -3774,6 +3774,10 @@ msgid "Main room"
 msgstr "Sala główna"
 
 #: src/ludamus/links/db/django/models.py
+msgid "Has scheduled sessions"
+msgstr "Ma zaplanowane punkty programu"
+
+#: src/ludamus/links/db/django/models.py
 msgid "date joined"
 msgstr "data dołączenia"
 
@@ -5051,6 +5055,7 @@ msgid "Connection:"
 msgstr "Połączenie:"
 
 #: src/ludamus/templates/chronology/panel/integrations/delete.html
+#: src/ludamus/templates/components/_row_delete_action.html
 #: src/ludamus/templates/design.html
 #: src/ludamus/templates/multiverse/panel/announcements/delete.html
 #: src/ludamus/templates/multiverse/panel/announcements/list.html
@@ -5058,13 +5063,10 @@ msgstr "Połączenie:"
 #: src/ludamus/templates/multiverse/panel/connections/list.html
 #: src/ludamus/templates/multiverse/panel/guilds/list.html
 #: src/ludamus/templates/panel/_space_tree_node.html
-#: src/ludamus/templates/panel/cfp.html
 #: src/ludamus/templates/panel/facilitators.html
 #: src/ludamus/templates/panel/integration-settings.html
 #: src/ludamus/templates/panel/parts/_bulk_actions_facilitators.html
 #: src/ludamus/templates/panel/personal-data-fields.html
-#: src/ludamus/templates/panel/session-fields.html
-#: src/ludamus/templates/panel/time-slots.html
 #: src/ludamus/templates/panel/tracks.html
 msgid "Delete"
 msgstr "Usuń"
@@ -7377,6 +7379,10 @@ msgid "No fields selected."
 msgstr "Nie wybrano żadnych pól."
 
 #: src/ludamus/templates/panel/cfp.html
+msgid "Has proposals"
+msgstr "Ma zgłoszenia"
+
+#: src/ludamus/templates/panel/cfp.html
 msgid "Submission window"
 msgstr "Okno zgłoszeń"
 
@@ -9591,6 +9597,10 @@ msgid "Edit Session Field"
 msgstr "Edytuj pole punktu programu"
 
 #: src/ludamus/templates/panel/session-fields.html
+msgid "Used by categories"
+msgstr "Używane przez kategorie"
+
+#: src/ludamus/templates/panel/session-fields.html
 msgid "What are Session Fields?"
 msgstr "Czym są pola punktu programu?"
 
@@ -9743,6 +9753,10 @@ msgstr "Edytuj przedział czasowy"
 #: src/ludamus/templates/panel/time-slots.html
 msgid "Schedule Configuration"
 msgstr "Konfiguracja harmonogramu"
+
+#: src/ludamus/templates/panel/time-slots.html
+msgid "Used by proposals"
+msgstr "Używany przez zgłoszenia"
 
 #: src/ludamus/templates/panel/time-slots.html
 msgid "What are Time Slots?"

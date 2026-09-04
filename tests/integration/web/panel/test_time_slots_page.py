@@ -40,6 +40,17 @@ class TestTimeSlotsPageView:
 
         assert_login_required(response, url)
 
+    def test_a_slot_a_proposal_asked_for_says_so_instead_of_offering_delete(
+        self, panel_client, event, time_slot, pending_session
+    ):
+        # delete() refuses such a slot, so the row must not take the click.
+        pending_session.time_slots.add(time_slot)
+
+        response = panel_client.get(self.get_url(event))
+
+        assert response.status_code == HTTPStatus.OK
+        assert response.context["undeletable_slot_pks"] == frozenset({time_slot.pk})
+
     def test_get_redirects_non_manager_user(self, authenticated_client, event):
         response = authenticated_client.get(self.get_url(event))
 
@@ -66,6 +77,7 @@ class TestTimeSlotsPageView:
                 "active_tab": "time_slots",
                 "tab_urls": cfp_tab_urls(event),
                 "time_slots": [],
+                "undeletable_slot_pks": frozenset(),
                 "days": {day.isoformat(): []},
                 "orphaned_slots": [],
                 "continuation_slots": set(),
@@ -184,6 +196,7 @@ class TestTimeSlotsPageView:
                 "active_tab": "time_slots",
                 "tab_urls": cfp_tab_urls(event),
                 "time_slots": [],
+                "undeletable_slot_pks": frozenset(),
                 "days": {(start + timedelta(days=i)).isoformat(): [] for i in range(3)},
                 "orphaned_slots": [],
                 "continuation_slots": set(),
@@ -212,6 +225,7 @@ class TestTimeSlotsPageView:
                 "active_tab": "time_slots",
                 "tab_urls": cfp_tab_urls(event),
                 "time_slots": [],
+                "undeletable_slot_pks": frozenset(),
                 "days": {
                     (start + timedelta(days=i)).isoformat(): [] for i in range(3, 5)
                 },

@@ -49,12 +49,20 @@ class SpaceTreeNodeDTO(BaseModel):
     # Why the space may not hold child spaces, or None when it may. One field
     # so the rule and the sentence explaining it can't drift apart.
     no_children_reason: str | None
+    # Why Delete is unavailable, or None when it is offered. Subtree-wide: a
+    # branch is undeletable when anything beneath it holds a session, because
+    # deleting it would cascade to that session's space.
+    undeletable_reason: str | None
     track_names: list[str]
     children: list[SpaceTreeNodeDTO]
 
     @property
     def accepts_children(self) -> bool:
         return self.no_children_reason is None
+
+    @property
+    def is_deletable(self) -> bool:
+        return self.undeletable_reason is None
 
 
 class SpaceInputDTO(BaseModel):

@@ -367,6 +367,7 @@ def time_slots_page_context(
     has_next=False,
     total_pages=1,
     create_form=ANY,
+    undeletable_slot_pks=frozenset(),
 ):
     # The time-slots page context, shared by the page tests and the create-modal
     # tests that re-render it. The first page of an event whose slots all fall
@@ -377,6 +378,7 @@ def time_slots_page_context(
         "active_tab": "time_slots",
         "tab_urls": cfp_tab_urls(event),
         "time_slots": list(time_slots),
+        "undeletable_slot_pks": undeletable_slot_pks,
         "days": days,
         "orphaned_slots": [],
         "continuation_slots": set(),

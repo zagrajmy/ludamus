@@ -18,6 +18,8 @@
     {% endif %}
 {% endblock header_actions %}
 {% block content %}
+    {# Said where the Delete button would be, rather than after the click. #}
+    {% translate "Used by categories" as field_in_use_reason %}
     {% if current_event %}
         {% tab_shell "panel/_cfp_tabs.html" %}
             {% tab_shell_body %}
@@ -104,13 +106,13 @@
                                         <a href="{% url 'panel:session-field-edit' slug=current_event.slug field_slug=entry.field.slug %}"
                                            data-row-action
                                            class="text-primary hover:text-primary/80 mr-4">{% translate "Edit" %}</a>
-                                        <form method="post"
-                                              action="{% url 'panel:session-field-delete' slug=current_event.slug field_slug=entry.field.slug %}"
-                                              class="inline"
-                                              data-confirm="{% translate "Are you sure you want to delete this field?" %}">
-                                            {% csrf_token %}
-                                            <button type="submit" class="text-danger hover:text-danger/80">{% translate "Delete" %}</button>
-                                        </form>
+                                        {% url 'panel:session-field-delete' slug=current_event.slug field_slug=entry.field.slug as delete_url %}
+                                        {% translate "Are you sure you want to delete this field?" as confirm_delete %}
+                                        {% if entry.is_used %}
+                                            {% include "components/_row_delete_action.html" with reason=field_in_use_reason %}
+                                        {% else %}
+                                            {% include "components/_row_delete_action.html" with action_url=delete_url confirm=confirm_delete %}
+                                        {% endif %}
                                     </td>
                                 </tr>
                             {% endfor %}

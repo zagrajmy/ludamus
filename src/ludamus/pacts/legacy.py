@@ -693,6 +693,19 @@ class FieldUsageSummary:
     required_count: int
     optional_count: int
 
+    @property
+    def is_used(self) -> bool:
+        """Whether any category asks for this field.
+
+        The same question `delete_session_field` answers with
+        `has_requirements`, from counts the page already has — so the list can
+        say Delete is unavailable without another query.
+
+        Returns:
+            True when at least one category requires or offers the field.
+        """
+        return bool(self.required_count or self.optional_count)
+
 
 class PersonalFieldRequirementDTO(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -1109,6 +1122,8 @@ class ProposalCategoryRepositoryProtocol(Protocol):
     @staticmethod
     def has_proposals(pk: int) -> bool: ...
     @staticmethod
+    def pks_with_proposals(event_id: int) -> frozenset[int]: ...
+    @staticmethod
     def list_by_event(event_id: int) -> list[ProposalCategoryDTO]: ...
     @staticmethod
     def read(pk: int, event_id: int) -> ProposalCategoryDTO: ...
@@ -1256,6 +1271,8 @@ class TimeSlotRepositoryProtocol(Protocol):
     def delete(pk: int) -> None: ...
     @staticmethod
     def has_proposals(pk: int) -> bool: ...
+    @staticmethod
+    def pks_with_proposals(event_id: int) -> frozenset[int]: ...
     @staticmethod
     def list_by_event(event_id: int) -> list[TimeSlotDTO]: ...
     @staticmethod

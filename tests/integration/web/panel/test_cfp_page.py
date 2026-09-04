@@ -46,6 +46,7 @@ class TestCFPPageView:
                 "active_tab": "types",
                 "tab_urls": cfp_tab_urls(event),
                 "categories": [],
+                "undeletable_category_pks": frozenset(),
                 "category_stats": {},
             },
         )
@@ -99,6 +100,7 @@ class TestCFPPageView:
                         durations=[],
                     ),
                 ],
+                "undeletable_category_pks": frozenset(),
                 "category_stats": {
                     cat1.pk: {"proposals_count": 0, "accepted_count": 0},
                     cat2.pk: {"proposals_count": 0, "accepted_count": 0},
@@ -118,6 +120,7 @@ class TestCFPPageView:
                 "active_tab": "types",
                 "tab_urls": cfp_tab_urls(event),
                 "categories": [],
+                "undeletable_category_pks": frozenset(),
                 "category_stats": {},
             },
         )
@@ -203,6 +206,19 @@ class TestCFPPageView:
 
     # Stats display tests
 
+    def test_a_category_with_proposals_is_marked_undeletable(
+        self, panel_client, event, proposal_category, pending_session
+    ):
+        # delete_by_slug refuses such a category, so the row must not offer it.
+        assert pending_session.category == proposal_category
+
+        response = panel_client.get(self.get_url(event))
+
+        assert response.status_code == HTTPStatus.OK
+        assert response.context["undeletable_category_pks"] == frozenset(
+            {proposal_category.pk}
+        )
+
     def test_shows_zero_stats_when_no_proposals(self, panel_client, event):
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
 
@@ -229,6 +245,7 @@ class TestCFPPageView:
                         durations=[],
                     )
                 ],
+                "undeletable_category_pks": frozenset(),
                 "category_stats": {
                     category.pk: {"proposals_count": 0, "accepted_count": 0}
                 },
@@ -297,6 +314,7 @@ class TestCFPPageView:
                         durations=[],
                     )
                 ],
+                "undeletable_category_pks": frozenset({category.pk}),
                 "category_stats": {
                     category.pk: {"proposals_count": 1 + 1 + 1, "accepted_count": 1}
                 },
@@ -382,6 +400,7 @@ class TestCFPPageView:
                         durations=[],
                     ),
                 ],
+                "undeletable_category_pks": frozenset({category1.pk, category2.pk}),
                 "category_stats": {
                     category1.pk: {"proposals_count": 1 + 1, "accepted_count": 1},
                     category2.pk: {"proposals_count": 1, "accepted_count": 0},

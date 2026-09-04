@@ -318,6 +318,51 @@ class TestProposalAcceptPageView:
             template_name="chronology/accept_proposal.html",
         )
 
+    @pytest.mark.usefixtures("space", "time_slot")
+    def test_get_ok_for_a_proposal_without_a_category(
+        self, event, pending_session, manager_client, time_slot
+    ):
+        # Regression: the page's reads joined through Session.category, which is
+        # nullable, so a category-less proposal 500'd instead of rendering.
+        pending_session.category = None
+        pending_session.save()
+
+        response = manager_client.get(self._get_url(pending_session.id, event.slug))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={
+                "event": EventDTO.model_validate(event),
+                "presenter": UserDTO.model_validate(pending_session.presenter),
+                "form": ANY,
+                "session": SessionDTO.model_validate(pending_session),
+                "time_slots": [TimeSlotDTO.model_validate(time_slot)],
+                "field_values": [],
+                "preferred_time_slot_ids": [],
+                "schedule_blocker": None,
+            },
+            template_name="chronology/accept_proposal.html",
+        )
+
+    @pytest.mark.usefixtures("space", "time_slot")
+    def test_get_ok_when_the_proposal_sets_length_and_minimum_age(
+        self, pending_session, manager_client
+    ):
+        # The details grid only draws the length and minimum-age tiles when the
+        # proposal carries them, and the default fixture leaves both empty. How
+        # they read is e2e's business; that they render at all is this test's.
+        pending_session.duration = "PT1H30M"
+        pending_session.min_age = 16
+        pending_session.save()
+
+        response = manager_client.get(
+            self._get_url(pending_session.id, pending_session.event.slug)
+        )
+
+        assert response.status_code == HTTPStatus.OK
+        assert response.context["session"].duration == "PT1H30M"
+
     def test_get_wrong_permissions(self, event, pending_session, authenticated_client):
         response = authenticated_client.get(
             self._get_url(pending_session.id, pending_session.event.slug)

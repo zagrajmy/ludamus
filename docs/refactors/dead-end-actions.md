@@ -50,24 +50,28 @@ selected by whether its arguments were null.
 sphere held a single event. The row menu now hides the item unless a second
 event exists (`events|length > 1` in `panel/_space_tree_node.html`). Cure 3.
 
-## Catalogued, not yet fixed
+### The four "cannot delete X, it is in use" refusals
 
-Each is a real dependency — the refusal is correct, the timing is not. They
-want cure 3: the list row already knows whether the object is in use, so the
-delete control can carry the reason instead of the redirect doing it.
+Each was a real dependency refused after the click. All four now say so where
+the Delete button would be, via `components/_row_delete_action.html`. The
+reason is visible text, not a `title` on a disabled button: a disabled button
+is not focusable, so its tooltip never reaches the keyboard. Cure 3.
 
-| Where | Message |
+Each list already knew the answer or could get it in one more query; none of
+them asks per row, which would have been an N+1:
+
+| List | How the row knows |
 | --- | --- |
-| `panel/views/venues.py` `SpaceDeleteActionView` | Cannot delete a space with scheduled sessions. |
-| `panel/views/time_slots.py` | Cannot delete time slot used in proposals. |
-| `panel/views/cfp.py` | Cannot delete category with existing proposals. |
-| `panel/views/session_fields.py` | Cannot delete field that is used in categories. |
+| Spaces (`panel/_space_tree_node.html`) | `SpaceTreeNodeDTO.undeletable_reason`, folded up the subtree during the walk `list_tree` already does — deleting cascades, so a branch over a scheduled session is undeletable too. No extra query. |
+| Time slots (`panel/time-slots.html`) | `TimeSlotRepository.pks_with_proposals`, one query, in the page context. `TimeSlotDTO` is shared with the propose wizard and the accept page, so the set travels beside it rather than on it. |
+| Categories (`panel/cfp.html`) | `ProposalCategoriesPageDTO.undeletable_pks` — the page already had its own DTO to put it on. |
+| Session fields (`panel/session-fields.html`) | `FieldUsageSummary.is_used`, derived from the usage counts the page already computed. No new query, and no new `request.di.uow` surface, which CLAUDE.md forbids extending. |
 
-The blocker is that the list DTOs don't carry a usage count today; adding one
-per list is the work. `SpaceTreeNodeDTO.no_children_reason` is the shape to
-copy — one field holding both the fact and the sentence that explains it, so
-the rule and its wording can't drift apart. Note that space deletion checks the
-whole subtree, so the node's own flag is not enough.
+## Still open
+
+- **The refusal branches remain** in each view, and should: two organizers can
+  act at once, and the row that was deletable when the page rendered may not be
+  when the POST lands. That is the race an error message is for.
 
 ## Not dead ends (checked, left alone)
 

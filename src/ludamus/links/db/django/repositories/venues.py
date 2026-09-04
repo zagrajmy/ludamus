@@ -10,6 +10,7 @@ from django.utils.text import slugify
 from ludamus.links.db.django.models import (
     DEFAULT_SPACE_NAME,
     SPACE_NO_CHILDREN_REASON,
+    SPACE_UNDELETABLE_REASON,
     AgendaItem,
     Event,
     Session,
@@ -97,14 +98,25 @@ class SpaceTreeRepository(SpaceTreeRepositoryProtocol):
             # The tree facts come from the sibling map built above, so nothing
             # here goes back to the database.
             kids = children_by_parent.get(space.pk, [])
+            children = [build(kid) for kid in kids]
+            # Deleting cascades down, so a node is undeletable when it or
+            # anything under it holds a session. The children are already built,
+            # so the subtree answer folds up for free — the same rule
+            # SpaceTreeService.delete_space enforces.
+            holds_session = space.pk in with_sessions or any(
+                not child.is_deletable for child in children
+            )
             return SpaceTreeNodeDTO(
                 space=SpaceRecordDTO.model_validate(space),
                 is_leaf=not kids,
                 no_children_reason=(
                     str(SPACE_NO_CHILDREN_REASON) if space.pk in with_sessions else None
                 ),
+                undeletable_reason=(
+                    str(SPACE_UNDELETABLE_REASON) if holds_session else None
+                ),
                 track_names=sorted(t.name for t in space.tracks.all()),
-                children=[build(kid) for kid in kids],
+                children=children,
             )
 
         return [build(root) for root in children_by_parent.get(None, [])]
@@ -327,6 +339,16 @@ class TimeSlotRepository(TimeSlotRepositoryProtocol):
     @staticmethod
     def has_proposals(pk: int) -> bool:
         return Session.objects.filter(time_slots=pk).exists()
+
+    @staticmethod
+    def pks_with_proposals(event_id: int) -> frozenset[int]:
+        # The same rule `has_proposals` answers per slot, for a whole list in
+        # one query — the panel needs it per row, and per-row queries are an N+1.
+        return frozenset(
+            Session.objects.filter(time_slots__event_id=event_id)
+            .values_list("time_slots__pk", flat=True)
+            .distinct()
+        )
 
     @staticmethod
     def list_by_event(event_id: int) -> list[TimeSlotDTO]:

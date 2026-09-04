@@ -444,9 +444,13 @@ class SessionRepository(SessionRepositoryProtocol, SessionModalRepositoryProtoco
 
     @staticmethod
     def read_event(session_id: int) -> EventDTO:
+        # Through the session's own event FK, not its category: category is
+        # nullable, so the category join raised NotFoundError — a 500 on the
+        # accept page — for a proposal that has no category but does have an
+        # event. Same reasoning as review_inbox_proposals above.
         try:
             event = Event.objects.select_related("proposal_settings").get(
-                proposal_categories__sessions__id=session_id
+                event_sessions__id=session_id
             )
         except Event.DoesNotExist as exception:
             raise NotFoundError from exception
@@ -458,8 +462,7 @@ class SessionRepository(SessionRepositoryProtocol, SessionModalRepositoryProtoco
         # immediate parent's name so the picker can render optgroups.
         spaces = (
             Space.objects.filter(
-                event__proposal_categories__sessions__id=session_id,
-                children__isnull=True,
+                event__event_sessions__id=session_id, children__isnull=True
             )
             .select_related("parent")
             .order_by("order", "name")
@@ -475,16 +478,14 @@ class SessionRepository(SessionRepositoryProtocol, SessionModalRepositoryProtoco
 
     @staticmethod
     def read_time_slots(session_id: int) -> list[TimeSlotDTO]:
-        time_slots = TimeSlot.objects.filter(
-            event__proposal_categories__sessions__id=session_id
-        )
+        time_slots = TimeSlot.objects.filter(event__event_sessions__id=session_id)
         return [TimeSlotDTO.model_validate(ts) for ts in time_slots]
 
     @staticmethod
     def read_time_slot(session_id: int, time_slot_id: int) -> TimeSlotDTO:
         try:
             time_slot = TimeSlot.objects.get(
-                id=time_slot_id, event__proposal_categories__sessions__id=session_id
+                id=time_slot_id, event__event_sessions__id=session_id
             )
         except TimeSlot.DoesNotExist as exception:
             raise NotFoundError from exception

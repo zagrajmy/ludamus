@@ -46,6 +46,7 @@ class CFPPageView(PanelAccessMixin, EventContextMixin, View):
         )
         context["categories"] = page.categories
         context["category_stats"] = page.stats
+        context["undeletable_category_pks"] = page.undeletable_pks
         return TemplateResponse(self.request, "panel/cfp.html", context)
 
 

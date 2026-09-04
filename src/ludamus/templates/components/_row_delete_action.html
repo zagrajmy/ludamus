@@ -1,0 +1,17 @@
+{% load i18n %}
+{# Delete control for a panel list row. A row that genuinely cannot be deleted #}
+{# says so where the button was, rather than taking the click and answering #}
+{# with an error. The reason is visible text, not a title on a disabled #}
+{# button, because a disabled button is not focusable and its tooltip never #}
+{# reaches the keyboard. Args: action_url, confirm, reason (falsy = deletable). #}
+{% if reason %}
+    <span class="text-sm text-foreground-muted">{{ reason }}</span>
+{% else %}
+    <form method="post"
+          action="{{ action_url }}"
+          class="inline"
+          data-confirm="{{ confirm }}">
+        {% csrf_token %}
+        <button type="submit" class="text-sm text-danger hover:underline">{% translate "Delete" %}</button>
+    </form>
+{% endif %}

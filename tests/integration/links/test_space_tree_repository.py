@@ -1,7 +1,7 @@
 import pytest
 from django.core.exceptions import ValidationError
 
-from ludamus.links.db.django.models import Space, Track
+from ludamus.links.db.django.models import SPACE_UNDELETABLE_REASON, Space, Track
 from ludamus.links.db.django.repositories import SpaceTreeRepository
 from ludamus.links.db.django.repositories.chronology import location_data
 from ludamus.links.db.django.transaction import DjangoTransaction
@@ -229,3 +229,28 @@ class TestSpaceTreeServiceDelete:
 
         assert service.delete_space(root.pk) is False
         assert Space.objects.filter(pk=root.pk).exists()
+
+
+class TestUndeletableReason:
+    def test_a_branch_over_a_scheduled_session_is_undeletable(self, event):
+        # Deleting cascades down, so the reason has to fold up the subtree: the
+        # branch itself holds nothing, but the room beneath it does.
+        building = Space.objects.create(event=event, name="Hall", slug="hall")
+        room = Space.objects.create(
+            event=event, parent=building, name="Room", slug="room"
+        )
+        AgendaItemFactory(space=room)
+
+        (node,) = SpaceTreeRepository().list_tree(event.pk)
+
+        assert node.undeletable_reason == str(SPACE_UNDELETABLE_REASON)
+        assert node.children[0].undeletable_reason == str(SPACE_UNDELETABLE_REASON)
+
+    def test_a_branch_over_nothing_scheduled_is_deletable(self, event):
+        building = Space.objects.create(event=event, name="Hall", slug="hall")
+        Space.objects.create(event=event, parent=building, name="Room", slug="room")
+
+        (node,) = SpaceTreeRepository().list_tree(event.pk)
+
+        assert node.undeletable_reason is None
+        assert node.is_deletable
