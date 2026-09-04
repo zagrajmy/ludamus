@@ -56,8 +56,9 @@ from ludamus.gates.web.django.entities import (
     RootRequest,
     UserInfo,
 )
-from ludamus.gates.web.django.event.enroll_presentation import build_enroll_actions
+from ludamus.gates.web.django.event.enroll_presentation import build_enroll_footer
 from ludamus.gates.web.django.event.ics import event_calendar_entry
+from ludamus.gates.web.django.event.status_pills import event_status_pills
 from ludamus.gates.web.django.sphere.marks import attach_guild_marks
 from ludamus.gates.web.django.sphere.pages import EventsPageRequiredMixin
 from ludamus.links.db.django.models import (
@@ -70,6 +71,7 @@ from ludamus.links.db.django.models import (
     SessionParticipationStatus,
 )
 from ludamus.links.db.django.repositories.chronology import (
+    eligible_window_ids,
     location_data,
     public_scheduled_sessions,
 )
@@ -81,7 +83,7 @@ from ludamus.links.db.django.repositories.sessions import (
     with_scheduled_card_relations,
 )
 from ludamus.mills.calendar import google_calendar_url
-from ludamus.mills.enrollment import EnrollmentPolicy, restricts_everyone
+from ludamus.mills.enrollment_windows import EnrollmentPolicy, restricts_everyone
 from ludamus.pacts import (
     NO_LOCATION,
     OCCUPYING_PARTICIPATION_STATUSES,
@@ -93,8 +95,13 @@ from ludamus.pacts import (
     SessionFieldValueDTO,
     TimeSlotDTO,
 )
+from ludamus.pacts.chronology import PROGRAMME_DAY_STARTS_AT_HOUR
 from ludamus.pacts.crowd import CompanionDTO, UserDTO, UserType
-from ludamus.pacts.enrollment import SeatHoldRequest
+from ludamus.pacts.enrollment import (
+    NO_ENROLLMENT_ACCESS,
+    EnrollmentAccessDTO,
+    SeatHoldRequest,
+)
 from ludamus.pacts.ids import EventId, SessionId, UserId
 from ludamus.pacts.party import (
     PartyConsentMode,
@@ -272,9 +279,19 @@ class EventPageView(EventsPageRequiredMixin, DetailView):  # type: ignore [type-
                 self.request.services.shadowban.banned_user_ids(current_user_id)
             )
 
+        # A window restricted to pass holders is not open to everyone, so the
+        # cards, the pill and the modal all read enrollment off this one
+        # viewer-scoped answer.
+        access = self.request.services.enrollment.access(
+            event=EventDTO.model_validate(self.object),
+            viewer_slug=self.request.context.current_user_slug,
+        )
+
         # Get session data objects that include enrollment status; the
         # hour grouping reuses them instead of rebuilding every DTO.
-        sessions_data = self._get_session_data(event_sessions, shadowbanned_ids)
+        sessions_data = self._get_session_data(
+            event_sessions, shadowbanned_ids, access=access
+        )
 
         # Hard event ban: a banned viewer sees every session as full (with
         # simulacra participants) and gets no Enroll action, so the event looks
@@ -290,6 +307,7 @@ class EventPageView(EventsPageRequiredMixin, DetailView):  # type: ignore [type-
             )
             for sid, data in sessions_data.items()
         }
+        has_maps = self.request.services.event_maps.has_maps(self.object.pk)
 
         hour_data = dict(self._get_hour_data(event_sessions, sessions_data))
 
@@ -330,11 +348,19 @@ class EventPageView(EventsPageRequiredMixin, DetailView):  # type: ignore [type-
                 "scheduled_count": scheduled_count,
                 "compact_schedule": compact_schedule,
                 "schedule_days": schedule_days,
+                "programme_day_start_hour": PROGRAMME_DAY_STARTS_AT_HOUR,
                 "active_tab": "rooms" if rooms_view else "list",
                 "has_enrollable_sessions": has_enrollable_sessions,
                 "room_lanes": build_room_lanes(schedule_days) if rooms_view else None,
                 "schedule_list_url": event_url,
                 "schedule_rooms_url": f"{event_url}?view=rooms",
+                "maps_url": (
+                    reverse(
+                        "web:chronology:event-maps", kwargs={"slug": self.object.slug}
+                    )
+                    if has_maps
+                    else None
+                ),
                 "google_calendar_url": google_calendar_url(calendar_entry),
                 "card_days": card_days,
                 "total_enrolled": total_enrolled,
@@ -346,24 +372,16 @@ class EventPageView(EventsPageRequiredMixin, DetailView):  # type: ignore [type-
             }
         )
 
-        # Add user enrollment config for authenticated users
-        user_enrollment_config = None
-        slug = self.request.context.current_user_slug
-        user_email = self.request.di.uow.active_users.read(slug).email if slug else None
-        if user_email:
-            user_enrollment_config = self.request.services.enrollment.virtual_config(
-                event=EventDTO.model_validate(self.object), user_email=user_email
-            )
-        context["user_enrollment_config"] = user_enrollment_config
-
-        # Check if any active enrollment config requires slots
-        active_configs = self.object.get_active_enrollment_configs()
-        requires_slots = any(
-            config.restrict_to_configured_users for config in active_configs
+        context["status_pills"] = event_status_pills(
+            is_live=self.object.is_live,
+            is_ended=self.object.is_ended,
+            is_proposal_active=self.object.is_proposal_active,
+            access=access,
         )
-        context["enrollment_requires_slots"] = requires_slots
         context["enrollment_notices"] = [
-            config.banner_text for config in active_configs if config.banner_text
+            config.banner_text
+            for config in self.object.get_active_enrollment_configs()
+            if config.banner_text
         ]
         context.update(self._get_anonymous_context())
 
@@ -482,7 +500,13 @@ class EventPageView(EventsPageRequiredMixin, DetailView):  # type: ignore [type-
         # alone are what the danger ring reads, and without them a presenter
         # the viewer shadowbanned would be ringed on their scheduled card and
         # clean on their proposal, on the same page.
-        return list(self._get_session_data(proposals, shadowbanned_ids).values())
+        # A proposal holds no agenda item, so no window can seat it yet and
+        # no viewer's windows reach the card.
+        return list(
+            self._get_session_data(
+                proposals, shadowbanned_ids, access=NO_ENROLLMENT_ACCESS
+            ).values()
+        )
 
     def _set_user_participations(
         self, sessions: dict[int, SessionData], event_sessions: QuerySet[Session]
@@ -606,6 +630,8 @@ class EventPageView(EventsPageRequiredMixin, DetailView):  # type: ignore [type-
         self,
         event_sessions: QuerySet[Session],
         shadowbanned_ids: frozenset[UserId] = frozenset(),
+        *,
+        access: EnrollmentAccessDTO,
     ) -> dict[int, SessionData]:
         event_override = self.object.allow_facilitator_session_edit
         sphere_default = self.object.sphere.allow_facilitator_session_edit
@@ -662,9 +688,12 @@ class EventPageView(EventsPageRequiredMixin, DetailView):  # type: ignore [type-
                 track_names=[t.name for t in session.tracks.all()],
                 category_name=session.category.name if session.category else "",
                 # is_session_eligible dereferences agenda_item, and an
-                # unscheduled proposal can't be enrolled in anyway.
+                # unscheduled proposal can't be enrolled in anyway. A session
+                # inside a window that turns this viewer away is not available
+                # to them, whatever its seat count says.
                 is_enrollment_available=(
-                    agenda_item is not None and session.is_enrollment_available
+                    agenda_item is not None
+                    and access.seats(eligible_window_ids(session))
                 ),
                 is_full=session.is_full,
                 loc=loc,
@@ -1080,8 +1109,18 @@ class SessionEnrollPageView(EventsPageRequiredMixin, LoginRequiredMixin, View):
                 session=session, user_id=viewer_pk
             ).values_list("status", flat=True)
         )
-        actions = build_enroll_actions(
-            is_enrollment_available=session.is_enrollment_available,
+        # Viewer-aware, like the modal's GET: a window restricted to pass
+        # holders is shut for everyone else, and the swapped-in control has to
+        # agree with the form that would reject them.
+        access = self.request.services.enrollment.access(
+            event=EventDTO.model_validate(session.event),
+            viewer_slug=self.request.context.current_user_slug,
+        )
+        footer = build_enroll_footer(
+            opens_at=access.opens_at,
+            is_scheduled=True,
+            participants_limit=session.participants_limit,
+            is_enrollment_available=access.seats(eligible_window_ids(session)),
             is_ended=session.agenda_item.end_time <= datetime.now(tz=UTC),
             is_full=session.is_full,
             user_enrolled=SessionParticipationStatus.CONFIRMED in statuses,
@@ -1094,12 +1133,13 @@ class SessionEnrollPageView(EventsPageRequiredMixin, LoginRequiredMixin, View):
                 "event_slug": session.event.slug,
                 "session_pk": session.pk,
                 "viewer_pk": viewer_pk,
-                "actions": actions,
+                "actions": footer.actions,
+                "enroll_opens_at": footer.opens_at,
                 "enroll_error": enroll_error,
                 # Giving up the last thing you held on a shut window leaves
                 # nothing to render, so the flash is the only confirmation
                 # there is. Otherwise the swapped-in badge says it better.
-                "notice": notice if actions is None else "",
+                "notice": notice if footer.actions is None else "",
             },
         )
 

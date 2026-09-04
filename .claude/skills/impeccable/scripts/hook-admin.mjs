@@ -84,11 +84,11 @@ const HOOK_MANIFEST_TARGETS = [
     sharedDestRel: ".claude/settings.json",
     manifest: () => ({
       description:
-        "Impeccable design detector: immediate-tier checks after Edit/Write/MultiEdit on UI files, full-rule deep pass on Stop.",
+        "Impeccable design detector: immediate-tier checks after Edit/Write on UI files, full-rule deep pass on Stop.",
       hooks: {
         PostToolUse: [
           {
-            matcher: "Edit|Write|MultiEdit",
+            matcher: "Edit|Write",
             hooks: [
               {
                 type: "command",
