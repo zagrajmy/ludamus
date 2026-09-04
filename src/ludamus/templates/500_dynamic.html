@@ -42,11 +42,10 @@
     </head>
     {# No app-shell here, unlike base.html. The shell exists so a top-layer #}
     {# dialog never sits over a scrolled document, and this page has no #}
-    {# dialog; what the shell would cost is real, because it can only size #}
-    {# itself from --app-vh, and this page ships no JS to publish it. A #}
-    {# scrolling document is also the only thing that makes iOS Safari #}
-    {# collapse its toolbars, so the card gets the whole screen instead of #}
-    {# ending above the bar. min-h-dvh centres it while the viewport has room #}
+    {# dialog to protect. A scrolling document is also the only thing that #}
+    {# makes iOS Safari collapse its toolbars, so the card gets the whole #}
+    {# screen instead of ending above the bar — which is worth more here than #}
+    {# the shell was. min-h-dvh centres it while the viewport has room #}
     {# and lets the page grow once the message outgrows one — safe centring, #}
     {# because plain centring pushes the overflow half above the scroll #}
     {# origin, where a short window can never reach the heading. #}

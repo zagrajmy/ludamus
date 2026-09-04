@@ -231,7 +231,7 @@ body {
 /* Every page that extends base.html wears the shell, so its document never
    scrolls and .app-scroll below reserves the only scrollbar gutter there is —
    the root needs none. 500_dynamic.html deliberately goes without the shell
-   (no dialog to protect, no JS to size it with) and does scroll its document,
+   (it has no dialog to protect) and does scroll its document,
    so a long enough message there shows a root scrollbar and nudges the centred
    card by its width. Accepted: it is an error page, and reserving a gutter
    everywhere to avoid it would indent every page that never scrolls.

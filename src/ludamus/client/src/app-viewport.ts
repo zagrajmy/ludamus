@@ -25,17 +25,13 @@ const { visualViewport } = globalThis;
 // height until blur, which is a worse bug in a far more common place.
 if (visualViewport) {
   let published = 0;
-  let frame = 0;
 
   const publish = (): void => {
-    frame = 0;
     // Scaled back up, because visualViewport.height is the *zoomed* visible
     // height: pinch to 2x and it halves, and publishing that would relayout the
     // whole app to half its size for as long as someone magnified a card. The
     // product is what the viewport would show unzoomed, so a pinch is a no-op.
-    // Whole pixels, and written only on a real change — `resize` fires every
-    // frame of the toolbar animation, and each write of this variable relayouts
-    // a viewport-tall subtree.
+    // Whole pixels, so a pinch's rounding drift can't dribble out 1px writes.
     const height = Math.round(visualViewport.height * visualViewport.scale);
     if (height === published) return;
     published = height;
@@ -44,10 +40,17 @@ if (visualViewport) {
 
   // `resize`, never `scroll`: scroll fires throughout every pinch-zoom pan,
   // where nothing about the viewport's size has changed.
-  visualViewport.addEventListener("resize", () => {
-    if (frame) return;
-    frame = requestAnimationFrame(publish);
-  });
+  //
+  // Synchronous, deliberately. event-timeline.ts refits the hour rail from this
+  // same event and measures a cap derived from --app-vh, and every listener for
+  // one dispatch runs before any frame callback that dispatch schedules — so
+  // deferring the write to requestAnimationFrame handed that consumer the
+  // previous size, silently, on every resize. Measured: a 844 -> 600 resize let
+  // it read a 744px cap where 500px was correct. There is nothing to coalesce
+  // anyway; resize lands once per rendering opportunity, the write invalidates
+  // style rather than forcing layout, and the check above already drops what
+  // would not change.
+  visualViewport.addEventListener("resize", publish);
 
   publish();
 }
