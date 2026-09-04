@@ -715,7 +715,7 @@
             margin-top: 4px;
             display: block;
             min-width: 0;
-            max-height: min(70vh, 32rem);
+            max-height: min(calc(var(--app-vh) * 0.7), 32rem);
             overflow-y: auto;
             z-index: 50;
             border: 1px solid var(--color-border);
@@ -796,7 +796,7 @@
                 height: fit-content;
                 width: calc(100% - 1rem);
                 max-width: none;
-                max-height: 90dvh;
+                max-height: calc(var(--app-vh) * 0.9);
                 /* Over the sticky navbar, which shares the panel's z-index and
                    would otherwise sit on top of the dialog. */
                 z-index: 60;

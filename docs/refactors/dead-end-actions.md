@@ -1,6 +1,6 @@
 # 8. Dead-end actions (offer it, then refuse it)
 
-**Status:** 🟡 in progress — accept-proposal fixed, the rest catalogued below.
+**Status:** 🟡 in progress — all but facilitator delete fixed; see Still open.
 
 A dead-end action is a control we render, let the user click, and then answer
 with an error that only says "go set something else up first". The user paid a
@@ -50,24 +50,88 @@ selected by whether its arguments were null.
 sphere held a single event. The row menu now hides the item unless a second
 event exists (`events|length > 1` in `panel/_space_tree_node.html`). Cure 3.
 
-## Catalogued, not yet fixed
+### The five "cannot delete X, it is in use" refusals
 
-Each is a real dependency — the refusal is correct, the timing is not. They
-want cure 3: the list row already knows whether the object is in use, so the
-delete control can carry the reason instead of the redirect doing it.
+Each was a real dependency refused after the click. All five now say so where
+the Delete button would be. The reason is visible text, not a `title` on a
+disabled button: a disabled button is not focusable, so its tooltip never
+reaches the keyboard. Cure 3.
 
-| Where | Message |
+Each list already knew the answer or could get it in one more query; none of
+them asks per row, which would have been an N+1:
+
+| List | How the row knows |
 | --- | --- |
-| `panel/views/venues.py` `SpaceDeleteActionView` | Cannot delete a space with scheduled sessions. |
-| `panel/views/time_slots.py` | Cannot delete time slot used in proposals. |
-| `panel/views/cfp.py` | Cannot delete category with existing proposals. |
-| `panel/views/session_fields.py` | Cannot delete field that is used in categories. |
+| Spaces (`panel/_space_tree_node.html`) | `SpaceTreeNodeDTO.undeletable_reason`, folded up the subtree during the walk `list_tree` already does — deleting cascades, so a branch over a scheduled session is undeletable too. No extra query. |
+| Time slots (`panel/time-slots.html`) | `TimeSlotRepository.pks_with_proposals`, one query, in the page context. `TimeSlotDTO` is shared with the propose wizard and the accept page, so the set travels beside it rather than on it. |
+| Categories (`panel/cfp.html`) | `ProposalCategoriesPageDTO.undeletable_pks` — the page already had its own DTO to put it on. |
+| Session fields (`panel/session-fields.html`) | `FieldUsageSummary.is_used`, derived from the usage counts the page already computed. No new query, and no new `request.di.uow` surface, which CLAUDE.md forbids extending. |
+| Personal data fields (`panel/personal-data-fields.html`) | The same `FieldUsageSummary.is_used`, against the same refusal in `PersonalDataFieldsService.delete`. |
 
-The blocker is that the list DTOs don't carry a usage count today; adding one
-per list is the work. `SpaceTreeNodeDTO.no_children_reason` is the shape to
-copy — one field holding both the fact and the sentence that explains it, so
-the rule and its wording can't drift apart. Note that space deletion checks the
-whole subtree, so the node's own flag is not enough.
+#### One idiom: the row carries its reason
+
+Every surface answers with the same thing — a sentence for the row, or nothing
+when Delete is offered. `SpaceTreeNodeDTO.undeletable_reason` holds it directly,
+because that DTO is built in `links`, which may import Django and so `gettext`.
+
+The other four cannot put it on the DTO: `ProposalCategoriesPageDTO` is built
+in `mills/proposal_categories.py`, and the personal-data `FieldUsageSummary` in
+`mills/submissions/personal_data_fields.py`, and `mills` must not import
+Django. But the view may — `gates` already writes Polish everywhere — so each
+view turns the fact its service returns into `dict[pk, sentence]`:
+
+```python
+context["undeletable_category_reasons"] = {
+    pk: _("Has proposals") for pk in page.undeletable_pks
+}
+```
+
+and every row reads its own reason out of it:
+
+```django
+{% include "components/_row_delete_action.html"
+   with reason=undeletable_category_reasons|get_item:category.pk
+        action_url=... confirm=... csrf_token=csrf_token only %}
+```
+
+One include per row, one argument that decides, and `only` so the partial
+cannot inherit a stray `reason` from the page. `get_item` returns None for a
+row that is missing from the mapping, so the failure direction is "offer
+Delete", not a blank cell with neither button nor explanation.
+
+Putting the sentence in the view rather than the template also makes it
+assertable: the page tests check `{pk: "Has proposals"}` in the context,
+where a set of pks could only ever prove that *something* was flagged.
+
+The partial supplies its own confirmation text when a caller does not: an empty
+`data-confirm` makes `confirm.ts` skip the dialog and submit straight away, so
+the default keeps the guard on rather than trusting five call sites.
+
+Both field pages share one helper, `field_usage_reasons` in
+`panel/views/fields.py`, so that sentence has a single home even though the two
+pages build their summaries in different layers.
+
+Spaces is the exception twice over. Its Delete is a row-menu item with icon and
+menu styling, not a table-cell action, so it renders its own markup rather than
+the shared partial; and its sentence rides on the DTO, sourced from
+`SPACE_UNDELETABLE_REASON` in `links/db/django/models.py`. That constant is
+delete-affordance copy sitting in the ORM module — unlike its neighbour
+`SPACE_NO_CHILDREN_REASON`, which `Space.clean` raises — so moving it to the
+gate beside the other four is the tidier end state.
+
+## Still open
+
+- **Facilitator delete** (`panel/facilitators.html`,
+  `PanelFacilitatorsService.delete` raising `OrganizerActionRefusal.HAS_SESSIONS`)
+  is the last catalogued one. The template already carries a comment choosing
+  "always submittable" on race grounds — but that argument justifies keeping the
+  refusal, not hiding what the page already knows. The blocker is data, not
+  design: the service refuses on `counts.live or counts.deleted`, while
+  `FacilitatorListItemDTO.session_count` counts live sessions only, so the row
+  cannot answer the real predicate yet.
+- **The refusal branches remain** in each view, and should: two organizers can
+  act at once, and the row that was deletable when the page rendered may not be
+  when the POST lands. That is the race an error message is for.
 
 ## Not dead ends (checked, left alone)
 
@@ -81,5 +145,23 @@ whole subtree, so the node's own flag is not enough.
 
 ## Next step
 
-Add a usage count to the panel list DTOs for time slots, categories and session
-fields, then move those four refusals onto the control.
+Give `FacilitatorListItemDTO` a count that matches what the service checks
+(live plus soft-deleted), then move that refusal onto the control too.
+
+Also outstanding, found while reviewing this work:
+
+- **One surface of five is covered in `tests/e2e`.** The Python tests assert
+  the context, which is where CLAUDE.md puts them, so they cannot prove a
+  template consumes it: dropping `reason=` from `cfp.html` leaves the whole
+  Python suite green. Categories are pinned by "a category with proposals says
+  why instead of offering Delete" in `panel-crud.spec.ts`; session fields,
+  personal data fields, time slots and the spaces row menu still rest on
+  context assertions alone. The two field pages share the partial and the
+  helper, so two more cases would take it to four of five.
+- **`SessionRepository.read_event` and `read_time_slots` are now exact
+  duplicates** of `EventRepository.read` and `TimeSlotRepository.list_by_event`,
+  reached through a join instead of the FK. Adding `event_id` to `SessionDTO`
+  would delete both, and turn two `Event` fetches in `mills` into an int
+  comparison.
+- **`SPACE_UNDELETABLE_REASON` belongs in the gate**, beside the other four
+  sentences, rather than in `links/db/django/models.py`.

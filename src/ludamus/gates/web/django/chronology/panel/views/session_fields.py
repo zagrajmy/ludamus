@@ -22,6 +22,7 @@ from ludamus.gates.web.django.chronology.panel.views.base import (
 from ludamus.gates.web.django.chronology.panel.views.fields import (
     parse_field_form_data,
     read_field_or_redirect,
+    undeletable_field_reasons,
 )
 from ludamus.gates.web.django.forms import SessionFieldForm
 from ludamus.gates.web.django.panel import parse_requirement_selection
@@ -51,7 +52,7 @@ class SessionFieldsPageView(PanelAccessMixin, EventContextMixin, View):
         usage_counts = self.request.di.uow.session_fields.get_usage_counts(
             current_event.pk
         )
-        context["fields"] = [
+        summaries = [
             FieldUsageSummary(
                 field=f,
                 required_count=usage_counts.get(f.pk, {}).get("required", 0),
@@ -59,6 +60,8 @@ class SessionFieldsPageView(PanelAccessMixin, EventContextMixin, View):
             )
             for f in fields
         ]
+        context["fields"] = summaries
+        context["undeletable_field_reasons"] = undeletable_field_reasons(summaries)
         return TemplateResponse(self.request, "panel/session-fields.html", context)
 
 
