@@ -37,6 +37,15 @@ class CloudPill:
     value: str
 
 
+@dataclass(frozen=True)
+class LocationCrumb:
+    name: str
+    space_filter: str | None
+
+
+_VENUE_FILTER_PREFIX = "venue:"
+
+
 @dataclass
 class DisplayFieldRow:
     icon: str
@@ -222,6 +231,24 @@ class SessionData:  # pylint: disable=too-many-instance-attributes
     @property
     def location_label(self) -> str:
         return self.loc.get("path", "")
+
+    @property
+    def location_crumbs(self) -> list[LocationCrumb]:
+        path = self.loc.get("sort_path", ())
+        if not isinstance(path, tuple) or not path:
+            return []
+        last = len(path) - 1
+        crumbs: list[LocationCrumb] = []
+        for index, (_order, name, pk) in enumerate(path):
+            space_filter: str | None
+            if index == last:
+                space_filter = str(pk)
+            elif index == last - 1:
+                space_filter = f"{_VENUE_FILTER_PREFIX}{pk}"
+            else:
+                space_filter = None
+            crumbs.append(LocationCrumb(name=name, space_filter=space_filter))
+        return crumbs
 
 
 class FilterAvailability(TypedDict):

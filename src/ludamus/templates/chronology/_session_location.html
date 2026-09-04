@@ -1,0 +1,20 @@
+{% if data.location_crumbs %}
+    {% if not session_link_base and event.slug %}
+        {% url 'web:chronology:event' slug=event.slug as session_link_base %}
+    {% endif %}
+    <span class="min-w-0 truncate" title="{{ data.location_label }}">
+        {% for crumb in data.location_crumbs %}
+            {% if not forloop.first %}<span aria-hidden="true"> > </span>{% endif %}
+            {% if crumb.space_filter and session_link_base %}
+                <a href="{{ session_link_base }}?space={{ crumb.space_filter }}#schedule-region"
+                   class="pointer-events-auto underline decoration-dotted underline-offset-4 hover:text-primary"
+                   data-apply-space="{{ crumb.space_filter }}">{{ crumb.name }}</a>
+            {% else %}
+                <span>{{ crumb.name }}</span>
+            {% endif %}
+        {% endfor %}
+    </span>
+    {% if show_map_link %}
+        {% include "chronology/_session_map_link.html" %}
+    {% endif %}
+{% endif %}

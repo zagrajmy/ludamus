@@ -69,7 +69,7 @@
                     {# a sub-label 12px off the name it belongs to. #}
                     <div class="flex flex-1 items-center gap-x-3 gap-y-0.5 flex-wrap min-w-0">
                         <div class="font-medium text-foreground" data-morph="host">{{ data.presenter.full_name }}</div>
-                        {% if data.location_label %}
+                        {% if data.location_crumbs %}
                             {# The room sits beside a name that is still flying in from #}
                             {# the card, so at its final spot it reads as arriving alone. #}
                             {# Its own group lets it land with the other static labels. #}
@@ -79,8 +79,7 @@
                                 {# narrowest phones its 16px plus the gap is width the #}
                                 {# room name itself needs. #}
                                 {% icon "map-pin" class="size-4 shrink-0 opacity-80 max-[400px]:hidden" variant="mini" %}
-                                <span class="truncate" title="{{ data.location_label }}">{{ data.location_label }}</span>
-                                {% include "chronology/_session_map_link.html" %}
+                                {% include "chronology/_session_location.html" with show_map_link=True %}
                             </span>
                         {% endif %}
                         {% if data.presenter.pk %}
