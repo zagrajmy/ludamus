@@ -491,3 +491,8 @@ If you fix a papercut, remove it.
 - 2026-09-04: The impeccable skill's scripts/context.mjs crashes on import:
   .claude/skills/impeccable/scripts/lib/provider.mjs is missing from the
   checkout, so the skill's setup step cannot run.
+- 2026-09-04: panel.spec.ts is not re-runnable against the dev e2e DB:
+  'duplicates a space', 'copies a space to another event' and the session-field
+  test create records and never remove them, so a second run hits strict-mode
+  violations on duplicate names. Re-run test:e2e:prep between local runs, or
+  have those tests clean up like cover-images now does.
