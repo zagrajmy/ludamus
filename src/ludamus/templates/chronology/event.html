@@ -122,13 +122,24 @@
                             </a>
                         {% endif %}
                     </div>
-                    {% if compact_schedule %}
-                        <div class="flex flex-col gap-3 md:row-start-3 md:flex-row md:flex-wrap">
-                            {% translate "View the program" as t_view_program %}
-                            {% tessera_button t_view_program href="#schedule-region" size="lg" full_width_mobile=True %}
-                            {% if has_enrollable_sessions and not event.is_ended %}
-                                {% translate "Sign up for sessions" as t_sign_up_sessions %}
-                                {% tessera_button t_sign_up_sessions href="?enrollment=1#schedule-region" variant="secondary" size="lg" full_width_mobile=True %}
+                    {% if compact_schedule or maps_url %}
+                        <div class="flex flex-wrap items-center gap-3{% if compact_schedule %} md:row-start-3{% endif %}">
+                            {% if compact_schedule %}
+                                {% translate "View the program" as t_view_program %}
+                                {% tessera_button t_view_program href="#schedule-region" size="lg" %}
+                                {% if has_enrollable_sessions and not event.is_ended %}
+                                    {% translate "Sign up for sessions" as t_sign_up_sessions %}
+                                    {% tessera_button t_sign_up_sessions href="?enrollment=1#schedule-region" variant="secondary" size="lg" data_apply_enrollment=True %}
+                                {% endif %}
+                            {% endif %}
+                            {% if maps_url %}
+                                {% translate "Venue maps" as t_venue_maps %}
+                                <a href="{{ maps_url }}"
+                                   class="icon-btn size-12 justify-center rounded-2xl overflow-hidden"
+                                   title="{{ t_venue_maps }}">
+                                    {% icon "map" class="size-5" variant="mini" %}
+                                    <span class="sr-only">{{ t_venue_maps }}</span>
+                                </a>
                             {% endif %}
                         </div>
                     {% endif %}

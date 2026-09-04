@@ -214,41 +214,125 @@ test.describe("Event schedule views", () => {
     expect(fold.height).toBeLessThan(fold.nextHeight);
   });
 
-  test("the grid offers sideways scrollbars on both edges", async ({ page }) => {
+  test("the grid offers a sideways scrollbar at its bottom edge", async ({ page }) => {
     await page.goto(`${DENSE_EVENT_URL}?view=rooms`);
-    const head = page.locator("[data-room-lanes-head]").first();
     const foot = page.locator("[data-room-lanes-foot]").first();
     const body = page.locator("[data-room-lanes-scroll]").first();
 
-    // Real scrollers — that is what puts a scrollbar at the top and the
-    // bottom edge for mouse users. The body's own scrollbar yields to the
-    // foot, which pins to the viewport.
-    for (const handle of [head, foot]) {
-      await expect(handle).toHaveCSS("overflow-x", "auto");
-    }
+    // A real scroller — that is what puts a scrollbar under the grid for mouse
+    // users. The body's own yields to it, because the foot pins to the
+    // viewport while the body's would surface only at the grid's end.
+    await expect(foot).toHaveCSS("overflow-x", "auto");
     await expect(body).toHaveCSS("scrollbar-width", "none");
 
     // Targets derived from the actual overflow, so a shrunken fixture fails
     // on this precondition instead of an opaque clamped-scroll poll timeout.
-    const budget = (handle: typeof head) =>
-      handle.evaluate((el) => el.scrollWidth - el.clientWidth);
-    const max = Math.min(await budget(head), await budget(foot));
+    const max = await foot.evaluate((el) => el.scrollWidth - el.clientWidth);
     expect(max).toBeGreaterThanOrEqual(300);
     const far = Math.floor(max / 2);
-    const near = Math.floor(max / 4);
 
-    // Dragging either handle pans the grid, and the grid drags both along.
-    await head.evaluate((el, left) => {
+    // Dragging the handle pans the grid, and the grid drags the handle along.
+    await foot.evaluate((el, left) => {
       el.scrollLeft = left;
     }, far);
     await expect.poll(() => body.evaluate((el) => el.scrollLeft)).toBe(far);
-    await expect.poll(() => foot.evaluate((el) => el.scrollLeft)).toBe(far);
 
-    await foot.evaluate((el, left) => {
-      el.scrollLeft = left;
-    }, near);
-    await expect.poll(() => body.evaluate((el) => el.scrollLeft)).toBe(near);
-    await expect.poll(() => head.evaluate((el) => el.scrollLeft)).toBe(near);
+    await body.evaluate((el) => {
+      el.scrollLeft = 0;
+    });
+    await expect.poll(() => foot.evaluate((el) => el.scrollLeft)).toBe(0);
+  });
+
+  test("the grid is reachable by keyboard to pan it", async ({ page }) => {
+    await page.goto(`${DENSE_EVENT_URL}?view=rooms`);
+    // A scroll container earns a tab stop by itself only while nothing inside
+    // it is focusable — tiles are — and only in some engines, so the grid names
+    // itself and takes one, rather than leaving a keyboard user to tab through
+    // every tile to travel sideways.
+    const grid = page.getByRole("region", { name: "Rooms schedule" });
+
+    // Reached by Tab, not by focus(): focus() succeeds on tabindex="-1" too,
+    // and a focused scroller pans on arrow keys whatever its tabindex says, so
+    // asserting focusability would pass on exactly the grid this test exists to
+    // rule out — one no keyboard user can get to. Tabbing from the top of the
+    // page is the user's own route, and it is the browser's model of the tab
+    // order rather than a guess at it: predicting the previous stop from the
+    // DOM misses that a fixed or hidden control is skipped.
+    await page.evaluate(() => {
+      document.body.focus();
+    });
+    let reached = false;
+    for (let press = 0; press < 60 && !reached; press++) {
+      await page.keyboard.press("Tab");
+      reached = await grid.evaluate((el) => el === document.activeElement);
+    }
+    expect(reached).toBe(true);
+
+    const panned = async () => grid.evaluate((el) => Math.round(el.scrollLeft));
+    expect(await panned()).toBe(0);
+    await page.keyboard.press("ArrowRight");
+    await expect.poll(panned).toBeGreaterThan(0);
+  });
+
+  test("a room's name stands over that room's sessions", { tag: "@ios" }, async ({ page }) => {
+    await page.goto(`${DENSE_EVENT_URL}?view=rooms`);
+    const grid = page.getByRole("region", { name: "Rooms schedule" });
+    const max = await grid.evaluate((el) => el.scrollWidth - el.clientWidth);
+    expect(max).toBeGreaterThanOrEqual(300);
+
+    // A session announces the room it is in (aria-describedby), so the pair
+    // to check is that room's heading and that session's tile — what the
+    // reader actually reads together, rather than the two grids underneath.
+    const tile = page.getByRole("link", { name: /^Open details for / }).first();
+    const room = await tile.evaluate((link) => {
+      const described = link.getAttribute("aria-describedby");
+      const name = described ? document.getElementById(described)?.textContent : "";
+      // "<space>, <room>" where a room sits in a named space.
+      return (name ?? "").trim().split(",").pop()?.trim() ?? "";
+    });
+    expect(room).not.toBe("");
+    // Visible only: the room filter carries the same name in a closed select.
+    const heading = page.getByText(room, { exact: true }).filter({ visible: true }).first();
+
+    // Sub-pixel, not exact, and it cannot be: the header's travel ends on the
+    // grid's real width while scrollLeft tops out at an integer scrollWidth,
+    // so the two disagree by that rounding — measured 0.62px (WebKit) and
+    // 0.41px (Chromium) at full scroll on a phone, growing from 0. Under a
+    // pixel is the honest bound, and every failure worth catching is orders
+    // bigger: a sign flip is twice the overflow, a dead fallback all of it.
+    // The two sit a fixed distance apart — different padding, same column — so
+    // what is asserted is that the distance does not change as the grid pans. A
+    // heading that lags its column moves relative to it; one that keeps step
+    // does not, whatever padding sits between them. Read through the elements
+    // rather than Playwright's box, which is null for a column clipped out of
+    // the strip at full scroll.
+    const offset = async () => {
+      const [over, under] = await Promise.all([
+        heading.evaluate((el) => el.getBoundingClientRect().x),
+        tile.evaluate((el) => el.getBoundingClientRect().x),
+      ]);
+      return over - under;
+    };
+    const atRest = await offset();
+
+    // The axis heading names the hour column and belongs to no room, so it
+    // holds still while the columns travel under it. That is the behaviour
+    // pinning it beside the grid rather than inside it, and making it paint its
+    // own ground, exist for — nothing else here covers either.
+    const axis = page.getByText("Time", { exact: true }).filter({ visible: true }).first();
+    const axisAtRest = await axis.evaluate((el) => el.getBoundingClientRect().x);
+
+    for (const left of [Math.floor(max / 3), max]) {
+      await grid.evaluate((el, target) => {
+        el.scrollLeft = target;
+      }, left);
+      await expect.poll(async () => Math.abs((await offset()) - atRest)).toBeLessThan(1);
+      await expect
+        .poll(async () =>
+          Math.abs((await axis.evaluate((el) => el.getBoundingClientRect().x)) - axisAtRest),
+        )
+        .toBeLessThan(1);
+    }
   });
 
   test("the current day stays outside the edge fade and follows vertical scroll", async ({
@@ -288,6 +372,29 @@ test.describe("Event schedule views", () => {
     expect(await days.count()).toBeGreaterThan(1);
     await expect(mirrors).toHaveCount((await days.count()) - 1);
     expect(await body.evaluate((el) => getComputedStyle(el).maskImage)).not.toBe("none");
+
+    // The mask above is only half the claim: it says a gradient is installed,
+    // not that it tracks the grid. Both halves run their fades off the body's
+    // scroll timeline, so both edges have to darken as the columns reach them —
+    // the strip especially, since a strip fading on a timeline of its own is
+    // what left one crisp edge above a permanently faded one. Engines without
+    // scroll timelines never fade — there the @property initial value is the
+    // whole behaviour — so the check is skipped rather than inverted.
+    const head = page.locator("[data-room-lanes-head]").first();
+    const faded = async (half: typeof body) =>
+      half.evaluate((el) => Number(getComputedStyle(el).getPropertyValue("--fade-end-opacity")));
+    if (await page.evaluate(() => CSS.supports("timeline-scope: --room-lanes-x"))) {
+      expect(await faded(body)).toBeLessThan(1);
+      expect(await faded(head)).toBeLessThan(1);
+      await body.evaluate((el) => {
+        el.scrollLeft = el.scrollWidth - el.clientWidth;
+      });
+      await expect.poll(() => faded(body)).toBe(1);
+      await expect.poll(() => faded(head)).toBe(1);
+      await body.evaluate((el) => {
+        el.scrollLeft = 0;
+      });
+    }
 
     const source = days.nth(1);
     const mirror = mirrors.first();

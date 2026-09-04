@@ -1,7 +1,7 @@
-/* The rooms schedule grid: tracks, the map-style pan states, the edge fades
-   that keep its two scrollbar handles legible, and the collapse filtering
-   uses. Paired with room-lanes.ts, which names --row-track / --col-track and
-   toggles the pan classes. */
+/* The rooms schedule grid: tracks, the map-style pan states, the edge fades,
+   how the room header holds the body's horizontal offset, and the collapse
+   filtering uses. Paired with room-lanes.ts, which names --row-track /
+   --col-track, toggles the pan classes, and writes the header's offset. */
 
 .room-lanes {
   --axis-w: 2.6rem;
@@ -128,48 +128,110 @@ body:has(.room-lanes-panning) * {
   position: relative;
 }
 
+/* The strip shows the body's columns by holding the body's horizontal offset,
+   and it is moved, never scrolled — so it clips in every browser and is a
+   query container everywhere the keyframe below needs one. `relative` is what
+   the axis heading pins against: layout containment does not supply a
+   containing block for it in any engine, measured. */
+.room-lanes-head {
+  position: relative;
+  overflow: clip;
+  container-type: inline-size;
+}
+
+/* The gutter stays opaque in both halves — each paints its own axis over the
+   columns passing beneath it, rather than being cut back to something further
+   out. */
 .room-lanes-head,
 .room-lanes-scroll {
-  mask-image:
-    linear-gradient(
-      90deg,
-      black 0,
-      black var(--axis-w),
-      hsl(0 0% 0% / var(--fade-start-opacity)) var(--axis-w),
-      black calc(var(--axis-w) + var(--fade-size-start, 0px)),
-      black calc(100% - var(--fade-size-end, 0px)),
-      hsl(0 0% 0% / var(--fade-end-opacity))
-    ),
-    linear-gradient(black, black);
-  -webkit-mask-image:
-    linear-gradient(
-      90deg,
-      black 0,
-      black var(--axis-w),
-      hsl(0 0% 0% / var(--fade-start-opacity)) var(--axis-w),
-      black calc(var(--axis-w) + var(--fade-size-start, 0px)),
-      black calc(100% - var(--fade-size-end, 0px)),
-      hsl(0 0% 0% / var(--fade-end-opacity))
-    ),
-    linear-gradient(black, black);
-  mask-size:
-    100% calc(100% - var(--room-lanes-sb, 0px)),
-    100% var(--room-lanes-sb, 0px);
-  -webkit-mask-size:
-    100% calc(100% - var(--room-lanes-sb, 0px)),
-    100% var(--room-lanes-sb, 0px);
-  mask-position:
-    top left,
-    bottom left;
-  -webkit-mask-position:
-    top left,
-    bottom left;
+  mask-image: linear-gradient(
+    90deg,
+    black 0,
+    black var(--axis-w),
+    hsl(0 0% 0% / var(--fade-start-opacity)) var(--axis-w),
+    black calc(var(--axis-w) + var(--fade-size-start, 0px)),
+    black calc(100% - var(--fade-size-end, 0px)),
+    hsl(0 0% 0% / var(--fade-end-opacity))
+  );
+
   mask-repeat: no-repeat;
-  -webkit-mask-repeat: no-repeat;
 }
 
 .room-lanes-scroll {
   scrollbar-width: none;
+}
+
+/* iOS scrolls on the compositor and fires `scroll` asynchronously, so a strip
+   mirrored through a listener is always a frame or more behind the columns it
+   names. Here the browser moves it instead, off the body's own scroll.
+
+   room-lanes.ts writes the same translate inline on every scroll event. A
+   running animation outranks inline style, so that write is inert wherever
+   this block applies and is the whole mechanism where it does not — nothing
+   detects which, because a detector that guessed wrong would freeze the strip.
+   It also covers a timeline that stops resolving: an unresolved name leaves
+   the animation with a null timeline, which stops applying its `both` fill,
+   and the inline value takes over.
+
+   `from` is stated, not implied: an implicit one takes the underlying value,
+   which is exactly the inline translate this has to override.
+
+   The end value is the scroller's own overflow — 100% the grid, 100cqw the
+   strip showing it — re-derived through every relayout that collapsing a
+   column causes. It lands under a pixel from -(scrollWidth - clientWidth)
+   rather than on it — 0.62px at full scroll on a phone, growing linearly from
+   zero — because scrollWidth is integer-rounded and the grid width is not.
+
+   Gated on timeline-scope, not `animation-timeline: scroll()`: the name has to
+   cross from the body scroller to a strip that is not its descendant, and an
+   engine with anonymous scroll() but no scope would leave the animation
+   timeline-less and, with `both`, parked on its end frame. */
+@supports (timeline-scope: --room-lanes-x) {
+  .room-lanes {
+    timeline-scope: --room-lanes-x;
+  }
+
+  .room-lanes-scroll {
+    scroll-timeline: --room-lanes-x x;
+  }
+
+  /* Neither half wears .scrollview-fade. The strip is clipped, so its own
+     timeline could never progress; the body's would drive only the body's,
+     which is how this grid ended up with one crisp edge above a permanently
+     faded one wherever that class's animations fall back to the document
+     timeline — Firefox, today. Both read the body's offset here instead, by
+     keyframe name: a name that goes stale fails visibly as a missing fade,
+     where re-pointing whatever animations the class installed failed as an
+     opacity parked on its end value. */
+  .room-lanes-head,
+  .room-lanes-scroll {
+    animation:
+      scrollview-fade-start 10s ease-out both,
+      scrollview-fade-end 10s ease-out both;
+    animation-timeline: --room-lanes-x, --room-lanes-x;
+    animation-range:
+      0 2em,
+      calc(100% - 2em) 100%;
+  }
+
+  /* No duration, unlike the fades above: `auto` spans the whole timeline,
+     which is the travel this has to cover. The fades state 10s because they
+     are ranged to the first and last 2em and a duration is what those ranges
+     are cut from. */
+  .room-lanes-head > .room-lanes-grid {
+    animation: room-lanes-track linear both;
+    animation-timeline: --room-lanes-x;
+  }
+
+  @keyframes room-lanes-track {
+    from {
+      translate: 0;
+    }
+
+    to {
+      translate: calc(100cqw - 100%);
+    }
+  }
 }
 
 .room-lanes-overlays {
@@ -213,9 +275,23 @@ body:has(.room-lanes-panning) * {
   grid-row: 1 / -1;
 }
 
-.room-lanes-corner,
 .room-lanes-head-cell {
   grid-row: 1;
+}
+
+/* The axis heading sits in the strip beside the grid, not inside it: the grid
+   is the thing that moves, and a translated grid is the containing block for
+   everything within it, so a cell there could not be pinned back. Beside it,
+   the strip's own `relative` holds it while the columns travel underneath —
+   the body names its hours the same way, .room-lanes-time in the template.
+   It spans the strip's full height rather than sitting on its floor: the
+   label is one line of a two-line strip, and the ground it paints has to
+   cover the whole gutter or a room's group label shows through above it. */
+.room-lanes-corner {
+  position: absolute;
+  inset-block: 0;
+  left: 0;
+  width: var(--axis-w);
 }
 
 /* The day break inside the body: a full-width band that reads as the seam

@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% load i18n %}
+{% load tessera %}
+{% block title %}
+    {{ event.name }} • {% translate "Maps" %}
+{% endblock title %}
+{% block header_section %}
+{% endblock header_section %}
+{% block body %}
+    {% url 'web:chronology:event-maps' slug=event.slug as maps_url %}
+    {% include "chronology/decorative_background_blobs.html" %}
+    <div class="relative mb-6 flex items-end justify-between gap-4 sm:mb-8">
+        <div>
+            <a href="{{ schedule_url }}"
+               class="inline-flex items-center gap-1.5 text-sm font-medium text-foreground-muted hover:text-foreground">
+                {% icon "arrow-left" class="size-4" variant="mini" %}
+                {{ event.name }}
+            </a>
+            <h1 class="mt-2 text-3xl sm:text-4xl font-bold text-foreground">{% translate "Maps" %}</h1>
+        </div>
+        {% if can_edit %}
+            {# The one organizer control that is not about a particular map. #}
+            {# A query link on this page's own path, so the dialog is #}
+            {# addressable and a failed upload reopens it with its errors. The #}
+            {# path is spelled out: a failed post renders this page at the #}
+            {# action's URL, and a bare "?add-map=1" would then resolve to that #}
+            {# path and make the modal script intercept the retry as a reopen. #}
+            {% translate "Add map" as t_add_map %}
+            {% tessera_button t_add_map href=maps_url|add:"?add-map=1" icon="plus" aria_controls="add-map-modal" aria_haspopup="dialog" %}
+        {% endif %}
+    </div>
+    {% if cards %}
+        {# One plan after another, each anchored by its pk so a session's map #}
+        {# icon can land on the right picture. Beside it (below, on a phone) #}
+        {# the venues it shows, drawn as the tree they sit in: an attached #}
+        {# node links into the schedule filtered to that venue, an ancestor #}
+        {# that only frames it stays plain text. #}
+        <div class="relative flex flex-col gap-10 sm:gap-14">
+            {% for card in cards %}
+                {% include "chronology/_map_card.html" with card=card %}
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="relative rounded-3xl bg-bg-secondary shadow-(--shadow-elevated) p-8 text-center">
+            <div class="mb-4">{% icon "map" class="w-12 h-12 text-foreground-muted mx-auto" %}</div>
+            {% if can_edit %}
+                <p class="text-foreground-muted mb-4">
+                    {% translate "No maps yet. Upload a site plan or a floor plan so participants can find their rooms." %}
+                </p>
+                {% translate "Add map" as t_add_map %}
+                {% tessera_button t_add_map href=maps_url|add:"?add-map=1" icon="plus" aria_controls="add-map-modal" aria_haspopup="dialog" %}
+            {% else %}
+                <p class="text-foreground-muted mb-4">{% translate "The organizers haven't added any maps yet." %}</p>
+                {% translate "Back to the program" as t_back %}
+                {% tessera_button t_back href=schedule_url variant="secondary" %}
+            {% endif %}
+        </div>
+    {% endif %}
+    {% if can_edit %}
+        <dialog id="add-map-modal"
+                class="modal w-[calc(100%-2rem)] max-w-md p-0"
+                aria-labelledby="add-map-modal-title">
+            <form method="post"
+                  action="{% url 'web:chronology:event-map-add' slug=event.slug %}?add-map=1"
+                  enctype="multipart/form-data"
+                  data-submit-once>
+                {% csrf_token %}
+                <div class="px-6 pt-5 pb-4">
+                    <h3 id="add-map-modal-title" class="font-semibold text-foreground">{% translate "Add map" %}</h3>
+                    <div class="mt-4">{% tessera_form add_form %}</div>
+                </div>
+                <div class="flex justify-end gap-2 border-t border-border px-6 py-3">
+                    {% translate "Cancel" as t_cancel %}
+                    {% tessera_button t_cancel button_type="button" variant="secondary" full_width_mobile=False data_modal_close="add-map-modal" %}
+                    {% translate "Add map" as t_add_map %}
+                    {% tessera_button t_add_map %}
+                </div>
+            </form>
+        </dialog>
+    {% endif %}
+{% endblock body %}

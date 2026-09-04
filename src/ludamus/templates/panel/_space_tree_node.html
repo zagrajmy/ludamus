@@ -75,11 +75,16 @@
                                 {% translate "Duplicate" %}
                             </button>
                         </form>
-                        <a href="{% url 'panel:space-copy' slug=current_event.slug pk=node.space.pk %}"
-                           class="flex items-center px-4 py-2 text-sm text-foreground-secondary hover:bg-bg-tertiary">
-                            {% icon "clipboard-document" class="mr-2 w-4 h-4" %}
-                            {% translate "Copy to event" %}
-                        </a>
+                        {# `events` always holds the current one, so a second entry #}
+                        {# is the only thing that makes a copy target exist. Without #}
+                        {# one the action could only bounce back with a warning. #}
+                        {% if events|length > 1 %}
+                            <a href="{% url 'panel:space-copy' slug=current_event.slug pk=node.space.pk %}"
+                               class="flex items-center px-4 py-2 text-sm text-foreground-secondary hover:bg-bg-tertiary">
+                                {% icon "clipboard-document" class="mr-2 w-4 h-4" %}
+                                {% translate "Copy to event" %}
+                            </a>
+                        {% endif %}
                         <hr class="my-1">
                         <form method="post"
                               action="{% url 'panel:space-delete' slug=current_event.slug pk=node.space.pk %}"
