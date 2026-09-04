@@ -8,9 +8,9 @@ the policy file is untouched.
 
 I traced every outbound call under `links/`, every model field holding
 personal data, the consent path, and each retention promise. Not covered: the
-env vars actually set on the OVH host, the Auth0 tenant config, and whether
-processing agreements exist with any provider below. That is why a few
-findings say "verify in production".
+Auth0 tenant config, and whether processing agreements exist with any provider
+below. Where a finding depended on production configuration, it says so;
+GCS was confirmed in use by the maintainer, `SUPPORT_EMAIL` is still open.
 
 Engineering audit, not legal advice. The RODO references are places to point a
 lawyer, not conclusions.
@@ -39,7 +39,7 @@ third parties §4 never mentions.
 | F7 | RSVP IPs kept forever to answer a 60-second question | Medium-high |
 | F8 | §3.2 calls email notifications planned; they ship | Medium |
 | F9 | Core service runs on legitimate interest where art. 6(1)(b) fits | Medium |
-| F10 | Uploads may sit in a Google bucket, and orphans are never deleted | Medium |
+| F10 | Media lives in a Google bucket, and orphaned files are never deleted | Medium |
 | F11 | Nothing says which data is visible to other users or to the public | Medium |
 | F12 | The MCP endpoint feeds event data to operators' AI agents | Medium |
 | F13 | Four smaller gaps: cookies, transfers, art. 13 leftovers, contact | Low-medium |
@@ -196,14 +196,18 @@ Fix: move §3.1 and the transactional half of §3.2 to art. 6(1)(b). Keep
 legitimate interest for security, abuse prevention and fault reporting, where
 it belongs.
 
-### F10 — Uploads: possibly Google, definitely orphaned — Medium
+### F10 — Uploads sit in a Google bucket and are never deleted — Medium
 
 `edges/settings.py:44-47` accepts `GS_BUCKET_NAME`, `GS_CREDENTIALS_JSON` and
 `GS_LOCATION` to put media in a Google bucket, and the CSP comment at `:441`
-says "media from GCS". Verify in production whether that is on; if it is,
-Google belongs in §4 and §5.
+says "media from GCS". **Confirmed in use**, so Google is a processor for every
+uploaded file and belongs in §4 and §5, where it now is.
 
-Either way, nothing deletes a file when its row goes.
+Worth checking `GS_LOCATION` while you are there: a bucket outside the EEA
+makes storage itself a third-country transfer, not just the API call to reach
+it.
+
+Nothing deletes a file when its row goes.
 `repositories/storage.py:35` deletes the file being *replaced*, and there is
 no `post_delete` handler anywhere, so a deleted or soft-deleted row leaves its
 upload behind.
