@@ -46,9 +46,9 @@ jobs:
       - name: Check the iOS spec budget
         run: |
           shopt -s nullglob
-          files=(scripts/ios-regressions/*.test.ts)
+          files=(scripts/ios-regressions/*.ios.test.ts)
           if [ ${#files[@]} -eq 0 ]; then
-            echo "::error::no iOS regression test files found"
+            echo "::error::no *.ios.test.ts files found in scripts/ios-regressions"
             exit 1
           fi
           if [ ${#files[@]} -gt 3 ]; then
@@ -146,7 +146,7 @@ jobs:
           IOS_HOOK_TIMEOUT_MS: 360000
         run: |
           shopt -s nullglob
-          files=(scripts/ios-regressions/*.test.ts)
+          files=(scripts/ios-regressions/*.ios.test.ts)
 
           # Per file rather than per suite, so a retry re-runs only what failed.
           # Two attempts each is what fits the step budget above.

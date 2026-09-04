@@ -36,7 +36,7 @@ const proxyServer = process.env.HTTPS_PROXY ?? process.env.https_proxy;
 const WEB_COMMAND = "mise run test:e2e:prep && exec mise run test:e2e:serve";
 
 const isCI = !!process.env.CI;
-const skipIos = !!process.env.E2E_SKIP_IOS;
+const skipWebkit = !!process.env.E2E_SKIP_IOS;
 
 // Set before webServerEnv is built, so the runner and the server it starts
 // agree on whether this run measures coverage.
@@ -139,19 +139,22 @@ export default defineConfig({
           : {}),
       },
     },
-    ...(skipIos
+    ...(skipWebkit
       ? []
       : [
           {
             name: "webkit",
-            // Selected by tag, so a spec asks for iOS where it is written and a
-            // renamed title cannot silently drop its own coverage.
-            grep: /@ios/,
-            // Kept from the projects above, because a tag moves the choice to
-            // spec authors who will not read this file: only chromium-auth
-            // carries storageState, so an @ios here would otherwise land on the
-            // login page rather than announce itself as misconfigured.
-            testIgnore: [/.*\.auth\.spec\.ts/],
+            // Selected by filename, the way chromium-auth is, so what a spec
+            // runs under is visible in the tree rather than in a tag inside it.
+            //
+            // This is WebKit with an iPhone's viewport and nothing else of a
+            // phone: no browser chrome, so no toolbar to collapse and no visual
+            // viewport that disagrees with the layout one. Anything that needs
+            // *those* is a device test and belongs in scripts/ios-regressions
+            // as a .ios.test.ts, which drives real Safari on a simulator. The
+            // two were told apart by a tag once, and a viewport assertion that
+            // could only hold here shipped a bug to iOS.
+            testMatch: /.*\.webkit\.spec\.ts/,
             use: { ...devices["iPhone 14 Pro"] },
           },
         ]),

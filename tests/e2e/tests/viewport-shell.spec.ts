@@ -30,25 +30,6 @@ test.describe("App shell viewport height", () => {
     await page.goto("/");
   });
 
-  test("the shell is the height the viewport is showing", { tag: "@ios" }, async ({ page }) => {
-    await expect.poll(() => appVh(page)).toMatch(/^\d+px$/);
-
-    const visible = await page.evaluate(() => Math.round(visualViewport!.height));
-    expect(await shellHeight(page)).toBe(visible);
-
-    // The shell clips what overflows it, so the page end is only reachable if
-    // the document itself never scrolls and #app-scroll owns the whole range.
-    const documentScrolls = await page.evaluate(
-      () => document.documentElement.scrollHeight > document.documentElement.clientHeight,
-    );
-    expect(documentScrolls).toBe(false);
-
-    await page.evaluate(() => {
-      document.getElementById("app-scroll")!.scrollTop = 1e6;
-    });
-    await expect(page.getByRole("contentinfo")).toBeInViewport();
-  });
-
   test("the published height follows the viewport", async ({ page }) => {
     const before = await shellHeight(page);
     await page.setViewportSize({ width: 390, height: before - 140 });
