@@ -29,9 +29,14 @@
 
 /* In the ledger: the seam between what has started and what has not. The rows
    are a list rather than a time axis, so the line marks the boundary between
-   two rows instead of a position inside an hour. */
+   two rows instead of a position inside an hour. Absolute with no top: the
+   static position of a block child is exactly the row boundary schedule-now.ts
+   inserts it at, and it costs the ledger no height. */
 .schedule-now {
-  position: relative;
+  position: absolute;
+  z-index: 20;
+  inset-inline: 0;
+  height: 0;
   border-top: 2px solid var(--color-primary);
-  margin-block: 0.875rem;
+  pointer-events: none;
 }
