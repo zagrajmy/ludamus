@@ -150,14 +150,13 @@ Give `FacilitatorListItemDTO` a count that matches what the service checks
 
 Also outstanding, found while reviewing this work:
 
-- **One surface of five is covered in `tests/e2e`.** The Python tests assert
-  the context, which is where CLAUDE.md puts them, so they cannot prove a
-  template consumes it: dropping `reason=` from `cfp.html` leaves the whole
-  Python suite green. Categories are pinned by "a category with proposals says
-  why instead of offering Delete" in `panel-crud.spec.ts`; session fields,
-  personal data fields, time slots and the spaces row menu still rest on
-  context assertions alone. The two field pages share the partial and the
-  helper, so two more cases would take it to four of five.
+- ~~**One surface of five is covered in `tests/e2e`.**~~ All five are now. The
+  Python tests assert the context, which is where CLAUDE.md puts them, so they
+  cannot prove a template consumes it: dropping `reason=` from a call site
+  leaves the whole Python suite green. Categories are pinned in
+  `panel-crud.spec.ts`; session fields, personal data fields, time slots and
+  the spaces row menu in `panel.spec.ts`. Each case was checked against a
+  deliberately broken template.
 - **`SessionRepository.read_event` and `read_time_slots` are now exact
   duplicates** of `EventRepository.read` and `TimeSlotRepository.list_by_event`,
   reached through a join instead of the FK. Adding `event_id` to `SessionDTO`

@@ -346,6 +346,16 @@ test.describe("Backoffice Panel", () => {
     ).toBeAttached();
   });
 
+  test("says why Delete is unavailable on a space holding a session", async ({ page }) => {
+    // delete_space refuses a subtree holding a scheduled session, so the row
+    // menu says so where the button would be. Read-only: this space is seeded.
+    await page.goto("/panel/event/frostfire-con/venues/");
+
+    const menu = await openSpaceMenu(page, "Glacier Amphitheatre");
+    await expect(menu.getByText("Has scheduled sessions")).toBeVisible();
+    await expect(menu.getByRole("button", { name: "Delete", exact: true })).toHaveCount(0);
+  });
+
   test("edits a space", async ({ page }) => {
     await page.goto("/panel/event/frostfire-con/venues/");
     await page.getByRole("link", { name: "Edit Frost Gallery" }).click();
@@ -985,6 +995,22 @@ test.describe("Backoffice Panel", () => {
       await expect(page.getByText("Category updated successfully.")).toBeVisible();
     });
 
+    test("says why Delete is unavailable on a field a category asks for", async ({ page }) => {
+      // The category above now requires these fields, so delete refuses them.
+      // Both pages share the partial and the helper that builds the sentence.
+      const cases = [
+        ["/panel/event/frostfire-con/cfp/session-fields/", gameSystemName],
+        ["/panel/event/frostfire-con/cfp/personal-data/", cityName],
+      ] as const;
+
+      for (const [url, fieldName] of cases) {
+        await page.goto(url);
+        const row = page.locator("tr", { hasText: fieldName });
+        await expect(row.getByText("Used by categories")).toBeVisible();
+        await expect(row.getByRole("button", { name: /Delete/i })).toHaveCount(0);
+      }
+    });
+
     test("submits a proposal through the public wizard", async ({ browser }) => {
       // Use a separate browser context with the e2e-tester user
       const statePath = path.join(__dirname, "..", ".auth-state.json");
@@ -1143,6 +1169,23 @@ test.describe("Backoffice Panel", () => {
       await expect(page.getByText(regressionTitle)).toBeVisible();
 
       await context.close();
+    });
+
+    test("says why Delete is unavailable on a slot a proposal asked for", async ({ page }) => {
+      // The wizard above asked for slots, so delete() refuses those. Assert the
+      // invariant rather than a count: every slot row renders exactly one of
+      // the sentence or the button, and both kinds are on this page. A count
+      // would only track how many proposals the tests before this one filed.
+      await page.goto("/panel/event/frostfire-con/cfp/time-slots/");
+
+      const spokenFor = page.getByText("Used by proposals");
+      await expect(spokenFor.first()).toBeVisible();
+
+      // Every slot row renders exactly one of the sentence or the button, so
+      // the two counts partition the rows however many proposals were filed.
+      const rows = await page.getByRole("link", { name: "Edit", exact: true }).count();
+      const deletable = await page.getByRole("button", { name: "Delete", exact: true }).count();
+      expect((await spokenFor.count()) + deletable).toBe(rows);
     });
 
     test("verifies proposal in panel proposals list and detail", async ({ page }) => {
