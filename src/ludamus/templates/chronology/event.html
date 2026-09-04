@@ -218,14 +218,20 @@
                         </h3>
                         {# Each title opens its session modal client-side (modal.ts), the #}
                         {# same ?session= link contract the schedule rows use. #}
-                        <p class="text-sm text-foreground-muted">
+                        <ul class="text-sm text-foreground-muted">
                             {% for enrolled in user_enrolled_sessions %}
-                                <a href="?session={{ enrolled.session.pk }}"
-                                   class="text-primary hover:underline"
-                                   aria-haspopup="dialog"
-                                   aria-controls="session-{{ enrolled.session.pk }}">{{ enrolled.session.title }}</a>{% if not forloop.last %}, {% endif %}
+                                <li>
+                                    <a href="?session={{ enrolled.session.pk }}"
+                                       class="text-primary hover:underline"
+                                       aria-haspopup="dialog"
+                                       aria-controls="session-{{ enrolled.session.pk }}">{{ enrolled.session.title }}</a>
+                                    {% if enrolled.agenda_item %}
+                                        · {{ enrolled.agenda_item.start_time|date:"l, j E" }} ·
+                                        <span class="tabular-nums">{{ enrolled.agenda_item.start_time|time:"G:i" }}–{{ enrolled.agenda_item.end_time|time:"G:i" }}</span>
+                                    {% endif %}
+                                </li>
                             {% endfor %}
-                        </p>
+                        </ul>
                     </div>
                 </div>
             </div>
