@@ -504,3 +504,7 @@ If you fix a papercut, remove it.
 - 2026-09-04: uv/poetry installs hung silently in the web sandbox: pypi.org and
   files.pythonhosted.org are on the proxy's NO_PROXY list but the direct route
   times out; running the bootstrap with NO_PROXY= no_proxy= cleared fixed it
+- 2026-09-04: Sandbox: 'mise run messages' fails config validation (empty
+  required env var), so a django.po edit had to be hand-written. djlint in
+  .venv was also missing its 'regex' and 'pyyaml' deps, which blocked the
+  pre-commit hook until I pip-installed them by hand.

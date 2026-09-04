@@ -4084,11 +4084,11 @@ msgstr "Zamknij"
 #: src/ludamus/templates/base.html
 #, python-format
 msgid ""
-"<a href=\"%(source_url)s\">Source code</a> available under <a "
+"<a href=\"%(source_url)s\">Source code</a> available under&nbsp;<a "
 "href=\"%(license_url)s\">AGPL-3.0</a>."
 msgstr ""
 "<a href=\"%(source_url)s\">Kod źródłowy</a> dostępny na <a "
-"href=\"%(license_url)s\">licencji AGPL-3.0</a>."
+"href=\"%(license_url)s\">licencji&nbsp;AGPL-3.0</a>."
 
 #: src/ludamus/templates/base.html
 msgid "Cookie settings"

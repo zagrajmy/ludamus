@@ -3,9 +3,22 @@
      root-snapshot blur must match so the hand-off at the end of the view
      transition is seamless. */
   --modal-backdrop-blur: 4px;
+
+  /* The share of the visible viewport a capped dialog may take. Read by
+     .modal-capped and by the schedule's filter sheet.
+     SAFETY: an unresolved var() computes to max-height:none in silence; the
+     e2e cap assertions are what notice a consumer left reading a dead name. */
+  --modal-max-h: 90dvh;
 }
 
 @layer components {
+  /* NOTE: opt-in, not part of .modal — a dialog whose content cannot outgrow
+     the screen should size to its content rather than sit in a tall box. */
+  .modal-capped {
+    max-height: var(--modal-max-h);
+    overflow: hidden;
+  }
+
   .modal {
     position: fixed;
     inset: 0;

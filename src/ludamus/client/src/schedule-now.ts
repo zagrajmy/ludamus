@@ -1,6 +1,7 @@
-// The "this is now" rule across both compact schedule layouts. The clock is
-// the one thing the server cannot render into this page: it is cacheable, and
-// a line rendered server-side would be stale the moment it was served.
+// The "this is now" rule across both compact schedule layouts, and the dimming
+// of what it has passed. The clock is the one thing the server cannot render
+// into this page: it is cacheable, and a line rendered server-side would be
+// stale the moment it was served.
 
 import { eventTimeZone } from "./event-time";
 
@@ -84,6 +85,25 @@ const placeInList = (at: number): void => {
   seam.hidden = true;
 };
 
+// What is over reads as over. The served page states which sessions had ended
+// when it was rendered, and a schedule left open on a phone at the convention
+// outlives that answer by hours — every row it was served bright stays bright.
+// Only ever marks: the served state is the floor, so a reader whose device
+// clock runs slow cannot light a past programme back up.
+const markEnded = (at: number): void => {
+  for (const session of document.querySelectorAll<HTMLElement>(
+    ".session[data-session-end]:not([data-ended])",
+  )) {
+    const end = Date.parse(session.dataset.sessionEnd ?? "");
+    if (Number.isNaN(end) || end > at) continue;
+    session.dataset.ended = "";
+    // Every other availability term is about a seat in something still to
+    // come, so ending settles the status the filters read (SessionData.
+    // availability puts "ended" above all of them).
+    session.dataset.status = "ended";
+  }
+};
+
 let observedGrid: HTMLElement | null = null;
 let layoutObserver: ResizeObserver | null = null;
 
@@ -98,6 +118,7 @@ const observeGridLayout = (): void => {
 const place = (): void => {
   observeGridLayout();
   const at = Math.floor(Date.now() / MINUTE_MS) * MINUTE_MS;
+  markEnded(at);
   placeInGrid(at);
   placeInList(at);
 };
@@ -123,4 +144,11 @@ const start = (): void => {
 
 start();
 document.body.addEventListener("htmx:afterSwap", start);
+// A page restored from the back/forward cache resumes with the clock it was
+// frozen with: its timer fires late, and until it does the schedule shows an
+// hours-old reading of now. The restore is the first chance to correct it.
+globalThis.addEventListener("pageshow", start);
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden) start();
+});
 document.addEventListener("schedule:filtered", () => queueMicrotask(place));

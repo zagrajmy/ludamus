@@ -281,7 +281,7 @@ run = [
 ]
 
 [tasks.fullcheck]
-env.E2E_SKIP_IOS = "1"
+env.E2E_SKIP_WEBKIT = "1"
 run = [
     "poetry install",
     { task = "format" },
