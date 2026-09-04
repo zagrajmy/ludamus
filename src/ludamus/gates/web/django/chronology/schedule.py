@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 from dataclasses import dataclass, field, replace
-from datetime import UTC, date, datetime, timedelta, tzinfo
+from datetime import UTC, date, datetime, timedelta
 from itertools import groupby, pairwise
 from typing import TYPE_CHECKING, Literal, NamedTuple
 
@@ -490,18 +490,18 @@ class _Booking(NamedTuple):
     end: datetime
 
 
-def _bookings(schedule_days: list[ScheduleDay], tz: tzinfo) -> list[_Booking]:
-    bookings: dict[int, _Booking] = {}
+def _bookings(schedule_days: list[ScheduleDay]) -> list[_Booking]:
+    # A session's tiles are the contiguous pieces of one span, days in order
+    # and tiles in start order within a day, so the first opens the booking
+    # and the last closes it.
+    tiles_by_session: dict[int, list[ScheduleTile]] = defaultdict(list)
     for day in schedule_days:
         for tile in day.tiles:
-            if tile.data.agenda_item is None or tile.data.session.pk in bookings:
-                continue
-            bookings[tile.data.session.pk] = _Booking(
-                data=tile.data,
-                start=tile.data.agenda_item.start_time.astimezone(tz),
-                end=tile.data.agenda_item.end_time.astimezone(tz),
-            )
-    return list(bookings.values())
+            tiles_by_session[tile.data.session.pk].append(tile)
+    return [
+        _Booking(data=tiles[0].data, start=tiles[0].start, end=tiles[-1].end)
+        for tiles in tiles_by_session.values()
+    ]
 
 
 def _fold_lulls(
@@ -545,7 +545,7 @@ def build_room_lanes(schedule_days: list[ScheduleDay]) -> RoomLanes:
     # out of step with each other as you panned.
     keys = sorted({_room_key(tile.data) for day in schedule_days for tile in day.tiles})
     col_index = {key: index + 1 for index, key in enumerate(keys)}
-    bookings = _bookings(schedule_days, timezone.get_current_timezone())
+    bookings = _bookings(schedule_days)
 
     rows: list[RoomLaneRow] = []
     for index, day in enumerate(schedule_days):

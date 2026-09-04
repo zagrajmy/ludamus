@@ -5,6 +5,9 @@
 
 .room-lanes {
   --axis-w: 2.6rem;
+  /* The seam and fold bands: over the tiles they cross, under the sticky
+     gutter and header. */
+  --band-layer: 15;
   --col-min: 10rem;
   /* room-lanes.ts rebuilds these track lists when a filter empties a track, so
      the sizes live here once and both consumers name them. */
@@ -108,7 +111,7 @@ body:has(.room-lanes-panning) * {
    a mark on the ruler, not a surface. */
 .room-lanes-line[data-row-track="fold"] {
   --fold-stripe: color-mix(in oklch, var(--color-neutral-400) 35%, transparent);
-  z-index: 15;
+  z-index: var(--band-layer);
   display: flex;
   align-items: center;
   pointer-events: none;
@@ -304,7 +307,7 @@ body:has(.room-lanes-panning) * {
      session running through the night spans it, and the band has to read as
      a break drawn across that tile rather than vanish behind it. The wash
      leaves the tile showing through; the toggle alone takes pointers. */
-  z-index: 15;
+  z-index: var(--band-layer);
   pointer-events: none;
   background: color-mix(in oklch, var(--color-neutral-100) 88%, transparent);
 }
