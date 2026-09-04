@@ -14,9 +14,14 @@ test.describe("Event filter panel", () => {
 
     await page.goto("/event/autumn-open/");
     await page.getByRole("button", { exact: true, name: "Filters" }).click();
-    await expect(page.locator("#filter-panel.is-open")).toBeVisible();
 
-    const box = await page.locator("#filter-panel").boundingBox();
+    // By role, not by id: at this width the panel is an accessible dialog
+    // named "Filters" (proven three tests down), so the assertions below reach
+    // it the way a person does.
+    const panel = page.getByRole("dialog", { name: "Filters" });
+    await expect(panel).toBeVisible();
+
+    const box = await panel.boundingBox();
     expect(box).not.toBeNull();
     expect(box!.x).toBeGreaterThanOrEqual(0);
     expect(box!.x + box!.width).toBeLessThanOrEqual(MOBILE_WIDTH);
@@ -31,7 +36,7 @@ test.describe("Event filter panel", () => {
     const visible = await page.evaluate(() => visualViewport!.height * visualViewport!.scale);
     await expect
       .poll(() =>
-        page.locator("#filter-panel").evaluate((el) => {
+        panel.evaluate((el) => {
           const { maxHeight } = getComputedStyle(el);
           return maxHeight === "none" ? maxHeight : Number.parseFloat(maxHeight);
         }),
