@@ -14,6 +14,7 @@ from ludamus.gates.web.django.mcp.tokens import (
 from ludamus.links.db.django.models import (
     AgendaItem,
     Announcement,
+    EventMap,
     ScheduleChangeLog,
     Space,
     SphereMembership,
@@ -24,6 +25,7 @@ from ludamus.pacts.multiverse import SphereRole
 from tests.integration.conftest import (
     AgendaItemFactory,
     EventFactory,
+    ProposalCategoryFactory,
     SessionFactory,
     SpaceFactory,
     SphereFactory,
@@ -568,6 +570,39 @@ class TestOrganizerProgrammeTools:
         )
         assert [item["pk"] for item in listed] == [session["pk"]]
 
+    def test_create_session_defaults_facilitator_name_to_title(
+        self, client, org_token, programme
+    ):
+        session = call_org_json(
+            client,
+            org_token,
+            "create_session",
+            {
+                "source_row_id": "bf25-row-1",
+                "title": "Wprowadzenie",
+                "category_id": programme["category"]["pk"],
+            },
+        )
+
+        assert session["facilitator_name"] == "Wprowadzenie"
+
+    def test_create_session_keeps_explicit_blank_facilitator_name(
+        self, client, org_token, programme
+    ):
+        session = call_org_json(
+            client,
+            org_token,
+            "create_session",
+            {
+                "source_row_id": "bf25-row-1",
+                "title": "Wprowadzenie",
+                "category_id": programme["category"]["pk"],
+                "facilitator_name": "",
+            },
+        )
+
+        assert not session["facilitator_name"]
+
     def test_assign_session_places_it_in_a_space(
         self, client, org_token, event, programme
     ):
@@ -1030,3 +1065,182 @@ class TestOrganizerUpdateSpaceTool:
         assert result["content"][0]["text"] == "Resource not found"
         room.refresh_from_db()
         assert room.parent_id is None
+
+
+class TestOrganizerUpdateSessionTool:
+    def test_sets_the_host_line(self, client, org_token, event):
+        session = SessionFactory(
+            category=ProposalCategoryFactory(event=event),
+            status="accepted",
+            facilitator_name="Wprowadzenie",
+        )
+
+        updated = call_org_json(
+            client,
+            org_token,
+            "update_session",
+            {"pk": session.pk, "facilitator_name": "Jan Kowalski, Anna Nowak"},
+        )
+
+        session.refresh_from_db()
+        assert session.facilitator_name == "Jan Kowalski, Anna Nowak"
+        assert updated["pk"] == session.pk
+        assert updated["facilitator_name"] == "Jan Kowalski, Anna Nowak"
+
+    def test_empty_string_clears_the_host_line(self, client, org_token, event):
+        session = SessionFactory(
+            category=ProposalCategoryFactory(event=event),
+            status="accepted",
+            facilitator_name="Jan Kowalski",
+        )
+
+        updated = call_org_json(
+            client,
+            org_token,
+            "update_session",
+            {"pk": session.pk, "facilitator_name": ""},
+        )
+
+        session.refresh_from_db()
+        assert not session.facilitator_name
+        assert not updated["facilitator_name"]
+
+    def test_rejects_foreign_session(self, client, org_token, sphere):
+        foreign = SessionFactory(
+            category=ProposalCategoryFactory(event=EventFactory(sphere=sphere)),
+            status="accepted",
+            facilitator_name="Elsewhere",
+        )
+
+        response = call_org_tool(
+            client,
+            org_token,
+            "update_session",
+            {"pk": foreign.pk, "facilitator_name": "Hacked"},
+        )
+
+        result = response.json()["result"]
+        assert result["isError"] is True
+        assert result["content"][0]["text"] == "Resource not found"
+        foreign.refresh_from_db()
+        assert foreign.facilitator_name == "Elsewhere"
+
+
+@pytest.mark.django_db
+class TestOrganizerMaps:
+    @staticmethod
+    def _create(client, org_token, name="Site plan", pages=1):
+        return call_org_json(
+            client,
+            org_token,
+            "create_map",
+            {
+                "name": name,
+                "pages": [
+                    {"filename": f"plan-{index}.png", "content_base64": PNG_1X1_BASE64}
+                    for index in range(pages)
+                ],
+            },
+        )
+
+    def test_create_map_stores_every_page_in_order(self, client, org_token, event):
+        created = self._create(client, org_token, pages=2)
+
+        event_map = EventMap.objects.get()
+        assert event_map.event_id == event.pk
+        assert event_map.name == "Site plan"
+        assert [page.image_original_name for page in event_map.pages.all()] == [
+            "plan-0.png",
+            "plan-1.png",
+        ]
+        assert [page["image_original_name"] for page in created["pages"]] == [
+            "plan-0.png",
+            "plan-1.png",
+        ]
+
+    def test_list_maps_reports_pages_and_spaces(self, client, org_token, event):
+        room = SpaceFactory(event=event, name="Room 1")
+        created = self._create(client, org_token)
+        call_org_json(
+            client,
+            org_token,
+            "set_map_spaces",
+            {"map_id": created["pk"], "space_ids": [room.pk]},
+        )
+
+        listed = call_org_json(client, org_token, "list_maps", {"event_id": event.pk})
+
+        assert [(one["name"], one["space_pks"]) for one in listed] == [
+            ("Site plan", [room.pk])
+        ]
+
+    def test_update_map_renames_without_touching_pages(self, client, org_token):
+        created = self._create(client, org_token)
+        stored = [page.image.name for page in EventMap.objects.get().pages.all()]
+
+        updated = call_org_json(
+            client,
+            org_token,
+            "update_map",
+            {"map_id": created["pk"], "name": "Level 0"},
+        )
+
+        assert updated["name"] == "Level 0"
+        assert [
+            page.image.name for page in EventMap.objects.get().pages.all()
+        ] == stored
+
+    def test_set_map_spaces_rejects_a_space_of_another_event(
+        self, client, org_token, sphere
+    ):
+        created = self._create(client, org_token)
+        foreign = SpaceFactory(event=EventFactory(sphere=sphere))
+
+        response = call_org_tool(
+            client,
+            org_token,
+            "set_map_spaces",
+            {"map_id": created["pk"], "space_ids": [foreign.pk]},
+        )
+
+        result = response.json()["result"]
+        assert result["isError"] is True
+        assert not EventMap.objects.get().spaces.exists()
+
+    def test_write_tools_refuse_a_map_of_another_event(self, client, org_token, sphere):
+        foreign = EventMap.objects.create(
+            event=EventFactory(sphere=sphere), name="Away"
+        )
+
+        response = call_org_tool(
+            client, org_token, "delete_map", {"map_id": foreign.pk}
+        )
+
+        result = response.json()["result"]
+        assert result["isError"] is True
+        assert EventMap.objects.filter(pk=foreign.pk).exists()
+
+    def test_delete_map_removes_it(self, client, org_token):
+        created = self._create(client, org_token)
+
+        call_org_json(client, org_token, "delete_map", {"map_id": created["pk"]})
+
+        assert not EventMap.objects.exists()
+
+    def test_create_map_rejects_content_that_is_not_an_image(self, client, org_token):
+        garbage = base64.b64encode(b"definitely not an image").decode()
+
+        response = call_org_tool(
+            client,
+            org_token,
+            "create_map",
+            {
+                "name": "Site plan",
+                "pages": [{"filename": "x.png", "content_base64": garbage}],
+            },
+        )
+
+        result = response.json()["result"]
+        assert result["isError"] is True
+        assert "Unsupported image format" in result["content"][0]["text"]
+        assert not EventMap.objects.exists()

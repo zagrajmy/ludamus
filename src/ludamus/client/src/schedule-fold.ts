@@ -6,20 +6,18 @@
 // yesterday's programme is one click away, not in the way. Fold state is a
 // reading gesture: nothing of it reaches the URL or the filters.
 
-import { eventTimeZone } from "./event-time";
+import { eventTimeZone, programmeDate, programmeDayStartHour } from "./event-time";
 
 const announce = (): void => {
   document.dispatchEvent(new CustomEvent("schedule:filtered"));
 };
 
-// The event's calendar date decides what counts as "already over": visiting on
-// Saturday folds Friday, whatever the visitor's own timezone says. en-CA is
-// the locale whose date format is exactly YYYY-MM-DD, so the result compares
-// against the served data-day stamps as a plain string.
-const eventToday = (): string => {
-  const timeZone = eventTimeZone();
-  return new Intl.DateTimeFormat("en-CA", timeZone ? { timeZone } : {}).format(new Date());
-};
+// The event's programme date decides what counts as "already over": visiting
+// on Saturday folds Friday, whatever the visitor's own timezone says — but not
+// before Saturday's programme day has opened, since at 02:00 the reader is
+// still living Friday.
+const eventToday = (): string =>
+  programmeDate(Date.now(), eventTimeZone(), programmeDayStartHour());
 
 const isFolded = (holder: HTMLElement): boolean => "folded" in holder.dataset;
 

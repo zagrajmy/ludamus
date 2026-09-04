@@ -4,12 +4,12 @@ from __future__ import annotations
 
 import re
 from decimal import Decimal
-from typing import TYPE_CHECKING, Any, ClassVar, Literal, cast
+from typing import TYPE_CHECKING, Any, ClassVar, Literal, NamedTuple, assert_never, cast
 
 from django import forms
 from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator
-from django.utils.translation import gettext
+from django.utils.translation import gettext, pgettext_lazy
 from django.utils.translation import gettext_lazy as _
 
 from ludamus.gates.uploads import validate_uploaded_image, validate_uploaded_logo
@@ -25,27 +25,36 @@ from ludamus.pacts.durations import (
     build_duration,
     duration_choices,
 )
-from ludamus.pacts.images import IMAGE_ACCEPT, LOGO_ACCEPT
+from ludamus.pacts.images import IMAGE_ACCEPT, LOGO_ACCEPT, CoverCrop, StoredFile
 from ludamus.pacts.legacy import EncounterPublicPolicy, PromotionMode, SpherePage
 from ludamus.pacts.submissions import AccreditationType
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Sequence
 
+    from django.core.files.uploadedfile import UploadedFile
     from django.utils.functional import _StrPromise
 
     from ludamus.pacts import SessionFieldRequirementDTO
     from ludamus.pacts.multiverse import ConnectionDTO
+    from ludamus.pacts.venues import SpaceTreeNodeDTO
 
 _DATETIME_LOCAL_FORMATS = ["%Y-%m-%dT%H:%M", "%Y-%m-%dT%H:%M:%S"]
 # The hero prints the address under the venue name, where a third line
 # pushes the CTAs off a phone screen.
 MAX_ADDRESS_LINES = 2
 # Hand-written rather than joined from IMAGE_FORMATS: it is translated user copy,
-# and a comma-joined list of MIME types reads nothing like a sentence.
-COVER_IMAGE_HELP_TEXT = _(
+# and a comma-joined list of MIME types reads nothing like a sentence. Two of
+# them because an event cover also loses its sides to the full-bleed banner,
+# where a session cover keeps them; the dropzone guide
+# (components/file-dropzone.html) draws the matching shape.
+EDGES_COVER_IMAGE_HELP_TEXT = _(
     "1920×1080 (16:9) works best. We crop the edges, so keep the subject in "
     "the middle and leave text out. Max 8 MB. JPG, PNG, WebP, or AVIF."
+)
+TOP_AND_BOTTOM_COVER_IMAGE_HELP_TEXT = _(
+    "1920×1080 (16:9) works best. We crop the top and bottom, so keep the "
+    "subject in the middle and leave text out. Max 8 MB. JPG, PNG, WebP, or AVIF."
 )
 # Width of the PositiveIntegerField column on Postgres (`integer`). Dev sqlite
 # is wider, so an overflow only ever surfaces in production. A validator rather
@@ -60,30 +69,40 @@ STORAGE_LIMIT_VALIDATOR = MaxValueValidator(
 
 
 class DropzoneFileInput(forms.ClearableFileInput):
-    # `fit` and `safe_zone` are read by the tessera dropzone renderer, never
-    # written to the input: they say how the preview frames the file, which is
-    # the renderer's business and not the browser's.
+    # `fit` and `crop` are read by the tessera dropzone renderer, never written
+    # to the input: they say how the preview frames the file, which is the
+    # renderer's business and not the browser's.
     def __init__(
         self,
         *,
         attrs: dict[str, str] | None = None,
         fit: Literal["cover", "contain"] = "cover",
-        safe_zone: bool = False,
+        crop: CoverCrop | None = None,
     ) -> None:
         super().__init__(attrs)
         self.fit = fit
-        # A crop guide over a preview that crops nothing would point at nothing.
-        self.safe_zone = safe_zone and fit == "cover"
+        self.crop = crop
 
 
-def cover_image_field() -> forms.ImageField:
+def cover_image_field(*, crop: CoverCrop) -> forms.ImageField:
     # Shared definition so every cover/header upload field stays identical
     # (label, limits, accepted types) without copy-pasting the declaration.
+    # `crop` picks which surfaces this upload lands on, and with it both the
+    # help text and the guide the dropzone draws over the preview. match +
+    # assert_never (not a dict) so a third crop is a type error here rather
+    # than copy for one crop shown against the guide for the other.
+    match crop:
+        case "edges":
+            help_text = EDGES_COVER_IMAGE_HELP_TEXT
+        case "top-and-bottom":
+            help_text = TOP_AND_BOTTOM_COVER_IMAGE_HELP_TEXT
+        case _:
+            assert_never(crop)
     return forms.ImageField(
         label=_("Cover image"),
         required=False,
-        help_text=COVER_IMAGE_HELP_TEXT,
-        widget=DropzoneFileInput(attrs={"accept": IMAGE_ACCEPT}, safe_zone=True),
+        help_text=help_text,
+        widget=DropzoneFileInput(attrs={"accept": IMAGE_ACCEPT}, crop=crop),
     )
 
 
@@ -154,7 +173,7 @@ class EventSettingsForm(forms.Form):
             raise ValidationError(gettext("An address can have at most two lines."))
         return "\n".join(kept)
 
-    cover_image = cover_image_field()
+    cover_image = cover_image_field(crop="edges")
     logo = logo_field()
     start_time = forms.DateTimeField(
         widget=_datetime_local_widget(),
@@ -574,6 +593,111 @@ def create_space_copy_form(events: list[tuple[int, str]]) -> type[forms.Form]:
     return type("SpaceCopyForm", (forms.Form,), {"target_event": target_event_field})
 
 
+class MultiFileInput(forms.FileInput):
+    # A plan can run to several pictures, so its one input takes several files.
+    # A plain FileInput, not the clearable one every other dropzone uses:
+    # clearing has no meaning for a page set — a map with no pages is not a
+    # map — so the chosen files are the whole answer.
+    allow_multiple_selected = True
+    fit = "contain"
+
+
+class MultiImageField(forms.ImageField):
+    """An image upload that keeps every file chosen, in the order chosen."""
+
+    widget = MultiFileInput
+
+    def clean(
+        self, data: list[UploadedFile[bytes]], initial: StoredFile | None = None
+    ) -> list[UploadedFile[bytes]]:
+        clean_one = super().clean
+        files = [clean_one(one, initial) for one in data if one]
+        if not files and self.required:
+            raise ValidationError(self.error_messages["required"], code="required")
+        return files
+
+
+def create_event_map_form(*, has_image: bool) -> type[forms.Form]:
+    # Built per use like create_space_copy_form: whether a picture is required
+    # depends on whether one is stored already — editing keeps the pages it has
+    # unless a new set replaces them.
+    name = forms.CharField(
+        max_length=255,
+        strip=True,
+        label=pgettext_lazy("place", "Name"),
+        help_text=_("What the picture shows: a building, a floor, the whole site."),
+        error_messages={
+            "max_length": _("Map name is too long (max 255 characters)."),
+            "required": _("Map name is required."),
+        },
+    )
+    image = MultiImageField(
+        required=not has_image,
+        label=_("Map pages"),
+        help_text=_(
+            "One picture, or several for a plan that comes with a legend. "
+            "Max 8 MB each. JPG, PNG, WebP, or AVIF."
+        ),
+        validators=[validate_uploaded_image],
+        widget=MultiFileInput(attrs={"accept": IMAGE_ACCEPT}),
+        error_messages={"required": _("Upload the map image.")},
+    )
+    return type("EventMapForm", (forms.Form,), {"name": name, "image": image})
+
+
+class TreeChoice(NamedTuple):
+    """One node of a checkbox tree: its own option, then the nodes under it."""
+
+    value: str
+    label: str
+    children: list[TreeChoice]
+
+
+class CheckboxTreeSelect(forms.CheckboxSelectMultiple):
+    # `choice_tree` is read by the tessera renderer, which draws the nesting the
+    # flat `choices` cannot express. Both describe the same options, so
+    # validation stays the plain MultipleChoiceField check.
+    def __init__(self, *, choice_tree: list[TreeChoice]) -> None:
+        super().__init__()
+        self.choice_tree = choice_tree
+
+
+def _tree_choices(nodes: list[SpaceTreeNodeDTO]) -> list[TreeChoice]:
+    return [
+        TreeChoice(
+            value=str(node.space.pk),
+            label=node.space.name,
+            children=_tree_choices(node.children),
+        )
+        for node in nodes
+    ]
+
+
+def _flat_choices(tree: list[TreeChoice]) -> list[tuple[str, str]]:
+    return [
+        pair
+        for node in tree
+        for pair in ((node.value, node.label), *_flat_choices(node.children))
+    ]
+
+
+def create_map_spaces_form(*, space_tree: list[SpaceTreeNodeDTO]) -> type[forms.Form]:
+    # Which venues a plan shows is a checklist of the event's own tree, drawn as
+    # that tree, so a floor plan can name the floor or the rooms under it
+    # without every row repeating the path down to them.
+    tree = _tree_choices(space_tree)
+    spaces = forms.MultipleChoiceField(
+        required=False,
+        label=_("Venues on this map"),
+        help_text=_(
+            "Each venue listed beside the map links to its sessions on the schedule."
+        ),
+        widget=CheckboxTreeSelect(choice_tree=tree),
+        choices=_flat_choices(tree),
+    )
+    return type("MapSpacesForm", (forms.Form,), {"spaces": spaces})
+
+
 class TrackForm(forms.Form):
     """Form for creating/editing tracks."""
 
@@ -632,7 +756,7 @@ class SessionEditForm(forms.Form):
     duration_minutes = forms.IntegerField(
         required=False, min_value=0, max_value=MAX_DURATION_MINUTES, label=_("Minutes")
     )
-    cover_image = cover_image_field()
+    cover_image = cover_image_field(crop="top-and-bottom")
 
     def clean_cover_image(self) -> object:
         image = self.cleaned_data.get("cover_image")

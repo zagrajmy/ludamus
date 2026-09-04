@@ -5,17 +5,12 @@ from collections import defaultdict
 from dataclasses import dataclass, replace
 from datetime import date, datetime, time, timedelta
 from itertools import pairwise
-from string import digits
 from typing import cast
 from zoneinfo import ZoneInfo
 
 from scripts.polcon26.repairs import (
-    EXCLUDED_TITLE_CELLS,
     FIXTURE_LANE_NAMES,
-    FLOATING_BLOCKS,
-    REPAIR_ITEMS,
     ROOM_NAME_REPAIRS,
-    SHIFTED_NIGHT_LANES,
     SPLIT_NAME_REPAIRS,
     TRANSPOSED_TITLE_CELLS,
     UNLABELLED_ROOM_GROUPS,
@@ -334,7 +329,7 @@ def presenter_names(value: object) -> list[str]:
     if lowered.startswith("sekcja trzymaj pion"):
         return ["Sekcja Trzymaj Pion"]
     presenters = re.sub(
-        r"(?i)\b(prowadzenie|prowadzi|uczestnicy|gościmy|udział biorą|rozmawiają)"
+        r"(?i)\b(prowadzenie|prowadzi|uczestnicy|gościmy|udział b\w+|rozmawiają)"
         r"\b\s*:?\s*",
         ", ",
         presenters,
@@ -342,9 +337,9 @@ def presenter_names(value: object) -> list[str]:
     presenters = re.sub(r"(?i)\s+-\s+prowadzący\s*:\s*", ", ", presenters)
     presenters = re.sub(r"(?i)^prowadzący\s*:\s*", "", presenters)
     names = [
-        name.strip(" -")
+        name.strip(" -:")
         for name in re.split(r"\s*(?:,|;|\n|\s+i\s+)\s*", presenters)
-        if len(name.strip(" -")) >= MIN_PRESENTER_NAME_LENGTH
+        if len(name.strip(" -:")) >= MIN_PRESENTER_NAME_LENGTH
     ]
     return _rejoin_split_names(names)
 
@@ -427,13 +422,11 @@ def _extract_sheet_programme(
     groups = room_groups(sheet)
     groups.extend(UNLABELLED_ROOM_GROUPS.get(sheet_name, ()))
     header_times = _header_times(sheet_name=sheet_name, sheet=sheet)
-    labelled_last_column = max(header_times)
-    header_times = _extrapolated(header_times, sheet=sheet)
     first_column, last_column = min(header_times), max(header_times)
     merge_at = _schedule_merges(
         sheet=sheet, first_column=first_column, last_column=last_column
     )
-    items = [
+    return [
         item
         for first_row, last_row, raw_room in sorted(groups)
         for item in _extract_room_programme(
@@ -441,186 +434,11 @@ def _extract_sheet_programme(
             sheet=sheet,
             header_times=header_times,
             merge_at=merge_at,
-            first_column=first_column,
-            last_column=last_column,
             first_row=first_row,
             last_row=last_row,
             raw_room=raw_room,
         )
     ]
-    if _night_region_present(sheet):
-        items.extend(
-            _extract_floating_blocks(
-                sheet_name=sheet_name, sheet=sheet, merge_at=merge_at
-            )
-        )
-        items.extend(
-            _extract_shifted_night_lanes(
-                sheet_name=sheet_name,
-                sheet=sheet,
-                header_times=header_times,
-                merge_at=merge_at,
-                first_column=labelled_last_column + 1,
-                last_column=last_column,
-            )
-        )
-    items.extend(_extract_repair_items(sheet_name=sheet_name, sheet=sheet))
-    return items
-
-
-def _night_region_present(sheet: SheetData) -> bool:
-    return any(
-        row_number(reference) == 1
-        and isinstance(value, str)
-        and re.fullmatch(r"\d*\.\d+", value)
-        for reference, value in sheet.cells.items()
-    )
-
-
-def _extrapolated(
-    header_times: dict[int, float], *, sheet: SheetData
-) -> dict[int, float]:
-    last_column = max(header_times)
-    step = COLUMN_MINUTES / (24 * 60)
-    content_columns = [
-        parse_range(reference)[2]
-        for reference in sheet.merges
-        if parse_range(reference)[1] > HEADER_ROW
-    ]
-    result = dict(header_times)
-    for column in range(last_column + 1, max([*content_columns, last_column]) + 1):
-        result[column] = header_times[last_column] + (column - last_column) * step
-    return result
-
-
-def _extract_floating_blocks(
-    *,
-    sheet_name: str,
-    sheet: SheetData,
-    merge_at: dict[tuple[int, int], tuple[int, int, str]],
-) -> list[ProgrammeItem]:
-    result = []
-    for block in FLOATING_BLOCKS.get(sheet_name, ()):
-        header_times = _header_times(
-            sheet_name=sheet_name, sheet=sheet, header_row=block.header_row
-        )
-        metadata_rows = {
-            "presenter": block.presenter_row,
-            "description": block.description_row,
-        }
-        for column in sorted(header_times):
-            item = _extract_programme_item(
-                sheet_name=sheet_name,
-                sheet=sheet,
-                header_times=header_times,
-                merge_at=merge_at,
-                physical_room=block.room,
-                title_row=block.title_row,
-                lane_index=1,
-                metadata_rows=metadata_rows,
-                column=column,
-            )
-            if item is not None:
-                result.append(item)
-    return result
-
-
-def _extract_shifted_night_lanes(
-    *,
-    sheet_name: str,
-    sheet: SheetData,
-    header_times: dict[int, float],
-    merge_at: dict[tuple[int, int], tuple[int, int, str]],
-    first_column: int,
-    last_column: int,
-) -> list[ProgrammeItem]:
-    result = []
-    for lane in SHIFTED_NIGHT_LANES.get(sheet_name, ()):
-        room = sheet.cells.get(f"A{lane.room_row}")
-        if not isinstance(room, str) or not room.strip():
-            message = f"{sheet_name}: shifted lane room row {lane.room_row} empty"
-            raise ValueError(message)
-        metadata_rows = {
-            key: row
-            for key, row in (
-                ("presenter", lane.presenter_row),
-                ("description", lane.description_row),
-            )
-            if row is not None
-        }
-        for column in range(first_column, last_column + 1):
-            item = _extract_programme_item(
-                sheet_name=sheet_name,
-                sheet=sheet,
-                header_times=header_times,
-                merge_at=merge_at,
-                physical_room=canonical_room(room),
-                title_row=lane.title_row,
-                lane_index=1,
-                metadata_rows=metadata_rows,
-                column=column,
-            )
-            if item is not None:
-                result.append(item)
-    return result
-
-
-def _extract_repair_items(*, sheet_name: str, sheet: SheetData) -> list[ProgrammeItem]:
-    result = []
-    for repair in REPAIR_ITEMS:
-        if repair.sheet != sheet_name or repair.cell not in sheet.cells:
-            continue
-        room = next(
-            (
-                value
-                for row in range(repair.room_row, 0, -1)
-                if isinstance(value := sheet.cells.get(f"A{row}"), str)
-                and value.strip()
-            ),
-            None,
-        )
-        if room is None:
-            message = f"{sheet_name}: no room label above row {repair.room_row}"
-            raise ValueError(message)
-        physical_room = canonical_room(room)
-        building, display_room = split_building(physical_room)
-        description = ""
-        if repair.description_cell is not None:
-            description = clean_description(sheet.cells.get(repair.description_cell))
-        start = datetime.combine(
-            SHEET_DATES[sheet_name], time.min, tzinfo=WARSAW
-        ) + timedelta(minutes=repair.start_minutes)
-        result.append(
-            ProgrammeItem(
-                source=ProgrammeSource(
-                    source_row_id=(
-                        f"polcon26-{sheet_name[:3].lower()}-"
-                        f"{row_number(repair.cell)}-"
-                        f"{repair.cell.rstrip(digits).lower()}"
-                    ),
-                    sheet=sheet_name,
-                    cell=repair.cell,
-                ),
-                venue=ProgrammeVenue(
-                    physical_room=display_room,
-                    lane_index=1,
-                    room=display_room,
-                    leaf_name=display_room,
-                    track=track_for(physical_room),
-                    building=building,
-                ),
-                content=ProgrammeContent(
-                    category=category_for(physical_room, repair.title),
-                    title=repair.title,
-                    presenters=list(repair.presenters),
-                    description=description,
-                ),
-                timing=ProgrammeTiming(
-                    start=start, end=start + timedelta(minutes=repair.duration_minutes)
-                ),
-            )
-        )
-    return result
 
 
 def _header_times(
@@ -631,6 +449,7 @@ def _header_times(
         for reference, value in sheet.cells.items()
         if row_number(reference) == header_row
         and column_index(reference) >= FIRST_PROGRAMME_COLUMN
+        and column_index(reference) not in sheet.hidden_columns
         and isinstance(value, str)
         and re.fullmatch(r"\d*\.\d+", value)
     }
@@ -646,7 +465,11 @@ def _schedule_merges(
     result = {}
     for reference in sheet.merges:
         first, row, last, last_row = parse_range(reference)
-        if first_column <= first <= last_column and last <= last_column + 1:
+        if (
+            first_column <= first <= last_column
+            and last <= last_column
+            and sheet.hidden_columns.isdisjoint(range(first, last + 1))
+        ):
             result[row, first] = (last, last_row, reference)
     return result
 
@@ -657,8 +480,6 @@ def _extract_room_programme(
     sheet: SheetData,
     header_times: dict[int, float],
     merge_at: dict[tuple[int, int], tuple[int, int, str]],
-    first_column: int,
-    last_column: int,
     first_row: int,
     last_row: int,
     raw_room: str,
@@ -682,8 +503,6 @@ def _extract_room_programme(
                 sheet=sheet,
                 header_times=header_times,
                 merge_at=merge_at,
-                first_column=first_column,
-                last_column=last_column,
                 physical_room=physical_room,
                 title_row=title_row,
                 region_end=region_end - 1,
@@ -699,8 +518,6 @@ def _extract_lane_programme(
     sheet: SheetData,
     header_times: dict[int, float],
     merge_at: dict[tuple[int, int], tuple[int, int, str]],
-    first_column: int,
-    last_column: int,
     physical_room: str,
     title_row: int,
     region_end: int,
@@ -710,7 +527,7 @@ def _extract_lane_programme(
         sheet=sheet, first_row=title_row, last_row=region_end
     )
     result = []
-    for column in range(first_column, last_column + 1):
+    for column in sorted(header_times):
         item = _extract_programme_item(
             sheet_name=sheet_name,
             sheet=sheet,
@@ -740,8 +557,6 @@ def _extract_programme_item(
     column: int,
 ) -> ProgrammeItem | None:
     cell = f"{column_name(column)}{title_row}"
-    if cell in EXCLUDED_TITLE_CELLS.get(sheet_name, frozenset()):
-        return None
     if (title := clean_title(sheet.cells.get(cell))) is None:
         return None
     if (merge := merge_at.get((title_row, column))) is None:

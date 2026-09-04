@@ -2,7 +2,7 @@ from django.db import migrations
 
 
 class Migration(migrations.Migration):
-    dependencies = [("db_main", "0156_merge_event_address_and_eventintegration")]
+    dependencies = [("db_main", "0160_eventmappage")]
 
     operations = [
         migrations.RenameField(
