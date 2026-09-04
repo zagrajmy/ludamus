@@ -62,7 +62,7 @@
                         <p class="text-lg max-w-2xl text-foreground-muted">{{ event.description }}</p>
                     {% endif %}
                     <!-- Event meta -->
-                    <div class="flex flex-col items-start gap-3 text-sm{% if compact_schedule %} lg:col-start-2 lg:row-start-1 lg:row-span-3{% else %} md:flex-row md:flex-wrap md:gap-4{% endif %}">
+                    <div class="flex flex-col items-start gap-2 text-sm sm:gap-3{% if compact_schedule %} lg:col-start-2 lg:row-start-1 lg:row-span-3{% else %} md:flex-row md:flex-wrap md:gap-4{% endif %}">
                         {% translate "Add to calendar" as t_add_to_calendar %}
                         {% tessera_action_dropdown id="event-calendar-menu" label=t_add_to_calendar align="center" trigger_class="flex items-center gap-2 text-left" %}
                             <div class="w-8 h-8 bg-coral-100 dark:bg-coral-900/30 rounded-lg flex items-center justify-center shrink-0">
