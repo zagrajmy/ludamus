@@ -3,6 +3,13 @@
      root-snapshot blur must match so the hand-off at the end of the view
      transition is seamless. */
   --modal-backdrop-blur: 4px;
+
+  /* How much of the visible viewport a modal may take, leaving enough of the
+     page behind it to stay oriented. --app-vh rather than a viewport unit
+     because iOS leaves those describing a viewport nobody is looking at (see
+     app-viewport.ts). Read by the session and notification dialogs and by the
+     schedule's filter sheet, which is dressed as one. */
+  --modal-max-h: calc(var(--app-vh) * 0.9);
 }
 
 @layer components {

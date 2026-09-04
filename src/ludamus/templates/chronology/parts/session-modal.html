@@ -1,6 +1,6 @@
 {% load i18n tessera cfp_tags date_tags markdown_tags %}
 <dialog id="session-{{ data.session.pk }}"
-        class="modal max-w-200 w-[calc(100%-0.5rem)] max-h-[calc(var(--app-vh)*0.9)] overflow-hidden"
+        class="modal max-w-200 w-[calc(100%-0.5rem)] max-h-[var(--modal-max-h)] overflow-hidden"
         aria-labelledby="session-{{ data.session.pk }}-title"
         data-edit-error-label="{% translate "Could not open the editor. Please try again." %}">
     <!-- Header -->
