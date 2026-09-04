@@ -19,11 +19,13 @@ const hourHasVisibleSection = (hour: string): boolean =>
 // init drops the previous rail's wiring before laying down its own.
 let railListeners = new AbortController();
 let railObserver: IntersectionObserver | undefined;
+let railSizeObserver: ResizeObserver | undefined;
 
 const initScheduleRail = (rail: HTMLElement): void => {
   railListeners.abort();
   railListeners = new AbortController();
   railObserver?.disconnect();
+  railSizeObserver?.disconnect();
   const { signal } = railListeners;
 
   // The app-shell scrolls #app-scroll, not the document (see app-scroll.ts), so
@@ -106,16 +108,17 @@ const initScheduleRail = (rail: HTMLElement): void => {
       setActive((hour ? linkByHour.get(hour) : undefined) ?? null);
     }
   };
-  fitRail();
-  globalThis.addEventListener("resize", fitRail, { signal });
-  // The rail's cap is --app-vh, which on iOS a toolbar collapse or the keyboard
-  // moves without ever firing a window resize. Miss it and the cap shrinks
-  // under a rail still thinned for the old one, and overflow-hidden silently
-  // eats the last hours off the scrubber. app-viewport.ts announces the new
-  // value after writing it; listening for that rather than for the underlying
-  // visualViewport resize is what guarantees the cap is current when fitRail
-  // measures it, whatever order the two modules load in.
-  document.addEventListener("viewport:resized", fitRail, { signal });
+  // The rail caps itself at --app-vh and clips the overflow, so it has to thin
+  // its markers again whenever that cap moves — including when iOS collapses a
+  // toolbar or opens the keyboard, which moves the viewport without firing a
+  // window resize. Observing the scroller covers every cause at once: it is the
+  // shell's full height, so it changes with the window and with --app-vh alike,
+  // and a resize observation is delivered after layout, so the cap is current
+  // by construction. fitRail only hides markers inside the rail, so it cannot
+  // resize the scroller and loop. The initial observation does the first fit.
+  railSizeObserver = new ResizeObserver(fitRail);
+  if (scrollRoot) railSizeObserver.observe(scrollRoot);
+  else fitRail();
   document.addEventListener("schedule:filtered", fitRail, { signal });
 
   const scrollToLink = (link: HTMLAnchorElement): void => {
@@ -258,6 +261,7 @@ const bootScheduleRail = (): void => {
   if (!rail) {
     railListeners.abort();
     railObserver?.disconnect();
+    railSizeObserver?.disconnect();
     return;
   }
   if ("railBound" in rail.dataset) return;

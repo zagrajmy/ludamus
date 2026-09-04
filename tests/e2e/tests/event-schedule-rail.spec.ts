@@ -89,13 +89,12 @@ test.describe("Event schedule hour rail", () => {
     await expect(rail.getByRole("link").first()).toBeVisible();
 
     // What iOS does on a toolbar collapse or a keyboard: the visual viewport
-    // moves and no window resize follows. Playwright cannot drive that, so
-    // stand in for it with the announcement app-viewport.ts makes after every
-    // write — the path the rail actually listens on, and the one the window
-    // resize in the test below would otherwise mask.
+    // moves and no window resize follows. Playwright cannot drive that, so move
+    // the published height directly — the scroller shrinks with it, which is
+    // what the rail observes, and the window resize in the test below would
+    // otherwise mask that path entirely.
     await page.evaluate(() => {
       document.documentElement.style.setProperty("--app-vh", "360px");
-      document.dispatchEvent(new Event("viewport:resized"));
     });
 
     await expect

@@ -41,14 +41,6 @@ if (visualViewport) {
     if (height === published) return;
     published = height;
     document.documentElement.style.setProperty("--app-vh", `${height}px`);
-    // Announced, because reacting to the same resize event is not enough for a
-    // consumer that has to *measure* a box sized from --app-vh: listeners for
-    // one dispatch all run before any frame callback it schedules, and among
-    // themselves they run in registration order, which is decided by script
-    // order in a template. Announcing after the write makes that ordering
-    // causal instead of incidental. event-timeline.ts refits the hour rail on
-    // this.
-    document.dispatchEvent(new Event("viewport:resized"));
   };
 
   // `resize`, never `scroll`: scroll fires throughout every pinch-zoom pan,
@@ -61,8 +53,6 @@ if (visualViewport) {
   // fires a resize per frame, so publishing each one spent every frame of the
   // animation on style recalculation. The leading write keeps the shell
   // tracking with no visible lag; the trailing one lands the settled size.
-  // Safe only because publish() announces the change — a consumer that
-  // measures reacts to the write, never to the resize that prompted it.
   let trailing = 0;
   visualViewport.addEventListener("resize", () => {
     if (!trailing) publish();
