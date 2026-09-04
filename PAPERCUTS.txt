@@ -501,3 +501,6 @@ If you fix a papercut, remove it.
   deliberately excludes. Ran format, then git add -A, and 31k lines of vendored
   churn landed in my PR — enough to push it past CodeRabbit's 100-file review
   limit. The mise task should mirror hk.pkl's exclude list.
+- 2026-09-04: uv/poetry installs hung silently in the web sandbox: pypi.org and
+  files.pythonhosted.org are on the proxy's NO_PROXY list but the direct route
+  times out; running the bootstrap with NO_PROXY= no_proxy= cleared fixed it

@@ -745,7 +745,9 @@ test.describe("Event schedule views", () => {
     ]);
     expect(line).not.toBeNull();
     expect(finalRow).not.toBeNull();
-    expect(line?.y).toBeGreaterThan((finalRow?.y ?? 0) + (finalRow?.height ?? 0) - 2);
+    // The pill is centred on the seam line, so its midline is where the line is.
+    const seamY = (line?.y ?? 0) + (line?.height ?? 0) / 2;
+    expect(seamY).toBeGreaterThan((finalRow?.y ?? 0) + (finalRow?.height ?? 0) - 2);
 
     await page.clock.setFixedTime(new Date(endsAt + 60_000));
     await page.clock.runFor(60_000);
