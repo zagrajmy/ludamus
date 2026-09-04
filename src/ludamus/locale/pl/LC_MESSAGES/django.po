@@ -4451,6 +4451,10 @@ msgstr[3] "%(counter)s zapisanych uczestników"
 msgid "Show on map"
 msgstr "Pokaż na mapie"
 
+#: src/ludamus/templates/chronology/_venue_maps_button.html
+msgid "Venue maps"
+msgstr "Mapy lokalizacji"
+
 #: src/ludamus/templates/chronology/accept_proposal.html
 msgid "Accept Proposal"
 msgstr "Zaakceptuj zgłoszenie"
@@ -4711,10 +4715,6 @@ msgstr "Zobacz program"
 #: src/ludamus/templates/chronology/event.html
 msgid "Sign up for sessions"
 msgstr "Zapisz się na sesje"
-
-#: src/ludamus/templates/chronology/event.html
-msgid "Venue maps"
-msgstr "Mapy lokalizacji"
 
 #: src/ludamus/templates/chronology/event.html
 msgid "Participant"
