@@ -1,3 +1,5 @@
+import type { Locator } from "@playwright/test";
+
 import { expect, test } from "./helpers/fixtures";
 
 const denseEventUrl = "/chronology/event/kapitularz-2025-anonymized/";
@@ -84,9 +86,21 @@ test.describe("Event schedule hour rail", () => {
     expect(await cursorOf(hourLinks.first())).toBe("pointer");
   });
 
+  // Both refit tests assert the same pair, and need both: that the rail dropped
+  // markers, and that what remains fits. Fitting alone is satisfied by a rail
+  // that was never capped — it just grows to its content and reports no
+  // overflow while running off the bottom of the screen.
+  const expectRefitInto = async (rail: Locator, markersBefore: number): Promise<void> => {
+    await expect
+      .poll(() => rail.getByRole("link", { name: /^Jump to/ }).count())
+      .toBeLessThan(markersBefore);
+    expect(await rail.evaluate((el) => el.scrollHeight - el.clientHeight)).toBeLessThanOrEqual(0);
+  };
+
   test("the rail refits when the viewport moves without a window resize", async ({ page }) => {
     const rail = page.getByRole("navigation", { name: "Jump to time" });
     await expect(rail.getByRole("link").first()).toBeVisible();
+    const before = await rail.getByRole("link", { name: /^Jump to/ }).count();
 
     // What iOS does on a toolbar collapse or a keyboard: the visual viewport
     // moves and no window resize follows. Playwright cannot drive that, so move
@@ -97,22 +111,16 @@ test.describe("Event schedule hour rail", () => {
       document.documentElement.style.setProperty("--app-vh", "360px");
     });
 
-    await expect
-      .poll(() => rail.evaluate((el) => el.scrollHeight - el.clientHeight))
-      .toBeLessThanOrEqual(0);
+    await expectRefitInto(rail, before);
   });
 
   test("the rail refits when the viewport shrinks", async ({ page }) => {
     const rail = page.getByRole("navigation", { name: "Jump to time" });
     await expect(rail.getByRole("link").first()).toBeVisible();
+    const before = await rail.getByRole("link", { name: /^Jump to/ }).count();
 
     await page.setViewportSize({ width: 1280, height: 400 });
 
-    // The rail caps itself at --app-vh and clips the overflow, so it has to
-    // thin its markers again whenever that cap moves. Overflowing here means
-    // the last hours are unreachable, with nothing able to scroll them back.
-    await expect
-      .poll(() => rail.evaluate((el) => el.scrollHeight - el.clientHeight))
-      .toBeLessThanOrEqual(0);
+    await expectRefitInto(rail, before);
   });
 });

@@ -1,66 +1,62 @@
-// Publishes --app-vh: the height index.css sizes the app shell from.
+// Publishes --app-vh: the height the app shell and six viewport-capped boxes
+// size themselves from.
 //
-// visualViewport.height is the only number that is, by definition, the area
-// currently on screen. A viewport unit is the UA's cached idea of that, and on
-// iOS the two drift apart: the shell moved scrolling off the document (see
-// app-scroll.ts), Safari only revisits its toolbar state when the *document*
-// scrolls, and dvh is then left describing a viewport nobody is looking at.
-// Observed on an iPhone: the page ends a toolbar's height above the bottom of
-// the screen, with the last card cut off at the clip edge and dead space under
-// it. Publishing the measured height sidesteps the question of which UA state
-// went stale and when.
+// visualViewport.height is the area actually on screen. A viewport unit is the
+// UA's cached idea of it, and on iOS the two drift apart: the shell moved
+// scrolling off the document (see app-scroll.ts), Safari revisits its toolbar
+// state only when the *document* scrolls, and dvh is left describing a viewport
+// nobody is looking at — the page ends a toolbar's height above the bottom of
+// the screen with its last card cut off at the clip edge.
 const { visualViewport } = globalThis;
 
-// Long enough to outlast a toolbar or keyboard transition, so one burst costs
-// two style recalculations instead of one per frame; short enough that the
-// settled size lands well inside the time it takes to read the page.
+// The longest the shell may lag the viewport. Every write restyles the whole
+// document (see below), so this trades a bounded lag against doing that sixty
+// times a second.
 const SETTLE_MS = 120;
 
-// The software keyboard shrinks this number too — base.html leaves the meta
-// viewport's interactive-widget at its resizes-visual default, so the layout
-// viewport (and 100dvh with it) stays put while this drops to the strip above
-// the keyboard — and following it is deliberate, not an oversight. Sizing the
-// shell to what is actually visible is the whole point of this file: the app
-// then fits above the keyboard instead of running under it, which is what
-// interactive-widget=resizes-content would do natively. The cost is one
-// relayout per focus and blur.
-//
-// Gating on document.activeElement to skip it is tempting and wrong: a desktop
-// window resize while a field is focused would then leave the shell at a stale
-// height until blur, which is a worse bug in a far more common place.
+// The software keyboard shrinks the visual viewport too — base.html leaves the
+// meta viewport's interactive-widget at its resizes-visual default, so the
+// layout viewport stays put while this drops to the strip above the keyboard.
+// Following it is deliberate: the app then fits above the keyboard instead of
+// running under it, which is what interactive-widget=resizes-content would do
+// natively.
 if (visualViewport) {
   let published = 0;
 
   const publish = (): void => {
     // Scaled back up, because visualViewport.height is the *zoomed* visible
-    // height: pinch to 2x and it halves, and publishing that would relayout the
-    // whole app to half its size for as long as someone magnified a card. The
-    // product is what the viewport would show unzoomed, so a pinch is a no-op.
-    // Whole pixels, so sub-pixel drift during a pinch publishes nothing.
+    // height: pinch to 2x and it halves, and publishing that would shrink the
+    // whole app for as long as someone magnified a card. Whole pixels, so
+    // sub-pixel drift during a pinch publishes nothing.
     const height = Math.round(visualViewport.height * visualViewport.scale);
     if (height === published) return;
     published = height;
     document.documentElement.style.setProperty("--app-vh", `${height}px`);
   };
 
+  // Throttled, not debounced, and the difference is the whole point: --app-vh
+  // is inherited from the root, so each write restyles the document — ~15ms on
+  // the densest schedule page — but a shell that stops tracking mid-drag grows
+  // taller than the viewport, which makes the *root* scroll and loses the one
+  // invariant the shell exists for. So write at most once per SETTLE_MS and
+  // always again when the burst ends: bounded cost, bounded lag, never stuck.
+  //
   // `resize`, never `scroll`: scroll fires throughout every pinch-zoom pan,
   // where nothing about the viewport's size has changed.
-  //
-  // Leading edge plus one trailing write, because the cost here is not the
-  // handler, it is the property: --app-vh is inherited from the root, so every
-  // write recalculates style for the whole document, and on the densest
-  // schedule page one of those costs more than a frame. A toolbar collapse
-  // fires a resize per frame, so publishing each one spent every frame of the
-  // animation on style recalculation. The leading write keeps the shell
-  // tracking with no visible lag; the trailing one lands the settled size.
+  let lastWrite = 0;
   let trailing = 0;
   visualViewport.addEventListener("resize", () => {
-    if (!trailing) publish();
     clearTimeout(trailing);
-    trailing = setTimeout(() => {
-      trailing = 0;
+    const wait = SETTLE_MS - (performance.now() - lastWrite);
+    if (wait <= 0) {
+      lastWrite = performance.now();
       publish();
-    }, SETTLE_MS);
+      return;
+    }
+    trailing = setTimeout(() => {
+      lastWrite = performance.now();
+      publish();
+    }, wait);
   });
 
   publish();
