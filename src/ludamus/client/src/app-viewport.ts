@@ -31,7 +31,7 @@ if (visualViewport) {
     // height: pinch to 2x and it halves, and publishing that would relayout the
     // whole app to half its size for as long as someone magnified a card. The
     // product is what the viewport would show unzoomed, so a pinch is a no-op.
-    // Whole pixels, so a pinch's rounding drift can't dribble out 1px writes.
+    // Whole pixels, so sub-pixel drift during a pinch publishes nothing.
     const height = Math.round(visualViewport.height * visualViewport.scale);
     if (height === published) return;
     published = height;
@@ -49,13 +49,11 @@ if (visualViewport) {
   // `resize`, never `scroll`: scroll fires throughout every pinch-zoom pan,
   // where nothing about the viewport's size has changed.
   //
-  // Synchronous, deliberately. Deferring the write to a frame callback left
-  // every consumer of --app-vh reading the previous size for the rest of that
-  // resize, and the hour rail — which thins itself to fit the cap and clips the
-  // rest — stayed permanently overflowing, because nothing refits it again.
-  // There is nothing to coalesce anyway: resize lands once per rendering
-  // opportunity, the write invalidates style rather than forcing layout, and
-  // the check above already drops what would not change.
+  // Synchronous: deferring the write to a frame callback would leave the shell
+  // and every CSS consumer a frame behind at first paint and through every
+  // resize, and buy nothing. There is nothing to coalesce — resize lands once
+  // per rendering opportunity, the write invalidates style rather than forcing
+  // layout, and the check above already drops what would not change.
   visualViewport.addEventListener("resize", publish);
 
   publish();
