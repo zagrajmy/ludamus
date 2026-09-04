@@ -214,9 +214,27 @@ class TestCFPPageView:
 
         response = panel_client.get(self.get_url(event))
 
-        assert response.status_code == HTTPStatus.OK
-        assert response.context["undeletable_category_pks"] == frozenset(
-            {proposal_category.pk}
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/cfp.html",
+            context_data={
+                **panel_context(
+                    event,
+                    active_nav="cfp",
+                    hosts_count=1,
+                    pending_proposals=1,
+                    total_proposals=1,
+                    total_sessions=1,
+                ),
+                "active_tab": "types",
+                "tab_urls": cfp_tab_urls(event),
+                "categories": [ProposalCategoryDTO.model_validate(proposal_category)],
+                "undeletable_category_pks": frozenset({proposal_category.pk}),
+                "category_stats": {
+                    proposal_category.pk: {"proposals_count": 1, "accepted_count": 0}
+                },
+            },
         )
 
     def test_shows_zero_stats_when_no_proposals(self, panel_client, event):

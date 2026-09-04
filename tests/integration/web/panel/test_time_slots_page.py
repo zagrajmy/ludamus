@@ -45,11 +45,27 @@ class TestTimeSlotsPageView:
     ):
         # delete() refuses such a slot, so the row must not take the click.
         pending_session.time_slots.add(time_slot)
+        slot = TimeSlotDTO.model_validate(time_slot)
+        day = localtime(time_slot.start_time).date()
 
         response = panel_client.get(self.get_url(event))
 
-        assert response.status_code == HTTPStatus.OK
-        assert response.context["undeletable_slot_pks"] == frozenset({time_slot.pk})
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/time-slots.html",
+            context_data=time_slots_page_context(
+                event,
+                days={**empty_days(event), day.isoformat(): [slot]},
+                event_days=day_range(event),
+                time_slots=[slot],
+                undeletable_slot_pks=frozenset({time_slot.pk}),
+                hosts_count=1,
+                pending_proposals=1,
+                total_proposals=1,
+                total_sessions=1,
+            ),
+        )
 
     def test_get_redirects_non_manager_user(self, authenticated_client, event):
         response = authenticated_client.get(self.get_url(event))
