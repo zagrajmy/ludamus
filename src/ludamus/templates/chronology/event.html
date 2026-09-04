@@ -216,7 +216,16 @@
                                 You're signed up for {{ counter }} sessions!
                             {% endblocktranslate %}
                         </h3>
-                        <p class="text-sm text-foreground-muted">{{ user_enrolled_session_titles|join:", " }}</p>
+                        {# Each title opens its session modal client-side (modal.ts), the #}
+                        {# same ?session= link contract the schedule rows use. #}
+                        <p class="text-sm text-foreground-muted">
+                            {% for enrolled in user_enrolled_sessions %}
+                                <a href="?session={{ enrolled.session.pk }}"
+                                   class="text-primary hover:underline"
+                                   aria-haspopup="dialog"
+                                   aria-controls="session-{{ enrolled.session.pk }}">{{ enrolled.session.title }}</a>{% if not forloop.last %}, {% endif %}
+                            {% endfor %}
+                        </p>
                     </div>
                 </div>
             </div>
