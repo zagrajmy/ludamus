@@ -510,26 +510,28 @@ def _fold_lulls(
     # An hour is busy when a booking starts or ends in it — exactly on one of
     # its windows' edges, since _row_windows cuts the axis at every such
     # instant. Whole hours, not windows: a lull that ends at a :30 start must
-    # leave that hour standing, labelled, with the cut inside it. A run of
-    # quiet hours long enough to fold becomes one window spanning the run: the
-    # night under an all-night session costs one thin band, and the session
-    # still spans it like any row.
+    # leave that hour standing, labelled, with the cut inside it. Hours are
+    # keyed as instants, never as datetimes, or the two 02:00 hours of an
+    # autumn clock change would compare equal and merge. A run of quiet hours
+    # long enough to fold becomes one window spanning the run: the night under
+    # an all-night session costs one thin band, and the session still spans it
+    # like any row.
     starts = {booking.start.timestamp() for booking in bookings}
     ends = {booking.end.timestamp() for booking in bookings}
-
-    def is_busy(hour: list[_RowWindow]) -> bool:
-        return any(
-            window.start.timestamp() in starts or window.end.timestamp() in ends
-            for window in hour
-        )
+    busy_hours = {
+        window.hour_mark.timestamp()
+        for window in windows
+        if window.start.timestamp() in starts or window.end.timestamp() in ends
+    }
 
     def minutes(window: _RowWindow) -> float:
         return (window.end.timestamp() - window.start.timestamp()) / 60
 
-    hours = [list(group) for _, group in groupby(windows, key=lambda w: w.hour_mark)]
     folded: list[_RowWindow] = []
-    for busy, group in groupby(hours, key=is_busy):
-        run = [window for hour in group for window in hour]
+    for busy, group in groupby(
+        windows, key=lambda window: window.hour_mark.timestamp() in busy_hours
+    ):
+        run = list(group)
         if busy or sum(minutes(window) for window in run) < FOLD_MIN_MINUTES:
             folded.extend(run)
         else:

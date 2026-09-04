@@ -72,5 +72,5 @@ def slot_windows_by_local_date(
     grouped: dict[date, list[Window]] = defaultdict(list)
     for slot in slots:
         for window in slot_windows(slot, tz):
-            grouped[window[0].date()].append(window)
+            grouped[MIDNIGHT.date_of(window[0], tz)].append(window)
     return grouped
