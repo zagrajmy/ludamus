@@ -318,6 +318,14 @@ run = '''
 set -eu
 base="${BASE_URL:-http://localhost:8000}"
 mkdir -p screenshots
+# --full screenshots the *document*, and base.html hands the scroll to
+# #app-scroll so the document stays exactly one viewport tall (a top-layer
+# <dialog> then always hit-tests over an unscrolled page). Without undoing that
+# first, every capture here is a crop of the top of the page — silently, since
+# a viewport-sized PNG looks like a screenshot. Undo it in the page we are
+# about to throw away, never in the stylesheet.
+# One line on purpose: agent-browser's eval hangs on a multi-line argument.
+unpin_scroll="const s=document.getElementById('app-scroll'); if(s){document.documentElement.style.height='auto';document.body.style.height='auto';document.body.style.overflow='visible';s.style.height='auto';s.style.overflow='visible';}"
 # $usage_targets is mise's non-deprecated multi-value argument contract; the
 # Tera template form is deprecated for removal in mise 2027.5.0. mise joins the
 # values shell-quoted, so eval must re-split them — an unquoted expansion would
@@ -335,6 +343,7 @@ for target in "$@"; do
   name=$(printf '%s' "$target" | sed -e 's#https\?://##' -e 's#[^A-Za-z0-9]#_#g' -e 's#^_*##' -e 's#_*$##')
   name=${name:-home}
   aubx agent-browser open "$url" >/dev/null \
+    && aubx agent-browser eval "$unpin_scroll" >/dev/null \
     && aubx agent-browser screenshot --full "screenshots/${name}.png" \
     || echo "WARN: capture failed for $url" >&2
 done
