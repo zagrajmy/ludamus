@@ -59,7 +59,7 @@ test.describe("Event maps", () => {
     // A rejected upload reopens the dialog with its error. (An empty one never
     // leaves the browser: the dropzone's input is required.)
     await addDialog.getByRole("textbox", { name: /^Name/ }).fill("Ground floor");
-    await addDialog.getByLabel("Map image", { exact: true }).setInputFiles({
+    await addDialog.getByLabel("Map pages", { exact: true }).setInputFiles({
       name: "floor.gif",
       mimeType: "image/gif",
       buffer: GIF_BYTES,
@@ -70,18 +70,19 @@ test.describe("Event maps", () => {
       page.getByText("Unsupported image format. Use JPG, PNG, WebP, or AVIF."),
     ).toBeVisible();
 
+    // Two files in one go: the plan and its legend become one map's pages.
     const reopened = page.getByRole("dialog", { name: "Add map" });
-    await reopened.getByLabel("Map image", { exact: true }).setInputFiles({
-      name: "floor.png",
-      mimeType: "image/png",
-      buffer: PNG_BYTES,
-    });
+    await reopened.getByLabel("Map pages", { exact: true }).setInputFiles([
+      { name: "floor.png", mimeType: "image/png", buffer: PNG_BYTES },
+      { name: "legend.png", mimeType: "image/png", buffer: PNG_BYTES },
+    ]);
     await reopened.getByRole("button", { name: "Add map" }).click();
 
     await expect(page.getByText("Map added.")).toBeVisible();
     const card = page.getByRole("region", { name: "Ground floor" });
     await expect(card).toBeVisible();
-    await expect(card.getByRole("img", { name: "Ground floor" })).toBeVisible();
+    await expect(card.getByRole("img", { name: "Ground floor, page 1" })).toBeVisible();
+    await expect(card.getByRole("img", { name: "Ground floor, page 2" })).toBeVisible();
     await expect(card.getByRole("link", { name: "Edit Ground floor" })).toBeVisible();
     await expect(card.getByRole("button", { name: "Delete Ground floor" })).toBeVisible();
 
@@ -90,7 +91,17 @@ test.describe("Event maps", () => {
     await card.getByRole("link", { name: "Attach venue" }).click();
     const attachDialog = page.getByRole("dialog", { name: "Attach venue" });
     await expect(attachDialog).toBeVisible();
-    await attachDialog.getByLabel("Arcade Hall > Main Arcade Floor > Puzzle Corner").check();
+    // The checklist is the venue tree itself: a room is named once, under the
+    // venue it sits in, and a branch button takes the whole subtree at once.
+    // Its name carries the branch and the word for what the next click does.
+    const branch = attachDialog.getByRole("button", { name: "Venues under Arcade Hall: all" });
+    await expect(branch).toBeVisible();
+    await branch.click();
+    await expect(
+      attachDialog.getByRole("button", { name: "Venues under Arcade Hall: none" }),
+    ).toBeVisible();
+    await attachDialog.getByLabel("Main Arcade Floor", { exact: true }).uncheck();
+    await attachDialog.getByLabel("Puzzle Corner", { exact: true }).check();
     await attachDialog.getByRole("button", { name: "Save venues" }).click();
 
     await expect(page.getByText("Venues on the map updated.")).toBeVisible();

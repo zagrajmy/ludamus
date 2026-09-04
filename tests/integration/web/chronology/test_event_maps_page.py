@@ -9,9 +9,9 @@ from django.urls import reverse
 from django.utils import timezone
 from zeal import zeal_ignore
 
-from ludamus.links.db.django.models import EventMap
+from ludamus.links.db.django.models import EventMap, EventMapPage
 from ludamus.pacts import EventDTO
-from ludamus.pacts.maps import EventMapDTO, MapTreeNodeDTO
+from ludamus.pacts.maps import EventMapDTO, EventMapPageDTO, MapTreeNodeDTO
 from tests.integration.conftest import PNG_BYTES, EventFactory, SpaceFactory
 from tests.integration.utils import assert_response, assert_response_404
 from tests.integration.web.chronology.helpers import event_page_context, session_card
@@ -19,18 +19,24 @@ from tests.integration.web.chronology.helpers import event_page_context, session
 PERMISSION_ERROR = "Only the event's organizers can change its maps."
 
 
-def make_map(event, name, *spaces):
-    event_map = EventMap.objects.create(
-        event=event,
-        name=name,
-        image=SimpleUploadedFile("plan.png", PNG_BYTES, content_type="image/png"),
-        image_original_name="plan.png",
-    )
+def make_map(event, name, *spaces, page_count=1):
+    event_map = EventMap.objects.create(event=event, name=name)
+    for order in range(page_count):
+        EventMapPage.objects.create(
+            event_map=event_map,
+            order=order,
+            image=SimpleUploadedFile("plan.png", PNG_BYTES, content_type="image/png"),
+            image_original_name="plan.png",
+        )
     # Fixture setup, not the code under test: each helper call writes one
     # map's spaces, which zeal reads as the same relation loaded in a loop.
     with zeal_ignore():
         event_map.spaces.set(spaces)
     return event_map
+
+
+def _page_names(event_map):
+    return [page.image.name for page in event_map.pages.all()]
 
 
 def _png(name="plan.png"):
@@ -42,12 +48,21 @@ def _maps_url(event):
 
 
 def _card(event_map, *, space_pks, tree):
+    # Expected-value construction, not the code under test: reading each map's
+    # pages here is what zeal would otherwise flag as the same relation in a
+    # loop.
+    with zeal_ignore():
+        pages = list(event_map.pages.all())
     return EventMapDTO(
         pk=event_map.pk,
         event_id=event_map.event_id,
         name=event_map.name,
-        image_url=event_map.image.url,
-        image_original_name="plan.png",
+        pages=[
+            EventMapPageDTO(
+                pk=page.pk, image_url=page.image.url, image_original_name="plan.png"
+            )
+            for page in pages
+        ],
         space_pks=space_pks,
         tree=tree,
     )
@@ -206,7 +221,28 @@ class TestEventMapAddActionView:
         event_map = EventMap.objects.get()
         assert event_map.event_id == event.pk
         assert event_map.name == "Site plan"
-        assert event_map.image_original_name == "plan.png"
+        assert [page.image_original_name for page in event_map.pages.all()] == [
+            "plan.png"
+        ]
+
+    def test_organizer_adds_a_two_page_map(self, organizer_client, event):
+        response = organizer_client.post(
+            self._url(event),
+            data={
+                "name": "Outdoor zone",
+                "image": [_png("plan.png"), _png("legend.png")],
+            },
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=_maps_url(event),
+            messages=[(messages.SUCCESS, "Map added.")],
+        )
+        assert [
+            page.image_original_name for page in EventMap.objects.get().pages.all()
+        ] == ["plan.png", "legend.png"]
 
     def test_missing_image_reopens_the_dialog_with_the_error(
         self, organizer_client, event
@@ -282,7 +318,7 @@ class TestEventMapEditActionView:
 
     def test_rename_keeps_the_stored_image(self, organizer_client, event):
         event_map = make_map(event, "Site plan")
-        stored = event_map.image.name
+        stored = _page_names(event_map)
 
         response = organizer_client.post(
             self._url(event, event_map.pk), data={"name": "Renamed"}
@@ -296,11 +332,11 @@ class TestEventMapEditActionView:
         )
         event_map.refresh_from_db()
         assert event_map.name == "Renamed"
-        assert event_map.image.name == stored
+        assert _page_names(event_map) == stored
 
     def test_new_upload_replaces_the_image(self, organizer_client, event):
         event_map = make_map(event, "Site plan")
-        stored = event_map.image.name
+        stored = _page_names(event_map)
 
         response = organizer_client.post(
             self._url(event, event_map.pk),
@@ -314,8 +350,10 @@ class TestEventMapEditActionView:
             messages=[(messages.SUCCESS, "Map saved.")],
         )
         event_map.refresh_from_db()
-        assert event_map.image.name != stored
-        assert event_map.image_original_name == "new.png"
+        assert _page_names(event_map) != stored
+        assert [page.image_original_name for page in event_map.pages.all()] == [
+            "new.png"
+        ]
 
     def test_map_of_another_event_is_not_found(self, organizer_client, event):
         foreign = make_map(EventFactory(), "Elsewhere")
@@ -357,6 +395,20 @@ class TestEventMapAttachActionView:
             messages=[(messages.SUCCESS, "Venues on the map updated.")],
         )
         assert list(event_map.spaces.all()) == [room]
+
+    def test_the_venue_checklist_is_the_event_tree(self, organizer_client, event):
+        hall = SpaceFactory(event=event, name="Hall")
+        room = SpaceFactory(event=event, name="Room 1", parent=hall)
+        event_map = make_map(event, "Site plan")
+
+        response = organizer_client.get(f"{_maps_url(event)}?attach={event_map.pk}")
+
+        form = response.context_data["cards"][0].attach_form
+        tree = form.fields["spaces"].widget.choice_tree
+        assert [(node.value, node.label) for node in tree] == [(str(hall.pk), "Hall")]
+        assert [(node.value, node.label) for node in tree[0].children] == [
+            (str(room.pk), "Room 1")
+        ]
 
     def test_space_of_another_event_is_not_a_choice(self, organizer_client, event):
         # The checklist is the event's own tree, so a foreign pk fails form

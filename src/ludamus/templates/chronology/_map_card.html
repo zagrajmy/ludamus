@@ -34,15 +34,26 @@
             {% endif %}
         </div>
         <div class="grid gap-4 lg:grid-cols-[minmax(0,1fr)_18rem] lg:gap-6">
-            <a href="{{ event_map.image_url }}"
-               target="_blank"
-               rel="noopener"
-               class="block min-w-0 self-start rounded-3xl bg-bg-secondary shadow-(--shadow-elevated) overflow-hidden">
-                <img src="{{ event_map.image_url }}"
-                     alt="{{ event_map.name }}"
-                     loading="{% if forloop.first %}eager{% else %}lazy{% endif %}"
-                     class="w-full h-auto">
-            </a>
+            {# A plan can run to several pages — a site plan beside its legend. #}
+            {# They wrap as one group, each page as wide as the row allows. #}
+            <div class="flex min-w-0 flex-wrap gap-4 self-start">
+                {% for page in event_map.pages %}
+                    <a href="{{ page.image_url }}"
+                       target="_blank"
+                       rel="noopener"
+                       class="block min-w-64 grow basis-80 rounded-3xl bg-bg-secondary shadow-(--shadow-elevated) overflow-hidden">
+                        {% if event_map.pages|length > 1 %}
+                            {% blocktranslate asvar page_alt with name=event_map.name number=forloop.counter %}{{ name }}, page {{ number }}{% endblocktranslate %}
+                        {% else %}
+                            {% firstof event_map.name as page_alt %}
+                        {% endif %}
+                        <img src="{{ page.image_url }}"
+                             alt="{{ page_alt }}"
+                             loading="{% if first_card and forloop.first %}eager{% else %}lazy{% endif %}"
+                             class="w-full h-auto">
+                    </a>
+                {% endfor %}
+            </div>
             {% if event_map.tree or can_edit %}
                 <nav class="min-w-0 text-sm"
                      aria-label="{% blocktranslate with name=event_map.name %}Venues on {{ name }}{% endblocktranslate %}">

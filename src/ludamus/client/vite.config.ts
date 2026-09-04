@@ -39,6 +39,7 @@ export default defineConfig({
         "app-scroll": resolve(rootDir, "src/app-scroll.ts"),
         avatar: resolve(rootDir, "src/avatar.ts"),
         "bulk-status": resolve(rootDir, "src/bulk-status.ts"),
+        "checkbox-tree": resolve(rootDir, "src/checkbox-tree.ts"),
         combobox: resolve(rootDir, "src/combobox.ts"),
         confirm: resolve(rootDir, "src/confirm.ts"),
         copy: resolve(rootDir, "src/copy.ts"),

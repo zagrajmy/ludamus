@@ -998,15 +998,15 @@ class SessionManager(AliveManager["Session"]):
 
 
 class EventMap(models.Model):
-    """One uploaded venue plan (a floor, a building) and the spaces drawn on it."""
+    """One venue plan (a floor, a building) and the spaces drawn on it.
+
+    A plan can run to more than one picture — a site plan beside its legend —
+    so the pictures live in `pages` and are read in their order.
+    """
 
     event = models.ForeignKey(Event, on_delete=models.CASCADE, related_name="maps")
     name = models.CharField(max_length=255)
-    image = models.ImageField(upload_to=unique_upload_to)
-    image_original_name = models.CharField(
-        max_length=ORIGINAL_FILENAME_MAX_LENGTH, blank=True, default=""
-    )
-    # Which spaces the picture shows; a space may appear on several maps (an
+    # Which spaces the pictures show; a space may appear on several maps (an
     # overview and a floor plan), so this is a relation rather than a column.
     spaces = models.ManyToManyField(Space, related_name="maps", blank=True)
     creation_time = models.DateTimeField(auto_now_add=True)
@@ -1018,6 +1018,26 @@ class EventMap(models.Model):
 
     def __str__(self) -> str:
         return self.name
+
+
+class EventMapPage(models.Model):
+    """One picture of a map, in the order the plan is read."""
+
+    event_map = models.ForeignKey(
+        EventMap, on_delete=models.CASCADE, related_name="pages"
+    )
+    image = models.ImageField(upload_to=unique_upload_to)
+    image_original_name = models.CharField(
+        max_length=ORIGINAL_FILENAME_MAX_LENGTH, blank=True, default=""
+    )
+    order = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        db_table = "event_map_page"
+        ordering: ClassVar = ["order", "pk"]
+
+    def __str__(self) -> str:
+        return f"{self.event_map.name} ({self.order + 1})"
 
     @property
     def image_url(self) -> str:

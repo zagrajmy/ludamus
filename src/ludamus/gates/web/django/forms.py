@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 from decimal import Decimal
-from typing import TYPE_CHECKING, Any, ClassVar, Literal, assert_never, cast
+from typing import TYPE_CHECKING, Any, ClassVar, Literal, NamedTuple, assert_never, cast
 
 from django import forms
 from django.core.exceptions import ValidationError
@@ -25,17 +25,19 @@ from ludamus.pacts.durations import (
     build_duration,
     duration_choices,
 )
-from ludamus.pacts.images import IMAGE_ACCEPT, LOGO_ACCEPT, CoverCrop
+from ludamus.pacts.images import IMAGE_ACCEPT, LOGO_ACCEPT, CoverCrop, StoredFile
 from ludamus.pacts.legacy import EncounterPublicPolicy, PromotionMode, SpherePage
 from ludamus.pacts.submissions import AccreditationType
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Sequence
 
+    from django.core.files.uploadedfile import UploadedFile
     from django.utils.functional import _StrPromise
 
     from ludamus.pacts import SessionFieldRequirementDTO
     from ludamus.pacts.multiverse import ConnectionDTO
+    from ludamus.pacts.venues import SpaceTreeNodeDTO
 
 _DATETIME_LOCAL_FORMATS = ["%Y-%m-%dT%H:%M", "%Y-%m-%dT%H:%M:%S"]
 # The hero prints the address under the venue name, where a third line
@@ -591,10 +593,34 @@ def create_space_copy_form(events: list[tuple[int, str]]) -> type[forms.Form]:
     return type("SpaceCopyForm", (forms.Form,), {"target_event": target_event_field})
 
 
+class MultiFileInput(forms.FileInput):
+    # A plan can run to several pictures, so its one input takes several files.
+    # A plain FileInput, not the clearable one every other dropzone uses:
+    # clearing has no meaning for a page set — a map with no pages is not a
+    # map — so the chosen files are the whole answer.
+    allow_multiple_selected = True
+    fit = "contain"
+
+
+class MultiImageField(forms.ImageField):
+    """An image upload that keeps every file chosen, in the order chosen."""
+
+    widget = MultiFileInput
+
+    def clean(
+        self, data: list[UploadedFile[bytes]], initial: StoredFile | None = None
+    ) -> list[UploadedFile[bytes]]:
+        clean_one = super().clean
+        files = [clean_one(one, initial) for one in data if one]
+        if not files and self.required:
+            raise ValidationError(self.error_messages["required"], code="required")
+        return files
+
+
 def create_event_map_form(*, has_image: bool) -> type[forms.Form]:
     # Built per use like create_space_copy_form: whether a picture is required
-    # depends on whether one is stored already — editing keeps it unless
-    # replaced.
+    # depends on whether one is stored already — editing keeps the pages it has
+    # unless a new set replaces them.
     name = forms.CharField(
         max_length=255,
         strip=True,
@@ -605,28 +631,69 @@ def create_event_map_form(*, has_image: bool) -> type[forms.Form]:
             "required": _("Map name is required."),
         },
     )
-    image = forms.ImageField(
+    image = MultiImageField(
         required=not has_image,
-        label=_("Map image"),
-        help_text=_("Max 8 MB. JPG, PNG, WebP, or AVIF."),
+        label=_("Map pages"),
+        help_text=_(
+            "One picture, or several for a plan that comes with a legend. "
+            "Max 8 MB each. JPG, PNG, WebP, or AVIF."
+        ),
         validators=[validate_uploaded_image],
-        widget=DropzoneFileInput(attrs={"accept": IMAGE_ACCEPT}, fit="contain"),
+        widget=MultiFileInput(attrs={"accept": IMAGE_ACCEPT}),
         error_messages={"required": _("Upload the map image.")},
     )
     return type("EventMapForm", (forms.Form,), {"name": name, "image": image})
 
 
-def create_map_spaces_form(*, space_choices: list[tuple[str, str]]) -> type[forms.Form]:
-    # Which venues a plan shows is a checklist of the event's own tree, every
-    # node with its path, so a floor plan can name the floor or its rooms.
+class TreeChoice(NamedTuple):
+    """One node of a checkbox tree: its own option, then the nodes under it."""
+
+    value: str
+    label: str
+    children: list[TreeChoice]
+
+
+class CheckboxTreeSelect(forms.CheckboxSelectMultiple):
+    # `choice_tree` is read by the tessera renderer, which draws the nesting the
+    # flat `choices` cannot express. Both describe the same options, so
+    # validation stays the plain MultipleChoiceField check.
+    def __init__(self, *, choice_tree: list[TreeChoice]) -> None:
+        super().__init__()
+        self.choice_tree = choice_tree
+
+
+def _tree_choices(nodes: list[SpaceTreeNodeDTO]) -> list[TreeChoice]:
+    return [
+        TreeChoice(
+            value=str(node.space.pk),
+            label=node.space.name,
+            children=_tree_choices(node.children),
+        )
+        for node in nodes
+    ]
+
+
+def _flat_choices(tree: list[TreeChoice]) -> list[tuple[str, str]]:
+    return [
+        pair
+        for node in tree
+        for pair in ((node.value, node.label), *_flat_choices(node.children))
+    ]
+
+
+def create_map_spaces_form(*, space_tree: list[SpaceTreeNodeDTO]) -> type[forms.Form]:
+    # Which venues a plan shows is a checklist of the event's own tree, drawn as
+    # that tree, so a floor plan can name the floor or the rooms under it
+    # without every row repeating the path down to them.
+    tree = _tree_choices(space_tree)
     spaces = forms.MultipleChoiceField(
         required=False,
         label=_("Venues on this map"),
         help_text=_(
             "Each venue listed beside the map links to its sessions on the schedule."
         ),
-        widget=forms.CheckboxSelectMultiple,
-        choices=space_choices,
+        widget=CheckboxTreeSelect(choice_tree=tree),
+        choices=_flat_choices(tree),
     )
     return type("MapSpacesForm", (forms.Form,), {"spaces": spaces})
 

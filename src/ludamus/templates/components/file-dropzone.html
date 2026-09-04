@@ -11,6 +11,7 @@
            aria-label="{{ label }}"
            aria-invalid="{{ has_errors|yesno:'true,false' }}"
            {% if accept %}accept="{{ accept }}"{% endif %}
+           {% if multiple %}multiple{% endif %}
            {% if required and not initial_url %}required{% endif %}
            class="absolute inset-0 w-full h-full opacity-0 cursor-pointer">
     {# Django ClearableFileInput convention: a checked `<name>-clear` removes the stored file on submit. Toggled by the dropzone JS. #}

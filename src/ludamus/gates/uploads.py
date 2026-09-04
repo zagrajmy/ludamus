@@ -150,7 +150,7 @@ def validate_uploaded_logo(uploaded: File[bytes] | None) -> None:
         )
 
 
-def validate_uploaded_cover(uploaded: File[bytes] | None) -> None:
+def validate_uploaded_raster(uploaded: File[bytes] | None) -> None:
     if not uploaded:
         return
     validate_uploaded_image_size(uploaded)
