@@ -1,4 +1,4 @@
-import type { CaptureSnapshotResult, SnapshotNode } from "agent-device";
+import type { CaptureSnapshotResult } from "agent-device";
 
 import { afterAll, beforeAll, expect, test } from "bun:test";
 
@@ -42,41 +42,48 @@ const firstTriggerLabel = (html: string): string => {
   return decodeEntities(label);
 };
 
-// The address is matched by host rather than by a fixed control name, because
-// the name Safari gives that control has changed across iOS versions and is
-// localized. Finding nothing throws with the labels it did see: this spec's
-// whole value is the measurement, so a run that cannot measure has to say so
-// rather than report a pass.
-const addressHost = new URL(baseUrl).host;
+// The reference edge is a scroll indicator, and that choice is what three
+// device runs cost. Safari's own chrome is not in this tree at all: the
+// unscoped walk came back with 209 nodes and truncated=false — nowhere near
+// the runner's 300 cap — and a walk scoped to the address returned nothing.
+// The snapshot sees the web content and the scrollers, not the browser.
+//
+// A vertical scroll indicator spans the viewport its scroller is showing, so
+// its height *is* how much room the page has. Collapsing the toolbar hands the
+// scroller more of the screen and the indicator grows with it. The page nests
+// scrollers (the document, #app-scroll, the hour rail), so the tallest one is
+// the outermost, which is the one sized by the browser rather than by content.
+const SCROLL_INDICATOR = /vertical scroll bar/i;
 
-const carriesAddress = (node: SnapshotNode): boolean =>
-  Boolean(node.rect) && labelOf(node).includes(addressHost);
+type Measured = { height: number; bottom: number; screenHeight: number };
 
-// Scoped first, and this is the whole reason the first device run found
-// nothing: the runner walks at most 300 nodes per unscoped snapshot and drops
-// the rest, and Safari's chrome comes after a full event page's worth of web
-// content. A scope resolves by live element query instead, which has no cap.
-// The unscoped tree is still worth a second look, in case the chrome is there
-// under a label that does not contain the host.
-const contentBottomEdge = async (): Promise<{ edge: number; screenBottom: number }> => {
-  const scoped: CaptureSnapshotResult = await takeSnapshot(addressHost);
-  const full: CaptureSnapshotResult = await takeSnapshot();
-  const screen = viewportOf(full);
-  const tops = [...scoped.nodes, ...full.nodes].filter(carriesAddress).map((node) => node.rect!.y);
-  if (tops.length === 0) {
-    const seen = full.nodes.map(labelOf).filter(Boolean).slice(0, 40).join(" | ");
+const describeRects = (snapshot: CaptureSnapshotResult): string =>
+  snapshot.nodes
+    .filter((node) => node.rect && SCROLL_INDICATOR.test(labelOf(node)))
+    .map((node) => `${Math.round(node.rect!.y)}+${Math.round(node.rect!.height)}`)
+    .join(", ") || "none";
+
+const scrollerViewport = async (): Promise<Measured> => {
+  const snapshot: CaptureSnapshotResult = await takeSnapshot();
+  const screen = viewportOf(snapshot);
+  const bars = snapshot.nodes.filter((node) => node.rect && SCROLL_INDICATOR.test(labelOf(node)));
+  if (bars.length === 0) {
+    const seen = snapshot.nodes.map(labelOf).filter(Boolean).slice(0, 40).join(" | ");
     throw new Error(
-      `No node carrying the address ${JSON.stringify(addressHost)} is in the accessibility ` +
-        `tree, so Safari's chrome could not be located and nothing was measured. ` +
-        `Scoped walk returned ${scoped.nodes.length} node(s) (truncated=${scoped.truncated}); ` +
-        `the full walk returned ${full.nodes.length} (truncated=${full.truncated}), screen ` +
-        `${Math.round(screen.width)}x${Math.round(screen.height)}. ` +
-        `A truncated full walk means the cap hid the chrome; an untruncated one means Safari ` +
-        `does not surface it here and this spec needs a different reference edge. ` +
-        `Labels seen: ${seen}`,
+      `No vertical scroll indicator is in the accessibility tree, so the scroller's viewport ` +
+        `could not be measured and this spec proved nothing. The walk returned ` +
+        `${snapshot.nodes.length} node(s) (truncated=${snapshot.truncated}), screen ` +
+        `${Math.round(screen.width)}x${Math.round(screen.height)}. If the tree is fine but the ` +
+        `name has changed or is localized, fix the pattern; if the indicators are simply absent ` +
+        `at rest, this spec needs a reference edge that is not a scrollbar. Labels seen: ${seen}`,
     );
   }
-  return { edge: Math.min(...tops), screenBottom: screen.y + screen.height };
+  const tallest = bars.reduce((a, b) => (a.rect!.height >= b.rect!.height ? a : b)).rect!;
+  return {
+    height: tallest.height,
+    bottom: tallest.y + tallest.height,
+    screenHeight: screen.y + screen.height,
+  };
 };
 
 let collapseIssue: string | null = null;
@@ -89,10 +96,11 @@ beforeAll(async () => {
   console.log(`Opening Safari at ${eventUrl.toString()}...`);
   await openUrl(eventUrl.toString(), { expectedLabels: [triggerLabel], scope: triggerLabel });
 
-  const before = await contentBottomEdge();
+  const before = await scrollerViewport();
   console.log(
-    `Toolbar top before scrolling: y=${Math.round(before.edge)} ` +
-      `(screen bottom y=${Math.round(before.screenBottom)}).`,
+    `Scroller viewport before scrolling: ${Math.round(before.height)}pt tall, bottom at ` +
+      `y=${Math.round(before.bottom)}, screen bottom y=${Math.round(before.screenHeight)}. ` +
+      `Indicators (y+height): ${describeRects(await takeSnapshot())}.`,
   );
 
   console.log(`Scrolling down ${scrollSteps} times...`);
@@ -104,19 +112,21 @@ beforeAll(async () => {
   // halfway to where it is going.
   await wait(1200);
 
-  const after = await contentBottomEdge();
-  const gained = after.edge - before.edge;
+  const after = await scrollerViewport();
+  const gained = after.height - before.height;
   console.log(
-    `Toolbar top after scrolling: y=${Math.round(after.edge)} (gained ${Math.round(gained)}pt).`,
+    `Scroller viewport after scrolling: ${Math.round(after.height)}pt tall, bottom at ` +
+      `y=${Math.round(after.bottom)} (gained ${Math.round(gained)}pt).`,
   );
 
   if (gained < MIN_COLLAPSE_PT) {
     collapseIssue =
-      `Safari did not give the page more room after ${scrollSteps} scroll gestures: the top of ` +
-      `its chrome stayed at y=${Math.round(before.edge)} (now y=${Math.round(after.edge)}, ` +
-      `${Math.round(gained)}pt). The toolbar collapses on document scroll, so a page that never ` +
-      `scrolls the document keeps the short viewport an expanded toolbar leaves it and renders ` +
-      `cut off above the bottom of the screen.`;
+      `Safari did not give the page more room after ${scrollSteps} scroll gestures: the ` +
+      `scroller's viewport stayed ${Math.round(before.height)}pt tall (now ` +
+      `${Math.round(after.height)}pt, gained ${Math.round(gained)}pt) against a ` +
+      `${Math.round(after.screenHeight)}pt screen. The toolbar collapses on document scroll, so ` +
+      `a page that never scrolls the document keeps the short viewport an expanded toolbar ` +
+      `leaves it, and renders cut off above the bottom of the screen.`;
   }
 }, hookTimeoutMs);
 
