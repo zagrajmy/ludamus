@@ -43,7 +43,7 @@
                                     </div>
                                     {# Not divide-y: it draws a stray divider under the last visible #}
                                     {# row when session-filters.ts hides the rows after it (index.css). #}
-                                    <div class="session-grid divide-y-visible">
+                                    <div class="session-grid divide-y-visible relative">
                                         {% for tile in hour.tiles %}
                                             {% include "chronology/_compact_session_row.html" with data=tile.data occurrence_start=tile.start occurrence_end=tile.end %}
                                         {% endfor %}
@@ -53,9 +53,9 @@
                         </div>
                     </section>
                 {% endfor %}
-                {# The "now" seam, moved between two rows by schedule-now.ts. #}
-                <div class="schedule-now" data-schedule-now hidden>
-                    {% include "chronology/_schedule_now_marker.html" with extra_class="absolute top-0 start-2 -translate-y-1/2" %}
+                {# The "now" seam, laid over the row boundary by schedule-now.ts. #}
+                <div class="schedule-now-line" data-schedule-now hidden>
+                    {% include "chronology/_schedule_now_marker.html" with extra_class="absolute top-0 start-2 -translate-y-1/2" background="bg-primary/85" %}
                 </div>
             {% endif %}
         </div>

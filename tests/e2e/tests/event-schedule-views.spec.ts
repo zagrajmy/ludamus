@@ -490,7 +490,7 @@ test.describe("Event schedule views", () => {
       ),
     );
     const line = await marker.boundingBox();
-    const rule = await page.locator(".room-lanes-now-strip").boundingBox();
+    const rule = await page.locator(".room-lanes-now .schedule-now-line").boundingBox();
     expect(line).not.toBeNull();
     expect(rule).not.toBeNull();
     expect(Math.abs((line?.y ?? 0) + (line?.height ?? 0) / 2 - (rule?.y ?? 0))).toBeLessThan(1.5);
@@ -500,7 +500,10 @@ test.describe("Event schedule views", () => {
     await page.clock.runFor(60_000);
     await expect(marker).toContainText(clockAfter(opens.clock, 31));
     await expect
-      .poll(async () => (await page.locator(".room-lanes-now-strip").boundingBox())?.y ?? 0)
+      .poll(
+        async () =>
+          (await page.locator(".room-lanes-now .schedule-now-line").boundingBox())?.y ?? 0,
+      )
       .toBeGreaterThan(rule?.y ?? 0);
 
     // A day before the doors open, nothing on the grid is now. The clock
@@ -577,7 +580,7 @@ test.describe("Event schedule views", () => {
     await expect(page.locator("[data-room-lanes-now] .schedule-now-pill")).toBeVisible();
     const [lineBox, markerBox] = await Promise.all([
       targetLine.boundingBox(),
-      page.locator(".room-lanes-now-strip").boundingBox(),
+      page.locator(".room-lanes-now .schedule-now-line").boundingBox(),
     ]);
     expect(lineBox).not.toBeNull();
     expect(markerBox).not.toBeNull();
@@ -727,7 +730,9 @@ test.describe("Event schedule views", () => {
     ]);
     expect(line).not.toBeNull();
     expect(finalRow).not.toBeNull();
-    expect(line?.y).toBeGreaterThan((finalRow?.y ?? 0) + (finalRow?.height ?? 0) - 2);
+    // The pill is centred on the seam line, so its midline is where the line is.
+    const seamY = (line?.y ?? 0) + (line?.height ?? 0) / 2;
+    expect(seamY).toBeGreaterThan((finalRow?.y ?? 0) + (finalRow?.height ?? 0) - 2);
 
     await page.clock.setFixedTime(new Date(endsAt + 60_000));
     await page.clock.runFor(60_000);
