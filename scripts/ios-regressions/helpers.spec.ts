@@ -2,19 +2,17 @@ import type { CaptureSnapshotResult, SnapshotNode } from "agent-device";
 
 import { describe, expect, test } from "bun:test";
 
-import type { Rect } from "./snapshot";
-
 import { decodeEntities } from "./page";
 import {
   centreOnScreen,
   collapse,
-  contentEnd,
   describeNode,
   labelOf,
   lowestNodes,
   matchesScopeLabel,
   medianShift,
   pollUntil,
+  scrollBars,
   scrollerViewport,
   toolbarTop,
   viewportOf,
@@ -28,6 +26,9 @@ const node = (fields: Partial<SnapshotNode>): SnapshotNode =>
   ({ ref: "1", index: 0, ...fields }) as SnapshotNode;
 const tree = (nodes: SnapshotNode[]): CaptureSnapshotResult =>
   ({ nodes, truncated: false }) as CaptureSnapshotResult;
+// A labelled node at a known height, so a fixture reads as a page position.
+const at = (label: string, y: number, height = 20): SnapshotNode =>
+  node({ label, rect: { x: 0, y, width: 300, height } });
 
 describe("collapse", () => {
   test("squeezes whitespace runs the way an accessibility engine does", () => {
@@ -153,38 +154,45 @@ describe("describeNode", () => {
   });
 });
 
+describe("scrollBars", () => {
+  test("returns the rects of the vertical scroll indicators and nothing else", () => {
+    const nodes = [
+      node({ label: "Vertical scroll bar, 1 page", rect: rect(0) }),
+      node({ label: "Horizontal scroll bar, 1 page", rect: rect(10) }),
+      node({ label: "Vertical scroll bar, 3 pages" }),
+      at("Card", 20),
+    ];
+    expect(scrollBars(nodes)).toEqual([rect(0)]);
+  });
+});
+
 describe("scrollerViewport", () => {
-  // Verbatim from the device run on c6a77138, which is the only reason the
-  // right node is knowable: four scroll views spanning the whole 874pt screen,
-  // and one inset 62pt top and bottom by Safari's chrome.
-  const SCREEN: Rect = { x: 0, y: 0, width: 402, height: 874 };
+  // Verbatim from a device run: four scroll views spanning the whole 874pt
+  // screen, and one inset 62pt top and bottom by Safari's chrome.
   const bar = (y: number, height: number): SnapshotNode =>
     node({ label: "Vertical scroll bar, 1 page", rect: { x: 396, y, width: 6, height } });
   const observed = [bar(0, 874), bar(0, 874), bar(0, 874), bar(0, 874), bar(62, 750)];
 
   test("passes over the scroll views that span the whole screen", () => {
-    expect(scrollerViewport(observed, SCREEN)).toEqual({ x: 396, y: 62, width: 6, height: 750 });
+    expect(scrollerViewport(observed, screen)).toEqual({ x: 396, y: 62, width: 6, height: 750 });
   });
 
   test("takes the tallest of several inset scrollers, which is the outermost", () => {
     const nested = [bar(62, 750), bar(120, 400), bar(200, 90)];
-    expect(scrollerViewport(nested, SCREEN)?.height).toBe(750);
+    expect(scrollerViewport(nested, screen)?.height).toBe(750);
   });
 
   test("reports nothing rather than guessing when every scroller spans the screen", () => {
-    expect(scrollerViewport([bar(0, 874), bar(0, 874)], SCREEN)).toBeNull();
+    expect(scrollerViewport([bar(0, 874), bar(0, 874)], screen)).toBeNull();
   });
 
   test("ignores nodes that are not scroll indicators, and ones with no rect", () => {
     const noise = [node({ label: "Log in" }), node({ label: "Vertical scroll bar, 1 page" })];
-    expect(scrollerViewport([...noise, bar(62, 750)], SCREEN)?.height).toBe(750);
+    expect(scrollerViewport([...noise, bar(62, 750)], screen)?.height).toBe(750);
   });
 });
 
 describe("medianShift", () => {
-  // Labelled nodes at known heights, so a fixture reads as a page position.
-  const at = (label: string, y: number) => node({ label, rect: rect(y) });
-
   test("reports how far the page travelled between two snapshots", () => {
     const before = [at("Card A", 100), at("Card B", 300), at("Card C", 500)];
     const after = [at("Card A", -350), at("Card B", -150), at("Card C", 50)];
@@ -252,45 +260,15 @@ describe("medianShift", () => {
     const still = [at("Card A", 100), at("Card B", 300), at("Card C", 500)];
     expect(medianShift(still, still)).toBe(0);
   });
-});
 
-describe("contentEnd", () => {
-  const at = (label: string, y: number, height = 20) =>
-    node({ label, rect: { x: 0, y, width: 300, height } });
-
-  test("reports the labelled node that ends lowest", () => {
-    const nodes = [at("Card A", 100), at("Card B", 300), at("Terms of Service", 780, 24)];
-    expect(contentEnd(nodes)).toEqual({ bottom: 804, label: "Terms of Service" });
-  });
-
-  test("passes over the scroll views that span the screen, which end where the screen does", () => {
-    // The 874pt container would otherwise win every time, and it says nothing
-    // about where the page's content stops.
-    const nodes = [
-      node({ label: "Vertical scroll bar, 1 page", rect: { x: 0, y: 0, width: 402, height: 874 } }),
-      at("Card A", 100),
-    ];
-    expect(contentEnd(nodes)?.label).toBe("Card A");
-  });
-
-  test("ignores unlabelled nodes and nodes with no rect", () => {
-    const nodes = [
-      node({ rect: { x: 0, y: 0, width: 402, height: 874 } }),
-      node({ label: "Card Z" }),
-      at("Card A", 100),
-    ];
-    expect(contentEnd(nodes)).toEqual({ bottom: 120, label: "Card A" });
-  });
-
-  test("reports nothing when there is no labelled content", () => {
-    expect(contentEnd([node({ rect: { x: 0, y: 0, width: 1, height: 1 } })])).toBeNull();
+  test("averages the middle pair when the anchors are even in number", () => {
+    const before = [0, 1, 2, 3].map((i) => at(`Card ${i}`, 100 * i));
+    const after = [-460, -350, -240, -130].map((y, i) => at(`Card ${i}`, y + 100 * i));
+    expect(medianShift(before, after)).toBe(-295);
   });
 });
 
 describe("lowestNodes", () => {
-  const at = (label: string, y: number) =>
-    node({ label, rect: { x: 0, y, width: 300, height: 20 } });
-
   test("lists the lowest labelled nodes, lowest first, capped", () => {
     const nodes = [
       at("Top", 0),
@@ -300,25 +278,31 @@ describe("lowestNodes", () => {
     ];
     expect(lowestNodes(nodes, 2)).toBe('800..820 "Bottom"; 400..420 "Middle"');
   });
+
+  test("excerpts a long label rather than printing all of it", () => {
+    const label = "Autumn Open Playtest • Root Domain Sphere and a great deal more after that";
+    expect(lowestNodes([at(label, 0)], 1)).toBe(`0..20 ${JSON.stringify(label.slice(0, 40))}`);
+  });
 });
 
 describe("toolbarTop", () => {
-  const box = (label: string, y: number, height: number) =>
-    node({ label, rect: { x: 0, y, width: 402, height } });
-
   test("finds the toolbar by its buttons running to the screen's bottom edge", () => {
-    // Verbatim from the device: the Back button at 776..874 on an 874pt screen.
-    const nodes = [box("Back", 776, 98), box("Terms of Service", 732, 19), box("Safari", 0, 874)];
+    // Verbatim from a device run: the Back button at 776..874 on an 874pt screen.
+    const nodes = [at("Back", 776, 98), at("Terms of Service", 732, 19), at("Safari", 0, 874)];
     expect(toolbarTop(nodes, screen)).toBe(776);
   });
 
   test("ignores full-height chrome and content that merely ends low", () => {
-    const nodes = [box("Safari", 0, 874), box("Back", 0, 874), box("Card", 700, 60)];
+    const nodes = [at("Safari", 0, 874), at("Back", 0, 874), at("Card", 700, 60)];
     expect(toolbarTop(nodes, screen)).toBeNull();
   });
 
+  test("requires the node to reach the screen's edge, not merely approach it", () => {
+    expect(toolbarTop([at("Back", 776, 97)], screen)).toBeNull();
+  });
+
   test("takes the highest edge when several buttons share the bar", () => {
-    const nodes = [box("Share", 780, 94), box("Back", 776, 98), box("Tabs", 778, 96)];
+    const nodes = [at("Share", 780, 94), at("Back", 776, 98), at("Tabs", 778, 96)];
     expect(toolbarTop(nodes, screen)).toBe(776);
   });
 });

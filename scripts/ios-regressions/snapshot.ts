@@ -35,55 +35,49 @@ export const pollUntil = async <T>(
 // Safari's web content.
 const CHROME_INSET = 120;
 
-// The scrolling viewport, read off the accessibility tree.
-//
-// A device run reports several of these, and most are useless: on an 874pt
-// screen the tree carried `0+874` four times over — scroll views spanning the
-// whole window, which never move — alongside one `62+750`, inset by Safari's
-// chrome top and bottom. That inset one is the viewport the page actually gets,
-// so "tallest" is the wrong pick and "tallest that is shorter than the screen"
-// is the right one. Collapsing the toolbar returns some of the bottom inset and
-// this grows.
-//
-// Nothing here touches a device, which is the point: every earlier guess at a
-// reference edge cost a 45-minute macOS job to disprove.
+type Placed = { rect: Rect; label: string };
+
+// Labelled nodes with a rect, which is every node the geometry helpers below
+// can reason about.
+const placed = (nodes: readonly SnapshotNode[]): Placed[] =>
+  nodes.flatMap((node) => {
+    const label = labelOf(node);
+    return node.rect && label ? [{ rect: node.rect, label }] : [];
+  });
+
 const SCROLL_INDICATOR = /vertical scroll bar/i;
 
+export const scrollBars = (nodes: readonly SnapshotNode[]): Rect[] =>
+  placed(nodes)
+    .filter(({ label }) => SCROLL_INDICATOR.test(label))
+    .map(({ rect }) => rect);
+
+// NOTE: the tree carries several vertical scroll views, and the ones spanning
+// the whole window are containers that never move. The one inset from the
+// screen is the viewport the page is actually given.
 export const scrollerViewport = (nodes: readonly SnapshotNode[], screen: Rect): Rect | null => {
-  const inset = nodes
-    .filter((node) => node.rect && SCROLL_INDICATOR.test(labelOf(node)))
-    .map((node) => node.rect as Rect)
-    .filter((rect) => rect.height < screen.height);
+  const inset = scrollBars(nodes).filter((rect) => rect.height < screen.height);
   if (inset.length === 0) return null;
   return inset.reduce((a, b) => (a.height >= b.height ? a : b));
 };
 
-// Labels that occur exactly once, with the y they occur at. Duplicates are
-// dropped rather than guessed at: two nodes sharing a name give no way to say
-// which of them moved where.
+// NOTE: labels that occur more than once are dropped rather than guessed at;
+// two nodes sharing a name give no way to say which moved where.
 const uniquePositions = (nodes: readonly SnapshotNode[]): Map<string, number> => {
   const counts = new Map<string, number>();
   const positions = new Map<string, number>();
-  for (const node of nodes) {
-    const label = labelOf(node);
-    if (!label || !node.rect) continue;
+  for (const { rect, label } of placed(nodes)) {
     counts.set(label, (counts.get(label) ?? 0) + 1);
-    positions.set(label, node.rect.y);
+    positions.set(label, rect.y);
   }
   for (const [label, count] of counts) if (count > 1) positions.delete(label);
   return positions;
 };
 
-// How far the page moved between two snapshots, by matching nodes on their
-// labels. Median rather than mean: a sticky header and a fixed toolbar stay put
-// while the content travels, and a mean splits the difference between those two
-// populations and reports a page half-scrolled.
-//
-// This exists because "the scrolling viewport did not grow" has two causes and
-// only one of them is the bug. Safari refusing to collapse its toolbar is the
-// one under test; a scroll gesture that never landed produces the identical
-// reading and means the run measured nothing. The first device run to get this
-// far could not tell them apart.
+// How far the page moved between two snapshots, matching nodes on their labels.
+// NOTE: median, not mean: sticky chrome stays put while the content travels,
+// and a mean of the two populations reads as a page half-scrolled. Null under
+// three anchors, where a median is one or two nodes' worth of luck.
 export const medianShift = (
   before: readonly SnapshotNode[],
   after: readonly SnapshotNode[],
@@ -94,64 +88,35 @@ export const medianShift = (
     const was = start.get(label);
     if (was !== undefined) deltas.push(y - was);
   }
-  // Under three anchors the median is one or two nodes' worth of luck.
   if (deltas.length < 3) return null;
   deltas.sort((a, b) => a - b);
   const mid = Math.floor(deltas.length / 2);
   return deltas.length % 2 === 0 ? (deltas[mid - 1]! + deltas[mid]!) / 2 : deltas[mid]!;
 };
 
-// The bottom-most piece of content on screen: the labelled node whose rect ends
-// lowest. Labelled, because the tree also carries unlabelled containers and the
-// scroll views that span the whole window, and the deepest of those ends at the
-// screen's edge whatever the page is doing. Taken after scrolling to the end,
-// this is where the app's content stops — against the scroller's bottom edge it
-// says whether the page's last card sits above Safari's toolbar or under it,
-// which is the reported symptom in one number.
-export const contentEnd = (
-  nodes: readonly SnapshotNode[],
-): { bottom: number; label: string } | null => {
-  let best: { bottom: number; label: string } | null = null;
-  for (const node of nodes) {
-    const label = labelOf(node);
-    if (!label || !node.rect || SCROLL_INDICATOR.test(label)) continue;
-    const bottom = node.rect.y + node.rect.height;
-    if (!best || bottom > best.bottom) best = { bottom, label };
-  }
-  return best;
-};
+const LABEL_EXCERPT = 40;
 
-// The lowest few labelled nodes, for a log line that shows the layout at the
-// end of the page rather than one number about it.
+// The lowest labelled content nodes, lowest first, as one log line.
 export const lowestNodes = (nodes: readonly SnapshotNode[], count: number): string =>
-  nodes
-    .filter((node) => node.rect && labelOf(node) && !SCROLL_INDICATOR.test(labelOf(node)))
-    .map((node) => ({
-      label: labelOf(node),
-      y: node.rect!.y,
-      bottom: node.rect!.y + node.rect!.height,
-    }))
-    .sort((a, b) => b.bottom - a.bottom)
+  placed(nodes)
+    .filter(({ label }) => !SCROLL_INDICATOR.test(label))
+    .sort((a, b) => b.rect.y + b.rect.height - (a.rect.y + a.rect.height))
     .slice(0, count)
     .map(
-      (node) =>
-        `${Math.round(node.y)}..${Math.round(node.bottom)} ${JSON.stringify(node.label.slice(0, 40))}`,
+      ({ rect, label }) =>
+        `${Math.round(rect.y)}..${Math.round(rect.y + rect.height)} ${JSON.stringify(label.slice(0, LABEL_EXCERPT))}`,
     )
     .join("; ");
 
-// Where Safari's bottom toolbar begins, read off the tree: its buttons sit in
-// the lower half of the screen and run to the screen's bottom edge, so the
-// highest such node's top is the toolbar's top. The first device runs concluded
-// Safari's chrome was absent from this tree; it is not — "Back" reported at
-// 776..874 on an 874pt screen, which is the toolbar, 98pt tall. Content nodes
-// never end exactly at the screen's edge (their rects are not clipped), so the
-// edge is what tells the two apart. Null when no such node is on screen.
+// Where Safari's bottom toolbar begins: the highest labelled node in the lower
+// half of the screen that runs to the screen's bottom edge. NOTE: content
+// rects are not clipped, so content never ends exactly at that edge; the
+// toolbar's buttons do. Null when no such node is on screen.
 export const toolbarTop = (nodes: readonly SnapshotNode[], screen: Rect): number | null => {
   const bottom = screen.y + screen.height;
-  const tops = nodes
-    .filter((node) => node.rect && labelOf(node))
-    .map((node) => node.rect as Rect)
-    .filter((rect) => rect.y > screen.y + screen.height / 2 && rect.y + rect.height >= bottom - 1)
+  const tops = placed(nodes)
+    .map(({ rect }) => rect)
+    .filter((rect) => rect.y > screen.y + screen.height / 2 && rect.y + rect.height >= bottom)
     .map((rect) => rect.y);
   return tops.length === 0 ? null : Math.min(...tops);
 };

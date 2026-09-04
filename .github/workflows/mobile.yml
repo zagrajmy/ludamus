@@ -11,16 +11,10 @@ on:
       - "scripts/ios-regressions/**"
       - ".github/workflows/mobile.yml"
 
-# Keyed on the workflow name, not a literal prefix: ci.yml's group is the bare
-# branch, so a branch called "mobile-foo" would land in the same group as this
-# workflow's for a branch called "foo", and the two would cancel each other —
-# the collision the prefix was meant to avoid.
-#
-# A superseded head's device run is worth nothing and each one occupies a macOS
-# runner for the better part of an hour. They do not share a simulator — each is
-# its own single-use VM — but they do share the account-wide macOS concurrency
-# limit ci.yml names below, and three of them queued behind each other until the
-# warm-up ran out of time.
+# NOTE: keyed on the workflow name, not a literal prefix — ci.yml's group is the
+# bare branch, so a prefix can collide with a branch of the same name. A
+# superseded head's device run holds a macOS runner for most of an hour and
+# queues the one that replaced it.
 concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
   cancel-in-progress: true
@@ -146,11 +140,8 @@ jobs:
       # own budget here. The runner itself is keyed to a session and stops with
       # it, so each spec still launches one -- only the build is shared.
       - name: Start Safari and warm up the agent-device runner
-        # Measured at 10m07s once, against a 10-minute cap, with the step's own
-        # success line printed two seconds before the timeout fired — a job that
-        # failed without running a single test. Queueing for a macOS runner is
-        # what made it slow, so this margin, not the concurrency group above, is
-        # what keeps that from happening again.
+        # NOTE: the build is ~4 minutes with the machine to itself and has taken
+        # over 10 while queued for a macOS runner; the cap has to fit the latter.
         timeout-minutes: 15
         run: bun run scripts/ios-regressions/warmup.ts
 

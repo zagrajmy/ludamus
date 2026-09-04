@@ -1,6 +1,7 @@
 import { type Locator, type Page } from "@playwright/test";
 
 import { expect, test } from "./helpers/fixtures";
+import { expectCappedToViewport } from "./helpers/modal-cap";
 
 const MOBILE_WIDTH = 375;
 const DENSE_EVENT_URL = "/event/kapitularz-2025-anonymized/";
@@ -15,9 +16,7 @@ test.describe("Event filter panel", () => {
     await page.goto("/event/autumn-open/");
     await page.getByRole("button", { exact: true, name: "Filters" }).click();
 
-    // By role, not by id: at this width the panel is an accessible dialog
-    // named "Filters" (proven three tests down), so the assertions below reach
-    // it the way a person does.
+    // At this width the panel is an accessible dialog named "Filters".
     const panel = page.getByRole("dialog", { name: "Filters" });
     await expect(panel).toBeVisible();
 
@@ -26,22 +25,9 @@ test.describe("Event filter panel", () => {
     expect(box!.x).toBeGreaterThanOrEqual(0);
     expect(box!.x + box!.width).toBeLessThanOrEqual(MOBILE_WIDTH);
 
-    // Not the width alone: at this size the panel is a dialog capped at
-    // --modal-max-h, and an unresolvable var() computes to max-height:none
-    // without a word from anything. This is the sheet's own inline <style>, the
-    // one consumer of that token that carries no .modal class.
-    // The cap is 90dvh, and with no browser chrome here the dynamic viewport
-    // unit and the visual viewport are the same number. The rounding this once
-    // carried belonged to app-viewport.ts, reverted in #1047.
-    const visible = await page.evaluate(() => visualViewport!.height * visualViewport!.scale);
-    await expect
-      .poll(() =>
-        panel.evaluate((el) => {
-          const { maxHeight } = getComputedStyle(el);
-          return maxHeight === "none" ? maxHeight : Number.parseFloat(maxHeight);
-        }),
-      )
-      .toBeCloseTo(visible * 0.9, 0);
+    // Not the width alone: the sheet's own inline <style> reads --modal-max-h,
+    // the one consumer of that token carrying no .modal class.
+    await expectCappedToViewport(page, panel);
 
     await context.close();
   });

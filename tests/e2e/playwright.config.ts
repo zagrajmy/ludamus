@@ -154,9 +154,7 @@ export default defineConfig({
             // phone: no browser chrome, so no toolbar to collapse and no visual
             // viewport that disagrees with the layout one. Anything that needs
             // *those* is a device test and belongs in scripts/ios-regressions
-            // as a .ios.test.ts, which drives real Safari on a simulator. The
-            // two were told apart by a tag once, and a viewport assertion that
-            // could only hold here shipped a bug to iOS.
+            // as a .ios.test.ts, which drives real Safari on a simulator.
             testMatch: /.*\.webkit\.spec\.ts/,
             use: { ...devices["iPhone 14 Pro"] },
           },

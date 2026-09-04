@@ -4,7 +4,12 @@ import { afterAll, beforeAll, expect, test } from "bun:test";
 
 import type { Rect } from "./snapshot";
 
-import { baseUrl, createIosHarness, hookTimeoutMs, sessionName } from "./harness";
+import {
+  createIosHarness,
+  eventUrl as resolveEventUrl,
+  hookTimeoutMs,
+  sessionName,
+} from "./harness";
 import { decodeEntities, fetchReadyPage } from "./page";
 import {
   centreOnScreen,
@@ -16,10 +21,8 @@ import {
   viewportOf,
 } from "./snapshot";
 
-const env = process.env;
 const session = sessionName("scrubber");
-const eventPath = env.EVENT_PATH ?? "/event/kapitularz-2025-anonymized/";
-const eventUrl = new URL(eventPath, baseUrl);
+const eventUrl = resolveEventUrl("/event/kapitularz-2025-anonymized/");
 
 const calloutSignals = [
   "Hide preview",

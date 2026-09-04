@@ -1,28 +1,8 @@
-import { type Locator, type Page } from "@playwright/test";
+import { type Page } from "@playwright/test";
 import path from "node:path";
 
 import { expect, test } from "./helpers/fixtures";
-
-// The cap is a cross-file name — --modal-max-h, defined in modal.css — and an
-// unresolvable var() computes to max-height:none in silence: no console error,
-// no build error, no lint error. Nothing else in the suite notices a modal that
-// has stopped capping itself, which is how #1030's bug looked on iOS.
-const expectCappedToViewport = async (page: Page, modal: Locator) => {
-  // The cap is 90dvh. In these engines, with no browser chrome, the dynamic
-  // viewport unit and the visual viewport are the same number, so this reads
-  // the latter and takes 90% of it. The rounding this once carried belonged to
-  // app-viewport.ts, which rounded before publishing --app-vh; that publisher
-  // was reverted in #1047 and the rounding went with it.
-  const visible = await page.evaluate(() => visualViewport!.height * visualViewport!.scale);
-  await expect
-    .poll(() =>
-      modal.evaluate((el) => {
-        const { maxHeight } = getComputedStyle(el);
-        return maxHeight === "none" ? maxHeight : Number.parseFloat(maxHeight);
-      }),
-    )
-    .toBeCloseTo(visible * 0.9, 0);
-};
+import { expectCappedToViewport } from "./helpers/modal-cap";
 
 const expectPageScrollLocked = async (page: Page) => {
   const pageScrollLocked = await page.evaluate(() => {

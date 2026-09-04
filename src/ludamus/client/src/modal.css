@@ -7,14 +7,9 @@
   /* How much of the visible viewport a capped modal may take, leaving enough of
      the page behind it to stay oriented. Applied by .modal-capped below, and
      read directly by the schedule's filter sheet, which is dressed as a modal
-     without being one.
-
-     dvh, not the measured --app-vh this once read: #1030's publisher was
-     reverted in #1047, so that variable no longer exists and reading it here
-     would resolve to nothing — which computes to max-height:none in silence,
-     uncapping every dialog wearing the class. On iOS dvh still describes a
-     viewport that can disagree with the one on screen; the device measurement
-     in scripts/ios-regressions is where that gets settled, not here. */
+     without being one. SAFETY: this is a cross-file name, and a consumer
+     reading a var() that no longer resolves computes to max-height:none in
+     silence — the e2e cap assertions are what would notice. */
   --modal-max-h: 90dvh;
 }
 
