@@ -49,17 +49,30 @@ const firstTriggerLabel = (html: string): string => {
 // rather than report a pass.
 const addressHost = new URL(baseUrl).host;
 
+const carriesAddress = (node: SnapshotNode): boolean =>
+  Boolean(node.rect) && labelOf(node).includes(addressHost);
+
+// Scoped first, and this is the whole reason the first device run found
+// nothing: the runner walks at most 300 nodes per unscoped snapshot and drops
+// the rest, and Safari's chrome comes after a full event page's worth of web
+// content. A scope resolves by live element query instead, which has no cap.
+// The unscoped tree is still worth a second look, in case the chrome is there
+// under a label that does not contain the host.
 const contentBottomEdge = async (): Promise<{ edge: number; screenBottom: number }> => {
-  const snapshot: CaptureSnapshotResult = await takeSnapshot();
-  const screen = viewportOf(snapshot);
-  const carriesAddress = (node: SnapshotNode): boolean =>
-    Boolean(node.rect) && labelOf(node).includes(addressHost);
-  const tops = snapshot.nodes.filter(carriesAddress).map((node) => node.rect!.y);
+  const scoped: CaptureSnapshotResult = await takeSnapshot(addressHost);
+  const full: CaptureSnapshotResult = await takeSnapshot();
+  const screen = viewportOf(full);
+  const tops = [...scoped.nodes, ...full.nodes].filter(carriesAddress).map((node) => node.rect!.y);
   if (tops.length === 0) {
-    const seen = snapshot.nodes.map(labelOf).filter(Boolean).slice(0, 40).join(" | ");
+    const seen = full.nodes.map(labelOf).filter(Boolean).slice(0, 40).join(" | ");
     throw new Error(
       `No node carrying the address ${JSON.stringify(addressHost)} is in the accessibility ` +
         `tree, so Safari's chrome could not be located and nothing was measured. ` +
+        `Scoped walk returned ${scoped.nodes.length} node(s) (truncated=${scoped.truncated}); ` +
+        `the full walk returned ${full.nodes.length} (truncated=${full.truncated}), screen ` +
+        `${Math.round(screen.width)}x${Math.round(screen.height)}. ` +
+        `A truncated full walk means the cap hid the chrome; an untruncated one means Safari ` +
+        `does not surface it here and this spec needs a different reference edge. ` +
         `Labels seen: ${seen}`,
     );
   }
