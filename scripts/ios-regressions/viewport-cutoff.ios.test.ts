@@ -4,10 +4,11 @@ import { afterAll, beforeAll, expect, test } from "bun:test";
 
 import type { Rect } from "./snapshot";
 
-import { createIosHarness, eventUrl, hookTimeoutMs, sessionName } from "./harness";
+import { createIosHarness, hookTimeoutMs, resolveEventUrl, sessionName } from "./harness";
 import { decodeEntities, fetchReadyPage } from "./page";
 import { MIN_SCROLL_PT, pageEndVerdict } from "./page-end";
 import {
+  describeRect,
   labelOf,
   lowestNodes,
   medianShift,
@@ -23,7 +24,7 @@ import {
 // between clipped content and the bar). The verdict is pageEndVerdict, tested
 // off the device; this file measures.
 const session = sessionName("viewport");
-const pageUrl = eventUrl("/event/autumn-open/");
+const pageUrl = resolveEventUrl("/event/autumn-open/");
 const TRIGGER_LABELS = /aria-label="(Open details for [^"]+)"/g;
 
 // Scrolling stops when a gesture no longer moves the page; the cap is for a
@@ -65,14 +66,13 @@ type Measured = {
 };
 
 const bottomOf = (rect: Rect): number => rect.y + rect.height;
-const describeRect = (rect: Rect): string => `${Math.round(rect.y)}+${Math.round(rect.height)}`;
 const describeRects = (rects: Rect[]): string => rects.map(describeRect).join(", ") || "none";
 
 const measureScroller = async (): Promise<Measured> => {
   const snapshot = await takeSnapshot();
   const screen = viewportOf(snapshot);
-  const scroller = scrollerViewport(snapshot.nodes, screen);
   const indicators = scrollBars(snapshot.nodes);
+  const scroller = scrollerViewport(indicators, screen);
   if (!scroller) {
     const seen = snapshot.nodes.map(labelOf).filter(Boolean).slice(0, LABELS_IN_ERROR).join(" | ");
     throw new Error(

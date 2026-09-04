@@ -2,6 +2,8 @@ import type { CaptureSnapshotResult, SnapshotNode } from "agent-device";
 
 import { describe, expect, test } from "bun:test";
 
+import type { Rect } from "./snapshot";
+
 import { decodeEntities } from "./page";
 import {
   ABOVE_TOLERANCE_PT,
@@ -176,8 +178,7 @@ describe("scrollBars", () => {
 describe("scrollerViewport", () => {
   // Verbatim from a device run: four scroll views spanning the whole 874pt
   // screen, and one inset 62pt top and bottom by Safari's chrome.
-  const bar = (y: number, height: number): SnapshotNode =>
-    node({ label: "Vertical scroll bar, 1 page", rect: { x: 396, y, width: 6, height } });
+  const bar = (y: number, height: number): Rect => ({ x: 396, y, width: 6, height });
   const observed = [bar(0, 874), bar(0, 874), bar(0, 874), bar(0, 874), bar(62, 750)];
 
   test("passes over the scroll views that span the whole screen", () => {
@@ -191,11 +192,6 @@ describe("scrollerViewport", () => {
 
   test("reports nothing rather than guessing when every scroller spans the screen", () => {
     expect(scrollerViewport([bar(0, 874), bar(0, 874)], screen)).toBeNull();
-  });
-
-  test("ignores nodes that are not scroll indicators, and ones with no rect", () => {
-    const noise = [node({ label: "Log in" }), node({ label: "Vertical scroll bar, 1 page" })];
-    expect(scrollerViewport([...noise, bar(62, 750)], screen)?.height).toBe(750);
   });
 });
 

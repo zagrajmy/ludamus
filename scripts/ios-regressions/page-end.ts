@@ -1,4 +1,4 @@
-import type { Rect } from "./snapshot";
+import { describeRect, type Rect } from "./snapshot";
 
 // A gesture that lands moves the page by hundreds of points. A step under
 // this is the end of the scroller; a whole run under it measured nothing.
@@ -23,8 +23,6 @@ export type PageEndReading = {
   footerLink: RegExp;
   lowest: string;
 };
-
-const describe = (rect: Rect): string => `${Math.round(rect.y)}+${Math.round(rect.height)}`;
 
 // The one assertion of the device spec, as a function of what was measured:
 // null when the page ends at the toolbar, otherwise a message naming which
@@ -65,7 +63,7 @@ export const pageEndVerdict = (reading: PageEndReading): string | null => {
       `The page is cut short. After scrolling to the end (${Math.round(shift)}pt), the page ends ` +
       `at y=${Math.round(pageEnd)} while Safari's toolbar begins at y=${Math.round(barTop)} on a ` +
       `${Math.round(screen.y + screen.height)}pt screen — the last ${Math.round(pageEnd - barTop)}pt ` +
-      `of content is under the bar. The scrolling viewport is ${describe(scroller)}.`
+      `of content is under the bar. The scrolling viewport is ${describeRect(scroller)}.`
     );
   }
   if (pageEnd < barTop - ABOVE_TOLERANCE_PT) {

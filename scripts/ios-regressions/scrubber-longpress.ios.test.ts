@@ -4,12 +4,7 @@ import { afterAll, beforeAll, expect, test } from "bun:test";
 
 import type { Rect } from "./snapshot";
 
-import {
-  createIosHarness,
-  eventUrl as resolveEventUrl,
-  hookTimeoutMs,
-  sessionName,
-} from "./harness";
+import { createIosHarness, resolveEventUrl, hookTimeoutMs, sessionName } from "./harness";
 import { decodeEntities, fetchReadyPage } from "./page";
 import {
   centreOnScreen,

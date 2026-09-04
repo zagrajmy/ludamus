@@ -2,12 +2,7 @@ import type { CaptureSnapshotResult, SnapshotNode } from "agent-device";
 
 import { afterAll, beforeAll, expect, test } from "bun:test";
 
-import {
-  createIosHarness,
-  eventUrl as resolveEventUrl,
-  hookTimeoutMs,
-  sessionName,
-} from "./harness";
+import { createIosHarness, resolveEventUrl, hookTimeoutMs, sessionName } from "./harness";
 import { fetchReadyPage } from "./page";
 import { centreOnScreen, collapse, describeNode, labelOf, pollUntil, viewportOf } from "./snapshot";
 

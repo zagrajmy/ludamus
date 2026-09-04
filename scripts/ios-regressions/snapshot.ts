@@ -55,8 +55,8 @@ export const scrollBars = (nodes: readonly SnapshotNode[]): Rect[] =>
 // NOTE: the tree carries several vertical scroll views, and the ones spanning
 // the whole window are containers that never move. The one inset from the
 // screen is the viewport the page is actually given.
-export const scrollerViewport = (nodes: readonly SnapshotNode[], screen: Rect): Rect | null => {
-  const inset = scrollBars(nodes).filter((rect) => rect.height < screen.height);
+export const scrollerViewport = (bars: readonly Rect[], screen: Rect): Rect | null => {
+  const inset = bars.filter((rect) => rect.height < screen.height);
   if (inset.length === 0) return null;
   return inset.reduce((a, b) => (a.height >= b.height ? a : b));
 };
@@ -145,6 +145,9 @@ export const matchesScopeLabel = (label: string, scope: string): boolean =>
 export const collapse = (value: string): string => value.replace(/\s+/g, " ").trim();
 
 export const labelOf = (node: SnapshotNode): string => collapse(node.label ?? node.value ?? "");
+
+export const describeRect = (rect: Rect): string =>
+  `${Math.round(rect.y)}+${Math.round(rect.height)}`;
 
 export const describeNode = (node: SnapshotNode): string => {
   const rect = node.rect

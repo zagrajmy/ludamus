@@ -16,7 +16,7 @@ const env = process.env;
 
 export const baseUrl = env.BASE_URL ?? "http://localhost:8000";
 
-export const eventUrl = (defaultPath: string): URL =>
+export const resolveEventUrl = (defaultPath: string): URL =>
   new URL(env.EVENT_PATH ?? defaultPath, baseUrl);
 
 export const sessionName = (role: string): string =>

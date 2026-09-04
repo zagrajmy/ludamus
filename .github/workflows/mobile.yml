@@ -47,8 +47,8 @@ jobs:
       # The number this job is sized from. A spec's worst case is two attempts
       # of the 360s hook plus the 30s afterAll and bun's start-up, ~14 minutes:
       # the test step's cap is budget × 14, and the job's cap is that plus the
-      # 6.5 min of setup, 15 min warm-up cap and 1.5 min of teardown around it,
-      # so the step timeouts bind first. Actions cannot derive timeout-minutes
+      # 6.5 min of setup, 15 min warm-up cap and 1.5 min of teardown around it
+      # plus 3 min of slack, so the step timeouts bind first. Actions cannot derive timeout-minutes
       # from an env value; raise the three together.
       IOS_SPEC_BUDGET: 3
       AGENT_DEVICE_DAEMON_STARTUP_TIMEOUT_MS: 30000
@@ -155,7 +155,8 @@ jobs:
         # IOS_SPEC_BUDGET × 14.
         timeout-minutes: 42
         env:
-          # Per-attempt cap, sized so four attempts fit the step budget above.
+          # Per-attempt cap: two attempts per spec of this plus the 30s afterAll
+          # fit the step budget above.
           # The slowest healthy hook measures 316s.
           IOS_HOOK_TIMEOUT_MS: 360000
         run: |
