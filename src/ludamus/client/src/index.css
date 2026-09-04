@@ -225,15 +225,19 @@ body {
   -webkit-overflow-scrolling: touch;
 }
 
-/* Every page wears the shell (base.html and the self-contained 500), so the
-   document never scrolls and the root needs no scrollbar gutter — .app-scroll
-   below reserves the only one, for the only scroller there is.
+/* Every page that extends base.html wears the shell, so the document never
+   scrolls and the root needs no scrollbar gutter — .app-scroll below reserves
+   the only one, for the only scroller there is. (500_dynamic.html deliberately
+   does not: it has no dialog to protect and no JS to size the shell with.)
 
    --app-vh is visualViewport.height, published by app-scroll.ts. A viewport
    unit can't be trusted here: iOS Safari collapses its toolbars only when the
    *document* scrolls, which this shell removed, so dvh freezes and the app ends
-   up shorter than the screen with its last card cut at the clip edge. 100dvh
-   covers first paint and the 500 page, which ships no JS. */
+   up shorter than the screen with its last card cut at the clip edge. The
+   100dvh fallback covers first paint, and is deliberately not 100lvh: a shell
+   larger than the screen would put the footer under the toolbar with nothing
+   able to scroll it back, which is worse than a short one that merely looks
+   wrong. */
 .app-shell {
   height: var(--app-vh, 100dvh);
   overflow: hidden;

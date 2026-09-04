@@ -40,33 +40,35 @@
         {% vite_hmr_client %}
         <link rel="stylesheet" href="{% vite_asset_url 'src/index.css' %}">
     </head>
-    {# The shell pair, same as base.html: the body is a clipped 100dvh box and #}
-    {# #app-scroll owns the scroll, so a top-layer dialog never moves the #}
-    {# document under itself. min-h-full centres the card while the viewport #}
-    {# has room and lets it scroll once the message outgrows one — safe #}
-    {# centring, because plain centring pushes the overflow half above the #}
-    {# scroll origin, where a short window can never reach the heading. #}
-    <body class="app-shell font-sans antialiased bg-background text-foreground">
-        <div id="app-scroll" class="app-scroll">
-            <div class="flex min-h-full items-center-safe justify-center">
-                <div class="max-w-screen-sm xl:min-w-[600px] mx-auto px-4">
-                    {% include "components/status_hero.html" with icon="exclamation-triangle" icon_color="text-danger" error_code=error_code heading=title lead=message only %}
-                    <p class="text-sm mb-4 text-foreground-muted">{{ subtitle }}</p>
-                    <p class="mb-2 text-foreground">{{ guidance }}</p>
-                    <p class="mb-6 text-sm text-foreground-muted">
-                        {% translate "Still stuck? Email us at" %}
-                        <a href="mailto:{{ support_email }}" class="text-primary underline">{{ support_email }}</a>
-                    </p>
-                    <div class="flex flex-col sm:flex-row gap-3">
-                        <button id="history-back-btn" class="btn btn-secondary">
-                            {% icon "arrow-left" class="w-5 h-5" %}
-                            {% translate "Go Back" %}
-                        </button>
-                        <a href="/" class="btn btn-primary">
-                            {% icon "home" class="w-5 h-5" %}
-                            {% translate "Go to Home" %}
-                        </a>
-                    </div>
+    {# No app-shell here, unlike base.html. The shell exists so a top-layer #}
+    {# dialog never sits over a scrolled document, and this page has no #}
+    {# dialog; what the shell would cost is real, because it can only size #}
+    {# itself from --app-vh, and this page ships no JS to publish it. A #}
+    {# scrolling document is also the only thing that makes iOS Safari #}
+    {# collapse its toolbars, so the card gets the whole screen instead of #}
+    {# ending above the bar. min-h-dvh centres it while the viewport has room #}
+    {# and lets the page grow once the message outgrows one — safe centring, #}
+    {# because plain centring pushes the overflow half above the scroll #}
+    {# origin, where a short window can never reach the heading. #}
+    <body class="font-sans antialiased bg-background text-foreground">
+        <div class="flex min-h-dvh items-center-safe justify-center">
+            <div class="max-w-screen-sm xl:min-w-[600px] mx-auto px-4">
+                {% include "components/status_hero.html" with icon="exclamation-triangle" icon_color="text-danger" error_code=error_code heading=title lead=message only %}
+                <p class="text-sm mb-4 text-foreground-muted">{{ subtitle }}</p>
+                <p class="mb-2 text-foreground">{{ guidance }}</p>
+                <p class="mb-6 text-sm text-foreground-muted">
+                    {% translate "Still stuck? Email us at" %}
+                    <a href="mailto:{{ support_email }}" class="text-primary underline">{{ support_email }}</a>
+                </p>
+                <div class="flex flex-col sm:flex-row gap-3">
+                    <button id="history-back-btn" class="btn btn-secondary">
+                        {% icon "arrow-left" class="w-5 h-5" %}
+                        {% translate "Go Back" %}
+                    </button>
+                    <a href="/" class="btn btn-primary">
+                        {% icon "home" class="w-5 h-5" %}
+                        {% translate "Go to Home" %}
+                    </a>
                 </div>
             </div>
         </div>
