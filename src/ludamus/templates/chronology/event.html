@@ -217,7 +217,8 @@
                             {% endblocktranslate %}
                         </h3>
                         {# Each title opens its session modal client-side (modal.ts), the #}
-                        {# same ?session= link contract the schedule rows use. #}
+                        {# same ?session= link contract the schedule rows use. Every session #}
+                        {# here is scheduled: the page lists public_scheduled_sessions only. #}
                         <ul class="text-sm text-foreground-muted">
                             {% for enrolled in user_enrolled_sessions %}
                                 <li>
@@ -225,10 +226,7 @@
                                        class="font-medium text-foreground underline decoration-dashed decoration-foreground-muted underline-offset-2 hover:decoration-solid"
                                        aria-haspopup="dialog"
                                        aria-controls="session-{{ enrolled.session.pk }}">{{ enrolled.session.title }}</a>
-                                    {% if enrolled.agenda_item %}
-                                        · {{ enrolled.agenda_item.start_time|date:"l, j E" }} ·
-                                        <span class="tabular-nums">{{ enrolled.agenda_item.start_time|time:"G:i" }}–{{ enrolled.agenda_item.end_time|time:"G:i" }}</span>
-                                    {% endif %}
+                                    · {% include "chronology/_session_when.html" with agenda_item=enrolled.agenda_item only %}
                                 </li>
                             {% endfor %}
                         </ul>

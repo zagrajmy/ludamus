@@ -3,23 +3,29 @@
    thing the server cannot render, since the page is cacheable and a rendered
    line is stale the moment it is served. */
 
-.room-lanes-now {
+/* The line itself, shared by both layouts: a zero-height anchor that costs
+   the page nothing, with the rule drawn a pixel either side of it so a pill
+   at top: 0 sits centred on the line. It sets no `top`. In the rooms grid its
+   parent overlay is placed by schedule-now.ts; in the ledger the anchor is
+   moved between rows and its static position — the boundary after the row
+   before it — is the seam.
+   NOTE: that static position only holds while the ledger's .session-grid is
+   block-flow; the same class is a CSS grid in the card layouts, where an
+   absolute child would snap to the container's top instead.
+   NOTE: index.css imports this file outside any layer on purpose. The ledger
+   pairs rows with @utility divide-y-visible, whose selector outranks this one
+   and would give the anchor a divider of its own; only an unlayered rule
+   keeps the border off it. */
+.schedule-now-line {
   position: absolute;
-  z-index: 45;
+  z-index: 20;
   inset-inline: 0;
+  height: 0;
+  border: 0;
   pointer-events: none;
 }
 
-.room-lanes-now-strip {
-  position: absolute;
-  inset-inline: 0;
-  top: 0;
-  display: flex;
-  height: 0;
-  align-items: center;
-}
-
-.room-lanes-now-strip::before {
+.schedule-now-line::before {
   position: absolute;
   inset-inline: 0;
   top: -1px;
@@ -27,16 +33,11 @@
   content: "";
 }
 
-/* In the ledger: the seam between what has started and what has not. The rows
-   are a list rather than a time axis, so the line marks the boundary between
-   two rows instead of a position inside an hour. Absolute with no top: the
-   static position of a block child is exactly the row boundary schedule-now.ts
-   inserts it at, and it costs the ledger no height. */
-.schedule-now {
+/* The rooms grid's overlay for the line, placed at the share of the current
+   band the minutes have run through. */
+.room-lanes-now {
   position: absolute;
-  z-index: 20;
+  z-index: 45;
   inset-inline: 0;
-  height: 0;
-  border-top: 2px solid var(--color-primary);
   pointer-events: none;
 }
