@@ -35,7 +35,9 @@ if TYPE_CHECKING:
 
     from ludamus.gates.web.django.entities import RootRequest
     from ludamus.pacts import EventDTO
+    from ludamus.pacts.legacy import UploadedFileProtocol
     from ludamus.pacts.maps import EventMapDTO
+    from ludamus.pacts.venues import SpaceTreeNodeDTO
 
 
 @dataclass
@@ -45,10 +47,14 @@ class MapCard:
     attach_form: forms.Form | None
 
 
-def _space_choices(request: RootRequest, event_pk: int) -> list[tuple[str, str]]:
+def _space_tree(request: RootRequest, event_pk: int) -> list[SpaceTreeNodeDTO]:
+    return request.services.space_tree.list_tree(event_pk)
+
+
+def _uploaded_images(form: forms.Form) -> list[UploadedFileProtocol]:
+    raw = form.cleaned_data.get("image") or []
     return [
-        (str(scope.pk), scope.name)
-        for scope in request.services.venues.list_print_scopes(event_pk)
+        uploaded for one in raw if (uploaded := parse_uploaded_file(one)) is not None
     ]
 
 
@@ -68,7 +74,7 @@ def render_maps_page(
     # the errors; every other dialog gets a fresh one.
     access = panel_access(request)
     can_edit = access.allows(Capability.PANEL_WRITE)
-    space_choices = _space_choices(request, event.pk) if can_edit else []
+    space_tree = _space_tree(request, event.pk) if can_edit else []
     edit_forms = edit_forms or {}
     attach_forms = attach_forms or {}
     cards = []
@@ -82,13 +88,15 @@ def render_maps_page(
                 auto_id=f"edit_map_{event_map.pk}_%s",
                 initial={
                     "name": event_map.name,
-                    "image": stored_file(
-                        event_map.image_url, event_map.image_original_name
+                    "image": (
+                        stored_file(first.image_url, first.image_original_name)
+                        if (first := next(iter(event_map.pages), None))
+                        else None
                     ),
                 },
             )
             attach_form = attach_forms.get(event_map.pk) or create_map_spaces_form(
-                space_choices=space_choices
+                space_tree=space_tree
             )(
                 auto_id=f"attach_{event_map.pk}_%s",
                 initial={"spaces": [str(pk) for pk in event_map.space_pks]},
@@ -159,11 +167,9 @@ class EventMapAddActionView(_MapWriteView):
             return refused
         event = read_public_event(request, slug)
         form = create_event_map_form(has_image=False)(request.POST, request.FILES)
-        if form.is_valid() and (
-            image := parse_uploaded_file(form.cleaned_data.get("image"))
-        ):
+        if form.is_valid() and (images := _uploaded_images(form)):
             request.services.event_maps.create(
-                event_pk=event.pk, name=form.cleaned_data["name"], image=image
+                event_pk=event.pk, name=form.cleaned_data["name"], images=images
             )
             return _done(request, slug, _("Map added."))
         return render_maps_page(request, event, add_form=form)
@@ -185,7 +191,7 @@ class EventMapEditActionView(_MapWriteView):
                 event_pk=event.pk,
                 pk=pk,
                 name=form.cleaned_data["name"],
-                image=parse_uploaded_file(form.cleaned_data.get("image")),
+                images=_uploaded_images(form) or None,
             )
         except NotFoundError:
             return _not_found(request, slug)
@@ -198,7 +204,7 @@ class EventMapAttachActionView(_MapWriteView):
         if refused := _refused(request):
             return refused
         event = read_public_event(request, slug)
-        form = create_map_spaces_form(space_choices=_space_choices(request, event.pk))(
+        form = create_map_spaces_form(space_tree=_space_tree(request, event.pk))(
             request.POST, auto_id=f"attach_{pk}_%s"
         )
         if not form.is_valid():

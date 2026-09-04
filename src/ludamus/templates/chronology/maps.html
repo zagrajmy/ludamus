@@ -37,7 +37,7 @@
         {# that only frames it stays plain text. #}
         <div class="relative flex flex-col gap-10 sm:gap-14">
             {% for card in cards %}
-                {% include "chronology/_map_card.html" with card=card %}
+                {% include "chronology/_map_card.html" with card=card first_card=forloop.first %}
             {% endfor %}
         </div>
     {% else %}

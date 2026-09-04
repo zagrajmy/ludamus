@@ -469,6 +469,14 @@ If you fix a papercut, remove it.
 - 2026-09-01: mise run check reformatted 90 vendored
   .claude/skills/impeccable/scripts/*.mjs files unrelated to the diff; had to
   git checkout -- .claude/ before committing.
+- 2026-09-04: mise run format (oxfmt) rewrites the vendored
+  .claude/skills/impeccable/scripts/*.mjs|js files, which are tracked. A one-
+  file change turned into 90 files of formatter churn I had to stash out before
+  committing. Those paths should be in the oxfmt ignore list.
+- 2026-09-04: A stray 'mise run start' holding :8000 gets silently reused by
+  mise run test:e2e, which then tests stale code. The failure looks like a
+  broken selector, not a stale server. test:e2e should fail loudly (or kill)
+  when :8000 is already taken by something it did not start.
 - 2026-09-04: Rebuilt the Vite client while test:e2e:serve was running. The
   serve loop watches the manifest with stat -c, which is GNU-only, so on macOS
   it never restarts and keeps serving hashed asset URLs the rebuild just

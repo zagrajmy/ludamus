@@ -818,6 +818,25 @@ msgstr "Nieprawidłowy kod. Sprawdź i spróbuj ponownie."
 msgid "Code loaded successfully. You can now manage your enrollments."
 msgstr "Kod załadowany pomyślnie. Możesz teraz zarządzać swoimi zapisami."
 
+#: src/ludamus/gates/web/django/chronology/event_presentation.py
+#: src/ludamus/templates/panel/_space_tree_node.html
+#, python-format
+msgid "%(counter)s seat"
+msgid_plural "%(counter)s seats"
+msgstr[0] "%(counter)s miejsce"
+msgstr[1] "%(counter)s miejsca"
+msgstr[2] "%(counter)s miejsc"
+msgstr[3] "%(counter)s miejsc"
+
+#: src/ludamus/gates/web/django/chronology/event_presentation.py
+#, python-format
+msgid "%(counter)s free"
+msgid_plural "%(counter)s free"
+msgstr[0] "%(counter)s wolne miejsce"
+msgstr[1] "%(counter)s wolne miejsca"
+msgstr[2] "%(counter)s wolnych miejsc"
+msgstr[3] "%(counter)s wolne miejsca"
+
 #: src/ludamus/gates/web/django/chronology/forms.py
 msgid "Choose a time…"
 msgstr "Wybierz godzinę…"
@@ -3135,12 +3154,16 @@ msgid "Map name is required."
 msgstr "Nazwa mapy jest wymagana."
 
 #: src/ludamus/gates/web/django/forms.py
-msgid "Map image"
-msgstr "Obraz mapy"
+msgid "Map pages"
+msgstr "Strony mapy"
 
 #: src/ludamus/gates/web/django/forms.py
-msgid "Max 8 MB. JPG, PNG, WebP, or AVIF."
-msgstr "Maks. 8 MB. JPG, PNG, WebP lub AVIF."
+msgid ""
+"One picture, or several for a plan that comes with a legend. Max 8 MB each. "
+"JPG, PNG, WebP, or AVIF."
+msgstr ""
+"Jeden obraz albo kilka, gdy plan ma legendę. Maks. 8 MB każdy. JPG, PNG, "
+"WebP lub AVIF."
 
 #: src/ludamus/gates/web/django/forms.py
 msgid "Upload the map image."
@@ -4250,6 +4273,11 @@ msgstr "Usuń %(name)s"
 
 #: src/ludamus/templates/chronology/_map_card.html
 #, python-format
+msgid "%(name)s, page %(number)s"
+msgstr "%(name)s, strona %(number)s"
+
+#: src/ludamus/templates/chronology/_map_card.html
+#, python-format
 msgid "Venues on %(name)s"
 msgstr "Lokalizacje na mapie %(name)s"
 
@@ -4342,6 +4370,11 @@ msgstr "Czas"
 msgid "Rooms schedule"
 msgstr "Harmonogram sal"
 
+#: src/ludamus/templates/chronology/_room_lanes.html
+#, python-format
+msgid "Nothing new until %(until)s"
+msgstr "Nic nowego do %(until)s"
+
 #: src/ludamus/templates/chronology/_schedule_view_tabs.html
 msgid "Schedule view"
 msgstr "Widok harmonogramu"
@@ -4405,16 +4438,6 @@ msgstr[3] "%(counter)s zapisanych uczestników"
 #: src/ludamus/templates/chronology/_session_map_link.html
 msgid "Show on map"
 msgstr "Pokaż na mapie"
-
-#: src/ludamus/templates/chronology/_session_seat_count.html
-#: src/ludamus/templates/panel/_space_tree_node.html
-#, python-format
-msgid "%(counter)s seat"
-msgid_plural "%(counter)s seats"
-msgstr[0] "%(counter)s miejsce"
-msgstr[1] "%(counter)s miejsca"
-msgstr[2] "%(counter)s miejsc"
-msgstr[3] "%(counter)s miejsc"
 
 #: src/ludamus/templates/chronology/accept_proposal.html
 msgid "Accept Proposal"
@@ -5250,6 +5273,19 @@ msgstr "pojemność"
 #: src/ludamus/templates/chronology/print.html
 msgid "This printable is not available for this event."
 msgstr "Ten wydruk nie jest dostępny dla tego wydarzenia."
+
+#: src/ludamus/templates/components/_checkbox-tree-node.html
+msgid "all"
+msgstr "wszystkie"
+
+#: src/ludamus/templates/components/_checkbox-tree-node.html
+msgid "none"
+msgstr "żadne"
+
+#: src/ludamus/templates/components/_checkbox-tree-node.html
+#, python-format
+msgid "Venues under %(name)s:"
+msgstr "Lokalizacje w %(name)s:"
 
 #: src/ludamus/templates/components/_pagination.html
 #, python-format
@@ -10125,15 +10161,8 @@ msgstr ""
 "później!"
 
 #, python-format
-#~ msgid "%(limit)s seat"
-#~ msgid_plural "%(limit)s seats"
-#~ msgstr[0] "%(limit)s miejsce"
-#~ msgstr[1] "%(limit)s miejsca"
-#~ msgstr[2] "%(limit)s miejsc"
-#~ msgstr[3] "%(limit)s miejsc"
-
-#~ msgid "submitted"
-#~ msgstr "zgłoszono"
+#~ msgid "Select every venue under %(name)s"
+#~ msgstr "Zaznacz wszystkie lokalizacje w %(name)s"
 
 #~ msgid "No spaces configured for this event. Please create spaces first."
 #~ msgstr ""
@@ -10145,6 +10174,46 @@ msgstr ""
 #~ msgstr ""
 #~ "Brak skonfigurowanych przedziałów czasowych dla tego wydarzenia. Najpierw "
 #~ "utwórz przedziały czasowe."
+
+#, python-format
+#~ msgid "%(limit)s seat"
+#~ msgid_plural "%(limit)s seats"
+#~ msgstr[0] "%(limit)s miejsce"
+#~ msgstr[1] "%(limit)s miejsca"
+#~ msgstr[2] "%(limit)s miejsc"
+#~ msgstr[3] "%(limit)s miejsc"
+
+#~ msgid "submitted"
+#~ msgstr "zgłoszono"
+
+#~ msgid "Max 8 MB. JPG, PNG, WebP, or AVIF."
+#~ msgstr "Maks. 8 MB. JPG, PNG, WebP lub AVIF."
+
+#~ msgid "Map image"
+#~ msgstr "Obraz mapy"
+
+#~ msgid "Pick venues of this event."
+#~ msgstr "Wybierz lokalizacje tego wydarzenia."
+
+#~ msgid "New map"
+#~ msgstr "Nowa mapa"
+
+#~ msgid "What are maps?"
+#~ msgstr "Czym są mapy?"
+
+#~ msgid ""
+#~ "Pictures of the venue — a site plan, a floor, a building — shown to "
+#~ "participants on the event's maps page. Tick the venues each picture "
+#~ "shows: sessions in those venues link to it, and the page links each venue "
+#~ "back to its sessions."
+#~ msgstr ""
+#~ "Plany miejsca — plan terenu, piętra, budynku — pokazywane uczestnikom na "
+#~ "stronie map wydarzenia. Zaznacz lokalizacje widoczne na każdym obrazie: "
+#~ "punkty programu w tych lokalizacjach będą do niego prowadzić, a strona "
+#~ "poprowadzi z każdej lokalizacji z powrotem do jej punktów programu."
+
+#~ msgid "Map"
+#~ msgstr "Mapa"
 
 #~ msgid "This is the current status."
 #~ msgstr "To jest obecny status."
@@ -10254,17 +10323,11 @@ msgstr ""
 #~ msgid "Min"
 #~ msgstr "Min"
 
-#~ msgid "Max"
-#~ msgstr "Max"
-
 #~ msgid "Age ≤"
 #~ msgstr "Wiek ≤"
 
 #~ msgid "Venue"
 #~ msgstr "Lokalizacja"
-
-#~ msgid "All venues"
-#~ msgstr "Wszystkie lokalizacje"
 
 #~ msgid "Enrollment required"
 #~ msgstr "Wymagane zapisy"
@@ -10557,9 +10620,6 @@ msgstr ""
 #~ msgid "Shown on public session card"
 #~ msgstr "Widoczne na publicznej karcie punktu programu"
 
-#~ msgid "Only this facilitator's organizer can release it."
-#~ msgstr "Tylko opiekun tego twórcy programu może go zwolnić."
-
 #~ msgid "Default contact person. Assign yourself from the facilitator list."
 #~ msgstr ""
 #~ "Domyślna osoba kontaktowa. Przypisz siebie z listy twórców programu."
@@ -10702,25 +10762,11 @@ msgstr ""
 #~ "Fizyczny adres miejsca wydarzenia, pokazywany na stronie wydarzenia z "
 #~ "linkiem do mapy. Maksymalnie dwie linie."
 
-#~ msgid "Pick venues of this event."
-#~ msgstr "Wybierz lokalizacje tego wydarzenia."
+#~ msgid "Max"
+#~ msgstr "Max"
 
-#~ msgid "New map"
-#~ msgstr "Nowa mapa"
+#~ msgid "All venues"
+#~ msgstr "Wszystkie lokalizacje"
 
-#~ msgid "What are maps?"
-#~ msgstr "Czym są mapy?"
-
-#~ msgid ""
-#~ "Pictures of the venue — a site plan, a floor, a building — shown to "
-#~ "participants on the event's maps page. Tick the venues each picture "
-#~ "shows: sessions in those venues link to it, and the page links each venue "
-#~ "back to its sessions."
-#~ msgstr ""
-#~ "Plany miejsca — plan terenu, piętra, budynku — pokazywane uczestnikom na "
-#~ "stronie map wydarzenia. Zaznacz lokalizacje widoczne na każdym obrazie: "
-#~ "punkty programu w tych lokalizacjach będą do niego prowadzić, a strona "
-#~ "poprowadzi z każdej lokalizacji z powrotem do jej punktów programu."
-
-#~ msgid "Map"
-#~ msgstr "Mapa"
+#~ msgid "Only this facilitator's organizer can release it."
+#~ msgstr "Tylko opiekun tego twórcy programu może go zwolnić."
