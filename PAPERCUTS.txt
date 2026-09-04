@@ -501,3 +501,7 @@ If you fix a papercut, remove it.
   577px document while main is 9310px. Every screenshot an agent attaches to a
   PR is a top-of-page crop. Workaround: eval away the pin (body/#app-scroll
   height auto, overflow visible) before screenshot --full.
+- 2026-09-04: CLAUDE.md says 'tingle check (in mise run lint / check)' but
+  mise.toml:280,290 wires lint:tingle into diff-cover and fullcheck only. mise
+  run check is format+lint and runs neither tingle nor tests, so a green check
+  says nothing about debt or tests despite the docs implying both.
