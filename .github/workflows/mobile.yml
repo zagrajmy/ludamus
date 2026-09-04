@@ -11,15 +11,23 @@ on:
       - "scripts/ios-regressions/**"
       - ".github/workflows/mobile.yml"
 
+# Distinct from ci.yml's group, which is keyed on the branch alone — sharing it
+# would have the two workflows cancel each other. A superseded head's device run
+# is worth nothing and each one holds a simulator for the better part of an
+# hour: three of them raced here and starved the warm-up past its timeout.
+concurrency:
+  group: mobile-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
 jobs:
   ios-regressions:
     runs-on: macos-latest
-    # 6.5 setup + 10 warm-up + 42 tests + 1.5 teardown and upload, leaving the
+    # 6.5 setup + 15 warm-up + 42 tests + 1.5 teardown and upload, leaving the
     # step timeouts to bind first.
-    timeout-minutes: 63
+    timeout-minutes: 68
     env:
       # Every runner command is an HTTP request capped by
       # RUNNER_CONNECT_REQUEST_TIMEOUT_MS. At its 20s default a gesture or
@@ -132,7 +140,12 @@ jobs:
       # own budget here. The runner itself is keyed to a session and stops with
       # it, so each spec still launches one -- only the build is shared.
       - name: Start Safari and warm up the agent-device runner
-        timeout-minutes: 10
+        # Measured at 10m07s once, against a 10-minute cap, with the step's own
+        # success line printed two seconds before the timeout fired. The cause
+        # was runs racing for a simulator, which the concurrency group above now
+        # prevents; this margin is what keeps a slow boot from failing a job
+        # whose tests never ran.
+        timeout-minutes: 15
         run: bun run scripts/ios-regressions/warmup.ts
 
       - name: Run iOS Safari regressions
