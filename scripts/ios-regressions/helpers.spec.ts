@@ -11,6 +11,7 @@ import {
   describeNode,
   labelOf,
   matchesScopeLabel,
+  medianShift,
   pollUntil,
   scrollerViewport,
   viewportOf,
@@ -174,5 +175,78 @@ describe("scrollerViewport", () => {
   test("ignores nodes that are not scroll indicators, and ones with no rect", () => {
     const noise = [node({ label: "Log in" }), node({ label: "Vertical scroll bar, 1 page" })];
     expect(scrollerViewport([...noise, bar(62, 750)], SCREEN)?.height).toBe(750);
+  });
+});
+
+describe("medianShift", () => {
+  // Labelled nodes at known heights, so a fixture reads as a page position.
+  const at = (label: string, y: number) => node({ label, rect: rect(y) });
+
+  test("reports how far the page travelled between two snapshots", () => {
+    const before = [at("Card A", 100), at("Card B", 300), at("Card C", 500)];
+    const after = [at("Card A", -350), at("Card B", -150), at("Card C", 50)];
+    expect(medianShift(before, after)).toBe(-450);
+  });
+
+  test("is not dragged off by the sticky elements that stay put", () => {
+    // The header and the toolbar do not move; three cards do. A mean would
+    // report -270 and read as a page half-scrolled.
+    const before = [
+      at("Filters", 70),
+      at("Jump to time", 90),
+      ...[100, 300, 500].map((y, i) => at(`Card ${i}`, y)),
+    ];
+    const after = [
+      at("Filters", 70),
+      at("Jump to time", 90),
+      ...[-350, -150, 50].map((y, i) => at(`Card ${i}`, y)),
+    ];
+    expect(medianShift(before, after)).toBe(-450);
+  });
+
+  test("reports nothing rather than a number when too few nodes match", () => {
+    expect(
+      medianShift([at("Card A", 100), at("Card B", 200)], [at("Card A", 0), at("Card B", 100)]),
+    ).toBeNull();
+    expect(medianShift([at("Card A", 100)], [at("Card Z", 0)])).toBeNull();
+  });
+
+  test("drops labels that occur more than once, which cannot be matched up", () => {
+    // Two "Close" buttons give no way to say which became which, so they are
+    // not anchors; the three cards still are.
+    const before = [
+      at("Close", 10),
+      at("Close", 800),
+      ...[100, 300, 500].map((y, i) => at(`Card ${i}`, y)),
+    ];
+    const after = [
+      at("Close", 800),
+      at("Close", 10),
+      ...[0, 200, 400].map((y, i) => at(`Card ${i}`, y)),
+    ];
+    expect(medianShift(before, after)).toBe(-100);
+  });
+
+  test("ignores nodes with no rect and nodes with no label", () => {
+    const before = [
+      node({ label: "Card A" }),
+      at("Card B", 300),
+      at("Card C", 500),
+      at("Card D", 700),
+      node({ rect: rect(0) }),
+    ];
+    const after = [
+      node({ label: "Card A" }),
+      at("Card B", 100),
+      at("Card C", 300),
+      at("Card D", 500),
+      node({ rect: rect(9) }),
+    ];
+    expect(medianShift(before, after)).toBe(-200);
+  });
+
+  test("reads a page that did not move as zero, which is the failure it guards", () => {
+    const still = [at("Card A", 100), at("Card B", 300), at("Card C", 500)];
+    expect(medianShift(still, still)).toBe(0);
   });
 });

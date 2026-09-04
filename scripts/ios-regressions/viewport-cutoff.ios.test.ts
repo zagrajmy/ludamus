@@ -1,10 +1,10 @@
-import type { CaptureSnapshotResult } from "agent-device";
+import type { CaptureSnapshotResult, SnapshotNode } from "agent-device";
 
 import { afterAll, beforeAll, expect, test } from "bun:test";
 
 import { baseUrl, createIosHarness, hookTimeoutMs, sessionName } from "./harness";
 import { decodeEntities, fetchReadyPage } from "./page";
-import { labelOf, scrollerViewport, viewportOf } from "./snapshot";
+import { labelOf, medianShift, scrollerViewport, viewportOf } from "./snapshot";
 
 const env = process.env;
 const session = sessionName("viewport");
@@ -35,6 +35,13 @@ const scrollSteps = 6;
 // is worth.
 const MIN_COLLAPSE_PT = 16;
 
+// Six gestures of 450px. Any one of them landing moves the content by hundreds
+// of points, so this sits far above measurement noise and far below one
+// gesture's worth of travel — it separates "the page did not move" from "the
+// page moved and the viewport still did not grow", which are the two readings
+// the run below has to tell apart.
+const MIN_SCROLL_PT = 50;
+
 const { client, deviceOptions, takeSnapshot, close, wait, openUrl, prepareDevice } =
   createIosHarness(session);
 
@@ -60,7 +67,13 @@ const firstTriggerLabel = (html: string): string => {
 //
 // The choosing lives in snapshot.ts and is unit-tested against that run's exact
 // numbers, so the next hypothesis costs 167ms rather than a macOS job.
-type Measured = { height: number; bottom: number; screenHeight: number; all: string };
+type Measured = {
+  height: number;
+  bottom: number;
+  screenHeight: number;
+  all: string;
+  nodes: readonly SnapshotNode[];
+};
 
 const describeBars = (snapshot: CaptureSnapshotResult): string =>
   snapshot.nodes
@@ -89,6 +102,7 @@ const measureScroller = async (): Promise<Measured> => {
     bottom: rect.y + rect.height,
     screenHeight: screen.y + screen.height,
     all,
+    nodes: snapshot.nodes,
   };
 };
 
@@ -104,19 +118,18 @@ beforeAll(async () => {
 
   // One-off diagnostic, and the reason it is here rather than in a fourth spec:
   // this is the only place that already has a real Safari open on the page in
-  // question, and the budget guard caps the suite at three. It reports where the
-  // app's content actually stops against where the browser stopped giving it
-  // room — the gap between those two is the reported symptom, measured rather
-  // than inferred from a photograph.
+  // question, and the budget guard caps the suite at three. It reports the room
+  // the browser gives the page against the screen it is drawn on.
+  //
+  // An earlier revision also reported where the app's content stops, meaning to
+  // print the gap in one line. That number was nonsense — it took the furthest
+  // bottom edge among nodes starting on-screen, which on a scrolling page is
+  // most of the document, and duly reported the content ending 1416pt past the
+  // viewport. The screenshot below is the honest version of that question.
   const geometry = await (async () => {
     const snap = await takeSnapshot();
     const screen = viewportOf(snap);
-    const scroller = scrollerViewport(snap.nodes, screen);
-    const onScreen = snap.nodes
-      .filter((node) => node.rect && node.rect.height > 0)
-      .filter((node) => node.rect!.y >= screen.y && node.rect!.y < screen.y + screen.height);
-    const contentBottom = Math.max(...onScreen.map((node) => node.rect!.y + node.rect!.height));
-    return { screen, scroller, contentBottom, counted: onScreen.length, nodes: snap.nodes.length };
+    return { screen, scroller: scrollerViewport(snap.nodes, screen), nodes: snap.nodes.length };
   })();
   const roomBottom = geometry.scroller
     ? geometry.scroller.y + geometry.scroller.height
@@ -124,9 +137,8 @@ beforeAll(async () => {
   console.log(
     `GEOMETRY screen=${Math.round(geometry.screen.width)}x${Math.round(geometry.screen.height)} ` +
       `scroller=${geometry.scroller ? `${Math.round(geometry.scroller.y)}+${Math.round(geometry.scroller.height)}` : "none"} ` +
-      `roomEndsAt=${Math.round(roomBottom)} contentEndsAt=${Math.round(geometry.contentBottom)} ` +
-      `shortBy=${Math.round(roomBottom - geometry.contentBottom)}pt ` +
-      `(${geometry.counted} on-screen of ${geometry.nodes} nodes)`,
+      `roomEndsAt=${Math.round(roomBottom)} screenEndsAt=${Math.round(geometry.screen.y + geometry.screen.height)} ` +
+      `(${geometry.nodes} nodes)`,
   );
 
   // Saved for a human to open: the artifact upload in mobile.yml collects this
@@ -163,11 +175,24 @@ beforeAll(async () => {
       `Indicators (y+height): ${after.all}.`,
   );
 
-  if (gained < MIN_COLLAPSE_PT) {
+  // Before blaming the toolbar: did the page move at all? A gesture that never
+  // landed leaves the viewport exactly as unchanged as a browser that refuses
+  // to collapse, and the run that first reached this point could not say which
+  // it had seen.
+  const shift = medianShift(before.nodes, after.nodes);
+  if (shift === null || Math.abs(shift) < MIN_SCROLL_PT) {
     collapseIssue =
-      `Safari did not give the page more room after ${scrollSteps} scroll gestures: the ` +
-      `scroller's viewport stayed ${Math.round(before.height)}pt tall (now ` +
-      `${Math.round(after.height)}pt, gained ${Math.round(gained)}pt) against a ` +
+      `This run measured nothing, and is not evidence about the toolbar. After ${scrollSteps} ` +
+      `scroll gestures the page moved ` +
+      `${shift === null ? "an unknown distance (too few nodes matched between the two snapshots)" : `${Math.round(shift)}pt`}` +
+      `, below the ${MIN_SCROLL_PT}pt that one gesture landing is worth. Either the gesture did ` +
+      `not reach the scroller or the page has nothing to scroll — fix the harness before reading ` +
+      `anything into the viewport height.`;
+  } else if (gained < MIN_COLLAPSE_PT) {
+    collapseIssue =
+      `Safari did not give the page more room after ${scrollSteps} scroll gestures that moved it ` +
+      `${Math.round(shift)}pt: the scroller's viewport stayed ${Math.round(before.height)}pt tall ` +
+      `(now ${Math.round(after.height)}pt, gained ${Math.round(gained)}pt) against a ` +
       `${Math.round(after.screenHeight)}pt screen. The toolbar collapses on document scroll, so ` +
       `a page that never scrolls the document keeps the short viewport an expanded toolbar ` +
       `leaves it, and renders cut off above the bottom of the screen.`;

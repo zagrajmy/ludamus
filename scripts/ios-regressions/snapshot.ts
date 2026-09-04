@@ -58,6 +58,49 @@ export const scrollerViewport = (nodes: readonly SnapshotNode[], screen: Rect): 
   return inset.reduce((a, b) => (a.height >= b.height ? a : b));
 };
 
+// Labels that occur exactly once, with the y they occur at. Duplicates are
+// dropped rather than guessed at: two nodes sharing a name give no way to say
+// which of them moved where.
+const uniquePositions = (nodes: readonly SnapshotNode[]): Map<string, number> => {
+  const counts = new Map<string, number>();
+  const positions = new Map<string, number>();
+  for (const node of nodes) {
+    const label = labelOf(node);
+    if (!label || !node.rect) continue;
+    counts.set(label, (counts.get(label) ?? 0) + 1);
+    positions.set(label, node.rect.y);
+  }
+  for (const [label, count] of counts) if (count > 1) positions.delete(label);
+  return positions;
+};
+
+// How far the page moved between two snapshots, by matching nodes on their
+// labels. Median rather than mean: a sticky header and a fixed toolbar stay put
+// while the content travels, and a mean splits the difference between those two
+// populations and reports a page half-scrolled.
+//
+// This exists because "the scrolling viewport did not grow" has two causes and
+// only one of them is the bug. Safari refusing to collapse its toolbar is the
+// one under test; a scroll gesture that never landed produces the identical
+// reading and means the run measured nothing. The first device run to get this
+// far could not tell them apart.
+export const medianShift = (
+  before: readonly SnapshotNode[],
+  after: readonly SnapshotNode[],
+): number | null => {
+  const start = uniquePositions(before);
+  const deltas: number[] = [];
+  for (const [label, y] of uniquePositions(after)) {
+    const was = start.get(label);
+    if (was !== undefined) deltas.push(y - was);
+  }
+  // Under three anchors the median is one or two nodes' worth of luck.
+  if (deltas.length < 3) return null;
+  deltas.sort((a, b) => a - b);
+  const mid = Math.floor(deltas.length / 2);
+  return deltas.length % 2 === 0 ? (deltas[mid - 1]! + deltas[mid]!) / 2 : deltas[mid]!;
+};
+
 export const centreOnScreen = (rect: Rect, viewport: Rect): boolean => {
   const centreX = rect.x + rect.width / 2;
   const centreY = rect.y + rect.height / 2;
