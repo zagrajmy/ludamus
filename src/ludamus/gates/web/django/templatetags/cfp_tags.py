@@ -117,7 +117,7 @@ def is_continuation(continuation_set: set[tuple[int, str]], slot_and_date: str) 
 
 
 @register.filter
-def contains(container: Container[object], value: object) -> bool:
+def contains[Item](container: Container[Item], value: Item) -> bool:
     """Check membership, so a template can pass the answer into an include.
 
     Returns:
