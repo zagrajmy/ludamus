@@ -313,26 +313,15 @@ const initRoomLanes = (): void => {
 
   const panes = scrollers.map((scroller) => {
     const lanes = scroller.closest<HTMLElement>(".room-lanes");
+    const head = lanes?.querySelector<HTMLElement>("[data-room-lanes-head]") ?? null;
     return {
       foot: lanes?.querySelector<HTMLElement>("[data-room-lanes-foot]") ?? null,
-      head: lanes?.querySelector<HTMLElement>("[data-room-lanes-head]") ?? null,
+      head,
+      headGrid: head?.querySelector<HTMLElement>(".room-lanes-grid") ?? null,
       lanes,
       scroller,
     };
   });
-
-  const measureScrollbars = (): void => {
-    for (const { head } of panes) {
-      // Only the head needs its scrollbar strip carved out of the fade mask;
-      // the body's native scrollbar is hidden (the foot strip stands in) and
-      // the foot carries no mask. No floor under the measurement: with overlay
-      // scrollbars the head reserves nothing, and a floor would punch an
-      // unfaded strip through the room-name text.
-      head?.style.setProperty("--room-lanes-sb", `${head.offsetHeight - head.clientHeight}px`);
-    }
-  };
-  measureScrollbars();
-  globalThis.addEventListener("resize", measureScrollbars, { signal });
 
   // Map-style panning: Space over the grid arms a pan from anywhere, even a
   // session tile; without it a drag pans only from the background, so tile
@@ -388,7 +377,7 @@ const initRoomLanes = (): void => {
     { signal },
   );
 
-  for (const { foot, head, lanes, scroller } of panes) {
+  for (const { foot, head, headGrid, lanes, scroller } of panes) {
     scroller.dataset.lanesBound = "";
     // schedule:filtered rides the swapped-in grid too: the listener closes over
     // this instance of .room-lanes, so it goes out with the shared controller
@@ -403,28 +392,49 @@ const initRoomLanes = (): void => {
         { signal },
       );
     }
-    // The head and foot scroll for real — their scrollbars are the grid's top
-    // and bottom handles — so each one writes back through the scroller, whose
-    // own handler fans the offset out to the other. No feedback loop:
-    // assigning a scrollLeft an element already has fires no scroll event, so
-    // the ping-pong stops in one step.
-    const handles = [head, foot].filter((handle) => handle !== null);
+    // The strip's offset; room-lanes.css has the mechanism. Where its scroll
+    // timeline resolves the animation owns this property and the write is
+    // inert, and where it does not — no scroll timelines, or a name that
+    // stopped resolving — the write is the whole mechanism. Unconditional, so
+    // there is no moment at which it was decided: a check taken once at init
+    // cannot cover a timeline that stops resolving later, which is the case
+    // worth covering. It costs nothing to keep — with and without it a scroll
+    // frame measures the same 16.7ms under 4x throttle — and the foot below is
+    // written on every engine regardless.
+    const trackBody = (): void => {
+      if (headGrid) headGrid.style.translate = `${-scroller.scrollLeft}px`;
+    };
+    trackBody();
+
+    // The foot scrolls for real: its scrollbar is the grid's handle, so it
+    // writes back through the scroller, whose own handler moves it in turn.
+    //
+    // The write-back has to recognise the offset it put there itself, and it
+    // compares against what actually landed rather than what it asked for —
+    // the foot clamps to its own range. Assigning a scrollLeft an element
+    // already holds fires no scroll event, so on a main-thread scroll the echo
+    // dies on its own; a touch fling does not scroll on the main thread, and
+    // by the time that echo arrives the body has moved on, so an unguarded
+    // write-back drags the fling back to where the last frame started.
+    let mirrored = Number.NaN;
     scroller.addEventListener(
       "scroll",
       () => {
-        for (const handle of handles) handle.scrollLeft = scroller.scrollLeft;
+        trackBody();
+        if (!foot) return;
+        foot.scrollLeft = scroller.scrollLeft;
+        mirrored = foot.scrollLeft;
       },
       { passive: true, signal },
     );
-    for (const handle of handles) {
-      handle.addEventListener(
-        "scroll",
-        () => {
-          scroller.scrollLeft = handle.scrollLeft;
-        },
-        { passive: true, signal },
-      );
-    }
+    foot?.addEventListener(
+      "scroll",
+      () => {
+        if (foot.scrollLeft === mirrored) return;
+        scroller.scrollLeft = foot.scrollLeft;
+      },
+      { passive: true, signal },
+    );
 
     // Vertical pan moves the page scroller — the grid clips its own y-overflow.
     const page = scroller.closest<HTMLElement>(".app-scroll");

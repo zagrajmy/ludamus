@@ -80,6 +80,7 @@
                                 {# room name itself needs. #}
                                 {% icon "map-pin" class="size-4 shrink-0 opacity-80 max-[400px]:hidden" variant="mini" %}
                                 <span class="truncate" title="{{ data.location_label }}">{{ data.location_label }}</span>
+                                {% include "chronology/_session_map_link.html" %}
                             </span>
                         {% endif %}
                         {% if data.presenter.pk %}
@@ -114,27 +115,7 @@
                 {% endif %}
                 {% if data.field_values %}
                     <!-- Session Fields -->
-                    <div class="space-y-4 mb-6">
-                        {% for fv in data.field_values %}
-                            <div>
-                                <h4 class="text-sm font-semibold mb-1 text-foreground-secondary">
-                                    {% if fv.field_icon %}
-                                        {% icon fv.field_icon class="w-4 h-4 inline mr-1" variant="mini" %}
-                                    {% endif %}
-                                    {{ fv.field_name }}
-                                </h4>
-                                {% if fv.field_type == "select" and not fv.allow_custom %}
-                                    <div class="flex flex-wrap gap-1.5">
-                                        {% for val in fv.value %}
-                                            <span class="inline-flex items-center gap-1 rounded-2xl font-medium px-2.5 py-1 text-sm bg-warm-200/80 dark:bg-neutral-700 text-warm-700 dark:text-neutral-300">{{ val }}</span>
-                                        {% endfor %}
-                                    </div>
-                                {% else %}
-                                    <div class="leading-relaxed text-foreground-muted">{{ fv.value|format_field_value|linebreaks }}</div>
-                                {% endif %}
-                            </div>
-                        {% endfor %}
-                    </div>
+                    <div class="mb-6">{% include "components/_session_field_values.html" with field_values=data.field_values %}</div>
                 {% endif %}
                 <!-- Details grid -->
                 <div class="grid grid-cols-2 gap-3 mb-6">

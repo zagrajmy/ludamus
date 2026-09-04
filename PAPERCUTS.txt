@@ -403,6 +403,12 @@ If you fix a papercut, remove it.
   and the hk pre-commit djlint check step dies with ModuleNotFoundError: No
   module named 'regex' (its reformat step right after works fine). Had to commit
   to find out templates lint clean.
+- 2026-08-27: mise run shots can't reach logged-in pages: agent-browser has no
+  cookie/storage-state flag, so screenshotting any manager-only page (e.g. the
+  accept-proposal screen) meant hand-rolling a Playwright script that loads
+  tests/e2e/.auth-state-superuser.json. Also spent a while confused that 'mise
+  run dj shell' talks to the dev DB while test:e2e:serve serves dev.e2e.sqlite3
+  — the data I queried was not the data the page rendered.
 - 2026-08-28: iOS warmup: wrapping the first agent-device snapshot in a
   readiness poll made the cold XCUITest attach (194-240s, longer than the 180s
   runner command timeout) look like a page-load failure -- 'Safari did not come
@@ -455,6 +461,15 @@ If you fix a papercut, remove it.
 - 2026-09-01: Running mise run check inspected the untracked .pi agent-state
   directory and failed on a generated JSON file missing a final newline, so
   project checks require moving unrelated harness state aside.
+- 2026-09-01: mise run bootstrap in the web sandbox failed on the aliased
+  linter backends even with MISE_ENV=sandbox: actionlint's go modules died on
+  sum.golang.org stream errors and shellcheck-py/hadolint-py timed out
+  fetching wheel metadata from PyPI. Had to build the venv and run poetry,
+  npm and vite by hand to get a server up.
 - 2026-09-01: mise run check reformatted 90 vendored
   .claude/skills/impeccable/scripts/*.mjs files unrelated to the diff; had to
   git checkout -- .claude/ before committing.
+- 2026-09-03: Posting a PR body through the GitHub MCP tool strips screenshot
+  embeds: '![alt](url)' comes back as '[alt](url)' and a raw <img> tag gets
+  escaped into inline code. CLAUDE.md asks for screenshots in the PR
+  description, so they end up as plain links only.

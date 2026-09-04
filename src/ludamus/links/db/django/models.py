@@ -47,6 +47,10 @@ DEFAULT_NAME = "Andrzej"
 SPACE_NO_CHILDREN_REASON = _(
     "A space holding a scheduled session cannot contain other spaces."
 )
+# Every event owns at least one bookable space from the moment it is created, so
+# no organizer flow has to stop and send the user off to the venue editor first.
+# Organizers rename it; the name is only the starting point.
+DEFAULT_SPACE_NAME = _("Main room")
 
 
 _SoftDeleteT = TypeVar("_SoftDeleteT", bound=models.Model)
@@ -991,6 +995,33 @@ class SessionManager(AliveManager["Session"]):
 
     def has_conflicts(self, session: Session, user: UserDTO) -> bool:
         return user.pk in self.conflicted_user_ids(session, [user.pk])
+
+
+class EventMap(models.Model):
+    """One uploaded venue plan (a floor, a building) and the spaces drawn on it."""
+
+    event = models.ForeignKey(Event, on_delete=models.CASCADE, related_name="maps")
+    name = models.CharField(max_length=255)
+    image = models.ImageField(upload_to=unique_upload_to)
+    image_original_name = models.CharField(
+        max_length=ORIGINAL_FILENAME_MAX_LENGTH, blank=True, default=""
+    )
+    # Which spaces the picture shows; a space may appear on several maps (an
+    # overview and a floor plan), so this is a relation rather than a column.
+    spaces = models.ManyToManyField(Space, related_name="maps", blank=True)
+    creation_time = models.DateTimeField(auto_now_add=True)
+    modification_time = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "event_map"
+        ordering: ClassVar = ["pk"]
+
+    def __str__(self) -> str:
+        return self.name
+
+    @property
+    def image_url(self) -> str:
+        return self.image.url if self.image else ""
 
 
 class Session(SoftDeleteModel):
