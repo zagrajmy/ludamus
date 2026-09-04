@@ -112,10 +112,10 @@ def _time_slots_context(
     # Why Delete is unavailable, per row. The sentence lives here because
     # TimeSlotDTO is shared with the propose wizard and the accept page, and
     # because mills, which builds it, must not import Django.
-    undeletable_slot_reasons = {
-        pk: _("Used by proposals")
-        for pk in request.services.panel_time_slots.undeletable_pks(event.pk)
-    }
+    undeletable_slot_reasons = dict.fromkeys(
+        request.services.panel_time_slots.undeletable_pks(event.pk),
+        _("Used by proposals"),
+    )
 
     event_start = localtime(event.start_time).date()
     event_end = localtime(event.end_time).date()

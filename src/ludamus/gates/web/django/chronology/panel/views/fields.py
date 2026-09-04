@@ -75,7 +75,7 @@ def read_field_or_redirect[T: _FieldDTO](
     return field
 
 
-def field_usage_reasons(summaries: Iterable[FieldUsageSummary]) -> dict[int, str]:
+def undeletable_field_reasons(summaries: Iterable[FieldUsageSummary]) -> dict[int, str]:
     """Say why Delete is unavailable, per field.
 
     `is_used` answers the same question `delete` refuses on. Both field pages
@@ -85,8 +85,7 @@ def field_usage_reasons(summaries: Iterable[FieldUsageSummary]) -> dict[int, str
         The sentence for each field a category asks for; missing means
         deletable.
     """
-    return {
-        summary.field.pk: _("Used by categories")
-        for summary in summaries
-        if summary.is_used
-    }
+    return dict.fromkeys(
+        (summary.field.pk for summary in summaries if summary.is_used),
+        _("Used by categories"),
+    )

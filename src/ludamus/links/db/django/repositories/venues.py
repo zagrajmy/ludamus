@@ -96,20 +96,21 @@ class SpaceTreeRepository(SpaceTreeRepositoryProtocol):
 
         # Deleting cascades down, so a node is undeletable when it or anything
         # under it holds a session — the same rule SpaceTreeService.delete_space
-        # enforces. The walk below folds that up as it goes, recording the fact
-        # here rather than re-reading it off each child's rendered sentence.
-        subtree_with_sessions: set[int] = set()
+        # enforces. Marking every ancestor up front keeps the walk below a pure
+        # function of these maps, so it cannot depend on the order its own
+        # statements run in.
+        parent_of = {space.pk: space.parent_id for space in spaces}
+        undeletable = set(with_sessions)
+        for pk in with_sessions:
+            ancestor = parent_of[pk]
+            while ancestor is not None and ancestor not in undeletable:
+                undeletable.add(ancestor)
+                ancestor = parent_of[ancestor]
 
         def build(space: Space) -> SpaceTreeNodeDTO:
-            # The tree facts come from the sibling map built above, so nothing
-            # here goes back to the database.
+            # The tree facts come from the maps built above, so nothing here
+            # goes back to the database.
             kids = children_by_parent.get(space.pk, [])
-            children = [build(kid) for kid in kids]
-            holds_session = space.pk in with_sessions or any(
-                kid.pk in subtree_with_sessions for kid in kids
-            )
-            if holds_session:
-                subtree_with_sessions.add(space.pk)
             return SpaceTreeNodeDTO(
                 space=SpaceRecordDTO.model_validate(space),
                 is_leaf=not kids,
@@ -117,10 +118,10 @@ class SpaceTreeRepository(SpaceTreeRepositoryProtocol):
                     str(SPACE_NO_CHILDREN_REASON) if space.pk in with_sessions else None
                 ),
                 undeletable_reason=(
-                    str(SPACE_UNDELETABLE_REASON) if holds_session else None
+                    str(SPACE_UNDELETABLE_REASON) if space.pk in undeletable else None
                 ),
                 track_names=sorted(t.name for t in space.tracks.all()),
-                children=children,
+                children=[build(kid) for kid in kids],
             )
 
         return [build(root) for root in children_by_parent.get(None, [])]

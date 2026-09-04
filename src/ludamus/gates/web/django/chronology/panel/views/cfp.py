@@ -53,9 +53,9 @@ class CFPPageView(PanelAccessMixin, EventContextMixin, View):
         # proposals" because Polish adjectives agree in gender: one msgid
         # cannot serve both the feminine "kategoria" and the masculine
         # "przedział czasowy". The verb form is gender-neutral.
-        context["undeletable_category_reasons"] = {
-            pk: _("Has proposals") for pk in page.undeletable_pks
-        }
+        context["undeletable_category_reasons"] = dict.fromkeys(
+            page.undeletable_pks, _("Has proposals")
+        )
         return TemplateResponse(self.request, "panel/cfp.html", context)
 
 
