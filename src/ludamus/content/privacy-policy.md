@@ -1,6 +1,6 @@
 # POLITYKA PRYWATNOŚCI
 
-**Data ostatniej aktualizacji: 21.08.2026**
+**Data ostatniej aktualizacji: 04.09.2026**
 
 ## 1. ADMINISTRATOR DANYCH
 
@@ -16,11 +16,14 @@ W sprawach dotyczących ochrony danych osobowych można się z nami kontaktować
 
 W ramach świadczonych usług przetwarzamy następujące kategorie danych osobowych:
 
-### 2.1 Dane rejestracyjne:
+### 2.1 Dane konta:
 
-- Pseudonim (identyfikator użytkownika)
+- Nazwa wyświetlana (może być pseudonimem; przy logowaniu przez Google lub Facebook wypełniamy ją imieniem i nazwiskiem z tego konta, a nazwę można później zmienić w profilu)
 - Adres email
 - Unikalny identyfikator z systemu Auth0
+- Adres zdjęcia profilowego pobrany od dostawcy logowania oraz wybór, czy zamiast niego pokazywać Gravatar
+- Nazwa użytkownika na Discordzie (opcjonalnie)
+- Nazwy wyświetlane osób dodanych do konta jako podopieczni
 
 ### 2.2 Dane techniczne:
 
@@ -32,7 +35,15 @@ W ramach świadczonych usług przetwarzamy następujące kategorie danych osobow
 ### 2.3 Dane o aktywności:
 
 - Historia zapisów na wydarzenia
+- Zapisane punkty programu i przynależność do drużyn
 - Logi aktywności w serwisie
+
+### 2.4 Dane związane z programem wydarzeń:
+
+- Dane twórców programu: nazwa wyświetlana, rodzaj akredytacji, przynależność do grupy oraz odpowiedzi na pytania o dane osobowe skonfigurowane przez organizatora danego wydarzenia (zakres tych pytań ustala organizator)
+- Blokady użytkowników oraz blokady udziału w wydarzeniu wraz z powodem
+- Historia zmian wprowadzanych w panelu organizatora oraz logi importu programu
+- Powiadomienia wysłane w serwisie i pocztą elektroniczną
 
 ## 3. CELE I PODSTAWY PRAWNE PRZETWARZANIA
 
@@ -40,15 +51,15 @@ Przetwarzamy Państwa dane osobowe w następujących celach:
 
 ### 3.1 Świadczenie usługi zapisów na wydarzenia
 
-- **Podstawa prawna:** prawnie uzasadniony interes (art. 6 ust. 1 lit. f RODO)
-- **Dane:** pseudonim, email, identyfikator Auth0
-- **Opis:** umożliwienie rejestracji, zarządzania kontem i zapisów na wydarzenia; interes polega na świadczeniu usługi społecznościowej organizacji wydarzeń
+- **Podstawa prawna:** niezbędność do wykonania umowy (art. 6 ust. 1 lit. b RODO) - umową jest Regulamin akceptowany przy korzystaniu z serwisu
+- **Dane:** dane konta z punktu 2.1, dane o aktywności z punktu 2.3
+- **Opis:** umożliwienie rejestracji, zarządzania kontem i zapisów na wydarzenia. Podanie danych z punktu 2.1 jest dobrowolne, ale bez nich nie da się prowadzić konta ani zapisać na wydarzenie
 
-### 3.2 Komunikacja z użytkownikami (planowana)
+### 3.2 Powiadomienia dotyczące zapisów
 
-- **Podstawa prawna:** prawnie uzasadniony interes (art. 6 ust. 1 lit. f RODO)
-- **Dane:** email
-- **Opis:** wysyłanie powiadomień o wydarzeniach, potwierdzeń zapisów, komunikatów administracyjnych; interes polega na efektywnej komunikacji związanej ze świadczoną usługą
+- **Podstawa prawna:** niezbędność do wykonania umowy (art. 6 ust. 1 lit. b RODO)
+- **Dane:** email, nazwa wyświetlana
+- **Opis:** wiadomości o zwolnionym miejscu z listy rezerwowej, zaproszenia do drużyny, potwierdzenia i odwołania zapisów oraz komunikaty administracyjne. Wysyłamy je w serwisie i na adres email podany w koncie
 
 ### 3.3 Funkcjonowanie technicznej strony serwisu
 
@@ -75,13 +86,32 @@ Państwa dane osobowe mogą być przekazywane następującym odbiorcom:
 ### 4.1 Dostawcy usług technicznych:
 
 - **OVH SAS** (Francja) - dostawca usług hostingowych
-- **Auth0** (USA/UE) - dostawca usług uwierzytelniania
+- **Auth0 / Okta** (USA, Unia Europejska) - dostawca usług uwierzytelniania. Logowanie przez Google lub Facebook oznacza, że wybrany dostawca dowiaduje się o korzystaniu z serwisu
+- **Dostawca poczty wychodzącej** - wysyłka powiadomień z punktu 3.2; widzi adres odbiorcy i treść wiadomości
+- **Google Cloud Storage** - przechowywanie plików przesłanych do serwisu
 
 ### 4.2 Dostawcy analityki:
 
 - **PostHog** - narzędzie analityczne, dane trafiają na serwery w Unii Europejskiej (`eu.i.posthog.com`). Dane analityczne z punktu 3.4 przekazujemy wyłącznie za zgodą użytkownika. Zgłoszenia błędów serwera z punktu 3.5 wysyłamy niezależnie od zgody
 
-### 4.3 Ewentualni przyszli odbiorcy:
+### 4.3 Usługi wykorzystywane przy obsłudze programu wydarzeń:
+
+- **Google (Sheets, Forms)** - organizator może zaimportować zgłoszenia programu z arkusza lub formularza Google oraz wyeksportować harmonogram do arkusza czytanego przez zewnętrzną aplikację z programem wydarzenia. Eksportowany harmonogram zawiera nazwy twórców programu
+- **Sklep z biletami** - przy zapisach na wydarzenie, w którym liczba miejsc zależy od posiadanego biletu lub członkostwa, wysyłamy do sklepu adres email użytkownika i otrzymujemy w odpowiedzi liczbę posiadanych uprawnień
+- **Gravatar (Automattic, USA)** - jeżeli użytkownik wybierze awatar z Gravatara, przeglądarki osób oglądających jego profil pobierają obrazek z serwerów Gravatara; trafia tam skrót adresu email oraz adres IP osoby oglądającej
+
+### 4.4 Inni użytkownicy i dostęp publiczny:
+
+- Nazwa wyświetlana i zapisy są widoczne dla innych uczestników wydarzenia
+- Organizatorzy widzą listy uczestników oraz odpowiedzi na pytania o dane osobowe skonfigurowane w danym wydarzeniu
+- Program wydarzenia wraz z nazwami twórców programu jest publiczny
+- Odpowiedzi na pytania oznaczone przez organizatora jako publiczne są widoczne dla wszystkich
+
+### 4.5 Narzędzia administracyjne oparte na AI:
+
+Osoby zarządzające serwisem i organizatorzy wydarzeń mogą korzystać z asystentów AI do obsługi programu wydarzenia. Takie narzędzie działa na uprawnieniach osoby, która je uruchamia, i może odczytać dane programu wydarzenia, w tym nazwy twórców programu. Nie podejmujemy w ten sposób zautomatyzowanych decyzji dotyczących użytkowników.
+
+### 4.6 Ewentualni przyszli odbiorcy:
 
 W przyszłości możemy korzystać z kolejnych usług - o każdej takiej zmianie poinformujemy poprzez aktualizację niniejszej polityki.
 
@@ -89,8 +119,12 @@ W przyszłości możemy korzystać z kolejnych usług - o każdej takiej zmianie
 
 Część danych może być przetwarzana poza Europejskim Obszarem Gospodarczym przez:
 
-- **Auth0** - na podstawie odpowiednich zabezpieczeń zgodnych z RODO
+- **Auth0 / Okta** - na podstawie odpowiednich zabezpieczeń zgodnych z RODO
+- **Google** - usługi z punktów 4.1 i 4.3, na podstawie odpowiednich zabezpieczeń zgodnych z RODO
+- **Automattic (Gravatar)** - pobranie awatara przez przeglądarkę osoby oglądającej profil
 - Inne usługi, z których możemy korzystać w przyszłości
+
+Dane analityczne z punktu 4.2 pozostają na serwerach w Unii Europejskiej.
 
 Zapewniamy, że wszystkie transfery odbywają się z zachowaniem odpowiednich zabezpieczeń przewidzianych przez RODO.
 
@@ -101,6 +135,8 @@ Dane osobowe przechowujemy:
 - **Dane konta:** do momentu usunięcia konta przez użytkownika lub na jego żądanie
 - **Historia aktywności:** do momentu usunięcia konta
 - **Logi techniczne:** maksymalnie 12 miesięcy
+- **Historia zmian w panelu organizatora i logi importu programu:** przez czas trwania wydarzenia i 12 miesięcy po jego zakończeniu. Są to zapisy tego, kto wprowadził zmianę, więc pozostają także po usunięciu opisywanego wpisu
+- **Wpisy usunięte przez organizatora:** oznaczamy jako usunięte i przechowujemy przez 12 miesięcy, aby dało się cofnąć pomyłkę
 - **Dane analityczne i zgłoszenia błędów:** zgodnie z polityką narzędzia analitycznego wskazanego w punkcie 4.2
 
 ## 7. PRAWA UŻYTKOWNIKÓW
@@ -150,6 +186,8 @@ Konto zostanie usunięte w ciągu 30 dni od otrzymania żądania.
 - **Cookies sesji:** niezbędne do funkcjonowania strony
 - **Cookies ustawień:** przechowywanie preferencji użytkownika (np. szablon strony oraz decyzja o zgodzie na analitykę)
 - **Cookies analityczne:** zapisywane przez narzędzie analityczne wskazane w punkcie 4.2, wyłącznie po wyrażeniu zgody
+
+Poza plikami cookies korzystamy też z pamięci lokalnej przeglądarki (`localStorage`). Przechowujemy w niej decyzję o zgodzie na analitykę oraz dane zapisywane przez narzędzie analityczne po jej wyrażeniu. Czyści się ją tak samo jak cookies, w ustawieniach przeglądarki.
 
 ### 9.2 Zarządzanie cookies:
 
@@ -205,6 +243,15 @@ W sprawach dotyczących ochrony danych osobowych można się z nami kontaktować
 **Email:** radoslaw@ganczarek.in
 
 **Temat:** "RODO - [opis sprawy]"
+
+## 15. ZAUTOMATYZOWANE PODEJMOWANIE DECYZJI
+
+W serwisie działają dwa mechanizmy automatyczne:
+
+- zwolnione miejsce na wydarzeniu jest przydzielane kolejnej osobie z listy rezerwowej według kolejności zapisów,
+- w wydarzeniach powiązanych ze sklepem z biletami liczba miejsc dostępnych dla użytkownika wynika z liczby uprawnień zwróconej przez sklep (punkt 4.3).
+
+Nie profilujemy użytkowników i nie podejmujemy decyzji wywołujących skutki prawne. W każdej sprawie można skontaktować się z nami pod adresem podanym w punkcie 14 i poprosić o interwencję człowieka.
 
 ---
 
