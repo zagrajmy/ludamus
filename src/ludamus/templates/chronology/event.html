@@ -29,29 +29,27 @@
 {% block body %}
     {% include "chronology/decorative_background_blobs.html" %}
     {# No overflow-hidden — it would clip the add-to-calendar popover on short heroes. #}
-    <div class="relative rounded-3xl shadow-(--shadow-elevated) mb-6 sm:mb-8 bg-bg-secondary"
+    <div class="relative -mx-4 -mt-6 mb-6 bg-bg-secondary sm:mx-0 sm:mt-0 sm:mb-8 sm:rounded-3xl sm:shadow-(--shadow-elevated)"
          data-event-hero>
         {% if event.cover_image_url %}
             {# NOTE: the narrowest crop a cover meets is this banner's on a phone, #}
             {# and components/file-dropzone.html draws the width of its "edges" #}
             {# guide from it. Changing these heights moves the guide people upload #}
             {# against. #}
-            <div class="relative h-56 sm:h-72 bg-cover bg-center rounded-t-3xl"
+            <div class="relative h-56 sm:h-72 bg-cover bg-center sm:rounded-t-3xl"
                  style="background-image: url('{{ event.cover_image_url }}')"
                  data-event-cover>
                 {% if maps_url %}
-                    {# Here the control has room for its own name and no CTA to #}
-                    {# compete with, and its right edge lands on the same gutter #}
-                    {# as the body below. Without a cover it stays an icon beside #}
-                    {# the buttons. #}
-                    {% translate "Venue maps" as t_venue_maps %}
-                    <div class="absolute top-6 right-6 sm:top-8 sm:right-8 rounded-2xl shadow-(--shadow-elevated)">
-                        {% tessera_button t_venue_maps href=maps_url variant="secondary" icon="map" %}
+                    {# On the gutter the body below keeps, over a surface of its #}
+                    {# own: .icon-btn draws no background, and an arbitrary photo #}
+                    {# is no background to draw a glyph on. #}
+                    <div class="absolute top-4 right-4 sm:top-8 sm:right-8 rounded-2xl bg-bg-secondary shadow-(--shadow-elevated)">
+                        {% include "chronology/_venue_maps_button.html" %}
                     </div>
                 {% endif %}
             </div>
         {% endif %}
-        <div class="p-6 sm:p-8">
+        <div class="px-4 py-6 sm:p-8">
             <div class="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-6">
                 <div class="flex-1 grid gap-y-5{% if compact_schedule %} lg:grid-cols-[1fr_auto] lg:gap-x-8{% endif %}">
                     {# Status is an attribute of the name: the chip sits beside it #}
@@ -137,7 +135,16 @@
                     {# A cover holds the maps control instead, which can leave #}
                     {# this row with nothing in it. #}
                     {% if compact_schedule or maps_url and not event.cover_image_url %}
-                        <div class="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center{% if compact_schedule %} lg:row-start-3{% endif %}">
+                        {# Stretched, not centred: .btn-secondary carries a #}
+                        {# border and .btn-primary does not, so a centred pair #}
+                        {# sits a pixel out of line. #}
+                        {# On a phone the CTAs claim equal shares of the line and #}
+                        {# fall to full width when both no longer fit, so the pair #}
+                        {# is never two rows of two different widths. The labels #}
+                        {# hold one line each, which is what decides "fit" — let #}
+                        {# them break and a 412px phone gets two columns of #}
+                        {# two-line buttons instead. #}
+                        <div class="flex flex-wrap gap-3 [&>.btn]:whitespace-nowrap max-sm:[&>.btn]:grow max-sm:[&>.btn]:basis-44{% if compact_schedule %} lg:row-start-3{% endif %}">
                             {% if compact_schedule %}
                                 {% translate "View the program" as t_view_program %}
                                 {% tessera_button t_view_program href="#schedule-region" size="lg" %}
@@ -147,13 +154,7 @@
                                 {% endif %}
                             {% endif %}
                             {% if maps_url and not event.cover_image_url %}
-                                {% translate "Venue maps" as t_venue_maps %}
-                                <a href="{{ maps_url }}"
-                                   class="icon-btn size-12 shrink-0 justify-center rounded-2xl overflow-hidden"
-                                   title="{{ t_venue_maps }}">
-                                    {% icon "map" class="size-5" variant="mini" %}
-                                    <span class="sr-only">{{ t_venue_maps }}</span>
-                                </a>
+                                {% include "chronology/_venue_maps_button.html" %}
                             {% endif %}
                         </div>
                     {% endif %}

@@ -4435,6 +4435,10 @@ msgstr[3] "%(counter)s zapisanych uczestników"
 msgid "Show on map"
 msgstr "Pokaż na mapie"
 
+#: src/ludamus/templates/chronology/_venue_maps_button.html
+msgid "Venue maps"
+msgstr "Mapy lokalizacji"
+
 #: src/ludamus/templates/chronology/accept_proposal.html
 msgid "Accept Proposal"
 msgstr "Zaakceptuj zgłoszenie"
@@ -4656,10 +4660,6 @@ msgstr "Potwierdź"
 #: src/ludamus/templates/chronology/enroll_select.html
 msgid "Manage companions in your profile settings"
 msgstr "Zarządzaj osobami towarzyszącymi w ustawieniach profilu"
-
-#: src/ludamus/templates/chronology/event.html
-msgid "Venue maps"
-msgstr "Mapy lokalizacji"
 
 #: src/ludamus/templates/chronology/event.html
 #: src/ludamus/templates/notice_board/_calendar_inline.html

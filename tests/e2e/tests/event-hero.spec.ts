@@ -111,21 +111,54 @@ test.describe("Big event hero", () => {
     expect(Math.abs(viewBox.y - signBox.y)).toBeLessThan(8);
   });
 
-  // On a phone neither group fits a row, and wrapping left ragged half-rows
-  // whose icons and buttons lined up with nothing.
-  test("stacks facts on one rail and CTAs at one width on a phone", async ({ page }) => {
-    await page.setViewportSize({ width: 440, height: 900 });
+  // A wrapping row left ragged half-rows whose icons lined up with nothing.
+  test("stacks the facts on one rail on a phone", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 900 });
     const hero = page.locator("[data-event-hero]");
     const date = await hero.getByRole("button", { name: /10:00/ }).boundingBox();
     const address = await hero.getByRole("link", { name: /4 Assembly Concourse/ }).boundingBox();
-    const view = await hero.getByRole("link", { name: "View the program" }).boundingBox();
-    const sign = await hero.getByRole("link", { name: "Sign up for sessions" }).boundingBox();
-    if (!date || !address || !view || !sign) throw new Error("hero part has no box");
+    if (!date || !address) throw new Error("hero fact has no box");
 
     expect(address.y).toBeGreaterThan(date.y + date.height);
     expect(Math.abs(address.x - date.x)).toBeLessThan(1);
-    expect(sign.y).toBeGreaterThan(view.y + view.height);
-    expect(Math.abs(sign.width - view.width)).toBeLessThan(1);
-    expect(Math.abs(sign.x - view.x)).toBeLessThan(1);
+  });
+
+  // Which of the two the phone gets depends on the labels' own widths, so the
+  // viewports here sit clear of the turn rather than on it.
+  test("gives the CTAs equal widths whether they share a row or stack", async ({ page }) => {
+    const hero = page.locator("[data-event-hero]");
+    const view = hero.getByRole("link", { name: "View the program" });
+    const sign = hero.getByRole("link", { name: "Sign up for sessions" });
+    const boxes = async () => {
+      const [v, s] = [await view.boundingBox(), await sign.boundingBox()];
+      if (!v || !s) throw new Error("hero CTA has no box");
+      return [v, s] as const;
+    };
+
+    await page.setViewportSize({ width: 480, height: 900 });
+    const [wideView, wideSign] = await boxes();
+    expect(Math.abs(wideView.y - wideSign.y)).toBeLessThan(1);
+    expect(Math.abs(wideView.width - wideSign.width)).toBeLessThan(1);
+
+    await page.setViewportSize({ width: 390, height: 900 });
+    const [narrowView, narrowSign] = await boxes();
+    expect(narrowSign.y).toBeGreaterThan(narrowView.y + narrowView.height);
+    expect(Math.abs(narrowView.width - narrowSign.width)).toBeLessThan(1);
+    expect(Math.abs(narrowView.x - narrowSign.x)).toBeLessThan(1);
+  });
+
+  // Full bleed on a phone: a cover that tall reads as the page's header, not
+  // as a photo on a floating tile, and the body picks up the page's gutter.
+  test("runs the hero edge to edge on a phone", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 900 });
+    const hero = page.locator("[data-event-hero]");
+    const box = await hero.boundingBox();
+    const main = await page.locator("main").boundingBox();
+    if (!box || !main) throw new Error("hero has no box");
+
+    // Out past the gutter `main` keeps, to the width of the whole column.
+    expect(Math.abs(box.x - main.x)).toBeLessThan(1);
+    expect(Math.abs(box.width - main.width)).toBeLessThan(1);
+    await expect(hero).toHaveCSS("border-top-left-radius", "0px");
   });
 });

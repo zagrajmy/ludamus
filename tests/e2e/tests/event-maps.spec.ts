@@ -148,7 +148,7 @@ test.describe("Event maps", () => {
     expect(link.y).toBeGreaterThanOrEqual(cover.y);
     expect(link.y + link.height).toBeLessThanOrEqual(cover.y + cover.height);
     // Its right edge lands on the gutter the body text below keeps.
-    expect(Math.abs(cover.x + cover.width - (link.x + link.width) - 24)).toBeLessThan(2);
+    expect(Math.abs(cover.x + cover.width - (link.x + link.width) - 16)).toBeLessThan(2);
 
     // Leave the event the way the rest of this file found it.
     await page.goto(SETTINGS_URL);

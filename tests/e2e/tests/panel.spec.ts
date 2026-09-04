@@ -137,6 +137,33 @@ test.describe("Backoffice Panel", () => {
     });
   });
 
+  // Four cards further from each other than from their frame read as four
+  // floating things, not as one row of stats.
+  test("keeps the dashboard cards closer to each other than to their frame", async ({ page }) => {
+    await page.goto("/panel/");
+
+    for (const width of [1440, 1024, 640, 390]) {
+      await page.setViewportSize({ width, height: 900 });
+      const spacing = await page
+        .locator("main .grid")
+        .first()
+        .evaluate((grid) => {
+          const frame = getComputedStyle(grid.parentElement!);
+          const own = getComputedStyle(grid);
+          return {
+            gap: Math.max(parseFloat(own.columnGap), parseFloat(own.rowGap)),
+            padding: Math.min(
+              ...[frame.paddingTop, frame.paddingRight, frame.paddingBottom, frame.paddingLeft].map(
+                parseFloat,
+              ),
+            ),
+          };
+        });
+
+      expect(spacing.gap, `gap vs frame at ${width}px`).toBeLessThanOrEqual(spacing.padding);
+    }
+  });
+
   test("uses square top corners on panel tab strips", async ({ page }) => {
     await page.goto("/panel/event/sunhaven-festival/timetable/");
 

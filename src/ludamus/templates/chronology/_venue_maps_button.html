@@ -1,0 +1,12 @@
+{% load i18n %}
+{% load tessera %}
+{# The control the hero offers twice: on the cover, where the caller wraps it #}
+{# in a surface of its own, and beside the CTAs, where the page already gives #}
+{# it one. #}
+{% translate "Venue maps" as t_venue_maps %}
+<a href="{{ maps_url }}"
+   class="icon-btn size-12 shrink-0 justify-center overflow-hidden rounded-2xl"
+   title="{{ t_venue_maps }}">
+    {% icon "map" class="size-5" variant="mini" %}
+    <span class="sr-only">{{ t_venue_maps }}</span>
+</a>
