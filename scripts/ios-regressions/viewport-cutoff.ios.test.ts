@@ -4,7 +4,14 @@ import { afterAll, beforeAll, expect, test } from "bun:test";
 
 import { baseUrl, createIosHarness, hookTimeoutMs, sessionName } from "./harness";
 import { decodeEntities, fetchReadyPage } from "./page";
-import { labelOf, medianShift, scrollerViewport, viewportOf } from "./snapshot";
+import {
+  contentEnd,
+  labelOf,
+  lowestNodes,
+  medianShift,
+  scrollerViewport,
+  viewportOf,
+} from "./snapshot";
 
 const env = process.env;
 const session = sessionName("viewport");
@@ -12,19 +19,39 @@ const eventPath = env.EVENT_PATH ?? "/event/autumn-open/";
 const eventUrl = new URL(eventPath, baseUrl);
 const TRIGGER_LABELS = /aria-label="(Open details for [^"]+)"/g;
 
-// Safari decides how much room the page gets, and it revisits that decision
-// only when the *document* scrolls: scroll down and the toolbar collapses, the
-// content area grows. base.html moves scrolling off the document onto
-// #app-scroll (app-scroll.ts), so on iOS that decision is never revisited and
-// the page keeps rendering into the short viewport a fully expanded toolbar
-// leaves it — the reported symptom.
+// The reported symptom: on an iPhone the page is cut short — scroll to the end
+// and the last content sits under Safari's toolbar rather than above it. This
+// spec asserts exactly that, on a real Safari: scroll #app-scroll to its end
+// and require the footer's last link to sit inside the room Safari gives the
+// page. Everything else it measures is diagnostic, logged so a failure names
+// its geometry rather than just the fact.
 //
-// This is the one thing #1030 needed to check and could not: its @ios tag
-// selects the Playwright webkit project, which is headless WebKit with no
-// browser chrome at all. There is no toolbar there to collapse, so
-// `shell height === visualViewport.height` holds by construction and the
-// assertion cannot fail. Only a real Safari has the behaviour under test.
-const scrollSteps = 6;
+// A real Safari, because #1030's test could not fail: its @ios tag selected the
+// Playwright webkit project, headless WebKit with no browser chrome, where
+// `shell height === visualViewport.height` holds by construction. Only a device
+// has the toolbar the symptom is about.
+//
+// An earlier revision asserted a mechanism instead — that Safari collapses its
+// toolbar when the page scrolls — and measured that it does not (base.html
+// scrolls #app-scroll, not the document, and the collapse is triggered by
+// document scroll). That is still logged below, but it is not the bug: a page
+// whose last content clears the toolbar is not cut short, whatever the toolbar
+// did, and asserting the mechanism left the spec red with no path to green.
+//
+// Scrolling stops when the page stops moving, not after a fixed count: the
+// question is what the *end* of the page looks like, and a count either falls
+// short of it or wastes gestures past it. The cap is for a page that never
+// stops, which would be its own bug.
+const MAX_SCROLL_GESTURES = 24;
+
+// The last thing on every page: a footer link, reached by its accessible name
+// the way a person reaches it. If this sits fully inside the room Safari gives
+// the page after scrolling to the end, the page is not cut short. If it sits
+// under the toolbar, or is nowhere on screen, it is — that is the reported
+// symptom, in one rect.
+// The runner may append the role to an accessible name ("…, link"), so the
+// pattern anchors the start and tolerates a suffix.
+const FOOTER_LINK = /^Terms of Service(,|$)/i;
 
 // Re-derived for the measurand below, rather than carried over from the one
 // before it — carrying a threshold across a change of measurand is how a
@@ -35,11 +62,11 @@ const scrollSteps = 6;
 // is worth.
 const MIN_COLLAPSE_PT = 16;
 
-// Six gestures of 450px. Any one of them landing moves the content by hundreds
-// of points, so this sits far above measurement noise and far below one
-// gesture's worth of travel — it separates "the page did not move" from "the
-// page moved and the viewport still did not grow", which are the two readings
-// the run below has to tell apart.
+// Gestures are 450px. One landing moves the content by hundreds of points, so
+// this sits far above measurement noise and far below one gesture's worth of
+// travel. It does two jobs: a step that moves the page less than this is the
+// end of the scroller, and a whole run that moves it less than this measured
+// nothing and must say so rather than blame the page.
 const MIN_SCROLL_PT = 50;
 
 const { client, deviceOptions, takeSnapshot, close, wait, openUrl, prepareDevice } =
@@ -158,10 +185,21 @@ beforeAll(async () => {
       `Indicators (y+height): ${before.all}.`,
   );
 
-  console.log(`Scrolling down ${scrollSteps} times...`);
-  for (let step = 0; step < scrollSteps; step += 1) {
+  console.log(`Scrolling down until the page stops moving (cap ${MAX_SCROLL_GESTURES})...`);
+  let previous = before.nodes;
+  let gestures = 0;
+  let travelled = 0;
+  for (; gestures < MAX_SCROLL_GESTURES; gestures += 1) {
     await client.interactions.scroll({ ...deviceOptions, direction: "down", pixels: 450 });
-    await wait(200);
+    await wait(250);
+    const now = (await takeSnapshot()).nodes;
+    const step = medianShift(previous, now);
+    previous = now;
+    if (step !== null) travelled += step;
+    // A gesture that moved the page less than one gesture is worth means the
+    // scroller reached its end (or the gesture is not landing — the total
+    // travel below tells those apart).
+    if (step !== null && Math.abs(step) < MIN_SCROLL_PT) break;
   }
   // The collapse animates, and a snapshot taken during it reads a toolbar
   // halfway to where it is going.
@@ -169,38 +207,64 @@ beforeAll(async () => {
 
   const after = await measureScroller();
   const gained = after.height - before.height;
+  const shift = medianShift(before.nodes, after.nodes);
   console.log(
-    `Scroller viewport after scrolling: ${Math.round(after.height)}pt tall, bottom at ` +
-      `y=${Math.round(after.bottom)} (gained ${Math.round(gained)}pt). ` +
+    `Scroller viewport after ${gestures} gesture(s): ${Math.round(after.height)}pt tall, bottom at ` +
+      `y=${Math.round(after.bottom)} (gained ${Math.round(gained)}pt; page travelled ` +
+      `${shift === null ? "?" : Math.round(shift)}pt, ${Math.round(travelled)}pt summed). ` +
       `Indicators (y+height): ${after.all}.`,
   );
 
-  // Before blaming the toolbar: did the page move at all? A gesture that never
-  // landed leaves the viewport exactly as unchanged as a browser that refuses
-  // to collapse, and the run that first reached this point could not say which
-  // it had seen.
-  const shift = medianShift(before.nodes, after.nodes);
+  // The geometry at the end of the page. contentEndsAt is meaningful here and
+  // only here: at rest it reads the whole document, at the end it reads where
+  // the app's last content stops against the room the browser gave it.
+  const end = contentEnd(after.nodes);
+  const footer = after.nodes.find((node) => node.rect && FOOTER_LINK.test(labelOf(node)));
+  const footerRect = footer?.rect;
+  console.log(
+    `END-OF-PAGE roomEndsAt=${Math.round(after.bottom)} screenEndsAt=${Math.round(after.screenHeight)} ` +
+      `contentEndsAt=${end ? Math.round(end.bottom) : "?"} (${end ? JSON.stringify(end.label.slice(0, 40)) : "no labelled node"}) ` +
+      `footerLink=${footerRect ? `${Math.round(footerRect.y)}..${Math.round(footerRect.y + footerRect.height)}` : "not in tree"}`,
+  );
+  console.log(`Lowest nodes: ${lowestNodes(after.nodes, 8)}`);
+
   if (shift === null || Math.abs(shift) < MIN_SCROLL_PT) {
     collapseIssue =
-      `This run measured nothing, and is not evidence about the toolbar. After ${scrollSteps} ` +
-      `scroll gestures the page moved ` +
+      `This run measured nothing, and is not evidence about the page. After ${gestures} scroll ` +
+      `gestures the page moved ` +
       `${shift === null ? "an unknown distance (too few nodes matched between the two snapshots)" : `${Math.round(shift)}pt`}` +
       `, below the ${MIN_SCROLL_PT}pt that one gesture landing is worth. Either the gesture did ` +
       `not reach the scroller or the page has nothing to scroll — fix the harness before reading ` +
-      `anything into the viewport height.`;
-  } else if (gained < MIN_COLLAPSE_PT) {
+      `anything into the geometry.`;
+  } else if (!footerRect) {
     collapseIssue =
-      `Safari did not give the page more room after ${scrollSteps} scroll gestures that moved it ` +
-      `${Math.round(shift)}pt: the scroller's viewport stayed ${Math.round(before.height)}pt tall ` +
-      `(now ${Math.round(after.height)}pt, gained ${Math.round(gained)}pt) against a ` +
-      `${Math.round(after.screenHeight)}pt screen. The toolbar collapses on document scroll, so ` +
-      `a page that never scrolls the document keeps the short viewport an expanded toolbar ` +
-      `leaves it, and renders cut off above the bottom of the screen.`;
+      `After scrolling to the end of the page (${Math.round(shift)}pt), the footer link matching ` +
+      `${FOOTER_LINK} is not in the accessibility tree at all, so the end of the page could not ` +
+      `be located. Lowest nodes seen: ${lowestNodes(after.nodes, 8)}. A renamed or localized ` +
+      `link means the pattern needs updating; an absent footer means the page is cut short.`;
+  } else if (footerRect.y + footerRect.height > after.bottom + 1 || footerRect.y < 62) {
+    collapseIssue =
+      `The page is cut short. After scrolling to the end (${Math.round(shift)}pt), the footer ` +
+      `link sits at y=${Math.round(footerRect.y)}..${Math.round(footerRect.y + footerRect.height)} ` +
+      `while Safari's room for the page ends at y=${Math.round(after.bottom)} on a ` +
+      `${Math.round(after.screenHeight)}pt screen — the last content is under the toolbar, not ` +
+      `above it. Content ends at ${end ? Math.round(end.bottom) : "?"}. The toolbar ` +
+      `${gained < MIN_COLLAPSE_PT ? "did not collapse" : `collapsed by ${Math.round(gained)}pt`}.`;
+  }
+  // Logged, not asserted: whether Safari collapsed its toolbar is a mechanism,
+  // and the reported symptom is the page being cut short. A page whose last
+  // content clears the toolbar is not cut short, whatever the toolbar did.
+  if (gained < MIN_COLLAPSE_PT) {
+    console.log(
+      `Diagnostic: Safari did not give the page more room after scrolling ` +
+        `(viewport ${Math.round(before.height)}pt before, ${Math.round(after.height)}pt after). ` +
+        `Toolbar collapse is triggered by document scroll, which #app-scroll never does.`,
+    );
   }
 }, hookTimeoutMs);
 
 afterAll(close, 30_000);
 
-test("scrolling the page lets Safari collapse its toolbar", () => {
+test("the end of the page is reachable above Safari's toolbar", () => {
   expect(collapseIssue).toBeNull();
 });

@@ -8,8 +8,10 @@ import { decodeEntities } from "./page";
 import {
   centreOnScreen,
   collapse,
+  contentEnd,
   describeNode,
   labelOf,
+  lowestNodes,
   matchesScopeLabel,
   medianShift,
   pollUntil,
@@ -248,5 +250,53 @@ describe("medianShift", () => {
   test("reads a page that did not move as zero, which is the failure it guards", () => {
     const still = [at("Card A", 100), at("Card B", 300), at("Card C", 500)];
     expect(medianShift(still, still)).toBe(0);
+  });
+});
+
+describe("contentEnd", () => {
+  const at = (label: string, y: number, height = 20) =>
+    node({ label, rect: { x: 0, y, width: 300, height } });
+
+  test("reports the labelled node that ends lowest", () => {
+    const nodes = [at("Card A", 100), at("Card B", 300), at("Terms of Service", 780, 24)];
+    expect(contentEnd(nodes)).toEqual({ bottom: 804, label: "Terms of Service" });
+  });
+
+  test("passes over the scroll views that span the screen, which end where the screen does", () => {
+    // The 874pt container would otherwise win every time, and it says nothing
+    // about where the page's content stops.
+    const nodes = [
+      node({ label: "Vertical scroll bar, 1 page", rect: { x: 0, y: 0, width: 402, height: 874 } }),
+      at("Card A", 100),
+    ];
+    expect(contentEnd(nodes)?.label).toBe("Card A");
+  });
+
+  test("ignores unlabelled nodes and nodes with no rect", () => {
+    const nodes = [
+      node({ rect: { x: 0, y: 0, width: 402, height: 874 } }),
+      node({ label: "Card Z" }),
+      at("Card A", 100),
+    ];
+    expect(contentEnd(nodes)).toEqual({ bottom: 120, label: "Card A" });
+  });
+
+  test("reports nothing when there is no labelled content", () => {
+    expect(contentEnd([node({ rect: { x: 0, y: 0, width: 1, height: 1 } })])).toBeNull();
+  });
+});
+
+describe("lowestNodes", () => {
+  const at = (label: string, y: number) =>
+    node({ label, rect: { x: 0, y, width: 300, height: 20 } });
+
+  test("lists the lowest labelled nodes, lowest first, capped", () => {
+    const nodes = [
+      at("Top", 0),
+      at("Middle", 400),
+      at("Bottom", 800),
+      at("Vertical scroll bar", 0),
+    ];
+    expect(lowestNodes(nodes, 2)).toBe('800..820 "Bottom"; 400..420 "Middle"');
   });
 });

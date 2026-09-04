@@ -101,6 +101,44 @@ export const medianShift = (
   return deltas.length % 2 === 0 ? (deltas[mid - 1]! + deltas[mid]!) / 2 : deltas[mid]!;
 };
 
+// The bottom-most piece of content on screen: the labelled node whose rect ends
+// lowest. Labelled, because the tree also carries unlabelled containers and the
+// scroll views that span the whole window, and the deepest of those ends at the
+// screen's edge whatever the page is doing. Taken after scrolling to the end,
+// this is where the app's content stops — against the scroller's bottom edge it
+// says whether the page's last card sits above Safari's toolbar or under it,
+// which is the reported symptom in one number.
+export const contentEnd = (
+  nodes: readonly SnapshotNode[],
+): { bottom: number; label: string } | null => {
+  let best: { bottom: number; label: string } | null = null;
+  for (const node of nodes) {
+    const label = labelOf(node);
+    if (!label || !node.rect || SCROLL_INDICATOR.test(label)) continue;
+    const bottom = node.rect.y + node.rect.height;
+    if (!best || bottom > best.bottom) best = { bottom, label };
+  }
+  return best;
+};
+
+// The lowest few labelled nodes, for a log line that shows the layout at the
+// end of the page rather than one number about it.
+export const lowestNodes = (nodes: readonly SnapshotNode[], count: number): string =>
+  nodes
+    .filter((node) => node.rect && labelOf(node) && !SCROLL_INDICATOR.test(labelOf(node)))
+    .map((node) => ({
+      label: labelOf(node),
+      y: node.rect!.y,
+      bottom: node.rect!.y + node.rect!.height,
+    }))
+    .sort((a, b) => b.bottom - a.bottom)
+    .slice(0, count)
+    .map(
+      (node) =>
+        `${Math.round(node.y)}..${Math.round(node.bottom)} ${JSON.stringify(node.label.slice(0, 40))}`,
+    )
+    .join("; ");
+
 export const centreOnScreen = (rect: Rect, viewport: Rect): boolean => {
   const centreX = rect.x + rect.width / 2;
   const centreY = rect.y + rect.height / 2;
