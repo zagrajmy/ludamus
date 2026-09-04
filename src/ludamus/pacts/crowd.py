@@ -12,7 +12,10 @@ from typing import Protocol, TypedDict
 
 from pydantic import BaseModel, ConfigDict
 
+from ludamus.pacts.ids import UserId
+
 MAX_CONNECTED_USERS = 6  # Maximum number of connected users per manager
+MAX_AVATAR_URL_LENGTH = 500  # Column width; a longer provider URL is dropped
 
 
 class UserType(StrEnum):
@@ -34,7 +37,7 @@ class UserDTO(BaseModel):
     is_staff: bool
     is_superuser: bool
     name: str
-    pk: int
+    pk: UserId
     slug: str
     use_gravatar: bool
     user_type: UserType
@@ -72,6 +75,8 @@ class UserRepositoryProtocol(Protocol):
     def update(user_slug: str, user_data: UserData) -> None: ...
     @staticmethod
     def email_exists(email: str, exclude_slug: str | None = None) -> bool: ...
+    @staticmethod
+    def slug_exists(slug: str) -> bool: ...
 
 
 class CompanionRepositoryProtocol(Protocol):

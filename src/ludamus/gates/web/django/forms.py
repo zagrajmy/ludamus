@@ -4,20 +4,20 @@ from __future__ import annotations
 
 import re
 from decimal import Decimal
-from typing import TYPE_CHECKING, Any, ClassVar, cast
+from typing import TYPE_CHECKING, Any, ClassVar, Literal, NamedTuple, assert_never, cast
 
 from django import forms
 from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator
-from django.utils.translation import gettext as _gettext
+from django.utils.translation import gettext, pgettext_lazy
 from django.utils.translation import gettext_lazy as _
-from lxml import etree
-from PIL import Image, UnidentifiedImageError
 
+from ludamus.gates.uploads import validate_uploaded_image, validate_uploaded_logo
 from ludamus.gates.web.django.dynamic_fields import (
     CustomAnswerFormMixin,
     build_dynamic_fields,
 )
+from ludamus.gates.web.django.sphere.pages import SPHERE_PAGE_LABELS
 from ludamus.pacts.discounts import DiscountKind
 from ludamus.pacts.durations import (
     MAX_DURATION_HOURS,
@@ -25,8 +25,8 @@ from ludamus.pacts.durations import (
     build_duration,
     duration_choices,
 )
-from ludamus.pacts.images import ALLOWED_IMAGE_FORMATS, IMAGE_ACCEPT, LOGO_ACCEPT
-from ludamus.pacts.legacy import PromotionMode
+from ludamus.pacts.images import IMAGE_ACCEPT, LOGO_ACCEPT, CoverCrop, StoredFile
+from ludamus.pacts.legacy import EncounterPublicPolicy, PromotionMode, SpherePage
 from ludamus.pacts.submissions import AccreditationType
 
 if TYPE_CHECKING:
@@ -34,21 +34,28 @@ if TYPE_CHECKING:
 
     from django.core.files.uploadedfile import UploadedFile
     from django.utils.functional import _StrPromise
-    from lxml.etree import _Element as Element
 
     from ludamus.pacts import SessionFieldRequirementDTO
     from ludamus.pacts.multiverse import ConnectionDTO
+    from ludamus.pacts.venues import SpaceTreeNodeDTO
 
 _DATETIME_LOCAL_FORMATS = ["%Y-%m-%dT%H:%M", "%Y-%m-%dT%H:%M:%S"]
-# Image-upload invariants (business rules, not gate trivia): every cover/header
-# upload across the app is held to these same limits via validate_uploaded_image.
-MAX_IMAGE_SIZE = 8 * 1024 * 1024
-# A small (≤8 MB) file can still decode to a huge bitmap; cap pixel count to
-# bound memory (decompression-bomb guard). 24 MP comfortably fits any cover.
-MAX_IMAGE_PIXELS = 24_000_000
+# The hero prints the address under the venue name, where a third line
+# pushes the CTAs off a phone screen.
+MAX_ADDRESS_LINES = 2
 # Hand-written rather than joined from IMAGE_FORMATS: it is translated user copy,
-# and a comma-joined list of MIME types reads nothing like a sentence.
-COVER_IMAGE_HELP_TEXT = _("Max 8 MB. JPG, PNG, WebP, or AVIF.")
+# and a comma-joined list of MIME types reads nothing like a sentence. Two of
+# them because an event cover also loses its sides to the full-bleed banner,
+# where a session cover keeps them; the dropzone guide
+# (components/file-dropzone.html) draws the matching shape.
+EDGES_COVER_IMAGE_HELP_TEXT = _(
+    "1920×1080 (16:9) works best. We crop the edges, so keep the subject in "
+    "the middle and leave text out. Max 8 MB. JPG, PNG, WebP, or AVIF."
+)
+TOP_AND_BOTTOM_COVER_IMAGE_HELP_TEXT = _(
+    "1920×1080 (16:9) works best. We crop the top and bottom, so keep the "
+    "subject in the middle and leave text out. Max 8 MB. JPG, PNG, WebP, or AVIF."
+)
 # Width of the PositiveIntegerField column on Postgres (`integer`). Dev sqlite
 # is wider, so an overflow only ever surfaces in production. A validator rather
 # than `max_value` on every field writing the column: validators reject
@@ -61,132 +68,41 @@ STORAGE_LIMIT_VALIDATOR = MaxValueValidator(
 )
 
 
-def validate_uploaded_image_size(image: object) -> None:
-    size = getattr(image, "size", 0)
-    if isinstance(size, int) and size > MAX_IMAGE_SIZE:
-        raise ValidationError(_gettext("Image too large. Maximum size is 8 MB."))
+class DropzoneFileInput(forms.ClearableFileInput):
+    # `fit` and `crop` are read by the tessera dropzone renderer, never written
+    # to the input: they say how the preview frames the file, which is the
+    # renderer's business and not the browser's.
+    def __init__(
+        self,
+        *,
+        attrs: dict[str, str] | None = None,
+        fit: Literal["cover", "contain"] = "cover",
+        crop: CoverCrop | None = None,
+    ) -> None:
+        super().__init__(attrs)
+        self.fit = fit
+        self.crop = crop
 
 
-def _validate_raster(
-    *, image_format: str | None, pixels: int, format_error: str
-) -> None:
-    if image_format not in ALLOWED_IMAGE_FORMATS:
-        raise ValidationError(format_error)
-    if pixels > MAX_IMAGE_PIXELS:
-        raise ValidationError(_gettext("Image dimensions are too large."))
-
-
-def validate_uploaded_image_format(image: object) -> None:
-    # Django's ImageField populates `image.image` (a PIL Image with `.format`)
-    # during clean. We trust the detected format over user-supplied
-    # content_type or filename extension.
-    pil_image = getattr(image, "image", None)
-    _validate_raster(
-        image_format=getattr(pil_image, "format", None),
-        pixels=getattr(pil_image, "width", 0) * getattr(pil_image, "height", 0),
-        format_error=_gettext("Unsupported image format. Use JPG, PNG, WebP, or AVIF."),
-    )
-
-
-def validate_uploaded_image(image: object) -> None:
-    # Single entry point shared by every cover/header upload form so the size +
-    # format guarantees can't drift apart across forms.
-    if image:
-        validate_uploaded_image_size(image)
-        validate_uploaded_image_format(image)
-
-
-_SVG_FORBIDDEN_TAGS = frozenset({"script", "foreignobject"})
-# libxml2 caps entity amplification (no billion laughs); unresolved entities
-# also close off XXE. See https://lxml.de/FAQ.html#is-lxml-vulnerable-to-xml-bombs
-_SVG_PARSER = etree.XMLParser(resolve_entities=False, no_network=True)
-
-
-def _xml_local_name(name: str) -> str:
-    return name.rsplit("}", 1)[-1].lower()
-
-
-# lxml types attribute names/values as str | bytes; parsed documents yield str.
-def _xml_text(value: str | bytes) -> str:
-    return value if isinstance(value, str) else value.decode(errors="replace")
-
-
-def _svg_element_is_safe(element: Element) -> bool:
-    if _xml_local_name(str(element.tag)) in _SVG_FORBIDDEN_TAGS:
-        return False
-    for name, value in element.attrib.items():
-        if _xml_local_name(_xml_text(name)).startswith("on"):
-            return False
-        if "javascript:" in "".join(_xml_text(value).split()).lower():
-            return False
-    return True
-
-
-def _validate_uploaded_svg(uploaded: UploadedFile[bytes]) -> None:
-    uploaded.seek(0)
-    try:
-        # fromstring, not parse: parse() takes a filename too, so passing an
-        # upload there reads as a path expression to taint analysis. Size is
-        # already capped by validate_uploaded_image_size.
-        root = etree.fromstring(uploaded.read(), _SVG_PARSER)
-    except etree.XMLSyntaxError as error:
-        raise ValidationError(_gettext("Invalid or unsafe SVG file.")) from error
-    finally:
-        uploaded.seek(0)
-    if (
-        _xml_local_name(str(root.tag)) != "svg"
-        # iter(Element) skips entity/comment/PI nodes, whose tag is not a string
-        or not all(
-            _svg_element_is_safe(element) for element in root.iter(etree.Element)
-        )
-    ):
-        raise ValidationError(_gettext("Invalid or unsafe SVG file."))
-
-
-def _validate_uploaded_raster_logo(uploaded: UploadedFile[bytes]) -> None:
-    uploaded.seek(0)
-    try:
-        with Image.open(uploaded) as pil_image:
-            image_format = pil_image.format
-            pixels = pil_image.width * pil_image.height
-    except UnidentifiedImageError:
-        image_format, pixels = None, 0
-    finally:
-        uploaded.seek(0)
-    _validate_raster(
-        image_format=image_format,
-        pixels=pixels,
-        format_error=_gettext(
-            "Unsupported image format. Use JPG, PNG, WebP, AVIF, or SVG."
-        ),
-    )
-
-
-def _looks_like_svg(uploaded: UploadedFile[bytes]) -> bool:
-    uploaded.seek(0)
-    head: bytes = uploaded.read(64)
-    uploaded.seek(0)
-    return head.lstrip(b"\xef\xbb\xbf \t\r\n").startswith(b"<")
-
-
-def validate_uploaded_logo(uploaded: UploadedFile[bytes] | None) -> None:
-    if not uploaded:
-        return
-    validate_uploaded_image_size(uploaded)
-    if _looks_like_svg(uploaded):
-        _validate_uploaded_svg(uploaded)
-    else:
-        _validate_uploaded_raster_logo(uploaded)
-
-
-def cover_image_field() -> forms.ImageField:
+def cover_image_field(*, crop: CoverCrop) -> forms.ImageField:
     # Shared definition so every cover/header upload field stays identical
     # (label, limits, accepted types) without copy-pasting the declaration.
+    # `crop` picks which surfaces this upload lands on, and with it both the
+    # help text and the guide the dropzone draws over the preview. match +
+    # assert_never (not a dict) so a third crop is a type error here rather
+    # than copy for one crop shown against the guide for the other.
+    match crop:
+        case "edges":
+            help_text = EDGES_COVER_IMAGE_HELP_TEXT
+        case "top-and-bottom":
+            help_text = TOP_AND_BOTTOM_COVER_IMAGE_HELP_TEXT
+        case _:
+            assert_never(crop)
     return forms.ImageField(
         label=_("Cover image"),
         required=False,
-        help_text=COVER_IMAGE_HELP_TEXT,
-        widget=forms.ClearableFileInput(attrs={"accept": IMAGE_ACCEPT}),
+        help_text=help_text,
+        widget=DropzoneFileInput(attrs={"accept": IMAGE_ACCEPT}, crop=crop),
     )
 
 
@@ -205,9 +121,7 @@ def logo_field(*, help_text: str | _StrPromise | None = None) -> forms.FileField
         or _(
             "Shown on the printable schedule. Max 8 MB. JPG, PNG, WebP, AVIF, or SVG."
         ),
-        widget=forms.ClearableFileInput(
-            attrs={"accept": LOGO_ACCEPT, "data-fit": "contain"}
-        ),
+        widget=DropzoneFileInput(attrs={"accept": LOGO_ACCEPT}, fit="contain"),
     )
 
 
@@ -239,9 +153,27 @@ class EventSettingsForm(forms.Form):
         max_length=50, error_messages={"required": _("Event slug is required.")}
     )
     description = forms.CharField(
-        required=False, widget=forms.Textarea(attrs={"rows": 3})
+        required=False,
+        widget=forms.Textarea(attrs={"rows": 3}),
+        help_text=_("Aim for about 230 characters."),
     )
-    cover_image = cover_image_field()
+    address = forms.CharField(
+        max_length=255,
+        required=False,
+        strip=True,
+        label=_("Address"),
+        help_text=_("Venue address, two lines at most. Shown with a map link."),
+        widget=forms.Textarea(attrs={"rows": MAX_ADDRESS_LINES}),
+    )
+
+    def clean_address(self) -> str:
+        lines = str(self.cleaned_data.get("address") or "").splitlines()
+        kept = [stripped for line in lines if (stripped := line.strip())]
+        if len(kept) > MAX_ADDRESS_LINES:
+            raise ValidationError(gettext("An address can have at most two lines."))
+        return "\n".join(kept)
+
+    cover_image = cover_image_field(crop="edges")
     logo = logo_field()
     start_time = forms.DateTimeField(
         widget=_datetime_local_widget(),
@@ -297,6 +229,13 @@ class EventSettingsForm(forms.Form):
         return image
 
 
+_PAGE_VALUES = {page.value for page in SpherePage}
+
+
+def _sphere_page_choices() -> list[tuple[str, _StrPromise]]:
+    return [(page.value, SPHERE_PAGE_LABELS[page]) for page in SpherePage]
+
+
 class SphereSettingsForm(forms.Form):
     """Form for sphere-wide settings."""
 
@@ -305,7 +244,55 @@ class SphereSettingsForm(forms.Form):
         label=_("Allow facilitators to edit their own sessions"),
         help_text=_("Default for the whole sphere. Events can override this setting."),
     )
+    enabled_pages = forms.MultipleChoiceField(
+        choices=_sphere_page_choices,
+        widget=forms.CheckboxSelectMultiple,
+        label=_("Enabled pages"),
+        error_messages={"required": _("At least one page must stay enabled.")},
+    )
+    default_page = forms.ChoiceField(
+        choices=_sphere_page_choices,
+        widget=forms.RadioSelect,
+        label=_("Default page"),
+        help_text=_("Shown when visitors open the sphere's homepage."),
+    )
+    encounter_public_policy = forms.ChoiceField(
+        choices=[
+            (
+                EncounterPublicPolicy.DISABLED.value,
+                _("Nobody (public encounters disabled)"),
+            ),
+            (EncounterPublicPolicy.MANAGERS.value, _("Sphere managers only")),
+            (EncounterPublicPolicy.EVERYONE.value, _("Everyone")),
+        ],
+        widget=forms.RadioSelect,
+        label=_("Who may make an encounter public"),
+        help_text=_(
+            "Public encounters are listed for everyone on the encounters page "
+            "and the timeline."
+        ),
+    )
+    # The pages the manager was warned about and confirmed, comma-separated.
+    # A bare boolean would carry a confirmation for one page over to a page
+    # they picked afterwards and were never warned about.
+    confirmed_page_disable = forms.CharField(required=False, widget=forms.HiddenInput)
     logo = logo_field()
+
+    def confirmed_pages(self) -> set[SpherePage]:
+        raw: str = self.cleaned_data.get("confirmed_page_disable") or ""
+        return {SpherePage(value) for value in raw.split(",") if value in _PAGE_VALUES}
+
+    def clean(self) -> dict[str, Any] | None:
+        # Also enforced by SpherePanelService.update_settings; repeated here so
+        # the manager gets the message on the field rather than an exception.
+        super().clean()
+        default_page = self.cleaned_data.get("default_page")
+        enabled_pages: list[str] = self.cleaned_data.get("enabled_pages") or []
+        if default_page and default_page not in enabled_pages:
+            self.add_error(
+                "default_page", _("The default page must be one of the enabled pages.")
+            )
+        return self.cleaned_data
 
 
 class ProposalSettingsForm(forms.Form):
@@ -606,6 +593,111 @@ def create_space_copy_form(events: list[tuple[int, str]]) -> type[forms.Form]:
     return type("SpaceCopyForm", (forms.Form,), {"target_event": target_event_field})
 
 
+class MultiFileInput(forms.FileInput):
+    # A plan can run to several pictures, so its one input takes several files.
+    # A plain FileInput, not the clearable one every other dropzone uses:
+    # clearing has no meaning for a page set — a map with no pages is not a
+    # map — so the chosen files are the whole answer.
+    allow_multiple_selected = True
+    fit = "contain"
+
+
+class MultiImageField(forms.ImageField):
+    """An image upload that keeps every file chosen, in the order chosen."""
+
+    widget = MultiFileInput
+
+    def clean(
+        self, data: list[UploadedFile[bytes]], initial: StoredFile | None = None
+    ) -> list[UploadedFile[bytes]]:
+        clean_one = super().clean
+        files = [clean_one(one, initial) for one in data if one]
+        if not files and self.required:
+            raise ValidationError(self.error_messages["required"], code="required")
+        return files
+
+
+def create_event_map_form(*, has_image: bool) -> type[forms.Form]:
+    # Built per use like create_space_copy_form: whether a picture is required
+    # depends on whether one is stored already — editing keeps the pages it has
+    # unless a new set replaces them.
+    name = forms.CharField(
+        max_length=255,
+        strip=True,
+        label=pgettext_lazy("place", "Name"),
+        help_text=_("What the picture shows: a building, a floor, the whole site."),
+        error_messages={
+            "max_length": _("Map name is too long (max 255 characters)."),
+            "required": _("Map name is required."),
+        },
+    )
+    image = MultiImageField(
+        required=not has_image,
+        label=_("Map pages"),
+        help_text=_(
+            "One picture, or several for a plan that comes with a legend. "
+            "Max 8 MB each. JPG, PNG, WebP, or AVIF."
+        ),
+        validators=[validate_uploaded_image],
+        widget=MultiFileInput(attrs={"accept": IMAGE_ACCEPT}),
+        error_messages={"required": _("Upload the map image.")},
+    )
+    return type("EventMapForm", (forms.Form,), {"name": name, "image": image})
+
+
+class TreeChoice(NamedTuple):
+    """One node of a checkbox tree: its own option, then the nodes under it."""
+
+    value: str
+    label: str
+    children: list[TreeChoice]
+
+
+class CheckboxTreeSelect(forms.CheckboxSelectMultiple):
+    # `choice_tree` is read by the tessera renderer, which draws the nesting the
+    # flat `choices` cannot express. Both describe the same options, so
+    # validation stays the plain MultipleChoiceField check.
+    def __init__(self, *, choice_tree: list[TreeChoice]) -> None:
+        super().__init__()
+        self.choice_tree = choice_tree
+
+
+def _tree_choices(nodes: list[SpaceTreeNodeDTO]) -> list[TreeChoice]:
+    return [
+        TreeChoice(
+            value=str(node.space.pk),
+            label=node.space.name,
+            children=_tree_choices(node.children),
+        )
+        for node in nodes
+    ]
+
+
+def _flat_choices(tree: list[TreeChoice]) -> list[tuple[str, str]]:
+    return [
+        pair
+        for node in tree
+        for pair in ((node.value, node.label), *_flat_choices(node.children))
+    ]
+
+
+def create_map_spaces_form(*, space_tree: list[SpaceTreeNodeDTO]) -> type[forms.Form]:
+    # Which venues a plan shows is a checklist of the event's own tree, drawn as
+    # that tree, so a floor plan can name the floor or the rooms under it
+    # without every row repeating the path down to them.
+    tree = _tree_choices(space_tree)
+    spaces = forms.MultipleChoiceField(
+        required=False,
+        label=_("Venues on this map"),
+        help_text=_(
+            "Each venue listed beside the map links to its sessions on the schedule."
+        ),
+        widget=CheckboxTreeSelect(choice_tree=tree),
+        choices=_flat_choices(tree),
+    )
+    return type("MapSpacesForm", (forms.Form,), {"spaces": spaces})
+
+
 class TrackForm(forms.Form):
     """Form for creating/editing tracks."""
 
@@ -664,7 +756,7 @@ class SessionEditForm(forms.Form):
     duration_minutes = forms.IntegerField(
         required=False, min_value=0, max_value=MAX_DURATION_MINUTES, label=_("Minutes")
     )
-    cover_image = cover_image_field()
+    cover_image = cover_image_field(crop="top-and-bottom")
 
     def clean_cover_image(self) -> object:
         image = self.cleaned_data.get("cover_image")
@@ -743,6 +835,7 @@ ACCREDITATION_TYPE_LABELS = {
     AccreditationType.STANDARD: _("Standard"),
     AccreditationType.GUEST: _("Guest"),
     AccreditationType.HONORARY: _("Honorary"),
+    AccreditationType.CREATOR: _("Program creator"),
 }
 ACCREDITATION_TYPE_CHOICES = [
     (t.value, ACCREDITATION_TYPE_LABELS[t]) for t in AccreditationType
@@ -819,7 +912,10 @@ class DiscountForm(forms.Form):
         decimal_places=2,
         min_value=Decimal("0.01"),
         label=_("Value"),
-        widget=forms.NumberInput(attrs={"inputmode": "decimal"}),
+        # Django derives step="0.01" from decimal_places; combined with
+        # min="0.01" the browser's float step check rejects plain 50 and
+        # suggests 50.01. step="any" drops it; the server still enforces 2dp.
+        widget=forms.NumberInput(attrs={"inputmode": "decimal", "step": "any"}),
         error_messages={
             "required": _("Value is required."),
             "min_value": _("Value must be greater than zero."),
@@ -846,15 +942,35 @@ class DiscountExportForm(forms.Form):
         strip=True,
         help_text=_("Paste the spreadsheet link (or its ID) from the address bar."),
     )
+    tab = forms.CharField(
+        label=_("Tab name"),
+        max_length=100,
+        strip=True,
+        help_text=_("The tab has to exist already; the export replaces its content."),
+    )
+    columns = forms.MultipleChoiceField(
+        label=_("Columns"),
+        widget=forms.CheckboxSelectMultiple,
+        help_text=_(
+            "Facilitator and personal data written before the discount columns."
+            " Pick what this sheet needs; nothing is exported by default."
+        ),
+    )
 
     def __init__(
-        self, *args: Any, connections: Iterable[ConnectionDTO], **kwargs: Any
+        self,
+        *args: Any,
+        connections: Iterable[ConnectionDTO],
+        columns: Iterable[tuple[str, str]] = (),
+        **kwargs: Any,
     ) -> None:
         super().__init__(*args, **kwargs)
         connection_field = cast("forms.ChoiceField", self.fields["connection"])
         connection_field.choices = [
             (str(connection.pk), connection.display_name) for connection in connections
         ]
+        columns_field = cast("forms.MultipleChoiceField", self.fields["columns"])
+        columns_field.choices = list(columns)
 
     def clean_spreadsheet(self) -> str:
         raw = str(self.cleaned_data["spreadsheet"])

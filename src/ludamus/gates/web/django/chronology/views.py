@@ -17,10 +17,12 @@ from ludamus.gates.web.django.dynamic_fields import (
     field_descriptors,
 )
 from ludamus.gates.web.django.forms import SessionEditForm
+from ludamus.gates.web.django.sphere.pages import EventsPageRequiredMixin
 from ludamus.mills.chronology import SessionEditNotAllowedError
 from ludamus.pacts import RedirectError, SessionFieldValueData, SessionStatus
 from ludamus.pacts.chronology import SpaceTimeConflictError
 from ludamus.pacts.durations import parse_duration
+from ludamus.pacts.ids import SessionId
 from ludamus.pacts.images import stored_file
 
 from .forms import create_proposal_acceptance_form
@@ -71,7 +73,7 @@ def _collect_session_field_values(
     ]
 
 
-class SessionEditView(LoginRequiredMixin, View):
+class SessionEditView(EventsPageRequiredMixin, LoginRequiredMixin, View):
     """Facilitator self-service editing of their own session, inline in the modal.
 
     Both GET (edit form) and POST (save) return the form fragment swapped into
@@ -207,7 +209,7 @@ class SessionEditView(LoginRequiredMixin, View):
         )
 
 
-class SessionBookmarkToggleView(View):
+class SessionBookmarkToggleView(EventsPageRequiredMixin, View):
     @staticmethod
     def post(request: RootRequest, session_id: int) -> JsonResponse:
         if (user_id := request.context.current_user_id) is None:
@@ -216,7 +218,7 @@ class SessionBookmarkToggleView(View):
             return JsonResponse({"error": "auth"}, status=401)
         result = request.services.bookmarks.toggle(
             user_id=user_id,
-            session_id=session_id,
+            session_id=SessionId(session_id),
             sphere_id=request.context.current_sphere_id,
         )
         if result is None:
@@ -224,22 +226,32 @@ class SessionBookmarkToggleView(View):
         return JsonResponse({"bookmarked": result.bookmarked, "count": result.count})
 
 
-class ProposalAcceptPageView(LoginRequiredMixin, View):
+def _schedule_blocker(context: ProposalAcceptContextDTO) -> str | None:
+    # What the event still lacks before any proposal can be placed, or None when
+    # nothing does. The page renders either way: a reviewer who lands here with
+    # the venue unfinished gets the reason and the panel link, not a bounce.
+    if not context.space_options:
+        return "spaces"
+    if not context.time_slots:
+        return "time_slots"
+    return None
+
+
+class ProposalAcceptPageView(EventsPageRequiredMixin, LoginRequiredMixin, View):
     request: AuthenticatedRootRequest
 
     def get(
         self, request: AuthenticatedRootRequest, event_slug: str, session_id: int
     ) -> HttpResponse:
         context = self._load(request, event_slug, session_id)
-        self._require_configured(context)
-        form = self._build_form(context)()
+        form = create_proposal_acceptance_form(context)()
         return self._render(request, context, form)
 
     def post(
         self, request: AuthenticatedRootRequest, event_slug: str, session_id: int
     ) -> HttpResponse:
         context = self._load(request, event_slug, session_id)
-        form = self._build_form(context)(data=request.POST)
+        form = create_proposal_acceptance_form(context)(data=request.POST)
         if not form.is_valid():
             return self._render(request, context, form)
 
@@ -264,12 +276,6 @@ class ProposalAcceptPageView(LoginRequiredMixin, View):
             ),
         )
         return redirect("web:chronology:event", slug=context.event.slug)
-
-    @staticmethod
-    def _build_form(context: ProposalAcceptContextDTO) -> type[forms.Form]:
-        return create_proposal_acceptance_form(
-            space_options=context.space_options, time_slots=context.time_slots
-        )
 
     @staticmethod
     def _load(
@@ -298,25 +304,6 @@ class ProposalAcceptPageView(LoginRequiredMixin, View):
         return context
 
     @staticmethod
-    def _require_configured(context: ProposalAcceptContextDTO) -> None:
-        event_url = reverse("web:chronology:event", kwargs={"slug": context.event.slug})
-        if not context.space_options:
-            raise RedirectError(
-                event_url,
-                error=_(
-                    "No spaces configured for this event. Please create spaces first."
-                ),
-            )
-        if not context.time_slots:
-            raise RedirectError(
-                event_url,
-                error=_(
-                    "No time slots configured for this event. "
-                    "Please create time slots first."
-                ),
-            )
-
-    @staticmethod
     def _render(
         request: AuthenticatedRootRequest,
         context: ProposalAcceptContextDTO,
@@ -333,5 +320,6 @@ class ProposalAcceptPageView(LoginRequiredMixin, View):
                 "preferred_time_slot_ids": context.preferred_time_slot_ids,
                 "form": form,
                 "field_values": context.field_values,
+                "schedule_blocker": _schedule_blocker(context),
             },
         )

@@ -1,4 +1,4 @@
-"""Enrollment services: waitlist promotion, anonymous enrollment, notifications.
+"""Enrollment services: waitlist promotion and anonymous enrollment.
 
 Each service owns its decisions and transactional boundary, delegating IO to
 injected ports (repositories, notifier, scheduler) so the logic stays
@@ -10,13 +10,12 @@ the ticket API.
 from __future__ import annotations
 
 import logging
-import math
 import secrets
-from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from secrets import token_urlsafe
-from typing import TYPE_CHECKING, Protocol
+from typing import TYPE_CHECKING
 
+from ludamus.mills.enrollment_windows import EnrollmentPolicy, viewer_access
 from ludamus.pacts import (
     MembershipAPIError,
     UserEnrollmentConfigData,
@@ -35,12 +34,12 @@ from ludamus.pacts.enrollment import (
     AnonymousLoadDTO,
     AnonymousSessionContextDTO,
     ClaimResult,
+    EnrollmentAccessDTO,
     EnrollmentServiceProtocol,
     EnrollmentSettingsServiceProtocol,
     GuestSeatData,
     HeldSeatData,
     InvalidEnrollmentWindowError,
-    NavbarNotificationsDTO,
     OfferNotification,
     PromotionNotification,
     PromotionResult,
@@ -52,13 +51,16 @@ from ludamus.pacts.legacy import (
     PromotionMode,
 )
 from ludamus.pacts.party import HeldSeatNotification
-from ludamus.specs.enrollment import is_valid_window_period, select_promotable_parties
+from ludamus.specs.enrollment import (
+    MEMBERSHIP_CHECK_INTERVAL_MINUTES,
+    is_valid_window_period,
+    select_promotable_parties,
+)
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable
+    from collections.abc import Sequence
 
     from ludamus.pacts import (
-        EnrollmentConfigDTO,
         EnrollmentConfigRepositoryProtocol,
         EventDTO,
         TicketAPIProtocol,
@@ -73,112 +75,19 @@ if TYPE_CHECKING:
         EnrollmentWindowData,
         EnrollmentWindowDTO,
         EnrollmentWindowRepositoryProtocol,
-        NotificationReadRepositoryProtocol,
         OfferDTO,
         OfferExpirySchedulerProtocol,
         OfferRecipientDTO,
         ParticipationPromotionRepositoryProtocol,
         PromotionStateDTO,
         SeatHoldRequest,
+        TicketApiResolverProtocol,
         UserNotifierProtocol,
         WaitingParticipantDTO,
         WaitlistPromotionServiceProtocol,
     )
+    from ludamus.pacts.ids import HasPk
     from ludamus.pacts.services import TransactionProtocol
-
-_NAVBAR_NOTIFICATION_LIMIT = 10
-
-
-class EnrollmentWindowLike(Protocol):
-    allow_anonymous_enrollment: bool
-    max_waitlist_sessions: int
-    percentage_slots: int
-    restrict_to_configured_users: bool
-
-
-def _seating_rank(window: EnrollmentWindowLike) -> tuple[int, bool]:
-    return (window.percentage_slots, not window.restrict_to_configured_users)
-
-
-def restricts_everyone(windows: Iterable[EnrollmentWindowLike]) -> bool:
-    listed = list(windows)
-    return (
-        bool(listed)
-        and not EnrollmentPolicy.for_actor(listed, is_configured_user=False).can_enroll
-    )
-
-
-@dataclass(frozen=True)
-class EnrollmentPolicy:
-    """What one actor may do across the enrollment windows open to them.
-
-    A window grants access for its period, so the windows an actor can use are
-    unioned. Selecting first and aggregating second is what keeps capacity from
-    being drawn from a window the actor is not allowed into.
-    """
-
-    windows: tuple[EnrollmentWindowLike, ...]
-
-    @classmethod
-    def for_actor(
-        cls, windows: Iterable[EnrollmentWindowLike], *, is_configured_user: bool
-    ) -> EnrollmentPolicy:
-        return cls(
-            tuple(
-                window
-                for window in windows
-                if is_configured_user or not window.restrict_to_configured_users
-            )
-        )
-
-    @classmethod
-    def for_anonymous(cls, windows: Iterable[EnrollmentWindowLike]) -> EnrollmentPolicy:
-        usable_windows = cls.for_actor(windows, is_configured_user=False).windows
-        return cls(
-            tuple(
-                window for window in usable_windows if window.allow_anonymous_enrollment
-            )
-        )
-
-    @property
-    def can_enroll(self) -> bool:
-        return bool(self.windows)
-
-    @property
-    def seating_window(self) -> EnrollmentWindowLike | None:
-        if not self.windows:
-            return None
-        return max(self.windows, key=_seating_rank)
-
-    @property
-    def percentage_slots(self) -> int:
-        return self.seating_window.percentage_slots if self.seating_window else 0
-
-    @property
-    def max_waitlist_sessions(self) -> int:
-        return max((window.max_waitlist_sessions for window in self.windows), default=0)
-
-    @property
-    def requires_slot_allowance(self) -> bool:
-        return bool(
-            self.seating_window and self.seating_window.restrict_to_configured_users
-        )
-
-    def effective_participants_limit(self, *, participants_limit: int) -> int:
-        if not self.windows:
-            return 0
-        return math.ceil(participants_limit * self.percentage_slots / 100)
-
-    def is_full(self, *, participants_limit: int, enrolled_count: int) -> bool:
-        if not self.windows:
-            return False
-        return enrolled_count >= self.effective_participants_limit(
-            participants_limit=participants_limit
-        )
-
-    def available_slots(self, *, participants_limit: int, enrolled_count: int) -> int:
-        limit = self.effective_participants_limit(participants_limit=participants_limit)
-        return max(0, limit - enrolled_count)
 
 
 def _now() -> datetime:
@@ -454,28 +363,6 @@ class WaitlistPromotionService:
         return len(lapsed)
 
 
-class NotificationsService:
-    """Read path for the navbar notifications dropdown + mark-as-read."""
-
-    def __init__(
-        self,
-        transaction: TransactionProtocol,
-        notifications: NotificationReadRepositoryProtocol,
-    ) -> None:
-        self._transaction = transaction
-        self._notifications = notifications
-
-    def get_navbar(self, user_id: int) -> NavbarNotificationsDTO:
-        return NavbarNotificationsDTO(
-            unread_count=self._notifications.unread_count(user_id),
-            items=self._notifications.list_recent(user_id, _NAVBAR_NOTIFICATION_LIMIT),
-        )
-
-    def mark_all_read(self, user_id: int) -> None:
-        with self._transaction.atomic():
-            self._notifications.mark_all_read(user_id)
-
-
 def build_anonymous_user(slug: str, name: str = "") -> UserData:
     # The single recipe for throwaway ANONYMOUS accounts (code-based
     # self-enrollment, +N headcount guests); only the slug/name vary.
@@ -741,12 +628,11 @@ def _refresh_user_config_from_api(
 
 def _create_user_config_from_api(
     *,
-    enrollment_config: EnrollmentConfigDTO,
+    enrollment_config: HasPk,
     user_email: str,
     ticket_api: TicketAPIProtocol,
     enrollment_config_repo: EnrollmentConfigRepositoryProtocol,
 ) -> UserEnrollmentConfigDTO | None:
-
     try:
         membership_count = ticket_api.fetch_membership_count(user_email)
     except MembershipAPIError:
@@ -766,10 +652,9 @@ def _create_user_config_from_api(
 
 def get_or_create_user_enrollment_config(
     *,
-    enrollment_config: EnrollmentConfigDTO,
+    enrollment_config: HasPk,
     user_email: str,
     ticket_api: TicketAPIProtocol,
-    check_interval_minutes: int,
     existing_user_config: UserEnrollmentConfigDTO | None,
     enrollment_config_repo: EnrollmentConfigRepositoryProtocol,
 ) -> UserEnrollmentConfigDTO | None:
@@ -778,7 +663,7 @@ def get_or_create_user_enrollment_config(
             return existing_user_config
 
         time_threshold = datetime.now(tz=UTC) - timedelta(
-            minutes=check_interval_minutes
+            minutes=MEMBERSHIP_CHECK_INTERVAL_MINUTES
         )
 
         if (
@@ -801,52 +686,103 @@ def get_or_create_user_enrollment_config(
     )
 
 
+def window_slots(
+    *,
+    window: HasPk,
+    user_email: str,
+    ticket_api: TicketAPIProtocol,
+    enrollment_config_repo: EnrollmentConfigRepositoryProtocol,
+) -> VirtualEnrollmentConfig:
+    """Sum what one window grants this person, asking the ticket API if it must.
+
+    Returns:
+        The slots this window grants, user and domain counted apart.
+    """
+    slots = VirtualEnrollmentConfig()
+    existing_user_config = enrollment_config_repo.read_user_config(window, user_email)
+    if api_user_config := get_or_create_user_enrollment_config(
+        enrollment_config=window,
+        user_email=user_email,
+        ticket_api=ticket_api,
+        existing_user_config=existing_user_config,
+        enrollment_config_repo=enrollment_config_repo,
+    ):
+        slots.user_slots += api_user_config.allowed_slots
+    elif existing_user_config:
+        slots.user_slots += existing_user_config.allowed_slots
+
+    email_domain = user_email.split("@")[1] if "@" in user_email else ""
+    if email_domain and (
+        domain_config := enrollment_config_repo.read_domain_config(window, email_domain)
+    ):
+        slots.domain_slots += domain_config.allowed_slots_per_user
+        if domain_config.allowed_slots_per_user:
+            slots.domain = email_domain
+    return slots
+
+
+def sum_window_slots(
+    *,
+    event: EventDTO,
+    windows: Sequence[HasPk],
+    user_email: str,
+    enrollment_config_repo: EnrollmentConfigRepositoryProtocol,
+    ticket_api_resolver: TicketApiResolverProtocol,
+) -> VirtualEnrollmentConfig | None:
+    """Add up what these windows grant this person.
+
+    Returns:
+        The combined allowance, or None when it grants nothing at all.
+    """
+    # An event with no window to sum never touches the integrations table, and
+    # with nothing to sum it has no virtual config either.
+    if not windows:
+        return None
+    ticket_api = ticket_api_resolver.resolve(
+        event_id=event.pk, sphere_id=event.sphere_id
+    )
+    virtual_config = VirtualEnrollmentConfig()
+    for window in windows:
+        slots = window_slots(
+            window=window,
+            user_email=user_email,
+            ticket_api=ticket_api,
+            enrollment_config_repo=enrollment_config_repo,
+        )
+        virtual_config.user_slots += slots.user_slots
+        virtual_config.domain_slots += slots.domain_slots
+        virtual_config.domain = virtual_config.domain or slots.domain
+
+    # A row granting nothing is not access: the page would otherwise offer
+    # "you can enroll up to 0 people" instead of naming the missing passes.
+    return (
+        virtual_config
+        if (virtual_config.allowed_slots or virtual_config.domain)
+        else None
+    )
+
+
 def get_user_enrollment_config(
     *,
     event: EventDTO,
     user_email: str,
     enrollment_config_repo: EnrollmentConfigRepositoryProtocol,
-    ticket_api: TicketAPIProtocol,
-    check_interval_minutes: int,
+    ticket_api_resolver: TicketApiResolverProtocol,
 ) -> VirtualEnrollmentConfig | None:
-    virtual_config = VirtualEnrollmentConfig()
+    """Sum what the windows open right now grant this person.
 
+    Returns:
+        The allowance the enroll paths spend, or None when there is none.
+    """
     now = datetime.now(tz=UTC)
-    for config in enrollment_config_repo.read_list(
-        event.pk, max_start_time=now, min_end_time=now
-    ):
-        existing_user_config = enrollment_config_repo.read_user_config(
-            config, user_email
-        )
-        if api_user_config := get_or_create_user_enrollment_config(
-            enrollment_config=config,
-            user_email=user_email,
-            ticket_api=ticket_api,
-            check_interval_minutes=check_interval_minutes,
-            existing_user_config=existing_user_config,
-            enrollment_config_repo=enrollment_config_repo,
-        ):
-            virtual_config.allowed_slots += api_user_config.allowed_slots
-            virtual_config.has_user_config = True
-        elif existing_user_config:
-            virtual_config.allowed_slots += existing_user_config.allowed_slots
-            virtual_config.has_user_config = True
-
-        email_domain = (
-            user_email.split("@")[1] if (user_email and "@" in user_email) else ""
-        )
-        if email_domain and (
-            domain_config := enrollment_config_repo.read_domain_config(
-                config, email_domain
-            )
-        ):
-            virtual_config.allowed_slots += domain_config.allowed_slots_per_user
-            virtual_config.has_domain_config = True
-
-    return (
-        virtual_config
-        if (virtual_config.has_user_config or virtual_config.has_domain_config)
-        else None
+    return sum_window_slots(
+        event=event,
+        windows=enrollment_config_repo.read_list(
+            event.pk, max_start_time=now, min_end_time=now
+        ),
+        user_email=user_email,
+        enrollment_config_repo=enrollment_config_repo,
+        ticket_api_resolver=ticket_api_resolver,
     )
 
 
@@ -900,19 +836,15 @@ def get_vc_available_slots(
 
 class EnrollmentService(EnrollmentServiceProtocol):
     def __init__(
-        self,
-        *,
-        transaction: TransactionProtocol,
-        repos: EnrollmentRepos,
-        membership_check_interval: int,
+        self, *, transaction: TransactionProtocol, repos: EnrollmentRepos
     ) -> None:
         self._transaction = transaction
         self._users = repos.users
         self._anonymous_users = repos.anonymous_users
         self._enrollment_configs = repos.enrollment_configs
         self._participations = repos.participations
-        self._ticket_api = repos.ticket_api
-        self._membership_check_interval = membership_check_interval
+        self._windows = repos.windows
+        self._ticket_api_resolver = repos.ticket_api_resolver
 
     def read_viewer(self, slug: str) -> UserDTO:
         return self._users.read(slug)
@@ -927,8 +859,7 @@ class EnrollmentService(EnrollmentServiceProtocol):
             event=event,
             user_email=user_email,
             enrollment_config_repo=self._enrollment_configs,
-            ticket_api=self._ticket_api,
-            check_interval_minutes=self._membership_check_interval,
+            ticket_api_resolver=self._ticket_api_resolver,
         )
 
     def has_slot_access(self, *, event: EventDTO, user_email: str) -> bool:
@@ -938,6 +869,51 @@ class EnrollmentService(EnrollmentServiceProtocol):
             return False
         config = self.virtual_config(event=event, user_email=user_email)
         return bool(config and config.allowed_slots)
+
+    def access(
+        self, *, event: EventDTO, viewer_slug: str | None
+    ) -> EnrollmentAccessDTO:
+        windows = self._windows.list_for_event(event.pk)
+        return viewer_access(
+            windows=windows,
+            configured_window_ids=self._windows_holding_passes(
+                event=event, windows=windows, viewer_slug=viewer_slug
+            ),
+            now=_now(),
+        )
+
+    def _windows_holding_passes(
+        self,
+        *,
+        event: EventDTO,
+        windows: list[EnrollmentWindowDTO],
+        viewer_slug: str | None,
+    ) -> frozenset[int]:
+        # A pass is a fact about a person and a window, not about the clock:
+        # asked window by window, someone holding early access is told their
+        # own date before that window opens rather than the general one.
+        restricted = [
+            window for window in windows if window.restrict_to_configured_users
+        ]
+        # Only a restricted window makes the answer matter, and reading it
+        # costs a membership-API round trip on a miss.
+        if viewer_slug is None or not restricted:
+            return frozenset()
+        if not (user_email := self.read_viewer(viewer_slug).email):
+            return frozenset()
+        ticket_api = self._ticket_api_resolver.resolve(
+            event_id=event.pk, sphere_id=event.sphere_id
+        )
+        return frozenset(
+            window.pk
+            for window in restricted
+            if window_slots(
+                window=window,
+                user_email=user_email,
+                ticket_api=ticket_api,
+                enrollment_config_repo=self._enrollment_configs,
+            ).allowed_slots
+        )
 
     def can_enroll_users(
         self,

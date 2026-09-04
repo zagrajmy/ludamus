@@ -37,7 +37,6 @@ if TYPE_CHECKING:
         AnonymousEnrollmentServiceProtocol,
         EnrollmentServiceProtocol,
         EnrollmentSettingsServiceProtocol,
-        NotificationsServiceProtocol,
         WaitlistPromotionServiceProtocol,
     )
     from ludamus.pacts.errata import ErrataServiceProtocol
@@ -49,12 +48,15 @@ if TYPE_CHECKING:
     )
     from ludamus.pacts.event_settings import EventSettingsServiceProtocol
     from ludamus.pacts.guild import GuildServiceProtocol
+    from ludamus.pacts.konwencik import KonwencikExportServiceProtocol
+    from ludamus.pacts.maps import EventMapsServiceProtocol
     from ludamus.pacts.multiverse import (
         AnnouncementsServiceProtocol,
         ConnectionsServiceProtocol,
         SitesServiceProtocol,
         SpherePanelServiceProtocol,
     )
+    from ludamus.pacts.notifications import NotificationsServiceProtocol
     from ludamus.pacts.panel import (
         FacilitatorPanelServiceProtocol,
         ProposalPanelServiceProtocol,
@@ -183,6 +185,8 @@ class ServicesProtocol(Protocol):
     @property
     def space_tree(self) -> SpaceTreeServiceProtocol: ...
     @property
+    def event_maps(self) -> EventMapsServiceProtocol: ...
+    @property
     def shadowban(self) -> ShadowbanServiceProtocol: ...
     @property
     def event_bans(self) -> EventBanServiceProtocol: ...
@@ -198,6 +202,8 @@ class ServicesProtocol(Protocol):
     def discounts(self) -> DiscountsServiceProtocol: ...
     @property
     def discounts_export(self) -> DiscountsExportServiceProtocol: ...
+    @property
+    def konwencik_export(self) -> KonwencikExportServiceProtocol: ...
     @property
     def propose_session(self) -> ProposeSessionServiceProtocol: ...
     @property

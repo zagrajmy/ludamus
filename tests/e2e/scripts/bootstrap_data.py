@@ -31,9 +31,11 @@ from django.utils.timezone import get_current_timezone
 
 from ludamus.links.db.django.models import (
     AgendaItem,
+    Connection,
     Encounter,
     EnrollmentConfig,
     Event,
+    EventIntegration,
     EventProposalSettings,
     Notification,
     ProposalCategory,
@@ -49,6 +51,7 @@ from ludamus.links.db.django.models import (
     User,
 )
 from ludamus.pacts import SessionStatus
+from ludamus.pacts.chronology import IntegrationImplementationId, IntegrationKind
 from ludamus.pacts.legacy import NotificationKind, SessionParticipationStatus
 
 
@@ -183,6 +186,7 @@ def _create_session(
     start_offset: timedelta,
     duration_hours: int,
     participants_limit: int = 24,
+    min_age: int = 10,
 ) -> Session:
     session = Session.objects.create(
         event=event,
@@ -191,7 +195,7 @@ def _create_session(
         slug=slug,
         description=description,
         participants_limit=participants_limit,
-        min_age=10,
+        min_age=min_age,
     )
     AgendaItem.objects.create(
         space=space,
@@ -258,6 +262,45 @@ def _create_test_user() -> User:
     )
 
     return user
+
+
+def _create_notifications_scenario() -> None:
+    """Seed a dedicated user with a content and a destination notification.
+
+    Isolated from the shared e2e-tester so the notifications spec can open the
+    overlay and mark rows read without disturbing other specs' unread counts.
+    """
+    user = User.objects.create_user(
+        username="e2e-notified",
+        email="e2e-notified@test.local",
+        password="e2e-notified-123",
+        name="E2E Notified",
+        slug="e2e-notified",
+    )
+    base_url = os.environ.get("E2E_BASE_URL", "http://localhost:8000")
+    parsed = urlparse(base_url)
+    _write_storage_state(
+        user,
+        domain=parsed.hostname or "localhost",
+        path=REPO_ROOT / "tests" / "e2e" / ".auth-state-notified.json",
+    )
+    # Destination notification: clicking it navigates to /events/.
+    Notification.objects.create(
+        recipient=user,
+        kind=NotificationKind.WAITLIST_PROMOTED.value,
+        title="You're in: a spot opened in Dragons & Dungeons",
+        body="A confirmed spot opened up and you have been enrolled automatically.",
+        url="/events/",
+    )
+    # Content notification (no url): read in the overlay, never a navigation.
+    # F3 announcements produce these for real.
+    Notification.objects.create(
+        recipient=user,
+        kind=NotificationKind.WAITLIST_PROMOTED.value,
+        title="Autumn Open: doors to hall B open at 9:00",
+        body="Bring your badge. Coffee is by the entrance.",
+        url="",
+    )
 
 
 def _create_promotion_scenario(sphere: Sphere, *, superuser: User) -> None:
@@ -337,18 +380,41 @@ def _create_promotion_scenario(sphere: Sphere, *, superuser: User) -> None:
     )
 
 
-def _schedule(event: Event, space: Space, session: Session, *, hour: int) -> AgendaItem:
-    return AgendaItem.objects.create(
-        space=space,
-        session=session,
-        session_confirmed=True,
-        start_time=event.start_time + timedelta(hours=hour),
-        end_time=event.start_time + timedelta(hours=hour + 2),
-    )
-
-
 def _seat(session: Session, user: User, status: SessionParticipationStatus) -> None:
     SessionParticipation.objects.create(session=session, user=user, status=status.value)
+
+
+# The enrollment scenarios below say "an hour into the event" and mean a
+# two-hour slot; they differ in their windows and their rosters, never in how a
+# session reaches the schedule, and none of them gates on age.
+def _scheduled_session(
+    event: Event,
+    space: Space,
+    *,
+    title: str,
+    slug: str,
+    presenter: str,
+    description: str,
+    seats: int,
+    hour: int,
+) -> Session:
+    """Create a session and give it a place and an hour.
+
+    Returns:
+        The scheduled session.
+    """
+    return _create_session(
+        event,
+        space,
+        title=title,
+        slug=slug,
+        presenter=presenter,
+        description=description,
+        start_offset=timedelta(hours=hour),
+        duration_hours=2,
+        participants_limit=seats,
+        min_age=0,
+    )
 
 
 # playwright.config.ts allows two retries on CI, so three attempts in all.
@@ -376,28 +442,28 @@ def _create_closed_enrollment_scenario(sphere: Sphere, *, tester: User) -> None:
     # restore what it consumes. One session per possible attempt (CI allows two
     # retries) keeps a retry testing the feature rather than the leftovers.
     for attempt in range(1, _E2E_ATTEMPTS + 1):
-        held = Session.objects.create(
-            event=event,
-            display_name="Closed GM",
+        held = _scheduled_session(
+            event,
+            space,
             title=f"Late Resignation Demo {attempt}",
             slug=f"late-resignation-demo-{attempt}",
+            presenter="Closed GM",
             description="A session whose enrollment window has already closed.",
-            participants_limit=5,
-            min_age=0,
+            seats=5,
+            hour=attempt - 1,
         )
-        _schedule(event, space, held, hour=attempt - 1)
         _seat(held, tester, SessionParticipationStatus.CONFIRMED)
 
-        waiting = Session.objects.create(
-            event=event,
-            display_name="Closed GM",
+        waiting = _scheduled_session(
+            event,
+            space,
             title=f"Late Waiting List Demo {attempt}",
             slug=f"late-waiting-list-demo-{attempt}",
+            presenter="Closed GM",
             description="A waiting place left over after the window shut.",
-            participants_limit=1,
-            min_age=0,
+            seats=1,
+            hour=_E2E_ATTEMPTS + attempt,
         )
-        _schedule(event, space, waiting, hour=_E2E_ATTEMPTS + attempt)
         _seat(waiting, tester, SessionParticipationStatus.WAITING)
 
 
@@ -417,29 +483,29 @@ def _create_past_enrollment_scenario(sphere: Sphere, *, tester: User) -> None:
     venue = _create_venue(event, name="Past Venue", slug="past-venue")
     area = _create_area(venue, name="Past Area", slug="past-area")
     space = _create_space(area, name="Past Room", slug="past-room", capacity=5)
-    session = Session.objects.create(
-        event=event,
-        display_name="Past GM",
+    session = _scheduled_session(
+        event,
+        space,
         title="Finished Session Demo",
         slug="finished-session-demo",
+        presenter="Past GM",
         description="A session the tester attended.",
-        participants_limit=5,
-        min_age=0,
+        seats=5,
+        hour=0,
     )
-    _schedule(event, space, session, hour=0)
     _seat(session, tester, SessionParticipationStatus.CONFIRMED)
 
     # The waiting variant of the same banner, which is otherwise unreachable.
-    never_promoted = Session.objects.create(
-        event=event,
-        display_name="Past GM",
+    never_promoted = _scheduled_session(
+        event,
+        space,
         title="Finished Waiting Demo",
         slug="finished-waiting-demo",
+        presenter="Past GM",
         description="A session the tester never got into.",
-        participants_limit=1,
-        min_age=0,
+        seats=1,
+        hour=3,
     )
-    _schedule(event, space, never_promoted, hour=3)
     _seat(never_promoted, tester, SessionParticipationStatus.WAITING)
 
 
@@ -459,27 +525,27 @@ def _create_enroll_states_scenario(sphere: Sphere) -> None:
     venue = _create_venue(event, name="States Venue", slug="states-venue")
     area = _create_area(venue, name="States Area", slug="states-area")
     space = _create_space(area, name="States Room", slug="states-room", capacity=5)
-    free = Session.objects.create(
-        event=event,
-        display_name="States GM",
+    _scheduled_session(
+        event,
+        space,
         title="Seat Available Demo",
         slug="seat-available-demo",
+        presenter="States GM",
         description="A session with room left.",
-        participants_limit=5,
-        min_age=0,
+        seats=5,
+        hour=0,
     )
-    _schedule(event, space, free, hour=0)
 
-    full = Session.objects.create(
-        event=event,
-        display_name="States GM",
+    full = _scheduled_session(
+        event,
+        space,
         title="Waiting List Only Demo",
         slug="waiting-list-only-demo",
+        presenter="States GM",
         description="A session with every seat taken.",
-        participants_limit=1,
-        min_age=0,
+        seats=1,
+        hour=3,
     )
-    _schedule(event, space, full, hour=3)
     _seat(
         full,
         User.objects.create_user(
@@ -493,6 +559,84 @@ def _create_enroll_states_scenario(sphere: Sphere) -> None:
     )
     # The seat is taken by its own user, never the tester, so both sessions
     # keep offering the tester a way in however often the spec runs.
+
+
+# An early window nobody reading the page is in: it seats half the room and it
+# is restricted to configured users, so a visitor is turned away by a window
+# that is nonetheless the one deciding how many seats exist. Its three sessions
+# are the three things that label can say — the cap, what is left of it, and
+# nothing left. Driven by event-filters.spec.ts.
+def _create_early_access_scenario(sphere: Sphere) -> None:
+    event = _create_event(
+        sphere,
+        name="Early Access Convention",
+        slug="early-access",
+        description="Half the seats, for pass holders only.",
+        start_offset=timedelta(days=30),
+        duration_hours=8,
+        publication_offset=timedelta(days=1),
+    )
+    now = timezone.now()
+    EnrollmentConfig.objects.create(
+        event=event,
+        start_time=now - timedelta(days=1),
+        end_time=now + timedelta(days=7),
+        percentage_slots=50,
+        banner_text="Pass holders enroll first, for half the seats.",
+        restrict_to_configured_users=True,
+    )
+    venue = _create_venue(event, name="Early Venue", slug="early-venue")
+    area = _create_area(venue, name="Early Area", slug="early-area")
+    space = _create_space(area, name="Early Room", slug="early-room", capacity=5)
+    # Odd limits, so half of one is a number neither the room nor the window
+    # could have produced alone: 5 seats at 50% leaves 3.
+    _scheduled_session(
+        event,
+        space,
+        title="Early Access Demo",
+        slug="early-access-demo",
+        presenter="Early GM",
+        description="A session only pass holders can enroll in yet.",
+        seats=5,
+        hour=0,
+    )
+    holder = User.objects.create_user(
+        username="e2e-early-seat-taker",
+        email="e2e-early-seat-taker@test.local",
+        password="e2e-early-seat-taker-123",
+        name="E2E Early Seat Taker",
+        slug="e2e-early-seat-taker",
+    )
+    # One seat gone out of three, and the last seat of one — the reader is
+    # still outside the window either way, so both stay in the muted type.
+    _seat(
+        _scheduled_session(
+            event,
+            space,
+            title="Early Access Partly Taken Demo",
+            slug="early-access-partly-taken-demo",
+            presenter="Early GM",
+            description="A session whose early seats are going.",
+            seats=5,
+            hour=3,
+        ),
+        holder,
+        SessionParticipationStatus.CONFIRMED,
+    )
+    _seat(
+        _scheduled_session(
+            event,
+            space,
+            title="Early Access Nothing Left Demo",
+            slug="early-access-nothing-left-demo",
+            presenter="Early GM",
+            description="A session whose early seats are gone.",
+            seats=2,
+            hour=6,
+        ),
+        holder,
+        SessionParticipationStatus.CONFIRMED,
+    )
 
 
 # A public select field that allows custom answers, for the event-filter e2e:
@@ -592,6 +736,22 @@ def _create_panel_lab_event(sphere: Sphere) -> Event:
         max_participants_limit=6,
         durations=["PT1H"],
     )
+    # An export integration so the integrations list renders the two actions
+    # only this implementation carries. The secret stays empty: the spec reads
+    # the row and opens the settings page, and never runs an export, which
+    # would need real Google credentials.
+    EventIntegration.objects.create(
+        event=event,
+        kind=IntegrationKind.EXPORT.value,
+        implementation=IntegrationImplementationId.KONWENCIK_SHEET_PUSHER.value,
+        connection=Connection.objects.create(
+            sphere=event.sphere, display_name="Frostfire Sheets"
+        ),
+        display_name="Konwencik agenda",
+        config_json=json.dumps(
+            {"spreadsheet_id": "frostfire-sheet", "tab": "harmonogram"}
+        ),
+    )
     return event
 
 
@@ -637,6 +797,58 @@ def _create_cover_lab_event(sphere: Sphere) -> Event:
         duration_hours=4,
         publication_offset=timedelta(days=2),
     )
+
+
+def _create_accept_lab_event(sphere: Sphere) -> Event:
+    # One bookable room, one slot: the accept page has nothing to ask, so it
+    # carries both answers and has to name them instead of asking.
+    event = _create_event(
+        sphere,
+        name="Solo Room Convention",
+        slug="accept-lab",
+        description="One room, one slot — the scheduling decision makes itself.",
+        start_offset=timedelta(days=20),
+        duration_hours=8,
+        publication_offset=timedelta(days=2),
+        proposals_open=True,
+    )
+    venue = _create_venue(event, name="Garden Pavilion", slug="garden-pavilion")
+    _create_space(venue, name="The Only Room", slug="the-only-room", capacity=8)
+    TimeSlot.objects.create(
+        event=event,
+        start_time=event.start_time + timedelta(hours=1),
+        end_time=event.start_time + timedelta(hours=3),
+    )
+    category = ProposalCategory.objects.create(
+        event=event,
+        name="Showcase",
+        slug="showcase",
+        min_participants_limit=1,
+        max_participants_limit=8,
+        durations=["PT2H"],
+    )
+    # Two proposals, so the spec that reads the page and the spec that accepts
+    # one never contend for the same pending row — including on a retry, which
+    # re-runs a serial block from the top.
+    for title, slug in (
+        ("Solo Showcase", "solo-showcase"),
+        ("Solo Encore", "solo-encore"),
+    ):
+        Session.objects.create(
+            event=event,
+            presenter=User.objects.get(username="e2e-tester"),
+            display_name="E2E Tester",
+            contact_email="e2e@test.local",
+            category=category,
+            title=title,
+            slug=slug,
+            description="A proposal with nowhere else to go.",
+            duration="PT2H",
+            participants_limit=4,
+            min_age=0,
+            status=SessionStatus.PENDING,
+        )
+    return event
 
 
 def _create_anon_proposals_event(sphere: Sphere) -> Event:
@@ -719,6 +931,10 @@ def main() -> None:
     # Full session with a dedicated waiter, for the promotion e2e.
     _create_promotion_scenario(sphere, superuser=superuser)
 
+    # A dedicated user with content + destination notifications, for the
+    # notification overlay + list e2e.
+    _create_notifications_scenario()
+
     # Seats held after the enrollment window shut, for the late-resignation e2e.
     _create_closed_enrollment_scenario(sphere, tester=tester)
 
@@ -727,6 +943,9 @@ def main() -> None:
 
     # Both ways in on an open window, for the enroll-states e2e.
     _create_enroll_states_scenario(sphere)
+
+    # A half-seating window the reader is not in, for the seat-count e2e.
+    _create_early_access_scenario(sphere)
 
     # Staff manager user for panel e2e tests (logs in via /admin/)
     manager = User.objects.create_user(
@@ -857,6 +1076,9 @@ def main() -> None:
         # Drop-in: no sign-up, so the specs have a session the enrollment
         # filter must exclude and whose modal shows no Participants tab.
         participants_limit=0,
+        # Open to everyone, so the age filter has an unrestricted session
+        # to keep visible below its siblings' 10+ requirement.
+        min_age=0,
     )
 
     neon_session = _create_session(
@@ -942,6 +1164,7 @@ def main() -> None:
     _create_panel_crud_event(sphere)
     _create_cover_lab_event(sphere)
     _create_anon_proposals_event(sphere)
+    _create_accept_lab_event(sphere)
 
     seed_module = import_module("kapitularz_print_seed")
     seed_module.seed_kapitularz_print_event(sphere)

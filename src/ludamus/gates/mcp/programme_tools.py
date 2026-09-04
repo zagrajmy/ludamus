@@ -1,15 +1,25 @@
 from __future__ import annotations
 
 import json
-from typing import TYPE_CHECKING
+from datetime import datetime
+from typing import TYPE_CHECKING, Literal
 
 from django.utils.text import slugify
 from pydantic import BaseModel, Field, TypeAdapter, field_validator
 
-from ludamus.gates.mcp.inputs import AwareDatetimeRange, EmptyInput, NonBlankName
-from ludamus.gates.mcp.organizer_context import actor_sphere, token_event
+from ludamus.gates.mcp.inputs import (
+    AwareDatetimeRange,
+    EmptyInput,
+    EventIdInput,
+    ImageUploadInput,
+    NonBlankName,
+    require_aware_datetime,
+)
+from ludamus.gates.mcp.map_tools import map_tools
+from ludamus.gates.mcp.organizer_context import actor_sphere, require_event, token_event
 from ludamus.gates.mcp.protocol import JsonDict
 from ludamus.gates.mcp.registry import Tool, ToolCall, ToolError
+from ludamus.gates.uploads import validate_uploaded_logo, validate_uploaded_raster
 from ludamus.pacts import NotFoundError
 from ludamus.pacts.chronology import SessionPlacement
 from ludamus.pacts.durations import normalize_duration
@@ -39,6 +49,7 @@ if TYPE_CHECKING:
     from collections.abc import Callable, Sequence
 
     from ludamus.gates.mcp.registry import ToolProtocol
+    from ludamus.pacts.legacy import EventUpdateData
     from ludamus.pacts.mcp import ActorContext
     from ludamus.pacts.services import ServicesProtocol
 
@@ -51,20 +62,10 @@ _TRACK_LIST = TypeAdapter(list["_TrackListItem"])
 _JSON_OBJECT: TypeAdapter[JsonDict] = TypeAdapter(JsonDict)
 
 
-class _EventIdInput(BaseModel):
-    event_id: int = Field(description="Event primary key (see list_events / get_event)")
-
-
-class _ListSpacesInput(_EventIdInput):
+class _ListSpacesInput(EventIdInput):
     include_internal: bool = Field(
         default=False,
         description="Include venue and area nodes, not only assignable leaves",
-    )
-
-
-def _require_event(call: ToolCall[_EventIdInput]) -> EventDTO:
-    return call.services.events.require_in_sphere(
-        sphere_id=actor_sphere(call.actor), event_id=call.data.event_id
     )
 
 
@@ -124,7 +125,9 @@ class OrganizerListSpacesTool(Tool[_ListSpacesInput]):
 
     @staticmethod
     def handle(call: ToolCall[_ListSpacesInput]) -> str:
-        event = _require_event(call)
+        event = require_event(
+            services=call.services, actor=call.actor, event_id=call.data.event_id
+        )
         spaces = _flatten_spaces(
             call.services.space_tree.list_tree(event.pk),
             include_internal=call.data.include_internal,
@@ -132,15 +135,21 @@ class OrganizerListSpacesTool(Tool[_ListSpacesInput]):
         return _SPACE_LEAF_LIST.dump_json(spaces, indent=2).decode()
 
 
-class OrganizerListTimeSlotsTool(Tool[_EventIdInput]):
+class OrganizerListTimeSlotsTool(Tool[EventIdInput]):
     name = "list_time_slots"
-    description = "List time slots (day windows) for an event."
+    description = (
+        "List an event's time slots: the day windows sessions can be placed in. "
+        "Returns each slot's pk and aware start/end times. Read-only; works for "
+        "any event in this token's sphere."
+    )
     scope = ToolScope.ORGANIZER
-    input_model = _EventIdInput
+    input_model = EventIdInput
 
     @staticmethod
-    def handle(call: ToolCall[_EventIdInput]) -> str:
-        event = _require_event(call)
+    def handle(call: ToolCall[EventIdInput]) -> str:
+        event = require_event(
+            services=call.services, actor=call.actor, event_id=call.data.event_id
+        )
         slots = call.services.panel_time_slots.list_for_event(event.pk)
         return _TIME_SLOT_LIST.dump_json(slots, indent=2).decode()
 
@@ -149,15 +158,21 @@ class _TrackListItem(TrackListItemDTO):
     space_ids: list[int]
 
 
-class OrganizerListTracksTool(Tool[_EventIdInput]):
+class OrganizerListTracksTool(Tool[EventIdInput]):
     name = "list_tracks"
-    description = "List programme tracks (bloki) for an event."
+    description = (
+        "List an event's programme tracks (bloki) with pk, name, slug, "
+        "visibility, space_ids, and space/manager names. Track pks feed "
+        "create_session's track_ids."
+    )
     scope = ToolScope.ORGANIZER
-    input_model = _EventIdInput
+    input_model = EventIdInput
 
     @staticmethod
-    def handle(call: ToolCall[_EventIdInput]) -> str:
-        event_pk = _require_event(call).pk
+    def handle(call: ToolCall[EventIdInput]) -> str:
+        event_pk = require_event(
+            services=call.services, actor=call.actor, event_id=call.data.event_id
+        ).pk
         space_pks = call.services.tracks_panel.list_space_pks_by_event(event_pk)
         tracks = [
             _TrackListItem(
@@ -174,43 +189,62 @@ class OrganizerListTracksTool(Tool[_EventIdInput]):
         return _TRACK_LIST.dump_json(tracks, indent=2).decode()
 
 
-class OrganizerListProposalCategoriesTool(Tool[_EventIdInput]):
+class OrganizerListProposalCategoriesTool(Tool[EventIdInput]):
     name = "list_proposal_categories"
-    description = "List proposal categories for an event in this token's sphere."
+    description = (
+        "List an event's proposal categories (rodzaje atrakcji, e.g. talk, RPG "
+        "session, workshop) with their pks. Every session needs one as "
+        "category_id."
+    )
     scope = ToolScope.ORGANIZER
-    input_model = _EventIdInput
+    input_model = EventIdInput
 
     @staticmethod
-    def handle(call: ToolCall[_EventIdInput]) -> str:
-        event = _require_event(call)
+    def handle(call: ToolCall[EventIdInput]) -> str:
+        event = require_event(
+            services=call.services, actor=call.actor, event_id=call.data.event_id
+        )
         context = call.services.proposal_categories.get_page_context(event.pk)
         return _PROPOSAL_CATEGORY_LIST.dump_json(context.categories, indent=2).decode()
 
 
-class OrganizerListSessionsTool(Tool[_EventIdInput]):
+class OrganizerListSessionsTool(Tool[EventIdInput]):
     name = "list_sessions"
-    description = "List proposals/sessions for an event (for idempotent retries)."
+    description = (
+        "List an event's proposals and sessions with pk, title, status, "
+        "category, and whether each is scheduled. Use it to find session pks "
+        "for assign_session and to see what already exists before retrying an "
+        "import."
+    )
     scope = ToolScope.ORGANIZER
-    input_model = _EventIdInput
+    input_model = EventIdInput
 
     @staticmethod
-    def handle(call: ToolCall[_EventIdInput]) -> str:
-        event = _require_event(call)
+    def handle(call: ToolCall[EventIdInput]) -> str:
+        event = require_event(
+            services=call.services, actor=call.actor, event_id=call.data.event_id
+        )
         context = call.services.proposal_panel.list_context(
             event_id=event.pk, query=ProposalListQuery()
         )
         return _SESSION_LIST.dump_json(context.proposals, indent=2).decode()
 
 
-class OrganizerListFacilitatorsTool(Tool[_EventIdInput]):
+class OrganizerListFacilitatorsTool(Tool[EventIdInput]):
     name = "list_facilitators"
-    description = "List facilitators (twórcy programu) for an event."
+    description = (
+        "List an event's facilitators (twórcy programu) with pk and display "
+        "name. Facilitator pks feed create_session's facilitator_ids; use "
+        "find_or_create_facilitator for a name that is missing."
+    )
     scope = ToolScope.ORGANIZER
-    input_model = _EventIdInput
+    input_model = EventIdInput
 
     @staticmethod
-    def handle(call: ToolCall[_EventIdInput]) -> str:
-        event = _require_event(call)
+    def handle(call: ToolCall[EventIdInput]) -> str:
+        event = require_event(
+            services=call.services, actor=call.actor, event_id=call.data.event_id
+        )
         context = call.services.facilitator_panel.list_context(
             event_id=event.pk, query=FacilitatorListQuery()
         )
@@ -218,13 +252,17 @@ class OrganizerListFacilitatorsTool(Tool[_EventIdInput]):
 
 
 class _CreateSpaceInput(BaseModel):
-    name: NonBlankName
+    name: NonBlankName = Field(description="Space name as shown in the timetable")
     parent_id: int | None = Field(
         default=None, description="Null creates a venue root; otherwise nest under it"
     )
-    capacity: int | None = Field(default=None, ge=0)
-    description: str = ""
-    location: str = ""
+    capacity: int | None = Field(
+        default=None, ge=0, description="Seat count; null leaves it unstated"
+    )
+    description: str = Field(default="", description="Free text shown to attendees")
+    location: str = Field(
+        default="", description="Where to find it (floor, building, address)"
+    )
 
 
 class OrganizerCreateSpaceTool(Tool[_CreateSpaceInput]):
@@ -257,7 +295,11 @@ class OrganizerCreateSpaceTool(Tool[_CreateSpaceInput]):
 
 class OrganizerCreateTimeSlotTool(Tool[AwareDatetimeRange]):
     name = "create_time_slot"
-    description = "Create a day time-slot window for this token's event."
+    description = (
+        "Create a time slot (a day window) in this token's event. The window "
+        "must start before it ends, lie inside the event dates, and not overlap "
+        "an existing slot; a rejection names which rule failed."
+    )
     scope = ToolScope.ORGANIZER
     input_model = AwareDatetimeRange
 
@@ -276,10 +318,25 @@ class OrganizerCreateTimeSlotTool(Tool[AwareDatetimeRange]):
 
 
 class _CreateTrackInput(BaseModel):
-    name: NonBlankName
-    is_public: bool = True
-    space_ids: list[int] = Field(default_factory=list)
-    manager_ids: list[int] = Field(default_factory=list)
+    name: NonBlankName = Field(
+        description=(
+            "Track name; names identify tracks, so a repeat returns the existing one"
+        )
+    )
+    is_public: bool = Field(
+        default=True, description="False hides the track from attendees"
+    )
+    space_ids: list[int] = Field(
+        default_factory=list,
+        description=(
+            "Spaces the track runs in; each must belong to this event "
+            "(see list_spaces)"
+        ),
+    )
+    manager_ids: list[int] = Field(
+        default_factory=list,
+        description="User ids who manage the track; each must belong to this sphere",
+    )
 
 
 class OrganizerCreateTrackTool(Tool[_CreateTrackInput]):
@@ -320,7 +377,11 @@ class _CreateProposalCategoryInput(BaseModel):
 
 class OrganizerCreateProposalCategoryTool(Tool[_CreateProposalCategoryInput]):
     name = "create_proposal_category"
-    description = "Create a proposal category (rodzaj atrakcji) for this token's event."
+    description = (
+        "Create a proposal category (rodzaj atrakcji) in this token's event and "
+        "return it with its pk. Check list_proposal_categories first so an "
+        "import does not add a category twice."
+    )
     scope = ToolScope.ORGANIZER
     input_model = _CreateProposalCategoryInput
 
@@ -338,7 +399,9 @@ class _FindOrCreateFacilitatorInput(BaseModel):
 class OrganizerFindOrCreateFacilitatorTool(Tool[_FindOrCreateFacilitatorInput]):
     name = "find_or_create_facilitator"
     description = (
-        "Find a facilitator by exact display name in this token's event, or create one."
+        "Return the facilitator with this exact display name in this token's "
+        "event, creating one when none exists. Safe to repeat; the returned pk "
+        "feeds create_session's facilitator_ids."
     )
     scope = ToolScope.ORGANIZER
     input_model = _FindOrCreateFacilitatorInput
@@ -421,9 +484,11 @@ class _CreateSessionInput(BaseModel):
             raise ValueError("source_row_id must be non-empty")
         return stripped
 
-    title: NonBlankName
-    category_id: int
-    description: str = ""
+    title: NonBlankName = Field(description="Session title as shown to attendees")
+    category_id: int = Field(
+        description="Proposal category pk (see list_proposal_categories)"
+    )
+    description: str = Field(default="", description="Programme text (Markdown)")
     duration: str = Field(
         default="", description="ISO-8601 duration, e.g. PT1H or PT45M"
     )
@@ -437,11 +502,28 @@ class _CreateSessionInput(BaseModel):
             raise ValueError("duration must be a positive ISO-8601 duration")
         return normalized
 
-    display_name: str = Field(default="", description="Defaults to title when empty")
-    facilitator_ids: list[int] = Field(default_factory=list)
-    track_ids: list[int] = Field(default_factory=list)
-    participants_limit: int = 0
-    min_age: int = 0
+    display_name: str | None = Field(
+        default=None,
+        description=(
+            "Host line shown under the title (e.g. presenter names); "
+            "empty string means no host line; omit to default to the title"
+        ),
+    )
+    facilitator_ids: list[int] = Field(
+        default_factory=list,
+        description=(
+            "Facilitator pks from list_facilitators / find_or_create_facilitator"
+        ),
+    )
+    track_ids: list[int] = Field(
+        default_factory=list, description="Track pks from list_tracks / create_track"
+    )
+    participants_limit: int = Field(
+        default=0, description="Seat cap for enrollment; 0 means no limit"
+    )
+    min_age: int = Field(
+        default=0, description="Minimum attendee age; 0 means no restriction"
+    )
 
 
 def _create_session(
@@ -458,7 +540,9 @@ def _create_session(
                     "event_id": event.pk,
                     "contact_email": "",
                     "description": data.description,
-                    "display_name": data.display_name or title,
+                    "display_name": (
+                        title if data.display_name is None else data.display_name
+                    ),
                     "duration": data.duration,
                     "min_age": data.min_age,
                     "participants_limit": data.participants_limit,
@@ -547,8 +631,10 @@ class OrganizerCreateSessionsTool(Tool[_CreateSessionsInput]):
 
 
 class _AssignSessionInput(AwareDatetimeRange):
-    session_id: int
-    space_id: int
+    session_id: int = Field(description="Session pk (see list_sessions)")
+    space_id: int = Field(
+        description="Leaf space pk (see list_spaces); must belong to this event"
+    )
 
 
 def _assign_session(
@@ -639,6 +725,218 @@ class OrganizerAssignSessionsTool(Tool[_AssignSessionsInput]):
         )
 
 
+class _UpdateEventInput(BaseModel):
+    description: str | None = Field(
+        default=None, description="New event description; omit to keep the current one"
+    )
+    start_time: datetime | None = Field(
+        default=None, description="New aware start time; omit to keep"
+    )
+    end_time: datetime | None = Field(
+        default=None, description="New aware end time; omit to keep"
+    )
+    publication_time: datetime | None = Field(
+        default=None, description="New aware publication time; omit to keep"
+    )
+    clear_publication_time: bool = Field(
+        default=False, description="Unset the publication time (hides the event)"
+    )
+
+    @field_validator("start_time", "end_time", "publication_time")
+    @classmethod
+    def _aware(cls, value: datetime | None) -> datetime | None:
+        return None if value is None else require_aware_datetime(value)
+
+
+class _SetEventImageInput(ImageUploadInput):
+    kind: Literal["cover", "logo"] = Field(
+        description=(
+            "cover: the event cover image (raster only, 1920×1080 16:9 works "
+            "best). logo: the printable-schedule logo (SVG allowed)."
+        )
+    )
+
+
+class _UpdateSessionInput(BaseModel):
+    pk: int = Field(description="Session primary key (see list_sessions)")
+    display_name: str = Field(
+        description="Host line shown under the title; empty string clears it"
+    )
+
+
+class OrganizerUpdateSessionTool(Tool[_UpdateSessionInput]):
+    name = "update_session"
+    description = (
+        "Set the host line of a session in this token's event. Facilitator "
+        "assignments, title, and schedule stay put."
+    )
+    scope = ToolScope.ORGANIZER
+    input_model = _UpdateSessionInput
+    audit_redacted_keys = frozenset({"display_name"})
+
+    @staticmethod
+    def handle(call: ToolCall[_UpdateSessionInput]) -> str:
+        event = token_event(services=call.services, actor=call.actor)
+        call.services.proposal_panel.set_session_display_name(
+            event_id=event.pk,
+            session_id=call.data.pk,
+            display_name=call.data.display_name,
+        )
+        session = call.services.proposal_panel.read_proposal(
+            event_id=event.pk, proposal_id=call.data.pk
+        )
+        return session.model_dump_json(indent=2)
+
+
+class _UpdateSpaceInput(BaseModel):
+    pk: int = Field(description="Space primary key (see list_spaces)")
+    name: NonBlankName | None = Field(
+        default=None, description="New name; omit to keep"
+    )
+    parent_id: int | Literal["root"] | None = Field(
+        default=None,
+        description=(
+            'New parent space id, or "root" to move to the top level; '
+            "omit to keep the current parent"
+        ),
+    )
+    capacity: int | None = Field(default=None, description="New capacity; omit to keep")
+    description: str | None = Field(
+        default=None, description="New description; omit to keep"
+    )
+    location: str | None = Field(default=None, description="New location; omit to keep")
+
+
+class OrganizerUpdateSpaceTool(Tool[_UpdateSpaceInput]):
+    name = "update_space"
+    description = (
+        "Rename, move, or edit a space in this token's event venue tree. "
+        "Only provided fields change; sessions assigned to the space stay put."
+    )
+    scope = ToolScope.ORGANIZER
+    input_model = _UpdateSpaceInput
+
+    @staticmethod
+    def handle(call: ToolCall[_UpdateSpaceInput]) -> str:
+        event = token_event(services=call.services, actor=call.actor)
+        current = call.services.space_tree.read(call.data.pk)
+        if current.event_id != event.pk:
+            raise NotFoundError
+        if call.data.parent_id == "root":
+            parent_id = None
+        elif call.data.parent_id is None:
+            parent_id = current.parent_id
+        else:
+            parent = call.services.space_tree.read(call.data.parent_id)
+            if parent.event_id != event.pk:
+                raise NotFoundError
+            parent_id = parent.pk
+        try:
+            space = call.services.space_tree.update(
+                pk=current.pk,
+                parent_id=parent_id,
+                data=SpaceInputDTO(
+                    name=call.data.name or current.name,
+                    capacity=(
+                        current.capacity
+                        if call.data.capacity is None
+                        else call.data.capacity
+                    ),
+                    description=(
+                        current.description
+                        if call.data.description is None
+                        else call.data.description
+                    ),
+                    location=(
+                        current.location
+                        if call.data.location is None
+                        else call.data.location
+                    ),
+                ),
+            )
+        except SpaceValidationError as error:
+            raise ToolError(str(error)) from error
+        return space.model_dump_json(indent=2)
+
+
+def _apply_event_update(
+    *, services: ServicesProtocol, actor: ActorContext, data: EventUpdateData
+) -> str:
+    event = token_event(services=services, actor=actor)
+    services.event_settings.update_general(
+        sphere_id=actor_sphere(actor), slug=event.slug, data=data
+    )
+    return token_event(services=services, actor=actor).model_dump_json(indent=2)
+
+
+class OrganizerUpdateEventTool(Tool[_UpdateEventInput]):
+    name = "update_event"
+    description = (
+        "Update the token event's description, start/end times, or publication "
+        "time. Only provided fields change."
+    )
+    scope = ToolScope.ORGANIZER
+    input_model = _UpdateEventInput
+
+    @staticmethod
+    def handle(call: ToolCall[_UpdateEventInput]) -> str:
+        data: EventUpdateData = {}
+        if call.data.description is not None:
+            data["description"] = call.data.description
+        if call.data.start_time is not None:
+            data["start_time"] = call.data.start_time
+        if call.data.end_time is not None:
+            data["end_time"] = call.data.end_time
+        if call.data.clear_publication_time:
+            data["publication_time"] = None
+        elif call.data.publication_time is not None:
+            data["publication_time"] = call.data.publication_time
+        if not data:
+            raise ToolError("Provide at least one field to update")
+        return _apply_event_update(services=call.services, actor=call.actor, data=data)
+
+
+class OrganizerSetEventImageTool(Tool[_SetEventImageInput]):
+    name = "set_event_image"
+    description = "Replace the token event's cover image or printable logo."
+    scope = ToolScope.ORGANIZER
+    input_model = _SetEventImageInput
+    audit_redacted_keys = frozenset({"content_base64"})
+
+    @staticmethod
+    def handle(call: ToolCall[_SetEventImageInput]) -> str:
+        if call.data.kind == "cover":
+            upload = call.data.validated_upload(validate_uploaded_raster)
+            data: EventUpdateData = {"cover_image": upload}
+        else:
+            upload = call.data.validated_upload(validate_uploaded_logo)
+            data = {"logo": upload}
+        return _apply_event_update(services=call.services, actor=call.actor, data=data)
+
+
+class OrganizerSetSphereLogoTool(Tool[ImageUploadInput]):
+    name = "set_sphere_logo"
+    description = "Replace the sphere's logo (SVG allowed)."
+    scope = ToolScope.ORGANIZER
+    input_model = ImageUploadInput
+    audit_redacted_keys = frozenset({"content_base64"})
+
+    @staticmethod
+    def handle(call: ToolCall[ImageUploadInput]) -> str:
+        sphere_id = actor_sphere(call.actor)
+        sphere = call.services.sphere_panel.read(sphere_id)
+        upload = call.data.validated_upload(validate_uploaded_logo)
+        call.services.sphere_panel.update_settings(
+            sphere_id,
+            allow_facilitator_session_edit=sphere.allow_facilitator_session_edit,
+            enabled_pages=sphere.enabled_pages,
+            default_page=sphere.default_page,
+            encounter_public_policy=sphere.encounter_public_policy,
+            logo=upload,
+        )
+        return call.services.sphere_panel.read(sphere_id).model_dump_json(indent=2)
+
+
 def programme_tools() -> tuple[ToolProtocol, ...]:
     return (
         OrganizerCurrentEventTool(),
@@ -657,4 +955,10 @@ def programme_tools() -> tuple[ToolProtocol, ...]:
         OrganizerCreateSessionsTool(),
         OrganizerAssignSessionTool(),
         OrganizerAssignSessionsTool(),
+        OrganizerUpdateSessionTool(),
+        OrganizerUpdateSpaceTool(),
+        OrganizerUpdateEventTool(),
+        OrganizerSetEventImageTool(),
+        OrganizerSetSphereLogoTool(),
+        *map_tools(),
     )

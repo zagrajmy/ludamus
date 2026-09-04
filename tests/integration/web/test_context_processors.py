@@ -1,6 +1,8 @@
 import pytest
 from django.urls import reverse
 
+from ludamus.gates.web.django.sphere.pages import sphere_page_nav
+
 
 class TestSitesContext:
     @pytest.mark.usefixtures("panel_access_user")
@@ -16,6 +18,37 @@ class TestSitesContext:
         has_panel_access = response.context["has_panel_access"]
         assert has_panel_access is False
 
+    def test_nav_marks_events_active_on_event_detail(self, client, event):
+        response = client.get(
+            reverse("web:chronology:event", kwargs={"slug": event.slug})
+        )
+
+        nav = response.context["sphere_page_nav"]
+        assert [(item["label"], item["is_active"]) for item in nav] == [
+            ("Events", True),
+            ("Encounters", False),
+            ("Timeline", False),
+        ]
+
+    def test_nav_marks_timeline_active_for_content_of_a_disabled_group(
+        self, client, sphere, event
+    ):
+        sphere.enabled_pages = ["timeline"]
+        sphere.default_page = "timeline"
+        sphere.save()
+
+        response = client.get(
+            reverse("web:chronology:event", kwargs={"slug": event.slug})
+        )
+
+        nav = response.context["sphere_page_nav"]
+        assert [(item["label"], item["is_active"]) for item in nav] == [
+            ("Timeline", True)
+        ]
+
+    def test_nav_is_empty_without_a_sphere(self, rf):
+        assert sphere_page_nav(rf.get("/"), None) == []
+
 
 class TestAnalyticsContext:
     def test_configured_key_exposes_posthog_config(self, client, settings):
@@ -25,11 +58,18 @@ class TestAnalyticsContext:
         response = client.get(reverse("web:events"))
 
         posthog_config = response.context["posthog_config"]
+        # The browser redacts the same segments the server does, from rules the
+        # page carries rather than a copy of the route list in the bundle.
+        rules = posthog_config["redaction_rules"]
+        assert any(source.startswith("/crowd/claim/(?<p1>") for source, _ in rules)
+        # Exact equality on the rest, so a field added to the config has to be
+        # added here too: what reaches the browser is the point of this contract.
         assert posthog_config == {
             "api_key": "phc_integration",
             "host": "https://eu.i.posthog.com",
             "user_id": None,
             "environment": "test",
+            "redaction_rules": rules,
         }
 
     def test_authenticated_render_identifies_by_namespaced_pk(

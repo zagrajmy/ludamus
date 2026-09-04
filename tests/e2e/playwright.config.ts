@@ -112,9 +112,11 @@ export default defineConfig({
         /confirmations\.spec\.ts/,
         /timetable\.spec\.ts/,
         /cover-images\.spec\.ts/,
+        /event-maps\.spec\.ts/,
         /sphere-logo\.spec\.ts/,
         /anonymous-proposal\.spec\.ts/,
         /proposal-delete-restore\.spec\.ts/,
+        /proposal-accept\.spec\.ts/,
         /write-in-fields\.spec\.ts/,
         // Read-only but chains several full navigations of the heavy print
         // preview; Firefox's slow loads make it time out where Chromium fits
@@ -142,8 +144,14 @@ export default defineConfig({
       : [
           {
             name: "webkit",
-            testMatch: /event-details\.spec\.ts/,
-            grep: /iOS touch scrolling|mobile session modal closes on iOS tap|opened over a scrolled page/,
+            // Selected by tag, so a spec asks for iOS where it is written and a
+            // renamed title cannot silently drop its own coverage.
+            grep: /@ios/,
+            // Kept from the projects above, because a tag moves the choice to
+            // spec authors who will not read this file: only chromium-auth
+            // carries storageState, so an @ios here would otherwise land on the
+            // login page rather than announce itself as misconfigured.
+            testIgnore: [/.*\.auth\.spec\.ts/],
             use: { ...devices["iPhone 14 Pro"] },
           },
         ]),

@@ -6,7 +6,8 @@ from django.conf import settings
 
 from ludamus.gates.web.django.access import has_panel_access
 from ludamus.gates.web.django.entities import UserInfo
-from ludamus.links.analytics import identity
+from ludamus.gates.web.django.sphere.pages import SpherePageNavItem, sphere_page_nav
+from ludamus.links.analytics import identity, redaction
 
 if TYPE_CHECKING:
     from django.http import HttpRequest
@@ -14,7 +15,7 @@ if TYPE_CHECKING:
     from ludamus.adapters.web.django.middlewares import RootRepositoryRequest
     from ludamus.pacts import SiteDTO, SphereDTO
     from ludamus.pacts.crowd import UserDTO
-    from ludamus.pacts.enrollment import NavbarNotificationsDTO
+    from ludamus.pacts.notifications import NavbarNotificationsDTO
 
 
 class SitesContextData(TypedDict):
@@ -23,6 +24,7 @@ class SitesContextData(TypedDict):
     current_sphere: SphereDTO | None
     is_root_sphere: bool
     has_panel_access: bool
+    sphere_page_nav: list[SpherePageNavItem]
 
 
 def sites(request: RootRepositoryRequest) -> SitesContextData:
@@ -36,6 +38,7 @@ def sites(request: RootRepositoryRequest) -> SitesContextData:
             current_sphere=None,
             is_root_sphere=True,
             has_panel_access=False,
+            sphere_page_nav=[],
         )
 
     sites_service = request.services.sites
@@ -53,6 +56,7 @@ def sites(request: RootRepositoryRequest) -> SitesContextData:
         current_sphere=current_sphere,
         is_root_sphere=is_root_sphere,
         has_panel_access=has_panel_access(request),
+        sphere_page_nav=sphere_page_nav(request, current_sphere),
     )
 
 
@@ -62,9 +66,12 @@ def support(_request: HttpRequest) -> dict[str, str]:
 
 class PosthogConfig(TypedDict):
     api_key: str
-    host: str
-    user_id: str | None
     environment: str
+    host: str
+    # Derived from the URLconf so the browser redacts the same segments the
+    # server does, rather than keeping its own copy of the route list.
+    redaction_rules: list[list[str]]
+    user_id: str | None
 
 
 class AnalyticsContextData(TypedDict):
@@ -90,6 +97,7 @@ def analytics(request: HttpRequest) -> AnalyticsContextData:
                 else None
             ),
             environment=identity.environment(),
+            redaction_rules=redaction.client_patterns(),
         )
     )
 

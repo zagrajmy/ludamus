@@ -110,68 +110,20 @@
     return { value: c.value, label: c.label };
   });
 
-  const LIVE_CHROME_MOUNT_CONTRACT = ["root", "transport", "state", "actions"];
-  const LIVE_UI_SURFACES = [
-    {
-      key: "global-bottom-bar",
-      ids: [
-        PREFIX + "-global-bar",
-        PREFIX + "-global-bar-brand",
-        PREFIX + "-pick-toggle",
-        PREFIX + "-insert-toggle",
-        PREFIX + "-detect-toggle",
-        PREFIX + "-detect-badge",
-        PREFIX + "-design-toggle",
-        PREFIX + "-page-chat",
-        PREFIX + "-page-chat-input",
-        PREFIX + "-page-chat-voice",
-        PREFIX + "-page-chat-send",
-      ],
-    },
-    { key: "pending-copy-edit-dock", ids: [PREFIX + "-pending-dock"] },
-    {
-      key: "element-selection-chrome",
-      ids: [
-        PREFIX + "-highlight",
-        PREFIX + "-tooltip",
-        PREFIX + "-bar",
-        PREFIX + "-selection-pill",
-        PREFIX + "-input",
-        PREFIX + "-configure-voice",
-        PREFIX + "-configure-bar-tooltip",
-      ],
-    },
-    { key: "action-picker", ids: [PREFIX + "-picker"] },
-    { key: "edit-chrome", ids: [PREFIX + "-edit-badge"] },
-    { key: "generating-row", ids: [PREFIX + "-bar", PREFIX + "-shader"] },
-    { key: "variant-cycling-row", ids: [PREFIX + "-bar", PREFIX + "-params-panel"] },
-    { key: "variant-params-panel", ids: [PREFIX + "-params-panel"] },
-    { key: "saving-confirmed-rows", ids: [PREFIX + "-bar"] },
-    {
-      key: "insert-mode-chrome",
-      ids: [
-        PREFIX + "-insert-line",
-        PREFIX + "-insert-placeholder",
-        PREFIX + "-placeholder-resize",
-        PREFIX + "-insert-input",
-        PREFIX + "-insert-voice",
-        PREFIX + "-insert-create",
-        PREFIX + "-insert-create-tooltip",
-      ],
-    },
-    {
-      key: "annotation-chrome",
-      ids: [
-        PREFIX + "-annot",
-        PREFIX + "-annot-svg",
-        PREFIX + "-annot-pins",
-        PREFIX + "-annot-clear",
-      ],
-    },
-    { key: "design-system-panel", ids: [PREFIX + "-design-host"] },
-    { key: "toasts-and-errors", ids: [PREFIX + "-toast", PREFIX + "-mount-error"] },
-    { key: "css-isolation-boundary", ids: [PREFIX + "-root"] },
-  ];
+  // The Live chrome inventory (which surfaces exist, and the element ids each
+  // one owns) comes from the canonical source, skill/scripts/live/ui-surfaces.mjs,
+  // which the /live.js assembler serializes into these globals alongside the
+  // token/port/vocabulary. This file is served raw and injected as a classic
+  // script, so it cannot import that module; the private impeccable-site repo
+  // imports it directly to check its Live UI lab holds a snapshot for every
+  // surface, which only works while the list has exactly one definition.
+  // Add a surface in ui-surfaces.mjs, not here.
+  const LIVE_CHROME_MOUNT_CONTRACT = Array.isArray(window.__IMPECCABLE_LIVE_MOUNT_CONTRACT__)
+    ? window.__IMPECCABLE_LIVE_MOUNT_CONTRACT__
+    : ["root", "transport", "state", "actions"];
+  const LIVE_UI_SURFACES = Array.isArray(window.__IMPECCABLE_LIVE_UI_SURFACES__)
+    ? window.__IMPECCABLE_LIVE_UI_SURFACES__
+    : [];
   const LIVE_UI_COMPONENT_IDS = [...new Set(LIVE_UI_SURFACES.flatMap((surface) => surface.ids))];
 
   //
@@ -5621,6 +5573,13 @@
     saveSession();
   }
 
+  function completeParameterGenerationIfReady() {
+    if (expectedVariants <= 0 || arrivedVariants < expectedVariants) return;
+    if (parameterGenerationState === "pending" || parameterGenerationState === "loading") {
+      completeParameterPublication();
+    }
+  }
+
   function toggleTunePopover() {
     if (pendingApplyInFlight) {
       showManualApplyBusyToast();
@@ -6656,7 +6615,7 @@
         setLiveState("CYCLING");
         showOrUpdateCyclingBar();
         saveSession();
-        if (parameterGenerationState === "loading") completeParameterPublication();
+        completeParameterGenerationIfReady();
         return;
       }
 
@@ -6753,7 +6712,7 @@
       refreshParamsPanel();
       positionBar();
       saveSession();
-      if (parameterGenerationState === "loading") completeParameterPublication();
+      completeParameterGenerationIfReady();
       console.log(
         "[impeccable] Mounted " +
           arrivedVariants +
@@ -7293,7 +7252,7 @@
         refreshParamsPanel();
         positionBar();
         saveSession();
-        if (parameterGenerationState === "loading") completeParameterPublication();
+        completeParameterGenerationIfReady();
         console.log("[impeccable] Injected " + arrivedVariants + " variants from source file.");
       })
       .catch((err) => {
@@ -7883,6 +7842,7 @@
 
       const expected = parseInt(wrapper.dataset.impeccableVariantCount || "0");
       if (expected > 0) expectedVariants = expected;
+      completeParameterGenerationIfReady();
 
       if (arrivedVariants > 0) {
         setLiveState("CYCLING");

@@ -7,7 +7,7 @@ from operator import itemgetter
 from typing import TYPE_CHECKING, NamedTuple
 
 from ludamus.mills.event import require_session_in_event, require_track_in_event
-from ludamus.mills.timeslots import SlotWindow, slot_windows_by_local_date
+from ludamus.mills.timeslots import Window, slot_windows_by_local_date
 from ludamus.pacts import (
     AgendaItemDTO,
     NotFoundError,
@@ -377,7 +377,7 @@ class TimetableService(TimetableServiceProtocol):
 
     @staticmethod
     def _shared_day_span(
-        days: list[date], windows_by_date: dict[date, list[SlotWindow]], tz: tzinfo
+        days: list[date], windows_by_date: dict[date, list[Window]], tz: tzinfo
     ) -> tuple[int, int]:
         # One span for every rendered day, so 16:00 sits on the same row
         # whether its day opens at 16:00 or at 10:00. Windows are already

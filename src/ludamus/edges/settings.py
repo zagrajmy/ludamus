@@ -11,9 +11,10 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 
 import json
 from pathlib import Path
-from urllib.parse import quote
+from urllib.parse import SplitResult, quote, unquote, urlsplit
 
 import environ
+from django.core.exceptions import ImproperlyConfigured
 from django.utils.csp import CSP
 from google.oauth2 import service_account
 
@@ -38,6 +39,7 @@ env = environ.Env(
     # Static files
     GIT_COMMIT_SHA=(str, "unknown"),
     MEDIA_ROOT=(str, str(BASE_DIR / "media")),
+    MEDIA_URL=(str, "/media/"),
     STATIC_ROOT=(str, str(BASE_DIR / "staticfiles")),
     # Google Cloud Storage (media) — set all three to enable GCS
     GS_BUCKET_NAME=(str, ""),
@@ -57,11 +59,6 @@ env = environ.Env(
     # computation happening client-side. That is why they cannot be linked in
     # code and have to move together by hand.
     POSTHOG_ASSETS_HOST=(str, "https://eu-assets.i.posthog.com"),
-    # Membership API
-    MEMBERSHIP_API_BASE_URL=(str, ""),
-    MEMBERSHIP_API_CHECK_INTERVAL=(int, 15),
-    MEMBERSHIP_API_TIMEOUT=(int, 30),
-    MEMBERSHIP_API_TOKEN=(str, ""),
     # Other
     CREDENTIALS_ENCRYPTION_KEY=str,
     DEBUG=(bool, False),
@@ -313,17 +310,73 @@ LOCALE_PATHS = [BASE_DIR / "locale"]
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
 STATIC_URL = "/static/"
+_MEDIA_URL_RULE = (
+    "MEDIA_URL must be a root-relative path or an HTTP(S) URL ending in '/'."
+)
+
+
+def media_url_is_local(media_url: str) -> bool:
+    """Say whether this process serves the media itself, off its own domain."""
+    parts = urlsplit(media_url)
+    return (
+        not parts.scheme
+        and not parts.netloc
+        and media_url.startswith("/")
+        and not media_url.startswith("//")
+        and parts.path != "/"
+        and "\\" not in parts.path
+    )
+
+
+def _is_remote(parts: SplitResult) -> bool:
+    hostname = parts.hostname
+    return (
+        parts.scheme in {"http", "https"}
+        and bool(hostname)
+        and parts.username is None
+        and parts.password is None
+        and not any(character.isspace() for character in hostname or "")
+    )
+
+
+def _has_serveable_path(parts: SplitResult) -> bool:
+    segments = unquote(parts.path).split("/")
+    return (
+        parts.path.endswith("/")
+        and "//" not in parts.path
+        and not parts.query
+        and not parts.fragment
+        and not any(segment in {".", ".."} for segment in segments)
+    )
+
+
+def validate_media_url(media_url: str) -> None:
+    """Raise ImproperlyConfigured unless the app can serve or link to the URL."""
+    try:
+        parts = urlsplit(media_url)
+        _ = parts.port
+    except ValueError as error:
+        raise ImproperlyConfigured(_MEDIA_URL_RULE) from error
+    if not _has_serveable_path(parts) or not (
+        media_url_is_local(media_url) or _is_remote(parts)
+    ):
+        raise ImproperlyConfigured(_MEDIA_URL_RULE)
+
+
+MEDIA_URL: str = env("MEDIA_URL")
+validate_media_url(MEDIA_URL)
+MEDIA_URL_IS_LOCAL = media_url_is_local(MEDIA_URL)
 
 STATICFILES_DIRS = [BASE_DIR / "static"]
 
 # URL prefixes that skip middleware processing (UoW injection, context setup)
-MIDDLEWARE_SKIP_PREFIXES = (
+MIDDLEWARE_SKIP_PREFIXES: tuple[str, ...] = (
     STATIC_URL,
     "/admin/",
     "/__debug__/",
     "/__reload__/",
     "/healthz/",
-    "/media/",
+    *((MEDIA_URL,) if MEDIA_URL_IS_LOCAL else ()),
 )
 
 
@@ -482,7 +535,6 @@ if ENABLE_CSP:
 
 
 MEDIA_ROOT = env("MEDIA_ROOT")
-MEDIA_URL = "/media/"
 
 # Default storage — GCS when all three GS_ vars are set, filesystem otherwise.
 # Independent of IS_PRODUCTION so GCS can be exercised locally.
@@ -608,38 +660,16 @@ LOGGING = {
     },
 }
 
-# Membership API Configuration
-MEMBERSHIP_API_BASE_URL = env("MEMBERSHIP_API_BASE_URL")
-MEMBERSHIP_API_TOKEN = env("MEMBERSHIP_API_TOKEN")
-MEMBERSHIP_API_TIMEOUT = env("MEMBERSHIP_API_TIMEOUT")
-MEMBERSHIP_API_CHECK_INTERVAL = env("MEMBERSHIP_API_CHECK_INTERVAL")
-
 # Vendor Dependencies Configuration
 # Download with: mise run dj downloadvendor
 # SHA-384 hashes use base64 encoding (SRI format)
 VENDOR_DEPENDENCIES: list[dict[str, str]] = [
     {
-        "name": "popperjs",
-        "url": (
-            "https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.6/dist/umd/popper.min.js"
-        ),
-        "filename": "popper.min.js",
-        "sha384": "oBqDVmMz9ATKxIep9tiCxS/Z9fNfEXiDAYTujMAeBAsjFuCZSmKbSSUnQlmh/jp3",
-    },
-    {
-        "name": "popperjs-map",
-        "url": (
-            "https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.6/dist/umd/popper.min.js.map"
-        ),
-        "filename": "popper.min.js.map",
-        "sha384": "cGZ11hmqUooIlGMY+Y+gi+8AhjA4H/Qa29LQBPWKKzhmbsxvNpyWrPuBJCprTsil",
-    },
-    {
         "name": "htmx",
         "url": "https://cdn.jsdelivr.net/npm/htmx.org@2.0.8/dist/htmx.min.js",
         "filename": "htmx.min.js",
         "sha384": "/TgkGk7p307TH7EXJDuUlgG3Ce1UVolAOFopFekQkkXihi5u/6OCvVKyz1W+idaz",
-    },
+    }
 ]
 
 VENDOR_STATIC_DIR = BASE_DIR / "static" / "vendor"

@@ -286,6 +286,13 @@ If you fix a papercut, remove it.
   wrapper had nothing to print. It cleared on its own. run_detect should surface
   npm's own exit path rather than only the child's streams, otherwise a registry
   hiccup is indistinguishable from a real finding.
+- 2026-08-19: lint:impeccable failed the pr-fix gate with 'impeccable failed
+  (exit 1):' and both npx streams empty, so the gate output carried no diagnosis
+  at all. The task then passed on every re-run I could construct: warm cache,
+  cold cache (NPM_CONFIG_CACHE to a temp dir), CI=1, three concurrent npx
+  invocations, and the full 259-file tracked scan. scripts/impeccable_lint.py's
+  failure path prints only the exit code and the two (empty) streams, never the
+  command, so a transient npx death is unrepairable from what the gate says.
 - 2026-08-20: Claude Code web sandbox: mise's _.python.venv never created .venv,
   so every task calling django-admin/djlint/tingle failed with 'not found' until
   I prepended the poetry virtualenv bin to PATH by hand. mise run test:e2e:prep
@@ -317,9 +324,164 @@ If you fix a papercut, remove it.
   was unset; the traceback only later explained pytest-django could not
   initialize. Use mise run test:int -- PATH so the task supplies the test
   environment.
+- 2026-08-22: mise run messages-resolve failed: 'aubr varlock django-admin
+  makemessages' crashes at django.setup() — zeal.patch.patch_generic_foreign_key
+  does GenericForeignKey.__get__, which no longer exists in the installed
+  Django. Worked around by running makemessages with DEBUG=false so settings
+  skip the zeal app. mise run messages / messages-check hit the same crash.
+- 2026-08-24: mise run diff-cover went red on three e2e tests (event-schedule-
+  views 'rooms tab swaps the layout in', event-filters 'carries filters across
+  the schedule view switch'); all three pass on re-run (32/32 with --repeat-
+  each=8, both browsers) and GitHub CI was green on the same commit. The local
+  suite times out on the heaviest page's 10s assertions when the machine is
+  busy, so a red gate can mean 'another job was running', with nothing in the
+  output saying so.
+- 2026-08-24: ios-regressions: when 'xcrun simctl openurl' times out, harness.ts
+  warns and continues, so agent-device never opens a session and every later
+  interaction dies with an opaque SESSION_NOT_FOUND deep in a beforeAll — the
+  real cause (Safari never launched) is 80 lines up the log. Cost a full re-run
+  to diagnose.
 - 2026-08-25: mise run test:py -- tests/unit/rituals ran the whole 4600-test
   suite for ~5 minutes: mise does forward the args, it appends them after the
   task's own fixed roots (tests/integration tests/unit), so a path meant to
   narrow the run widens nothing. Had to fall back to
   'mise run test:unit -- -k ...'. A narrow-path run is what CLAUDE.md asks for
   while working.
+- 2026-08-26: git fetch origin failed: 'Bad owner or permissions on
+  /etc/ssh/ssh_config.d/20-systemd-ssh-proxy.conf' — could not verify branch
+  base against remote; local origin/main was current so proceeded
+- 2026-08-26: dev DB drift: migration 0150_track_unique_name_per_event unapplied
+  but its index already existed; migrate failed until I fake-applied 0150
+- 2026-08-26: test:py task appends given paths after tests/integration
+  tests/unit, so scoped runs still execute the full suite (~4.5 min); use -k
+  filters instead
+- 2026-08-26: poetry install failed once with a bare 'Cannot install idna' and
+  no reason; the identical rerun succeeded. Transient PyPI/proxy blip, but the
+  error text gives nothing to act on.
+- 2026-08-26: mypy's incremental cache invented a phantom protocol conflict
+  after a NewType change: inits/middleware.py reported Services not matching
+  ServicesProtocol while an explicit assignment of the same two classes type-
+  checked fine. rm -rf .mypy_cache made it vanish.
+- 2026-08-26: Ran format:djlint on a template change; it reformatted the file
+  and reported zero lint errors but still exited nonzero, so the formatting task
+  appeared to fail until rerun.
+- 2026-08-26: Playwriter session expired between UI verification passes, so the
+  saved session could not inspect the refreshed page; use a fresh browser
+  session or the E2E server instead.
+- 2026-08-26: Passing paths after 'mise run test:py --' was ignored because the
+  task hardcodes both test trees, so a targeted check unexpectedly ran all 4,600
+  tests; direct pytest then lacked the task's .env.test environment.
+- 2026-08-26: The full Python suite flaked in
+  test_query_count_constant_in_session_count because Faker generated the same
+  category word twice while the expected context retained duplicates; the
+  isolated rerun passed.
+- 2026-08-26: Running messages-check in parallel with mise check raced
+  makemessages' temporary *.html.py extraction files against Black, causing 255
+  template parse errors; these tasks must run sequentially.
+- 2026-08-26: Fresh gpt-5.6-sol thermonuclear review failed immediately with a
+  bare 'fetch failed' and no report; retrying the identical read-only
+  invocation.
+- 2026-08-26: Running mypy directly (including with a file path) crashed while
+  constructing the Django plugin because it missed the task's .env.test
+  environment; mise run lint:mypy succeeded.
+- 2026-08-26: mise run test:py <path> appends the path to the full suite instead
+  of replacing it: the task runs 'pytest -n auto tests/integration tests/unit
+  <path>', so asking for one file re-runs everything (~16 min). Wanted to verify
+  one test module before pushing; had to use -k to keep it fast.
+- 2026-08-27: git push over ssh origin fails: 'Bad owner or permissions on
+  /etc/ssh/ssh_config.d/20-systemd-ssh-proxy.conf' (symlink owned by
+  nobody:nogroup); pushed via the https-origin remote instead
+- 2026-08-27: Local iOS harness validation reached agent-device, but its
+  XCUITest runner build failed with xcodebuild code 70 on the local simulator,
+  so Safari bootstrap behavior still needs the macOS CI runner for end-to-end
+  verification.
+- 2026-08-27: grep in the agent shell is a shell function that behaves like
+  ripgrep and silently skips hidden dirs, so 'grep -rn FOO .github/' returns
+  nothing while the string is really there. Concluded an env var was unset and
+  made a decision on it; had to re-check with /usr/bin/grep.
+- 2026-08-27: mise run lint:djlint says 'djlint: not found' in a web sandbox,
+  and the hk pre-commit djlint check step dies with ModuleNotFoundError: No
+  module named 'regex' (its reformat step right after works fine). Had to commit
+  to find out templates lint clean.
+- 2026-08-27: mise run shots can't reach logged-in pages: agent-browser has no
+  cookie/storage-state flag, so screenshotting any manager-only page (e.g. the
+  accept-proposal screen) meant hand-rolling a Playwright script that loads
+  tests/e2e/.auth-state-superuser.json. Also spent a while confused that 'mise
+  run dj shell' talks to the dev DB while test:e2e:serve serves dev.e2e.sqlite3
+  — the data I queried was not the data the page rendered.
+- 2026-08-28: iOS warmup: wrapping the first agent-device snapshot in a
+  readiness poll made the cold XCUITest attach (194-240s, longer than the 180s
+  runner command timeout) look like a page-load failure -- 'Safari did not come
+  to the front ... Daemon request timed out'. The attach needs its own window
+  before any readiness poll.
+- 2026-08-28: agent-device keys the XCUITest runner to a session and stops it on
+  session close, so a per-spec session pays its own 125-148s runner launch; only
+  build-for-testing is shared across a job. Read it out of the uploaded
+  daemon.log (four distinct AgentDeviceRunner.env.session-*.xctestrun launches),
+  not the docs.
+- 2026-08-28: Ran mise run messages in the web sandbox to refresh i18n; varlock
+  rejects the default env (no SECRET_KEY etc.) and even with .env.e2e exported
+  django-admin makemessages dies on missing gettext (msguniq). No sandbox path
+  to run extraction.
+- 2026-08-29: mise run start leaves a portless proxy on :1355 behind when the
+  dev server dies (e.g. after test:e2e kills :8000). The next start binds a new
+  app port but the stale proxy keeps forwarding to the dead one, so every URL
+  404s with a page that still contains an h2 — readiness greps pass and
+  Playwright then fails deep in a script. Had to pkill -f portless between runs,
+  and pkill -f portless matches the invoking shell's own command line, killing
+  it (exit 144).
+- 2026-08-29: Reached for 'mise run dj makemessages' to regenerate the Polish
+  catalog; CLAUDE.md names 'mise run messages-resolve' for conflicts but not
+  'mise run messages' for extraction, so the raw command looked right. It
+  rewrites every location line and stamps POT-Creation-Date, producing a
+  6000-line diff and a failing test_translation_catalog. 'mise run messages'
+  gives a 10-line diff.
+- 2026-08-29: Ran 'mise run test:e2e' twice in a session without re-running
+  'test:e2e:prep' between. The second run failed event-schedule-
+  views.spec.ts:655 (overnight bookmark) because that test mutates bookmark
+  state the first run had already toggled — it looks like a code regression, and
+  cost a round of ruling out an unrelated diff. Re-prep before a second full
+  run, or the suite is only trustworthy once per seed.
+- 2026-08-31: e2e reused an already-running :8000 server, so test:e2e ran
+  against stale Python/templates and a new assertion failed with 'element not
+  found'; only test:e2e:kill + rerun made it pass
+- 2026-09-01: Running mypy directly on the touched POLCON scripts crashed while
+  constructing NewSemanalDjangoPlugin; `mise run lint:mypy` is the supported
+  invocation because it loads `.env.test` and supplies `SRC_PATHS`.
+- 2026-09-01: Committing from a fresh git worktree triggered hooks before mise
+  trusted that worktree’s identical mise.toml; the commit failed until the
+  duplicate config was trusted.
+- 2026-09-01: black 26.5.1 with preview=true rewrites 'except (KeyError,
+  ValueError):' into Python 2 'except KeyError, ValueError:' in
+  gates/web/django/crowd/auth.py, producing a file that cannot be imported.
+  Binding the tuple with 'as exc' is the only form that survives the formatter.
+- 2026-09-01: The format:djlint task reformatted the changed template
+  successfully but still exited 1, so the normal formatting workflow looked like
+  a failure and required a second run.
+- 2026-09-01: Running mise run check inspected the untracked .pi agent-state
+  directory and failed on a generated JSON file missing a final newline, so
+  project checks require moving unrelated harness state aside.
+- 2026-09-01: mise run bootstrap in the web sandbox failed on the aliased
+  linter backends even with MISE_ENV=sandbox: actionlint's go modules died on
+  sum.golang.org stream errors and shellcheck-py/hadolint-py timed out
+  fetching wheel metadata from PyPI. Had to build the venv and run poetry,
+  npm and vite by hand to get a server up.
+- 2026-09-01: mise run check reformatted 90 vendored
+  .claude/skills/impeccable/scripts/*.mjs files unrelated to the diff; had to
+  git checkout -- .claude/ before committing.
+- 2026-09-04: mise run format (oxfmt) rewrites the vendored
+  .claude/skills/impeccable/scripts/*.mjs|js files, which are tracked. A one-
+  file change turned into 90 files of formatter churn I had to stash out before
+  committing. Those paths should be in the oxfmt ignore list.
+- 2026-09-04: A stray 'mise run start' holding :8000 gets silently reused by
+  mise run test:e2e, which then tests stale code. The failure looks like a
+  broken selector, not a stale server. test:e2e should fail loudly (or kill)
+  when :8000 is already taken by something it did not start.
+- 2026-09-04: Rebuilt the Vite client while test:e2e:serve was running. The
+  serve loop watches the manifest with stat -c, which is GNU-only, so on macOS
+  it never restarts and keeps serving hashed asset URLs the rebuild just
+  deleted.
+- 2026-09-03: Posting a PR body through the GitHub MCP tool strips screenshot
+  embeds: '![alt](url)' comes back as '[alt](url)' and a raw <img> tag gets
+  escaped into inline code. CLAUDE.md asks for screenshots in the PR
+  description, so they end up as plain links only.

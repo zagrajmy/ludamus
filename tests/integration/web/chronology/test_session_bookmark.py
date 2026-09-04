@@ -7,8 +7,8 @@ from django.utils.timezone import localtime
 
 from ludamus.gates.web.django.chronology.schedule import (
     RoomLane,
-    RoomLaneDay,
-    RoomLaneHourMark,
+    RoomLaneRow,
+    RoomLanes,
     RoomLaneTile,
 )
 from ludamus.links.db.django.models import SessionBookmark
@@ -23,6 +23,7 @@ from tests.integration.utils import assert_response
 from tests.integration.web.chronology.helpers import (
     compact_day,
     event_page_context,
+    programme_day_of,
     session_card,
 )
 
@@ -142,6 +143,13 @@ class TestEventPageBookmarkCounts:
         card = session_card(
             agenda_item, presenter=agenda_item.session.presenter, bookmark_count=1
         )
+        room_tile = RoomLaneTile(
+            data=card,
+            start=localtime(agenda_item.start_time),
+            end=localtime(agenda_item.end_time),
+            col=1,
+            row_span=2,
+        )
         assert_response(
             response,
             HTTPStatus.OK,
@@ -152,38 +160,38 @@ class TestEventPageBookmarkCounts:
                 hour_data={agenda_item.start_time: [card]},
                 schedule_days=[compact_day([card])],
                 active_tab="rooms",
-                room_lane_days=[
-                    RoomLaneDay(
-                        day_start=hour_start,
-                        rooms=[
-                            RoomLane(
-                                name=agenda_item.space.name,
-                                group="",
-                                group_key="",
-                                starts_group=True,
-                            )
-                        ],
-                        hour_marks=[
-                            RoomLaneHourMark(
-                                start=hour_start, row=1, has_sessions=True
+                room_lanes=RoomLanes(
+                    rooms=[
+                        RoomLane(
+                            name=agenda_item.space.name,
+                            group="",
+                            group_key="",
+                            starts_group=True,
+                        )
+                    ],
+                    rows=[
+                        RoomLaneRow(
+                            day=0,
+                            day_start=programme_day_of(hour_start),
+                            hour_mark=hour_start,
+                            window=(hour_start, hour_start + timedelta(hours=1)),
+                            starting_tiles=[room_tile],
+                        ),
+                        RoomLaneRow(
+                            day=0,
+                            day_start=programme_day_of(hour_start),
+                            hour_mark=hour_start + timedelta(hours=1),
+                            window=(
+                                hour_start + timedelta(hours=1),
+                                hour_start + timedelta(hours=2),
                             ),
-                            RoomLaneHourMark(
-                                start=hour_start + timedelta(hours=1),
-                                row=2,
-                                has_sessions=False,
-                            ),
-                        ],
-                        tiles=[
-                            RoomLaneTile(
-                                data=card,
-                                slot_hour=hour_start,
-                                col=1,
-                                row_start=1,
-                                row_span=2,
-                            )
-                        ],
-                    )
-                ],
+                        ),
+                    ],
+                    spans=[2],
+                    lane_indices=[0],
+                    lane_counts=[1],
+                    row_lengths=[60],
+                ),
                 sessions=[card],
                 has_enrollable_sessions=True,
                 scheduled_count=1,

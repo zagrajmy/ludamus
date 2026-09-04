@@ -1,11 +1,15 @@
 {
   "compilerOptions": {
-    "target": "ES2020",
+    "composite": true,
+    "noEmit": true,
+    "tsBuildInfoFile": "../../.cache/tsbuildinfo/e2e.tsbuildinfo",
+    "target": "ES2024",
     "module": "CommonJS",
     "moduleResolution": "Node",
     "lib": [
-      "ES2020",
-      "DOM"
+      "ES2024",
+      "DOM",
+      "DOM.Iterable"
     ],
     "strict": true,
     "esModuleInterop": true,
@@ -14,8 +18,12 @@
   },
   "include": [
     "playwright.config.ts",
+    "coverage.ts",
     "tests/**/*.ts",
     "global-setup.ts",
-    "global-teardown.ts"
+    "global-teardown.ts",
+    // The programme-date spec imports this pure helper straight from the
+    // client source: the client has no unit runner of its own.
+    "../../src/ludamus/client/src/event-time.ts"
   ]
 }

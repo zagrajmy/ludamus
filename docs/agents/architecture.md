@@ -264,8 +264,33 @@ What visitors see: event details, session list, session cards.
 - **URLs:** `/chronology/event/<slug>/` (namespace `chronology`)
 - **Views:** `adapters/web/django/views.py` — `EventPageView`
 - **Templates:** `templates/chronology/event.html`,
-  `_session_card.html`, `session_tags.html`
+  `_session_card.html`, `session_tags_cloud.html`
 - **DTOs:** `EventDTO`, `SessionDTO`, `SessionListItemDTO`, `TrackDTO`
+
+#### Pages: Event maps
+
+Venue plans an organizer uploads (a site plan, a floor), each tied to the
+spaces it shows. One page for everyone: viewers see the plans with a file
+tree of their venues linking into the schedule filtered to that venue;
+organizers see the same page plus "Add map", per-map edit and delete, and
+"Attach venue", each an addressable modal. The panel sidebar only links
+here. The hero and session modal link into it.
+
+- **URLs:** `/chronology/event/<slug>/maps/` (page),
+  `…/maps/do/add`, `…/maps/<pk>/do/edit`, `…/maps/<pk>/do/attach`,
+  `…/maps/<pk>/do/delete` (organizer actions)
+- **Views:** `gates/web/django/event/maps.py` — `EventMapsPageView` and the
+  four action views; writes check `panel_access(request).allows(PANEL_WRITE)`
+  on arrival
+- **Templates:** `templates/chronology/maps.html`, `_map_card.html`,
+  `_map_tree_node.html`, `_session_map_link.html`
+- **Service:** `EventMapsService` (`mills/maps.py`) — scopes every pk to the
+  event; builds each map's venue tree with the `?space=` filter per node;
+  `map_pk_for_space` resolves a room to the map of its nearest mapped
+  ancestor, so a room inherits its venue's plan
+- **DTOs:** `EventMapRecordDTO` (repository row), `EventMapDTO` (with the
+  tree), `MapTreeNodeDTO` (`pacts/maps.py`)
+- **Model:** `EventMap` (`event_map`, m2m to `Space`)
 
 #### Pages: Proposal wizard
 
@@ -473,7 +498,7 @@ owns them.
 | sphere | `Sphere`, `Connection` |
 | encounter | `Encounter`, `EncounterRSVP` |
 | party | `Party`, `PartyMembership` |
-| event | `Event`, `EventSettings`, `EventProposalSettings`, `Session`, `ProposalCategory`, `Facilitator`, `PersonalDataField`, `PersonalDataFieldOption`, `PersonalDataFieldRequirement`, `PersonalDataFieldValue`, `SessionField`, `SessionFieldOption`, `SessionFieldRequirement`, `SessionFieldValue`, `TimeSlotRequirement`, `Venue`, `Area`, `Space`, `TimeSlot`, `Track`, `AgendaItem`, `ScheduleChangeLog`, `EnrollmentConfig`, `UserEnrollmentConfig`, `DomainEnrollmentConfig`, `SessionParticipation` |
+| event | `Event`, `EventSettings`, `EventProposalSettings`, `Session`, `ProposalCategory`, `Facilitator`, `PersonalDataField`, `PersonalDataFieldOption`, `PersonalDataFieldRequirement`, `PersonalDataFieldValue`, `SessionField`, `SessionFieldOption`, `SessionFieldRequirement`, `SessionFieldValue`, `TimeSlotRequirement`, `Venue`, `Area`, `Space`, `EventMap`, `TimeSlot`, `Track`, `AgendaItem`, `ScheduleChangeLog`, `EnrollmentConfig`, `UserEnrollmentConfig`, `DomainEnrollmentConfig`, `SessionParticipation` |
 
 <!-- markdownlint-enable MD013 -->
 
