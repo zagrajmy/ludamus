@@ -203,7 +203,9 @@ class TestSessionDataLocationCrumbs:
         assert data.location_crumbs == []
 
     def test_room_only_filters_to_the_room(self):
-        data = _make_session_data(loc=_loc(sort_path=((0, "Aula 2: Nassau", 3),)))
+        data = _make_session_data(
+            loc=_loc(space_id=3, sort_path=((0, "Aula 2: Nassau", 3),))
+        )
 
         assert data.location_crumbs == [
             LocationCrumb(name="Aula 2: Nassau", space_filter="3")
@@ -211,7 +213,11 @@ class TestSessionDataLocationCrumbs:
 
     def test_floor_and_room_link_to_all_rooms_and_the_room(self):
         data = _make_session_data(
-            loc=_loc(sort_path=((0, "Poziom -1", 2), (0, "Aula 2: Nassau", 3)))
+            loc=_loc(
+                space_id=3,
+                parent_id=2,
+                sort_path=((0, "Poziom -1", 2), (0, "Aula 2: Nassau", 3)),
+            )
         )
 
         assert data.location_crumbs == [
@@ -222,11 +228,13 @@ class TestSessionDataLocationCrumbs:
     def test_building_stays_plain_text(self):
         data = _make_session_data(
             loc=_loc(
+                space_id=3,
+                parent_id=2,
                 sort_path=(
                     (0, "Budynek główny", 1),
                     (0, "Poziom -1", 2),
                     (0, "Aula 2: Nassau", 3),
-                )
+                ),
             )
         )
 

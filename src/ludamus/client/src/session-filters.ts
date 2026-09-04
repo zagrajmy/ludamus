@@ -703,28 +703,24 @@ const initSessionFilters = (): void => {
     "click",
     (event) => {
       if (!isUnmodifiedLeftClick(event)) return;
-      if (!(event.target as Element).closest("[data-apply-enrollment]")) return;
-      if (!enrollmentFilter) return;
-      event.preventDefault();
-      if (!enrollmentFilter.checked) {
-        enrollmentFilter.checked = true;
-        filterSessions();
+      const target = event.target as Element;
+      if (target.closest("[data-apply-enrollment]")) {
+        if (!enrollmentFilter) return;
+        event.preventDefault();
+        if (!enrollmentFilter.checked) {
+          enrollmentFilter.checked = true;
+          filterSessions();
+        }
+        byId("schedule-region").scrollIntoView();
+        return;
       }
-      byId("schedule-region").scrollIntoView();
-    },
-    { signal: documentListeners.signal },
-  );
-  document.addEventListener(
-    "click",
-    (event) => {
-      if (!isUnmodifiedLeftClick(event)) return;
-      const link = (event.target as Element).closest<HTMLAnchorElement>("a[data-apply-space]");
-      if (!link) return;
-      const space = link.dataset.applySpace;
+      const spaceLink = target.closest<HTMLAnchorElement>("a[data-apply-space]");
+      if (!spaceLink) return;
+      const space = new URL(spaceLink.href).searchParams.get("space");
       if (!space) return;
       if (![...spaceFilter.options].some((option) => option.value === space)) return;
       event.preventDefault();
-      link.closest("dialog")?.querySelector<HTMLElement>("[data-modal-close]")?.click();
+      spaceLink.closest("dialog")?.querySelector<HTMLElement>("[data-modal-close]")?.click();
       if (spaceFilter.value !== space) {
         spaceFilter.value = space;
         syncControl(spaceFilter);
