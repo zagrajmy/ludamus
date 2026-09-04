@@ -87,9 +87,9 @@
                     {% if data.is_unscheduled %}
                         {% icon "calendar-days" class="size-4 shrink-0 text-foreground-muted/80" variant="mini" %}
                         {% include "chronology/_proposal_slot.html" %}
-                    {% elif data.location_label %}
+                    {% elif data.location_crumbs %}
                         {% icon "map-pin" class="size-4 shrink-0 text-foreground-muted/80" variant="mini" %}
-                        <span class="truncate" title="{{ data.location_label }}">{{ data.location_label }}</span>
+                        {% include "chronology/_session_location.html" %}
                     {% endif %}
                     {% with duration_label=data.session.duration|format_duration %}
                         {% if duration_label %}
