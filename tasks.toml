@@ -136,8 +136,7 @@ hk install --mise
 # failed generation (e.g. a mid-bootstrap PATH where `python` lacks
 # cryptography) used to strand a 0-byte file that `-f` treated as done — every
 # later bootstrap then skipped regeneration and varlock failed on the empty
-# secrets. The temp file keeps a failed run from touching .env.local at all,
-# and is removed on that path so the failure leaves nothing behind.
+# secrets. The temp file keeps a failed run from touching .env.local at all.
 if [ ! -s .env.local ]; then
   python -c "
 import secrets
@@ -146,8 +145,7 @@ print(f'SECRET_KEY={secrets.token_urlsafe(50)}')
 print(f'DB_PASSWORD=dev-{secrets.token_hex(8)}')
 print(f'AUTH0_CLIENT_SECRET={secrets.token_hex(16)}')
 print(f'CREDENTIALS_ENCRYPTION_KEY={Fernet.generate_key().decode()}')
-" > .env.local.tmp || { rm -f .env.local.tmp; exit 1; }
-  mv .env.local.tmp .env.local || { rm -f .env.local.tmp; exit 1; }
+" > .env.local.tmp && mv .env.local.tmp .env.local
   echo "Generated .env.local with per-dev secrets."
 fi
 aubr varlock django-admin migrate --noinput

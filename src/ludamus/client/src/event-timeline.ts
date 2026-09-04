@@ -19,19 +19,11 @@ const hourHasVisibleSection = (hour: string): boolean =>
 // init drops the previous rail's wiring before laying down its own.
 let railListeners = new AbortController();
 let railObserver: IntersectionObserver | undefined;
-let railSizeObserver: ResizeObserver | undefined;
-
-// One place to remember, so the next handle added here cannot be wired into
-// half the teardown paths.
-const disposeRail = (): void => {
-  railListeners.abort();
-  railObserver?.disconnect();
-  railSizeObserver?.disconnect();
-};
 
 const initScheduleRail = (rail: HTMLElement): void => {
-  disposeRail();
+  railListeners.abort();
   railListeners = new AbortController();
+  railObserver?.disconnect();
   const { signal } = railListeners;
 
   // The app-shell scrolls #app-scroll, not the document (see app-scroll.ts), so
@@ -114,17 +106,8 @@ const initScheduleRail = (rail: HTMLElement): void => {
       setActive((hour ? linkByHour.get(hour) : undefined) ?? null);
     }
   };
-  // The rail caps itself at --app-vh and clips the overflow, so it has to thin
-  // its markers again whenever that cap moves — including when iOS collapses a
-  // toolbar or opens the keyboard, which moves the viewport without firing a
-  // window resize. Observing the scroller covers every cause at once: it is the
-  // shell's full height, so it changes with the window and with --app-vh alike,
-  // and a resize observation is delivered after layout, so the cap is current
-  // by construction. fitRail only hides markers inside the rail, so it cannot
-  // resize the scroller and loop. The initial observation does the first fit;
-  // #app-scroll comes from base.html, which every page carrying a rail extends.
-  railSizeObserver = new ResizeObserver(fitRail);
-  if (scrollRoot) railSizeObserver.observe(scrollRoot);
+  fitRail();
+  globalThis.addEventListener("resize", fitRail, { signal });
   document.addEventListener("schedule:filtered", fitRail, { signal });
 
   const scrollToLink = (link: HTMLAnchorElement): void => {
@@ -265,7 +248,8 @@ const bootScheduleRail = (): void => {
   // A swap to a layout without a rail never reaches initScheduleRail, so the
   // previous rail's wiring has to be dropped here instead.
   if (!rail) {
-    disposeRail();
+    railListeners.abort();
+    railObserver?.disconnect();
     return;
   }
   if ("railBound" in rail.dataset) return;
