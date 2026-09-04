@@ -13,7 +13,7 @@
             </h4>
             {% if fv.field_type == "select" and not fv.allow_custom %}
                 <div class="flex flex-wrap gap-1.5">
-                    {% for val in fv.value|field_value_list %}
+                    {% for val in fv|field_value_list %}
                         <span class="inline-flex items-center gap-1 rounded-2xl font-medium px-2.5 py-1 text-sm bg-warm-200/80 dark:bg-neutral-700 text-warm-700 dark:text-neutral-300">{{ val }}</span>
                     {% endfor %}
                 </div>

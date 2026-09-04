@@ -11,7 +11,7 @@ from ludamus.gates.web.django.helpers import placeholder_cover_url
 from ludamus.pacts.durations import format_duration
 
 if TYPE_CHECKING:
-    from ludamus.pacts import ProposalCategoryDTO, SessionDTO
+    from ludamus.pacts import ProposalCategoryDTO, SessionDTO, SessionFieldValueDTO
 
 register = template.Library()
 
@@ -163,8 +163,8 @@ def format_field_value(value: object) -> str:
 
 
 @register.filter
-def field_value_list(value: object) -> list[str]:
-    """Return a field value as the list of entries a pill row renders.
+def field_value_list(field_value: SessionFieldValueDTO) -> list[str]:
+    """Return a field's answer as the entries a pill row renders.
 
     A select field's value is normally a list, but the same field can carry a
     bool or a plain string; iterating those directly yields characters or a
@@ -173,6 +173,7 @@ def field_value_list(value: object) -> list[str]:
     Returns:
         The list's entries as strings, or the formatted value as one entry.
     """
+    value = field_value.value
     if isinstance(value, list):
         return [str(entry) for entry in value]
     return [format_field_value(value)]
