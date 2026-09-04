@@ -228,26 +228,30 @@ body {
   -webkit-overflow-scrolling: touch;
 }
 
-/* Every page that extends base.html wears the shell, so the document never
-   scrolls and the root needs no scrollbar gutter — .app-scroll below reserves
-   the only one, for the only scroller there is. (500_dynamic.html deliberately
-   does not: it has no dialog to protect and no JS to size the shell with.)
+/* Every page that extends base.html wears the shell, so its document never
+   scrolls and .app-scroll below reserves the only scrollbar gutter there is —
+   the root needs none. 500_dynamic.html deliberately goes without the shell
+   (no dialog to protect, no JS to size it with) and does scroll its document,
+   so a long enough message there shows a root scrollbar and nudges the centred
+   card by its width. Accepted: it is an error page, and reserving a gutter
+   everywhere to avoid it would indent every page that never scrolls.
 
-   --app-vh is visualViewport.height, published by app-scroll.ts. A viewport
-   unit can't be trusted here: iOS Safari collapses its toolbars only when the
-   *document* scrolls, which this shell removed, so dvh freezes and the app ends
-   up shorter than the screen with its last card cut at the clip edge. The
-   100dvh fallback covers first paint, and is deliberately not 100lvh: a shell
-   larger than the screen would put the footer under the toolbar with nothing
-   able to scroll it back, which is worse than a short one that merely looks
-   wrong. */
+   --app-vh is the measured visible height, published by app-viewport.ts; the
+   100dvh here is its default, so every consumer can read a bare var(--app-vh).
+   Deliberately not 100lvh: a shell larger than the screen puts the footer under
+   the toolbar with nothing able to scroll it back, which is worse than a short
+   one that merely looks wrong. */
+:root {
+  --app-vh: 100dvh;
+}
+
 .app-shell {
-  height: var(--app-vh, 100dvh);
+  height: var(--app-vh);
   overflow: hidden;
 }
 
-/* 100%, not --app-vh again: the shell above is the one definite height, and a
-   second reader of the variable could disagree with it for a frame. */
+/* 100%: the shell above is the single source of truth for the height, and the
+   scroller's job is to fill it. */
 .app-scroll {
   display: flex;
   flex-direction: column;
@@ -414,7 +418,7 @@ button:active {
     z-index: 60;
     height: 0;
     width: min(28rem, calc(100vw - 2rem));
-    max-height: calc(var(--app-vh, 100dvh) - 2rem);
+    max-height: calc(var(--app-vh) - 2rem);
     pointer-events: auto;
     overflow: visible;
     transform: translateX(-50%);
@@ -464,7 +468,7 @@ button:active {
   @media (min-width: 640px) {
     .flash-region {
       top: max(1.5rem, env(safe-area-inset-top));
-      max-height: calc(var(--app-vh, 100dvh) - 3rem);
+      max-height: calc(var(--app-vh) - 3rem);
     }
   }
 
