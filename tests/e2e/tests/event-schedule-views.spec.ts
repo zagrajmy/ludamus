@@ -908,6 +908,36 @@ test("overnight bookmark copies share one state and one request", async ({
   await context.close();
 });
 
+// On a phone the ledger's time leaves the flex line and centres itself against
+// the whole two-line row, so any padding that belongs to that shared line lands
+// the pair half of itself below where it should sit.
+test("the ledger's stacked time lines up with the title and the meta line", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 900 });
+  await page.goto(DENSE_EVENT_URL);
+  await expect(page.locator(".session-grid .session").first()).toBeVisible();
+
+  const offsets = await page.evaluate(() => {
+    const row = document.querySelector(".session-grid .session")!;
+    const inkMiddle = (node: Node) => {
+      const range = document.createRange();
+      range.selectNodeContents(node);
+      const box = range.getBoundingClientRect();
+      return (box.top + box.bottom) / 2;
+    };
+    const time = row.querySelector("span.tabular-nums")!;
+    const startLine = [...time.childNodes].find(
+      (node) => node.nodeType === Node.TEXT_NODE && node.textContent!.trim(),
+    )!;
+    return {
+      start: inkMiddle(startLine) - inkMiddle(row.querySelector(".font-semibold")!),
+      end: inkMiddle(time.querySelector("span.block")!) - inkMiddle(row.querySelector("[title]")!),
+    };
+  });
+
+  expect(Math.abs(offsets.start)).toBeLessThan(2);
+  expect(Math.abs(offsets.end)).toBeLessThan(2);
+});
+
 test.describe("Enrollment filter", () => {
   test.beforeEach(async ({ page }) => {
     await page.goto(EVENT_URL);

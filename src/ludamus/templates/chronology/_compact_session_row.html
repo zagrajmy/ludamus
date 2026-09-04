@@ -17,8 +17,10 @@
             <span class="sr-only">{% blocktranslate with title=data.session.title %}Open details for {{ title }}{% endblocktranslate %}</span>
         </a>
         {# Absolute on mobile so the stacked time centers against the whole #}
-        {# two-line row instead of only the title line it shares a flex line with. #}
-        <span class="w-8 shrink-0 whitespace-nowrap text-[0.7rem] pt-1.5 tabular-nums text-foreground-secondary max-sm:absolute max-sm:left-2 max-sm:top-1/2 max-sm:-translate-y-1/2 sm:w-28">
+        {# two-line row, not the title line it shares. The baseline nudge #}
+        {# belongs to that shared line: inside a centered box it only lands #}
+        {# the pair half of itself below the middle. #}
+        <span class="w-8 shrink-0 whitespace-nowrap text-[0.7rem] tabular-nums text-foreground-secondary max-sm:absolute max-sm:left-2 max-sm:top-1/2 max-sm:-translate-y-1/2 sm:w-28 sm:pt-1.5">
             {% with start_offset=occurrence_start.utcoffset end_offset=occurrence_end.utcoffset %}
                 {{ occurrence_start|time:"H:i" }}{% if start_offset != end_offset %} <span class="text-[0.55rem]">{{ occurrence_start.tzname }}</span>{% endif %}<span class="hidden sm:inline">–</span><span class="block sm:inline">{{ occurrence_end|time:"H:i" }}{% if start_offset != end_offset %} <span class="text-[0.55rem]">{{ occurrence_end.tzname }}</span>{% endif %}</span>
             {% endwith %}

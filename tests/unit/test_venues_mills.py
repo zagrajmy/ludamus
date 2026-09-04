@@ -22,6 +22,7 @@ def _node(*, pk, name, children=(), no_children_reason=None):
         ),
         is_leaf=not kids,
         no_children_reason=no_children_reason,
+        undeletable_reason=None,
         track_names=[],
         children=kids,
     )
