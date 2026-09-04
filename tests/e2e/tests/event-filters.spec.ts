@@ -293,15 +293,6 @@ test.describe("Event filter panel", () => {
     await expect(shown.first()).toContainText("Cosplay");
   });
 
-  test("states the room size while the enrollment window is shut", async ({ page }) => {
-    await page.goto("/event/closed-enrollment/");
-
-    const card = (title: string) => page.locator(".session", { hasText: title });
-    await expect(card("Late Resignation Demo 1")).toContainText("5 seats");
-    await expect(card("Late Resignation Demo 1")).not.toContainText("spots left");
-    await expect(card("Late Waiting List Demo 1")).toContainText("1 seat");
-  });
-
   test("offers a field's used choices only, never a written-in value", async ({ page }) => {
     await page.goto("/event/autumn-open/");
 

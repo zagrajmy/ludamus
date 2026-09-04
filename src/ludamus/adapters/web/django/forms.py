@@ -14,7 +14,7 @@ from ludamus.links.db.django.models import (
     SessionParticipation,
     SessionParticipationStatus,
 )
-from ludamus.mills.enrollment import EnrollmentPolicy
+from ludamus.mills.enrollment_windows import EnrollmentPolicy
 from ludamus.pacts import EventDTO, VirtualEnrollmentConfig
 from ludamus.pacts.ids import UserId
 

@@ -311,6 +311,38 @@ class EnrollmentRepos:
     enrollment_configs: EnrollmentConfigRepositoryProtocol
     participations: EnrollmentParticipationRepositoryProtocol
     ticket_api_resolver: TicketApiResolverProtocol
+    windows: EnrollmentWindowRepositoryProtocol
+
+
+class EnrollmentAccessDTO(BaseModel):
+    """When the viewer may enroll, across the windows that apply to them.
+
+    A restricted window is open for its configured users only, so the same
+    event answers this differently per viewer. The open windows are named by
+    id rather than counted, so a caller holding the windows that can seat one
+    session asks about that session by intersecting the two sets.
+    """
+
+    open_window_ids: frozenset[int]
+    # Start of the next window the viewer may use; None when none is coming.
+    opens_at: datetime | None
+
+    @property
+    def can_enroll_now(self) -> bool:
+        return bool(self.open_window_ids)
+
+    def seats(self, window_ids: frozenset[int]) -> bool:
+        """Answer whether one of those windows can seat this viewer now.
+
+        Returns:
+            True when a window that can seat the session is also open to them.
+        """
+        return bool(self.open_window_ids & window_ids)
+
+
+# What a page with no enrollment window to offer reports: a proposal nobody
+# can sign up for yet, a party's history read outside any event's windows.
+NO_ENROLLMENT_ACCESS = EnrollmentAccessDTO(open_window_ids=frozenset(), opens_at=None)
 
 
 class EnrollmentServiceProtocol(Protocol):
@@ -323,6 +355,10 @@ class EnrollmentServiceProtocol(Protocol):
     ) -> VirtualEnrollmentConfig | None: ...
 
     def has_slot_access(self, *, event: EventDTO, user_email: str) -> bool: ...
+
+    def access(
+        self, *, event: EventDTO, viewer_slug: str | None
+    ) -> EnrollmentAccessDTO: ...
 
     def can_enroll_users(
         self,

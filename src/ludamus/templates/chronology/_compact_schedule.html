@@ -5,8 +5,9 @@
 {# Compact schedule for big events: a dense chronological ledger (or the #}
 {# rooms grid) paired with a sticky hour scrubber. Reuses the .session / #}
 {# .time-slot-section / .session-grid contract so session-filters.ts and the #}
-{# detail modals apply. Sections are whole local-clock hours, so the rail #}
-{# markers, section ids, and hour headings are always one-to-one. #}
+{# detail modals apply. A section is keyed on its whole local-clock hour — in #}
+{# the rooms grid it is a band inside that hour — so the rail markers, section #}
+{# ids, and hour headings stay one-to-one. #}
 {# The view tabs live in the search/filter toolbar row (event.html). #}
 {# The rooms grid is a map, so it breaks out of main's column and spans the #}
 {# screen (see the breakout utility). The list is a ledger and reads better #}
@@ -17,6 +18,7 @@
 <div class="compact-schedule {% if active_tab == 'rooms' %}breakout{% else %}-mx-4 sm:mx-0{% endif %}"
      data-csrf="{{ csrf_token }}"
      data-event-time-zone="{{ event_timezone }}"
+     data-day-starts-at="{{ programme_day_start_hour }}"
      data-bookmark-url-template="{% url 'web:chronology:session-bookmark' session_id=0 %}">
     <div class="flex items-start sm:gap-1">
         <div class="min-w-0 flex-1">
@@ -29,24 +31,26 @@
                     <section data-schedule-day
                              data-day="{{ day.day_start|date:'Y-m-d' }}"
                              class="mb-6 border-y border-border bg-bg-secondary px-2 pt-3 pb-2 last:mb-0 sm:rounded-2xl sm:border sm:px-3">
-                        {% include "chronology/_schedule_day_header.html" with day_count=schedule_days|length %}
-                        {% for hour in day.hours %}
-                            <div class="time-slot-section scroll-mt-24"
-                                 id="slot-{{ hour.slot_key }}"
-                                 data-slot-hour="{{ hour.slot_key }}">
-                                <div class="px-2 pt-3 pb-1 text-[0.7rem] font-bold tabular-nums tracking-wide text-foreground-muted">
-                                    {{ hour.start|time:"H:i" }}
-                                    {% if hour.is_repeated %}<span class="ml-1 text-[0.6rem]">{{ hour.start.tzname }}</span>{% endif %}
+                        {% include "chronology/_schedule_day_header.html" with day_count=schedule_days|length controls=day.panel_id %}
+                        <div id="{{ day.panel_id }}" data-day-panel>
+                            {% for hour in day.hours %}
+                                <div class="time-slot-section scroll-mt-24"
+                                     id="slot-{{ hour.slot_key }}"
+                                     data-slot-hour="{{ hour.slot_key }}">
+                                    <div class="px-2 pt-3 pb-1 text-[0.7rem] font-bold tabular-nums tracking-wide text-foreground-muted">
+                                        {{ hour.start|time:"H:i" }}
+                                        {% if hour.is_repeated %}<span class="ml-1 text-[0.6rem]">{{ hour.start.tzname }}</span>{% endif %}
+                                    </div>
+                                    {# Not divide-y: it draws a stray divider under the last visible #}
+                                    {# row when session-filters.ts hides the rows after it (index.css). #}
+                                    <div class="session-grid divide-y-visible">
+                                        {% for tile in hour.tiles %}
+                                            {% include "chronology/_compact_session_row.html" with data=tile.data occurrence_start=tile.start occurrence_end=tile.end %}
+                                        {% endfor %}
+                                    </div>
                                 </div>
-                                {# Not divide-y: it draws a stray divider under the last visible #}
-                                {# row when session-filters.ts hides the rows after it (index.css). #}
-                                <div class="session-grid divide-y-visible">
-                                    {% for tile in hour.tiles %}
-                                        {% include "chronology/_compact_session_row.html" with data=tile.data occurrence_start=tile.start occurrence_end=tile.end %}
-                                    {% endfor %}
-                                </div>
-                            </div>
-                        {% endfor %}
+                            {% endfor %}
+                        </div>
                     </section>
                 {% endfor %}
                 {# The "now" seam, moved between two rows by schedule-now.ts. #}
@@ -61,7 +65,7 @@
         {# container — fitRail (event-timeline.ts) thins the markers until they #}
         {# fit the screen, and a non-scrollable rail chains wheel input to the #}
         {# page natively. #}
-        <nav class="schedule-rail sticky top-14.5 max-h-[calc(100dvh-6rem)] shrink-0 touch-none select-none self-start overflow-hidden py-1 text-foreground-muted"
+        <nav class="schedule-rail sticky top-14.5 max-h-[calc(var(--app-vh)-6rem)] shrink-0 touch-none select-none self-start overflow-hidden py-1 text-foreground-muted"
              aria-label="{% translate "Jump to time" %}">
             {% for day in schedule_days %}
                 <span class="block px-1.5 pt-2 pb-0.5 text-center text-[0.625rem] font-bold uppercase text-foreground-secondary first:pt-0">{{ day.day_start|date:"D" }}</span>

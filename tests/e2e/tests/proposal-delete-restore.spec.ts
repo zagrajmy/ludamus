@@ -27,8 +27,8 @@ test.describe("Proposal delete and restore", () => {
     await expect(page.getByRole("heading", { name: "Recently deleted" })).toHaveCount(0);
 
     await activeLink.click();
-    await page.getByRole("button", { name: "Delete" }).click();
-    await page.getByRole("alertdialog").getByRole("button", { name: "Delete" }).click();
+    await page.getByRole("button", { name: "Delete proposal" }).click();
+    await page.getByRole("alertdialog").getByRole("button", { name: "Delete proposal" }).click();
 
     // Deleting redirects back to the proposals list: the session is gone from
     // the active table and appears under "Recently deleted" with a Restore

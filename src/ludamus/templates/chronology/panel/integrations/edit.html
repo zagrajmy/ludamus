@@ -21,7 +21,7 @@
 {% endblock header_actions %}
 {% block content %}
     {% if current_event %}
-        <form id="integration-form" method="post" class="max-w-3xl">
+        <form id="integration-form" method="post" class="max-w-3xl p-3 sm:p-4">
             {% csrf_token %}
             <div class="card">
                 <div class="card-body">{% include "chronology/panel/integrations/_form.html" %}</div>

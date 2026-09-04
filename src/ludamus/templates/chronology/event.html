@@ -28,62 +28,34 @@
 {% endblock header_section %}
 {% block body %}
     {% include "chronology/decorative_background_blobs.html" %}
-    <div class="relative rounded-3xl shadow-xl overflow-hidden mb-6 sm:mb-8 bg-bg-secondary"
-         style="box-shadow: var(--shadow-elevated)">
+    {# No overflow-hidden — it would clip the add-to-calendar popover on short heroes. #}
+    <div class="relative rounded-3xl shadow-(--shadow-elevated) mb-6 sm:mb-8 bg-bg-secondary"
+         data-event-hero>
         {% if event.cover_image_url %}
-            <div class="h-56 sm:h-72 bg-cover bg-center"
+            {# NOTE: the narrowest crop a cover meets is this banner's on a phone, #}
+            {# and components/file-dropzone.html draws the width of its "edges" #}
+            {# guide from it. Changing these heights moves the guide people upload #}
+            {# against. #}
+            <div class="h-56 sm:h-72 bg-cover bg-center rounded-t-3xl"
                  style="background-image: url('{{ event.cover_image_url }}')"></div>
         {% endif %}
         <div class="p-6 sm:p-8">
             <div class="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-6">
-                <div class="flex-1">
-                    <!-- Status pills: capped at two, priority order
-                         live/completed > enrollment open > proposals open > upcoming -->
-                    {% with configs=event.get_active_enrollment_configs %}
-                        <div class="flex flex-wrap items-center gap-2 mb-4">
-                            {% if event.is_live %}
-                                <div class="inline-flex items-center gap-2 px-3 py-1.5 bg-teal-100 text-teal-700 rounded-full text-sm font-medium">
-                                    <span class="w-2 h-2 bg-teal-500 rounded-full live-dot"></span>
-                                    {% translate "Happening now!" %}
-                                </div>
-                            {% elif event.is_ended %}
-                                <div class="inline-flex items-center gap-2 px-3 py-1.5 bg-neutral-200 dark:bg-neutral-700/30 rounded-full text-sm font-medium text-foreground-secondary">
-                                    {% icon "check-circle" class="w-4 h-4" variant="mini" %}
-                                    {% translate "Completed" %}
-                                </div>
-                            {% endif %}
-                            {% if configs %}
-                                <div class="inline-flex items-center gap-2 px-3 py-1.5 bg-coral-100 dark:bg-coral-900/30 text-coral-700 dark:text-coral-400 rounded-full text-sm font-medium">
-                                    {% icon "user-plus" class="w-4 h-4" variant="mini" %}
-                                    {% translate "Enrollment Open" %}
-                                </div>
-                            {% endif %}
-                            {% if event.is_proposal_active %}
-                                {% if not event.is_live and not event.is_ended or not configs %}
-                                    <div class="inline-flex items-center gap-2 px-3 py-1.5 bg-amber-100 dark:bg-amber-900/10 text-amber-700 dark:text-amber-400 rounded-full text-sm font-medium">
-                                        {% icon "light-bulb" class="w-4 h-4" variant="mini" %}
-                                        {% translate "Proposals Open" %}
-                                    </div>
-                                {% endif %}
-                            {% endif %}
-                            {% if not event.is_live and not event.is_ended %}
-                                {% if not configs or not event.is_proposal_active %}
-                                    <div class="inline-flex items-center gap-2 px-3 py-1.5 bg-warm-200 dark:bg-warm-800/30 text-warm-700 dark:text-warm-400 rounded-full text-sm font-medium">
-                                        {% icon "clock" class="w-4 h-4" variant="mini" %}
-                                        {% translate "Upcoming" %}
-                                    </div>
-                                {% endif %}
-                            {% endif %}
-                        </div>
-                    {% endwith %}
-                    <h1 class="text-3xl sm:text-4xl font-bold mb-3 text-foreground">{{ event.name }}</h1>
+                <div class="flex-1 grid gap-y-4{% if compact_schedule %} md:grid-cols-[1fr_auto] md:gap-x-8{% endif %}">
+                    {# Status is an attribute of the name: the chip sits beside it #}
+                    {# and wraps under it when narrow. #}
+                    <div class="flex items-center flex-wrap gap-x-3 gap-y-2">
+                        <h1 class="text-3xl sm:text-4xl font-bold text-foreground">{{ event.name }}</h1>
+                        {% include "chronology/_event_status_pills.html" %}
+                    </div>
                     {% if event.description %}
-                        <p class="text-lg mb-6 max-w-2xl text-foreground-muted">{{ event.description }}</p>
+                        <p class="text-lg max-w-2xl text-foreground-muted">{{ event.description }}</p>
                     {% endif %}
                     <!-- Event meta -->
-                    <div class="flex flex-wrap gap-4 text-sm">
-                        <div class="flex items-center gap-2">
-                            <div class="w-8 h-8 bg-coral-100 dark:bg-coral-900/30 rounded-lg flex items-center justify-center">
+                    <div class="flex flex-wrap gap-4 text-sm{% if compact_schedule %} md:col-start-2 md:row-start-1 md:row-span-3 md:flex-col md:flex-nowrap md:items-start md:gap-3{% endif %}">
+                        {% translate "Add to calendar" as t_add_to_calendar %}
+                        {% tessera_action_dropdown id="event-calendar-menu" label=t_add_to_calendar align="center" trigger_class="flex items-center gap-2 text-left" %}
+                            <div class="w-8 h-8 bg-coral-100 dark:bg-coral-900/30 rounded-lg flex items-center justify-center shrink-0">
                                 {% icon "calendar-days" class="w-4 h-4 text-coral-600" variant="mini" %}
                             </div>
                             {% with start_day=event.start_time|date:"Y-m-d" end_day=event.end_time|date:"Y-m-d" %}
@@ -113,85 +85,101 @@
                                     {% endif %}
                                 </div>
                             {% endwith %}
-                        </div>
+                            {% action_dropdown_menu %}
+                            {% translate "Google Calendar" as t_google_calendar %}
+                            {% translate "Other calendars (.ics)" as t_other_calendars %}
+                            {% url 'web:chronology:event-ics' slug=event.slug as ics_url %}
+                            {% tessera_action_dropdown_item t_google_calendar href=google_calendar_url icon="calendar-days" external=True %}
+                            {% tessera_action_dropdown_item t_other_calendars href=ics_url icon="arrow-down-tray" %}
+                        {% endtessera_action_dropdown %}
+                        {% if compact_schedule %}
+                            <div class="flex items-center gap-2">
+                                <div class="w-8 h-8 bg-bg-tertiary rounded-lg flex items-center justify-center">
+                                    {% icon "queue-list" class="w-4 h-4 text-foreground-muted" variant="mini" %}
+                                </div>
+                                <div class="font-medium leading-none text-foreground tabular-nums whitespace-nowrap">
+                                    {{ scheduled_count }}
+                                    <span class="font-normal text-foreground-muted">
+                                        {% blocktranslate count counter=scheduled_count %}Session{% plural %}Sessions{% endblocktranslate %}
+                                    </span>
+                                </div>
+                            </div>
+                        {% endif %}
+                        {% if event.address %}
+                            {% translate "View on map ↗" as t_view_on_map %}
+                            <a href="https://www.google.com/maps/search/?api=1&amp;query={{ event.address_inline|urlencode }}"
+                               target="_blank"
+                               rel="noopener"
+                               title="{{ t_view_on_map }}"
+                               class="group flex items-start gap-2">
+                                <div class="w-8 h-8 bg-teal-100 dark:bg-teal-900/30 rounded-lg flex items-center justify-center shrink-0">
+                                    {% icon "map-pin" class="w-4 h-4 text-teal-600" variant="mini" %}
+                                </div>
+                                <div class="font-medium leading-snug pt-1.5 text-foreground group-hover:underline decoration-dotted underline-offset-4">
+                                    {{ event.address|linebreaksbr }}
+                                    <span class="sr-only">{{ t_view_on_map }}</span>
+                                </div>
+                            </a>
+                        {% endif %}
                     </div>
-                </div>
-                <!-- Quick stats -->
-                <div class="flex lg:flex-col gap-3">
-                    <div class="flex-1 lg:flex-none bg-gradient-to-br from-teal-50 to-teal-100 dark:from-teal-900/30 dark:to-teal-800/30 rounded-2xl p-4 text-center min-w-[120px]">
-                        {# The whole schedule, not the current view: this card #}
-                        {# sits outside the region the view tabs swap. #}
-                        <div class="text-3xl font-bold text-teal-700 dark:text-teal-400">{{ scheduled_count }}</div>
-                        <div class="text-sm text-teal-600 dark:text-teal-500">
-                            {% blocktranslate count counter=scheduled_count %}Session{% plural %}Sessions{% endblocktranslate %}
-                        </div>
-                    </div>
-                    <div class="flex-1 lg:flex-none bg-gradient-to-br from-coral-50 to-coral-100 dark:from-coral-900/30 dark:to-coral-800/30 rounded-2xl p-4 text-center min-w-[120px]">
-                        <div class="text-3xl font-bold text-coral-700 dark:text-coral-400">{{ total_enrolled }}</div>
-                        <div class="text-sm text-coral-600 dark:text-coral-500">
-                            {% if event.use_participants_label %}
-                                {% blocktranslate count counter=total_enrolled %}Participant{% plural %}Participants{% endblocktranslate %}
-                            {% else %}
-                                {% blocktranslate count counter=total_enrolled %}Player{% plural %}Players{% endblocktranslate %}
+                    {% if compact_schedule or maps_url %}
+                        <div class="flex flex-wrap items-center gap-3{% if compact_schedule %} md:row-start-3{% endif %}">
+                            {% if compact_schedule %}
+                                {% translate "View the program" as t_view_program %}
+                                {% tessera_button t_view_program href="#schedule-region" size="lg" %}
+                                {% if has_enrollable_sessions and not event.is_ended %}
+                                    {% translate "Sign up for sessions" as t_sign_up_sessions %}
+                                    {% tessera_button t_sign_up_sessions href="?enrollment=1#schedule-region" variant="secondary" size="lg" data_apply_enrollment=True %}
+                                {% endif %}
+                            {% endif %}
+                            {% if maps_url %}
+                                {% translate "Venue maps" as t_venue_maps %}
+                                <a href="{{ maps_url }}"
+                                   class="icon-btn size-12 justify-center rounded-2xl overflow-hidden"
+                                   title="{{ t_venue_maps }}">
+                                    {% icon "map" class="size-5" variant="mini" %}
+                                    <span class="sr-only">{{ t_venue_maps }}</span>
+                                </a>
                             {% endif %}
                         </div>
-                    </div>
+                    {% endif %}
                 </div>
+                {% if not compact_schedule %}
+                    <div class="flex lg:flex-col gap-3">
+                        <div class="flex-1 lg:flex-none bg-gradient-to-br from-teal-50 to-teal-100 dark:from-teal-900/30 dark:to-teal-800/30 rounded-2xl p-4 text-center min-w-[120px]">
+                            {# The whole schedule, not the current view: this card #}
+                            {# sits outside the region the view tabs swap. #}
+                            <div class="text-3xl font-bold text-teal-700 dark:text-teal-400">{{ scheduled_count }}</div>
+                            <div class="text-sm text-teal-600 dark:text-teal-500">
+                                {% blocktranslate count counter=scheduled_count %}Session{% plural %}Sessions{% endblocktranslate %}
+                            </div>
+                        </div>
+                        <div class="flex-1 lg:flex-none bg-gradient-to-br from-coral-50 to-coral-100 dark:from-coral-900/30 dark:to-coral-800/30 rounded-2xl p-4 text-center min-w-[120px]">
+                            <div class="text-3xl font-bold text-coral-700 dark:text-coral-400">{{ total_enrolled }}</div>
+                            <div class="text-sm text-coral-600 dark:text-coral-500">
+                                {% if event.use_participants_label %}
+                                    {% blocktranslate count counter=total_enrolled %}Participant{% plural %}Participants{% endblocktranslate %}
+                                {% else %}
+                                    {% blocktranslate count counter=total_enrolled %}Player{% plural %}Players{% endblocktranslate %}
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                {% endif %}
             </div>
         </div>
     </div>
-    <!-- Enrollment Passes Info (for authenticated users) -->
-    {% if current_user and event.get_active_enrollment_configs and enrollment_requires_slots %}
-        <div class="alert backdrop-blur-lg alert-success mb-4" role="alert">
-            <div class="flex">
-                <div class="shrink-0">{% icon "key" class="w-5 h-5" %}</div>
-                <div class="grow ml-3">
-                    <h6 class="alert-heading mb-2">{% translate "Your Enrollment Access" %}</h6>
-                    {% if user_enrollment_config %}
-                        <p class="mb-1">
-                            {% with total=user_enrollment_config.allowed_slots %}
-                                {% blocktranslate %}
-                                            You can enroll up to {{ total }} people (multiple enrollments allowed per person).
-                                        {% endblocktranslate %}
-                            {% endwith %}
-                        </p>
-                        {% if user_enrollment_config.has_user_config and user_enrollment_config.has_domain_config %}
-                            <small class="text-muted">
-                                {% if user_enrollment_config.has_user_config and user_enrollment_config.has_domain_config %}
-                                    {% blocktranslate with domain=user_enrollment_config.has_domain_config %}
-                                                Combined access: Individual enrollment passes + domain access (@{{ domain }}).
-                                            {% endblocktranslate %}
-                                {% elif user_enrollment_config.has_domain_config %}
-                                    {% blocktranslate with domain=user_enrollment_config.has_domain_config %}
-                                                Domain-based access: Users from @{{ domain }} have enrollment access.
-                                            {% endblocktranslate %}
-                                {% else %}
-                                    {% translate "Each person can be enrolled in multiple sessions." %}
-                                {% endif %}
-                            </small>
-                        {% elif user_enrollment_config.has_domain_config %}
-                            <small class="text-muted">
-                                {% blocktranslate with domain=user_enrollment_config.has_domain_config %}
-                                            Domain-based access: Users from @{{ domain }} have enrollment access.
-                                        {% endblocktranslate %}
-                            </small>
-                        {% else %}
-                            <small class="text-muted">{% translate "Each person can be enrolled in multiple sessions." %}</small>
-                        {% endif %}
-                    {% elif current_user.user_type == 'connected' %}
-                        <p class="mb-1">{% translate "You may be able to enroll using your manager's enrollment passes." %}</p>
-                        <small class="text-muted">{% translate "Contact your manager for enrollment assistance." %}</small>
-                    {% elif current_user %}
-                        <p class="mb-1">{% translate "You don't have any enrollment passes." %}</p>
-                        <small class="text-muted">{% translate "You can enroll when general enrollment opens." %}</small>
-                    {% else %}
-                        <p class="mb-1">{% translate "Login to check your enrollment options." %}</p>
-                        <small class="text-muted">{% translate "You may have enrollment passes available after logging in." %}</small>
-                    {% endif %}
-                </div>
-            </div>
-        </div>
-    {% endif %}
+    {% for notice in enrollment_notices %}
+        {# A line in the info colour, not a panel in the info colour. This is #}
+        {# standing context for the whole event — an organizer writes it once #}
+        {# and it sits there for weeks — and a box per notice pushed the #}
+        {# schedule off the first screen of the page people came to read the #}
+        {# schedule on. #}
+        <p class="mb-3 flex gap-1.5 text-sm text-info-text">
+            {% icon "information-circle" class="size-4 shrink-0 mt-0.5" variant="mini" %}
+            <span>{{ notice|linebreaksbr }}</span>
+        </p>
+    {% endfor %}
     <!-- Enrollment Summary Banner -->
     {% if current_user and user_enrolled_sessions %}
         <div class="mb-6 bg-gradient-to-r from-coral-400 to-coral-500 rounded-2xl p-[2px]">
@@ -250,9 +238,7 @@
                 <button type="button"
                         data-modal-close="anonymousCodeModal"
                         class="p-1 rounded-lg hover:opacity-70 text-foreground-muted"
-                        aria-label="{% translate "Close" %}">
-                    {% icon "x-mark" class="w-5 h-5" variant="mini" %}
-                </button>
+                        aria-label="{% translate "Close" %}">{% icon "x-mark" class="w-5 h-5" variant="mini" %}</button>
             </div>
             <form method="post" action="{% url 'web:chronology:anonymous-load' %}">
                 <div class="px-6 py-4">
@@ -281,7 +267,7 @@
     {# hx-boost, so switching between List and Rooms replaces the count, the #}
     {# filter toolbar and the schedule in one go, leaving no control #}
     {# describing a session set that is no longer on screen. #}
-    <div id="schedule-region">
+    <div id="schedule-region" class="scroll-mt-24">
         <!-- Section Header -->
         <div class="flex items-center justify-between mb-3">
             <div class="flex items-center gap-3">
@@ -709,7 +695,7 @@
             margin-top: 4px;
             display: block;
             min-width: 0;
-            max-height: min(70vh, 32rem);
+            max-height: min(calc(var(--app-vh) * 0.7), 32rem);
             overflow-y: auto;
             z-index: 50;
             border: 1px solid var(--color-border);
@@ -790,7 +776,7 @@
                 height: fit-content;
                 width: calc(100% - 1rem);
                 max-width: none;
-                max-height: 90dvh;
+                max-height: calc(var(--app-vh) * 0.9);
                 /* Over the sticky navbar, which shares the panel's z-index and
                    would otherwise sit on top of the dialog. */
                 z-index: 60;

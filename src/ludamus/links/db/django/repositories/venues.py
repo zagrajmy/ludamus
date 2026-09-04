@@ -8,6 +8,7 @@ from django.db.models.functions import Lower
 from django.utils.text import slugify
 
 from ludamus.links.db.django.models import (
+    DEFAULT_SPACE_NAME,
     SPACE_NO_CHILDREN_REASON,
     AgendaItem,
     Event,
@@ -140,6 +141,13 @@ class SpaceTreeRepository(SpaceTreeRepositoryProtocol):
             raise SpaceValidationError("; ".join(error.messages)) from error
         space.save()
         return SpaceRecordDTO.model_validate(space)
+
+    def create_default(self, event_id: int) -> SpaceRecordDTO:
+        return self.create(
+            event_id=event_id,
+            parent_id=None,
+            data=SpaceInputDTO(name=str(DEFAULT_SPACE_NAME), capacity=None),
+        )
 
     @transaction.atomic
     def update(

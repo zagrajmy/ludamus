@@ -7,6 +7,8 @@ from typing import TYPE_CHECKING
 from django.utils.html import format_html, format_html_join
 
 if TYPE_CHECKING:
+    from collections.abc import Mapping
+
     from django.template.base import FilterExpression, Parser, Token
 
 
@@ -24,7 +26,7 @@ def parse_tag_attrs(parser: Parser, token: Token) -> dict[str, FilterExpression]
 
 
 def format_tag_attrs(
-    resolved: dict[str, object], *, boolean_attrs: tuple[str, ...] = ()
+    resolved: Mapping[str, object], *, boolean_attrs: tuple[str, ...] = ()
 ) -> str:
     """Render resolved tag keywords as one HTML attribute string.
 
