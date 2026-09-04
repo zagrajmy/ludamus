@@ -84,7 +84,6 @@ from ludamus.links.db.django.repositories.sessions import (
 )
 from ludamus.mills.calendar import google_calendar_url
 from ludamus.mills.enrollment_windows import EnrollmentPolicy, restricts_everyone
-from ludamus.mills.timeslots import programme_day_start_hour
 from ludamus.pacts import (
     NO_LOCATION,
     OCCUPYING_PARTICIPATION_STATUSES,
@@ -97,6 +96,7 @@ from ludamus.pacts import (
     SpherePage,
     TimeSlotDTO,
 )
+from ludamus.pacts.chronology import PROGRAMME_DAY_STARTS_AT_HOUR
 from ludamus.pacts.crowd import CompanionDTO, UserDTO, UserType
 from ludamus.pacts.enrollment import (
     NO_ENROLLMENT_ACCESS,
@@ -362,7 +362,7 @@ class EventPageView(EventsPageRequiredMixin, DetailView):  # type: ignore [type-
                 "scheduled_count": scheduled_count,
                 "compact_schedule": compact_schedule,
                 "schedule_days": schedule_days,
-                "programme_day_start_hour": programme_day_start_hour(),
+                "programme_day_start_hour": PROGRAMME_DAY_STARTS_AT_HOUR,
                 "active_tab": "rooms" if rooms_view else "list",
                 "has_enrollable_sessions": has_enrollable_sessions,
                 "room_lanes": build_room_lanes(schedule_days) if rooms_view else None,

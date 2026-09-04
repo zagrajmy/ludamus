@@ -107,23 +107,16 @@ body:has(.room-lanes-panning) * {
    carries it off-screen. Neutral grey, not the warm border tone: the band is
    a mark on the ruler, not a surface. */
 .room-lanes-line[data-row-track="fold"] {
+  --fold-stripe: color-mix(in oklch, var(--color-neutral-400) 35%, transparent);
   z-index: 15;
   display: flex;
   align-items: center;
   pointer-events: none;
-  background: repeating-linear-gradient(
-    -45deg,
-    color-mix(in oklch, var(--color-neutral-400) 35%, transparent) 0 4px,
-    transparent 4px 10px
-  );
+  background: repeating-linear-gradient(-45deg, var(--fold-stripe) 0 4px, transparent 4px 10px);
 }
 
 .dark .room-lanes-line[data-row-track="fold"] {
-  background: repeating-linear-gradient(
-    -45deg,
-    color-mix(in oklch, var(--color-neutral-500) 35%, transparent) 0 4px,
-    transparent 4px 10px
-  );
+  --fold-stripe: color-mix(in oklch, var(--color-neutral-500) 35%, transparent);
 }
 
 .room-lanes-fold-label {

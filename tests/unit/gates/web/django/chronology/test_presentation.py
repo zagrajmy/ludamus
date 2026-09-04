@@ -466,6 +466,35 @@ class TestRoomLaneFolds:
             for row in lanes.rows
         ] == [(0, 20, False), (1, None, False), (1, 9, False)]
 
+    def test_a_lull_ending_at_a_half_hour_keeps_that_hours_head(self):
+        lanes = build_room_lanes(
+            build_schedule_days(
+                {
+                    1: self._session(pk=1, start=self._at(10, 8), end=self._at(10, 9)),
+                    2: self._session(
+                        pk=2,
+                        start=self._at(10, 13).replace(minute=30),
+                        end=self._at(10, 14).replace(minute=30),
+                    ),
+                }
+            )
+        )
+
+        # 13:00 is a busy hour — its second half starts a session — so the
+        # fold stops at it and the hour keeps its label, with the cut inside.
+        assert [
+            (row.hour_mark.hour, row.start.minute, row.is_fold, row.is_cut)
+            for row in lanes.rows
+            if row.hour_mark and row.start
+        ] == [
+            (8, 0, False, False),
+            (9, 0, True, False),
+            (13, 0, False, False),
+            (13, 30, False, True),
+            (14, 0, False, False),
+            (14, 30, False, True),
+        ]
+
     def test_a_session_ending_on_the_hour_keeps_its_last_hour_whole(self):
         lanes = self._lanes(
             (self._at(10, 10), self._at(10, 12)), (self._at(10, 16), self._at(10, 17))

@@ -26,7 +26,7 @@ from ludamus.gates.web.django.event.status_pills import event_status_pills
 from ludamus.links.db.django.models import SessionParticipation
 from ludamus.links.db.django.repositories.chronology import location_data
 from ludamus.links.gravatar import gravatar_url
-from ludamus.mills.timeslots import programme_date, programme_day_start
+from ludamus.mills.timeslots import PROGRAMME_DAYS
 from ludamus.pacts import (
     NO_LOCATION,
     AgendaItemDTO,
@@ -200,6 +200,13 @@ def event_page_context(event, *, url, access=ENROLLMENT_SHUT, **overrides):
     return context
 
 
+def programme_day_of(instant):
+    # The opening of the programme day holding the instant, as the schedule
+    # names its days.
+    tz = get_current_timezone()
+    return PROGRAMME_DAYS.opening(PROGRAMME_DAYS.date_of(instant, tz), tz)
+
+
 def compact_day(cards):
     # The compact schedule's single day: one hour bucket holding every card,
     # plus a tile per card. Fixtures that schedule everything in one hour.
@@ -214,9 +221,7 @@ def compact_day(cards):
         for card in cards
     ]
     return ScheduleDay(
-        day_start=programme_day_start(
-            programme_date(hour_start, get_current_timezone()), get_current_timezone()
-        ),
+        day_start=programme_day_of(hour_start),
         hours=[ScheduleHour(start=hour_start, tiles=tiles)],
         tiles=tiles,
     )

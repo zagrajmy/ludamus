@@ -3,7 +3,7 @@ from http import HTTPStatus
 
 import pytest
 from django.urls import reverse
-from django.utils.timezone import get_current_timezone, localtime
+from django.utils.timezone import localtime
 
 from ludamus.gates.web.django.chronology.schedule import (
     RoomLane,
@@ -12,7 +12,6 @@ from ludamus.gates.web.django.chronology.schedule import (
     RoomLaneTile,
 )
 from ludamus.links.db.django.models import SessionBookmark
-from ludamus.mills.timeslots import programme_date, programme_day_start
 from tests.integration.conftest import (
     AgendaItemFactory,
     EventFactory,
@@ -24,6 +23,7 @@ from tests.integration.utils import assert_response
 from tests.integration.web.chronology.helpers import (
     compact_day,
     event_page_context,
+    programme_day_of,
     session_card,
 )
 
@@ -172,20 +172,14 @@ class TestEventPageBookmarkCounts:
                     rows=[
                         RoomLaneRow(
                             day=0,
-                            day_start=programme_day_start(
-                                programme_date(hour_start, get_current_timezone()),
-                                get_current_timezone(),
-                            ),
+                            day_start=programme_day_of(hour_start),
                             hour_mark=hour_start,
                             window=(hour_start, hour_start + timedelta(hours=1)),
                             starting_tiles=[room_tile],
                         ),
                         RoomLaneRow(
                             day=0,
-                            day_start=programme_day_start(
-                                programme_date(hour_start, get_current_timezone()),
-                                get_current_timezone(),
-                            ),
+                            day_start=programme_day_of(hour_start),
                             hour_mark=hour_start + timedelta(hours=1),
                             window=(
                                 hour_start + timedelta(hours=1),
