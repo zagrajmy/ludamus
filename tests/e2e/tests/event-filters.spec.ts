@@ -21,6 +21,20 @@ test.describe("Event filter panel", () => {
     expect(box!.x).toBeGreaterThanOrEqual(0);
     expect(box!.x + box!.width).toBeLessThanOrEqual(MOBILE_WIDTH);
 
+    // Not the width alone: at this size the panel is a dialog capped at
+    // --modal-max-h, and an unresolvable var() computes to max-height:none
+    // without a word from anything. This is the sheet's own inline <style>, the
+    // one consumer of that token that carries no .modal class.
+    const visible = await page.evaluate(() => visualViewport!.height * visualViewport!.scale);
+    await expect
+      .poll(() =>
+        page.locator("#filter-panel").evaluate((el) => {
+          const { maxHeight } = getComputedStyle(el);
+          return maxHeight === "none" ? maxHeight : Number.parseFloat(maxHeight);
+        }),
+      )
+      .toBeCloseTo(visible * 0.9, 0);
+
     await context.close();
   });
 
