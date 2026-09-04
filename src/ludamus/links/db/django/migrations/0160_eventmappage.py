@@ -37,7 +37,7 @@ def _page_to_image(apps: Apps, schema_editor: BaseDatabaseSchemaEditor) -> None:
 
 
 class Migration(migrations.Migration):
-    dependencies = [("db_main", "0158_merge_0157_alter_user_avatar_url_0157_eventmap")]
+    dependencies = [("db_main", "0159_default_space_per_event")]
 
     operations = [
         migrations.CreateModel(
