@@ -51,17 +51,6 @@ const measure = () => {
   ].join("\n");
 };
 
-const button = document.createElement("button");
-button.type = "button";
-button.textContent = "Scroll to end";
-button.addEventListener("click", () => {
-  scroller.scrollTop = scroller.scrollHeight;
-  requestAnimationFrame(measure);
-});
-readout.after(button);
-button.style.cssText =
-  "position:fixed;left:8px;bottom:120px;z-index:4;font:inherit;padding:10px 14px";
-
 measure();
 window.addEventListener("resize", measure);
 window.addEventListener("scroll", measure, { passive: true });
