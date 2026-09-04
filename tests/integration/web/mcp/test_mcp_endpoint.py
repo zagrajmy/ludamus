@@ -8,7 +8,7 @@ from freezegun import freeze_time
 
 from ludamus.gates.mcp.protocol import PARSE_ERROR
 from ludamus.gates.web.django.mcp.tokens import SIGNING_SALT, mint_token
-from ludamus.links.db.django.models import Announcement
+from ludamus.links.db.django.models import Announcement, Space
 from tests.integration.conftest import EventFactory, UserFactory
 from tests.integration.utils import assert_response
 
@@ -370,6 +370,7 @@ class TestTools:
             {"sphere_id": sphere.pk, "slug": "bachanalia-2026"},
         )
         assert json.loads(tool_text(get))["pk"] == created["pk"]
+        assert Space.objects.filter(event_id=created["pk"]).count() == 1
 
     def test_create_event_rejects_reversed_dates(self, client, token, sphere):
         response = call_tool(
