@@ -137,15 +137,18 @@ hk install --mise
 # cryptography) used to strand a 0-byte file that `-f` treated as done — every
 # later bootstrap then skipped regeneration and varlock failed on the empty
 # secrets. The temp file keeps a failed run from touching .env.local at all,
-# and the traps remove it on the way out, so neither a failure nor a Ctrl-C
-# leaves a file of real secrets lying around untracked. Two traps, not one:
-# mise runs this with sh, which is dash on Linux, and dash does not run an
-# EXIT trap when the shell is killed by a signal — checked, it strands the
-# temp file. The explicit exit is what stops bootstrap carrying on into
-# migrate after a Ctrl-C, since POSIX resumes after an INT handler returns.
+# and the traps remove it on the way out, so a failed or interrupted run does
+# not leave a file of real secrets lying around untracked. Two traps, not one:
+# mise runs this with sh, which is dash on Linux, and dash runs an EXIT trap
+# only on a normal exit — measured, every signal below strands the temp file
+# with EXIT alone. Signals are therefore listed rather than relied on: SIGKILL
+# and anything not named here (ABRT and QUIT are named because dash showed
+# them stranding it) still can. The explicit exit is what stops bootstrap
+# carrying on into migrate, since POSIX resumes where it left off once an INT
+# handler returns.
 if [ ! -s .env.local ]; then
   trap 'rm -f .env.local.tmp' EXIT
-  trap 'rm -f .env.local.tmp; exit 130' INT HUP TERM
+  trap 'rm -f .env.local.tmp; exit 130' INT HUP TERM QUIT ABRT
   python -c "
 import secrets
 from cryptography.fernet import Fernet

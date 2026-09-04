@@ -47,7 +47,11 @@ test.describe("Event detail page on a phone", () => {
     });
     expect(closeTouchMoveAllowed).toBe(true);
 
-    await closeButton.click();
+    // Tapped, not clicked: the bug this guards is iOS hit-testing a tap against
+    // the unscrolled document, and click() drives the mouse path instead.
+    const box = await closeButton.boundingBox();
+    expect(box).not.toBeNull();
+    await page.touchscreen.tap(box!.x + box!.width / 2, box!.y + box!.height / 2);
     await expect(detailDialog).toBeHidden();
     await context.close();
   });
