@@ -1,6 +1,6 @@
-{% load i18n tessera cfp_tags markdown_tags %}
+{% load i18n tessera cfp_tags date_tags markdown_tags %}
 <dialog id="session-{{ data.session.pk }}"
-        class="modal max-w-200 w-[calc(100%-0.5rem)] max-h-[90dvh] overflow-hidden"
+        class="modal max-w-200 w-[calc(100%-0.5rem)] max-h-[calc(var(--app-vh)*0.9)] overflow-hidden"
         aria-labelledby="session-{{ data.session.pk }}-title"
         data-edit-error-label="{% translate "Could not open the editor. Please try again." %}">
     <!-- Header -->
@@ -69,7 +69,7 @@
                     {# a sub-label 12px off the name it belongs to. #}
                     <div class="flex flex-1 items-center gap-x-3 gap-y-0.5 flex-wrap min-w-0">
                         <div class="font-medium text-foreground" data-morph="host" data-ph-mask>{{ data.presenter.full_name }}</div>
-                        {% if data.location_label %}
+                        {% if data.location_crumbs %}
                             {# The room sits beside a name that is still flying in from #}
                             {# the card, so at its final spot it reads as arriving alone. #}
                             {# Its own group lets it land with the other static labels. #}
@@ -79,7 +79,7 @@
                                 {# narrowest phones its 16px plus the gap is width the #}
                                 {# room name itself needs. #}
                                 {% icon "map-pin" class="size-4 shrink-0 opacity-80 max-[400px]:hidden" variant="mini" %}
-                                <span class="truncate" title="{{ data.location_label }}">{{ data.location_label }}</span>
+                                {% include "chronology/_session_location.html" with show_map_link=True %}
                             </span>
                         {% endif %}
                         {% if data.presenter.pk %}
@@ -114,27 +114,7 @@
                 {% endif %}
                 {% if data.field_values %}
                     <!-- Session Fields -->
-                    <div class="space-y-4 mb-6">
-                        {% for fv in data.field_values %}
-                            <div>
-                                <h4 class="text-sm font-semibold mb-1 text-foreground-secondary">
-                                    {% if fv.field_icon %}
-                                        {% icon fv.field_icon class="w-4 h-4 inline mr-1" variant="mini" %}
-                                    {% endif %}
-                                    {{ fv.field_name }}
-                                </h4>
-                                {% if fv.field_type == "select" and not fv.allow_custom %}
-                                    <div class="flex flex-wrap gap-1.5">
-                                        {% for val in fv.value %}
-                                            <span class="inline-flex items-center gap-1 rounded-2xl font-medium px-2.5 py-1 text-sm bg-warm-200/80 dark:bg-neutral-700 text-warm-700 dark:text-neutral-300">{{ val }}</span>
-                                        {% endfor %}
-                                    </div>
-                                {% else %}
-                                    <div class="leading-relaxed text-foreground-muted">{{ fv.value|format_field_value|linebreaks }}</div>
-                                {% endif %}
-                            </div>
-                        {% endfor %}
-                    </div>
+                    <div class="mb-6">{% include "components/_session_field_values.html" with field_values=data.field_values %}</div>
                 {% endif %}
                 <!-- Details grid -->
                 <div class="grid grid-cols-2 gap-3 mb-6">
@@ -197,7 +177,7 @@
              class="flex-auto min-h-0 flex flex-col overflow-hidden text-foreground"
              hidden></div>
     {% endif %}
-    {% if enroll_actions or data.can_edit %}
+    {% if enroll_actions or data.can_edit or enroll_opens_at %}
         <!-- Footer -->
         {# A new-only view-transition group: with no old geometry to interpolate #}
         {# it renders at final layout for the whole morph instead of stretching #}
@@ -225,12 +205,19 @@
                     <button type="button" class="btn btn-secondary text-sm" disabled>
                         {% icon "user-plus" class="w-4 h-4" variant="mini" %} {% translate "Session full" %}
                     </button>
+                {% elif enroll_opens_at and not event_banned %}
+                    {# The window that will let this viewer in has not opened, so #}
+                    {# the way in is drawn where it will appear, shut, with the #}
+                    {# date beside it. A missing control asks the reader to guess #}
+                    {# whether there is one. The fragment renders it, so the HTMX #}
+                    {# swap after a cancel lands on the same markup. #}
+                    {% include "chronology/parts/session-enroll-actions.html" with actions=None event_slug=event.slug session_pk=data.session.pk viewer_pk=current_user.pk enroll_error="" notice="" %}
                 {% elif enroll_actions and not event_banned %}
                     {% if current_user %}
                         {# current_user is always an ACTIVE user (the profile context #}
                         {# processor only resolves active accounts), so enrollment #}
                         {# actions always apply here. #}
-                        {% include "chronology/parts/session-enroll-actions.html" with actions=enroll_actions event_slug=event.slug session_pk=data.session.pk viewer_pk=current_user.pk enroll_error="" notice="" %}
+                        {% include "chronology/parts/session-enroll-actions.html" with actions=enroll_actions event_slug=event.slug session_pk=data.session.pk viewer_pk=current_user.pk enroll_error="" notice="" enroll_opens_at=None %}
                     {% elif request.session.anonymous_enrollment_active %}
                         {% if data.user_enrolled or data.user_waiting %}
                             <a href="{% url 'web:chronology:session-enrollment-anonymous' event_slug=event.slug session_id=data.session.pk %}"

@@ -37,6 +37,15 @@ const requireChild = <T extends HTMLElement>(parent: HTMLElement, selector: stri
 
 const VENUE_VALUE_PREFIX = "venue:";
 
+const isUnmodifiedLeftClick = (event: MouseEvent): boolean =>
+  !event.defaultPrevented &&
+  event.button === 0 &&
+  !event.metaKey &&
+  !event.ctrlKey &&
+  !event.shiftKey &&
+  !event.altKey &&
+  event.target instanceof Element;
+
 type SpaceOrderSegment = readonly [number, string, number];
 
 const parseSpaceOrder = (value: string): SpaceOrderSegment[] => {
@@ -690,6 +699,37 @@ const initSessionFilters = (): void => {
 
   sessionFilter.addEventListener("input", filterSessions);
   enrollmentFilter?.addEventListener("change", filterSessions);
+  document.addEventListener(
+    "click",
+    (event) => {
+      if (!isUnmodifiedLeftClick(event)) return;
+      const target = event.target as Element;
+      if (target.closest("[data-apply-enrollment]")) {
+        if (!enrollmentFilter) return;
+        event.preventDefault();
+        if (!enrollmentFilter.checked) {
+          enrollmentFilter.checked = true;
+          filterSessions();
+        }
+        byId("schedule-region").scrollIntoView();
+        return;
+      }
+      const spaceLink = target.closest<HTMLAnchorElement>("a[data-apply-space]");
+      if (!spaceLink) return;
+      const space = new URL(spaceLink.href).searchParams.get("space");
+      if (!space) return;
+      if (![...spaceFilter.options].some((option) => option.value === space)) return;
+      event.preventDefault();
+      spaceLink.closest("dialog")?.querySelector<HTMLElement>("[data-modal-close]")?.click();
+      if (spaceFilter.value !== space) {
+        spaceFilter.value = space;
+        syncControl(spaceFilter);
+        filterSessions();
+      }
+      byId("schedule-region").scrollIntoView();
+    },
+    { signal: documentListeners.signal },
+  );
   for (const f of cardFilters) {
     // A choice is committed, not typed: the combobox writes its hidden input
     // and says `change`, exactly as the selects do.

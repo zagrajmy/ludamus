@@ -24,7 +24,7 @@ from ludamus.pacts import (
     SessionStatus,
     SpherePage,
 )
-from ludamus.pacts.crowd import UserType
+from ludamus.pacts.crowd import MAX_AVATAR_URL_LENGTH, UserType
 from ludamus.pacts.discounts import DiscountKind, DiscountMethod
 from ludamus.pacts.images import ORIGINAL_FILENAME_MAX_LENGTH
 from ludamus.pacts.legacy import EncounterPublicPolicy
@@ -47,6 +47,10 @@ DEFAULT_NAME = "Andrzej"
 SPACE_NO_CHILDREN_REASON = _(
     "A space holding a scheduled session cannot contain other spaces."
 )
+# Every event owns at least one bookable space from the moment it is created, so
+# no organizer flow has to stop and send the user off to the venue editor first.
+# Organizers rename it; the name is only the starting point.
+DEFAULT_SPACE_NAME = _("Main room")
 
 
 _SoftDeleteT = TypeVar("_SoftDeleteT", bound=models.Model)
@@ -123,6 +127,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     )
     avatar_url = models.URLField(
         _("Avatar URL"),
+        max_length=MAX_AVATAR_URL_LENGTH,
         blank=True,
         default="",
         help_text=_("Profile avatar URL (e.g. from Auth0)"),
@@ -450,6 +455,7 @@ class Event(models.Model):
     name = models.CharField(max_length=255)
     slug = models.SlugField()
     description = models.TextField(default="", blank=True)
+    address = models.CharField(max_length=255, blank=True, default="")
     cover_image = models.ImageField(upload_to=unique_upload_to, blank=True)
     cover_image_original_name = models.CharField(
         max_length=ORIGINAL_FILENAME_MAX_LENGTH, blank=True, default=""
@@ -505,6 +511,13 @@ class Event(models.Model):
 
     def __str__(self) -> str:
         return self.name
+
+    @property
+    def address_inline(self) -> str:
+        """The address as one comma-joined line, for map and calendar links."""
+        return ", ".join(
+            line.strip() for line in self.address.splitlines() if line.strip()
+        )
 
     @property
     def cover_image_url(self) -> str:
@@ -982,6 +995,53 @@ class SessionManager(AliveManager["Session"]):
 
     def has_conflicts(self, session: Session, user: UserDTO) -> bool:
         return user.pk in self.conflicted_user_ids(session, [user.pk])
+
+
+class EventMap(models.Model):
+    """One venue plan (a floor, a building) and the spaces drawn on it.
+
+    A plan can run to more than one picture — a site plan beside its legend —
+    so the pictures live in `pages` and are read in their order.
+    """
+
+    event = models.ForeignKey(Event, on_delete=models.CASCADE, related_name="maps")
+    name = models.CharField(max_length=255)
+    # Which spaces the pictures show; a space may appear on several maps (an
+    # overview and a floor plan), so this is a relation rather than a column.
+    spaces = models.ManyToManyField(Space, related_name="maps", blank=True)
+    creation_time = models.DateTimeField(auto_now_add=True)
+    modification_time = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "event_map"
+        ordering: ClassVar = ["pk"]
+
+    def __str__(self) -> str:
+        return self.name
+
+
+class EventMapPage(models.Model):
+    """One picture of a map, in the order the plan is read."""
+
+    event_map = models.ForeignKey(
+        EventMap, on_delete=models.CASCADE, related_name="pages"
+    )
+    image = models.ImageField(upload_to=unique_upload_to)
+    image_original_name = models.CharField(
+        max_length=ORIGINAL_FILENAME_MAX_LENGTH, blank=True, default=""
+    )
+    order = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        db_table = "event_map_page"
+        ordering: ClassVar = ["order", "pk"]
+
+    def __str__(self) -> str:
+        return f"{self.event_map.name} ({self.order + 1})"
+
+    @property
+    def image_url(self) -> str:
+        return self.image.url if self.image else ""
 
 
 class Session(SoftDeleteModel):

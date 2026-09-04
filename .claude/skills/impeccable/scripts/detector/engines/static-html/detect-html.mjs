@@ -25,6 +25,7 @@ import {
   checkCreamPalette,
   checkHtmlPatterns,
   checkKickerAboveHeadingFromDoc,
+  scopedIgnoreActive,
   checkNumberedSectionLabelsFromDoc,
   checkPageLayout,
   checkPageQualityFromDoc,
@@ -214,13 +215,24 @@ async function detectHtml(filePath, options = {}) {
           parseDocument: htmlparser2.parseDocument,
           selectAll: cssSelect.selectAll,
           selectOne: cssSelect.selectOne,
-          is: cssSelect.is,
+          compile: cssSelect.compile,
           csstree,
           domutils,
         };
       },
     );
-  } catch {
+  } catch (err) {
+    if (!globalThis.__impeccableStaticHtmlWarned) {
+      globalThis.__impeccableStaticHtmlWarned = true;
+
+      process.stderr.write(
+        "impeccable detect: DEGRADED - HTML parser modules unavailable " +
+          "(htmlparser2, css-select, css-tree, domutils).\n" +
+          "Falling back to regex matching. Custom properties, selector matching and computed " +
+          "contrast are NOT evaluated; findings are an undercount, not a clean bill of health.\n",
+      );
+    }
+
     return detectText(html, filePath, options);
   }
 
@@ -264,6 +276,9 @@ async function detectHtml(filePath, options = {}) {
       for (const f of runElementCheck(rule.id, () =>
         rule.run(el, tag, style, window, customPropMap),
       )) {
+        // Element-scoped waivers: a data-impeccable-ignore ancestor suppresses
+        // matching findings for its subtree, same as the browser walk.
+        if (scopedIgnoreActive(el, f.id)) continue;
         findings.push(finding(f.id, filePath, f.snippet));
       }
     }
@@ -354,6 +369,28 @@ async function detectHtml(filePath, options = {}) {
         (item) => item.id !== "bounce-easing" && item.id !== "layout-transition",
       ),
     )) {
+      // Selector-backed page findings honor scoped waivers here too, matching
+      // the browser pass: resolve the selector and drop the finding when an
+      // ignoring ancestor covers a match. Unlike the browser, an unmatched
+      // selector keeps the finding — static scans see partial documents.
+      if (f.selector) {
+        let matches = null;
+        try {
+          matches = document.querySelectorAll(
+            String(f.selector)
+              .replace(/::?[a-zA-Z-]+(\([^)]*\))?/g, "")
+              .trim(),
+          );
+        } catch {
+          matches = null;
+        }
+        if (
+          matches &&
+          matches.length > 0 &&
+          [...matches].every((el) => scopedIgnoreActive(el, f.id))
+        )
+          continue;
+      }
       const item = finding(f.id, filePath, f.snippet);
       // Position-aware severity promotion: checks may attach a per-finding
       // severity (e.g. a pulsing dot inside a header/nav landmark) that

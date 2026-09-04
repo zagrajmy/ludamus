@@ -57,6 +57,7 @@ from ludamus.mills.integrations import (
     EventIntegrationsService,
     IntegrationImplementations,
 )
+from ludamus.mills.maps import EventMapsService
 from ludamus.mills.multiverse import (
     AnnouncementsService,
     ConnectionsService,
@@ -230,6 +231,7 @@ class Services:
             transaction=self._transaction,
             events=self._repos.events,
             spheres=self._repos.spheres,
+            spaces=self._repos.space_tree,
         )
 
     @cached_property
@@ -292,6 +294,12 @@ class Services:
     @cached_property
     def space_tree(self) -> SpaceTreeService:
         return SpaceTreeService(self._transaction, self._repos.space_tree)
+
+    @cached_property
+    def event_maps(self) -> EventMapsService:
+        return EventMapsService(
+            self._transaction, self._repos.event_maps, self._repos.spaces
+        )
 
     @cached_property
     def sphere_panel(self) -> SpherePanelService:
@@ -428,6 +436,7 @@ class Services:
                 enrollment_configs=self._repos.enrollment_configs,
                 participations=self._repos.enrollment_participations,
                 ticket_api_resolver=self.event_integrations,
+                windows=self._repos.enrollment_windows,
             ),
         )
 
