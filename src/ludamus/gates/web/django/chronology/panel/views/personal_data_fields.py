@@ -44,7 +44,16 @@ class PersonalDataFieldsPageView(PanelAccessMixin, EventContextMixin, View):
         context["active_nav"] = "cfp"
         context["active_tab"] = "host"
         context["tab_urls"] = cfp_tab_urls(slug)
-        context["fields"] = service.list_summaries(current_event.pk)
+        summaries = service.list_summaries(current_event.pk)
+        context["fields"] = summaries
+        # Why Delete is unavailable, per row. `is_used` answers the same
+        # question `delete` refuses on; the sentence is added here because the
+        # summaries are built in mills, which must not import Django.
+        context["undeletable_field_reasons"] = {
+            summary.field.pk: _("Used by categories")
+            for summary in summaries
+            if summary.is_used
+        }
         return TemplateResponse(
             self.request, "panel/personal-data-fields.html", context
         )

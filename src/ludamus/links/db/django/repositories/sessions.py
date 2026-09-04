@@ -478,7 +478,9 @@ class SessionRepository(SessionRepositoryProtocol, SessionModalRepositoryProtoco
 
     @staticmethod
     def read_time_slots(session_id: int) -> list[TimeSlotDTO]:
-        time_slots = TimeSlot.objects.filter(event__event_sessions__id=session_id)
+        time_slots = TimeSlot.objects.filter(
+            event__event_sessions__id=session_id
+        ).order_by("start_time")
         return [TimeSlotDTO.model_validate(ts) for ts in time_slots]
 
     @staticmethod

@@ -46,7 +46,7 @@ class TestCFPPageView:
                 "active_tab": "types",
                 "tab_urls": cfp_tab_urls(event),
                 "categories": [],
-                "undeletable_category_pks": frozenset(),
+                "undeletable_category_reasons": {},
                 "category_stats": {},
             },
         )
@@ -100,7 +100,7 @@ class TestCFPPageView:
                         durations=[],
                     ),
                 ],
-                "undeletable_category_pks": frozenset(),
+                "undeletable_category_reasons": {},
                 "category_stats": {
                     cat1.pk: {"proposals_count": 0, "accepted_count": 0},
                     cat2.pk: {"proposals_count": 0, "accepted_count": 0},
@@ -120,7 +120,7 @@ class TestCFPPageView:
                 "active_tab": "types",
                 "tab_urls": cfp_tab_urls(event),
                 "categories": [],
-                "undeletable_category_pks": frozenset(),
+                "undeletable_category_reasons": {},
                 "category_stats": {},
             },
         )
@@ -230,7 +230,7 @@ class TestCFPPageView:
                 "active_tab": "types",
                 "tab_urls": cfp_tab_urls(event),
                 "categories": [ProposalCategoryDTO.model_validate(proposal_category)],
-                "undeletable_category_pks": frozenset({proposal_category.pk}),
+                "undeletable_category_reasons": {proposal_category.pk: "Has proposals"},
                 "category_stats": {
                     proposal_category.pk: {"proposals_count": 1, "accepted_count": 0}
                 },
@@ -263,7 +263,7 @@ class TestCFPPageView:
                         durations=[],
                     )
                 ],
-                "undeletable_category_pks": frozenset(),
+                "undeletable_category_reasons": {},
                 "category_stats": {
                     category.pk: {"proposals_count": 0, "accepted_count": 0}
                 },
@@ -332,7 +332,7 @@ class TestCFPPageView:
                         durations=[],
                     )
                 ],
-                "undeletable_category_pks": frozenset({category.pk}),
+                "undeletable_category_reasons": {category.pk: "Has proposals"},
                 "category_stats": {
                     category.pk: {"proposals_count": 1 + 1 + 1, "accepted_count": 1}
                 },
@@ -418,7 +418,10 @@ class TestCFPPageView:
                         durations=[],
                     ),
                 ],
-                "undeletable_category_pks": frozenset({category1.pk, category2.pk}),
+                "undeletable_category_reasons": {
+                    category1.pk: "Has proposals",
+                    category2.pk: "Has proposals",
+                },
                 "category_stats": {
                     category1.pk: {"proposals_count": 1 + 1, "accepted_count": 1},
                     category2.pk: {"proposals_count": 1, "accepted_count": 0},

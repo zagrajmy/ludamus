@@ -4,9 +4,9 @@
 {# with an error. The reason is visible text, not a title on a disabled #}
 {# button, because a disabled button is not focusable and its tooltip never #}
 {# reaches the keyboard. #}
-{# Args: undeletable (bool), reason (shown when undeletable), action_url, #}
-{# confirm, csrf_token. Included with `only`, so every one is explicit. #}
-{% if undeletable %}
+{# Args: reason (None or absent = deletable), action_url, confirm, csrf_token. #}
+{# Included with `only`, so every one is explicit. #}
+{% if reason %}
     <span class="text-sm text-foreground-muted">{{ reason }}</span>
 {% else %}
     <form method="post"

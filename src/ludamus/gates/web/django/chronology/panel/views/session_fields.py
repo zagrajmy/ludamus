@@ -51,7 +51,7 @@ class SessionFieldsPageView(PanelAccessMixin, EventContextMixin, View):
         usage_counts = self.request.di.uow.session_fields.get_usage_counts(
             current_event.pk
         )
-        context["fields"] = [
+        summaries = [
             FieldUsageSummary(
                 field=f,
                 required_count=usage_counts.get(f.pk, {}).get("required", 0),
@@ -59,6 +59,15 @@ class SessionFieldsPageView(PanelAccessMixin, EventContextMixin, View):
             )
             for f in fields
         ]
+        context["fields"] = summaries
+        # Why Delete is unavailable, per row. `is_used` answers the same
+        # question `delete` refuses on; the sentence is added here because the
+        # summaries are built in mills, which must not import Django.
+        context["undeletable_field_reasons"] = {
+            summary.field.pk: _("Used by categories")
+            for summary in summaries
+            if summary.is_used
+        }
         return TemplateResponse(self.request, "panel/session-fields.html", context)
 
 

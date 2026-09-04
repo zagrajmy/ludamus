@@ -68,36 +68,44 @@ them asks per row, which would have been an N+1:
 | Session fields (`panel/session-fields.html`) | `FieldUsageSummary.is_used`, derived from the usage counts the page already computed. No new query, and no new `request.di.uow` surface, which CLAUDE.md forbids extending. |
 | Personal data fields (`panel/personal-data-fields.html`) | The same `FieldUsageSummary.is_used`, against the same refusal in `PersonalDataFieldsService.delete`. |
 
-#### Where the sentence lives, and why it is not on the row DTO
+#### One idiom: the row carries its reason
 
-`SpaceTreeNodeDTO.undeletable_reason` holds the fact and the sentence in one
-field, and that is the nicer shape: the rule and its wording cannot drift
-apart. It is available there because that DTO is built in `links`, which may
-import Django and therefore `gettext`.
+Every surface answers with the same thing — a sentence for the row, or nothing
+when Delete is offered. `SpaceTreeNodeDTO.undeletable_reason` holds it directly,
+because that DTO is built in `links`, which may import Django and so `gettext`.
 
-The other four cannot have it. `FieldUsageSummary` is built in
+The other four cannot put it on the DTO: `FieldUsageSummary` is built in
 `mills/submissions/personal_data_fields.py` and `ProposalCategoriesPageDTO` in
-`mills/proposal_categories.py`, and `mills` must not import Django — so no
-translated string can be attached there. The split is therefore deliberate:
-**the context carries the fact, the template carries the sentence.**
+`mills/proposal_categories.py`, and `mills` must not import Django. But the
+view may — `gates` already writes Polish everywhere — so each view turns the
+fact its service returns into `dict[pk, sentence]`:
 
-What must not also split is the *control*. `components/_row_delete_action.html`
-owns the branch:
+```python
+context["undeletable_category_reasons"] = {
+    pk: _("Has proposals") for pk in page.undeletable_pks
+}
+```
+
+and every row reads its own reason out of it:
 
 ```django
 {% include "components/_row_delete_action.html"
-   with undeletable=... reason=... action_url=... confirm=...
-        csrf_token=csrf_token only %}
+   with reason=undeletable_category_reasons|get_item:category.pk
+        action_url=... confirm=... csrf_token=csrf_token only %}
 ```
 
-One include per row, `undeletable` always passed explicitly, and `only` so the
-partial cannot silently inherit a stray `reason` from the page and swallow the
-button. Set-membership call sites spell the predicate with the `contains`
-filter, beside the existing `is_continuation` and `get_item` in `cfp_tags`.
+One include per row, one argument that decides, and `only` so the partial
+cannot inherit a stray `reason` from the page. `get_item` returns None for a
+row that is missing from the mapping, so the failure direction is "offer
+Delete", not a blank cell with neither button nor explanation.
 
-Spaces is the exception, and stays one: its Delete is a row-menu item with icon
-and menu styling, not a table-cell action, so it renders the same sentence in
-its own markup rather than through the shared partial.
+Putting the sentence in the view rather than the template also makes it
+assertable: the page tests check `{pk: "Has proposals"}` in the context, where a
+set of pks could only ever prove that *something* was flagged.
+
+Spaces is the one exception, and only in markup: its Delete is a row-menu item
+with icon and menu styling, not a table-cell action, so it renders its
+`undeletable_reason` in its own markup rather than through the shared partial.
 
 ## Still open
 

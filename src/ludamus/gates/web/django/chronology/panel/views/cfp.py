@@ -46,7 +46,12 @@ class CFPPageView(PanelAccessMixin, EventContextMixin, View):
         )
         context["categories"] = page.categories
         context["category_stats"] = page.stats
-        context["undeletable_category_pks"] = page.undeletable_pks
+        # Why Delete is unavailable, per row. Built here rather than on the page
+        # DTO because that DTO is assembled in mills, which must not import
+        # Django and so cannot hold a translated string.
+        context["undeletable_category_reasons"] = {
+            pk: _("Has proposals") for pk in page.undeletable_pks
+        }
         return TemplateResponse(self.request, "panel/cfp.html", context)
 
 
