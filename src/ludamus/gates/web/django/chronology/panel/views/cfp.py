@@ -49,6 +49,10 @@ class CFPPageView(PanelAccessMixin, EventContextMixin, View):
         # Why Delete is unavailable, per row. Built here rather than on the page
         # DTO because that DTO is assembled in mills, which must not import
         # Django and so cannot hold a translated string.
+        # NOTE: "Has proposals" rather than the time-slot page's "Used by
+        # proposals" because Polish adjectives agree in gender: one msgid
+        # cannot serve both the feminine "kategoria" and the masculine
+        # "przedział czasowy". The verb form is gender-neutral.
         context["undeletable_category_reasons"] = {
             pk: _("Has proposals") for pk in page.undeletable_pks
         }

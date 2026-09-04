@@ -10,13 +10,17 @@ from typing import (  # pylint: disable=unused-import
 )
 
 from django.contrib import messages
+from django.utils.translation import gettext as _
 
 from ludamus.pacts import NotFoundError, PersonalDataFieldCreateData
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable
+
     from django import forms
 
     from ludamus.gates.web.django.chronology.panel.views.base import PanelRequest
+    from ludamus.pacts.legacy import FieldUsageSummary
 
 
 class _FieldDTO(Protocol):
@@ -69,3 +73,20 @@ def read_field_or_redirect[T: _FieldDTO](
         messages.error(request, error_message)
         raise
     return field
+
+
+def field_usage_reasons(summaries: Iterable[FieldUsageSummary]) -> dict[int, str]:
+    """Say why Delete is unavailable, per field.
+
+    `is_used` answers the same question `delete` refuses on. Both field pages
+    render this beside the row instead of taking the click.
+
+    Returns:
+        The sentence for each field a category asks for; missing means
+        deletable.
+    """
+    return {
+        summary.field.pk: _("Used by categories")
+        for summary in summaries
+        if summary.is_used
+    }

@@ -1326,6 +1326,10 @@ msgstr[1] "Pominięto %(count)d twórców programu: %(reason)s"
 msgstr[2] "Pominięto %(count)d twórców programu: %(reason)s"
 msgstr[3] "Pominięto %(count)d twórców programu: %(reason)s"
 
+#: src/ludamus/gates/web/django/chronology/panel/views/fields.py
+msgid "Used by categories"
+msgstr "Używane przez kategorie"
+
 #: src/ludamus/gates/web/django/chronology/panel/views/google_docs_import.py
 #: src/ludamus/gates/web/django/templatetags/cfp_tags.py
 #: src/ludamus/templates/event/propose/parts/_stepper.html
@@ -1572,11 +1576,6 @@ msgstr "Wybierz implementację i połączenie przed uruchomieniem sprawdzenia."
 #, python-format
 msgid "Unknown implementation: %(id)s"
 msgstr "Nieznana implementacja: %(id)s"
-
-#: src/ludamus/gates/web/django/chronology/panel/views/personal_data_fields.py
-#: src/ludamus/gates/web/django/chronology/panel/views/session_fields.py
-msgid "Used by categories"
-msgstr "Używane przez kategorie"
 
 #: src/ludamus/gates/web/django/chronology/panel/views/personal_data_fields.py
 msgid "Personal data field created successfully."
@@ -5328,6 +5327,10 @@ msgstr "Poprzednia"
 #: src/ludamus/templates/panel/time-slots.html
 msgid "Next"
 msgstr "Następna"
+
+#: src/ludamus/templates/components/_row_delete_action.html
+msgid "Are you sure you want to delete this?"
+msgstr "Czy na pewno chcesz to usunąć?"
 
 #: src/ludamus/templates/components/avatar.html
 #, python-format

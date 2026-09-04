@@ -20,6 +20,7 @@ from ludamus.gates.web.django.chronology.panel.views.base import (
     cfp_tab_urls,
 )
 from ludamus.gates.web.django.chronology.panel.views.fields import (
+    field_usage_reasons,
     parse_field_form_data,
     read_field_or_redirect,
 )
@@ -60,14 +61,7 @@ class SessionFieldsPageView(PanelAccessMixin, EventContextMixin, View):
             for f in fields
         ]
         context["fields"] = summaries
-        # Why Delete is unavailable, per row. `is_used` answers the same
-        # question `delete` refuses on; the sentence is added here because the
-        # summaries are built in mills, which must not import Django.
-        context["undeletable_field_reasons"] = {
-            summary.field.pk: _("Used by categories")
-            for summary in summaries
-            if summary.is_used
-        }
+        context["undeletable_field_reasons"] = field_usage_reasons(summaries)
         return TemplateResponse(self.request, "panel/session-fields.html", context)
 
 

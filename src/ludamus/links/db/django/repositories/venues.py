@@ -94,18 +94,22 @@ class SpaceTreeRepository(SpaceTreeRepositoryProtocol):
             children_by_parent[space.parent_id].append(space)
         with_sessions = SpaceTreeRepository.space_pks_with_sessions(event_pk)
 
+        # Deleting cascades down, so a node is undeletable when it or anything
+        # under it holds a session — the same rule SpaceTreeService.delete_space
+        # enforces. The walk below folds that up as it goes, recording the fact
+        # here rather than re-reading it off each child's rendered sentence.
+        subtree_with_sessions: set[int] = set()
+
         def build(space: Space) -> SpaceTreeNodeDTO:
             # The tree facts come from the sibling map built above, so nothing
             # here goes back to the database.
             kids = children_by_parent.get(space.pk, [])
             children = [build(kid) for kid in kids]
-            # Deleting cascades down, so a node is undeletable when it or
-            # anything under it holds a session. The children are already built,
-            # so the subtree answer folds up for free — the same rule
-            # SpaceTreeService.delete_space enforces.
             holds_session = space.pk in with_sessions or any(
-                child.undeletable_reason for child in children
+                kid.pk in subtree_with_sessions for kid in kids
             )
+            if holds_session:
+                subtree_with_sessions.add(space.pk)
             return SpaceTreeNodeDTO(
                 space=SpaceRecordDTO.model_validate(space),
                 is_leaf=not kids,

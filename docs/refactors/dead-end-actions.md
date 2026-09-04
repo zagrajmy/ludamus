@@ -74,11 +74,11 @@ Every surface answers with the same thing — a sentence for the row, or nothing
 when Delete is offered. `SpaceTreeNodeDTO.undeletable_reason` holds it directly,
 because that DTO is built in `links`, which may import Django and so `gettext`.
 
-The other four cannot put it on the DTO: `FieldUsageSummary` is built in
-`mills/submissions/personal_data_fields.py` and `ProposalCategoriesPageDTO` in
-`mills/proposal_categories.py`, and `mills` must not import Django. But the
-view may — `gates` already writes Polish everywhere — so each view turns the
-fact its service returns into `dict[pk, sentence]`:
+The other four cannot put it on the DTO: `ProposalCategoriesPageDTO` is built
+in `mills/proposal_categories.py`, and the personal-data `FieldUsageSummary` in
+`mills/submissions/personal_data_fields.py`, and `mills` must not import
+Django. But the view may — `gates` already writes Polish everywhere — so each
+view turns the fact its service returns into `dict[pk, sentence]`:
 
 ```python
 context["undeletable_category_reasons"] = {
@@ -100,12 +100,24 @@ row that is missing from the mapping, so the failure direction is "offer
 Delete", not a blank cell with neither button nor explanation.
 
 Putting the sentence in the view rather than the template also makes it
-assertable: the page tests check `{pk: "Has proposals"}` in the context, where a
-set of pks could only ever prove that *something* was flagged.
+assertable: the page tests check `{pk: "Has proposals"}` in the context,
+where a set of pks could only ever prove that *something* was flagged.
 
-Spaces is the one exception, and only in markup: its Delete is a row-menu item
-with icon and menu styling, not a table-cell action, so it renders its
-`undeletable_reason` in its own markup rather than through the shared partial.
+The partial supplies its own confirmation text when a caller does not: an empty
+`data-confirm` makes `confirm.ts` skip the dialog and submit straight away, so
+the default keeps the guard on rather than trusting five call sites.
+
+Both field pages share one helper, `field_usage_reasons` in
+`panel/views/fields.py`, so that sentence has a single home even though the two
+pages build their summaries in different layers.
+
+Spaces is the exception twice over. Its Delete is a row-menu item with icon and
+menu styling, not a table-cell action, so it renders its own markup rather than
+the shared partial; and its sentence rides on the DTO, sourced from
+`SPACE_UNDELETABLE_REASON` in `links/db/django/models.py`. That constant is
+delete-affordance copy sitting in the ORM module — unlike its neighbour
+`SPACE_NO_CHILDREN_REASON`, which `Space.clean` raises — so moving it to the
+gate beside the other four is the tidier end state.
 
 ## Still open
 
@@ -135,3 +147,17 @@ with icon and menu styling, not a table-cell action, so it renders its
 
 Give `FacilitatorListItemDTO` a count that matches what the service checks
 (live plus soft-deleted), then move that refusal onto the control too.
+
+Also outstanding, found while reviewing this work:
+
+- **No `tests/e2e` case asserts the affordance itself.** The Python tests assert
+  the context, which is where CLAUDE.md puts them, so a dropped `reason=` at a
+  call site would bring Delete back with every Python test still green. One
+  `panel.spec.ts` case per surface would close it.
+- **`SessionRepository.read_event` and `read_time_slots` are now exact
+  duplicates** of `EventRepository.read` and `TimeSlotRepository.list_by_event`,
+  reached through a join instead of the FK. Adding `event_id` to `SessionDTO`
+  would delete both, and turn two `Event` fetches in `mills` into an int
+  comparison.
+- **`SPACE_UNDELETABLE_REASON` belongs in the gate**, beside the other four
+  sentences, rather than in `links/db/django/models.py`.
