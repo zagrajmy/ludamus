@@ -73,17 +73,21 @@ if (visualViewport) {
 
   const publish = (): void => {
     frame = 0;
-    // Whole pixels, and written only on a real change: `resize` fires every
+    // Scaled back up, because visualViewport.height is the *zoomed* visible
+    // height: pinch to 2x and it halves, and publishing that would relayout the
+    // whole app to half its size for as long as someone magnified a card. The
+    // product is what the viewport would show unzoomed, so a pinch is a no-op.
+    // Whole pixels, and written only on a real change — `resize` fires every
     // frame of the toolbar animation, and each write of this variable relayouts
-    // a viewport-tall subtree. Subpixel jitter would buy nothing for that cost.
-    const height = Math.round(visualViewport.height);
+    // a viewport-tall subtree.
+    const height = Math.round(visualViewport.height * visualViewport.scale);
     if (height === published) return;
     published = height;
     document.documentElement.style.setProperty("--app-vh", `${height}px`);
   };
 
   // `resize`, never `scroll`: scroll fires throughout every pinch-zoom pan,
-  // where the height we care about has not moved at all.
+  // where nothing about the viewport's size has changed.
   visualViewport.addEventListener("resize", () => {
     if (frame) return;
     frame = requestAnimationFrame(publish);

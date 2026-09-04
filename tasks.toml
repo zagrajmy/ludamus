@@ -147,7 +147,7 @@ print(f'DB_PASSWORD=dev-{secrets.token_hex(8)}')
 print(f'AUTH0_CLIENT_SECRET={secrets.token_hex(16)}')
 print(f'CREDENTIALS_ENCRYPTION_KEY={Fernet.generate_key().decode()}')
 " > .env.local.tmp || { rm -f .env.local.tmp; exit 1; }
-  mv .env.local.tmp .env.local
+  mv .env.local.tmp .env.local || { rm -f .env.local.tmp; exit 1; }
   echo "Generated .env.local with per-dev secrets."
 fi
 aubr varlock django-admin migrate --noinput
