@@ -518,6 +518,7 @@ ignore_names = [
     "is_unlimited",
     "is_repeated",
     "item_name",
+    "location_crumbs",
     "location_label",
     "opens_slot",
     "overflow_count",
