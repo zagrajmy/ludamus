@@ -8,7 +8,7 @@
 {# modal apply. #}
 <article class="session-wrapper h-full min-w-0"
          {% if slot_key %}data-slot-hour="{{ slot_key }}"{% endif %}>
-    <div class="session group/tile relative flex h-full flex-col gap-1 rounded-xl border border-border pb-1 bg-bg-secondary p-2 transition-colors hover:border-neutral-300 dark:hover:border-neutral-600 {% if data.user_enrolled %}bg-coral-50/60 dark:bg-coral-950/40{% endif %} {% if data.is_ended %}opacity-65 hover:opacity-100{% endif %}"
+    <div class="session group/tile relative flex h-full flex-col gap-1 rounded-xl border border-border pb-1 bg-bg-secondary p-2 transition-colors hover:border-neutral-300 dark:hover:border-neutral-600 {% if data.user_enrolled %}bg-coral-50/60 dark:bg-coral-950/40{% endif %} data-ended:opacity-65 data-ended:hover:opacity-100"
          {% include "chronology/_session_data_attrs.html" %}>
         <a href="?session={{ data.session.pk }}"
            class="session-link absolute inset-0 z-10 rounded-xl"

@@ -54,6 +54,14 @@ const firstStart = async (page: Page) =>
       .getAttribute("data-start"),
   );
 
+const firstSessionEnd = async (page: Page) =>
+  scheduleMoment(
+    await page
+      .locator(".session-grid .session-wrapper .session")
+      .first()
+      .getAttribute("data-session-end"),
+  );
+
 const finalSessionRange = async (page: Page) => {
   const sessions = page.locator(".session-grid .session-wrapper .session");
   const starts = scheduleMoment(await sessions.last().getAttribute("data-start"));
@@ -708,6 +716,24 @@ test.describe("Event schedule views", () => {
     expect(line).not.toBeNull();
     expect(tomorrow).not.toBeNull();
     expect(line?.y).toBeLessThan(tomorrow?.y ?? 0);
+  });
+
+  test("the ledger dims a session once the clock passes its end", async ({ page }) => {
+    // The page outlives the reading it was served with: a phone left open on
+    // the schedule keeps showing every session as still to come.
+    await page.goto(DENSE_EVENT_URL);
+    const ends = await firstSessionEnd(page);
+    await page.clock.install({ time: new Date(ends.timestamp - 60_000) });
+    await page.goto(DENSE_EVENT_URL);
+
+    const row = page.locator(".session-grid .session-wrapper .session").first();
+    await expect(row).not.toHaveAttribute("data-ended");
+
+    await page.clock.runFor(120_000);
+
+    await expect(row).toHaveAttribute("data-ended", "");
+    await expect(row).toHaveCSS("opacity", "0.65");
+    await expect(row).toHaveAttribute("data-status", "ended");
   });
 
   test("the ledger clock follows the event timezone across DST", async ({ page }) => {
