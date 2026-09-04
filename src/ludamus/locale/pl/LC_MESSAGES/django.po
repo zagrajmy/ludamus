@@ -1886,19 +1886,6 @@ msgstr "To zgłoszenie zostało już zaakceptowane."
 msgid "You don't have permission to accept proposals for this event."
 msgstr "Nie masz uprawnień do akceptowania propozycji dla tego wydarzenia."
 
-#: src/ludamus/gates/web/django/chronology/views.py
-msgid "No spaces configured for this event. Please create spaces first."
-msgstr ""
-"Brak skonfigurowanych przestrzeni dla tego wydarzenia. Najpierw utwórz "
-"przestrzenie."
-
-#: src/ludamus/gates/web/django/chronology/views.py
-msgid ""
-"No time slots configured for this event. Please create time slots first."
-msgstr ""
-"Brak skonfigurowanych przedziałów czasowych dla tego wydarzenia. Najpierw "
-"utwórz przedziały czasowe."
-
 #: src/ludamus/gates/web/django/crowd/auth.py
 msgid "Please complete your profile."
 msgstr "Proszę uzupełnić profil."
@@ -2707,7 +2694,6 @@ msgstr "Puste pole lub 0 = bez zapisów"
 #: src/ludamus/gates/web/django/forms.py
 #: src/ludamus/gates/web/django/notice_board/forms.py
 #: src/ludamus/gates/web/django/templatetags/cfp_tags.py
-#: src/ludamus/templates/chronology/accept_proposal.html
 #: src/ludamus/templates/chronology/anonymous_enroll.html
 #: src/ludamus/templates/chronology/parts/session-edit-form.html
 #: src/ludamus/templates/event/propose/parts/review.html
@@ -3211,6 +3197,7 @@ msgid "Participants Limit"
 msgstr "Limit uczestników"
 
 #: src/ludamus/gates/web/django/forms.py
+#: src/ludamus/templates/chronology/accept_proposal.html
 #: src/ludamus/templates/chronology/anonymous_enroll.html
 #: src/ludamus/templates/chronology/enroll_select.html
 #: src/ludamus/templates/chronology/parts/session-edit-form.html
@@ -3781,6 +3768,10 @@ msgid "A space holding a scheduled session cannot contain other spaces."
 msgstr ""
 "Przestrzeń zawierająca zaplanowany punkt programu nie może zawierać innych "
 "przestrzeni."
+
+#: src/ludamus/links/db/django/models.py
+msgid "Main room"
+msgstr "Sala główna"
 
 #: src/ludamus/links/db/django/models.py
 msgid "date joined"
@@ -4430,17 +4421,28 @@ msgid "Review the proposal, then add it to the agenda."
 msgstr "Przejrzyj zgłoszenie, a następnie dodaj je do harmonogramu."
 
 #: src/ludamus/templates/chronology/accept_proposal.html
-#, python-format
-msgid "%(limit)s seat"
-msgid_plural "%(limit)s seats"
-msgstr[0] "%(limit)s miejsce"
-msgstr[1] "%(limit)s miejsca"
-msgstr[2] "%(limit)s miejsc"
-msgstr[3] "%(limit)s miejsc"
+#: src/ludamus/templates/chronology/enroll_select.html
+#: src/ludamus/templates/chronology/parts/session-modal.html
+msgid "About this session"
+msgstr "O tym punkcie programu"
 
 #: src/ludamus/templates/chronology/accept_proposal.html
-msgid "submitted"
-msgstr "zgłoszono"
+#: src/ludamus/templates/panel/enrollment-settings.html
+msgid "Seats"
+msgstr "Miejsca"
+
+#: src/ludamus/templates/chronology/accept_proposal.html
+msgid "Length"
+msgstr "Długość"
+
+#: src/ludamus/templates/chronology/accept_proposal.html
+#, python-format
+msgid "%(age)s+ years"
+msgstr "%(age)s+ lat"
+
+#: src/ludamus/templates/chronology/accept_proposal.html
+msgid "Submitted"
+msgstr "Przesłane"
 
 #: src/ludamus/templates/chronology/accept_proposal.html
 #: src/ludamus/templates/event/propose/parts/review.html
@@ -4451,6 +4453,31 @@ msgstr "Preferowane przedziały czasowe"
 #: src/ludamus/templates/chronology/accept_proposal.html
 msgid "Schedule it"
 msgstr "Zaplanuj"
+
+#: src/ludamus/templates/chronology/accept_proposal.html
+msgid ""
+"This event has no time slots yet, so nothing can go on the agenda. Add the "
+"time slots, then come back to accept this proposal."
+msgstr ""
+"To wydarzenie nie ma jeszcze przedziałów czasowych, więc nic nie trafi do "
+"harmonogramu. Dodaj przedziały czasowe, a potem wróć tu zaakceptować to "
+"zgłoszenie."
+
+#: src/ludamus/templates/chronology/accept_proposal.html
+msgid ""
+"This event has no spaces yet, so nothing can go on the agenda. Add a space, "
+"then come back to accept this proposal."
+msgstr ""
+"To wydarzenie nie ma jeszcze przestrzeni, więc nic nie trafi do "
+"harmonogramu. Dodaj przestrzeń, a potem wróć tu zaakceptować to zgłoszenie."
+
+#: src/ludamus/templates/chronology/accept_proposal.html
+msgid "Add time slots"
+msgstr "Dodaj przedziały czasowe"
+
+#: src/ludamus/templates/chronology/accept_proposal.html
+msgid "Add a space"
+msgstr "Dodaj przestrzeń"
 
 #: src/ludamus/templates/chronology/accept_proposal.html
 msgid "Accept and add to agenda"
@@ -4559,11 +4586,6 @@ msgstr "Gracze, których cicho zbanowałeś, są już tutaj zapisani"
 #, python-format
 msgid "shadowbanned on %(date)s"
 msgstr "cicho zbanowany %(date)s"
-
-#: src/ludamus/templates/chronology/enroll_select.html
-#: src/ludamus/templates/chronology/parts/session-modal.html
-msgid "About this session"
-msgstr "O tym punkcie programu"
 
 #: src/ludamus/templates/chronology/enroll_select.html
 msgid "Gets a seat"
@@ -7632,10 +7654,6 @@ msgid "Period"
 msgstr "Okres"
 
 #: src/ludamus/templates/panel/enrollment-settings.html
-msgid "Seats"
-msgstr "Miejsca"
-
-#: src/ludamus/templates/panel/enrollment-settings.html
 #: src/ludamus/templates/panel/enrollment-window-form.html
 msgid "Access"
 msgstr "Dostęp"
@@ -10092,28 +10110,27 @@ msgstr ""
 "Nie ma nadchodzących wydarzeń ani publicznych spotkań. Sprawdź ponownie "
 "później!"
 
-#~ msgid "Pick venues of this event."
-#~ msgstr "Wybierz lokalizacje tego wydarzenia."
+#, python-format
+#~ msgid "%(limit)s seat"
+#~ msgid_plural "%(limit)s seats"
+#~ msgstr[0] "%(limit)s miejsce"
+#~ msgstr[1] "%(limit)s miejsca"
+#~ msgstr[2] "%(limit)s miejsc"
+#~ msgstr[3] "%(limit)s miejsc"
 
-#~ msgid "New map"
-#~ msgstr "Nowa mapa"
+#~ msgid "submitted"
+#~ msgstr "zgłoszono"
 
-#~ msgid "What are maps?"
-#~ msgstr "Czym są mapy?"
+#~ msgid "No spaces configured for this event. Please create spaces first."
+#~ msgstr ""
+#~ "Brak skonfigurowanych przestrzeni dla tego wydarzenia. Najpierw utwórz "
+#~ "przestrzenie."
 
 #~ msgid ""
-#~ "Pictures of the venue — a site plan, a floor, a building — shown to "
-#~ "participants on the event's maps page. Tick the venues each picture "
-#~ "shows: sessions in those venues link to it, and the page links each venue "
-#~ "back to its sessions."
+#~ "No time slots configured for this event. Please create time slots first."
 #~ msgstr ""
-#~ "Plany miejsca — plan terenu, piętra, budynku — pokazywane uczestnikom na "
-#~ "stronie map wydarzenia. Zaznacz lokalizacje widoczne na każdym obrazie: "
-#~ "punkty programu w tych lokalizacjach będą do niego prowadzić, a strona "
-#~ "poprowadzi z każdej lokalizacji z powrotem do jej punktów programu."
-
-#~ msgid "Map"
-#~ msgstr "Mapa"
+#~ "Brak skonfigurowanych przedziałów czasowych dla tego wydarzenia. Najpierw "
+#~ "utwórz przedziały czasowe."
 
 #~ msgid "This is the current status."
 #~ msgstr "To jest obecny status."
@@ -10223,11 +10240,17 @@ msgstr ""
 #~ msgid "Min"
 #~ msgstr "Min"
 
+#~ msgid "Max"
+#~ msgstr "Max"
+
 #~ msgid "Age ≤"
 #~ msgstr "Wiek ≤"
 
 #~ msgid "Venue"
 #~ msgstr "Lokalizacja"
+
+#~ msgid "All venues"
+#~ msgstr "Wszystkie lokalizacje"
 
 #~ msgid "Enrollment required"
 #~ msgstr "Wymagane zapisy"
@@ -10237,9 +10260,6 @@ msgstr ""
 
 #~ msgid "Review & accept"
 #~ msgstr "Przejrzyj i zaakceptuj"
-
-#~ msgid "Submitted"
-#~ msgstr "Przesłane"
 
 #~ msgid "Preferred Times"
 #~ msgstr "Preferowane czasy"
@@ -10523,6 +10543,9 @@ msgstr ""
 #~ msgid "Shown on public session card"
 #~ msgstr "Widoczne na publicznej karcie punktu programu"
 
+#~ msgid "Only this facilitator's organizer can release it."
+#~ msgstr "Tylko opiekun tego twórcy programu może go zwolnić."
+
 #~ msgid "Default contact person. Assign yourself from the facilitator list."
 #~ msgstr ""
 #~ "Domyślna osoba kontaktowa. Przypisz siebie z listy twórców programu."
@@ -10664,3 +10687,26 @@ msgstr ""
 #~ msgstr ""
 #~ "Fizyczny adres miejsca wydarzenia, pokazywany na stronie wydarzenia z "
 #~ "linkiem do mapy. Maksymalnie dwie linie."
+
+#~ msgid "Pick venues of this event."
+#~ msgstr "Wybierz lokalizacje tego wydarzenia."
+
+#~ msgid "New map"
+#~ msgstr "Nowa mapa"
+
+#~ msgid "What are maps?"
+#~ msgstr "Czym są mapy?"
+
+#~ msgid ""
+#~ "Pictures of the venue — a site plan, a floor, a building — shown to "
+#~ "participants on the event's maps page. Tick the venues each picture "
+#~ "shows: sessions in those venues link to it, and the page links each venue "
+#~ "back to its sessions."
+#~ msgstr ""
+#~ "Plany miejsca — plan terenu, piętra, budynku — pokazywane uczestnikom na "
+#~ "stronie map wydarzenia. Zaznacz lokalizacje widoczne na każdym obrazie: "
+#~ "punkty programu w tych lokalizacjach będą do niego prowadzić, a strona "
+#~ "poprowadzi z każdej lokalizacji z powrotem do jej punktów programu."
+
+#~ msgid "Map"
+#~ msgstr "Mapa"
