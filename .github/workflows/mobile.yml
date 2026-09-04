@@ -203,4 +203,5 @@ jobs:
             ios-server.log
             ~/.agent-device/daemon.log
             ~/.agent-device/logs/
+            ${{ runner.temp }}/ios-shots/
           retention-days: 14

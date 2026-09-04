@@ -102,6 +102,43 @@ beforeAll(async () => {
   console.log(`Opening Safari at ${eventUrl.toString()}...`);
   await openUrl(eventUrl.toString(), { expectedLabels: [triggerLabel], scope: triggerLabel });
 
+  // One-off diagnostic, and the reason it is here rather than in a fourth spec:
+  // this is the only place that already has a real Safari open on the page in
+  // question, and the budget guard caps the suite at three. It reports where the
+  // app's content actually stops against where the browser stopped giving it
+  // room — the gap between those two is the reported symptom, measured rather
+  // than inferred from a photograph.
+  const geometry = await (async () => {
+    const snap = await takeSnapshot();
+    const screen = viewportOf(snap);
+    const scroller = scrollerViewport(snap.nodes, screen);
+    const onScreen = snap.nodes
+      .filter((node) => node.rect && node.rect.height > 0)
+      .filter((node) => node.rect!.y >= screen.y && node.rect!.y < screen.y + screen.height);
+    const contentBottom = Math.max(...onScreen.map((node) => node.rect!.y + node.rect!.height));
+    return { screen, scroller, contentBottom, counted: onScreen.length, nodes: snap.nodes.length };
+  })();
+  const roomBottom = geometry.scroller
+    ? geometry.scroller.y + geometry.scroller.height
+    : geometry.screen.y + geometry.screen.height;
+  console.log(
+    `GEOMETRY screen=${Math.round(geometry.screen.width)}x${Math.round(geometry.screen.height)} ` +
+      `scroller=${geometry.scroller ? `${Math.round(geometry.scroller.y)}+${Math.round(geometry.scroller.height)}` : "none"} ` +
+      `roomEndsAt=${Math.round(roomBottom)} contentEndsAt=${Math.round(geometry.contentBottom)} ` +
+      `shortBy=${Math.round(roomBottom - geometry.contentBottom)}pt ` +
+      `(${geometry.counted} on-screen of ${geometry.nodes} nodes)`,
+  );
+
+  // Saved for a human to open: the artifact upload in mobile.yml collects this
+  // directory. Nothing in CI can hand the pixels back to an agent, so the line
+  // above is the part that gets read automatically.
+  const shot = await client.capture.screenshot({
+    ...deviceOptions,
+    path: `${env.RUNNER_TEMP ?? "/tmp"}/ios-shots/at-rest.png`,
+    maxSize: 900,
+  });
+  console.log(`Screenshot at rest: ${shot.path}`);
+
   const before = await measureScroller();
   console.log(
     `Scroller viewport before scrolling: ${Math.round(before.height)}pt tall, bottom at ` +
