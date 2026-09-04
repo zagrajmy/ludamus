@@ -84,6 +84,25 @@ test.describe("Event schedule hour rail", () => {
     expect(await cursorOf(hourLinks.first())).toBe("pointer");
   });
 
+  test("the rail refits when the viewport moves without a window resize", async ({ page }) => {
+    const rail = page.getByRole("navigation", { name: "Jump to time" });
+    await expect(rail.getByRole("link").first()).toBeVisible();
+
+    // What iOS does on a toolbar collapse or a keyboard: the visual viewport
+    // moves and no window resize follows. Playwright cannot drive that, so
+    // stand in for it with the announcement app-viewport.ts makes after every
+    // write — the path the rail actually listens on, and the one the window
+    // resize in the test below would otherwise mask.
+    await page.evaluate(() => {
+      document.documentElement.style.setProperty("--app-vh", "360px");
+      document.dispatchEvent(new Event("viewport:resized"));
+    });
+
+    await expect
+      .poll(() => rail.evaluate((el) => el.scrollHeight - el.clientHeight))
+      .toBeLessThanOrEqual(0);
+  });
+
   test("the rail refits when the viewport shrinks", async ({ page }) => {
     const rail = page.getByRole("navigation", { name: "Jump to time" });
     await expect(rail.getByRole("link").first()).toBeVisible();

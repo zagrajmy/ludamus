@@ -40,7 +40,7 @@ test.describe("App shell viewport height", () => {
     await page.evaluate(() => {
       document.getElementById("app-scroll")!.scrollTop = 1e6;
     });
-    await expect(page.locator("footer").first()).toBeInViewport();
+    await expect(page.getByRole("contentinfo")).toBeInViewport();
   });
 
   test("the published height follows the viewport", async ({ page }) => {
