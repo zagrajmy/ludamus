@@ -10,7 +10,12 @@ from django.contrib import messages
 from django.urls import reverse
 from django.utils.text import slugify
 
-from ludamus.links.db.django.models import SPACE_NO_CHILDREN_REASON, Space, Track
+from ludamus.links.db.django.models import (
+    SPACE_NO_CHILDREN_REASON,
+    SPACE_UNDELETABLE_REASON,
+    Space,
+    Track,
+)
 from ludamus.pacts import EventDTO
 from ludamus.pacts.venues import SpaceRecordDTO, SpaceTreeNodeDTO
 from tests.integration.conftest import AgendaItemFactory, EventFactory
@@ -32,11 +37,20 @@ def _record(space):
     )
 
 
-def _node(space, *, is_leaf, children=None, track_names=None, no_children_reason=None):
+def _node(
+    space,
+    *,
+    is_leaf,
+    children=None,
+    track_names=None,
+    no_children_reason=None,
+    undeletable_reason=None,
+):
     return SpaceTreeNodeDTO(
         space=_record(space),
         is_leaf=is_leaf,
         no_children_reason=no_children_reason,
+        undeletable_reason=undeletable_reason,
         track_names=track_names or [],
         children=children or [],
     )
@@ -118,6 +132,7 @@ class TestSpacesTreePage:
                         room,
                         is_leaf=True,
                         no_children_reason=str(SPACE_NO_CHILDREN_REASON),
+                        undeletable_reason=str(SPACE_UNDELETABLE_REASON),
                     )
                 ],
             },

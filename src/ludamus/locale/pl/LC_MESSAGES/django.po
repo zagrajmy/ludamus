@@ -982,6 +982,10 @@ msgid "No"
 msgstr "Nie"
 
 #: src/ludamus/gates/web/django/chronology/panel/views/cfp.py
+msgid "Has proposals"
+msgstr "Ma zgłoszenia"
+
+#: src/ludamus/gates/web/django/chronology/panel/views/cfp.py
 msgid "Category created successfully."
 msgstr "Kategoria została utworzona."
 
@@ -1321,6 +1325,10 @@ msgstr[0] "Pominięto %(count)d twórcę programu: %(reason)s"
 msgstr[1] "Pominięto %(count)d twórców programu: %(reason)s"
 msgstr[2] "Pominięto %(count)d twórców programu: %(reason)s"
 msgstr[3] "Pominięto %(count)d twórców programu: %(reason)s"
+
+#: src/ludamus/gates/web/django/chronology/panel/views/fields.py
+msgid "Used by categories"
+msgstr "Używane przez kategorie"
 
 #: src/ludamus/gates/web/django/chronology/panel/views/google_docs_import.py
 #: src/ludamus/gates/web/django/templatetags/cfp_tags.py
@@ -1792,6 +1800,10 @@ msgstr "Przedział czasowy musi mieścić się w zakresie dat wydarzenia."
 #: src/ludamus/gates/web/django/chronology/panel/views/time_slots.py
 msgid "Time slot overlaps with an existing slot."
 msgstr "Przedział czasowy nakłada się na istniejący przedział."
+
+#: src/ludamus/gates/web/django/chronology/panel/views/time_slots.py
+msgid "Used by proposals"
+msgstr "Używany przez zgłoszenia"
 
 #: src/ludamus/gates/web/django/chronology/panel/views/time_slots.py
 msgid "Time slot created successfully."
@@ -3797,6 +3809,10 @@ msgid "Main room"
 msgstr "Sala główna"
 
 #: src/ludamus/links/db/django/models.py
+msgid "Has scheduled sessions"
+msgstr "Ma zaplanowane punkty programu"
+
+#: src/ludamus/links/db/django/models.py
 msgid "date joined"
 msgstr "data dołączenia"
 
@@ -5074,6 +5090,7 @@ msgid "Connection:"
 msgstr "Połączenie:"
 
 #: src/ludamus/templates/chronology/panel/integrations/delete.html
+#: src/ludamus/templates/components/_row_delete_action.html
 #: src/ludamus/templates/design.html
 #: src/ludamus/templates/multiverse/panel/announcements/delete.html
 #: src/ludamus/templates/multiverse/panel/announcements/list.html
@@ -5081,13 +5098,9 @@ msgstr "Połączenie:"
 #: src/ludamus/templates/multiverse/panel/connections/list.html
 #: src/ludamus/templates/multiverse/panel/guilds/list.html
 #: src/ludamus/templates/panel/_space_tree_node.html
-#: src/ludamus/templates/panel/cfp.html
 #: src/ludamus/templates/panel/facilitators.html
 #: src/ludamus/templates/panel/integration-settings.html
 #: src/ludamus/templates/panel/parts/_bulk_actions_facilitators.html
-#: src/ludamus/templates/panel/personal-data-fields.html
-#: src/ludamus/templates/panel/session-fields.html
-#: src/ludamus/templates/panel/time-slots.html
 #: src/ludamus/templates/panel/tracks.html
 msgid "Delete"
 msgstr "Usuń"
@@ -5314,6 +5327,10 @@ msgstr "Poprzednia"
 #: src/ludamus/templates/panel/time-slots.html
 msgid "Next"
 msgstr "Następna"
+
+#: src/ludamus/templates/components/_row_delete_action.html
+msgid "Are you sure you want to delete this?"
+msgstr "Czy na pewno chcesz to usunąć?"
 
 #: src/ludamus/templates/components/avatar.html
 #, python-format
@@ -5900,6 +5917,7 @@ msgstr ""
 #: src/ludamus/templates/multiverse/panel/announcements/list.html
 #: src/ludamus/templates/multiverse/panel/connections/list.html
 #: src/ludamus/templates/multiverse/panel/guilds/list.html
+#: src/ludamus/templates/panel/_time_slot_row_actions.html
 #: src/ludamus/templates/panel/discounts/list.html
 #: src/ludamus/templates/panel/facilitator-detail.html
 #: src/ludamus/templates/panel/facilitators.html
@@ -5908,7 +5926,6 @@ msgstr ""
 #: src/ludamus/templates/panel/parts/proposal-actions.html
 #: src/ludamus/templates/panel/personal-data-fields.html
 #: src/ludamus/templates/panel/session-fields.html
-#: src/ludamus/templates/panel/time-slots.html
 #: src/ludamus/templates/panel/tracks.html
 msgid "Edit"
 msgstr "Edycja"
@@ -7413,16 +7430,16 @@ msgid "No fields selected."
 msgstr "Nie wybrano żadnych pól."
 
 #: src/ludamus/templates/panel/cfp.html
+msgid "Are you sure you want to delete this category?"
+msgstr "Czy na pewno chcesz usunąć tę kategorię?"
+
+#: src/ludamus/templates/panel/cfp.html
 msgid "Submission window"
 msgstr "Okno zgłoszeń"
 
 #: src/ludamus/templates/panel/cfp.html
 msgid "Configure"
 msgstr "Konfiguruj"
-
-#: src/ludamus/templates/panel/cfp.html
-msgid "Are you sure you want to delete this category?"
-msgstr "Czy na pewno chcesz usunąć tę kategorię?"
 
 #: src/ludamus/templates/panel/cfp.html
 msgid ""
@@ -9321,6 +9338,11 @@ msgid "New Field"
 msgstr "Nowe pole"
 
 #: src/ludamus/templates/panel/personal-data-fields.html
+#: src/ludamus/templates/panel/session-fields.html
+msgid "Are you sure you want to delete this field?"
+msgstr "Czy na pewno chcesz usunąć to pole?"
+
+#: src/ludamus/templates/panel/personal-data-fields.html
 msgid "What are Host Data Fields?"
 msgstr "Czym są pola danych twórcy?"
 
@@ -9369,11 +9391,6 @@ msgstr "opcjonalne"
 #: src/ludamus/templates/panel/session-fields.html
 msgid "Not used"
 msgstr "Nieużywane"
-
-#: src/ludamus/templates/panel/personal-data-fields.html
-#: src/ludamus/templates/panel/session-fields.html
-msgid "Are you sure you want to delete this field?"
-msgstr "Czy na pewno chcesz usunąć to pole?"
 
 #: src/ludamus/templates/panel/personal-data-fields.html
 msgid ""
@@ -9781,6 +9798,10 @@ msgid "Schedule Configuration"
 msgstr "Konfiguracja harmonogramu"
 
 #: src/ludamus/templates/panel/time-slots.html
+msgid "Are you sure you want to delete this time slot?"
+msgstr "Czy na pewno chcesz usunąć ten przedział czasowy?"
+
+#: src/ludamus/templates/panel/time-slots.html
 msgid "What are Time Slots?"
 msgstr "Czym są przedziały czasowe?"
 
@@ -9806,10 +9827,6 @@ msgstr "Wydarzenie rozpoczyna się"
 #: src/ludamus/templates/panel/time-slots.html
 msgid "continues from"
 msgstr "kontynuacja z"
-
-#: src/ludamus/templates/panel/time-slots.html
-msgid "Are you sure you want to delete this time slot?"
-msgstr "Czy na pewno chcesz usunąć ten przedział czasowy?"
 
 #: src/ludamus/templates/panel/time-slots.html
 msgid "No slots"
