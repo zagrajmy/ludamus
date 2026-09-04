@@ -3,8 +3,9 @@ import { expect, test } from "./helpers/fixtures";
 const DENSE_EVENT_URL = "/event/kapitularz-2025-anonymized/";
 
 // The rooms grid pans horizontally under a sticky header, and the sub-pixel
-// disagreement the assertion allows for differs between engines — so this
-// wants WebKit at a phone's width, not a desktop one.
+// disagreement the assertion allows for differs between engines — so this wants
+// WebKit at a phone's width. It gets the desktop projects as well, which match
+// every spec; the tolerance is written to hold in all of them.
 test.describe("Rooms schedule on a phone", () => {
   test("a room's name stands over that room's sessions", async ({ page }) => {
     await page.goto(`${DENSE_EVENT_URL}?view=rooms`);

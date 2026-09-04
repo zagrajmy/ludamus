@@ -148,7 +148,11 @@ hk install --mise
 # handler returns.
 if [ ! -s .env.local ]; then
   trap 'rm -f .env.local.tmp' EXIT
-  trap 'rm -f .env.local.tmp; exit 130' INT HUP TERM QUIT ABRT
+  for sig in INT HUP TERM QUIT ABRT; do
+    # Re-raised rather than exiting 130 for all five, so the shell dies of what
+    # actually killed it and the caller sees a SIGTERM as a SIGTERM.
+    trap "rm -f .env.local.tmp; trap - $sig; kill -$sig $$" "$sig"
+  done
   python -c "
 import secrets
 from cryptography.fernet import Fernet

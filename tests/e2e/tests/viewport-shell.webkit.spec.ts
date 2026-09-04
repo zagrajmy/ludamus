@@ -8,12 +8,13 @@ const shellHeight = (page: Page): Promise<number> =>
 const appVh = (page: Page): Promise<string> =>
   page.evaluate(() => document.documentElement.style.getPropertyValue("--app-vh"));
 
-// NOTE: this runs on WebKit with an iPhone's viewport and no browser chrome,
-// so visualViewport.height is just the window height and the shell is sized
-// from it — the equality below is close to self-evident here. It is worth
+// NOTE: the suffix asks for WebKit at an iPhone's width; the desktop projects
+// match every spec, so this runs there too. In none of them is there browser
+// chrome, so visualViewport.height is just the window height and the shell is
+// sized from it — the equality below is close to self-evident. It is worth
 // keeping only as a wiring check: it fails if the publisher stops running.
-// Whether the page actually fills an iPhone's screen is a question only
-// scripts/ios-regressions/viewport-cutoff.ios.test.ts can ask.
+// Whether the page actually fills an iPhone's screen is a question no headless
+// engine can be asked.
 test.describe("App shell viewport height on a phone", () => {
   test.beforeEach(async ({ page }) => {
     await page.goto("/");

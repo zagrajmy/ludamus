@@ -11,12 +11,18 @@ on:
       - "scripts/ios-regressions/**"
       - ".github/workflows/mobile.yml"
 
-# Distinct from ci.yml's group, which is keyed on the branch alone — sharing it
-# would have the two workflows cancel each other. A superseded head's device run
-# is worth nothing and each one holds a simulator for the better part of an
-# hour: three of them raced here and starved the warm-up past its timeout.
+# Keyed on the workflow name, not a literal prefix: ci.yml's group is the bare
+# branch, so a branch called "mobile-foo" would land in the same group as this
+# workflow's for a branch called "foo", and the two would cancel each other —
+# the collision the prefix was meant to avoid.
+#
+# A superseded head's device run is worth nothing and each one occupies a macOS
+# runner for the better part of an hour. They do not share a simulator — each is
+# its own single-use VM — but they do share the account-wide macOS concurrency
+# limit ci.yml names below, and three of them queued behind each other until the
+# warm-up ran out of time.
 concurrency:
-  group: mobile-${{ github.head_ref || github.run_id }}
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
   cancel-in-progress: true
 
 permissions:
@@ -141,10 +147,10 @@ jobs:
       # it, so each spec still launches one -- only the build is shared.
       - name: Start Safari and warm up the agent-device runner
         # Measured at 10m07s once, against a 10-minute cap, with the step's own
-        # success line printed two seconds before the timeout fired. The cause
-        # was runs racing for a simulator, which the concurrency group above now
-        # prevents; this margin is what keeps a slow boot from failing a job
-        # whose tests never ran.
+        # success line printed two seconds before the timeout fired — a job that
+        # failed without running a single test. Queueing for a macOS runner is
+        # what made it slow, so this margin, not the concurrency group above, is
+        # what keeps that from happening again.
         timeout-minutes: 15
         run: bun run scripts/ios-regressions/warmup.ts
 
