@@ -234,8 +234,7 @@ class SessionData:  # pylint: disable=too-many-instance-attributes
 
     @property
     def location_crumbs(self) -> list[LocationCrumb]:
-        path = self.loc["sort_path"]
-        if not path:
+        if not (path := self.loc["sort_path"]):
             return []
         space_id = self.loc["space_id"]
         parent_id = self.loc["parent_id"]

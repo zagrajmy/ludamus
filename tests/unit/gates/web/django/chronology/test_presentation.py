@@ -200,7 +200,7 @@ class TestSessionDataLocationCrumbs:
     def test_empty_path_returns_empty(self):
         data = _make_session_data(loc=_loc())
 
-        assert data.location_crumbs == []
+        assert not data.location_crumbs
 
     def test_room_only_filters_to_the_room(self):
         data = _make_session_data(
