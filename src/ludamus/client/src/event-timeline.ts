@@ -21,11 +21,17 @@ let railListeners = new AbortController();
 let railObserver: IntersectionObserver | undefined;
 let railSizeObserver: ResizeObserver | undefined;
 
-const initScheduleRail = (rail: HTMLElement): void => {
+// One place to remember, so the next handle added here cannot be wired into
+// half the teardown paths.
+const disposeRail = (): void => {
   railListeners.abort();
-  railListeners = new AbortController();
   railObserver?.disconnect();
   railSizeObserver?.disconnect();
+};
+
+const initScheduleRail = (rail: HTMLElement): void => {
+  disposeRail();
+  railListeners = new AbortController();
   const { signal } = railListeners;
 
   // The app-shell scrolls #app-scroll, not the document (see app-scroll.ts), so
@@ -259,9 +265,7 @@ const bootScheduleRail = (): void => {
   // A swap to a layout without a rail never reaches initScheduleRail, so the
   // previous rail's wiring has to be dropped here instead.
   if (!rail) {
-    railListeners.abort();
-    railObserver?.disconnect();
-    railSizeObserver?.disconnect();
+    disposeRail();
     return;
   }
   if ("railBound" in rail.dataset) return;
