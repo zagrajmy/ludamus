@@ -16,6 +16,7 @@ import {
   medianShift,
   pollUntil,
   scrollerViewport,
+  toolbarTop,
   viewportOf,
 } from "./snapshot";
 
@@ -298,5 +299,26 @@ describe("lowestNodes", () => {
       at("Vertical scroll bar", 0),
     ];
     expect(lowestNodes(nodes, 2)).toBe('800..820 "Bottom"; 400..420 "Middle"');
+  });
+});
+
+describe("toolbarTop", () => {
+  const box = (label: string, y: number, height: number) =>
+    node({ label, rect: { x: 0, y, width: 402, height } });
+
+  test("finds the toolbar by its buttons running to the screen's bottom edge", () => {
+    // Verbatim from the device: the Back button at 776..874 on an 874pt screen.
+    const nodes = [box("Back", 776, 98), box("Terms of Service", 732, 19), box("Safari", 0, 874)];
+    expect(toolbarTop(nodes, screen)).toBe(776);
+  });
+
+  test("ignores full-height chrome and content that merely ends low", () => {
+    const nodes = [box("Safari", 0, 874), box("Back", 0, 874), box("Card", 700, 60)];
+    expect(toolbarTop(nodes, screen)).toBeNull();
+  });
+
+  test("takes the highest edge when several buttons share the bar", () => {
+    const nodes = [box("Share", 780, 94), box("Back", 776, 98), box("Tabs", 778, 96)];
+    expect(toolbarTop(nodes, screen)).toBe(776);
   });
 });

@@ -139,6 +139,23 @@ export const lowestNodes = (nodes: readonly SnapshotNode[], count: number): stri
     )
     .join("; ");
 
+// Where Safari's bottom toolbar begins, read off the tree: its buttons sit in
+// the lower half of the screen and run to the screen's bottom edge, so the
+// highest such node's top is the toolbar's top. The first device runs concluded
+// Safari's chrome was absent from this tree; it is not — "Back" reported at
+// 776..874 on an 874pt screen, which is the toolbar, 98pt tall. Content nodes
+// never end exactly at the screen's edge (their rects are not clipped), so the
+// edge is what tells the two apart. Null when no such node is on screen.
+export const toolbarTop = (nodes: readonly SnapshotNode[], screen: Rect): number | null => {
+  const bottom = screen.y + screen.height;
+  const tops = nodes
+    .filter((node) => node.rect && labelOf(node))
+    .map((node) => node.rect as Rect)
+    .filter((rect) => rect.y > screen.y + screen.height / 2 && rect.y + rect.height >= bottom - 1)
+    .map((rect) => rect.y);
+  return tops.length === 0 ? null : Math.min(...tops);
+};
+
 export const centreOnScreen = (rect: Rect, viewport: Rect): boolean => {
   const centreX = rect.x + rect.width / 2;
   const centreY = rect.y + rect.height / 2;

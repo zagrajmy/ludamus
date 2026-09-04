@@ -10,6 +10,7 @@ import {
   lowestNodes,
   medianShift,
   scrollerViewport,
+  toolbarTop,
   viewportOf,
 } from "./snapshot";
 
@@ -53,6 +54,18 @@ const MAX_SCROLL_GESTURES = 24;
 // pattern anchors the start and tolerates a suffix.
 const FOOTER_LINK = /^Terms of Service(,|$)/i;
 
+// The footer's bottom padding: py-6 in base.html, 1.5rem at the root 16px. The
+// link's rect ends where its text does, and the page ends this far below it.
+const FOOTER_BOTTOM_PADDING_PT = 24;
+
+// Two ways a page can end in the wrong place, and both are the bug. Ending
+// *below* the toolbar's top edge means the last content is under the bar —
+// cut short. Ending well *above* it means the shell is shorter than the room
+// Safari gave it, which leaves a band of body background between the clipped
+// content and the toolbar — the gap in the photograph this PR was opened over.
+// The page should end at the bar, to within layout noise.
+const END_TOLERANCE_PT = 12;
+
 // Re-derived for the measurand below, rather than carried over from the one
 // before it — carrying a threshold across a change of measurand is how a
 // previous revision came to compare a scroll thumb against a number meant for a
@@ -79,10 +92,10 @@ const firstTriggerLabel = (html: string): string => {
 };
 
 // The reference edge is the scrolling viewport, and finding it cost four device
-// runs. Safari's own chrome is not in this tree: the unscoped walk came back
-// with 209 nodes and truncated=false — nowhere near the runner's 300 cap — and a
-// walk scoped to the address returned nothing. The snapshot sees the web content
-// and the scrollers, not the browser.
+// runs. An early conclusion that Safari's chrome is absent from this tree was
+// wrong — the bottom toolbar's buttons are in it (see toolbarTop) — but the
+// address bar still is not: a walk scoped to it returned nothing, so the
+// viewport is read from the scrollers rather than from the chrome above them.
 //
 // Which scroller took one more run to learn. The tree carries several, and most
 // span the whole window: on an 874pt screen it reported `0+874` four times over
@@ -221,8 +234,15 @@ beforeAll(async () => {
   const end = contentEnd(after.nodes);
   const footer = after.nodes.find((node) => node.rect && FOOTER_LINK.test(labelOf(node)));
   const footerRect = footer?.rect;
+  const pageEnd = footerRect ? footerRect.y + footerRect.height + FOOTER_BOTTOM_PADDING_PT : null;
+  // The toolbar's top edge is the line that matters; the scroller's bottom is
+  // not it — the device reported the scroll view running 36pt under the bar.
+  const barTop = toolbarTop(after.nodes, viewportOf(await takeSnapshot()));
+  const edge = barTop ?? after.bottom;
   console.log(
-    `END-OF-PAGE roomEndsAt=${Math.round(after.bottom)} screenEndsAt=${Math.round(after.screenHeight)} ` +
+    `END-OF-PAGE toolbarTop=${barTop === null ? "not in tree" : Math.round(barTop)} ` +
+      `roomEndsAt=${Math.round(after.bottom)} screenEndsAt=${Math.round(after.screenHeight)} ` +
+      `pageEndsAt=${pageEnd === null ? "?" : Math.round(pageEnd)} ` +
       `contentEndsAt=${end ? Math.round(end.bottom) : "?"} (${end ? JSON.stringify(end.label.slice(0, 40)) : "no labelled node"}) ` +
       `footerLink=${footerRect ? `${Math.round(footerRect.y)}..${Math.round(footerRect.y + footerRect.height)}` : "not in tree"}`,
   );
@@ -236,20 +256,25 @@ beforeAll(async () => {
       `, below the ${MIN_SCROLL_PT}pt that one gesture landing is worth. Either the gesture did ` +
       `not reach the scroller or the page has nothing to scroll — fix the harness before reading ` +
       `anything into the geometry.`;
-  } else if (!footerRect) {
+  } else if (!footerRect || pageEnd === null) {
     collapseIssue =
       `After scrolling to the end of the page (${Math.round(shift)}pt), the footer link matching ` +
       `${FOOTER_LINK} is not in the accessibility tree at all, so the end of the page could not ` +
       `be located. Lowest nodes seen: ${lowestNodes(after.nodes, 8)}. A renamed or localized ` +
       `link means the pattern needs updating; an absent footer means the page is cut short.`;
-  } else if (footerRect.y + footerRect.height > after.bottom + 1 || footerRect.y < 62) {
+  } else if (pageEnd > edge + 1) {
     collapseIssue =
-      `The page is cut short. After scrolling to the end (${Math.round(shift)}pt), the footer ` +
-      `link sits at y=${Math.round(footerRect.y)}..${Math.round(footerRect.y + footerRect.height)} ` +
-      `while Safari's room for the page ends at y=${Math.round(after.bottom)} on a ` +
-      `${Math.round(after.screenHeight)}pt screen — the last content is under the toolbar, not ` +
-      `above it. Content ends at ${end ? Math.round(end.bottom) : "?"}. The toolbar ` +
-      `${gained < MIN_COLLAPSE_PT ? "did not collapse" : `collapsed by ${Math.round(gained)}pt`}.`;
+      `The page is cut short. After scrolling to the end (${Math.round(shift)}pt), the page ends ` +
+      `at y=${Math.round(pageEnd)} while Safari's toolbar begins at y=${Math.round(edge)} on a ` +
+      `${Math.round(after.screenHeight)}pt screen — the last ${Math.round(pageEnd - edge)}pt of ` +
+      `content is under the bar. The scrolling viewport is ${Math.round(after.height)}pt tall.`;
+  } else if (pageEnd < edge - END_TOLERANCE_PT) {
+    collapseIssue =
+      `The shell is shorter than the room Safari gave it. After scrolling to the end ` +
+      `(${Math.round(shift)}pt), the page ends at y=${Math.round(pageEnd)} while the toolbar ` +
+      `begins at y=${Math.round(edge)}: ${Math.round(edge - pageEnd)}pt of body background sits ` +
+      `between the clipped content and the bar. That is the gap in the photograph — a shell ` +
+      `sized from a viewport reading smaller than the visible area.`;
   }
   // Logged, not asserted: whether Safari collapsed its toolbar is a mechanism,
   // and the reported symptom is the page being cut short. A page whose last
