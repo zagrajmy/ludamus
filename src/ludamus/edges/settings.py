@@ -11,9 +11,10 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 
 import json
 from pathlib import Path
-from urllib.parse import quote
+from urllib.parse import SplitResult, quote, unquote, urlsplit
 
 import environ
+from django.core.exceptions import ImproperlyConfigured
 from django.utils.csp import CSP
 from google.oauth2 import service_account
 
@@ -38,6 +39,7 @@ env = environ.Env(
     # Static files
     GIT_COMMIT_SHA=(str, "unknown"),
     MEDIA_ROOT=(str, str(BASE_DIR / "media")),
+    MEDIA_URL=(str, "/media/"),
     STATIC_ROOT=(str, str(BASE_DIR / "staticfiles")),
     # Google Cloud Storage (media) — set all three to enable GCS
     GS_BUCKET_NAME=(str, ""),
@@ -308,17 +310,73 @@ LOCALE_PATHS = [BASE_DIR / "locale"]
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
 STATIC_URL = "/static/"
+_MEDIA_URL_RULE = (
+    "MEDIA_URL must be a root-relative path or an HTTP(S) URL ending in '/'."
+)
+
+
+def media_url_is_local(media_url: str) -> bool:
+    """Say whether this process serves the media itself, off its own domain."""
+    parts = urlsplit(media_url)
+    return (
+        not parts.scheme
+        and not parts.netloc
+        and media_url.startswith("/")
+        and not media_url.startswith("//")
+        and parts.path != "/"
+        and "\\" not in parts.path
+    )
+
+
+def _is_remote(parts: SplitResult) -> bool:
+    hostname = parts.hostname
+    return (
+        parts.scheme in {"http", "https"}
+        and bool(hostname)
+        and parts.username is None
+        and parts.password is None
+        and not any(character.isspace() for character in hostname or "")
+    )
+
+
+def _has_serveable_path(parts: SplitResult) -> bool:
+    segments = unquote(parts.path).split("/")
+    return (
+        parts.path.endswith("/")
+        and "//" not in parts.path
+        and not parts.query
+        and not parts.fragment
+        and not any(segment in {".", ".."} for segment in segments)
+    )
+
+
+def validate_media_url(media_url: str) -> None:
+    """Raise ImproperlyConfigured unless the app can serve or link to the URL."""
+    try:
+        parts = urlsplit(media_url)
+        _ = parts.port
+    except ValueError as error:
+        raise ImproperlyConfigured(_MEDIA_URL_RULE) from error
+    if not _has_serveable_path(parts) or not (
+        media_url_is_local(media_url) or _is_remote(parts)
+    ):
+        raise ImproperlyConfigured(_MEDIA_URL_RULE)
+
+
+MEDIA_URL: str = env("MEDIA_URL")
+validate_media_url(MEDIA_URL)
+MEDIA_URL_IS_LOCAL = media_url_is_local(MEDIA_URL)
 
 STATICFILES_DIRS = [BASE_DIR / "static"]
 
 # URL prefixes that skip middleware processing (UoW injection, context setup)
-MIDDLEWARE_SKIP_PREFIXES = (
+MIDDLEWARE_SKIP_PREFIXES: tuple[str, ...] = (
     STATIC_URL,
     "/admin/",
     "/__debug__/",
     "/__reload__/",
     "/healthz/",
-    "/media/",
+    *((MEDIA_URL,) if MEDIA_URL_IS_LOCAL else ()),
 )
 
 
@@ -477,7 +535,6 @@ if ENABLE_CSP:
 
 
 MEDIA_ROOT = env("MEDIA_ROOT")
-MEDIA_URL = "/media/"
 
 # Default storage — GCS when all three GS_ vars are set, filesystem otherwise.
 # Independent of IS_PRODUCTION so GCS can be exercised locally.

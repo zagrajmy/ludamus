@@ -47,6 +47,7 @@ def _event_update_data(cd: dict[str, Any], slug: str) -> EventUpdateData:
         "name": cd["name"],
         "slug": slug,
         "description": cd.get("description") or "",
+        "address": cd.get("address") or "",
         "start_time": cd["start_time"],
         "end_time": cd["end_time"],
         "publication_time": cd.get("publication_time"),
@@ -100,6 +101,7 @@ class EventSettingsPageView(PanelAccessMixin, EventContextMixin, View):
                 "name": current_event.name,
                 "slug": current_event.slug,
                 "description": current_event.description,
+                "address": current_event.address,
                 "cover_image": stored_file(
                     current_event.cover_image_url,
                     current_event.cover_image_original_name,

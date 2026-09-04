@@ -48,11 +48,7 @@
             {% firstof session_cover_url event.cover_image_url as page_cover_url %}
             <div class="card overflow-hidden">
                 {% if page_cover_url %}
-                    <img src="{{ page_cover_url }}"
-                         alt=""
-                         width="640"
-                         height="360"
-                         class="mx-1 mt-1 h-40 w-[calc(100%-0.5rem)] rounded-xl object-cover">
+                    {% include "components/cover-strip.html" with url=page_cover_url extra_class="" only %}
                 {% endif %}
                 <div class="card-body">
                     <p class="text-xs font-medium uppercase tracking-wide text-foreground-muted mb-1.5">{% translate "Enrollment" %}</p>
@@ -199,7 +195,6 @@
                                 </span>
                             </div>
                         {% endif %}
-                        {# The add-companions link only makes sense when the viewer's own companions could appear here: their own led party, or no parties yet. #}
                         {# The action is anchored to the panel it acts on, and its label #}
                         {# states the outcome instead of a generic "save". #}
                         <div class="border-t border-border px-4 py-3 flex items-center justify-between gap-3">

@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from ludamus.mills.enrollment import EnrollmentPolicy, restricts_everyone
+from ludamus.mills.enrollment_windows import EnrollmentPolicy, restricts_everyone
 
 
 @dataclass

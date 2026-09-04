@@ -1,0 +1,7 @@
+{# One labelled fact on a tinted tile, the shape the session modal uses for #}
+{# time and capacity. Args: label, value (text), or wrap it in {% block %}-free #}
+{# callers that pass value already rendered. #}
+<div class="bg-warm-100 dark:bg-neutral-800 rounded-xl p-4">
+    <div class="text-sm mb-1 text-foreground-muted">{{ label }}</div>
+    <div class="font-medium text-foreground">{{ value }}</div>
+</div>

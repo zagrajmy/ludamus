@@ -61,6 +61,7 @@ services:
       SESSION_COOKIE_DOMAIN:
       STATIC_ROOT: /app/staticfiles
       MEDIA_ROOT: /app/media
+      MEDIA_URL:
       DB_NAME:
       DB_USER:
       DB_PASSWORD:

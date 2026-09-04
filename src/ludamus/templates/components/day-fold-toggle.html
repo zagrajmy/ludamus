@@ -10,6 +10,8 @@ through, so a caller must not need to remember it.
 
 Variables:
   day_start    the day's first instant; prints as weekday name + date
+  controls     id of the element the toggle folds; the rooms grid spreads a
+               day across grid rows with no single container, so it has none
   extra_class  layout classes from the caller (display, hit area, position)
   is_bar       the rooms grid's sticky day bar: adds the hooks room-lanes.ts
                uses to relabel it (data-room-lanes-day-current) and to say
@@ -24,6 +26,7 @@ Variables:
         class="items-center gap-2 rounded-md px-2 py-1 text-left text-sm font-bold uppercase tracking-wide text-foreground-secondary transition-colors hover:bg-foreground/5 hover:text-foreground active:scale-100!{% if extra_class %} {{ extra_class }}{% endif %}"
         data-day-fold
         {% if is_bar %}data-room-lanes-day-current data-fold-day="0"{% endif %}
+        {% if controls %}aria-controls="{{ controls }}"{% endif %}
         aria-expanded="true">
     {# The name and date share a baseline in their own group, so the chevron #}
     {# can centre against the whole text block instead of riding that #}

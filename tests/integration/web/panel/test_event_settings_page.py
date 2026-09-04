@@ -258,6 +258,42 @@ class TestEventSettingsPageViewPost:
         event.refresh_from_db()
         assert event.name == new_name
 
+    def test_normalizes_address_lines(self, panel_client, event):
+        response = panel_client.post(
+            self.get_url(event),
+            data=self._post_data(
+                event, address="  Hala Stulecia \r\n\r\n  Wystawowa 1  \r\n   \r\n"
+            ),
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Event settings saved successfully.")],
+            url=f"/panel/event/{event.slug}/settings/",
+        )
+        event.refresh_from_db()
+        assert event.address == "Hala Stulecia\nWystawowa 1"
+
+    def test_rejects_an_address_of_three_lines(self, panel_client, event):
+        response = panel_client.post(
+            self.get_url(event),
+            data=self._post_data(
+                event, address="Hala Stulecia\nWystawowa 1\nWroc\u0142aw"
+            ),
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=self._render_context(response, event),
+            template_name="panel/settings.html",
+        )
+        form_errors = response.context["form"].errors
+        assert form_errors["address"] == ["An address can have at most two lines."]
+        event.refresh_from_db()
+        assert not event.address
+
     def test_updates_cover_image(self, panel_client, event):
         image = SimpleUploadedFile("cover.png", PNG_BYTES, content_type="image/png")
 
@@ -295,7 +331,9 @@ class TestEventSettingsPageViewPost:
         event.refresh_from_db()
         assert event.use_session_cover_placeholders
 
-    def test_removes_cover_image(self, panel_client, event):
+    def test_removes_cover_image(
+        self, panel_client, event, django_capture_on_commit_callbacks
+    ):
         event.cover_image = SimpleUploadedFile(
             "cover.png", PNG_BYTES, content_type="image/png"
         )
@@ -303,10 +341,11 @@ class TestEventSettingsPageViewPost:
         storage = event.cover_image.storage
         old_name = event.cover_image.name
 
-        response = panel_client.post(
-            self.get_url(event),
-            data={**self._post_data(event), "cover_image-clear": "on"},
-        )
+        with django_capture_on_commit_callbacks(execute=True):
+            response = panel_client.post(
+                self.get_url(event),
+                data={**self._post_data(event), "cover_image-clear": "on"},
+            )
 
         assert_response(
             response,
@@ -319,12 +358,13 @@ class TestEventSettingsPageViewPost:
         assert not storage.exists(old_name)
 
     def test_cover_replacement_survives_storage_cleanup_failure(
-        self, panel_client, event, caplog
+        self, panel_client, event, caplog, django_capture_on_commit_callbacks
     ):
         event.cover_image = SimpleUploadedFile(
             "old.png", PNG_BYTES, content_type="image/png"
         )
         event.save()
+        old_name = event.cover_image.name
         new_image = SimpleUploadedFile("new.png", PNG_BYTES, content_type="image/png")
 
         with (
@@ -332,6 +372,7 @@ class TestEventSettingsPageViewPost:
                 event.cover_image.storage, "delete", side_effect=OSError("boom")
             ),
             caplog.at_level("WARNING", logger="ludamus.links.db.django.repositories"),
+            django_capture_on_commit_callbacks(execute=True),
         ):
             response = panel_client.post(
                 self.get_url(event),
@@ -345,7 +386,7 @@ class TestEventSettingsPageViewPost:
             url=f"/panel/event/{event.slug}/settings/",
         )
         event.refresh_from_db()
-        assert event.cover_image
+        assert event.cover_image.name != old_name
         assert "Best-effort cleanup" in caplog.text
 
     def test_rejects_oversize_cover_dimensions(self, panel_client, event):

@@ -126,7 +126,8 @@ has the per-file recipe. New code must use `request.services`; never extend the
 - `django.po` conflict? `mise run messages-resolve`; hand-fix only what it
   flags.
 
-- **session** → "punkt programu" (except in "RPG session" → "sesja RPG")
+- **session** → "punkt programu" (except in "RPG session" → "sesja RPG";
+  event-hero CTA "Sign up for sessions" → "Zapisz się na sesje")
 - **track** → "blok" or "blok programowy"
 - **facilitator** → "twórca programu"
 - **time slot** → "przedział czasowy" (do **not** use "blok czasowy" — collides

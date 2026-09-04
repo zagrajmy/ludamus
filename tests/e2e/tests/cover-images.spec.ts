@@ -49,6 +49,7 @@ test.describe("Event cover image upload", () => {
     await expect(dropzone.getByRole("button", { name: "Remove image" })).toBeVisible();
     await expect(shownFileName(dropzone, "cover.png")).toBeVisible();
     await assertDropzoneBlobPreview(page, dropzone);
+    await expect(dropzone.locator("[data-dropzone-safe-zone]")).toBeVisible();
 
     await page.getByRole("button", { name: "Save Settings" }).click();
     await expect(page.getByText("Event settings saved successfully.")).toBeVisible();
@@ -75,6 +76,32 @@ test.describe("Event cover image upload", () => {
     expect(ogImage).not.toContain("og-image.jpg");
   });
 
+  test("safe zone keeps its share of the preview at every width", async ({ page }) => {
+    await page.goto("/panel/event/lakeside-weekend/settings/");
+    await coverImageInput(page).setInputFiles({
+      name: "cover.png",
+      mimeType: "image/png",
+      buffer: PNG_BYTES,
+    });
+
+    const dropzone = coverDropzone(page);
+    const guide = dropzone.locator("[data-dropzone-safe-zone]");
+    const preview = dropzone.locator("[data-dropzone-preview]");
+    await expect(guide).toBeVisible();
+
+    for (const width of [1280, 390]) {
+      await page.setViewportSize({ width, height: 900 });
+      const guideBox = (await guide.boundingBox())!;
+      const previewBox = (await preview.boundingBox())!;
+
+      // The guide is only honest while the preview shows the upload at the
+      // shape the help text asks for.
+      expect(previewBox.width / previewBox.height).toBeCloseTo(16 / 9, 1);
+      expect(guideBox.width / previewBox.width).toBeCloseTo(0.7, 2);
+      expect(guideBox.height / previewBox.height).toBeCloseTo(0.28, 2);
+    }
+  });
+
   test("manager uploads event logo via the dropzone", async ({ page }) => {
     await installCspViolationCollector(page);
     await page.goto("/panel/event/lakeside-weekend/settings/");
@@ -90,6 +117,7 @@ test.describe("Event cover image upload", () => {
 
     await expect(shownFileName(dropzone, "mark.png")).toBeVisible();
     await assertDropzoneBlobPreview(page, dropzone);
+    await expect(dropzone.locator("[data-dropzone-safe-zone]")).toHaveCount(0);
 
     await page.getByRole("button", { name: "Save Settings" }).click();
     await expect(page.getByText("Event settings saved successfully.")).toBeVisible();
@@ -152,5 +180,19 @@ test.describe("Event cover image upload", () => {
     await page.getByRole("button", { name: "Save Settings" }).click();
 
     await expect(page.getByText(/Unsupported image format/i)).toBeVisible();
+  });
+
+  // Last in a serial describe: read-only, and a failure here should not skip
+  // the upload tests above it.
+  test("a session cover is asked for a different crop than an event cover", async ({ page }) => {
+    // The guide over the preview is decorative (aria-hidden), so the sentence
+    // under the field is what actually tells an uploader which way their image
+    // will be cut. Only the cover fields carry that sentence, so a page-wide
+    // match cannot pick up the logo dropzone sharing the settings page.
+    await page.goto("/panel/event/lakeside-weekend/settings/");
+    await expect(page.getByText(/We crop the edges/)).toBeVisible();
+
+    await page.goto("/panel/event/lakeside-weekend/proposals/create/");
+    await expect(page.getByText(/We crop the top and bottom/)).toBeVisible();
   });
 });

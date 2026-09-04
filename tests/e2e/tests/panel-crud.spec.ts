@@ -24,6 +24,10 @@ const PROPOSAL_TITLE_EDITED = "Midnight Heist One-Shot (revised)";
 // the name unique per attempt instead.
 let facilitator: string = "Wanda Frost";
 
+// The proposals list drops the proposal once the status test rejects it, so
+// the spacing test returns to the detail page by the URL that test landed on.
+let proposalUrl = "";
+
 test.describe("Panel facilitator + proposal CRUD", () => {
   test.beforeEach(async ({ page }) => {
     // Authenticate as the sphere manager via Django admin, mirroring the
@@ -104,22 +108,90 @@ test.describe("Panel facilitator + proposal CRUD", () => {
     await expect(page.getByRole("heading", { name: PROPOSAL_TITLE_EDITED })).toBeVisible();
   });
 
-  test("accepts, holds, then rejects the proposal", async ({ page }) => {
+  test("shows the likely status action and keeps alternatives under More", async ({ page }) => {
     await page.goto(PROPOSALS_URL);
     await page.getByRole("link", { name: PROPOSAL_TITLE_EDITED, exact: true }).click();
 
-    // Accept: no confirmation, badge flips to "Accepted".
-    await page.getByRole("button", { name: "Accept" }).click();
+    const acceptButton = page.getByRole("button", { name: "Accept", exact: true });
+    const moreButton = page.getByRole("button", { name: "More" });
+    const moveToPendingItem = page.getByRole("button", { name: "Move to pending" });
+    const holdMenuItem = page.getByRole("button", { name: "Hold" });
+    const rejectMenuItem = page.getByRole("button", { name: "Reject" });
+
+    await expect(acceptButton).toBeVisible();
+    await moreButton.press("Enter");
+    await expect(holdMenuItem).toBeFocused();
+    await expect(moveToPendingItem).toHaveCount(0);
+    await holdMenuItem.press("Escape");
+
+    await acceptButton.click();
     await expect(page.getByText("Accepted", { exact: true })).toBeVisible();
 
-    // Hold: no confirmation, badge flips to "On hold".
-    await page.getByRole("button", { name: "Hold" }).click();
+    await moreButton.press("Enter");
+    await expect(moveToPendingItem).toBeFocused();
+    await moveToPendingItem.press("Escape");
+    await expect(moreButton).toBeFocused();
+    await expect(moveToPendingItem).toBeHidden();
+
+    await moreButton.press("Enter");
+    await holdMenuItem.press("Enter");
     await expect(page.getByText("On hold", { exact: true })).toBeVisible();
 
-    // Reject: guarded by a confirm dialog, then badge flips to "Rejected".
-    await page.getByRole("button", { name: "Reject" }).click();
-    await page.getByRole("alertdialog").getByRole("button", { name: "Reject" }).click();
+    await expect(acceptButton).toBeVisible();
+    await moreButton.click();
+    await expect(moveToPendingItem).toBeVisible();
+    await expect(rejectMenuItem).toBeVisible();
+    await expect(holdMenuItem).toHaveCount(0);
+    await rejectMenuItem.click();
     await expect(page.getByText("Rejected", { exact: true })).toBeVisible();
+
+    await expect(moveToPendingItem).toBeVisible();
+    await moreButton.click();
+    await expect(acceptButton).toBeVisible();
+    await expect(holdMenuItem).toBeVisible();
+    await expect(rejectMenuItem).toHaveCount(0);
+
+    proposalUrl = page.url();
+  });
+
+  test("spaces the actions evenly and shapes More like the buttons", async ({ page }) => {
+    // The status POST form is a sibling of this row, not a member of it: as a
+    // flex child it used to claim a gap slot of its own and push the buttons
+    // apart. The trigger's radius comes from .btn, so it must match Edit's.
+    await page.goto(proposalUrl);
+
+    const edit = page.getByRole("link", { name: "Edit", exact: true });
+    const primary = page.getByRole("button", { name: "Move to pending" });
+    const more = page.getByRole("button", { name: "More" });
+
+    const boxes = await Promise.all([edit, primary, more].map((it) => it.boundingBox()));
+    const [editBox, primaryBox, moreBox] = boxes;
+    if (!editBox || !primaryBox || !moreBox) {
+      throw new Error("the actions row is not laid out");
+    }
+
+    // gap-2 on the row, the same gap the badge and the buttons already sit on.
+    expect(Math.round(primaryBox.x - (editBox.x + editBox.width))).toBe(8);
+    expect(Math.round(moreBox.x - (primaryBox.x + primaryBox.width))).toBe(8);
+
+    const radiusOf = (locator: typeof edit) =>
+      locator.evaluate((element) => getComputedStyle(element).borderRadius);
+    expect(await radiusOf(more)).toBe(await radiusOf(edit));
+  });
+
+  test("scheduled proposal only offers edit and delete", async ({ page }) => {
+    await page.goto("/panel/event/sunhaven-festival/timetable/");
+    await page.getByRole("button", { name: /Board Game Night/ }).click();
+    await page.getByRole("link", { name: "View proposal" }).click();
+
+    await expect(page.getByText("Scheduled", { exact: true })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Edit", exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Delete proposal" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "More" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Accept", exact: true })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Move to pending" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Hold" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Reject" })).toHaveCount(0);
   });
 
   test("refuses a track name the event already holds", async ({ page }, testInfo) => {

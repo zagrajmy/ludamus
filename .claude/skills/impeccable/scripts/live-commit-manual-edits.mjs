@@ -1048,8 +1048,42 @@ export async function commitManualEdits({
     };
   }
 
+  const repairContext = {
+    batch,
+    cwd,
+    pageUrl,
+    count,
+    provider,
+    env,
+    timeoutMs,
+    applyBatchToSource,
+    chatAvailable,
+    transactionId,
+  };
+
   const baseRollbackScope = collectApplyOwnedFiles(batch, cwd);
   const rollbackSnapshot = snapshotRollbackFiles(cwd, baseRollbackScope);
+  const failWithRollback = ({
+    scope = baseRollbackScope,
+    extraFiles = [],
+    failed,
+    files = [],
+    details = {},
+  }) => {
+    const rollback = rollbackChangedFiles(cwd, rollbackSnapshot, extraFiles, scope);
+    return {
+      applied: [],
+      failed,
+      files,
+      cleared: 0,
+      count,
+      pageUrl,
+      ...details,
+      rolledBackFiles: rollback.rolledBackFiles,
+      rollbackFailures: rollback.rollbackFailures,
+      ...countByPage(cwd),
+    };
+  };
   let result;
   try {
     result = repairOnly
@@ -1069,30 +1103,21 @@ export async function commitManualEdits({
           chatAvailable,
         });
   } catch (err) {
-    const rollback = rollbackChangedFiles(cwd, rollbackSnapshot, [], baseRollbackScope);
-    return {
-      applied: [],
+    return failWithRollback({
       failed: batch.entries.map((entry) => ({
         id: entry.id,
         reason: err.message || String(err),
         candidates: candidatesForEntry(batch, entry.id),
       })),
-      files: [],
-      cleared: 0,
-      count,
-      pageUrl,
-      rolledBackFiles: rollback.rolledBackFiles,
-      rollbackFailures: rollback.rollbackFailures,
-      ...countByPage(cwd),
-    };
+    });
   }
 
   if (result.status === "error") {
     const rollbackScope = collectApplyOwnedFiles(batch, cwd, result.files || []);
-    const rollback = rollbackChangedFiles(cwd, rollbackSnapshot, result.files || [], rollbackScope);
     const failed = normalizeFailedEntries(batch, result, result.message || "AI copy edit failed");
-    return {
-      applied: [],
+    return failWithRollback({
+      scope: rollbackScope,
+      extraFiles: result.files || [],
       failed:
         failed.length > 0
           ? failed
@@ -1102,14 +1127,8 @@ export async function commitManualEdits({
               result.message || "AI copy edit failed",
             ),
       files: result.files || [],
-      cleared: 0,
-      count,
-      pageUrl,
-      notes: result.notes || [],
-      rolledBackFiles: rollback.rolledBackFiles,
-      rollbackFailures: rollback.rollbackFailures,
-      ...countByPage(cwd),
-    };
+      details: { notes: result.notes || [] },
+    });
   }
 
   const reportedAppliedIds = uniqueStrings(result.appliedEntryIds || []);
@@ -1122,25 +1141,19 @@ export async function commitManualEdits({
   const conflictingAppliedIds = reportedAppliedIds.filter((id) => failedIds.has(id));
 
   if (conflictingAppliedIds.length > 0) {
-    const rollback = rollbackChangedFiles(cwd, rollbackSnapshot, result.files || [], rollbackScope);
     const conflictingEntries = batch.entries.filter((entry) =>
       conflictingAppliedIds.includes(entry.id),
     );
-    return {
-      applied: [],
+    return failWithRollback({
+      scope: rollbackScope,
+      extraFiles: result.files || [],
       failed: [
         ...verificationFailuresForEntries(batch, conflictingEntries, "conflicting_apply_result"),
         ...aiFailed.filter((item) => !conflictingAppliedIds.includes(item.id)),
       ],
       files: result.files || [],
-      cleared: 0,
-      count,
-      pageUrl,
-      notes: result.notes || [],
-      rolledBackFiles: rollback.rolledBackFiles,
-      rollbackFailures: rollback.rollbackFailures,
-      ...countByPage(cwd),
-    };
+      details: { notes: result.notes || [] },
+    });
   }
 
   const unreportedFiles = unreportedChangedFiles(
@@ -1150,41 +1163,25 @@ export async function commitManualEdits({
     rollbackScope,
   );
   if (unreportedFiles.length > 0) {
-    const rollback = rollbackChangedFiles(cwd, rollbackSnapshot, result.files || [], [
-      ...rollbackScope,
-      ...unreportedFiles,
-    ]);
-    return {
-      applied: [],
+    return failWithRollback({
+      scope: [...rollbackScope, ...unreportedFiles],
+      extraFiles: result.files || [],
       failed: verificationFailuresForEntries(batch, batch.entries, "unreported_source_changes", {
         files: unreportedFiles,
       }),
       files: result.files || [],
-      unreportedFiles,
-      cleared: 0,
-      count,
-      pageUrl,
-      notes: result.notes || [],
-      rolledBackFiles: rollback.rolledBackFiles,
-      rollbackFailures: rollback.rollbackFailures,
-      ...countByPage(cwd),
-    };
+      details: { unreportedFiles, notes: result.notes || [] },
+    });
   }
 
   if (result.status === "done" && reportedAppliedIds.length === 0) {
-    const rollback = rollbackChangedFiles(cwd, rollbackSnapshot, result.files || [], rollbackScope);
-    return {
-      applied: [],
+    return failWithRollback({
+      scope: rollbackScope,
+      extraFiles: result.files || [],
       failed: verificationFailuresForEntries(batch, batch.entries, "missing_applied_entry_ids"),
       files: result.files || [],
-      cleared: 0,
-      count,
-      pageUrl,
-      notes: result.notes || [],
-      rolledBackFiles: rollback.rolledBackFiles,
-      rollbackFailures: rollback.rollbackFailures,
-      ...countByPage(cwd),
-    };
+      details: { notes: result.notes || [] },
+    });
   }
 
   const reportedAppliedEntries = batch.entries.filter((entry) =>
@@ -1192,16 +1189,7 @@ export async function commitManualEdits({
   );
   if (reportedAppliedIds.length > 0 && reportedFiles.length === 0) {
     return repairPostApplyValidation({
-      batch,
-      cwd,
-      pageUrl,
-      count,
-      provider,
-      env,
-      timeoutMs,
-      applyBatchToSource,
-      chatAvailable,
-      transactionId,
+      ...repairContext,
       appliedEntryIds: reportedAppliedIds,
       files: result.files || [],
       failed: aiFailed,
@@ -1216,21 +1204,12 @@ export async function commitManualEdits({
     });
   }
 
-  const verifiedAppliedIds = [];
-  const verificationFailed = [];
-  for (const entry of reportedAppliedEntries) {
-    const failures = verifyAppliedEntry({ batch, entry, reportedFiles, cwd });
-    if (failures.length === 0) {
-      verifiedAppliedIds.push(entry.id);
-    } else {
-      verificationFailed.push({
-        id: entry.id,
-        reason: "source_verification_failed",
-        failures,
-        candidates: candidatesForEntry(batch, entry.id),
-      });
-    }
-  }
+  const { verifiedIds: verifiedAppliedIds, failed: verificationFailed } = verifyEntriesAfterRepair({
+    batch,
+    appliedEntryIds: reportedAppliedIds,
+    files: reportedFiles,
+    cwd,
+  });
   const unreportedEntries =
     result.status === "done" || result.status === "partial"
       ? batch.entries.filter(
@@ -1262,37 +1241,22 @@ export async function commitManualEdits({
         reason: "rolled_back_due_to_failed_entry_source_changed",
         candidates: candidatesForEntry(batch, entry.id),
       }));
-    const rollback = rollbackChangedFiles(cwd, rollbackSnapshot, result.files || [], rollbackScope);
-    return {
-      applied: [],
+    return failWithRollback({
+      scope: rollbackScope,
+      extraFiles: result.files || [],
       failed: [
         ...leakedUnapplied,
         ...failed.filter((item) => !leakedIds.has(item.id)),
         ...rolledBackVerified,
       ],
       files: result.files || [],
-      cleared: 0,
-      count,
-      pageUrl,
-      rolledBackFiles: rollback.rolledBackFiles,
-      rollbackFailures: rollback.rollbackFailures,
-      notes: result.notes || [],
-      ...countByPage(cwd),
-    };
+      details: { notes: result.notes || [] },
+    });
   }
 
   if (verificationFailed.length > 0) {
     return repairPostApplyValidation({
-      batch,
-      cwd,
-      pageUrl,
-      count,
-      provider,
-      env,
-      timeoutMs,
-      applyBatchToSource,
-      chatAvailable,
-      transactionId,
+      ...repairContext,
       appliedEntryIds: reportedAppliedIds,
       files: result.files || [],
       failed: nonRepairFailed,
@@ -1310,16 +1274,7 @@ export async function commitManualEdits({
         ? reportedAppliedEntries.filter((entry) => verifiedAppliedIds.includes(entry.id))
         : batch.entries;
     return repairPostApplyValidation({
-      batch,
-      cwd,
-      pageUrl,
-      count,
-      provider,
-      env,
-      timeoutMs,
-      applyBatchToSource,
-      chatAvailable,
-      transactionId,
+      ...repairContext,
       appliedEntryIds:
         verifiedAppliedIds.length > 0
           ? verifiedAppliedIds

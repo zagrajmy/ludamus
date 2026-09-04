@@ -1,9 +1,4 @@
-/* Day folding on the schedule (schedule-fold.ts): a folded [data-schedule-day]
-   keeps its heading — the way back in — and hides its hour slots. The rooms
-   grid folds by collapsing its tracks in room-lanes.ts instead, so no rule for
-   it here. The chevron rides every [data-day-fold] disclosure button. */
-
-[data-schedule-day][data-folded] .time-slot-section {
+[data-schedule-day][data-folded] [data-day-panel] {
   display: none;
 }
 
