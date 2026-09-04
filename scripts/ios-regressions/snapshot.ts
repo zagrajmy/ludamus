@@ -35,6 +35,29 @@ export const pollUntil = async <T>(
 // Safari's web content.
 const CHROME_INSET = 120;
 
+// The scrolling viewport, read off the accessibility tree.
+//
+// A device run reports several of these, and most are useless: on an 874pt
+// screen the tree carried `0+874` four times over — scroll views spanning the
+// whole window, which never move — alongside one `62+750`, inset by Safari's
+// chrome top and bottom. That inset one is the viewport the page actually gets,
+// so "tallest" is the wrong pick and "tallest that is shorter than the screen"
+// is the right one. Collapsing the toolbar returns some of the bottom inset and
+// this grows.
+//
+// Nothing here touches a device, which is the point: every earlier guess at a
+// reference edge cost a 45-minute macOS job to disprove.
+const SCROLL_INDICATOR = /vertical scroll bar/i;
+
+export const scrollerViewport = (nodes: readonly SnapshotNode[], screen: Rect): Rect | null => {
+  const inset = nodes
+    .filter((node) => node.rect && SCROLL_INDICATOR.test(labelOf(node)))
+    .map((node) => node.rect as Rect)
+    .filter((rect) => rect.height < screen.height);
+  if (inset.length === 0) return null;
+  return inset.reduce((a, b) => (a.height >= b.height ? a : b));
+};
+
 export const centreOnScreen = (rect: Rect, viewport: Rect): boolean => {
   const centreX = rect.x + rect.width / 2;
   const centreY = rect.y + rect.height / 2;

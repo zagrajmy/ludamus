@@ -2,6 +2,8 @@ import type { CaptureSnapshotResult, SnapshotNode } from "agent-device";
 
 import { describe, expect, test } from "bun:test";
 
+import type { Rect } from "./snapshot";
+
 import { decodeEntities } from "./page";
 import {
   centreOnScreen,
@@ -10,6 +12,7 @@ import {
   labelOf,
   matchesScopeLabel,
   pollUntil,
+  scrollerViewport,
   viewportOf,
 } from "./snapshot";
 
@@ -143,5 +146,33 @@ describe("describeNode", () => {
     expect(
       describeNode(node({ ref: "7", type: "link", rect: rect(400), label: "Close" })),
     ).toContain('ref=@7 x=100 y=400 w=40 h=20 hittable=undefined label="Close"');
+  });
+});
+
+describe("scrollerViewport", () => {
+  // Verbatim from the device run on c6a77138, which is the only reason the
+  // right node is knowable: four scroll views spanning the whole 874pt screen,
+  // and one inset 62pt top and bottom by Safari's chrome.
+  const SCREEN: Rect = { x: 0, y: 0, width: 402, height: 874 };
+  const bar = (y: number, height: number): SnapshotNode =>
+    node({ label: "Vertical scroll bar, 1 page", rect: { x: 396, y, width: 6, height } });
+  const observed = [bar(0, 874), bar(0, 874), bar(0, 874), bar(0, 874), bar(62, 750)];
+
+  test("passes over the scroll views that span the whole screen", () => {
+    expect(scrollerViewport(observed, SCREEN)).toEqual({ x: 396, y: 62, width: 6, height: 750 });
+  });
+
+  test("takes the tallest of several inset scrollers, which is the outermost", () => {
+    const nested = [bar(62, 750), bar(120, 400), bar(200, 90)];
+    expect(scrollerViewport(nested, SCREEN)?.height).toBe(750);
+  });
+
+  test("reports nothing rather than guessing when every scroller spans the screen", () => {
+    expect(scrollerViewport([bar(0, 874), bar(0, 874)], SCREEN)).toBeNull();
+  });
+
+  test("ignores nodes that are not scroll indicators, and ones with no rect", () => {
+    const noise = [node({ label: "Log in" }), node({ label: "Vertical scroll bar, 1 page" })];
+    expect(scrollerViewport([...noise, bar(62, 750)], SCREEN)?.height).toBe(750);
   });
 });
