@@ -11,6 +11,8 @@ from ludamus.gates.web.django.helpers import placeholder_cover_url
 from ludamus.pacts.durations import format_duration
 
 if TYPE_CHECKING:
+    from collections.abc import Container
+
     from ludamus.pacts import ProposalCategoryDTO, SessionDTO, SessionFieldValueDTO
 
 register = template.Library()
@@ -112,6 +114,16 @@ def is_continuation(continuation_set: set[tuple[int, str]], slot_and_date: str) 
         return False
     slot_pk, date_iso = slot_and_date.split(",")
     return (int(slot_pk), date_iso) in continuation_set
+
+
+@register.filter
+def contains(container: Container[object], value: object) -> bool:
+    """Check membership, so a template can pass the answer into an include.
+
+    Returns:
+        True when value is in container.
+    """
+    return value in container
 
 
 _WIZARD_ORDER = ("category", "personal", "timeslots", "details", "review")

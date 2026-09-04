@@ -1,0 +1,12 @@
+{% load i18n %}
+{% load cfp_tags %}
+{# Edit and Delete for one time-slot row, shared by the day grid and the #}
+{# orphaned-slot list, which render identical actions. #}
+{# Args: slot, current_event, undeletable_slot_pks, reason, csrf_token. #}
+<div class="flex items-center gap-2">
+    <a href="{% url 'panel:time-slot-edit' slug=current_event.slug pk=slot.pk %}"
+       class="text-sm text-primary hover:text-primary/80">{% translate "Edit" %}</a>
+    {% url 'panel:time-slot-delete' slug=current_event.slug pk=slot.pk as delete_url %}
+    {% translate "Are you sure you want to delete this time slot?" as confirm_delete %}
+    {% include "components/_row_delete_action.html" with undeletable=undeletable_slot_pks|contains:slot.pk reason=reason action_url=delete_url confirm=confirm_delete csrf_token=csrf_token only %}
+</div>

@@ -60,10 +60,6 @@ class SpaceTreeNodeDTO(BaseModel):
     def accepts_children(self) -> bool:
         return self.no_children_reason is None
 
-    @property
-    def is_deletable(self) -> bool:
-        return self.undeletable_reason is None
-
 
 class SpaceInputDTO(BaseModel):
     # Editable attributes of a space, grouped so create/update take one value

@@ -253,4 +253,3 @@ class TestUndeletableReason:
         (node,) = SpaceTreeRepository().list_tree(event.pk)
 
         assert node.undeletable_reason is None
-        assert node.is_deletable

@@ -95,17 +95,7 @@
                                                             {{ slot.start_time|time:"H:i" }} – {{ slot.end_time|time:"H:i" }}
                                                         </span>
                                                     </div>
-                                                    <div class="flex items-center gap-2">
-                                                        <a href="{% url 'panel:time-slot-edit' slug=current_event.slug pk=slot.pk %}"
-                                                           class="text-sm text-primary hover:text-primary/80">{% translate "Edit" %}</a>
-                                                        {% url 'panel:time-slot-delete' slug=current_event.slug pk=slot.pk as delete_url %}
-                                                        {% translate "Are you sure you want to delete this time slot?" as confirm_delete %}
-                                                        {% if slot.pk in undeletable_slot_pks %}
-                                                            {% include "components/_row_delete_action.html" with reason=slot_in_use_reason %}
-                                                        {% else %}
-                                                            {% include "components/_row_delete_action.html" with action_url=delete_url confirm=confirm_delete %}
-                                                        {% endif %}
-                                                    </div>
+                                                    {% include "panel/_time_slot_row_actions.html" with slot=slot current_event=current_event undeletable_slot_pks=undeletable_slot_pks reason=slot_in_use_reason csrf_token=csrf_token only %}
                                                 </div>
                                             {% endif %}
                                         {% endwith %}
@@ -151,17 +141,7 @@
                                                 {{ slot.start_time|date:"D, M d" }} · {{ slot.start_time|time:"H:i" }} – {{ slot.end_time|time:"H:i" }}
                                             </span>
                                         </div>
-                                        <div class="flex items-center gap-2">
-                                            <a href="{% url 'panel:time-slot-edit' slug=current_event.slug pk=slot.pk %}"
-                                               class="text-sm text-primary hover:text-primary/80">{% translate "Edit" %}</a>
-                                            {% url 'panel:time-slot-delete' slug=current_event.slug pk=slot.pk as delete_url %}
-                                            {% translate "Are you sure you want to delete this time slot?" as confirm_delete %}
-                                            {% if slot.pk in undeletable_slot_pks %}
-                                                {% include "components/_row_delete_action.html" with reason=slot_in_use_reason %}
-                                            {% else %}
-                                                {% include "components/_row_delete_action.html" with action_url=delete_url confirm=confirm_delete %}
-                                            {% endif %}
-                                        </div>
+                                        {% include "panel/_time_slot_row_actions.html" with slot=slot current_event=current_event undeletable_slot_pks=undeletable_slot_pks reason=slot_in_use_reason csrf_token=csrf_token only %}
                                     </div>
                                 {% endfor %}
                             </div>

@@ -1,6 +1,6 @@
 # 8. Dead-end actions (offer it, then refuse it)
 
-**Status:** 🟡 in progress — accept-proposal fixed, the rest catalogued below.
+**Status:** 🟡 in progress — all but facilitator delete fixed; see Still open.
 
 A dead-end action is a control we render, let the user click, and then answer
 with an error that only says "go set something else up first". The user paid a
@@ -50,12 +50,12 @@ selected by whether its arguments were null.
 sphere held a single event. The row menu now hides the item unless a second
 event exists (`events|length > 1` in `panel/_space_tree_node.html`). Cure 3.
 
-### The four "cannot delete X, it is in use" refusals
+### The five "cannot delete X, it is in use" refusals
 
-Each was a real dependency refused after the click. All four now say so where
-the Delete button would be, via `components/_row_delete_action.html`. The
-reason is visible text, not a `title` on a disabled button: a disabled button
-is not focusable, so its tooltip never reaches the keyboard. Cure 3.
+Each was a real dependency refused after the click. All five now say so where
+the Delete button would be. The reason is visible text, not a `title` on a
+disabled button: a disabled button is not focusable, so its tooltip never
+reaches the keyboard. Cure 3.
 
 Each list already knew the answer or could get it in one more query; none of
 them asks per row, which would have been an N+1:
@@ -66,9 +66,49 @@ them asks per row, which would have been an N+1:
 | Time slots (`panel/time-slots.html`) | `TimeSlotRepository.pks_with_proposals`, one query, in the page context. `TimeSlotDTO` is shared with the propose wizard and the accept page, so the set travels beside it rather than on it. |
 | Categories (`panel/cfp.html`) | `ProposalCategoriesPageDTO.undeletable_pks` — the page already had its own DTO to put it on. |
 | Session fields (`panel/session-fields.html`) | `FieldUsageSummary.is_used`, derived from the usage counts the page already computed. No new query, and no new `request.di.uow` surface, which CLAUDE.md forbids extending. |
+| Personal data fields (`panel/personal-data-fields.html`) | The same `FieldUsageSummary.is_used`, against the same refusal in `PersonalDataFieldsService.delete`. |
+
+#### Where the sentence lives, and why it is not on the row DTO
+
+`SpaceTreeNodeDTO.undeletable_reason` holds the fact and the sentence in one
+field, and that is the nicer shape: the rule and its wording cannot drift
+apart. It is available there because that DTO is built in `links`, which may
+import Django and therefore `gettext`.
+
+The other four cannot have it. `FieldUsageSummary` is built in
+`mills/submissions/personal_data_fields.py` and `ProposalCategoriesPageDTO` in
+`mills/proposal_categories.py`, and `mills` must not import Django — so no
+translated string can be attached there. The split is therefore deliberate:
+**the context carries the fact, the template carries the sentence.**
+
+What must not also split is the *control*. `components/_row_delete_action.html`
+owns the branch:
+
+```django
+{% include "components/_row_delete_action.html"
+   with undeletable=... reason=... action_url=... confirm=...
+        csrf_token=csrf_token only %}
+```
+
+One include per row, `undeletable` always passed explicitly, and `only` so the
+partial cannot silently inherit a stray `reason` from the page and swallow the
+button. Set-membership call sites spell the predicate with the `contains`
+filter, beside the existing `is_continuation` and `get_item` in `cfp_tags`.
+
+Spaces is the exception, and stays one: its Delete is a row-menu item with icon
+and menu styling, not a table-cell action, so it renders the same sentence in
+its own markup rather than through the shared partial.
 
 ## Still open
 
+- **Facilitator delete** (`panel/facilitators.html`,
+  `PanelFacilitatorsService.delete` raising `OrganizerActionRefusal.HAS_SESSIONS`)
+  is the last catalogued one. The template already carries a comment choosing
+  "always submittable" on race grounds — but that argument justifies keeping the
+  refusal, not hiding what the page already knows. The blocker is data, not
+  design: the service refuses on `counts.live or counts.deleted`, while
+  `FacilitatorListItemDTO.session_count` counts live sessions only, so the row
+  cannot answer the real predicate yet.
 - **The refusal branches remain** in each view, and should: two organizers can
   act at once, and the row that was deletable when the page rendered may not be
   when the POST lands. That is the race an error message is for.
@@ -85,5 +125,5 @@ them asks per row, which would have been an N+1:
 
 ## Next step
 
-Add a usage count to the panel list DTOs for time slots, categories and session
-fields, then move those four refusals onto the control.
+Give `FacilitatorListItemDTO` a count that matches what the service checks
+(live plus soft-deleted), then move that refusal onto the control too.

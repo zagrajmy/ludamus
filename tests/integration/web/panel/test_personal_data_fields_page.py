@@ -2,7 +2,10 @@ from http import HTTPStatus
 
 from django.urls import reverse
 
-from ludamus.links.db.django.models import PersonalDataField
+from ludamus.links.db.django.models import (
+    PersonalDataField,
+    PersonalDataFieldRequirement,
+)
 from tests.integration.utils import assert_login_required, assert_response
 from tests.integration.web.panel.helpers import (
     assert_event_not_found,
@@ -61,6 +64,33 @@ class TestPersonalDataFieldsPageView:
         assert len(fields) == 1 + 1  # Email + Phone
         assert fields[0].field.name == "Email"
         assert fields[1].field.name == "Phone"
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/personal-data-fields.html",
+            context_data={
+                **panel_context(event, active_nav="cfp"),
+                "active_tab": "host",
+                "tab_urls": cfp_tab_urls(event),
+                "fields": fields,
+            },
+        )
+
+    def test_a_field_a_category_asks_for_is_marked_used(
+        self, panel_client, event, proposal_category
+    ):
+        # delete() refuses such a field, so the row must not offer Delete.
+        field = PersonalDataField.objects.create(
+            event=event, name="Email", question="What is your email?", slug="email"
+        )
+        PersonalDataFieldRequirement.objects.create(
+            category=proposal_category, field=field, is_required=True
+        )
+
+        response = panel_client.get(self.get_url(event))
+
+        fields = response.context["fields"]
+        assert [entry.is_used for entry in fields] == [True]
         assert_response(
             response,
             HTTPStatus.OK,

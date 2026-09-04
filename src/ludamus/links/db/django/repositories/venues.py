@@ -104,7 +104,7 @@ class SpaceTreeRepository(SpaceTreeRepositoryProtocol):
             # so the subtree answer folds up for free — the same rule
             # SpaceTreeService.delete_space enforces.
             holds_session = space.pk in with_sessions or any(
-                not child.is_deletable for child in children
+                child.undeletable_reason for child in children
             )
             return SpaceTreeNodeDTO(
                 space=SpaceRecordDTO.model_validate(space),

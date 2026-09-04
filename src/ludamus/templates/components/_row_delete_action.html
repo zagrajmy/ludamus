@@ -3,8 +3,10 @@
 {# says so where the button was, rather than taking the click and answering #}
 {# with an error. The reason is visible text, not a title on a disabled #}
 {# button, because a disabled button is not focusable and its tooltip never #}
-{# reaches the keyboard. Args: action_url, confirm, reason (falsy = deletable). #}
-{% if reason %}
+{# reaches the keyboard. #}
+{# Args: undeletable (bool), reason (shown when undeletable), action_url, #}
+{# confirm, csrf_token. Included with `only`, so every one is explicit. #}
+{% if undeletable %}
     <span class="text-sm text-foreground-muted">{{ reason }}</span>
 {% else %}
     <form method="post"
@@ -12,6 +14,6 @@
           class="inline"
           data-confirm="{{ confirm }}">
         {% csrf_token %}
-        <button type="submit" class="text-sm text-danger hover:underline">{% translate "Delete" %}</button>
+        <button type="submit" class="text-sm text-danger hover:text-danger/80">{% translate "Delete" %}</button>
     </form>
 {% endif %}

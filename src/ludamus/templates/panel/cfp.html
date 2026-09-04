@@ -81,11 +81,7 @@
                                            class="text-primary hover:text-primary/80 mr-4">{% translate "Configure" %}</a>
                                         {% url 'panel:cfp-delete' event_slug=current_event.slug category_slug=category.slug as delete_url %}
                                         {% translate "Are you sure you want to delete this category?" as confirm_delete %}
-                                        {% if category.pk in undeletable_category_pks %}
-                                            {% include "components/_row_delete_action.html" with reason=category_in_use_reason %}
-                                        {% else %}
-                                            {% include "components/_row_delete_action.html" with action_url=delete_url confirm=confirm_delete %}
-                                        {% endif %}
+                                        {% include "components/_row_delete_action.html" with undeletable=undeletable_category_pks|contains:category.pk reason=category_in_use_reason action_url=delete_url confirm=confirm_delete csrf_token=csrf_token only %}
                                     </td>
                                 </tr>
                             {% endfor %}
