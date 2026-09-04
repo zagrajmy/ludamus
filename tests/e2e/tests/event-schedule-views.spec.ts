@@ -646,6 +646,23 @@ test.describe("Event schedule views", () => {
     expect(markerBox?.y ?? 0).toBeLessThan((lineBox?.y ?? 0) + (lineBox?.height ?? 0));
   });
 
+  test("the rooms grid dims a tile once the clock passes its end", async ({ page }) => {
+    // The ledger row and the lane tile carry the same dimming rule written
+    // twice, one per layout, so the grid needs its own witness.
+    const tiles = page.locator(".room-lanes-cell .session");
+    await page.goto(`${DENSE_EVENT_URL}?view=rooms`);
+    const ends = scheduleMoment(await tiles.first().getAttribute("data-session-end"));
+    await page.clock.install({ time: new Date(ends.timestamp - 60_000) });
+    await page.goto(`${DENSE_EVENT_URL}?view=rooms`);
+
+    await expect(tiles.first()).not.toHaveAttribute("data-ended");
+
+    await page.clock.runFor(120_000);
+
+    await expect(tiles.first()).toHaveAttribute("data-ended", "");
+    await expect(tiles.first()).toHaveCSS("opacity", "0.65");
+  });
+
   test("the ledger stays unmarked before the programme opens", async ({ page }) => {
     await page.goto(DENSE_EVENT_URL);
     const opens = await firstStart(page);

@@ -96,7 +96,7 @@ const markEnded = (at: number): void => {
   )) {
     const end = Date.parse(session.dataset.sessionEnd ?? "");
     if (Number.isNaN(end) || end > at) continue;
-    session.toggleAttribute("data-ended", true);
+    session.dataset.ended = "";
     // Every other availability term is about a seat in something still to
     // come, so ending settles the status the filters read (SessionData.
     // availability puts "ended" above all of them).
