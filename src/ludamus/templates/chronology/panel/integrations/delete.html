@@ -12,27 +12,28 @@
 {% endblock page_subtitle %}
 {% block content %}
     {% if current_event %}
-        <div class="card card-body max-w-xl">
-            <p class="text-foreground-secondary mb-2">
-                {% blocktranslate with name=integration.display_name %}
-                    Are you sure you want to delete integration "{{ name }}"?
-                {% endblocktranslate %}
-            </p>
-            <ul class="text-sm text-foreground-muted mb-4 space-y-1">
-                <li>
-                    {% translate "Implementation:" %} <code>{{ integration.implementation }}</code>
-                </li>
-                <li>{% translate "Connection:" %} {{ integration.connection_display_name }}</li>
-            </ul>
-            <form method="post"
-                  action="{% url 'panel:integration-delete' slug=current_event.slug pk=integration.pk %}">
-                {% csrf_token %}
+        <form method="post"
+              class="max-w-xl p-3 sm:p-4"
+              action="{% url 'panel:integration-delete' slug=current_event.slug pk=integration.pk %}">
+            {% csrf_token %}
+            <div class="card card-body">
+                <p class="text-foreground-secondary mb-2">
+                    {% blocktranslate with name=integration.display_name %}
+                        Are you sure you want to delete integration "{{ name }}"?
+                    {% endblocktranslate %}
+                </p>
+                <ul class="text-sm text-foreground-muted mb-4 space-y-1">
+                    <li>
+                        {% translate "Implementation:" %} <code>{{ integration.implementation }}</code>
+                    </li>
+                    <li>{% translate "Connection:" %} {{ integration.connection_display_name }}</li>
+                </ul>
                 <div class="flex justify-end gap-2">
                     <a href="{% url 'panel:event-integration-settings' slug=current_event.slug %}"
                        class="btn btn-secondary">{% translate "Cancel" %}</a>
                     <button type="submit" class="btn btn-danger">{% translate "Delete" %}</button>
                 </div>
-            </form>
-        </div>
+            </div>
+        </form>
     {% endif %}
 {% endblock content %}
