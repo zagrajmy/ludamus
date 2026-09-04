@@ -17,8 +17,9 @@ test.describe("The seat label where sign-up is not on offer", () => {
 
     // The tester holds one of this session's five seats.
     test("states what is free of the room", async ({ page }) => {
-      await expect(row(page, "Late Resignation Demo 1")).toContainText("4 free");
-      await expect(row(page, "Late Resignation Demo 1")).not.toContainText("spots left");
+      const seen = row(page, "Late Resignation Demo 1");
+      await expect(seen).toContainText("4 free");
+      await expect(seen).not.toContainText("spots left");
     });
 
     test("counts a waiting place as no seat at all", async ({ page }) => {
