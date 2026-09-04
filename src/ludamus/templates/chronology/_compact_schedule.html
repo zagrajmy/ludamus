@@ -18,6 +18,7 @@
 <div class="compact-schedule {% if active_tab == 'rooms' %}breakout{% else %}-mx-4 sm:mx-0{% endif %}"
      data-csrf="{{ csrf_token }}"
      data-event-time-zone="{{ event_timezone }}"
+     data-day-starts-at="{{ programme_day_start_hour }}"
      data-bookmark-url-template="{% url 'web:chronology:session-bookmark' session_id=0 %}">
     <div class="flex items-start sm:gap-1">
         <div class="min-w-0 flex-1">
