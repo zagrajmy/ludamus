@@ -119,7 +119,9 @@
                         </div>
                     {% endif %}
                     <!-- Main Content -->
-                    <main class="grow flex flex-col max-w-7xl mx-auto px-4 md:px-6 lg:px-8 py-6 w-full mb-8">
+                    {# A page whose first element is a full-bleed one drops the #}
+                    {# padding it would otherwise start below; see event.html. #}
+                    <main class="grow flex flex-col max-w-7xl mx-auto px-4 md:px-6 lg:px-8 py-6 w-full mb-8{% block main_class %}{% endblock %}">
                         <!-- Page Header -->
                         {% block header_section %}
                             <div class="mb-6 text-center">

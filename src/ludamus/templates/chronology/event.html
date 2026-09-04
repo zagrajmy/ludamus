@@ -26,13 +26,18 @@
 {% endblock twitter_image %}
 {% block header_section %}
 {% endblock header_section %}
+{# The cover is the page's header on a phone, so it starts against the navbar #}
+{# rather than below main's top padding. #}
+{% block main_class %}
+    max-sm:pt-0
+{% endblock main_class %}
 {% block body %}
     {% include "chronology/decorative_background_blobs.html" %}
     {# No overflow-hidden — it would clip the add-to-calendar popover on short heroes. #}
-    {# NOTE: -mx-4 -mt-6 cancel main's px-4 py-6 (base.html) so the cover runs #}
-    {# to the screen edges under the navbar; _compact_schedule.html sheds the #}
-    {# same gutter the same way. #}
-    <div class="relative -mx-4 -mt-6 mb-6 bg-bg-secondary sm:mx-0 sm:mt-0 sm:mb-8 sm:rounded-3xl sm:shadow-(--shadow-elevated)"
+    {# breakout rather than a hand-counted margin: the cover runs to the screen #}
+    {# edges on a phone, and the utility measures the scroller instead of #}
+    {# restating main's gutter. #}
+    <div class="relative mb-6 bg-bg-secondary max-sm:breakout sm:mb-8 sm:rounded-3xl sm:shadow-(--shadow-elevated)"
          data-event-hero>
         {% if event.cover_image_url %}
             {# NOTE: the narrowest crop a cover meets is this banner's on a phone, #}
