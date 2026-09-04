@@ -222,7 +222,7 @@
                             {% for enrolled in user_enrolled_sessions %}
                                 <li>
                                     <a href="?session={{ enrolled.session.pk }}"
-                                       class="font-medium text-foreground hover:underline"
+                                       class="font-medium text-foreground underline decoration-dashed decoration-foreground-muted underline-offset-2 hover:decoration-solid"
                                        aria-haspopup="dialog"
                                        aria-controls="session-{{ enrolled.session.pk }}">{{ enrolled.session.title }}</a>
                                     {% if enrolled.agenda_item %}
