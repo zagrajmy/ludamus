@@ -83,4 +83,18 @@ test.describe("Event schedule hour rail", () => {
     await expect.poll(() => cursorOf(rail)).not.toBe("grabbing");
     expect(await cursorOf(hourLinks.first())).toBe("pointer");
   });
+
+  test("the rail refits when the viewport shrinks", async ({ page }) => {
+    const rail = page.getByRole("navigation", { name: "Jump to time" });
+    await expect(rail.getByRole("link").first()).toBeVisible();
+
+    await page.setViewportSize({ width: 1280, height: 400 });
+
+    // The rail caps itself at --app-vh and clips the overflow, so it has to
+    // thin its markers again whenever that cap moves. Overflowing here means
+    // the last hours are unreachable, with nothing able to scroll them back.
+    await expect
+      .poll(() => rail.evaluate((el) => el.scrollHeight - el.clientHeight))
+      .toBeLessThanOrEqual(0);
+  });
 });

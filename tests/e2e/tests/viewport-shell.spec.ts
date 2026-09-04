@@ -24,7 +24,7 @@ test.describe("App shell viewport height", () => {
     await page.goto("/");
   });
 
-  test("@ios the shell is the height the viewport is showing", async ({ page }) => {
+  test("the shell is the height the viewport is showing", { tag: "@ios" }, async ({ page }) => {
     await expect.poll(() => appVh(page)).toMatch(/^\d+px$/);
 
     const visible = await page.evaluate(() => Math.round(visualViewport!.height));

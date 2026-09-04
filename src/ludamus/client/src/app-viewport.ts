@@ -36,20 +36,26 @@ if (visualViewport) {
     if (height === published) return;
     published = height;
     document.documentElement.style.setProperty("--app-vh", `${height}px`);
+    // Announced, because reacting to the same resize event is not enough for a
+    // consumer that has to *measure* a box sized from --app-vh: listeners for
+    // one dispatch all run before any frame callback it schedules, and among
+    // themselves they run in registration order, which is decided by script
+    // order in a template. Announcing after the write makes that ordering
+    // causal instead of incidental. event-timeline.ts refits the hour rail on
+    // this.
+    document.dispatchEvent(new Event("viewport:resized"));
   };
 
   // `resize`, never `scroll`: scroll fires throughout every pinch-zoom pan,
   // where nothing about the viewport's size has changed.
   //
-  // Synchronous, deliberately. event-timeline.ts refits the hour rail from this
-  // same event and measures a cap derived from --app-vh, and every listener for
-  // one dispatch runs before any frame callback that dispatch schedules — so
-  // deferring the write to requestAnimationFrame handed that consumer the
-  // previous size, silently, on every resize. Measured: a 844 -> 600 resize let
-  // it read a 744px cap where 500px was correct. There is nothing to coalesce
-  // anyway; resize lands once per rendering opportunity, the write invalidates
-  // style rather than forcing layout, and the check above already drops what
-  // would not change.
+  // Synchronous, deliberately. Deferring the write to a frame callback left
+  // every consumer of --app-vh reading the previous size for the rest of that
+  // resize, and the hour rail — which thins itself to fit the cap and clips the
+  // rest — stayed permanently overflowing, because nothing refits it again.
+  // There is nothing to coalesce anyway: resize lands once per rendering
+  // opportunity, the write invalidates style rather than forcing layout, and
+  // the check above already drops what would not change.
   visualViewport.addEventListener("resize", publish);
 
   publish();
