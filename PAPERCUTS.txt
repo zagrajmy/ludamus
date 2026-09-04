@@ -485,3 +485,13 @@ If you fix a papercut, remove it.
   embeds: '![alt](url)' comes back as '[alt](url)' and a raw <img> tag gets
   escaped into inline code. CLAUDE.md asks for screenshots in the PR
   description, so they end up as plain links only.
+- 2026-09-04: codespell skips privacy-policy.md and terms-of-service.md by name,
+  so any *other* file quoting Polish text (e.g. a docs/audits report with
+  proposed policy wording) fails the pre-commit hook on ordinary Polish words
+  like 'UE'. Had to reword the Polish to get past an English dictionary.
+- 2026-09-04: mise run dev/start (both are 'aubr varlock ./scripts/dev') cannot
+  run in a web sandbox: SECRET_KEY, AUTH0_CLIENT_SECRET and
+  CREDENTIALS_ENCRYPTION_KEY are declared empty in .env.schema and come from a
+  secrets backend the sandbox has no access to. Had to improvise a server from
+  .env.e2e plus a scratch sqlite to screenshot a page. docs/agents/sandbox.md
+  does not mention it.
