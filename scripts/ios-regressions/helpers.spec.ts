@@ -2,7 +2,7 @@ import type { CaptureSnapshotResult, SnapshotNode } from "agent-device";
 
 import { describe, expect, test } from "bun:test";
 
-import { decodeEntities } from "./page";
+import { decodeEntities, footerBottomPaddingPt } from "./page";
 import {
   centreOnScreen,
   collapse,
@@ -143,6 +143,27 @@ describe("decodeEntities", () => {
 
   test("does not double-unescape a served entity", () => {
     expect(decodeEntities("&amp;lt;script&amp;gt;")).toBe("&lt;script&gt;");
+  });
+});
+
+describe("footerBottomPaddingPt", () => {
+  test("reads the footer's py- class off the served markup", () => {
+    const html = '<main></main><footer class="border-t py-6 bg-bg-secondary"></footer>';
+    expect(footerBottomPaddingPt(html)).toBe(24);
+  });
+
+  test("lets a later pb- override an earlier py-, as the stylesheet does", () => {
+    expect(footerBottomPaddingPt('<footer class="py-6 pb-10">')).toBe(40);
+  });
+
+  test("does not mistake a similarly spelt class for padding", () => {
+    expect(() => footerBottomPaddingPt('<footer class="ppb-6 pb-x py-">')).toThrow(
+      /no py-\/pb- class/,
+    );
+  });
+
+  test("refuses to guess when there is no footer to read", () => {
+    expect(() => footerBottomPaddingPt("<main></main>")).toThrow(/no <footer>/);
   });
 });
 

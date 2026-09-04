@@ -59,3 +59,26 @@ export const fetchReadyPage = async (url: URL, contains: string): Promise<string
   if (page === null) throw unusable();
   return page;
 };
+
+// NOTE: Tailwind's spacing scale is 0.25rem per unit at the 16px root the app
+// declares nowhere else; a `py-6` footer ends 24pt below its last line.
+const TAILWIND_UNIT_PT = 4;
+const FOOTER_PADDING = /<footer\b[^>]*\bclass="([^"]*)"/;
+const BOTTOM_PADDING_CLASS = /(?<=^|\s)p[by]-(\d+)(?=\s|$)/g;
+
+// How far below its last line the page's footer ends, from the markup the
+// device is showing. Throws rather than guessing when the footer carries no
+// bottom padding class: the spec's page-end arithmetic would be off by an
+// unknown amount, and a wrong number here fails the wrong assertion.
+export const footerBottomPaddingPt = (html: string): number => {
+  const classes = FOOTER_PADDING.exec(html)?.[1];
+  if (classes === undefined) throw new Error("The page has no <footer> with a class attribute.");
+  const units = [...classes.matchAll(BOTTOM_PADDING_CLASS)].map((match) => Number(match[1]));
+  if (units.length === 0) {
+    throw new Error(
+      `The footer carries no py-/pb- class to read its bottom padding from: "${classes}".`,
+    );
+  }
+  // The last declaration wins, as it does in the stylesheet.
+  return units.at(-1)! * TAILWIND_UNIT_PT;
+};

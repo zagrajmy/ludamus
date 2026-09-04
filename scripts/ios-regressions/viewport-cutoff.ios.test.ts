@@ -5,7 +5,7 @@ import { afterAll, beforeAll, expect, test } from "bun:test";
 import type { Rect } from "./snapshot";
 
 import { createIosHarness, eventUrl, hookTimeoutMs, sessionName } from "./harness";
-import { decodeEntities, fetchReadyPage } from "./page";
+import { decodeEntities, fetchReadyPage, footerBottomPaddingPt } from "./page";
 import {
   labelOf,
   lowestNodes,
@@ -33,10 +33,6 @@ const SCROLL_GESTURE_PX = 450;
 // The last link on every page, by accessible name. NOTE: the runner may append
 // the role ("…, link"), so the pattern tolerates a suffix.
 const FOOTER_LINK = /^Terms of Service(,|$)/i;
-
-// NOTE: the link's rect ends where its text does; the page ends the footer's
-// bottom padding below it — py-6 in base.html at the 16px root.
-const FOOTER_BOTTOM_PADDING_PT = 24;
 
 // Ending under the toolbar is the bug at any depth; the point of slack is
 // rounding. Ending above it by more than layout noise is the other bug.
@@ -114,6 +110,9 @@ let pageEndIssue: string | null = null;
 beforeAll(async () => {
   const html = await fetchReadyPage(pageUrl, "Open details for");
   const triggerLabel = firstTriggerLabel(html);
+  // NOTE: the link's rect ends where its text does; the page ends the footer's
+  // bottom padding below it, read from the markup rather than assumed.
+  const footerPadding = footerBottomPaddingPt(html);
   await prepareDevice();
 
   console.log(`Opening Safari at ${pageUrl.toString()}...`);
@@ -152,7 +151,7 @@ beforeAll(async () => {
 
   const shift = medianShift(before.nodes, after.nodes);
   const footer = after.nodes.find((node) => node.rect && FOOTER_LINK.test(labelOf(node)));
-  const pageEnd = footer?.rect ? bottomOf(footer.rect) + FOOTER_BOTTOM_PADDING_PT : null;
+  const pageEnd = footer?.rect ? bottomOf(footer.rect) + footerPadding : null;
   const barTop = toolbarTop(after.nodes, after.screen);
   console.log(
     `END-OF-PAGE toolbarTop=${barTop === null ? "not in tree" : Math.round(barTop)} ` +
