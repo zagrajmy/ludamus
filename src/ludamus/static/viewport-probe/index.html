@@ -23,6 +23,7 @@
     body {
         height: 100%;
         margin: 0;
+        -webkit-overflow-scrolling: touch;
         font: 12px/1.35 ui-monospace, Menlo, monospace;
         color: #111;
     }
@@ -43,6 +44,8 @@
         height: 100dvh;
         overflow-y: auto;
         overscroll-behavior: contain;
+        scrollbar-gutter: stable;
+        -webkit-overflow-scrolling: touch;
         background: #fff;
     }
 
