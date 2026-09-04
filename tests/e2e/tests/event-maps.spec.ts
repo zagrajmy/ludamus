@@ -93,9 +93,14 @@ test.describe("Event maps", () => {
     await expect(attachDialog).toBeVisible();
     // The checklist is the venue tree itself: a room is named once, under the
     // venue it sits in, and a branch button takes the whole subtree at once.
+    // Its name carries the branch and the word for what the next click does.
+    const branch = attachDialog.getByRole("button", { name: "Venues under Arcade Hall: all" });
+    await expect(branch).toBeVisible();
+    await branch.click();
     await expect(
-      attachDialog.getByRole("button", { name: "Select every venue under Arcade Hall" }),
+      attachDialog.getByRole("button", { name: "Venues under Arcade Hall: none" }),
     ).toBeVisible();
+    await attachDialog.getByLabel("Main Arcade Floor", { exact: true }).uncheck();
     await attachDialog.getByLabel("Puzzle Corner", { exact: true }).check();
     await attachDialog.getByRole("button", { name: "Save venues" }).click();
 

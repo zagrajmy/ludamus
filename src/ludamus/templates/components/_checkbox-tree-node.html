@@ -4,7 +4,7 @@
 <li>
     <div class="flex items-center gap-2">
         <label class="flex min-w-0 grow cursor-pointer items-center gap-2 rounded-md px-1 py-1 hover:bg-bg-tertiary">
-            {% include "components/checkbox-input.html" with id=node.id name=name value=node.value checked=node.checked checked_values="" %}
+            {% include "components/checkbox-input.html" with name=name value=node.value checked_values=selected %}
             <span class="truncate text-sm text-foreground">{{ node.label }}</span>
         </label>
         {% if node.children %}
@@ -12,16 +12,19 @@
                     data-checkbox-tree-branch
                     class="shrink-0 rounded-md px-1.5 py-0.5 text-xs font-medium text-foreground-muted hover:bg-bg-tertiary hover:text-foreground"
                     data-select-label="{% translate "all" %}"
-                    data-clear-label="{% translate "none" %}"
-                    aria-label="{% blocktranslate with name=node.label %}Select every venue under {{ name }}{% endblocktranslate %}">
-                {% translate "all" %}
+                    data-clear-label="{% translate "none" %}">
+                {# The button's own word says what the next click does, so the #}
+                {# branch it acts on is named beside it rather than in an #}
+                {# aria-label that would go stale when the word flips. #}
+                <span class="sr-only">{% blocktranslate with name=node.label %}Venues under {{ name }}:{% endblocktranslate %}</span>
+                <span data-checkbox-tree-word>{% translate "all" %}</span>
             </button>
         {% endif %}
     </div>
     {% if node.children %}
         <ul class="ml-3 flex flex-col gap-0.5 border-l border-border pl-2">
             {% for child in node.children %}
-                {% include "components/_checkbox-tree-node.html" with node=child name=name %}
+                {% include "components/_checkbox-tree-node.html" with node=child name=name selected=selected %}
             {% endfor %}
         </ul>
     {% endif %}

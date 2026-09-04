@@ -15,14 +15,15 @@ if TYPE_CHECKING:
 def _image_to_page(apps: Apps, schema_editor: BaseDatabaseSchemaEditor) -> None:
     event_map = apps.get_model("db_main", "EventMap")
     page = apps.get_model("db_main", "EventMapPage")
-    page.objects.bulk_create(
+    using = schema_editor.connection.alias
+    page.objects.using(using).bulk_create(
         page(
             event_map_id=row.pk,
             image=row.image,
             image_original_name=row.image_original_name,
             order=0,
         )
-        for row in event_map.objects.using(schema_editor.connection.alias).all()
+        for row in event_map.objects.using(using).all()
     )
 
 

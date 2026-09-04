@@ -7,9 +7,12 @@ const descendants = (button: HTMLButtonElement): HTMLInputElement[] => {
 const syncLabel = (button: HTMLButtonElement): void => {
   const boxes = descendants(button);
   const allChecked = boxes.length > 0 && boxes.every((box) => box.checked);
-  button.textContent = allChecked
-    ? (button.dataset.clearLabel ?? "none")
-    : (button.dataset.selectLabel ?? "all");
+  const word = button.querySelector("[data-checkbox-tree-word]");
+  if (word) {
+    word.textContent = allChecked
+      ? (button.dataset.clearLabel ?? "none")
+      : (button.dataset.selectLabel ?? "all");
+  }
 };
 
 for (const tree of document.querySelectorAll<HTMLElement>("[data-checkbox-tree]")) {

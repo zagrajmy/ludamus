@@ -5278,8 +5278,8 @@ msgstr "żadne"
 
 #: src/ludamus/templates/components/_checkbox-tree-node.html
 #, python-format
-msgid "Select every venue under %(name)s"
-msgstr "Zaznacz wszystkie lokalizacje w %(name)s"
+msgid "Venues under %(name)s:"
+msgstr "Lokalizacje w %(name)s:"
 
 #: src/ludamus/templates/components/_pagination.html
 #, python-format
@@ -10140,6 +10140,10 @@ msgid ""
 msgstr ""
 "Nie ma nadchodzących wydarzeń ani publicznych spotkań. Sprawdź ponownie "
 "później!"
+
+#, python-format
+#~ msgid "Select every venue under %(name)s"
+#~ msgstr "Zaznacz wszystkie lokalizacje w %(name)s"
 
 #~ msgid "No spaces configured for this event. Please create spaces first."
 #~ msgstr ""

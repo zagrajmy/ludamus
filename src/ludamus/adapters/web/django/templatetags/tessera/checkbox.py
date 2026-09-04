@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Protocol, TypedDict
+from typing import TYPE_CHECKING, Protocol
 
 from django.template.loader import render_to_string
 from django.utils.html import format_html
@@ -46,38 +46,10 @@ class ChoiceTreeNode(Protocol):
     def children(self) -> Sequence[ChoiceTreeNode]: ...
 
 
-class TreeRow(TypedDict):
-    value: str
-    label: str
-    id: str
-    checked: bool
-    children: list[TreeRow]
-
-
 def _selected_values(field: BoundField) -> set[str]:
     if not (value := field.value()):
         return set()
     return {str(one) for one in (value if isinstance(value, list) else [value])}
-
-
-def _tree_rows(
-    nodes: Sequence[ChoiceTreeNode], *, selected: set[str], id_prefix: str
-) -> list[TreeRow]:
-    rows: list[TreeRow] = []
-    for index, node in enumerate(nodes):
-        node_id = f"{id_prefix}_{index}"
-        rows.append(
-            {
-                "value": node.value,
-                "label": node.label,
-                "id": node_id,
-                "checked": str(node.value) in selected,
-                "children": _tree_rows(
-                    node.children, selected=selected, id_prefix=node_id
-                ),
-            }
-        )
-    return rows
 
 
 def choice_tree(widget: Widget) -> Sequence[ChoiceTreeNode]:
@@ -99,11 +71,8 @@ def render_checkbox_tree_field(field: BoundField) -> str:
         "components/checkbox-tree.html",
         {
             "name": field.html_name,
-            "nodes": _tree_rows(
-                choice_tree(field.field.widget),
-                selected=_selected_values(field),
-                id_prefix=field.id_for_label,
-            ),
+            "nodes": choice_tree(field.field.widget),
+            "selected": _selected_values(field),
         },
     )
     return format_html(
