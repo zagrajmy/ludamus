@@ -11,6 +11,11 @@
 // went stale and when.
 const { visualViewport } = globalThis;
 
+// Long enough to outlast a toolbar or keyboard transition, so one burst costs
+// two style recalculations instead of one per frame; short enough that the
+// settled size lands well inside the time it takes to read the page.
+const SETTLE_MS = 120;
+
 // The software keyboard shrinks this number too — base.html leaves the meta
 // viewport's interactive-widget at its resizes-visual default, so the layout
 // viewport (and 100dvh with it) stays put while this drops to the strip above
@@ -49,12 +54,24 @@ if (visualViewport) {
   // `resize`, never `scroll`: scroll fires throughout every pinch-zoom pan,
   // where nothing about the viewport's size has changed.
   //
-  // Synchronous: deferring the write to a frame callback would leave the shell
-  // and every CSS consumer a frame behind at first paint and through every
-  // resize, and buy nothing. There is nothing to coalesce — resize lands once
-  // per rendering opportunity, the write invalidates style rather than forcing
-  // layout, and the check above already drops what would not change.
-  visualViewport.addEventListener("resize", publish);
+  // Leading edge plus one trailing write, because the cost here is not the
+  // handler, it is the property: --app-vh is inherited from the root, so every
+  // write recalculates style for the whole document, and on the densest
+  // schedule page one of those costs more than a frame. A toolbar collapse
+  // fires a resize per frame, so publishing each one spent every frame of the
+  // animation on style recalculation. The leading write keeps the shell
+  // tracking with no visible lag; the trailing one lands the settled size.
+  // Safe only because publish() announces the change — a consumer that
+  // measures reacts to the write, never to the resize that prompted it.
+  let trailing = 0;
+  visualViewport.addEventListener("resize", () => {
+    if (!trailing) publish();
+    clearTimeout(trailing);
+    trailing = setTimeout(() => {
+      trailing = 0;
+      publish();
+    }, SETTLE_MS);
+  });
 
   publish();
 }
