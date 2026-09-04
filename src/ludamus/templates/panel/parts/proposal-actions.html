@@ -1,0 +1,52 @@
+{% load i18n tessera %}
+{% url 'panel:proposal-pending' slug=current_event.slug proposal_id=proposal.pk as pending_url %}
+{% url 'panel:proposal-accept' slug=current_event.slug proposal_id=proposal.pk as accept_url %}
+{% url 'panel:proposal-hold' slug=current_event.slug proposal_id=proposal.pk as hold_url %}
+{% url 'panel:proposal-reject' slug=current_event.slug proposal_id=proposal.pk as reject_url %}
+<div class="flex flex-wrap items-center gap-2">
+    {% include "panel/_proposal_status_badge.html" with status=proposal.status is_scheduled=agenda_item %}
+    {% url 'panel:proposal-edit' slug=current_event.slug proposal_id=proposal.pk as edit_url %}
+    {% translate "Edit" as edit_label %}
+    {% with next_query=back_url|urlencode %}
+        {% tessera_button edit_label href=edit_url|add:"?next="|add:next_query variant="secondary" %}
+    {% endwith %}
+    {% if not agenda_item %}
+        {% translate "Accept" as accept_label %}
+        {% translate "Move to pending" as pending_label %}
+        {% if proposal.status == "pending" or proposal.status == "on_hold" %}
+            {% tessera_button accept_label form="proposal-status-form" formaction=accept_url %}
+        {% elif proposal.status == "rejected" %}
+            {% tessera_button pending_label form="proposal-status-form" formaction=pending_url %}
+        {% endif %}
+        {% translate "More" as more_label %}
+        {% tessera_action_dropdown id="proposal-actions-menu" align="end" hover=False trigger_variant="secondary" %}
+            <span class="btn-label">{{ more_label }}</span>
+            {% icon "ellipsis-vertical" class="w-4 h-4" %}
+            {% action_dropdown_menu %}
+            {% translate "Hold" as hold_label %}
+            {% translate "Reject" as reject_label %}
+            {% if proposal.status == "pending" %}
+                {% tessera_action_dropdown_item hold_label form="proposal-status-form" formaction=hold_url %}
+                {% tessera_action_dropdown_item reject_label form="proposal-status-form" formaction=reject_url %}
+            {% elif proposal.status == "on_hold" %}
+                {% tessera_action_dropdown_item pending_label form="proposal-status-form" formaction=pending_url %}
+                {% tessera_action_dropdown_item reject_label form="proposal-status-form" formaction=reject_url %}
+            {% elif proposal.status == "rejected" %}
+                {% tessera_action_dropdown_item accept_label form="proposal-status-form" formaction=accept_url %}
+                {% tessera_action_dropdown_item hold_label form="proposal-status-form" formaction=hold_url %}
+            {% else %}
+                {% tessera_action_dropdown_item pending_label form="proposal-status-form" formaction=pending_url %}
+                {% tessera_action_dropdown_item hold_label form="proposal-status-form" formaction=hold_url %}
+                {% tessera_action_dropdown_item reject_label form="proposal-status-form" formaction=reject_url %}
+            {% endif %}
+        {% end_tessera_action_dropdown %}
+    {% endif %}
+</div>
+{% if not agenda_item %}
+    {# Outside the row so it claims no gap slot. It carries the CSRF token and #}
+    {# the return path; each button names its own transition via formaction. #}
+    <form id="proposal-status-form" method="post">
+        {% csrf_token %}
+        <input type="hidden" name="next" value="{{ back_url }}">
+    </form>
+{% endif %}

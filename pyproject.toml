@@ -26,7 +26,7 @@ requires-poetry = ">=2.0,<3"
 
 [tool.poetry.dependencies]
 authlib = "~1.7.0"
-cryptography = "^50.0.0"
+cryptography = "^50.0.1"
 django = "~6.1.0"
 django-environ = "^0.14.0"
 django-extensions = "^4.1"
@@ -47,7 +47,7 @@ dbos = ">=2.31.0,<3"
 unidecode = "^1.4.0"
 lxml = "^6.1.1"
 urllib3 = "^2.7.0"
-posthog = "^7.39.1"
+posthog = "^7.44.2"
 
 [tool.poetry.group.dev.dependencies]
 black = "^26.1.0"
@@ -90,7 +90,7 @@ taplo = "^0.9.3"
 tingle = "^0.7.0"
 pytest-xdist = "^3.8.0"
 lxml-stubs = "^0.5.1"
-django-zeal = "^2.2.2"
+django-zeal = "^2.2.3"
 vekna = { git = "https://github.com/fancysnake/vekna.git", rev = "v0.6.0" }
 
 [tool.black]
@@ -135,7 +135,14 @@ core = "ctrace"
 show_missing = true
 skip_covered = true
 precision = 2
-exclude_also = ["raise NotImplementedError"]
+exclude_also = [
+    "raise NotImplementedError",
+    # An exhaustiveness guard is unreachable by construction: mypy rejects the
+    # code that would enter it. Matched across both lines so the `case _:` goes
+    # with it — a bare `case _:` pattern would also silence the several real
+    # fallbacks that carry logic.
+    """case _:\\n\\s*assert_never\\([^)]*\\)""",
+]
 
 [tool.coverage.django_coverage_plugin]
 template_extensions = 'html'
@@ -146,7 +153,7 @@ template_extensions = 'html'
 # T038 is replaced by T038U in .djlint_rules.yaml, which accepts tessera's
 # `{% end_name %}` closers as well as `{% endname %}`.
 ignore = "H021,H031,H037,D018,T038"
-custom_blocks = "select,tessera_combobox,radio,document_title,sidebar_cat,tab,tabs,tab_shell,tab_shell_body,tessera_copy,tessera_segment,tessera_switcher,tessera_table"
+custom_blocks = "select,tessera_action_dropdown,tessera_combobox,radio,document_title,sidebar_cat,tab,tabs,tab_shell,tab_shell_body,tessera_copy,tessera_segment,tessera_switcher,tessera_table"
 
 # DEPTRY
 
@@ -293,7 +300,7 @@ ignore = [
     "too-many-public-methods",
     "too-many-positional-arguments",
 ]
-allowed-confusables = ["–"]
+allowed-confusables = ["–", "×"]
 
 [tool.ruff.lint.per-file-ignores]
 "*/migrations/**.py" = [
@@ -512,18 +519,25 @@ ignore_names = [
     "filter_categories",
     "has_guests",
     "has_secret",
+    "is_cut",
     "is_first_current",
     "is_live",
     "is_pending_proposal",
     "is_read",
     "is_unlimited",
+    "is_repeated",
     "item_name",
+    "location_crumbs",
     "location_label",
+    "opens_slot",
     "overflow_count",
+    "panel_id",
     "public_tag_categories",
     "public_tags",
+    "seats_label",
     "should_show_as_inactive",
     "show_date",
+    "slot_key",
     "span",
     "spots_scarce",
     "unassigned_count",

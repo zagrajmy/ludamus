@@ -53,7 +53,7 @@ from ludamus.pacts.chronology import (
     PartySessionSeatDTO,
     SessionCardStatsDTO,
 )
-from ludamus.pacts.ids import EventId
+from ludamus.pacts.ids import EventId, HasPk
 from ludamus.pacts.legacy import AgendaItemDTO, LocationData
 from ludamus.pacts.panel import (
     EventPanelSettingsDTO,
@@ -144,12 +144,23 @@ def location_data(space: Space) -> LocationData:
     )
 
 
+def eligible_window_ids(session: Session) -> frozenset[int]:
+    """Name the enrollment windows that can seat this session.
+
+    Returns:
+        The window ids, to be intersected with a viewer's own open windows.
+    """
+    return frozenset(
+        config.pk for config in session.event.get_eligible_enrollment_configs(session)
+    )
+
+
 def session_card_stats(session: Session) -> SessionCardStatsDTO:
     return SessionCardStatsDTO(
         enrolled_count=session.enrolled_count,
         waiting_count=session.waiting_count,
         is_full=session.is_full,
-        is_enrollment_available=session.is_enrollment_available,
+        enrollment_window_ids=eligible_window_ids(session),
         effective_participants_limit=session.effective_participants_limit,
     )
 
@@ -395,7 +406,7 @@ class EnrollmentConfigRepository(EnrollmentConfigRepositoryProtocol):
 
     @staticmethod
     def read_user_config(
-        config: EnrollmentConfigDTO, user_email: str
+        config: HasPk, user_email: str
     ) -> UserEnrollmentConfigDTO | None:
         user_config = UserEnrollmentConfig.objects.filter(
             enrollment_config_id=config.pk, user_email=user_email
@@ -414,7 +425,7 @@ class EnrollmentConfigRepository(EnrollmentConfigRepositoryProtocol):
 
     @staticmethod
     def read_domain_config(
-        enrollment_config: EnrollmentConfigDTO, domain: str
+        enrollment_config: HasPk, domain: str
     ) -> DomainEnrollmentConfigDTO | None:
         config = DomainEnrollmentConfig.objects.filter(
             enrollment_config_id=enrollment_config.pk, domain=domain

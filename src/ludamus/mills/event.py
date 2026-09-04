@@ -44,6 +44,7 @@ from ludamus.specs.confirmations import COUNTED_UNPLACED, SCHEDULED_STATUS, STAT
 
 if TYPE_CHECKING:
     from ludamus.pacts.services import TransactionProtocol
+    from ludamus.pacts.venues import SpaceTreeRepositoryProtocol
 
 
 # Panel access only proves you manage an event; every id the request names has
@@ -424,10 +425,12 @@ class EventsService(EventsServiceProtocol):
         transaction: TransactionProtocol,
         events: EventsRepositoryProtocol,
         spheres: SphereRepositoryProtocol,
+        spaces: SpaceTreeRepositoryProtocol,
     ) -> None:
         self._transaction = transaction
         self._events = events
         self._spheres = spheres
+        self._spaces = spaces
 
     def list_for_sphere(
         self, sphere_id: int, *, include_unpublished: bool
@@ -452,8 +455,14 @@ class EventsService(EventsServiceProtocol):
             self._spheres.read(sphere_id)
             try:
                 with self._transaction.savepoint():
-                    return self._events.create(sphere_id, data)
+                    event = self._events.create(sphere_id, data)
             except DatabaseConstraintError as error:
                 if self._events.slug_exists(sphere_id, data["slug"]):
                     raise EventSlugConflictError from error
                 raise
+            # Every event created through this service owns a space: accepting
+            # a proposal, drawing the timetable and printing all need somewhere
+            # to put a session, and a brand-new event would otherwise dead-end
+            # those flows. Direct ORM writes (admin, fixtures) bypass this.
+            self._spaces.create_default(event.pk)
+            return event

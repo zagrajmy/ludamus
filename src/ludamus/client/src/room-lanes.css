@@ -1,14 +1,30 @@
-/* The rooms schedule grid: tracks, the map-style pan states, the edge fades
-   that keep its two scrollbar handles legible, and the collapse filtering
-   uses. Paired with room-lanes.ts, which names --row-track / --col-track and
-   toggles the pan classes. */
+/* The rooms schedule grid: tracks, the map-style pan states, the edge fades,
+   how the room header holds the body's horizontal offset, and the collapse
+   filtering uses. Paired with room-lanes.ts, which names --row-track /
+   --col-track, toggles the pan classes, and writes the header's offset. */
 
 .room-lanes {
   --axis-w: 2.6rem;
+  /* The seam and fold bands: over the tiles they cross, under the sticky
+     gutter and header. */
+  --band-layer: 15;
   --col-min: 10rem;
   /* room-lanes.ts rebuilds these track lists when a filter empties a track, so
      the sizes live here once and both consumers name them. */
-  --row-track: minmax(3.5rem, auto);
+  /* An hour of grid. A row is an hour or a piece of one (schedule.py,
+     _row_windows) and its minimum is that share of the unit, so the gaps
+     between sessions are drawn to scale rather than each costing a whole hour.
+     A row carrying a tile is content-sized past that minimum. The template's
+     nonced style builds one --row-track-<minutes> from this unit per length a
+     schedule actually uses: the set is data, and a track list cannot name a
+     variable the served rows never defined. A day seam measures no time, so
+     it is keyed on zero and takes a whole hour. */
+  --row-track-unit: 2rem;
+  --row-track: minmax(var(--row-track-unit), auto);
+  --row-track-0: var(--row-track);
+  /* A fold: hours of lull drawn as one thin band. Fixed, not minmax — nothing
+     starts in a fold, so no tile can ask it to grow. */
+  --row-track-fold: 1.75rem;
   --col-track: minmax(var(--col-min), 1fr);
 }
 
@@ -66,6 +82,10 @@ body:has(.room-lanes-panning) * {
   width: max(100%, calc(var(--axis-w) + var(--live-rooms, var(--rooms)) * var(--col-min)));
 }
 
+/* The served row list (the template's nonced style) and room-lanes.ts both
+   overwrite this; it is the uniform fallback for a page whose nonced style
+   never applied — which is also why room-lanes.ts gives its var() this
+   fallback rather than an --row-track-<minutes> that would then be undefined. */
 .room-lanes-body {
   grid-template-rows: repeat(var(--rows), var(--row-track));
 }
@@ -74,52 +94,147 @@ body:has(.room-lanes-panning) * {
   grid-column: 2 / -1;
 }
 
+/* A row cut inside an hour (a session starting at :30, say) rules itself
+   fainter and dashed, and prints no time: the whole hours stay the ruler, and
+   the cuts read as marks on it rather than as a second, competing grid. Its
+   axis cell still renders, empty — the gutter is sticky, and a gap in it would
+   let a tile scroll through. */
+.room-lanes-line-cut {
+  border-top-style: dashed;
+  border-top-color: color-mix(in oklch, var(--color-border) 30%, transparent);
+}
+
+/* A fold cuts across the tiles that run through it: a hatched band above
+   them, so the break in the axis reads as one break, that stays out of the
+   way of clicks. Its label sticks to the axis edge so a horizontal pan never
+   carries it off-screen. Neutral grey, not the warm border tone: the band is
+   a mark on the ruler, not a surface. */
+.room-lanes-line[data-row-track="fold"] {
+  --fold-stripe: color-mix(in oklch, var(--color-neutral-400) 35%, transparent);
+  z-index: var(--band-layer);
+  display: flex;
+  align-items: center;
+  pointer-events: none;
+  background: repeating-linear-gradient(-45deg, var(--fold-stripe) 0 4px, transparent 4px 10px);
+}
+
+.dark .room-lanes-line[data-row-track="fold"] {
+  --fold-stripe: color-mix(in oklch, var(--color-neutral-500) 35%, transparent);
+}
+
+.room-lanes-fold-label {
+  position: sticky;
+  left: var(--axis-w);
+}
+
 .room-lanes-scroll-shell {
   position: relative;
 }
 
+/* The strip shows the body's columns by holding the body's horizontal offset,
+   and it is moved, never scrolled — so it clips in every browser and is a
+   query container everywhere the keyframe below needs one. `relative` is what
+   the axis heading pins against: layout containment does not supply a
+   containing block for it in any engine, measured. */
+.room-lanes-head {
+  position: relative;
+  overflow: clip;
+  container-type: inline-size;
+}
+
+/* The gutter stays opaque in both halves — each paints its own axis over the
+   columns passing beneath it, rather than being cut back to something further
+   out. */
 .room-lanes-head,
 .room-lanes-scroll {
-  mask-image:
-    linear-gradient(
-      90deg,
-      black 0,
-      black var(--axis-w),
-      hsl(0 0% 0% / var(--fade-start-opacity)) var(--axis-w),
-      black calc(var(--axis-w) + var(--fade-size-start, 0px)),
-      black calc(100% - var(--fade-size-end, 0px)),
-      hsl(0 0% 0% / var(--fade-end-opacity))
-    ),
-    linear-gradient(black, black);
-  -webkit-mask-image:
-    linear-gradient(
-      90deg,
-      black 0,
-      black var(--axis-w),
-      hsl(0 0% 0% / var(--fade-start-opacity)) var(--axis-w),
-      black calc(var(--axis-w) + var(--fade-size-start, 0px)),
-      black calc(100% - var(--fade-size-end, 0px)),
-      hsl(0 0% 0% / var(--fade-end-opacity))
-    ),
-    linear-gradient(black, black);
-  mask-size:
-    100% calc(100% - var(--room-lanes-sb, 0px)),
-    100% var(--room-lanes-sb, 0px);
-  -webkit-mask-size:
-    100% calc(100% - var(--room-lanes-sb, 0px)),
-    100% var(--room-lanes-sb, 0px);
-  mask-position:
-    top left,
-    bottom left;
-  -webkit-mask-position:
-    top left,
-    bottom left;
+  mask-image: linear-gradient(
+    90deg,
+    black 0,
+    black var(--axis-w),
+    hsl(0 0% 0% / var(--fade-start-opacity)) var(--axis-w),
+    black calc(var(--axis-w) + var(--fade-size-start, 0px)),
+    black calc(100% - var(--fade-size-end, 0px)),
+    hsl(0 0% 0% / var(--fade-end-opacity))
+  );
+
   mask-repeat: no-repeat;
-  -webkit-mask-repeat: no-repeat;
 }
 
 .room-lanes-scroll {
   scrollbar-width: none;
+}
+
+/* iOS scrolls on the compositor and fires `scroll` asynchronously, so a strip
+   mirrored through a listener is always a frame or more behind the columns it
+   names. Here the browser moves it instead, off the body's own scroll.
+
+   room-lanes.ts writes the same translate inline on every scroll event. A
+   running animation outranks inline style, so that write is inert wherever
+   this block applies and is the whole mechanism where it does not — nothing
+   detects which, because a detector that guessed wrong would freeze the strip.
+   It also covers a timeline that stops resolving: an unresolved name leaves
+   the animation with a null timeline, which stops applying its `both` fill,
+   and the inline value takes over.
+
+   `from` is stated, not implied: an implicit one takes the underlying value,
+   which is exactly the inline translate this has to override.
+
+   The end value is the scroller's own overflow — 100% the grid, 100cqw the
+   strip showing it — re-derived through every relayout that collapsing a
+   column causes. It lands under a pixel from -(scrollWidth - clientWidth)
+   rather than on it — 0.62px at full scroll on a phone, growing linearly from
+   zero — because scrollWidth is integer-rounded and the grid width is not.
+
+   Gated on timeline-scope, not `animation-timeline: scroll()`: the name has to
+   cross from the body scroller to a strip that is not its descendant, and an
+   engine with anonymous scroll() but no scope would leave the animation
+   timeline-less and, with `both`, parked on its end frame. */
+@supports (timeline-scope: --room-lanes-x) {
+  .room-lanes {
+    timeline-scope: --room-lanes-x;
+  }
+
+  .room-lanes-scroll {
+    scroll-timeline: --room-lanes-x x;
+  }
+
+  /* Neither half wears .scrollview-fade. The strip is clipped, so its own
+     timeline could never progress; the body's would drive only the body's,
+     which is how this grid ended up with one crisp edge above a permanently
+     faded one wherever that class's animations fall back to the document
+     timeline — Firefox, today. Both read the body's offset here instead, by
+     keyframe name: a name that goes stale fails visibly as a missing fade,
+     where re-pointing whatever animations the class installed failed as an
+     opacity parked on its end value. */
+  .room-lanes-head,
+  .room-lanes-scroll {
+    animation:
+      scrollview-fade-start 10s ease-out both,
+      scrollview-fade-end 10s ease-out both;
+    animation-timeline: --room-lanes-x, --room-lanes-x;
+    animation-range:
+      0 2em,
+      calc(100% - 2em) 100%;
+  }
+
+  /* No duration, unlike the fades above: `auto` spans the whole timeline,
+     which is the travel this has to cover. The fades state 10s because they
+     are ranged to the first and last 2em and a duration is what those ranges
+     are cut from. */
+  .room-lanes-head > .room-lanes-grid {
+    animation: room-lanes-track linear both;
+    animation-timeline: --room-lanes-x;
+  }
+
+  @keyframes room-lanes-track {
+    from {
+      translate: 0;
+    }
+
+    to {
+      translate: calc(100cqw - 100%);
+    }
+  }
 }
 
 .room-lanes-overlays {
@@ -163,9 +278,23 @@ body:has(.room-lanes-panning) * {
   grid-row: 1 / -1;
 }
 
-.room-lanes-corner,
 .room-lanes-head-cell {
   grid-row: 1;
+}
+
+/* The axis heading sits in the strip beside the grid, not inside it: the grid
+   is the thing that moves, and a translated grid is the containing block for
+   everything within it, so a cell there could not be pinned back. Beside it,
+   the strip's own `relative` holds it while the columns travel underneath —
+   the body names its hours the same way, .room-lanes-time in the template.
+   It spans the strip's full height rather than sitting on its floor: the
+   label is one line of a two-line strip, and the ground it paints has to
+   cover the whole gutter or a room's group label shows through above it. */
+.room-lanes-corner {
+  position: absolute;
+  inset-block: 0;
+  left: 0;
+  width: var(--axis-w);
 }
 
 /* The day break inside the body: a full-width band that reads as the seam
@@ -174,6 +303,21 @@ body:has(.room-lanes-panning) * {
   grid-column: 1 / -1;
   display: flex;
   align-items: flex-end;
+  /* Over the tiles, not under: the axis runs straight through the seam, so a
+     session running through the night spans it, and the band has to read as
+     a break drawn across that tile rather than vanish behind it. The wash
+     leaves the tile showing through; the toggle alone takes pointers. */
+  z-index: var(--band-layer);
+  pointer-events: none;
+  background: color-mix(in oklch, var(--color-neutral-100) 88%, transparent);
+}
+
+.dark .room-lanes-day {
+  background: color-mix(in oklch, var(--color-neutral-900) 88%, transparent);
+}
+
+.room-lanes-day > h3 {
+  pointer-events: auto;
 }
 
 .dark .room-lanes-rule {

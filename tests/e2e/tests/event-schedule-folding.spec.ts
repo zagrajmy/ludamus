@@ -14,9 +14,8 @@ const DENSE_EVENT_URL = "/event/kapitularz-2025-anonymized/";
 
 const WEEKDAY = /^(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)\b/;
 
-// A day folds behind its own heading: the heading doubles as the disclosure
-// button, named by the day it opens and closes.
-const dayToggles = (page: Page) => page.getByRole("button", { name: WEEKDAY });
+const dayToggles = (page: Page) =>
+  page.locator("[data-schedule-day]").getByRole("button", { name: WEEKDAY });
 
 const card = (page: Page, title: string) =>
   page.getByRole("link", { name: `Open details for ${title}` });
@@ -64,8 +63,12 @@ test.describe("Folding days on the card schedule", () => {
     await expect(days).toHaveCount(2);
     await expect(days.first()).toHaveAttribute("aria-expanded", "true");
 
+    await expect(days.first()).toHaveAttribute("aria-controls", /^schedule-day-/);
+    const controlled = (await days.first().getAttribute("aria-controls")) ?? "";
+
     await days.first().click();
 
+    await expect(page.locator(`[id="${controlled}"]`)).toBeHidden();
     await expect(card(page, MEGA)).toBeHidden();
     await expect(card(page, COZY)).toBeHidden();
     await expect(card(page, NEON)).toBeVisible();
@@ -237,9 +240,9 @@ test.describe("Folding days on the rooms grid", () => {
     const titles = await roomTitlesByDay(page);
     const dayOneTitle = onlyOn(titles[0], titles[1]);
     const lastHourEnd = await page
-      .locator(".room-lanes-line[data-hour-end]")
+      .locator(".room-lanes-line[data-row-end]")
       .last()
-      .getAttribute("data-hour-end");
+      .getAttribute("data-row-end");
     if (!lastHourEnd) throw new Error("The fixture needs hour rows");
     await page.clock.install({ time: new Date(Date.parse(lastHourEnd) + 48 * 3600 * 1000) });
     await page.goto(`${DENSE_EVENT_URL}?view=rooms`);
@@ -257,7 +260,7 @@ test.describe("Folding days on the rooms grid", () => {
     const dayTwoStart = await page
       .locator('.room-lanes-line[data-lane-day="1"]')
       .first()
-      .getAttribute("data-hour-start");
+      .getAttribute("data-row-start");
     if (!dayTwoStart) throw new Error("The fixture needs hour rows on day two");
     await page.clock.install({ time: new Date(Date.parse(dayTwoStart) + 30 * 60_000) });
     await page.goto(`${DENSE_EVENT_URL}?view=rooms`);

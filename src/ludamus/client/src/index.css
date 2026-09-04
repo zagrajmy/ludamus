@@ -228,18 +228,34 @@ body {
   -webkit-overflow-scrolling: touch;
 }
 
-/* Every page wears the shell (base.html and the self-contained 500), so the
-   document never scrolls and the root needs no scrollbar gutter — .app-scroll
-   below reserves the only one, for the only scroller there is. */
+/* Every page that extends base.html wears the shell, so its document never
+   scrolls and .app-scroll below reserves the only scrollbar gutter there is —
+   the root needs none. 500_dynamic.html deliberately goes without the shell
+   (it has no dialog to protect) and does scroll its document,
+   so a long enough message there shows a root scrollbar and nudges the centred
+   card by its width. Accepted: it is an error page, and reserving a gutter
+   everywhere to avoid it would indent every page that never scrolls.
+
+   --app-vh is the measured visible height, published by app-viewport.ts; the
+   100dvh here is its default, so every consumer can read a bare var(--app-vh).
+   Deliberately not 100lvh: a shell larger than the screen puts the footer under
+   the toolbar with nothing able to scroll it back, which is worse than a short
+   one that merely looks wrong. */
+:root {
+  --app-vh: 100dvh;
+}
+
 .app-shell {
-  height: 100dvh;
+  height: var(--app-vh);
   overflow: hidden;
 }
 
+/* 100%: the shell above is the single source of truth for the height, and the
+   scroller's job is to fill it. */
 .app-scroll {
   display: flex;
   flex-direction: column;
-  height: 100dvh;
+  height: 100%;
   overflow-y: auto;
   overscroll-behavior: contain;
   scrollbar-gutter: stable;
@@ -402,7 +418,7 @@ button:active {
     z-index: 60;
     height: 0;
     width: min(28rem, calc(100vw - 2rem));
-    max-height: calc(100dvh - 2rem);
+    max-height: calc(var(--app-vh) - 2rem);
     pointer-events: auto;
     overflow: visible;
     transform: translateX(-50%);
@@ -452,7 +468,7 @@ button:active {
   @media (min-width: 640px) {
     .flash-region {
       top: max(1.5rem, env(safe-area-inset-top));
-      max-height: calc(100dvh - 3rem);
+      max-height: calc(var(--app-vh) - 3rem);
     }
   }
 
@@ -469,6 +485,9 @@ button:active {
     padding: 1rem;
     border-width: 1px;
     border-style: solid;
+    /* Trim the first and last line's half-leading so the padding above the
+       cap height matches the padding below the baseline. */
+    text-box: auto;
   }
 
   .alert-success {
@@ -613,9 +632,9 @@ button:active {
     color: var(--color-foreground-secondary);
     cursor: pointer;
     transition:
-      background-color 0.15s,
-      border-color 0.15s,
-      color 0.15s;
+      background-color 0.1s,
+      border-color 0.1s,
+      color 0.1s;
 
     &:focus-visible {
       outline: 2px solid var(--color-primary);
