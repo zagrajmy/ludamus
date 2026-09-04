@@ -5,7 +5,12 @@ import pytest
 
 from ludamus.mills.maps import EventMapsService
 from ludamus.pacts import NotFoundError, SpaceDTO
-from ludamus.pacts.maps import EventMapDTO, EventMapRecordDTO, MapTreeNodeDTO
+from ludamus.pacts.maps import (
+    EventMapDTO,
+    EventMapPageDTO,
+    EventMapRecordDTO,
+    MapTreeNodeDTO,
+)
 
 EVENT_PK = 7
 OTHER_EVENT_PK = 8
@@ -32,7 +37,7 @@ def _record(pk, space_pks, event_id=EVENT_PK):
         pk=pk,
         event_id=event_id,
         name=f"map-{pk}",
-        image_url=f"/media/eventmaps/{pk}.png",
+        pages=[EventMapPageDTO(pk=pk, image_url=f"/media/eventmaps/{pk}.png")],
         space_pks=list(space_pks),
     )
 
@@ -69,7 +74,7 @@ class TestListForEvent:
                 pk=10,
                 event_id=EVENT_PK,
                 name="map-10",
-                image_url="/media/eventmaps/10.png",
+                pages=[EventMapPageDTO(pk=10, image_url="/media/eventmaps/10.png")],
                 space_pks=[2, 99],
                 tree=[
                     MapTreeNodeDTO(
@@ -173,7 +178,7 @@ class TestScoping:
         maps.read.return_value = _record(10, [], event_id=OTHER_EVENT_PK)
 
         with pytest.raises(NotFoundError):
-            service.update(event_pk=EVENT_PK, pk=10, name="Plan", image=None)
+            service.update(event_pk=EVENT_PK, pk=10, name="Plan", images=None)
 
         maps.update.assert_not_called()
 

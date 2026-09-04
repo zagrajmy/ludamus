@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Protocol, TypedDict
 
 from django.template.loader import render_to_string
 from django.utils.html import format_html
@@ -12,7 +12,10 @@ from .errors import render_errors, render_help_text
 from .label import render_label
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
+
     from django.forms import BoundField
+    from django.forms.widgets import Widget
 
 
 def render_checkbox_field(field: BoundField) -> str:
@@ -31,6 +34,85 @@ def render_checkbox_field(field: BoundField) -> str:
         },
     )
     return format_html("{}{}{}", html, render_help_text(field), render_errors(field))
+
+
+class ChoiceTreeNode(Protocol):
+    """A widget's nested option: its own value and label, then its children."""
+
+    value: str
+    label: str
+
+    @property
+    def children(self) -> Sequence[ChoiceTreeNode]: ...
+
+
+class TreeRow(TypedDict):
+    value: str
+    label: str
+    id: str
+    checked: bool
+    children: list[TreeRow]
+
+
+def _selected_values(field: BoundField) -> set[str]:
+    if not (value := field.value()):
+        return set()
+    return {str(one) for one in (value if isinstance(value, list) else [value])}
+
+
+def _tree_rows(
+    nodes: Sequence[ChoiceTreeNode], *, selected: set[str], id_prefix: str
+) -> list[TreeRow]:
+    rows: list[TreeRow] = []
+    for index, node in enumerate(nodes):
+        node_id = f"{id_prefix}_{index}"
+        rows.append(
+            {
+                "value": node.value,
+                "label": node.label,
+                "id": node_id,
+                "checked": str(node.value) in selected,
+                "children": _tree_rows(
+                    node.children, selected=selected, id_prefix=node_id
+                ),
+            }
+        )
+    return rows
+
+
+def choice_tree(widget: Widget) -> Sequence[ChoiceTreeNode]:
+    """Read a widget's nested options, or nothing when it has none.
+
+    Returns:
+        The widget's `choice_tree`, empty for a widget that is a flat list.
+    """
+    return getattr(widget, "choice_tree", ())
+
+
+def render_checkbox_tree_field(field: BoundField) -> str:
+    """Render a nested checkbox tree for a widget carrying a `choice_tree`.
+
+    Returns:
+        HTML string of the labelled tree.
+    """
+    tree_html = render_to_string(
+        "components/checkbox-tree.html",
+        {
+            "name": field.html_name,
+            "nodes": _tree_rows(
+                choice_tree(field.field.widget),
+                selected=_selected_values(field),
+                id_prefix=field.id_for_label,
+            ),
+        },
+    )
+    return format_html(
+        "{}\n{}\n{}\n{}",
+        render_label(field),
+        tree_html,
+        render_help_text(field),
+        render_errors(field),
+    )
 
 
 def render_multi_choice_field(field: BoundField, *, is_radio: bool = False) -> str:

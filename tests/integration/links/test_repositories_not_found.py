@@ -158,7 +158,7 @@ class TestEventMapRepositoryNotFound:
 
     def test_update_raises_when_missing(self):
         with pytest.raises(NotFoundError):
-            EventMapRepository().update(pk=MISSING_ID, name="Plan", image=None)
+            EventMapRepository().update(pk=MISSING_ID, name="Plan", images=None)
 
     def test_set_spaces_raises_when_missing(self):
         with pytest.raises(NotFoundError):

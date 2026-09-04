@@ -1,0 +1,28 @@
+{% load i18n %}
+{# One row of a checkbox tree, recursing through include like the venue tree #}
+{# beside a map: a Space tree is at most SPACE_MAX_DEPTH deep. #}
+<li>
+    <div class="flex items-center gap-2">
+        <label class="flex min-w-0 grow cursor-pointer items-center gap-2 rounded-md px-1 py-1 hover:bg-bg-tertiary">
+            {% include "components/checkbox-input.html" with id=node.id name=name value=node.value checked=node.checked checked_values="" %}
+            <span class="truncate text-sm text-foreground">{{ node.label }}</span>
+        </label>
+        {% if node.children %}
+            <button type="button"
+                    data-checkbox-tree-branch
+                    class="shrink-0 rounded-md px-1.5 py-0.5 text-xs font-medium text-foreground-muted hover:bg-bg-tertiary hover:text-foreground"
+                    data-select-label="{% translate "all" %}"
+                    data-clear-label="{% translate "none" %}"
+                    aria-label="{% blocktranslate with name=node.label %}Select every venue under {{ name }}{% endblocktranslate %}">
+                {% translate "all" %}
+            </button>
+        {% endif %}
+    </div>
+    {% if node.children %}
+        <ul class="ml-3 flex flex-col gap-0.5 border-l border-border pl-2">
+            {% for child in node.children %}
+                {% include "components/_checkbox-tree-node.html" with node=child name=name %}
+            {% endfor %}
+        </ul>
+    {% endif %}
+</li>

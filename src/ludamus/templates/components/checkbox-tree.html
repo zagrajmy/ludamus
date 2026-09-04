@@ -1,0 +1,13 @@
+{% load i18n vite_tags %}
+{# Nested checkbox group. Variables: name, nodes (value, label, id, checked, children). #}
+{# A node's box is its own value — a plan can name a floor as well as its rooms — #}
+{# so selecting a whole branch is a separate control rather than a cascade. #}
+{% vite_asset_once 'src/checkbox-tree.ts' %}
+<div data-checkbox-tree
+     class="mt-2 max-h-80 overflow-y-auto rounded-lg border border-border bg-bg-tertiary/40 p-2">
+    <ul class="flex flex-col gap-0.5">
+        {% for node in nodes %}
+            {% include "components/_checkbox-tree-node.html" with node=node name=name %}
+        {% endfor %}
+    </ul>
+</div>

@@ -7,6 +7,8 @@ from typing import TYPE_CHECKING, Protocol
 from pydantic import BaseModel, Field
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
+
     from ludamus.pacts.legacy import UploadedFileProtocol
 
 
@@ -24,12 +26,19 @@ class MapTreeNodeDTO(BaseModel):
     children: list[MapTreeNodeDTO]
 
 
+class EventMapPageDTO(BaseModel):
+    # One picture of a plan. A map that runs to several pages — a site plan and
+    # its legend — keeps them here in reading order.
+    pk: int
+    image_url: str
+    image_original_name: str = ""
+
+
 class EventMapRecordDTO(BaseModel):
     pk: int
     event_id: int
     name: str
-    image_url: str
-    image_original_name: str = ""
+    pages: list[EventMapPageDTO] = Field(default_factory=list)
     space_pks: list[int] = Field(default_factory=list)
 
 
@@ -45,10 +54,10 @@ class EventMapRepositoryProtocol(Protocol):
     @staticmethod
     def read(pk: int) -> EventMapRecordDTO: ...
     def create(
-        self, *, event_pk: int, name: str, image: UploadedFileProtocol
+        self, *, event_pk: int, name: str, images: Sequence[UploadedFileProtocol]
     ) -> EventMapRecordDTO: ...
     def update(
-        self, *, pk: int, name: str, image: UploadedFileProtocol | None
+        self, *, pk: int, name: str, images: Sequence[UploadedFileProtocol] | None
     ) -> EventMapRecordDTO: ...
     @staticmethod
     def set_spaces(pk: int, space_pks: list[int]) -> None: ...
@@ -60,10 +69,15 @@ class EventMapsServiceProtocol(Protocol):
     def list_for_event(self, event_pk: int) -> list[EventMapDTO]: ...
     def read(self, *, event_pk: int, pk: int) -> EventMapRecordDTO: ...
     def create(
-        self, *, event_pk: int, name: str, image: UploadedFileProtocol
+        self, *, event_pk: int, name: str, images: Sequence[UploadedFileProtocol]
     ) -> EventMapRecordDTO: ...
     def update(
-        self, *, event_pk: int, pk: int, name: str, image: UploadedFileProtocol | None
+        self,
+        *,
+        event_pk: int,
+        pk: int,
+        name: str,
+        images: Sequence[UploadedFileProtocol] | None,
     ) -> EventMapRecordDTO: ...
     def attach_spaces(
         self, *, event_pk: int, pk: int, space_pks: list[int]

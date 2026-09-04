@@ -3149,12 +3149,16 @@ msgid "Map name is required."
 msgstr "Nazwa mapy jest wymagana."
 
 #: src/ludamus/gates/web/django/forms.py
-msgid "Map image"
-msgstr "Obraz mapy"
+msgid "Map pages"
+msgstr "Strony mapy"
 
 #: src/ludamus/gates/web/django/forms.py
-msgid "Max 8 MB. JPG, PNG, WebP, or AVIF."
-msgstr "Maks. 8 MB. JPG, PNG, WebP lub AVIF."
+msgid ""
+"One picture, or several for a plan that comes with a legend. Max 8 MB each. "
+"JPG, PNG, WebP, or AVIF."
+msgstr ""
+"Jeden obraz albo kilka, gdy plan ma legendę. Maks. 8 MB każdy. JPG, PNG, "
+"WebP lub AVIF."
 
 #: src/ludamus/gates/web/django/forms.py
 msgid "Upload the map image."
@@ -4255,6 +4259,11 @@ msgstr "Usuń %(name)s"
 
 #: src/ludamus/templates/chronology/_map_card.html
 #, python-format
+msgid "%(name)s, page %(number)s"
+msgstr "%(name)s, strona %(number)s"
+
+#: src/ludamus/templates/chronology/_map_card.html
+#, python-format
 msgid "Venues on %(name)s"
 msgstr "Lokalizacje na mapie %(name)s"
 
@@ -5227,6 +5236,19 @@ msgstr "pojemność"
 #: src/ludamus/templates/chronology/print.html
 msgid "This printable is not available for this event."
 msgstr "Ten wydruk nie jest dostępny dla tego wydarzenia."
+
+#: src/ludamus/templates/components/_checkbox-tree-node.html
+msgid "all"
+msgstr "wszystkie"
+
+#: src/ludamus/templates/components/_checkbox-tree-node.html
+msgid "none"
+msgstr "żadne"
+
+#: src/ludamus/templates/components/_checkbox-tree-node.html
+#, python-format
+msgid "Select every venue under %(name)s"
+msgstr "Zaznacz wszystkie lokalizacje w %(name)s"
 
 #: src/ludamus/templates/components/_pagination.html
 #, python-format
@@ -10091,6 +10113,9 @@ msgid ""
 msgstr ""
 "Nie ma nadchodzących wydarzeń ani publicznych spotkań. Sprawdź ponownie "
 "później!"
+
+#~ msgid "Max 8 MB. JPG, PNG, WebP, or AVIF."
+#~ msgstr "Maks. 8 MB. JPG, PNG, WebP lub AVIF."
 
 #~ msgid "Pick venues of this event."
 #~ msgstr "Wybierz lokalizacje tego wydarzenia."
