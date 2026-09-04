@@ -1,6 +1,6 @@
 {% load i18n tessera %}
 <dialog id="notification-modal-{{ notification.pk }}"
-        class="modal max-w-lg w-[calc(100%-1rem)] max-h-[var(--modal-max-h)] overflow-hidden"
+        class="modal modal-capped max-w-lg w-[calc(100%-1rem)]"
         aria-labelledby="notification-modal-{{ notification.pk }}-title">
     <div class="px-6 py-4 border-b border-border flex items-start justify-between gap-3 shrink-0">
         <h3 id="notification-modal-{{ notification.pk }}-title"
