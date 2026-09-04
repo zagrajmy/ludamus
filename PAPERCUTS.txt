@@ -477,3 +477,8 @@ If you fix a papercut, remove it.
   embeds: '![alt](url)' comes back as '[alt](url)' and a raw <img> tag gets
   escaped into inline code. CLAUDE.md asks for screenshots in the PR
   description, so they end up as plain links only.
+- 2026-09-04: mise run format:oxfmt globs **/*.mjs with no exclusions, so it
+  restyles the ~90 vendored .claude/skills/impeccable scripts that hk.pkl
+  deliberately excludes. Ran format, then git add -A, and 31k lines of vendored
+  churn landed in my PR — enough to push it past CodeRabbit's 100-file review
+  limit. The mise task should mirror hk.pkl's exclude list.
