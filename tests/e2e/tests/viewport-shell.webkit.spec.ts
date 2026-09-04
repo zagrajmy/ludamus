@@ -25,9 +25,26 @@ test.describe("App shell scrolling on a phone", () => {
     );
     expect(documentScrolls).toBe(false);
 
-    await page.evaluate(() => {
-      document.getElementById("app-scroll")!.scrollTop = 1e6;
+    // Measured, not just looked at. toBeInViewport passes on any intersection,
+    // so a footer already peeking into a short page satisfies it without the
+    // scroller having moved at all — the assertion would hold even if
+    // #app-scroll were inert, which is the whole thing under test.
+    const scrolled = await page.evaluate(() => {
+      const root = document.getElementById("app-scroll")!;
+      const range = root.scrollHeight - root.clientHeight;
+      root.scrollTop = root.scrollHeight;
+      return {
+        range,
+        top: root.scrollTop,
+        clientHeight: root.clientHeight,
+        height: root.scrollHeight,
+      };
     });
+    // A page with nothing to scroll cannot demonstrate who owns the scrolling.
+    expect(scrolled.range).toBeGreaterThan(0);
+    expect(scrolled.top).toBeGreaterThan(0);
+    expect(scrolled.top + scrolled.clientHeight).toBeCloseTo(scrolled.height, 0);
+
     await expect(page.getByRole("contentinfo")).toBeInViewport();
   });
 });
