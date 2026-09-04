@@ -1,4 +1,4 @@
-type Page = import("@playwright/test").Page;
+import { type Page } from "@playwright/test";
 
 // Chromium/Firefox only: WebKit does not expose ::view-transition pseudo-element
 // animations to document.getAnimations(), so this resolves immediately there

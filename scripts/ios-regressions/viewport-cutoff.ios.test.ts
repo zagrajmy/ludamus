@@ -5,7 +5,8 @@ import { afterAll, beforeAll, expect, test } from "bun:test";
 import type { Rect } from "./snapshot";
 
 import { createIosHarness, eventUrl, hookTimeoutMs, sessionName } from "./harness";
-import { decodeEntities, fetchReadyPage, footerBottomPaddingPt } from "./page";
+import { decodeEntities, fetchReadyPage } from "./page";
+import { MIN_SCROLL_PT, pageEndVerdict } from "./page-end";
 import {
   labelOf,
   lowestNodes,
@@ -19,8 +20,8 @@ import {
 // The reported symptom: on an iPhone the page is cut short. Scroll #app-scroll
 // to its end on a real Safari and require the page to end at the toolbar —
 // neither under it (cut short) nor well above it (a band of body background
-// between clipped content and the bar). Everything else measured here is
-// logged so a failure names its geometry.
+// between clipped content and the bar). The verdict is pageEndVerdict, tested
+// off the device; this file measures.
 const session = sessionName("viewport");
 const pageUrl = eventUrl("/event/autumn-open/");
 const TRIGGER_LABELS = /aria-label="(Open details for [^"]+)"/g;
@@ -34,19 +35,18 @@ const SCROLL_GESTURE_PX = 450;
 // the role ("…, link"), so the pattern tolerates a suffix.
 const FOOTER_LINK = /^Terms of Service(,|$)/i;
 
-// Ending under the toolbar is the bug at any depth; the point of slack is
-// rounding. Ending above it by more than layout noise is the other bug.
-const UNDER_TOLERANCE_PT = 1;
-const ABOVE_TOLERANCE_PT = 12;
-
-// A gesture is SCROLL_GESTURE_PX; one that lands moves the page by hundreds of
-// points. A step under this is the end of the scroller; a whole run under it
-// measured nothing.
-const MIN_SCROLL_PT = 50;
+// NOTE: the link's rect ends where its text does; the page ends the footer's
+// bottom padding below it — py-6 in base.html at the 16px root. The guard in
+// beforeAll fails loudly if that class changes.
+const FOOTER_BOTTOM_PADDING_PT = 24;
+const FOOTER_PADDING_CLASS = /<footer\b[^>]*\bclass="[^"]*\bpy-6\b/;
 
 // NOTE: a toolbar collapse would grow the scrolling viewport by about the
 // toolbar's height (62pt measured); anything under this is layout noise.
 const MIN_COLLAPSE_PT = 16;
+
+const LABELS_IN_ERROR = 40;
+const LOWEST_IN_LOG = 8;
 
 const { client, deviceOptions, takeSnapshot, close, wait, openUrl, prepareDevice } =
   createIosHarness(session);
@@ -61,26 +61,28 @@ type Measured = {
   screen: Rect;
   scroller: Rect;
   nodes: readonly SnapshotNode[];
-  indicators: string;
+  indicators: Rect[];
 };
 
 const bottomOf = (rect: Rect): number => rect.y + rect.height;
-const describe = (rect: Rect): string => `${Math.round(rect.y)}+${Math.round(rect.height)}`;
+const describeRect = (rect: Rect): string => `${Math.round(rect.y)}+${Math.round(rect.height)}`;
+const describeRects = (rects: Rect[]): string => rects.map(describeRect).join(", ") || "none";
 
 const measureScroller = async (): Promise<Measured> => {
   const snapshot = await takeSnapshot();
   const screen = viewportOf(snapshot);
   const scroller = scrollerViewport(snapshot.nodes, screen);
-  const indicators = scrollBars(snapshot.nodes).map(describe).join(", ") || "none";
+  const indicators = scrollBars(snapshot.nodes);
   if (!scroller) {
-    const seen = snapshot.nodes.map(labelOf).filter(Boolean).slice(0, 40).join(" | ");
+    const seen = snapshot.nodes.map(labelOf).filter(Boolean).slice(0, LABELS_IN_ERROR).join(" | ");
     throw new Error(
       `No scroller inset from the screen is in the accessibility tree, so the viewport could ` +
-        `not be measured and this spec proved nothing. Indicators (y+height): ${indicators}. ` +
-        `The walk returned ${snapshot.nodes.length} node(s) (truncated=${snapshot.truncated}), ` +
-        `screen ${Math.round(screen.width)}x${Math.round(screen.height)}. Every indicator ` +
-        `spanning the full screen means Safari is reporting containers only; a renamed or ` +
-        `localized control means the pattern in snapshot.ts needs updating. Labels seen: ${seen}`,
+        `not be measured and this spec proved nothing. Indicators (y+height): ` +
+        `${describeRects(indicators)}. The walk returned ${snapshot.nodes.length} node(s) ` +
+        `(truncated=${snapshot.truncated}), screen ${Math.round(screen.width)}x` +
+        `${Math.round(screen.height)}. Every indicator spanning the full screen means Safari is ` +
+        `reporting containers only; a renamed or localized control means the pattern in ` +
+        `snapshot.ts needs updating. Labels seen: ${seen}`,
     );
   }
   return { screen, scroller, nodes: snapshot.nodes, indicators };
@@ -90,12 +92,12 @@ const logGeometry = (before: Measured, after: Measured, gestures: number): void 
   const gained = after.scroller.height - before.scroller.height;
   console.log(
     `GEOMETRY screen=${Math.round(before.screen.width)}x${Math.round(before.screen.height)} ` +
-      `scroller=${describe(before.scroller)} roomEndsAt=${Math.round(bottomOf(before.scroller))} ` +
-      `indicators=[${before.indicators}]`,
+      `scroller=${describeRect(before.scroller)} roomEndsAt=${Math.round(bottomOf(before.scroller))} ` +
+      `indicators=[${describeRects(before.indicators)}]`,
   );
   console.log(
-    `After ${gestures} gesture(s): scroller=${describe(after.scroller)} ` +
-      `(gained ${Math.round(gained)}pt) indicators=[${after.indicators}]`,
+    `After ${gestures} gesture(s): scroller=${describeRect(after.scroller)} ` +
+      `(gained ${Math.round(gained)}pt) indicators=[${describeRects(after.indicators)}]`,
   );
   if (gained < MIN_COLLAPSE_PT) {
     console.log(
@@ -110,9 +112,11 @@ let pageEndIssue: string | null = null;
 beforeAll(async () => {
   const html = await fetchReadyPage(pageUrl, "Open details for");
   const triggerLabel = firstTriggerLabel(html);
-  // NOTE: the link's rect ends where its text does; the page ends the footer's
-  // bottom padding below it, read from the markup rather than assumed.
-  const footerPadding = footerBottomPaddingPt(html);
+  if (!FOOTER_PADDING_CLASS.test(html)) {
+    throw new Error(
+      "base.html's footer no longer carries py-6; update FOOTER_BOTTOM_PADDING_PT and this guard.",
+    );
+  }
   await prepareDevice();
 
   console.log(`Opening Safari at ${pageUrl.toString()}...`);
@@ -151,8 +155,9 @@ beforeAll(async () => {
 
   const shift = medianShift(before.nodes, after.nodes);
   const footer = after.nodes.find((node) => node.rect && FOOTER_LINK.test(labelOf(node)));
-  const pageEnd = footer?.rect ? bottomOf(footer.rect) + footerPadding : null;
+  const pageEnd = footer?.rect ? bottomOf(footer.rect) + FOOTER_BOTTOM_PADDING_PT : null;
   const barTop = toolbarTop(after.nodes, after.screen);
+  const lowest = lowestNodes(after.nodes, LOWEST_IN_LOG);
   console.log(
     `END-OF-PAGE toolbarTop=${barTop === null ? "not in tree" : Math.round(barTop)} ` +
       `pageEndsAt=${pageEnd === null ? "not in tree" : Math.round(pageEnd)} ` +
@@ -160,41 +165,18 @@ beforeAll(async () => {
       `screenEndsAt=${Math.round(bottomOf(after.screen))} ` +
       `travelled=${shift === null ? "?" : Math.round(shift)}pt`,
   );
-  console.log(`Lowest nodes: ${lowestNodes(after.nodes, 8)}`);
+  console.log(`Lowest nodes: ${lowest}`);
 
-  if (shift === null || Math.abs(shift) < MIN_SCROLL_PT) {
-    pageEndIssue =
-      `This run measured nothing, and is not evidence about the page. After ${gestures} scroll ` +
-      `gestures the page moved ` +
-      `${shift === null ? "an unknown distance (too few nodes matched between the two snapshots)" : `${Math.round(shift)}pt`}` +
-      `, below the ${MIN_SCROLL_PT}pt that one gesture landing is worth. Either the gesture did ` +
-      `not reach the scroller or the page has nothing to scroll — fix the harness before reading ` +
-      `anything into the geometry.`;
-  } else if (pageEnd === null) {
-    pageEndIssue =
-      `After scrolling to the end of the page (${Math.round(shift)}pt), no footer link matching ` +
-      `${FOOTER_LINK} is in the accessibility tree, so the end of the page could not be ` +
-      `located. Lowest nodes seen: ${lowestNodes(after.nodes, 8)}. A renamed or localized link ` +
-      `means the pattern needs updating; an absent footer means the page is cut short.`;
-  } else if (barTop === null) {
-    pageEndIssue =
-      `Safari's toolbar is not in the accessibility tree, so there is no edge to measure the ` +
-      `page's end (y=${Math.round(pageEnd)}) against. Lowest nodes seen: ` +
-      `${lowestNodes(after.nodes, 8)}. Either the toolbar is hidden or its buttons are named ` +
-      `differently on this runtime; see toolbarTop in snapshot.ts.`;
-  } else if (pageEnd > barTop + UNDER_TOLERANCE_PT) {
-    pageEndIssue =
-      `The page is cut short. After scrolling to the end (${Math.round(shift)}pt), the page ends ` +
-      `at y=${Math.round(pageEnd)} while Safari's toolbar begins at y=${Math.round(barTop)} on a ` +
-      `${Math.round(bottomOf(after.screen))}pt screen — the last ${Math.round(pageEnd - barTop)}pt ` +
-      `of content is under the bar. The scrolling viewport is ${describe(after.scroller)}.`;
-  } else if (pageEnd < barTop - ABOVE_TOLERANCE_PT) {
-    pageEndIssue =
-      `The shell is shorter than the room Safari gave it. After scrolling to the end ` +
-      `(${Math.round(shift)}pt), the page ends at y=${Math.round(pageEnd)} while the toolbar ` +
-      `begins at y=${Math.round(barTop)}: ${Math.round(barTop - pageEnd)}pt of body background ` +
-      `sits between the clipped content and the bar.`;
-  }
+  pageEndIssue = pageEndVerdict({
+    gestures,
+    shift,
+    pageEnd,
+    barTop,
+    scroller: after.scroller,
+    screen: after.screen,
+    footerLink: FOOTER_LINK,
+    lowest,
+  });
 }, hookTimeoutMs);
 
 afterAll(close, 30_000);

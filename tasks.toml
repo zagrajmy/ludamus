@@ -132,24 +132,17 @@ mise bootstrap packages apply --yes
 poetry install
 aube install
 hk install --mise
-# -s, not -f: `> .env.local` would create the file before python runs, so one
-# failed generation used to strand a 0-byte file that `-f` treated as done —
-# every later bootstrap then skipped regeneration and varlock failed on the
-# empty secrets. The temp file keeps a failed run from touching .env.local at
-# all, and the traps remove it on the way out, so a failed or interrupted run
-# does not leave a file of real secrets lying around untracked. Two traps, not
-# one: mise runs this with sh, which is dash on Linux, and dash runs an EXIT
-# trap only on a normal exit — measured, every signal below strands the temp
-# file with EXIT alone. Signals are therefore listed rather than relied on:
-# SIGKILL and anything not named here (ABRT and QUIT are named because dash
-# showed them stranding it) still can.
+# -s, not -f: a redirect creates the file before python runs, so a failed
+# generation would strand an empty .env.local that -f treats as done. The temp
+# file holds real secrets, so it must not outlive a failed or interrupted run.
+# SAFETY: mise runs this with sh — dash on Linux — and dash runs an EXIT trap
+# only on a normal exit, so the signals are trapped by name; SIGKILL and any
+# not listed still strand the file.
 if [ ! -s .env.local ]; then
   trap 'rm -f .env.local.tmp' EXIT
   for sig in INT HUP TERM QUIT ABRT; do
-    # Re-raised rather than exiting 130 for all five, so the shell dies of what
-    # actually killed it and the caller sees a SIGTERM as a SIGTERM. Re-raising
-    # is also what stops bootstrap carrying on into migrate, since POSIX resumes
-    # where it left off once an INT handler returns.
+    # Re-raised so the shell dies of what killed it, and so bootstrap does not
+    # carry on into migrate: POSIX resumes after a handled INT.
     trap "rm -f .env.local.tmp; trap - $sig; kill -$sig $$" "$sig"
   done
   # Stdlib only, deliberately: this runs in the same invocation that creates

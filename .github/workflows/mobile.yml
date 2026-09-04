@@ -25,9 +25,7 @@ permissions:
 jobs:
   ios-regressions:
     runs-on: macos-latest
-    # 6.5 setup + 15 warm-up + 42 tests + 1.5 teardown and upload, leaving the
-    # step timeouts to bind first.
-    # The test step's cap plus ~26 minutes of setup; see IOS_SPEC_BUDGET.
+    # See IOS_SPEC_BUDGET.
     timeout-minutes: 68
     env:
       # Every runner command is an HTTP request capped by
@@ -46,10 +44,12 @@ jobs:
       # the URL. It does not bound a probe: the first one pays this session's
       # runner launch (125-148s measured) and is awaited whatever this says.
       IOS_SAFARI_READY_TIMEOUT_MS: 60000
-      # The number the rest of this job is sized from. A spec's worst case is
-      # two attempts of the 360s hook plus the 30s afterAll and bun's own
-      # start-up, ~14 minutes; the test step below is budget × 14 and the job
-      # cap adds ~26 minutes of setup on top. Raise all three together.
+      # The number this job is sized from. A spec's worst case is two attempts
+      # of the 360s hook plus the 30s afterAll and bun's start-up, ~14 minutes:
+      # the test step's cap is budget × 14, and the job's cap is that plus the
+      # 6.5 min of setup, 15 min warm-up cap and 1.5 min of teardown around it,
+      # so the step timeouts bind first. Actions cannot derive timeout-minutes
+      # from an env value; raise the three together.
       IOS_SPEC_BUDGET: 3
       AGENT_DEVICE_DAEMON_STARTUP_TIMEOUT_MS: 30000
       BASE_URL: http://localhost:8000

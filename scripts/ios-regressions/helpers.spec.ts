@@ -2,7 +2,14 @@ import type { CaptureSnapshotResult, SnapshotNode } from "agent-device";
 
 import { describe, expect, test } from "bun:test";
 
-import { decodeEntities, footerBottomPaddingPt } from "./page";
+import { decodeEntities } from "./page";
+import {
+  ABOVE_TOLERANCE_PT,
+  MIN_SCROLL_PT,
+  pageEndVerdict,
+  type PageEndReading,
+  UNDER_TOLERANCE_PT,
+} from "./page-end";
 import {
   centreOnScreen,
   collapse,
@@ -146,27 +153,6 @@ describe("decodeEntities", () => {
   });
 });
 
-describe("footerBottomPaddingPt", () => {
-  test("reads the footer's py- class off the served markup", () => {
-    const html = '<main></main><footer class="border-t py-6 bg-bg-secondary"></footer>';
-    expect(footerBottomPaddingPt(html)).toBe(24);
-  });
-
-  test("lets a later pb- override an earlier py-, as the stylesheet does", () => {
-    expect(footerBottomPaddingPt('<footer class="py-6 pb-10">')).toBe(40);
-  });
-
-  test("does not mistake a similarly spelt class for padding", () => {
-    expect(() => footerBottomPaddingPt('<footer class="ppb-6 pb-x py-">')).toThrow(
-      /no py-\/pb- class/,
-    );
-  });
-
-  test("refuses to guess when there is no footer to read", () => {
-    expect(() => footerBottomPaddingPt("<main></main>")).toThrow(/no <footer>/);
-  });
-});
-
 describe("describeNode", () => {
   test("renders the fields a failure dump needs", () => {
     expect(
@@ -199,7 +185,7 @@ describe("scrollerViewport", () => {
   });
 
   test("takes the tallest of several inset scrollers, which is the outermost", () => {
-    const nested = [bar(62, 750), bar(120, 400), bar(200, 90)];
+    const nested = [bar(200, 90), bar(62, 750), bar(120, 400)];
     expect(scrollerViewport(nested, screen)?.height).toBe(750);
   });
 
@@ -245,7 +231,8 @@ describe("medianShift", () => {
 
   test("drops labels that occur more than once, which cannot be matched up", () => {
     // Two "Close" buttons give no way to say which became which, so they are
-    // not anchors; the three cards still are.
+    // not anchors. The cards move by distinct amounts so that counting the
+    // duplicate would shift the median: -200 with it dropped, -250 without.
     const before = [
       at("Close", 10),
       at("Close", 800),
@@ -254,9 +241,9 @@ describe("medianShift", () => {
     const after = [
       at("Close", 800),
       at("Close", 10),
-      ...[0, 200, 400].map((y, i) => at(`Card ${i}`, y)),
+      ...[0, 100, 200].map((y, i) => at(`Card ${i}`, y)),
     ];
-    expect(medianShift(before, after)).toBe(-100);
+    expect(medianShift(before, after)).toBe(-200);
   });
 
   test("ignores nodes with no rect and nodes with no label", () => {
@@ -325,5 +312,54 @@ describe("toolbarTop", () => {
   test("takes the highest edge when several buttons share the bar", () => {
     const nodes = [at("Share", 780, 94), at("Back", 776, 98), at("Tabs", 778, 96)];
     expect(toolbarTop(nodes, screen)).toBe(776);
+  });
+});
+
+describe("pageEndVerdict", () => {
+  // The device's own numbers: toolbar at 776, page ending at 775.
+  const measured: PageEndReading = {
+    gestures: 3,
+    shift: -1765,
+    pageEnd: 775,
+    barTop: 776,
+    scroller: { x: 396, y: 62, width: 6, height: 750 },
+    screen,
+    footerLink: /^Terms of Service(,|$)/i,
+    lowest: '732..751 "Terms of Service"',
+  };
+
+  test("is silent when the page ends at the toolbar", () => {
+    expect(pageEndVerdict(measured)).toBeNull();
+    expect(pageEndVerdict({ ...measured, pageEnd: 776 + UNDER_TOLERANCE_PT })).toBeNull();
+    expect(pageEndVerdict({ ...measured, pageEnd: 776 - ABOVE_TOLERANCE_PT })).toBeNull();
+  });
+
+  test("reports a page that ends under the toolbar as cut short", () => {
+    const verdict = pageEndVerdict({ ...measured, pageEnd: 812 });
+    expect(verdict).toMatch(/^The page is cut short/);
+    expect(verdict).toContain("the last 36pt of content is under the bar");
+  });
+
+  test("reports a page that ends well above the toolbar as a short shell", () => {
+    const verdict = pageEndVerdict({ ...measured, pageEnd: 700 });
+    expect(verdict).toMatch(/^The shell is shorter than the room/);
+    expect(verdict).toContain("76pt of body background");
+  });
+
+  test("blames the harness, not the page, when the gestures did not land", () => {
+    expect(pageEndVerdict({ ...measured, shift: MIN_SCROLL_PT - 1 })).toMatch(/measured nothing/);
+    expect(pageEndVerdict({ ...measured, shift: null })).toMatch(/unknown distance/);
+  });
+
+  test("names a missing footer before a missing toolbar", () => {
+    expect(pageEndVerdict({ ...measured, pageEnd: null })).toMatch(/no footer link matching/);
+    expect(pageEndVerdict({ ...measured, pageEnd: null, barTop: null })).toMatch(
+      /no footer link matching/,
+    );
+    expect(pageEndVerdict({ ...measured, barTop: null })).toMatch(/toolbar is not in the/);
+  });
+
+  test("does not read a geometric miss into a run that measured nothing", () => {
+    expect(pageEndVerdict({ ...measured, shift: 0, pageEnd: 900 })).toMatch(/measured nothing/);
   });
 });

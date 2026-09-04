@@ -2,9 +2,9 @@ import { type Locator, type Page } from "@playwright/test";
 
 import { expect, test } from "./helpers/fixtures";
 import { expectCappedToViewport } from "./helpers/modal-cap";
+import { DENSE_EVENT_URL } from "./helpers/urls";
 
 const MOBILE_WIDTH = 375;
-const DENSE_EVENT_URL = "/event/kapitularz-2025-anonymized/";
 
 test.describe("Event filter panel", () => {
   test("filter panel does not overflow viewport on mobile", async ({ browser }) => {

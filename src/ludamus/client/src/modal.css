@@ -4,25 +4,16 @@
      transition is seamless. */
   --modal-backdrop-blur: 4px;
 
-  /* How much of the visible viewport a capped modal may take, leaving enough of
-     the page behind it to stay oriented. Applied by .modal-capped below, and
-     read directly by the schedule's filter sheet, which is dressed as a modal
-     without being one. SAFETY: this is a cross-file name, and a consumer
-     reading a var() that no longer resolves computes to max-height:none in
-     silence — the e2e cap assertions are what would notice. */
+  /* The share of the visible viewport a capped dialog may take. Read by
+     .modal-capped and by the schedule's filter sheet.
+     SAFETY: an unresolved var() computes to max-height:none in silence; the
+     e2e cap assertions are what notice a consumer left reading a dead name. */
   --modal-max-h: 90dvh;
 }
 
 @layer components {
-  /* Opt-in, not part of .modal: a dialog whose content cannot outgrow the
-     screen should size to that content, and capping it would leave a short
-     confirm sitting in a tall box. Wear this where the content *can* outgrow
-     it — a session's description, a list — so the dialog scrolls inside itself
-     instead of running off the bottom, and enough of the page behind stays
-     visible to keep the reader oriented.
-
-     The clip belongs with the cap: without it the content overflows the height
-     just set, and an inner scroller is what makes the rest reachable. */
+  /* NOTE: opt-in, not part of .modal — a dialog whose content cannot outgrow
+     the screen should size to its content rather than sit in a tall box. */
   .modal-capped {
     max-height: var(--modal-max-h);
     overflow: hidden;

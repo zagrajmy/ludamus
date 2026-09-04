@@ -2,11 +2,11 @@ import { type Page } from "@playwright/test";
 import path from "node:path";
 
 import { expect, test } from "./helpers/fixtures";
+import { DENSE_EVENT_URL } from "./helpers/urls";
 
 const EVENT_URL = "/event/autumn-open/";
 // The dense seeded event: the only one over the compact-schedule threshold,
 // so the only one that offers a second layout to switch to.
-const DENSE_EVENT_URL = "/event/kapitularz-2025-anonymized/";
 const MEGA = "Mega Strategy Lab";
 const NEON = "Przygoda w Mieście Neonów";
 // Seeded with no participants limit: the drop-in the enrollment filter leaves out.

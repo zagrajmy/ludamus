@@ -1,6 +1,5 @@
 import { expect, test } from "./helpers/fixtures";
-
-const DENSE_EVENT_URL = "/event/kapitularz-2025-anonymized/";
+import { DENSE_EVENT_URL } from "./helpers/urls";
 
 // The rooms grid pans horizontally under a sticky header, and the sub-pixel
 // disagreement the assertion allows for differs between engines — so this wants
