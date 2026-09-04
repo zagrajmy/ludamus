@@ -22,3 +22,11 @@ def token_event(*, services: ServicesProtocol, actor: ActorContext) -> EventDTO:
     return services.events.require_in_sphere(
         sphere_id=actor_sphere(actor), event_id=actor.event_id
     )
+
+
+def require_event(
+    *, services: ServicesProtocol, actor: ActorContext, event_id: int
+) -> EventDTO:
+    return services.events.require_in_sphere(
+        sphere_id=actor_sphere(actor), event_id=event_id
+    )

@@ -240,9 +240,9 @@ test.describe("Folding days on the rooms grid", () => {
     const titles = await roomTitlesByDay(page);
     const dayOneTitle = onlyOn(titles[0], titles[1]);
     const lastHourEnd = await page
-      .locator(".room-lanes-line[data-hour-end]")
+      .locator(".room-lanes-line[data-row-end]")
       .last()
-      .getAttribute("data-hour-end");
+      .getAttribute("data-row-end");
     if (!lastHourEnd) throw new Error("The fixture needs hour rows");
     await page.clock.install({ time: new Date(Date.parse(lastHourEnd) + 48 * 3600 * 1000) });
     await page.goto(`${DENSE_EVENT_URL}?view=rooms`);
@@ -260,7 +260,7 @@ test.describe("Folding days on the rooms grid", () => {
     const dayTwoStart = await page
       .locator('.room-lanes-line[data-lane-day="1"]')
       .first()
-      .getAttribute("data-hour-start");
+      .getAttribute("data-row-start");
     if (!dayTwoStart) throw new Error("The fixture needs hour rows on day two");
     await page.clock.install({ time: new Date(Date.parse(dayTwoStart) + 30 * 60_000) });
     await page.goto(`${DENSE_EVENT_URL}?view=rooms`);

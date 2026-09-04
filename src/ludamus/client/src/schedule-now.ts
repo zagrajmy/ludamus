@@ -22,16 +22,16 @@ const setTime = (marker: HTMLElement, text: string): void => {
   if (time) time.textContent = text;
 };
 
-// The rooms grid: the line belongs to the hour row that contains now, at the
-// share of that row the minutes have run through.
+// The rooms grid: the line belongs to the row whose band contains now, at the
+// share of that band the minutes have run through.
 const placeInGrid = (at: number): void => {
   const marker = document.querySelector<HTMLElement>("[data-room-lanes-now]");
   if (!marker) return;
 
-  for (const line of document.querySelectorAll<HTMLElement>("[data-hour-start]")) {
+  for (const line of document.querySelectorAll<HTMLElement>("[data-row-start]")) {
     if (line.classList.contains("room-lanes-collapsed")) continue;
-    const start = Date.parse(line.dataset.hourStart ?? "");
-    const end = Date.parse(line.dataset.hourEnd ?? "");
+    const start = Date.parse(line.dataset.rowStart ?? "");
+    const end = Date.parse(line.dataset.rowEnd ?? "");
     if (Number.isNaN(start) || Number.isNaN(end) || at < start || at >= end) continue;
     const overlay = marker.parentElement;
     if (!overlay) return;

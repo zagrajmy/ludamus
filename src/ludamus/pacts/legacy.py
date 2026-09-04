@@ -13,7 +13,7 @@ from typing import (
 from pydantic import BaseModel, ConfigDict
 
 from ludamus.pacts.fields import FieldValue, OrganizerFieldDTO
-from ludamus.pacts.ids import EventId, SiteId, SphereId, UserId
+from ludamus.pacts.ids import EventId, HasPk, SiteId, SphereId, UserId
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -1298,13 +1298,13 @@ class EnrollmentConfigRepositoryProtocol(Protocol):
     ) -> UserEnrollmentConfigDTO: ...
     @staticmethod
     def read_user_config(
-        config: EnrollmentConfigDTO, user_email: str
+        config: HasPk, user_email: str
     ) -> UserEnrollmentConfigDTO | None: ...
     @staticmethod
     def update_user_config(user_enrollment_config: UserEnrollmentConfigDTO) -> None: ...
     @staticmethod
     def read_domain_config(
-        enrollment_config: EnrollmentConfigDTO, domain: str
+        enrollment_config: HasPk, domain: str
     ) -> DomainEnrollmentConfigDTO | None: ...
 
 
