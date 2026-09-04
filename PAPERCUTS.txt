@@ -485,3 +485,9 @@ If you fix a papercut, remove it.
   embeds: '![alt](url)' comes back as '[alt](url)' and a raw <img> tag gets
   escaped into inline code. CLAUDE.md asks for screenshots in the PR
   description, so they end up as plain links only.
+- 2026-09-04: mise run lint:djlint blew up with ModuleNotFoundError:
+  cssbeautifier in a fresh web sandbox; djlint's --format-css needs it. Ran
+  djlint directly on the one changed template instead.
+- 2026-09-04: The impeccable skill's scripts/context.mjs crashes on import:
+  .claude/skills/impeccable/scripts/lib/provider.mjs is missing from the
+  checkout, so the skill's setup step cannot run.

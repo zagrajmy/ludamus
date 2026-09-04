@@ -100,12 +100,32 @@ test.describe("Big event hero", () => {
     expect(enrollmentNavs).toEqual([]);
   });
 
+  // Clear of 640 itself: the row starts exactly at the sm breakpoint, and a
+  // test sitting on the boundary would answer a scrollbar rather than a layout.
   test("hero CTAs stay in a row when they fit below the md breakpoint", async ({ page }) => {
-    await page.setViewportSize({ width: 640, height: 800 });
+    await page.setViewportSize({ width: 700, height: 800 });
     const hero = page.locator("[data-event-hero]");
     const viewBox = await hero.getByRole("link", { name: "View the program" }).boundingBox();
     const signBox = await hero.getByRole("link", { name: "Sign up for sessions" }).boundingBox();
     if (!viewBox || !signBox) throw new Error("hero CTA has no box");
     expect(Math.abs(viewBox.y - signBox.y)).toBeLessThan(8);
+  });
+
+  // On a phone neither group fits a row, and wrapping left ragged half-rows
+  // whose icons and buttons lined up with nothing.
+  test("stacks facts on one rail and CTAs at one width on a phone", async ({ page }) => {
+    await page.setViewportSize({ width: 440, height: 900 });
+    const hero = page.locator("[data-event-hero]");
+    const date = await hero.getByRole("button", { name: /10:00/ }).boundingBox();
+    const address = await hero.getByRole("link", { name: /4 Assembly Concourse/ }).boundingBox();
+    const view = await hero.getByRole("link", { name: "View the program" }).boundingBox();
+    const sign = await hero.getByRole("link", { name: "Sign up for sessions" }).boundingBox();
+    if (!date || !address || !view || !sign) throw new Error("hero part has no box");
+
+    expect(address.y).toBeGreaterThan(date.y + date.height);
+    expect(Math.abs(address.x - date.x)).toBeLessThan(1);
+    expect(sign.y).toBeGreaterThan(view.y + view.height);
+    expect(Math.abs(sign.width - view.width)).toBeLessThan(1);
+    expect(Math.abs(sign.x - view.x)).toBeLessThan(1);
   });
 });

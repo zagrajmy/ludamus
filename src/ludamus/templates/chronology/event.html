@@ -36,12 +36,24 @@
             {# and components/file-dropzone.html draws the width of its "edges" #}
             {# guide from it. Changing these heights moves the guide people upload #}
             {# against. #}
-            <div class="h-56 sm:h-72 bg-cover bg-center rounded-t-3xl"
-                 style="background-image: url('{{ event.cover_image_url }}')"></div>
+            <div class="relative h-56 sm:h-72 bg-cover bg-center rounded-t-3xl"
+                 style="background-image: url('{{ event.cover_image_url }}')"
+                 data-event-cover>
+                {% if maps_url %}
+                    {# Here the control has room for its own name and no CTA to #}
+                    {# compete with, and its right edge lands on the same gutter #}
+                    {# as the body below. Without a cover it stays an icon beside #}
+                    {# the buttons. #}
+                    {% translate "Venue maps" as t_venue_maps %}
+                    <div class="absolute top-6 right-6 sm:top-8 sm:right-8 rounded-2xl shadow-(--shadow-elevated)">
+                        {% tessera_button t_venue_maps href=maps_url variant="secondary" icon="map" %}
+                    </div>
+                {% endif %}
+            </div>
         {% endif %}
         <div class="p-6 sm:p-8">
             <div class="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-6">
-                <div class="flex-1 grid gap-y-4{% if compact_schedule %} md:grid-cols-[1fr_auto] md:gap-x-8{% endif %}">
+                <div class="flex-1 grid gap-y-5{% if compact_schedule %} lg:grid-cols-[1fr_auto] lg:gap-x-8{% endif %}">
                     {# Status is an attribute of the name: the chip sits beside it #}
                     {# and wraps under it when narrow. #}
                     <div class="flex items-center flex-wrap gap-x-3 gap-y-2">
@@ -52,7 +64,7 @@
                         <p class="text-lg max-w-2xl text-foreground-muted">{{ event.description }}</p>
                     {% endif %}
                     <!-- Event meta -->
-                    <div class="flex flex-wrap gap-4 text-sm{% if compact_schedule %} md:col-start-2 md:row-start-1 md:row-span-3 md:flex-col md:flex-nowrap md:items-start md:gap-3{% endif %}">
+                    <div class="flex flex-col items-start gap-3 text-sm{% if compact_schedule %} lg:col-start-2 lg:row-start-1 lg:row-span-3{% else %} md:flex-row md:flex-wrap md:gap-4{% endif %}">
                         {% translate "Add to calendar" as t_add_to_calendar %}
                         {% tessera_action_dropdown id="event-calendar-menu" label=t_add_to_calendar align="center" trigger_class="flex items-center gap-2 text-left" %}
                             <div class="w-8 h-8 bg-coral-100 dark:bg-coral-900/30 rounded-lg flex items-center justify-center shrink-0">
@@ -122,8 +134,10 @@
                             </a>
                         {% endif %}
                     </div>
-                    {% if compact_schedule or maps_url %}
-                        <div class="flex flex-wrap items-center gap-3{% if compact_schedule %} md:row-start-3{% endif %}">
+                    {# A cover holds the maps control instead, which can leave #}
+                    {# this row with nothing in it. #}
+                    {% if compact_schedule or maps_url and not event.cover_image_url %}
+                        <div class="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center{% if compact_schedule %} lg:row-start-3{% endif %}">
                             {% if compact_schedule %}
                                 {% translate "View the program" as t_view_program %}
                                 {% tessera_button t_view_program href="#schedule-region" size="lg" %}
@@ -132,10 +146,10 @@
                                     {% tessera_button t_sign_up_sessions href="?enrollment=1#schedule-region" variant="secondary" size="lg" data_apply_enrollment=True %}
                                 {% endif %}
                             {% endif %}
-                            {% if maps_url %}
+                            {% if maps_url and not event.cover_image_url %}
                                 {% translate "Venue maps" as t_venue_maps %}
                                 <a href="{{ maps_url }}"
-                                   class="icon-btn size-12 justify-center rounded-2xl overflow-hidden"
+                                   class="icon-btn size-12 shrink-0 justify-center rounded-2xl overflow-hidden"
                                    title="{{ t_venue_maps }}">
                                     {% icon "map" class="size-5" variant="mini" %}
                                     <span class="sr-only">{{ t_venue_maps }}</span>

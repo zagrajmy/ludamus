@@ -1,3 +1,4 @@
+import { labeledDropzone } from "./helpers/dropzone";
 import { expect, test } from "./helpers/fixtures";
 
 // Walks the whole life of a map on the seeded `retro-mini-jam` event, whose
@@ -7,6 +8,7 @@ import { expect, test } from "./helpers/fixtures";
 
 const EVENT_URL = "/event/retro-mini-jam/";
 const MAPS_URL = `${EVENT_URL}maps/`;
+const SETTINGS_URL = "/panel/event/retro-mini-jam/settings/";
 
 const PNG_BYTES = Buffer.from(
   "89504e470d0a1a0a0000000d4948445200000001000000010802000000" +
@@ -121,6 +123,40 @@ test.describe("Event maps", () => {
     await heroLink.click();
     await expect(page).toHaveURL(MAPS_URL);
     await expect(page.getByRole("heading", { name: "Ground floor", level: 2 })).toBeVisible();
+  });
+
+  // The maps control has two homes. Beside the CTAs it is an icon, small enough
+  // not to read as a third call to action; on a cover it has room for its name.
+  test("a cover takes the maps control into its top-right corner", async ({ page }) => {
+    await logInAsManager(page);
+    await page.goto(SETTINGS_URL);
+    await page.getByLabel("Cover image", { exact: true }).setInputFiles({
+      name: "cover.png",
+      mimeType: "image/png",
+      buffer: PNG_BYTES,
+    });
+    await page.getByRole("button", { name: "Save Settings" }).click();
+    await expect(page.getByText("Event settings saved successfully.")).toBeVisible();
+
+    await page.setViewportSize({ width: 440, height: 900 });
+    await page.goto(EVENT_URL);
+    const hero = page.locator("[data-event-hero]");
+    const cover = await hero.locator("[data-event-cover]").boundingBox();
+    const link = await hero.getByRole("link", { name: "Venue maps" }).boundingBox();
+    if (!cover || !link) throw new Error("hero part has no box");
+
+    expect(link.y).toBeGreaterThanOrEqual(cover.y);
+    expect(link.y + link.height).toBeLessThanOrEqual(cover.y + cover.height);
+    // Its right edge lands on the gutter the body text below keeps.
+    expect(Math.abs(cover.x + cover.width - (link.x + link.width) - 24)).toBeLessThan(2);
+
+    // Leave the event the way the rest of this file found it.
+    await page.goto(SETTINGS_URL);
+    await labeledDropzone(page, "Cover image")
+      .getByRole("button", { name: "Remove image" })
+      .click();
+    await page.getByRole("button", { name: "Save Settings" }).click();
+    await expect(page.getByText("Event settings saved successfully.")).toBeVisible();
   });
 
   test("an organizer renames and then deletes the map", async ({ page }) => {
