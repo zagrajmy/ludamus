@@ -4,7 +4,7 @@
 {# The behaviour ships with the component: pages using it need remember no #}
 {# asset, and pages that don't, don't pay for one. Deduped per request. #}
 {% vite_asset_once 'src/combobox.ts' %}
-{# Searchable single-select, per the ARIA combobox pattern with list #}
+{# Searchable single- or multiple-choice control, per the ARIA combobox pattern with list #}
 {# autocomplete: https://www.w3.org/WAI/ARIA/apg/patterns/combobox/ #}
 {# The <select> lives in <noscript> on purpose. With scripting on, the parser #}
 {# keeps a noscript's content as TEXT: no elements, so no layout, no style #}
@@ -18,7 +18,9 @@
 {# toggle_label, extra_class, has_errors, slot (safe string of <option>s). #}
 {# No `value`: what starts selected is `selected` on an <option>, the way a #}
 {# <select> says it, and the tag reads that into the options payload below. #}
-<div class="tessera-combobox relative" data-combobox>
+<div class="tessera-combobox relative"
+     data-combobox
+     {% if multiple %}data-combobox-multiple{% endif %}>
     <noscript data-combobox-source>
         {% include "components/select.html" with attrs=attrs extra_class=extra_class has_errors=has_errors slot=slot only %}
     </noscript>
@@ -85,6 +87,7 @@
             <div data-combobox-scroller class="max-h-56 overflow-y-auto">
                 <ul id="{{ id }}-listbox"
                     role="listbox"
+                    {% if multiple %}aria-multiselectable="true"{% endif %}
                     data-combobox-listbox
                     class="py-1">
                 </ul>

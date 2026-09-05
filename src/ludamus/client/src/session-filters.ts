@@ -12,6 +12,7 @@ import {
   intParam,
   replaceSearchParams,
   type SearchParamCodec,
+  stringListParam,
   stringParam,
 } from "./url-state";
 
@@ -95,22 +96,15 @@ const addOption = (
 };
 
 interface CardFilter {
-  /** Is the control's value one worth filtering on? */
-  active: (value: string) => boolean;
-  /** Chip text for the active value. */
-  chip: () => string;
-  el: HTMLInputElement | HTMLSelectElement;
-  /**
-   * What kind of value the control holds, which decides the event to listen
-   * for and the URL codec to mirror through. Stated, not sniffed off the
-   * element: an upgraded combobox is an <input> holding a choice, so the tag
-   * name answers neither question.
-   */
-  kind: "age" | "choice";
-  /** Card passes the active filter; not consulted while the control is empty. */
+  /** Chip text for one active value. */
+  chip: (value: string) => string;
+  el: HTMLElement;
+  kind: "age" | "choice" | "multiple";
+  /** Card passes one selected value; multiple values within a filter are ORed. */
   matches: (card: HTMLElement, value: string) => boolean;
-  /** Query-string name; url-state.ts lists the reserved names to stay clear of. */
   param: string;
+  values: () => string[];
+  writeValues: (values: string[]) => void;
 }
 
 // min/max on the input bound its spinner, not what can be typed, so an age
@@ -121,12 +115,15 @@ const ageFilterEntry = (
   label: () => string,
   matches: CardFilter["matches"],
 ): CardFilter => ({
-  active: (value) => ageParam.parse(value) !== null,
   chip: () => `${label()} ${el.value}`.trim(),
   el,
   kind: "age",
   matches,
   param,
+  values: () => (ageParam.parse(el.value) === null ? [] : [el.value]),
+  writeValues: (values) => {
+    el.value = values[0] ?? "";
+  },
 });
 
 const selectFilter = (
@@ -134,30 +131,40 @@ const selectFilter = (
   param: string,
   matches: CardFilter["matches"],
 ): CardFilter => ({
-  active: (value) => value !== "",
   chip: () => selectedLabel(el),
   el,
   kind: "choice",
   matches,
   param,
+  values: () => (el.value ? [el.value] : []),
+  writeValues: (values) => {
+    el.value = values[0] ?? "";
+    syncControl(el);
+  },
 });
 
-// An upgraded combobox has no selected <option> to read a chip off, so the
-// label comes from the visible input it drives — which is what the person
-// picked.
-const comboboxFilter = (
+const multipleChoiceFilter = (
   el: HTMLInputElement,
   param: string,
   matches: CardFilter["matches"],
+  labels: ReadonlyMap<string, string> = new Map(),
 ): CardFilter => ({
-  active: (value) => value !== "",
-  chip: () =>
-    el.closest("[data-combobox]")?.querySelector<HTMLInputElement>("[data-combobox-input]")
-      ?.value ?? "",
+  chip: (value) =>
+    el
+      .closest("[data-combobox]")
+      ?.querySelector<HTMLElement>(`[data-combobox-option][data-value="${CSS.escape(value)}"]`)
+      ?.textContent ??
+    labels.get(value) ??
+    value,
   el,
-  kind: "choice",
+  kind: "multiple",
   matches,
   param,
+  values: () => stringListParam.parse(el.value),
+  writeValues: (values) => {
+    el.value = stringListParam.serialize(values) ?? "";
+    syncControl(el);
+  },
 });
 
 const dataMatch =
@@ -212,7 +219,7 @@ const initSessionFilters = (): void => {
   const statusFilter = byId<HTMLSelectElement>("status-filter");
   const dayFilter = byId<HTMLSelectElement>("day-filter");
   const hourFilter = byId<HTMLSelectElement>("hour-filter");
-  const spaceFilter = byId<HTMLSelectElement>("space-filter");
+  const spaceFilter = byId<HTMLInputElement>("space-filter");
   const hostFilter = byId<HTMLInputElement>("host-filter");
   const ageFilter = byId<HTMLInputElement>("age-filter");
   const minAgeFilter = byId<HTMLSelectElement>("min-age-filter");
@@ -229,6 +236,7 @@ const initSessionFilters = (): void => {
   const sessionCards = document.querySelectorAll<HTMLElement>(".session");
 
   const tagFilters: Record<string, HTMLSelectElement> = {};
+  const trackFilter = document.getElementById("tag-filter-__track") as HTMLInputElement | null;
 
   // Field values ride in the haystack because a value typed into an
   // allow_custom field is not a choice and so never becomes a filter option —
@@ -270,9 +278,6 @@ const initSessionFilters = (): void => {
     if (entries.length > 1) document.getElementById(groupId)?.classList.remove("hidden");
   };
 
-  // The host list is handed to the combobox as data rather than built as
-  // options: an event's hosts run to the hundreds, and this page already
-  // carries a card per session.
   const populateHosts = (entries: [string, string][]): void => {
     syncControl(hostFilter, entries);
     if (entries.length > 1) {
@@ -307,7 +312,9 @@ const initSessionFilters = (): void => {
     document.getElementById("min-age-filter-group")?.classList.remove("hidden");
   }
 
-  const allRoomsLabel = spaceFilter.dataset.allRoomsLabel ?? "";
+  const allRoomsLabel =
+    spaceFilter.closest<HTMLElement>("[data-all-rooms-label]")?.dataset.allRoomsLabel ?? "";
+  const spaceChoices: [string, string][] = [];
   const spaceMap = new Map<
     string,
     { groupKey: string; groupName: string; name: string; order: SpaceOrderSegment[] }
@@ -323,33 +330,26 @@ const initSessionFilters = (): void => {
       });
     }
   }
-  let currentGroup: HTMLOptGroupElement | undefined;
   let currentGroupKey: string | undefined;
   for (const [key, { groupKey, groupName, name }] of [...spaceMap.entries()].sort(
     ([leftKey, left], [rightKey, right]) =>
       compareSpaceOrder(left.order, right.order) || Number(leftKey) - Number(rightKey),
   )) {
     if (!groupKey) {
-      currentGroup = undefined;
       currentGroupKey = undefined;
     } else if (currentGroupKey !== groupKey) {
-      currentGroup = document.createElement("optgroup");
-      currentGroup.label = groupName;
       currentGroupKey = groupKey;
-      spaceFilter.append(currentGroup);
-      addOption(
-        currentGroup,
-        `${VENUE_VALUE_PREFIX}${groupKey}`,
-        `${groupName} — ${allRoomsLabel}`,
-      );
+      spaceChoices.push([`${VENUE_VALUE_PREFIX}${groupKey}`, `${groupName} — ${allRoomsLabel}`]);
     }
-    addOption(currentGroup ?? spaceFilter, key, name);
+    spaceChoices.push([key, groupName ? `${groupName} — ${name}` : name]);
   }
+  syncControl(spaceFilter, spaceChoices);
+  const spaceLabels = new Map(spaceChoices);
   if (spaceMap.size > 1) {
     document.getElementById("space-filter-group")?.classList.remove("hidden");
   }
 
-  for (const select of document.querySelectorAll<HTMLSelectElement>(".tag-filter")) {
+  for (const select of document.querySelectorAll<HTMLSelectElement>("select.tag-filter")) {
     const categorySlug = select.dataset.category;
     if (!categorySlug) continue;
     tagFilters[categorySlug] = select;
@@ -388,10 +388,14 @@ const initSessionFilters = (): void => {
       const flag = STATUS_CARD_FLAGS[value];
       return flag ? card.dataset[flag] === "true" : card.dataset.status === value;
     }),
-    selectFilter(spaceFilter, "space", (card, value) =>
-      value.startsWith(VENUE_VALUE_PREFIX)
-        ? card.dataset.venue === value.slice(VENUE_VALUE_PREFIX.length)
-        : card.dataset.space === value,
+    multipleChoiceFilter(
+      spaceFilter,
+      "space",
+      (card, value) =>
+        value.startsWith(VENUE_VALUE_PREFIX)
+          ? card.dataset.venue === value.slice(VENUE_VALUE_PREFIX.length)
+          : card.dataset.space === value,
+      spaceLabels,
     ),
     // Both age controls read the one number a session carries, from opposite
     // ends. `age-min` keeps its name because `?age-min=18` ("show me the 18+
@@ -415,10 +419,11 @@ const initSessionFilters = (): void => {
     ),
     selectFilter(dayFilter, "day", dataMatch("day")),
     selectFilter(hourFilter, "hour", dataMatch("hour")),
+    ...(trackFilter ? [multipleChoiceFilter(trackFilter, "track", matchesTag("__track"))] : []),
     ...Object.entries(tagFilters).map(([slug, select]) =>
       selectFilter(select, TAG_PARAM_NAMES[slug] ?? `tag-${slug}`, matchesTag(slug)),
     ),
-    comboboxFilter(hostFilter, "host", dataMatch("host")),
+    multipleChoiceFilter(hostFilter, "host", dataMatch("host")),
   ];
 
   // Controls whose value lives in the query string too, each bound through a
@@ -446,7 +451,7 @@ const initSessionFilters = (): void => {
       applyRaw: (raw) => {
         write(codec.parse(raw));
       },
-      matchesRaw: (raw) => read() === codec.parse(raw),
+      matchesRaw: (raw) => codec.serialize(read()) === codec.serialize(codec.parse(raw)),
       readRaw: () => codec.serialize(read()),
     });
   };
@@ -501,8 +506,13 @@ const initSessionFilters = (): void => {
     );
   }
   for (const f of cardFilters) {
-    if (f.kind === "choice") mirrorChoice(f.param, f.el);
-    else mirrorAge(f.param, f.el);
+    if (f.kind === "multiple") {
+      mirror(f.param, stringListParam, f.values, f.writeValues);
+    } else if (f.kind === "choice") {
+      mirrorChoice(f.param, f.el as HTMLInputElement | HTMLSelectElement);
+    } else {
+      mirrorAge(f.param, f.el as HTMLInputElement | HTMLSelectElement);
+    }
   }
 
   const mirrorState = (): Map<string, string | null> =>
@@ -566,7 +576,9 @@ const initSessionFilters = (): void => {
   function filterSessions(): void {
     const searchTokens = normalizeText(sessionFilter.value).split(/\s+/).filter(Boolean);
     const enrollmentOnly = enrollmentFilter?.checked ?? false;
-    const activeFilters = cardFilters.filter((f) => f.active(f.el.value));
+    const activeFilters = cardFilters
+      .map((filter) => ({ filter, values: filter.values() }))
+      .filter(({ values }) => values.length > 0);
 
     for (const card of sessionCards) {
       let show = true;
@@ -576,7 +588,9 @@ const initSessionFilters = (): void => {
         show &&= searchTokens.every((token) => haystack.includes(token));
       }
       if (enrollmentOnly) show &&= card.dataset.takesEnrollment === "true";
-      for (const f of activeFilters) show &&= f.matches(card, f.el.value);
+      for (const { filter, values } of activeFilters) {
+        show &&= values.some((value) => filter.matches(card, value));
+      }
 
       const cardContainer = card.closest<HTMLElement>(".session-wrapper");
       if (cardContainer) cardContainer.hidden = !show;
@@ -608,8 +622,7 @@ const initSessionFilters = (): void => {
     sessionFilter.value = "";
     if (enrollmentFilter) enrollmentFilter.checked = false;
     for (const f of cardFilters) {
-      f.el.value = "";
-      syncControl(f.el);
+      f.writeValues([]);
     }
 
     for (const section of document.querySelectorAll<HTMLElement>(".time-slot-section")) {
@@ -642,15 +655,15 @@ const initSessionFilters = (): void => {
       });
     }
     for (const f of cardFilters) {
-      if (!f.active(f.el.value)) continue;
-      chips.push({
-        clear: () => {
-          f.el.value = "";
-          syncControl(f.el);
-          filterSessions();
-        },
-        label: f.chip(),
-      });
+      for (const value of f.values()) {
+        chips.push({
+          clear: () => {
+            f.writeValues(f.values().filter((candidate) => candidate !== value));
+            filterSessions();
+          },
+          label: f.chip(value),
+        });
+      }
     }
 
     if (chips.length > 0) {
@@ -724,9 +737,8 @@ const initSessionFilters = (): void => {
     { signal: documentListeners.signal },
   );
   for (const f of cardFilters) {
-    // A choice is committed, not typed: the combobox writes its hidden input
-    // and says `change`, exactly as the selects do.
-    f.el.addEventListener(f.kind === "choice" ? "change" : "input", filterSessions);
+    // Choice controls commit on change; the numeric age input updates while typed.
+    f.el.addEventListener(f.kind === "age" ? "input" : "change", filterSessions);
   }
 
   // The same element is a dropdown at most widths and a modal dialog on a

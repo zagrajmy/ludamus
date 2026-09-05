@@ -398,12 +398,14 @@
                                     {# them. Two selects narrowing one axis let #}
                                     {# the reader pick a venue and a room outside #}
                                     {# it, and answered that with an empty list. #}
-                                    <div id="space-filter-group" class="flex flex-col gap-1.5 hidden">
+                                    {% translate "all rooms" as t_all_rooms %}
+                                    <div id="space-filter-group"
+                                         data-all-rooms-label="{{ t_all_rooms }}"
+                                         class="flex flex-col gap-1.5 hidden">
                                         <label class="{{ label_class }}" for="space-filter">{% translate "Location" %}</label>
-                                        {% translate "all rooms" as t_all_rooms %}
-                                        {% select id="space-filter" data_all_rooms_label=t_all_rooms class=select_class %}
-                                            <option value="">{% translate "All locations" %}</option>
-                                        {% endselect %}
+                                        {% translate "Search locations…" as t_location_search %}
+                                        {% tessera_combobox id="space-filter" multiple=True placeholder=t_location_search %}
+                                        {% endtessera_combobox %}
                                     </div>
                                     {# Two ends of the one number a session carries. "Participant #}
                                     {# age" answers "what can this person join" — a session stays #}
@@ -440,10 +442,10 @@
                                     {% if track_filter_names %}
                                         <div class="flex flex-col gap-1.5 grow">
                                             <label class="{{ label_class }}" for="tag-filter-__track">{% translate "Track" %}</label>
-                                            {% select id="tag-filter-__track" data_category="__track" class=select_class|add:" tag-filter" %}
-                                                <option value="">{% translate "All tracks" %}</option>
+                                            {% translate "Search tracks…" as t_track_search %}
+                                            {% tessera_combobox id="tag-filter-__track" multiple=True placeholder=t_track_search data_category="__track" %}
                                                 {% for name in track_filter_names %}<option value="{{ name }}">{{ name }}</option>{% endfor %}
-                                            {% endselect %}
+                                            {% endtessera_combobox %}
                                         </div>
                                     {% endif %}
                                     {% if category_filter_names %}
@@ -471,17 +473,12 @@
                                     {# Options come from the cards' data-host (see #}
                                     {# session-filters.ts), so the list always matches the #}
                                     {# schedule on screen; one host means nothing to pick #}
-                                    {# between, so the control stays hidden. A combobox #}
-                                    {# rather than a select: an event's hosts run to the #}
-                                    {# hundreds, which is past what scrolling a list can #}
-                                    {# answer. #}
+                                    {# between, so the control stays hidden. Search keeps #}
+                                    {# a long multiple-choice list manageable. #}
                                     <div id="host-filter-group" class="flex flex-col gap-1.5 grow hidden">
                                         <label class="{{ label_class }}" for="host-filter">{% translate "Host" %}</label>
                                         {% translate "Search hosts…" as t_host_search %}
-                                        {% translate "No host matches your search." as t_host_empty %}
-                                        {% translate "Show hosts" as t_host_toggle %}
-                                        {% tessera_combobox id="host-filter" class=select_class placeholder=t_host_search empty_text=t_host_empty toggle_label=t_host_toggle %}
-                                            <option value="">{% translate "All hosts" %}</option>
+                                        {% tessera_combobox id="host-filter" multiple=True placeholder=t_host_search %}
                                         {% endtessera_combobox %}
                                     </div>
                                 </div>

@@ -362,6 +362,25 @@ class TestComboboxOptionData:
         assert payload["value"] == "a"
         assert payload["label"] == "Apple"
 
+    def test_multiple_combobox_starts_with_every_selected_option(self) -> None:
+        tpl = Template(
+            "{% load tessera %}"
+            '{% tessera_combobox id="fruit" multiple=True %}'
+            '<option value="a" selected>Apple</option>'
+            '<option value="c" selected>Cherry</option>'
+            "{% endtessera_combobox %}"
+        )
+        html = tpl.render(Context())
+        raw = re.search(
+            r'<script id="fruit-options" type="application/json">(.*?)</script>',
+            html,
+            re.DOTALL,
+        )
+        assert raw is not None
+        payload = json.loads(html_module.unescape(raw.group(1)))
+        assert payload["multiple"] is True
+        assert json.loads(payload["value"]) == ["a", "c"]
+
 
 class TestCombobox:
     def test_the_hidden_input_posts_under_the_given_name(self) -> None:
@@ -419,6 +438,16 @@ class TestCombobox:
         # The pattern asks for aria-controls only while the popup shows, so
         # the script adds it on open and takes it away on close.
         assert "aria-controls" not in html
+
+    def test_multiple_combobox_marks_its_listbox_and_fallback(self) -> None:
+        tpl = Template(
+            '{% load tessera %}{% tessera_combobox id="host" multiple=True %}'
+            "{% endtessera_combobox %}"
+        )
+        html = tpl.render(Context())
+        assert "data-combobox-multiple" in html
+        assert 'aria-multiselectable="true"' in html
+        assert "multiple" in html
 
     def test_option_row_template_carries_the_option_role(self) -> None:
         tpl = Template(
