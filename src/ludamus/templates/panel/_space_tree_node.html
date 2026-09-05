@@ -75,22 +75,37 @@
                                 {% translate "Duplicate" %}
                             </button>
                         </form>
-                        <a href="{% url 'panel:space-copy' slug=current_event.slug pk=node.space.pk %}"
-                           class="flex items-center px-4 py-2 text-sm text-foreground-secondary hover:bg-bg-tertiary">
-                            {% icon "clipboard-document" class="mr-2 w-4 h-4" %}
-                            {% translate "Copy to event" %}
-                        </a>
+                        {# `events` always holds the current one, so a second entry #}
+                        {# is the only thing that makes a copy target exist. Without #}
+                        {# one the action could only bounce back with a warning. #}
+                        {% if events|length > 1 %}
+                            <a href="{% url 'panel:space-copy' slug=current_event.slug pk=node.space.pk %}"
+                               class="flex items-center px-4 py-2 text-sm text-foreground-secondary hover:bg-bg-tertiary">
+                                {% icon "clipboard-document" class="mr-2 w-4 h-4" %}
+                                {% translate "Copy to event" %}
+                            </a>
+                        {% endif %}
                         <hr class="my-1">
-                        <form method="post"
-                              action="{% url 'panel:space-delete' slug=current_event.slug pk=node.space.pk %}"
-                              data-confirm="{% translate "Delete this space and everything inside it?" %}">
-                            {% csrf_token %}
-                            <button type="submit"
-                                    class="flex w-full items-center rounded-b-lg px-4 py-2 text-sm text-danger hover:bg-danger-bg">
-                                {% icon "trash" class="mr-2 w-4 h-4" %}
-                                {% translate "Delete" %}
-                            </button>
-                        </form>
+                        {% if node.undeletable_reason %}
+                            {# Deleting cascades into the subtree, so a node over a #}
+                            {# scheduled session says why instead of taking a click #}
+                            {# the server would only refuse. #}
+                            <p class="flex items-center px-4 py-2 text-sm text-foreground-muted">
+                                {% icon "trash" class="mr-2 w-4 h-4 opacity-60" %}
+                                {{ node.undeletable_reason }}
+                            </p>
+                        {% else %}
+                            <form method="post"
+                                  action="{% url 'panel:space-delete' slug=current_event.slug pk=node.space.pk %}"
+                                  data-confirm="{% translate "Delete this space and everything inside it?" %}">
+                                {% csrf_token %}
+                                <button type="submit"
+                                        class="flex w-full items-center rounded-b-lg px-4 py-2 text-sm text-danger hover:bg-danger-bg">
+                                    {% icon "trash" class="mr-2 w-4 h-4" %}
+                                    {% translate "Delete" %}
+                                </button>
+                            </form>
+                        {% endif %}
                     </div>
                 </div>
             </div>

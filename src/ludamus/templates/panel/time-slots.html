@@ -20,6 +20,8 @@
     {% endif %}
 {% endblock header_actions %}
 {% block content %}
+    {# Assigned once: the same confirmation for every row. #}
+    {% translate "Are you sure you want to delete this time slot?" as confirm_delete %}
     {% if current_event %}
         {% tab_shell "panel/_cfp_tabs.html" %}
             {% tab_shell_body %}
@@ -92,17 +94,7 @@
                                                             {{ slot.start_time|time:"H:i" }} – {{ slot.end_time|time:"H:i" }}
                                                         </span>
                                                     </div>
-                                                    <div class="flex items-center gap-2">
-                                                        <a href="{% url 'panel:time-slot-edit' slug=current_event.slug pk=slot.pk %}"
-                                                           class="text-sm text-primary hover:text-primary/80">{% translate "Edit" %}</a>
-                                                        <form method="post"
-                                                              action="{% url 'panel:time-slot-delete' slug=current_event.slug pk=slot.pk %}"
-                                                              class="inline"
-                                                              data-confirm="{% translate "Are you sure you want to delete this time slot?" %}">
-                                                            {% csrf_token %}
-                                                            <button type="submit" class="text-sm text-red-600 hover:text-red-800">{% translate "Delete" %}</button>
-                                                        </form>
-                                                    </div>
+                                                    {% include "panel/_time_slot_row_actions.html" with slot=slot current_event=current_event undeletable_slot_reasons=undeletable_slot_reasons confirm=confirm_delete csrf_token=csrf_token only %}
                                                 </div>
                                             {% endif %}
                                         {% endwith %}
@@ -148,17 +140,7 @@
                                                 {{ slot.start_time|date:"D, M d" }} · {{ slot.start_time|time:"H:i" }} – {{ slot.end_time|time:"H:i" }}
                                             </span>
                                         </div>
-                                        <div class="flex items-center gap-2">
-                                            <a href="{% url 'panel:time-slot-edit' slug=current_event.slug pk=slot.pk %}"
-                                               class="text-sm text-primary hover:text-primary/80">{% translate "Edit" %}</a>
-                                            <form method="post"
-                                                  action="{% url 'panel:time-slot-delete' slug=current_event.slug pk=slot.pk %}"
-                                                  class="inline"
-                                                  data-confirm="{% translate "Are you sure you want to delete this time slot?" %}">
-                                                {% csrf_token %}
-                                                <button type="submit" class="text-sm text-red-600 hover:text-red-800">{% translate "Delete" %}</button>
-                                            </form>
-                                        </div>
+                                        {% include "panel/_time_slot_row_actions.html" with slot=slot current_event=current_event undeletable_slot_reasons=undeletable_slot_reasons confirm=confirm_delete csrf_token=csrf_token only %}
                                     </div>
                                 {% endfor %}
                             </div>

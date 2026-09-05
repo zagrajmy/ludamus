@@ -83,7 +83,7 @@ pytest-gremlins = "^1.8.1"
 django-coverage-plugin = "^3.2.2"
 yamllint = "1.38.0"
 taplo = "^0.9.3"
-tingle = "^0.7.0"
+tingle = "^0.7.2"
 pytest-xdist = "^3.8.0"
 lxml-stubs = "^0.5.1"
 django-zeal = "^2.2.3"
@@ -518,12 +518,14 @@ ignore_names = [
     "is_unlimited",
     "is_repeated",
     "item_name",
+    "location_crumbs",
     "location_label",
     "opens_slot",
     "overflow_count",
     "panel_id",
     "public_tag_categories",
     "public_tags",
+    "seats_label",
     "should_show_as_inactive",
     "show_date",
     "slot_key",

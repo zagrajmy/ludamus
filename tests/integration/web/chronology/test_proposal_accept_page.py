@@ -76,6 +76,7 @@ class TestProposalAcceptPageView:
                 "time_slots": [TimeSlotDTO.model_validate(time_slot)],
                 "field_values": [],
                 "preferred_time_slot_ids": [],
+                "schedule_blocker": None,
             },
             template_name="chronology/accept_proposal.html",
         )
@@ -101,6 +102,7 @@ class TestProposalAcceptPageView:
                 "time_slots": [TimeSlotDTO.model_validate(time_slot)],
                 "field_values": [],
                 "preferred_time_slot_ids": [time_slot.pk],
+                "schedule_blocker": None,
             },
             template_name="chronology/accept_proposal.html",
         )
@@ -222,6 +224,7 @@ class TestProposalAcceptPageView:
                 "time_slots": [TimeSlotDTO.model_validate(time_slot)],
                 "field_values": [],
                 "preferred_time_slot_ids": [],
+                "schedule_blocker": None,
             },
             template_name="chronology/accept_proposal.html",
         )
@@ -270,42 +273,107 @@ class TestProposalAcceptPageView:
         assert _has_option(content, second.id, "Room B")
         assert not _has_option(content, parent.id, "Main Hall")
 
-    def test_get_error_no_space(self, event, pending_session, manager_client):
+    def test_get_ok_without_spaces(
+        self, event, pending_session, manager_client, time_slot
+    ):
         response = manager_client.get(
             self._get_url(pending_session.id, pending_session.event.slug)
         )
 
         assert_response(
             response,
-            HTTPStatus.FOUND,
-            messages=[
-                (
-                    messages.ERROR,
-                    "No spaces configured for this event. Please create spaces first.",
-                )
-            ],
-            url=reverse("web:chronology:event", kwargs={"slug": event.slug}),
+            HTTPStatus.OK,
+            context_data={
+                "event": EventDTO.model_validate(event),
+                "presenter": UserDTO.model_validate(pending_session.presenter),
+                "form": ANY,
+                "session": SessionDTO.model_validate(pending_session),
+                "time_slots": [TimeSlotDTO.model_validate(time_slot)],
+                "field_values": [],
+                "preferred_time_slot_ids": [],
+                "schedule_blocker": "spaces",
+            },
+            template_name="chronology/accept_proposal.html",
         )
 
     @pytest.mark.usefixtures("space")
-    def test_get_error_no_time_slot(self, event, pending_session, manager_client):
+    def test_get_ok_without_time_slots(self, event, pending_session, manager_client):
         response = manager_client.get(
             self._get_url(pending_session.id, pending_session.event.slug)
         )
 
         assert_response(
             response,
-            HTTPStatus.FOUND,
-            messages=[
-                (
-                    messages.ERROR,
-                    (
-                        "No time slots configured for this event. Please create time "
-                        "slots first."
-                    ),
-                )
-            ],
-            url=reverse("web:chronology:event", kwargs={"slug": event.slug}),
+            HTTPStatus.OK,
+            context_data={
+                "event": EventDTO.model_validate(event),
+                "presenter": UserDTO.model_validate(pending_session.presenter),
+                "form": ANY,
+                "session": SessionDTO.model_validate(pending_session),
+                "time_slots": [],
+                "field_values": [],
+                "preferred_time_slot_ids": [],
+                "schedule_blocker": "time_slots",
+            },
+            template_name="chronology/accept_proposal.html",
+        )
+
+    @pytest.mark.usefixtures("space", "time_slot")
+    def test_get_ok_for_a_proposal_without_a_category(
+        self, event, pending_session, manager_client, time_slot
+    ):
+        # Regression: the page's reads joined through Session.category, which is
+        # nullable, so a category-less proposal 500'd instead of rendering.
+        pending_session.category = None
+        pending_session.save()
+
+        response = manager_client.get(self._get_url(pending_session.id, event.slug))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={
+                "event": EventDTO.model_validate(event),
+                "presenter": UserDTO.model_validate(pending_session.presenter),
+                "form": ANY,
+                "session": SessionDTO.model_validate(pending_session),
+                "time_slots": [TimeSlotDTO.model_validate(time_slot)],
+                "field_values": [],
+                "preferred_time_slot_ids": [],
+                "schedule_blocker": None,
+            },
+            template_name="chronology/accept_proposal.html",
+        )
+
+    @pytest.mark.usefixtures("space")
+    def test_get_ok_when_the_proposal_sets_length_and_minimum_age(
+        self, event, pending_session, manager_client, time_slot
+    ):
+        # The details grid only draws the length and minimum-age tiles when the
+        # proposal carries them, and the default fixture leaves both empty. How
+        # they read is e2e's business; that they reach the page is this test's.
+        pending_session.duration = "PT1H30M"
+        pending_session.min_age = 16
+        pending_session.save()
+
+        response = manager_client.get(
+            self._get_url(pending_session.id, pending_session.event.slug)
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={
+                "event": EventDTO.model_validate(event),
+                "presenter": UserDTO.model_validate(pending_session.presenter),
+                "form": ANY,
+                "session": SessionDTO.model_validate(pending_session),
+                "time_slots": [TimeSlotDTO.model_validate(time_slot)],
+                "field_values": [],
+                "preferred_time_slot_ids": [],
+                "schedule_blocker": None,
+            },
+            template_name="chronology/accept_proposal.html",
         )
 
     def test_get_wrong_permissions(self, event, pending_session, authenticated_client):
@@ -368,6 +436,7 @@ class TestProposalAcceptPageView:
             url=reverse("web:chronology:event", kwargs={"slug": event.slug}),
         )
 
+    @pytest.mark.usefixtures("space")
     def test_post_invalid_form(self, event, pending_session, manager_client, time_slot):
         response = manager_client.post(
             self._get_url(pending_session.id, pending_session.event.slug)
@@ -384,6 +453,7 @@ class TestProposalAcceptPageView:
                 "time_slots": [TimeSlotDTO.model_validate(time_slot)],
                 "field_values": [],
                 "preferred_time_slot_ids": [],
+                "schedule_blocker": None,
             },
             template_name="chronology/accept_proposal.html",
         )
@@ -498,6 +568,7 @@ class TestProposalAcceptPageView:
                 "time_slots": [TimeSlotDTO.model_validate(time_slot)],
                 "field_values": [],
                 "preferred_time_slot_ids": [],
+                "schedule_blocker": None,
             },
             template_name="chronology/accept_proposal.html",
         )
@@ -535,6 +606,7 @@ class TestProposalAcceptPageView:
                 "time_slots": [TimeSlotDTO.model_validate(time_slot)],
                 "field_values": [],
                 "preferred_time_slot_ids": [],
+                "schedule_blocker": None,
             },
             template_name="chronology/accept_proposal.html",
         )
@@ -585,6 +657,7 @@ class TestProposalAcceptPageView:
                     )
                 ],
                 "preferred_time_slot_ids": [],
+                "schedule_blocker": None,
             },
             template_name="chronology/accept_proposal.html",
         )
@@ -633,6 +706,7 @@ class TestProposalAcceptPageView:
                     )
                 ],
                 "preferred_time_slot_ids": [],
+                "schedule_blocker": None,
             },
             template_name="chronology/accept_proposal.html",
         )
@@ -681,6 +755,7 @@ class TestProposalAcceptPageView:
                     )
                 ],
                 "preferred_time_slot_ids": [],
+                "schedule_blocker": None,
             },
             template_name="chronology/accept_proposal.html",
         )

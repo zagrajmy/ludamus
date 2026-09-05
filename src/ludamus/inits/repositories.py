@@ -180,6 +180,10 @@ class Repositories:
         return repositories.SpaceTreeRepository()
 
     @cached_property
+    def event_maps(self) -> repositories.EventMapRepository:
+        return repositories.EventMapRepository()
+
+    @cached_property
     def time_slots(self) -> repositories.TimeSlotRepository:
         return repositories.TimeSlotRepository()
 
