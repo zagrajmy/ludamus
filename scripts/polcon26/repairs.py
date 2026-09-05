@@ -7,6 +7,8 @@ similar title (see docs/agents/polcon26-programme-sync.md).
 
 from __future__ import annotations
 
+from typing import NamedTuple
+
 ROOM_NAME_REPAIRS = (
     ("prelecyjny", "prelekcyjny"),
     ("prelekcyjny (aula 8 w A16)y", "prelekcyjny (aula 8 w A16)"),
@@ -26,7 +28,20 @@ FIXTURE_LANE_NAMES = {
         "Wystawa makiety",
         "Stoisko Oblivion Forge",
         "Pokazy gier bitewnych",
-    )
+    ),
+    "Warsztatowa Eger, Aula G": ("Nitka 1", "Nitka 2", "Nitka 3"),
+}
+
+
+class NestedLane(NamedTuple):
+    physical_room: str
+    lane_index: int
+
+
+NESTED_ROOM_LANES = {
+    "Warsztatowa Eger (aula G) Nitka 1": NestedLane("Warsztatowa Eger, Aula G", 1),
+    "Warsztatowa Eger (aula G) Nitka 2": NestedLane("Warsztatowa Eger, Aula G", 2),
+    "Warsztatowa Eger (aula G) Nitka 3": NestedLane("Warsztatowa Eger, Aula G", 3),
 }
 
 VENUE_NAME_ALIASES = {"Gry Bitewne (Palmiarnia w A–16)": "Palmiarnia w A-16"}
