@@ -605,6 +605,7 @@ msgstr "siebie"
 #: src/ludamus/adapters/web/django/views.py
 #: src/ludamus/gates/web/django/chronology/anonymous.py
 #: src/ludamus/gates/web/django/chronology/views.py
+#: src/ludamus/gates/web/django/event/panel/views/cofacilitators.py
 msgid "Session not found."
 msgstr "Punkt programu nie został znaleziony."
 
@@ -1026,6 +1027,7 @@ msgstr "Powiązany"
 #: src/ludamus/gates/web/django/chronology/panel/views/columns.py
 #: src/ludamus/gates/web/django/forms.py
 #: src/ludamus/templates/components/pill_list.html
+#: src/ludamus/templates/panel/cofacilitators.html
 #: src/ludamus/templates/panel/discounts/list.html
 msgid "None"
 msgstr "Brak"
@@ -1109,6 +1111,7 @@ msgstr "Kolumny zaktualizowane."
 
 #: src/ludamus/gates/web/django/chronology/panel/views/discounts.py
 #: src/ludamus/gates/web/django/chronology/panel/views/facilitators.py
+#: src/ludamus/gates/web/django/event/panel/views/cofacilitators.py
 #: src/ludamus/gates/web/django/event/panel/views/facilitator_actions.py
 #: src/ludamus/gates/web/django/event/panel/views/facilitator_edit.py
 msgid "Facilitator not found."
@@ -1247,6 +1250,7 @@ msgstr ""
 #: src/ludamus/gates/web/django/chronology/panel/views/facilitators.py
 #: src/ludamus/gates/web/django/templatetags/cfp_tags.py
 #: src/ludamus/templates/panel/base.html
+#: src/ludamus/templates/panel/cofacilitators.html
 #: src/ludamus/templates/panel/facilitator-bin.html
 #: src/ludamus/templates/panel/facilitator-columns.html
 #: src/ludamus/templates/panel/facilitator-create.html
@@ -2434,6 +2438,35 @@ msgstr "Reguły sprawdzamy od najniższej liczby; wygrywa pierwsza pasująca."
 #: src/ludamus/gates/web/django/event/panel/views/base.py
 msgid "You don't have permission to access the backoffice panel."
 msgstr "Nie masz uprawnień do panelu organizatora."
+
+#: src/ludamus/gates/web/django/event/panel/views/cofacilitators.py
+msgid "Pick the facilitator to link."
+msgstr "Wskaż twórcę programu, z którym połączyć."
+
+#: src/ludamus/gates/web/django/event/panel/views/cofacilitators.py
+msgid "Give the new facilitator a name."
+msgstr "Podaj nazwę nowego twórcy programu."
+
+#: src/ludamus/gates/web/django/event/panel/views/cofacilitators.py
+msgid "Check the answers below."
+msgstr "Sprawdź odpowiedzi poniżej."
+
+#: src/ludamus/gates/web/django/event/panel/views/cofacilitators.py
+msgid "Field not found."
+msgstr "Nie znaleziono pola."
+
+#: src/ludamus/gates/web/django/event/panel/views/cofacilitators.py
+#, python-format
+msgid "%(count)d facilitator added to the session."
+msgid_plural "%(count)d facilitators added to the session."
+msgstr[0] "Dodano %(count)d twórcę programu do punktu programu."
+msgstr[1] "Dodano %(count)d twórców programu do punktu programu."
+msgstr[2] "Dodano %(count)d twórców programu do punktu programu."
+msgstr[3] "Dodano %(count)d twórców programu do punktu programu."
+
+#: src/ludamus/gates/web/django/event/panel/views/cofacilitators.py
+msgid "Answer cleared."
+msgstr "Odpowiedź wyczyszczona."
 
 #: src/ludamus/gates/web/django/event/panel/views/discount_settings.py
 msgid "Discount rule not found."
@@ -4697,6 +4730,7 @@ msgid "Other calendars (.ics)"
 msgstr "Inne kalendarze (.ics)"
 
 #: src/ludamus/templates/chronology/event.html
+#: src/ludamus/templates/panel/cofacilitators.html
 msgid "Session"
 msgid_plural "Sessions"
 msgstr[0] "Punkt programu"
@@ -6196,6 +6230,7 @@ msgstr "Przykładowe gildie"
 #: src/ludamus/templates/multiverse/panel/connections/list.html
 #: src/ludamus/templates/multiverse/panel/guilds/list.html
 #: src/ludamus/templates/panel/bans.html src/ludamus/templates/panel/cfp.html
+#: src/ludamus/templates/panel/cofacilitators.html
 #: src/ludamus/templates/panel/discount-rules.html
 #: src/ludamus/templates/panel/discounts/list.html
 #: src/ludamus/templates/panel/enrollment-settings.html
@@ -6962,6 +6997,12 @@ msgid "Merge"
 msgstr "Scal"
 
 #: src/ludamus/templates/panel/_facilitator_tabs.html
+#: src/ludamus/templates/panel/cofacilitator-resolve.html
+#: src/ludamus/templates/panel/cofacilitators.html
+msgid "Co-facilitators"
+msgstr "Współtwórcy"
+
+#: src/ludamus/templates/panel/_facilitator_tabs.html
 #: src/ludamus/templates/panel/facilitator-bin.html
 msgid "Bin"
 msgstr "Kosz"
@@ -7449,6 +7490,7 @@ msgstr ""
 "zgłoszenia."
 
 #: src/ludamus/templates/panel/cfp.html
+#: src/ludamus/templates/panel/cofacilitator-resolve.html
 #: src/ludamus/templates/panel/display-settings.html
 #: src/ludamus/templates/panel/facilitator-bin.html
 #: src/ludamus/templates/panel/facilitators.html
@@ -7464,6 +7506,127 @@ msgstr ""
 #: src/ludamus/templates/panel/tracks.html
 msgid "No events available. Create an event to get started."
 msgstr "Brak dostępnych wydarzeń. Utwórz wydarzenie, aby rozpocząć."
+
+#: src/ludamus/templates/panel/cofacilitator-resolve.html
+msgid "Back to the list"
+msgstr "Powrót do listy"
+
+#: src/ludamus/templates/panel/cofacilitator-resolve.html
+msgid "Facilitators of this session"
+msgstr "Twórcy tego punktu programu"
+
+#: src/ludamus/templates/panel/cofacilitator-resolve.html
+msgid "None yet."
+msgstr "Jeszcze nikogo."
+
+#: src/ludamus/templates/panel/cofacilitator-resolve.html
+msgid "Already decided"
+msgstr "Już rozstrzygnięte"
+
+#: src/ludamus/templates/panel/cofacilitator-resolve.html
+msgid "What is this person?"
+msgstr "Kim jest ta osoba?"
+
+#: src/ludamus/templates/panel/cofacilitator-resolve.html
+msgid "A facilitator we do not have yet"
+msgstr "Twórcą programu, którego jeszcze nie mamy"
+
+#: src/ludamus/templates/panel/cofacilitator-resolve.html
+msgid "Somebody we already have"
+msgstr "Kimś, kogo już mamy"
+
+#: src/ludamus/templates/panel/cofacilitator-resolve.html
+#, python-format
+msgid "(same name as %(name)s)"
+msgstr "(ta sama nazwa co %(name)s)"
+
+#: src/ludamus/templates/panel/cofacilitator-resolve.html
+msgid "Not a person — leave it out"
+msgstr "To nie jest osoba — pomiń"
+
+#: src/ludamus/templates/panel/cofacilitator-resolve.html
+msgid "Link to"
+msgstr "Połącz z"
+
+#: src/ludamus/templates/panel/cofacilitator-resolve.html
+msgid "Choose a facilitator"
+msgstr "Wybierz twórcę programu"
+
+#: src/ludamus/templates/panel/cofacilitator-resolve.html
+msgid "Display name of the new facilitator"
+msgstr "Nazwa nowego twórcy programu"
+
+#: src/ludamus/templates/panel/cofacilitator-resolve.html
+msgid "Add to the session"
+msgstr "Dodaj do punktu programu"
+
+#: src/ludamus/templates/panel/cofacilitator-resolve.html
+msgid "This answer names nobody."
+msgstr "Ta odpowiedź nikogo nie wymienia."
+
+#: src/ludamus/templates/panel/cofacilitator-resolve.html
+msgid ""
+"Clear the answer? The text goes away for good; the facilitators you already "
+"added stay on the session."
+msgstr ""
+"Wyczyścić odpowiedź? Tekst zniknie na dobre; dodani już twórcy programu "
+"zostają przy punkcie programu."
+
+#: src/ludamus/templates/panel/cofacilitator-resolve.html
+msgid "Clear the answer"
+msgstr "Wyczyść odpowiedź"
+
+#: src/ludamus/templates/panel/cofacilitators.html
+msgid ""
+"People named in a session's own answer are not facilitators yet: they hold "
+"no accreditation and no discount. Resolve a session to give each of them "
+"their own record."
+msgstr ""
+"Osoby wymienione w odpowiedzi punktu programu nie są jeszcze twórcami "
+"programu: nie mają akredytacji ani zniżki. Rozpisz punkt programu, aby każda "
+"z nich dostała własny wpis."
+
+#: src/ludamus/templates/panel/cofacilitators.html
+msgid "Field naming the co-facilitators"
+msgstr "Pole wymieniające współtwórców"
+
+#: src/ludamus/templates/panel/cofacilitators.html
+msgid "Show sessions"
+msgstr "Pokaż punkty programu"
+
+#: src/ludamus/templates/panel/cofacilitators.html
+msgid "Answer"
+msgstr "Odpowiedź"
+
+#: src/ludamus/templates/panel/cofacilitators.html
+msgid "Left to resolve"
+msgstr "Zostało do rozpisania"
+
+#: src/ludamus/templates/panel/cofacilitators.html
+msgid "Done — clear the answer"
+msgstr "Gotowe — wyczyść odpowiedź"
+
+#: src/ludamus/templates/panel/cofacilitators.html
+msgid "Resolve"
+msgstr "Rozpisz"
+
+#: src/ludamus/templates/panel/cofacilitators.html
+msgid ""
+"No session answers this field. Everyone named in it already has their own "
+"record, or the answers have been cleared."
+msgstr ""
+"Żaden punkt programu nie odpowiada na to pole. Wszyscy wymienieni mają już "
+"własne wpisy albo odpowiedzi zostały wyczyszczone."
+
+#: src/ludamus/templates/panel/cofacilitators.html
+msgid "This event has no session fields, so nothing names co-facilitators yet."
+msgstr ""
+"To wydarzenie nie ma pól punktu programu, więc nic nie wymienia jeszcze "
+"współtwórców."
+
+#: src/ludamus/templates/panel/cofacilitators.html
+msgid "Session fields"
+msgstr "Pola punktu programu"
 
 #: src/ludamus/templates/panel/content-log.html
 msgid "Content Activity Log"
@@ -10163,10 +10326,6 @@ msgstr ""
 "Nie ma nadchodzących wydarzeń ani publicznych spotkań. Sprawdź ponownie "
 "później!"
 
-#, python-format
-#~ msgid "Select every venue under %(name)s"
-#~ msgstr "Zaznacz wszystkie lokalizacje w %(name)s"
-
 #~ msgid "No spaces configured for this event. Please create spaces first."
 #~ msgstr ""
 #~ "Brak skonfigurowanych przestrzeni dla tego wydarzenia. Najpierw utwórz "
@@ -10179,6 +10338,14 @@ msgstr ""
 #~ "utwórz przedziały czasowe."
 
 #, python-format
+#~ msgid ""
+#~ "<a href=\"%(source_url)s\">Source code</a> available under <a "
+#~ "href=\"%(license_url)s\">AGPL-3.0</a>."
+#~ msgstr ""
+#~ "<a href=\"%(source_url)s\">Kod źródłowy</a> dostępny na <a "
+#~ "href=\"%(license_url)s\">licencji AGPL-3.0</a>."
+
+#, python-format
 #~ msgid "%(limit)s seat"
 #~ msgid_plural "%(limit)s seats"
 #~ msgstr[0] "%(limit)s miejsce"
@@ -10189,34 +10356,8 @@ msgstr ""
 #~ msgid "submitted"
 #~ msgstr "zgłoszono"
 
-#~ msgid "Max 8 MB. JPG, PNG, WebP, or AVIF."
-#~ msgstr "Maks. 8 MB. JPG, PNG, WebP lub AVIF."
-
-#~ msgid "Map image"
-#~ msgstr "Obraz mapy"
-
-#~ msgid "Pick venues of this event."
-#~ msgstr "Wybierz lokalizacje tego wydarzenia."
-
-#~ msgid "New map"
-#~ msgstr "Nowa mapa"
-
-#~ msgid "What are maps?"
-#~ msgstr "Czym są mapy?"
-
-#~ msgid ""
-#~ "Pictures of the venue — a site plan, a floor, a building — shown to "
-#~ "participants on the event's maps page. Tick the venues each picture "
-#~ "shows: sessions in those venues link to it, and the page links each venue "
-#~ "back to its sessions."
-#~ msgstr ""
-#~ "Plany miejsca — plan terenu, piętra, budynku — pokazywane uczestnikom na "
-#~ "stronie map wydarzenia. Zaznacz lokalizacje widoczne na każdym obrazie: "
-#~ "punkty programu w tych lokalizacjach będą do niego prowadzić, a strona "
-#~ "poprowadzi z każdej lokalizacji z powrotem do jej punktów programu."
-
-#~ msgid "Map"
-#~ msgstr "Mapa"
+#~ msgid "Already on this session"
+#~ msgstr "Już przy tym punkcie programu"
 
 #~ msgid "This is the current status."
 #~ msgstr "To jest obecny status."
@@ -10326,11 +10467,17 @@ msgstr ""
 #~ msgid "Min"
 #~ msgstr "Min"
 
+#~ msgid "Max"
+#~ msgstr "Max"
+
 #~ msgid "Age ≤"
 #~ msgstr "Wiek ≤"
 
 #~ msgid "Venue"
 #~ msgstr "Lokalizacja"
+
+#~ msgid "All venues"
+#~ msgstr "Wszystkie lokalizacje"
 
 #~ msgid "Enrollment required"
 #~ msgstr "Wymagane zapisy"
@@ -10623,6 +10770,9 @@ msgstr ""
 #~ msgid "Shown on public session card"
 #~ msgstr "Widoczne na publicznej karcie punktu programu"
 
+#~ msgid "Only this facilitator's organizer can release it."
+#~ msgstr "Tylko opiekun tego twórcy programu może go zwolnić."
+
 #~ msgid "Default contact person. Assign yourself from the facilitator list."
 #~ msgstr ""
 #~ "Domyślna osoba kontaktowa. Przypisz siebie z listy twórców programu."
@@ -10637,10 +10787,6 @@ msgstr ""
 
 #~ msgid "Release"
 #~ msgstr "Zwolnij"
-
-#, python-format
-#~ msgid "Release %(name)s"
-#~ msgstr "Zwolnij twórcę %(name)s"
 
 #, python-format
 #~ msgid ""
@@ -10765,11 +10911,39 @@ msgstr ""
 #~ "Fizyczny adres miejsca wydarzenia, pokazywany na stronie wydarzenia z "
 #~ "linkiem do mapy. Maksymalnie dwie linie."
 
-#~ msgid "Max"
-#~ msgstr "Max"
+#, python-format
+#~ msgid "Select every venue under %(name)s"
+#~ msgstr "Zaznacz wszystkie lokalizacje w %(name)s"
 
-#~ msgid "All venues"
-#~ msgstr "Wszystkie lokalizacje"
+#~ msgid "Max 8 MB. JPG, PNG, WebP, or AVIF."
+#~ msgstr "Maks. 8 MB. JPG, PNG, WebP lub AVIF."
 
-#~ msgid "Only this facilitator's organizer can release it."
-#~ msgstr "Tylko opiekun tego twórcy programu może go zwolnić."
+#~ msgid "Map image"
+#~ msgstr "Obraz mapy"
+
+#~ msgid "Pick venues of this event."
+#~ msgstr "Wybierz lokalizacje tego wydarzenia."
+
+#~ msgid "New map"
+#~ msgstr "Nowa mapa"
+
+#~ msgid "What are maps?"
+#~ msgstr "Czym są mapy?"
+
+#~ msgid ""
+#~ "Pictures of the venue — a site plan, a floor, a building — shown to "
+#~ "participants on the event's maps page. Tick the venues each picture "
+#~ "shows: sessions in those venues link to it, and the page links each venue "
+#~ "back to its sessions."
+#~ msgstr ""
+#~ "Plany miejsca — plan terenu, piętra, budynku — pokazywane uczestnikom na "
+#~ "stronie map wydarzenia. Zaznacz lokalizacje widoczne na każdym obrazie: "
+#~ "punkty programu w tych lokalizacjach będą do niego prowadzić, a strona "
+#~ "poprowadzi z każdej lokalizacji z powrotem do jej punktów programu."
+
+#~ msgid "Map"
+#~ msgstr "Mapa"
+
+#, python-format
+#~ msgid "Release %(name)s"
+#~ msgstr "Zwolnij twórcę %(name)s"

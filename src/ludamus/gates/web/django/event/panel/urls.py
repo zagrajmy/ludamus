@@ -23,6 +23,7 @@ from ludamus.gates.web.django.chronology.panel.views import (
     venues,
 )
 from ludamus.gates.web.django.event.panel.views import (
+    cofacilitators,
     confirmations,
     discount_settings,
     enrollment_settings,
@@ -455,6 +456,21 @@ urlpatterns = [
         "event/<slug:slug>/facilitators/bin/",
         facilitators.FacilitatorBinPageView.as_view(),
         name="facilitator-bin",
+    ),
+    path(
+        "event/<slug:slug>/facilitators/co-facilitators/",
+        cofacilitators.CofacilitatorsPageView.as_view(),
+        name="cofacilitators",
+    ),
+    path(
+        "event/<slug:slug>/facilitators/co-facilitators/<int:session_id>/",
+        cofacilitators.CofacilitatorResolvePageView.as_view(),
+        name="cofacilitator-resolve",
+    ),
+    path(
+        "event/<slug:slug>/facilitators/co-facilitators/<int:session_id>/do/clear",
+        cofacilitators.CofacilitatorClearActionView.as_view(),
+        name="cofacilitator-clear",
     ),
     path(
         "event/<slug:slug>/facilitators/<str:facilitator_slug>/",

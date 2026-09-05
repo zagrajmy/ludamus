@@ -103,6 +103,12 @@ class Repositories:
         return repositories.SessionRepository()
 
     @cached_property
+    def cofacilitator_resolutions(
+        self,
+    ) -> repositories.CofacilitatorResolutionRepository:
+        return repositories.CofacilitatorResolutionRepository()
+
+    @cached_property
     def session_fields(self) -> repositories.SessionFieldRepository:
         return repositories.SessionFieldRepository()
 

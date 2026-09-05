@@ -59,7 +59,7 @@ from ludamus.pacts.chronology import (
     SessionModalSeatDTO,
 )
 from ludamus.pacts.crowd import UserDTO
-from ludamus.pacts.legacy import ConfirmationSessionRow
+from ludamus.pacts.legacy import ConfirmationSessionRow, SessionWithFieldValueDTO
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -202,6 +202,14 @@ def field_value_dto(fv: SessionFieldValue) -> SessionFieldValueDTO:
         is_public=fv.field.is_public,
         value=fv.value,
     )
+
+
+def field_value_text(*, value: str | list[str] | bool) -> str:
+    # A multiple-choice field stores a list; a reader after one piece of text
+    # gets the entries joined back into one answer.
+    if isinstance(value, list):
+        return "; ".join(str(v) for v in value)
+    return str(value)
 
 
 def _session_modal_dto(
@@ -599,6 +607,52 @@ class SessionRepository(SessionRepositoryProtocol, SessionModalRepositoryProtoco
         for record in records:
             result.setdefault(record.session_id, {})[record.field.slug] = record.value
         return result
+
+    @staticmethod
+    def list_sessions_with_field_value(
+        *, event_id: int, field_id: int
+    ) -> list[SessionWithFieldValueDTO]:
+        rows = (
+            SessionFieldValue.objects.filter(
+                field_id=field_id,
+                session__event_id=event_id,
+                session__deleted_at__isnull=True,
+            )
+            .order_by("session__title")
+            .values_list("session_id", "session__title", "value")
+        )
+        return [
+            SessionWithFieldValueDTO(
+                session_id=session_id, title=title, value=field_value_text(value=value)
+            )
+            for session_id, title, value in rows
+        ]
+
+    @staticmethod
+    def read_field_value(*, session_id: int, field_id: int) -> str:
+        value = SessionFieldValue.objects.filter(
+            session_id=session_id, field_id=field_id
+        ).values_list("value", flat=True)
+        return field_value_text(value=value[0]) if value else ""
+
+    @staticmethod
+    def exists_in_event(*, session_id: int, event_id: int) -> bool:
+        # Scoped by event_id, not category__event_id: a session whose category
+        # was cleared still belongs to its event.
+        return Session.objects.filter(pk=session_id, event_id=event_id).exists()
+
+    @staticmethod
+    @transaction.atomic
+    def add_facilitators(session_id: int, facilitator_ids: list[int]) -> None:
+        try:
+            session = Session.objects.get(pk=session_id)
+        except Session.DoesNotExist as err:
+            msg = f"Session with pk '{session_id}' not found"
+            raise NotFoundError(msg) from err
+        FacilitatorRepository.lock(facilitator_ids)
+        # add(), not set(): the co-facilitator extraction names people the session
+        # does not have yet and must never drop the ones it already carries.
+        session.facilitators.add(*facilitator_ids)
 
     @staticmethod
     def delete_field_values_for_fields(session_id: int, field_ids: list[int]) -> int:

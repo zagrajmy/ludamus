@@ -73,6 +73,7 @@ def _tab_urls(event):
         "merge": reverse("panel:facilitator-merge", kwargs={"slug": event.slug}),
         "columns": reverse("panel:facilitator-columns", kwargs={"slug": event.slug}),
         "bin": reverse("panel:facilitator-bin", kwargs={"slug": event.slug}),
+        "cofacilitators": reverse("panel:cofacilitators", kwargs={"slug": event.slug}),
     }
 
 

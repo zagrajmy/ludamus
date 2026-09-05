@@ -1,0 +1,119 @@
+{% extends "panel/base.html" %}
+{% load i18n %}
+{% load tessera %}
+{% block title %}
+    {% translate "Co-facilitators" %} • {% translate "Facilitators" %}
+{% endblock title %}
+{% block page_title %}
+    {% translate "Facilitators" %}
+{% endblock page_title %}
+{% block page_subtitle %}
+    {% if current_event %}
+        {{ current_event.name }} · {% translate "Co-facilitators" %}
+    {% endif %}
+{% endblock page_subtitle %}
+{% block content %}
+    <div class="p-3 sm:p-4">
+        {% if current_event %}
+            {% tab_shell "panel/_facilitator_tabs.html" %}
+                {% tab_shell_body %}
+                    {% if fields %}
+                        <p class="text-sm text-foreground-muted mb-4">
+                            {% translate "People named in a session's own answer are not facilitators yet: they hold no accreditation and no discount. Resolve a session to give each of them their own record." %}
+                        </p>
+                        <form method="get" class="flex flex-wrap items-end gap-2 mb-6">
+                            <div>
+                                <label for="cofacilitator-field"
+                                       class="block text-sm font-medium text-foreground mb-1">
+                                    {% translate "Field naming the co-facilitators" %}
+                                </label>
+                                {% select id="cofacilitator-field" name="field" class="truncate" %}
+                                    {% for field in fields %}
+                                        <option value="{{ field.pk }}"
+                                                {% if chosen_field and field.pk == chosen_field.pk %}selected{% endif %}>
+                                            {{ field.name }}
+                                        </option>
+                                    {% endfor %}
+                                {% endselect %}
+                            </div>
+                            <button type="submit" class="btn btn-secondary text-sm">{% translate "Show sessions" %}</button>
+                        </form>
+                        {% if sessions %}
+                            {% tessera_table %}
+                                <thead class="bg-bg-tertiary">
+                                    <tr>
+                                        <th scope="col"
+                                            class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
+                                            {% translate "Session" %}
+                                        </th>
+                                        <th scope="col"
+                                            class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
+                                            {% translate "Answer" %}
+                                        </th>
+                                        <th scope="col"
+                                            class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
+                                            {% translate "Facilitators" %}
+                                        </th>
+                                        <th scope="col"
+                                            class="px-6 py-3 text-left text-xs font-medium text-foreground-muted uppercase tracking-wider">
+                                            {% translate "Left to resolve" %}
+                                        </th>
+                                        <th scope="col"
+                                            class="px-6 py-3 text-right text-xs font-medium text-foreground-muted uppercase tracking-wider">
+                                            {% translate "Actions" %}
+                                        </th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-border">
+                                    {% for session in sessions %}
+                                        <tr class="hover:bg-bg-tertiary">
+                                            <td class="px-6 py-4 text-sm font-medium text-foreground">
+                                                <a href="{% url 'panel:proposal-detail' slug=current_event.slug proposal_id=session.session_id %}"
+                                                   class="text-primary hover:text-primary/80">{{ session.title }}</a>
+                                            </td>
+                                            <td class="px-6 py-4 text-sm text-foreground">{{ session.value }}</td>
+                                            <td class="px-6 py-4 text-sm text-foreground-muted">
+                                                {% for name in session.facilitator_names %}
+                                                    {{ name }}{% if not forloop.last %},{% endif %}
+                                                {% empty %}
+                                                    {% translate "None" %}
+                                                {% endfor %}
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-foreground">
+                                                {% if session.unresolved_count %}
+                                                    {{ session.unresolved_count }}
+                                                {% else %}
+                                                    <span class="text-foreground-muted">{% translate "Done — clear the answer" %}</span>
+                                                {% endif %}
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                                <a class="btn btn-secondary text-sm"
+                                                   href="{% url 'panel:cofacilitator-resolve' slug=current_event.slug session_id=session.session_id %}?field={{ chosen_field.pk }}">
+                                                    {% translate "Resolve" %}
+                                                </a>
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            {% endtessera_table %}
+                        {% else %}
+                            <div class="card p-8 text-center">
+                                <p class="text-foreground-muted">
+                                    {% translate "No session answers this field. Everyone named in it already has their own record, or the answers have been cleared." %}
+                                </p>
+                            </div>
+                        {% endif %}
+                    {% else %}
+                        <div class="card p-8 text-center">
+                            <p class="text-foreground-muted">
+                                {% translate "This event has no session fields, so nothing names co-facilitators yet." %}
+                            </p>
+                            <a class="btn btn-secondary text-sm mt-4"
+                               href="{% url 'panel:session-fields' slug=current_event.slug %}">{% translate "Session fields" %}</a>
+                        </div>
+                    {% endif %}
+                {% endtab_shell_body %}
+            {% endtab_shell %}
+        {% endif %}
+    </div>
+{% endblock content %}

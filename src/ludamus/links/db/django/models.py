@@ -1619,6 +1619,33 @@ class SessionFieldValue(models.Model):
         return f"{self.field.name}: {value_preview}"
 
 
+class CofacilitatorResolution(models.Model):
+    """One name from a session's answer the organizer has already decided."""
+
+    session = models.ForeignKey(
+        Session, on_delete=models.CASCADE, related_name="cofacilitator_resolutions"
+    )
+    field = models.ForeignKey(
+        SessionField, on_delete=models.CASCADE, related_name="cofacilitator_resolutions"
+    )
+    # NOTE: stored folded — lowercased, single-spaced — because it is matched
+    # against free text nobody spells the same way twice.
+    fragment = models.CharField(max_length=255)
+    creation_time = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "cofacilitator_resolution"
+        constraints = (
+            models.UniqueConstraint(
+                fields=("session", "field", "fragment"),
+                name="unique_cofacilitator_resolution",
+            ),
+        )
+
+    def __str__(self) -> str:
+        return self.fragment
+
+
 class TimeSlotRequirement(models.Model):
     """Specifies which time slots are available for a proposal category."""
 

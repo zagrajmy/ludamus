@@ -58,6 +58,7 @@ if TYPE_CHECKING:
     )
     from ludamus.pacts.notifications import NotificationsServiceProtocol
     from ludamus.pacts.panel import (
+        CofacilitatorPanelServiceProtocol,
         FacilitatorPanelServiceProtocol,
         ProposalPanelServiceProtocol,
     )
@@ -114,6 +115,8 @@ class ServicesProtocol(Protocol):
     def proposal_category_settings(self) -> ProposalCategorySettingsServiceProtocol: ...
     @property
     def facilitator_panel(self) -> FacilitatorPanelServiceProtocol: ...
+    @property
+    def cofacilitator_panel(self) -> CofacilitatorPanelServiceProtocol: ...
     @property
     def connections(self) -> ConnectionsServiceProtocol: ...
     @property
