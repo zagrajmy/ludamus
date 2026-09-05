@@ -7,8 +7,12 @@
 {# whole hours, cut again wherever a session starts or ends inside one, so a #}
 {# session sits in the row it starts and spans exactly the rows it covers and #}
 {# no more: two sessions share a row only when they really do run at once. #}
+{# The axis is one continuous run: a session that crosses a day seam spans #}
+{# it as one tile, and the seam band is drawn over it. Hours of lull fold #}
+{# into one thin band (a fold row) that a running session spans like any row. #}
 {# Each row takes its share of an hour's height (--row-track-<minutes>, served #}
-{# below), and the track maxima are auto, so a tile is never clipped. #}
+{# below; a fold takes --row-track-fold), and the track maxima are auto, so a #}
+{# tile is never clipped. #}
 {# The first row of each hour that starts a session carries the #}
 {# .time-slot-section / #slot-<hour> contract, and every row inside that hour #}
 {# answers to the same key, so the hour scrubber and the filters keep working #}
@@ -27,7 +31,7 @@
         }
 
         .room-lanes-body {
-            grid-template-rows: {% for row in room_lanes.rows %}var(--row-track-{{ row.minutes }}, var(--row-track)) {% endfor %};
+            grid-template-rows: {% for row in room_lanes.rows %}var(--row-track-{{ row.track }}, var(--row-track)) {% endfor %};
         }
         {% for room in room_lanes.rooms %}
         [data-lane-col="{{ forloop.counter }}"],
@@ -71,12 +75,15 @@
             <div class="room-lanes-day-current border-b border-border/60 bg-background">
                 {% include "components/day-fold-toggle.html" with day_start=room_lanes.rows.0.day_start is_bar=True extra_class="inline-flex" only %}
             </div>
-            <div class="room-lanes-head overflow-x-auto overscroll-x-contain scrollview-fade scrollview-fade-x-8"
-                 data-room-lanes-head>
+            {# Only the fade's sizing custom properties — room-lanes.css states #}
+            {# both halves' fades against the body's offset. #}
+            <div class="room-lanes-head scrollview-fade-x-8" data-room-lanes-head>
+                {# Beside the grid, not in it — see .room-lanes-corner in #}
+                {# room-lanes.css. #}
+                <div class="room-lanes-corner z-10 bg-background text-[0.625rem] font-semibold uppercase tracking-widest text-foreground-muted px-1 py-1.5 text-right flex items-end justify-end text-box-trim-both">
+                    {% translate "Time" %}
+                </div>
                 <div class="room-lanes-grid">
-                    <div class="room-lanes-corner sticky left-0 z-10 text-[0.625rem] font-semibold uppercase tracking-widest text-foreground-muted px-1 py-1.5 bg-background text-right flex items-end justify-end text-box-trim-both">
-                        {% translate "Time" %}
-                    </div>
                     {# Explicitly placed, not auto-flowed: filtering hides the #}
                     {# headers of emptied rooms (room-lanes.ts), and an #}
                     {# auto-placed survivor would slide into the freed column. #}
@@ -110,8 +117,17 @@
             </div>
         </div>
         <div class="room-lanes-scroll-shell">
-            <div class="room-lanes-scroll scrollview-fade scrollview-fade-x-16 overflow-x-auto overflow-y-clip overscroll-x-contain"
-                 data-room-lanes-scroll>
+            {# tabindex, because this is the grid's keyboard pan handle. A #}
+            {# scroll container earns a tab stop on its own only while nothing #}
+            {# inside it is focusable, which tiles are, and only in some #}
+            {# engines — Chromium gives the grid none, Firefox gives it this #}
+            {# one. Stated, so every engine offers it and no tile-focus detour #}
+            {# is the only way across. #}
+            <div class="room-lanes-scroll scrollview-fade-x-16 overflow-x-auto overflow-y-clip overscroll-x-contain"
+                 data-room-lanes-scroll
+                 tabindex="0"
+                 role="region"
+                 aria-label="{% translate 'Rooms schedule' %}">
                 <div class="room-lanes-grid room-lanes-body">
                     {# Day one opens the grid, so it has no seam of its own — a #}
                     {# heading above the first row is the header printed twice, not #}
@@ -149,10 +165,16 @@
                             <div class="room-lanes-line{% if not forloop.first %} border-t border-border/60{% endif %}{% if row.is_cut %} room-lanes-line-cut{% endif %}"
                                  data-lane-row="{{ forloop.counter }}"
                                  data-lane-day="{{ row.day }}"
-                                 data-row-minutes="{{ row.minutes }}"
+                                 data-row-track="{{ row.track }}"
                                  data-row-start="{{ row.start|date:'c' }}"
                                  data-row-end="{{ row.end|date:'c' }}">
-                                {% if row.opens_slot %}
+                                {% if row.is_fold %}
+                                    {# The band names where the programme picks up again; the #}
+                                    {# row above already names where it left off. #}
+                                    <span class="room-lanes-fold-label px-2 text-[0.6rem] font-semibold uppercase tracking-widest text-foreground-muted">
+                                        {% blocktranslate with until=row.end|time:"H:i" %}Nothing new until {{ until }}{% endblocktranslate %}
+                                    </span>
+                                {% elif row.opens_slot %}
                                     <span class="time-slot-section block h-full scroll-mt-40"
                                           id="slot-{{ row.slot_key }}"
                                           data-slot-hour="{{ row.slot_key }}"
@@ -191,8 +213,8 @@
             </div>
             <div class="room-lanes-overlays" data-room-lanes-overlays>
                 <div class="room-lanes-now" data-room-lanes-now aria-hidden="true" hidden>
-                    <div class="room-lanes-now-strip">
-                        {% include "chronology/_schedule_now_marker.html" with extra_class="inline-block -translate-y-px" %}
+                    <div class="schedule-now-line">
+                        {% include "chronology/_schedule_now_marker.html" with extra_class="absolute top-0 start-0 -translate-y-1/2" %}
                     </div>
                 </div>
             </div>

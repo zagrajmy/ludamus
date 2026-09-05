@@ -36,7 +36,7 @@ const proxyServer = process.env.HTTPS_PROXY ?? process.env.https_proxy;
 const WEB_COMMAND = "mise run test:e2e:prep && exec mise run test:e2e:serve";
 
 const isCI = !!process.env.CI;
-const skipIos = !!process.env.E2E_SKIP_IOS;
+const skipWebkit = !!process.env.E2E_SKIP_WEBKIT;
 
 // Set before webServerEnv is built, so the runner and the server it starts
 // agree on whether this run measures coverage.
@@ -112,6 +112,7 @@ export default defineConfig({
         /confirmations\.spec\.ts/,
         /timetable\.spec\.ts/,
         /cover-images\.spec\.ts/,
+        /event-maps\.spec\.ts/,
         /sphere-logo\.spec\.ts/,
         /anonymous-proposal\.spec\.ts/,
         /proposal-delete-restore\.spec\.ts/,
@@ -138,13 +139,23 @@ export default defineConfig({
           : {}),
       },
     },
-    ...(skipIos
+    ...(skipWebkit
       ? []
       : [
           {
             name: "webkit",
-            testMatch: /event-details\.spec\.ts/,
-            grep: /iOS touch scrolling|mobile session modal closes on iOS tap|opened over a scrolled page/,
+            // Selected by filename, so what a spec needs is visible in the
+            // tree rather than in a tag inside it. Additive, unlike
+            // chromium-auth's .auth.spec.ts: the desktop projects match every
+            // spec, so these run there too — the suffix names the engine a
+            // spec *needs*, not the only one it gets.
+            //
+            // This is WebKit with an iPhone's viewport and nothing else of a
+            // phone: no browser chrome, so no toolbar to collapse and no visual
+            // viewport that disagrees with the layout one. Anything that needs
+            // *those* is a device test and belongs in scripts/ios-regressions
+            // as a .ios.test.ts, which drives real Safari on a simulator.
+            testMatch: /.*\.webkit\.spec\.ts/,
             use: { ...devices["iPhone 14 Pro"] },
           },
         ]),

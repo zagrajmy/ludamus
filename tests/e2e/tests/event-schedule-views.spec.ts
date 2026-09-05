@@ -2,11 +2,11 @@ import { type Page } from "@playwright/test";
 import path from "node:path";
 
 import { expect, test } from "./helpers/fixtures";
+import { DENSE_EVENT_URL } from "./helpers/urls";
 
 const EVENT_URL = "/event/autumn-open/";
 // The dense seeded event: the only one over the compact-schedule threshold,
 // so the only one that offers a second layout to switch to.
-const DENSE_EVENT_URL = "/event/kapitularz-2025-anonymized/";
 const MEGA = "Mega Strategy Lab";
 const NEON = "Przygoda w Mieście Neonów";
 // Seeded with no participants limit: the drop-in the enrollment filter leaves out.
@@ -52,6 +52,14 @@ const firstStart = async (page: Page) =>
       .locator(".session-grid .session-wrapper .session")
       .first()
       .getAttribute("data-start"),
+  );
+
+const firstSessionEnd = async (page: Page) =>
+  scheduleMoment(
+    await page
+      .locator(".session-grid .session-wrapper .session")
+      .first()
+      .getAttribute("data-session-end"),
   );
 
 const finalSessionRange = async (page: Page) => {
@@ -141,41 +149,137 @@ test.describe("Event schedule views", () => {
     expect(unreachable).toEqual([]);
   });
 
-  test("the grid offers sideways scrollbars on both edges", async ({ page }) => {
+  test("a session through the day turnover is one tile across the seam", async ({ page }) => {
     await page.goto(`${DENSE_EVENT_URL}?view=rooms`);
-    const head = page.locator("[data-room-lanes-head]").first();
+
+    // Seeded to run 22:00 to 07:00 (kapitularz_print_seed.py): days turn over
+    // at 06:00, so the ledger lists it under both days, but the grid's axis
+    // runs straight through the seam and draws it once, with its real times.
+    const time = page.getByText("22:00–07:00", { exact: true });
+    await expect(time).toHaveCount(1);
+    const tile = await time.evaluate((el) => {
+      const cell = el.closest<HTMLElement>(".room-lanes-cell");
+      const session = el.closest<HTMLElement>(".session");
+      return {
+        id: session?.dataset.sessionId ?? "",
+        row: Number(cell?.dataset.tileRow),
+        span: Number(cell?.dataset.tileSpan),
+      };
+    });
+    await expect(
+      page.getByRole("link", { name: /Open details for/ }).filter({
+        has: page.locator(`xpath=ancestor::*[@data-session-id="${tile.id}"]`),
+      }),
+    ).toHaveCount(1);
+
+    // A day heading sits inside the tile's rows, and its band is drawn over
+    // the tile rather than hidden behind it.
+    const seams = await page.getByRole("heading", { level: 3 }).evaluateAll((headings) =>
+      headings.flatMap((heading) => {
+        const seam = heading.closest<HTMLElement>(".room-lanes-day");
+        return seam
+          ? [{ row: Number(seam.dataset.laneRow), zIndex: Number(getComputedStyle(seam).zIndex) }]
+          : [];
+      }),
+    );
+    const crossed = seams.filter((seam) => seam.row > tile.row && seam.row < tile.row + tile.span);
+    expect(crossed).toHaveLength(1);
+    expect(crossed[0]?.zIndex ?? 0).toBeGreaterThan(10);
+  });
+
+  test("hours of lull fold into one thin labelled row", async ({ page }) => {
+    await page.goto(`${DENSE_EVENT_URL}?view=rooms`);
+
+    // The overnight session runs 22:00 to 07:00 and the next programme opens
+    // at 10:00, so there are two lulls long enough to fold: the night under
+    // the running session, and the morning after it ends.
+    await expect(page.getByText(/Nothing new until/)).toHaveText([
+      "Nothing new until 06:00",
+      "Nothing new until 10:00",
+    ]);
+    const label = page.getByText("Nothing new until 10:00");
+    const fold = await label.evaluate((el) => {
+      const line = el.closest<HTMLElement>(".room-lanes-line");
+      // The row after the fold is the 10:00 hour the label names.
+      const next = document.querySelector<HTMLElement>(
+        `.room-lanes-line[data-lane-row="${Number(line?.dataset.laneRow) + 1}"]`,
+      );
+      return {
+        start: Date.parse(line?.dataset.rowStart ?? ""),
+        end: Date.parse(line?.dataset.rowEnd ?? ""),
+        height: line?.getBoundingClientRect().height ?? 0,
+        anchorsSlot: line?.querySelector(".time-slot-section") !== null,
+        nextStart: Date.parse(next?.dataset.rowStart ?? ""),
+        nextHeight: next?.getBoundingClientRect().height ?? 0,
+      };
+    });
+    expect(fold.end - fold.start).toBe(3 * 60 * 60 * 1000);
+    expect(fold.nextStart).toBe(fold.end);
+    // Nothing starts in a fold, so the scrubber has no target there.
+    expect(fold.anchorsSlot).toBe(false);
+    // Thinner than an hour: the fold stands in for hours nobody programmed.
+    expect(fold.nextHeight).toBeGreaterThan(0);
+    expect(fold.height).toBeLessThan(fold.nextHeight);
+  });
+
+  test("the grid offers a sideways scrollbar at its bottom edge", async ({ page }) => {
+    await page.goto(`${DENSE_EVENT_URL}?view=rooms`);
     const foot = page.locator("[data-room-lanes-foot]").first();
     const body = page.locator("[data-room-lanes-scroll]").first();
 
-    // Real scrollers — that is what puts a scrollbar at the top and the
-    // bottom edge for mouse users. The body's own scrollbar yields to the
-    // foot, which pins to the viewport.
-    for (const handle of [head, foot]) {
-      await expect(handle).toHaveCSS("overflow-x", "auto");
-    }
+    // A real scroller — that is what puts a scrollbar under the grid for mouse
+    // users. The body's own yields to it, because the foot pins to the
+    // viewport while the body's would surface only at the grid's end.
+    await expect(foot).toHaveCSS("overflow-x", "auto");
     await expect(body).toHaveCSS("scrollbar-width", "none");
 
     // Targets derived from the actual overflow, so a shrunken fixture fails
     // on this precondition instead of an opaque clamped-scroll poll timeout.
-    const budget = (handle: typeof head) =>
-      handle.evaluate((el) => el.scrollWidth - el.clientWidth);
-    const max = Math.min(await budget(head), await budget(foot));
+    const max = await foot.evaluate((el) => el.scrollWidth - el.clientWidth);
     expect(max).toBeGreaterThanOrEqual(300);
     const far = Math.floor(max / 2);
-    const near = Math.floor(max / 4);
 
-    // Dragging either handle pans the grid, and the grid drags both along.
-    await head.evaluate((el, left) => {
+    // Dragging the handle pans the grid, and the grid drags the handle along.
+    await foot.evaluate((el, left) => {
       el.scrollLeft = left;
     }, far);
     await expect.poll(() => body.evaluate((el) => el.scrollLeft)).toBe(far);
-    await expect.poll(() => foot.evaluate((el) => el.scrollLeft)).toBe(far);
 
-    await foot.evaluate((el, left) => {
-      el.scrollLeft = left;
-    }, near);
-    await expect.poll(() => body.evaluate((el) => el.scrollLeft)).toBe(near);
-    await expect.poll(() => head.evaluate((el) => el.scrollLeft)).toBe(near);
+    await body.evaluate((el) => {
+      el.scrollLeft = 0;
+    });
+    await expect.poll(() => foot.evaluate((el) => el.scrollLeft)).toBe(0);
+  });
+
+  test("the grid is reachable by keyboard to pan it", async ({ page }) => {
+    await page.goto(`${DENSE_EVENT_URL}?view=rooms`);
+    // A scroll container earns a tab stop by itself only while nothing inside
+    // it is focusable — tiles are — and only in some engines, so the grid names
+    // itself and takes one, rather than leaving a keyboard user to tab through
+    // every tile to travel sideways.
+    const grid = page.getByRole("region", { name: "Rooms schedule" });
+
+    // Reached by Tab, not by focus(): focus() succeeds on tabindex="-1" too,
+    // and a focused scroller pans on arrow keys whatever its tabindex says, so
+    // asserting focusability would pass on exactly the grid this test exists to
+    // rule out — one no keyboard user can get to. Tabbing from the top of the
+    // page is the user's own route, and it is the browser's model of the tab
+    // order rather than a guess at it: predicting the previous stop from the
+    // DOM misses that a fixed or hidden control is skipped.
+    await page.evaluate(() => {
+      document.body.focus();
+    });
+    let reached = false;
+    for (let press = 0; press < 60 && !reached; press++) {
+      await page.keyboard.press("Tab");
+      reached = await grid.evaluate((el) => el === document.activeElement);
+    }
+    expect(reached).toBe(true);
+
+    const panned = async () => grid.evaluate((el) => Math.round(el.scrollLeft));
+    expect(await panned()).toBe(0);
+    await page.keyboard.press("ArrowRight");
+    await expect.poll(panned).toBeGreaterThan(0);
   });
 
   test("the current day stays outside the edge fade and follows vertical scroll", async ({
@@ -215,6 +319,29 @@ test.describe("Event schedule views", () => {
     expect(await days.count()).toBeGreaterThan(1);
     await expect(mirrors).toHaveCount((await days.count()) - 1);
     expect(await body.evaluate((el) => getComputedStyle(el).maskImage)).not.toBe("none");
+
+    // The mask above is only half the claim: it says a gradient is installed,
+    // not that it tracks the grid. Both halves run their fades off the body's
+    // scroll timeline, so both edges have to darken as the columns reach them —
+    // the strip especially, since a strip fading on a timeline of its own is
+    // what left one crisp edge above a permanently faded one. Engines without
+    // scroll timelines never fade — there the @property initial value is the
+    // whole behaviour — so the check is skipped rather than inverted.
+    const head = page.locator("[data-room-lanes-head]").first();
+    const faded = async (half: typeof body) =>
+      half.evaluate((el) => Number(getComputedStyle(el).getPropertyValue("--fade-end-opacity")));
+    if (await page.evaluate(() => CSS.supports("timeline-scope: --room-lanes-x"))) {
+      expect(await faded(body)).toBeLessThan(1);
+      expect(await faded(head)).toBeLessThan(1);
+      await body.evaluate((el) => {
+        el.scrollLeft = el.scrollWidth - el.clientWidth;
+      });
+      await expect.poll(() => faded(body)).toBe(1);
+      await expect.poll(() => faded(head)).toBe(1);
+      await body.evaluate((el) => {
+        el.scrollLeft = 0;
+      });
+    }
 
     const source = days.nth(1);
     const mirror = mirrors.first();
@@ -363,7 +490,7 @@ test.describe("Event schedule views", () => {
       ),
     );
     const line = await marker.boundingBox();
-    const rule = await page.locator(".room-lanes-now-strip").boundingBox();
+    const rule = await page.locator(".room-lanes-now .schedule-now-line").boundingBox();
     expect(line).not.toBeNull();
     expect(rule).not.toBeNull();
     expect(Math.abs((line?.y ?? 0) + (line?.height ?? 0) / 2 - (rule?.y ?? 0))).toBeLessThan(1.5);
@@ -373,7 +500,10 @@ test.describe("Event schedule views", () => {
     await page.clock.runFor(60_000);
     await expect(marker).toContainText(clockAfter(opens.clock, 31));
     await expect
-      .poll(async () => (await page.locator(".room-lanes-now-strip").boundingBox())?.y ?? 0)
+      .poll(
+        async () =>
+          (await page.locator(".room-lanes-now .schedule-now-line").boundingBox())?.y ?? 0,
+      )
       .toBeGreaterThan(rule?.y ?? 0);
 
     // A day before the doors open, nothing on the grid is now. The clock
@@ -450,12 +580,72 @@ test.describe("Event schedule views", () => {
     await expect(page.locator("[data-room-lanes-now] .schedule-now-pill")).toBeVisible();
     const [lineBox, markerBox] = await Promise.all([
       targetLine.boundingBox(),
-      page.locator(".room-lanes-now-strip").boundingBox(),
+      page.locator(".room-lanes-now .schedule-now-line").boundingBox(),
     ]);
     expect(lineBox).not.toBeNull();
     expect(markerBox).not.toBeNull();
     expect(markerBox?.y ?? 0).toBeGreaterThanOrEqual(lineBox?.y ?? 0);
     expect(markerBox?.y ?? 0).toBeLessThan((lineBox?.y ?? 0) + (lineBox?.height ?? 0));
+  });
+
+  test("the rooms grid dims a tile once the clock passes its end", async ({ page }) => {
+    // The ledger row and the lane tile carry the same dimming rule written
+    // twice, one per layout, so the grid needs its own witness.
+    const tiles = page.locator(".room-lanes-cell .session");
+    await page.goto(`${DENSE_EVENT_URL}?view=rooms`);
+    const ends = scheduleMoment(await tiles.first().getAttribute("data-session-end"));
+    await page.clock.install({ time: new Date(ends.timestamp - 60_000) });
+    await page.goto(`${DENSE_EVENT_URL}?view=rooms`);
+
+    await expect(tiles.first()).not.toHaveAttribute("data-ended");
+
+    await page.clock.runFor(120_000);
+
+    await expect(tiles.first()).toHaveAttribute("data-ended", "");
+    await expect(tiles.first()).toHaveCSS("opacity", "0.65");
+  });
+
+  test("the search box takes a tap while a session modal is still animating out", async ({
+    browserName,
+    page,
+  }) => {
+    test.skip(browserName !== "chromium", "Slows animations over the devtools protocol");
+    await page.goto(DENSE_EVENT_URL);
+    await page
+      .getByRole("link", { name: /^Open details for / })
+      .first()
+      .press("Enter");
+    const dialog = page.locator("dialog.modal[open]");
+    await expect(dialog).toBeVisible();
+
+    const search = page.locator("#session-filter");
+    const box = await search.boundingBox();
+    if (!box) throw new Error("The search box needs a position to tap");
+    // Held open for seconds, so the tap below lands mid-animation rather than
+    // racing a quarter-second exit; a real reader's tap lands there too. A
+    // playback rate, not an injected stylesheet: the page's CSP drops the
+    // latter without a word.
+    const devtools = await page.context().newCDPSession(page);
+    await devtools.send("Animation.enable");
+    await devtools.send("Animation.setPlaybackRate", { playbackRate: 0.05 });
+    await page.keyboard.press("Escape");
+    // The dialog closes inside the transition's update step, a frame in; from
+    // then on the page is what the reader is tapping, whatever is still
+    // animating above it. A raw pointer press, not click(): click() waits
+    // until the element can receive pointer events, which is exactly the
+    // wait a reader does not get.
+    await expect(dialog).toHaveCount(0);
+    // The animations start on the transition's ready step, a frame after the
+    // close; wait for them so the tap is provably mid-animation.
+    await page.waitForFunction(() =>
+      document
+        .getAnimations()
+        .some((a) =>
+          (a.effect as KeyframeEffect | null)?.pseudoElement?.startsWith("::view-transition"),
+        ),
+    );
+    await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+    await expect(search).toBeFocused();
   });
 
   test("the ledger stays unmarked before the programme opens", async ({ page }) => {
@@ -465,6 +655,38 @@ test.describe("Event schedule views", () => {
     await page.goto(DENSE_EVENT_URL);
 
     await expect(page.locator("[data-schedule-now]")).toBeHidden();
+  });
+
+  test("the ledger opens the current day at its top on a morning before its programme", async ({
+    page,
+  }) => {
+    await page.goto(DENSE_EVENT_URL);
+    // Three hours before day two's first session: yesterday is over, today has
+    // not begun, and the seam belongs to today rather than to yesterday's tail.
+    const secondDay = page.locator("[data-schedule-day]").nth(1);
+    const opens = scheduleMoment(
+      await secondDay.locator(".session-grid .session").first().getAttribute("data-start"),
+    );
+    const at = new Date(opens.timestamp - 3 * 60 * 60_000);
+    const atClock = clockAfter(opens.clock, -3 * 60);
+    await page.clock.install({ time: at });
+    await page.goto(DENSE_EVENT_URL);
+
+    const marker = page.getByText(`Now ${atClock}`);
+    await expect(marker).toBeVisible();
+    await expect(secondDay).not.toHaveAttribute("data-folded");
+    const seamDay = await marker.evaluate(
+      (el) => el.closest<HTMLElement>("[data-schedule-day]")?.dataset.day,
+    );
+    expect(seamDay).toBe(await secondDay.getAttribute("data-day"));
+    const [line, heading, firstRow] = await Promise.all([
+      marker.boundingBox(),
+      secondDay.getByRole("heading").first().boundingBox(),
+      secondDay.getByRole("article").first().boundingBox(),
+    ]);
+    const seamY = (line?.y ?? 0) + (line?.height ?? 0) / 2;
+    expect(seamY).toBeGreaterThan((heading?.y ?? 0) + (heading?.height ?? 0));
+    expect(seamY).toBeLessThanOrEqual((firstRow?.y ?? 0) + 1);
   });
 
   test("the ledger marks the seam between finished and upcoming", async ({ page }) => {
@@ -530,6 +752,24 @@ test.describe("Event schedule views", () => {
     expect(line?.y).toBeLessThan(tomorrow?.y ?? 0);
   });
 
+  test("the ledger dims a session once the clock passes its end", async ({ page }) => {
+    // The page outlives the reading it was served with: a phone left open on
+    // the schedule keeps showing every session as still to come.
+    await page.goto(DENSE_EVENT_URL);
+    const ends = await firstSessionEnd(page);
+    await page.clock.install({ time: new Date(ends.timestamp - 60_000) });
+    await page.goto(DENSE_EVENT_URL);
+
+    const row = page.locator(".session-grid .session-wrapper .session").first();
+    await expect(row).not.toHaveAttribute("data-ended");
+
+    await page.clock.runFor(120_000);
+
+    await expect(row).toHaveAttribute("data-ended", "");
+    await expect(row).toHaveCSS("opacity", "0.65");
+    await expect(row).toHaveAttribute("data-status", "ended");
+  });
+
   test("the ledger clock follows the event timezone across DST", async ({ page }) => {
     await page.goto(DENSE_EVENT_URL);
     await page.clock.install({ time: new Date("2026-03-29T01:30:00Z") });
@@ -565,7 +805,9 @@ test.describe("Event schedule views", () => {
     ]);
     expect(line).not.toBeNull();
     expect(finalRow).not.toBeNull();
-    expect(line?.y).toBeGreaterThan((finalRow?.y ?? 0) + (finalRow?.height ?? 0) - 2);
+    // The pill is centred on the seam line, so its midline is where the line is.
+    const seamY = (line?.y ?? 0) + (line?.height ?? 0) / 2;
+    expect(seamY).toBeGreaterThan((finalRow?.y ?? 0) + (finalRow?.height ?? 0) - 2);
 
     await page.clock.setFixedTime(new Date(endsAt + 60_000));
     await page.clock.runFor(60_000);
@@ -584,14 +826,16 @@ test.describe("Event schedule views", () => {
     await expect(lanes).toBeVisible();
   });
 
-  test("a filter that empties a day takes the whole day with it", async ({ page }) => {
+  test("a filter that empties a day keeps its name and drops its hours", async ({ page }) => {
     await page.goto(`${DENSE_EVENT_URL}?view=rooms`);
+    const lanes = page.locator(".room-lanes").first();
     const days = page.getByRole("heading", { level: 3 });
-    const before = await days.count();
-    const firstDay = squash(await days.first().textContent());
-    expect(before).toBeGreaterThan(1);
+    const shownDays = await days.filter({ visible: true }).count();
+    expect(shownDays).toBeGreaterThan(1);
+    const rowSelector = ".room-lanes-time[data-lane-row]:not(.room-lanes-collapsed)";
+    const rowCount = await lanes.locator(rowSelector).count();
 
-    // One session's title: whatever day it is on survives, the rest empty out.
+    // One session's title from the last day: every earlier day empties out.
     const title = await page
       .getByRole("link", { name: /^Open details for / })
       .last()
@@ -599,13 +843,18 @@ test.describe("Event schedule views", () => {
     await page
       .getByRole("textbox", { name: "Search by name or text..." })
       .fill((title ?? "").replace("Open details for ", "").trim());
+    await expect.poll(() => lanes.locator(rowSelector).count()).toBeLessThan(rowCount);
 
-    // Whichever days lost every session are gone entirely — heading, blank
-    // hours and all — rather than leaving a stranded date over nothing.
-    await expect
-      .poll(async () => (await days.filter({ visible: true }).count()) < before)
-      .toBe(true);
-    await expect(page.getByRole("heading", { level: 3, name: firstDay })).toBeHidden();
+    // The day names are the reader's map of the event, so none goes with its
+    // rows — an emptied day stands as its heading alone, like a folded one.
+    await expect(days.filter({ visible: true })).toHaveCount(shownDays);
+    // A lull's label goes with its row: a collapsed fold must not paint its
+    // label over whatever row comes next, doubling it with the neighbour's.
+    const folds = lanes.locator(".room-lanes-line[data-row-track='fold']");
+    await expect(folds.locator(":scope.room-lanes-collapsed")).not.toHaveCount(0);
+    for (const fold of await folds.locator(":scope.room-lanes-collapsed").all()) {
+      await expect(fold.locator(".room-lanes-fold-label")).toBeHidden();
+    }
   });
 
   test("the grid pans like a map: drag the background, or anything with Space", async ({
@@ -787,6 +1036,36 @@ test("overnight bookmark copies share one state and one request", async ({
   expect(hiddenStates.every((hidden) => hidden === wasBookmarked)).toBe(true);
 
   await context.close();
+});
+
+// On a phone the ledger's time leaves the flex line and centres itself against
+// the whole two-line row, so any padding that belongs to that shared line lands
+// the pair half of itself below where it should sit.
+test("the ledger's stacked time lines up with the title and the meta line", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 900 });
+  await page.goto(DENSE_EVENT_URL);
+  await expect(page.locator(".session-grid .session").first()).toBeVisible();
+
+  const offsets = await page.evaluate(() => {
+    const row = document.querySelector(".session-grid .session")!;
+    const inkMiddle = (node: Node) => {
+      const range = document.createRange();
+      range.selectNodeContents(node);
+      const box = range.getBoundingClientRect();
+      return (box.top + box.bottom) / 2;
+    };
+    const time = row.querySelector("span.tabular-nums")!;
+    const startLine = [...time.childNodes].find(
+      (node) => node.nodeType === Node.TEXT_NODE && node.textContent!.trim(),
+    )!;
+    return {
+      start: inkMiddle(startLine) - inkMiddle(row.querySelector(".font-semibold")!),
+      end: inkMiddle(time.querySelector("span.block")!) - inkMiddle(row.querySelector("[title]")!),
+    };
+  });
+
+  expect(Math.abs(offsets.start)).toBeLessThan(2);
+  expect(Math.abs(offsets.end)).toBeLessThan(2);
 });
 
 test.describe("Enrollment filter", () => {

@@ -1,0 +1,650 @@
+from __future__ import annotations
+
+from datetime import UTC, datetime, timedelta
+from itertools import pairwise
+from typing import TYPE_CHECKING
+from unittest.mock import MagicMock
+
+import pytest
+from django.utils import timezone
+
+from ludamus.gates.web.django.chronology.schedule import (
+    build_room_lanes,
+    build_schedule_days,
+)
+from ludamus.pacts import AgendaItemDTO
+from tests.unit.gates.web.django.chronology.helpers import (
+    location,
+    make_session_data,
+    positioned_room_tiles,
+    room_tiles,
+)
+
+if TYPE_CHECKING:
+    from ludamus.gates.web.django.chronology.event_presentation import SessionData
+    from ludamus.gates.web.django.chronology.schedule import RoomLanes
+
+_HOUR_SECONDS = 3600
+_REPEATED_HOUR = 2
+_REPEATED_HOUR_COUNT = 2
+
+
+class TestNightSessions:
+    @staticmethod
+    def _night_session() -> SessionData:
+        tz = timezone.get_current_timezone()
+        return make_session_data(
+            agenda_item=AgendaItemDTO(
+                start_time=datetime(2026, 7, 10, 22, tzinfo=tz),
+                end_time=datetime(2026, 7, 11, 2, tzinfo=tz),
+                pk=1,
+                session_confirmed=True,
+            ),
+            loc=location(
+                space_id=2,
+                parent_id=1,
+                space_name="Sala A",
+                parent_name="Hall",
+                sort_path=((0, "Hall", 1), (0, "Sala A", 2)),
+            ),
+        )
+
+    @staticmethod
+    def _through_the_turnover() -> SessionData:
+        tz = timezone.get_current_timezone()
+        return make_session_data(
+            agenda_item=AgendaItemDTO(
+                start_time=datetime(2026, 7, 11, 4, tzinfo=tz),
+                end_time=datetime(2026, 7, 11, 8, tzinfo=tz),
+                pk=2,
+                session_confirmed=True,
+            ),
+            loc=location(
+                space_id=2,
+                parent_id=1,
+                space_name="Sala A",
+                parent_name="Hall",
+                sort_path=((0, "Hall", 1), (0, "Sala A", 2)),
+            ),
+        )
+
+    def test_session_crossing_midnight_stays_on_the_evening_it_belongs_to(self):
+        # Days turn over at 06:00, not midnight: 22:00 to 02:00 is one entry
+        # under the evening's day, in one piece.
+        night = self._night_session()
+
+        days = build_schedule_days({1: night})
+
+        assert [[hour.start.hour for hour in day.hours] for day in days] == [[22]]
+        assert [(tile.start.hour, tile.end.hour) for tile in days[0].tiles] == [(22, 2)]
+        assert days[0].day_start == datetime(
+            2026, 7, 10, 6, tzinfo=timezone.get_current_timezone()
+        )
+
+    def test_session_crossing_the_turnover_lands_on_both_days(self):
+        session = self._through_the_turnover()
+
+        days = build_schedule_days({1: session})
+
+        assert [[hour.start.hour for hour in day.hours] for day in days] == [[4], [6]]
+        assert [[tile.data for tile in day.hours[0].tiles] for day in days] == [
+            [session],
+            [session],
+        ]
+        assert [day.day_start.day for day in days] == [10, 11]
+
+    def test_room_lanes_span_the_seam_with_one_tile(self):
+        lanes = build_room_lanes(build_schedule_days({1: self._through_the_turnover()}))
+
+        # Both days share one grid, and the axis runs straight through the seam:
+        # the first day's two hours are rows 1 and 2, the seam that opens the
+        # second day takes row 3, and the session is one tile from row 1 across
+        # the seam to row 5.
+        assert [
+            (row.day, row.start.hour if row.start else None) for row in lanes.rows
+        ] == [(0, 4), (0, 5), (1, None), (1, 6), (1, 7)]
+        assert [(row, tile.row_span) for row, tile in positioned_room_tiles(lanes)] == [
+            (1, 5)
+        ]
+        assert lanes.spans == [5]
+        # The seam measures no time, so it is no hour's cut and anchors no slot.
+        seam = next(row for row in lanes.rows if row.start is None)
+        assert not seam.is_cut
+        assert seam.slot_key is None
+        assert not seam.opens_slot
+
+
+class TestRoomLaneFolds:
+    @staticmethod
+    def _session(*, pk: int, start: datetime, end: datetime) -> SessionData:
+        return make_session_data(
+            agenda_item=AgendaItemDTO(
+                start_time=start, end_time=end, pk=pk, session_confirmed=True
+            ),
+            loc=location(
+                space_id=1,
+                space_name="Sala A",
+                parent_name="",
+                sort_path=((0, "Sala A", 1),),
+            ),
+        )
+
+    @staticmethod
+    def _at(day: int, hour: int, minute: int = 0) -> datetime:
+        return datetime(
+            2026, 7, day, hour, minute, tzinfo=timezone.get_current_timezone()
+        )
+
+    def _lanes(self, *bookings: tuple[datetime, datetime]) -> RoomLanes:
+        sessions = {
+            index: self._session(pk=index, start=start, end=end)
+            for index, (start, end) in enumerate(bookings, start=1)
+        }
+        return build_room_lanes(build_schedule_days(sessions))
+
+    def test_a_long_lull_folds_into_one_row(self):
+        lanes = self._lanes(
+            (self._at(10, 10), self._at(10, 11)), (self._at(10, 15), self._at(10, 16))
+        )
+
+        # Nothing starts or ends between 11:00 and 15:00, so those four hours
+        # are one row that stands in for the whole lull.
+        assert [
+            (row.start.hour, row.end.hour, row.is_fold)
+            for row in lanes.rows
+            if row.start and row.end
+        ] == [(10, 11, False), (11, 15, True), (15, 16, False)]
+        assert [(row, tile.row_span) for row, tile in positioned_room_tiles(lanes)] == [
+            (1, 1),
+            (3, 1),
+        ]
+        # A fold is no length the stylesheet needs a track for.
+        assert lanes.row_lengths == [60]
+
+    def test_a_short_lull_stays_whole(self):
+        lanes = self._lanes(
+            (self._at(10, 10), self._at(10, 11)), (self._at(10, 13), self._at(10, 14))
+        )
+
+        assert [row.start.hour for row in lanes.rows if row.start] == [10, 11, 12, 13]
+        assert not any(row.is_fold for row in lanes.rows)
+
+    def test_a_session_running_through_a_lull_spans_the_fold_as_one_row(self):
+        lanes = self._lanes(
+            (self._at(10, 10), self._at(10, 16)), (self._at(10, 10), self._at(10, 11))
+        )
+
+        # The runner's own first and last hours stay whole; the four hours it
+        # passes through are the fold, so it is three rows tall, not six.
+        assert [row.is_fold for row in lanes.rows] == [False, True, False]
+        assert [
+            (tile.data.agenda_item.pk, tile.row_span) for tile in room_tiles(lanes)
+        ] == [(2, 1), (1, 3)]
+
+    def test_the_night_between_two_days_is_the_seam_not_a_fold(self):
+        lanes = self._lanes(
+            (self._at(10, 20), self._at(10, 21)), (self._at(11, 9), self._at(11, 10))
+        )
+
+        # A day's rows end with its last session and the next day's open with
+        # its first, so the night between them is the seam itself: there is
+        # nothing to fold, and nothing to pan across.
+        assert [
+            (row.day, row.start.hour if row.start else None, row.is_fold)
+            for row in lanes.rows
+        ] == [(0, 20, False), (1, None, False), (1, 9, False)]
+
+    def test_a_lull_ending_at_a_half_hour_keeps_that_hours_head(self):
+        lanes = build_room_lanes(
+            build_schedule_days(
+                {
+                    1: self._session(pk=1, start=self._at(10, 8), end=self._at(10, 9)),
+                    2: self._session(
+                        pk=2,
+                        start=self._at(10, 13).replace(minute=30),
+                        end=self._at(10, 14).replace(minute=30),
+                    ),
+                }
+            )
+        )
+
+        # 13:00 is a busy hour — its second half starts a session — so the
+        # fold stops at it and the hour keeps its label, with the cut inside.
+        assert [
+            (row.hour_mark.hour, row.start.minute, row.is_fold, row.is_cut)
+            for row in lanes.rows
+            if row.hour_mark and row.start
+        ] == [
+            (8, 0, False, False),
+            (9, 0, True, False),
+            (13, 0, False, False),
+            (13, 30, False, True),
+            (14, 0, False, False),
+            (14, 30, False, True),
+        ]
+
+    def test_a_session_ending_on_the_hour_keeps_its_last_hour_whole(self):
+        lanes = self._lanes(
+            (self._at(10, 10), self._at(10, 12)), (self._at(10, 16), self._at(10, 17))
+        )
+
+        # Ending at 12:00 sharp occupies the 11:00 row, not the 12:00 one, so
+        # the fold opens at 12:00 and the tile is two rows tall.
+        assert [(row.start.hour, row.is_fold) for row in lanes.rows if row.start] == [
+            (10, False),
+            (11, False),
+            (12, True),
+            (16, False),
+        ]
+        assert [tile.row_span for tile in room_tiles(lanes)] == [2, 1]
+
+
+class TestDaylightSavingRows:
+    @staticmethod
+    def _session(*, start: datetime, end: datetime) -> SessionData:
+        return make_session_data(
+            agenda_item=AgendaItemDTO(
+                start_time=start, end_time=end, pk=1, session_confirmed=True
+            ),
+            loc=location(
+                space_id=2,
+                parent_id=1,
+                space_name="Sala A",
+                parent_name="Hall",
+                sort_path=((0, "Hall", 1), (0, "Sala A", 2)),
+            ),
+        )
+
+    @pytest.mark.parametrize(
+        ("start", "end", "expected_hours"),
+        (
+            (
+                datetime(2026, 3, 29, 0, 30, tzinfo=UTC),
+                datetime(2026, 3, 29, 2, 30, tzinfo=UTC),
+                [(1, 60), (3, 120), (4, 120)],
+            ),
+            (
+                datetime(2026, 10, 25, 0, 30, tzinfo=UTC),
+                datetime(2026, 10, 25, 2, 30, tzinfo=UTC),
+                [(2, 120), (2, 60), (3, 60)],
+            ),
+        ),
+    )
+    def test_rows_follow_real_hours_across_clock_changes(
+        self, start: datetime, end: datetime, expected_hours: list[tuple[int, int]]
+    ):
+        with timezone.override("Europe/Warsaw"):
+            lanes = build_room_lanes(
+                build_schedule_days({1: self._session(start=start, end=end)})
+            )
+
+        hour_rows = [row for row in lanes.rows if row.start and not row.is_cut]
+        assert [
+            (
+                row.start.hour,
+                int((row.start.utcoffset() or timedelta()).total_seconds() / 60),
+            )
+            for row in hour_rows
+        ] == expected_hours
+        # However the wall clock moved, consecutive hour marks stay one real
+        # hour apart, and the bands cut between them tile that hour with no gap.
+        assert all(
+            later.start.timestamp() - earlier.start.timestamp() == _HOUR_SECONDS
+            for earlier, later in pairwise(hour_rows)
+        )
+        bands = [row for row in lanes.rows if row.start and row.end]
+        assert all(earlier.end == later.start for earlier, later in pairwise(bands))
+        # Rows inside an hour share that hour's key: it is what the scrubber's
+        # markers are keyed on, and the marks stay distinct across the fold.
+        assert {row.slot_key for row in bands} == {row.slot_key for row in hour_rows}
+        assert len({row.slot_key for row in hour_rows}) == len(hour_rows)
+        assert [tile.row_span for tile in room_tiles(lanes)] == [3]
+
+    def test_a_lull_across_the_repeated_hour_folds_as_one_run(self):
+        # 22:00–23:00 CEST, then 02:30–03:30 CET: between them lie 23:00,
+        # 00:00, 01:00, 02:00 CEST and the busy 02:00 CET. Keyed by instant,
+        # the two 02:00 hours are two hours, and the lull is four of them.
+        sessions = {
+            1: self._session(
+                start=datetime(2026, 10, 24, 20, tzinfo=UTC),
+                end=datetime(2026, 10, 24, 21, tzinfo=UTC),
+            ),
+            2: self._session(
+                start=datetime(2026, 10, 25, 1, 30, tzinfo=UTC),
+                end=datetime(2026, 10, 25, 2, 30, tzinfo=UTC),
+            ),
+        }
+        with timezone.override("Europe/Warsaw"):
+            lanes = build_room_lanes(build_schedule_days(sessions))
+
+        folds = [row for row in lanes.rows if row.is_fold and row.start and row.end]
+        assert [
+            (row.minutes, row.start.tzname(), row.end.tzname()) for row in folds
+        ] == [(240, "CEST", "CET")]
+
+    @pytest.mark.parametrize(
+        ("start", "expected_zone"),
+        (
+            (datetime(2026, 10, 25, 0, 15, tzinfo=UTC), "CEST"),
+            (datetime(2026, 10, 25, 1, 15, tzinfo=UTC), "CET"),
+        ),
+    )
+    def test_single_repeated_hour_still_names_its_zone(
+        self, start: datetime, expected_zone: str
+    ):
+        with timezone.override("Europe/Warsaw"):
+            days = build_schedule_days(
+                {1: self._session(start=start, end=start + timedelta(minutes=30))}
+            )
+            lanes = build_room_lanes(days)
+
+        assert len(days[0].hours) == 1
+        assert days[0].hours[0].is_repeated
+        assert days[0].hours[0].start.tzname() == expected_zone
+        session_row = next(row for row in lanes.rows if row.starting_tiles)
+        assert session_row.is_repeated
+        assert session_row.start
+        assert session_row.start.tzname() == expected_zone
+
+    def test_session_crossing_repeated_hours_keeps_both_offsets(self):
+        with timezone.override("Europe/Warsaw"):
+            days = build_schedule_days(
+                {
+                    1: self._session(
+                        start=datetime(2026, 10, 25, 0, 30, tzinfo=UTC),
+                        end=datetime(2026, 10, 25, 1, 30, tzinfo=UTC),
+                    )
+                }
+            )
+
+        tile = days[0].hours[0].tiles[0]
+        assert tile.start.hour == tile.end.hour
+        assert tile.start.utcoffset() != tile.end.utcoffset()
+        assert tile.start.tzname() == "CEST"
+        assert tile.end.tzname() == "CET"
+
+    def test_repeated_wall_hours_have_distinct_targets(self):
+        with timezone.override("Europe/Warsaw"):
+            days = build_schedule_days(
+                {
+                    1: self._session(
+                        start=datetime(2026, 10, 25, 0, 15, tzinfo=UTC),
+                        end=datetime(2026, 10, 25, 0, 45, tzinfo=UTC),
+                    ),
+                    2: self._session(
+                        start=datetime(2026, 10, 25, 1, 15, tzinfo=UTC),
+                        end=datetime(2026, 10, 25, 1, 45, tzinfo=UTC),
+                    ),
+                }
+            )
+            lanes = build_room_lanes(days)
+
+        expected_hours = [_REPEATED_HOUR] * _REPEATED_HOUR_COUNT
+        assert [hour.start.hour for hour in days[0].hours] == expected_hours
+        assert all(hour.is_repeated for hour in days[0].hours)
+        assert len({hour.slot_key for hour in days[0].hours}) == _REPEATED_HOUR_COUNT
+        rows = [row for row in lanes.rows if row.starting_tiles]
+        assert [row.start.hour for row in rows if row.start] == expected_hours
+        assert all(row.is_repeated for row in rows)
+        assert len({row.slot_key for row in rows}) == _REPEATED_HOUR_COUNT
+
+
+class TestRoomLaneColumns:
+    @staticmethod
+    def _session(
+        *, space_id: int, space_name: str, order: int, day: int
+    ) -> SessionData:
+        tz = timezone.get_current_timezone()
+        return make_session_data(
+            agenda_item=AgendaItemDTO(
+                start_time=datetime(2026, 7, day, 10, tzinfo=tz),
+                end_time=datetime(2026, 7, day, 11, tzinfo=tz),
+                pk=day,
+                session_confirmed=True,
+            ),
+            loc=location(
+                space_id=space_id,
+                space_name=space_name,
+                parent_name="",
+                sort_path=((order, space_name, space_id),),
+            ),
+        )
+
+    def test_a_room_used_on_one_day_keeps_its_column_on_every_other(self):
+        # Rooms are the outer axis, so the column set is the union across days
+        # and a room idle on a day shows the gap rather than shifting its
+        # neighbours into it.
+        sessions = {
+            1: self._session(space_id=1, space_name="Sala A", order=0, day=10),
+            2: self._session(space_id=2, space_name="Sala B", order=1, day=11),
+        }
+
+        lanes = build_room_lanes(build_schedule_days(sessions))
+
+        assert [lane.name for lane in lanes.rooms] == ["Sala A", "Sala B"]
+        # Day one's session holds column 1, day two's holds column 2 — neither
+        # day renumbers the columns for itself. Each day is its one hour, so
+        # the seam is row 2 and day two's session sits on row 3.
+        assert [(tile.col, row) for row, tile in positioned_room_tiles(lanes)] == [
+            (1, 1),
+            (2, 3),
+        ]
+
+    def test_no_schedule_makes_no_rows(self):
+        lanes = build_room_lanes([])
+
+        assert not lanes.rows
+        assert not lanes.rooms
+
+
+class TestRoomLaneConflicts:
+    @staticmethod
+    def _session(
+        *,
+        pk: int,
+        start_hour: int,
+        end_hour: int,
+        start_minute: int = 0,
+        end_minute: int = 0,
+    ) -> SessionData:
+        tz = timezone.get_current_timezone()
+        return make_session_data(
+            agenda_item=AgendaItemDTO(
+                start_time=datetime(2026, 7, 10, start_hour, start_minute, tzinfo=tz),
+                end_time=datetime(2026, 7, 10, end_hour, end_minute, tzinfo=tz),
+                pk=pk,
+                session_confirmed=True,
+            ),
+            session=MagicMock(pk=pk, title=f"Session {pk}"),
+            loc=location(
+                space_id=1,
+                space_name="Sala A",
+                parent_name="",
+                sort_path=((0, "Sala A", 1),),
+            ),
+        )
+
+    def test_exact_conflicts_get_separate_visual_lanes(self):
+        lanes = build_room_lanes(
+            build_schedule_days(
+                {
+                    1: self._session(pk=1, start_hour=10, end_hour=11),
+                    2: self._session(pk=2, start_hour=10, end_hour=11),
+                }
+            )
+        )
+
+        assert [(tile.lane_index, tile.lane_count) for tile in room_tiles(lanes)] == [
+            (0, 2),
+            (1, 2),
+        ]
+        assert lanes.lane_indices == [0, 1]
+        assert lanes.lane_counts == [2]
+
+    def test_partial_conflicts_keep_their_lanes_across_rows(self):
+        lanes = build_room_lanes(
+            build_schedule_days(
+                {
+                    1: self._session(pk=1, start_hour=10, end_hour=12),
+                    2: self._session(pk=2, start_hour=11, end_hour=13),
+                }
+            )
+        )
+
+        assert [
+            (row, tile.row_span, tile.lane_index, tile.lane_count)
+            for row, tile in positioned_room_tiles(lanes)
+        ] == [(1, 2, 0, 2), (2, 2, 1, 2)]
+
+    def test_sessions_sharing_only_an_hour_keep_the_full_column(self):
+        later = self._session(
+            pk=1, start_hour=10, start_minute=45, end_hour=10, end_minute=55
+        )
+        earlier = self._session(
+            pk=2, start_hour=10, start_minute=5, end_hour=10, end_minute=15
+        )
+
+        lanes = build_room_lanes(build_schedule_days({1: later, 2: earlier}))
+
+        assert [tile.data.session.pk for tile in room_tiles(lanes)] == [2, 1]
+        assert [(tile.lane_index, tile.lane_count) for tile in room_tiles(lanes)] == [
+            (0, 1),
+            (0, 1),
+        ]
+
+    def test_back_to_back_sessions_do_not_read_as_a_clash(self):
+        # The reported case: nothing between them, so both live in the 16:00
+        # hour. An hour-only row ruler had them sharing a row and split them
+        # into half-width lanes, which reads as two sessions running at once.
+        lanes = build_room_lanes(
+            build_schedule_days(
+                {
+                    1: self._session(
+                        pk=1, start_hour=15, start_minute=30, end_hour=16, end_minute=30
+                    ),
+                    2: self._session(
+                        pk=2, start_hour=16, start_minute=30, end_hour=17, end_minute=30
+                    ),
+                }
+            )
+        )
+
+        assert [row.minutes for row in lanes.rows] == [30, 30, 30, 30, 30, 30]
+        assert [
+            (row, tile.row_span, tile.lane_index, tile.lane_count)
+            for row, tile in positioned_room_tiles(lanes)
+        ] == [(2, 2, 0, 1), (4, 2, 0, 1)]
+        assert lanes.row_lengths == [30]
+
+    def test_every_hour_that_starts_a_session_anchors_exactly_one_slot(self):
+        # The scrubber's markers are whole hours, so each hour that starts
+        # anything has to anchor one #slot- of its own — including an hour whose
+        # only session starts at :30, which is the case cutting rows introduced.
+        sessions = {
+            1: self._session(
+                pk=1, start_hour=15, start_minute=30, end_hour=16, end_minute=30
+            ),
+            2: self._session(
+                pk=2, start_hour=16, start_minute=30, end_hour=17, end_minute=30
+            ),
+        }
+        days = build_schedule_days(sessions)
+
+        lanes = build_room_lanes(days)
+
+        assert [row.slot_key for row in lanes.rows if row.opens_slot] == [
+            hour.slot_key for day in days for hour in day.hours
+        ]
+
+
+class TestRoomLaneOrdering:
+    @staticmethod
+    def _in_room(
+        *,
+        parent_id: int,
+        parent_name: str,
+        space_id: int,
+        space_name: str,
+        sort_path: tuple[tuple[int, str, int], ...],
+    ) -> SessionData:
+        tz = timezone.get_current_timezone()
+        return make_session_data(
+            agenda_item=AgendaItemDTO(
+                start_time=datetime(2026, 7, 10, 10, tzinfo=tz),
+                end_time=datetime(2026, 7, 10, 11, tzinfo=tz),
+                pk=1,
+                session_confirmed=True,
+            ),
+            loc=location(
+                parent_id=parent_id,
+                parent_name=parent_name,
+                space_id=space_id,
+                space_name=space_name,
+                sort_path=sort_path,
+            ),
+        )
+
+    def test_columns_follow_the_space_tree_not_the_alphabet(self):
+        # "Aula" sorts first alphabetically but sits on the second floor, which
+        # the organizer ordered last.
+        sessions = {
+            1: self._in_room(
+                parent_id=20,
+                parent_name="Piętro 2",
+                space_id=21,
+                space_name="Aula",
+                sort_path=((1, "Piętro 2", 20), (0, "Aula", 21)),
+            ),
+            2: self._in_room(
+                parent_id=10,
+                parent_name="Piętro 1",
+                space_id=12,
+                space_name="Sala B",
+                sort_path=((0, "Piętro 1", 10), (1, "Sala B", 12)),
+            ),
+            3: self._in_room(
+                parent_id=10,
+                parent_name="Piętro 1",
+                space_id=11,
+                space_name="Sala A",
+                sort_path=((0, "Piętro 1", 10), (0, "Sala A", 11)),
+            ),
+        }
+
+        lanes = build_room_lanes(build_schedule_days(sessions))
+
+        assert [(lane.group, lane.name, lane.starts_group) for lane in lanes.rooms] == [
+            ("Piętro 1", "Sala A", True),
+            ("Piętro 1", "Sala B", False),
+            ("Piętro 2", "Aula", True),
+        ]
+        assert [tile.col for tile in lanes.rows[0].starting_tiles] == [1, 2, 3]
+
+    def test_same_named_parents_in_different_branches_stay_apart(self):
+        sessions = {
+            1: self._in_room(
+                parent_id=11,
+                parent_name="Parter",
+                space_id=12,
+                space_name="Sala | A",
+                sort_path=(
+                    (0, "Budynek | A", 10),
+                    (0, "Parter", 11),
+                    (0, "Sala | A", 12),
+                ),
+            ),
+            2: self._in_room(
+                parent_id=21,
+                parent_name="Parter",
+                space_id=22,
+                space_name="Sala B",
+                sort_path=((1, "Budynek B", 20), (0, "Parter", 21), (0, "Sala B", 22)),
+            ),
+        }
+
+        lanes = build_room_lanes(build_schedule_days(sessions))
+
+        assert [(lane.group, lane.name, lane.starts_group) for lane in lanes.rooms] == [
+            ("Parter", "Sala | A", True),
+            ("Parter", "Sala B", True),
+        ]

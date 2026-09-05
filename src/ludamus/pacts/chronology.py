@@ -36,6 +36,13 @@ if TYPE_CHECKING:
     from ludamus.pacts.submissions import ImportRow
 
 
+# A convention day ends when people go to sleep, not at midnight: a session
+# that runs from Friday 22:00 into the small hours is Friday's programme, and
+# a reader at 02:00 is still living Friday. Every schedule layout, server- and
+# client-side alike, turns its days over at this hour.
+PROGRAMME_DAY_STARTS_AT_HOUR = 6
+
+
 class IntegrationKind(StrEnum):
     IMPORT = "import"
     TICKETING = "ticketing"

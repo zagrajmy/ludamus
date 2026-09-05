@@ -5,6 +5,8 @@ from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Self, TypedDict
 
+from django.utils.translation import ngettext
+
 from ludamus.gates.web.django.entities import UserInfo
 from ludamus.gates.web.django.helpers import placeholder_cover_url
 from ludamus.pacts import EventListItemDTO
@@ -35,6 +37,15 @@ if TYPE_CHECKING:
 class CloudPill:
     icon: str
     value: str
+
+
+@dataclass(frozen=True)
+class LocationCrumb:
+    name: str
+    space_filter: str | None
+
+
+_VENUE_FILTER_PREFIX = "venue:"
 
 
 @dataclass
@@ -81,6 +92,17 @@ class ParticipationInfo:
     status: str
     creation_time: datetime
     is_shadowbanned: bool = False
+
+
+def _seat_count(seats: int) -> str:
+    return ngettext("%(counter)s seat", "%(counter)s seats", seats) % {"counter": seats}
+
+
+def _seats_free(free: int) -> str:
+    # NOTE: "free" does not inflect in English, so both forms read the same.
+    # The plural is still declared, for the languages where it does — Polish
+    # picks a different one of its four for 1, 2 and 5.
+    return ngettext("%(counter)s free", "%(counter)s free", free) % {"counter": free}
 
 
 @dataclass
@@ -191,6 +213,24 @@ class SessionData:  # pylint: disable=too-many-instance-attributes
             self.spots_left / self.effective_participants_limit < self._SCARCE_THRESHOLD
         )
 
+    @property
+    def seats_label(self) -> str:
+        """State this session's seats, where sign-up is not on offer.
+
+        Returns:
+            The muted label: a cap, or what is free of one.
+        """
+        # Never "N spots left": that one is teal, and neither state reaching
+        # here has an invitation to make.
+        if self.is_unscheduled:
+            # No window can seat an unscheduled session, so none has halved
+            # the room its author asked for, and nobody holds a seat in it.
+            return _seat_count(self.session.participants_limit)
+        if self.enrolled_count:
+            # The cap has stopped answering "how much room is there".
+            return _seats_free(self.spots_left)
+        return _seat_count(self.effective_participants_limit)
+
     def public_select_answers(self) -> Iterator[tuple[str, str]]:
         """Yield every (field slug, value) a public select field carries.
 
@@ -234,6 +274,23 @@ class SessionData:  # pylint: disable=too-many-instance-attributes
     @property
     def location_label(self) -> str:
         return self.loc.get("path", "")
+
+    @property
+    def location_crumbs(self) -> list[LocationCrumb]:
+        if not (path := self.loc["sort_path"]):
+            return []
+        space_id = self.loc["space_id"]
+        parent_id = self.loc["parent_id"]
+        crumbs: list[LocationCrumb] = []
+        for _order, name, pk in path:
+            if pk == space_id:
+                space_filter = str(pk)
+            elif pk == parent_id:
+                space_filter = f"{_VENUE_FILTER_PREFIX}{pk}"
+            else:
+                space_filter = None
+            crumbs.append(LocationCrumb(name=name, space_filter=space_filter))
+        return crumbs
 
 
 class FilterAvailability(TypedDict):
