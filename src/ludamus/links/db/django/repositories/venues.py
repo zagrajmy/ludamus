@@ -5,6 +5,7 @@ from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
 from django.db.models import Max, Value
 from django.db.models.functions import Lower
+from django.utils import timezone
 from django.utils.text import slugify
 
 from ludamus.links.db.django.models import (
@@ -34,6 +35,7 @@ from ludamus.pacts import (
 )
 from ludamus.pacts.tracks import DuplicateTrackNameError
 from ludamus.pacts.venues import (
+    ProgrammeSpaceRowDTO,
     SpaceInputDTO,
     SpaceRecordDTO,
     SpaceTreeNodeDTO,
@@ -74,7 +76,9 @@ class SpaceRepository(SpaceRepositoryProtocol):
 
     @staticmethod
     def list_by_event(event_pk: int) -> list[SpaceDTO]:
-        spaces = Space.objects.filter(event_id=event_pk).order_by("order", "name")
+        spaces = Space.objects.filter(event_id=event_pk).order_by(
+            "order", "name", "pk"
+        )
         return [SpaceDTO.model_validate(space) for space in spaces]
 
 
@@ -127,6 +131,40 @@ class SpaceTreeRepository(SpaceTreeRepositoryProtocol):
         return [build(root) for root in children_by_parent.get(None, [])]
 
     @staticmethod
+    def list_programme_spaces(event_id: int) -> list[ProgrammeSpaceRowDTO]:
+        spaces = list(
+            Space.objects.filter(event_id=event_id)
+            .order_by("programme_order", "name", "pk")
+            .prefetch_related("tracks")
+        )
+        by_pk = {space.pk: space for space in spaces}
+        scheduled_pks = SpaceTreeRepository.space_pks_with_sessions(event_id)
+        path_cache: dict[int, str] = {}
+
+        def path(space: Space) -> str:
+            if cached := path_cache.get(space.pk):
+                return cached
+            value = (
+                f"{path(by_pk[space.parent_id])} > {space.name}"
+                if space.parent_id is not None
+                else space.name
+            )
+            path_cache[space.pk] = value
+            return value
+
+        return [
+            ProgrammeSpaceRowDTO(
+                pk=space.pk,
+                name=space.name,
+                path=path(space),
+                programme_order=space.programme_order,
+                track_names=sorted(track.name for track in space.tracks.all()),
+            )
+            for space in spaces
+            if space.pk in scheduled_pks
+        ]
+
+    @staticmethod
     def read(pk: int) -> SpaceRecordDTO:
         try:
             space = Space.objects.get(pk=pk)
@@ -138,6 +176,7 @@ class SpaceTreeRepository(SpaceTreeRepositoryProtocol):
     def create(
         self, *, event_id: int, parent_id: int | None, data: SpaceInputDTO
     ) -> SpaceRecordDTO:
+        Event.objects.select_for_update().get(pk=event_id)
         slug = self.generate_unique_slug(event_id, parent_id, slugify(data.name))
         max_order = Space.objects.filter(
             event_id=event_id, parent_id=parent_id
@@ -151,6 +190,7 @@ class SpaceTreeRepository(SpaceTreeRepositoryProtocol):
             description=data.description,
             location=data.location,
             order=(max_order if max_order is not None else -1) + 1,
+            programme_order=self._next_programme_order(event_id),
         )
         try:
             space.full_clean()
@@ -224,6 +264,29 @@ class SpaceTreeRepository(SpaceTreeRepositoryProtocol):
                 space.save(update_fields=["order", "modification_time"])
 
     @staticmethod
+    @transaction.atomic
+    def reorder_programme(event_id: int, space_pks: list[int]) -> None:
+        spaces = list(
+            Space.objects.select_for_update()
+            .filter(event_id=event_id)
+            .order_by("programme_order", "name", "pk")
+        )
+        scheduled_pks = SpaceTreeRepository.space_pks_with_sessions(event_id)
+        if len(space_pks) != len(set(space_pks)) or set(space_pks) != scheduled_pks:
+            raise SpaceValidationError(
+                "Programme order must contain every scheduled space exactly once."
+            )
+
+        by_pk = {space.pk: space for space in spaces}
+        remaining = [space for space in spaces if space.pk not in scheduled_pks]
+        ordered = [by_pk[pk] for pk in space_pks] + remaining
+        modified = timezone.now()
+        for programme_order, space in enumerate(ordered):
+            space.programme_order = programme_order
+            space.modification_time = modified
+        Space.objects.bulk_update(ordered, ["programme_order", "modification_time"])
+
+    @staticmethod
     def subtree_has_sessions(pk: int) -> bool:
         event_pk = Space.objects.values_list("event_id", flat=True).get(pk=pk)
         children_by_parent: dict[int, list[int]] = defaultdict(list)
@@ -277,6 +340,7 @@ class SpaceTreeRepository(SpaceTreeRepositoryProtocol):
             source = Space.objects.get(pk=pk)
         except Space.DoesNotExist as err:
             raise NotFoundError from err
+        Event.objects.select_for_update().get(pk=source.event_id)
         clone = self._clone_subtree(
             source, event_id=source.event_id, parent_id=source.parent_id, name=new_name
         )
@@ -288,6 +352,7 @@ class SpaceTreeRepository(SpaceTreeRepositoryProtocol):
             source = Space.objects.get(pk=pk)
         except Space.DoesNotExist as err:
             raise NotFoundError from err
+        Event.objects.select_for_update().get(pk=target_event_id)
         # The copied subtree becomes a root in the target event.
         clone = self._clone_subtree(source, event_id=target_event_id, parent_id=None)
         return SpaceRecordDTO.model_validate(clone)
@@ -310,10 +375,20 @@ class SpaceTreeRepository(SpaceTreeRepositoryProtocol):
             description=source.description,
             location=source.location,
             order=source.order,
+            programme_order=self._next_programme_order(event_id),
         )
-        for child in Space.objects.filter(parent_id=source.pk).order_by("order"):
+        for child in Space.objects.filter(parent_id=source.pk).order_by(
+            "order", "name", "pk"
+        ):
             self._clone_subtree(child, event_id=event_id, parent_id=clone.pk)
         return clone
+
+    @staticmethod
+    def _next_programme_order(event_id: int) -> int:
+        current = Space.objects.filter(event_id=event_id).aggregate(
+            top=Max("programme_order")
+        )["top"]
+        return (current if current is not None else -1) + 1
 
 
 class TimeSlotRepository(TimeSlotRepositoryProtocol):
