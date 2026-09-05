@@ -4875,14 +4875,14 @@ syntax = ["tree-sitter (>=0.25.0) ; python_version >= \"3.10\"", "tree-sitter-ba
 
 [[package]]
 name = "tingle"
-version = "0.7.0"
+version = "0.7.2"
 description = "Constant refactoring monitoring tool"
 optional = false
 python-versions = "<4.0,>=3.11"
 groups = ["dev"]
 files = [
-    {file = "tingle-0.7.0-py3-none-any.whl", hash = "sha256:c29e3ceb6e993ad42443d32f0061ab99a51c824a6d7a52cca3517953b98359a2"},
-    {file = "tingle-0.7.0.tar.gz", hash = "sha256:355d6c46e7b76ad0d8b9ffe196585521749adc366dbd252d9cbb4f0dd93a9ee8"},
+    {file = "tingle-0.7.2-py3-none-any.whl", hash = "sha256:1ff26f4edbd44fdc0dfbad1f295aee5c6c4dd40e5fb2f9303a861bb06ea40c9d"},
+    {file = "tingle-0.7.2.tar.gz", hash = "sha256:74b4d9edde4ffbfbc5c428a5f56e2c5e0864f2ab44cbbfceb315dc2c50b39ca8"},
 ]
 
 [package.dependencies]
@@ -5381,4 +5381,4 @@ dev = ["doc8", "flake8", "flake8-import-order", "rstcheck[sphinx]", "ruff", "sph
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.14.0,<3.15"
-content-hash = "d0c181d2ff3904591d2920b3316203673e13f85a5efe7323f4ec0ffa29b0072b"
+content-hash = "bd7af3be8130a4d9718d237e374fb6aa2de56c9f10e7860dacf5c0d05c27f4bf"
