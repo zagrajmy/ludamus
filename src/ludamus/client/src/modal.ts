@@ -99,13 +99,24 @@ interface ViewTransitionDocument {
   startViewTransition?: (callback: () => void) => ViewTransition;
 }
 
+// Held on <html> for a transition's lifetime: it opts the root out of the
+// capture (modal.css), which is what keeps the page under a modal animation
+// tappable — the root's snapshot would otherwise stand in for every element on
+// it, and a snapshot takes no taps.
+const ROOT_PAGE_LIVE = "vt-page-live";
+
 const startViewTransition = (callback: () => void): ViewTransition | null => {
   const doc = document as Document & ViewTransitionDocument;
   if (!doc.startViewTransition) {
     callback();
     return null;
   }
-  return doc.startViewTransition(callback);
+  document.documentElement.classList.add(ROOT_PAGE_LIVE);
+  const transition = doc.startViewTransition(callback);
+  void transition.finished
+    .catch(() => null)
+    .finally(() => document.documentElement.classList.remove(ROOT_PAGE_LIVE));
+  return transition;
 };
 
 const isSkippedTransitionError = (error: unknown): boolean =>
@@ -120,10 +131,6 @@ const ignoreSkippedTransition = (error: unknown): void => {
 
 const MORPH_NAME = "session-morph";
 const CARD_SUPPRESSED = "session-suppressed";
-// <html> classes that scope the page-blur keyframes to a morph's lifetime (see
-// modal.css). Derived from MORPH_NAME so the prefix relationship is explicit.
-const ROOT_MORPH_OPEN = `${MORPH_NAME}-open`;
-const ROOT_MORPH_CLOSE = `${MORPH_NAME}-close`;
 
 const sessionCardForModal = (id: string): HTMLElement | null => {
   if (!id.startsWith("session-")) return null;
@@ -162,10 +169,6 @@ const setMorph = (root: HTMLElement, active: boolean): void => {
   setSubMorph(root, active);
 };
 
-const setRootMorph = (className: string, active: boolean): void => {
-  document.documentElement.classList.toggle(className, active);
-};
-
 const morphTransition = (steps: {
   before: () => void;
   settle: () => void;
@@ -180,18 +183,9 @@ const morphTransition = (steps: {
   return transition.finished.catch(ignoreSkippedTransition).finally(steps.settle);
 };
 
-// A session dialog exits on its own CSS transition (modal.css) and gains
-// nothing from a view transition over it — the root crossfade only hid that
-// exit while holding every tap on the page for its captures and its run,
-// which is the half second after closing when a reader reaches for the
-// search box. App modals keep it: their close animation is drawn on the
-// transition's old snapshot (::view-transition-old(app-modal)).
-const exitsOnItsOwn = (dialog: HTMLDialogElement): boolean =>
-  prefersReducedMotion() || dialog.id.startsWith("session-");
-
 const dismissDialog = (dialog: HTMLDialogElement): void => {
   if (!dialog.open) return;
-  if (exitsOnItsOwn(dialog)) {
+  if (prefersReducedMotion()) {
     dialog.close();
     return;
   }
@@ -252,11 +246,9 @@ const openModal = async (
       openingModals.add(id);
       morphPromise = morphTransition({
         before: () => {
-          setRootMorph(ROOT_MORPH_OPEN, true);
           setMorph(card, true);
         },
         settle: () => {
-          setRootMorph(ROOT_MORPH_OPEN, false);
           openingModals.delete(id);
           setMorph(dialog, false);
           card.style.transition = "";
@@ -297,11 +289,9 @@ const closeModal = (
     if (animate && canMorph(card)) {
       morphTransition({
         before: () => {
-          setRootMorph(ROOT_MORPH_CLOSE, true);
           setContainerMorph(dialog, true);
         },
         settle: () => {
-          setRootMorph(ROOT_MORPH_CLOSE, false);
           setContainerMorph(card, false);
         },
         swap: () => {

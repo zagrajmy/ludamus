@@ -605,9 +605,11 @@ test.describe("Event schedule views", () => {
     await expect(tiles.first()).toHaveCSS("opacity", "0.65");
   });
 
-  test("the search box takes the first tap right after a session modal closes", async ({
+  test("the search box takes a tap while a session modal is still animating out", async ({
+    browserName,
     page,
   }) => {
+    test.skip(browserName !== "chromium", "Slows animations over the devtools protocol");
     await page.goto(DENSE_EVENT_URL);
     await page
       .getByRole("link", { name: /^Open details for / })
@@ -616,16 +618,34 @@ test.describe("Event schedule views", () => {
     const dialog = page.locator("dialog.modal[open]");
     await expect(dialog).toBeVisible();
 
-    // A raw pointer press, not click(): click() waits until the element can
-    // receive pointer events, which is exactly the wait a reader does not get.
-    // The tap must land while the dialog is still fading out.
     const search = page.locator("#session-filter");
     const box = await search.boundingBox();
     if (!box) throw new Error("The search box needs a position to tap");
+    // Held open for seconds, so the tap below lands mid-animation rather than
+    // racing a quarter-second exit; a real reader's tap lands there too. A
+    // playback rate, not an injected stylesheet: the page's CSP drops the
+    // latter without a word.
+    const devtools = await page.context().newCDPSession(page);
+    await devtools.send("Animation.enable");
+    await devtools.send("Animation.setPlaybackRate", { playbackRate: 0.05 });
     await page.keyboard.press("Escape");
+    // The dialog closes inside the transition's update step, a frame in; from
+    // then on the page is what the reader is tapping, whatever is still
+    // animating above it. A raw pointer press, not click(): click() waits
+    // until the element can receive pointer events, which is exactly the
+    // wait a reader does not get.
+    await expect(dialog).toHaveCount(0);
+    // The animations start on the transition's ready step, a frame after the
+    // close; wait for them so the tap is provably mid-animation.
+    await page.waitForFunction(() =>
+      document
+        .getAnimations()
+        .some((a) =>
+          (a.effect as KeyframeEffect | null)?.pseudoElement?.startsWith("::view-transition"),
+        ),
+    );
     await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
     await expect(search).toBeFocused();
-    await expect(dialog).toHaveCount(0);
   });
 
   test("the ledger stays unmarked before the programme opens", async ({ page }) => {

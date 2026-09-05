@@ -45,7 +45,10 @@
       display 0.35s allow-discrete;
   }
 
-  .modal[open]:not([id^="session-"]) {
+  /* Every open dialog is a transition group of its own, so a dismissal draws
+     modal-close-out on its snapshot. A morphing session dialog overrides this
+     with session-morph inline for the morph's lifetime (modal.ts). */
+  .modal[open] {
     view-transition-name: app-modal;
   }
 
@@ -104,11 +107,17 @@
   visibility: hidden;
 }
 
-/* The transition's pseudo-tree covers the viewport and, by default, takes
-   every pointer event while it runs, so a tap a third of a second after
-   closing a modal hits the animation rather than the page. Let it fall
-   through: the old and new snapshots are pictures, and the live page under
-   them is what the reader is reaching for. */
+/* The page stays live under a modal transition. Two rules make that so, and
+   neither works alone: the root opts out of the transition for its lifetime
+   (modal.ts holds the class), because a captured element is painted only as
+   its snapshot and takes no taps, and the root captured is the whole page;
+   and the pseudo-tree, which covers the viewport and by default takes every
+   pointer event, lets them fall through to the live page under it. Only the
+   card and the dialog are snapshots, and those are what animate. */
+:root.vt-page-live {
+  view-transition-name: none;
+}
+
 ::view-transition {
   pointer-events: none;
 }
@@ -269,54 +278,10 @@
   }
 }
 
-::view-transition-old(root),
-::view-transition-new(root) {
-  animation-duration: 0.2s;
-  animation-timing-function: var(--ease-out);
-}
-
-/* Drive the background-page blur as part of the card<->modal morph so it grows
-   from the tap instead of snapping in once the morph settles. Safari doesn't
-   rasterise the ::backdrop's backdrop-filter into the view-transition snapshot,
-   so the live blur only appears after the transition; simulate it here by
-   blurring the root snapshot (the page behind), which is painted below the
-   morphing modal group and so leaves the modal itself crisp. The end state
-   matches the live ::backdrop blur, so the hand-off when the transition ends is
-   seamless. modal.ts toggles these classes on <html> for the morph's lifetime. */
-:root.session-morph-open::view-transition-new(root) {
-  animation: page-blur-in var(--vt-morph-duration) var(--vt-morph-ease) both;
-}
-
-:root.session-morph-close::view-transition-old(root) {
-  animation: page-blur-out var(--vt-morph-exit-duration) var(--vt-morph-ease) both;
-}
-
-/* These keyframes replace the UA default root cross-fade (the opacity rule
-   above), so they re-supply the opacity fade themselves — editing opacity here
-   drives the page cross-fade, not just the blur, now on the morph's timing. */
-@keyframes page-blur-in {
-  from {
-    opacity: 0;
-    filter: blur(0);
-  }
-
-  to {
-    opacity: 1;
-    filter: blur(var(--modal-backdrop-blur));
-  }
-}
-
-@keyframes page-blur-out {
-  from {
-    opacity: 1;
-    filter: blur(var(--modal-backdrop-blur));
-  }
-
-  to {
-    opacity: 0;
-    filter: blur(0);
-  }
-}
+/* The blur behind a modal is the live ::backdrop's own transition (above): the
+   page is not captured, so there is no root snapshot to paint a blur onto,
+   and Safari's refusal to rasterise backdrop-filter into a snapshot no
+   longer matters — the backdrop never leaves the live tree. */
 
 @media (prefers-reduced-motion: reduce) {
   ::view-transition-old(app-modal) {
