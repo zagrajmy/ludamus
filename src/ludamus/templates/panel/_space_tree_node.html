@@ -5,10 +5,11 @@
     data-space-id="{{ node.space.pk }}">
     <div class="flex items-center justify-between gap-2 rounded-lg px-3 py-2 hover:bg-bg-tertiary">
         <div class="flex min-w-0 items-center gap-2">
-            <button type="button"
-                    class="drag-handle icon-btn cursor-move text-foreground-muted"
-                    aria-label="{% blocktranslate with name=node.space.name %}Reorder {{ name }} — use the arrow keys{% endblocktranslate %}">
-                {% icon "bars-3" class="w-4 h-4" %}
+            <button type="button" class="drag-handle icon-btn group cursor-move text-foreground-muted" {% if node.children %} aria-expanded="true" aria-controls="space-children-{{ node.space.pk }}" title="{% translate "Click to collapse or expand; drag to reorder" %}" aria-label="{% blocktranslate with name=node.space.name %}Toggle children of {{ name }} — drag or use arrow keys to reorder{% endblocktranslate %}" {% else %} aria-label="{% blocktranslate with name=node.space.name %}Reorder {{ name }} — use the arrow keys{% endblocktranslate %}" {% endif %}>
+                {% icon "bars-3" class="w-4 h-4 group-aria-[expanded=false]:hidden" %}
+                {% if node.children %}
+                    {% icon "chevron-right" class="hidden w-4 h-4 group-aria-[expanded=false]:block" %}
+                {% endif %}
             </button>
             {% if node.is_leaf %}
                 {% icon "square-3-stack-3d" class="w-4 h-4 shrink-0 text-success" %}
@@ -112,7 +113,8 @@
         </div>
     </div>
     {% if node.children %}
-        <ul class="space-list ml-5 border-l border-border pl-1"
+        <ul id="space-children-{{ node.space.pk }}"
+            class="space-list ml-5 border-l border-border pl-1"
             data-parent-pk="{{ node.space.pk }}">
             {% for child in node.children %}
                 {% include "panel/_space_tree_node.html" with node=child %}
