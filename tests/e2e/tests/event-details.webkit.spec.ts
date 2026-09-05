@@ -1,6 +1,11 @@
 import { expect, test } from "./helpers/fixtures";
 import { createIosModalContext } from "./helpers/ios-modal";
-import { settleViewTransitions } from "./helpers/view-transitions";
+import {
+  settleViewTransitions,
+  supportsViewTransitions,
+  trackViewTransitions,
+  viewTransitionsStarted,
+} from "./helpers/view-transitions";
 
 // Touch and pointer behaviour on a phone-sized WebKit. The engine is the
 // subject here — hit regions, touchmove, and what a modal does over a
@@ -53,6 +58,84 @@ test.describe("Event detail page on a phone", () => {
     expect(box).not.toBeNull();
     await page.touchscreen.tap(box!.x + box!.width / 2, box!.y + box!.height / 2);
     await expect(detailDialog).toBeHidden();
+    await context.close();
+  });
+
+  test("closing a session modal on iOS starts no view transition", async ({
+    browser,
+    browserName,
+  }) => {
+    test.skip(browserName === "firefox", "Firefox does not support mobile emulation");
+    const context = await createIosModalContext(browser, browserName);
+    const page = await context.newPage();
+    await trackViewTransitions(page);
+    await page.goto("/event/autumn-open/");
+    // Pinned: without the API the counter could only ever read zero, and the
+    // test would pass for the wrong reason.
+    expect(await supportsViewTransitions(page)).toBe(true);
+
+    // The toolbar at the top of the screen and a card under it, both in view,
+    // as a reader who has just scrolled to the programme has them. Tapped in
+    // place, not pressed: focusing a card would scroll it into view and take
+    // the toolbar off the screen the tap below needs it on.
+    const TOOLBAR_TOP = 80;
+    const search = page.locator("#session-filter");
+    await page.evaluate((top) => {
+      const root = document.getElementById("app-scroll");
+      const box = document.getElementById("session-filter");
+      if (root && box) root.scrollTop += box.getBoundingClientRect().top - top;
+    }, TOOLBAR_TOP);
+    await expect(search).toBeInViewport();
+    const opener = await page.evaluate(() => {
+      const viewport = globalThis.innerHeight;
+      for (const link of document.querySelectorAll<HTMLAnchorElement>(
+        "a[aria-controls^='session-']",
+      )) {
+        const box = link.getBoundingClientRect();
+        // Clear of the toolbar above and of the cookie strip along the bottom.
+        if (box.top < 140 || box.bottom > viewport - 20) continue;
+        // A card's selectable text sits over its link with pointer events of
+        // its own, so a tap has to land where the link itself is hit.
+        const candidates = [
+          [box.left + 16, box.top + 12],
+          [box.right - 16, box.top + 12],
+          [box.left + 16, box.bottom - 12],
+          [box.left + box.width / 2, box.top + 12],
+        ];
+        for (const [x, y] of candidates) {
+          const hit = document.elementFromPoint(x, y);
+          if (hit === link || link.contains(hit)) {
+            return {
+              title: (link.getAttribute("aria-label") ?? "").replace("Open details for ", ""),
+              x,
+              y,
+            };
+          }
+        }
+      }
+      return null;
+    });
+    if (!opener) throw new Error("The fixture needs a card in view under the toolbar");
+    await page.touchscreen.tap(opener.x, opener.y);
+    const dialog = page.getByRole("dialog", { name: opener.title });
+    await expect(dialog).toBeVisible();
+    // The open morph holds vt-page-live on <html> for its lifetime (modal.ts).
+    await expect(page.locator("html")).not.toHaveClass(/vt-page-live/);
+
+    const startedBefore = await viewTransitionsStarted(page);
+    const close = await dialog.getByRole("button", { name: "Close" }).boundingBox();
+    const searchBox = await search.boundingBox();
+    if (!close || !searchBox) throw new Error("The close button and the search box need positions");
+    await page.touchscreen.tap(close.x + close.width / 2, close.y + close.height / 2);
+    // The very next tap, with nothing awaited in between: on an iPhone the
+    // transition's capture alone used to hold this tap for about a second.
+    await page.touchscreen.tap(
+      searchBox.x + searchBox.width / 2,
+      searchBox.y + searchBox.height / 2,
+    );
+    await expect(search).toBeFocused();
+    await expect(dialog).toBeHidden();
+    expect(await viewTransitionsStarted(page)).toBe(startedBefore);
     await context.close();
   });
 
