@@ -3,7 +3,7 @@
 // into this page: it is cacheable, and a line rendered server-side would be
 // stale the moment it was served.
 
-import { eventTimeZone } from "./event-time";
+import { eventTimeZone, programmeDate, programmeDayStartHour } from "./event-time";
 
 const MINUTE_MS = 60_000;
 
@@ -46,43 +46,45 @@ const placeInGrid = (at: number): void => {
   marker.hidden = true;
 };
 
-// The ledger: a list of rows rather than a time axis, so the seam moves to sit
-// between what has started and what has not.
+// A row a filter took out is [hidden] (session-filters.ts); a folded day
+// hides its rows with CSS instead (schedule-fold.ts) and still counts: the
+// programme has begun whether or not yesterday is open on screen.
+const shownRows = (): HTMLElement[] =>
+  [...document.querySelectorAll<HTMLElement>(".session-grid .session-wrapper")].filter(
+    (row) => !row.closest("[hidden]"),
+  );
+
+const rowInstant = (row: HTMLElement, field: "end" | "start"): number =>
+  Date.parse(row.querySelector<HTMLElement>(".session")?.dataset[field] ?? "");
+
+// The ledger: a list of rows rather than a time axis, so the seam sits between
+// what has started and what has not. It belongs to the programme day holding
+// now: on a morning before that day's first session it opens the day at its
+// top rather than trailing yesterday's last row.
 const placeInList = (at: number): void => {
   const seam = document.querySelector<HTMLElement>("[data-schedule-now]");
   if (!seam) return;
 
-  let lastStarted: HTMLElement | undefined;
-  let programmeIsRunning = false;
-  for (const row of document.querySelectorAll<HTMLElement>(".session-grid .session-wrapper")) {
-    if (!row.checkVisibility()) continue;
-    const session = row.querySelector<HTMLElement>(".session");
-    const instant = session?.dataset.start ?? "";
-    const start = Date.parse(instant);
-    if (Number.isNaN(start)) continue;
-    if (start > at) {
-      if (!lastStarted) {
-        seam.hidden = true;
-        return;
-      }
-      setTime(seam, eventClock(at));
-      lastStarted.after(seam);
-      seam.hidden = false;
-      return;
-    }
-
-    lastStarted = row;
-    const end = Date.parse(session?.dataset.end ?? "");
-    programmeIsRunning ||= !Number.isNaN(end) && at < end;
-  }
-
-  if (lastStarted && programmeIsRunning) {
-    setTime(seam, eventClock(at));
-    lastStarted.after(seam);
-    seam.hidden = false;
+  const rows = shownRows();
+  const started = rows.filter((row) => rowInstant(row, "start") <= at);
+  const lastStarted = started.at(-1);
+  const upcoming = rows.some((row) => rowInstant(row, "start") > at);
+  const running = started.some((row) => at < rowInstant(row, "end"));
+  if (!lastStarted || (!upcoming && !running)) {
+    seam.hidden = true;
     return;
   }
-  seam.hidden = true;
+
+  const today = programmeDate(at, eventTimeZone(), programmeDayStartHour());
+  const isToday = (row: HTMLElement): boolean =>
+    row.closest<HTMLElement>("[data-schedule-day]")?.dataset.day === today;
+  const lastStartedToday = started.findLast(isToday);
+  const firstToday = rows.find(isToday);
+  setTime(seam, eventClock(at));
+  if (lastStartedToday) lastStartedToday.after(seam);
+  else if (firstToday) firstToday.before(seam);
+  else lastStarted.after(seam);
+  seam.hidden = false;
 };
 
 // What is over reads as over. The served page states which sessions had ended

@@ -614,6 +614,38 @@ test.describe("Event schedule views", () => {
     await expect(page.locator("[data-schedule-now]")).toBeHidden();
   });
 
+  test("the ledger opens the current day at its top on a morning before its programme", async ({
+    page,
+  }) => {
+    await page.goto(DENSE_EVENT_URL);
+    // Three hours before day two's first session: yesterday is over, today has
+    // not begun, and the seam belongs to today rather than to yesterday's tail.
+    const secondDay = page.locator("[data-schedule-day]").nth(1);
+    const opens = scheduleMoment(
+      await secondDay.locator(".session-grid .session").first().getAttribute("data-start"),
+    );
+    const at = new Date(opens.timestamp - 3 * 60 * 60_000);
+    const atClock = clockAfter(opens.clock, -3 * 60);
+    await page.clock.install({ time: at });
+    await page.goto(DENSE_EVENT_URL);
+
+    const marker = page.getByText(`Now ${atClock}`);
+    await expect(marker).toBeVisible();
+    await expect(secondDay).not.toHaveAttribute("data-folded");
+    const seamDay = await marker.evaluate(
+      (el) => el.closest<HTMLElement>("[data-schedule-day]")?.dataset.day,
+    );
+    expect(seamDay).toBe(await secondDay.getAttribute("data-day"));
+    const [line, heading, firstRow] = await Promise.all([
+      marker.boundingBox(),
+      secondDay.getByRole("heading").first().boundingBox(),
+      secondDay.getByRole("article").first().boundingBox(),
+    ]);
+    const seamY = (line?.y ?? 0) + (line?.height ?? 0) / 2;
+    expect(seamY).toBeGreaterThan((heading?.y ?? 0) + (heading?.height ?? 0));
+    expect(seamY).toBeLessThanOrEqual((firstRow?.y ?? 0) + 1);
+  });
+
   test("the ledger marks the seam between finished and upcoming", async ({ page }) => {
     await page.goto(DENSE_EVENT_URL);
     const opens = await firstStart(page);
@@ -751,14 +783,16 @@ test.describe("Event schedule views", () => {
     await expect(lanes).toBeVisible();
   });
 
-  test("a filter that empties a day takes the whole day with it", async ({ page }) => {
+  test("a filter that empties a day keeps its name and drops its hours", async ({ page }) => {
     await page.goto(`${DENSE_EVENT_URL}?view=rooms`);
+    const lanes = page.locator(".room-lanes").first();
     const days = page.getByRole("heading", { level: 3 });
-    const before = await days.count();
-    const firstDay = squash(await days.first().textContent());
-    expect(before).toBeGreaterThan(1);
+    const shownDays = await days.filter({ visible: true }).count();
+    expect(shownDays).toBeGreaterThan(1);
+    const rowSelector = ".room-lanes-time[data-lane-row]:not(.room-lanes-collapsed)";
+    const rowCount = await lanes.locator(rowSelector).count();
 
-    // One session's title: whatever day it is on survives, the rest empty out.
+    // One session's title from the last day: every earlier day empties out.
     const title = await page
       .getByRole("link", { name: /^Open details for / })
       .last()
@@ -766,13 +800,18 @@ test.describe("Event schedule views", () => {
     await page
       .getByRole("textbox", { name: "Search by name or text..." })
       .fill((title ?? "").replace("Open details for ", "").trim());
+    await expect.poll(() => lanes.locator(rowSelector).count()).toBeLessThan(rowCount);
 
-    // Whichever days lost every session are gone entirely — heading, blank
-    // hours and all — rather than leaving a stranded date over nothing.
-    await expect
-      .poll(async () => (await days.filter({ visible: true }).count()) < before)
-      .toBe(true);
-    await expect(page.getByRole("heading", { level: 3, name: firstDay })).toBeHidden();
+    // The day names are the reader's map of the event, so none goes with its
+    // rows — an emptied day stands as its heading alone, like a folded one.
+    await expect(days.filter({ visible: true })).toHaveCount(shownDays);
+    // A lull's label goes with its row: a collapsed fold must not paint its
+    // label over whatever row comes next, doubling it with the neighbour's.
+    const folds = lanes.locator(".room-lanes-line[data-row-track='fold']");
+    await expect(folds.locator(":scope.room-lanes-collapsed")).not.toHaveCount(0);
+    for (const fold of await folds.locator(":scope.room-lanes-collapsed").all()) {
+      await expect(fold.locator(".room-lanes-fold-label")).toBeHidden();
+    }
   });
 
   test("the grid pans like a map: drag the background, or anything with Space", async ({
