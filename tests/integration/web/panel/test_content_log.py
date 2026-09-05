@@ -22,7 +22,7 @@ def _make_session(proposal_category):
         category=proposal_category,
         status="pending",
         title="Original title",
-        display_name="Original host",
+        facilitator_name="Original host",
         description="",
         contact_email="",
         duration="",
@@ -82,7 +82,7 @@ class TestContentLogRecordsEdits:
             data={
                 "category_id": session.category_id,
                 "title": "Updated title",
-                "display_name": "Original host",
+                "facilitator_name": "Original host",
                 "participants_limit": 5,
                 "min_age": 0,
             },
@@ -114,7 +114,7 @@ class TestContentLogRecordsEdits:
             data={
                 "category_id": session.category_id,
                 "title": "Original title",
-                "display_name": "Original host",
+                "facilitator_name": "Original host",
                 "participants_limit": 5,
                 "min_age": 0,
                 "facilitators_submitted": "1",
@@ -147,7 +147,7 @@ class TestContentLogRecordsEdits:
             data={
                 "category_id": session.category_id,
                 "title": "Updated title",
-                "display_name": "Original host",
+                "facilitator_name": "Original host",
                 "participants_limit": 5,
                 "min_age": 0,
                 "facilitators_submitted": "1",
@@ -272,7 +272,7 @@ class TestContentLogRecordsEdits:
             data={
                 "category_id": session.category_id,
                 "title": "Original title",
-                "display_name": "Original host",
+                "facilitator_name": "Original host",
                 "participants_limit": 5,
                 "min_age": 0,
                 "session_system": "Pathfinder",
@@ -298,7 +298,7 @@ class TestContentLogRecordsEdits:
             data={
                 "category_id": session.category_id,
                 "title": "Original title",
-                "display_name": "Original host",
+                "facilitator_name": "Original host",
                 "description": "",
                 "contact_email": "",
                 "participants_limit": 5,
@@ -322,7 +322,7 @@ class TestContentLogRecordsEdits:
             data={
                 "category_id": session.category_id,
                 "title": "Updated title",
-                "display_name": "Original host",
+                "facilitator_name": "Original host",
                 "participants_limit": 5,
                 "min_age": 0,
             },

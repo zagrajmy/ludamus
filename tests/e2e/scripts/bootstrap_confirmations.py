@@ -69,7 +69,7 @@ def _session(
         slug=slug,
         defaults={
             "title": title,
-            "display_name": "Harbour Days",
+            "facilitator_name": "Harbour Days",
             "description": f"{title} — seeded for the confirmations e2e run.",
             "duration": "PT2H",
             "participants_limit": 8,

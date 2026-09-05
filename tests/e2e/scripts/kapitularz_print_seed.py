@@ -364,7 +364,7 @@ def _create_sessions(
             event=event,
             title=title,
             slug=f"kapitularz-print-session-{index:03}",
-            display_name=facilitator.display_name,
+            facilitator_name=facilitator.display_name,
             contact_email=f"host-{index:03}@example.test",
             description=_description(index, spec.track_slug),
             duration=f"PT{duration_hours}H",

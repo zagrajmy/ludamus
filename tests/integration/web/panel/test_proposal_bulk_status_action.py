@@ -25,7 +25,7 @@ def _make_session(event, slug, **kwargs):
         "event": event,
         "category": category,
         "presenter": None,
-        "display_name": "Test Host",
+        "facilitator_name": "Test Host",
         "title": f"Session {slug}",
         "slug": slug,
         "participants_limit": 5,

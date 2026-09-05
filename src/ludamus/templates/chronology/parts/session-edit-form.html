@@ -34,14 +34,14 @@
             <div>{% tessera_field form.cover_image %}</div>
             <div>
                 <label class="block text-sm font-medium text-foreground-secondary mb-1"
-                       for="id_display_name">{% translate "Display Name" %}</label>
+                       for="id_facilitator_name">{% translate "Display Name" %}</label>
                 <input type="text"
-                       name="display_name"
-                       id="id_display_name"
-                       value="{{ form.display_name.value|default:'' }}"
-                       class="w-full border {% if form.display_name.errors %}border-danger{% else %}border-border{% endif %} rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary">
-                {% if form.display_name.errors %}
-                    <p class="mt-1 text-sm text-danger">{{ form.display_name.errors.0 }}</p>
+                       name="facilitator_name"
+                       id="id_facilitator_name"
+                       value="{{ form.facilitator_name.value|default:'' }}"
+                       class="w-full border {% if form.facilitator_name.errors %}border-danger{% else %}border-border{% endif %} rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary">
+                {% if form.facilitator_name.errors %}
+                    <p class="mt-1 text-sm text-danger">{{ form.facilitator_name.errors.0 }}</p>
                 {% endif %}
             </div>
             <div>

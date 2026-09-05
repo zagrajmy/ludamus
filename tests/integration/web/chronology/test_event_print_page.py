@@ -82,7 +82,8 @@ def _one_hour_page(*, event, session, space):
                     PrintTimetableCellDTO(
                         sessions=[
                             PrintSessionDTO(
-                                title=session.title, presenter_name=session.display_name
+                                title=session.title,
+                                presenter_name=session.facilitator_name,
                             )
                         ]
                     )
@@ -109,7 +110,7 @@ def _area_schedule_document(*, event, session, space, scope_name=None):
                 sessions=[
                     AreaScheduleSessionDTO(
                         title=session.title,
-                        presenter_name=session.display_name,
+                        presenter_name=session.facilitator_name,
                         description=session.description,
                         start_time=event.start_time,
                         end_time=event.start_time + timedelta(hours=1),

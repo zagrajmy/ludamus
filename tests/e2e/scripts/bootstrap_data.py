@@ -190,7 +190,7 @@ def _create_session(
 ) -> Session:
     session = Session.objects.create(
         event=event,
-        display_name=presenter,
+        facilitator_name=presenter,
         title=title,
         slug=slug,
         description=description,
@@ -326,7 +326,7 @@ def _create_promotion_scenario(sphere: Sphere, *, superuser: User) -> None:
     space = _create_space(area, name="Demo Room", slug="demo-room", capacity=1)
     session = Session.objects.create(
         event=event,
-        display_name="Demo GM",
+        facilitator_name="Demo GM",
         title="Waitlist Promotion Demo",
         slug="waitlist-promotion-demo",
         description="A full session used by the promotion e2e.",
@@ -837,7 +837,7 @@ def _create_accept_lab_event(sphere: Sphere) -> Event:
         Session.objects.create(
             event=event,
             presenter=User.objects.get(username="e2e-tester"),
-            display_name="E2E Tester",
+            facilitator_name="E2E Tester",
             contact_email="e2e@test.local",
             category=category,
             title=title,
@@ -1119,7 +1119,7 @@ def main() -> None:
     pending_session = Session.objects.create(
         event=upcoming_event,
         presenter=tester,
-        display_name="E2E Tester",
+        facilitator_name="E2E Tester",
         contact_email="e2e@test.local",
         category=proposal_category,
         title="Pending Neon Proposal",
@@ -1138,7 +1138,7 @@ def main() -> None:
     open_session = Session.objects.create(
         event=upcoming_event,
         presenter=tester,
-        display_name="E2E Tester",
+        facilitator_name="E2E Tester",
         contact_email="e2e@test.local",
         category=proposal_category,
         title="Open Table Proposal",

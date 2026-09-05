@@ -128,7 +128,7 @@ PROPOSAL_COLUMNS: dict[str, BuiltinColumn[SessionListItemDTO]] = builtin_columns
     {
         "title": BuiltinColumn(label=gettext_lazy("Title"), cell=lambda p: p.title),
         "host": BuiltinColumn(
-            label=gettext_lazy("Display Name"), cell=lambda p: p.display_name
+            label=gettext_lazy("Display Name"), cell=lambda p: p.facilitator_name
         ),
         "category": BuiltinColumn(
             label=gettext_lazy("Category"), cell=lambda p: p.category_name

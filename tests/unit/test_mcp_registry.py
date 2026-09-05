@@ -131,7 +131,7 @@ def test_invalid_arguments_message_hides_input_values():
 def test_sanitize_audit_arguments_redacts_sensitive_fields():
     arguments = {
         "event_id": 1,
-        "display_name": "Alice",
+        "facilitator_name": "Alice",
         "description": "Secret plot",
         "title": "Workshop",
     }
@@ -142,7 +142,7 @@ def test_sanitize_audit_arguments_redacts_sensitive_fields():
 
     assert redacted == {
         "event_id": 1,
-        "display_name": "[redacted]",
+        "facilitator_name": "[redacted]",
         "description": "[redacted]",
         "title": "Workshop",
     }
@@ -153,13 +153,13 @@ def test_sanitize_batch_audit_arguments_keeps_only_correlation_keys():
         "sessions": [
             {
                 "source_row_id": "row-1",
-                "display_name": "Alice",
+                "facilitator_name": "Alice",
                 "description": "Secret plot",
                 "title": "Workshop",
             },
             {
                 "source_row_id": "row-2",
-                "display_name": "Bob",
+                "facilitator_name": "Bob",
                 "description": "Another secret",
                 "title": "Panel",
             },

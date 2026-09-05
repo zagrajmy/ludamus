@@ -729,7 +729,7 @@ class SessionEditForm(forms.Form):
         label=_("Title"),
         error_messages={"required": _("Title is required.")},
     )
-    display_name = forms.CharField(
+    facilitator_name = forms.CharField(
         max_length=255,
         strip=True,
         label=_("Display Name"),

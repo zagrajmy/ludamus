@@ -250,7 +250,7 @@ def create_and_assign_sessions(
                 "category_id": refs.categories[item.category],
                 "description": item.description,
                 "duration": iso_duration(item.end - item.start),
-                "display_name": ", ".join(item.presenters),
+                "facilitator_name": ", ".join(item.presenters),
                 "facilitator_ids": [
                     refs.facilitators[name] for name in item.presenters
                 ],
@@ -278,9 +278,10 @@ def create_and_assign_sessions(
                 drift.append(f"{item.source_row_id}: {', '.join(differences)}")
                 continue
             wanted = ", ".join(item.presenters)
-            if session.get("display_name") != wanted:
+            if session.get("facilitator_name") != wanted:
                 client.call_object(
-                    "update_session", {"pk": int(session["pk"]), "display_name": wanted}
+                    "update_session",
+                    {"pk": int(session["pk"]), "facilitator_name": wanted},
                 )
                 healed += 1
             created_or_existing[item.source_row_id] = int(session["pk"])

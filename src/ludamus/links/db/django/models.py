@@ -1065,7 +1065,7 @@ class Session(SoftDeleteModel):
     facilitators = models.ManyToManyField(
         Facilitator, blank=True, related_name="sessions"
     )
-    display_name = models.CharField(max_length=255)
+    facilitator_name = models.CharField(max_length=255)
     contact_email = models.EmailField(default="", blank=True)
     category = models.ForeignKey(
         "ProposalCategory",
@@ -1229,7 +1229,7 @@ class AgendaItem(models.Model):
 
     def __str__(self) -> str:
         return (
-            f"{self.session.title} by {self.session.display_name} "
+            f"{self.session.title} by {self.session.facilitator_name} "
             f"({self.session_confirmed})"
         )
 

@@ -106,7 +106,7 @@ class TestProposeSessionPageView:
         client.post(
             self._get_details_url(event_slug),
             {
-                "display_name": "Test User",
+                "facilitator_name": "Test User",
                 "title": "Test Session",
                 "description": "A test session",
                 "participants_limit": "6",
@@ -124,7 +124,7 @@ class TestProposeSessionPageView:
             "category_id": category.pk,
             "contact_email": "proposer@example.com",
             "session_data": {
-                "display_name": "Test User",
+                "facilitator_name": "Test User",
                 "title": "Test Session",
                 "participants_limit": 6,
             },
@@ -295,7 +295,7 @@ class TestProposeSessionPageView:
         authenticated_client.post(
             self._get_details_url(event.slug),
             {
-                "display_name": "Test User",
+                "facilitator_name": "Test User",
                 "title": "Test Session",
                 "description": "A test session",
                 "participants_limit": "6",
@@ -321,7 +321,7 @@ class TestProposeSessionPageView:
         response = authenticated_client.post(
             self._get_details_url(event.slug),
             {
-                "display_name": "Test User",
+                "facilitator_name": "Test User",
                 "title": "",
                 "description": "A test session",
                 "participants_limit": "6",
@@ -582,7 +582,7 @@ class TestProposeSessionPageView:
         response = authenticated_client.post(
             self._get_details_url(event.slug),
             {
-                "display_name": "Presenter",
+                "facilitator_name": "Presenter",
                 "title": "Skipped Defaults",
                 "description": "Single category and slot",
                 "participants_limit": proposal_category.min_participants_limit,
@@ -770,7 +770,7 @@ class TestProposeSessionPageView:
         response = authenticated_client.post(
             self._get_details_url(event.slug),
             {
-                "display_name": "Presenter",
+                "facilitator_name": "Presenter",
                 "title": "My RPG Session",
                 "description": "A great adventure",
                 "participants_limit": "6",
@@ -808,7 +808,7 @@ class TestProposeSessionPageView:
         response = authenticated_client.post(
             self._get_details_url(event.slug),
             {
-                "display_name": "Presenter",
+                "facilitator_name": "Presenter",
                 "title": "My Session",
                 "description": "A test session",
                 "participants_limit": "4",
@@ -830,7 +830,7 @@ class TestProposeSessionPageView:
         response = authenticated_client.post(
             self._get_details_url(event.slug),
             {
-                "display_name": "Presenter",
+                "facilitator_name": "Presenter",
                 "title": "My Session",
                 "description": "A test session",
                 "participants_limit": "4",
@@ -878,7 +878,7 @@ class TestProposeSessionPageView:
         response = authenticated_client.post(
             self._get_details_url(event.slug),
             {
-                "display_name": "Presenter",
+                "facilitator_name": "Presenter",
                 "title": "My Session",
                 "description": "A test session",
                 "participants_limit": "4",
@@ -915,7 +915,7 @@ class TestProposeSessionPageView:
         response = authenticated_client.post(
             self._get_details_url(event.slug),
             {
-                "display_name": "Presenter",
+                "facilitator_name": "Presenter",
                 "title": "Space Opera",
                 "description": "A test session",
                 "participants_limit": "5",
@@ -959,7 +959,7 @@ class TestProposeSessionPageView:
         session[f"propose_{event.slug}"] = {
             "category_id": proposal_category.pk,
             "session_data": {
-                "display_name": "Prefilled Name",
+                "facilitator_name": "Prefilled Name",
                 "title": "Prefilled Title",
                 "participants_limit": 8,
             },
@@ -1084,7 +1084,7 @@ class TestProposeSessionPageView:
         response = authenticated_client.post(
             self._get_details_url(event.slug),
             {
-                "display_name": "Presenter",
+                "facilitator_name": "Presenter",
                 "title": "My Session",
                 "description": "A test session",
                 "participants_limit": "4",
@@ -1118,7 +1118,7 @@ class TestProposeSessionPageView:
         response = authenticated_client.post(
             self._get_details_url(event.slug),
             {
-                "display_name": "Presenter",
+                "facilitator_name": "Presenter",
                 "title": "Full Session",
                 "participants_limit": "5",
                 "description": "Full description",
@@ -1156,7 +1156,7 @@ class TestProposeSessionPageView:
         response = authenticated_client.post(
             self._get_details_url(event.slug),
             {
-                "display_name": "Presenter",
+                "facilitator_name": "Presenter",
                 "title": "My Session",
                 "description": "A test session",
                 "participants_limit": "4",
@@ -1187,7 +1187,7 @@ class TestProposeSessionPageView:
         assert response.template_name == "event/propose/parts/review.html"
         assert response.context["review"]["title"] == "Test Session"
 
-    def test_details_prefills_display_name(
+    def test_details_prefills_facilitator_name(
         self,
         authenticated_client,
         event,
@@ -1204,9 +1204,9 @@ class TestProposeSessionPageView:
         )
 
         form = response.context["form"]
-        assert form.initial["display_name"] == active_user.name
+        assert form.initial["facilitator_name"] == active_user.name
 
-    def test_submit_uses_display_name_from_wizard(
+    def test_submit_uses_facilitator_name_from_wizard(
         self, authenticated_client, event, faker, time_zone, proposal_category
     ):
         self._activate_proposals(event, faker, time_zone)
@@ -1215,7 +1215,7 @@ class TestProposeSessionPageView:
             event,
             proposal_category,
             session_data={
-                "display_name": "My Custom Name",
+                "facilitator_name": "My Custom Name",
                 "title": "Test Session",
                 "participants_limit": 6,
             },
@@ -1224,7 +1224,7 @@ class TestProposeSessionPageView:
         authenticated_client.post(self._get_submit_url(event.slug), {})
 
         session = Session.objects.get(title="Test Session")
-        assert session.display_name == "My Custom Name"
+        assert session.facilitator_name == "My Custom Name"
 
     def test_submit_creates_session_and_proposal(
         self, authenticated_client, event, faker, time_zone, proposal_category
@@ -1583,7 +1583,7 @@ class TestProposeSessionPageView:
             "session_data": {
                 "title": "Test",
                 "description": "Desc",
-                "display_name": "Presenter",
+                "facilitator_name": "Presenter",
                 "contact_email": "test@example.com",
             },
         }
@@ -1606,7 +1606,7 @@ class TestProposeSessionPageView:
         Session.objects.create(
             event=event,
             presenter=active_user,
-            display_name="Other",
+            facilitator_name="Other",
             category=proposal_category,
             title="Test Session",
             slug="test-session",
@@ -1698,7 +1698,7 @@ class TestProposeSessionPageView:
             response = authenticated_client.post(
                 self._get_details_url(event.slug),
                 {
-                    "display_name": "Test User",
+                    "facilitator_name": "Test User",
                     "title": "Test Session",
                     "description": "A test session",
                     "participants_limit": "6",
@@ -1721,7 +1721,7 @@ class TestProposeSessionPageView:
                     "category_name": proposal_category.name,
                     "contact_email": "",
                     "description": "A test session",
-                    "display_name": "Test User",
+                    "facilitator_name": "Test User",
                     "duration": "",
                     "min_age": 0,
                     "participants_limit": 6,
@@ -1755,7 +1755,7 @@ class TestProposeSessionPageView:
         response = authenticated_client.post(
             self._get_details_url(event.slug),
             {
-                "display_name": "Test User",
+                "facilitator_name": "Test User",
                 "title": "Test Session",
                 "description": "A test session",
                 "participants_limit": "6",
@@ -1797,7 +1797,7 @@ class TestProposeSessionPageView:
         response = authenticated_client.post(
             self._get_details_url(event.slug),
             {
-                "display_name": "Test User",
+                "facilitator_name": "Test User",
                 "title": "Test Session",
                 "description": "A test session",
                 "participants_limit": "6",
@@ -2019,7 +2019,7 @@ class TestProposeSessionPageView:
         authenticated_client.post(
             self._get_details_url(event.slug),
             {
-                "display_name": "Test User",
+                "facilitator_name": "Test User",
                 "title": "Test Session",
                 "description": "A test session",
                 "participants_limit": "6",
@@ -2053,7 +2053,7 @@ class TestProposeSessionPageView:
         authenticated_client.post(
             self._get_details_url(event.slug),
             {
-                "display_name": "Test User",
+                "facilitator_name": "Test User",
                 "title": "Test Session",
                 "description": "A test session",
                 "participants_limit": "6",
@@ -2076,7 +2076,7 @@ class TestProposeSessionPageView:
         response = authenticated_client.post(
             self._get_details_url(event.slug),
             {
-                "display_name": "Test User",
+                "facilitator_name": "Test User",
                 "title": "Test Session",
                 "description": "A test session",
                 "participants_limit": "6",
@@ -2101,7 +2101,7 @@ class TestProposeSessionPageView:
         response = authenticated_client.post(
             self._get_details_url(event.slug),
             {
-                "display_name": "Test User",
+                "facilitator_name": "Test User",
                 "title": "Test Session",
                 "description": "A test session",
                 "participants_limit": "6",
@@ -2132,7 +2132,7 @@ class TestProposeSessionPageView:
         authenticated_client.post(
             self._get_details_url(event.slug),
             {
-                "display_name": "Test User",
+                "facilitator_name": "Test User",
                 "title": "Test Session",
                 "description": "A test session",
                 "participants_limit": "6",
@@ -2461,7 +2461,7 @@ class TestProposeSessionPageView:
                 "category": ProposalCategoryDTO.model_validate(proposal_category),
                 "review": {
                     "category_name": proposal_category.name,
-                    "display_name": "Test User",
+                    "facilitator_name": "Test User",
                     "title": "Test Session",
                     "description": "",
                     "participants_limit": 6,
@@ -2820,7 +2820,7 @@ class TestAnonymousProposalSubmission:
             "category_id": category.pk,
             "contact_email": "anon@example.com",
             "session_data": {
-                "display_name": "Anonymous GM",
+                "facilitator_name": "Anonymous GM",
                 "title": "Anon Session",
                 "participants_limit": 6,
             },
@@ -2894,7 +2894,7 @@ class TestAnonymousProposalSubmission:
         response = client.post(
             self._url(event.slug, "details"),
             {
-                "display_name": "Anonymous GM",
+                "facilitator_name": "Anonymous GM",
                 "title": "My Anonymous Game",
                 "description": "A fun game for everyone",
                 "participants_limit": expected_limit,
@@ -2906,7 +2906,7 @@ class TestAnonymousProposalSubmission:
         assert response.status_code == HTTPStatus.FOUND
 
         session = Session.objects.get(title="My Anonymous Game")
-        assert session.display_name == "Anonymous GM"
+        assert session.facilitator_name == "Anonymous GM"
         assert session.presenter_id is None
         assert session.status == "pending"
         assert session.participants_limit == expected_limit

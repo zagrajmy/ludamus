@@ -21,7 +21,7 @@
         {# tile column — see _session_card.html. #}
         <h4 class="w-fit text-sm font-semibold leading-snug text-foreground wrap-anywhere text-pretty"
             data-morph="title">{{ data.session.title }}</h4>
-        {% if data.session.display_name or data.presenter %}
+        {% if data.session.facilitator_name or data.presenter %}
             <div class="flex min-w-0 items-center gap-0.75 text-xs text-foreground-muted">
                 <span class="shrink-0" data-morph="avatar">
                     {# No corner rule here: the mark sits beside the name, not on the #}
@@ -29,7 +29,7 @@
                     {% include "components/avatar.html" with user=data.presenter size="size-5" danger_ring=data.presenter_is_shadowbanned %}
                 </span>
                 {% include "components/guild_mark.html" with guild=data.guild size="size-4" extra_class="relative" %}
-                <span class="truncate" data-morph="host">{{ data.session.display_name }}</span>
+                <span class="truncate" data-morph="host">{{ data.session.facilitator_name }}</span>
             </div>
         {% endif %}
         <span class="truncate text-xs tabular-nums text-foreground-muted"
