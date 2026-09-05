@@ -154,13 +154,13 @@ class ComboboxNode(template.Node):
 
 @register.tag("tessera_combobox")
 def do_combobox(parser: Parser, token: Token) -> ComboboxNode:
-    """Parse ``{% tessera_combobox ... %}...{% endtessera_combobox %}``.
+    """Parse ``{% tessera_combobox ... %}...{% end_tessera_combobox %}``.
 
     Returns:
         A ComboboxNode rendering a select plus the shell that upgrades it.
     """
     attrs = parse_tag_attrs(parser, token)
-    nodelist = parser.parse(("endtessera_combobox",))
+    nodelist = parser.parse(("end_tessera_combobox",))
     parser.delete_first_token()
 
     return ComboboxNode(nodelist, attrs)

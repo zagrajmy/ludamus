@@ -73,15 +73,15 @@
                                     </tr>
                                 {% endfor %}
                             </tbody>
-                        {% endtessera_table %}
+                        {% end_tessera_table %}
                         {% include "components/_pagination.html" %}
                     {% else %}
                         <div class="card p-8 text-center">
                             <p class="text-foreground-muted">{% translate "The bin is empty. Deleted facilitators land here." %}</p>
                         </div>
                     {% endif %}
-                {% endtab_shell_body %}
-            {% endtab_shell %}
+                {% end_tab_shell_body %}
+            {% end_tab_shell %}
         {% else %}
             <div class="card p-8 text-center">
                 <p class="text-foreground-muted">{% translate "No events available. Create an event to get started." %}</p>

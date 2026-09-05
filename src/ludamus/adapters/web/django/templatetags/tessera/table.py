@@ -46,7 +46,7 @@ class TableNode(template.Node):
 
 @register.tag("tessera_table")
 def do_tessera_table(parser: Parser, token: Token) -> TableNode:
-    """Parse ``{% tessera_table %}...{% endtessera_table %}``.
+    """Parse ``{% tessera_table %}...{% end_tessera_table %}``.
 
     Returns:
         A TableNode that wraps its body in ``<div class="card overflow-hidden">
@@ -54,6 +54,6 @@ def do_tessera_table(parser: Parser, token: Token) -> TableNode:
         Caller writes their own ``<thead>``/``<tbody>``.
     """
     attrs = parse_tag_attrs(parser, token)
-    nodelist = parser.parse(("endtessera_table",))
+    nodelist = parser.parse(("end_tessera_table",))
     parser.delete_first_token()
     return TableNode(nodelist, attrs)

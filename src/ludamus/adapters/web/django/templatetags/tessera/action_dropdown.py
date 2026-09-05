@@ -103,12 +103,12 @@ def do_action_dropdown(parser: Parser, token: Token) -> ActionDropdownNode:
         {% action_dropdown_menu %}
             {% tessera_action_dropdown_item t_gcal href=gcal_url external=True %}
             {% tessera_action_dropdown_item t_ics href=ics_url icon="arrow-down-tray" %}
-        {% endtessera_action_dropdown %}
+        {% end_tessera_action_dropdown %}
     """
     attrs = parse_tag_attrs(parser, token)
     trigger = parser.parse(("action_dropdown_menu",))
     parser.delete_first_token()
-    items = parser.parse(("endtessera_action_dropdown",))
+    items = parser.parse(("end_tessera_action_dropdown",))
     parser.delete_first_token()
     return ActionDropdownNode(trigger, items, attrs)
 

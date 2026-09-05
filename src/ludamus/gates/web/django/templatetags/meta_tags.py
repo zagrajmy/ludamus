@@ -36,6 +36,6 @@ class DocumentTitleNode(template.Node):
 
 @register.tag("document_title")
 def document_title(parser: Parser, _token: Token) -> DocumentTitleNode:
-    nodelist = parser.parse(("enddocument_title",))
+    nodelist = parser.parse(("end_document_title",))
     parser.delete_first_token()
     return DocumentTitleNode(nodelist)

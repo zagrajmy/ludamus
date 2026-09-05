@@ -71,13 +71,13 @@ class SwitcherNode(template.Node):
 
 @register.tag("tessera_switcher")
 def tessera_switcher(parser: Parser, token: Token) -> SwitcherNode:
-    """Parse a ``{% tessera_switcher %}...{% endtessera_switcher %}`` block.
+    """Parse a ``{% tessera_switcher %}...{% end_tessera_switcher %}`` block.
 
     Returns:
         A SwitcherNode rendering a themed segmented radio group.
     """
     attrs = parse_tag_attrs(parser, token)
-    nodelist = parser.parse(("endtessera_switcher",))
+    nodelist = parser.parse(("end_tessera_switcher",))
     parser.delete_first_token()
     return SwitcherNode(nodelist, attrs)
 
@@ -137,7 +137,7 @@ class SegmentNode(template.Node):
 
 @register.tag("tessera_segment")
 def tessera_segment(parser: Parser, token: Token) -> SegmentNode:
-    """Parse a ``{% tessera_segment "value" %}...{% endtessera_segment %}`` block.
+    """Parse a ``{% tessera_segment "value" %}...{% end_tessera_segment %}`` block.
 
     Returns:
         A SegmentNode rendering one radio segment of a switcher.
@@ -156,6 +156,6 @@ def tessera_segment(parser: Parser, token: Token) -> SegmentNode:
         key, _, raw = bit.partition("=")
         attrs[key] = parser.compile_filter(raw)
 
-    nodelist = parser.parse(("endtessera_segment",))
+    nodelist = parser.parse(("end_tessera_segment",))
     parser.delete_first_token()
     return SegmentNode(nodelist=nodelist, value=value, attrs=attrs)

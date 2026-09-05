@@ -1,0 +1,17 @@
+# Project linter rules, chained after djlint's own rules.yaml.
+#
+# T038U replaces the built-in T038, which is disabled in pyproject.toml's
+# `[tool.djlint] ignore`. Same check, except that a closer may spell itself
+# `{% end_name %}` as well as `{% endname %}` — tessera's block tags use the
+# underscore. See scripts/djlint_underscore_end.py for why the rule is copied
+# rather than delegated to.
+#
+# The module is imported by name, so `scripts` has to be on PYTHONPATH. djlint
+# runs from three places and all three set it: the `lint:djlint` and
+# `format:djlint` tasks in mise.toml, and the `djlint` step in hk.pkl. A
+# missing module aborts the djlint run, so a fourth caller fails loudly rather
+# than quietly dropping the rule.
+- rule:
+    name: T038U
+    message: Block tag has no matching end tag.
+    python_module: djlint_underscore_end

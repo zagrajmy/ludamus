@@ -307,6 +307,17 @@ If you fix a papercut, remove it.
   actually correct. Took a while to spot because the failure looked like a real
   regression. A note in the e2e docs, or a staleness check on the reused server,
   would have saved it.
+- 2026-08-19: hk pre-commit failed with a ruff TOML parse error (unrelated to my
+  diff) because poetry's virtualenvs.in-project was unset, so poetry installed
+  into a cache-dir venv while mise/hk resolved a stray global
+  /root/.local/bin/ruff 0.15.8 that doesn't understand a rule alias the pinned
+  0.16.3 does. Fixed with 'poetry config virtualenvs.in-project true' +
+  reinstall into .venv.
+- 2026-08-21: hk pre-commit inside this worktree resolved a stray global
+  /root/.local/bin/ruff 0.15.8 and missing djlint/codespell because Bash tool
+  calls don't persist PATH across invocations; also node_modules was absent
+  (aube install needed for oxfmt). Had to export .venv/bin first and run 'aube
+  install' + 'git commit' in the same Bash call.
 - 2026-08-21: Full local e2e in the web sandbox: 15 auth/panel specs + the
   anonymous-code modal reopen test fail deterministically (86 more don't run),
   while CI passes the same commits — sandbox env issue, not code; cost a bisect
@@ -324,6 +335,13 @@ If you fix a papercut, remove it.
   was unset; the traceback only later explained pytest-django could not
   initialize. Use mise run test:int -- PATH so the task supplies the test
   environment.
+- 2026-08-24: PR #825 stale-sweep (2026-08-24): main's proposals.html conflict
+  was a real structural refactor (bulk-status form ->
+  panel/parts/_bulk_toolbar.html + _bulk_select.html componentization, not just
+  a closer-spelling clash); taking the old HEAD-side table markup verbatim would
+  have left an orphaned </form> with no opener. Diffed both sides against the
+  merge base to see main had extracted a whole new partial before trusting 'take
+  main's content'.
 - 2026-08-22: mise run messages-resolve failed: 'aubr varlock django-admin
   makemessages' crashes at django.setup() — zeal.patch.patch_generic_foreign_key
   does GenericForeignKey.__get__, which no longer exists in the installed
