@@ -6984,6 +6984,11 @@ msgstr "Dziennik"
 
 #: src/ludamus/templates/panel/_space_tree_node.html
 #, python-format
+msgid "Toggle children of %(name)s"
+msgstr "Zwiń lub rozwiń zawartość %(name)s"
+
+#: src/ludamus/templates/panel/_space_tree_node.html
+#, python-format
 msgid "Reorder %(name)s — use the arrow keys"
 msgstr "Zmień kolejność: %(name)s — użyj strzałek"
 
@@ -10162,6 +10167,16 @@ msgid ""
 msgstr ""
 "Nie ma nadchodzących wydarzeń ani publicznych spotkań. Sprawdź ponownie "
 "później!"
+
+#~ msgid "Click to collapse or expand; drag to reorder"
+#~ msgstr ""
+#~ "Kliknij, aby zwinąć lub rozwinąć; przeciągnij, aby zmienić kolejność"
+
+#, python-format
+#~ msgid "Toggle children of %(name)s — drag or use arrow keys to reorder"
+#~ msgstr ""
+#~ "Zwiń lub rozwiń zawartość %(name)s — przeciągnij lub użyj strzałek, aby "
+#~ "zmienić kolejność"
 
 #, python-format
 #~ msgid "Select every venue under %(name)s"
