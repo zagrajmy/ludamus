@@ -309,7 +309,7 @@
                     {{ sessions|length }}
                 </span>
             </div>
-            {% if event.is_proposal_active %}
+            {% if proposing_open %}
                 <a href="{% url 'web:event:session-propose' event_slug=event.slug %}"
                    class="btn btn-primary text-sm">
                     {% icon "plus" class="w-4 h-4" variant="mini" %} {% translate "Propose Session" %}
@@ -553,7 +553,7 @@
         {% include "chronology/_proposal_section.html" with cards=own_pending_proposals is_own=True %}
     {% endif %}
     <!-- Propose Session CTA -->
-    {% if event.is_proposal_active %}
+    {% if proposing_open %}
         <div class="mt-12 text-center">
             <div class="inline-flex flex-col items-center p-8 rounded-3xl border border-border bg-linear-135 from-bg-tertiary to-bg-secondary xl:w-[512px] xl:px-16">
                 <div class="w-16 h-16 bg-coral-100 dark:bg-coral-900/30 rounded-2xl flex items-center justify-center mb-4 rotate-3">

@@ -1,25 +1,29 @@
 from datetime import timedelta
 from http import HTTPStatus
-from unittest.mock import patch
+from unittest.mock import ANY, patch
 
 import pytest
 from django.contrib import messages
 from django.core.files.storage import default_storage
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.db import IntegrityError
 from django.template.loader import render_to_string
 from django.test import RequestFactory
 from django.urls import reverse
+from django.utils import timezone
 
 from ludamus.gates.web.django import propose_cover
 from ludamus.gates.web.django.event import propose
 from ludamus.inits.services import Services
 from ludamus.links.db.django.models import (
+    AgendaItem,
     EventProposalSettings,
     Facilitator,
     PersonalDataField,
     PersonalDataFieldOption,
     PersonalDataFieldRequirement,
     PersonalDataFieldValue,
+    ProposalCategory,
     Session,
     SessionField,
     SessionFieldOption,
@@ -39,6 +43,8 @@ from ludamus.pacts.images import StoredFile
 from tests.integration.conftest import (
     PNG_BYTES,
     ProposalCategoryFactory,
+    SessionFactory,
+    SpaceFactory,
     TimeSlotFactory,
 )
 from tests.integration.utils import assert_response
@@ -71,6 +77,11 @@ class TestProposeSessionPageView:
     def _get_timeslots_url(self, event_slug: str) -> str:
         return reverse(
             "web:event:session-propose-timeslots", kwargs={"event_slug": event_slug}
+        )
+
+    def _get_spot_url(self, event_slug: str) -> str:
+        return reverse(
+            "web:event:session-propose-spot", kwargs={"event_slug": event_slug}
         )
 
     def _get_details_url(self, event_slug: str) -> str:
@@ -735,6 +746,35 @@ class TestProposeSessionPageView:
         assert response.status_code == HTTPStatus.OK
         assert response.context["form"] is not None
         assert response.template_name == "event/propose/parts/details.html"
+
+    def test_post_spot_skips_when_the_event_takes_no_claims(
+        self, authenticated_client, event, faker, time_zone, proposal_category
+    ):
+        self._activate_proposals(event, faker, time_zone)
+        self._set_wizard_category(authenticated_client, event, proposal_category)
+
+        response = authenticated_client.post(self._get_spot_url(event.slug), {})
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={
+                "event": EventDTO.model_validate(event),
+                "proposal_settings": EventProposalSettingsDTO(
+                    allow_anonymous_proposals=False, description="", pk=0
+                ),
+                "current_step": "details",
+                "wizard_steps": ["personal", "details", "review"],
+                "category": ProposalCategoryDTO.model_validate(proposal_category),
+                "form": ANY,
+                "image_form": ANY,
+                "field_descriptors": [],
+                "public_tracks": [],
+                "selected_track_pks": [],
+                "track_error": None,
+            },
+            template_name="event/propose/parts/details.html",
+        )
 
     def test_post_timeslots_preserves_selection(
         self, authenticated_client, event, faker, time_zone, proposal_category
@@ -1730,6 +1770,7 @@ class TestProposeSessionPageView:
                     "public_personal_fields": [],
                     "public_session_fields": [],
                     "time_slots": [],
+                    "spot": None,
                     "title": "Test Session",
                 },
                 "wizard_steps": ["personal", "details", "review"],
@@ -2473,6 +2514,7 @@ class TestProposeSessionPageView:
                     "public_personal_fields": [],
                     "private_personal_fields": [],
                     "time_slots": [],
+                    "spot": None,
                 },
                 "current_step": "review",
                 "wizard_steps": ["personal", "details", "review"],
@@ -3023,10 +3065,12 @@ class TestProposeWizardWithoutCategory:
             category=category, time_slot=TimeSlotFactory(event=event)
         )
         service = Services().propose_session
+        event_dto = service.get_event(event.slug, event.sphere_id)
         return propose._Wizard(
             request=RequestFactory().get("/"),
             service=service,
-            event=service.get_event(event.slug, event.sphere_id),
+            event=event_dto,
+            openness=service.get_openness(event_dto.pk),
         )
 
     def test_timeslot_requirements_are_empty(self, wizard):
@@ -3058,3 +3102,484 @@ class TestProposeTimeslotsTemplate:
 
         assert 'hx-trigger="load"' in html
         assert '"skip": "1"' in html
+
+
+class TestCategoryWindowGate:
+    """A category's own CFP window decides, on a published event."""
+
+    def _url(self, event_slug):
+        return reverse("web:event:session-propose", kwargs={"event_slug": event_slug})
+
+    def test_open_category_lets_a_shut_event_take_proposals(
+        self, authenticated_client, event
+    ):
+        # The event fixture's own CFP window has already closed.
+        now = timezone.now()
+        category = ProposalCategoryFactory(
+            event=event,
+            start_time=now - timedelta(hours=1),
+            end_time=now + timedelta(hours=1),
+        )
+
+        response = authenticated_client.get(self._url(event.slug))
+        form = response.context["form"]
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={
+                "event": EventDTO.model_validate(event),
+                "proposal_settings": EventProposalSettingsDTO(
+                    allow_anonymous_proposals=False, description="", pk=0
+                ),
+                "category": ProposalCategoryDTO.model_validate(category),
+                "form": form,
+                "field_descriptors": [],
+                "current_step": "personal",
+                # The event's own call for proposals has shut, so this is a
+                # walk-up claim: the spot picker replaces the slot preferences.
+                "wizard_steps": ["personal", "spot", "details", "review"],
+                "show_back_button": False,
+                "show_login_nudge": False,
+                "login_url": f"/crowd/login-required/?next={self._url(event.slug)}",
+                "wizard_part_template": "event/propose/parts/personal.html",
+            },
+            template_name="event/propose/base.html",
+        )
+
+    def test_lapsed_category_leaves_the_wizard(self, authenticated_client, event):
+        now = timezone.now()
+        event.proposal_end_time = now + timedelta(days=1)
+        event.save(update_fields=["proposal_end_time"])
+        open_category = ProposalCategoryFactory(event=event, name="Open")
+        ProposalCategoryFactory(
+            event=event, name="Lapsed", end_time=now - timedelta(hours=1)
+        )
+
+        response = authenticated_client.get(self._url(event.slug))
+        form = response.context["form"]
+
+        # One category left to offer, so the wizard picks it and skips the step.
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={
+                "event": EventDTO.model_validate(event),
+                "proposal_settings": EventProposalSettingsDTO(
+                    allow_anonymous_proposals=False, description="", pk=0
+                ),
+                "category": ProposalCategoryDTO.model_validate(open_category),
+                "form": form,
+                "field_descriptors": [],
+                "current_step": "personal",
+                "wizard_steps": ["personal", "details", "review"],
+                "show_back_button": False,
+                "show_login_nudge": False,
+                "login_url": f"/crowd/login-required/?next={self._url(event.slug)}",
+                "wizard_part_template": "event/propose/parts/personal.html",
+            },
+            template_name="event/propose/base.html",
+        )
+
+    def test_lapsed_category_cannot_be_picked(self, authenticated_client, event):
+        now = timezone.now()
+        event.proposal_end_time = now + timedelta(days=1)
+        event.save(update_fields=["proposal_end_time"])
+        ProposalCategoryFactory(event=event, name="Open")
+        lapsed = ProposalCategoryFactory(
+            event=event, name="Lapsed", end_time=now - timedelta(hours=1)
+        )
+
+        response = authenticated_client.post(
+            reverse(
+                "web:event:session-propose-category", kwargs={"event_slug": event.slug}
+            ),
+            {"category_id": lapsed.pk},
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.ERROR, "Invalid category.")],
+            url=self._url(event.slug),
+        )
+
+
+_CLAIM_STILL_WAITING = (
+    "Your last claim is still waiting for an answer. "
+    "Withdraw it before claiming another spot."
+)
+
+
+class TestClaimSpotFlow:
+    """The walk-up path: pick an empty cell, and the claim lands on the grid."""
+
+    @pytest.fixture(name="corridor")
+    def corridor_fixture(self, event):
+        # The event fixture's own CFP has shut; one category on its own clock
+        # is what opens the corridor.
+        now = timezone.now()
+        return ProposalCategoryFactory(
+            event=event,
+            name="Impromptu",
+            start_time=now - timedelta(hours=1),
+            end_time=now + timedelta(hours=1),
+        )
+
+    @pytest.fixture(name="space")
+    def space_fixture(self, event):
+        return SpaceFactory(event=event, name="Corridor")
+
+    @pytest.fixture(name="time_slot")
+    def time_slot_fixture(self, event):
+        return TimeSlotFactory(event=event)
+
+    def _url(self, name, event_slug):
+        return reverse(name, kwargs={"event_slug": event_slug})
+
+    def _spot_value(self, space, time_slot):
+        return f"{space.pk}:{time_slot.pk}"
+
+    def _spot_step_context(self, event, *, spot_groups, error=None):
+        return {
+            "event": EventDTO.model_validate(event),
+            "proposal_settings": EventProposalSettingsDTO(
+                allow_anonymous_proposals=False, description="", pk=0
+            ),
+            "category": ProposalCategoryDTO.model_validate(
+                ProposalCategory.objects.get(event=event)
+            ),
+            "current_step": "spot",
+            "wizard_steps": ["personal", "spot", "details", "review"],
+            "spot_groups": spot_groups,
+            "error": error,
+        }
+
+    def _one_free_room(self, space, time_slot, *, is_selected=False, group=""):
+        return [
+            {
+                "name": group,
+                "spaces": [
+                    {
+                        "pk": space.pk,
+                        "name": space.name,
+                        "slots": [
+                            {
+                                "value": self._spot_value(space, time_slot),
+                                "start_time": time_slot.start_time,
+                                "end_time": time_slot.end_time,
+                                "is_selected": is_selected,
+                            }
+                        ],
+                    }
+                ],
+            }
+        ]
+
+    @pytest.mark.usefixtures("corridor")
+    def test_anonymous_is_sent_to_login_even_when_the_event_allows_it(
+        self, client, event
+    ):
+        EventProposalSettings.objects.update_or_create(
+            event=event, defaults={"allow_anonymous_proposals": True}
+        )
+
+        url = self._url("web:event:session-propose", event.slug)
+
+        response = client.get(url)
+
+        assert_response(
+            response, HTTPStatus.FOUND, url=f"/crowd/login-required/?next={url}"
+        )
+
+    @pytest.mark.usefixtures("corridor")
+    def test_spot_step_offers_the_free_cells(
+        self, authenticated_client, event, space, time_slot
+    ):
+        authenticated_client.get(self._url("web:event:session-propose", event.slug))
+        response = authenticated_client.post(
+            self._url("web:event:session-propose-personal", event.slug),
+            {"contact_email": "walkup@example.com"},
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=self._spot_step_context(
+                event, spot_groups=self._one_free_room(space, time_slot)
+            ),
+            template_name="event/propose/parts/spot.html",
+        )
+
+    @pytest.mark.usefixtures("corridor")
+    def test_a_room_under_a_parent_is_offered_under_its_name(
+        self, authenticated_client, event, time_slot
+    ):
+        wing = SpaceFactory(event=event, name="East Wing")
+        room = SpaceFactory(event=event, name="Corridor", parent=wing)
+
+        authenticated_client.get(self._url("web:event:session-propose", event.slug))
+        response = authenticated_client.post(
+            self._url("web:event:session-propose-personal", event.slug),
+            {"contact_email": "walkup@example.com"},
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=self._spot_step_context(
+                event,
+                spot_groups=self._one_free_room(room, time_slot, group="East Wing"),
+            ),
+            template_name="event/propose/parts/spot.html",
+        )
+
+    @pytest.mark.usefixtures("corridor")
+    def test_the_picker_says_so_when_every_room_is_busy(
+        self, authenticated_client, event
+    ):
+        authenticated_client.get(self._url("web:event:session-propose", event.slug))
+        response = authenticated_client.post(
+            self._url("web:event:session-propose-personal", event.slug),
+            {"contact_email": "walkup@example.com"},
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=self._spot_step_context(event, spot_groups=[]),
+            template_name="event/propose/parts/spot.html",
+        )
+
+    @pytest.mark.usefixtures("corridor")
+    def test_back_on_the_picker_reopens_the_picker(
+        self, authenticated_client, event, space, time_slot
+    ):
+        authenticated_client.get(self._url("web:event:session-propose", event.slug))
+        authenticated_client.post(
+            self._url("web:event:session-propose-personal", event.slug),
+            {"contact_email": "walkup@example.com"},
+        )
+
+        response = authenticated_client.post(
+            self._url("web:event:session-propose-spot", event.slug), {"back": "1"}
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=self._spot_step_context(
+                event, spot_groups=self._one_free_room(space, time_slot)
+            ),
+            template_name="event/propose/parts/spot.html",
+        )
+
+    @pytest.mark.usefixtures("corridor")
+    def test_a_claim_lands_on_the_grid_as_a_pending_impromptu_session(
+        self, authenticated_client, event, space, time_slot, active_user
+    ):
+        self._walk_to_submit(authenticated_client, event, space, time_slot)
+
+        response = authenticated_client.post(
+            self._url("web:event:session-propose-submit", event.slug)
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=reverse("web:chronology:event", kwargs={"slug": event.slug}),
+            messages=[
+                (
+                    messages.SUCCESS,
+                    "Session proposal 'Corridor Game' submitted successfully!",
+                )
+            ],
+        )
+        session = Session.objects.get(event=event, title="Corridor Game")
+        assert session.is_impromptu is True
+        assert session.status == "pending"
+        assert session.presenter == active_user
+        agenda_item = AgendaItem.objects.get(session=session)
+        assert agenda_item.space == space
+        assert agenda_item.start_time == time_slot.start_time
+        assert agenda_item.end_time == time_slot.end_time
+
+    @pytest.mark.usefixtures("corridor")
+    def test_a_second_claim_is_refused_while_the_first_waits(
+        self, authenticated_client, event, space, time_slot
+    ):
+        self._walk_to_submit(authenticated_client, event, space, time_slot)
+        authenticated_client.post(
+            self._url("web:event:session-propose-submit", event.slug)
+        )
+        other_room = SpaceFactory(event=event, name="Foyer")
+
+        self._walk_to_submit(authenticated_client, event, other_room, time_slot)
+        response = authenticated_client.post(
+            self._url("web:event:session-propose-submit", event.slug)
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.ERROR, _CLAIM_STILL_WAITING)],
+            url=self._url("web:event:session-propose", event.slug),
+        )
+        assert Session.objects.filter(event=event, is_impromptu=True).count() == 1
+
+    @pytest.mark.usefixtures("corridor")
+    def test_the_constraint_refuses_a_second_claim_row(
+        self, authenticated_client, event, space, time_slot, active_user
+    ):
+        self._walk_to_submit(authenticated_client, event, space, time_slot)
+        authenticated_client.post(
+            self._url("web:event:session-propose-submit", event.slug)
+        )
+
+        with pytest.raises(IntegrityError):
+            Session.objects.create(
+                event=event,
+                category=ProposalCategory.objects.get(event=event),
+                presenter=active_user,
+                display_name="Walk Up",
+                title="Second Corridor Game",
+                slug="second-corridor-game",
+                participants_limit=4,
+                min_age=0,
+                status="pending",
+                is_impromptu=True,
+            )
+
+    @pytest.mark.usefixtures("corridor")
+    def test_a_spot_taken_meanwhile_sends_the_proposer_back_to_pick_again(
+        self, authenticated_client, event, space, time_slot
+    ):
+        self._walk_to_submit(authenticated_client, event, space, time_slot)
+        AgendaItem.objects.create(
+            session=SessionFactory(
+                category=ProposalCategory.objects.get(event=event),
+                participants_limit=4,
+                min_age=0,
+            ),
+            space=space,
+            start_time=time_slot.start_time,
+            end_time=time_slot.end_time,
+        )
+
+        response = authenticated_client.post(
+            self._url("web:event:session-propose-submit", event.slug)
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[
+                (
+                    messages.ERROR,
+                    "That spot has just been taken. Please pick another one.",
+                )
+            ],
+            url=self._url("web:event:session-propose", event.slug),
+        )
+        assert not Session.objects.filter(event=event, title="Corridor Game").exists()
+
+    @pytest.mark.usefixtures("corridor")
+    def test_back_from_details_returns_to_the_spot_picker(
+        self, authenticated_client, event, space, time_slot
+    ):
+        self._walk_to_submit(authenticated_client, event, space, time_slot)
+
+        response = authenticated_client.post(
+            self._url("web:event:session-propose-timeslots", event.slug), {"back": "1"}
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=self._spot_step_context(
+                event,
+                # The picked cell comes back selected: Back is for changing the
+                # room, not for starting the pick over.
+                spot_groups=self._one_free_room(space, time_slot, is_selected=True),
+            ),
+            template_name="event/propose/parts/spot.html",
+        )
+
+    @pytest.mark.usefixtures("corridor", "space", "time_slot")
+    def test_a_submission_that_skipped_the_picker_claims_nothing(
+        self, authenticated_client, event
+    ):
+        authenticated_client.get(self._url("web:event:session-propose", event.slug))
+        authenticated_client.post(
+            self._url("web:event:session-propose-personal", event.slug),
+            {"contact_email": "walkup@example.com"},
+        )
+        authenticated_client.post(
+            self._url("web:event:session-propose-details", event.slug),
+            {
+                "title": "Corridor Game",
+                "display_name": "Walk Up",
+                "description": "Whoever turns up",
+                "participants_limit": 4,
+                "min_age": 0,
+            },
+        )
+
+        response = authenticated_client.post(
+            self._url("web:event:session-propose-submit", event.slug)
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.ERROR, "Please pick a spot that is still free.")],
+            url=self._url("web:event:session-propose", event.slug),
+        )
+        assert not Session.objects.filter(event=event, title="Corridor Game").exists()
+
+    def test_a_spot_that_is_not_free_is_refused_by_the_picker(
+        self, authenticated_client, event, space, time_slot, corridor
+    ):
+        del corridor
+        authenticated_client.get(self._url("web:event:session-propose", event.slug))
+        authenticated_client.post(
+            self._url("web:event:session-propose-personal", event.slug),
+            {"contact_email": "walkup@example.com"},
+        )
+
+        response = authenticated_client.post(
+            self._url("web:event:session-propose-spot", event.slug),
+            {"spot": f"{space.pk}:99999"},
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=self._spot_step_context(
+                event,
+                spot_groups=self._one_free_room(space, time_slot),
+                error="Please pick a spot that is still free.",
+            ),
+            template_name="event/propose/parts/spot.html",
+        )
+
+    def _walk_to_submit(self, client, event, space, time_slot):
+        client.get(self._url("web:event:session-propose", event.slug))
+        client.post(
+            self._url("web:event:session-propose-personal", event.slug),
+            {"contact_email": "walkup@example.com"},
+        )
+        client.post(
+            self._url("web:event:session-propose-spot", event.slug),
+            {"spot": self._spot_value(space, time_slot)},
+        )
+        client.post(
+            self._url("web:event:session-propose-details", event.slug),
+            {
+                "title": "Corridor Game",
+                "display_name": "Walk Up",
+                "description": "Whoever turns up",
+                "participants_limit": 4,
+                "min_age": 0,
+            },
+        )

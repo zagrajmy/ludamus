@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import math
 from collections import defaultdict
-from datetime import date, datetime, timedelta, tzinfo
+from datetime import UTC, date, datetime, timedelta, tzinfo
 from operator import itemgetter
 from typing import TYPE_CHECKING, NamedTuple
 
@@ -29,6 +29,7 @@ from ludamus.pacts.chronology import (
     MultiselectOptionDTO,
     PreferredSlotRangeDTO,
     PreferredSlotViolationDTO,
+    ProposalAcceptDeniedError,
     SessionPlacement,
     SessionPositionDTO,
     SessionPositionState,
@@ -40,13 +41,16 @@ from ludamus.pacts.chronology import (
     TimetableGridFilter,
     TrackProgressDTO,
 )
+from ludamus.pacts.multiverse import Capability
 from ludamus.pacts.timetable import (
     ConflictDetectionServiceProtocol,
+    FreeSpotSpaceDTO,
     PlacementRejectedError,
     PlacementRejection,
     TimetableOverviewServiceProtocol,
     TimetableServiceProtocol,
 )
+from ludamus.specs.permissions import ROLE_CAPABILITIES
 from ludamus.specs.timetable import (
     TIMETABLE_ROOM_PAGE_SIZE,
     TIMETABLE_SLOT_MINUTES,
@@ -460,6 +464,132 @@ class TimetableService(TimetableServiceProtocol):
             msg = f"Session {session_pk} is not in ACCEPTED status"
             raise PlacementRejectedError(PlacementRejection.SESSION_NOT_ACCEPTED, msg)
 
+    def _require_pending(self, session_pk: int) -> None:
+        if self._repos.sessions.read(session_pk).status != SessionStatus.PENDING:
+            msg = f"Session {session_pk} is not in PENDING status"
+            raise PlacementRejectedError(PlacementRejection.SESSION_NOT_PENDING, msg)
+
+    def list_free_spots(self, event_pk: int) -> list[FreeSpotSpaceDTO]:
+        """List the rooms of an event with the slots nothing occupies them for.
+
+        Returns:
+            One entry per bookable room in tree order, carrying only the time
+            slots that have not started yet and hold no agenda item.
+        """
+        walked = self._tree(event_pk)
+        name_by_pk = {space.pk: space.name for space, _ in walked}
+        now = datetime.now(tz=UTC)
+        slots = sorted(
+            (
+                slot
+                for slot in self._repos.time_slots.list_by_event(event_pk)
+                if slot.start_time > now
+            ),
+            key=_slot_start,
+        )
+        taken: dict[int, list[AgendaItemDTO]] = defaultdict(list)
+        for item in self._repos.agenda_items.list_by_event(event_pk):
+            taken[item.space_id].append(item)
+
+        free_spaces = []
+        for space in _leaves(walked):
+            occupied = taken[space.pk]
+            free_slots = [
+                slot
+                for slot in slots
+                if not any(
+                    item.start_time < slot.end_time and slot.start_time < item.end_time
+                    for item in occupied
+                )
+            ]
+            if free_slots:
+                free_spaces.append(
+                    FreeSpotSpaceDTO(
+                        pk=space.pk,
+                        name=space.name,
+                        group=(
+                            name_by_pk.get(space.parent_id, "")
+                            if space.parent_id
+                            else ""
+                        ),
+                        slots=free_slots,
+                    )
+                )
+        return free_spaces
+
+    def _write_placement(
+        self,
+        *,
+        session_pk: int,
+        placement: SessionPlacement,
+        user_pk: int | None,
+        moved_from_pk: int | None,
+        confirmable: bool = True,
+    ) -> None:
+        """Put the session in the cell and log it, under the caller's locks."""
+        event = self._repos.sessions.read_event(session_pk)
+        self._repos.agenda_items.create(
+            {
+                "session_id": session_pk,
+                "space_id": placement.space_pk,
+                "start_time": placement.start_time,
+                "end_time": placement.end_time,
+                "session_confirmed": event.auto_confirm_sessions and confirmable,
+            }
+        )
+        log_data: ScheduleChangeLogData = {
+            "event_id": event.pk,
+            "session_id": session_pk,
+            "user_id": user_pk,
+            "action": ScheduleChangeAction.ASSIGN,
+            "new_space_id": placement.space_pk,
+            "new_start_time": placement.start_time,
+            "new_end_time": placement.end_time,
+            # A move is recorded as one here and never guessed at later: the
+            # two rows are written together, so only this knows.
+            "moved_from_id": moved_from_pk,
+        }
+        self._repos.schedule_change_logs.create(log_data)
+
+    def claim_spot(
+        self,
+        *,
+        session_pk: int,
+        placement: SessionPlacement,
+        event_pk: int,
+        user_pk: int,
+    ) -> None:
+        """Place a walk-up claim, where `assign_session`'s policy does not fit.
+
+        The placeable status is PENDING rather than ACCEPTED, an overlap found
+        under the space lock is fatal rather than a warning an organizer may
+        leave standing, and the placement is always a create — a claim never
+        moves an item that is already on the grid.
+        """
+        self._require_placeable(placement)
+        with self._transaction.atomic():
+            require_session_in_event(
+                sessions=self._repos.sessions, session_pk=session_pk, event_pk=event_pk
+            )
+            self._repos.sessions.lock(session_pk)
+            self._require_space_in_event(placement.space_pk, event_pk)
+            self._require_placement_in_time_slots(placement, event_pk)
+            self._repos.spaces.lock(placement.space_pk)
+            self._require_pending(session_pk)
+            if self._repos.agenda_items.list_overlapping_in_space(
+                placement.space_pk, placement.start_time, placement.end_time
+            ):
+                raise PlacementRejectedError(
+                    PlacementRejection.SPACE_TAKEN,
+                    "the spot was claimed by somebody else",
+                )
+            self._write_placement(
+                session_pk=session_pk,
+                placement=placement,
+                user_pk=user_pk,
+                moved_from_pk=None,
+            )
+
     def assign_session(
         self,
         *,
@@ -492,29 +622,59 @@ class TimetableService(TimetableServiceProtocol):
                 else None
             )
             self._require_accepted(session_pk)
-            event = self._repos.sessions.read_event(session_pk)
-            self._repos.agenda_items.create(
-                {
-                    "session_id": session_pk,
-                    "space_id": placement.space_pk,
-                    "start_time": placement.start_time,
-                    "end_time": placement.end_time,
-                    "session_confirmed": event.auto_confirm_sessions and not is_move,
-                }
+            self._write_placement(
+                session_pk=session_pk,
+                placement=placement,
+                user_pk=user_pk,
+                moved_from_pk=moved_from_pk,
+                confirmable=not is_move,
             )
-            log_data: ScheduleChangeLogData = {
-                "event_id": event.pk,
-                "session_id": session_pk,
-                "user_id": user_pk,
-                "action": ScheduleChangeAction.ASSIGN,
-                "new_space_id": placement.space_pk,
-                "new_start_time": placement.start_time,
-                "new_end_time": placement.end_time,
-                # A move is recorded as one here and never guessed at later:
-                # the two rows are written together, so only this knows.
-                "moved_from_id": moved_from_pk,
-            }
-            self._repos.schedule_change_logs.create(log_data)
+
+    def _may_release(
+        self, *, presenter_id: int | None, user_pk: int, user_slug: str, sphere_id: int
+    ) -> bool:
+        if presenter_id == user_pk:
+            return True
+        # Superusers before roles, the rule `PanelAccess.allows` states for the
+        # panel: a superuser who also holds a narrow sphere role is not demoted
+        # by it.
+        if self._repos.claim_permissions.active_users.read(user_slug).is_superuser:
+            return True
+        role = self._repos.claim_permissions.spheres.manager_role(sphere_id, user_slug)
+        return role is not None and Capability.PANEL_WRITE in ROLE_CAPABILITIES[role]
+
+    def release_claim(
+        self, *, session_pk: int, event_pk: int, user_pk: int, user_slug: str
+    ) -> None:
+        """Free the cell a walk-up claimed and reject the claim, in that order.
+
+        Unassigning first is what keeps `ProposalStatusService`'s shared guard
+        out of this: it refuses any non-ACCEPTED transition on a session that
+        still holds an `AgendaItem`, and rejecting a claim is precisely the
+        request to free the slot.
+        """
+        with self._transaction.atomic():
+            self._repos.sessions.lock(session_pk)
+            event = self._repos.sessions.read_event(session_pk)
+            if event.pk != event_pk:
+                raise NotFoundError
+            session = self._repos.sessions.read(session_pk)
+            if not session.is_impromptu or session.status != SessionStatus.PENDING:
+                raise NotFoundError
+            if (item := self._repos.agenda_items.read_by_session(session_pk)) is None:
+                raise NotFoundError
+            self._repos.spaces.lock(item.space_id)
+            if not self._may_release(
+                presenter_id=session.presenter_id,
+                user_pk=user_pk,
+                user_slug=user_slug,
+                sphere_id=event.sphere_id,
+            ):
+                raise ProposalAcceptDeniedError
+            self.unassign_session(
+                session_pk=session_pk, event_pk=event_pk, user_pk=user_pk
+            )
+            self._repos.sessions.update(session_pk, {"status": SessionStatus.REJECTED})
 
     def unassign_session(
         self, *, session_pk: int, event_pk: int, user_pk: int | None = None

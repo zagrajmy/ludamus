@@ -157,15 +157,21 @@ def event_page_context(event, *, url, access=ENROLLMENT_SHUT, **overrides):
     ended = overrides.pop("ended_hour_data", {})
     current = overrides.pop("current_hour_data", {})
     future_unavailable = overrides.pop("future_unavailable_hour_data", {})
+    # No fixture gives a category its own CFP window, so the event's window
+    # still decides. A test about category windows overrides this.
+    proposing_open = overrides.pop(
+        "proposing_open", event.is_published and event.is_proposal_active
+    )
     context = {
         # The pills follow from the event's own state and this viewer's
         # windows; which pills those are is unit-tested beside the function.
         "status_pills": event_status_pills(
             is_live=event.is_live,
             is_ended=event.is_ended,
-            is_proposal_active=event.is_proposal_active,
+            is_proposal_active=proposing_open,
             access=access,
         ),
+        "proposing_open": proposing_open,
         "enrollment_notices": [],
         "event": event,
         "filterable_tag_categories": [],

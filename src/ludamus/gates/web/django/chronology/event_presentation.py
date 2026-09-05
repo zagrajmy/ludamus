@@ -10,7 +10,7 @@ from django.utils.translation import ngettext
 from ludamus.gates.web.django.entities import UserInfo
 from ludamus.gates.web.django.helpers import placeholder_cover_url
 from ludamus.pacts import EventListItemDTO
-from ludamus.pacts.legacy import SessionParticipationStatus, TimeSlotDTO
+from ludamus.pacts.legacy import SessionParticipationStatus, SessionStatus, TimeSlotDTO
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Iterator, Sequence
@@ -148,6 +148,18 @@ class SessionData:  # pylint: disable=too-many-instance-attributes
     @property
     def cloud_overflow(self) -> list[CloudPill]:
         return flatten_cloud_overflow(self.displayed_field_rows)
+
+    @property
+    def is_pending_claim(self) -> bool:
+        """Say whether this is a walk-up claim nobody has confirmed yet.
+
+        Returns:
+            True for an impromptu session still PENDING. Status alone would
+            not do: an imported session commonly keeps PENDING while scheduled.
+        """
+        return (
+            self.session.is_impromptu and self.session.status == SessionStatus.PENDING
+        )
 
     @property
     def is_unscheduled(self) -> bool:

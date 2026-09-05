@@ -24,6 +24,11 @@ urlpatterns: list[URLPattern] = [
         name="session-propose-timeslots",
     ),
     path(
+        "event/<str:event_slug>/session/propose/parts/spot",
+        propose.ProposeSessionSpotComponentView.as_view(),
+        name="session-propose-spot",
+    ),
+    path(
         "event/<str:event_slug>/session/propose/parts/details",
         propose.ProposeSessionDetailsComponentView.as_view(),
         name="session-propose-details",

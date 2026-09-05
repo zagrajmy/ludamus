@@ -513,6 +513,7 @@ ignore_names = [
     "is_cut",
     "is_first_current",
     "is_live",
+    "is_pending_claim",
     "is_pending_proposal",
     "is_read",
     "is_unlimited",

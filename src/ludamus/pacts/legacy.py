@@ -184,6 +184,7 @@ class SessionListItemDTO(BaseModel):
     category_name: str
     creation_time: datetime
     display_name: str
+    is_impromptu: bool = False
     is_scheduled: bool
     pk: int
     status: "SessionStatus"
@@ -221,6 +222,7 @@ class SessionDTO(BaseModel):
     creation_time: datetime
     description: str
     duration: str = ""
+    is_impromptu: bool = False
     min_age: int
     modification_time: datetime
     participants_limit: int
@@ -270,6 +272,7 @@ class SessionListFilters(TypedDict, total=False):
     category_pk: int | None
     status: SessionStatus | None
     scheduled: bool | None
+    is_impromptu: bool | None
     sort: str | None
 
 
@@ -400,6 +403,7 @@ class SessionData(TypedDict, total=False):
     duration: str
     event_id: int
     ident: str
+    is_impromptu: bool
     min_age: int
     participants_limit: int
     presenter_id: int | None
@@ -873,6 +877,8 @@ class SessionRepositoryProtocol(Protocol):
     def read_event(session_id: int) -> EventDTO: ...
     @staticmethod
     def read_space_options(session_id: int) -> list[SpaceOptionDTO]: ...
+    @staticmethod
+    def count_pending_impromptu_claims(event_id: int, presenter_id: int) -> int: ...
     @staticmethod
     def read_time_slot(session_id: int, time_slot_id: int) -> TimeSlotDTO: ...
     @staticmethod

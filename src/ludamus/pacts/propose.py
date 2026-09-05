@@ -2,6 +2,10 @@
 
 from typing import TYPE_CHECKING, NamedTuple, Protocol
 
+from pydantic import BaseModel
+
+from ludamus.pacts.legacy import ProposalCategoryDTO
+
 if TYPE_CHECKING:
     from ludamus.pacts.crowd import UserRepositoryProtocol
     from ludamus.pacts.legacy import (
@@ -13,7 +17,6 @@ if TYPE_CHECKING:
         PersonalDataFieldRepositoryProtocol,
         PersonalDataFieldValueRepositoryProtocol,
         PersonalFieldRequirementDTO,
-        ProposalCategoryDTO,
         ProposalCategoryRepositoryProtocol,
         ProposeSessionResult,
         SessionFieldRepositoryProtocol,
@@ -42,14 +45,39 @@ class ProposeRepos(NamedTuple):
     users: UserRepositoryProtocol
 
 
+class ClaimAlreadyPendingError(Exception):
+    """This person already has a claim on this event waiting for an answer."""
+
+
+class SpotRequiredError(Exception):
+    """The event is in claim mode, so a submission must name a cell to claim."""
+
+
+class SpotClaim(NamedTuple):
+    """The empty programme cell a walk-up asks for, as the picker offered it."""
+
+    space_pk: int
+    time_slot_pk: int
+
+
+class ProposeOpennessDTO(BaseModel):
+    """Whether a visitor may propose right now, and into which categories."""
+
+    is_open: bool
+    categories: list[ProposalCategoryDTO]
+    # The event's own call for proposals has shut and only a category clock
+    # keeps the door open: whatever is proposed now is a walk-up claim on an
+    # empty programme slot, not an entry in the pre-event pipeline.
+    is_impromptu: bool
+
+
 class ProposeSessionServiceProtocol(Protocol):
     def get_event(self, slug: str, sphere_id: int) -> EventDTO: ...
     def get_proposal_settings(self, event_id: int) -> EventProposalSettingsDTO: ...
     def get_or_create_proposal_settings(
         self, event_id: int
     ) -> EventProposalSettingsDTO: ...
-    def get_categories(self, event_id: int) -> list[ProposalCategoryDTO]: ...
-    def get_category(self, pk: int, event_id: int) -> ProposalCategoryDTO: ...
+    def get_openness(self, event_id: int) -> ProposeOpennessDTO: ...
     def get_personal_requirements(
         self, category_id: int
     ) -> list[PersonalFieldRequirementDTO]: ...
@@ -72,4 +100,5 @@ class ProposeSessionServiceProtocol(Protocol):
         cover_image: UploadedFileProtocol | None = None,
         user_id: int | None = None,
         user_slug: str | None = None,
+        spot: SpotClaim | None = None,
     ) -> ProposeSessionResult: ...

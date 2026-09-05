@@ -40,6 +40,12 @@
                     <input type="hidden" name="search" value="{{ filter_search }}">
                 {% endif %}
                 <input type="hidden" name="status" value="{{ filter_status_value }}">
+                {% if filter_placement %}
+                    <input type="hidden" name="placement" value="{{ filter_placement }}">
+                {% endif %}
+                {% if filter_origin %}
+                    <input type="hidden" name="origin" value="{{ filter_origin }}">
+                {% endif %}
                 {% if filter_category_pk %}
                     <input type="hidden" name="category" value="{{ filter_category_pk }}">
                 {% endif %}
@@ -128,21 +134,38 @@
                                         name="status"
                                         class="filter-input w-full px-3 py-2 border border-border rounded-lg text-sm truncate">
                                     <option value="all" {% if not filter_status %}selected{% endif %}>{% translate "All statuses" %}</option>
-                                    <optgroup label="{% translate "Not on the timetable" %}">
-                                        {% for s, label in statuses %}
-                                            {% if s != "scheduled" %}
-                                                <option value="{{ s }}" {% if filter_status == s %}selected{% endif %}>{{ label }}</option>
-                                            {% endif %}
-                                        {% endfor %}
-                                    </optgroup>
-                                    <optgroup label="{% translate "On the timetable" %}">
-                                        {% for s, label in statuses %}
-                                            {% if s == "scheduled" %}
-                                                <option value="{{ s }}" {% if filter_status == s %}selected{% endif %}>{{ label }}</option>
-                                            {% endif %}
-                                        {% endfor %}
-                                    </optgroup>
+                                    {% for s, label in statuses %}
+                                        <option value="{{ s }}" {% if filter_status == s %}selected{% endif %}>{{ label }}</option>
+                                    {% endfor %}
                                 </select>
+                            </div>
+                            <div class="w-full sm:w-48 min-w-0">
+                                <label for="filter-placement"
+                                       title="{% translate "Placement" %}"
+                                       class="block text-xs font-medium text-foreground-muted mb-1 truncate">
+                                    {% translate "Placement" %}
+                                </label>
+                                {% select id="filter-placement" name="placement" class="truncate" %}
+                                    <option value="">{% translate "Anywhere" %}</option>
+                                    {% for value, label in placements %}
+                                        <option value="{{ value }}"
+                                                {% if filter_placement == value %}selected{% endif %}>{{ label }}</option>
+                                    {% endfor %}
+                                {% endselect %}
+                            </div>
+                            <div class="w-full sm:w-48 min-w-0">
+                                <label for="filter-origin"
+                                       title="{% translate "Origin" %}"
+                                       class="block text-xs font-medium text-foreground-muted mb-1 truncate">
+                                    {% translate "Origin" %}
+                                </label>
+                                {% select id="filter-origin" name="origin" class="truncate" %}
+                                    <option value="">{% translate "Any origin" %}</option>
+                                    {% for value, label in origins %}
+                                        <option value="{{ value }}"
+                                                {% if filter_origin == value %}selected{% endif %}>{{ label }}</option>
+                                    {% endfor %}
+                                {% endselect %}
                             </div>
                             {% for field in session_fields %}
                                 <div class="w-full sm:w-48 min-w-0">

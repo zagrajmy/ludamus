@@ -384,10 +384,13 @@ class EventPageView(EventsPageRequiredMixin, DetailView):  # type: ignore [type-
             }
         )
 
+        context["proposing_open"] = self.request.services.propose_session.get_openness(
+            self.object.pk
+        ).is_open
         context["status_pills"] = event_status_pills(
             is_live=self.object.is_live,
             is_ended=self.object.is_ended,
-            is_proposal_active=self.object.is_proposal_active,
+            is_proposal_active=context["proposing_open"],
             access=access,
         )
         context["enrollment_notices"] = [

@@ -4,15 +4,24 @@ from unittest.mock import MagicMock
 import pytest
 
 from ludamus.mills.propose import ProposeSessionService
+from ludamus.pacts.chronology import SessionPlacement
 from ludamus.pacts.legacy import (
     EventDTO,
     FacilitatorDTO,
     OrganizerFieldDTO,
     PersonalDataFieldValueData,
+    ProposalCategoryDTO,
     SessionFieldValueData,
+    TimeSlotDTO,
     TrackDTO,
 )
-from ludamus.pacts.propose import ProposeRepos
+from ludamus.pacts.propose import (
+    ClaimAlreadyPendingError,
+    ProposeRepos,
+    SpotClaim,
+    SpotRequiredError,
+)
+from ludamus.pacts.services import DatabaseConstraintError
 
 EXPECTED_SESSION_ID = 99
 FACILITATOR_PK = 10
@@ -45,6 +54,17 @@ def _event(pk=1):
         slug="test-event",
         sphere_id=1,
         start_time=now + timedelta(days=5),
+    )
+
+
+def _claim_event():
+    """Build the event with its own call for proposals shut: claim mode.
+
+    Returns:
+        The event fixture, past its proposal window.
+    """
+    return _event().model_copy(
+        update={"proposal_end_time": datetime.now(tz=UTC) - timedelta(hours=1)}
     )
 
 
@@ -84,6 +104,7 @@ def repos_fixture():
 @pytest.fixture(name="submitting_repos")
 def submitting_repos_fixture(repos):
     repos.sessions.slug_exists.return_value = False
+    repos.sessions.count_pending_impromptu_claims.return_value = 0
     repos.facilitators.slug_exists.return_value = False
     repos.facilitators.create.return_value = _facilitator()
     repos.sessions.create.return_value = EXPECTED_SESSION_ID
@@ -98,9 +119,16 @@ def cache_fixture():
     return FakeCache()
 
 
+@pytest.fixture(name="timetable")
+def timetable_fixture():
+    return MagicMock()
+
+
 @pytest.fixture(name="service")
-def service_fixture(repos, cache):
-    return ProposeSessionService(transaction=MagicMock(), repos=repos, cache=cache)
+def service_fixture(repos, cache, timetable):
+    return ProposeSessionService(
+        transaction=MagicMock(), repos=repos, cache=cache, timetable=timetable
+    )
 
 
 class TestSubmit:
@@ -244,3 +272,241 @@ class TestCheckRateLimit:
         cache.store["proposal_rate:1:1.2.3.4"] = 1
 
         assert service.check_rate_limit(ip="1.2.3.4", event_id=2) is True
+
+
+def _category(pk, *, start_time=None, end_time=None):
+    return ProposalCategoryDTO(
+        description="",
+        durations=[],
+        end_time=end_time,
+        max_participants_limit=10,
+        min_participants_limit=1,
+        name=f"category-{pk}",
+        pk=pk,
+        slug=f"category-{pk}",
+        start_time=start_time,
+    )
+
+
+class TestGetOpenness:
+    @pytest.fixture(name="now")
+    def now_fixture(self):
+        return datetime.now(tz=UTC)
+
+    def test_windowless_category_follows_an_open_event(self, service, repos):
+        repos.events.read.return_value = _event()
+        repos.categories.list_by_event.return_value = [_category(1)]
+
+        openness = service.get_openness(1)
+
+        assert openness.is_open is True
+        assert [c.pk for c in openness.categories] == [1]
+
+    def test_windowless_category_follows_a_closed_event(self, service, repos, now):
+        repos.events.read.return_value = _event().model_copy(
+            update={"proposal_end_time": now - timedelta(days=1)}
+        )
+        repos.categories.list_by_event.return_value = [_category(1)]
+
+        openness = service.get_openness(1)
+
+        assert openness.is_open is False
+        assert openness.categories == []
+
+    def test_own_window_opens_proposing_on_a_closed_event(self, service, repos, now):
+        repos.events.read.return_value = _event().model_copy(
+            update={"proposal_end_time": now - timedelta(days=1)}
+        )
+        repos.categories.list_by_event.return_value = [
+            _category(1),
+            _category(2, start_time=now - timedelta(hours=1)),
+        ]
+
+        openness = service.get_openness(1)
+
+        assert openness.is_open is True
+        assert [c.pk for c in openness.categories] == [2]
+
+    def test_lapsed_window_leaves_the_wizard(self, service, repos, now):
+        repos.events.read.return_value = _event()
+        repos.categories.list_by_event.return_value = [
+            _category(1),
+            _category(2, end_time=now - timedelta(hours=1)),
+        ]
+
+        openness = service.get_openness(1)
+
+        assert openness.is_open is True
+        assert [c.pk for c in openness.categories] == [1]
+
+    def test_unpublished_event_is_shut_whatever_the_categories_say(
+        self, service, repos, now
+    ):
+        repos.events.read.return_value = _event().model_copy(
+            update={"publication_time": now + timedelta(days=1)}
+        )
+        repos.categories.list_by_event.return_value = [
+            _category(1, start_time=now - timedelta(hours=1))
+        ]
+
+        openness = service.get_openness(1)
+
+        assert openness.is_open is False
+        assert openness.categories == []
+        repos.categories.list_by_event.assert_not_called()
+
+
+class TestSubmitClaim:
+    @staticmethod
+    def _claim(service, submitting_repos):
+        submitting_repos.users.read.return_value = MagicMock(pk=42, name="Walk Up")
+        return service.submit(
+            _claim_event(),
+            {
+                "category_id": 1,
+                "session_data": {"title": "Corridor Game", "display_name": "Walk Up"},
+            },
+            user_id=42,
+            user_slug="walk-up",
+            spot=SpotClaim(space_pk=3, time_slot_pk=5),
+        )
+
+    def test_marks_the_session_impromptu_and_places_it(
+        self, service, submitting_repos, timetable
+    ):
+        submitting_repos.users.read.return_value = MagicMock(pk=42, name="Walk Up")
+        slot = TimeSlotDTO(
+            pk=5,
+            start_time=datetime(2026, 1, 1, 14, 0, tzinfo=UTC),
+            end_time=datetime(2026, 1, 1, 15, 0, tzinfo=UTC),
+        )
+        submitting_repos.sessions.read_time_slot.return_value = slot
+
+        service.submit(
+            _claim_event(),
+            {
+                "category_id": 1,
+                "session_data": {"title": "Corridor Game", "display_name": "Walk Up"},
+            },
+            user_id=42,
+            user_slug="walk-up",
+            spot=SpotClaim(space_pk=3, time_slot_pk=5),
+        )
+
+        created = submitting_repos.sessions.create.call_args.args[0]
+        assert created["is_impromptu"] is True
+        timetable.claim_spot.assert_called_once_with(
+            session_pk=EXPECTED_SESSION_ID,
+            placement=SessionPlacement(
+                space_pk=3, start_time=slot.start_time, end_time=slot.end_time
+            ),
+            event_pk=1,
+            user_pk=42,
+        )
+
+    def test_a_plain_proposal_is_not_impromptu_and_places_nothing(
+        self, service, submitting_repos, timetable
+    ):
+        service.submit(
+            _event(),
+            {
+                "category_id": 1,
+                "session_data": {"title": "Test Session", "display_name": "Anon Host"},
+            },
+            user_id=None,
+            user_slug=None,
+        )
+
+        created = submitting_repos.sessions.create.call_args.args[0]
+        assert created["is_impromptu"] is False
+        timetable.claim_spot.assert_not_called()
+
+    def test_an_anonymous_claim_is_refused(self, service, submitting_repos, timetable):
+        del submitting_repos
+
+        with pytest.raises(ValueError, match="needs a logged-in author"):
+            service.submit(
+                _claim_event(),
+                {
+                    "category_id": 1,
+                    "session_data": {"title": "Corridor Game", "display_name": "Anon"},
+                },
+                user_id=None,
+                user_slug=None,
+                spot=SpotClaim(space_pk=3, time_slot_pk=5),
+            )
+
+        timetable.claim_spot.assert_not_called()
+
+    def test_a_submission_with_no_spot_is_refused_in_claim_mode(
+        self, service, submitting_repos, timetable
+    ):
+        submitting_repos.users.read.return_value = MagicMock(pk=42, name="Walk Up")
+
+        with pytest.raises(SpotRequiredError):
+            service.submit(
+                _claim_event(),
+                {
+                    "category_id": 1,
+                    "session_data": {
+                        "title": "Corridor Game",
+                        "display_name": "Walk Up",
+                    },
+                },
+                user_id=42,
+                user_slug="walk-up",
+            )
+
+        submitting_repos.sessions.create.assert_not_called()
+        timetable.claim_spot.assert_not_called()
+
+
+class TestOnePendingClaimCap:
+    def test_a_second_claim_is_refused_before_anything_is_written(
+        self, service, submitting_repos
+    ):
+        submitting_repos.sessions.count_pending_impromptu_claims.return_value = 1
+
+        with pytest.raises(ClaimAlreadyPendingError):
+            TestSubmitClaim._claim(service, submitting_repos)
+
+        submitting_repos.sessions.create.assert_not_called()
+
+    def test_a_lost_race_on_the_constraint_reads_the_same(
+        self, service, submitting_repos
+    ):
+        submitting_repos.sessions.create.side_effect = DatabaseConstraintError(
+            "UNIQUE constraint failed"
+        )
+        # Nothing to see before the insert; the row that won the race is there
+        # when the failure is re-read.
+        submitting_repos.sessions.count_pending_impromptu_claims.side_effect = [0, 1]
+
+        with pytest.raises(ClaimAlreadyPendingError):
+            TestSubmitClaim._claim(service, submitting_repos)
+
+    def test_any_other_constraint_is_not_reported_as_a_second_claim(
+        self, service, submitting_repos
+    ):
+        submitting_repos.sessions.create.side_effect = DatabaseConstraintError(
+            "duplicate key value violates unique constraint "
+            '"session_unique_slug_in_event"'
+        )
+
+        with pytest.raises(DatabaseConstraintError):
+            TestSubmitClaim._claim(service, submitting_repos)
+
+    def test_an_ordinary_proposal_is_not_counted_or_wrapped(
+        self, service, submitting_repos
+    ):
+        service.submit(
+            _event(),
+            {
+                "category_id": 1,
+                "session_data": {"title": "Test Session", "display_name": "Anon Host"},
+            },
+            user_id=None,
+            user_slug=None,
+        )
+
+        submitting_repos.sessions.count_pending_impromptu_claims.assert_not_called()

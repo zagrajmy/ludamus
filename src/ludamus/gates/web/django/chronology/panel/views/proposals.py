@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+from functools import partial
 from typing import TYPE_CHECKING, Protocol
 
 from django.contrib import messages
@@ -35,7 +36,14 @@ from ludamus.pacts.chronology import (
     ContentChangeNotRevertibleError,
     ProposalScheduledError,
 )
-from ludamus.pacts.panel import SCHEDULED_FILTER, STATUS_ALL, ProposalListQuery
+from ludamus.pacts.panel import (
+    ORIGIN_IMPROMPTU,
+    PLACEMENT_SCHEDULED,
+    PLACEMENT_UNSCHEDULED,
+    STATUS_ALL,
+    ProposalFacets,
+    ProposalListQuery,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -44,7 +52,6 @@ if TYPE_CHECKING:
     from django.utils.functional import _StrPromise
 
     from ludamus.pacts import FacilitatorDTO, OrganizerFieldDTO, SessionListItemDTO
-    from ludamus.pacts.chronology import ProposalStatusServiceProtocol
     from ludamus.pacts.panel import PanelColumnDTO, ProposalPanelServiceProtocol
 
     PersonalFieldItems = list[tuple[OrganizerFieldDTO, str | list[str] | bool | None]]
@@ -82,7 +89,11 @@ class ProposalsPageView(PanelAccessMixin, EventContextMixin, View):
             # Default (no status param) is the pending backlog — the queue an
             # organizer opens this page to work through. STATUS_ALL (or any
             # other unknown value) still shows everything.
-            status=self.request.GET.get("status", SessionStatus.PENDING.value),
+            facets=ProposalFacets(
+                status=self.request.GET.get("status", SessionStatus.PENDING.value),
+                placement=self.request.GET.get("placement", "").strip(),
+                origin=self.request.GET.get("origin", "").strip(),
+            ),
             track_pk=track_pk,
             multi_tracks=multi_tracks,
             sort=self.request.GET.get("sort", "").strip(),
@@ -150,15 +161,19 @@ class ProposalsPageView(PanelAccessMixin, EventContextMixin, View):
             SessionStatus.ON_HOLD: _("On hold"),
             SessionStatus.REJECTED: _("Rejected"),
         }
-        context["statuses"] = [
-            *((str(s), status_labels[s]) for s in SessionStatus),
-            (SCHEDULED_FILTER, _("Scheduled")),
+        context["statuses"] = [(str(s), status_labels[s]) for s in SessionStatus]
+        context["placements"] = [
+            (PLACEMENT_SCHEDULED, _("On the timetable")),
+            (PLACEMENT_UNSCHEDULED, _("Not on the timetable")),
         ]
-        context["filter_status"] = list_context.status
+        context["origins"] = [(ORIGIN_IMPROMPTU, _("Claimed live"))]
+        context["filter_status"] = list_context.facets.status or None
+        context["filter_placement"] = list_context.facets.placement or None
+        context["filter_origin"] = list_context.facets.origin or None
         # Value the track form and the Clear link echo back so the status
         # selection round-trips. "All statuses" must stay present in the query,
         # or the absent-param default re-selects the pending backlog.
-        context["filter_status_value"] = list_context.status or STATUS_ALL
+        context["filter_status_value"] = list_context.facets.status or STATUS_ALL
         context["filter_sort"] = list_context.sort
         return TemplateResponse(self.request, "panel/proposals.html", context)
 
@@ -284,17 +299,22 @@ class _StatusTransition(Protocol):
     def __call__(self, *, event_pk: int, session_pk: int) -> None: ...
 
 
-def _status_transitions(
-    service: ProposalStatusServiceProtocol,
-) -> dict[str, _StatusTransition]:
+def _status_transitions(request: PanelRequest) -> dict[str, _StatusTransition]:
     # Spelled out rather than resolved by name: the type checker sees every
     # call, and grepping for a transition finds this table. One table serves
     # both the single-proposal views and the bulk one.
+    service = request.services.proposal_status
     return {
         "pending": service.mark_pending,
         "accept": service.mark_accepted,
         "hold": service.mark_on_hold,
-        "reject": service.mark_rejected,
+        # Rejecting a walk-up's claim frees its cell, so this one needs to know
+        # who is asking; the rule itself lives in the service.
+        "reject": partial(
+            service.mark_rejected,
+            user_pk=request.context.current_user_id,
+            user_slug=request.context.current_user_slug,
+        ),
     }
 
 
@@ -318,9 +338,7 @@ class ProposalStatusActionView(PanelAccessMixin, EventContextMixin, View):
         if current_event is None:
             return redirect("panel:index")
 
-        apply_status = _status_transitions(self.request.services.proposal_status)[
-            self.action
-        ]
+        apply_status = _status_transitions(self.request)[self.action]
         detail_url = proposal_detail_url(
             request=self.request, slug=slug, proposal_id=proposal_id
         )
@@ -379,7 +397,7 @@ class ProposalBulkStatusActionView(PanelAccessMixin, EventContextMixin, View):
             return redirect("panel:index")
 
         back = back_to_proposals(self.request, slug)
-        transitions = _status_transitions(self.request.services.proposal_status)
+        transitions = _status_transitions(self.request)
         apply_status = transitions.get(self.request.POST.get("action", ""))
         if apply_status is None:
             messages.error(self.request, _("Unknown bulk action."))

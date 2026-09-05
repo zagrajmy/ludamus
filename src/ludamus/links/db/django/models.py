@@ -536,7 +536,9 @@ class Event(models.Model):
             self.proposal_start_time is not None
             and self.proposal_end_time is not None
             and (
-                self.proposal_start_time < datetime.now(tz=UTC) < self.proposal_end_time
+                self.proposal_start_time
+                <= datetime.now(tz=UTC)
+                <= self.proposal_end_time
             )
         )
 
@@ -1101,6 +1103,10 @@ class Session(SoftDeleteModel):
         choices=[(item.value, item.name) for item in SessionStatus],
         default=SessionStatus.PENDING,
     )
+    # A walk-up claim on an empty programme slot: placed while still PENDING,
+    # so "PENDING and scheduled" cannot stand in for it — imported sessions
+    # commonly keep PENDING while scheduled.
+    is_impromptu = models.BooleanField(default=False)
     # Time
     creation_time = models.DateTimeField(auto_now_add=True)
     modification_time = models.DateTimeField(auto_now=True)
@@ -1133,6 +1139,19 @@ class Session(SoftDeleteModel):
             models.CheckConstraint(
                 condition=Q(min_age__gte=0, min_age__lte=80),
                 name="session_min_age_range",
+            ),
+            # One outstanding walk-up claim per person per event. Stated here
+            # rather than counted in a service alone: the space lock a claim
+            # takes is keyed on the space, so one person claiming two different
+            # rooms at once takes two different locks and both counts see zero.
+            models.UniqueConstraint(
+                fields=["event", "presenter"],
+                condition=Q(
+                    is_impromptu=True,
+                    status=SessionStatus.PENDING,
+                    deleted_at__isnull=True,
+                ),
+                name="session_one_pending_impromptu_claim_per_presenter",
             ),
         )
 

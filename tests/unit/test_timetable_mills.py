@@ -23,10 +23,13 @@ from ludamus.pacts.chronology import (
     ConflictSeverity,
     ConflictType,
     HeatmapCellStatus,
+    ProposalAcceptDeniedError,
     SessionPlacement,
     TimetableGridFilter,
 )
+from ludamus.pacts.multiverse import SphereRole
 from ludamus.pacts.timetable import (
+    ClaimPermissionRepos,
     PlacementRejectedError,
     PlacementRejection,
     TimetableRepos,
@@ -41,6 +44,9 @@ def _timetable_repos(uow) -> TimetableRepos:
         time_slots=uow.time_slots,
         tracks=uow.tracks,
         schedule_change_logs=uow.schedule_change_logs,
+        claim_permissions=ClaimPermissionRepos(
+            active_users=uow.active_users, spheres=uow.spheres
+        ),
     )
 
 
@@ -741,7 +747,7 @@ class TestAssignUnassignScope:
         mock_uow.sessions.read_event.return_value = self._event(1)
         agenda_item = MagicMock()
         agenda_item.pk = 5
-        agenda_item.space_id = 2
+        agenda_item.space_id = CLAIMED_SPACE_PK
         agenda_item.start_time = datetime(2026, 1, 1, 10, 0, tzinfo=UTC)
         agenda_item.end_time = datetime(2026, 1, 1, 11, 0, tzinfo=UTC)
         mock_uow.agenda_items.read_by_session.return_value = agenda_item
@@ -1555,3 +1561,391 @@ class TestTimetableOverviewCapacityHours:
             hours_to_fill=1.5,
             filled_pct=0,
         )
+
+
+CLAIMING_USER_PK = 7
+
+
+class TestClaimSpot:
+    """A walk-up claim: PENDING is placeable, an overlap under the lock is fatal."""
+
+    @pytest.fixture
+    def mock_uow(self):
+        return MagicMock()
+
+    @pytest.fixture
+    def service(self, mock_uow):
+        return _timetable_service(mock_uow)
+
+    @staticmethod
+    def _placement(space_pk=1):
+        return SessionPlacement(
+            space_pk=space_pk,
+            start_time=datetime(2026, 1, 1, 10, 0, tzinfo=UTC),
+            end_time=datetime(2026, 1, 1, 11, 0, tzinfo=UTC),
+        )
+
+    def _arrange(self, mock_uow, *, status=SessionStatus.PENDING, overlapping=()):
+        event = MagicMock()
+        event.pk = 1
+        event.auto_confirm_sessions = False
+        mock_uow.sessions.read_event.return_value = event
+        space = MagicMock()
+        space.pk = 1
+        space.parent_id = None
+        mock_uow.spaces.list_by_event.return_value = [space]
+        placement = self._placement()
+        slot = MagicMock()
+        slot.start_time = placement.start_time
+        slot.end_time = placement.end_time
+        mock_uow.time_slots.list_by_event.return_value = [slot]
+        session = MagicMock()
+        session.status = status
+        mock_uow.sessions.read.return_value = session
+        mock_uow.agenda_items.list_overlapping_in_space.return_value = list(overlapping)
+
+    def test_places_a_pending_session_and_logs_it(self, service, mock_uow):
+        self._arrange(mock_uow)
+
+        service.claim_spot(
+            session_pk=1,
+            placement=self._placement(),
+            event_pk=1,
+            user_pk=CLAIMING_USER_PK,
+        )
+
+        mock_uow.spaces.lock.assert_called_once_with(1)
+        created = mock_uow.agenda_items.create.call_args.args[0]
+        assert created["session_id"] == 1
+        assert created["session_confirmed"] is False
+        logged = mock_uow.schedule_change_logs.create.call_args.args[0]
+        assert logged["action"] == ScheduleChangeAction.ASSIGN
+        assert logged["user_id"] == CLAIMING_USER_PK
+
+    def test_confirms_when_the_event_auto_confirms(self, service, mock_uow):
+        self._arrange(mock_uow)
+        mock_uow.sessions.read_event.return_value.auto_confirm_sessions = True
+
+        service.claim_spot(
+            session_pk=1,
+            placement=self._placement(),
+            event_pk=1,
+            user_pk=CLAIMING_USER_PK,
+        )
+
+        created = mock_uow.agenda_items.create.call_args.args[0]
+        assert created["session_confirmed"] is True
+
+    def test_refuses_a_spot_somebody_else_took(self, service, mock_uow):
+        self._arrange(mock_uow, overlapping=[_make_item()])
+
+        with pytest.raises(PlacementRejectedError) as exc_info:
+            service.claim_spot(
+                session_pk=1,
+                placement=self._placement(),
+                event_pk=1,
+                user_pk=CLAIMING_USER_PK,
+            )
+
+        assert exc_info.value.reason == PlacementRejection.SPACE_TAKEN
+        mock_uow.agenda_items.create.assert_not_called()
+
+    def test_locks_the_space_before_looking_for_an_overlap(self, service, mock_uow):
+        self._arrange(mock_uow, overlapping=[_make_item()])
+
+        with pytest.raises(PlacementRejectedError):
+            service.claim_spot(
+                session_pk=1,
+                placement=self._placement(),
+                event_pk=1,
+                user_pk=CLAIMING_USER_PK,
+            )
+
+        mock_uow.spaces.lock.assert_called_once_with(1)
+
+    def test_refuses_a_session_that_is_not_pending(self, service, mock_uow):
+        self._arrange(mock_uow, status=SessionStatus.ACCEPTED)
+
+        with pytest.raises(PlacementRejectedError) as exc_info:
+            service.claim_spot(
+                session_pk=1,
+                placement=self._placement(),
+                event_pk=1,
+                user_pk=CLAIMING_USER_PK,
+            )
+
+        assert exc_info.value.reason == PlacementRejection.SESSION_NOT_PENDING
+        mock_uow.agenda_items.create.assert_not_called()
+
+    def test_refuses_a_session_from_another_event(self, service, mock_uow):
+        self._arrange(mock_uow)
+        mock_uow.sessions.read_event.return_value.pk = 2
+
+        with pytest.raises(NotFoundError):
+            service.claim_spot(
+                session_pk=1,
+                placement=self._placement(),
+                event_pk=1,
+                user_pk=CLAIMING_USER_PK,
+            )
+
+        mock_uow.agenda_items.create.assert_not_called()
+
+    def test_refuses_a_space_from_another_event(self, service, mock_uow):
+        self._arrange(mock_uow)
+        mock_uow.spaces.list_by_event.return_value[0].pk = 99
+
+        with pytest.raises(NotFoundError):
+            service.claim_spot(
+                session_pk=1,
+                placement=self._placement(),
+                event_pk=1,
+                user_pk=CLAIMING_USER_PK,
+            )
+
+        mock_uow.agenda_items.create.assert_not_called()
+
+
+class TestListFreeSpots:
+    """The picker's options: rooms crossed with the slots nothing occupies."""
+
+    @pytest.fixture
+    def mock_uow(self):
+        return MagicMock()
+
+    @pytest.fixture
+    def service(self, mock_uow):
+        return _timetable_service(mock_uow)
+
+    @staticmethod
+    def _space(pk, *, parent_id=None, name=None):
+        return SpaceDTO(
+            pk=pk,
+            parent_id=parent_id,
+            name=name or f"space-{pk}",
+            slug=f"space-{pk}",
+            order=pk,
+            capacity=None,
+            creation_time=datetime(2026, 1, 1, tzinfo=UTC),
+            modification_time=datetime(2026, 1, 1, tzinfo=UTC),
+        )
+
+    @staticmethod
+    def _slot(pk, start):
+        return TimeSlotDTO(pk=pk, start_time=start, end_time=start + timedelta(hours=1))
+
+    def _arrange(self, mock_uow, *, spaces, slots, items=()):
+        mock_uow.spaces.list_by_event.return_value = spaces
+        mock_uow.time_slots.list_by_event.return_value = slots
+        mock_uow.agenda_items.list_by_event.return_value = list(items)
+
+    def test_offers_every_leaf_under_its_parent_name(self, service, mock_uow):
+        future = datetime.now(tz=UTC) + timedelta(days=1)
+        self._arrange(
+            mock_uow,
+            spaces=[
+                self._space(1, name="Hall"),
+                self._space(2, parent_id=1, name="Room A"),
+                self._space(3, parent_id=1, name="Room B"),
+            ],
+            slots=[self._slot(10, future)],
+        )
+
+        free = service.list_free_spots(1)
+
+        assert [(space.pk, space.name, space.group) for space in free] == [
+            (2, "Room A", "Hall"),
+            (3, "Room B", "Hall"),
+        ]
+
+    def test_leaves_out_a_slot_that_has_already_started(self, service, mock_uow):
+        now = datetime.now(tz=UTC)
+        self._arrange(
+            mock_uow,
+            spaces=[self._space(1)],
+            slots=[
+                self._slot(10, now - timedelta(hours=1)),
+                self._slot(11, now + timedelta(hours=1)),
+            ],
+        )
+
+        free = service.list_free_spots(1)
+
+        assert [slot.pk for slot in free[0].slots] == [11]
+
+    def test_leaves_out_a_slot_an_agenda_item_overlaps(self, service, mock_uow):
+        future = datetime.now(tz=UTC) + timedelta(days=1)
+        taken = self._slot(10, future)
+        self._arrange(
+            mock_uow,
+            spaces=[self._space(1), self._space(2)],
+            slots=[taken, self._slot(11, future + timedelta(hours=2))],
+            items=[
+                _make_item(
+                    space_id=1,
+                    start_time=taken.start_time + timedelta(minutes=30),
+                    end_time=taken.end_time,
+                )
+            ],
+        )
+
+        free = service.list_free_spots(1)
+
+        assert {space.pk: [slot.pk for slot in space.slots] for space in free} == {
+            1: [11],
+            2: [10, 11],
+        }
+
+    def test_drops_a_room_with_nothing_free(self, service, mock_uow):
+        future = datetime.now(tz=UTC) + timedelta(days=1)
+        taken = self._slot(10, future)
+        self._arrange(
+            mock_uow,
+            spaces=[self._space(1)],
+            slots=[taken],
+            items=[
+                _make_item(
+                    space_id=1, start_time=taken.start_time, end_time=taken.end_time
+                )
+            ],
+        )
+
+        assert service.list_free_spots(1) == []
+
+
+CLAIMED_SPACE_PK = 2
+
+
+class TestReleaseClaim:
+    """Rejecting or withdrawing a claim: unassign first, then set the status."""
+
+    @pytest.fixture
+    def mock_uow(self):
+        return MagicMock()
+
+    @pytest.fixture
+    def service(self, mock_uow):
+        return _timetable_service(mock_uow)
+
+    def _arrange(
+        self,
+        mock_uow,
+        *,
+        is_impromptu=True,
+        status=SessionStatus.PENDING,
+        presenter_id=CLAIMING_USER_PK,
+        is_superuser=False,
+        role=None,
+    ):
+        event = MagicMock()
+        event.pk = 1
+        event.sphere_id = 3
+        mock_uow.sessions.read_event.return_value = event
+        session = MagicMock()
+        session.is_impromptu = is_impromptu
+        session.status = status
+        session.presenter_id = presenter_id
+        mock_uow.sessions.read.return_value = session
+        agenda_item = MagicMock()
+        agenda_item.pk = 5
+        agenda_item.space_id = CLAIMED_SPACE_PK
+        agenda_item.start_time = datetime(2026, 1, 1, 10, 0, tzinfo=UTC)
+        agenda_item.end_time = datetime(2026, 1, 1, 11, 0, tzinfo=UTC)
+        mock_uow.agenda_items.read_by_session.return_value = agenda_item
+        mock_uow.active_users.read.return_value.is_superuser = is_superuser
+        mock_uow.spheres.manager_role.return_value = role
+
+    def _release(self, service, *, user_pk=CLAIMING_USER_PK, user_slug="walk-up"):
+        service.release_claim(
+            session_pk=1, event_pk=1, user_pk=user_pk, user_slug=user_slug
+        )
+
+    def test_the_author_frees_the_cell_and_the_claim_is_rejected(
+        self, service, mock_uow
+    ):
+        self._arrange(mock_uow)
+
+        self._release(service)
+
+        mock_uow.spaces.lock.assert_called_once_with(CLAIMED_SPACE_PK)
+        mock_uow.agenda_items.delete.assert_called_once_with(5)
+        mock_uow.sessions.update.assert_called_once_with(
+            1, {"status": SessionStatus.REJECTED}
+        )
+
+    def test_the_unassign_is_logged_before_the_status_changes(self, service, mock_uow):
+        self._arrange(mock_uow)
+
+        self._release(service)
+
+        logged = mock_uow.schedule_change_logs.create.call_args.args[0]
+        assert logged["action"] == ScheduleChangeAction.UNASSIGN
+        assert logged["old_space_id"] == CLAIMED_SPACE_PK
+
+    def test_a_sphere_manager_may_release_somebody_elses_claim(self, service, mock_uow):
+        self._arrange(mock_uow, presenter_id=999, role=SphereRole.MANAGER)
+
+        self._release(service, user_pk=CLAIMING_USER_PK, user_slug="organizer")
+
+        mock_uow.agenda_items.delete.assert_called_once_with(5)
+
+    def test_a_role_without_panel_write_may_not_release_another_claim(
+        self, service, mock_uow
+    ):
+        self._arrange(mock_uow, presenter_id=999, role=SphereRole.COMMS)
+
+        with pytest.raises(ProposalAcceptDeniedError):
+            self._release(service, user_slug="comms")
+
+        mock_uow.agenda_items.delete.assert_not_called()
+
+    def test_a_superuser_may_release_somebody_elses_claim(self, service, mock_uow):
+        self._arrange(mock_uow, presenter_id=999, is_superuser=True)
+
+        self._release(service, user_slug="admin")
+
+        mock_uow.agenda_items.delete.assert_called_once_with(5)
+
+    def test_a_third_account_is_refused(self, service, mock_uow):
+        self._arrange(mock_uow, presenter_id=999)
+
+        with pytest.raises(ProposalAcceptDeniedError):
+            self._release(service, user_slug="stranger")
+
+        mock_uow.agenda_items.delete.assert_not_called()
+        mock_uow.sessions.update.assert_not_called()
+
+    def test_an_ordinary_session_is_not_a_claim(self, service, mock_uow):
+        self._arrange(mock_uow, is_impromptu=False)
+
+        with pytest.raises(NotFoundError):
+            self._release(service)
+
+        mock_uow.agenda_items.delete.assert_not_called()
+
+    def test_an_already_answered_claim_is_left_alone(self, service, mock_uow):
+        self._arrange(mock_uow, status=SessionStatus.ACCEPTED)
+
+        with pytest.raises(NotFoundError):
+            self._release(service)
+
+        mock_uow.agenda_items.delete.assert_not_called()
+
+    def test_a_claim_of_another_event_is_not_found(self, service, mock_uow):
+        self._arrange(mock_uow)
+        mock_uow.sessions.read_event.return_value.pk = 2
+
+        with pytest.raises(NotFoundError):
+            self._release(service)
+
+        mock_uow.agenda_items.delete.assert_not_called()
+
+    def test_a_claim_that_holds_no_cell_is_not_found(self, service, mock_uow):
+        self._arrange(mock_uow)
+        mock_uow.agenda_items.read_by_session.return_value = None
+
+        with pytest.raises(NotFoundError):
+            self._release(service)
+
+        mock_uow.spaces.lock.assert_not_called()
+        mock_uow.sessions.update.assert_not_called()

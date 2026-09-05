@@ -190,7 +190,7 @@ class TestCFPPageView:
         assert b"Active" in response.content
 
     @freeze_time("2025-05-15 12:00:00")
-    def test_shows_not_set_status_when_only_end_time_in_future(
+    def test_shows_active_status_when_only_end_time_in_future(
         self, panel_client, event
     ):
         ProposalCategory.objects.create(
@@ -202,7 +202,7 @@ class TestCFPPageView:
 
         response = panel_client.get(self.get_url(event))
 
-        assert b"Not set" in response.content
+        assert b"Active" in response.content
 
     # Stats display tests
 

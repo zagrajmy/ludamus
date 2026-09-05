@@ -1659,11 +1659,16 @@ msgid "Rejected"
 msgstr "Odrzucone"
 
 #: src/ludamus/gates/web/django/chronology/panel/views/proposals.py
-#: src/ludamus/templates/panel/_proposal_status_badge.html
-#: src/ludamus/templates/panel/parts/confirmation-status-badge.html
-#: src/ludamus/templates/panel/timetable-overview.html
-msgid "Scheduled"
-msgstr "Zaplanowane"
+msgid "On the timetable"
+msgstr "W harmonogramie"
+
+#: src/ludamus/gates/web/django/chronology/panel/views/proposals.py
+msgid "Not on the timetable"
+msgstr "Poza harmonogramem"
+
+#: src/ludamus/gates/web/django/chronology/panel/views/proposals.py
+msgid "Claimed live"
+msgstr "Zajęte na żywo"
 
 #: src/ludamus/gates/web/django/chronology/panel/views/proposals.py
 #: src/ludamus/templates/panel/_event_settings_tabs.html
@@ -1899,6 +1904,18 @@ msgstr "Brak innych wydarzeń do skopiowania."
 #, python-format
 msgid "Space copied to %(event)s successfully."
 msgstr "Przestrzeń została skopiowana do %(event)s."
+
+#: src/ludamus/gates/web/django/chronology/views.py
+msgid "There is no claim here to withdraw."
+msgstr "Nie ma tu zgłoszenia do wycofania."
+
+#: src/ludamus/gates/web/django/chronology/views.py
+msgid "This claim is not yours to withdraw."
+msgstr "To nie jest twoje zgłoszenie."
+
+#: src/ludamus/gates/web/django/chronology/views.py
+msgid "Claim withdrawn. The spot is free again."
+msgstr "Zgłoszenie wycofane. Okienko jest znowu wolne."
 
 #: src/ludamus/gates/web/django/chronology/views.py
 msgid "There is already a session scheduled at this space and time."
@@ -2689,6 +2706,10 @@ msgid "Please select at least one time slot."
 msgstr "Wybierz przynajmniej jeden przedział czasowy."
 
 #: src/ludamus/gates/web/django/event/propose.py
+msgid "Please pick a spot that is still free."
+msgstr "Wybierz okienko, które jest jeszcze wolne."
+
+#: src/ludamus/gates/web/django/event/propose.py
 msgid "Please select at least one track."
 msgstr "Wybierz przynajmniej jeden blok programowy."
 
@@ -2699,6 +2720,18 @@ msgstr "Brak szczegółów punktu programu. Zacznij od nowa."
 #: src/ludamus/gates/web/django/event/propose.py
 msgid "Please wait before submitting another proposal."
 msgstr "Poczekaj chwilę przed przesłaniem kolejnego zgłoszenia."
+
+#: src/ludamus/gates/web/django/event/propose.py
+msgid ""
+"Your last claim is still waiting for an answer. Withdraw it before claiming "
+"another spot."
+msgstr ""
+"Twoje poprzednie zgłoszenie wciąż czeka na odpowiedź. Wycofaj je, zanim "
+"zajmiesz kolejne okienko."
+
+#: src/ludamus/gates/web/django/event/propose.py
+msgid "That spot has just been taken. Please pick another one."
+msgstr "To okienko zostało właśnie zajęte. Wybierz inne."
 
 #: src/ludamus/gates/web/django/event/propose.py
 #, python-brace-format
@@ -4317,6 +4350,10 @@ msgstr ""
 msgid "Save venues"
 msgstr "Zapisz lokalizacje"
 
+#: src/ludamus/templates/chronology/_pending_claim_pill.html
+msgid "Awaiting confirmation"
+msgstr "Czeka na potwierdzenie"
+
 #: src/ludamus/templates/chronology/_proposal_section.html
 msgid "Your pending proposals"
 msgstr "Twoje oczekujące zgłoszenia"
@@ -5192,6 +5229,10 @@ msgstr "Jesteś zapisany na ten punkt programu"
 #: src/ludamus/templates/chronology/parts/session-modal.html
 msgid "You are on the waiting list"
 msgstr "Jesteś na liście oczekujących"
+
+#: src/ludamus/templates/chronology/parts/session-modal.html
+msgid "Withdraw claim"
+msgstr "Wycofaj zgłoszenie"
 
 #: src/ludamus/templates/chronology/parts/session-modal.html
 msgid "Edit session"
@@ -6288,6 +6329,11 @@ msgstr "Twoje dane"
 
 #: src/ludamus/templates/event/propose/parts/_stepper.html
 msgctxt "wizard step"
+msgid "Spot"
+msgstr "Okienko"
+
+#: src/ludamus/templates/event/propose/parts/_stepper.html
+msgctxt "wizard step"
 msgid "Session"
 msgstr "Punkt programu"
 
@@ -6307,6 +6353,7 @@ msgstr "Wybierz typ punktu programu, który chcesz poprowadzić."
 #: src/ludamus/templates/event/propose/parts/category.html
 #: src/ludamus/templates/event/propose/parts/details.html
 #: src/ludamus/templates/event/propose/parts/personal.html
+#: src/ludamus/templates/event/propose/parts/spot.html
 #: src/ludamus/templates/event/propose/parts/timeslots.html
 msgid "Continue"
 msgstr "Dalej"
@@ -6328,6 +6375,7 @@ msgstr "Wybierz bloki programowe dla tego punktu programu."
 #: src/ludamus/templates/event/propose/parts/details.html
 #: src/ludamus/templates/event/propose/parts/personal.html
 #: src/ludamus/templates/event/propose/parts/review.html
+#: src/ludamus/templates/event/propose/parts/spot.html
 #: src/ludamus/templates/event/propose/parts/timeslots.html
 #: src/ludamus/templates/panel/facilitator-merge.html
 #: src/ludamus/templates/panel/parts/timetable-session-detail.html
@@ -6383,8 +6431,32 @@ msgid "All ages"
 msgstr "Bez ograniczeń"
 
 #: src/ludamus/templates/event/propose/parts/review.html
+msgid "Claimed spot"
+msgstr "Zajęte okienko"
+
+#: src/ludamus/templates/event/propose/parts/review.html
 msgid "Submit Proposal"
 msgstr "Prześlij zgłoszenie"
+
+#: src/ludamus/templates/event/propose/parts/spot.html
+msgid "Pick a free spot"
+msgstr "Wybierz wolne okienko"
+
+#: src/ludamus/templates/event/propose/parts/spot.html
+msgid ""
+"Rooms and hours nobody has taken yet. An organizer confirms your claim "
+"afterwards."
+msgstr ""
+"Sale i godziny, których nikt jeszcze nie zajął. Twoje zgłoszenie potwierdzi "
+"później organizator."
+
+#: src/ludamus/templates/event/propose/parts/spot.html
+msgid ""
+"Every room is busy for the rest of the programme. Ask an organizer whether "
+"anything can be freed up."
+msgstr ""
+"Wszystkie sale są zajęte do końca programu. Zapytaj organizatora, czy da się "
+"coś zwolnić."
 
 #: src/ludamus/templates/event/propose/parts/timeslots.html
 msgid "Pick every slot you could host."
@@ -6981,6 +7053,12 @@ msgstr "Uruchomienie importu"
 #: src/ludamus/templates/panel/_import_tabs.html
 msgid "Log"
 msgstr "Dziennik"
+
+#: src/ludamus/templates/panel/_proposal_status_badge.html
+#: src/ludamus/templates/panel/parts/confirmation-status-badge.html
+#: src/ludamus/templates/panel/timetable-overview.html
+msgid "Scheduled"
+msgstr "Zaplanowane"
 
 #: src/ludamus/templates/panel/_space_tree_node.html
 #, python-format
@@ -9583,12 +9661,20 @@ msgid "All categories"
 msgstr "Wszystkie kategorie"
 
 #: src/ludamus/templates/panel/proposals.html
-msgid "Not on the timetable"
-msgstr "Poza harmonogramem"
+msgid "Placement"
+msgstr "Umiejscowienie"
 
 #: src/ludamus/templates/panel/proposals.html
-msgid "On the timetable"
-msgstr "W harmonogramie"
+msgid "Anywhere"
+msgstr "Wszędzie"
+
+#: src/ludamus/templates/panel/proposals.html
+msgid "Origin"
+msgstr "Pochodzenie"
+
+#: src/ludamus/templates/panel/proposals.html
+msgid "Any origin"
+msgstr "Dowolne pochodzenie"
 
 #: src/ludamus/templates/panel/proposals.html
 msgid "Select all proposals"
@@ -10163,10 +10249,6 @@ msgstr ""
 "Nie ma nadchodzących wydarzeń ani publicznych spotkań. Sprawdź ponownie "
 "później!"
 
-#, python-format
-#~ msgid "Select every venue under %(name)s"
-#~ msgstr "Zaznacz wszystkie lokalizacje w %(name)s"
-
 #~ msgid "No spaces configured for this event. Please create spaces first."
 #~ msgstr ""
 #~ "Brak skonfigurowanych przestrzeni dla tego wydarzenia. Najpierw utwórz "
@@ -10179,6 +10261,14 @@ msgstr ""
 #~ "utwórz przedziały czasowe."
 
 #, python-format
+#~ msgid ""
+#~ "<a href=\"%(source_url)s\">Source code</a> available under <a "
+#~ "href=\"%(license_url)s\">AGPL-3.0</a>."
+#~ msgstr ""
+#~ "<a href=\"%(source_url)s\">Kod źródłowy</a> dostępny na <a "
+#~ "href=\"%(license_url)s\">licencji AGPL-3.0</a>."
+
+#, python-format
 #~ msgid "%(limit)s seat"
 #~ msgid_plural "%(limit)s seats"
 #~ msgstr[0] "%(limit)s miejsce"
@@ -10188,35 +10278,6 @@ msgstr ""
 
 #~ msgid "submitted"
 #~ msgstr "zgłoszono"
-
-#~ msgid "Max 8 MB. JPG, PNG, WebP, or AVIF."
-#~ msgstr "Maks. 8 MB. JPG, PNG, WebP lub AVIF."
-
-#~ msgid "Map image"
-#~ msgstr "Obraz mapy"
-
-#~ msgid "Pick venues of this event."
-#~ msgstr "Wybierz lokalizacje tego wydarzenia."
-
-#~ msgid "New map"
-#~ msgstr "Nowa mapa"
-
-#~ msgid "What are maps?"
-#~ msgstr "Czym są mapy?"
-
-#~ msgid ""
-#~ "Pictures of the venue — a site plan, a floor, a building — shown to "
-#~ "participants on the event's maps page. Tick the venues each picture "
-#~ "shows: sessions in those venues link to it, and the page links each venue "
-#~ "back to its sessions."
-#~ msgstr ""
-#~ "Plany miejsca — plan terenu, piętra, budynku — pokazywane uczestnikom na "
-#~ "stronie map wydarzenia. Zaznacz lokalizacje widoczne na każdym obrazie: "
-#~ "punkty programu w tych lokalizacjach będą do niego prowadzić, a strona "
-#~ "poprowadzi z każdej lokalizacji z powrotem do jej punktów programu."
-
-#~ msgid "Map"
-#~ msgstr "Mapa"
 
 #~ msgid "This is the current status."
 #~ msgstr "To jest obecny status."
@@ -10326,11 +10387,17 @@ msgstr ""
 #~ msgid "Min"
 #~ msgstr "Min"
 
+#~ msgid "Max"
+#~ msgstr "Max"
+
 #~ msgid "Age ≤"
 #~ msgstr "Wiek ≤"
 
 #~ msgid "Venue"
 #~ msgstr "Lokalizacja"
+
+#~ msgid "All venues"
+#~ msgstr "Wszystkie lokalizacje"
 
 #~ msgid "Enrollment required"
 #~ msgstr "Wymagane zapisy"
@@ -10623,6 +10690,9 @@ msgstr ""
 #~ msgid "Shown on public session card"
 #~ msgstr "Widoczne na publicznej karcie punktu programu"
 
+#~ msgid "Only this facilitator's organizer can release it."
+#~ msgstr "Tylko opiekun tego twórcy programu może go zwolnić."
+
 #~ msgid "Default contact person. Assign yourself from the facilitator list."
 #~ msgstr ""
 #~ "Domyślna osoba kontaktowa. Przypisz siebie z listy twórców programu."
@@ -10765,11 +10835,35 @@ msgstr ""
 #~ "Fizyczny adres miejsca wydarzenia, pokazywany na stronie wydarzenia z "
 #~ "linkiem do mapy. Maksymalnie dwie linie."
 
-#~ msgid "Max"
-#~ msgstr "Max"
+#, python-format
+#~ msgid "Select every venue under %(name)s"
+#~ msgstr "Zaznacz wszystkie lokalizacje w %(name)s"
 
-#~ msgid "All venues"
-#~ msgstr "Wszystkie lokalizacje"
+#~ msgid "Max 8 MB. JPG, PNG, WebP, or AVIF."
+#~ msgstr "Maks. 8 MB. JPG, PNG, WebP lub AVIF."
 
-#~ msgid "Only this facilitator's organizer can release it."
-#~ msgstr "Tylko opiekun tego twórcy programu może go zwolnić."
+#~ msgid "Map image"
+#~ msgstr "Obraz mapy"
+
+#~ msgid "Pick venues of this event."
+#~ msgstr "Wybierz lokalizacje tego wydarzenia."
+
+#~ msgid "New map"
+#~ msgstr "Nowa mapa"
+
+#~ msgid "What are maps?"
+#~ msgstr "Czym są mapy?"
+
+#~ msgid ""
+#~ "Pictures of the venue — a site plan, a floor, a building — shown to "
+#~ "participants on the event's maps page. Tick the venues each picture "
+#~ "shows: sessions in those venues link to it, and the page links each venue "
+#~ "back to its sessions."
+#~ msgstr ""
+#~ "Plany miejsca — plan terenu, piętra, budynku — pokazywane uczestnikom na "
+#~ "stronie map wydarzenia. Zaznacz lokalizacje widoczne na każdym obrazie: "
+#~ "punkty programu w tych lokalizacjach będą do niego prowadzić, a strona "
+#~ "poprowadzi z każdej lokalizacji z powrotem do jej punktów programu."
+
+#~ msgid "Map"
+#~ msgstr "Mapa"

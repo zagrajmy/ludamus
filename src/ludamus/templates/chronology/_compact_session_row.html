@@ -32,6 +32,7 @@
             <span class="truncate text-sm font-semibold text-foreground">{{ data.session.title }}</span>
             {% include "components/guild_mark.html" with guild=data.guild size="size-4" extra_class="self-center relative" %}
             <span class="truncate text-xs text-foreground-muted">{{ data.session.display_name }}</span>
+            {% include "chronology/_pending_claim_pill.html" %}
         </span>
         <span class="shrink-0 text-xs text-foreground-muted max-sm:basis-full sm:whitespace-nowrap sm:text-right"
               title="{{ data.location_label }}">

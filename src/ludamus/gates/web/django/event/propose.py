@@ -24,6 +24,12 @@ from ludamus.gates.web.django.event.propose_forms import (
     build_personal_data_form,
     build_session_details_form,
 )
+from ludamus.gates.web.django.event.propose_spot import (
+    describe_spot,
+    pick_spot,
+    spot_descriptors,
+    stored_spot,
+)
 from ludamus.gates.web.django.helpers import get_client_ip
 from ludamus.gates.web.django.propose_cover import (
     delete_wizard_cover,
@@ -34,6 +40,8 @@ from ludamus.gates.web.django.propose_cover import (
 from ludamus.gates.web.django.sphere.pages import EventsPageRequiredMixin
 from ludamus.gates.web.django.templatetags.cfp_tags import has_field_value
 from ludamus.pacts import NotFoundError, RedirectError
+from ludamus.pacts.propose import ClaimAlreadyPendingError, SpotRequiredError
+from ludamus.pacts.timetable import PlacementRejectedError
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Mapping, Sequence
@@ -53,7 +61,8 @@ if TYPE_CHECKING:
         SessionFieldRequirementDTO,
         TimeSlotRequirementDTO,
     )
-    from ludamus.pacts.propose import ProposeSessionServiceProtocol
+    from ludamus.pacts.propose import ProposeOpennessDTO, ProposeSessionServiceProtocol
+    from ludamus.pacts.timetable import FreeSpotSpaceDTO
 
 # The half-finished proposal parked in the session between steps. Loosely typed
 # because it is whatever the session round-trips as JSON, not a domain object.
@@ -64,7 +73,14 @@ type StepContext = dict[str, object]
 # The wizard in submission order. Which of them an event actually shows is
 # decided per request by `_Wizard.steps`; nothing else may assume a fixed
 # neighbour, because a skipped step changes what "next" and "back" mean.
-_STEP_KEYS: tuple[str, ...] = ("category", "personal", "timeslots", "details", "review")
+_STEP_KEYS: tuple[str, ...] = (
+    "category",
+    "personal",
+    "spot",
+    "timeslots",
+    "details",
+    "review",
+)
 _STEP_TEMPLATES = {key: f"event/propose/parts/{key}.html" for key in _STEP_KEYS}
 
 
@@ -173,6 +189,17 @@ def _review_fields(
     return fields
 
 
+def _pick_open_category(
+    openness: ProposeOpennessDTO, category_id: int | str
+) -> ProposalCategoryDTO | None:
+    """Resolve a proposer-supplied id against the categories open right now."""
+    try:
+        pk = int(str(category_id))
+    except ValueError:
+        return None
+    return next((c for c in openness.categories if c.pk == pk), None)
+
+
 def _login_nudge_context(request: HttpRequest) -> StepContext:
     return {
         "show_login_nudge": not request.user.is_authenticated,
@@ -193,16 +220,18 @@ class _Wizard:
         request: RootRequest,
         service: ProposeSessionServiceProtocol,
         event: EventDTO,
+        openness: ProposeOpennessDTO,
         picked: ProposalCategoryDTO | None = None,
     ) -> None:
         self.request = request
         self.service = service
         self.event = event
+        self.openness = openness
         self.picked = picked
 
-    @cached_property
+    @property
     def categories(self) -> list[ProposalCategoryDTO]:
-        return self.service.get_categories(self.event.pk)
+        return self.openness.categories
 
     @cached_property
     def category(self) -> ProposalCategoryDTO | None:
@@ -223,16 +252,24 @@ class _Wizard:
         return self.service.get_timeslot_requirements(self.category.pk)
 
     @cached_property
+    def free_spots(self) -> list[FreeSpotSpaceDTO]:
+        return self.request.services.timetable.list_free_spots(self.event.pk)
+
+    @cached_property
     def steps(self) -> tuple[str, ...]:
         # One time slot is no more a choice than one category. Before a category
         # is chosen the time-slot step is assumed present: the strip must not
         # grow a step the moment the first choice is made.
         shows_timeslots = self.category is None or len(self.timeslot_requirements) > 1
+        # A walk-up is picking one specific empty cell, so "which slots would
+        # suit you" is the wrong question: exactly one of the two shows.
+        claims = self.openness.is_impromptu
         return tuple(
             key
             for key in _STEP_KEYS
             if (key != "category" or len(self.categories) != 1)
-            and (key != "timeslots" or shows_timeslots)
+            and (key != "timeslots" or (shows_timeslots and not claims))
+            and (key != "spot" or claims)
         )
 
     @property
@@ -328,6 +365,17 @@ def _timeslots_context(
     }
 
 
+def _spot_context(
+    wizard: _Wizard, state: WizardState, *, error: str | None = None
+) -> StepContext:
+    return {
+        **wizard.base_context("spot"),
+        "category": wizard.chosen,
+        "spot_groups": spot_descriptors(wizard.free_spots, stored_spot(state)),
+        "error": error,
+    }
+
+
 def _details_context(
     wizard: _Wizard,
     state: WizardState,
@@ -406,6 +454,11 @@ def _review_context(wizard: _Wizard, state: WizardState) -> StepContext:
         "public_personal_fields": [f for f in personal_fields if f["is_public"]],
         "private_personal_fields": [f for f in personal_fields if not f["is_public"]],
         "time_slots": time_slots,
+        "spot": (
+            describe_spot(wizard.free_spots, stored_spot(state))
+            if "spot" in wizard.steps
+            else None
+        ),
     }
 
     return {**wizard.base_context("review"), "category": category, "review": review}
@@ -415,6 +468,7 @@ _STEP_CONTEXTS: dict[str, Callable[[_Wizard, WizardState], StepContext]] = {
     "category": _category_context,
     "personal": _personal_context,
     "timeslots": _timeslots_context,
+    "spot": _spot_context,
     "details": _details_context,
     "review": _review_context,
 }
@@ -443,9 +497,13 @@ class ProposeWizardMixin(EventsPageRequiredMixin, View):
     ) -> HttpResponseBase:
         if not request.user.is_authenticated:
             service = self.request.services.propose_session
-            event = self._get_event(service, str(kwargs.get("event_slug", "")))
+            event, openness = self._get_open_event(
+                service, str(kwargs.get("event_slug", ""))
+            )
             settings = service.get_or_create_proposal_settings(event.pk)
-            if not settings.allow_anonymous_proposals:
+            # A claim on a room has to have a name attached to it, whatever the
+            # event allows the pre-event pipeline.
+            if openness.is_impromptu or not settings.allow_anonymous_proposals:
                 return redirect(f"{django_settings.LOGIN_URL}?next={request.path}")
         return super().dispatch(request, *args, **kwargs)
 
@@ -453,17 +511,23 @@ class ProposeWizardMixin(EventsPageRequiredMixin, View):
         self, request: RootRequest, event_slug: str, *, with_category: bool
     ) -> _Wizard:
         service = request.services.propose_session
-        event = self._get_event(service, event_slug)
+        event, openness = self._get_open_event(service, event_slug)
         category = (
-            self._get_wizard_category(request=request, service=service, event=event)
+            self._get_wizard_category(request=request, event=event, openness=openness)
             if with_category
             else None
         )
-        return _Wizard(request=request, service=service, event=event, picked=category)
+        return _Wizard(
+            request=request,
+            service=service,
+            event=event,
+            openness=openness,
+            picked=category,
+        )
 
-    def _get_event(
+    def _get_open_event(
         self, service: ProposeSessionServiceProtocol, event_slug: str
-    ) -> EventDTO:
+    ) -> tuple[EventDTO, ProposeOpennessDTO]:
         try:
             event = service.get_event(
                 event_slug, self.request.context.current_sphere_id
@@ -473,7 +537,8 @@ class ProposeWizardMixin(EventsPageRequiredMixin, View):
                 reverse("web:index"), error=_("Event not found.")
             ) from None
 
-        if not event.is_proposal_active:
+        openness = service.get_openness(event.pk)
+        if not openness.is_open:
             redirect_url = (
                 reverse("web:chronology:event", kwargs={"slug": event_slug})
                 if event.is_published
@@ -484,33 +549,32 @@ class ProposeWizardMixin(EventsPageRequiredMixin, View):
                 error=_("Proposal submission is not currently active for this event."),
             )
 
-        return event
+        return event, openness
 
     @staticmethod
     def _get_wizard_category(
-        *, request: RootRequest, service: ProposeSessionServiceProtocol, event: EventDTO
+        *, request: RootRequest, event: EventDTO, openness: ProposeOpennessDTO
     ) -> ProposalCategoryDTO:
         state = request.session.get(_session_key(event.slug), {})
         if not (category_id := state.get("category_id")):
             raise RedirectError(
                 _propose_url(event.slug), error=_("Please select a category first.")
             )
-        try:
-            return service.get_category(int(category_id), event.pk)
-        except NotFoundError, ValueError:
-            raise RedirectError(
-                _propose_url(event.slug), error=_("Invalid category.")
-            ) from None
+        if (category := _pick_open_category(openness, category_id)) is None:
+            raise RedirectError(_propose_url(event.slug), error=_("Invalid category."))
+        return category
 
 
 class ProposeSessionPageView(ProposeWizardMixin):
     def get(self, request: RootRequest, event_slug: str) -> HttpResponse:
         service = request.services.propose_session
-        event = self._get_event(service, event_slug)
+        event, openness = self._get_open_event(service, event_slug)
 
         delete_wizard_cover(request.session.pop(_session_key(event_slug), {}))
 
-        wizard = _Wizard(request=request, service=service, event=event)
+        wizard = _Wizard(
+            request=request, service=service, event=event, openness=openness
+        )
         if wizard.category is not None:
             request.session[_session_key(event_slug)] = {
                 "category_id": wizard.category.pk
@@ -541,12 +605,8 @@ class ProposeSessionCategoryComponentView(ProposeWizardMixin):
                 )
             return TemplateResponse(request, _STEP_TEMPLATES["category"], context)
 
-        try:
-            category = wizard.service.get_category(int(category_id), wizard.event.pk)
-        except NotFoundError, ValueError:
-            raise RedirectError(
-                _propose_url(event_slug), error=_("Invalid category.")
-            ) from None
+        if (category := _pick_open_category(wizard.openness, category_id)) is None:
+            raise RedirectError(_propose_url(event_slug), error=_("Invalid category."))
 
         with _WizardState(request, event_slug) as state:
             if state.get("category_id") != category.pk:
@@ -555,7 +615,11 @@ class ProposeSessionCategoryComponentView(ProposeWizardMixin):
                 state["category_id"] = category.pk
 
         picked = _Wizard(
-            request=request, service=wizard.service, event=wizard.event, picked=category
+            request=request,
+            service=wizard.service,
+            event=wizard.event,
+            openness=wizard.openness,
+            picked=category,
         )
         return _render(picked, picked.after("category"))
 
@@ -615,6 +679,29 @@ class ProposeSessionTimeslotsComponentView(ProposeWizardMixin):
             state["time_slot_ids"] = [int(sid) for sid in selected_ids]
 
         return _render(wizard, wizard.after("timeslots"))
+
+
+class ProposeSessionSpotComponentView(ProposeWizardMixin):
+    def post(self, request: RootRequest, event_slug: str) -> HttpResponse:
+        wizard = self._wizard(request, event_slug, with_category=True)
+
+        if request.POST.get("back"):
+            return _render(wizard, wizard.at_or_before("spot"))
+
+        if "spot" not in wizard.steps:
+            return _render(wizard, wizard.after("spot"))
+
+        if (claim := pick_spot(wizard.free_spots, request.POST.get("spot"))) is None:
+            with _WizardState(request, event_slug) as state:
+                context = _spot_context(
+                    wizard, state, error=_("Please pick a spot that is still free.")
+                )
+            return TemplateResponse(request, _STEP_TEMPLATES["spot"], context)
+
+        with _WizardState(request, event_slug) as state:
+            state["spot"] = list(claim)
+
+        return _render(wizard, wizard.after("spot"))
 
 
 class ProposeSessionDetailsComponentView(ProposeWizardMixin):
@@ -698,13 +785,35 @@ class ProposeSessionSubmitActionView(ProposeWizardMixin):
                 )
 
         cover = pop_wizard_cover(state)
-        result = wizard.service.submit(
-            wizard.event,
-            state,
-            cover_image=cover,
-            user_id=request.context.current_user_id,
-            user_slug=request.context.current_user_slug,
-        )
+        try:
+            result = wizard.service.submit(
+                wizard.event,
+                state,
+                cover_image=cover,
+                user_id=request.context.current_user_id,
+                user_slug=request.context.current_user_slug,
+                spot=stored_spot(state),
+            )
+        except SpotRequiredError:
+            raise RedirectError(
+                _propose_url(event_slug),
+                error=_("Please pick a spot that is still free."),
+            ) from None
+        except ClaimAlreadyPendingError:
+            raise RedirectError(
+                _propose_url(event_slug),
+                error=_(
+                    "Your last claim is still waiting for an answer. "
+                    "Withdraw it before claiming another spot."
+                ),
+            ) from None
+        except PlacementRejectedError:
+            # The cell went to somebody else between the picker and here. The
+            # claim wrote nothing, so the proposer only has to pick again.
+            raise RedirectError(
+                _propose_url(event_slug),
+                error=_("That spot has just been taken. Please pick another one."),
+            ) from None
 
         del request.session[_session_key(event_slug)]
 
