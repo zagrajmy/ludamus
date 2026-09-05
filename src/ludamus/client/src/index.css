@@ -236,14 +236,36 @@ body {
   overflow: hidden;
 }
 
+/* NOTE: iOS Safari minimises its bottom bar for scrolls inside #app-scroll
+   but keeps reporting the un-minimised viewport — innerHeight, visualViewport
+   and 100dvh all stay at 100svh — so a scroller sized from any of them ends a
+   bar's height above the minimised bar, body background below (iOS 18.7,
+   measured: 100svh 736, 100lvh 836). The scroller takes the large viewport,
+   the one size Safari reports the same in both states, and is fixed so the
+   extra height is neither clipped by the shell nor document overflow.
+   --toolbar-cover is the strip the expanded bar hides; the content is padded
+   by it so the page's end stays reachable above the bar, and it is 0 once the
+   bar minimises and Safari says so. */
 .app-scroll {
+  --toolbar-cover: calc(100lvh - 100dvh);
+
+  position: fixed;
+  inset: 0;
   display: flex;
   flex-direction: column;
-  height: 100dvh;
+  height: 100vh;
+  height: 100lvh;
   overflow-y: auto;
   overscroll-behavior: contain;
   scrollbar-gutter: stable;
+  scroll-padding-bottom: var(--toolbar-cover);
   -webkit-overflow-scrolling: touch;
+}
+
+.app-scroll::after {
+  content: "";
+  flex: none;
+  height: var(--toolbar-cover);
 }
 
 .schedule-rail.is-scrubbing,
@@ -262,9 +284,14 @@ body:has(dialog.modal[open]) .app-scroll {
   }
 
   .app-scroll {
+    position: static;
     display: block;
     height: auto;
     overflow: visible;
+  }
+
+  .app-scroll::after {
+    content: none;
   }
 }
 

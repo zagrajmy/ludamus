@@ -3,12 +3,13 @@
   Viewport probe for the iPhone Safari cut-off. Open it on the phone that
   shows the bug and screenshot it at the top and scrolled to the end.
 
-  The shell below is base.html's app-shell verbatim (html/body 100%,
-  .app-shell 100dvh overflow hidden, .app-scroll 100dvh overflow-y auto),
-  with the same viewport meta and no viewport-fit=cover. Backgrounds are
+  The shell below is base.html's app-shell verbatim, including the fix in
+  index.css (a fixed 100lvh scroller padded by the strip the expanded bar
+  hides, painted light blue here), with the same viewport meta and no
+  viewport-fit=cover. Backgrounds are
   deliberately loud so a screenshot says which box paints where: html is
   magenta, body is yellow, the shell is white, the footer is grey. The red
-  line is position:fixed bottom:0; the blue line is the shell's bottom edge;
+  line is position:fixed bottom:0; the blue line is the scroller's bottom edge;
   the ruler on the right counts CSS px from the top of the layout viewport.
 -->
 <meta charset="utf-8">
@@ -37,16 +38,30 @@
         overflow: hidden;
     }
 
+    /* index.css's fix, verbatim: the scroller is fixed and takes the large
+       viewport; ::after pads the content by the strip the expanded bar hides. */
     .app-scroll {
-        position: relative;
+        --toolbar-cover: calc(100lvh - 100dvh);
+
+        position: fixed;
+        inset: 0;
         display: flex;
         flex-direction: column;
-        height: 100dvh;
+        height: 100vh;
+        height: 100lvh;
         overflow-y: auto;
         overscroll-behavior: contain;
         scrollbar-gutter: stable;
+        scroll-padding-bottom: var(--toolbar-cover);
         -webkit-overflow-scrolling: touch;
         background: #fff;
+    }
+
+    .app-scroll::after {
+        content: "";
+        flex: none;
+        height: var(--toolbar-cover);
+        background: #7fd8ff;
     }
 
     .rows {

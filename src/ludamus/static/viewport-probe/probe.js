@@ -46,6 +46,7 @@ const measure = () => {
     probes(),
     `shell top=${round(shell.top)} bottom=${round(shell.bottom)} h=${round(shell.height)}`,
     `#app-scroll clientH=${scroller.clientHeight} scrollH=${scroller.scrollHeight} scrollTop=${round(scroller.scrollTop)}`,
+    `toolbar cover (::after) ${getComputedStyle(scroller, "::after").height}`,
     `page end (footer bottom) at y=${round(footerBottom)}  vs innerHeight ${window.innerHeight}  → ${round(window.innerHeight - footerBottom)}px of room below it`,
     `document scrollY=${round(window.scrollY)}  html.scrollHeight=${document.documentElement.scrollHeight}`,
   ].join("\n");
