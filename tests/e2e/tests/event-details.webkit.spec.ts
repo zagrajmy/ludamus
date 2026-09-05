@@ -56,6 +56,85 @@ test.describe("Event detail page on a phone", () => {
     await context.close();
   });
 
+  test("closing a session modal on iOS runs no view transition, and the next tap lands", async ({
+    browser,
+    browserName,
+  }) => {
+    test.skip(browserName === "firefox", "Firefox does not support mobile emulation");
+    const context = await createIosModalContext(browser, browserName);
+    const page = await context.newPage();
+    // Counted, not inferred: WebKit does not expose the transition's
+    // animations to getAnimations(), so the call itself is the evidence.
+    await context.addInitScript(() => {
+      const started = { count: 0 };
+      (globalThis as unknown as { __viewTransitions: { count: number } }).__viewTransitions =
+        started;
+      const original = Document.prototype.startViewTransition;
+      if (!original) return;
+      Document.prototype.startViewTransition = function (this: Document, callback) {
+        started.count += 1;
+        return original.call(this, callback);
+      };
+    });
+    await page.goto("/event/autumn-open/");
+    // The toolbar at the top of the screen and a card under it, both in view,
+    // as a reader who has just scrolled to the programme has them. Tapped in
+    // place, not pressed: focusing a card would scroll it into view and take
+    // the toolbar off the screen the tap below needs it on.
+    const search = page.locator("#session-filter");
+    await page.evaluate(() => {
+      const root = document.getElementById("app-scroll");
+      const box = document.getElementById("session-filter");
+      if (root && box) root.scrollTop += box.getBoundingClientRect().top - 80;
+    });
+    await expect(search).toBeInViewport();
+    const cards = page.getByRole("link", { name: /^Open details for / });
+    let opener: { x: number; y: number; title: string } | null = null;
+    for (let index = 0; index < (await cards.count()); index += 1) {
+      const card = cards.nth(index);
+      const box = await card.boundingBox();
+      if (!box || box.y < 140 || box.y + box.height > 640) continue;
+      const name = (await card.getAttribute("aria-label")) ?? (await card.textContent()) ?? "";
+      opener = {
+        title: name.replace("Open details for ", "").trim(),
+        x: box.x + 60,
+        y: box.y + box.height / 2,
+      };
+      break;
+    }
+    if (!opener) throw new Error("The fixture needs a card in view under the toolbar");
+    await page.touchscreen.tap(opener.x, opener.y);
+    const dialog = page.getByRole("dialog", { name: opener.title });
+    await expect(dialog).toBeVisible();
+    await settleViewTransitions(page);
+    await page.waitForTimeout(500);
+
+    const startedBefore = await page.evaluate(
+      () =>
+        (globalThis as unknown as { __viewTransitions: { count: number } }).__viewTransitions.count,
+    );
+    const close = await dialog.getByRole("button", { name: "Close" }).boundingBox();
+    const searchBox = await search.boundingBox();
+    if (!close || !searchBox) throw new Error("The close button and the search box need positions");
+    await page.touchscreen.tap(close.x + close.width / 2, close.y + close.height / 2);
+    // The very next tap, with nothing awaited in between: on an iPhone the
+    // transition's capture alone used to hold this tap for about a second.
+    await page.touchscreen.tap(
+      searchBox.x + searchBox.width / 2,
+      searchBox.y + searchBox.height / 2,
+    );
+    await expect(search).toBeFocused();
+    await expect(dialog).toBeHidden();
+    expect(
+      await page.evaluate(
+        () =>
+          (globalThis as unknown as { __viewTransitions: { count: number } }).__viewTransitions
+            .count,
+      ),
+    ).toBe(startedBefore);
+    await context.close();
+  });
+
   test("mobile session modal opened over a scrolled page keeps the Close button tappable on iOS", async ({
     browser,
     browserName,

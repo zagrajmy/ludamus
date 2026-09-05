@@ -91,6 +91,17 @@ const getLinkableByModalId = (id: string): { paramName: string; paramValue: stri
 const prefersReducedMotion = (): boolean =>
   globalThis.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
 
+// iPhones and iPads close a modal with no view transition at all. Measured on
+// the live 880-session schedule in WebKit: the transition's capture alone held
+// every tap for about a second before the dialog even closed, where Chromium
+// takes a frame — and a reader closing a session is usually reaching for the
+// search box next. iPadOS reports itself as a Mac, hence the touch check.
+const isAppleTouchDevice = (): boolean =>
+  /iPhone|iPad|iPod/.test(navigator.userAgent) ||
+  (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+
+const closesWithoutTransition = (): boolean => prefersReducedMotion() || isAppleTouchDevice();
+
 interface ViewTransition {
   finished: Promise<void>;
 }
@@ -185,7 +196,7 @@ const morphTransition = (steps: {
 
 const dismissDialog = (dialog: HTMLDialogElement): void => {
   if (!dialog.open) return;
-  if (prefersReducedMotion()) {
+  if (closesWithoutTransition()) {
     dialog.close();
     return;
   }
@@ -286,7 +297,7 @@ const closeModal = (
   const dialog = getDialog(id);
   if (dialog.open) {
     const card = sessionCardForModal(id);
-    if (animate && canMorph(card)) {
+    if (animate && !closesWithoutTransition() && canMorph(card)) {
       morphTransition({
         before: () => {
           setContainerMorph(dialog, true);

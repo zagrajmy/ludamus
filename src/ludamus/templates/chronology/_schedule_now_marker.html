@@ -1,9 +1,8 @@
 {% load i18n %}
 {# The "now" pill, shared by both compact schedule layouts. schedule-now.ts #}
 {# fills the time and moves the marker into place: which row it belongs to is #}
-{# clock-dependent, and this page is cacheable. `background` overrides the #}
-{# fill: the ledger pill sits over row text, so it passes a translucent one. #}
-<span class="schedule-now-pill translate-x-[3px] rounded-full {{ background|default:"bg-primary" }} px-1.5 text-[0.625rem] font-bold tabular-nums leading-[1.1rem] text-white {{ extra_class }}">
+{# clock-dependent, and this page is cacheable. #}
+<span class="schedule-now-pill translate-x-[3px] rounded-full bg-primary px-1.5 text-[0.625rem] font-bold tabular-nums leading-[1.1rem] text-white {{ extra_class }}">
     <span class="sr-only">{% translate "Now" %}</span>
     <span data-now-time></span>
 </span>
