@@ -15,7 +15,7 @@ from ludamus.links.db.django.models import (
     SessionFieldValue,
 )
 from ludamus.mills.panel_cofacilitators import CofacilitatorPanelService
-from ludamus.pacts import NotFoundError, OrganizerFieldDTO
+from ludamus.pacts import FieldAnswer, NotFoundError, OrganizerFieldDTO
 from ludamus.pacts.panel import (
     CofacilitatorCandidateDTO,
     CofacilitatorSessionDetailDTO,
@@ -76,6 +76,37 @@ def _event_context(event):
         **panel_context(event, active_nav="facilitators"),
         "active_tab": "cofacilitators",
         "tab_urls": _tab_urls(event),
+    }
+
+
+def _row(
+    *,
+    index,
+    candidate_name,
+    target,
+    resolved=False,
+    match=None,
+    row_name=None,
+    existing_id="",
+    descriptors=None,
+    error="",
+):
+    """Build one expected resolve-page row.
+
+    `form` stays ANY: it's a bound Django form, not a value worth comparing.
+    """
+    return {
+        "candidate": CofacilitatorCandidateDTO(
+            index=index, name=candidate_name, values={}, match=match, resolved=resolved
+        ),
+        "prefix": f"cofacilitator{index}",
+        "target": target,
+        "checked": {t: t == target for t in ("new", "existing", "skip")},
+        "name": candidate_name if row_name is None else row_name,
+        "existing_id": existing_id,
+        "descriptors": [] if descriptors is None else descriptors,
+        "form": ANY,
+        "error": error,
     }
 
 
@@ -408,7 +439,10 @@ class TestCofacilitatorResolvePageView:
                 **_event_context(event),
                 "session": _detail(session_with_answer),
                 "chosen_field": _field_dto(cohost_field),
-                "rows": ANY,
+                "rows": [
+                    _row(index=0, candidate_name="Jan Kowalski", target="new"),
+                    _row(index=1, candidate_name="Piotr Nowak", target="new"),
+                ],
                 "existing_facilitators": [],
             },
         )
@@ -655,7 +689,16 @@ class TestCofacilitatorResolvePageView:
                 **_event_context(event),
                 "session": _detail(session_with_answer),
                 "chosen_field": _field_dto(cohost_field),
-                "rows": ANY,
+                "rows": [
+                    _row(
+                        index=0,
+                        candidate_name="Jan Kowalski",
+                        target="new",
+                        row_name="  ",
+                        error="Give the new facilitator a name.",
+                    ),
+                    _row(index=1, candidate_name="Piotr Nowak", target="skip"),
+                ],
                 "existing_facilitators": [],
             },
         )
@@ -682,7 +725,15 @@ class TestCofacilitatorResolvePageView:
                 **_event_context(event),
                 "session": _detail(session_with_answer),
                 "chosen_field": _field_dto(cohost_field),
-                "rows": ANY,
+                "rows": [
+                    _row(
+                        index=0,
+                        candidate_name="Jan Kowalski",
+                        target="existing",
+                        error="Pick the facilitator to link.",
+                    ),
+                    _row(index=1, candidate_name="Piotr Nowak", target="skip"),
+                ],
                 "existing_facilitators": [],
             },
         )
@@ -695,13 +746,19 @@ class TestCofacilitatorResolvePageView:
             event=event, name="Pseudonim", question="Pseudonim?", slug="pseudonim"
         )
 
+        overflowing_name = "x" * (nickname.max_length + 1)
+        max_length_error = (
+            f"Ensure this value has at most {nickname.max_length} characters "
+            f"(it has {nickname.max_length + 1})."
+        )
+
         response = panel_client.post(
             self.get_url(event, session_with_answer, cohost_field),
             data={
                 "field": cohost_field.pk,
                 "cofacilitator0_target": "new",
                 "cofacilitator0_name": "Jan Kowalski",
-                "cofacilitator0_pseudonim": "x" * (nickname.max_length + 1),
+                "cofacilitator0_pseudonim": overflowing_name,
                 "cofacilitator1_target": "skip",
             },
         )
@@ -716,7 +773,37 @@ class TestCofacilitatorResolvePageView:
                     session_with_answer, personal_fields=[_field_dto(nickname)]
                 ),
                 "chosen_field": _field_dto(cohost_field),
-                "rows": ANY,
+                "rows": [
+                    _row(
+                        index=0,
+                        candidate_name="Jan Kowalski",
+                        target="new",
+                        descriptors=[
+                            {
+                                "field": _field_dto(nickname),
+                                "name_prefix": "cofacilitator0",
+                                "answer": FieldAnswer(
+                                    value=overflowing_name, errors=[max_length_error]
+                                ),
+                            }
+                        ],
+                        error="Check the answers below.",
+                    ),
+                    # No pseudonim was submitted for this row, so its answer is
+                    # the field's untouched default.
+                    _row(
+                        index=1,
+                        candidate_name="Piotr Nowak",
+                        target="skip",
+                        descriptors=[
+                            {
+                                "field": _field_dto(nickname),
+                                "name_prefix": "cofacilitator1",
+                                "answer": FieldAnswer(),
+                            }
+                        ],
+                    ),
+                ],
                 "existing_facilitators": [],
             },
         )
