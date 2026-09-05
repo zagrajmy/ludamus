@@ -11,11 +11,13 @@ from ludamus.gates.web.django.chronology.event_presentation import EventInfo
 from ludamus.gates.web.django.helpers import placeholder_cover_url
 from ludamus.links.db.django.models import Announcement, Track
 from ludamus.pacts import EventListItemDTO
+from ludamus.pacts.event import LandingStatsDTO
 from ludamus.pacts.multiverse import AnnouncementDTO
 from tests.integration.conftest import (
     PNG_BYTES,
     AgendaItemFactory,
     EventFactory,
+    ProposalCategoryFactory,
     SessionFactory,
     SpaceFactory,
 )
@@ -43,28 +45,60 @@ def _expected_event_info(event, *, session_count=0, cover_index=0):
 class TestIndexRedirectView:
     URL = reverse("web:index")
 
-    def test_redirects_to_events_by_default(self, client):
+    def test_renders_landing_on_root_domain(self, client):
         response = client.get(self.URL)
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={"stats": LandingStatsDTO(events=0, sessions=0)},
+            template_name=["landing_page.html"],
+        )
+
+    def test_landing_stats_count_published_events_and_their_sessions(
+        self, client, sphere
+    ):
+        event = EventFactory(sphere=sphere)
+        category = ProposalCategoryFactory(event=event)
+        SessionFactory(category=category)
+        SessionFactory(category=category)
+        unpublished_event = EventFactory(sphere=sphere, publication_time=None)
+        unpublished_category = ProposalCategoryFactory(event=unpublished_event)
+        SessionFactory(category=unpublished_category)
+
+        response = client.get(self.URL)
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={"stats": LandingStatsDTO(events=1, sessions=2)},
+            template_name=["landing_page.html"],
+        )
+
+    def test_redirects_to_events_on_sphere_domain(self, client, non_root_sphere):
+        response = client.get(self.URL, HTTP_HOST=non_root_sphere.site.domain)
 
         assert_response(response, HTTPStatus.FOUND, url=reverse("web:events"))
 
     def test_redirects_to_encounters_when_default_page_is_encounters(
-        self, client, sphere
+        self, client, non_root_sphere
     ):
-        sphere.default_page = "encounters"
-        sphere.save()
+        non_root_sphere.default_page = "encounters"
+        non_root_sphere.save()
 
-        response = client.get(self.URL)
+        response = client.get(self.URL, HTTP_HOST=non_root_sphere.site.domain)
 
         assert_response(
             response, HTTPStatus.FOUND, url=reverse("web:notice-board:index")
         )
 
-    def test_redirects_to_timeline_when_default_page_is_timeline(self, client, sphere):
-        sphere.default_page = "timeline"
-        sphere.save()
+    def test_redirects_to_timeline_when_default_page_is_timeline(
+        self, client, non_root_sphere
+    ):
+        non_root_sphere.default_page = "timeline"
+        non_root_sphere.save()
 
-        response = client.get(self.URL)
+        response = client.get(self.URL, HTTP_HOST=non_root_sphere.site.domain)
 
         assert_response(response, HTTPStatus.FOUND, url=reverse("web:timeline"))
 
