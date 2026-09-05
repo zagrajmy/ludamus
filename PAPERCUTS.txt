@@ -508,3 +508,6 @@ If you fix a papercut, remove it.
   required env var), so a django.po edit had to be hand-written. djlint in
   .venv was also missing its 'regex' and 'pyyaml' deps, which blocked the
   pre-commit hook until I pip-installed them by hand.
+- 2026-09-05: Committed the change, but the required make_pr tool is not
+  available in this environment and the repository has no Git remote; could not
+  create the PR.

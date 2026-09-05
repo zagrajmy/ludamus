@@ -59,13 +59,8 @@ test.describe("Event filter panel", () => {
     expect(box.x + box.width).toBeLessThan(MOBILE_WIDTH);
 
     // The control that was out of reach before, reached the way a person
-    // reaches it: if it is off-screen, this click times out.
-    await page.getByRole("combobox", { name: "Host" }).click();
-    await expect(page.getByRole("listbox")).toBeVisible();
-    // Escape unwinds one layer at a time: the list goes, the sheet stays.
-    await page.keyboard.press("Escape");
-    await expect(page.getByRole("listbox")).toBeHidden();
-    await expect(trigger).toHaveAttribute("aria-expanded", "true");
+    // reaches it: if it is off-screen, this focus times out.
+    await page.getByRole("textbox", { name: "Search hosts…" }).focus();
 
     // The dialog covers its own trigger, so the way out has to be inside it.
     // Apply is the one that reads as finishing: the filters are already live,
@@ -169,17 +164,11 @@ test.describe("Event filter panel", () => {
     await page.locator("[data-filter-backdrop]").click({ position: { x: 5, y: 5 } });
     await expect(trigger).toHaveAttribute("aria-expanded", "false");
 
-    // And by Escape from inside the combobox, which is where a phone keyboard
-    // leaves you. With its own list already shut the combobox must let the key
-    // past rather than swallowing it on the dialog's behalf.
+    // Escape from the host search also closes the filter dialog.
     await trigger.click();
-    const hostFilter = page.getByRole("combobox", { name: "Host" });
-    await hostFilter.click();
-    await hostFilter.press("Escape");
-    await expect(page.getByRole("listbox", { name: "Host" })).toBeHidden();
-    await expect(trigger).toHaveAttribute("aria-expanded", "true");
-
-    await hostFilter.press("Escape");
+    const hostSearch = page.getByRole("textbox", { name: "Search hosts…" });
+    await hostSearch.focus();
+    await hostSearch.press("Escape");
     await expect(trigger).toHaveAttribute("aria-expanded", "false");
 
     await context.close();
@@ -279,26 +268,22 @@ test.describe("Event filter panel", () => {
 
   test("the track filter offers the tracks the schedule uses", async ({ page }) => {
     await page.goto(DENSE_EVENT_URL);
+    await page.getByRole("button", { exact: true, name: "Filters" }).click();
 
     // Track and category options are rendered by the server like every other
     // filter's; the client only drops the ones no session carries.
     const trackFilter = page.locator("#tag-filter-__track");
-    await expect(trackFilter.locator("option")).toHaveText([
-      "All tracks",
-      "Contests",
-      "Cosplay",
-      "Miniature Painting",
-      "Publisher Tables",
-      "RPG",
-      "Workshops",
-    ]);
+    await expect(trackFilter.getByRole("checkbox")).toHaveCount(6);
 
     const shown = page.locator(".session:visible");
     const total = await shown.count();
-    await trackFilter.selectOption("Cosplay");
-
+    await trackFilter.getByRole("checkbox", { name: "Cosplay" }).check();
     await expect(shown).not.toHaveCount(total);
     await expect(shown.first()).toContainText("Cosplay");
+
+    const cosplayCount = await shown.count();
+    await trackFilter.getByRole("checkbox", { name: "RPG" }).check();
+    expect(await shown.count()).toBeGreaterThan(cosplayCount);
   });
 
   test("offers a field's used choices only, never a written-in value", async ({ page }) => {
@@ -336,241 +321,37 @@ test.describe("Event filter panel", () => {
     await expect(card("Cozy Storytellers Circle")).toBeHidden();
   });
 
-  test("the host filter offers the schedule's hosts and narrows to one", async ({ page }) => {
+  test("the host filter supports multiple choices and search", async ({ page }) => {
     await page.goto("/event/autumn-open/");
     await page.getByRole("button", { exact: true, name: "Filters" }).click();
 
-    const hostFilter = page.getByRole("combobox", { name: "Host" });
-    await hostFilter.click();
-    await expect(page.getByRole("listbox", { name: "Host" }).getByRole("option")).toHaveText([
-      "All hosts",
-      "Alex Morgan",
-      "Priya Chen",
-      "Radek Włodarczyk",
-    ]);
-
     const card = (title: string) => page.getByRole("link", { name: `Open details for ${title}` });
-    await page.getByRole("option", { name: "Priya Chen" }).click();
-    await expect(hostFilter).toHaveValue("Priya Chen");
+    const hostSearch = page.getByRole("textbox", { name: "Search hosts…" });
+    await hostSearch.fill("wlodarczyk");
+    await expect(page.getByRole("checkbox", { name: "Radek Włodarczyk" })).toBeVisible();
+    await expect(page.getByRole("checkbox", { name: "Alex Morgan" })).toBeHidden();
+
+    await hostSearch.fill("");
+    await page.getByRole("checkbox", { name: "Priya Chen" }).check();
+    await page.getByRole("checkbox", { name: "Alex Morgan" }).check();
     await expect(card("Cozy Storytellers Circle")).toBeVisible();
-    await expect(card("Mega Strategy Lab")).toBeHidden();
+    await expect(card("Mega Strategy Lab")).toBeVisible();
     await expect(card("Przygoda w Mieście Neonów")).toBeHidden();
+    await expect(page.locator("#active-filter-chips .filter-chip")).toHaveCount(2);
   });
 
-  test("the host combobox narrows as you type and commits on Enter", async ({ page }) => {
-    await page.goto("/event/autumn-open/");
+  test("location choices can combine venues and rooms", async ({ page }) => {
+    await page.goto(DENSE_EVENT_URL);
     await page.getByRole("button", { exact: true, name: "Filters" }).click();
 
-    const hostFilter = page.getByRole("combobox", { name: "Host" });
-    const options = page.getByRole("listbox", { name: "Host" }).getByRole("option");
-    await hostFilter.fill("chen");
-    await expect(options).toHaveText(["Priya Chen"]);
-
-    // DOM focus stays on the input; the active option is named instead.
-    await hostFilter.press("ArrowDown");
-    await expect(hostFilter).toHaveAttribute("aria-activedescendant", /host-filter-option-/);
-    await expect(hostFilter).toBeFocused();
-
-    await hostFilter.press("Enter");
-    await expect(hostFilter).toHaveValue("Priya Chen");
-    await expect(hostFilter).toHaveAttribute("aria-expanded", "false");
-    const card = (title: string) => page.getByRole("link", { name: `Open details for ${title}` });
-    await expect(card("Cozy Storytellers Circle")).toBeVisible();
-    await expect(card("Mega Strategy Lab")).toBeHidden();
-  });
-
-  test("the host chip names the committed host, not the query that found it", async ({ page }) => {
-    await page.goto("/event/autumn-open/");
-    await page.getByRole("button", { exact: true, name: "Filters" }).click();
-
-    const chip = page.locator("#active-filter-chips .filter-chip").first();
-    const hostFilter = page.getByRole("combobox", { name: "Host" });
-
-    // The chip reads the combobox's visible input, so a commit that fires its
-    // change event before writing that input labels the chip with whatever the
-    // box still held — here the query, "chen".
-    await hostFilter.fill("chen");
-    await hostFilter.press("Enter");
-    await expect(chip).toHaveText(/^Priya Chen/);
-
-    await hostFilter.fill("morgan");
-    await hostFilter.press("Enter");
-    await expect(chip).toHaveText(/^Alex Morgan/);
-
-    // Clicking a row takes the same path, and with nothing typed the box holds
-    // the previous pick — so the same ordering bug labels the chip with the
-    // host being replaced.
-    await hostFilter.click();
-    await page.getByRole("option", { name: "Radek Włodarczyk" }).click();
-    await expect(chip).toHaveText(/^Radek Włodarczyk/);
-  });
-
-  test("the host combobox says when nothing matches, and Escape restores the pick", async ({
-    page,
-  }) => {
-    await page.goto("/event/autumn-open/");
-    await page.getByRole("button", { exact: true, name: "Filters" }).click();
-
-    const hostFilter = page.getByRole("combobox", { name: "Host" });
-    await hostFilter.fill("chen");
-    await page.getByRole("option", { name: "Priya Chen" }).click();
-
-    await hostFilter.fill("zzzznomatch");
-    await expect(page.getByText("No host matches your search.")).toBeVisible();
-
-    // A half-typed query is not a value: Escape puts the committed one back.
-    await hostFilter.press("Escape");
-    await expect(hostFilter).toHaveValue("Priya Chen");
-    await expect(hostFilter).toHaveAttribute("aria-expanded", "false");
-
-    // Pressing it again reaches past the combobox: the list is already shut,
-    // so the next layer out is the panel. The pick it restored stands.
-    await hostFilter.press("Escape");
-    await expect(hostFilter).toHaveValue("Priya Chen");
-    await expect(page.getByRole("button", { exact: true, name: "Filters" })).toHaveAttribute(
-      "aria-expanded",
-      "false",
-    );
-  });
-
-  test("Escape closes the list first and the panel second", async ({ page }) => {
-    await page.goto("/event/autumn-open/");
-    const trigger = page.getByRole("button", { exact: true, name: "Filters" });
-    await trigger.click();
-
-    const hostFilter = page.getByRole("combobox", { name: "Host" });
-    await hostFilter.click();
-    await expect(page.getByRole("listbox", { name: "Host" })).toBeVisible();
-
-    // One layer per press: the list goes and the panel stays, because the
-    // combobox claims the key while its own popup is what Escape can dismiss.
-    await hostFilter.press("Escape");
-    await expect(page.getByRole("listbox", { name: "Host" })).toBeHidden();
-    await expect(trigger).toHaveAttribute("aria-expanded", "true");
-
-    // Nothing left inside to dismiss, so the press reaches the panel.
-    await hostFilter.press("Escape");
-    await expect(trigger).toHaveAttribute("aria-expanded", "false");
-  });
-
-  test("the host combobox folds diacritics like the search box does", async ({ page }) => {
-    await page.goto("/event/autumn-open/");
-    await page.getByRole("button", { exact: true, name: "Filters" }).click();
-
-    const hostFilter = page.getByRole("combobox", { name: "Host" });
-    await hostFilter.fill("wlodarczyk");
-    await expect(page.getByRole("listbox", { name: "Host" }).getByRole("option")).toHaveText([
-      "Radek Włodarczyk",
-    ]);
-  });
-
-  test("clearing the filters puts the host combobox back to its placeholder", async ({ page }) => {
-    await page.goto("/event/autumn-open/");
-    await page.getByRole("button", { exact: true, name: "Filters" }).click();
-
-    const hostFilter = page.getByRole("combobox", { name: "Host" });
-    await hostFilter.click();
-    await page.getByRole("option", { name: "Priya Chen" }).click();
-    await expect(hostFilter).toHaveValue("Priya Chen");
-
-    await page.getByRole("button", { name: "Clear all" }).click();
-    await expect(hostFilter).toHaveValue("All hosts");
-
-    // "Clear all" sits in the chips bar, outside the panel, so pressing it
-    // counts as a click outside and shuts the panel behind you.
-    await page.getByRole("button", { exact: true, name: "Filters" }).click();
-
-    // The hosts are assembled from the cards at runtime — no server-rendered
-    // option holds them. A clear that rebuilt the list from what the server
-    // wrote would empty it, and then drop the value naming a host as stale.
-    await hostFilter.click();
-    await expect(page.getByRole("listbox", { name: "Host" }).getByRole("option")).toHaveText([
-      "All hosts",
-      "Alex Morgan",
-      "Priya Chen",
-      "Radek Włodarczyk",
-    ]);
-  });
-
-  test("dismissing the host chip leaves the hosts there to pick again", async ({ page }) => {
-    await page.goto("/event/autumn-open/");
-    await page.getByRole("button", { exact: true, name: "Filters" }).click();
-
-    const hostFilter = page.getByRole("combobox", { name: "Host" });
-    await hostFilter.click();
-    await page.getByRole("option", { name: "Priya Chen" }).click();
-
-    // The chip's own X takes the same path clear-all does, one filter at a
-    // time — and, like it, sits outside the panel and closes it.
-    await page.locator("#active-filter-chips").getByRole("button").first().click();
-    await expect(hostFilter).toHaveValue("All hosts");
-
-    await page.getByRole("button", { exact: true, name: "Filters" }).click();
-    await hostFilter.click();
-    await expect(page.getByRole("listbox", { name: "Host" }).getByRole("option")).toHaveText([
-      "All hosts",
-      "Alex Morgan",
-      "Priya Chen",
-      "Radek Włodarczyk",
-    ]);
-  });
-
-  test("a touch pick lets go of the input, so the keyboard goes with it", async ({ browser }) => {
-    // The on-screen keyboard is up for as long as the input holds focus, and
-    // on a phone it covers most of what the pick was meant to reveal. Nothing
-    // else here can observe a keyboard, so focus is the proxy for it.
-    const context = await browser.newContext({
-      hasTouch: true,
-      viewport: { width: MOBILE_WIDTH, height: 700 },
-    });
-    const page = await context.newPage();
-    await page.goto("/event/autumn-open/");
-    await page.getByRole("button", { exact: true, name: "Filters" }).click();
-
-    const hostFilter = page.getByRole("combobox", { name: "Host" });
-    await hostFilter.click();
-    await page.getByRole("option", { name: "Priya Chen" }).click();
-
-    await expect(hostFilter).toHaveValue("Priya Chen");
-    await expect(hostFilter).not.toBeFocused();
-
-    // Committing by the keyboard's own return key costs the same screen.
-    await hostFilter.click();
-    await hostFilter.fill("morgan");
-    await hostFilter.press("Enter");
-    await expect(hostFilter).toHaveValue("Alex Morgan");
-    await expect(hostFilter).not.toBeFocused();
-
-    await context.close();
-  });
-
-  test("a mouse pick keeps the input focused, as the pattern expects", async ({ page }) => {
-    // The mirror of the test above: a hardware pointer pays no screen for
-    // focus, and blurring would drop the user at the top of the document on
-    // the next Tab.
-    await page.goto("/event/autumn-open/");
-    await page.getByRole("button", { exact: true, name: "Filters" }).click();
-
-    const hostFilter = page.getByRole("combobox", { name: "Host" });
-    await hostFilter.click();
-    await page.getByRole("option", { name: "Priya Chen" }).click();
-
-    await expect(hostFilter).toHaveValue("Priya Chen");
-    await expect(hostFilter).toBeFocused();
-  });
-
-  test("the host combobox commits the only match on Enter, with no arrowing", async ({ page }) => {
-    await page.goto("/event/autumn-open/");
-    await page.getByRole("button", { exact: true, name: "Filters" }).click();
-
-    // Typing resets the active option, and a touch keyboard has no arrow keys
-    // to set it again — so on a phone this is the only way Enter can commit.
-    const hostFilter = page.getByRole("combobox", { name: "Host" });
-    await hostFilter.fill("chen");
-    await hostFilter.press("Enter");
-
-    await expect(hostFilter).toHaveValue("Priya Chen");
-    await expect(hostFilter).toHaveAttribute("aria-expanded", "false");
+    const locations = page.locator("#space-filter");
+    const choices = locations.getByRole("checkbox");
+    expect(await choices.count()).toBeGreaterThan(2);
+    await choices.nth(0).check();
+    const afterFirst = await page.locator(".session:visible").count();
+    await choices.nth(2).check();
+    expect(await page.locator(".session:visible").count()).toBeGreaterThanOrEqual(afterFirst);
+    await expect(page.locator("#active-filter-chips .filter-chip")).toHaveCount(2);
   });
 
   test("the age filter keeps the sessions that admit the typed age", async ({ page }) => {
@@ -605,7 +386,7 @@ test.describe("Event filter panel", () => {
       "true",
     );
 
-    await expect(page.getByRole("combobox", { name: "Host" })).toBeHidden();
+    await expect(page.locator("#host-filter-group")).toBeHidden();
   });
 });
 

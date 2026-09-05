@@ -398,13 +398,14 @@
                                     {# them. Two selects narrowing one axis let #}
                                     {# the reader pick a venue and a room outside #}
                                     {# it, and answered that with an empty list. #}
-                                    <div id="space-filter-group" class="flex flex-col gap-1.5 hidden">
-                                        <label class="{{ label_class }}" for="space-filter">{% translate "Location" %}</label>
+                                    <fieldset id="space-filter-group" class="flex flex-col gap-1.5 hidden">
+                                        <legend class="{{ label_class }}">{% translate "Location" %}</legend>
                                         {% translate "all rooms" as t_all_rooms %}
-                                        {% select id="space-filter" data_all_rooms_label=t_all_rooms class=select_class %}
-                                            <option value="">{% translate "All locations" %}</option>
-                                        {% endselect %}
-                                    </div>
+                                        <div id="space-filter"
+                                             data-all-rooms-label="{{ t_all_rooms }}"
+                                             class="max-h-48 space-y-1 overflow-y-auto rounded-xl border border-border bg-bg-secondary p-2">
+                                        </div>
+                                    </fieldset>
                                     {# Two ends of the one number a session carries. "Participant #}
                                     {# age" answers "what can this person join" — a session stays #}
                                     {# visible when its minimum-age requirement admits them, and #}
@@ -438,13 +439,19 @@
                                         </div>
                                     </div>
                                     {% if track_filter_names %}
-                                        <div class="flex flex-col gap-1.5 grow">
-                                            <label class="{{ label_class }}" for="tag-filter-__track">{% translate "Track" %}</label>
-                                            {% select id="tag-filter-__track" data_category="__track" class=select_class|add:" tag-filter" %}
-                                                <option value="">{% translate "All tracks" %}</option>
-                                                {% for name in track_filter_names %}<option value="{{ name }}">{{ name }}</option>{% endfor %}
-                                            {% endselect %}
-                                        </div>
+                                        <fieldset class="flex flex-col gap-1.5 grow">
+                                            <legend class="{{ label_class }}">{% translate "Track" %}</legend>
+                                            <div id="tag-filter-__track"
+                                                 data-category="__track"
+                                                 class="tag-filter max-h-48 space-y-1 overflow-y-auto rounded-xl border border-border bg-bg-secondary p-2">
+                                                {% for name in track_filter_names %}
+                                                    <label class="flex items-center gap-2 rounded-lg p-1.5 hover:bg-foreground/5">
+                                                        {% include "components/checkbox-field.html" with value=name aria_label=name hook_class="multi-filter-choice" only %}
+                                                        <span class="text-sm text-foreground">{{ name }}</span>
+                                                    </label>
+                                                {% endfor %}
+                                            </div>
+                                        </fieldset>
                                     {% endif %}
                                     {% if category_filter_names %}
                                         <div class="flex flex-col gap-1.5 grow">
@@ -471,19 +478,22 @@
                                     {# Options come from the cards' data-host (see #}
                                     {# session-filters.ts), so the list always matches the #}
                                     {# schedule on screen; one host means nothing to pick #}
-                                    {# between, so the control stays hidden. A combobox #}
-                                    {# rather than a select: an event's hosts run to the #}
-                                    {# hundreds, which is past what scrolling a list can #}
-                                    {# answer. #}
-                                    <div id="host-filter-group" class="flex flex-col gap-1.5 grow hidden">
-                                        <label class="{{ label_class }}" for="host-filter">{% translate "Host" %}</label>
+                                    {# between, so the control stays hidden. Search keeps #}
+                                    {# a long multiple-choice list manageable. #}
+                                    <fieldset id="host-filter-group" class="flex flex-col gap-1.5 grow hidden">
+                                        <legend class="{{ label_class }}">{% translate "Host" %}</legend>
                                         {% translate "Search hosts…" as t_host_search %}
-                                        {% translate "No host matches your search." as t_host_empty %}
-                                        {% translate "Show hosts" as t_host_toggle %}
-                                        {% tessera_combobox id="host-filter" class=select_class placeholder=t_host_search empty_text=t_host_empty toggle_label=t_host_toggle %}
-                                            <option value="">{% translate "All hosts" %}</option>
-                                        {% endtessera_combobox %}
-                                    </div>
+                                        {% include "components/text-field.html" with name="" id="host-filter-search" placeholder=t_host_search aria_label=t_host_search autocomplete="off" only %}
+                                        <div id="host-filter"
+                                             class="max-h-48 space-y-1 overflow-y-auto rounded-xl border border-border bg-bg-secondary p-2">
+                                        </div>
+                                    </fieldset>
+                                    <template id="multi-filter-option-template">
+                                        <label class="flex items-center gap-2 rounded-lg p-1.5 hover:bg-foreground/5">
+                                            {% include "components/checkbox-field.html" with aria_label="" hook_class="multi-filter-choice" only %}
+                                            <span class="text-sm text-foreground"></span>
+                                        </label>
+                                    </template>
                                 </div>
                             {% endwith %}
                             {# Phone sheet only. Filters apply as they change, so this #}
