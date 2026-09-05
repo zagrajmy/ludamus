@@ -21,6 +21,8 @@
     "@tailwindcss/typography": "0.5.19",
     "@tailwindcss/vite": "4.2.4",
     "@types/node": "24.10.1",
+    "@types/react": "19.2.8",
+    "@types/react-dom": "19.2.3",
     "lil-gui": "0.21.0",
     "oxfmt": "0.56.0",
     "oxlint": "1.70.0",
@@ -30,8 +32,12 @@
     "vite": "8.0.16"
   },
   "dependencies": {
+    "@shadcn/react": "0.2.0",
+    "agents": "0.20.1",
     "cuelume": "0.1.0",
     "posthog-js": "1.410.5",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
     "slugify": "1.6.6"
   }
 }

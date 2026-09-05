@@ -61,6 +61,7 @@ export default defineConfig({
         "nav-progress": resolve(rootDir, "src/nav-progress.ts"),
         "panel-chrome": resolve(rootDir, "src/panel-chrome.ts"),
         "panel-columns": resolve(rootDir, "src/panel-columns.ts"),
+        parley: resolve(rootDir, "src/parley/index.ts"),
         "print-controls": resolve(rootDir, "src/print-controls.ts"),
         prologue: resolve(rootDir, "src/prologue.ts"),
         "proposal-category-settings": resolve(rootDir, "src/proposal-category-settings.ts"),

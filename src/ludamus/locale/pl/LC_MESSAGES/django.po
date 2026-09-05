@@ -2919,6 +2919,15 @@ msgid "Default for the whole sphere. Events can override this setting."
 msgstr "Domyślne dla całej sfery. Wydarzenia mogą nadpisać to ustawienie."
 
 #: src/ludamus/gates/web/django/forms.py
+msgid "Enable Parley conversations"
+msgstr "Włącz rozmowy Parley"
+
+#: src/ludamus/gates/web/django/forms.py
+msgid "Show the sphere room and eligible program-item rooms to active users."
+msgstr ""
+"Pokaż aktywnym użytkownikom pokój sfery i dostępne pokoje punktów programu."
+
+#: src/ludamus/gates/web/django/forms.py
 msgid "Enabled pages"
 msgstr "Włączone strony"
 
@@ -3665,6 +3674,171 @@ msgstr "Regulamin"
 msgid "Your role can read the panel, but not make changes here."
 msgstr "Twoja rola pozwala przeglądać panel, ale nie wprowadzać tu zmian."
 
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "Parley"
+msgstr "Parley"
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "Close Parley"
+msgstr "Zamknij Parley"
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "Gathering conversations…"
+msgstr "Zbieramy rozmowy…"
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "Parley lost the thread. Reconnecting…"
+msgstr "Parley zgubiło wątek. Łączymy ponownie…"
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "Quiet in here. Say hello before someone starts a rules debate."
+msgstr "Ale tu cicho. Przywitaj się, zanim ktoś zacznie dyskusję o zasadach."
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "You found the table first. Leave a note for the others."
+msgstr "Pierwsza osoba przy stole! Zostaw wiadomość dla pozostałych."
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "This parley has ended, but you can still read what was said."
+msgstr "Ta rozmowa już się skończyła, ale nadal możesz ją przeczytać."
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "people around"
+msgstr "osób tutaj"
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "Message"
+msgstr "Wiadomość"
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "Send message"
+msgstr "Wyślij wiadomość"
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "Conversations"
+msgstr "Rozmowy"
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "Back to conversations"
+msgstr "Wróć do rozmów"
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "Load earlier messages"
+msgstr "Wczytaj wcześniejsze wiadomości"
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "Message deleted"
+msgstr "Wiadomość usunięta"
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "Try again"
+msgstr "Spróbuj ponownie"
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "Sending…"
+msgstr "Wysyłanie…"
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "Write a message…"
+msgstr "Napisz wiadomość…"
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "Could not connect to Parley."
+msgstr "Nie udało się połączyć z Parley."
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "Messages can be up to 1,000 characters."
+msgstr "Wiadomość może mieć najwyżej 1000 znaków."
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "This conversation is archived."
+msgstr "Ta rozmowa została zarchiwizowana."
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "Your Parley access expired. Reopen Parley to continue."
+msgstr "Twój dostęp do Parley wygasł. Otwórz Parley ponownie, aby kontynuować."
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "You do not have permission to do that."
+msgstr "Nie masz uprawnień, aby to zrobić."
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "That message could not be sent."
+msgstr "Nie udało się wysłać tej wiadomości."
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "Your writing access is currently muted."
+msgstr "Nie możesz obecnie pisać w tej rozmowie."
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "Too many messages. Wait a moment and try again."
+msgstr "Za dużo wiadomości. Zaczekaj chwilę i spróbuj ponownie."
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "Something went wrong. Try again."
+msgstr "Coś poszło nie tak. Spróbuj ponownie."
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "Delete message"
+msgstr "Usuń wiadomość"
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "online"
+msgstr "online"
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "Programme point"
+msgstr "Punkt programu"
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "Common room"
+msgstr "Pokój wspólny"
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "Delete as moderator"
+msgstr "Usuń jako moderator"
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "Mute for 1 hour"
+msgstr "Wycisz na godzinę"
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "Mute for 24 hours"
+msgstr "Wycisz na 24 godziny"
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "Mute for 7 days"
+msgstr "Wycisz na 7 dni"
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "Mute indefinitely"
+msgstr "Wycisz bezterminowo"
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "Change writing access"
+msgstr "Zmień dostęp do pisania"
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "Restore writing access"
+msgstr "Przywróć dostęp do pisania"
+
+#: src/ludamus/gates/web/django/parley/views.py
+#: src/ludamus/templates/notifications/index.html
+msgid "Unread"
+msgstr "Nieprzeczytane"
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "Copy message link"
+msgstr "Kopiuj link do wiadomości"
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "Report message"
+msgstr "Zgłoś wiadomość"
+
+#: src/ludamus/gates/web/django/parley/views.py
+msgid "Message reported."
+msgstr "Wiadomość została zgłoszona."
+
 #: src/ludamus/gates/web/django/sphere/forms.py
 msgid "Guild name"
 msgstr "Nazwa gildii"
@@ -4101,6 +4275,10 @@ msgstr "Marka"
 #: src/ludamus/templates/base.html
 msgid "Contact"
 msgstr "Kontakt"
+
+#: src/ludamus/templates/base.html
+msgid "Open Parley"
+msgstr "Otwórz Parley"
 
 #: src/ludamus/templates/brand.html
 msgid "Logo & Brand Guidelines"
@@ -6866,10 +7044,6 @@ msgstr "Zarejestruj się"
 #: src/ludamus/templates/notice_board/landing.html
 msgid "Example encounters"
 msgstr "Przykładowe spotkania"
-
-#: src/ludamus/templates/notifications/index.html
-msgid "Unread"
-msgstr "Nieprzeczytane"
 
 #: src/ludamus/templates/notifications/index.html
 msgid "No notifications yet"
@@ -10163,10 +10337,6 @@ msgstr ""
 "Nie ma nadchodzących wydarzeń ani publicznych spotkań. Sprawdź ponownie "
 "później!"
 
-#, python-format
-#~ msgid "Select every venue under %(name)s"
-#~ msgstr "Zaznacz wszystkie lokalizacje w %(name)s"
-
 #~ msgid "No spaces configured for this event. Please create spaces first."
 #~ msgstr ""
 #~ "Brak skonfigurowanych przestrzeni dla tego wydarzenia. Najpierw utwórz "
@@ -10178,6 +10348,9 @@ msgstr ""
 #~ "Brak skonfigurowanych przedziałów czasowych dla tego wydarzenia. Najpierw "
 #~ "utwórz przedziały czasowe."
 
+#~ msgid "Max 8 MB. JPG, PNG, WebP, or AVIF."
+#~ msgstr "Maks. 8 MB. JPG, PNG, WebP lub AVIF."
+
 #, python-format
 #~ msgid "%(limit)s seat"
 #~ msgid_plural "%(limit)s seats"
@@ -10188,52 +10361,6 @@ msgstr ""
 
 #~ msgid "submitted"
 #~ msgstr "zgłoszono"
-
-#~ msgid "Max 8 MB. JPG, PNG, WebP, or AVIF."
-#~ msgstr "Maks. 8 MB. JPG, PNG, WebP lub AVIF."
-
-#~ msgid "Map image"
-#~ msgstr "Obraz mapy"
-
-#~ msgid "Pick venues of this event."
-#~ msgstr "Wybierz lokalizacje tego wydarzenia."
-
-#~ msgid "New map"
-#~ msgstr "Nowa mapa"
-
-#~ msgid "What are maps?"
-#~ msgstr "Czym są mapy?"
-
-#~ msgid ""
-#~ "Pictures of the venue — a site plan, a floor, a building — shown to "
-#~ "participants on the event's maps page. Tick the venues each picture "
-#~ "shows: sessions in those venues link to it, and the page links each venue "
-#~ "back to its sessions."
-#~ msgstr ""
-#~ "Plany miejsca — plan terenu, piętra, budynku — pokazywane uczestnikom na "
-#~ "stronie map wydarzenia. Zaznacz lokalizacje widoczne na każdym obrazie: "
-#~ "punkty programu w tych lokalizacjach będą do niego prowadzić, a strona "
-#~ "poprowadzi z każdej lokalizacji z powrotem do jej punktów programu."
-
-#~ msgid "Map"
-#~ msgstr "Mapa"
-
-#~ msgid "This is the current status."
-#~ msgstr "To jest obecny status."
-
-#~ msgid "Are you sure you want to reject this proposal?"
-#~ msgstr "Czy na pewno chcesz odrzucić to zgłoszenie?"
-
-#, python-format
-#~ msgid ""
-#~ "\n"
-#~ "                    Are you sure you want to delete integration "
-#~ "\"%(name)s\"?\n"
-#~ "                "
-#~ msgstr ""
-#~ "\n"
-#~ "                    Czy na pewno chcesz usunąć integrację \"%(name)s\"?\n"
-#~ "                "
 
 #~ msgid "Your Enrollment Access"
 #~ msgstr "Twój dostęp do zapisów"
@@ -10252,18 +10379,42 @@ msgstr ""
 
 #, python-format
 #~ msgid ""
-#~ "Combined access: Individual enrollment passes + domain access "
-#~ "(@%(domain)s)."
+#~ "\n"
+#~ "                                                Combined access: "
+#~ "Individual enrollment passes + domain access (@%(domain)s).\n"
+#~ "                                            "
 #~ msgstr ""
-#~ "Dostęp łączony: Indywidualne przepustki zapisu + dostęp domenowy "
-#~ "(@%(domain)s)."
+#~ "\n"
+#~ "                                                Dostęp łączony: "
+#~ "Indywidualne przepustki zapisu + dostęp domenowy (@%(domain)s).\n"
+#~ "                                            "
 
 #, python-format
-#~ msgid "Domain-based access: Users from @%(domain)s have enrollment access."
-#~ msgstr "Dostęp domenowy: Użytkownicy z @%(domain)s mają dostęp do zapisów."
+#~ msgid ""
+#~ "\n"
+#~ "                                                Domain-based access: "
+#~ "Users from @%(domain)s have enrollment access.\n"
+#~ "                                            "
+#~ msgstr ""
+#~ "\n"
+#~ "                                                Dostęp domenowy: "
+#~ "Użytkownicy z @%(domain)s mają dostęp do zapisu.\n"
+#~ "                                            "
 
 #~ msgid "Each person can be enrolled in multiple sessions."
 #~ msgstr "Każda osoba może być zapisana na wiele punktów programu."
+
+#, python-format
+#~ msgid ""
+#~ "\n"
+#~ "                                            Domain-based access: Users "
+#~ "from @%(domain)s have enrollment access.\n"
+#~ "                                        "
+#~ msgstr ""
+#~ "\n"
+#~ "                                            Dostęp domenowy: Użytkownicy "
+#~ "z @%(domain)s mają dostęp do zapisu.\n"
+#~ "                                        "
 
 #~ msgid "You may be able to enroll using your manager's enrollment passes."
 #~ msgstr ""
@@ -10287,22 +10438,37 @@ msgstr ""
 #, python-format
 #~ msgid ""
 #~ "\n"
-#~ "                                                Domain-based access: "
-#~ "Users from @%(domain)s have enrollment access.\n"
-#~ "                                            "
+#~ "                    Are you sure you want to delete integration "
+#~ "\"%(name)s\"?\n"
+#~ "                "
 #~ msgstr ""
 #~ "\n"
-#~ "                                                Dostęp domenowy: "
-#~ "Użytkownicy z @%(domain)s mają dostęp do zapisu.\n"
-#~ "                                            "
+#~ "                    Czy na pewno chcesz usunąć integrację \"%(name)s\"?\n"
+#~ "                "
+
+#~ msgid "This is the current status."
+#~ msgstr "To jest obecny status."
+
+#~ msgid "Are you sure you want to reject this proposal?"
+#~ msgstr "Czy na pewno chcesz odrzucić to zgłoszenie?"
+
+#~ msgid ""
+#~ "Are you sure you want to delete this session? It will be removed from the "
+#~ "schedule."
+#~ msgstr ""
+#~ "Czy na pewno chcesz usunąć ten punkt programu? Zostanie on usunięty z "
+#~ "harmonogramu."
+
+#~ msgid "Creator"
+#~ msgstr "Twórca programu"
+
+#~ msgid "Pick a space and time, then add it to the agenda."
+#~ msgstr "Wybierz przestrzeń i godzinę, a następnie dodaj do harmonogramu."
 
 #~ msgid "Select a space and time to add this session to the event agenda."
 #~ msgstr ""
 #~ "Wybierz przestrzeń i godzinę, aby dodać ten punkt programu do "
 #~ "harmonogramu wydarzenia."
-
-#~ msgid "Creator"
-#~ msgstr "Twórca programu"
 
 #~ msgid ""
 #~ "Writes every facilitator with their accreditation type and discount into "
@@ -10326,14 +10492,44 @@ msgstr ""
 #~ msgid "Min"
 #~ msgstr "Min"
 
+#~ msgid "Max"
+#~ msgstr "Max"
+
 #~ msgid "Age ≤"
 #~ msgstr "Wiek ≤"
 
 #~ msgid "Venue"
 #~ msgstr "Lokalizacja"
 
-#~ msgid "Enrollment required"
-#~ msgstr "Wymagane zapisy"
+#~ msgid "All venues"
+#~ msgstr "Wszystkie lokalizacje"
+
+#, python-format
+#~ msgid ""
+#~ "Cookies help us see what to fix. More in the <a "
+#~ "href=\"%(privacy_url)s\">Privacy Policy</a>."
+#~ msgstr ""
+#~ "Ciasteczka pomagają nam zobaczyć, co poprawić. Więcej w <a "
+#~ "href=\"%(privacy_url)s\">Polityce prywatności</a>."
+
+#, python-format
+#~ msgid "Changed by %(who)s on %(when)s"
+#~ msgstr "Zmiana: %(who)s, %(when)s"
+
+#, python-format
+#~ msgid "announced by %(who)s"
+#~ msgstr "ogłoszone przez: %(who)s"
+
+#~ msgid "Facilitator flagged for deletion."
+#~ msgstr "Twórca programu oznaczony do usunięcia."
+
+#~ msgid "Facilitator unflagged."
+#~ msgstr "Usunięto oznaczenie do usunięcia."
+
+#~ msgid "Public tracks are shown to proposers in the submission wizard."
+#~ msgstr ""
+#~ "Publiczne bloki programowe są widoczne dla zgłaszających w kreatorze "
+#~ "propozycji."
 
 #~ msgid "Pending Proposals"
 #~ msgstr "Oczekujące zgłoszenia"
@@ -10347,133 +10543,46 @@ msgstr ""
 #~ msgid "Flexible"
 #~ msgstr "Elastyczny"
 
-#~ msgid "Awaiting review"
-#~ msgstr "Czeka na akceptację"
-
-#~ msgid "Sessions with enrollment"
-#~ msgstr "Punkty programu z zapisami"
-
-#~ msgid "Takes enrollment"
-#~ msgstr "Z zapisami"
-
-#~ msgid "No session at this event takes enrollment"
-#~ msgstr "Żaden punkt programu na tym wydarzeniu nie wymaga zapisów"
-
-#~ msgid "Show the full schedule"
-#~ msgstr "Pokaż pełny harmonogram"
-
-#, python-format
-#~ msgid "Changed by %(who)s on %(when)s"
-#~ msgstr "Zmiana: %(who)s, %(when)s"
-
-#, python-format
-#~ msgid "announced by %(who)s"
-#~ msgstr "ogłoszone przez: %(who)s"
-
-#~ msgid "Analytics settings"
-#~ msgstr "Ustawienia analityki"
-
-#~ msgid "Analytics consent"
-#~ msgstr "Zgoda na analitykę"
-
-#, python-format
-#~ msgid ""
-#~ "We use analytics to see how people use the site, including session "
-#~ "replays with every input masked. It runs only if you agree. Errors work "
-#~ "differently: when something breaks we always record what went wrong, plus "
-#~ "your account id if you are signed in, so we can fix it. More in the <a "
-#~ "href=\"%(privacy_url)s\">Privacy Policy</a>."
-#~ msgstr ""
-#~ "Używamy analityki, aby zobaczyć, jak ludzie korzystają z serwisu. "
-#~ "Obejmuje to nagrania sesji z zamaskowanymi wszystkimi polami. Działa "
-#~ "tylko wtedy, gdy się zgodzisz. Z błędami jest inaczej: kiedy coś się "
-#~ "zepsuje, zawsze zapisujemy, co poszło nie tak, a jeśli masz zalogowane "
-#~ "konto, także jego identyfikator, żebyśmy mogli to naprawić. Więcej w <a "
-#~ "href=\"%(privacy_url)s\">Polityce prywatności</a>."
-
-#~ msgid "Decline analytics"
-#~ msgstr "Odrzuć analitykę"
-
-#~ msgid "Allow analytics"
-#~ msgstr "Włącz analitykę"
-
-#, python-format
-#~ msgid ""
-#~ "With your consent we use PostHog analytics — including session replays "
-#~ "with all inputs masked — to see how the site is used and to fix errors "
-#~ "faster. Nothing is stored before you agree. Details in the <a "
-#~ "href=\"%(privacy_url)s\">Privacy Policy</a>."
-#~ msgstr ""
-#~ "Za Twoją zgodą używamy analityki PostHog — w tym nagrań sesji z "
-#~ "zamaskowanymi wszystkimi polami — aby zobaczyć, jak serwis jest używany, "
-#~ "i szybciej naprawiać błędy. Nic nie zapisujemy, zanim się nie zgodzisz. "
-#~ "Szczegóły w <a href=\"%(privacy_url)s\">Polityce prywatności</a>."
-
-#~ msgid "Empty or 0 = no limit"
-#~ msgstr "Puste pole lub 0 = bez limitu"
-
 #~ msgid "Open"
 #~ msgstr "Otwarte"
+
+#~ msgid "Awaiting review"
+#~ msgstr "Czeka na akceptację"
 
 #~ msgid "Not Available"
 #~ msgstr "Niedostępne"
 
-#~ msgid "Deleted only"
-#~ msgstr "Tylko usunięci"
-
+#, python-format
 #~ msgid ""
-#~ "Map each source answer to an ISO 8601 duration (e.g. PT1H30M for 1 h 30 "
-#~ "min). Answers without a mapping are skipped at import time."
+#~ "The token expires after %(token_max_age_days)s days and works only while "
+#~ "you stay a manager of this sphere. Anyone holding it can act with your "
+#~ "permissions — keep it secret."
 #~ msgstr ""
-#~ "Zmapuj każdą odpowiedź źródłową na czas trwania ISO 8601 (np. PT1H30M dla "
-#~ "1 g 30 min). Odpowiedzi bez mapowania są pomijane przy imporcie."
+#~ "Token wygasa po %(token_max_age_days)s dniach i działa tylko dopóki "
+#~ "zarządzasz tą sferą. Każdy, kto go posiada, może działać z Twoimi "
+#~ "uprawnieniami — trzymaj go w tajemnicy."
 
-#~ msgid "ISO 8601 duration"
-#~ msgstr "Czas trwania ISO 8601"
+#, python-format
+#~ msgid ""
+#~ "Generate a personal token to connect an MCP client (such as Claude Code "
+#~ "or Executor) to this sphere's organizer API. The token is valid for "
+#~ "%(token_max_age_days)s days."
+#~ msgstr ""
+#~ "Wygeneruj osobisty token, aby połączyć klienta MCP (np. Claude Code lub "
+#~ "Executor) z API organizatora tej sfery. Token jest ważny przez "
+#~ "%(token_max_age_days)s dni."
 
 #~ msgid "Toggle category"
 #~ msgstr "Przełącz kategorię"
 
-#, python-format
-#~ msgid ""
-#~ "\n"
-#~ "                            Scheduled in %(space)s, %(start)s – %(end)s\n"
-#~ "                        "
-#~ msgstr ""
-#~ "\n"
-#~ "                            Zaplanowano w %(space)s, %(start)s – %(end)s\n"
-#~ "                        "
+#~ msgid "Set minimum and maximum participant limits for this category."
+#~ msgstr "Ustaw minimalny i maksymalny limit uczestników dla tej kategorii."
 
-#, python-format
-#~ msgid ""
-#~ "\n"
-#~ "                            Imported via %(name)s on %(at)s\n"
-#~ "                        "
-#~ msgstr ""
-#~ "\n"
-#~ "                            Zaimportowano przez %(name)s — %(at)s\n"
-#~ "                        "
+#~ msgid "Statistics"
+#~ msgstr "Statystyki"
 
-#~ msgid "Nothing to filter by yet."
-#~ msgstr "Nie ma jeszcze czego filtrować."
-
-#, python-format
-#~ msgid "%(count)d facilitator runs sessions and was kept."
-#~ msgid_plural "%(count)d facilitators run sessions and were kept."
-#~ msgstr[0] ""
-#~ "%(count)d twórca programu prowadzi punkty programu i został zachowany."
-#~ msgstr[1] ""
-#~ "%(count)d twórców programu prowadzi punkty programu i zostało zachowanych."
-#~ msgstr[2] ""
-#~ "%(count)d twórców programu prowadzi punkty programu i zostało zachowanych."
-#~ msgstr[3] ""
-#~ "%(count)d twórców programu prowadzi punkty programu i zostało zachowanych."
-
-#~ msgid "Facilitator flagged for deletion."
-#~ msgstr "Twórca programu oznaczony do usunięcia."
-
-#~ msgid "Facilitator unflagged."
-#~ msgstr "Usunięto oznaczenie do usunięcia."
+#~ msgid "Submissions"
+#~ msgstr "Zgłoszenia"
 
 #~ msgid "Flagged for deletion only"
 #~ msgstr "Tylko oznaczeni do usunięcia"
@@ -10498,27 +10607,50 @@ msgstr ""
 #~ msgid "Flag %(name)s for deletion"
 #~ msgstr "Oznacz do usunięcia: %(name)s"
 
+#~ msgid ""
+#~ "Map each source answer to an ISO 8601 duration (e.g. PT1H30M for 1 h 30 "
+#~ "min). Answers without a mapping are skipped at import time."
+#~ msgstr ""
+#~ "Zmapuj każdą odpowiedź źródłową na czas trwania ISO 8601 (np. PT1H30M dla "
+#~ "1 g 30 min). Odpowiedzi bez mapowania są pomijane przy imporcie."
+
+#~ msgid "ISO 8601 duration"
+#~ msgstr "Czas trwania ISO 8601"
+
 #, python-format
-#~ msgid "%(scheduled)s scheduled, %(pending)s pending"
-#~ msgstr "%(scheduled)s w harmonogramie, %(pending)s czeka"
+#~ msgid ""
+#~ "\n"
+#~ "                            Scheduled in %(space)s, %(start)s – %(end)s\n"
+#~ "                        "
+#~ msgstr ""
+#~ "\n"
+#~ "                            Zaplanowano w %(space)s, %(start)s – %(end)s\n"
+#~ "                        "
 
-#~ msgid "Statistics"
-#~ msgstr "Statystyki"
-
-#~ msgid "Submissions"
-#~ msgstr "Zgłoszenia"
-
-#~ msgid "Set minimum and maximum participant limits for this category."
-#~ msgstr "Ustaw minimalny i maksymalny limit uczestników dla tej kategorii."
-
-#~ msgid "That is more people than we can store."
-#~ msgstr "To więcej osób, niż jesteśmy w stanie zapisać."
+#, python-format
+#~ msgid ""
+#~ "\n"
+#~ "                            Imported via %(name)s on %(at)s\n"
+#~ "                        "
+#~ msgstr ""
+#~ "\n"
+#~ "                            Zaimportowano przez %(name)s — %(at)s\n"
+#~ "                        "
 
 #~ msgid "Confirm block"
 #~ msgstr "Potwierdź blok"
 
 #~ msgid "Confirm all"
 #~ msgstr "Potwierdź wszystkie"
+
+#~ msgid ""
+#~ "Tracks let you group proposals by thematic area. Public tracks are shown "
+#~ "to proposers in the submission wizard; private tracks are for internal "
+#~ "categorization only."
+#~ msgstr ""
+#~ "Bloki programowe pozwalają grupować propozycje tematycznie. Publiczne "
+#~ "bloki są widoczne dla zgłaszających w kreatorze propozycji; prywatne "
+#~ "służą wyłącznie do wewnętrznej kategoryzacji."
 
 #~ msgid "Whole event…"
 #~ msgstr "Całe wydarzenie…"
@@ -10595,6 +10727,13 @@ msgstr ""
 #~ msgid "Search by facilitator or field values"
 #~ msgstr "Szukaj po prowadzącym lub wartościach pól"
 
+#~ msgid "Select all"
+#~ msgstr "Zaznacz wszystkie"
+
+#~ msgid "The kept facilitator receives all sessions from the others."
+#~ msgstr ""
+#~ "Zachowany twórca programu przejmuje wszystkie punkty programu pozostałych."
+
 #~ msgid "Keep"
 #~ msgstr "Zachowaj"
 
@@ -10622,6 +10761,12 @@ msgstr ""
 
 #~ msgid "Shown on public session card"
 #~ msgstr "Widoczne na publicznej karcie punktu programu"
+
+#~ msgid "Facilitator released."
+#~ msgstr "Twórca programu zwolniony."
+
+#~ msgid "Only this facilitator's organizer can release it."
+#~ msgstr "Tylko opiekun tego twórcy programu może go zwolnić."
 
 #~ msgid "Default contact person. Assign yourself from the facilitator list."
 #~ msgstr ""
@@ -10732,22 +10877,94 @@ msgstr ""
 #~ "Nie można scalić tych twórców programu. Sprawdź wybór, cel scalania i "
 #~ "powiązane konta."
 
-#~ msgid "Session deleted."
-#~ msgstr "Punkt programu został usunięty."
+#~ msgid "Enrollment required"
+#~ msgstr "Wymagane zapisy"
 
-#~ msgid "The kept facilitator receives all sessions from the others."
-#~ msgstr ""
-#~ "Zachowany twórca programu przejmuje wszystkie punkty programu pozostałych."
+#~ msgid "Sessions with enrollment"
+#~ msgstr "Punkty programu z zapisami"
 
-#~ msgid "Facilitator released."
-#~ msgstr "Twórca programu zwolniony."
+#~ msgid "Takes enrollment"
+#~ msgstr "Z zapisami"
+
+#~ msgid "No session at this event takes enrollment"
+#~ msgstr "Żaden punkt programu na tym wydarzeniu nie wymaga zapisów"
+
+#~ msgid "Show the full schedule"
+#~ msgstr "Pokaż pełny harmonogram"
 
 #, python-format
 #~ msgid "Edit proposal %(title)s"
 #~ msgstr "Edytuj zgłoszenie %(title)s"
 
-#~ msgid "Select all"
-#~ msgstr "Zaznacz wszystkie"
+#~ msgid "Analytics settings"
+#~ msgstr "Ustawienia analityki"
+
+#~ msgid "Analytics consent"
+#~ msgstr "Zgoda na analitykę"
+
+#, python-format
+#~ msgid ""
+#~ "With your consent we use PostHog analytics — including session replays "
+#~ "with all inputs masked — to see how the site is used and to fix errors "
+#~ "faster. Nothing is stored before you agree. Details in the <a "
+#~ "href=\"%(privacy_url)s\">Privacy Policy</a>."
+#~ msgstr ""
+#~ "Za Twoją zgodą używamy analityki PostHog — w tym nagrań sesji z "
+#~ "zamaskowanymi wszystkimi polami — aby zobaczyć, jak serwis jest używany, "
+#~ "i szybciej naprawiać błędy. Nic nie zapisujemy, zanim się nie zgodzisz. "
+#~ "Szczegóły w <a href=\"%(privacy_url)s\">Polityce prywatności</a>."
+
+#~ msgid "Decline analytics"
+#~ msgstr "Odrzuć analitykę"
+
+#~ msgid "Allow analytics"
+#~ msgstr "Włącz analitykę"
+
+#~ msgid "Empty or 0 = no limit"
+#~ msgstr "Puste pole lub 0 = bez limitu"
+
+#~ msgid "Deleted only"
+#~ msgstr "Tylko usunięci"
+
+#~ msgid "Nothing to filter by yet."
+#~ msgstr "Nie ma jeszcze czego filtrować."
+
+#, python-format
+#~ msgid "%(count)d facilitator runs sessions and was kept."
+#~ msgid_plural "%(count)d facilitators run sessions and were kept."
+#~ msgstr[0] ""
+#~ "%(count)d twórca programu prowadzi punkty programu i został zachowany."
+#~ msgstr[1] ""
+#~ "%(count)d twórców programu prowadzi punkty programu i zostało zachowanych."
+#~ msgstr[2] ""
+#~ "%(count)d twórców programu prowadzi punkty programu i zostało zachowanych."
+#~ msgstr[3] ""
+#~ "%(count)d twórców programu prowadzi punkty programu i zostało zachowanych."
+
+#, python-format
+#~ msgid "%(scheduled)s scheduled, %(pending)s pending"
+#~ msgstr "%(scheduled)s w harmonogramie, %(pending)s czeka"
+
+#~ msgid "That is more people than we can store."
+#~ msgstr "To więcej osób, niż jesteśmy w stanie zapisać."
+
+#~ msgid "Session deleted."
+#~ msgstr "Punkt programu został usunięty."
+
+#, python-format
+#~ msgid ""
+#~ "We use analytics to see how people use the site, including session "
+#~ "replays with every input masked. It runs only if you agree. Errors work "
+#~ "differently: when something breaks we always record what went wrong, plus "
+#~ "your account id if you are signed in, so we can fix it. More in the <a "
+#~ "href=\"%(privacy_url)s\">Privacy Policy</a>."
+#~ msgstr ""
+#~ "Używamy analityki, aby zobaczyć, jak ludzie korzystają z serwisu. "
+#~ "Obejmuje to nagrania sesji z zamaskowanymi wszystkimi polami. Działa "
+#~ "tylko wtedy, gdy się zgodzisz. Z błędami jest inaczej: kiedy coś się "
+#~ "zepsuje, zawsze zapisujemy, co poszło nie tak, a jeśli masz zalogowane "
+#~ "konto, także jego identyfikator, żebyśmy mogli to naprawić. Więcej w <a "
+#~ "href=\"%(privacy_url)s\">Polityce prywatności</a>."
 
 #~ msgid "No public encounters."
 #~ msgstr "Brak publicznych spotkań."
@@ -10758,18 +10975,51 @@ msgstr ""
 #~ msgid "This does not belong to the event."
 #~ msgstr "To nie należy do tego wydarzenia."
 
+#, python-format
+#~ msgid "Select every venue under %(name)s"
+#~ msgstr "Zaznacz wszystkie lokalizacje w %(name)s"
+
+#~ msgid "Map image"
+#~ msgstr "Obraz mapy"
+
+#~ msgid "Pick venues of this event."
+#~ msgstr "Wybierz lokalizacje tego wydarzenia."
+
+#~ msgid "New map"
+#~ msgstr "Nowa mapa"
+
+#~ msgid "What are maps?"
+#~ msgstr "Czym są mapy?"
+
+#~ msgid ""
+#~ "Pictures of the venue — a site plan, a floor, a building — shown to "
+#~ "participants on the event's maps page. Tick the venues each picture "
+#~ "shows: sessions in those venues link to it, and the page links each venue "
+#~ "back to its sessions."
+#~ msgstr ""
+#~ "Plany miejsca — plan terenu, piętra, budynku — pokazywane uczestnikom na "
+#~ "stronie map wydarzenia. Zaznacz lokalizacje widoczne na każdym obrazie: "
+#~ "punkty programu w tych lokalizacjach będą do niego prowadzić, a strona "
+#~ "poprowadzi z każdej lokalizacji z powrotem do jej punktów programu."
+
+#~ msgid "Map"
+#~ msgstr "Mapa"
+
+#, python-format
+#~ msgid ""
+#~ "Combined access: Individual enrollment passes + domain access "
+#~ "(@%(domain)s)."
+#~ msgstr ""
+#~ "Dostęp łączony: Indywidualne przepustki zapisu + dostęp domenowy "
+#~ "(@%(domain)s)."
+
+#, python-format
+#~ msgid "Domain-based access: Users from @%(domain)s have enrollment access."
+#~ msgstr "Dostęp domenowy: Użytkownicy z @%(domain)s mają dostęp do zapisów."
+
 #~ msgid ""
 #~ "Physical venue address, shown on the event page with a map link. Two "
 #~ "lines at most."
 #~ msgstr ""
 #~ "Fizyczny adres miejsca wydarzenia, pokazywany na stronie wydarzenia z "
 #~ "linkiem do mapy. Maksymalnie dwie linie."
-
-#~ msgid "Max"
-#~ msgstr "Max"
-
-#~ msgid "All venues"
-#~ msgstr "Wszystkie lokalizacje"
-
-#~ msgid "Only this facilitator's organizer can release it."
-#~ msgstr "Tylko opiekun tego twórcy programu może go zwolnić."

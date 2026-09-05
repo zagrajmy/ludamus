@@ -932,6 +932,7 @@ class OrganizerSetSphereLogoTool(Tool[ImageUploadInput]):
             enabled_pages=sphere.enabled_pages,
             default_page=sphere.default_page,
             encounter_public_policy=sphere.encounter_public_policy,
+            parley_enabled=sphere.parley_enabled,
             logo=upload,
         )
         return call.services.sphere_panel.read(sphere_id).model_dump_json(indent=2)

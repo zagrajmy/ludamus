@@ -6,9 +6,20 @@ caller; no Django/settings coupling. Encrypt and decrypt are split into
 separate classes so each consumer is granted only the half it needs.
 """
 
+from __future__ import annotations
+
+import base64
+import json
+from typing import TYPE_CHECKING
+
 from cryptography.fernet import Fernet, InvalidToken
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.asymmetric import padding, rsa
 
 from ludamus.pacts.multiverse import DecryptionError
+
+if TYPE_CHECKING:
+    from ludamus.pacts.parley import ParleyCapabilityClaims
 
 
 class FernetEncryptor:
@@ -30,3 +41,25 @@ class FernetDecryptor:
             # Key rotation and a truncated column both land here; callers
             # decide per port whether that is fatal or just one skipped row.
             raise DecryptionError from exception
+
+
+class JwtCapabilitySigner:
+    def __init__(self, private_key: str) -> None:
+        self._private_key_pem = private_key.replace("\\n", "\n").encode()
+
+    def sign(self, claims: ParleyCapabilityClaims) -> str:
+        loaded = serialization.load_pem_private_key(
+            self._private_key_pem, password=None
+        )
+        if not isinstance(loaded, rsa.RSAPrivateKey):
+            raise TypeError("Parley signing key must be an RSA private key")
+        jwt_header: dict[str, str] = {"alg": "RS256", "typ": "JWT"}
+        header = _base64url(json.dumps(jwt_header).encode())
+        payload = _base64url(claims.model_dump_json().encode())
+        unsigned = f"{header}.{payload}"
+        signature = loaded.sign(unsigned.encode(), padding.PKCS1v15(), hashes.SHA256())
+        return f"{unsigned}.{_base64url(signature)}"
+
+
+def _base64url(value: bytes) -> str:
+    return base64.urlsafe_b64encode(value).rstrip(b"=").decode()
