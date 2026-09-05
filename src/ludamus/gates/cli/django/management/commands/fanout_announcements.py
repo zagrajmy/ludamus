@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 class Command(BaseCommand):
     help = "Deliver published announcements to their subscribers' bells."
 
-    def handle(self, *_args: object, **_options: object) -> None:
+    def handle(self, *_args: str, **_options: int | str | bool | None) -> None:
         notified = build_announcement_fanout().fanout_due()
         logger.info("fanout_announcements: notified %s subscriber(s)", notified)
         self.stdout.write(

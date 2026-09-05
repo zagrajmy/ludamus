@@ -6,7 +6,11 @@ from django.urls import reverse
 from ludamus.links.db.django.models import NotificationSubscription
 from ludamus.pacts.notifications import SubscriptionDTO
 from tests.integration.conftest import SphereFactory, UserFactory
-from tests.integration.utils import assert_response, assert_response_404
+from tests.integration.utils import (
+    assert_login_required,
+    assert_response,
+    assert_response_404,
+)
 
 URL = reverse("web:crowd:profile-notifications")
 
@@ -29,7 +33,7 @@ class TestProfileNotificationsPageView:
     def test_unauthenticated_redirects(self, client):
         response = client.get(URL)
 
-        assert response.status_code == HTTPStatus.FOUND
+        assert_login_required(response, URL)
 
     def test_get_lists_own_visit_subscription(
         self, authenticated_client, active_user, sphere
