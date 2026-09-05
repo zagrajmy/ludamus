@@ -88,11 +88,11 @@ if (root) {
   }
   root.addEventListener("click", (event) => {
     if (!(event.target instanceof Element)) return;
-    const handle = event.target.closest<HTMLButtonElement>(".drag-handle[aria-controls]");
-    const children = document.getElementById(handle?.getAttribute("aria-controls") ?? "");
-    if (!handle || !children) return;
+    const disclosure = event.target.closest<HTMLButtonElement>("[data-space-disclosure]");
+    const children = document.getElementById(disclosure?.getAttribute("aria-controls") ?? "");
+    if (!disclosure || !children) return;
     children.hidden = !children.hidden;
-    handle.setAttribute("aria-expanded", String(!children.hidden));
+    disclosure.setAttribute("aria-expanded", String(!children.hidden));
   });
   // Keyboard reorder: Arrow Up/Down on a focused drag handle.
   root.addEventListener("keydown", (event) => {

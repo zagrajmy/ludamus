@@ -11,9 +11,16 @@ function venueNode(page: Page, name: string) {
   });
 }
 
-function groupHandle(page: Page, name: string) {
+function disclosureToggle(page: Page, name: string) {
   return venueNode(page, auroraName).getByRole("button", {
-    name: `Toggle children of ${name} — drag or use arrow keys to reorder`,
+    name: `Toggle children of ${name}`,
+    exact: true,
+  });
+}
+
+function dragHandle(page: Page, name: string) {
+  return venueNode(page, auroraName).getByRole("button", {
+    name: `Reorder ${name} — use the arrow keys`,
     exact: true,
   });
 }
@@ -35,70 +42,71 @@ test.describe("Venue tree handles", () => {
     await page.goto("/panel/event/frostfire-con/venues/");
   });
 
-  test("clicking a handle collapses only its children and preserves nested state", async ({
+  test("a disclosure toggle collapses only its children and preserves nested state", async ({
     page,
   }) => {
     const aurora = venueNode(page, auroraName);
-    const handle = groupHandle(page, auroraName);
-    const north = groupHandle(page, "North Wing");
+    const auroraToggle = disclosureToggle(page, auroraName);
+    const northToggle = disclosureToggle(page, "North Wing");
     const gallery = aurora.getByText("Frost Gallery", { exact: true });
     const lounge = aurora.getByText("Hearth Lounge", { exact: true });
 
-    await expect(handle).toHaveAttribute("aria-expanded", "true");
+    await expect(auroraToggle).toHaveAttribute("aria-expanded", "true");
     await expect(gallery).toBeVisible();
-    await north.click();
-    await expect(north).toHaveAttribute("aria-expanded", "false");
+    await northToggle.click();
+    await expect(northToggle).toHaveAttribute("aria-expanded", "false");
     await expect(gallery).toBeHidden();
     await expect(lounge).toBeVisible();
 
-    await handle.click();
-    await expect(handle).toHaveAttribute("aria-expanded", "false");
+    await auroraToggle.click();
+    await expect(auroraToggle).toHaveAttribute("aria-expanded", "false");
     await expect(lounge).toBeHidden();
     await expect(page.getByText(auroraName, { exact: true })).toBeVisible();
     await expect(page.getByText(glacierName, { exact: true })).toBeVisible();
-    await expect(handle).toBeFocused();
+    await expect(auroraToggle).toBeFocused();
 
-    await handle.click();
+    await auroraToggle.click();
     await expect(lounge).toBeVisible();
     await expect(gallery).toBeHidden();
-    await north.click();
+    await northToggle.click();
     await expect(gallery).toBeVisible();
   });
 
   test("Enter and Space toggle children without changing sibling order", async ({ page }) => {
-    const handle = groupHandle(page, auroraName);
+    const toggle = disclosureToggle(page, auroraName);
     const aurora = venueNode(page, auroraName);
     const galleryLink = aurora.getByRole("link", { name: "Edit Frost Gallery", exact: true });
     const orderBefore = await aurora.getByRole("listitem").allTextContents();
-    await expect(handle).toHaveAttribute("aria-controls", /.+/);
+    await expect(toggle).toHaveAttribute("aria-controls", /.+/);
     expect(
-      await handle.evaluate(
+      await toggle.evaluate(
         (button) => document.getElementById(button.getAttribute("aria-controls") ?? "")?.tagName,
       ),
     ).toBe("UL");
 
-    await handle.focus();
-    await handle.press("Enter");
-    await expect(handle).toHaveAttribute("aria-expanded", "false");
+    await toggle.focus();
+    await toggle.press("Enter");
+    await expect(toggle).toHaveAttribute("aria-expanded", "false");
     await expect(galleryLink).toBeHidden();
-    await handle.press("Space");
-    await expect(handle).toHaveAttribute("aria-expanded", "true");
+    await toggle.press("Space");
+    await expect(toggle).toHaveAttribute("aria-expanded", "true");
     await expect(galleryLink).toBeVisible();
     expect(await aurora.getByRole("listitem").allTextContents()).toEqual(orderBefore);
   });
 
-  test("leaf handles and secondary clicks do not collapse the tree", async ({ page }) => {
-    const handle = groupHandle(page, auroraName);
-    await handle.click({ button: "right" });
+  test("leaf drag handles and secondary clicks do not collapse the tree", async ({ page }) => {
+    const toggle = disclosureToggle(page, auroraName);
+    await toggle.click({ button: "right" });
     await page.keyboard.press("Escape");
-    await expect(handle).toHaveAttribute("aria-expanded", "true");
-    const leaf = page.getByRole("button", {
+    await expect(toggle).toHaveAttribute("aria-expanded", "true");
+    const leafHandle = page.getByRole("button", {
       name: `Reorder ${glacierName} — use the arrow keys`,
       exact: true,
     });
-    await expect(leaf).not.toHaveAttribute("aria-expanded");
-    await expect(leaf).not.toHaveAttribute("aria-controls");
-    await leaf.click();
+    await expect(leafHandle).toHaveAttribute("draggable", "true");
+    await expect(leafHandle).not.toHaveAttribute("aria-expanded");
+    await expect(leafHandle).not.toHaveAttribute("aria-controls");
+    await leafHandle.click();
     await expect(
       venueNode(page, auroraName).getByText("Frost Gallery", { exact: true }),
     ).toBeVisible();
@@ -110,7 +118,8 @@ test.describe("Venue tree handles", () => {
       await page.route("**/venues/do/reorder", (route) =>
         route.fulfill({ json: { success: true } }),
       );
-      const handle = groupHandle(page, "North Wing");
+      const toggle = disclosureToggle(page, "North Wing");
+      const handle = dragHandle(page, "North Wing");
       const siblingNames = venueNode(page, auroraName).getByText(/^(Hearth Lounge|North Wing)$/);
       const originalOrder = await siblingNames.allTextContents();
       const from = originalOrder.indexOf("North Wing");
@@ -118,27 +127,30 @@ test.describe("Venue tree handles", () => {
       const reordered = [...originalOrder];
       reordered.splice(to, 0, ...reordered.splice(from, 1));
 
-      await handle.click();
+      await toggle.click();
       const response = savedOrder(page);
       if (interaction === "keyboard") {
         await handle.press(from === 0 ? "ArrowDown" : "ArrowUp");
         await expect(handle).toBeFocused();
       } else {
-        const target = groupHandle(page, originalOrder[to]);
+        const target = dragHandle(page, originalOrder[to]);
         const targetBox = await target.boundingBox();
         expect(targetBox).not.toBeNull();
         await handle.dragTo(target, {
-          targetPosition: { x: 1, y: from === 0 ? (targetBox?.height ?? 1) - 1 : 1 },
+          targetPosition: {
+            x: (targetBox?.width ?? 0) / 2,
+            y: ((targetBox?.height ?? 0) * (from === 0 ? 3 : 1)) / 4,
+          },
         });
       }
       await response;
       expect(await siblingNames.allTextContents()).toEqual(reordered);
-      await expect(handle).toHaveAttribute("aria-expanded", "false");
+      await expect(toggle).toHaveAttribute("aria-expanded", "false");
       await expect(
         venueNode(page, auroraName).getByText("Frost Gallery", { exact: true }),
       ).toBeHidden();
-      await handle.click();
-      await expect(handle).toHaveAttribute("aria-expanded", "true");
+      await toggle.click();
+      await expect(toggle).toHaveAttribute("aria-expanded", "true");
       await expect(
         venueNode(page, auroraName).getByText("Frost Gallery", { exact: true }),
       ).toBeVisible();
