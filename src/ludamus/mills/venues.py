@@ -6,6 +6,7 @@ from ludamus.pacts import NotFoundError
 from ludamus.pacts.venues import (
     PrintScopeDTO,
     PrintScopeOptionDTO,
+    SpaceInputDTO,
     SpaceTreeServiceProtocol,
     VenuesServiceProtocol,
 )
@@ -13,7 +14,7 @@ from ludamus.pacts.venues import (
 if TYPE_CHECKING:
     from ludamus.pacts.services import TransactionProtocol
     from ludamus.pacts.venues import (
-        SpaceInputDTO,
+        ProgrammeSpaceRowDTO,
         SpaceRecordDTO,
         SpaceTreeNodeDTO,
         SpaceTreeRepositoryProtocol,
@@ -84,6 +85,9 @@ class SpaceTreeService(SpaceTreeServiceProtocol):
     def list_tree(self, event_pk: int) -> list[SpaceTreeNodeDTO]:
         return self._spaces.list_tree(event_pk)
 
+    def list_programme_spaces(self, event_id: int) -> list[ProgrammeSpaceRowDTO]:
+        return self._spaces.list_programme_spaces(event_id)
+
     def read(self, pk: int) -> SpaceRecordDTO:
         return self._spaces.read(pk)
 
@@ -127,6 +131,28 @@ class SpaceTreeService(SpaceTreeServiceProtocol):
         self, *, parent_id: int | None, child_pks: list[int], event_id: int
     ) -> None:
         self._spaces.reorder(parent_id, child_pks, event_id)
+
+    def reorder_programme(self, event_id: int, space_pks: list[int]) -> None:
+        with self._transaction.atomic():
+            self._spaces.reorder_programme(event_id, space_pks)
+
+    def move_to_top_level(self, event_id: int, space_pk: int) -> SpaceRecordDTO:
+        with self._transaction.atomic():
+            space = self._spaces.read(space_pk)
+            if space.event_id != event_id:
+                raise NotFoundError
+            if space.parent_id is None:
+                return space
+            return self._spaces.update(
+                pk=space.pk,
+                parent_id=None,
+                data=SpaceInputDTO(
+                    name=space.name,
+                    capacity=space.capacity,
+                    description=space.description,
+                    location=space.location,
+                ),
+            )
 
     def duplicate(self, *, pk: int, new_name: str) -> SpaceRecordDTO:
         return self._spaces.duplicate(pk, new_name)
