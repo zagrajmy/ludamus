@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<!--
+  Viewport probe for the iPhone Safari cut-off. Open it on the phone that
+  shows the bug and screenshot it at the top and scrolled to the end.
+
+  The shell below is base.html's app-shell verbatim, including the fix in
+  index.css (a fixed 100lvh scroller padded by the strip the expanded bar
+  hides, painted light blue here), with the same viewport meta and no
+  viewport-fit=cover. Backgrounds are
+  deliberately loud so a screenshot says which box paints where: html is
+  magenta, body is yellow, the shell is white, the footer is grey. The red
+  line is position:fixed bottom:0; the blue line is the scroller's bottom edge;
+  the ruler on the right counts CSS px from the top of the layout viewport.
+-->
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Viewport probe</title>
+<style>
+    html {
+        background: #ff00ff;
+    }
+
+    html,
+    body {
+        height: 100%;
+        margin: 0;
+        -webkit-overflow-scrolling: touch;
+        font: 12px/1.35 ui-monospace, Menlo, monospace;
+        color: #111;
+    }
+
+    body {
+        background: #ffe600;
+    }
+
+    .app-shell {
+        height: 100dvh;
+        overflow: hidden;
+    }
+
+    /* index.css's fix, verbatim: the scroller is fixed and takes the large
+       viewport; ::after pads the content by the strip the expanded bar hides. */
+    .app-scroll {
+        --toolbar-cover: calc(100lvh - 100dvh);
+
+        position: fixed;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        height: 100vh;
+        height: 100lvh;
+        overflow-y: auto;
+        overscroll-behavior: contain;
+        scrollbar-gutter: stable;
+        scroll-padding-bottom: var(--toolbar-cover);
+        -webkit-overflow-scrolling: touch;
+        background: #fff;
+    }
+
+    .app-scroll::after {
+        content: "";
+        flex: none;
+        height: var(--toolbar-cover);
+        background: #7fd8ff;
+    }
+
+    .rows {
+        flex-grow: 1;
+        padding: 0 12px;
+    }
+
+    .rows p {
+        margin: 0;
+        padding: 6px 0;
+        border-bottom: 1px solid #ddd;
+    }
+
+    footer {
+        padding: 24px 12px;
+        background: #cfcfcf;
+        border-top: 2px solid #333;
+    }
+
+    .shell-bottom {
+        position: absolute;
+        right: 0;
+        bottom: 0;
+        left: 0;
+        height: 4px;
+        background: #0050ff;
+    }
+
+    .fixed-bottom {
+        position: fixed;
+        right: 0;
+        bottom: 0;
+        left: 0;
+        height: 4px;
+        background: #e60000;
+        z-index: 3;
+    }
+
+    .readout {
+        position: fixed;
+        top: 8px;
+        left: 8px;
+        right: 40px;
+        z-index: 2;
+        padding: 8px;
+        background: rgb(0 0 0 / 82%);
+        color: #fff;
+        white-space: pre-wrap;
+        border-radius: 6px;
+    }
+
+    .ruler {
+        position: fixed;
+        top: 0;
+        right: 0;
+        bottom: 0;
+        width: 32px;
+        z-index: 2;
+        pointer-events: none;
+    }
+
+    .ruler span {
+        position: absolute;
+        right: 0;
+        display: block;
+        width: 100%;
+        border-top: 1px solid #000;
+        font-size: 9px;
+        line-height: 1;
+        text-align: right;
+        background: rgb(255 255 255 / 70%);
+    }
+
+    /* Clipped, so the 100vh probe cannot make the document itself scrollable:
+       on iOS a document that scrolls even 1px is what minimises the toolbar. */
+    .probes {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 1px;
+        height: 100%;
+        overflow: hidden;
+        visibility: hidden;
+        pointer-events: none;
+    }
+
+    .probes>div {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 1px;
+    }
+
+    .p-vh {
+        height: 100vh;
+    }
+
+    .p-svh {
+        height: 100svh;
+    }
+
+    .p-lvh {
+        height: 100lvh;
+    }
+
+    .p-dvh {
+        height: 100dvh;
+    }
+
+    .p-pct {
+        height: 100%;
+    }
+
+    .p-sat {
+        height: env(safe-area-inset-top, 0px);
+    }
+
+    .p-sab {
+        height: env(safe-area-inset-bottom, 0px);
+    }
+</style>
+<div class="probes" aria-hidden="true">
+    <div class="p-vh" data-probe="100vh"></div>
+    <div class="p-svh" data-probe="100svh"></div>
+    <div class="p-lvh" data-probe="100lvh"></div>
+    <div class="p-dvh" data-probe="100dvh"></div>
+    <div class="p-pct" data-probe="100% of body"></div>
+    <div class="p-sat" data-probe="safe-area-inset-top"></div>
+    <div class="p-sab" data-probe="safe-area-inset-bottom"></div>
+</div>
+<div class="app-shell">
+    <div id="app-scroll" class="app-scroll">
+        <div class="rows" id="rows"></div>
+        <footer id="footer">
+            END OF PAGE — this line plus 24px below it is where the page ends.
+        </footer>
+        <div class="shell-bottom" aria-hidden="true"></div>
+    </div>
+</div>
+<div class="fixed-bottom" aria-hidden="true"></div>
+<div class="ruler" id="ruler" aria-hidden="true"></div>
+<pre class="readout" id="readout">measuring…</pre>
+<script src="probe.js"></script>
