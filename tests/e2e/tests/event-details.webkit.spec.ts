@@ -94,11 +94,24 @@ test.describe("Event detail page on a phone", () => {
         const box = link.getBoundingClientRect();
         // Clear of the toolbar above and of the cookie strip along the bottom.
         if (box.top < 140 || box.bottom > viewport - 20) continue;
-        return {
-          title: (link.getAttribute("aria-label") ?? "").replace("Open details for ", ""),
-          x: box.left + 60,
-          y: box.top + box.height / 2,
-        };
+        // A card's selectable text sits over its link with pointer events of
+        // its own, so a tap has to land where the link itself is hit.
+        const candidates = [
+          [box.left + 16, box.top + 12],
+          [box.right - 16, box.top + 12],
+          [box.left + 16, box.bottom - 12],
+          [box.left + box.width / 2, box.top + 12],
+        ];
+        for (const [x, y] of candidates) {
+          const hit = document.elementFromPoint(x, y);
+          if (hit === link || link.contains(hit)) {
+            return {
+              title: (link.getAttribute("aria-label") ?? "").replace("Open details for ", ""),
+              x,
+              y,
+            };
+          }
+        }
       }
       return null;
     });
