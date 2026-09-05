@@ -155,7 +155,7 @@
                                 {% tessera_button t_view_program href="#schedule-region" size="lg" %}
                                 {% if has_enrollable_sessions and not event.is_ended %}
                                     {% translate "Sign up for sessions" as t_sign_up_sessions %}
-                                    {% tessera_button t_sign_up_sessions href="?enrollment=1#schedule-region" variant="secondary" size="lg" data_apply_enrollment=True %}
+                                    {% tessera_button t_sign_up_sessions href="?enrollment=1#schedule-region" variant="secondary" size="lg" %}
                                 {% endif %}
                             {% endif %}
                             {% if maps_url and not event.cover_image_url %}

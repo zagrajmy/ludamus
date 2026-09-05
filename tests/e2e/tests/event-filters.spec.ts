@@ -786,6 +786,30 @@ test.describe("Filter state in the URL", () => {
     expect(new URL(page.url()).searchParams.get("q")).toBe("mega");
   });
 
+  test("a same-page filter href applies without a reload", async ({ page }) => {
+    await page.goto("/event/autumn-open/");
+    await page.evaluate(() => {
+      const a = document.createElement("a");
+      a.href = "?q=mega#schedule-region";
+      a.textContent = "find mega";
+      document.body.append(a);
+    });
+
+    const searchNavs: string[] = [];
+    page.on("request", (request) => {
+      if (request.isNavigationRequest() && request.url().includes("q=mega")) {
+        searchNavs.push(request.url());
+      }
+    });
+
+    await page.getByRole("link", { name: "find mega" }).click();
+
+    await expect.poll(() => new URL(page.url()).searchParams.get("q")).toBe("mega");
+    await expect(page.locator("#session-filter")).toHaveValue("mega");
+    await expect(page.locator("#schedule-region")).toBeInViewport();
+    expect(searchNavs).toEqual([]);
+  });
+
   test("carries filters across the schedule view switch", async ({ page }) => {
     await page.goto(DENSE_EVENT_URL);
 

@@ -703,30 +703,23 @@ const initSessionFilters = (): void => {
     "click",
     (event) => {
       if (!isUnmodifiedLeftClick(event)) return;
-      const target = event.target as Element;
-      if (target.closest("[data-apply-enrollment]")) {
-        if (!enrollmentFilter) return;
-        event.preventDefault();
-        if (!enrollmentFilter.checked) {
-          enrollmentFilter.checked = true;
-          filterSessions();
-        }
-        byId("schedule-region").scrollIntoView();
-        return;
-      }
-      const spaceLink = target.closest<HTMLAnchorElement>("a[data-apply-space]");
-      if (!spaceLink) return;
-      const space = new URL(spaceLink.href).searchParams.get("space");
-      if (!space) return;
-      if (![...spaceFilter.options].some((option) => option.value === space)) return;
+      const link = (event.target as Element).closest<HTMLAnchorElement>("a[href]");
+      if (!link) return;
+      const hrefUrl = new URL(link.href);
+      if (hrefUrl.origin !== globalThis.location.origin) return;
+      if (hrefUrl.pathname !== globalThis.location.pathname) return;
+      const names = [...hrefUrl.searchParams.keys()];
+      if (names.length === 0 || names.some((name) => !mirrored.has(name))) return;
       event.preventDefault();
-      spaceLink.closest("dialog")?.querySelector<HTMLElement>("[data-modal-close]")?.click();
-      if (spaceFilter.value !== space) {
-        spaceFilter.value = space;
-        syncControl(spaceFilter);
-        filterSessions();
+      for (const name of names) {
+        const entry = mirrored.get(name);
+        if (!entry) continue;
+        entry.applyRaw(hrefUrl.searchParams.get(name));
       }
-      byId("schedule-region").scrollIntoView();
+      link.closest("dialog")?.querySelector<HTMLElement>("[data-modal-close]")?.click();
+      filterSessions();
+      const scrollId = hrefUrl.hash.slice(1);
+      if (scrollId) document.getElementById(scrollId)?.scrollIntoView();
     },
     { signal: documentListeners.signal },
   );
