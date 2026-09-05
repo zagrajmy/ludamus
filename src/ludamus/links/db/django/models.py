@@ -93,6 +93,19 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     date_joined = models.DateTimeField(_("date joined"), default=timezone.now)
     email = models.EmailField(_("email address"), blank=True)
+    email_verified = models.BooleanField(
+        _("email verified"),
+        default=False,
+        help_text=_("The user proved control of this address."),
+    )
+    # The address being proven during a change; promoted to `email` when the
+    # signed confirm link is redeemed, cleared on cancel.
+    pending_email = models.EmailField(
+        _("pending email address"), blank=True, default=""
+    )
+    # When the last verification link was mailed: resend throttle and re-nag
+    # interval, one clock. Link expiry is carried by the signed token itself.
+    email_verification_sent_at = models.DateTimeField(null=True, blank=True)
     is_active = models.BooleanField(
         _("active"),
         default=True,

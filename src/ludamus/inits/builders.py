@@ -16,8 +16,10 @@ from django.conf import settings
 from ludamus.inits.repositories import Repositories
 from ludamus.links.db.django.notifications import DjangoUserNotifier
 from ludamus.links.db.django.transaction import DjangoTransaction
+from ludamus.links.email_tokens import DjangoEmailTokenCodec
 from ludamus.links.encryption import FernetDecryptor
 from ludamus.links.google_sheets import GoogleSheetsWriter
+from ludamus.mills.crowd import EmailVerificationService
 from ludamus.mills.enrollment import WaitlistPromotionService
 from ludamus.mills.konwencik import KonwencikExportService
 from ludamus.mills.printing import PrintablesReminderService
@@ -42,6 +44,17 @@ def build_printables_reminder() -> PrintablesReminderService:
     return PrintablesReminderService(
         transaction=DjangoTransaction(),
         reminders=Repositories().printables_reminders,
+        notifier=DjangoUserNotifier(),
+    )
+
+
+def build_email_verification() -> EmailVerificationService:
+    repos = Repositories()
+    return EmailVerificationService(
+        transaction=DjangoTransaction(),
+        users=repos.active_users,
+        reminders=repos.verification_reminders,
+        tokens=DjangoEmailTokenCodec(),
         notifier=DjangoUserNotifier(),
     )
 

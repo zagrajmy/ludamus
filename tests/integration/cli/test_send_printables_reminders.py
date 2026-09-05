@@ -90,6 +90,21 @@ class TestSendPrintablesReminders:
 
         assert mailoutbox == []
 
+    def test_unverified_address_gets_bell_but_no_mail(
+        self, sphere, active_user, mailoutbox, django_capture_on_commit_callbacks
+    ):
+        active_user.email_verified = False
+        active_user.save(update_fields=["email_verified"])
+        sphere.managers.add(active_user)
+        _event_starting_in(sphere, timedelta(days=1))
+
+        with django_capture_on_commit_callbacks(execute=True):
+            call_command("send_printables_reminders")
+
+        assert mailoutbox == []
+        notification = Notification.objects.get(recipient=active_user)
+        assert notification.kind == NotificationKind.PRINTABLES_READY.value
+
     def test_skips_comms_members(
         self, sphere, active_user, mailoutbox, django_capture_on_commit_callbacks
     ):
@@ -105,15 +120,18 @@ class TestSendPrintablesReminders:
         event.refresh_from_db()
         assert event.printables_reminder_sent_at is None
 
-    def test_skips_managers_without_email_and_leaves_event_unmarked(
+    def test_notifies_managers_without_email_without_mailing_them(
         self, sphere, mailoutbox, django_capture_on_commit_callbacks
     ):
-        sphere.managers.add(UserFactory(username="no-email", email=""))
+        manager = UserFactory(username="no-email", email="")
+        sphere.managers.add(manager)
         event = _event_starting_in(sphere, timedelta(days=1))
 
         with django_capture_on_commit_callbacks(execute=True):
             call_command("send_printables_reminders")
 
         assert mailoutbox == []
+        notification = Notification.objects.get(recipient=manager)
+        assert notification.kind == NotificationKind.PRINTABLES_READY.value
         event.refresh_from_db()
-        assert event.printables_reminder_sent_at is None
+        assert event.printables_reminder_sent_at is not None
