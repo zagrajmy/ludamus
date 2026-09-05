@@ -6,9 +6,11 @@
 // the same URLs; a replace neither fires popstate nor passes its Navigation
 // API listener's `navigationType === "push"` guard, so the two can share a
 // query string without ever fighting over history entries.
-
-/** Query names owned by push navigations (modals, view tabs). The filter mirror never writes them, and a same-path link that carries one is that feature's click, not a filter apply. */
-const PUSH_SEARCH_PARAMS = new Set(["enter-code", "session", "view"]);
+//
+// Reserved names, owned by push writers and off-limits to mirrors: `session`
+// and `enter-code` (modal.ts trigger links) and the schedule view switcher's
+// `view` (an hx-boosted GET). Event-defined names must carry a feature
+// prefix (session-filters.ts uses `tag-`) so user data can't collide either.
 
 /** Query updates keyed by param name; null or "" deletes the param. */
 type SearchParamUpdates = ReadonlyMap<string, string | null>;
@@ -95,7 +97,6 @@ export {
   flagParam,
   hrefWithSearchParams,
   intParam,
-  PUSH_SEARCH_PARAMS,
   replaceSearchParams,
   restoreCarriedSearchParams,
   type SearchParamCodec,

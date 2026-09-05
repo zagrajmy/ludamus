@@ -10,7 +10,6 @@ import {
   flagParam,
   hrefWithSearchParams,
   intParam,
-  PUSH_SEARCH_PARAMS,
   replaceSearchParams,
   type SearchParamCodec,
   stringParam,
@@ -709,17 +708,14 @@ const initSessionFilters = (): void => {
       const hrefUrl = new URL(link.href);
       if (hrefUrl.origin !== globalThis.location.origin) return;
       if (hrefUrl.pathname !== globalThis.location.pathname) return;
-      for (const name of PUSH_SEARCH_PARAMS) {
-        if (hrefUrl.searchParams.has(name)) return;
-      }
-      let patching = false;
-      for (const [name, entry] of mirrored) {
-        if (!hrefUrl.searchParams.has(name)) continue;
-        patching = true;
+      const names = [...hrefUrl.searchParams.keys()];
+      if (names.length === 0 || names.some((name) => !mirrored.has(name))) return;
+      event.preventDefault();
+      for (const name of names) {
+        const entry = mirrored.get(name);
+        if (!entry) continue;
         entry.applyRaw(hrefUrl.searchParams.get(name));
       }
-      if (!patching) return;
-      event.preventDefault();
       link.closest("dialog")?.querySelector<HTMLElement>("[data-modal-close]")?.click();
       filterSessions();
       const scrollId = hrefUrl.hash.slice(1);
