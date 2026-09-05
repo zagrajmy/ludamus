@@ -29,6 +29,7 @@ from ludamus.pacts.discounts import DiscountKind, DiscountMethod
 from ludamus.pacts.images import ORIGINAL_FILENAME_MAX_LENGTH
 from ludamus.pacts.legacy import EncounterPublicPolicy
 from ludamus.pacts.multiverse import SphereRole
+from ludamus.pacts.notifications import SubscriptionSource
 from ludamus.pacts.party import PartyConsentMode, PartyMembershipStatus
 from ludamus.pacts.submissions import AccreditationType, ImportLogStatus
 
@@ -1385,6 +1386,42 @@ class Notification(models.Model):
         return self.read_at is not None
 
 
+class NotificationSubscription(models.Model):
+    """A user following one sphere for announcement delivery.
+
+    Rows are created automatically on a sphere visit and only ever muted, never
+    deleted — the muted flag is the user's choice and auto-subscribe must never
+    overwrite it.
+    """
+
+    user = models.ForeignKey(
+        User, on_delete=models.CASCADE, related_name="notification_subscriptions"
+    )
+    sphere = models.ForeignKey(
+        Sphere, on_delete=models.CASCADE, related_name="notification_subscriptions"
+    )
+    muted = models.BooleanField(default=False)
+    source = models.CharField(
+        max_length=16, choices=[(item.value, item.name) for item in SubscriptionSource]
+    )
+    creation_time = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "notification_subscription"
+        constraints = (
+            models.UniqueConstraint(
+                fields=("user", "sphere"), name="notifsub_unique_user_sphere"
+            ),
+        )
+        indexes: ClassVar = [
+            # Fanout audience query: unmuted subscribers of one sphere.
+            models.Index(fields=["sphere", "muted"], name="notifsub_sphere_muted_idx")
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.user_id} follows {self.sphere}"
+
+
 class PersonalDataFieldType(models.TextChoices):
     TEXT = "text", "Text"
     SELECT = "select", "Select"
@@ -1977,6 +2014,9 @@ class Announcement(models.Model):
     title = models.CharField(max_length=255)
     content = models.TextField()
     is_published = models.BooleanField(default=True)
+    # Set exactly once, when the bell fanout claims this announcement; a set
+    # value blocks any further fanout, so republishing never re-notifies.
+    notified_at = models.DateTimeField(null=True, blank=True)
     creation_time = models.DateTimeField(auto_now_add=True)
     modification_time = models.DateTimeField(auto_now=True)
 

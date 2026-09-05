@@ -14,17 +14,28 @@ from typing import TYPE_CHECKING
 from django.conf import settings
 from django.core.mail import send_mail
 from django.db import transaction
+from django.db.models.functions import Lower
 from django.urls import reverse
 from django.utils.formats import date_format
 from django.utils.timezone import localtime
 from django.utils.translation import gettext as _
 
-from ludamus.links.db.django.models import Notification, Session
+from ludamus.links.db.django.models import (
+    Announcement,
+    Notification,
+    NotificationSubscription,
+    Session,
+)
 from ludamus.pacts.legacy import NotificationKind
-from ludamus.pacts.notifications import NotificationDTO
+from ludamus.pacts.notifications import (
+    ClaimedAnnouncementDTO,
+    NotificationDTO,
+    SubscriptionDTO,
+)
 
 if TYPE_CHECKING:
     from ludamus.pacts.enrollment import OfferNotification, PromotionNotification
+    from ludamus.pacts.notifications import SubscriptionSource
     from ludamus.pacts.party import (
         HeldSeatNotification,
         PartyEnrolledNotification,
@@ -369,3 +380,95 @@ class NotificationReadRepository:
         Notification.objects.filter(recipient_id=user_id, read_at__isnull=True).update(
             read_at=datetime.now(UTC)
         )
+
+
+class NotificationSubscriptionRepository:
+    # ensure_sphere inserts with ignore_conflicts: an existing row (including a
+    # concurrent first visit) is left exactly as it is, so a muted subscription
+    # is never unmuted by auto-subscribe.
+    @staticmethod
+    def ensure_sphere(
+        *, user_id: int, sphere_id: int, source: SubscriptionSource
+    ) -> None:
+        NotificationSubscription.objects.bulk_create(
+            [
+                NotificationSubscription(
+                    user_id=user_id, sphere_id=sphere_id, source=source.value
+                )
+            ],
+            ignore_conflicts=True,
+        )
+
+    @staticmethod
+    def list_for_user(user_id: int) -> list[SubscriptionDTO]:
+        return [
+            SubscriptionDTO(pk=row.pk, muted=row.muted, sphere_name=row.sphere.name)
+            for row in (
+                NotificationSubscription.objects.filter(user_id=user_id)
+                .select_related("sphere")
+                .order_by(Lower("sphere__name"))
+            )
+        ]
+
+    @staticmethod
+    def set_muted(*, user_id: int, pk: int, muted: bool) -> bool:
+        # Scoped by owner AND pk: someone else's subscription updates nothing
+        # and the caller treats that as not found.
+        updated = NotificationSubscription.objects.filter(
+            user_id=user_id, pk=pk
+        ).update(muted=muted)
+        return bool(updated)
+
+
+class AnnouncementFanoutRepository:
+    @staticmethod
+    def claim(announcement_id: int) -> ClaimedAnnouncementDTO | None:
+        # The filtered UPDATE is the notify-at-most-once gate: only one caller
+        # ever flips notified_at from NULL, everyone else gets 0 rows and backs
+        # off. Republishing keeps the stamp, so it never re-notifies.
+        updated = Announcement.objects.filter(
+            pk=announcement_id, is_published=True, notified_at__isnull=True
+        ).update(notified_at=datetime.now(UTC))
+        if not updated:
+            return None
+        return ClaimedAnnouncementDTO.model_validate(
+            Announcement.objects.get(pk=announcement_id)
+        )
+
+    @staticmethod
+    def due_ids() -> list[int]:
+        return list(
+            Announcement.objects.filter(
+                is_published=True, notified_at__isnull=True
+            ).values_list("pk", flat=True)
+        )
+
+    @staticmethod
+    def active_sphere_subscriber_ids(sphere_id: int) -> list[int]:
+        return list(
+            NotificationSubscription.objects.filter(
+                sphere_id=sphere_id, muted=False
+            ).values_list("user_id", flat=True)
+        )
+
+    @staticmethod
+    def create_announcement_notifications(
+        *, recipient_ids: list[int], announcement: ClaimedAnnouncementDTO
+    ) -> int:
+        # Empty url routes the bell to the in-place overlay — an announcement
+        # is read where you are, it does not navigate.
+        Notification.objects.bulk_create(
+            [
+                Notification(
+                    recipient_id=recipient_id,
+                    kind=NotificationKind.ANNOUNCEMENT.value,
+                    title=announcement.title,
+                    body=announcement.content,
+                    url="",
+                    payload={"announcement_id": announcement.pk},
+                )
+                for recipient_id in recipient_ids
+            ],
+            batch_size=500,
+        )
+        return len(recipient_ids)

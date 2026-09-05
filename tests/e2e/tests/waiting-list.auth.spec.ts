@@ -1,14 +1,16 @@
 import { analyzePageAccessibility } from "./helpers/a11y";
 import { expect, test } from "./helpers/fixtures";
 
-// The seeded e2e-tester has one unread WAITLIST_PROMOTED notification
+// The seeded e2e-tester has an unread WAITLIST_PROMOTED notification
 // (tests/e2e/scripts/bootstrap_data.py), so the navbar dropdown has content.
+// The exact count is not pinned: e2e-tester follows the root sphere, so a
+// concurrently running spec that publishes an announcement adds to it.
 
 test.describe("Navbar notifications dropdown", () => {
   test("unread count is in the accessible name, not colour alone", async ({ page }) => {
     await page.goto("/events/");
 
-    await expect(page.getByRole("button", { name: /Notifications \(1 unread\)/ })).toBeVisible();
+    await expect(page.getByRole("button", { name: /Notifications \(\d+ unread\)/ })).toBeVisible();
   });
 
   test("is keyboard operable with a live aria-expanded", async ({ page }) => {
