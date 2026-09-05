@@ -96,6 +96,22 @@ COPY --chown=appuser:appuser src ./src
 # Run Django commands that need source code
 RUN mise run build-frontend && mise run dj compilemessages
 
+# PostHog error tracking wants the source maps Vite already emits. The token
+# arrives as a BuildKit secret (never a layer, and scoped to this one RUN),
+# and the step degrades to a no-op unless BOTH the token and the project id
+# are present — a half-configured environment skips loudly instead of
+# failing the whole deploy. ARG alone suffices: build args are visible to
+# RUN in this stage, and an ENV would leak the id into runtime containers.
+# inject must run here, before the runtime collectstatic hashes the files
+# it annotates.
+ARG POSTHOG_CLI_ENV_ID
+RUN --mount=type=secret,id=posthog_cli_token,mode=0444 \
+    if [ -s /run/secrets/posthog_cli_token ] && [ -n "$POSTHOG_CLI_ENV_ID" ]; then \
+        POSTHOG_CLI_TOKEN="$(cat /run/secrets/posthog_cli_token)" mise run posthog-sourcemaps; \
+    else \
+        echo "posthog source maps skipped (need both the posthog_cli_token secret and POSTHOG_CLI_ENV_ID)"; \
+    fi
+
 # Expose port
 EXPOSE 8000
 

@@ -115,6 +115,14 @@ jobs:
           xcrun simctl boot "$UDID" || true
           echo "UDID=$UDID" >> "$GITHUB_ENV"
 
+      - name: Disable analytics for gesture tests
+        # .env.e2e carries fake PostHog credentials so the Playwright suite
+        # can exercise the consent banner. Here the banner is only in the
+        # way: the simulator's Safari has no stored choice, so the fixed
+        # bottom bar would cover the gesture targets these tests scroll to.
+        # Stripping the vars keeps the server analytics-free for this job.
+        run: sed -i '' '/^POSTHOG_/d' .env.e2e
+
       - name: Bootstrap e2e fixtures
         run: mise run test:e2e:prep
 

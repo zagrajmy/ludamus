@@ -20,7 +20,7 @@
                     {% include "components/avatar.html" with user=candidate size="size-8" danger_ring=candidate.is_shadowbanned %}
                     <div class="min-w-0">
                         <p class="text-sm font-medium flex flex-wrap items-center gap-2 min-w-0">
-                            <span class="break-words">{{ candidate.full_name }}</span>
+                            <span class="break-words" data-ph-mask>{{ candidate.full_name }}</span>
                             {% if candidate.is_shadowbanned %}
                                 <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-danger-bg text-danger-text">
                                     {% icon "shield-exclamation" class="w-3.5 h-3.5" %}
@@ -62,6 +62,7 @@
                           method="post"
                           class="shrink-0"
                           data-confirm="{{ sb_body_1 }}\n\n{{ sb_body_2 }}\n\n{{ sb_body_3 }}"
+                          data-ph-block
                           data-confirm-title="{% blocktranslate with name=candidate.full_name %}Do you want to shadowban {{ name }}?{% endblocktranslate %}"
                           data-confirm-variant="primary"
                           data-confirm-action="{{ t_shadowban }}">

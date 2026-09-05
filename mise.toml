@@ -244,6 +244,18 @@ env.PYTHONPATH = "src"
 [tasks.check]
 run = [{ task = "format" }, { task = "lint" }]
 
+# Trial II — the pre-review gauntlet an agent (or a fresh container built from
+# docker/verification.Dockerfile) runs before asking anyone for review: lint
+# via hk, the Python suite on SQLite, then the Playwright e2e run.
+[tasks.verify]
+description = "Pre-review gauntlet: hk lint, Python tests on SQLite, Playwright e2e"
+run = [
+    { task = "lint:hk" },
+    { task = "test:py" },
+    { task = "test:e2e:prep" },
+    { task = "test:e2e" },
+]
+
 [tasks.pr-fix]
 description = "Pull Request Formatting and Readiness Check"
 run = [

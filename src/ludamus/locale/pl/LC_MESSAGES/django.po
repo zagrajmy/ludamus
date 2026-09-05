@@ -4656,9 +4656,8 @@ msgid "needs their approval"
 msgstr "wymaga ich zgody"
 
 #: src/ludamus/templates/chronology/enroll_select.html
-#, python-format
-msgid "Include %(name)s"
-msgstr "Uwzględnij: %(name)s"
+msgid "Include"
+msgstr "Uwzględnij"
 
 #: src/ludamus/templates/chronology/enroll_select.html
 msgid "Join this session"
@@ -5350,21 +5349,21 @@ msgid "Cookie consent"
 msgstr "Zgoda na ciasteczka"
 
 #: src/ludamus/templates/components/consent-banner.html
-msgid "Cookies help us see what to fix."
-msgstr "Ciasteczka pomagają nam zobaczyć, co poprawić."
-
-#: src/ludamus/templates/components/consent-banner.html
-#, python-format
-msgid "More in the <a href=\"%(privacy_url)s\">Privacy Policy</a>."
-msgstr "Więcej w <a href=\"%(privacy_url)s\">Polityce prywatności</a>."
-
-#: src/ludamus/templates/components/consent-banner.html
 msgid "No cookies!"
 msgstr "Żadnych ciastek!"
 
 #: src/ludamus/templates/components/consent-banner.html
 msgid "Cool"
 msgstr "Spoko"
+
+#: src/ludamus/templates/components/consent-copy.html
+msgid "Cookies help us see what to fix."
+msgstr "Ciasteczka pomagają nam zobaczyć, co poprawić."
+
+#: src/ludamus/templates/components/consent-copy.html
+#, python-format
+msgid "More in the <a href=\"%(privacy_url)s\">Privacy Policy</a>."
+msgstr "Więcej w <a href=\"%(privacy_url)s\">Polityce prywatności</a>."
 
 # Login Required Page
 #: src/ludamus/templates/components/dynamic-field-label.html
@@ -5671,6 +5670,11 @@ msgstr "Awatar"
 #: src/ludamus/templates/crowd/user/_profile_tabs.html
 msgid "Safety"
 msgstr "Bezpieczeństwo"
+
+#: src/ludamus/templates/crowd/user/_profile_tabs.html
+#: src/ludamus/templates/crowd/user/privacy.html
+msgid "Privacy"
+msgstr "Prywatność"
 
 #: src/ludamus/templates/crowd/user/avatar.html
 msgid "Provider avatar"
@@ -6097,6 +6101,46 @@ msgid ""
 msgstr ""
 "Drużyna zapisuje się na punkty programu razem i razem przesuwa się w kolejce "
 "oczekujących. Możesz ją opuścić w dowolnym momencie."
+
+#: src/ludamus/templates/crowd/user/privacy.html
+msgid "Analytics"
+msgstr "Analityka"
+
+#: src/ludamus/templates/crowd/user/privacy.html
+msgid "Your current choice:"
+msgstr "Twój obecny wybór:"
+
+#: src/ludamus/templates/crowd/user/privacy.html
+msgid "analytics allowed"
+msgstr "analityka włączona"
+
+#: src/ludamus/templates/crowd/user/privacy.html
+msgid "analytics declined"
+msgstr "analityka odrzucona"
+
+#: src/ludamus/templates/crowd/user/privacy.html
+msgid "not decided yet"
+msgstr "jeszcze nie zdecydowano"
+
+#: src/ludamus/templates/crowd/user/privacy.html
+msgid ""
+"The choice is stored only in this browser — on another device or after "
+"clearing site data you will be asked again."
+msgstr ""
+"Wybór jest zapisany tylko w tej przeglądarce — na innym urządzeniu lub po "
+"wyczyszczeniu danych strony zapytamy ponownie."
+
+#: src/ludamus/templates/crowd/user/privacy.html
+msgid "Change your choice"
+msgstr "Zmień swój wybór"
+
+#: src/ludamus/templates/crowd/user/privacy.html
+msgid ""
+"Analytics are not configured on this server. Nothing is collected, so there "
+"is nothing to decide here."
+msgstr ""
+"Analityka nie jest skonfigurowana na tym serwerze. Nic nie jest zbierane, "
+"więc nie ma tu nic do decydowania."
 
 #: src/ludamus/templates/crowd/user/safety.html
 msgid "Shadowbanned players"
@@ -10163,10 +10207,6 @@ msgstr ""
 "Nie ma nadchodzących wydarzeń ani publicznych spotkań. Sprawdź ponownie "
 "później!"
 
-#, python-format
-#~ msgid "Select every venue under %(name)s"
-#~ msgstr "Zaznacz wszystkie lokalizacje w %(name)s"
-
 #~ msgid "No spaces configured for this event. Please create spaces first."
 #~ msgstr ""
 #~ "Brak skonfigurowanych przestrzeni dla tego wydarzenia. Najpierw utwórz "
@@ -10178,6 +10218,9 @@ msgstr ""
 #~ "Brak skonfigurowanych przedziałów czasowych dla tego wydarzenia. Najpierw "
 #~ "utwórz przedziały czasowe."
 
+#~ msgid "Max 8 MB. JPG, PNG, WebP, or AVIF."
+#~ msgstr "Maks. 8 MB. JPG, PNG, WebP lub AVIF."
+
 #, python-format
 #~ msgid "%(limit)s seat"
 #~ msgid_plural "%(limit)s seats"
@@ -10188,52 +10231,6 @@ msgstr ""
 
 #~ msgid "submitted"
 #~ msgstr "zgłoszono"
-
-#~ msgid "Max 8 MB. JPG, PNG, WebP, or AVIF."
-#~ msgstr "Maks. 8 MB. JPG, PNG, WebP lub AVIF."
-
-#~ msgid "Map image"
-#~ msgstr "Obraz mapy"
-
-#~ msgid "Pick venues of this event."
-#~ msgstr "Wybierz lokalizacje tego wydarzenia."
-
-#~ msgid "New map"
-#~ msgstr "Nowa mapa"
-
-#~ msgid "What are maps?"
-#~ msgstr "Czym są mapy?"
-
-#~ msgid ""
-#~ "Pictures of the venue — a site plan, a floor, a building — shown to "
-#~ "participants on the event's maps page. Tick the venues each picture "
-#~ "shows: sessions in those venues link to it, and the page links each venue "
-#~ "back to its sessions."
-#~ msgstr ""
-#~ "Plany miejsca — plan terenu, piętra, budynku — pokazywane uczestnikom na "
-#~ "stronie map wydarzenia. Zaznacz lokalizacje widoczne na każdym obrazie: "
-#~ "punkty programu w tych lokalizacjach będą do niego prowadzić, a strona "
-#~ "poprowadzi z każdej lokalizacji z powrotem do jej punktów programu."
-
-#~ msgid "Map"
-#~ msgstr "Mapa"
-
-#~ msgid "This is the current status."
-#~ msgstr "To jest obecny status."
-
-#~ msgid "Are you sure you want to reject this proposal?"
-#~ msgstr "Czy na pewno chcesz odrzucić to zgłoszenie?"
-
-#, python-format
-#~ msgid ""
-#~ "\n"
-#~ "                    Are you sure you want to delete integration "
-#~ "\"%(name)s\"?\n"
-#~ "                "
-#~ msgstr ""
-#~ "\n"
-#~ "                    Czy na pewno chcesz usunąć integrację \"%(name)s\"?\n"
-#~ "                "
 
 #~ msgid "Your Enrollment Access"
 #~ msgstr "Twój dostęp do zapisów"
@@ -10252,18 +10249,42 @@ msgstr ""
 
 #, python-format
 #~ msgid ""
-#~ "Combined access: Individual enrollment passes + domain access "
-#~ "(@%(domain)s)."
+#~ "\n"
+#~ "                                                Combined access: "
+#~ "Individual enrollment passes + domain access (@%(domain)s).\n"
+#~ "                                            "
 #~ msgstr ""
-#~ "Dostęp łączony: Indywidualne przepustki zapisu + dostęp domenowy "
-#~ "(@%(domain)s)."
+#~ "\n"
+#~ "                                                Dostęp łączony: "
+#~ "Indywidualne przepustki zapisu + dostęp domenowy (@%(domain)s).\n"
+#~ "                                            "
 
 #, python-format
-#~ msgid "Domain-based access: Users from @%(domain)s have enrollment access."
-#~ msgstr "Dostęp domenowy: Użytkownicy z @%(domain)s mają dostęp do zapisów."
+#~ msgid ""
+#~ "\n"
+#~ "                                                Domain-based access: "
+#~ "Users from @%(domain)s have enrollment access.\n"
+#~ "                                            "
+#~ msgstr ""
+#~ "\n"
+#~ "                                                Dostęp domenowy: "
+#~ "Użytkownicy z @%(domain)s mają dostęp do zapisu.\n"
+#~ "                                            "
 
 #~ msgid "Each person can be enrolled in multiple sessions."
 #~ msgstr "Każda osoba może być zapisana na wiele punktów programu."
+
+#, python-format
+#~ msgid ""
+#~ "\n"
+#~ "                                            Domain-based access: Users "
+#~ "from @%(domain)s have enrollment access.\n"
+#~ "                                        "
+#~ msgstr ""
+#~ "\n"
+#~ "                                            Dostęp domenowy: Użytkownicy "
+#~ "z @%(domain)s mają dostęp do zapisu.\n"
+#~ "                                        "
 
 #~ msgid "You may be able to enroll using your manager's enrollment passes."
 #~ msgstr ""
@@ -10287,35 +10308,41 @@ msgstr ""
 #, python-format
 #~ msgid ""
 #~ "\n"
-#~ "                                                Domain-based access: "
-#~ "Users from @%(domain)s have enrollment access.\n"
-#~ "                                            "
+#~ "                    Are you sure you want to delete integration "
+#~ "\"%(name)s\"?\n"
+#~ "                "
 #~ msgstr ""
 #~ "\n"
-#~ "                                                Dostęp domenowy: "
-#~ "Użytkownicy z @%(domain)s mają dostęp do zapisu.\n"
-#~ "                                            "
+#~ "                    Czy na pewno chcesz usunąć integrację \"%(name)s\"?\n"
+#~ "                "
+
+#~ msgid "This is the current status."
+#~ msgstr "To jest obecny status."
+
+#~ msgid "Are you sure you want to reject this proposal?"
+#~ msgstr "Czy na pewno chcesz odrzucić to zgłoszenie?"
+
+#~ msgid ""
+#~ "Are you sure you want to delete this session? It will be removed from the "
+#~ "schedule."
+#~ msgstr ""
+#~ "Czy na pewno chcesz usunąć ten punkt programu? Zostanie on usunięty z "
+#~ "harmonogramu."
+
+#, python-format
+#~ msgid "Include %(name)s"
+#~ msgstr "Uwzględnij: %(name)s"
+
+#~ msgid "Creator"
+#~ msgstr "Twórca programu"
+
+#~ msgid "Pick a space and time, then add it to the agenda."
+#~ msgstr "Wybierz przestrzeń i godzinę, a następnie dodaj do harmonogramu."
 
 #~ msgid "Select a space and time to add this session to the event agenda."
 #~ msgstr ""
 #~ "Wybierz przestrzeń i godzinę, aby dodać ten punkt programu do "
 #~ "harmonogramu wydarzenia."
-
-#~ msgid "Creator"
-#~ msgstr "Twórca programu"
-
-#~ msgid ""
-#~ "Writes every facilitator with their accreditation type and discount into "
-#~ "the first tab of the selected spreadsheet, replacing its current content."
-#~ msgstr ""
-#~ "Zapisuje wszystkich twórców programu wraz z rodzajem akredytacji i zniżką "
-#~ "do pierwszej zakładki wybranego arkusza, zastępując jego obecną zawartość."
-
-#~ msgid "Required age"
-#~ msgstr "Wymagany wiek"
-
-#~ msgid "Age ≥"
-#~ msgstr "Wiek ≥"
 
 #~ msgid "Search sessions..."
 #~ msgstr "Szukaj punktów programu..."
@@ -10326,11 +10353,46 @@ msgstr ""
 #~ msgid "Min"
 #~ msgstr "Min"
 
+#~ msgid "Max"
+#~ msgstr "Max"
+
+#~ msgid "Age ≥"
+#~ msgstr "Wiek ≥"
+
 #~ msgid "Age ≤"
 #~ msgstr "Wiek ≤"
 
+#~ msgid ""
+#~ "Writes every facilitator with their accreditation type and discount into "
+#~ "the first tab of the selected spreadsheet, replacing its current content."
+#~ msgstr ""
+#~ "Zapisuje wszystkich twórców programu wraz z rodzajem akredytacji i zniżką "
+#~ "do pierwszej zakładki wybranego arkusza, zastępując jego obecną zawartość."
+
 #~ msgid "Venue"
 #~ msgstr "Lokalizacja"
+
+#~ msgid "All venues"
+#~ msgstr "Wszystkie lokalizacje"
+
+#, python-format
+#~ msgid ""
+#~ "Cookies help us see what to fix. More in the <a "
+#~ "href=\"%(privacy_url)s\">Privacy Policy</a>."
+#~ msgstr ""
+#~ "Ciasteczka pomagają nam zobaczyć, co poprawić. Więcej w <a "
+#~ "href=\"%(privacy_url)s\">Polityce prywatności</a>."
+
+#, python-format
+#~ msgid "Changed by %(who)s on %(when)s"
+#~ msgstr "Zmiana: %(who)s, %(when)s"
+
+#, python-format
+#~ msgid "announced by %(who)s"
+#~ msgstr "ogłoszone przez: %(who)s"
+
+#~ msgid "Analytics settings"
+#~ msgstr "Ustawienia analityki"
 
 #~ msgid "Enrollment required"
 #~ msgstr "Wymagane zapisy"
@@ -10350,46 +10412,11 @@ msgstr ""
 #~ msgid "Awaiting review"
 #~ msgstr "Czeka na akceptację"
 
-#~ msgid "Sessions with enrollment"
-#~ msgstr "Punkty programu z zapisami"
-
 #~ msgid "Takes enrollment"
 #~ msgstr "Z zapisami"
 
-#~ msgid "No session at this event takes enrollment"
-#~ msgstr "Żaden punkt programu na tym wydarzeniu nie wymaga zapisów"
-
-#~ msgid "Show the full schedule"
-#~ msgstr "Pokaż pełny harmonogram"
-
-#, python-format
-#~ msgid "Changed by %(who)s on %(when)s"
-#~ msgstr "Zmiana: %(who)s, %(when)s"
-
-#, python-format
-#~ msgid "announced by %(who)s"
-#~ msgstr "ogłoszone przez: %(who)s"
-
-#~ msgid "Analytics settings"
-#~ msgstr "Ustawienia analityki"
-
 #~ msgid "Analytics consent"
 #~ msgstr "Zgoda na analitykę"
-
-#, python-format
-#~ msgid ""
-#~ "We use analytics to see how people use the site, including session "
-#~ "replays with every input masked. It runs only if you agree. Errors work "
-#~ "differently: when something breaks we always record what went wrong, plus "
-#~ "your account id if you are signed in, so we can fix it. More in the <a "
-#~ "href=\"%(privacy_url)s\">Privacy Policy</a>."
-#~ msgstr ""
-#~ "Używamy analityki, aby zobaczyć, jak ludzie korzystają z serwisu. "
-#~ "Obejmuje to nagrania sesji z zamaskowanymi wszystkimi polami. Działa "
-#~ "tylko wtedy, gdy się zgodzisz. Z błędami jest inaczej: kiedy coś się "
-#~ "zepsuje, zawsze zapisujemy, co poszło nie tak, a jeśli masz zalogowane "
-#~ "konto, także jego identyfikator, żebyśmy mogli to naprawić. Więcej w <a "
-#~ "href=\"%(privacy_url)s\">Polityce prywatności</a>."
 
 #~ msgid "Decline analytics"
 #~ msgstr "Odrzuć analitykę"
@@ -10409,14 +10436,34 @@ msgstr ""
 #~ "i szybciej naprawiać błędy. Nic nie zapisujemy, zanim się nie zgodzisz. "
 #~ "Szczegóły w <a href=\"%(privacy_url)s\">Polityce prywatności</a>."
 
-#~ msgid "Empty or 0 = no limit"
-#~ msgstr "Puste pole lub 0 = bez limitu"
+#, python-format
+#~ msgid ""
+#~ "The token expires after %(token_max_age_days)s days and works only while "
+#~ "you stay a manager of this sphere. Anyone holding it can act with your "
+#~ "permissions — keep it secret."
+#~ msgstr ""
+#~ "Token wygasa po %(token_max_age_days)s dniach i działa tylko dopóki "
+#~ "zarządzasz tą sferą. Każdy, kto go posiada, może działać z Twoimi "
+#~ "uprawnieniami — trzymaj go w tajemnicy."
+
+#, python-format
+#~ msgid ""
+#~ "Generate a personal token to connect an MCP client (such as Claude Code "
+#~ "or Executor) to this sphere's organizer API. The token is valid for "
+#~ "%(token_max_age_days)s days."
+#~ msgstr ""
+#~ "Wygeneruj osobisty token, aby połączyć klienta MCP (np. Claude Code lub "
+#~ "Executor) z API organizatora tej sfery. Token jest ważny przez "
+#~ "%(token_max_age_days)s dni."
 
 #~ msgid "Open"
 #~ msgstr "Otwarte"
 
 #~ msgid "Not Available"
 #~ msgstr "Niedostępne"
+
+#~ msgid "Empty or 0 = no limit"
+#~ msgstr "Puste pole lub 0 = bez limitu"
 
 #~ msgid "Deleted only"
 #~ msgstr "Tylko usunięci"
@@ -10595,6 +10642,9 @@ msgstr ""
 #~ msgid "Search by facilitator or field values"
 #~ msgstr "Szukaj po prowadzącym lub wartościach pól"
 
+#~ msgid "Select all"
+#~ msgstr "Zaznacz wszystkie"
+
 #~ msgid "Keep"
 #~ msgstr "Zachowaj"
 
@@ -10622,6 +10672,9 @@ msgstr ""
 
 #~ msgid "Shown on public session card"
 #~ msgstr "Widoczne na publicznej karcie punktu programu"
+
+#~ msgid "Only this facilitator's organizer can release it."
+#~ msgstr "Tylko opiekun tego twórcy programu może go zwolnić."
 
 #~ msgid "Default contact person. Assign yourself from the facilitator list."
 #~ msgstr ""
@@ -10742,12 +10795,36 @@ msgstr ""
 #~ msgid "Facilitator released."
 #~ msgstr "Twórca programu zwolniony."
 
+#~ msgid "Sessions with enrollment"
+#~ msgstr "Punkty programu z zapisami"
+
+#~ msgid "No session at this event takes enrollment"
+#~ msgstr "Żaden punkt programu na tym wydarzeniu nie wymaga zapisów"
+
+#~ msgid "Show the full schedule"
+#~ msgstr "Pokaż pełny harmonogram"
+
 #, python-format
 #~ msgid "Edit proposal %(title)s"
 #~ msgstr "Edytuj zgłoszenie %(title)s"
 
-#~ msgid "Select all"
-#~ msgstr "Zaznacz wszystkie"
+#, python-format
+#~ msgid ""
+#~ "We use analytics to see how people use the site, including session "
+#~ "replays with every input masked. It runs only if you agree. Errors work "
+#~ "differently: when something breaks we always record what went wrong, plus "
+#~ "your account id if you are signed in, so we can fix it. More in the <a "
+#~ "href=\"%(privacy_url)s\">Privacy Policy</a>."
+#~ msgstr ""
+#~ "Używamy analityki, aby zobaczyć, jak ludzie korzystają z serwisu. "
+#~ "Obejmuje to nagrania sesji z zamaskowanymi wszystkimi polami. Działa "
+#~ "tylko wtedy, gdy się zgodzisz. Z błędami jest inaczej: kiedy coś się "
+#~ "zepsuje, zawsze zapisujemy, co poszło nie tak, a jeśli masz zalogowane "
+#~ "konto, także jego identyfikator, żebyśmy mogli to naprawić. Więcej w <a "
+#~ "href=\"%(privacy_url)s\">Polityce prywatności</a>."
+
+#~ msgid "Required age"
+#~ msgstr "Wymagany wiek"
 
 #~ msgid "No public encounters."
 #~ msgstr "Brak publicznych spotkań."
@@ -10758,18 +10835,51 @@ msgstr ""
 #~ msgid "This does not belong to the event."
 #~ msgstr "To nie należy do tego wydarzenia."
 
+#, python-format
+#~ msgid "Select every venue under %(name)s"
+#~ msgstr "Zaznacz wszystkie lokalizacje w %(name)s"
+
+#~ msgid "Map image"
+#~ msgstr "Obraz mapy"
+
+#~ msgid "Pick venues of this event."
+#~ msgstr "Wybierz lokalizacje tego wydarzenia."
+
+#~ msgid "New map"
+#~ msgstr "Nowa mapa"
+
+#~ msgid "What are maps?"
+#~ msgstr "Czym są mapy?"
+
+#~ msgid ""
+#~ "Pictures of the venue — a site plan, a floor, a building — shown to "
+#~ "participants on the event's maps page. Tick the venues each picture "
+#~ "shows: sessions in those venues link to it, and the page links each venue "
+#~ "back to its sessions."
+#~ msgstr ""
+#~ "Plany miejsca — plan terenu, piętra, budynku — pokazywane uczestnikom na "
+#~ "stronie map wydarzenia. Zaznacz lokalizacje widoczne na każdym obrazie: "
+#~ "punkty programu w tych lokalizacjach będą do niego prowadzić, a strona "
+#~ "poprowadzi z każdej lokalizacji z powrotem do jej punktów programu."
+
+#~ msgid "Map"
+#~ msgstr "Mapa"
+
+#, python-format
+#~ msgid ""
+#~ "Combined access: Individual enrollment passes + domain access "
+#~ "(@%(domain)s)."
+#~ msgstr ""
+#~ "Dostęp łączony: Indywidualne przepustki zapisu + dostęp domenowy "
+#~ "(@%(domain)s)."
+
+#, python-format
+#~ msgid "Domain-based access: Users from @%(domain)s have enrollment access."
+#~ msgstr "Dostęp domenowy: Użytkownicy z @%(domain)s mają dostęp do zapisów."
+
 #~ msgid ""
 #~ "Physical venue address, shown on the event page with a map link. Two "
 #~ "lines at most."
 #~ msgstr ""
 #~ "Fizyczny adres miejsca wydarzenia, pokazywany na stronie wydarzenia z "
 #~ "linkiem do mapy. Maksymalnie dwie linie."
-
-#~ msgid "Max"
-#~ msgstr "Max"
-
-#~ msgid "All venues"
-#~ msgstr "Wszystkie lokalizacje"
-
-#~ msgid "Only this facilitator's organizer can release it."
-#~ msgstr "Tylko opiekun tego twórcy programu może go zwolnić."

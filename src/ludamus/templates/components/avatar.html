@@ -9,11 +9,15 @@
 {% with size_class=size|default:"size-8" text_class="text-xs" border_class="border border-white/80 dark:border-neutral-900" is_danger=danger_ring|default:False %}
     {% if user %}
         {% firstof user.full_name user.name user.username "" as name_value %}
-        <div class="{{ size_class }} shrink-0 relative" role="img" aria-label="{% if is_danger %}{% blocktranslate %}{{ name_value }} (flagged){% endblocktranslate %}{% else %}{{ name_value }}{% endif %}">
+        {# data-ph-block: the aria-label below carries the person's name, and #}
+        {# session replay records attribute values verbatim — the whole avatar #}
+        {# is excluded from recordings (it shows as a same-size placeholder). #}
+        <div class="{{ size_class }} shrink-0 relative" role="img" data-ph-block aria-label="{% if is_danger %}{% blocktranslate %}{{ name_value }} (flagged){% endblocktranslate %}{% else %}{{ name_value }}{% endif %}">
             <div class="absolute inset-0 {{ border_class }} {% if is_danger %}ring-2 ring-danger{% endif %} rounded-full overflow-hidden">
                 <div class="absolute inset-0 {{ name_value|avatar_bg_class }} flex items-center justify-center"
                      aria-hidden="true">
-                    <span class="{{ text_class }} font-semibold {{ name_value|avatar_text_class }}">{{ name_value|slice:":2"|upper }}</span>
+                    <span class="{{ text_class }} font-semibold {{ name_value|avatar_text_class }}"
+                          data-ph-mask>{{ name_value|slice:":2"|upper }}</span>
                 </div>
                 {% if user.avatar_url %}
                     {# data-avatar-image: avatar.ts hides the image when it fails to load, so the initials below show through instead of a broken-image glyph. #}
