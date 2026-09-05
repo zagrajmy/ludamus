@@ -108,8 +108,10 @@ body:has(.room-lanes-panning) * {
    them, so the break in the axis reads as one break, that stays out of the
    way of clicks. Its label sticks to the axis edge so a horizontal pan never
    carries it off-screen. Neutral grey, not the warm border tone: the band is
-   a mark on the ruler, not a surface. */
-.room-lanes-line[data-row-track="fold"] {
+   a mark on the ruler, not a surface. :not(.room-lanes-collapsed): this rule
+   outranks the collapse class, and a collapsed fold that still displays paints
+   its label over a zero-height track — onto whatever row comes next. */
+.room-lanes-line[data-row-track="fold"]:not(.room-lanes-collapsed) {
   --fold-stripe: color-mix(in oklch, var(--color-neutral-400) 35%, transparent);
   z-index: var(--band-layer);
   display: flex;
