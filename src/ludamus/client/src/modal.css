@@ -58,6 +58,13 @@
     pointer-events: none !important;
   }
 
+  /* The backdrop does not inherit from the dialog, and the closed dialog sits
+     in the top layer for the whole exit transition above — so without this a
+     tap in that third of a second lands on the fading backdrop, not the page. */
+  .modal:not([open])::backdrop {
+    pointer-events: none;
+  }
+
   @starting-style {
     .modal[open] {
       opacity: 0;
@@ -95,6 +102,15 @@
 
 .session.session-suppressed > * {
   visibility: hidden;
+}
+
+/* The transition's pseudo-tree covers the viewport and, by default, takes
+   every pointer event while it runs, so a tap a third of a second after
+   closing a modal hits the animation rather than the page. Let it fall
+   through: the old and new snapshots are pictures, and the live page under
+   them is what the reader is reaching for. */
+::view-transition {
+  pointer-events: none;
 }
 
 ::view-transition-group(session-morph),

@@ -605,6 +605,29 @@ test.describe("Event schedule views", () => {
     await expect(tiles.first()).toHaveCSS("opacity", "0.65");
   });
 
+  test("the search box takes the first tap right after a session modal closes", async ({
+    page,
+  }) => {
+    await page.goto(DENSE_EVENT_URL);
+    await page
+      .getByRole("link", { name: /^Open details for / })
+      .first()
+      .press("Enter");
+    const dialog = page.locator("dialog.modal[open]");
+    await expect(dialog).toBeVisible();
+
+    // A raw pointer press, not click(): click() waits until the element can
+    // receive pointer events, which is exactly the wait a reader does not get.
+    // The tap must land while the dialog is still fading out.
+    const search = page.locator("#session-filter");
+    const box = await search.boundingBox();
+    if (!box) throw new Error("The search box needs a position to tap");
+    await page.keyboard.press("Escape");
+    await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+    await expect(search).toBeFocused();
+    await expect(dialog).toHaveCount(0);
+  });
+
   test("the ledger stays unmarked before the programme opens", async ({ page }) => {
     await page.goto(DENSE_EVENT_URL);
     const opens = await firstStart(page);

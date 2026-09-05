@@ -180,9 +180,18 @@ const morphTransition = (steps: {
   return transition.finished.catch(ignoreSkippedTransition).finally(steps.settle);
 };
 
+// A session dialog exits on its own CSS transition (modal.css) and gains
+// nothing from a view transition over it — the root crossfade only hid that
+// exit while holding every tap on the page for its captures and its run,
+// which is the half second after closing when a reader reaches for the
+// search box. App modals keep it: their close animation is drawn on the
+// transition's old snapshot (::view-transition-old(app-modal)).
+const exitsOnItsOwn = (dialog: HTMLDialogElement): boolean =>
+  prefersReducedMotion() || dialog.id.startsWith("session-");
+
 const dismissDialog = (dialog: HTMLDialogElement): void => {
   if (!dialog.open) return;
-  if (prefersReducedMotion()) {
+  if (exitsOnItsOwn(dialog)) {
     dialog.close();
     return;
   }
