@@ -10,6 +10,7 @@ import {
   flagParam,
   hrefWithSearchParams,
   intParam,
+  PUSH_SEARCH_PARAMS,
   replaceSearchParams,
   type SearchParamCodec,
   stringParam,
@@ -703,30 +704,26 @@ const initSessionFilters = (): void => {
     "click",
     (event) => {
       if (!isUnmodifiedLeftClick(event)) return;
-      const target = event.target as Element;
-      if (target.closest("[data-apply-enrollment]")) {
-        if (!enrollmentFilter) return;
-        event.preventDefault();
-        if (!enrollmentFilter.checked) {
-          enrollmentFilter.checked = true;
-          filterSessions();
-        }
-        byId("schedule-region").scrollIntoView();
-        return;
+      const link = (event.target as Element).closest<HTMLAnchorElement>("a[href]");
+      if (!link) return;
+      const hrefUrl = new URL(link.href);
+      if (hrefUrl.origin !== globalThis.location.origin) return;
+      if (hrefUrl.pathname !== globalThis.location.pathname) return;
+      for (const name of PUSH_SEARCH_PARAMS) {
+        if (hrefUrl.searchParams.has(name)) return;
       }
-      const spaceLink = target.closest<HTMLAnchorElement>("a[data-apply-space]");
-      if (!spaceLink) return;
-      const space = new URL(spaceLink.href).searchParams.get("space");
-      if (!space) return;
-      if (![...spaceFilter.options].some((option) => option.value === space)) return;
+      let patching = false;
+      for (const [name, entry] of mirrored) {
+        if (!hrefUrl.searchParams.has(name)) continue;
+        patching = true;
+        entry.applyRaw(hrefUrl.searchParams.get(name));
+      }
+      if (!patching) return;
       event.preventDefault();
-      spaceLink.closest("dialog")?.querySelector<HTMLElement>("[data-modal-close]")?.click();
-      if (spaceFilter.value !== space) {
-        spaceFilter.value = space;
-        syncControl(spaceFilter);
-        filterSessions();
-      }
-      byId("schedule-region").scrollIntoView();
+      link.closest("dialog")?.querySelector<HTMLElement>("[data-modal-close]")?.click();
+      filterSessions();
+      const scrollId = hrefUrl.hash.slice(1);
+      if (scrollId) document.getElementById(scrollId)?.scrollIntoView();
     },
     { signal: documentListeners.signal },
   );
