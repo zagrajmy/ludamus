@@ -91,15 +91,21 @@ const getLinkableByModalId = (id: string): { paramName: string; paramValue: stri
 const prefersReducedMotion = (): boolean =>
   globalThis.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
 
-// iPhones and iPads close a modal with no view transition at all. Measured on
-// the live 880-session schedule in WebKit: the transition's capture alone held
-// every tap for about a second before the dialog even closed, where Chromium
-// takes a frame — and a reader closing a session is usually reaching for the
-// search box next. iPadOS reports itself as a Mac, hence the touch check.
+// iPadOS reports itself as a Mac, hence the touch-point check behind the UA
+// match. navigator.platform is deprecated but still the one signal iPadOS
+// leaves; when it goes, that branch quietly stops matching iPads and nothing
+// else breaks.
 const isAppleTouchDevice = (): boolean =>
   /iPhone|iPad|iPod/.test(navigator.userAgent) ||
   (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
 
+// Whether a modal closes with no view transition at all. Apple touch devices
+// do, in every layout: measured on the live 880-session schedule in WebKit,
+// the transition's capture alone held every tap for about a second before the
+// dialog even closed, where Chromium takes a frame — and a reader closing a
+// session is usually reaching for the search box next. Only the close: the
+// open morph runs on the same engine, but nobody is tapping the page while a
+// modal opens, so its cost buys the animation without taking anything.
 const closesWithoutTransition = (): boolean => prefersReducedMotion() || isAppleTouchDevice();
 
 interface ViewTransition {
@@ -194,12 +200,9 @@ const morphTransition = (steps: {
   return transition.finished.catch(ignoreSkippedTransition).finally(steps.settle);
 };
 
+// The plain exit: the dialog's own snapshot animates out (modal.css). Whether
+// to animate at all is the caller's call, decided once in closeModal.
 const dismissDialog = (dialog: HTMLDialogElement): void => {
-  if (!dialog.open) return;
-  if (closesWithoutTransition()) {
-    dialog.close();
-    return;
-  }
   startViewTransition(() => {
     dialog.close();
   })?.finished.catch((error) => {
@@ -297,7 +300,8 @@ const closeModal = (
   const dialog = getDialog(id);
   if (dialog.open) {
     const card = sessionCardForModal(id);
-    if (animate && !closesWithoutTransition() && canMorph(card)) {
+    const animated = animate && !closesWithoutTransition();
+    if (animated && canMorph(card)) {
       morphTransition({
         before: () => {
           setContainerMorph(dialog, true);
@@ -313,7 +317,8 @@ const closeModal = (
         },
       });
     } else {
-      dismissDialog(dialog);
+      if (animated) dismissDialog(dialog);
+      else dialog.close();
       releaseSessionCard(id);
     }
   }
