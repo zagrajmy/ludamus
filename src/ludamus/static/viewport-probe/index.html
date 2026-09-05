@@ -120,12 +120,15 @@
         background: rgb(255 255 255 / 70%);
     }
 
+    /* Clipped, so the 100vh probe cannot make the document itself scrollable:
+       on iOS a document that scrolls even 1px is what minimises the toolbar. */
     .probes {
         position: absolute;
         top: 0;
         left: 0;
         width: 1px;
         height: 100%;
+        overflow: hidden;
         visibility: hidden;
         pointer-events: none;
     }
