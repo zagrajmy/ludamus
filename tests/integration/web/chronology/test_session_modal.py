@@ -3,6 +3,7 @@ from datetime import UTC, datetime, timedelta
 from http import HTTPStatus
 
 import pytest
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.urls import reverse
 
 from ludamus.gates.web.django.chronology.event_presentation import (
@@ -13,6 +14,8 @@ from ludamus.gates.web.django.entities import UserInfo
 from ludamus.gates.web.django.event.enroll_presentation import EnrollActions, SeatBadge
 from ludamus.links.db.django.models import (
     EnrollmentConfig,
+    EventMap,
+    EventMapPage,
     Facilitator,
     Guild,
     GuildMembership,
@@ -29,6 +32,7 @@ from ludamus.pacts import AgendaItemDTO, EventDTO, SessionDTO, SessionFieldValue
 from ludamus.pacts.crowd import UserDTO
 from ludamus.pacts.guild import GuildMarkDTO
 from tests.integration.conftest import (
+    PNG_BYTES,
     AgendaItemFactory,
     EventFactory,
     SessionFactory,
@@ -169,6 +173,7 @@ class TestSessionModalComponentView:
                 "show_roster": True,
                 "enroll_actions": None,
                 "enroll_opens_at": None,
+                "map_pk": None,
             },
         )
 
@@ -192,8 +197,39 @@ class TestSessionModalComponentView:
                 "show_roster": True,
                 "enroll_actions": None,
                 "enroll_opens_at": None,
+                "map_pk": None,
             },
             contains=[session.title, f'id="session-{session.pk}"'],
+        )
+
+    def test_links_the_map_the_room_is_drawn_on(
+        self, active_user, agenda_item, client, event
+    ):
+        session = agenda_item.session
+        event_map = EventMap.objects.create(event=event, name="Ground floor")
+        EventMapPage.objects.create(
+            event_map=event_map,
+            image=SimpleUploadedFile("plan.png", PNG_BYTES, content_type="image/png"),
+        )
+        event_map.spaces.set([agenda_item.space])
+
+        response = client.get(_url(event, session.pk))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name=_TEMPLATE,
+            context_data={
+                "data": _expected_session_data(
+                    agenda_item=agenda_item, session=session, presenter=active_user
+                ),
+                "event": EventDTO.model_validate(event),
+                "event_banned": False,
+                "show_roster": True,
+                "enroll_actions": None,
+                "enroll_opens_at": None,
+                "map_pk": event_map.pk,
+            },
         )
 
     def test_unpublished_event_404_for_non_manager(self, agenda_item, client, event):
@@ -238,6 +274,7 @@ class TestSessionModalComponentView:
                 "show_roster": True,
                 "enroll_actions": None,
                 "enroll_opens_at": None,
+                "map_pk": None,
             },
             contains=f'id="session-{agenda_item.session.pk}"',
         )
@@ -357,6 +394,7 @@ class TestSessionModalComponentView:
                 "show_roster": True,
                 "enroll_actions": None,
                 "enroll_opens_at": None,
+                "map_pk": None,
             },
             contains=["Genre", "RPG", "Horror", "Notes", "Bring dice"],
         )
@@ -402,6 +440,7 @@ class TestSessionModalComponentView:
                 "show_roster": True,
                 "enroll_actions": None,
                 "enroll_opens_at": None,
+                "map_pk": None,
             },
             contains=[
                 "gm-handle",
@@ -453,6 +492,7 @@ class TestSessionModalComponentView:
                 "show_roster": True,
                 "enroll_actions": None,
                 "enroll_opens_at": None,
+                "map_pk": None,
             },
         )
 
@@ -486,6 +526,7 @@ class TestSessionModalComponentView:
                 "show_roster": False,
                 "enroll_actions": None,
                 "enroll_opens_at": None,
+                "map_pk": None,
             },
         )
 
@@ -512,6 +553,7 @@ class TestSessionModalComponentView:
                 "show_roster": True,
                 "enroll_actions": _ENROLL,
                 "enroll_opens_at": None,
+                "map_pk": None,
             },
             contains=["with others"],
             not_contains=["Login to Enroll", "Enroll Anonymously"],
@@ -552,6 +594,7 @@ class TestSessionModalComponentView:
                 "show_roster": True,
                 "enroll_actions": None,
                 "enroll_opens_at": general_start,
+                "map_pk": None,
             },
         )
 
@@ -585,6 +628,7 @@ class TestSessionModalComponentView:
                 "show_roster": True,
                 "enroll_actions": _ENROLL,
                 "enroll_opens_at": None,
+                "map_pk": None,
             },
         )
 
@@ -626,6 +670,7 @@ class TestSessionModalComponentView:
                 "show_roster": False,
                 "enroll_actions": None,
                 "enroll_opens_at": None,
+                "map_pk": None,
             },
         )
 
@@ -665,6 +710,7 @@ class TestSessionModalComponentView:
                 "show_roster": True,
                 "enroll_actions": None,
                 "enroll_opens_at": None,
+                "map_pk": None,
             },
             contains=["Mystery Host"],
         )
@@ -699,6 +745,7 @@ class TestSessionModalComponentView:
                 "show_roster": True,
                 "enroll_actions": _CLOSED_CANCEL,
                 "enroll_opens_at": None,
+                "map_pk": None,
             },
         )
 
@@ -732,6 +779,7 @@ class TestSessionModalComponentView:
                 "show_roster": True,
                 "enroll_actions": _CLOSED_LEAVE,
                 "enroll_opens_at": None,
+                "map_pk": None,
             },
         )
 
@@ -766,6 +814,7 @@ class TestSessionModalComponentView:
                 "show_roster": True,
                 "enroll_actions": _ENROLL,
                 "enroll_opens_at": None,
+                "map_pk": None,
             },
             contains=["Enroll Anonymously"],
         )
@@ -809,6 +858,7 @@ class TestSessionModalComponentView:
                 "show_roster": True,
                 "enroll_actions": _CANCEL,
                 "enroll_opens_at": None,
+                "map_pk": None,
             },
             contains=["Manage Enrollment"],
         )
@@ -837,6 +887,7 @@ class TestSessionModalComponentView:
                 "show_roster": True,
                 "enroll_actions": None,
                 "enroll_opens_at": None,
+                "map_pk": None,
             },
             contains=f'id="session-{agenda_item.session.pk}"',
         )
@@ -871,6 +922,7 @@ class TestSessionModalComponentView:
                 "show_roster": True,
                 "enroll_actions": None,
                 "enroll_opens_at": None,
+                "map_pk": None,
             },
             contains=f'id="session-{agenda_item.session.pk}"',
         )
@@ -902,6 +954,7 @@ class TestGuildMarkInTheModal:
                 "show_roster": True,
                 "enroll_actions": None,
                 "enroll_opens_at": None,
+                "map_pk": None,
             },
         )
 
@@ -948,5 +1001,6 @@ class TestGuildMarkInTheModal:
                 "show_roster": True,
                 "enroll_actions": None,
                 "enroll_opens_at": None,
+                "map_pk": None,
             },
         )

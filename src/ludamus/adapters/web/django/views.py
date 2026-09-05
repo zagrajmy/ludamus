@@ -96,6 +96,7 @@ from ludamus.pacts import (
     SpherePage,
     TimeSlotDTO,
 )
+from ludamus.pacts.chronology import PROGRAMME_DAY_STARTS_AT_HOUR
 from ludamus.pacts.crowd import CompanionDTO, UserDTO, UserType
 from ludamus.pacts.enrollment import (
     NO_ENROLLMENT_ACCESS,
@@ -321,6 +322,7 @@ class EventPageView(EventsPageRequiredMixin, DetailView):  # type: ignore [type-
             )
             for sid, data in sessions_data.items()
         }
+        has_maps = self.request.services.event_maps.has_maps(self.object.pk)
 
         hour_data = dict(self._get_hour_data(event_sessions, sessions_data))
 
@@ -361,18 +363,23 @@ class EventPageView(EventsPageRequiredMixin, DetailView):  # type: ignore [type-
                 "scheduled_count": scheduled_count,
                 "compact_schedule": compact_schedule,
                 "schedule_days": schedule_days,
+                "programme_day_start_hour": PROGRAMME_DAY_STARTS_AT_HOUR,
                 "active_tab": "rooms" if rooms_view else "list",
                 "has_enrollable_sessions": has_enrollable_sessions,
                 "room_lanes": build_room_lanes(schedule_days) if rooms_view else None,
                 "schedule_list_url": event_url,
                 "schedule_rooms_url": f"{event_url}?view=rooms",
+                "maps_url": (
+                    reverse(
+                        "web:chronology:event-maps", kwargs={"slug": self.object.slug}
+                    )
+                    if has_maps
+                    else None
+                ),
                 "google_calendar_url": google_calendar_url(calendar_entry),
                 "card_days": card_days,
                 "total_enrolled": total_enrolled,
                 "user_enrolled_sessions": user_enrolled_sessions,
-                "user_enrolled_session_titles": [
-                    s.session.title for s in user_enrolled_sessions
-                ],
                 "event_banned": event_banned,
             }
         )

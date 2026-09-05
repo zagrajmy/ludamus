@@ -14,6 +14,7 @@ from ludamus.links.db.django.repositories.discounts import (
     DiscountRuleRepository,
 )
 from ludamus.links.db.django.repositories.facilitators import FacilitatorRepository
+from ludamus.links.db.django.repositories.maps import EventMapRepository
 from ludamus.links.db.django.repositories.multiverse import (
     AnnouncementsRepository,
     ConnectionsRepository,
@@ -51,6 +52,7 @@ __all__ = [
     "EncounterRepository",
     "EnrollmentConfigRepository",
     "EventIntegrationsRepository",
+    "EventMapRepository",
     "EventPanelSettingsRepository",
     "EventProposalSettingsRepository",
     "EventRepository",

@@ -20,4 +20,19 @@ test.describe("Footer license notice", () => {
       "https://github.com/zagrajmy/ludamus/blob/main/LICENSE",
     );
   });
+
+  // The stacked footer used to align its children to the start of a flex
+  // column, which sizes them shrink-to-fit. The notice then rendered in a box
+  // as wide as its longest line with a third of the row left empty, and
+  // WebKit wrapped "AGPL-3.0." onto a line of its own inside it.
+  test("gives the notice the full width once the footer stacks", async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 900 });
+    await page.goto("/");
+
+    const notice = page.locator("footer p").filter({ hasText: "Source code" });
+    const noticeBox = (await notice.boundingBox())!;
+    const rowBox = (await notice.locator("xpath=..").boundingBox())!;
+
+    expect(noticeBox.width).toBe(rowBox.width);
+  });
 });
