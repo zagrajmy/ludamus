@@ -2,30 +2,57 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, TypedDict
 
 from ludamus.pacts.propose import SpotClaim
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
+    from datetime import datetime
 
+    from ludamus.gates.web.django.event.propose import WizardState
     from ludamus.pacts.timetable import FreeSpotSpaceDTO
 
 # The session round-trips through JSON, so a stored claim comes back as a list.
 _STORED_SPOT_LENGTH = 2
 
 
+class SpotSlotDescriptor(TypedDict):
+    value: str
+    start_time: datetime
+    end_time: datetime
+    is_selected: bool
+
+
+class SpotRoomDescriptor(TypedDict):
+    pk: int
+    name: str
+    slots: list[SpotSlotDescriptor]
+
+
+class SpotGroupDescriptor(TypedDict):
+    name: str
+    spaces: list[SpotRoomDescriptor]
+
+
+class SpotDescription(TypedDict):
+    space_name: str
+    group: str
+    start_time: datetime
+    end_time: datetime
+
+
 def spot_descriptors(
     spaces: Sequence[FreeSpotSpaceDTO], selected: SpotClaim | None
-) -> list[dict[str, object]]:
+) -> list[SpotGroupDescriptor]:
     """Lay the free cells out for the picker: parent group, room, then slots.
 
     Returns:
         One entry per parent group in tree order, each carrying its rooms and
         each room the slots nothing occupies it for.
     """
-    groups: list[dict[str, object]] = []
-    rooms: list[dict[str, object]] = []
+    groups: list[SpotGroupDescriptor] = []
+    rooms: list[SpotRoomDescriptor] = []
     group_name: str | None = None
     for space in spaces:
         if group_name is None or group_name != space.group:
@@ -76,7 +103,7 @@ def pick_spot(spaces: Sequence[FreeSpotSpaceDTO], raw: str | None) -> SpotClaim 
     return None
 
 
-def stored_spot(state: dict[str, object]) -> SpotClaim | None:
+def stored_spot(state: WizardState) -> SpotClaim | None:
     """Read back the pair the wizard parked in the session.
 
     Returns:
@@ -90,7 +117,7 @@ def stored_spot(state: dict[str, object]) -> SpotClaim | None:
 
 def describe_spot(
     spaces: Sequence[FreeSpotSpaceDTO], claim: SpotClaim | None
-) -> dict[str, object] | None:
+) -> SpotDescription | None:
     """Name the cell a claim points at, for the review step.
 
     Returns:

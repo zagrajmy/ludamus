@@ -85,7 +85,9 @@ def _field_sort_pk(key: str) -> int | None:
     return int(rest) if key.startswith(_FIELD_SORT_PREFIX) and rest.isdigit() else None
 
 
-def _column_lookups(filters: SessionListFilters) -> dict[str, object]:
+def _column_lookups(
+    filters: SessionListFilters,
+) -> dict[str, int | SessionStatus | bool]:
     """Collect the filters that are a plain equality on one column.
 
     Returns:

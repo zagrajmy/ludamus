@@ -190,7 +190,7 @@ def _review_fields(
 
 
 def _pick_open_category(
-    openness: ProposeOpennessDTO, category_id: object
+    openness: ProposeOpennessDTO, category_id: int | str
 ) -> ProposalCategoryDTO | None:
     """Resolve a proposer-supplied id against the categories open right now."""
     try:

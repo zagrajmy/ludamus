@@ -1,6 +1,6 @@
 from datetime import timedelta
 from http import HTTPStatus
-from unittest.mock import patch
+from unittest.mock import ANY, patch
 
 import pytest
 from django.contrib import messages
@@ -755,8 +755,26 @@ class TestProposeSessionPageView:
 
         response = authenticated_client.post(self._get_spot_url(event.slug), {})
 
-        assert response.status_code == HTTPStatus.OK
-        assert response.template_name == "event/propose/parts/details.html"
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data={
+                "event": EventDTO.model_validate(event),
+                "proposal_settings": EventProposalSettingsDTO(
+                    allow_anonymous_proposals=False, description="", pk=0
+                ),
+                "current_step": "details",
+                "wizard_steps": ["personal", "details", "review"],
+                "category": ProposalCategoryDTO.model_validate(proposal_category),
+                "form": ANY,
+                "image_form": ANY,
+                "field_descriptors": [],
+                "public_tracks": [],
+                "selected_track_pks": [],
+                "track_error": None,
+            },
+            template_name="event/propose/parts/details.html",
+        )
 
     def test_post_timeslots_preserves_selection(
         self, authenticated_client, event, faker, time_zone, proposal_category
@@ -3222,7 +3240,7 @@ class TestClaimSpotFlow:
     def _spot_value(self, space, time_slot):
         return f"{space.pk}:{time_slot.pk}"
 
-    def _spot_step_context(self, event, *, spot_groups):
+    def _spot_step_context(self, event, *, spot_groups, error=None):
         return {
             "event": EventDTO.model_validate(event),
             "proposal_settings": EventProposalSettingsDTO(
@@ -3234,7 +3252,7 @@ class TestClaimSpotFlow:
             "current_step": "spot",
             "wizard_steps": ["personal", "spot", "details", "review"],
             "spot_groups": spot_groups,
-            "error": None,
+            "error": error,
         }
 
     def _one_free_room(self, space, time_slot, *, is_selected=False, group=""):
@@ -3266,10 +3284,13 @@ class TestClaimSpotFlow:
             event=event, defaults={"allow_anonymous_proposals": True}
         )
 
-        response = client.get(self._url("web:event:session-propose", event.slug))
+        url = self._url("web:event:session-propose", event.slug)
 
-        assert response.status_code == HTTPStatus.FOUND
-        assert "login" in response.url
+        response = client.get(url)
+
+        assert_response(
+            response, HTTPStatus.FOUND, url=f"/crowd/login-required/?next={url}"
+        )
 
     @pytest.mark.usefixtures("corridor")
     def test_spot_step_offers_the_free_cells(
@@ -3363,7 +3384,17 @@ class TestClaimSpotFlow:
             self._url("web:event:session-propose-submit", event.slug)
         )
 
-        assert response.status_code == HTTPStatus.FOUND
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            url=reverse("web:chronology:event", kwargs={"slug": event.slug}),
+            messages=[
+                (
+                    messages.SUCCESS,
+                    "Session proposal 'Corridor Game' submitted successfully!",
+                )
+            ],
+        )
         session = Session.objects.get(event=event, title="Corridor Game")
         assert session.is_impromptu is True
         assert session.status == "pending"
@@ -3521,9 +3552,16 @@ class TestClaimSpotFlow:
             {"spot": f"{space.pk}:99999"},
         )
 
-        assert response.status_code == HTTPStatus.OK
-        assert response.template_name == "event/propose/parts/spot.html"
-        assert response.context["error"] == "Please pick a spot that is still free."
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            context_data=self._spot_step_context(
+                event,
+                spot_groups=self._one_free_room(space, time_slot),
+                error="Please pick a spot that is still free.",
+            ),
+            template_name="event/propose/parts/spot.html",
+        )
 
     def _walk_to_submit(self, client, event, space, time_slot):
         client.get(self._url("web:event:session-propose", event.slug))

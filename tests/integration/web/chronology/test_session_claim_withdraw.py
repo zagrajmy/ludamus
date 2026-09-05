@@ -94,8 +94,11 @@ class TestSessionClaimWithdrawActionView:
         assert AgendaItem.objects.filter(session=claim).exists()
 
     def test_an_anonymous_visitor_is_sent_to_log_in(self, client, event, claim):
-        response = client.post(_withdraw_url(event.slug, claim.pk))
+        url = _withdraw_url(event.slug, claim.pk)
 
-        assert response.status_code == HTTPStatus.FOUND
-        assert "login" in response.url
+        response = client.post(url)
+
+        assert_response(
+            response, HTTPStatus.FOUND, url=f"/crowd/login-required/?next={url}"
+        )
         assert AgendaItem.objects.filter(session=claim).exists()

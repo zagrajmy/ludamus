@@ -586,6 +586,7 @@ class TestSessionModalComponentView:
                 "show_roster": True,
                 "enroll_actions": _ENROLL,
                 "enroll_opens_at": None,
+                "map_pk": None,
             },
         )
 

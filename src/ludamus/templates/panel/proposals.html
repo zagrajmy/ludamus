@@ -145,15 +145,13 @@
                                        class="block text-xs font-medium text-foreground-muted mb-1 truncate">
                                     {% translate "Placement" %}
                                 </label>
-                                <select id="filter-placement"
-                                        name="placement"
-                                        class="filter-input w-full px-3 py-2 border border-border rounded-lg text-sm truncate">
+                                {% select id="filter-placement" name="placement" class="truncate" %}
                                     <option value="">{% translate "Anywhere" %}</option>
                                     {% for value, label in placements %}
                                         <option value="{{ value }}"
                                                 {% if filter_placement == value %}selected{% endif %}>{{ label }}</option>
                                     {% endfor %}
-                                </select>
+                                {% endselect %}
                             </div>
                             <div class="w-full sm:w-48 min-w-0">
                                 <label for="filter-origin"
@@ -161,15 +159,13 @@
                                        class="block text-xs font-medium text-foreground-muted mb-1 truncate">
                                     {% translate "Origin" %}
                                 </label>
-                                <select id="filter-origin"
-                                        name="origin"
-                                        class="filter-input w-full px-3 py-2 border border-border rounded-lg text-sm truncate">
+                                {% select id="filter-origin" name="origin" class="truncate" %}
                                     <option value="">{% translate "Any origin" %}</option>
                                     {% for value, label in origins %}
                                         <option value="{{ value }}"
                                                 {% if filter_origin == value %}selected{% endif %}>{{ label }}</option>
                                     {% endfor %}
-                                </select>
+                                {% endselect %}
                             </div>
                             {% for field in session_fields %}
                                 <div class="w-full sm:w-48 min-w-0">
