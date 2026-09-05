@@ -398,14 +398,15 @@
                                     {# them. Two selects narrowing one axis let #}
                                     {# the reader pick a venue and a room outside #}
                                     {# it, and answered that with an empty list. #}
-                                    <fieldset id="space-filter-group" class="flex flex-col gap-1.5 hidden">
-                                        <legend class="{{ label_class }}">{% translate "Location" %}</legend>
-                                        {% translate "all rooms" as t_all_rooms %}
-                                        <div id="space-filter"
-                                             data-all-rooms-label="{{ t_all_rooms }}"
-                                             class="max-h-48 space-y-1 overflow-y-auto rounded-xl border border-border bg-bg-secondary p-2">
-                                        </div>
-                                    </fieldset>
+                                    {% translate "all rooms" as t_all_rooms %}
+                                    <div id="space-filter-group"
+                                         data-all-rooms-label="{{ t_all_rooms }}"
+                                         class="flex flex-col gap-1.5 hidden">
+                                        <label class="{{ label_class }}" for="space-filter">{% translate "Location" %}</label>
+                                        {% translate "Search locations…" as t_location_search %}
+                                        {% tessera_combobox id="space-filter" multiple=True placeholder=t_location_search %}
+                                        {% endtessera_combobox %}
+                                    </div>
                                     {# Two ends of the one number a session carries. "Participant #}
                                     {# age" answers "what can this person join" — a session stays #}
                                     {# visible when its minimum-age requirement admits them, and #}
@@ -439,19 +440,13 @@
                                         </div>
                                     </div>
                                     {% if track_filter_names %}
-                                        <fieldset class="flex flex-col gap-1.5 grow">
-                                            <legend class="{{ label_class }}">{% translate "Track" %}</legend>
-                                            <div id="tag-filter-__track"
-                                                 data-category="__track"
-                                                 class="tag-filter max-h-48 space-y-1 overflow-y-auto rounded-xl border border-border bg-bg-secondary p-2">
-                                                {% for name in track_filter_names %}
-                                                    <label class="flex items-center gap-2 rounded-lg p-1.5 hover:bg-foreground/5">
-                                                        {% include "components/checkbox-field.html" with value=name aria_label=name hook_class="multi-filter-choice" only %}
-                                                        <span class="text-sm text-foreground">{{ name }}</span>
-                                                    </label>
-                                                {% endfor %}
-                                            </div>
-                                        </fieldset>
+                                        <div class="flex flex-col gap-1.5 grow">
+                                            <label class="{{ label_class }}" for="tag-filter-__track">{% translate "Track" %}</label>
+                                            {% translate "Search tracks…" as t_track_search %}
+                                            {% tessera_combobox id="tag-filter-__track" multiple=True placeholder=t_track_search data_category="__track" %}
+                                                {% for name in track_filter_names %}<option value="{{ name }}">{{ name }}</option>{% endfor %}
+                                            {% endtessera_combobox %}
+                                        </div>
                                     {% endif %}
                                     {% if category_filter_names %}
                                         <div class="flex flex-col gap-1.5 grow">
@@ -480,20 +475,12 @@
                                     {# schedule on screen; one host means nothing to pick #}
                                     {# between, so the control stays hidden. Search keeps #}
                                     {# a long multiple-choice list manageable. #}
-                                    <fieldset id="host-filter-group" class="flex flex-col gap-1.5 grow hidden">
-                                        <legend class="{{ label_class }}">{% translate "Host" %}</legend>
+                                    <div id="host-filter-group" class="flex flex-col gap-1.5 grow hidden">
+                                        <label class="{{ label_class }}" for="host-filter">{% translate "Host" %}</label>
                                         {% translate "Search hosts…" as t_host_search %}
-                                        {% include "components/text-field.html" with name="" id="host-filter-search" placeholder=t_host_search aria_label=t_host_search autocomplete="off" only %}
-                                        <div id="host-filter"
-                                             class="max-h-48 space-y-1 overflow-y-auto rounded-xl border border-border bg-bg-secondary p-2">
-                                        </div>
-                                    </fieldset>
-                                    <template id="multi-filter-option-template">
-                                        <label class="flex items-center gap-2 rounded-lg p-1.5 hover:bg-foreground/5">
-                                            {% include "components/checkbox-field.html" with aria_label="" hook_class="multi-filter-choice" only %}
-                                            <span class="text-sm text-foreground"></span>
-                                        </label>
-                                    </template>
+                                        {% tessera_combobox id="host-filter" multiple=True placeholder=t_host_search %}
+                                        {% endtessera_combobox %}
+                                    </div>
                                 </div>
                             {% endwith %}
                             {# Phone sheet only. Filters apply as they change, so this #}

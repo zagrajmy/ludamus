@@ -143,29 +143,27 @@ const selectFilter = (
   },
 });
 
-const checkboxFilter = (
-  el: HTMLElement,
+const multipleChoiceFilter = (
+  el: HTMLInputElement,
   param: string,
   matches: CardFilter["matches"],
+  labels: ReadonlyMap<string, string> = new Map(),
 ): CardFilter => ({
   chip: (value) =>
     el
-      .querySelector<HTMLInputElement>(`input[value="${CSS.escape(value)}"]`)
-      ?.closest("label")
-      ?.querySelector("span")?.textContent ?? value,
+      .closest("[data-combobox]")
+      ?.querySelector<HTMLElement>(`[data-combobox-option][data-value="${CSS.escape(value)}"]`)
+      ?.textContent ??
+    labels.get(value) ??
+    value,
   el,
   kind: "multiple",
   matches,
   param,
-  values: () =>
-    [...el.querySelectorAll<HTMLInputElement>(".multi-filter-choice:checked")].map(
-      (choice) => choice.value,
-    ),
+  values: () => stringListParam.parse(el.value),
   writeValues: (values) => {
-    const selected = new Set(values);
-    for (const choice of el.querySelectorAll<HTMLInputElement>(".multi-filter-choice")) {
-      choice.checked = selected.has(choice.value);
-    }
+    el.value = stringListParam.serialize(values) ?? "";
+    syncControl(el);
   },
 });
 
@@ -221,9 +219,8 @@ const initSessionFilters = (): void => {
   const statusFilter = byId<HTMLSelectElement>("status-filter");
   const dayFilter = byId<HTMLSelectElement>("day-filter");
   const hourFilter = byId<HTMLSelectElement>("hour-filter");
-  const spaceFilter = byId("space-filter");
-  const hostFilter = byId("host-filter");
-  const hostFilterSearch = byId<HTMLInputElement>("host-filter-search");
+  const spaceFilter = byId<HTMLInputElement>("space-filter");
+  const hostFilter = byId<HTMLInputElement>("host-filter");
   const ageFilter = byId<HTMLInputElement>("age-filter");
   const minAgeFilter = byId<HTMLSelectElement>("min-age-filter");
   const enrollmentFilter = document.querySelector<HTMLInputElement>("#enrollment-filter");
@@ -239,7 +236,7 @@ const initSessionFilters = (): void => {
   const sessionCards = document.querySelectorAll<HTMLElement>(".session");
 
   const tagFilters: Record<string, HTMLSelectElement> = {};
-  const trackFilter = document.getElementById("tag-filter-__track");
+  const trackFilter = document.getElementById("tag-filter-__track") as HTMLInputElement | null;
 
   // Field values ride in the haystack because a value typed into an
   // allow_custom field is not a choice and so never becomes a filter option —
@@ -281,19 +278,8 @@ const initSessionFilters = (): void => {
     if (entries.length > 1) document.getElementById(groupId)?.classList.remove("hidden");
   };
 
-  const addCheckbox = (container: HTMLElement, value: string, label: string): void => {
-    const template = byId<HTMLTemplateElement>("multi-filter-option-template");
-    const row = template.content.firstElementChild?.cloneNode(true);
-    if (!(row instanceof HTMLElement)) return;
-    const input = requireChild<HTMLInputElement>(row, "input");
-    input.value = value;
-    input.setAttribute("aria-label", label);
-    requireChild<HTMLElement>(row, "span").textContent = label;
-    container.append(row);
-  };
-
   const populateHosts = (entries: [string, string][]): void => {
-    for (const [value, label] of entries) addCheckbox(hostFilter, value, label);
+    syncControl(hostFilter, entries);
     if (entries.length > 1) {
       document.getElementById("host-filter-group")?.classList.remove("hidden");
     }
@@ -326,7 +312,9 @@ const initSessionFilters = (): void => {
     document.getElementById("min-age-filter-group")?.classList.remove("hidden");
   }
 
-  const allRoomsLabel = spaceFilter.dataset.allRoomsLabel ?? "";
+  const allRoomsLabel =
+    spaceFilter.closest<HTMLElement>("[data-all-rooms-label]")?.dataset.allRoomsLabel ?? "";
+  const spaceChoices: [string, string][] = [];
   const spaceMap = new Map<
     string,
     { groupKey: string; groupName: string; name: string; order: SpaceOrderSegment[] }
@@ -351,14 +339,12 @@ const initSessionFilters = (): void => {
       currentGroupKey = undefined;
     } else if (currentGroupKey !== groupKey) {
       currentGroupKey = groupKey;
-      addCheckbox(
-        spaceFilter,
-        `${VENUE_VALUE_PREFIX}${groupKey}`,
-        `${groupName} — ${allRoomsLabel}`,
-      );
+      spaceChoices.push([`${VENUE_VALUE_PREFIX}${groupKey}`, `${groupName} — ${allRoomsLabel}`]);
     }
-    addCheckbox(spaceFilter, key, groupName ? `${groupName} — ${name}` : name);
+    spaceChoices.push([key, groupName ? `${groupName} — ${name}` : name]);
   }
+  syncControl(spaceFilter, spaceChoices);
+  const spaceLabels = new Map(spaceChoices);
   if (spaceMap.size > 1) {
     document.getElementById("space-filter-group")?.classList.remove("hidden");
   }
@@ -402,10 +388,14 @@ const initSessionFilters = (): void => {
       const flag = STATUS_CARD_FLAGS[value];
       return flag ? card.dataset[flag] === "true" : card.dataset.status === value;
     }),
-    checkboxFilter(spaceFilter, "space", (card, value) =>
-      value.startsWith(VENUE_VALUE_PREFIX)
-        ? card.dataset.venue === value.slice(VENUE_VALUE_PREFIX.length)
-        : card.dataset.space === value,
+    multipleChoiceFilter(
+      spaceFilter,
+      "space",
+      (card, value) =>
+        value.startsWith(VENUE_VALUE_PREFIX)
+          ? card.dataset.venue === value.slice(VENUE_VALUE_PREFIX.length)
+          : card.dataset.space === value,
+      spaceLabels,
     ),
     // Both age controls read the one number a session carries, from opposite
     // ends. `age-min` keeps its name because `?age-min=18` ("show me the 18+
@@ -429,11 +419,11 @@ const initSessionFilters = (): void => {
     ),
     selectFilter(dayFilter, "day", dataMatch("day")),
     selectFilter(hourFilter, "hour", dataMatch("hour")),
-    ...(trackFilter ? [checkboxFilter(trackFilter, "track", matchesTag("__track"))] : []),
+    ...(trackFilter ? [multipleChoiceFilter(trackFilter, "track", matchesTag("__track"))] : []),
     ...Object.entries(tagFilters).map(([slug, select]) =>
       selectFilter(select, TAG_PARAM_NAMES[slug] ?? `tag-${slug}`, matchesTag(slug)),
     ),
-    checkboxFilter(hostFilter, "host", dataMatch("host")),
+    multipleChoiceFilter(hostFilter, "host", dataMatch("host")),
   ];
 
   // Controls whose value lives in the query string too, each bound through a
@@ -722,13 +712,6 @@ const initSessionFilters = (): void => {
 
   sessionFilter.addEventListener("input", filterSessions);
   enrollmentFilter?.addEventListener("change", filterSessions);
-  hostFilterSearch.addEventListener("input", () => {
-    const query = normalizeText(hostFilterSearch.value);
-    for (const row of hostFilter.querySelectorAll<HTMLElement>("label")) {
-      const choice = row.querySelector<HTMLInputElement>("input");
-      row.hidden = !choice?.checked && !normalizeText(row.textContent ?? "").includes(query);
-    }
-  });
   document.addEventListener(
     "click",
     (event) => {
@@ -755,7 +738,7 @@ const initSessionFilters = (): void => {
   );
   for (const f of cardFilters) {
     // Choice controls commit on change; the numeric age input updates while typed.
-    f.el.addEventListener(f.kind === "choice" ? "change" : "input", filterSessions);
+    f.el.addEventListener(f.kind === "age" ? "input" : "change", filterSessions);
   }
 
   // The same element is a dropdown at most widths and a modal dialog on a

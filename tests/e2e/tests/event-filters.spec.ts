@@ -60,7 +60,7 @@ test.describe("Event filter panel", () => {
 
     // The control that was out of reach before, reached the way a person
     // reaches it: if it is off-screen, this focus times out.
-    await page.getByRole("textbox", { name: "Search hosts…" }).focus();
+    await page.getByRole("combobox", { name: "Host" }).focus();
 
     // The dialog covers its own trigger, so the way out has to be inside it.
     // Apply is the one that reads as finishing: the filters are already live,
@@ -166,7 +166,7 @@ test.describe("Event filter panel", () => {
 
     // Escape from the host search also closes the filter dialog.
     await trigger.click();
-    const hostSearch = page.getByRole("textbox", { name: "Search hosts…" });
+    const hostSearch = page.getByRole("combobox", { name: "Host" });
     await hostSearch.focus();
     await hostSearch.press("Escape");
     await expect(trigger).toHaveAttribute("aria-expanded", "false");
@@ -270,19 +270,20 @@ test.describe("Event filter panel", () => {
     await page.goto(DENSE_EVENT_URL);
     await page.getByRole("button", { exact: true, name: "Filters" }).click();
 
-    // Track and category options are rendered by the server like every other
-    // filter's; the client only drops the ones no session carries.
-    const trackFilter = page.locator("#tag-filter-__track");
-    await expect(trackFilter.getByRole("checkbox")).toHaveCount(6);
+    // Track options are rendered by the server from the tracks the schedule uses.
+    const trackFilter = page.getByRole("combobox", { name: "Track" });
+    await trackFilter.click();
+    const trackOptions = page.locator("#tag-filter-__track-listbox").getByRole("option");
+    await expect(trackOptions).toHaveCount(6);
 
     const shown = page.locator(".session:visible");
     const total = await shown.count();
-    await trackFilter.getByRole("checkbox", { name: "Cosplay" }).check();
+    await trackOptions.getByText("Cosplay", { exact: true }).click();
     await expect(shown).not.toHaveCount(total);
     await expect(shown.first()).toContainText("Cosplay");
 
     const cosplayCount = await shown.count();
-    await trackFilter.getByRole("checkbox", { name: "RPG" }).check();
+    await trackOptions.getByText("RPG", { exact: true }).click();
     expect(await shown.count()).toBeGreaterThan(cosplayCount);
   });
 
@@ -326,14 +327,15 @@ test.describe("Event filter panel", () => {
     await page.getByRole("button", { exact: true, name: "Filters" }).click();
 
     const card = (title: string) => page.getByRole("link", { name: `Open details for ${title}` });
-    const hostSearch = page.getByRole("textbox", { name: "Search hosts…" });
+    const hostSearch = page.getByRole("combobox", { name: "Host" });
+    const hostOptions = page.locator("#host-filter-listbox").getByRole("option");
     await hostSearch.fill("wlodarczyk");
-    await expect(page.getByRole("checkbox", { name: "Radek Włodarczyk" })).toBeVisible();
-    await expect(page.getByRole("checkbox", { name: "Alex Morgan" })).toBeHidden();
+    await expect(hostOptions.getByText("Radek Włodarczyk", { exact: true })).toBeVisible();
+    await expect(hostOptions.getByText("Alex Morgan", { exact: true })).toHaveCount(0);
 
     await hostSearch.fill("");
-    await page.getByRole("checkbox", { name: "Priya Chen" }).check();
-    await page.getByRole("checkbox", { name: "Alex Morgan" }).check();
+    await hostOptions.getByText("Priya Chen", { exact: true }).click();
+    await hostOptions.getByText("Alex Morgan", { exact: true }).click();
     await expect(card("Cozy Storytellers Circle")).toBeVisible();
     await expect(card("Mega Strategy Lab")).toBeVisible();
     await expect(card("Przygoda w Mieście Neonów")).toBeHidden();
@@ -344,12 +346,13 @@ test.describe("Event filter panel", () => {
     await page.goto(DENSE_EVENT_URL);
     await page.getByRole("button", { exact: true, name: "Filters" }).click();
 
-    const locations = page.locator("#space-filter");
-    const choices = locations.getByRole("checkbox");
+    const locations = page.getByRole("combobox", { name: "Location" });
+    await locations.click();
+    const choices = page.locator("#space-filter-listbox").getByRole("option");
     expect(await choices.count()).toBeGreaterThan(2);
-    await choices.nth(0).check();
+    await choices.nth(0).click();
     const afterFirst = await page.locator(".session:visible").count();
-    await choices.nth(2).check();
+    await choices.nth(2).click();
     expect(await page.locator(".session:visible").count()).toBeGreaterThanOrEqual(afterFirst);
     await expect(page.locator("#active-filter-chips .filter-chip")).toHaveCount(2);
   });
