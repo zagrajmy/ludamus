@@ -136,7 +136,7 @@ class PrintMaterialsService:
         spaces = self._scoped_spaces(
             query.event_pk, query.scope_space_pks, query.track_pk
         )
-        items = self._agenda_items.list_by_event(query.event_pk)
+        items = self._agenda_items.list_by_event(query.event_pk, public_only=True)
         if query.time_range is not None:
             items = [item for item in items if _overlaps(item, *query.time_range)]
         items_by_space = self._group_by_space(
@@ -184,9 +184,9 @@ class PrintMaterialsService:
             query.event_pk, query.scope_space_pks, query.track_pk
         )
         all_items = (
-            self._agenda_items.list_by_track(query.track_pk)
+            self._agenda_items.list_by_track(query.track_pk, public_only=True)
             if query.track_pk is not None
-            else self._agenda_items.list_by_event(query.event_pk)
+            else self._agenda_items.list_by_event(query.event_pk, public_only=True)
         )
         if query.time_range is not None:
             all_items = [
@@ -264,9 +264,9 @@ class PrintMaterialsService:
             query.event_pk, query.scope_space_pks, query.track_pk
         )
         items = (
-            self._agenda_items.list_by_track(query.track_pk)
+            self._agenda_items.list_by_track(query.track_pk, public_only=True)
             if query.track_pk is not None
-            else self._agenda_items.list_by_event(query.event_pk)
+            else self._agenda_items.list_by_event(query.event_pk, public_only=True)
         )
         if query.time_range is not None:
             items = [item for item in items if _overlaps(item, *query.time_range)]
@@ -317,7 +317,7 @@ class PrintMaterialsService:
         slot = slots[0]
         items: list[AgendaItemDTO] = [
             item
-            for item in self._agenda_items.list_by_track(tracks[0].pk)
+            for item in self._agenda_items.list_by_track(tracks[0].pk, public_only=True)
             if _overlaps(item, slot.start_time, slot.end_time)
             and (item.session_confirmed or not confirmed_only)
         ]

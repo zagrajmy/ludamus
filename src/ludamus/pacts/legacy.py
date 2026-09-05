@@ -1035,11 +1035,17 @@ class AgendaItemRepositoryProtocol(Protocol):
     def read(pk: int) -> AgendaItemDTO: ...
     @staticmethod
     def list_by_event(
-        event_pk: int, *, facilitator_pks: set[int] | None = None
+        event_pk: int,
+        *,
+        facilitator_pks: set[int] | None = None,
+        public_only: bool = False,
     ) -> list[AgendaItemDTO]: ...
     @staticmethod
     def list_by_track(
-        track_pk: int, *, facilitator_pks: set[int] | None = None
+        track_pk: int,
+        *,
+        facilitator_pks: set[int] | None = None,
+        public_only: bool = False,
     ) -> list[AgendaItemDTO]: ...
     @staticmethod
     def read_by_session(session_pk: int) -> AgendaItemDTO | None: ...
