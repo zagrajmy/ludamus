@@ -69,16 +69,15 @@ class DoorCardsDocumentDTO(BaseModel):
 
 # The grid the page draws, rooms across and time down like the event page's
 # rooms view: a row is a stretch of the day's axis between two instants at
-# which the programme changes, and a tile is one session spanning every row
-# it covers. Row and column numbers are 1-based; row_end is the exclusive
-# grid line, so a tile's grid area is rows [row_start, row_end).
+# which the programme changes, and a tile is one session starting on a row
+# and spanning every row it covers. Rows and columns are 1-based.
 class PrintTimetableRowDTO(BaseModel):
     start_time: datetime
     end_time: datetime
 
     @property
     def minutes(self) -> int:
-        return max(1, round((self.end_time - self.start_time).total_seconds() / 60))
+        return round((self.end_time - self.start_time).total_seconds() / 60)
 
 
 class PrintTimetableTileDTO(BaseModel):
@@ -86,8 +85,8 @@ class PrintTimetableTileDTO(BaseModel):
     start_time: datetime
     end_time: datetime
     col: int
-    row_start: int
-    row_end: int
+    row: int
+    span: int
 
 
 class PrintTimetablePageDTO(BaseModel):
@@ -96,6 +95,12 @@ class PrintTimetablePageDTO(BaseModel):
     rows: list[PrintTimetableRowDTO]
     tiles: list[PrintTimetableTileDTO]
     space_range_name: str | None = None
+
+    @property
+    def spans(self) -> list[int]:
+        # The distinct tile heights: the template serves one rule per span
+        # length it actually uses, as _room_lanes.html does.
+        return sorted({tile.span for tile in self.tiles})
 
 
 class PrintTimetableDocumentDTO(BaseModel):

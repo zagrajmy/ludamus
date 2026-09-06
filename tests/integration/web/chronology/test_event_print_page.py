@@ -107,8 +107,8 @@ def _one_hour_page(*, event, session, space):
                 start_time=event.start_time,
                 end_time=end,
                 col=1,
-                row_start=1,
-                row_end=2,
+                row=1,
+                span=1,
             )
         ],
         space_range_name=None,

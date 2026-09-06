@@ -5,8 +5,8 @@ door cards, a printed timetable, description-rich per-area time-range pages, and
 the participants' session list)
 from scheduled agenda items. Queries default to confirmed sessions only;
 ``confirmed_only=False`` (the sphere managers' toggle) also includes the
-unconfirmed ones. Empty timetable cells render as explicit gaps; door cards are
-participant-facing and list only rooms and hours that actually hold a session.
+unconfirmed ones. The timetable draws an idle room as an empty column; door cards
+are participant-facing and list only rooms and hours that actually hold a session.
 """
 
 from __future__ import annotations
@@ -110,8 +110,9 @@ def _timetable_page(
         for item in items
         for instant in (item.start_time, item.end_time)
     }
-    edges = [instants[key] for key in sorted(instants)]
-    line = {key: index + 1 for index, key in enumerate(sorted(instants))}
+    keys = sorted(instants)
+    edges = [instants[key] for key in keys]
+    line = {key: index + 1 for index, key in enumerate(keys)}
     col = {space.pk: index + 1 for index, space in enumerate(spaces)}
     return PrintTimetablePageDTO(
         day=day,
@@ -126,8 +127,9 @@ def _timetable_page(
                 start_time=item.start_time,
                 end_time=item.end_time,
                 col=col[item.space_id],
-                row_start=line[item.start_time.timestamp()],
-                row_end=line[item.end_time.timestamp()],
+                row=line[item.start_time.timestamp()],
+                span=line[item.end_time.timestamp()]
+                - line[item.start_time.timestamp()],
             )
             for item in sorted(items, key=_session_list_order)
         ],

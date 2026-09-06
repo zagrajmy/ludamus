@@ -208,9 +208,10 @@ class TestBuildTimetable:
             (9, 10),
             (10, 11),
         ]
-        assert [
-            (t.session.title, t.col, t.row_start, t.row_end) for t in page.tiles
-        ] == [("RPG", 1, 1, 2), ("Larp", 2, 2, 3)]
+        assert [(t.session.title, t.col, t.row, t.span) for t in page.tiles] == [
+            ("RPG", 1, 1, 1),
+            ("Larp", 2, 2, 1),
+        ]
         assert [row.minutes for row in page.rows] == [60, 60]
 
     def test_rows_show_session_times_not_availability_slots(self):
@@ -244,10 +245,11 @@ class TestBuildTimetable:
             (10, 11),
             (11, 14),
         ]
-        assert [(t.session.title, t.row_start, t.row_end) for t in page.tiles] == [
-            ("Long", 1, 3),
-            ("Short", 1, 2),
+        assert [(t.session.title, t.row, t.span) for t in page.tiles] == [
+            ("Long", 1, 2),
+            ("Short", 1, 1),
         ]
+        assert page.spans == [1, 2]
 
     def test_sessions_render_when_event_has_no_slots(self):
         spaces = [_space(1, "Alfa", 0)]
