@@ -129,9 +129,10 @@ const collapseEmptyTracks = (lanes: HTMLElement): void => {
   layoutVisibleConflicts(visibleCells);
 
   // The same rule one scale up: a filter that empties a whole day takes the
-  // day's heading and its blank hours with it — two headings back to back with
-  // nothing between them read as a bug — and day one, which has no seam of its
-  // own, is a day like any other.
+  // day's blank hours with it. Its seam stays, as a folded day's does: the day
+  // names are the reader's map of the event, and a night session crossing the
+  // seam must not take the day with it when a filter hides the session. A seam
+  // standing between two lulls is also what keeps their fold labels apart.
   const tileDays = new Set<number>();
   const liveDays = new Set<number>();
   for (const row of tileRows) tileDays.add(dayOfRow.get(row) ?? -1);
@@ -139,14 +140,12 @@ const collapseEmptyTracks = (lanes: HTMLElement): void => {
 
   const dayLives = (day: number): boolean => survives(tileDays.has(day), liveDays.has(day));
   const rowLives = (row: number): boolean => {
+    if (seamRows.has(row)) return true;
     const day = dayOfRow.get(row) ?? -1;
-    if (foldedDays.has(day) && !seamRows.has(row)) return false;
+    if (foldedDays.has(day)) return false;
     return dayLives(day) && survives(tileRows.has(row), liveRows.has(row));
   };
 
-  for (const heading of lanes.querySelectorAll<HTMLElement>("[data-lane-day-heading]")) {
-    heading.classList.toggle(COLLAPSED, !dayLives(Number(heading.dataset.laneDayHeading)));
-  }
   for (const el of lanes.querySelectorAll<HTMLElement>("[data-lane-row]")) {
     el.classList.toggle(COLLAPSED, !rowLives(Number(el.dataset.laneRow)));
   }
@@ -204,7 +203,7 @@ const mountDayMirrors = (lanes: HTMLElement, scroller: HTMLElement, signal: Abor
   const overlay = scroller.parentElement?.querySelector<HTMLElement>("[data-room-lanes-overlays]");
   if (!overlay) return;
 
-  const pairs: { mirror: HTMLElement; seam: HTMLElement; source: HTMLElement }[] = [];
+  const pairs: { mirror: HTMLElement; source: HTMLElement }[] = [];
   for (const seam of scroller.querySelectorAll<HTMLElement>(".room-lanes-day")) {
     const source = seam.querySelector<HTMLElement>("h3");
     if (!source) continue;
@@ -216,13 +215,12 @@ const mountDayMirrors = (lanes: HTMLElement, scroller: HTMLElement, signal: Abor
     mirror.querySelector("[data-day-fold]")?.setAttribute("tabindex", "-1");
     overlay.append(mirror);
     seam.classList.add("room-lanes-day-mirrored");
-    pairs.push({ mirror, seam, source });
+    pairs.push({ mirror, source });
   }
 
   const sync = (): void => {
     const overlayTop = overlay.getBoundingClientRect().top;
-    for (const { mirror, seam, source } of pairs) {
-      mirror.hidden = seam.classList.contains(COLLAPSED);
+    for (const { mirror, source } of pairs) {
       mirror.style.top = `${source.getBoundingClientRect().top - overlayTop}px`;
       // The chevron the reader sees is the mirror's; keep it pointing the way
       // the fold state says.
@@ -251,12 +249,10 @@ const trackCurrentDay = (lanes: HTMLElement, head: HTMLElement): (() => void) | 
 
   return () => {
     // The last seam that has passed under the header names the day whose rows
-    // the reader is looking at. A seam a filter collapsed has no position at
-    // all — its rect reads as zero, which would otherwise beat every real one.
+    // the reader is looking at.
     const edge = head.getBoundingClientRect().bottom;
     let current = dayOne;
     for (const seam of seams) {
-      if (seam.classList.contains(COLLAPSED)) continue;
       if (seam.getBoundingClientRect().top > edge) break;
       current = seam;
     }
