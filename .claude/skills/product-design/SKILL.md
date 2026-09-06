@@ -85,7 +85,9 @@ When sources conflict, resolve in this order (highest wins):
    [exemplars.md](references/exemplars.md).
 5. Adjacent shipped patterns in `src/ludamus/templates/` (and the live gallery
    at `/design/`).
-6. General interface heuristics.
+6. General interface heuristics — named and sourced in the
+   [`lawful-ux`](../lawful-ux/SKILL.md) skill (Fitts, Hick, Jakob, Gestalt,
+   …). Load it when a finding needs a reason beyond taste.
 
 If a decision isn't covered by 1–5, it's a **coverage gap**: say so, make the
 smallest reasonable choice, and add it to

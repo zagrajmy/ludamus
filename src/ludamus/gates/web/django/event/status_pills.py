@@ -75,7 +75,9 @@ def _stage_pill(*, is_live: bool, is_ended: bool) -> list[StatusPill]:
         return [
             StatusPill(
                 label=_("Happening now!"),
-                classes="bg-teal-100 text-teal-700",
+                classes=(
+                    "bg-teal-100 dark:bg-teal-900/30 text-teal-700 dark:text-teal-400"
+                ),
                 live_dot=True,
             )
         ]

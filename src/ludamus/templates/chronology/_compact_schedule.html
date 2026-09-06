@@ -43,7 +43,7 @@
                                     </div>
                                     {# Not divide-y: it draws a stray divider under the last visible #}
                                     {# row when session-filters.ts hides the rows after it (index.css). #}
-                                    <div class="session-grid divide-y-visible">
+                                    <div class="session-grid divide-y-visible relative">
                                         {% for tile in hour.tiles %}
                                             {% include "chronology/_compact_session_row.html" with data=tile.data occurrence_start=tile.start occurrence_end=tile.end %}
                                         {% endfor %}
@@ -53,9 +53,11 @@
                         </div>
                     </section>
                 {% endfor %}
-                {# The "now" seam, moved between two rows by schedule-now.ts. #}
-                <div class="schedule-now" data-schedule-now hidden>
-                    {% include "chronology/_schedule_now_marker.html" with extra_class="absolute top-0 start-2 -translate-y-1/2" %}
+                {# The "now" seam, laid over the row boundary by schedule-now.ts. #}
+                {# start-0.5 + the pill's px-1.5 puts its digits on the rows' time #}
+                {# column (px-2 / max-sm:left-2), so the clock reads as one more time. #}
+                <div class="schedule-now-line" data-schedule-now hidden>
+                    {% include "chronology/_schedule_now_marker.html" with extra_class="absolute top-0 start-0.5 -translate-y-1/2" %}
                 </div>
             {% endif %}
         </div>
@@ -65,7 +67,7 @@
         {# container — fitRail (event-timeline.ts) thins the markers until they #}
         {# fit the screen, and a non-scrollable rail chains wheel input to the #}
         {# page natively. #}
-        <nav class="schedule-rail sticky top-14.5 max-h-[calc(var(--app-vh)-6rem)] shrink-0 touch-none select-none self-start overflow-hidden py-1 text-foreground-muted"
+        <nav class="schedule-rail sticky top-14.5 max-h-[calc(100dvh-6rem)] shrink-0 touch-none select-none self-start overflow-hidden py-1 text-foreground-muted"
              aria-label="{% translate "Jump to time" %}">
             {% for day in schedule_days %}
                 <span class="block px-1.5 pt-2 pb-0.5 text-center text-[0.625rem] font-bold uppercase text-foreground-secondary first:pt-0">{{ day.day_start|date:"D" }}</span>

@@ -7,8 +7,7 @@
             {% if not forloop.first %}<span aria-hidden="true"> > </span>{% endif %}
             {% if crumb.space_filter and session_link_base %}
                 <a href="{{ session_link_base }}?space={{ crumb.space_filter }}#schedule-region"
-                   class="pointer-events-auto underline decoration-dotted underline-offset-4 hover:text-primary"
-                   data-apply-space>{{ crumb.name }}</a>
+                   class="pointer-events-auto underline decoration-dotted underline-offset-4 hover:text-primary">{{ crumb.name }}</a>
             {% else %}
                 <span>{{ crumb.name }}</span>
             {% endif %}
