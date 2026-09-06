@@ -8,6 +8,32 @@ const countPdfPages = (pdf: Buffer) => {
 };
 
 test.describe("Public print page", () => {
+  test("defaults to the participant program, one sheet per day", async ({ page }) => {
+    await page.goto(densePrintUrl);
+
+    await expect(page.getByLabel("Printable")).toHaveValue("session-list");
+    // No scope, track, or time-window controls: a participant prints it all.
+    await expect(page.getByLabel("Scope")).toHaveCount(0);
+    await expect(page.getByLabel("Start")).toHaveCount(0);
+
+    const preview = page.getByRole("region", { name: "Print preview" });
+    const sheets = preview.getByRole("group");
+    await expect(sheets).toHaveCount(3);
+    const rows = sheets.nth(0).getByRole("row");
+    await expect(rows.nth(1)).toContainText(/\d{2}:\d{2}–\d{2}:\d{2}/);
+    await expect(sheets.nth(0)).toContainText("Open Play B");
+
+    // Descriptions fold into the rows rather than swapping the document.
+    const description = sheets.nth(0).locator("td .whitespace-pre-wrap");
+    await expect(description).toHaveCount(0);
+    await page.getByLabel("With descriptions").check();
+    await expect(page).toHaveURL(/descriptions=1/);
+    await expect(page.getByLabel("Printable")).toHaveValue("session-list");
+    await expect(
+      preview.getByRole("group").nth(0).locator("td .whitespace-pre-wrap").first(),
+    ).toBeVisible();
+  });
+
   test("renders dense event timetable as chunked sideways preview pages", async ({
     browserName,
     page,
@@ -45,6 +71,7 @@ test.describe("Public print page", () => {
 
   test("offers dense-fixture printable materials", async ({ page }) => {
     const materials = [
+      ["session-list", "Program for participants"],
       ["timetable", "Timetable"],
       ["track-timetable", "Track timetable"],
       ["door-cards", "Door cards"],
@@ -56,7 +83,6 @@ test.describe("Public print page", () => {
     for (const [, label] of materials) {
       await expect(select.getByRole("option", { name: label, exact: true })).toHaveCount(1);
     }
-    await expect(select.getByRole("option", { name: "Session list" })).toHaveCount(0);
     await expect(page.getByLabel("With descriptions")).not.toBeChecked();
   });
 

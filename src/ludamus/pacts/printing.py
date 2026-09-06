@@ -2,8 +2,9 @@
 
 Read-only document shapes for the printable materials on the public
 ``/print`` page: a timetable grid, per-room-and-day door cards, per-space
-descriptions pages, and a session list. Rendered as print-styled HTML pages
-in the web gate (browser Save-as-PDF); assembled by `mills.printing`.
+descriptions pages, and the participants' session list. Rendered as
+print-styled HTML pages in the web gate (browser Save-as-PDF); assembled by
+`mills.printing`.
 """
 
 from __future__ import annotations
@@ -134,12 +135,13 @@ class PrintSessionListItemDTO(BaseModel):
     space_name: str
 
 
+# The participants' program: every session of the event in time order, with
+# the room — what one carries around the venue.
 class PrintSessionListDocumentDTO(BaseModel):
     event_name: str
     event_description: str
     event_start: datetime
     event_end: datetime
-    scope_name: str | None = None
     sessions: list[PrintSessionListItemDTO]
 
 
@@ -194,5 +196,5 @@ class PrintMaterialsServiceProtocol(Protocol):
     def build_timetable(self, query: PrintQueryDTO) -> PrintTimetableDocumentDTO: ...
     def build_area_schedule(self, query: PrintQueryDTO) -> AreaScheduleDocumentDTO: ...
     def build_session_list(
-        self, event_pk: int, *, confirmed_only: bool = True
-    ) -> PrintSessionListDocumentDTO | None: ...
+        self, query: PrintQueryDTO
+    ) -> PrintSessionListDocumentDTO: ...

@@ -31,6 +31,9 @@
 {% endblock extra_head %}
 {% block main_region %}
     {% translate "Scope" as aria_scope %}
+    {# Sessions arrive in time order, so grouping by the day label the nav and #}
+    {# the sheets both print splits them into days. #}
+    {% regroup session_list.sessions by start_time|date:"l, j E Y" as session_days %}
     <main class="grow w-full print:m-0 print:p-0">
         <div class="grid w-full grid-cols-[minmax(260px,320px)_minmax(0,1fr)] max-[900px]:grid-cols-1 print:block">
             <aside class="sticky top-4 max-h-[calc(100vh-32px)] self-start overflow-auto border-r border-border bg-bg-secondary p-4 shadow-sm max-[900px]:static max-[900px]:max-h-none max-[900px]:border-r-0 max-[900px]:border-b print:hidden">
@@ -80,10 +83,8 @@
                                 {% endselect %}
                             </div>
                         {% endif %}
-                        {% if show_descriptions_control %}
-                            {% translate "With descriptions" as t_descriptions %}
-                            {% include "components/checkbox-field.html" with name="descriptions" id="id_descriptions" label=t_descriptions value="1" checked=descriptions %}
-                        {% endif %}
+                        {% translate "With descriptions" as t_descriptions %}
+                        {% include "components/checkbox-field.html" with name="descriptions" id="id_descriptions" label=t_descriptions value="1" checked=descriptions %}
                         {% if show_range_controls %}
                             <div class="flex flex-col gap-1">
                                 <label class="text-sm font-semibold text-foreground-secondary"
@@ -147,8 +148,12 @@
                                     <span class="px-2 py-1.5 text-foreground-muted">{% translate "No pages" %}</span>
                                 {% endfor %}
                             {% elif session_list %}
-                                <a class="block rounded-md px-2 py-1.5 text-foreground-muted no-underline hover:bg-background"
-                                   href="#session-list">{% translate "Sessions" %}</a>
+                                {% for day in session_days %}
+                                    <a class="block rounded-md px-2 py-1.5 text-foreground-muted no-underline hover:bg-background"
+                                       href="#session-list-day-{{ forloop.counter }}">{{ day.grouper }}</a>
+                                {% empty %}
+                                    <span class="px-2 py-1.5 text-foreground-muted">{% translate "No pages" %}</span>
+                                {% endfor %}
                             {% else %}
                                 <span class="px-2 py-1.5 text-foreground-muted">{% translate "No pages" %}</span>
                             {% endif %}
@@ -160,7 +165,7 @@
                 <div role="region"
                      aria-label="{% translate "Print preview" %}"
                      class="flex flex-row items-start gap-[8mm] overflow-x-auto overflow-y-hidden overscroll-x-contain pb-[12mm] scroll-pl-px snap-x snap-mandatory print:block print:overflow-visible print:pb-0">
-                    {% with sheet_class="box-border shrink-0 snap-start w-[210mm] max-w-full min-h-[297mm] rounded-sm bg-white p-[14mm] font-sans text-[10pt] text-neutral-900 shadow-[0_1px_10px_rgba(0,0,0,0.18)] [&_a]:text-inherit print:m-0 print:max-w-none print:min-h-[297mm] print:w-[210mm] print:rounded-none print:p-[14mm] print:shadow-none print:[print-color-adjust:exact] print:break-after-page last:print:break-after-auto" %}
+                    {% with sheet_class="box-border shrink-0 snap-start w-[210mm] max-w-full min-h-[297mm] rounded-sm bg-white p-[14mm] font-sans text-[10pt] text-neutral-900 shadow-[0_1px_10px_rgba(0,0,0,0.18)] [&_a]:text-inherit print:m-0 print:max-w-none print:min-h-0 print:w-auto print:rounded-none print:p-[14mm] print:shadow-none print:[print-color-adjust:exact] print:break-after-page last:print:break-after-auto" %}
                         {% if timetable %}
                             {% for page in timetable.pages %}
                                 <section class="{{ sheet_class }}"
@@ -304,19 +309,46 @@
                                 {% endif %}
                             {% endfor %}
                         {% elif session_list %}
-                            <section class="{{ sheet_class }}" id="session-list">
-                                {% include "chronology/parts/print_header.html" with scope_name=session_list.scope_name show_full_schedule_label=True %}
-                                <h2 class="m-0 mb-[3mm] text-[14pt]">{% translate "Sessions" %}</h2>
-                                {% for session in session_list.sessions %}
-                                    <div class="mb-[4mm] break-inside-avoid">
-                                        <div class="text-[9pt] tabular-nums text-neutral-500">
-                                            {{ session.start_time|time:"H:i" }}–{{ session.end_time|time:"H:i" }} · {{ session.space_name }}
-                                        </div>
-                                        <div class="text-[11pt] font-bold">{{ session.title }}</div>
-                                        {% if session.presenter_name %}<div class="text-neutral-500">{{ session.presenter_name }}</div>{% endif %}
-                                        {% if session.description %}<div class="mt-[1mm] whitespace-pre-wrap">{{ session.description }}</div>{% endif %}
-                                    </div>
-                                {% empty %}
+                            {# One sheet per day: a participant folds today's page into a pocket. #}
+                            {% for day in session_days %}
+                                <section class="{{ sheet_class }}"
+                                         id="session-list-day-{{ forloop.counter }}"
+                                         role="group"
+                                         aria-labelledby="session-list-day-{{ forloop.counter }}-heading">
+                                    {% include "chronology/parts/print_header.html" with scope_name="" show_full_schedule_label=True %}
+                                    <h2 id="session-list-day-{{ forloop.counter }}-heading"
+                                        class="m-0 mb-[3mm] text-[14pt]">{{ day.grouper }}</h2>
+                                    <table class="w-full border-collapse">
+                                        <thead class="sr-only">
+                                            <tr>
+                                                <th scope="col">{% translate "Time" %}</th>
+                                                <th scope="col">{% translate "Session" context "table column" %}</th>
+                                                <th scope="col">{% translate "Room" %}</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for session in day.list %}
+                                                <tr class="break-inside-avoid border-b-[0.5pt] border-neutral-200">
+                                                    <td class="w-[24mm] whitespace-nowrap py-[1.5mm] pr-[3mm] align-top tabular-nums">
+                                                        {{ session.start_time|time:"H:i" }}–{{ session.end_time|time:"H:i" }}
+                                                    </td>
+                                                    <td class="py-[1.5mm] pr-[3mm] align-top">
+                                                        <strong>{{ session.title }}</strong>
+                                                        {% if session.presenter_name %}<div class="text-neutral-500">{{ session.presenter_name }}</div>{% endif %}
+                                                        {% if descriptions and session.description %}
+                                                            <div class="mt-[1mm] whitespace-pre-wrap text-[9pt]">{{ session.description }}</div>
+                                                        {% endif %}
+                                                    </td>
+                                                    <td class="w-[36mm] py-[1.5mm] align-top text-neutral-700">{{ session.space_name }}</td>
+                                                </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </section>
+                            {% empty %}
+                                <section class="{{ sheet_class }}">
+                                    {% include "chronology/parts/print_header.html" with scope_name="" show_full_schedule_label=True %}
+                                    <h2 class="m-0 mb-[3mm] text-[14pt]">{% translate "Program" %}</h2>
                                     <p class="italic text-neutral-500">
                                         {# A manager printing with unconfirmed included sees the honest variant. #}
                                         {% if unconfirmed %}
@@ -325,8 +357,8 @@
                                             {% translate "No confirmed sessions scheduled yet." %}
                                         {% endif %}
                                     </p>
-                                {% endfor %}
-                            </section>
+                                </section>
+                            {% endfor %}
                         {% else %}
                             <section class="{{ sheet_class }}">
                                 {% include "chronology/parts/print_header.html" with scope_name="" show_full_schedule_label=True %}

@@ -1040,7 +1040,6 @@ msgstr "Gildia"
 
 #: src/ludamus/gates/web/django/chronology/panel/views/columns.py
 #: src/ludamus/templates/chronology/event.html
-#: src/ludamus/templates/chronology/print.html
 #: src/ludamus/templates/panel/facilitator-detail.html
 msgid "Sessions"
 msgstr "Punkty programu"
@@ -2651,6 +2650,10 @@ msgid "Category updated successfully."
 msgstr "Kategoria została zaktualizowana."
 
 #: src/ludamus/gates/web/django/event/print.py
+msgid "Program for participants"
+msgstr "Program dla uczestników"
+
+#: src/ludamus/gates/web/django/event/print.py
 #: src/ludamus/templates/chronology/print.html
 msgid "Timetable"
 msgstr "Harmonogram"
@@ -2658,10 +2661,6 @@ msgstr "Harmonogram"
 #: src/ludamus/gates/web/django/event/print.py
 msgid "Track timetable"
 msgstr "Harmonogram bloku"
-
-#: src/ludamus/gates/web/django/event/print.py
-msgid "Session list"
-msgstr "Lista punktów programu"
 
 #: src/ludamus/gates/web/django/event/print.py
 msgid "Door cards"
@@ -4267,6 +4266,14 @@ msgstr "Przejdź do %(day)s %(time)s"
 msgid "Open details for %(title)s"
 msgstr "Otwórz szczegóły %(title)s"
 
+#: src/ludamus/templates/chronology/_hero_tools.html
+msgid "Venue maps"
+msgstr "Mapy lokalizacji"
+
+#: src/ludamus/templates/chronology/_hero_tools.html
+msgid "Print the program"
+msgstr "Drukuj program"
+
 #: src/ludamus/templates/chronology/_map_card.html
 #: src/ludamus/templates/panel/_space_tree_node.html
 #, python-format
@@ -4450,10 +4457,6 @@ msgstr[3] "%(counter)s zapisanych uczestników"
 #: src/ludamus/templates/chronology/_session_map_link.html
 msgid "Show on map"
 msgstr "Pokaż na mapie"
-
-#: src/ludamus/templates/chronology/_venue_maps_button.html
-msgid "Venue maps"
-msgstr "Mapy lokalizacji"
 
 #: src/ludamus/templates/chronology/accept_proposal.html
 msgid "Accept Proposal"
@@ -4715,22 +4718,6 @@ msgstr "Zobacz program"
 #: src/ludamus/templates/chronology/event.html
 msgid "Sign up for sessions"
 msgstr "Zapisz się na sesje"
-
-#: src/ludamus/templates/chronology/event.html
-msgid "Participant"
-msgid_plural "Participants"
-msgstr[0] "Uczestnik"
-msgstr[1] "Uczestnicy"
-msgstr[2] "Uczestników"
-msgstr[3] "Uczestników"
-
-#: src/ludamus/templates/chronology/event.html
-msgid "Player"
-msgid_plural "Players"
-msgstr[0] "Gracz"
-msgstr[1] "Graczy"
-msgstr[2] "Graczy"
-msgstr[3] "Graczy"
 
 #: src/ludamus/templates/chronology/event.html
 #, python-format
@@ -5285,6 +5272,18 @@ msgstr "Szczegóły programu"
 #: src/ludamus/templates/chronology/print.html
 msgid "capacity"
 msgstr "pojemność"
+
+#: src/ludamus/templates/chronology/print.html
+#: src/ludamus/templates/panel/_space_tree_node.html
+#: src/ludamus/templates/panel/parts/timetable-session-detail.html
+#: src/ludamus/templates/panel/timetable-log.html
+msgid "Room"
+msgstr "Sala"
+
+#: src/ludamus/templates/chronology/print.html
+#: src/ludamus/templates/panel/base.html
+msgid "Program"
+msgstr "Program"
 
 #: src/ludamus/templates/chronology/print.html
 msgid "This printable is not available for this event."
@@ -6997,12 +6996,6 @@ msgid "Reorder %(name)s — use the arrow keys"
 msgstr "Zmień kolejność: %(name)s — użyj strzałek"
 
 #: src/ludamus/templates/panel/_space_tree_node.html
-#: src/ludamus/templates/panel/parts/timetable-session-detail.html
-#: src/ludamus/templates/panel/timetable-log.html
-msgid "Room"
-msgstr "Sala"
-
-#: src/ludamus/templates/panel/_space_tree_node.html
 msgid "Group"
 msgstr "Grupa"
 
@@ -7171,10 +7164,6 @@ msgstr "Sekcje panelu"
 #: src/ludamus/templates/panel/base.html src/ludamus/templates/panel/index.html
 msgid "Dashboard"
 msgstr "Pulpit"
-
-#: src/ludamus/templates/panel/base.html
-msgid "Program"
-msgstr "Program"
 
 #: src/ludamus/templates/panel/base.html
 #: src/ludamus/templates/panel/cfp-create.html
@@ -10171,6 +10160,23 @@ msgid ""
 msgstr ""
 "Nie ma nadchodzących wydarzeń ani publicznych spotkań. Sprawdź ponownie "
 "później!"
+
+#~ msgid "Participant"
+#~ msgid_plural "Participants"
+#~ msgstr[0] "Uczestnik"
+#~ msgstr[1] "Uczestnicy"
+#~ msgstr[2] "Uczestników"
+#~ msgstr[3] "Uczestników"
+
+#~ msgid "Player"
+#~ msgid_plural "Players"
+#~ msgstr[0] "Gracz"
+#~ msgstr[1] "Graczy"
+#~ msgstr[2] "Graczy"
+#~ msgstr[3] "Graczy"
+
+#~ msgid "Session list"
+#~ msgstr "Lista punktów programu"
 
 #~ msgid "Click to collapse or expand; drag to reorder"
 #~ msgstr ""

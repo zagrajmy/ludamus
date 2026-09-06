@@ -47,19 +47,17 @@
             <div class="relative h-56 sm:h-72 bg-cover bg-center sm:rounded-t-3xl"
                  style="background-image: url('{{ event.cover_image_url }}')"
                  data-event-cover>
-                {% if maps_url %}
-                    {# On the gutter the body below keeps, over a surface of its #}
-                    {# own: .icon-btn draws no background, and an arbitrary photo #}
-                    {# is no background to draw a glyph on. #}
-                    <div class="absolute top-4 right-4 sm:top-8 sm:right-8 rounded-2xl bg-bg-secondary shadow-(--shadow-elevated)">
-                        {% include "chronology/_venue_maps_button.html" with maps_url=maps_url only %}
-                    </div>
-                {% endif %}
+                {# On the gutter the body below keeps, over a surface of its #}
+                {# own: .icon-btn draws no background, and an arbitrary photo #}
+                {# is no background to draw a glyph on. #}
+                <div class="absolute top-4 right-4 sm:top-8 sm:right-8 rounded-2xl bg-bg-secondary shadow-(--shadow-elevated)">
+                    {% include "chronology/_hero_tools.html" with maps_url=maps_url print_url=print_url only %}
+                </div>
             </div>
         {% endif %}
         <div class="px-4 py-6 sm:p-8">
             <div class="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-6">
-                <div class="flex-1 grid gap-y-5{% if compact_schedule %} lg:grid-cols-[1fr_auto] lg:gap-x-8{% endif %}">
+                <div class="flex-1 grid gap-y-5 lg:grid-cols-[1fr_auto] lg:gap-x-8">
                     {# Status is an attribute of the name: the chip sits beside it #}
                     {# and wraps under it when narrow. #}
                     <div class="flex items-center flex-wrap gap-x-3 gap-y-2">
@@ -70,7 +68,7 @@
                         <p class="text-lg max-w-2xl text-foreground-muted">{{ event.description }}</p>
                     {% endif %}
                     <!-- Event meta -->
-                    <div class="flex flex-col items-start gap-2 text-sm sm:gap-3{% if compact_schedule %} lg:col-start-2 lg:row-start-1 lg:row-span-3{% else %} md:flex-row md:flex-wrap md:gap-4{% endif %}">
+                    <div class="flex flex-col items-start gap-2 text-sm sm:gap-3 lg:col-start-2 lg:row-start-1 lg:row-span-3">
                         {% translate "Add to calendar" as t_add_to_calendar %}
                         {% tessera_action_dropdown id="event-calendar-menu" label=t_add_to_calendar align="center" trigger_class="flex items-center gap-2 text-left" %}
                             <div class="w-8 h-8 bg-coral-100 dark:bg-coral-900/30 rounded-lg flex items-center justify-center shrink-0">
@@ -110,19 +108,17 @@
                             {% tessera_action_dropdown_item t_google_calendar href=google_calendar_url icon="calendar-days" external=True %}
                             {% tessera_action_dropdown_item t_other_calendars href=ics_url icon="arrow-down-tray" %}
                         {% endtessera_action_dropdown %}
-                        {% if compact_schedule %}
-                            <div class="flex items-center gap-2">
-                                <div class="w-8 h-8 bg-bg-tertiary rounded-lg flex items-center justify-center">
-                                    {% icon "queue-list" class="w-4 h-4 text-foreground-muted" variant="mini" %}
-                                </div>
-                                <div class="font-medium leading-none text-foreground tabular-nums whitespace-nowrap">
-                                    {{ scheduled_count }}
-                                    <span class="font-normal text-foreground-muted">
-                                        {% blocktranslate count counter=scheduled_count %}Session{% plural %}Sessions{% endblocktranslate %}
-                                    </span>
-                                </div>
+                        <div class="flex items-center gap-2">
+                            <div class="w-8 h-8 bg-bg-tertiary rounded-lg flex items-center justify-center">
+                                {% icon "queue-list" class="w-4 h-4 text-foreground-muted" variant="mini" %}
                             </div>
-                        {% endif %}
+                            <div class="font-medium leading-none text-foreground tabular-nums whitespace-nowrap">
+                                {{ scheduled_count }}
+                                <span class="font-normal text-foreground-muted">
+                                    {% blocktranslate count counter=scheduled_count %}Session{% plural %}Sessions{% endblocktranslate %}
+                                </span>
+                            </div>
+                        </div>
                         {% if event.address %}
                             {% translate "View on map ↗" as t_view_on_map %}
                             <a href="https://www.google.com/maps/search/?api=1&amp;query={{ event.address_inline|urlencode }}"
@@ -140,52 +136,25 @@
                             </a>
                         {% endif %}
                     </div>
-                    {# The maps control has one home: the cover when there is #}
-                    {# one, this row when there is not. Both conditions below #}
-                    {# encode that rule, so this row can hold nothing at all. #}
-                    {% if compact_schedule or maps_url and not event.cover_image_url %}
-                        {# On a phone the CTAs claim equal shares of the line and #}
-                        {# take a full-width row each when both no longer fit. #}
-                        {# nowrap is what makes "fit" mean the label rather than #}
-                        {# its longest word; stretched rather than centred, since #}
-                        {# only .btn-secondary carries a border. #}
-                        <div class="flex flex-wrap gap-3 [&>.btn]:whitespace-nowrap max-sm:[&>.btn]:grow max-sm:[&>.btn]:basis-44{% if compact_schedule %} lg:row-start-3{% endif %}">
-                            {% if compact_schedule %}
-                                {% translate "View the program" as t_view_program %}
-                                {% tessera_button t_view_program href="#schedule-region" size="lg" %}
-                                {% if has_enrollable_sessions and not event.is_ended %}
-                                    {% translate "Sign up for sessions" as t_sign_up_sessions %}
-                                    {% tessera_button t_sign_up_sessions href="?enrollment=1#schedule-region" variant="secondary" size="lg" %}
-                                {% endif %}
-                            {% endif %}
-                            {% if maps_url and not event.cover_image_url %}
-                                {% include "chronology/_venue_maps_button.html" with maps_url=maps_url only %}
-                            {% endif %}
-                        </div>
-                    {% endif %}
-                </div>
-                {% if not compact_schedule %}
-                    <div class="flex lg:flex-col gap-3">
-                        <div class="flex-1 lg:flex-none bg-gradient-to-br from-teal-50 to-teal-100 dark:from-teal-900/30 dark:to-teal-800/30 rounded-2xl p-4 text-center min-w-[120px]">
-                            {# The whole schedule, not the current view: this card #}
-                            {# sits outside the region the view tabs swap. #}
-                            <div class="text-3xl font-bold text-teal-700 dark:text-teal-400">{{ scheduled_count }}</div>
-                            <div class="text-sm text-teal-600 dark:text-teal-500">
-                                {% blocktranslate count counter=scheduled_count %}Session{% plural %}Sessions{% endblocktranslate %}
-                            </div>
-                        </div>
-                        <div class="flex-1 lg:flex-none bg-gradient-to-br from-coral-50 to-coral-100 dark:from-coral-900/30 dark:to-coral-800/30 rounded-2xl p-4 text-center min-w-[120px]">
-                            <div class="text-3xl font-bold text-coral-700 dark:text-coral-400">{{ total_enrolled }}</div>
-                            <div class="text-sm text-coral-600 dark:text-coral-500">
-                                {% if event.use_participants_label %}
-                                    {% blocktranslate count counter=total_enrolled %}Participant{% plural %}Participants{% endblocktranslate %}
-                                {% else %}
-                                    {% blocktranslate count counter=total_enrolled %}Player{% plural %}Players{% endblocktranslate %}
-                                {% endif %}
-                            </div>
-                        </div>
+                    {# On a phone the CTAs claim equal shares of the line and #}
+                    {# take a full-width row each when both no longer fit. #}
+                    {# nowrap is what makes "fit" mean the label rather than #}
+                    {# its longest word; stretched rather than centred, since #}
+                    {# only .btn-secondary carries a border. #}
+                    <div class="flex flex-wrap gap-3 [&>.btn]:whitespace-nowrap max-sm:[&>.btn]:grow max-sm:[&>.btn]:basis-44 lg:row-start-3">
+                        {% translate "View the program" as t_view_program %}
+                        {% tessera_button t_view_program href="#schedule-region" size="lg" %}
+                        {% if has_enrollable_sessions and not event.is_ended %}
+                            {% translate "Sign up for sessions" as t_sign_up_sessions %}
+                            {% tessera_button t_sign_up_sessions href="?enrollment=1#schedule-region" variant="secondary" size="lg" %}
+                        {% endif %}
+                        {# The hero tools have one home: the cover when there is #}
+                        {# one, this row when there is not. #}
+                        {% if not event.cover_image_url %}
+                            {% include "chronology/_hero_tools.html" with maps_url=maps_url print_url=print_url only %}
+                        {% endif %}
                     </div>
-                {% endif %}
+                </div>
             </div>
         </div>
     </div>
@@ -600,16 +569,13 @@
     {# event-print.ts); this block is the fallback for File→Print / the toolbar, #}
     {# which JS cannot intercept — it collapses the page to a clean pointer plus #}
     {# a minimal schedule so the chrome never prints. #}
-    <a id="event-print-link"
-       data-event-print
-       href="{% url 'web:chronology:event-print' slug=event.slug %}"
-       hidden>{% translate "Print-ready schedule" %}</a>
+    <a id="event-print-link" data-event-print href="{{ print_url }}" hidden>{% translate "Print-ready schedule" %}</a>
     <div class="event-print-pointer" aria-hidden="true">
         <h1>{{ event.name }}</h1>
         <p class="pointer-note">
             {% blocktranslate %}A print-ready schedule is available at:{% endblocktranslate %}
             <br>
-            <strong>{{ request.scheme }}://{{ request.get_host }}{% url 'web:chronology:event-print' slug=event.slug %}</strong>
+            <strong>{{ request.scheme }}://{{ request.get_host }}{{ print_url }}</strong>
         </p>
         {% for hour, items in hour_data.items %}
             <div class="pointer-row">

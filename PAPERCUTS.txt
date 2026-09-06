@@ -508,3 +508,6 @@ If you fix a papercut, remove it.
   required env var), so a django.po edit had to be hand-written. djlint in
   .venv was also missing its 'regex' and 'pyyaml' deps, which blocked the
   pre-commit hook until I pip-installed them by hand.
+- 2026-09-06: ran mise run lint before pushing and CI's checks job still failed
+  on messages-check; lint does not include it, only pr-fix does, so a stale
+  django.po only shows up on CI
