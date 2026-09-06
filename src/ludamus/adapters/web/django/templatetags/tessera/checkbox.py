@@ -154,8 +154,11 @@ def tessera_checkbox_toggle(
         {% tessera_checkbox_toggle id="hide-ended-filter" label=t_hide_ended %}
     """
     element_id = attrs.pop("id", "")
-    if not element_id or attrs:
-        msg = f"tessera_checkbox_toggle takes id plus its named options, got {attrs!r}"
+    if not element_id:
+        msg = "tessera_checkbox_toggle needs an id: the label points at it"
+        raise ValueError(msg)
+    if attrs:
+        msg = f"tessera_checkbox_toggle got unexpected attrs {attrs!r}"
         raise ValueError(msg)
     return render_to_string(
         "components/checkbox-toggle.html",

@@ -757,6 +757,18 @@ class TestCheckboxToggle:
         html = tpl.render(Context({"i": "x", "lbl": "<script>alert(1)</script>"}))
         assert "<script>alert(1)" not in html
 
+    def test_rejects_a_missing_id(self) -> None:
+        tpl = Template('{% load tessera %}{% tessera_checkbox_toggle label="x" %}')
+        with pytest.raises(ValueError, match="needs an id"):
+            tpl.render(Context())
+
+    def test_rejects_unknown_attrs(self) -> None:
+        tpl = Template(
+            '{% load tessera %}{% tessera_checkbox_toggle id="a" label="x" size="lg" %}'
+        )
+        with pytest.raises(ValueError, match="unexpected attrs"):
+            tpl.render(Context())
+
 
 class TestSwitcher:
     def _render(self, *, selected: str = "light") -> str:
