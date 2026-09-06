@@ -380,18 +380,41 @@ def _create_promotion_scenario(sphere: Sphere, *, superuser: User) -> None:
     )
 
 
-def _schedule(event: Event, space: Space, session: Session, *, hour: int) -> AgendaItem:
-    return AgendaItem.objects.create(
-        space=space,
-        session=session,
-        session_confirmed=True,
-        start_time=event.start_time + timedelta(hours=hour),
-        end_time=event.start_time + timedelta(hours=hour + 2),
-    )
-
-
 def _seat(session: Session, user: User, status: SessionParticipationStatus) -> None:
     SessionParticipation.objects.create(session=session, user=user, status=status.value)
+
+
+# The enrollment scenarios below say "an hour into the event" and mean a
+# two-hour slot; they differ in their windows and their rosters, never in how a
+# session reaches the schedule, and none of them gates on age.
+def _scheduled_session(
+    event: Event,
+    space: Space,
+    *,
+    title: str,
+    slug: str,
+    presenter: str,
+    description: str,
+    seats: int,
+    hour: int,
+) -> Session:
+    """Create a session and give it a place and an hour.
+
+    Returns:
+        The scheduled session.
+    """
+    return _create_session(
+        event,
+        space,
+        title=title,
+        slug=slug,
+        presenter=presenter,
+        description=description,
+        start_offset=timedelta(hours=hour),
+        duration_hours=2,
+        participants_limit=seats,
+        min_age=0,
+    )
 
 
 # playwright.config.ts allows two retries on CI, so three attempts in all.
@@ -419,28 +442,28 @@ def _create_closed_enrollment_scenario(sphere: Sphere, *, tester: User) -> None:
     # restore what it consumes. One session per possible attempt (CI allows two
     # retries) keeps a retry testing the feature rather than the leftovers.
     for attempt in range(1, _E2E_ATTEMPTS + 1):
-        held = Session.objects.create(
-            event=event,
-            display_name="Closed GM",
+        held = _scheduled_session(
+            event,
+            space,
             title=f"Late Resignation Demo {attempt}",
             slug=f"late-resignation-demo-{attempt}",
+            presenter="Closed GM",
             description="A session whose enrollment window has already closed.",
-            participants_limit=5,
-            min_age=0,
+            seats=5,
+            hour=attempt - 1,
         )
-        _schedule(event, space, held, hour=attempt - 1)
         _seat(held, tester, SessionParticipationStatus.CONFIRMED)
 
-        waiting = Session.objects.create(
-            event=event,
-            display_name="Closed GM",
+        waiting = _scheduled_session(
+            event,
+            space,
             title=f"Late Waiting List Demo {attempt}",
             slug=f"late-waiting-list-demo-{attempt}",
+            presenter="Closed GM",
             description="A waiting place left over after the window shut.",
-            participants_limit=1,
-            min_age=0,
+            seats=1,
+            hour=_E2E_ATTEMPTS + attempt,
         )
-        _schedule(event, space, waiting, hour=_E2E_ATTEMPTS + attempt)
         _seat(waiting, tester, SessionParticipationStatus.WAITING)
 
 
@@ -460,29 +483,29 @@ def _create_past_enrollment_scenario(sphere: Sphere, *, tester: User) -> None:
     venue = _create_venue(event, name="Past Venue", slug="past-venue")
     area = _create_area(venue, name="Past Area", slug="past-area")
     space = _create_space(area, name="Past Room", slug="past-room", capacity=5)
-    session = Session.objects.create(
-        event=event,
-        display_name="Past GM",
+    session = _scheduled_session(
+        event,
+        space,
         title="Finished Session Demo",
         slug="finished-session-demo",
+        presenter="Past GM",
         description="A session the tester attended.",
-        participants_limit=5,
-        min_age=0,
+        seats=5,
+        hour=0,
     )
-    _schedule(event, space, session, hour=0)
     _seat(session, tester, SessionParticipationStatus.CONFIRMED)
 
     # The waiting variant of the same banner, which is otherwise unreachable.
-    never_promoted = Session.objects.create(
-        event=event,
-        display_name="Past GM",
+    never_promoted = _scheduled_session(
+        event,
+        space,
         title="Finished Waiting Demo",
         slug="finished-waiting-demo",
+        presenter="Past GM",
         description="A session the tester never got into.",
-        participants_limit=1,
-        min_age=0,
+        seats=1,
+        hour=3,
     )
-    _schedule(event, space, never_promoted, hour=3)
     _seat(never_promoted, tester, SessionParticipationStatus.WAITING)
 
 
@@ -502,27 +525,27 @@ def _create_enroll_states_scenario(sphere: Sphere) -> None:
     venue = _create_venue(event, name="States Venue", slug="states-venue")
     area = _create_area(venue, name="States Area", slug="states-area")
     space = _create_space(area, name="States Room", slug="states-room", capacity=5)
-    free = Session.objects.create(
-        event=event,
-        display_name="States GM",
+    _scheduled_session(
+        event,
+        space,
         title="Seat Available Demo",
         slug="seat-available-demo",
+        presenter="States GM",
         description="A session with room left.",
-        participants_limit=5,
-        min_age=0,
+        seats=5,
+        hour=0,
     )
-    _schedule(event, space, free, hour=0)
 
-    full = Session.objects.create(
-        event=event,
-        display_name="States GM",
+    full = _scheduled_session(
+        event,
+        space,
         title="Waiting List Only Demo",
         slug="waiting-list-only-demo",
+        presenter="States GM",
         description="A session with every seat taken.",
-        participants_limit=1,
-        min_age=0,
+        seats=1,
+        hour=3,
     )
-    _schedule(event, space, full, hour=3)
     _seat(
         full,
         User.objects.create_user(
@@ -536,6 +559,84 @@ def _create_enroll_states_scenario(sphere: Sphere) -> None:
     )
     # The seat is taken by its own user, never the tester, so both sessions
     # keep offering the tester a way in however often the spec runs.
+
+
+# An early window nobody reading the page is in: it seats half the room and it
+# is restricted to configured users, so a visitor is turned away by a window
+# that is nonetheless the one deciding how many seats exist. Its three sessions
+# are the three things that label can say — the cap, what is left of it, and
+# nothing left. Driven by event-filters.spec.ts.
+def _create_early_access_scenario(sphere: Sphere) -> None:
+    event = _create_event(
+        sphere,
+        name="Early Access Convention",
+        slug="early-access",
+        description="Half the seats, for pass holders only.",
+        start_offset=timedelta(days=30),
+        duration_hours=8,
+        publication_offset=timedelta(days=1),
+    )
+    now = timezone.now()
+    EnrollmentConfig.objects.create(
+        event=event,
+        start_time=now - timedelta(days=1),
+        end_time=now + timedelta(days=7),
+        percentage_slots=50,
+        banner_text="Pass holders enroll first, for half the seats.",
+        restrict_to_configured_users=True,
+    )
+    venue = _create_venue(event, name="Early Venue", slug="early-venue")
+    area = _create_area(venue, name="Early Area", slug="early-area")
+    space = _create_space(area, name="Early Room", slug="early-room", capacity=5)
+    # Odd limits, so half of one is a number neither the room nor the window
+    # could have produced alone: 5 seats at 50% leaves 3.
+    _scheduled_session(
+        event,
+        space,
+        title="Early Access Demo",
+        slug="early-access-demo",
+        presenter="Early GM",
+        description="A session only pass holders can enroll in yet.",
+        seats=5,
+        hour=0,
+    )
+    holder = User.objects.create_user(
+        username="e2e-early-seat-taker",
+        email="e2e-early-seat-taker@test.local",
+        password="e2e-early-seat-taker-123",
+        name="E2E Early Seat Taker",
+        slug="e2e-early-seat-taker",
+    )
+    # One seat gone out of three, and the last seat of one — the reader is
+    # still outside the window either way, so both stay in the muted type.
+    _seat(
+        _scheduled_session(
+            event,
+            space,
+            title="Early Access Partly Taken Demo",
+            slug="early-access-partly-taken-demo",
+            presenter="Early GM",
+            description="A session whose early seats are going.",
+            seats=5,
+            hour=3,
+        ),
+        holder,
+        SessionParticipationStatus.CONFIRMED,
+    )
+    _seat(
+        _scheduled_session(
+            event,
+            space,
+            title="Early Access Nothing Left Demo",
+            slug="early-access-nothing-left-demo",
+            presenter="Early GM",
+            description="A session whose early seats are gone.",
+            seats=2,
+            hour=6,
+        ),
+        holder,
+        SessionParticipationStatus.CONFIRMED,
+    )
 
 
 # A public select field that allows custom answers, for the event-filter e2e:
@@ -842,6 +943,9 @@ def main() -> None:
 
     # Both ways in on an open window, for the enroll-states e2e.
     _create_enroll_states_scenario(sphere)
+
+    # A half-seating window the reader is not in, for the seat-count e2e.
+    _create_early_access_scenario(sphere)
 
     # Staff manager user for panel e2e tests (logs in via /admin/)
     manager = User.objects.create_user(

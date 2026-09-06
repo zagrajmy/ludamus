@@ -7,10 +7,9 @@ from django.http import Http404
 from django.template.response import TemplateResponse
 from django.views.generic.base import View
 
-from ludamus.gates.web.django.access import has_panel_access
 from ludamus.gates.web.django.chronology.event_presentation import present_session_modal
 from ludamus.gates.web.django.event.enroll_presentation import build_enroll_footer
-from ludamus.gates.web.django.helpers import is_event_published
+from ludamus.gates.web.django.helpers import read_public_event
 from ludamus.gates.web.django.sphere.pages import EventsPageRequiredMixin
 from ludamus.pacts import NotFoundError
 from ludamus.pacts.ids import SessionId, UserId
@@ -28,7 +27,7 @@ class SessionModalComponentView(EventsPageRequiredMixin, View):
     def get(
         self, request: RootRequest, *, event_slug: str, session_id: int
     ) -> HttpResponse:
-        event = self._get_event(event_slug)
+        event = read_public_event(self.request, event_slug)
         shadowbanned_ids, banned_by, event_banned = self._safety(event)
         dto = request.services.session_modal.read(
             event_id=event.pk,
@@ -68,6 +67,14 @@ class SessionModalComponentView(EventsPageRequiredMixin, View):
                 "data": data,
                 "event": event,
                 "event_banned": event_banned,
+                # The plan the room is drawn on; a proposal has no room yet.
+                "map_pk": (
+                    None
+                    if data.is_unscheduled
+                    else request.services.event_maps.map_pk_for_space(
+                        event_pk=event.pk, space_pk=data.loc["space_id"]
+                    )
+                ),
                 # Drives both the tab bar and the roster panel it selects, so a
                 # panel can never render without a tab owning it. An organizer
                 # can drop a limit to 0 after people have signed up: those
@@ -82,17 +89,6 @@ class SessionModalComponentView(EventsPageRequiredMixin, View):
                 "enroll_opens_at": footer.opens_at,
             },
         )
-
-    def _get_event(self, event_slug: str) -> EventDTO:
-        try:
-            event = self.request.services.events.read_by_slug(
-                self.request.context.current_sphere_id, event_slug
-            )
-        except NotFoundError as exc:
-            raise Http404 from exc
-        if not is_event_published(event) and not has_panel_access(self.request):
-            raise Http404
-        return event
 
     def _safety(self, event: EventDTO) -> tuple[frozenset[UserId], set[UserId], bool]:
         shadowbanned_ids: frozenset[UserId] = frozenset()

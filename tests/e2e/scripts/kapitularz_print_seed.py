@@ -30,7 +30,10 @@ EXPECTED_SPEC_SESSION_COUNT = 110
 EXPECTED_PARTICIPANT_COUNT = 555
 EXTRA_ENROLLMENT_SESSION_COUNT = 5
 HOST_COUNT = 72
+# Runs through the programme's 06:00 turnover, so the ledger lists it under
+# both days while the rooms grid draws it as one tile across the seam.
 OVERNIGHT_SESSION_SLOT = (1, 22)
+OVERNIGHT_SESSION_HOURS = 9
 # The room and hour the touching pair below takes. The room is free all
 # afternoon on day one, and nothing else in the programme starts in that hour —
 # so the hour is reachable only through the pair, and a grid keying its #slot-
@@ -352,7 +355,7 @@ def _create_sessions(
         space = track_spaces[(index - 1) % len(track_spaces)]
         facilitator = facilitators[(index * 7) % len(facilitators)]
         duration_hours = (
-            3
+            OVERNIGHT_SESSION_HOURS
             if (spec.day, spec.hour) == OVERNIGHT_SESSION_SLOT
             else (1, 1, 2, 2, 3)[index % 5]
         )

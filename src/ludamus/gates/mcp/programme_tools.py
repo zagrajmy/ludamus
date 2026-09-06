@@ -1,29 +1,25 @@
 from __future__ import annotations
 
-import base64
-import binascii
 import json
 from datetime import datetime
 from typing import TYPE_CHECKING, Literal
 
-from django.core.files.base import ContentFile
 from django.utils.text import slugify
 from pydantic import BaseModel, Field, TypeAdapter, field_validator
 
 from ludamus.gates.mcp.inputs import (
     AwareDatetimeRange,
     EmptyInput,
+    EventIdInput,
+    ImageUploadInput,
     NonBlankName,
     require_aware_datetime,
 )
-from ludamus.gates.mcp.organizer_context import actor_sphere, token_event
+from ludamus.gates.mcp.map_tools import map_tools
+from ludamus.gates.mcp.organizer_context import actor_sphere, require_event, token_event
 from ludamus.gates.mcp.protocol import JsonDict
 from ludamus.gates.mcp.registry import Tool, ToolCall, ToolError
-from ludamus.gates.uploads import (
-    upload_error,
-    validate_uploaded_cover,
-    validate_uploaded_logo,
-)
+from ludamus.gates.uploads import validate_uploaded_logo, validate_uploaded_raster
 from ludamus.pacts import NotFoundError
 from ludamus.pacts.chronology import SessionPlacement
 from ludamus.pacts.durations import normalize_duration
@@ -52,8 +48,6 @@ from ludamus.pacts.venues import SpaceInputDTO, SpaceTreeNodeDTO, SpaceValidatio
 if TYPE_CHECKING:
     from collections.abc import Callable, Sequence
 
-    from django.core.files.base import File
-
     from ludamus.gates.mcp.registry import ToolProtocol
     from ludamus.pacts.legacy import EventUpdateData
     from ludamus.pacts.mcp import ActorContext
@@ -68,20 +62,10 @@ _TRACK_LIST = TypeAdapter(list["_TrackListItem"])
 _JSON_OBJECT: TypeAdapter[JsonDict] = TypeAdapter(JsonDict)
 
 
-class _EventIdInput(BaseModel):
-    event_id: int = Field(description="Event primary key (see list_events / get_event)")
-
-
-class _ListSpacesInput(_EventIdInput):
+class _ListSpacesInput(EventIdInput):
     include_internal: bool = Field(
         default=False,
         description="Include venue and area nodes, not only assignable leaves",
-    )
-
-
-def _require_event(call: ToolCall[_EventIdInput]) -> EventDTO:
-    return call.services.events.require_in_sphere(
-        sphere_id=actor_sphere(call.actor), event_id=call.data.event_id
     )
 
 
@@ -141,7 +125,9 @@ class OrganizerListSpacesTool(Tool[_ListSpacesInput]):
 
     @staticmethod
     def handle(call: ToolCall[_ListSpacesInput]) -> str:
-        event = _require_event(call)
+        event = require_event(
+            services=call.services, actor=call.actor, event_id=call.data.event_id
+        )
         spaces = _flatten_spaces(
             call.services.space_tree.list_tree(event.pk),
             include_internal=call.data.include_internal,
@@ -149,7 +135,7 @@ class OrganizerListSpacesTool(Tool[_ListSpacesInput]):
         return _SPACE_LEAF_LIST.dump_json(spaces, indent=2).decode()
 
 
-class OrganizerListTimeSlotsTool(Tool[_EventIdInput]):
+class OrganizerListTimeSlotsTool(Tool[EventIdInput]):
     name = "list_time_slots"
     description = (
         "List an event's time slots: the day windows sessions can be placed in. "
@@ -157,11 +143,13 @@ class OrganizerListTimeSlotsTool(Tool[_EventIdInput]):
         "any event in this token's sphere."
     )
     scope = ToolScope.ORGANIZER
-    input_model = _EventIdInput
+    input_model = EventIdInput
 
     @staticmethod
-    def handle(call: ToolCall[_EventIdInput]) -> str:
-        event = _require_event(call)
+    def handle(call: ToolCall[EventIdInput]) -> str:
+        event = require_event(
+            services=call.services, actor=call.actor, event_id=call.data.event_id
+        )
         slots = call.services.panel_time_slots.list_for_event(event.pk)
         return _TIME_SLOT_LIST.dump_json(slots, indent=2).decode()
 
@@ -170,7 +158,7 @@ class _TrackListItem(TrackListItemDTO):
     space_ids: list[int]
 
 
-class OrganizerListTracksTool(Tool[_EventIdInput]):
+class OrganizerListTracksTool(Tool[EventIdInput]):
     name = "list_tracks"
     description = (
         "List an event's programme tracks (bloki) with pk, name, slug, "
@@ -178,11 +166,13 @@ class OrganizerListTracksTool(Tool[_EventIdInput]):
         "create_session's track_ids."
     )
     scope = ToolScope.ORGANIZER
-    input_model = _EventIdInput
+    input_model = EventIdInput
 
     @staticmethod
-    def handle(call: ToolCall[_EventIdInput]) -> str:
-        event_pk = _require_event(call).pk
+    def handle(call: ToolCall[EventIdInput]) -> str:
+        event_pk = require_event(
+            services=call.services, actor=call.actor, event_id=call.data.event_id
+        ).pk
         space_pks = call.services.tracks_panel.list_space_pks_by_event(event_pk)
         tracks = [
             _TrackListItem(
@@ -199,7 +189,7 @@ class OrganizerListTracksTool(Tool[_EventIdInput]):
         return _TRACK_LIST.dump_json(tracks, indent=2).decode()
 
 
-class OrganizerListProposalCategoriesTool(Tool[_EventIdInput]):
+class OrganizerListProposalCategoriesTool(Tool[EventIdInput]):
     name = "list_proposal_categories"
     description = (
         "List an event's proposal categories (rodzaje atrakcji, e.g. talk, RPG "
@@ -207,16 +197,18 @@ class OrganizerListProposalCategoriesTool(Tool[_EventIdInput]):
         "category_id."
     )
     scope = ToolScope.ORGANIZER
-    input_model = _EventIdInput
+    input_model = EventIdInput
 
     @staticmethod
-    def handle(call: ToolCall[_EventIdInput]) -> str:
-        event = _require_event(call)
+    def handle(call: ToolCall[EventIdInput]) -> str:
+        event = require_event(
+            services=call.services, actor=call.actor, event_id=call.data.event_id
+        )
         context = call.services.proposal_categories.get_page_context(event.pk)
         return _PROPOSAL_CATEGORY_LIST.dump_json(context.categories, indent=2).decode()
 
 
-class OrganizerListSessionsTool(Tool[_EventIdInput]):
+class OrganizerListSessionsTool(Tool[EventIdInput]):
     name = "list_sessions"
     description = (
         "List an event's proposals and sessions with pk, title, status, "
@@ -225,18 +217,20 @@ class OrganizerListSessionsTool(Tool[_EventIdInput]):
         "import."
     )
     scope = ToolScope.ORGANIZER
-    input_model = _EventIdInput
+    input_model = EventIdInput
 
     @staticmethod
-    def handle(call: ToolCall[_EventIdInput]) -> str:
-        event = _require_event(call)
+    def handle(call: ToolCall[EventIdInput]) -> str:
+        event = require_event(
+            services=call.services, actor=call.actor, event_id=call.data.event_id
+        )
         context = call.services.proposal_panel.list_context(
             event_id=event.pk, query=ProposalListQuery()
         )
         return _SESSION_LIST.dump_json(context.proposals, indent=2).decode()
 
 
-class OrganizerListFacilitatorsTool(Tool[_EventIdInput]):
+class OrganizerListFacilitatorsTool(Tool[EventIdInput]):
     name = "list_facilitators"
     description = (
         "List an event's facilitators (twórcy programu) with pk and display "
@@ -244,11 +238,13 @@ class OrganizerListFacilitatorsTool(Tool[_EventIdInput]):
         "find_or_create_facilitator for a name that is missing."
     )
     scope = ToolScope.ORGANIZER
-    input_model = _EventIdInput
+    input_model = EventIdInput
 
     @staticmethod
-    def handle(call: ToolCall[_EventIdInput]) -> str:
-        event = _require_event(call)
+    def handle(call: ToolCall[EventIdInput]) -> str:
+        event = require_event(
+            services=call.services, actor=call.actor, event_id=call.data.event_id
+        )
         context = call.services.facilitator_panel.list_context(
             event_id=event.pk, query=FacilitatorListQuery()
         )
@@ -752,32 +748,7 @@ class _UpdateEventInput(BaseModel):
         return None if value is None else require_aware_datetime(value)
 
 
-class _ImageUploadInput(BaseModel):
-    filename: NonBlankName = Field(description="Original file name, with extension")
-    content_base64: str = Field(
-        description=(
-            "File content, standard base64. Decoded size is capped at 8 MB, and "
-            "the HTTP body cap applies to the whole request."
-        )
-    )
-
-    def validated_upload(
-        self, validate: Callable[[File[bytes]], None]
-    ) -> ContentFile[bytes]:
-        try:
-            content = base64.b64decode(self.content_base64, validate=True)
-        except binascii.Error as error:
-            message = f"content_base64 is not valid base64: {error}"
-            raise ToolError(message) from error
-        if not content:
-            raise ToolError("content_base64 decoded to an empty file")
-        upload = ContentFile(content, name=self.filename)
-        if (problem := upload_error(validate, upload)) is not None:
-            raise ToolError(problem)
-        return upload
-
-
-class _SetEventImageInput(_ImageUploadInput):
+class _SetEventImageInput(ImageUploadInput):
     kind: Literal["cover", "logo"] = Field(
         description=(
             "cover: the event cover image (raster only, 1920×1080 16:9 works "
@@ -935,7 +906,7 @@ class OrganizerSetEventImageTool(Tool[_SetEventImageInput]):
     @staticmethod
     def handle(call: ToolCall[_SetEventImageInput]) -> str:
         if call.data.kind == "cover":
-            upload = call.data.validated_upload(validate_uploaded_cover)
+            upload = call.data.validated_upload(validate_uploaded_raster)
             data: EventUpdateData = {"cover_image": upload}
         else:
             upload = call.data.validated_upload(validate_uploaded_logo)
@@ -943,15 +914,15 @@ class OrganizerSetEventImageTool(Tool[_SetEventImageInput]):
         return _apply_event_update(services=call.services, actor=call.actor, data=data)
 
 
-class OrganizerSetSphereLogoTool(Tool[_ImageUploadInput]):
+class OrganizerSetSphereLogoTool(Tool[ImageUploadInput]):
     name = "set_sphere_logo"
     description = "Replace the sphere's logo (SVG allowed)."
     scope = ToolScope.ORGANIZER
-    input_model = _ImageUploadInput
+    input_model = ImageUploadInput
     audit_redacted_keys = frozenset({"content_base64"})
 
     @staticmethod
-    def handle(call: ToolCall[_ImageUploadInput]) -> str:
+    def handle(call: ToolCall[ImageUploadInput]) -> str:
         sphere_id = actor_sphere(call.actor)
         sphere = call.services.sphere_panel.read(sphere_id)
         upload = call.data.validated_upload(validate_uploaded_logo)
@@ -989,4 +960,5 @@ def programme_tools() -> tuple[ToolProtocol, ...]:
         OrganizerUpdateEventTool(),
         OrganizerSetEventImageTool(),
         OrganizerSetSphereLogoTool(),
+        *map_tools(),
     )
