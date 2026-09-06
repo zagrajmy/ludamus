@@ -79,7 +79,9 @@ class PrintTimetableRowDTO(BaseModel):
     def minutes(self) -> int:
         # Instants, not wall clock: on the night the clocks go back, two equal
         # local times with different folds are an hour apart.
-        return round((self.end_time.timestamp() - self.start_time.timestamp()) / 60)
+        elapsed = self.end_time.timestamp() - self.start_time.timestamp()
+        # A grid track of zero would swallow the row.
+        return max(1, round(elapsed / 60))
 
 
 class PrintTimetableTileDTO(BaseModel):

@@ -235,15 +235,16 @@
                                         {# and the later paints over the earlier; the panel refuses such #}
                                         {# bookings, so the grid lays no lanes for them. #}
                                         {% for tile in page.tiles %}
-                                            <div class="m-[0.5mm] min-w-0 rounded-sm border border-neutral-900 bg-white p-[1mm]"
-                                                 data-tile
-                                                 data-col="{{ tile.col }}"
-                                                 data-row="{{ tile.row }}"
-                                                 data-span="{{ tile.span }}">
+                                            <article class="m-[0.5mm] min-w-0 rounded-sm border border-neutral-900 bg-white p-[1mm]"
+                                                     aria-label="{{ tile.session.title }}"
+                                                     data-tile
+                                                     data-col="{{ tile.col }}"
+                                                     data-row="{{ tile.row }}"
+                                                     data-span="{{ tile.span }}">
                                                 <strong class="wrap-anywhere">{{ tile.session.title }}</strong>
                                                 {% if tile.session.presenter_name %}<div class="text-neutral-700">{{ tile.session.presenter_name }}</div>{% endif %}
                                                 <div class="tabular-nums text-neutral-500">{{ tile.start_time|time:"H:i" }}–{{ tile.end_time|time:"H:i" }}</div>
-                                            </div>
+                                            </article>
                                         {% endfor %}
                                     </div>
                                 </section>

@@ -56,7 +56,7 @@ test.describe("Public print page", () => {
     // than auto-flowed.
     const placements = await previewPages
       .nth(0)
-      .locator("[data-tile]")
+      .getByRole("article")
       .evaluateAll((elements) =>
         elements.map((element) => {
           const style = getComputedStyle(element);
