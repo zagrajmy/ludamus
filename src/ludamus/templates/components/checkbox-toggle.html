@@ -1,9 +1,10 @@
-{# A checkbox dressed as a toggle button: the whole bordered label is the hit #}
+{# A checkbox dressed as a soft toggle: the whole filled label is the hit #}
 {# target, and the box inside stays visible so it still reads as on/off, not #}
-{# as a button that does something. Sits beside select inputs at their height #}
-{# and radius, so a row of flags lines up with the row of selects under it. #}
+{# as a button that does something. No border: it sits a step lighter than #}
+{# the select inputs beside it, so a row of flags reads as options rather #}
+{# than more fields, while sharing their height and radius. #}
 {# Variables: id, label (required), name, value, checked, hook_class. #}
-<label class="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-border bg-bg-secondary text-sm font-medium text-foreground whitespace-nowrap cursor-pointer select-none transition-[border-color,background-color,color] duration-150 hover:border-foreground-muted has-checked:border-primary has-checked:bg-primary/8 has-checked:text-primary">
+<label class="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-bg-tertiary text-sm font-medium text-foreground whitespace-nowrap cursor-pointer select-none transition-colors duration-150 hover:bg-border has-checked:bg-primary-light has-checked:text-primary">
     {% include "components/checkbox-input.html" with id=id name=name value=value checked=checked hook_class=hook_class only %}
     <span>{{ label }}</span>
 </label>
