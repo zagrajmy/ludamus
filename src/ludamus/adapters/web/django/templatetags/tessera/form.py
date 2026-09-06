@@ -19,7 +19,12 @@ from django.utils.html import format_html, format_html_join
 from ._choices import sole_required_choice
 from ._registry import register
 from .button import render_button
-from .checkbox import render_checkbox_field, render_multi_choice_field
+from .checkbox import (
+    choice_tree,
+    render_checkbox_field,
+    render_checkbox_tree_field,
+    render_multi_choice_field,
+)
 from .errors import render_errors, render_form_errors, render_help_text
 from .file_input import render_file_input
 from .form_select import render_select
@@ -100,7 +105,9 @@ def tessera_field(
     # CheckboxSelectMultiple subclasses RadioSelect, so a bare isinstance check
     # would render every checkbox group as a single-pick radio group.
     is_radio = isinstance(widget, RadioSelect) and not is_multi_checkbox
-    if is_multi_checkbox or is_radio:
+    if is_multi_checkbox and choice_tree(widget):
+        body = render_checkbox_tree_field(field)
+    elif is_multi_checkbox or is_radio:
         body = render_multi_choice_field(field, is_radio=is_radio)
     elif isinstance(widget, CheckboxInput):
         body = render_checkbox_field(field)

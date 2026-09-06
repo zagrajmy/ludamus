@@ -13,7 +13,7 @@ from typing import (
 from pydantic import BaseModel, ConfigDict
 
 from ludamus.pacts.fields import FieldValue, OrganizerFieldDTO
-from ludamus.pacts.ids import EventId, SiteId, SphereId, UserId
+from ludamus.pacts.ids import EventId, HasPk, SiteId, SphereId, UserId
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -479,6 +479,7 @@ class SessionSelfEditContext:
 class EventDTO(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
+    address: str = ""
     allow_facilitator_session_edit: bool | None = None
     auto_confirm_sessions: bool = False
     description: str
@@ -497,6 +498,13 @@ class EventDTO(BaseModel):
     cover_image_original_name: str = ""
     logo_url: str = ""
     logo_original_name: str = ""
+
+    @property
+    def address_inline(self) -> str:
+        """The address as one comma-joined line, for map and calendar links."""
+        return ", ".join(
+            line.strip() for line in self.address.splitlines() if line.strip()
+        )
 
     @property
     def is_published(self) -> bool:
@@ -663,6 +671,7 @@ class EventUpdateData(TypedDict, total=False):
     name: str
     slug: str
     description: str
+    address: str
     logo: UploadedFileProtocol | str
     cover_image: UploadedFileProtocol | str
     start_time: datetime
@@ -683,6 +692,19 @@ class FieldUsageSummary:
     field: OrganizerFieldDTO
     required_count: int
     optional_count: int
+
+    @property
+    def is_used(self) -> bool:
+        """Whether any category asks for this field.
+
+        The same question `delete_session_field` answers with
+        `has_requirements`, from counts the page already has — so the list can
+        say Delete is unavailable without another query.
+
+        Returns:
+            True when at least one category requires or offers the field.
+        """
+        return bool(self.required_count or self.optional_count)
 
 
 class PersonalFieldRequirementDTO(BaseModel):
@@ -1248,6 +1270,8 @@ class TimeSlotRepositoryProtocol(Protocol):
     @staticmethod
     def has_proposals(pk: int) -> bool: ...
     @staticmethod
+    def pks_with_proposals(event_id: int) -> frozenset[int]: ...
+    @staticmethod
     def list_by_event(event_id: int) -> list[TimeSlotDTO]: ...
     @staticmethod
     def read(pk: int) -> TimeSlotDTO: ...
@@ -1289,13 +1313,13 @@ class EnrollmentConfigRepositoryProtocol(Protocol):
     ) -> UserEnrollmentConfigDTO: ...
     @staticmethod
     def read_user_config(
-        config: EnrollmentConfigDTO, user_email: str
+        config: HasPk, user_email: str
     ) -> UserEnrollmentConfigDTO | None: ...
     @staticmethod
     def update_user_config(user_enrollment_config: UserEnrollmentConfigDTO) -> None: ...
     @staticmethod
     def read_domain_config(
-        enrollment_config: EnrollmentConfigDTO, domain: str
+        enrollment_config: HasPk, domain: str
     ) -> DomainEnrollmentConfigDTO | None: ...
 
 
@@ -1703,9 +1727,13 @@ class RootRequestProtocol(Protocol):
 
 @dataclass
 class VirtualEnrollmentConfig:
-    allowed_slots: int = 0
-    has_domain_config: bool = False
-    has_user_config: bool = False
+    user_slots: int = 0
+    domain_slots: int = 0
+    domain: str = ""
+
+    @property
+    def allowed_slots(self) -> int:
+        return self.user_slots + self.domain_slots
 
 
 class MembershipAPIError(Exception):

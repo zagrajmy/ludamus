@@ -34,26 +34,32 @@ class TestSphereRepositoryRead:
 
 
 class TestSphereRepositoryLogoUpdate:
-    def test_replacing_logo_deletes_previous_file(self, sphere):
+    def test_replacing_logo_deletes_previous_file(
+        self, sphere, django_capture_on_commit_callbacks
+    ):
         sphere.logo = SimpleUploadedFile("old.png", PNG_BYTES, content_type="image/png")
         sphere.save()
         storage = sphere.logo.storage
         old_name = sphere.logo.name
         new_logo = SimpleUploadedFile("new.png", PNG_BYTES, content_type="image/png")
 
-        SphereRepository.update(sphere.pk, {"logo": new_logo})
+        with django_capture_on_commit_callbacks(execute=True):
+            SphereRepository.update(sphere.pk, {"logo": new_logo})
 
         sphere.refresh_from_db()
         assert sphere.logo.name != old_name
         assert not storage.exists(old_name)
 
-    def test_clearing_logo_deletes_stored_file(self, sphere):
+    def test_clearing_logo_deletes_stored_file(
+        self, sphere, django_capture_on_commit_callbacks
+    ):
         sphere.logo = SimpleUploadedFile("old.png", PNG_BYTES, content_type="image/png")
         sphere.save()
         storage = sphere.logo.storage
         old_name = sphere.logo.name
 
-        SphereRepository.update(sphere.pk, {"logo": ""})
+        with django_capture_on_commit_callbacks(execute=True):
+            SphereRepository.update(sphere.pk, {"logo": ""})
 
         sphere.refresh_from_db()
         assert not sphere.logo

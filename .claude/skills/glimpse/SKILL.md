@@ -10,8 +10,6 @@ description: >-
   code goes or which test type a layer needs.
 ---
 
-<!-- Generated from SKILL.src.md — edit that, then run: mise run skill -->
-
 # GLIMPSE Architecture Reference
 
 This file is the compressed form of the full reference at

@@ -2,17 +2,21 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Protocol
 
 from django.template.loader import render_to_string
 from django.utils.html import format_html
 
 from ._choices import grouped_choices
+from ._registry import register
 from .errors import render_errors, render_help_text
 from .label import render_label
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
+
     from django.forms import BoundField
+    from django.forms.widgets import Widget
 
 
 def render_checkbox_field(field: BoundField) -> str:
@@ -31,6 +35,54 @@ def render_checkbox_field(field: BoundField) -> str:
         },
     )
     return format_html("{}{}{}", html, render_help_text(field), render_errors(field))
+
+
+class ChoiceTreeNode(Protocol):
+    """A widget's nested option: its own value and label, then its children."""
+
+    value: str
+    label: str
+
+    @property
+    def children(self) -> Sequence[ChoiceTreeNode]: ...
+
+
+def _selected_values(field: BoundField) -> set[str]:
+    if not (value := field.value()):
+        return set()
+    return {str(one) for one in (value if isinstance(value, list) else [value])}
+
+
+def choice_tree(widget: Widget) -> Sequence[ChoiceTreeNode]:
+    """Read a widget's nested options, or nothing when it has none.
+
+    Returns:
+        The widget's `choice_tree`, empty for a widget that is a flat list.
+    """
+    return getattr(widget, "choice_tree", ())
+
+
+def render_checkbox_tree_field(field: BoundField) -> str:
+    """Render a nested checkbox tree for a widget carrying a `choice_tree`.
+
+    Returns:
+        HTML string of the labelled tree.
+    """
+    tree_html = render_to_string(
+        "components/checkbox-tree.html",
+        {
+            "name": field.html_name,
+            "nodes": choice_tree(field.field.widget),
+            "selected": _selected_values(field),
+        },
+    )
+    return format_html(
+        "{}\n{}\n{}\n{}",
+        render_label(field),
+        tree_html,
+        render_help_text(field),
+        render_errors(field),
+    )
 
 
 def render_multi_choice_field(field: BoundField, *, is_radio: bool = False) -> str:
@@ -75,4 +127,46 @@ def render_multi_choice_field(field: BoundField, *, is_radio: bool = False) -> s
         group_html,
         render_help_text(field),
         render_errors(field),
+    )
+
+
+@register.simple_tag
+def tessera_checkbox_toggle(
+    *,
+    label: str,
+    name: str = "",
+    value: str = "",
+    checked: bool = False,
+    hook_class: str = "",
+    **attrs: str,
+) -> str:
+    """Render a checkbox dressed as a soft toggle button.
+
+    The whole label is the hit target and the box stays visible, so a row of
+    these reads as options rather than more fields. ``id`` is required and is
+    the one extra attribute accepted. ``name`` is optional: a toggle that only
+    drives client-side behaviour submits nothing.
+
+    Returns:
+        HTML string of the toggle.
+
+    Usage:
+        {% tessera_checkbox_toggle id="hide-ended-filter" label=t_hide_ended %}
+    """
+    if not (element_id := attrs.pop("id", "")):
+        msg = "tessera_checkbox_toggle needs an id: the label points at it"
+        raise ValueError(msg)
+    if attrs:
+        msg = f"tessera_checkbox_toggle got unexpected attrs {attrs!r}"
+        raise ValueError(msg)
+    return render_to_string(
+        "components/checkbox-toggle.html",
+        {
+            "id": element_id,
+            "label": label,
+            "name": name,
+            "value": value,
+            "checked": checked,
+            "hook_class": hook_class,
+        },
     )
