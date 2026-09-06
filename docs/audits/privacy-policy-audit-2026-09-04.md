@@ -160,15 +160,20 @@ Fix: implement the retention §6 promises, or describe what the system does,
 including the soft-deleted rows and the audit logs. A promise the code cannot
 keep is worse than a longer honest number.
 
-### F7 — RSVP IPs kept forever for a 60-second question — Medium-high
+### F7 — RSVP IPs kept forever for a 60-second question — Medium-high — fixed in this PR
 
-`models.py:1692` stores an IP on every encounter RSVP. Its only reader is
-`mills/encounter.py:191` calling `recent_rsvp_exists(ip, seconds=60)`
-(`repositories/notice_board.py:132`). The row is never deleted, and the column
-shows up in Django admin next to the user (`admin.py:232`).
+As found: `models.py:1692` stored an IP on every encounter RSVP. Its only
+reader was `mills/encounter.py:191` calling `recent_rsvp_exists(ip,
+seconds=60)` (`repositories/notice_board.py:132`). The row was never deleted,
+and the column showed up in Django admin next to the user (`admin.py:232`).
 
 Keeping an identifier forever to answer a question with a 60-second window is
 a minimisation problem (art. 5(1)(c)) whatever the policy says.
+
+Fixed: `EncounterRSVP` no longer has an IP column (migration 0161).
+`EncounterService._recently_rsvpd` now hashes the request IP and reserves a
+cache key for the throttle window instead — the address never reaches the
+database, and the key expires on its own.
 
 Fix (code): hash it, null it on a schedule, or move the flood check into the
 cache and drop the column. Cheapest real win in the codebase.
