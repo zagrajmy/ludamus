@@ -83,8 +83,8 @@ class FakeWriter:
     def __init__(self):
         self.calls = []
 
-    def write_rows(self, *, secret, spreadsheet_id, tab_title, rows):
-        self.calls.append((secret, spreadsheet_id, tab_title, rows))
+    def write_rows(self, *, secret, spreadsheet_id, rows, tab=""):
+        self.calls.append((secret, spreadsheet_id, tab, rows))
 
 
 def _service(

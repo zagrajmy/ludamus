@@ -807,7 +807,9 @@ class TestProposalEditPageView:
         assert session.cover_image
         assert session.cover_image_url.startswith("/media/sessions/")
 
-    def test_post_clears_cover_image(self, panel_client, event):
+    def test_post_clears_cover_image(
+        self, panel_client, event, django_capture_on_commit_callbacks
+    ):
         session = _make_session(event)
         session.cover_image = SimpleUploadedFile(
             "old.png", PNG_BYTES, content_type="image/png"
@@ -816,15 +818,16 @@ class TestProposalEditPageView:
         storage = session.cover_image.storage
         old_name = session.cover_image.name
 
-        response = panel_client.post(
-            self.get_url(event, session.pk),
-            data={
-                "category_id": session.category_id,
-                "title": "Updated Title",
-                "display_name": "New Host",
-                "cover_image-clear": "on",
-            },
-        )
+        with django_capture_on_commit_callbacks(execute=True):
+            response = panel_client.post(
+                self.get_url(event, session.pk),
+                data={
+                    "category_id": session.category_id,
+                    "title": "Updated Title",
+                    "display_name": "New Host",
+                    "cover_image-clear": "on",
+                },
+            )
 
         assert_response(
             response,

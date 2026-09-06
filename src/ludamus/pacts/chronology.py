@@ -36,13 +36,23 @@ if TYPE_CHECKING:
     from ludamus.pacts.submissions import ImportRow
 
 
+# A convention day ends when people go to sleep, not at midnight: a session
+# that runs from Friday 22:00 into the small hours is Friday's programme, and
+# a reader at 02:00 is still living Friday. Every schedule layout, server- and
+# client-side alike, turns its days over at this hour.
+PROGRAMME_DAY_STARTS_AT_HOUR = 6
+
+
 class IntegrationKind(StrEnum):
     IMPORT = "import"
     TICKETING = "ticketing"
+    EXPORT = "export"
 
 
 class IntegrationImplementationId(StrEnum):
     GOOGLE_PROPOSAL_PULLER = "google-proposal-puller"
+    KONWENCIK_SHEET_PUSHER = "konwencik-sheet-pusher"
+    SKLEP_KAPITULARZ = "sklep-kapitularz"
 
 
 class CheckOutcome(StrEnum):
@@ -71,10 +81,20 @@ class SourceQuestion(BaseModel):
 
 
 class IntegrationImplementation(Protocol):
+    # What every integration shares, whichever way the data flows: which kind
+    # it serves, the shape of its per-event config, and a credential probe the
+    # panel can run. Everything provider-specific (auth header format, response
+    # payload shape) stays behind the kind-specific subprotocols below.
     kind: IntegrationKind
     config_model: type[BaseModel]
 
     def check(self, secret: bytes, config: BaseModel) -> CheckResult: ...
+
+
+class ImportIntegrationImplementation(IntegrationImplementation, Protocol):
+    # An integration proposals can be pulled from. Kept apart from the base so
+    # an exporter does not carry three dead stubs, and so mypy rejects one
+    # being registered as a source.
     def fetch_questions(
         self, *, secret: bytes, config: BaseModel, header_row: int = 1
     ) -> list[SourceQuestion]: ...
@@ -84,6 +104,12 @@ class IntegrationImplementation(Protocol):
     def fetch_responses(
         self, *, secret: bytes, config: BaseModel, header_row: int = 1
     ) -> list[ImportRow]: ...
+
+
+class TicketingIntegrationImplementation(IntegrationImplementation, Protocol):
+    def fetch_membership_count(
+        self, *, secret: bytes, config: BaseModel, user_email: str
+    ) -> int: ...
 
 
 class EventIntegrationDTO(BaseModel):
@@ -99,6 +125,7 @@ class EventIntegrationDTO(BaseModel):
     config_json: str
     settings_json: str
     questions_snapshot_json: str = "[]"
+    last_run_json: str = "{}"
 
 
 class EventIntegrationCreateData(TypedDict):
@@ -146,6 +173,14 @@ class EventIntegrationsRepositoryProtocol(Protocol):
     def update_questions_snapshot(
         *, event_id: int, pk: int, questions_snapshot_json: str
     ) -> EventIntegrationDTO: ...
+    @staticmethod
+    def update_last_run(*, event_id: int, pk: int, last_run_json: str) -> None: ...
+    @staticmethod
+    def get_for_update(event_id: int, pk: int) -> EventIntegrationDTO: ...
+    @staticmethod
+    def list_by_kind(
+        kind: IntegrationKind, *, event_ended_after: datetime
+    ) -> list[EventIntegrationDTO]: ...
     @staticmethod
     def delete(event_id: int, pk: int) -> None: ...
 
@@ -297,7 +332,11 @@ class SessionCardStatsDTO(BaseModel):
     enrolled_count: int
     waiting_count: int
     is_full: bool
-    is_enrollment_available: bool
+    # The windows that can seat this session, by id — not whether enrollment
+    # is available, which is a question about a viewer. Intersecting these
+    # with the viewer's own open windows is the only way to that answer, so
+    # every reader has to state whose windows it means.
+    enrollment_window_ids: frozenset[int]
     effective_participants_limit: int
 
 

@@ -1,6 +1,7 @@
 """Integration tests for the recursive Space-tree panel CRUD."""
 
 import json
+from datetime import timedelta
 from http import HTTPStatus
 from unittest.mock import ANY
 
@@ -9,7 +10,13 @@ from django.contrib import messages
 from django.urls import reverse
 from django.utils.text import slugify
 
-from ludamus.links.db.django.models import SPACE_NO_CHILDREN_REASON, Space, Track
+from ludamus.links.db.django.models import (
+    SPACE_NO_CHILDREN_REASON,
+    SPACE_UNDELETABLE_REASON,
+    Space,
+    Track,
+)
+from ludamus.pacts import EventDTO
 from ludamus.pacts.venues import SpaceRecordDTO, SpaceTreeNodeDTO
 from tests.integration.conftest import AgendaItemFactory, EventFactory
 from tests.integration.utils import assert_login_required, assert_response
@@ -30,11 +37,20 @@ def _record(space):
     )
 
 
-def _node(space, *, is_leaf, children=None, track_names=None, no_children_reason=None):
+def _node(
+    space,
+    *,
+    is_leaf,
+    children=None,
+    track_names=None,
+    no_children_reason=None,
+    undeletable_reason=None,
+):
     return SpaceTreeNodeDTO(
         space=_record(space),
         is_leaf=is_leaf,
         no_children_reason=no_children_reason,
+        undeletable_reason=undeletable_reason,
         track_names=track_names or [],
         children=children or [],
     )
@@ -116,6 +132,7 @@ class TestSpacesTreePage:
                         room,
                         is_leaf=True,
                         no_children_reason=str(SPACE_NO_CHILDREN_REASON),
+                        undeletable_reason=str(SPACE_UNDELETABLE_REASON),
                     )
                 ],
             },
@@ -684,6 +701,38 @@ class TestSpaceCopy:
                 "node": _record(node),
                 "form": ANY,
             },
+        )
+
+    def test_get_names_the_only_target_event(self, manager_client, event, sphere):
+        # One other event is not a choice, so the form stops asking for it —
+        # and the page has to say where the subtree is going instead. The
+        # target starts earlier so the sidebar's newest-first order, and with
+        # it `current_event`, is unchanged.
+        node = _root(event, "Hall")
+        target = EventFactory(
+            sphere=sphere,
+            name="Winter Convention",
+            start_time=event.start_time - timedelta(days=30),
+        )
+
+        response = manager_client.get(self._url(event, node.pk))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/space-copy.html",
+            context_data={
+                **panel_context(event, active_nav="venues", rooms_count=1),
+                "events": [EventDTO.model_validate(e) for e in (event, target)],
+                "node": _record(node),
+                "form": ANY,
+            },
+            # The sidebar lists every event by name, so the destination has
+            # to be checked in the sentence that promises to copy into it.
+            contains=(
+                f'Copies "{node.name}" and everything inside it into '
+                f"{target.name} as a new top-level space."
+            ),
         )
 
 

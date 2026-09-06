@@ -15,79 +15,7 @@
 {% endblock page_subtitle %}
 {% block header_actions %}
     {% if current_event %}
-        <div class="flex flex-wrap items-center gap-3">
-            {% include "panel/_proposal_status_badge.html" with status=proposal.status is_scheduled=agenda_item %}
-            {# The edit form posts to its own URL, so carrying next in the query #}
-            {# keeps the list filters alive across the whole edit round trip. #}
-            {% url 'panel:proposal-edit' slug=current_event.slug proposal_id=proposal.pk as edit_url %}
-            {% translate "Edit" as edit_label %}
-            {% with next_query=back_url|urlencode %}
-                {% tessera_button edit_label href=edit_url|add:"?next="|add:next_query variant="secondary" %}
-            {% endwith %}
-            {% translate "This is the current status." as current_status_tooltip %}
-            {% translate "This session is scheduled and can only be accepted. Remove it from the timetable to change its status." as scheduled_tooltip %}
-            {% translate "Move to pending" as pending_label %}
-            {% if proposal.status == "pending" %}
-                {% tessera_button pending_label variant="secondary" disabled=True title=current_status_tooltip %}
-            {% elif agenda_item %}
-                {% tessera_button pending_label variant="secondary" disabled=True title=scheduled_tooltip %}
-            {% else %}
-                <form method="post"
-                      action="{% url 'panel:proposal-pending' slug=current_event.slug proposal_id=proposal.pk %}">
-                    {% csrf_token %}
-                    <input type="hidden" name="next" value="{{ back_url }}">
-                    {% tessera_button pending_label variant="secondary" %}
-                </form>
-            {% endif %}
-            {% translate "Accept" as accept_label %}
-            {% if proposal.status == "accepted" %}
-                {% tessera_button accept_label variant="primary" disabled=True title=current_status_tooltip %}
-            {% else %}
-                <form method="post"
-                      action="{% url 'panel:proposal-accept' slug=current_event.slug proposal_id=proposal.pk %}">
-                    {% csrf_token %}
-                    <input type="hidden" name="next" value="{{ back_url }}">
-                    {% tessera_button accept_label variant="primary" %}
-                </form>
-            {% endif %}
-            {% translate "Hold" as hold_label %}
-            {% if proposal.status == "on_hold" %}
-                {% tessera_button hold_label variant="secondary" disabled=True title=current_status_tooltip %}
-            {% elif agenda_item %}
-                {% tessera_button hold_label variant="secondary" disabled=True title=scheduled_tooltip %}
-            {% else %}
-                <form method="post"
-                      action="{% url 'panel:proposal-hold' slug=current_event.slug proposal_id=proposal.pk %}">
-                    {% csrf_token %}
-                    <input type="hidden" name="next" value="{{ back_url }}">
-                    {% tessera_button hold_label variant="secondary" %}
-                </form>
-            {% endif %}
-            {% translate "Reject" as reject_label %}
-            {% if proposal.status == "rejected" %}
-                {% tessera_button reject_label variant="danger" disabled=True title=current_status_tooltip %}
-            {% elif agenda_item %}
-                {% tessera_button reject_label variant="danger" disabled=True title=scheduled_tooltip %}
-            {% else %}
-                <form method="post"
-                      action="{% url 'panel:proposal-reject' slug=current_event.slug proposal_id=proposal.pk %}"
-                      data-confirm="{% translate "Are you sure you want to reject this proposal?" %}"
-                      data-confirm-action="{% translate "Reject" %}">
-                    {% csrf_token %}
-                    <input type="hidden" name="next" value="{{ back_url }}">
-                    {% tessera_button reject_label variant="danger" %}
-                </form>
-            {% endif %}
-            <form method="post"
-                  action="{% url 'panel:proposal-delete' slug=current_event.slug proposal_id=proposal.pk %}"
-                  data-confirm="{% translate "Are you sure you want to delete this session? It will be removed from the schedule." %}"
-                  data-confirm-action="{% translate "Delete" %}">
-                {% csrf_token %}
-                <input type="hidden" name="next" value="{{ back_url }}">
-                {% translate "Delete" as delete_label %}
-                {% tessera_button delete_label variant="danger" %}
-            </form>
-        </div>
+        {% include "panel/parts/proposal-actions.html" %}
     {% endif %}
 {% endblock header_actions %}
 {% block content %}
@@ -118,8 +46,11 @@
                                         Scheduled in {{ space }}, {{ start }} – {{ end }}
                                     {% endblocktranslate %}
                                 </p>
-                                <a class="btn btn-tertiary text-sm"
-                                   href="{% url 'panel:timetable' slug=current_event.slug %}?date={{ agenda_item.start_time|date:'Y-m-d' }}">{% translate "View on timetable" %}</a>
+                                {% translate "View on timetable" as view_timetable_label %}
+                                {% url 'panel:timetable' slug=current_event.slug as timetable_url %}
+                                {% with timetable_date=agenda_item.start_time|date:"Y-m-d" %}
+                                    {% tessera_button view_timetable_label href=timetable_url|add:"?date="|add:timetable_date variant="secondary" size="sm" %}
+                                {% endwith %}
                             </div>
                         </div>
                     {% endif %}
@@ -304,6 +235,23 @@
                             </div>
                         </div>
                     {% endif %}
+                    <section class="mt-8 flex flex-col gap-3 border-t border-border pt-6 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                            <h3 class="text-sm font-medium text-foreground">{% translate "Delete proposal" %}</h3>
+                            <p class="mt-1 text-sm text-foreground-muted">
+                                {% translate "It will disappear from the event and timetable. You can restore it from the proposals list." %}
+                            </p>
+                        </div>
+                        <form method="post"
+                              action="{% url 'panel:proposal-delete' slug=current_event.slug proposal_id=proposal.pk %}"
+                              data-confirm="{% translate "Are you sure you want to delete this proposal? It will disappear from the event and timetable." %}"
+                              data-confirm-action="{% translate "Delete proposal" %}">
+                            {% csrf_token %}
+                            <input type="hidden" name="next" value="{{ back_url }}">
+                            {% translate "Delete proposal" as delete_label %}
+                            {% tessera_button delete_label variant="danger" size="sm" full_width_mobile=False %}
+                        </form>
+                    </section>
                 {% endtab_shell_body %}
             {% endtab_shell %}
         {% endif %}

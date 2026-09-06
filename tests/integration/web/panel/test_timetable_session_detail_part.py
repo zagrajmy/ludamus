@@ -66,6 +66,8 @@ class TestTimetableSessionDetailPartView:
             session_duration_minutes=60,
             session_status=session.status,
             category_name=session.category.name,
+            category_id=session.category_id,
+            session_min_age=session.min_age,
         )
 
     def test_redirects_anonymous_user_to_login(self, client, event, session):

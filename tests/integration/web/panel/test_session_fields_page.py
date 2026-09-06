@@ -2,7 +2,9 @@ from http import HTTPStatus
 
 from django.urls import reverse
 
-from ludamus.links.db.django.models import SessionField
+from ludamus.links.db.django.models import SessionField, SessionFieldRequirement
+from ludamus.pacts.fields import OrganizerFieldDTO
+from ludamus.pacts.legacy import FieldUsageSummary
 from tests.integration.utils import assert_login_required, assert_response
 from tests.integration.web.panel.helpers import (
     assert_event_not_found,
@@ -43,9 +45,50 @@ class TestSessionFieldsPageView:
                 "active_tab": "session",
                 "tab_urls": cfp_tab_urls(event),
                 "fields": [],
+                "undeletable_field_reasons": {},
             },
         )
         assert response.context["current_event"].pk == event.pk
+
+    def test_a_field_a_category_asks_for_says_why_instead_of_offering_delete(
+        self, panel_client, event, proposal_category
+    ):
+        # delete_session_field() refuses such a field, so the row carries the
+        # sentence that replaces its Delete button.
+        field = SessionField.objects.create(
+            event=event, name="Genre", question="What genre?", slug="genre"
+        )
+        SessionFieldRequirement.objects.create(
+            category=proposal_category, field=field, is_required=False
+        )
+
+        response = panel_client.get(self.get_url(event))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/session-fields.html",
+            context_data={
+                **panel_context(event, active_nav="cfp"),
+                "active_tab": "session",
+                "tab_urls": cfp_tab_urls(event),
+                "fields": [
+                    FieldUsageSummary(
+                        field=OrganizerFieldDTO(
+                            field_type="text",
+                            name="Genre",
+                            order=0,
+                            pk=field.pk,
+                            question="What genre?",
+                            slug="genre",
+                        ),
+                        required_count=0,
+                        optional_count=1,
+                    )
+                ],
+                "undeletable_field_reasons": {field.pk: "Used by categories"},
+            },
+        )
 
     def test_get_returns_fields_in_context(self, panel_client, event):
         SessionField.objects.create(
@@ -74,6 +117,7 @@ class TestSessionFieldsPageView:
                 "active_tab": "session",
                 "tab_urls": cfp_tab_urls(event),
                 "fields": fields,
+                "undeletable_field_reasons": {},
             },
         )
 
@@ -89,6 +133,7 @@ class TestSessionFieldsPageView:
                 "active_tab": "session",
                 "tab_urls": cfp_tab_urls(event),
                 "fields": [],
+                "undeletable_field_reasons": {},
             },
         )
 
@@ -135,6 +180,7 @@ class TestSessionFieldsPageView:
                 "active_tab": "session",
                 "tab_urls": cfp_tab_urls(event),
                 "fields": fields,
+                "undeletable_field_reasons": {},
             },
         )
 

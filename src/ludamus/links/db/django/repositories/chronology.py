@@ -53,7 +53,7 @@ from ludamus.pacts.chronology import (
     PartySessionSeatDTO,
     SessionCardStatsDTO,
 )
-from ludamus.pacts.ids import EventId
+from ludamus.pacts.ids import EventId, HasPk
 from ludamus.pacts.legacy import AgendaItemDTO, LocationData
 from ludamus.pacts.panel import (
     EventPanelSettingsDTO,
@@ -144,12 +144,23 @@ def location_data(space: Space) -> LocationData:
     )
 
 
+def eligible_window_ids(session: Session) -> frozenset[int]:
+    """Name the enrollment windows that can seat this session.
+
+    Returns:
+        The window ids, to be intersected with a viewer's own open windows.
+    """
+    return frozenset(
+        config.pk for config in session.event.get_eligible_enrollment_configs(session)
+    )
+
+
 def session_card_stats(session: Session) -> SessionCardStatsDTO:
     return SessionCardStatsDTO(
         enrolled_count=session.enrolled_count,
         waiting_count=session.waiting_count,
         is_full=session.is_full,
-        is_enrollment_available=session.is_enrollment_available,
+        enrollment_window_ids=eligible_window_ids(session),
         effective_participants_limit=session.effective_participants_limit,
     )
 
@@ -395,7 +406,7 @@ class EnrollmentConfigRepository(EnrollmentConfigRepositoryProtocol):
 
     @staticmethod
     def read_user_config(
-        config: EnrollmentConfigDTO, user_email: str
+        config: HasPk, user_email: str
     ) -> UserEnrollmentConfigDTO | None:
         user_config = UserEnrollmentConfig.objects.filter(
             enrollment_config_id=config.pk, user_email=user_email
@@ -414,7 +425,7 @@ class EnrollmentConfigRepository(EnrollmentConfigRepositoryProtocol):
 
     @staticmethod
     def read_domain_config(
-        enrollment_config: EnrollmentConfigDTO, domain: str
+        enrollment_config: HasPk, domain: str
     ) -> DomainEnrollmentConfigDTO | None:
         config = DomainEnrollmentConfig.objects.filter(
             enrollment_config_id=enrollment_config.pk, domain=domain
@@ -435,6 +446,7 @@ def _event_integration_dto(integration: EventIntegration) -> EventIntegrationDTO
         config_json=integration.config_json or "{}",
         settings_json=integration.settings_json or "{}",
         questions_snapshot_json=integration.questions_snapshot_json or "[]",
+        last_run_json=integration.last_run_json or "{}",
     )
 
 
@@ -521,6 +533,41 @@ class EventIntegrationsRepository(EventIntegrationsRepositoryProtocol):
             pk=integration.pk
         )
         return _event_integration_dto(integration)
+
+    @staticmethod
+    def update_last_run(*, event_id: int, pk: int, last_run_json: str) -> None:
+        updated = EventIntegration.objects.filter(pk=pk, event_id=event_id).update(
+            last_run_json=last_run_json
+        )
+        if not updated:
+            raise NotFoundError
+
+    @staticmethod
+    def get_for_update(event_id: int, pk: int) -> EventIntegrationDTO:
+        # Row-locked read: the caller holds the transaction, so a second writer
+        # waits here instead of racing on the settings blob.
+        try:
+            integration = (
+                EventIntegration.objects.select_for_update()
+                .select_related("connection")
+                .get(pk=pk, event_id=event_id)
+            )
+        except EventIntegration.DoesNotExist as exc:
+            raise NotFoundError from exc
+        return _event_integration_dto(integration)
+
+    @staticmethod
+    def list_by_kind(
+        kind: IntegrationKind, *, event_ended_after: datetime
+    ) -> list[EventIntegrationDTO]:
+        # Across every event, so the sweep needs no event list of its own; the
+        # cutoff keeps a finished event from pushing forever.
+        integrations = (
+            EventIntegration.objects.select_related("connection")
+            .filter(kind=kind.value, event__end_time__gte=event_ended_after)
+            .order_by("event_id", "display_name")
+        )
+        return [_event_integration_dto(i) for i in integrations]
 
     @staticmethod
     def delete(event_id: int, pk: int) -> None:
