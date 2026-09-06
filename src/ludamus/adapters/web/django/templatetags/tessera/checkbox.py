@@ -153,8 +153,7 @@ def tessera_checkbox_toggle(
     Usage:
         {% tessera_checkbox_toggle id="hide-ended-filter" label=t_hide_ended %}
     """
-    element_id = attrs.pop("id", "")
-    if not element_id:
+    if not (element_id := attrs.pop("id", "")):
         msg = "tessera_checkbox_toggle needs an id: the label points at it"
         raise ValueError(msg)
     if attrs:
