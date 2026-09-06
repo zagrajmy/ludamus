@@ -4720,22 +4720,6 @@ msgid "Sign up for sessions"
 msgstr "Zapisz się na sesje"
 
 #: src/ludamus/templates/chronology/event.html
-msgid "Participant"
-msgid_plural "Participants"
-msgstr[0] "Uczestnik"
-msgstr[1] "Uczestnicy"
-msgstr[2] "Uczestników"
-msgstr[3] "Uczestników"
-
-#: src/ludamus/templates/chronology/event.html
-msgid "Player"
-msgid_plural "Players"
-msgstr[0] "Gracz"
-msgstr[1] "Graczy"
-msgstr[2] "Graczy"
-msgstr[3] "Graczy"
-
-#: src/ludamus/templates/chronology/event.html
 #, python-format
 msgid ""
 "\n"
@@ -10176,6 +10160,20 @@ msgid ""
 msgstr ""
 "Nie ma nadchodzących wydarzeń ani publicznych spotkań. Sprawdź ponownie "
 "później!"
+
+#~ msgid "Participant"
+#~ msgid_plural "Participants"
+#~ msgstr[0] "Uczestnik"
+#~ msgstr[1] "Uczestnicy"
+#~ msgstr[2] "Uczestników"
+#~ msgstr[3] "Uczestników"
+
+#~ msgid "Player"
+#~ msgid_plural "Players"
+#~ msgstr[0] "Gracz"
+#~ msgstr[1] "Graczy"
+#~ msgstr[2] "Graczy"
+#~ msgstr[3] "Graczy"
 
 #~ msgid "Session list"
 #~ msgstr "Lista punktów programu"
