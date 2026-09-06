@@ -5,7 +5,6 @@ from unittest.mock import ANY
 import pytest
 from django.urls import reverse
 from django.utils import timezone
-from django.utils.timezone import localdate
 
 from ludamus.gates.web.django.event.print import MATERIAL_SPECS_BY_VALUE
 from ludamus.links.db.django.models import Space, Track
@@ -15,9 +14,8 @@ from ludamus.pacts.printing import (
     AreaScheduleSessionDTO,
     AreaScheduleSpaceDTO,
     PrintOptionDTO,
-    PrintProgramDayDTO,
-    PrintProgramDocumentDTO,
     PrintSessionDTO,
+    PrintSessionListDocumentDTO,
     PrintSessionListItemDTO,
     PrintTimetableCellDTO,
     PrintTimetableDocumentDTO,
@@ -74,29 +72,24 @@ def _timetable_document(*, event, pages, scope_name=None):
     )
 
 
-def _program_document(*, event, days):
-    return PrintProgramDocumentDTO(
+def _session_list_document(*, event, sessions):
+    return PrintSessionListDocumentDTO(
         event_name=event.name,
         event_description=event.description,
         event_start=event.start_time,
         event_end=event.end_time,
-        days=days,
+        sessions=sessions,
     )
 
 
-def _one_hour_program_day(*, event, session, space):
-    return PrintProgramDayDTO(
-        day=localdate(event.start_time),
-        sessions=[
-            PrintSessionListItemDTO(
-                title=session.title,
-                presenter_name=session.display_name,
-                description=session.description,
-                start_time=event.start_time,
-                end_time=event.start_time + timedelta(hours=1),
-                space_name=space.name,
-            )
-        ],
+def _one_hour_list_item(*, event, session, space):
+    return PrintSessionListItemDTO(
+        title=session.title,
+        presenter_name=session.display_name,
+        description=session.description,
+        start_time=event.start_time,
+        end_time=event.start_time + timedelta(hours=1),
+        space_name=space.name,
     )
 
 
@@ -157,14 +150,12 @@ def _assert_print_ok(
     selected_scope="",
     selected_track="",
     range_hours=None,
-    material="program",
+    material="session-list",
     descriptions=False,
     unconfirmed=False,
-    session_list_available=False,
     panel_access=False,
     print_scopes=None,
     tracks=None,
-    program=ANY,
     timetable=ANY,
     area_schedule=ANY,
     session_list=ANY,
@@ -174,21 +165,13 @@ def _assert_print_ok(
         print_scopes = []
     if tracks is None:
         tracks = []
-    expected_options = ["program", "timetable"]
+    expected_options = ["session-list", "timetable"]
     # The track scope is only offered when the event actually has tracks.
     if tracks:
         expected_options.append("track-timetable")
-    if session_list_available:
-        expected_options.append("session-list")
     expected_options.append("door-cards")
     show_scope_control = material in {"timetable", "door-cards"}
     show_track_control = material == "track-timetable"
-    show_descriptions_control = material in {
-        "program",
-        "timetable",
-        "track-timetable",
-        "door-cards",
-    }
     show_range_controls = material in {"timetable", "track-timetable", "door-cards"}
     assert_response(
         response,
@@ -197,7 +180,6 @@ def _assert_print_ok(
         context_data={
             "event": ANY,
             "logo": logo,
-            "program": program,
             "timetable": timetable,
             "area_schedule": area_schedule,
             "session_list": session_list,
@@ -209,7 +191,6 @@ def _assert_print_ok(
             "material": material,
             "show_scope_control": show_scope_control,
             "show_track_control": show_track_control,
-            "show_descriptions_control": show_descriptions_control,
             "show_range_controls": show_range_controls,
             "show_unconfirmed_control": panel_access,
             "descriptions": descriptions,
@@ -239,13 +220,15 @@ class TestPublicEventPrintView:
 
         response = client.get(self._url(event.slug))
 
-        # The participant program is the default: one page per day.
+        # The participants' session list is the default: one sheet per day.
         _assert_print_ok(
             response,
             print_scopes=[_scope(space)],
-            program=_program_document(
+            session_list=_session_list_document(
                 event=event,
-                days=[_one_hour_program_day(event=event, session=session, space=space)],
+                sessions=[
+                    _one_hour_list_item(event=event, session=session, space=space)
+                ],
             ),
             timetable=None,
         )
@@ -256,8 +239,8 @@ class TestPublicEventPrintView:
         content = response.content.decode()
         assert session.title in content
         assert "Table of contents" in content
-        assert 'href="#program-day-1"' in content
-        assert 'id="program-day-1"' in content
+        assert 'href="#session-list-day-1"' in content
+        assert 'id="session-list-day-1"' in content
 
     def test_timetable_material_renders_the_grid(self, client, event, session, space):
         _confirmed_item(event, session, space)
@@ -265,13 +248,16 @@ class TestPublicEventPrintView:
         response = client.get(self._url(event.slug), {"material": "timetable"})
 
         _assert_print_ok(
-            response, material="timetable", print_scopes=[_scope(space)], program=None
+            response,
+            material="timetable",
+            print_scopes=[_scope(space)],
+            session_list=None,
         )
         content = response.content.decode()
         assert 'href="#timetable-day-1"' in content
         assert 'id="timetable-day-1"' in content
 
-    def test_program_with_descriptions_keeps_the_program(
+    def test_session_list_with_descriptions_folds_them_into_the_rows(
         self, client, event, session, space
     ):
         _confirmed_item(event, session, space)
@@ -570,50 +556,33 @@ class TestPublicEventPrintView:
 
         _assert_print_ok(response)
 
-    def test_session_list_material_falls_back_when_event_is_not_eligible(
-        self, client, event
-    ):
-        response = client.get(self._url(event.slug), {"material": "session-list"})
-
-        _assert_print_ok(response)
-        assert b'value="session-list"' not in response.content
-
-    def test_session_list_renders_for_single_track_single_timeslot(
-        self, client, event, session, space
-    ):
+    def test_session_list_ignores_tracks_and_slots(self, client, event, session, space):
         track = Track.objects.create(
             event=event, name="Focused Track", slug="focused-track", is_public=True
         )
-        session.tracks.add(track)
         TimeSlotFactory(
             event=event,
             start_time=event.start_time,
             end_time=event.start_time + timedelta(hours=2),
         )
-        AgendaItemFactory(
-            session=session,
-            space=space,
-            session_confirmed=True,
-            start_time=event.start_time,
-            end_time=event.start_time + timedelta(hours=1),
-        )
+        _confirmed_item(event, session, space)
 
         response = client.get(self._url(event.slug), {"material": "session-list"})
 
         _assert_print_ok(
             response,
-            material="session-list",
-            session_list_available=True,
             tracks=[_track_option(track)],
             # The event's only track is preselected even though the session
             # list ignores it.
             selected_track=track.slug,
             print_scopes=[_scope(space)],
+            session_list=_session_list_document(
+                event=event,
+                sessions=[
+                    _one_hour_list_item(event=event, session=session, space=space)
+                ],
+            ),
         )
-        content = response.content.decode()
-        assert '<option value="session-list"' in content
-        assert session.title in content
-        assert session.description in content
 
     def test_stale_track_slug_falls_back_to_first_track(
         self, client, event, session, space
@@ -649,10 +618,9 @@ class TestPublicEventPrintView:
                 "unconfirmed": False,
                 "material": "track-timetable",
                 "material_options": _specs(
-                    "program", "timetable", "track-timetable", "door-cards"
+                    "session-list", "timetable", "track-timetable", "door-cards"
                 ),
                 "print_scopes": [_scope(space)],
-                "program": None,
                 "qr_svg": NonEmptyStringMatcher(contains="<svg"),
                 "range_hours": None,
                 "range_start_value": NonEmptyStringMatcher(),
@@ -660,7 +628,6 @@ class TestPublicEventPrintView:
                 "selected_track": "focused-track",
                 "session_list": None,
                 "show_scope_control": False,
-                "show_descriptions_control": True,
                 "show_range_controls": True,
                 "show_unconfirmed_control": False,
                 "show_track_control": True,
@@ -694,9 +661,8 @@ class TestPublicEventPrintView:
                 "descriptions": False,
                 "unconfirmed": False,
                 "material": "timetable",
-                "material_options": _specs("program", "timetable", "door-cards"),
+                "material_options": _specs("session-list", "timetable", "door-cards"),
                 "print_scopes": [_scope(space)],
-                "program": None,
                 "qr_svg": NonEmptyStringMatcher(contains="<svg"),
                 "range_hours": None,
                 "range_start_value": NonEmptyStringMatcher(),
@@ -704,7 +670,6 @@ class TestPublicEventPrintView:
                 "selected_track": "",
                 "session_list": None,
                 "show_scope_control": True,
-                "show_descriptions_control": True,
                 "show_range_controls": True,
                 "show_unconfirmed_control": False,
                 "show_track_control": False,
@@ -744,10 +709,9 @@ class TestPublicEventPrintView:
                 "unconfirmed": False,
                 "material": "track-timetable",
                 "material_options": _specs(
-                    "program", "timetable", "track-timetable", "door-cards"
+                    "session-list", "timetable", "track-timetable", "door-cards"
                 ),
                 "print_scopes": [_scope(space)],
-                "program": None,
                 "qr_svg": NonEmptyStringMatcher(contains="<svg"),
                 "range_hours": None,
                 "range_start_value": NonEmptyStringMatcher(),
@@ -755,7 +719,6 @@ class TestPublicEventPrintView:
                 "selected_track": "main-track",
                 "session_list": None,
                 "show_scope_control": False,
-                "show_descriptions_control": True,
                 "show_range_controls": True,
                 "show_unconfirmed_control": False,
                 "show_track_control": True,

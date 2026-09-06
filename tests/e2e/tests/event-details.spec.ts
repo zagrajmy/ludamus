@@ -21,7 +21,7 @@ test.describe("Event detail page", () => {
 
     await link.click();
     await expect(page).toHaveURL(/\/event\/autumn-open\/print\/$/);
-    await expect(page.getByLabel("Printable")).toHaveValue("program");
+    await expect(page.getByLabel("Printable")).toHaveValue("session-list");
   });
 
   test("shows the notice the organizer wrote on the active enrollment window", async ({ page }) => {

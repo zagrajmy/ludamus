@@ -32,7 +32,6 @@ if TYPE_CHECKING:
         DoorCardsDocumentDTO,
         PrintMaterialsServiceProtocol,
         PrintOptionDTO,
-        PrintProgramDocumentDTO,
         PrintSessionListDocumentDTO,
         PrintTimetableDocumentDTO,
     )
@@ -41,9 +40,7 @@ if TYPE_CHECKING:
     type _LazyStr = str | _StrPromise
 
 
-DocumentKind = Literal[
-    "area_schedule", "door_cards", "program", "session_list", "timetable"
-]
+DocumentKind = Literal["area_schedule", "door_cards", "session_list", "timetable"]
 ScopeKind = Literal["event", "scope", "track"]
 
 
@@ -53,7 +50,6 @@ class MaterialSpec:
     label: _LazyStr
     document_kind: DocumentKind
     scope_kind: ScopeKind = "event"
-    requires_session_list: bool = False
 
     # The sidebar controls a material exposes follow directly from its scope, so
     # they are derived rather than stored (keeps the specs from drifting).
@@ -65,13 +61,9 @@ class MaterialSpec:
     def show_track_control(self) -> bool:
         return self.scope_kind == "track"
 
-    # The "with descriptions" capability swaps the timetable grid or the door
-    # cards for the per-space descriptions pages and folds descriptions into
-    # the program's rows; the session list carries descriptions already.
-    @property
-    def supports_descriptions(self) -> bool:
-        return self.document_kind in {"timetable", "door_cards", "program"}
-
+    # The "with descriptions" toggle swaps the timetable grid or the door cards
+    # for the per-space descriptions pages; the session list folds them into
+    # its rows.
     @property
     def descriptions_swap_to_area_schedule(self) -> bool:
         return self.document_kind in {"timetable", "door_cards"}
@@ -82,7 +74,6 @@ class MaterialSpec:
         return self.document_kind in {"timetable", "door_cards"}
 
 
-PROGRAM = "program"
 TIMETABLE = "timetable"
 TRACK_TIMETABLE = "track-timetable"
 SESSION_LIST = "session-list"
@@ -90,33 +81,27 @@ DOOR_CARDS = "door-cards"
 # Retired material value still reachable from old bookmarks; maps to the
 # timetable material with the descriptions checkbox ticked.
 LEGACY_DESCRIPTIONS_MATERIAL = "timetable-descriptions"
-# The program comes first and is the default: it is what a participant who
-# lands here from the event page wants to carry around. One timetable
+# The session list comes first and is the default: it is what a participant
+# who lands here from the event page wants to carry around. One timetable
 # material, scopable to any space-tree node (a single room, a whole floor, a
 # building) or left unscoped for the whole event — the Scope picker covers
 # every level, so there is no separate venue/area/space material.
 MATERIAL_SPECS = (
-    MaterialSpec(PROGRAM, _("Program for participants"), "program"),
+    MaterialSpec(SESSION_LIST, _("Program for participants"), "session_list"),
     MaterialSpec(TIMETABLE, _("Timetable"), "timetable", scope_kind="scope"),
     MaterialSpec(
         TRACK_TIMETABLE, _("Track timetable"), "timetable", scope_kind="track"
-    ),
-    MaterialSpec(
-        SESSION_LIST, _("Session list"), "session_list", requires_session_list=True
     ),
     MaterialSpec(DOOR_CARDS, _("Door cards"), "door_cards", scope_kind="scope"),
 )
 MATERIAL_SPECS_BY_VALUE = {spec.value: spec for spec in MATERIAL_SPECS}
 
 
-def _available_materials(
-    *, session_list_available: bool, tracks_available: bool
-) -> tuple[MaterialSpec, ...]:
+def _available_materials(*, tracks_available: bool) -> tuple[MaterialSpec, ...]:
     return tuple(
         spec
         for spec in MATERIAL_SPECS
-        if (session_list_available or not spec.requires_session_list)
-        and (tracks_available or spec.scope_kind != "track")
+        if tracks_available or spec.scope_kind != "track"
     )
 
 
@@ -160,7 +145,6 @@ class _ResolvedRange:
 
 @dataclass(frozen=True)
 class _PrintDocuments:
-    program: PrintProgramDocumentDTO | None = None
     timetable: PrintTimetableDocumentDTO | None = None
     area_schedule: AreaScheduleDocumentDTO | None = None
     session_list: PrintSessionListDocumentDTO | None = None
@@ -172,12 +156,9 @@ def _build_print_documents(
     service: PrintMaterialsServiceProtocol,
     document_kind: DocumentKind,
     query: PrintQueryDTO,
-    session_list: PrintSessionListDocumentDTO | None,
 ) -> _PrintDocuments:
     if document_kind == "session_list":
-        return _PrintDocuments(session_list=session_list)
-    if document_kind == "program":
-        return _PrintDocuments(program=service.build_program(query))
+        return _PrintDocuments(session_list=service.build_session_list(query))
     if document_kind == "timetable":
         return _PrintDocuments(timetable=service.build_timetable(query))
     if document_kind == "area_schedule":
@@ -236,13 +217,7 @@ class PublicEventPrintView(EventsPageRequiredMixin, View):
         service = request.services.print_materials
         tracks = service.list_tracks(event.pk)
         selected_track = self._selected_track(tracks)
-        session_list_candidate = service.build_session_list(
-            event.pk, confirmed_only=confirmed_only
-        )
-        material_options = _available_materials(
-            session_list_available=session_list_candidate is not None,
-            tracks_available=bool(tracks),
-        )
+        material_options = _available_materials(tracks_available=bool(tracks))
         material_spec = self._resolve_material(material_options)
         print_scope = _resolve_print_scope(
             material=material_spec, scope=scope, track=selected_track
@@ -268,7 +243,6 @@ class PublicEventPrintView(EventsPageRequiredMixin, View):
                 confirmed_only=confirmed_only,
                 time_range=resolved_range.window,
             ),
-            session_list=session_list_candidate,
         )
 
         event_url = request.build_absolute_uri(
@@ -282,7 +256,6 @@ class PublicEventPrintView(EventsPageRequiredMixin, View):
             {
                 "event": event,
                 "logo": event.logo_url or sphere.logo_url,
-                "program": documents.program,
                 "timetable": documents.timetable,
                 "area_schedule": documents.area_schedule,
                 "session_list": documents.session_list,
@@ -294,7 +267,6 @@ class PublicEventPrintView(EventsPageRequiredMixin, View):
                 "material": material_spec.value,
                 "show_scope_control": material_spec.show_scope_control,
                 "show_track_control": material_spec.show_track_control,
-                "show_descriptions_control": material_spec.supports_descriptions,
                 "show_range_controls": material_spec.show_range_controls,
                 "show_unconfirmed_control": manages_event,
                 "descriptions": descriptions,
@@ -323,10 +295,10 @@ class PublicEventPrintView(EventsPageRequiredMixin, View):
         if material and material.value in available_by_value:
             return material
         # Old bookmarks name the retired descriptions material; it was a
-        # timetable variant, so it must not fall through to the program.
+        # timetable variant, so it must not fall through to the session list.
         if self.request.GET.get("material") == LEGACY_DESCRIPTIONS_MATERIAL:
             return MATERIAL_SPECS_BY_VALUE[TIMETABLE]
-        return MATERIAL_SPECS_BY_VALUE[PROGRAM]
+        return MATERIAL_SPECS_BY_VALUE[SESSION_LIST]
 
     def _resolve_range(self, event: EventDTO, tz: tzinfo) -> _ResolvedRange:
         # Both params are optional: no start means the event start, no hours

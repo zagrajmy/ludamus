@@ -11,7 +11,7 @@ test.describe("Public print page", () => {
   test("defaults to the participant program, one sheet per day", async ({ page }) => {
     await page.goto(densePrintUrl);
 
-    await expect(page.getByLabel("Printable")).toHaveValue("program");
+    await expect(page.getByLabel("Printable")).toHaveValue("session-list");
     // No scope, track, or time-window controls: a participant prints it all.
     await expect(page.getByLabel("Scope")).toHaveCount(0);
     await expect(page.getByLabel("Start")).toHaveCount(0);
@@ -61,7 +61,7 @@ test.describe("Public print page", () => {
 
   test("offers dense-fixture printable materials", async ({ page }) => {
     const materials = [
-      ["program", "Program for participants"],
+      ["session-list", "Program for participants"],
       ["timetable", "Timetable"],
       ["track-timetable", "Track timetable"],
       ["door-cards", "Door cards"],
@@ -73,7 +73,6 @@ test.describe("Public print page", () => {
     for (const [, label] of materials) {
       await expect(select.getByRole("option", { name: label, exact: true })).toHaveCount(1);
     }
-    await expect(select.getByRole("option", { name: "Session list" })).toHaveCount(0);
     await expect(page.getByLabel("With descriptions")).not.toBeChecked();
   });
 

@@ -444,12 +444,12 @@ class TestTimetableCompleteness:
         assert document.is_complete is False
 
 
-def _program(service, **kwargs):
-    return service.build_program(PrintQueryDTO(event_pk=1, tz=UTC, **kwargs))
+def _session_list(service, **kwargs):
+    return service.build_session_list(PrintQueryDTO(event_pk=1, tz=UTC, **kwargs))
 
 
-class TestBuildProgram:
-    def test_one_page_per_day_in_time_then_room_order(self):
+class TestBuildSessionList:
+    def test_whole_event_in_time_then_room_order(self):
         spaces = [_space(1, "Alfa", 0), _space(2, "Bravo", 1)]
         items = [
             _item(1, 2, 9, 10, title="Late room", confirmed=True, space_name="Bravo"),
@@ -468,20 +468,16 @@ class TestBuildProgram:
         ]
         service = _service(spaces=spaces, items=items, slots=[])
 
-        document = _program(service)
+        document = _session_list(service)
 
-        assert [day.day for day in document.days] == [
-            date(2026, 6, 1),
-            date(2026, 6, 2),
-        ]
-        assert [s.title for s in document.days[0].sessions] == [
+        assert [s.title for s in document.sessions] == [
             "First",
             "Early room",
             "Late room",
+            "Second day",
         ]
-        assert document.days[0].sessions[0].description == "Tale"
-        assert document.days[0].sessions[0].space_name == "Alfa"
-        assert [s.title for s in document.days[1].sessions] == ["Second day"]
+        assert document.sessions[0].description == "Tale"
+        assert document.sessions[0].space_name == "Alfa"
 
     def test_drops_unconfirmed_when_confirmed_only(self):
         spaces = [_space(1, "Alfa", 0)]
@@ -491,15 +487,15 @@ class TestBuildProgram:
         ]
         service = _service(spaces=spaces, items=items, slots=[])
 
-        assert [s.title for s in _program(service).days[0].sessions] == ["Sure"]
+        assert [s.title for s in _session_list(service).sessions] == ["Sure"]
         assert [
-            s.title for s in _program(service, confirmed_only=False).days[0].sessions
+            s.title for s in _session_list(service, confirmed_only=False).sessions
         ] == ["Sure", "Maybe"]
 
-    def test_nothing_scheduled_means_no_days(self):
+    def test_nothing_scheduled_means_no_sessions(self):
         service = _service(spaces=[_space(1, "Alfa", 0)], items=[], slots=[])
 
-        assert _program(service).days == []
+        assert _session_list(service).sessions == []
 
 
 class TestBuildAreaSchedule:
