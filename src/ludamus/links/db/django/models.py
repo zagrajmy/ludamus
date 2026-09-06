@@ -51,6 +51,9 @@ SPACE_NO_CHILDREN_REASON = _(
 # no organizer flow has to stop and send the user off to the venue editor first.
 # Organizers rename it; the name is only the starting point.
 DEFAULT_SPACE_NAME = _("Main room")
+# Why Delete is unavailable on a space, shown where the button would be. Next
+# to the leaf-parent reason above so the rule and its sentence stay together.
+SPACE_UNDELETABLE_REASON = _("Has scheduled sessions")
 
 
 _SoftDeleteT = TypeVar("_SoftDeleteT", bound=models.Model)

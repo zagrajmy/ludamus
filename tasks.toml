@@ -132,20 +132,33 @@ mise bootstrap packages apply --yes
 poetry install
 aube install
 hk install --mise
-# -s, not -f: `> .env.local` would create the file before python runs, so one
-# failed generation (e.g. a mid-bootstrap PATH where `python` lacks
-# cryptography) used to strand a 0-byte file that `-f` treated as done — every
-# later bootstrap then skipped regeneration and varlock failed on the empty
-# secrets. The temp file keeps a failed run from touching .env.local at all.
+# -s, not -f: a redirect creates the file before python runs, so a failed
+# generation would strand an empty .env.local that -f treats as done. The temp
+# file holds real secrets, so it must not outlive a failed or interrupted run.
+# SAFETY: mise runs this with sh — dash on Linux — and dash runs an EXIT trap
+# only on a normal exit, so the signals are trapped by name; SIGKILL and any
+# not listed still strand the file.
 if [ ! -s .env.local ]; then
+  trap 'rm -f .env.local.tmp' EXIT
+  for sig in INT HUP TERM QUIT ABRT; do
+    # Re-raised so the shell dies of what killed it, and so bootstrap does not
+    # carry on into migrate: POSIX resumes after a handled INT.
+    trap "rm -f .env.local.tmp; trap - $sig; kill -$sig $$" "$sig"
+  done
+  # Stdlib only, deliberately: this runs in the same invocation that creates
+  # .venv, and mise resolves PATH once at task start, so on a machine without
+  # a venv yet `python` is whatever the image ships. Importing cryptography
+  # let that interpreter decide whether anyone gets an .env.local at all. The
+  # key is built the way Fernet.generate_key() builds it, urlsafe base64 over
+  # 32 random bytes, so `Fernet(key)` accepts it unchanged.
   python -c "
-import secrets
-from cryptography.fernet import Fernet
+import base64, os, secrets
 print(f'SECRET_KEY={secrets.token_urlsafe(50)}')
 print(f'DB_PASSWORD=dev-{secrets.token_hex(8)}')
 print(f'AUTH0_CLIENT_SECRET={secrets.token_hex(16)}')
-print(f'CREDENTIALS_ENCRYPTION_KEY={Fernet.generate_key().decode()}')
-" > .env.local.tmp && mv .env.local.tmp .env.local
+print(f'CREDENTIALS_ENCRYPTION_KEY={base64.urlsafe_b64encode(os.urandom(32)).decode()}')
+" > .env.local.tmp || { rm -f .env.local.tmp; exit 1; }
+  mv .env.local.tmp .env.local || { rm -f .env.local.tmp; exit 1; }
   echo "Generated .env.local with per-dev secrets."
 fi
 aubr varlock django-admin migrate --noinput

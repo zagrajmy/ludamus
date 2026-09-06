@@ -124,6 +124,13 @@ test.describe("Event cover image upload", () => {
 
     await page.goto("/panel/event/lakeside-weekend/settings/");
     await expect(shownFileName(logoDropzone(page), "mark.png")).toBeVisible();
+
+    // Put the field back: the "Click to upload" state above is the seeded one,
+    // and against a dev database that survives the run, a logo left behind here
+    // is a logo this test finds on its next pass.
+    await logoDropzone(page).getByRole("button", { name: "Remove image" }).click();
+    await page.getByRole("button", { name: "Save Settings" }).click();
+    await expect(page.getByText("Event settings saved successfully.")).toBeVisible();
   });
 
   test("manager removes a saved cover via the clear button", async ({ page }) => {

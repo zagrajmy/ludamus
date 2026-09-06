@@ -4,3 +4,11 @@
 # (VS Code prettier extension, Zed) and the CLI all respect this file.
 # Templates are formatted by djlint (hk pre-commit / mise run lint:djlint).
 src/ludamus/templates/**/*.html
+
+# Vendored agent skills: `npx impeccable install` writes these and rewrites
+# them on every update, so formatting them re-diffs ~90 files against upstream
+# for nothing. hk.pkl already excludes them from the pre-commit run; oxfmt
+# reads this file by default, which also covers `mise run format:oxfmt`,
+# editors, and ad-hoc `oxfmt` invocations.
+.claude/skills/**
+.agents/skills/**
