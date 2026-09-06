@@ -24,15 +24,15 @@ test.describe("Public print page", () => {
     await expect(rows.nth(1)).toContainText(/\d{2}:\d{2}–\d{2}:\d{2}/);
     await expect(sheets.nth(0)).toContainText("Open Play B");
 
-    // Descriptions fold into the rows rather than swapping the document.
-    const description = sheets.nth(0).locator("td .whitespace-pre-wrap");
-    await expect(description).toHaveCount(0);
+    // Descriptions fold into the rows rather than swapping the document: the
+    // same sheet, the same first session, more text under it.
+    const bare = await sheets.nth(0).getByRole("row").nth(1).innerText();
     await page.getByLabel("With descriptions").check();
     await expect(page).toHaveURL(/descriptions=1/);
     await expect(page.getByLabel("Printable")).toHaveValue("session-list");
-    await expect(
-      preview.getByRole("group").nth(0).locator("td .whitespace-pre-wrap").first(),
-    ).toBeVisible();
+    const described = preview.getByRole("group").nth(0).getByRole("row").nth(1);
+    await expect(described).toContainText(bare.split("\n")[0]);
+    expect((await described.innerText()).length).toBeGreaterThan(bare.length);
   });
 
   test("renders dense event timetable as chunked sideways preview pages", async ({

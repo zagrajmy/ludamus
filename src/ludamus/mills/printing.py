@@ -98,13 +98,17 @@ def _space_range_name(spaces: list[SpaceDTO]) -> str | None:
 
 def _timetable_page(
     *, day: date, spaces: list[SpaceDTO], items: list[AgendaItemDTO]
-) -> PrintTimetablePageDTO:
-    # Rows are the stretches between the instants the programme changes, so a
-    # session is one tile spanning exactly the rows it covers — the shape of
-    # the event page's rooms view. Time slots are proposer availability
-    # windows, not display units (see mills/timeslots.py), so they play no
-    # part here. Instants are keyed as timestamps: on the night the clocks go
-    # back two datetimes an hour apart compare equal.
+) -> PrintTimetablePageDTO | None:
+    # One sheet: the day's sessions in these rooms, or None when there are
+    # none. Rows are the stretches between the instants the programme
+    # changes, so a session is one tile spanning exactly the rows it covers —
+    # the shape of the event page's rooms view. Time slots are proposer
+    # availability windows, not display units (see mills/timeslots.py), so
+    # they play no part here. Instants are keyed as timestamps: on the night
+    # the clocks go back two datetimes an hour apart compare equal.
+    col = {space.pk: index + 1 for index, space in enumerate(spaces)}
+    if not (items := [item for item in items if item.space_id in col]):
+        return None
     instants = {
         instant.timestamp(): instant
         for item in items
@@ -113,7 +117,11 @@ def _timetable_page(
     keys = sorted(instants)
     edges = [instants[key] for key in keys]
     line = {key: index + 1 for index, key in enumerate(keys)}
-    col = {space.pk: index + 1 for index, space in enumerate(spaces)}
+
+    def reading_order(item: AgendaItemDTO) -> tuple[int, int]:
+        # Down the rows, then across the columns: the visual order.
+        return (line[item.start_time.timestamp()], col[item.space_id])
+
     return PrintTimetablePageDTO(
         day=day,
         space_names=[space.name for space in spaces],
@@ -131,7 +139,7 @@ def _timetable_page(
                 span=line[item.end_time.timestamp()]
                 - line[item.start_time.timestamp()],
             )
-            for item in sorted(items, key=_session_list_order)
+            for item in sorted(items, key=reading_order)
         ],
         space_range_name=_space_range_name(spaces),
     )
@@ -217,23 +225,20 @@ class PrintMaterialsService:
             all_items = [
                 item for item in all_items if _overlaps(item, *query.time_range)
             ]
-        grouped = self._group_by_space(all_items, confirmed_only=query.confirmed_only)
-        items_by_space = {space.pk: grouped.get(space.pk, []) for space in spaces}
-
-        # One page per day and space chunk; a chunk with nothing scheduled on
-        # a day produces no page for it.
-        pages: list[PrintTimetablePageDTO] = []
+        # One sheet per day and space chunk that holds anything.
+        space_pks = {space.pk for space in spaces}
         by_day: dict[date, list[AgendaItemDTO]] = defaultdict(list)
-        for space_items in items_by_space.values():
-            for item in space_items:
+        for item in all_items:
+            if item.space_id in space_pks and (
+                item.session_confirmed or not query.confirmed_only
+            ):
                 by_day[item.start_time.astimezone(query.tz).date()].append(item)
-        for day in sorted(by_day):
-            for space_chunk in _space_chunks(spaces):
-                chunk_pks = {space.pk for space in space_chunk}
-                if chunk_items := [i for i in by_day[day] if i.space_id in chunk_pks]:
-                    pages.append(
-                        _timetable_page(day=day, spaces=space_chunk, items=chunk_items)
-                    )
+        pages = [
+            page
+            for day in sorted(by_day)
+            for chunk in _space_chunks(spaces)
+            if (page := _timetable_page(day=day, spaces=chunk, items=by_day[day]))
+        ]
 
         return PrintTimetableDocumentDTO(
             event_name=event.name,

@@ -1,4 +1,5 @@
 from datetime import UTC, date, datetime
+from zoneinfo import ZoneInfo
 
 from ludamus.mills.printing import PrintMaterialsService
 from ludamus.pacts import AgendaItemDTO, EventDTO, SpaceDTO
@@ -214,7 +215,7 @@ class TestBuildTimetable:
         ]
         assert [row.minutes for row in page.rows] == [60, 60]
 
-    def test_rows_show_session_times_not_availability_slots(self):
+    def test_rows_come_from_session_times(self):
         # Time slots are proposer availability windows, not display units; the
         # grid rows come from the sessions' real times.
         spaces = [_space(1, "Alfa", 0)]
@@ -230,6 +231,27 @@ class TestBuildTimetable:
                 datetime(2026, 6, 1, 11, 0, tzinfo=UTC),
             )
         ]
+
+    def test_rows_measure_instants_across_the_autumn_fold(self):
+        # 02:00 CEST and 02:00 CET are the same wall clock an hour apart; the
+        # grid must draw that hour rather than fold it into nothing.
+        tz = ZoneInfo("Europe/Warsaw")
+        first = datetime(2026, 10, 25, 2, 0, tzinfo=tz, fold=0)
+        second = datetime(2026, 10, 25, 2, 0, tzinfo=tz, fold=1)
+        item = AgendaItemDTO(
+            pk=1,
+            session_confirmed=True,
+            start_time=first,
+            end_time=second,
+            space_id=1,
+            session_title="Night",
+        )
+        service = _service(spaces=[_space(1, "Alfa", 0)], items=[item])
+
+        page = _timetable(service).pages[0]
+
+        assert [row.minutes for row in page.rows] == [60]
+        assert [(t.row, t.span) for t in page.tiles] == [(1, 1)]
 
     def test_a_long_session_spans_the_rows_a_short_one_cuts(self):
         spaces = [_space(1, "Alfa", 0), _space(2, "Bravo", 1)]
@@ -251,7 +273,7 @@ class TestBuildTimetable:
         ]
         assert page.spans == [1, 2]
 
-    def test_sessions_render_when_event_has_no_slots(self):
+    def test_a_lone_session_makes_one_tile(self):
         spaces = [_space(1, "Alfa", 0)]
         items = [_item(1, 1, 10, 11, title="Solo", confirmed=True)]
         service = _service(spaces=spaces, items=items)
@@ -273,7 +295,7 @@ class TestBuildTimetable:
 
         assert [d.day for d in document.pages] == [date(2026, 6, 1), date(2026, 6, 2)]
 
-    def test_slots_without_sessions_produce_no_pages(self):
+    def test_nothing_scheduled_produces_no_pages(self):
         spaces = [_space(1, "Alfa", 0)]
         service = _service(spaces=spaces, items=[])
 

@@ -77,7 +77,9 @@ class PrintTimetableRowDTO(BaseModel):
 
     @property
     def minutes(self) -> int:
-        return round((self.end_time - self.start_time).total_seconds() / 60)
+        # Instants, not wall clock: on the night the clocks go back, two equal
+        # local times with different folds are an hour apart.
+        return round((self.end_time.timestamp() - self.start_time.timestamp()) / 60)
 
 
 class PrintTimetableTileDTO(BaseModel):
