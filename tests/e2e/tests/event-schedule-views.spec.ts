@@ -1112,7 +1112,10 @@ test.describe("Enrollment filter", () => {
 
 test.describe("Hide ended filter", () => {
   const hideEnded = (page: Page) => page.getByRole("checkbox", { name: "Hide ended" });
-  const rows = (page: Page) => page.locator(".session-wrapper .session");
+  // Every session row is an article carrying its end time; hidden ones stay
+  // in the set, since hiding them is what the test watches for.
+  const rows = (page: Page) =>
+    page.getByRole("article", { includeHidden: true }).locator("[data-session-end]");
 
   test("hides what is over and keeps narrowing as the clock passes the rest", async ({ page }) => {
     await page.goto(DENSE_EVENT_URL);
@@ -1137,7 +1140,7 @@ test.describe("Hide ended filter", () => {
     const nextEnd = scheduleMoment(await upcoming.getAttribute("data-session-end"));
     // Pinned by id: once it ends it stops matching the "not ended" locator.
     const next = page.locator(
-      `.session[data-session-id="${await upcoming.getAttribute("data-session-id")}"]`,
+      `[data-session-id="${await upcoming.getAttribute("data-session-id")}"]`,
     );
     await page.clock.runFor(nextEnd.timestamp - ends.timestamp);
     await expect(next).toHaveAttribute("data-ended", "");
