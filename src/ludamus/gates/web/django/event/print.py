@@ -171,10 +171,8 @@ def _build_print_documents(
 def _resolve_material(
     requested: str, available: tuple[MaterialSpec, ...]
 ) -> MaterialSpec:
-    return next(
-        (spec for spec in available if spec.value == requested),
-        MATERIAL_SPECS_BY_VALUE[SESSION_LIST],
-    )
+    # The first available material is the default (see MATERIAL_SPECS).
+    return next((spec for spec in available if spec.value == requested), available[0])
 
 
 class PublicEventPrintView(EventsPageRequiredMixin, View):

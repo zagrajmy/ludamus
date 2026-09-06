@@ -249,7 +249,7 @@ class TestPublicEventPrintView:
             session_list=None,
         )
 
-    def test_session_list_with_descriptions_folds_them_into_the_rows(
+    def test_session_list_with_descriptions_does_not_swap_the_document(
         self, client, event, session, space
     ):
         _confirmed_item(event, session, space)
