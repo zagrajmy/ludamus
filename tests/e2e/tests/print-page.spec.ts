@@ -18,9 +18,9 @@ test.describe("Public print page", () => {
 
     const preview = page.getByRole("region", { name: "Print preview" });
     const sheets = preview.getByRole("group");
-    await expect(sheets).toHaveCount(2);
+    await expect(sheets).toHaveCount(3);
     const rows = sheets.nth(0).getByRole("row");
-    await expect(rows.first()).toContainText(/\d{2}:\d{2}–\d{2}:\d{2}/);
+    await expect(rows.nth(1)).toContainText(/\d{2}:\d{2}–\d{2}:\d{2}/);
     await expect(sheets.nth(0)).toContainText("Open Play B");
   });
 
