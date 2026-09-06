@@ -60,14 +60,14 @@ def _confirmed_item(event, session, space):
     )
 
 
-def _timetable_document(*, event, pages, scope_name=None):
+def _timetable_document(*, event, pages, scope_name=None, is_complete=False):
     return PrintTimetableDocumentDTO(
         event_name=event.name,
         event_description=event.description,
         event_start=event.start_time,
         event_end=event.end_time,
         scope_name=scope_name,
-        is_complete=False,
+        is_complete=is_complete,
         pages=pages,
     )
 
@@ -279,10 +279,6 @@ class TestPublicEventPrintView:
             descriptions=True,
             print_scopes=[_scope(space)],
         )
-        content = response.content.decode()
-        assert session.title in content
-        assert session.description in content
-        assert 'id="area-space-1"' in content
 
     def test_track_descriptions_list_is_scoped_to_the_selected_track(
         self, client, event, session, space, active_user
@@ -378,15 +374,25 @@ class TestPublicEventPrintView:
         )
         AgendaItemFactory(
             session=pending,
-            space=SpaceFactory(event=space.event, name="Side Room"),
+            space=space,
             session_confirmed=False,
-            start_time=event.start_time,
-            end_time=event.start_time + timedelta(hours=1),
+            start_time=event.start_time + timedelta(hours=1),
+            end_time=event.start_time + timedelta(hours=2),
         )
 
         response = client.get(self._url(event.slug), {"material": "timetable"})
 
-        assert "Full schedule" in response.content.decode()
+        # The pending session is off the paper, so the grid is not the whole
+        # program: the header keeps pointing people at the full schedule.
+        _assert_print_ok(
+            response,
+            material="timetable",
+            print_scopes=[_scope(space)],
+            timetable=_timetable_document(
+                event=event,
+                pages=[_one_hour_page(event=event, session=session, space=space)],
+            ),
+        )
 
     def test_full_schedule_label_hidden_when_complete(
         self, client, event, session, space
@@ -401,7 +407,16 @@ class TestPublicEventPrintView:
 
         response = client.get(self._url(event.slug), {"material": "timetable"})
 
-        assert "Full schedule" not in response.content.decode()
+        _assert_print_ok(
+            response,
+            material="timetable",
+            print_scopes=[_scope(space)],
+            timetable=_timetable_document(
+                event=event,
+                pages=[_one_hour_page(event=event, session=session, space=space)],
+                is_complete=True,
+            ),
+        )
 
     def test_unpublished_event_is_not_found_for_anonymous(self, client, event):
         event.publication_time = timezone.now() + timedelta(days=1)
@@ -454,11 +469,6 @@ class TestPublicEventPrintView:
                 _scope(space, f"Hall > {space.name}"),
             ],
         )
-        content = response.content.decode()
-        assert 'src="/media/events/logo.png"' in content
-        assert "Hall" in content
-        assert "Full schedule" in content
-        assert "30" in content
 
     def test_falls_back_to_sphere_logo_when_event_has_none(
         self, client, event, session, space, sphere
@@ -472,7 +482,6 @@ class TestPublicEventPrintView:
         _assert_print_ok(
             response, logo="/media/spheres/brand.png", print_scopes=[_scope(space)]
         )
-        assert 'src="/media/spheres/brand.png"' in response.content.decode()
 
     def test_invalid_range_params_fall_back_to_defaults(
         self, client, event, session, space

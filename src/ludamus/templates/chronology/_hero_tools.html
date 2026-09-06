@@ -5,7 +5,7 @@
 {# the page has one. Stacked on a phone, side by side from tablets up. #}
 {% translate "Venue maps" as t_venue_maps %}
 {% translate "Print the program" as t_print_program %}
-<div class="flex flex-col sm:flex-row">
+<div class="flex flex-col max-sm:basis-full sm:flex-row">
     {% if maps_url %}
         <a href="{{ maps_url }}"
            class="icon-btn size-12 shrink-0 justify-center overflow-hidden rounded-2xl"

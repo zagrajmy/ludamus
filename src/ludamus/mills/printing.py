@@ -45,7 +45,6 @@ if TYPE_CHECKING:
         EventRepositoryProtocol,
         SpaceDTO,
         SpaceRepositoryProtocol,
-        TimeSlotRepositoryProtocol,
         TrackRepositoryProtocol,
     )
     from ludamus.pacts.printing import (
@@ -117,13 +116,11 @@ class PrintMaterialsService:
         events: EventRepositoryProtocol,
         spaces: SpaceRepositoryProtocol,
         agenda_items: AgendaItemRepositoryProtocol,
-        time_slots: TimeSlotRepositoryProtocol,
         tracks: TrackRepositoryProtocol,
     ) -> None:
         self._events = events
         self._spaces = spaces
         self._agenda_items = agenda_items
-        self._time_slots = time_slots
         self._tracks = tracks
 
     def list_tracks(self, event_pk: int) -> list[PrintOptionDTO]:
