@@ -37,6 +37,7 @@ class _TimeSlotsContext(PanelNavContext):
     active_tab: str
     tab_urls: dict[str, str]
     time_slots: list[TimeSlotDTO]
+    undeletable_slot_reasons: dict[int, str]
     days: dict[str, list[TimeSlotDTO]]
     orphaned_slots: list[TimeSlotDTO]
     continuation_slots: set[tuple[int, str]]
@@ -108,6 +109,13 @@ def _time_slots_context(
     visible_days = all_days[start_idx : start_idx + days_per_page]
 
     time_slots = request.services.panel_time_slots.list_for_event(event.pk)
+    # Why Delete is unavailable, per row. The sentence lives here because
+    # TimeSlotDTO is shared with the propose wizard and the accept page, and
+    # because mills, which builds it, must not import Django.
+    undeletable_slot_reasons = dict.fromkeys(
+        request.services.panel_time_slots.undeletable_pks(event.pk),
+        _("Used by proposals"),
+    )
 
     event_start = localtime(event.start_time).date()
     event_end = localtime(event.end_time).date()
@@ -131,6 +139,7 @@ def _time_slots_context(
         "active_tab": "time_slots",
         "tab_urls": cfp_tab_urls(event.slug),
         "time_slots": time_slots,
+        "undeletable_slot_reasons": undeletable_slot_reasons,
         "days": days,
         "orphaned_slots": orphaned_slots,
         "continuation_slots": continuation_slots,

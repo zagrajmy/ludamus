@@ -88,6 +88,32 @@ const initScheduleRail = (rail: HTMLElement): void => {
     );
     let step = 1;
     showEveryNth(step, candidates);
+    // One measurement, not one per step: every showEveryNth pass dirties the
+    // page and the next scrollHeight read lays it all out again, the rooms
+    // grid included, which on a phone kept the main thread busy for as long
+    // as the thinning took. The overflow in marker heights says how many
+    // markers must go; the smallest step that hides that many is computed
+    // from the per-day counts, then applied once. The loop after it is a
+    // safety net for rounding, and stops at once when the arithmetic held.
+    const overflow = rail.scrollHeight - rail.clientHeight;
+    const markerHeight =
+      hourLinks.find((link) => !link.hidden)?.getBoundingClientRect().height ?? 0;
+    if (overflow > 0 && markerHeight > 0) {
+      const perDay: number[] = [];
+      for (const child of rail.children) {
+        if (!(child instanceof HTMLElement)) continue;
+        if (!child.classList.contains("schedule-rail-hour")) perDay.push(0);
+        else if (candidates.has(child)) perDay[perDay.length - 1] += 1;
+      }
+      const hiddenAt = (k: number): number => {
+        let hidden = 0;
+        for (const count of perDay) hidden += count - Math.ceil(count / k);
+        return hidden;
+      };
+      const mustHide = Math.ceil(overflow / markerHeight);
+      while (hiddenAt(step) < mustHide && step < hourLinks.length) step += 1;
+      showEveryNth(step, candidates);
+    }
     while (rail.scrollHeight > rail.clientHeight && step < hourLinks.length) {
       step += 1;
       showEveryNth(step, candidates);

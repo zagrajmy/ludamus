@@ -64,6 +64,14 @@ class PanelTimeSlotsService(PanelTimeSlotsServiceProtocol):
     def list_for_event(self, event_id: int) -> list[TimeSlotDTO]:
         return self._time_slots.list_by_event(event_id)
 
+    def undeletable_pks(self, event_id: int) -> frozenset[int]:
+        """Slots `delete` would refuse, so the list can say so up front.
+
+        Returns:
+            The pks of slots a proposal already asked for.
+        """
+        return self._time_slots.pks_with_proposals(event_id)
+
     def read(self, *, event_id: int, pk: int) -> TimeSlotDTO:
         return self._time_slots.read_by_event(event_id, pk)
 

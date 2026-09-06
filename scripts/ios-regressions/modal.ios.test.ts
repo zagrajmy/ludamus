@@ -2,7 +2,7 @@ import type { CaptureSnapshotResult, SnapshotNode } from "agent-device";
 
 import { afterAll, beforeAll, expect, test } from "bun:test";
 
-import { baseUrl, createIosHarness, hookTimeoutMs, sessionName } from "./harness";
+import { createIosHarness, resolveEventUrl, hookTimeoutMs, sessionName } from "./harness";
 import { fetchReadyPage } from "./page";
 import { centreOnScreen, collapse, describeNode, labelOf, pollUntil, viewportOf } from "./snapshot";
 
@@ -10,7 +10,6 @@ const env = process.env;
 const session = sessionName("modal");
 const targetTitle = collapse(env.TARGET_SESSION_TITLE ?? "Przygoda w Mieście Neonów");
 const targetTriggerLabel = collapse(env.TARGET_TRIGGER_LABEL ?? `Open details for ${targetTitle}`);
-const eventPath = env.EVENT_PATH ?? "/event/autumn-open/";
 const targetQueryParam = env.TARGET_QUERY_PARAM ?? "session=3";
 const preOpenScrollSteps = 8;
 
@@ -131,7 +130,7 @@ const forcePreOpenScroll = async (): Promise<void> => {
 const waitForLabel = (label: string, timeoutMs: number): Promise<SnapshotNode | null> =>
   pollUntil(() => findNodeByLabel(label), { timeoutMs });
 
-const eventUrl = new URL(eventPath, baseUrl);
+const eventUrl = resolveEventUrl("/event/autumn-open/");
 const modalUrl = new URL(eventUrl);
 for (const [key, value] of new URLSearchParams(targetQueryParam)) {
   modalUrl.searchParams.set(key, value);

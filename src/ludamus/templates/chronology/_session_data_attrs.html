@@ -29,6 +29,12 @@ data-space="{% if data.loc.space_id %}{{ data.loc.space_id }}{% endif %}"
 data-space-name="{{ data.loc.space_name }}"
 data-space-order="{{ data.loc.sort_path|space_sort_path_json }}"
 {% if data.agenda_item %}
+{# When the session itself is over, which is not what data-end below answers: #}
+{# in the ledger that one is clipped to the programme day the row sits under. #}
+{# schedule-now.ts re-reads this as the clock passes it — the served answer is #}
+{# only true for the moment it was rendered. #}
+data-session-end="{{ data.agenda_item.end_time|date:'c' }}"
+{% if data.is_ended %}data-ended{% endif %}
 {# The instant, offset included: data-day/data-hour below are the event's #}
 {# local wall clock, which reads as a different moment in a reader's own #}
 {# timezone, and the "now" line compares against the reader's clock. #}

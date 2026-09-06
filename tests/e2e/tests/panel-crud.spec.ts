@@ -13,6 +13,7 @@ const EVENT = "cinderpeak-con";
 const FACILITATORS_URL = `/panel/event/${EVENT}/facilitators/`;
 const PROPOSALS_URL = `/panel/event/${EVENT}/proposals/`;
 const TRACKS_URL = `/panel/event/${EVENT}/tracks/`;
+const CFP_URL = `/panel/event/${EVENT}/cfp/`;
 
 const PROPOSAL_TITLE = "Midnight Heist One-Shot";
 const PROPOSAL_TITLE_EDITED = "Midnight Heist One-Shot (revised)";
@@ -106,6 +107,17 @@ test.describe("Panel facilitator + proposal CRUD", () => {
     // Save returns to the detail page, carrying ?next= so the list filters survive.
     await page.waitForURL(new RegExp(`/proposals/\\d+/(\\?|$)`));
     await expect(page.getByRole("heading", { name: PROPOSAL_TITLE_EDITED })).toBeVisible();
+  });
+
+  test("a category with proposals says why instead of offering Delete", async ({ page }) => {
+    // The proposal above belongs to this category, so delete_by_slug would
+    // refuse it. The row says so where the button would be — the Python tests
+    // pin the context, this pins what the reviewer actually sees.
+    await page.goto(CFP_URL);
+
+    const row = page.getByRole("row", { name: /RPG Proposals/ });
+    await expect(row.getByText("Has proposals")).toBeVisible();
+    await expect(row.getByRole("button", { name: "Delete" })).toBeHidden();
   });
 
   test("shows the likely status action and keeps alternatives under More", async ({ page }) => {

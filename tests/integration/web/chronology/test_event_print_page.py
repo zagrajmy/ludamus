@@ -266,8 +266,12 @@ class TestPublicEventPrintView:
             tracks=[_track_option(track)],
             selected_track=track.slug,
             # The scope picker still lists every room; only the schedule is
-            # narrowed to the track.
-            print_scopes=[_scope(untracked_space), _scope(space)],
+            # narrowed to the track. Spaces come back ordered by name, and
+            # `space.name` is a random Faker word, so sort the expectation
+            # the same way instead of assuming a fixed position.
+            print_scopes=sorted(
+                [_scope(untracked_space), _scope(space)], key=lambda scope: scope.name
+            ),
             area_schedule=_area_schedule_document(
                 event=event, session=session, space=space, scope_name=track.name
             ),

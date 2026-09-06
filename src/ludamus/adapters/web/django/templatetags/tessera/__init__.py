@@ -31,6 +31,7 @@ from .action_dropdown import (
     do_action_dropdown,
     tessera_action_dropdown_item,
 )
+from .checkbox import tessera_checkbox_toggle
 from .combobox import ComboboxNode, do_combobox
 from .copy import copy_lines, tessera_copy, tessera_copy_chip, tessera_copy_popover
 from .dynamic_field import dynamic_field
@@ -78,6 +79,7 @@ __all__ = [
     "tab_shell_body",
     "tessera_action_dropdown_item",
     "tessera_button",
+    "tessera_checkbox_toggle",
     "tessera_copy",
     "tessera_copy_chip",
     "tessera_copy_popover",

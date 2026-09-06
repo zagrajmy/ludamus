@@ -2,6 +2,7 @@ import { type Page } from "@playwright/test";
 import path from "node:path";
 
 import { expect, test } from "./helpers/fixtures";
+import { expectCappedToViewport } from "./helpers/modal-cap";
 
 const expectPageScrollLocked = async (page: Page) => {
   const pageScrollLocked = await page.evaluate(() => {
@@ -26,6 +27,7 @@ test.describe("Modal surfaces using page scroll lock", () => {
     const dialog = page.getByRole("dialog", { name: "Mega Strategy Lab" });
     await expect(dialog).toBeVisible();
     await expectPageScrollLocked(page);
+    await expectCappedToViewport(page, dialog);
 
     await dialog.getByRole("button", { name: "Close" }).click();
     await expect(dialog).toBeHidden();

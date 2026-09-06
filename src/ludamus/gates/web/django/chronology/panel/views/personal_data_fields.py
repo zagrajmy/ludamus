@@ -16,7 +16,10 @@ from ludamus.gates.web.django.chronology.panel.views.base import (
     PanelRequest,
     cfp_tab_urls,
 )
-from ludamus.gates.web.django.chronology.panel.views.fields import parse_field_form_data
+from ludamus.gates.web.django.chronology.panel.views.fields import (
+    parse_field_form_data,
+    undeletable_field_reasons,
+)
 from ludamus.gates.web.django.forms import PersonalDataFieldForm
 from ludamus.gates.web.django.panel import parse_requirement_selection
 from ludamus.pacts import DEFAULT_FIELD_MAX_LENGTH, NotFoundError
@@ -44,7 +47,9 @@ class PersonalDataFieldsPageView(PanelAccessMixin, EventContextMixin, View):
         context["active_nav"] = "cfp"
         context["active_tab"] = "host"
         context["tab_urls"] = cfp_tab_urls(slug)
-        context["fields"] = service.list_summaries(current_event.pk)
+        summaries = service.list_summaries(current_event.pk)
+        context["fields"] = summaries
+        context["undeletable_field_reasons"] = undeletable_field_reasons(summaries)
         return TemplateResponse(
             self.request, "panel/personal-data-fields.html", context
         )

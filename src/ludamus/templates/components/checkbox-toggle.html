@@ -1,0 +1,8 @@
+{# Rendered by {% tessera_checkbox_toggle %}: a checkbox in a filled label, #}
+{# so a row of flags reads as options, a step lighter than the fields beside #}
+{# it, and the box stays visible as on/off. #}
+{# Variables: id, label, name, value, checked, hook_class. #}
+<label class="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-bg-tertiary text-sm font-medium text-foreground whitespace-nowrap cursor-pointer select-none transition-colors duration-150 hover:bg-border has-checked:bg-primary-light has-checked:text-primary">
+    {% include "components/checkbox-input.html" with id=id name=name value=value checked=checked hook_class=hook_class only %}
+    <span>{{ label }}</span>
+</label>

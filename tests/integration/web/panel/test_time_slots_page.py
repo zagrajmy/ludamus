@@ -40,6 +40,33 @@ class TestTimeSlotsPageView:
 
         assert_login_required(response, url)
 
+    def test_a_slot_a_proposal_asked_for_says_so_instead_of_offering_delete(
+        self, panel_client, event, time_slot, pending_session
+    ):
+        # delete() refuses such a slot, so the row must not take the click.
+        pending_session.time_slots.add(time_slot)
+        slot = TimeSlotDTO.model_validate(time_slot)
+        day = localtime(time_slot.start_time).date()
+
+        response = panel_client.get(self.get_url(event))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/time-slots.html",
+            context_data=time_slots_page_context(
+                event,
+                days={**empty_days(event), day.isoformat(): [slot]},
+                event_days=day_range(event),
+                time_slots=[slot],
+                undeletable_slot_reasons={time_slot.pk: "Used by proposals"},
+                hosts_count=1,
+                pending_proposals=1,
+                total_proposals=1,
+                total_sessions=1,
+            ),
+        )
+
     def test_get_redirects_non_manager_user(self, authenticated_client, event):
         response = authenticated_client.get(self.get_url(event))
 
@@ -66,6 +93,7 @@ class TestTimeSlotsPageView:
                 "active_tab": "time_slots",
                 "tab_urls": cfp_tab_urls(event),
                 "time_slots": [],
+                "undeletable_slot_reasons": {},
                 "days": {day.isoformat(): []},
                 "orphaned_slots": [],
                 "continuation_slots": set(),
@@ -184,6 +212,7 @@ class TestTimeSlotsPageView:
                 "active_tab": "time_slots",
                 "tab_urls": cfp_tab_urls(event),
                 "time_slots": [],
+                "undeletable_slot_reasons": {},
                 "days": {(start + timedelta(days=i)).isoformat(): [] for i in range(3)},
                 "orphaned_slots": [],
                 "continuation_slots": set(),
@@ -212,6 +241,7 @@ class TestTimeSlotsPageView:
                 "active_tab": "time_slots",
                 "tab_urls": cfp_tab_urls(event),
                 "time_slots": [],
+                "undeletable_slot_reasons": {},
                 "days": {
                     (start + timedelta(days=i)).isoformat(): [] for i in range(3, 5)
                 },
