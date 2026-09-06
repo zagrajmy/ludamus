@@ -1127,9 +1127,7 @@ test.describe("Hide ended filter", () => {
     await page.getByRole("button", { exact: true, name: "Filters" }).click();
     await hideEnded(page).check();
 
-    await expect(
-      first.locator("xpath=ancestor::*[contains(@class,'session-wrapper')]"),
-    ).toBeHidden();
+    await expect(first).toBeHidden();
     await expect(rows(page).locator(":scope:not([data-ended])").first()).toBeVisible();
     await expect.poll(() => new URL(page.url()).searchParams.get("hide-ended")).toBe("1");
 
@@ -1143,9 +1141,7 @@ test.describe("Hide ended filter", () => {
     );
     await page.clock.runFor(nextEnd.timestamp - ends.timestamp);
     await expect(next).toHaveAttribute("data-ended", "");
-    await expect(
-      next.locator("xpath=ancestor::*[contains(@class,'session-wrapper')]"),
-    ).toBeHidden();
+    await expect(next).toBeHidden();
   });
 
   test("a shared link arrives with the box ticked and the chip clears it", async ({ page }) => {

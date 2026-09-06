@@ -318,8 +318,6 @@
         </div>
         {% if hour_data %}
             <!-- Filter Controls -->
-            {# Assigned once: the checkbox below and its chip label further #}
-            {# down have to say the same thing. #}
             {% translate "Only with enrollment" as t_enrollment_only %}
             {% translate "Hide ended" as t_hide_ended %}
             <div class="mb-3">
@@ -532,9 +530,7 @@
                      class="filter-chips-bar"
                      data-remove-filter-label="{% translate "Remove filter" %}"
                      data-clear-all-label="{% translate "Clear all" %}"
-                     data-age-label="{% translate "Participant age" %}:"
-                     data-enrollment-label="{{ t_enrollment_only }}"
-                     data-hide-ended-label="{{ t_hide_ended }}">
+                     data-age-label="{% translate "Participant age" %}:">
                     <div class="overflow-hidden">
                         <div class="filter-chips-bar-inner" data-filter-chips-inner></div>
                     </div>

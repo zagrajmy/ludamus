@@ -106,8 +106,8 @@ const markEnded = (at: number): void => {
     session.dataset.status = "ended";
     marked = true;
   }
-  // Only on a change: the filters answer with schedule:filtered, which lands
-  // back here, and a mark-nothing pass must not bounce a second time.
+  // SAFETY: session-filters answers with schedule:filtered, which re-enters
+  // place() and this function; firing on a mark-nothing pass would loop.
   if (marked) document.dispatchEvent(new CustomEvent("schedule:ended"));
 };
 

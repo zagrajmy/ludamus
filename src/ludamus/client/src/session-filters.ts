@@ -129,6 +129,25 @@ const ageFilterEntry = (
   param,
 });
 
+interface FlagFilter {
+  el: HTMLInputElement;
+  /** Card passes while the box is ticked. */
+  matches: (card: HTMLElement) => boolean;
+  param: string;
+}
+
+// The template renders a flag only when the schedule has something for it to
+// narrow (no enrollment box on an event of drop-ins), so a missing one is
+// simply not a filter on this page.
+const flagFilter = (
+  id: string,
+  param: string,
+  matches: FlagFilter["matches"],
+): FlagFilter | null => {
+  const el = document.querySelector<HTMLInputElement>(`#${id}`);
+  return el ? { el, matches, param } : null;
+};
+
 const selectFilter = (
   el: HTMLSelectElement,
   param: string,
@@ -216,8 +235,6 @@ const initSessionFilters = (): void => {
   const hostFilter = byId<HTMLInputElement>("host-filter");
   const ageFilter = byId<HTMLInputElement>("age-filter");
   const minAgeFilter = byId<HTMLSelectElement>("min-age-filter");
-  const enrollmentFilter = document.querySelector<HTMLInputElement>("#enrollment-filter");
-  const hideEndedFilter = document.querySelector<HTMLInputElement>("#hide-ended-filter");
   const filterToggle = byId("filter-toggle");
   const filterPanel = byId("filter-panel");
   const filterChipsBar = byId("active-filter-chips");
@@ -379,11 +396,19 @@ const initSessionFilters = (): void => {
     }
   }
 
-  // One entry per value-holding filter control, in panel order. Mirroring,
-  // matching, clearing, chips, and listeners all loop over this list, so a
-  // new filter is one entry here plus its option population above. The search
-  // box and the checkboxes stay outside: none is a value filter over one
-  // card key (search is tokenized, enrollment and hide-ended are flags).
+  // One entry per filter control, in panel order: the yes/no flags, then the
+  // value-holding controls. Mirroring, matching, clearing, chips, and
+  // listeners all loop over these lists, so a new filter is one entry here
+  // (plus its option population above). The search box stays outside: it is
+  // tokenized, not a value over one card key.
+  const flagFilters = [
+    flagFilter(
+      "enrollment-filter",
+      "enrollment",
+      (card) => card.dataset.takesEnrollment === "true",
+    ),
+    flagFilter("hide-ended-filter", "hide-ended", (card) => !Object.hasOwn(card.dataset, "ended")),
+  ].filter((f) => f !== null);
   const cardFilters: CardFilter[] = [
     selectFilter(statusFilter, "status", (card, value) => {
       const flag = STATUS_CARD_FLAGS[value];
@@ -491,23 +516,13 @@ const initSessionFilters = (): void => {
   };
 
   mirrorInput("q", sessionFilter);
-  if (enrollmentFilter) {
+  for (const f of flagFilters) {
     mirror(
-      "enrollment",
+      f.param,
       flagParam,
-      () => enrollmentFilter.checked,
+      () => f.el.checked,
       (value) => {
-        enrollmentFilter.checked = value;
-      },
-    );
-  }
-  if (hideEndedFilter) {
-    mirror(
-      "hide-ended",
-      flagParam,
-      () => hideEndedFilter.checked,
-      (value) => {
-        hideEndedFilter.checked = value;
+        f.el.checked = value;
       },
     );
   }
@@ -576,8 +591,7 @@ const initSessionFilters = (): void => {
 
   function filterSessions(): void {
     const searchTokens = normalizeText(sessionFilter.value).split(/\s+/).filter(Boolean);
-    const enrollmentOnly = enrollmentFilter?.checked ?? false;
-    const hideEnded = hideEndedFilter?.checked ?? false;
+    const activeFlags = flagFilters.filter((f) => f.el.checked);
     const activeFilters = cardFilters.filter((f) => f.active(f.el.value));
 
     for (const card of sessionCards) {
@@ -587,8 +601,7 @@ const initSessionFilters = (): void => {
         const haystack = cardHaystacks.get(card) ?? "";
         show &&= searchTokens.every((token) => haystack.includes(token));
       }
-      if (enrollmentOnly) show &&= card.dataset.takesEnrollment === "true";
-      if (hideEnded) show &&= !Object.hasOwn(card.dataset, "ended");
+      for (const f of activeFlags) show &&= f.matches(card);
       for (const f of activeFilters) show &&= f.matches(card, f.el.value);
 
       const cardContainer = card.closest<HTMLElement>(".session-wrapper");
@@ -619,8 +632,7 @@ const initSessionFilters = (): void => {
 
   function clearAllFilters(): void {
     sessionFilter.value = "";
-    if (enrollmentFilter) enrollmentFilter.checked = false;
-    if (hideEndedFilter) hideEndedFilter.checked = false;
+    for (const f of flagFilters) f.el.checked = false;
     for (const f of cardFilters) {
       f.el.value = "";
       syncControl(f.el);
@@ -646,22 +658,15 @@ const initSessionFilters = (): void => {
 
   function updateFilterUI(): void {
     const chips: FilterChip[] = [];
-    if (enrollmentFilter?.checked) {
+    for (const f of flagFilters) {
+      if (!f.el.checked) continue;
       chips.push({
         clear: () => {
-          enrollmentFilter.checked = false;
+          f.el.checked = false;
           filterSessions();
         },
-        label: filterChipsBar.dataset.enrollmentLabel ?? "",
-      });
-    }
-    if (hideEndedFilter?.checked) {
-      chips.push({
-        clear: () => {
-          hideEndedFilter.checked = false;
-          filterSessions();
-        },
-        label: filterChipsBar.dataset.hideEndedLabel ?? "",
+        // The chip says what the box says: one string, read off its label.
+        label: f.el.labels?.[0]?.textContent?.trim() ?? "",
       });
     }
     for (const f of cardFilters) {
@@ -721,17 +726,12 @@ const initSessionFilters = (): void => {
   }
 
   sessionFilter.addEventListener("input", filterSessions);
-  enrollmentFilter?.addEventListener("change", filterSessions);
-  hideEndedFilter?.addEventListener("change", filterSessions);
-  // schedule-now.ts marks sessions ended as the clock passes them; a page left
-  // open with the box ticked hides each one the minute it is over.
-  document.addEventListener(
-    "schedule:ended",
-    () => {
-      if (hideEndedFilter?.checked) filterSessions();
-    },
-    { signal: documentListeners.signal },
-  );
+  for (const f of flagFilters) f.el.addEventListener("change", filterSessions);
+  // schedule-now.ts marks sessions ended as the clock passes them, and both
+  // the hide-ended flag and the status select read that mark.
+  document.addEventListener("schedule:ended", filterSessions, {
+    signal: documentListeners.signal,
+  });
   document.addEventListener(
     "click",
     (event) => {
