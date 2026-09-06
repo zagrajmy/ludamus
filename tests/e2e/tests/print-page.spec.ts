@@ -1,3 +1,4 @@
+import { analyzePageAccessibility } from "./helpers/a11y";
 import { expect, test } from "./helpers/fixtures";
 
 const densePrintUrl = "/event/kapitularz-2025-anonymized/print/";
@@ -23,15 +24,15 @@ test.describe("Public print page", () => {
     await expect(rows.nth(1)).toContainText(/\d{2}:\d{2}–\d{2}:\d{2}/);
     await expect(sheets.nth(0)).toContainText("Open Play B");
 
-    // Descriptions fold into the rows rather than swapping the document.
-    const description = sheets.nth(0).locator("td .whitespace-pre-wrap");
-    await expect(description).toHaveCount(0);
+    // Descriptions fold into the rows rather than swapping the document: the
+    // same sheet, the same first session, more text under it.
+    const bare = await sheets.nth(0).getByRole("row").nth(1).innerText();
     await page.getByLabel("With descriptions").check();
     await expect(page).toHaveURL(/descriptions=1/);
     await expect(page.getByLabel("Printable")).toHaveValue("session-list");
-    await expect(
-      preview.getByRole("group").nth(0).locator("td .whitespace-pre-wrap").first(),
-    ).toBeVisible();
+    const described = preview.getByRole("group").nth(0).getByRole("row").nth(1);
+    await expect(described).toContainText(bare.split("\n")[0]);
+    expect((await described.innerText()).length).toBeGreaterThan(bare.length);
   });
 
   test("renders dense event timetable as chunked sideways preview pages", async ({
@@ -49,6 +50,34 @@ test.describe("Public print page", () => {
     await expect(previewPages).toHaveCount(21);
     await expect(previewPages.nth(0)).toContainText("Workshop Studio - RPG Table 2");
     await expect(previewPages.nth(6)).toContainText("Open Play B");
+
+    // The rooms grid: a tile sits in its room's column on the row it starts
+    // and spans the rows it covers, placed by the nonced stylesheet rather
+    // than auto-flowed.
+    const placements = await previewPages
+      .nth(0)
+      .getByRole("article")
+      .evaluateAll((elements) =>
+        elements.map((element) => {
+          const style = getComputedStyle(element);
+          return {
+            col: Number(element.dataset.col) + 1,
+            row: Number(element.dataset.row) + 1,
+            span: Number(element.dataset.span),
+            gridColumnStart: style.gridColumnStart,
+            gridRowStart: style.gridRowStart,
+            gridRowEnd: style.gridRowEnd,
+          };
+        }),
+      );
+    expect(placements.length).toBeGreaterThan(0);
+    for (const placement of placements) {
+      expect(placement.gridColumnStart).toBe(String(placement.col));
+      expect(placement.gridRowStart).toBe(String(placement.row));
+      expect(placement.gridRowEnd).toBe(`span ${placement.span}`);
+    }
+    expect(placements.some((placement) => placement.span > 1)).toBe(true);
+    await analyzePageAccessibility(page, { include: '[role="region"]' });
 
     const scrollMetrics = await preview.evaluate((preview) => ({
       clientWidth: preview.clientWidth,

@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load django_vite i18n tessera %}
+{% load csp_tags django_vite i18n tessera %}
 {% block title %}
     {{ event.name }} • {% translate "Print" %}
 {% endblock title %}
@@ -162,8 +162,11 @@
                 </div>
             </aside>
             <div class="min-w-0 overflow-hidden print:block print:overflow-visible">
+                {# tabindex: the sheets scroll sideways and hold nothing focusable, #}
+                {# so the region itself is the keyboard's pan handle. #}
                 <div role="region"
                      aria-label="{% translate "Print preview" %}"
+                     tabindex="0"
                      class="flex flex-row items-start gap-[8mm] overflow-x-auto overflow-y-hidden overscroll-x-contain pb-[12mm] scroll-pl-px snap-x snap-mandatory print:block print:overflow-visible print:pb-0">
                     {% with sheet_class="box-border shrink-0 snap-start w-[210mm] max-w-full min-h-[297mm] rounded-sm bg-white p-[14mm] font-sans text-[10pt] text-neutral-900 shadow-[0_1px_10px_rgba(0,0,0,0.18)] [&_a]:text-inherit print:m-0 print:max-w-none print:min-h-0 print:w-auto print:rounded-none print:p-[14mm] print:shadow-none print:[print-color-adjust:exact] print:break-after-page last:print:break-after-auto" %}
                         {% if timetable %}
@@ -183,37 +186,67 @@
                                         {{ page.day|date:"l, j E Y" }}
                                         {% if page.space_range_name %}<span class="block text-[9pt] font-normal">{{ page.space_range_name }}</span>{% endif %}
                                     </h3>
-                                    <table class="w-full table-fixed border-collapse text-[7pt]">
-                                        <thead>
-                                            <tr>
-                                                <th class="w-[20mm] border border-neutral-900 border-b-2 p-[1mm] text-left">{% translate "Time" %}</th>
-                                                {% for name in page.space_names %}
-                                                    <th class="border border-neutral-900 border-b-2 p-[1mm] text-left">{{ name }}</th>
-                                                {% endfor %}
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {% for row in page.rows %}
-                                                <tr>
-                                                    <td class="w-[20mm] whitespace-nowrap border border-neutral-300 p-[1mm] align-top tabular-nums">
-                                                        {{ row.start_time|time:"H:i" }}–{{ row.end_time|time:"H:i" }}
-                                                    </td>
-                                                    {% for cell in row.cells %}
-                                                        <td class="border border-neutral-300 p-[1mm] align-top {% if cell.sessions %}text-left{% else %}text-center{% endif %}">
-                                                            {% for session in cell.sessions %}
-                                                                <div {% if not forloop.last %}class="mb-[1mm]"{% endif %}>
-                                                                    <strong>{{ session.title }}</strong>
-                                                                    {% if session.presenter_name %}<div class="text-neutral-700">{{ session.presenter_name }}</div>{% endif %}
-                                                                </div>
-                                                            {% empty %}
-                                                                <span class="italic text-neutral-500">—</span>
-                                                            {% endfor %}
-                                                        </td>
-                                                    {% endfor %}
-                                                </tr>
+                                    {# The rooms grid, black on white: rooms across, time down, a #}
+                                    {# session as one tile spanning the rows it covers. Placement #}
+                                    {# is data-driven, not inline: a style attribute cannot carry #}
+                                    {# a CSP nonce (see _room_lanes.html). Each row takes its #}
+                                    {# share of an hour's height and grows to fit its tiles. #}
+                                    <style{% nonce %}>
+                                        #timetable-day-{{ forloop.counter }} .timetable-grid {
+                                            grid-template-columns: 14mm repeat({{ page.space_names|length }}, minmax(0, 1fr));
+                                            grid-template-rows: auto{% for row in page.rows %} minmax(calc(8mm * {{ row.minutes }} / 60), auto){% endfor %};
+                                        }
+                                        {% for name in page.space_names %}
+                                        #timetable-day-{{ forloop.parentloop.counter }} [data-col="{{ forloop.counter }}"] {
+                                            grid-column: {{ forloop.counter|add:1 }};
+                                        }
+                                        {% endfor %}
+                                        {% for row in page.rows %}
+                                        #timetable-day-{{ forloop.parentloop.counter }} [data-row="{{ forloop.counter }}"] {
+                                            grid-row-start: {{ forloop.counter|add:1 }};
+                                        }
+                                        {% endfor %}
+                                        {% for span in page.spans %}
+                                        #timetable-day-{{ forloop.parentloop.counter }} [data-span="{{ span }}"] {
+                                            grid-row-end: span {{ span }};
+                                        }
+                                        {% endfor %}
+                                    </style>
+                                    {# A visual layout, not a data table: the sheet's heading names #}
+                                    {# the day and every tile carries its own time. #}
+                                    <div class="timetable-grid grid border-t border-l border-neutral-900 text-[7pt]">
+                                        <div class="row-start-1 col-start-1 border-b-2 border-r border-neutral-900 p-[1mm] font-bold">
+                                            {% translate "Time" %}
+                                        </div>
+                                        {% for name in page.space_names %}
+                                            <div class="row-start-1 border-b-2 border-r border-neutral-900 p-[1mm] font-bold"
+                                                 data-col="{{ forloop.counter }}">{{ name }}</div>
+                                        {% endfor %}
+                                        {% for row in page.rows %}
+                                            <div class="col-start-1 border-b border-r border-neutral-300 p-[1mm] tabular-nums text-neutral-700"
+                                                 data-row="{{ forloop.counter }}">{{ row.start_time|time:"H:i" }}</div>
+                                            {% for name in page.space_names %}
+                                                <div class="border-b border-r border-neutral-300"
+                                                     data-row="{{ forloop.parentloop.counter }}"
+                                                     data-col="{{ forloop.counter }}"></div>
                                             {% endfor %}
-                                        </tbody>
-                                    </table>
+                                        {% endfor %}
+                                        {# NOTE: two sessions overlapping in one room share a grid area #}
+                                        {# and the later paints over the earlier; the panel refuses such #}
+                                        {# bookings, so the grid lays no lanes for them. #}
+                                        {% for tile in page.tiles %}
+                                            <article class="m-[0.5mm] min-w-0 rounded-sm border border-neutral-900 bg-white p-[1mm]"
+                                                     aria-label="{{ tile.session.title }}"
+                                                     data-tile
+                                                     data-col="{{ tile.col }}"
+                                                     data-row="{{ tile.row }}"
+                                                     data-span="{{ tile.span }}">
+                                                <strong class="wrap-anywhere">{{ tile.session.title }}</strong>
+                                                {% if tile.session.presenter_name %}<div class="text-neutral-700">{{ tile.session.presenter_name }}</div>{% endif %}
+                                                <div class="tabular-nums text-neutral-500">{{ tile.start_time|time:"H:i" }}–{{ tile.end_time|time:"H:i" }}</div>
+                                            </article>
+                                        {% endfor %}
+                                    </div>
                                 </section>
                             {% empty %}
                                 <section class="{{ sheet_class }}">

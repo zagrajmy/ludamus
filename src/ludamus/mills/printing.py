@@ -5,14 +5,15 @@ door cards, a printed timetable, description-rich per-area time-range pages, and
 the participants' session list)
 from scheduled agenda items. Queries default to confirmed sessions only;
 ``confirmed_only=False`` (the sphere managers' toggle) also includes the
-unconfirmed ones. Empty timetable cells render as explicit gaps; door cards are
-participant-facing and list only rooms and hours that actually hold a session.
+unconfirmed ones. The timetable draws an idle room as an empty column; door cards
+are participant-facing and list only rooms and hours that actually hold a session.
 """
 
 from __future__ import annotations
 
 from collections import defaultdict
 from datetime import timedelta
+from itertools import pairwise
 from typing import TYPE_CHECKING
 
 from ludamus.pacts.printing import (
@@ -29,15 +30,14 @@ from ludamus.pacts.printing import (
     PrintSessionDTO,
     PrintSessionListDocumentDTO,
     PrintSessionListItemDTO,
-    PrintTimetableCellDTO,
     PrintTimetableDocumentDTO,
     PrintTimetablePageDTO,
     PrintTimetableRowDTO,
+    PrintTimetableTileDTO,
 )
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable
-    from datetime import date, datetime, tzinfo
+    from datetime import date, datetime
 
     from ludamus.pacts import (
         AgendaItemDTO,
@@ -96,18 +96,53 @@ def _space_range_name(spaces: list[SpaceDTO]) -> str | None:
     return f"{spaces[0].name} - {spaces[-1].name}"
 
 
-def _timetable_rows_by_date(
-    items: Iterable[AgendaItemDTO], tz: tzinfo
-) -> dict[date, list[tuple[datetime, datetime]]]:
-    # Rows are the distinct (start, end) times of the scheduled sessions, so
-    # the grid prints real session times. Time slots are proposer availability
-    # windows, not display units (see mills/timeslots.py), so they play no
-    # part here.
-    rows: dict[date, set[tuple[datetime, datetime]]] = defaultdict(set)
-    for item in items:
-        day = item.start_time.astimezone(tz).date()
-        rows[day].add((item.start_time, item.end_time))
-    return {day: sorted(intervals) for day, intervals in rows.items()}
+def _timetable_page(
+    *, day: date, spaces: list[SpaceDTO], items: list[AgendaItemDTO]
+) -> PrintTimetablePageDTO | None:
+    # One sheet: the day's sessions in these rooms, or None when there are
+    # none. Rows are the stretches between the instants the programme
+    # changes, so a session is one tile spanning exactly the rows it covers —
+    # the shape of the event page's rooms view. Time slots are proposer
+    # availability windows, not display units (see mills/timeslots.py), so
+    # they play no part here. Instants are keyed as timestamps: on the night
+    # the clocks go back two datetimes an hour apart compare equal.
+    col = {space.pk: index + 1 for index, space in enumerate(spaces)}
+    if not (items := [item for item in items if item.space_id in col]):
+        return None
+    instants = {
+        instant.timestamp(): instant
+        for item in items
+        for instant in (item.start_time, item.end_time)
+    }
+    keys = sorted(instants)
+    edges = [instants[key] for key in keys]
+    line = {key: index + 1 for index, key in enumerate(keys)}
+
+    def reading_order(item: AgendaItemDTO) -> tuple[int, int]:
+        # Down the rows, then across the columns: the visual order.
+        return (line[item.start_time.timestamp()], col[item.space_id])
+
+    return PrintTimetablePageDTO(
+        day=day,
+        space_names=[space.name for space in spaces],
+        rows=[
+            PrintTimetableRowDTO(start_time=start, end_time=end)
+            for start, end in pairwise(edges)
+        ],
+        tiles=[
+            PrintTimetableTileDTO(
+                session=_to_session(item),
+                start_time=item.start_time,
+                end_time=item.end_time,
+                col=col[item.space_id],
+                row=line[item.start_time.timestamp()],
+                span=line[item.end_time.timestamp()]
+                - line[item.start_time.timestamp()],
+            )
+            for item in sorted(items, key=reading_order)
+        ],
+        space_range_name=_space_range_name(spaces),
+    )
 
 
 class PrintMaterialsService:
@@ -190,52 +225,20 @@ class PrintMaterialsService:
             all_items = [
                 item for item in all_items if _overlaps(item, *query.time_range)
             ]
-        grouped = self._group_by_space(all_items, confirmed_only=query.confirmed_only)
-        items_by_space = {space.pk: grouped.get(space.pk, []) for space in spaces}
-
-        # Rows are computed per page chunk so a page only lists the times of
-        # its own spaces' sessions; a chunk with nothing scheduled on a day
-        # produces no page for it.
-        chunked_rows = [
-            (
-                space_chunk,
-                _timetable_rows_by_date(
-                    [item for s in space_chunk for item in items_by_space[s.pk]],
-                    query.tz,
-                ),
-            )
-            for space_chunk in _space_chunks(spaces)
+        # One sheet per day and space chunk that holds anything.
+        space_pks = {space.pk for space in spaces}
+        by_day: dict[date, list[AgendaItemDTO]] = defaultdict(list)
+        for item in all_items:
+            if item.space_id in space_pks and (
+                item.session_confirmed or not query.confirmed_only
+            ):
+                by_day[item.start_time.astimezone(query.tz).date()].append(item)
+        pages = [
+            page
+            for day in sorted(by_day)
+            for chunk in _space_chunks(spaces)
+            if (page := _timetable_page(day=day, spaces=chunk, items=by_day[day]))
         ]
-
-        pages: list[PrintTimetablePageDTO] = []
-        all_days = sorted({day for _, by_date in chunked_rows for day in by_date})
-        for day in all_days:
-            for space_chunk, rows_by_date in chunked_rows:
-                if not (intervals := rows_by_date.get(day)):
-                    continue
-                rows: list[PrintTimetableRowDTO] = []
-                for row_start, row_end in intervals:
-                    cells: list[PrintTimetableCellDTO] = []
-                    for space in space_chunk:
-                        sessions = [
-                            _to_session(item)
-                            for item in items_by_space.get(space.pk, [])
-                            if item.start_time == row_start and item.end_time == row_end
-                        ]
-                        cells.append(PrintTimetableCellDTO(sessions=sessions))
-                    rows.append(
-                        PrintTimetableRowDTO(
-                            start_time=row_start, end_time=row_end, cells=cells
-                        )
-                    )
-                pages.append(
-                    PrintTimetablePageDTO(
-                        day=day,
-                        space_names=[space.name for space in space_chunk],
-                        rows=rows,
-                        space_range_name=_space_range_name(space_chunk),
-                    )
-                )
 
         return PrintTimetableDocumentDTO(
             event_name=event.name,
