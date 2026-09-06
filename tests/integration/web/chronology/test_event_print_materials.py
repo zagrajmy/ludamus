@@ -23,9 +23,9 @@ from tests.integration.web.chronology.test_event_print_page import (
     _area_schedule_document,
     _assert_print_ok,
     _confirmed_item,
-    _one_hour_page,
+    _one_hour_program_day,
+    _program_document,
     _scope,
-    _timetable_document,
     _track_option,
 )
 
@@ -101,7 +101,7 @@ class TestPublicEventPrintMaterials:
             ),
         )
 
-    def test_unconfirmed_toggle_with_nothing_scheduled_keeps_empty_timetable(
+    def test_unconfirmed_toggle_with_nothing_scheduled_keeps_empty_program(
         self, authenticated_client, active_user, sphere, event
     ):
         sphere.managers.add(active_user)
@@ -112,7 +112,7 @@ class TestPublicEventPrintMaterials:
             response,
             unconfirmed=True,
             panel_access=True,
-            timetable=_timetable_document(event=event, pages=[]),
+            program=_program_document(event=event, days=[]),
         )
 
     def test_empty_session_list_renders_empty_state(self, client, event, space):
@@ -271,9 +271,9 @@ class TestPublicEventPrintMaterials:
             unconfirmed=True,
             panel_access=True,
             print_scopes=[_scope(space)],
-            timetable=_timetable_document(
+            program=_program_document(
                 event=event,
-                pages=[_one_hour_page(event=event, session=session, space=space)],
+                days=[_one_hour_program_day(event=event, session=session, space=space)],
             ),
         )
         assert_cache_control(response, {"private", "max-age=5"})
@@ -294,7 +294,7 @@ class TestPublicEventPrintMaterials:
         _assert_print_ok(
             response,
             print_scopes=[_scope(space)],
-            timetable=_timetable_document(event=event, pages=[]),
+            program=_program_document(event=event, days=[]),
         )
         assert_cache_control(response, {"public", "max-age=300"})
 
@@ -331,7 +331,7 @@ class TestPublicEventPrintMaterials:
         _assert_print_ok(
             response,
             print_scopes=[_scope(space)],
-            timetable=_timetable_document(event=event, pages=[]),
+            program=_program_document(event=event, days=[]),
         )
         event.refresh_from_db()
         assert event.printables_last_printed_at is None

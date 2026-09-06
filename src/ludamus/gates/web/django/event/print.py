@@ -32,6 +32,7 @@ if TYPE_CHECKING:
         DoorCardsDocumentDTO,
         PrintMaterialsServiceProtocol,
         PrintOptionDTO,
+        PrintProgramDocumentDTO,
         PrintSessionListDocumentDTO,
         PrintTimetableDocumentDTO,
     )
@@ -40,7 +41,9 @@ if TYPE_CHECKING:
     type _LazyStr = str | _StrPromise
 
 
-DocumentKind = Literal["area_schedule", "door_cards", "session_list", "timetable"]
+DocumentKind = Literal[
+    "area_schedule", "door_cards", "program", "session_list", "timetable"
+]
 ScopeKind = Literal["event", "scope", "track"]
 
 
@@ -63,10 +66,14 @@ class MaterialSpec:
         return self.scope_kind == "track"
 
     # The "with descriptions" capability swaps the timetable grid or the door
-    # cards for the per-space descriptions pages; the session list carries
-    # descriptions already.
+    # cards for the per-space descriptions pages and folds descriptions into
+    # the program's rows; the session list carries descriptions already.
     @property
     def supports_descriptions(self) -> bool:
+        return self.document_kind in {"timetable", "door_cards", "program"}
+
+    @property
+    def descriptions_swap_to_area_schedule(self) -> bool:
         return self.document_kind in {"timetable", "door_cards"}
 
     # Timetables and door cards cover a time window; the session list doesn't.
@@ -75,6 +82,7 @@ class MaterialSpec:
         return self.document_kind in {"timetable", "door_cards"}
 
 
+PROGRAM = "program"
 TIMETABLE = "timetable"
 TRACK_TIMETABLE = "track-timetable"
 SESSION_LIST = "session-list"
@@ -82,10 +90,13 @@ DOOR_CARDS = "door-cards"
 # Retired material value still reachable from old bookmarks; maps to the
 # timetable material with the descriptions checkbox ticked.
 LEGACY_DESCRIPTIONS_MATERIAL = "timetable-descriptions"
-# One timetable material, scopable to any space-tree node (a single room, a
-# whole floor, a building) or left unscoped for the whole event — the Scope
-# picker covers every level, so there is no separate venue/area/space material.
+# The program comes first and is the default: it is what a participant who
+# lands here from the event page wants to carry around. One timetable
+# material, scopable to any space-tree node (a single room, a whole floor, a
+# building) or left unscoped for the whole event — the Scope picker covers
+# every level, so there is no separate venue/area/space material.
 MATERIAL_SPECS = (
+    MaterialSpec(PROGRAM, _("Program for participants"), "program"),
     MaterialSpec(TIMETABLE, _("Timetable"), "timetable", scope_kind="scope"),
     MaterialSpec(
         TRACK_TIMETABLE, _("Track timetable"), "timetable", scope_kind="track"
@@ -149,6 +160,7 @@ class _ResolvedRange:
 
 @dataclass(frozen=True)
 class _PrintDocuments:
+    program: PrintProgramDocumentDTO | None = None
     timetable: PrintTimetableDocumentDTO | None = None
     area_schedule: AreaScheduleDocumentDTO | None = None
     session_list: PrintSessionListDocumentDTO | None = None
@@ -164,6 +176,8 @@ def _build_print_documents(
 ) -> _PrintDocuments:
     if document_kind == "session_list":
         return _PrintDocuments(session_list=session_list)
+    if document_kind == "program":
+        return _PrintDocuments(program=service.build_program(query))
     if document_kind == "timetable":
         return _PrintDocuments(timetable=service.build_timetable(query))
     if document_kind == "area_schedule":
@@ -238,7 +252,7 @@ class PublicEventPrintView(EventsPageRequiredMixin, View):
         # is scoped.
         document_kind: DocumentKind = (
             "area_schedule"
-            if descriptions and material_spec.supports_descriptions
+            if descriptions and material_spec.descriptions_swap_to_area_schedule
             else material_spec.document_kind
         )
 
@@ -268,6 +282,7 @@ class PublicEventPrintView(EventsPageRequiredMixin, View):
             {
                 "event": event,
                 "logo": event.logo_url or sphere.logo_url,
+                "program": documents.program,
                 "timetable": documents.timetable,
                 "area_schedule": documents.area_schedule,
                 "session_list": documents.session_list,
@@ -303,13 +318,15 @@ class PublicEventPrintView(EventsPageRequiredMixin, View):
     def _resolve_material(
         self, available_materials: tuple[MaterialSpec, ...]
     ) -> MaterialSpec:
-        # The timetable is the default; it carries the Scope picker, so a scoped
-        # request needs no special-casing here.
         available_by_value = {spec.value: spec for spec in available_materials}
         material = MATERIAL_SPECS_BY_VALUE.get(self.request.GET.get("material") or "")
         if material and material.value in available_by_value:
             return material
-        return MATERIAL_SPECS_BY_VALUE[TIMETABLE]
+        # Old bookmarks name the retired descriptions material; it was a
+        # timetable variant, so it must not fall through to the program.
+        if self.request.GET.get("material") == LEGACY_DESCRIPTIONS_MATERIAL:
+            return MATERIAL_SPECS_BY_VALUE[TIMETABLE]
+        return MATERIAL_SPECS_BY_VALUE[PROGRAM]
 
     def _resolve_range(self, event: EventDTO, tz: tzinfo) -> _ResolvedRange:
         # Both params are optional: no start means the event start, no hours

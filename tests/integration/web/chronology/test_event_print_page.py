@@ -5,6 +5,7 @@ from unittest.mock import ANY
 import pytest
 from django.urls import reverse
 from django.utils import timezone
+from django.utils.timezone import localdate
 
 from ludamus.gates.web.django.event.print import MATERIAL_SPECS_BY_VALUE
 from ludamus.links.db.django.models import Space, Track
@@ -14,7 +15,10 @@ from ludamus.pacts.printing import (
     AreaScheduleSessionDTO,
     AreaScheduleSpaceDTO,
     PrintOptionDTO,
+    PrintProgramDayDTO,
+    PrintProgramDocumentDTO,
     PrintSessionDTO,
+    PrintSessionListItemDTO,
     PrintTimetableCellDTO,
     PrintTimetableDocumentDTO,
     PrintTimetablePageDTO,
@@ -67,6 +71,32 @@ def _timetable_document(*, event, pages, scope_name=None):
         scope_name=scope_name,
         is_complete=False,
         pages=pages,
+    )
+
+
+def _program_document(*, event, days):
+    return PrintProgramDocumentDTO(
+        event_name=event.name,
+        event_description=event.description,
+        event_start=event.start_time,
+        event_end=event.end_time,
+        days=days,
+    )
+
+
+def _one_hour_program_day(*, event, session, space):
+    return PrintProgramDayDTO(
+        day=localdate(event.start_time),
+        sessions=[
+            PrintSessionListItemDTO(
+                title=session.title,
+                presenter_name=session.display_name,
+                description=session.description,
+                start_time=event.start_time,
+                end_time=event.start_time + timedelta(hours=1),
+                space_name=space.name,
+            )
+        ],
     )
 
 
@@ -127,13 +157,14 @@ def _assert_print_ok(
     selected_scope="",
     selected_track="",
     range_hours=None,
-    material="timetable",
+    material="program",
     descriptions=False,
     unconfirmed=False,
     session_list_available=False,
     panel_access=False,
     print_scopes=None,
     tracks=None,
+    program=ANY,
     timetable=ANY,
     area_schedule=ANY,
     session_list=ANY,
@@ -143,7 +174,7 @@ def _assert_print_ok(
         print_scopes = []
     if tracks is None:
         tracks = []
-    expected_options = ["timetable"]
+    expected_options = ["program", "timetable"]
     # The track scope is only offered when the event actually has tracks.
     if tracks:
         expected_options.append("track-timetable")
@@ -153,6 +184,7 @@ def _assert_print_ok(
     show_scope_control = material in {"timetable", "door-cards"}
     show_track_control = material == "track-timetable"
     show_descriptions_control = material in {
+        "program",
         "timetable",
         "track-timetable",
         "door-cards",
@@ -165,6 +197,7 @@ def _assert_print_ok(
         context_data={
             "event": ANY,
             "logo": logo,
+            "program": program,
             "timetable": timetable,
             "area_schedule": area_schedule,
             "session_list": session_list,
@@ -206,7 +239,16 @@ class TestPublicEventPrintView:
 
         response = client.get(self._url(event.slug))
 
-        _assert_print_ok(response, print_scopes=[_scope(space)])
+        # The participant program is the default: one page per day.
+        _assert_print_ok(
+            response,
+            print_scopes=[_scope(space)],
+            program=_program_document(
+                event=event,
+                days=[_one_hour_program_day(event=event, session=session, space=space)],
+            ),
+            timetable=None,
+        )
         assert_cache_control(response, {"public", "max-age=300"})
         # The same URL serves a manager variant; only Vary: Cookie keeps a
         # shared cache from handing it to the wrong audience.
@@ -214,9 +256,36 @@ class TestPublicEventPrintView:
         content = response.content.decode()
         assert session.title in content
         assert "Table of contents" in content
+        assert 'href="#program-day-1"' in content
+        assert 'id="program-day-1"' in content
+
+    def test_timetable_material_renders_the_grid(self, client, event, session, space):
+        _confirmed_item(event, session, space)
+
+        response = client.get(self._url(event.slug), {"material": "timetable"})
+
+        _assert_print_ok(
+            response, material="timetable", print_scopes=[_scope(space)], program=None
+        )
+        content = response.content.decode()
         assert 'href="#timetable-day-1"' in content
         assert 'id="timetable-day-1"' in content
-        assert "Timetable" in content
+
+    def test_program_with_descriptions_keeps_the_program(
+        self, client, event, session, space
+    ):
+        _confirmed_item(event, session, space)
+
+        response = client.get(self._url(event.slug), {"descriptions": "1"})
+
+        _assert_print_ok(
+            response,
+            descriptions=True,
+            print_scopes=[_scope(space)],
+            area_schedule=None,
+            timetable=None,
+        )
+        assert session.description in response.content.decode()
 
     def test_area_descriptions_render_full_description(
         self, client, event, session, space
@@ -227,7 +296,12 @@ class TestPublicEventPrintView:
             self._url(event.slug), {"material": "timetable", "descriptions": "1"}
         )
 
-        _assert_print_ok(response, descriptions=True, print_scopes=[_scope(space)])
+        _assert_print_ok(
+            response,
+            material="timetable",
+            descriptions=True,
+            print_scopes=[_scope(space)],
+        )
         content = response.content.decode()
         assert session.title in content
         assert session.description in content
@@ -289,6 +363,7 @@ class TestPublicEventPrintView:
 
         _assert_print_ok(
             response,
+            material="timetable",
             descriptions=True,
             print_scopes=[_scope(space)],
             area_schedule=_area_schedule_document(
@@ -332,7 +407,7 @@ class TestPublicEventPrintView:
             end_time=event.start_time + timedelta(hours=1),
         )
 
-        response = client.get(self._url(event.slug))
+        response = client.get(self._url(event.slug), {"material": "timetable"})
 
         assert "Full schedule" in response.content.decode()
 
@@ -347,7 +422,7 @@ class TestPublicEventPrintView:
             end_time=event.start_time + timedelta(hours=1),
         )
 
-        response = client.get(self._url(event.slug))
+        response = client.get(self._url(event.slug), {"material": "timetable"})
 
         assert "Full schedule" not in response.content.decode()
 
@@ -388,10 +463,13 @@ class TestPublicEventPrintView:
         space.save()
         _confirmed_item(event, session, space)
 
-        response = client.get(f"{self._url(event.slug)}?scope={parent.pk}")
+        response = client.get(
+            f"{self._url(event.slug)}?material=timetable&scope={parent.pk}"
+        )
 
         _assert_print_ok(
             response,
+            material="timetable",
             logo="/media/events/logo.png",
             selected_scope=str(parent.pk),
             print_scopes=[
@@ -453,11 +531,14 @@ class TestPublicEventPrintView:
         )
         start = event.start_time.strftime("%Y-%m-%dT%H:%M")
 
-        response = client.get(f"{self._url(event.slug)}?start={start}&hours=3")
+        response = client.get(
+            f"{self._url(event.slug)}?material=timetable&start={start}&hours=3"
+        )
 
         # Only the session inside the window makes the document; `late` is out.
         _assert_print_ok(
             response,
+            material="timetable",
             range_hours=3,
             print_scopes=[_scope(space)],
             timetable=_timetable_document(
@@ -568,9 +649,10 @@ class TestPublicEventPrintView:
                 "unconfirmed": False,
                 "material": "track-timetable",
                 "material_options": _specs(
-                    "timetable", "track-timetable", "door-cards"
+                    "program", "timetable", "track-timetable", "door-cards"
                 ),
                 "print_scopes": [_scope(space)],
+                "program": None,
                 "qr_svg": NonEmptyStringMatcher(contains="<svg"),
                 "range_hours": None,
                 "range_start_value": NonEmptyStringMatcher(),
@@ -596,7 +678,9 @@ class TestPublicEventPrintView:
         # material): pick the leaf in the scope picker.
         _confirmed_item(event, session, space)
 
-        response = client.get(f"{self._url(event.slug)}?scope={space.pk}")
+        response = client.get(
+            f"{self._url(event.slug)}?material=timetable&scope={space.pk}"
+        )
 
         assert_response(
             response,
@@ -610,8 +694,9 @@ class TestPublicEventPrintView:
                 "descriptions": False,
                 "unconfirmed": False,
                 "material": "timetable",
-                "material_options": _specs("timetable", "door-cards"),
+                "material_options": _specs("program", "timetable", "door-cards"),
                 "print_scopes": [_scope(space)],
+                "program": None,
                 "qr_svg": NonEmptyStringMatcher(contains="<svg"),
                 "range_hours": None,
                 "range_start_value": NonEmptyStringMatcher(),
@@ -659,9 +744,10 @@ class TestPublicEventPrintView:
                 "unconfirmed": False,
                 "material": "track-timetable",
                 "material_options": _specs(
-                    "timetable", "track-timetable", "door-cards"
+                    "program", "timetable", "track-timetable", "door-cards"
                 ),
                 "print_scopes": [_scope(space)],
+                "program": None,
                 "qr_svg": NonEmptyStringMatcher(contains="<svg"),
                 "range_hours": None,
                 "range_start_value": NonEmptyStringMatcher(),

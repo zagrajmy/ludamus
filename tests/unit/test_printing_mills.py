@@ -47,7 +47,16 @@ def _slot_on_day(pk, day, start_hour, end_hour):
 
 
 def _item(
-    pk, space_id, start_hour, end_hour, *, title, confirmed, description="", day=1
+    pk,
+    space_id,
+    start_hour,
+    end_hour,
+    *,
+    title,
+    confirmed,
+    description="",
+    day=1,
+    space_name="",
 ):
     return AgendaItemDTO(
         pk=pk,
@@ -55,6 +64,7 @@ def _item(
         start_time=datetime(2026, 6, day, start_hour, 0, tzinfo=UTC),
         end_time=datetime(2026, 6, day, end_hour, 0, tzinfo=UTC),
         space_id=space_id,
+        space_name=space_name,
         session_title=title,
         session_description=description,
         presenter_name="GM",
@@ -432,6 +442,64 @@ class TestTimetableCompleteness:
         document = _timetable(service, scope_space_pks=frozenset({1}))
 
         assert document.is_complete is False
+
+
+def _program(service, **kwargs):
+    return service.build_program(PrintQueryDTO(event_pk=1, tz=UTC, **kwargs))
+
+
+class TestBuildProgram:
+    def test_one_page_per_day_in_time_then_room_order(self):
+        spaces = [_space(1, "Alfa", 0), _space(2, "Bravo", 1)]
+        items = [
+            _item(1, 2, 9, 10, title="Late room", confirmed=True, space_name="Bravo"),
+            _item(2, 1, 9, 10, title="Early room", confirmed=True, space_name="Alfa"),
+            _item(3, 1, 11, 12, title="Second day", confirmed=True, day=2),
+            _item(
+                4,
+                1,
+                8,
+                9,
+                title="First",
+                confirmed=True,
+                description="Tale",
+                space_name="Alfa",
+            ),
+        ]
+        service = _service(spaces=spaces, items=items, slots=[])
+
+        document = _program(service)
+
+        assert [day.day for day in document.days] == [
+            date(2026, 6, 1),
+            date(2026, 6, 2),
+        ]
+        assert [s.title for s in document.days[0].sessions] == [
+            "First",
+            "Early room",
+            "Late room",
+        ]
+        assert document.days[0].sessions[0].description == "Tale"
+        assert document.days[0].sessions[0].space_name == "Alfa"
+        assert [s.title for s in document.days[1].sessions] == ["Second day"]
+
+    def test_drops_unconfirmed_when_confirmed_only(self):
+        spaces = [_space(1, "Alfa", 0)]
+        items = [
+            _item(1, 1, 9, 10, title="Sure", confirmed=True),
+            _item(2, 1, 10, 11, title="Maybe", confirmed=False),
+        ]
+        service = _service(spaces=spaces, items=items, slots=[])
+
+        assert [s.title for s in _program(service).days[0].sessions] == ["Sure"]
+        assert [
+            s.title for s in _program(service, confirmed_only=False).days[0].sessions
+        ] == ["Sure", "Maybe"]
+
+    def test_nothing_scheduled_means_no_days(self):
+        service = _service(spaces=[_space(1, "Alfa", 0)], items=[], slots=[])
+
+        assert _program(service).days == []
 
 
 class TestBuildAreaSchedule:

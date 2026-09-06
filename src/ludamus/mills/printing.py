@@ -1,7 +1,8 @@
 """Printing subdomain business logic.
 
-Assembles the printable materials of the public ``/print`` page (per-room-and-day
-door cards, a printed timetable, and description-rich per-area time-range pages)
+Assembles the printable materials of the public ``/print`` page (a participant
+program, per-room-and-day door cards, a printed timetable, and description-rich
+per-area time-range pages)
 from scheduled agenda items. Queries default to confirmed sessions only;
 ``confirmed_only=False`` (the sphere managers' toggle) also includes the
 unconfirmed ones. Empty timetable cells render as explicit gaps; door cards are
@@ -24,6 +25,8 @@ from ludamus.pacts.printing import (
     PrintablesReadyNotification,
     PrintablesReminderServiceProtocol,
     PrintOptionDTO,
+    PrintProgramDayDTO,
+    PrintProgramDocumentDTO,
     PrintQueryDTO,
     PrintSessionDTO,
     PrintSessionListDocumentDTO,
@@ -81,6 +84,17 @@ def _space_order(space: SpaceDTO) -> tuple[int, str]:
 
 def _session_list_order(item: AgendaItemDTO) -> tuple[datetime, str]:
     return (item.start_time, item.space_name)
+
+
+def _to_list_item(item: AgendaItemDTO) -> PrintSessionListItemDTO:
+    return PrintSessionListItemDTO(
+        title=item.session_title,
+        presenter_name=item.presenter_name,
+        description=item.session_description,
+        start_time=item.start_time,
+        end_time=item.end_time,
+        space_name=item.space_name,
+    )
 
 
 def _space_chunks(spaces: list[SpaceDTO]) -> list[list[SpaceDTO]]:
@@ -257,6 +271,35 @@ class PrintMaterialsService:
             pages=pages,
         )
 
+    def build_program(self, query: PrintQueryDTO) -> PrintProgramDocumentDTO:
+        # Participant-facing: the whole event in time order, one page per day,
+        # unscoped — a participant walks the whole venue, not one room.
+        event = self._events.read(query.event_pk)
+        items = [
+            item
+            for item in self._agenda_items.list_by_event(query.event_pk)
+            if item.session_confirmed or not query.confirmed_only
+        ]
+        by_day: dict[date, list[AgendaItemDTO]] = defaultdict(list)
+        for item in items:
+            by_day[item.start_time.astimezone(query.tz).date()].append(item)
+        return PrintProgramDocumentDTO(
+            event_name=event.name,
+            event_description=event.description,
+            event_start=event.start_time,
+            event_end=event.end_time,
+            days=[
+                PrintProgramDayDTO(
+                    day=day,
+                    sessions=[
+                        _to_list_item(item)
+                        for item in sorted(by_day[day], key=_session_list_order)
+                    ],
+                )
+                for day in sorted(by_day)
+            ],
+        )
+
     def build_area_schedule(self, query: PrintQueryDTO) -> AreaScheduleDocumentDTO:
         event = self._events.read(query.event_pk)
         range_start, range_end = query.time_range or (event.start_time, event.end_time)
@@ -322,15 +365,7 @@ class PrintMaterialsService:
             and (item.session_confirmed or not confirmed_only)
         ]
         sessions = [
-            PrintSessionListItemDTO(
-                title=item.session_title,
-                presenter_name=item.presenter_name,
-                description=item.session_description,
-                start_time=item.start_time,
-                end_time=item.end_time,
-                space_name=item.space_name,
-            )
-            for item in sorted(items, key=_session_list_order)
+            _to_list_item(item) for item in sorted(items, key=_session_list_order)
         ]
         return PrintSessionListDocumentDTO(
             event_name=event.name,

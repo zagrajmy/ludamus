@@ -8,6 +8,22 @@ const countPdfPages = (pdf: Buffer) => {
 };
 
 test.describe("Public print page", () => {
+  test("defaults to the participant program, one sheet per day", async ({ page }) => {
+    await page.goto(densePrintUrl);
+
+    await expect(page.getByLabel("Printable")).toHaveValue("program");
+    // No scope, track, or time-window controls: a participant prints it all.
+    await expect(page.getByLabel("Scope")).toHaveCount(0);
+    await expect(page.getByLabel("Start")).toHaveCount(0);
+
+    const preview = page.getByRole("region", { name: "Print preview" });
+    const sheets = preview.getByRole("group");
+    await expect(sheets).toHaveCount(2);
+    const rows = sheets.nth(0).getByRole("row");
+    await expect(rows.first()).toContainText(/\d{2}:\d{2}–\d{2}:\d{2}/);
+    await expect(sheets.nth(0)).toContainText("Open Play B");
+  });
+
   test("renders dense event timetable as chunked sideways preview pages", async ({
     browserName,
     page,
@@ -45,6 +61,7 @@ test.describe("Public print page", () => {
 
   test("offers dense-fixture printable materials", async ({ page }) => {
     const materials = [
+      ["program", "Program for participants"],
       ["timetable", "Timetable"],
       ["track-timetable", "Track timetable"],
       ["door-cards", "Door cards"],

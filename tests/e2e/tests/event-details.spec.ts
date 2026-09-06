@@ -14,6 +14,16 @@ test.describe("Event detail page", () => {
     await expect(page.getByText("Upcoming")).toHaveCount(0);
   });
 
+  test("the hero offers the print-ready program next to the venue tools", async ({ page }) => {
+    const link = page.getByRole("link", { name: "Print the program" });
+    await expect(link).toBeVisible();
+    await expect(link).toHaveAttribute("href", "/event/autumn-open/print/");
+
+    await link.click();
+    await expect(page).toHaveURL(/\/event\/autumn-open\/print\/$/);
+    await expect(page.getByLabel("Printable")).toHaveValue("program");
+  });
+
   test("shows the notice the organizer wrote on the active enrollment window", async ({ page }) => {
     await expect(page.getByText("grab a slot before we fill up!")).toBeVisible();
   });

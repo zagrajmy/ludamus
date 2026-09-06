@@ -1,9 +1,10 @@
 """Printing subdomain DTOs and protocols.
 
 Read-only document shapes for the printable materials on the public
-``/print`` page: a timetable grid, per-room-and-day door cards, per-space
-descriptions pages, and a session list. Rendered as print-styled HTML pages
-in the web gate (browser Save-as-PDF); assembled by `mills.printing`.
+``/print`` page: a participant program, a timetable grid, per-room-and-day
+door cards, per-space descriptions pages, and a session list. Rendered as
+print-styled HTML pages in the web gate (browser Save-as-PDF); assembled by
+`mills.printing`.
 """
 
 from __future__ import annotations
@@ -143,6 +144,21 @@ class PrintSessionListDocumentDTO(BaseModel):
     sessions: list[PrintSessionListItemDTO]
 
 
+# One page per day: what a participant carries around the venue — every
+# session in time order, with the room, so it reads like an agenda.
+class PrintProgramDayDTO(BaseModel):
+    day: date
+    sessions: list[PrintSessionListItemDTO]
+
+
+class PrintProgramDocumentDTO(BaseModel):
+    event_name: str
+    event_description: str
+    event_start: datetime
+    event_end: datetime
+    days: list[PrintProgramDayDTO]
+
+
 class PrintablesReminderRecipientDTO(BaseModel):
     user_id: int
     email: str
@@ -192,6 +208,7 @@ class PrintMaterialsServiceProtocol(Protocol):
     def list_tracks(self, event_pk: int) -> list[PrintOptionDTO]: ...
     def build_door_cards(self, query: PrintQueryDTO) -> DoorCardsDocumentDTO: ...
     def build_timetable(self, query: PrintQueryDTO) -> PrintTimetableDocumentDTO: ...
+    def build_program(self, query: PrintQueryDTO) -> PrintProgramDocumentDTO: ...
     def build_area_schedule(self, query: PrintQueryDTO) -> AreaScheduleDocumentDTO: ...
     def build_session_list(
         self, event_pk: int, *, confirmed_only: bool = True

@@ -2651,6 +2651,10 @@ msgid "Category updated successfully."
 msgstr "Kategoria została zaktualizowana."
 
 #: src/ludamus/gates/web/django/event/print.py
+msgid "Program for participants"
+msgstr "Program dla uczestników"
+
+#: src/ludamus/gates/web/django/event/print.py
 #: src/ludamus/templates/chronology/print.html
 msgid "Timetable"
 msgstr "Harmonogram"
@@ -4267,6 +4271,14 @@ msgstr "Przejdź do %(day)s %(time)s"
 msgid "Open details for %(title)s"
 msgstr "Otwórz szczegóły %(title)s"
 
+#: src/ludamus/templates/chronology/_hero_tools.html
+msgid "Venue maps"
+msgstr "Mapy lokalizacji"
+
+#: src/ludamus/templates/chronology/_hero_tools.html
+msgid "Print the program"
+msgstr "Drukuj program"
+
 #: src/ludamus/templates/chronology/_map_card.html
 #: src/ludamus/templates/panel/_space_tree_node.html
 #, python-format
@@ -4450,10 +4462,6 @@ msgstr[3] "%(counter)s zapisanych uczestników"
 #: src/ludamus/templates/chronology/_session_map_link.html
 msgid "Show on map"
 msgstr "Pokaż na mapie"
-
-#: src/ludamus/templates/chronology/_venue_maps_button.html
-msgid "Venue maps"
-msgstr "Mapy lokalizacji"
 
 #: src/ludamus/templates/chronology/accept_proposal.html
 msgid "Accept Proposal"
@@ -5260,19 +5268,31 @@ msgid "Print preview"
 msgstr "Podgląd wydruku"
 
 #: src/ludamus/templates/chronology/print.html
+#: src/ludamus/templates/panel/content-log.html
+#: src/ludamus/templates/panel/timetable-log.html
+msgctxt "table column"
+msgid "Session"
+msgstr "Punkt programu"
+
+#: src/ludamus/templates/chronology/print.html
+#: src/ludamus/templates/panel/_space_tree_node.html
+#: src/ludamus/templates/panel/parts/timetable-session-detail.html
+#: src/ludamus/templates/panel/timetable-log.html
+msgid "Room"
+msgstr "Sala"
+
+#: src/ludamus/templates/chronology/print.html
+#: src/ludamus/templates/panel/base.html
+msgid "Program"
+msgstr "Program"
+
+#: src/ludamus/templates/chronology/print.html
 msgid "No sessions scheduled yet."
 msgstr "Nie zaplanowano jeszcze żadnych punktów programu."
 
 #: src/ludamus/templates/chronology/print.html
 msgid "No confirmed sessions scheduled yet."
 msgstr "Nie zaplanowano jeszcze żadnych potwierdzonych punktów programu."
-
-#: src/ludamus/templates/chronology/print.html
-#: src/ludamus/templates/panel/content-log.html
-#: src/ludamus/templates/panel/timetable-log.html
-msgctxt "table column"
-msgid "Session"
-msgstr "Punkt programu"
 
 #: src/ludamus/templates/chronology/print.html
 msgid "No rooms to print."
@@ -6997,12 +7017,6 @@ msgid "Reorder %(name)s — use the arrow keys"
 msgstr "Zmień kolejność: %(name)s — użyj strzałek"
 
 #: src/ludamus/templates/panel/_space_tree_node.html
-#: src/ludamus/templates/panel/parts/timetable-session-detail.html
-#: src/ludamus/templates/panel/timetable-log.html
-msgid "Room"
-msgstr "Sala"
-
-#: src/ludamus/templates/panel/_space_tree_node.html
 msgid "Group"
 msgstr "Grupa"
 
@@ -7171,10 +7185,6 @@ msgstr "Sekcje panelu"
 #: src/ludamus/templates/panel/base.html src/ludamus/templates/panel/index.html
 msgid "Dashboard"
 msgstr "Pulpit"
-
-#: src/ludamus/templates/panel/base.html
-msgid "Program"
-msgstr "Program"
 
 #: src/ludamus/templates/panel/base.html
 #: src/ludamus/templates/panel/cfp-create.html
