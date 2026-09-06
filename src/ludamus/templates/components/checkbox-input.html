@@ -1,5 +1,5 @@
-{# Bare checkbox input. Callers should use checkbox-field.html or #}
-{# checkbox-toggle.html instead; this exists so each of their labelled #}
+{# Bare checkbox input. Callers should use checkbox-field.html or the #}
+{# tessera_checkbox_toggle tag instead; this exists so each of their labelled #}
 {# branches can be a complete element without duplicating the attribute list. #}
 <input type="checkbox"
        class="{{ size|default:'w-4 h-4' }} rounded border border-border accent-primary shrink-0 cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-primary/50 focus-visible:ring-offset-2{% if hook_class|default:"" %} {{ hook_class }}{% endif %}"

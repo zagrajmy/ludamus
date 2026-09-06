@@ -259,9 +259,9 @@
                             {% include "components/checkbox-field.html" with id="t-checkbox" name="t-checkbox" label="Checkbox" checked=True only %}
                         </div>
                         <div class="relative bg-background pt-12 px-8 pb-8 min-h-48 flex flex-wrap items-center justify-center gap-2">
-                            <code class="absolute top-3 left-3 text-xs text-foreground-muted">checkbox-toggle.html</code>
-                            {% include "components/checkbox-toggle.html" with id="t-toggle-off" name="t-toggle-off" label="Only with enrollment" only %}
-                            {% include "components/checkbox-toggle.html" with id="t-toggle-on" name="t-toggle-on" label="Hide ended" checked=True only %}
+                            <code class="absolute top-3 left-3 text-xs text-foreground-muted">tessera_checkbox_toggle</code>
+                            {% tessera_checkbox_toggle id="t-toggle-off" name="t-toggle-off" label="Only with enrollment" %}
+                            {% tessera_checkbox_toggle id="t-toggle-on" name="t-toggle-on" label="Hide ended" checked=True %}
                         </div>
                         <div class="relative bg-background pt-12 px-8 pb-8 min-h-48 flex items-center justify-center">
                             <code class="absolute top-3 left-3 text-xs text-foreground-muted">choice-group.html</code>
