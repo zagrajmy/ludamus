@@ -31,6 +31,11 @@
 {% endblock extra_head %}
 {% block main_region %}
     {% translate "Scope" as aria_scope %}
+    {# Sessions arrive in time order, so grouping by the day label the nav and #}
+    {# the sheets both print splits them into days. #}
+    {% if session_list %}
+        {% regroup session_list.sessions by start_time|date:"l, j E Y" as session_days %}
+    {% endif %}
     <main class="grow w-full print:m-0 print:p-0">
         <div class="grid w-full grid-cols-[minmax(260px,320px)_minmax(0,1fr)] max-[900px]:grid-cols-1 print:block">
             <aside class="sticky top-4 max-h-[calc(100vh-32px)] self-start overflow-auto border-r border-border bg-bg-secondary p-4 shadow-sm max-[900px]:static max-[900px]:max-h-none max-[900px]:border-r-0 max-[900px]:border-b print:hidden">
@@ -145,10 +150,9 @@
                                     <span class="px-2 py-1.5 text-foreground-muted">{% translate "No pages" %}</span>
                                 {% endfor %}
                             {% elif session_list %}
-                                {% regroup session_list.sessions by start_time|date:"Y-m-d" as session_days %}
                                 {% for day in session_days %}
                                     <a class="block rounded-md px-2 py-1.5 text-foreground-muted no-underline hover:bg-background"
-                                       href="#session-list-day-{{ forloop.counter }}">{{ day.list.0.start_time|date:"l, j E Y" }}</a>
+                                       href="#session-list-day-{{ forloop.counter }}">{{ day.grouper }}</a>
                                 {% empty %}
                                     <span class="px-2 py-1.5 text-foreground-muted">{% translate "No pages" %}</span>
                                 {% endfor %}
@@ -308,7 +312,6 @@
                             {% endfor %}
                         {% elif session_list %}
                             {# One sheet per day: a participant folds today's page into a pocket. #}
-                            {% regroup session_list.sessions by start_time|date:"Y-m-d" as session_days %}
                             {% for day in session_days %}
                                 <section class="{{ sheet_class }}"
                                          id="session-list-day-{{ forloop.counter }}"
@@ -316,7 +319,7 @@
                                          aria-labelledby="session-list-day-{{ forloop.counter }}-heading">
                                     {% include "chronology/parts/print_header.html" with scope_name="" show_full_schedule_label=True %}
                                     <h2 id="session-list-day-{{ forloop.counter }}-heading"
-                                        class="m-0 mb-[3mm] text-[14pt]">{{ day.list.0.start_time|date:"l, j E Y" }}</h2>
+                                        class="m-0 mb-[3mm] text-[14pt]">{{ day.grouper }}</h2>
                                     <table class="w-full border-collapse">
                                         <thead class="sr-only">
                                             <tr>

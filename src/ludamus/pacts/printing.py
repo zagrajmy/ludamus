@@ -142,7 +142,6 @@ class PrintSessionListDocumentDTO(BaseModel):
     event_description: str
     event_start: datetime
     event_end: datetime
-    scope_name: str | None = None
     sessions: list[PrintSessionListItemDTO]
 
 

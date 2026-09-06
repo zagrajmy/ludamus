@@ -168,6 +168,15 @@ def _build_print_documents(
     assert_never(document_kind)
 
 
+def _resolve_material(
+    requested: str, available: tuple[MaterialSpec, ...]
+) -> MaterialSpec:
+    return next(
+        (spec for spec in available if spec.value == requested),
+        MATERIAL_SPECS_BY_VALUE[SESSION_LIST],
+    )
+
+
 class PublicEventPrintView(EventsPageRequiredMixin, View):
     request: RootRequest
     template_name = "chronology/print.html"
@@ -205,10 +214,10 @@ class PublicEventPrintView(EventsPageRequiredMixin, View):
 
         tz = get_current_timezone()
         resolved_range = self._resolve_range(event, tz)
-        descriptions = (
-            request.GET.get("descriptions") == "1"
-            or request.GET.get("material") == LEGACY_DESCRIPTIONS_MATERIAL
-        )
+        requested_material = request.GET.get("material") or ""
+        descriptions = request.GET.get("descriptions") == "1"
+        if requested_material == LEGACY_DESCRIPTIONS_MATERIAL:
+            requested_material, descriptions = TIMETABLE, True
         # Only sphere managers may pull unconfirmed sessions onto paper; for
         # everyone else the param is ignored, not an error.
         unconfirmed = manages_event and request.GET.get("unconfirmed") == "1"
@@ -218,7 +227,7 @@ class PublicEventPrintView(EventsPageRequiredMixin, View):
         tracks = service.list_tracks(event.pk)
         selected_track = self._selected_track(tracks)
         material_options = _available_materials(tracks_available=bool(tracks))
-        material_spec = self._resolve_material(material_options)
+        material_spec = _resolve_material(requested_material, material_options)
         print_scope = _resolve_print_scope(
             material=material_spec, scope=scope, track=selected_track
         )
@@ -286,19 +295,6 @@ class PublicEventPrintView(EventsPageRequiredMixin, View):
         else:
             patch_cache_control(response, private=True, max_age=5)
         return response
-
-    def _resolve_material(
-        self, available_materials: tuple[MaterialSpec, ...]
-    ) -> MaterialSpec:
-        available_by_value = {spec.value: spec for spec in available_materials}
-        material = MATERIAL_SPECS_BY_VALUE.get(self.request.GET.get("material") or "")
-        if material and material.value in available_by_value:
-            return material
-        # Old bookmarks name the retired descriptions material; it was a
-        # timetable variant, so it must not fall through to the session list.
-        if self.request.GET.get("material") == LEGACY_DESCRIPTIONS_MATERIAL:
-            return MATERIAL_SPECS_BY_VALUE[TIMETABLE]
-        return MATERIAL_SPECS_BY_VALUE[SESSION_LIST]
 
     def _resolve_range(self, event: EventDTO, tz: tzinfo) -> _ResolvedRange:
         # Both params are optional: no start means the event start, no hours

@@ -22,6 +22,16 @@ test.describe("Public print page", () => {
     const rows = sheets.nth(0).getByRole("row");
     await expect(rows.nth(1)).toContainText(/\d{2}:\d{2}–\d{2}:\d{2}/);
     await expect(sheets.nth(0)).toContainText("Open Play B");
+
+    // Descriptions fold into the rows rather than swapping the document.
+    const description = sheets.nth(0).locator("td .whitespace-pre-wrap");
+    await expect(description).toHaveCount(0);
+    await page.getByLabel("With descriptions").check();
+    await expect(page).toHaveURL(/descriptions=1/);
+    await expect(page.getByLabel("Printable")).toHaveValue("session-list");
+    await expect(
+      preview.getByRole("group").nth(0).locator("td .whitespace-pre-wrap").first(),
+    ).toBeVisible();
   });
 
   test("renders dense event timetable as chunked sideways preview pages", async ({
