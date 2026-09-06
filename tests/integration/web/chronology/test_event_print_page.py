@@ -17,10 +17,10 @@ from ludamus.pacts.printing import (
     PrintSessionDTO,
     PrintSessionListDocumentDTO,
     PrintSessionListItemDTO,
-    PrintTimetableCellDTO,
     PrintTimetableDocumentDTO,
     PrintTimetablePageDTO,
     PrintTimetableRowDTO,
+    PrintTimetableTileDTO,
 )
 from ludamus.pacts.venues import PrintScopeOptionDTO
 from tests.integration.conftest import (
@@ -94,22 +94,21 @@ def _one_hour_list_item(*, event, session, space):
 
 
 def _one_hour_page(*, event, session, space):
+    end = event.start_time + timedelta(hours=1)
     return PrintTimetablePageDTO(
         day=event.start_time.date(),
         space_names=[space.name],
-        rows=[
-            PrintTimetableRowDTO(
+        rows=[PrintTimetableRowDTO(start_time=event.start_time, end_time=end)],
+        tiles=[
+            PrintTimetableTileDTO(
+                session=PrintSessionDTO(
+                    title=session.title, presenter_name=session.display_name
+                ),
                 start_time=event.start_time,
-                end_time=event.start_time + timedelta(hours=1),
-                cells=[
-                    PrintTimetableCellDTO(
-                        sessions=[
-                            PrintSessionDTO(
-                                title=session.title, presenter_name=session.display_name
-                            )
-                        ]
-                    )
-                ],
+                end_time=end,
+                col=1,
+                row_start=1,
+                row_end=2,
             )
         ],
         space_range_name=None,

@@ -67,21 +67,34 @@ class DoorCardsDocumentDTO(BaseModel):
     cards: list[DoorCardDTO]
 
 
-class PrintTimetableCellDTO(BaseModel):
-    # Empty list marks a slot with no session in this space (a visible gap).
-    sessions: list[PrintSessionDTO]
-
-
+# The grid the page draws, rooms across and time down like the event page's
+# rooms view: a row is a stretch of the day's axis between two instants at
+# which the programme changes, and a tile is one session spanning every row
+# it covers. Row and column numbers are 1-based; row_end is the exclusive
+# grid line, so a tile's grid area is rows [row_start, row_end).
 class PrintTimetableRowDTO(BaseModel):
     start_time: datetime
     end_time: datetime
-    cells: list[PrintTimetableCellDTO]
+
+    @property
+    def minutes(self) -> int:
+        return max(1, round((self.end_time - self.start_time).total_seconds() / 60))
+
+
+class PrintTimetableTileDTO(BaseModel):
+    session: PrintSessionDTO
+    start_time: datetime
+    end_time: datetime
+    col: int
+    row_start: int
+    row_end: int
 
 
 class PrintTimetablePageDTO(BaseModel):
     day: date
     space_names: list[str]
     rows: list[PrintTimetableRowDTO]
+    tiles: list[PrintTimetableTileDTO]
     space_range_name: str | None = None
 
 

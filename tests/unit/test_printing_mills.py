@@ -192,11 +192,11 @@ class TestBuildDoorCards:
 
 
 class TestBuildTimetable:
-    def test_rows_from_session_times_with_empty_cells_for_unused_spaces(self):
+    def test_tiles_sit_in_their_room_column_on_their_rows(self):
         spaces = [_space(1, "Alfa", 0), _space(2, "Bravo", 1)]
         items = [
             _item(1, 1, 9, 10, title="RPG", confirmed=True),
-            _item(2, 1, 10, 11, title="Larp", confirmed=True),
+            _item(2, 2, 10, 11, title="Larp", confirmed=True),
         ]
         service = _service(spaces=spaces, items=items)
 
@@ -204,11 +204,14 @@ class TestBuildTimetable:
 
         page = document.pages[0]
         assert page.space_names == ["Alfa", "Bravo"]
-        first_row, second_row = page.rows
-        assert [s.title for s in first_row.cells[0].sessions] == ["RPG"]
-        assert first_row.cells[1].sessions == []
-        assert [s.title for s in second_row.cells[0].sessions] == ["Larp"]
-        assert second_row.cells[1].sessions == []
+        assert [(r.start_time.hour, r.end_time.hour) for r in page.rows] == [
+            (9, 10),
+            (10, 11),
+        ]
+        assert [
+            (t.session.title, t.col, t.row_start, t.row_end) for t in page.tiles
+        ] == [("RPG", 1, 1, 2), ("Larp", 2, 2, 3)]
+        assert [row.minutes for row in page.rows] == [60, 60]
 
     def test_rows_show_session_times_not_availability_slots(self):
         # Time slots are proposer availability windows, not display units; the
@@ -227,7 +230,7 @@ class TestBuildTimetable:
             )
         ]
 
-    def test_overlapping_sessions_each_appear_once_in_their_own_row(self):
+    def test_a_long_session_spans_the_rows_a_short_one_cuts(self):
         spaces = [_space(1, "Alfa", 0), _space(2, "Bravo", 1)]
         items = [
             _item(1, 1, 10, 14, title="Long", confirmed=True),
@@ -235,15 +238,16 @@ class TestBuildTimetable:
         ]
         service = _service(spaces=spaces, items=items)
 
-        document = _timetable(service)
+        page = _timetable(service).pages[0]
 
-        rows = document.pages[0].rows
-        assert [(r.start_time.hour, r.end_time.hour) for r in rows] == [
+        assert [(r.start_time.hour, r.end_time.hour) for r in page.rows] == [
             (10, 11),
-            (10, 14),
+            (11, 14),
         ]
-        titles = [s.title for row in rows for cell in row.cells for s in cell.sessions]
-        assert sorted(titles) == ["Long", "Short"]
+        assert [(t.session.title, t.row_start, t.row_end) for t in page.tiles] == [
+            ("Long", 1, 3),
+            ("Short", 1, 2),
+        ]
 
     def test_sessions_render_when_event_has_no_slots(self):
         spaces = [_space(1, "Alfa", 0)]
@@ -252,13 +256,7 @@ class TestBuildTimetable:
 
         document = _timetable(service)
 
-        titles = [
-            s.title
-            for page in document.pages
-            for row in page.rows
-            for cell in row.cells
-            for s in cell.sessions
-        ]
+        titles = [t.session.title for page in document.pages for t in page.tiles]
         assert titles == ["Solo"]
 
     def test_one_page_per_date_with_sessions(self):
@@ -297,7 +295,9 @@ class TestBuildTimetable:
         ]
         assert document.pages[0].space_range_name == "Space 1 - Space 4"
         assert document.pages[1].space_range_name == "Space 5 - Space 7"
-        assert document.pages[1].rows[0].cells[2].sessions[0].title == "Final table"
+        assert [(t.session.title, t.col) for t in document.pages[1].tiles] == [
+            ("Final table", 3)
+        ]
 
     def test_chunk_without_sessions_produces_no_page(self):
         spaces = [_space(pk, f"Space {pk}", pk) for pk in range(1, 8)]
@@ -342,13 +342,7 @@ class TestBuildTimetable:
             ),
         )
 
-        titles = [
-            s.title
-            for page in document.pages
-            for row in page.rows
-            for cell in row.cells
-            for s in cell.sessions
-        ]
+        titles = [t.session.title for page in document.pages for t in page.tiles]
         assert titles == ["Morning"]
         # A time-clipped print is a subset, never "the whole program".
         assert document.is_complete is False
@@ -371,13 +365,7 @@ class TestConfirmedOnly:
 
         document = _timetable(service, confirmed_only=True)
 
-        titles = [
-            s.title
-            for page in document.pages
-            for row in page.rows
-            for cell in row.cells
-            for s in cell.sessions
-        ]
+        titles = [t.session.title for page in document.pages for t in page.tiles]
         assert titles == ["Confirmed"]
 
     def test_door_cards_drop_unconfirmed_when_confirmed_only(self):
