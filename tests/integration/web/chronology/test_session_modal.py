@@ -639,7 +639,7 @@ class TestSessionModalComponentView:
             event=event,
             category=None,
             presenter=active_user,
-            display_name=active_user.full_name,
+            facilitator_name=active_user.full_name,
             participants_limit=0,
         )
         agenda_item = AgendaItemFactory(session=session, space=space)

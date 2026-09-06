@@ -248,7 +248,7 @@ def _create_touching_pair(event: Event, spaces: list[Space]) -> None:
             event=event,
             title=f"Half-hour handover {index + 1}",
             slug=f"kapitularz-handover-{index + 1}",
-            display_name="Host 001",
+            facilitator_name="Host 001",
             contact_email="host-001@example.test",
             description="Back-to-back slots that share an hour, not a minute.",
             duration="PT1H",
