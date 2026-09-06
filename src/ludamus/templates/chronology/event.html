@@ -372,14 +372,14 @@
                                 <div class="filter-panel-body flex flex-wrap gap-3 grow pt-3.5">
                                     {# The flags share one row: each narrows the set by a yes/no #}
                                     {# the cards already carry, so they read as one group. #}
-                                    <div class="w-full flex flex-wrap gap-x-6 gap-y-2">
+                                    <div class="w-full flex flex-wrap gap-2">
                                         {% if has_enrollable_sessions %}
-                                            {% include "components/checkbox-field.html" with id="enrollment-filter" label=t_enrollment_only only %}
+                                            {% include "components/checkbox-toggle.html" with id="enrollment-filter" label=t_enrollment_only only %}
                                         {% endif %}
                                         {# A flag beside the status select, not an option in it: #}
                                         {# "Ended" there shows only what is over, and this narrows #}
                                         {# any status to what is still to come. #}
-                                        {% include "components/checkbox-field.html" with id="hide-ended-filter" label=t_hide_ended only %}
+                                        {% include "components/checkbox-toggle.html" with id="hide-ended-filter" label=t_hide_ended only %}
                                     </div>
                                     <div class="flex flex-col gap-1.5">
                                         <label class="{{ label_class }}" for="status-filter">{% translate "Status" %}</label>
