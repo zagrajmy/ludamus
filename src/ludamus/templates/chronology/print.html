@@ -203,7 +203,7 @@
                                         {% endfor %}
                                         {% for row in page.rows %}
                                         #timetable-day-{{ forloop.parentloop.counter }} [data-row="{{ forloop.counter }}"] {
-                                            grid-row: {{ forloop.counter|add:1 }};
+                                            grid-row-start: {{ forloop.counter|add:1 }};
                                         }
                                         {% endfor %}
                                         {% for span in page.spans %}
