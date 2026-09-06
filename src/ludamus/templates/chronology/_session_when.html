@@ -1,0 +1,4 @@
+{# The day and time range of a scheduled session, written the one way the #}
+{# site writes it. Takes agenda_item. #}
+{{ agenda_item.start_time|date:"l, j E" }} ·
+<span class="tabular-nums">{{ agenda_item.start_time|time:"G:i" }}–{{ agenda_item.end_time|time:"G:i" }}</span>

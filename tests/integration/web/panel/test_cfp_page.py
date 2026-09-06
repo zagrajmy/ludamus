@@ -46,6 +46,7 @@ class TestCFPPageView:
                 "active_tab": "types",
                 "tab_urls": cfp_tab_urls(event),
                 "categories": [],
+                "undeletable_category_reasons": {},
                 "category_stats": {},
             },
         )
@@ -99,6 +100,7 @@ class TestCFPPageView:
                         durations=[],
                     ),
                 ],
+                "undeletable_category_reasons": {},
                 "category_stats": {
                     cat1.pk: {"proposals_count": 0, "accepted_count": 0},
                     cat2.pk: {"proposals_count": 0, "accepted_count": 0},
@@ -118,6 +120,7 @@ class TestCFPPageView:
                 "active_tab": "types",
                 "tab_urls": cfp_tab_urls(event),
                 "categories": [],
+                "undeletable_category_reasons": {},
                 "category_stats": {},
             },
         )
@@ -203,6 +206,37 @@ class TestCFPPageView:
 
     # Stats display tests
 
+    def test_a_category_with_proposals_is_marked_undeletable(
+        self, panel_client, event, proposal_category, pending_session
+    ):
+        # delete_by_slug refuses such a category, so the row must not offer it.
+        assert pending_session.category == proposal_category
+
+        response = panel_client.get(self.get_url(event))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/cfp.html",
+            context_data={
+                **panel_context(
+                    event,
+                    active_nav="cfp",
+                    hosts_count=1,
+                    pending_proposals=1,
+                    total_proposals=1,
+                    total_sessions=1,
+                ),
+                "active_tab": "types",
+                "tab_urls": cfp_tab_urls(event),
+                "categories": [ProposalCategoryDTO.model_validate(proposal_category)],
+                "undeletable_category_reasons": {proposal_category.pk: "Has proposals"},
+                "category_stats": {
+                    proposal_category.pk: {"proposals_count": 1, "accepted_count": 0}
+                },
+            },
+        )
+
     def test_shows_zero_stats_when_no_proposals(self, panel_client, event):
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
 
@@ -229,6 +263,7 @@ class TestCFPPageView:
                         durations=[],
                     )
                 ],
+                "undeletable_category_reasons": {},
                 "category_stats": {
                     category.pk: {"proposals_count": 0, "accepted_count": 0}
                 },
@@ -297,6 +332,7 @@ class TestCFPPageView:
                         durations=[],
                     )
                 ],
+                "undeletable_category_reasons": {category.pk: "Has proposals"},
                 "category_stats": {
                     category.pk: {"proposals_count": 1 + 1 + 1, "accepted_count": 1}
                 },
@@ -382,6 +418,10 @@ class TestCFPPageView:
                         durations=[],
                     ),
                 ],
+                "undeletable_category_reasons": {
+                    category1.pk: "Has proposals",
+                    category2.pk: "Has proposals",
+                },
                 "category_stats": {
                     category1.pk: {"proposals_count": 1 + 1, "accepted_count": 1},
                     category2.pk: {"proposals_count": 1, "accepted_count": 0},
