@@ -24,11 +24,22 @@ from ludamus.pacts.legacy import SessionParticipationStatus, SessionStatus
 
 EVENT_SLUG = "kapitularz-2025-anonymized"
 EVENT_START_HOUR = 10
-EXPECTED_SESSION_COUNT = 110
+# The sessions the density specs generate. The touching pair below is seeded
+# separately and on purpose, so the event holds two more than this.
+EXPECTED_SPEC_SESSION_COUNT = 110
 EXPECTED_PARTICIPANT_COUNT = 555
 EXTRA_ENROLLMENT_SESSION_COUNT = 5
 HOST_COUNT = 72
+# Runs through the programme's 06:00 turnover, so the ledger lists it under
+# both days while the rooms grid draws it as one tile across the seam.
 OVERNIGHT_SESSION_SLOT = (1, 22)
+OVERNIGHT_SESSION_HOURS = 9
+# The room and hour the touching pair below takes. The room is free all
+# afternoon on day one, and nothing else in the programme starts in that hour —
+# so the hour is reachable only through the pair, and a grid keying its #slot-
+# anchors on the cut rather than the hour would strand it.
+TOUCHING_PAIR_ROOM = "RPG Table 7"
+TOUCHING_PAIR_START_HOUR = 15
 
 
 @dataclass(frozen=True)
@@ -169,10 +180,10 @@ def seed_kapitularz_print_event(sphere: Sphere) -> None:
         name="Kapitularz 2025 Anonymized",
         slug=EVENT_SLUG,
         description=(
-            "Synthetic, anonymized convention-scale programme for print previews. "
-            "The fixture preserves the public density of the source event without "
-            "keeping host, participant, or session identities."
+            "An anonymized copy of a real convention's programme: same density, "
+            "no real names."
         ),
+        address="4 Assembly Concourse\nNorthport",
         start_time=event_start,
         # Deliberately stale: the final day's programme continues after 13:00.
         # Untouched print ranges must follow scheduled content, not this bound.
@@ -213,9 +224,44 @@ def seed_kapitularz_print_event(sphere: Sphere) -> None:
     _create_time_slots(event, session_specs)
     sessions = _create_sessions(event, tracks, facilitators, session_specs)
     _create_participations(sessions, participants)
+    _create_touching_pair(event, spaces)
 
-    assert len(sessions) == EXPECTED_SESSION_COUNT
+    assert len(sessions) == EXPECTED_SPEC_SESSION_COUNT
     assert len(participants) == EXPECTED_PARTICIPANT_COUNT
+
+
+def _create_touching_pair(event: Event, spaces: list[Space]) -> None:
+    # Two sessions that touch but never overlap, off the hour. The rooms grid
+    # rules itself in hours cut at the instants the programme changes, and
+    # everything else here starts on the hour — without a pair like this nothing
+    # renders a cut row, and the grid could go back to laying two touching
+    # sessions side by side, the way it draws a clash, with the suite still
+    # green. Placed in a free room mid-afternoon on the first day, so the earlier
+    # rows the other grid specs measure stay whole hours, and inside the day's
+    # existing span, so the printed pages are unchanged.
+    space = next(space for space in spaces if space.name == TOUCHING_PAIR_ROOM)
+    for index in range(2):
+        start = event.start_time + timedelta(
+            hours=TOUCHING_PAIR_START_HOUR - EVENT_START_HOUR + index, minutes=30
+        )
+        session = Session.objects.create(
+            event=event,
+            title=f"Half-hour handover {index + 1}",
+            slug=f"kapitularz-handover-{index + 1}",
+            display_name="Host 001",
+            contact_email="host-001@example.test",
+            description="Back-to-back slots that share an hour, not a minute.",
+            duration="PT1H",
+            participants_limit=6,
+            status=SessionStatus.ACCEPTED,
+        )
+        AgendaItem.objects.create(
+            space=space,
+            session=session,
+            session_confirmed=True,
+            start_time=start,
+            end_time=start + timedelta(hours=1),
+        )
 
 
 def _create_spaces(area: Space) -> list[Space]:
@@ -309,7 +355,7 @@ def _create_sessions(
         space = track_spaces[(index - 1) % len(track_spaces)]
         facilitator = facilitators[(index * 7) % len(facilitators)]
         duration_hours = (
-            3
+            OVERNIGHT_SESSION_HOURS
             if (spec.day, spec.hour) == OVERNIGHT_SESSION_SLOT
             else (1, 1, 2, 2, 3)[index % 5]
         )

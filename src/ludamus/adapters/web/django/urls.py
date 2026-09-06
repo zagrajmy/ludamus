@@ -7,6 +7,8 @@ from ludamus.gates.web.django.chronology import offers
 from ludamus.gates.web.django.chronology import views as chronology_views
 from ludamus.gates.web.django.chronology.urls import urlpatterns as chronology_gate_urls
 from ludamus.gates.web.django.crowd.urls import urlpatterns as crowd_gate_urls
+from ludamus.gates.web.django.event import maps
+from ludamus.gates.web.django.event.ics import EventICSView
 from ludamus.gates.web.django.event.print import PublicEventPrintView
 from ludamus.gates.web.django.event.urls import urlpatterns as event_gate_urls
 from ludamus.gates.web.django.notice_board.urls import (
@@ -28,6 +30,28 @@ chronology_urls = [
     *chronology_gate_urls,
     path("event/<str:slug>/", views.EventPageView.as_view(), name="event"),
     path("event/<str:slug>/print/", PublicEventPrintView.as_view(), name="event-print"),
+    path("event/<str:slug>/calendar.ics", EventICSView.as_view(), name="event-ics"),
+    path("event/<str:slug>/maps/", maps.EventMapsPageView.as_view(), name="event-maps"),
+    path(
+        "event/<str:slug>/maps/do/add",
+        maps.EventMapAddActionView.as_view(),
+        name="event-map-add",
+    ),
+    path(
+        "event/<str:slug>/maps/<int:pk>/do/edit",
+        maps.EventMapEditActionView.as_view(),
+        name="event-map-edit",
+    ),
+    path(
+        "event/<str:slug>/maps/<int:pk>/do/attach",
+        maps.EventMapAttachActionView.as_view(),
+        name="event-map-attach",
+    ),
+    path(
+        "event/<str:slug>/maps/<int:pk>/do/delete",
+        maps.EventMapDeleteActionView.as_view(),
+        name="event-map-delete",
+    ),
     path(
         "event/<str:event_slug>/session/<int:session_id>/enrollment/",
         views.SessionEnrollPageView.as_view(),

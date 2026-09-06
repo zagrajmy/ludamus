@@ -7,13 +7,14 @@ from http import HTTPStatus
 from unittest.mock import ANY, MagicMock, patch
 
 import pytest
+import responses
 from django.contrib import messages
 from django.urls import reverse
 
 from ludamus.gates.web.django.chronology.panel.forms import integration_signature
 from ludamus.gates.web.django.panel import settings_tab_urls
 from ludamus.links.db.django.models import EventIntegration
-from ludamus.pacts.chronology import IntegrationImplementationId
+from ludamus.pacts.chronology import IntegrationImplementationId, IntegrationKind
 from tests.integration.conftest import EventFactory
 from tests.integration.utils import assert_login_required, assert_response
 from tests.integration.web.panel.helpers import (
@@ -94,6 +95,31 @@ class TestEventIntegrationSettingsPageView:
 
     def test_get_renders_settings_page(self, panel_client, event, connection):
         integration = make_integration(event, connection, display_name="Listed")
+
+        response = panel_client.get(_settings_url(event))
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="panel/integration-settings.html",
+            context_data=panel_context(event)
+            | {
+                "active_nav": "settings",
+                "active_tab": "integrations",
+                "tab_urls": settings_tab_urls(event.slug),
+                "integrations": [integration_dto(integration)],
+            },
+        )
+
+    def test_get_lists_an_export_integration(self, panel_client, event, connection):
+        integration = EventIntegration.objects.create(
+            event=event,
+            kind=IntegrationKind.EXPORT.value,
+            implementation=IntegrationImplementationId.KONWENCIK_SHEET_PUSHER.value,
+            connection=connection,
+            display_name="Konwencik",
+            config_json=json.dumps({"spreadsheet_id": "sheet-1"}),
+        )
 
         response = panel_client.get(_settings_url(event))
 
@@ -556,8 +582,8 @@ class TestIntegrationCheckActionView:
         # Mock only google.auth: real GoogleDocsProposalImporter._probe runs and
         # maps the (mocked) HTTP response — we never patch project code.
         with (
-            patch("ludamus.links.google_docs.Credentials.from_service_account_info"),
-            patch("ludamus.links.google_docs.AuthorizedSession") as session_cls,
+            patch("ludamus.links.google_auth.Credentials.from_service_account_info"),
+            patch("ludamus.links.google_auth.AuthorizedSession") as session_cls,
         ):
             session_cls.return_value.get.return_value = MagicMock(ok=True)
             response = panel_client.post(
@@ -715,4 +741,111 @@ class TestIntegrationCheckActionView:
                 "hint": "Configuration must be a JSON object.",
                 "signature": "",
             },
+        )
+
+
+TICKETING_IMPL = IntegrationImplementationId.SKLEP_KAPITULARZ
+TICKETING_URL = "https://shop.example.com/api/memberships"
+TICKETING_CONFIG_JSON = json.dumps({"base_url": TICKETING_URL})
+
+
+@pytest.mark.django_db
+class TestTicketingIntegration:
+    def test_post_creates_a_ticketing_integration(
+        self, panel_client, event, connection
+    ):
+        response = panel_client.post(
+            _create_url(event),
+            data={
+                "display_name": "Kapitularz",
+                "implementation": TICKETING_IMPL.value,
+                "connection": str(connection.pk),
+                "config_json": TICKETING_CONFIG_JSON,
+                "last_ok_signature": integration_signature(
+                    connection.pk, TICKETING_CONFIG_JSON
+                ),
+            },
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.FOUND,
+            messages=[(messages.SUCCESS, "Integration created.")],
+            url=_settings_url(event),
+        )
+        integration = EventIntegration.objects.get(
+            event=event, display_name="Kapitularz"
+        )
+        assert integration.kind == "ticketing"
+
+    def test_post_rejects_a_base_url_without_a_scheme(
+        self, panel_client, event, connection
+    ):
+        config_json = json.dumps({"base_url": "shop.example.com"})
+
+        response = panel_client.post(
+            _create_url(event),
+            data={
+                "display_name": "Kapitularz",
+                "implementation": TICKETING_IMPL.value,
+                "connection": str(connection.pk),
+                "config_json": config_json,
+                "last_ok_signature": integration_signature(connection.pk, config_json),
+            },
+        )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="chronology/panel/integrations/create.html",
+            context_data=panel_context(event) | {"active_nav": "settings", "form": ANY},
+        )
+        assert not EventIntegration.objects.filter(event=event).exists()
+
+    def test_check_reports_a_reachable_shop(
+        self, panel_client, event, connection_with_secret
+    ):
+        with responses.RequestsMock() as rsps:
+            rsps.get(TICKETING_URL, json={"membership_count": 0})
+            response = panel_client.post(
+                _check_url(event),
+                data={
+                    "implementation": TICKETING_IMPL.value,
+                    "connection": str(connection_with_secret.pk),
+                    "config_json": TICKETING_CONFIG_JSON,
+                },
+            )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="chronology/panel/integrations/_check_result.html",
+            context_data={
+                "passed": True,
+                "hint": "",
+                "signature": integration_signature(
+                    connection_with_secret.pk, TICKETING_CONFIG_JSON
+                ),
+            },
+        )
+
+    def test_check_reports_a_rejected_token(
+        self, panel_client, event, connection_with_secret
+    ):
+        with responses.RequestsMock() as rsps:
+            rsps.get(TICKETING_URL, status=HTTPStatus.UNAUTHORIZED, body="nope")
+            response = panel_client.post(
+                _check_url(event),
+                data={
+                    "implementation": TICKETING_IMPL.value,
+                    "connection": str(connection_with_secret.pk),
+                    "config_json": TICKETING_CONFIG_JSON,
+                },
+            )
+
+        assert_response(
+            response,
+            HTTPStatus.OK,
+            template_name="chronology/panel/integrations/_check_result.html",
+            context_data={"passed": False, "hint": "nope", "signature": ""},
         )

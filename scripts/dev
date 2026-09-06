@@ -3,6 +3,7 @@
 set -euo pipefail
 
 port=""
+sphere=""
 use_portless="1"
 use_lan="0"
 do_trust="0"
@@ -66,6 +67,14 @@ while [ $# -gt 0 ]; do
         exit 2
       fi
       ;;
+    --sphere)
+      shift
+      sphere="${1:-}"
+      if [ -z "$sphere" ]; then
+        echo "missing sphere after --sphere" >&2
+        exit 2
+      fi
+      ;;
     --lan)
       use_lan="1"
       ;;
@@ -92,6 +101,10 @@ done
 
 if [ -n "$port" ]; then
   export PORTLESS_APP_PORT="$port"
+fi
+
+if [ -n "$sphere" ]; then
+  export DEV_SPHERE="$sphere"
 fi
 
 if [ "${PORT:-}" != "" ]; then
@@ -141,8 +154,7 @@ if [ "$use_portless" = "1" ]; then
     export PORTLESS_HTTPS=0
   fi
 
-  exec "${PORTLESS[@]}" run --force --name "$(basename "$PWD")" \
-    -- ./scripts/dev-portless-child
+  exec "${PORTLESS[@]}" run --force -- ./scripts/dev-portless-child
 fi
 
 export PORT="${PORT:-8000}"

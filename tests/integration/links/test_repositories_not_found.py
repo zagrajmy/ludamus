@@ -14,6 +14,8 @@ from ludamus.links.db.django.models import (
     SessionField,
 )
 from ludamus.links.db.django.repositories import (
+    EventIntegrationsRepository,
+    EventMapRepository,
     EventRepository,
     ProposalCategoryRepository,
     SessionRepository,
@@ -109,6 +111,18 @@ class TestEventRepositoryNotFound:
             EventRepository.update(MISSING_ID, EventUpdateData())
 
 
+class TestEventIntegrationsRepositoryNotFound:
+    def test_update_last_run_raises_when_integration_missing(self, event):
+        with pytest.raises(NotFoundError):
+            EventIntegrationsRepository.update_last_run(
+                event_id=event.pk, pk=MISSING_ID, last_run_json="{}"
+            )
+
+    def test_get_for_update_raises_when_integration_missing(self, event):
+        with pytest.raises(NotFoundError):
+            EventIntegrationsRepository.get_for_update(event.pk, MISSING_ID)
+
+
 class TestProposalCategoryRepositoryWriteSideEffects:
     def test_set_personal_field_categories_creates_requirements(self, event):
         category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
@@ -135,3 +149,21 @@ class TestProposalCategoryRepositoryWriteSideEffects:
 
         result = ProposalCategoryRepository.get_session_field_categories(field.pk)
         assert result == {category.pk: False}
+
+
+class TestEventMapRepositoryNotFound:
+    def test_read_raises_when_missing(self):
+        with pytest.raises(NotFoundError):
+            EventMapRepository.read(MISSING_ID)
+
+    def test_update_raises_when_missing(self):
+        with pytest.raises(NotFoundError):
+            EventMapRepository().update(pk=MISSING_ID, name="Plan", images=None)
+
+    def test_set_spaces_raises_when_missing(self):
+        with pytest.raises(NotFoundError):
+            EventMapRepository.set_spaces(MISSING_ID, [])
+
+    def test_delete_raises_when_missing(self):
+        with pytest.raises(NotFoundError):
+            EventMapRepository.delete(MISSING_ID)

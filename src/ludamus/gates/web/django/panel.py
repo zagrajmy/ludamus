@@ -27,6 +27,7 @@ PanelNav = Literal[
     "venues",
     "tracks",
     "timetable",
+    "konwencik-export",
     "errata",
     "settings",
     "bans",

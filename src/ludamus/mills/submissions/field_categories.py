@@ -8,12 +8,15 @@ category pks live here once.
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING
 
-from ludamus.pacts.submissions import HasPk, RequirementSelectionDTO
+from ludamus.pacts.ids import HasPk
 
 if TYPE_CHECKING:
     from ludamus.pacts import ProposalCategoryRepositoryProtocol
     from ludamus.pacts.services import TransactionProtocol
-    from ludamus.pacts.submissions import CFPFieldRepositoryProtocol
+    from ludamus.pacts.submissions import (
+        CFPFieldRepositoryProtocol,
+        RequirementSelectionDTO,
+    )
 
 
 class CFPFieldCategoryService[CreateT, UpdateT, DtoT: HasPk](ABC):

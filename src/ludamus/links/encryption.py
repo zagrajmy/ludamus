@@ -6,7 +6,9 @@ caller; no Django/settings coupling. Encrypt and decrypt are split into
 separate classes so each consumer is granted only the half it needs.
 """
 
-from cryptography.fernet import Fernet
+from cryptography.fernet import Fernet, InvalidToken
+
+from ludamus.pacts.multiverse import DecryptionError
 
 
 class FernetEncryptor:
@@ -22,4 +24,9 @@ class FernetDecryptor:
         self._fernet = Fernet(key.encode() if isinstance(key, str) else key)
 
     def decrypt(self, blob: bytes) -> bytes:
-        return self._fernet.decrypt(blob)
+        try:
+            return self._fernet.decrypt(blob)
+        except InvalidToken as exception:
+            # Key rotation and a truncated column both land here; callers
+            # decide per port whether that is fatal or just one skipped row.
+            raise DecryptionError from exception
