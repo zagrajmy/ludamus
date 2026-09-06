@@ -321,6 +321,7 @@
             {# Assigned once: the checkbox below and its chip label further #}
             {# down have to say the same thing. #}
             {% translate "Only with enrollment" as t_enrollment_only %}
+            {% translate "Hide ended" as t_hide_ended %}
             <div class="mb-3">
                 {# The search field sets the row height; the Filters button and #}
                 {# the view tabs stretch to it (h-full, and a flex wrapper for #}
@@ -374,6 +375,12 @@
                                             {% include "components/checkbox-field.html" with id="enrollment-filter" label=t_enrollment_only only %}
                                         </div>
                                     {% endif %}
+                                    {# A flag beside the status select, not an option in it: #}
+                                    {# "Ended" there shows only what is over, and this narrows #}
+                                    {# any status to what is still to come. #}
+                                    <div class="w-full">
+                                        {% include "components/checkbox-field.html" with id="hide-ended-filter" label=t_hide_ended only %}
+                                    </div>
                                     <div class="flex flex-col gap-1.5">
                                         <label class="{{ label_class }}" for="status-filter">{% translate "Status" %}</label>
                                         {% select id="status-filter" class=select_class %}
@@ -526,7 +533,8 @@
                      data-remove-filter-label="{% translate "Remove filter" %}"
                      data-clear-all-label="{% translate "Clear all" %}"
                      data-age-label="{% translate "Participant age" %}:"
-                     data-enrollment-label="{{ t_enrollment_only }}">
+                     data-enrollment-label="{{ t_enrollment_only }}"
+                     data-hide-ended-label="{{ t_hide_ended }}">
                     <div class="overflow-hidden">
                         <div class="filter-chips-bar-inner" data-filter-chips-inner></div>
                     </div>

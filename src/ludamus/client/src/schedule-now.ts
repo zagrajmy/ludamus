@@ -93,6 +93,7 @@ const placeInList = (at: number): void => {
 // Only ever marks: the served state is the floor, so a reader whose device
 // clock runs slow cannot light a past programme back up.
 const markEnded = (at: number): void => {
+  let marked = false;
   for (const session of document.querySelectorAll<HTMLElement>(
     ".session[data-session-end]:not([data-ended])",
   )) {
@@ -103,7 +104,11 @@ const markEnded = (at: number): void => {
     // come, so ending settles the status the filters read (SessionData.
     // availability puts "ended" above all of them).
     session.dataset.status = "ended";
+    marked = true;
   }
+  // Only on a change: the filters answer with schedule:filtered, which lands
+  // back here, and a mark-nothing pass must not bounce a second time.
+  if (marked) document.dispatchEvent(new CustomEvent("schedule:ended"));
 };
 
 let observedGrid: HTMLElement | null = null;

@@ -217,6 +217,7 @@ const initSessionFilters = (): void => {
   const ageFilter = byId<HTMLInputElement>("age-filter");
   const minAgeFilter = byId<HTMLSelectElement>("min-age-filter");
   const enrollmentFilter = document.querySelector<HTMLInputElement>("#enrollment-filter");
+  const hideEndedFilter = document.querySelector<HTMLInputElement>("#hide-ended-filter");
   const filterToggle = byId("filter-toggle");
   const filterPanel = byId("filter-panel");
   const filterChipsBar = byId("active-filter-chips");
@@ -381,8 +382,8 @@ const initSessionFilters = (): void => {
   // One entry per value-holding filter control, in panel order. Mirroring,
   // matching, clearing, chips, and listeners all loop over this list, so a
   // new filter is one entry here plus its option population above. The search
-  // box and the enrollment checkbox stay outside: neither is a value filter
-  // over one card key (search is tokenized, enrollment is a flag).
+  // box and the checkboxes stay outside: none is a value filter over one
+  // card key (search is tokenized, enrollment and hide-ended are flags).
   const cardFilters: CardFilter[] = [
     selectFilter(statusFilter, "status", (card, value) => {
       const flag = STATUS_CARD_FLAGS[value];
@@ -500,6 +501,16 @@ const initSessionFilters = (): void => {
       },
     );
   }
+  if (hideEndedFilter) {
+    mirror(
+      "hide-ended",
+      flagParam,
+      () => hideEndedFilter.checked,
+      (value) => {
+        hideEndedFilter.checked = value;
+      },
+    );
+  }
   for (const f of cardFilters) {
     if (f.kind === "choice") mirrorChoice(f.param, f.el);
     else mirrorAge(f.param, f.el);
@@ -566,6 +577,7 @@ const initSessionFilters = (): void => {
   function filterSessions(): void {
     const searchTokens = normalizeText(sessionFilter.value).split(/\s+/).filter(Boolean);
     const enrollmentOnly = enrollmentFilter?.checked ?? false;
+    const hideEnded = hideEndedFilter?.checked ?? false;
     const activeFilters = cardFilters.filter((f) => f.active(f.el.value));
 
     for (const card of sessionCards) {
@@ -576,6 +588,7 @@ const initSessionFilters = (): void => {
         show &&= searchTokens.every((token) => haystack.includes(token));
       }
       if (enrollmentOnly) show &&= card.dataset.takesEnrollment === "true";
+      if (hideEnded) show &&= !Object.hasOwn(card.dataset, "ended");
       for (const f of activeFilters) show &&= f.matches(card, f.el.value);
 
       const cardContainer = card.closest<HTMLElement>(".session-wrapper");
@@ -607,6 +620,7 @@ const initSessionFilters = (): void => {
   function clearAllFilters(): void {
     sessionFilter.value = "";
     if (enrollmentFilter) enrollmentFilter.checked = false;
+    if (hideEndedFilter) hideEndedFilter.checked = false;
     for (const f of cardFilters) {
       f.el.value = "";
       syncControl(f.el);
@@ -639,6 +653,15 @@ const initSessionFilters = (): void => {
           filterSessions();
         },
         label: filterChipsBar.dataset.enrollmentLabel ?? "",
+      });
+    }
+    if (hideEndedFilter?.checked) {
+      chips.push({
+        clear: () => {
+          hideEndedFilter.checked = false;
+          filterSessions();
+        },
+        label: filterChipsBar.dataset.hideEndedLabel ?? "",
       });
     }
     for (const f of cardFilters) {
@@ -699,6 +722,16 @@ const initSessionFilters = (): void => {
 
   sessionFilter.addEventListener("input", filterSessions);
   enrollmentFilter?.addEventListener("change", filterSessions);
+  hideEndedFilter?.addEventListener("change", filterSessions);
+  // schedule-now.ts marks sessions ended as the clock passes them; a page left
+  // open with the box ticked hides each one the minute it is over.
+  document.addEventListener(
+    "schedule:ended",
+    () => {
+      if (hideEndedFilter?.checked) filterSessions();
+    },
+    { signal: documentListeners.signal },
+  );
   document.addEventListener(
     "click",
     (event) => {
