@@ -84,6 +84,12 @@ class PrintTimetableRowDTO(BaseModel):
         return max(1, round(elapsed / 60))
 
 
+# One slice of a shared column: which lane, and how many share it.
+class PrintTimetableLaneDTO(BaseModel):
+    lane: int
+    lanes: int
+
+
 class PrintTimetableTileDTO(BaseModel):
     session: PrintSessionDTO
     start_time: datetime
@@ -91,6 +97,10 @@ class PrintTimetableTileDTO(BaseModel):
     col: int
     row: int
     span: int
+    # Sessions that overlap in one room split its column between them: `lanes`
+    # is how many share it, `lane` which one this is, counted from the left.
+    lane: int = 0
+    lanes: int = 1
 
 
 class PrintTimetablePageDTO(BaseModel):
@@ -105,6 +115,15 @@ class PrintTimetablePageDTO(BaseModel):
         # The distinct tile heights: the template serves one rule per span
         # length it actually uses, as _room_lanes.html does.
         return sorted({tile.span for tile in self.tiles})
+
+    @property
+    def lane_shares(self) -> list[PrintTimetableLaneDTO]:
+        # The distinct ways a column is shared on this sheet: the template
+        # serves one rule per share rather than one per tile.
+        return [
+            PrintTimetableLaneDTO(lane=lane, lanes=lanes)
+            for lanes, lane in sorted({(tile.lanes, tile.lane) for tile in self.tiles})
+        ]
 
 
 class PrintTimetableDocumentDTO(BaseModel):

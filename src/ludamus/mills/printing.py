@@ -14,7 +14,7 @@ from __future__ import annotations
 from collections import defaultdict
 from datetime import timedelta
 from itertools import pairwise
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, NamedTuple
 
 from ludamus.pacts.printing import (
     AreaScheduleDocumentDTO,
@@ -96,6 +96,75 @@ def _space_range_name(spaces: list[SpaceDTO]) -> str | None:
     return f"{spaces[0].name} - {spaces[-1].name}"
 
 
+class _Placement(NamedTuple):
+    # A session on a sheet, before it becomes a tile: its grid area, and the
+    # lane it takes when it shares the room's column with another session.
+    item: AgendaItemDTO
+    col: int
+    row: int
+    span: int
+    lane: int = 0
+    lanes: int = 1
+
+    @property
+    def end(self) -> int:
+        return self.row + self.span
+
+
+def _placement_order(placement: _Placement) -> tuple[int, int]:
+    return (placement.row, placement.span)
+
+
+def _reading_order(placement: _Placement) -> tuple[int, int, int]:
+    # Down the rows, across the columns, then left to right within a shared
+    # column: the visual order.
+    return (placement.row, placement.col, placement.lane)
+
+
+def _share_column(run: list[_Placement]) -> list[_Placement]:
+    # Every session in the run gets the leftmost lane free at its row, and
+    # they all report the same lane count, so the column divides evenly.
+    lane_ends: list[int] = []
+    lanes: list[int] = []
+    for placement in run:
+        lane = next(
+            (index for index, end in enumerate(lane_ends) if end <= placement.row),
+            len(lane_ends),
+        )
+        if lane == len(lane_ends):
+            lane_ends.append(0)
+        lane_ends[lane] = placement.end
+        lanes.append(lane)
+    return [
+        placement._replace(lane=lane, lanes=len(lane_ends))
+        for placement, lane in zip(run, lanes, strict=True)
+    ]
+
+
+def _split_lanes(placements: list[_Placement]) -> list[_Placement]:
+    # Organizers do mis-schedule, and a room like "The Great Outside" holds
+    # several sessions at once on purpose; either way the sheet must show all
+    # of them. Sessions that overlap in one room share its width, as the event
+    # page's rooms view lays them out. Only a run of overlapping sessions
+    # splits: a room busy at noon still gets its full width at nine.
+    by_column: dict[int, list[_Placement]] = defaultdict(list)
+    for placement in placements:
+        by_column[placement.col].append(placement)
+
+    laned: list[_Placement] = []
+    for column in by_column.values():
+        run: list[_Placement] = []
+        run_end = 0
+        for placement in sorted(column, key=_placement_order):
+            if run and placement.row >= run_end:
+                laned += _share_column(run)
+                run = []
+            run.append(placement)
+            run_end = max(run_end, placement.end)
+        laned += _share_column(run)
+    return laned
+
+
 def _timetable_page(
     *, day: date, spaces: list[SpaceDTO], items: list[AgendaItemDTO]
 ) -> PrintTimetablePageDTO | None:
@@ -118,9 +187,18 @@ def _timetable_page(
     edges = [instants[key] for key in keys]
     line = {key: index + 1 for index, key in enumerate(keys)}
 
-    def reading_order(item: AgendaItemDTO) -> tuple[int, int]:
-        # Down the rows, then across the columns: the visual order.
-        return (line[item.start_time.timestamp()], col[item.space_id])
+    placements = _split_lanes(
+        [
+            _Placement(
+                item=item,
+                col=col[item.space_id],
+                row=line[item.start_time.timestamp()],
+                span=line[item.end_time.timestamp()]
+                - line[item.start_time.timestamp()],
+            )
+            for item in items
+        ]
+    )
 
     return PrintTimetablePageDTO(
         day=day,
@@ -131,15 +209,18 @@ def _timetable_page(
         ],
         tiles=[
             PrintTimetableTileDTO(
-                session=_to_session(item),
-                start_time=item.start_time,
-                end_time=item.end_time,
-                col=col[item.space_id],
-                row=line[item.start_time.timestamp()],
-                span=line[item.end_time.timestamp()]
-                - line[item.start_time.timestamp()],
+                session=_to_session(placement.item),
+                start_time=placement.item.start_time,
+                end_time=placement.item.end_time,
+                col=placement.col,
+                row=placement.row,
+                span=placement.span,
+                lane=placement.lane,
+                lanes=placement.lanes,
             )
-            for item in sorted(items, key=reading_order)
+            # Down the rows, across the columns, then left to right within a
+            # shared column: the visual order.
+            for placement in sorted(placements, key=_reading_order)
         ],
         space_range_name=_space_range_name(spaces),
     )

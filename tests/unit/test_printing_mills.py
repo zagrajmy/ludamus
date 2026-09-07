@@ -3,7 +3,7 @@ from zoneinfo import ZoneInfo
 
 from ludamus.mills.printing import PrintMaterialsService
 from ludamus.pacts import AgendaItemDTO, EventDTO, SpaceDTO
-from ludamus.pacts.printing import PrintQueryDTO
+from ludamus.pacts.printing import PrintQueryDTO, PrintTimetableLaneDTO
 
 
 def _event():
@@ -230,6 +230,48 @@ class TestBuildTimetable:
                 datetime(2026, 6, 1, 10, 0, tzinfo=UTC),
                 datetime(2026, 6, 1, 11, 0, tzinfo=UTC),
             )
+        ]
+
+    def test_sessions_overlapping_in_one_room_share_its_column(self):
+        # Organizers mis-schedule, and a room like "The Great Outside" holds
+        # several at once on purpose; the sheet prints them side by side.
+        spaces = [_space(1, "Outside", 0)]
+        items = [
+            _item(1, 1, 9, 12, title="Long", confirmed=True),
+            _item(2, 1, 10, 11, title="Middle", confirmed=True),
+            _item(3, 1, 10, 12, title="Late", confirmed=True),
+        ]
+        service = _service(spaces=spaces, items=items)
+
+        page = _timetable(service).pages[0]
+
+        assert [(t.session.title, t.lane, t.lanes) for t in page.tiles] == [
+            ("Long", 0, 3),
+            ("Middle", 1, 3),
+            ("Late", 2, 3),
+        ]
+        assert page.lane_shares == [
+            PrintTimetableLaneDTO(lane=0, lanes=3),
+            PrintTimetableLaneDTO(lane=1, lanes=3),
+            PrintTimetableLaneDTO(lane=2, lanes=3),
+        ]
+
+    def test_a_room_free_again_takes_its_whole_column_back(self):
+        # Only the run that overlaps splits: a later session stands alone.
+        spaces = [_space(1, "Outside", 0)]
+        items = [
+            _item(1, 1, 9, 11, title="Early", confirmed=True),
+            _item(2, 1, 10, 11, title="Clash", confirmed=True),
+            _item(3, 1, 14, 15, title="Alone", confirmed=True),
+        ]
+        service = _service(spaces=spaces, items=items)
+
+        page = _timetable(service).pages[0]
+
+        assert [(t.session.title, t.lane, t.lanes) for t in page.tiles] == [
+            ("Early", 0, 2),
+            ("Clash", 1, 2),
+            ("Alone", 0, 1),
         ]
 
     def test_rows_measure_instants_across_the_autumn_fold(self):
