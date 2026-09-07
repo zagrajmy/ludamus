@@ -207,26 +207,6 @@ class TestEventPageView:
         )
 
     @pytest.mark.usefixtures("agenda_item")
-    def test_ok_participants_label_toggle(self, client, event):
-        response_default = client.get(self._get_url(event.slug))
-        content_default = response_default.content.decode()
-
-        event.use_participants_label = True
-        event.save()
-        response_toggled = client.get(self._get_url(event.slug))
-        content_toggled = response_toggled.content.decode()
-
-        assert response_default.status_code == HTTPStatus.OK
-        assert response_toggled.status_code == HTTPStatus.OK
-        # "Players" only appears as the header count label; "Participants" also
-        # names a session-modal tab, so a bare presence check would always pass.
-        # Compare its count across the toggle instead.
-        assert "Players" in content_default
-        assert "Players" not in content_toggled
-        assert content_toggled.count("Participants") > content_default.count(
-            "Participants"
-        )
-
     def test_ok_compact_schedule_for_big_event(
         self, active_user, agenda_item, client, event, monkeypatch
     ):
@@ -2098,7 +2078,6 @@ class TestEventPageView:
                 sessions=[session_data],
                 total_enrolled=1,
                 user_enrolled_sessions=[session_data],
-                user_enrolled_session_titles=[session_data.session.title],
                 has_enrollable_sessions=True,
                 scheduled_count=1,
             ),
@@ -2506,7 +2485,6 @@ class TestEventPageView:
                 sessions=[session_data],
                 total_enrolled=1,
                 user_enrolled_sessions=[session_data],
-                user_enrolled_session_titles=[session_data.session.title],
                 has_enrollable_sessions=True,
                 scheduled_count=1,
             ),

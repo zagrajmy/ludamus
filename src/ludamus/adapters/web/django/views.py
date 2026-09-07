@@ -376,13 +376,13 @@ class EventPageView(EventsPageRequiredMixin, DetailView):  # type: ignore [type-
                     if has_maps
                     else None
                 ),
+                "print_url": reverse(
+                    "web:chronology:event-print", kwargs={"slug": self.object.slug}
+                ),
                 "google_calendar_url": google_calendar_url(calendar_entry),
                 "card_days": card_days,
                 "total_enrolled": total_enrolled,
                 "user_enrolled_sessions": user_enrolled_sessions,
-                "user_enrolled_session_titles": [
-                    s.session.title for s in user_enrolled_sessions
-                ],
                 "event_banned": event_banned,
             }
         )

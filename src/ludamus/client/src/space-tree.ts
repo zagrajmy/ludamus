@@ -86,6 +86,14 @@ if (root) {
   for (const list of document.querySelectorAll<HTMLElement>(".space-list")) {
     wireDrag(list);
   }
+  root.addEventListener("click", (event) => {
+    if (!(event.target instanceof Element)) return;
+    const disclosure = event.target.closest<HTMLButtonElement>("[data-space-disclosure]");
+    const children = document.getElementById(disclosure?.getAttribute("aria-controls") ?? "");
+    if (!disclosure || !children) return;
+    children.hidden = !children.hidden;
+    disclosure.setAttribute("aria-expanded", String(!children.hidden));
+  });
   // Keyboard reorder: Arrow Up/Down on a focused drag handle.
   root.addEventListener("keydown", (event) => {
     if (event.key !== "ArrowUp" && event.key !== "ArrowDown") return;

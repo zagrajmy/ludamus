@@ -3,30 +3,23 @@ from datetime import timedelta
 from django.urls import reverse
 from django.utils.timezone import localdate
 
-from ludamus.links.db.django.models import SphereMembership, Track
+from ludamus.links.db.django.models import SphereMembership
 from ludamus.pacts.multiverse import SphereRole
 from ludamus.pacts.printing import (
     DoorCardDTO,
     DoorCardEntryDTO,
     DoorCardsDocumentDTO,
     PrintSessionDTO,
-    PrintSessionListDocumentDTO,
 )
-from tests.integration.conftest import (
-    AgendaItemFactory,
-    SessionFactory,
-    SpaceFactory,
-    TimeSlotFactory,
-)
+from tests.integration.conftest import AgendaItemFactory, SessionFactory, SpaceFactory
 from tests.integration.utils import assert_cache_control
 from tests.integration.web.chronology.test_event_print_page import (
     _area_schedule_document,
     _assert_print_ok,
     _confirmed_item,
-    _one_hour_page,
+    _one_hour_list_item,
     _scope,
-    _timetable_document,
-    _track_option,
+    _session_list_document,
 )
 
 
@@ -101,7 +94,7 @@ class TestPublicEventPrintMaterials:
             ),
         )
 
-    def test_unconfirmed_toggle_with_nothing_scheduled_keeps_empty_timetable(
+    def test_unconfirmed_toggle_with_nothing_scheduled_keeps_empty_list(
         self, authenticated_client, active_user, sphere, event
     ):
         sphere.managers.add(active_user)
@@ -112,51 +105,23 @@ class TestPublicEventPrintMaterials:
             response,
             unconfirmed=True,
             panel_access=True,
-            timetable=_timetable_document(event=event, pages=[]),
+            session_list=_session_list_document(event=event, sessions=[]),
         )
 
     def test_empty_session_list_renders_empty_state(self, client, event, space):
-        track = Track.objects.create(
-            event=event, name="Focused Track", slug="focused-track", is_public=True
-        )
-        TimeSlotFactory(
-            event=event,
-            start_time=event.start_time,
-            end_time=event.start_time + timedelta(hours=2),
-        )
-
         response = client.get(self._url(event.slug), {"material": "session-list"})
 
         _assert_print_ok(
             response,
-            material="session-list",
-            session_list_available=True,
-            tracks=[_track_option(track)],
-            selected_track="focused-track",
             print_scopes=[_scope(space)],
             timetable=None,
-            session_list=PrintSessionListDocumentDTO(
-                event_name=event.name,
-                event_description=event.description,
-                event_start=event.start_time,
-                event_end=event.end_time,
-                scope_name="Focused Track",
-                sessions=[],
-            ),
+            session_list=_session_list_document(event=event, sessions=[]),
         )
 
     def test_empty_session_list_with_unconfirmed_toggle(
         self, authenticated_client, active_user, sphere, event, space
     ):
         sphere.managers.add(active_user)
-        track = Track.objects.create(
-            event=event, name="Focused Track", slug="focused-track", is_public=True
-        )
-        TimeSlotFactory(
-            event=event,
-            start_time=event.start_time,
-            end_time=event.start_time + timedelta(hours=2),
-        )
 
         response = authenticated_client.get(
             self._url(event.slug), {"material": "session-list", "unconfirmed": "1"}
@@ -164,22 +129,11 @@ class TestPublicEventPrintMaterials:
 
         _assert_print_ok(
             response,
-            material="session-list",
             unconfirmed=True,
-            session_list_available=True,
-            tracks=[_track_option(track)],
             panel_access=True,
-            selected_track="focused-track",
             print_scopes=[_scope(space)],
             timetable=None,
-            session_list=PrintSessionListDocumentDTO(
-                event_name=event.name,
-                event_description=event.description,
-                event_start=event.start_time,
-                event_end=event.end_time,
-                scope_name="Focused Track",
-                sessions=[],
-            ),
+            session_list=_session_list_document(event=event, sessions=[]),
         )
 
     def test_door_cards_with_descriptions_swap_to_the_area_schedule(
@@ -271,9 +225,11 @@ class TestPublicEventPrintMaterials:
             unconfirmed=True,
             panel_access=True,
             print_scopes=[_scope(space)],
-            timetable=_timetable_document(
+            session_list=_session_list_document(
                 event=event,
-                pages=[_one_hour_page(event=event, session=session, space=space)],
+                sessions=[
+                    _one_hour_list_item(event=event, session=session, space=space)
+                ],
             ),
         )
         assert_cache_control(response, {"private", "max-age=5"})
@@ -294,7 +250,7 @@ class TestPublicEventPrintMaterials:
         _assert_print_ok(
             response,
             print_scopes=[_scope(space)],
-            timetable=_timetable_document(event=event, pages=[]),
+            session_list=_session_list_document(event=event, sessions=[]),
         )
         assert_cache_control(response, {"public", "max-age=300"})
 
@@ -331,7 +287,7 @@ class TestPublicEventPrintMaterials:
         _assert_print_ok(
             response,
             print_scopes=[_scope(space)],
-            timetable=_timetable_document(event=event, pages=[]),
+            session_list=_session_list_document(event=event, sessions=[]),
         )
         event.refresh_from_db()
         assert event.printables_last_printed_at is None

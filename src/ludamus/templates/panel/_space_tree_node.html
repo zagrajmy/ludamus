@@ -1,11 +1,23 @@
 {% load i18n %}
 {% load tessera %}
-<li class="space-node"
-    draggable="true"
-    data-space-id="{{ node.space.pk }}">
+<li class="space-node" data-space-id="{{ node.space.pk }}">
     <div class="flex items-center justify-between gap-2 rounded-lg px-3 py-2 hover:bg-bg-tertiary">
         <div class="flex min-w-0 items-center gap-2">
+            {% if node.children %}
+                <button type="button"
+                        data-space-disclosure
+                        class="icon-btn icon-btn-clear group shrink-0 text-foreground-muted"
+                        aria-expanded="true"
+                        aria-controls="space-children-{{ node.space.pk }}"
+                        aria-label="{% blocktranslate with name=node.space.name %}Toggle children of {{ name }}{% endblocktranslate %}">
+                    {% icon "chevron-down" class="w-4 h-4 group-aria-[expanded=false]:hidden" %}
+                    {% icon "chevron-right" class="hidden w-4 h-4 group-aria-[expanded=false]:block" %}
+                </button>
+            {% else %}
+                <span class="size-7 shrink-0" aria-hidden="true"></span>
+            {% endif %}
             <button type="button"
+                    draggable="true"
                     class="drag-handle icon-btn cursor-move text-foreground-muted"
                     aria-label="{% blocktranslate with name=node.space.name %}Reorder {{ name }} — use the arrow keys{% endblocktranslate %}">
                 {% icon "bars-3" class="w-4 h-4" %}
@@ -112,7 +124,8 @@
         </div>
     </div>
     {% if node.children %}
-        <ul class="space-list ml-5 border-l border-border pl-1"
+        <ul id="space-children-{{ node.space.pk }}"
+            class="space-list ml-5 border-l border-border pl-1"
             data-parent-pk="{{ node.space.pk }}">
             {% for child in node.children %}
                 {% include "panel/_space_tree_node.html" with node=child %}
