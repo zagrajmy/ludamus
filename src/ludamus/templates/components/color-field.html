@@ -3,7 +3,7 @@
 <div class="relative" data-color-field>
     {% include "components/text-field.html" with class="h-11 pr-14 placeholder:text-foreground-secondary" spellcheck="false" autocomplete="off" placeholder="#rrggbb" %}
     <input type="color"
-           class="absolute inset-y-0 right-0 size-11 cursor-pointer rounded-r-lg border-0 bg-transparent p-2 disabled:cursor-not-allowed disabled:opacity-50"
+           class="absolute inset-y-0 right-0 size-11 cursor-pointer rounded-r-lg border-0 bg-transparent p-1 [&::-webkit-color-swatch-wrapper]:p-0 [&::-webkit-color-swatch]:rounded-md [&::-webkit-color-swatch]:border-0 [&::-moz-color-swatch]:rounded-md [&::-moz-color-swatch]:border-0 disabled:cursor-not-allowed disabled:opacity-50"
            aria-label="{{ label }} — {% translate 'Color picker' %}"
            {% if disabled or readonly %}disabled{% endif %}
            hidden>
