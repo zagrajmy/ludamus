@@ -138,9 +138,7 @@ class SpaceTreeService(SpaceTreeServiceProtocol):
 
     def move_to_top_level(self, event_id: int, space_pk: int) -> SpaceRecordDTO:
         with self._transaction.atomic():
-            space = self._spaces.read(space_pk)
-            if space.event_id != event_id:
-                raise NotFoundError
+            space = self._spaces.read_in_event(event_id, space_pk)
             if space.parent_id is None:
                 return space
             return self._spaces.update(

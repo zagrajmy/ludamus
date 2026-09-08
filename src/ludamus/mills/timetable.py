@@ -976,9 +976,7 @@ class TimetableOverviewService(TimetableOverviewServiceProtocol):
     ) -> HeatmapDTO:
         # Only leaf spaces are bookable rooms; a venue or area column would be
         # permanently empty.
-        spaces = _leaves_in_programme_order(
-            self._repos.spaces.list_by_event(event_pk)
-        )
+        spaces = _leaves_in_programme_order(self._repos.spaces.list_by_event(event_pk))
         all_items = self._repos.agenda_items.list_by_event(event_pk)
         if conflicts is None:
             conflicts = self.get_all_conflicts(event_pk)
@@ -1091,9 +1089,7 @@ class TimetableOverviewService(TimetableOverviewServiceProtocol):
         # Capacity = one program slot per room: every room is bookable for the
         # whole of each event time slot. Scheduled = hours already occupied by
         # placed agenda items in those rooms. Hours-to-fill is the remainder.
-        rooms = _leaves_in_programme_order(
-            self._repos.spaces.list_by_event(event_pk)
-        )
+        rooms = _leaves_in_programme_order(self._repos.spaces.list_by_event(event_pk))
         room_count = len(rooms)
 
         slots = self._repos.time_slots.list_by_event(event_pk)

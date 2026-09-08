@@ -325,7 +325,7 @@ class SpaceDTO(BaseModel):
     modification_time: datetime
     name: str
     order: int
-    programme_order: int
+    programme_order: int = 0
     pk: int
     slug: str
 

@@ -10,44 +10,76 @@
 {% endblock page_title %}
 {% block page_title_adornment %}
     {% translate "What are venues?" as t_info_title %}
-    {% translate "Organise the physical layout of your event. Add a single room on its own, or nest spaces as deeply as you need — a building with floors and rooms inside. Any space that holds sessions takes a capacity." as t_info_body %}
+    {% translate "Build the physical hierarchy here, from buildings and floors down to rooms. Use Programme order to arrange scheduled rooms independently for participants and timetables." as t_info_body %}
     {% include "components/info_popover.html" with title=t_info_title body=t_info_body %}
 {% endblock page_title_adornment %}
 {% block page_subtitle %}
-    {{ current_event.name }} · {% translate "Physical Locations" %}
+    {{ current_event.name }} ·
+    {% if active_tab == "programme" %}
+        {% translate "Programme order" %}
+    {% else %}
+        {% translate "Physical layout" %}
+    {% endif %}
 {% endblock page_subtitle %}
 {% block header_actions %}
-    {% url 'panel:space-create' slug=current_event.slug as new_space_url %}
-    {% translate "New top-level space" as t_new_space %}
-    {% tessera_button t_new_space href=new_space_url icon="plus" %}
+    {% if active_tab == "layout" %}
+        {% url 'panel:space-create' slug=current_event.slug as new_space_url %}
+        {% translate "New top-level space" as t_new_space %}
+        {% tessera_button t_new_space href=new_space_url icon="plus" %}
+    {% endif %}
 {% endblock header_actions %}
 {% block content %}
     <div class="panel-bleed">
-        {% if tree %}
-            {% translate "Could not save the new order. Reloading the page." as t_reorder_error %}
-            <div class="card card-body">
-                <ul id="space-root-list"
-                    class="space-list"
-                    data-parent-pk=""
-                    data-reorder-url="{% url 'panel:space-reorder' slug=current_event.slug %}"
-                    data-csrf="{{ csrf_token }}"
-                    data-reorder-error="{{ t_reorder_error }}">
-                    {% for node in tree %}
-                        {% include "panel/_space_tree_node.html" with node=node %}
-                    {% endfor %}
-                </ul>
-            </div>
-            {% vite_asset 'src/space-tree.ts' %}
+        {% translate "Venue views" as t_venue_views %}
+        <div class="mb-6">
+            {% tabs variant="segment" aria_label=t_venue_views %}
+                {% tab "layout" icon="building-office-2" href=layout_url %}
+                    {% translate "Physical layout" %}
+                {% endtab %}
+                {% tab "programme" icon="calendar-days" href=programme_url %}
+                    {% translate "Programme order" %}
+                {% endtab %}
+            {% endtabs %}
+        </div>
+        {% if active_tab == "programme" %}
+            {% include "panel/_programme_space_order.html" %}
         {% else %}
-            <div class="card p-8 text-center">
-                <div class="mb-4">{% icon "building-office-2" class="w-12 h-12 text-foreground-muted mx-auto" %}</div>
-                <p class="text-foreground-muted mb-4">
-                    {% translate "No spaces yet. Add a single room, or nest spaces to map a larger venue." %}
-                </p>
-                {% url 'panel:space-create' slug=current_event.slug as new_space_url %}
-                {% translate "New top-level space" as t_new_space %}
-                {% tessera_button t_new_space href=new_space_url icon="plus" %}
-            </div>
+            {% include "panel/_venue_path_previews.html" %}
+            {% if tree %}
+                {% translate "Could not save the new order. Reloading the page." as t_reorder_error %}
+                {% translate "Could not move the space to the top level. Reloading the page." as t_move_error %}
+                <div class="card card-body">
+                    {% if has_nested_spaces %}
+                        <div id="space-root-drop-target"
+                             class="mb-3 flex min-h-14 items-center justify-center rounded-lg border border-dashed border-border px-4 py-3 text-center text-sm text-foreground-muted transition-colors">
+                            {% translate "Drop a nested space here to move it to the top level. Keyboard: focus its handle and press Left Arrow." %}
+                        </div>
+                    {% endif %}
+                    <ul id="space-root-list"
+                        class="space-list"
+                        data-parent-pk=""
+                        data-reorder-url="{% url 'panel:space-reorder' slug=current_event.slug %}"
+                        data-move-to-root-url="{% url 'panel:space-move-to-root' slug=current_event.slug %}"
+                        data-csrf="{{ csrf_token }}"
+                        data-reorder-error="{{ t_reorder_error }}"
+                        data-move-error="{{ t_move_error }}">
+                        {% for node in tree %}
+                            {% include "panel/_space_tree_node.html" with node=node %}
+                        {% endfor %}
+                    </ul>
+                </div>
+                {% vite_asset 'src/space-tree.ts' %}
+            {% else %}
+                <div class="card p-8 text-center">
+                    <div class="mb-4">{% icon "building-office-2" class="w-12 h-12 text-foreground-muted mx-auto" %}</div>
+                    <p class="text-foreground-muted mb-4">
+                        {% translate "No spaces yet. Add a single room, or nest spaces to map a larger venue." %}
+                    </p>
+                    {% url 'panel:space-create' slug=current_event.slug as new_space_url %}
+                    {% translate "New top-level space" as t_new_space %}
+                    {% tessera_button t_new_space href=new_space_url icon="plus" %}
+                </div>
+            {% endif %}
         {% endif %}
     </div>
 {% endblock content %}

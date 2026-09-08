@@ -62,7 +62,9 @@ test.describe("Venue tree handles", () => {
     await expect(auroraToggle).toHaveAttribute("aria-expanded", "false");
     await expect(lounge).toBeHidden();
     await expect(page.getByText(auroraName, { exact: true })).toBeVisible();
-    await expect(page.getByText(glacierName, { exact: true })).toBeVisible();
+    await expect(
+      venueNode(page, glacierName).getByText(glacierName, { exact: true }),
+    ).toBeVisible();
     await expect(auroraToggle).toBeFocused();
 
     await auroraToggle.click();
@@ -113,6 +115,35 @@ test.describe("Venue tree handles", () => {
   });
 
   for (const interaction of ["keyboard", "drag"] as const) {
+    test(`${interaction} moves a nested venue to the top level`, async ({ page }) => {
+      let movedSpaceId: number | undefined;
+      let siblingReorders = 0;
+      await page.route("**/venues/do/reorder", async (route) => {
+        siblingReorders += 1;
+        await route.fulfill({ json: { success: true } });
+      });
+      await page.route("**/venues/do/move-to-root", async (route) => {
+        movedSpaceId = (await route.request().postDataJSON()).space_id;
+        await route.fulfill({ json: { success: true } });
+      });
+      const handle = dragHandle(page, "North Wing");
+
+      if (interaction === "keyboard") {
+        await handle.focus();
+        await handle.press("ArrowLeft");
+      } else {
+        await handle.dragTo(
+          page.getByText(
+            "Drop a nested space here to move it to the top level. Keyboard: focus its handle and press Left Arrow.",
+            { exact: true },
+          ),
+        );
+      }
+
+      await expect.poll(() => movedSpaceId).toBeGreaterThan(0);
+      expect(siblingReorders).toBe(0);
+    });
+
     test(`${interaction} reorders a collapsed venue without toggling it`, async ({ page }) => {
       // NOTE: endpoint persistence is covered in panel.spec.ts; keep this gesture check from mutating shared fixtures.
       await page.route("**/venues/do/reorder", (route) =>

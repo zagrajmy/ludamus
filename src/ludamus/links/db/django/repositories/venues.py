@@ -3,7 +3,7 @@ from typing import TYPE_CHECKING
 
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
-from django.db.models import Max, Value
+from django.db.models import Max, Value, prefetch_related_objects
 from django.db.models.functions import Lower
 from django.utils import timezone
 from django.utils.text import slugify
@@ -76,9 +76,7 @@ class SpaceRepository(SpaceRepositoryProtocol):
 
     @staticmethod
     def list_by_event(event_pk: int) -> list[SpaceDTO]:
-        spaces = Space.objects.filter(event_id=event_pk).order_by(
-            "order", "name", "pk"
-        )
+        spaces = Space.objects.filter(event_id=event_pk).order_by("order", "name", "pk")
         return [SpaceDTO.model_validate(space) for space in spaces]
 
 
@@ -133,12 +131,14 @@ class SpaceTreeRepository(SpaceTreeRepositoryProtocol):
     @staticmethod
     def list_programme_spaces(event_id: int) -> list[ProgrammeSpaceRowDTO]:
         spaces = list(
-            Space.objects.filter(event_id=event_id)
-            .order_by("programme_order", "name", "pk")
-            .prefetch_related("tracks")
+            Space.objects.filter(event_id=event_id).order_by(
+                "programme_order", "name", "pk"
+            )
         )
         by_pk = {space.pk: space for space in spaces}
         scheduled_pks = SpaceTreeRepository.space_pks_with_sessions(event_id)
+        scheduled_spaces = [space for space in spaces if space.pk in scheduled_pks]
+        prefetch_related_objects(scheduled_spaces, "tracks")
         path_cache: dict[int, str] = {}
 
         def path(space: Space) -> str:
@@ -160,14 +160,21 @@ class SpaceTreeRepository(SpaceTreeRepositoryProtocol):
                 programme_order=space.programme_order,
                 track_names=sorted(track.name for track in space.tracks.all()),
             )
-            for space in spaces
-            if space.pk in scheduled_pks
+            for space in scheduled_spaces
         ]
 
     @staticmethod
     def read(pk: int) -> SpaceRecordDTO:
         try:
             space = Space.objects.get(pk=pk)
+        except Space.DoesNotExist as err:
+            raise NotFoundError from err
+        return SpaceRecordDTO.model_validate(space)
+
+    @staticmethod
+    def read_in_event(event_id: int, pk: int) -> SpaceRecordDTO:
+        try:
+            space = Space.objects.get(event_id=event_id, pk=pk)
         except Space.DoesNotExist as err:
             raise NotFoundError from err
         return SpaceRecordDTO.model_validate(space)
@@ -264,7 +271,6 @@ class SpaceTreeRepository(SpaceTreeRepositoryProtocol):
                 space.save(update_fields=["order", "modification_time"])
 
     @staticmethod
-    @transaction.atomic
     def reorder_programme(event_id: int, space_pks: list[int]) -> None:
         spaces = list(
             Space.objects.select_for_update()
