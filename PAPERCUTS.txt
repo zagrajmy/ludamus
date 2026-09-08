@@ -514,3 +514,6 @@ If you fix a papercut, remove it.
 - 2026-09-08: Konwencik translation extraction: sourcing .env.e2e still failed
   varlock validation because SUPPORT_EMAIL is missing; supplied a test address
   explicitly.
+- 2026-09-08: MCP test examples in docs/agents/testing-assertions.md omit the
+  required positional status_code; assert_response(response) fails. Use
+  assert_response(response, HTTPStatus.OK).

@@ -507,6 +507,66 @@ class TestKonwencikMidnight:
         assert "Dracula" in caplog.text
 
 
+class TestKonwencikUpdateStyles:
+    def test_patches_fresh_settings_without_clearing_lock(self):
+        env = _make_service(tracks=[_track()])
+        env.repos.categories.list_by_event.return_value = [
+            SimpleNamespace(pk=CATEGORY_PK)
+        ]
+        env.integrations.get.return_value = _integration()
+        fresh = KonwencikExportSettings(
+            track_colors={20: "#203b50", 21: "#02897e"},
+            category_icons={CATEGORY_PK: "fa.gamepad"},
+            sync_enabled=True,
+            icon_field_pk=31,
+            photo_url_field_pk=32,
+            export_lock_time=_NOW,
+        )
+        env.integrations.get_for_update.side_effect = None
+        env.integrations.get_for_update.return_value = _integration(
+            settings_json=fresh.model_dump_json()
+        )
+
+        result = env.service.update_styles(
+            sphere_id=SPHERE_PK,
+            event_pk=EVENT_PK,
+            pk=INTEGRATION_PK,
+            track_colors={20: "#2c4d9b"},
+            category_icons={CATEGORY_PK: ""},
+        )
+
+        fresh.track_colors[20] = "#2c4d9b"
+        fresh.category_icons = {}
+        assert result == fresh
+        env.integrations.get.assert_called_once_with(EVENT_PK, INTEGRATION_PK)
+        env.integrations.get_for_update.assert_called_once_with(
+            EVENT_PK, INTEGRATION_PK
+        )
+        env.integrations.update_settings.assert_called_once_with(
+            event_id=EVENT_PK, pk=INTEGRATION_PK, settings_json=fresh.model_dump_json()
+        )
+        env.transaction.atomic.assert_called_once_with()
+        env.writer.write_rows.assert_not_called()
+
+    @pytest.mark.parametrize(
+        ("colors", "icons"), (({999: "#203b50"}, {}), ({}, {999: "fa.gamepad"}))
+    )
+    def test_foreign_ids_reject_whole_patch(self, colors, icons):
+        env = _make_service(tracks=[_track()])
+        env.integrations.get.return_value = _integration()
+
+        with pytest.raises(NotFoundError):
+            env.service.update_styles(
+                sphere_id=SPHERE_PK,
+                event_pk=EVENT_PK,
+                pk=INTEGRATION_PK,
+                track_colors={20: "#203b50", **colors},
+                category_icons=icons,
+            )
+
+        env.integrations.update_settings.assert_not_called()
+
+
 class TestKonwencikExportNow:
     def test_resolves_the_integration_scoped_to_the_event(self):
         env = _make_service(items=[], spaces=[])

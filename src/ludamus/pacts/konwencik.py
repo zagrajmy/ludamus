@@ -114,3 +114,12 @@ class KonwencikExportServiceProtocol(Protocol):
         settings: KonwencikExportSettings,
     ) -> None: ...
     def run_sweep(self, *, now: datetime) -> int: ...
+    def update_styles(
+        self,
+        *,
+        sphere_id: int,
+        event_pk: int,
+        pk: int,
+        track_colors: dict[int, str],
+        category_icons: dict[int, str],
+    ) -> KonwencikExportSettings: ...
