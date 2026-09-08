@@ -60,14 +60,14 @@ def _confirmed_item(event, session, space):
     )
 
 
-def _timetable_document(*, event, pages, scope_name=None, is_complete=False):
+def _timetable_document(*, event, pages, scope_name=None, is_unscoped=False):
     return PrintTimetableDocumentDTO(
         event_name=event.name,
         event_description=event.description,
         event_start=event.start_time,
         event_end=event.end_time,
         scope_name=scope_name,
-        is_complete=is_complete,
+        is_unscoped=is_unscoped,
         pages=pages,
     )
 
@@ -151,8 +151,6 @@ def _assert_print_ok(
     range_hours=None,
     material="session-list",
     descriptions=False,
-    unconfirmed=False,
-    panel_access=False,
     print_scopes=None,
     tracks=None,
     timetable=ANY,
@@ -191,9 +189,7 @@ def _assert_print_ok(
             "show_scope_control": show_scope_control,
             "show_track_control": show_track_control,
             "show_range_controls": show_range_controls,
-            "show_unconfirmed_control": panel_access,
             "descriptions": descriptions,
-            "unconfirmed": unconfirmed,
             "selected_scope": selected_scope,
             "selected_track": selected_track,
             "range_start_value": NonEmptyStringMatcher(),
@@ -344,7 +340,7 @@ class TestPublicEventPrintView:
             timetable=None,
         )
 
-    def test_unconfirmed_session_is_hidden(self, client, event, session, space):
+    def test_unconfirmed_session_is_printed(self, client, event, session, space):
         AgendaItemFactory(
             session=session,
             space=space,
@@ -356,33 +352,22 @@ class TestPublicEventPrintView:
         response = client.get(self._url(event.slug))
 
         _assert_print_ok(response, print_scopes=[_scope(space)])
-        assert session.title not in response.content.decode()
 
-    def test_full_schedule_label_shown_when_a_session_is_pending(
-        self, client, event, session, space, active_user
+    def test_unconfirmed_session_keeps_the_grid_unscoped(
+        self, client, event, session, space
     ):
         AgendaItemFactory(
             session=session,
             space=space,
-            session_confirmed=True,
+            session_confirmed=False,
             start_time=event.start_time,
             end_time=event.start_time + timedelta(hours=1),
-        )
-        pending = SessionFactory(
-            presenter=active_user, event=event, participants_limit=10
-        )
-        AgendaItemFactory(
-            session=pending,
-            space=space,
-            session_confirmed=False,
-            start_time=event.start_time + timedelta(hours=1),
-            end_time=event.start_time + timedelta(hours=2),
         )
 
         response = client.get(self._url(event.slug), {"material": "timetable"})
 
-        # The pending session is off the paper, so the grid is not the whole
-        # program: the header keeps pointing people at the full schedule.
+        # Confirmation says whether the facilitator answered, not whether the
+        # session is real: it never narrows what the sheet covers.
         _assert_print_ok(
             response,
             material="timetable",
@@ -390,6 +375,7 @@ class TestPublicEventPrintView:
             timetable=_timetable_document(
                 event=event,
                 pages=[_one_hour_page(event=event, session=session, space=space)],
+                is_unscoped=True,
             ),
         )
 
@@ -413,7 +399,7 @@ class TestPublicEventPrintView:
             timetable=_timetable_document(
                 event=event,
                 pages=[_one_hour_page(event=event, session=session, space=space)],
-                is_complete=True,
+                is_unscoped=True,
             ),
         )
 
@@ -440,7 +426,7 @@ class TestPublicEventPrintView:
 
         response = authenticated_client.get(self._url(event.slug))
 
-        _assert_print_ok(response, panel_access=True, print_scopes=[_scope(space)])
+        _assert_print_ok(response, print_scopes=[_scope(space)])
         assert_cache_control(response, {"private", "max-age=5"})
 
     def test_scoped_to_node_shows_logo_capacity_and_scope_name(
@@ -618,7 +604,6 @@ class TestPublicEventPrintView:
                 "event": EventDTO.model_validate(event),
                 "logo": "",
                 "descriptions": False,
-                "unconfirmed": False,
                 "material": "track-timetable",
                 "material_options": _specs(
                     "session-list", "timetable", "track-timetable", "door-cards"
@@ -632,7 +617,6 @@ class TestPublicEventPrintView:
                 "session_list": None,
                 "show_scope_control": False,
                 "show_range_controls": True,
-                "show_unconfirmed_control": False,
                 "show_track_control": True,
                 "timetable": _timetable_document(
                     event=event, pages=[], scope_name=track.name
@@ -662,7 +646,6 @@ class TestPublicEventPrintView:
                 "event": EventDTO.model_validate(event),
                 "logo": "",
                 "descriptions": False,
-                "unconfirmed": False,
                 "material": "timetable",
                 "material_options": _specs("session-list", "timetable", "door-cards"),
                 "print_scopes": [_scope(space)],
@@ -674,7 +657,6 @@ class TestPublicEventPrintView:
                 "session_list": None,
                 "show_scope_control": True,
                 "show_range_controls": True,
-                "show_unconfirmed_control": False,
                 "show_track_control": False,
                 "timetable": _timetable_document(
                     event=event,
@@ -709,7 +691,6 @@ class TestPublicEventPrintView:
                 "event": EventDTO.model_validate(event),
                 "logo": "",
                 "descriptions": False,
-                "unconfirmed": False,
                 "material": "track-timetable",
                 "material_options": _specs(
                     "session-list", "timetable", "track-timetable", "door-cards"
@@ -723,7 +704,6 @@ class TestPublicEventPrintView:
                 "session_list": None,
                 "show_scope_control": False,
                 "show_range_controls": True,
-                "show_unconfirmed_control": False,
                 "show_track_control": True,
                 "timetable": _timetable_document(
                     event=event,

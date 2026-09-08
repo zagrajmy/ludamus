@@ -41,7 +41,10 @@ test.describe("Public print page", () => {
   }) => {
     await page.goto(`${densePrintUrl}?material=timetable`);
 
-    await expect(page.getByRole("heading", { name: "Timetable" }).first()).toBeVisible();
+    // The day is the sheet's heading: the printed header names the event a
+    // centimetre above it, so a "Timetable" line over it said nothing. Asserted
+    // by level rather than by name, which is a localised date.
+    await expect(page.getByRole("heading", { level: 2 }).first()).toBeVisible();
     await expect(page.getByText("Kapitularz 2025 Anonymized").first()).toBeVisible();
     await expect(page.getByRole("navigation", { name: "Table of contents" })).toBeVisible();
 

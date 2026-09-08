@@ -94,43 +94,11 @@ class TestPublicEventPrintMaterials:
             ),
         )
 
-    def test_unconfirmed_toggle_with_nothing_scheduled_keeps_empty_list(
-        self, authenticated_client, active_user, sphere, event
-    ):
-        sphere.managers.add(active_user)
-
-        response = authenticated_client.get(self._url(event.slug), {"unconfirmed": "1"})
-
-        _assert_print_ok(
-            response,
-            unconfirmed=True,
-            panel_access=True,
-            session_list=_session_list_document(event=event, sessions=[]),
-        )
-
     def test_empty_session_list_renders_empty_state(self, client, event, space):
         response = client.get(self._url(event.slug), {"material": "session-list"})
 
         _assert_print_ok(
             response,
-            print_scopes=[_scope(space)],
-            timetable=None,
-            session_list=_session_list_document(event=event, sessions=[]),
-        )
-
-    def test_empty_session_list_with_unconfirmed_toggle(
-        self, authenticated_client, active_user, sphere, event, space
-    ):
-        sphere.managers.add(active_user)
-
-        response = authenticated_client.get(
-            self._url(event.slug), {"material": "session-list", "unconfirmed": "1"}
-        )
-
-        _assert_print_ok(
-            response,
-            unconfirmed=True,
-            panel_access=True,
             print_scopes=[_scope(space)],
             timetable=None,
             session_list=_session_list_document(event=event, sessions=[]),
@@ -206,35 +174,7 @@ class TestPublicEventPrintMaterials:
             ),
         )
 
-    def test_manager_can_include_unconfirmed_sessions(
-        self, authenticated_client, active_user, sphere, event, session, space
-    ):
-        sphere.managers.add(active_user)
-        AgendaItemFactory(
-            session=session,
-            space=space,
-            session_confirmed=False,
-            start_time=event.start_time,
-            end_time=event.start_time + timedelta(hours=1),
-        )
-
-        response = authenticated_client.get(self._url(event.slug), {"unconfirmed": "1"})
-
-        _assert_print_ok(
-            response,
-            unconfirmed=True,
-            panel_access=True,
-            print_scopes=[_scope(space)],
-            session_list=_session_list_document(
-                event=event,
-                sessions=[
-                    _one_hour_list_item(event=event, session=session, space=space)
-                ],
-            ),
-        )
-        assert_cache_control(response, {"private", "max-age=5"})
-
-    def test_unconfirmed_param_is_ignored_for_participants(
+    def test_unconfirmed_session_is_listed_for_participants(
         self, client, event, session, space
     ):
         AgendaItemFactory(
@@ -245,12 +185,17 @@ class TestPublicEventPrintMaterials:
             end_time=event.start_time + timedelta(hours=1),
         )
 
-        response = client.get(self._url(event.slug), {"unconfirmed": "1"})
+        response = client.get(self._url(event.slug))
 
         _assert_print_ok(
             response,
             print_scopes=[_scope(space)],
-            session_list=_session_list_document(event=event, sessions=[]),
+            session_list=_session_list_document(
+                event=event,
+                sessions=[
+                    _one_hour_list_item(event=event, session=session, space=space)
+                ],
+            ),
         )
         assert_cache_control(response, {"public", "max-age=300"})
 
@@ -262,13 +207,13 @@ class TestPublicEventPrintMaterials:
 
         response = authenticated_client.get(self._url(event.slug))
 
-        _assert_print_ok(response, panel_access=True)
+        _assert_print_ok(response)
         assert_cache_control(response, {"private", "max-age=5"})
         assert "Cookie" in response.headers.get("Vary", "")
         event.refresh_from_db()
         assert event.printables_last_printed_at is not None
 
-    def test_comms_visit_neither_marks_printed_nor_sees_unconfirmed(
+    def test_comms_visit_does_not_mark_printed(
         self, authenticated_client, active_user, sphere, event, session, space
     ):
         SphereMembership.objects.create(
@@ -282,12 +227,17 @@ class TestPublicEventPrintMaterials:
             end_time=event.start_time + timedelta(hours=1),
         )
 
-        response = authenticated_client.get(self._url(event.slug), {"unconfirmed": "1"})
+        response = authenticated_client.get(self._url(event.slug))
 
         _assert_print_ok(
             response,
             print_scopes=[_scope(space)],
-            session_list=_session_list_document(event=event, sessions=[]),
+            session_list=_session_list_document(
+                event=event,
+                sessions=[
+                    _one_hour_list_item(event=event, session=session, space=space)
+                ],
+            ),
         )
         event.refresh_from_db()
         assert event.printables_last_printed_at is None

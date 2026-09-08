@@ -47,11 +47,9 @@
             <div class="relative h-56 sm:h-72 bg-cover bg-center sm:rounded-t-3xl"
                  style="background-image: url('{{ event.cover_image_url }}')"
                  data-event-cover>
-                {# On the gutter the body below keeps, over a surface of its #}
-                {# own: .icon-btn draws no background, and an arbitrary photo #}
-                {# is no background to draw a glyph on. #}
-                <div class="absolute top-4 right-4 sm:top-8 sm:right-8 rounded-2xl bg-bg-secondary shadow-(--shadow-elevated)">
-                    {% include "chronology/_hero_tools.html" with maps_url=maps_url print_url=print_url only %}
+                {# On the gutter the body below keeps. #}
+                <div class="absolute top-4 right-4 sm:top-8 sm:right-8">
+                    {% include "chronology/_hero_tools.html" with maps_url=maps_url print_url=print_url on_cover=True only %}
                 </div>
             </div>
         {% endif %}
