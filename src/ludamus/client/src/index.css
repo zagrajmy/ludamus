@@ -722,6 +722,27 @@ button:active {
   }
 }
 
+/* `.panel-flush` is `.panel-bleed` at every width, for a page that is one
+   full-width table or list rather than a stack of cards. With no padding
+   between the card and the panel chrome, the card's own top border lands on
+   the header's `border-b` and reads as a 2px rule, and its shadow falls on an
+   edge there is nothing behind. Both go, along with the side borders and the
+   corners a card can no longer sit inside. */
+@layer utilities {
+  .panel-flush {
+    padding: 0;
+  }
+
+  .panel-flush .card {
+    margin-top: 0;
+    border-radius: 0;
+    border-top-width: 0;
+    border-left-width: 0;
+    border-right-width: 0;
+    box-shadow: none;
+  }
+}
+
 @layer base {
   select {
     background-color: var(--color-bg-secondary);
