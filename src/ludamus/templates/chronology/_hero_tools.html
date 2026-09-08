@@ -1,23 +1,27 @@
 {% load i18n %}
 {% load tessera %}
-{# The hero's tools share one spot with two homes: on the cover, where the #}
-{# caller lifts each button onto a surface of its own, and beside the CTAs, #}
-{# where the page has one. Stacked on a phone, side by side from tablets up. #}
+{# The hero's tools share one spot with two homes. `on_cover` says which: over #}
+{# a photo each button lifts onto a surface of its own, since .icon-btn draws #}
+{# no background and an arbitrary image is none to draw a glyph on. Beside the #}
+{# CTAs the page already provides one. Stacked on a phone, side by side from #}
+{# tablets up. #}
 {% translate "Print the program" as t_print_program %}
 {% translate "Venue maps" as t_venue_maps %}
-<div class="flex flex-col gap-1 max-sm:basis-full sm:flex-row">
-    <a href="{{ print_url }}"
-       class="icon-btn size-11 shrink-0 justify-center overflow-hidden rounded-xl"
-       title="{{ t_print_program }}">
-        {% icon "printer" class="size-5" variant="mini" %}
-        <span class="sr-only">{{ t_print_program }}</span>
-    </a>
-    {% if maps_url %}
-        <a href="{{ maps_url }}"
-           class="icon-btn size-11 shrink-0 justify-center overflow-hidden rounded-xl"
-           title="{{ t_venue_maps }}">
-            {% icon "map" class="size-5" variant="mini" %}
-            <span class="sr-only">{{ t_venue_maps }}</span>
+{% with surface=on_cover|yesno:"bg-bg-secondary shadow-(--shadow-elevated)," %}
+    <div class="flex flex-col gap-1 max-sm:basis-full sm:flex-row">
+        <a href="{{ print_url }}"
+           class="icon-btn size-11 shrink-0 justify-center overflow-hidden rounded-xl {{ surface }}"
+           title="{{ t_print_program }}">
+            {% icon "printer" class="size-5" variant="mini" %}
+            <span class="sr-only">{{ t_print_program }}</span>
         </a>
-    {% endif %}
-</div>
+        {% if maps_url %}
+            <a href="{{ maps_url }}"
+               class="icon-btn size-11 shrink-0 justify-center overflow-hidden rounded-xl {{ surface }}"
+               title="{{ t_venue_maps }}">
+                {% icon "map" class="size-5" variant="mini" %}
+                <span class="sr-only">{{ t_venue_maps }}</span>
+            </a>
+        {% endif %}
+    </div>
+{% endwith %}
