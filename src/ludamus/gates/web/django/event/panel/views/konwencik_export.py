@@ -71,7 +71,6 @@ class _Preview(TypedDict):
     category_index: int
     track_index: int
     category: str
-    track: str
 
 
 class _PageContext(TypedDict):
@@ -115,7 +114,6 @@ class KonwencikColorForm(_RowForm):
         required=False,
         strip=True,
         error_messages={"invalid": gettext_lazy("Use a hex colour, e.g. #1e88e5.")},
-        help_text=gettext_lazy("Leave empty for no background."),
     )
 
 
@@ -376,11 +374,10 @@ def _previews(context: KonwencikSettingsContext) -> list[_Preview]:
             category_index=category_index,
             track_index=track_index,
             category=category.name,
-            track=track.name if track else "",
         )
         for category_index, category in enumerate(context.categories)
-        for track_index, track in ((-1, None), *enumerate(context.tracks))
-        if (category.pk, track.pk if track else None) in context.programme_combinations
+        for track_index, track in enumerate(context.tracks)
+        if (category.pk, track.pk) in context.programme_combinations
     ]
 
 

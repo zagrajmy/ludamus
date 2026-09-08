@@ -48,13 +48,15 @@ test.describe("Konwencik export", () => {
 
   test("programme samples render icons and update without saving", async ({ page }) => {
     await page.goto("/panel/event/konwencik-preview/export/");
-    const samples = page.getByRole("list", { name: "Export preview" });
-    await expect(samples.getByRole("listitem")).toHaveCount(2);
+    const samples = page.getByRole("list", { name: "Adventure", exact: true });
+    await expect(samples.getByRole("listitem")).toHaveCount(1);
     await expect(samples.getByText("Unused track")).toHaveCount(0);
     await expect(samples.getByText("Workshops")).toHaveCount(0);
-    await expect(samples.getByText("No track", { exact: true })).toBeVisible();
+    await expect(page.getByText("No track", { exact: true })).toHaveCount(0);
+    await expect(page.getByRole("heading", { name: "Export preview" })).toHaveCount(0);
+    await expect(page.getByText("Leave empty for no background.")).toHaveCount(0);
 
-    const sample = samples.getByRole("listitem").filter({ hasText: "Adventure" });
+    const sample = samples.getByRole("listitem").filter({ hasText: "RPG" });
     const glyph = sample.locator("[data-konwencik-cell-icon]");
     await expect(glyph).toHaveCSS("font-family", '"Font Awesome 6 Free"');
     await expect
@@ -69,6 +71,13 @@ test.describe("Konwencik export", () => {
       "background-color",
       "rgb(255, 255, 255)",
     );
+    await expect(glyph).toHaveCSS("color", "rgb(255, 255, 255)");
+    await page.getByLabel("Background", { exact: true }).first().fill("");
+    await expect(sample).toBeHidden();
+    await page.getByLabel("Background", { exact: true }).first().fill("invalid");
+    await expect(sample).toBeHidden();
+    await page.getByLabel("Background", { exact: true }).first().fill("#1e88e5");
+    await expect(sample).toBeVisible();
     await page.getByLabel("Icon", { exact: true }).first().fill("fa.not-an-icon");
     await expect(sample.getByText("Preview unavailable for this icon")).toBeVisible();
     await page.getByLabel("Icon", { exact: true }).first().fill("fa.github");
@@ -94,7 +103,7 @@ test.describe("Konwencik export", () => {
     test(`preview fits and stays accessible at ${width}px`, async ({ page }) => {
       await page.setViewportSize({ width, height: 900 });
       await page.goto("/panel/event/konwencik-preview/export/");
-      await expect(page.getByRole("list", { name: "Export preview" })).toBeVisible();
+      await expect(page.getByRole("list", { name: "Adventure", exact: true })).toBeVisible();
       expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
         width,
       );

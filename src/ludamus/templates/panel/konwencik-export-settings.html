@@ -93,35 +93,6 @@
                                 {% translate "No attraction kinds yet. Add one in the event settings to give it an icon." %}
                             </p>
                         {% endfor %}
-                        {% if previews %}
-                            <div class="space-y-3 border-t border-border pt-4">
-                                <h3 class="text-sm font-medium text-foreground">{% translate "Export preview" %}</h3>
-                                <p class="text-sm text-foreground-muted">
-                                    {% translate "Icon and background combinations in the programme. Updates as you edit; session overrides may replace these icons." %}
-                                </p>
-                                <ul class="flex flex-wrap gap-x-6 gap-y-3"
-                                    aria-label="{% translate 'Export preview' %}">
-                                    {% for preview in previews %}
-                                        <li class="flex min-w-0 items-center gap-3">
-                                            <span class="flex size-12 shrink-0 items-center justify-center rounded-lg border border-border bg-bg-secondary text-xl"
-                                                  data-konwencik-cell
-                                                  data-category-index="{{ preview.category_index }}"
-                                                  data-track-index="{{ preview.track_index }}">
-                                                <i data-konwencik-cell-icon aria-hidden="true"></i>
-                                            </span>
-                                            <span class="min-w-0 text-sm">
-                                                <span class="block break-words font-medium text-foreground">{{ preview.category }}</span>
-                                                <span class="block break-words text-foreground-muted">{% if preview.track %}{{ preview.track }}{% else %}{% translate "No track" %}{% endif %}</span>
-                                                <span class="block text-xs text-foreground-muted"
-                                                      data-konwencik-icon-status
-                                                      data-empty="{% translate 'No icon' %}"
-                                                      data-unsupported="{% translate 'Preview unavailable for this icon' %}"></span>
-                                            </span>
-                                        </li>
-                                    {% endfor %}
-                                </ul>
-                            </div>
-                        {% endif %}
                     </div>
                 </div>
                 <div class="card">
@@ -136,6 +107,28 @@
                                     {{ row.form.pk }}
                                     {% for error in row.form.pk.errors %}<p class="mt-1 text-xs text-danger" role="alert">{{ error }}</p>{% endfor %}
                                     {% tessera_field row.form.color %}
+                                    <ul class="mt-3 flex flex-wrap gap-x-6 gap-y-3"
+                                        aria-label="{% if row.item %}{{ row.item.name }}{% endif %}">
+                                        {% for preview in previews %}
+                                            {% if preview.track_index == forloop.parentloop.counter0 %}
+                                                <li class="flex min-w-0 items-center gap-3" hidden>
+                                                    <span class="flex size-12 shrink-0 items-center justify-center rounded-lg text-xl"
+                                                          data-konwencik-cell
+                                                          data-category-index="{{ preview.category_index }}"
+                                                          data-track-index="{{ preview.track_index }}">
+                                                        <i data-konwencik-cell-icon aria-hidden="true"></i>
+                                                    </span>
+                                                    <span class="min-w-0 text-sm">
+                                                        <span class="block break-words font-medium text-foreground">{{ preview.category }}</span>
+                                                        <span class="block text-xs text-foreground-muted"
+                                                              data-konwencik-icon-status
+                                                              data-empty="{% translate 'No icon' %}"
+                                                              data-unsupported="{% translate 'Preview unavailable for this icon' %}"></span>
+                                                    </span>
+                                                </li>
+                                            {% endif %}
+                                        {% endfor %}
+                                    </ul>
                                 </div>
                             </div>
                         {% empty %}
