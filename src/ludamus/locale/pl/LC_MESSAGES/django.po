@@ -2600,10 +2600,6 @@ msgid "Use a hex colour, e.g. #1e88e5."
 msgstr "Podaj kolor w zapisie szesnastkowym, np. #1e88e5."
 
 #: src/ludamus/gates/web/django/event/panel/views/konwencik_export.py
-msgid "Leave empty for no background."
-msgstr "Zostaw puste, aby nie ustawiać tła."
-
-#: src/ludamus/gates/web/django/event/panel/views/konwencik_export.py
 msgid "Photo link field"
 msgstr "Pole z linkiem do zdjęcia"
 
@@ -8736,6 +8732,14 @@ msgstr ""
 "nadać mu ikonę."
 
 #: src/ludamus/templates/panel/konwencik-export-settings.html
+msgid "No icon"
+msgstr "Brak ikony"
+
+#: src/ludamus/templates/panel/konwencik-export-settings.html
+msgid "Preview unavailable for this icon"
+msgstr "Podgląd tej ikony jest niedostępny"
+
+#: src/ludamus/templates/panel/konwencik-export-settings.html
 msgid ""
 "No public tracks yet. A session with no public track is exported without a "
 "track."
@@ -10284,6 +10288,44 @@ msgstr ""
 
 #~ msgid "Physical Locations"
 #~ msgstr "Fizyczne lokalizacje"
+
+#~ msgid "Leave empty for no background."
+#~ msgstr "Zostaw puste, aby nie ustawiać tła."
+
+#~ msgid "Export preview"
+#~ msgstr "Podgląd eksportu"
+
+#~ msgid ""
+#~ "Icon and background combinations in the programme. Updates as you edit; "
+#~ "session overrides may replace these icons."
+#~ msgstr ""
+#~ "Połączenia ikon i kolorów tła występujące w programie. Podgląd zmienia "
+#~ "się podczas edycji; indywidualne ustawienia punktów programu mogą "
+#~ "zastąpić te ikony."
+
+#~ msgid "No track"
+#~ msgstr "Bez bloku"
+
+#~ msgid ""
+#~ "Every attraction kind is shown on every public track background, just as "
+#~ "their icon and background values will be paired in Konwencik."
+#~ msgstr ""
+#~ "Każdy rodzaj atrakcji jest pokazany na tle każdego publicznego bloku — "
+#~ "tak samo Konwencik połączy wyeksportowane ikony i tła."
+
+#~ msgid ""
+#~ "The preview updates as you edit. An em dash means no icon will be "
+#~ "exported."
+#~ msgstr ""
+#~ "Podgląd aktualizuje się podczas edycji. Myślnik oznacza, że ikona nie "
+#~ "zostanie wyeksportowana."
+
+#~ msgid "Add an attraction kind to preview its icon across track backgrounds."
+#~ msgstr "Dodaj rodzaj atrakcji, aby zobaczyć jego ikonę na tłach bloków."
+
+#~ msgid ""
+#~ "Add a public track to preview how its background works with every icon."
+#~ msgstr "Dodaj publiczny blok, aby zobaczyć jego tło z każdą ikoną."
 
 #~ msgid "Participant"
 #~ msgid_plural "Participants"

@@ -95,6 +95,7 @@ class KonwencikSettingsContext(BaseModel):
     session_fields: list[KonwencikNamedItemDTO]
     settings: KonwencikExportSettings
     last_run: KonwencikLastRun | None
+    programme_combinations: list[tuple[int, int | None]] = []
 
 
 class KonwencikExportServiceProtocol(Protocol):
