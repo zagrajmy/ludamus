@@ -108,9 +108,9 @@ test.describe("Konwencik export", () => {
     await page.getByLabel("Icon", { exact: true }).first().fill("");
     await expect(sample.getByText("No icon", { exact: true })).toBeVisible();
     await hex.focus();
-    await hex.press("Shift+Tab");
+    await hex.press("Tab");
     await expect(picker).toBeFocused();
-    await picker.press("Tab");
+    await picker.press("Shift+Tab");
     await expect(hex).toBeFocused();
     await hex.fill("#12");
     await page.getByRole("button", { name: "Save", exact: true }).click();
@@ -136,15 +136,22 @@ test.describe("Konwencik export", () => {
     await context.close();
   });
 
-  test("other panel pages do not load Font Awesome", async ({ page }) => {
-    const iconAssets: string[] = [];
-    page.on("request", (request) => {
-      if (/fa-solid|konwencik-preview/.test(request.url())) iconAssets.push(request.url());
+  for (const path of [TIMETABLE_URL, `/panel/event/${EVENT}/settings/`, "/design/"]) {
+    test(`${path} does not load Font Awesome`, async ({ page }) => {
+      const iconAssets: string[] = [];
+      page.on("request", (request) => {
+        if (
+          /fontawesome|fa-(solid|regular|brands|v4compatibility)|konwencik-preview/i.test(
+            request.url(),
+          )
+        )
+          iconAssets.push(request.url());
+      });
+      await page.goto(path);
+      await expect(page.getByRole("main")).toBeVisible();
+      expect(iconAssets).toEqual([]);
     });
-    await page.goto(TIMETABLE_URL);
-    await expect(page.getByRole("navigation", { name: "Panel sections" })).toBeVisible();
-    expect(iconAssets).toEqual([]);
-  });
+  }
 
   for (const width of [390, 768, 1440]) {
     test(`preview fits and stays accessible at ${width}px`, async ({ page }) => {
