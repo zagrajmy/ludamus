@@ -3,7 +3,7 @@
 {% load tessera %}
 {% if programme_spaces %}
     {% translate "Could not save the programme order. Reloading the page." as t_programme_order_error %}
-    <div class="card card-body">
+    <div>
         {% if programme_spaces|length > 1 %}
             <p class="mb-4 text-sm text-foreground-muted">
                 {% translate "Drag scheduled rooms into the order participants should see across the timetable. This does not change their physical nesting." %}
@@ -52,7 +52,7 @@
         {% vite_asset 'src/programme-space-order.ts' %}
     {% endif %}
 {% else %}
-    <div class="card p-8 text-center">
+    <div class="py-8 text-center">
         <div class="mb-4">{% icon "calendar-days" class="mx-auto size-12 text-foreground-muted" %}</div>
         <p class="text-foreground-muted">
             {% translate "No scheduled rooms yet. Assign a session to a room and it will appear here." %}

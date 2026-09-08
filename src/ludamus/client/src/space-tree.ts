@@ -61,12 +61,21 @@ const moveNode = (li: HTMLElement, direction: -1 | 1): void => {
 };
 
 let dragged: HTMLElement | null = null;
+let suppressDisclosureClick = false;
+
+const toggleChildren = (disclosure: HTMLButtonElement): void => {
+  const children = document.getElementById(disclosure.getAttribute("aria-controls") ?? "");
+  if (!children) return;
+  children.hidden = !children.hidden;
+  disclosure.setAttribute("aria-expanded", String(!children.hidden));
+};
 
 const wireDrag = (list: HTMLElement): void => {
   list.addEventListener("dragstart", (event) => {
     const li = (event.target as HTMLElement).closest<HTMLElement>(".space-node");
     if (li && directChildren(list).includes(li)) {
       dragged = li;
+      suppressDisclosureClick = false;
       li.style.opacity = "0.5";
     }
   });
@@ -77,6 +86,10 @@ const wireDrag = (list: HTMLElement): void => {
       void saveOrder(list);
     }
     dragged = null;
+    suppressDisclosureClick = true;
+    globalThis.setTimeout(() => {
+      suppressDisclosureClick = false;
+    }, 0);
   });
   list.addEventListener("dragover", (event) => {
     if (!dragged || !directChildren(list).includes(dragged)) return;
@@ -120,10 +133,19 @@ if (root) {
   root.addEventListener("click", (event) => {
     if (!(event.target instanceof Element)) return;
     const disclosure = event.target.closest<HTMLButtonElement>("[data-space-disclosure]");
-    const children = document.getElementById(disclosure?.getAttribute("aria-controls") ?? "");
-    if (!disclosure || !children) return;
-    children.hidden = !children.hidden;
-    disclosure.setAttribute("aria-expanded", String(!children.hidden));
+    if (disclosure) {
+      if (suppressDisclosureClick) return;
+      toggleChildren(disclosure);
+      return;
+    }
+    const branch = event.target.closest<HTMLElement>("[data-space-branch-disclosure]");
+    if (!branch || !(event instanceof MouseEvent)) return;
+    const branchBounds = branch.getBoundingClientRect();
+    if (event.clientX < branchBounds.left || event.clientX > branchBounds.left + 16) return;
+    const branchDisclosure = document.querySelector<HTMLButtonElement>(
+      `[data-space-disclosure][aria-controls="${branch.id}"]`,
+    );
+    if (branchDisclosure) toggleChildren(branchDisclosure);
   });
   root.addEventListener("keydown", (event) => {
     if (!["ArrowDown", "ArrowLeft", "ArrowUp"].includes(event.key)) return;
