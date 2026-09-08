@@ -111,10 +111,10 @@ class PrintTimetableDocumentDTO(BaseModel):
     event_end: datetime
     # Venue or area name when the document is scoped; None for the whole event.
     scope_name: str | None = None
-    # True when every scheduled session is confirmed (nothing pending) and at
-    # least one is scheduled — i.e. the printed grid is the whole program. Drives
-    # the public print page's QR label: a partial program points people online.
-    is_complete: bool = False
+    # False when the print is narrowed to a space subtree, a track or a time
+    # range. Drives the QR label: such a sheet is a subset by construction, so
+    # it points the reader at the full schedule online.
+    is_unscoped: bool = False
     pages: list[PrintTimetablePageDTO]
 
 

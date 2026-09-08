@@ -368,7 +368,7 @@ class TestBuildTimetable:
         titles = [t.session.title for page in document.pages for t in page.tiles]
         assert titles == ["Morning"]
         # A time-clipped print is a subset, never "the whole program".
-        assert document.is_complete is False
+        assert document.is_unscoped is False
 
     def test_documents_carry_event_description(self):
         service = _service(spaces=[_space(1, "Alfa", 0)], items=[])
@@ -404,15 +404,15 @@ class TestUnconfirmedSessionsReachPaper:
         assert [e.session.title for e in entries] == ["Pending"]
 
 
-class TestTimetableCompleteness:
-    def test_complete_when_an_unscoped_print_has_something_scheduled(self):
+class TestTimetableScope:
+    def test_unscoped_when_the_print_is_the_whole_event(self):
         spaces = [_space(1, "Alfa", 0)]
         items = [_item(1, 1, 9, 10, title="RPG", confirmed=True)]
         service = _service(spaces=spaces, items=items)
 
-        assert _timetable(service).is_complete is True
+        assert _timetable(service).is_unscoped is True
 
-    def test_complete_even_when_a_scheduled_session_is_unconfirmed(self):
+    def test_unscoped_even_when_a_scheduled_session_is_unconfirmed(self):
         spaces = [_space(1, "Alfa", 0)]
         items = [
             _item(1, 1, 9, 10, title="RPG", confirmed=True),
@@ -420,13 +420,13 @@ class TestTimetableCompleteness:
         ]
         service = _service(spaces=spaces, items=items)
 
-        assert _timetable(service).is_complete is True
+        assert _timetable(service).is_unscoped is True
 
-    def test_incomplete_when_nothing_scheduled(self):
+    def test_scoped_when_nothing_is_scheduled(self):
         spaces = [_space(1, "Alfa", 0)]
         service = _service(spaces=spaces, items=[])
 
-        assert _timetable(service).is_complete is False
+        assert _timetable(service).is_unscoped is False
 
     def test_scoped_timetable_is_never_complete(self):
         # A scoped print (one venue/area) is a subset, so never "the whole thing".
@@ -436,7 +436,7 @@ class TestTimetableCompleteness:
 
         document = _timetable(service, scope_space_pks=frozenset({1}))
 
-        assert document.is_complete is False
+        assert document.is_unscoped is False
 
 
 def _session_list(service, **kwargs):

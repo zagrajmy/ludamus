@@ -278,8 +278,8 @@ class PublicEventPrintView(EventsPageRequiredMixin, View):
                 "range_hours": resolved_range.hours,
             },
         )
-        # A manager's page differs from the public one (extra materials), so it
-        # must never land in a shared cache.
+        # The navbar carries the viewer's identity, so an authenticated response
+        # is never shareable; only the anonymous one may sit in a shared cache.
         if published and not panel_user:
             patch_cache_control(response, public=True, max_age=300)
         else:

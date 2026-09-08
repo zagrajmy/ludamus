@@ -171,16 +171,16 @@
                                          id="timetable-day-{{ forloop.counter }}"
                                          role="group"
                                          aria-labelledby="timetable-day-{{ forloop.counter }}-heading">
-                                    {% if not timetable.is_complete %}
+                                    {% if not timetable.is_unscoped %}
                                         {% include "chronology/parts/print_header.html" with scope_name=timetable.scope_name show_full_schedule_label=True %}
                                     {% else %}
                                         {% include "chronology/parts/print_header.html" with scope_name=timetable.scope_name show_full_schedule_label=False %}
                                     {% endif %}
-                                    <h3 id="timetable-day-{{ forloop.counter }}-heading"
+                                    <h2 id="timetable-day-{{ forloop.counter }}-heading"
                                         class="m-0 mb-[2mm] text-[12pt]">
                                         {{ page.day|date:"l, j E Y" }}
                                         {% if page.space_range_name %}<span class="block text-[9pt] font-normal">{{ page.space_range_name }}</span>{% endif %}
-                                    </h3>
+                                    </h2>
                                     {# The rooms grid, black on white: rooms across, time down, a #}
                                     {# session as one tile spanning the rows it covers. Placement #}
                                     {# is data-driven, not inline: a style attribute cannot carry #}

@@ -46,9 +46,12 @@
                 {# notch hang 4px off its edges, and it used to be overflow-hidden, #}
                 {# which shaved them. Nothing here needs it — the name bounds itself #}
                 {# with max-w + truncate, and 20px of card padding is the backstop. #}
-                {% if data.presenter or data.session.display_name or data.enrolled_count %}
+                {# A session with no facilitator still has a presenter object: the #}
+                {# card DTO substitutes one carrying the display name, so the name #}
+                {# is what says whether there is anybody to show. #}
+                {% if data.session.display_name or data.enrolled_count %}
                     <div class="flex items-center gap-2.5 my-3.5 min-w-0 flex-nowrap">
-                        {% if data.presenter %}
+                        {% if data.session.display_name %}
                             <span class="shrink-0 relative" data-morph="avatar">
                                 {% include "components/avatar.html" with user=data.presenter size="size-8" danger_ring=data.presenter_is_shadowbanned %}
                                 {# The notch reads as cut out of the card, so its ring #}

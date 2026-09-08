@@ -235,10 +235,7 @@ class PrintMaterialsService:
             event_start=event.start_time,
             event_end=event.end_time,
             scope_name=query.scope_name,
-            # A scoped print (space subtree, track, or time range) is a subset
-            # by construction, so it is never "the whole program"; completeness
-            # only applies unscoped.
-            is_complete=(
+            is_unscoped=(
                 query.scope_space_pks is None
                 and query.track_pk is None
                 and query.time_range is None

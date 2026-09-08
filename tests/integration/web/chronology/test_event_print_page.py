@@ -60,14 +60,14 @@ def _confirmed_item(event, session, space):
     )
 
 
-def _timetable_document(*, event, pages, scope_name=None, is_complete=False):
+def _timetable_document(*, event, pages, scope_name=None, is_unscoped=False):
     return PrintTimetableDocumentDTO(
         event_name=event.name,
         event_description=event.description,
         event_start=event.start_time,
         event_end=event.end_time,
         scope_name=scope_name,
-        is_complete=is_complete,
+        is_unscoped=is_unscoped,
         pages=pages,
     )
 
@@ -353,7 +353,7 @@ class TestPublicEventPrintView:
 
         _assert_print_ok(response, print_scopes=[_scope(space)])
 
-    def test_unconfirmed_session_keeps_the_grid_complete(
+    def test_unconfirmed_session_keeps_the_grid_unscoped(
         self, client, event, session, space
     ):
         AgendaItemFactory(
@@ -367,7 +367,7 @@ class TestPublicEventPrintView:
         response = client.get(self._url(event.slug), {"material": "timetable"})
 
         # Confirmation says whether the facilitator answered, not whether the
-        # session is real: an unscoped grid is still the whole program.
+        # session is real: it never narrows what the sheet covers.
         _assert_print_ok(
             response,
             material="timetable",
@@ -375,7 +375,7 @@ class TestPublicEventPrintView:
             timetable=_timetable_document(
                 event=event,
                 pages=[_one_hour_page(event=event, session=session, space=space)],
-                is_complete=True,
+                is_unscoped=True,
             ),
         )
 
@@ -399,7 +399,7 @@ class TestPublicEventPrintView:
             timetable=_timetable_document(
                 event=event,
                 pages=[_one_hour_page(event=event, session=session, space=space)],
-                is_complete=True,
+                is_unscoped=True,
             ),
         )
 
