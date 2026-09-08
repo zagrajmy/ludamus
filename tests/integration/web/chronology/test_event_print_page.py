@@ -287,22 +287,23 @@ class TestPublicEventPrintView:
                 end_time=event.start_time + timedelta(hours=1),
             )
 
-        response = client.get(self._url(event.slug))
+        response = client.get(self._url(event.slug), {"material": "timetable"})
 
         _assert_print_ok(
             response,
+            material="timetable",
             tracks=[_track_option(public_track)],
             selected_track="main",
             print_scopes=[_scope(space)],
+            session_list=None,
+            timetable=_timetable_document(
+                event=event,
+                pages=[
+                    _one_hour_page(event=event, session=public_session, space=space)
+                ],
+                is_complete=True,
+            ),
         )
-        titles = {
-            cell_session.title
-            for page in response.context_data["timetable"].pages
-            for row in page.rows
-            for cell in row.cells
-            for cell_session in cell.sessions
-        }
-        assert titles == {public_session.title}
 
     def test_area_descriptions_render_full_description(
         self, client, event, session, space
