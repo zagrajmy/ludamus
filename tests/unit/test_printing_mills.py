@@ -184,8 +184,7 @@ class TestBuildDoorCards:
         items = [_item(1, 1, 9, 10, title="Larp", confirmed=False)]
         service = _service(spaces=spaces, items=items)
 
-        # The manager toggle: only an explicit opt-in prints pending sessions.
-        document = _door_cards(service, confirmed_only=False)
+        document = _door_cards(service)
 
         entries = document.cards[0].entries
         assert entries[0].session is not None
@@ -378,8 +377,10 @@ class TestBuildTimetable:
         assert _door_cards(service).event_description == "Konwent dla nerdów"
 
 
-class TestConfirmedOnly:
-    def test_timetable_drops_unconfirmed_when_confirmed_only(self):
+class TestUnconfirmedSessionsReachPaper:
+    # Confirmation tracks whether a facilitator answered, and never decided
+    # what prints: the same session is already on the public schedule.
+    def test_timetable_keeps_an_unconfirmed_session(self):
         spaces = [_space(1, "Alfa", 0)]
         items = [
             _item(1, 1, 9, 10, title="Confirmed", confirmed=True),
@@ -387,30 +388,31 @@ class TestConfirmedOnly:
         ]
         service = _service(spaces=spaces, items=items)
 
-        document = _timetable(service, confirmed_only=True)
+        document = _timetable(service)
 
         titles = [t.session.title for page in document.pages for t in page.tiles]
-        assert titles == ["Confirmed"]
+        assert titles == ["Confirmed", "Pending"]
 
-    def test_door_cards_drop_unconfirmed_when_confirmed_only(self):
+    def test_door_cards_keep_an_unconfirmed_session(self):
         spaces = [_space(1, "Alfa", 0)]
         items = [_item(1, 1, 9, 10, title="Pending", confirmed=False)]
         service = _service(spaces=spaces, items=items)
 
-        document = _door_cards(service, confirmed_only=True)
+        document = _door_cards(service)
 
-        assert document.cards == []
+        entries = document.cards[0].entries
+        assert [e.session.title for e in entries] == ["Pending"]
 
 
 class TestTimetableCompleteness:
-    def test_complete_when_every_scheduled_session_confirmed(self):
+    def test_complete_when_an_unscoped_print_has_something_scheduled(self):
         spaces = [_space(1, "Alfa", 0)]
         items = [_item(1, 1, 9, 10, title="RPG", confirmed=True)]
         service = _service(spaces=spaces, items=items)
 
         assert _timetable(service).is_complete is True
 
-    def test_incomplete_when_a_scheduled_session_is_unconfirmed(self):
+    def test_complete_even_when_a_scheduled_session_is_unconfirmed(self):
         spaces = [_space(1, "Alfa", 0)]
         items = [
             _item(1, 1, 9, 10, title="RPG", confirmed=True),
@@ -418,9 +420,7 @@ class TestTimetableCompleteness:
         ]
         service = _service(spaces=spaces, items=items)
 
-        # Completeness reflects the whole program, even when the public view is
-        # confirmed-only — a pending session means the paper is partial.
-        assert _timetable(service, confirmed_only=True).is_complete is False
+        assert _timetable(service).is_complete is True
 
     def test_incomplete_when_nothing_scheduled(self):
         spaces = [_space(1, "Alfa", 0)]
@@ -474,7 +474,7 @@ class TestBuildSessionList:
         assert document.sessions[0].description == "Tale"
         assert document.sessions[0].space_name == "Alfa"
 
-    def test_drops_unconfirmed_when_confirmed_only(self):
+    def test_keeps_unconfirmed_sessions(self):
         spaces = [_space(1, "Alfa", 0)]
         items = [
             _item(1, 1, 9, 10, title="Sure", confirmed=True),
@@ -482,10 +482,7 @@ class TestBuildSessionList:
         ]
         service = _service(spaces=spaces, items=items)
 
-        assert [s.title for s in _session_list(service).sessions] == ["Sure"]
-        assert [
-            s.title for s in _session_list(service, confirmed_only=False).sessions
-        ] == ["Sure", "Maybe"]
+        assert [s.title for s in _session_list(service).sessions] == ["Sure", "Maybe"]
 
     def test_nothing_scheduled_means_no_sessions(self):
         service = _service(spaces=[_space(1, "Alfa", 0)], items=[])
@@ -525,7 +522,7 @@ class TestBuildAreaSchedule:
 
         assert document.spaces[0].sessions == []
 
-    def test_confirmed_only_excludes_pending_sessions(self):
+    def test_pending_sessions_are_included(self):
         spaces = [_space(1, "Alfa", 0)]
         items = [_item(1, 1, 10, 11, title="Pending", confirmed=False)]
         service = _service(spaces=spaces, items=items)
@@ -534,9 +531,9 @@ class TestBuildAreaSchedule:
             datetime(2026, 6, 1, 15, 0, tzinfo=UTC),
         )
 
-        document = _area_schedule(service, window, confirmed_only=True)
+        document = _area_schedule(service, window)
 
-        assert document.spaces[0].sessions == []
+        assert [s.title for s in document.spaces[0].sessions] == ["Pending"]
 
     def test_no_range_defaults_to_event_bounds(self):
         spaces = [_space(1, "Alfa", 0)]

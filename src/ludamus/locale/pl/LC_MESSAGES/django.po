@@ -2654,7 +2654,6 @@ msgid "Program for participants"
 msgstr "Program dla uczestników"
 
 #: src/ludamus/gates/web/django/event/print.py
-#: src/ludamus/templates/chronology/print.html
 msgid "Timetable"
 msgstr "Harmonogram"
 
@@ -4267,12 +4266,12 @@ msgid "Open details for %(title)s"
 msgstr "Otwórz szczegóły %(title)s"
 
 #: src/ludamus/templates/chronology/_hero_tools.html
-msgid "Venue maps"
-msgstr "Mapy lokalizacji"
-
-#: src/ludamus/templates/chronology/_hero_tools.html
 msgid "Print the program"
 msgstr "Drukuj program"
+
+#: src/ludamus/templates/chronology/_hero_tools.html
+msgid "Venue maps"
+msgstr "Mapy lokalizacji"
 
 #: src/ludamus/templates/chronology/_map_card.html
 #: src/ludamus/templates/panel/_space_tree_node.html
@@ -5231,10 +5230,6 @@ msgid "until event end"
 msgstr "do końca wydarzenia"
 
 #: src/ludamus/templates/chronology/print.html
-msgid "Include unconfirmed sessions"
-msgstr "Uwzględnij niepotwierdzone punkty programu"
-
-#: src/ludamus/templates/chronology/print.html
 msgid "Table of contents"
 msgstr "Spis treści"
 
@@ -5249,10 +5244,6 @@ msgstr "Podgląd wydruku"
 #: src/ludamus/templates/chronology/print.html
 msgid "No sessions scheduled yet."
 msgstr "Nie zaplanowano jeszcze żadnych punktów programu."
-
-#: src/ludamus/templates/chronology/print.html
-msgid "No confirmed sessions scheduled yet."
-msgstr "Nie zaplanowano jeszcze żadnych potwierdzonych punktów programu."
 
 #: src/ludamus/templates/chronology/print.html
 #: src/ludamus/templates/panel/content-log.html
@@ -6934,7 +6925,6 @@ msgid "Details"
 msgstr "Szczegóły"
 
 #: src/ludamus/templates/panel/_detail_tabs.html
-#: src/ludamus/templates/panel/item-history.html
 msgid "Change history"
 msgstr "Historia zmian"
 
@@ -9410,11 +9400,6 @@ msgstr ""
 "dołu. Tylko dla organizatorów."
 
 #: src/ludamus/templates/panel/proposal-detail.html
-#: src/ludamus/templates/panel/proposal-form.html
-msgid "Proposal Details"
-msgstr "Szczegóły zgłoszenia"
-
-#: src/ludamus/templates/panel/proposal-detail.html
 msgid "Last modified"
 msgstr "Ostatnia modyfikacja"
 
@@ -9494,6 +9479,10 @@ msgstr "Nowe zgłoszenie"
 #: src/ludamus/templates/panel/proposal-form.html
 msgid "Create Proposal"
 msgstr "Utwórz zgłoszenie"
+
+#: src/ludamus/templates/panel/proposal-form.html
+msgid "Proposal Details"
+msgstr "Szczegóły zgłoszenia"
 
 #: src/ludamus/templates/panel/proposal-form.html
 msgid "Loading"
@@ -10160,6 +10149,12 @@ msgid ""
 msgstr ""
 "Nie ma nadchodzących wydarzeń ani publicznych spotkań. Sprawdź ponownie "
 "później!"
+
+#~ msgid "Include unconfirmed sessions"
+#~ msgstr "Uwzględnij niepotwierdzone punkty programu"
+
+#~ msgid "No confirmed sessions scheduled yet."
+#~ msgstr "Nie zaplanowano jeszcze żadnych potwierdzonych punktów programu."
 
 #~ msgid "Participant"
 #~ msgid_plural "Participants"

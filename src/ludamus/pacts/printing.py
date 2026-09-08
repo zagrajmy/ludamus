@@ -36,9 +36,6 @@ class PrintQueryDTO:
     scope_space_pks: frozenset[int] | None = None
     track_pk: int | None = None
     scope_name: str | None = None
-    # Confirmed-only is the safe default: unconfirmed sessions reach paper
-    # only when a caller deliberately asks for them.
-    confirmed_only: bool = True
     # None means the whole event; the mills default to the event bounds.
     time_range: tuple[datetime, datetime] | None = None
 
