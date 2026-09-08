@@ -126,7 +126,21 @@ dir = "tests/e2e"
 
 [tasks."test:e2e:install"]
 description = "Install Playwright (node deps + browsers)"
-run = ["aube install", "aube exec -C tests/e2e playwright install --with-deps"]
+run = '''
+set -eu
+# .npmrc's fetch-retries=5 hasn't caught this one: the registry sometimes
+# returns a truncated body after the connection succeeds ("stream error ...
+# HTTP error: error decoding response body"), which aube surfaces as an
+# immediate install failure rather than a retried fetch. Retry the whole
+# install instead of letting one bad response fail CI.
+for attempt in 1 2 3; do
+  aube install && break
+  [ "$attempt" -lt 3 ] || { echo "aube install failed after 3 attempts" >&2; exit 1; }
+  echo "aube install failed (attempt $attempt/3); retrying in 5s" >&2
+  sleep 5
+done
+aube exec -C tests/e2e playwright install --with-deps
+'''
 
 # One browser at a time, without --with-deps. The fallback session-start.sh uses
 # when the task above fails: `playwright install` walks the browsers in a single
