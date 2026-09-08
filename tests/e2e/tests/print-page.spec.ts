@@ -9,7 +9,9 @@ const countPdfPages = (pdf: Buffer) => {
 };
 
 test.describe("Public print page", () => {
-  test("defaults to the participant program, one sheet per day", async ({ page }) => {
+  test("defaults to the participant program, one sheet per day", async ({
+    page,
+  }) => {
     await page.goto(densePrintUrl);
 
     await expect(page.getByLabel("Printable")).toHaveValue("session-list");
@@ -41,14 +43,23 @@ test.describe("Public print page", () => {
   }) => {
     await page.goto(`${densePrintUrl}?material=timetable`);
 
-    await expect(page.getByRole("heading", { name: "Timetable" }).first()).toBeVisible();
-    await expect(page.getByText("Kapitularz 2025 Anonymized").first()).toBeVisible();
-    await expect(page.getByRole("navigation", { name: "Table of contents" })).toBeVisible();
+    // The day is the sheet's heading: the printed header names the event a
+    // centimetre above it, so a "Timetable" line over it said nothing. Asserted
+    // by level rather than by name, which is a localised date.
+    await expect(page.getByRole("heading", { level: 2 }).first()).toBeVisible();
+    await expect(
+      page.getByText("Kapitularz 2025 Anonymized").first(),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("navigation", { name: "Table of contents" }),
+    ).toBeVisible();
 
     const preview = page.getByRole("region", { name: "Print preview" });
     const previewPages = preview.getByRole("group");
     await expect(previewPages).toHaveCount(21);
-    await expect(previewPages.nth(0)).toContainText("Workshop Studio - RPG Table 2");
+    await expect(previewPages.nth(0)).toContainText(
+      "Workshop Studio - RPG Table 2",
+    );
     await expect(previewPages.nth(6)).toContainText("Open Play B");
 
     // The rooms grid: a tile sits in its room's column on the row it starts
@@ -83,10 +94,14 @@ test.describe("Public print page", () => {
       clientWidth: preview.clientWidth,
       scrollWidth: preview.scrollWidth,
     }));
-    expect(scrollMetrics.scrollWidth).toBeGreaterThan(scrollMetrics.clientWidth);
+    expect(scrollMetrics.scrollWidth).toBeGreaterThan(
+      scrollMetrics.clientWidth,
+    );
 
     await page.emulateMedia({ media: "print" });
-    await expect(page.getByRole("navigation", { name: "Table of contents" })).toBeHidden();
+    await expect(
+      page.getByRole("navigation", { name: "Table of contents" }),
+    ).toBeHidden();
 
     if (browserName === "chromium") {
       const pdf = await page.pdf({
@@ -110,18 +125,24 @@ test.describe("Public print page", () => {
     const select = page.getByLabel("Printable");
 
     for (const [, label] of materials) {
-      await expect(select.getByRole("option", { name: label, exact: true })).toHaveCount(1);
+      await expect(
+        select.getByRole("option", { name: label, exact: true }),
+      ).toHaveCount(1);
     }
     await expect(page.getByLabel("With descriptions")).not.toBeChecked();
   });
 
-  test("descriptions checkbox swaps the grid for a per-space list", async ({ page }) => {
+  test("descriptions checkbox swaps the grid for a per-space list", async ({
+    page,
+  }) => {
     await page.goto(`${densePrintUrl}?material=timetable`);
 
     await page.getByLabel("With descriptions").check();
 
     await expect(page).toHaveURL(/descriptions=1/);
-    await expect(page.getByRole("heading", { name: "Program details" }).first()).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Program details" }).first(),
+    ).toBeVisible();
     await expect(page.getByLabel("With descriptions")).toBeChecked();
   });
 });
