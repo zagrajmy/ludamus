@@ -511,3 +511,21 @@ If you fix a papercut, remove it.
 - 2026-09-06: ran mise run lint before pushing and CI's checks job still failed
   on messages-check; lint does not include it, only pr-fix does, so a stale
   django.po only shows up on CI
+- 2026-09-08: mise's shared python shim
+  (~/.local/share/mise/installs/python/3.14/bin/pytest) is hardcoded to a
+  deleted worktree's venv, so 'mise run test:py' fails in any worktree lacking
+  its own .venv; PATH override and symlinking .venv both fail because mise re-
+  resolves shims internally.
+- 2026-09-08: mise run dj uses .env.development (ludamus.sqlite3) while every
+  test:e2e:* task uses .env.e2e (dev.e2e.sqlite3), and nothing says so - I
+  seeded the wrong DB twice before noticing, once polluting another session's
+  dev data. A dj:e2e alias, or printing the resolved DB_NAME, would have saved
+  it.
+- 2026-09-08: test:e2e:serve's manifest watcher uses 'stat -c %Y', which is GNU-
+  only; on macOS it always reports 'missing', so the server never restarts after
+  a client rebuild and silently 404s every hashed CSS asset. Screenshots came
+  out completely unstyled with no error anywhere.
+- 2026-09-08: aubx agent-browser --state <playwright storage-state.json>
+  silently loads nothing - the page just renders logged out. Had to read the
+  sessionid out of the file and use 'cookies set sessionid <v> --url <base>'
+  instead, which does stick across navigations.
