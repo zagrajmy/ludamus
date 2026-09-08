@@ -8626,6 +8626,33 @@ msgstr[3] ""
 "Pominięto %(counter)s punkty programu: wszystkie ich bloki są wewnętrzne."
 
 #: src/ludamus/templates/panel/konwencik-export-settings.html
+msgid "Export preview"
+msgstr "Podgląd eksportu"
+
+#: src/ludamus/templates/panel/konwencik-export-settings.html
+msgid ""
+"Every attraction kind is shown on every public track background, just as "
+"their icon and background values will be paired in Konwencik."
+msgstr ""
+"Każdy rodzaj atrakcji jest pokazany na tle każdego publicznego bloku — tak "
+"samo Konwencik połączy wyeksportowane ikony i tła."
+
+#: src/ludamus/templates/panel/konwencik-export-settings.html
+msgid ""
+"The preview updates as you edit. An em dash means no icon will be exported."
+msgstr ""
+"Podgląd aktualizuje się podczas edycji. Myślnik oznacza, że ikona nie "
+"zostanie wyeksportowana."
+
+#: src/ludamus/templates/panel/konwencik-export-settings.html
+msgid "Add an attraction kind to preview its icon across track backgrounds."
+msgstr "Dodaj rodzaj atrakcji, aby zobaczyć jego ikonę na tłach bloków."
+
+#: src/ludamus/templates/panel/konwencik-export-settings.html
+msgid "Add a public track to preview how its background works with every icon."
+msgstr "Dodaj publiczny blok, aby zobaczyć jego tło z każdą ikoną."
+
+#: src/ludamus/templates/panel/konwencik-export-settings.html
 msgid "Attraction kinds"
 msgstr "Rodzaje atrakcji"
 

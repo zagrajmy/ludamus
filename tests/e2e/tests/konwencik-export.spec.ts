@@ -37,4 +37,13 @@ test.describe("Konwencik export", () => {
     await expect(page.getByRole("button", { name: "Export now" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Save" })).toBeVisible();
   });
+
+  test("the preview explains when there are no public tracks", async ({ page }) => {
+    await page.goto(`/panel/event/${EVENT}/export/`);
+
+    await expect(page.getByRole("heading", { name: "Export preview" })).toBeVisible();
+    await expect(
+      page.getByText("Add a public track to preview how its background works with every icon."),
+    ).toBeVisible();
+  });
 });
