@@ -181,6 +181,50 @@ class TestKonwencikRowShape:
         assert list(KonwencikRow.model_fields) == KEYS
 
 
+class TestKonwencikPreview:
+    @pytest.mark.parametrize(
+        ("memberships", "alive", "expected"),
+        (
+            (
+                {SESSION_PK: {20: "Main", 21: "Other"}},
+                [SESSION_PK],
+                [(CATEGORY_PK, 20)],
+            ),
+            ({SESSION_PK: {22: "Internal"}}, [SESSION_PK], []),
+            ({}, [SESSION_PK], [(CATEGORY_PK, None)]),
+            ({}, [], []),
+        ),
+    )
+    def test_only_exported_programme_combinations(
+        self, *, memberships, alive, expected
+    ):
+        env = _make_service(
+            items=[_item(), _item(pk=2)],
+            tracks=[_track(), _track(pk=21), _track(pk=22, is_public=False)],
+            tracks_by_session=memberships,
+            alive=alive,
+        )
+        env.integrations.get.return_value = _integration()
+
+        context = env.service.get_settings_context(
+            sphere_id=SPHERE_PK, event_pk=EVENT_PK, pk=INTEGRATION_PK
+        )
+
+        assert context.programme_combinations == expected
+
+    def test_oversized_sessions_have_no_preview(self):
+        env = _make_service(
+            items=[_item(end_time=_item().start_time + timedelta(days=2))]
+        )
+        env.integrations.get.return_value = _integration()
+
+        context = env.service.get_settings_context(
+            sphere_id=SPHERE_PK, event_pk=EVENT_PK, pk=INTEGRATION_PK
+        )
+
+        assert context.programme_combinations == []
+
+
 class TestKonwencikMatrix:
     def test_writes_key_and_label_header_rows_then_one_row_per_session(self):
         env = _make_service(items=[_item()], spaces=[_space()])

@@ -1,3 +1,4 @@
+import { analyzePageAccessibility } from "./helpers/a11y";
 import { expect, test } from "./helpers/fixtures";
 
 // The export is its own panel section, reached from the sidebar like the
@@ -38,12 +39,66 @@ test.describe("Konwencik export", () => {
     await expect(page.getByRole("button", { name: "Save" })).toBeVisible();
   });
 
-  test("the preview explains when there are no public tracks", async ({ page }) => {
+  test("unused programme combinations have no preview", async ({ page }) => {
     await page.goto(`/panel/event/${EVENT}/export/`);
 
-    await expect(page.getByRole("heading", { name: "Export preview" })).toBeVisible();
-    await expect(
-      page.getByText("Add a public track to preview how its background works with every icon."),
-    ).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Export preview" })).toHaveCount(0);
+    await expect(page.locator("[data-konwencik-cell]")).toHaveCount(0);
   });
+
+  test("programme samples render icons and update without saving", async ({ page }) => {
+    await page.goto("/panel/event/konwencik-preview/export/");
+    const samples = page.getByRole("list", { name: "Export preview" });
+    await expect(samples.getByRole("listitem")).toHaveCount(2);
+    await expect(samples.getByText("Unused track")).toHaveCount(0);
+    await expect(samples.getByText("Workshops")).toHaveCount(0);
+    await expect(samples.getByText("No track", { exact: true })).toBeVisible();
+
+    const sample = samples.getByRole("listitem").filter({ hasText: "Adventure" });
+    const glyph = sample.locator("[data-konwencik-cell-icon]");
+    await expect(glyph).toHaveCSS("font-family", '"Font Awesome 6 Free"');
+    await expect
+      .poll(() => glyph.evaluate((element) => getComputedStyle(element, "::before").content))
+      .toBe('"\uf6cf"');
+    await page.getByLabel("Icon", { exact: true }).first().fill("fa.gamepad");
+    await expect
+      .poll(() => glyph.evaluate((element) => getComputedStyle(element, "::before").content))
+      .toBe('"\uf11b"');
+    await page.getByLabel("Background", { exact: true }).first().fill("#ffffff");
+    await expect(sample.locator("[data-konwencik-cell]")).toHaveCSS(
+      "background-color",
+      "rgb(255, 255, 255)",
+    );
+    await page.getByLabel("Icon", { exact: true }).first().fill("fa.not-an-icon");
+    await expect(sample.getByText("Preview unavailable for this icon")).toBeVisible();
+    await page.getByLabel("Icon", { exact: true }).first().fill("fa.github");
+    await expect(glyph).toHaveCSS("font-family", '"Font Awesome 6 Brands"');
+    await expect
+      .poll(() => glyph.evaluate((element) => getComputedStyle(element, "::before").content))
+      .toBe('"\uf09b"');
+    await page.getByLabel("Icon", { exact: true }).first().fill("");
+    await expect(sample.getByText("No icon", { exact: true })).toBeVisible();
+  });
+
+  test("other panel pages do not load Font Awesome", async ({ page }) => {
+    const iconAssets: string[] = [];
+    page.on("request", (request) => {
+      if (/fa-solid|konwencik-preview/.test(request.url())) iconAssets.push(request.url());
+    });
+    await page.goto(TIMETABLE_URL);
+    await expect(page.getByRole("navigation", { name: "Panel sections" })).toBeVisible();
+    expect(iconAssets).toEqual([]);
+  });
+
+  for (const width of [390, 768, 1440]) {
+    test(`preview fits and stays accessible at ${width}px`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 900 });
+      await page.goto("/panel/event/konwencik-preview/export/");
+      await expect(page.getByRole("list", { name: "Export preview" })).toBeVisible();
+      expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
+        width,
+      );
+      await analyzePageAccessibility(page, { include: "main" });
+    });
+  }
 });

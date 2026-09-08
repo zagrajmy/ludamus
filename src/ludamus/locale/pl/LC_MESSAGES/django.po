@@ -8626,33 +8626,6 @@ msgstr[3] ""
 "Pominięto %(counter)s punkty programu: wszystkie ich bloki są wewnętrzne."
 
 #: src/ludamus/templates/panel/konwencik-export-settings.html
-msgid "Export preview"
-msgstr "Podgląd eksportu"
-
-#: src/ludamus/templates/panel/konwencik-export-settings.html
-msgid ""
-"Every attraction kind is shown on every public track background, just as "
-"their icon and background values will be paired in Konwencik."
-msgstr ""
-"Każdy rodzaj atrakcji jest pokazany na tle każdego publicznego bloku — tak "
-"samo Konwencik połączy wyeksportowane ikony i tła."
-
-#: src/ludamus/templates/panel/konwencik-export-settings.html
-msgid ""
-"The preview updates as you edit. An em dash means no icon will be exported."
-msgstr ""
-"Podgląd aktualizuje się podczas edycji. Myślnik oznacza, że ikona nie "
-"zostanie wyeksportowana."
-
-#: src/ludamus/templates/panel/konwencik-export-settings.html
-msgid "Add an attraction kind to preview its icon across track backgrounds."
-msgstr "Dodaj rodzaj atrakcji, aby zobaczyć jego ikonę na tłach bloków."
-
-#: src/ludamus/templates/panel/konwencik-export-settings.html
-msgid "Add a public track to preview how its background works with every icon."
-msgstr "Dodaj publiczny blok, aby zobaczyć jego tło z każdą ikoną."
-
-#: src/ludamus/templates/panel/konwencik-export-settings.html
 msgid "Attraction kinds"
 msgstr "Rodzaje atrakcji"
 
@@ -8662,6 +8635,31 @@ msgid ""
 msgstr ""
 "Nie ma jeszcze rodzajów atrakcji. Dodaj jeden w ustawieniach wydarzenia, aby "
 "nadać mu ikonę."
+
+#: src/ludamus/templates/panel/konwencik-export-settings.html
+msgid "Export preview"
+msgstr "Podgląd eksportu"
+
+#: src/ludamus/templates/panel/konwencik-export-settings.html
+msgid ""
+"Icon and background combinations in the programme. Updates as you edit; "
+"session overrides may replace these icons."
+msgstr ""
+"Połączenia ikon i kolorów tła występujące w programie. Podgląd zmienia się "
+"podczas edycji; indywidualne ustawienia punktów programu mogą zastąpić te "
+"ikony."
+
+#: src/ludamus/templates/panel/konwencik-export-settings.html
+msgid "No track"
+msgstr "Bez bloku"
+
+#: src/ludamus/templates/panel/konwencik-export-settings.html
+msgid "No icon"
+msgstr "Brak ikony"
+
+#: src/ludamus/templates/panel/konwencik-export-settings.html
+msgid "Preview unavailable for this icon"
+msgstr "Podgląd tej ikony jest niedostępny"
 
 #: src/ludamus/templates/panel/konwencik-export-settings.html
 msgid ""
@@ -10187,6 +10185,27 @@ msgid ""
 msgstr ""
 "Nie ma nadchodzących wydarzeń ani publicznych spotkań. Sprawdź ponownie "
 "później!"
+
+#~ msgid ""
+#~ "Every attraction kind is shown on every public track background, just as "
+#~ "their icon and background values will be paired in Konwencik."
+#~ msgstr ""
+#~ "Każdy rodzaj atrakcji jest pokazany na tle każdego publicznego bloku — "
+#~ "tak samo Konwencik połączy wyeksportowane ikony i tła."
+
+#~ msgid ""
+#~ "The preview updates as you edit. An em dash means no icon will be "
+#~ "exported."
+#~ msgstr ""
+#~ "Podgląd aktualizuje się podczas edycji. Myślnik oznacza, że ikona nie "
+#~ "zostanie wyeksportowana."
+
+#~ msgid "Add an attraction kind to preview its icon across track backgrounds."
+#~ msgstr "Dodaj rodzaj atrakcji, aby zobaczyć jego ikonę na tłach bloków."
+
+#~ msgid ""
+#~ "Add a public track to preview how its background works with every icon."
+#~ msgstr "Dodaj publiczny blok, aby zobaczyć jego tło z każdą ikoną."
 
 #~ msgid "Participant"
 #~ msgid_plural "Participants"

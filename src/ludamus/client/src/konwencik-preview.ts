@@ -1,3 +1,7 @@
+import "@fortawesome/fontawesome-free/css/all.css";
+
+declare const __KONWENCIK_ICON_STYLES__: Record<string, string>;
+
 const preview = document.querySelector<HTMLElement>("[data-konwencik-preview]");
 
 const validColor = /^#[0-9a-f]{6}$/i;
@@ -32,15 +36,26 @@ if (preview) {
       const color = trackInputs[trackIndex]?.value.trim() ?? "";
       const iconLabel = cell.querySelector<HTMLElement>("[data-konwencik-cell-icon]");
 
-      if (iconLabel) iconLabel.textContent = icon || "—";
+      const name = icon.startsWith("fa.")
+        ? icon.slice(3).replaceAll(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`)
+        : "";
+      const style = Object.hasOwn(__KONWENCIK_ICON_STYLES__, name)
+        ? __KONWENCIK_ICON_STYLES__[name]
+        : undefined;
+      if (iconLabel) {
+        iconLabel.className = style ? `fa-${style} fa-${name}` : "";
+        const status = cell.parentElement?.querySelector<HTMLElement>(
+          "[data-konwencik-icon-status]",
+        );
+        if (status)
+          status.textContent = icon
+            ? style
+              ? icon
+              : (status.dataset.unsupported ?? "")
+            : (status.dataset.empty ?? "");
+      }
       cell.style.backgroundColor = validColor.test(color) ? color : "";
       cell.style.color = validColor.test(color) ? readableForeground(color) : "";
-    }
-
-    for (const swatch of preview.querySelectorAll<HTMLElement>("[data-konwencik-swatch]")) {
-      const index = Number(swatch.dataset.konwencikSwatch);
-      const color = trackInputs[index]?.value.trim() ?? "";
-      swatch.style.backgroundColor = validColor.test(color) ? color : "";
     }
   };
 

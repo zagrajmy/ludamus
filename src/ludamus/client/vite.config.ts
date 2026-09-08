@@ -1,9 +1,20 @@
 import tailwindcss from "@tailwindcss/vite";
-import { resolve } from "node:path";
+import { readdirSync } from "node:fs";
+import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { defineConfig, type Plugin } from "vite";
 
 const rootDir = fileURLToPath(new URL(".", import.meta.url));
+const fontAwesomeDir = dirname(
+  fileURLToPath(import.meta.resolve("@fortawesome/fontawesome-free/package.json")),
+);
+const konwencikIconStyles = Object.fromEntries(
+  ["regular", "brands", "solid"].flatMap((style) =>
+    readdirSync(resolve(fontAwesomeDir, "svgs", style))
+      .filter((file) => file.endsWith(".svg"))
+      .map((file) => [file.slice(0, -4), style]),
+  ),
+);
 
 // Vite's default HTML hot-update sends {type:"full-reload", path:"<file>"}.
 // The Vite client (client.mjs case "full-reload") only reloads when that
@@ -81,6 +92,9 @@ export default defineConfig({
       },
     },
     sourcemap: true,
+  },
+  define: {
+    __KONWENCIK_ICON_STYLES__: JSON.stringify(konwencikIconStyles),
   },
   plugins: [djangoTemplateReload(), tailwindcss()],
   server: {

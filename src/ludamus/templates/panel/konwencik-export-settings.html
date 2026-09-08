@@ -16,7 +16,7 @@
 {% endblock page_subtitle %}
 {% block header_actions %}
     {% if current_event and active_integration %}
-        <div class="flex items-center gap-3">
+        <div class="flex items-center gap-2">
             <form method="post"
                   action="{% url 'panel:konwencik-export-run' slug=current_event.slug pk=active_integration.pk %}">
                 {% csrf_token %}
@@ -69,68 +69,11 @@
                     </div>
                 </div>
             {% endif %}
-            <form id="konwencik-settings-form" method="post" class="space-y-6">
+            <form id="konwencik-settings-form"
+                  method="post"
+                  class="space-y-6"
+                  data-konwencik-preview>
                 {% csrf_token %}
-                <section class="card overflow-hidden" data-konwencik-preview>
-                    <div class="card-body space-y-4">
-                        <div class="space-y-1">
-                            <h2 class="text-lg font-medium text-foreground">{% translate "Export preview" %}</h2>
-                            <p class="max-w-2xl text-sm text-foreground-muted">
-                                {% translate "Every attraction kind is shown on every public track background, just as their icon and background values will be paired in Konwencik." %}
-                            </p>
-                        </div>
-                        {% if category_rows and track_rows %}
-                            <div class="overflow-x-auto pb-1">
-                                <table class="min-w-full border-separate border-spacing-2">
-                                    <thead>
-                                        <tr>
-                                            <th class="min-w-36" aria-hidden="true"></th>
-                                            {% for track_row in track_rows %}
-                                                <th scope="col"
-                                                    class="min-w-32 px-2 text-left text-xs font-medium text-foreground-secondary">
-                                                    <span class="flex min-w-0 items-center gap-2">
-                                                        <span class="size-2.5 shrink-0 rounded-full border border-border"
-                                                              data-konwencik-swatch="{{ forloop.counter0 }}"></span>
-                                                        <span class="min-w-0 max-w-32 truncate sm:max-w-none">{% if track_row.item %}{{ track_row.item.name }}{% else %}—{% endif %}</span>
-                                                    </span>
-                                                </th>
-                                            {% endfor %}
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {% for category_row in category_rows %}
-                                            <tr>
-                                                <th scope="row"
-                                                    class="min-w-36 px-2 text-left text-sm font-medium text-foreground">
-                                                    <span class="block min-w-0 max-w-36 truncate sm:max-w-none">{% if category_row.item %}{{ category_row.item.name }}{% else %}—{% endif %}</span>
-                                                </th>
-                                                {% for track_row in track_rows %}
-                                                    <td class="h-16 min-w-32 rounded-lg border border-border bg-bg-secondary px-3 py-2 text-center transition-[background-color,color]"
-                                                        data-konwencik-cell
-                                                        data-category-index="{{ forloop.parentloop.counter0 }}"
-                                                        data-track-index="{{ forloop.counter0 }}">
-                                                        <span class="break-all text-sm font-medium" data-konwencik-cell-icon>—</span>
-                                                    </td>
-                                                {% endfor %}
-                                            </tr>
-                                        {% endfor %}
-                                    </tbody>
-                                </table>
-                            </div>
-                            <p class="text-xs text-foreground-muted">
-                                {% translate "The preview updates as you edit. An em dash means no icon will be exported." %}
-                            </p>
-                        {% elif not category_rows %}
-                            <p class="text-sm text-foreground-muted">
-                                {% translate "Add an attraction kind to preview its icon across track backgrounds." %}
-                            </p>
-                        {% else %}
-                            <p class="text-sm text-foreground-muted">
-                                {% translate "Add a public track to preview how its background works with every icon." %}
-                            </p>
-                        {% endif %}
-                    </div>
-                </section>
                 <div class="card">
                     <div class="card-body space-y-4">
                         <h2 class="text-lg font-medium text-foreground">{% translate "Attraction kinds" %}</h2>
@@ -150,6 +93,35 @@
                                 {% translate "No attraction kinds yet. Add one in the event settings to give it an icon." %}
                             </p>
                         {% endfor %}
+                        {% if previews %}
+                            <div class="space-y-3 border-t border-border pt-4">
+                                <h3 class="text-sm font-medium text-foreground">{% translate "Export preview" %}</h3>
+                                <p class="text-sm text-foreground-muted">
+                                    {% translate "Icon and background combinations in the programme. Updates as you edit; session overrides may replace these icons." %}
+                                </p>
+                                <ul class="flex flex-wrap gap-x-6 gap-y-3"
+                                    aria-label="{% translate 'Export preview' %}">
+                                    {% for preview in previews %}
+                                        <li class="flex min-w-0 items-center gap-3">
+                                            <span class="flex size-12 shrink-0 items-center justify-center rounded-lg border border-border bg-bg-secondary text-xl"
+                                                  data-konwencik-cell
+                                                  data-category-index="{{ preview.category_index }}"
+                                                  data-track-index="{{ preview.track_index }}">
+                                                <i data-konwencik-cell-icon aria-hidden="true"></i>
+                                            </span>
+                                            <span class="min-w-0 text-sm">
+                                                <span class="block break-words font-medium text-foreground">{{ preview.category }}</span>
+                                                <span class="block break-words text-foreground-muted">{% if preview.track %}{{ preview.track }}{% else %}{% translate "No track" %}{% endif %}</span>
+                                                <span class="block text-xs text-foreground-muted"
+                                                      data-konwencik-icon-status
+                                                      data-empty="{% translate 'No icon' %}"
+                                                      data-unsupported="{% translate 'Preview unavailable for this icon' %}"></span>
+                                            </span>
+                                        </li>
+                                    {% endfor %}
+                                </ul>
+                            </div>
+                        {% endif %}
                     </div>
                 </div>
                 <div class="card">

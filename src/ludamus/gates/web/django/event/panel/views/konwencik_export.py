@@ -67,6 +67,13 @@ class _SettingsRow(TypedDict):
     form: forms.Form
 
 
+class _Preview(TypedDict):
+    category_index: int
+    track_index: int
+    category: str
+    track: str
+
+
 class _PageContext(TypedDict):
     active_nav: str
     active_integration: EventIntegrationDTO
@@ -76,6 +83,7 @@ class _PageContext(TypedDict):
     overrides_form: KonwencikOverridesForm
     category_rows: list[_SettingsRow]
     track_rows: list[_SettingsRow]
+    previews: list[_Preview]
 
 
 class _RowForm(forms.Form):
@@ -358,7 +366,22 @@ def _page_context(
         "overrides_form": overrides,
         "category_rows": _rows(settings_context.categories, icons.forms),
         "track_rows": _rows(settings_context.tracks, colors.forms),
+        "previews": _previews(settings_context),
     }
+
+
+def _previews(context: KonwencikSettingsContext) -> list[_Preview]:
+    return [
+        _Preview(
+            category_index=category_index,
+            track_index=track_index,
+            category=category.name,
+            track=track.name if track else "",
+        )
+        for category_index, category in enumerate(context.categories)
+        for track_index, track in ((-1, None), *enumerate(context.tracks))
+        if (category.pk, track.pk if track else None) in context.programme_combinations
+    ]
 
 
 class KonwencikExportActionView(EventPanelAccessMixin, EventContextMixin, View):
