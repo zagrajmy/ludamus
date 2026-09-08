@@ -141,6 +141,20 @@ raw_args = true
 [tasks."test:e2e:prep"]
 description = "Migrate, seed fixtures, and build client for e2e tests"
 run = [
+    # The seed unlinks the database a few lines down. A running e2e server
+    # still holds the old file open, and Django reports the resulting
+    # OperationalError as "SQLite does not support JSONFields" — once per JSON
+    # field, naming a problem that does not exist. Say what is actually wrong
+    # instead. Only a LISTEN socket counts: a browser tab connected to :8000
+    # shows up in a bare `lsof -ti` too.
+    """
+    if lsof -ti :8000 -sTCP:LISTEN >/dev/null 2>&1; then
+      echo "The e2e server is already running on :8000." >&2
+      echo "Seeding would delete dev.e2e.sqlite3 underneath it." >&2
+      echo "Stop it first: mise run test:e2e:kill" >&2
+      exit 1
+    fi
+    """,
     "poetry install",
     "aube install",
     'rm -f "{{ config_root }}/dev.e2e.sqlite3"',
