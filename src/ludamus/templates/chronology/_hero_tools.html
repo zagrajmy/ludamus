@@ -1,27 +1,26 @@
 {% load i18n %}
 {% load tessera %}
 {# The hero's tools share one spot with two homes. `on_cover` says which: over #}
-{# a photo each button lifts onto a surface of its own, since .icon-btn draws #}
-{# no background and an arbitrary image is none to draw a glyph on. Beside the #}
-{# CTAs the page already provides one. Stacked on a phone, side by side from #}
-{# tablets up. #}
+{# a photo each button needs an opaque background, since .icon-btn draws none #}
+{# and an arbitrary image is none to draw a glyph on. Its own inset edge is #}
+{# the depth — a drop shadow on top would replace that edge rather than add to #}
+{# it. Beside the CTAs the page already provides the surface. Stacked on a #}
+{# phone, side by side from tablets up. #}
 {% translate "Print the program" as t_print_program %}
 {% translate "Venue maps" as t_venue_maps %}
-{% with surface=on_cover|yesno:"bg-bg-secondary shadow-(--shadow-elevated)," %}
-    <div class="flex flex-col gap-1 max-sm:basis-full sm:flex-row">
-        <a href="{{ print_url }}"
-           class="icon-btn size-11 shrink-0 justify-center overflow-hidden rounded-xl {{ surface }}"
-           title="{{ t_print_program }}">
-            {% icon "printer" class="size-5" variant="mini" %}
-            <span class="sr-only">{{ t_print_program }}</span>
+<div class="flex flex-col gap-1 max-sm:basis-full sm:flex-row">
+    <a href="{{ print_url }}"
+       class="icon-btn size-11 shrink-0 justify-center overflow-hidden rounded-xl {% if on_cover %}bg-bg-secondary{% endif %}"
+       title="{{ t_print_program }}">
+        {% icon "printer" class="size-5" variant="mini" %}
+        <span class="sr-only">{{ t_print_program }}</span>
+    </a>
+    {% if maps_url %}
+        <a href="{{ maps_url }}"
+           class="icon-btn size-11 shrink-0 justify-center overflow-hidden rounded-xl {% if on_cover %}bg-bg-secondary{% endif %}"
+           title="{{ t_venue_maps }}">
+            {% icon "map" class="size-5" variant="mini" %}
+            <span class="sr-only">{{ t_venue_maps }}</span>
         </a>
-        {% if maps_url %}
-            <a href="{{ maps_url }}"
-               class="icon-btn size-11 shrink-0 justify-center overflow-hidden rounded-xl {{ surface }}"
-               title="{{ t_venue_maps }}">
-                {% icon "map" class="size-5" variant="mini" %}
-                <span class="sr-only">{{ t_venue_maps }}</span>
-            </a>
-        {% endif %}
-    </div>
-{% endwith %}
+    {% endif %}
+</div>
