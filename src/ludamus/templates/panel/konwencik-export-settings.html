@@ -37,7 +37,7 @@
                 </p>
             </div>
         {% elif current_event %}
-            <div class="max-w-3xl">
+            <div class="max-w-3xl space-y-6">
                 <div class="card">
                     <div class="card-body flex gap-3">
                         {% icon "exclamation-triangle" class="w-5 h-5 shrink-0 text-warning" %}
@@ -47,7 +47,7 @@
                     </div>
                 </div>
                 {% if last_run %}
-                    <div class="card mt-6">
+                    <div class="card">
                         <div class="card-body flex flex-wrap items-baseline gap-x-3 gap-y-1">
                             <h2 class="text-sm font-medium text-foreground">{% translate "Last export" %}</h2>
                             <p class="text-sm {% if last_run.ok %}text-foreground-secondary{% else %}text-danger{% endif %}">
@@ -70,9 +70,9 @@
                         </div>
                     </div>
                 {% endif %}
-                <form id="konwencik-settings-form" method="post">
+                <form id="konwencik-settings-form" method="post" class="space-y-6">
                     {% csrf_token %}
-                    <div class="card mt-6">
+                    <div class="card">
                         <div class="card-body space-y-4">
                             <h2 class="text-lg font-medium text-foreground">{% translate "Attraction kinds" %}</h2>
                             {{ icon_formset.management_form }}
@@ -92,7 +92,7 @@
                             {% endfor %}
                         </div>
                     </div>
-                    <div class="card mt-6">
+                    <div class="card">
                         <div class="card-body space-y-4">
                             <h2 class="text-lg font-medium text-foreground">{% translate "Tracks" %}</h2>
                             {{ color_formset.management_form }}
@@ -112,7 +112,7 @@
                             {% endfor %}
                         </div>
                     </div>
-                    <div class="card mt-6">
+                    <div class="card">
                         <div class="card-body space-y-4">
                             <h2 class="text-lg font-medium text-foreground">{% translate "Overrides" %}</h2>
                             <p class="text-sm text-foreground-muted">
@@ -122,7 +122,7 @@
                             {% tessera_field overrides_form.icon_field %}
                         </div>
                     </div>
-                    <div class="card mt-6">
+                    <div class="card">
                         <div class="card-body space-y-4">
                             <h2 class="text-lg font-medium text-foreground">{% translate "Synchronisation" %}</h2>
                             {% tessera_field overrides_form.sync_enabled %}
