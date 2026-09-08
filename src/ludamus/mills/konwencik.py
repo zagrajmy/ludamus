@@ -187,7 +187,30 @@ class KonwencikExportService(KonwencikExportServiceProtocol):
                 integration.settings_json or "{}"
             ),
             last_run=_last_run(integration),
+            programme_combinations=self._programme_combinations(event_pk),
         )
+
+    def _programme_combinations(self, event_pk: int) -> list[tuple[int, int | None]]:
+        alive = set(self._repos.sessions.list_alive_pks_by_event(event_pk))
+        items = self._repos.agenda_items.list_by_event(event_pk)
+        tracks = self._repos.tracks.list_by_event(event_pk)
+        memberships = self._repos.sessions.list_track_names_by_session(
+            [item.session_id for item in items if item.session_id in alive]
+        )
+        combinations: dict[tuple[int, int | None], None] = {}
+        for item in items:
+            if (
+                item.session_id not in alive
+                or item.category_id is None
+                or _local_span(item, self._zone) is None
+            ):
+                continue
+            session_tracks = memberships.get(item.session_id, {})
+            track = _first_public_track(tracks, session_tracks)
+            if session_tracks and track is None:
+                continue
+            combinations[item.category_id, track.pk if track else None] = None
+        return list(combinations)
 
     def save_settings(
         self,

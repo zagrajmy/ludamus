@@ -67,6 +67,12 @@ class _SettingsRow(TypedDict):
     form: forms.Form
 
 
+class _Preview(TypedDict):
+    category_index: int
+    track_index: int
+    category: str
+
+
 class _PageContext(TypedDict):
     active_nav: str
     active_integration: EventIntegrationDTO
@@ -76,6 +82,7 @@ class _PageContext(TypedDict):
     overrides_form: KonwencikOverridesForm
     category_rows: list[_SettingsRow]
     track_rows: list[_SettingsRow]
+    previews: list[_Preview]
 
 
 class _RowForm(forms.Form):
@@ -103,11 +110,11 @@ class KonwencikIconForm(_RowForm):
 class KonwencikColorForm(_RowForm):
     color = forms.RegexField(
         label=gettext_lazy("Background"),
+        widget=forms.TextInput(attrs={"type": "color"}),
         regex=_HEX_COLOR,
         required=False,
         strip=True,
         error_messages={"invalid": gettext_lazy("Use a hex colour, e.g. #1e88e5.")},
-        help_text=gettext_lazy("Leave empty for no background."),
     )
 
 
@@ -358,7 +365,21 @@ def _page_context(
         "overrides_form": overrides,
         "category_rows": _rows(settings_context.categories, icons.forms),
         "track_rows": _rows(settings_context.tracks, colors.forms),
+        "previews": _previews(settings_context),
     }
+
+
+def _previews(context: KonwencikSettingsContext) -> list[_Preview]:
+    return [
+        _Preview(
+            category_index=category_index,
+            track_index=track_index,
+            category=category.name,
+        )
+        for category_index, category in enumerate(context.categories)
+        for track_index, track in enumerate(context.tracks)
+        if (category.pk, track.pk) in context.programme_combinations
+    ]
 
 
 class KonwencikExportActionView(EventPanelAccessMixin, EventContextMixin, View):

@@ -511,3 +511,6 @@ If you fix a papercut, remove it.
 - 2026-09-06: ran mise run lint before pushing and CI's checks job still failed
   on messages-check; lint does not include it, only pr-fix does, so a stale
   django.po only shows up on CI
+- 2026-09-08: Konwencik translation extraction: sourcing .env.e2e still failed
+  varlock validation because SUPPORT_EMAIL is missing; supplied a test address
+  explicitly.
