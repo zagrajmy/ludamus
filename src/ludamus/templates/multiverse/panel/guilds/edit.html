@@ -16,7 +16,7 @@
     {% tessera_button t_back href=back_url variant="secondary" %}
 {% endblock header_actions %}
 {% block content %}
-    <div class="p-4 lg:p-6 grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+    <div class="panel-bleed grid grid-cols-1 lg:grid-cols-2 sm:gap-6 items-start">
         <form method="post" enctype="multipart/form-data" class="card p-6">
             {% csrf_token %}
             <h2 class="text-lg font-semibold text-foreground mb-4">{% translate "Guild details" %}</h2>

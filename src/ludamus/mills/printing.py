@@ -12,6 +12,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 from datetime import timedelta
+from functools import partial
 from itertools import pairwise
 from typing import TYPE_CHECKING
 
@@ -68,12 +69,15 @@ def _entry_start(entry: DoorCardEntryDTO) -> datetime:
     return entry.start_time
 
 
-def _space_order(space: SpaceDTO) -> tuple[int, str]:
-    return (space.order, space.name)
+def _space_order(space: SpaceDTO) -> tuple[int, str, int]:
+    return (space.programme_order, space.name, space.pk)
 
 
-def _session_list_order(item: AgendaItemDTO) -> tuple[datetime, str]:
-    return (item.start_time, item.space_name)
+def _session_list_order(
+    item: AgendaItemDTO, space_order: dict[int, tuple[int, str, int]]
+) -> tuple[datetime, tuple[int, str, int]]:
+    fallback = (len(space_order), item.space_name, item.space_id)
+    return (item.start_time, space_order.get(item.space_id, fallback))
 
 
 def _space_chunks(spaces: list[SpaceDTO]) -> list[list[SpaceDTO]]:
@@ -295,6 +299,10 @@ class PrintMaterialsService:
         # Unscoped by design: a participant walks the whole venue.
         event = self._events.read(query.event_pk)
         items = self._agenda_items.list_by_event(query.event_pk)
+        space_order = {
+            space.pk: _space_order(space)
+            for space in self._spaces.list_by_event(query.event_pk)
+        }
         return PrintSessionListDocumentDTO(
             event_name=event.name,
             event_description=event.description,
@@ -309,7 +317,9 @@ class PrintMaterialsService:
                     end_time=item.end_time,
                     space_name=item.space_name,
                 )
-                for item in sorted(items, key=_session_list_order)
+                for item in sorted(
+                    items, key=partial(_session_list_order, space_order=space_order)
+                )
             ],
         )
 
