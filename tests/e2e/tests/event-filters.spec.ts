@@ -792,8 +792,8 @@ test.describe("Filter state in the URL", () => {
       const a = document.createElement("a");
       a.href = "?q=mega#schedule-region";
       a.textContent = "find mega";
-      // Into the scroller, where page content lives: #app-scroll is fixed
-      // over the body, so a link appended to body sits under it.
+      // Into the scroller, where page content lives: the app-shell body is a
+      // clipped viewport box, so a link appended to it lands past the clip.
       document.querySelector("main")!.append(a);
     });
 

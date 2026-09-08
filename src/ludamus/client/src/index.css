@@ -230,31 +230,29 @@ body {
 
 /* Every page wears the shell (base.html and the self-contained 500), so the
    document never scrolls and the root needs no scrollbar gutter — .app-scroll
-   below reserves the only one, for the only scroller there is. */
+   below reserves the only one, for the only scroller there is.
+
+   The shell takes the large viewport rather than 100dvh because iOS Safari
+   draws its floating bottom bar over the last 100lvh - 100dvh of the layout
+   viewport instead of shrinking it, and only retracts the bar for a document
+   scroll — which a shell this shape never has, so on a phone it never
+   retracts (iOS 18.7, measured: 100dvh 736, 100lvh 836). At 100dvh the shell
+   stops a bar's height above the page's bottom edge and the canvas below it
+   shows through the translucent bar as a band under the footer. */
 .app-shell {
-  height: 100dvh;
+  height: 100vh;
+  height: 100lvh;
   overflow: hidden;
 }
 
-/* NOTE: iOS Safari minimises its bottom bar for scrolls inside #app-scroll
-   but keeps reporting the un-minimised viewport — innerHeight, visualViewport
-   and 100dvh all stay at 100svh — so a scroller sized from any of them ends a
-   bar's height above the minimised bar, body background below (iOS 18.7,
-   measured: 100svh 736, 100lvh 836). The scroller takes the large viewport,
-   the one size Safari reports the same in both states, and is fixed so the
-   extra height is neither clipped by the shell nor document overflow.
-   --toolbar-cover is the strip the expanded bar hides; the content is padded
-   by it so the page's end stays reachable above the bar, and it is 0 once the
-   bar minimises and Safari says so. */
 .app-scroll {
+  /* The strip the bar covers: 0 on a viewport the bar shrinks instead of
+     overlapping, and 0 everywhere the two viewports agree. */
   --toolbar-cover: calc(100lvh - 100dvh);
 
-  position: fixed;
-  inset: 0;
   display: flex;
   flex-direction: column;
-  height: 100vh;
-  height: 100lvh;
+  height: 100%;
   overflow-y: auto;
   overscroll-behavior: contain;
   scrollbar-gutter: stable;
@@ -262,9 +260,13 @@ body {
   -webkit-overflow-scrolling: touch;
 }
 
-.app-scroll::after {
+/* Hold the page's last box off the bar from inside it, so the strip is painted
+   in that box's own surface and the page reads as running under the bar rather
+   than ending above something else. Inside rather than a strip of the
+   scroller's own, which could only ever guess at that surface. */
+.app-scroll > :last-child::after {
   content: "";
-  flex: none;
+  display: block;
   height: var(--toolbar-cover);
 }
 
@@ -284,13 +286,12 @@ body:has(dialog.modal[open]) .app-scroll {
   }
 
   .app-scroll {
-    position: static;
     display: block;
     height: auto;
     overflow: visible;
   }
 
-  .app-scroll::after {
+  .app-scroll > :last-child::after {
     content: none;
   }
 }
