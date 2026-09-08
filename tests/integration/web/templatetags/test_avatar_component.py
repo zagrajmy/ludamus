@@ -49,7 +49,7 @@ class TestNameFallback:
     def test_renders_nothing_without_a_name_or_a_picture(self):
         # A session with no facilitator carries a nameless stand-in; drawing a
         # blank coloured disc for it is worse than drawing nothing.
-        assert _render(Nameless()).strip() == ""
+        assert not _render(Nameless()).strip()
 
     def test_still_renders_a_flagged_user_with_no_name(self):
         # The warning badge must never be the thing that goes missing.
