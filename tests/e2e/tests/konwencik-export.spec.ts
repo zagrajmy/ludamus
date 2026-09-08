@@ -58,6 +58,15 @@ test.describe("Konwencik export", () => {
 
     const sample = samples.getByRole("listitem").filter({ hasText: "RPG" });
     const glyph = sample.locator("[data-konwencik-cell-icon]");
+    await expect(page.getByLabel("Background", { exact: true }).first()).toHaveAttribute(
+      "type",
+      "color",
+    );
+    expect(
+      await page
+        .locator("#konwencik-settings-form")
+        .evaluate((form: HTMLFormElement) => new FormData(form).get("colors-1-color")),
+    ).toBe("");
     await expect(glyph).toHaveCSS("font-family", '"Font Awesome 6 Free"');
     await expect
       .poll(() => glyph.evaluate((element) => getComputedStyle(element, "::before").content))
@@ -72,10 +81,6 @@ test.describe("Konwencik export", () => {
       "rgb(255, 255, 255)",
     );
     await expect(glyph).toHaveCSS("color", "rgb(255, 255, 255)");
-    await page.getByLabel("Background", { exact: true }).first().fill("");
-    await expect(sample).toBeHidden();
-    await page.getByLabel("Background", { exact: true }).first().fill("invalid");
-    await expect(sample).toBeHidden();
     await page.getByLabel("Background", { exact: true }).first().fill("#1e88e5");
     await expect(sample).toBeVisible();
     await page.getByLabel("Icon", { exact: true }).first().fill("fa.not-an-icon");

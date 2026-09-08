@@ -13,15 +13,20 @@ if (preview) {
     ),
   ];
   const trackInputs = [
-    ...document.querySelectorAll<HTMLInputElement>("[data-konwencik-track-row] input[type='text']"),
+    ...document.querySelectorAll<HTMLInputElement>(
+      "[data-konwencik-track-row] input[type='color']",
+    ),
   ];
+  // Native color inputs coerce empty values to black; untouched defaults must stay unset.
+  const unsetColors = new Set(trackInputs.filter((input) => !input.getAttribute("value")));
 
   const update = (): void => {
     for (const cell of preview.querySelectorAll<HTMLElement>("[data-konwencik-cell]")) {
       const categoryIndex = Number(cell.dataset.categoryIndex);
       const trackIndex = Number(cell.dataset.trackIndex);
       const icon = categoryInputs[categoryIndex]?.value.trim() ?? "";
-      const color = trackInputs[trackIndex]?.value.trim() ?? "";
+      const colorInput = trackInputs[trackIndex];
+      const color = unsetColors.has(colorInput) ? "" : (colorInput?.value.trim() ?? "");
       const iconLabel = cell.querySelector<HTMLElement>("[data-konwencik-cell-icon]");
 
       const name = icon.startsWith("fa.")
@@ -48,8 +53,13 @@ if (preview) {
     }
   };
 
-  document
-    .querySelector<HTMLFormElement>("#konwencik-settings-form")
-    ?.addEventListener("input", update);
+  const form = document.querySelector<HTMLFormElement>("#konwencik-settings-form");
+  form?.addEventListener("input", (event) => {
+    if (event.target instanceof HTMLInputElement) unsetColors.delete(event.target);
+    update();
+  });
+  form?.addEventListener("formdata", (event) => {
+    for (const input of unsetColors) event.formData.set(input.name, "");
+  });
   update();
 }

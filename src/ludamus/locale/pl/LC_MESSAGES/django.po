@@ -6930,7 +6930,6 @@ msgid "Details"
 msgstr "Szczegóły"
 
 #: src/ludamus/templates/panel/_detail_tabs.html
-#: src/ludamus/templates/panel/item-history.html
 msgid "Change history"
 msgstr "Historia zmian"
 
@@ -9414,11 +9413,6 @@ msgstr ""
 "dołu. Tylko dla organizatorów."
 
 #: src/ludamus/templates/panel/proposal-detail.html
-#: src/ludamus/templates/panel/proposal-form.html
-msgid "Proposal Details"
-msgstr "Szczegóły zgłoszenia"
-
-#: src/ludamus/templates/panel/proposal-detail.html
 msgid "Last modified"
 msgstr "Ostatnia modyfikacja"
 
@@ -9498,6 +9492,10 @@ msgstr "Nowe zgłoszenie"
 #: src/ludamus/templates/panel/proposal-form.html
 msgid "Create Proposal"
 msgstr "Utwórz zgłoszenie"
+
+#: src/ludamus/templates/panel/proposal-form.html
+msgid "Proposal Details"
+msgstr "Szczegóły zgłoszenia"
 
 #: src/ludamus/templates/panel/proposal-form.html
 msgid "Loading"

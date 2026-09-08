@@ -110,6 +110,7 @@ class KonwencikIconForm(_RowForm):
 class KonwencikColorForm(_RowForm):
     color = forms.RegexField(
         label=gettext_lazy("Background"),
+        widget=forms.TextInput(attrs={"type": "color"}),
         regex=_HEX_COLOR,
         required=False,
         strip=True,
