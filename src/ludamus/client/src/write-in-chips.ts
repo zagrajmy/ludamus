@@ -42,7 +42,7 @@ const initChipsInput = (draft: HTMLInputElement): void => {
   draft.before(mirror, shell);
   shell.append(draft);
   draft.className =
-    "flex-1 min-w-32 max-w-full w-32 border-0 bg-transparent p-0 text-base sm:text-sm text-foreground placeholder:text-foreground-muted focus:outline-none";
+    "flex-1 min-w-48 max-w-full w-48 border-0 bg-transparent p-0 text-base sm:text-sm text-foreground placeholder:text-foreground-muted focus:outline-none";
 
   const error = document.createElement("p");
   error.id = `${draft.id}-chips-limit`;
