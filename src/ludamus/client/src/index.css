@@ -358,10 +358,7 @@ select:focus-visible {
   border-color: var(--color-border-focus) !important;
 }
 
-/* The chips shell (write-in-chips.ts) is one composite control: the focus
-   ring above moves from the inner draft input to the shell. Unlayered on
-   purpose — it must override the unlayered :focus-visible rule, which beats
-   any layered utility. */
+/* NOTE: unlayered to override the global :focus-visible rule above. */
 .write-in-chips:focus-within {
   border-color: var(--color-border-focus);
   box-shadow:

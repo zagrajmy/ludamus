@@ -520,3 +520,9 @@ If you fix a papercut, remove it.
 - 2026-09-08: PR 723 restore: messages-resolve requires ENV=test in an
   unconfigured worktree; default development config lacks secrets. gh pr diff
   has no --stat flag, use git diff --stat.
+- 2026-09-08: Write-in browser regression mutated a multipart wizard POST as
+  URL-encoded data, so the server did not receive the answer. Preserve the
+  multipart body when intercepting this form.
+- 2026-09-08: test:e2e:serve uses GNU stat -c to detect rebuilt manifests; macOS
+  stat fails, so the server keeps stale asset paths after a rebuild. Restarted
+  the owned test server manually.

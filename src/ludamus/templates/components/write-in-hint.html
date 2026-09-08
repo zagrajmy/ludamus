@@ -1,3 +1,4 @@
 {% load i18n vite_tags %}
 {% vite_asset_once 'src/write-in-chips.ts' %}
-<span class="text-xs text-foreground-muted">{% translate "semicolon separated" %}</span>
+<span class="text-xs text-foreground-muted"
+      data-chips-hint="{% translate "Type a value and press Enter to add it." %}">{% translate "semicolon separated" %}</span>
