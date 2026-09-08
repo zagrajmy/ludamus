@@ -18,10 +18,10 @@
     {% endif %}
 {% endblock page_subtitle %}
 {% block content %}
-    <div class="p-4 flex flex-col gap-6">
+    <div class="panel-bleed sm:flex sm:flex-col sm:gap-6">
         {% if current_event %}
             {# Add a ban #}
-            <div class="rounded-lg bg-bg-secondary p-4">
+            <div class="card card-body">
                 <h6 class="flex items-center gap-1.5 font-semibold text-sm mb-3">
                     {% icon "no-symbol" class="w-4 h-4" %}
                     {% translate "Ban a person from this event" %}
