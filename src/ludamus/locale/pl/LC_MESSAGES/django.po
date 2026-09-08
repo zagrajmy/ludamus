@@ -7166,6 +7166,20 @@ msgstr "Podgląd okna na komputerze"
 msgid "Programme host"
 msgstr "Twórca programu"
 
+#: src/ludamus/templates/panel/_venue_tabs.html
+msgid "Venue views"
+msgstr "Widoki lokalizacji"
+
+#: src/ludamus/templates/panel/_venue_tabs.html
+#: src/ludamus/templates/panel/spaces.html
+msgid "Physical layout"
+msgstr "Układ fizyczny"
+
+#: src/ludamus/templates/panel/_venue_tabs.html
+#: src/ludamus/templates/panel/spaces.html
+msgid "Programme order"
+msgstr "Kolejność programu"
+
 #: src/ludamus/templates/panel/bans.html src/ludamus/templates/panel/base.html
 msgid "Bans"
 msgstr "Bany"
@@ -9850,20 +9864,8 @@ msgstr ""
 "harmonogramów."
 
 #: src/ludamus/templates/panel/spaces.html
-msgid "Programme order"
-msgstr "Kolejność programu"
-
-#: src/ludamus/templates/panel/spaces.html
-msgid "Physical layout"
-msgstr "Układ fizyczny"
-
-#: src/ludamus/templates/panel/spaces.html
 msgid "New top-level space"
 msgstr "Nowa przestrzeń najwyższego poziomu"
-
-#: src/ludamus/templates/panel/spaces.html
-msgid "Venue views"
-msgstr "Widoki lokalizacji"
 
 #: src/ludamus/templates/panel/spaces.html
 msgid "Could not save the new order. Reloading the page."

@@ -74,6 +74,9 @@ test("renders the longest path at phone and desktop modal widths", async ({ page
 
   await expect(phone).toBeVisible();
   await expect(desktop).toBeVisible();
+  const venueTreeBox = await page.locator("#space-root-list").boundingBox();
+  const previewBox = await phone.boundingBox();
+  expect(previewBox?.y ?? 0).toBeGreaterThan((venueTreeBox?.y ?? 0) + (venueTreeBox?.height ?? 0));
   expect(Math.round((await phoneFrame.boundingBox())?.width ?? 0)).toBe(382);
   expect(Math.round((await desktopFrame.boundingBox())?.width ?? 0)).toBe(800);
 
