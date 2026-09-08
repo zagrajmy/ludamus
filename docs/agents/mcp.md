@@ -41,7 +41,8 @@ are structurally unreachable from it. Old tokens that omit `event_id` fail
 auth.
 
 The organizer tier provides programme verbs for spaces, time slots, tracks,
-and sessions, with writes scoped to one event per token and sphere-wide reads.
+sessions, and venue maps, with writes scoped to one event per token and
+sphere-wide reads.
 
 ## Architecture
 

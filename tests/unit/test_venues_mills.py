@@ -19,9 +19,11 @@ def _node(*, pk, name, children=(), no_children_reason=None):
             capacity=None,
             description="",
             order=0,
+            programme_order=0,
         ),
         is_leaf=not kids,
         no_children_reason=no_children_reason,
+        undeletable_reason=None,
         track_names=[],
         children=kids,
     )
@@ -147,6 +149,7 @@ class TestCreateSpace:
             capacity=None,
             description="",
             order=0,
+            programme_order=0,
         )
         service = SpaceTreeService(transaction, spaces)
 
