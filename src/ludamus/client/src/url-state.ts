@@ -75,6 +75,21 @@ const stringParam: SearchParamCodec<string> = {
   serialize: (value) => value.trim() || null,
 };
 
+const stringListParam: SearchParamCodec<string[]> = {
+  parse: (raw) => {
+    if (!raw) return [];
+    try {
+      const values: unknown = JSON.parse(raw);
+      return Array.isArray(values)
+        ? values.filter((value): value is string => typeof value === "string" && value !== "")
+        : [raw];
+    } catch {
+      return [raw];
+    }
+  },
+  serialize: (values) => (values.length > 0 ? JSON.stringify(values) : null),
+};
+
 /** Presence flag: serialized as "1"; any non-empty raw value parses as on. */
 const flagParam: SearchParamCodec<boolean> = {
   parse: (raw) => raw !== null && raw !== "",
@@ -101,5 +116,6 @@ export {
   restoreCarriedSearchParams,
   type SearchParamCodec,
   type SearchParamUpdates,
+  stringListParam,
   stringParam,
 };
