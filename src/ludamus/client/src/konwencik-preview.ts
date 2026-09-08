@@ -13,36 +13,50 @@ if (preview) {
     ),
   ];
   const trackInputs = [
-    ...document.querySelectorAll<HTMLInputElement>(
-      "[data-konwencik-track-row] input[type='color']",
-    ),
+    ...document.querySelectorAll<HTMLInputElement>("[data-konwencik-track-row] input[type='text']"),
   ];
-  // Native color inputs coerce empty values to black; untouched defaults must stay unset.
-  const unsetColors = new Set(trackInputs.filter((input) => !input.getAttribute("value")));
+
+  const iconClass = (icon: string): string => {
+    const name = icon.startsWith("fa.")
+      ? icon.slice(3).replaceAll(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`)
+      : "";
+    const style = Object.hasOwn(__KONWENCIK_ICON_STYLES__, name)
+      ? __KONWENCIK_ICON_STYLES__[name]
+      : undefined;
+    return style ? `fa-${style} fa-${name}` : "";
+  };
 
   const update = (): void => {
+    for (const field of preview.querySelectorAll<HTMLElement>("[data-icon-field]")) {
+      const icon = field.querySelector<HTMLInputElement>("input")?.value.trim() ?? "";
+      const glyph = field.querySelector<HTMLElement>("[data-icon-field-glyph]");
+      const status = field.querySelector<HTMLElement>("[data-icon-field-status]");
+      const className = iconClass(icon);
+      if (glyph) glyph.className = className;
+      if (status)
+        status.textContent = className
+          ? ""
+          : icon
+            ? (status.dataset.unsupported ?? "")
+            : (status.dataset.empty ?? "");
+    }
     for (const cell of preview.querySelectorAll<HTMLElement>("[data-konwencik-cell]")) {
       const categoryIndex = Number(cell.dataset.categoryIndex);
       const trackIndex = Number(cell.dataset.trackIndex);
       const icon = categoryInputs[categoryIndex]?.value.trim() ?? "";
       const colorInput = trackInputs[trackIndex];
-      const color = unsetColors.has(colorInput) ? "" : (colorInput?.value.trim() ?? "");
+      const color = colorInput?.value.trim() ?? "";
       const iconLabel = cell.querySelector<HTMLElement>("[data-konwencik-cell-icon]");
 
-      const name = icon.startsWith("fa.")
-        ? icon.slice(3).replaceAll(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`)
-        : "";
-      const style = Object.hasOwn(__KONWENCIK_ICON_STYLES__, name)
-        ? __KONWENCIK_ICON_STYLES__[name]
-        : undefined;
+      const className = iconClass(icon);
       if (iconLabel) {
-        iconLabel.className = style ? `fa-${style} fa-${name}` : "";
+        iconLabel.className = className;
         const status = cell.parentElement?.querySelector<HTMLElement>(
           "[data-konwencik-icon-status]",
         );
         if (status)
           status.textContent = icon
-            ? style
+            ? className
               ? icon
               : (status.dataset.unsupported ?? "")
             : (status.dataset.empty ?? "");
@@ -54,12 +68,7 @@ if (preview) {
   };
 
   const form = document.querySelector<HTMLFormElement>("#konwencik-settings-form");
-  form?.addEventListener("input", (event) => {
-    if (event.target instanceof HTMLInputElement) unsetColors.delete(event.target);
-    update();
-  });
-  form?.addEventListener("formdata", (event) => {
-    for (const input of unsetColors) event.formData.set(input.name, "");
-  });
+  form?.addEventListener("input", update);
+  form?.addEventListener("reset", () => queueMicrotask(update));
   update();
 }

@@ -8,11 +8,13 @@
     {% translate "Konwencik export" %}
 {% endblock page_title %}
 {% block page_subtitle %}
-    {% if active_integration %}
-        {{ active_integration.display_name }}
-    {% elif current_event %}
-        {{ current_event.name }}
-    {% endif %}
+    <span class="text-foreground-secondary">
+        {% if active_integration %}
+            {{ active_integration.display_name }}
+        {% elif current_event %}
+            {{ current_event.name }}
+        {% endif %}
+    </span>
 {% endblock page_subtitle %}
 {% block header_actions %}
     {% if current_event and active_integration %}
@@ -32,7 +34,7 @@
     <div class="panel-bleed">
         {% if not active_integration %}
             <div class="card p-8 text-center">
-                <p class="text-foreground-muted">
+                <p class="text-foreground-secondary">
                     {% translate "No Konwencik export yet. Add one in Settings → Integrations to publish this event's schedule to a Konwencik spreadsheet." %}
                 </p>
             </div>
@@ -78,11 +80,15 @@
                     <div class="card">
                         <div class="card-body space-y-4">
                             <h2 class="text-lg font-medium text-foreground">{% translate "Attraction kinds" %}</h2>
+                            <p class="text-sm text-foreground-secondary">{% translate "Konwencik's own notation, for example fa.gamepad." %}</p>
                             {{ icon_formset.management_form }}
                             {% for row in category_rows %}
                                 <div class="grid gap-2 sm:grid-cols-3 sm:items-start"
-                                     data-konwencik-category-row="{{ forloop.counter0 }}">
-                                    <p class="text-sm font-medium text-foreground sm:pt-2">{% if row.item %}{{ row.item.name }}{% else %}—{% endif %}</p>
+                                     data-konwencik-category-row="{{ forloop.counter0 }}"
+                                     role="group"
+                                     aria-labelledby="category-label-{{ forloop.counter0 }}">
+                                    <p id="category-label-{{ forloop.counter0 }}"
+                                       class="text-sm font-medium text-foreground sm:pt-2">{% if row.item %}{{ row.item.name }}{% else %}—{% endif %}</p>
                                     <div class="sm:col-span-2">
                                         {{ row.form.pk }}
                                         {% for error in row.form.pk.errors %}<p class="mt-1 text-xs text-danger" role="alert">{{ error }}</p>{% endfor %}
@@ -90,7 +96,7 @@
                                     </div>
                                 </div>
                             {% empty %}
-                                <p class="text-sm text-foreground-muted">
+                                <p class="text-sm text-foreground-secondary">
                                     {% translate "No attraction kinds yet. Add one in the event settings to give it an icon." %}
                                 </p>
                             {% endfor %}
@@ -102,8 +108,11 @@
                             {{ color_formset.management_form }}
                             {% for row in track_rows %}
                                 <div class="grid gap-2 sm:grid-cols-3 sm:items-start"
-                                     data-konwencik-track-row="{{ forloop.counter0 }}">
-                                    <p class="text-sm font-medium text-foreground sm:pt-2">{% if row.item %}{{ row.item.name }}{% else %}—{% endif %}</p>
+                                     data-konwencik-track-row="{{ forloop.counter0 }}"
+                                     role="group"
+                                     aria-labelledby="track-label-{{ forloop.counter0 }}">
+                                    <p id="track-label-{{ forloop.counter0 }}"
+                                       class="text-sm font-medium text-foreground sm:pt-2">{% if row.item %}{{ row.item.name }}{% else %}—{% endif %}</p>
                                     <div class="sm:col-span-2">
                                         {{ row.form.pk }}
                                         {% for error in row.form.pk.errors %}<p class="mt-1 text-xs text-danger" role="alert">{{ error }}</p>{% endfor %}
@@ -121,7 +130,7 @@
                                                         </span>
                                                         <span class="min-w-0 text-sm">
                                                             <span class="block break-words font-medium text-foreground">{{ preview.category }}</span>
-                                                            <span class="block text-xs text-foreground-muted"
+                                                            <span class="block text-xs text-foreground-secondary"
                                                                   data-konwencik-icon-status
                                                                   data-empty="{% translate 'No icon' %}"
                                                                   data-unsupported="{% translate 'Preview unavailable for this icon' %}"></span>
@@ -133,7 +142,7 @@
                                     </div>
                                 </div>
                             {% empty %}
-                                <p class="text-sm text-foreground-muted">
+                                <p class="text-sm text-foreground-secondary">
                                     {% translate "No public tracks yet. A session with no public track is exported without a track." %}
                                 </p>
                             {% endfor %}
@@ -142,7 +151,7 @@
                     <div class="card">
                         <div class="card-body space-y-4">
                             <h2 class="text-lg font-medium text-foreground">{% translate "Overrides" %}</h2>
-                            <p class="text-sm text-foreground-muted">
+                            <p class="text-sm text-foreground-secondary">
                                 {% translate "A session field whose answer replaces the value the export would otherwise write." %}
                             </p>
                             {% tessera_field overrides_form.photo_url_field %}

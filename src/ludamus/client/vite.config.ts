@@ -51,6 +51,7 @@ export default defineConfig({
         avatar: resolve(rootDir, "src/avatar.ts"),
         "bulk-status": resolve(rootDir, "src/bulk-status.ts"),
         "checkbox-tree": resolve(rootDir, "src/checkbox-tree.ts"),
+        "color-field": resolve(rootDir, "src/color-field.ts"),
         combobox: resolve(rootDir, "src/combobox.ts"),
         confirm: resolve(rootDir, "src/confirm.ts"),
         copy: resolve(rootDir, "src/copy.ts"),

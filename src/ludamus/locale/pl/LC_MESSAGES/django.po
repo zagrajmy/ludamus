@@ -2588,10 +2588,6 @@ msgid "Icon"
 msgstr "Ikona"
 
 #: src/ludamus/gates/web/django/event/panel/views/konwencik_export.py
-msgid "Konwencik's own notation, for example fa.gamepad."
-msgstr "Notacja Konwencika, na przykład fa.gamepad."
-
-#: src/ludamus/gates/web/django/event/panel/views/konwencik_export.py
 msgid "Background"
 msgstr "Tło"
 
@@ -5327,6 +5323,10 @@ msgstr "Czy na pewno chcesz to usunąć?"
 msgid "%(name_value)s (flagged)"
 msgstr "%(name_value)s (oznaczony)"
 
+#: src/ludamus/templates/components/color-field.html
+msgid "Color picker"
+msgstr "Wybierz kolor"
+
 #: src/ludamus/templates/components/combobox.html
 msgid "Results"
 msgstr "Wyniki"
@@ -5443,6 +5443,16 @@ msgstr "Usuń plik"
 #, python-format
 msgid "Guild: %(name)s"
 msgstr "Gildia: %(name)s"
+
+#: src/ludamus/templates/components/icon-field.html
+#: src/ludamus/templates/panel/konwencik-export-settings.html
+msgid "No icon"
+msgstr "Brak ikony"
+
+#: src/ludamus/templates/components/icon-field.html
+#: src/ludamus/templates/panel/konwencik-export-settings.html
+msgid "Preview unavailable for this icon"
+msgstr "Podgląd tej ikony jest niedostępny"
 
 #: src/ludamus/templates/components/login_button.html
 #: src/ludamus/templates/event/propose/parts/_login_nudge.html
@@ -8716,19 +8726,15 @@ msgid "Attraction kinds"
 msgstr "Rodzaje atrakcji"
 
 #: src/ludamus/templates/panel/konwencik-export-settings.html
+msgid "Konwencik's own notation, for example fa.gamepad."
+msgstr "Notacja Konwencika, na przykład fa.gamepad."
+
+#: src/ludamus/templates/panel/konwencik-export-settings.html
 msgid ""
 "No attraction kinds yet. Add one in the event settings to give it an icon."
 msgstr ""
 "Nie ma jeszcze rodzajów atrakcji. Dodaj jeden w ustawieniach wydarzenia, aby "
 "nadać mu ikonę."
-
-#: src/ludamus/templates/panel/konwencik-export-settings.html
-msgid "No icon"
-msgstr "Brak ikony"
-
-#: src/ludamus/templates/panel/konwencik-export-settings.html
-msgid "Preview unavailable for this icon"
-msgstr "Podgląd tej ikony jest niedostępny"
 
 #: src/ludamus/templates/panel/konwencik-export-settings.html
 msgid ""
