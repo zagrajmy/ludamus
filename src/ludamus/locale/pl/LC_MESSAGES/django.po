@@ -6984,10 +6984,45 @@ msgstr "Uruchomienie importu"
 msgid "Log"
 msgstr "Dziennik"
 
+#: src/ludamus/templates/panel/_programme_space_order.html
+msgid "Could not save the programme order. Reloading the page."
+msgstr "Nie udało się zapisać kolejności programu. Strona zostanie odświeżona."
+
+#: src/ludamus/templates/panel/_programme_space_order.html
+msgid ""
+"Drag scheduled rooms into the order participants should see across the "
+"timetable. This does not change their physical nesting."
+msgstr ""
+"Przeciągnij zaplanowane sale, aby ustawić kolejność widoczną dla uczestników "
+"w harmonogramie. Nie zmieni to ich fizycznego zagnieżdżenia."
+
+#: src/ludamus/templates/panel/_programme_space_order.html
+msgid "Programme room order"
+msgstr "Kolejność sal w programie"
+
+#: src/ludamus/templates/panel/_programme_space_order.html
+msgid "__name__ moved to position __position__ of __count__."
+msgstr "Przeniesiono __name__ na pozycję __position__ z __count__."
+
+#: src/ludamus/templates/panel/_programme_space_order.html
+#, python-format
+msgid "Reorder %(name)s in the programme — use the arrow keys"
+msgstr "Zmień pozycję %(name)s w programie — użyj strzałek"
+
+#: src/ludamus/templates/panel/_programme_space_order.html
+msgid ""
+"No scheduled rooms yet. Assign a session to a room and it will appear here."
+msgstr ""
+"Brak zaplanowanych sal. Przypisz punkt programu do sali, a pojawi się tutaj."
+
 #: src/ludamus/templates/panel/_space_tree_node.html
 #, python-format
-msgid "Toggle children of %(name)s"
-msgstr "Zwiń lub rozwiń zawartość %(name)s"
+msgid ""
+"Reorder or toggle %(name)s — arrow keys reorder; Enter or Space toggles "
+"children"
+msgstr ""
+"Zmień kolejność albo zwiń lub rozwiń „%(name)s” — strzałki zmieniają "
+"kolejność; Enter lub spacja przełącza elementy podrzędne"
 
 #: src/ludamus/templates/panel/_space_tree_node.html
 #, python-format
@@ -7082,6 +7117,71 @@ msgstr "Problemy"
 #: src/ludamus/templates/panel/timetable-confirmations.html
 msgid "Confirmations"
 msgstr "Potwierdzenia"
+
+#: src/ludamus/templates/panel/_venue_path_previews.html
+msgid "Longest scheduled location"
+msgstr "Najdłuższa zaplanowana lokalizacja"
+
+#: src/ludamus/templates/panel/_venue_path_previews.html
+#, python-format
+msgid ""
+"This path is %(path_count)s character long and the hardest one to fit in "
+"session details. Shorter room names make the whole location readable on "
+"phones."
+msgid_plural ""
+"This path is %(path_count)s characters long and the hardest one to fit in "
+"session details. Shorter room names make the whole location readable on "
+"phones."
+msgstr[0] ""
+"Ta ścieżka ma %(path_count)s znak i najtrudniej zmieścić ją w szczegółach "
+"punktu programu. Krótsze nazwy sal ułatwią odczytanie całej lokalizacji na "
+"telefonie."
+msgstr[1] ""
+"Ta ścieżka ma %(path_count)s znaki i najtrudniej zmieścić ją w szczegółach "
+"punktu programu. Krótsze nazwy sal ułatwią odczytanie całej lokalizacji na "
+"telefonie."
+msgstr[2] ""
+"Ta ścieżka ma %(path_count)s znaków i najtrudniej zmieścić ją w szczegółach "
+"punktu programu. Krótsze nazwy sal ułatwią odczytanie całej lokalizacji na "
+"telefonie."
+msgstr[3] ""
+"Ta ścieżka ma %(path_count)s znaku i najtrudniej zmieścić ją w szczegółach "
+"punktu programu. Krótsze nazwy sal ułatwią odczytanie całej lokalizacji na "
+"telefonie."
+
+#: src/ludamus/templates/panel/_venue_path_previews.html
+msgid "Phone modal · 390 px viewport"
+msgstr "Okno na telefonie · widok 390 px"
+
+#: src/ludamus/templates/panel/_venue_path_previews.html
+msgid "Phone modal preview"
+msgstr "Podgląd okna na telefonie"
+
+#: src/ludamus/templates/panel/_venue_path_previews.html
+msgid "Desktop modal · 800 px wide"
+msgstr "Okno na komputerze · szerokość 800 px"
+
+#: src/ludamus/templates/panel/_venue_path_previews.html
+msgid "Desktop modal preview"
+msgstr "Podgląd okna na komputerze"
+
+#: src/ludamus/templates/panel/_venue_path_sample.html
+msgid "Programme host"
+msgstr "Twórca programu"
+
+#: src/ludamus/templates/panel/_venue_tabs.html
+msgid "Venue views"
+msgstr "Widoki lokalizacji"
+
+#: src/ludamus/templates/panel/_venue_tabs.html
+#: src/ludamus/templates/panel/spaces.html
+msgid "Physical layout"
+msgstr "Układ fizyczny"
+
+#: src/ludamus/templates/panel/_venue_tabs.html
+#: src/ludamus/templates/panel/spaces.html
+msgid "Programme order"
+msgstr "Kolejność programu"
 
 #: src/ludamus/templates/panel/bans.html src/ludamus/templates/panel/base.html
 msgid "Bans"
@@ -9757,18 +9857,13 @@ msgstr "Czym są lokalizacje?"
 
 #: src/ludamus/templates/panel/spaces.html
 msgid ""
-"Organise the physical layout of your event. Add a single room on its own, or "
-"nest spaces as deeply as you need — a building with floors and rooms inside. "
-"Any space that holds sessions takes a capacity."
+"Build the physical hierarchy here, from buildings and floors down to rooms. "
+"Use Programme order to arrange scheduled rooms independently for "
+"participants and timetables."
 msgstr ""
-"Zorganizuj fizyczny układ swojego wydarzenia. Dodaj pojedynczą salę albo "
-"zagnieżdżaj przestrzenie tak głęboko, jak potrzebujesz — budynek z piętrami "
-"i salami w środku. Każda przestrzeń, w której odbywają się punkty programu, "
-"ma pojemność."
-
-#: src/ludamus/templates/panel/spaces.html
-msgid "Physical Locations"
-msgstr "Fizyczne lokalizacje"
+"Zbuduj tu fizyczną hierarchię — od budynków i pięter po sale. Na karcie "
+"„Kolejność programu” niezależnie ustaw zaplanowane sale dla uczestników i "
+"harmonogramów."
 
 #: src/ludamus/templates/panel/spaces.html
 msgid "New top-level space"
@@ -9776,7 +9871,21 @@ msgstr "Nowa przestrzeń najwyższego poziomu"
 
 #: src/ludamus/templates/panel/spaces.html
 msgid "Could not save the new order. Reloading the page."
-msgstr "Nie udało się zapisać nowej kolejności. Ponowne ładowanie strony."
+msgstr "Nie udało się zapisać nowej kolejności. Strona zostanie odświeżona."
+
+#: src/ludamus/templates/panel/spaces.html
+msgid "Could not move the space to the top level. Reloading the page."
+msgstr ""
+"Nie udało się przenieść przestrzeni na najwyższy poziom. Strona zostanie "
+"odświeżona."
+
+#: src/ludamus/templates/panel/spaces.html
+msgid ""
+"Drop a nested space here to move it to the top level. Keyboard: focus its "
+"handle and press Left Arrow."
+msgstr ""
+"Upuść tutaj zagnieżdżoną przestrzeń, aby przenieść ją na najwyższy poziom. "
+"Klawiatura: ustaw fokus na jej uchwycie i naciśnij strzałkę w lewo."
 
 #: src/ludamus/templates/panel/spaces.html
 msgid "No spaces yet. Add a single room, or nest spaces to map a larger venue."
@@ -10158,6 +10267,23 @@ msgid ""
 msgstr ""
 "Nie ma nadchodzących wydarzeń ani publicznych spotkań. Sprawdź ponownie "
 "później!"
+
+#, python-format
+#~ msgid "Toggle children of %(name)s"
+#~ msgstr "Zwiń lub rozwiń zawartość %(name)s"
+
+#~ msgid ""
+#~ "Organise the physical layout of your event. Add a single room on its own, "
+#~ "or nest spaces as deeply as you need — a building with floors and rooms "
+#~ "inside. Any space that holds sessions takes a capacity."
+#~ msgstr ""
+#~ "Zorganizuj fizyczny układ swojego wydarzenia. Dodaj pojedynczą salę albo "
+#~ "zagnieżdżaj przestrzenie tak głęboko, jak potrzebujesz — budynek z "
+#~ "piętrami i salami w środku. Każda przestrzeń, w której odbywają się "
+#~ "punkty programu, ma pojemność."
+
+#~ msgid "Physical Locations"
+#~ msgstr "Fizyczne lokalizacje"
 
 #~ msgid "Participant"
 #~ msgid_plural "Participants"

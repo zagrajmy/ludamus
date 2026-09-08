@@ -5,23 +5,22 @@
         <div class="flex min-w-0 items-center gap-2">
             {% if node.children %}
                 <button type="button"
+                        draggable="true"
                         data-space-disclosure
-                        class="icon-btn icon-btn-clear group shrink-0 text-foreground-muted"
+                        class="drag-handle icon-btn cursor-move text-foreground-muted"
                         aria-expanded="true"
                         aria-controls="space-children-{{ node.space.pk }}"
-                        aria-label="{% blocktranslate with name=node.space.name %}Toggle children of {{ name }}{% endblocktranslate %}">
-                    {% icon "chevron-down" class="w-4 h-4 group-aria-[expanded=false]:hidden" %}
-                    {% icon "chevron-right" class="hidden w-4 h-4 group-aria-[expanded=false]:block" %}
+                        aria-label="{% blocktranslate with name=node.space.name %}Reorder or toggle {{ name }} — arrow keys reorder; Enter or Space toggles children{% endblocktranslate %}">
+                    {% icon "bars-3" class="w-4 h-4" %}
                 </button>
             {% else %}
-                <span class="size-7 shrink-0" aria-hidden="true"></span>
+                <button type="button"
+                        draggable="true"
+                        class="drag-handle icon-btn cursor-move text-foreground-muted"
+                        aria-label="{% blocktranslate with name=node.space.name %}Reorder {{ name }} — use the arrow keys{% endblocktranslate %}">
+                    {% icon "bars-3" class="w-4 h-4" %}
+                </button>
             {% endif %}
-            <button type="button"
-                    draggable="true"
-                    class="drag-handle icon-btn cursor-move text-foreground-muted"
-                    aria-label="{% blocktranslate with name=node.space.name %}Reorder {{ name }} — use the arrow keys{% endblocktranslate %}">
-                {% icon "bars-3" class="w-4 h-4" %}
-            </button>
             {% if node.is_leaf %}
                 {% icon "square-3-stack-3d" class="w-4 h-4 shrink-0 text-success" %}
                 <span class="sr-only">{% translate "Room" %}</span>
@@ -125,8 +124,9 @@
     </div>
     {% if node.children %}
         <ul id="space-children-{{ node.space.pk }}"
-            class="space-list ml-5 border-l border-border pl-1"
-            data-parent-pk="{{ node.space.pk }}">
+            class="space-list relative ml-5 pl-1 before:absolute before:inset-y-0 before:left-0 before:w-4 before:cursor-pointer before:border-l before:border-border before:transition-colors before:content-[''] hover:before:border-foreground-muted"
+            data-parent-pk="{{ node.space.pk }}"
+            data-space-branch-disclosure>
             {% for child in node.children %}
                 {% include "panel/_space_tree_node.html" with node=child %}
             {% endfor %}

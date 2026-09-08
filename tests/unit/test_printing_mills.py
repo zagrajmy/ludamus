@@ -30,6 +30,7 @@ def _space(pk, name, order, area_id=None):
         modification_time=now,
         name=name,
         order=order,
+        programme_order=order,
         pk=pk,
         slug=name.lower(),
     )
@@ -114,8 +115,10 @@ def _area_schedule(service, window, **kwargs):
 
 
 class TestBuildDoorCards:
-    def test_one_card_per_space_in_order(self):
-        spaces = [_space(2, "Bravo", 1), _space(1, "Alfa", 0)]
+    def test_one_card_per_space_in_programme_order(self):
+        spaces = [_space(2, "Bravo", 0), _space(1, "Alfa", 1)]
+        spaces[0].programme_order = 1
+        spaces[1].programme_order = 0
         items = [
             _item(1, 1, 9, 10, title="RPG", confirmed=True),
             _item(2, 2, 9, 10, title="Larp", confirmed=True),
@@ -444,8 +447,10 @@ def _session_list(service, **kwargs):
 
 
 class TestBuildSessionList:
-    def test_whole_event_in_time_then_room_order(self):
-        spaces = [_space(1, "Alfa", 0), _space(2, "Bravo", 1)]
+    def test_whole_event_in_time_then_programme_room_order(self):
+        spaces = [_space(1, "Alfa", 1), _space(2, "Bravo", 0)]
+        spaces[0].programme_order = 0
+        spaces[1].programme_order = 1
         items = [
             _item(1, 2, 9, 10, title="Late room", confirmed=True, space_name="Bravo"),
             _item(2, 1, 9, 10, title="Early room", confirmed=True, space_name="Alfa"),
