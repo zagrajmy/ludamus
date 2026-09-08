@@ -60,18 +60,21 @@ test.describe("Konwencik export", () => {
     const glyph = sample.locator("[data-konwencik-cell-icon]");
     await expect(page.getByLabel("Background", { exact: true }).first()).toHaveAttribute(
       "type",
-      "color",
+      "text",
     );
     expect(
       await page
         .locator("#konwencik-settings-form")
         .evaluate((form: HTMLFormElement) => new FormData(form).get("colors-1-color")),
     ).toBe("");
+    const inputGlyph = page.locator("[data-icon-field-glyph]").first();
+    await expect(inputGlyph).toHaveClass(/fa-dice-d20/);
     await expect(glyph).toHaveCSS("font-family", '"Font Awesome 6 Free"');
     await expect
       .poll(() => glyph.evaluate((element) => getComputedStyle(element, "::before").content))
       .toBe('"\uf6cf"');
     await page.getByLabel("Icon", { exact: true }).first().fill("fa.gamepad");
+    await expect(inputGlyph).toHaveClass(/fa-gamepad/);
     await expect
       .poll(() => glyph.evaluate((element) => getComputedStyle(element, "::before").content))
       .toBe('"\uf11b"');
@@ -81,10 +84,22 @@ test.describe("Konwencik export", () => {
       "rgb(255, 255, 255)",
     );
     await expect(glyph).toHaveCSS("color", "rgb(255, 255, 255)");
-    await page.getByLabel("Background", { exact: true }).first().fill("#1e88e5");
+    const hex = page.getByLabel("Background", { exact: true }).first();
+    const picker = page.getByLabel("Background — Color picker").first();
+    await expect(picker).toHaveValue("#ffffff");
+    await picker.fill("#1e88e5");
+    await expect(hex).toHaveValue("#1e88e5");
+    await hex.fill("#12");
+    await expect(sample).toBeHidden();
+    await hex.fill("");
+    await expect(sample).toBeHidden();
+    await hex.fill("#1e88e5");
     await expect(sample).toBeVisible();
     await page.getByLabel("Icon", { exact: true }).first().fill("fa.not-an-icon");
     await expect(sample.getByText("Preview unavailable for this icon")).toBeVisible();
+    await expect(
+      page.getByRole("status").filter({ hasText: "Preview unavailable for this icon" }),
+    ).toBeVisible();
     await page.getByLabel("Icon", { exact: true }).first().fill("fa.github");
     await expect(glyph).toHaveCSS("font-family", '"Font Awesome 6 Brands"');
     await expect
@@ -92,17 +107,51 @@ test.describe("Konwencik export", () => {
       .toBe('"\uf09b"');
     await page.getByLabel("Icon", { exact: true }).first().fill("");
     await expect(sample.getByText("No icon", { exact: true })).toBeVisible();
+    await hex.focus();
+    await hex.press("Tab");
+    await expect(picker).toBeFocused();
+    await picker.press("Shift+Tab");
+    await expect(hex).toBeFocused();
+    await hex.fill("#12");
+    await page.getByRole("button", { name: "Save", exact: true }).click();
+    await expect(page.getByText("Use a hex colour, e.g. #1e88e5.")).toBeVisible();
+    await expect(hex).toHaveValue("#12");
   });
 
-  test("other panel pages do not load Font Awesome", async ({ page }) => {
-    const iconAssets: string[] = [];
-    page.on("request", (request) => {
-      if (/fa-solid|konwencik-preview/.test(request.url())) iconAssets.push(request.url());
+  test("hex fields remain editable without JavaScript", async ({ page, browser }) => {
+    const context = await browser.newContext({
+      javaScriptEnabled: false,
+      locale: "en-US",
+      storageState: await page.context().storageState(),
     });
-    await page.goto(TIMETABLE_URL);
-    await expect(page.getByRole("navigation", { name: "Panel sections" })).toBeVisible();
-    expect(iconAssets).toEqual([]);
+    const plainPage = await context.newPage();
+    await plainPage.goto(new URL("/panel/event/konwencik-preview/export/", page.url()).href);
+    const hex = plainPage
+      .getByRole("group", { name: "Adventure", exact: true })
+      .getByLabel("Background", { exact: true });
+    await expect(hex).toHaveValue("#1e88e5");
+    await hex.fill("");
+    await expect(hex).toHaveValue("");
+    await expect(plainPage.getByLabel("Background — Color picker").first()).toBeHidden();
+    await context.close();
   });
+
+  for (const path of [TIMETABLE_URL, `/panel/event/${EVENT}/settings/`, "/design/"]) {
+    test(`${path} does not load Font Awesome`, async ({ page }) => {
+      const iconAssets: string[] = [];
+      page.on("request", (request) => {
+        if (
+          /fontawesome|fa-(solid|regular|brands|v4compatibility)|konwencik-preview/i.test(
+            request.url(),
+          )
+        )
+          iconAssets.push(request.url());
+      });
+      await page.goto(path);
+      await expect(page.getByRole("main")).toBeVisible();
+      expect(iconAssets).toEqual([]);
+    });
+  }
 
   for (const width of [390, 768, 1440]) {
     test(`preview fits and stays accessible at ${width}px`, async ({ page }) => {

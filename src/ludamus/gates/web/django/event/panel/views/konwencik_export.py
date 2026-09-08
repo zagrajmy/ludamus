@@ -102,8 +102,8 @@ class KonwencikIconForm(_RowForm):
         label=gettext_lazy("Icon"),
         required=False,
         max_length=ICON_MAX_LENGTH,
+        widget=forms.TextInput(attrs={"icon_preview": True, "spellcheck": "false"}),
         strip=True,
-        help_text=gettext_lazy("Konwencik's own notation, for example fa.gamepad."),
     )
 
 
