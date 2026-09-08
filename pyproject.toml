@@ -121,6 +121,10 @@ omit = [
     "src/ludamus/edges/*",
     "src/ludamus/links/db/django/migrations/*",
     "src/ludamus/client/*",
+    # Static HTML is served as files (the browser renders it; Django never does),
+    # and django_coverage_plugin measures every .html under src, so it would
+    # read as 0% forever.
+    "src/ludamus/static/*",
     "tests/template_checks.py",
 ]
 sigterm = true
