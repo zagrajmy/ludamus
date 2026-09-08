@@ -239,7 +239,6 @@ class PrintMaterialsService:
                 query.scope_space_pks is None
                 and query.track_pk is None
                 and query.time_range is None
-                and bool(all_items)
             ),
             pages=pages,
         )

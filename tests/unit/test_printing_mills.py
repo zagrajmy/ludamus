@@ -422,14 +422,13 @@ class TestTimetableScope:
 
         assert _timetable(service).is_unscoped is True
 
-    def test_scoped_when_nothing_is_scheduled(self):
+    def test_unscoped_when_nothing_is_scheduled(self):
         spaces = [_space(1, "Alfa", 0)]
         service = _service(spaces=spaces, items=[])
 
-        assert _timetable(service).is_unscoped is False
+        assert _timetable(service).is_unscoped is True
 
-    def test_scoped_timetable_is_never_complete(self):
-        # A scoped print (one venue/area) is a subset, so never "the whole thing".
+    def test_scoped_to_a_space_subtree(self):
         spaces = [_space(1, "Alfa", 0)]
         items = [_item(1, 1, 9, 10, title="RPG", confirmed=True)]
         service = _service(spaces=spaces, items=items)

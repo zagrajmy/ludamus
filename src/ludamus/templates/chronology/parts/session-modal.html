@@ -88,7 +88,7 @@
                                 {% include "chronology/_session_location.html" with show_map_link=True %}
                             </span>
                         {% endif %}
-                        {% if data.presenter.pk %}
+                        {% if data.session.display_name and data.presenter.pk %}
                             {% with host=data.presenter %}
                                 {% if host.discord_username %}
                                     <span class="text-foreground-muted/70 select-none" aria-hidden="true">·</span>
