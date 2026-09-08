@@ -722,6 +722,11 @@ button:active {
    first, the previous card's border-b for the rest — so a closed gap reads as
    one 1px divider rather than two stacked borders.
 
+   A stack spells the space between its cards three ways — the wrapper's own
+   `gap-*`, `space-y-*` (which Tailwind v4 compiles to `margin-block-end`), and
+   a card's own `mt-*` — so the bleed closes all three rather than leaving each
+   page to remember which one it used.
+
    Cards reached through a wrapper (cfp-edit nests its own inside a form) bleed
    too, which is why the selector is a descendant one and not `> .card`.
    Non-card content in a bled page has no card-body to inset it and asks for
@@ -734,8 +739,13 @@ button:active {
    the wrapper still wins. */
 @layer utilities {
   @media (width < 40rem) {
+    .panel-bleed {
+      gap: 0;
+    }
+
     .panel-bleed .card {
       margin-top: 0;
+      margin-bottom: 0;
       border-radius: 0;
       border-top-width: 0;
       border-left-width: 0;
@@ -747,27 +757,6 @@ button:active {
     :where(.panel-bleed) {
       padding: 1rem;
     }
-  }
-}
-
-/* `.panel-flush` is `.panel-bleed` at every width, for a page that is one
-   full-width table or list rather than a stack of cards. With no padding
-   between the card and the panel chrome, the card's own top border lands on
-   the header's `border-b` and reads as a 2px rule, and its shadow falls on an
-   edge there is nothing behind. Both go, along with the side borders and the
-   corners a card can no longer sit inside. */
-@layer utilities {
-  .panel-flush {
-    padding: 0;
-  }
-
-  .panel-flush .card {
-    margin-top: 0;
-    border-radius: 0;
-    border-top-width: 0;
-    border-left-width: 0;
-    border-right-width: 0;
-    box-shadow: none;
   }
 }
 
