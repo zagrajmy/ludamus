@@ -35,7 +35,7 @@ google-auth = "^2.57.0"
 gunicorn = "^26.0.0"
 heroicons = { version = "^2.9", extras = ["django"] }
 markdown = "^3.10.2"
-nh3 = "^0.3.5"
+nh3 = "^0.3.7"
 pillow = "^12.1.1"
 psycopg = "^3.2.9"
 pydantic = "^2.11.7"
@@ -121,6 +121,10 @@ omit = [
     "src/ludamus/edges/*",
     "src/ludamus/links/db/django/migrations/*",
     "src/ludamus/client/*",
+    # Static HTML is served as files (the browser renders it; Django never does),
+    # and django_coverage_plugin measures every .html under src, so it would
+    # read as 0% forever.
+    "src/ludamus/static/*",
     "tests/template_checks.py",
 ]
 sigterm = true
