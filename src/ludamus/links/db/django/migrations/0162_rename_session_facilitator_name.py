@@ -2,7 +2,7 @@ from django.db import migrations
 
 
 class Migration(migrations.Migration):
-    dependencies = [("db_main", "0160_eventmappage")]
+    dependencies = [("db_main", "0161_space_programme_order")]
 
     operations = [
         migrations.RenameField(
