@@ -14,12 +14,18 @@ if TYPE_CHECKING:
     from django.template.base import FilterExpression, Parser, Token
 
 _WRAPPER_CLASS = "card overflow-hidden"
+# A page that is one full-width table has no room for card chrome: the
+# radius and side borders have no inset to sit in, the top border lands on
+# the panel header's `border-b` and reads as a 2px rule, and the shadow
+# falls on an edge with nothing behind it. The bottom rule stays — it is
+# what separates the last row from whatever follows.
+_FLUSH_WRAPPER_CLASS = "border-b border-border bg-bg-secondary"
 _SCROLL_CLASS = "overflow-x-auto"
 _TABLE_CLASS = "min-w-full divide-y divide-border"
 
 
 class TableNode(template.Node):
-    """Renders a themed table wrapped in a card with rounded-clipped corners."""
+    """Renders a themed table in a card, or flush against the panel edge."""
 
     def __init__(
         self, nodelist: template.NodeList, attrs: dict[str, FilterExpression]
@@ -35,9 +41,12 @@ class TableNode(template.Node):
         table_class = (
             f"{_TABLE_CLASS} {extra_class}".strip() if extra_class else _TABLE_CLASS
         )
+        wrapper_class = (
+            _FLUSH_WRAPPER_CLASS if resolved.pop("flush", False) else _WRAPPER_CLASS
+        )
         return format_html(
             '<div class="{}"><div class="{}"><table class="{}">{}</table></div></div>',
-            _WRAPPER_CLASS,
+            wrapper_class,
             _SCROLL_CLASS,
             table_class,
             self.nodelist.render(context),
@@ -47,6 +56,9 @@ class TableNode(template.Node):
 @register.tag("tessera_table")
 def do_tessera_table(parser: Parser, token: Token) -> TableNode:
     """Parse ``{% tessera_table %}...{% end_tessera_table %}``.
+
+    ``flush=True`` drops the card chrome for a page that is one full-width
+    table, keeping only the rule under the last row.
 
     Returns:
         A TableNode that wraps its body in ``<div class="card overflow-hidden">

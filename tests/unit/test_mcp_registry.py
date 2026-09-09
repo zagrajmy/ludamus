@@ -77,6 +77,8 @@ ORGANIZER_TOOL_NAMES = [
     "update_map",
     "set_map_spaces",
     "delete_map",
+    "get_konwencik_settings",
+    "update_konwencik_styles",
     "list_announcements",
 ]
 
