@@ -196,3 +196,29 @@ test("refreshes an open virtual list and prunes only removed selections", async 
     page.getByRole("listbox", { name: "Multiple fruit" }).getByRole("option", { selected: true }),
   ).toHaveText(["Apple", "Cherry"]);
 });
+
+test("multiple categories combine with OR and survive reload and chip removal", async ({
+  page,
+}) => {
+  await page.goto("/event/autumn-open/?category=Workshops");
+  await expect(page.getByRole("link", { name: MEGA })).toBeVisible();
+  await expect(page.getByRole("link", { name: NEON })).toBeHidden();
+  await page.getByRole("button", { name: "Filters", exact: true }).click();
+  await page.getByRole("combobox", { name: "Category", exact: true }).click();
+  await page.getByRole("option", { name: "Roleplaying", exact: true }).click();
+  await expect(page.getByRole("link", { name: MEGA })).toBeVisible();
+  await expect(page.getByRole("link", { name: NEON })).toBeVisible();
+  await expect(page.getByRole("link", { name: COZY })).toBeHidden();
+  await expect
+    .poll(() => new URL(page.url()).searchParams.get("category"))
+    .toBe(JSON.stringify(["Workshops", "Roleplaying"]));
+  await page.reload();
+  await expect(page.getByRole("link", { name: MEGA })).toBeVisible();
+  await expect(page.getByRole("link", { name: NEON })).toBeVisible();
+  await page.getByRole("button", { name: "Remove filter: Workshops", exact: true }).click();
+  await expect(page.getByRole("link", { name: MEGA })).toBeHidden();
+  await expect(page.getByRole("link", { name: NEON })).toBeVisible();
+  await expect
+    .poll(() => new URL(page.url()).searchParams.get("category"))
+    .toBe(JSON.stringify(["Roleplaying"]));
+});

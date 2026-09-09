@@ -209,11 +209,6 @@ const matchesTag =
     );
   };
 
-// `__track` and `__category` are the template's own pseudo-categories, so
-// they get clean names; organizer-defined categories are event-scoped slugs,
-// prefixed so one named e.g. "status" cannot shadow a built-in param.
-const TAG_PARAM_NAMES: Record<string, string> = { __category: "category", __track: "track" };
-
 // An upgraded combobox keeps its options in JS, not in the page, and a
 // programmatic write to its value fires no `change` for it to notice. Every
 // write this module makes outside a user gesture — deep links, clear-all —
@@ -251,6 +246,9 @@ const initSessionFilters = (): void => {
 
   const tagFilters: Record<string, HTMLSelectElement> = {};
   const trackFilter = document.getElementById("tag-filter-__track") as HTMLInputElement | null;
+  const categoryFilter = document.getElementById(
+    "tag-filter-__category",
+  ) as HTMLInputElement | null;
 
   // Field values ride in the haystack because a value typed into an
   // allow_custom field is not a choice and so never becomes a filter option —
@@ -442,8 +440,11 @@ const initSessionFilters = (): void => {
     selectFilter(dayFilter, "day", dataMatch("day")),
     selectFilter(hourFilter, "hour", dataMatch("hour")),
     ...(trackFilter ? [multipleChoiceFilter(trackFilter, "track", matchesTag("__track"))] : []),
+    ...(categoryFilter
+      ? [multipleChoiceFilter(categoryFilter, "category", matchesTag("__category"))]
+      : []),
     ...Object.entries(tagFilters).map(([slug, select]) =>
-      selectFilter(select, TAG_PARAM_NAMES[slug] ?? `tag-${slug}`, matchesTag(slug)),
+      selectFilter(select, `tag-${slug}`, matchesTag(slug)),
     ),
     multipleChoiceFilter(hostFilter, "host", dataMatch("host")),
   ];
@@ -818,8 +819,38 @@ const initSessionFilters = (): void => {
     signal: documentListeners.signal,
   });
 
+  const sizePanelToViewport = (): void => {
+    if (sheetWidth.matches || !isPanelOpen()) return;
+    const viewport = globalThis.visualViewport;
+    const bottom = viewport ? viewport.offsetTop + viewport.height : globalThis.innerHeight;
+    const room = Math.max(0, bottom - filterToggle.getBoundingClientRect().bottom - 4 - 16);
+    filterPanel.style.setProperty("--filter-panel-room", `${room}px`);
+  };
+
+  let panelResizeQueued = false;
+  const schedulePanelSizing = (): void => {
+    if (!isPanelOpen() || panelResizeQueued) return;
+    panelResizeQueued = true;
+    requestAnimationFrame(() => {
+      panelResizeQueued = false;
+      if (filterPanel.isConnected) sizePanelToViewport();
+    });
+  };
+  for (const event of ["resize", "scroll"]) {
+    globalThis.addEventListener(event, schedulePanelSizing, {
+      capture: true,
+      passive: true,
+      signal: documentListeners.signal,
+    });
+    globalThis.visualViewport?.addEventListener(event, schedulePanelSizing, {
+      passive: true,
+      signal: documentListeners.signal,
+    });
+  }
+
   const openPanel = (): void => {
     filterPanel.classList.add("is-open");
+    sizePanelToViewport();
     filterToggle.setAttribute("aria-expanded", "true");
     syncDialogSemantics();
     // Only the dialog takes focus: the dropdown leaves it on the trigger, so

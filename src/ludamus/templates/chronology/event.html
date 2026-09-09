@@ -423,10 +423,10 @@
                                     {% if category_filter_names %}
                                         <div class="flex flex-col gap-1.5 grow">
                                             <label class="{{ label_class }}" for="tag-filter-__category">{% translate "Category" context "participant filter" %}</label>
-                                            {% select id="tag-filter-__category" data_category="__category" class=select_class|add:" tag-filter" %}
-                                                <option value="">{% translate "All categories" context "participant filter" %}</option>
+                                            {% translate "Search categories…" context "participant filter" as t_category_search %}
+                                            {% tessera_combobox id="tag-filter-__category" multiple=True placeholder=t_category_search data_category="__category" %}
                                                 {% for name in category_filter_names %}<option value="{{ name }}">{{ name }}</option>{% endfor %}
-                                            {% endselect %}
+                                            {% endtessera_combobox %}
                                         </div>
                                     {% endif %}
                                     <div id="tag-filters" class="contents">
@@ -695,7 +695,7 @@
             margin-top: 4px;
             display: block;
             min-width: 0;
-            max-height: min(70vh, 32rem);
+            max-height: var(--filter-panel-room, calc(100dvh - 2rem));
             overflow-y: auto;
             z-index: 50;
             border: 1px solid var(--color-border);

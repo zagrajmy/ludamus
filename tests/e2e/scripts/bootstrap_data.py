@@ -1151,6 +1151,12 @@ def main() -> None:
         duration_hours=1,
     )
 
+    for session, name in ((mega_session, "Workshops"), (neon_session, "Roleplaying")):
+        session.category = ProposalCategory.objects.create(
+            event=upcoming_event, name=name, slug=name.lower()
+        )
+        session.save(update_fields=["category"])
+
     _create_tone_field_scenario(
         upcoming_event, picked_session=mega_session, mixed_session=neon_session
     )

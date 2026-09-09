@@ -4877,8 +4877,8 @@ msgstr "Rodzaj atrakcji"
 
 #: src/ludamus/templates/chronology/event.html
 msgctxt "participant filter"
-msgid "All categories"
-msgstr "Wszystkie rodzaje atrakcji"
+msgid "Search categories…"
+msgstr "Szukaj rodzajów atrakcji…"
 
 #: src/ludamus/templates/chronology/event.html
 #: src/ludamus/templates/panel/import-log.html
@@ -10292,6 +10292,10 @@ msgid ""
 msgstr ""
 "Nie ma nadchodzących wydarzeń ani publicznych spotkań. Sprawdź ponownie "
 "później!"
+
+#~ msgctxt "participant filter"
+#~ msgid "All categories"
+#~ msgstr "Wszystkie rodzaje atrakcji"
 
 #~ msgid "All locations"
 #~ msgstr "Wszystkie lokalizacje"

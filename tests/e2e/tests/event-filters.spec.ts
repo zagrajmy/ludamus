@@ -7,6 +7,32 @@ import { DENSE_EVENT_URL } from "./helpers/urls";
 const MOBILE_WIDTH = 375;
 
 test.describe("Event filter panel", () => {
+  test("uses available height before making the dropdown scroll", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 1400 });
+    await page.goto("/event/autumn-open/");
+    const trigger = page.getByRole("button", { name: "Filters", exact: true });
+    await trigger.click();
+    await page.getByRole("combobox", { name: "Host", exact: true }).evaluate((input) => {
+      const body = input.closest<HTMLElement>(".filter-panel-body");
+      if (body) body.style.minHeight = "640px";
+    });
+    const dimensions = () =>
+      trigger.evaluate((button) => {
+        const panel = document.getElementById(button.getAttribute("aria-controls") ?? "");
+        if (!panel) throw new Error("Missing filter panel");
+        return {
+          height: panel.clientHeight,
+          overflow: panel.scrollHeight - panel.clientHeight,
+          bottom: panel.getBoundingClientRect().bottom,
+        };
+      });
+    await expect.poll(async () => (await dimensions()).height).toBeGreaterThanOrEqual(640);
+    await expect.poll(async () => (await dimensions()).overflow).toBe(0);
+    await page.setViewportSize({ width: 1280, height: 600 });
+    await expect.poll(async () => (await dimensions()).bottom).toBeLessThanOrEqual(584);
+    await expect.poll(async () => (await dimensions()).overflow).toBeGreaterThan(0);
+  });
+
   test("filter panel does not overflow viewport on mobile", async ({ browser }) => {
     const context = await browser.newContext({
       viewport: { width: MOBILE_WIDTH, height: 812 },
