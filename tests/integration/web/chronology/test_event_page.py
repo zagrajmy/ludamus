@@ -67,6 +67,7 @@ from tests.integration.web.chronology.helpers import (
     enrollment_opens_at,
     event_page_context,
     make_half_full_session,
+    programme_day_of,
     proposal_card,
     session_card,
 )
@@ -86,7 +87,7 @@ def _single_schedule_day(data: SessionData) -> ScheduleDay:
     tile = _schedule_tile(data)
     hour_start = tile.start.replace(minute=0, second=0, microsecond=0)
     return ScheduleDay(
-        day_start=hour_start,
+        day_start=programme_day_of(hour_start),
         hours=[ScheduleHour(start=hour_start, tiles=[tile])],
         tiles=[tile],
     )
@@ -206,26 +207,6 @@ class TestEventPageView:
         )
 
     @pytest.mark.usefixtures("agenda_item")
-    def test_ok_participants_label_toggle(self, client, event):
-        response_default = client.get(self._get_url(event.slug))
-        content_default = response_default.content.decode()
-
-        event.use_participants_label = True
-        event.save()
-        response_toggled = client.get(self._get_url(event.slug))
-        content_toggled = response_toggled.content.decode()
-
-        assert response_default.status_code == HTTPStatus.OK
-        assert response_toggled.status_code == HTTPStatus.OK
-        # "Players" only appears as the header count label; "Participants" also
-        # names a session-modal tab, so a bare presence check would always pass.
-        # Compare its count across the toggle instead.
-        assert "Players" in content_default
-        assert "Players" not in content_toggled
-        assert content_toggled.count("Participants") > content_default.count(
-            "Participants"
-        )
-
     def test_ok_compact_schedule_for_big_event(
         self, active_user, agenda_item, client, event, monkeypatch
     ):
@@ -588,14 +569,14 @@ class TestEventPageView:
         # One day per local date, one hour bucket per distinct start hour.
         expected_days = [
             ScheduleDay(
-                day_start=hour_start,
+                day_start=programme_day_of(hour_start),
                 hours=[
                     ScheduleHour(start=hour_start, tiles=[tile(ended), tile(ongoing)])
                 ],
                 tiles=[tile(ended), tile(ongoing)],
             ),
             ScheduleDay(
-                day_start=hour_of(plenty),
+                day_start=programme_day_of(hour_of(plenty)),
                 hours=[
                     ScheduleHour(
                         start=hour_of(plenty), tiles=[tile(plenty), tile(scarce)]
@@ -607,7 +588,7 @@ class TestEventPageView:
                 tiles=[tile(plenty), tile(scarce), tile(no_enrollment)],
             ),
             ScheduleDay(
-                day_start=hour_of(full),
+                day_start=programme_day_of(hour_of(full)),
                 hours=[ScheduleHour(start=hour_of(full), tiles=[tile(full)])],
                 tiles=[tile(full)],
             ),
@@ -755,7 +736,7 @@ class TestEventPageView:
                 },
                 schedule_days=[
                     ScheduleDay(
-                        day_start=local_start,
+                        day_start=programme_day_of(local_start),
                         hours=[
                             ScheduleHour(
                                 start=local_start,
@@ -798,10 +779,12 @@ class TestEventPageView:
                     rows=[
                         RoomLaneRow(
                             day=0,
-                            day_start=local_start,
+                            day_start=programme_day_of(local_start),
                             hour_mark=local_start + timedelta(hours=offset),
-                            start=local_start + timedelta(hours=offset),
-                            end=local_start + timedelta(hours=offset + 1),
+                            window=(
+                                local_start + timedelta(hours=offset),
+                                local_start + timedelta(hours=offset + 1),
+                            ),
                             starting_tiles=tiles_by_row.get(offset, []),
                         )
                         for offset in range(4)
@@ -2095,7 +2078,6 @@ class TestEventPageView:
                 sessions=[session_data],
                 total_enrolled=1,
                 user_enrolled_sessions=[session_data],
-                user_enrolled_session_titles=[session_data.session.title],
                 has_enrollable_sessions=True,
                 scheduled_count=1,
             ),
@@ -2503,7 +2485,6 @@ class TestEventPageView:
                 sessions=[session_data],
                 total_enrolled=1,
                 user_enrolled_sessions=[session_data],
-                user_enrolled_session_titles=[session_data.session.title],
                 has_enrollable_sessions=True,
                 scheduled_count=1,
             ),

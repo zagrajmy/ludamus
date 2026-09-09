@@ -25,7 +25,8 @@ const initDropzone = (label: HTMLLabelElement): void => {
   };
 
   input.addEventListener("change", () => {
-    const file = input.files?.[0];
+    const chosen = [...(input.files ?? [])];
+    const file = chosen[0];
     if (!file) {
       revokePreview();
       if (preview) preview.removeAttribute("src");
@@ -34,11 +35,14 @@ const initDropzone = (label: HTMLLabelElement): void => {
     }
     // A fresh selection cancels any pending removal of the stored file.
     if (clearFlag) clearFlag.checked = false;
+    // A multi-file input previews the first file and counts the rest, so the
+    // caption says how much is going up rather than naming one of several.
     for (const el of nameEls) {
-      el.textContent = file.name;
+      el.textContent = chosen.length > 1 ? `${file.name} +${chosen.length - 1}` : file.name;
     }
+    const total = chosen.reduce((sum, one) => sum + one.size, 0);
     for (const el of sizeEls) {
-      el.textContent = formatBytes(file.size);
+      el.textContent = formatBytes(total);
     }
     // Read the accepted formats off the input rather than restating them, so an
     // about-to-be-rejected file (e.g. GIF) doesn't get a misleading preview.

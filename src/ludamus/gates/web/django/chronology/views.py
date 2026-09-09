@@ -226,6 +226,17 @@ class SessionBookmarkToggleView(EventsPageRequiredMixin, View):
         return JsonResponse({"bookmarked": result.bookmarked, "count": result.count})
 
 
+def _schedule_blocker(context: ProposalAcceptContextDTO) -> str | None:
+    # What the event still lacks before any proposal can be placed, or None when
+    # nothing does. The page renders either way: a reviewer who lands here with
+    # the venue unfinished gets the reason and the panel link, not a bounce.
+    if not context.space_options:
+        return "spaces"
+    if not context.time_slots:
+        return "time_slots"
+    return None
+
+
 class ProposalAcceptPageView(EventsPageRequiredMixin, LoginRequiredMixin, View):
     request: AuthenticatedRootRequest
 
@@ -233,7 +244,6 @@ class ProposalAcceptPageView(EventsPageRequiredMixin, LoginRequiredMixin, View):
         self, request: AuthenticatedRootRequest, event_slug: str, session_id: int
     ) -> HttpResponse:
         context = self._load(request, event_slug, session_id)
-        self._require_configured(context)
         form = create_proposal_acceptance_form(context)()
         return self._render(request, context, form)
 
@@ -294,25 +304,6 @@ class ProposalAcceptPageView(EventsPageRequiredMixin, LoginRequiredMixin, View):
         return context
 
     @staticmethod
-    def _require_configured(context: ProposalAcceptContextDTO) -> None:
-        event_url = reverse("web:chronology:event", kwargs={"slug": context.event.slug})
-        if not context.space_options:
-            raise RedirectError(
-                event_url,
-                error=_(
-                    "No spaces configured for this event. Please create spaces first."
-                ),
-            )
-        if not context.time_slots:
-            raise RedirectError(
-                event_url,
-                error=_(
-                    "No time slots configured for this event. "
-                    "Please create time slots first."
-                ),
-            )
-
-    @staticmethod
     def _render(
         request: AuthenticatedRootRequest,
         context: ProposalAcceptContextDTO,
@@ -329,5 +320,6 @@ class ProposalAcceptPageView(EventsPageRequiredMixin, LoginRequiredMixin, View):
                 "preferred_time_slot_ids": context.preferred_time_slot_ids,
                 "form": form,
                 "field_values": context.field_values,
+                "schedule_blocker": _schedule_blocker(context),
             },
         )

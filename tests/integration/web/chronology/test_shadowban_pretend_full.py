@@ -106,6 +106,7 @@ class TestShadowbanPretendFull:
                 "event_banned": False,
                 "show_roster": True,
                 "enroll_opens_at": None,
+                "map_pk": None,
                 # The deniable card offers what a genuinely full session would.
                 "enroll_actions": EnrollActions(
                     submit_value="waitlist",
@@ -180,6 +181,7 @@ class TestShadowbanPretendFull:
                     group_label="Enroll with others…",
                 ),
                 "enroll_opens_at": None,
+                "map_pk": None,
             },
             template_name="chronology/parts/session-modal.html",
             contains="Session full",

@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import logging
+from functools import partial
 from typing import TYPE_CHECKING
 
+from django.db import transaction
 from django.db.models.fields.files import FieldFile
 
 from ludamus.pacts.images import original_filename
@@ -37,6 +39,12 @@ def delete_stored_file(field_file: FieldFile, old_name: str) -> None:
         )
 
 
+def delete_stored_file_on_commit(field_file: FieldFile, old_name: str) -> None:
+    # The row change may still roll back; the blob goes only once it cannot.
+    # Outside a transaction this runs at once.
+    transaction.on_commit(partial(delete_stored_file, field_file, old_name))
+
+
 def save_replacing_files(instance: Model, data: Mapping[str, object]) -> None:
     # A replaced file field strands its previous blob, because unique_upload_to
     # never reuses a name. Which keys are files is read off the instance, so no
@@ -55,4 +63,4 @@ def save_replacing_files(instance: Model, data: Mapping[str, object]) -> None:
     for field, old_name in old_names.items():
         field_file = getattr(instance, field)
         if old_name and old_name != field_file.name:
-            delete_stored_file(field_file, old_name)
+            delete_stored_file_on_commit(field_file, old_name)

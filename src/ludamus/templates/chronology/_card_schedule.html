@@ -8,7 +8,8 @@
 {# and the slot pills drop the date the heading already states; a single-day #}
 {# event has nothing to fold, so no heading and no toggle. #}
 {% get_current_timezone as event_timezone %}
-<div data-event-time-zone="{{ event_timezone }}">
+<div data-event-time-zone="{{ event_timezone }}"
+     data-day-starts-at="{{ programme_day_start_hour }}">
     {% for day in card_days %}
         <section data-schedule-day data-day="{{ day.day_start|date:'Y-m-d' }}">
             {% if card_days|length > 1 %}
