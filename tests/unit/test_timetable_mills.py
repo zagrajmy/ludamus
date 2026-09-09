@@ -392,6 +392,7 @@ class TestSpaceFilter:
             modification_time=now,
             name=name,
             order=0,
+            programme_order=pk,
             parent_id=parent_id,
             pk=pk,
             slug=f"space-{pk}",
@@ -434,6 +435,16 @@ class TestSpaceFilter:
         grid = _timetable_service(uow).build_grid(event_pk=1, tz=UTC)
 
         assert [space.pk for space in grid.spaces] == [3, 4, 6]
+
+    def test_grid_uses_programme_order_instead_of_tree_order(self, uow):
+        by_pk = {space.pk: space for space in uow.spaces.list_by_event.return_value}
+        by_pk[6].programme_order = 0
+        by_pk[3].programme_order = 1
+        by_pk[4].programme_order = 2
+
+        grid = _timetable_service(uow).build_grid(event_pk=1, tz=UTC)
+
+        assert [space.pk for space in grid.spaces] == [6, 3, 4]
 
     @staticmethod
     def _grid_for(uow, space_pks):

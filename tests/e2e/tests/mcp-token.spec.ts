@@ -17,6 +17,9 @@ test("manager generates an event-scoped organizer MCP token", async ({ page }) =
   await expect(page.getByText("Copy the token now — it is shown only once.")).toBeVisible();
   const token = await page.locator("pre code").first().innerText();
   expect(token).not.toBe("");
+  await expect(page.locator("pre code").last()).toHaveText(
+    `claude mcp add --transport http root-domain-sphere ${new URL("/mcp/organizer/", page.url()).href} \\\n  --header "Authorization: Bearer ${token}"`,
+  );
 
   const headers = { Authorization: `Bearer ${token}` };
   const ping = await page.request.post("/mcp/organizer/", {
@@ -54,4 +57,21 @@ test("manager generates an event-scoped organizer MCP token", async ({ page }) =
 
   const currentEventAfterDenial = await getEvent(4, "frostfire-con");
   expect((await currentEventAfterDenial.json()).result).toEqual(currentResult);
+  await page.goto("/panel/event/frostfire-con/settings/mcp/");
+  await expect(page.getByRole("button", { name: "Generate token" })).toBeVisible();
+  await expect(page.locator("pre code")).toHaveCount(0);
+});
+
+test("maintainer setup command includes the sphere name and generated token", async ({ page }) => {
+  await page.goto("/admin/login/", { waitUntil: "domcontentloaded" });
+  await page.getByLabel("Username:").fill("admin");
+  await page.getByLabel("Password:").fill("admin");
+  await page.getByRole("button", { name: /Log in/i }).click();
+  await page.goto("/mcp/token/");
+  await page.getByRole("button", { name: "Generate token" }).click();
+  const token = await page.locator("pre code").first().innerText();
+  await expect(page.locator("pre code").last()).toContainText(
+    `claude mcp add --transport http root-domain-sphere ${new URL("/mcp/", page.url()).href}`,
+  );
+  await expect(page.locator("pre code").last()).toContainText(`Authorization: Bearer ${token}`);
 });

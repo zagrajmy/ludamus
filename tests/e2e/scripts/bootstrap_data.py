@@ -48,6 +48,7 @@ from ludamus.links.db.django.models import (
     Space,
     Sphere,
     TimeSlot,
+    Track,
     User,
 )
 from ludamus.pacts import SessionStatus
@@ -675,6 +676,57 @@ def _create_tone_field_scenario(
 # venues, CFP config and facilitators, so it gets its own event — keeping
 # autumn-open read-only for the public-page specs makes the suite safe to run
 # with parallel workers.
+def _create_konwencik_preview_event(sphere: Sphere) -> None:
+    event = _create_event(
+        sphere,
+        name="Konwencik Preview Convention",
+        slug="konwencik-preview",
+        description="Programme icon and background previews.",
+        start_offset=timedelta(days=20),
+        duration_hours=10,
+        publication_offset=timedelta(days=2),
+        proposals_open=True,
+    )
+    venue = _create_venue(event, name="Main Hall", slug="main-hall", address="")
+    category = ProposalCategory.objects.create(event=event, name="RPG", slug="rpg")
+    ProposalCategory.objects.create(event=event, name="Workshops", slug="workshops")
+    track = Track.objects.create(event=event, name="Adventure", slug="adventure")
+    Track.objects.create(event=event, name="Unused track", slug="unused-track")
+    for index in range(2):
+        session = _create_session(
+            event,
+            venue,
+            title=f"Adventure {index}",
+            slug=f"adventure-{index}",
+            presenter="Programme team",
+            description="A scheduled roleplaying session.",
+            start_offset=timedelta(hours=index + 1),
+            duration_hours=1,
+        )
+        session.category = category
+        session.save(update_fields=["category"])
+        if index == 0:
+            session.tracks.add(track)
+    EventIntegration.objects.create(
+        event=event,
+        kind=IntegrationKind.EXPORT.value,
+        implementation=IntegrationImplementationId.KONWENCIK_SHEET_PUSHER.value,
+        connection=Connection.objects.create(
+            sphere=sphere, display_name="Preview Sheets"
+        ),
+        display_name="Konwencik agenda",
+        config_json=json.dumps(
+            {"spreadsheet_id": "preview-sheet", "tab": "harmonogram"}
+        ),
+        settings_json=json.dumps(
+            {
+                "category_icons": {category.pk: "fa.dice-d20"},
+                "track_colors": {track.pk: "#1e88e5"},
+            }
+        ),
+    )
+
+
 def _create_panel_lab_event(sphere: Sphere) -> Event:
     event = _create_event(
         sphere,
@@ -1161,6 +1213,7 @@ def main() -> None:
     # Dedicated events for the mutating panel / cover-image specs, so they
     # never write to autumn-open (kept read-only for the public-page specs).
     _create_panel_lab_event(sphere)
+    _create_konwencik_preview_event(sphere)
     _create_panel_crud_event(sphere)
     _create_cover_lab_event(sphere)
     _create_anon_proposals_event(sphere)

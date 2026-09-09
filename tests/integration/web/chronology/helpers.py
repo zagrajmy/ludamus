@@ -192,6 +192,7 @@ def event_page_context(event, *, url, access=ENROLLMENT_SHUT, **overrides):
         ),
         **schedule_context(url),
         "maps_url": None,
+        "print_url": f"{url}print/",
         "view": ANY,
     }
     context |= overrides

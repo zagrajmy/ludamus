@@ -243,6 +243,7 @@ class LocationData(TypedDict):
     parent_name: str
     path: str
     sort_path: tuple[tuple[int, str, int], ...]
+    programme_order: int
 
 
 # A session that is not on the agenda has no space to describe. Shared, so
@@ -254,6 +255,7 @@ NO_LOCATION: LocationData = {
     "parent_name": "",
     "path": "",
     "sort_path": (),
+    "programme_order": 0,
 }
 
 
@@ -326,6 +328,7 @@ class SpaceDTO(BaseModel):
     modification_time: datetime
     name: str
     order: int
+    programme_order: int = 0
     pk: int
     slug: str
 
