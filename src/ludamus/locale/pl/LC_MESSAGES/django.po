@@ -6249,6 +6249,18 @@ msgid "Multiple fruit"
 msgstr "Wiele owoców"
 
 #: src/ludamus/templates/design.html
+msgid "Apple"
+msgstr "Jabłko"
+
+#: src/ludamus/templates/design.html
+msgid "Apricot"
+msgstr "Morela"
+
+#: src/ludamus/templates/design.html
+msgid "Cherry"
+msgstr "Wiśnia"
+
+#: src/ludamus/templates/design.html
 msgid "Coral table"
 msgstr "Koralowy stół"
 
@@ -10790,9 +10802,6 @@ msgstr ""
 
 #~ msgid "Create Session"
 #~ msgstr "Utwórz punkt programu"
-
-#~ msgid "Apply"
-#~ msgstr "Zastosuj"
 
 #~ msgid "comma separated"
 #~ msgstr "oddzielone przecinkami"
